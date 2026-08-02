@@ -64,6 +64,11 @@ export namespace draconic::editor::app
         String fontPath;     // UI font (.ttf); empty = no text (debug only)
         String monoFontPath; // fixed-pitch font (.ttf) for code editors; empty = no Mono family
                              // (CodeEditView then falls back to the default family)
+        // The LAST-RESORT face, baked into the exe at build time: loads when both the
+        // user's preference path and the dev-tree path fail (a relocated editor). Null =
+        // no embedded fallback (the editor may come up textless, loudly).
+        const u8* embeddedFont = nullptr;
+        usize embeddedFontSize = 0;
 
         // Log capture registered on GlobalLogger by main() BEFORE anything else runs, so early
         // startup logs reach the console panel. Borrowed; main owns it (outlives the app).

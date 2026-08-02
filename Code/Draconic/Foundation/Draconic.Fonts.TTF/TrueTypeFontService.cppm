@@ -76,6 +76,26 @@ export namespace draconic::fonts
             return CacheFont(familyName, font, options);
         }
 
+        // Load a font from in-memory TTF/OTF bytes (an EMBEDDED fallback: a relocated
+        // editor must always have a face to fall back on, whatever the disk looks like).
+        [[nodiscard]] FontLoadResult
+        LoadFontFromMemory(StringView familyName, Span<const u8> bytes,
+                           FontLoadOptions options = FontLoadOptions::ExtendedLatin())
+        {
+            Array<u8> copy;
+            copy.Resize(bytes.Size());
+            if (bytes.Size() != 0)
+                MemCopy(copy.Data(), bytes.Data(), bytes.Size());
+            TrueTypeFont* font = DefaultAllocator().New<TrueTypeFont>();
+            const FontLoadResult parsed = font->Initialize(Move(copy), options.pixelHeight);
+            if (parsed != FontLoadResult::Success)
+            {
+                DefaultAllocator().Delete(font);
+                return parsed;
+            }
+            return CacheFont(familyName, font, options);
+        }
+
         // Change the default family used by GetFont(pixelHeight).
         void SetDefaultFamily(StringView name) { m_defaultFontFamily = String(name); }
 

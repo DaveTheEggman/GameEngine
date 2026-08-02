@@ -2,10 +2,10 @@
 //
 // EditorPreferencesDialog: a modal editor for PER-USER editor preferences (the draconic.settings
 // store persisted at <user-data>/editor.settings.xml) - distinct from ProjectSettingsDialog, which
-// edits the project manifest. Currently one field: the export templates root. Blank means "resolve
-// from $DRACONIC_TEMPLATES_DIR, else the built-in <user-data>/templates" - shown as the field's
-// placeholder so the fallback is visible. [Save] writes the EditorExportSettings section back into
-// the store and persists it; [Cancel]/Escape discards.
+// edits the project manifest. Fields: the export templates root (blank = "$DRACONIC_TEMPLATES_DIR,
+// else <user-data>/templates", shown as the placeholder) and the editor FONT paths (blank = the
+// built-in chain: dev-tree face, then the exe-embedded fallback). [Save] writes the sections back
+// into the store and persists it; font changes apply on the next editor start. [Cancel] discards.
 
 module;
 #include "Draconic.Core/Prelude.h"
@@ -33,9 +33,9 @@ export namespace draconic::editor::app
             : ui::Dialog(u8"Preferences"), m_context(&context), m_settings(&store)
         {
             MinWidth.SetValue(480.0f);
-            MinHeight.SetValue(150.0f);
+            MinHeight.SetValue(220.0f);
             MaxWidth.SetValue(640.0f);
-            MaxHeight.SetValue(210.0f);
+            MaxHeight.SetValue(300.0f);
 
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
@@ -49,6 +49,26 @@ export namespace draconic::editor::app
             }
             m_rootEdit = AddTextRow(*column, u8"Templates root", current);
             m_rootEdit->SetPlaceholder(draconic::editor::DefaultTemplatesRoot().AsView());
+
+            StringView fontPath;
+            StringView monoPath;
+            if (const draconic::editor::EditorFontSettings* f =
+                    store.Find<draconic::editor::EditorFontSettings>())
+            {
+                fontPath = f->fontPath.AsView();
+                monoPath = f->monoFontPath.AsView();
+            }
+            m_fontEdit = AddTextRow(*column, u8"UI font (.ttf)", fontPath);
+            m_fontEdit->SetPlaceholder(u8"built-in (embedded fallback)");
+            m_monoFontEdit = AddTextRow(*column, u8"Mono font (.ttf)", monoPath);
+            m_monoFontEdit->SetPlaceholder(u8"built-in");
+            {
+                auto note = MakeRef<ui::Label>(DefaultAllocator(),
+                                               StringView(u8"Font changes apply on restart."));
+                note->FontSize.SetValue(11.0f);
+                note->TextColor.SetValue(Optional<Color>(Color{0.55f, 0.55f, 0.55f, 1.0f}));
+                column->AddView(note.Get());
+            }
 
             SetContent(column.Get());
 
@@ -100,6 +120,11 @@ export namespace draconic::editor::app
             m_settings->Section<draconic::editor::EditorExportSettings>().templatesRoot =
                 String(m_rootEdit->Text());
             m_settings->MarkChanged<draconic::editor::EditorExportSettings>();
+            draconic::editor::EditorFontSettings& fontPrefs =
+                m_settings->Section<draconic::editor::EditorFontSettings>();
+            fontPrefs.fontPath = String(m_fontEdit->Text());
+            fontPrefs.monoFontPath = String(m_monoFontEdit->Text());
+            m_settings->MarkChanged<draconic::editor::EditorFontSettings>();
             if (draconic::editor::SaveEditorSettingsToUserData(*m_settings).IsOk())
             {
                 m_context->SetStatus(u8"Preferences saved.");
@@ -115,6 +140,8 @@ export namespace draconic::editor::app
         draconic::editor::EditorContext* m_context;
         settings::Settings* m_settings;
         ui::EditText* m_rootEdit = nullptr;
+        ui::EditText* m_fontEdit = nullptr;
+        ui::EditText* m_monoFontEdit = nullptr;
     };
 
     DRACONIC_DEFINE_OBJECT(EditorPreferencesDialog, "draconic::editor::app")

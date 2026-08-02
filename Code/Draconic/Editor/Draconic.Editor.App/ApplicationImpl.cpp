@@ -113,8 +113,63 @@ namespace draconic::editor::app
             return;
         }
 
-        // Fonts (CPU rasterization/baking; no device needed).
+        LoadEditorSettings(); // per-user prefs FIRST: the font paths below honor them
+
+        // Fonts (CPU rasterization/baking; no device needed). Path resolution chain per
+        // family: the Preferences override -> the dev-tree compile define -> the
+        // exe-EMBEDDED Roboto (a relocated editor must never come up textless). Every
+        // failure is LOUD - the old silent (void)LoadFont left a blank editor with no clue.
         m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
+        String fontPath = m_config.fontPath;
+        String monoFontPath = m_config.monoFontPath;
+        if (const editor::EditorFontSettings* fontPrefs =
+                m_editorSettings.Find<editor::EditorFontSettings>())
+        {
+            if (!fontPrefs->fontPath.IsEmpty())
+            {
+                fontPath = fontPrefs->fontPath;
+            }
+            if (!fontPrefs->monoFontPath.IsEmpty())
+            {
+                monoFontPath = fontPrefs->monoFontPath;
+            }
+        }
+
+        // Load one family across `sizes`; returns true when every size landed. Falls back
+        // to the embedded face (when given) if the path fails outright.
+        const auto loadFamily = [this](StringView family, StringView path,
+                                       Span<const f32> sizes, fonts::FontLoadOptions options,
+                                       Span<const u8> embedded) -> bool
+        {
+            bool anyLoaded = false;
+            for (f32 size : sizes)
+            {
+                options.pixelHeight = size;
+                if (!path.IsEmpty() &&
+                    m_fontService->LoadFont(family, path, options) ==
+                        fonts::FontLoadResult::Success)
+                {
+                    anyLoaded = true;
+                    continue;
+                }
+                if (!embedded.IsEmpty() &&
+                    m_fontService->LoadFontFromMemory(family, embedded, options) ==
+                        fonts::FontLoadResult::Success)
+                {
+                    anyLoaded = true;
+                }
+            }
+            if (!anyLoaded)
+            {
+                DRACONIC_LOG_ERROR(u8"Editor",
+                                   u8"font family '{}' failed to load (path '{}', embedded "
+                                   u8"fallback {}) - its text will not render",
+                                   family, path, embedded.IsEmpty() ? u8"absent" : u8"failed");
+            }
+            return anyLoaded;
+        };
+        const Span<const u8> embedded(m_config.embeddedFont, m_config.embeddedFontSize);
+
         if (kUseDistanceFieldFonts)
         {
             // MSDF path: ONE atlas per family, baked at 48px, sampled crisp at every size
@@ -122,52 +177,31 @@ namespace draconic::editor::app
             // renderer switches to the distance-field pipeline per glyph run automatically.
             fonts::DFFonts::Initialize();
             fonts::FontLoadOptions options = fonts::FontLoadOptions::DistanceField();
-            options.pixelHeight = 48.0f;
             options.firstCodepoint = 32;
             options.lastCodepoint = 255; // the ExtendedLatin range the raster path bakes
             options.atlasWidth = 1024;
             options.atlasHeight = 1024;
-            if (!m_config.fontPath.IsEmpty())
-            {
-                (void)m_fontService->LoadFont(u8"Roboto", m_config.fontPath.AsView(), options);
-            }
-            if (!m_config.monoFontPath.IsEmpty())
-            {
-                (void)m_fontService->LoadFont(u8"Mono", m_config.monoFontPath.AsView(), options);
-            }
+            const f32 dfSize[] = {48.0f};
+            (void)loadFamily(u8"Roboto", fontPath.AsView(), Span<const f32>(dfSize, 1), options,
+                             embedded);
+            (void)loadFamily(u8"Mono", monoFontPath.AsView(), Span<const f32>(dfSize, 1),
+                             options, Span<const u8>{}); // mono has no embedded twin
         }
         else
         {
-            if (!m_config.fontPath.IsEmpty())
-            {
-                fonts::FontLoadOptions options = fonts::FontLoadOptions::ExtendedLatin();
-                // A full ramp so styles can pick small (property fields), regular, and
-                // heading sizes without falling back to a mismatched rasterization.
-                const f32 sizes[] = {10.0f, 11.0f, 12.0f, 13.0f, 14.0f,
-                                     16.0f, 18.0f, 20.0f, 24.0f, 32.0f};
-                for (f32 size : sizes)
-                {
-                    options.pixelHeight = size;
-                    (void)m_fontService->LoadFont(u8"Roboto", m_config.fontPath.AsView(),
-                                                  options);
-                }
-            }
-            if (!m_config.monoFontPath.IsEmpty())
-            {
-                // Fixed-pitch family for CodeEditView (script/shader/XML pages). Smaller ramp:
-                // code text only needs the field-to-heading range.
-                fonts::FontLoadOptions options = fonts::FontLoadOptions::ExtendedLatin();
-                const f32 monoSizes[] = {10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 16.0f};
-                for (f32 size : monoSizes)
-                {
-                    options.pixelHeight = size;
-                    (void)m_fontService->LoadFont(u8"Mono", m_config.monoFontPath.AsView(),
-                                                  options);
-                }
-            }
+            // A full ramp so styles can pick small (property fields), regular, and
+            // heading sizes without falling back to a mismatched rasterization.
+            const f32 sizes[] = {10.0f, 11.0f, 12.0f, 13.0f, 14.0f,
+                                 16.0f, 18.0f, 20.0f, 24.0f, 32.0f};
+            (void)loadFamily(u8"Roboto", fontPath.AsView(), Span<const f32>(sizes, 10),
+                             fonts::FontLoadOptions::ExtendedLatin(), embedded);
+            // Fixed-pitch family for CodeEditView (script/shader/XML pages). Smaller ramp:
+            // code text only needs the field-to-heading range. No embedded twin - a missing
+            // mono face falls back to the default family (per the config contract).
+            const f32 monoSizes[] = {10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 16.0f};
+            (void)loadFamily(u8"Mono", monoFontPath.AsView(), Span<const f32>(monoSizes, 6),
+                             fonts::FontLoadOptions::ExtendedLatin(), Span<const u8>{});
         }
-
-        LoadEditorSettings(); // per-user prefs (templates root, ...); absent on first run
         EditorIcons::Get().Initialize(); // shared SVG drawables (toolbar + asset types)
         m_uiHost = MakeUnique<ui::runtime::UIHost>(DefaultAllocator(), *host.Graphics(),
                                                    *host.Shell(), *m_fontService);

@@ -1,6 +1,20 @@
 # Draconic.Tools.Editor - the Draconic editor executable (assembly of draconic.editor.app + the
 # per-subsystem editor plugin modules; see docs/design/editor.md §3.1).
-add_executable(Draconic.Tools.Editor Main.cpp)
+# The EMBEDDED fallback font: Roboto baked into the exe as a byte array, so a relocated
+# editor always has a face even when every disk path fails (settings path, dev-tree path).
+set(_embedded_font_src "${CMAKE_CURRENT_BINARY_DIR}/EmbeddedEditorFont.cpp")
+add_custom_command(
+    OUTPUT "${_embedded_font_src}"
+    COMMAND ${CMAKE_COMMAND}
+        -DIN=${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf
+        -DOUT=${_embedded_font_src}
+        -DSYMBOL=g_draconicEmbeddedEditorFont
+        -P ${CMAKE_SOURCE_DIR}/Tools/CMake/EmbedBinary.cmake
+    DEPENDS "${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
+            "${CMAKE_SOURCE_DIR}/Tools/CMake/EmbedBinary.cmake"
+    COMMENT "Embedding the editor fallback font")
+
+add_executable(Draconic.Tools.Editor Main.cpp "${_embedded_font_src}")
 target_link_libraries(Draconic.Tools.Editor PRIVATE
     Draconic::Core
     Draconic::Runtime Draconic::Runtime.Client Draconic::Runtime.Desktop Draconic::Shell.Desktop

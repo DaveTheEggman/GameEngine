@@ -185,6 +185,23 @@ export namespace draconic::editor
         }
     };
 
+    // Editor-level FONT preferences (a Settings section): explicit .ttf paths for the UI
+    // and mono families. Empty (the default) = the built-in resolution chain (the dev-tree
+    // compile define, then the exe-embedded fallback face).
+    class EditorFontSettings final : public ISerializable
+    {
+        DRACONIC_OBJECT(EditorFontSettings, ISerializable)
+    public:
+        String fontPath;     // UI family override ("" = built-in chain)
+        String monoFontPath; // mono family override ("" = built-in chain)
+
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::core::Serialize(ar, "fontPath", fontPath);
+            draconic::core::Serialize(ar, "monoFontPath", monoFontPath);
+        }
+    };
+
     namespace settings = draconic::settings;
 
     // The editor's settings file, in the user-data dir (hand-editable XML, like the project files).
@@ -196,6 +213,8 @@ export namespace draconic::editor
     {
         GlobalTypeRegistry().Register(EditorExportSettings::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<EditorExportSettings>();
+        GlobalTypeRegistry().Register(EditorFontSettings::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<EditorFontSettings>();
     }
 
     // Load the editor settings store from `root` (XML). NotFound when the file is absent (first run =>
@@ -241,4 +260,5 @@ export namespace draconic::editor
 
     DRACONIC_DEFINE_OBJECT_VERSIONED(ExportPresetSet, "draconic::editor", 3)
     DRACONIC_DEFINE_OBJECT_VERSIONED(EditorExportSettings, "draconic::editor", 1)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(EditorFontSettings, "draconic::editor", 1)
 }
