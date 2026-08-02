@@ -1,10 +1,16 @@
 // draconic.engine.gameinstance - the extracted run bracket owns the script run state + time scale.
 #include <doctest/doctest.h>
 #include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h"
 
 import draconic.core;
 import draconic.engine.gameinstance;
 import draconic.scene;
+import draconic.scene.resource;    // SceneDocument + LoadScene round-trip
+import draconic.scene.editor;      // SaveScene (test fixture authoring only)
+import draconic.content;           // ContentDatabase / Instance
+import draconic.resource;          // ResourceManager
+import draconic.vfs;               // NativeFileSystem
 import draconic.script;
 import draconic.script.wren;
 import draconic.script.angelscript;
@@ -16,9 +22,12 @@ import draconic.shell;       // IKeyboard / KeyCode (a minimal fake device)
 using namespace draconic::core;
 namespace runtime = draconic::runtime;
 namespace scene = draconic::scene;
+namespace content = draconic::content;
+namespace resource = draconic::resource;
 namespace net = draconic::net;
 namespace input = draconic::input;
 namespace shell = draconic::shell;
+using draconic::vfs::NativeFileSystem;
 
 namespace
 {
@@ -298,4 +307,78 @@ TEST_CASE("game-instance: a missing Game class fails to start cleanly")
     const bool ok = gi.StartScript(u8"var X = 1\n", u8"game.wren");
     CHECK_FALSE(ok); // no `Game` class
     CHECK_FALSE(gi.ScriptRunning());
+}
+
+TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestration (task #123)")
+{
+    GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
+    RegisterSerializable<scene::SceneDocument>();
+
+    FileDelete(u8"draconic_gi_load_db/level.rasset");
+    FileDelete(u8"draconic_gi_load_db/level.scene.bin");
+    RemoveDirectory(u8"draconic_gi_load_db");
+    NativeFileSystem mount(u8"draconic_gi_load_db");
+
+    Guid sceneId;
+    {
+        // A tiny entities-only scene round-trips with no component managers.
+        scene::Scene authored(u8"level");
+        (void)authored.CreateEntity(u8"a");
+        (void)authored.CreateEntity(u8"b");
+        content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        auto* inst =
+            db.RootGroup()->CreateInstance(u8"level", scene::SceneDocument::StaticType());
+        sceneId = inst->Id();
+        REQUIRE(scene::SaveScene(authored, *inst).IsOk());
+    }
+
+    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    resource::ResourceManager resources(db);
+    auto* sceneInst = db.GetInstance(sceneId);
+    REQUIRE(sceneInst != nullptr);
+
+    SUBCASE("sync LoadScene returns the active, resolved scene")
+    {
+        runtime::GameInstance gi;
+        scene::Scene* s =
+            gi.LoadScene(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{});
+        REQUIRE(s != nullptr);
+        CHECK(s->EntityCount() == 2u);
+        CHECK(gi.Scenes().IsActive(s)); // sync path activates immediately (unchanged behavior)
+    }
+
+    SUBCASE("async LoadSceneAsync creates the scene INACTIVE until ActivateLoadedScene")
+    {
+        runtime::GameInstance gi;
+        runtime::SceneLoadHandle handle =
+            gi.LoadSceneAsync(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{});
+        REQUIRE(handle.Scene() != nullptr);
+        CHECK_FALSE(handle.Failed());
+        CHECK_FALSE(gi.Scenes().IsActive(handle.Scene())); // inactive while "loading"
+        CHECK(handle.IsComplete());                        // no async resources -> complete at once
+        CHECK(handle.Progress() == doctest::Approx(1.0f));
+
+        scene::Scene* activated = gi.ActivateLoadedScene(handle);
+        REQUIRE(activated == handle.Scene());
+        CHECK(gi.Scenes().IsActive(activated)); // now ticked + rendered
+        CHECK(activated->EntityCount() == 2u);
+    }
+
+    SUBCASE("a load with no scene stream fails cleanly")
+    {
+        auto* empty =
+            db.RootGroup()->CreateInstance(u8"empty", scene::SceneDocument::StaticType());
+        runtime::GameInstance gi;
+        runtime::SceneLoadHandle handle =
+            gi.LoadSceneAsync(*empty, resources, Function<UniquePtr<IStream>(const Guid&)>{});
+        CHECK(handle.Failed());
+        CHECK(handle.IsComplete());
+        CHECK(handle.Scene() == nullptr);
+        CHECK(gi.LoadScene(*empty, resources, Function<UniquePtr<IStream>(const Guid&)>{}) ==
+              nullptr);
+    }
+
+    FileDelete(u8"draconic_gi_load_db/level.rasset");
+    FileDelete(u8"draconic_gi_load_db/level.scene.bin");
+    RemoveDirectory(u8"draconic_gi_load_db");
 }

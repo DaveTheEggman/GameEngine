@@ -156,30 +156,26 @@ namespace draconic::player
             // the instance so it groups + ticks + renders as this run's scene AND its behaviors bind to
             // the instance's run host. (`scenes` is still required - it drives the tick + owns the aware
             // registry the instance manager uses.)
-            m_scene = Instance().CreateScene(instance->Name());
-            if (m_scene == nullptr || !scene::LoadScene(*instance, *m_scene).IsOk())
+            // The instance owns the load orchestration now (task #123): CreateScene + LoadScene +
+            // ResolveSceneResources + prefab respawn (ref+deltas, from the same DB the scene came
+            // from) + a second resolve. This app keeps POLICY (WHAT to load, below; EnsureCamera +
+            // Start after). Same sequence as before - a behavioral no-op.
+            draconic::content::ContentDatabase* sceneDb = m_sceneDb;
+            m_scene = Instance().LoadScene(
+                *instance, *Resources(),
+                Function<UniquePtr<IStream>(const Guid&)>{
+                    [sceneDb](const Guid& prefabId) -> UniquePtr<IStream>
+                    {
+                        draconic::content::Instance* prefab =
+                            (sceneDb != nullptr) ? sceneDb->GetInstance(prefabId) : nullptr;
+                        return (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                   : UniquePtr<IStream>{};
+                    }});
+            if (m_scene == nullptr)
             {
                 DRACONIC_LOG_ERROR(u8"Player", u8"scene '{}' failed to load", scenePath);
                 host.RequestExit(1);
                 return;
-            }
-            scene::ResolveSceneResources(*m_scene, *Resources());
-            // Prefab instances arrive as ref+deltas: respawn them from the same DB the
-            // scene came from (pak mode: the staged payloads; project mode: the sources).
-            if (m_scene->PendingPrefabInstanceCount() > 0)
-            {
-                draconic::content::ContentDatabase* sceneDb = m_sceneDb;
-                scene::ResolveScenePrefabs(
-                    *m_scene,
-                    Function<UniquePtr<IStream>(const Guid&)>{
-                        [sceneDb](const Guid& prefabId) -> UniquePtr<IStream>
-                        {
-                            draconic::content::Instance* prefab =
-                                (sceneDb != nullptr) ? sceneDb->GetInstance(prefabId) : nullptr;
-                            return (prefab != nullptr) ? prefab->ReadData(u8"scene")
-                                                       : UniquePtr<IStream>{};
-                        }});
-                scene::ResolveSceneResources(*m_scene, *Resources());
             }
             EnsureCamera();
 

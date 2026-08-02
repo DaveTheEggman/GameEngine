@@ -18,6 +18,9 @@ export module draconic.engine.gameinstance;
 
 import draconic.core;
 import draconic.scene;
+import draconic.scene.resource; // LoadScene / ResolveSceneResources / ResolveScenePrefabs
+import draconic.content;        // content::Instance (the cooked scene record)
+import draconic.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
 import draconic.script;
 import draconic.engine.script;
 import draconic.net.manager; // NetworkManager + INetworkController + NetScriptBinding
@@ -37,6 +40,46 @@ export namespace draconic::runtime
     // endpoint. The app uses it to wire per-endpoint setup that needs app state (e.g. the prefab
     // net-spawn resolver, which needs the content DB) - fresh each time, so reconnect stays correct.
     using EndpointOnlineHook = core::Function<void(net::NetworkManager&)>;
+
+    // Handle for an in-flight ASYNC scene load (task #123). LoadSceneAsync creates the scene
+    // INACTIVE (not ticked/rendered) and kicks its resources off on workers; poll IsComplete() /
+    // Progress() to drive a loading screen, then GameInstance::ActivateLoadedScene() to bring it
+    // live. Scene() is the pending scene - its RESOURCES are ready only once IsComplete(). A tiny
+    // value type (mirrors resource::AsyncLoadBatch + the scene/failed state); safe to copy/store.
+    class SceneLoadHandle
+    {
+    public:
+        SceneLoadHandle() = default;
+
+        [[nodiscard]] bool Failed() const noexcept { return m_failed; }
+        [[nodiscard]] scene::Scene* Scene() const noexcept { return m_scene; }
+        [[nodiscard]] bool IsComplete() const noexcept
+        {
+            return m_failed || m_resources == nullptr || m_resources->PendingCount() == 0;
+        }
+        // 0..1; 1 when complete or failed.
+        [[nodiscard]] core::f32 Progress() const noexcept
+        {
+            if (m_failed || m_resources == nullptr || m_total == 0)
+            {
+                return 1.0f;
+            }
+            const core::usize remaining = m_resources->PendingCount();
+            if (remaining == 0)
+            {
+                return 1.0f;
+            }
+            const core::usize done = (remaining >= m_total) ? 0u : (m_total - remaining);
+            return static_cast<core::f32>(done) / static_cast<core::f32>(m_total);
+        }
+
+    private:
+        friend class GameInstance;
+        scene::Scene* m_scene = nullptr;
+        resource::ResourceManager* m_resources = nullptr;
+        core::usize m_total = 0;
+        bool m_failed = false;
+    };
 
     // A running game owns its networking too: GameInstance IS the INetworkController the Net facade
     // drives (startServer/connect/disconnect) and reads through. The endpoint is created on demand and
@@ -86,9 +129,35 @@ export namespace draconic::runtime
 
         /// Create a scene in this instance's group AND bind its behaviors to this instance's run host
         /// (game-instance.md §11.10). Use this instead of Scenes().CreateScene so the re-bind happens.
-        scene::Scene* CreateScene(core::StringView name);
+        /// `activate` (default true) matches the classic behavior; false creates it inactive for an
+        /// async load (see LoadSceneAsync).
+        scene::Scene* CreateScene(core::StringView name, bool activate = true);
         /// Destroy a scene in this instance's group.
         void DestroyScene(scene::Scene* scene) { m_sceneManager.DestroyScene(scene); }
+
+        // ---- scene / level load (task #123): the load ORCHESTRATION lives on the instance (the
+        // user-controllable unit), de-duping the identical block PlayerApplication + GamePageImpl
+        // both ran. The APP still owns POLICY (WHAT to load; EnsureCamera + Start + SetScene after).
+
+        /// Load a cooked scene instance into this group and resolve its resources SYNCHRONOUSLY.
+        /// Returns the loaded, ACTIVE, fully-resolved scene (NOT started - the caller runs its policy:
+        /// EnsureCamera, Start, SetSimulationEnabled, SetScene). Null on a LoadScene failure.
+        /// `prefabProvider` reads a nested-prefab payload by guid (empty function = no prefabs).
+        scene::Scene*
+        LoadScene(content::Instance& sceneInstance, resource::ResourceManager& resources,
+                  core::Function<core::UniquePtr<core::IStream>(const core::Guid&)> prefabProvider);
+
+        /// Async load: creates the scene INACTIVE, deserializes it, and kicks its resource binds onto
+        /// workers (BindAsync). Returns a SceneLoadHandle - poll IsComplete()/Progress() (loading
+        /// screen), then ActivateLoadedScene(). The scene never ticks/renders while loading.
+        [[nodiscard]] SceneLoadHandle LoadSceneAsync(
+            content::Instance& sceneInstance, resource::ResourceManager& resources,
+            core::Function<core::UniquePtr<core::IStream>(const core::Guid&)> prefabProvider);
+
+        /// Activate a COMPLETED async-loaded scene (add to the active/render set + make current).
+        /// Returns the now-active scene, or null if the handle failed or is not yet complete. The
+        /// caller then runs the same policy as the sync path (EnsureCamera, Start, ...).
+        scene::Scene* ActivateLoadedScene(SceneLoadHandle& handle);
 
         /// Tick the `Game` script with gameplay time: hostDt x contextScale x instanceScale x sceneScale.
         /// A faulting update disables THIS instance's script (drops the `Game`), not the app.

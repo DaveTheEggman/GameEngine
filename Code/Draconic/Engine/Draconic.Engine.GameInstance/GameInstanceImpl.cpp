@@ -9,6 +9,9 @@ module draconic.engine.gameinstance;
 
 import draconic.core;
 import draconic.scene;
+import draconic.scene.resource; // LoadScene / ResolveSceneResources / ResolveScenePrefabs
+import draconic.content;        // content::Instance
+import draconic.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
 import draconic.script;
 import draconic.engine.script;
 import draconic.net.manager; // NetworkManager factories + InstallNetScriptService
@@ -145,9 +148,9 @@ namespace draconic::runtime
         m_inputRuntime.Update(*m_inputSource, deltaTime);
     }
 
-    scene::Scene* GameInstance::CreateScene(core::StringView name)
+    scene::Scene* GameInstance::CreateScene(core::StringView name, bool activate)
     {
-        scene::Scene* scene = m_sceneManager.CreateScene(name);
+        scene::Scene* scene = m_sceneManager.CreateScene(name, activate);
         if (scene != nullptr)
         {
             // OnSceneCreated (the ScriptSubsystem) added the ScriptSceneSystem + bound it to the DEFAULT
@@ -158,6 +161,74 @@ namespace draconic::runtime
             }
         }
         return scene;
+    }
+
+    scene::Scene* GameInstance::LoadScene(
+        content::Instance& sceneInstance, resource::ResourceManager& resources,
+        Function<UniquePtr<IStream>(const Guid&)> prefabProvider)
+    {
+        scene::Scene* scene = CreateScene(sceneInstance.Name()); // active (sync path unchanged)
+        if (scene == nullptr || !scene::LoadScene(sceneInstance, *scene).IsOk())
+        {
+            if (scene != nullptr)
+            {
+                DestroyScene(scene);
+            }
+            return nullptr;
+        }
+        scene::ResolveSceneResources(*scene, resources);
+        if (scene->PendingPrefabInstanceCount() > 0)
+        {
+            scene::ResolveScenePrefabs(*scene, prefabProvider);
+            scene::ResolveSceneResources(*scene, resources); // bind the spawned prefabs' refs
+        }
+        return scene;
+    }
+
+    SceneLoadHandle GameInstance::LoadSceneAsync(
+        content::Instance& sceneInstance, resource::ResourceManager& resources,
+        Function<UniquePtr<IStream>(const Guid&)> prefabProvider)
+    {
+        SceneLoadHandle handle;
+        handle.m_resources = &resources;
+
+        scene::Scene* scene = CreateScene(sceneInstance.Name(), /*activate*/ false); // inactive
+        if (scene == nullptr || !scene::LoadScene(sceneInstance, *scene).IsOk())
+        {
+            if (scene != nullptr)
+            {
+                DestroyScene(scene);
+            }
+            handle.m_failed = true;
+            return handle;
+        }
+
+        {
+            // Under the scope, the scene's component Refs bind via BindAsync (decode on workers).
+            resource::AsyncBindScope scope(resources);
+            scene::ResolveSceneResources(*scene, resources);
+        }
+        if (scene->PendingPrefabInstanceCount() > 0)
+        {
+            // Prefab spawn (no resource binds itself), then bind the spawned refs async.
+            scene::ResolveScenePrefabs(*scene, prefabProvider);
+            resource::AsyncBindScope scope(resources);
+            scene::ResolveSceneResources(*scene, resources);
+        }
+
+        handle.m_scene = scene;
+        handle.m_total = resources.PendingCount(); // snapshot AFTER all async binds are issued
+        return handle;
+    }
+
+    scene::Scene* GameInstance::ActivateLoadedScene(SceneLoadHandle& handle)
+    {
+        if (handle.m_failed || handle.m_scene == nullptr || !handle.IsComplete())
+        {
+            return nullptr;
+        }
+        m_sceneManager.ActivateScene(handle.m_scene);
+        return handle.m_scene;
     }
 
     void GameInstance::DriveRunHost(f32 deltaTime)
