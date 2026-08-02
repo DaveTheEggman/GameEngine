@@ -89,6 +89,7 @@ export namespace draconic::render
         {
             m_retire = retire;
             m_paramsRing.SetRetireQueue(retire);
+            m_lightRing.SetRetireQueue(retire);
         }
 
     private:
