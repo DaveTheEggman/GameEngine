@@ -355,9 +355,10 @@ void VGSandbox::DrawFillCorrectness(vg::VGContext& vgc, f32 x, f32 y, f32 t)
         vgc.FillPath(pb.ToPath(), rings, vg::FillRule::NonZero);
     }
 
-    // Blend modes: three circle pairs over a mid-grey strip. Additive brightens where
-    // the circle overlaps the strip, multiply darkens, screen lightens without clipping
-    // (each returns to Normal so the rest of the sandbox is unaffected).
+    // Blend modes over a LIGHT strip - it must be bright in LINEAR space or additive
+    // (src + dst) and screen (src + dst*(1-src)) become near-indistinguishable: the
+    // difference is how much of dst survives, and a mid-grey decodes to ~0.15 linear.
+    // Against ~0.7 linear, additive clips hard toward white while screen stays soft.
     {
         vg::PathBuilder strip;
         strip.MoveTo(0.0f, 135.0f);
@@ -365,7 +366,7 @@ void VGSandbox::DrawFillCorrectness(vg::VGContext& vgc, f32 x, f32 y, f32 t)
         strip.LineTo(270.0f, 165.0f);
         strip.LineTo(0.0f, 165.0f);
         strip.Close();
-        vgc.FillPath(strip.ToPath(), GC(110, 110, 120, 255), vg::FillRule::NonZero);
+        vgc.FillPath(strip.ToPath(), GC(220, 220, 225, 255), vg::FillRule::NonZero);
 
         auto blendCircle = [&](f32 cx, vg::VGBlendMode mode, Color color)
         {
