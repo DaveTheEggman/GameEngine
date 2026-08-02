@@ -155,7 +155,24 @@ export namespace draconic::render
 
         void FinishFrame() override;
 
+        /// Wire the frames-in-flight retire queue (web-safe grows for the device buffers
+        /// AND the staging rings). Null = drain-on-grow.
+        void SetRetireQueue(GpuRetireQueue* retire) noexcept
+        {
+            m_retire = retire;
+            m_viewRing.SetRetireQueue(retire);
+            m_shadowViewRing.SetRetireQueue(retire);
+            m_objectRing.SetRetireQueue(retire);
+            m_instanceRing.SetRetireQueue(retire);
+            m_offsetsRing.SetRetireQueue(retire);
+            m_lightRing.SetRetireQueue(retire);
+            m_localShadowRing.SetRetireQueue(retire);
+            m_boneRing.SetRetireQueue(retire);
+        }
+
     private:
+        void RetireOrDrainBuffer(rhi::Buffer*& buffer);
+        GpuRetireQueue* m_retire = nullptr; // borrowed; null = WaitIdle on grow
         struct ViewData
         {                                // 528 (matches the View cbuffer)
             Float4x4 viewProj;           // 64

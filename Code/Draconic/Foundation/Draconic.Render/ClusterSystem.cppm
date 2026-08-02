@@ -84,7 +84,11 @@ export namespace draconic::render
         ClusterBinding DeclareBuild(rendergraph::RenderGraph& graph, const RenderView& view,
                                     u32 frameIndex, u32 viewIndex);
 
+        /// Wire the frames-in-flight retire queue (web-safe buffer grows). Null = drain.
+        void SetRetireQueue(GpuRetireQueue* retire) noexcept { m_retire = retire; }
+
     private:
+        GpuRetireQueue* m_retire = nullptr; // borrowed; null = WaitIdle on grow
         // Matches the ClusterBuildParams cbuffer (std140; 16-aligned scalars + two row-major mats).
         struct BuildParams
         {

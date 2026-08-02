@@ -16,7 +16,8 @@ import draconic.core;
 import draconic.rhi;
 import draconic.rendergraph;
 import :data;  // ShadowCascades
-import :views; // ViewCamera
+import :views;     // ViewCamera
+import :resources; // GpuRetireQueue
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -206,6 +207,9 @@ export namespace draconic::render
         }
 
         ~ShadowSystem() { Shutdown(); }
+
+        /// Wire the frames-in-flight retire queue (web-safe atlas grows). Null = drain.
+        void SetRetireQueue(GpuRetireQueue* retire) noexcept { m_retire = retire; }
         ShadowSystem(const ShadowSystem&) = delete;
         ShadowSystem& operator=(const ShadowSystem&) = delete;
 
@@ -265,6 +269,7 @@ export namespace draconic::render
         rendergraph::RGHandle ImportAtlas(rendergraph::RenderGraph& graph, u32 frameIndex);
 
     private:
+        GpuRetireQueue* m_retire = nullptr; // borrowed; null = WaitIdle on grow
         static constexpr rhi::TextureFormat kShadowFormat = rhi::TextureFormat::Depth32Float;
         static constexpr u32 kShadowResolution = 1024; // per cascade
         static constexpr u32 kCascadeCount = ShadowCascades::kCount;

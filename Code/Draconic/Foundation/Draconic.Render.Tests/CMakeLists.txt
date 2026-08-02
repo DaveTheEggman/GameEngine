@@ -5,7 +5,8 @@ add_executable(Draconic.Render.Tests
     GpuMeshTests.cpp
     RenderDataTests.cpp
     PipelineTests.cpp
-    PoseSelectionTests.cpp)
+    PoseSelectionTests.cpp
+    RetireQueueTests.cpp)
 
 target_link_libraries(Draconic.Render.Tests PRIVATE
     Draconic::Render Draconic::RHI.Null doctest::doctest)

@@ -219,6 +219,7 @@ export namespace draconic::render
         UniquePtr<ClusterSystem> m_clusterSystem;
         UniquePtr<TonemapPass> m_tonemapPass;
         UniquePtr<ShadowSystem> m_shadowSystem;
+        GpuRetireQueue m_retireQueue; // frames-in-flight deferred GPU destruction (web-safe grows)
         UniquePtr<IBLSystem> m_iblSystem;
         UniquePtr<ReflectionProbeSystem> m_probeSystem;
         UniquePtr<SkyPass> m_skyPass;

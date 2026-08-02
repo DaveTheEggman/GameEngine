@@ -254,22 +254,37 @@ namespace draconic::render
             return true;
         }
 
-        // Grow this slot. Idle the GPU only when an OLD buffer is being replaced (it may
-        // still be read by in-flight frames); the first allocation has nothing to protect -
-        // and on web the wait pumps the event loop MID-FRAME, which expires the canvas
-        // texture and drops the whole frame's submit.
-        if (m_offsets[bufferSlot] != nullptr || m_indices[bufferSlot] != nullptr)
+        // Grow this slot. In-flight frames may still read the OLD buffers (and the bind
+        // group over them): RETIRE via the queue when wired - on web a mid-frame WaitIdle
+        // pumps the event loop, expires the canvas texture, and drops the whole frame's
+        // submit - else drain (standalone/test use).
+        const bool replacing = m_offsets[bufferSlot] != nullptr || m_indices[bufferSlot] != nullptr;
+        if (replacing && m_retire == nullptr)
         {
             m_device->WaitIdle();
         }
         if (m_offsets[bufferSlot] != nullptr)
         {
-            m_device->DestroyBuffer(m_offsets[bufferSlot]);
+            if (m_retire != nullptr)
+            {
+                m_retire->Retire(m_offsets[bufferSlot]);
+            }
+            else
+            {
+                m_device->DestroyBuffer(m_offsets[bufferSlot]);
+            }
             m_offsets[bufferSlot] = nullptr;
         }
         if (m_indices[bufferSlot] != nullptr)
         {
-            m_device->DestroyBuffer(m_indices[bufferSlot]);
+            if (m_retire != nullptr)
+            {
+                m_retire->Retire(m_indices[bufferSlot]);
+            }
+            else
+            {
+                m_device->DestroyBuffer(m_indices[bufferSlot]);
+            }
             m_indices[bufferSlot] = nullptr;
         }
         rhi::BufferDesc obd{};
@@ -296,10 +311,17 @@ namespace draconic::render
         m_indicesBytes[bufferSlot] = indicesBytes;
         ++m_bufferVersion
             [bufferSlot]; // signal consumers to rebuild cached bind groups (address may reuse)
-        // The slot's bind group referenced the old buffers - drop it (GPU idle after WaitIdle).
+        // The slot's bind group referenced the old buffers - retire/drop it with them.
         if (m_bindGroups[bufferSlot] != nullptr)
         {
-            m_device->DestroyBindGroup(m_bindGroups[bufferSlot]);
+            if (m_retire != nullptr)
+            {
+                m_retire->Retire(m_bindGroups[bufferSlot]);
+            }
+            else
+            {
+                m_device->DestroyBindGroup(m_bindGroups[bufferSlot]);
+            }
             m_bindGroups[bufferSlot] = nullptr;
         }
         m_bgOffsets[bufferSlot] = nullptr;

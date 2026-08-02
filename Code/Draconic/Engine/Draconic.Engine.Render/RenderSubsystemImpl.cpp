@@ -235,6 +235,7 @@ namespace draconic::render
         // single slot when the job system is absent - serial fallback).
         const u32 slotCount = HasGlobalJobSystem() ? GlobalJobs().SlotCount() : 1u;
         m_renderCtx.BeginFrame(slotCount);
+        m_retireQueue.Tick(); // free retired GPU resources that have aged past all in-flight frames
         m_frame->SetExposure(m_exposure);
         m_frame->SetBloom(m_bloomEnabled ? m_bloomIntensity : 0.0f, m_bloomThreshold, m_bloomKnee);
         m_frame->SetTaa(m_taaEnabled, m_taaBlend, m_taaGamma, m_taaMotionScale);
@@ -527,6 +528,11 @@ namespace draconic::render
         }
         m_registry.Register(
             m_meshRenderer.Get()); // FIRST -> renderer id 0 (the RenderData default)
+        // Frames-in-flight retire queue: every grow-path replacement retires through it
+        // instead of a mid-frame WaitIdle (which on web pumps the event loop, expires the
+        // canvas texture, and drops the frame's submit - the dropped-submit class).
+        m_retireQueue.Initialize(m_device, static_cast<i32>(m_framesInFlight));
+        m_meshRenderer->SetRetireQueue(&m_retireQueue);
 
         // Sprites: registered after the mesh renderer (id 1); shares the blended forward pass.
         m_spriteRenderer =
@@ -556,6 +562,10 @@ namespace draconic::render
             {
                 m_clusterSystem.Reset();
             }
+            if (m_clusterSystem)
+            {
+                m_clusterSystem->SetRetireQueue(&m_retireQueue);
+            }
         }
 
         // HDR resolve: forward renders linear HDR, this pass tonemaps to the LDR target. Optional -
@@ -575,6 +585,10 @@ namespace draconic::render
             if (!m_shadowSystem->Initialize().IsOk())
             {
                 m_shadowSystem.Reset();
+            }
+            if (m_shadowSystem)
+            {
+                m_shadowSystem->SetRetireQueue(&m_retireQueue);
             }
         }
 
@@ -681,6 +695,7 @@ namespace draconic::render
             }
         }
         m_device->WaitIdle();     // GPU must finish before we free its buffers/PSOs/descriptors
+        m_retireQueue.Flush();    // pending retired resources (GPU idle - free now)
         m_frame.Reset();          // releases the forward pass's per-frame GPU resources
         m_clusterSystem.Reset();  // before the ShaderSystem it borrows
         m_tonemapPass.Reset();    // before the ShaderSystem it borrows

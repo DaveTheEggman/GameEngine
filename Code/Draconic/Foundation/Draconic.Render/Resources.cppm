@@ -27,6 +27,127 @@ namespace rhi = draconic::rhi;
 
 export namespace draconic::render
 {
+    /// Frames-in-flight deferred GPU destruction: the web-safe replacement for the
+    /// grow-path `WaitIdle` (on web the wait pumps the browser event loop MID-FRAME,
+    /// which expires the canvas texture and drops the whole frame's submit - the
+    /// dropped-submit class). A replaced resource is RETIRED instead: it stays alive
+    /// until every frame that could reference it has aged out, then frees on Tick().
+    /// One queue per owner (the render subsystem shares one across its systems);
+    /// consumers fall back to WaitIdle when no queue is wired, so standalone/test use
+    /// keeps working unchanged.
+    class GpuRetireQueue
+    {
+    public:
+        void Initialize(rhi::Device* device, i32 framesInFlight)
+        {
+            m_device = device;
+            // +1: an entry retired DURING frame N is safe once N's whole ring has cycled.
+            m_age = Max(framesInFlight, 1) + 1;
+        }
+
+        void Retire(rhi::Buffer* buffer)
+        {
+            if (buffer != nullptr)
+            {
+                m_entries.PushBack(Entry{nullptr, nullptr, nullptr, buffer, m_age});
+            }
+        }
+        void Retire(rhi::Texture* texture)
+        {
+            if (texture != nullptr)
+            {
+                m_entries.PushBack(Entry{texture, nullptr, nullptr, nullptr, m_age});
+            }
+        }
+        void Retire(rhi::TextureView* view)
+        {
+            if (view != nullptr)
+            {
+                m_entries.PushBack(Entry{nullptr, view, nullptr, nullptr, m_age});
+            }
+        }
+        void Retire(rhi::BindGroup* bindGroup)
+        {
+            if (bindGroup != nullptr)
+            {
+                m_entries.PushBack(Entry{nullptr, nullptr, bindGroup, nullptr, m_age});
+            }
+        }
+
+        /// Age everything one frame; free what has outlived every in-flight frame.
+        /// Call ONCE per frame, before or after the frame's submits - the +1 margin
+        /// covers either placement.
+        void Tick()
+        {
+            if (m_device == nullptr)
+            {
+                return;
+            }
+            for (usize i = m_entries.Size(); i-- > 0;)
+            {
+                Entry& entry = m_entries[i];
+                if (--entry.framesLeft > 0)
+                {
+                    continue;
+                }
+                Free(entry);
+                m_entries.RemoveAt(i);
+            }
+        }
+
+        /// Destroy everything NOW (shutdown; caller has idled the GPU).
+        void Flush()
+        {
+            if (m_device == nullptr)
+            {
+                m_entries.Clear();
+                return;
+            }
+            for (Entry& entry : m_entries)
+            {
+                Free(entry);
+            }
+            m_entries.Clear();
+        }
+
+        [[nodiscard]] usize PendingCount() const { return m_entries.Size(); }
+
+    private:
+        struct Entry
+        {
+            rhi::Texture* texture = nullptr;
+            rhi::TextureView* view = nullptr;
+            rhi::BindGroup* bindGroup = nullptr;
+            rhi::Buffer* buffer = nullptr;
+            i32 framesLeft = 0;
+        };
+
+        void Free(Entry& entry)
+        {
+            // Views before their textures; bind groups before the buffers they reference.
+            if (entry.view != nullptr)
+            {
+                m_device->DestroyTextureView(entry.view);
+            }
+            if (entry.texture != nullptr)
+            {
+                m_device->DestroyTexture(entry.texture);
+            }
+            if (entry.bindGroup != nullptr)
+            {
+                m_device->DestroyBindGroup(entry.bindGroup);
+            }
+            if (entry.buffer != nullptr)
+            {
+                m_device->DestroyBuffer(entry.buffer);
+            }
+        }
+
+        rhi::Device* m_device = nullptr;
+        i32 m_age = 3;
+        Array<Entry> m_entries;
+    };
+
 
     // A chunked GPU buffer sub-allocator: hands out (buffer, offset) ranges from large shared
     // chunks instead of one buffer per allocation (§8 - "no per-mesh buffers"). Allocations are
@@ -162,7 +283,17 @@ export namespace draconic::render
                 slotsPerFrame = 1;
             }
 
-            m_device->WaitIdle(); // an in-flight frame may still reference the old buffer
+            // An in-flight frame may still reference the old buffer: retire it when a
+            // queue is wired (web-safe), else drain (standalone/test use).
+            if (m_retire != nullptr)
+            {
+                m_retire->Retire(m_buffer);
+                m_buffer = nullptr;
+            }
+            else
+            {
+                m_device->WaitIdle();
+            }
             Release();
 
             rhi::BufferDesc bd{};
@@ -234,6 +365,9 @@ export namespace draconic::render
         }
         [[nodiscard]] u32 Generation() const noexcept { return m_generation; } // bumps on realloc
 
+        /// Wire the frames-in-flight retire queue (web-safe grows). Null = drain-on-grow.
+        void SetRetireQueue(GpuRetireQueue* retire) noexcept { m_retire = retire; }
+
     private:
         void Release()
         {
@@ -248,6 +382,7 @@ export namespace draconic::render
         rhi::Device* m_device;
         rhi::BufferUsage m_usage;
         const char8_t* m_label;
+        GpuRetireQueue* m_retire = nullptr; // borrowed; null = WaitIdle on grow
         rhi::Buffer* m_buffer = nullptr;
         u8* m_mapped = nullptr;
         u32 m_framesInFlight;

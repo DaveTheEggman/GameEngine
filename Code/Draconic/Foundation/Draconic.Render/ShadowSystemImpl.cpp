@@ -79,20 +79,34 @@ namespace draconic::render
             return true;
         }
         if (m_textures[slot] != nullptr)
-        { // grow: free the old array + its views (GPU idle at startup/resize)
-            m_device->WaitIdle();
-            if (m_sampleViews[slot] != nullptr)
+        { // grow: replace the old array + its views. In-flight frames may still sample
+          // them - RETIRE via the queue when wired (web-safe: no mid-frame WaitIdle
+          // pumping the browser event loop), else drain.
+            if (m_retire != nullptr)
             {
-                m_device->DestroyTextureView(m_sampleViews[slot]);
+                m_retire->Retire(m_sampleViews[slot]);
+                m_retire->Retire(m_attachViews[slot]);
+                m_retire->Retire(m_textures[slot]);
                 m_sampleViews[slot] = nullptr;
-            }
-            if (m_attachViews[slot] != nullptr)
-            {
-                m_device->DestroyTextureView(m_attachViews[slot]);
                 m_attachViews[slot] = nullptr;
+                m_textures[slot] = nullptr;
             }
-            m_device->DestroyTexture(m_textures[slot]);
-            m_textures[slot] = nullptr;
+            else
+            {
+                m_device->WaitIdle();
+                if (m_sampleViews[slot] != nullptr)
+                {
+                    m_device->DestroyTextureView(m_sampleViews[slot]);
+                    m_sampleViews[slot] = nullptr;
+                }
+                if (m_attachViews[slot] != nullptr)
+                {
+                    m_device->DestroyTextureView(m_attachViews[slot]);
+                    m_attachViews[slot] = nullptr;
+                }
+                m_device->DestroyTexture(m_textures[slot]);
+                m_textures[slot] = nullptr;
+            }
         }
         rhi::TextureDesc td{};
         td.format = kShadowFormat;

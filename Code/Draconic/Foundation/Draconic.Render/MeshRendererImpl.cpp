@@ -276,9 +276,7 @@ namespace draconic::render
         // mid-frame wait on web pumps the event loop and drops the frame's submit).
         if (m_boneDevice != nullptr)
         {
-            m_device->WaitIdle();
-            m_device->DestroyBuffer(m_boneDevice);
-            m_boneDevice = nullptr;
+            RetireOrDrainBuffer(m_boneDevice);
         }
         rhi::BufferDesc bd{};
         bd.size = want;
@@ -493,17 +491,37 @@ namespace draconic::render
         }
     }
 
+    // Replace-path release: retire the buffer through the frames-in-flight queue when
+    // wired (web-safe - no mid-frame WaitIdle pumping the browser event loop), else the
+    // classic drain. Nulls the pointer either way.
+    void MeshRenderer::RetireOrDrainBuffer(rhi::Buffer*& buffer)
+    {
+        if (buffer == nullptr)
+        {
+            return;
+        }
+        if (m_retire != nullptr)
+        {
+            m_retire->Retire(buffer);
+        }
+        else
+        {
+            m_device->WaitIdle();
+            m_device->DestroyBuffer(buffer);
+        }
+        buffer = nullptr;
+    }
+
     bool MeshRenderer::EnsureRamp(u32 count)
     {
         if (m_rampBuffer != nullptr && count <= m_rampCapacity)
         {
             return true;
         }
-        m_device->WaitIdle(); // an in-flight frame may still reference the old ramp
+        // An in-flight frame may still reference the old ramp: retire when wired, drain else.
         if (m_rampBuffer != nullptr)
         {
-            m_device->DestroyBuffer(m_rampBuffer);
-            m_rampBuffer = nullptr;
+            RetireOrDrainBuffer(m_rampBuffer);
         }
         rhi::BufferDesc bd{};
         bd.size = static_cast<u64>(count) * sizeof(DataOffsets);
@@ -542,19 +560,38 @@ namespace draconic::render
 
         if (set->instanceBuf == nullptr || mm.instanceCount > set->capacity)
         {
-            m_device
-                ->WaitIdle(); // an in-flight frame may still reference the old buffer/bind groups
+            // An in-flight frame may still reference the old buffer/bind groups: retire
+            // when wired (web-safe), else drain once for the whole replacement.
+            if (m_retire == nullptr &&
+                (set->instanceBuf != nullptr || set->instanceBG[0] != nullptr))
+            {
+                m_device->WaitIdle();
+            }
             for (u32 r = 0; r < kMultiMeshMaxFiF; ++r)
             {
                 if (set->instanceBG[r] != nullptr)
                 {
-                    m_device->DestroyBindGroup(set->instanceBG[r]);
+                    if (m_retire != nullptr)
+                    {
+                        m_retire->Retire(set->instanceBG[r]);
+                    }
+                    else
+                    {
+                        m_device->DestroyBindGroup(set->instanceBG[r]);
+                    }
                     set->instanceBG[r] = nullptr;
                 }
             }
             if (set->instanceBuf != nullptr)
             {
-                m_device->DestroyBuffer(set->instanceBuf);
+                if (m_retire != nullptr)
+                {
+                    m_retire->Retire(set->instanceBuf);
+                }
+                else
+                {
+                    m_device->DestroyBuffer(set->instanceBuf);
+                }
                 set->instanceBuf = nullptr;
             }
             rhi::BufferDesc bd{};
@@ -637,12 +674,9 @@ namespace draconic::render
         set->skinned = (mm.posePool != nullptr && mm.poseCount > 0 && mm.boneCount > 0);
         if (set->skinned && (set->offsetsBuf == nullptr || mm.instanceCount > set->offsetsCapacity))
         {
-            // Idle only when replacing (see the bone-ring grow above).
             if (set->offsetsBuf != nullptr)
             {
-                m_device->WaitIdle();
-                m_device->DestroyBuffer(set->offsetsBuf);
-                set->offsetsBuf = nullptr;
+                RetireOrDrainBuffer(set->offsetsBuf);
             }
             rhi::BufferDesc od{};
             // framesInFlight regions: the offsets are rewritten EVERY frame (dynamic bone bases), so each
