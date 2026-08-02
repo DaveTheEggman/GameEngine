@@ -59,6 +59,9 @@ namespace draconic::samples
 
         void OnStartup(runtime::IApplicationHost& host) override
         {
+            // The base wires resource-type registration AND the game-UI render bring-up
+            // (UISubsystem::EnsureRenderReady) - skip it and UI silently never draws.
+            runtime::DefaultApplication::OnStartup(host);
             core::ConsoleWrite(u8"WebScene: building the full-renderer scene...\n");
             if (host.Ctx().GetSubsystem<scene::SceneSubsystem>() == nullptr)
             {
