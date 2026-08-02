@@ -223,6 +223,14 @@ export namespace draconic::fonts
         bool BuildQuad(const AtlasRegion& region, f32 x, f32 y, bool advance, f32& cursorX,
                        GlyphQuad& quad) const
         {
+            // Advance-only regions (whitespace): step the cursor, nothing to draw.
+            if (region.IsEmpty())
+            {
+                if (advance)
+                    cursorX = x + region.advanceX;
+                return false;
+            }
+
             const f32 invW = 1.0f / static_cast<f32>(m_width);
             const f32 invH = 1.0f / static_cast<f32>(m_height);
 

@@ -54,3 +54,19 @@ TEST_CASE("DFFontAtlas: glyph quad generation")
     CHECK(quad.x0 == doctest::Approx(10.0f + 1.0f));
     CHECK(quad.y0 == doctest::Approx(20.0f + (-10.0f)));
 }
+
+TEST_CASE("DFFontAtlas: advance-only region steps the cursor without emitting a quad")
+{
+    DFFontAtlas atlas;
+    Array<u8> pixels(64 * 64 * 4);
+    atlas.SetPixels(64, 64, Move(pixels));
+
+    atlas.SetRegion(static_cast<i32>(' '), AtlasRegion(0, 0, 0, 0, 0.0f, 0.0f, 13.0f));
+
+    f32 cursorX = 10.0f;
+    GlyphQuad quad{};
+    CHECK_FALSE(atlas.GetGlyphQuad(static_cast<i32>(' '), cursorX, 20.0f, quad));
+    CHECK(cursorX == doctest::Approx(23.0f)); // advanced despite drawing nothing
+
+    CHECK_FALSE(atlas.GetGlyphQuadAt(static_cast<i32>(' '), 10.0f, 20.0f, quad));
+}

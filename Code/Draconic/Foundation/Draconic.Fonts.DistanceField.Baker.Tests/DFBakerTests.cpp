@@ -178,3 +178,41 @@ TEST_CASE("df.baker: descender glyphs keep their tail (g/q not clipped like a)")
     DefaultAllocator().Delete(msdf);
     DefaultAllocator().Delete(font);
 }
+
+TEST_CASE("df.baker: blank glyphs (space) get an advance-only region")
+{
+    IFont* font = LoadRoboto();
+    REQUIRE(font != nullptr);
+
+    FontLoadOptions df = FontLoadOptions::DistanceField();
+    df.pixelHeight = 48.0f;
+    df.firstCodepoint = 32; // include space
+    df.lastCodepoint = 126;
+    df.atlasWidth = df.atlasHeight = 1024;
+    DFFontAtlasBaker dfBaker;
+    Result<IFontAtlas*, FontLoadResult> dfR = dfBaker.Bake(*font, df);
+    REQUIRE(dfR.HasValue());
+    IFontAtlas* atlas = dfR.Value();
+
+    // Space has no outline but MUST carry its advance, or cursor-walk draw paths
+    // render "hello world" as "helloworld".
+    AtlasRegion space;
+    REQUIRE(atlas->TryGetRegion(' ', space));
+    CHECK(space.IsEmpty());       // nothing to draw
+    CHECK(space.advanceX > 0.0f); // but the cursor steps
+
+    // GetGlyphQuad on it: cursor advances, nothing is emitted.
+    f32 cursorX = 10.0f;
+    GlyphQuad quad{};
+    CHECK_FALSE(atlas->GetGlyphQuad(' ', cursorX, 20.0f, quad));
+    CHECK(cursorX == doctest::Approx(10.0f + space.advanceX));
+
+    // The advance matches the font's own metric for space, rescaled from the font's
+    // parse size to the 48px bake.
+    const f32 toBakeScale = 48.0f / font->PixelHeight();
+    CHECK(space.advanceX ==
+          doctest::Approx(font->GetGlyphInfo(' ').advanceWidth * toBakeScale).epsilon(0.02));
+
+    DefaultAllocator().Delete(atlas);
+    DefaultAllocator().Delete(font);
+}

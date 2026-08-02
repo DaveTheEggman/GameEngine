@@ -219,8 +219,13 @@ namespace
         [[nodiscard]] Float2 WhitePixelUV() const override { return Float2(0.5f, 0.5f); }
         [[nodiscard]] AtlasMode Mode() const override { return AtlasMode::DistanceField; }
         [[nodiscard]] f32 DistanceFieldRange() const override { return 4.0f; }
-        [[nodiscard]] bool TryGetRegion(i32, AtlasRegion& region) const override
+        [[nodiscard]] bool TryGetRegion(i32 codepoint, AtlasRegion& region) const override
         {
+            if (codepoint == ' ') // advance-only whitespace region
+            {
+                region = AtlasRegion(0, 0, 0, 0, 0.0f, 0.0f, 12.0f);
+                return true;
+            }
             region = AtlasRegion(10, 20, 30, 40, 3.0f, -24.0f, 20.0f);
             return true;
         }
@@ -311,4 +316,10 @@ TEST_CASE("fonts.scaledViews: atlas view scales geometry, keeps texels + UVs + D
     REQUIRE(view.GetGlyphQuadAt('A', 10.0f, 10.0f, quad));
     CHECK(quad.x0 == doctest::Approx(11.5f));
     CHECK(quad.y0 == doctest::Approx(-2.0f)); // 10 - 24*0.5
+
+    // Whitespace: the advance-only region steps the cursor (scaled), emits nothing.
+    cursorX = 100.0f;
+    CHECK_FALSE(view.GetGlyphQuad(' ', cursorX, 50.0f, quad));
+    CHECK(cursorX == doctest::Approx(106.0f)); // 12 * 0.5
+    CHECK_FALSE(view.GetGlyphQuadAt(' ', 10.0f, 10.0f, quad));
 }

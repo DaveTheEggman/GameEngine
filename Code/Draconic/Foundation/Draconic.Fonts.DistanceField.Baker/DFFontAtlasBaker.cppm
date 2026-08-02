@@ -132,6 +132,18 @@ export namespace draconic::fonts
                 if (glyphIdx <= 0)
                     continue;
 
+                // Blank glyphs (space, NBSP - no outline) still carry an advance. Record an
+                // advance-only region or the cursor-walk draw paths, which step by
+                // region.advanceX, render "hello world" as "helloworld". The raster baker
+                // gets this for free from stb's packed chars.
+                const auto addAdvanceOnlyRegion = [&](i32 codepoint, int glyphIndex)
+                {
+                    int advW, lsb;
+                    stbtt_GetGlyphHMetrics(&stbFont, glyphIndex, &advW, &lsb);
+                    atlas->SetRegion(codepoint, AtlasRegion(0, 0, 0, 0, 0.0f, 0.0f,
+                                                            static_cast<f32>(advW) * scale));
+                };
+
                 // Get pixel-space bitmap box from stb (Y-down screen coords, consistent
                 // with stb's scale). Also get font-unit bbox for the msdfgen projection.
                 int ix0, iy0, ix1, iy1;
@@ -139,7 +151,10 @@ export namespace draconic::fonts
 
                 int fuX0, fuY0, fuX1, fuY1;
                 if (!stbtt_GetGlyphBox(&stbFont, glyphIdx, &fuX0, &fuY0, &fuX1, &fuY1))
+                {
+                    addAdvanceOnlyRegion(cp, glyphIdx);
                     continue;
+                }
 
                 const f64 s = static_cast<f64>(scale);
                 const i32 pad = static_cast<i32>(padding);
@@ -147,7 +162,10 @@ export namespace draconic::fonts
                 const i32 glyphW = ix1 - ix0;
                 const i32 glyphH = iy1 - iy0;
                 if (glyphW <= 0 || glyphH <= 0)
+                {
+                    addAdvanceOnlyRegion(cp, glyphIdx);
                     continue;
+                }
 
                 // Cell = glyph + padding on each side + 1px safety margin.
                 const i32 cellW = glyphW + pad * 2 + 2;

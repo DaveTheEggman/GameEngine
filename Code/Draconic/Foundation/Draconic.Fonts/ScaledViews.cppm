@@ -146,6 +146,13 @@ export namespace draconic::fonts
                 quad = GlyphQuad();
                 return false;
             }
+            // Advance-only regions (whitespace): step the cursor, nothing to draw.
+            if (region.IsEmpty())
+            {
+                quad = GlyphQuad();
+                cursorX += region.advanceX * m_scale;
+                return false;
+            }
             BuildQuad(region, cursorX, cursorY, quad);
             cursorX += region.advanceX * m_scale;
             return true;
@@ -155,7 +162,7 @@ export namespace draconic::fonts
                                           GlyphQuad& quad) const override
         {
             AtlasRegion region;
-            if (!m_base->TryGetRegion(codepoint, region))
+            if (!m_base->TryGetRegion(codepoint, region) || region.IsEmpty())
             {
                 quad = GlyphQuad();
                 return false;
