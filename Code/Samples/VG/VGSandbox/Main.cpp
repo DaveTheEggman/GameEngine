@@ -58,9 +58,13 @@ protected:
     Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
+    void OnResize(u32 width, u32 height) override;
 
 private:
     static constexpr u32 kFrames = 2;
+
+    [[nodiscard]] bool CreateQualityTargets();
+    void DestroyQualityTargets();
 
     void DrawScene(vg::VGContext& vgc, f32 w, f32 h, f32 t);
     void DrawLineWidths(vg::VGContext& vgc, f32 x, f32 y);
@@ -98,6 +102,7 @@ private:
     rhi::TextureView* m_msaaColorView = nullptr;
     rhi::Texture* m_depthStencil = nullptr;
     rhi::TextureView* m_depthStencilView = nullptr;  // per-pixel conic gradient fragment shader
+    bool m_quality = false; // renderer initialized with 4x MSAA + stencil (see OnInit)
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
     u64 m_fenceVal = 0;
@@ -144,32 +149,14 @@ Status VGSandbox::OnInit()
         return ErrorCode::Unknown;
 
     // Quality targets: 4x MSAA + stencil. Failure (unlikely on desktop) falls back to
-    // the plain single-sampled pass with tessellated fills.
+    // the plain single-sampled pass with tessellated fills. Recreated at the window
+    // size by OnResize (the framework idles the device + resizes the swapchain first).
     vg::renderer::VGTargetConfig targetConfig;
+    if (CreateQualityTargets())
     {
-        rhi::TextureDesc cd = rhi::TextureDesc::RenderTarget(m_swapChain->Format(), m_width,
-                                                             m_height);
-        cd.sampleCount = 4;
-        cd.label = u8"VG MSAA color";
-        rhi::TextureDesc dd{};
-        dd.dimension = rhi::TextureDimension::Texture2D;
-        dd.format = rhi::TextureFormat::Depth24PlusStencil8;
-        dd.width = m_width;
-        dd.height = m_height;
-        dd.depth = 1;
-        dd.usage = rhi::TextureUsage::DepthStencil;
-        dd.sampleCount = 4;
-        dd.label = u8"VG stencil";
-        if (m_device->CreateTexture(cd, m_msaaColor).IsOk() &&
-            m_device->CreateTexture(dd, m_depthStencil).IsOk() &&
-            m_device->CreateTextureView(m_msaaColor, rhi::TextureViewDesc{}, m_msaaColorView)
-                .IsOk() &&
-            m_device->CreateTextureView(m_depthStencil, rhi::TextureViewDesc{}, m_depthStencilView)
-                .IsOk())
-        {
-            targetConfig.sampleCount = 4;
-            targetConfig.depthStencilFormat = rhi::TextureFormat::Depth24PlusStencil8;
-        }
+        m_quality = true;
+        targetConfig.sampleCount = 4;
+        targetConfig.depthStencilFormat = rhi::TextureFormat::Depth24PlusStencil8;
     }
 
     if (!m_renderer
@@ -927,6 +914,8 @@ void VGSandbox::OnRender()
 {
     if (m_fenceVal > 0)
         m_fence->Wait(m_fenceVal, ~0ull);
+    if (m_quality && m_msaaColorView == nullptr)
+        return; // resize recreate failed - the 4x pipelines cannot draw a 1x pass
     if (m_swapChain->AcquireNextImage() != ErrorCode::Ok)
         return;
 
@@ -999,11 +988,34 @@ void VGSandbox::OnRender()
     m_frameIndex = (m_frameIndex + 1) % kFrames;
 }
 
-void VGSandbox::OnShutdown()
+bool VGSandbox::CreateQualityTargets()
 {
-    if (m_device)
-        m_device->WaitIdle();
-    m_renderer.Dispose();
+    rhi::TextureDesc cd = rhi::TextureDesc::RenderTarget(m_swapChain->Format(), m_width, m_height);
+    cd.sampleCount = 4;
+    cd.label = u8"VG MSAA color";
+    rhi::TextureDesc dd{};
+    dd.dimension = rhi::TextureDimension::Texture2D;
+    dd.format = rhi::TextureFormat::Depth24PlusStencil8;
+    dd.width = m_width;
+    dd.height = m_height;
+    dd.depth = 1;
+    dd.usage = rhi::TextureUsage::DepthStencil;
+    dd.sampleCount = 4;
+    dd.label = u8"VG stencil";
+    if (m_device->CreateTexture(cd, m_msaaColor).IsOk() &&
+        m_device->CreateTexture(dd, m_depthStencil).IsOk() &&
+        m_device->CreateTextureView(m_msaaColor, rhi::TextureViewDesc{}, m_msaaColorView).IsOk() &&
+        m_device->CreateTextureView(m_depthStencil, rhi::TextureViewDesc{}, m_depthStencilView)
+            .IsOk())
+    {
+        return true;
+    }
+    DestroyQualityTargets();
+    return false;
+}
+
+void VGSandbox::DestroyQualityTargets()
+{
     if (m_msaaColorView)
         m_device->DestroyTextureView(m_msaaColorView);
     if (m_msaaColor)
@@ -1012,6 +1024,30 @@ void VGSandbox::OnShutdown()
         m_device->DestroyTextureView(m_depthStencilView);
     if (m_depthStencil)
         m_device->DestroyTexture(m_depthStencil);
+    m_msaaColor = nullptr;
+    m_msaaColorView = nullptr;
+    m_depthStencil = nullptr;
+    m_depthStencilView = nullptr;
+}
+
+void VGSandbox::OnResize(u32 /*width*/, u32 /*height*/)
+{
+    // The framework already idled the device and resized the swapchain; the MSAA +
+    // stencil targets must follow it or the old-size resolve leaves the grown window
+    // region black. The renderer's 4x pipelines are size-agnostic - only the targets go.
+    if (!m_quality)
+        return;
+    DestroyQualityTargets();
+    if (!CreateQualityTargets())
+        ConsoleWrite(u8"VGSandbox: quality target recreate FAILED - skipping frames\n");
+}
+
+void VGSandbox::OnShutdown()
+{
+    if (m_device)
+        m_device->WaitIdle();
+    m_renderer.Dispose();
+    DestroyQualityTargets();
     m_vg.Reset();
     fonts::DFFonts::Shutdown();
     m_fontService.Reset();
