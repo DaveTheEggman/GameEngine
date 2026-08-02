@@ -90,6 +90,7 @@ export namespace draconic::particles
             if (m_renderer->Initialize().IsOk())
             {
                 m_billboardRendererId = m_render->RegisterRenderer(*m_renderer);
+                m_renderer->SetRetireQueue(m_render->RetireQueue()); // web-safe ring grows
             }
             else
             {

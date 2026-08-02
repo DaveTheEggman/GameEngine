@@ -219,6 +219,14 @@ export namespace draconic::render
         UniquePtr<ClusterSystem> m_clusterSystem;
         UniquePtr<TonemapPass> m_tonemapPass;
         UniquePtr<ShadowSystem> m_shadowSystem;
+
+    public:
+        /// The frames-in-flight retire queue external renderers (particles, ...) wire
+        /// their DynamicUniformRings into - grow-path replacements must retire, never
+        /// WaitIdle mid-frame (the web dropped-submit class).
+        [[nodiscard]] GpuRetireQueue* RetireQueue() noexcept { return &m_retireQueue; }
+
+    private:
         GpuRetireQueue m_retireQueue; // frames-in-flight deferred GPU destruction (web-safe grows)
         UniquePtr<IBLSystem> m_iblSystem;
         UniquePtr<ReflectionProbeSystem> m_probeSystem;

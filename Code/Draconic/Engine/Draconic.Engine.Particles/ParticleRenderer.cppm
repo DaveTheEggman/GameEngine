@@ -375,6 +375,17 @@ export namespace draconic::particles
             m_viewRing.EndFrame();
         }
 
+        /// Wire the render subsystem's frames-in-flight retire queue: the rings then
+        /// RETIRE their old buffer on grow instead of a mid-frame WaitIdle (which on web
+        /// pumps the event loop, expires the canvas texture, and drops the frame's
+        /// submit - the exact waiter the tripwire stack named in PrepareFrame).
+        void SetRetireQueue(render::GpuRetireQueue* retire) noexcept
+        {
+            m_instanceRing.SetRetireQueue(retire);
+            m_trailRing.SetRetireQueue(retire);
+            m_viewRing.SetRetireQueue(retire);
+        }
+
     private:
         static constexpr u32 kMaxViews = 8;
         static constexpr u64 kViewSlotSize =
