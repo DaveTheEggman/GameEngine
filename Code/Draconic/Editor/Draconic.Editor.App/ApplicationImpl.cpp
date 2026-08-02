@@ -767,8 +767,9 @@ namespace draconic::editor::app
         }
         if (m_resources)
         {
-            m_resources->CollectGarbage();
-        } // release hot-reloaded-away products
+            m_resources->Pump();          // finalize async resource loads (task #123)
+            m_resources->CollectGarbage(); // release hot-reloaded-away products
+        }
 
         // OS file drops -> the import pipeline (any editor window; imports land in the
         // Assets panel's selected group).
@@ -2100,8 +2101,10 @@ namespace draconic::editor::app
         // Per-project resources over the cooked DB, late-attached to the embedded runtime
         // (which also registers its standard factories into the manager - the same set a
         // preset manager receives at its startup).
-        m_resources = MakeUnique<draconic::resource::ResourceManager>(DefaultAllocator(),
-                                                                      m_project->CookedDb());
+        // Share the global JobSystem for async resource decode (task #123); null = sync loads.
+        m_resources = MakeUnique<draconic::resource::ResourceManager>(
+            DefaultAllocator(), m_project->CookedDb(),
+            HasGlobalJobSystem() ? &GlobalJobs() : nullptr);
         for (const auto& factory : m_resourceFactories)
         {
             m_resources->AddFactory(factory.Get());

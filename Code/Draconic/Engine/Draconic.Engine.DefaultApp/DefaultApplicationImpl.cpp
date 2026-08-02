@@ -66,6 +66,16 @@ namespace draconic::runtime
 {
     void DefaultApplication::OnUpdate(IApplicationHost& host, core::f32 deltaTime)
     {
+        // Finalize any async resource loads first, so this frame's spawns/ticks see ready
+        // resources (task #123). Pump ONLY the manager this app OWNS: when this DefaultApplication
+        // is embedded in the editor it BORROWS the editor's manager (m_ownedResources stays null),
+        // and the editor pumps that manager itself - pumping it here too would double-pump.
+        // Inert until a factory migrates to the async path.
+        if (m_ownedResources)
+        {
+            m_ownedResources->Pump();
+        }
+
         // Drive + tick EVERY instance (primary + any extras - multi-instance PIE / headless server).
         // Input FIRST (so the game script sees this frame's keys), then the run host clock, then tick.
         const core::f32 contextScale = host.Ctx().TimeScale();
@@ -340,8 +350,11 @@ namespace draconic::runtime
 
         if (m_borrowedResources == nullptr && m_contentDatabase != nullptr)
         {
+            // Share the global JobSystem so migrated factories can decode off the main thread
+            // (async resource loading, task #123); null when there is no pool = synchronous loads.
             m_ownedResources = core::MakeUnique<draconic::resource::ResourceManager>(
-                core::DefaultAllocator(), *m_contentDatabase);
+                core::DefaultAllocator(), *m_contentDatabase,
+                core::HasGlobalJobSystem() ? &core::GlobalJobs() : nullptr);
         }
         draconic::resource::ResourceManager* resources = Resources();
         if (resources == nullptr)
