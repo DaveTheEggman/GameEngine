@@ -51,11 +51,10 @@ using namespace draconic::core;
 namespace draconic::editor::app
 {
     // Editor text rendering: false = the classic per-size raster ramp; true = MSDF
-    // distance-field atlases (one 48px bake per family). NOTE the DF path is NOT ready for
-    // transparent UI use yet - it needs per-size scaled font views in the font service and
-    // DF handling in VGContext::DrawPositionedGlyphs; until then text renders at the baked
-    // 48px and shaped runs sample the raw MSDF texture (rainbow glyphs).
-    constexpr bool kUseDistanceFieldFonts = false;
+    // distance-field atlases (one 48px bake per family, served at every requested size
+    // through per-size scaled font views; VGContext draws glyph runs through the
+    // distance-field pipeline). Flip back to false to restore the raster ramp.
+    constexpr bool kUseDistanceFieldFonts = true;
 
     draconic::editor::EditorProject* EditorApplication::Project() const noexcept
     {
