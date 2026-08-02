@@ -122,9 +122,14 @@ export namespace draconic::ui
                 SVGDrawable::Draw(ctx, bounds); // live vector fallback
                 return;
             }
-            // Nearest baked size to the requested extent; ties prefer the LARGER bake
-            // (downscale softens, upscale blurs).
-            const f32 want = Max(bounds.width, bounds.height);
+            // Nearest baked size to the DEVICE-pixel extent (bounds are logical; the VG
+            // transform carries any DPI scale, and bake sizes are device pixels). Ties
+            // prefer the LARGER bake (downscale softens, upscale blurs).
+            const Float4x4& m = ctx.VG().GetTransform();
+            const f32 sx = Length(Float2{m(0, 0), m(0, 1)});
+            const f32 sy = Length(Float2{m(1, 0), m(1, 1)});
+            const f32 scale = Max(0.0001f, Max(sx, sy));
+            const f32 want = Max(bounds.width, bounds.height) * scale;
             const BakedVariant* best = &m_variants[0];
             for (const BakedVariant& v : m_variants)
             {

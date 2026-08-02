@@ -390,6 +390,10 @@ export namespace draconic::editor::app
         // SetAdapter(nullptr) in its dtor), which is a use-after-free once the host is gone.
         // ASAN caught exactly that with the previous declared-last ordering.
         UniquePtr<ui::runtime::UIHost> m_uiHost;
+        // Icon bake state: the content scale the icon set was last baked for (OnUpdate
+        // re-bakes when the main window's scale drifts - monitor moves, OS scale change).
+        void BakeEditorIcons(f32 contentScale);
+        f32 m_iconBakeScale = 0.0f;
         UniquePtr<ProjectManagerView> m_managerView; // built on first EnterManagerMode
         bool m_seedAfterOpen = false; // starter-content request from CreateFromManager
         bool m_inManagerMode = false;

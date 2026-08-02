@@ -235,12 +235,7 @@ namespace draconic::editor::app
         // replacing the per-tab line-drawn X.
         {
             EditorIcons& icons = EditorIcons::Get();
-            const draconic::core::u32 bakeSizes[] = {12, 14, 16, 20, 24, 32};
-            const auto bakeable = icons.Bakeable();
-            (void)m_uiHost->BakeSvgDrawables(
-                draconic::core::Span<draconic::ui::BakedSVGDrawable* const>(bakeable.Data(),
-                                                                            bakeable.Size()),
-                draconic::core::Span<const draconic::core::u32>(bakeSizes, 6));
+            BakeEditorIcons(mainRw->Window().ContentScale());
             if (icons.close)
             {
                 icons.close->TintColor =
@@ -587,6 +582,21 @@ namespace draconic::editor::app
 
     void EditorApplication::OnUpdate(runtime::IApplicationHost& host, f32 dt)
     {
+        // DPI drift: the window moved to a monitor with a different content scale (or the
+        // OS scale changed) - re-bake the icon set at the new device sizes so icons stay
+        // 1:1-texel crisp instead of bilinear-scaled from the old bake.
+        if (m_uiHost)
+        {
+            if (graphics::RenderWindow* mainRw = host.MainRenderWindow())
+            {
+                const f32 scale = mainRw->Window().ContentScale();
+                if (scale > 0.1f && Abs(scale - m_iconBakeScale) > 0.01f)
+                {
+                    BakeEditorIcons(scale);
+                }
+            }
+        }
+
         // Drive the embedded runtime's frame lanes FIRST: per-scene fixed stepping runs
         // in BeginFrame, physics interpolation in Update - pages then read fresh state.
         // (EndFrame closes in OnRenderWindow after the scene bracket.) Mirrors the middle
@@ -2545,6 +2555,33 @@ namespace draconic::editor::app
         }
         (void)SaveProjectEditorSettings(*m_projectEditorSettings,
                                         m_project->EditorStateRoot().AsView());
+    }
+
+    // Bake (or RE-bake, on a DPI change) the editor icon set at chrome sizes scaled to
+    // device pixels. Old atlases stay owned by the UIHost until shutdown - re-bakes are
+    // rare (monitor moves), the atlases are small, and in-flight frames may still sample
+    // the previous one.
+    void EditorApplication::BakeEditorIcons(f32 contentScale)
+    {
+        EditorIcons& icons = EditorIcons::Get();
+        const f32 scale = (contentScale > 0.1f) ? contentScale : 1.0f;
+        const draconic::core::u32 kBaseSizes[] = {12, 14, 16, 20, 24, 32};
+        draconic::core::Array<draconic::core::u32> sizes;
+        for (draconic::core::u32 base : kBaseSizes)
+        {
+            const draconic::core::u32 scaled = static_cast<draconic::core::u32>(
+                static_cast<f32>(base) * scale + 0.5f);
+            if (sizes.IsEmpty() || sizes[sizes.Size() - 1] != scaled)
+            {
+                sizes.PushBack(scaled);
+            }
+        }
+        const auto bakeable = icons.Bakeable();
+        (void)m_uiHost->BakeSvgDrawables(
+            draconic::core::Span<draconic::ui::BakedSVGDrawable* const>(bakeable.Data(),
+                                                                        bakeable.Size()),
+            draconic::core::Span<const draconic::core::u32>(sizes.Data(), sizes.Size()));
+        m_iconBakeScale = scale;
     }
 
     void EditorApplication::BuildMenus()
