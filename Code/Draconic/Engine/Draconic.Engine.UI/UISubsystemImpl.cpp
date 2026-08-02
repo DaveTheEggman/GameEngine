@@ -1273,12 +1273,18 @@ namespace draconic::ui
                     else
                     {
                         // Pixels in VIEWPORT space: the scene root lays out at the viewport
-                        // size and the VG viewport seam places it at the view's rect.
+                        // size and the VG viewport seam places it at the view's rect. The
+                        // plate hangs BOTTOM-CENTERED on the projected point (and scales
+                        // toward it - Origin below), so it hovers over the anchor instead
+                        // of sliding off to the lower-right as distance changes. First
+                        // frame uses a 0x0 unlaid-out size; it converges next frame.
                         const f32 ndcX = clip.x / clip.w;
                         const f32 ndcY = clip.y / clip.w;
-                        lp->X = (ndcX * 0.5f + 0.5f) * static_cast<f32>(view.viewportWidth);
-                        lp->Y =
+                        const f32 px = (ndcX * 0.5f + 0.5f) * static_cast<f32>(view.viewportWidth);
+                        const f32 py =
                             (1.0f - (ndcY * 0.5f + 0.5f)) * static_cast<f32>(view.viewportHeight);
+                        lp->X = px - c.root->Width() * 0.5f;
+                        lp->Y = py - c.root->Height();
                     }
                     f32 scale = 1.0f;
                     if (c.scaleMode == BillboardScale::Distance)
@@ -1290,6 +1296,9 @@ namespace draconic::ui
                         scale = Clamp(c.referenceDistance / distance, c.minScale, c.maxScale);
                     }
                     c.root->Transform.Scale = Float2{scale, scale};
+                    // Distance scaling shrinks/grows toward the ANCHOR (bottom-center),
+                    // matching the placement above.
+                    c.root->Transform.Origin = Float2{0.5f, 1.0f};
                 });
         }
     }
