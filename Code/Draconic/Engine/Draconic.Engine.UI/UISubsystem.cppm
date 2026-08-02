@@ -547,7 +547,7 @@ export namespace draconic::ui
         // (split-screen sub-rect views); (0,0) for whole-target draws.
         void DrawRootInPass(RootView& root, rhi::RenderPassEncoder& encoder,
                             rhi::TextureFormat format, i32 viewportX, i32 viewportY, u32 width,
-                            u32 height, i32 frameIndex);
+                            u32 height, i32 frameIndex, bool stencilCapable = false);
 
         String m_fontPath;
         UIContext m_context;

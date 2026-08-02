@@ -163,6 +163,9 @@ namespace draconic::ui
         struct FormatRenderer
         {
             rhi::TextureFormat format = rhi::TextureFormat::RGBA8Unorm;
+            bool stencil = false; // stencil-configured variant (canvas passes carry a DS
+                                  // attachment; overlay passes are host-owned color-only,
+                                  // and pipelines must match their pass)
             UniquePtr<vg::renderer::VGRenderer> renderer;
             u64 begunSerial = 0; // last UI frame this renderer's ring was reset for
         };
@@ -177,12 +180,18 @@ namespace draconic::ui
             scene::EntityHandle entity{};
             rhi::Texture* texture = nullptr;
             rhi::TextureView* view = nullptr;
+            // Stencil attachment for stencil-then-cover fills in canvas UI (null when the
+            // device offers no stencil format - the canvas falls back to tessellated fills).
+            rhi::Texture* depthStencil = nullptr;
+            rhi::TextureView* depthStencilView = nullptr;
             u32 width = 0;
             u32 height = 0;
             rhi::ResourceState state = rhi::ResourceState::Undefined;
             bool seen = false;
         };
         Array<CanvasTarget> canvasTargets;
+        // Probed once in EnsureRenderReady; Undefined = device offers no stencil format.
+        rhi::TextureFormat canvasStencilFormat = rhi::TextureFormat::Undefined;
 
         explicit RenderState(draconic::fonts::IFontService* fonts) : vgContext(fonts) {}
 
@@ -229,8 +238,18 @@ namespace draconic::ui
                 {
                     device->DestroyTexture(found->texture);
                 }
+                if (found->depthStencilView != nullptr)
+                {
+                    device->DestroyTextureView(found->depthStencilView);
+                }
+                if (found->depthStencil != nullptr)
+                {
+                    device->DestroyTexture(found->depthStencil);
+                }
                 found->texture = nullptr;
                 found->view = nullptr;
+                found->depthStencil = nullptr;
+                found->depthStencilView = nullptr;
             }
             if (found == nullptr)
             {
@@ -258,6 +277,34 @@ namespace draconic::ui
                     found->view = nullptr;
                     return nullptr;
                 }
+                // Stencil twin (same size; skipped when no stencil format resolved).
+                if (canvasStencilFormat != rhi::TextureFormat::Undefined)
+                {
+                    rhi::TextureDesc dsDesc{};
+                    dsDesc.dimension = rhi::TextureDimension::Texture2D;
+                    dsDesc.format = canvasStencilFormat;
+                    dsDesc.width = width;
+                    dsDesc.height = height;
+                    dsDesc.depth = 1;
+                    dsDesc.usage = rhi::TextureUsage::DepthStencil;
+                    dsDesc.label = u8"UICanvasStencil";
+                    if (device->CreateTexture(dsDesc, found->depthStencil).IsOk())
+                    {
+                        if (!device
+                                 ->CreateTextureView(found->depthStencil, rhi::TextureViewDesc{},
+                                                     found->depthStencilView)
+                                 .IsOk())
+                        {
+                            device->DestroyTexture(found->depthStencil);
+                            found->depthStencil = nullptr;
+                            found->depthStencilView = nullptr;
+                        }
+                    }
+                    else
+                    {
+                        found->depthStencil = nullptr;
+                    }
+                }
                 found->width = width;
                 found->height = height;
                 found->state = rhi::ResourceState::Undefined;
@@ -282,6 +329,14 @@ namespace draconic::ui
                 {
                     device->DestroyTexture(target.texture);
                 }
+                if (target.depthStencilView != nullptr)
+                {
+                    device->DestroyTextureView(target.depthStencilView);
+                }
+                if (target.depthStencil != nullptr)
+                {
+                    device->DestroyTexture(target.depthStencil);
+                }
             }
             canvasTargets.RemoveAt(index);
         }
@@ -292,12 +347,13 @@ namespace draconic::ui
         // draw would clobber the slices of draws recorded earlier in the SAME frame
         // (scene overlay + screen overlay + preview all share a format's renderer now).
         [[nodiscard]] vg::renderer::VGRenderer* RendererFor(rhi::TextureFormat format,
-                                                            u64 frameSerial, i32 frameIndex)
+                                                            u64 frameSerial, i32 frameIndex,
+                                                            bool stencil = false)
         {
             FormatRenderer* found = nullptr;
             for (auto& entry : renderers)
             {
-                if (entry.format == format)
+                if (entry.format == format && entry.stencil == stencil)
                 {
                     found = &entry;
                     break;
@@ -309,16 +365,22 @@ namespace draconic::ui
                 {
                     return nullptr;
                 }
+                vg::renderer::VGTargetConfig targetConfig;
+                if (stencil)
+                {
+                    targetConfig.depthStencilFormat = canvasStencilFormat;
+                }
                 auto renderer = MakeUnique<vg::renderer::VGRenderer>(DefaultAllocator());
                 if (!renderer
                          ->Initialize(*device, *vertexShader, *fragmentShader, format, frameCount,
-                                      dfShader, gradRadialShader, gradConicShader)
+                                      dfShader, gradRadialShader, gradConicShader, targetConfig)
                          .IsOk())
                 {
                     return nullptr;
                 }
                 FormatRenderer entry;
                 entry.format = format;
+                entry.stencil = stencil;
                 entry.renderer = Move(renderer);
                 renderers.PushBack(Move(entry));
                 found = &renderers[renderers.Size() - 1];
@@ -1288,21 +1350,27 @@ namespace draconic::ui
     // (m_frameSerial) so same-frame draws never clobber each other.
     void UISubsystem::DrawRootInPass(RootView& root, rhi::RenderPassEncoder& encoder,
                                      rhi::TextureFormat format, i32 viewportX, i32 viewportY,
-                                     u32 width, u32 height, i32 frameIndex)
+                                     u32 width, u32 height, i32 frameIndex, bool stencilCapable)
     {
         root.ViewportSize = Float2{static_cast<f32>(width), static_cast<f32>(height)};
         m_context.UpdateRootView(&root);
 
+        // The emission must match the pass this batch will render into: stencil-fill
+        // commands only when the target pass carries the DS attachment (canvas RTTs).
+        const bool stencil =
+            stencilCapable && m_render->canvasStencilFormat != rhi::TextureFormat::Undefined;
+        m_render->vgContext.SetStencilFills(stencil);
         m_render->vgContext.Clear();
         m_context.DrawRootView(&root, m_render->vgContext);
         vg::VGBatch& batch = m_render->vgContext.GetBatch();
+        m_render->vgContext.SetStencilFills(false); // overlay tiers stay tessellated
         if (batch.commands.IsEmpty())
         {
             return;
         }
 
         vg::renderer::VGRenderer* renderer =
-            m_render->RendererFor(format, m_frameSerial, frameIndex);
+            m_render->RendererFor(format, m_frameSerial, frameIndex, stencil);
         if (renderer == nullptr)
         {
             return;
@@ -1419,10 +1487,25 @@ namespace draconic::ui
                     color.storeOp = rhi::StoreOp::Store;
                     color.clearValue = rhi::ClearColor{0.0f, 0.0f, 0.0f, 0.0f};
                     pass.colorAttachments.Add(color);
+                    const bool canvasStencil = target->depthStencilView != nullptr;
+                    if (canvasStencil)
+                    {
+                        encoder.TransitionTexture(target->depthStencil,
+                                                  rhi::ResourceState::Undefined,
+                                                  rhi::ResourceState::DepthStencilWrite);
+                        rhi::DepthStencilAttachment ds;
+                        ds.view = target->depthStencilView;
+                        ds.depthLoadOp = rhi::LoadOp::Clear;
+                        ds.depthStoreOp = rhi::StoreOp::DontCare;
+                        ds.stencilLoadOp = rhi::LoadOp::Clear; // stencil-then-cover expects 0
+                        ds.stencilStoreOp = rhi::StoreOp::DontCare;
+                        ds.stencilClearValue = 0;
+                        pass.depthStencilAttachment = ds;
+                    }
                     if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass))
                     {
                         DrawRootInPass(*c.renderRoot, *rp, kCanvasTextureFormat, 0, 0, width,
-                                       height, frameIndex);
+                                       height, frameIndex, canvasStencil);
                         rp->End();
                     }
                     encoder.TransitionTexture(target->texture, rhi::ResourceState::RenderTarget,
@@ -1689,6 +1772,13 @@ namespace draconic::ui
         // predate them); otherwise every renderer + the context fall back to the affine LUT.
         m_render->vgContext.SetPerPixelGradients(m_render->gradRadialShader != nullptr &&
                                                  m_render->gradConicShader != nullptr);
+        // Stencil support for CANVAS render-to-texture passes (the only passes this
+        // subsystem OWNS - the scene/screen overlay passes belong to the renderer/host
+        // and stay color-only until they provide a DS attachment themselves). Canvas UI
+        // gets stencil-then-cover fill correctness; single-sampled, so complex-fill edges
+        // rely on fringe-less coverage (fine for UI shapes).
+        m_render->canvasStencilFormat =
+            vg::renderer::PickStencilCapableFormat(device, /*sampleCount*/ 1);
     }
 }
 

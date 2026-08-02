@@ -32,6 +32,36 @@ using namespace draconic::core;
 
 export namespace draconic::vg::renderer
 {
+    /// The stencil-capable depth-stencil format a device accepts at the given sample
+    /// count, probed with a tiny texture (Vulkan drivers commonly support only one of
+    /// D24S8 / D32S8). Undefined = none - the host skips the stencil config.
+    [[nodiscard]] inline draconic::rhi::TextureFormat
+    PickStencilCapableFormat(draconic::rhi::Device& device, draconic::core::u32 sampleCount)
+    {
+        namespace rhi = draconic::rhi;
+        const rhi::TextureFormat candidates[3] = {rhi::TextureFormat::Depth24PlusStencil8,
+                                                  rhi::TextureFormat::Depth32FloatStencil8,
+                                                  rhi::TextureFormat::Stencil8};
+        for (rhi::TextureFormat format : candidates)
+        {
+            rhi::TextureDesc desc{};
+            desc.dimension = rhi::TextureDimension::Texture2D;
+            desc.format = format;
+            desc.width = 4;
+            desc.height = 4;
+            desc.depth = 1;
+            desc.usage = rhi::TextureUsage::DepthStencil;
+            desc.sampleCount = sampleCount;
+            rhi::Texture* probe = nullptr;
+            if (device.CreateTexture(desc, probe).IsOk() && probe != nullptr)
+            {
+                device.DestroyTexture(probe);
+                return format;
+            }
+        }
+        return rhi::TextureFormat::Undefined;
+    }
+
     /// What the HOST's render target looks like. sampleCount > 1 = the host renders VG
     /// into an MSAA target (and resolves it itself); depthStencilFormat != Undefined =
     /// the pass carries that depth-stencil attachment (stencil cleared to 0 by the

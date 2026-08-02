@@ -227,7 +227,8 @@ export namespace draconic::ui::runtime
             // renderer's pipelines must match the pass, so the target config is decided
             // BEFORE Initialize; any creation failure falls back to the plain pass wholesale.
             data->device = m_device->Raw();
-            data->depthStencilFormat = PickDepthStencilFormat(*data->device);
+            data->depthStencilFormat = vg::renderer::PickStencilCapableFormat(
+                *data->device, UIWindowData::kMsaaSamples);
             const bool targetsOk =
                 data->CreateTargets(window->Swap()->Format(), window->Window().Width(),
                                     window->Window().Height());
@@ -808,32 +809,6 @@ export namespace draconic::ui::runtime
                 core::Move(out), image::ImageColorSpace::Srgb);
         }
 
-        /// The stencil-capable depth-stencil format this device accepts: probe with a tiny
-        /// texture (Vulkan drivers commonly support only one of D24S8 / D32S8).
-        [[nodiscard]] static rhi::TextureFormat PickDepthStencilFormat(rhi::Device& device)
-        {
-            const rhi::TextureFormat candidates[3] = {rhi::TextureFormat::Depth24PlusStencil8,
-                                                      rhi::TextureFormat::Depth32FloatStencil8,
-                                                      rhi::TextureFormat::Stencil8};
-            for (rhi::TextureFormat format : candidates)
-            {
-                rhi::TextureDesc desc{};
-                desc.dimension = rhi::TextureDimension::Texture2D;
-                desc.format = format;
-                desc.width = 4;
-                desc.height = 4;
-                desc.depth = 1;
-                desc.usage = rhi::TextureUsage::DepthStencil;
-                desc.sampleCount = UIWindowData::kMsaaSamples;
-                rhi::Texture* probe = nullptr;
-                if (device.CreateTexture(desc, probe).IsOk() && probe != nullptr)
-                {
-                    device.DestroyTexture(probe);
-                    return format;
-                }
-            }
-            return rhi::TextureFormat::Undefined;
-        }
 
         struct Attached
         {
