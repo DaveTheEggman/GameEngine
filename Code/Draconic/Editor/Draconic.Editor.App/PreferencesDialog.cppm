@@ -62,6 +62,41 @@ export namespace draconic::editor::app
             m_fontEdit->SetPlaceholder(u8"built-in (embedded fallback)");
             m_monoFontEdit = AddTextRow(*column, u8"Mono font (.ttf)", monoPath);
             m_monoFontEdit->SetPlaceholder(u8"built-in");
+            f32 uiScale = 1.0f;
+            if (const draconic::editor::EditorUiSettings* u =
+                    store.Find<draconic::editor::EditorUiSettings>())
+            {
+                uiScale = Clamp(u->uiScale, 1.0f, 2.0f);
+            }
+            {
+                ui::FlexLayout* row = AddRow(*column, u8"UI scale");
+                auto slider = MakeRef<ui::Slider>(DefaultAllocator());
+                slider->Min.SetValue(1.0f);
+                slider->Max.SetValue(2.0f);
+                slider->Step.SetValue(0.05f);
+                slider->Value.SetValue(uiScale);
+                m_uiScaleSlider = slider.Get();
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    lp->AlignSelf = ui::Align::Center;
+                    row->AddView(slider.Get(), lp);
+                }
+                auto valueLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"1.00x"));
+                valueLabel->FontSize.SetValue(11.0f);
+                m_uiScaleLabel = valueLabel.Get();
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(44));
+                    lp->AlignSelf = ui::Align::Center;
+                    row->AddView(valueLabel.Get(), lp);
+                }
+                UpdateScaleLabel(uiScale);
+                EditorPreferencesDialog* self = this;
+                slider->OnValueChanged.Add(
+                    ui::Event<void(ui::Slider*, f32)>::Handler{
+                        [self](ui::Slider*, f32 v) { self->UpdateScaleLabel(v); }});
+            }
             {
                 auto note = MakeRef<ui::Label>(DefaultAllocator(),
                                                StringView(u8"Font changes apply on restart."));
@@ -80,7 +115,21 @@ export namespace draconic::editor::app
             AddButton(u8"Cancel", ui::DialogResult::Cancel);
         }
 
+    public:
+        /// Fired on Apply with the new UI scale so the app can apply it LIVE (set the
+        /// host's scale + re-bake icons); the saved setting covers the next launch.
+        Function<void(f32)> OnUiScaleApplied;
+
     private:
+        void UpdateScaleLabel(f32 value)
+        {
+            if (m_uiScaleLabel != nullptr)
+            {
+                const i32 percent = static_cast<i32>(value * 100.0f + 0.5f);
+                m_uiScaleLabel->SetText(Format(u8"{}%", percent).AsView());
+            }
+        }
+
         // A labeled horizontal row (fixed-width label, callers append the field views).
         ui::FlexLayout* AddRow(ui::FlexLayout& column, StringView label)
         {
@@ -125,6 +174,13 @@ export namespace draconic::editor::app
             fontPrefs.fontPath = String(m_fontEdit->Text());
             fontPrefs.monoFontPath = String(m_monoFontEdit->Text());
             m_settings->MarkChanged<draconic::editor::EditorFontSettings>();
+            const f32 uiScale = Clamp(m_uiScaleSlider->Value.Value(), 1.0f, 2.0f);
+            m_settings->Section<draconic::editor::EditorUiSettings>().uiScale = uiScale;
+            m_settings->MarkChanged<draconic::editor::EditorUiSettings>();
+            if (OnUiScaleApplied)
+            {
+                OnUiScaleApplied(uiScale); // live: host scale + icon re-bake
+            }
             if (draconic::editor::SaveEditorSettingsToUserData(*m_settings).IsOk())
             {
                 m_context->SetStatus(u8"Preferences saved.");
@@ -142,6 +198,8 @@ export namespace draconic::editor::app
         ui::EditText* m_rootEdit = nullptr;
         ui::EditText* m_fontEdit = nullptr;
         ui::EditText* m_monoFontEdit = nullptr;
+        ui::Slider* m_uiScaleSlider = nullptr;
+        ui::Label* m_uiScaleLabel = nullptr;
     };
 
     DRACONIC_DEFINE_OBJECT(EditorPreferencesDialog, "draconic::editor::app")

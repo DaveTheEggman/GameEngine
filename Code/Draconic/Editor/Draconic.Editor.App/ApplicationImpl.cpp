@@ -235,7 +235,16 @@ namespace draconic::editor::app
         // replacing the per-tab line-drawn X.
         {
             EditorIcons& icons = EditorIcons::Get();
-            BakeEditorIcons(mainRw->Window().ContentScale());
+            // UI-scale preference: multiplies the OS content scale for the whole editor
+            // UI; also the way to exercise the DPI path without a scaled monitor.
+            f32 uiScale = 1.0f;
+            if (const editor::EditorUiSettings* uiPrefs =
+                    m_editorSettings.Find<editor::EditorUiSettings>())
+            {
+                uiScale = Clamp(uiPrefs->uiScale, 1.0f, 2.0f);
+            }
+            m_uiHost->SetUiScale(uiScale);
+            BakeEditorIcons(mainRw->Window().ContentScale() * uiScale);
             if (icons.close)
             {
                 icons.close->TintColor =
@@ -589,7 +598,7 @@ namespace draconic::editor::app
         {
             if (graphics::RenderWindow* mainRw = host.MainRenderWindow())
             {
-                const f32 scale = mainRw->Window().ContentScale();
+                const f32 scale = mainRw->Window().ContentScale() * m_uiHost->UiScale();
                 if (scale > 0.1f && Abs(scale - m_iconBakeScale) > 0.01f)
                 {
                     BakeEditorIcons(scale);
@@ -2693,6 +2702,18 @@ namespace draconic::editor::app
                               {
                                   auto dialog = MakeRef<EditorPreferencesDialog>(
                                       DefaultAllocator(), m_context, m_editorSettings);
+                                  // UI scale applies LIVE: host scale (roots pick it up
+                                  // next frame) + icon re-bake at the effective scale.
+                                  dialog->OnUiScaleApplied = [this](f32 uiScale)
+                                  {
+                                      m_uiHost->SetUiScale(uiScale);
+                                      graphics::RenderWindow* mainRw =
+                                          m_host != nullptr ? m_host->MainRenderWindow() : nullptr;
+                                      const f32 content =
+                                          mainRw != nullptr ? mainRw->Window().ContentScale()
+                                                            : 1.0f;
+                                      BakeEditorIcons(content * uiScale);
+                                  };
                                   dialog->Show(&m_uiHost->Context());
                               });
         }

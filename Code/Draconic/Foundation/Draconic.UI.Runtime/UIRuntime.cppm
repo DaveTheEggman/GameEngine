@@ -187,6 +187,12 @@ export namespace draconic::ui::runtime
         /// The shared UI context (set the theme / stylesheet on it, look up focus, etc.).
         [[nodiscard]] UIContext& Context() noexcept { return m_ctx; }
 
+        /// USER UI-scale factor multiplied onto every window's OS content scale (editor
+        /// preference / accessibility). Roots pick it up next Update; callers re-bake any
+        /// baked icon sets themselves at the new effective scale.
+        void SetUiScale(f32 scale) noexcept { m_uiScale = core::Clamp(scale, 0.5f, 3.0f); }
+        [[nodiscard]] f32 UiScale() const noexcept { return m_uiScale; }
+
         /// Background clear color behind the UI (the theme usually paints an opaque root over it).
         /// Takes the theme's color as authored (sRGB, like every UI color). The swapchain
         /// is an sRGB format, and pass CLEAR values are interpreted as LINEAR and hardware-
@@ -245,7 +251,7 @@ export namespace draconic::ui::runtime
                 core::DefaultAllocator(), m_shell->Input(), window->Window().Id(), fit);
 
             root->ViewportSize = core::Float2{w, h};
-            root->DpiScale = window->Window().ContentScale();
+            root->DpiScale = window->Window().ContentScale() * m_uiScale;
             m_ctx.AddRootView(root.Get());
             m_router->AddSurface(data->surface.Get());
             m_bridge->SetTextInputTarget(
@@ -401,6 +407,9 @@ export namespace draconic::ui::runtime
                 a.data->root->ViewportSize =
                     core::Float2{static_cast<f32>(a.window->Window().Width()),
                                  static_cast<f32>(a.window->Window().Height())};
+                // Effective scale = OS content scale x the user UI-scale preference;
+                // refreshed per frame so monitor moves and preference changes both land.
+                a.data->root->DpiScale = a.window->Window().ContentScale() * m_uiScale;
                 m_ctx.UpdateRootView(a.data->root.Get());
 
                 // Resize the VG quality targets with the window - here, OUTSIDE any open
@@ -746,6 +755,13 @@ export namespace draconic::ui::runtime
         DownsampleBake(const u8* pixels, u32 rowPitch, u32 atlasWidth, u32 atlasHeight,
                        u32 supersample)
         {
+            // 256-entry decode LUT: the box filter touches supersample^2 texels per output
+            // pixel; per-texel pow() would put the whole bake in the hundreds of ms.
+            f32 srgbToLinear[256];
+            for (u32 i = 0; i < 256; ++i)
+            {
+                srgbToLinear[i] = core::SrgbToLinear(static_cast<f32>(i) / 255.0f);
+            }
             core::Array<u8> out(static_cast<usize>(atlasWidth) * atlasHeight * 4u);
             const f32 invCount = 1.0f / static_cast<f32>(supersample * supersample);
             for (u32 y = 0; y < atlasHeight; ++y)
@@ -761,9 +777,9 @@ export namespace draconic::ui::runtime
                         for (u32 sx = 0; sx < supersample; ++sx)
                         {
                             const u8* texel = row + static_cast<usize>(sx) * 4u;
-                            r += core::SrgbToLinear(static_cast<f32>(texel[0]) / 255.0f);
-                            g += core::SrgbToLinear(static_cast<f32>(texel[1]) / 255.0f);
-                            b += core::SrgbToLinear(static_cast<f32>(texel[2]) / 255.0f);
+                            r += srgbToLinear[texel[0]];
+                            g += srgbToLinear[texel[1]];
+                            b += srgbToLinear[texel[2]];
                             a += static_cast<f32>(texel[3]) / 255.0f;
                         }
                     }
@@ -944,6 +960,7 @@ export namespace draconic::ui::runtime
         // Default near-black, stored LINEAR (matches an sRGB backbuffer's clear semantics).
         // Baked icon atlases (BakeSvgDrawables): drawables' variants borrow these.
         core::Array<core::UniquePtr<image::OwnedImageData>> m_bakedIconAtlases;
+        f32 m_uiScale = 1.0f; // user preference multiplier on the OS content scale
         rhi::ClearColor m_clear = rhi::ClearColor(0.006f, 0.006f, 0.009f, 1.0f);
     };
 }
