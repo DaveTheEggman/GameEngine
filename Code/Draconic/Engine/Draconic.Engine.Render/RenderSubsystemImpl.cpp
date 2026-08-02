@@ -540,6 +540,7 @@ namespace draconic::render
         if (m_spriteRenderer->Initialize().IsOk())
         {
             m_registry.Register(m_spriteRenderer.Get());
+            m_spriteRenderer->SetRetireQueue(&m_retireQueue);
         }
         else
         {
@@ -656,6 +657,10 @@ namespace draconic::render
         if (!m_decalPass->Initialize().IsOk())
         {
             m_decalPass.Reset();
+        }
+        if (m_decalPass)
+        {
+            m_decalPass->SetRetireQueue(&m_retireQueue);
         }
 
         // Debug draw (per-view gizmos + screen text). Optional.

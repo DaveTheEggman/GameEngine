@@ -15,6 +15,10 @@
 <body>
   <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
   <script type="text/javascript">
+    // Full C++ stacks in the mid-frame-wait tripwire: Chrome truncates Error.stack
+    // at 10 frames by default, which is exactly deep enough to reach WaitIdle and
+    // stop BEFORE the frame that names the actual caller.
+    Error.stackTraceLimit = 64;
     var Module = {
       canvas: (function () {
         var c = document.getElementById('canvas');

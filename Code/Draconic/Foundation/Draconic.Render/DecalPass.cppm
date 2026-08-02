@@ -79,6 +79,12 @@ export namespace draconic::render
                            const Float4x4& viewProj, u32 w, u32 h, i32 vpX, i32 vpY, u32 vpW,
                            u32 vpH);
 
+        /// Wire the frames-in-flight retire queue (web-safe ring grows). Null = drain.
+        void SetRetireQueue(GpuRetireQueue* retire) noexcept
+        {
+            m_decalRing.SetRetireQueue(retire);
+        }
+
     private:
         struct Draw
         {

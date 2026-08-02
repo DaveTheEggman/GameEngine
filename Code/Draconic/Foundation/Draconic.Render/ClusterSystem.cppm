@@ -85,7 +85,11 @@ export namespace draconic::render
                                     u32 frameIndex, u32 viewIndex);
 
         /// Wire the frames-in-flight retire queue (web-safe buffer grows). Null = drain.
-        void SetRetireQueue(GpuRetireQueue* retire) noexcept { m_retire = retire; }
+        void SetRetireQueue(GpuRetireQueue* retire) noexcept
+        {
+            m_retire = retire;
+            m_paramsRing.SetRetireQueue(retire);
+        }
 
     private:
         GpuRetireQueue* m_retire = nullptr; // borrowed; null = WaitIdle on grow

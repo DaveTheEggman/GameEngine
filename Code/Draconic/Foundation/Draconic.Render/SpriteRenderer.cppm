@@ -71,6 +71,13 @@ export namespace draconic::render
 
         void FinishFrame() override;
 
+        /// Wire the frames-in-flight retire queue (web-safe ring grows). Null = drain.
+        void SetRetireQueue(GpuRetireQueue* retire) noexcept
+        {
+            m_instanceRing.SetRetireQueue(retire);
+            m_viewRing.SetRetireQueue(retire);
+        }
+
     private:
         static constexpr u32 kMaxViews = 8;
         static constexpr u64 kViewSlotSize = 256; // 2x mat4 padded to the dynamic-uniform alignment
