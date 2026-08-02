@@ -226,9 +226,15 @@ Status VGSandbox::OnInit()
 
     // SVG badge + star icon.
     {
+        // The badge disc uses an SVG radial gradient (defs + url() reference) - the
+        // gradient pass-through's visible proof; the tinted copy must render FLAT.
         Result<vg::svg::SVGDocument> r = vg::svg::SVGLoader::Load(
             u8"<svg viewBox=\"0 0 100 100\">"
-            u8"<circle cx=\"50\" cy=\"50\" r=\"45\" fill=\"#2A6BC0\" stroke=\"#1A4A90\" "
+            u8"<defs><radialGradient id=\"disc\" cx=\"0.35\" cy=\"0.3\" r=\"0.8\">"
+            u8"<stop offset=\"0%\" stop-color=\"#5A9BE8\"/>"
+            u8"<stop offset=\"100%\" stop-color=\"#1E4E96\"/>"
+            u8"</radialGradient></defs>"
+            u8"<circle cx=\"50\" cy=\"50\" r=\"45\" fill=\"url(#disc)\" stroke=\"#1A4A90\" "
             u8"stroke-width=\"3\"/>"
             u8"<circle cx=\"50\" cy=\"50\" r=\"30\" fill=\"none\" stroke=\"#4A9AFF\" "
             u8"stroke-width=\"1.5\" opacity=\"0.6\"/>"

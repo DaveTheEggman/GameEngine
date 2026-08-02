@@ -58,14 +58,15 @@ export namespace draconic::vg::svg
                 }
             }
 
-            if (!ParseChildren(svgContent, pos, doc.elements).IsOk())
+            if (!ParseChildren(svgContent, pos, doc.elements, doc).IsOk())
                 return Err(ErrorCode::InvalidArgument);
 
             return doc;
         }
 
     private:
-        static Status ParseChildren(StringView content, usize& pos, Array<SVGElement>& elements)
+        static Status ParseChildren(StringView content, usize& pos, Array<SVGElement>& elements,
+                                    SVGDocument& doc)
         {
             while (pos < content.Size())
             {
@@ -83,7 +84,7 @@ export namespace draconic::vg::svg
                 }
 
                 const usize savedPos = pos;
-                if (!TryParseElement(content, pos, elements).IsOk())
+                if (!TryParseElement(content, pos, elements, doc).IsOk())
                 {
                     pos = savedPos;
                     SkipTag(content, pos);
@@ -92,7 +93,8 @@ export namespace draconic::vg::svg
             return ErrorCode::Ok;
         }
 
-        static Status TryParseElement(StringView content, usize& pos, Array<SVGElement>& elements)
+        static Status TryParseElement(StringView content, usize& pos, Array<SVGElement>& elements,
+                                      SVGDocument& doc)
         {
             if (pos >= content.Size() || content[pos] != u8'<')
                 return ErrorCode::InvalidArgument;
@@ -119,6 +121,7 @@ export namespace draconic::vg::svg
             const StringView tag = tagName.AsView();
             SVGElement element;
             bool recognized = true;
+            bool emit = true; // defs/gradients register on the DOCUMENT, not the tree
 
             if (EqualsIgnoreCase(tag, u8"path"))
             {
@@ -213,8 +216,53 @@ export namespace draconic::vg::svg
             {
                 element.type = SVGElementType::Group;
                 if (!isSelfClosing)
-                    ParseChildren(content, pos, element.children);
+                    ParseChildren(content, pos, element.children, doc);
                 SkipClosingTag(content, pos, u8"g");
+            }
+            else if (EqualsIgnoreCase(tag, u8"defs"))
+            {
+                // A definitions container: parse children so gradients register on the
+                // document, then drop everything (defs content is never rendered).
+                emit = false;
+                if (!isSelfClosing)
+                {
+                    Array<SVGElement> discarded;
+                    ParseChildren(content, pos, discarded, doc);
+                }
+                SkipClosingTag(content, pos, u8"defs");
+            }
+            else if (EqualsIgnoreCase(tag, u8"linearGradient") ||
+                     EqualsIgnoreCase(tag, u8"radialGradient"))
+            {
+                emit = false;
+                SVGGradient grad;
+                grad.radial = EqualsIgnoreCase(tag, u8"radialGradient");
+                if (grad.radial)
+                {
+                    grad.cx = CoordAttr(attrs, u8"cx", 0.5f);
+                    grad.cy = CoordAttr(attrs, u8"cy", 0.5f);
+                    grad.r = CoordAttr(attrs, u8"r", 0.5f);
+                }
+                else
+                {
+                    grad.x1 = CoordAttr(attrs, u8"x1", 0.0f);
+                    grad.y1 = CoordAttr(attrs, u8"y1", 0.0f);
+                    grad.x2 = CoordAttr(attrs, u8"x2", 1.0f);
+                    grad.y2 = CoordAttr(attrs, u8"y2", 0.0f);
+                }
+                if (const String* units = attrs.Find(String(u8"gradientUnits")))
+                    grad.userSpace = EqualsIgnoreCase(units->AsView(), u8"userSpaceOnUse");
+                if (const String* spread = attrs.Find(String(u8"spreadMethod")))
+                {
+                    if (EqualsIgnoreCase(spread->AsView(), u8"repeat"))
+                        grad.spread = draconic::vg::VGGradientSpread::Repeat;
+                    else if (EqualsIgnoreCase(spread->AsView(), u8"reflect"))
+                        grad.spread = draconic::vg::VGGradientSpread::Reflect;
+                }
+                if (!isSelfClosing)
+                    ParseGradientStops(content, pos, grad);
+                if (const String* id = attrs.Find(String(u8"id")))
+                    doc.gradients.InsertOrAssign(*id, Move(grad));
             }
             else if (EqualsIgnoreCase(tag, u8"text"))
             {
@@ -261,6 +309,11 @@ export namespace draconic::vg::svg
             {
                 if (EqualsIgnoreCase(fillStr->AsView(), u8"none"))
                     element.fillColor = {};
+                else if (const Optional<String> id = ParseUrlReference(fillStr->AsView()))
+                {
+                    element.fillGradientId = id.Value();
+                    element.fillColor = Color::Black; // fallback if the id never resolves
+                }
                 else if (Result<Color> c = SVGColorParser::Parse(fillStr->AsView()); c.HasValue())
                     element.fillColor = c.Value();
             }
@@ -288,8 +341,146 @@ export namespace draconic::vg::svg
                 if (Result<Float4x4> m = SVGTransformParser::Parse(trStr->AsView()); m.HasValue())
                     element.transform = m.Value();
 
-            elements.PushBack(Move(element));
+            if (emit)
+                elements.PushBack(Move(element));
             return ErrorCode::Ok;
+        }
+
+        /// Extract the id from a `url(#id)` paint reference (empty when not one).
+        [[nodiscard]] static Optional<String> ParseUrlReference(StringView v)
+        {
+            usize i = 0;
+            SkipWhitespace(v, i);
+            if (i + 4 > v.Size() || v[i] != u8'u' || v[i + 1] != u8'r' || v[i + 2] != u8'l' ||
+                v[i + 3] != u8'(')
+                return {};
+            i += 4;
+            SkipWhitespace(v, i);
+            if (i >= v.Size() || v[i] != u8'#')
+                return {};
+            ++i;
+            const usize start = i;
+            while (i < v.Size() && v[i] != u8')' && v[i] != u8' ')
+                ++i;
+            if (i == start)
+                return {};
+            return String(v.SubStr(start, i - start));
+        }
+
+        /// Parse <stop> children until the gradient's closing tag. Handles the attribute
+        /// form (offset / stop-color / stop-opacity) plus the common style="stop-color:
+        /// ...;stop-opacity:..." form Inkscape and friends export.
+        static void ParseGradientStops(StringView content, usize& pos, SVGGradient& grad)
+        {
+            while (pos < content.Size())
+            {
+                SkipWhitespace(content, pos);
+                if (pos + 1 < content.Size() && content[pos] == u8'<' &&
+                    content[pos + 1] == u8'/')
+                    break; // the gradient's closing tag
+                if (pos >= content.Size() || content[pos] != u8'<')
+                {
+                    ++pos;
+                    continue;
+                }
+                const usize savedPos = pos;
+                ++pos;
+                SkipWhitespace(content, pos);
+                const usize tagStart = pos;
+                while (pos < content.Size() && content[pos] != u8' ' && content[pos] != u8'>' &&
+                       content[pos] != u8'/' && content[pos] != u8'\t' && content[pos] != u8'\n')
+                    ++pos;
+                const String stopTag(content.SubStr(tagStart, pos - tagStart));
+                if (!detail::EqualsIgnoreCase(stopTag.AsView(), u8"stop"))
+                {
+                    pos = savedPos;
+                    SkipTag(content, pos);
+                    continue;
+                }
+                HashMap<String, String> stopAttrs;
+                ParseAttributes(content, pos, stopAttrs);
+                if (pos < content.Size() && content[pos] == u8'>')
+                    ++pos;
+
+                f32 offset = 0.0f;
+                if (const String* o = stopAttrs.Find(String(u8"offset")))
+                    offset = ParsePercentAware(o->AsView(), 0.0f);
+                Color color = Color::Black;
+                f32 alpha = 1.0f;
+                if (const String* c = stopAttrs.Find(String(u8"stop-color")))
+                    if (Result<Color> parsed = SVGColorParser::Parse(c->AsView());
+                        parsed.HasValue())
+                        color = parsed.Value();
+                if (const String* a = stopAttrs.Find(String(u8"stop-opacity")))
+                    if (const Optional<f32> v = ParseFloatValue(a->AsView()))
+                        alpha = v.Value();
+                if (const String* style = stopAttrs.Find(String(u8"style")))
+                    ParseStopStyle(style->AsView(), color, alpha);
+                color.a *= alpha;
+                grad.stops.PushBack(draconic::vg::GradientStop(offset, color));
+            }
+            SkipClosingTag(content, pos, u8"gradient");
+        }
+
+        /// Minimal `style` splitter for the two stop properties.
+        static void ParseStopStyle(StringView style, Color& color, f32& alpha)
+        {
+            usize i = 0;
+            while (i < style.Size())
+            {
+                usize end = i;
+                while (end < style.Size() && style[end] != u8';')
+                    ++end;
+                StringView decl = style.SubStr(i, end - i);
+                usize colon = 0;
+                while (colon < decl.Size() && decl[colon] != u8':')
+                    ++colon;
+                if (colon < decl.Size())
+                {
+                    StringView name = Trim(decl.SubStr(0, colon));
+                    StringView value = Trim(decl.SubStr(colon + 1, decl.Size() - colon - 1));
+                    if (detail::EqualsIgnoreCase(name, u8"stop-color"))
+                    {
+                        if (Result<Color> parsed = SVGColorParser::Parse(value); parsed.HasValue())
+                            color = parsed.Value();
+                    }
+                    else if (detail::EqualsIgnoreCase(name, u8"stop-opacity"))
+                    {
+                        if (const Optional<f32> v = ParseFloatValue(value))
+                            alpha = v.Value();
+                    }
+                }
+                i = end + 1;
+            }
+        }
+
+        [[nodiscard]] static StringView Trim(StringView s)
+        {
+            usize start = 0, end = s.Size();
+            while (start < end && (s[start] == u8' ' || s[start] == u8'\t'))
+                ++start;
+            while (end > start && (s[end - 1] == u8' ' || s[end - 1] == u8'\t'))
+                --end;
+            return s.SubStr(start, end - start);
+        }
+
+        /// A gradient coordinate/offset: "50%" -> 0.5, else the plain number.
+        [[nodiscard]] static f32 ParsePercentAware(StringView s, f32 fallback)
+        {
+            const Optional<f32> v = ParseFloatValue(s);
+            if (!v)
+                return fallback;
+            StringView trimmed = Trim(s);
+            const bool percent = !trimmed.IsEmpty() && trimmed[trimmed.Size() - 1] == u8'%';
+            return percent ? v.Value() / 100.0f : v.Value();
+        }
+
+        [[nodiscard]] static f32 CoordAttr(const HashMap<String, String>& attrs, StringView name,
+                                           f32 fallback)
+        {
+            if (const String* v = attrs.Find(String(name)))
+                return ParsePercentAware(v->AsView(), fallback);
+            return fallback;
         }
 
         // --- attribute lookup helper: parse an attr value as a float, default 0 ---

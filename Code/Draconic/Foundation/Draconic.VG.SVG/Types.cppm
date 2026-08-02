@@ -40,6 +40,21 @@ export namespace draconic::vg::svg
         End
     };
 
+    /// A parsed <linearGradient>/<radialGradient>: geometry + stops + spread, resolved
+    /// by the renderer against the referencing element's bounds (objectBoundingBox, the
+    /// SVG default) or used as document coordinates (userSpaceOnUse).
+    struct SVGGradient
+    {
+        bool radial = false;
+        // Linear geometry (fractions in objectBoundingBox units, else user units).
+        f32 x1 = 0.0f, y1 = 0.0f, x2 = 1.0f, y2 = 0.0f;
+        // Radial geometry (focal point unsupported - center-only, like the VG fill).
+        f32 cx = 0.5f, cy = 0.5f, r = 0.5f;
+        bool userSpace = false; // gradientUnits="userSpaceOnUse"
+        draconic::vg::VGGradientSpread spread = draconic::vg::VGGradientSpread::Pad;
+        Array<draconic::vg::GradientStop> stops;
+    };
+
     /// A parsed SVG element.
     class SVGElement
     {
@@ -48,6 +63,7 @@ export namespace draconic::vg::svg
         Optional<draconic::vg::Path> path;         ///< Tessellatable geometry (shapes/paths).
         Float4x4 transform = Float4x4::Identity(); ///< Element transform.
         Optional<Color> fillColor;                 ///< Fill color (empty = none/inherit).
+        String fillGradientId; ///< Set when fill="url(#id)" - resolved via the document.
         Optional<Color> strokeColor;               ///< Stroke color (empty = none).
         f32 strokeWidth = 1.0f;
         f32 opacity = 1.0f;
@@ -78,6 +94,7 @@ export namespace draconic::vg::svg
         f32 width = 0.0f;
         f32 height = 0.0f;
         Array<SVGElement> elements;
+        HashMap<String, SVGGradient> gradients; ///< By id (from <defs> or inline).
 
         SVGDocument() = default;
         SVGDocument(f32 inWidth, f32 inHeight) : width(inWidth), height(inHeight) {}

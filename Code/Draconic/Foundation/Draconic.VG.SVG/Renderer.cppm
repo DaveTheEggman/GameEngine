@@ -37,14 +37,17 @@ export namespace draconic::vg::svg
             vg.Scale(scaleX, scaleY);
 
             for (usize i = 0; i < document.elements.Size(); ++i)
-                RenderElement(vg, document.elements[i], tint);
+                RenderElement(vg, document.elements[i], tint, &document);
 
             vg.PopState();
         }
 
-        /// Render a single element and its children.
+        /// Render a single element and its children. `document` (optional) resolves
+        /// fill="url(#id)" gradient references; without it those fall back to the
+        /// element's fallback color.
         static void RenderElement(draconic::vg::VGContext& vg, const SVGElement& element,
-                                  Optional<Color> tint = {})
+                                  Optional<Color> tint = {},
+                                  const SVGDocument* document = nullptr)
         {
             if (element.opacity <= 0.0f)
                 return;
@@ -60,7 +63,7 @@ export namespace draconic::vg::svg
             if (element.IsGroup())
             {
                 for (usize i = 0; i < element.children.Size(); ++i)
-                    RenderElement(vg, element.children[i], tint);
+                    RenderElement(vg, element.children[i], tint, document);
             }
             else if (element.type == SVGElementType::Text)
             {
@@ -68,7 +71,15 @@ export namespace draconic::vg::svg
             }
             else if (element.path.HasValue())
             {
-                if (element.fillColor.HasValue())
+                // A tint (icon recolor) overrides everything, gradients included.
+                const SVGGradient* gradient =
+                    (!tint.HasValue() && document != nullptr &&
+                     !element.fillGradientId.AsView().IsEmpty())
+                        ? document->gradients.Find(element.fillGradientId)
+                        : nullptr;
+                if (gradient != nullptr && !gradient->stops.IsEmpty())
+                    FillWithGradient(vg, element.path.Value(), *gradient);
+                else if (element.fillColor.HasValue())
                     vg.FillPath(element.path.Value(),
                                 tint.HasValue() ? tint.Value() : element.fillColor.Value());
 
@@ -85,6 +96,55 @@ export namespace draconic::vg::svg
         }
 
     private:
+        /// Build the VG fill for a gradient reference and fill the path with it.
+        /// objectBoundingBox (the SVG default) maps the gradient's fractional geometry
+        /// onto the path's bounds; userSpaceOnUse takes document coordinates directly
+        /// (the VG transform already maps those to the screen).
+        static void FillWithGradient(draconic::vg::VGContext& vg, const draconic::vg::Path& path,
+                                     const SVGGradient& gradient)
+        {
+            const Rectangle b = path.GetBounds();
+            if (gradient.radial)
+            {
+                draconic::vg::VGRadialGradientFill fill;
+                if (gradient.userSpace)
+                {
+                    fill.center = Float2{gradient.cx, gradient.cy};
+                    fill.radius = gradient.r;
+                }
+                else
+                {
+                    fill.center =
+                        Float2{b.x + gradient.cx * b.width, b.y + gradient.cy * b.height};
+                    // Spec: fractional radii scale by the bounds' normalized diagonal.
+                    fill.radius = gradient.r *
+                                  Sqrt((b.width * b.width + b.height * b.height) * 0.5f);
+                }
+                fill.spread = gradient.spread;
+                fill.stops = gradient.stops;
+                vg.FillPath(path, fill);
+            }
+            else
+            {
+                draconic::vg::VGLinearGradientFill fill;
+                if (gradient.userSpace)
+                {
+                    fill.startPoint = Float2{gradient.x1, gradient.y1};
+                    fill.endPoint = Float2{gradient.x2, gradient.y2};
+                }
+                else
+                {
+                    fill.startPoint =
+                        Float2{b.x + gradient.x1 * b.width, b.y + gradient.y1 * b.height};
+                    fill.endPoint =
+                        Float2{b.x + gradient.x2 * b.width, b.y + gradient.y2 * b.height};
+                }
+                fill.spread = gradient.spread;
+                fill.stops = gradient.stops;
+                vg.FillPath(path, fill);
+            }
+        }
+
         static void RenderText(draconic::vg::VGContext& vg, const SVGElement& element,
                                Optional<Color> tint)
         {
