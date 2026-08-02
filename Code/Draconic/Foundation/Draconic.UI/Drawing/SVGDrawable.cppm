@@ -13,7 +13,8 @@ module;
 
 export module draconic.ui:svg_drawable;
 
-import draconic.core;   // Color, Rectangle, Float2, Optional, Result, RefPtr, String
+import draconic.core;
+import draconic.image;   // Color, Rectangle, Float2, Optional, Result, RefPtr, String
 import draconic.vg.svg; // SVGDocument, SVGLoader, SVGRenderer
 import :drawable;
 import :draw_context;
@@ -71,9 +72,76 @@ export namespace draconic::ui
             vg::svg::SVGRenderer::Render(ctx.VG(), m_document, bounds, TintColor);
         }
 
+        /// The parsed document (the icon BAKER renders it into an atlas offline).
+        [[nodiscard]] const vg::svg::SVGDocument& Document() const { return m_document; }
+
     private:
         vg::svg::SVGDocument m_document;
     };
 
     DRACONIC_DEFINE_OBJECT(SVGDrawable, "draconic::ui")
+
+    /// SVGDrawable that PREFERS pre-baked bitmap variants: the Godot-verified crispness
+    /// recipe (raster once at integer size with the AA baked into texels, draw as a
+    /// pixel-snapped textured quad - every instance samples identical texels, no per-
+    /// instance subpixel shimmer). Falls back to the live vector render until a baker
+    /// supplies variants (headless/tests, or before the first bake), and again after
+    /// ClearBakedVariants on a DPI change until the re-bake lands. Variants BORROW their
+    /// atlas image - the baker owns it and must outlive the drawables' use.
+    class BakedSVGDrawable : public SVGDrawable
+    {
+        DRACONIC_OBJECT(BakedSVGDrawable, SVGDrawable)
+    public:
+        struct BakedVariant
+        {
+            const draconic::image::ImageData* atlas = nullptr; // borrowed
+            Rectangle srcRect;                                 // texel region in the atlas
+            f32 sizePx = 0.0f;                                 // the square size it was baked at
+        };
+
+        explicit BakedSVGDrawable(vg::svg::SVGDocument document) : SVGDrawable(Move(document)) {}
+
+        [[nodiscard]] static RefPtr<BakedSVGDrawable> FromString(StringView svgContent)
+        {
+            Result<vg::svg::SVGDocument> result = vg::svg::SVGLoader::Load(svgContent);
+            if (result.HasValue())
+            {
+                return MakeRef<BakedSVGDrawable>(DefaultAllocator(), Move(result.Value()));
+            }
+            return {};
+        }
+
+        void SetBakedVariants(Array<BakedVariant> variants) { m_variants = Move(variants); }
+        void ClearBakedVariants() { m_variants.Clear(); }
+        [[nodiscard]] bool HasBakedVariants() const { return !m_variants.IsEmpty(); }
+
+        void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
+        {
+            if (m_variants.IsEmpty())
+            {
+                SVGDrawable::Draw(ctx, bounds); // live vector fallback
+                return;
+            }
+            // Nearest baked size to the requested extent; ties prefer the LARGER bake
+            // (downscale softens, upscale blurs).
+            const f32 want = Max(bounds.width, bounds.height);
+            const BakedVariant* best = &m_variants[0];
+            for (const BakedVariant& v : m_variants)
+            {
+                const f32 dBest = Abs(best->sizePx - want);
+                const f32 dThis = Abs(v.sizePx - want);
+                if (dThis < dBest || (dThis == dBest && v.sizePx > best->sizePx))
+                {
+                    best = &v;
+                }
+            }
+            ctx.VG().DrawImageSnapped(best->atlas, bounds, best->srcRect,
+                                      TintColor ? *TintColor : Color::White);
+        }
+
+    private:
+        Array<BakedVariant> m_variants;
+    };
+
+    DRACONIC_DEFINE_OBJECT(BakedSVGDrawable, "draconic::ui")
 }

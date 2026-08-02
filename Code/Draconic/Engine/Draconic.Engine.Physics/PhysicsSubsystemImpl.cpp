@@ -212,10 +212,17 @@ namespace draconic::physics
         builder.Property<&RigidBodyComponent::motion>("motion");
         builder.Property<&RigidBodyComponent::layer>("layer");
         builder.Property<&RigidBodyComponent::shape>("shape");
-        builder.Property<&RigidBodyComponent::halfExtents>("halfExtents");
-        builder.Property<&RigidBodyComponent::radius>("radius");
-        builder.Property<&RigidBodyComponent::halfHeight>("halfHeight");
-        builder.Property<&RigidBodyComponent::planeHalfExtent>("planeHalfExtent");
+        // Shape-conditional rows (the LightComponent pattern): the inspector shows a
+        // dimension only for the ShapeKind that uses it (Box=0 Sphere=1 Capsule=2
+        // Cooked=3 Plane=4).
+        builder.Property<&RigidBodyComponent::halfExtents>("halfExtents")
+            .PropAttribute("visibleWhen", String(u8"shape=0"));
+        builder.Property<&RigidBodyComponent::radius>("radius")
+            .PropAttribute("visibleWhen", String(u8"shape=1,2"));
+        builder.Property<&RigidBodyComponent::halfHeight>("halfHeight")
+            .PropAttribute("visibleWhen", String(u8"shape=2"));
+        builder.Property<&RigidBodyComponent::planeHalfExtent>("planeHalfExtent")
+            .PropAttribute("visibleWhen", String(u8"shape=4"));
         builder.Property<&RigidBodyComponent::friction>("friction");
         builder.Property<&RigidBodyComponent::restitution>("restitution");
         builder.Property<&RigidBodyComponent::linearDamping>("linearDamping");
@@ -231,11 +238,16 @@ namespace draconic::physics
         builder.Attribute("displayName", String(u8"Collider"))
             .Attribute("category", String(u8"Physics")).DataVersion(1);
         builder.Property<&ColliderComponent::shape>("shape");
-        builder.Property<&ColliderComponent::halfExtents>("halfExtents");
-        builder.Property<&ColliderComponent::radius>("radius");
-        builder.Property<&ColliderComponent::halfHeight>("halfHeight");
-        builder.Property<&ColliderComponent::planeHalfExtent>("planeHalfExtent");
-        builder.Property<&ColliderComponent::collisionShape>("collisionShape");
+        builder.Property<&ColliderComponent::halfExtents>("halfExtents")
+            .PropAttribute("visibleWhen", String(u8"shape=0"));
+        builder.Property<&ColliderComponent::radius>("radius")
+            .PropAttribute("visibleWhen", String(u8"shape=1,2"));
+        builder.Property<&ColliderComponent::halfHeight>("halfHeight")
+            .PropAttribute("visibleWhen", String(u8"shape=2"));
+        builder.Property<&ColliderComponent::planeHalfExtent>("planeHalfExtent")
+            .PropAttribute("visibleWhen", String(u8"shape=4"));
+        builder.Property<&ColliderComponent::collisionShape>("collisionShape")
+            .PropAttribute("visibleWhen", String(u8"shape=3"));
     }
 
     DRACONIC_REFLECT_VALUE(CharacterComponent, "draconic::physics")

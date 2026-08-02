@@ -31,26 +31,29 @@ export namespace draconic::editor::app
         [[nodiscard]] static EditorIcons& Get();
 
         // === Viewport toolbar ===
-        RefPtr<ui::SVGDrawable> translate;
-        RefPtr<ui::SVGDrawable> rotate;
-        RefPtr<ui::SVGDrawable> scale;
-        RefPtr<ui::SVGDrawable> worldSpace;
-        RefPtr<ui::SVGDrawable> localSpace;
-        RefPtr<ui::SVGDrawable> grid;
+        RefPtr<ui::BakedSVGDrawable> translate;
+        RefPtr<ui::BakedSVGDrawable> rotate;
+        RefPtr<ui::BakedSVGDrawable> scale;
+        RefPtr<ui::BakedSVGDrawable> worldSpace;
+        RefPtr<ui::BakedSVGDrawable> localSpace;
+        RefPtr<ui::BakedSVGDrawable> grid;
 
         // === Asset types (browser rows/tiles + picker) ===
-        RefPtr<ui::SVGDrawable> scene;
-        RefPtr<ui::SVGDrawable> prefab;
-        RefPtr<ui::SVGDrawable> mesh;
-        RefPtr<ui::SVGDrawable> skinnedMesh;
-        RefPtr<ui::SVGDrawable> material;
-        RefPtr<ui::SVGDrawable> texture;
-        RefPtr<ui::SVGDrawable> particleFx;
-        RefPtr<ui::SVGDrawable> animation;
-        RefPtr<ui::SVGDrawable> animGraph;
-        RefPtr<ui::SVGDrawable> skeleton;
-        RefPtr<ui::SVGDrawable> folder;
-        RefPtr<ui::SVGDrawable> unknown;
+        RefPtr<ui::BakedSVGDrawable> scene;
+        RefPtr<ui::BakedSVGDrawable> prefab;
+        RefPtr<ui::BakedSVGDrawable> mesh;
+        RefPtr<ui::BakedSVGDrawable> skinnedMesh;
+        RefPtr<ui::BakedSVGDrawable> material;
+        RefPtr<ui::BakedSVGDrawable> texture;
+        RefPtr<ui::BakedSVGDrawable> particleFx;
+        RefPtr<ui::BakedSVGDrawable> animation;
+        RefPtr<ui::BakedSVGDrawable> animGraph;
+        RefPtr<ui::BakedSVGDrawable> skeleton;
+        RefPtr<ui::BakedSVGDrawable> folder;
+        RefPtr<ui::BakedSVGDrawable> unknown;
+
+        // === Chrome ===
+        RefPtr<ui::BakedSVGDrawable> close; // tab/panel close X (theme tints it)
 
         void Initialize();
 
@@ -59,6 +62,9 @@ export namespace draconic::editor::app
         /// The icon for a content-DB instance TYPE NAME ("StaticMeshAsset", ...). Never null
         /// after Initialize - unmatched types get the generic document glyph.
         [[nodiscard]] ui::SVGDrawable* ForAssetType(StringView typeName) const;
+
+        /// Every icon, for the bake pass (UIHost::BakeSvgDrawables at startup/DPI change).
+        [[nodiscard]] Array<ui::BakedSVGDrawable*> Bakeable() const;
 
     private:
         bool m_initialized = false;
@@ -71,6 +77,11 @@ export namespace draconic::editor::app
   <path d="M12 22l-3-3h2v-4h2v4h2l-3 3z" fill="#E0E0E0"/>
   <path d="M2 12l3-3v2h4v2H5v2l-3-3z" fill="#E0E0E0"/>
   <path d="M22 12l-3 3v-2h-4v-2h4V9l3 3z" fill="#E0E0E0"/>
+</svg>)svg";
+
+        // Close X - the tab/panel close glyph (diamond-cut X polygon).
+        static constexpr StringView kClose = u8R"svg(<svg viewBox="0 0 24 24">
+  <path d="M5 6.5L6.5 5 12 10.5 17.5 5 19 6.5 13.5 12 19 17.5 17.5 19 12 13.5 6.5 19 5 17.5 10.5 12z" fill="#E0E0E0"/>
 </svg>)svg";
 
         // Rotate gizmo - circular arrow.

@@ -36,24 +36,25 @@ namespace draconic::editor::app
             return;
         }
         m_initialized = true;
-        translate = ui::SVGDrawable::FromString(kTranslate);
-        rotate = ui::SVGDrawable::FromString(kRotate);
-        scale = ui::SVGDrawable::FromString(kScale);
-        worldSpace = ui::SVGDrawable::FromString(kWorldSpace);
-        localSpace = ui::SVGDrawable::FromString(kLocalSpace);
-        grid = ui::SVGDrawable::FromString(kGrid);
-        scene = ui::SVGDrawable::FromString(kScene);
-        prefab = ui::SVGDrawable::FromString(kPrefab);
-        mesh = ui::SVGDrawable::FromString(kMesh);
-        skinnedMesh = ui::SVGDrawable::FromString(kSkinnedMesh);
-        material = ui::SVGDrawable::FromString(kMaterial);
-        texture = ui::SVGDrawable::FromString(kTexture);
-        particleFx = ui::SVGDrawable::FromString(kParticleFx);
-        animation = ui::SVGDrawable::FromString(kAnimation);
-        animGraph = ui::SVGDrawable::FromString(kAnimGraph);
-        skeleton = ui::SVGDrawable::FromString(kSkeleton);
-        folder = ui::SVGDrawable::FromString(kFolder);
-        unknown = ui::SVGDrawable::FromString(kUnknown);
+        translate = ui::BakedSVGDrawable::FromString(kTranslate);
+        rotate = ui::BakedSVGDrawable::FromString(kRotate);
+        scale = ui::BakedSVGDrawable::FromString(kScale);
+        worldSpace = ui::BakedSVGDrawable::FromString(kWorldSpace);
+        localSpace = ui::BakedSVGDrawable::FromString(kLocalSpace);
+        grid = ui::BakedSVGDrawable::FromString(kGrid);
+        scene = ui::BakedSVGDrawable::FromString(kScene);
+        prefab = ui::BakedSVGDrawable::FromString(kPrefab);
+        mesh = ui::BakedSVGDrawable::FromString(kMesh);
+        skinnedMesh = ui::BakedSVGDrawable::FromString(kSkinnedMesh);
+        material = ui::BakedSVGDrawable::FromString(kMaterial);
+        texture = ui::BakedSVGDrawable::FromString(kTexture);
+        particleFx = ui::BakedSVGDrawable::FromString(kParticleFx);
+        animation = ui::BakedSVGDrawable::FromString(kAnimation);
+        animGraph = ui::BakedSVGDrawable::FromString(kAnimGraph);
+        skeleton = ui::BakedSVGDrawable::FromString(kSkeleton);
+        folder = ui::BakedSVGDrawable::FromString(kFolder);
+        unknown = ui::BakedSVGDrawable::FromString(kUnknown);
+        close = ui::BakedSVGDrawable::FromString(kClose);
     }
 
     void EditorIcons::Shutdown()
@@ -79,7 +80,24 @@ namespace draconic::editor::app
         m_initialized = false;
     }
 
-    ui::SVGDrawable* EditorIcons::ForAssetType(StringView typeName) const
+    Array<ui::BakedSVGDrawable*> EditorIcons::Bakeable() const
+{
+    Array<ui::BakedSVGDrawable*> icons;
+    const RefPtr<ui::BakedSVGDrawable>* all[] = {
+        &translate, &rotate,     &scale,    &worldSpace, &localSpace, &grid,   &scene,
+        &prefab,    &mesh,       &skinnedMesh, &material, &texture,   &particleFx,
+        &animation, &animGraph,  &skeleton, &folder,     &unknown,    &close};
+    for (const RefPtr<ui::BakedSVGDrawable>* icon : all)
+    {
+        if (icon->Get() != nullptr)
+        {
+            icons.PushBack(icon->Get());
+        }
+    }
+    return icons;
+}
+
+ui::SVGDrawable* EditorIcons::ForAssetType(StringView typeName) const
     {
         if (typeName == u8"SceneDocument")
         {

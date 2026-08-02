@@ -257,10 +257,22 @@ export namespace draconic::ui::toolkit
                     const Color closeColor =
                         ResolvePartColor(u8"close-button", StyleProperty::TextColor,
                                          ControlState::Normal, Rgb(180, 185, 200, 150));
-                    ctx.VG().DrawLine(Float2{cx - sz, cy - sz}, Float2{cx + sz, cy + sz},
-                                      closeColor, 1.5f);
-                    ctx.VG().DrawLine(Float2{cx + sz, cy - sz}, Float2{cx - sz, cy + sz},
-                                      closeColor, 1.5f);
+                    if (Drawable* closeIcon = ResolvePartDrawable(
+                            u8"close-button", StyleProperty::Background, ControlState::Normal))
+                    {
+                        const f32 iconSize = 2.0f * (sz + 2.0f);
+                        ctx.VG().PushOpacity(closeColor.a);
+                        closeIcon->Draw(ctx, Rectangle{cx - iconSize * 0.5f, cy - iconSize * 0.5f,
+                                                       iconSize, iconSize});
+                        ctx.VG().PopOpacity();
+                    }
+                    else
+                    {
+                        ctx.VG().DrawLine(Float2{cx - sz, cy - sz}, Float2{cx + sz, cy + sz},
+                                          closeColor, 1.5f);
+                        ctx.VG().DrawLine(Float2{cx + sz, cy - sz}, Float2{cx - sz, cy + sz},
+                                          closeColor, 1.5f);
+                    }
                 }
             }
 
@@ -1055,7 +1067,10 @@ export namespace draconic::ui::toolkit
             for (i32 i = 0; i < static_cast<i32>(m_panels.Size()); ++i)
             {
                 DockablePanel* panel = m_panels[static_cast<usize>(i)];
-                f32 tabW = font->font->MeasureString(panel->Title()) + 16;
+                // INTEGER width: MSDF advances are fractional, and accumulated fractional
+                // widths put every later tab (and its close icon) on a different subpixel
+                // phase - the per-tab shimmer the icon bake exists to kill.
+                f32 tabW = Round(font->font->MeasureString(panel->Title()) + 16);
                 if (panel->Closable())
                 {
                     tabW += kCloseButtonWidth;

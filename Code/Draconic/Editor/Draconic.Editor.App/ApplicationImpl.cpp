@@ -225,6 +225,36 @@ namespace draconic::editor::app
         m_styleSheet->ForClass(u8"property-field")
             .Set(draconic::ui::StyleProperty::FontSize, 12.0f)
             .Set(draconic::ui::StyleProperty::Padding, draconic::ui::Thickness{5, 2});
+
+        // Icon BAKE (the Godot-verified crispness recipe): rasterize every editor SVG icon
+        // once, 4x supersampled, into a shared atlas at the chrome sizes the UI actually
+        // uses; BakedSVGDrawable then draws pixel-snapped quads - identical texels for
+        // every instance, no per-tab subpixel shimmer. Any bake failure silently keeps the
+        // live-vector fallback. The close X becomes a real themed drawable for the dock
+        // chrome (tinted from the palette - the bake is near-white, multiply-tint works),
+        // replacing the per-tab line-drawn X.
+        {
+            EditorIcons& icons = EditorIcons::Get();
+            const draconic::core::u32 bakeSizes[] = {12, 14, 16, 20, 24, 32};
+            const auto bakeable = icons.Bakeable();
+            (void)m_uiHost->BakeSvgDrawables(
+                draconic::core::Span<draconic::ui::BakedSVGDrawable* const>(bakeable.Data(),
+                                                                            bakeable.Size()),
+                draconic::core::Span<const draconic::core::u32>(bakeSizes, 6));
+            if (icons.close)
+            {
+                icons.close->TintColor =
+                    draconic::core::Color{palette.Text.r, palette.Text.g, palette.Text.b,
+                                          190.0f / 255.0f};
+                const draconic::ui::DrawablePtr closeIcon(icons.close.Get());
+                m_styleSheet
+                    ->ForTypePseudo(&ui::toolkit::DockablePanel::StaticType(), u8"close-button")
+                    .Set(draconic::ui::StyleProperty::Background, closeIcon);
+                m_styleSheet
+                    ->ForTypePseudo(&ui::toolkit::DockTabGroup::StaticType(), u8"close-button")
+                    .Set(draconic::ui::StyleProperty::Background, closeIcon);
+            }
+        }
         m_uiHost->Context().SetStyleSheet(m_styleSheet);
 
         // Exit goes through the dirty check: the shell consults this before honoring the

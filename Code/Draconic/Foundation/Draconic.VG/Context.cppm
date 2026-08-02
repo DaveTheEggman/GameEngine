@@ -631,6 +631,40 @@ export namespace draconic::vg
             TransformVertices(startVertex);
         }
 
+        /// DrawImage with the DEST rect snapped to the device pixel grid (axis-aligned
+        /// transforms only; rotated draws fall through unsnapped). The crispness half of
+        /// the icon-bake pipeline: a baked bitmap drawn at a fractional origin smears
+        /// under bilinear sampling and reads differently per instance (the tab-close-X
+        /// artifact); snapping makes every instance sample identical texels. The snapped
+        /// rect keeps the SOURCE size when it already matches (a baked icon at its bake
+        /// size maps 1:1), else rounds the scaled extent.
+        void DrawImageSnapped(const image::ImageData* texture, Rectangle destRect,
+                              Rectangle srcRect, Color tint = Color::White)
+        {
+            if (texture == nullptr)
+                return;
+            if (!(m_pixelSnap && TransformIsAxisAligned()))
+            {
+                DrawImage(texture, destRect, srcRect, tint);
+                return;
+            }
+            const Float2 p0 = TransformPoint(Float2{destRect.x, destRect.y});
+            const Float2 p1 =
+                TransformPoint(Float2{destRect.x + destRect.width, destRect.y + destRect.height});
+            const f32 x0 = Round(Min(p0.x, p1.x));
+            const f32 y0 = Round(Min(p0.y, p1.y));
+            const f32 x1 = Round(Max(p0.x, p1.x));
+            const f32 y1 = Round(Max(p0.y, p1.y));
+
+            const i32 textureIndex = GetOrAddTexture(texture);
+            SetupForTextureDraw(textureIndex);
+            const usize startVertex = m_batch.vertices.Size();
+            // Device-space quad: emit WITHOUT the transform (positions are final).
+            EmitTexturedQuad(Rectangle{x0, y0, x1 - x0, y1 - y0}, srcRect, texture->Width(),
+                             texture->Height(), ApplyOpacity(tint));
+            (void)startVertex; // no TransformVertices - the points are device-space already
+        }
+
         /// Draw a 9-slice image scaled to fit a destination rectangle.
         void DrawNineSlice(const image::ImageData* texture, Rectangle destRect, Rectangle srcRect,
                            image::NineSlice slices, Color tint)

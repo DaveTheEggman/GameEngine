@@ -20,12 +20,14 @@ export module draconic.ui.runtime;
 
 import draconic.core;
 import draconic.rhi;
+import draconic.image;
 import draconic.shaders;
 import draconic.shaders.system; // ShaderSystemHost (cooked-pack-or-dev shader resolution)
 import draconic.shell;
 import draconic.graphics;
 import draconic.vg;
 import draconic.vg.renderer;
+import draconic.vg.svg;
 import draconic.fonts;
 import draconic.ui;
 import draconic.ui.shell;
@@ -36,6 +38,7 @@ namespace shaders = draconic::shaders;
 namespace shell = draconic::shell;
 namespace graphics = draconic::graphics;
 namespace vg = draconic::vg;
+namespace image = draconic::image;
 namespace fonts = draconic::fonts;
 
 // draconic::ui::runtime nests in draconic::ui, so UIContext / RootView / InputManager / UiInputBridge /
@@ -45,6 +48,8 @@ export namespace draconic::ui::runtime
     using core::f32;
     using core::i32;
     using core::u32;
+    using core::u64;
+    using core::u8;
     using core::usize;
 
     /// Per-window UI payload stashed on a graphics::RenderWindow via SetData. Owns that window's VG
@@ -484,6 +489,227 @@ export namespace draconic::ui::runtime
             frame.EndBackbufferPass();
         }
 
+        /// Bake SVG drawables into a shared bitmap atlas: each drawable x size renders
+        /// through the VG at 4x SUPERSAMPLE into an offscreen sRGB target, reads back, and
+        /// box-downsamples on the CPU - the Godot-verified icon recipe (AA baked into the
+        /// texels once; BakedSVGDrawable then draws pixel-snapped quads, so every instance
+        /// of an icon samples identical texels). The atlas CPU image is owned HERE (the
+        /// variants borrow it); call again after a DPI change with scaled sizes.
+        /// Synchronous (one small GPU roundtrip) - call at startup/theme load, not per
+        /// frame. Returns false untouched on any failure (drawables keep the live-vector
+        /// fallback).
+        bool BakeSvgDrawables(core::Span<BakedSVGDrawable* const> drawables,
+                              core::Span<const u32> sizes)
+        {
+            constexpr u32 kSupersample = 4;
+            constexpr u32 kPad = 1;
+            constexpr u32 kAtlasWidth = 512;
+            rhi::Device* device = m_device->Raw();
+            if (device == nullptr || drawables.IsEmpty() || sizes.IsEmpty())
+            {
+                return false;
+            }
+
+            // Shelf layout in FINAL atlas coordinates.
+            struct Cell
+            {
+                BakedSVGDrawable* drawable = nullptr;
+                u32 size = 0;
+                u32 x = 0;
+                u32 y = 0;
+            };
+            core::Array<Cell> cells;
+            u32 cursorX = kPad;
+            u32 cursorY = kPad;
+            u32 rowHeight = 0;
+            for (const u32 size : sizes)
+            {
+                for (BakedSVGDrawable* drawable : drawables)
+                {
+                    if (drawable == nullptr)
+                    {
+                        continue;
+                    }
+                    if (cursorX + size + kPad > kAtlasWidth)
+                    {
+                        cursorX = kPad;
+                        cursorY += rowHeight + kPad;
+                        rowHeight = 0;
+                    }
+                    cells.PushBack(Cell{drawable, size, cursorX, cursorY});
+                    rowHeight = core::Max(rowHeight, size);
+                    cursorX += size + kPad;
+                }
+            }
+            if (cells.IsEmpty())
+            {
+                return false;
+            }
+            const u32 atlasHeight = cursorY + rowHeight + kPad;
+            const u32 rtWidth = kAtlasWidth * kSupersample;
+            const u32 rtHeight = atlasHeight * kSupersample;
+
+            // Offscreen sRGB target (render + copy-out).
+            rhi::TextureDesc rtDesc{};
+            rtDesc.dimension = rhi::TextureDimension::Texture2D;
+            rtDesc.format = rhi::TextureFormat::RGBA8UnormSrgb;
+            rtDesc.width = rtWidth;
+            rtDesc.height = rtHeight;
+            rtDesc.depth = 1;
+            rtDesc.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopySrc;
+            rtDesc.label = u8"icon bake";
+            rhi::Texture* rt = nullptr;
+            rhi::TextureView* rtView = nullptr;
+            if (!device->CreateTexture(rtDesc, rt).IsOk() ||
+                !device->CreateTextureView(rt, rhi::TextureViewDesc{}, rtView).IsOk())
+            {
+                if (rt != nullptr)
+                {
+                    device->DestroyTexture(rt);
+                }
+                return false;
+            }
+
+            // Render every cell at supersampled scale through a throwaway VG stack.
+            vg::VGContext bakeVg(m_fonts);
+            for (const Cell& cell : cells)
+            {
+                const core::Rectangle rect{static_cast<f32>(cell.x * kSupersample),
+                                           static_cast<f32>(cell.y * kSupersample),
+                                           static_cast<f32>(cell.size * kSupersample),
+                                           static_cast<f32>(cell.size * kSupersample)};
+                vg::svg::SVGRenderer::Render(bakeVg, cell.drawable->Document(), rect, {});
+            }
+
+            vg::renderer::VGRenderer bakeRenderer;
+            if (!bakeRenderer
+                     .Initialize(*device, *m_vs, *m_fs, rhi::TextureFormat::RGBA8UnormSrgb, 1)
+                     .IsOk())
+            {
+                device->DestroyTextureView(rtView);
+                device->DestroyTexture(rt);
+                return false;
+            }
+            bakeRenderer.BeginFrame(0);
+            const vg::renderer::VGRenderSlice slice =
+                bakeRenderer.Prepare(bakeVg.GetBatch(), 0, rtWidth, rtHeight);
+
+            // Readback buffer (256-aligned rows for backend copy rules).
+            const u32 rowPitch = ((rtWidth * 4u) + 255u) & ~255u;
+            rhi::BufferDesc readDesc{};
+            readDesc.size = static_cast<u64>(rowPitch) * rtHeight;
+            readDesc.usage = rhi::BufferUsage::CopyDst;
+            readDesc.memory = rhi::MemoryLocation::GpuToCpu;
+            rhi::Buffer* readBuffer = nullptr;
+            rhi::CommandPool* pool = nullptr;
+            rhi::Fence* fence = nullptr;
+            bool ok = device->CreateBuffer(readDesc, readBuffer).IsOk() &&
+                      device->CreateCommandPool(rhi::QueueType::Graphics, pool) ==
+                          core::ErrorCode::Ok &&
+                      device->CreateFence(0, fence) == core::ErrorCode::Ok;
+            rhi::CommandEncoder* encoder = nullptr;
+            if (ok)
+            {
+                ok = pool->CreateEncoder(encoder) == core::ErrorCode::Ok && encoder != nullptr;
+            }
+            if (ok)
+            {
+                encoder->TransitionTexture(rt, rhi::ResourceState::Undefined,
+                                           rhi::ResourceState::RenderTarget);
+                rhi::ColorAttachment color{};
+                color.view = rtView;
+                color.loadOp = rhi::LoadOp::Clear;
+                color.storeOp = rhi::StoreOp::Store;
+                color.clearValue = rhi::ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+                rhi::RenderPassDesc passDesc{};
+                passDesc.colorAttachments.Add(color);
+                passDesc.label = u8"icon bake";
+                if (rhi::RenderPassEncoder* pass = encoder->BeginRenderPass(passDesc))
+                {
+                    bakeRenderer.Render(*pass, rtWidth, rtHeight, 0, slice);
+                    pass->End();
+                }
+                encoder->TransitionTexture(rt, rhi::ResourceState::RenderTarget,
+                                           rhi::ResourceState::CopySrc);
+                rhi::BufferTextureCopyRegion region{};
+                region.bytesPerRow = rowPitch;
+                region.rowsPerImage = rtHeight;
+                region.textureExtent = rhi::Extent3D{rtWidth, rtHeight, 1};
+                encoder->CopyTextureToBuffer(rt, readBuffer, region);
+                rhi::CommandBuffer* commands = encoder->Finish();
+                rhi::Queue* queue = device->GetQueue(rhi::QueueType::Graphics, 0);
+                rhi::CommandBuffer* buffers[1] = {commands};
+                queue->Submit(core::Span<rhi::CommandBuffer* const>(buffers, 1), fence, 1);
+                fence->Wait(1, ~0ull);
+            }
+
+            core::UniquePtr<image::OwnedImageData> atlas;
+            if (ok)
+            {
+                const u8* pixels = static_cast<const u8*>(readBuffer->Map());
+                ok = pixels != nullptr;
+                if (ok)
+                {
+                    atlas = DownsampleBake(pixels, rowPitch, kAtlasWidth, atlasHeight,
+                                           kSupersample);
+                    readBuffer->Unmap();
+                }
+            }
+
+            // GPU cleanup (everything above completed via the fence).
+            bakeRenderer.Dispose();
+            if (encoder != nullptr)
+            {
+                pool->DestroyEncoder(encoder);
+            }
+            if (fence != nullptr)
+            {
+                device->DestroyFence(fence);
+            }
+            if (pool != nullptr)
+            {
+                device->DestroyCommandPool(pool);
+            }
+            if (readBuffer != nullptr)
+            {
+                device->DestroyBuffer(readBuffer);
+            }
+            device->DestroyTextureView(rtView);
+            device->DestroyTexture(rt);
+            if (!ok || !atlas)
+            {
+                return false;
+            }
+
+            // Distribute variants (they borrow the atlas; the host owns it).
+            const image::ImageData* atlasImage = atlas.Get();
+            for (BakedSVGDrawable* drawable : drawables)
+            {
+                if (drawable == nullptr)
+                {
+                    continue;
+                }
+                core::Array<BakedSVGDrawable::BakedVariant> variants;
+                for (const Cell& cell : cells)
+                {
+                    if (cell.drawable != drawable)
+                    {
+                        continue;
+                    }
+                    BakedSVGDrawable::BakedVariant variant;
+                    variant.atlas = atlasImage;
+                    variant.srcRect =
+                        core::Rectangle{static_cast<f32>(cell.x), static_cast<f32>(cell.y),
+                                        static_cast<f32>(cell.size), static_cast<f32>(cell.size)};
+                    variant.sizePx = static_cast<f32>(cell.size);
+                    variants.PushBack(variant);
+                }
+                drawable->SetBakedVariants(core::Move(variants));
+            }
+            m_bakedIconAtlases.PushBack(core::Move(atlas));
+            return true;
+        }
+
         /// The per-window VGRenderer for an attached window, or null if not attached. Exposed so an app
         /// can register an external texture (e.g. a ui::viewport ViewportView's offscreen render target)
         /// into the same renderer that draws that window's UI, so the UI can sample it via DrawImage.
@@ -513,6 +739,59 @@ export namespace draconic::ui::runtime
         }
 
     private:
+        /// CPU half of the bake: sRGB-decode, average the SS x SS premultiplied box,
+        /// UN-premultiply (the vg shader premultiplies its output, but DrawImage expects
+        /// straight alpha - it premultiplies again at draw), sRGB-encode.
+        [[nodiscard]] static core::UniquePtr<image::OwnedImageData>
+        DownsampleBake(const u8* pixels, u32 rowPitch, u32 atlasWidth, u32 atlasHeight,
+                       u32 supersample)
+        {
+            core::Array<u8> out(static_cast<usize>(atlasWidth) * atlasHeight * 4u);
+            const f32 invCount = 1.0f / static_cast<f32>(supersample * supersample);
+            for (u32 y = 0; y < atlasHeight; ++y)
+            {
+                for (u32 x = 0; x < atlasWidth; ++x)
+                {
+                    f32 r = 0.0f, g = 0.0f, b = 0.0f, a = 0.0f;
+                    for (u32 sy = 0; sy < supersample; ++sy)
+                    {
+                        const u8* row = pixels +
+                                        static_cast<usize>(y * supersample + sy) * rowPitch +
+                                        static_cast<usize>(x) * supersample * 4u;
+                        for (u32 sx = 0; sx < supersample; ++sx)
+                        {
+                            const u8* texel = row + static_cast<usize>(sx) * 4u;
+                            r += core::SrgbToLinear(static_cast<f32>(texel[0]) / 255.0f);
+                            g += core::SrgbToLinear(static_cast<f32>(texel[1]) / 255.0f);
+                            b += core::SrgbToLinear(static_cast<f32>(texel[2]) / 255.0f);
+                            a += static_cast<f32>(texel[3]) / 255.0f;
+                        }
+                    }
+                    r *= invCount;
+                    g *= invCount;
+                    b *= invCount;
+                    a *= invCount;
+                    if (a > 0.0001f)
+                    {
+                        r /= a;
+                        g /= a;
+                        b /= a;
+                    }
+                    u8* dst = out.Data() + (static_cast<usize>(y) * atlasWidth + x) * 4u;
+                    dst[0] = static_cast<u8>(
+                        core::Clamp(core::LinearToSrgb(r) * 255.0f + 0.5f, 0.0f, 255.0f));
+                    dst[1] = static_cast<u8>(
+                        core::Clamp(core::LinearToSrgb(g) * 255.0f + 0.5f, 0.0f, 255.0f));
+                    dst[2] = static_cast<u8>(
+                        core::Clamp(core::LinearToSrgb(b) * 255.0f + 0.5f, 0.0f, 255.0f));
+                    dst[3] = static_cast<u8>(core::Clamp(a * 255.0f + 0.5f, 0.0f, 255.0f));
+                }
+            }
+            return core::MakeUnique<image::OwnedImageData>(
+                core::DefaultAllocator(), atlasWidth, atlasHeight, image::PixelFormat::RGBA8,
+                core::Move(out), image::ImageColorSpace::Srgb);
+        }
+
         /// The stencil-capable depth-stencil format this device accepts: probe with a tiny
         /// texture (Vulkan drivers commonly support only one of D24S8 / D32S8).
         [[nodiscard]] static rhi::TextureFormat PickDepthStencilFormat(rhi::Device& device)
@@ -663,6 +942,8 @@ export namespace draconic::ui::runtime
         core::UniquePtr<ShellClipboard> m_clipboard;
         core::Array<Attached> m_attached;
         // Default near-black, stored LINEAR (matches an sRGB backbuffer's clear semantics).
+        // Baked icon atlases (BakeSvgDrawables): drawables' variants borrow these.
+        core::Array<core::UniquePtr<image::OwnedImageData>> m_bakedIconAtlases;
         rhi::ClearColor m_clear = rhi::ClearColor(0.006f, 0.006f, 0.009f, 1.0f);
     };
 }

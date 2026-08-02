@@ -400,3 +400,33 @@ TEST_CASE("vg.context: stencil fill respects the current transform and later dra
     const VGCommand last = batch.commands[batch.commands.Size() - 1];
     CHECK(last.fillPhase == VGFillPhase::Direct);
 }
+
+TEST_CASE("vg.context: DrawImageSnapped lands on the device pixel grid")
+{
+    VGContext ctx;
+    image::ImageDataRef tex(16, 16);
+
+    // Fractional translation (the tab-strip case): the emitted quad must sit on
+    // INTEGER device coordinates, not at the fractional offset.
+    ctx.PushState();
+    ctx.Translate(10.4f, 20.6f);
+    ctx.DrawImageSnapped(&tex, Rectangle{0, 0, 16, 16}, Rectangle{0, 0, 16, 16});
+    ctx.PopState();
+
+    VGBatch& batch = ctx.GetBatch();
+    REQUIRE(batch.VertexCount() >= 4u);
+    const VGVertex& v0 = batch.vertices[0];
+    CHECK(v0.position.x == doctest::Approx(10.0f)); // Round(10.4)
+    CHECK(v0.position.y == doctest::Approx(21.0f)); // Round(20.6)
+    // Size preserved exactly (16px source at 16px dest = 1:1 texels).
+    const VGVertex& v2 = batch.vertices[2];
+    CHECK(v2.position.x - v0.position.x == doctest::Approx(16.0f));
+
+    // Rotated transforms fall through to the unsnapped path (no crash, still draws).
+    VGContext rotated;
+    rotated.PushState();
+    rotated.Rotate(0.3f);
+    rotated.DrawImageSnapped(&tex, Rectangle{0, 0, 16, 16}, Rectangle{0, 0, 16, 16});
+    rotated.PopState();
+    CHECK(rotated.GetBatch().VertexCount() >= 4u);
+}
