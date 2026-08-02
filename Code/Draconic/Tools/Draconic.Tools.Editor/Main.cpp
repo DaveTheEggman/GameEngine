@@ -319,6 +319,8 @@ namespace runtime = draconic::runtime;
 extern const unsigned char g_draconicEmbeddedEditorFont[];
 extern const unsigned long long g_draconicEmbeddedEditorFontSize;
 
+extern "C" const char* DraconicBuildStamp();
+
 int main(int argc, char** argv)
 {
     // Log capture FIRST (design doc §3.10): the editor buffer + console output go on the global
@@ -327,6 +329,8 @@ int main(int argc, char** argv)
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&logBuffer);
     GlobalLogger().AddSink(&consoleSink);
+    DRACONIC_LOG_INFO(u8"Build", u8"Draconic build {}",
+                      reinterpret_cast<const char8_t*>(DraconicBuildStamp()));
     GlobalLogger().SetMinLevel(LogLevel::Debug); // the Console panel has a Debug filter toggle
 
     editor::app::EditorAppConfig config;

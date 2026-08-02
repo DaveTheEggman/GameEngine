@@ -25,6 +25,12 @@
 #define DRACONIC_RUNTIME_CLIENT_APPMAIN_H
 
 #include "Draconic.Core/Prelude.h" // DRACONIC_PLATFORM_WEB (picks the desktop vs browser entry body)
+#include "Draconic.Core/Log/Log.h"  // the build-stamp startup line
+
+// The build identity compiled into Runtime.Client (GenerateBuildStamp.cmake): git short
+// hash + dirty flag + build minute. Logged first thing by DRACONIC_APP_MAIN so a running
+// binary - ESPECIALLY a browser-cached .wasm - can always be matched to a build.
+extern "C" const char* DraconicBuildStamp();
 
 #if DRACONIC_PLATFORM_WEB
 
@@ -41,6 +47,8 @@
         static ::draconic::core::ConsoleSink draconicConsoleSink;                                  \
         ::draconic::core::GlobalLogger().AddSink(&draconicConsoleSink);                            \
         ::draconic::core::GlobalLogger().SetMinLevel(::draconic::core::LogLevel::Info);            \
+        DRACONIC_LOG_INFO(u8"Build", u8"Draconic build {}",                                        \
+                          reinterpret_cast<const char8_t*>(DraconicBuildStamp()));                 \
         static ::draconic::shell::WebShell draconicShell;                                          \
         ::draconic::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
         draconicGpuDesc.backend = ::draconic::graphics::BackendType::WebGPU;                       \
@@ -60,6 +68,10 @@
 #define DRACONIC_APP_MAIN(AppType)                                                                 \
     int main(int argc, char** argv)                                                                \
     {                                                                                              \
+        static ::draconic::core::ConsoleSink draconicConsoleSink;                                  \
+        ::draconic::core::GlobalLogger().AddSink(&draconicConsoleSink);                            \
+        DRACONIC_LOG_INFO(u8"Build", u8"Draconic build {}",                                        \
+                          reinterpret_cast<const char8_t*>(DraconicBuildStamp()));                 \
         auto shell = ::draconic::shell::CreateShell();                                             \
         ::draconic::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
         draconicGpuDesc.backend =                                                                  \

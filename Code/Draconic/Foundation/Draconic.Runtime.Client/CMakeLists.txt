@@ -14,3 +14,19 @@ target_sources(Draconic.Runtime.Client
             EmbeddedHost.cppm
             ApplicationHost.cppm)
 
+
+# Build stamp: regenerated EVERY build (content-compared, so no-op builds stay no-op) and
+# compiled into Runtime.Client - every app that uses DRACONIC_APP_MAIN logs it at startup.
+# The definitive "which build is this" answer, most valuable on web where .wasm caches hard.
+set(DRACONIC_BUILD_STAMP_CPP "${CMAKE_CURRENT_BINARY_DIR}/BuildStamp.cpp")
+execute_process(COMMAND ${CMAKE_COMMAND}
+    -DOUT=${DRACONIC_BUILD_STAMP_CPP} -DSRC_ROOT=${CMAKE_SOURCE_DIR}
+    -P ${CMAKE_SOURCE_DIR}/Tools/CMake/GenerateBuildStamp.cmake) # exists at configure
+add_custom_target(Draconic.BuildStamp.Tick
+    COMMAND ${CMAKE_COMMAND}
+        -DOUT=${DRACONIC_BUILD_STAMP_CPP} -DSRC_ROOT=${CMAKE_SOURCE_DIR}
+        -P ${CMAKE_SOURCE_DIR}/Tools/CMake/GenerateBuildStamp.cmake
+    BYPRODUCTS ${DRACONIC_BUILD_STAMP_CPP}
+    COMMENT "Refreshing build stamp")
+add_dependencies(Draconic.Runtime.Client Draconic.BuildStamp.Tick)
+target_sources(Draconic.Runtime.Client PRIVATE ${DRACONIC_BUILD_STAMP_CPP})
