@@ -62,6 +62,7 @@ import draconic.editor.gameui;
 import draconic.editor.audio;
 import draconic.editor.texture;
 import draconic.editor.image;
+import draconic.editor.fonts;
 import draconic.editor.generic;
 import draconic.editor.script;
 import draconic.engine.physics;
@@ -294,6 +295,7 @@ int main(int argc, char** argv)
         draconic::editor::RegisterBusLayoutEditor(app.Context(), host);
         draconic::editor::RegisterTextureEditor(app.Context());
         draconic::editor::RegisterImageEditor(app.Context());
+        draconic::editor::RegisterFontEditor(app.Context());
         // The FALLBACK page registers like any factory: nearest-base dispatch routes every
         // bespoke page first; anything else lands on the generic serialize-driven form
         // instead of the hard "No editor registered" failure.

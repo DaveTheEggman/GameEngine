@@ -402,6 +402,7 @@ if(DRACONIC_BUILD_TOOLS)
     add_subdirectory(Code/Draconic/Editor/Draconic.Texture.Editor)
     if(TARGET Draconic::Fonts.DistanceField.Baker)
         add_subdirectory(Code/Draconic/Editor/Draconic.Fonts.Editor)
+        add_subdirectory(Code/Draconic/Editor/Draconic.Editor.Fonts) # font asset page: bake intent + live atlas preview
     endif()
 
     add_subdirectory(Code/Draconic/Tools/Draconic.Tools.Editor)        # DraconicEditor executable (editor assembly)
