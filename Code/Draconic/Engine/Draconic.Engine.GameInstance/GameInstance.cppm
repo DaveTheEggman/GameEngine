@@ -133,6 +133,13 @@ export namespace draconic::runtime
     // Progress() to drive a loading screen, then GameInstance::ActivateLoadedScene() to bring it
     // live. Scene() is the pending scene - its RESOURCES are ready only once IsComplete(). A tiny
     // value type (mirrors resource::AsyncLoadBatch + the scene/failed state); safe to copy/store.
+    //
+    // LIMITATION (Fable review): IsComplete/Progress poll ResourceManager::PendingCount - the WHOLE
+    // manager - and m_total snapshots that global count. Two overlapping loads (or any unrelated
+    // BindAsync in flight) conflate: each handle waits on ALL pending work (the SAFE direction) and
+    // progress distorts. Fine for the boot + single-level-switch reality here; MUST move to per-batch
+    // tracking (resource::AsyncLoadBatch already does exactly this) before overlapping / background
+    // loads become real.
     class SceneLoadHandle
     {
     public:
@@ -265,6 +272,12 @@ export namespace draconic::runtime
         /// Register an in-flight async load under a fresh ticket (1-based; 0 is never issued, so it
         /// doubles as "failed to start"). The SceneLoader facade hands this ticket to the script;
         /// ScriptLoad{Progress,Complete,Failed} query by it. The handle is a value type (stored).
+        ///
+        /// CAUTION (Fable review): the handle holds a raw Scene*. Nothing destroys a PENDING inactive
+        /// scene today, so PumpScriptLoads never activates a dangling pointer. If a path that destroys
+        /// a pending scene ever appears (instance-level scene sweeps, a script-driven load cancel),
+        /// it MUST clear the matching tracked load(s) first, or PumpScriptLoads would activate freed
+        /// memory.
         i32 TrackScriptLoad(SceneLoadHandle handle);
 
         /// Drive tracked script loads: any whose resources finished get ActivateLoadedScene +
@@ -390,6 +403,9 @@ export namespace draconic::runtime
         // Script-driven scene loads (task #123): in-flight handles keyed by ticket. Completed loads
         // linger (a script may query its ticket at any time); a game issues a handful, so the array
         // stays tiny. m_nextScriptTicket only grows, so tickets never alias across a run.
+        // MINOR (Fable review): m_scriptLoads grows monotonically (one entry per level switch, linear
+        // scans in the polls). If level switches per run ever become unbounded, retire entries once
+        // activated/failed AND polled, or sweep them on scene destroy. Low priority as is.
         struct TrackedScriptLoad
         {
             i32 ticket = 0;

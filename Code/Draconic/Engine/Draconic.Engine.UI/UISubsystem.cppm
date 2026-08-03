@@ -531,6 +531,17 @@ export namespace draconic::ui
             }
             return view;
         }
+        /// Instantiate a document's view tree WITHOUT attaching it - the caller attaches later
+        /// (e.g. deferred through the mutation queue when pushing from inside an event handler).
+        /// Null if the markup fails.
+        [[nodiscard]] RefPtr<View> InstantiateScreenOverlay(const UIDocument& document)
+        {
+            if (document.markup.IsEmpty() || m_overlayLayer.Get() == nullptr)
+            {
+                return {};
+            }
+            return MarkupLoader::LoadFromString(document.markup.AsView(), &m_context);
+        }
         /// Attaches an already-built view topmost (code-built overlays).
         void PushScreenOverlay(RefPtr<View> view)
         {

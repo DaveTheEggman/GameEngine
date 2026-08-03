@@ -96,13 +96,19 @@ namespace draconic::ui
         {
             return 0;
         }
-        RefPtr<View> view = m_ui->PushScreenOverlay(*doc);
+        // Instantiate + register the handle SYNCHRONOUSLY (the handle must be returned, and the
+        // setters address this view immediately), but DEFER the tree ATTACH through the mutation
+        // queue: a script may push from inside an event handler, and adding to the overlay layer
+        // mid-dispatch violates the UI mutation-queue rule.
+        RefPtr<View> view = m_ui->InstantiateScreenOverlay(*doc);
         if (!view)
         {
             return 0;
         }
         const i32 handle = ++m_next;
         m_overlays.InsertOrAssign(handle, view);
+        UISubsystem* ui = m_ui;
+        m_ui->Context().MutationQueueRef().QueueAction([ui, view]() { ui->PushScreenOverlay(view); });
         return handle;
     }
 
@@ -129,11 +135,23 @@ namespace draconic::ui
 
     void UiScriptHost::PopOverlay(i32 handle)
     {
-        if (View* v = FindOverlay(handle); v != nullptr && m_ui != nullptr)
+        RefPtr<View>* slot = m_overlays.Find(handle);
+        if (slot == nullptr)
         {
-            m_ui->RemoveScreenOverlay(v);
+            return; // unknown / already-popped handle: no-op
         }
-        m_overlays.Remove(handle);
+        RefPtr<View> view = *slot; // hold it alive for the deferred detach
+        m_overlays.Remove(handle); // the handle dies synchronously; repeat pops no-op
+        if (m_ui == nullptr)
+        {
+            return;
+        }
+        // DEFER the tree DETACH: a script's standard "close menu" button pops its own overlay from
+        // inside the onClick handler; destroying the view tree mid-dispatch is the mutation-queue
+        // rule. The queued action holds `view`, so it survives until the drain.
+        UISubsystem* ui = m_ui;
+        m_ui->Context().MutationQueueRef().QueueAction(
+            [ui, view]() { ui->RemoveScreenOverlay(view.Get()); });
     }
 
     void UiScriptHost::SetText(i32 handle, StringView id, StringView text)
