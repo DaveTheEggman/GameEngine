@@ -182,11 +182,15 @@ namespace draconic::runtime
         scene::Scene* scene = m_sceneManager.CreateScene(name, activate);
         if (scene != nullptr)
         {
-            // OnSceneCreated (the ScriptSubsystem) added the ScriptSceneSystem + bound it to the DEFAULT
-            // host; re-bind it to THIS instance's host so its behaviors share the game's context.
+            // OnSceneCreated (the ScriptSubsystem) added the behavior + level script systems bound to
+            // the DEFAULT host; re-bind BOTH to THIS instance's host so they share the game's context.
             if (auto* system = scene->GetSystem<script::ScriptSceneSystem>())
             {
                 system->SetRunHost(&m_runHost);
+            }
+            if (auto* level = scene->GetSystem<script::SceneScriptSystem>())
+            {
+                level->SetRunHost(&m_runHost);
             }
         }
         return scene;

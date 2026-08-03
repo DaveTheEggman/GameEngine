@@ -576,6 +576,14 @@ namespace draconic::editor
                                                                    {u8"TextureAsset"});
             return;
         }
+        // The scene's Level-script reference (SceneScriptSettings::script): the same
+        // browser-mirroring picker, filtered to script class assets.
+        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::script::ScriptClass>>())
+        {
+            BuildSettingResourceRefRow<draconic::script::ScriptClass>(type, prop, category,
+                                                                      {u8"ScriptClassAsset"});
+            return;
+        }
         auto getVariant = [getInstance, type, propName]() -> Variant
         {
             const Instance settings = getInstance();

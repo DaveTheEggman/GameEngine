@@ -1545,3 +1545,192 @@ TEST_CASE("script.scene: an AngelScript behavior spawns through self.scene() (bo
     CHECK(spawnCalls == 1);
     CHECK(spawnedScene == &bed.scene); // the bound Scene value carried the entity's scene through AS
 }
+
+// ---- Scene-level scripting (the third tier): one `Level` object per scene, constructed with the
+//      scene's BOUND handle, sim-gated, dispatched onStart/onUpdate(dt)/onFixedUpdate(dt)/onStop. ----
+
+TEST_CASE("script.scene: a Level runs onStart/onUpdate/onStop through its bound scene, sim-gated")
+{
+    ScriptedScene bed;
+    SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
+    level->SetRunHost(&bed.host);
+
+    // Sentinels the Level manipulates through its constructor-injected bound scene.
+    const scene::EntityHandle flag = bed.scene.CreateEntity(u8"flag");
+    const scene::EntityHandle ticker = bed.scene.CreateEntity(u8"ticker"); // x = onUpdate count
+
+    RefPtr<ScriptClass> levelClass =
+        MakeClass(u8"Level",
+                  u8"class Level {\n"
+                  u8"    construct new(scene) { _scene = scene }\n"
+                  u8"    onStart() { _scene.find(\"flag\").setName(\"started\") }\n"
+                  u8"    onUpdate(dt) {\n"
+                  u8"        var e = _scene.find(\"ticker\")\n"
+                  u8"        var p = e.position()\n"
+                  u8"        e.setPosition(p.x + 1, 0, 0)\n"
+                  u8"    }\n"
+                  u8"    onStop() { _scene.find(\"started\").setName(\"stopped\") }\n"
+                  u8"}\n",
+                  {u8"onStart", u8"onUpdate", u8"onStop"});
+    level->Settings().script = levelClass;
+
+    bed.Start(); // OnSceneStarted -> construct new(scene) + onStart
+    CHECK(level->LevelActive());
+    CHECK(bed.scene.GetEntityName(flag) == StringView(u8"started")); // onStart ran via bound scene
+
+    bed.Frame();
+    CHECK(Near(bed.scene.GetLocalTransform(ticker).position.x, 1.0f));
+    bed.Frame();
+    CHECK(Near(bed.scene.GetLocalTransform(ticker).position.x, 2.0f));
+
+    bed.scene.SetSimulationEnabled(false);
+    bed.Frame(); // sim-gated -> no onUpdate
+    CHECK(Near(bed.scene.GetLocalTransform(ticker).position.x, 2.0f));
+    bed.scene.SetSimulationEnabled(true);
+    bed.Frame();
+    CHECK(Near(bed.scene.GetLocalTransform(ticker).position.x, 3.0f));
+
+    bed.scene.Stop(); // OnSceneStopped -> onStop + destroy
+    CHECK(bed.scene.GetEntityName(flag) == StringView(u8"stopped"));
+    CHECK_FALSE(level->LevelActive());
+}
+
+TEST_CASE("script.scene: a Level receives onFixedUpdate on the fixed lane")
+{
+    ScriptedScene bed;
+    SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
+    level->SetRunHost(&bed.host);
+    const scene::EntityHandle f = bed.scene.CreateEntity(u8"f");
+
+    RefPtr<ScriptClass> levelClass =
+        MakeClass(u8"Level",
+                  u8"class Level {\n"
+                  u8"    construct new(scene) { _scene = scene }\n"
+                  u8"    onFixedUpdate(dt) {\n"
+                  u8"        var e = _scene.find(\"f\")\n"
+                  u8"        e.setPosition(e.position().x + 1, 0, 0)\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onFixedUpdate"});
+    level->Settings().script = levelClass;
+
+    bed.Start();
+    bed.scene.FixedUpdate(1.0f / 60.0f); // one fixed step -> onFixedUpdate
+    CHECK(Near(bed.scene.GetLocalTransform(f).position.x, 1.0f));
+    bed.scene.FixedUpdate(1.0f / 60.0f);
+    CHECK(Near(bed.scene.GetLocalTransform(f).position.x, 2.0f));
+
+    bed.scene.SetSimulationEnabled(false);
+    bed.scene.FixedUpdate(1.0f / 60.0f); // sim-gated
+    CHECK(Near(bed.scene.GetLocalTransform(f).position.x, 2.0f));
+}
+
+TEST_CASE("script.scene: a faulting Level handler disables THAT scene's level only")
+{
+    ScriptedScene bed;
+    SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
+    level->SetRunHost(&bed.host);
+    const scene::EntityHandle t = bed.scene.CreateEntity(u8"t");
+
+    RefPtr<ScriptClass> levelClass =
+        MakeClass(u8"Level",
+                  u8"class Level {\n"
+                  u8"    construct new(scene) { _scene = scene }\n"
+                  u8"    onUpdate(dt) {\n"
+                  u8"        _scene.find(\"t\").setName(\"ticked\")\n"
+                  u8"        Fiber.abort(\"boom\")\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onUpdate"});
+    level->Settings().script = levelClass;
+
+    bed.Start();
+    CHECK_FALSE(level->LevelFaulted());
+    bed.Frame(); // onUpdate runs once (renames t) then faults
+    CHECK(bed.scene.GetEntityName(t) == StringView(u8"ticked"));
+    CHECK(level->LevelFaulted());
+
+    bed.scene.SetEntityName(t, u8"reset");
+    bed.Frame(); // faulted -> no further dispatch
+    CHECK(bed.scene.GetEntityName(t) == StringView(u8"reset"));
+}
+
+TEST_CASE("script.scene: two scenes sharing one Level class get INDEPENDENT objects (additive)")
+{
+    RefPtr<ScriptClass> levelClass =
+        MakeClass(u8"Level",
+                  u8"class Level {\n"
+                  u8"    construct new(scene) { _scene = scene }\n"
+                  u8"    onUpdate(dt) {\n"
+                  u8"        var e = _scene.find(\"ticker\")\n"
+                  u8"        e.setPosition(e.position().x + 1, 0, 0)\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onUpdate"});
+
+    ScriptedScene a;
+    ScriptedScene b;
+    SceneScriptSystem* la = a.scene.AddSystem<SceneScriptSystem>();
+    SceneScriptSystem* lb = b.scene.AddSystem<SceneScriptSystem>();
+    la->SetRunHost(&a.host);
+    lb->SetRunHost(&b.host);
+    const scene::EntityHandle ta = a.scene.CreateEntity(u8"ticker");
+    const scene::EntityHandle tb = b.scene.CreateEntity(u8"ticker");
+    la->Settings().script = levelClass;
+    lb->Settings().script = levelClass;
+
+    a.Start();
+    b.Start();
+    a.Frame();
+    a.Frame(); // A ticks twice
+    b.Frame(); // B ticks once - each Level targets ITS OWN scene
+    CHECK(Near(a.scene.GetLocalTransform(ta).position.x, 2.0f));
+    CHECK(Near(b.scene.GetLocalTransform(tb).position.x, 1.0f));
+}
+
+TEST_CASE("script.scene: an AngelScript Level runs the tier (2nd backend)")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    ScriptedScene bed;
+    SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
+    level->SetRunHost(&bed.host);
+    const scene::EntityHandle flag = bed.scene.CreateEntity(u8"flag");
+
+    RefPtr<ScriptClass> levelClass = MakeClassLang(
+        u8"angelscript", u8"Level",
+        u8"class Level {\n"
+        u8"    private Scene@ scene;\n"
+        u8"    Level(Scene@ s) { @scene = s; }\n"
+        u8"    void onStart() { scene.find(\"flag\").setName(\"started\"); }\n"
+        u8"}\n",
+        {u8"onStart"});
+    level->Settings().script = levelClass;
+
+    bed.Start();
+    CHECK(level->LevelActive());
+    CHECK(bed.scene.GetEntityName(flag) == StringView(u8"started"));
+}
+
+TEST_CASE("script.scene: SceneScriptSettings round-trips its Level ref + enabled flag")
+{
+    SceneScriptSettings out;
+    out.script.SetId(Guid{0xABCD, 0x1234});
+    out.enabled = false;
+
+    MemoryStream buffer;
+    {
+        BinarySerializer writer(buffer, SerializeMode::Write);
+        SerializeSceneScriptSettings(writer, out);
+    }
+
+    SceneScriptSettings in;
+    in.enabled = true; // ensure the read actually overwrites
+    {
+        (void)buffer.Seek(0, SeekOrigin::Begin);
+        BinarySerializer reader(buffer, SerializeMode::Read);
+        SerializeSceneScriptSettings(reader, in);
+    }
+
+    CHECK(in.script.id == (Guid{0xABCD, 0x1234}));
+    CHECK_FALSE(in.enabled);
+}

@@ -4,6 +4,7 @@
 module;
 #include "Draconic.Core/Prelude.h"
 #include "Draconic.Core/Reflection/Reflect.h"
+#include "Draconic.Core/Log/Log.h"
 
 module draconic.script.facades;
 
@@ -91,6 +92,24 @@ namespace draconic::script
 
     void RegisterExtraFacadeName(StringView name)
     {
+        // Reserved contract-class names: a user's own script class MUST take these - the game
+        // orchestrator is class `Game` (StartScript does CreateInstance("Game")), and the scene
+        // tier is class `Level` (instantiated once per scene). A facade sharing either name would
+        // clash (AngelScript "Name conflict", Wren "import ... for <name>") and the user's class
+        // could not compile. Refuse the registration. See docs/design/adding-facades.md.
+        const StringView kReservedNames[] = {StringView(u8"Game"), StringView(u8"Level")};
+        for (StringView reserved : kReservedNames)
+        {
+            if (name == reserved)
+            {
+                DRACONIC_LOG_ERROR(
+                    u8"Script",
+                    u8"facade name '{}' is reserved for a user contract class - registration refused",
+                    name);
+                return; // refuse: the name is never added, so the user's class always wins
+
+            }
+        }
         for (const String& existing : ExtraFacadeStorage())
         {
             if (existing.AsView() == name)

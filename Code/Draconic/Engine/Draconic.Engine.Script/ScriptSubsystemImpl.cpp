@@ -12,6 +12,7 @@ module draconic.engine.script;
 
 import draconic.core;
 import draconic.scene;
+import draconic.resource; // resource::Ref (SceneScriptSettings.script)
 import draconic.script;
 import draconic.script.resource;
 
@@ -49,12 +50,30 @@ namespace draconic::script
             .DataVersion(1);
     }
 
+    // The scene-root script block (one per scene). Reflected so the scene-settings inspector renders
+    // its Level-script Ref picker + enable toggle, and so versioned payloads carry a data version.
+    DRACONIC_REFLECT_VALUE(SceneScriptSettings, "draconic::script")
+    {
+        builder.Attribute("displayName", String(u8"Scene Script"))
+            .Attribute("category", String(u8"Scripting"))
+            .DataVersion(1)
+            .Property<&SceneScriptSettings::script>("script")
+            .PropAttribute("displayName", String(u8"Level Script"))
+            .PropAttribute("description",
+                           String(u8"A script class with onStart/onUpdate/onFixedUpdate/onStop, "
+                                  u8"instantiated once per scene"))
+            .Property<&SceneScriptSettings::enabled>("enabled")
+            .PropAttribute("displayName", String(u8"Enabled"));
+    }
+
     void RegisterScriptComponentReflection()
     {
         static const bool once = []()
         {
             DraconicRegisterValue_ScriptComponent();
             GlobalTypeRegistry().Register(TypeOf<ScriptComponent>());
+            DraconicRegisterValue_SceneScriptSettings();
+            GlobalTypeRegistry().Register(TypeOf<SceneScriptSettings>());
             return true;
         }();
         (void)once;

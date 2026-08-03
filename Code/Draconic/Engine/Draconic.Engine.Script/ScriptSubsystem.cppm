@@ -958,6 +958,182 @@ export namespace draconic::script
         bool m_started = false;
     };
 
+    // ---- scene-level scripting (the third tier): one `Level` script object per scene ----
+
+    /// The one-per-scene authored block: the `Level` script + an enable flag. Serialized with the
+    /// scene (the SceneSystem settings seam), resolved on the async level-load path
+    /// (ResolveResources rides ResolveSceneResources' AsyncBindScope), and rendered in the scene-
+    /// settings inspector (reflected). Editor-visible via a script-asset Ref picker.
+    struct SceneScriptSettings
+    {
+        resource::Ref<ScriptClass> script; // the Level class (a cooked script asset); nil = none
+        bool enabled = true;
+    };
+
+    inline void SerializeSceneScriptSettings(ISerializer& ar, SceneScriptSettings& s)
+    {
+        draconic::core::Serialize(ar, "script", s.script);
+        draconic::core::Serialize(ar, "enabled", s.enabled);
+    }
+
+    /// The scene-root script tier (Unreal Level Blueprint / Godot scene script). One `Level` object
+    /// per scene, constructed with the scene's BOUND Scene handle (`construct new(scene)`), sim-gated
+    /// like behaviors, dispatched BEFORE the entity behaviors of its scene (UpdateOrder). `onStart`/
+    /// `onUpdate(dt)`/`onFixedUpdate(dt)`/`onStop` are all optional (dispatch by presence). A faulting
+    /// handler disables THIS scene's level only.
+    class SceneScriptSystem final : public scene::SceneSystem
+    {
+    public:
+        void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
+
+        void SetRunHost(ScriptRunHost* host) noexcept { m_host = host; }
+        [[nodiscard]] ScriptRunHost* Host() const noexcept { return m_host; }
+        [[nodiscard]] SceneScriptSettings& Settings() noexcept { return m_settings; }
+        /// True once a Level object is live (test/inspection).
+        [[nodiscard]] bool LevelActive() const noexcept { return m_level.Get() != nullptr; }
+        [[nodiscard]] bool LevelFaulted() const noexcept { return m_faulted; }
+
+        // ---- SceneSystem ----
+        [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
+        // Before the entity behaviors of this scene (the level orchestrates, entities react).
+        [[nodiscard]] i32 UpdateOrder() const noexcept override { return -10; }
+
+        [[nodiscard]] const TypeInfo* SettingsType() const noexcept override
+        {
+            return &TypeOf<SceneScriptSettings>();
+        }
+        [[nodiscard]] void* SettingsInstance() noexcept override { return &m_settings; }
+        [[nodiscard]] StringView SettingsId() const noexcept override { return u8"sceneScript"; }
+        void SerializeSettings(ISerializer& ar) override
+        {
+            SerializeSceneScriptSettings(ar, m_settings);
+        }
+
+        void ResolveResources(resource::ResourceManager& manager) override
+        {
+            m_settings.script.Bind(manager);
+        }
+
+        void OnSceneStarted() override
+        {
+            m_started = true;
+            InstantiateLevel();
+            Dispatch(kLevelOnStart, {});
+        }
+
+        void OnSceneStopped() override
+        {
+            Dispatch(kLevelOnStop, {});
+            DestroyLevel(); // no state survives a stop (same rule as behaviors)
+            m_started = false;
+        }
+
+        void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override
+        {
+            if (phase != scene::ScenePhase::Update || !Ready())
+            {
+                return;
+            }
+            Variant dt = Variant::From(deltaTime);
+            Dispatch(kLevelOnUpdate, Span<Variant>{&dt, 1});
+        }
+
+        void OnFixedUpdate(f32 fixedDeltaTime) override
+        {
+            if (!Ready())
+            {
+                return;
+            }
+            Variant dt = Variant::From(fixedDeltaTime);
+            Dispatch(kLevelOnFixedUpdate, Span<Variant>{&dt, 1});
+        }
+
+    private:
+        static constexpr StringView kLevelOnStart = u8"onStart";
+        static constexpr StringView kLevelOnUpdate = u8"onUpdate";
+        static constexpr StringView kLevelOnFixedUpdate = u8"onFixedUpdate";
+        static constexpr StringView kLevelOnStop = u8"onStop";
+
+        [[nodiscard]] bool Ready() const noexcept
+        {
+            return m_started && !m_faulted && m_level.Get() != nullptr && m_host != nullptr &&
+                   !m_host->IsDebugPaused();
+        }
+
+        void InstantiateLevel()
+        {
+            m_faulted = false;
+            if (!m_settings.enabled || m_scene == nullptr || m_host == nullptr)
+            {
+                return;
+            }
+            ScriptClass* scriptClass = m_settings.script.Get();
+            if (scriptClass == nullptr)
+            {
+                return; // no Level bound (or still pending on an async load) - the system is inert
+            }
+            Scene handle; // the bound Scene ctor arg (draconic::script::Scene, this scene)
+            handle.scene = m_scene;
+            Variant arg = Variant::From(handle);
+            m_boundClass = scriptClass;
+            m_level = m_host->Instantiate(*scriptClass, Span<Variant>{&arg, 1});
+        }
+
+        void Dispatch(StringView method, Span<Variant> args)
+        {
+            if (m_faulted || m_level.Get() == nullptr || m_boundClass == nullptr ||
+                !m_boundClass->HasHandler(method))
+            {
+                return;
+            }
+            DRACONIC_PROFILE_SCOPE(m_boundClass->ProfileName());
+            auto result = m_level->Invoke(method, args);
+            if (result.HasValue())
+            {
+                return;
+            }
+            if (m_host != nullptr && m_host->IsDebugPaused())
+            {
+                return; // suspended at a breakpoint, not a fault
+            }
+            m_faulted = true;
+            DRACONIC_LOG_ERROR(u8"Script",
+                               u8"scene '{}': level script '{}' faulted in {} - level disabled",
+                               m_scene != nullptr ? m_scene->Name() : StringView(u8"?"),
+                               m_boundClass->className, method);
+        }
+
+        void CancelLevelCoroutines()
+        {
+            if (m_level.Get() == nullptr || m_boundClass == nullptr ||
+                !m_boundClass->usesCoroutines || m_host == nullptr)
+            {
+                return;
+            }
+            IScriptManager* manager = m_host->Manager();
+            if (manager != nullptr &&
+                HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines))
+            {
+                manager->CancelCoroutinesFor(*m_level);
+            }
+        }
+
+        void DestroyLevel()
+        {
+            CancelLevelCoroutines(); // drop pending coroutines before releasing the instance
+            m_level = nullptr;
+            m_boundClass = nullptr;
+        }
+
+        scene::Scene* m_scene = nullptr;
+        ScriptRunHost* m_host = nullptr;
+        SceneScriptSettings m_settings;
+        RefPtr<ScriptObject> m_level;
+        ScriptClass* m_boundClass = nullptr;
+        bool m_started = false;
+        bool m_faulted = false;
+    };
+
     // ---- the runtime subsystem ----
 
     /// The neutral contact vocabulary the script layer speaks. A producer (physics, via a
@@ -1127,6 +1303,9 @@ export namespace draconic::script
                                                         }
                                                     }});
             m_systems.PushBack(SceneEntry{&scene, system});
+
+            // Scene-root script (the Level tier) shares the same run host + re-bind path.
+            scene.AddSystem<SceneScriptSystem>()->SetRunHost(&m_ownedRunHost);
         }
         void OnSceneDestroyed(scene::Scene& scene) override
         {

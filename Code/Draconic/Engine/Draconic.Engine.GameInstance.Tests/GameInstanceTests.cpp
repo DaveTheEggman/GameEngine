@@ -78,6 +78,29 @@ namespace
     }
 }
 
+TEST_CASE("script.facades: reserved contract-class names (Game/Level) are refused as facades")
+{
+    // A user's own class MUST take these names (the game orchestrator is `Game`, the scene
+    // tier is `Level`), so a facade sharing one would clash. Registration must be refused.
+    script::RegisterExtraFacadeName(u8"Game");
+    script::RegisterExtraFacadeName(u8"Level");
+    // A non-reserved name still registers (idempotently) - the control.
+    script::RegisterExtraFacadeName(u8"SceneLoader");
+
+    bool sawGame = false;
+    bool sawLevel = false;
+    bool sawSceneLoader = false;
+    for (StringView facade : script::ExtraFacadeNames())
+    {
+        sawGame = sawGame || facade == StringView(u8"Game");
+        sawLevel = sawLevel || facade == StringView(u8"Level");
+        sawSceneLoader = sawSceneLoader || facade == StringView(u8"SceneLoader");
+    }
+    CHECK_FALSE(sawGame);  // refused
+    CHECK_FALSE(sawLevel); // refused
+    CHECK(sawSceneLoader); // registered
+}
+
 TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fresh instance idle")
 {
     runtime::GameInstance gi;
