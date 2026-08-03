@@ -6,7 +6,7 @@ add_library(Draconic::Engine.Audio ALIAS Draconic.Engine.Audio)
 target_link_libraries(Draconic.Engine.Audio
     PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::Engine.Scene
            Draconic::Audio Draconic::Resource Draconic::Content Draconic::Script
-           Draconic::Settings Draconic::Engine.Render Draconic::Policy)
+           Draconic::Script.Facades Draconic::Settings Draconic::Engine.Render Draconic::Policy)
 
 target_sources(Draconic.Engine.Audio
     PRIVATE

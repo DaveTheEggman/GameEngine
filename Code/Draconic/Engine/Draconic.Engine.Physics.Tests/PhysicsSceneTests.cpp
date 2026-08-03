@@ -13,6 +13,7 @@ import draconic.physics;
 import draconic.physics.resource;
 import draconic.engine.physics;
 import draconic.script;
+import draconic.script.facades; // ExtraFacadeNames (the behavior-prelude facade list)
 import draconic.script.wren;
 
 using namespace draconic::core;
@@ -394,6 +395,22 @@ TEST_CASE("physics.scene: the Wren Physics facade raycasts + pushes through the 
     REQUIRE(
         bare->Load(u8"var Distance = Physics.rayCast(0, 5, 0, 0, -1, 0, 20)\n", u8"main").IsOk());
     CHECK(bare->GetGlobal(u8"Distance").Get<f64>() == doctest::Approx(-1.0));
+}
+
+TEST_CASE("physics.scene: the Physics facade is in the Wren BEHAVIOR prelude (not just main)")
+{
+    RegisterPhysicsScriptApi(); // registers the type AND the behavior-prelude facade name
+
+    // The behavior/Level prelude is `import "main" for <built-ins + ExtraFacadeNames>`, so a
+    // facade is reachable from a component behavior (or a Level) only if its name is in that
+    // list. Before the fix Physics registered its TYPE but not its NAME, so it resolved only
+    // from top-level `main`/Game scripts. Assert the name is now published to the prelude.
+    bool inPrelude = false;
+    for (const StringView facade : draconic::script::ExtraFacadeNames())
+    {
+        inPrelude = inPrelude || facade == StringView(u8"Physics");
+    }
+    CHECK(inPrelude);
 }
 
 TEST_CASE(

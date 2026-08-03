@@ -11,6 +11,7 @@ module;
 module draconic.engine.input;
 
 import draconic.core;
+import draconic.script.facades; // RegisterExtraFacadeName (Input into the behavior prelude)
 
 using namespace draconic::core;
 
@@ -31,5 +32,11 @@ namespace draconic::input
         builder.Constructor();
     }
 
-    void RegisterInputScriptApi() { GlobalTypeRegistry().Register(Input::StaticType()); }
+    void RegisterInputScriptApi()
+    {
+        GlobalTypeRegistry().Register(Input::StaticType());
+        // So the Wren behavior/Level prelude imports `Input` too (AngelScript binds by
+        // registry). Without this only top-level `main`/Game scripts can see it. Idempotent.
+        draconic::script::RegisterExtraFacadeName(u8"Input");
+    }
 }

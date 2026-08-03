@@ -15,6 +15,7 @@ import draconic.runtime;
 import draconic.scene;
 import draconic.audio;
 import draconic.engine.render; // CameraComponentManager (listener fallback)
+import draconic.script.facades; // RegisterExtraFacadeName (Audio into the behavior prelude)
 
 using namespace draconic::core;
 
@@ -180,7 +181,13 @@ namespace draconic::audio
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
-    void RegisterAudioScriptApi() { GlobalTypeRegistry().Register(Audio::StaticType()); }
+    void RegisterAudioScriptApi()
+    {
+        GlobalTypeRegistry().Register(Audio::StaticType());
+        // So the Wren behavior/Level prelude imports `Audio` too (AngelScript binds by
+        // registry). Without this only top-level `main`/Game scripts can see it. Idempotent.
+        draconic::script::RegisterExtraFacadeName(u8"Audio");
+    }
 
     DRACONIC_REFLECT_VALUE(AudioReverbZoneComponent, "draconic::audio")
     {

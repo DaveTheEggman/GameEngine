@@ -19,6 +19,7 @@ import draconic.physics;
 import draconic.physics.resource;
 import draconic.render;
 import draconic.engine.render;
+import draconic.script.facades; // RegisterExtraFacadeName (Physics into the behavior prelude)
 
 using namespace draconic::core;
 
@@ -313,7 +314,13 @@ namespace draconic::physics
         builder.Constructor();
     }
 
-    void RegisterPhysicsScriptApi() { GlobalTypeRegistry().Register(Physics::StaticType()); }
+    void RegisterPhysicsScriptApi()
+    {
+        GlobalTypeRegistry().Register(Physics::StaticType());
+        // So the Wren behavior/Level prelude imports `Physics` too (AngelScript binds by
+        // registry). Without this only top-level `main`/Game scripts can see it. Idempotent.
+        draconic::script::RegisterExtraFacadeName(u8"Physics");
+    }
 
     void RegisterPhysicsComponentReflection()
     {
