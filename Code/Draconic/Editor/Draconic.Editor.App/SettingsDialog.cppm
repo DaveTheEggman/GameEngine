@@ -40,7 +40,7 @@ export namespace draconic::editor::app
             MinWidth.SetValue(460.0f);
             MinHeight.SetValue(240.0f);
             MaxWidth.SetValue(560.0f);
-            MaxHeight.SetValue(320.0f);
+            MaxHeight.SetValue(560.0f); // taller so the ~8 rows fit; the ScrollView handles overflow
 
             draconic::editor::EditorProject* project = context.Project();
 
@@ -297,7 +297,18 @@ export namespace draconic::editor::app
                 row->AddView(value.Get(), lp);
             }
 
-            SetContent(column.Get());
+            // Scroll the settings column so a tall list can't spill over the modal button row
+            // (the Dialog gives its content a fixed, Grow-shared area above the buttons; without
+            // scrolling, a column taller than that area overflows onto them). User feedback.
+            auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+            scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
+            scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
+            {
+                auto lp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                scroll->AddView(column.Get(), lp);
+            }
+            SetContent(scroll.Get());
 
             {
                 ProjectSettingsDialog* self = this;

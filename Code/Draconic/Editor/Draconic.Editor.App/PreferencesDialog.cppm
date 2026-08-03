@@ -105,7 +105,17 @@ export namespace draconic::editor::app
                 column->AddView(note.Get());
             }
 
-            SetContent(column.Get());
+            // Scroll the preferences column so it can grow without spilling over the modal button
+            // row (the Dialog gives content a fixed Grow-shared area above the buttons). User feedback.
+            auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+            scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
+            scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
+            {
+                auto lp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                scroll->AddView(column.Get(), lp);
+            }
+            SetContent(scroll.Get());
 
             {
                 EditorPreferencesDialog* self = this;
