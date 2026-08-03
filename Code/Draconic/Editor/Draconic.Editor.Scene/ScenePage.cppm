@@ -180,10 +180,27 @@ export namespace draconic::editor
                 viewportPane->AddView(m_toolbar.Get(), lp);
             }
             {
+                // Wrap the viewport in a FrameLayout so the camera preview (task #118) overlays it
+                // in the bottom-right corner. The viewport fills the frame; the preview floats over.
+                BuildCameraPreview();
+                auto viewportFrame = MakeRef<draconic::ui::FrameLayout>(DefaultAllocator());
+                {
+                    auto vfp = MakeRef<draconic::ui::FrameLayoutParams>(DefaultAllocator());
+                    vfp->Gravity = draconic::ui::Gravity::Fill;
+                    viewportFrame->AddView(m_viewport.Get(), vfp);
+                }
+                {
+                    auto pfp = MakeRef<draconic::ui::FrameLayoutParams>(DefaultAllocator());
+                    pfp->Gravity = static_cast<draconic::ui::Gravity>(
+                        static_cast<u32>(draconic::ui::Gravity::Bottom) |
+                        static_cast<u32>(draconic::ui::Gravity::Right));
+                    pfp->Margin = draconic::ui::Thickness{12.0f, 12.0f, 12.0f, 12.0f};
+                    viewportFrame->AddView(m_previewContainer.Get(), pfp);
+                }
                 auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = draconic::ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
-                viewportPane->AddView(m_viewport.Get(), lp);
+                viewportPane->AddView(viewportFrame.Get(), lp);
             }
 
             // Page layout: hierarchy | (viewport | inspector).
@@ -363,6 +380,21 @@ export namespace draconic::editor
         UniquePtr<GizmoController> m_gizmos;
         GizmoRendererRegistry m_componentGizmos;
         RefPtr<ui::viewport::ViewportView> m_viewport;
+
+        // Camera preview (task #118): a small bottom-right overlay showing a selected/pinned camera's
+        // live view. Editor-session state only - NEVER persisted into a runtime/wire struct.
+        RefPtr<ui::viewport::ViewportView> m_previewViewport;
+        RefPtr<draconic::ui::View> m_previewContainer; // the overlay (Visibility::Gone when idle)
+        RefPtr<draconic::ui::Button> m_previewPin;
+        scene::EntityHandle m_pinnedCamera;  // the PINNED camera entity (unassigned = not pinned)
+        scene::EntityHandle m_previewTarget; // the camera previewed this frame (unassigned = none)
+        u32 m_previewHeight = 180;           // panel + render-target height (from the target aspect)
+        void BuildCameraPreview();
+        void UpdateCameraPreview();
+        void RenderCameraPreview();
+        void ToggleCameraPin();
+        [[nodiscard]] scene::EntityHandle SelectedCameraEntity() const;
+        [[nodiscard]] bool IsLiveCamera(scene::EntityHandle entity) const;
         UniquePtr<draconic::shell::InputRouter> m_router;
         EditorCamera m_camera;
         draconic::graphics::RenderWindow* m_hostWindow =

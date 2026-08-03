@@ -42,6 +42,7 @@ import draconic.vg.renderer;
 import draconic.editor.core;
 import draconic.editor.app;
 import :camera;
+import :camera_preview;
 import :edit;
 import :model_prefab;
 import :game_page;
@@ -112,6 +113,7 @@ namespace draconic::editor
             DrawEntityMarkers(dd);
             DrawGizmos(dd);
         }
+        UpdateCameraPreview(); // task #118: selection/pin -> preview visibility + target
         SyncToolbar();
     }
 
@@ -181,6 +183,8 @@ namespace draconic::editor
                               h, render::ViewportRect{0, 0, w, h}, &cameraOverride, targetState,
                               &m_postOverride);
         m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
+
+        RenderCameraPreview(); // task #118: a second RenderScene through the previewed camera
     }
 
     void SceneEditorPage::CreatePrefabFromEntity(const Guid& entityId)
@@ -1070,6 +1074,152 @@ namespace draconic::editor
             });
     }
 
+    // === Camera preview (task #118) ===
+
+    void SceneEditorPage::BuildCameraPreview()
+    {
+        // Display-only viewport (input=nullptr at Initialize): it shows the previewed camera's
+        // view and never takes hover/focus/pick from the main viewport. Fixed 16:9 resolution so
+        // the aspect stays stable regardless of the floating panel's laid-out size.
+        m_previewViewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
+        m_previewViewport->ClearColor = rhi::ClearColor{0.0f, 0.0f, 0.0f, 1.0f};
+        m_previewViewport->SetFixedResolution(320, m_previewHeight);
+
+        m_previewPin = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pin"));
+        {
+            SceneEditorPage* self = this;
+            m_previewPin->OnClick.Add([self](ui::ButtonBase*) { self->ToggleCameraPin(); });
+        }
+
+        auto container = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        container->Direction = ui::Orientation::Vertical;
+        container->Visibility = ui::Visibility::Gone; // idle until a camera is previewed
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(24.0f));
+            container->AddView(m_previewPin.Get(), lp);
+        }
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(320.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(static_cast<f32>(m_previewHeight)));
+            container->AddView(m_previewViewport.Get(), lp);
+        }
+        m_previewContainer = container;
+    }
+
+    scene::EntityHandle SceneEditorPage::SelectedCameraEntity() const
+    {
+        if (!m_editContext || m_scene == nullptr)
+        {
+            return scene::EntityHandle{};
+        }
+        const Guid* primary = m_editContext->EntitySelection().Primary();
+        if (primary == nullptr)
+        {
+            return scene::EntityHandle{};
+        }
+        const scene::EntityHandle e = m_editContext->Resolve(*primary);
+        return IsLiveCamera(e) ? e : scene::EntityHandle{};
+    }
+
+    bool SceneEditorPage::IsLiveCamera(scene::EntityHandle entity) const
+    {
+        if (m_scene == nullptr || !entity.IsAssigned() || !m_scene->IsValid(entity))
+        {
+            return false;
+        }
+        auto* cameras = m_scene->GetSystem<render::CameraComponentManager>();
+        return cameras != nullptr && cameras->Get(entity) != nullptr;
+    }
+
+    void SceneEditorPage::UpdateCameraPreview()
+    {
+        if (!m_previewContainer)
+        {
+            return;
+        }
+        // SelectedCameraEntity() returns unassigned for a non-camera selection, so
+        // selection.IsAssigned() IS "a camera is selected" for the resolver.
+        const scene::EntityHandle selection = SelectedCameraEntity();
+        const CameraPreviewResolution res = ResolveCameraPreview(
+            selection, selection.IsAssigned(), m_pinnedCamera, IsLiveCamera(m_pinnedCamera));
+        if (res.unpin)
+        {
+            m_pinnedCamera = scene::EntityHandle{}; // a stale pin auto-clears
+        }
+        m_previewTarget = res.target;
+
+        const ui::Visibility vis = res.visible ? ui::Visibility::Visible : ui::Visibility::Gone;
+        if (m_previewContainer->Visibility != vis)
+        {
+            m_previewContainer->Visibility = vis;
+            m_previewContainer->Invalidate(); // visibility flip only - no view churn
+        }
+        if (m_previewPin)
+        {
+            const bool pinned =
+                m_pinnedCamera.IsAssigned() && m_previewTarget == m_pinnedCamera;
+            m_previewPin->SetText(pinned ? StringView(u8"Unpin") : StringView(u8"Pin"));
+        }
+    }
+
+    void SceneEditorPage::ToggleCameraPin()
+    {
+        if (m_pinnedCamera.IsAssigned() && m_pinnedCamera == m_previewTarget)
+        {
+            m_pinnedCamera = scene::EntityHandle{}; // unpin
+        }
+        else if (m_previewTarget.IsAssigned())
+        {
+            m_pinnedCamera = m_previewTarget; // pin the currently-previewed camera
+        }
+        UpdateCameraPreview();
+    }
+
+    void SceneEditorPage::RenderCameraPreview()
+    {
+        if (!m_previewViewport || !m_previewTarget.IsAssigned())
+        {
+            return;
+        }
+        if (!m_previewViewport->IsReady() || m_render == nullptr || !m_render->IsReady() ||
+            m_scene == nullptr || !m_previewViewport->IsEffectivelyVisible())
+        {
+            return;
+        }
+        const u32 w = m_previewViewport->RenderWidth();
+        const u32 h = m_previewViewport->RenderHeight();
+        if (w == 0 || h == 0)
+        {
+            return;
+        }
+        auto* cameras = m_scene->GetSystem<render::CameraComponentManager>();
+        if (cameras == nullptr)
+        {
+            return;
+        }
+        render::CameraComponent* cam = cameras->Get(m_previewTarget);
+        if (cam == nullptr)
+        {
+            return;
+        }
+
+        const Float4x4 world = m_scene->GetWorldMatrix(m_previewTarget);
+        render::CameraOverride camOverride = BuildCameraPreviewOverride(*cam, world);
+
+        render::TargetState targetState;
+        targetState.texture = m_previewViewport->ColorTexture();
+        targetState.currentState = m_previewViewport->ColorState();
+        targetState.finalState = rhi::ResourceState::ShaderRead;
+
+        m_render->RenderScene(*m_scene, m_previewViewport->ColorTargetView(),
+                              m_previewViewport->ColorFormat(), w, h,
+                              render::ViewportRect{0, 0, w, h}, &camOverride, targetState, nullptr);
+        m_previewViewport->SetColorState(rhi::ResourceState::ShaderRead);
+    }
+
     void SceneEditorPage::PickOnClick()
     {
         if (!m_editContext)
@@ -1169,10 +1319,21 @@ namespace draconic::editor
             {
                 m_router->AddSurface(m_viewport->Surface());
             }
+            // Display-only (input=nullptr): the preview never takes hover/focus/pick, it just
+            // shows the previewed camera's view. Same window + renderer as the main viewport.
+            if (m_previewViewport)
+            {
+                m_previewViewport->Initialize(m_host->Graphics()->Raw(), renderer, nullptr,
+                                              window->Window().Id());
+            }
         }
         else
         {
             m_viewport->AttachToWindow(renderer, window->Window().Id());
+            if (m_previewViewport)
+            {
+                m_previewViewport->AttachToWindow(renderer, window->Window().Id());
+            }
         }
         m_hostWindow = window;
     }
