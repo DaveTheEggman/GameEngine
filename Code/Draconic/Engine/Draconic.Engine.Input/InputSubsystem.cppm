@@ -23,7 +23,7 @@ using namespace draconic::core;
 export namespace draconic::input
 {
     /// The service key ExposeToScript binds and the scripting facade resolves.
-    // kInputRuntimeService now lives in draconic.input (:runtime) so per-instance owners (GameInstance)
+    // kInputScriptService now lives in draconic.input (:runtime) so per-instance owners (GameInstance)
     // can install their own runtime under it without importing this subsystem.
 
     /// How game-UI input routing treats the active source when it carries NO scene
@@ -115,7 +115,7 @@ export namespace draconic::input
         /// two different runtimes (players; editor vs game). Call once per created context.
         void ExposeToScript(draconic::script::IScriptContext& context)
         {
-            context.SetService(kInputRuntimeService, &m_runtime);
+            context.SetService(kInputScriptService, &m_runtime);
         }
 
         void Update(f32 deltaTime) override
@@ -152,7 +152,7 @@ export namespace draconic::input
         {
             draconic::script::IScriptContext* context = draconic::script::CurrentScriptContext();
             return context != nullptr
-                       ? static_cast<ActionRuntime*>(context->GetService(kInputRuntimeService))
+                       ? static_cast<ActionRuntime*>(context->GetService(kInputScriptService))
                        : nullptr;
         }
 
@@ -207,8 +207,8 @@ export namespace draconic::input
 
     /// Registers the facade into the global type registry (RegisterReflectedTypes then
     /// sweeps it into any script manager).
-    void RegisterInputScriptApi();
+    void RegisterInputScriptFacade();
 }
 
-// Input::StaticType() reflection body + RegisterInputScriptApi() live in
+// Input::StaticType() reflection body + RegisterInputScriptFacade() live in
 // InputSubsystemImpl.cpp (kept out of this interface; see gcc-module-interface-hygiene).

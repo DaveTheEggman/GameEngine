@@ -495,7 +495,7 @@ TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, p
 
 TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
 {
-    draconic::input::RegisterInputScriptApi();
+    draconic::input::RegisterInputScriptFacade();
 
     // Two runtimes, two contexts - each script reads ITS OWN bound runtime (players /
     // editor-vs-game). No process globals anywhere.
@@ -521,8 +521,8 @@ TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
     RefPtr<draconic::script::IScriptContext> ctxB = manager->CreateContext();
     RefPtr<draconic::script::IScriptContext> ctxNone = manager->CreateContext();
     REQUIRE(ctxA.Get() != nullptr);
-    ctxA->SetService(draconic::input::kInputRuntimeService, &runtimeA);
-    ctxB->SetService(draconic::input::kInputRuntimeService, &runtimeB);
+    ctxA->SetService(draconic::input::kInputScriptService, &runtimeA);
+    ctxB->SetService(draconic::input::kInputScriptService, &runtimeB);
 
     const StringView script = u8"var Down = Input.isDown(\"Jump\")\n"
                               u8"var MoveY = Input.valueY(\"Move\")\n";

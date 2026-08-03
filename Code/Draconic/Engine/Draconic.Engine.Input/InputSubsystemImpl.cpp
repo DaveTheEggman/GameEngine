@@ -2,7 +2,7 @@
 //
 // Kept OUT of the interface: DRACONIC_REFLECT_* bodies in an interface unit make GCC emit
 // an unreadable gcm cluster for consumers (see gcc-module-interface-hygiene). The interface
-// declares RegisterInputScriptApi(); this unit defines it and Input::StaticType().
+// declares RegisterInputScriptFacade(); this unit defines it and Input::StaticType().
 
 module;
 #include "Draconic.Core/Prelude.h"
@@ -32,7 +32,7 @@ namespace draconic::input
         builder.Constructor();
     }
 
-    void RegisterInputScriptApi()
+    void RegisterInputScriptFacade()
     {
         GlobalTypeRegistry().Register(Input::StaticType());
         // So the Wren behavior/Level prelude imports `Input` too (AngelScript binds by

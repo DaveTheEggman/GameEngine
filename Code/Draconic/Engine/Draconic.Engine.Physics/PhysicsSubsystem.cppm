@@ -954,5 +954,5 @@ export namespace draconic::physics
     };
 
     /// Registers the facade type (RegisterReflectedTypes then sweeps it into managers).
-    void RegisterPhysicsScriptApi();
+    void RegisterPhysicsScriptFacade();
 }

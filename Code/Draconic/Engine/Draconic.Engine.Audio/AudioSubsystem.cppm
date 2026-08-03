@@ -44,7 +44,7 @@ export namespace draconic::audio
     /// Payload = AudioScriptBinding (the physics-binding precedent): ONE service
     /// carries the engine (bus/music control) plus the subsystem + resource manager
     /// (content-path playback), instead of audio growing a second generic service.
-    inline constexpr StringView kAudioScriptService = u8"audio.script";
+    inline constexpr StringView kAudioScriptService = u8"audio.runtime";
 
     struct AudioScriptBinding
     {
@@ -1007,6 +1007,6 @@ export namespace draconic::audio
         }
     };
 
-    void RegisterAudioScriptApi();
+    void RegisterAudioScriptFacade();
 
 }

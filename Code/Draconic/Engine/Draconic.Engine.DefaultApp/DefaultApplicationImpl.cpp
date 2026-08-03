@@ -152,9 +152,9 @@ namespace draconic::runtime
         // (The subsystem's own default host - for editor scenes - is wired in its OnReady.)
         m_scripts->ConfigureRunHost(m_instance.RunHost());
         InstallInstanceLoadFacade(m_instance); // SceneLoader.* level-load facade for the primary instance
-        draconic::input::RegisterInputScriptApi();
-        draconic::physics::RegisterPhysicsScriptApi();
-        draconic::audio::RegisterAudioScriptApi();
+        draconic::input::RegisterInputScriptFacade();
+        draconic::physics::RegisterPhysicsScriptFacade();
+        draconic::audio::RegisterAudioScriptFacade();
         RegisterSceneLoaderScriptFacade();     // SceneLoader.* (owned by the game-instance project)
         draconic::ui::RegisterUiScriptFacade(); // Ui.* (owned by the UISubsystem)
         // Every built backend registers (batteries-included); a run resolves by the game script's

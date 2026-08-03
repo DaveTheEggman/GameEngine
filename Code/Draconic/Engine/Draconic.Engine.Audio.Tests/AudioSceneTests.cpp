@@ -439,7 +439,7 @@ TEST_CASE("audio.scene: a source's busName routes its voice onto the layout's cu
 TEST_CASE("audio.scene: the Wren Audio facade plays clips/cues/music by CONTENT PATH "
           "through the resource seam (missing paths no-op, never fault)")
 {
-    RegisterAudioScriptApi();
+    RegisterAudioScriptFacade();
     RegisterAudioResource();
 
     // A hand-cooked content DB: sfx/beep (clip) + sfx/steps (cue referencing it).

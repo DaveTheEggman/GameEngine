@@ -354,7 +354,7 @@ TEST_CASE("physics.scene: a tilted plane entity makes boxes slide downhill")
 
 TEST_CASE("physics.scene: the Wren Physics facade raycasts + pushes through the service")
 {
-    RegisterPhysicsScriptApi();
+    RegisterPhysicsScriptFacade();
 
     PlayScene play;
     play.AddFloor();
@@ -399,7 +399,7 @@ TEST_CASE("physics.scene: the Wren Physics facade raycasts + pushes through the 
 
 TEST_CASE("physics.scene: the Physics facade is in the Wren BEHAVIOR prelude (not just main)")
 {
-    RegisterPhysicsScriptApi(); // registers the type AND the behavior-prelude facade name
+    RegisterPhysicsScriptFacade(); // registers the type AND the behavior-prelude facade name
 
     // The behavior/Level prelude is `import "main" for <built-ins + ExtraFacadeNames>`, so a
     // facade is reachable from a component behavior (or a Level) only if its name is in that

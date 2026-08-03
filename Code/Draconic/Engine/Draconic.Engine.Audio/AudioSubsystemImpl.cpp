@@ -181,7 +181,7 @@ namespace draconic::audio
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
-    void RegisterAudioScriptApi()
+    void RegisterAudioScriptFacade()
     {
         GlobalTypeRegistry().Register(Audio::StaticType());
         // So the Wren behavior/Level prelude imports `Audio` too (AngelScript binds by

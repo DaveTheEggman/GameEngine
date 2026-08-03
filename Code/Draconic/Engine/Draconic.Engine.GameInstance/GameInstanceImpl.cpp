@@ -17,7 +17,7 @@ import draconic.script;
 import draconic.engine.script;
 import draconic.script.facades; // RegisterExtraFacadeName (SceneLoader behavior-prelude hook)
 import draconic.net.manager; // NetworkManager factories + InstallNetScriptService
-import draconic.input;       // kInputRuntimeService (install the per-instance runtime)
+import draconic.input;       // kInputScriptService (install the per-instance runtime)
 
 using namespace draconic::core;
 
@@ -68,7 +68,7 @@ namespace draconic::runtime
             *m_scriptContext, m_sceneLoaderBinding); // SceneLoader.* -> this instance's load registry
         // Install THIS instance's input runtime as the context's Input service (overriding the shared
         // editor runtime the run-host configurator installed), so the game reads only ITS own source.
-        context->SetService(input::kInputRuntimeService, &m_inputRuntime);
+        context->SetService(input::kInputScriptService, &m_inputRuntime);
 
         const bool loaded = m_scriptContext->Load(source, name).IsOk();
         m_runHost

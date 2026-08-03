@@ -314,7 +314,7 @@ namespace draconic::physics
         builder.Constructor();
     }
 
-    void RegisterPhysicsScriptApi()
+    void RegisterPhysicsScriptFacade()
     {
         GlobalTypeRegistry().Register(Physics::StaticType());
         // So the Wren behavior/Level prelude imports `Physics` too (AngelScript binds by
