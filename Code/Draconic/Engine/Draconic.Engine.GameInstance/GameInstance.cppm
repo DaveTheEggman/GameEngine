@@ -159,7 +159,7 @@ export namespace draconic::runtime
         /// caller then runs the same policy as the sync path (EnsureCamera, Start, ...).
         scene::Scene* ActivateLoadedScene(SceneLoadHandle& handle);
 
-        // ---- script-driven scene loads (task #123): the Game facade's `loadSceneAsync -> ticket ->
+        // ---- script-driven scene loads (task #123): the SceneLoader facade's `loadSceneAsync -> ticket ->
         // poll` model. The instance owns the in-flight handles keyed by ticket; the app drives
         // completion each frame via PumpScriptLoads, which activates a finished load, makes it the
         // current scene (SetScene), then runs the app's render/sim POLICY hook. Kept on the instance
@@ -176,7 +176,7 @@ export namespace draconic::runtime
         }
 
         /// Register an in-flight async load under a fresh ticket (1-based; 0 is never issued, so it
-        /// doubles as "failed to start"). The Game facade hands this ticket to the script;
+        /// doubles as "failed to start"). The SceneLoader facade hands this ticket to the script;
         /// ScriptLoad{Progress,Complete,Failed} query by it. The handle is a value type (stored).
         i32 TrackScriptLoad(SceneLoadHandle handle);
 
@@ -185,7 +185,7 @@ export namespace draconic::runtime
         /// after the resource pump). Cheap when nothing is in flight.
         void PumpScriptLoads();
 
-        /// Ticket queries for the Game facade. Unknown ticket -> Progress 1, Complete true (a bad or
+        /// Ticket queries for the SceneLoader facade. Unknown ticket -> Progress 1, Complete true (a bad or
         /// expired ticket never hangs a `while (!complete) yield` loop), Failed false.
         [[nodiscard]] f32 ScriptLoadProgress(i32 ticket) const;
         [[nodiscard]] bool ScriptLoadComplete(i32 ticket) const; // true once terminal (live OR failed)

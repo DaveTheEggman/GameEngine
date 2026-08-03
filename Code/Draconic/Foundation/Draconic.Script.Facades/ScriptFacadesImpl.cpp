@@ -65,14 +65,14 @@ namespace draconic::script
         builder.Constructor();
     }
 
-    DRACONIC_REFLECT(Game, "draconic::script")
+    DRACONIC_REFLECT(SceneLoader, "draconic::script")
     {
-        builder.Method<&Game::loadSceneAsync>("loadSceneAsync");
-        builder.Method<&Game::loadProgress>("loadProgress");
-        builder.Method<&Game::loadComplete>("loadComplete");
-        builder.Method<&Game::loadFailed>("loadFailed");
-        builder.Method<&Game::loadScene>("loadScene");
-        builder.Method<&Game::sceneReady>("sceneReady");
+        builder.Method<&SceneLoader::loadSceneAsync>("loadSceneAsync");
+        builder.Method<&SceneLoader::loadProgress>("loadProgress");
+        builder.Method<&SceneLoader::loadComplete>("loadComplete");
+        builder.Method<&SceneLoader::loadFailed>("loadFailed");
+        builder.Method<&SceneLoader::loadScene>("loadScene");
+        builder.Method<&SceneLoader::sceneReady>("sceneReady");
         builder.Constructor();
     }
 
@@ -80,7 +80,7 @@ namespace draconic::script
     {
         // Kept in sync with RegisterScriptFacadeReflection below.
         static const core::StringView names[] = {
-            u8"Entity", u8"Log", u8"Time", u8"Random", u8"Scene", u8"Game",
+            u8"Entity", u8"Log", u8"Time", u8"Random", u8"Scene", u8"SceneLoader",
         };
         return core::Span<const core::StringView>{names, 6};
     }
@@ -130,7 +130,7 @@ namespace draconic::script
             GlobalTypeRegistry().Register(Time::StaticType());
             GlobalTypeRegistry().Register(Random::StaticType());
             GlobalTypeRegistry().Register(Scene::StaticType());
-            GlobalTypeRegistry().Register(Game::StaticType());
+            GlobalTypeRegistry().Register(SceneLoader::StaticType());
             return true;
         }();
         (void)once;

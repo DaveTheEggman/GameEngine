@@ -1395,12 +1395,12 @@ TEST_CASE("script.scene: behaviors tick without error when no physics subsystem 
     ctx.Shutdown();
 }
 
-// ---- Game.* level-load facade (task #123): a behavior kicks an async scene load and polls it
+// ---- SceneLoader.* level-load facade (task #123): a behavior kicks an async scene load and polls it
 // to completion through the facade. What is under test is the facade->binding routing (the
 // script never touches a real GameInstance here; the host installs fake load pointers) and the
 // exact ticket round-tripping script->facade->binding. Both backends, uniformly.
 
-TEST_CASE("script.game: Game.loadSceneAsync -> ticket, polled through loadComplete/"
+TEST_CASE("script.sceneloader: SceneLoader.loadSceneAsync -> ticket, polled through loadComplete/"
           "loadProgress to completion (Wren) - facade->binding routing + ticket round-trip")
 {
     ScriptedScene bed;
@@ -1447,10 +1447,10 @@ TEST_CASE("script.game: Game.loadSceneAsync -> ticket, polled through loadComple
                   u8"        _done = false\n"
                   u8"    }\n"
                   u8"    level=(v) { _level = v }\n"
-                  u8"    onStart() { _ticket = Game.loadSceneAsync(_level) }\n"
+                  u8"    onStart() { _ticket = SceneLoader.loadSceneAsync(_level) }\n"
                   u8"    onUpdate(dt) {\n"
-                  u8"        if (!_done && Game.loadComplete(_ticket)) {\n"
-                  u8"            Game.loadProgress(_ticket)\n"
+                  u8"        if (!_done && SceneLoader.loadComplete(_ticket)) {\n"
+                  u8"            SceneLoader.loadProgress(_ticket)\n"
                   u8"            _entity.setName(\"ready\")\n"
                   u8"            _done = true\n"
                   u8"        }\n"
@@ -1485,7 +1485,7 @@ TEST_CASE("script.game: Game.loadSceneAsync -> ticket, polled through loadComple
     CHECK(completePolls == 2);
 }
 
-TEST_CASE("script.game: Game.loadSceneAsync -> ticket, polled to completion (AngelScript) "
+TEST_CASE("script.sceneloader: SceneLoader.loadSceneAsync -> ticket, polled to completion (AngelScript) "
           "- second backend, uniformly")
 {
     draconic::script::angelscript::RegisterAngelScriptBackend();
@@ -1528,10 +1528,10 @@ TEST_CASE("script.game: Game.loadSceneAsync -> ticket, polled to completion (Ang
         u8"    private int ticket;\n"
         u8"    private bool done;\n"
         u8"    Loader(Entity@ entity) { @self = entity; ticket = 0; done = false; }\n"
-        u8"    void onStart() { ticket = Game::loadSceneAsync(Guid(0xABC, 0xDEF)); }\n"
+        u8"    void onStart() { ticket = SceneLoader::loadSceneAsync(Guid(0xABC, 0xDEF)); }\n"
         u8"    void onUpdate(double dt) {\n"
-        u8"        if (!done && Game::loadComplete(ticket)) {\n"
-        u8"            Game::loadProgress(ticket);\n"
+        u8"        if (!done && SceneLoader::loadComplete(ticket)) {\n"
+        u8"            SceneLoader::loadProgress(ticket);\n"
         u8"            self.setName(\"ready\");\n"
         u8"            done = true;\n"
         u8"        }\n"

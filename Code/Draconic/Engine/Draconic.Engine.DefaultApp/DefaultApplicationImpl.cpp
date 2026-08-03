@@ -151,7 +151,7 @@ namespace draconic::runtime
         // + Scene.spawn + entity.send routing so its context has them when the game script starts.
         // (The subsystem's own default host - for editor scenes - is wired in its OnReady.)
         m_scripts->ConfigureRunHost(m_instance.RunHost());
-        InstallInstanceLoadFacade(m_instance); // Game.* level-load facade for the primary instance
+        InstallInstanceLoadFacade(m_instance); // SceneLoader.* level-load facade for the primary instance
         draconic::input::RegisterInputScriptApi();
         draconic::physics::RegisterPhysicsScriptApi();
         draconic::audio::RegisterAudioScriptApi();
@@ -262,7 +262,7 @@ namespace draconic::runtime
         gi->Scenes().SetAwareRegistry(&m_scenes->AwareRegistry());
         m_scenes->RegisterManager(&gi->Scenes());
         m_scripts->ConfigureRunHost(gi->RunHost());
-        InstallInstanceLoadFacade(*gi); // Game.* level-load facade for this extra instance
+        InstallInstanceLoadFacade(*gi); // SceneLoader.* level-load facade for this extra instance
         gi->SetEndpointOnlineHook(
             MakeEndpointOnlineHook()); // its own endpoint, wired like the primary
         if (m_input != nullptr)
@@ -316,7 +316,7 @@ namespace draconic::runtime
         gi.SetSceneActivationPolicy(core::Function<void(draconic::scene::Scene*)>{
             [self](draconic::scene::Scene* scene) { self->ApplyLoadedSceneActivation(scene); }});
 
-        // Game.loadSceneAsync(id) -> resolve the cooked scene instance, kick an async load into THIS
+        // SceneLoader.loadSceneAsync(id) -> resolve the cooked scene instance, kick an async load into THIS
         // instance, register it under a ticket. 0 = could not start (bad id / no DB). The prefab
         // provider reads a nested-prefab payload by guid - the same source the sync path uses.
         gi.RunHost().Binding().loadSceneAsync =

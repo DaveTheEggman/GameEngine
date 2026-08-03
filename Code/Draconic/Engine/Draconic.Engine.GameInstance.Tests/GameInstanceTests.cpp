@@ -12,6 +12,7 @@ import draconic.content;           // ContentDatabase / Instance
 import draconic.resource;          // ResourceManager
 import draconic.vfs;               // NativeFileSystem
 import draconic.script;
+import draconic.script.facades; // RegisterScriptFacadeReflection (Scene / SceneLoader facades)
 import draconic.script.wren;
 import draconic.script.angelscript;
 import draconic.net;         // NetSession queries (IsServer/PeerCount)
@@ -188,6 +189,79 @@ TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
 
     gi.StopScript();
     CHECK_FALSE(gi.ScriptRunning());
+}
+
+// task #123 boot reorder: the game script now launches BEFORE any scene, so a `class Game`
+// orchestrator's launch()/update() may call the Scene + SceneLoader facades with NO current scene.
+// Two properties under test: (1) the facades are NULL-SCENE-SAFE (no deref of a null currentScene -
+// the run must launch + tick without faulting); (2) the load facade is named SceneLoader, NOT Game -
+// a facade named Game is a hard AngelScript name conflict with the mandatory `Game` orchestrator
+// class (and a Wren import clash), so THIS test compiling at all is the regression guard for that.
+TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a pre-scene "
+          "orchestrator (Wren)")
+{
+    RegisterCoreTypes();
+    draconic::script::RegisterScriptFacadeReflection();
+    draconic::script::wren::RegisterWrenScriptBackend();
+
+    runtime::GameInstance gi;
+    CHECK_FALSE(gi.SceneReady()); // no scene yet - the orchestrator-first condition
+    const bool ok = gi.StartScript(
+        u8"import \"main\" for Scene, SceneLoader\n"
+        u8"class Game {\n"
+        u8"  construct new() {}\n"
+        u8"  launch() {\n"
+        u8"    Scene.find(\"nobody\")\n"
+        u8"    Scene.findByPath(\"a/b\")\n"
+        u8"    SceneLoader.sceneReady()\n"
+        u8"    SceneLoader.loadComplete(0)\n"
+        u8"    SceneLoader.loadProgress(0)\n"
+        u8"  }\n"
+        u8"  update(dt) {\n"
+        u8"    Scene.find(\"x\")\n"
+        u8"    SceneLoader.sceneReady()\n"
+        u8"  }\n"
+        u8"  exit() {}\n"
+        u8"}\n",
+        u8"game.wren");
+    REQUIRE(ok); // compiled (no Game-name clash) + launch() ran the pre-scene facade calls, no fault
+    CHECK(gi.ScriptRunning());
+    gi.DriveRunHost(0.016f);
+    gi.TickScript(0.016f, 1.0f); // update() calls them again - still no fault
+    CHECK(gi.ScriptRunning());
+    gi.StopScript();
+}
+
+TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a pre-scene "
+          "orchestrator (AngelScript)")
+{
+    RegisterCoreTypes();
+    draconic::script::RegisterScriptFacadeReflection();
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+
+    runtime::GameInstance gi;
+    // A facade named `Game` would fail HERE with "Name conflict. 'Game' is an extended data type" -
+    // the SceneLoader rename is exactly what lets this `class Game` compile alongside the facade.
+    const bool ok = gi.StartScript(
+        u8"class Game {\n"
+        u8"  Game() {}\n"
+        u8"  void launch() {\n"
+        u8"    Scene::find(\"nobody\");\n"
+        u8"    Scene::findByPath(\"a/b\");\n"
+        u8"    SceneLoader::sceneReady();\n"
+        u8"    SceneLoader::loadComplete(0);\n"
+        u8"    SceneLoader::loadProgress(0);\n"
+        u8"  }\n"
+        u8"  void update(double dt) { Scene::find(\"x\"); SceneLoader::sceneReady(); }\n"
+        u8"  void exit() {}\n"
+        u8"}\n",
+        u8"game.as");
+    REQUIRE(ok);
+    CHECK(gi.ScriptRunning());
+    gi.DriveRunHost(0.016f);
+    gi.TickScript(0.016f, 1.0f);
+    CHECK(gi.ScriptRunning());
+    gi.StopScript();
 }
 
 TEST_CASE("game-instance: a debugger suspension in update is not a fault - the script survives")

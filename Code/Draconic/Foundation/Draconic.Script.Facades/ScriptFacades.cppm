@@ -321,16 +321,18 @@ export namespace draconic::script
         }
     };
 
-    /// Game.*: the running instance's LEVEL-LOAD control (task #123). loadSceneAsync kicks an async
-    /// scene load and returns a ticket the script polls - the coroutine idiom is
-    /// `var t = Game.loadSceneAsync(id); while (!Game.loadComplete(t)) yield`. loadScene is a sync
-    /// convenience for tiny scenes; sceneReady reports whether the instance's current scene is live
-    /// (a script on the convenience path waits `while (!Game.sceneReady()) yield` before scene-
-    /// dependent init). All route through host-installed pointers on the run binding (PER-INSTANCE);
-    /// unwired (bare cook VM) = safe no-ops, with loadComplete returning true so a poll never hangs.
-    class Game final : public Object
+    /// SceneLoader.*: the running instance's LEVEL-LOAD control (task #123). loadSceneAsync kicks an
+    /// async scene load and returns a ticket the script polls - the coroutine idiom is
+    /// `var t = SceneLoader.loadSceneAsync(id); while (!SceneLoader.loadComplete(t)) yield`. loadScene
+    /// is a sync convenience for tiny scenes; sceneReady reports whether the instance's current scene
+    /// is live (a script on the convenience path waits `while (!SceneLoader.sceneReady()) yield`
+    /// before scene-dependent init). All route through host-installed pointers on the run binding
+    /// (PER-INSTANCE); unwired (bare cook VM) = safe no-ops, with loadComplete returning true so a
+    /// poll never hangs. NAMED SceneLoader (not Game) - the game ORCHESTRATOR class is `Game`, and a
+    /// facade of the same name is a hard AngelScript name conflict + a Wren import clash.
+    class SceneLoader final : public Object
     {
-        DRACONIC_OBJECT(Game, Object)
+        DRACONIC_OBJECT(SceneLoader, Object)
     public:
         [[nodiscard]] static ScriptRuntimeBinding* Resolve()
         {
@@ -379,7 +381,7 @@ export namespace draconic::script
         }
     };
 
-    /// Registers the behavior facade types (Entity/Log/Time/Random/Scene/Game) with the global
+    /// Registers the behavior facade types (Entity/Log/Time/Random/Scene/SceneLoader) with the global
     /// registry - call BEFORE a script manager is created (the run host and the cook's
     /// builder both do). Idempotent.
     void RegisterScriptFacadeReflection();
