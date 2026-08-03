@@ -33,12 +33,38 @@ import draconic.ui;
 import draconic.ui.resource;
 import draconic.render.api;
 import draconic.engine.render; // RenderSubsystem (overlay-role registration)
+import draconic.script;         // the Ui facade reflection body
+import draconic.script.facades; // RegisterExtraFacadeName (behavior-prelude hook)
 
 using namespace draconic::core;
 namespace vg = draconic::vg;
 
 namespace draconic::ui
 {
+    // The Ui.* facade reflection body + registration (kept out of the interface unit per the GCC
+    // gcm-cluster rule). Owned by the UISubsystem (the out-of-tree facade pattern, like Net).
+    DRACONIC_REFLECT(Ui, "draconic::ui")
+    {
+        builder.Method<&Ui::pushOverlay>("pushOverlay");
+        builder.Method<&Ui::popOverlay>("popOverlay");
+        builder.Method<&Ui::setText>("setText");
+        builder.Method<&Ui::setProgress>("setProgress");
+        builder.Method<&Ui::setVisible>("setVisible");
+        builder.Method<&Ui::onClick>("onClick");
+        builder.Constructor(); // Wren only materializes constructible foreign classes
+    }
+
+    void RegisterUiScriptFacade()
+    {
+        static const bool once = []()
+        {
+            GlobalTypeRegistry().Register(Ui::StaticType());
+            draconic::script::RegisterExtraFacadeName(
+                u8"Ui"); // Wren behavior prelude imports it (AngelScript binds by registry)
+            return true;
+        }();
+        (void)once;
+    }
 
     // Per-canvas host inside a scene root: carries the canvas's draw ORDER (the scene
     // root's canvas children are kept sorted by it - higher = later = on top; the

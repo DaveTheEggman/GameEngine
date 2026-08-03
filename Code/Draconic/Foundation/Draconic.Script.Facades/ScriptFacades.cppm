@@ -381,7 +381,7 @@ export namespace draconic::script
         }
     };
 
-    /// Registers the behavior facade types (Entity/Log/Time/Random/Scene/SceneLoader) with the global
+    /// Registers the behavior facade types (Entity/Log/Time/Random/Scene/SceneLoader) with the
     /// registry - call BEFORE a script manager is created (the run host and the cook's
     /// builder both do). Idempotent.
     void RegisterScriptFacadeReflection();

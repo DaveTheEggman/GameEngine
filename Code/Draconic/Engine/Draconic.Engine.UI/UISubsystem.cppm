@@ -36,12 +36,120 @@ import draconic.render.api; // the two-tier overlay roles (ISceneOverlay/IScreen
 import draconic.ui;
 import draconic.ui.shell; // UiInputBridge (key/text mapping + IME lifecycle)
 import draconic.ui.resource;
+import draconic.script;         // Object / IScriptContext / IScriptDelegate / the run-context service
+import draconic.script.facades; // RegisterExtraFacadeName (the behavior-module prelude hook)
 
 using namespace draconic::core;
 
 export namespace draconic::ui
 {
     namespace scene = draconic::scene;
+    namespace script = draconic::script;
+
+    // ---- Ui.* script facade (task #123 step 3.5): the UISubsystem's OWN script surface, owned HERE
+    // (not the neutral Foundation facade lib) - the out-of-tree pattern draconic.net's `Net` facade
+    // uses. A UiScriptBinding is installed as a per-context service; the app backs its pointers with
+    // the live UISubsystem SCREEN tier (PushScreenOverlay/ScreenRoot) + resource manager. The facade
+    // is asset-driven + id-addressed - the view hierarchy never reaches script; documents are the
+    // authored artifact. See RegisterUiScriptFacade / InstallUiScriptService below.
+
+    // The service key the Ui facade resolves per script context (distinct from script.runtime).
+    inline constexpr StringView kUiScriptService = u8"ui.runtime";
+
+    // Installed as a per-context script service; the Ui facade resolves it. Holds host-installed
+    // pointers (the app fills them, backed by the UISubsystem). Null pointers = safe no-ops.
+    struct UiScriptBinding
+    {
+        Function<i32(const core::Guid&)> pushOverlay;                 // cooked document -> handle
+        Function<void(i32)> popOverlay;                               // handle
+        Function<void(i32, StringView, StringView)> setText;         // handle, id, text
+        Function<void(i32, StringView, f64)> setProgress;            // handle, id, 0..1
+        Function<void(i32, StringView, bool)> setVisible;            // handle, id, visible
+        Function<void(i32, StringView, RefPtr<script::IScriptDelegate>)> onClick; // handle, id, fn
+    };
+
+    // Install/clear the binding on a run context (call once the context exists). Idempotent.
+    inline void InstallUiScriptService(script::IScriptContext& context, UiScriptBinding& binding)
+    {
+        context.SetService(kUiScriptService, &binding);
+    }
+    inline void ClearUiScriptService(script::IScriptContext& context)
+    {
+        context.SetService(kUiScriptService, nullptr);
+    }
+
+    // Registers the `Ui` facade type with the global registry + the behavior-prelude name list.
+    // Call before a script manager is created (the run host / cook builder do). Idempotent.
+    void RegisterUiScriptFacade();
+
+    /// Ui.*: game-UI SCREEN overlays for scripts, asset-driven + id-addressed. pushOverlay resolves
+    /// a cooked UIDocument by guid, instantiates it, pushes it on the screen tier -> a handle;
+    /// setText/setProgress/setVisible address a control by its authored id; onClick binds a script
+    /// fn to a control's click (the menu-building primitive). With draconic::runtime's SceneLoader,
+    /// a script-driven loading screen is `var s = Ui.pushOverlay(DOC); var t = SceneLoader.
+    /// loadSceneAsync(LVL); while (!SceneLoader.loadComplete(t)) { Ui.setProgress(s, "progress",
+    /// SceneLoader.loadProgress(t)); yield } Ui.popOverlay(s)`. Unwired = safe no-ops (pushOverlay
+    /// -> 0). Mutations from an onClick handler follow the UI mutation-queue rule (the host defers).
+    class Ui final : public Object
+    {
+        DRACONIC_OBJECT(Ui, Object)
+    public:
+        [[nodiscard]] static UiScriptBinding* Resolve()
+        {
+            script::IScriptContext* context = script::CurrentScriptContext();
+            return context != nullptr
+                       ? static_cast<UiScriptBinding*>(context->GetService(kUiScriptService))
+                       : nullptr;
+        }
+
+        [[nodiscard]] static i32 pushOverlay(core::Guid document)
+        {
+            UiScriptBinding* binding = Resolve();
+            return (binding != nullptr && binding->pushOverlay && !document.IsNil())
+                       ? binding->pushOverlay(document)
+                       : 0;
+        }
+        static void popOverlay(i32 handle)
+        {
+            UiScriptBinding* binding = Resolve();
+            if (binding != nullptr && binding->popOverlay)
+            {
+                binding->popOverlay(handle);
+            }
+        }
+        static void setText(i32 handle, String id, String text)
+        {
+            UiScriptBinding* binding = Resolve();
+            if (binding != nullptr && binding->setText)
+            {
+                binding->setText(handle, id.AsView(), text.AsView());
+            }
+        }
+        static void setProgress(i32 handle, String id, f64 value)
+        {
+            UiScriptBinding* binding = Resolve();
+            if (binding != nullptr && binding->setProgress)
+            {
+                binding->setProgress(handle, id.AsView(), value);
+            }
+        }
+        static void setVisible(i32 handle, String id, bool visible)
+        {
+            UiScriptBinding* binding = Resolve();
+            if (binding != nullptr && binding->setVisible)
+            {
+                binding->setVisible(handle, id.AsView(), visible);
+            }
+        }
+        static void onClick(i32 handle, String id, RefPtr<script::IScriptDelegate> fn)
+        {
+            UiScriptBinding* binding = Resolve();
+            if (binding != nullptr && binding->onClick)
+            {
+                binding->onClick(handle, id.AsView(), Move(fn));
+            }
+        }
+    };
 
     enum class CanvasScalerMode : u8
     {

@@ -6,6 +6,7 @@ target_link_libraries(Draconic.Engine.UI
            Draconic::Resource Draconic::Shell Draconic::RHI Draconic::Fonts Draconic::Fonts.TTF Draconic::Fonts.Resource
            Draconic::Input Draconic::Engine.Input Draconic::UI Draconic::UI.Shell
            Draconic::UI.Resource
+           Draconic::Script Draconic::Script.Facades
            Draconic::VG Draconic::VG.Renderer Draconic::Shaders Draconic::Shaders.System
            Draconic::Render Draconic::Engine.Render Draconic::Policy)
 target_sources(Draconic.Engine.UI
