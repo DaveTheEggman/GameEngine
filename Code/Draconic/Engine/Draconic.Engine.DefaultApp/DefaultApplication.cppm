@@ -271,6 +271,11 @@ export namespace draconic::runtime
         core::UniquePtr<draconic::resource::ResourceManager> m_ownedResources;
         draconic::input::InputSubsystem* m_input = nullptr;
         draconic::ui::UISubsystem* m_ui = nullptr;
+        // Backs the Ui.* script facade with the live screen tier (task #123 step 3.5): the host owns
+        // the overlay map + control ops; the binding routes into it and is installed on every run
+        // context by the context configurator. App-owned (the screen tier is app-wide).
+        draconic::ui::UiScriptHost m_uiScriptHost;
+        draconic::ui::UiScriptBinding m_uiScriptBinding;
         core::String m_uiFontPath;
         draconic::physics::PhysicsSubsystem* m_physics = nullptr;
         draconic::audio::AudioSubsystem* m_audio = nullptr;

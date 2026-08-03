@@ -11,6 +11,7 @@ import draconic.engine.scene;
 import draconic.ui;
 import draconic.ui.resource;
 import draconic.engine.ui;
+import draconic.script; // IScriptDelegate (the Ui host onClick test)
 import draconic.render.api;
 import draconic.engine.render;
 import draconic.shell;
@@ -250,6 +251,77 @@ TEST_CASE("ui.subsystem: the scene-less screen tier survives scene swaps and sta
 
     ui->RemoveScreenOverlay(overlay.Get());
     CHECK(ui->ScreenOverlayCount() == 0);
+    ctx.Shutdown();
+}
+
+namespace
+{
+    // A minimal script delegate that records how many times native code fires it.
+    class RecordingDelegate final : public draconic::script::IScriptDelegate
+    {
+    public:
+        int calls = 0;
+        Result<Variant> Invoke(Span<Variant>) override
+        {
+            ++calls;
+            return Variant{};
+        }
+    };
+}
+
+TEST_CASE("ui.scripthost: Ui.* ops drive real screen-tier controls by id + click -> delegate")
+{
+    // The host side of the Ui facade: UiScriptHost resolves a cooked UIDocument, pushes it on the
+    // screen tier, and the id-addressed ops mutate the REAL controls (Label text, ProgressBar value,
+    // visibility) + a Button click fires the bound script delegate.
+    runtime::Context ctx;
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    RefPtr<UIDocument> doc = MakeDocument(u8"<FlexLayout>"
+                                          u8"<Label id=\"status\" text=\"...\"/>"
+                                          u8"<ProgressBar id=\"progress\"/>"
+                                          u8"<Button id=\"cancel\" text=\"Cancel\"/>"
+                                          u8"</FlexLayout>");
+
+    UiScriptHost host;
+    host.Attach(*ui);
+    host.SetDocumentResolver(
+        Function<RefPtr<UIDocument>(const Guid&)>{[&](const Guid&) { return doc; }});
+
+    const i32 h = host.PushOverlay(Guid{1, 2});
+    REQUIRE(h != 0);
+    CHECK(host.OverlayCount() == 1u);
+    CHECK(ui->ScreenOverlayCount() == 1);
+
+    host.SetText(h, u8"status", u8"Loading level...");
+    host.SetProgress(h, u8"progress", 0.42);
+    RefPtr<RecordingDelegate> clickFn = MakeRef<RecordingDelegate>(DefaultAllocator());
+    host.OnClick(h, u8"cancel", clickFn);
+    host.SetVisible(h, u8"progress", false);
+
+    ViewGroup* root = Cast<ViewGroup>(ui->ScreenRoot());
+    REQUIRE(root != nullptr);
+    Label* status = root->FindByName<Label>(u8"status");
+    REQUIRE(status != nullptr);
+    CHECK(status->Text.Value() == StringView(u8"Loading level..."));
+    ProgressBar* bar = root->FindByName<ProgressBar>(u8"progress");
+    REQUIRE(bar != nullptr);
+    CHECK(bar->Value.Value() == doctest::Approx(0.42f));
+    CHECK(bar->Visibility == Visibility::Gone);
+
+    Button* cancel = root->FindByName<Button>(u8"cancel");
+    REQUIRE(cancel != nullptr);
+    cancel->OnClick.Invoke(cancel); // simulate the click
+    CHECK(clickFn->calls == 1);
+
+    host.PopOverlay(h);
+    CHECK(host.OverlayCount() == 0u);
+    CHECK(ui->ScreenOverlayCount() == 0);
+
+    // Unknown handle / id are safe no-ops.
+    host.SetText(999, u8"nope", u8"x");
+    host.SetProgress(h, u8"nope", 0.5);
     ctx.Shutdown();
 }
 

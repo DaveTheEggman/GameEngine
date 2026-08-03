@@ -66,6 +66,127 @@ namespace draconic::ui
         (void)once;
     }
 
+    // ---- UiScriptHost: backs the Ui.* facade with the live UISubsystem screen tier ----
+
+    void UiScriptHost::Install(UiScriptBinding& binding)
+    {
+        UiScriptHost* self = this;
+        binding.pushOverlay =
+            Function<i32(const core::Guid&)>{[self](const core::Guid& d) { return self->PushOverlay(d); }};
+        binding.popOverlay = Function<void(i32)>{[self](i32 h) { self->PopOverlay(h); }};
+        binding.setText = Function<void(i32, StringView, StringView)>{
+            [self](i32 h, StringView id, StringView t) { self->SetText(h, id, t); }};
+        binding.setProgress = Function<void(i32, StringView, f64)>{
+            [self](i32 h, StringView id, f64 v) { self->SetProgress(h, id, v); }};
+        binding.setVisible = Function<void(i32, StringView, bool)>{
+            [self](i32 h, StringView id, bool v) { self->SetVisible(h, id, v); }};
+        binding.onClick = Function<void(i32, StringView, RefPtr<script::IScriptDelegate>)>{
+            [self](i32 h, StringView id, RefPtr<script::IScriptDelegate> fn)
+            { self->OnClick(h, id, Move(fn)); }};
+    }
+
+    i32 UiScriptHost::PushOverlay(const core::Guid& document)
+    {
+        if (m_ui == nullptr || !m_resolve)
+        {
+            return 0;
+        }
+        RefPtr<UIDocument> doc = m_resolve(document);
+        if (!doc)
+        {
+            return 0;
+        }
+        RefPtr<View> view = m_ui->PushScreenOverlay(*doc);
+        if (!view)
+        {
+            return 0;
+        }
+        const i32 handle = ++m_next;
+        m_overlays.InsertOrAssign(handle, view);
+        return handle;
+    }
+
+    View* UiScriptHost::FindOverlay(i32 handle) const
+    {
+        const RefPtr<View>* v = m_overlays.Find(handle);
+        return v != nullptr ? v->Get() : nullptr;
+    }
+
+    View* UiScriptHost::FindControl(i32 handle, StringView id) const
+    {
+        View* overlay = FindOverlay(handle);
+        if (overlay == nullptr)
+        {
+            return nullptr;
+        }
+        if (overlay->Name.Size() > 0 && overlay->Name.AsView() == id)
+        {
+            return overlay; // the overlay root itself carries the id
+        }
+        ViewGroup* group = Cast<ViewGroup>(overlay);
+        return group != nullptr ? group->FindByName(id) : nullptr;
+    }
+
+    void UiScriptHost::PopOverlay(i32 handle)
+    {
+        if (View* v = FindOverlay(handle); v != nullptr && m_ui != nullptr)
+        {
+            m_ui->RemoveScreenOverlay(v);
+        }
+        m_overlays.Remove(handle);
+    }
+
+    void UiScriptHost::SetText(i32 handle, StringView id, StringView text)
+    {
+        View* control = FindControl(handle, id);
+        if (Label* label = Cast<Label>(control))
+        {
+            label->SetText(text);
+        }
+        else if (Button* button = Cast<Button>(control))
+        {
+            button->SetText(text);
+        }
+    }
+
+    void UiScriptHost::SetProgress(i32 handle, StringView id, f64 value)
+    {
+        if (ProgressBar* bar = Cast<ProgressBar>(FindControl(handle, id)))
+        {
+            const f32 clamped =
+                value < 0.0 ? 0.0f : (value > 1.0 ? 1.0f : static_cast<f32>(value));
+            bar->Value.SetValue(clamped);
+        }
+    }
+
+    void UiScriptHost::SetVisible(i32 handle, StringView id, bool visible)
+    {
+        if (View* v = FindControl(handle, id))
+        {
+            v->Visibility = visible ? Visibility::Visible : Visibility::Gone;
+        }
+    }
+
+    void UiScriptHost::OnClick(i32 handle, StringView id, RefPtr<script::IScriptDelegate> fn)
+    {
+        if (!fn)
+        {
+            return;
+        }
+        if (ButtonBase* button = Cast<ButtonBase>(FindControl(handle, id)))
+        {
+            RefPtr<script::IScriptDelegate> held = Move(fn);
+            // The current AngelScript delegate funcdef is double(double), so fire with one ignored
+            // arg (see docs/design/adding-facades.md). Holding `held` keeps the script fn GC-alive.
+            button->OnClick.Add(
+                [held](ButtonBase*)
+                {
+                    Variant argv[] = {Variant::From(0.0)};
+                    (void)held->Invoke(Span<Variant>{argv, 1});
+                });
+        }
+    }
+
     // Per-canvas host inside a scene root: carries the canvas's draw ORDER (the scene
     // root's canvas children are kept sorted by it - higher = later = on top; the
     // billboard layer stays child 0, below every canvas) and the SCALER transform

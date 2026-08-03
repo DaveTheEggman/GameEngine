@@ -151,6 +151,46 @@ export namespace draconic::ui
         }
     };
 
+    class UISubsystem; // defined below; UiScriptHost drives its screen tier
+
+    // Backs the Ui.* facade with the live UISubsystem SCREEN tier: owns the handle->overlay-view map,
+    // resolves cooked UIDocuments (the app supplies the resolver, backed by the resource manager), and
+    // applies the id-addressed control ops - Label/Button text, ProgressBar value, View visibility,
+    // Button click -> IScriptDelegate. App-owned (the screen tier is app-wide). Install() fills a
+    // UiScriptBinding to route into it; the app installs that binding on each run context. Ui.* is a
+    // safe no-op until Attach() + a document resolver are set.
+    class UiScriptHost
+    {
+    public:
+        void Attach(UISubsystem& ui) noexcept { m_ui = &ui; }
+        void SetDocumentResolver(Function<RefPtr<UIDocument>(const core::Guid&)> resolver)
+        {
+            m_resolve = Move(resolver);
+        }
+        // Route the six Ui.* facade ops into this host.
+        void Install(UiScriptBinding& binding);
+
+        [[nodiscard]] i32 PushOverlay(const core::Guid& document);
+        void PopOverlay(i32 handle);
+        void SetText(i32 handle, StringView id, StringView text);
+        void SetProgress(i32 handle, StringView id, f64 value);
+        void SetVisible(i32 handle, StringView id, bool visible);
+        void OnClick(i32 handle, StringView id, RefPtr<script::IScriptDelegate> fn);
+
+        [[nodiscard]] usize OverlayCount() const noexcept { return m_overlays.Size(); }
+
+    private:
+        [[nodiscard]] View* FindOverlay(i32 handle) const;
+        // The overlay root OR a named descendant of it (id-addressing; ViewGroup::FindByName only
+        // reaches descendants, so the root is checked explicitly).
+        [[nodiscard]] View* FindControl(i32 handle, StringView id) const;
+
+        UISubsystem* m_ui = nullptr;
+        Function<RefPtr<UIDocument>(const core::Guid&)> m_resolve;
+        HashMap<i32, RefPtr<View>> m_overlays;
+        i32 m_next = 0;
+    };
+
     enum class CanvasScalerMode : u8
     {
         ConstantPixel = 0,   // 1 UI px = 1 target px

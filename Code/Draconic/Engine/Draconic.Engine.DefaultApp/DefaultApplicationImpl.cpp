@@ -193,7 +193,32 @@ namespace draconic::runtime
                 {
                     self->m_audio->ExposeToScript(context, self->Resources());
                 }
+                // Ui.* -> the app-wide screen-tier host (backs pushOverlay/setters/onClick).
+                draconic::ui::InstallUiScriptService(context, self->m_uiScriptBinding);
             }});
+
+        // Back the Ui.* facade with the live screen tier: attach the UISubsystem, resolve cooked
+        // UIDocuments by guid from the run's resource manager (read live - it may attach later in
+        // the editor), and route the binding into the host.
+        if (m_ui != nullptr)
+        {
+            m_uiScriptHost.Attach(*m_ui);
+            m_uiScriptHost.SetDocumentResolver(
+                core::Function<core::RefPtr<draconic::ui::UIDocument>(const core::Guid&)>{
+                    [self](const core::Guid& id) -> core::RefPtr<draconic::ui::UIDocument>
+                    {
+                        if (self->Resources() == nullptr || id.IsNil())
+                        {
+                            return {};
+                        }
+                        auto proxy = self->Resources()->Bind<draconic::ui::UIDocument>(id);
+                        draconic::ui::UIDocument* document = proxy.Get();
+                        return document != nullptr
+                                   ? core::RefPtr<draconic::ui::UIDocument>(document)
+                                   : core::RefPtr<draconic::ui::UIDocument>{};
+                    }});
+            m_uiScriptHost.Install(m_uiScriptBinding);
+        }
         // Scene.spawn: resolve the prefab payload from the content DB the entry point
         // preset, spawn it, place the root at the requested world position, and bind
         // the freshly spawned entities' resources.
