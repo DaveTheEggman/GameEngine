@@ -187,6 +187,15 @@ namespace draconic::render
         return m_debugScenes.InsertOrAssign(&s, debug::DebugDraw{});
     }
 
+    debug::DebugDraw& RenderSubsystem::DebugView(const void* viewportKey)
+    {
+        if (debug::DebugDraw* p = m_debugViews.Find(viewportKey))
+        {
+            return *p;
+        }
+        return m_debugViews.InsertOrAssign(viewportKey, debug::DebugDraw{});
+    }
+
     void RenderSubsystem::SetTaaEnabled(bool on) noexcept
     {
         m_taaEnabled = on;
@@ -284,7 +293,7 @@ namespace draconic::render
                                       rhi::TextureFormat targetFormat, u32 width, u32 height,
                                       ViewportRect viewport, const CameraOverride* cameraOverride,
                                       const TargetState& targetState,
-                                      const ViewPostOverride* postOverride)
+                                      const ViewPostOverride* postOverride, const void* viewportKey)
     {
         if (m_frame.Get() == nullptr || target == nullptr)
         {
@@ -408,8 +417,13 @@ namespace draconic::render
             settings.post.taaEnabled || (settings.post.ssrEnabled && m_ssrParams.temporal);
         {
             DRACONIC_PROFILE_SCOPE("Render.AddView"); // binds the view + builds/sorts its draw list
-            const void* sceneDebug =
-                m_debugScenes.Find(&scene); // this scene's per-scene gizmo list (or null)
+            // A keyed view draws its OWN gizmo list (DebugView) so an editor viewport's grid/gizmos
+            // stay out of a second view of the same scene (the camera preview). Unkeyed views fall
+            // back to the per-scene list (drawn in every view of the scene). Either may be null when
+            // nothing was drawn this frame - the debug pass null-checks it.
+            const void* sceneDebug = (viewportKey != nullptr)
+                                         ? static_cast<const void*>(m_debugViews.Find(viewportKey))
+                                         : static_cast<const void*>(m_debugScenes.Find(&scene));
             m_frame->AddView(*snapshot, camera, settings, target, targetFormat, width, height,
                              sceneDebug,
                              /*sceneKey*/ &scene);
@@ -428,6 +442,10 @@ namespace draconic::render
         m_debugGlobal.Clear();
         m_debugScreen.Clear();
         for (auto& kv : m_debugScenes)
+        {
+            kv.value.Clear();
+        }
+        for (auto& kv : m_debugViews)
         {
             kv.value.Clear();
         }

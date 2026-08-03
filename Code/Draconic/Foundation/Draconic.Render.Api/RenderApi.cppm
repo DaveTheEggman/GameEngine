@@ -215,12 +215,18 @@ export namespace draconic::render
         // between Begin/EndRendering.
         // `viewport` is the sub-rect of `target` to render into (default = full target); pass distinct
         // viewports + camera overrides across multiple RenderScene calls for split-screen.
+        // `viewportKey` (default null) is a STABLE, per-view identity (e.g. the hosting ViewportView*).
+        // When non-null, this view's scene gizmos come from DebugView(viewportKey) instead of the
+        // shared per-scene DebugScene(scene) - so an editor viewport can draw grid/gizmos that appear
+        // ONLY in it, not in a second view of the same scene (the camera-preview inset). Null keeps the
+        // per-scene buffer (drawn in every view), which is what gameplay/player views want.
         virtual void RenderScene(scene::Scene& scene, rhi::TextureView* target,
                                  rhi::TextureFormat targetFormat, u32 width, u32 height,
                                  ViewportRect viewport = {},
                                  const CameraOverride* cameraOverride = nullptr,
                                  const TargetState& targetState = {},
-                                 const ViewPostOverride* postOverride = nullptr) = 0;
+                                 const ViewPostOverride* postOverride = nullptr,
+                                 const void* viewportKey = nullptr) = 0;
 
         // Compose every collected view into the frame's encoder.
         virtual void EndRendering() = 0;

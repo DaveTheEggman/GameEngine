@@ -134,12 +134,15 @@ export namespace draconic::render
         void SetFxaaSubpixel(f32 v) noexcept;
         [[nodiscard]] f32 FxaaSubpixel() const noexcept { return m_fxaaSubpixel; }
 
-        // Debug draw (immediate-mode, cleared each frame after rendering). Three destinations by WHERE the
+        // Debug draw (immediate-mode, cleared each frame after rendering). Destinations by WHERE the
         // draw lands: DebugGlobal() = drawn in EVERY view (world gizmos + per-view HUD, replicated per view);
-        // DebugScene(scene) = only where that scene renders (no side-by-side bleed); DebugScreen() = ONCE over
-        // the whole window (screen-space HUD - text/rects; 3D calls have no camera here and are ignored).
+        // DebugScene(scene) = every view OF THAT SCENE (no side-by-side bleed across scenes); DebugView(key)
+        // = only the ONE view that renders with a matching `viewportKey` (so an editor viewport's grid/
+        // gizmos stay out of a second view of the same scene - the camera-preview inset); DebugScreen() =
+        // ONCE over the whole window (screen-space HUD - text/rects; 3D calls have no camera here, ignored).
         [[nodiscard]] debug::DebugDraw& DebugGlobal() noexcept { return m_debugGlobal; }
         [[nodiscard]] debug::DebugDraw& DebugScene(scene::Scene& s);
+        [[nodiscard]] debug::DebugDraw& DebugView(const void* viewportKey);
         [[nodiscard]] debug::DebugDraw& DebugScreen() noexcept { return m_debugScreen; }
 
         // Temporal AA on/off (projection jitter + history resolve) + resolve tunables.
@@ -172,7 +175,8 @@ export namespace draconic::render
                          rhi::TextureFormat targetFormat, u32 width, u32 height,
                          ViewportRect viewport = {}, const CameraOverride* cameraOverride = nullptr,
                          const TargetState& targetState = {},
-                         const ViewPostOverride* postOverride = nullptr) override;
+                         const ViewPostOverride* postOverride = nullptr,
+                         const void* viewportKey = nullptr) override;
 
         void EndRendering() override;
 
@@ -240,7 +244,8 @@ export namespace draconic::render
         UniquePtr<DebugDrawPass> m_debugPass;
         debug::DebugDraw m_debugGlobal;                         // global gizmos (all views)
         debug::DebugDraw m_debugScreen;                         // whole-window HUD (drawn once)
-        HashMap<scene::Scene*, debug::DebugDraw> m_debugScenes; // per-scene gizmos
+        HashMap<scene::Scene*, debug::DebugDraw> m_debugScenes; // per-scene gizmos (every view of a scene)
+        HashMap<const void*, debug::DebugDraw> m_debugViews;    // per-view gizmos (one keyed viewport)
         bool m_globalPostActive = false; // a post setter was called => global override wins
         f32 m_exposure = 1.0f;
         bool m_bloomEnabled = true;

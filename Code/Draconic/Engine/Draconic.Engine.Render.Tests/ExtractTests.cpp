@@ -14,6 +14,7 @@ import draconic.engine.render; // components + ExtractSceneInto / ExtractPrimary
 import draconic.scene.resource;   // SerializeScene (post-process settings round-trip)
 import draconic.resource;
 import draconic.rhi;
+import draconic.rhi.null; // NullDevice (headless RenderSubsystem for the DebugView keying test)
 import draconic.texture.resource; // texture::Texture (the sky-texture product)
 
 using namespace draconic::core;
@@ -624,4 +625,30 @@ TEST_CASE("components: reflected types carry authored displayName + category att
         REQUIRE(categoryName != nullptr);
         CHECK(categoryName->AsView() == u8"Rendering");
     }
+}
+
+TEST_CASE("render: DebugView isolates per-view gizmos (camera-preview fix, task #118)")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+    RenderSubsystem sub{device, 2};
+
+    // Two distinct viewport keys (e.g. the main editor viewport + the camera-preview inset).
+    int mainKey = 0;
+    int previewKey = 0;
+
+    // Distinct keys -> distinct, STABLE buffers; the same key always returns the same buffer.
+    debug::DebugDraw& mainDbg = sub.DebugView(&mainKey);
+    debug::DebugDraw& previewDbg = sub.DebugView(&previewKey);
+    CHECK(&mainDbg != &previewDbg);
+    CHECK(&sub.DebugView(&mainKey) == &mainDbg);
+    CHECK(&sub.DebugView(&previewKey) == &previewDbg);
+
+    // A per-view buffer is also distinct from the shared per-scene buffer path.
+    CHECK(&sub.DebugView(&mainKey) != &sub.DebugGlobal());
+
+    // Draw into the MAIN view's buffer; the PREVIEW view's buffer stays empty - so an editor
+    // viewport's grid/gizmos can never bleed into a second view of the same scene.
+    mainDbg.DrawLine(Float3{0, 0, 0}, Float3{1, 0, 0}, Color{1, 1, 1, 1});
+    CHECK(mainDbg.HasAnyDraws());
+    CHECK_FALSE(previewDbg.HasAnyDraws());
 }

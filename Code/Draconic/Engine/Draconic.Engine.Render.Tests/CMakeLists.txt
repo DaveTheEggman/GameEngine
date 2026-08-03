@@ -7,7 +7,7 @@ add_executable(Draconic.Engine.Render.Tests
 
 target_link_libraries(Draconic.Engine.Render.Tests PRIVATE
     Draconic::Engine.Render Draconic::Geometry.Resource Draconic::Materials.Resource Draconic::Scene.Resource
-    Draconic::Resource Draconic::VFS Draconic::Content doctest::doctest)
+    Draconic::Resource Draconic::VFS Draconic::Content Draconic::RHI.Null doctest::doctest)
 
 target_compile_definitions(Draconic.Engine.Render.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

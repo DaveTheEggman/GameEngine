@@ -102,7 +102,11 @@ namespace draconic::editor
         // markers (selected = boxed and brighter) + gizmos.
         if (m_render != nullptr && m_scene != nullptr)
         {
-            render::debug::DebugDraw& dd = m_render->DebugScene(*m_scene);
+            // Draw the editor overlay (grid + markers + gizmos) into THIS viewport's own keyed
+            // debug list, not the per-scene one - so it renders only in the main viewport, never in
+            // the camera-preview inset (a second view of the same scene). RenderScene below passes
+            // the matching viewportKey; the preview passes its own (empty) key. Task #118.
+            render::debug::DebugDraw& dd = m_render->DebugView(m_viewport.Get());
             if (m_showGrid)
             {
                 dd.DrawGrid(Float3{0, 0, 0}, 20.0f, 20, Color{0.35f, 0.35f, 0.38f, 1.0f});
@@ -181,7 +185,7 @@ namespace draconic::editor
 
         m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w,
                               h, render::ViewportRect{0, 0, w, h}, &cameraOverride, targetState,
-                              &m_postOverride);
+                              &m_postOverride, /*viewportKey*/ m_viewport.Get());
         m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
 
         RenderCameraPreview(); // task #118: a second RenderScene through the previewed camera
@@ -1214,9 +1218,12 @@ namespace draconic::editor
         targetState.currentState = m_previewViewport->ColorState();
         targetState.finalState = rhi::ResourceState::ShaderRead;
 
+        // Keyed by the PREVIEW viewport: its own (empty) debug list, so the editor's grid/gizmos -
+        // written to DebugView(m_viewport) - never appear here. This is the whole fix (task #118).
         m_render->RenderScene(*m_scene, m_previewViewport->ColorTargetView(),
                               m_previewViewport->ColorFormat(), w, h,
-                              render::ViewportRect{0, 0, w, h}, &camOverride, targetState, nullptr);
+                              render::ViewportRect{0, 0, w, h}, &camOverride, targetState,
+                              /*postOverride*/ nullptr, /*viewportKey*/ m_previewViewport.Get());
         m_previewViewport->SetColorState(rhi::ResourceState::ShaderRead);
     }
 
