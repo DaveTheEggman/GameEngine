@@ -412,9 +412,18 @@ namespace draconic::script
         class AngelScriptScriptCook final : public IScriptLanguageCook
         {
         public:
-            [[nodiscard]] StringView NewAssetTemplate() const override
+            [[nodiscard]] StringView NewAssetTemplate(ScriptTier tier) const override
             {
-                return kAngelScriptBehaviorStarter;
+                switch (tier)
+                {
+                case ScriptTier::Level:
+                    return kAngelScriptLevelStarter;
+                case ScriptTier::Game:
+                    return kAngelScriptGameStarter;
+                case ScriptTier::Behavior:
+                default:
+                    return kAngelScriptBehaviorStarter;
+                }
             }
 
             [[nodiscard]] bool Cook(StringView source, StringView assetName,

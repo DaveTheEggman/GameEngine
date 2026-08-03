@@ -31,17 +31,49 @@ TEST_CASE("wren.cook: registered + resolvable by language; the starter cooks wit
 {
     IScriptLanguageCook* cook = WrenCook();
     REQUIRE(cook != nullptr);
-    CHECK_FALSE(cook->NewAssetTemplate().IsEmpty());
+    CHECK_FALSE(cook->NewAssetTemplate(ScriptTier::Behavior).IsEmpty());
 
     CookScriptErrorSink sink;
     ScriptClassSource out;
-    REQUIRE(cook->Cook(cook->NewAssetTemplate(), u8"NewBehavior.wren", sink, out));
+    REQUIRE(cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior), u8"NewBehavior.wren", sink, out));
     CHECK(out.language == u8"wren");
     CHECK(out.className == u8"NewBehavior");
     REQUIRE(out.properties.Size() == 1u);
     CHECK(out.properties[0].name == u8"speed");
     CHECK(out.properties[0].type == ScriptPropertyType::Float);
     CHECK(out.handlers.Size() == 3u); // onStart, onUpdate, onDestroy
+}
+
+TEST_CASE("wren.cook: the Level + Game tier starters cook to their contract classes")
+{
+    IScriptLanguageCook* cook = WrenCook();
+    REQUIRE(cook != nullptr);
+
+    // Each tier is distinct + non-empty.
+    const StringView behavior = cook->NewAssetTemplate(ScriptTier::Behavior);
+    const StringView level = cook->NewAssetTemplate(ScriptTier::Level);
+    const StringView game = cook->NewAssetTemplate(ScriptTier::Game);
+    CHECK_FALSE(level.IsEmpty());
+    CHECK_FALSE(game.IsEmpty());
+    CHECK(level != behavior);
+    CHECK(game != behavior);
+    CHECK(level != game);
+
+    // The Level starter cooks to class `Level` with the scene-tier handlers.
+    {
+        CookScriptErrorSink sink;
+        ScriptClassSource out;
+        REQUIRE(cook->Cook(level, u8"NewLevel.wren", sink, out));
+        CHECK(out.className == u8"Level");
+        CHECK(out.handlers.Size() == 4u); // onStart, onUpdate, onFixedUpdate, onStop
+    }
+    // The Game starter cooks to the mandatory orchestrator class `Game`.
+    {
+        CookScriptErrorSink sink;
+        ScriptClassSource out;
+        REQUIRE(cook->Cook(game, u8"Game.wren", sink, out));
+        CHECK(out.className == u8"Game");
+    }
 }
 
 TEST_CASE("wren.cook: `is Behavior` flags usesCoroutines (the Wren-only opt-in lives here)")
@@ -74,7 +106,7 @@ TEST_CASE("wren.cook: the New-Asset starter template compiles clean (example cal
     REQUIRE(cook != nullptr);
     CookScriptErrorSink sink;
     ScriptClassSource out;
-    const bool ok = cook->Cook(cook->NewAssetTemplate(), u8"NewBehavior.wren", sink, out);
+    const bool ok = cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior), u8"NewBehavior.wren", sink, out);
     REQUIRE(ok); // the starter MUST compile - it teaches the API by example
     CHECK(out.className == u8"NewBehavior");
 }

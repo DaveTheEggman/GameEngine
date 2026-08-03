@@ -346,9 +346,18 @@ namespace draconic::script
         class WrenScriptCook final : public IScriptLanguageCook
         {
         public:
-            [[nodiscard]] StringView NewAssetTemplate() const override
+            [[nodiscard]] StringView NewAssetTemplate(ScriptTier tier) const override
             {
-                return kScriptBehaviorStarter;
+                switch (tier)
+                {
+                case ScriptTier::Level:
+                    return kScriptLevelStarter;
+                case ScriptTier::Game:
+                    return kScriptGameStarter;
+                case ScriptTier::Behavior:
+                default:
+                    return kScriptBehaviorStarter;
+                }
             }
 
             [[nodiscard]] bool Cook(StringView source, StringView assetName,

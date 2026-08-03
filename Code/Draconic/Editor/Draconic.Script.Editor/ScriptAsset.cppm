@@ -355,6 +355,17 @@ export namespace draconic::script
 
     // ---- the per-language cook service (backend neutrality §7.5) ----
 
+    /// The scripting tier a New-Asset starter targets. The three contracts a script can
+    /// implement: a per-entity Behavior (class named freely, `construct new(entity)`), a
+    /// per-scene Level (`construct new(scene)`, one per scene), and the game orchestrator
+    /// (mandatory class `Game`, `construct new()`). Each cook seeds a starter per tier.
+    enum class ScriptTier
+    {
+        Behavior,
+        Level,
+        Game
+    };
+
     /// A language's cook: compile-check + metadata harvest + the New-Asset starter. The
     /// only place a language's specifics live on the cook side; the neutral builder
     /// resolves one by languageId and delegates. Implemented per language in its own
@@ -364,8 +375,8 @@ export namespace draconic::script
     public:
         virtual ~IScriptLanguageCook() = default;
 
-        /// The New-Asset starter source (the behavior convention pre-filled).
-        [[nodiscard]] virtual StringView NewAssetTemplate() const = 0;
+        /// The New-Asset starter source for `tier` (the tier's convention pre-filled).
+        [[nodiscard]] virtual StringView NewAssetTemplate(ScriptTier tier) const = 0;
 
         /// Compile-check `source` (named `assetName` for error reporting) and harvest its
         /// metadata into `out` (language, className, handlers, usesCoroutines, and any

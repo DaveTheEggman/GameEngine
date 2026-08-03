@@ -63,6 +63,49 @@ export namespace draconic::script
         u8"    onDestroy() {}\n"
         u8"}\n";
 
+    // The New Asset starter for a Level (the scene-scripting tier): one object per scene,
+    // constructed with the scene's bound handle. All handlers optional (dispatch by presence).
+    // onUpdate/onFixedUpdate run ONLY while the scene simulates.
+    inline constexpr StringView kScriptLevelStarter =
+        u8"// Level class - the per-scene script. Set it on the scene's Scene Script settings.\n"
+        u8"// One instance per scene, constructed with the scene handle. NOTE Wren is\n"
+        u8"// newline-sensitive: `{` must sit on the signature's line.\n"
+        u8"class Level {\n"
+        u8"    construct new(scene) {\n"
+        u8"        _scene = scene\n"
+        u8"    }\n"
+        u8"\n"
+        u8"    // Facades use Wren method syntax (dot, lowercase): Log.info, Time.delta. The scene\n"
+        u8"    // is the bound handle: _scene.find(\"name\"), _scene.spawn(prefab, x, y, z).\n"
+        u8"    onStart() {\n"
+        u8"        Log.info(\"Level started\")\n"
+        u8"    }\n"
+        u8"    // Gameplay dt; runs only while the scene simulates.\n"
+        u8"    onUpdate(dt) {}\n"
+        u8"    // Fixed-step dt (physics lane); runs only while the scene simulates.\n"
+        u8"    onFixedUpdate(dt) {}\n"
+        u8"    onStop() {}\n"
+        u8"}\n";
+
+    // The New Asset starter for the game orchestrator: the MANDATORY class `Game`. One per
+    // run; drives scene loading (through the SceneLoader facade) and the game-wide update.
+    inline constexpr StringView kScriptGameStarter =
+        u8"// Game class - the game orchestrator (mandatory name `Game`). One per run.\n"
+        u8"// NOTE Wren is newline-sensitive: `{` must sit on the signature's line.\n"
+        u8"class Game {\n"
+        u8"    construct new() {}\n"
+        u8"\n"
+        u8"    // Runs once at start. Load the opening scene here (SceneLoader facade):\n"
+        u8"    //   import \"main\" for SceneLoader\n"
+        u8"    //   SceneLoader.loadScene(\"Main\")\n"
+        u8"    launch() {\n"
+        u8"        Log.info(\"Game launched\")\n"
+        u8"    }\n"
+        u8"    // Game-wide update (context dt). Per-scene logic belongs in a Level.\n"
+        u8"    update(dt) {}\n"
+        u8"    exit() {}\n"
+        u8"}\n";
+
     /// Registers the Wren cook (and, idempotently, the Wren backend it needs) so the
     /// neutral ScriptClassAssetBuilder resolves it by language. Entry points call this
     /// (exactly like registering the backend). Idempotent.

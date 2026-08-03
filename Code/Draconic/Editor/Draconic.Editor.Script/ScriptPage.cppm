@@ -331,7 +331,9 @@ export namespace draconic::editor
     // language. Backend-neutral: the caller passes the language id + extension from the backend
     // registry, so this works for whichever language the New Asset item is for.
     inline content::Instance* CreateScriptInstance(EditorContext& context, content::Group* group,
-                                                   StringView languageId, StringView extension)
+                                                   StringView languageId, StringView extension,
+                                                   draconic::script::ScriptTier tier,
+                                                   StringView baseName)
     {
         if (context.Project() == nullptr)
         {
@@ -340,7 +342,7 @@ export namespace draconic::editor
         content::Group* target =
             group != nullptr ? group : context.Project()->SourceDb().RootGroup();
 
-        const String name = target->UniqueInstanceName(u8"NewBehavior");
+        const String name = target->UniqueInstanceName(baseName);
 
         String fileName(name.AsView());
         fileName.PushBack(utf8char('.'));
@@ -352,7 +354,7 @@ export namespace draconic::editor
         {
             return nullptr;
         }
-        const StringView starter = cook->NewAssetTemplate();
+        const StringView starter = cook->NewAssetTemplate(tier);
 
         const String path = PathJoin(context.Project()->SourcesRoot().AsView(), fileName.AsView());
         if (!WriteFile(
@@ -407,22 +409,48 @@ export namespace draconic::editor
                     backend.languageId);
                 continue;
             }
-            String extension = backend.fileExtensions.IsEmpty()
-                                   ? String(backend.languageId.AsView())
-                                   : String(backend.fileExtensions[0].AsView());
-            String label(backend.displayName.IsEmpty() ? backend.languageId.AsView()
-                                                       : backend.displayName.AsView());
-            label.Append(u8" Script");
+            const String extension = backend.fileExtensions.IsEmpty()
+                                         ? String(backend.languageId.AsView())
+                                         : String(backend.fileExtensions[0].AsView());
+            const StringView displayName = backend.displayName.IsEmpty()
+                                               ? backend.languageId.AsView()
+                                               : backend.displayName.AsView();
 
-            EditorContext::AssetCreator creator;
-            creator.label = Move(label);
-            creator.category = String(u8"Scripts");
-            String languageId(backend.languageId.AsView());
-            creator.create = [languageId = Move(languageId),
-                              extension = Move(extension)](EditorContext& ctx, content::Group* g)
-            { return CreateScriptInstance(ctx, g, languageId.AsView(), extension.AsView()); };
-            context.RegisterCreator(Move(creator));
-            ++registeredCreators;
+            // One New-Asset creator per tier (Behavior / Level / Game), each seeded from the
+            // cook's tier starter. Labels read "<Language> <Tier>" under the Scripts category.
+            struct TierDesc
+            {
+                draconic::script::ScriptTier tier;
+                StringView suffix;   // label suffix
+                StringView baseName; // unique-name stem
+            };
+            const TierDesc kTiers[] = {
+                {draconic::script::ScriptTier::Behavior, u8"Behavior", u8"NewBehavior"},
+                {draconic::script::ScriptTier::Level, u8"Level", u8"NewLevel"},
+                {draconic::script::ScriptTier::Game, u8"Game", u8"NewGame"},
+            };
+            for (const TierDesc& t : kTiers)
+            {
+                String label(displayName);
+                label.PushBack(utf8char(' '));
+                label.Append(t.suffix);
+
+                EditorContext::AssetCreator creator;
+                creator.label = Move(label);
+                creator.category = String(u8"Scripts");
+                String languageId(backend.languageId.AsView());
+                String extensionCopy(extension.AsView());
+                String baseName(t.baseName);
+                creator.create = [languageId = Move(languageId), extension = Move(extensionCopy),
+                                  tier = t.tier, baseName = Move(baseName)](
+                                     EditorContext& ctx, content::Group* g)
+                {
+                    return CreateScriptInstance(ctx, g, languageId.AsView(), extension.AsView(),
+                                                tier, baseName.AsView());
+                };
+                context.RegisterCreator(Move(creator));
+                ++registeredCreators;
+            }
         }
         DRACONIC_LOG_INFO(u8"Editor",
                           u8"RegisterScriptEditor: {} script New-Asset creator(s) registered",
