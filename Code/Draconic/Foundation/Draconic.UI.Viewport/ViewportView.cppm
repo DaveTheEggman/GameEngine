@@ -243,19 +243,31 @@ export namespace draconic::ui::viewport
             {
                 return;
             }
-            const Float2 tl = LocalToScreen(Float2{0.0f, 0.0f});
-            m_surface->SetRegion(Rectangle{tl.x, tl.y, Width(), Height()});
-            m_surface->SetContentSize(
-                Float2{static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight)});
-            m_surface->SetFitMode(m_fitMode);
-            // Window pixel size (the root view spans the client area): the touch transform
-            // converts normalized finger coords through it.
-            const View* root = this;
+            View* root = this;
             while (root->Parent != nullptr)
             {
                 root = root->Parent;
             }
-            m_surface->SetWindowSize(Float2{root->Width(), root->Height()});
+            // The UI tree lays out in LOGICAL units - RootView divides the physical window by its
+            // DpiScale (OS content scale x the editor UI-scale preference). But the InputRouter
+            // transforms the RAW mouse, which is in PHYSICAL window pixels. So the surface region +
+            // window size must be PHYSICAL, or hover/pick/gizmo drift by the scale factor at UI
+            // scale != 100%. The CONTENT resolution stays the RT's own size (MakeMouseRay divides
+            // the content mouse by RenderWidth), so only the region-space conversion is needed here.
+            f32 dpi = 1.0f;
+            if (draconic::ui::RootView* rv = draconic::core::Cast<draconic::ui::RootView>(root))
+            {
+                dpi = Max(rv->DpiScale, 0.01f);
+            }
+            const Float2 tl = LocalToScreen(Float2{0.0f, 0.0f});
+            m_surface->SetRegion(
+                Rectangle{tl.x * dpi, tl.y * dpi, Width() * dpi, Height() * dpi});
+            m_surface->SetContentSize(
+                Float2{static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight)});
+            m_surface->SetFitMode(m_fitMode);
+            // Window pixel size (the root view spans the client area, in physical pixels): the
+            // touch transform converts normalized finger coords through it.
+            m_surface->SetWindowSize(Float2{root->Width() * dpi, root->Height() * dpi});
         }
 
         // === 3D render ===

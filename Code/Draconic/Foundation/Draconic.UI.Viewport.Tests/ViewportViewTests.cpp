@@ -12,6 +12,8 @@ import draconic.vg;
 import draconic.vg.renderer;
 import draconic.ui;
 import draconic.ui.viewport;
+import draconic.shell;
+import draconic.shell.null;
 
 using namespace draconic::core;
 namespace rhi = draconic::rhi;
@@ -208,4 +210,47 @@ TEST_CASE("ui.viewport: owns the RT formats (HDR default) + SetFormats recreates
     CHECK(view.DepthFormat() == rhi::TextureFormat::Depth32FloatStencil8);
     CHECK(view.IsReady());
     CHECK(view.RenderWidth() == 80u);
+}
+
+TEST_CASE("ui.viewport: SyncInputRegion emits a PHYSICAL surface region at DpiScale != 1 (picking)")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+    rhi::ShaderModule* vs = MakeModule(device);
+    rhi::ShaderModule* fs = MakeModule(device);
+    REQUIRE(vs != nullptr);
+    REQUIRE(fs != nullptr);
+    vg::renderer::VGRenderer renderer;
+    REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 2).IsOk());
+
+    draconic::shell::NullInputManager input; // input != null -> the view creates an InputSurface
+
+    // Heap-allocate (RefPtr): the view becomes a child of a RootView, which owns its children.
+    auto root = MakeRef<ui::RootView>(DefaultAllocator());
+    auto view = MakeRef<ViewportView>(DefaultAllocator());
+    view->Initialize(&device, &renderer, &input, /*windowId*/ 0);
+    REQUIRE(view->Surface() != nullptr);
+
+    root->DpiScale = 1.25f;    // OS content scale x the editor UI-scale preference
+    root->AddView(view.Get()); // parents the view so SyncInputRegion can walk to the root
+    view->Layout(0.0f, 0.0f, 200.0f, 150.0f); // LOGICAL rect (as the DpiScale-scaled UI lays out)
+
+    view->SyncInputRegion();
+    // The InputRouter transforms the raw mouse in PHYSICAL window pixels, so the surface region
+    // must be physical (logical x DpiScale) - otherwise hover/pick/gizmo drift by the scale factor.
+    // The content resolution stays the RT's own size (MakeMouseRay divides by RenderWidth).
+    const ContentFit& fit = view->Surface()->Fit();
+    CHECK(fit.region.width == doctest::Approx(200.0f * 1.25f));
+    CHECK(fit.region.height == doctest::Approx(150.0f * 1.25f));
+    CHECK(fit.contentSize.x == doctest::Approx(200.0f)); // RT resolution, unscaled
+    CHECK(fit.contentSize.y == doctest::Approx(150.0f));
+
+    // Regression guard: at 100% the region equals the logical rect (behavior unchanged).
+    root->DpiScale = 1.0f;
+    view->SyncInputRegion();
+    CHECK(view->Surface()->Fit().region.width == doctest::Approx(200.0f));
+    CHECK(view->Surface()->Fit().region.height == doctest::Approx(150.0f));
+
+    renderer.Dispose();
+    device.DestroyShaderModule(vs);
+    device.DestroyShaderModule(fs);
 }
