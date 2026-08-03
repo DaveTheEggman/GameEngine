@@ -82,6 +82,7 @@ namespace draconic::runtime
         ForEachInstance(
             [&](GameInstance& gi)
             {
+                gi.PumpScriptLoads(); // activate any script-initiated load that finished (after Pump)
                 gi.DriveInput(deltaTime, contextScale);
                 gi.DriveRunHost(deltaTime);
                 gi.TickScript(deltaTime, contextScale);
@@ -150,6 +151,7 @@ namespace draconic::runtime
         // + Scene.spawn + entity.send routing so its context has them when the game script starts.
         // (The subsystem's own default host - for editor scenes - is wired in its OnReady.)
         m_scripts->ConfigureRunHost(m_instance.RunHost());
+        InstallInstanceLoadFacade(m_instance); // Game.* level-load facade for the primary instance
         draconic::input::RegisterInputScriptApi();
         draconic::physics::RegisterPhysicsScriptApi();
         draconic::audio::RegisterAudioScriptApi();
@@ -260,6 +262,7 @@ namespace draconic::runtime
         gi->Scenes().SetAwareRegistry(&m_scenes->AwareRegistry());
         m_scenes->RegisterManager(&gi->Scenes());
         m_scripts->ConfigureRunHost(gi->RunHost());
+        InstallInstanceLoadFacade(*gi); // Game.* level-load facade for this extra instance
         gi->SetEndpointOnlineHook(
             MakeEndpointOnlineHook()); // its own endpoint, wired like the primary
         if (m_input != nullptr)
@@ -291,6 +294,99 @@ namespace draconic::runtime
             m_extraInstances.RemoveAt(i); // frees the GameInstance
             return;
         }
+    }
+
+    void DefaultApplication::ApplyLoadedSceneActivation(draconic::scene::Scene* scene)
+    {
+        if (scene == nullptr)
+        {
+            return;
+        }
+        scene->Start();
+        scene->SetSimulationEnabled(true);
+    }
+
+    void DefaultApplication::InstallInstanceLoadFacade(GameInstance& gi)
+    {
+        DefaultApplication* self = this;
+        GameInstance* instance = &gi;
+
+        // The render/sim policy PumpScriptLoads runs when a tracked load finishes (SetScene already
+        // done by then). Virtual, so the player seeds a camera; the base just starts + simulates.
+        gi.SetSceneActivationPolicy(core::Function<void(draconic::scene::Scene*)>{
+            [self](draconic::scene::Scene* scene) { self->ApplyLoadedSceneActivation(scene); }});
+
+        // Game.loadSceneAsync(id) -> resolve the cooked scene instance, kick an async load into THIS
+        // instance, register it under a ticket. 0 = could not start (bad id / no DB). The prefab
+        // provider reads a nested-prefab payload by guid - the same source the sync path uses.
+        gi.RunHost().Binding().loadSceneAsync =
+            core::Function<core::i32(const core::Guid&)>{[self, instance](const core::Guid& sceneId) -> core::i32
+            {
+                if (self->m_contentDatabase == nullptr || self->Resources() == nullptr)
+                {
+                    return 0;
+                }
+                draconic::content::Instance* sceneInst = self->m_contentDatabase->GetInstance(sceneId);
+                if (sceneInst == nullptr)
+                {
+                    return 0;
+                }
+                draconic::content::IContentDatabase* db = self->m_contentDatabase;
+                runtime::SceneLoadHandle handle = instance->LoadSceneAsync(
+                    *sceneInst, *self->Resources(),
+                    core::Function<core::UniquePtr<core::IStream>(const core::Guid&)>{
+                        [db](const core::Guid& prefabId) -> core::UniquePtr<core::IStream>
+                        {
+                            draconic::content::Instance* prefab = db->GetInstance(prefabId);
+                            return (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                       : core::UniquePtr<core::IStream>{};
+                        }});
+                return instance->TrackScriptLoad(core::Move(handle));
+            }};
+
+        gi.RunHost().Binding().loadProgress = core::Function<core::f64(core::i32)>{
+            [instance](core::i32 ticket) -> core::f64
+            { return static_cast<core::f64>(instance->ScriptLoadProgress(ticket)); }};
+        gi.RunHost().Binding().loadComplete = core::Function<bool(core::i32)>{
+            [instance](core::i32 ticket) -> bool { return instance->ScriptLoadComplete(ticket); }};
+        gi.RunHost().Binding().loadFailed = core::Function<bool(core::i32)>{
+            [instance](core::i32 ticket) -> bool { return instance->ScriptLoadFailed(ticket); }};
+
+        // Game.loadScene(id): synchronous convenience for tiny scenes - load, make current, apply the
+        // same activation policy, all before the call returns. false on a resolve/load failure.
+        gi.RunHost().Binding().loadScene =
+            core::Function<bool(const core::Guid&)>{[self, instance](const core::Guid& sceneId) -> bool
+            {
+                if (self->m_contentDatabase == nullptr || self->Resources() == nullptr)
+                {
+                    return false;
+                }
+                draconic::content::Instance* sceneInst = self->m_contentDatabase->GetInstance(sceneId);
+                if (sceneInst == nullptr)
+                {
+                    return false;
+                }
+                draconic::content::IContentDatabase* db = self->m_contentDatabase;
+                draconic::scene::Scene* scene = instance->LoadScene(
+                    *sceneInst, *self->Resources(),
+                    core::Function<core::UniquePtr<core::IStream>(const core::Guid&)>{
+                        [db](const core::Guid& prefabId) -> core::UniquePtr<core::IStream>
+                        {
+                            draconic::content::Instance* prefab = db->GetInstance(prefabId);
+                            return (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                       : core::UniquePtr<core::IStream>{};
+                        }});
+                if (scene == nullptr)
+                {
+                    return false;
+                }
+                instance->SetScene(scene); // current-scene bookkeeping (async path does this in Pump)
+                self->ApplyLoadedSceneActivation(scene);
+                return true;
+            }};
+
+        gi.RunHost().Binding().sceneReady =
+            core::Function<bool()>{[instance]() -> bool { return instance->SceneReady(); }};
     }
 
     draconic::physics::PhysicsSubsystem* DefaultApplication::Physics() const noexcept

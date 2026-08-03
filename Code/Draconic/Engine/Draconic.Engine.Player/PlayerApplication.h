@@ -338,9 +338,18 @@ namespace draconic::player
     private:
         // A renderable scene needs a primary camera; authored game scenes should carry one, but
         // a bare editor scene shouldn't ship a black screen - frame the origin like the editor does.
-        void EnsureCamera()
+        void EnsureCamera() { EnsureCameraOn(m_scene); }
+
+        // Seed a default camera on `scene` if it has none, so a level renders. Scene-agnostic (the
+        // boot path passes m_scene; a script-loaded level (Game.loadSceneAsync) passes the freshly
+        // activated scene via ApplyLoadedSceneActivation below).
+        void EnsureCameraOn(scene::Scene* scene)
         {
-            auto* cameras = m_scene->GetSystem<draconic::render::CameraComponentManager>();
+            if (scene == nullptr)
+            {
+                return;
+            }
+            auto* cameras = scene->GetSystem<draconic::render::CameraComponentManager>();
             if (cameras == nullptr)
             {
                 return;
@@ -354,14 +363,22 @@ namespace draconic::player
             }
 
             DRACONIC_LOG_WARNING(u8"Player", u8"scene has no camera - adding a default one");
-            const scene::EntityHandle e = m_scene->CreateEntity(u8"PlayerCamera");
+            const scene::EntityHandle e = scene->CreateEntity(u8"PlayerCamera");
             Transform t;
             t.position = Float3{8.0f, 6.0f, 10.0f};
             // Yaw toward the origin, then pitch down (same convention as the seeded Sun).
             t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.675f) *
                          Quaternion::FromAxisAngle(Float3{1, 0, 0}, -0.42f);
-            m_scene->SetLocalTransform(e, t);
+            scene->SetLocalTransform(e, t);
             cameras->Add(e);
+        }
+
+        // A script-loaded level (Game.loadSceneAsync/loadScene) gets the player's full activation:
+        // a default camera so it renders, then the base Start + SetSimulationEnabled.
+        void ApplyLoadedSceneActivation(scene::Scene* scene) override
+        {
+            EnsureCameraOn(scene);
+            DefaultApplication::ApplyLoadedSceneActivation(scene);
         }
 
         // Resolves the startup-script SOURCE (project file / pak entry); the lifecycle

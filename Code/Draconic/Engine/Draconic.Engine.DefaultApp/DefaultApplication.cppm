@@ -194,7 +194,20 @@ export namespace draconic::runtime
         // active scenes would each clear; compositing is a later concern.)
         void OnRenderWindow(IApplicationHost& host, FrameContext& frame) override;
 
+    protected:
+        // The render/sim POLICY applied to a scene the moment an async load completes (task #123:
+        // Game.loadSceneAsync). Base = Start + SetSimulationEnabled (the generic half). The player
+        // overrides to seed a default camera first (EnsureCamera) so a script-loaded level renders.
+        // SetScene (current-scene bookkeeping) is done by GameInstance::PumpScriptLoads BEFORE this.
+        virtual void ApplyLoadedSceneActivation(draconic::scene::Scene* scene);
+
     private:
+        // Install the Game.* level-load facade on ONE instance's run host (task #123): the six
+        // binding pointers forward to gi's ticket registry, and gi's activation policy is wired to
+        // this app's ApplyLoadedSceneActivation. Called per instance right after ConfigureRunHost,
+        // capturing the specific instance (the orchestrator script has no scene to route by).
+        void InstallInstanceLoadFacade(GameInstance& gi);
+
         // The standard factory set, registered into whichever manager the app uses (preset at
         // OnStartup or late-attached by the editor's project manager).
         void RegisterStandardFactories(draconic::resource::ResourceManager& resources,
