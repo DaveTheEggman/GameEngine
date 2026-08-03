@@ -270,6 +270,19 @@ namespace draconic::editor
         {
             m_context->OnCookRequested(false);
         }
+        // The play bracket + game script run on THIS tab's GameInstance (game-instance.md §11): its
+        // own scene pairing, run host, error sink - so multiple tabs are isolated. Launch the game
+        // script FIRST (task #123 boot reorder, matching Draconic.Engine.Player): launch()/update(dt)
+        // run before any scene, so a script tested here boots exactly like the shipped player. The
+        // page only resolves the script SOURCE (editor project layout) and surfaces notices.
+        if (m_gameInstance != nullptr)
+        {
+            m_scriptErrors.context = m_context;
+            m_gameInstance->SetScriptErrorHandler(&m_scriptErrors);
+            EnableDebugging();
+            StartGameScriptFromProject();
+        }
+
         // Via THIS tab's instance (not just SceneGroup) so behaviors bind to its run host.
         m_scene = (m_gameInstance != nullptr) ? m_gameInstance->CreateScene(instance->Name())
                                               : m_fallbackScenes.CreateScene(instance->Name());
@@ -280,6 +293,10 @@ namespace draconic::editor
             {
                 SceneGroup().DestroyScene(m_scene);
                 m_scene = nullptr;
+            }
+            if (m_gameInstance != nullptr)
+            {
+                m_gameInstance->StopScript(); // the script launched first (above) - do not leave it running
             }
             return;
         }
@@ -323,16 +340,11 @@ namespace draconic::editor
         m_sceneTitle = String(instance->Name());
         BindInput();
         BindBusLayout(*m_host);
-        // The play bracket + game script run on THIS tab's GameInstance (game-instance.md §11):
-        // its own scene pairing, run host, error sink - so multiple tabs are isolated. The page
-        // only resolves the script SOURCE (editor project layout) and surfaces notices.
+        // The script launched above (before the scene); now make the freshly built scene this
+        // instance's current scene (behaviors already bound to its run host via CreateScene).
         if (m_gameInstance != nullptr)
         {
             m_gameInstance->SetScene(m_scene);
-            m_scriptErrors.context = m_context;
-            m_gameInstance->SetScriptErrorHandler(&m_scriptErrors);
-            EnableDebugging();
-            StartGameScriptFromProject();
         }
         DRACONIC_LOG_INFO(u8"Editor", u8"Game: running scene '{}'", m_sceneTitle);
         RefreshToolbar();

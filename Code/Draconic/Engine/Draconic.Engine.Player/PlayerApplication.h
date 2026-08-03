@@ -143,45 +143,16 @@ namespace draconic::player
                     instance = m_sceneDb->GetInstance(m_settings.defaultScene.AsView());
                 }
             }
-            if (instance == nullptr)
+            // defaultSceneId presence is the boot switch now (task #123 boot reorder): a resolved
+            // startup scene loads AFTER the game script launches (below); none = the script owns boot
+            // entirely. EXCEPTION: an EXPLICIT --scene that did not resolve is still a user error.
+            if (instance == nullptr && !m_options.sceneOverride.IsEmpty())
             {
-                DRACONIC_LOG_ERROR(u8"Player",
-                                   u8"no startup scene (manifest defaultScene/--scene unresolved)");
+                DRACONIC_LOG_ERROR(u8"Player", u8"--scene '{}' did not resolve",
+                                   m_options.sceneOverride.AsView());
                 host.RequestExit(1);
                 return;
             }
-            const String scenePath = instance->Path();
-
-            // The run's scene belongs to this app's GameInstance (game-instance.md §11): create it via
-            // the instance so it groups + ticks + renders as this run's scene AND its behaviors bind to
-            // the instance's run host. (`scenes` is still required - it drives the tick + owns the aware
-            // registry the instance manager uses.)
-            // The instance owns the load orchestration now (task #123): CreateScene + LoadScene +
-            // ResolveSceneResources + prefab respawn (ref+deltas, from the same DB the scene came
-            // from) + a second resolve. This app keeps POLICY (WHAT to load, below; EnsureCamera +
-            // Start after). Same sequence as before - a behavioral no-op.
-            draconic::content::ContentDatabase* sceneDb = m_sceneDb;
-            m_scene = Instance().LoadScene(
-                *instance, *Resources(),
-                Function<UniquePtr<IStream>(const Guid&)>{
-                    [sceneDb](const Guid& prefabId) -> UniquePtr<IStream>
-                    {
-                        draconic::content::Instance* prefab =
-                            (sceneDb != nullptr) ? sceneDb->GetInstance(prefabId) : nullptr;
-                        return (prefab != nullptr) ? prefab->ReadData(u8"scene")
-                                                   : UniquePtr<IStream>{};
-                    }});
-            if (m_scene == nullptr)
-            {
-                DRACONIC_LOG_ERROR(u8"Player", u8"scene '{}' failed to load", scenePath);
-                host.RequestExit(1);
-                return;
-            }
-            EnsureCamera();
-
-            m_scene->Start();
-            m_scene->SetSimulationEnabled(true);
-            DRACONIC_LOG_INFO(u8"Player", u8"running scene '{}'", scenePath);
 
             // The project's default input map: cooked resource -> the PRIMARY instance's ActionRuntime
             // (per-instance input; the game reads its own runtime). Nil/unresolved = no actions bound.
@@ -279,8 +250,46 @@ namespace draconic::player
                 }
             }
 
-            SetPrimaryScene(m_scene);
+            // Game script launches FIRST (task #123 boot reorder): the orchestrator's launch()/
+            // update(dt) run from frame 1, scene or none, with the engine-service bindings above
+            // already in place. A game whose launch() needs a scene waits `while (!Game.sceneReady())`.
             LoadAndStartGameScript();
+
+            // Then, if a startup scene resolved, load + activate it. Sync here (the async load +
+            // loading-screen splash is a later step); a NAMED-but-broken scene is still fatal.
+            if (instance != nullptr)
+            {
+                // The instance owns the load orchestration (game-instance.md §11 / task #123):
+                // CreateScene + LoadScene + resolve + prefab respawn. The app keeps POLICY
+                // (EnsureCamera + Start below).
+                const String scenePath = instance->Path();
+                draconic::content::ContentDatabase* sceneDb = m_sceneDb;
+                m_scene = Instance().LoadScene(
+                    *instance, *Resources(),
+                    Function<UniquePtr<IStream>(const Guid&)>{
+                        [sceneDb](const Guid& prefabId) -> UniquePtr<IStream>
+                        {
+                            draconic::content::Instance* prefab =
+                                (sceneDb != nullptr) ? sceneDb->GetInstance(prefabId) : nullptr;
+                            return (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                       : UniquePtr<IStream>{};
+                        }});
+                if (m_scene == nullptr)
+                {
+                    DRACONIC_LOG_ERROR(u8"Player", u8"scene '{}' failed to load", scenePath);
+                    host.RequestExit(1);
+                    return;
+                }
+                EnsureCamera();
+                m_scene->Start();
+                m_scene->SetSimulationEnabled(true);
+                SetPrimaryScene(m_scene);
+                DRACONIC_LOG_INFO(u8"Player", u8"running scene '{}'", scenePath);
+            }
+            else
+            {
+                DRACONIC_LOG_INFO(u8"Player", u8"no startup scene - the game script owns boot");
+            }
         }
 
         [[nodiscard]] String UserSettingsFileName() const
