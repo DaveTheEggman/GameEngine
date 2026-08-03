@@ -52,7 +52,8 @@ DRACONIC_REFLECT(Animal, "draconic::test")
     builder.Method<&Animal::GetLegs>("GetLegs");
     builder.Method<&Animal::DefaultLegs>("DefaultLegs");
     builder.Method<&Animal::LegsOf>("LegsOf"); // takes Animal*
-    builder.Method<&Animal::IsSame>("IsSame"); // takes RefPtr<Animal>
+    builder.Method<&Animal::IsSame>("IsSame");           // takes RefPtr<Animal>
+    builder.ComputedProperty<&Animal::GetLegs>("legsView"); // computed read-only getter property
     builder.Attribute("scriptName", "Critter");
     builder.Attribute("maxLegs", 8);
     builder.Constructor(); // default ctor -> RefPtr<Animal> via MakeRef
@@ -318,7 +319,7 @@ TEST_CASE("variant: Instance borrows without owning")
 
 TEST_CASE("rtti: reflected property is discoverable")
 {
-    CHECK(Properties(Animal::StaticType()).Size() == 1u);
+    CHECK(Properties(Animal::StaticType()).Size() == 2u); // "legs" (field) + "legsView" (computed)
 
     const PropertyInfo* legs = FindProperty(Animal::StaticType(), "legs");
     REQUIRE(legs != nullptr);
@@ -349,6 +350,29 @@ TEST_CASE("rtti: property get/set through an Instance")
     CHECK_FALSE(bad.IsOk());
     CHECK(bad.Code() == ErrorCode::InvalidArgument);
     CHECK(animal->legs == 6);
+}
+
+TEST_CASE("rtti: a ComputedProperty is a read-only getter-backed property")
+{
+    const PropertyInfo* view = FindProperty(Animal::StaticType(), "legsView");
+    REQUIRE(view != nullptr);
+    CHECK(view->type == &TypeOf<int>());
+    CHECK(view->address == nullptr); // computed - no field address to edit in place
+    CHECK((static_cast<u32>(view->flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0);
+
+    RefPtr<Animal> animal = MakeRef<Animal>(DefaultAllocator());
+    Instance inst = Instance::From(animal.Get());
+
+    animal->legs = 7;
+    CHECK(GetProperty(*view, inst).Get<int>() == 7); // reads the live computed value
+    animal->legs = 9;
+    CHECK(GetProperty(*view, inst).Get<int>() == 9); // recomputed on each read
+
+    // set is not supported on a computed getter; the object is untouched.
+    const Status st = SetProperty(*view, inst, Variant::From<int>(3));
+    CHECK_FALSE(st.IsOk());
+    CHECK(st.Code() == ErrorCode::NotSupported);
+    CHECK(animal->legs == 9);
 }
 
 TEST_CASE("rtti: inherited property is found through the base chain")

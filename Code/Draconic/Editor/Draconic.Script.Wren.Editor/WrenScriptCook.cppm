@@ -51,7 +51,7 @@ export namespace draconic::script
         u8"\n"
         u8"    // Facades use Wren method syntax (dot, lowercase): Log.info, Time.delta,\n"
         u8"    // Random.value; the entity handle likewise (_entity.setName, ...). The scene is\n"
-        u8"    // reached THROUGH the entity: _entity.scene().find(\"name\"), _entity.scene().spawn(...).\n"
+        u8"    // reached THROUGH the entity: _entity.scene.find(\"name\"), _entity.scene.spawn(...).\n"
         u8"    onStart() {\n"
         u8"        Log.info(\"NewBehavior started on %(_entity.name())\")\n"
         u8"    }\n"

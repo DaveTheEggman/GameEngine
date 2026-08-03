@@ -62,6 +62,39 @@ namespace draconic::core::detail
         return &(object->*Member);
     }
 
+    // A COMPUTED (getter-backed) property: the value is derived by calling a const
+    // zero-arg getter that returns by value, not read from a stored field. get marshals
+    // the returned value through a Variant; set is not supported (read-only); there is no
+    // field address. Emits as a parens-less getter in the script backends, exactly like a
+    // stored property, but the value is computed on each read.
+    template <typename Getter>
+    struct GetterTraits;
+    template <typename C, typename R>
+    struct GetterTraits<R (C::*)() const>
+    {
+        using Class = C;
+        using Return = R;
+    };
+    template <typename C, typename R>
+    struct GetterTraits<R (C::*)() const noexcept>
+    {
+        using Class = C;
+        using Return = R;
+    };
+
+    template <typename T, typename R, auto Getter>
+    Variant GetterPropertyGet(const Instance& instance)
+    {
+        const T* object = static_cast<const T*>(instance.Pointer());
+        return Variant::From<R>((object->*Getter)());
+    }
+
+    template <typename T, typename R, auto Getter>
+    Status GetterPropertySet(const Instance&, const Variant&)
+    {
+        return Status{ErrorCode::NotSupported}; // a computed getter is read-only
+    }
+
     [[nodiscard]] inline bool CStringEquals(const char* a, const char* b) noexcept
     {
         usize i = 0;
@@ -810,6 +843,22 @@ export namespace draconic::core
             m_data.properties.PushBack(PropertyInfo{
                 name, &TypeOf<M>(), flags, &detail::PropertyGet<T, M, Member>,
                 &detail::PropertySet<T, M, Member>, &detail::PropertyAddress<T, M, Member>});
+            return *this;
+        }
+
+        /// A COMPUTED read-only property backed by a const zero-arg getter (returns by value).
+        /// Emits as a parens-less getter in the script backends and reflects as a property to
+        /// tooling, but the value is derived rather than a stored field: `address` is null (no
+        /// in-place editing) and set returns NotSupported. Use for facade accessors that should
+        /// read as a property (`entity.scene`) rather than a method (`entity.scene()`).
+        template <auto Getter>
+        TypeBuilder& ComputedProperty(const char* name)
+        {
+            using R = typename detail::GetterTraits<decltype(Getter)>::Return;
+            m_data.properties.PushBack(PropertyInfo{name, &TypeOf<R>(), PropertyFlags::ReadOnly,
+                                                    &detail::GetterPropertyGet<T, R, Getter>,
+                                                    &detail::GetterPropertySet<T, R, Getter>,
+                                                    nullptr});
             return *this;
         }
 

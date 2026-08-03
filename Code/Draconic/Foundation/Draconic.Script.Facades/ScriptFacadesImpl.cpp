@@ -27,7 +27,9 @@ namespace draconic::script
         builder.Method<&Entity::setRotationEuler>("setRotationEuler");
         builder.Method<&Entity::setScale>("setScale");
         builder.Method<&Entity::destroy>("destroy");
-        builder.Method<&Entity::sceneHandle>("scene"); // entity.scene -> its bound Scene
+        // A computed property (parens-less): `entity.scene` reads its bound Scene. Not a
+        // method, so scripts write `entity.scene.find(...)` without call parens.
+        builder.ComputedProperty<&Entity::sceneHandle>("scene");
         // send overloads (P2 messaging) - one reflected name, resolved by arg type.
         builder.Method<static_cast<void (Entity::*)(String) const>(&Entity::send)>("send");
         builder.Method<static_cast<void (Entity::*)(String, f64) const>(&Entity::send)>("send");

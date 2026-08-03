@@ -830,7 +830,7 @@ TEST_CASE("script.scene: Scene.spawn routes through the run spawner to the curre
                   u8"    construct new(entity) { _entity = entity }\n"
                   u8"    prefab=(v) { _prefab = v }\n"
                   u8"    onStart() {\n"
-                  u8"        var e = _entity.scene().spawn(_prefab, 3.0, 4.0, 5.0)\n"
+                  u8"        var e = _entity.scene.spawn(_prefab, 3.0, 4.0, 5.0)\n"
                   u8"        e.setName(\"child\")\n"
                   u8"    }\n"
                   u8"}\n",
@@ -875,11 +875,11 @@ TEST_CASE("script.scene: Scene.find / Scene.findByPath resolve entities in the c
                   u8"class Finder {\n"
                   u8"    construct new(entity) { _entity = entity }\n"
                   u8"    onStart() {\n"
-                  u8"        var t = _entity.scene().find(\"Target\")\n"
+                  u8"        var t = _entity.scene.find(\"Target\")\n"
                   u8"        if (t.isValid()) { t.setName(\"found-by-name\") }\n"
-                  u8"        var w = _entity.scene().findByPath(\"Player/Weapon\")\n"
+                  u8"        var w = _entity.scene.findByPath(\"Player/Weapon\")\n"
                   u8"        if (w.isValid()) { w.setName(\"found-by-path\") }\n"
-                  u8"        var missing = _entity.scene().find(\"Nope\")\n"
+                  u8"        var missing = _entity.scene.find(\"Nope\")\n"
                   u8"        if (!missing.isValid()) { _entity.setName(\"miss-ok\") }\n"
                   u8"    }\n"
                   u8"}\n",
@@ -1420,7 +1420,7 @@ TEST_CASE("script-facade: entity.scene() is bound to the entity's OWN scene (cro
     CHECK_FALSE(wb.sceneHandle().find(String(u8"target")).Live());
 }
 
-TEST_CASE("script.scene: entity.scene().spawn works from onDestroy - a FORMER footgun")
+TEST_CASE("script.scene: entity.scene.spawn works from onDestroy - a FORMER footgun")
 {
     ScriptedScene bed;
     int spawnCalls = 0;
@@ -1442,7 +1442,7 @@ TEST_CASE("script.scene: entity.scene().spawn works from onDestroy - a FORMER fo
                   u8"class Dier {\n"
                   u8"    construct new(entity) { _entity = entity }\n"
                   u8"    prefab=(v) { _prefab = v }\n"
-                  u8"    onDestroy() { _entity.scene().spawn(_prefab, 1.0, 2.0, 3.0) }\n"
+                  u8"    onDestroy() { _entity.scene.spawn(_prefab, 1.0, 2.0, 3.0) }\n"
                   u8"}\n",
                   {u8"onDestroy"});
     ScriptPropertyDesc prefabProp;
@@ -1467,7 +1467,7 @@ TEST_CASE("script.scene: entity.scene().spawn works from onDestroy - a FORMER fo
     CHECK(bed.scene.GetEntityName(spawned) == StringView(u8"death-spawn"));
 }
 
-TEST_CASE("script.scene: entity.scene().spawn works from a resumed coroutine - a FORMER footgun")
+TEST_CASE("script.scene: entity.scene.spawn works from a resumed coroutine - a FORMER footgun")
 {
     ScriptedScene bed;
     int spawnCalls = 0;
@@ -1493,7 +1493,7 @@ TEST_CASE("script.scene: entity.scene().spawn works from a resumed coroutine - a
                   u8"            me.doSpawn()\n"
                   u8"        })\n"
                   u8"    }\n"
-                  u8"    doSpawn() { entity.scene().spawn(_prefab, 7, 8, 9) }\n"
+                  u8"    doSpawn() { entity.scene.spawn(_prefab, 7, 8, 9) }\n"
                   u8"}\n",
                   {u8"onStart"});
     spawner->usesCoroutines = true;
@@ -1535,7 +1535,7 @@ TEST_CASE("script.scene: an AngelScript behavior spawns through self.scene() (bo
         u8"class Spawner {\n"
         u8"    private Entity@ self;\n"
         u8"    Spawner(Entity@ entity) { @self = entity; }\n"
-        u8"    void onStart() { self.scene().spawn(Guid(0x55, 0x66), 1.0f, 0.0f, 0.0f); }\n"
+        u8"    void onStart() { self.scene.spawn(Guid(0x55, 0x66), 1.0f, 0.0f, 0.0f); }\n"
         u8"}\n",
         {u8"onStart"});
 
