@@ -63,6 +63,8 @@ export namespace draconic::project
             defaultUiThemeId; // the cooked UITheme the game UI defaults to (nil = built-in GameTheme; v5)
         Guid defaultUiFontId; // the cooked FontResource the game UI defaults to (nil = the dev
                               // TTF fallback path; v7 - the fonts-triad manifest hook)
+        Guid loadingDocumentId; // the cooked UIDocument shown as the boot splash while the default
+                                // scene loads (nil = the built-in default splash; v8, task #123)
 
         // Migration branches on ar.Version() - the type's data version is written/read by
         // the manifest helpers below (DRACONIC_DEFINE_OBJECT_VERSIONED sets the current one).
@@ -103,6 +105,11 @@ export namespace draconic::project
             {
                 ar.Key("defaultUiFontId");
                 ar.GuidValue(defaultUiFontId);
+            }
+            if (ar.Version() >= 8) // v8 added the boot-splash loading document (task #123)
+            {
+                ar.Key("loadingDocumentId");
+                ar.GuidValue(loadingDocumentId);
             }
         }
     };
@@ -152,5 +159,5 @@ export namespace draconic::project
         return writable.Save(fileName, buffer.Bytes());
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ProjectSettings, "draconic::project", 7)
+    DRACONIC_DEFINE_OBJECT_VERSIONED(ProjectSettings, "draconic::project", 8)
 }

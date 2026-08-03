@@ -74,7 +74,9 @@ import draconic.engine.physics;
 import draconic.input.resource;
 import draconic.engine.input;
 import draconic.ui.resource;  // UITheme (the manifest's default theme)
-import draconic.engine.ui; // UISubsystem (IME target + default theme)
+import draconic.ui;           // View / ViewGroup / ProgressBar (the boot-splash controls)
+import draconic.engine.ui; // UISubsystem (IME target + default theme + the boot splash overlay)
+import draconic.engine.gameinstance; // SceneLoadHandle (the async boot load)
 import draconic.xml.serialization;
 import draconic.settings;
 import draconic.engine.project; // manifest + layout (runtime-side, editor-free)

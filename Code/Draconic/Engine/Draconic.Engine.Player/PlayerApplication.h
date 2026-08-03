@@ -255,16 +255,16 @@ namespace draconic::player
             // already in place. A game whose launch() needs a scene waits `while (!Game.sceneReady())`.
             LoadAndStartGameScript();
 
-            // Then, if a startup scene resolved, load + activate it. Sync here (the async load +
-            // loading-screen splash is a later step); a NAMED-but-broken scene is still fatal.
+            // Then, if a startup scene resolved, load it ASYNC behind a boot splash (task #123
+            // step 4): push the splash overlay first (sync - a small resident document / the built-
+            // in default), kick the async load, and let OnUpdate drive the splash + activate the
+            // scene on completion. A NAMED-but-broken scene is still fatal.
             if (instance != nullptr)
             {
-                // The instance owns the load orchestration (game-instance.md §11 / task #123):
-                // CreateScene + LoadScene + resolve + prefab respawn. The app keeps POLICY
-                // (EnsureCamera + Start below).
-                const String scenePath = instance->Path();
+                m_bootScenePath = String(instance->Path());
+                m_splashView = PushSplash();
                 draconic::content::ContentDatabase* sceneDb = m_sceneDb;
-                m_scene = Instance().LoadScene(
+                m_bootLoad = Instance().LoadSceneAsync(
                     *instance, *Resources(),
                     Function<UniquePtr<IStream>(const Guid&)>{
                         [sceneDb](const Guid& prefabId) -> UniquePtr<IStream>
@@ -274,17 +274,15 @@ namespace draconic::player
                             return (prefab != nullptr) ? prefab->ReadData(u8"scene")
                                                        : UniquePtr<IStream>{};
                         }});
-                if (m_scene == nullptr)
+                if (m_bootLoad.Failed())
                 {
-                    DRACONIC_LOG_ERROR(u8"Player", u8"scene '{}' failed to load", scenePath);
+                    PopSplash();
+                    DRACONIC_LOG_ERROR(u8"Player", u8"scene '{}' failed to load", m_bootScenePath);
                     host.RequestExit(1);
                     return;
                 }
-                EnsureCamera();
-                m_scene->Start();
-                m_scene->SetSimulationEnabled(true);
-                SetPrimaryScene(m_scene);
-                DRACONIC_LOG_INFO(u8"Player", u8"running scene '{}'", scenePath);
+                m_booting = true;
+                DriveSplash(0.0f); // paint the initial state before the first pump
             }
             else
             {
@@ -302,7 +300,12 @@ namespace draconic::player
 
         void OnUpdate(runtime::IApplicationHost& host, f32 deltaTime) override
         {
-            runtime::DefaultApplication::OnUpdate(host, deltaTime); // ticks the game script
+            runtime::DefaultApplication::OnUpdate(host,
+                                                  deltaTime); // pumps resources + ticks the game script
+            if (m_booting)
+            {
+                DriveBoot(host); // advance the splash + activate the scene when the load completes
+            }
             if (m_options.exitAfterSeconds > 0.0f)
             {
                 m_elapsed += deltaTime;
@@ -409,6 +412,93 @@ namespace draconic::player
             (void)StartGameScript(proxy->source.AsView(), proxy->sourceName.AsView());
         }
 
+        // ---- boot splash (task #123 step 4): a SCREEN overlay shown while the default scene streams
+        // async. loadingDocumentId names a cooked UIDocument; nil = the built-in default. Conventional
+        // control ids driven each frame: `progress` (ProgressBar). ----
+
+        void DriveBoot(runtime::IApplicationHost& host)
+        {
+            DriveSplash(m_bootLoad.Progress());
+            if (!m_bootLoad.IsComplete())
+            {
+                return;
+            }
+            m_booting = false;
+            scene::Scene* activated = Instance().ActivateLoadedScene(m_bootLoad);
+            PopSplash();
+            if (activated == nullptr)
+            {
+                DRACONIC_LOG_ERROR(u8"Player", u8"scene '{}' failed to activate", m_bootScenePath);
+                host.RequestExit(1);
+                return;
+            }
+            m_scene = activated;
+            EnsureCamera();
+            m_scene->Start();
+            m_scene->SetSimulationEnabled(true);
+            SetPrimaryScene(m_scene);
+            DRACONIC_LOG_INFO(u8"Player", u8"running scene '{}'", m_bootScenePath);
+        }
+
+        [[nodiscard]] RefPtr<draconic::ui::View> PushSplash()
+        {
+            if (UI() == nullptr)
+            {
+                return {};
+            }
+            RefPtr<draconic::ui::UIDocument> doc;
+            if (!m_settings.loadingDocumentId.IsNil() && Resources() != nullptr)
+            {
+                auto proxy =
+                    Resources()->Bind<draconic::ui::UIDocument>(m_settings.loadingDocumentId);
+                if (proxy.Get() != nullptr)
+                {
+                    doc = RefPtr<draconic::ui::UIDocument>(proxy.Get());
+                }
+            }
+            if (!doc)
+            {
+                doc = DefaultSplashDocument();
+            }
+            return UI()->PushScreenOverlay(*doc);
+        }
+
+        void PopSplash()
+        {
+            if (m_splashView && UI() != nullptr)
+            {
+                UI()->RemoveScreenOverlay(m_splashView.Get());
+            }
+            m_splashView = nullptr;
+        }
+
+        void DriveSplash(f32 progress)
+        {
+            draconic::ui::ViewGroup* root = Cast<draconic::ui::ViewGroup>(m_splashView.Get());
+            if (root == nullptr)
+            {
+                return;
+            }
+            if (auto* bar = root->FindByName<draconic::ui::ProgressBar>(u8"progress"))
+            {
+                bar->Value.SetValue(progress);
+            }
+        }
+
+        // The built-in default splash (bare-bones - a status label + progress bar). A shipped game
+        // authors its own UIDocument and sets loadingDocumentId; this just proves the flow works with
+        // zero authoring. The `status`/`progress` ids are the app<->document contract.
+        [[nodiscard]] static RefPtr<draconic::ui::UIDocument> DefaultSplashDocument()
+        {
+            RefPtr<draconic::ui::UIDocument> doc =
+                MakeRef<draconic::ui::UIDocument>(DefaultAllocator());
+            doc->markup = String(u8"<FlexLayout>"
+                                 u8"<Label id=\"status\" text=\"Loading...\"/>"
+                                 u8"<ProgressBar id=\"progress\"/>"
+                                 u8"</FlexLayout>");
+            return doc;
+        }
+
         PlayerOptions m_options;
         f32 m_elapsed = 0.0f;
         draconic::project::ProjectSettings m_settings;
@@ -420,6 +510,12 @@ namespace draconic::player
         UniquePtr<draconic::content::ContentDatabase> m_contentDb; // products (and dist scenes)
         draconic::content::ContentDatabase* m_sceneDb = nullptr;   // where scenes come from
         scene::Scene* m_scene = nullptr;                           // owned by the SceneSubsystem
+
+        // Boot splash + async default-scene load (task #123 step 4).
+        runtime::SceneLoadHandle m_bootLoad;     // the in-flight async boot load
+        RefPtr<draconic::ui::View> m_splashView; // the pushed splash overlay (null = none)
+        String m_bootScenePath;
+        bool m_booting = false;
     };
 }
 
