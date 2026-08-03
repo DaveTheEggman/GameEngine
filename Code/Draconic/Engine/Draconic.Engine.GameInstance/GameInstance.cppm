@@ -13,6 +13,7 @@
 
 module;
 #include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h" // the SceneLoader facade (DRACONIC_OBJECT)
 
 export module draconic.engine.gameinstance;
 
@@ -23,6 +24,7 @@ import draconic.content;        // content::Instance (the cooked scene record)
 import draconic.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
 import draconic.script;
 import draconic.engine.script;
+import draconic.script.facades; // RegisterExtraFacadeName (the SceneLoader behavior-prelude hook)
 import draconic.net.manager; // NetworkManager + INetworkController + NetScriptBinding
 import draconic.input;       // ActionRuntime + IInputSourceProvider + InputMap (per-instance input)
 
@@ -40,6 +42,91 @@ export namespace draconic::runtime
     // endpoint. The app uses it to wire per-endpoint setup that needs app state (e.g. the prefab
     // net-spawn resolver, which needs the content DB) - fresh each time, so reconnect stays correct.
     using EndpointOnlineHook = core::Function<void(net::NetworkManager&)>;
+
+    // ---- SceneLoader.* script facade (task #123): the running instance's LEVEL-LOAD control surfaced
+    // to scripts. Owned HERE (the project that owns load orchestration), NOT the neutral Foundation
+    // facade lib - the out-of-tree pattern draconic.net's Net facade uses. A SceneLoaderScriptBinding
+    // is installed as a per-context service; the app fills its pointers, backed by THIS instance's
+    // LoadSceneAsync + ticket registry + the content DB (guid -> cooked scene). Named SceneLoader (NOT
+    // Game): a facade sharing the mandatory `Game` orchestrator class name is a hard AngelScript name
+    // conflict + a Wren import clash.
+
+    inline constexpr StringView kSceneLoaderScriptService = u8"sceneloader.runtime";
+
+    // Installed as a per-context script service; the SceneLoader facade resolves it. The app fills the
+    // pointers (backed by the owning GameInstance + content DB). Null pointers = safe no-ops.
+    struct SceneLoaderScriptBinding
+    {
+        core::Function<i32(const core::Guid&)> loadSceneAsync; // -> ticket (0 = failed to start)
+        core::Function<f64(i32)> loadProgress;                 // ticket -> 0..1
+        core::Function<bool(i32)> loadComplete;                // ticket -> complete?
+        core::Function<bool(i32)> loadFailed;                  // ticket -> failed?
+        core::Function<bool(const core::Guid&)> loadScene;     // sync load -> success
+        core::Function<bool()> sceneReady;                     // current scene loaded + active?
+    };
+
+    inline void InstallSceneLoaderScriptService(script::IScriptContext& context,
+                                                SceneLoaderScriptBinding& binding)
+    {
+        context.SetService(kSceneLoaderScriptService, &binding);
+    }
+    inline void ClearSceneLoaderScriptService(script::IScriptContext& context)
+    {
+        context.SetService(kSceneLoaderScriptService, nullptr);
+    }
+
+    // Registers the `SceneLoader` facade type + the behavior-prelude name. Idempotent; call before a
+    // script manager is created (the run host / cook builder do).
+    void RegisterSceneLoaderScriptFacade();
+
+    /// SceneLoader.*: the running instance's LEVEL-LOAD control. loadSceneAsync kicks an async scene
+    /// load and returns a ticket the script polls - `var t = SceneLoader.loadSceneAsync(id); while
+    /// (!SceneLoader.loadComplete(t)) yield`. loadScene is a sync convenience; sceneReady reports
+    /// whether the instance's current scene is live. Resolves its OWN per-context service; unwired =
+    /// safe no-ops, with loadComplete returning true so a poll never hangs.
+    class SceneLoader final : public Object
+    {
+        DRACONIC_OBJECT(SceneLoader, Object)
+    public:
+        [[nodiscard]] static SceneLoaderScriptBinding* Resolve()
+        {
+            script::IScriptContext* context = script::CurrentScriptContext();
+            return context != nullptr ? static_cast<SceneLoaderScriptBinding*>(
+                                            context->GetService(kSceneLoaderScriptService))
+                                      : nullptr;
+        }
+        [[nodiscard]] static i32 loadSceneAsync(core::Guid scene)
+        {
+            SceneLoaderScriptBinding* b = Resolve();
+            return (b != nullptr && b->loadSceneAsync && !scene.IsNil()) ? b->loadSceneAsync(scene)
+                                                                         : 0;
+        }
+        [[nodiscard]] static f64 loadProgress(i32 ticket)
+        {
+            SceneLoaderScriptBinding* b = Resolve();
+            return (b != nullptr && b->loadProgress) ? b->loadProgress(ticket) : 1.0;
+        }
+        [[nodiscard]] static bool loadComplete(i32 ticket)
+        {
+            SceneLoaderScriptBinding* b = Resolve();
+            return (b == nullptr || !b->loadComplete) ? true : b->loadComplete(ticket);
+        }
+        [[nodiscard]] static bool loadFailed(i32 ticket)
+        {
+            SceneLoaderScriptBinding* b = Resolve();
+            return (b != nullptr && b->loadFailed) ? b->loadFailed(ticket) : false;
+        }
+        [[nodiscard]] static bool loadScene(core::Guid scene)
+        {
+            SceneLoaderScriptBinding* b = Resolve();
+            return (b != nullptr && b->loadScene && !scene.IsNil()) ? b->loadScene(scene) : false;
+        }
+        [[nodiscard]] static bool sceneReady()
+        {
+            SceneLoaderScriptBinding* b = Resolve();
+            return (b != nullptr && b->sceneReady) ? b->sceneReady() : false;
+        }
+    };
 
     // Handle for an in-flight ASYNC scene load (task #123). LoadSceneAsync creates the scene
     // INACTIVE (not ticked/rendered) and kicks its resources off on workers; poll IsComplete() /
@@ -191,9 +278,18 @@ export namespace draconic::runtime
         [[nodiscard]] bool ScriptLoadComplete(i32 ticket) const; // true once terminal (live OR failed)
         [[nodiscard]] bool ScriptLoadFailed(i32 ticket) const;
 
-        /// Game.sceneReady: this instance has a live current scene. A script on the app-driven boot
-        /// path waits `while (!Game.sceneReady()) yield` instead of assuming a scene at launch().
+        /// SceneLoader.sceneReady: this instance has a live current scene. A script on the app-driven
+        /// boot path waits `while (!SceneLoader.sceneReady()) yield` instead of assuming a scene at
+        /// launch().
         [[nodiscard]] bool SceneReady() const noexcept { return m_scene != nullptr; }
+
+        /// The SceneLoader facade's per-context binding for THIS instance - the app fills its pointers
+        /// (backed by LoadSceneAsync + the ticket registry + the content DB); GameInstance installs it
+        /// on the run context when the game script starts. Stable member, so it never dangles.
+        [[nodiscard]] SceneLoaderScriptBinding& SceneLoaderBinding() noexcept
+        {
+            return m_sceneLoaderBinding;
+        }
 
         /// Tick the `Game` script with gameplay time: hostDt x contextScale x instanceScale x sceneScale.
         /// A faulting update disables THIS instance's script (drops the `Game`), not the app.
@@ -283,7 +379,9 @@ export namespace draconic::runtime
 
         core::UniquePtr<net::NetworkManager> m_net; // this instance's endpoint (null = offline)
         net::NetScriptBinding m_netBinding;         // stable; the facade resolves controller=this
-        EndpointOnlineHook m_onEndpointOnline;      // app-set; fires with m_net on each go-online
+        SceneLoaderScriptBinding
+            m_sceneLoaderBinding; // stable; app fills its pointers, installed per context (StartScript)
+        EndpointOnlineHook m_onEndpointOnline; // app-set; fires with m_net on each go-online
 
         input::ActionRuntime m_inputRuntime; // this run's action state (per-instance)
         input::IInputSourceProvider* m_inputSource =

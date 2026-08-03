@@ -12,7 +12,7 @@ import draconic.content;           // ContentDatabase / Instance
 import draconic.resource;          // ResourceManager
 import draconic.vfs;               // NativeFileSystem
 import draconic.script;
-import draconic.script.facades; // RegisterScriptFacadeReflection (Scene / SceneLoader facades)
+import draconic.script.facades; // RegisterScriptFacadeReflection (the Scene facade)
 import draconic.script.wren;
 import draconic.script.angelscript;
 import draconic.net;         // NetSession queries (IsServer/PeerCount)
@@ -22,6 +22,7 @@ import draconic.shell;       // IKeyboard / KeyCode (a minimal fake device)
 
 using namespace draconic::core;
 namespace runtime = draconic::runtime;
+namespace script = draconic::script; // raw manager/context for the SceneLoader facade battery
 namespace scene = draconic::scene;
 namespace content = draconic::content;
 namespace resource = draconic::resource;
@@ -202,6 +203,7 @@ TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a p
 {
     RegisterCoreTypes();
     draconic::script::RegisterScriptFacadeReflection();
+    runtime::RegisterSceneLoaderScriptFacade(); // SceneLoader facade (owned by this project)
     draconic::script::wren::RegisterWrenScriptBackend();
 
     runtime::GameInstance gi;
@@ -237,6 +239,7 @@ TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a p
 {
     RegisterCoreTypes();
     draconic::script::RegisterScriptFacadeReflection();
+    runtime::RegisterSceneLoaderScriptFacade(); // SceneLoader facade (owned by this project)
     draconic::script::angelscript::RegisterAngelScriptBackend();
 
     runtime::GameInstance gi;
@@ -262,6 +265,102 @@ TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a p
     gi.TickScript(0.016f, 1.0f);
     CHECK(gi.ScriptRunning());
     gi.StopScript();
+}
+
+// The SceneLoader.* facade routing PROVEN end-to-end on both backends (raw context, Net-style): a
+// fake SceneLoaderScriptBinding (standing in for the app's content-DB-backed load pointers) is
+// installed as the sceneloader.runtime service, then a script kicks an async load and polls the
+// ticket to completion. What is under test is the facade->binding routing + the ticket round-trip.
+namespace
+{
+    // Fake load host: hands back a fixed ticket, reports complete on the 2nd poll of THAT ticket.
+    struct SceneLoaderFake
+    {
+        runtime::SceneLoaderScriptBinding binding;
+        int asyncCalls = 0;
+        Guid requested;
+        int completePolls = 0;
+        i32 ticketSeen = -1;
+        static constexpr i32 kTicket = 7;
+
+        SceneLoaderFake()
+        {
+            binding.loadSceneAsync = Function<i32(const Guid&)>{[this](const Guid& id) -> i32
+                                                               {
+                                                                   ++asyncCalls;
+                                                                   requested = id;
+                                                                   return kTicket;
+                                                               }};
+            binding.loadProgress = Function<f64(i32)>{
+                [](i32 t) -> f64 { return t == kTicket ? 0.5 : -1.0; }};
+            binding.loadComplete = Function<bool(i32)>{[this](i32 t) -> bool
+                                                       {
+                                                           ++completePolls;
+                                                           ticketSeen = t;
+                                                           return completePolls >= 2;
+                                                       }};
+        }
+    };
+}
+
+TEST_CASE("game-instance: SceneLoader.loadSceneAsync -> ticket, polled to completion (Wren)")
+{
+    RegisterCoreTypes();
+    runtime::RegisterSceneLoaderScriptFacade();
+
+    RefPtr<script::IScriptManager> manager = draconic::script::wren::CreateScriptManager();
+    script::RegisterReflectedTypes(*manager);
+    RefPtr<script::IScriptContext> ctx = manager->CreateContext();
+
+    SceneLoaderFake fake;
+    runtime::InstallSceneLoaderScriptService(*ctx, fake.binding);
+
+    // Kick the load, then poll to completion; record the observable results in module globals.
+    const Status status =
+        ctx->Load(u8"var t = SceneLoader.loadSceneAsync(Guid.new(2748, 3567))\n" // 0xABC, 0xDEF
+                  u8"var Poll1 = SceneLoader.loadComplete(t)\n"
+                  u8"var Prog = SceneLoader.loadProgress(t)\n"
+                  u8"var Poll2 = SceneLoader.loadComplete(t)\n",
+                  u8"main");
+    REQUIRE(status.IsOk());
+
+    CHECK(fake.asyncCalls == 1);
+    CHECK(fake.requested == Guid{0xABC, 0xDEF});
+    CHECK(fake.ticketSeen == SceneLoaderFake::kTicket); // the exact ticket round-tripped
+    CHECK(ctx->GetGlobal(u8"Poll1").Get<bool>() == false); // first poll: not complete
+    CHECK(ctx->GetGlobal(u8"Prog").Get<f64>() == doctest::Approx(0.5));
+    CHECK(ctx->GetGlobal(u8"Poll2").Get<bool>() == true); // second poll: complete
+}
+
+TEST_CASE("game-instance: SceneLoader.loadSceneAsync -> ticket, polled to completion (AngelScript)")
+{
+    RegisterCoreTypes();
+    runtime::RegisterSceneLoaderScriptFacade();
+
+    RefPtr<script::IScriptManager> manager = draconic::script::angelscript::CreateScriptManager();
+    script::RegisterReflectedTypes(*manager);
+    RefPtr<script::IScriptContext> ctx = manager->CreateContext();
+
+    SceneLoaderFake fake;
+    runtime::InstallSceneLoaderScriptService(*ctx, fake.binding);
+
+    const Status status = ctx->Load(u8"int t;\n"
+                                    u8"bool Poll1; double Prog; bool Poll2;\n"
+                                    u8"void main() {\n"
+                                    u8"  t = SceneLoader::loadSceneAsync(Guid(0xABC, 0xDEF));\n"
+                                    u8"  Poll1 = SceneLoader::loadComplete(t);\n"
+                                    u8"  Prog = SceneLoader::loadProgress(t);\n"
+                                    u8"  Poll2 = SceneLoader::loadComplete(t);\n"
+                                    u8"}\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+
+    CHECK(fake.asyncCalls == 1);
+    CHECK(fake.requested == Guid{0xABC, 0xDEF});
+    CHECK(fake.ticketSeen == SceneLoaderFake::kTicket);
+    CHECK(ctx->GetGlobal(u8"Poll1").Get<bool>() == false);
+    CHECK(ctx->GetGlobal(u8"Prog").Get<f64>() == doctest::Approx(0.5));
+    CHECK(ctx->GetGlobal(u8"Poll2").Get<bool>() == true);
 }
 
 TEST_CASE("game-instance: a debugger suspension in update is not a fault - the script survives")

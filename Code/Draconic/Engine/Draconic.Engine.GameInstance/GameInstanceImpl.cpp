@@ -4,6 +4,7 @@
 module;
 #include "Draconic.Core/Prelude.h"
 #include "Draconic.Core/Log/Log.h"
+#include "Draconic.Core/Reflection/Reflect.h" // the SceneLoader facade reflection body
 
 module draconic.engine.gameinstance;
 
@@ -14,6 +15,7 @@ import draconic.content;        // content::Instance
 import draconic.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
 import draconic.script;
 import draconic.engine.script;
+import draconic.script.facades; // RegisterExtraFacadeName (SceneLoader behavior-prelude hook)
 import draconic.net.manager; // NetworkManager factories + InstallNetScriptService
 import draconic.input;       // kInputRuntimeService (install the per-instance runtime)
 
@@ -21,6 +23,30 @@ using namespace draconic::core;
 
 namespace draconic::runtime
 {
+    // The SceneLoader.* facade reflection body + registration (kept out of the interface unit per the
+    // GCC gcm-cluster rule). Owned by the game-instance project (the out-of-tree facade pattern).
+    DRACONIC_REFLECT(SceneLoader, "draconic::runtime")
+    {
+        builder.Method<&SceneLoader::loadSceneAsync>("loadSceneAsync");
+        builder.Method<&SceneLoader::loadProgress>("loadProgress");
+        builder.Method<&SceneLoader::loadComplete>("loadComplete");
+        builder.Method<&SceneLoader::loadFailed>("loadFailed");
+        builder.Method<&SceneLoader::loadScene>("loadScene");
+        builder.Method<&SceneLoader::sceneReady>("sceneReady");
+        builder.Constructor(); // Wren only materializes constructible foreign classes
+    }
+
+    void RegisterSceneLoaderScriptFacade()
+    {
+        static const bool once = []()
+        {
+            GlobalTypeRegistry().Register(SceneLoader::StaticType());
+            draconic::script::RegisterExtraFacadeName(
+                u8"SceneLoader"); // Wren behavior prelude imports it (AngelScript binds by registry)
+            return true;
+        }();
+        (void)once;
+    }
 
     bool GameInstance::StartScript(core::StringView source, core::StringView name)
     {
@@ -37,6 +63,8 @@ namespace draconic::runtime
         m_scriptContext = core::RefPtr<script::IScriptContext>(context);
         m_runHost.SetGameScriptHold(true);
         InstallNetBinding(); // the game script (its menu) can now call Net.startServer()/connect()
+        InstallSceneLoaderScriptService(
+            *m_scriptContext, m_sceneLoaderBinding); // SceneLoader.* -> this instance's load registry
         // Install THIS instance's input runtime as the context's Input service (overriding the shared
         // editor runtime the run-host configurator installed), so the game reads only ITS own source.
         context->SetService(input::kInputRuntimeService, &m_inputRuntime);

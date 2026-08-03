@@ -155,6 +155,8 @@ namespace draconic::runtime
         draconic::input::RegisterInputScriptApi();
         draconic::physics::RegisterPhysicsScriptApi();
         draconic::audio::RegisterAudioScriptApi();
+        RegisterSceneLoaderScriptFacade();     // SceneLoader.* (owned by the game-instance project)
+        draconic::ui::RegisterUiScriptFacade(); // Ui.* (owned by the UISubsystem)
         // Every built backend registers (batteries-included); a run resolves by the game script's
         // LANGUAGE - one gameplay context per run stays the locked rule. Each backend is independently
         // toggleable (DRACONIC_ENABLE_WREN / _ANGELSCRIPT); both build on every platform, web included.
@@ -319,7 +321,7 @@ namespace draconic::runtime
         // SceneLoader.loadSceneAsync(id) -> resolve the cooked scene instance, kick an async load into THIS
         // instance, register it under a ticket. 0 = could not start (bad id / no DB). The prefab
         // provider reads a nested-prefab payload by guid - the same source the sync path uses.
-        gi.RunHost().Binding().loadSceneAsync =
+        gi.SceneLoaderBinding().loadSceneAsync =
             core::Function<core::i32(const core::Guid&)>{[self, instance](const core::Guid& sceneId) -> core::i32
             {
                 if (self->m_contentDatabase == nullptr || self->Resources() == nullptr)
@@ -344,17 +346,17 @@ namespace draconic::runtime
                 return instance->TrackScriptLoad(core::Move(handle));
             }};
 
-        gi.RunHost().Binding().loadProgress = core::Function<core::f64(core::i32)>{
+        gi.SceneLoaderBinding().loadProgress = core::Function<core::f64(core::i32)>{
             [instance](core::i32 ticket) -> core::f64
             { return static_cast<core::f64>(instance->ScriptLoadProgress(ticket)); }};
-        gi.RunHost().Binding().loadComplete = core::Function<bool(core::i32)>{
+        gi.SceneLoaderBinding().loadComplete = core::Function<bool(core::i32)>{
             [instance](core::i32 ticket) -> bool { return instance->ScriptLoadComplete(ticket); }};
-        gi.RunHost().Binding().loadFailed = core::Function<bool(core::i32)>{
+        gi.SceneLoaderBinding().loadFailed = core::Function<bool(core::i32)>{
             [instance](core::i32 ticket) -> bool { return instance->ScriptLoadFailed(ticket); }};
 
         // Game.loadScene(id): synchronous convenience for tiny scenes - load, make current, apply the
         // same activation policy, all before the call returns. false on a resolve/load failure.
-        gi.RunHost().Binding().loadScene =
+        gi.SceneLoaderBinding().loadScene =
             core::Function<bool(const core::Guid&)>{[self, instance](const core::Guid& sceneId) -> bool
             {
                 if (self->m_contentDatabase == nullptr || self->Resources() == nullptr)
@@ -385,7 +387,7 @@ namespace draconic::runtime
                 return true;
             }};
 
-        gi.RunHost().Binding().sceneReady =
+        gi.SceneLoaderBinding().sceneReady =
             core::Function<bool()>{[instance]() -> bool { return instance->SceneReady(); }};
     }
 
