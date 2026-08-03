@@ -360,6 +360,7 @@ else()
 endif()
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Input)  # input runtime hookup (tick + device provider seam) over Runtime
 add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Script) # entity behaviors (ScriptComponent + the run's ONE gameplay script context) over Runtime
+add_subdirectory(Code/Draconic/Engine/Draconic.Engine.Integration) # cross-subsystem composition helpers (physics-contact -> script bridge) over Physics + Script
 if(DRACONIC_EXTENSION_IMGUI)
     add_subdirectory(Code/Draconic/Extensions/Draconic.Imgui) # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
 endif()
@@ -443,6 +444,7 @@ if(DRACONIC_BUILD_TESTS)
     draconic_test_suite(Code/Draconic/Engine/Draconic.Engine.Animation.Tests              Draconic::Engine.Animation)
     draconic_test_suite(Code/Draconic/Engine/Draconic.Engine.Audio.Tests                  Draconic::Engine.Audio)
     draconic_test_suite(Code/Draconic/Engine/Draconic.Engine.GameInstance.Tests Draconic::Script.AngelScript)  # links the AngelScript backend; builds wherever it exists (incl. web now)
+    draconic_test_suite(Code/Draconic/Engine/Draconic.Engine.Integration.Tests            Draconic::Engine.Integration)
     draconic_test_suite(Code/Draconic/Engine/Draconic.Engine.Net.Tests                    Draconic::Engine.Net)
     draconic_test_suite(Code/Draconic/Engine/Draconic.Engine.Physics.Tests                Draconic::Engine.Physics)
     draconic_test_suite(Code/Draconic/Engine/Draconic.Engine.Render.Tests                 Draconic::Engine.Render)

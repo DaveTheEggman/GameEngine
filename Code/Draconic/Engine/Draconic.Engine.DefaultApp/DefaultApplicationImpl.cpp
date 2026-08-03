@@ -261,8 +261,7 @@ namespace draconic::runtime
         // other for scripting; the wiring lives here, where integration belongs.
         if (m_physics != nullptr && m_scripts != nullptr)
         {
-            m_contactBridge.scripts = m_scripts;
-            m_physics->RegisterContactListener(&m_contactBridge);
+            m_contactBridge.Install(*m_physics, *m_scripts);
         }
     }
 
@@ -542,10 +541,7 @@ namespace draconic::runtime
                 gi.Scenes().Clear();
                 gi.RunHost().Teardown();
             });
-        if (m_physics != nullptr)
-        {
-            m_physics->UnregisterContactListener(&m_contactBridge);
-        }
+        m_contactBridge.Uninstall();
         m_ownedResources = nullptr; // release products while the device is alive
         m_textureFactory = nullptr;
     }

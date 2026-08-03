@@ -43,6 +43,7 @@ import draconic.script.angelscript; // the AngelScript backend (second backend; 
 #endif
 import draconic.script.resource;     // cooked script classes + factory (entity behaviors)
 import draconic.engine.script;    // ScriptSubsystem (behaviors + the run's shared context)
+import draconic.engine.integration; // ScriptPhysicsContactBridge (physics contacts -> script ingress)
 import draconic.resource;            // ResourceManager (owned or borrowed - see the preset seam)
 import draconic.content;             // IContentDatabase (preset by the entry point)
 import draconic.scene.resource;      // SceneDocument (product-type registration)
@@ -213,39 +214,10 @@ export namespace draconic::runtime
         void RegisterStandardFactories(draconic::resource::ResourceManager& resources,
                                        IApplicationHost& host);
 
-        // Bridges physics contacts to the script subsystem's neutral ingress, mapping the
-        // physics kind onto the script vocabulary. This is the ONLY place physics and script
-        // meet for contacts - the subsystems stay mutually independent.
-        struct ScriptContactBridge final : public draconic::physics::IContactListener
-        {
-            draconic::script::ScriptSubsystem* scripts = nullptr;
-            void OnContact(const draconic::physics::EntityContact& c) override
-            {
-                if (scripts == nullptr)
-                {
-                    return;
-                }
-                using SK = draconic::script::ScriptContactKind;
-                SK kind = SK::Begin;
-                switch (c.kind)
-                {
-                case draconic::physics::ContactKind::Begin:
-                    kind = SK::Begin;
-                    break;
-                case draconic::physics::ContactKind::End:
-                    kind = SK::End;
-                    break;
-                case draconic::physics::ContactKind::TriggerEnter:
-                    kind = SK::TriggerEnter;
-                    break;
-                case draconic::physics::ContactKind::TriggerExit:
-                    kind = SK::TriggerExit;
-                    break;
-                }
-                scripts->DeliverContact(c.scene, c.a, c.b, kind, c.point, c.normal, c.speed);
-            }
-        };
-        ScriptContactBridge m_contactBridge;
+        // Bridges physics contacts to the script subsystem's neutral ingress. The one place
+        // physics and script meet for contacts; the adapter itself lives out-of-tree in
+        // draconic.engine.integration so the two subsystems stay mutually independent.
+        draconic::integration::ScriptPhysicsContactBridge m_contactBridge;
 
         draconic::geometry::StaticMeshFactory m_meshFactory;
         draconic::geometry::SkinnedMeshFactory m_skinnedMeshFactory;

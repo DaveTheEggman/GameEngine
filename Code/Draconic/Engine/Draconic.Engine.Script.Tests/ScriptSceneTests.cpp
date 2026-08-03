@@ -24,6 +24,7 @@ import draconic.script.resource;
 import draconic.engine.script;
 import draconic.physics;
 import draconic.engine.physics;
+import draconic.engine.integration; // ScriptPhysicsContactBridge (the extracted composition-root adapter)
 
 using namespace draconic::core;
 using namespace draconic::script;
@@ -1206,9 +1207,10 @@ namespace
 
     // Builds a Context with all three subsystems started + a live scene, returns the scene.
     // Acts as its OWN composition root: bridges physics contacts to the script subsystem's
-    // neutral DeliverContact ingress (exactly what DefaultApplication does in a real run) -
-    // the script subsystem itself has no physics dependency.
-    struct ContactWorld final : public physics::IContactListener
+    // neutral DeliverContact ingress with the SAME adapter DefaultApplication uses in a real
+    // run (draconic.engine.integration) - so these contact tests also exercise that bridge, and
+    // the script subsystem itself keeps no physics dependency.
+    struct ContactWorld
     {
         runtime::Context ctx;
         scene::SceneSubsystem* scenes = nullptr;
@@ -1216,6 +1218,7 @@ namespace
         ScriptSubsystem* scripts = nullptr;
         scene::Scene* scene = nullptr;
         UniquePtr<scene::SceneManager> sm; // this bed's scene group (subsystem owns none)
+        draconic::integration::ScriptPhysicsContactBridge bridge; // the composition-root adapter
 
         ContactWorld()
         {
@@ -1228,36 +1231,15 @@ namespace
             physics = ctx.AddSubsystem<physics::PhysicsSubsystem>();
             scripts = ctx.AddSubsystem<ScriptSubsystem>();
             ctx.Startup();
-            physics->RegisterContactListener(this); // the composition-root bridge
+            bridge.Install(*physics, *scripts); // the composition-root bridge (the real adapter)
             sm = MakeUnique<scene::SceneManager>(DefaultAllocator(), &scenes->AwareRegistry());
             scenes->RegisterManager(sm.Get());
             scene = sm->CreateScene(u8"level");
         }
-        ~ContactWorld() override
+        ~ContactWorld()
         {
-            physics->UnregisterContactListener(this);
+            bridge.Uninstall(); // before ctx.Shutdown destroys the physics subsystem
             ctx.Shutdown();
-        }
-
-        void OnContact(const physics::EntityContact& c) override
-        {
-            ScriptContactKind kind = ScriptContactKind::Begin;
-            switch (c.kind)
-            {
-            case physics::ContactKind::Begin:
-                kind = ScriptContactKind::Begin;
-                break;
-            case physics::ContactKind::End:
-                kind = ScriptContactKind::End;
-                break;
-            case physics::ContactKind::TriggerEnter:
-                kind = ScriptContactKind::TriggerEnter;
-                break;
-            case physics::ContactKind::TriggerExit:
-                kind = ScriptContactKind::TriggerExit;
-                break;
-            }
-            scripts->DeliverContact(c.scene, c.a, c.b, kind, c.point, c.normal, c.speed);
         }
 
         scene::EntityHandle AddBody(StringView name, Float3 position, physics::MotionKind motion,

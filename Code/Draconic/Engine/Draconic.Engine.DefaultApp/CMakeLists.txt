@@ -13,7 +13,7 @@ target_link_libraries(Draconic.Engine.DefaultApp
            Draconic::Engine.Particles Draconic::Physics Draconic::Engine.Physics
            Draconic::Audio Draconic::Audio.Resource Draconic::Engine.Audio
            Draconic::Input Draconic::Engine.Input Draconic::Script
-           Draconic::Script.Resource Draconic::Engine.Script
+           Draconic::Script.Resource Draconic::Engine.Script Draconic::Engine.Integration
            Draconic::Resource Draconic::Content Draconic::Scene.Resource
            Draconic::Geometry.Resource Draconic::Materials.Resource Draconic::Animation.Resource
            Draconic::Particles.Resource Draconic::Input.Resource Draconic::Physics.Resource
