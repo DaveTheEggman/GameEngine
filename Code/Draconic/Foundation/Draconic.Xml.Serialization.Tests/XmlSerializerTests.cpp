@@ -245,3 +245,125 @@ TEST_CASE("xml.serialize: array of keyed structs round-trips each element distin
     CHECK(loaded[1].mesh == -1);
     CHECK(loaded[2].mesh == 0); // the field the Fox manifest lost
 }
+
+// --- Framed regions (unknown-section passthrough). XML is self-describing, so the frame markers are
+//     no-ops and RawRemainder captures/re-injects the current scope's remaining element subtree. ---
+
+TEST_CASE("xml.serialize: BeginFramedRegion/EndFramedRegion are no-ops (identical output)")
+{
+    String framed;
+    {
+        XmlSerializer w;
+        w.BeginObject();
+        w.BeginFramedRegion();
+        w.Key("v");
+        {
+            u32 v = 5;
+            w.Scalar(&v, ScalarKind::UInt32);
+        }
+        w.EndFramedRegion();
+        w.EndObject();
+        w.GetOutput(framed);
+    }
+    String unframed;
+    {
+        XmlSerializer w;
+        w.BeginObject();
+        w.Key("v");
+        {
+            u32 v = 5;
+            w.Scalar(&v, ScalarKind::UInt32);
+        }
+        w.EndObject();
+        w.GetOutput(unframed);
+    }
+    CHECK(framed == unframed); // element boundaries delimit; framing adds nothing to the DOM
+}
+
+TEST_CASE("xml.serialize: RawRemainder captures an unknown payload and re-injects it")
+{
+    // Author a section: typeName + a framed payload object {v=42}.
+    String out;
+    {
+        XmlSerializer w;
+        w.BeginObject();
+        w.Key("typeName");
+        {
+            String s{StringView(u8"Foo")};
+            w.Text(s);
+        }
+        w.BeginFramedRegion();
+        w.Key("payload");
+        w.BeginObject();
+        w.Key("v");
+        {
+            u32 v = 42;
+            w.Scalar(&v, ScalarKind::UInt32);
+        }
+        w.EndObject();
+        w.EndFramedRegion();
+        w.EndObject();
+        w.GetOutput(out);
+    }
+
+    // Read as a build that does NOT know "Foo": capture the framed remainder as raw bytes.
+    Array<u8> captured;
+    {
+        XmlDocument doc;
+        REQUIRE(doc.Parse(out) == XmlResult::Ok);
+        XmlSerializer r(doc);
+        r.BeginObject();
+        {
+            String s;
+            r.Key("typeName");
+            r.Text(s);
+            CHECK(s.AsView() == StringView(u8"Foo"));
+        }
+        r.BeginFramedRegion();
+        REQUIRE(r.RawRemainder(captured));
+        r.EndFramedRegion();
+        r.EndObject();
+    }
+    CHECK(captured.Size() > 0u);
+
+    // Re-emit the captured payload into a fresh section.
+    String out2;
+    {
+        XmlSerializer w;
+        w.BeginObject();
+        w.Key("typeName");
+        {
+            String s{StringView(u8"Foo")};
+            w.Text(s);
+        }
+        w.BeginFramedRegion();
+        REQUIRE(w.RawRemainder(captured));
+        w.EndFramedRegion();
+        w.EndObject();
+        w.GetOutput(out2);
+    }
+
+    // A build that DOES know "Foo" recovers v=42 from the re-emitted section.
+    {
+        XmlDocument doc;
+        REQUIRE(doc.Parse(out2) == XmlResult::Ok);
+        XmlSerializer r(doc);
+        r.BeginObject();
+        {
+            String s;
+            r.Key("typeName");
+            r.Text(s);
+            CHECK(s.AsView() == StringView(u8"Foo"));
+        }
+        r.BeginFramedRegion();
+        r.Key("payload");
+        r.BeginObject();
+        u32 v = 0;
+        r.Key("v");
+        r.Scalar(&v, ScalarKind::UInt32);
+        r.EndObject();
+        r.EndFramedRegion();
+        r.EndObject();
+        CHECK(v == 42u);
+    }
+}

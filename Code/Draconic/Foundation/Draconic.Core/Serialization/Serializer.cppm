@@ -91,6 +91,28 @@ export namespace draconic::core
         void EndObject() override {}
         void EndArray() override {}
 
+        // === Framed regions (unknown-section passthrough) ===
+        // Bracket a SELF-DELIMITING sub-region so a payload whose type the running build cannot
+        // instantiate can be captured or SKIPPED uniformly across backends. Binary length-prefixes the
+        // enclosed bytes (a sub-stream + u32 length - the Scene blob pattern); self-describing formats
+        // (XML) rely on element boundaries and no-op. Default = no-op, so positional backends that never
+        // frame keep today's behavior; a store that wants skippable sections (Settings) frames EVERY
+        // section between these. Regions may nest.
+        virtual void BeginFramedRegion() {}
+        virtual void EndFramedRegion() {}
+
+        // Capture (READ) / re-inject (WRITE) the CURRENT framed region's remaining content as raw bytes,
+        // for a section whose type the build cannot instantiate. READ consumes the rest of the region
+        // into `blob`; WRITE emits `blob` back verbatim so a later build that DOES know the type reads
+        // it unchanged. XML moves the remaining child subtree; binary moves the framed bytes. Returns
+        // false where an unknown region cannot be preserved (a positional backend with no active frame),
+        // so the caller can drop it with a warning. Default: unsupported.
+        virtual bool RawRemainder(Array<u8>& blob)
+        {
+            (void)blob;
+            return false;
+        }
+
         // Default Guid representation: the canonical 36-char string (readable in text backends).
         // BinarySerializer overrides this with the compact raw-16-bytes form.
         void GuidValue(Guid& value) override

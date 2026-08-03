@@ -25,6 +25,7 @@ add_executable(Draconic.Core.Tests
     CoreReflectionTests.cpp
     IoTests.cpp
     VersionedSerializationTests.cpp
+    FramedRegionTests.cpp
     FunctionTests.cpp
     ThreadingTests.cpp
     LibraryTests.cpp)

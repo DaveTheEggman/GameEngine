@@ -208,6 +208,75 @@ export namespace draconic::xml
             }
         }
 
+        // Unknown-section passthrough. XML is self-describing, so BeginFramedRegion/EndFramedRegion are
+        // the inherited no-ops (element boundaries delimit the region); this captures (READ) / re-injects
+        // (WRITE) the current scope's remaining ELEMENT children verbatim, so a section whose type this
+        // build cannot instantiate survives a load/save round-trip.
+        bool RawRemainder(Array<u8>& blob) override
+        {
+            if (IsWriting())
+            {
+                // Parse the captured fragment (wrapped in a synthetic root) and MOVE its element children
+                // into the current write element. Nodes share one global allocator, so reparenting
+                // transfers ownership cleanly (RemoveChild detaches without delete; AppendChild adopts,
+                // and scratch's destructor only deletes what is still attached).
+                if (blob.IsEmpty())
+                {
+                    return true;
+                }
+                String wrapped;
+                wrapped += StringView(u8"<__frame__>");
+                wrapped +=
+                    StringView(reinterpret_cast<const utf8char*>(blob.Data()), blob.Size());
+                wrapped += StringView(u8"</__frame__>");
+                XmlDocument scratch;
+                if (scratch.Parse(wrapped.AsView()) != XmlResult::Ok)
+                {
+                    Fail(ErrorCode::Internal);
+                    return false;
+                }
+                XmlElement* root = scratch.RootElement();
+                XmlNode* child = (root != nullptr) ? root->FirstChild() : nullptr;
+                while (child != nullptr)
+                {
+                    XmlNode* next = child->NextSibling();
+                    if (child->NodeType() == XmlNodeType::Element)
+                    {
+                        root->RemoveChild(child);
+                        m_writeCurrent->AppendChild(child);
+                    }
+                    child = next;
+                }
+                return true;
+            }
+
+            // READ: serialize the current scope's remaining element children to bytes, then consume them.
+            if (m_readStack.IsEmpty())
+            {
+                return false;
+            }
+            ReadScope& scope = m_readStack[m_readStack.Size() - 1];
+            String captured;
+            for (XmlNode* c = scope.cursor; c != nullptr; c = c->NextSibling())
+            {
+                if (c->NodeType() == XmlNodeType::Element)
+                {
+                    String outer;
+                    c->GetOuterXml(outer);
+                    captured += outer.AsView();
+                }
+            }
+            scope.cursor = nullptr; // fully consumed
+            const StringView sv = captured.AsView();
+            blob.Clear();
+            blob.Resize(sv.Size());
+            if (sv.Size() > 0)
+            {
+                MemCopy(blob.Data(), sv.Data(), sv.Size());
+            }
+            return true;
+        }
+
     private:
         struct ReadScope
         {
