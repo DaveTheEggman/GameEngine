@@ -7,9 +7,11 @@
 
 import draconic.core;
 import draconic.settings;
+import draconic.xml.serialization; // XML factory, to exercise passthrough on both backends
 
 using namespace draconic::core;
 namespace settings = draconic::settings;
+namespace xml = draconic::xml;
 
 namespace
 {
@@ -99,4 +101,142 @@ TEST_CASE("core/system: GetEnvironmentVariable + UserDataDir")
     CHECK(exeDir.Size() > 0u);
     CHECK(exeDir.Size() < exePath.Size());
     CHECK(exePath.AsView().StartsWith(exeDir.AsView()));
+}
+
+// --- Unknown-section passthrough (both backends): a section whose type a build cannot instantiate is
+//     preserved verbatim across Load/Save instead of aborting the store (the 2026-08-01 data loss). ---
+namespace
+{
+    class SecA : public ISerializable
+    {
+        DRACONIC_OBJECT(SecA, ISerializable)
+    public:
+        i32 a = 0;
+        void Serialize(ISerializer& ar) override { draconic::core::Serialize(ar, "a", a); }
+    };
+    DRACONIC_DEFINE_OBJECT_VERSIONED(SecA, "draconic::test", 1)
+
+    class SecX : public ISerializable // the "unknown" one (registered only in the final registry)
+    {
+        DRACONIC_OBJECT(SecX, ISerializable)
+    public:
+        i32 x = 0;
+        String tag = String(u8"");
+        void Serialize(ISerializer& ar) override
+        {
+            draconic::core::Serialize(ar, "x", x);
+            draconic::core::Serialize(ar, "tag", tag);
+        }
+    };
+    DRACONIC_DEFINE_OBJECT_VERSIONED(SecX, "draconic::test", 1)
+
+    class SecB : public ISerializable
+    {
+        DRACONIC_OBJECT(SecB, ISerializable)
+    public:
+        i32 b = 0;
+        void Serialize(ISerializer& ar) override { draconic::core::Serialize(ar, "b", b); }
+    };
+    DRACONIC_DEFINE_OBJECT_VERSIONED(SecB, "draconic::test", 1)
+
+    void RegisterAB(TypeRegistry& types, SerializableRegistry& ser)
+    {
+        types.Register(SecA::StaticType());
+        RegisterSerializable<SecA>(ser);
+        types.Register(SecB::StaticType());
+        RegisterSerializable<SecB>(ser);
+    }
+
+    // Author {A, X, B} -> load with only A+B registered (X unknown, preserved) -> re-save -> load with
+    // X now registered and confirm its data survived the round-trip through a build that did not know it.
+    // `make` yields a FRESH factory per call (SerializerFactory is a move-only Function).
+    void RunPassthrough(SerializerFactory (*make)())
+    {
+        MemoryStream stored;
+        {
+            settings::Settings src;
+            src.Section<SecA>().a = 10;
+            src.Section<SecX>().x = 42;
+            src.Section<SecX>().tag = String(u8"keepme");
+            src.Section<SecB>().b = 20;
+            REQUIRE(src.Save(stored, make()).IsOk());
+        }
+
+        MemoryStream resaved;
+        {
+            TypeRegistry types;
+            SerializableRegistry ser;
+            RegisterAB(types, ser); // X is NOT registered here
+
+            settings::Settings mid;
+            REQUIRE(stored.Seek(0, SeekOrigin::Begin) == 0);
+            REQUIRE(mid.Load(stored, make(), types, ser).IsOk()); // unknown X must NOT abort the store
+            CHECK(mid.SectionCount() == 2u);        // A + B loaded
+            CHECK(mid.UnknownSectionCount() == 1u); // X preserved verbatim
+            REQUIRE(mid.Find<SecA>() != nullptr);
+            CHECK(mid.Find<SecA>()->a == 10);
+            REQUIRE(mid.Find<SecB>() != nullptr);
+            CHECK(mid.Find<SecB>()->b == 20); // the regression: B is not dropped after the unknown X
+
+            REQUIRE(mid.Save(resaved, make()).IsOk()); // re-emits A, B, and X
+        }
+
+        {
+            TypeRegistry types;
+            SerializableRegistry ser;
+            RegisterAB(types, ser);
+            types.Register(SecX::StaticType()); // now X is known
+            RegisterSerializable<SecX>(ser);
+
+            settings::Settings dst;
+            REQUIRE(resaved.Seek(0, SeekOrigin::Begin) == 0);
+            REQUIRE(dst.Load(resaved, make(), types, ser).IsOk());
+            CHECK(dst.UnknownSectionCount() == 0u); // all resolved now
+            REQUIRE(dst.Find<SecX>() != nullptr);
+            CHECK(dst.Find<SecX>()->x == 42);
+            CHECK(dst.Find<SecX>()->tag == u8"keepme"); // preserved-unknown data intact
+            REQUIRE(dst.Find<SecA>() != nullptr);
+            CHECK(dst.Find<SecA>()->a == 10);
+            REQUIRE(dst.Find<SecB>() != nullptr);
+            CHECK(dst.Find<SecB>()->b == 20);
+        }
+    }
+}
+
+TEST_CASE("settings: unknown-section passthrough round-trips (binary)")
+{
+    RunPassthrough(&BinarySerializerFactory);
+}
+
+TEST_CASE("settings: unknown-section passthrough round-trips (XML)")
+{
+    RunPassthrough(&xml::XmlSerializerFactory);
+}
+
+TEST_CASE("settings: repeated Load/Save does not duplicate a preserved unknown section")
+{
+    MemoryStream stored;
+    {
+        settings::Settings src;
+        src.Section<SecA>().a = 1;
+        src.Section<SecX>().x = 7;
+        REQUIRE(src.Save(stored, BinarySerializerFactory()).IsOk());
+    }
+    // Cycle Load/Save three times with X unknown; the unknown count stays 1 (no growth/dup).
+    for (int cycle = 0; cycle < 3; ++cycle)
+    {
+        TypeRegistry types;
+        SerializableRegistry ser;
+        types.Register(SecA::StaticType());
+        RegisterSerializable<SecA>(ser);
+
+        settings::Settings s;
+        REQUIRE(stored.Seek(0, SeekOrigin::Begin) == 0);
+        REQUIRE(s.Load(stored, BinarySerializerFactory(), types, ser).IsOk());
+        CHECK(s.UnknownSectionCount() == 1u);
+
+        MemoryStream next;
+        REQUIRE(s.Save(next, BinarySerializerFactory()).IsOk());
+        stored = static_cast<MemoryStream&&>(next);
+    }
 }

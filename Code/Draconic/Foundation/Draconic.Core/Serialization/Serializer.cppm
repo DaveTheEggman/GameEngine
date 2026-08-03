@@ -83,6 +83,12 @@ export namespace draconic::core
         [[nodiscard]] bool IsReading() const noexcept { return m_mode == SerializeMode::Read; }
         [[nodiscard]] bool IsWriting() const noexcept { return m_mode == SerializeMode::Write; }
 
+        // True for backends whose structure is discoverable from the data (keyed/text - XML, JSON),
+        // false for POSITIONAL backends (binary) that need explicit framing/versioning. A store can
+        // use this to add a format-version field only where the layout is positional and not
+        // otherwise self-describing (so a self-describing file stays readable across format changes).
+        [[nodiscard]] virtual bool IsSelfDescribing() const noexcept { return false; }
+
         // Naming and object/array scopes carry no information in unkeyed formats;
         // default them to no-ops. Keyed/text backends override what they need.
         // (BeginArray/Scalar/Text/Blob stay pure - every backend must move data.)

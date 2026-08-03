@@ -59,6 +59,10 @@ export namespace draconic::xml
         }
 
         // --- ISerializer ---------------------------------------------------
+        // Self-describing (typed element tags + name attributes), so consumers can skip an explicit
+        // format-version field and stay readable across format changes.
+        [[nodiscard]] bool IsSelfDescribing() const noexcept override { return true; }
+
         void Key(const char* name) noexcept override { m_pendingKey = name; }
 
         void BeginObject() override
