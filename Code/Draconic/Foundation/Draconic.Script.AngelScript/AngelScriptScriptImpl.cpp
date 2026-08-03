@@ -451,10 +451,11 @@ namespace draconic::script::angelscript
     // AngelScriptManager::ValueFromArg can wrap a delegate parameter.
     core::Variant MakeAngelScriptDelegateVariant(asIScriptFunction* function);
 
-    // The funcdef reflected-method parameters typed RefPtr<IScriptDelegate> map onto. A
-    // single general-purpose signature (a number in, a number out) backs the delegate seam;
-    // the delegate's Invoke marshals against the funcdef's ACTUAL params, so a richer
-    // per-signature funcdef surface is a later extension without touching the mechanism.
+    // Reflected RefPtr<IScriptDelegate> parameters are spelled `?&in` (AppendDeclType), so a
+    // script may pass a funcdef handle of ANY signature; ValueFromArg detects the funcdef handle
+    // and wraps it, and Invoke marshals against the handler's ACTUAL params. `ScriptDelegate`
+    // (double(double)) is the engine-provided args+return shape; `void Action()` (RegisterDelegate
+    // Surface) is the common void callback. Kept as a NAMED handle for the rare non-param position.
     inline constexpr const char* kScriptDelegateFuncdef = "double ScriptDelegate(double)";
     inline constexpr const char* kScriptDelegateTypeName = "ScriptDelegate";
 
@@ -881,12 +882,42 @@ namespace draconic::script::angelscript
                 return (box != nullptr) ? box->value : core::Variant{};
             }
             // A funcdef handle (a delegate parameter): wrap the function into a script delegate.
+            // A generic IScriptDelegate param is spelled `?&in` (by reference), so the handle
+            // arrives as a reference to the caller's variable (asIScriptFunction**); a by-value
+            // funcdef handle (e.g. a coroutine's ScriptCoroutine@) arrives as the object directly.
             if ((typeId & asTYPEID_OBJHANDLE) != 0 && IsFuncdefTypeId(typeId))
             {
-                asIScriptFunction* fn = static_cast<asIScriptFunction*>(gen->GetArgObject(index));
+                asIScriptFunction* fn = nullptr;
+                if (ArgIsInReference(gen, index))
+                {
+                    void* addr = gen->GetAddressOfArg(index);
+                    fn = (addr != nullptr) ? *static_cast<asIScriptFunction**>(addr) : nullptr;
+                }
+                else
+                {
+                    fn = static_cast<asIScriptFunction*>(gen->GetArgObject(index));
+                }
                 return MakeAngelScriptDelegateVariant(fn);
             }
             return core::Variant{};
+        }
+
+        // True when parameter `index` of the executing generic function is an IN-reference
+        // (`&in` / `?&in`): its value arrives as a reference to the caller's variable, not by
+        // value, and the callee does NOT own a reference to it.
+        [[nodiscard]] static bool ArgIsInReference(asIScriptGeneric* gen, asUINT index) noexcept
+        {
+            asIScriptFunction* self = (gen != nullptr) ? gen->GetFunction() : nullptr;
+            if (self == nullptr)
+            {
+                return false;
+            }
+            asDWORD flags = 0;
+            if (self->GetParam(index, nullptr, &flags) < 0)
+            {
+                return false;
+            }
+            return (flags & asTM_INREF) != 0;
         }
 
         // True when `typeId` is a handle to a funcdef (a callable delegate type).
@@ -1178,15 +1209,19 @@ namespace draconic::script::angelscript
                                                    asCALL_GENERIC, this);
         }
 
-        // Registers the delegate funcdef reflected methods spell their RefPtr<IScriptDelegate>
-        // parameters as (`ScriptDelegate@`). A script passes any compatible function/closure
-        // handle; the backend wraps it into an AngelScriptDelegate.
+        // Registers the delegate funcdef surface. Reflected RefPtr<IScriptDelegate> parameters are
+        // spelled `?&in` (see AppendDeclType), so a script may pass a funcdef handle of ANY shape -
+        // including a user-declared funcdef. These are the engine-provided common shapes so authors
+        // rarely need to declare their own: `Action` (void() - a click/notify handler) and
+        // `ScriptDelegate` (double(double) - the args+return case). The backend wraps whichever
+        // funcdef handle arrives; the invocation marshals against the handler's actual signature.
         void RegisterDelegateSurface()
         {
             if (m_engine == nullptr)
             {
                 return;
             }
+            (void)m_engine->RegisterFuncdef("void Action()");
             (void)m_engine->RegisterFuncdef(kScriptDelegateFuncdef);
         }
 
@@ -1395,11 +1430,24 @@ namespace draconic::script::angelscript
             {
                 return false;
             }
-            // A delegate parameter is spelled as the ScriptDelegate funcdef handle.
+            // A delegate parameter accepts ANY callable. IScriptDelegate is a GENERIC callback
+            // (Invoke marshals dynamic Variants against the handler's actual arity), so the honest
+            // AngelScript type is the variable-type in-reference `?&in`: a script passes a funcdef
+            // handle of any signature (a void() click handler, a double(double) value callback, a
+            // user-declared funcdef) and the generic dispatch detects the funcdef handle and wraps
+            // it. A single fixed funcdef would force one signature. Return position (a facade never
+            // returns a delegate) falls back to a concrete handle spelling.
             if (type == &IScriptDelegate::StaticType())
             {
-                AppendAscii(out, kScriptDelegateTypeName);
-                AppendAscii(out, "@");
+                if (isParam)
+                {
+                    AppendAscii(out, "?&in");
+                }
+                else
+                {
+                    AppendAscii(out, kScriptDelegateTypeName);
+                    AppendAscii(out, "@");
+                }
                 return true;
             }
             if (const char* primitive = PrimitiveDeclName(type))
@@ -1675,10 +1723,11 @@ namespace draconic::script::angelscript
             {
                 ReleaseBox(static_cast<BoxedVariant*>(gen->GetArgObject(i)));
             }
-            else if (manager->IsFuncdefTypeId(typeId))
+            else if (manager->IsFuncdefTypeId(typeId) && !AngelScriptManager::ArgIsInReference(gen, i))
             {
-                // A funcdef-handle arg (a delegate): the callee owns this reference. The
-                // AngelScriptDelegate we built AddRef'd its own; release the incoming one.
+                // A BY-VALUE funcdef-handle arg (e.g. a coroutine's ScriptCoroutine@): the callee
+                // owns this reference. The wrapper AddRef'd its own; release the incoming one. A
+                // `?&in` delegate handle is BORROWED (the caller owns its temporary) - skipped.
                 if (asIScriptFunction* fn = static_cast<asIScriptFunction*>(gen->GetArgObject(i)))
                 {
                     fn->Release();

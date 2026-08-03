@@ -102,8 +102,7 @@ namespace
         void FireClick()
         {
             REQUIRE(clickFn.Get() != nullptr);
-            Variant argv[] = {Variant::From(0.0)};
-            (void)clickFn->Invoke(Span<Variant>{argv, 1});
+            (void)clickFn->Invoke(Span<Variant>{}); // a click carries no payload
         }
     };
 }
@@ -127,7 +126,7 @@ TEST_CASE("ui-facade: Wren pushes an overlay, drives controls by id, binds + fir
                                     u8"Ui.setText(h, \"status\", \"Loading\")\n"
                                     u8"Ui.setProgress(h, \"progress\", 0.5)\n"
                                     u8"Ui.setVisible(h, \"spinner\", true)\n"
-                                    u8"Ui.onClick(h, \"cancel\", Fn.new { |x| clicked = true })\n"
+                                    u8"Ui.onClick(h, \"cancel\", Fn.new { clicked = true })\n"
                                     u8"Ui.popOverlay(h)\n",
                                     u8"main");
     REQUIRE(status.IsOk());
@@ -151,16 +150,17 @@ TEST_CASE("ui-facade: AngelScript pushes an overlay, drives controls by id, bind
     ui::InstallUiScriptService(*ctx, fake.binding);
 
     // AngelScript: statics live in the type's namespace (Ui::pushOverlay); the click handler is a
-    // double(double) - the current delegate funcdef - and sets a global we read after firing.
+    // natural void() wrapped in the engine-provided `Action` funcdef, and sets a global we read
+    // after firing (the delegate param is `?&in`, so any funcdef shape is accepted).
     const Status status = ctx->Load(u8"bool clicked = false;\n"
                                     u8"int h;\n"
-                                    u8"double onCancel(double x) { clicked = true; return 0.0; }\n"
+                                    u8"void onCancel() { clicked = true; }\n"
                                     u8"void main() {\n"
                                     u8"  h = Ui::pushOverlay(Guid(17, 34));\n"
                                     u8"  Ui::setText(h, \"status\", \"Loading\");\n"
                                     u8"  Ui::setProgress(h, \"progress\", 0.5);\n"
                                     u8"  Ui::setVisible(h, \"spinner\", true);\n"
-                                    u8"  Ui::onClick(h, \"cancel\", ScriptDelegate(onCancel));\n"
+                                    u8"  Ui::onClick(h, \"cancel\", Action(@onCancel));\n"
                                     u8"  Ui::popOverlay(h);\n"
                                     u8"}\n",
                                     u8"main");

@@ -176,14 +176,11 @@ namespace draconic::ui
         if (ButtonBase* button = Cast<ButtonBase>(FindControl(handle, id)))
         {
             RefPtr<script::IScriptDelegate> held = Move(fn);
-            // The current AngelScript delegate funcdef is double(double), so fire with one ignored
-            // arg (see docs/design/adding-facades.md). Holding `held` keeps the script fn GC-alive.
-            button->OnClick.Add(
-                [held](ButtonBase*)
-                {
-                    Variant argv[] = {Variant::From(0.0)};
-                    (void)held->Invoke(Span<Variant>{argv, 1});
-                });
+            // A click carries no payload - fire with no args. The handler is a natural void()
+            // (Wren `Fn.new { ... }`, AngelScript `Action(@onCancel)`); Invoke marshals against its
+            // actual arity, so a handler that does take args just gets none. Holding `held` keeps
+            // the script fn GC-alive.
+            button->OnClick.Add([held](ButtonBase*) { (void)held->Invoke(Span<Variant>{}); });
         }
     }
 
