@@ -246,6 +246,47 @@ export namespace draconic::editor::app
                 }
             }
 
+            // Loading screen: the cooked UIDocument shown as the boot splash while the default
+            // scene streams (task #123); nil = the built-in default (status + progress ids).
+            {
+                ui::FlexLayout* row = AddRow(*column, u8"Loading screen");
+                m_loadingDocLabel =
+                    MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(built-in)"));
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    lp->AlignSelf = ui::Align::Center;
+                    row->AddView(m_loadingDocLabel.Get(), lp);
+                }
+                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                {
+                    ProjectSettingsDialog* self = this;
+                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickLoadingDocument(); });
+                    row->AddView(pick.Get());
+                }
+                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                {
+                    ProjectSettingsDialog* self = this;
+                    clear->OnClick.Add(
+                        [self](ui::ButtonBase*)
+                        {
+                            self->m_loadingDocId = Guid{};
+                            self->m_loadingDocLabel->SetText(u8"(built-in)");
+                        });
+                    row->AddView(clear.Get());
+                }
+                if (project != nullptr)
+                {
+                    m_loadingDocId = project->Settings().loadingDocumentId;
+                    if (content::Instance* doc =
+                            !m_loadingDocId.IsNil() ? project->SourceDb().GetInstance(m_loadingDocId)
+                                                    : nullptr)
+                    {
+                        m_loadingDocLabel->SetText(doc->Path().AsView());
+                    }
+                }
+            }
+
             // Engine stamp - informational; re-stamped by every save.
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Engine version");
@@ -280,6 +321,8 @@ export namespace draconic::editor::app
 
         void PickUiTheme();
 
+        void PickLoadingDocument();
+
         void PickScene();
 
         void Apply();
@@ -291,6 +334,8 @@ export namespace draconic::editor::app
         RefPtr<ui::Label> m_busLayoutLabel;
         Guid m_uiThemeId{};
         RefPtr<ui::Label> m_uiThemeLabel;
+        Guid m_loadingDocId{};
+        RefPtr<ui::Label> m_loadingDocLabel;
         ui::EditText* m_nameEdit = nullptr;
         RefPtr<ui::Label> m_scriptLabel;
         Guid m_scriptId{};
