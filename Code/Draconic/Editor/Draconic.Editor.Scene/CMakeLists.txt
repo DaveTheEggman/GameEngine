@@ -40,6 +40,7 @@ target_sources(Draconic.Editor.Scene
     PUBLIC
         FILE_SET editorscene_modules TYPE CXX_MODULES FILES
             EditorCamera.cppm
+            CameraPreview.cppm
             EditContext.cppm
             Gizmo.cppm
             ComponentGizmos.cppm
