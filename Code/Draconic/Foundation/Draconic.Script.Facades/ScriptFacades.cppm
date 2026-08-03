@@ -62,17 +62,18 @@ export namespace draconic::script
                             core::Span<const core::Variant>)>
             dispatchMessage;
 
-        // Prefab spawning (P2): `Scene.spawn(prefab, x, y, z)` routes here. The subsystem
-        // sets `currentScene` around each scene's tick so the static facade knows WHERE to
-        // spawn; the host app installs `spawnPrefab` (it owns the content DB that resolves
-        // a prefab id to its payload). Null spawner (bare cook VM / no host) = safe no-op.
-        scene::Scene* currentScene = nullptr;
+        // Prefab spawning (P2): `scene.spawn(prefab, x, y, z)` on a BOUND Scene routes here. The
+        // host app installs `spawnPrefab` (it owns the content DB that resolves a prefab id to its
+        // payload); the bound Scene passes its OWN scene ptr, so there is no ambient current-scene
+        // state to keep correct. Null spawner (bare cook VM / no host) = safe no-op.
         core::Function<scene::EntityHandle(scene::Scene*, const core::Guid&, const core::Float3&)>
             spawnPrefab;
     };
 
     // ---- the curated behavior facades (camelCase = the script-visible names, the
     // Audio/Input facade precedent) ----
+
+    struct Scene; // bound scene handle (defined below); Entity.scene returns one
 
     /// The per-entity handle behaviors receive as their constructor argument: transform
     /// get/set, name, destroy. A value type - the VM instance carries a copy; a stale
@@ -152,6 +153,13 @@ export namespace draconic::script
                 scene->DestroyEntity(Handle());
             }
         }
+
+        /// The BOUND scene this entity belongs to (reflected as `.scene`). Operating through it
+        /// (`entity.scene.spawn/find/...`) always targets THIS entity's scene - correct from any
+        /// call site (update, onDestroy, a physics event, a stored callback), no ambient state.
+        /// Named `sceneHandle()` in C++ to avoid clashing with the `scene` data member; the script
+        /// name is `scene`. Defined out-of-line (Scene is completed below).
+        [[nodiscard]] Scene sceneHandle() const;
 
         // ---- behavior messaging (P2 §3.4): entity.send(name[, arg]) invokes
         // `on<Name>(arg)` on EVERY behavior of this entity that declares it (the target
@@ -248,67 +256,77 @@ export namespace draconic::script
         }
     };
 
-    /// Scene.spawn(prefab, x, y, z): instantiates a prefab into the CURRENT scene at a
-    /// world position, returning the spawned root's Entity handle (invalid if no spawner
-    /// is wired or the prefab id is nil). The prefab id comes from an `asset:Prefab`
-    /// behavior property (marshalled as a Guid).
-    class Scene final : public Object
+    /// A BOUND scene handle. `scene.spawn(prefab,x,y,z)` / `scene.find(name)` /
+    /// `scene.findByPath(path)` all operate on THIS scene (the ptr the value carries), so there is
+    /// no ambient "current scene" to keep correct - a call from any site (update, onDestroy, a
+    /// physics contact, a resumed coroutine, a stored callback) always targets the right scene.
+    /// Behaviors reach it via `entity.scene`; the Level tier receives one as its constructor
+    /// argument; the orchestrator queries `SceneLoader.currentScene()`. A value type (the VM carries
+    /// a copy); a null/stale scene makes every call a safe no-op returning an invalid Entity.
+    struct Scene
     {
-        DRACONIC_OBJECT(Scene, Object)
-    public:
-        [[nodiscard]] static ScriptRuntimeBinding* Resolve()
-        {
-            IScriptContext* context = CurrentScriptContext();
-            return context != nullptr ? static_cast<ScriptRuntimeBinding*>(
-                                            context->GetService(kScriptRuntimeService))
-                                      : nullptr;
-        }
+        scene::Scene* scene = nullptr;
 
-        [[nodiscard]] static Entity Wrap(scene::Scene* scene, scene::EntityHandle handle)
-        {
-            Entity result;
-            if (scene != nullptr && handle.IsAssigned())
-            {
-                result.scene = scene;
-                result.entityIndex = handle.index;
-                result.entityGeneration = handle.generation;
-            }
-            return result;
-        }
-
-        [[nodiscard]] static Entity spawn(Guid prefab, f32 x, f32 y, f32 z)
-        {
-            ScriptRuntimeBinding* binding = Resolve();
-            if (binding == nullptr || binding->currentScene == nullptr || !binding->spawnPrefab ||
-                prefab.IsNil())
-            {
-                return Entity{};
-            }
-            return Wrap(binding->currentScene,
-                        binding->spawnPrefab(binding->currentScene, prefab, Float3{x, y, z}));
-        }
-
-        /// First entity in the current scene with this name (invalid if none).
-        [[nodiscard]] static Entity find(String name)
-        {
-            ScriptRuntimeBinding* binding = Resolve();
-            return (binding != nullptr && binding->currentScene != nullptr)
-                       ? Wrap(binding->currentScene,
-                              binding->currentScene->FindEntityByName(name.AsView()))
-                       : Entity{};
-        }
-
-        /// Resolve a '/'-separated hierarchy path from the current scene's roots, e.g.
+        /// Instantiate a prefab into THIS scene at a world position; invalid Entity if the scene is
+        /// null, no spawner is wired, or the prefab id is nil. The id comes from an `asset:Prefab`
+        /// behavior property (marshalled as a Guid).
+        [[nodiscard]] Entity spawn(Guid prefab, f32 x, f32 y, f32 z) const;
+        /// First entity in THIS scene with this name (invalid if none).
+        [[nodiscard]] Entity find(String name) const;
+        /// Resolve a '/'-separated hierarchy path from THIS scene's roots, e.g.
         /// "Player/Weapon/Muzzle" (invalid if any segment misses).
-        [[nodiscard]] static Entity findByPath(String path)
-        {
-            ScriptRuntimeBinding* binding = Resolve();
-            return (binding != nullptr && binding->currentScene != nullptr)
-                       ? Wrap(binding->currentScene,
-                              binding->currentScene->FindEntityByPath(path.AsView()))
-                       : Entity{};
-        }
+        [[nodiscard]] Entity findByPath(String path) const;
     };
+
+    /// Wrap a (scene, handle) pair into an Entity value (invalid handle -> invalid Entity).
+    [[nodiscard]] inline Entity WrapEntity(scene::Scene* scene, scene::EntityHandle handle)
+    {
+        Entity result;
+        if (scene != nullptr && handle.IsAssigned())
+        {
+            result.scene = scene;
+            result.entityIndex = handle.index;
+            result.entityGeneration = handle.generation;
+        }
+        return result;
+    }
+
+    inline Scene Entity::sceneHandle() const
+    {
+        Scene handle;
+        handle.scene = scene; // the entity's own scene - never ambient
+        return handle;
+    }
+
+    inline Entity Scene::spawn(Guid prefab, f32 x, f32 y, f32 z) const
+    {
+        if (scene == nullptr || prefab.IsNil())
+        {
+            return Entity{};
+        }
+        IScriptContext* context = CurrentScriptContext();
+        auto* binding =
+            context != nullptr
+                ? static_cast<ScriptRuntimeBinding*>(context->GetService(kScriptRuntimeService))
+                : nullptr;
+        if (binding == nullptr || !binding->spawnPrefab)
+        {
+            return Entity{};
+        }
+        return WrapEntity(scene, binding->spawnPrefab(scene, prefab, Float3{x, y, z}));
+    }
+
+    inline Entity Scene::find(String name) const
+    {
+        return (scene != nullptr) ? WrapEntity(scene, scene->FindEntityByName(name.AsView()))
+                                  : Entity{};
+    }
+
+    inline Entity Scene::findByPath(String path) const
+    {
+        return (scene != nullptr) ? WrapEntity(scene, scene->FindEntityByPath(path.AsView()))
+                                  : Entity{};
+    }
 
     /// Registers the behavior facade types (Entity/Log/Time/Random/Scene) with the
     /// registry - call BEFORE a script manager is created (the run host and the cook's

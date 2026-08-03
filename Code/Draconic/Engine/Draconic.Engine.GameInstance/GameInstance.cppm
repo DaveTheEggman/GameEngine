@@ -63,6 +63,7 @@ export namespace draconic::runtime
         core::Function<bool(i32)> loadFailed;                  // ticket -> failed?
         core::Function<bool(const core::Guid&)> loadScene;     // sync load -> success
         core::Function<bool()> sceneReady;                     // current scene loaded + active?
+        core::Function<scene::Scene*()> currentScene;          // the instance's live scene (or null)
     };
 
     inline void InstallSceneLoaderScriptService(script::IScriptContext& context,
@@ -125,6 +126,17 @@ export namespace draconic::runtime
         {
             SceneLoaderScriptBinding* b = Resolve();
             return (b != nullptr && b->sceneReady) ? b->sceneReady() : false;
+        }
+        /// The instance's current scene as a BOUND Scene handle - the orchestrator's door to
+        /// `scene.spawn/find` (it has no entity to reach a scene through). Resolved AT THE CALL from
+        /// instance state, so it is deterministic regardless of who invoked the script. Pre-scene /
+        /// unwired -> a null-scene handle whose methods are safe no-ops.
+        [[nodiscard]] static script::Scene currentScene()
+        {
+            SceneLoaderScriptBinding* b = Resolve();
+            script::Scene handle;
+            handle.scene = (b != nullptr && b->currentScene) ? b->currentScene() : nullptr;
+            return handle;
         }
     };
 

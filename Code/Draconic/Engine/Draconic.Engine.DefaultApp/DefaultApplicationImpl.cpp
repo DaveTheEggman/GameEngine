@@ -414,6 +414,8 @@ namespace draconic::runtime
 
         gi.SceneLoaderBinding().sceneReady =
             core::Function<bool()>{[instance]() -> bool { return instance->SceneReady(); }};
+        gi.SceneLoaderBinding().currentScene = core::Function<scene::Scene*()>{
+            [instance]() -> scene::Scene* { return instance->GetScene(); }};
     }
 
     draconic::physics::PhysicsSubsystem* DefaultApplication::Physics() const noexcept

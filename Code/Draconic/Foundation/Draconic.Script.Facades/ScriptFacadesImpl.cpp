@@ -26,6 +26,7 @@ namespace draconic::script
         builder.Method<&Entity::setRotationEuler>("setRotationEuler");
         builder.Method<&Entity::setScale>("setScale");
         builder.Method<&Entity::destroy>("destroy");
+        builder.Method<&Entity::sceneHandle>("scene"); // entity.scene -> its bound Scene
         // send overloads (P2 messaging) - one reflected name, resolved by arg type.
         builder.Method<static_cast<void (Entity::*)(String) const>(&Entity::send)>("send");
         builder.Method<static_cast<void (Entity::*)(String, f64) const>(&Entity::send)>("send");
@@ -57,12 +58,12 @@ namespace draconic::script
         builder.Constructor();
     }
 
-    DRACONIC_REFLECT(Scene, "draconic::script")
+    DRACONIC_REFLECT_VALUE(Scene, "draconic::script")
     {
         builder.Method<&Scene::spawn>("spawn");
         builder.Method<&Scene::find>("find");
         builder.Method<&Scene::findByPath>("findByPath");
-        builder.Constructor();
+        builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
     core::Span<const core::StringView> BehaviorFacadeNames()
@@ -118,7 +119,8 @@ namespace draconic::script
             GlobalTypeRegistry().Register(Log::StaticType());
             GlobalTypeRegistry().Register(Time::StaticType());
             GlobalTypeRegistry().Register(Random::StaticType());
-            GlobalTypeRegistry().Register(Scene::StaticType());
+            DraconicRegisterValue_Scene(); // now a bound value type (mirrors Entity)
+            GlobalTypeRegistry().Register(TypeOf<Scene>());
             return true;
         }();
         (void)once;

@@ -462,7 +462,6 @@ export namespace draconic::script
             {
                 return;
             }
-            m_host->Binding().currentScene = m_scene; // Scene.spawn target for this tick
             TickBehaviors(deltaTime);
             DrainMessages(); // deferred entity.send delivery - same frame, never nested
             // Resume due coroutines ONCE per simulated frame, at the tick's top level (no

@@ -830,7 +830,7 @@ TEST_CASE("script.scene: Scene.spawn routes through the run spawner to the curre
                   u8"    construct new(entity) { _entity = entity }\n"
                   u8"    prefab=(v) { _prefab = v }\n"
                   u8"    onStart() {\n"
-                  u8"        var e = Scene.spawn(_prefab, 3.0, 4.0, 5.0)\n"
+                  u8"        var e = _entity.scene().spawn(_prefab, 3.0, 4.0, 5.0)\n"
                   u8"        e.setName(\"child\")\n"
                   u8"    }\n"
                   u8"}\n",
@@ -875,11 +875,11 @@ TEST_CASE("script.scene: Scene.find / Scene.findByPath resolve entities in the c
                   u8"class Finder {\n"
                   u8"    construct new(entity) { _entity = entity }\n"
                   u8"    onStart() {\n"
-                  u8"        var t = Scene.find(\"Target\")\n"
+                  u8"        var t = _entity.scene().find(\"Target\")\n"
                   u8"        if (t.isValid()) { t.setName(\"found-by-name\") }\n"
-                  u8"        var w = Scene.findByPath(\"Player/Weapon\")\n"
+                  u8"        var w = _entity.scene().findByPath(\"Player/Weapon\")\n"
                   u8"        if (w.isValid()) { w.setName(\"found-by-path\") }\n"
-                  u8"        var missing = Scene.find(\"Nope\")\n"
+                  u8"        var missing = _entity.scene().find(\"Nope\")\n"
                   u8"        if (!missing.isValid()) { _entity.setName(\"miss-ok\") }\n"
                   u8"    }\n"
                   u8"}\n",
@@ -1393,4 +1393,155 @@ TEST_CASE("script.scene: behaviors tick without error when no physics subsystem 
     CHECK(Near(scene->GetLocalTransform(e).position.x, 1.0f));
 
     ctx.Shutdown();
+}
+
+// ---- Scene-facade safety regression battery (Fable option B). The bound Scene carries its OWN
+//      scene ptr, so there is no ambient "current scene" to misroute: every call site - update,
+//      onDestroy, a resumed coroutine, cross-scene - targets the right scene by construction. These
+//      pin the FORMER footgun paths (the ambient model read a stale/null currentScene from them). ----
+
+TEST_CASE("script-facade: entity.scene() is bound to the entity's OWN scene (cross-scene isolation)")
+{
+    // Pure facade test - no VM. Two scenes; an entity of A resolves + finds in A, never B.
+    scene::Scene a(u8"A");
+    scene::Scene b(u8"B");
+    const scene::EntityHandle ea = a.CreateEntity(u8"ea");
+    const scene::EntityHandle eb = b.CreateEntity(u8"eb");
+    a.CreateEntity(u8"target"); // only in A
+
+    const Entity wa = WrapEntity(&a, ea);
+    const Entity wb = WrapEntity(&b, eb);
+
+    CHECK(wa.sceneHandle().scene == &a); // bound to its own scene...
+    CHECK(wb.sceneHandle().scene == &b); // ...regardless of any ambient state (there is none)
+
+    // find() targets the entity's scene: A's handle finds "target"; B's handle does not.
+    CHECK(wa.sceneHandle().find(String(u8"target")).Live());
+    CHECK_FALSE(wb.sceneHandle().find(String(u8"target")).Live());
+}
+
+TEST_CASE("script.scene: entity.scene().spawn works from onDestroy - a FORMER footgun")
+{
+    ScriptedScene bed;
+    int spawnCalls = 0;
+    scene::Scene* spawnedScene = nullptr;
+    scene::EntityHandle spawned;
+    bed.host.Binding().spawnPrefab =
+        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
+            [&](scene::Scene* scene, const Guid&, const Float3& pos) -> scene::EntityHandle
+            {
+                ++spawnCalls;
+                spawnedScene = scene;
+                spawned = scene->CreateEntity(u8"death-spawn");
+                scene->SetLocalPosition(spawned, pos);
+                return spawned;
+            }};
+
+    RefPtr<ScriptClass> dier =
+        MakeClass(u8"Dier",
+                  u8"class Dier {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    prefab=(v) { _prefab = v }\n"
+                  u8"    onDestroy() { _entity.scene().spawn(_prefab, 1.0, 2.0, 3.0) }\n"
+                  u8"}\n",
+                  {u8"onDestroy"});
+    ScriptPropertyDesc prefabProp;
+    prefabProp.name = String(u8"prefab");
+    prefabProp.hash = ScriptPropertyNameHash(u8"prefab");
+    prefabProp.type = ScriptPropertyType::Asset;
+    prefabProp.assetType = String(u8"Prefab");
+    prefabProp.defaultValue.kind = ScriptPropertyType::Asset;
+    prefabProp.defaultValue.guid = Guid{0x11, 0x22};
+    dier->properties.PushBack(prefabProp);
+
+    const scene::EntityHandle e = bed.AddScripted(dier, u8"dier");
+    bed.Start();
+    bed.Frame(); // instantiate + (no onStart handler)
+    CHECK(spawnCalls == 0);
+
+    bed.scene.DestroyEntity(e);
+    bed.Frame(); // removal detected -> onDestroy -> spawn into the entity's own scene
+    CHECK(spawnCalls == 1);
+    CHECK(spawnedScene == &bed.scene); // the entity's scene, resolved from the bound handle
+    REQUIRE(spawned.IsAssigned());
+    CHECK(bed.scene.GetEntityName(spawned) == StringView(u8"death-spawn"));
+}
+
+TEST_CASE("script.scene: entity.scene().spawn works from a resumed coroutine - a FORMER footgun")
+{
+    ScriptedScene bed;
+    int spawnCalls = 0;
+    scene::Scene* spawnedScene = nullptr;
+    bed.host.Binding().spawnPrefab =
+        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
+            [&](scene::Scene* scene, const Guid&, const Float3&) -> scene::EntityHandle
+            {
+                ++spawnCalls;
+                spawnedScene = scene;
+                return scene->CreateEntity(u8"coro-spawn");
+            }};
+
+    RefPtr<ScriptClass> spawner =
+        MakeClass(u8"CoroSpawner",
+                  u8"class CoroSpawner is Behavior {\n"
+                  u8"    construct new(entity) { super(entity) }\n"
+                  u8"    prefab=(v) { _prefab = v }\n"
+                  u8"    onStart() {\n"
+                  u8"        var me = this\n"
+                  u8"        startCoroutine(Fn.new {\n"
+                  u8"            me.wait(1.0)\n"
+                  u8"            me.doSpawn()\n"
+                  u8"        })\n"
+                  u8"    }\n"
+                  u8"    doSpawn() { entity.scene().spawn(_prefab, 7, 8, 9) }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+    spawner->usesCoroutines = true;
+    ScriptPropertyDesc prefabProp;
+    prefabProp.name = String(u8"prefab");
+    prefabProp.hash = ScriptPropertyNameHash(u8"prefab");
+    prefabProp.type = ScriptPropertyType::Asset;
+    prefabProp.assetType = String(u8"Prefab");
+    prefabProp.defaultValue.kind = ScriptPropertyType::Asset;
+    prefabProp.defaultValue.guid = Guid{0x33, 0x44};
+    spawner->properties.PushBack(prefabProp);
+
+    (void)bed.AddScripted(spawner, u8"cs");
+    bed.Start();
+    bed.Frame(0.5f); // registers wait(1.0); +0.5s -> pending, no spawn
+    CHECK(spawnCalls == 0);
+    bed.Frame(0.5f); // +0.5s -> 1.0s reached -> coroutine resumes -> spawn
+    CHECK(spawnCalls == 1);
+    CHECK(spawnedScene == &bed.scene); // resumed OUTSIDE any tick swap, still the right scene
+}
+
+TEST_CASE("script.scene: an AngelScript behavior spawns through self.scene() (bound Scene, 2nd backend)")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    ScriptedScene bed;
+    int spawnCalls = 0;
+    scene::Scene* spawnedScene = nullptr;
+    bed.host.Binding().spawnPrefab =
+        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
+            [&](scene::Scene* scene, const Guid&, const Float3&) -> scene::EntityHandle
+            {
+                ++spawnCalls;
+                spawnedScene = scene;
+                return scene->CreateEntity(u8"as-spawn");
+            }};
+
+    RefPtr<ScriptClass> spawner = MakeClassLang(
+        u8"angelscript", u8"Spawner",
+        u8"class Spawner {\n"
+        u8"    private Entity@ self;\n"
+        u8"    Spawner(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() { self.scene().spawn(Guid(0x55, 0x66), 1.0f, 0.0f, 0.0f); }\n"
+        u8"}\n",
+        {u8"onStart"});
+
+    (void)bed.AddScripted(spawner, u8"as");
+    bed.Start();
+    bed.Frame();
+    CHECK(spawnCalls == 1);
+    CHECK(spawnedScene == &bed.scene); // the bound Scene value carried the entity's scene through AS
 }

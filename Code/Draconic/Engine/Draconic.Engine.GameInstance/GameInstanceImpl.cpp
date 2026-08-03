@@ -33,6 +33,7 @@ namespace draconic::runtime
         builder.Method<&SceneLoader::loadFailed>("loadFailed");
         builder.Method<&SceneLoader::loadScene>("loadScene");
         builder.Method<&SceneLoader::sceneReady>("sceneReady");
+        builder.Method<&SceneLoader::currentScene>("currentScene"); // -> bound Scene (orchestrator)
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
