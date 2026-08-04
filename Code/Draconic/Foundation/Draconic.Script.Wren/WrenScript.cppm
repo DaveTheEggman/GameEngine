@@ -417,7 +417,11 @@ namespace draconic::script::wren
     }
 
     // --- foreign-binding dispatch pool -------------------------------------
-    inline constexpr int kMaxBindings = 256;
+    // Sized for the reachable reflected surface (every distinct get/set/method across all emitted
+    // foreign classes), not the number of contexts - Reserve() dedups VM-independent bindings. The
+    // collections lift emits constructor-less handle types (e.g. every particle module reachable from
+    // a facade), so the pool is larger than the facade-only era needed.
+    inline constexpr int kMaxBindings = 1024;
     inline constexpr int kMaxArgs = 8;
 
     enum class BindKind
@@ -501,6 +505,110 @@ namespace draconic::script::wren
         const int slot = g_bindingCount++;
         g_bindings[slot] = binding;
         return g_table[slot];
+    }
+
+    // A reflected type has a "bindable surface" (worth an emitted foreign class) if it carries any
+    // constructor, property, or method. Scalars/strings that slipped into the registry have none.
+    [[nodiscard]] inline bool HasBindableSurface(const core::TypeInfo& t) noexcept
+    {
+        return core::ConstructorCount(t) > 0 || core::PropertyCount(t) > 0 ||
+               core::MethodCount(t) > 0;
+    }
+
+    // The object types worth emitting as Wren foreign classes: those a script can actually receive a
+    // handle to. Seed with constructor-having types (script-constructable), then close over the
+    // reflected object graph - a bound method's return / param types, a property's type, and a
+    // container element's base type PLUS every concrete type deriving it (a polymorphic container can
+    // hold any of them). This bounds the emitted set - and the binding pool - to the reachable
+    // surface instead of the whole registry (enums / containers / primitives never qualify). `out`
+    // is the emit order (seeds first). Used by both the source emitter and the API-describe mirror.
+    inline void CollectEmittableTypes(core::Span<const core::TypeInfo* const> allTypes,
+                                      core::Array<const core::TypeInfo*>& out)
+    {
+        auto managed = [&](const core::TypeInfo* t) -> bool
+        {
+            if (t == nullptr || t->name == nullptr || t->enumeratorCount > 0 ||
+                t->container != nullptr || !HasBindableSurface(*t))
+            {
+                return false;
+            }
+            for (const core::TypeInfo* e : allTypes)
+            {
+                if (e == t)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        auto has = [&](const core::TypeInfo* t) -> bool
+        {
+            for (const core::TypeInfo* e : out)
+            {
+                if (e == t)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        core::Array<const core::TypeInfo*> work;
+        auto push = [&](const core::TypeInfo* t)
+        {
+            if (managed(t) && !has(t))
+            {
+                out.PushBack(t);
+                work.PushBack(t);
+            }
+        };
+        for (const core::TypeInfo* t : allTypes)
+        {
+            if (t != nullptr && core::ConstructorCount(*t) > 0)
+            {
+                push(t);
+            }
+        }
+        auto edge = [&](const core::TypeInfo* u)
+        {
+            if (u == nullptr)
+            {
+                return;
+            }
+            if (u->container != nullptr) // a container-typed member: reach its element type(s)
+            {
+                const core::TypeInfo* el = u->container->elementType;
+                push(el);
+                if (el != nullptr)
+                {
+                    core::Array<const core::TypeInfo*> derived;
+                    core::EnumerateDerived(*el, derived);
+                    for (const core::TypeInfo* d : derived)
+                    {
+                        push(d);
+                    }
+                }
+                return;
+            }
+            push(u);
+        };
+        while (!work.IsEmpty())
+        {
+            const core::TypeInfo* t = work[work.Size() - 1];
+            work.RemoveAt(work.Size() - 1);
+            for (core::usize i = 0; i < core::MethodCount(*t); ++i)
+            {
+                const core::MethodInfo& m = core::MethodAt(*t, i);
+                edge(m.returnType != nullptr ? m.returnType() : nullptr);
+                for (core::u32 p = 0; p < m.paramCount; ++p)
+                {
+                    edge(m.params[p].type());
+                }
+            }
+            for (core::usize i = 0; i < core::PropertyCount(*t); ++i)
+            {
+                edge(core::PropertyAt(*t, i).type);
+            }
+        }
     }
 
     // Defined after WrenContext (the user data holds a WrenContext*).
@@ -899,12 +1007,12 @@ namespace draconic::script::wren
         void GenerateForeignClasses()
         {
             core::String src;
-            for (const core::TypeInfo* t : m_types)
+            core::Array<const core::TypeInfo*> emit;
+            CollectEmittableTypes(core::Span<const core::TypeInfo* const>{m_types.Data(),
+                                                                         m_types.Size()},
+                                  emit);
+            for (const core::TypeInfo* t : emit)
             {
-                if (t == nullptr || core::ConstructorCount(*t) == 0)
-                {
-                    continue;
-                }
                 AppendClass(src, *t);
             }
             if (!src.IsEmpty())
@@ -1046,10 +1154,17 @@ namespace draconic::script::wren
         WrenForeignClassMethods methods{};
         const WrenContext* ctx = static_cast<const WrenContext*>(wrenGetUserData(vm));
         const core::TypeInfo* type = (ctx != nullptr) ? ctx->FindType(className) : nullptr;
-        if (type != nullptr && core::ConstructorCount(*type) > 0)
+        if (type != nullptr)
         {
-            methods.allocate = Reserve(Binding{BindKind::Constructor, type, nullptr, nullptr});
+            // Constructor-less handle types (reachable but not script-constructable) still need a
+            // finalizer - their instances are created natively (a facade return wraps a heap Variant)
+            // and Wren GCs them like any other. allocate is bound only when a reflected constructor
+            // exists (else `Type.new(...)` correctly has no allocator and stays unconstructable).
             methods.finalize = &FinalizeVariant;
+            if (core::ConstructorCount(*type) > 0)
+            {
+                methods.allocate = Reserve(Binding{BindKind::Constructor, type, nullptr, nullptr});
+            }
         }
         return methods;
     }
@@ -1145,16 +1260,12 @@ namespace draconic::script::wren
         [[nodiscard]] core::Array<ScriptApiType> DescribeBoundApi() const override
         {
             core::Array<ScriptApiType> result;
-            for (const core::TypeInfo* t : m_types)
+            core::Array<const core::TypeInfo*> emit;
+            CollectEmittableTypes(core::Span<const core::TypeInfo* const>{m_types.Data(),
+                                                                          m_types.Size()},
+                                  emit);
+            for (const core::TypeInfo* t : emit)
             {
-                if (t == nullptr || t->name == nullptr)
-                {
-                    continue;
-                }
-                if (core::ConstructorCount(*t) == 0)
-                {
-                    continue;
-                } // no foreign class emitted
                 ScriptApiType api;
                 api.scriptName = core::String(AsciiView(t->name));
                 api.typeId = t->id;

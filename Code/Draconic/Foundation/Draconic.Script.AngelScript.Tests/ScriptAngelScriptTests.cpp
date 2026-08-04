@@ -70,6 +70,55 @@ DRACONIC_REFLECT(NumProbe, "draconic::script::test")
     builder.Constructor();
 }
 
+// A reflected Object with a property but NO reflected constructor, plus a factory that returns one:
+// AngelScript declares + binds a type's properties independent of any factory, so a constructor-less
+// handle handed back from a facade method is fully usable (the collections-lift precondition).
+namespace
+{
+    class Leaf : public Object
+    {
+        DRACONIC_OBJECT(Leaf, Object)
+    public:
+        int value = 0;
+    };
+
+    class LeafFactory : public Object
+    {
+        DRACONIC_OBJECT(LeafFactory, Object)
+    public:
+        RefPtr<Leaf> make() const { return MakeRef<Leaf>(DefaultAllocator()); }
+    };
+}
+
+DRACONIC_REFLECT(Leaf, "draconic::script::test")
+{
+    builder.Property<&Leaf::value>("value"); // deliberately no Constructor()
+}
+DRACONIC_REFLECT(LeafFactory, "draconic::script::test")
+{
+    builder.Method<&LeafFactory::make>("make");
+    builder.Constructor();
+}
+
+TEST_CASE("angelscript: a constructor-less reflected type is usable as a returned handle")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    manager->RegisterType(Leaf::StaticType());        // no ctor - declared + props bound anyway
+    manager->RegisterType(LeafFactory::StaticType()); // hands a Leaf@ back
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    const Status status = ctx->Load(u8"double V;\n"
+                                    u8"void main() {\n"
+                                    u8"  LeafFactory f;\n"
+                                    u8"  Leaf@ leaf = f.make();\n"
+                                    u8"  leaf.value = 7;\n"
+                                    u8"  V = leaf.value;\n"
+                                    u8"}\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"V").Get<f64>() == 7.0);
+}
+
 TEST_CASE("angelscript: reflected value types support value assignment (Float3 p = expr)")
 {
     // All reflected types register as asOBJ_REF boxes; without a registered opAssign, `Float3 p = q;`

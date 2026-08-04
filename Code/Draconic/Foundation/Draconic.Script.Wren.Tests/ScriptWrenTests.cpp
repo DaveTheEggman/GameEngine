@@ -31,6 +31,36 @@ DRACONIC_REFLECT(Widget, "draconic::script::test")
     builder.Constructor();
 }
 
+// A reflected Object with a property but NO reflected constructor: not script-constructable, only
+// obtainable as a handle handed back by a factory. Plus a factory that returns one. Together they
+// exercise the collections lift - constructor-less types reachable from a bound method get emitted.
+namespace
+{
+    class Leaf : public Object
+    {
+        DRACONIC_OBJECT(Leaf, Object)
+    public:
+        int value = 0;
+    };
+
+    class LeafFactory : public Object
+    {
+        DRACONIC_OBJECT(LeafFactory, Object)
+    public:
+        RefPtr<Leaf> make() const { return MakeRef<Leaf>(DefaultAllocator()); }
+    };
+}
+
+DRACONIC_REFLECT(Leaf, "draconic::script::test")
+{
+    builder.Property<&Leaf::value>("value"); // deliberately no Constructor()
+}
+DRACONIC_REFLECT(LeafFactory, "draconic::script::test")
+{
+    builder.Method<&LeafFactory::make>("make");
+    builder.Constructor();
+}
+
 TEST_CASE("wren: a context runs valid source")
 {
     RefPtr<IScriptManager> manager = wren::CreateScriptManager();
@@ -233,6 +263,28 @@ TEST_CASE("wren: Object-derived type as a foreign class")
     CHECK(ctx->GetGlobal(u8"I").Get<f64>() == 21.0);
     CHECK(ctx->GetGlobal(u8"D").Get<f64>() == 42.0);
     CHECK(ctx->GetGlobal(u8"O").Get<f64>() == 5.0);
+}
+
+TEST_CASE("wren: a constructor-less reflected type is usable as a returned handle (collections lift)")
+{
+    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
+    manager->RegisterType(Leaf::StaticType());        // no ctor - reachable only via the factory
+    manager->RegisterType(LeafFactory::StaticType()); // seed: has a ctor + a method returning Leaf
+    manager->FinalizeTypes();
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    // Leaf has no reflected constructor, so it is not script-constructable (no allocator emitted).
+    CHECK_FALSE(ctx->Load(u8"var x = Leaf.new()", u8"main").IsOk());
+
+    // But a factory hands one back, and the returned handle exposes Leaf's reflected property
+    // (get + set write through to the same native object).
+    REQUIRE(ctx->Load(u8"var f = LeafFactory.new()\n"
+                      u8"var leaf = f.make()\n"
+                      u8"leaf.value = 7\n"
+                      u8"var V = leaf.value\n",
+                      u8"main")
+                .IsOk());
+    CHECK(ctx->GetGlobal(u8"V").Get<f64>() == 7.0);
 }
 
 TEST_CASE("wren: a default-constructed reflected type")
