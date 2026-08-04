@@ -80,6 +80,22 @@ export namespace draconic::ui
             }
         }
 
+        /// Right-aligned action widgets in the header (e.g. copy / remove icon buttons). They dispatch
+        /// before the header toggle (a click that a child handles sets e.Handled, so OnMouseDown skips
+        /// Toggle) - so clicking an action runs it, clicking empty header space toggles. Optional.
+        void SetHeaderActions(View* actions, LayoutParamsPtr lp = {})
+        {
+            if (m_headerActions != nullptr)
+            {
+                RemoveView(m_headerActions, true);
+            }
+            m_headerActions = actions;
+            if (actions != nullptr)
+            {
+                AddView(actions, Move(lp));
+            }
+        }
+
         void Toggle() { SetIsExpanded(!m_isExpanded); }
         void Expand() { SetIsExpanded(true); }
         void Collapse() { SetIsExpanded(false); }
@@ -221,6 +237,10 @@ export namespace draconic::ui
                 contentH =
                     ContentSpacing.Value() + m_content->MeasuredSize.y + margin.TotalVertical();
             }
+            if (m_headerActions != nullptr && m_headerActions->Visibility != Visibility::Gone)
+            {
+                m_headerActions->Measure(constraints.Loosen());
+            }
             MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
                                   constraints.ConstrainHeight(HeaderHeight.Value() + contentH)};
         }
@@ -229,6 +249,14 @@ export namespace draconic::ui
         {
             (void)left;
             (void)top;
+            if (m_headerActions != nullptr && m_headerActions->Visibility != Visibility::Gone)
+            {
+                const f32 aw = m_headerActions->MeasuredSize.x;
+                const f32 ah = m_headerActions->MeasuredSize.y;
+                const f32 pad = 4.0f;
+                m_headerActions->Layout(Max(0.0f, width - aw - pad),
+                                        Max(0.0f, (HeaderHeight.Value() - ah) * 0.5f), aw, ah);
+            }
             if (m_content != nullptr && m_content->Visibility != Visibility::Gone)
             {
                 const Thickness margin =
@@ -242,7 +270,8 @@ export namespace draconic::ui
 
     private:
         String m_headerText{};
-        View* m_content = nullptr; // owned by m_children (via AddView)
+        View* m_content = nullptr;       // owned by m_children (via AddView)
+        View* m_headerActions = nullptr; // right-aligned header widgets; owned by m_children
         bool m_isExpanded = true;
     };
 

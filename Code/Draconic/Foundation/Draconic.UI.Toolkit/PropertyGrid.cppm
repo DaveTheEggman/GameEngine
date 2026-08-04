@@ -67,6 +67,27 @@ export namespace draconic::ui::toolkit
             Invalidate();
         }
 
+        /// Right-aligned action widgets for a CATEGORY's expander header (e.g. a component's copy /
+        /// remove icons). Set before/with the properties; applied when the category expander builds.
+        /// Pass null to clear. Re-registered each inspector rebuild (Clear() drops them).
+        void SetCategoryHeaderActions(StringView category, RefPtr<View> actions)
+        {
+            for (usize i = 0; i < m_actionCategories.Size(); ++i)
+            {
+                if (StringView(m_actionCategories[i]) == category)
+                {
+                    m_actionViews[i] = Move(actions);
+                    m_needsRebuild = true;
+                    Invalidate();
+                    return;
+                }
+            }
+            m_actionCategories.PushBack(String(category));
+            m_actionViews.PushBack(Move(actions));
+            m_needsRebuild = true;
+            Invalidate();
+        }
+
         /// Remove a property by name.
         void RemoveProperty(StringView name)
         {
@@ -99,6 +120,8 @@ export namespace draconic::ui::toolkit
         void Clear()
         {
             m_editors.Clear();
+            m_actionCategories.Clear();
+            m_actionViews.Clear();
             m_needsRebuild = true;
             Invalidate();
         }
@@ -203,6 +226,15 @@ export namespace draconic::ui::toolkit
             {
                 RefPtr<Expander> expander = MakeRef<Expander>(DefaultAllocator());
                 expander->SetHeaderText(categoryOrder[c]);
+                for (usize a = 0; a < m_actionCategories.Size(); ++a)
+                {
+                    if (StringView(m_actionCategories[a]) == StringView(categoryOrder[c]) &&
+                        m_actionViews[a].Get() != nullptr)
+                    {
+                        expander->SetHeaderActions(m_actionViews[a].Get());
+                        break;
+                    }
+                }
 
                 RefPtr<FlexLayout> catContent = MakeRef<FlexLayout>(DefaultAllocator());
                 catContent->Direction = Orientation::Vertical;
@@ -291,6 +323,8 @@ export namespace draconic::ui::toolkit
         ScrollView* m_scrollView = nullptr; // borrowed; the ViewGroup child tree owns it
         FlexLayout* m_content = nullptr;    // borrowed; the ScrollView tree owns it
         Array<RefPtr<PropertyEditor>> m_editors;
+        Array<String> m_actionCategories;   // parallel: category -> header-action view
+        Array<RefPtr<View>> m_actionViews;
         bool m_needsRebuild = true;
     };
 
