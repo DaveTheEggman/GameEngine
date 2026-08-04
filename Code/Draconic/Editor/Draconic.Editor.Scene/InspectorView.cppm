@@ -224,20 +224,24 @@ export namespace draconic::editor
         RefPtr<ui::View> CreateEditorView() override;
     };
 
-    // Bespoke editor for MeshComponent's material SLOTS (one grid row whose editor view is
-    // a column): per slot a picker button + remove + reorder, plus an add button. Rebuilt by
-    // the inspector's structural rebuild after every mutation, so it never needs live sync.
-    class MaterialSlotsEditor final : public ui::toolkit::PropertyEditor
+    // ui::IconButton + ui::AssetPickerSlot are the shared UI controls (Draconic.UI/Controls); the
+    // list editor below composes them.
+
+    // The GENERIC reflected list editor: ONE grid row whose editor view is a header (add icon, top
+    // right) over a column of slot rows (an AssetPickerSlot that fills + move-up / move-down / remove
+    // icon buttons). Same callback shape as MaterialSlotsEditor but generic + icon-driven; the
+    // inspector wires the callbacks to the reflection MutateComponent + the type-filtered asset picker.
+    class ContainerListEditor final : public ui::toolkit::PropertyEditor
     {
-        DRACONIC_OBJECT(MaterialSlotsEditor, ui::toolkit::PropertyEditor)
+        DRACONIC_OBJECT(ContainerListEditor, ui::toolkit::PropertyEditor)
     public:
         Function<void(usize)> OnPickSlot;
         Function<void(usize)> OnRemoveSlot;
         Function<void(usize, bool)> OnMoveSlot; // true = up
-        Function<void()> OnAddSlot;
-        Array<String> slotNames; // display names, set before the row builds
+        Function<void()> OnAdd;
+        Array<String> slotNames; // per-slot display text, set before the row builds
 
-        MaterialSlotsEditor(StringView name, StringView category)
+        ContainerListEditor(StringView name, StringView category)
             : ui::toolkit::PropertyEditor(name, category)
         {
         }
@@ -274,6 +278,20 @@ export namespace draconic::editor
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_addButton.Get(), lp);
+            }
+
+            // Paste Component: below Add Component, shown only when the clipboard holds a component
+            // (UpdatePasteButton, run each Refresh). Pasting over an existing same-type component
+            // overwrites it, so that case asks for confirmation first.
+            m_pasteButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Paste Component"));
+            {
+                SceneInspectorView* self = this;
+                m_pasteButton->OnClick.Add([self](ui::ButtonBase*) { self->PasteSelectedComponent(); });
+                m_pasteButton->Visibility = ui::Visibility::Gone;
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                lp->Margin = ui::Thickness{0.0f, 6.0f, 0.0f, 0.0f}; // gap below Add Component
+                column->AddView(m_pasteButton.Get(), lp);
             }
 
             AddView(column.Get());
@@ -388,29 +406,20 @@ export namespace draconic::editor
         void BuildPropertyRow(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
                               StringView category);
 
-        // Generic reflected CONTAINER property (a reflected list member): renders the element grid -
-        // per element a header + move-up/down + remove, then the element's own reflected leaf rows
-        // (recursing into the element's dynamic type); a header "Add..." (a category-grouped menu from
-        // EnumerateDerived for a polymorphic list, a plain button for a homogeneous one). All edits
-        // route through MutateComponent (one undo step each); a hidden watcher forces a rebuild when
-        // the element count / types change (which Signature() does not track). See BuildScriptBehaviors.
+        // Generic reflected CONTAINER property (a reflected list member): one grid row whose editor is
+        // a ContainerListEditor - a header add + a slot row per element (an asset-picker slot + move /
+        // remove icons). Slot text + the pick/add/remove/move callbacks are wired here to the reflection
+        // container ops via MutateComponent (one undo step each); a content-diff refresher forces a
+        // rebuild when the list changes (which Signature() does not track). Element pick is currently
+        // specialized to Ref<Material>; struct-element leaf editing + the polymorphic add-by-type menu
+        // are a follow-up.
         void BuildContainerRows(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
                                 StringView category);
-        void BuildContainerElementRows(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
-                                       StringView category, usize index);
-        // A leaf editor bound to element[index] of a container member (reads/writes through the
-        // element instance; writes go through MutateComponent). Common scalar/enum/string types only.
-        void BuildContainerElementLeafRow(const Guid& id, const TypeInfo* type,
-                                          const PropertyInfo& containerProp, usize index,
-                                          const PropertyInfo& leaf, StringView category);
         // One undoable mutation of a component via a generic snapshot/restore/paste (any component type
         // - unlike the typed Mutate*Component helpers): copy the live value, mutate live, snapshot,
         // restore (non-undoable ReadComponent), PASTE (the paste command captures the pre-state).
         void MutateComponent(const Guid& id, const TypeInfo* type,
                              const Function<void(const Instance&)>& mutate);
-        // Opens the polymorphic "Add..." menu (EnumerateDerived grouped by category / displayName).
-        void ShowAddElementMenu(const Guid& id, const TypeInfo* type, const PropertyInfo& containerProp,
-                                f32 screenX, f32 screenY);
 
         // Current target Guid of a Ref<T> property (nil when unset/unresolvable).
         template <typename T>
@@ -587,11 +596,17 @@ export namespace draconic::editor
         [[nodiscard]] static Float3 EulerDegrees(Quaternion q);
 
         void ShowAddComponentMenu();
+        // Paste the clipboard component onto the selected entity; if it already has that component
+        // type the paste OVERWRITES it, so confirm first (it is undoable either way).
+        void PasteSelectedComponent();
+        // Show/hide the Paste button based on whether the clipboard holds a component (per Refresh).
+        void UpdatePasteButton();
 
         EditorContext* m_editor;  // borrowed (project + resources)
         SceneEditContext* m_edit; // borrowed (the page owns it)
         RefPtr<ui::toolkit::PropertyGrid> m_grid;
         RefPtr<ui::Button> m_addButton;
+        RefPtr<ui::Button> m_pasteButton;
         Array<Function<void()>> m_refreshers;
         u64 m_signature = ~0ull;
         bool m_forceRebuild = false; // set when a data-only mutation changed a section's SHAPE
@@ -599,6 +614,6 @@ export namespace draconic::editor
 
     DRACONIC_DEFINE_OBJECT(ResourceRefEditor, "draconic::editor")
     DRACONIC_DEFINE_OBJECT(CollisionMatrixEditor, "draconic::editor")
-    DRACONIC_DEFINE_OBJECT(MaterialSlotsEditor, "draconic::editor")
+    DRACONIC_DEFINE_OBJECT(ContainerListEditor, "draconic::editor")
     DRACONIC_DEFINE_OBJECT(SceneInspectorView, "draconic::editor")
 }

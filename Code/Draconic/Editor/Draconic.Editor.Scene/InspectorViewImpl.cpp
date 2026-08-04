@@ -130,88 +130,96 @@ namespace draconic::editor
         }
         return column;
     }
-    RefPtr<ui::View> MaterialSlotsEditor::CreateEditorView()
+
+    RefPtr<ui::View> ContainerListEditor::CreateEditorView()
     {
         auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
         column->Direction = ui::Orientation::Vertical;
         column->Spacing = 2.0f;
 
-        MaterialSlotsEditor* self = this;
+        ContainerListEditor* self = this;
+        draconic::editor::app::EditorIcons& icons = draconic::editor::app::EditorIcons::Get();
+
+        // Header: a spacer that grows + the add icon button pinned to the right.
+        {
+            auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            header->Direction = ui::Orientation::Horizontal;
+            auto spacer = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            {
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Grow = 1.0f;
+                header->AddView(spacer.Get(), lp);
+            }
+            auto add = MakeRef<ui::IconButton>(DefaultAllocator(), icons.add.Get());
+            add->OnClick.Add([self](ui::ButtonBase*)
+                             {
+                                 if (self->OnAdd)
+                                 {
+                                     self->OnAdd();
+                                 }
+                             });
+            header->AddView(add.Get());
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+            column->AddView(header.Get(), lp);
+        }
+
+        // Slot rows: a picker slot that fills + move-up / move-down / remove icon buttons.
         for (usize i = 0; i < slotNames.Size(); ++i)
         {
             auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 4.0f;
 
-            auto pick = MakeRef<ui::Button>(DefaultAllocator(), slotNames[i].AsView());
-            pick->FontSize.SetValue(Optional<f32>{12.0f});
-            pick->OnClick.Add(
-                [self, i](ui::ButtonBase*)
-                {
-                    if (self->OnPickSlot)
-                    {
-                        self->OnPickSlot(i);
-                    }
-                });
+            auto slot = MakeRef<draconic::editor::app::AssetPickerSlot>(DefaultAllocator(), slotNames[i].AsView());
+            slot->FontSize.SetValue(Optional<f32>{12.0f});
+            slot->OnClick.Add([self, i](ui::ButtonBase*)
+                              {
+                                  if (self->OnPickSlot)
+                                  {
+                                      self->OnPickSlot(i);
+                                  }
+                              });
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = 1.0f;
-                row->AddView(pick.Get(), lp);
+                row->AddView(slot.Get(), lp);
             }
-            auto up = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"^"));
+            auto up = MakeRef<ui::IconButton>(DefaultAllocator(), icons.moveUp.Get());
             up->IsEnabled = i > 0;
-            up->OnClick.Add(
-                [self, i](ui::ButtonBase*)
-                {
-                    if (self->OnMoveSlot)
-                    {
-                        self->OnMoveSlot(i, true);
-                    }
-                });
+            up->OnClick.Add([self, i](ui::ButtonBase*)
+                            {
+                                if (self->OnMoveSlot)
+                                {
+                                    self->OnMoveSlot(i, true);
+                                }
+                            });
             row->AddView(up.Get());
-            auto down = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"v"));
+            auto down = MakeRef<ui::IconButton>(DefaultAllocator(), icons.moveDown.Get());
             down->IsEnabled = i + 1 < slotNames.Size();
-            down->OnClick.Add(
-                [self, i](ui::ButtonBase*)
-                {
-                    if (self->OnMoveSlot)
-                    {
-                        self->OnMoveSlot(i, false);
-                    }
-                });
+            down->OnClick.Add([self, i](ui::ButtonBase*)
+                              {
+                                  if (self->OnMoveSlot)
+                                  {
+                                      self->OnMoveSlot(i, false);
+                                  }
+                              });
             row->AddView(down.Get());
-            auto remove = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"x"));
-            remove->OnClick.Add(
-                [self, i](ui::ButtonBase*)
-                {
-                    if (self->OnRemoveSlot)
-                    {
-                        self->OnRemoveSlot(i);
-                    }
-                });
+            auto remove = MakeRef<ui::IconButton>(DefaultAllocator(), icons.remove.Get());
+            remove->OnClick.Add([self, i](ui::ButtonBase*)
+                                {
+                                    if (self->OnRemoveSlot)
+                                    {
+                                        self->OnRemoveSlot(i);
+                                    }
+                                });
             row->AddView(remove.Get());
 
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
             column->AddView(row.Get(), lp);
-        }
-
-        auto add = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"+ Add Material Slot"));
-        add->FontSize.SetValue(Optional<f32>{12.0f});
-        add->OnClick.Add(
-            [self](ui::ButtonBase*)
-            {
-                if (self->OnAddSlot)
-                {
-                    self->OnAddSlot();
-                }
-            });
-        {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
-            column->AddView(add.Get(), lp);
         }
         return column;
     }
@@ -244,6 +252,7 @@ namespace draconic::editor
     }
     void SceneInspectorView::Refresh()
     {
+        UpdatePasteButton(); // clipboard can change any frame; keep the Paste button in sync
         const u64 signature = Signature();
         if (m_forceRebuild || signature != m_signature)
         {
@@ -800,34 +809,6 @@ namespace draconic::editor
             return u8"Other";
         }
 
-        // The borrowed Instance for element `index` of a component's container property, re-resolved
-        // live (empty if the entity/component/container/index is gone). The descent handle for both
-        // reading element leaf values in refreshers and locating the element to edit.
-        [[nodiscard]] Instance ResolveContainerElement(SceneEditContext& edit, const Guid& id,
-                                                       const TypeInfo* type,
-                                                       const PropertyInfo* containerProp, usize index)
-        {
-            scene::ComponentManagerBase* mgr = edit.FindManager(type);
-            const scene::EntityHandle e = edit.Resolve(id);
-            if (mgr == nullptr || !e.IsAssigned() || !mgr->HasComponent(e) ||
-                containerProp->type == nullptr || containerProp->type->container == nullptr)
-            {
-                return Instance{};
-            }
-            const Instance comp = mgr->GetComponentInstance(e);
-            if (comp.IsEmpty())
-            {
-                return Instance{};
-            }
-            const Instance container(containerProp->address(comp), containerProp->type);
-            const ContainerInfo& info = *containerProp->type->container;
-            if (index >= ContainerSize(info, container))
-            {
-                return Instance{};
-            }
-            return ContainerAddressAt(info, container, index);
-        }
-
         // A stable label for a container element: its dynamic type's displayName attribute, else the
         // prettified type name.
         [[nodiscard]] String ContainerElementLabel(const TypeInfo* elementType)
@@ -845,36 +826,12 @@ namespace draconic::editor
             return PrettifyPropertyName(StringView(reinterpret_cast<const utf8char*>(elementType->name)));
         }
 
-        // A hash of a container's SHAPE (element count + each element's dynamic type) - the inspector's
-        // Signature() only tracks component presence, so a data-only add/remove/reorder needs this
-        // watched separately to force a grid rebuild. 0 when the container is unreachable.
-        [[nodiscard]] u64 ContainerShapeSignature(SceneEditContext& edit, const Guid& id,
-                                                  const TypeInfo* type, const PropertyInfo* containerProp)
-        {
-            scene::ComponentManagerBase* mgr = edit.FindManager(type);
-            const scene::EntityHandle e = edit.Resolve(id);
-            if (mgr == nullptr || !e.IsAssigned() || !mgr->HasComponent(e) ||
-                containerProp->type == nullptr || containerProp->type->container == nullptr)
-            {
-                return 0;
-            }
-            const Instance comp = mgr->GetComponentInstance(e);
-            if (comp.IsEmpty())
-            {
-                return 0;
-            }
-            const Instance container(containerProp->address(comp), containerProp->type);
-            const ContainerInfo& info = *containerProp->type->container;
-            const usize count = ContainerSize(info, container);
-            u64 hash = HashInteger(count);
-            for (usize i = 0; i < count; ++i)
-            {
-                const TypeInfo* elementType = ContainerAddressAt(info, container, i).Type();
-                hash = HashBytes(&elementType, sizeof(elementType), hash);
-            }
-            return hash;
-        }
     }
+
+    // Material-slots UI switch: true = the generic reflection-driven list editor (materials reflected
+    // as a container); false = the bespoke mesh-aware editor (BuildMaterialSlots). Both render through
+    // the same ContainerListEditor UI. Materials stays reflected either way.
+    inline constexpr bool kUseReflectedMaterialSlots = true;
 
     void SceneInspectorView::BuildComponentSection(const Guid& id, scene::ComponentManagerBase& mgr)
     {
@@ -902,7 +859,17 @@ namespace draconic::editor
         {
             if (prop.type != nullptr && IsContainer(*prop.type))
             {
-                BuildContainerRows(id, type, prop, category); // generic reflected list editor
+                // Mesh materials has a bespoke (mesh-aware) editor; when that mode is selected, skip
+                // the generic list here and let BuildMaterialSlots render it below.
+                const bool bespokeMeshMaterials =
+                    !kUseReflectedMaterialSlots &&
+                    mgr.SerializationTypeId() == StringView(u8"mesh") &&
+                    StringView(reinterpret_cast<const utf8char*>(prop.name)) ==
+                        StringView(u8"materials");
+                if (!bespokeMeshMaterials)
+                {
+                    BuildContainerRows(id, type, prop, category); // generic reflected list editor
+                }
                 continue;
             }
             if (IsNested(prop))
@@ -926,8 +893,12 @@ namespace draconic::editor
         SceneEditContext* edit = m_edit;
         EditorContext* editor = m_editor;
 
-        // MeshComponent: the material SLOT list (unified array; slot 0 = whole-mesh).
-        if (mgr.SerializationTypeId() == StringView(u8"mesh"))
+        // MeshComponent: the material SLOT list (unified array; slot 0 = whole-mesh). Two UIs, chosen
+        // by kUseReflectedMaterialSlots: the bespoke mesh-aware editor (below, renders through the same
+        // ContainerListEditor) OR the generic reflection-driven list (already emitted above). Materials
+        // is reflected either way (scriptable / tooling-traversable); the flag only picks the inspector
+        // UI.
+        if (!kUseReflectedMaterialSlots && mgr.SerializationTypeId() == StringView(u8"mesh"))
         {
             BuildMaterialSlots(id, category);
         }
@@ -971,22 +942,36 @@ namespace draconic::editor
             }
         }
 
-        auto copy = MakeRef<ui::toolkit::ButtonEditor>(
-            DefaultAllocator(), StringView(u8"Copy"),
-            Function<void()>{[edit, editor, id, type]()
-                             {
-                                 Array<byte> blob = edit->CopyComponent(id, type);
-                                 if (!blob.IsEmpty())
-                                 {
-                                     editor->SetClipboard(u8"component", Move(blob));
-                                 }
-                             }},
-            category);
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(copy.Get()));
-        auto remove = MakeRef<ui::toolkit::ButtonEditor>(
-            DefaultAllocator(), StringView(u8"Remove"),
-            Function<void()>{[edit, id, type]() { edit->RemoveComponent(id, type); }}, category);
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(remove.Get()));
+        // Copy / Remove as right-aligned ICON actions in this component's category header (clicking an
+        // icon runs the action; clicking elsewhere on the header toggles the section). Only regular
+        // components get these - Transform / scene-settings sections do not add header actions.
+        {
+            draconic::editor::app::EditorIcons& icons = draconic::editor::app::EditorIcons::Get();
+            auto actions = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            actions->Direction = ui::Orientation::Horizontal;
+            actions->Spacing = 2.0f;
+
+            auto copyBtn = MakeRef<ui::IconButton>(DefaultAllocator(), icons.copy.Get(), 18.0f);
+            copyBtn->TooltipText = String(u8"Copy component");
+            copyBtn->OnClick.Add(
+                [edit, editor, id, type](ui::ButtonBase*)
+                {
+                    Array<byte> blob = edit->CopyComponent(id, type);
+                    if (!blob.IsEmpty())
+                    {
+                        editor->SetClipboard(u8"component", Move(blob));
+                    }
+                });
+            actions->AddView(copyBtn.Get());
+
+            auto removeBtn = MakeRef<ui::IconButton>(DefaultAllocator(), icons.remove.Get(), 18.0f);
+            removeBtn->TooltipText = String(u8"Remove component");
+            removeBtn->OnClick.Add([edit, id, type](ui::ButtonBase*)
+                                   { edit->RemoveComponent(id, type); });
+            actions->AddView(removeBtn.Get());
+
+            m_grid->SetCategoryHeaderActions(category, RefPtr<ui::View>(actions.Get()));
+        }
     }
 
     i64 SceneInspectorView::RawIntValue(const Instance& obj, const PropertyInfo& p)
@@ -1472,14 +1457,14 @@ namespace draconic::editor
         }
 
         auto slots =
-            MakeRef<MaterialSlotsEditor>(DefaultAllocator(), StringView(u8"Materials"), category);
+            MakeRef<ContainerListEditor>(DefaultAllocator(), StringView(u8"Materials"), category);
         slots->SetTooltip(u8"Material slots, indexed by the mesh's submesh material index. "
                           u8"Slot 0 also covers single-material meshes and any submesh "
                           u8"whose index has no slot.");
         slots->slotNames = MaterialSlotNames(*mc);
 
         SceneInspectorView* self = this;
-        slots->OnAddSlot = [self, id]()
+        slots->OnAdd = [self, id]()
         {
             self->MutateMeshMaterials(
                 id,
@@ -1542,7 +1527,7 @@ namespace draconic::editor
             };
             picker->Show(self->Context);
         };
-        RefPtr<MaterialSlotsEditor> slotsRef = slots;
+        RefPtr<ContainerListEditor> slotsRef = slots;
         AddEditor(slots.Get(),
                   [self, id, slotsRef]()
                   {
@@ -2242,523 +2227,161 @@ namespace draconic::editor
         }
         SceneInspectorView* self = this;
         const PropertyInfo* propPtr = &prop;
-        const ContainerInfo& info = *prop.type->container;
-        const bool polymorphic = IsPolymorphicContainer(info);
+        using MatRef = draconic::resource::Ref<draconic::materials::Material>;
 
-        // Header label (the container's prettified name), shown as a disabled button.
-        String header =
-            PrettifyPropertyName(StringView(reinterpret_cast<const utf8char*>(prop.name)));
-        auto head = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), header.AsView(),
-                                                       Function<void()>{}, category);
-        head->SetButtonEnabled(false);
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(head.Get()));
-
-        // Element rows (each recurses into the element's own reflected leaf properties).
-        usize count = 0;
+        // Per-slot display text from the live container: a material Ref shows its asset name / "None";
+        // a struct element shows its type label. Recomputed by the refresher to detect changes.
+        auto computeNames = [self, id, type, propPtr]() -> Array<String>
         {
-            const scene::EntityHandle e = m_edit->Resolve(id);
-            scene::ComponentManagerBase* mgr = m_edit->FindManager(type);
-            if (mgr != nullptr && e.IsAssigned() && mgr->HasComponent(e))
+            Array<String> names;
+            scene::ComponentManagerBase* mgr = self->m_edit->FindManager(type);
+            const scene::EntityHandle e = self->m_edit->Resolve(id);
+            if (mgr == nullptr || !e.IsAssigned() || !mgr->HasComponent(e))
             {
-                const Instance comp = mgr->GetComponentInstance(e);
-                if (!comp.IsEmpty())
+                return names;
+            }
+            const Instance comp = mgr->GetComponentInstance(e);
+            if (comp.IsEmpty())
+            {
+                return names;
+            }
+            const Instance container(propPtr->address(comp), propPtr->type);
+            const ContainerInfo& ci = *propPtr->type->container;
+            const usize n = ContainerSize(ci, container);
+            for (usize i = 0; i < n; ++i)
+            {
+                const Instance el = ContainerAddressAt(ci, container, i);
+                if (el.Pointer() != nullptr && el.Type() == &TypeOf<MatRef>())
                 {
-                    const Instance container(prop.address(comp), prop.type);
-                    count = ContainerSize(info, container);
+                    const Guid target = static_cast<const MatRef*>(el.Pointer())->id;
+                    names.PushBack(target.IsNil() ? String(u8"None")
+                                                  : String(self->AssetNameFor(target)));
+                }
+                else if (el.Type() != nullptr)
+                {
+                    names.PushBack(ContainerElementLabel(el.Type()));
+                }
+                else
+                {
+                    names.PushBack(String(u8"(none)"));
                 }
             }
-        }
-        for (usize i = 0; i < count; ++i)
-        {
-            BuildContainerElementRows(id, type, prop, category, i);
-        }
-
-        // "Add..." control: a category-grouped menu for a polymorphic list, a plain button (default-
-        // construct) for a homogeneous one.
-        auto add = MakeRef<ui::toolkit::ButtonEditor>(
-            DefaultAllocator(), polymorphic ? StringView(u8"+ Add...") : StringView(u8"+ Add"),
-            Function<void()>{}, category);
-        ui::toolkit::ButtonEditor* addRaw = add.Get();
-        if (polymorphic)
-        {
-            addRaw->Action = Function<void()>{[self, id, type, propPtr, addRaw]()
-                                              {
-                                                  const Float2 pos = addRaw->EditorView()->LocalToScreen(
-                                                      Float2{0.0f, 0.0f});
-                                                  self->ShowAddElementMenu(id, type, *propPtr, pos.x,
-                                                                           pos.y);
-                                              }};
-        }
-        else
-        {
-            addRaw->Action = Function<void()>{
-                [self, id, type, propPtr]()
-                {
-                    self->MutateComponent(id, type,
-                                          [propPtr](const Instance& comp)
-                                          {
-                                              const Instance container(propPtr->address(comp),
-                                                                       propPtr->type);
-                                              const ContainerInfo& ci = *propPtr->type->container;
-                                              (void)ContainerEmplaceDefault(ci, container,
-                                                                            ContainerSize(ci, container));
-                                          });
-                    self->m_forceRebuild = true;
-                }};
-        }
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(add.Get()));
-
-        // Hidden shape-watcher: force a grid rebuild when the element count / types change (the
-        // Signature() only tracks component presence, so add/remove/reorder are invisible to it).
-        auto watcher = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8"##shape"),
-                                                          Function<void()>{}, category);
-        watcher->SetRowVisible(false);
-        u64 shape = ContainerShapeSignature(*m_edit, id, type, propPtr);
-        AddEditor(watcher.Get(),
-                  [self, id, type, propPtr, shape]() mutable
-                  {
-                      const u64 now = ContainerShapeSignature(*self->m_edit, id, type, propPtr);
-                      if (now != shape)
-                      {
-                          shape = now;
-                          self->m_forceRebuild = true;
-                      }
-                  });
-    }
-
-    void SceneInspectorView::BuildContainerElementRows(const Guid& id, const TypeInfo* type,
-                                                       const PropertyInfo& prop, StringView category,
-                                                       usize index)
-    {
-        SceneInspectorView* self = this;
-        const PropertyInfo* propPtr = &prop;
-        const Instance element = ResolveContainerElement(*m_edit, id, type, propPtr, index);
-        if (element.Pointer() == nullptr || element.Type() == nullptr)
-        {
-            return;
-        }
-        const TypeInfo* elementType = element.Type();
-
-        // Element header (index + type label) as a disabled button.
-        String label(u8"  ");
-        label += ContainerElementLabel(elementType);
-        auto head = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), label.AsView(),
-                                                       Function<void()>{}, category);
-        head->SetButtonEnabled(false);
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(head.Get()));
-
-        // Element leaf rows (recurse into the element's own reflected properties; skip nested /
-        // container-in-container for this pass).
-        for (const PropertyInfo& leaf : Properties(*elementType))
-        {
-            if (leaf.type == nullptr || IsNested(leaf) || IsContainer(*leaf.type))
-            {
-                continue;
-            }
-            BuildContainerElementLeafRow(id, type, prop, index, leaf, category);
-        }
-
-        // Move up / down / remove (each one undo step; move bumps + reorders, remove drops).
-        auto up = MakeRef<ui::toolkit::ButtonEditor>(
-            DefaultAllocator(), StringView(u8"  Move Up"),
-            Function<void()>{[self, id, type, propPtr, index]()
-                             {
-                                 self->MutateComponent(id, type,
-                                                       [propPtr, index](const Instance& comp)
-                                                       {
-                                                           const Instance container(
-                                                               propPtr->address(comp), propPtr->type);
-                                                           const ContainerInfo& ci =
-                                                               *propPtr->type->container;
-                                                           if (index > 0)
-                                                           {
-                                                               (void)ContainerMoveElement(ci, container,
-                                                                                          index, index - 1);
-                                                           }
-                                                       });
-                                 self->m_forceRebuild = true;
-                             }},
-            category);
-        up->SetButtonEnabled(index > 0);
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(up.Get()));
-
-        auto down = MakeRef<ui::toolkit::ButtonEditor>(
-            DefaultAllocator(), StringView(u8"  Move Down"),
-            Function<void()>{[self, id, type, propPtr, index]()
-                             {
-                                 self->MutateComponent(
-                                     id, type,
-                                     [propPtr, index](const Instance& comp)
-                                     {
-                                         const Instance container(propPtr->address(comp), propPtr->type);
-                                         const ContainerInfo& ci = *propPtr->type->container;
-                                         if (index + 1 < ContainerSize(ci, container))
-                                         {
-                                             (void)ContainerMoveElement(ci, container, index, index + 1);
-                                         }
-                                     });
-                                 self->m_forceRebuild = true;
-                             }},
-            category);
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(down.Get()));
-
-        auto remove = MakeRef<ui::toolkit::ButtonEditor>(
-            DefaultAllocator(), StringView(u8"  Remove"),
-            Function<void()>{[self, id, type, propPtr, index]()
-                             {
-                                 self->MutateComponent(id, type,
-                                                       [propPtr, index](const Instance& comp)
-                                                       {
-                                                           const Instance container(
-                                                               propPtr->address(comp), propPtr->type);
-                                                           const ContainerInfo& ci =
-                                                               *propPtr->type->container;
-                                                           (void)ContainerRemoveAt(ci, container, index);
-                                                       });
-                                 self->m_forceRebuild = true;
-                             }},
-            category);
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(remove.Get()));
-    }
-
-    void SceneInspectorView::BuildContainerElementLeafRow(const Guid& id, const TypeInfo* type,
-                                                          const PropertyInfo& containerProp,
-                                                          usize index, const PropertyInfo& leaf,
-                                                          StringView category)
-    {
-        SceneInspectorView* self = this;
-        const PropertyInfo* propPtr = &containerProp;
-        const char* leafName = leaf.name;
-        const TypeInfo* leafType = leaf.type;
-        const String leafLabel =
-            PrettifyPropertyName(StringView(reinterpret_cast<const utf8char*>(leaf.name)));
-
-        // Re-resolve element[index] and its leaf each read (the element may move / be removed).
-        auto readVariant = [self, id, type, propPtr, index, leafName]() -> Variant
-        {
-            const Instance el = ResolveContainerElement(*self->m_edit, id, type, propPtr, index);
-            if (el.Pointer() == nullptr || el.Type() == nullptr)
-            {
-                return Variant{};
-            }
-            const PropertyInfo* lp = FindProperty(*el.Type(), leafName);
-            return (lp != nullptr) ? GetProperty(*lp, el) : Variant{};
+            return names;
         };
-        // Undoable write of the leaf through the element.
-        auto writeVariant = [self, id, type, propPtr, index, leafName](Variant value)
+
+        const String label =
+            PrettifyPropertyName(StringView(reinterpret_cast<const utf8char*>(prop.name)));
+        auto listEditor = MakeRef<ContainerListEditor>(DefaultAllocator(), label.AsView(), category);
+        ContainerListEditor* rawList = listEditor.Get();
+        // "description" property attribute -> the list's hover tooltip (the reflection-consistent way
+        // to carry help text, e.g. the mesh material slot-0 / submesh semantics).
+        if (const core::Attribute* description = FindAttribute(prop, u8"description"))
+        {
+            if (const String* text = description->value.TryGet<String>())
+            {
+                rawList->SetTooltip(text->AsView());
+            }
+        }
+        rawList->slotNames = computeNames();
+
+        // Add a default element (homogeneous). The polymorphic add-by-type menu is the next pass.
+        rawList->OnAdd = [self, id, type, propPtr]()
         {
             self->MutateComponent(id, type,
-                                  [propPtr, index, leafName, value = Move(value)](const Instance& comp)
+                                  [propPtr](const Instance& comp)
                                   {
                                       const Instance container(propPtr->address(comp), propPtr->type);
                                       const ContainerInfo& ci = *propPtr->type->container;
-                                      if (index >= ContainerSize(ci, container))
+                                      (void)ContainerEmplaceDefault(ci, container,
+                                                                    ContainerSize(ci, container));
+                                  });
+            self->m_forceRebuild = true;
+        };
+        rawList->OnRemoveSlot = [self, id, type, propPtr](usize i)
+        {
+            self->MutateComponent(id, type,
+                                  [propPtr, i](const Instance& comp)
+                                  {
+                                      const Instance container(propPtr->address(comp), propPtr->type);
+                                      (void)ContainerRemoveAt(*propPtr->type->container, container, i);
+                                  });
+            self->m_forceRebuild = true;
+        };
+        rawList->OnMoveSlot = [self, id, type, propPtr](usize i, bool up)
+        {
+            self->MutateComponent(id, type,
+                                  [propPtr, i, up](const Instance& comp)
+                                  {
+                                      const Instance container(propPtr->address(comp), propPtr->type);
+                                      const ContainerInfo& ci = *propPtr->type->container;
+                                      const usize n = ContainerSize(ci, container);
+                                      if (up && i > 0)
                                       {
-                                          return;
+                                          (void)ContainerMoveElement(ci, container, i, i - 1);
                                       }
-                                      const Instance el = ContainerAddressAt(ci, container, index);
-                                      const PropertyInfo* lp =
-                                          (el.Type() != nullptr) ? FindProperty(*el.Type(), leafName)
-                                                                 : nullptr;
-                                      if (lp != nullptr)
+                                      else if (!up && i + 1 < n)
                                       {
-                                          (void)SetProperty(*lp, el, value);
+                                          (void)ContainerMoveElement(ci, container, i, i + 1);
                                       }
                                   });
+            self->m_forceRebuild = true;
+        };
+        // Pick opens the type-filtered asset picker for this slot (Material for now).
+        rawList->OnPickSlot = [self, id, type, propPtr](usize i)
+        {
+            if (self->Context == nullptr || self->m_editor->Project() == nullptr)
+            {
+                return;
+            }
+            Array<String> typeNames;
+            typeNames.PushBack(String(u8"MaterialAsset"));
+            auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+                DefaultAllocator(), *self->m_editor, Move(typeNames));
+            dialog->OnPicked = [self, id, type, propPtr, i](const Guid& target)
+            {
+                self->MutateComponent(
+                    id, type,
+                    [propPtr, i, target](const Instance& comp)
+                    {
+                        const Instance container(propPtr->address(comp), propPtr->type);
+                        const ContainerInfo& ci = *propPtr->type->container;
+                        if (i >= ContainerSize(ci, container))
+                        {
+                            return;
+                        }
+                        const Instance el = ContainerAddressAt(ci, container, i);
+                        if (el.Pointer() != nullptr && el.Type() == &TypeOf<MatRef>())
+                        {
+                            MatRef* r = static_cast<MatRef*>(el.Pointer());
+                            *r = MatRef{};
+                            r->SetId(target);
+                        }
+                    });
+                self->m_forceRebuild = true;
+            };
+            dialog->Show(self->Context);
         };
 
-        if (IsEnum(*leafType))
-        {
-            const Span<const EnumValue> enumerators = Enumerators(*leafType);
-            Array<EnumValue> values;
-            Array<StringView> names;
-            for (const EnumValue& v : enumerators)
-            {
-                values.PushBack(v);
-                names.PushBack(StringView(reinterpret_cast<const utf8char*>(v.name)));
-            }
-            const Variant cur = readVariant();
-            i64 rawValue = 0;
-            if (!cur.IsEmpty())
-            {
-                // Enum stored as its underlying integer; read the raw bytes of the element field.
-                const Instance el = ResolveContainerElement(*m_edit, id, type, propPtr, index);
-                const PropertyInfo* lp =
-                    (el.Type() != nullptr) ? FindProperty(*el.Type(), leafName) : nullptr;
-                void* addr = (lp != nullptr && lp->address != nullptr) ? lp->address(el) : nullptr;
-                if (addr != nullptr)
-                {
-                    switch (leafType->size)
-                    {
-                    case 1:
-                        rawValue = *static_cast<const i8*>(addr);
-                        break;
-                    case 2:
-                        rawValue = *static_cast<const i16*>(addr);
-                        break;
-                    case 8:
-                        rawValue = *static_cast<const i64*>(addr);
-                        break;
-                    default:
-                        rawValue = *static_cast<const i32*>(addr);
-                        break;
-                    }
-                }
-            }
-            i32 curIndex = 0;
-            for (usize k = 0; k < values.Size(); ++k)
-            {
-                if (values[k].value == rawValue)
-                {
-                    curIndex = static_cast<i32>(k);
-                    break;
-                }
-            }
-            auto ed = MakeRef<ui::toolkit::EnumEditor>(
-                DefaultAllocator(), leafLabel.AsView(), curIndex,
-                Span<const StringView>{names.Data(), names.Size()},
-                Function<void(i32)>{[self, id, type, propPtr, index, leafName, leafType,
-                                     values = Move(values)](i32 chosen)
-                                    {
-                                        if (chosen < 0 || static_cast<usize>(chosen) >= values.Size())
-                                        {
-                                            return;
-                                        }
-                                        const i64 raw = values[static_cast<usize>(chosen)].value;
-                                        const usize sz = leafType->size;
-                                        self->MutateComponent(
-                                            id, type,
-                                            [propPtr, index, leafName, raw, sz](const Instance& comp)
-                                            {
-                                                const Instance container(propPtr->address(comp),
-                                                                         propPtr->type);
-                                                const ContainerInfo& ci = *propPtr->type->container;
-                                                if (index >= ContainerSize(ci, container))
-                                                {
-                                                    return;
-                                                }
-                                                const Instance el =
-                                                    ContainerAddressAt(ci, container, index);
-                                                const PropertyInfo* lp =
-                                                    (el.Type() != nullptr)
-                                                        ? FindProperty(*el.Type(), leafName)
-                                                        : nullptr;
-                                                void* addr =
-                                                    (lp != nullptr && lp->address != nullptr)
-                                                        ? lp->address(el)
-                                                        : nullptr;
-                                                if (addr == nullptr)
-                                                {
-                                                    return;
-                                                }
-                                                switch (sz)
-                                                {
-                                                case 1:
-                                                    *static_cast<i8*>(addr) = static_cast<i8>(raw);
-                                                    break;
-                                                case 2:
-                                                    *static_cast<i16*>(addr) = static_cast<i16>(raw);
-                                                    break;
-                                                case 8:
-                                                    *static_cast<i64*>(addr) = raw;
-                                                    break;
-                                                default:
-                                                    *static_cast<i32*>(addr) = static_cast<i32>(raw);
-                                                    break;
-                                                }
-                                            });
-                                    }},
-                category);
-            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(ed.Get()));
-            return;
-        }
-        if (leafType == &TypeOf<f32>())
-        {
-            const Variant v0 = readVariant();
-            const f32* f = v0.TryGet<f32>();
-            auto ed = MakeRef<ui::toolkit::FloatEditor>(
-                DefaultAllocator(), leafLabel.AsView(), static_cast<f64>(f != nullptr ? *f : 0.0f),
-                -1.0e9, 1.0e9, 0.1, 3,
-                Function<void(f64)>{[writeVariant](f64 value)
-                                    { writeVariant(Variant::From<f32>(static_cast<f32>(value))); }},
-                category);
-            AddEditor(ed.Get(),
-                      [readVariant, raw = ed.Get()]()
+        // One grid row for the whole property; the refresher recomputes the slot text and forces a
+        // rebuild when the list changes (count/content) - e.g. from undo/redo, which Signature() misses.
+        AddEditor(rawList,
+                  [self, rawList, computeNames]()
+                  {
+                      const Array<String> names = computeNames();
+                      if (names.Size() != rawList->slotNames.Size())
                       {
-                          const Variant v = readVariant();
-                          if (const f32* fp = v.TryGet<f32>())
-                          {
-                              raw->SetValue(static_cast<f64>(*fp));
-                          }
-                      });
-            return;
-        }
-        if (leafType == &TypeOf<bool>())
-        {
-            const Variant v0 = readVariant();
-            const bool* b = v0.TryGet<bool>();
-            auto ed = MakeRef<ui::toolkit::BoolEditor>(
-                DefaultAllocator(), leafLabel.AsView(), b != nullptr && *b,
-                Function<void(bool)>{[writeVariant](bool value)
-                                     { writeVariant(Variant::From<bool>(value)); }},
-                category);
-            AddEditor(ed.Get(),
-                      [readVariant, raw = ed.Get()]()
+                          self->m_forceRebuild = true;
+                          return;
+                      }
+                      for (usize k = 0; k < names.Size(); ++k)
                       {
-                          const Variant v = readVariant();
-                          if (const bool* bp = v.TryGet<bool>())
+                          if (names[k] != rawList->slotNames[k])
                           {
-                              raw->SetValue(*bp);
+                              self->m_forceRebuild = true;
+                              return;
                           }
-                      });
-            return;
-        }
-        if (leafType == &TypeOf<String>())
-        {
-            const Variant v0 = readVariant();
-            const String* s = v0.TryGet<String>();
-            auto ed = MakeRef<ui::toolkit::StringEditor>(
-                DefaultAllocator(), leafLabel.AsView(), s != nullptr ? s->AsView() : StringView{},
-                Function<void(StringView)>{[writeVariant](StringView value)
-                                           { writeVariant(Variant::From<String>(String(value))); }},
-                category);
-            AddEditor(ed.Get(),
-                      [readVariant, raw = ed.Get()]()
-                      {
-                          const Variant v = readVariant();
-                          if (const String* sp = v.TryGet<String>())
-                          {
-                              raw->SetValue(sp->AsView());
-                          }
-                      });
-            return;
-        }
-        if (leafType == &TypeOf<Float3>())
-        {
-            const Variant v0 = readVariant();
-            const Float3* f3 = v0.TryGet<Float3>();
-            auto ed = MakeRef<ui::toolkit::Float3Editor>(
-                DefaultAllocator(), leafLabel.AsView(), f3 != nullptr ? *f3 : Float3{}, -1.0e9f,
-                1.0e9f, 0.1f,
-                Function<void(Float3)>{[writeVariant](Float3 value)
-                                       { writeVariant(Variant::From<Float3>(value)); }},
-                category);
-            AddEditor(ed.Get(),
-                      [readVariant, raw = ed.Get()]()
-                      {
-                          const Variant v = readVariant();
-                          if (const Float3* fp = v.TryGet<Float3>())
-                          {
-                              raw->SetValue(*fp);
-                          }
-                      });
-            return;
-        }
-        if (leafType == &TypeOf<i32>() || leafType == &TypeOf<i64>() ||
-            leafType == &TypeOf<u32>() || leafType == &TypeOf<u64>())
-        {
-            const Variant v0 = readVariant();
-            i64 initial = 0;
-            if (const i32* p = v0.TryGet<i32>())
-            {
-                initial = *p;
-            }
-            else if (const i64* p = v0.TryGet<i64>())
-            {
-                initial = *p;
-            }
-            else if (const u32* p = v0.TryGet<u32>())
-            {
-                initial = static_cast<i64>(*p);
-            }
-            else if (const u64* p = v0.TryGet<u64>())
-            {
-                initial = static_cast<i64>(*p);
-            }
-            const TypeInfo* lt = leafType;
-            auto ed = MakeRef<ui::toolkit::IntEditor>(
-                DefaultAllocator(), leafLabel.AsView(), initial,
-                lt == &TypeOf<u32>() || lt == &TypeOf<u64>() ? 0 : -1000000000, 1000000000,
-                Function<void(i64)>{[writeVariant, lt](i64 value)
-                                    {
-                                        if (lt == &TypeOf<i64>())
-                                        {
-                                            writeVariant(Variant::From<i64>(value));
-                                        }
-                                        else if (lt == &TypeOf<u32>())
-                                        {
-                                            writeVariant(Variant::From<u32>(static_cast<u32>(value)));
-                                        }
-                                        else if (lt == &TypeOf<u64>())
-                                        {
-                                            writeVariant(Variant::From<u64>(static_cast<u64>(value)));
-                                        }
-                                        else
-                                        {
-                                            writeVariant(Variant::From<i32>(static_cast<i32>(value)));
-                                        }
-                                    }},
-                category);
-            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(ed.Get()));
-            return;
-        }
-        // Other leaf types (Float2/Float4/Color/Ref) are not yet rendered in the generic element grid.
-    }
-
-    void SceneInspectorView::ShowAddElementMenu(const Guid& id, const TypeInfo* type,
-                                                const PropertyInfo& containerProp, f32 screenX,
-                                                f32 screenY)
-    {
-        if (containerProp.type == nullptr || containerProp.type->container == nullptr ||
-            containerProp.type->container->elementType == nullptr)
-        {
-            return;
-        }
-        SceneInspectorView* self = this;
-        const PropertyInfo* propPtr = &containerProp;
-        const ContainerInfo& info = *containerProp.type->container;
-        Array<const TypeInfo*> derived;
-        EnumerateDerived(*info.elementType, derived);
-
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
-        ui::ContextMenu* section = nullptr;
-        StringView sectionName;
-        for (const TypeInfo* elementType : derived)
-        {
-            if (!ContainerCanCreateElement(info, *elementType))
-            {
-                continue; // only creatable (wire-loadable) concrete types
-            }
-            const StringView elementCategory =
-                TypeAttrString(*elementType, "category", StringView(u8"Other"));
-            if (section == nullptr || elementCategory != sectionName)
-            {
-                ui::MenuItem* item = menu->AddSubmenu(elementCategory);
-                section = Cast<ui::ContextMenu>(item->Submenu.Get());
-                sectionName = elementCategory;
-            }
-            if (section == nullptr)
-            {
-                continue;
-            }
-            const TypeInfo* concrete = elementType;
-            section->AddItem(
-                ContainerElementLabel(elementType).AsView(),
-                [self, id, type, propPtr, concrete]()
-                {
-                    self->MutateComponent(id, type,
-                                          [propPtr, concrete](const Instance& comp)
-                                          {
-                                              const Instance container(propPtr->address(comp),
-                                                                       propPtr->type);
-                                              const ContainerInfo& ci = *propPtr->type->container;
-                                              (void)ContainerCreateElement(
-                                                  ci, container, ContainerSize(ci, container), *concrete);
-                                          });
-                    self->m_forceRebuild = true;
-                });
-        }
-        menu->Show(Context, screenX, screenY);
+                      }
+                  });
     }
 
     Float3 SceneInspectorView::EulerDegrees(Quaternion q)
@@ -2844,19 +2467,64 @@ namespace draconic::editor
                                  [edit, id, type]() { edit->AddComponent(id, type); });
             }
         }
-        // Paste a copied component (adds or overwrites; one undo step).
-        const Span<const byte> clip = m_editor->ClipboardData(u8"component");
-        if (!clip.IsEmpty())
-        {
-            String label(u8"Paste ");
-            label += SceneEditContext::PeekComponentTypeId(clip);
-            EditorContext* editor = m_editor;
-            menu->AddSeparator();
-            menu->AddItem(
-                label.AsView(), [edit, editor, id]()
-                { (void)edit->PasteComponent(id, editor->ClipboardData(u8"component")); });
-        }
+        // (Paste lives on the dedicated Paste Component button now - it confirms before overwriting.)
         const Float2 screenPos = m_addButton->LocalToScreen(Float2{0.0f, 0.0f});
         menu->Show(Context, screenPos.x, screenPos.y);
+    }
+
+    void SceneInspectorView::UpdatePasteButton()
+    {
+        if (!m_pasteButton || m_editor == nullptr)
+        {
+            return;
+        }
+        const bool hasComponent = !m_editor->ClipboardData(u8"component").IsEmpty();
+        const ui::Visibility want = hasComponent ? ui::Visibility::Visible : ui::Visibility::Gone;
+        if (m_pasteButton->Visibility != want)
+        {
+            m_pasteButton->Visibility = want;
+            Invalidate();
+        }
+    }
+
+    void SceneInspectorView::PasteSelectedComponent()
+    {
+        const Guid id = SelectedEntity();
+        const scene::EntityHandle e = m_edit->Resolve(id);
+        if (!e.IsAssigned() || Context == nullptr || m_editor == nullptr)
+        {
+            return;
+        }
+        const Span<const byte> clip = m_editor->ClipboardData(u8"component");
+        if (clip.IsEmpty())
+        {
+            return;
+        }
+
+        // If the entity already has this component type, pasting OVERWRITES it - confirm first (still
+        // undoable). Otherwise paste straight away.
+        const StringView typeId = SceneEditContext::PeekComponentTypeId(clip);
+        scene::ComponentManagerBase* mgr = m_edit->Scene().FindManagerBySerializationId(typeId);
+        if (mgr != nullptr && mgr->HasComponent(e))
+        {
+            String message(u8"This entity already has a ");
+            message += ComponentDisplayName(mgr->ComponentType());
+            message += StringView(u8" component. Pasting overwrites it (you can undo). Continue?");
+            RefPtr<ui::Dialog> dialog =
+                ui::Dialog::Confirm(StringView(u8"Overwrite Component?"), message.AsView());
+            SceneInspectorView* self = this;
+            dialog->OnClosed.Add(
+                [self, id](ui::Dialog*, ui::DialogResult result)
+                {
+                    if (result == ui::DialogResult::OK && self->m_editor != nullptr)
+                    {
+                        (void)self->m_edit->PasteComponent(
+                            id, self->m_editor->ClipboardData(u8"component"));
+                    }
+                });
+            dialog->Show(Context);
+            return;
+        }
+        (void)m_edit->PasteComponent(id, clip);
     }
 }
