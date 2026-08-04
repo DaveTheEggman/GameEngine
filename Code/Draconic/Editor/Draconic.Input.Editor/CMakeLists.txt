@@ -7,6 +7,8 @@ target_link_libraries(Draconic.Input.Editor
            Draconic::Input.Resource Draconic::Policy)
 
 target_sources(Draconic.Input.Editor
+    PRIVATE
+        InputMapAssetImpl.cpp   # InputMapAsset reflection body (Nested map; GCC hygiene)
     PUBLIC
         FILE_SET input_editor_modules TYPE CXX_MODULES FILES
             InputMapAsset.cppm)

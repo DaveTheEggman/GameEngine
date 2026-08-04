@@ -94,6 +94,35 @@ namespace draconic::input
             .Property<&ActionProcessors::timeScale>("timeScale");
     }
 
+    // The CONTAINER structs above the leaves. Their Array<> and value-struct members are Nested
+    // (address-based: the tree is TRAVERSED in place via container reflection, not marshalled by
+    // value), so the whole InputMap is reflection-visible for scripting/tooling. The input editor
+    // page stays bespoke - this is for scriptability, not a reflection-driven inspector.
+    DRACONIC_REFLECT_VALUE(Action, "draconic::input")
+    {
+        builder.Property<&Action::name>("name")
+            .PropAttribute("displayName", String(u8"Name"))
+            .Property<&Action::kind>("kind")
+            .PropAttribute("displayName", String(u8"Kind"))
+            .Nested<&Action::bindings>("bindings")   // Array<Binding> (container)
+            .Nested<&Action::processors>("processors")
+            .Nested<&Action::interaction>("interaction");
+    }
+
+    DRACONIC_REFLECT_VALUE(ActionSet, "draconic::input")
+    {
+        builder.Property<&ActionSet::name>("name")
+            .PropAttribute("displayName", String(u8"Name"))
+            .Property<&ActionSet::priority>("priority")
+            .PropAttribute("displayName", String(u8"Priority"))
+            .Nested<&ActionSet::actions>("actions"); // Array<Action> (container)
+    }
+
+    DRACONIC_REFLECT_VALUE(InputMap, "draconic::input")
+    {
+        builder.Nested<&InputMap::sets>("sets"); // Array<ActionSet> (container)
+    }
+
     void RegisterInputTypeReflection()
     {
         static const bool once = []()
@@ -104,6 +133,14 @@ namespace draconic::input
             DraconicRegisterValue_Binding();
             DraconicRegisterValue_Interaction();
             DraconicRegisterValue_ActionProcessors();
+            DraconicRegisterValue_Action();
+            DraconicRegisterValue_ActionSet();
+            DraconicRegisterValue_InputMap();
+            // The array element types are reflected above; register the containers so a reflected
+            // Array<> member is IsContainer with generic indexed access to its elements.
+            RegisterArrayType<Binding>();
+            RegisterArrayType<Action>();
+            RegisterArrayType<ActionSet>();
             return true;
         }();
         (void)once;

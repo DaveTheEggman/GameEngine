@@ -1093,3 +1093,60 @@ TEST_CASE("input reflection: the leaf value types + enums reflect (P2 breadth)")
     REQUIRE(interKind != nullptr);
     CHECK(IsEnum(*interKind->type)); // InteractionKind
 }
+
+TEST_CASE("input reflection: the InputMap container tree is traversable via reflection")
+{
+    using namespace draconic::input;
+    RegisterInputTypeReflection();
+
+    // A small live map: one set -> one action -> one binding.
+    InputMap map;
+    ActionSet set;
+    set.name = String(u8"Gameplay");
+    set.priority = 5;
+    Action action;
+    action.name = String(u8"Jump");
+    action.kind = ActionKind::Button;
+    Binding b;
+    b.source = BindingSource::Key;
+    action.bindings.PushBack(b);
+    set.actions.PushBack(static_cast<Action&&>(action));
+    map.sets.PushBack(static_cast<ActionSet&&>(set));
+
+    // InputMap.sets is a Nested property whose type is a registered container.
+    const PropertyInfo* setsProp = FindProperty(TypeOf<InputMap>(), "sets");
+    REQUIRE(setsProp != nullptr);
+    CHECK(IsNested(*setsProp));
+    REQUIRE(setsProp->type != nullptr);
+    REQUIRE(IsContainer(*setsProp->type));
+
+    // Reach the live array via the Nested address, iterate it generically.
+    Instance mapInst = Instance::From(&map);
+    void* setsAddr = setsProp->address(mapInst);
+    REQUIRE(setsAddr != nullptr);
+    const Instance setsInst(setsAddr, setsProp->type);
+    REQUIRE(ContainerSize(*setsProp->type->container, setsInst) == 1u);
+
+    // Element 0 -> ActionSet; read its reflected scalars off the element Variant.
+    Variant setElem = ContainerGetAt(*setsProp->type->container, setsInst, 0);
+    const Instance setInst(setElem.ValuePointer(), setElem.Type());
+    const PropertyInfo* nameProp = FindProperty(*setElem.Type(), "name");
+    const PropertyInfo* prioProp = FindProperty(*setElem.Type(), "priority");
+    REQUIRE(nameProp != nullptr);
+    REQUIRE(prioProp != nullptr);
+    CHECK(GetProperty(*nameProp, setInst).Get<String>() == StringView(u8"Gameplay"));
+    CHECK(GetProperty(*prioProp, setInst).Get<i32>() == 5);
+
+    // Drill one level deeper: ActionSet.actions (nested container) -> Action.name.
+    const PropertyInfo* actionsProp = FindProperty(*setElem.Type(), "actions");
+    REQUIRE(actionsProp != nullptr);
+    CHECK(IsNested(*actionsProp));
+    REQUIRE(IsContainer(*actionsProp->type));
+    const Instance actionsInst(actionsProp->address(setInst), actionsProp->type);
+    REQUIRE(ContainerSize(*actionsProp->type->container, actionsInst) == 1u);
+    Variant actionElem = ContainerGetAt(*actionsProp->type->container, actionsInst, 0);
+    const Instance actionInst(actionElem.ValuePointer(), actionElem.Type());
+    const PropertyInfo* aName = FindProperty(*actionElem.Type(), "name");
+    REQUIRE(aName != nullptr);
+    CHECK(GetProperty(*aName, actionInst).Get<String>() == StringView(u8"Jump"));
+}

@@ -53,7 +53,8 @@ export namespace draconic::input
             m_map.sets.PushBack(static_cast<ActionSet&&>(gameplay));
         }
 
-    private:
+        // Public so the reflected Nested `map` property can take its address (the reflect body is
+        // a free function); the Map() accessors above remain the preferred call site.
         InputMap m_map;
     };
 
@@ -92,9 +93,11 @@ export namespace draconic::input
     inline void RegisterInputMapAsset()
     {
         RegisterInputMapResource();
+        RegisterInputTypeReflection(); // the InputMap tree the asset's Nested `map` recurses into
         GlobalTypeRegistry().Register(InputMapAsset::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<InputMapAsset>();
     }
 
-    DRACONIC_DEFINE_OBJECT(InputMapAsset, "draconic::input")
+    // InputMapAsset::StaticType() is defined WITH its reflected surface (a Nested `map` property)
+    // in InputMapAssetImpl.cpp - GCC module hygiene: DRACONIC_REFLECT out of interfaces.
 }
