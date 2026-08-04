@@ -31,7 +31,7 @@ namespace
     }
 }
 
-TEST_CASE("vg.renderer: render-vertex packs + decodes sRGB")
+TEST_CASE("vg.renderer: render-vertex passes color through RAW (the shader owns the decode)")
 {
     // White stays white (1,1,1); opaque alpha passes through.
     const VGRenderVertex v(VGVertex::Solid(Float2{2.0f, 3.0f}, Color::White));
@@ -41,10 +41,11 @@ TEST_CASE("vg.renderer: render-vertex packs + decodes sRGB")
     CHECK(v.color[3] == doctest::Approx(1.0f));
     CHECK(v.coverage == doctest::Approx(1.0f));
 
-    // A mid-grey sRGB byte (188) decodes to ~0.5 linear, not 0.737.
+    // A mid-grey sRGB byte (188) stays 188/255 - the SINGLE sRGB->linear decode
+    // happens in vg.vs, never CPU-side (a decode here too was the 16107056 double-
+    // decode bug: solids rendered enc(dec^2(authored)) while gradients were right).
     const VGRenderVertex g(VGVertex::Solid(Float2{}, ToColor(Color32{188, 188, 188, 255})));
-    CHECK(g.color[0] > 0.45f);
-    CHECK(g.color[0] < 0.55f);
+    CHECK(g.color[0] == doctest::Approx(188.0f / 255.0f));
 }
 
 TEST_CASE("vg.renderer: initialize + prepare a batch (headless Null backend)")
