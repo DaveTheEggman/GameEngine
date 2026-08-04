@@ -517,6 +517,11 @@ TEST_CASE("rtti: container mutation - emplaceDefault / removeAt / moveElement")
     const ContainerInfo& c = *TypeOf<Array<int>>().container;
     Instance inst = Instance::From(&arr);
 
+    // Homogeneous value elements are also reachable by address (the list-editor descent path).
+    CHECK(ContainerAddressAt(c, inst, 1).Pointer() == &arr[1]);
+    CHECK(ContainerAddressAt(c, inst, 1).Type() == &TypeOf<int>());
+    CHECK(ContainerAddressAt(c, inst, 9).Pointer() == nullptr); // out of range
+
     (void)ContainerEmplaceDefault(c, inst, 1); // [10, 0, 20, 30]
     REQUIRE(arr.Size() == 4u);
     CHECK(arr[1] == 0);

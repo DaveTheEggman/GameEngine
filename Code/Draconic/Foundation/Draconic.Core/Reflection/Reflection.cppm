@@ -803,6 +803,15 @@ export namespace draconic::core
                 }
                 BubbleMove(*a, from, to);
                 return Status{};
+            },
+            .addressAt = [](const Instance& i, usize index) -> Instance
+            {
+                Arr* a = static_cast<Arr*>(i.Pointer());
+                if (index >= a->Size())
+                {
+                    return Instance{};
+                }
+                return Instance(&(*a)[index], &TypeOf<T>()); // in-place element (edit through it)
             }};
         const_cast<TypeInfo&>(TypeOf<Arr>()).container = &info;
     }
