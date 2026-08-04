@@ -770,3 +770,26 @@ TEST_CASE("particle reflection (batch 2): emission-shape initializers reflect")
     CHECK(GetProperty(*FindProperty(TypeOf<EmissionShape>(), "type"), shapeInst)
               .Get<EmissionShapeType>() == EmissionShapeType::Cone);
 }
+
+TEST_CASE("particle reflection (batch 3): force + collision modules reflect their flat config")
+{
+    using namespace draconic::particles;
+    RegisterParticleModules();
+
+    const TypeInfo& attractor = AttractorBehavior::StaticType();
+    CHECK(PropertyCount(attractor) == 3u); // strength/position/radius
+    AttractorBehavior a;
+    a.strength = 4.0f;
+    Instance ai = Instance::From(&a);
+    CHECK(GetProperty(*FindProperty(attractor, "strength"), ai).Get<f32>() == doctest::Approx(4.0f));
+
+    // CollisionBehavior: flat scalars reflected; the C-array shape lists are intentionally not.
+    const TypeInfo& collision = CollisionBehavior::StaticType();
+    CHECK(PropertyCount(collision) == 7u); // 3 counts + radius/bounce/friction/lifetimeLoss
+    CHECK(FindProperty(collision, "bounce") != nullptr);
+    CHECK(FindProperty(collision, "planes") == nullptr); // C-array shape list not reflected
+
+    // The collision shape element types reflect as flat value types.
+    CHECK(PropertyCount(TypeOf<CollisionPlane>()) == 2u);  // normal/distance
+    CHECK(PropertyCount(TypeOf<CollisionBox>()) == 2u);    // center/halfExtents
+}

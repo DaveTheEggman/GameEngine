@@ -921,9 +921,10 @@ export namespace draconic::particles
     DRACONIC_DEFINE_OBJECT(ParticleBehavior, "draconic::particles")
     // PositionInitializer..VortexBehavior StaticType() is defined WITH reflected properties in
     // ParticleModulesImpl.cpp (batches 1-2; GCC module hygiene: DRACONIC_REFLECT out of interfaces).
-    DRACONIC_DEFINE_OBJECT(AttractorBehavior, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(RadialForceBehavior, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(CollisionBehavior, "draconic::particles")
+    // Attractor/RadialForce/CollisionBehavior StaticType() defined with reflected properties in
+    // ParticleModulesImpl.cpp (batch 3). The curve-driven OverLifetime behaviors below stay
+    // identity-only for now (their curves are C-arrays - a reflection primitive that does not
+    // exist yet; see docs/design/reflection-track.md).
     DRACONIC_DEFINE_OBJECT(ColorOverLifetimeBehavior, "draconic::particles")
     DRACONIC_DEFINE_OBJECT(AlphaOverLifetimeBehavior, "draconic::particles")
     DRACONIC_DEFINE_OBJECT(SizeOverLifetimeBehavior, "draconic::particles")

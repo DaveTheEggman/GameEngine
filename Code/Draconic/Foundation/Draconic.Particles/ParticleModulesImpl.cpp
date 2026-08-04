@@ -136,8 +136,52 @@ namespace draconic::particles
             .Property<&VortexBehavior::axis>("axis");
     }
 
-    // Registers the range leaf value types (the modules' StaticType() self-builds via
-    // DRACONIC_REFLECT). Idempotent; call from RegisterParticleModules().
+    // ---- attractor / radial force / collision (flat) -----------------------------------------
+    DRACONIC_REFLECT(AttractorBehavior, "draconic::particles")
+    {
+        builder.Attribute("displayName", String(u8"Attractor"))
+            .Property<&AttractorBehavior::strength>("strength")
+            .Property<&AttractorBehavior::position>("position")
+            .Property<&AttractorBehavior::radius>("radius");
+    }
+    DRACONIC_REFLECT(RadialForceBehavior, "draconic::particles")
+    {
+        builder.Attribute("displayName", String(u8"Radial Force"))
+            .Property<&RadialForceBehavior::strength>("strength");
+    }
+
+    DRACONIC_REFLECT_VALUE(CollisionPlane, "draconic::particles")
+    {
+        builder.Property<&CollisionPlane::normal>("normal")
+            .Property<&CollisionPlane::distance>("distance");
+    }
+    DRACONIC_REFLECT_VALUE(CollisionSphere, "draconic::particles")
+    {
+        builder.Property<&CollisionSphere::center>("center")
+            .Property<&CollisionSphere::radius>("radius");
+    }
+    DRACONIC_REFLECT_VALUE(CollisionBox, "draconic::particles")
+    {
+        builder.Property<&CollisionBox::center>("center")
+            .Property<&CollisionBox::halfExtents>("halfExtents");
+    }
+    DRACONIC_REFLECT(CollisionBehavior, "draconic::particles")
+    {
+        // The fixed-capacity shape lists (planes/spheres/boxes, C-arrays) are not reflected yet -
+        // C-array members need a reflection primitive that does not exist (see reflection-track).
+        // Their element types + the counts/response scalars ARE reflected.
+        builder.Attribute("displayName", String(u8"Collision"))
+            .Property<&CollisionBehavior::planeCount>("planeCount")
+            .Property<&CollisionBehavior::sphereCount>("sphereCount")
+            .Property<&CollisionBehavior::boxCount>("boxCount")
+            .Property<&CollisionBehavior::radius>("radius")
+            .Property<&CollisionBehavior::bounce>("bounce")
+            .Property<&CollisionBehavior::friction>("friction")
+            .Property<&CollisionBehavior::lifetimeLoss>("lifetimeLoss");
+    }
+
+    // Registers the range + shape + collision leaf value types (the modules' StaticType()
+    // self-builds via DRACONIC_REFLECT). Idempotent; call from RegisterParticleModules().
     void RegisterParticleModuleReflection()
     {
         static const bool once = []()
@@ -147,6 +191,9 @@ namespace draconic::particles
             DraconicRegisterValue_RangeColor();
             DraconicRegisterEnum_EmissionShapeType();
             DraconicRegisterValue_EmissionShape();
+            DraconicRegisterValue_CollisionPlane();
+            DraconicRegisterValue_CollisionSphere();
+            DraconicRegisterValue_CollisionBox();
             return true;
         }();
         (void)once;
