@@ -739,3 +739,34 @@ TEST_CASE("particle reflection (batch 1): flat/range module types reflect their 
     REQUIRE(maxProp != nullptr);
     CHECK(GetProperty(*maxProp, rangeInst).Get<f32>() == doctest::Approx(2.0f));
 }
+
+TEST_CASE("particle reflection (batch 2): emission-shape initializers reflect")
+{
+    using namespace draconic::particles;
+    RegisterParticleModules();
+
+    // EmissionShape: flat struct whose `type` is a named enum (8 shapes).
+    const PropertyInfo* typeProp = FindProperty(TypeOf<EmissionShape>(), "type");
+    REQUIRE(typeProp != nullptr);
+    CHECK(IsEnum(*typeProp->type));
+    CHECK(Enumerators(*typeProp->type).Size() == 8u);
+    CHECK(PropertyCount(TypeOf<EmissionShape>()) == 6u); // type/radius/extents/angle/arc/emitFromShell
+
+    // PositionInitializer exposes its shape as a Nested EmissionShape + a localSpace flag.
+    const TypeInfo& pos = PositionInitializer::StaticType();
+    const PropertyInfo* shapeProp = FindProperty(pos, "shape");
+    REQUIRE(shapeProp != nullptr);
+    CHECK(IsNested(*shapeProp));
+    CHECK(shapeProp->type == &TypeOf<EmissionShape>());
+
+    PositionInitializer p;
+    p.shape.type = EmissionShapeType::Cone;
+    p.shape.radius = 3.0f;
+    Instance pi = Instance::From(&p);
+    const Instance shapeInst(shapeProp->address(pi), shapeProp->type);
+    const PropertyInfo* radiusProp = FindProperty(TypeOf<EmissionShape>(), "radius");
+    REQUIRE(radiusProp != nullptr);
+    CHECK(GetProperty(*radiusProp, shapeInst).Get<f32>() == doctest::Approx(3.0f));
+    CHECK(GetProperty(*FindProperty(TypeOf<EmissionShape>(), "type"), shapeInst)
+              .Get<EmissionShapeType>() == EmissionShapeType::Cone);
+}

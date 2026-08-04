@@ -36,6 +36,46 @@ namespace draconic::particles
         builder.Property<&RangeColor::min>("min").Property<&RangeColor::max>("max");
     }
 
+    // ---- emission shape (flat struct + its type discriminator) -------------------------------
+    DRACONIC_REFLECT_ENUM(EmissionShapeType, "draconic::particles")
+    {
+        builder.Value("Point", EmissionShapeType::Point);
+        builder.Value("Sphere", EmissionShapeType::Sphere);
+        builder.Value("Hemisphere", EmissionShapeType::Hemisphere);
+        builder.Value("Box", EmissionShapeType::Box);
+        builder.Value("Cone", EmissionShapeType::Cone);
+        builder.Value("Ring", EmissionShapeType::Ring);
+        builder.Value("Circle", EmissionShapeType::Circle);
+        builder.Value("Edge", EmissionShapeType::Edge);
+    }
+    DRACONIC_REFLECT_VALUE(EmissionShape, "draconic::particles")
+    {
+        builder.Property<&EmissionShape::type>("type")
+            .PropAttribute("displayName", String(u8"Shape"))
+            .Property<&EmissionShape::radius>("radius")
+            .Property<&EmissionShape::extents>("extents")
+            .Property<&EmissionShape::angle>("angle")
+            .Property<&EmissionShape::arc>("arc")
+            .Property<&EmissionShape::emitFromShell>("emitFromShell");
+    }
+
+    // ---- initializers using the emission shape -----------------------------------------------
+    DRACONIC_REFLECT(PositionInitializer, "draconic::particles")
+    {
+        builder.Attribute("displayName", String(u8"Position"))
+            .Nested<&PositionInitializer::shape>("shape")
+            .Property<&PositionInitializer::localSpace>("localSpace");
+    }
+    DRACONIC_REFLECT(VelocityInitializer, "draconic::particles")
+    {
+        builder.Attribute("displayName", String(u8"Velocity"))
+            .Property<&VelocityInitializer::baseVelocity>("baseVelocity")
+            .Property<&VelocityInitializer::randomness>("randomness")
+            .Property<&VelocityInitializer::shapeDirectionSpeed>("shapeDirectionSpeed")
+            .Property<&VelocityInitializer::velocityInheritance>("velocityInheritance")
+            .Nested<&VelocityInitializer::shape>("shape");
+    }
+
     // ---- initializers (flat / range) ---------------------------------------------------------
     DRACONIC_REFLECT(LifetimeInitializer, "draconic::particles")
     {
@@ -105,6 +145,8 @@ namespace draconic::particles
             DraconicRegisterValue_RangeFloat();
             DraconicRegisterValue_RangeFloat2();
             DraconicRegisterValue_RangeColor();
+            DraconicRegisterEnum_EmissionShapeType();
+            DraconicRegisterValue_EmissionShape();
             return true;
         }();
         (void)once;

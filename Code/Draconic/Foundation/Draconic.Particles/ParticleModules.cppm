@@ -919,10 +919,8 @@ export namespace draconic::particles
 
     DRACONIC_DEFINE_OBJECT(ParticleInitializer, "draconic::particles")
     DRACONIC_DEFINE_OBJECT(ParticleBehavior, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(PositionInitializer, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(VelocityInitializer, "draconic::particles")
-    // LifetimeInitializer..VortexBehavior StaticType() is defined WITH reflected properties in
-    // ParticleModulesImpl.cpp (batch 1; GCC module hygiene: DRACONIC_REFLECT out of interfaces).
+    // PositionInitializer..VortexBehavior StaticType() is defined WITH reflected properties in
+    // ParticleModulesImpl.cpp (batches 1-2; GCC module hygiene: DRACONIC_REFLECT out of interfaces).
     DRACONIC_DEFINE_OBJECT(AttractorBehavior, "draconic::particles")
     DRACONIC_DEFINE_OBJECT(RadialForceBehavior, "draconic::particles")
     DRACONIC_DEFINE_OBJECT(CollisionBehavior, "draconic::particles")
