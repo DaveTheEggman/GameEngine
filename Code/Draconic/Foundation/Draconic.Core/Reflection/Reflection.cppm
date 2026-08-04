@@ -95,6 +95,65 @@ namespace draconic::core::detail
         return Status{ErrorCode::NotSupported}; // a computed getter is read-only
     }
 
+    // A NESTED (structure) property: the member is itself a reflected type the tooling should
+    // recurse INTO, not a leaf value. This is the escape hatch for members that cannot marshal
+    // through a Variant - e.g. non-copyable Object members (RefCounted deletes its copy ctor).
+    // get returns an EMPTY Variant and set is unsupported (the value is never passed by copy);
+    // `type` + `address` are populated so a consumer reaches the nested instance in place and
+    // recurses into its properties. A POINTER member resolves `address` to the POINTEE (null when
+    // the member is null - consumers must null-check before recursing).
+    template <typename M>
+    struct NestedPointee
+    {
+        using Type = M;
+        static constexpr bool isPointer = false;
+    };
+    template <typename M>
+    struct NestedPointee<M*>
+    {
+        using Type = M;
+        static constexpr bool isPointer = true;
+    };
+
+    // The canonical reflected TypeInfo for a nested type: an intrusive Object exposes it as
+    // StaticType() (the patched, property-carrying one); a value type (DRACONIC_REFLECT_VALUE)
+    // has no StaticType() and uses TypeOf<P>(). TypeOf<Object-type>() is a DIFFERENT, unpatched
+    // TypeInfo, so the nested member's `type` must resolve through here.
+    template <typename P>
+    [[nodiscard]] const TypeInfo* NestedTypeInfo() noexcept
+    {
+        if constexpr (requires { P::StaticType(); })
+        {
+            return &P::StaticType();
+        }
+        else
+        {
+            return &TypeOf<P>();
+        }
+    }
+
+    inline Variant NestedPropertyGet(const Instance&)
+    {
+        return Variant{}; // a nested structure is not read by value - recurse via address
+    }
+    inline Status NestedPropertySet(const Instance&, const Variant&)
+    {
+        return Status{ErrorCode::NotSupported}; // nor written by value
+    }
+    template <typename T, typename M, auto Member>
+    void* NestedPropertyAddress(const Instance& instance)
+    {
+        T* object = static_cast<T*>(instance.Pointer());
+        if constexpr (NestedPointee<M>::isPointer)
+        {
+            return static_cast<void*>(object->*Member); // the pointee (may be null)
+        }
+        else
+        {
+            return static_cast<void*>(&(object->*Member));
+        }
+    }
+
     [[nodiscard]] inline bool CStringEquals(const char* a, const char* b) noexcept
     {
         usize i = 0;
@@ -112,6 +171,9 @@ export namespace draconic::core
     {
         None = 0,
         ReadOnly = 1u << 0,
+        // The property is a nested reflected structure to recurse into (via `address`), not a
+        // leaf value; `get` is empty and `set` unsupported. See TypeBuilder::Nested.
+        Nested = 1u << 1,
     };
 
     struct PropertyInfo
@@ -141,6 +203,14 @@ export namespace draconic::core
                                             const Variant& value)
     {
         return property.set(instance, value);
+    }
+
+    // A nested structure property: recurse into `property.type`'s own properties using a
+    // sub-Instance built from `property.address(instance)` (null-check it first - a null pointer
+    // member yields a null address), rather than reading it as a leaf value. See TypeBuilder::Nested.
+    [[nodiscard]] inline bool IsNested(const PropertyInfo& property) noexcept
+    {
+        return (static_cast<u32>(property.flags) & static_cast<u32>(PropertyFlags::Nested)) != 0;
     }
 
     // Properties declared directly on `type` (not inherited).
@@ -859,6 +929,25 @@ export namespace draconic::core
                                                     &detail::GetterPropertyGet<T, R, Getter>,
                                                     &detail::GetterPropertySet<T, R, Getter>,
                                                     nullptr});
+            return *this;
+        }
+
+        /// A NESTED structure property: `member` is itself a reflected type the tooling recurses
+        /// into (a `MaterialSource source;` value member, or a `MeshSource* source;` pointer
+        /// member). Unlike Property<>, it never copies the member through a Variant, so it works
+        /// for non-copyable Object members. `get` is empty, `set` returns NotSupported, `type` is
+        /// the nested type, and `address` yields the member (the POINTEE for a pointer member, null
+        /// when unset). Consumers check IsNested(), then recurse via address; script harvest skips it.
+        template <auto Member>
+        TypeBuilder& Nested(const char* name)
+        {
+            using M = typename detail::MemberTraits<decltype(Member)>::Member;
+            using Pointee = typename detail::NestedPointee<M>::Type;
+            m_data.properties.PushBack(PropertyInfo{name, detail::NestedTypeInfo<Pointee>(),
+                                                    PropertyFlags::Nested,
+                                                    &detail::NestedPropertyGet,
+                                                    &detail::NestedPropertySet,
+                                                    &detail::NestedPropertyAddress<T, M, Member>});
             return *this;
         }
 

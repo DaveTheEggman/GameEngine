@@ -43,6 +43,23 @@ namespace
     {
         DRACONIC_OBJECT(Cat, Animal)
     };
+
+    // A nested reflected structure (Object-derived, so non-copyable via RefCounted - exactly the
+    // MaterialSource-inside-MaterialAsset case that Property<> cannot handle).
+    class NestedLeaf : public Object
+    {
+        DRACONIC_OBJECT(NestedLeaf, Object)
+    public:
+        int value = 7;
+    };
+
+    class NestedOwner : public Object
+    {
+        DRACONIC_OBJECT(NestedOwner, Object)
+    public:
+        NestedLeaf leaf;               // value member (non-copyable)
+        NestedLeaf* leafPtr = nullptr; // pointer member (nested-by-pointer)
+    };
 }
 
 DRACONIC_REFLECT(Animal, "draconic::test")
@@ -73,6 +90,16 @@ DRACONIC_REFLECT_ENUM(TestColor, "draconic::test")
     builder.Value("Red", TestColor::Red);
     builder.Value("Green", TestColor::Green);
     builder.Value("Blue", TestColor::Blue);
+}
+
+DRACONIC_REFLECT(NestedLeaf, "draconic::test")
+{
+    builder.Property<&NestedLeaf::value>("value");
+}
+DRACONIC_REFLECT(NestedOwner, "draconic::test")
+{
+    builder.Nested<&NestedOwner::leaf>("leaf");        // value member
+    builder.Nested<&NestedOwner::leafPtr>("leafPtr");  // pointer member (pointee via address)
 }
 
 // --- RTTI ------------------------------------------------------------------
@@ -373,6 +400,46 @@ TEST_CASE("rtti: a ComputedProperty is a read-only getter-backed property")
     CHECK_FALSE(st.IsOk());
     CHECK(st.Code() == ErrorCode::NotSupported);
     CHECK(animal->legs == 9);
+}
+
+TEST_CASE("rtti: a Nested property recurses into a non-copyable member via address")
+{
+    const PropertyInfo* leafProp = FindProperty(NestedOwner::StaticType(), "leaf");
+    REQUIRE(leafProp != nullptr);
+    CHECK(IsNested(*leafProp));
+    CHECK(leafProp->type == &NestedLeaf::StaticType()); // the nested type, to recurse into
+
+    NestedOwner owner;
+    owner.leaf.value = 42;
+    Instance ownerInst = Instance::From(&owner);
+
+    // A nested member is never marshalled by value: get is empty, set is unsupported.
+    CHECK(GetProperty(*leafProp, ownerInst).IsEmpty());
+    CHECK_FALSE(SetProperty(*leafProp, ownerInst, Variant{}).IsOk());
+
+    // Recurse: address -> the live member in place -> read its OWN reflected property.
+    void* leafAddr = leafProp->address(ownerInst);
+    REQUIRE(leafAddr != nullptr);
+    const Instance leafInst(leafAddr, leafProp->type);
+    const PropertyInfo* valueProp = FindProperty(*leafProp->type, "value");
+    REQUIRE(valueProp != nullptr);
+    CHECK(GetProperty(*valueProp, leafInst).Get<int>() == 42);
+
+    // A POINTER nested member: null yields a null address (consumers must null-check); once set,
+    // address is the pointee, and recursion reads through it.
+    const PropertyInfo* ptrProp = FindProperty(NestedOwner::StaticType(), "leafPtr");
+    REQUIRE(ptrProp != nullptr);
+    CHECK(IsNested(*ptrProp));
+    CHECK(ptrProp->type == &NestedLeaf::StaticType());
+    CHECK(ptrProp->address(ownerInst) == nullptr); // null pointer member -> null address
+
+    NestedLeaf other;
+    other.value = 99;
+    owner.leafPtr = &other;
+    void* ptrAddr = ptrProp->address(ownerInst);
+    CHECK(ptrAddr == &other); // the pointee, not the pointer's own address
+    const Instance ptrInst(ptrAddr, ptrProp->type);
+    CHECK(GetProperty(*valueProp, ptrInst).Get<int>() == 99);
 }
 
 TEST_CASE("rtti: inherited property is found through the base chain")

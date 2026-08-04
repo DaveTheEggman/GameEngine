@@ -591,9 +591,9 @@ namespace draconic::script::angelscript
                 for (core::usize i = 0; i < core::PropertyCount(type); ++i)
                 {
                     const core::PropertyInfo& property = core::PropertyAt(type, i);
-                    if (!IsValidIdentifier(property.name))
+                    if (!IsValidIdentifier(property.name) || core::IsNested(property))
                     {
-                        continue;
+                        continue; // nested structures are not scriptable leaf values
                     }
                     ScriptApiMember member;
                     member.name = core::String(ViewOfAscii(property.name));
@@ -1559,9 +1559,9 @@ namespace draconic::script::angelscript
             for (core::usize i = 0; i < core::PropertyCount(type); ++i)
             {
                 const core::PropertyInfo& property = core::PropertyAt(type, i);
-                if (!IsValidIdentifier(property.name))
+                if (!IsValidIdentifier(property.name) || core::IsNested(property))
                 {
-                    continue;
+                    continue; // nested structures are recursed by tooling, not bound as leaves
                 }
                 {
                     core::String decl;
@@ -2581,6 +2581,10 @@ namespace draconic::script::angelscript
             for (core::usize i = 0; i < core::PropertyCount(*type); ++i)
             {
                 const core::PropertyInfo& property = core::PropertyAt(*type, i);
+                if (core::IsNested(property))
+                {
+                    continue; // no by-value read for a nested structure (empty Variant)
+                }
                 ScriptVariable variable;
                 variable.name = core::String(ViewOfAscii(property.name));
                 variable.typeName =

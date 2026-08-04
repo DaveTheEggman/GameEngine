@@ -936,6 +936,10 @@ namespace draconic::script::wren
             for (core::usize i = 0; i < core::PropertyCount(type); ++i)
             {
                 const core::PropertyInfo& prop = core::PropertyAt(type, i);
+                if (core::IsNested(prop))
+                {
+                    continue; // nested structures are not scriptable leaf getters/setters
+                }
                 AppendAscii(src, "  foreign ");
                 AppendAscii(src, prop.name);
                 AppendAscii(src, "\n");
@@ -1158,6 +1162,10 @@ namespace draconic::script::wren
                 for (core::usize i = 0; i < core::PropertyCount(*t); ++i)
                 {
                     const core::PropertyInfo& p = core::PropertyAt(*t, i);
+                    if (core::IsNested(p))
+                    {
+                        continue; // nested structures are recursed by tooling, not scriptable
+                    }
                     ScriptApiMember member;
                     member.name = core::String(AsciiView(p.name));
                     member.signature = member.name; // Wren getter/setter share the bare name
