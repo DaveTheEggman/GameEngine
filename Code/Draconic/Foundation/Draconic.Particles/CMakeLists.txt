@@ -12,6 +12,7 @@ target_link_libraries(Draconic.Particles
 target_sources(Draconic.Particles
     PRIVATE
         ParticleModulesImpl.cpp   # module + range-type reflection bodies (GCC hygiene)
+        ParticleEffectReflectionImpl.cpp # effect/system/emitter reflection bodies (GCC hygiene)
     PUBLIC
         FILE_SET particles_modules TYPE CXX_MODULES FILES
             ParticleTypes.cppm

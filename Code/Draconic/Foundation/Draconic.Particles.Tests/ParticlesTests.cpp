@@ -911,3 +911,76 @@ TEST_CASE("particle reflection (batch 6): polymorphic add/remove/move + Enumerat
         CHECK(t != &ParticleBehavior::StaticType());
     }
 }
+
+TEST_CASE("particle reflection (batch 7): a whole effect traverses effect -> system -> module -> value")
+{
+    using namespace draconic::particles;
+    RegisterParticleModules(); // also registers the effect/system/emitter value types + systems container
+
+    // Author a live effect: one system, an emitter config, one initializer + one behavior.
+    ParticleEffect effect(u8"Sparks");
+    ParticleSystem& sys = effect.AddSystem(256);
+    sys.name = String(u8"main");
+    sys.emitter.spawnRate = 42.0f;
+    sys.AddInitializer<PositionInitializer>();
+    GravityBehavior& gravity = sys.AddBehavior<GravityBehavior>();
+    gravity.multiplier = 5.0f;
+
+    Instance effectInst = Instance::From(&effect);
+
+    // effect.name is a plain reflected property; effect.systems is the UniquePtr container.
+    CHECK(GetProperty(*FindProperty(TypeOf<ParticleEffect>(), "name"), effectInst).Get<String>() ==
+          String(u8"Sparks"));
+    const PropertyInfo* systemsProp = FindProperty(TypeOf<ParticleEffect>(), "systems");
+    REQUIRE(systemsProp != nullptr);
+    CHECK(IsNested(*systemsProp));
+    REQUIRE(IsContainer(*systemsProp->type));
+    const ContainerInfo& sysC = *systemsProp->type->container;
+    CHECK_FALSE(IsPolymorphicContainer(sysC)); // homogeneous UniquePtr<ParticleSystem>
+    const Instance systemsInst(systemsProp->address(effectInst), systemsProp->type);
+    REQUIRE(ContainerSize(sysC, systemsInst) == 1u);
+
+    // Descend into the system by ADDRESS (a UniquePtr element yields no Variant).
+    CHECK(ContainerGetAt(sysC, systemsInst, 0).IsEmpty());
+    Instance sys0 = ContainerAddressAt(sysC, systemsInst, 0);
+    REQUIRE(sys0.Pointer() != nullptr);
+    CHECK(sys0.Type() == &TypeOf<ParticleSystem>());
+    CHECK(GetProperty(*FindProperty(*sys0.Type(), "name"), sys0).Get<String>() == String(u8"main"));
+
+    // system.emitter (Nested value) -> spawnRate.
+    const PropertyInfo* emitterProp = FindProperty(*sys0.Type(), "emitter");
+    REQUIRE(emitterProp != nullptr);
+    CHECK(IsNested(*emitterProp));
+    const Instance emitterInst(emitterProp->address(sys0), emitterProp->type);
+    CHECK(GetProperty(*FindProperty(*emitterProp->type, "spawnRate"), emitterInst).Get<f32>() ==
+          doctest::Approx(42.0f));
+
+    // system.behaviors (polymorphic container) -> concrete GravityBehavior -> multiplier value. The
+    // uniform address path descends both the outer UniquePtr container and this RefPtr<Object> one.
+    const PropertyInfo* behProp = FindProperty(*sys0.Type(), "behaviors");
+    REQUIRE(behProp != nullptr);
+    REQUIRE(IsContainer(*behProp->type));
+    const ContainerInfo& behC = *behProp->type->container;
+    const Instance behInst(behProp->address(sys0), behProp->type);
+    REQUIRE(ContainerSize(behC, behInst) == 1u);
+    Instance b0 = ContainerAddressAt(behC, behInst, 0);
+    REQUIRE(b0.Pointer() != nullptr);
+    CHECK(b0.Type() == &GravityBehavior::StaticType()); // dynamic type
+    CHECK(GetProperty(*FindProperty(*b0.Type(), "multiplier"), b0).Get<f32>() == doctest::Approx(5.0f));
+
+    // system.initializers likewise carries the one PositionInitializer.
+    const PropertyInfo* initProp = FindProperty(*sys0.Type(), "initializers");
+    REQUIRE(initProp != nullptr);
+    const Instance initInst(initProp->address(sys0), initProp->type);
+    REQUIRE(ContainerSize(*initProp->type->container, initInst) == 1u);
+    CHECK(ContainerAddressAt(*initProp->type->container, initInst, 0).Type() ==
+          &PositionInitializer::StaticType());
+
+    // ParticleSystem has no default ctor, so the systems container cannot default-emplace (it needs a
+    // capacity) - the flavor reports that cleanly rather than fabricating a broken system. Reorder /
+    // remove still work.
+    CHECK(ContainerEmplaceDefault(sysC, systemsInst, 1).Pointer() == nullptr);
+    CHECK(ContainerSize(sysC, systemsInst) == 1u);
+    CHECK(ContainerRemoveAt(sysC, systemsInst, 0).IsOk());
+    CHECK(ContainerSize(sysC, systemsInst) == 0u);
+}

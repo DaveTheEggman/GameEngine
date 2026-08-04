@@ -20,6 +20,7 @@ import :variant;
 import :instance;
 import :object;
 import :ref_counted;
+import :unique_ptr;    // Array<UniquePtr<T>> homogeneous container flavor (RegisterUniquePtrArrayType)
 import :type_registry; // GlobalTypeRegistry().All() - the derived-type query (RTTI layer)
 import :string;        // String attribute values (category/displayName) for the sort
 // NB: reflection imports RTTI/base partitions ONLY (CONVENTIONS.md). Capability like create-by-type
@@ -554,6 +555,12 @@ export namespace draconic::core
         Instance (*emplaceDefault)(const Instance&, usize index) = nullptr;
         Status (*removeAt)(const Instance&, usize index) = nullptr;
         Status (*moveElement)(const Instance&, usize from, usize to) = nullptr;
+        // Address-based element access (mirrors the Nested mechanism): returns a borrowed Instance
+        // { pointee, elementType } so a consumer can descend into a non-copyable / non-Object element
+        // (e.g. Array<UniquePtr<T>> of a plain reflected value) the way getAt cannot - getAt yields a
+        // Variant, which only carries copyable values or RefPtr<Object>. Object containers may fill it
+        // too (dynamic type), giving both flavors one uniform descent path. Null = no address access.
+        Instance (*addressAt)(const Instance&, usize index) = nullptr;
     };
 
     [[nodiscard]] inline bool IsContainer(const TypeInfo& type) noexcept
@@ -617,6 +624,13 @@ export namespace draconic::core
     {
         return container.moveElement != nullptr ? container.moveElement(instance, from, to)
                                                 : Status{ErrorCode::NotSupported};
+    }
+    // Borrowed Instance for element `index` (empty when the flavor offers no address access, or the
+    // element is null / out of range). Consumers recurse into it via the element type's properties.
+    [[nodiscard]] inline Instance ContainerAddressAt(const ContainerInfo& container,
+                                                     const Instance& instance, usize index)
+    {
+        return container.addressAt != nullptr ? container.addressAt(instance, index) : Instance{};
     }
 
     // A type attribute's String value (e.g. "category" / "displayName"), or a fallback.
@@ -849,6 +863,88 @@ export namespace draconic::core
                 }
                 BubbleMove(*a, from, to);
                 return Status{};
+            },
+            .addressAt = [](const Instance& i, usize index) -> Instance
+            {
+                const Arr* a = static_cast<const Arr*>(i.Pointer());
+                if (index >= a->Size())
+                {
+                    return Instance{};
+                }
+                Base* raw = (*a)[index].Get();
+                return raw != nullptr ? Instance(raw, raw->GetType()) : Instance{};
+            }};
+        const_cast<TypeInfo&>(TypeOf<Arr>()).container = &info;
+    }
+
+    // Registers Array<UniquePtr<T>> as a HOMOGENEOUS reflected container of a plain (non-Object,
+    // possibly non-copyable) reflected value `T`. getAt yields an empty Variant - like Nested, the
+    // element is reached by ADDRESS (addressAt returns a borrowed Instance{ pointee, TypeOf<T> }) so a
+    // consumer recurses into T's properties without copying. setAt is unsupported (owned, non-copyable);
+    // emplaceDefault default-constructs a T when T is default-constructible; remove/move reorder.
+    template <typename T>
+    void RegisterUniquePtrArrayType()
+    {
+        using Arr = Array<UniquePtr<T>>;
+        static const ContainerInfo info{
+            .elementType = &TypeOf<T>(),
+            .size = [](const Instance& i) -> usize
+            { return static_cast<const Arr*>(i.Pointer())->Size(); },
+            .getAt = [](const Instance&, usize) -> Variant { return Variant{}; },
+            .setAt = [](const Instance&, usize, const Variant&) -> Status
+            { return Status{ErrorCode::NotSupported}; },
+            .flags = ContainerFlags::None,
+            .createElement = nullptr,
+            .canCreateElement = nullptr,
+            .emplaceDefault =
+                [](const Instance& i, usize index) -> Instance
+            {
+                if constexpr (requires { T{}; })
+                {
+                    Arr* a = static_cast<Arr*>(i.Pointer());
+                    if (index > a->Size())
+                    {
+                        return Instance{};
+                    }
+                    UniquePtr<T>& slot = a->Insert(index, MakeUnique<T>(DefaultAllocator()));
+                    return Instance(slot.Get(), &TypeOf<T>());
+                }
+                else
+                {
+                    return Instance{};
+                }
+            },
+            .removeAt =
+                [](const Instance& i, usize index) -> Status
+            {
+                Arr* a = static_cast<Arr*>(i.Pointer());
+                if (index >= a->Size())
+                {
+                    return Status{ErrorCode::InvalidArgument};
+                }
+                a->RemoveAt(index);
+                return Status{};
+            },
+            .moveElement =
+                [](const Instance& i, usize from, usize to) -> Status
+            {
+                Arr* a = static_cast<Arr*>(i.Pointer());
+                if (from >= a->Size() || to >= a->Size())
+                {
+                    return Status{ErrorCode::InvalidArgument};
+                }
+                BubbleMove(*a, from, to);
+                return Status{};
+            },
+            .addressAt = [](const Instance& i, usize index) -> Instance
+            {
+                const Arr* a = static_cast<const Arr*>(i.Pointer());
+                if (index >= a->Size())
+                {
+                    return Instance{};
+                }
+                T* raw = (*a)[index].Get();
+                return raw != nullptr ? Instance(raw, &TypeOf<T>()) : Instance{};
             }};
         const_cast<TypeInfo&>(TypeOf<Arr>()).container = &info;
     }

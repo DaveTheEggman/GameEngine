@@ -928,6 +928,13 @@ export namespace draconic::particles
     // DRACONIC_REFLECT). Defined in ParticleModulesImpl.cpp; idempotent.
     void RegisterParticleModuleReflection();
 
+    // Reflects the effect graph value types (ParticleEmitter / ParticleSystem / ParticleEffect + the
+    // EmissionMode enum + the Array<UniquePtr<ParticleSystem>> container), so tooling/scripting can
+    // traverse a whole effect: effect -> systems -> modules -> ranges/curves. Defined in
+    // ParticleEffectReflectionImpl.cpp (the :effect types are not visible from :modules, so this is a
+    // forward declaration resolved at link time within draconic.particles); idempotent.
+    void RegisterParticleEffectReflection();
+
     // Register every module type (hierarchy) + a construct-by-type-id entry for the concrete ones.
     // Call once at startup before loading cooked particle resources.
     void RegisterParticleModules()
@@ -962,5 +969,6 @@ export namespace draconic::particles
         DRACONIC_PARTICLE_REG(RotationOverLifetimeBehavior);
         DRACONIC_PARTICLE_REG(SpeedOverLifetimeBehavior);
 #undef DRACONIC_PARTICLE_REG
+        RegisterParticleEffectReflection(); // effect/system/emitter value types + systems container
     }
 }

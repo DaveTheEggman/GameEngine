@@ -116,6 +116,22 @@ DRACONIC_REFLECT(NestedOwner, "draconic::test")
     builder.Nested<&NestedOwner::leafPtr>("leafPtr");  // pointer member (pointee via address)
 }
 
+namespace
+{
+    // A plain (non-Object), NON-COPYABLE reflected value - the ParticleSystem shape: held only in an
+    // Array<UniquePtr<T>>, reached by address (not by Variant copy). The UniquePtr member makes it
+    // genuinely move-only, so the container must never try to copy an element.
+    struct UniqueLeaf
+    {
+        int value = 0;
+        UniquePtr<int> tag; // makes UniqueLeaf move-only
+    };
+}
+DRACONIC_REFLECT_VALUE(UniqueLeaf, "draconic::test")
+{
+    builder.Property<&UniqueLeaf::value>("value");
+}
+
 // --- RTTI ------------------------------------------------------------------
 
 TEST_CASE("rtti: stable type identity")
@@ -579,6 +595,71 @@ TEST_CASE("rtti: a polymorphic container resolves each element to its DYNAMIC ty
     CHECK(ContainerCreateElement(c, inst, 0, Dog::StaticType()).Pointer() == nullptr);
     CHECK_FALSE(ContainerCanCreateElement(c, Dog::StaticType()));
     CHECK(ContainerSize(c, inst) == 3u); // unchanged
+}
+
+TEST_CASE("rtti: an addressAt descent reaches a polymorphic element without a Variant copy")
+{
+    // Same container as above, now exercised through the uniform address path: addressAt yields a
+    // borrowed Instance at the element's DYNAMIC type, so a consumer recurses the concrete props.
+    RegisterPolymorphicArrayType<Animal>();
+    const ContainerInfo& c = *TypeOf<Array<RefPtr<Animal>>>().container;
+    Array<RefPtr<Animal>> arr;
+    RefPtr<Dog> dog = MakeRef<Dog>(DefaultAllocator());
+    dog->legs = 5;
+    arr.PushBack(dog);
+    arr.PushBack(RefPtr<Animal>{}); // null element
+    Instance inst = Instance::From(&arr);
+
+    Instance a0 = ContainerAddressAt(c, inst, 0);
+    REQUIRE(a0.Pointer() != nullptr);
+    CHECK(a0.Type() == &Dog::StaticType());
+    CHECK(GetProperty(*FindProperty(*a0.Type(), "legs"), a0).Get<int>() == 5);
+    CHECK(ContainerAddressAt(c, inst, 1).Pointer() == nullptr); // null element
+    CHECK(ContainerAddressAt(c, inst, 9).Pointer() == nullptr); // out of range
+}
+
+TEST_CASE("rtti: an Array<UniquePtr<T>> reflects a move-only value via addressAt")
+{
+    DraconicRegisterValue_UniqueLeaf();
+    RegisterUniquePtrArrayType<UniqueLeaf>();
+    const TypeInfo& t = TypeOf<Array<UniquePtr<UniqueLeaf>>>();
+    REQUIRE(IsContainer(t));
+    const ContainerInfo& c = *t.container;
+    CHECK_FALSE(IsPolymorphicContainer(c));
+    CHECK(c.elementType == &TypeOf<UniqueLeaf>());
+
+    Array<UniquePtr<UniqueLeaf>> arr;
+    UniquePtr<UniqueLeaf> a = MakeUnique<UniqueLeaf>(DefaultAllocator());
+    a->value = 11;
+    UniquePtr<UniqueLeaf> b = MakeUnique<UniqueLeaf>(DefaultAllocator());
+    b->value = 22;
+    arr.PushBack(Move(a));
+    arr.PushBack(Move(b));
+    Instance inst = Instance::From(&arr);
+
+    CHECK(ContainerSize(c, inst) == 2u);
+    // getAt yields nothing (move-only, no Variant) - descent is by address, like Nested.
+    CHECK(ContainerGetAt(c, inst, 0).IsEmpty());
+
+    Instance e0 = ContainerAddressAt(c, inst, 0);
+    REQUIRE(e0.Pointer() != nullptr);
+    CHECK(e0.Type() == &TypeOf<UniqueLeaf>());
+    const PropertyInfo* valueProp = FindProperty(*e0.Type(), "value");
+    REQUIRE(valueProp != nullptr);
+    CHECK(GetProperty(*valueProp, e0).Get<int>() == 11);
+    CHECK(GetProperty(*valueProp, ContainerAddressAt(c, inst, 1)).Get<int>() == 22);
+
+    // Mutation: default-emplace grows the array, remove + move reorder (no copies).
+    Instance grown = ContainerEmplaceDefault(c, inst, 2);
+    CHECK(grown.Pointer() != nullptr);
+    CHECK(ContainerSize(c, inst) == 3u);
+    CHECK(GetProperty(*valueProp, ContainerAddressAt(c, inst, 2)).Get<int>() == 0);
+    CHECK(ContainerMoveElement(c, inst, 0, 2).IsOk()); // 11 -> end
+    CHECK(GetProperty(*valueProp, ContainerAddressAt(c, inst, 2)).Get<int>() == 11);
+    CHECK(ContainerRemoveAt(c, inst, 0).IsOk());
+    CHECK(ContainerSize(c, inst) == 2u);
+    // setAt stays unsupported for an owned, move-only element.
+    CHECK_FALSE(ContainerSetAt(c, inst, 0, Variant{}).IsOk());
 }
 
 TEST_CASE("rtti: inherited property is found through the base chain")

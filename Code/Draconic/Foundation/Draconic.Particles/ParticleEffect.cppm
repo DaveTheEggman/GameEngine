@@ -130,6 +130,10 @@ export namespace draconic::particles
     class ParticleSystem
     {
     public:
+        // Reflection hook (defined in ParticleEffectReflectionImpl.cpp): a member function so it can
+        // reach the private module lists (m_initializers / m_behaviors) without exposing them.
+        static void BuildReflection(draconic::core::TypeBuilder<ParticleSystem>& builder);
+
         // Config
         String name;
         SimulationMode desiredMode = SimulationMode::CPU;
@@ -729,6 +733,10 @@ export namespace draconic::particles
     class ParticleEffect
     {
     public:
+        // Reflection hook (defined in ParticleEffectReflectionImpl.cpp): a member function so it can
+        // reach the private systems list (m_systems) without exposing it.
+        static void BuildReflection(draconic::core::TypeBuilder<ParticleEffect>& builder);
+
         String name;
 
         explicit ParticleEffect(StringView effectName = StringView(u8"Effect")) : name(effectName)
