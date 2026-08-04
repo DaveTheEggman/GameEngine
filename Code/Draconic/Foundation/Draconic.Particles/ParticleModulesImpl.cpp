@@ -262,9 +262,15 @@ namespace draconic::particles
             DraconicRegisterValue_ParticleCurveColor();
             DraconicRegisterValue_ParticleCurveFloat2();
             // The module arrays are polymorphic: register Array<RefPtr<Base>> as a polymorphic
-            // container so tooling recurses into each module's concrete reflected type.
-            RegisterPolymorphicArrayType<ParticleInitializer>();
-            RegisterPolymorphicArrayType<ParticleBehavior>();
+            // container so tooling recurses into each module's concrete reflected type. Pass the
+            // standard serialization create-by-type adapter (the factory flows in as function
+            // pointers - reflection never imports serialization).
+            RegisterPolymorphicArrayType<ParticleInitializer>(
+                &CreateSerializableElement<ParticleInitializer>,
+                &CanCreateSerializableElement<ParticleInitializer>);
+            RegisterPolymorphicArrayType<ParticleBehavior>(
+                &CreateSerializableElement<ParticleBehavior>,
+                &CanCreateSerializableElement<ParticleBehavior>);
             return true;
         }();
         (void)once;

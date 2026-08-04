@@ -571,8 +571,14 @@ TEST_CASE("rtti: a polymorphic container resolves each element to its DYNAMIC ty
     // Null element -> empty Variant (consumers null-check).
     CHECK(ContainerGetAt(c, inst, 2).IsEmpty());
 
-    // setAt is unsupported in v1 (mutation is a separate design).
+    // setAt is unsupported (elements are non-copyable).
     CHECK_FALSE(ContainerSetAt(c, inst, 0, Variant{}).IsOk());
+
+    // This container was registered WITHOUT a create-by-type factory, so it is cleanly read-only:
+    // create is rejected (empty Instance) and nothing is eligible. (removeAt/moveElement still work.)
+    CHECK(ContainerCreateElement(c, inst, 0, Dog::StaticType()).Pointer() == nullptr);
+    CHECK_FALSE(ContainerCanCreateElement(c, Dog::StaticType()));
+    CHECK(ContainerSize(c, inst) == 3u); // unchanged
 }
 
 TEST_CASE("rtti: inherited property is found through the base chain")

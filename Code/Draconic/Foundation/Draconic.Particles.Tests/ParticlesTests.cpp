@@ -879,20 +879,23 @@ TEST_CASE("particle reflection (batch 6): polymorphic add/remove/move + Enumerat
     const ContainerInfo& c = *TypeOf<Array<RefPtr<ParticleBehavior>>>().container;
     Instance inst = Instance::From(&behaviors);
 
-    // emplaceByType creates a live element whose dynamic type reflects + is editable in place.
-    Instance e = ContainerEmplaceByType(c, inst, 0, GravityBehavior::StaticType());
+    // createElement (via the registrant's serialization factory) builds a live element whose
+    // dynamic type reflects + is editable in place.
+    CHECK(ContainerCanCreateElement(c, GravityBehavior::StaticType())); // eligible
+    Instance e = ContainerCreateElement(c, inst, 0, GravityBehavior::StaticType());
     REQUIRE(e.Pointer() != nullptr);
     CHECK(e.Type() == &GravityBehavior::StaticType());
     REQUIRE(behaviors.Size() == 1u);
     CHECK(SetProperty(*FindProperty(*e.Type(), "multiplier"), e, Variant::From(2.0f)).IsOk());
     CHECK(GetProperty(*FindProperty(*e.Type(), "multiplier"), e).Get<f32>() == doctest::Approx(2.0f));
 
-    // The abstract base is not creatable -> clean failure, no insert.
-    CHECK(ContainerEmplaceByType(c, inst, 0, ParticleBehavior::StaticType()).Pointer() == nullptr);
+    // The abstract base is not creatable -> not eligible, and create fails cleanly (no insert).
+    CHECK_FALSE(ContainerCanCreateElement(c, ParticleBehavior::StaticType()));
+    CHECK(ContainerCreateElement(c, inst, 0, ParticleBehavior::StaticType()).Pointer() == nullptr);
     CHECK(behaviors.Size() == 1u);
 
     // Add a second, reorder, remove (module arrays are order-sensitive).
-    (void)ContainerEmplaceByType(c, inst, 1, AttractorBehavior::StaticType());
+    (void)ContainerCreateElement(c, inst, 1, AttractorBehavior::StaticType());
     REQUIRE(behaviors.Size() == 2u);
     CHECK(ContainerMoveElement(c, inst, 0, 1).IsOk());
     CHECK(behaviors[0]->GetType() == &AttractorBehavior::StaticType());

@@ -20,10 +20,11 @@ import :variant;
 import :instance;
 import :object;
 import :ref_counted;
-import :iserializable;         // ISerializable (polymorphic element base for create-by-type)
-import :serializable_registry; // GlobalSerializableRegistry - create-by-type for emplaceByType
-import :type_registry;         // GlobalTypeRegistry().All() - the derived-type query
-import :string;                // String attribute values (category/displayName) for the sort
+import :type_registry; // GlobalTypeRegistry().All() - the derived-type query (RTTI layer)
+import :string;        // String attribute values (category/displayName) for the sort
+// NB: reflection imports RTTI/base partitions ONLY (CONVENTIONS.md). Capability like create-by-type
+// flows IN through registration-time function pointers (createElement/canCreateElement), never a
+// serialization import - that would half-close a partition cycle (serialization consumes reflection).
 
 // ---------------------------------------------------------------------------
 // Properties (RTTI phase c)
@@ -541,11 +542,15 @@ export namespace draconic::core
         ContainerFlags flags = ContainerFlags::None;
         // Mutation ops (Variant-free - RefPtr elements are non-copyable, so everything is by
         // Instance/address). Null when the flavor does not support the op; callers null-check.
-        // - emplaceByType: POLYMORPHIC only - create `concrete` (via the serializable factory) at
-        //   `index`, return the new element's Instance (dynamic type) for editing; empty on failure.
+        // - createElement: POLYMORPHIC only - create `concrete` at `index` via the registrant's
+        //   factory (reflection defines + calls this slot but never imports the factory), return the
+        //   new element's Instance (dynamic type) for editing; empty on failure / read-only container.
+        // - canCreateElement: whether `concrete` is creatable here - backs the add-dropdown eligibility
+        //   filter so the derived-type query (EnumerateDerived) stays pure RTTI.
         // - emplaceDefault: HOMOGENEOUS Array<T>/BoundedArray - default-construct at `index`.
         // - removeAt / moveElement: both flavors (module arrays are order-sensitive, so move matters).
-        Instance (*emplaceByType)(const Instance&, usize index, const TypeInfo& concrete) = nullptr;
+        Instance (*createElement)(const Instance&, usize index, const TypeInfo& concrete) = nullptr;
+        bool (*canCreateElement)(const TypeInfo& concrete) = nullptr;
         Instance (*emplaceDefault)(const Instance&, usize index) = nullptr;
         Status (*removeAt)(const Instance&, usize index) = nullptr;
         Status (*moveElement)(const Instance&, usize from, usize to) = nullptr;
@@ -580,15 +585,20 @@ export namespace draconic::core
         return container.setAt(instance, index, value);
     }
 
-    // Mutation (null-op-safe). emplace returns the new element's Instance (empty on failure);
+    // Mutation (null-op-safe). create/emplace return the new element's Instance (empty on failure);
     // remove/move return NotSupported when the container flavor does not offer the op.
-    [[nodiscard]] inline Instance ContainerEmplaceByType(const ContainerInfo& container,
+    [[nodiscard]] inline Instance ContainerCreateElement(const ContainerInfo& container,
                                                          const Instance& instance, usize index,
                                                          const TypeInfo& concrete)
     {
-        return container.emplaceByType != nullptr
-                   ? container.emplaceByType(instance, index, concrete)
+        return container.createElement != nullptr
+                   ? container.createElement(instance, index, concrete)
                    : Instance{};
+    }
+    [[nodiscard]] inline bool ContainerCanCreateElement(const ContainerInfo& container,
+                                                        const TypeInfo& concrete)
+    {
+        return container.canCreateElement != nullptr && container.canCreateElement(concrete);
     }
     [[nodiscard]] inline Instance ContainerEmplaceDefault(const ContainerInfo& container,
                                                           const Instance& instance, usize index)
@@ -618,10 +628,10 @@ export namespace draconic::core
         return (s != nullptr) ? s->AsView() : fallback;
     }
 
-    // The concrete types that derive from `base` AND are creatable (registered in the serializable
-    // factory) - i.e. eligible for an "add element" of a polymorphic container. Abstract bases fall
-    // out automatically (never registered as creatable). Sorted by category then displayName for a
-    // stable UI order. This is the derived-type query behind a generic "add module" dropdown.
+    // The registered types that derive from `base` (excluding `base` itself), sorted by category
+    // then displayName for a stable UI order. PURE RTTI - it does not judge creatability; a consumer
+    // (the add-module dropdown) filters eligibility through the container's canCreateElement, which
+    // keeps this query free of any serialization/factory dependency.
     inline void EnumerateDerived(const TypeInfo& base, Array<const TypeInfo*>& out)
     {
         for (const TypeInfo* t : GlobalTypeRegistry().All())
@@ -630,18 +640,13 @@ export namespace draconic::core
             {
                 continue;
             }
-            bool derives = false;
             for (const TypeInfo* b = t->base; b != nullptr; b = b->base)
             {
                 if (b == &base)
                 {
-                    derives = true;
+                    out.PushBack(t);
                     break;
                 }
-            }
-            if (derives && GlobalSerializableRegistry().Contains(t->id))
-            {
-                out.PushBack(t);
             }
         }
         // Insertion sort by (category, displayName) - stable, N is small.
@@ -724,7 +729,8 @@ export namespace draconic::core
                 return Status{};
             },
             .flags = ContainerFlags::None,
-            .emplaceByType = nullptr, // homogeneous: the element type is fixed
+            .createElement = nullptr, // homogeneous: the element type is fixed - use emplaceDefault
+            .canCreateElement = nullptr,
             .emplaceDefault =
                 [](const Instance& i, usize index) -> Instance
             {
@@ -761,15 +767,30 @@ export namespace draconic::core
         const_cast<TypeInfo&>(TypeOf<Arr>()).container = &info;
     }
 
+    // Per-Base holder for the create-by-type factory a registrant supplies (namespace-scope static,
+    // so the captureless container slots can reach it). Read-only when left null.
+    template <typename Base>
+    struct PolymorphicElementFactory
+    {
+        static inline RefPtr<Base> (*create)(const TypeInfo&) = nullptr;
+        static inline bool (*canCreate)(const TypeInfo&) = nullptr;
+    };
+
     // Registers Array<RefPtr<Base>> as a POLYMORPHIC reflected container: getAt derefs the RefPtr
     // and returns an object-mode Variant whose Type() is the ELEMENT's dynamic type (so a consumer
     // recurses into the concrete derived type's properties). elementType stays the static Base; a
     // null element yields an empty Variant (consumers null-check). setAt is unsupported (elements
-    // are non-copyable); emplaceByType creates a concrete element via the serializable factory.
+    // are non-copyable). The create-by-type FACTORY is passed IN (createElement/canCreate) - reflection
+    // never imports it; omit both for a cleanly read-only container. The particles impl unit passes
+    // the standard serialization adapter.
     template <typename Base>
-    void RegisterPolymorphicArrayType()
+    void RegisterPolymorphicArrayType(RefPtr<Base> (*create)(const TypeInfo&) = nullptr,
+                                      bool (*canCreate)(const TypeInfo&) = nullptr)
     {
         using Arr = Array<RefPtr<Base>>;
+        using Factory = PolymorphicElementFactory<Base>;
+        Factory::create = create;
+        Factory::canCreate = canCreate;
         static const ContainerInfo info{
             .elementType = &Base::StaticType(),
             .size = [](const Instance& i) -> usize
@@ -783,24 +804,30 @@ export namespace draconic::core
             .setAt = [](const Instance&, usize, const Variant&) -> Status
             { return Status{ErrorCode::NotSupported}; },
             .flags = ContainerFlags::PolymorphicElements,
-            .emplaceByType =
+            .createElement =
                 [](const Instance& i, usize index, const TypeInfo& concrete) -> Instance
             {
+                if (Factory::create == nullptr) // read-only container (no factory supplied)
+                {
+                    return Instance{};
+                }
                 Arr* a = static_cast<Arr*>(i.Pointer());
                 if (index > a->Size())
                 {
                     return Instance{};
                 }
-                RefPtr<ISerializable> created = GlobalSerializableRegistry().Create(concrete.id);
-                Base* raw = Cast<Base>(created.Get()); // null if not creatable / not a Base
-                if (raw == nullptr)
+                RefPtr<Base> obj = Factory::create(concrete); // null if not creatable / not a Base
+                if (obj.Get() == nullptr)
                 {
                     return Instance{};
                 }
-                a->Insert(index, RefPtr<Base>(raw)); // addrefs; `created` releases at scope end
+                Base* raw = obj.Get();
+                a->Insert(index, Move(obj));
                 return Instance(raw, raw->GetType());
             },
-            .emplaceDefault = nullptr, // polymorphic: no default concrete type - use emplaceByType
+            .canCreateElement = [](const TypeInfo& concrete) -> bool
+            { return Factory::canCreate != nullptr && Factory::canCreate(concrete); },
+            .emplaceDefault = nullptr, // polymorphic: no default concrete type - use createElement
             .removeAt =
                 [](const Instance& i, usize index) -> Status
             {
@@ -1334,7 +1361,8 @@ export namespace draconic::core
                 .getAt = &detail::BoundedArrayGetAt<Owner, Elem, N, ArrayMember, CountMember>,
                 .setAt = &detail::BoundedArraySetAt<Owner, Elem, N, ArrayMember, CountMember>,
                 .flags = ContainerFlags::None,
-                .emplaceByType = nullptr,
+                .createElement = nullptr,
+                .canCreateElement = nullptr,
                 .emplaceDefault =
                     &detail::BoundedEmplaceDefault<Owner, Elem, N, ArrayMember, CountMember>,
                 .removeAt = &detail::BoundedRemoveAt<Owner, Elem, N, ArrayMember, CountMember>,

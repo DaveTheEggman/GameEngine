@@ -19,6 +19,7 @@ import :ref_counted;
 import :allocator;
 import :hash_map;
 import :iserializable;
+import :object; // Cast<Base> for the polymorphic-container create adapter
 
 export namespace draconic::core
 {
@@ -58,5 +59,22 @@ export namespace draconic::core
     {
         registry.Register(T::StaticType().id,
                           []() -> RefPtr<ISerializable> { return MakeRef<T>(DefaultAllocator()); });
+    }
+
+    // The standard create-by-type adapter for a polymorphic reflected container of `Base` elements:
+    // wraps this registry so reflection's RegisterPolymorphicArrayType<Base> can create + eligibility-
+    // check by type WITHOUT importing serialization (capability flows into reflection as function
+    // pointers - CONVENTIONS.md). Registrants pass &CreateSerializableElement<Base> +
+    // &CanCreateSerializableElement<Base>. Create returns null when `concrete` is unregistered or not
+    // a `Base` (the reflection side then reports a clean failure).
+    template <typename Base>
+    [[nodiscard]] RefPtr<Base> CreateSerializableElement(const TypeInfo& concrete)
+    {
+        return RefPtr<Base>(Cast<Base>(GlobalSerializableRegistry().Create(concrete.id).Get()));
+    }
+    template <typename Base>
+    [[nodiscard]] bool CanCreateSerializableElement(const TypeInfo& concrete)
+    {
+        return GlobalSerializableRegistry().Contains(concrete.id);
     }
 }
