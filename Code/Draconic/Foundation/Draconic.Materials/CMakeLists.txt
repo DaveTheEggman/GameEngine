@@ -8,6 +8,8 @@ target_link_libraries(Draconic.Materials
     PUBLIC Draconic::Core Draconic::RHI Draconic::Shaders Draconic::Policy)
 
 target_sources(Draconic.Materials
+    PRIVATE
+        TypesReflectionImpl.cpp   # render-state enum reflection (GCC hygiene: out of the interface)
     PUBLIC
         FILE_SET materials_modules TYPE CXX_MODULES FILES
             Types.cppm

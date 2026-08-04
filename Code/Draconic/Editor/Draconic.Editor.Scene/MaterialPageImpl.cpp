@@ -520,12 +520,21 @@ namespace draconic::editor
         static constexpr StringView kDepthItems[] = {u8"Disabled", u8"ReadWrite", u8"ReadOnly",
                                                      u8"WriteOnly"};
         static constexpr StringView kCullItems[] = {u8"None", u8"Back", u8"Front"};
+        // These render-state fields are now typed enums (each `: u8`); this bespoke dropdown edits
+        // the index in place, so it aliases the enum byte through its identical u8 representation.
+        // (A future reflection-first material page would use the reflected enum directly.)
         AddPipelineEnumRow(u8"Blend", Span<const StringView>{kBlendItems, 6},
-                           [](materials::MaterialSource& s) -> u8& { return s.blendMode; });
+                           [](materials::MaterialSource& s) -> u8& {
+                               return reinterpret_cast<u8&>(s.blendMode);
+                           });
         AddPipelineEnumRow(u8"Depth", Span<const StringView>{kDepthItems, 4},
-                           [](materials::MaterialSource& s) -> u8& { return s.depthMode; });
+                           [](materials::MaterialSource& s) -> u8& {
+                               return reinterpret_cast<u8&>(s.depthMode);
+                           });
         AddPipelineEnumRow(u8"Cull", Span<const StringView>{kCullItems, 3},
-                           [](materials::MaterialSource& s) -> u8& { return s.cullMode; });
+                           [](materials::MaterialSource& s) -> u8& {
+                               return reinterpret_cast<u8&>(s.cullMode);
+                           });
 
         // --- Properties: the source's uniform table (Float / Float4-as-color today) ---
         for (usize i = 0; i < src.propNames.Size(); ++i)

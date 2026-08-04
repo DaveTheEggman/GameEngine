@@ -265,3 +265,32 @@ TEST_CASE("material source: sampler address modes round-trip (v2)")
     FileDelete(u8"draconic_mat_sampler_db/wrapped.rasset");
     RemoveDirectory(u8"draconic_mat_sampler_db");
 }
+
+TEST_CASE("material resource: the retyped render-state enum fields round-trip byte-identically")
+{
+    // u8 -> BlendMode/DepthMode/CullModeConfig/VertexLayoutType (Fable Q2). Each enum serializes as
+    // its underlying u8, so the wire is unchanged and old bytes load into the enum. These four are
+    // serialized unconditionally (before the version-gated sampler fields), so version is irrelevant.
+    MaterialSource out;
+    out.blendMode = BlendMode::Additive;               // != default Opaque
+    out.depthMode = DepthMode::WriteOnly;              // != default ReadWrite
+    out.cullMode = CullModeConfig::Front;              // != default Back
+    out.vertexLayout = VertexLayoutType::SkinnedMesh;  // != default Mesh
+
+    MemoryStream buffer;
+    {
+        BinarySerializer writer(buffer, SerializeMode::Write);
+        out.Serialize(writer);
+    }
+    MaterialSource in;
+    {
+        (void)buffer.Seek(0, SeekOrigin::Begin);
+        BinarySerializer reader(buffer, SerializeMode::Read);
+        in.Serialize(reader);
+    }
+
+    CHECK(in.blendMode == BlendMode::Additive);
+    CHECK(in.depthMode == DepthMode::WriteOnly);
+    CHECK(in.cullMode == CullModeConfig::Front);
+    CHECK(in.vertexLayout == VertexLayoutType::SkinnedMesh);
+}

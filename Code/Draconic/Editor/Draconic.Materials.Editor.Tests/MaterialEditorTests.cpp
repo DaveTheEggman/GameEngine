@@ -73,8 +73,8 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
         REQUIRE(cooked != nullptr);
         CHECK(cooked->name == u8"litMat");
         CHECK(cooked->shaderId == shaderId);
-        CHECK(cooked->blendMode == static_cast<u8>(BlendMode::AlphaBlend)); // .Transparent()
-        CHECK(cooked->depthMode == static_cast<u8>(DepthMode::ReadOnly));
+        CHECK(cooked->blendMode == BlendMode::AlphaBlend); // .Transparent()
+        CHECK(cooked->depthMode == DepthMode::ReadOnly);
         REQUIRE(cooked->propNames.Size() == 3);
         CHECK(cooked->propNames[0] == u8"tint");
         CHECK(cooked->propNames[1] == u8"metallic");
@@ -100,7 +100,7 @@ TEST_CASE("material editor: MaterialAsset exposes MaterialSource as a NESTED pro
     CHECK(PropertyCount(MaterialSource::StaticType()) == 10u); // the reflected scalar surface
 
     MaterialAsset asset;
-    asset.source.blendMode = 3;
+    asset.source.blendMode = BlendMode::Masked;
     asset.source.shaderFlags = 7u;
     Instance assetInst = Instance::From(&asset);
 
@@ -115,6 +115,22 @@ TEST_CASE("material editor: MaterialAsset exposes MaterialSource as a NESTED pro
     const PropertyInfo* flagsProp = FindProperty(*srcProp->type, "shaderFlags");
     REQUIRE(blendProp != nullptr);
     REQUIRE(flagsProp != nullptr);
-    CHECK(GetProperty(*blendProp, srcInst).Get<u8>() == static_cast<u8>(3));
+    CHECK(GetProperty(*blendProp, srcInst).Get<BlendMode>() == BlendMode::Masked);
     CHECK(GetProperty(*flagsProp, srcInst).Get<u32>() == 7u);
+}
+
+TEST_CASE("material editor: retyped render-state fields reflect as NAMED enums (dropdown-ready)")
+{
+    RegisterMaterialAsset(); // registers the render-state enums (RegisterMaterialsTypeReflection)
+
+    const PropertyInfo* blendProp = FindProperty(MaterialSource::StaticType(), "blendMode");
+    REQUIRE(blendProp != nullptr);
+    REQUIRE(blendProp->type != nullptr);
+    CHECK(IsEnum(*blendProp->type)); // tooling can render a name dropdown, not a raw int
+    CHECK(Enumerators(*blendProp->type).Size() == 6u); // BlendMode's six named values
+
+    const PropertyInfo* cullProp = FindProperty(MaterialSource::StaticType(), "cullMode");
+    REQUIRE(cullProp != nullptr);
+    CHECK(IsEnum(*cullProp->type));
+    CHECK(Enumerators(*cullProp->type).Size() == 3u); // None/Back/Front
 }

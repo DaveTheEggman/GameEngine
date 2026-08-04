@@ -125,4 +125,9 @@ export namespace draconic::materials
         Custom,
     };
 
+    /// Reflects the render-state enums above (BlendMode/DepthMode/CullModeConfig/VertexLayoutType)
+    /// so a reflected MaterialSource property of one of these types renders as a name dropdown.
+    /// Idempotent; defined in TypesReflectionImpl.cpp. Call from a startup registrar.
+    void RegisterMaterialsTypeReflection();
+
 } // namespace draconic::materials

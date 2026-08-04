@@ -223,17 +223,17 @@ export namespace draconic::modelimporter
                 if (m.alphaMode == draconic::model::AlphaMode::Mask)
                 {
                     asset.source.blendMode =
-                        static_cast<u8>(draconic::materials::BlendMode::Masked);
+                        draconic::materials::BlendMode::Masked;
                 }
                 else if (m.alphaMode == draconic::model::AlphaMode::Blend)
                 {
                     asset.source.blendMode =
-                        static_cast<u8>(draconic::materials::BlendMode::AlphaBlend);
+                        draconic::materials::BlendMode::AlphaBlend;
                 }
                 if (m.doubleSided)
                 {
                     asset.source.cullMode =
-                        static_cast<u8>(draconic::materials::CullModeConfig::None);
+                        draconic::materials::CullModeConfig::None;
                 }
                 MaterialSamplerModes(model, m, asset.source.samplerU, asset.source.samplerV);
             }

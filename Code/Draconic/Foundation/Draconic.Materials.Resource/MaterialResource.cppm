@@ -43,10 +43,10 @@ export namespace draconic::materials
         Guid shaderId;     // a cooked ShaderResource; nil -> use shaderName (a builtin)
         String shaderName; // builtin shader name fallback (when shaderId is nil)
         u32 shaderFlags = 0;
-        u8 blendMode = static_cast<u8>(BlendMode::Opaque);
-        u8 depthMode = static_cast<u8>(DepthMode::ReadWrite);
-        u8 cullMode = static_cast<u8>(CullModeConfig::Back);
-        u8 vertexLayout = static_cast<u8>(VertexLayoutType::Mesh);
+        BlendMode blendMode = BlendMode::Opaque;
+        DepthMode depthMode = DepthMode::ReadWrite;
+        CullModeConfig cullMode = CullModeConfig::Back;
+        VertexLayoutType vertexLayout = VertexLayoutType::Mesh;
         // Sampler address modes (rhi::AddressMode values: 0 Repeat, 1 MirrorRepeat,
         // 2 ClampToEdge) - wired from the source asset's sampler at import (v2).
         u8 samplerU = 0;
@@ -101,10 +101,10 @@ export namespace draconic::materials
             out.shaderId = shaderId;
             out.shaderName = String(material.shaderName.AsView());
             out.shaderFlags = static_cast<u32>(material.shaderFlags);
-            out.blendMode = static_cast<u8>(material.pipeline.blendMode);
-            out.depthMode = static_cast<u8>(material.pipeline.depthMode);
-            out.cullMode = static_cast<u8>(material.pipeline.cullMode);
-            out.vertexLayout = static_cast<u8>(material.pipeline.vertexLayout);
+            out.blendMode = material.pipeline.blendMode;
+            out.depthMode = material.pipeline.depthMode;
+            out.cullMode = material.pipeline.cullMode;
+            out.vertexLayout = material.pipeline.vertexLayout;
             out.samplerU = static_cast<u8>(material.samplerU);
             out.samplerV = static_cast<u8>(material.samplerV);
 
@@ -268,10 +268,10 @@ export namespace draconic::materials
             material->pipeline = PipelineConfig{};
             material->pipeline.shaderName = material->shaderName.AsView();
             material->pipeline.shaderFlags = material->shaderFlags;
-            material->pipeline.blendMode = static_cast<BlendMode>(src->blendMode);
-            material->pipeline.depthMode = static_cast<DepthMode>(src->depthMode);
-            material->pipeline.cullMode = static_cast<CullModeConfig>(src->cullMode);
-            material->pipeline.vertexLayout = static_cast<VertexLayoutType>(src->vertexLayout);
+            material->pipeline.blendMode = src->blendMode;
+            material->pipeline.depthMode = src->depthMode;
+            material->pipeline.cullMode = src->cullMode;
+            material->pipeline.vertexLayout = src->vertexLayout;
             material->samplerU = static_cast<rhi::AddressMode>(src->samplerU);
             material->samplerV = static_cast<rhi::AddressMode>(src->samplerV);
 
