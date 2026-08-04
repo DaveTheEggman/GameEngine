@@ -75,6 +75,24 @@ namespace draconic::core::detail
 
 export namespace draconic::core
 {
+    // Reflection mutation generation: bumped whenever a reflected container is STRUCTURALLY mutated
+    // (create/emplace/remove/move - the reflection wrappers bump it centrally so registrants cannot
+    // forget). A Variant borrow captures the current value and revalidates on every dereference; any
+    // structural mutation between capture and use invalidates ALL live borrows (coarse by design - a
+    // borrow is a cached raw pointer, same rule as the bind-group-cache generation). Main-thread:
+    // reflection mutation is main-thread by the async rules. Lives here (the lowest partition both the
+    // Variant borrow and the :reflection container wrappers share) to avoid a partition cycle.
+    [[nodiscard]] inline u64& ReflectionMutationGenerationRef() noexcept
+    {
+        static u64 generation = 1; // start at 1 so a default (0) borrow generation never matches
+        return generation;
+    }
+    [[nodiscard]] inline u64 GlobalReflectionMutationGeneration() noexcept
+    {
+        return ReflectionMutationGenerationRef();
+    }
+    inline void BumpReflectionMutationGeneration() noexcept { ++ReflectionMutationGenerationRef(); }
+
     class Variant
     {
     public:
@@ -111,7 +129,42 @@ export namespace draconic::core
             return From<RefPtr<Object>>(object);
         }
 
-        Variant(const Variant& other) : m_dynamicType(other.m_dynamicType), m_vtable(other.m_vtable)
+        // A BORROW: a handle over a member/element ADDRESS (`addr`, reflected `type`) that pins its
+        // owning object graph alive via `parent`'s root and revalidates against the mutation
+        // generation on every dereference. Internally an object-mode Variant whose SBO holds the
+        // KEEP-ALIVE root RefPtr; `m_borrowAddr` overrides ToInstance to point at the borrowed member.
+        // The root is `parent`'s object (object-mode parent) or `parent`'s own root (borrow-mode
+        // parent - so N-level descent pins the same root). A value-mode parent has no object to pin,
+        // so the borrow is REFUSED (empty) - no script author can reason about an engine-temporary's
+        // lifetime, and all facade roots are object-mode anyway (Fable ruling).
+        [[nodiscard]] static Variant Borrow(void* addr, const TypeInfo* type, const Variant& parent)
+        {
+            if (addr == nullptr || type == nullptr)
+            {
+                return Variant{};
+            }
+            Variant v;
+            if (parent.IsBorrow())
+            {
+                v = parent; // copies the keep-alive root RefPtr (and vtable/dynamic type)
+            }
+            else if (parent.m_dynamicType != nullptr) // owned object (not a borrow): pin it
+            {
+                v = From<RefPtr<Object>>(RefPtr<Object>(parent.AsObject()));
+            }
+            else
+            {
+                return Variant{}; // value-mode parent: refuse
+            }
+            v.m_borrowAddr = addr;
+            v.m_dynamicType = type; // Type() reports the borrowed member's type
+            v.m_borrowGeneration = GlobalReflectionMutationGeneration();
+            return v;
+        }
+
+        Variant(const Variant& other)
+            : m_dynamicType(other.m_dynamicType), m_vtable(other.m_vtable),
+              m_borrowAddr(other.m_borrowAddr), m_borrowGeneration(other.m_borrowGeneration)
         {
             if (m_vtable != nullptr)
             {
@@ -121,7 +174,8 @@ export namespace draconic::core
         }
 
         Variant(Variant&& other) noexcept
-            : m_dynamicType(other.m_dynamicType), m_vtable(other.m_vtable)
+            : m_dynamicType(other.m_dynamicType), m_vtable(other.m_vtable),
+              m_borrowAddr(other.m_borrowAddr), m_borrowGeneration(other.m_borrowGeneration)
         {
             if (m_vtable != nullptr)
             {
@@ -140,6 +194,8 @@ export namespace draconic::core
             other.m_vtable = nullptr;
             other.m_isHeap = false;
             other.m_dynamicType = nullptr;
+            other.m_borrowAddr = nullptr;
+            other.m_borrowGeneration = 0;
         }
 
         Variant& operator=(const Variant& other)
@@ -149,6 +205,8 @@ export namespace draconic::core
                 Reset();
                 m_dynamicType = other.m_dynamicType;
                 m_vtable = other.m_vtable;
+                m_borrowAddr = other.m_borrowAddr;
+                m_borrowGeneration = other.m_borrowGeneration;
                 if (m_vtable != nullptr)
                 {
                     void* dst = AllocateStorage(m_vtable->size, m_vtable->align);
@@ -165,6 +223,8 @@ export namespace draconic::core
                 Reset();
                 m_dynamicType = other.m_dynamicType;
                 m_vtable = other.m_vtable;
+                m_borrowAddr = other.m_borrowAddr;
+                m_borrowGeneration = other.m_borrowGeneration;
                 if (m_vtable != nullptr)
                 {
                     if (other.m_isHeap)
@@ -182,6 +242,8 @@ export namespace draconic::core
                 other.m_vtable = nullptr;
                 other.m_isHeap = false;
                 other.m_dynamicType = nullptr;
+                other.m_borrowAddr = nullptr;
+                other.m_borrowGeneration = 0;
             }
             return *this;
         }
@@ -201,27 +263,60 @@ export namespace draconic::core
             m_vtable = nullptr;
             m_isHeap = false;
             m_dynamicType = nullptr;
+            m_borrowAddr = nullptr;
+            m_borrowGeneration = 0;
         }
 
         [[nodiscard]] bool IsEmpty() const noexcept { return m_vtable == nullptr; }
         [[nodiscard]] explicit operator bool() const noexcept { return m_vtable != nullptr; }
 
-        // True if this holds an object (RefPtr<Object>), not a plain value.
-        [[nodiscard]] bool IsObject() const noexcept { return m_dynamicType != nullptr; }
+        // True if this holds an OWNED object (RefPtr<Object>), not a plain value and NOT a borrow.
+        // A borrow's SBO also holds a RefPtr (its keep-alive root), but that root is NOT the value the
+        // borrow represents - so a borrow is excluded here, or AsObject()-style extraction would hand
+        // back the wrong object (the root) and marshal it as the borrowed type (Fable ruling).
+        [[nodiscard]] bool IsObject() const noexcept
+        {
+            return m_dynamicType != nullptr && m_borrowAddr == nullptr;
+        }
+
+        // True if this is a borrow (a handle over a member/element address; see Borrow()).
+        [[nodiscard]] bool IsBorrow() const noexcept { return m_borrowAddr != nullptr; }
+
+        // The borrowed address (borrows only; null otherwise).
+        [[nodiscard]] void* BorrowAddress() const noexcept { return m_borrowAddr; }
+
+        // Whether a borrow is still live: no structural reflection mutation has happened since capture.
+        // A stale borrow (owner element removed / array reallocated) fails this - callers then treat it
+        // as empty rather than dereferencing a dangling address.
+        [[nodiscard]] bool BorrowValid() const noexcept
+        {
+            return m_borrowAddr != nullptr &&
+                   m_borrowGeneration == GlobalReflectionMutationGeneration();
+        }
+
+        // The keep-alive root object a borrow pins (borrows only; null otherwise). Explicitly named so
+        // nothing mistakes it for the borrowed value (which is a subobject at BorrowAddress()).
+        [[nodiscard]] Object* BorrowRoot() const noexcept
+        {
+            return (m_borrowAddr != nullptr && m_dynamicType != nullptr)
+                       ? static_cast<const RefPtr<Object>*>(Data())->Get()
+                       : nullptr;
+        }
 
         [[nodiscard]] const TypeInfo* Type() const noexcept
         {
             if (m_dynamicType != nullptr)
             {
                 return m_dynamicType;
-            } // object: dynamic type
+            } // object / borrow: the (dynamic / borrowed) type
             return m_vtable != nullptr ? m_vtable->typeInfo() : nullptr;
         }
 
-        // Borrowed view of the held object, or null if empty / not an object.
+        // Borrowed view of the held OWNED object, or null if empty / not an owned object. A borrow
+        // returns null here (its stored RefPtr is the keep-alive root, not the borrowed value).
         [[nodiscard]] Object* AsObject() const noexcept
         {
-            if (m_dynamicType == nullptr)
+            if (m_dynamicType == nullptr || m_borrowAddr != nullptr)
             {
                 return nullptr;
             }
@@ -305,7 +400,9 @@ export namespace draconic::core
 
         Storage m_storage{};
         bool m_isHeap = false;
-        const TypeInfo* m_dynamicType = nullptr; // non-null => object mode (dynamic type)
+        const TypeInfo* m_dynamicType = nullptr; // non-null => object OR borrow (dynamic/borrowed type)
         const detail::VariantVTable* m_vtable = nullptr;
+        void* m_borrowAddr = nullptr; // non-null => BORROW mode; overrides ToInstance to this address
+        u64 m_borrowGeneration = 0;   // mutation generation captured at Borrow(); revalidated on deref
     };
 }

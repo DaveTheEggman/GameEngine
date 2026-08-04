@@ -662,6 +662,85 @@ TEST_CASE("rtti: an Array<UniquePtr<T>> reflects a move-only value via addressAt
     CHECK_FALSE(ContainerSetAt(c, inst, 0, Variant{}).IsOk());
 }
 
+TEST_CASE("rtti: a Variant borrow edits a nested value in place, pins its root, survives value writes")
+{
+    RefPtr<NestedOwner> owner = MakeRef<NestedOwner>(DefaultAllocator());
+    owner->leaf.value = 3;
+    Variant parent = Variant::From(owner); // object-mode root handle
+    void* leafAddr = &owner->leaf;
+
+    Variant borrow = Variant::Borrow(leafAddr, &NestedLeaf::StaticType(), parent);
+    REQUIRE(borrow.IsBorrow());
+    CHECK_FALSE(borrow.IsObject());          // a borrow is NOT an owned object handle
+    CHECK(borrow.AsObject() == nullptr);     // ... and never hands back the keep-alive root
+    CHECK(borrow.BorrowRoot() == owner.Get()); // the pinned root is reachable only by name
+    CHECK(borrow.Type() == &NestedLeaf::StaticType());
+
+    const PropertyInfo* vp = FindProperty(NestedLeaf::StaticType(), "value");
+    REQUIRE(vp != nullptr);
+
+    // Read + in-place write through the borrow reach the real subobject.
+    CHECK(GetProperty(*vp, ToInstance(borrow)).Get<int>() == 3);
+    CHECK(SetProperty(*vp, ToInstance(borrow), Variant::From(9)).IsOk());
+    CHECK(owner->leaf.value == 9);
+    CHECK(borrow.BorrowValid()); // a value write does NOT invalidate a borrow (only structural ops)
+
+    // Keep-alive: drop the caller's ref AND the parent handle; the borrow's own keep-alive keeps the
+    // graph alive, so the edit target is still valid.
+    NestedOwner* raw = owner.Get();
+    owner.Reset();
+    parent = Variant{};
+    Instance stillLive = ToInstance(borrow);
+    REQUIRE(stillLive.Pointer() == &raw->leaf);
+    CHECK(GetProperty(*vp, stillLive).Get<int>() == 9);
+}
+
+TEST_CASE("rtti: a Variant borrow goes stale on structural container mutation (no UAF)")
+{
+    DraconicRegisterValue_UniqueLeaf();
+    RegisterUniquePtrArrayType<UniqueLeaf>();
+    const ContainerInfo& c = *TypeOf<Array<UniquePtr<UniqueLeaf>>>().container;
+    Array<UniquePtr<UniqueLeaf>> arr;
+    UniquePtr<UniqueLeaf> a = MakeUnique<UniqueLeaf>(DefaultAllocator());
+    a->value = 11;
+    arr.PushBack(Move(a));
+    Instance arrInst = Instance::From(&arr);
+
+    RefPtr<Animal> root = MakeRef<Animal>(DefaultAllocator()); // any object to pin
+    Variant parent = Variant::From(root);
+
+    const Instance elem = ContainerAddressAt(c, arrInst, 0);
+    Variant borrow = Variant::Borrow(elem.Pointer(), &TypeOf<UniqueLeaf>(), parent);
+    REQUIRE(borrow.BorrowValid());
+    const PropertyInfo* vp = FindProperty(TypeOf<UniqueLeaf>(), "value");
+    CHECK(GetProperty(*vp, ToInstance(borrow)).Get<int>() == 11);
+
+    // A structural mutation bumps the generation - the borrow is now stale and dereferences to an
+    // EMPTY Instance rather than the freed pointee. (ASAN would flag a UAF if it dereferenced.)
+    CHECK(ContainerRemoveAt(c, arrInst, 0).IsOk());
+    CHECK_FALSE(borrow.BorrowValid());
+    CHECK(ToInstance(borrow).Pointer() == nullptr);
+
+    // An emplace (also structural) would likewise invalidate a fresh borrow.
+    UniquePtr<UniqueLeaf> b = MakeUnique<UniqueLeaf>(DefaultAllocator());
+    b->value = 22;
+    arr.PushBack(Move(b));
+    Variant borrow2 = Variant::Borrow(ContainerAddressAt(c, arrInst, 0).Pointer(),
+                                      &TypeOf<UniqueLeaf>(), parent);
+    REQUIRE(borrow2.BorrowValid());
+    (void)ContainerEmplaceDefault(c, arrInst, 1);
+    CHECK_FALSE(borrow2.BorrowValid());
+}
+
+TEST_CASE("rtti: a value-mode parent refuses to yield a borrow")
+{
+    Variant valueParent = Variant::From(42); // not an object - nothing to pin
+    int scratch = 0;
+    Variant borrow = Variant::Borrow(&scratch, &TypeOf<int>(), valueParent);
+    CHECK(borrow.IsEmpty());
+    CHECK_FALSE(borrow.IsBorrow());
+}
+
 TEST_CASE("rtti: inherited property is found through the base chain")
 {
     // Dog declares no properties of its own but inherits 'legs' from Animal.

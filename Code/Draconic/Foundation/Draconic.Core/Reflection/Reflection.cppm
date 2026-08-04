@@ -346,6 +346,13 @@ export namespace draconic::core
     // layers that call properties/methods on a reflected Variant).
     [[nodiscard]] inline Instance ToInstance(Variant& value) noexcept
     {
+        if (value.IsBorrow())
+        {
+            // A borrow points into a parent's storage; a structural mutation since capture may have
+            // freed/moved it. Revalidate against the mutation generation - stale => empty Instance, so
+            // the caller (a script get/set) fails cleanly instead of dereferencing a dangling address.
+            return value.BorrowValid() ? Instance(value.BorrowAddress(), value.Type()) : Instance{};
+        }
         if (value.IsObject())
         {
             return Instance(value.AsObject(), value.Type());
@@ -598,9 +605,13 @@ export namespace draconic::core
                                                          const Instance& instance, usize index,
                                                          const TypeInfo& concrete)
     {
-        return container.createElement != nullptr
-                   ? container.createElement(instance, index, concrete)
-                   : Instance{};
+        if (container.createElement == nullptr)
+        {
+            return Instance{};
+        }
+        const Instance created = container.createElement(instance, index, concrete);
+        BumpReflectionMutationGeneration(); // structural: invalidates any live borrows into this array
+        return created;
     }
     [[nodiscard]] inline bool ContainerCanCreateElement(const ContainerInfo& container,
                                                         const TypeInfo& concrete)
@@ -610,20 +621,35 @@ export namespace draconic::core
     [[nodiscard]] inline Instance ContainerEmplaceDefault(const ContainerInfo& container,
                                                           const Instance& instance, usize index)
     {
-        return container.emplaceDefault != nullptr ? container.emplaceDefault(instance, index)
-                                                   : Instance{};
+        if (container.emplaceDefault == nullptr)
+        {
+            return Instance{};
+        }
+        const Instance created = container.emplaceDefault(instance, index);
+        BumpReflectionMutationGeneration(); // structural
+        return created;
     }
     inline Status ContainerRemoveAt(const ContainerInfo& container, const Instance& instance,
                                     usize index)
     {
-        return container.removeAt != nullptr ? container.removeAt(instance, index)
-                                             : Status{ErrorCode::NotSupported};
+        if (container.removeAt == nullptr)
+        {
+            return Status{ErrorCode::NotSupported};
+        }
+        const Status status = container.removeAt(instance, index);
+        BumpReflectionMutationGeneration(); // structural
+        return status;
     }
     inline Status ContainerMoveElement(const ContainerInfo& container, const Instance& instance,
                                        usize from, usize to)
     {
-        return container.moveElement != nullptr ? container.moveElement(instance, from, to)
-                                                : Status{ErrorCode::NotSupported};
+        if (container.moveElement == nullptr)
+        {
+            return Status{ErrorCode::NotSupported};
+        }
+        const Status status = container.moveElement(instance, from, to);
+        BumpReflectionMutationGeneration(); // structural (element addresses may shift)
+        return status;
     }
     // Borrowed Instance for element `index` (empty when the flavor offers no address access, or the
     // element is null / out of range). Consumers recurse into it via the element type's properties.
