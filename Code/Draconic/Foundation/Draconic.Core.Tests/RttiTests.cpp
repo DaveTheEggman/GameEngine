@@ -490,6 +490,53 @@ TEST_CASE("rtti: a BoundedArray reflects a count-bound C-array as a clamped cont
     CHECK(ContainerSize(c, sub) == 0u);
 }
 
+TEST_CASE("rtti: container mutation - emplaceDefault / removeAt / moveElement")
+{
+    // Homogeneous Array<int>.
+    RegisterArrayType<int>();
+    Array<int> arr;
+    arr.PushBack(10);
+    arr.PushBack(20);
+    arr.PushBack(30);
+    const ContainerInfo& c = *TypeOf<Array<int>>().container;
+    Instance inst = Instance::From(&arr);
+
+    (void)ContainerEmplaceDefault(c, inst, 1); // [10, 0, 20, 30]
+    REQUIRE(arr.Size() == 4u);
+    CHECK(arr[1] == 0);
+    CHECK(ContainerRemoveAt(c, inst, 1).IsOk()); // [10, 20, 30]
+    REQUIRE(arr.Size() == 3u);
+    CHECK(arr[1] == 20);
+    CHECK(ContainerMoveElement(c, inst, 0, 2).IsOk()); // [20, 30, 10]
+    CHECK(arr[0] == 20);
+    CHECK(arr[1] == 30);
+    CHECK(arr[2] == 10);
+    CHECK_FALSE(ContainerRemoveAt(c, inst, 9).IsOk()); // out of range
+
+    // BoundedArray mutation respects the count + capacity.
+    DraconicRegisterValue_BoundedThing();
+    const PropertyInfo* prop = FindProperty(TypeOf<BoundedThing>(), "values");
+    REQUIRE(prop != nullptr);
+    const ContainerInfo& bc = *prop->type->container;
+    BoundedThing t;
+    t.values[0] = 5;
+    t.count = 1;
+    Instance ti = Instance::From(&t);
+    const Instance sub(prop->address(ti), prop->type);
+
+    (void)ContainerEmplaceDefault(bc, sub, 0); // count 2: [0, 5]
+    CHECK(t.count == 2);
+    CHECK(t.values[0] == 0);
+    CHECK(t.values[1] == 5);
+    (void)ContainerEmplaceDefault(bc, sub, 2); // count 3
+    (void)ContainerEmplaceDefault(bc, sub, 3); // count 4 == N
+    CHECK(t.count == 4);
+    CHECK(ContainerEmplaceDefault(bc, sub, 4).Pointer() == nullptr); // full -> fails cleanly
+    CHECK(t.count == 4);
+    CHECK(ContainerRemoveAt(bc, sub, 1).IsOk()); // count 3
+    CHECK(t.count == 3);
+}
+
 TEST_CASE("rtti: a polymorphic container resolves each element to its DYNAMIC type")
 {
     RegisterPolymorphicArrayType<Animal>();

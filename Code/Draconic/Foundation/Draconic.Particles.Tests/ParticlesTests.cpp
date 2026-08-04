@@ -869,3 +869,42 @@ TEST_CASE("particle reflection (batch 5): a polymorphic module array resolves ea
     CHECK(GetProperty(*FindProperty(*e1.Type(), "strength"), i1).Get<f32>() ==
           doctest::Approx(7.0f));
 }
+
+TEST_CASE("particle reflection (batch 6): polymorphic add/remove/move + EnumerateDerived")
+{
+    using namespace draconic::particles;
+    RegisterParticleModules();
+
+    Array<RefPtr<ParticleBehavior>> behaviors;
+    const ContainerInfo& c = *TypeOf<Array<RefPtr<ParticleBehavior>>>().container;
+    Instance inst = Instance::From(&behaviors);
+
+    // emplaceByType creates a live element whose dynamic type reflects + is editable in place.
+    Instance e = ContainerEmplaceByType(c, inst, 0, GravityBehavior::StaticType());
+    REQUIRE(e.Pointer() != nullptr);
+    CHECK(e.Type() == &GravityBehavior::StaticType());
+    REQUIRE(behaviors.Size() == 1u);
+    CHECK(SetProperty(*FindProperty(*e.Type(), "multiplier"), e, Variant::From(2.0f)).IsOk());
+    CHECK(GetProperty(*FindProperty(*e.Type(), "multiplier"), e).Get<f32>() == doctest::Approx(2.0f));
+
+    // The abstract base is not creatable -> clean failure, no insert.
+    CHECK(ContainerEmplaceByType(c, inst, 0, ParticleBehavior::StaticType()).Pointer() == nullptr);
+    CHECK(behaviors.Size() == 1u);
+
+    // Add a second, reorder, remove (module arrays are order-sensitive).
+    (void)ContainerEmplaceByType(c, inst, 1, AttractorBehavior::StaticType());
+    REQUIRE(behaviors.Size() == 2u);
+    CHECK(ContainerMoveElement(c, inst, 0, 1).IsOk());
+    CHECK(behaviors[0]->GetType() == &AttractorBehavior::StaticType());
+    CHECK(ContainerRemoveAt(c, inst, 0).IsOk());
+    CHECK(behaviors.Size() == 1u);
+
+    // EnumerateDerived lists the creatable behaviors (13), never the abstract base.
+    Array<const TypeInfo*> derived;
+    EnumerateDerived(ParticleBehavior::StaticType(), derived);
+    CHECK(derived.Size() == 13u);
+    for (const TypeInfo* t : derived)
+    {
+        CHECK(t != &ParticleBehavior::StaticType());
+    }
+}

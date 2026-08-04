@@ -20,6 +20,10 @@ import :variant;
 import :instance;
 import :object;
 import :ref_counted;
+import :iserializable;         // ISerializable (polymorphic element base for create-by-type)
+import :serializable_registry; // GlobalSerializableRegistry - create-by-type for emplaceByType
+import :type_registry;         // GlobalTypeRegistry().All() - the derived-type query
+import :string;                // String attribute values (category/displayName) for the sort
 
 // ---------------------------------------------------------------------------
 // Properties (RTTI phase c)
@@ -535,6 +539,16 @@ export namespace draconic::core
         Variant (*getAt)(const Instance&, usize index);
         Status (*setAt)(const Instance&, usize index, const Variant& value);
         ContainerFlags flags = ContainerFlags::None;
+        // Mutation ops (Variant-free - RefPtr elements are non-copyable, so everything is by
+        // Instance/address). Null when the flavor does not support the op; callers null-check.
+        // - emplaceByType: POLYMORPHIC only - create `concrete` (via the serializable factory) at
+        //   `index`, return the new element's Instance (dynamic type) for editing; empty on failure.
+        // - emplaceDefault: HOMOGENEOUS Array<T>/BoundedArray - default-construct at `index`.
+        // - removeAt / moveElement: both flavors (module arrays are order-sensitive, so move matters).
+        Instance (*emplaceByType)(const Instance&, usize index, const TypeInfo& concrete) = nullptr;
+        Instance (*emplaceDefault)(const Instance&, usize index) = nullptr;
+        Status (*removeAt)(const Instance&, usize index) = nullptr;
+        Status (*moveElement)(const Instance&, usize from, usize to) = nullptr;
     };
 
     [[nodiscard]] inline bool IsContainer(const TypeInfo& type) noexcept
@@ -566,50 +580,250 @@ export namespace draconic::core
         return container.setAt(instance, index, value);
     }
 
-    // Registers Array<T> as a reflected container (patches TypeOf<Array<T>>()).
+    // Mutation (null-op-safe). emplace returns the new element's Instance (empty on failure);
+    // remove/move return NotSupported when the container flavor does not offer the op.
+    [[nodiscard]] inline Instance ContainerEmplaceByType(const ContainerInfo& container,
+                                                         const Instance& instance, usize index,
+                                                         const TypeInfo& concrete)
+    {
+        return container.emplaceByType != nullptr
+                   ? container.emplaceByType(instance, index, concrete)
+                   : Instance{};
+    }
+    [[nodiscard]] inline Instance ContainerEmplaceDefault(const ContainerInfo& container,
+                                                          const Instance& instance, usize index)
+    {
+        return container.emplaceDefault != nullptr ? container.emplaceDefault(instance, index)
+                                                   : Instance{};
+    }
+    inline Status ContainerRemoveAt(const ContainerInfo& container, const Instance& instance,
+                                    usize index)
+    {
+        return container.removeAt != nullptr ? container.removeAt(instance, index)
+                                             : Status{ErrorCode::NotSupported};
+    }
+    inline Status ContainerMoveElement(const ContainerInfo& container, const Instance& instance,
+                                       usize from, usize to)
+    {
+        return container.moveElement != nullptr ? container.moveElement(instance, from, to)
+                                                : Status{ErrorCode::NotSupported};
+    }
+
+    // A type attribute's String value (e.g. "category" / "displayName"), or a fallback.
+    [[nodiscard]] inline StringView TypeAttrString(const TypeInfo& type, const char* key,
+                                                   StringView fallback) noexcept
+    {
+        const Variant* v = FindAttribute(type, key);
+        const String* s = (v != nullptr) ? v->TryGet<String>() : nullptr;
+        return (s != nullptr) ? s->AsView() : fallback;
+    }
+
+    // The concrete types that derive from `base` AND are creatable (registered in the serializable
+    // factory) - i.e. eligible for an "add element" of a polymorphic container. Abstract bases fall
+    // out automatically (never registered as creatable). Sorted by category then displayName for a
+    // stable UI order. This is the derived-type query behind a generic "add module" dropdown.
+    inline void EnumerateDerived(const TypeInfo& base, Array<const TypeInfo*>& out)
+    {
+        for (const TypeInfo* t : GlobalTypeRegistry().All())
+        {
+            if (t == &base)
+            {
+                continue;
+            }
+            bool derives = false;
+            for (const TypeInfo* b = t->base; b != nullptr; b = b->base)
+            {
+                if (b == &base)
+                {
+                    derives = true;
+                    break;
+                }
+            }
+            if (derives && GlobalSerializableRegistry().Contains(t->id))
+            {
+                out.PushBack(t);
+            }
+        }
+        // Insertion sort by (category, displayName) - stable, N is small.
+        auto cmp = [](StringView a, StringView b) noexcept -> int
+        {
+            const usize n = a.Size() < b.Size() ? a.Size() : b.Size();
+            for (usize i = 0; i < n; ++i)
+            {
+                if (a[i] != b[i])
+                {
+                    return a[i] < b[i] ? -1 : 1;
+                }
+            }
+            return a.Size() == b.Size() ? 0 : (a.Size() < b.Size() ? -1 : 1);
+        };
+        auto less = [&cmp](const TypeInfo* a, const TypeInfo* b) noexcept -> bool
+        {
+            const StringView an(reinterpret_cast<const utf8char*>(a->name));
+            const StringView bn(reinterpret_cast<const utf8char*>(b->name));
+            const int c = cmp(TypeAttrString(*a, "category", StringView{}),
+                              TypeAttrString(*b, "category", StringView{}));
+            return c != 0 ? c < 0
+                          : cmp(TypeAttrString(*a, "displayName", an),
+                                TypeAttrString(*b, "displayName", bn)) < 0;
+        };
+        for (usize i = 1; i < out.Size(); ++i)
+        {
+            const TypeInfo* key = out[i];
+            usize j = i;
+            while (j > 0 && less(key, out[j - 1]))
+            {
+                out[j] = out[j - 1];
+                --j;
+            }
+            out[j] = key;
+        }
+    }
+
+    // Element move by adjacent swaps (order-preserving, works for move-only elements).
+    template <typename Indexable>
+    void BubbleMove(Indexable& seq, usize from, usize to)
+    {
+        while (from < to)
+        {
+            auto tmp = Move(seq[from]);
+            seq[from] = Move(seq[from + 1]);
+            seq[from + 1] = Move(tmp);
+            ++from;
+        }
+        while (from > to)
+        {
+            auto tmp = Move(seq[from]);
+            seq[from] = Move(seq[from - 1]);
+            seq[from - 1] = Move(tmp);
+            --from;
+        }
+    }
+
+    // Registers Array<T> as a reflected container (patches TypeOf<Array<T>>()). Homogeneous value
+    // elements: setAt writes by Variant; emplaceDefault inserts a default T; remove/move reorder.
     template <typename T>
     void RegisterArrayType()
     {
+        using Arr = Array<T>;
         static const ContainerInfo info{
-            &TypeOf<T>(), [](const Instance& i) -> usize
-            { return static_cast<const Array<T>*>(i.Pointer())->Size(); },
-            [](const Instance& i, usize index) -> Variant
-            { return Variant::From<T>((*static_cast<const Array<T>*>(i.Pointer()))[index]); },
-            [](const Instance& i, usize index, const Variant& value) -> Status
+            .elementType = &TypeOf<T>(),
+            .size = [](const Instance& i) -> usize
+            { return static_cast<const Arr*>(i.Pointer())->Size(); },
+            .getAt = [](const Instance& i, usize index) -> Variant
+            { return Variant::From<T>((*static_cast<const Arr*>(i.Pointer()))[index]); },
+            .setAt =
+                [](const Instance& i, usize index, const Variant& value) -> Status
             {
                 const T* typed = value.TryGet<T>();
                 if (typed == nullptr)
                 {
                     return Status{ErrorCode::InvalidArgument};
                 }
-                (*static_cast<Array<T>*>(i.Pointer()))[index] = *typed;
+                (*static_cast<Arr*>(i.Pointer()))[index] = *typed;
+                return Status{};
+            },
+            .flags = ContainerFlags::None,
+            .emplaceByType = nullptr, // homogeneous: the element type is fixed
+            .emplaceDefault =
+                [](const Instance& i, usize index) -> Instance
+            {
+                Arr* a = static_cast<Arr*>(i.Pointer());
+                if (index > a->Size())
+                {
+                    return Instance{};
+                }
+                T& ref = a->Insert(index, T{});
+                return Instance(&ref, &TypeOf<T>());
+            },
+            .removeAt =
+                [](const Instance& i, usize index) -> Status
+            {
+                Arr* a = static_cast<Arr*>(i.Pointer());
+                if (index >= a->Size())
+                {
+                    return Status{ErrorCode::InvalidArgument};
+                }
+                a->RemoveAt(index);
+                return Status{};
+            },
+            .moveElement =
+                [](const Instance& i, usize from, usize to) -> Status
+            {
+                Arr* a = static_cast<Arr*>(i.Pointer());
+                if (from >= a->Size() || to >= a->Size())
+                {
+                    return Status{ErrorCode::InvalidArgument};
+                }
+                BubbleMove(*a, from, to);
                 return Status{};
             }};
-        const_cast<TypeInfo&>(TypeOf<Array<T>>()).container = &info;
+        const_cast<TypeInfo&>(TypeOf<Arr>()).container = &info;
     }
 
     // Registers Array<RefPtr<Base>> as a POLYMORPHIC reflected container: getAt derefs the RefPtr
     // and returns an object-mode Variant whose Type() is the ELEMENT's dynamic type (so a consumer
     // recurses into the concrete derived type's properties). elementType stays the static Base; a
-    // null element yields an empty Variant (consumers null-check). setAt is unsupported - element
-    // mutation ("add module") is a separate design (emplaceByType). Read/traverse only.
+    // null element yields an empty Variant (consumers null-check). setAt is unsupported (elements
+    // are non-copyable); emplaceByType creates a concrete element via the serializable factory.
     template <typename Base>
     void RegisterPolymorphicArrayType()
     {
+        using Arr = Array<RefPtr<Base>>;
         static const ContainerInfo info{
-            &Base::StaticType(),
-            [](const Instance& i) -> usize
-            { return static_cast<const Array<RefPtr<Base>>*>(i.Pointer())->Size(); },
-            [](const Instance& i, usize index) -> Variant
+            .elementType = &Base::StaticType(),
+            .size = [](const Instance& i) -> usize
+            { return static_cast<const Arr*>(i.Pointer())->Size(); },
+            .getAt =
+                [](const Instance& i, usize index) -> Variant
             {
-                const RefPtr<Base>& elem =
-                    (*static_cast<const Array<RefPtr<Base>>*>(i.Pointer()))[index];
+                const RefPtr<Base>& elem = (*static_cast<const Arr*>(i.Pointer()))[index];
                 return elem.Get() != nullptr ? Variant::From(elem) : Variant{};
             },
-            [](const Instance&, usize, const Variant&) -> Status
+            .setAt = [](const Instance&, usize, const Variant&) -> Status
             { return Status{ErrorCode::NotSupported}; },
-            ContainerFlags::PolymorphicElements};
-        const_cast<TypeInfo&>(TypeOf<Array<RefPtr<Base>>>()).container = &info;
+            .flags = ContainerFlags::PolymorphicElements,
+            .emplaceByType =
+                [](const Instance& i, usize index, const TypeInfo& concrete) -> Instance
+            {
+                Arr* a = static_cast<Arr*>(i.Pointer());
+                if (index > a->Size())
+                {
+                    return Instance{};
+                }
+                RefPtr<ISerializable> created = GlobalSerializableRegistry().Create(concrete.id);
+                Base* raw = Cast<Base>(created.Get()); // null if not creatable / not a Base
+                if (raw == nullptr)
+                {
+                    return Instance{};
+                }
+                a->Insert(index, RefPtr<Base>(raw)); // addrefs; `created` releases at scope end
+                return Instance(raw, raw->GetType());
+            },
+            .emplaceDefault = nullptr, // polymorphic: no default concrete type - use emplaceByType
+            .removeAt =
+                [](const Instance& i, usize index) -> Status
+            {
+                Arr* a = static_cast<Arr*>(i.Pointer());
+                if (index >= a->Size())
+                {
+                    return Status{ErrorCode::InvalidArgument};
+                }
+                a->RemoveAt(index);
+                return Status{};
+            },
+            .moveElement =
+                [](const Instance& i, usize from, usize to) -> Status
+            {
+                Arr* a = static_cast<Arr*>(i.Pointer());
+                if (from >= a->Size() || to >= a->Size())
+                {
+                    return Status{ErrorCode::InvalidArgument};
+                }
+                BubbleMove(*a, from, to);
+                return Status{};
+            }};
+        const_cast<TypeInfo&>(TypeOf<Arr>()).container = &info;
     }
 }
 
@@ -663,6 +877,67 @@ namespace draconic::core::detail
     inline void* BoundedArrayAddress(const Instance& inst)
     {
         return inst.Pointer(); // the owner - the container reads array + count off it
+    }
+
+    template <typename Owner, typename Elem, usize N, auto ArrayMember, auto CountMember>
+    usize BoundedClampedCount(Owner* owner)
+    {
+        const auto raw = owner->*CountMember;
+        if (raw <= 0)
+        {
+            return 0;
+        }
+        const usize c = static_cast<usize>(raw);
+        return c < N ? c : N;
+    }
+    template <typename Owner, typename Elem, usize N, auto ArrayMember, auto CountMember>
+    Instance BoundedEmplaceDefault(const Instance& inst, usize index)
+    {
+        Owner* owner = static_cast<Owner*>(inst.Pointer());
+        auto& count = owner->*CountMember;
+        const usize c = BoundedClampedCount<Owner, Elem, N, ArrayMember, CountMember>(owner);
+        if (c >= N || index > c)
+        {
+            return Instance{}; // full, or index past the end
+        }
+        auto& arr = owner->*ArrayMember;
+        for (usize k = c; k > index; --k)
+        {
+            arr[k] = Move(arr[k - 1]); // shift up to open a slot
+        }
+        arr[index] = Elem{};
+        count = static_cast<std::remove_reference_t<decltype(count)>>(c + 1);
+        return Instance(&arr[index], &TypeOf<Elem>());
+    }
+    template <typename Owner, typename Elem, usize N, auto ArrayMember, auto CountMember>
+    Status BoundedRemoveAt(const Instance& inst, usize index)
+    {
+        Owner* owner = static_cast<Owner*>(inst.Pointer());
+        auto& count = owner->*CountMember;
+        const usize c = BoundedClampedCount<Owner, Elem, N, ArrayMember, CountMember>(owner);
+        if (index >= c)
+        {
+            return Status{ErrorCode::InvalidArgument};
+        }
+        auto& arr = owner->*ArrayMember;
+        for (usize k = index; k + 1 < c; ++k)
+        {
+            arr[k] = Move(arr[k + 1]); // shift down over the removed slot
+        }
+        count = static_cast<std::remove_reference_t<decltype(count)>>(c - 1);
+        return Status{};
+    }
+    template <typename Owner, typename Elem, usize N, auto ArrayMember, auto CountMember>
+    Status BoundedMove(const Instance& inst, usize from, usize to)
+    {
+        Owner* owner = static_cast<Owner*>(inst.Pointer());
+        const usize c = BoundedClampedCount<Owner, Elem, N, ArrayMember, CountMember>(owner);
+        if (from >= c || to >= c)
+        {
+            return Status{ErrorCode::InvalidArgument};
+        }
+        BubbleMove(owner->*ArrayMember, from, to);
+        return Status{};
     }
 
     // Object-argument support: a parameter A may be a value type, or an object
@@ -1054,10 +1329,16 @@ export namespace draconic::core
             using Elem = typename AT::Element;
             constexpr usize N = AT::Extent;
             static const ContainerInfo container{
-                &TypeOf<Elem>(),
-                &detail::BoundedArraySize<Owner, Elem, N, ArrayMember, CountMember>,
-                &detail::BoundedArrayGetAt<Owner, Elem, N, ArrayMember, CountMember>,
-                &detail::BoundedArraySetAt<Owner, Elem, N, ArrayMember, CountMember>};
+                .elementType = &TypeOf<Elem>(),
+                .size = &detail::BoundedArraySize<Owner, Elem, N, ArrayMember, CountMember>,
+                .getAt = &detail::BoundedArrayGetAt<Owner, Elem, N, ArrayMember, CountMember>,
+                .setAt = &detail::BoundedArraySetAt<Owner, Elem, N, ArrayMember, CountMember>,
+                .flags = ContainerFlags::None,
+                .emplaceByType = nullptr,
+                .emplaceDefault =
+                    &detail::BoundedEmplaceDefault<Owner, Elem, N, ArrayMember, CountMember>,
+                .removeAt = &detail::BoundedRemoveAt<Owner, Elem, N, ArrayMember, CountMember>,
+                .moveElement = &detail::BoundedMove<Owner, Elem, N, ArrayMember, CountMember>};
             static const TypeInfo boundedType = []()
             {
                 TypeInfo info = MakeTypeInfo<Elem>("BoundedArray", "draconic::core", nullptr);
