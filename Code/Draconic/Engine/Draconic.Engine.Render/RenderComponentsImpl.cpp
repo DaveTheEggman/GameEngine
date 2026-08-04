@@ -55,7 +55,14 @@ namespace draconic::render
             .DataVersion(3) // v3: unified materials array (slot 0 = whole-mesh)
             .Property<&MeshComponent::mesh>("mesh")
             .Property<&MeshComponent::color>("color")
-            .Property<&MeshComponent::visible>("visible");
+            .Property<&MeshComponent::visible>("visible")
+            // The material slots as a reflected container - the generic list editor renders it. The
+            // description surfaces as the list's hover tooltip (the slot-0 / submesh semantics).
+            .Nested<&MeshComponent::materials>("materials")
+            .PropAttribute("description",
+                           String(u8"Material slots, indexed by the mesh's submesh material index. "
+                                  u8"Slot 0 also covers single-material meshes and any submesh whose "
+                                  u8"index has no slot."));
     }
 
     DRACONIC_REFLECT_VALUE(InstancedMeshComponent, "draconic::render")
@@ -304,6 +311,7 @@ namespace draconic::render
             DraconicRegisterEnum_AaMode();
             DraconicRegisterEnum_AoMode();
             DraconicRegisterValue_PostProcessSettings();
+            RegisterArrayType<draconic::resource::Ref<draconic::materials::Material>>();
             DraconicRegisterValue_MeshComponent();
             DraconicRegisterValue_InstancedMeshComponent();
             DraconicRegisterValue_CameraComponent();

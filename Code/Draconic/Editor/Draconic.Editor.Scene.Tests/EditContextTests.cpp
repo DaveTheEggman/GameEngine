@@ -574,6 +574,61 @@ TEST_CASE("edit-context: copy/paste component - add, overwrite, and exact undo")
     CHECK(lights->Get(edit.Resolve(b))->intensity == doctest::Approx(1.0f));
 }
 
+TEST_CASE("edit-context: generic container mutation (MutateComponent-style add) persists + undoes")
+{
+    draconic::render::RegisterRenderComponentReflection();
+    scene::Scene scene;
+    scene.AddSystem<draconic::render::MeshComponentManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    auto* meshes = scene.GetSystem<draconic::render::MeshComponentManager>();
+    const Guid a = edit.CreateEntity(u8"Mesh");
+    (void)meshes->Add(edit.Resolve(a)); // empty materials
+
+    const TypeInfo* type = &TypeOf<draconic::render::MeshComponent>();
+    const PropertyInfo* matProp = FindProperty(*type, "materials");
+    REQUIRE(matProp != nullptr);
+    REQUIRE(matProp->type != nullptr);
+    REQUIRE(IsContainer(*matProp->type)); // the reflected container is registered
+    const ContainerInfo& ci = *matProp->type->container;
+
+    auto containerInstance = [&]() -> Instance
+    {
+        Instance comp = meshes->GetComponentInstance(edit.Resolve(a));
+        return Instance(matProp->address(comp), matProp->type);
+    };
+
+    // Step 1: does emplace on the live component add an element?
+    CHECK(ContainerSize(ci, containerInstance()) == 0u);
+
+    // Replicate MutateComponent exactly: snapshot A, emplace, snapshot B, restore A, paste B.
+    Array<byte> before = edit.CopyComponent(a, type);
+    REQUIRE(!before.IsEmpty()); // MeshComponent is serializable
+    (void)ContainerEmplaceDefault(ci, containerInstance(), ContainerSize(ci, containerInstance()));
+    CHECK(ContainerSize(ci, containerInstance()) == 1u); // emplace added it to the live component
+    Array<byte> after = edit.CopyComponent(a, type);
+    REQUIRE(!after.IsEmpty());
+
+    // Restore live to A (non-undoable), then paste B as the undo step - the MutateComponent tail.
+    {
+        MemoryStream buffer;
+        (void)buffer.Write(before.Data(), before.Size());
+        (void)buffer.Seek(0, SeekOrigin::Begin);
+        BinarySerializer ar(buffer, SerializeMode::Read);
+        String typeId;
+        draconic::core::Serialize(ar, "type", typeId);
+        meshes->ReadComponent(ar, edit.Resolve(a));
+    }
+    CHECK(ContainerSize(ci, containerInstance()) == 0u); // restored
+    REQUIRE(edit.PasteComponent(a, Span<const byte>{after.Data(), after.Size()}));
+    CHECK(ContainerSize(ci, containerInstance()) == 1u); // paste re-applied the add (one undo step)
+
+    commands.Undo();
+    CHECK(ContainerSize(ci, containerInstance()) == 0u); // undo removes it
+    commands.Redo();
+    CHECK(ContainerSize(ci, containerInstance()) == 1u);
+}
+
 namespace
 {
     // A scene-level settings block (see SceneSerializeTests' FogSystem): the inspector's
