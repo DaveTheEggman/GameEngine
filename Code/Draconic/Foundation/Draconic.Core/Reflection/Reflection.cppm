@@ -519,17 +519,33 @@ export namespace draconic::core
     // Container reflection (phase f) - generic indexed access to Array<T>, so
     // tools/scripting can iterate without knowing the element type statically.
     // =======================================================================
+    enum class ContainerFlags : u32
+    {
+        None = 0,
+        // Elements are polymorphic (Array<RefPtr<Base>>): getAt returns an object-mode Variant
+        // whose Type() is the ELEMENT's dynamic type; elementType is the static Base. Consumers
+        // recurse into the concrete type. setAt is unsupported (mutation is a separate design).
+        PolymorphicElements = 1u << 0,
+    };
+
     struct ContainerInfo
     {
         const TypeInfo* elementType;
         usize (*size)(const Instance&);
         Variant (*getAt)(const Instance&, usize index);
         Status (*setAt)(const Instance&, usize index, const Variant& value);
+        ContainerFlags flags = ContainerFlags::None;
     };
 
     [[nodiscard]] inline bool IsContainer(const TypeInfo& type) noexcept
     {
         return type.container != nullptr;
+    }
+
+    [[nodiscard]] inline bool IsPolymorphicContainer(const ContainerInfo& container) noexcept
+    {
+        return (static_cast<u32>(container.flags) &
+                static_cast<u32>(ContainerFlags::PolymorphicElements)) != 0;
     }
 
     [[nodiscard]] inline usize ContainerSize(const ContainerInfo& container,
@@ -570,6 +586,30 @@ export namespace draconic::core
                 return Status{};
             }};
         const_cast<TypeInfo&>(TypeOf<Array<T>>()).container = &info;
+    }
+
+    // Registers Array<RefPtr<Base>> as a POLYMORPHIC reflected container: getAt derefs the RefPtr
+    // and returns an object-mode Variant whose Type() is the ELEMENT's dynamic type (so a consumer
+    // recurses into the concrete derived type's properties). elementType stays the static Base; a
+    // null element yields an empty Variant (consumers null-check). setAt is unsupported - element
+    // mutation ("add module") is a separate design (emplaceByType). Read/traverse only.
+    template <typename Base>
+    void RegisterPolymorphicArrayType()
+    {
+        static const ContainerInfo info{
+            &Base::StaticType(),
+            [](const Instance& i) -> usize
+            { return static_cast<const Array<RefPtr<Base>>*>(i.Pointer())->Size(); },
+            [](const Instance& i, usize index) -> Variant
+            {
+                const RefPtr<Base>& elem =
+                    (*static_cast<const Array<RefPtr<Base>>*>(i.Pointer()))[index];
+                return elem.Get() != nullptr ? Variant::From(elem) : Variant{};
+            },
+            [](const Instance&, usize, const Variant&) -> Status
+            { return Status{ErrorCode::NotSupported}; },
+            ContainerFlags::PolymorphicElements};
+        const_cast<TypeInfo&>(TypeOf<Array<RefPtr<Base>>>()).container = &info;
     }
 }
 

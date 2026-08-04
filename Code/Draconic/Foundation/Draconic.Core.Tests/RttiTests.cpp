@@ -490,6 +490,44 @@ TEST_CASE("rtti: a BoundedArray reflects a count-bound C-array as a clamped cont
     CHECK(ContainerSize(c, sub) == 0u);
 }
 
+TEST_CASE("rtti: a polymorphic container resolves each element to its DYNAMIC type")
+{
+    RegisterPolymorphicArrayType<Animal>();
+    const TypeInfo& t = TypeOf<Array<RefPtr<Animal>>>();
+    REQUIRE(IsContainer(t));
+    const ContainerInfo& c = *t.container;
+    CHECK(IsPolymorphicContainer(c));
+    CHECK(c.elementType == &Animal::StaticType()); // static base
+
+    Array<RefPtr<Animal>> arr;
+    RefPtr<Dog> dog = MakeRef<Dog>(DefaultAllocator());
+    dog->legs = 4;
+    RefPtr<Cat> cat = MakeRef<Cat>(DefaultAllocator());
+    cat->legs = 3;
+    arr.PushBack(dog);
+    arr.PushBack(cat);
+    arr.PushBack(RefPtr<Animal>{}); // a null element
+    Instance inst = Instance::From(&arr);
+
+    CHECK(ContainerSize(c, inst) == 3u);
+
+    // Element 0 -> Dog (dynamic), element 1 -> Cat: each reflects its OWN concrete type.
+    Variant e0 = ContainerGetAt(c, inst, 0);
+    REQUIRE(e0.IsObject());
+    CHECK(e0.Type() == &Dog::StaticType());
+    const Instance i0(e0.AsObject(), e0.Type());
+    CHECK(GetProperty(*FindProperty(*e0.Type(), "legs"), i0).Get<int>() == 4);
+
+    Variant e1 = ContainerGetAt(c, inst, 1);
+    CHECK(e1.Type() == &Cat::StaticType());
+
+    // Null element -> empty Variant (consumers null-check).
+    CHECK(ContainerGetAt(c, inst, 2).IsEmpty());
+
+    // setAt is unsupported in v1 (mutation is a separate design).
+    CHECK_FALSE(ContainerSetAt(c, inst, 0, Variant{}).IsOk());
+}
+
 TEST_CASE("rtti: inherited property is found through the base chain")
 {
     // Dog declares no properties of its own but inherits 'legs' from Animal.

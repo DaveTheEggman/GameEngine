@@ -833,3 +833,39 @@ TEST_CASE("particle reflection (batch 4): curve behaviors reflect via BoundedArr
     const Instance planesInst(planesProp->address(ci), planesProp->type);
     CHECK(ContainerSize(*planesProp->type->container, planesInst) == 1u); // planeCount default
 }
+
+TEST_CASE("particle reflection (batch 5): a polymorphic module array resolves each module's type")
+{
+    using namespace draconic::particles;
+    RegisterParticleModules();
+
+    // A heterogeneous behavior list (the shape ParticleSystem holds): two different concrete
+    // module types must resolve to their OWN reflected property sets via the polymorphic container.
+    Array<RefPtr<ParticleBehavior>> behaviors;
+    RefPtr<GravityBehavior> gravity = MakeRef<GravityBehavior>(DefaultAllocator());
+    gravity->multiplier = 3.0f;
+    RefPtr<AttractorBehavior> attractor = MakeRef<AttractorBehavior>(DefaultAllocator());
+    attractor->strength = 7.0f;
+    behaviors.PushBack(gravity);
+    behaviors.PushBack(attractor);
+
+    const TypeInfo& listType = TypeOf<Array<RefPtr<ParticleBehavior>>>();
+    REQUIRE(IsContainer(listType));
+    const ContainerInfo& c = *listType.container;
+    CHECK(IsPolymorphicContainer(c));
+
+    Instance inst = Instance::From(&behaviors);
+    CHECK(ContainerSize(c, inst) == 2u);
+
+    Variant e0 = ContainerGetAt(c, inst, 0);
+    CHECK(e0.Type() == &GravityBehavior::StaticType()); // dynamic type
+    const Instance i0(e0.AsObject(), e0.Type());
+    CHECK(GetProperty(*FindProperty(*e0.Type(), "multiplier"), i0).Get<f32>() ==
+          doctest::Approx(3.0f));
+
+    Variant e1 = ContainerGetAt(c, inst, 1);
+    CHECK(e1.Type() == &AttractorBehavior::StaticType());
+    const Instance i1(e1.AsObject(), e1.Type());
+    CHECK(GetProperty(*FindProperty(*e1.Type(), "strength"), i1).Get<f32>() ==
+          doctest::Approx(7.0f));
+}
