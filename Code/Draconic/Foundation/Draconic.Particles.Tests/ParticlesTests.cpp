@@ -706,3 +706,36 @@ TEST_CASE("AlphaOverLifetime sets the envelope (no per-frame accumulation)")
     CHECK(first == doctest::Approx(0.5f));
     CHECK((*streams.Colors())[0].w == doctest::Approx(first)); // stable, not 0.5^3
 }
+
+TEST_CASE("particle reflection (batch 1): flat/range module types reflect their config")
+{
+    using namespace draconic::particles;
+    RegisterParticleModules(); // registers module types + the range value types
+
+    // A flat behavior: scalar + Float3 properties.
+    const TypeInfo& gravity = GravityBehavior::StaticType();
+    CHECK(PropertyCount(gravity) == 2u);
+    const PropertyInfo* mult = FindProperty(gravity, "multiplier");
+    const PropertyInfo* dir = FindProperty(gravity, "direction");
+    REQUIRE(mult != nullptr);
+    REQUIRE(dir != nullptr);
+    GravityBehavior g;
+    g.multiplier = 2.5f;
+    Instance gi = Instance::From(&g);
+    CHECK(GetProperty(*mult, gi).Get<f32>() == doctest::Approx(2.5f));
+
+    // A range-typed field is Nested: recurse into RangeFloat's min/max in place.
+    const TypeInfo& lifetime = LifetimeInitializer::StaticType();
+    const PropertyInfo* lifeProp = FindProperty(lifetime, "lifetime");
+    REQUIRE(lifeProp != nullptr);
+    CHECK(IsNested(*lifeProp));
+    CHECK(lifeProp->type == &TypeOf<RangeFloat>());
+
+    LifetimeInitializer li;
+    li.lifetime = RangeFloat(0.5f, 2.0f);
+    Instance lii = Instance::From(&li);
+    const Instance rangeInst(lifeProp->address(lii), lifeProp->type);
+    const PropertyInfo* maxProp = FindProperty(TypeOf<RangeFloat>(), "max");
+    REQUIRE(maxProp != nullptr);
+    CHECK(GetProperty(*maxProp, rangeInst).Get<f32>() == doctest::Approx(2.0f));
+}

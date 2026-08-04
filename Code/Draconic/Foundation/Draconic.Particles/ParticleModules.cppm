@@ -921,16 +921,8 @@ export namespace draconic::particles
     DRACONIC_DEFINE_OBJECT(ParticleBehavior, "draconic::particles")
     DRACONIC_DEFINE_OBJECT(PositionInitializer, "draconic::particles")
     DRACONIC_DEFINE_OBJECT(VelocityInitializer, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(LifetimeInitializer, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(ColorInitializer, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(SizeInitializer, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(RotationInitializer, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(MeshOrientationInitializer, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(GravityBehavior, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(DragBehavior, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(WindBehavior, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(TurbulenceBehavior, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(VortexBehavior, "draconic::particles")
+    // LifetimeInitializer..VortexBehavior StaticType() is defined WITH reflected properties in
+    // ParticleModulesImpl.cpp (batch 1; GCC module hygiene: DRACONIC_REFLECT out of interfaces).
     DRACONIC_DEFINE_OBJECT(AttractorBehavior, "draconic::particles")
     DRACONIC_DEFINE_OBJECT(RadialForceBehavior, "draconic::particles")
     DRACONIC_DEFINE_OBJECT(CollisionBehavior, "draconic::particles")
@@ -940,10 +932,15 @@ export namespace draconic::particles
     DRACONIC_DEFINE_OBJECT(RotationOverLifetimeBehavior, "draconic::particles")
     DRACONIC_DEFINE_OBJECT(SpeedOverLifetimeBehavior, "draconic::particles")
 
+    // Registers the reflected range leaf value types (module reflection bodies self-build via
+    // DRACONIC_REFLECT). Defined in ParticleModulesImpl.cpp; idempotent.
+    void RegisterParticleModuleReflection();
+
     // Register every module type (hierarchy) + a construct-by-type-id entry for the concrete ones.
     // Call once at startup before loading cooked particle resources.
     void RegisterParticleModules()
     {
+        RegisterParticleModuleReflection(); // the range value types the module properties reference
         GlobalTypeRegistry().Register(ParticleInitializer::StaticType());
         GlobalTypeRegistry().Register(ParticleBehavior::StaticType());
 #define DRACONIC_PARTICLE_REG(T)                                                                   \
