@@ -140,6 +140,7 @@ target_sources(Draconic.UI
             Controls/ComboBox.cppm
             Data/HierarchicalState.cppm
             Controls/ContentButton.cppm
+            Controls/IconButton.cppm
             Controls/DrawableView.cppm
             Layout/FrameLayout.cppm
             Layout/AbsoluteLayout.cppm

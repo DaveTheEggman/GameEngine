@@ -33,6 +33,7 @@ import :panel;
 import :scroll_view;
 import :label;
 import :button;
+import :icon_button;
 import :checkbox;
 import :radio_button;
 import :radio_group;
@@ -686,6 +687,21 @@ export namespace draconic::ui
                              if (Button* c = Cast<Button>(v))
                              {
                                  c->FontFamily.SetValue(String(val));
+                             }
+                         });
+
+        // Icon button: the icon drawable is set in code (or a theme part); markup exposes its size.
+        RegisterView(u8"IconButton", []() -> RefPtr<View>
+                     { return MakeRef<IconButton>(DefaultAllocator(), nullptr); });
+        RegisterProperty(u8"IconButton", u8"size",
+                         [](View* v, StringView val)
+                         {
+                             if (IconButton* c = Cast<IconButton>(v))
+                             {
+                                 if (auto f = PF(val); f.HasValue())
+                                 {
+                                     c->SetSize(f.Value());
+                                 }
                              }
                          });
 

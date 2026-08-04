@@ -128,6 +128,7 @@ export import :tree_view;
 export import :combo_box;
 export import :hierarchical_state;
 export import :content_button;
+export import :icon_button;
 export import :drawable_view;
 export import :style_property;
 export import :style_value;

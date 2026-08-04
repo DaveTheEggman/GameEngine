@@ -110,6 +110,52 @@ TEST_CASE("control: Button_OnActivate_FiresClick")
     CHECK(clicked);
 }
 
+// === IconButton ===
+
+TEST_CASE("control: IconButton_MeasuresToFixedSize")
+{
+    auto btn = core::MakeRef<IconButton>(core::DefaultAllocator(), nullptr, 24.0f);
+    btn->Measure(BoxConstraints(0, 100, 0, 100));
+    CHECK(btn->MeasuredSize.x == doctest::Approx(24.0f));
+    CHECK(btn->MeasuredSize.y == doctest::Approx(24.0f));
+}
+
+TEST_CASE("control: IconButton_Clicks")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto btn = core::MakeRef<IconButton>(core::DefaultAllocator(), nullptr, 20.0f);
+    root->AddView(btn.Get());
+    bool clicked = false;
+    btn->OnClick.Add([&clicked](ButtonBase*) { clicked = true; });
+    btn->FireClick();
+    CHECK(clicked);
+}
+
+TEST_CASE("control: IconButton_PressedTransitions")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto btn = core::MakeRef<IconButton>(core::DefaultAllocator(), nullptr, 20.0f);
+    root->AddView(btn.Get());
+    MouseEventArgs down;
+    down.Set(5, 5, MouseButton::Left);
+    btn->OnMouseDown(down);
+    CHECK(btn->IsPressed());
+    MouseEventArgs up;
+    up.Set(5, 5, MouseButton::Left);
+    btn->OnMouseUp(up);
+    CHECK(!btn->IsPressed());
+}
+
+TEST_CASE("control: IconButton_IsFocusable")
+{
+    auto btn = core::MakeRef<IconButton>(core::DefaultAllocator(), nullptr);
+    CHECK(btn->IsFocusable);
+}
+
 // === RepeatButton ===
 
 TEST_CASE("control: RepeatButton_ClicksOnce")
