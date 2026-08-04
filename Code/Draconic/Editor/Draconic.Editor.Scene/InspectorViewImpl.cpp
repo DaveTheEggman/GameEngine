@@ -799,6 +799,81 @@ namespace draconic::editor
             }
             return u8"Other";
         }
+
+        // The borrowed Instance for element `index` of a component's container property, re-resolved
+        // live (empty if the entity/component/container/index is gone). The descent handle for both
+        // reading element leaf values in refreshers and locating the element to edit.
+        [[nodiscard]] Instance ResolveContainerElement(SceneEditContext& edit, const Guid& id,
+                                                       const TypeInfo* type,
+                                                       const PropertyInfo* containerProp, usize index)
+        {
+            scene::ComponentManagerBase* mgr = edit.FindManager(type);
+            const scene::EntityHandle e = edit.Resolve(id);
+            if (mgr == nullptr || !e.IsAssigned() || !mgr->HasComponent(e) ||
+                containerProp->type == nullptr || containerProp->type->container == nullptr)
+            {
+                return Instance{};
+            }
+            const Instance comp = mgr->GetComponentInstance(e);
+            if (comp.IsEmpty())
+            {
+                return Instance{};
+            }
+            const Instance container(containerProp->address(comp), containerProp->type);
+            const ContainerInfo& info = *containerProp->type->container;
+            if (index >= ContainerSize(info, container))
+            {
+                return Instance{};
+            }
+            return ContainerAddressAt(info, container, index);
+        }
+
+        // A stable label for a container element: its dynamic type's displayName attribute, else the
+        // prettified type name.
+        [[nodiscard]] String ContainerElementLabel(const TypeInfo* elementType)
+        {
+            if (elementType == nullptr)
+            {
+                return String(u8"(element)");
+            }
+            const StringView disp =
+                TypeAttrString(*elementType, "displayName", StringView{});
+            if (!disp.IsEmpty())
+            {
+                return String(disp);
+            }
+            return PrettifyPropertyName(StringView(reinterpret_cast<const utf8char*>(elementType->name)));
+        }
+
+        // A hash of a container's SHAPE (element count + each element's dynamic type) - the inspector's
+        // Signature() only tracks component presence, so a data-only add/remove/reorder needs this
+        // watched separately to force a grid rebuild. 0 when the container is unreachable.
+        [[nodiscard]] u64 ContainerShapeSignature(SceneEditContext& edit, const Guid& id,
+                                                  const TypeInfo* type, const PropertyInfo* containerProp)
+        {
+            scene::ComponentManagerBase* mgr = edit.FindManager(type);
+            const scene::EntityHandle e = edit.Resolve(id);
+            if (mgr == nullptr || !e.IsAssigned() || !mgr->HasComponent(e) ||
+                containerProp->type == nullptr || containerProp->type->container == nullptr)
+            {
+                return 0;
+            }
+            const Instance comp = mgr->GetComponentInstance(e);
+            if (comp.IsEmpty())
+            {
+                return 0;
+            }
+            const Instance container(containerProp->address(comp), containerProp->type);
+            const ContainerInfo& info = *containerProp->type->container;
+            const usize count = ContainerSize(info, container);
+            u64 hash = HashInteger(count);
+            for (usize i = 0; i < count; ++i)
+            {
+                const TypeInfo* elementType = ContainerAddressAt(info, container, i).Type();
+                hash = HashBytes(&elementType, sizeof(elementType), hash);
+            }
+            return hash;
+        }
     }
 
     void SceneInspectorView::BuildComponentSection(const Guid& id, scene::ComponentManagerBase& mgr)
@@ -825,6 +900,11 @@ namespace draconic::editor
 
         for (const PropertyInfo& prop : Properties(*type))
         {
+            if (prop.type != nullptr && IsContainer(*prop.type))
+            {
+                BuildContainerRows(id, type, prop, category); // generic reflected list editor
+                continue;
+            }
             if (IsNested(prop))
             {
                 continue; // nested structures are recursed elsewhere, not a leaf row
@@ -2118,6 +2198,567 @@ namespace draconic::editor
                                                        pull();
                                                    }
                                                }});
+    }
+
+    void SceneInspectorView::MutateComponent(const Guid& id, const TypeInfo* type,
+                                             const Function<void(const Instance&)>& mutate)
+    {
+        const scene::EntityHandle e = m_edit->Resolve(id);
+        scene::ComponentManagerBase* mgr = m_edit->FindManager(type);
+        if (mgr == nullptr || !e.IsAssigned() || !mgr->HasComponent(e))
+        {
+            return;
+        }
+        Array<byte> before = m_edit->CopyComponent(id, type); // snapshot A (current)
+        if (before.IsEmpty())
+        {
+            return;
+        }
+        mutate(mgr->GetComponentInstance(e));                // live -> B
+        Array<byte> after = m_edit->CopyComponent(id, type); // snapshot B
+        // Restore live to A (non-undoable ReadComponent), then PASTE B - the paste command captures
+        // the pre-state (A), so the whole mutation is one undo step, exactly like the typed helpers.
+        {
+            MemoryStream buffer;
+            (void)buffer.Write(before.Data(), before.Size());
+            (void)buffer.Seek(0, SeekOrigin::Begin);
+            BinarySerializer ar(buffer, SerializeMode::Read);
+            String typeId;
+            draconic::core::Serialize(ar, "type", typeId);
+            mgr->ReadComponent(ar, e);
+        }
+        if (!after.IsEmpty())
+        {
+            (void)m_edit->PasteComponent(id, Span<const byte>{after.Data(), after.Size()});
+        }
+    }
+
+    void SceneInspectorView::BuildContainerRows(const Guid& id, const TypeInfo* type,
+                                                const PropertyInfo& prop, StringView category)
+    {
+        if (prop.type == nullptr || prop.type->container == nullptr)
+        {
+            return;
+        }
+        SceneInspectorView* self = this;
+        const PropertyInfo* propPtr = &prop;
+        const ContainerInfo& info = *prop.type->container;
+        const bool polymorphic = IsPolymorphicContainer(info);
+
+        // Header label (the container's prettified name), shown as a disabled button.
+        String header =
+            PrettifyPropertyName(StringView(reinterpret_cast<const utf8char*>(prop.name)));
+        auto head = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), header.AsView(),
+                                                       Function<void()>{}, category);
+        head->SetButtonEnabled(false);
+        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(head.Get()));
+
+        // Element rows (each recurses into the element's own reflected leaf properties).
+        usize count = 0;
+        {
+            const scene::EntityHandle e = m_edit->Resolve(id);
+            scene::ComponentManagerBase* mgr = m_edit->FindManager(type);
+            if (mgr != nullptr && e.IsAssigned() && mgr->HasComponent(e))
+            {
+                const Instance comp = mgr->GetComponentInstance(e);
+                if (!comp.IsEmpty())
+                {
+                    const Instance container(prop.address(comp), prop.type);
+                    count = ContainerSize(info, container);
+                }
+            }
+        }
+        for (usize i = 0; i < count; ++i)
+        {
+            BuildContainerElementRows(id, type, prop, category, i);
+        }
+
+        // "Add..." control: a category-grouped menu for a polymorphic list, a plain button (default-
+        // construct) for a homogeneous one.
+        auto add = MakeRef<ui::toolkit::ButtonEditor>(
+            DefaultAllocator(), polymorphic ? StringView(u8"+ Add...") : StringView(u8"+ Add"),
+            Function<void()>{}, category);
+        ui::toolkit::ButtonEditor* addRaw = add.Get();
+        if (polymorphic)
+        {
+            addRaw->Action = Function<void()>{[self, id, type, propPtr, addRaw]()
+                                              {
+                                                  const Float2 pos = addRaw->EditorView()->LocalToScreen(
+                                                      Float2{0.0f, 0.0f});
+                                                  self->ShowAddElementMenu(id, type, *propPtr, pos.x,
+                                                                           pos.y);
+                                              }};
+        }
+        else
+        {
+            addRaw->Action = Function<void()>{
+                [self, id, type, propPtr]()
+                {
+                    self->MutateComponent(id, type,
+                                          [propPtr](const Instance& comp)
+                                          {
+                                              const Instance container(propPtr->address(comp),
+                                                                       propPtr->type);
+                                              const ContainerInfo& ci = *propPtr->type->container;
+                                              (void)ContainerEmplaceDefault(ci, container,
+                                                                            ContainerSize(ci, container));
+                                          });
+                    self->m_forceRebuild = true;
+                }};
+        }
+        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(add.Get()));
+
+        // Hidden shape-watcher: force a grid rebuild when the element count / types change (the
+        // Signature() only tracks component presence, so add/remove/reorder are invisible to it).
+        auto watcher = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8"##shape"),
+                                                          Function<void()>{}, category);
+        watcher->SetRowVisible(false);
+        u64 shape = ContainerShapeSignature(*m_edit, id, type, propPtr);
+        AddEditor(watcher.Get(),
+                  [self, id, type, propPtr, shape]() mutable
+                  {
+                      const u64 now = ContainerShapeSignature(*self->m_edit, id, type, propPtr);
+                      if (now != shape)
+                      {
+                          shape = now;
+                          self->m_forceRebuild = true;
+                      }
+                  });
+    }
+
+    void SceneInspectorView::BuildContainerElementRows(const Guid& id, const TypeInfo* type,
+                                                       const PropertyInfo& prop, StringView category,
+                                                       usize index)
+    {
+        SceneInspectorView* self = this;
+        const PropertyInfo* propPtr = &prop;
+        const Instance element = ResolveContainerElement(*m_edit, id, type, propPtr, index);
+        if (element.Pointer() == nullptr || element.Type() == nullptr)
+        {
+            return;
+        }
+        const TypeInfo* elementType = element.Type();
+
+        // Element header (index + type label) as a disabled button.
+        String label(u8"  ");
+        label += ContainerElementLabel(elementType);
+        auto head = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), label.AsView(),
+                                                       Function<void()>{}, category);
+        head->SetButtonEnabled(false);
+        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(head.Get()));
+
+        // Element leaf rows (recurse into the element's own reflected properties; skip nested /
+        // container-in-container for this pass).
+        for (const PropertyInfo& leaf : Properties(*elementType))
+        {
+            if (leaf.type == nullptr || IsNested(leaf) || IsContainer(*leaf.type))
+            {
+                continue;
+            }
+            BuildContainerElementLeafRow(id, type, prop, index, leaf, category);
+        }
+
+        // Move up / down / remove (each one undo step; move bumps + reorders, remove drops).
+        auto up = MakeRef<ui::toolkit::ButtonEditor>(
+            DefaultAllocator(), StringView(u8"  Move Up"),
+            Function<void()>{[self, id, type, propPtr, index]()
+                             {
+                                 self->MutateComponent(id, type,
+                                                       [propPtr, index](const Instance& comp)
+                                                       {
+                                                           const Instance container(
+                                                               propPtr->address(comp), propPtr->type);
+                                                           const ContainerInfo& ci =
+                                                               *propPtr->type->container;
+                                                           if (index > 0)
+                                                           {
+                                                               (void)ContainerMoveElement(ci, container,
+                                                                                          index, index - 1);
+                                                           }
+                                                       });
+                                 self->m_forceRebuild = true;
+                             }},
+            category);
+        up->SetButtonEnabled(index > 0);
+        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(up.Get()));
+
+        auto down = MakeRef<ui::toolkit::ButtonEditor>(
+            DefaultAllocator(), StringView(u8"  Move Down"),
+            Function<void()>{[self, id, type, propPtr, index]()
+                             {
+                                 self->MutateComponent(
+                                     id, type,
+                                     [propPtr, index](const Instance& comp)
+                                     {
+                                         const Instance container(propPtr->address(comp), propPtr->type);
+                                         const ContainerInfo& ci = *propPtr->type->container;
+                                         if (index + 1 < ContainerSize(ci, container))
+                                         {
+                                             (void)ContainerMoveElement(ci, container, index, index + 1);
+                                         }
+                                     });
+                                 self->m_forceRebuild = true;
+                             }},
+            category);
+        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(down.Get()));
+
+        auto remove = MakeRef<ui::toolkit::ButtonEditor>(
+            DefaultAllocator(), StringView(u8"  Remove"),
+            Function<void()>{[self, id, type, propPtr, index]()
+                             {
+                                 self->MutateComponent(id, type,
+                                                       [propPtr, index](const Instance& comp)
+                                                       {
+                                                           const Instance container(
+                                                               propPtr->address(comp), propPtr->type);
+                                                           const ContainerInfo& ci =
+                                                               *propPtr->type->container;
+                                                           (void)ContainerRemoveAt(ci, container, index);
+                                                       });
+                                 self->m_forceRebuild = true;
+                             }},
+            category);
+        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(remove.Get()));
+    }
+
+    void SceneInspectorView::BuildContainerElementLeafRow(const Guid& id, const TypeInfo* type,
+                                                          const PropertyInfo& containerProp,
+                                                          usize index, const PropertyInfo& leaf,
+                                                          StringView category)
+    {
+        SceneInspectorView* self = this;
+        const PropertyInfo* propPtr = &containerProp;
+        const char* leafName = leaf.name;
+        const TypeInfo* leafType = leaf.type;
+        const String leafLabel =
+            PrettifyPropertyName(StringView(reinterpret_cast<const utf8char*>(leaf.name)));
+
+        // Re-resolve element[index] and its leaf each read (the element may move / be removed).
+        auto readVariant = [self, id, type, propPtr, index, leafName]() -> Variant
+        {
+            const Instance el = ResolveContainerElement(*self->m_edit, id, type, propPtr, index);
+            if (el.Pointer() == nullptr || el.Type() == nullptr)
+            {
+                return Variant{};
+            }
+            const PropertyInfo* lp = FindProperty(*el.Type(), leafName);
+            return (lp != nullptr) ? GetProperty(*lp, el) : Variant{};
+        };
+        // Undoable write of the leaf through the element.
+        auto writeVariant = [self, id, type, propPtr, index, leafName](Variant value)
+        {
+            self->MutateComponent(id, type,
+                                  [propPtr, index, leafName, value = Move(value)](const Instance& comp)
+                                  {
+                                      const Instance container(propPtr->address(comp), propPtr->type);
+                                      const ContainerInfo& ci = *propPtr->type->container;
+                                      if (index >= ContainerSize(ci, container))
+                                      {
+                                          return;
+                                      }
+                                      const Instance el = ContainerAddressAt(ci, container, index);
+                                      const PropertyInfo* lp =
+                                          (el.Type() != nullptr) ? FindProperty(*el.Type(), leafName)
+                                                                 : nullptr;
+                                      if (lp != nullptr)
+                                      {
+                                          (void)SetProperty(*lp, el, value);
+                                      }
+                                  });
+        };
+
+        if (IsEnum(*leafType))
+        {
+            const Span<const EnumValue> enumerators = Enumerators(*leafType);
+            Array<EnumValue> values;
+            Array<StringView> names;
+            for (const EnumValue& v : enumerators)
+            {
+                values.PushBack(v);
+                names.PushBack(StringView(reinterpret_cast<const utf8char*>(v.name)));
+            }
+            const Variant cur = readVariant();
+            i64 rawValue = 0;
+            if (!cur.IsEmpty())
+            {
+                // Enum stored as its underlying integer; read the raw bytes of the element field.
+                const Instance el = ResolveContainerElement(*m_edit, id, type, propPtr, index);
+                const PropertyInfo* lp =
+                    (el.Type() != nullptr) ? FindProperty(*el.Type(), leafName) : nullptr;
+                void* addr = (lp != nullptr && lp->address != nullptr) ? lp->address(el) : nullptr;
+                if (addr != nullptr)
+                {
+                    switch (leafType->size)
+                    {
+                    case 1:
+                        rawValue = *static_cast<const i8*>(addr);
+                        break;
+                    case 2:
+                        rawValue = *static_cast<const i16*>(addr);
+                        break;
+                    case 8:
+                        rawValue = *static_cast<const i64*>(addr);
+                        break;
+                    default:
+                        rawValue = *static_cast<const i32*>(addr);
+                        break;
+                    }
+                }
+            }
+            i32 curIndex = 0;
+            for (usize k = 0; k < values.Size(); ++k)
+            {
+                if (values[k].value == rawValue)
+                {
+                    curIndex = static_cast<i32>(k);
+                    break;
+                }
+            }
+            auto ed = MakeRef<ui::toolkit::EnumEditor>(
+                DefaultAllocator(), leafLabel.AsView(), curIndex,
+                Span<const StringView>{names.Data(), names.Size()},
+                Function<void(i32)>{[self, id, type, propPtr, index, leafName, leafType,
+                                     values = Move(values)](i32 chosen)
+                                    {
+                                        if (chosen < 0 || static_cast<usize>(chosen) >= values.Size())
+                                        {
+                                            return;
+                                        }
+                                        const i64 raw = values[static_cast<usize>(chosen)].value;
+                                        const usize sz = leafType->size;
+                                        self->MutateComponent(
+                                            id, type,
+                                            [propPtr, index, leafName, raw, sz](const Instance& comp)
+                                            {
+                                                const Instance container(propPtr->address(comp),
+                                                                         propPtr->type);
+                                                const ContainerInfo& ci = *propPtr->type->container;
+                                                if (index >= ContainerSize(ci, container))
+                                                {
+                                                    return;
+                                                }
+                                                const Instance el =
+                                                    ContainerAddressAt(ci, container, index);
+                                                const PropertyInfo* lp =
+                                                    (el.Type() != nullptr)
+                                                        ? FindProperty(*el.Type(), leafName)
+                                                        : nullptr;
+                                                void* addr =
+                                                    (lp != nullptr && lp->address != nullptr)
+                                                        ? lp->address(el)
+                                                        : nullptr;
+                                                if (addr == nullptr)
+                                                {
+                                                    return;
+                                                }
+                                                switch (sz)
+                                                {
+                                                case 1:
+                                                    *static_cast<i8*>(addr) = static_cast<i8>(raw);
+                                                    break;
+                                                case 2:
+                                                    *static_cast<i16*>(addr) = static_cast<i16>(raw);
+                                                    break;
+                                                case 8:
+                                                    *static_cast<i64*>(addr) = raw;
+                                                    break;
+                                                default:
+                                                    *static_cast<i32*>(addr) = static_cast<i32>(raw);
+                                                    break;
+                                                }
+                                            });
+                                    }},
+                category);
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(ed.Get()));
+            return;
+        }
+        if (leafType == &TypeOf<f32>())
+        {
+            const Variant v0 = readVariant();
+            const f32* f = v0.TryGet<f32>();
+            auto ed = MakeRef<ui::toolkit::FloatEditor>(
+                DefaultAllocator(), leafLabel.AsView(), static_cast<f64>(f != nullptr ? *f : 0.0f),
+                -1.0e9, 1.0e9, 0.1, 3,
+                Function<void(f64)>{[writeVariant](f64 value)
+                                    { writeVariant(Variant::From<f32>(static_cast<f32>(value))); }},
+                category);
+            AddEditor(ed.Get(),
+                      [readVariant, raw = ed.Get()]()
+                      {
+                          const Variant v = readVariant();
+                          if (const f32* fp = v.TryGet<f32>())
+                          {
+                              raw->SetValue(static_cast<f64>(*fp));
+                          }
+                      });
+            return;
+        }
+        if (leafType == &TypeOf<bool>())
+        {
+            const Variant v0 = readVariant();
+            const bool* b = v0.TryGet<bool>();
+            auto ed = MakeRef<ui::toolkit::BoolEditor>(
+                DefaultAllocator(), leafLabel.AsView(), b != nullptr && *b,
+                Function<void(bool)>{[writeVariant](bool value)
+                                     { writeVariant(Variant::From<bool>(value)); }},
+                category);
+            AddEditor(ed.Get(),
+                      [readVariant, raw = ed.Get()]()
+                      {
+                          const Variant v = readVariant();
+                          if (const bool* bp = v.TryGet<bool>())
+                          {
+                              raw->SetValue(*bp);
+                          }
+                      });
+            return;
+        }
+        if (leafType == &TypeOf<String>())
+        {
+            const Variant v0 = readVariant();
+            const String* s = v0.TryGet<String>();
+            auto ed = MakeRef<ui::toolkit::StringEditor>(
+                DefaultAllocator(), leafLabel.AsView(), s != nullptr ? s->AsView() : StringView{},
+                Function<void(StringView)>{[writeVariant](StringView value)
+                                           { writeVariant(Variant::From<String>(String(value))); }},
+                category);
+            AddEditor(ed.Get(),
+                      [readVariant, raw = ed.Get()]()
+                      {
+                          const Variant v = readVariant();
+                          if (const String* sp = v.TryGet<String>())
+                          {
+                              raw->SetValue(sp->AsView());
+                          }
+                      });
+            return;
+        }
+        if (leafType == &TypeOf<Float3>())
+        {
+            const Variant v0 = readVariant();
+            const Float3* f3 = v0.TryGet<Float3>();
+            auto ed = MakeRef<ui::toolkit::Float3Editor>(
+                DefaultAllocator(), leafLabel.AsView(), f3 != nullptr ? *f3 : Float3{}, -1.0e9f,
+                1.0e9f, 0.1f,
+                Function<void(Float3)>{[writeVariant](Float3 value)
+                                       { writeVariant(Variant::From<Float3>(value)); }},
+                category);
+            AddEditor(ed.Get(),
+                      [readVariant, raw = ed.Get()]()
+                      {
+                          const Variant v = readVariant();
+                          if (const Float3* fp = v.TryGet<Float3>())
+                          {
+                              raw->SetValue(*fp);
+                          }
+                      });
+            return;
+        }
+        if (leafType == &TypeOf<i32>() || leafType == &TypeOf<i64>() ||
+            leafType == &TypeOf<u32>() || leafType == &TypeOf<u64>())
+        {
+            const Variant v0 = readVariant();
+            i64 initial = 0;
+            if (const i32* p = v0.TryGet<i32>())
+            {
+                initial = *p;
+            }
+            else if (const i64* p = v0.TryGet<i64>())
+            {
+                initial = *p;
+            }
+            else if (const u32* p = v0.TryGet<u32>())
+            {
+                initial = static_cast<i64>(*p);
+            }
+            else if (const u64* p = v0.TryGet<u64>())
+            {
+                initial = static_cast<i64>(*p);
+            }
+            const TypeInfo* lt = leafType;
+            auto ed = MakeRef<ui::toolkit::IntEditor>(
+                DefaultAllocator(), leafLabel.AsView(), initial,
+                lt == &TypeOf<u32>() || lt == &TypeOf<u64>() ? 0 : -1000000000, 1000000000,
+                Function<void(i64)>{[writeVariant, lt](i64 value)
+                                    {
+                                        if (lt == &TypeOf<i64>())
+                                        {
+                                            writeVariant(Variant::From<i64>(value));
+                                        }
+                                        else if (lt == &TypeOf<u32>())
+                                        {
+                                            writeVariant(Variant::From<u32>(static_cast<u32>(value)));
+                                        }
+                                        else if (lt == &TypeOf<u64>())
+                                        {
+                                            writeVariant(Variant::From<u64>(static_cast<u64>(value)));
+                                        }
+                                        else
+                                        {
+                                            writeVariant(Variant::From<i32>(static_cast<i32>(value)));
+                                        }
+                                    }},
+                category);
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(ed.Get()));
+            return;
+        }
+        // Other leaf types (Float2/Float4/Color/Ref) are not yet rendered in the generic element grid.
+    }
+
+    void SceneInspectorView::ShowAddElementMenu(const Guid& id, const TypeInfo* type,
+                                                const PropertyInfo& containerProp, f32 screenX,
+                                                f32 screenY)
+    {
+        if (containerProp.type == nullptr || containerProp.type->container == nullptr ||
+            containerProp.type->container->elementType == nullptr)
+        {
+            return;
+        }
+        SceneInspectorView* self = this;
+        const PropertyInfo* propPtr = &containerProp;
+        const ContainerInfo& info = *containerProp.type->container;
+        Array<const TypeInfo*> derived;
+        EnumerateDerived(*info.elementType, derived);
+
+        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        ui::ContextMenu* section = nullptr;
+        StringView sectionName;
+        for (const TypeInfo* elementType : derived)
+        {
+            if (!ContainerCanCreateElement(info, *elementType))
+            {
+                continue; // only creatable (wire-loadable) concrete types
+            }
+            const StringView elementCategory =
+                TypeAttrString(*elementType, "category", StringView(u8"Other"));
+            if (section == nullptr || elementCategory != sectionName)
+            {
+                ui::MenuItem* item = menu->AddSubmenu(elementCategory);
+                section = Cast<ui::ContextMenu>(item->Submenu.Get());
+                sectionName = elementCategory;
+            }
+            if (section == nullptr)
+            {
+                continue;
+            }
+            const TypeInfo* concrete = elementType;
+            section->AddItem(
+                ContainerElementLabel(elementType).AsView(),
+                [self, id, type, propPtr, concrete]()
+                {
+                    self->MutateComponent(id, type,
+                                          [propPtr, concrete](const Instance& comp)
+                                          {
+                                              const Instance container(propPtr->address(comp),
+                                                                       propPtr->type);
+                                              const ContainerInfo& ci = *propPtr->type->container;
+                                              (void)ContainerCreateElement(
+                                                  ci, container, ContainerSize(ci, container), *concrete);
+                                          });
+                    self->m_forceRebuild = true;
+                });
+        }
+        menu->Show(Context, screenX, screenY);
     }
 
     Float3 SceneInspectorView::EulerDegrees(Quaternion q)

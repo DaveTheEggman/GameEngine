@@ -388,6 +388,30 @@ export namespace draconic::editor
         void BuildPropertyRow(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
                               StringView category);
 
+        // Generic reflected CONTAINER property (a reflected list member): renders the element grid -
+        // per element a header + move-up/down + remove, then the element's own reflected leaf rows
+        // (recursing into the element's dynamic type); a header "Add..." (a category-grouped menu from
+        // EnumerateDerived for a polymorphic list, a plain button for a homogeneous one). All edits
+        // route through MutateComponent (one undo step each); a hidden watcher forces a rebuild when
+        // the element count / types change (which Signature() does not track). See BuildScriptBehaviors.
+        void BuildContainerRows(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
+                                StringView category);
+        void BuildContainerElementRows(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
+                                       StringView category, usize index);
+        // A leaf editor bound to element[index] of a container member (reads/writes through the
+        // element instance; writes go through MutateComponent). Common scalar/enum/string types only.
+        void BuildContainerElementLeafRow(const Guid& id, const TypeInfo* type,
+                                          const PropertyInfo& containerProp, usize index,
+                                          const PropertyInfo& leaf, StringView category);
+        // One undoable mutation of a component via a generic snapshot/restore/paste (any component type
+        // - unlike the typed Mutate*Component helpers): copy the live value, mutate live, snapshot,
+        // restore (non-undoable ReadComponent), PASTE (the paste command captures the pre-state).
+        void MutateComponent(const Guid& id, const TypeInfo* type,
+                             const Function<void(const Instance&)>& mutate);
+        // Opens the polymorphic "Add..." menu (EnumerateDerived grouped by category / displayName).
+        void ShowAddElementMenu(const Guid& id, const TypeInfo* type, const PropertyInfo& containerProp,
+                                f32 screenX, f32 screenY);
+
         // Current target Guid of a Ref<T> property (nil when unset/unresolvable).
         template <typename T>
         [[nodiscard]] Guid RefTarget(const Guid& id, const TypeInfo* type, const char* propName)
