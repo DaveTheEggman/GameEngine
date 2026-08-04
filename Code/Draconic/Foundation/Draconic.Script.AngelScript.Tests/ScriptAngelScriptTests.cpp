@@ -185,6 +185,95 @@ namespace
     }
 }
 
+// Non-Object VALUE type reached only by address: House has a nested-value member, Shelf a homogeneous
+// Array<UniquePtr<Room>>. Both need borrow-mode handles (unit 2b).
+namespace
+{
+    struct Room
+    {
+        int size = 0;
+    };
+    class House : public Object
+    {
+        DRACONIC_OBJECT(House, Object)
+    public:
+        Room room;
+    };
+    class Shelf : public Object
+    {
+        DRACONIC_OBJECT(Shelf, Object)
+    public:
+        Array<UniquePtr<Room>> rooms;
+    };
+}
+DRACONIC_REFLECT_VALUE(Room, "draconic::script::test")
+{
+    builder.Property<&Room::size>("size");
+}
+DRACONIC_REFLECT(House, "draconic::script::test")
+{
+    builder.Nested<&House::room>("room");
+    builder.Constructor();
+}
+DRACONIC_REFLECT(Shelf, "draconic::script::test")
+{
+    builder.Nested<&Shelf::rooms>("rooms");
+    builder.Constructor();
+}
+namespace
+{
+    void RegisterHouse(IScriptManager& manager)
+    {
+        static bool once = [] {
+            DraconicRegisterValue_Room();
+            RegisterUniquePtrArrayType<Room>();
+            return true;
+        }();
+        (void)once;
+        manager.RegisterType(TypeOf<Room>());
+        manager.RegisterType(House::StaticType());
+        manager.RegisterType(Shelf::StaticType());
+    }
+}
+
+TEST_CASE("angelscript: a nested-value member is a borrow handle edited in place (unit 2b)")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RegisterHouse(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    const Status status = ctx->Load(u8"double S;\n"
+                                    u8"void main() {\n"
+                                    u8"  House h;\n"
+                                    u8"  Room@ r = h.room;\n" // borrow over the House's Room subobject
+                                    u8"  r.size = 7;\n"
+                                    u8"  S = h.room.size;\n" // re-fetched borrow sees the write
+                                    u8"}\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"S").Get<f64>() == 7.0);
+}
+
+TEST_CASE("angelscript: a UniquePtr (non-Object) container element is a borrow handle (unit 2b)")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RegisterHouse(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    const Status status = ctx->Load(u8"double C; double Z;\n"
+                                    u8"void main() {\n"
+                                    u8"  Shelf s;\n"
+                                    u8"  Room@ room = s.rooms_add();\n" // default-constructs + borrows
+                                    u8"  room.size = 42;\n"
+                                    u8"  C = s.rooms_count();\n"
+                                    u8"  Z = s.rooms_at(0).size;\n"
+                                    u8"}\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"C").Get<f64>() == 1.0);
+    CHECK(ctx->GetGlobal(u8"Z").Get<f64>() == 42.0);
+}
+
 TEST_CASE("angelscript: a polymorphic container member binds as script ops (count/at/add/removeAt)")
 {
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();

@@ -374,6 +374,93 @@ TEST_CASE("wren: a constructor-less reflected type is usable as a returned handl
     CHECK(ctx->GetGlobal(u8"V").Get<f64>() == 7.0);
 }
 
+// Non-Object VALUE type + owners that reach it only by address: House has a nested-value member,
+// Shelf a homogeneous Array<UniquePtr<Room>>. Both need borrow-mode handles (unit 2b).
+namespace
+{
+    struct Room
+    {
+        int size = 0;
+    };
+    class House : public Object
+    {
+        DRACONIC_OBJECT(House, Object)
+    public:
+        Room room; // nested value member
+    };
+    class Shelf : public Object
+    {
+        DRACONIC_OBJECT(Shelf, Object)
+    public:
+        Array<UniquePtr<Room>> rooms;
+    };
+}
+DRACONIC_REFLECT_VALUE(Room, "draconic::script::test")
+{
+    builder.Property<&Room::size>("size");
+}
+DRACONIC_REFLECT(House, "draconic::script::test")
+{
+    builder.Nested<&House::room>("room");
+    builder.Constructor();
+}
+DRACONIC_REFLECT(Shelf, "draconic::script::test")
+{
+    builder.Nested<&Shelf::rooms>("rooms");
+    builder.Constructor();
+}
+namespace
+{
+    void RegisterHouse(IScriptManager& manager)
+    {
+        static bool once = [] {
+            DraconicRegisterValue_Room();
+            RegisterUniquePtrArrayType<Room>();
+            return true;
+        }();
+        (void)once;
+        manager.RegisterType(TypeOf<Room>());
+        manager.RegisterType(House::StaticType());
+        manager.RegisterType(Shelf::StaticType());
+    }
+}
+
+TEST_CASE("wren: a nested-value member is a borrow handle edited in place (unit 2b)")
+{
+    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
+    RegisterHouse(*manager);
+    manager->FinalizeTypes();
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    // h.room returns a borrow over the House's Room subobject; editing it writes through.
+    REQUIRE(ctx->Load(u8"var h = House.new()\n"
+                      u8"var r = h.room\n"
+                      u8"r.size = 7\n"
+                      u8"var S = h.room.size\n", // re-fetched borrow sees the write
+                      u8"main")
+                .IsOk());
+    CHECK(ctx->GetGlobal(u8"S").Get<f64>() == 7.0);
+}
+
+TEST_CASE("wren: a UniquePtr (non-Object) container element is a borrow handle (unit 2b)")
+{
+    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
+    RegisterHouse(*manager);
+    manager->FinalizeTypes();
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    // rooms_add() default-constructs a Room (homogeneous UniquePtr container) and hands back a borrow.
+    REQUIRE(ctx->Load(u8"var s = Shelf.new()\n"
+                      u8"var room = s.rooms_add()\n"
+                      u8"room.size = 42\n"
+                      u8"var C = s.rooms_count\n"
+                      u8"var Z = s.rooms_at(0).size\n",
+                      u8"main")
+                .IsOk());
+    CHECK(ctx->GetGlobal(u8"C").Get<f64>() == 1.0);
+    CHECK(ctx->GetGlobal(u8"Z").Get<f64>() == 42.0);
+}
+
 TEST_CASE("wren: a polymorphic container member binds as script ops (count/at/add/removeAt)")
 {
     RefPtr<IScriptManager> manager = wren::CreateScriptManager();

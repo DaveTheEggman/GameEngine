@@ -439,7 +439,10 @@ namespace draconic::script::wren
         ContainerAt,
         ContainerAdd,
         ContainerRemoveAt,
-        ContainerMove
+        ContainerMove,
+        // A plain nested-VALUE member (`emitter`, a curve): getter returns a BORROW handle over the
+        // member address (edited in place; owner pinned + generation-guarded). `property` is the member.
+        NestedGet
     };
 
     struct Binding
@@ -657,6 +660,25 @@ namespace draconic::script::wren
         return n;
     }
 
+    // The Variant to hand a script for container element `index`: an object / value element via getAt
+    // (owned); a NON-Object value element (getAt empty) via a BORROW over its address, pinned to the
+    // container owner `parent` and generation-guarded. Empty if out of range / no element.
+    inline core::Variant ContainerElementVariant(const core::ContainerInfo& ci,
+                                                 const core::Instance& container, core::usize index,
+                                                 const core::Variant& parent)
+    {
+        core::Variant element = core::ContainerGetAt(ci, container, index);
+        if (element.IsEmpty())
+        {
+            const core::Instance addr = core::ContainerAddressAt(ci, container, index);
+            if (addr.Pointer() != nullptr)
+            {
+                element = core::Variant::Borrow(addr.Pointer(), addr.Type(), parent);
+            }
+        }
+        return element;
+    }
+
     // A synthesized container-op method name ("behaviors_at") decodes to {op, container property}.
     // The suffix identifies the op; the prefix must name a container property on `type` (else this is
     // an ordinary member and we fall through). "_removeAt" is tested before "_at" (distinct anchors).
@@ -823,10 +845,10 @@ namespace draconic::script::wren
             case BindKind::ContainerAt:
             {
                 const core::usize idx = static_cast<core::usize>(wrenGetSlotDouble(vm, 1));
-                // Object / value elements marshal out (a non-Object element yields an empty Variant
-                // -> null; those descend by address in the borrow follow-up).
-                MarshalOut(vm, 0, idx < size ? core::ContainerGetAt(ci, container, idx)
-                                             : core::Variant{});
+                MarshalOut(vm, 0,
+                           idx < size
+                               ? ContainerElementVariant(ci, container, idx, *SelfOf(vm))
+                               : core::Variant{});
                 break;
             }
             case BindKind::ContainerAdd:
@@ -851,7 +873,7 @@ namespace draconic::script::wren
                     wrenSetSlotNull(vm, 0);
                     break;
                 }
-                MarshalOut(vm, 0, core::ContainerGetAt(ci, container, size)); // the appended element
+                MarshalOut(vm, 0, ContainerElementVariant(ci, container, size, *SelfOf(vm)));
                 break;
             }
             case BindKind::ContainerRemoveAt:
@@ -868,6 +890,17 @@ namespace draconic::script::wren
             default:
                 break;
             }
+            break;
+        }
+        case BindKind::NestedGet:
+        {
+            core::Variant* self = SelfOf(vm);
+            const core::Instance owner = core::ToInstance(*self);
+            void* addr = (owner.Pointer() != nullptr) ? binding.property->address(owner) : nullptr;
+            MarshalOut(vm, 0,
+                       addr != nullptr
+                           ? core::Variant::Borrow(addr, binding.property->type, *self)
+                           : core::Variant{});
             break;
         }
         }
@@ -1238,10 +1271,17 @@ namespace draconic::script::wren
                 if (core::IsNested(prop))
                 {
                     // A container member is bound as synthesized ops on the owner (count / at / add /
-                    // removeAt / move); a plain nested struct is still skipped (the borrow follow-up).
+                    // removeAt / move); a plain nested-VALUE member gets a getter that returns a borrow
+                    // handle over its address (edited in place, not reassigned - getter only).
                     if (prop.type != nullptr && prop.type->container != nullptr)
                     {
                         AppendContainerMethods(src, prop);
+                    }
+                    else if (prop.type != nullptr)
+                    {
+                        AppendAscii(src, "  foreign ");
+                        AppendAscii(src, prop.name);
+                        AppendAscii(src, "\n");
                     }
                     continue;
                 }
@@ -1425,8 +1465,14 @@ namespace draconic::script::wren
         if (!HasParens(signature))
         {
             const core::PropertyInfo* prop = core::FindProperty(*type, name);
-            return (prop != nullptr) ? Reserve(Binding{BindKind::PropertyGet, type, prop, nullptr})
-                                     : nullptr;
+            if (prop == nullptr)
+            {
+                return nullptr;
+            }
+            // A nested-value member's getter returns a borrow handle; a leaf property reads by value.
+            const BindKind kind =
+                core::IsNested(*prop) ? BindKind::NestedGet : BindKind::PropertyGet;
+            return Reserve(Binding{kind, type, prop, nullptr});
         }
         const core::MethodInfo* method = FindMethodMatching(*type, name, isStatic);
         return (method != nullptr) ? Reserve(Binding{BindKind::Method, type, nullptr, method})

@@ -421,7 +421,10 @@ namespace draconic::script::angelscript
             ContainerAt,
             ContainerAdd,
             ContainerRemoveAt,
-            ContainerMove
+            ContainerMove,
+            // A plain nested-VALUE member (`emitter`, a curve): getter returns a BORROW handle over the
+            // member address (edited in place; owner pinned + generation-guarded). `property` = member.
+            NestedGet
         };
         Kind kind;
         AngelScriptManager* manager;
@@ -433,6 +436,7 @@ namespace draconic::script::angelscript
 
     void FactoryDispatch(asIScriptGeneric* gen);
     void ContainerDispatch(asIScriptGeneric* gen); // container-member ops (count/at/add/removeAt/move)
+    void NestedGetDispatch(asIScriptGeneric* gen); // nested-value member getter -> borrow handle
     void AssignDispatch(asIScriptGeneric* gen); // value assignment (T& opAssign(const T&in))
     void AddRefDispatch(asIScriptGeneric* gen);
     void ReleaseDispatch(asIScriptGeneric* gen);
@@ -1567,6 +1571,26 @@ namespace draconic::script::angelscript
             }
         }
 
+        // Bind a nested-VALUE member as a read getter returning a borrow handle: `<NestedType>@
+        // get_<name>() property`. Skipped if the nested type is not expressible as a handle (not
+        // declared). No setter - a nested value is edited in place through the borrow, not reassigned.
+        void RegisterNestedGetter(const char* name, const core::TypeInfo& type,
+                                  const core::PropertyInfo& property)
+        {
+            core::String decl;
+            if (!AppendDeclType(decl, property.type, /*isParam*/ false))
+            {
+                return;
+            }
+            AppendAscii(decl, " get_");
+            AppendAscii(decl, property.name);
+            AppendAscii(decl, "() property");
+            Binding* binding = MakeBinding(
+                Binding{Binding::Kind::NestedGet, this, &type, nullptr, &property, nullptr});
+            (void)m_engine->RegisterObjectMethod(name, CStr(decl), asFUNCTION(NestedGetDispatch),
+                                                 asCALL_GENERIC, binding);
+        }
+
         // Phase 2: bind the declared type's members.
         void BindType(const core::TypeInfo& type)
         {
@@ -1633,10 +1657,14 @@ namespace draconic::script::angelscript
                 if (core::IsNested(property))
                 {
                     // A container member binds as owner methods (count/at/add/removeAt/move); a plain
-                    // nested struct is still recursed by tooling, not bound (the borrow follow-up).
+                    // nested-VALUE member binds as a getter returning a borrow handle (edited in place).
                     if (property.type != nullptr && property.type->container != nullptr)
                     {
                         RegisterContainerMethods(name, type, property);
+                    }
+                    else if (property.type != nullptr)
+                    {
+                        RegisterNestedGetter(name, type, property);
                     }
                     continue;
                 }
@@ -1908,9 +1936,42 @@ namespace draconic::script::angelscript
         return nullptr;
     }
 
+    // The Variant to hand a script for container element `index`: an object / value element via getAt
+    // (owned); a NON-Object value element (getAt empty) via a BORROW over its address, pinned to the
+    // container owner `parent` and generation-guarded. Empty if out of range / no element.
+    core::Variant ContainerElementVariant(const core::ContainerInfo& ci,
+                                          const core::Instance& container, core::usize index,
+                                          const core::Variant& parent)
+    {
+        core::Variant element = core::ContainerGetAt(ci, container, index);
+        if (element.IsEmpty())
+        {
+            const core::Instance addr = core::ContainerAddressAt(ci, container, index);
+            if (addr.Pointer() != nullptr)
+            {
+                element = core::Variant::Borrow(addr.Pointer(), addr.Type(), parent);
+            }
+        }
+        return element;
+    }
+
+    // A nested-VALUE member getter: returns a borrow handle over the member address (edited in place).
+    void NestedGetDispatch(asIScriptGeneric* gen)
+    {
+        const Binding* binding = static_cast<const Binding*>(gen->GetAuxiliary());
+        BoxedVariant* self = static_cast<BoxedVariant*>(gen->GetObject());
+        core::Instance owner = core::ToInstance(self->value);
+        void* addr =
+            (owner.Pointer() != nullptr) ? binding->property->address(owner) : nullptr;
+        binding->manager->SetGenericReturn(
+            gen, addr != nullptr
+                     ? core::Variant::Borrow(addr, binding->property->type, self->value)
+                     : core::Variant{});
+    }
+
     // One dispatcher for every container op; the Binding::Kind selects which. The owner is `self`,
-    // the container member is reached transiently via property.address, so returned element handles
-    // are owned boxes (object elements addref) - no borrowed-handle lifetime machinery.
+    // the container member is reached transiently via property.address. Object / value elements come
+    // back owned; a non-Object value element comes back as a borrow (pinned to the owner).
     void ContainerDispatch(asIScriptGeneric* gen)
     {
         const Binding* binding = static_cast<const Binding*>(gen->GetAuxiliary());
@@ -1928,7 +1989,8 @@ namespace draconic::script::angelscript
         {
             const core::usize idx = static_cast<core::usize>(gen->GetArgDWord(0));
             binding->manager->SetGenericReturn(
-                gen, idx < size ? core::ContainerGetAt(ci, container, idx) : core::Variant{});
+                gen, idx < size ? ContainerElementVariant(ci, container, idx, self->value)
+                                : core::Variant{});
             break;
         }
         case Binding::Kind::ContainerAdd:
@@ -1955,7 +2017,9 @@ namespace draconic::script::angelscript
                 binding->manager->SetGenericReturn(gen, core::Variant{});
                 break;
             }
-            binding->manager->SetGenericReturn(gen, core::ContainerGetAt(ci, container, size));
+            binding->manager->SetGenericReturn(gen,
+                                               ContainerElementVariant(ci, container, size,
+                                                                       self->value));
             break;
         }
         case Binding::Kind::ContainerRemoveAt:
