@@ -55,6 +55,13 @@ export namespace draconic::editor::app
         // === Chrome ===
         RefPtr<ui::BakedSVGDrawable> close; // tab/panel close X (theme tints it)
 
+        // === List / row controls (container list editor: add row, remove row, reorder) ===
+        RefPtr<ui::BakedSVGDrawable> add;      // plus
+        RefPtr<ui::BakedSVGDrawable> remove;   // trash
+        RefPtr<ui::BakedSVGDrawable> moveUp;   // chevron up
+        RefPtr<ui::BakedSVGDrawable> moveDown; // chevron down
+        RefPtr<ui::BakedSVGDrawable> copy;     // duplicate (two documents)
+
         void Initialize();
 
         void Shutdown();
@@ -82,6 +89,31 @@ export namespace draconic::editor::app
         // Close X - the tab/panel close glyph (diamond-cut X polygon).
         static constexpr StringView kClose = u8R"svg(<svg viewBox="0 0 24 24">
   <path d="M3.5 5.3L5.3 3.5 12 10.2 18.7 3.5 20.5 5.3 13.8 12 20.5 18.7 18.7 20.5 12 13.8 5.3 20.5 3.5 18.7 10.2 12z" fill="#E0E0E0"/>
+</svg>)svg";
+
+        // Add - plus (add a list row).
+        static constexpr StringView kAdd = u8R"svg(<svg viewBox="0 0 24 24">
+  <path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z" fill="#E0E0E0"/>
+</svg>)svg";
+
+        // Remove - trash can (delete a list row).
+        static constexpr StringView kRemove = u8R"svg(<svg viewBox="0 0 24 24">
+  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="#E0E0E0"/>
+</svg>)svg";
+
+        // Move up - chevron up (reorder a list row).
+        static constexpr StringView kMoveUp = u8R"svg(<svg viewBox="0 0 24 24">
+  <path d="M12 8l-6 6 1.4 1.4L12 10.8l4.6 4.6L18 14z" fill="#E0E0E0"/>
+</svg>)svg";
+
+        // Move down - chevron down (reorder a list row).
+        static constexpr StringView kMoveDown = u8R"svg(<svg viewBox="0 0 24 24">
+  <path d="M12 16l6-6-1.4-1.4L12 13.2 7.4 8.6 6 10z" fill="#E0E0E0"/>
+</svg>)svg";
+
+        // Copy - two overlapping documents (duplicate a component).
+        static constexpr StringView kCopy = u8R"svg(<svg viewBox="0 0 24 24">
+  <path d="M16 1H4a2 2 0 00-2 2v12h2V3h12V1zm3 4H8a2 2 0 00-2 2v14a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2zm0 16H8V7h11v14z" fill="#E0E0E0"/>
 </svg>)svg";
 
         // Rotate gizmo - circular arrow.

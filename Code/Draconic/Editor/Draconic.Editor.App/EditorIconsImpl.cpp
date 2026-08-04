@@ -55,6 +55,11 @@ namespace draconic::editor::app
         folder = ui::BakedSVGDrawable::FromString(kFolder);
         unknown = ui::BakedSVGDrawable::FromString(kUnknown);
         close = ui::BakedSVGDrawable::FromString(kClose);
+        add = ui::BakedSVGDrawable::FromString(kAdd);
+        remove = ui::BakedSVGDrawable::FromString(kRemove);
+        moveUp = ui::BakedSVGDrawable::FromString(kMoveUp);
+        moveDown = ui::BakedSVGDrawable::FromString(kMoveDown);
+        copy = ui::BakedSVGDrawable::FromString(kCopy);
     }
 
     void EditorIcons::Shutdown()
@@ -77,6 +82,11 @@ namespace draconic::editor::app
         skeleton = nullptr;
         folder = nullptr;
         unknown = nullptr;
+        add = nullptr;
+        remove = nullptr;
+        moveUp = nullptr;
+        moveDown = nullptr;
+        copy = nullptr;
         m_initialized = false;
     }
 
@@ -86,7 +96,8 @@ namespace draconic::editor::app
     const RefPtr<ui::BakedSVGDrawable>* all[] = {
         &translate, &rotate,     &scale,    &worldSpace, &localSpace, &grid,   &scene,
         &prefab,    &mesh,       &skinnedMesh, &material, &texture,   &particleFx,
-        &animation, &animGraph,  &skeleton, &folder,     &unknown,    &close};
+        &animation, &animGraph,  &skeleton, &folder,     &unknown,    &close,
+        &add,       &remove,     &moveUp,   &moveDown,   &copy};
     for (const RefPtr<ui::BakedSVGDrawable>* icon : all)
     {
         if (icon->Get() != nullptr)
