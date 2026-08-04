@@ -8,6 +8,8 @@ target_link_libraries(Draconic.Materials.Editor
            Draconic::Materials Draconic::Materials.Resource Draconic::Policy)
 
 target_sources(Draconic.Materials.Editor
+    PRIVATE
+        MaterialAssetImpl.cpp   # MaterialAsset reflection body (Nested source; GCC hygiene)
     PUBLIC
         FILE_SET material_editor_modules TYPE CXX_MODULES FILES
             MaterialAsset.cppm)

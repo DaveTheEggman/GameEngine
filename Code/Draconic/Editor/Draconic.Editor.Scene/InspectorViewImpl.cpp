@@ -443,6 +443,10 @@ namespace draconic::editor
                 }
                 for (const PropertyInfo& prop : Properties(*type))
                 {
+                    if (IsNested(prop))
+                    {
+                        continue; // nested structures are recursed elsewhere, not a leaf row
+                    }
                     const usize firstRow = m_grid->PropertyCount();
                     BuildSettingRow(type, prop, category);
                     ApplyPropertyPresentation(
@@ -821,6 +825,10 @@ namespace draconic::editor
 
         for (const PropertyInfo& prop : Properties(*type))
         {
+            if (IsNested(prop))
+            {
+                continue; // nested structures are recursed elsewhere, not a leaf row
+            }
             const usize firstRow = m_grid->PropertyCount();
             BuildPropertyRow(id, type, prop, category);
             ApplyPropertyPresentation(type, prop, firstRow,

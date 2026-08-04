@@ -104,6 +104,7 @@ export namespace draconic::materials
         RegisterSerializable<MaterialAsset>();
     }
 
-    DRACONIC_DEFINE_OBJECT(MaterialAsset, "draconic::materials")
+    // MaterialAsset::StaticType() is defined WITH its reflected surface (a Nested `source`
+    // property) in MaterialAssetImpl.cpp - GCC module hygiene: DRACONIC_REFLECT out of interfaces.
 
 } // namespace draconic::materials

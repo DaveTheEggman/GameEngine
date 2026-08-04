@@ -317,6 +317,7 @@ export namespace draconic::materials
         }
     };
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(MaterialSource, "draconic::materials", 2)
+    // MaterialSource::StaticType() is defined WITH its reflected properties + data version (2)
+    // in MaterialResourceImpl.cpp (GCC module hygiene: DRACONIC_REFLECT bodies out of interfaces).
 
 } // namespace draconic::materials

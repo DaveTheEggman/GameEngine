@@ -9,6 +9,8 @@ target_link_libraries(Draconic.Materials.Resource
            Draconic::Shaders.Resource Draconic::Materials Draconic::Policy)
 
 target_sources(Draconic.Materials.Resource
+    PRIVATE
+        MaterialResourceImpl.cpp   # MaterialSource reflection body (GCC hygiene: out of the interface)
     PUBLIC
         FILE_SET material_resource_modules TYPE CXX_MODULES FILES
             MaterialResource.cppm)

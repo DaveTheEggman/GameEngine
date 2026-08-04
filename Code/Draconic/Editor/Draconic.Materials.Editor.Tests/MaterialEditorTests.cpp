@@ -87,3 +87,34 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
 
     RemoveTree();
 }
+
+TEST_CASE("material editor: MaterialAsset exposes MaterialSource as a NESTED property (recurse)")
+{
+    // MaterialSource derives Object (non-copyable), so MaterialAsset wraps it as a Nested
+    // property - the reflection-track "living proof". Tooling reaches it via address and
+    // recurses into the source's own reflected scalars rather than reading it by value.
+    const PropertyInfo* srcProp = FindProperty(MaterialAsset::StaticType(), "source");
+    REQUIRE(srcProp != nullptr);
+    CHECK(IsNested(*srcProp));
+    CHECK(srcProp->type == &MaterialSource::StaticType());
+    CHECK(PropertyCount(MaterialSource::StaticType()) == 10u); // the reflected scalar surface
+
+    MaterialAsset asset;
+    asset.source.blendMode = 3;
+    asset.source.shaderFlags = 7u;
+    Instance assetInst = Instance::From(&asset);
+
+    // A nested member is never read by value: get is empty.
+    CHECK(GetProperty(*srcProp, assetInst).IsEmpty());
+
+    // Recurse: address -> the live MaterialSource in place -> read its reflected scalars.
+    void* srcAddr = srcProp->address(assetInst);
+    REQUIRE(srcAddr != nullptr);
+    const Instance srcInst(srcAddr, srcProp->type);
+    const PropertyInfo* blendProp = FindProperty(*srcProp->type, "blendMode");
+    const PropertyInfo* flagsProp = FindProperty(*srcProp->type, "shaderFlags");
+    REQUIRE(blendProp != nullptr);
+    REQUIRE(flagsProp != nullptr);
+    CHECK(GetProperty(*blendProp, srcInst).Get<u8>() == static_cast<u8>(3));
+    CHECK(GetProperty(*flagsProp, srcInst).Get<u32>() == 7u);
+}
