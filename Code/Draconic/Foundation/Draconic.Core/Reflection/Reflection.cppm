@@ -575,6 +575,56 @@ export namespace draconic::core
 
 namespace draconic::core::detail
 {
+    // ---- bounded-array (count-bound inline vector) container support --------------------------
+    // A `T member[N]` C-array paired with a live `count` member (the logical length) is reflected
+    // as a container whose SIZE is the count clamped to [0, N] - so garbage slots beyond the count
+    // never surface. The container operates on the OWNER instance (it needs both the array and the
+    // count), so the BoundedArray property's `address` returns the owner identity.
+    template <typename M>
+    struct CArrayTraits;
+    template <typename C, typename T, usize N>
+    struct CArrayTraits<T (C::*)[N]>
+    {
+        using Owner = C;
+        using Element = T;
+        static constexpr usize Extent = N;
+    };
+
+    template <typename Owner, typename Elem, usize N, auto ArrayMember, auto CountMember>
+    usize BoundedArraySize(const Instance& inst)
+    {
+        const Owner* owner = static_cast<const Owner*>(inst.Pointer());
+        const auto raw = owner->*CountMember;
+        if (raw <= 0)
+        {
+            return 0;
+        }
+        const usize c = static_cast<usize>(raw);
+        return c < N ? c : N; // clamp corrupt/oversized counts to the capacity
+    }
+    template <typename Owner, typename Elem, usize N, auto ArrayMember, auto CountMember>
+    Variant BoundedArrayGetAt(const Instance& inst, usize index)
+    {
+        const Owner* owner = static_cast<const Owner*>(inst.Pointer());
+        return Variant::From<Elem>((owner->*ArrayMember)[index]);
+    }
+    template <typename Owner, typename Elem, usize N, auto ArrayMember, auto CountMember>
+    Status BoundedArraySetAt(const Instance& inst, usize index, const Variant& value)
+    {
+        const Elem* typed = value.TryGet<Elem>();
+        if (typed == nullptr)
+        {
+            return Status{ErrorCode::InvalidArgument};
+        }
+        Owner* owner = static_cast<Owner*>(inst.Pointer());
+        (owner->*ArrayMember)[index] = *typed;
+        return Status{};
+    }
+    inline void* BoundedArrayAddress(const Instance& inst)
+    {
+        return inst.Pointer(); // the owner - the container reads array + count off it
+    }
+
     // Object-argument support: a parameter A may be a value type, or an object
     // form (RefPtr<U>, U*, or U&/const U& with U deriving Object). Object args
     // are extracted from an object-mode Variant via AsObject<U>().
@@ -948,6 +998,36 @@ export namespace draconic::core
                                                     &detail::NestedPropertyGet,
                                                     &detail::NestedPropertySet,
                                                     &detail::NestedPropertyAddress<T, M, Member>});
+            return *this;
+        }
+
+        /// A BOUNDED-ARRAY property: a fixed-capacity C-array member (`T member[N]`) paired with a
+        /// live count member (the logical length). Reflects as a container whose size is the count
+        /// clamped to [0, N] - iterating never surfaces garbage beyond the count - reusing the whole
+        /// IsContainer/ContainerGetAt/ContainerSetAt consumer path. Flagged Nested (address = the
+        /// owner; the container reads the array + count off it); harvest skips it like any Nested.
+        template <auto ArrayMember, auto CountMember>
+        TypeBuilder& BoundedArray(const char* name)
+        {
+            using AT = detail::CArrayTraits<decltype(ArrayMember)>;
+            using Owner = typename AT::Owner;
+            using Elem = typename AT::Element;
+            constexpr usize N = AT::Extent;
+            static const ContainerInfo container{
+                &TypeOf<Elem>(),
+                &detail::BoundedArraySize<Owner, Elem, N, ArrayMember, CountMember>,
+                &detail::BoundedArrayGetAt<Owner, Elem, N, ArrayMember, CountMember>,
+                &detail::BoundedArraySetAt<Owner, Elem, N, ArrayMember, CountMember>};
+            static const TypeInfo boundedType = []()
+            {
+                TypeInfo info = MakeTypeInfo<Elem>("BoundedArray", "draconic::core", nullptr);
+                info.container = &container;
+                return info;
+            }();
+            m_data.properties.PushBack(PropertyInfo{name, &boundedType, PropertyFlags::Nested,
+                                                    &detail::NestedPropertyGet,
+                                                    &detail::NestedPropertySet,
+                                                    &detail::BoundedArrayAddress});
             return *this;
         }
 

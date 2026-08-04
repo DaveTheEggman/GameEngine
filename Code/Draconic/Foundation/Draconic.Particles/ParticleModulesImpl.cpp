@@ -167,10 +167,12 @@ namespace draconic::particles
     }
     DRACONIC_REFLECT(CollisionBehavior, "draconic::particles")
     {
-        // The fixed-capacity shape lists (planes/spheres/boxes, C-arrays) are not reflected yet -
-        // C-array members need a reflection primitive that does not exist (see reflection-track).
-        // Their element types + the counts/response scalars ARE reflected.
+        // The fixed-capacity shape lists are count-bound inline vectors, reflected as BoundedArray
+        // containers (size = the live count clamped to capacity); the counts stay as scalars too.
         builder.Attribute("displayName", String(u8"Collision"))
+            .BoundedArray<&CollisionBehavior::planes, &CollisionBehavior::planeCount>("planes")
+            .BoundedArray<&CollisionBehavior::spheres, &CollisionBehavior::sphereCount>("spheres")
+            .BoundedArray<&CollisionBehavior::boxes, &CollisionBehavior::boxCount>("boxes")
             .Property<&CollisionBehavior::planeCount>("planeCount")
             .Property<&CollisionBehavior::sphereCount>("sphereCount")
             .Property<&CollisionBehavior::boxCount>("boxCount")
@@ -180,7 +182,67 @@ namespace draconic::particles
             .Property<&CollisionBehavior::lifetimeLoss>("lifetimeLoss");
     }
 
-    // Registers the range + shape + collision leaf value types (the modules' StaticType()
+    // ---- curves (count-bound key arrays) + the OverLifetime behaviors ------------------------
+    DRACONIC_REFLECT_VALUE(CurveKeyFloat, "draconic::particles")
+    {
+        builder.Property<&CurveKeyFloat::time>("time")
+            .Property<&CurveKeyFloat::value>("value")
+            .Property<&CurveKeyFloat::tangentIn>("tangentIn")
+            .Property<&CurveKeyFloat::tangentOut>("tangentOut");
+    }
+    DRACONIC_REFLECT_VALUE(CurveKeyColor, "draconic::particles")
+    {
+        builder.Property<&CurveKeyColor::time>("time").Property<&CurveKeyColor::color>("color");
+    }
+    DRACONIC_REFLECT_VALUE(ParticleCurveFloat, "draconic::particles")
+    {
+        builder.BoundedArray<&ParticleCurveFloat::keys, &ParticleCurveFloat::keyCount>("keys")
+            .Property<&ParticleCurveFloat::keyCount>("keyCount");
+    }
+    DRACONIC_REFLECT_VALUE(ParticleCurveColor, "draconic::particles")
+    {
+        builder.BoundedArray<&ParticleCurveColor::keys, &ParticleCurveColor::keyCount>("keys")
+            .Property<&ParticleCurveColor::keyCount>("keyCount");
+    }
+    DRACONIC_REFLECT_VALUE(ParticleCurveFloat2, "draconic::particles")
+    {
+        // Parallel key arrays (times/values/tangents), all count-bound to keyCount.
+        builder.BoundedArray<&ParticleCurveFloat2::times, &ParticleCurveFloat2::keyCount>("times")
+            .BoundedArray<&ParticleCurveFloat2::values, &ParticleCurveFloat2::keyCount>("values")
+            .BoundedArray<&ParticleCurveFloat2::tangentsIn, &ParticleCurveFloat2::keyCount>(
+                "tangentsIn")
+            .BoundedArray<&ParticleCurveFloat2::tangentsOut, &ParticleCurveFloat2::keyCount>(
+                "tangentsOut")
+            .Property<&ParticleCurveFloat2::keyCount>("keyCount");
+    }
+
+    DRACONIC_REFLECT(ColorOverLifetimeBehavior, "draconic::particles")
+    {
+        builder.Attribute("displayName", String(u8"Color over Lifetime"))
+            .Nested<&ColorOverLifetimeBehavior::curve>("curve");
+    }
+    DRACONIC_REFLECT(AlphaOverLifetimeBehavior, "draconic::particles")
+    {
+        builder.Attribute("displayName", String(u8"Alpha over Lifetime"))
+            .Nested<&AlphaOverLifetimeBehavior::curve>("curve");
+    }
+    DRACONIC_REFLECT(SizeOverLifetimeBehavior, "draconic::particles")
+    {
+        builder.Attribute("displayName", String(u8"Size over Lifetime"))
+            .Nested<&SizeOverLifetimeBehavior::curve>("curve");
+    }
+    DRACONIC_REFLECT(RotationOverLifetimeBehavior, "draconic::particles")
+    {
+        builder.Attribute("displayName", String(u8"Rotation over Lifetime"))
+            .Nested<&RotationOverLifetimeBehavior::curve>("curve");
+    }
+    DRACONIC_REFLECT(SpeedOverLifetimeBehavior, "draconic::particles")
+    {
+        builder.Attribute("displayName", String(u8"Speed over Lifetime"))
+            .Nested<&SpeedOverLifetimeBehavior::curve>("curve");
+    }
+
+    // Registers the range + shape + collision + curve leaf value types (the modules' StaticType()
     // self-builds via DRACONIC_REFLECT). Idempotent; call from RegisterParticleModules().
     void RegisterParticleModuleReflection()
     {
@@ -194,6 +256,11 @@ namespace draconic::particles
             DraconicRegisterValue_CollisionPlane();
             DraconicRegisterValue_CollisionSphere();
             DraconicRegisterValue_CollisionBox();
+            DraconicRegisterValue_CurveKeyFloat();
+            DraconicRegisterValue_CurveKeyColor();
+            DraconicRegisterValue_ParticleCurveFloat();
+            DraconicRegisterValue_ParticleCurveColor();
+            DraconicRegisterValue_ParticleCurveFloat2();
             return true;
         }();
         (void)once;

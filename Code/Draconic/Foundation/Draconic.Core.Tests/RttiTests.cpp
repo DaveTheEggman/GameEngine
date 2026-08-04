@@ -96,6 +96,20 @@ DRACONIC_REFLECT(NestedLeaf, "draconic::test")
 {
     builder.Property<&NestedLeaf::value>("value");
 }
+
+namespace
+{
+    // A count-bound inline vector: a fixed C-array + a live count (the particle-curve/collision shape).
+    struct BoundedThing
+    {
+        int values[4]{};
+        int count = 0;
+    };
+}
+DRACONIC_REFLECT_VALUE(BoundedThing, "draconic::test")
+{
+    builder.BoundedArray<&BoundedThing::values, &BoundedThing::count>("values");
+}
 DRACONIC_REFLECT(NestedOwner, "draconic::test")
 {
     builder.Nested<&NestedOwner::leaf>("leaf");        // value member
@@ -440,6 +454,40 @@ TEST_CASE("rtti: a Nested property recurses into a non-copyable member via addre
     CHECK(ptrAddr == &other); // the pointee, not the pointer's own address
     const Instance ptrInst(ptrAddr, ptrProp->type);
     CHECK(GetProperty(*valueProp, ptrInst).Get<int>() == 99);
+}
+
+void DraconicRegisterValue_BoundedThing(); // emitted by DRACONIC_REFLECT_VALUE above
+
+TEST_CASE("rtti: a BoundedArray reflects a count-bound C-array as a clamped container")
+{
+    DraconicRegisterValue_BoundedThing(); // patches TypeOf<BoundedThing> with its reflected surface
+    const PropertyInfo* prop = FindProperty(TypeOf<BoundedThing>(), "values");
+    REQUIRE(prop != nullptr);
+    CHECK(IsNested(*prop));      // structural: harvest skips it, tooling recurses
+    REQUIRE(prop->type != nullptr);
+    REQUIRE(IsContainer(*prop->type)); // ... and it is a container to iterate
+
+    BoundedThing t;
+    t.values[0] = 10;
+    t.values[1] = 20;
+    t.count = 2;
+    Instance inst = Instance::From(&t);
+    const Instance sub(prop->address(inst), prop->type); // address = the owner identity
+    const ContainerInfo& c = *prop->type->container;
+
+    // Size follows the COUNT, not the capacity; elements read/write through in place.
+    CHECK(ContainerSize(c, sub) == 2u);
+    CHECK(ContainerGetAt(c, sub, 0).Get<int>() == 10);
+    CHECK(ContainerGetAt(c, sub, 1).Get<int>() == 20);
+    CHECK(ContainerSetAt(c, sub, 0, Variant::From(99)).IsOk());
+    CHECK(t.values[0] == 99);
+
+    // A corrupt / oversized count clamps to the capacity N (never reads out of bounds);
+    // a negative count clamps to zero.
+    t.count = 100;
+    CHECK(ContainerSize(c, sub) == 4u);
+    t.count = -5;
+    CHECK(ContainerSize(c, sub) == 0u);
 }
 
 TEST_CASE("rtti: inherited property is found through the base chain")

@@ -919,17 +919,10 @@ export namespace draconic::particles
 
     DRACONIC_DEFINE_OBJECT(ParticleInitializer, "draconic::particles")
     DRACONIC_DEFINE_OBJECT(ParticleBehavior, "draconic::particles")
-    // PositionInitializer..VortexBehavior StaticType() is defined WITH reflected properties in
-    // ParticleModulesImpl.cpp (batches 1-2; GCC module hygiene: DRACONIC_REFLECT out of interfaces).
-    // Attractor/RadialForce/CollisionBehavior StaticType() defined with reflected properties in
-    // ParticleModulesImpl.cpp (batch 3). The curve-driven OverLifetime behaviors below stay
-    // identity-only for now (their curves are C-arrays - a reflection primitive that does not
-    // exist yet; see docs/design/reflection-track.md).
-    DRACONIC_DEFINE_OBJECT(ColorOverLifetimeBehavior, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(AlphaOverLifetimeBehavior, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(SizeOverLifetimeBehavior, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(RotationOverLifetimeBehavior, "draconic::particles")
-    DRACONIC_DEFINE_OBJECT(SpeedOverLifetimeBehavior, "draconic::particles")
+    // Every concrete module's StaticType() is defined WITH its reflected properties in
+    // ParticleModulesImpl.cpp (GCC module hygiene: DRACONIC_REFLECT out of interfaces). The
+    // curve-driven OverLifetime behaviors reflect their curves via the BoundedArray container
+    // primitive (count-bound key arrays). All 20 concrete module types are reflected.
 
     // Registers the reflected range leaf value types (module reflection bodies self-build via
     // DRACONIC_REFLECT). Defined in ParticleModulesImpl.cpp; idempotent.

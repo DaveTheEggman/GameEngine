@@ -783,13 +783,53 @@ TEST_CASE("particle reflection (batch 3): force + collision modules reflect thei
     Instance ai = Instance::From(&a);
     CHECK(GetProperty(*FindProperty(attractor, "strength"), ai).Get<f32>() == doctest::Approx(4.0f));
 
-    // CollisionBehavior: flat scalars reflected; the C-array shape lists are intentionally not.
+    // CollisionBehavior: 3 BoundedArray shape lists + 3 counts + 4 response scalars.
     const TypeInfo& collision = CollisionBehavior::StaticType();
-    CHECK(PropertyCount(collision) == 7u); // 3 counts + radius/bounce/friction/lifetimeLoss
+    CHECK(PropertyCount(collision) == 10u);
     CHECK(FindProperty(collision, "bounce") != nullptr);
-    CHECK(FindProperty(collision, "planes") == nullptr); // C-array shape list not reflected
+    CHECK(FindProperty(collision, "planes") != nullptr); // now a BoundedArray container
 
     // The collision shape element types reflect as flat value types.
     CHECK(PropertyCount(TypeOf<CollisionPlane>()) == 2u);  // normal/distance
     CHECK(PropertyCount(TypeOf<CollisionBox>()) == 2u);    // center/halfExtents
+}
+
+TEST_CASE("particle reflection (batch 4): curve behaviors reflect via BoundedArray - 20/20 modules")
+{
+    using namespace draconic::particles;
+    RegisterParticleModules();
+
+    // AlphaOverLifetime.curve is a Nested ParticleCurveFloat; its `keys` is a count-bound container.
+    const TypeInfo& alpha = AlphaOverLifetimeBehavior::StaticType();
+    const PropertyInfo* curveProp = FindProperty(alpha, "curve");
+    REQUIRE(curveProp != nullptr);
+    CHECK(IsNested(*curveProp));
+    CHECK(curveProp->type == &TypeOf<ParticleCurveFloat>());
+
+    AlphaOverLifetimeBehavior b;
+    b.curve = ParticleCurveFloat::Linear(0.0f, 10.0f); // 2 keys
+    Instance bi = Instance::From(&b);
+    const Instance curveInst(curveProp->address(bi), curveProp->type);
+
+    const PropertyInfo* keysProp = FindProperty(TypeOf<ParticleCurveFloat>(), "keys");
+    REQUIRE(keysProp != nullptr);
+    REQUIRE(IsContainer(*keysProp->type));
+    const Instance keysInst(keysProp->address(curveInst), keysProp->type);
+    const ContainerInfo& keys = *keysProp->type->container;
+
+    // Size follows keyCount (2), not the capacity (8). Read the last key's value through it.
+    CHECK(ContainerSize(keys, keysInst) == 2u);
+    Variant key1 = ContainerGetAt(keys, keysInst, 1);
+    const Instance keyInst(key1.ValuePointer(), key1.Type());
+    CHECK(GetProperty(*FindProperty(TypeOf<CurveKeyFloat>(), "value"), keyInst).Get<f32>() ==
+          doctest::Approx(10.0f));
+
+    // CollisionBehavior's shape lists are BoundedArrays too (default: 1 ground plane).
+    CollisionBehavior col;
+    const PropertyInfo* planesProp = FindProperty(CollisionBehavior::StaticType(), "planes");
+    REQUIRE(planesProp != nullptr);
+    REQUIRE(IsContainer(*planesProp->type));
+    Instance ci = Instance::From(&col);
+    const Instance planesInst(planesProp->address(ci), planesProp->type);
+    CHECK(ContainerSize(*planesProp->type->container, planesInst) == 1u); // planeCount default
 }
