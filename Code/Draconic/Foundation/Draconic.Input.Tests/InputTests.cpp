@@ -1061,3 +1061,35 @@ TEST_CASE("input.subsystem: ClearSourceProviderIf drops only its own dangling ov
     input.ClearSourceProviderIf(&tabA);
     CHECK(&input.ActiveSource() != static_cast<IInputSourceProvider*>(&tabA));
 }
+
+TEST_CASE("input reflection: the leaf value types + enums reflect (P2 breadth)")
+{
+    using namespace draconic::input;
+    RegisterInputTypeReflection();
+
+    // Binding: 17 flat scalar properties; `source` is a named enum (dropdown-ready).
+    const TypeInfo& binding = TypeOf<Binding>();
+    CHECK(PropertyCount(binding) == 17u);
+    const PropertyInfo* srcProp = FindProperty(binding, "source");
+    REQUIRE(srcProp != nullptr);
+    REQUIRE(srcProp->type != nullptr);
+    CHECK(IsEnum(*srcProp->type));
+    CHECK(Enumerators(*srcProp->type).Size() == 10u); // BindingSource has 10 values
+
+    // get/set round-trip through an Instance on a live Binding.
+    Binding b;
+    b.deadZone = 0.25f;
+    Instance inst = Instance::From(&b);
+    const PropertyInfo* deadZone = FindProperty(binding, "deadZone");
+    REQUIRE(deadZone != nullptr);
+    CHECK(GetProperty(*deadZone, inst).Get<f32>() == doctest::Approx(0.25f));
+    CHECK(SetProperty(*deadZone, inst, Variant::From(0.5f)).IsOk());
+    CHECK(b.deadZone == doctest::Approx(0.5f));
+
+    // The other leaves are reflected too.
+    CHECK(PropertyCount(TypeOf<Interaction>()) == 2u);
+    CHECK(PropertyCount(TypeOf<ActionProcessors>()) == 5u);
+    const PropertyInfo* interKind = FindProperty(TypeOf<Interaction>(), "kind");
+    REQUIRE(interKind != nullptr);
+    CHECK(IsEnum(*interKind->type)); // InteractionKind
+}

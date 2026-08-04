@@ -136,6 +136,11 @@ export namespace draconic::input
         Array<ActionSet> sets;
     };
 
+    /// Reflects the input-map LEAF value types (Binding/Interaction/ActionProcessors) + their
+    /// enums (BindingSource/ActionKind/InteractionKind) so they are visible to tooling/scripting.
+    /// Idempotent; defined in InputReflectionImpl.cpp. Call from a startup registrar.
+    void RegisterInputTypeReflection();
+
     // ---- serialization (shared by the source asset and the cooked resource) ----
 
     inline constexpr u32 kInputMapVersion = 2; // v2: touch sources + region fields
