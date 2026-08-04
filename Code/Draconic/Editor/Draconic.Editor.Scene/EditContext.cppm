@@ -1681,6 +1681,9 @@ export namespace draconic::editor
                     (void)buffer.Seek(0, SeekOrigin::Begin);
                     BinarySerializer ar(buffer, SerializeMode::Read);
                     mgr->ReadComponent(ar, e); // adds + fills
+                    m_ctx->ResolveRestoredResources(); // re-bind the restored refs' proxies so the
+                                                       // component renders this frame (mesh/material
+                                                       // caches) - matches the paste / spawn paths
                     return;
                 }
                 if (!mgr->AddDefaultComponent(e))
@@ -1695,6 +1698,7 @@ export namespace draconic::editor
                         (void)SetProperty(*prop, component, snap.value);
                     }
                 }
+                m_ctx->ResolveRestoredResources();
             }
 
             [[nodiscard]] StringView TypeId() const override { return u8"remove_component"; }
