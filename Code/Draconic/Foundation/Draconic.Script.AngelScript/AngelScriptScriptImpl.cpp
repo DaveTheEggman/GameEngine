@@ -412,7 +412,16 @@ namespace draconic::script::angelscript
             Constructor,
             PropertyGet,
             PropertySet,
-            Method
+            Method,
+            // Container-member ops, registered as methods on the OWNER (`behaviors_at(uint)` etc.):
+            // computed transiently on `self` each call, so an object element handle comes back OWNED
+            // (a boxed dynamic-type Variant). `property` is the container member. Non-Object value
+            // elements (reached only by address) are not surfaced here - that is the borrow follow-up.
+            ContainerCount,
+            ContainerAt,
+            ContainerAdd,
+            ContainerRemoveAt,
+            ContainerMove
         };
         Kind kind;
         AngelScriptManager* manager;
@@ -423,6 +432,7 @@ namespace draconic::script::angelscript
     };
 
     void FactoryDispatch(asIScriptGeneric* gen);
+    void ContainerDispatch(asIScriptGeneric* gen); // container-member ops (count/at/add/removeAt/move)
     void AssignDispatch(asIScriptGeneric* gen); // value assignment (T& opAssign(const T&in))
     void AddRefDispatch(asIScriptGeneric* gen);
     void ReleaseDispatch(asIScriptGeneric* gen);
@@ -1500,6 +1510,63 @@ namespace draconic::script::angelscript
             m_registered.PushBack(RegisteredType{&type, typeId});
         }
 
+        // Bind a container member as owner methods: `<name>_count() -> uint`, `<name>_at(uint) ->
+        // Elem@`, `<name>_add(const string &in) -> Elem@` (polymorphic) / `<name>_add() -> Elem@`
+        // (homogeneous), `<name>_removeAt(uint)`, `<name>_move(uint, uint)`. The element handle
+        // spelling comes from the container's static element type; at/add are skipped if it is not
+        // expressible (count/removeAt/move still register).
+        void RegisterContainerMethods(const char* name, const core::TypeInfo& type,
+                                      const core::PropertyInfo& property)
+        {
+            const core::ContainerInfo& ci = *property.type->container;
+            const bool polymorphic = core::IsPolymorphicContainer(ci);
+            core::String elemDecl;
+            const bool elemSpellable = AppendDeclType(elemDecl, ci.elementType, /*isParam*/ false);
+
+            auto reg = [&](const core::String& decl, Binding::Kind kind)
+            {
+                Binding* binding =
+                    MakeBinding(Binding{kind, this, &type, nullptr, &property, nullptr});
+                (void)m_engine->RegisterObjectMethod(name, CStr(decl), asFUNCTION(ContainerDispatch),
+                                                     asCALL_GENERIC, binding);
+            };
+            {
+                core::String d;
+                AppendAscii(d, "uint ");
+                AppendAscii(d, property.name);
+                AppendAscii(d, "_count()");
+                reg(d, Binding::Kind::ContainerCount);
+            }
+            if (elemSpellable)
+            {
+                core::String d = elemDecl;
+                AppendAscii(d, " ");
+                AppendAscii(d, property.name);
+                AppendAscii(d, "_at(uint)");
+                reg(d, Binding::Kind::ContainerAt);
+
+                core::String a = elemDecl;
+                AppendAscii(a, " ");
+                AppendAscii(a, property.name);
+                AppendAscii(a, polymorphic ? "_add(const string &in)" : "_add()");
+                reg(a, Binding::Kind::ContainerAdd);
+            }
+            {
+                core::String d;
+                AppendAscii(d, "void ");
+                AppendAscii(d, property.name);
+                AppendAscii(d, "_removeAt(uint)");
+                reg(d, Binding::Kind::ContainerRemoveAt);
+            }
+            {
+                core::String d;
+                AppendAscii(d, "void ");
+                AppendAscii(d, property.name);
+                AppendAscii(d, "_move(uint, uint)");
+                reg(d, Binding::Kind::ContainerMove);
+            }
+        }
+
         // Phase 2: bind the declared type's members.
         void BindType(const core::TypeInfo& type)
         {
@@ -1559,9 +1626,19 @@ namespace draconic::script::angelscript
             for (core::usize i = 0; i < core::PropertyCount(type); ++i)
             {
                 const core::PropertyInfo& property = core::PropertyAt(type, i);
-                if (!IsValidIdentifier(property.name) || core::IsNested(property))
+                if (!IsValidIdentifier(property.name))
                 {
-                    continue; // nested structures are recursed by tooling, not bound as leaves
+                    continue;
+                }
+                if (core::IsNested(property))
+                {
+                    // A container member binds as owner methods (count/at/add/removeAt/move); a plain
+                    // nested struct is still recursed by tooling, not bound (the borrow follow-up).
+                    if (property.type != nullptr && property.type->container != nullptr)
+                    {
+                        RegisterContainerMethods(name, type, property);
+                    }
+                    continue;
                 }
                 {
                     core::String decl;
@@ -1806,6 +1883,93 @@ namespace draconic::script::angelscript
         const core::Variant value = binding->manager->ValueFromArg(gen, 0, binding->property->type);
         ReleaseHandleArgs(gen, binding->manager);
         (void)core::SetProperty(*binding->property, instance, value);
+    }
+
+    // Resolve a polymorphic container's add-by-name to a concrete derived type: match the name
+    // against each creatable derived type's `displayName` attribute, then its bare type name.
+    const core::TypeInfo* ResolveElementType(const core::TypeInfo& base, core::StringView name)
+    {
+        core::Array<const core::TypeInfo*> derived;
+        core::EnumerateDerived(base, derived);
+        for (const core::TypeInfo* t : derived)
+        {
+            if (core::TypeAttrString(*t, "displayName", core::StringView{}) == name)
+            {
+                return t;
+            }
+        }
+        for (const core::TypeInfo* t : derived)
+        {
+            if (core::StringView(reinterpret_cast<const core::utf8char*>(t->name)) == name)
+            {
+                return t;
+            }
+        }
+        return nullptr;
+    }
+
+    // One dispatcher for every container op; the Binding::Kind selects which. The owner is `self`,
+    // the container member is reached transiently via property.address, so returned element handles
+    // are owned boxes (object elements addref) - no borrowed-handle lifetime machinery.
+    void ContainerDispatch(asIScriptGeneric* gen)
+    {
+        const Binding* binding = static_cast<const Binding*>(gen->GetAuxiliary());
+        BoxedVariant* self = static_cast<BoxedVariant*>(gen->GetObject());
+        core::Instance owner = core::ToInstance(self->value);
+        core::Instance container(binding->property->address(owner), binding->property->type);
+        const core::ContainerInfo& ci = *binding->property->type->container;
+        const core::usize size = core::ContainerSize(ci, container);
+        switch (binding->kind)
+        {
+        case Binding::Kind::ContainerCount:
+            gen->SetReturnDWord(static_cast<asDWORD>(size));
+            break;
+        case Binding::Kind::ContainerAt:
+        {
+            const core::usize idx = static_cast<core::usize>(gen->GetArgDWord(0));
+            binding->manager->SetGenericReturn(
+                gen, idx < size ? core::ContainerGetAt(ci, container, idx) : core::Variant{});
+            break;
+        }
+        case Binding::Kind::ContainerAdd:
+        {
+            if (core::IsPolymorphicContainer(ci)) // add by element-type name
+            {
+                const core::Variant nameV =
+                    binding->manager->ValueFromArg(gen, 0, &core::TypeOf<core::String>());
+                ReleaseHandleArgs(gen, binding->manager);
+                const core::String* typeName = nameV.TryGet<core::String>();
+                const core::TypeInfo* elem =
+                    (typeName != nullptr && ci.elementType != nullptr)
+                        ? ResolveElementType(*ci.elementType, typeName->AsView())
+                        : nullptr;
+                if (elem == nullptr ||
+                    core::ContainerCreateElement(ci, container, size, *elem).Pointer() == nullptr)
+                {
+                    binding->manager->SetGenericReturn(gen, core::Variant{});
+                    break;
+                }
+            }
+            else if (core::ContainerEmplaceDefault(ci, container, size).Pointer() == nullptr)
+            {
+                binding->manager->SetGenericReturn(gen, core::Variant{});
+                break;
+            }
+            binding->manager->SetGenericReturn(gen, core::ContainerGetAt(ci, container, size));
+            break;
+        }
+        case Binding::Kind::ContainerRemoveAt:
+            (void)core::ContainerRemoveAt(ci, container,
+                                          static_cast<core::usize>(gen->GetArgDWord(0)));
+            break;
+        case Binding::Kind::ContainerMove:
+            (void)core::ContainerMoveElement(ci, container,
+                                             static_cast<core::usize>(gen->GetArgDWord(0)),
+                                             static_cast<core::usize>(gen->GetArgDWord(1)));
+            break;
+        default:
+            break;
+        }
     }
 
     void MethodDispatch(asIScriptGeneric* gen)

@@ -429,7 +429,17 @@ namespace draconic::script::wren
         Constructor,
         PropertyGet,
         PropertySet,
-        Method
+        Method,
+        // Container-member ops, bound as synthesized methods on the OWNER (e.g. `behaviors_at(i)`):
+        // computed transiently on `self` each call, so element handles come back OWNED (an object
+        // element addrefs; a value element copies) - no borrowed-handle lifetime machinery. `property`
+        // is the container member. Non-Object value elements (reached only by address) are not
+        // returned here - that is the borrow follow-up.
+        ContainerCount,
+        ContainerAt,
+        ContainerAdd,
+        ContainerRemoveAt,
+        ContainerMove
     };
 
     struct Binding
@@ -614,6 +624,98 @@ namespace draconic::script::wren
     // Defined after WrenContext (the user data holds a WrenContext*).
     [[nodiscard]] IScriptContext* OwningContext(WrenVM* vm);
 
+    // Resolve a polymorphic container's add-by-name to a concrete derived type: match the given name
+    // against each creatable derived type's `displayName` attribute, then its bare type name.
+    inline const core::TypeInfo* ResolveElementType(const core::TypeInfo& base, core::StringView name)
+    {
+        core::Array<const core::TypeInfo*> derived;
+        core::EnumerateDerived(base, derived);
+        for (const core::TypeInfo* t : derived)
+        {
+            if (core::TypeAttrString(*t, "displayName", core::StringView{}) == name)
+            {
+                return t;
+            }
+        }
+        for (const core::TypeInfo* t : derived)
+        {
+            if (AsciiView(t->name) == name)
+            {
+                return t;
+            }
+        }
+        return nullptr;
+    }
+
+    inline core::usize AsciiLen(const char* s) noexcept
+    {
+        core::usize n = 0;
+        while (s[n] != '\0')
+        {
+            ++n;
+        }
+        return n;
+    }
+
+    // A synthesized container-op method name ("behaviors_at") decodes to {op, container property}.
+    // The suffix identifies the op; the prefix must name a container property on `type` (else this is
+    // an ordinary member and we fall through). "_removeAt" is tested before "_at" (distinct anchors).
+    inline const core::PropertyInfo* MatchContainerOp(const core::TypeInfo& type, const char* name,
+                                                      BindKind& outKind)
+    {
+        struct Op
+        {
+            const char* suffix;
+            BindKind kind;
+        };
+        static const Op ops[] = {{"_removeAt", BindKind::ContainerRemoveAt},
+                                 {"_count", BindKind::ContainerCount},
+                                 {"_at", BindKind::ContainerAt},
+                                 {"_add", BindKind::ContainerAdd},
+                                 {"_move", BindKind::ContainerMove}};
+        const core::usize nlen = AsciiLen(name);
+        for (const Op& op : ops)
+        {
+            const core::usize slen = AsciiLen(op.suffix);
+            if (nlen <= slen)
+            {
+                continue;
+            }
+            bool match = true;
+            for (core::usize i = 0; i < slen; ++i)
+            {
+                if (name[nlen - slen + i] != op.suffix[i])
+                {
+                    match = false;
+                    break;
+                }
+            }
+            if (!match)
+            {
+                continue;
+            }
+            char base[64];
+            const core::usize blen = nlen - slen;
+            if (blen >= sizeof(base))
+            {
+                return nullptr;
+            }
+            for (core::usize i = 0; i < blen; ++i)
+            {
+                base[i] = name[i];
+            }
+            base[blen] = '\0';
+            const core::PropertyInfo* prop = core::FindProperty(type, base);
+            if (prop != nullptr && prop->type != nullptr && prop->type->container != nullptr)
+            {
+                outKind = op.kind;
+                return prop;
+            }
+            return nullptr; // suffix matched but not a container property - not a container op
+        }
+        return nullptr;
+    }
+
     void Dispatch(WrenVM* vm, const Binding& binding)
     {
         // Every reflected call runs under its context: native facades resolve their
@@ -700,6 +802,71 @@ namespace draconic::script::wren
                 {
                     wrenSetSlotNull(vm, 0);
                 }
+            }
+            break;
+        }
+        case BindKind::ContainerCount:
+        case BindKind::ContainerAt:
+        case BindKind::ContainerAdd:
+        case BindKind::ContainerRemoveAt:
+        case BindKind::ContainerMove:
+        {
+            const core::Instance owner = core::ToInstance(*SelfOf(vm));
+            const core::Instance container(binding.property->address(owner), binding.property->type);
+            const core::ContainerInfo& ci = *binding.property->type->container;
+            const core::usize size = core::ContainerSize(ci, container);
+            switch (binding.kind)
+            {
+            case BindKind::ContainerCount:
+                wrenSetSlotDouble(vm, 0, static_cast<double>(size));
+                break;
+            case BindKind::ContainerAt:
+            {
+                const core::usize idx = static_cast<core::usize>(wrenGetSlotDouble(vm, 1));
+                // Object / value elements marshal out (a non-Object element yields an empty Variant
+                // -> null; those descend by address in the borrow follow-up).
+                MarshalOut(vm, 0, idx < size ? core::ContainerGetAt(ci, container, idx)
+                                             : core::Variant{});
+                break;
+            }
+            case BindKind::ContainerAdd:
+            {
+                if (core::IsPolymorphicContainer(ci)) // add by element-type name
+                {
+                    const core::Variant nameV = MarshalIn(vm, 1, &core::TypeOf<core::String>());
+                    const core::String* typeName = nameV.TryGet<core::String>();
+                    const core::TypeInfo* elem =
+                        (typeName != nullptr && ci.elementType != nullptr)
+                            ? ResolveElementType(*ci.elementType, typeName->AsView())
+                            : nullptr;
+                    if (elem == nullptr ||
+                        core::ContainerCreateElement(ci, container, size, *elem).Pointer() == nullptr)
+                    {
+                        wrenSetSlotNull(vm, 0);
+                        break;
+                    }
+                }
+                else if (core::ContainerEmplaceDefault(ci, container, size).Pointer() == nullptr)
+                {
+                    wrenSetSlotNull(vm, 0);
+                    break;
+                }
+                MarshalOut(vm, 0, core::ContainerGetAt(ci, container, size)); // the appended element
+                break;
+            }
+            case BindKind::ContainerRemoveAt:
+                (void)core::ContainerRemoveAt(ci, container,
+                                              static_cast<core::usize>(wrenGetSlotDouble(vm, 1)));
+                wrenSetSlotNull(vm, 0);
+                break;
+            case BindKind::ContainerMove:
+                (void)core::ContainerMoveElement(ci, container,
+                                                 static_cast<core::usize>(wrenGetSlotDouble(vm, 1)),
+                                                 static_cast<core::usize>(wrenGetSlotDouble(vm, 2)));
+                wrenSetSlotNull(vm, 0);
+                break;
+            default:
+                break;
             }
             break;
         }
@@ -1021,6 +1188,30 @@ namespace draconic::script::wren
             }
         }
 
+        // Emit a container member as ops ON THE OWNER: `<name>_count` (getter), `<name>_at(i)`,
+        // `<name>_add(name)` for a polymorphic list / `<name>_add()` for a homogeneous one,
+        // `<name>_removeAt(i)`, `<name>_move(from, to)`. Named methods (Wren foreign classes have no
+        // subscript operator); a script wrapper can dress them up if desired.
+        static void AppendContainerMethods(core::String& src, const core::PropertyInfo& prop)
+        {
+            const bool polymorphic = core::IsPolymorphicContainer(*prop.type->container);
+            AppendAscii(src, "  foreign ");
+            AppendAscii(src, prop.name);
+            AppendAscii(src, "_count\n");
+            AppendAscii(src, "  foreign ");
+            AppendAscii(src, prop.name);
+            AppendAscii(src, "_at(a0)\n");
+            AppendAscii(src, "  foreign ");
+            AppendAscii(src, prop.name);
+            AppendAscii(src, polymorphic ? "_add(a0)\n" : "_add()\n");
+            AppendAscii(src, "  foreign ");
+            AppendAscii(src, prop.name);
+            AppendAscii(src, "_removeAt(a0)\n");
+            AppendAscii(src, "  foreign ");
+            AppendAscii(src, prop.name);
+            AppendAscii(src, "_move(a0, a1)\n");
+        }
+
         static void AppendClass(core::String& src, const core::TypeInfo& type)
         {
             AppendAscii(src, "foreign class ");
@@ -1046,7 +1237,13 @@ namespace draconic::script::wren
                 const core::PropertyInfo& prop = core::PropertyAt(type, i);
                 if (core::IsNested(prop))
                 {
-                    continue; // nested structures are not scriptable leaf getters/setters
+                    // A container member is bound as synthesized ops on the owner (count / at / add /
+                    // removeAt / move); a plain nested struct is still skipped (the borrow follow-up).
+                    if (prop.type != nullptr && prop.type->container != nullptr)
+                    {
+                        AppendContainerMethods(src, prop);
+                    }
+                    continue;
                 }
                 AppendAscii(src, "  foreign ");
                 AppendAscii(src, prop.name);
@@ -1209,6 +1406,14 @@ namespace draconic::script::wren
         if (type == nullptr)
         {
             return nullptr;
+        }
+
+        // A synthesized container op (`<container>_at`, `_count`, ...) - matched before the ordinary
+        // property/method routing since `_count` is a bare-name getter that would otherwise miss.
+        BindKind containerKind;
+        if (const core::PropertyInfo* containerProp = MatchContainerOp(*type, name, containerKind))
+        {
+            return Reserve(Binding{containerKind, type, containerProp, nullptr});
         }
 
         if (IsSetterSig(signature))

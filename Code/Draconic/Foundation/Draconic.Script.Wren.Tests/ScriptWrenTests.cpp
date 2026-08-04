@@ -61,6 +61,93 @@ DRACONIC_REFLECT(LeafFactory, "draconic::script::test")
     builder.Constructor();
 }
 
+// A polymorphic-container owner: Zoo holds Array<RefPtr<Animal>>; Dog/Cat are the concrete elements
+// (each with its OWN reflected property, the module-list shape). Exercises the container-member
+// binding (count / at / add-by-name / removeAt / move) with owned object-element handles.
+namespace
+{
+    class Animal : public Object
+    {
+        DRACONIC_OBJECT(Animal, Object)
+    public:
+        int legs = 4;
+    };
+    class Dog : public Animal
+    {
+        DRACONIC_OBJECT(Dog, Animal)
+    public:
+        int barks = 1;
+    };
+    class Cat : public Animal
+    {
+        DRACONIC_OBJECT(Cat, Animal)
+    public:
+        int meows = 1;
+    };
+    RefPtr<Animal> CreateAnimal(const TypeInfo& t)
+    {
+        if (t.id == Dog::StaticType().id)
+        {
+            return MakeRef<Dog>(DefaultAllocator());
+        }
+        if (t.id == Cat::StaticType().id)
+        {
+            return MakeRef<Cat>(DefaultAllocator());
+        }
+        return RefPtr<Animal>{};
+    }
+    bool CanCreateAnimal(const TypeInfo& t)
+    {
+        return t.id == Dog::StaticType().id || t.id == Cat::StaticType().id;
+    }
+    class Zoo : public Object
+    {
+        DRACONIC_OBJECT(Zoo, Object)
+    public:
+        Array<RefPtr<Animal>> animals;
+    };
+}
+
+DRACONIC_REFLECT(Animal, "draconic::script::test")
+{
+    builder.Property<&Animal::legs>("legs");
+}
+DRACONIC_REFLECT(Dog, "draconic::script::test")
+{
+    builder.Property<&Dog::barks>("barks");
+}
+DRACONIC_REFLECT(Cat, "draconic::script::test")
+{
+    builder.Property<&Cat::meows>("meows");
+}
+DRACONIC_REFLECT(Zoo, "draconic::script::test")
+{
+    builder.Nested<&Zoo::animals>("animals"); // a polymorphic container member
+    builder.Constructor();
+}
+
+namespace
+{
+    // Register the Zoo graph once (idempotent): the polymorphic container factory + the derived types
+    // in the global registry (EnumerateDerived + reachability need them), then on the manager.
+    void RegisterZoo(IScriptManager& manager)
+    {
+        static bool once = [] {
+            RegisterPolymorphicArrayType<Animal>(&CreateAnimal, &CanCreateAnimal);
+            GlobalTypeRegistry().Register(Animal::StaticType());
+            GlobalTypeRegistry().Register(Dog::StaticType());
+            GlobalTypeRegistry().Register(Cat::StaticType());
+            GlobalTypeRegistry().Register(Zoo::StaticType());
+            return true;
+        }();
+        (void)once;
+        manager.RegisterType(Animal::StaticType());
+        manager.RegisterType(Dog::StaticType());
+        manager.RegisterType(Cat::StaticType());
+        manager.RegisterType(Zoo::StaticType());
+    }
+}
+
 TEST_CASE("wren: a context runs valid source")
 {
     RefPtr<IScriptManager> manager = wren::CreateScriptManager();
@@ -285,6 +372,33 @@ TEST_CASE("wren: a constructor-less reflected type is usable as a returned handl
                       u8"main")
                 .IsOk());
     CHECK(ctx->GetGlobal(u8"V").Get<f64>() == 7.0);
+}
+
+TEST_CASE("wren: a polymorphic container member binds as script ops (count/at/add/removeAt)")
+{
+    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
+    RegisterZoo(*manager);
+    manager->FinalizeTypes();
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    // Add by element-type name, edit the returned handle, read it back through the container, remove.
+    REQUIRE(ctx->Load(u8"var z = Zoo.new()\n"
+                      u8"var C0 = z.animals_count\n"     // 0
+                      u8"var d = z.animals_add(\"Dog\")\n" // -> Dog handle
+                      u8"d.barks = 5\n"
+                      u8"var C1 = z.animals_count\n"     // 1
+                      u8"var B = z.animals_at(0).barks\n" // 5 (write-through to the same object)
+                      u8"z.animals_add(\"Cat\")\n"
+                      u8"var C2 = z.animals_count\n"     // 2
+                      u8"z.animals_removeAt(0)\n"
+                      u8"var C3 = z.animals_count\n",    // 1
+                      u8"main")
+                .IsOk());
+    CHECK(ctx->GetGlobal(u8"C0").Get<f64>() == 0.0);
+    CHECK(ctx->GetGlobal(u8"C1").Get<f64>() == 1.0);
+    CHECK(ctx->GetGlobal(u8"B").Get<f64>() == 5.0);
+    CHECK(ctx->GetGlobal(u8"C2").Get<f64>() == 2.0);
+    CHECK(ctx->GetGlobal(u8"C3").Get<f64>() == 1.0);
 }
 
 TEST_CASE("wren: a default-constructed reflected type")
