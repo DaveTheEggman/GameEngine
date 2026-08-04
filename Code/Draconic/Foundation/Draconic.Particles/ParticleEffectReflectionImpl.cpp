@@ -97,5 +97,12 @@ namespace draconic::particles
         // The systems array is a homogeneous UniquePtr container; the module arrays are polymorphic
         // containers already registered by RegisterParticleModuleReflection().
         RegisterUniquePtrArrayType<ParticleSystem>();
+        // Publish the effect-graph value types to the global type registry so the script harvest sees
+        // them: a facade returning a ParticleEffect / ParticleSystem handle makes the reachability
+        // closure emit the whole graph (systems -> modules -> ranges/curves) as scriptable surface.
+        // Inert until such a facade exists (no constructor -> never a script-emit seed on its own).
+        GlobalTypeRegistry().Register(TypeOf<ParticleEmitter>());
+        GlobalTypeRegistry().Register(TypeOf<ParticleSystem>());
+        GlobalTypeRegistry().Register(TypeOf<ParticleEffect>());
     }
 }

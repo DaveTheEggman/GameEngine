@@ -917,6 +917,12 @@ TEST_CASE("particle reflection (batch 7): a whole effect traverses effect -> sys
     using namespace draconic::particles;
     RegisterParticleModules(); // also registers the effect/system/emitter value types + systems container
 
+    // The effect-graph value types are published to the global registry (so the script harvest / the
+    // reachability closure can reach them once a facade returns an effect handle).
+    CHECK(GlobalTypeRegistry().FindById(TypeOf<ParticleEffect>().id) != nullptr);
+    CHECK(GlobalTypeRegistry().FindById(TypeOf<ParticleSystem>().id) != nullptr);
+    CHECK(GlobalTypeRegistry().FindById(TypeOf<ParticleEmitter>().id) != nullptr);
+
     // Author a live effect: one system, an emitter config, one initializer + one behavior.
     ParticleEffect effect(u8"Sparks");
     ParticleSystem& sys = effect.AddSystem(256);
