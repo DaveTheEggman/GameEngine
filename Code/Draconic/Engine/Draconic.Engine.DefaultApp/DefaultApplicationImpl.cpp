@@ -257,6 +257,12 @@ namespace draconic::runtime
                     return root;
                 }});
 
+        // Track A resource swaps (SceneRender.setMesh, ...): give the run a GETTER for the app's
+        // resource manager (created later, in OnStartup), so a behavior can bind a resource id onto
+        // a component's Ref. Borrowed - the app owns it.
+        m_scripts->SetResourceManager(core::Function<draconic::resource::ResourceManager*()>{
+            [self]() -> draconic::resource::ResourceManager* { return self->Resources(); }});
+
         // Composition-root bridge: forward physics contacts to the script subsystem's
         // neutral ingress. Keeps the two subsystems independent - neither depends on the
         // other for scripting; the wiring lives here, where integration belongs.

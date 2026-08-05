@@ -20,6 +20,7 @@ import draconic.materials;
 import draconic.rhi; // rhi::TextureView (a SpriteComponent references a texture to draw)
 import draconic.texture.resource; // texture::Texture (cooked product behind sprite/decal texture refs)
 import draconic.render; // SkySnapshot/SkyMode (snapshot layer; render.subsystem depends on render)
+import draconic.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneRender handle)
 
 using namespace draconic::core;
 
@@ -714,6 +715,68 @@ export namespace draconic::render
             vp.fxaaEnabled = false;
         }
     }
+
+    // A scene-bound RENDER handle (SceneRender.of(scene)): runtime WORLD ops on render components
+    // that need a run service the component data cannot reach - here, swapping a resource::Ref by id
+    // (mesh / slot-0 material). Keyed by entity, mirroring ScenePhysics (component = auto-reflected
+    // DATA; scene-handle = world ops keyed by entity). A value type carrying the scene ptr.
+    struct SceneRender
+    {
+        scene::Scene* scene = nullptr;
+
+        // Swap the entity's MeshComponent mesh to resource `id`, binding it through the run's
+        // resource manager so the swap takes effect live (a bare VM with no manager sets the id
+        // only, unbound). No-op if the scene is null or the entity has no MeshComponent.
+        void setMesh(draconic::script::Entity entity, Guid id) const
+        {
+            MeshComponent* mesh = MeshOf(entity);
+            if (mesh == nullptr)
+            {
+                return;
+            }
+            mesh->mesh.SetId(id);
+            if (auto* resources = draconic::script::CurrentRunResources())
+            {
+                mesh->mesh.Bind(*resources);
+            }
+        }
+
+        // Swap the entity's slot-0 material (single-material meshes / the whole-mesh slot) to
+        // resource `id`, binding it through the run's resource manager.
+        void setMaterial(draconic::script::Entity entity, Guid id) const
+        {
+            MeshComponent* mesh = MeshOf(entity);
+            if (mesh == nullptr)
+            {
+                return;
+            }
+            if (mesh->materials.IsEmpty())
+            {
+                mesh->materials.PushBack(draconic::resource::Ref<materials::Material>{});
+            }
+            mesh->materials[0].SetId(id);
+            if (auto* resources = draconic::script::CurrentRunResources())
+            {
+                mesh->materials[0].Bind(*resources);
+            }
+        }
+
+        [[nodiscard]] static SceneRender of(draconic::script::Scene sceneHandle)
+        {
+            return SceneRender{sceneHandle.scene};
+        }
+
+    private:
+        [[nodiscard]] MeshComponent* MeshOf(draconic::script::Entity entity) const
+        {
+            if (scene == nullptr)
+            {
+                return nullptr;
+            }
+            MeshComponentManager* meshes = scene->GetSystem<MeshComponentManager>();
+            return (meshes != nullptr) ? meshes->Get(entity.Handle()) : nullptr;
+        }
+    };
 
 } // namespace draconic::render (exported)
 

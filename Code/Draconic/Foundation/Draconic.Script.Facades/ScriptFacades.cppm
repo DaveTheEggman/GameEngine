@@ -23,6 +23,7 @@ export module draconic.script.facades;
 import draconic.core;
 import draconic.scene;
 import draconic.script;
+import draconic.resource; // ResourceManager - the run's resource-swap seam (Track A resource refs)
 
 using namespace draconic::core;
 
@@ -78,6 +79,13 @@ export namespace draconic::script
         // state to keep correct. Null spawner (bare cook VM / no host) = safe no-op.
         core::Function<scene::EntityHandle(scene::Scene*, const core::Guid&, const core::Float3&)>
             spawnPrefab;
+
+        // Resource swaps (Track A): the run's resource manager, for binding a resource id (a Guid)
+        // onto a component's resource::Ref at runtime - e.g. `sceneRender.setMesh(entity, id)`.
+        // LATE-BOUND (a getter, not a stored ptr) so it is correct regardless of the order the host
+        // wires things: the composition root owns the manager (DefaultApplication::Resources()) and
+        // installs this. Null / returns null on a bare cook VM => the swap sets the id only (unbound).
+        core::Function<draconic::resource::ResourceManager*()> resolveResources;
     };
 
     // ---- the curated behavior facades (camelCase = the script-visible names, the
@@ -434,6 +442,21 @@ export namespace draconic::script
         return (entity.scene != nullptr)
                    ? entity.scene->MakeComponentRef(entity.Handle(), TypeOf<T>())
                    : Variant{};
+    }
+
+    /// The current run's resource manager (via the run binding's resolveResources getter), or null
+    /// on a bare cook VM / when no host wired it. The one place Track A resource-swap ops (a
+    /// SceneRender.setMesh, an AudioSource.setClip, ...) reach the manager to Bind a resource id
+    /// onto a component's resource::Ref. No ambient scene state - the binding is per-run.
+    [[nodiscard]] inline draconic::resource::ResourceManager* CurrentRunResources()
+    {
+        IScriptContext* context = CurrentScriptContext();
+        auto* binding =
+            context != nullptr
+                ? static_cast<ScriptRuntimeBinding*>(context->GetService(kScriptRuntimeService))
+                : nullptr;
+        return (binding != nullptr && binding->resolveResources) ? binding->resolveResources()
+                                                                 : nullptr;
     }
 
     /// Registers the behavior facade types (Entity/Log/Time/Random/Scene) with the

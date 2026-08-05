@@ -2384,3 +2384,61 @@ TEST_CASE("script.scene: MeshComponent::of / LightComponent::of set live render 
     CHECK(lights->Get(e)->intensity == doctest::Approx(4.0f));
     CHECK(lights->Get(e)->range == doctest::Approx(25.0f));
 }
+
+// ---- Track A phase 1b: the resource-swap primitive. SceneRender.of(scene).setMesh(entity, id) /
+//      setMaterial(entity, id) - a WORLD op keyed by entity (it needs the run's resource manager,
+//      which the component data cannot reach), so it lives on the scene-handle like ScenePhysics.
+//      The resource id (a Guid) reaches the behavior as an asset property (the "swap to the mesh I
+//      picked" pattern). Here no ResourceManager is wired, so the swap sets the id (the script->
+//      component path); Ref::Bind resolution is covered natively in the render resource-ref tests. ----
+
+TEST_CASE("script.scene: SceneRender.setMesh / setMaterial swap a component's resource id from "
+          "script (Wren)")
+{
+    render::RegisterRenderScriptFacade();
+    ScriptedScene bed;
+    auto* meshes = bed.scene.AddSystem<render::MeshComponentManager>();
+
+    RefPtr<ScriptClass> swapper =
+        MakeClass(u8"Swapper",
+                  u8"class Swapper {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    meshRes=(v) { _meshRes = v }\n"
+                  u8"    matRes=(v) { _matRes = v }\n"
+                  u8"    onStart() {\n"
+                  u8"        var r = SceneRender.of(_entity.scene)\n"
+                  u8"        r.setMesh(_entity, _meshRes)\n"
+                  u8"        r.setMaterial(_entity, _matRes)\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+    const Guid meshId{0x1111, 0x2222};
+    const Guid matId{0x3333, 0x4444};
+    ScriptPropertyDesc meshProp;
+    meshProp.name = String(u8"meshRes");
+    meshProp.hash = ScriptPropertyNameHash(u8"meshRes");
+    meshProp.type = ScriptPropertyType::Asset;
+    meshProp.assetType = String(u8"Mesh");
+    meshProp.defaultValue.kind = ScriptPropertyType::Asset;
+    meshProp.defaultValue.guid = meshId;
+    swapper->properties.PushBack(meshProp);
+    ScriptPropertyDesc matProp;
+    matProp.name = String(u8"matRes");
+    matProp.hash = ScriptPropertyNameHash(u8"matRes");
+    matProp.type = ScriptPropertyType::Asset;
+    matProp.assetType = String(u8"Material");
+    matProp.defaultValue.kind = ScriptPropertyType::Asset;
+    matProp.defaultValue.guid = matId;
+    swapper->properties.PushBack(matProp);
+
+    const scene::EntityHandle e = bed.AddScripted(swapper, u8"e");
+    meshes->Add(e); // empty mesh/materials
+
+    bed.Start();
+    bed.Frame(); // onStart: SceneRender.setMesh/setMaterial set the component's resource ids
+
+    REQUIRE(meshes->Get(e) != nullptr);
+    CHECK(meshes->Get(e)->mesh.id == meshId);          // mesh Ref id swapped from script
+    REQUIRE_FALSE(meshes->Get(e)->materials.IsEmpty()); // slot 0 created
+    CHECK(meshes->Get(e)->materials[0].id == matId);    // material slot-0 Ref id swapped
+}

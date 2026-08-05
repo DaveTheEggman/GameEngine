@@ -1394,6 +1394,11 @@ export namespace draconic::script
                         return self->m_spawner ? self->m_spawner(scene, prefab, position)
                                                : scene::EntityHandle::Invalid();
                     }};
+            // Resource-swap seam (Track A): forward to the app's getter at call time, so a manager
+            // created AFTER this host was configured is still seen (like m_spawner's live wrapper).
+            host.Binding().resolveResources = Function<resource::ResourceManager*()>{
+                [self]() -> resource::ResourceManager*
+                { return self->m_resourcesGetter ? self->m_resourcesGetter() : nullptr; }};
             host.Binding().dispatchMessage =
                 Function<void(scene::Scene*, scene::EntityHandle, StringView, Span<const Variant>)>{
                     [self](scene::Scene* scene, scene::EntityHandle target, StringView message,
@@ -1493,6 +1498,14 @@ export namespace draconic::script
             Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)> spawner)
         {
             m_spawner = Move(spawner);
+        }
+        /// Host-app wiring: a GETTER for the run's resource manager, behind the Track A resource-swap
+        /// ops (SceneRender.setMesh, ...). A getter (not a ptr) because the app's manager is created
+        /// AFTER Configure runs - resolveResources reads it per call, so it sees the manager once the
+        /// app has one, whatever the wiring order. The app owns the manager; this borrows it.
+        void SetResourceManager(Function<resource::ResourceManager*()> getter)
+        {
+            m_resourcesGetter = Move(getter);
         }
         // The game-script run context is no longer acquired here (game-instance.md §11.10): a
         // GameInstance owns its run host and drives its own game script through it. This subsystem is
@@ -1645,5 +1658,7 @@ export namespace draconic::script
             m_configurator; // app services, applied to every host via ConfigureRunHost
         Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>
             m_spawner; // Scene.spawn
+        Function<resource::ResourceManager*()>
+            m_resourcesGetter; // Track A resource swaps (late-bound; app owns the manager)
     };
 }

@@ -122,6 +122,17 @@ namespace draconic::render
             .Property<&LightComponent::castsShadows>("castsShadows");
     }
 
+    // The scene-bound render handle: SceneRender.of(scene).setMesh(entity, id) / setMaterial(...).
+    // `of` returns SceneRender by value (concrete cross-backend return, no ReturnType-override), like
+    // ScenePhysics. setMesh/setMaterial are world ops keyed by entity that swap a resource::Ref by id.
+    DRACONIC_REFLECT_VALUE(SceneRender, "draconic::render")
+    {
+        builder.Method<&SceneRender::setMesh>("setMesh", {"entity", "resourceId"});
+        builder.Method<&SceneRender::setMaterial>("setMaterial", {"entity", "resourceId"});
+        builder.Method<&SceneRender::of>("of", {"scene"});
+        builder.Constructor(); // Wren only materializes constructible foreign classes
+    }
+
     DRACONIC_REFLECT_ENUM(SpriteOrientation, "draconic::render")
     {
         builder.Value("CameraFacing", SpriteOrientation::CameraFacing);
@@ -347,5 +358,12 @@ namespace draconic::render
         }
         draconic::script::RegisterExtraFacadeName(u8"MeshComponent");
         draconic::script::RegisterExtraFacadeName(u8"LightComponent");
+
+        // The scene-bound render handle (SceneRender.of(scene)): reflect it, register it, seed the
+        // Wren emission root (nothing else reaches it), and make the class name prelude-visible.
+        DraconicRegisterValue_SceneRender();
+        GlobalTypeRegistry().Register(core::TypeOf<SceneRender>());
+        draconic::script::RegisterExtraScriptRootType(&core::TypeOf<SceneRender>());
+        draconic::script::RegisterExtraFacadeName(u8"SceneRender");
     }
 } // namespace draconic::render
