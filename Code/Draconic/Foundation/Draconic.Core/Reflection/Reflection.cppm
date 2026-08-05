@@ -1301,6 +1301,7 @@ namespace draconic::core::detail
     template <typename T, typename... A>
     struct ConstructorReflect
     {
+        static constexpr usize kArity = sizeof...(A);
         static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
         static Result<Variant> Invoke(Span<Variant> args)
         {
@@ -1317,6 +1318,7 @@ namespace draconic::core::detail
         static constexpr bool isStatic = false;
         static constexpr bool isConst = false;
         static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static constexpr usize kArity = sizeof...(A);
         static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
         static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
         {
@@ -1331,6 +1333,7 @@ namespace draconic::core::detail
         static constexpr bool isStatic = false;
         static constexpr bool isConst = true;
         static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static constexpr usize kArity = sizeof...(A);
         static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
         static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
         {
@@ -1345,6 +1348,7 @@ namespace draconic::core::detail
         static constexpr bool isStatic = true;
         static constexpr bool isConst = false;
         static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static constexpr usize kArity = sizeof...(A);
         static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
         static Result<Variant> Invoke(const Instance&, Span<Variant> a)
         {
@@ -1360,6 +1364,7 @@ namespace draconic::core::detail
         static constexpr bool isStatic = false;
         static constexpr bool isConst = false;
         static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static constexpr usize kArity = sizeof...(A);
         static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
         static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
         {
@@ -1375,6 +1380,7 @@ namespace draconic::core::detail
         static constexpr bool isStatic = false;
         static constexpr bool isConst = true;
         static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static constexpr usize kArity = sizeof...(A);
         static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
         static Result<Variant> Invoke(const Instance& i, Span<Variant> a)
         {
@@ -1389,6 +1395,7 @@ namespace draconic::core::detail
         static constexpr bool isStatic = true;
         static constexpr bool isConst = false;
         static const TypeInfo* ReturnType() { return ReturnTypeInfo<R>(); }
+        static constexpr usize kArity = sizeof...(A);
         static Span<const ParamInfo> Params() { return MakeParams<A...>(); }
         static Result<Variant> Invoke(const Instance&, Span<Variant> a)
         {
@@ -1410,6 +1417,11 @@ export namespace draconic::core
         Array<Attribute> attributes;
         Array<ConstantInfo> constants;
         Array<ConstructorInfo> constructors;
+        // Stable storage for method/constructor parameter names authored via the named
+        // Method()/Constructor() overloads (C++ cannot recover them). Each entry backs one
+        // method's/ctor's ParamInfo array; inner buffers survive TypeData's move and outer
+        // growth (Array move steals the buffer), so the ParamInfo* stored in MethodInfo stays valid.
+        Array<Array<ParamInfo>> namedParams;
         TypeInfo info{};
     };
 
@@ -1522,6 +1534,22 @@ export namespace draconic::core
             return *this;
         }
 
+        /// Reflect a method WITH explicit parameter names. C++ cannot recover parameter names, so
+        /// pass them here to give bindings/tooling real names instead of arg0..N. The list length
+        /// is checked against the method's arity AT COMPILE TIME - name all parameters or none.
+        template <auto Member, usize N>
+        TypeBuilder& Method(const char* name, const char* const (&paramNames)[N])
+        {
+            using Reflect = detail::MethodReflect<Member>;
+            static_assert(N == Reflect::kArity,
+                          "reflected parameter-name list length must equal the method's arity");
+            const ParamInfo* params = StoreNamedParams(Reflect::Params(), paramNames);
+            m_data.methods.PushBack(MethodInfo{name, &Reflect::ReturnType, params,
+                                               static_cast<u32>(N), Reflect::isStatic,
+                                               Reflect::isConst, &Reflect::Invoke});
+            return *this;
+        }
+
         template <typename V>
         TypeBuilder& Attribute(const char* key, V value)
         {
@@ -1568,6 +1596,20 @@ export namespace draconic::core
             return *this;
         }
 
+        // Reflects a constructor T(Args...) WITH explicit parameter names (arity-checked at
+        // compile time; name all parameters or none).
+        template <typename... Args, usize N>
+        TypeBuilder& Constructor(const char* const (&paramNames)[N])
+        {
+            using Reflect = detail::ConstructorReflect<T, Args...>;
+            static_assert(N == Reflect::kArity,
+                          "reflected parameter-name list length must equal the constructor's arity");
+            const ParamInfo* params = StoreNamedParams(Reflect::Params(), paramNames);
+            m_data.constructors.PushBack(
+                ConstructorInfo{params, static_cast<u32>(N), &Reflect::Invoke});
+            return *this;
+        }
+
         [[nodiscard]] TypeData Build()
         {
             m_data.info = MakeTypeInfo<T>(m_name, m_namespace, m_base, m_dataVersion);
@@ -1597,6 +1639,23 @@ export namespace draconic::core
         }
 
     private:
+        // Copy `base`'s type-getters but substitute the authored names, into stable TypeData
+        // storage. The returned pointer stays valid across TypeData's move + later namedParams
+        // growth (Array move steals the inner buffer). Called only for N >= 1 (named overloads).
+        template <usize N>
+        const ParamInfo* StoreNamedParams(Span<const ParamInfo> base,
+                                          const char* const (&names)[N])
+        {
+            Array<ParamInfo> named;
+            named.Reserve(N);
+            for (usize i = 0; i < N; ++i)
+            {
+                named.PushBack(ParamInfo{base[i].type, names[i]});
+            }
+            m_data.namedParams.PushBack(Move(named));
+            return m_data.namedParams.Back().Data();
+        }
+
         const char* m_name;
         const char* m_namespace;
         const TypeInfo* m_base;

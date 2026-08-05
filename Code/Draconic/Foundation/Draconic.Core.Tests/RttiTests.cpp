@@ -30,6 +30,13 @@ namespace
         // Object-argument forms: pointer and owning RefPtr.
         int LegsOf(Animal* other) const { return other != nullptr ? other->legs : -1; }
         bool IsSame(RefPtr<Animal> other) const { return other.Get() == this; }
+
+        // Two-param instance method - exercises named-parameter ordering (A6).
+        int SetLegs(int front, int back)
+        {
+            legs = front + back;
+            return legs;
+        }
     };
 
     class Dog : public Animal
@@ -65,11 +72,12 @@ namespace
 DRACONIC_REFLECT(Animal, "draconic::test")
 {
     builder.Property<&Animal::legs>("legs");
-    builder.Method<&Animal::AddLegs>("AddLegs");
+    builder.Method<&Animal::AddLegs>("AddLegs", {"count"}); // A6: one authored parameter name
     builder.Method<&Animal::GetLegs>("GetLegs");
     builder.Method<&Animal::DefaultLegs>("DefaultLegs");
-    builder.Method<&Animal::LegsOf>("LegsOf"); // takes Animal*
+    builder.Method<&Animal::LegsOf>("LegsOf");           // takes Animal* (UNNAMED - stays "")
     builder.Method<&Animal::IsSame>("IsSame");           // takes RefPtr<Animal>
+    builder.Method<&Animal::SetLegs>("SetLegs", {"front", "back"}); // A6: named params, in order
     builder.ComputedProperty<&Animal::GetLegs>("legsView"); // computed read-only getter property
     builder.Attribute("scriptName", "Critter");
     builder.Attribute("maxLegs", 8);
@@ -780,6 +788,40 @@ TEST_CASE("rtti: instance method invoke with an argument and a return value")
     REQUIRE(r.HasValue());
     CHECK(r.Value().Get<int>() == 7);
     CHECK(animal->legs == 7); // mutated the real object
+}
+
+TEST_CASE("rtti: A6 - authored parameter names reach ParamInfo; unnamed methods stay empty")
+{
+    // One-param named method: the authored name lands, the type is still correct.
+    const MethodInfo* add = FindMethod(Animal::StaticType(), "AddLegs");
+    REQUIRE(add != nullptr);
+    REQUIRE(add->paramCount == 1u);
+    CHECK(std::strcmp(add->params[0].name, "count") == 0);
+    CHECK(add->params[0].type() == &TypeOf<int>());
+
+    // Two-param named method: names land IN ORDER (the index mapping).
+    const MethodInfo* set = FindMethod(Animal::StaticType(), "SetLegs");
+    REQUIRE(set != nullptr);
+    REQUIRE(set->paramCount == 2u);
+    CHECK(std::strcmp(set->params[0].name, "front") == 0);
+    CHECK(std::strcmp(set->params[1].name, "back") == 0);
+    CHECK(set->params[0].type() == &TypeOf<int>());
+    CHECK(set->params[1].type() == &TypeOf<int>());
+
+    // Names do not disturb dispatch - the named method still invokes correctly.
+    RefPtr<Animal> animal = MakeRef<Animal>(DefaultAllocator());
+    Instance inst = Instance::From(animal.Get());
+    Variant args[] = {Variant::From(2), Variant::From(5)};
+    Result<Variant> r = InvokeMethod(*set, inst, Span<Variant>{args, 2});
+    REQUIRE(r.HasValue());
+    CHECK(r.Value().Get<int>() == 7);
+    CHECK(animal->legs == 7);
+
+    // An UNNAMED method's parameter name stays empty - the two paths coexist.
+    const MethodInfo* legsOf = FindMethod(Animal::StaticType(), "LegsOf");
+    REQUIRE(legsOf != nullptr);
+    REQUIRE(legsOf->paramCount == 1u);
+    CHECK(std::strcmp(legsOf->params[0].name, "") == 0);
 }
 
 TEST_CASE("rtti: const method and zero-arg invoke")
