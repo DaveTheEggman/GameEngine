@@ -102,7 +102,15 @@ export namespace draconic::core
         template <typename T>
         [[nodiscard]] static Variant From(T value)
         {
-            if constexpr (detail::ObjectRef<T>::value)
+            if constexpr (std::is_same_v<T, Variant>)
+            {
+                // Pass-through: a reflected method that returns a Variant hands back a runtime-typed
+                // value (e.g. entity.get(Type) -> a RESOLVE-mode component ref). Preserve its dynamic
+                // type instead of boxing a Variant inside a Variant, so the backend wraps it as the
+                // right script class.
+                return value;
+            }
+            else if constexpr (detail::ObjectRef<T>::value)
             {
                 using U = typename detail::ObjectRef<T>::Pointee;
                 Variant v;

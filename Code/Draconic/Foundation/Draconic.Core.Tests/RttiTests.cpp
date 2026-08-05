@@ -875,6 +875,14 @@ TEST_CASE("rtti: Variant RESOLVE mode re-computes the live address every deref (
     CHECK(rv.IsEmpty());
     slot = 1;
     CHECK(ToInstance(moved).Pointer() == &values[1]);
+
+    // From<Variant> passes a resolve handle through unchanged (no double-box) - so a reflected
+    // method returning a Variant preserves its dynamic type for the backend to wrap.
+    Variant relayed = Variant::From<Variant>(Move(moved));
+    CHECK(relayed.IsResolving());
+    CHECK(relayed.Type() == &TypeOf<int>());
+    slot = 3;
+    CHECK(ToInstance(relayed).Pointer() == &values[3]);
 }
 
 TEST_CASE("rtti: const method and zero-arg invoke")
