@@ -22,6 +22,7 @@ import :entity;
 import :phase;
 import :system;
 import :component;
+import :events;
 
 using namespace draconic::core;
 
@@ -352,6 +353,12 @@ export namespace draconic::scene
         // no-op - never a stale/cross-entity pointer (Fable Correction 1). Defined in SceneImpl.cpp.
         [[nodiscard]] Variant MakeComponentRef(EntityHandle entity, const TypeInfo& componentType);
 
+        // ---- events ----
+        // This scene's native event bus: C++ systems Publish/Subscribe directly (a C++-only game is
+        // first-class); script reaches it through a bridge. Drained at the scene tick's top level
+        // (Scene::Update), so a handler runs with no VM call active. See :events.
+        [[nodiscard]] EventBus& Events() noexcept { return m_events; }
+
         // ---- play / edit state ----
 
         [[nodiscard]] bool IsStarted() const noexcept { return m_started; }
@@ -472,6 +479,7 @@ export namespace draconic::scene
         u64 m_revision = 0;
 
         // per-scene systems
+        EventBus m_events;                                      // this scene's native event bus
         Array<UniquePtr<SceneSystem>> m_systems;                // ownership
         HashMap<const TypeInfo*, SceneSystem*> m_systemsByType; // lookup by type
         Array<SceneSystem*> m_sortedSystems;                    // non-owning, UpdateOrder-sorted

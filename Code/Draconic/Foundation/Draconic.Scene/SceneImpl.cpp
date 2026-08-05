@@ -593,6 +593,9 @@ namespace draconic::scene
         RunPhase(ScenePhase::Update, deltaTime);
         RunPhase(ScenePhase::AsyncUpdate, deltaTime);
         RunPhase(ScenePhase::PostUpdate, deltaTime);
+        // Deliver this frame's events at the tick top level (no VM call active - the script bridge's
+        // handlers run here safely), before transforms so a handler that moves an entity is reflected.
+        m_events.Drain();
         UpdateTransforms(); // ScenePhase::TransformUpdate (internal)
         RunPhase(ScenePhase::PostTransform, deltaTime);
         m_isUpdating = false;

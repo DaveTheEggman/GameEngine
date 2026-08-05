@@ -12,5 +12,6 @@ export import :phase;
 export import :system;
 export import :component;
 export import :aware;
+export import :events;
 export import :scene;
 export import :manager;

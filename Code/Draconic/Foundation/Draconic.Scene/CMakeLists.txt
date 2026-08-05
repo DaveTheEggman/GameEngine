@@ -17,6 +17,7 @@ target_sources(Draconic.Scene
             SceneSystem.cppm
             Component.cppm
             Aware.cppm
+            EventBus.cppm
             Scene.cppm
             SceneManager.cppm
             SceneModule.cppm)
