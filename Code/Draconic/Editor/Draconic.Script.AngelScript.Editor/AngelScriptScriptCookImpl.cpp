@@ -398,6 +398,27 @@ namespace draconic::script
                                        assetName, desc.name, typeName);
                     return false;
                 }
+                // A reflected/resource property (Color, Float3, Entity, or an asset:Guid) is a
+                // REFERENCE type in AngelScript (every reflected type is asOBJ_REF). Declared as a
+                // VALUE member it cannot receive its value at runtime - AngelScript owns the member's
+                // lifecycle and lazily reconstructs it, discarding the applied value (see the
+                // AngelScript backend's WriteTypedAddress). So require a handle here, at cook, with the
+                // exact fix - the runtime warning is defense-in-depth for non-cooked paths.
+                // (game-ready-scripting.md Section 16: Fable's option-1+3 ruling.)
+                const bool reflectedRef = desc.type == ScriptPropertyType::Color ||
+                                          desc.type == ScriptPropertyType::Vec3 ||
+                                          desc.type == ScriptPropertyType::Entity ||
+                                          desc.type == ScriptPropertyType::Asset;
+                if (reflectedRef && (fieldTypeId & asTYPEID_OBJHANDLE) == 0)
+                {
+                    DRACONIC_LOG_ERROR(
+                        u8"Script",
+                        u8"'{}': property '{}' must be a handle - declare it '{}@ {}' (a reflected or "
+                        u8"resource property is a reference type; a value member silently drops its "
+                        u8"value at runtime) - cook failed",
+                        assetName, desc.name, typeName, desc.name);
+                    return false;
+                }
                 ParseDefault(desc.type, firstToken, desc.defaultValue);
                 // Description = the second top-level token, when a quoted string.
                 if (tokens.Size() > 1 && IsQuoted(tokens[1].AsView()))

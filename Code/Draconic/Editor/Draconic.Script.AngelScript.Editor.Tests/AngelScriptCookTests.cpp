@@ -206,6 +206,28 @@ TEST_CASE("as.cook: a metadata'd field of an unsupported type FAILS the cook")
                            u8"bad.as", sink, out));
 }
 
+// game-ready-scripting.md Section 16 (Fable's option-1+3 ruling): a reflected/resource property is a
+// reference type; declared as a VALUE member it silently drops its value at runtime, so the cook
+// REJECTS it with the exact fix ("declare it 'Guid@ mesh'"). The idiomatic handle form cooks fine.
+TEST_CASE("as.cook: a reflected/resource property declared as a VALUE member FAILS the cook")
+{
+    IScriptLanguageCook* cook = AngelScriptCook();
+    REQUIRE(cook != nullptr);
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    // asset:Mesh on a VALUE Guid (no @): a reference type the runtime can't fill - rejected.
+    CHECK_FALSE(cook->Cook(u8"class B1 { [\"asset:Mesh\"] Guid mesh; void onUpdate(double dt){} }\n",
+                           u8"b1.as", sink, out));
+    // A value Color / Entity member is equally rejected.
+    CHECK_FALSE(cook->Cook(u8"class B2 { [(1,1,1,1)] Color tint; void onUpdate(double dt){} }\n",
+                           u8"b2.as", sink, out));
+    CHECK_FALSE(cook->Cook(u8"class B3 { [null] Entity target; void onUpdate(double dt){} }\n",
+                           u8"b3.as", sink, out));
+    // The idiomatic handle form cooks clean.
+    CHECK(cook->Cook(u8"class Good { [\"asset:Mesh\"] Guid@ mesh; void onUpdate(double dt){} }\n",
+                     u8"good.as", sink, out));
+}
+
 TEST_CASE("as.cook: the starter template itself compiles clean")
 {
     IScriptLanguageCook* cook = AngelScriptCook();
