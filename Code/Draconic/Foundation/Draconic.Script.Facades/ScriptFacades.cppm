@@ -338,6 +338,21 @@ export namespace draconic::script
                                   : Entity{};
     }
 
+    /// The `Component.of(entity)` factory body (OPTION 1, spec Section 12): a re-resolving handle
+    /// of component type T for `entity`, as a RESOLVE-mode Variant. Reflect it on T with the
+    /// ReturnType-override so the declared script return IS T:
+    ///     builder.Method<&draconic::script::ComponentOf<T>, T>("of");
+    /// GENERIC - every component-owning module reuses this one body; empty (a clean null in script)
+    /// when the entity's scene has no manager for T. The type must also be registered
+    /// (GlobalTypeRegistry) + seeded as a Wren emission root + given an extra facade name.
+    template <typename T>
+    [[nodiscard]] Variant ComponentOf(Entity entity)
+    {
+        return (entity.scene != nullptr)
+                   ? entity.scene->MakeComponentRef(entity.Handle(), TypeOf<T>())
+                   : Variant{};
+    }
+
     /// Registers the behavior facade types (Entity/Log/Time/Random/Scene) with the
     /// registry - call BEFORE a script manager is created (the run host and the cook's
     /// builder both do). Idempotent.

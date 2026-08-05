@@ -47,17 +47,12 @@ namespace
     class GadgetManager final : public scene::ComponentManager<Gadget>
     {
     };
-    // The RigidBody.of(entity) shape: hands back a RESOLVE-mode ref of the component's own type.
-    Variant Gadget_of(draconic::script::Entity e)
-    {
-        return (e.scene != nullptr) ? e.scene->MakeComponentRef(e.Handle(), TypeOf<Gadget>())
-                                    : Variant{};
-    }
 }
 DRACONIC_REFLECT_VALUE(Gadget, "draconic::script::test")
 {
     builder.Property<&Gadget::power>("power");
-    builder.Method<&Gadget_of, Gadget>("of"); // static factory, declared return = Gadget
+    // The generic OPTION 1 factory: Gadget.of(entity) -> a RESOLVE handle of type Gadget.
+    builder.Method<&draconic::script::ComponentOf<Gadget>, Gadget>("of");
 }
 namespace
 {
