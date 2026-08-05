@@ -503,6 +503,40 @@ namespace draconic::scene
         return nullptr;
     }
 
+    namespace
+    {
+        // Inline resolve context for a component ref - fits Variant's 24-byte inline storage. The
+        // manager pointer is scene-owned and pool-stable; the component itself is NEVER cached here
+        // (the sparse-set pool swap-removes), only re-looked-up per access.
+        struct ComponentRefCtx
+        {
+            Scene* scene;
+            EntityHandle entity;
+            ComponentManagerBase* manager;
+        };
+
+        // The resolver a RESOLVE-mode Variant calls each deref: the CURRENT component address, or
+        // null (component absent / entity stale - the manager's generation check handles staleness).
+        void* ResolveComponent(const Variant& value)
+        {
+            const auto* ctx = static_cast<const ComponentRefCtx*>(value.ResolveContext());
+            return (ctx->manager != nullptr)
+                       ? ctx->manager->GetComponentInstance(ctx->entity).Pointer()
+                       : nullptr;
+        }
+    }
+
+    Variant Scene::MakeComponentRef(EntityHandle entity, const TypeInfo& componentType)
+    {
+        ComponentManagerBase* manager = FindManagerByComponentType(componentType);
+        if (manager == nullptr)
+        {
+            return Variant{};
+        }
+        return Variant::Resolving(&componentType, &ResolveComponent,
+                                  ComponentRefCtx{this, entity, manager});
+    }
+
     void Scene::SetFixedTiming(f32 step, u32 maxSteps) noexcept
     {
         m_stepper.step = step;

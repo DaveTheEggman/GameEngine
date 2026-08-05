@@ -176,3 +176,38 @@ TEST_CASE("scene: FindManagerByComponentType + re-resolution survives swap-remov
     mgr->RemoveComponent(e2);
     CHECK(found->GetComponentInstance(e2).Pointer() == nullptr);
 }
+
+// The full entity.get(Type) resolver: MakeComponentRef packages {scene, entity, manager} into a
+// RESOLVE-mode Variant, so ToInstance() (what a script get/set/call goes through) recomputes the
+// live component address every time - connecting FindManagerByComponentType + Variant RESOLVE mode.
+TEST_CASE("scene: MakeComponentRef gives a RESOLVE Variant that re-resolves the live component")
+{
+    Scene scene(u8"ref");
+    HealthManager* mgr = scene.AddSystem<HealthManager>();
+    const EntityHandle e0 = scene.CreateEntity(u8"e0");
+    const EntityHandle e1 = scene.CreateEntity(u8"e1");
+    mgr->Add(e0).value = 11.0f;
+    mgr->Add(e1).value = 22.0f;
+
+    CHECK(scene.MakeComponentRef(e1, TypeOf<int>()).IsEmpty()); // no manager for that type
+
+    Variant ref = scene.MakeComponentRef(e1, TypeOf<Health>());
+    CHECK(ref.IsResolving());
+    CHECK(ref.Type() == &TypeOf<Health>());
+
+    Instance i0 = ToInstance(ref);
+    REQUIRE(i0.Pointer() != nullptr);
+    CHECK(static_cast<Health*>(i0.Pointer())->value == doctest::Approx(22.0f));
+    void* stale = i0.Pointer();
+
+    // Swap-remove e0 moves e1's component; the SAME ref re-resolves to the moved component.
+    mgr->RemoveComponent(e0);
+    Instance i1 = ToInstance(ref);
+    REQUIRE(i1.Pointer() != nullptr);
+    CHECK(static_cast<Health*>(i1.Pointer())->value == doctest::Approx(22.0f));
+    CHECK(i1.Pointer() != stale);
+
+    // Component removed -> the ref resolves to empty (a script get/set/call no-ops).
+    mgr->RemoveComponent(e1);
+    CHECK(ToInstance(ref).Pointer() == nullptr);
+}

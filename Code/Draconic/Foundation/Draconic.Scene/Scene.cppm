@@ -345,6 +345,13 @@ export namespace draconic::scene
             return found;
         }
 
+        // The re-resolving component handle for `entity.get(Type)`: a RESOLVE-mode Variant that
+        // recomputes the LIVE component address on every access (FindManagerByComponentType, then
+        // GetComponentInstance per deref). Empty when no manager handles `componentType`. A dead
+        // entity or removed component resolves to null, so a script get/set/call over it is a clean
+        // no-op - never a stale/cross-entity pointer (Fable Correction 1). Defined in SceneImpl.cpp.
+        [[nodiscard]] Variant MakeComponentRef(EntityHandle entity, const TypeInfo& componentType);
+
         // ---- play / edit state ----
 
         [[nodiscard]] bool IsStarted() const noexcept { return m_started; }
