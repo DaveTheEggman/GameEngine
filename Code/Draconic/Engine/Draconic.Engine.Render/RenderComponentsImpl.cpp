@@ -16,6 +16,7 @@ import draconic.scene;
 import draconic.geometry;
 import draconic.materials;
 import draconic.rhi;
+import draconic.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
 
 using namespace draconic::core;
 
@@ -53,6 +54,10 @@ namespace draconic::render
         builder.Attribute("displayName", String(u8"Mesh"))
             .Attribute("category", String(u8"Rendering"))
             .DataVersion(3) // v3: unified materials array (slot 0 = whole-mesh)
+            // Script (Track A): MeshComponent.of(entity) -> a re-resolving handle; `color`/`visible`
+            // set live from a behavior. `mesh`/`materials` are resource refs - swapped via the
+            // resource-resolve primitive (Phase 1b), not this raw property.
+            .Method<&draconic::script::ComponentOf<MeshComponent>, MeshComponent>("of")
             .Property<&MeshComponent::mesh>("mesh")
             .Property<&MeshComponent::color>("color")
             .Property<&MeshComponent::visible>("visible")
@@ -92,7 +97,10 @@ namespace draconic::render
     DRACONIC_REFLECT_VALUE(LightComponent, "draconic::render")
     {
         builder.Attribute("displayName", String(u8"Light"))
-            .Attribute("category", String(u8"Rendering")).Property<&LightComponent::type>("type")
+            .Attribute("category", String(u8"Rendering"))
+            // Script (Track A): LightComponent.of(entity) -> live color/intensity/range/enabled/etc.
+            .Method<&draconic::script::ComponentOf<LightComponent>, LightComponent>("of")
+            .Property<&LightComponent::type>("type")
             .Property<&LightComponent::color>("color")
             .Property<&LightComponent::intensity>("intensity")
             .PropAttribute("range", Float4{0.0f, 50.0f, 0.1f, 0.0f})
@@ -322,5 +330,22 @@ namespace draconic::render
             return true;
         }();
         (void)once;
+    }
+
+    void RegisterRenderScriptFacade()
+    {
+        RegisterRenderComponentReflection(); // ensure component TypeData (incl `of`) is built first
+        // Surface the render COMPONENTS to script (Track A: MeshComponent.of(entity), ...): register
+        // them (both backends emit registry types), seed the Wren emission roots (nothing else
+        // reaches an of()-only type), and make their class names import-visible in behavior preludes.
+        const core::TypeInfo* components[] = {&core::TypeOf<MeshComponent>(),
+                                              &core::TypeOf<LightComponent>()};
+        for (const core::TypeInfo* component : components)
+        {
+            GlobalTypeRegistry().Register(*component);
+            draconic::script::RegisterExtraScriptRootType(component);
+        }
+        draconic::script::RegisterExtraFacadeName(u8"MeshComponent");
+        draconic::script::RegisterExtraFacadeName(u8"LightComponent");
     }
 } // namespace draconic::render

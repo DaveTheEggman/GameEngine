@@ -723,4 +723,10 @@ export namespace draconic::render
 export namespace draconic::render
 {
     void RegisterRenderComponentReflection();
+
+    // Surfaces the render components to SCRIPT (Track A): registers MeshComponent/LightComponent
+    // in the global type registry, seeds their Wren emission roots, and makes their class names
+    // import-visible in behavior/Level preludes, so `MeshComponent.of(entity).visible = false` etc.
+    // work on both backends. Called by the composition root (like RegisterPhysicsScriptFacade).
+    void RegisterRenderScriptFacade();
 }

@@ -27,11 +27,13 @@ import draconic.engine.script;
 import draconic.physics;
 import draconic.engine.physics;
 import draconic.engine.integration; // ScriptPhysicsContactBridge (the extracted composition-root adapter)
+import draconic.engine.render;      // MeshComponent/LightComponent .of (Track A, render surface)
 
 using namespace draconic::core;
 using namespace draconic::script;
 namespace scene = draconic::scene;
 namespace physics = draconic::physics;
+namespace render = draconic::render;
 
 // ---- OPTION 1 (Fable ruling, spec Section 12): a component reached ONLY via a per-type
 // `Gadget.of(entity)` factory whose DECLARED return IS the component type. Proves the whole
@@ -2302,4 +2304,83 @@ TEST_CASE("script.scene: scene.events.emit carries a reflected component handle 
     // The payload handle re-resolved to the producer's live Gadget (power 7) across the bus - a
     // reflected VALUE survived as the event payload, and the receiver read its live field.
     CHECK(gadgets->Get(consumerEntity)->power == doctest::Approx(7.0f));
+}
+
+// ---- Track A (render surface): MeshComponent.of / LightComponent.of - a behavior reaches the real
+//      render components by type and mutates them live, exactly like the physics components. Pure-data
+//      props (visible/intensity/range/enabled); resource-ref swaps (mesh/material) are Phase 1b. ----
+
+TEST_CASE("script.scene: MeshComponent.of / LightComponent.of set live render props (Wren)")
+{
+    render::RegisterRenderScriptFacade();
+    ScriptedScene bed;
+    auto* meshes = bed.scene.AddSystem<render::MeshComponentManager>();
+    auto* lights = bed.scene.AddSystem<render::LightComponentManager>();
+
+    RefPtr<ScriptClass> tweaker =
+        MakeClass(u8"Tweaker",
+                  u8"class Tweaker {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onStart() {\n"
+                  u8"        MeshComponent.of(_entity).visible = false\n"
+                  u8"        var light = LightComponent.of(_entity)\n"
+                  u8"        light.intensity = 4.0\n"
+                  u8"        light.range = 25.0\n"
+                  u8"        light.enabled = false\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    meshes->Add(e).visible = true;
+    render::LightComponent& light = lights->Add(e);
+    light.intensity = 1.0f;
+    light.enabled = true;
+
+    bed.Start();
+    bed.Frame(); // onStart mutates the live components through the re-resolving handles
+
+    REQUIRE(meshes->Get(e) != nullptr);
+    CHECK_FALSE(meshes->Get(e)->visible);
+    REQUIRE(lights->Get(e) != nullptr);
+    CHECK(lights->Get(e)->intensity == doctest::Approx(4.0f));
+    CHECK(lights->Get(e)->range == doctest::Approx(25.0f));
+    CHECK_FALSE(lights->Get(e)->enabled);
+}
+
+TEST_CASE("script.scene: MeshComponent::of / LightComponent::of set live render props (AngelScript)")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    render::RegisterRenderScriptFacade();
+    ScriptedScene bed;
+    auto* meshes = bed.scene.AddSystem<render::MeshComponentManager>();
+    auto* lights = bed.scene.AddSystem<render::LightComponentManager>();
+
+    RefPtr<ScriptClass> tweaker = MakeClassLang(
+        u8"angelscript", u8"Tweaker",
+        u8"class Tweaker {\n"
+        u8"    private Entity@ self;\n"
+        u8"    Tweaker(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        MeshComponent@ m = MeshComponent::of(self);\n"
+        u8"        m.visible = false;\n"
+        u8"        LightComponent@ l = LightComponent::of(self);\n"
+        u8"        l.intensity = 4.0f;\n"
+        u8"        l.range = 25.0f;\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    meshes->Add(e).visible = true;
+    lights->Add(e).intensity = 1.0f;
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(meshes->Get(e) != nullptr);
+    CHECK_FALSE(meshes->Get(e)->visible);
+    REQUIRE(lights->Get(e) != nullptr);
+    CHECK(lights->Get(e)->intensity == doctest::Approx(4.0f));
+    CHECK(lights->Get(e)->range == doctest::Approx(25.0f));
 }
