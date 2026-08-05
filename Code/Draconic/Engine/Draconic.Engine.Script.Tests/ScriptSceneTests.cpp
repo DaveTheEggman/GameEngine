@@ -59,6 +59,25 @@ DRACONIC_REFLECT_VALUE(Gadget, "draconic::script::test")
     builder.Property<&Gadget::power>("power");
     builder.Method<&Gadget_of, Gadget>("of"); // static factory, declared return = Gadget
 }
+namespace
+{
+    // Register the component once (idempotent) - AFTER the reflect macro so DraconicRegisterValue_
+    // Gadget is declared. Runs its reflect builder (patches TypeOf<Gadget>), puts it in the registry
+    // (both backends emit it), seeds it as an extra emission root (Wren reachability), and makes its
+    // class name import-visible in Wren behavior preludes.
+    void EnsureGadgetRegistered()
+    {
+        static const bool once = []()
+        {
+            DraconicRegisterValue_Gadget();
+            GlobalTypeRegistry().Register(TypeOf<Gadget>());
+            draconic::script::RegisterExtraScriptRootType(&TypeOf<Gadget>());
+            draconic::script::RegisterExtraFacadeName(u8"Gadget");
+            return true;
+        }();
+        (void)once;
+    }
+}
 
 namespace
 {
@@ -1863,18 +1882,7 @@ TEST_CASE("script.scene: SceneScriptSettings round-trips its Level ref + enabled
 TEST_CASE("script.scene: OPTION 1 - Component.of(entity).field mutates the live component through a "
           "re-resolving handle (Wren)")
 {
-    // Register the component: run its reflect builder (patches TypeOf<Gadget>), put it in the
-    // registry (so the backend emits it), seed it as an extra emission root (Wren reachability),
-    // and make its class name import-visible in behavior preludes. Once, before any VM context.
-    static const bool registered = []()
-    {
-        DraconicRegisterValue_Gadget();
-        GlobalTypeRegistry().Register(TypeOf<Gadget>());
-        draconic::script::RegisterExtraScriptRootType(&TypeOf<Gadget>());
-        draconic::script::RegisterExtraFacadeName(u8"Gadget");
-        return true;
-    }();
-    (void)registered;
+    EnsureGadgetRegistered(); // before any VM context is built
 
     ScriptedScene bed;
     GadgetManager* gadgets = bed.scene.AddSystem<GadgetManager>();
@@ -1894,6 +1902,39 @@ TEST_CASE("script.scene: OPTION 1 - Component.of(entity).field mutates the live 
 
     bed.Start();
     bed.Frame(); // onStart: Gadget.of(_entity).power = 5.0
+    REQUIRE(gadgets->Get(e) != nullptr);
+    CHECK(gadgets->Get(e)->power == doctest::Approx(5.0f)); // the LIVE component was mutated
+}
+
+// OPTION 1 on the SECOND backend: AngelScript is statically typed, so the ReturnType-override is
+// what makes `Gadget::of(self)` box as a Gadget handle (its declared return). Proves cross-backend
+// parity of the whole entity.get shape.
+TEST_CASE("script.scene: OPTION 1 - Component::of(entity).field mutates the live component "
+          "(AngelScript) - cross-backend parity")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    EnsureGadgetRegistered();
+
+    ScriptedScene bed;
+    GadgetManager* gadgets = bed.scene.AddSystem<GadgetManager>();
+
+    RefPtr<ScriptClass> setter =
+        MakeClassLang(u8"angelscript", u8"Setter",
+                      u8"class Setter {\n"
+                      u8"    private Entity@ self;\n"
+                      u8"    Setter(Entity@ entity) { @self = entity; }\n"
+                      u8"    void onStart() {\n"
+                      u8"        Gadget@ g = Gadget::of(self);\n"
+                      u8"        g.power = 5.0f;\n"
+                      u8"    }\n"
+                      u8"}\n",
+                      {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(setter, u8"e");
+    gadgets->Add(e).power = 1.0f;
+
+    bed.Start();
+    bed.Frame();
     REQUIRE(gadgets->Get(e) != nullptr);
     CHECK(gadgets->Get(e)->power == doctest::Approx(5.0f)); // the LIVE component was mutated
 }
