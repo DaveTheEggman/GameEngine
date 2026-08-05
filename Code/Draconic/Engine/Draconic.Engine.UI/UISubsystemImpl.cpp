@@ -58,9 +58,29 @@ namespace draconic::ui
     {
         static const bool once = []()
         {
+            RegisterUIComponentReflection(); // build component TypeData (incl `of`) first
             GlobalTypeRegistry().Register(Ui::StaticType());
             draconic::script::RegisterExtraFacadeName(
                 u8"Ui"); // Wren behavior prelude imports it (AngelScript binds by registry)
+
+            // The WORLD-space UI components -> script .of (live data: order/visible/interactive/
+            // orientation/size/...). The app SCREEN tier (IScreenOverlay, loading screen) is NOT
+            // exposed as a component - it stays behind the app-global Ui facade.
+            struct Entry
+            {
+                const TypeInfo* type;
+                StringView name;
+            };
+            const Entry components[] = {
+                {&TypeOf<UICanvasComponent>(), u8"UICanvasComponent"},
+                {&TypeOf<UIBillboardComponent>(), u8"UIBillboardComponent"},
+                {&TypeOf<UIWorldPanelComponent>(), u8"UIWorldPanelComponent"}};
+            for (const Entry& component : components)
+            {
+                GlobalTypeRegistry().Register(*component.type);
+                draconic::script::RegisterExtraScriptRootType(component.type);
+                draconic::script::RegisterExtraFacadeName(component.name);
+            }
             return true;
         }();
         (void)once;
@@ -2100,6 +2120,10 @@ namespace draconic::ui
     {
         builder.Attribute("displayName", String(u8"UI Billboard"))
             .Attribute("category", String(u8"UI")).DataVersion(1);
+        // Script (Track A): world-space UI component .of(entity) -> live data (offset/orientation/
+        // scale/visible). The SCREEN tier (IScreenOverlay, loading screen) is deliberately NOT exposed.
+        builder.Method<&draconic::script::ComponentOf<UIBillboardComponent>, UIBillboardComponent>(
+            "of");
         builder.Property<&UIBillboardComponent::document>("document");
         builder.Property<&UIBillboardComponent::offset>("offset");
         builder.Property<&UIBillboardComponent::orientation>("orientation");
@@ -2114,6 +2138,7 @@ namespace draconic::ui
     {
         builder.Attribute("displayName", String(u8"UI Canvas"))
             .Attribute("category", String(u8"UI")).DataVersion(2); // v2 added the RenderTexture canvas mode
+        builder.Method<&draconic::script::ComponentOf<UICanvasComponent>, UICanvasComponent>("of");
         builder.Property<&UICanvasComponent::document>("document");
         builder.Property<&UICanvasComponent::theme>("theme");
         builder.Property<&UICanvasComponent::order>("order");
@@ -2130,6 +2155,8 @@ namespace draconic::ui
     {
         builder.Attribute("displayName", String(u8"UI World Panel"))
             .Attribute("category", String(u8"UI")).DataVersion(1);
+        builder.Method<&draconic::script::ComponentOf<UIWorldPanelComponent>, UIWorldPanelComponent>(
+            "of");
         builder.Property<&UIWorldPanelComponent::document>("document");
         builder.Property<&UIWorldPanelComponent::theme>("theme");
         builder.Property<&UIWorldPanelComponent::sizeMeters>("sizeMeters");

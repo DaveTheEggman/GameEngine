@@ -9,6 +9,7 @@ target_link_libraries(DraconicScriptSceneTests PRIVATE
     Draconic::Animation Draconic::Engine.Animation
     Draconic::Particles Draconic::Engine.Particles
     Draconic::Net Draconic::Net.Replication
+    Draconic::UI Draconic::Engine.UI
     Draconic::Script Draconic::Script.Wren Draconic::Script.AngelScript doctest::doctest)
 target_compile_definitions(DraconicScriptSceneTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicScriptSceneTests PRIVATE

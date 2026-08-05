@@ -35,6 +35,7 @@ import draconic.engine.animation;   // *.of + SceneAnimation (Track A, animation
 import draconic.particles;          // ParticleEffectComponent + manager (Track A, particle surface)
 import draconic.engine.particles;   // *.of + SceneParticles (Track A, particle surface)
 import draconic.net.replication;    // NetworkComponent + manager + .of (Track A, net surface)
+import draconic.engine.ui;          // world-space UI components + managers + .of (Track A, UI surface)
 
 using namespace draconic::core;
 using namespace draconic::script;
@@ -44,6 +45,7 @@ namespace render = draconic::render;
 namespace audio = draconic::audio;
 namespace anim = draconic::animation;
 namespace particles = draconic::particles;
+namespace ui = draconic::ui;
 
 // ---- OPTION 1 (Fable ruling, spec Section 12): a component reached ONLY via a per-type
 // `Gadget.of(entity)` factory whose DECLARED return IS the component type. Proves the whole
@@ -3015,4 +3017,46 @@ TEST_CASE("script.scene: NetworkComponent.of authority crosses as an int in Wren
     REQUIRE(net->Get(e) != nullptr);
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"authoritative"));
     CHECK(net->Get(e)->authority == draconic::net::NetworkAuthority::Client);
+}
+
+// ---- Track A (UI world-space surface): UICanvasComponent / UIBillboardComponent /
+//      UIWorldPanelComponent get the mechanical .of (live data - order/visible/interactive/scale...).
+//      The app SCREEN tier (IScreenOverlay, loading screen) is deliberately NOT exposed here.
+TEST_CASE("script.scene: the world-space UI components reach script via .of (Wren)")
+{
+    ui::RegisterUiScriptFacade();
+    ScriptedScene bed;
+    auto* canvases = bed.scene.AddSystem<ui::UICanvasComponentManager>();
+    auto* billboards = bed.scene.AddSystem<ui::UIBillboardComponentManager>();
+    auto* panels = bed.scene.AddSystem<ui::UIWorldPanelComponentManager>();
+
+    RefPtr<ScriptClass> tweaker =
+        MakeClass(u8"UiTweaker",
+                  u8"class UiTweaker {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onStart() {\n"
+                  u8"        var c = UICanvasComponent.of(_entity)\n"
+                  u8"        c.visible = false\n"
+                  u8"        c.order = 5\n"
+                  u8"        UIBillboardComponent.of(_entity).minScale = 0.8\n"
+                  u8"        UIWorldPanelComponent.of(_entity).interactive = false\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    canvases->Add(e);
+    billboards->Add(e);
+    panels->Add(e);
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(canvases->Get(e) != nullptr);
+    CHECK_FALSE(canvases->Get(e)->visible);
+    CHECK(canvases->Get(e)->order == 5);
+    REQUIRE(billboards->Get(e) != nullptr);
+    CHECK(billboards->Get(e)->minScale == doctest::Approx(0.8f));
+    REQUIRE(panels->Get(e) != nullptr);
+    CHECK_FALSE(panels->Get(e)->interactive);
 }
