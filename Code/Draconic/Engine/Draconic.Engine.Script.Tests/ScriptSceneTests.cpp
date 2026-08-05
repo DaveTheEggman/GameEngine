@@ -2112,3 +2112,155 @@ TEST_CASE("script.scene: ScenePhysics.of(scene).applyImpulse(entity, ...) - scri
     REQUIRE(bodies->Get(e) != nullptr);
     CHECK(sys->World()->LinearVelocity(bodies->Get(e)->body).y > 0.0f); // impulse dominated gravity
 }
+
+// ---- Track B: the scene event bus reaches script. A behavior publishes scene.events.emit(name, x);
+//      EVERY behavior AND the Level that declare on<Name>(x) receive it (same bus, both tiers), the
+//      payload surviving as a Variant. Auto-unsubscribe when a subscriber is torn down. The bus is
+//      native + backend-neutral, so proving each backend on its own bus proves the pair. ----
+
+TEST_CASE("script.scene: scene.events.emit reaches a sibling behavior AND the Level's "
+          "on<Event>(payload) - both tiers, one bus (Wren)")
+{
+    ScriptedScene bed;
+    SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
+    level->SetRunHost(&bed.host);
+
+    RefPtr<ScriptClass> emitter =
+        MakeClass(u8"Emitter",
+                  u8"class Emitter {\n"
+                  u8"    construct new(entity) {\n"
+                  u8"        _entity = entity\n"
+                  u8"        _done = false\n"
+                  u8"    }\n"
+                  u8"    onUpdate(dt) {\n"
+                  u8"        if (!_done) {\n"
+                  u8"            _entity.scene.events.emit(\"OrbCollected\", 5)\n"
+                  u8"            _done = true\n"
+                  u8"        }\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onUpdate"});
+    RefPtr<ScriptClass> receiver =
+        MakeClass(u8"Receiver",
+                  u8"class Receiver {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onOrbCollected(n) { _entity.setName(\"got:\" + n.toString) }\n"
+                  u8"}\n",
+                  {u8"onOrbCollected"});
+    RefPtr<ScriptClass> levelClass =
+        MakeClass(u8"Level",
+                  u8"class Level {\n"
+                  u8"    construct new(scene) { _scene = scene }\n"
+                  u8"    onOrbCollected(n) { _scene.find(\"levelmark\").setName(\"level:\" + n.toString) }\n"
+                  u8"}\n",
+                  {u8"onOrbCollected"});
+    level->Settings().script = levelClass;
+
+    const scene::EntityHandle listener = bed.AddScripted(receiver, u8"listener");
+    (void)bed.AddScripted(emitter, u8"emitter");
+    const scene::EntityHandle levelmark = bed.scene.CreateEntity(u8"levelmark");
+
+    bed.Start();
+    bed.Frame(); // instantiate all; emitter.onUpdate emits; bus drains same frame -> both receive
+    bed.Frame(); // slack for any instantiation/subscription ordering
+
+    // The sibling behavior received on<Event>(payload) - payload 5 survived as a Variant.
+    CHECK(bed.scene.GetEntityName(listener) == StringView(u8"got:5"));
+    // The Level received the SAME event on the SAME bus (P-B1 named inbox) - no GameManager entity.
+    CHECK(bed.scene.GetEntityName(levelmark) == StringView(u8"level:5"));
+}
+
+TEST_CASE("script.scene: scene.events.emit reaches a sibling behavior AND the Level's "
+          "on<Event>(payload) - the 2nd backend (AngelScript)")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    ScriptedScene bed;
+    SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
+    level->SetRunHost(&bed.host);
+
+    RefPtr<ScriptClass> emitter = MakeClassLang(
+        u8"angelscript", u8"Emitter",
+        u8"class Emitter {\n"
+        u8"    private Entity@ self;\n"
+        u8"    private bool done;\n"
+        u8"    Emitter(Entity@ entity) { @self = entity; done = false; }\n"
+        u8"    void onUpdate(float dt) {\n"
+        u8"        if (!done) { self.scene.events.emit(\"OrbCollected\", 5.0); done = true; }\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onUpdate"});
+    RefPtr<ScriptClass> receiver = MakeClassLang(
+        u8"angelscript", u8"Receiver",
+        u8"class Receiver {\n"
+        u8"    private Entity@ self;\n"
+        u8"    Receiver(Entity@ entity) { @self = entity; }\n"
+        u8"    void onOrbCollected(float n) { if (n > 4.5f) self.setName(\"got5\"); }\n"
+        u8"}\n",
+        {u8"onOrbCollected"});
+    RefPtr<ScriptClass> levelClass = MakeClassLang(
+        u8"angelscript", u8"Level",
+        u8"class Level {\n"
+        u8"    private Scene@ scene;\n"
+        u8"    Level(Scene@ s) { @scene = s; }\n"
+        u8"    void onOrbCollected(float n) { if (n > 4.5f) scene.find(\"levelmark\").setName(\"level5\"); }\n"
+        u8"}\n",
+        {u8"onOrbCollected"});
+    level->Settings().script = levelClass;
+
+    const scene::EntityHandle listener = bed.AddScripted(receiver, u8"listener");
+    (void)bed.AddScripted(emitter, u8"emitter");
+    const scene::EntityHandle levelmark = bed.scene.CreateEntity(u8"levelmark");
+
+    bed.Start();
+    bed.Frame();
+    bed.Frame();
+
+    CHECK(bed.scene.GetEntityName(listener) == StringView(u8"got5"));   // behavior received payload
+    CHECK(bed.scene.GetEntityName(levelmark) == StringView(u8"level5")); // Level received it too
+}
+
+TEST_CASE("script.scene: a destroyed subscriber stops receiving bus events; the emitter "
+          "keeps running fault-free (teardown)")
+{
+    ScriptedScene bed;
+
+    RefPtr<ScriptClass> emitter =
+        MakeClass(u8"Bumper",
+                  u8"class Bumper {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onUpdate(dt) { _entity.scene.events.emit(\"Bump\", 1) }\n"
+                  u8"}\n",
+                  {u8"onUpdate"});
+    RefPtr<ScriptClass> receiver =
+        MakeClass(u8"Counter",
+                  u8"class Counter {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onBump(n) {\n"
+                  u8"        var c = _entity.scene.find(\"counter\")\n"
+                  u8"        var p = c.position()\n"
+                  u8"        c.setPosition(p.x + n, 0, 0)\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onBump"});
+
+    const scene::EntityHandle counter = bed.scene.CreateEntity(u8"counter");
+    const scene::EntityHandle receiverEntity = bed.AddScripted(receiver, u8"receiver");
+    const scene::EntityHandle emitterEntity = bed.AddScripted(emitter, u8"emitter");
+
+    bed.Start();
+    bed.Frame();
+    bed.Frame();
+    const f32 whileAlive = bed.scene.GetLocalTransform(counter).position.x;
+    CHECK(whileAlive > 0.0f); // the receiver was advancing the counter on each Bump
+
+    bed.scene.DestroyEntity(receiverEntity); // the only onBump subscriber is gone
+    bed.Frame();
+    bed.Frame();
+    // The counter is frozen: the destroyed subscriber no longer receives, and BroadcastEvent's
+    // per-behavior re-resolution simply finds nothing to deliver to (the system subscription is
+    // harmlessly inert). The emitter kept publishing without faulting.
+    CHECK(Near(bed.scene.GetLocalTransform(counter).position.x, whileAlive));
+    ScriptComponent* emitterComp = bed.components->Get(emitterEntity);
+    REQUIRE(emitterComp != nullptr);
+    CHECK_FALSE(emitterComp->behaviors[0].faulted);
+}

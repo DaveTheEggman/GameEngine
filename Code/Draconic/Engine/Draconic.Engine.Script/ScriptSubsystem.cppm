@@ -46,6 +46,133 @@ export namespace draconic::script
 {
     namespace scene = draconic::scene;
 
+    // ---- the script event bridge (Track B): scene bus events -> on<Event> handlers ----
+
+    /// The on<X> handlers that are NOT user bus events: the fixed lifecycle set + the reserved
+    /// physics-contact handlers (those are delivered by the contact path, not the bus). Every
+    /// OTHER on<Upper> handler names a bus event, so declaring `onOrbCollected(x)` auto-subscribes
+    /// to the "OrbCollected" event - no separate `events` list to keep in sync.
+    [[nodiscard]] inline bool IsReservedHandler(StringView handler) noexcept
+    {
+        static const StringView kReserved[] = {
+            u8"onStart",        u8"onUpdate",     u8"onEnable",      u8"onDisable",
+            u8"onDestroy",      u8"onFixedUpdate", u8"onStop",       u8"onContactBegin",
+            u8"onContactEnd",   u8"onTriggerEnter", u8"onTriggerExit"};
+        for (StringView reserved : kReserved)
+        {
+            if (handler == reserved)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// The bus event name a handler subscribes to: "onOrbCollected" -> "OrbCollected" (verbatim
+    /// after "on"). A behavior emits with that exact name (`scene.events.emit("OrbCollected", ...)`).
+    /// Empty for anything that is not an `on<Upper>` handler.
+    [[nodiscard]] inline StringView EventNameForHandler(StringView handler) noexcept
+    {
+        if (handler.Size() <= 2 || handler[0] != u8'o' || handler[1] != u8'n')
+        {
+            return StringView{};
+        }
+        const utf8char third = handler[2];
+        if (third < u8'A' || third > u8'Z')
+        {
+            return StringView{}; // on + UpperCase only (matches the handler-scan convention)
+        }
+        return handler.SubStr(2, handler.Size() - 2);
+    }
+
+    /// One script system's lazy, deduped subscriptions on a scene's native EventBus. As classes
+    /// bind, EnsureFor() subscribes (once per event name) to each non-reserved on<Event> handler
+    /// they declare, routing every fired event to a supplied sink at bus-drain time. The bus drains
+    /// at the scene tick's top level (no VM call active), so the sink may dispatch script handlers
+    /// DIRECTLY - the emit->publish->drain-later path already provides the deferral that entity.send
+    /// needs its message queue for. Owns its bus handles; Clear() drops them on scene stop.
+    class ScriptEventSubscriptions
+    {
+    public:
+        /// Wire the target scene + the sink (called with (eventName, payload) per fired event).
+        void Bind(scene::Scene* scene, Function<void(StringView, const Variant&)> sink)
+        {
+            m_scene = scene;
+            m_sink = Move(sink);
+        }
+
+        /// Subscribe (deduped) to every non-reserved on<Event> handler `scriptClass` declares.
+        void EnsureFor(const ScriptClass& scriptClass)
+        {
+            if (m_scene == nullptr)
+            {
+                return;
+            }
+            for (const String& handler : scriptClass.handlers)
+            {
+                if (IsReservedHandler(handler.AsView()))
+                {
+                    continue;
+                }
+                const StringView eventName = EventNameForHandler(handler.AsView());
+                if (eventName.IsEmpty())
+                {
+                    continue;
+                }
+                const StringHash key(eventName);
+                if (AlreadySubscribed(key))
+                {
+                    continue;
+                }
+                String name(eventName); // owned copy captured by the callback
+                const u32 handle = m_scene->Events().Subscribe(
+                    key,
+                    [this, name](const Variant& payload)
+                    {
+                        if (m_sink)
+                        {
+                            m_sink(name.AsView(), payload);
+                        }
+                    });
+                m_keys.PushBack(key);
+                m_handles.PushBack(handle);
+            }
+        }
+
+        /// Unsubscribe everything (scene stop). The bus is scene-owned and still alive here; after
+        /// this the sink is never called until EnsureFor re-subscribes on the next run.
+        void Clear()
+        {
+            if (m_scene != nullptr)
+            {
+                for (const u32 handle : m_handles)
+                {
+                    m_scene->Events().Unsubscribe(handle);
+                }
+            }
+            m_handles.Clear();
+            m_keys.Clear();
+        }
+
+    private:
+        [[nodiscard]] bool AlreadySubscribed(StringHash key) const
+        {
+            for (const StringHash existing : m_keys)
+            {
+                if (existing == key)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        scene::Scene* m_scene = nullptr;
+        Function<void(StringView, const Variant&)> m_sink;
+        Array<StringHash> m_keys; // dedup guard (one subscription per event name)
+        Array<u32> m_handles;     // bus handles to unsubscribe on Clear
+    };
+
     // ---- the run's script host (ONE gameplay context per run) ----
 
     // Logs behavior errors (Script category) and forwards to an optional external sink
@@ -419,7 +546,14 @@ export namespace draconic::script
     class ScriptSceneSystem final : public scene::SceneSystem
     {
     public:
-        void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
+        void OnSceneCreate(scene::Scene& scene) override
+        {
+            m_scene = &scene;
+            // Route this scene's bus events to the entity behaviors that declare on<Event>.
+            m_eventSubs.Bind(&scene, Function<void(StringView, const Variant&)>{
+                                         [this](StringView eventName, const Variant& payload)
+                                         { BroadcastEvent(eventName, payload); }});
+        }
 
         /// The subsystem (or a headless test) wires the shared run host in.
         void SetRunHost(ScriptRunHost* host) noexcept { m_host = host; }
@@ -439,6 +573,7 @@ export namespace draconic::script
         {
             m_started = false;
             DestroyAllInstances();
+            m_eventSubs.Clear(); // drop bus subscriptions; re-subscribed as behaviors rebind on run
             if (m_runObserver)
             {
                 m_runObserver();
@@ -604,6 +739,56 @@ export namespace draconic::script
                 }
             }
             m_messages.Clear();
+        }
+
+        /// The bus sink for entity behaviors (Track B): dispatch `on<Event>(payload)` to EVERY
+        /// enabled behavior of THIS scene that declares it. Called at bus-drain time (the scene
+        /// tick's top level, no VM call active), so it invokes DIRECTLY - the emit->publish->drain
+        /// path already provides the deferral entity.send needs its message queue for. Owners are
+        /// snapshotted first because a handler may spawn/destroy entities (swap-remove moves slots).
+        /// Arg count follows the payload: a no-payload emit() delivers `on<Event>()`, a valued one
+        /// delivers `on<Event>(payload)` - so handler arity matches the emit site.
+        void BroadcastEvent(StringView eventName, const Variant& payload)
+        {
+            if (!m_started || m_scene == nullptr || m_host == nullptr || m_host->IsDebugPaused())
+            {
+                return;
+            }
+            auto* components = m_scene->GetSystem<ScriptComponentManager>();
+            if (components == nullptr || components->Count() == 0)
+            {
+                return;
+            }
+            String handler(u8"on");
+            handler += eventName; // "on" + "OrbCollected" reconstructs the exact declared handler
+            Variant arg = payload;
+            const bool hasArg = !payload.IsEmpty();
+            const Span<Variant> args = hasArg ? Span<Variant>{&arg, 1} : Span<Variant>{};
+            m_tickOwners.Clear(); // reuse the per-tick snapshot buffer
+            for (scene::EntityHandle owner : components->Owners())
+            {
+                m_tickOwners.PushBack(owner);
+            }
+            for (scene::EntityHandle entity : m_tickOwners)
+            {
+                for (usize i = 0;; ++i)
+                {
+                    ScriptComponent* component = components->Get(entity);
+                    if (component == nullptr || i >= component->behaviors.Size())
+                    {
+                        break;
+                    }
+                    ScriptBehavior& behavior = component->behaviors[i];
+                    if (!behavior.enabled || behavior.faulted ||
+                        behavior.instance.Get() == nullptr || behavior.boundClass == nullptr)
+                    {
+                        continue;
+                    }
+                    // Gated by HasHandler inside InvokeHandler: behaviors without on<Event> skip.
+                    (void)InvokeHandler(behavior, *behavior.boundClass, entity, handler.AsView(),
+                                        args);
+                }
+            }
         }
 
     private:
@@ -793,6 +978,9 @@ export namespace draconic::script
                 return;
             }
             ApplyProperties(behavior, scriptClass, entity);
+            // Subscribe this scene's bus to the on<Event> handlers this class declares (deduped),
+            // so a fired event reaches every declaring behavior via BroadcastEvent.
+            m_eventSubs.EnsureFor(scriptClass);
         }
 
         // Defaults first, then hash-keyed overrides win; pushed through the class's
@@ -955,6 +1143,7 @@ export namespace draconic::script
         Function<void()> m_runObserver;
         Array<scene::EntityHandle> m_tickOwners; // per-tick snapshot (reused)
         Array<PendingMessage> m_messages;        // deferred entity.send queue
+        ScriptEventSubscriptions m_eventSubs;    // this scene's bus subscriptions -> BroadcastEvent
         bool m_started = false;
     };
 
@@ -984,7 +1173,15 @@ export namespace draconic::script
     class SceneScriptSystem final : public scene::SceneSystem
     {
     public:
-        void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
+        void OnSceneCreate(scene::Scene& scene) override
+        {
+            m_scene = &scene;
+            // The Level's named inbox (P-B1): route this scene's bus events to the Level's
+            // on<Event> handler, so a behavior's scene.events.emit reaches an onPlayerFell here.
+            m_eventSubs.Bind(&scene, Function<void(StringView, const Variant&)>{
+                                         [this](StringView eventName, const Variant& payload)
+                                         { DispatchEvent(eventName, payload); }});
+        }
 
         void SetRunHost(ScriptRunHost* host) noexcept { m_host = host; }
         [[nodiscard]] ScriptRunHost* Host() const noexcept { return m_host; }
@@ -1024,7 +1221,8 @@ export namespace draconic::script
         void OnSceneStopped() override
         {
             Dispatch(kLevelOnStop, {});
-            DestroyLevel(); // no state survives a stop (same rule as behaviors)
+            m_eventSubs.Clear(); // drop bus subscriptions before the Level object goes away
+            DestroyLevel();      // no state survives a stop (same rule as behaviors)
             m_started = false;
         }
 
@@ -1077,6 +1275,22 @@ export namespace draconic::script
             Variant arg = Variant::From(handle);
             m_boundClass = scriptClass;
             m_level = m_host->Instantiate(*scriptClass, Span<Variant>{&arg, 1});
+            // Subscribe this scene's bus to the Level's on<Event> handlers (P-B1 named inbox).
+            m_eventSubs.EnsureFor(*scriptClass);
+        }
+
+        /// The bus sink for the Level (P-B1): dispatch `on<Event>(payload)` to the Level object.
+        /// Called at bus-drain time (no VM active), so it dispatches directly - and reuses Dispatch,
+        /// so a faulting event handler disables the Level exactly like a faulting lifecycle handler.
+        /// Arg count follows the payload (a no-payload emit() delivers `on<Event>()`).
+        void DispatchEvent(StringView eventName, const Variant& payload)
+        {
+            String handler(u8"on");
+            handler += eventName; // "on" + "PlayerFell" reconstructs the declared handler
+            Variant arg = payload;
+            const bool hasArg = !payload.IsEmpty();
+            const Span<Variant> args = hasArg ? Span<Variant>{&arg, 1} : Span<Variant>{};
+            Dispatch(handler.AsView(), args);
         }
 
         void Dispatch(StringView method, Span<Variant> args)
@@ -1130,6 +1344,7 @@ export namespace draconic::script
         SceneScriptSettings m_settings;
         RefPtr<ScriptObject> m_level;
         ScriptClass* m_boundClass = nullptr;
+        ScriptEventSubscriptions m_eventSubs; // this scene's bus subscriptions -> DispatchEvent
         bool m_started = false;
         bool m_faulted = false;
     };
