@@ -2579,3 +2579,39 @@ TEST_CASE("script.scene: an asset (Guid) editor property applies to an AngelScri
     bed.Frame();
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"applied")); // the Guid reached the handle member
 }
+
+// The rest of the render component set also reaches script via `.of` (all pure-data): Camera,
+// Sprite, Decal, InstancedMesh, ReflectionProbe. Spot-check Camera + Sprite from a behavior.
+TEST_CASE("script.scene: CameraComponent.of / SpriteComponent.of set live props (Wren)")
+{
+    render::RegisterRenderScriptFacade();
+    ScriptedScene bed;
+    auto* cameras = bed.scene.AddSystem<render::CameraComponentManager>();
+    auto* sprites = bed.scene.AddSystem<render::SpriteComponentManager>();
+
+    RefPtr<ScriptClass> tweaker =
+        MakeClass(u8"ViewTweaker",
+                  u8"class ViewTweaker {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onStart() {\n"
+                  u8"        var cam = CameraComponent.of(_entity)\n"
+                  u8"        cam.fovYRadians = 1.2\n"
+                  u8"        cam.primary = false\n"
+                  u8"        SpriteComponent.of(_entity).visible = false\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    cameras->Add(e).primary = true;
+    sprites->Add(e).visible = true;
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(cameras->Get(e) != nullptr);
+    CHECK(cameras->Get(e)->fovYRadians == doctest::Approx(1.2f));
+    CHECK_FALSE(cameras->Get(e)->primary);
+    REQUIRE(sprites->Get(e) != nullptr);
+    CHECK_FALSE(sprites->Get(e)->visible);
+}

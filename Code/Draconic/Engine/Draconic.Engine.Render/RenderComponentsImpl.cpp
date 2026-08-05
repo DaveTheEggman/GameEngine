@@ -74,6 +74,8 @@ namespace draconic::render
     {
         builder.Attribute("displayName", String(u8"Instanced Mesh"))
             .Attribute("category", String(u8"Rendering"))
+            .Method<&draconic::script::ComponentOf<InstancedMeshComponent>, InstancedMeshComponent>(
+                "of")
             .Property<&InstancedMeshComponent::mesh>("mesh")
             .Property<&InstancedMeshComponent::material>("material")
             .Property<&InstancedMeshComponent::color>("color")
@@ -83,7 +85,9 @@ namespace draconic::render
     DRACONIC_REFLECT_VALUE(CameraComponent, "draconic::render")
     {
         builder.Attribute("displayName", String(u8"Camera"))
-            .Attribute("category", String(u8"Rendering")).Property<&CameraComponent::fovYRadians>("fovYRadians")
+            .Attribute("category", String(u8"Rendering"))
+            .Method<&draconic::script::ComponentOf<CameraComponent>, CameraComponent>("of")
+            .Property<&CameraComponent::fovYRadians>("fovYRadians")
             .PropAttribute("displayName", String(u8"Field Of View"))
             .PropAttribute("description", String(u8"Vertical field of view (radians)"))
             .PropAttribute("range", Float4{0.10f, 3.04f, 0.01f, 0.0f})
@@ -143,7 +147,9 @@ namespace draconic::render
     DRACONIC_REFLECT_VALUE(SpriteComponent, "draconic::render")
     {
         builder.Attribute("displayName", String(u8"Sprite"))
-            .Attribute("category", String(u8"Rendering")).Property<&SpriteComponent::textureAsset>("texture")
+            .Attribute("category", String(u8"Rendering"))
+            .Method<&draconic::script::ComponentOf<SpriteComponent>, SpriteComponent>("of")
+            .Property<&SpriteComponent::textureAsset>("texture")
             .Property<&SpriteComponent::size>("size")
             .Property<&SpriteComponent::uvRect>("uvRect")
             .Property<&SpriteComponent::tint>("tint")
@@ -155,7 +161,9 @@ namespace draconic::render
     DRACONIC_REFLECT_VALUE(DecalComponent, "draconic::render")
     {
         builder.Attribute("displayName", String(u8"Decal"))
-            .Attribute("category", String(u8"Rendering")).Property<&DecalComponent::textureAsset>("texture")
+            .Attribute("category", String(u8"Rendering"))
+            .Method<&draconic::script::ComponentOf<DecalComponent>, DecalComponent>("of")
+            .Property<&DecalComponent::textureAsset>("texture")
             .Property<&DecalComponent::size>("size")
             .Property<&DecalComponent::color>("color")
             .Property<&DecalComponent::fadeStart>("fadeStart")
@@ -229,7 +237,10 @@ namespace draconic::render
     DRACONIC_REFLECT_VALUE(ReflectionProbeComponent, "draconic::render")
     {
         builder.Attribute("displayName", String(u8"Reflection Probe"))
-            .Attribute("category", String(u8"Rendering")).Property<&ReflectionProbeComponent::halfExtents>("halfExtents")
+            .Attribute("category", String(u8"Rendering"))
+            .Method<&draconic::script::ComponentOf<ReflectionProbeComponent>, ReflectionProbeComponent>(
+                "of")
+            .Property<&ReflectionProbeComponent::halfExtents>("halfExtents")
             .Property<&ReflectionProbeComponent::blendDistance>("blendDistance")
             .PropAttribute("range", Float4{0.0f, 10.0f, 0.1f, 0.0f})
             .PropAttribute("description", String(u8"Fade width at the probe volume's edge"))
@@ -349,15 +360,26 @@ namespace draconic::render
         // Surface the render COMPONENTS to script (Track A: MeshComponent.of(entity), ...): register
         // them (both backends emit registry types), seed the Wren emission roots (nothing else
         // reaches an of()-only type), and make their class names import-visible in behavior preludes.
-        const core::TypeInfo* components[] = {&core::TypeOf<MeshComponent>(),
-                                              &core::TypeOf<LightComponent>()};
-        for (const core::TypeInfo* component : components)
+        // The WHOLE render component set - each `.of(entity)` exposes its editor-reflected properties.
+        struct RenderComponentEntry
         {
-            GlobalTypeRegistry().Register(*component);
-            draconic::script::RegisterExtraScriptRootType(component);
+            const core::TypeInfo* type;
+            core::StringView name;
+        };
+        const RenderComponentEntry components[] = {
+            {&core::TypeOf<MeshComponent>(), u8"MeshComponent"},
+            {&core::TypeOf<InstancedMeshComponent>(), u8"InstancedMeshComponent"},
+            {&core::TypeOf<CameraComponent>(), u8"CameraComponent"},
+            {&core::TypeOf<LightComponent>(), u8"LightComponent"},
+            {&core::TypeOf<SpriteComponent>(), u8"SpriteComponent"},
+            {&core::TypeOf<DecalComponent>(), u8"DecalComponent"},
+            {&core::TypeOf<ReflectionProbeComponent>(), u8"ReflectionProbeComponent"}};
+        for (const RenderComponentEntry& component : components)
+        {
+            GlobalTypeRegistry().Register(*component.type);
+            draconic::script::RegisterExtraScriptRootType(component.type);
+            draconic::script::RegisterExtraFacadeName(component.name);
         }
-        draconic::script::RegisterExtraFacadeName(u8"MeshComponent");
-        draconic::script::RegisterExtraFacadeName(u8"LightComponent");
 
         // The scene-bound render handle (SceneRender.of(scene)): reflect it, register it, seed the
         // Wren emission root (nothing else reaches it), and make the class name prelude-visible.
