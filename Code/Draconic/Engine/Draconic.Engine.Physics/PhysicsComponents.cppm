@@ -160,6 +160,17 @@ export namespace draconic::physics
         CharacterGround ground = CharacterGround::InAir;
         Float3 prevPosition{0, 0, 0};
         Float3 currPosition{0, 0, 0};
+
+        // ---- script gameplay surface (Character.of(entity).<op>): pure component-data ops, no
+        // world access - the physics tick reads moveVelocity/jumpSpeed and writes ground/currPosition,
+        // so per-entity character control works via reflection (fixes the static facade's "first
+        // character only" limitation). ----
+        void move(f32 velocityX, f32 velocityZ) { moveVelocity = Float3{velocityX, 0.0f, velocityZ}; }
+        void jump(f32 speed) { jumpSpeed = speed; }
+        [[nodiscard]] bool grounded() const { return ground == CharacterGround::OnGround; }
+        [[nodiscard]] f32 positionX() const { return currPosition.x; }
+        [[nodiscard]] f32 positionY() const { return currPosition.y; }
+        [[nodiscard]] f32 positionZ() const { return currPosition.z; }
     };
 
     inline void Serialize(ISerializer& ar, CharacterComponent& c)

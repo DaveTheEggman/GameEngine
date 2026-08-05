@@ -266,6 +266,14 @@ namespace draconic::physics
         builder.Property<&CharacterComponent::stepDown>("stepDown");
         // OPTION 1 (spec Section 12): CharacterComponent.of(entity) -> a re-resolving handle.
         builder.Method<&draconic::script::ComponentOf<CharacterComponent>, CharacterComponent>("of");
+        // Per-entity character control (component-data ops - fixes the static facade's first-character
+        // limitation): Character.of(entity).move(x, z) / .jump(speed) / .grounded() / .positionY().
+        builder.Method<&CharacterComponent::move>("move", {"velocityX", "velocityZ"});
+        builder.Method<&CharacterComponent::jump>("jump", {"speed"});
+        builder.Method<&CharacterComponent::grounded>("grounded");
+        builder.Method<&CharacterComponent::positionX>("positionX");
+        builder.Method<&CharacterComponent::positionY>("positionY");
+        builder.Method<&CharacterComponent::positionZ>("positionZ");
     }
 
     DRACONIC_REFLECT_VALUE(JointComponent, "draconic::physics")

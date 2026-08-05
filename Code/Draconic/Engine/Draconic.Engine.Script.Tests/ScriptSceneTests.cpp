@@ -2025,3 +2025,63 @@ TEST_CASE("script.scene: ScenePhysics.of(scene) reads + writes gravity on THIS s
     CHECK(world.scene->GetLocalTransform(e).position.x == doctest::Approx(-20.0f)); // gravityY read
     CHECK(sys->World()->Gravity().y == doctest::Approx(-20.0f)); // setGravity hit the real world
 }
+
+// Fuller physics surface: per-entity character control via CharacterComponent.of(entity).move/jump.
+// These are component-DATA ops (the tick reads moveVelocity/jumpSpeed), so they work through the
+// re-resolving handle with no world access - and per ENTITY, fixing the static facade's "first
+// character only" limitation.
+TEST_CASE("script.scene: CharacterComponent.of(entity).move/jump - per-entity control (Wren)")
+{
+    physics::RegisterPhysicsScriptFacade();
+    ScriptedScene bed;
+    auto* characters = bed.scene.AddSystem<physics::CharacterComponentManager>();
+
+    RefPtr<ScriptClass> driver = MakeClass(u8"Driver",
+                                           u8"class Driver {\n"
+                                           u8"    construct new(entity) { _entity = entity }\n"
+                                           u8"    onStart() {\n"
+                                           u8"        var c = CharacterComponent.of(_entity)\n"
+                                           u8"        c.move(5, 3)\n"
+                                           u8"        c.jump(6)\n"
+                                           u8"    }\n"
+                                           u8"}\n",
+                                           {u8"onStart"});
+    const scene::EntityHandle e = bed.AddScripted(driver, u8"e");
+    characters->Add(e);
+
+    bed.Start();
+    bed.Frame();
+    REQUIRE(characters->Get(e) != nullptr);
+    CHECK(characters->Get(e)->moveVelocity.x == doctest::Approx(5.0f));
+    CHECK(characters->Get(e)->moveVelocity.z == doctest::Approx(3.0f));
+    CHECK(characters->Get(e)->jumpSpeed == doctest::Approx(6.0f));
+}
+
+TEST_CASE("script.scene: CharacterComponent.of(entity).move/jump - per-entity control (AngelScript)")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    physics::RegisterPhysicsScriptFacade();
+    ScriptedScene bed;
+    auto* characters = bed.scene.AddSystem<physics::CharacterComponentManager>();
+
+    RefPtr<ScriptClass> driver =
+        MakeClassLang(u8"angelscript", u8"Driver",
+                      u8"class Driver {\n"
+                      u8"    private Entity@ self;\n"
+                      u8"    Driver(Entity@ entity) { @self = entity; }\n"
+                      u8"    void onStart() {\n"
+                      u8"        CharacterComponent@ c = CharacterComponent::of(self);\n"
+                      u8"        c.move(5.0f, 3.0f);\n"
+                      u8"        c.jump(6.0f);\n"
+                      u8"    }\n"
+                      u8"}\n",
+                      {u8"onStart"});
+    const scene::EntityHandle e = bed.AddScripted(driver, u8"e");
+    characters->Add(e);
+
+    bed.Start();
+    bed.Frame();
+    REQUIRE(characters->Get(e) != nullptr);
+    CHECK(characters->Get(e)->moveVelocity.x == doctest::Approx(5.0f));
+    CHECK(characters->Get(e)->jumpSpeed == doctest::Approx(6.0f));
+}
