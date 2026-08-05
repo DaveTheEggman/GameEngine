@@ -2722,3 +2722,76 @@ TEST_CASE("script.scene: SkeletalAnimation::of + SceneAnimation ops are bound (A
     REQUIRE(comp != nullptr);
     CHECK_FALSE(comp->behaviors[0].faulted);
 }
+
+// ---- Track A phase 4 (render scene-systems): EnvironmentSettings.of(scene) / PostProcessSettings.of(
+//      scene) - a re-resolving handle over the scene's ONE-PER-SCENE render settings (owned by the
+//      EnvironmentSystem / PostProcessSystem). A behavior edits the live sky/ambient + exposure/bloom.
+//      Scene-scoped analogue of a component's `.of`. (No active-camera handle - that design is the
+//      user's to bless; the "first entity named Camera" convention stands.) ----
+
+TEST_CASE("script.scene: EnvironmentSettings.of / PostProcessSettings.of edit the scene's live "
+          "render settings (Wren)")
+{
+    render::RegisterRenderScriptFacade();
+    ScriptedScene bed;
+    auto* envSys = bed.scene.AddSystem<render::EnvironmentSystem>();
+    auto* postSys = bed.scene.AddSystem<render::PostProcessSystem>();
+
+    RefPtr<ScriptClass> tweaker =
+        MakeClass(u8"EnvTweaker",
+                  u8"class EnvTweaker {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onStart() {\n"
+                  u8"        var env = EnvironmentSettings.of(_entity.scene)\n"
+                  u8"        env.ambientIntensity = 0.75\n"
+                  u8"        env.skyIntensity = 2.0\n"
+                  u8"        var post = PostProcessSettings.of(_entity.scene)\n"
+                  u8"        post.exposureEV = 1.5\n"
+                  u8"        post.bloomEnabled = true\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+
+    (void)bed.AddScripted(tweaker, u8"e");
+    // Sanity: defaults differ from what the behavior sets.
+    REQUIRE(envSys->Environment().ambientIntensity != doctest::Approx(0.75f));
+
+    bed.Start();
+    bed.Frame(); // onStart edits the LIVE settings through the re-resolving handles
+
+    CHECK(envSys->Environment().ambientIntensity == doctest::Approx(0.75f));
+    CHECK(envSys->Environment().skyIntensity == doctest::Approx(2.0f));
+    CHECK(postSys->Post().exposureEV == doctest::Approx(1.5f));
+    CHECK(postSys->Post().bloomEnabled);
+}
+
+TEST_CASE("script.scene: EnvironmentSettings::of / PostProcessSettings::of edit the scene's live "
+          "render settings (AngelScript)")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    render::RegisterRenderScriptFacade();
+    ScriptedScene bed;
+    auto* envSys = bed.scene.AddSystem<render::EnvironmentSystem>();
+    auto* postSys = bed.scene.AddSystem<render::PostProcessSystem>();
+
+    RefPtr<ScriptClass> tweaker = MakeClassLang(
+        u8"angelscript", u8"EnvTweaker",
+        u8"class EnvTweaker {\n"
+        u8"    private Entity@ self;\n"
+        u8"    EnvTweaker(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        EnvironmentSettings@ env = EnvironmentSettings::of(self.scene);\n"
+        u8"        env.ambientIntensity = 0.75f;\n"
+        u8"        PostProcessSettings@ post = PostProcessSettings::of(self.scene);\n"
+        u8"        post.exposureEV = 1.5f;\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart"});
+
+    (void)bed.AddScripted(tweaker, u8"e");
+    bed.Start();
+    bed.Frame();
+
+    CHECK(envSys->Environment().ambientIntensity == doctest::Approx(0.75f));
+    CHECK(postSys->Post().exposureEV == doctest::Approx(1.5f));
+}

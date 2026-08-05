@@ -184,6 +184,9 @@ namespace draconic::render
     {
         builder.Attribute("displayName", String(u8"Environment"))
             .Attribute("category", String(u8"Rendering"))
+            // Script (Track A): EnvironmentSettings.of(scene) -> the scene's LIVE environment (edit
+            // ambient/sky/fog fields). A scene-scoped re-resolving handle (the settings are one-per-scene).
+            .Method<&EnvironmentSettingsOf, EnvironmentSettings>("of")
             .DataVersion(
                 3) // v3: skyBackgroundIntensity (visible-backdrop dimmer, separate from IBL)
             .Property<&EnvironmentSettings::ambientColor>("ambientColor")
@@ -277,6 +280,9 @@ namespace draconic::render
     {
         builder.Attribute("displayName", String(u8"Post Processing"))
             .Attribute("category", String(u8"Rendering")).DataVersion(1)
+            // Script (Track A): PostProcessSettings.of(scene) -> the scene's LIVE post settings (edit
+            // exposure/tonemap/bloom/AA). A scene-scoped re-resolving handle.
+            .Method<&PostProcessSettingsOf, PostProcessSettings>("of")
             .Property<&PostProcessSettings::exposureEV>("exposureEV")
             .PropAttribute("range", Float4{-8.0f, 8.0f, 0.05f, 0.0f})
             .PropAttribute("displayName", String(u8"Exposure (EV)"))
@@ -387,5 +393,18 @@ namespace draconic::render
         GlobalTypeRegistry().Register(core::TypeOf<SceneRender>());
         draconic::script::RegisterExtraScriptRootType(&core::TypeOf<SceneRender>());
         draconic::script::RegisterExtraFacadeName(u8"SceneRender");
+
+        // The render scene-SYSTEM settings handles (EnvironmentSettings.of(scene) / PostProcess-
+        // Settings.of(scene)): register + seed the Wren emission root + name for the prelude. Their
+        // TypeData (incl `of`) was built by RegisterRenderComponentReflection above.
+        const core::TypeInfo* settings[] = {&core::TypeOf<EnvironmentSettings>(),
+                                            &core::TypeOf<PostProcessSettings>()};
+        const core::StringView settingsNames[] = {u8"EnvironmentSettings", u8"PostProcessSettings"};
+        for (core::usize i = 0; i < 2; ++i)
+        {
+            GlobalTypeRegistry().Register(*settings[i]);
+            draconic::script::RegisterExtraScriptRootType(settings[i]);
+            draconic::script::RegisterExtraFacadeName(settingsNames[i]);
+        }
     }
 } // namespace draconic::render

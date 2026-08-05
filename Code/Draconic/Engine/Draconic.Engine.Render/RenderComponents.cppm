@@ -716,6 +716,58 @@ export namespace draconic::render
         }
     }
 
+    // Live re-resolving handles over the render scene-SYSTEMS' one-per-scene settings:
+    // EnvironmentSettings.of(scene) / PostProcessSettings.of(scene) return a handle typed as the
+    // settings struct that re-resolves the scene's LIVE settings on every field access - so a
+    // behavior edits the scene's actual sky/fog/ambient (EnvironmentSystem) or exposure/tonemap/
+    // bloom/AA (PostProcessSystem). Same re-resolving-handle idea as a component's `.of`, but
+    // scene-scoped: these settings are one-per-scene, owned by the render scene-systems, not entities.
+    namespace settingsref
+    {
+        struct SceneSettingsCtx
+        {
+            scene::Scene* scene = nullptr;
+        };
+
+        [[nodiscard]] inline void* ResolveEnvironmentSettings(const Variant& value)
+        {
+            const auto* ctx = static_cast<const SceneSettingsCtx*>(value.ResolveContext());
+            if (ctx == nullptr || ctx->scene == nullptr)
+            {
+                return nullptr;
+            }
+            EnvironmentSystem* system = ctx->scene->GetSystem<EnvironmentSystem>();
+            return system != nullptr ? &system->Environment() : nullptr;
+        }
+        [[nodiscard]] inline void* ResolvePostProcessSettings(const Variant& value)
+        {
+            const auto* ctx = static_cast<const SceneSettingsCtx*>(value.ResolveContext());
+            if (ctx == nullptr || ctx->scene == nullptr)
+            {
+                return nullptr;
+            }
+            PostProcessSystem* system = ctx->scene->GetSystem<PostProcessSystem>();
+            return system != nullptr ? &system->Post() : nullptr;
+        }
+    }
+
+    // EnvironmentSettings.of(scene): a re-resolving handle over the scene's live environment settings
+    // (empty if the scene has no EnvironmentSystem). Reflected on EnvironmentSettings with the
+    // ReturnType-override so the declared script return IS EnvironmentSettings.
+    [[nodiscard]] inline Variant EnvironmentSettingsOf(draconic::script::Scene sceneHandle)
+    {
+        return Variant::Resolving(&TypeOf<EnvironmentSettings>(),
+                                  &settingsref::ResolveEnvironmentSettings,
+                                  settingsref::SceneSettingsCtx{sceneHandle.scene});
+    }
+    // PostProcessSettings.of(scene): a re-resolving handle over the scene's live post settings.
+    [[nodiscard]] inline Variant PostProcessSettingsOf(draconic::script::Scene sceneHandle)
+    {
+        return Variant::Resolving(&TypeOf<PostProcessSettings>(),
+                                  &settingsref::ResolvePostProcessSettings,
+                                  settingsref::SceneSettingsCtx{sceneHandle.scene});
+    }
+
     // A scene-bound RENDER handle (SceneRender.of(scene)): runtime WORLD ops on render components
     // that need a run service the component data cannot reach - here, swapping a resource::Ref by id
     // (mesh / slot-0 material). Keyed by entity, mirroring ScenePhysics (component = auto-reflected
