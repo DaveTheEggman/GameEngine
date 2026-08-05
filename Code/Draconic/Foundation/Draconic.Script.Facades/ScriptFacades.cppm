@@ -309,6 +309,10 @@ export namespace draconic::script
         void emit(String name, String text) const;
         void emit(String name, bool flag) const;
         void emit(String name, Entity payload) const;
+        // The generic sink: any reflected value (a component handle, a struct, a math value) rides
+        // through as a Variant. Reflected LAST so the typed overloads win when one matches exactly;
+        // a payload that is none of them (a reflected object) lands here.
+        void emit(String name, Variant payload) const;
     };
 
     /// Wrap a (scene, handle) pair into an Entity value (invalid handle -> invalid Entity).
@@ -406,6 +410,14 @@ export namespace draconic::script
         if (scene != nullptr && !name.IsEmpty())
         {
             scene->Events().Publish(StringHash(name.AsView()), Variant::From<Entity>(payload));
+        }
+    }
+    inline void SceneEvents::emit(String name, Variant payload) const
+    {
+        // Already a Variant (the backend boxed whatever the script passed); publish it verbatim.
+        if (scene != nullptr && !name.IsEmpty())
+        {
+            scene->Events().Publish(StringHash(name.AsView()), Move(payload));
         }
     }
 

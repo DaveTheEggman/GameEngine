@@ -1148,7 +1148,12 @@ namespace draconic::core::detail
     [[nodiscard]] bool AcceptArg(const Variant& v) noexcept
     {
         using Bare = std::remove_cvref_t<A>;
-        if constexpr (ArgRefPtr<Bare>::value)
+        if constexpr (std::is_same_v<Bare, Variant>)
+        {
+            (void)v;
+            return true; // a Variant parameter is the generic sink: it accepts ANY argument as-is
+        }
+        else if constexpr (ArgRefPtr<Bare>::value)
         {
             using U = typename ArgRefPtr<Bare>::Pointee;
             return v.IsObject() && (v.AsObject() == nullptr || v.AsObject<U>() != nullptr);
@@ -1173,7 +1178,11 @@ namespace draconic::core::detail
     [[nodiscard]] decltype(auto) ConvertArg(Variant& v) noexcept
     {
         using Bare = std::remove_cvref_t<A>;
-        if constexpr (ArgRefPtr<Bare>::value)
+        if constexpr (std::is_same_v<Bare, Variant>)
+        {
+            return (v); // pass the Variant through unchanged (the generic payload sink)
+        }
+        else if constexpr (ArgRefPtr<Bare>::value)
         {
             using U = typename ArgRefPtr<Bare>::Pointee;
             return RefPtr<U>(v.AsObject<U>());

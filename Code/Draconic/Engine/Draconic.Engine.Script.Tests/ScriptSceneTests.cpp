@@ -2264,3 +2264,43 @@ TEST_CASE("script.scene: a destroyed subscriber stops receiving bus events; the 
     REQUIRE(emitterComp != nullptr);
     CHECK_FALSE(emitterComp->behaviors[0].faulted);
 }
+
+// The generic payload: a REFLECTED VALUE (here a live component handle from Gadget.of) rides the
+// bus as a Variant and the receiver reads its live field. Proves the emit(name, Variant) sink +
+// the ?&in / Variant-accepts-any overload path - the design's "reflected value" payload.
+TEST_CASE("script.scene: scene.events.emit carries a reflected component handle as the payload; "
+          "the receiver reads its live field (Wren)")
+{
+    EnsureGadgetRegistered();
+    ScriptedScene bed;
+    GadgetManager* gadgets = bed.scene.AddSystem<GadgetManager>();
+
+    RefPtr<ScriptClass> producer =
+        MakeClass(u8"Producer",
+                  u8"class Producer {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onStart() { _entity.scene.events.emit(\"Configured\", Gadget.of(_entity)) }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+    RefPtr<ScriptClass> consumer =
+        MakeClass(u8"Consumer",
+                  u8"class Consumer {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onConfigured(g) { Gadget.of(_entity).power = g.power }\n"
+                  u8"}\n",
+                  {u8"onConfigured"});
+
+    const scene::EntityHandle producerEntity = bed.AddScripted(producer, u8"producer");
+    const scene::EntityHandle consumerEntity = bed.AddScripted(consumer, u8"consumer");
+    gadgets->Add(producerEntity).power = 7.0f; // the value the payload carries
+    gadgets->Add(consumerEntity).power = 1.0f; // overwritten from the payload's live field
+
+    bed.Start();
+    bed.Frame(); // producer.onStart emits Gadget.of(producer); bus drains -> consumer.onConfigured
+    bed.Frame();
+
+    REQUIRE(gadgets->Get(consumerEntity) != nullptr);
+    // The payload handle re-resolved to the producer's live Gadget (power 7) across the bus - a
+    // reflected VALUE survived as the event payload, and the receiver read its live field.
+    CHECK(gadgets->Get(consumerEntity)->power == doctest::Approx(7.0f));
+}

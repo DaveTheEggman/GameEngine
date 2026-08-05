@@ -364,6 +364,13 @@ namespace draconic::script::wren
     // Is the value in arg slot `p+1` acceptable for parameter type `pt`?
     inline bool SlotMatchesParam(WrenVM* vm, int slot, const core::TypeInfo* pt)
     {
+        // A Variant parameter is the generic payload sink: it accepts ANY script value (number,
+        // string, bool, or a boxed reflected value), which MarshalIn boxes straight into a Variant.
+        // Declared last among overloads, so a specific typed overload still wins when one matches.
+        if (pt == &core::TypeOf<core::Variant>())
+        {
+            return true;
+        }
         switch (wrenGetSlotType(vm, slot))
         {
         case WREN_TYPE_FOREIGN:

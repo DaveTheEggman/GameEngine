@@ -83,6 +83,9 @@ namespace draconic::script
             "emit");
         builder.Method<static_cast<void (SceneEvents::*)(String, Entity) const>(&SceneEvents::emit)>(
             "emit");
+        // The generic sink, reflected LAST (a reflected-value payload that matches no typed overload).
+        builder.Method<static_cast<void (SceneEvents::*)(String, Variant) const>(&SceneEvents::emit)>(
+            "emit");
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 

@@ -1464,6 +1464,20 @@ namespace draconic::script::angelscript
                 }
                 return true;
             }
+            // A Variant parameter is the generic payload sink (scene.events.emit(name, anyValue)):
+            // spelled `?&in` so a script may pass ANY value - number, string, bool, or a boxed
+            // reflected handle - and ValueFromArg boxes whatever arrives straight into a Variant.
+            // Declared last among overloads, so a specific typed overload still wins on exact match.
+            // Return position never carries a raw Variant (the ReturnType-override path handles that).
+            if (type == &core::TypeOf<core::Variant>())
+            {
+                if (!isParam)
+                {
+                    return false;
+                }
+                AppendAscii(out, "?&in");
+                return true;
+            }
             if (const char* primitive = PrimitiveDeclName(type))
             {
                 if (isParam && type == &core::TypeOf<core::String>())
