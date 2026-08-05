@@ -28,12 +28,15 @@ import draconic.physics;
 import draconic.engine.physics;
 import draconic.engine.integration; // ScriptPhysicsContactBridge (the extracted composition-root adapter)
 import draconic.engine.render;      // MeshComponent/LightComponent .of (Track A, render surface)
+import draconic.audio;              // AudioSourceComponent + its manager (Track A, audio surface)
+import draconic.engine.audio;       // AudioSourceComponent.of + SceneAudio (Track A, audio surface)
 
 using namespace draconic::core;
 using namespace draconic::script;
 namespace scene = draconic::scene;
 namespace physics = draconic::physics;
 namespace render = draconic::render;
+namespace audio = draconic::audio;
 
 // ---- OPTION 1 (Fable ruling, spec Section 12): a component reached ONLY via a per-type
 // `Gadget.of(entity)` factory whose DECLARED return IS the component type. Proves the whole
@@ -2441,4 +2444,106 @@ TEST_CASE("script.scene: SceneRender.setMesh / setMaterial swap a component's re
     CHECK(meshes->Get(e)->mesh.id == meshId);          // mesh Ref id swapped from script
     REQUIRE_FALSE(meshes->Get(e)->materials.IsEmpty()); // slot 0 created
     CHECK(meshes->Get(e)->materials[0].id == matId);    // material slot-0 Ref id swapped
+}
+
+// ---- Track A phase 2 (audio surface): AudioSourceComponent.of (live volume/pitch/loop - DATA) +
+//      SceneAudio.of(scene) (play/stop/pause/isPlaying/setClip - WORLD ops keyed by entity, reaching
+//      the scene's AudioEngine). No engine is wired here (the ops are null-safe), so this proves the
+//      script surface + forwarding + the data/resource paths cross-backend; actual voice playback is
+//      covered natively in AudioSceneTests. ----
+
+TEST_CASE("script.scene: AudioSourceComponent.of props + SceneAudio.of play/stop/pause/setClip "
+          "are bound and control the component (Wren)")
+{
+    audio::RegisterAudioScriptFacade();
+    ScriptedScene bed;
+    auto* sources = bed.scene.AddSystem<audio::AudioSourceComponentManager>();
+    (void)bed.scene.AddSystem<audio::AudioSceneSystem>(); // no engine set -> ops are safe no-ops
+
+    RefPtr<ScriptClass> tweaker =
+        MakeClass(u8"AudioTweaker",
+                  u8"class AudioTweaker {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    clipRes=(v) { _clipRes = v }\n"
+                  u8"    onStart() {\n"
+                  u8"        var s = AudioSourceComponent.of(_entity)\n"
+                  u8"        s.volume = 0.25\n"
+                  u8"        s.pitch = 2.0\n"
+                  u8"        s.loop = true\n"
+                  u8"        var a = SceneAudio.of(_entity.scene)\n"
+                  u8"        a.setClip(_entity, _clipRes)\n"
+                  u8"        a.play(_entity)\n"
+                  u8"        a.pause(_entity, true)\n"
+                  u8"        a.stop(_entity)\n"
+                  u8"        if (!a.isPlaying(_entity)) { _entity.setName(\"silent\") }\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+    const Guid clipId{0xAA11, 0xBB22};
+    ScriptPropertyDesc clipProp;
+    clipProp.name = String(u8"clipRes");
+    clipProp.hash = ScriptPropertyNameHash(u8"clipRes");
+    clipProp.type = ScriptPropertyType::Asset;
+    clipProp.assetType = String(u8"AudioClip");
+    clipProp.defaultValue.kind = ScriptPropertyType::Asset;
+    clipProp.defaultValue.guid = clipId;
+    tweaker->properties.PushBack(clipProp);
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    sources->Add(e);
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(sources->Get(e) != nullptr);
+    CHECK(sources->Get(e)->volume == doctest::Approx(0.25f)); // .of data path
+    CHECK(sources->Get(e)->pitch == doctest::Approx(2.0f));
+    CHECK(sources->Get(e)->loop);
+    CHECK(sources->Get(e)->clip.id == clipId);               // SceneAudio.setClip resource swap
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"silent")); // isPlaying() returned a bool
+    ScriptComponent* comp = bed.components->Get(e);
+    REQUIRE(comp != nullptr);
+    CHECK_FALSE(comp->behaviors[0].faulted); // play/stop/pause all bound + callable
+}
+
+TEST_CASE("script.scene: AudioSourceComponent::of props + SceneAudio::of play/stop/setClip "
+          "are bound and control the component (AngelScript)")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    audio::RegisterAudioScriptFacade();
+    ScriptedScene bed;
+    auto* sources = bed.scene.AddSystem<audio::AudioSourceComponentManager>();
+    (void)bed.scene.AddSystem<audio::AudioSceneSystem>();
+
+    RefPtr<ScriptClass> tweaker = MakeClassLang(
+        u8"angelscript", u8"AudioTweaker",
+        u8"class AudioTweaker {\n"
+        u8"    private Entity@ self;\n"
+        u8"    AudioTweaker(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        AudioSourceComponent@ s = AudioSourceComponent::of(self);\n"
+        u8"        s.volume = 0.25f;\n"
+        u8"        s.loop = true;\n"
+        u8"        SceneAudio a = SceneAudio::of(self.scene);\n"
+        u8"        a.setClip(self, Guid(0xCC33, 0xDD44));\n" // construct the resource id inline
+        u8"        a.play(self);\n"
+        u8"        a.stop(self);\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart"});
+    const Guid clipId{0xCC33, 0xDD44};
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    sources->Add(e);
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(sources->Get(e) != nullptr);
+    CHECK(sources->Get(e)->volume == doctest::Approx(0.25f));
+    CHECK(sources->Get(e)->loop);
+    CHECK(sources->Get(e)->clip.id == clipId);
+    ScriptComponent* comp = bed.components->Get(e);
+    REQUIRE(comp != nullptr);
+    CHECK_FALSE(comp->behaviors[0].faulted);
 }

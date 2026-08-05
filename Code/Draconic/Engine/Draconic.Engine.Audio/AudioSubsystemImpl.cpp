@@ -135,6 +135,10 @@ namespace draconic::audio
     {
         builder.Attribute("displayName", String(u8"Audio Source"))
             .Attribute("category", String(u8"Audio")).DataVersion(3); // v2: busName (custom buses); v3: reverbSend
+        // Script (Track A): AudioSourceComponent.of(entity) -> live volume/pitch/loop/spatial/etc.
+        // play/stop/pause + clip swap are engine ops -> SceneAudio.of(scene) (world ops keyed by entity).
+        builder.Method<&draconic::script::ComponentOf<AudioSourceComponent>, AudioSourceComponent>(
+            "of");
         builder.Property<&AudioSourceComponent::clip>("clip");
         builder.Property<&AudioSourceComponent::bus>("bus");
         builder.Property<&AudioSourceComponent::busName>("busName");
@@ -181,12 +185,39 @@ namespace draconic::audio
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
+    // The scene-bound audio handle: SceneAudio.of(scene).play(entity) / stop / pause / isPlaying /
+    // setClip(entity, id). `of` returns SceneAudio by value (concrete cross-backend return), like
+    // ScenePhysics. All world ops keyed by entity - they reach the scene's AudioEngine.
+    DRACONIC_REFLECT_VALUE(SceneAudio, "draconic::audio")
+    {
+        builder.Method<&SceneAudio::play>("play", {"entity"});
+        builder.Method<&SceneAudio::stop>("stop", {"entity"});
+        builder.Method<&SceneAudio::pause>("pause", {"entity", "paused"});
+        builder.Method<&SceneAudio::isPlaying>("isPlaying", {"entity"});
+        builder.Method<&SceneAudio::setClip>("setClip", {"entity", "resourceId"});
+        builder.Method<&SceneAudio::of>("of", {"scene"});
+        builder.Constructor(); // Wren only materializes constructible foreign classes
+    }
+
     void RegisterAudioScriptFacade()
     {
+        RegisterAudioComponentReflection(); // ensure component TypeData (incl `of`) is built first
         GlobalTypeRegistry().Register(Audio::StaticType());
         // So the Wren behavior/Level prelude imports `Audio` too (AngelScript binds by
         // registry). Without this only top-level `main`/Game scripts can see it. Idempotent.
         draconic::script::RegisterExtraFacadeName(u8"Audio");
+
+        // Surface the audio SOURCE component to script (AudioSourceComponent.of(entity) - live
+        // volume/pitch/loop/...): register it, seed the Wren emission root, name it for the prelude.
+        GlobalTypeRegistry().Register(core::TypeOf<AudioSourceComponent>());
+        draconic::script::RegisterExtraScriptRootType(&core::TypeOf<AudioSourceComponent>());
+        draconic::script::RegisterExtraFacadeName(u8"AudioSourceComponent");
+
+        // The scene-bound audio handle (SceneAudio.of(scene)): reflect it, register + seed + name it.
+        DraconicRegisterValue_SceneAudio();
+        GlobalTypeRegistry().Register(core::TypeOf<SceneAudio>());
+        draconic::script::RegisterExtraScriptRootType(&core::TypeOf<SceneAudio>());
+        draconic::script::RegisterExtraFacadeName(u8"SceneAudio");
     }
 
     DRACONIC_REFLECT_VALUE(AudioReverbZoneComponent, "draconic::audio")

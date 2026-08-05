@@ -25,6 +25,7 @@ import draconic.scene;
 import draconic.engine.scene;
 import draconic.audio;
 import draconic.script;   // ExposeToScript + the Audio facade's service seam
+import draconic.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneAudio handle)
 import draconic.settings; // AudioUserSettings section (persisted volumes)
 import draconic.resource; // ResourceManager (script content-path playback)
 import draconic.content;  // Instance lookup by content path
@@ -476,6 +477,78 @@ export namespace draconic::audio
         Float3 m_listenerUp{0.0f, 1.0f, 0.0f};
         Float3 m_listenerVelocity{0.0f, 0.0f, 0.0f};
         Array<ListenerPose> m_listenerPoses;
+    };
+
+    // A scene-bound AUDIO handle (SceneAudio.of(scene)): runtime WORLD ops on audio sources that need
+    // the scene's AudioEngine / resource manager, which the component data cannot reach - play/stop/
+    // pause a source, and swap its clip by resource id. Keyed by entity, mirroring ScenePhysics /
+    // SceneRender (component = auto-reflected DATA: volume/pitch/loop; scene-handle = world ops). The
+    // pure playback intent (autoPlay, loop, volume) stays on AudioSourceComponent; starting a voice
+    // NOW is an engine op, so it lives here.
+    struct SceneAudio
+    {
+        scene::Scene* scene = nullptr;
+
+        [[nodiscard]] AudioSceneSystem* System() const
+        {
+            return scene != nullptr ? scene->GetSystem<AudioSceneSystem>() : nullptr;
+        }
+
+        // Start (or restart) the entity's source voice now. No-op if it has no AudioSourceComponent.
+        void play(draconic::script::Entity entity) const
+        {
+            if (AudioSceneSystem* sys = System())
+            {
+                (void)sys->Play(entity.Handle());
+            }
+        }
+        // Stop the entity's source voice (releases the voice handle).
+        void stop(draconic::script::Entity entity) const
+        {
+            if (AudioSceneSystem* sys = System())
+            {
+                sys->Stop(entity.Handle());
+            }
+        }
+        // Pause/resume the entity's source voice.
+        void pause(draconic::script::Entity entity, bool paused) const
+        {
+            if (AudioSceneSystem* sys = System())
+            {
+                sys->SetPaused(entity.Handle(), paused);
+            }
+        }
+        // True while the entity's source voice is audibly playing.
+        [[nodiscard]] bool isPlaying(draconic::script::Entity entity) const
+        {
+            AudioSceneSystem* sys = System();
+            return sys != nullptr && sys->IsPlaying(entity.Handle());
+        }
+        // Swap the entity's AudioSource clip to resource `id`, binding it through the run's resource
+        // manager (the next play uses it). No-op if the entity has no AudioSourceComponent.
+        void setClip(draconic::script::Entity entity, Guid id) const
+        {
+            if (scene == nullptr)
+            {
+                return;
+            }
+            AudioSourceComponentManager* sources = scene->GetSystem<AudioSourceComponentManager>();
+            AudioSourceComponent* c = (sources != nullptr) ? sources->Get(entity.Handle()) : nullptr;
+            if (c == nullptr)
+            {
+                return;
+            }
+            c->clip.SetId(id);
+            if (auto* resources = draconic::script::CurrentRunResources())
+            {
+                c->clip.Bind(*resources);
+            }
+        }
+
+        [[nodiscard]] static SceneAudio of(draconic::script::Scene sceneHandle)
+        {
+            return SceneAudio{sceneHandle.scene};
+        }
     };
 
     // The runtime subsystem: owns the ONE AudioEngine, injects the managers + system
