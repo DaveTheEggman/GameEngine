@@ -1933,3 +1933,33 @@ TEST_CASE("script.scene: OPTION 1 - Component::of(entity).field mutates the live
     REQUIRE(gadgets->Get(e) != nullptr);
     CHECK(gadgets->Get(e)->power == doctest::Approx(5.0f)); // the LIVE component was mutated
 }
+
+// OPTION 1 on a REAL engine component: RigidBodyComponent.of(entity).friction, on a live physics
+// scene. Same machinery as the Gadget proof, now wired to an actual shipped component.
+TEST_CASE("script.scene: OPTION 1 - RigidBodyComponent.of(entity).friction mutates the live "
+          "physics component (Wren)")
+{
+    physics::RegisterPhysicsScriptFacade(); // register components as script classes + of() (idempotent)
+
+    ContactWorld world;
+    const scene::EntityHandle e = world.AddBody(u8"e", Float3{0, 2, 0}, physics::MotionKind::Dynamic,
+                                                Float3{0.5f, 0.5f, 0.5f});
+    auto* bodies = world.scene->GetSystem<physics::RigidBodyComponentManager>();
+    REQUIRE(bodies->Get(e) != nullptr);
+    bodies->Get(e)->friction = 0.1f;
+
+    RefPtr<ScriptClass> setter = MakeClass(u8"Setter",
+                                           u8"class Setter {\n"
+                                           u8"    construct new(entity) { _entity = entity }\n"
+                                           u8"    onStart() {\n"
+                                           u8"        var b = RigidBodyComponent.of(_entity)\n"
+                                           u8"        b.friction = 0.5\n"
+                                           u8"    }\n"
+                                           u8"}\n",
+                                           {u8"onStart"});
+    world.Attach(e, setter);
+
+    world.Play(2); // onStart: RigidBodyComponent.of(_entity).friction = 0.5
+    REQUIRE(bodies->Get(e) != nullptr);
+    CHECK(bodies->Get(e)->friction == doctest::Approx(0.5f)); // the LIVE component was mutated
+}

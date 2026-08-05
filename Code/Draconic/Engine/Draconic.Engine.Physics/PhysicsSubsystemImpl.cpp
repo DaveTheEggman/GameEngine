@@ -232,6 +232,8 @@ namespace draconic::physics
         builder.Property<&RigidBodyComponent::collisionGroup>("collisionGroup");
         builder.Property<&RigidBodyComponent::collisionShape>("collisionShape");
         builder.Property<&RigidBodyComponent::material>("material");
+        // OPTION 1 (spec Section 12): RigidBodyComponent.of(entity) -> a re-resolving handle.
+        builder.Method<&draconic::script::ComponentOf<RigidBodyComponent>, RigidBodyComponent>("of");
     }
 
     DRACONIC_REFLECT_VALUE(ColliderComponent, "draconic::physics")
@@ -262,6 +264,8 @@ namespace draconic::physics
         builder.Property<&CharacterComponent::maxStrength>("maxStrength");
         builder.Property<&CharacterComponent::stepUp>("stepUp");
         builder.Property<&CharacterComponent::stepDown>("stepDown");
+        // OPTION 1 (spec Section 12): CharacterComponent.of(entity) -> a re-resolving handle.
+        builder.Method<&draconic::script::ComponentOf<CharacterComponent>, CharacterComponent>("of");
     }
 
     DRACONIC_REFLECT_VALUE(JointComponent, "draconic::physics")
@@ -316,10 +320,24 @@ namespace draconic::physics
 
     void RegisterPhysicsScriptFacade()
     {
+        RegisterPhysicsComponentReflection(); // ensure component TypeData (incl `of`) is built first
         GlobalTypeRegistry().Register(Physics::StaticType());
         // So the Wren behavior/Level prelude imports `Physics` too (AngelScript binds by
         // registry). Without this only top-level `main`/Game scripts can see it. Idempotent.
         draconic::script::RegisterExtraFacadeName(u8"Physics");
+
+        // Surface the physics COMPONENTS to script (OPTION 1: RigidBodyComponent.of(entity), ...):
+        // register them (both backends emit registry types), seed Wren emission roots (reachability),
+        // and make their class names import-visible in behavior preludes.
+        const core::TypeInfo* components[] = {&core::TypeOf<RigidBodyComponent>(),
+                                              &core::TypeOf<CharacterComponent>()};
+        for (const core::TypeInfo* component : components)
+        {
+            GlobalTypeRegistry().Register(*component);
+            draconic::script::RegisterExtraScriptRootType(component);
+        }
+        draconic::script::RegisterExtraFacadeName(u8"RigidBodyComponent");
+        draconic::script::RegisterExtraFacadeName(u8"CharacterComponent");
     }
 
     void RegisterPhysicsComponentReflection()
