@@ -1156,6 +1156,13 @@ namespace draconic::script::angelscript
                 *static_cast<std::string*>(address) = StdFromVariantString(value);
                 return true;
             }
+            // A reflected-type member (every reflected type is registered as asOBJ_REF - a
+            // BoxedVariant box). A HANDLE member (`Type@ m`, OBJHANDLE set) stores a BoxedVariant* we
+            // can set, so a resource id / reflected value applies straight into it. A plain VALUE
+            // member (`Type m`, OBJHANDLE clear) is owned by AngelScript, which lazily (re)constructs
+            // it - a native slot write does not survive to the first script access - so we reject it
+            // and the caller guides the author to use a handle (see SetMemberField). Wren has no such
+            // split because its property setter runs in-VM.
             if ((typeId & asTYPEID_OBJHANDLE) != 0 && TypeInfoForTypeId(typeId) != nullptr)
             {
                 BoxedVariant** slot = static_cast<BoxedVariant**>(address);
@@ -2589,8 +2596,25 @@ namespace draconic::script::angelscript
                 {
                     continue;
                 }
-                return m_owner->Manager().WriteTypedAddress(
-                    m_instance->GetPropertyTypeId(i), m_instance->GetAddressOfProperty(i), value);
+                const int typeId = m_instance->GetPropertyTypeId(i);
+                if (m_owner->Manager().WriteTypedAddress(
+                        typeId, m_instance->GetAddressOfProperty(i), value))
+                {
+                    return true;
+                }
+                // A reflected/resource property (asset:X, or any reflected value) declared as a
+                // plain VALUE member cannot be set from native (AngelScript owns its lifecycle).
+                // Guide the author to use a handle - the idiomatic AngelScript spelling for a
+                // reference type - which DOES take the value.
+                if ((typeId & asTYPEID_MASK_OBJECT) != 0 && (typeId & asTYPEID_OBJHANDLE) == 0)
+                {
+                    DRACONIC_LOG_WARNING(
+                        u8"Script",
+                        u8"AngelScript property '{}' is a value member; declare it as a handle "
+                        u8"('Type@ {}') to receive a reflected/resource value",
+                        memberName, memberName);
+                }
+                return false;
             }
             return false;
         }

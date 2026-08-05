@@ -2547,3 +2547,35 @@ TEST_CASE("script.scene: AudioSourceComponent::of props + SceneAudio::of play/st
     REQUIRE(comp != nullptr);
     CHECK_FALSE(comp->behaviors[0].faulted);
 }
+
+// An asset/resource (Guid) editor property applies to an AngelScript behavior when declared as a
+// HANDLE member (`Guid@ res;`) - the idiomatic AngelScript spelling for a reference type. (A plain
+// VALUE member is owned by AngelScript's lifecycle and can't take a native write; the runtime logs a
+// warning guiding the author to a handle - see WriteTypedAddress / SetMemberField.) This closes the
+// Wren/AngelScript parity gap for editor-picked resource properties.
+TEST_CASE("script.scene: an asset (Guid) editor property applies to an AngelScript handle member")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    ScriptedScene bed;
+    RefPtr<ScriptClass> cls = MakeClassLang(
+        u8"angelscript", u8"Holder",
+        u8"class Holder {\n"
+        u8"    private Entity@ self;\n"
+        u8"    Guid@ res;\n" // reflected/resource property -> a handle member
+        u8"    Holder(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() { if (res !is null && res.high == 0xEE55) self.setName(\"applied\"); }\n"
+        u8"}\n",
+        {u8"onStart"});
+    ScriptPropertyDesc p;
+    p.name = String(u8"res");
+    p.hash = ScriptPropertyNameHash(u8"res");
+    p.type = ScriptPropertyType::Asset;
+    p.assetType = String(u8"Mesh");
+    p.defaultValue.kind = ScriptPropertyType::Asset;
+    p.defaultValue.guid = Guid{0xEE55, 0xFF66};
+    cls->properties.PushBack(p);
+    const scene::EntityHandle e = bed.AddScripted(cls, u8"h");
+    bed.Start();
+    bed.Frame();
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"applied")); // the Guid reached the handle member
+}
