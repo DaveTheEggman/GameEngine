@@ -1963,3 +1963,65 @@ TEST_CASE("script.scene: OPTION 1 - RigidBodyComponent.of(entity).friction mutat
     REQUIRE(bodies->Get(e) != nullptr);
     CHECK(bodies->Get(e)->friction == doctest::Approx(0.5f)); // the LIVE component was mutated
 }
+
+// scene.physics via the OPTION 1 factory ScenePhysics.of(scene): reflected physics ops act on THIS
+// scene's world. Also the reflected-path parity - gravityY reads the same world the static Physics
+// facade reads (both delegate to PhysicsSceneSystem->World()->Gravity()), verified against ground truth.
+TEST_CASE("script.scene: ScenePhysics.of(scene) reads + writes gravity on THIS scene's world (Wren)")
+{
+    physics::RegisterPhysicsScriptFacade();
+    ContactWorld world; // the world is created on scene Start (inside Play), not before
+
+    const scene::EntityHandle e = world.scene->CreateEntity(u8"driver");
+    RefPtr<ScriptClass> driver =
+        MakeClass(u8"Driver",
+                  u8"class Driver {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onStart() {\n"
+                  u8"        var p = ScenePhysics.of(_entity.scene)\n"
+                  u8"        p.setGravity(0, -20, 0)\n"                  // write THIS scene's world
+                  u8"        _entity.setPosition(p.gravityY(), 0, 0)\n" // read it back: x = -20
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+    world.Attach(e, driver);
+
+    world.Play(2); // onStart: ScenePhysics.of(scene).setGravity + gravityY
+    auto* sys = world.scene->GetSystem<physics::PhysicsSceneSystem>();
+    REQUIRE(sys != nullptr);
+    REQUIRE(sys->World() != nullptr);
+    CHECK(world.scene->GetLocalTransform(e).position.x == doctest::Approx(-20.0f)); // gravityY read
+    CHECK(sys->World()->Gravity().y == doctest::Approx(-20.0f)); // setGravity hit the REAL scene world
+}
+
+// scene.physics on the SECOND backend - ScenePhysics::of returns the concrete handle type (its
+// declared return), so AngelScript boxes it right. Cross-backend parity for the scene-system facade.
+TEST_CASE("script.scene: ScenePhysics.of(scene) reads + writes gravity on THIS scene's world "
+          "(AngelScript) - cross-backend parity")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    physics::RegisterPhysicsScriptFacade();
+    ContactWorld world;
+
+    const scene::EntityHandle e = world.scene->CreateEntity(u8"driver");
+    RefPtr<ScriptClass> driver =
+        MakeClassLang(u8"angelscript", u8"Driver",
+                      u8"class Driver {\n"
+                      u8"    private Entity@ self;\n"
+                      u8"    Driver(Entity@ entity) { @self = entity; }\n"
+                      u8"    void onStart() {\n"
+                      u8"        ScenePhysics@ p = ScenePhysics::of(self.scene);\n"
+                      u8"        p.setGravity(0.0f, -20.0f, 0.0f);\n"
+                      u8"        self.setPosition(p.gravityY(), 0.0f, 0.0f);\n"
+                      u8"    }\n"
+                      u8"}\n",
+                      {u8"onStart"});
+    world.Attach(e, driver);
+
+    world.Play(2);
+    auto* sys = world.scene->GetSystem<physics::PhysicsSceneSystem>();
+    REQUIRE(sys != nullptr);
+    REQUIRE(sys->World() != nullptr);
+    CHECK(world.scene->GetLocalTransform(e).position.x == doctest::Approx(-20.0f)); // gravityY read
+    CHECK(sys->World()->Gravity().y == doctest::Approx(-20.0f)); // setGravity hit the real world
+}

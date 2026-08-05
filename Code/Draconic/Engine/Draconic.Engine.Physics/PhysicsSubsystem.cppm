@@ -757,6 +757,61 @@ export namespace draconic::physics
         Array<IContactListener*> m_contactListeners; // consumers of resolved contacts
     };
 
+    // Scene-bound physics handle - the reflected, per-scene answer to the static `Physics` facade.
+    // OPTION 1 factory shape (spec Section 12, same ruling as RigidBody.of(entity)): `ScenePhysics.of(
+    // scene)` returns a handle whose ops act on THAT scene's world (its PhysicsSceneSystem), not the
+    // first started scene. A plain value carrying the scene pointer (returned by value - concrete
+    // type, cross-backend, no hook slot); a null scene / a scene with no physics system is a safe
+    // no-op. The hit-point accessors of the static facade are a follow-up (they need per-scene state).
+    struct ScenePhysics
+    {
+        scene::Scene* scene = nullptr;
+
+        [[nodiscard]] PhysicsWorld* World() const
+        {
+            if (scene == nullptr)
+            {
+                return nullptr;
+            }
+            PhysicsSceneSystem* system = scene->GetSystem<PhysicsSceneSystem>();
+            return (system != nullptr) ? system->World() : nullptr;
+        }
+
+        void setGravity(f32 x, f32 y, f32 z)
+        {
+            if (PhysicsWorld* world = World())
+            {
+                world->SetGravity(Float3{x, y, z});
+            }
+        }
+        [[nodiscard]] f32 gravityY() const
+        {
+            PhysicsWorld* world = World();
+            return world != nullptr ? world->Gravity().y : 0.0f;
+        }
+        // Ray against THIS scene's world; the hit distance, or -1 on a miss (stateless).
+        [[nodiscard]] f32 rayCast(f32 fromX, f32 fromY, f32 fromZ, f32 dirX, f32 dirY, f32 dirZ,
+                                  f32 maxDistance) const
+        {
+            PhysicsWorld* world = World();
+            if (world == nullptr)
+            {
+                return -1.0f;
+            }
+            RayHit hit;
+            return world->RayCast(Float3{fromX, fromY, fromZ}, Float3{dirX, dirY, dirZ}, maxDistance,
+                                  hit)
+                       ? hit.fraction * maxDistance
+                       : -1.0f;
+        }
+
+        // The OPTION 1 factory: ScenePhysics.of(scene). Argument is the bound Scene facade.
+        [[nodiscard]] static ScenePhysics of(draconic::script::Scene sceneHandle)
+        {
+            return ScenePhysics{sceneHandle.scene};
+        }
+    };
+
     // The scripting facade: a foreign class named `Physics` whose STATIC methods resolve
     // the CURRENT script context's bound PhysicsScriptBinding (same seam as the Input
     // facade - no process globals; contexts without the service read released/miss).

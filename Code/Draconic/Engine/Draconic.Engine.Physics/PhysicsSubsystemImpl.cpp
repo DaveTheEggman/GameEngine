@@ -318,6 +318,18 @@ namespace draconic::physics
         builder.Constructor();
     }
 
+    // The scene-bound physics handle: `ScenePhysics.of(scene).rayCast/gravityY/setGravity` on THAT
+    // scene's world. Reflected with authored parameter names (A6). The `of` factory returns
+    // ScenePhysics by value (concrete return type - cross-backend, no ReturnType-override needed).
+    DRACONIC_REFLECT_VALUE(ScenePhysics, "draconic::physics")
+    {
+        builder.Method<&ScenePhysics::rayCast>(
+            "rayCast", {"fromX", "fromY", "fromZ", "dirX", "dirY", "dirZ", "maxDistance"});
+        builder.Method<&ScenePhysics::setGravity>("setGravity", {"x", "y", "z"});
+        builder.Method<&ScenePhysics::gravityY>("gravityY");
+        builder.Method<&ScenePhysics::of>("of", {"scene"});
+    }
+
     void RegisterPhysicsScriptFacade()
     {
         RegisterPhysicsComponentReflection(); // ensure component TypeData (incl `of`) is built first
@@ -338,6 +350,13 @@ namespace draconic::physics
         }
         draconic::script::RegisterExtraFacadeName(u8"RigidBodyComponent");
         draconic::script::RegisterExtraFacadeName(u8"CharacterComponent");
+
+        // The scene-bound physics handle (ScenePhysics.of(scene)): reflect it, register it, seed the
+        // Wren emission root (nothing else reaches it), and make the class name prelude-visible.
+        DraconicRegisterValue_ScenePhysics();
+        GlobalTypeRegistry().Register(core::TypeOf<ScenePhysics>());
+        draconic::script::RegisterExtraScriptRootType(&core::TypeOf<ScenePhysics>());
+        draconic::script::RegisterExtraFacadeName(u8"ScenePhysics");
     }
 
     void RegisterPhysicsComponentReflection()
