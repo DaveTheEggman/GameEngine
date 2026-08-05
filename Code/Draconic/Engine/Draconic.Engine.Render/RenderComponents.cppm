@@ -103,7 +103,7 @@ export namespace draconic::render
         bool visible = true;
 
         // GPU-skinned crowds: a shared POSE POOL of `poseCount` skinning palettes (each `boneCount` matrices),
-        // set per frame by the InstancedSkinning companion (draconic.engine.animation). When posePool is
+        // set per frame by the InstancedSkinningComponent companion (draconic.engine.animation). When posePool is
         // non-null the set draws SKINNED, and instance i uses pose (i % poseCount) - so N animated instances
         // cost only M = poseCount palette computes, not N. Borrowed (valid for the frame it's set); null => the
         // set draws static. The mesh must be a skinned mesh (has a skin stream). See docs/design/instanced-mesh.md SS7.

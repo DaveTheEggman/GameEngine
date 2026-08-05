@@ -31,7 +31,7 @@ export namespace draconic::animation
         {
             scene.AddSystem<AnimationGraphComponentManager>();
             scene.AddSystem<SkeletalAnimationComponentManager>();
-            scene.AddSystem<InstancedSkinningManager>(); // crowd skinning (shared pose pool)
+            scene.AddSystem<InstancedSkinningComponentManager>(); // crowd skinning (shared pose pool)
         }
 
     protected:

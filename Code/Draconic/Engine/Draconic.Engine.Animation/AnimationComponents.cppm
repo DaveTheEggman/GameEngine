@@ -20,6 +20,7 @@ import draconic.resource;
 import draconic.scene;
 import draconic.animation; // Skeleton, AnimationClip, AnimationPlayer, AnimationGraph(+Player)
 import draconic.engine.render; // MeshComponentManager / MeshComponent (the feed target)
+import draconic.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneAnimation handle)
 
 using namespace draconic::core;
 namespace scene = draconic::scene;
@@ -286,7 +287,7 @@ export namespace draconic::animation
     // with pose (i % M). So a 30k crowd costs M palette computes, not 30k. Put it on the same entity as the
     // InstancedMeshComponent (empty target) or point `target` at it. Borrowed skeleton/clip must outlive it.
     // See docs/design/instanced-mesh.md SS7.
-    struct InstancedSkinning
+    struct InstancedSkinningComponent
     {
         animation::Skeleton* skeleton = nullptr;  // borrowed; shared across the crowd
         animation::AnimationClip* clip = nullptr; // borrowed; the clip the crowd plays
@@ -304,9 +305,9 @@ export namespace draconic::animation
         u32 boneCount = 0;
     };
 
-    // Ticks every InstancedSkinning in PostUpdate (before render extraction): advance the shared clock, sample
+    // Ticks every InstancedSkinningComponent in PostUpdate (before render extraction): advance the shared clock, sample
     // the clip at M phases into the pose pool, and hand the pool to the target InstancedMeshComponent.
-    class InstancedSkinningManager final : public scene::ComponentManager<InstancedSkinning>
+    class InstancedSkinningComponentManager final : public scene::ComponentManager<InstancedSkinningComponent>
     {
     public:
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
@@ -325,7 +326,7 @@ export namespace draconic::animation
             }
 
             ForEach(
-                [&](InstancedSkinning& s, scene::EntityHandle owner)
+                [&](InstancedSkinningComponent& s, scene::EntityHandle owner)
                 {
                     if (s.skeleton == nullptr || s.clip == nullptr || s.poseCount == 0)
                     {
@@ -418,6 +419,135 @@ export namespace draconic::animation
         scene::Scene* m_scene = nullptr;
     };
 
+    // A scene-bound ANIMATION handle (SceneAnimation.of(scene)): runtime WORLD ops on the animation
+    // components that need the manager-owned runtime player (which the component data cannot reach) -
+    // play/stop/pause a single-clip player, drive a graph's parameters, swap the clip by resource id.
+    // Keyed by entity, mirroring ScenePhysics / SceneRender / SceneAudio (component = auto-reflected
+    // DATA: speed/autoPlay/active; scene-handle = world ops). The players are built lazily by the
+    // managers in PostUpdate, so control from a behavior's onUpdate sees them; a call before the first
+    // animation tick (e.g. onStart) is a safe no-op.
+    struct SceneAnimation
+    {
+        scene::Scene* scene = nullptr;
+
+        // --- single-clip playback (SkeletalAnimationComponent) ---
+        // Play the entity's currently-bound clip from the start (manual re-trigger; autoPlay covers
+        // the first start). No-op if the player is not built yet or the entity has no skeletal anim.
+        void play(draconic::script::Entity entity) const
+        {
+            SkeletalAnimationComponent* c = Skeletal(entity);
+            if (c != nullptr && c->player.Get() != nullptr)
+            {
+                c->player->Play(c->clip.Get());
+            }
+        }
+        void stop(draconic::script::Entity entity) const
+        {
+            if (animation::AnimationPlayer* p = SkeletalPlayer(entity))
+            {
+                p->Stop();
+            }
+        }
+        void pause(draconic::script::Entity entity) const
+        {
+            if (animation::AnimationPlayer* p = SkeletalPlayer(entity))
+            {
+                p->Pause();
+            }
+        }
+        void resume(draconic::script::Entity entity) const
+        {
+            if (animation::AnimationPlayer* p = SkeletalPlayer(entity))
+            {
+                p->Resume();
+            }
+        }
+        [[nodiscard]] bool isPlaying(draconic::script::Entity entity) const
+        {
+            animation::AnimationPlayer* p = SkeletalPlayer(entity);
+            return p != nullptr && p->State() == animation::PlaybackState::Playing;
+        }
+        [[nodiscard]] f32 time(draconic::script::Entity entity) const
+        {
+            animation::AnimationPlayer* p = SkeletalPlayer(entity);
+            return p != nullptr ? p->CurrentTime() : 0.0f;
+        }
+        void setTime(draconic::script::Entity entity, f32 seconds) const
+        {
+            if (animation::AnimationPlayer* p = SkeletalPlayer(entity))
+            {
+                p->SetCurrentTime(seconds);
+            }
+        }
+        // Swap the entity's animation clip to resource `id`, binding it through the run's resource
+        // manager; the manager picks up the change next tick (autoPlay replays it).
+        void setClip(draconic::script::Entity entity, Guid id) const
+        {
+            if (SkeletalAnimationComponent* c = Skeletal(entity))
+            {
+                c->clip.SetId(id);
+                if (auto* resources = draconic::script::CurrentRunResources())
+                {
+                    c->clip.Bind(*resources);
+                }
+            }
+        }
+
+        // --- state-machine parameters (AnimationGraphComponent) ---
+        void setFloat(draconic::script::Entity entity, String name, f32 value) const
+        {
+            if (animation::AnimationGraphPlayer* p = GraphPlayer(entity))
+            {
+                p->SetFloat(name.AsView(), value);
+            }
+        }
+        void setBool(draconic::script::Entity entity, String name, bool value) const
+        {
+            if (animation::AnimationGraphPlayer* p = GraphPlayer(entity))
+            {
+                p->SetBool(name.AsView(), value);
+            }
+        }
+        void setTrigger(draconic::script::Entity entity, String name) const
+        {
+            if (animation::AnimationGraphPlayer* p = GraphPlayer(entity))
+            {
+                p->SetTrigger(name.AsView());
+            }
+        }
+
+        [[nodiscard]] static SceneAnimation of(draconic::script::Scene sceneHandle)
+        {
+            return SceneAnimation{sceneHandle.scene};
+        }
+
+    private:
+        [[nodiscard]] SkeletalAnimationComponent* Skeletal(draconic::script::Entity entity) const
+        {
+            if (scene == nullptr)
+            {
+                return nullptr;
+            }
+            auto* manager = scene->GetSystem<SkeletalAnimationComponentManager>();
+            return (manager != nullptr) ? manager->Get(entity.Handle()) : nullptr;
+        }
+        [[nodiscard]] animation::AnimationPlayer* SkeletalPlayer(draconic::script::Entity e) const
+        {
+            SkeletalAnimationComponent* c = Skeletal(e);
+            return (c != nullptr) ? c->player.Get() : nullptr;
+        }
+        [[nodiscard]] animation::AnimationGraphPlayer* GraphPlayer(draconic::script::Entity e) const
+        {
+            if (scene == nullptr)
+            {
+                return nullptr;
+            }
+            auto* manager = scene->GetSystem<AnimationGraphComponentManager>();
+            AnimationGraphComponent* c = (manager != nullptr) ? manager->Get(e.Handle()) : nullptr;
+            return (c != nullptr) ? c->player.Get() : nullptr;
+        }
+    };
+
 } // exported namespace
 
 // Reflection (tooling: the editor inspector). The DRACONIC_REFLECT_VALUE bodies +
@@ -426,4 +556,10 @@ export namespace draconic::animation
 export namespace draconic::animation
 {
     void RegisterAnimationComponentReflection();
+
+    // Surfaces the animation components to SCRIPT (Track A): SkeletalAnimationComponent.of(entity) /
+    // AnimationGraphComponent.of(entity) for the DATA (speed/autoPlay/active), plus SceneAnimation.of(
+    // scene) for the world ops (play/stop, graph params, clip swap). Registers + seeds + names them so
+    // both backends bind. Called by the composition root (like RegisterRenderScriptFacade).
+    void RegisterAnimationScriptFacade();
 }

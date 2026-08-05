@@ -6,6 +6,7 @@ target_link_libraries(DraconicScriptSceneTests PRIVATE
     Draconic::Content Draconic::Resource Draconic::VFS
     Draconic::Physics Draconic::Engine.Physics Draconic::Engine.Integration
     Draconic::Engine.Render Draconic::Audio Draconic::Engine.Audio
+    Draconic::Animation Draconic::Engine.Animation
     Draconic::Script Draconic::Script.Wren Draconic::Script.AngelScript doctest::doctest)
 target_compile_definitions(DraconicScriptSceneTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicScriptSceneTests PRIVATE

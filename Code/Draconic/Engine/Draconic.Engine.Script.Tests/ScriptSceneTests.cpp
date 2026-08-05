@@ -30,6 +30,8 @@ import draconic.engine.integration; // ScriptPhysicsContactBridge (the extracted
 import draconic.engine.render;      // MeshComponent/LightComponent .of (Track A, render surface)
 import draconic.audio;              // AudioSourceComponent + its manager (Track A, audio surface)
 import draconic.engine.audio;       // AudioSourceComponent.of + SceneAudio (Track A, audio surface)
+import draconic.animation;          // animation components + managers (Track A, animation surface)
+import draconic.engine.animation;   // *.of + SceneAnimation (Track A, animation surface)
 
 using namespace draconic::core;
 using namespace draconic::script;
@@ -37,6 +39,7 @@ namespace scene = draconic::scene;
 namespace physics = draconic::physics;
 namespace render = draconic::render;
 namespace audio = draconic::audio;
+namespace anim = draconic::animation;
 
 // ---- OPTION 1 (Fable ruling, spec Section 12): a component reached ONLY via a per-type
 // `Gadget.of(entity)` factory whose DECLARED return IS the component type. Proves the whole
@@ -2614,4 +2617,108 @@ TEST_CASE("script.scene: CameraComponent.of / SpriteComponent.of set live props 
     CHECK_FALSE(cameras->Get(e)->primary);
     REQUIRE(sprites->Get(e) != nullptr);
     CHECK_FALSE(sprites->Get(e)->visible);
+}
+
+// ---- Track A phase 3 (animation surface): SkeletalAnimationComponent.of / AnimationGraphComponent.of
+//      (live speed/autoPlay/active - DATA) + SceneAnimation.of(scene) (play/stop/pause + graph params
+//      setFloat/setBool/setTrigger + setClip - WORLD ops keyed by entity, reaching the manager-owned
+//      runtime player). No skeleton/graph is bound here, so the players are never built and the world
+//      ops are safe no-ops; this proves the surface + forwarding + data/resource paths cross-backend.
+//      Actual playback is covered natively in the animation tests. ----
+
+TEST_CASE("script.scene: SkeletalAnimation/AnimationGraph .of + SceneAnimation ops are bound and "
+          "control the components (Wren)")
+{
+    anim::RegisterAnimationScriptFacade();
+    ScriptedScene bed;
+    auto* skel = bed.scene.AddSystem<anim::SkeletalAnimationComponentManager>();
+    auto* graph = bed.scene.AddSystem<anim::AnimationGraphComponentManager>();
+
+    RefPtr<ScriptClass> tweaker =
+        MakeClass(u8"AnimTweaker",
+                  u8"class AnimTweaker {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    clipRes=(v) { _clipRes = v }\n"
+                  u8"    onStart() {\n"
+                  u8"        var a = SkeletalAnimationComponent.of(_entity)\n"
+                  u8"        a.speed = 2.0\n"
+                  u8"        a.autoPlay = false\n"
+                  u8"        AnimationGraphComponent.of(_entity).active = false\n"
+                  u8"        var s = SceneAnimation.of(_entity.scene)\n"
+                  u8"        s.setClip(_entity, _clipRes)\n"
+                  u8"        s.play(_entity)\n"
+                  u8"        s.stop(_entity)\n"
+                  u8"        s.setFloat(_entity, \"speed\", 0.5)\n"
+                  u8"        s.setBool(_entity, \"grounded\", true)\n"
+                  u8"        s.setTrigger(_entity, \"jump\")\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+    const Guid clipId{0x9911, 0x8822};
+    ScriptPropertyDesc clipProp;
+    clipProp.name = String(u8"clipRes");
+    clipProp.hash = ScriptPropertyNameHash(u8"clipRes");
+    clipProp.type = ScriptPropertyType::Asset;
+    clipProp.assetType = String(u8"AnimationClip");
+    clipProp.defaultValue.kind = ScriptPropertyType::Asset;
+    clipProp.defaultValue.guid = clipId;
+    tweaker->properties.PushBack(clipProp);
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    skel->Add(e);
+    graph->Add(e);
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(skel->Get(e) != nullptr);
+    CHECK(skel->Get(e)->speed == doctest::Approx(2.0f)); // .of data path
+    CHECK_FALSE(skel->Get(e)->autoPlay);
+    CHECK(skel->Get(e)->clip.id == clipId);              // SceneAnimation.setClip resource swap
+    REQUIRE(graph->Get(e) != nullptr);
+    CHECK_FALSE(graph->Get(e)->active);
+    ScriptComponent* comp = bed.components->Get(e);
+    REQUIRE(comp != nullptr);
+    CHECK_FALSE(comp->behaviors[0].faulted); // play/stop/setFloat/setBool/setTrigger all bound
+}
+
+TEST_CASE("script.scene: SkeletalAnimation::of + SceneAnimation ops are bound (AngelScript)")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    anim::RegisterAnimationScriptFacade();
+    ScriptedScene bed;
+    auto* skel = bed.scene.AddSystem<anim::SkeletalAnimationComponentManager>();
+    (void)bed.scene.AddSystem<anim::AnimationGraphComponentManager>();
+
+    RefPtr<ScriptClass> tweaker = MakeClassLang(
+        u8"angelscript", u8"AnimTweaker",
+        u8"class AnimTweaker {\n"
+        u8"    private Entity@ self;\n"
+        u8"    AnimTweaker(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        SkeletalAnimationComponent@ a = SkeletalAnimationComponent::of(self);\n"
+        u8"        a.speed = 2.0f;\n"
+        u8"        a.autoPlay = false;\n"
+        u8"        SceneAnimation anim = SceneAnimation::of(self.scene);\n"
+        u8"        anim.setClip(self, Guid(0x9911, 0x8822));\n"
+        u8"        anim.play(self);\n"
+        u8"        anim.setFloat(self, \"speed\", 0.5f);\n"
+        u8"        anim.setTrigger(self, \"jump\");\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    skel->Add(e);
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(skel->Get(e) != nullptr);
+    CHECK(skel->Get(e)->speed == doctest::Approx(2.0f));
+    CHECK_FALSE(skel->Get(e)->autoPlay);
+    CHECK(skel->Get(e)->clip.id == Guid{0x9911, 0x8822});
+    ScriptComponent* comp = bed.components->Get(e);
+    REQUIRE(comp != nullptr);
+    CHECK_FALSE(comp->behaviors[0].faulted);
 }

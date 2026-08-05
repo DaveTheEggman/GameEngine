@@ -395,12 +395,12 @@ namespace
         }
 
         // Rebuild the crowd to `count` instances: ONE InstancedMeshComponent (the skinned mesh at a grid of
-        // auto-fit-scaled transforms) + ONE InstancedSkinning companion (M shared pose palettes). No per-
+        // auto-fit-scaled transforms) + ONE InstancedSkinningComponent companion (M shared pose palettes). No per-
         // entity characters - the whole crowd is one draw per pass, animated by M palette computes, not N.
         void RebuildToCount(core::u32 count)
         {
             auto* imm = m_scene->GetSystem<render::InstancedMeshComponentManager>();
-            auto* anims = m_scene->GetSystem<animation::InstancedSkinningManager>();
+            auto* anims = m_scene->GetSystem<animation::InstancedSkinningComponentManager>();
             if (imm == nullptr || anims == nullptr || m_skinnedParts.IsEmpty())
             {
                 return;
@@ -420,7 +420,7 @@ namespace
 
             // Bucket the crowd across the model's clips (round-robin), so it's a MIXED herd (walk/idle/run/...)
             // rather than one clip. Each clip is its own group: its subset of instances + per-instance tints +
-            // its own InstancedSkinning pose pool. Cost stays O(clips x M) palettes/frame, independent of count.
+            // its own InstancedSkinningComponent pose pool. Cost stays O(clips x M) palettes/frame, independent of count.
             // Single-clip collapses the herd to ONE clip/pose-pool so the spatial pose policies read cleanly
             // (with the mixed 6-clip herd, a column/wave spans different animations and looks muddled - the
             // phase pattern is there, but overlaid on 6 different clips). Off = the mixed-herd benchmark.
@@ -487,7 +487,7 @@ namespace
             }
 
             // One group per clip: an InstancedMeshComponent per draw-mesh (its subset of transforms +
-            // per-instance tints) + one InstancedSkinning driving them all with that clip's shared pose pool.
+            // per-instance tints) + one InstancedSkinningComponent driving them all with that clip's shared pose pool.
             for (core::u32 g = 0; g < numClips; ++g)
             {
                 if (clipXf[g].IsEmpty())
@@ -516,7 +516,7 @@ namespace
                     targets.PushBack(e);
                 }
                 scene::EntityHandle animE = m_scene->CreateEntity(u8"crowd_anim");
-                animation::InstancedSkinning& s = anims->Add(animE);
+                animation::InstancedSkinningComponent& s = anims->Add(animE);
                 s.skeleton = m_model->skeleton.Get();
                 s.clip = m_clips[g];
                 s.poseCount = kPoseCount;
@@ -952,7 +952,7 @@ namespace
         core::f32 m_fit = 1.0f;                         // auto-fit scale
 
         // The crowd: ONE entity carrying an InstancedMeshComponent (the skinned mesh at N transforms) + an
-        // InstancedSkinning companion (M shared pose palettes). m_crowdCount tracks the instance count.
+        // InstancedSkinningComponent companion (M shared pose palettes). m_crowdCount tracks the instance count.
         // A skinned mesh part of the character + its material (+ global material index, for merged submeshes).
         struct Part
         {

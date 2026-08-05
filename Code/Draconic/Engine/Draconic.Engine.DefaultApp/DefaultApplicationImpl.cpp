@@ -155,6 +155,7 @@ namespace draconic::runtime
         draconic::input::RegisterInputScriptFacade();
         draconic::physics::RegisterPhysicsScriptFacade();
         draconic::render::RegisterRenderScriptFacade();
+        draconic::animation::RegisterAnimationScriptFacade();
         draconic::audio::RegisterAudioScriptFacade();
         RegisterSceneLoaderScriptFacade();     // SceneLoader.* (owned by the game-instance project)
         draconic::ui::RegisterUiScriptFacade(); // Ui.* (owned by the UISubsystem)

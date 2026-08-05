@@ -108,7 +108,7 @@ namespace
         scene.AddSystem<render::EnvironmentSystem>();
         scene.AddSystem<animation::AnimationGraphComponentManager>();
         scene.AddSystem<animation::SkeletalAnimationComponentManager>();
-        scene.AddSystem<animation::InstancedSkinningManager>();
+        scene.AddSystem<animation::InstancedSkinningComponentManager>();
         scene.AddSystem<particles::ParticleEffectComponentManager>();
         namespace physics = draconic::physics;
         scene.AddSystem<physics::RigidBodyComponentManager>();
