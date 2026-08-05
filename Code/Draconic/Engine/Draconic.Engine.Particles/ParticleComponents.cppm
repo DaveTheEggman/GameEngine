@@ -27,6 +27,7 @@ import draconic.resource;           // Proxy (cooked-resource handle)
 import draconic.particles.resource; // ParticleEffectResource + CloneEffect (cooked-effect path)
 import draconic.texture;            // Texture::View() for resolved per-system textures
 import draconic.texture.resource;
+import draconic.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneParticles handle)
 import :renderdata;
 
 using namespace draconic::core;
@@ -666,6 +667,92 @@ export namespace draconic::particles
         u32 m_meshVersion = 0; // bumped per mesh batch so the instanced-mesh path re-uploads
     };
 
+    // A scene-bound PARTICLES handle (SceneParticles.of(scene)): runtime WORLD ops on particle effects
+    // that need the component's manager-owned runtime ParticleEffectInstance (which the component data
+    // cannot reach) - play/stop/restart/pause emission, query, and swap the effect by resource id.
+    // Keyed by entity, mirroring ScenePhysics / SceneRender / SceneAudio / SceneAnimation (component =
+    // auto-reflected DATA: visible/meshScale/light*; scene-handle = world ops). The instance is built
+    // lazily by the manager when the effect resolves, so control from onUpdate sees it; a call before
+    // the effect is attached is a safe no-op.
+    struct SceneParticles
+    {
+        scene::Scene* scene = nullptr;
+
+        // Begin/resume emission on the entity's effect. No-op if no effect is attached yet.
+        void play(draconic::script::Entity entity) const
+        {
+            if (ParticleEffectInstance* i = Instance(entity))
+            {
+                i->Play();
+            }
+        }
+        // Stop emitting (live particles finish out).
+        void stop(draconic::script::Entity entity) const
+        {
+            if (ParticleEffectInstance* i = Instance(entity))
+            {
+                i->Stop();
+            }
+        }
+        // Reset to empty and begin emitting fresh (a one-shot re-trigger).
+        void restart(draconic::script::Entity entity) const
+        {
+            if (ParticleEffectInstance* i = Instance(entity))
+            {
+                i->Reset();
+                i->Play();
+            }
+        }
+        // Pause/resume the whole simulation for this effect (freezes live particles too).
+        void pause(draconic::script::Entity entity, bool paused) const
+        {
+            if (ParticleEffectInstance* i = Instance(entity))
+            {
+                i->isActive = !paused;
+            }
+        }
+        // True while the effect is still emitting or has live particles.
+        [[nodiscard]] bool isPlaying(draconic::script::Entity entity) const
+        {
+            ParticleEffectInstance* i = Instance(entity);
+            return i != nullptr && !i->IsFinished();
+        }
+        // Swap the entity's effect to resource `id`, binding it through the run's resource manager;
+        // the manager re-attaches (re-clones) the new effect next tick.
+        void setEffect(draconic::script::Entity entity, Guid id) const
+        {
+            if (ParticleEffectComponent* c = Component(entity))
+            {
+                c->effectAsset.SetId(id);
+                if (auto* resources = draconic::script::CurrentRunResources())
+                {
+                    c->effectAsset.Bind(*resources);
+                }
+            }
+        }
+
+        [[nodiscard]] static SceneParticles of(draconic::script::Scene sceneHandle)
+        {
+            return SceneParticles{sceneHandle.scene};
+        }
+
+    private:
+        [[nodiscard]] ParticleEffectComponent* Component(draconic::script::Entity entity) const
+        {
+            if (scene == nullptr)
+            {
+                return nullptr;
+            }
+            auto* manager = scene->GetSystem<ParticleEffectComponentManager>();
+            return (manager != nullptr) ? manager->Get(entity.Handle()) : nullptr;
+        }
+        [[nodiscard]] ParticleEffectInstance* Instance(draconic::script::Entity entity) const
+        {
+            ParticleEffectComponent* c = Component(entity);
+            return (c != nullptr) ? c->instance.Get() : nullptr;
+        }
+    };
+
 } // exported namespace
 
 // Reflection (tooling). The DRACONIC_REFLECT_VALUE body + RegisterParticleComponentReflection()
@@ -673,4 +760,10 @@ export namespace draconic::particles
 export namespace draconic::particles
 {
     void RegisterParticleComponentReflection();
+
+    // Surfaces the particle component to SCRIPT (Track A): ParticleEffectComponent.of(entity) for the
+    // DATA (visible/meshScale/light*), plus SceneParticles.of(scene) for the world ops (play/stop/
+    // restart/pause/isPlaying/setEffect). Registers + seeds + names them. Called by the composition
+    // root (like RegisterRenderScriptFacade).
+    void RegisterParticleScriptFacade();
 }

@@ -10,7 +10,8 @@ target_link_libraries(Draconic.Engine.Particles
            Draconic::Render Draconic::Engine.Render Draconic::Particles
            Draconic::Particles.Resource Draconic::Resource Draconic::Content
            Draconic::Texture Draconic::Texture.Resource
-           Draconic::Geometry Draconic::Materials Draconic::Policy Draconic::Profiler)
+           Draconic::Geometry Draconic::Materials Draconic::Script.Facades
+           Draconic::Policy Draconic::Profiler)
 
 target_sources(Draconic.Engine.Particles
     PRIVATE

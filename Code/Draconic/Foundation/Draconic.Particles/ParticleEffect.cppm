@@ -850,6 +850,21 @@ export namespace draconic::particles
             }
         }
 
+        // Resume/begin emission on every system (the counterpart to Stop). Also un-pauses the
+        // instance (isActive). A fresh instance already emits - this restarts a Stop()ed one.
+        void Play() noexcept
+        {
+            isActive = true;
+            if (m_effect == nullptr)
+            {
+                return;
+            }
+            for (i32 i = 0; i < m_effect->SystemCount(); ++i)
+            {
+                m_effect->GetSystem(i)->emitter.isEmitting = true;
+            }
+        }
+
         void Reset() noexcept
         {
             if (m_effect == nullptr)

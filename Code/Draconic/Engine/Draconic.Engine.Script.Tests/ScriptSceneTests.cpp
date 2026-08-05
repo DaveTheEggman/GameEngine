@@ -32,6 +32,8 @@ import draconic.audio;              // AudioSourceComponent + its manager (Track
 import draconic.engine.audio;       // AudioSourceComponent.of + SceneAudio (Track A, audio surface)
 import draconic.animation;          // animation components + managers (Track A, animation surface)
 import draconic.engine.animation;   // *.of + SceneAnimation (Track A, animation surface)
+import draconic.particles;          // ParticleEffectComponent + manager (Track A, particle surface)
+import draconic.engine.particles;   // *.of + SceneParticles (Track A, particle surface)
 
 using namespace draconic::core;
 using namespace draconic::script;
@@ -40,6 +42,7 @@ namespace physics = draconic::physics;
 namespace render = draconic::render;
 namespace audio = draconic::audio;
 namespace anim = draconic::animation;
+namespace particles = draconic::particles;
 
 // ---- OPTION 1 (Fable ruling, spec Section 12): a component reached ONLY via a per-type
 // `Gadget.of(entity)` factory whose DECLARED return IS the component type. Proves the whole
@@ -2794,4 +2797,101 @@ TEST_CASE("script.scene: EnvironmentSettings::of / PostProcessSettings::of edit 
 
     CHECK(envSys->Environment().ambientIntensity == doctest::Approx(0.75f));
     CHECK(postSys->Post().exposureEV == doctest::Approx(1.5f));
+}
+
+// ---- Track A phase 5 (particle surface): ParticleEffectComponent.of (live visible/meshScale/light*
+//      - DATA) + SceneParticles.of(scene) (play/stop/restart/pause/isPlaying + setEffect - WORLD ops
+//      keyed by entity, reaching the manager-owned runtime ParticleEffectInstance). No effect is
+//      attached here, so the instance is never built and the world ops are safe no-ops; this proves
+//      the surface + forwarding + data/resource paths cross-backend. Real sim is native. ----
+
+TEST_CASE("script.scene: ParticleEffectComponent.of + SceneParticles.of ops are bound and control "
+          "the component (Wren)")
+{
+    particles::RegisterParticleScriptFacade();
+    ScriptedScene bed;
+    auto* fx = bed.scene.AddSystem<particles::ParticleEffectComponentManager>();
+
+    RefPtr<ScriptClass> tweaker =
+        MakeClass(u8"FxTweaker",
+                  u8"class FxTweaker {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    effectRes=(v) { _effectRes = v }\n"
+                  u8"    onStart() {\n"
+                  u8"        var c = ParticleEffectComponent.of(_entity)\n"
+                  u8"        c.visible = false\n"
+                  u8"        c.lightIntensity = 8.0\n"
+                  u8"        var p = SceneParticles.of(_entity.scene)\n"
+                  u8"        p.setEffect(_entity, _effectRes)\n"
+                  u8"        p.play(_entity)\n"
+                  u8"        p.pause(_entity, true)\n"
+                  u8"        p.restart(_entity)\n"
+                  u8"        p.stop(_entity)\n"
+                  u8"        if (!p.isPlaying(_entity)) { _entity.setName(\"idle\") }\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+    const Guid fxId{0x7711, 0x6622};
+    ScriptPropertyDesc effectProp;
+    effectProp.name = String(u8"effectRes");
+    effectProp.hash = ScriptPropertyNameHash(u8"effectRes");
+    effectProp.type = ScriptPropertyType::Asset;
+    effectProp.assetType = String(u8"ParticleEffect");
+    effectProp.defaultValue.kind = ScriptPropertyType::Asset;
+    effectProp.defaultValue.guid = fxId;
+    tweaker->properties.PushBack(effectProp);
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    fx->Add(e);
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(fx->Get(e) != nullptr);
+    CHECK_FALSE(fx->Get(e)->visible);                             // .of data path
+    CHECK(fx->Get(e)->lightIntensity == doctest::Approx(8.0f));
+    CHECK(fx->Get(e)->effectAsset.id == fxId);                    // SceneParticles.setEffect resource swap
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"idle"));    // isPlaying() returned a bool
+    ScriptComponent* comp = bed.components->Get(e);
+    REQUIRE(comp != nullptr);
+    CHECK_FALSE(comp->behaviors[0].faulted); // play/stop/restart/pause all bound + callable
+}
+
+TEST_CASE("script.scene: ParticleEffectComponent::of + SceneParticles::of ops are bound (AngelScript)")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    particles::RegisterParticleScriptFacade();
+    ScriptedScene bed;
+    auto* fx = bed.scene.AddSystem<particles::ParticleEffectComponentManager>();
+
+    RefPtr<ScriptClass> tweaker = MakeClassLang(
+        u8"angelscript", u8"FxTweaker",
+        u8"class FxTweaker {\n"
+        u8"    private Entity@ self;\n"
+        u8"    FxTweaker(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        ParticleEffectComponent@ c = ParticleEffectComponent::of(self);\n"
+        u8"        c.visible = false;\n"
+        u8"        c.lightIntensity = 8.0f;\n"
+        u8"        SceneParticles p = SceneParticles::of(self.scene);\n"
+        u8"        p.setEffect(self, Guid(0x7711, 0x6622));\n"
+        u8"        p.play(self);\n"
+        u8"        p.stop(self);\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    fx->Add(e);
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(fx->Get(e) != nullptr);
+    CHECK_FALSE(fx->Get(e)->visible);
+    CHECK(fx->Get(e)->lightIntensity == doctest::Approx(8.0f));
+    CHECK(fx->Get(e)->effectAsset.id == Guid{0x7711, 0x6622});
+    ScriptComponent* comp = bed.components->Get(e);
+    REQUIRE(comp != nullptr);
+    CHECK_FALSE(comp->behaviors[0].faulted);
 }
