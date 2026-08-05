@@ -783,35 +783,37 @@ TEST_CASE("script.scene: entity.send to a target with no matching handler is a s
 }
 
 // ---- the "Roll Call" sample game's core loop, headless (mirrors SampleGame/Scripts/*.wren):
-// proximity-collect orbs -> send("collect") to the GameManager -> onCollect scores -> win at
-// the total. Proves the content-only game runs on the shipped facades (find/send/position/
-// destroy + per-instance score) with a real Wren VM. Score is observed through the manager's
-// entity NAME (generation-independent, unlike a module global that the bed's incremental
-// class-adding would reset). The input/character-movement path needs the Input + Physics
-// subsystems (exercised on Play), so it is out of this bed by design. ----
+// proximity-collect orbs -> EMIT "OrbCollected" onto the scene bus -> the LEVEL scores -> win at
+// the total. This is the Track B reference: the game rules live in the scene's Level tier, and
+// orbs announce a NAMED event instead of find()-ing a "GameManager" entity and send()-ing it.
+// No GameManager entity exists (the anti-pattern the tiers exist to kill). Score is observed
+// through a stable "Scoreboard" entity's transform. The input/character path needs Input +
+// Physics (exercised on Play), so it is out of this bed by design. ----
 
-TEST_CASE("script.scene: the Roll Call sample game collects orbs by proximity and wins at "
-          "the total (find + send + destroy, real VM)")
+TEST_CASE("script.scene: the Roll Call sample game - orbs EMIT OrbCollected, the Level scores "
+          "and wins, with NO GameManager entity (Track B reference)")
 {
     ScriptedScene bed;
+    SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
+    level->SetRunHost(&bed.host);
 
-    // GameController (mirror of GameController.wren), total 2 for a short round. Score lives in
-    // per-instance fields; onCollect mirrors it into the entity name so the test can observe it.
-    RefPtr<ScriptClass> gameController =
-        MakeClass(u8"GameController",
-                  u8"class GameController {\n"
-                  u8"    construct new(entity) {\n"
-                  u8"        _entity = entity\n"
+    // The Level (mirror of Level.wren): the scene's rules tier, total 2 for a short round. Score
+    // lives in per-instance fields; onOrbCollected mirrors it onto the Scoreboard transform so the
+    // test can observe it. It receives events by declaring on<Event> - no wiring, no manager entity.
+    RefPtr<ScriptClass> levelClass =
+        MakeClass(u8"Level",
+                  u8"class Level {\n"
+                  u8"    construct new(scene) {\n"
+                  u8"        _scene = scene\n"
                   u8"        _total = 2\n"
                   u8"        _collected = 0\n"
                   u8"        _won = false\n"
                   u8"    }\n"
-                  u8"    totalOrbs=(v) { _total = v }\n"
                   u8"    onStart() {\n"
                   u8"        _collected = 0\n"
                   u8"        _won = false\n"
                   u8"    }\n"
-                  u8"    onCollect() {\n"
+                  u8"    onOrbCollected() {\n"
                   u8"        if (_won) {\n"
                   u8"            return\n"
                   u8"        }\n"
@@ -821,15 +823,14 @@ TEST_CASE("script.scene: the Roll Call sample game collects orbs by proximity an
                   u8"            _won = true\n"
                   u8"            won = 1\n"
                   u8"        }\n"
-                  // Report score via a stable "Scoreboard" entity's transform (x = count,
-                  // y = 1 on win) - renaming an entity would break find() by name.
-                  u8"        _entity.scene.find(\"Scoreboard\").setPosition(_collected, won, 0)\n"
+                  u8"        _scene.find(\"Scoreboard\").setPosition(_collected, won, 0)\n"
                   u8"    }\n"
                   u8"    onPlayerFell() { _won = true }\n"
                   u8"}\n",
-                  {u8"onStart", u8"onCollect", u8"onPlayerFell"});
+                  {u8"onStart", u8"onOrbCollected", u8"onPlayerFell"});
+    level->Settings().script = levelClass;
 
-    // Pickup (mirror of Pickup.wren): proximity to "Player" -> message the manager, remove self.
+    // Pickup (mirror of Pickup.wren): proximity to "Player" -> emit "OrbCollected", remove self.
     RefPtr<ScriptClass> pickup =
         MakeClass(u8"Pickup",
                   u8"class Pickup {\n"
@@ -855,14 +856,12 @@ TEST_CASE("script.scene: the Roll Call sample game collects orbs by proximity an
                   u8"            return\n"
                   u8"        }\n"
                   u8"        _taken = true\n"
-                  u8"        var m = _entity.scene.find(\"GameManager\")\n"
-                  u8"        if (m.isValid()) { m.send(\"collect\") }\n"
+                  u8"        _entity.scene.events.emit(\"OrbCollected\")\n"
                   u8"        _entity.destroy()\n"
                   u8"    }\n"
                   u8"}\n",
                   {u8"onUpdate"});
 
-    (void)bed.AddScripted(gameController, u8"GameManager"); // pickups find it by this name
     const scene::EntityHandle scoreboard = bed.scene.CreateEntity(u8"Scoreboard"); // score readout
     const scene::EntityHandle player = bed.scene.CreateEntity(u8"Player");
     bed.scene.SetLocalPosition(player, Float3{100.0f, 0.0f, 100.0f}); // start well clear
@@ -873,20 +872,20 @@ TEST_CASE("script.scene: the Roll Call sample game collects orbs by proximity an
 
     bed.Start();
     bed.Frame(); // instantiate + onStart; player far -> nothing collected
-    CHECK(bed.scripts->InstanceCount() == 3u); // manager + 2 orbs
+    CHECK(bed.scripts->InstanceCount() == 2u); // 2 orbs (the Level is not an entity behavior)
+    CHECK(level->LevelActive());               // the rules tier is live, no GameManager entity
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 0.0f));
 
-    // Walk onto orb1: it collects itself and messages the manager.
+    // Walk onto orb1: it collects itself and EMITS "OrbCollected"; the Level scores this SAME frame
+    // (emit publishes, the scene tick drains the bus at its top level -> onOrbCollected).
     bed.scene.SetLocalPosition(player, Float3{0.0f, 0.0f, 0.0f});
-    bed.Frame(); // orb1 onUpdate: proximity hit -> send("collect") + destroy
-    bed.Frame(); // manager drains "collect" -> onCollect -> Scoreboard x = 1
+    bed.Frame(); // orb1 onUpdate: proximity hit -> emit("OrbCollected") + destroy -> Level scores
     CHECK_FALSE(bed.scene.IsValid(orb1));
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 1.0f));
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.y, 0.0f)); // not won yet
 
     // Walk onto orb2: collecting the last orb wins.
     bed.scene.SetLocalPosition(player, Float3{5.0f, 0.0f, 0.0f});
-    bed.Frame();
     bed.Frame();
     CHECK_FALSE(bed.scene.IsValid(orb2));
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 2.0f)); // both collected
