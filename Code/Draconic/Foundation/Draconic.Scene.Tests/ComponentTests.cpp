@@ -125,3 +125,54 @@ TEST_CASE("component type id is stable + distinct per component type")
     CHECK(mgr.ComponentType() == &TypeOf<Health>());
     CHECK(mgr.ComponentType() != manaMgr.ComponentType());
 }
+
+// The scene-side resolve for `entity.get(Type)` (game-ready-scripting P-A1): resolve the manager
+// by the component's reflected type, then re-resolve the LIVE component on every access. This is
+// the load-bearing safety property (Fable Correction 1): a re-resolving handle survives the pool's
+// swap-remove, where a cached (borrow) component address would go stale or, worse, point at a
+// different entity's component.
+TEST_CASE("scene: FindManagerByComponentType + re-resolution survives swap-remove / growth "
+          "(entity.get safety, Correction 1)")
+{
+    Scene scene(u8"resolve");
+    HealthManager* mgr = scene.AddSystem<HealthManager>();
+    const EntityHandle e0 = scene.CreateEntity(u8"e0");
+    const EntityHandle e1 = scene.CreateEntity(u8"e1");
+    const EntityHandle e2 = scene.CreateEntity(u8"e2");
+    mgr->Add(e0).value = 10.0f;
+    mgr->Add(e1).value = 20.0f;
+    mgr->Add(e2).value = 30.0f;
+
+    // Resolve the manager by the component's reflected type (the entity.get type token).
+    ComponentManagerBase* found = scene.FindManagerByComponentType(TypeOf<Health>());
+    REQUIRE(found == static_cast<ComponentManagerBase*>(mgr));
+    CHECK(scene.FindManagerByComponentType(TypeOf<int>()) == nullptr); // no manager -> null
+
+    // Cache e2's CURRENT component address - what a borrow handle would keep.
+    Instance before = found->GetComponentInstance(e2);
+    REQUIRE(before.Pointer() != nullptr);
+    void* staleAddr = before.Pointer();
+    CHECK(static_cast<Health*>(before.Pointer())->value == doctest::Approx(30.0f));
+
+    // Remove ANOTHER entity's component: swap-remove moves e2's component within the dense pool.
+    mgr->RemoveComponent(e1);
+
+    // Re-resolution (what entity.get does per access) still finds e2's REAL component...
+    Instance after = found->GetComponentInstance(e2);
+    REQUIRE(after.Pointer() != nullptr);
+    CHECK(static_cast<Health*>(after.Pointer())->value == doctest::Approx(30.0f));
+    CHECK(after.Pointer() != staleAddr); // ...and it moved - the cached borrow would be wrong
+
+    // Pool growth (realloc) - re-resolution still correct.
+    for (int i = 0; i < 32; ++i)
+    {
+        mgr->Add(scene.CreateEntity(u8"filler")).value = 1.0f;
+    }
+    Instance grown = found->GetComponentInstance(e2);
+    REQUIRE(grown.Pointer() != nullptr);
+    CHECK(static_cast<Health*>(grown.Pointer())->value == doctest::Approx(30.0f));
+
+    // Component removed -> re-resolution is a clean empty Instance (null-op, no crash).
+    mgr->RemoveComponent(e2);
+    CHECK(found->GetComponentInstance(e2).Pointer() == nullptr);
+}

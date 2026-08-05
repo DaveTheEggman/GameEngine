@@ -325,6 +325,26 @@ export namespace draconic::scene
         // to route a component record to its pool).
         [[nodiscard]] ComponentManagerBase* FindManagerBySerializationId(StringView typeId);
 
+        // The component manager whose component type is `componentType`, or null. This is the
+        // scene-side resolve for `entity.get(Type)`: callers hold {scene, entity, manager} and
+        // re-resolve the LIVE component via manager->GetComponentInstance(entity) on every access
+        // - never a stashed component pointer (the sparse-set pool swap-removes, so an address can
+        // move or, worse, point at a different entity's component). The manager pointer itself is
+        // scene-owned and stable for the scene's lifetime, so this lookup runs once per get().
+        [[nodiscard]] ComponentManagerBase* FindManagerByComponentType(const TypeInfo& componentType)
+        {
+            ComponentManagerBase* found = nullptr;
+            ForEachManager(
+                [&](ComponentManagerBase& m)
+                {
+                    if (found == nullptr && m.ComponentType() == &componentType)
+                    {
+                        found = &m;
+                    }
+                });
+            return found;
+        }
+
         // ---- play / edit state ----
 
         [[nodiscard]] bool IsStarted() const noexcept { return m_started; }
