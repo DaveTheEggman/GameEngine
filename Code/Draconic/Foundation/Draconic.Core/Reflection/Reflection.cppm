@@ -1410,6 +1410,24 @@ namespace draconic::core::detail
             return InvokeFreeImpl<Func, R, A...>(a, std::index_sequence_for<A...>{});
         }
     };
+
+    // Dispatch for a method reflected with an OVERRIDDEN declared return type (Method<Member,
+    // ReturnAs>): run the normal invoke, then VALIDATE the returned Variant's runtime type matches
+    // `ReturnAs`. A mismatch resolves to empty - never surface a type-confused handle to a backend
+    // that trusts the declared return type. For factories returning a RESOLVE-mode handle of a
+    // specific type (RigidBody.of(entity)); composes with Variant::From<Variant> passthrough.
+    template <auto Member, typename ReturnAs>
+    [[nodiscard]] Result<Variant> InvokeReturningAs(const Instance& instance, Span<Variant> args)
+    {
+        Result<Variant> result = MethodReflect<Member>::Invoke(instance, args);
+        // Validate against the SAME TypeInfo the declared return uses (ReturnTypeInfo is
+        // object-aware: StaticType for objects), so a legitimate return is not spuriously rejected.
+        if (result.HasValue() && result.Value().Type() != ReturnTypeInfo<ReturnAs>())
+        {
+            return Variant{};
+        }
+        return result;
+    }
 }
 
 export namespace draconic::core
@@ -1555,6 +1573,24 @@ export namespace draconic::core
             m_data.methods.PushBack(MethodInfo{name, &Reflect::ReturnType, params,
                                                static_cast<u32>(N), Reflect::isStatic,
                                                Reflect::isConst, &Reflect::Invoke});
+            return *this;
+        }
+
+        /// Reflect a method whose C++ body returns a Variant but whose DECLARED reflected return type
+        /// is `ReturnAs` - a factory that hands back a runtime-typed handle (e.g. `RigidBody.of(entity)`
+        /// returning a RESOLVE-mode ref whose dynamic type is the component). The declared return
+        /// drives AngelScript's static boxing; Wren wraps by the value's dynamic type. The dispatch
+        /// validates the returned Variant's runtime type equals `ReturnAs` (mismatch -> empty, never a
+        /// type-confused handle). Composes with Variant::From<Variant> passthrough.
+        template <auto Member, typename ReturnAs>
+        TypeBuilder& Method(const char* name)
+        {
+            using Reflect = detail::MethodReflect<Member>;
+            const Span<const ParamInfo> params = Reflect::Params();
+            m_data.methods.PushBack(MethodInfo{name, &detail::ReturnTypeInfo<ReturnAs>, params.Data(),
+                                               static_cast<u32>(params.Size()), Reflect::isStatic,
+                                               Reflect::isConst,
+                                               &detail::InvokeReturningAs<Member, ReturnAs>});
             return *this;
         }
 

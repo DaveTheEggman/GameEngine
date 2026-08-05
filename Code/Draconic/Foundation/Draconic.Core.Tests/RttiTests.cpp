@@ -67,6 +67,11 @@ namespace
         NestedLeaf leaf;               // value member (non-copyable)
         NestedLeaf* leafPtr = nullptr; // pointer member (nested-by-pointer)
     };
+
+    // Factory-style statics for the ReturnType-override test: bodies return a Variant whose dynamic
+    // type is (or is NOT) the declared return type.
+    Variant MakeAnimalVariant() { return Variant::FromObject(MakeRef<Animal>(DefaultAllocator())); }
+    Variant MakeWrongVariant() { return Variant::From<int>(7); }
 }
 
 DRACONIC_REFLECT(Animal, "draconic::test")
@@ -82,6 +87,10 @@ DRACONIC_REFLECT(Animal, "draconic::test")
     builder.Attribute("scriptName", "Critter");
     builder.Attribute("maxLegs", 8);
     builder.Constructor(); // default ctor -> RefPtr<Animal> via MakeRef
+    // ReturnType-override factories (OPTION 1 primitive): C++ returns a Variant, declared return is
+    // Animal; the dispatch validates the runtime type.
+    builder.Method<&MakeAnimalVariant, Animal>("makeAnimal");
+    builder.Method<&MakeWrongVariant, Animal>("makeWrong"); // body returns int -> validated to empty
 }
 DRACONIC_DEFINE_OBJECT(Dog, "draconic::test")
 DRACONIC_DEFINE_OBJECT(Cat, "draconic::test")
@@ -883,6 +892,30 @@ TEST_CASE("rtti: Variant RESOLVE mode re-computes the live address every deref (
     CHECK(relayed.Type() == &TypeOf<int>());
     slot = 3;
     CHECK(ToInstance(relayed).Pointer() == &values[3]);
+}
+
+TEST_CASE("rtti: Method<Member, ReturnAs> overrides the declared return type and validates runtime "
+          "type (OPTION 1: RigidBody.of(entity) factory)")
+{
+    // The declared reflected return type is Animal, even though the C++ body returns a Variant.
+    const MethodInfo* make = FindMethod(Animal::StaticType(), "makeAnimal");
+    REQUIRE(make != nullptr);
+    CHECK(make->isStatic);
+    CHECK(make->returnType() == &Animal::StaticType()); // OVERRIDDEN declared return
+
+    // Runtime type matches the declared return -> the Variant passes through unchanged.
+    Result<Variant> r = InvokeStatic(*make, Span<Variant>{});
+    REQUIRE(r.HasValue());
+    CHECK(r.Value().Type() == &Animal::StaticType());
+
+    // Validation: a factory whose body returns the WRONG runtime type (int) resolves to empty -
+    // never a type-confused handle handed to a backend that trusts the declared return.
+    const MethodInfo* wrong = FindMethod(Animal::StaticType(), "makeWrong");
+    REQUIRE(wrong != nullptr);
+    CHECK(wrong->returnType() == &Animal::StaticType()); // declared Animal...
+    Result<Variant> rw = InvokeStatic(*wrong, Span<Variant>{});
+    REQUIRE(rw.HasValue());
+    CHECK(rw.Value().IsEmpty()); // ...but the body returned int -> validated to empty
 }
 
 TEST_CASE("rtti: const method and zero-arg invoke")
