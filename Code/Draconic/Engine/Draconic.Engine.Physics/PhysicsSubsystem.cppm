@@ -805,6 +805,25 @@ export namespace draconic::physics
                        : -1.0f;
         }
 
+        // Apply an impulse to `entity`'s rigid body in THIS scene (the scriptable-impulse gameplay
+        // op - a genuine WORLD operation, so it lives on scene.physics keyed by the entity, not on
+        // the component data which cannot reach the world). No-op if the entity has no rigid body or
+        // its body is not yet created. Fixes the "no scriptable impulse on a dynamic body" gap.
+        void applyImpulse(draconic::script::Entity entity, f32 x, f32 y, f32 z)
+        {
+            PhysicsWorld* world = World();
+            if (world == nullptr || scene == nullptr)
+            {
+                return;
+            }
+            RigidBodyComponentManager* bodies = scene->GetSystem<RigidBodyComponentManager>();
+            RigidBodyComponent* body = (bodies != nullptr) ? bodies->Get(entity.Handle()) : nullptr;
+            if (body != nullptr)
+            {
+                world->AddImpulse(body->body, Float3{x, y, z});
+            }
+        }
+
         // The OPTION 1 factory: ScenePhysics.of(scene). Argument is the bound Scene facade.
         [[nodiscard]] static ScenePhysics of(draconic::script::Scene sceneHandle)
         {

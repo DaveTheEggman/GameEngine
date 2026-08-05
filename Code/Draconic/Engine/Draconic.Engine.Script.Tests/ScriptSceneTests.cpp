@@ -2085,3 +2085,30 @@ TEST_CASE("script.scene: CharacterComponent.of(entity).move/jump - per-entity co
     CHECK(characters->Get(e)->moveVelocity.x == doctest::Approx(5.0f));
     CHECK(characters->Get(e)->jumpSpeed == doctest::Approx(6.0f));
 }
+
+// The scriptable-impulse gameplay op (Roll Call finding #1: "no scriptable impulse on a dynamic
+// body"), now available: ScenePhysics.of(scene).applyImpulse(entity, x, y, z). A world op, keyed
+// by entity. The upward impulse gives the dynamic body positive Y velocity.
+TEST_CASE("script.scene: ScenePhysics.of(scene).applyImpulse(entity, ...) - scriptable impulse (Wren)")
+{
+    physics::RegisterPhysicsScriptFacade();
+    ContactWorld world;
+    const scene::EntityHandle e = world.AddBody(u8"ball", Float3{0, 5, 0},
+                                                physics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
+    RefPtr<ScriptClass> pusher = MakeClass(u8"Pusher",
+                                           u8"class Pusher {\n"
+                                           u8"    construct new(entity) { _entity = entity }\n"
+                                           u8"    onStart() {\n"
+                                           u8"        ScenePhysics.of(_entity.scene).applyImpulse(_entity, 0, 5000, 0)\n"
+                                           u8"    }\n"
+                                           u8"}\n",
+                                           {u8"onStart"});
+    world.Attach(e, pusher);
+
+    world.Play(2); // onStart applies the impulse; the next step integrates it
+    auto* sys = world.scene->GetSystem<physics::PhysicsSceneSystem>();
+    auto* bodies = world.scene->GetSystem<physics::RigidBodyComponentManager>();
+    REQUIRE(sys->World() != nullptr);
+    REQUIRE(bodies->Get(e) != nullptr);
+    CHECK(sys->World()->LinearVelocity(bodies->Get(e)->body).y > 0.0f); // impulse dominated gravity
+}

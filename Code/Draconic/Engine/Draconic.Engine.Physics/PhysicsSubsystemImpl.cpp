@@ -335,6 +335,7 @@ namespace draconic::physics
             "rayCast", {"fromX", "fromY", "fromZ", "dirX", "dirY", "dirZ", "maxDistance"});
         builder.Method<&ScenePhysics::setGravity>("setGravity", {"x", "y", "z"});
         builder.Method<&ScenePhysics::gravityY>("gravityY");
+        builder.Method<&ScenePhysics::applyImpulse>("applyImpulse", {"entity", "x", "y", "z"});
         builder.Method<&ScenePhysics::of>("of", {"scene"});
     }
 
