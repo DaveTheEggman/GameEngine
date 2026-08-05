@@ -170,6 +170,11 @@ export namespace draconic::net
     // built; the snapshot path needs the patched TypeInfo for its versioned records). Idempotent.
     void RegisterReplicationComponents();
 
+    // Surfaces NetworkComponent to SCRIPT (Track A): NetworkComponent.of(entity).authority for
+    // authority-gated gameplay (+ the NetworkAuthority enum). Called by the composition root alongside
+    // RegisterNetScriptFacade (the app-global Net session facade).
+    void RegisterNetworkComponentScriptFacade();
+
     // ---- client-side interpolation (smooth playback of low-rate updates) ------------------------
 
     // True if this field type is smoothly interpolated (vs snapped) by LerpFieldValue.

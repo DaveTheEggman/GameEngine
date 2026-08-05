@@ -242,6 +242,13 @@ namespace draconic::script::wren
         }
 
         const core::TypeInfo* type = value.Type();
+        // An enum crosses to Wren as its underlying number (Wren has no enum type; enums are excluded
+        // from foreign-class emission). The author compares/assigns integers (0, 1, ...).
+        if (type != nullptr && type->enumeratorCount > 0)
+        {
+            wrenSetSlotDouble(vm, slot, static_cast<double>(value.AsEnumInt()));
+            return;
+        }
         if (type != nullptr && type->name != nullptr && wrenHasModule(vm, kModule) &&
             wrenHasVariable(vm, kModule, type->name))
         {
@@ -288,6 +295,13 @@ namespace draconic::script::wren
         if (expected != nullptr && core::IsDerivedFrom(expected, &IScriptDelegate::StaticType()))
         {
             return WrapWrenDelegateArg(vm, slot);
+        }
+        // An enum parameter/setter takes a Wren number; carry it as an i64 (the property setter /
+        // enum-arg path casts it to the enum). Enums have no Wren foreign class to marshal through.
+        if (expected != nullptr && expected->enumeratorCount > 0 &&
+            wrenGetSlotType(vm, slot) == WREN_TYPE_NUM)
+        {
+            return core::Variant::From<core::i64>(static_cast<core::i64>(wrenGetSlotDouble(vm, slot)));
         }
         switch (wrenGetSlotType(vm, slot))
         {
@@ -370,6 +384,11 @@ namespace draconic::script::wren
         if (pt == &core::TypeOf<core::Variant>())
         {
             return true;
+        }
+        // An enum parameter takes a Wren number (enums cross as their underlying int).
+        if (pt != nullptr && pt->enumeratorCount > 0)
+        {
+            return wrenGetSlotType(vm, slot) == WREN_TYPE_NUM;
         }
         switch (wrenGetSlotType(vm, slot))
         {

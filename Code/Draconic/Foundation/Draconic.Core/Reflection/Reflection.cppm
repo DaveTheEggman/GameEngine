@@ -51,14 +51,39 @@ namespace draconic::core::detail
     template <typename T, typename M, auto Member>
     Status PropertySet(const Instance& instance, const Variant& value)
     {
-        const M* typed = value.TryGet<M>();
-        if (typed == nullptr)
+        T* object = static_cast<T*>(instance.Pointer());
+        if constexpr (std::is_enum_v<M>)
         {
+            // An enum property crosses from script as its underlying INT (Wren has no enum type;
+            // AngelScript enums are int-backed), so accept an i64/f64 and cast - as well as a
+            // properly-typed enum Variant. M is known here, so the cast is well-defined.
+            if (const M* typed = value.TryGet<M>())
+            {
+                object->*Member = *typed;
+                return Status{};
+            }
+            if (const i64* i = value.TryGet<i64>())
+            {
+                object->*Member = static_cast<M>(*i);
+                return Status{};
+            }
+            if (const f64* d = value.TryGet<f64>())
+            {
+                object->*Member = static_cast<M>(static_cast<i64>(*d));
+                return Status{};
+            }
             return Status{ErrorCode::InvalidArgument};
         }
-        T* object = static_cast<T*>(instance.Pointer());
-        object->*Member = *typed;
-        return Status{};
+        else
+        {
+            const M* typed = value.TryGet<M>();
+            if (typed == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
+            object->*Member = *typed;
+            return Status{};
+        }
     }
 
     template <typename T, typename M, auto Member>

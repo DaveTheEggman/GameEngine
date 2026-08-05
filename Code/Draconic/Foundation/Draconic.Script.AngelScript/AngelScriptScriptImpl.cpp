@@ -532,6 +532,7 @@ namespace draconic::script::angelscript
                 // Late registration after finalize: run both phases for this type
                 // alone (everything else is already declared).
                 DeclareType(type);
+                DeclareReferencedEnums(type);
                 BindType(type);
             }
         }
@@ -548,6 +549,11 @@ namespace draconic::script::angelscript
             for (const core::TypeInfo* type : m_types)
             {
                 DeclareType(*type);
+            }
+            // ...plus any enum a member references (enums ride a member's type, not the registry).
+            for (const core::TypeInfo* type : m_types)
+            {
+                DeclareReferencedEnums(*type);
             }
             // Phase 2: bind members (factories, properties, methods, statics).
             for (const core::TypeInfo* type : m_types)
@@ -889,6 +895,14 @@ namespace draconic::script::angelscript
                 return (s != nullptr) ? core::Variant::From<core::String>(StringFromStd(*s))
                                       : core::Variant{};
             }
+            // A native enum argument: read its int32 value and carry it as an i64 (the property setter
+            // / enum-arg path casts it to the enum - enums cross as their underlying int).
+            if (const core::TypeInfo* enumType = TypeInfoForTypeId(typeId);
+                enumType != nullptr && enumType->enumeratorCount > 0)
+            {
+                return core::Variant::From<core::i64>(
+                    static_cast<core::i64>(gen->GetArgDWord(index)));
+            }
             if ((typeId & asTYPEID_OBJHANDLE) != 0 && TypeInfoForTypeId(typeId) != nullptr)
             {
                 const BoxedVariant* box =
@@ -953,6 +967,14 @@ namespace draconic::script::angelscript
             const int typeId = gen->GetReturnTypeId();
             if (typeId == asTYPEID_VOID)
             {
+                return;
+            }
+            // A native enum return (a getter for an enum property): AngelScript enums are int32-backed,
+            // so return the enum's underlying value as a DWord under its enum typeId.
+            if (const core::TypeInfo* enumType = TypeInfoForTypeId(typeId);
+                enumType != nullptr && enumType->enumeratorCount > 0)
+            {
+                gen->SetReturnDWord(static_cast<asDWORD>(static_cast<core::i32>(value.AsEnumInt())));
                 return;
             }
             bool ok = false;
@@ -1495,6 +1517,12 @@ namespace draconic::script::angelscript
                 AppendAscii(out, primitive);
                 return true;
             }
+            // A native AngelScript enum: an int-backed VALUE type, spelled by name with no handle.
+            if (type->enumeratorCount > 0)
+            {
+                AppendAscii(out, type->name);
+                return true;
+            }
             if (!IsDeclared(type))
             {
                 return false;
@@ -1516,7 +1544,12 @@ namespace draconic::script::angelscript
             {
                 return;
             } // scalar/string currency
-            if (type.enumeratorCount > 0 || type.container != nullptr)
+            if (type.enumeratorCount > 0)
+            {
+                DeclareEnum(type); // AngelScript has native enums - register it + its values
+                return;
+            }
+            if (type.container != nullptr)
             {
                 return;
             }
@@ -1533,6 +1566,70 @@ namespace draconic::script::angelscript
                 return;
             }
             m_registered.PushBack(RegisteredType{&type, typeId});
+        }
+
+        // AngelScript has native enums: register the enum type + each enumerator (a named int32), so
+        // a script writes `NetworkAuthority::Server` and an enum-typed property/param binds. Recorded
+        // in m_registered like object types, so TypeInfoForTypeId maps the enum typeId back for
+        // marshalling (enum values cross as their underlying int - the property setter casts).
+        void DeclareEnum(const core::TypeInfo& type)
+        {
+            if (IsDeclared(&type))
+            {
+                return;
+            }
+            const int enumTypeId = m_engine->RegisterEnum(type.name);
+            if (enumTypeId < 0)
+            {
+                DRACONIC_LOG_DEBUG(u8"Script", u8"AngelScript: could not declare enum '{}' ({})",
+                                   ViewOfAscii(type.name), enumTypeId);
+                return;
+            }
+            for (const core::EnumValue& value : core::Enumerators(type))
+            {
+                m_engine->RegisterEnumValue(type.name, value.name,
+                                            static_cast<int>(value.value));
+            }
+            // Record RegisterEnum's OWN typeId (not GetTypeIdByDecl, which may not resolve a bare
+            // enum name) so TypeInfoForTypeId maps the return/arg enum typeId back at marshal time -
+            // else SetGenericReturn misses the enum branch and boxes an int as an object (a crash).
+            m_registered.PushBack(RegisteredType{&type, enumTypeId});
+        }
+
+        // Declare any ENUM referenced by a collected type's members (property types + constructor/
+        // method params). An enum is not separately registered - it rides a member's type - so we
+        // harvest them in Phase 1 so a member declaration string can name the enum (AngelScript
+        // otherwise rejects a decl that references an undeclared enum, and a broken property binding
+        // crashes at dispatch). Idempotent (DeclareEnum no-ops on a re-seen enum).
+        void DeclareReferencedEnums(const core::TypeInfo& type)
+        {
+            auto maybe = [&](const core::TypeInfo* t)
+            {
+                if (t != nullptr && t->enumeratorCount > 0)
+                {
+                    DeclareEnum(*t);
+                }
+            };
+            for (core::usize i = 0; i < core::PropertyCount(type); ++i)
+            {
+                maybe(core::PropertyAt(type, i).type);
+            }
+            for (core::usize i = 0; i < core::MethodCount(type); ++i)
+            {
+                const core::MethodInfo& method = core::MethodAt(type, i);
+                for (core::u32 p = 0; p < method.paramCount; ++p)
+                {
+                    maybe(method.params[p].type());
+                }
+            }
+            for (core::usize i = 0; i < core::ConstructorCount(type); ++i)
+            {
+                const core::ConstructorInfo& constructor = core::ConstructorAt(type, i);
+                for (core::u32 p = 0; p < constructor.paramCount; ++p)
+                {
+                    maybe(constructor.params[p].type());
+                }
+            }
         }
 
         // Bind a container member as owner methods: `<name>_count() -> uint`, `<name>_at(uint) ->
@@ -1615,6 +1712,13 @@ namespace draconic::script::angelscript
         // Phase 2: bind the declared type's members.
         void BindType(const core::TypeInfo& type)
         {
+            // An enum is fully declared by DeclareEnum (a native enum + its values); it has no object
+            // members. Binding object behaviours (opAssign, factories, ...) onto an enum name crashes
+            // AngelScript - so skip it here. (Also skips scalars/containers, which have no bindings.)
+            if (type.enumeratorCount > 0)
+            {
+                return;
+            }
             if (!IsDeclared(&type))
             {
                 return;

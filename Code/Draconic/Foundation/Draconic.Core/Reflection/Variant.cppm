@@ -441,6 +441,29 @@ export namespace draconic::core
             return *static_cast<const T*>(Data());
         }
 
+        // The underlying integer of an ENUM-typed VALUE Variant (Type() reports an enum). Enums cross
+        // to script as their underlying int - Wren has no enum type, and an AngelScript enum is
+        // int-backed - so the backends read the value with this instead of a typed TryGet<E>() (which
+        // they cannot spell without the C++ enum type). Reads the stored value by its byte width.
+        [[nodiscard]] i64 AsEnumInt() const noexcept
+        {
+            const void* p = Data();
+            const TypeInfo* t = Type();
+            switch (t != nullptr ? t->size : 0)
+            {
+            case 1:
+                return *static_cast<const i8*>(p);
+            case 2:
+                return *static_cast<const i16*>(p);
+            case 4:
+                return *static_cast<const i32*>(p);
+            case 8:
+                return *static_cast<const i64*>(p);
+            default:
+                return 0;
+            }
+        }
+
     private:
         static constexpr usize kInlineSize = 3 * sizeof(void*);
         static constexpr usize kInlineAlign = alignof(std::max_align_t);

@@ -6,7 +6,7 @@
 add_library(Draconic.Net.Replication STATIC)
 add_library(Draconic::Net.Replication ALIAS Draconic.Net.Replication)
 
-target_link_libraries(Draconic.Net.Replication PUBLIC Draconic::Core Draconic::Net Draconic::Scene Draconic::Resource Draconic::Policy)
+target_link_libraries(Draconic.Net.Replication PUBLIC Draconic::Core Draconic::Net Draconic::Scene Draconic::Resource Draconic::Script.Facades Draconic::Policy)
 
 target_sources(Draconic.Net.Replication
     PUBLIC

@@ -34,6 +34,7 @@ import draconic.animation;          // animation components + managers (Track A,
 import draconic.engine.animation;   // *.of + SceneAnimation (Track A, animation surface)
 import draconic.particles;          // ParticleEffectComponent + manager (Track A, particle surface)
 import draconic.engine.particles;   // *.of + SceneParticles (Track A, particle surface)
+import draconic.net.replication;    // NetworkComponent + manager + .of (Track A, net surface)
 
 using namespace draconic::core;
 using namespace draconic::script;
@@ -2894,4 +2895,124 @@ TEST_CASE("script.scene: ParticleEffectComponent::of + SceneParticles::of ops ar
     ScriptComponent* comp = bed.components->Get(e);
     REQUIRE(comp != nullptr);
     CHECK_FALSE(comp->behaviors[0].faulted);
+}
+
+// Enum-typed component properties cross to script (Wren: underlying int). LightComponent.type is a
+// LightType enum (Directional=0, Point=1, Spot=2). Proves the Wren enum marshalling half.
+TEST_CASE("script.scene: an enum component property reads/writes as an int in Wren")
+{
+    render::RegisterRenderScriptFacade();
+    ScriptedScene bed;
+    auto* lights = bed.scene.AddSystem<render::LightComponentManager>();
+
+    RefPtr<ScriptClass> tweaker =
+        MakeClass(u8"EnumTest",
+                  u8"class EnumTest {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onStart() {\n"
+                  u8"        var l = LightComponent.of(_entity)\n"
+                  u8"        if (l.type == 0) { l.type = 2 }\n" // Directional(0) -> Spot(2)
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    lights->Add(e).type = render::LightType::Directional; // 0
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(lights->Get(e) != nullptr);
+    CHECK(lights->Get(e)->type == render::LightType::Spot); // read (==0) + write (=2) both crossed
+}
+
+// AngelScript gets NATIVE enums (named). LightComponent.type is a LightType enum.
+TEST_CASE("script.scene: an enum component property reads/writes as a native enum in AngelScript")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    render::RegisterRenderScriptFacade();
+    ScriptedScene bed;
+    auto* lights = bed.scene.AddSystem<render::LightComponentManager>();
+
+    RefPtr<ScriptClass> tweaker = MakeClassLang(
+        u8"angelscript", u8"EnumTest",
+        u8"class EnumTest {\n"
+        u8"    private Entity@ self;\n"
+        u8"    EnumTest(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        LightComponent@ l = LightComponent::of(self);\n"
+        u8"        if (l.type == LightType::Directional) { l.type = LightType::Spot; }\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    lights->Add(e).type = render::LightType::Directional;
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(lights->Get(e) != nullptr);
+    CHECK(lights->Get(e)->type == render::LightType::Spot); // named-enum read + write crossed
+}
+
+// ---- Track A (net surface): NetworkComponent.of - authority (an enum) for authority-gated gameplay.
+TEST_CASE("script.scene: NetworkComponent.of exposes replication authority - AngelScript (named enum)")
+{
+    draconic::script::angelscript::RegisterAngelScriptBackend();
+    draconic::net::RegisterNetworkComponentScriptFacade();
+    ScriptedScene bed;
+    auto* net = bed.scene.AddSystem<draconic::net::NetworkComponentManager>();
+
+    RefPtr<ScriptClass> tweaker = MakeClassLang(
+        u8"angelscript", u8"NetTweaker",
+        u8"class NetTweaker {\n"
+        u8"    private Entity@ self;\n"
+        u8"    NetTweaker(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        NetworkComponent@ n = NetworkComponent::of(self);\n"
+        u8"        if (n.authority == NetworkAuthority::Server) { self.setName(\"authoritative\"); }\n"
+        u8"        n.authority = NetworkAuthority::Client;\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    net->Add(e).authority = draconic::net::NetworkAuthority::Server;
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(net->Get(e) != nullptr);
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"authoritative"));
+    CHECK(net->Get(e)->authority == draconic::net::NetworkAuthority::Client);
+}
+
+TEST_CASE("script.scene: NetworkComponent.of authority crosses as an int in Wren")
+{
+    draconic::net::RegisterNetworkComponentScriptFacade();
+    ScriptedScene bed;
+    auto* net = bed.scene.AddSystem<draconic::net::NetworkComponentManager>();
+
+    RefPtr<ScriptClass> tweaker =
+        MakeClass(u8"NetTweaker",
+                  u8"class NetTweaker {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onStart() {\n"
+                  u8"        var n = NetworkComponent.of(_entity)\n"
+                  u8"        if (n.authority == 0) { _entity.setName(\"authoritative\") }\n"
+                  u8"        n.authority = 1\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    net->Add(e).authority = draconic::net::NetworkAuthority::Server;
+
+    bed.Start();
+    bed.Frame();
+
+    REQUIRE(net->Get(e) != nullptr);
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"authoritative"));
+    CHECK(net->Get(e)->authority == draconic::net::NetworkAuthority::Client);
 }

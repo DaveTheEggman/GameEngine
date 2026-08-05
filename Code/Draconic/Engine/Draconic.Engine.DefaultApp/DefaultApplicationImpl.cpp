@@ -175,6 +175,7 @@ namespace draconic::runtime
         // prefab net-spawn resolver) + the optional startup preset below; extras get the hook in
         // CreateInstance. The per-instance net binding is installed by GameInstance itself.
         net::RegisterNetScriptFacade();
+        draconic::net::RegisterNetworkComponentScriptFacade(); // NetworkComponent.of(entity).authority
         m_instance.SetEndpointOnlineHook(MakeEndpointOnlineHook());
         ApplyNetworkStartup(
             m_instance); // enter a preset server/client role at startup (None = offline)
