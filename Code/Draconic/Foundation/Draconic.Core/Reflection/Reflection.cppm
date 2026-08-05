@@ -346,6 +346,14 @@ export namespace draconic::core
     // layers that call properties/methods on a reflected Variant).
     [[nodiscard]] inline Instance ToInstance(Variant& value) noexcept
     {
+        if (value.IsResolving())
+        {
+            // Resolve mode: recompute the live address every time (the owning layer's resolver does
+            // the O(1) lookup). A dead entity / removed component resolves to null -> empty Instance,
+            // so the caller (a script get/set/call) fails cleanly - never a stale/dangling address.
+            void* address = value.Resolve();
+            return (address != nullptr) ? Instance(address, value.Type()) : Instance{};
+        }
         if (value.IsBorrow())
         {
             // A borrow points into a parent's storage; a structural mutation since capture may have

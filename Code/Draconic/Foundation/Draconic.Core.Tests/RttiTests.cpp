@@ -824,6 +824,59 @@ TEST_CASE("rtti: A6 - authored parameter names reach ParamInfo; unnamed methods 
     CHECK(std::strcmp(legsOf->params[0].name, "") == 0);
 }
 
+TEST_CASE("rtti: Variant RESOLVE mode re-computes the live address every deref (entity.get core)")
+{
+    // A movable "component": `slot` selects which array element is live; the resolver returns its
+    // CURRENT address, exactly like a component manager's Get() after a swap-remove.
+    int values[4] = {10, 20, 30, 40};
+    int slot = 2;
+    struct Ctx
+    {
+        int* base;
+        int* slot;
+    };
+    auto resolver = [](const Variant& v) -> void*
+    {
+        const Ctx* c = static_cast<const Ctx*>(v.ResolveContext());
+        return (*c->slot >= 0) ? &c->base[*c->slot] : nullptr;
+    };
+
+    Variant rv = Variant::Resolving(&TypeOf<int>(), resolver, Ctx{values, &slot});
+    CHECK(rv.IsResolving());
+    CHECK_FALSE(rv.IsObject());
+    CHECK_FALSE(rv.IsBorrow());
+    CHECK_FALSE(rv.IsEmpty());
+    CHECK(rv.Type() == &TypeOf<int>());
+
+    Instance i0 = ToInstance(rv);
+    REQUIRE(i0.Pointer() == &values[2]);
+    CHECK(*static_cast<int*>(i0.Pointer()) == 30);
+
+    // The component "moves" (swap-remove): re-resolution follows it - a borrow would be stale.
+    slot = 0;
+    Instance i1 = ToInstance(rv);
+    REQUIRE(i1.Pointer() == &values[0]);
+    CHECK(*static_cast<int*>(i1.Pointer()) == 10);
+
+    // Component "removed": resolve -> null -> a clean empty Instance (no dangling deref).
+    slot = -1;
+    CHECK(ToInstance(rv).Pointer() == nullptr);
+
+    // Copy carries the resolve mode + inline context.
+    slot = 3;
+    Variant copy = rv;
+    CHECK(copy.IsResolving());
+    CHECK(ToInstance(copy).Pointer() == &values[3]);
+
+    // Move transfers the handle; the source is left empty.
+    Variant moved = Move(rv);
+    CHECK(moved.IsResolving());
+    CHECK_FALSE(rv.IsResolving());
+    CHECK(rv.IsEmpty());
+    slot = 1;
+    CHECK(ToInstance(moved).Pointer() == &values[1]);
+}
+
 TEST_CASE("rtti: const method and zero-arg invoke")
 {
     RefPtr<Animal> animal = MakeRef<Animal>(DefaultAllocator());

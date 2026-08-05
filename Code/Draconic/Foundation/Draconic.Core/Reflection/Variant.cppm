@@ -12,6 +12,7 @@ module;
 #include "Draconic.Core/Prelude.h"
 #include "Draconic.Core/Debug/Assert.h"
 #include <cstddef>
+#include <cstring>
 #include <type_traits>
 
 export module draconic.core:variant;
@@ -162,20 +163,62 @@ export namespace draconic::core
             return v;
         }
 
+        // A RE-RESOLVING handle: `type` is the reflected type; `resolver(v)` returns the value's
+        // CURRENT address each deref (or null if gone), reading its context from `v`'s inline storage
+        // (seeded from `ctx`). For LIVE scene state a borrow cannot safely hold: the component pool
+        // swap-removes, so the address must be recomputed, never cached (Fable Correction 1). `Ctx`
+        // is a trivially-copyable POD <= kInlineSize (e.g. {Scene*, EntityHandle, ComponentManagerBase*});
+        // the resolver, defined in the OWNING layer (core stays generic), casts ResolveContext() back
+        // to Ctx. Weak by design: a dead entity resolves to null -> the deref is a clean no-op.
+        template <typename Ctx>
+        [[nodiscard]] static Variant Resolving(const TypeInfo* type,
+                                               void* (*resolver)(const Variant&), const Ctx& ctx)
+        {
+            static_assert(std::is_trivially_copyable_v<Ctx>,
+                          "resolve context must be trivially copyable");
+            static_assert(sizeof(Ctx) <= kInlineSize && alignof(Ctx) <= kInlineAlign,
+                          "resolve context must fit Variant inline storage");
+            if (type == nullptr || resolver == nullptr)
+            {
+                return Variant{};
+            }
+            Variant v;
+            v.m_dynamicType = type;
+            v.m_resolver = resolver;
+            std::memcpy(v.m_storage.inlineBytes, &ctx, sizeof(Ctx));
+            return v;
+        }
+
+        // Resolve mode (see Resolving): a live re-resolving handle over external value state.
+        [[nodiscard]] bool IsResolving() const noexcept { return m_resolver != nullptr; }
+        // Raw resolve-context bytes; the owning layer casts back to its Ctx. Valid in resolve mode.
+        [[nodiscard]] const void* ResolveContext() const noexcept { return m_storage.inlineBytes; }
+        // The value's CURRENT address, or null (dead). Valid in resolve mode; null otherwise.
+        [[nodiscard]] void* Resolve() const
+        {
+            return m_resolver != nullptr ? m_resolver(*this) : nullptr;
+        }
+
         Variant(const Variant& other)
             : m_dynamicType(other.m_dynamicType), m_vtable(other.m_vtable),
-              m_borrowAddr(other.m_borrowAddr), m_borrowGeneration(other.m_borrowGeneration)
+              m_borrowAddr(other.m_borrowAddr), m_borrowGeneration(other.m_borrowGeneration),
+              m_resolver(other.m_resolver)
         {
             if (m_vtable != nullptr)
             {
                 void* dst = AllocateStorage(m_vtable->size, m_vtable->align);
                 m_vtable->copy(dst, other.Data());
             }
+            else if (m_resolver != nullptr)
+            {
+                m_storage = other.m_storage; // resolve mode: trivially copy the inline context
+            }
         }
 
         Variant(Variant&& other) noexcept
             : m_dynamicType(other.m_dynamicType), m_vtable(other.m_vtable),
-              m_borrowAddr(other.m_borrowAddr), m_borrowGeneration(other.m_borrowGeneration)
+              m_borrowAddr(other.m_borrowAddr), m_borrowGeneration(other.m_borrowGeneration),
+              m_resolver(other.m_resolver)
         {
             if (m_vtable != nullptr)
             {
@@ -191,11 +234,16 @@ export namespace draconic::core
                     m_vtable->destroy(other.Data());
                 }
             }
+            else if (m_resolver != nullptr)
+            {
+                m_storage = other.m_storage; // resolve mode: POD context, move == copy
+            }
             other.m_vtable = nullptr;
             other.m_isHeap = false;
             other.m_dynamicType = nullptr;
             other.m_borrowAddr = nullptr;
             other.m_borrowGeneration = 0;
+            other.m_resolver = nullptr;
         }
 
         Variant& operator=(const Variant& other)
@@ -207,10 +255,15 @@ export namespace draconic::core
                 m_vtable = other.m_vtable;
                 m_borrowAddr = other.m_borrowAddr;
                 m_borrowGeneration = other.m_borrowGeneration;
+                m_resolver = other.m_resolver;
                 if (m_vtable != nullptr)
                 {
                     void* dst = AllocateStorage(m_vtable->size, m_vtable->align);
                     m_vtable->copy(dst, other.Data());
+                }
+                else if (m_resolver != nullptr)
+                {
+                    m_storage = other.m_storage;
                 }
             }
             return *this;
@@ -225,6 +278,7 @@ export namespace draconic::core
                 m_vtable = other.m_vtable;
                 m_borrowAddr = other.m_borrowAddr;
                 m_borrowGeneration = other.m_borrowGeneration;
+                m_resolver = other.m_resolver;
                 if (m_vtable != nullptr)
                 {
                     if (other.m_isHeap)
@@ -239,11 +293,16 @@ export namespace draconic::core
                         m_vtable->destroy(other.Data());
                     }
                 }
+                else if (m_resolver != nullptr)
+                {
+                    m_storage = other.m_storage;
+                }
                 other.m_vtable = nullptr;
                 other.m_isHeap = false;
                 other.m_dynamicType = nullptr;
                 other.m_borrowAddr = nullptr;
                 other.m_borrowGeneration = 0;
+                other.m_resolver = nullptr;
             }
             return *this;
         }
@@ -265,10 +324,17 @@ export namespace draconic::core
             m_dynamicType = nullptr;
             m_borrowAddr = nullptr;
             m_borrowGeneration = 0;
+            m_resolver = nullptr; // resolve mode owns no heap/value; just drop the handle
         }
 
-        [[nodiscard]] bool IsEmpty() const noexcept { return m_vtable == nullptr; }
-        [[nodiscard]] explicit operator bool() const noexcept { return m_vtable != nullptr; }
+        [[nodiscard]] bool IsEmpty() const noexcept
+        {
+            return m_vtable == nullptr && m_resolver == nullptr;
+        }
+        [[nodiscard]] explicit operator bool() const noexcept
+        {
+            return m_vtable != nullptr || m_resolver != nullptr;
+        }
 
         // True if this holds an OWNED object (RefPtr<Object>), not a plain value and NOT a borrow.
         // A borrow's SBO also holds a RefPtr (its keep-alive root), but that root is NOT the value the
@@ -276,7 +342,7 @@ export namespace draconic::core
         // back the wrong object (the root) and marshal it as the borrowed type (Fable ruling).
         [[nodiscard]] bool IsObject() const noexcept
         {
-            return m_dynamicType != nullptr && m_borrowAddr == nullptr;
+            return m_dynamicType != nullptr && m_borrowAddr == nullptr && m_resolver == nullptr;
         }
 
         // True if this is a borrow (a handle over a member/element address; see Borrow()).
@@ -316,7 +382,7 @@ export namespace draconic::core
         // returns null here (its stored RefPtr is the keep-alive root, not the borrowed value).
         [[nodiscard]] Object* AsObject() const noexcept
         {
-            if (m_dynamicType == nullptr || m_borrowAddr != nullptr)
+            if (m_dynamicType == nullptr || m_borrowAddr != nullptr || m_resolver != nullptr)
             {
                 return nullptr;
             }
@@ -404,5 +470,9 @@ export namespace draconic::core
         const detail::VariantVTable* m_vtable = nullptr;
         void* m_borrowAddr = nullptr; // non-null => BORROW mode; overrides ToInstance to this address
         u64 m_borrowGeneration = 0;   // mutation generation captured at Borrow(); revalidated on deref
+        // non-null => RESOLVE mode: recompute the value's CURRENT address on every deref (live scene
+        // state a borrow cannot safely hold). Context lives in m_storage's inline bytes; no owned
+        // value (m_vtable == nullptr), no heap, weak (no keep-alive). See Resolving() / ToInstance.
+        void* (*m_resolver)(const Variant&) = nullptr;
     };
 }
