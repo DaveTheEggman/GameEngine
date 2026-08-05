@@ -48,6 +48,16 @@ export namespace draconic::script
     /// The extra facade names registered by other modules (appended to the prelude after the built-ins).
     [[nodiscard]] core::Span<const core::StringView> ExtraFacadeNames();
 
+    /// Register an ADDITIONAL emission root: a reflected type the Wren collector should emit as a
+    /// script class even when no facade signature statically reaches it (e.g. a component type
+    /// returned only via a factory whose declared return IS that type - `RigidBody.of(entity)`).
+    /// GENERAL, not component-specific (the UI View reflection follow-on wants the same door).
+    /// AngelScript already emits every registry type, so this is consumed by the Wren collector.
+    /// Idempotent; the type is borrowed (its TypeInfo has static lifetime).
+    void RegisterExtraScriptRootType(const core::TypeInfo* type);
+    /// The additional emission roots registered by other modules (extra seeds for the Wren closure).
+    [[nodiscard]] core::Span<const core::TypeInfo* const> ExtraScriptRootTypes();
+
     struct ScriptRuntimeBinding
     {
         f64 timeSeconds = 0.0;   // seconds since the run context was created

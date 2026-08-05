@@ -9,6 +9,7 @@
 #include <doctest/doctest.h>
 
 #include "Draconic.Core/Prelude.h"
+#include "Draconic.Core/Reflection/Reflect.h" // DRACONIC_REFLECT_VALUE (the OPTION 1 test component)
 #include <initializer_list>
 
 import draconic.core;
@@ -18,6 +19,7 @@ import draconic.scene.resource;
 import draconic.engine.scene;
 import draconic.resource;
 import draconic.script;
+import draconic.script.facades; // script::Entity + RegisterExtraScriptRootType/FacadeName (OPTION 1)
 import draconic.script.wren;
 import draconic.script.angelscript;
 import draconic.script.resource;
@@ -30,6 +32,33 @@ using namespace draconic::core;
 using namespace draconic::script;
 namespace scene = draconic::scene;
 namespace physics = draconic::physics;
+
+// ---- OPTION 1 (Fable ruling, spec Section 12): a component reached ONLY via a per-type
+// `Gadget.of(entity)` factory whose DECLARED return IS the component type. Proves the whole
+// script-facing pipeline: extra-emission-root -> emitted Wren class; the ReturnType-override `of`
+// -> a RESOLVE Variant of the component; a property set through the re-resolving handle mutates
+// the LIVE component. ----
+namespace
+{
+    struct Gadget
+    {
+        f32 power = 1.0f;
+    };
+    class GadgetManager final : public scene::ComponentManager<Gadget>
+    {
+    };
+    // The RigidBody.of(entity) shape: hands back a RESOLVE-mode ref of the component's own type.
+    Variant Gadget_of(draconic::script::Entity e)
+    {
+        return (e.scene != nullptr) ? e.scene->MakeComponentRef(e.Handle(), TypeOf<Gadget>())
+                                    : Variant{};
+    }
+}
+DRACONIC_REFLECT_VALUE(Gadget, "draconic::script::test")
+{
+    builder.Property<&Gadget::power>("power");
+    builder.Method<&Gadget_of, Gadget>("of"); // static factory, declared return = Gadget
+}
 
 namespace
 {
@@ -737,6 +766,117 @@ TEST_CASE("script.scene: entity.send to a target with no matching handler is a s
     ScriptComponent* c = bed.components->Get(e);
     REQUIRE(c != nullptr);
     CHECK_FALSE(c->behaviors[0].faulted);
+}
+
+// ---- the "Roll Call" sample game's core loop, headless (mirrors SampleGame/Scripts/*.wren):
+// proximity-collect orbs -> send("collect") to the GameManager -> onCollect scores -> win at
+// the total. Proves the content-only game runs on the shipped facades (find/send/position/
+// destroy + per-instance score) with a real Wren VM. Score is observed through the manager's
+// entity NAME (generation-independent, unlike a module global that the bed's incremental
+// class-adding would reset). The input/character-movement path needs the Input + Physics
+// subsystems (exercised on Play), so it is out of this bed by design. ----
+
+TEST_CASE("script.scene: the Roll Call sample game collects orbs by proximity and wins at "
+          "the total (find + send + destroy, real VM)")
+{
+    ScriptedScene bed;
+
+    // GameController (mirror of GameController.wren), total 2 for a short round. Score lives in
+    // per-instance fields; onCollect mirrors it into the entity name so the test can observe it.
+    RefPtr<ScriptClass> gameController =
+        MakeClass(u8"GameController",
+                  u8"class GameController {\n"
+                  u8"    construct new(entity) {\n"
+                  u8"        _entity = entity\n"
+                  u8"        _total = 2\n"
+                  u8"        _collected = 0\n"
+                  u8"        _won = false\n"
+                  u8"    }\n"
+                  u8"    totalOrbs=(v) { _total = v }\n"
+                  u8"    onStart() {\n"
+                  u8"        _collected = 0\n"
+                  u8"        _won = false\n"
+                  u8"    }\n"
+                  u8"    onCollect() {\n"
+                  u8"        if (_won) {\n"
+                  u8"            return\n"
+                  u8"        }\n"
+                  u8"        _collected = _collected + 1\n"
+                  u8"        var won = 0\n"
+                  u8"        if (_collected >= _total) {\n"
+                  u8"            _won = true\n"
+                  u8"            won = 1\n"
+                  u8"        }\n"
+                  // Report score via a stable "Scoreboard" entity's transform (x = count,
+                  // y = 1 on win) - renaming an entity would break find() by name.
+                  u8"        _entity.scene.find(\"Scoreboard\").setPosition(_collected, won, 0)\n"
+                  u8"    }\n"
+                  u8"    onPlayerFell() { _won = true }\n"
+                  u8"}\n",
+                  {u8"onStart", u8"onCollect", u8"onPlayerFell"});
+
+    // Pickup (mirror of Pickup.wren): proximity to "Player" -> message the manager, remove self.
+    RefPtr<ScriptClass> pickup =
+        MakeClass(u8"Pickup",
+                  u8"class Pickup {\n"
+                  u8"    construct new(entity) {\n"
+                  u8"        _entity = entity\n"
+                  u8"        _r = 1.2\n"
+                  u8"        _taken = false\n"
+                  u8"    }\n"
+                  u8"    onUpdate(dt) {\n"
+                  u8"        if (_taken) {\n"
+                  u8"            return\n"
+                  u8"        }\n"
+                  u8"        var player = _entity.scene.find(\"Player\")\n"
+                  u8"        if (!player.isValid()) {\n"
+                  u8"            return\n"
+                  u8"        }\n"
+                  u8"        var p = player.position()\n"
+                  u8"        var me = _entity.position()\n"
+                  u8"        var dx = p.x - me.x\n"
+                  u8"        var dy = p.y - me.y\n"
+                  u8"        var dz = p.z - me.z\n"
+                  u8"        if (dx*dx + dy*dy + dz*dz > _r*_r) {\n"
+                  u8"            return\n"
+                  u8"        }\n"
+                  u8"        _taken = true\n"
+                  u8"        var m = _entity.scene.find(\"GameManager\")\n"
+                  u8"        if (m.isValid()) { m.send(\"collect\") }\n"
+                  u8"        _entity.destroy()\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onUpdate"});
+
+    (void)bed.AddScripted(gameController, u8"GameManager"); // pickups find it by this name
+    const scene::EntityHandle scoreboard = bed.scene.CreateEntity(u8"Scoreboard"); // score readout
+    const scene::EntityHandle player = bed.scene.CreateEntity(u8"Player");
+    bed.scene.SetLocalPosition(player, Float3{100.0f, 0.0f, 100.0f}); // start well clear
+    const scene::EntityHandle orb1 = bed.AddScripted(pickup, u8"Orb1");
+    const scene::EntityHandle orb2 = bed.AddScripted(pickup, u8"Orb2");
+    bed.scene.SetLocalPosition(orb1, Float3{0.0f, 0.0f, 0.0f});
+    bed.scene.SetLocalPosition(orb2, Float3{5.0f, 0.0f, 0.0f});
+
+    bed.Start();
+    bed.Frame(); // instantiate + onStart; player far -> nothing collected
+    CHECK(bed.scripts->InstanceCount() == 3u); // manager + 2 orbs
+    CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 0.0f));
+
+    // Walk onto orb1: it collects itself and messages the manager.
+    bed.scene.SetLocalPosition(player, Float3{0.0f, 0.0f, 0.0f});
+    bed.Frame(); // orb1 onUpdate: proximity hit -> send("collect") + destroy
+    bed.Frame(); // manager drains "collect" -> onCollect -> Scoreboard x = 1
+    CHECK_FALSE(bed.scene.IsValid(orb1));
+    CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 1.0f));
+    CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.y, 0.0f)); // not won yet
+
+    // Walk onto orb2: collecting the last orb wins.
+    bed.scene.SetLocalPosition(player, Float3{5.0f, 0.0f, 0.0f});
+    bed.Frame();
+    bed.Frame();
+    CHECK_FALSE(bed.scene.IsValid(orb2));
+    CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 2.0f)); // both collected
+    CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.y, 1.0f)); // win branch ran
 }
 
 TEST_CASE("script.scene: updateInterval throttles onUpdate and delivers the accumulated "
@@ -1715,4 +1855,45 @@ TEST_CASE("script.scene: SceneScriptSettings round-trips its Level ref + enabled
 
     CHECK(in.script.id == (Guid{0xABCD, 0x1234}));
     CHECK_FALSE(in.enabled);
+}
+
+// ---- OPTION 1 end-to-end: Gadget.of(_entity).power = 5 mutates the LIVE component (Wren). Proves
+// the extra-emission-root (Gadget emitted though no signature reaches it), the ReturnType-override
+// factory, and property mutation through the re-resolving handle - all together. ----
+TEST_CASE("script.scene: OPTION 1 - Component.of(entity).field mutates the live component through a "
+          "re-resolving handle (Wren)")
+{
+    // Register the component: run its reflect builder (patches TypeOf<Gadget>), put it in the
+    // registry (so the backend emits it), seed it as an extra emission root (Wren reachability),
+    // and make its class name import-visible in behavior preludes. Once, before any VM context.
+    static const bool registered = []()
+    {
+        DraconicRegisterValue_Gadget();
+        GlobalTypeRegistry().Register(TypeOf<Gadget>());
+        draconic::script::RegisterExtraScriptRootType(&TypeOf<Gadget>());
+        draconic::script::RegisterExtraFacadeName(u8"Gadget");
+        return true;
+    }();
+    (void)registered;
+
+    ScriptedScene bed;
+    GadgetManager* gadgets = bed.scene.AddSystem<GadgetManager>();
+
+    RefPtr<ScriptClass> setter = MakeClass(u8"Setter",
+                                           u8"class Setter {\n"
+                                           u8"    construct new(entity) { _entity = entity }\n"
+                                           u8"    onStart() {\n"
+                                           u8"        var g = Gadget.of(_entity)\n"
+                                           u8"        g.power = 5.0\n"
+                                           u8"    }\n"
+                                           u8"}\n",
+                                           {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(setter, u8"e");
+    gadgets->Add(e).power = 1.0f;
+
+    bed.Start();
+    bed.Frame(); // onStart: Gadget.of(_entity).power = 5.0
+    REQUIRE(gadgets->Get(e) != nullptr);
+    CHECK(gadgets->Get(e)->power == doctest::Approx(5.0f)); // the LIVE component was mutated
 }

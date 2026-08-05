@@ -581,6 +581,13 @@ namespace draconic::script::wren
                 push(t);
             }
         }
+        // Additional emission roots registered by other modules: types reached only via a factory
+        // whose DECLARED return is that type (e.g. component types via RigidBody.of(entity)), which
+        // no static signature names. Seed them exactly like constructor-seeded types.
+        for (const core::TypeInfo* t : draconic::script::ExtraScriptRootTypes())
+        {
+            push(t);
+        }
         auto edge = [&](const core::TypeInfo* u)
         {
             if (u == nullptr)

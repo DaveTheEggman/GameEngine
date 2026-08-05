@@ -90,6 +90,32 @@ namespace draconic::script
             static Array<StringView> views;
             return views;
         }
+        Array<const core::TypeInfo*>& ExtraRootStorage()
+        {
+            static Array<const core::TypeInfo*> roots;
+            return roots;
+        }
+    }
+
+    void RegisterExtraScriptRootType(const core::TypeInfo* type)
+    {
+        if (type == nullptr)
+        {
+            return;
+        }
+        for (const core::TypeInfo* existing : ExtraRootStorage())
+        {
+            if (existing == type)
+            {
+                return; // idempotent
+            }
+        }
+        ExtraRootStorage().PushBack(type);
+    }
+
+    core::Span<const core::TypeInfo* const> ExtraScriptRootTypes()
+    {
+        return {ExtraRootStorage().Data(), ExtraRootStorage().Size()};
     }
 
     void RegisterExtraFacadeName(StringView name)
