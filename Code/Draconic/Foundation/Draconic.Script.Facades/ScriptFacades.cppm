@@ -83,7 +83,8 @@ export namespace draconic::script
     // ---- the curated behavior facades (camelCase = the script-visible names, the
     // Audio/Input facade precedent) ----
 
-    struct Scene; // bound scene handle (defined below); Entity.scene returns one
+    struct Scene;        // bound scene handle (defined below); Entity.scene returns one
+    struct SceneEvents;  // the scene event-bus handle (defined below); Scene.events returns one
 
     /// The per-entity handle behaviors receive as their constructor argument: transform
     /// get/set, name, destroy. A value type - the VM instance carries a copy; a stale
@@ -286,6 +287,28 @@ export namespace draconic::script
         /// Resolve a '/'-separated hierarchy path from THIS scene's roots, e.g.
         /// "Player/Weapon/Muzzle" (invalid if any segment misses).
         [[nodiscard]] Entity findByPath(String path) const;
+        /// This scene's event-bus handle: `scene.events.emit(name, payload)`. A computed property
+        /// (parens-less), so scripts write `scene.events.emit(...)` without call parens. Defined
+        /// out-of-line (SceneEvents is completed below).
+        [[nodiscard]] SceneEvents eventsHandle() const;
+    };
+
+    /// A BOUND scene event-bus handle: `scene.events.emit("OrbCollected", 1)`. Publishes a NAMED
+    /// event onto THIS scene's native EventBus (deferred; delivered at the scene tick's top level).
+    /// A C++ system Subscribe()s natively; a script behavior or the Level receives it as
+    /// `on<Name>(payload)` through the engine's script event bridge. emit is overloaded by payload
+    /// type - one reflected name, resolved by arg type, exactly like `entity.send`. A value type
+    /// (the VM carries a copy); a null/stale scene makes emit a safe no-op. Grouping event ops under
+    /// `.events` leaves room for `subscribe`/`unsubscribe` to join it (a follow-up).
+    struct SceneEvents
+    {
+        scene::Scene* scene = nullptr;
+
+        void emit(String name) const;
+        void emit(String name, f64 number) const;
+        void emit(String name, String text) const;
+        void emit(String name, bool flag) const;
+        void emit(String name, Entity payload) const;
     };
 
     /// Wrap a (scene, handle) pair into an Entity value (invalid handle -> invalid Entity).
@@ -336,6 +359,54 @@ export namespace draconic::script
     {
         return (scene != nullptr) ? WrapEntity(scene, scene->FindEntityByPath(path.AsView()))
                                   : Entity{};
+    }
+
+    inline SceneEvents Scene::eventsHandle() const
+    {
+        SceneEvents handle;
+        handle.scene = scene; // this scene's bus - never ambient
+        return handle;
+    }
+
+    // emit publishes straight onto the scene's native EventBus. Both draconic.script.facades and
+    // draconic.scene are Foundation, so no ScriptRuntimeBinding hook is needed (unlike spawn, which
+    // reaches an Engine-owned content DB): the call is a direct, host-independent Publish. Delivery
+    // to scripts is the engine's job (the script event bridge drains the bus and dispatches
+    // on<Name>). A null/empty name or null scene is a safe no-op.
+    inline void SceneEvents::emit(String name) const
+    {
+        if (scene != nullptr && !name.IsEmpty())
+        {
+            scene->Events().Publish(StringHash(name.AsView()), Variant{});
+        }
+    }
+    inline void SceneEvents::emit(String name, f64 number) const
+    {
+        if (scene != nullptr && !name.IsEmpty())
+        {
+            scene->Events().Publish(StringHash(name.AsView()), Variant::From<f64>(number));
+        }
+    }
+    inline void SceneEvents::emit(String name, String text) const
+    {
+        if (scene != nullptr && !name.IsEmpty())
+        {
+            scene->Events().Publish(StringHash(name.AsView()), Variant::From<String>(Move(text)));
+        }
+    }
+    inline void SceneEvents::emit(String name, bool flag) const
+    {
+        if (scene != nullptr && !name.IsEmpty())
+        {
+            scene->Events().Publish(StringHash(name.AsView()), Variant::From<bool>(flag));
+        }
+    }
+    inline void SceneEvents::emit(String name, Entity payload) const
+    {
+        if (scene != nullptr && !name.IsEmpty())
+        {
+            scene->Events().Publish(StringHash(name.AsView()), Variant::From<Entity>(payload));
+        }
     }
 
     /// The `Component.of(entity)` factory body (OPTION 1, spec Section 12): a re-resolving handle

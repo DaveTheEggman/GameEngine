@@ -66,6 +66,23 @@ namespace draconic::script
         builder.Method<&Scene::spawn>("spawn");
         builder.Method<&Scene::find>("find");
         builder.Method<&Scene::findByPath>("findByPath");
+        // A computed property (parens-less): `scene.events` reads this scene's event-bus handle.
+        builder.ComputedProperty<&Scene::eventsHandle>("events");
+        builder.Constructor(); // Wren only materializes constructible foreign classes
+    }
+
+    DRACONIC_REFLECT_VALUE(SceneEvents, "draconic::script")
+    {
+        // emit overloads - one reflected name, resolved by payload arg type (mirrors Entity::send).
+        builder.Method<static_cast<void (SceneEvents::*)(String) const>(&SceneEvents::emit)>("emit");
+        builder.Method<static_cast<void (SceneEvents::*)(String, f64) const>(&SceneEvents::emit)>(
+            "emit");
+        builder.Method<static_cast<void (SceneEvents::*)(String, String) const>(&SceneEvents::emit)>(
+            "emit");
+        builder.Method<static_cast<void (SceneEvents::*)(String, bool) const>(&SceneEvents::emit)>(
+            "emit");
+        builder.Method<static_cast<void (SceneEvents::*)(String, Entity) const>(&SceneEvents::emit)>(
+            "emit");
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
@@ -73,9 +90,9 @@ namespace draconic::script
     {
         // Kept in sync with RegisterScriptFacadeReflection below.
         static const core::StringView names[] = {
-            u8"Entity", u8"Log", u8"Time", u8"Random", u8"Scene",
+            u8"Entity", u8"Log", u8"Time", u8"Random", u8"Scene", u8"SceneEvents",
         };
-        return core::Span<const core::StringView>{names, 5};
+        return core::Span<const core::StringView>{names, 6};
     }
 
     namespace
@@ -168,6 +185,8 @@ namespace draconic::script
             GlobalTypeRegistry().Register(Random::StaticType());
             DraconicRegisterValue_Scene(); // now a bound value type (mirrors Entity)
             GlobalTypeRegistry().Register(TypeOf<Scene>());
+            DraconicRegisterValue_SceneEvents(); // the scene.events handle (mirrors Scene)
+            GlobalTypeRegistry().Register(TypeOf<SceneEvents>());
             return true;
         }();
         (void)once;
