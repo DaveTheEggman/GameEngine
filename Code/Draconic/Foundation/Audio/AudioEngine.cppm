@@ -307,6 +307,13 @@ export namespace draconic::audio
         void SetListenerEnabled(u32 index, bool enabled);
         [[nodiscard]] u32 ListenerCount() const;
 
+        // ---- master ----
+        // Engine-level output gain, above all buses (ma_engine endpoint). Editor knob for auditioning
+        // with game audio at a comfortable level (issues-triage I7); games use bus volumes instead.
+        // Clamped at >= 0; a fresh engine is 1.0.
+        void SetMasterVolume(f32 volume);
+        [[nodiscard]] f32 MasterVolume() const;
+
         // ---- buses ----
         void SetBusVolume(AudioBus bus, f32 volume);
         [[nodiscard]] f32 BusVolume(AudioBus bus) const;

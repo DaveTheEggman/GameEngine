@@ -136,8 +136,35 @@ namespace draconic::editor
         params.loop = m_loop;
         params.allowDedupe = false; // rapid re-audition must restart, never merge
         m_voice = m_audio->Engine()->Play(m_clip, params);
+        if (m_voice.IsValid())
+        {
+            m_audio->Engine()->SetVoiceVolume(m_voice, m_auditionVolume); // honor the audition slider
+        }
+        m_paused = false;
+        m_pauseButton->SetText(StringView(u8"Pause"));
         m_status->SetText(m_voice.IsValid() ? StringView(u8"Playing...")
                                             : StringView(u8"No voice (engine headless?)"));
+    }
+
+    void AudioClipEditorPage::TogglePause()
+    {
+        if (m_audio == nullptr || m_audio->Engine() == nullptr || !m_voice.IsValid())
+        {
+            return;
+        }
+        m_paused = !m_paused;
+        m_audio->Engine()->SetPaused(m_voice, m_paused);
+        m_pauseButton->SetText(m_paused ? StringView(u8"Resume") : StringView(u8"Pause"));
+        m_status->SetText(m_paused ? StringView(u8"Paused") : StringView(u8"Playing..."));
+    }
+
+    void AudioClipEditorPage::SetAuditionVolume(f32 volume)
+    {
+        m_auditionVolume = volume < 0.0f ? 0.0f : volume;
+        if (m_audio != nullptr && m_audio->Engine() != nullptr && m_voice.IsValid())
+        {
+            m_audio->Engine()->SetVoiceVolume(m_voice, m_auditionVolume); // live while auditioning
+        }
     }
 
     void AudioClipEditorPage::StopAudition()
@@ -147,6 +174,8 @@ namespace draconic::editor
             m_audio->Engine()->Stop(m_voice);
         }
         m_voice = audio::VoiceHandle{};
+        m_paused = false;
+        m_pauseButton->SetText(StringView(u8"Pause"));
         m_waveform->SetPlayheadFraction(-1.0f);
         m_status->SetText(u8"");
     }

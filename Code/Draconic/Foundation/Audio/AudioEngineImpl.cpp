@@ -246,6 +246,8 @@ namespace draconic::audio
         ma_engine engine{};
         Bridge bridge{};
 
+        f32 masterVolume = 1.0f; // engine endpoint gain (I7 editor knob), applied on init + on set
+
         ma_sound_group busGroups[static_cast<usize>(AudioBus::Count)]{};
         bool busGroupInitialized[static_cast<usize>(AudioBus::Count)] = {};
         f32 busVolume[static_cast<usize>(AudioBus::Count)] = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -461,6 +463,10 @@ namespace draconic::audio
                 config.sampleRate = settings.sampleRate != 0 ? settings.sampleRate : 48000;
             }
             engineInitialized = ma_engine_init(&config, &engine) == MA_SUCCESS;
+            if (engineInitialized && masterVolume != 1.0f)
+            {
+                ma_engine_set_volume(&engine, masterVolume); // honor a pre-init SetMasterVolume
+            }
             return engineInitialized;
         }
 
@@ -1995,6 +2001,18 @@ namespace draconic::audio
     {
         return m_impl->engineInitialized ? ma_engine_get_listener_count(&m_impl->engine) : 0;
     }
+
+    void AudioEngine::SetMasterVolume(f32 volume)
+    {
+        Impl& impl = *m_impl;
+        impl.masterVolume = volume < 0.0f ? 0.0f : volume;
+        if (impl.engineInitialized)
+        {
+            ma_engine_set_volume(&impl.engine, impl.masterVolume);
+        }
+    }
+
+    f32 AudioEngine::MasterVolume() const { return m_impl->masterVolume; }
 
     void AudioEngine::SetBusVolume(AudioBus bus, f32 volume)
     {

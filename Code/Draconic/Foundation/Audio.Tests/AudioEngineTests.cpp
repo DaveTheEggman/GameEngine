@@ -486,6 +486,21 @@ TEST_CASE("audio.engine: bus volumes and mutes are independent and re-appliable"
     CHECK_FALSE(engine.BusMuted(AudioBus::Music));
 }
 
+TEST_CASE("audio.engine: master volume defaults to 1, clamps at zero, allows boost")
+{
+    AudioEngine engine(HeadlessSettings());
+    CHECK(engine.MasterVolume() == doctest::Approx(1.0f)); // fresh engine
+
+    engine.SetMasterVolume(0.25f);
+    CHECK(engine.MasterVolume() == doctest::Approx(0.25f));
+
+    engine.SetMasterVolume(-3.0f); // negative clamps to silence, never inverts phase
+    CHECK(engine.MasterVolume() == doctest::Approx(0.0f));
+
+    engine.SetMasterVolume(2.0f); // > 1 is a legitimate boost, not clamped
+    CHECK(engine.MasterVolume() == doctest::Approx(2.0f));
+}
+
 TEST_CASE("audio.engine: per-scene groups - pause halts the scene's voices in place, "
           "stop fades them out, destroy frees them immediately")
 {

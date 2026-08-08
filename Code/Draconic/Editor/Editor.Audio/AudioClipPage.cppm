@@ -87,9 +87,31 @@ export namespace draconic::editor
             m_playButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Play"));
             m_playButton->OnClick.Add([self](ui::ButtonBase*) { self->Audition(); });
             controls->AddView(m_playButton.Get());
+            m_pauseButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pause"));
+            m_pauseButton->OnClick.Add([self](ui::ButtonBase*) { self->TogglePause(); });
+            controls->AddView(m_pauseButton.Get());
             m_stopButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Stop"));
             m_stopButton->OnClick.Add([self](ui::ButtonBase*) { self->StopAudition(); });
             controls->AddView(m_stopButton.Get());
+
+            // Audition-local gain (not persisted - it only scales THIS page's preview voice).
+            auto volLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Vol"));
+            volLabel->FontSize.SetValue(12.0f);
+            controls->AddView(volLabel.Get());
+            m_volumeSlider = MakeRef<ui::Slider>(DefaultAllocator());
+            m_volumeSlider->Min.SetValue(0.0f);
+            m_volumeSlider->Max.SetValue(1.0f);
+            m_volumeSlider->Step.SetValue(0.05f);
+            m_volumeSlider->Value.SetValue(1.0f);
+            m_volumeSlider->OnValueChanged.Add(ui::Event<void(ui::Slider*, f32)>::Handler{
+                [self](ui::Slider*, f32 v) { self->SetAuditionVolume(v); }});
+            {
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(90));
+                lp->AlignSelf = ui::Align::Center;
+                controls->AddView(m_volumeSlider.Get(), lp);
+            }
+
             m_status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
             m_status->FontSize.SetValue(12.0f);
             controls->AddView(m_status.Get());
@@ -120,17 +142,25 @@ export namespace draconic::editor
 
         void StopAudition();
 
+        // Pause/resume the audition voice in place (button toggles its label); audition-local gain.
+        void TogglePause();
+        void SetAuditionVolume(f32 volume);
+
         EditorContext* m_context = nullptr;
         draconic::engine::audio::AudioSubsystem* m_audio = nullptr; // the RUNTIME context's subsystem
         String m_title;
         bool m_loop = false;
+        bool m_paused = false;
+        f32 m_auditionVolume = 1.0f;
         RefPtr<audio::AudioClip> m_clip;
         audio::VoiceHandle m_voice;
         RefPtr<ui::View> m_content;
         RefPtr<ui::Label> m_info;
         RefPtr<ui::Label> m_status;
         RefPtr<ui::Button> m_playButton;
+        RefPtr<ui::Button> m_pauseButton;
         RefPtr<ui::Button> m_stopButton;
+        RefPtr<ui::Slider> m_volumeSlider;
         RefPtr<WaveformView> m_waveform;
     };
 
