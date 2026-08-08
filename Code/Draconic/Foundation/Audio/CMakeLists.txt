@@ -23,6 +23,12 @@ target_sources(Draconic.Audio
 # sources; add it directly for the implementation TU).
 target_include_directories(Draconic.Audio PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty/stb)
 
-# Vendored implementation code builds without our -Werror strictness.
-set_source_files_properties(MiniaudioImpl.cpp PROPERTIES COMPILE_OPTIONS "-Wno-error")
+# Vendored implementation code builds without our -Werror strictness. Spelled per compiler:
+# passing the GNU-style flag to cl gets it read as /Wno-error and rejected outright
+# (D8021: invalid numeric argument), which fails the TU instead of relaxing it.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    set_source_files_properties(MiniaudioImpl.cpp PROPERTIES COMPILE_OPTIONS "-Wno-error")
+elseif(MSVC)
+    set_source_files_properties(MiniaudioImpl.cpp PROPERTIES COMPILE_OPTIONS "/WX-")
+endif()
 
