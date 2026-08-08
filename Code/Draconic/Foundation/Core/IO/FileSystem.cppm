@@ -66,4 +66,59 @@ export namespace draconic::core
         }
         return Status{};
     }
+
+    // Removes a directory AND everything under it. `RemoveDirectory` is the raw backend
+    // primitive (rmdir - EMPTY directories only; it silently fails on a populated one,
+    // which is how test scratch dirs quietly accumulated stale state). This is the
+    // portable composition over the existing primitives - no per-platform code.
+    // Returns true when the directory is gone afterwards (a missing dir counts as gone).
+    inline bool RemoveDirectoryRecursive(StringView path) // NOLINT(misc-no-recursion)
+    {
+        if (!DirectoryExists(path))
+        {
+            return true;
+        }
+        // Snapshot the children first: entry names are only valid during the callback,
+        // and deleting while the backend iterates the directory is undefined.
+        struct Entry
+        {
+            String name;
+            bool isDirectory;
+        };
+        struct Collect
+        {
+            Array<Entry>* entries;
+        };
+        Array<Entry> entries;
+        Collect collect{&entries};
+        if (!ListDirectory(
+                path,
+                [](void* ctx, StringView name, bool isDirectory)
+                {
+                    auto* c = static_cast<Collect*>(ctx);
+                    c->entries->PushBack(Entry{String(name), isDirectory});
+                },
+                &collect))
+        {
+            return false;
+        }
+        for (const Entry& entry : entries)
+        {
+            String child(path);
+            child.Append(u8'/');
+            child.Append(entry.name.AsView());
+            if (entry.isDirectory)
+            {
+                if (!RemoveDirectoryRecursive(child.AsView()))
+                {
+                    return false;
+                }
+            }
+            else if (!FileDelete(child.AsView()))
+            {
+                return false;
+            }
+        }
+        return RemoveDirectory(path);
+    }
 }

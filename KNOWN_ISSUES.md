@@ -5,6 +5,30 @@ and the plan. Keep newest first.
 
 ---
 
+## Legacy 'draconic::' type names in serialized data - COMPAT FALLBACK ACTIVE
+
+**Status:** MITIGATED (TypeRegistry::FindByLegacyName). The 2026-08 debrand renamed
+every RTTI registration namespace (Foundation `draconic::X` -> `rtti::X`, Engine
+`draconic::X` -> `rtti::engine::X`), but serialized data embeds qualified type
+names: content envelopes (.rasset), settings sections, prefab/scene payloads.
+Pre-debrand files stopped resolving - the editor read its own settings as
+"unknown sections" and could not match assets to editor pages.
+
+**Fix:** `FindByName` falls back on a miss of a `draconic::`-prefixed namespace to
+the two current spellings (Core RTTI, regression-tested). Data converges to the
+new names when saved. **Removal condition:** delete `FindByLegacyName` (and its
+test) once no pre-debrand project/content matters - grep serialized stores for
+`draconic::` before pulling it.
+
+**Related infra fix:** core `RemoveDirectory` is a bare rmdir; test scratch
+cleanup silently no-oped on populated dirs for months, so suites accumulated
+stale cross-run envelopes - which the rename then orphaned (phantom failures in
+Resource/Texture/Fonts/Geometry/ModelImporter/AudioPipeline/EditorCore suites).
+`RemoveDirectoryRecursive` (Core :filesystem) is the correct clean.
+(Editor.Core/Export.cppm's root cleanup was audited: it has its own VFS-rooted
+recursion and is correct.)
+
+
 ## clang 21.1 frontend crash compiling `Samples/Sandbox/main.cpp` - RESOLVED
 
 **Status:** RESOLVED 2026-07-23 (as a side-effect of the code-quality pass). A full

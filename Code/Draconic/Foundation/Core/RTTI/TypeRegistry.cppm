@@ -81,8 +81,70 @@ export namespace draconic::core
         [[nodiscard]] const TypeInfo* FindByName(const char* namespaceName,
                                                  const char* name) const noexcept
         {
-            return FindById(ComputeTypeId(namespaceName, name));
+            if (const TypeInfo* found = FindById(ComputeTypeId(namespaceName, name)))
+            {
+                return found;
+            }
+            return FindByLegacyName(namespaceName, name);
         }
+
+        // LEGACY-NAME COMPATIBILITY (2026-08 debrand): serialized data (content envelopes,
+        // settings sections, scenes) stores qualified type names, and the debrand renamed
+        // every registration namespace: Foundation "draconic::X" -> "rtti::X" and Engine
+        // "draconic::X" -> "rtti::engine::X". Old files must keep resolving, so a miss on
+        // a "draconic::"-prefixed namespace retries both current spellings. Data converges
+        // to the new names on its next save; remove this once no pre-debrand files matter.
+        [[nodiscard]] const TypeInfo* FindByLegacyName(const char* namespaceName,
+                                                       const char* name) const noexcept
+        {
+            constexpr usize kLegacyLength = 8; // strlen("draconic")
+            if (namespaceName == nullptr)
+            {
+                return nullptr;
+            }
+            for (usize i = 0; i < kLegacyLength; ++i)
+            {
+                if (namespaceName[i] != "draconic"[i])
+                {
+                    return nullptr; // not a legacy-prefixed namespace
+                }
+            }
+            const char* rest = namespaceName + kLegacyLength; // "" or "::rest"
+            if (rest[0] != '\0' && !(rest[0] == ':' && rest[1] == ':'))
+            {
+                return nullptr; // e.g. "draconicish::x" - not ours
+            }
+            // "draconic[::rest]" -> "rtti[::rest]" (Foundation), then
+            // "rtti::engine[::rest]" (Engine subsystems - their C++ namespace moved too).
+            char remapped[256];
+            if (const TypeInfo* found =
+                    FindById(ComputeTypeId(ComposeNamespace(remapped, "rtti", rest), name)))
+            {
+                return found;
+            }
+            return FindById(ComputeTypeId(ComposeNamespace(remapped, "rtti::engine", rest), name));
+        }
+
+    private:
+        // Concatenate prefix+rest into `buffer` (256 bytes; overflow truncates to the prefix
+        // alone, which simply misses the lookup - legacy namespaces are all far shorter).
+        [[nodiscard]] static const char* ComposeNamespace(char (&buffer)[256], const char* prefix,
+                                                          const char* rest) noexcept
+        {
+            usize n = 0;
+            for (; prefix[n] != '\0' && n < 255; ++n)
+            {
+                buffer[n] = prefix[n];
+            }
+            for (usize i = 0; rest[i] != '\0' && n < 255; ++i, ++n)
+            {
+                buffer[n] = rest[i];
+            }
+            buffer[n] = '\0';
+            return buffer;
+        }
+
+    public:
 
         [[nodiscard]] usize Count() const noexcept { return m_all.Size(); }
         [[nodiscard]] const Array<const TypeInfo*>& All() const noexcept { return m_all; }

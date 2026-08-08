@@ -1096,3 +1096,39 @@ TEST_CASE("rtti: type domains - default Runtime, open tags, widen-only")
     registry.Register(Dog::StaticType(), TypeDomain(u8"Editor"));
     CHECK(registry.Count() == count);
 }
+
+TEST_CASE("rtti: legacy 'draconic::' namespaces resolve to the current 'rtti::' registrations")
+{
+    // The 2026-08 debrand renamed every registration namespace (Foundation
+    // "draconic::X" -> "rtti::X", Engine "draconic::X" -> "rtti::engine::X") while
+    // serialized data (content envelopes, settings sections, scenes) still carries the
+    // old qualified names. FindByName's legacy fallback keeps that data loading.
+    TypeRegistry registry;
+    registry.Register(Animal::StaticType()); // registered under its current rtti::* namespace
+
+    const TypeInfo& animal = Animal::StaticType();
+    // Current name resolves (the fast path is untouched).
+    CHECK(registry.FindByName(animal.namespaceName, animal.name) == &animal);
+
+    // A legacy Foundation spelling: swap the leading "rtti" for "draconic".
+    String legacy(u8"draconic");
+    legacy.Append(StringView(reinterpret_cast<const char8_t*>(animal.namespaceName + 4)));
+    CHECK(registry.FindByName(reinterpret_cast<const char*>(legacy.CStr()), animal.name) ==
+          &animal);
+
+    // A legacy ENGINE spelling: "draconic::rest" where the type now lives at
+    // "rtti::engine::rest" - exercised with a registry-local alias of the same info under
+    // the engine-shaped namespace.
+    static const TypeInfo engineShaped{ComputeTypeId("rtti::engine::zoo", "Animal"),
+                                       "Animal",
+                                       "rtti::engine::zoo",
+                                       animal.size,
+                                       animal.align,
+                                       animal.base};
+    registry.Register(engineShaped);
+    CHECK(registry.FindByName("draconic::zoo", "Animal") == &engineShaped);
+
+    // Non-legacy misses stay misses (no false positives).
+    CHECK(registry.FindByName("draconicish::zoo", "Animal") == nullptr);
+    CHECK(registry.FindByName("other::zoo", "Animal") == nullptr);
+}

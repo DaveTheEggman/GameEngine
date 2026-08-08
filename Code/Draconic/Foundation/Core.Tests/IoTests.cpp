@@ -487,3 +487,23 @@ TEST_CASE("serialization: SerializableRegistry creates by type id, then deserial
 
     CHECK(registry.Create(ISerializable::StaticType().id).Get() == nullptr);
 }
+
+TEST_CASE("io: RemoveDirectoryRecursive deletes a populated tree (rmdir alone cannot)")
+{
+    // Build scratch/sub/inner with files at every level.
+    REQUIRE(CreateDirectories(u8"draconic_rmr_scratch/sub/inner"));
+    REQUIRE(WriteFile(u8"draconic_rmr_scratch/top.bin", Span<const byte>{}).IsOk());
+    const byte payload[3] = {byte{1}, byte{2}, byte{3}};
+    REQUIRE(WriteFile(u8"draconic_rmr_scratch/sub/mid.bin", Span<const byte>{payload, 3}).IsOk());
+    REQUIRE(
+        WriteFile(u8"draconic_rmr_scratch/sub/inner/leaf.bin", Span<const byte>{payload, 3}).IsOk());
+
+    // The raw primitive fails on a populated dir (documented rmdir semantics)...
+    CHECK_FALSE(RemoveDirectory(u8"draconic_rmr_scratch"));
+    CHECK(DirectoryExists(u8"draconic_rmr_scratch"));
+
+    // ...the recursive helper removes the whole tree, and is idempotent on a missing dir.
+    CHECK(RemoveDirectoryRecursive(u8"draconic_rmr_scratch"));
+    CHECK_FALSE(DirectoryExists(u8"draconic_rmr_scratch"));
+    CHECK(RemoveDirectoryRecursive(u8"draconic_rmr_scratch"));
+}
