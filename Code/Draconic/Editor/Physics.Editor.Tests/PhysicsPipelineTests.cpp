@@ -117,6 +117,59 @@ TEST_CASE("physics.pipeline: mesh -> CollisionShapeAsset cook -> CollisionShape 
     RemoveTree(u8"draconic_physpipe_out_db");
 }
 
+// Regression (issues-triage #7 / smoke #7): the real editor cook resolves the mesh `reads` edge to
+// the mesh's cooked PRODUCT - a StaticMeshSource - not the source StaticMeshAsset. The builder must
+// cook from the product; when it only Cast<StaticMeshAsset> it failed every generate-collision cook
+// with "source is not a mesh asset". Feed the guid a StaticMeshSource exactly as the db holds it
+// after the mesh cooks and before the collision cook reads it.
+TEST_CASE("physics.pipeline: collision cooks from the mesh PRODUCT (StaticMeshSource)")
+{
+    RegisterPhysicsResource();
+    RegisterPhysicsAssets();
+    GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
+    RegisterSerializable<geometry::StaticMeshSource>(); // product type for ReadObject
+    RemoveTree(u8"draconic_physpipe_prod_db");
+    RemoveTree(u8"draconic_physpipe_prodout_db");
+
+    draconic::vfs::NativeFileSystem prodMount(u8"draconic_physpipe_prod_db");
+    draconic::vfs::NativeFileSystem outMount(u8"draconic_physpipe_prodout_db");
+    content::ContentDatabase prodDb(prodMount, BinarySerializerFactory(), u8".rasset");
+    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+
+    auto* meshInstance =
+        prodDb.RootGroup()->CreateInstance(u8"cube", geometry::StaticMeshSource::StaticType());
+    {
+        geometry::StaticMeshSource meshSource;
+        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+        geometry::StaticMeshSource::FromMesh(*cube, meshSource);
+        REQUIRE(meshInstance->WriteObject(meshSource).IsOk());
+    }
+
+    CollisionShapeAsset asset;
+    asset.sourceMesh = meshInstance->Id();
+    asset.cook = CollisionCookKind::ConvexHull;
+
+    CollisionShapeAssetBuilder builder;
+    draconic::editor::AssetBuildContext ctx;
+    ctx.sources = &prodMount;
+    ctx.db = &prodDb;
+    auto* outInstance =
+        outDb.RootGroup()->CreateInstance(u8"shape", CollisionShapeSource::StaticType());
+    ctx.output = outInstance;
+    REQUIRE(builder.Build(asset, ctx).IsOk()); // was Status::InvalidArgument before the fix
+
+    CollisionShapeFactory factory;
+    ResourceManager manager(outDb);
+    manager.AddFactory(&factory);
+    Proxy<CollisionShape> shape = manager.Bind<CollisionShape>(outInstance->Id());
+    REQUIRE(shape);
+    CHECK(shape->convex);
+    REQUIRE(!shape->blob.IsEmpty());
+
+    RemoveTree(u8"draconic_physpipe_prod_db");
+    RemoveTree(u8"draconic_physpipe_prodout_db");
+}
+
 TEST_CASE("physics.pipeline: PhysicalMaterialAsset cooks and loads")
 {
     RegisterPhysicsResource();

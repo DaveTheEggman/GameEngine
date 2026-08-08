@@ -96,17 +96,30 @@ export namespace draconic::physics
                 return Status{ErrorCode::NotFound};
             }
             RefPtr<ISerializable> object = meshInstance->ReadObject();
-            auto* meshAsset = Cast<draconic::geometry::StaticMeshAsset>(object.Get());
-            if (meshAsset == nullptr)
+            // A `reads` edge (see ScanDependencies) resolves sourceMesh to the mesh's cooked PRODUCT
+            // - a StaticMeshSource, which carries exactly the geometry a shape is cooked from, so
+            // that is what the real editor cook hands us here. Headless/source-db paths instead yield
+            // the StaticMeshAsset that embeds the same source; accept either so the cook works from
+            // whichever the db resolves the guid to.
+            const draconic::geometry::StaticMeshSource* meshSource = nullptr;
+            if (auto* product = Cast<draconic::geometry::StaticMeshSource>(object.Get()))
+            {
+                meshSource = product;
+            }
+            else if (auto* meshAsset = Cast<draconic::geometry::StaticMeshAsset>(object.Get()))
+            {
+                meshSource = &meshAsset->source;
+            }
+            if (meshSource == nullptr)
             {
                 utf8char guidChars[37];
                 ca.sourceMesh.ToChars(guidChars);
                 if (object.Get() == nullptr)
                 {
                     // The instance header names a type but ReadObject built nothing: the mesh
-                    // asset itself did not deserialize (stale on-disk schema is the usual cause -
-                    // the same "failed to deserialize" the cook logs for other assets). The
-                    // collision is a downstream victim, not the source of the break.
+                    // itself did not deserialize (stale on-disk schema is the usual cause - the same
+                    // "failed to deserialize" the cook logs for other assets). The collision is a
+                    // downstream victim, not the source of the break.
                     DRACONIC_LOG_ERROR(
                         u8"Physics",
                         u8"collision cook: source mesh '{}' [{}] ({}) did not deserialize - stale "
@@ -116,12 +129,13 @@ export namespace draconic::physics
                 }
                 else
                 {
-                    // Resolved to a real object of the wrong type: the sourceMesh guid points at a
-                    // non-mesh instance (skinned mesh, or a wrong-guid import wiring bug).
+                    // Resolved to a real object that is neither a mesh product nor a mesh asset: the
+                    // sourceMesh guid points at the wrong instance (e.g. a skinned mesh, which has
+                    // no collision) or an import-wiring bug.
                     DRACONIC_LOG_ERROR(
                         u8"Physics",
-                        u8"collision cook: source '{}' [{}] ({}) is not a StaticMeshAsset - skinned "
-                        u8"meshes have no collision; re-import to regenerate the shape",
+                        u8"collision cook: source '{}' [{}] ({}) is neither a mesh product nor a "
+                        u8"mesh asset - skinned meshes have no collision; re-import to regenerate",
                         meshInstance->Name(), meshInstance->TypeName(),
                         StringView(guidChars, 36));
                 }
@@ -129,7 +143,7 @@ export namespace draconic::physics
             }
 
             CollisionShapeSource cooked;
-            const Status status = CookFromMeshSource(meshAsset->source, ca, cooked);
+            const Status status = CookFromMeshSource(*meshSource, ca, cooked);
             if (!status.IsOk())
             {
                 return status;
