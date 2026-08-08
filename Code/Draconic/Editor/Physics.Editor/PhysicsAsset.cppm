@@ -121,6 +121,9 @@ export namespace draconic::physics
             const usize vertexCount = mesh.vertexBlob.Size() / stride;
             if (vertexCount == 0)
             {
+                DRACONIC_LOG_ERROR(
+                    u8"Physics",
+                    u8"collision cook: source mesh has no vertices (nothing to cook a shape from)");
                 return Status{ErrorCode::InvalidArgument};
             }
 
