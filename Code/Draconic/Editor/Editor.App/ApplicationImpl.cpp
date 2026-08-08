@@ -50,6 +50,31 @@ using namespace draconic::core;
 
 namespace draconic::editor::app
 {
+    // Recursively: does the source DB hold any FontAsset? (Answers "the project HAS fonts but none is
+    // the default" so the game-UI can warn actionably instead of silently rendering no text.)
+    [[nodiscard]] static bool ProjectHasFontAssets(draconic::content::Group* group)
+    {
+        if (group == nullptr)
+        {
+            return false;
+        }
+        for (draconic::content::Instance* instance : group->Instances())
+        {
+            if (instance->TypeName() == StringView(u8"FontAsset"))
+            {
+                return true;
+            }
+        }
+        for (draconic::content::Group* child : group->Groups())
+        {
+            if (ProjectHasFontAssets(child))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Editor text rendering: false = the classic per-size raster ramp; true = MSDF
     // distance-field atlases (one 48px bake per family, served at every requested size
     // through per-size scaled font views; VGContext draws glyph runs through the
@@ -2133,6 +2158,15 @@ namespace draconic::editor::app
                 {
                     m_embeddedApp->UI()->SetDefaultFont(fontProxy.Get());
                 }
+            }
+            else if (ProjectHasFontAssets(m_project->SourceDb().RootGroup()))
+            {
+                // Migration kindness: a real project with fonts but no default set renders no game-UI
+                // text (the dev-tree probe resolves nothing outside this source tree). Name the fix.
+                DRACONIC_LOG_WARNING(u8"UI",
+                                     u8"game UI has no default font - set Project Settings > Default "
+                                     u8"UI font (the project has fonts, but none is the default, so "
+                                     u8"game-UI text will not render)");
             }
         }
 

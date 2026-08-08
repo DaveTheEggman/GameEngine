@@ -232,6 +232,13 @@ namespace draconic::player
                     DRACONIC_LOG_WARNING(u8"Player", u8"default UI font did not resolve");
                 }
             }
+            else if (UI() != nullptr)
+            {
+                // A shipped game with no default font renders no text (the dev fallback is gone).
+                DRACONIC_LOG_WARNING(u8"Player",
+                                     u8"no default UI font set in project settings - game UI text "
+                                     u8"will not render (set Project Settings > Default UI font)");
+            }
 
             // The project's default UI theme: cooked UITheme -> the game context's
             // stylesheet (nil/unresolved = the built-in GameTheme stays).
