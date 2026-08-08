@@ -213,10 +213,16 @@ set_target_properties(draconic_jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # deliberately not vendored (needs scriptarray). scriptbuilder parses [metadata] ahead of
 # declarations (the AngelScript editor cook harvests behavior properties through it).
 file(GLOB draconic_angelscript_sources ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/*.cpp)
-# Clang on Windows (x86_64-pc-windows-msvc) needs the .S native-call trampoline for x64.
+# x64 Windows needs a hand-written native-call trampoline; the glob above only picks up .cpp,
+# and AngelScript ships the same routines twice, once per assembler dialect. Clang takes the
+# GNU-syntax .S; MSVC takes the MASM .asm (built via enable_language(ASM_MASM) at the root).
+# Miss this and CallX64 / GetReturnedFloat / GetReturnedDouble are unresolved at link.
 if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     list(APPEND draconic_angelscript_sources
         ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/as_callfunc_x64_msvc_clang.S)
+elseif(MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+    list(APPEND draconic_angelscript_sources
+        ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/as_callfunc_x64_msvc_asm.asm)
 endif()
 add_library(draconic_angelscript STATIC
     ${draconic_angelscript_sources}

@@ -10,6 +10,14 @@ project(Draconic
     DESCRIPTION "Draconic game engine"
     LANGUAGES CXX ASM)
 
+# MSVC assembles with ml64, not cl, so the plain ASM language above does not apply to it
+# (hence "CMP194: MSVC is not an assembler for language ASM" at configure). AngelScript's x64
+# native-call trampoline is hand-written assembly and is the only consumer; without MASM its
+# CallX64/GetReturnedFloat/GetReturnedDouble go unresolved at link.
+if(MSVC)
+    enable_language(ASM_MASM)
+endif()
+
 # --- Global language settings ------------------------------------------------
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -56,7 +64,16 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY     "${DRACONIC_BIN_DIR}")       # exes + Win
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY     "${DRACONIC_BIN_DIR}")       # .so plugins/modules (beside the exe)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY     "${DRACONIC_BIN_DIR}/lib")   # static .a/.lib + MSVC import libs
 set(CMAKE_PDB_OUTPUT_DIRECTORY         "${DRACONIC_BIN_DIR}")       # MSVC linker PDBs (beside the exe)
-set(CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY "${DRACONIC_BIN_DIR}/lib")   # MSVC static-lib compile PDBs
+# NOT set for MSVC: compile PDBs are per-OBJECT intermediates, and CMake names them from the
+# compiler default (vc<ver>.pdb) rather than the target, so pointing every target at one shared
+# directory makes all of them write the same file. Parallel cl.exe jobs then lose the race with
+# "C1041: cannot open program database" (49 failures in the first triage build; /FS alone still
+# left 14). Left unset, each target gets its own build directory and the collision cannot happen.
+# The LINKER PDBs - the ones worth having beside the binaries - are CMAKE_PDB_OUTPUT_DIRECTORY
+# above and are unaffected.
+if(NOT MSVC)
+    set(CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY "${DRACONIC_BIN_DIR}/lib")
+endif()
 
 # Reusable helpers (draconic_copy_runtime_deps, ...).
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/DraconicHelpers.cmake)
@@ -162,8 +179,28 @@ target_link_options(draconic_policy INTERFACE
     # Shipping: strip symbol tables at link (what a dist ships; the honest size number).
     $<$<AND:$<BOOL:${DRACONIC_SHIPPING_BUILD}>,$<CXX_COMPILER_ID:Clang,GNU>>:-s>)
 
+# MSVC: CMake seeds CMAKE_CXX_FLAGS with "/EHsc". Appending /EHs-c- below does win, but cl
+# reports every override - 9036 "D9025: overriding '/EHs' with '/EHs-'" lines in one build,
+# which buries real diagnostics. Remove the default instead of fighting it; the policy flag
+# right below is the single source of truth for exception behavior.
+if(MSVC)
+    string(REGEX REPLACE "[-/]EH[acsr-]+" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(STRIP "${CMAKE_CXX_FLAGS}" CMAKE_CXX_FLAGS)
+endif()
+
 target_compile_options(draconic_policy INTERFACE
     $<$<CXX_COMPILER_ID:Clang,GNU>:-fno-exceptions;-fno-rtti>
+    # Every static lib shares CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY and none sets a PDB name, so
+    # parallel cl.exe jobs all target one vc140.pdb and lose the race ("C1041: cannot open
+    # program database"). /FS funnels those writes through mspdbsrv, which is what the
+    # diagnostic itself recommends.
+    $<$<CXX_COMPILER_ID:MSVC>:/FS>
+    # The tree is UTF-8 and uses u8"..." and non-ASCII character literals (e.g. U'●').
+    # Without /utf-8 cl decodes sources in the system ANSI codepage and silently mis-reads
+    # them - a 3-byte UTF-8 scalar in a char32_t literal becomes "C2015: too many characters
+    # in constant". Note this does NOT show up as C4819; that only fires when a character
+    # cannot be represented at all, so the absence of C4819 is not evidence /utf-8 is unneeded.
+    $<$<CXX_COMPILER_ID:MSVC>:/utf-8>
     # GCC modules: eager gcm loading. The default lazy loader intermittently fails to merge
     # template pendings across module imports ("failed to read compiled module cluster" /
     # "failed to load pendings for ...") - deterministic in DraconicCook's import mix on GCC 15.2.
