@@ -414,7 +414,9 @@ namespace draconic::net
 
     DRACONIC_REFLECT_VALUE(NetworkComponent, "rtti::net")
     {
-        builder.DataVersion(1);
+        builder.Attribute("displayName", String(u8"Network Identity"))
+            .Attribute("category", String(u8"Networking"))
+            .DataVersion(1);
         // Script (Track A): NetworkComponent.of(entity) -> read `authority` (is this entity server- or
         // client-owned) for authority-gated gameplay. The Net session facade stays app-global (Net.*).
         builder.Method<&draconic::script::ComponentOf<NetworkComponent>, NetworkComponent>("of");
@@ -427,7 +429,9 @@ namespace draconic::net
     // the field codec captures/applies them and interpolation smooths them.
     DRACONIC_REFLECT_VALUE(NetworkedTransform, "rtti::net")
     {
-        builder.DataVersion(1);
+        builder.Attribute("displayName", String(u8"Networked Transform"))
+            .Attribute("category", String(u8"Networking"))
+            .DataVersion(1);
         builder.Property<&NetworkedTransform::position>("position")
             .PropAttribute(kReplicatedAttribute, true);
         builder.Property<&NetworkedTransform::rotation>("rotation")

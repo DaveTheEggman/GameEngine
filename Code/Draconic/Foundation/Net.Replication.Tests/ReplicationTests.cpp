@@ -687,3 +687,31 @@ TEST_CASE("replication: ApplyDelta records interpolatable state, SampleInterpola
     crep.SampleInterpolation(client, buf, 0.0);
     CHECK(cmovers->Get(ce)->position.x == doctest::Approx(0.0f));
 }
+
+TEST_CASE("replication: network components carry displayName + category attributes (add-component menu)")
+{
+    // Without these the inspector's add-component menu drops the type in the "Other" bucket
+    // (editor-polish.md P1 - authored intent, not name heuristics). These predate the standing rule.
+    draconic::net::RegisterReplicationComponents();
+
+    const struct
+    {
+        const TypeInfo* type;
+        StringView displayName;
+    } expectations[] = {
+        {&TypeOf<draconic::net::NetworkComponent>(), u8"Network Identity"},
+        {&TypeOf<draconic::net::NetworkedTransform>(), u8"Networked Transform"},
+    };
+    for (const auto& expectation : expectations)
+    {
+        const Variant* display = FindAttribute(*expectation.type, "displayName");
+        REQUIRE(display != nullptr);
+        REQUIRE(display->TryGet<String>() != nullptr);
+        CHECK(display->TryGet<String>()->AsView() == expectation.displayName);
+
+        const Variant* category = FindAttribute(*expectation.type, "category");
+        REQUIRE(category != nullptr);
+        REQUIRE(category->TryGet<String>() != nullptr);
+        CHECK(category->TryGet<String>()->AsView() == u8"Networking");
+    }
+}
