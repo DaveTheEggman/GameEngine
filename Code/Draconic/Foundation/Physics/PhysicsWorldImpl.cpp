@@ -972,5 +972,25 @@ namespace draconic::physics
             slider->SetTargetVelocity(targetVelocity);
             slider->SetMotorState(enabled ? JPH::EMotorState::Velocity : JPH::EMotorState::Off);
         }
+        else
+        {
+            return; // no motor on this joint kind
+        }
+        // A motor with real drive must keep its bodies AWAKE: a body that slept while the target was 0
+        // (or before the motor was enabled) would otherwise ignore the constraint, so a live edit to
+        // motorTargetVelocity does nothing. Only force-wake when actually driving, so a settled/zero
+        // motor can still sleep. (Hinge/Slider are TwoBodyConstraints; no RTTI - cast off GetSubType.)
+        if (enabled && targetVelocity != 0.0f)
+        {
+            auto* twoBody = static_cast<JPH::TwoBodyConstraint*>(joint);
+            JPH::BodyInterface& bodies = m_impl->system->GetBodyInterface();
+            for (JPH::Body* body : {twoBody->GetBody1(), twoBody->GetBody2()})
+            {
+                if (body != nullptr && !body->IsStatic())
+                {
+                    bodies.ActivateBody(body->GetID());
+                }
+            }
+        }
     }
 }

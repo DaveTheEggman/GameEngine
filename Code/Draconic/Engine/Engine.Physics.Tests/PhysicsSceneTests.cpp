@@ -449,6 +449,39 @@ TEST_CASE("physics.scene: a motorized hinge joint spins a door to the world")
     CHECK((rotation.w > 0 ? rotation.w : -rotation.w) < 0.99f);
 }
 
+// Investigation for smoketest-fixes #6 ("editor joints didn't work"): the engine path spins fine
+// (test above). This pins the SETUP TRAP - enabling the motor WITHOUT a target velocity holds the
+// hinge at 0 rad/s (a motor actively holding still), which reads as "the joint does nothing". The
+// exact working recipe for scenario (a) is: kind=Hinge, motorEnabled=true, AND motorTargetVelocity>0.
+TEST_CASE("physics.scene: a hinge motor with motorTargetVelocity 0 holds still (the #6 setup trap)")
+{
+    PlayScene play;
+    play.scene.AddSystem<JointComponentManager>();
+    scene::EntityHandle door = play.scene.CreateEntity(u8"door");
+    play.scene.SetLocalPosition(door, Float3{0.0f, 2.0f, 0.0f});
+    RigidBodyComponent& body = play.scene.GetSystem<RigidBodyComponentManager>()->Add(door);
+    body.halfExtents = Float3{1.0f, 1.0f, 0.05f};
+    JointComponent& joint = play.scene.GetSystem<JointComponentManager>()->Add(door);
+    joint.kind = JointKind::Hinge; // no ancestor -> world attachment
+    joint.motorEnabled = true;     // ...but motorTargetVelocity stays at its 0 default
+    play.Start();
+    play.Step(120);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+
+    // Enabled-but-zero motor -> essentially no rotation (contrast the spinning test above).
+    const Quaternion rotation = play.scene.GetLocalTransform(door).rotation;
+    CHECK((rotation.w > 0 ? rotation.w : -rotation.w) > 0.999f); // still ~identity
+
+    // Set a target velocity and it spins (the fix is a non-zero motorTargetVelocity).
+    joint.motorTargetVelocity = 3.0f;
+    play.Step(120);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    const Quaternion spun = play.scene.GetLocalTransform(door).rotation;
+    CHECK((spun.w > 0 ? spun.w : -spun.w) < 0.99f); // now meaningfully rotated
+}
+
 TEST_CASE("physics.scene: nil-target joints attach to the nearest ancestor body; guid targets bind "
           "explicitly")
 {
