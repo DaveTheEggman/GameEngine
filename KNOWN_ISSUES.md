@@ -5,124 +5,100 @@ and the plan. Keep newest first.
 
 ---
 
-## MSVC support (I9 P1) - TRIAGED, VERDICT: TRACTABLE
+## MSVC support (I9) - P2 COMPLETE, TREE BUILDS CLEAN
 
-**Status:** P1 complete 2026-08-08. `msvc` preset added; triage build run; no fixes made.
-**Verdict: small conformance work, NOT a compiler-support wait.** Details below drive P2.
+**Status:** P1 triage 2026-08-08, P2 fixes same day, on branch `msvc`.
+**The full tree now compiles and links under MSVC with zero failures**, and ctest is at
+parity with clang. Kept as the record of what MSVC needed and why, since several fixes
+look arbitrary without it.
 
 **Toolchain:** VS 2026 Community 18.7.0, cl 19.51.36247 (toolset 14.51.36231),
-CMake 4.3.0, Ninja 1.11.1. Preset `msvc` (Ninja, Debug). Must be configured from a
-Developer Command Prompt (vcvars64) - the preset does not and cannot set that up.
-Warnings-as-errors is OFF in the preset while triage is open.
+CMake 4.3.0, Ninja 1.11.1. Preset `msvc` (Ninja, Debug), which must be configured from a
+Developer Command Prompt (vcvars64) - a preset cannot establish that environment.
+`DRACONIC_WARNINGS_AS_ERRORS` is still OFF in the preset: the tree builds, but has not
+been through a /W4 /WX pass. Turning it on is the obvious follow-up.
 
-**Headline:** `5516 / 6102` build steps succeeded, **13 targets failed**, six error
-classes. Most of the engine - including all of Core, RHI (except DX12), VG, Fonts,
-Scene, Render (except one TU), UI, and the bulk of the test suites - compiles and
-links under MSVC today. C++20 modules broadly work; the module problems are narrow
-and specific.
+P1 measured 66 failed build steps across 13 targets. Final state: 0.
 
-Raw error counts are misleading (115 errors / 9036 warnings) because two classes are
-pure noise that repeat per-TU. By target:
+### What it took, and what each thing actually was
 
-| Class | Failing targets | Kind |
-|---|---|---|
-| C1041 shared PDB | UI.Tests, Animation.Editor.Tests, UISandbox | build system |
-| D8021 `/Wno-error` | Audio | our build bug |
-| LNK2019 `CallX64` | GameInstance.Tests, Net.Manager.Tests, AngelScript.Tests | build system |
-| C2504/C3668 XmlNode | Engine.Project, Editor.Core, Settings.Tests, Content.Tests | **MSVC module bug** |
-| C1116 `<stop_token>` | RHI.DX12 | **MSVC module bug** |
-| C2059/C2187 nested lambda | GUI.Tests | **MSVC parser limit** |
-| C3083 `IBLSystem::IBLSystem::` | Render | our code |
+Build system, no engine code (7 of the 13 targets):
 
-### Mechanical (build-system) - 7 of 13 targets, no engine code involved
+- **C1041 x49** - every target pointed `CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY` at one shared
+  dir, and CMake names compile PDBs from the compiler default (`vc<ver>.pdb`), not the
+  target, so parallel cl jobs raced for the same file. `/FS` alone only got 49 -> 14;
+  leaving the variable unset on MSVC (per-target build dirs) fixed it. Linker PDBs still
+  go to Bin.
+- **D8021 x1** - `Audio/CMakeLists.txt` set `COMPILE_OPTIONS "-Wno-error"` unguarded; cl
+  read it as `/Wno-error` and rejected the TU. Ours, not MSVC's.
+- **LNK2019 x9** - AngelScript's x64 trampoline was wired only for Clang (the GNU-syntax
+  `.S`). MSVC needs the MASM `.asm` sibling plus `enable_language(ASM_MASM)`, which also
+  cleared the `CMP194` configure warning.
+- **C2015 x1** - `U'●'` in UISandbox. Without `/utf-8` cl decodes sources in the
+  system ANSI codepage, so three UTF-8 bytes read as three characters. **This is not
+  flagged by C4819** (which only fires when a character cannot be represented at all), so
+  "no C4819" is not evidence `/utf-8` is unnecessary - that inference was made during
+  triage and was wrong.
+- **D9025 x9036** - CMake seeds `/EHsc`, our policy appends `/EHs-c-`, cl logs every
+  override. Noise, but it buried the real diagnostics. Strip the default instead.
 
-1. **C1041 x49** - `cannot open program database ...\lib\vc140.pdb; if multiple CL.EXE
-   write to the same .PDB, please use /FS`. Every static lib shares
-   `CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY` with the default `vc140.pdb` name, so parallel
-   Ninja jobs collide. Fix: `/FS`, or a per-target `COMPILE_PDB_NAME`. Nothing to do
-   with modules; it just happens to hit the widest targets.
+Our code (1 target):
 
-2. **D8021 x1** - `Code/Draconic/Foundation/Audio/CMakeLists.txt:27` sets
-   `COMPILE_OPTIONS "-Wno-error"` on `MiniaudioImpl.cpp` with no compiler guard, so cl
-   gets `/Wno-error` and rejects it. **Ours, not MSVC's.** One-line guard; the fix is
-   compiler-portability, not MSVC-specific, so it should land as its own cherry-pickable
-   commit.
+- **C3083 x2** - `IBLSystem::IBLSystem::Context`. The doubled injected-class-name is legal
+  and clang/gcc accept it; MSVC does not. A sweep found no other `X::X::` in the tree.
 
-3. **LNK2019/LNK1120 x12** - unresolved `CallX64`, `GetReturnedFloat`,
-   `GetReturnedDouble`. `ThirdParty/CMakeLists.txt:216` adds AngelScript's x64
-   native-call trampoline **only for Clang** (`as_callfunc_x64_msvc_clang.S`). MSVC needs
-   the MASM sibling `as_callfunc_x64_msvc_asm.asm`, which is vendored but never compiled.
-   Also requires the `ASM_MASM` language - `project()` currently declares plain `ASM`,
-   which is why configure warns `CMP194: MSVC is not an assembler for language ASM`.
+### The interesting class: MSVC cannot re-read what it wrote (3 targets)
 
-### Our code - 1 target, trivial
+Three failures shared a signature worth recognising, because the diagnostic actively
+misleads: **the exporting module compiles fine, and the error appears in a consumer, quoting
+a line in the module's source.** cl serialises something into the `.ifc` that it then cannot
+materialise on import. It says so - "IFC import detected. If possible, please follow
+instructions here ... https://aka.ms/report-cpp-modules-problem".
 
-4. **C3083 x2** - `IBLSystemImpl.cpp:110` and `:462` write
-   `IBLSystem::IBLSystem::Context` / `IBLSystem::IBLSystem::IblPush`. The doubled
-   qualifier is the injected-class-name; legal C++ that clang and gcc accept, MSVC
-   rejects with "the symbol to the left of a '::' must be a type". Deleting the
-   redundant `IBLSystem::` is correct on every compiler - another cherry-pickable
-   portability commit, not an MSVC workaround.
+- **`<stop_token>` (RHI.DX12)** - `Core/Threading/JobSystem.cppm` included `<thread>` in its
+  global module fragment for a single `std::this_thread::yield()`. On MSVC `<thread>` drags
+  in `<stop_token>`, and importing draconic.core then died with C1116 on a
+  `std::_Stop_callback_base::_Do_attach` specialization. Fixed by adding `sys::ThreadYield`
+  to Core's existing thread backend and dropping the include. No module interface in the
+  tree includes `<thread>` now.
+- **`<filesystem>` (Editor.App)** - `ExportTemplate.cppm` included it in the INTERFACE for
+  two inline functions; consumers then failed on
+  `std::_Bitmask_includes_all<__std_fs_stats_flags>` with C2678. The impl unit already
+  included `<filesystem>` for exactly this and never used it - only the bodies were in the
+  wrong place. (Replacing std::filesystem with engine APIs was considered: Core has
+  `RemoveDirectoryRecursive` and VFS has `CreateDirectories`, but there is no recursive-copy
+  equivalent, so it would mean new engine surface. Deferred.)
+- **Generic lambda (GUI.Tests)** - `DefaultWidgetFactory` registered widgets via
+  `[&f](StringView, auto maker)`. Its `operator()<Maker>` instantiates in the importing TU
+  and cl cannot re-parse the serialised body - reported as "C2187: syntax error: 'newline'
+  was unexpected here". Typing the parameter as `WidgetFactory::Factory` removed the
+  template.
+- **Partition base class (Engine.Project, Editor.Core, Settings.Tests, Content.Tests)** -
+  C2504 "'XmlNode': base class undefined" at `Document.cppm:34`, plus 24 cascading C3668.
+  Draconic.Xml itself built and Xml.Tests linked; only consumers instantiating a template
+  through the `.ifc` failed. `export import :nodes;` in `:document` gives cl a direct path.
 
-### Genuine MSVC issues - 5 targets
+**Rule of thumb this leaves us with:** on MSVC, keep STL headers and generic lambdas out of
+module *interfaces*. Both are fine in implementation units.
 
-5. **C2504 + C3668 x32 - module partition visibility. The one that matters.**
-   `XmlNode` (partition `:nodes`) is undefined at `Document.cppm:34` where
-   `XmlDocument : public XmlNode` derives from it, cascading into 24 "method with
-   override specifier did not override any base class method" errors.
-   The import graph is acyclic and legal:
+**Two hypotheses tested and disproved** during triage, recorded so they are not retried:
+`/permissive-` and `/Zc:preprocessor` fix neither the generic-lambda class nor its doctest
+cascade (verified by recompiling those TUs with the flags). And a standalone repro of the
+nested-lambda shape compiles fine - the `.ifc` round trip is required to reproduce it, which
+is why the first triage misfiled it as a parser bug.
 
-   ```
-   :nodes    <- :lexer :ns :escape
-   :writer   <- :nodes :escape
-   :document <- :result :lexer :ns :nodes :writer     <- diamond on :nodes
-   ```
+### Test status
 
-   **Crucially, `Draconic.Xml` itself builds and `Draconic.Xml.Tests` links.** The
-   failure only appears in *consumers* (Engine.Project, Editor.Core, Settings.Tests,
-   Content.Tests) when they `import draconic.xml` - i.e. MSVC writes a `.ifc` it then
-   cannot correctly re-materialize, losing the base class across the diamond. That
-   makes it an `.ifc` round-trip bug rather than anything wrong with the source.
-   Worth a minimal upstream reproducer. Local workaround to try in P2: have `:document`
-   re-export or reorder its partition imports, or flatten the `:nodes`/`:writer`
-   diamond.
+`ctest` on MSVC: **103/106**, the same three failures as clang -
+`Draconic.Editor.Scene.Tests` (pre-existing, see its own entry / still uncharacterised),
+`Draconic.GUI.Tests` (known/expected), and `Draconic.RHI.WebGPU.Tests`.
 
-6. **C1116 x2** - `stop_token(248): unrecoverable error importing module 'draconic.core'.
-   Specialization of 'std::_Stop_callback_base::_Do_attach' with arguments 'false'`,
-   compiling `DxModule.cppm`. MSVC's own STL interacting with an imported module; no
-   Draconic code in the diagnostic. Blocks RHI.DX12 only. Least likely to be fixable on
-   our side - this is the one candidate for "wait for a toolset update", and the first
-   thing to re-test on a VS bump.
-
-7. **C2059/C2143/C2187/C2065/C2297/C2660/C1903 x~14** - `MarkupLoader.cppm:98`,
-   a lambda with a trailing return type nested inside a *generic* lambda:
-
-   ```cpp
-   auto reg = [&f](core::StringView name, auto maker)          // generic
-   { f.Register(name, [maker]() -> RefPtr<Node> { return maker(); }); };   // line 98
-   ```
-
-   MSVC's parser gives up at the inner lambda; the doctest `DOCTEST_ANON_FUNC_2` and
-   `consume` errors in `MarkupTests.cpp` are downstream cascade, not separate bugs.
-   Confined to `Experimental/GUI`. Easily restructured (hoist the inner lambda or drop
-   the trailing return type).
-
-**Tested and ruled out:** `/permissive-` and `/Zc:preprocessor` fix neither (7) nor the
-doctest cascade - verified by recompiling both TUs with the flags added. Do not assume
-a conformance switch makes these go away. No `C4819` anywhere, so `/utf-8` is not needed.
-
-**Noise to silence before P2 so real errors are visible:** `D9025 x9036`
-(`overriding '/EHs' with '/EHs-'`) - CMake injects a default `/EHsc` that our policy's
-`/EHs-c-` then overrides. Strip the default rather than override it. `C4530 x102`
-(unwind semantics) and `LNK4099 x294` (missing PDB) follow from the same two causes.
-
-**Suggested P2 order:** build-system items (1)(2)(3) and code item (4) first - they are
-mechanical, unblock 8 of 13 targets, and (2)(4) are portability fixes that belong on
-`master` regardless. Then (7). Then (5), the only one needing real thought. Leave (6)
-parked pending a toolset update. Work happens on the `msvc` branch; keep
-non-MSVC-specific fixes as isolated commits so they cherry-pick cleanly.
-
-**Full log:** regenerate with `cmake --build --preset msvc -- -k 0` from a vcvars shell.
+The WebGPU one **differs from clang and is not yet explained**: 13/14 cases and 215/215
+assertions pass, then "sky-shaped draw - z=1.0 vs cleared depth, read-only pass, MRT"
+crashes with an SEH exception after wgpu-native panics with "Parent device is lost" in
+`wgpuQueueSubmitForIndex`. That test passes under clang on the same machine and GPU, so it
+is either an MSVC-specific runtime problem or a flake; it is a runtime issue, not a build
+one, and has not been investigated.
 
 
 ## Legacy 'draconic::' type names in serialized data - COMPAT FALLBACK ACTIVE
