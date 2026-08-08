@@ -287,6 +287,47 @@ export namespace draconic::editor::app
                 }
             }
 
+            // Default UI font: the cooked FontResource the game UI falls back to when a document
+            // does not name its own (nil = the editor's dev-tree probe, which resolves nothing in a
+            // real project - so game UI renders no text until this is set).
+            {
+                ui::FlexLayout* row = AddRow(*column, u8"Default UI font");
+                m_uiFontLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(built-in)"));
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    lp->AlignSelf = ui::Align::Center;
+                    row->AddView(m_uiFontLabel.Get(), lp);
+                }
+                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                {
+                    ProjectSettingsDialog* self = this;
+                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickUiFont(); });
+                    row->AddView(pick.Get());
+                }
+                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                {
+                    ProjectSettingsDialog* self = this;
+                    clear->OnClick.Add(
+                        [self](ui::ButtonBase*)
+                        {
+                            self->m_uiFontId = Guid{};
+                            self->m_uiFontLabel->SetText(u8"(built-in)");
+                        });
+                    row->AddView(clear.Get());
+                }
+                if (project != nullptr)
+                {
+                    m_uiFontId = project->Settings().defaultUiFontId;
+                    if (content::Instance* font =
+                            !m_uiFontId.IsNil() ? project->SourceDb().GetInstance(m_uiFontId)
+                                                : nullptr)
+                    {
+                        m_uiFontLabel->SetText(font->Path().AsView());
+                    }
+                }
+            }
+
             // Engine stamp - informational; re-stamped by every save.
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Engine version");
@@ -334,6 +375,8 @@ export namespace draconic::editor::app
 
         void PickLoadingDocument();
 
+        void PickUiFont();
+
         void PickScene();
 
         void Apply();
@@ -347,6 +390,8 @@ export namespace draconic::editor::app
         RefPtr<ui::Label> m_uiThemeLabel;
         Guid m_loadingDocId{};
         RefPtr<ui::Label> m_loadingDocLabel;
+        Guid m_uiFontId{};
+        RefPtr<ui::Label> m_uiFontLabel;
         ui::EditText* m_nameEdit = nullptr;
         RefPtr<ui::Label> m_scriptLabel;
         Guid m_scriptId{};

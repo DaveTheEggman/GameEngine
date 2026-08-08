@@ -166,6 +166,9 @@ TEST_CASE("editor-project: settings changes persist through SaveSettings")
                                project->Settings().defaultInputMapId));
         project->Settings().defaultScene = String(u8"scenes/main");
         savedId = project->Settings().defaultSceneId;
+        Guid fontId;
+        REQUIRE(Guid::TryParse(u8"6ba7b813-9dad-11d1-80b4-00c04fd430c8", fontId));
+        project->Settings().defaultUiFontId = fontId; // the Default UI font settings row
         CHECK(project->SaveSettings().IsOk());
     }
     {
@@ -180,6 +183,9 @@ TEST_CASE("editor-project: settings changes persist through SaveSettings")
         REQUIRE(Guid::TryParse(u8"6ba7b812-9dad-11d1-80b4-00c04fd430c8", mapId));
         // Open's per-field settings move used to DROP defaultInputMapId (silent data loss).
         CHECK(project->Settings().defaultInputMapId == mapId);
+        Guid fontId;
+        REQUIRE(Guid::TryParse(u8"6ba7b813-9dad-11d1-80b4-00c04fd430c8", fontId));
+        CHECK(project->Settings().defaultUiFontId == fontId); // Default UI font round-trips
     }
 
     RemoveProjectTree(dir);

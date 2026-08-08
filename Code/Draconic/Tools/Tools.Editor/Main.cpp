@@ -631,6 +631,8 @@ int main(int argc, char** argv)
             DefaultAllocator().New<draconic::audio::AudioFileImporter>(), DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
             DefaultAllocator().New<draconic::script::ScriptFileImporter>(), DefaultAllocator()));
+        app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
+            DefaultAllocator().New<draconic::fonts::FontAssetImporter>(), DefaultAllocator()));
 
         // Resource factories come from the embedded DefaultApplication (registered into
         // the editor's preset ResourceManager at its OnStartup) - none registered here.

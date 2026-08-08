@@ -201,6 +201,34 @@ namespace draconic::editor::app
         picker->Show(Context);
     }
 
+    void ProjectSettingsDialog::PickUiFont()
+    {
+        if (Context == nullptr)
+        {
+            return;
+        }
+        Array<String> typeNames;
+        typeNames.PushBack(String(u8"FontAsset"));
+        auto picker = MakeRef<AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+        ProjectSettingsDialog* self = this;
+        picker->OnPicked = [self](const Guid& id)
+        {
+            self->m_uiFontId = id;
+            if (content::Instance* font =
+                    !id.IsNil() && self->m_context->Project() != nullptr
+                        ? self->m_context->Project()->SourceDb().GetInstance(id)
+                        : nullptr)
+            {
+                self->m_uiFontLabel->SetText(font->Path().AsView());
+            }
+            else
+            {
+                self->m_uiFontLabel->SetText(u8"(built-in)");
+            }
+        };
+        picker->Show(Context);
+    }
+
     void ProjectSettingsDialog::PickScene()
     {
         if (Context == nullptr)
@@ -251,6 +279,7 @@ namespace draconic::editor::app
         project->Settings().defaultBusLayoutId = m_busLayoutId;
         project->Settings().defaultUiThemeId = m_uiThemeId;
         project->Settings().loadingDocumentId = m_loadingDocId;
+        project->Settings().defaultUiFontId = m_uiFontId;
         project->Settings().defaultScene = String();
         if (content::Instance* scene =
                 !m_sceneId.IsNil() ? project->SourceDb().GetInstance(m_sceneId) : nullptr)
