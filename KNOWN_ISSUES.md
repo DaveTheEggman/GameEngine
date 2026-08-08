@@ -119,14 +119,72 @@ have deregistered the instance while leaving it on disk and fully functional), a
 
 ### Test status
 
-`ctest` on MSVC: **104/106**. The two failures are `Draconic.Editor.Scene.Tests`
-(pre-existing, uncharacterised - see its own entry) and `Draconic.GUI.Tests` (known/expected).
-Both fail identically under clang, so MSVC is at parity.
+`ctest` on MSVC: **106/106**, same as clang (repeated runs on both). All three failures that
+were open during this work turned out to be real bugs rather than MSVC quirks, and each has
+its own entry below: the WebGPU read-only depth attachment, the GUI `@keyframes` use-after-move,
+and the Win32 file share mode behind `Draconic.Editor.Scene.Tests`. None was MSVC-specific.
 
-`Draconic.RHI.WebGPU.Tests` was a third failure and is now fixed - see its entry below. It was
-never MSVC-specific; an earlier revision of this entry claimed it passed under clang, which
-was wrong.
 
+## GUI: @keyframes animations never started (use-after-move) - FIXED
+
+**Status:** FIXED 2026-08-08. `Draconic.GUI.Tests` 349/349 cases, 1253/1253 assertions.
+
+`StyleManager::ApplyTo` moved the resolved style into the cache and then handed the same
+object to `ApplyAnimation`:
+
+```cpp
+m_cache.InsertOrAssign(&widget, core::Move(resolved));
+...
+ApplyAnimation(widget, resolved);          // moved-from - empty
+```
+
+So `Has("animation")` was always false and no `KeyframeAction` was ever spawned. Animations
+did nothing at all, with no error or warning. Fixed by reading the cached copy.
+
+Everything around it worked, which is what hid it: the sheet parsed, the rule matched, the
+resolved value was exactly `fade 2s`, the keyframes were found, and the widget could reach the
+SceneNode's ActionManager. Only the object passed to `ApplyAnimation` was hollow. Worth
+remembering as a debugging pattern - when every input checks out, suspect the handoff.
+
+**This was also the long-standing "GUI test segfaults" report.** doctest is built with
+`DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS`, so a failing `REQUIRE` cannot unwind;
+execution continued past `REQUIRE(r != nullptr)` straight into a null dereference. The crash
+was this bug wearing a different hat. Note the general hazard: **any failing REQUIRE in these
+suites keeps running and can crash**, which also means a crash truncates the rest of the run
+(doctest then reports the remaining cases as "skipped").
+
+## Editor.Scene: Win32 file share mode broke prefab regeneration - FIXED
+
+**Status:** FIXED 2026-08-08. Was the long-standing `Draconic.Editor.Scene.Tests` failure
+("model-prefab: manifest -> spawnable prefab; regeneration reuses the instance").
+
+`FileOpen` in `Win32System.cpp` passed `FILE_SHARE_READ`, so an open read handle made any
+later open-for-write on that path fail. The test opens the generated prefab's payload stream,
+spawns from it, then regenerates the prefab while that stream is still open - and the
+regeneration's `WriteData` could not open the file, so `GenerateModelPrefab` returned a null
+instance and `regenerated == false`.
+
+**Windows-only, which is why it looked pre-existing and inexplicable**: POSIX lets you rewrite
+a file that has open readers, so the same test passes on Linux. Fixed by sharing read, write
+and delete, matching the semantics the rest of the engine is written against.
+
+Isolated by narrowing: two back-to-back `GenerateModelPrefab` calls succeed, and the second
+only fails when the payload stream is held open across it. Then directly - `WriteData` with a
+reader open returns false, with it closed returns true. An earlier guess that it bailed at
+`Cast<ModelManifestAsset>` was wrong; `ReadObject` succeeds fine with the stream open.
+
+## Draconic.GUI.Tests: intermittent SIGSEGV in the sorting-proxy TableView case - OPEN
+
+**Status:** OPEN, seen once, not reproduced since. Recorded so it is not lost.
+
+During one full `ctest` run, `SortingProxyModelTests.cpp:113` ("sorting-proxy: TableView header
+click wired to ToggleSort re-sorts the view") crashed with SIGSEGV and zero failed assertions.
+It has not recurred: five subsequent full runs (three clang, two MSVC) are 106/106, and the
+case passes standalone, in isolation, and from both working directories.
+
+So there is a latent intermittent fault in that path - most likely order- or timing-dependent
+state, since the case itself is deterministic. Not investigated. If it resurfaces, the run
+that caught it was a `-j4` full-suite run immediately after `Draconic.GUI.Shell.Tests`.
 
 ## WebGPU: read-only depth needs Sampled usage - FIXED
 
