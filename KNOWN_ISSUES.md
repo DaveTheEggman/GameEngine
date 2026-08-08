@@ -15,8 +15,9 @@ look arbitrary without it.
 **Toolchain:** VS 2026 Community 18.7.0, cl 19.51.36247 (toolset 14.51.36231),
 CMake 4.3.0, Ninja 1.11.1. Preset `msvc` (Ninja, Debug), which must be configured from a
 Developer Command Prompt (vcvars64) - a preset cannot establish that environment.
-`DRACONIC_WARNINGS_AS_ERRORS` is still OFF in the preset: the tree builds, but has not
-been through a /W4 /WX pass. Turning it on is the obvious follow-up.
+Warnings-as-errors is **ON** - the tree builds clean under /W4 /WX (see the warnings
+section below). Use `build-msvc.cmd` at the repo root, which finds the toolchain, enters
+vcvars, then configures and builds.
 
 P1 measured 66 failed build steps across 13 targets. Final state: 0.
 
@@ -87,15 +88,44 @@ cascade (verified by recompiling those TUs with the flags). And a standalone rep
 nested-lambda shape compiles fine - the `.ifc` round trip is required to reproduce it, which
 is why the first triage misfiled it as a parser bug.
 
+### Warnings-as-errors
+
+Enabled after the build was green. /W4 /WX surfaced 12 warnings in our own code, all fixed
+rather than suppressed - two genuinely uninitialized locals in TabView, three silent
+narrowings, an unreachable-code idiom, and shadowing in three places (the worst being a
+20-branch `else if (auto* m = Cast<T>())` chain, now named per type). `Abs` gained f64/i32/i64
+overloads, which removed 10 narrowing warnings without touching any call site.
+
+One suppression: **/wd4530** ("C++ exception handler used, but unwind semantics are not
+enabled"). We disable exceptions via /EHs-c- while still using the STL, so cl emits this from
+its own headers - 114 instances, none from `Code/`. It restates a deliberate choice.
+
+Third-party needed no special handling: no vendored target links `draconic_policy`, and the
+one vendored file compiled into one of ours (`stb_vorbis.c` via `MiniaudioImpl.cpp`) already
+opts out of -Werror per compiler.
+
+### Toolset coverage
+
+Verified on **cl 19.51** (VS 2026, toolset 14.51) and **cl 19.44** (VS 2022, toolset 14.44).
+Only one difference between them: 19.44 reports C4127 for a compile-time flag folded into a
+runtime `&&`, which 19.51 accepts; fixed with `if constexpr`. Everything else - including all
+four .ifc issues below - behaves the same on both, so none of this depends on a bleeding-edge
+toolset.
+
+Note on `build-msvc.cmd`: it selects by MSVC **toolset version**, not vswhere's answer. On this
+machine vswhere stopped reporting a working VS 2026 install (an interrupted update seems to
+have deregistered the instance while leaving it on disk and fully functional), and the "18" vs
+"2022" directory naming schemes cannot be compared. `DRACONIC_VS_PATH` overrides the search.
+
 ### Test status
 
-`ctest` on MSVC: **103/106**, the same three failures as clang -
-`Draconic.Editor.Scene.Tests` (pre-existing, see its own entry / still uncharacterised),
-`Draconic.GUI.Tests` (known/expected), and `Draconic.RHI.WebGPU.Tests`.
+`ctest` on MSVC: **104/106**. The two failures are `Draconic.Editor.Scene.Tests`
+(pre-existing, uncharacterised - see its own entry) and `Draconic.GUI.Tests` (known/expected).
+Both fail identically under clang, so MSVC is at parity.
 
-All three fail identically under clang. **`Draconic.RHI.WebGPU.Tests` is NOT MSVC-specific** -
-an earlier revision of this entry said it passed under clang, which was wrong; the isolated
-case fails the same way on both. It has its own entry below.
+`Draconic.RHI.WebGPU.Tests` was a third failure and is now fixed - see its entry below. It was
+never MSVC-specific; an earlier revision of this entry claimed it passed under clang, which
+was wrong.
 
 
 ## WebGPU: read-only depth needs Sampled usage - FIXED
