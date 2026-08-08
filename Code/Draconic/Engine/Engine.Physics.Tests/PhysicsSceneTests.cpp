@@ -353,63 +353,47 @@ TEST_CASE("physics.scene: a tilted plane entity makes boxes slide downhill")
     CHECK(position.y > -30.0f);
 }
 
-TEST_CASE("physics.scene: the Wren Physics facade raycasts + pushes through the service")
+TEST_CASE("physics.scene: ScenePhysics.of(scene) raycast + hit accessors + impulseOnHit")
 {
-    RegisterPhysicsScriptFacade();
-
     PlayScene play;
     play.AddFloor();
-    scene::EntityHandle box = play.AddBox(0.5f); // resting on the floor at y=0.5
+    scene::EntityHandle box = play.AddBox(0.5f); // resting on the floor, top at y=1.0
     play.Start();
     play.Step(10);
 
-    PhysicsScriptBinding binding;
-    binding.system = play.physics;
+    ScenePhysics physics{&play.scene};
+    // A downward ray from above hits the box top (~y=1.0), so distance ~4 from y=5.
+    CHECK(physics.rayCast(0, 5, 0, 0, -1, 0, 20) == doctest::Approx(4.0f).epsilon(0.02));
+    CHECK(physics.hitY() == doctest::Approx(1.0f).epsilon(0.02));
+    CHECK(physics.hitNormalY() == doctest::Approx(1.0f).epsilon(0.01));
+    CHECK(physics.bodyCount() == doctest::Approx(2.0f));
+    CHECK(physics.rayHitEntity().Handle() == box); // resolves the hit body's entity
 
-    RefPtr<draconic::script::IScriptManager> manager =
-        draconic::script::wren::CreateScriptManager();
-    draconic::script::RegisterReflectedTypes(*manager);
-    RefPtr<draconic::script::IScriptContext> ctx = manager->CreateContext();
-    REQUIRE(ctx.Get() != nullptr);
-    ctx->SetService(kPhysicsScriptService, &binding);
-
-    const StringView script =
-        u8"var Distance = Physics.rayCast(0, 5, 0, 0, -1, 0, 20)\n"
-        u8"var Top = Physics.hitY()\n"
-        u8"var UpN = Physics.hitNormalY()\n"
-        u8"var Bodies = Physics.bodyCount()\n"
-        u8"Physics.impulseOnHit(8000, 0, 0)\n"; // the box weighs ~1000kg (default density)
-    REQUIRE(ctx->Load(script, u8"main").IsOk());
-    CHECK(ctx->GetGlobal(u8"Distance").Get<f64>() == doctest::Approx(4.0).epsilon(0.02));
-    CHECK(ctx->GetGlobal(u8"Top").Get<f64>() == doctest::Approx(1.0).epsilon(0.02));
-    CHECK(ctx->GetGlobal(u8"UpN").Get<f64>() == doctest::Approx(1.0).epsilon(0.01));
-    CHECK(ctx->GetGlobal(u8"Bodies").Get<f64>() == doctest::Approx(2.0));
-
-    // The scripted impulse actually moved the box.
+    // impulseOnHit acts on the last-hit body - it actually moves the box (~1000kg).
+    physics.impulseOnHit(8000, 0, 0);
     play.Step(30);
     play.physics->ApplyInterpolation(1.0f);
     play.scene.UpdateTransforms();
     CHECK(play.scene.GetWorldPosition(box).x > 0.2f);
 
-    // No service bound: released misses, never a crash.
-    RefPtr<draconic::script::IScriptContext> bare = manager->CreateContext();
-    REQUIRE(
-        bare->Load(u8"var Distance = Physics.rayCast(0, 5, 0, 0, -1, 0, 20)\n", u8"main").IsOk());
-    CHECK(bare->GetGlobal(u8"Distance").Get<f64>() == doctest::Approx(-1.0));
+    // A miss (upward into nothing) returns -1 and clears the hit accessors; a null scene is safe.
+    CHECK(physics.rayCast(0, 100, 0, 0, 1, 0, 1) == doctest::Approx(-1.0f));
+    CHECK(physics.hitY() == doctest::Approx(0.0f));
+    CHECK(physics.rayHitEntity().Handle() == scene::EntityHandle{});
+    CHECK(ScenePhysics{nullptr}.rayCast(0, 5, 0, 0, -1, 0, 20) == doctest::Approx(-1.0f));
 }
 
-TEST_CASE("physics.scene: the Physics facade is in the Wren BEHAVIOR prelude (not just main)")
+TEST_CASE("physics.scene: ScenePhysics is in the Wren BEHAVIOR prelude (not just main)")
 {
-    RegisterPhysicsScriptFacade(); // registers the type AND the behavior-prelude facade name
+    RegisterPhysicsScriptFacade(); // registers the type AND its behavior-prelude facade name
 
-    // The behavior/Level prelude is `import "main" for <built-ins + ExtraFacadeNames>`, so a
-    // facade is reachable from a component behavior (or a Level) only if its name is in that
-    // list. Before the fix Physics registered its TYPE but not its NAME, so it resolved only
-    // from top-level `main`/Game scripts. Assert the name is now published to the prelude.
+    // The behavior/Level prelude is `import "main" for <built-ins + ExtraFacadeNames>`, so the
+    // scene-physics handle is reachable from a component behavior (or a Level) only if its name
+    // is in that list.
     bool inPrelude = false;
     for (const StringView facade : draconic::script::ExtraFacadeNames())
     {
-        inPrelude = inPrelude || facade == StringView(u8"Physics");
+        inPrelude = inPrelude || facade == StringView(u8"ScenePhysics");
     }
     CHECK(inPrelude);
 }

@@ -190,10 +190,6 @@ namespace draconic::engine::runtime
                 {
                     self->m_input->ExposeToScript(context);
                 }
-                if (self->m_physics != nullptr)
-                {
-                    self->m_physics->ExposeToScript(context);
-                }
                 if (self->m_audio != nullptr)
                 {
                     self->m_audio->ExposeToScript(context, self->Resources());

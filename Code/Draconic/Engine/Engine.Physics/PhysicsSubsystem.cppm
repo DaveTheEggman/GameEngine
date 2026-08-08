@@ -107,6 +107,16 @@ export namespace draconic::engine::physics
             return Span<const ContactEvent>{m_events.Data(), m_events.Size()};
         }
 
+        // Last ray hit recorded by ScenePhysics.rayCast on THIS scene - the hit* accessors read it
+        // (per-scene state, so no bound-context service is needed to answer the follow-up questions).
+        [[nodiscard]] const RayHit& LastHit() const noexcept { return m_lastHit; }
+        [[nodiscard]] bool LastHitValid() const noexcept { return m_lastHitValid; }
+        void SetLastHit(const RayHit& hit, bool valid) noexcept
+        {
+            m_lastHit = hit;
+            m_lastHitValid = valid;
+        }
+
         /// The subsystem points this at its listener list (stable address); each drained
         /// contact batch is resolved to entities and pushed to every listener. Null = no
         /// dispatch (a bare scene-system harness with no subsystem driving it).
@@ -631,34 +641,17 @@ export namespace draconic::engine::physics
         scene::Scene* m_scene = nullptr; // set by OnSceneCreate
         PhysicsSceneSettings m_settings;
         UniquePtr<PhysicsWorld> m_world;
+        RayHit m_lastHit;             // last ScenePhysics.rayCast result on this scene
+        bool m_lastHitValid = false;
         Array<ContactEvent> m_events;
         const Array<IContactListener*>* m_listeners = nullptr; // owned by the subsystem
     };
 
     // The runtime subsystem: injects the managers + system into every scene (ISceneAware)
     // and drives render-frame interpolation + debug draw with the engine's fixed alpha.
-    /// The service key ExposeToScript binds and the scripting facade resolves.
-    inline constexpr StringView kPhysicsScriptService = u8"physics.runtime";
-
-    /// Per-context script binding: which scene's world `Physics.*` calls act on, plus the
-    /// last ray hit (Wren methods return one number - the hit accessors read this).
-    struct PhysicsScriptBinding
-    {
-        PhysicsSceneSystem* system = nullptr;
-        RayHit lastHit;
-        bool lastHitValid = false;
-    };
-
     class PhysicsSubsystem final : public draconic::runtime::Subsystem, public scene::ISceneAware
     {
     public:
-        /// Binds THIS subsystem's script seam into `context` - the Physics facade acts on
-        /// the first STARTED scene's world (the player's/Game tab's single scene).
-        void ExposeToScript(draconic::script::IScriptContext& context)
-        {
-            context.SetService(kPhysicsScriptService, &m_scriptBinding);
-        }
-
         /// Register a consumer of resolved contacts (the script subsystem). Duplicates are
         /// ignored; every per-scene world dispatches to the shared list at its physics tick.
         void RegisterContactListener(IContactListener* listener)
@@ -752,9 +745,6 @@ export namespace draconic::engine::physics
             return Span<const SceneEntry>{m_systems.Data(), m_systems.Size()};
         }
 
-    protected:
-        PhysicsScriptBinding m_scriptBinding;
-
     private:
         Array<SceneEntry> m_systems;
         Array<IContactListener*> m_contactListeners; // consumers of resolved contacts
@@ -770,13 +760,13 @@ export namespace draconic::engine::physics
     {
         scene::Scene* scene = nullptr;
 
+        [[nodiscard]] PhysicsSceneSystem* System() const
+        {
+            return scene != nullptr ? scene->GetSystem<PhysicsSceneSystem>() : nullptr;
+        }
         [[nodiscard]] PhysicsWorld* World() const
         {
-            if (scene == nullptr)
-            {
-                return nullptr;
-            }
-            PhysicsSceneSystem* system = scene->GetSystem<PhysicsSceneSystem>();
+            PhysicsSceneSystem* system = System();
             return (system != nullptr) ? system->World() : nullptr;
         }
 
@@ -792,20 +782,100 @@ export namespace draconic::engine::physics
             PhysicsWorld* world = World();
             return world != nullptr ? world->Gravity().y : 0.0f;
         }
-        // Ray against THIS scene's world; the hit distance, or -1 on a miss (stateless).
+        // Ray against THIS scene's world; the hit distance, or -1 on a miss. Records the hit on the
+        // scene's PhysicsSceneSystem so the hit* accessors below can answer the follow-up questions.
         [[nodiscard]] f32 rayCast(f32 fromX, f32 fromY, f32 fromZ, f32 dirX, f32 dirY, f32 dirZ,
                                   f32 maxDistance) const
         {
-            PhysicsWorld* world = World();
+            PhysicsSceneSystem* system = System();
+            PhysicsWorld* world = (system != nullptr) ? system->World() : nullptr;
             if (world == nullptr)
             {
+                if (system != nullptr)
+                {
+                    system->SetLastHit(RayHit{}, false);
+                }
                 return -1.0f;
             }
             RayHit hit;
-            return world->RayCast(Float3{fromX, fromY, fromZ}, Float3{dirX, dirY, dirZ}, maxDistance,
-                                  hit)
-                       ? hit.fraction * maxDistance
-                       : -1.0f;
+            const bool ok = world->RayCast(Float3{fromX, fromY, fromZ}, Float3{dirX, dirY, dirZ},
+                                           maxDistance, hit);
+            system->SetLastHit(hit, ok);
+            return ok ? hit.fraction * maxDistance : -1.0f;
+        }
+
+        // Hit details of the last rayCast on THIS scene (0 on a miss / no world).
+        [[nodiscard]] f32 hitX() const
+        {
+            PhysicsSceneSystem* s = System();
+            return s != nullptr && s->LastHitValid() ? s->LastHit().position.x : 0.0f;
+        }
+        [[nodiscard]] f32 hitY() const
+        {
+            PhysicsSceneSystem* s = System();
+            return s != nullptr && s->LastHitValid() ? s->LastHit().position.y : 0.0f;
+        }
+        [[nodiscard]] f32 hitZ() const
+        {
+            PhysicsSceneSystem* s = System();
+            return s != nullptr && s->LastHitValid() ? s->LastHit().position.z : 0.0f;
+        }
+        [[nodiscard]] f32 hitNormalX() const
+        {
+            PhysicsSceneSystem* s = System();
+            return s != nullptr && s->LastHitValid() ? s->LastHit().normal.x : 0.0f;
+        }
+        [[nodiscard]] f32 hitNormalY() const
+        {
+            PhysicsSceneSystem* s = System();
+            return s != nullptr && s->LastHitValid() ? s->LastHit().normal.y : 0.0f;
+        }
+        [[nodiscard]] f32 hitNormalZ() const
+        {
+            PhysicsSceneSystem* s = System();
+            return s != nullptr && s->LastHitValid() ? s->LastHit().normal.z : 0.0f;
+        }
+        // Material slot of the hit face (cooked triangle meshes; 0 otherwise).
+        [[nodiscard]] f32 hitSurface() const
+        {
+            PhysicsSceneSystem* s = System();
+            return s != nullptr && s->LastHitValid() ? static_cast<f32>(s->LastHit().surface) : 0.0f;
+        }
+        // The ENTITY the last rayCast hit (from the body's packed user word), or an invalid Entity on
+        // a miss / a body whose entity is no longer live.
+        [[nodiscard]] draconic::script::Entity rayHitEntity() const
+        {
+            PhysicsSceneSystem* s = System();
+            if (s == nullptr || !s->LastHitValid() || scene == nullptr)
+            {
+                return draconic::script::Entity{};
+            }
+            const scene::EntityHandle handle = UnpackEntity(s->LastHit().userData);
+            if (!scene->IsValid(handle))
+            {
+                return draconic::script::Entity{};
+            }
+            draconic::script::Entity entity;
+            entity.scene = scene;
+            entity.entityIndex = handle.index;
+            entity.entityGeneration = handle.generation;
+            return entity;
+        }
+        // Impulse on the body the last rayCast hit (no-op on a miss).
+        void impulseOnHit(f32 x, f32 y, f32 z)
+        {
+            PhysicsSceneSystem* s = System();
+            PhysicsWorld* world = World();
+            if (s == nullptr || world == nullptr || !s->LastHitValid())
+            {
+                return;
+            }
+            world->AddImpulse(s->LastHit().body, Float3{x, y, z});
+        }
+        [[nodiscard]] f32 bodyCount() const
+        {
+            PhysicsWorld* world = World();
+            return world != nullptr ? static_cast<f32>(world->BodyCount()) : 0.0f;
         }
 
         // Apply an impulse to `entity`'s rigid body in THIS scene (the scriptable-impulse gameplay
@@ -834,202 +904,7 @@ export namespace draconic::engine::physics
         }
     };
 
-    // The scripting facade: a foreign class named `Physics` whose STATIC methods resolve
-    // the CURRENT script context's bound PhysicsScriptBinding (same seam as the Input
-    // facade - no process globals; contexts without the service read released/miss).
-    class Physics final : public Object
-    {
-        DRACONIC_OBJECT(Physics, Object)
-    public:
-        [[nodiscard]] static PhysicsScriptBinding* Resolve()
-        {
-            draconic::script::IScriptContext* context = draconic::script::CurrentScriptContext();
-            return context != nullptr ? static_cast<PhysicsScriptBinding*>(
-                                            context->GetService(kPhysicsScriptService))
-                                      : nullptr;
-        }
-        [[nodiscard]] static PhysicsWorld* World()
-        {
-            PhysicsScriptBinding* binding = Resolve();
-            return binding != nullptr && binding->system != nullptr ? binding->system->World()
-                                                                    : nullptr;
-        }
-
-        /// Distance to the nearest hit, or -1 on a miss. Hit details via the hit* accessors.
-        [[nodiscard]] static f32 rayCast(f32 fromX, f32 fromY, f32 fromZ, f32 directionX,
-                                         f32 directionY, f32 directionZ, f32 maxDistance)
-        {
-            PhysicsScriptBinding* binding = Resolve();
-            PhysicsWorld* world = World();
-            if (binding == nullptr || world == nullptr)
-            {
-                return -1.0f;
-            }
-            binding->lastHitValid = world->RayCast(Float3{fromX, fromY, fromZ},
-                                                   Float3{directionX, directionY, directionZ},
-                                                   maxDistance, binding->lastHit);
-            return binding->lastHitValid ? binding->lastHit.fraction * maxDistance : -1.0f;
-        }
-        [[nodiscard]] static f32 hitX()
-        {
-            auto* b = Resolve();
-            return b != nullptr && b->lastHitValid ? b->lastHit.position.x : 0.0f;
-        }
-        [[nodiscard]] static f32 hitY()
-        {
-            auto* b = Resolve();
-            return b != nullptr && b->lastHitValid ? b->lastHit.position.y : 0.0f;
-        }
-        [[nodiscard]] static f32 hitZ()
-        {
-            auto* b = Resolve();
-            return b != nullptr && b->lastHitValid ? b->lastHit.position.z : 0.0f;
-        }
-        [[nodiscard]] static f32 hitNormalX()
-        {
-            auto* b = Resolve();
-            return b != nullptr && b->lastHitValid ? b->lastHit.normal.x : 0.0f;
-        }
-        [[nodiscard]] static f32 hitNormalY()
-        {
-            auto* b = Resolve();
-            return b != nullptr && b->lastHitValid ? b->lastHit.normal.y : 0.0f;
-        }
-        [[nodiscard]] static f32 hitNormalZ()
-        {
-            auto* b = Resolve();
-            return b != nullptr && b->lastHitValid ? b->lastHit.normal.z : 0.0f;
-        }
-        /// Material slot of the hit face (cooked triangle meshes; 0 otherwise).
-        [[nodiscard]] static f32 hitSurface()
-        {
-            auto* b = Resolve();
-            return b != nullptr && b->lastHitValid ? static_cast<f32>(b->lastHit.surface) : 0.0f;
-        }
-
-        /// The ENTITY the last successful rayCast hit, resolved from the body's packed user
-        /// word (the raw u64 is an internal handle since the reverse map became an entity
-        /// handle, so gameplay reads the entity, never the number). Invalid Entity on a miss,
-        /// no bound service, or a body whose entity is no longer live.
-        [[nodiscard]] static draconic::script::Entity rayHitEntity()
-        {
-            PhysicsScriptBinding* binding = Resolve();
-            if (binding == nullptr || !binding->lastHitValid || binding->system == nullptr)
-            {
-                return draconic::script::Entity{};
-            }
-            scene::Scene* scene = binding->system->ScenePtr();
-            if (scene == nullptr)
-            {
-                return draconic::script::Entity{};
-            }
-            const scene::EntityHandle handle = UnpackEntity(binding->lastHit.userData);
-            if (!scene->IsValid(handle))
-            {
-                return draconic::script::Entity{};
-            }
-            draconic::script::Entity entity;
-            entity.scene = scene;
-            entity.entityIndex = handle.index;
-            entity.entityGeneration = handle.generation;
-            return entity;
-        }
-
-        /// Impulse on the body the last successful rayCast hit.
-        static void impulseOnHit(f32 x, f32 y, f32 z)
-        {
-            PhysicsScriptBinding* binding = Resolve();
-            PhysicsWorld* world = World();
-            if (binding == nullptr || world == nullptr || !binding->lastHitValid)
-            {
-                return;
-            }
-            world->AddImpulse(binding->lastHit.body, Float3{x, y, z});
-        }
-
-        static void setGravity(f32 x, f32 y, f32 z)
-        {
-            if (PhysicsWorld* world = World())
-            {
-                world->SetGravity(Float3{x, y, z});
-            }
-        }
-        [[nodiscard]] static f32 gravityY()
-        {
-            PhysicsWorld* world = World();
-            return world != nullptr ? world->Gravity().y : 0.0f;
-        }
-        [[nodiscard]] static f32 bodyCount()
-        {
-            PhysicsWorld* world = World();
-            return world != nullptr ? static_cast<f32>(world->BodyCount()) : 0.0f;
-        }
-
-        // ---- character control (v1: the scene's FIRST CharacterComponent - the
-        // single-player case; per-entity addressing arrives with entity scripting) ----
-        [[nodiscard]] static CharacterComponent* ResolveCharacter()
-        {
-            PhysicsScriptBinding* binding = Resolve();
-            if (binding == nullptr || binding->system == nullptr)
-            {
-                return nullptr;
-            }
-            scene::Scene* scene = binding->system->ScenePtr();
-            auto* characters =
-                scene != nullptr ? scene->GetSystem<CharacterComponentManager>() : nullptr;
-            if (characters == nullptr)
-            {
-                return nullptr;
-            }
-            CharacterComponent* found = nullptr;
-            characters->ForEach(
-                [&](CharacterComponent& c, scene::EntityHandle)
-                {
-                    if (found == nullptr && c.character.IsValid())
-                    {
-                        found = &c;
-                    }
-                });
-            return found;
-        }
-        /// Desired planar velocity (m/s, world space) for the scene's first character.
-        static void moveCharacter(f32 velocityX, f32 velocityZ)
-        {
-            if (CharacterComponent* c = ResolveCharacter())
-            {
-                c->moveVelocity = Float3{velocityX, 0.0f, velocityZ};
-            }
-        }
-        /// One-shot jump at the next grounded step.
-        static void jumpCharacter(f32 speed)
-        {
-            if (CharacterComponent* c = ResolveCharacter())
-            {
-                c->jumpSpeed = speed;
-            }
-        }
-        [[nodiscard]] static bool characterGrounded()
-        {
-            CharacterComponent* c = ResolveCharacter();
-            return c != nullptr && c->ground == CharacterGround::OnGround;
-        }
-        [[nodiscard]] static f32 characterX()
-        {
-            auto* c = ResolveCharacter();
-            return c != nullptr ? c->currPosition.x : 0.0f;
-        }
-        [[nodiscard]] static f32 characterY()
-        {
-            auto* c = ResolveCharacter();
-            return c != nullptr ? c->currPosition.y : 0.0f;
-        }
-        [[nodiscard]] static f32 characterZ()
-        {
-            auto* c = ResolveCharacter();
-            return c != nullptr ? c->currPosition.z : 0.0f;
-        }
-    };
-
-    /// Registers the facade type (RegisterReflectedTypes then sweeps it into managers).
+    /// Registers the physics script surface (ScenePhysics.of + the reflected components) into the
+    /// global registry + the behavior prelude. (Kept the historical name; there is no static facade.)
     void RegisterPhysicsScriptFacade();
 }

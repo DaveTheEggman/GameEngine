@@ -154,13 +154,8 @@ namespace draconic::engine::physics
             return;
         }
         auto* render = context->GetSubsystem<draconic::engine::render::RenderSubsystem>();
-        m_scriptBinding.system = nullptr;
         for (const SceneEntry& entry : Systems())
         {
-            if (m_scriptBinding.system == nullptr && entry.system->World() != nullptr)
-            {
-                m_scriptBinding.system = entry.system; // scripts act on the live world
-            }
             // Per-scene alpha: each scene steps on its OWN accumulator/time scale.
             entry.system->ApplyInterpolation(entry.scene->FixedAlpha());
             if (render != nullptr && entry.system->Settings().debugDraw)
@@ -302,38 +297,24 @@ namespace draconic::engine::physics
         builder.Property<&PhysicsSceneSettings::debugDraw>("debugDraw");
     }
 
-    DRACONIC_REFLECT(Physics, "rtti::engine::physics")
-    {
-        builder.Method<&Physics::rayCast>("rayCast");
-        builder.Method<&Physics::hitX>("hitX");
-        builder.Method<&Physics::hitY>("hitY");
-        builder.Method<&Physics::hitZ>("hitZ");
-        builder.Method<&Physics::hitNormalX>("hitNormalX");
-        builder.Method<&Physics::hitNormalY>("hitNormalY");
-        builder.Method<&Physics::hitNormalZ>("hitNormalZ");
-        builder.Method<&Physics::hitSurface>("hitSurface");
-        builder.Method<&Physics::rayHitEntity>("rayHitEntity");
-        builder.Method<&Physics::impulseOnHit>("impulseOnHit");
-        builder.Method<&Physics::setGravity>("setGravity");
-        builder.Method<&Physics::gravityY>("gravityY");
-        builder.Method<&Physics::bodyCount>("bodyCount");
-        builder.Method<&Physics::moveCharacter>("moveCharacter");
-        builder.Method<&Physics::jumpCharacter>("jumpCharacter");
-        builder.Method<&Physics::characterGrounded>("characterGrounded");
-        builder.Method<&Physics::characterX>("characterX");
-        builder.Method<&Physics::characterY>("characterY");
-        builder.Method<&Physics::characterZ>("characterZ");
-        // The Wren emitter only materializes CONSTRUCTIBLE types as foreign classes.
-        builder.Constructor();
-    }
-
-    // The scene-bound physics handle: `ScenePhysics.of(scene).rayCast/gravityY/setGravity` on THAT
-    // scene's world. Reflected with authored parameter names (A6). The `of` factory returns
-    // ScenePhysics by value (concrete return type - cross-backend, no ReturnType-override needed).
+    // The scene-bound physics handle: `ScenePhysics.of(scene).rayCast/gravityY/setGravity/...` on
+    // THAT scene's world (the explicit-scene replacement for the retired static Physics facade).
+    // Reflected with authored parameter names (A6). The `of` factory returns ScenePhysics by value
+    // (concrete return type - cross-backend, no ReturnType-override needed).
     DRACONIC_REFLECT_VALUE(ScenePhysics, "rtti::engine::physics")
     {
         builder.Method<&ScenePhysics::rayCast>(
             "rayCast", {"fromX", "fromY", "fromZ", "dirX", "dirY", "dirZ", "maxDistance"});
+        builder.Method<&ScenePhysics::hitX>("hitX");
+        builder.Method<&ScenePhysics::hitY>("hitY");
+        builder.Method<&ScenePhysics::hitZ>("hitZ");
+        builder.Method<&ScenePhysics::hitNormalX>("hitNormalX");
+        builder.Method<&ScenePhysics::hitNormalY>("hitNormalY");
+        builder.Method<&ScenePhysics::hitNormalZ>("hitNormalZ");
+        builder.Method<&ScenePhysics::hitSurface>("hitSurface");
+        builder.Method<&ScenePhysics::rayHitEntity>("rayHitEntity");
+        builder.Method<&ScenePhysics::impulseOnHit>("impulseOnHit", {"x", "y", "z"});
+        builder.Method<&ScenePhysics::bodyCount>("bodyCount");
         builder.Method<&ScenePhysics::setGravity>("setGravity", {"x", "y", "z"});
         builder.Method<&ScenePhysics::gravityY>("gravityY");
         builder.Method<&ScenePhysics::applyImpulse>("applyImpulse", {"entity", "x", "y", "z"});
@@ -343,10 +324,6 @@ namespace draconic::engine::physics
     void RegisterPhysicsScriptFacade()
     {
         RegisterPhysicsComponentReflection(); // ensure component TypeData (incl `of`) is built first
-        GlobalTypeRegistry().Register(Physics::StaticType());
-        // So the Wren behavior/Level prelude imports `Physics` too (AngelScript binds by
-        // registry). Without this only top-level `main`/Game scripts can see it. Idempotent.
-        draconic::script::RegisterExtraFacadeName(u8"Physics");
 
         // Surface the physics COMPONENTS to script (OPTION 1: RigidBodyComponent.of(entity), ...):
         // register them (both backends emit registry types), seed Wren emission roots (reachability),
