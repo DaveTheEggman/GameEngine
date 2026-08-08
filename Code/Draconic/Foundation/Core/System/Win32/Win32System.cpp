@@ -317,7 +317,15 @@ namespace draconic::core::sys
             break;
         }
 
-        HANDLE handle = CreateFileA(path, access, FILE_SHARE_READ, nullptr, creation,
+        // Share EVERYTHING, to match the POSIX semantics the rest of the engine is written
+        // against: there, an open reader never prevents rewriting, replacing or unlinking a
+        // file. With the previous FILE_SHARE_READ, any outstanding read stream made a later
+        // write open fail - so e.g. regenerating a model prefab while its own payload stream
+        // was still open failed on Windows and passed on Linux. Callers that need exclusive
+        // access must take a real lock; the share mode was never providing one (it only
+        // blocked writers, and only while a handle happened to be open).
+        constexpr DWORD kShareAll = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+        HANDLE handle = CreateFileA(path, access, kShareAll, nullptr, creation,
                                     FILE_ATTRIBUTE_NORMAL, nullptr);
         if (handle == INVALID_HANDLE_VALUE)
         {
