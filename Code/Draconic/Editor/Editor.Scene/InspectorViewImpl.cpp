@@ -54,10 +54,40 @@ namespace draconic::editor
 {
     RefPtr<ui::View> CollisionMatrixEditor::CreateEditorView()
     {
-        auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
-        column->Direction = ui::Orientation::Vertical;
-        column->Spacing = 2.0f;
+        m_column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_column->Direction = ui::Orientation::Vertical;
+        m_column->Spacing = 2.0f;
+        BuildGrid(*m_column);
+        return m_column;
+    }
 
+    void CollisionMatrixEditor::RequestRebuild()
+    {
+        if (m_column.Get() == nullptr)
+        {
+            return;
+        }
+        RefPtr<CollisionMatrixEditor> self(this); // keep alive across the deferred drain
+        auto rebuild = [self]()
+        {
+            self->m_column->RemoveAllViews(/*deleteChildren=*/true);
+            self->BuildGrid(*self->m_column);
+            self->m_column->Invalidate();
+        };
+        // Structural mutation: defer to the mutation queue so the click-dispatching views are not torn
+        // down mid-event. Not yet attached (no context) -> safe to rebuild inline.
+        if (ui::UIContext* ctx = m_column->Context)
+        {
+            ctx->MutationQueueRef().QueueAction(Function<void()>{Move(rebuild)});
+        }
+        else
+        {
+            rebuild();
+        }
+    }
+
+    void CollisionMatrixEditor::BuildGrid(ui::FlexLayout& column)
+    {
         CollisionMatrixEditor* self = this;
         const usize count = names.Size();
         for (usize i = 0; i < count; ++i)
@@ -108,7 +138,7 @@ namespace draconic::editor
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
-            column->AddView(row.Get(), lp);
+            column.AddView(row.Get(), lp);
         }
 
         if (count < draconic::physics::kCollisionGroupCount)
@@ -126,9 +156,8 @@ namespace draconic::editor
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
-            column->AddView(add.Get(), lp);
+            column.AddView(add.Get(), lp);
         }
-        return column;
     }
 
     RefPtr<ui::View> ContainerListEditor::CreateEditorView()
@@ -530,6 +559,7 @@ namespace draconic::editor
             }
             raw->names[i] = Move(name);
             commit(editedCopy());
+            raw->RequestRebuild(); // refresh cell tooltips ("vs <name>")
         };
         matrix->OnToggle = [commit, editedCopy, raw = matrix.Get()](usize i, usize j)
         {
@@ -549,6 +579,7 @@ namespace draconic::editor
                 raw->matrix[j] |= (1u << i);
             }
             commit(editedCopy());
+            raw->RequestRebuild(); // flip the +/- cell labels
         };
         matrix->OnAddGroup = [commit, editedCopy, raw = matrix.Get()]()
         {
@@ -562,6 +593,7 @@ namespace draconic::editor
             raw->names.PushBack(Move(name));
             raw->matrix.PushBack(0xFFFFFFFFu);
             commit(editedCopy());
+            raw->RequestRebuild(); // the new row/column appears (deferred, mutation-queue-safe)
         };
         AddEditor(matrix.Get(), []() {});
     }

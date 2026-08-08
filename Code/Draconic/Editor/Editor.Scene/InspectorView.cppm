@@ -220,8 +220,17 @@ export namespace draconic::editor
 
         void RefreshView() override {}
 
+        /// Rebuild the grid after a STRUCTURAL change (add group / rename / toggle). Deferred via the
+        /// UI mutation queue: the trigger is a button-click event, and rebuilding tears down the very
+        /// views dispatching it, which must not happen mid-event (UIContext mutation-queue rule).
+        void RequestRebuild();
+
     protected:
         RefPtr<ui::View> CreateEditorView() override;
+
+    private:
+        void BuildGrid(ui::FlexLayout& column); // the row/cell/add-button build (rerun on rebuild)
+        RefPtr<ui::FlexLayout> m_column;         // the editor view, kept so a rebuild can repopulate it
     };
 
     // ui::IconButton + ui::AssetPickerSlot are the shared UI controls (Draconic.UI/Controls); the
