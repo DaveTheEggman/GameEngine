@@ -212,3 +212,39 @@ TEST_CASE("system: RunProcess reports failure to spawn a missing binary")
 }
 
 #endif // !DRACONIC_PLATFORM_WEB (subprocess spawning is desktop-only)
+
+// NormalizePathSeparators is fanned out to the platform backends; the Win32 OpenPathInFileManager
+// relies on it (Explorer refuses '/'). This exercises the LINUX backend on the dev box - POSIX-native
+// is '/', so it flips backslashes the other way; the empty/exact/overlong contract is shared, and the
+// Windows '/'->'\' direction is the mirror image validated on Windows.
+TEST_CASE("system: NormalizePathSeparators yields OS-native separators (POSIX on this host)")
+{
+    char out[64];
+
+    SUBCASE("backslashes become forward slashes on POSIX")
+    {
+        CHECK(NormalizePathSeparators(u8"a\\b\\My Dir", out, sizeof(out)));
+        CHECK(std::strcmp(out, "a/b/My Dir") == 0);
+    }
+    SUBCASE("already-native path is unchanged")
+    {
+        CHECK(NormalizePathSeparators(u8"/home/foo/bar", out, sizeof(out)));
+        CHECK(std::strcmp(out, "/home/foo/bar") == 0);
+    }
+    SUBCASE("empty path is rejected")
+    {
+        CHECK_FALSE(NormalizePathSeparators(u8"", out, sizeof(out)));
+    }
+    SUBCASE("overlong path is rejected, not truncated mid-path")
+    {
+        // 8 chars + NUL needs 9; a capacity of 8 must refuse rather than write a partial path.
+        char small[8];
+        CHECK_FALSE(NormalizePathSeparators(u8"a\\bcdefg", small, sizeof(small)));
+    }
+    SUBCASE("exact fit (length + NUL == cap) is accepted")
+    {
+        char exact[8];
+        CHECK(NormalizePathSeparators(u8"a\\bcdef", exact, sizeof(exact))); // 7 + NUL == 8
+        CHECK(std::strcmp(exact, "a/bcdef") == 0);
+    }
+}

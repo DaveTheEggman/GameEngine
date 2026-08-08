@@ -61,6 +61,14 @@ namespace draconic::core::sys
     // not be started or `path` is empty. Must never block the caller (it runs on the UI thread).
     bool OpenPathInFileManager(const char* path) noexcept;
 
+    // Normalize directory separators to the OS-native form: '/' -> '\' on Windows, '\' -> '/' on
+    // POSIX. Copies `path` into `out` (capacity `cap`, NUL-terminated) and returns true; returns
+    // false WITHOUT writing if `path` is null/empty or would not fit with its terminator - rejecting
+    // an overlong path rather than truncating it mid-path (a truncation could point at a wrong-but-
+    // valid parent). Fanned out to the platform backends (Win32 flips one way, Linux the other) like
+    // the other OS services here; the :system module re-exports a StringView wrapper for callers.
+    bool NormalizePathSeparators(const char* path, char* out, std::size_t cap) noexcept;
+
     // Run `exe` with arguments argv[0..argc-1] (WITHOUT the program name - the backend prepends `exe`
     // as argv[0]). No shell, no PATH search - `exe` is an explicit path. BLOCKS until the child exits.
     // Returns the exit code (0..255), or -1 if the process could not be spawned OR was killed by a

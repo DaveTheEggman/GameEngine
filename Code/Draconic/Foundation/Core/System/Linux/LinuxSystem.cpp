@@ -145,6 +145,30 @@ namespace draconic::core::sys
         return true; // launch initiated (xdg-open's own success isn't observable here)
     }
 
+    bool NormalizePathSeparators(const char* path, char* out, std::size_t cap) noexcept
+    {
+        // POSIX-native separator is '/'; flip any backslash. (Windows flips the other way.)
+        if (path == nullptr || out == nullptr || cap == 0)
+        {
+            return false;
+        }
+        std::size_t length = 0;
+        while (path[length] != '\0')
+        {
+            ++length;
+        }
+        if (length == 0 || length + 1 > cap)
+        {
+            return false; // reject overlong rather than truncate mid-path
+        }
+        for (std::size_t i = 0; i < length; ++i)
+        {
+            out[i] = (path[i] == '\\') ? '/' : path[i];
+        }
+        out[length] = '\0';
+        return true;
+    }
+
     int RunProcess(const char* exe, const char* const* argv, int argc, char* out,
                    std::size_t outCap) noexcept
     {

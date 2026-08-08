@@ -112,9 +112,15 @@ namespace draconic::core::sys
         // URL, both of which can synchronously block or pop a protocol chooser and hang the UI thread.
         // CreateProcess returns as soon as the child starts (we don't wait), so this can never block.
         // Quotes let the path contain spaces; explorer parses its own command line. Core needs no
-        // shell32 link this way. Backslash paths are fine (Explorer's native separator).
-        char command[4096];
-        std::snprintf(command, sizeof(command), "explorer.exe \"%s\"", path);
+        // shell32 link this way. Explorer refuses forward-slash separators, so normalize to the native
+        // '\' first (rejecting an overlong path rather than truncating it, which could open a wrong parent).
+        char native[4096];
+        if (!NormalizePathSeparators(path, native, sizeof(native)))
+        {
+            return false;
+        }
+        char command[sizeof(native) + 32];
+        std::snprintf(command, sizeof(command), "explorer.exe \"%s\"", native);
         STARTUPINFOA startup{};
         startup.cb = sizeof(startup);
         PROCESS_INFORMATION process{};
@@ -125,6 +131,30 @@ namespace draconic::core::sys
         }
         ::CloseHandle(process.hThread);
         ::CloseHandle(process.hProcess);
+        return true;
+    }
+
+    bool NormalizePathSeparators(const char* path, char* out, std::size_t cap) noexcept
+    {
+        // Windows-native separator is '\'; flip any forward slash. (POSIX flips the other way.)
+        if (path == nullptr || out == nullptr || cap == 0)
+        {
+            return false;
+        }
+        std::size_t length = 0;
+        while (path[length] != '\0')
+        {
+            ++length;
+        }
+        if (length == 0 || length + 1 > cap)
+        {
+            return false; // reject overlong rather than truncate mid-path
+        }
+        for (std::size_t i = 0; i < length; ++i)
+        {
+            out[i] = (path[i] == '/') ? '\\' : path[i];
+        }
+        out[length] = '\0';
         return true;
     }
 

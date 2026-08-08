@@ -366,6 +366,15 @@ export namespace draconic::core
         return sys::OpenPathInFileManager(detail::NullTerminated(path).CStr());
     }
 
+    // Normalize a path's directory separators to the OS-native form (see the backend: '/' -> '\' on
+    // Windows, '\' -> '/' on POSIX). Copies into `out` (capacity `cap`, NUL-terminated); false (no
+    // write) if empty or overlong-with-NUL. The tested seam over the fanned-out backend behavior -
+    // the Win32 OpenPathInFileManager uses it so Explorer, which rejects '/', gets native separators.
+    [[nodiscard]] inline bool NormalizePathSeparators(StringView path, char* out, usize cap) noexcept
+    {
+        return sys::NormalizePathSeparators(detail::NullTerminated(path).CStr(), out, cap);
+    }
+
     // Outcome of RunProcess.
     struct ProcessResult
     {
