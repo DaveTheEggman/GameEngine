@@ -5,6 +5,126 @@ and the plan. Keep newest first.
 
 ---
 
+## MSVC support (I9 P1) - TRIAGED, VERDICT: TRACTABLE
+
+**Status:** P1 complete 2026-08-08. `msvc` preset added; triage build run; no fixes made.
+**Verdict: small conformance work, NOT a compiler-support wait.** Details below drive P2.
+
+**Toolchain:** VS 2026 Community 18.7.0, cl 19.51.36247 (toolset 14.51.36231),
+CMake 4.3.0, Ninja 1.11.1. Preset `msvc` (Ninja, Debug). Must be configured from a
+Developer Command Prompt (vcvars64) - the preset does not and cannot set that up.
+Warnings-as-errors is OFF in the preset while triage is open.
+
+**Headline:** `5516 / 6102` build steps succeeded, **13 targets failed**, six error
+classes. Most of the engine - including all of Core, RHI (except DX12), VG, Fonts,
+Scene, Render (except one TU), UI, and the bulk of the test suites - compiles and
+links under MSVC today. C++20 modules broadly work; the module problems are narrow
+and specific.
+
+Raw error counts are misleading (115 errors / 9036 warnings) because two classes are
+pure noise that repeat per-TU. By target:
+
+| Class | Failing targets | Kind |
+|---|---|---|
+| C1041 shared PDB | UI.Tests, Animation.Editor.Tests, UISandbox | build system |
+| D8021 `/Wno-error` | Audio | our build bug |
+| LNK2019 `CallX64` | GameInstance.Tests, Net.Manager.Tests, AngelScript.Tests | build system |
+| C2504/C3668 XmlNode | Engine.Project, Editor.Core, Settings.Tests, Content.Tests | **MSVC module bug** |
+| C1116 `<stop_token>` | RHI.DX12 | **MSVC module bug** |
+| C2059/C2187 nested lambda | GUI.Tests | **MSVC parser limit** |
+| C3083 `IBLSystem::IBLSystem::` | Render | our code |
+
+### Mechanical (build-system) - 7 of 13 targets, no engine code involved
+
+1. **C1041 x49** - `cannot open program database ...\lib\vc140.pdb; if multiple CL.EXE
+   write to the same .PDB, please use /FS`. Every static lib shares
+   `CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY` with the default `vc140.pdb` name, so parallel
+   Ninja jobs collide. Fix: `/FS`, or a per-target `COMPILE_PDB_NAME`. Nothing to do
+   with modules; it just happens to hit the widest targets.
+
+2. **D8021 x1** - `Code/Draconic/Foundation/Audio/CMakeLists.txt:27` sets
+   `COMPILE_OPTIONS "-Wno-error"` on `MiniaudioImpl.cpp` with no compiler guard, so cl
+   gets `/Wno-error` and rejects it. **Ours, not MSVC's.** One-line guard; the fix is
+   compiler-portability, not MSVC-specific, so it should land as its own cherry-pickable
+   commit.
+
+3. **LNK2019/LNK1120 x12** - unresolved `CallX64`, `GetReturnedFloat`,
+   `GetReturnedDouble`. `ThirdParty/CMakeLists.txt:216` adds AngelScript's x64
+   native-call trampoline **only for Clang** (`as_callfunc_x64_msvc_clang.S`). MSVC needs
+   the MASM sibling `as_callfunc_x64_msvc_asm.asm`, which is vendored but never compiled.
+   Also requires the `ASM_MASM` language - `project()` currently declares plain `ASM`,
+   which is why configure warns `CMP194: MSVC is not an assembler for language ASM`.
+
+### Our code - 1 target, trivial
+
+4. **C3083 x2** - `IBLSystemImpl.cpp:110` and `:462` write
+   `IBLSystem::IBLSystem::Context` / `IBLSystem::IBLSystem::IblPush`. The doubled
+   qualifier is the injected-class-name; legal C++ that clang and gcc accept, MSVC
+   rejects with "the symbol to the left of a '::' must be a type". Deleting the
+   redundant `IBLSystem::` is correct on every compiler - another cherry-pickable
+   portability commit, not an MSVC workaround.
+
+### Genuine MSVC issues - 5 targets
+
+5. **C2504 + C3668 x32 - module partition visibility. The one that matters.**
+   `XmlNode` (partition `:nodes`) is undefined at `Document.cppm:34` where
+   `XmlDocument : public XmlNode` derives from it, cascading into 24 "method with
+   override specifier did not override any base class method" errors.
+   The import graph is acyclic and legal:
+
+   ```
+   :nodes    <- :lexer :ns :escape
+   :writer   <- :nodes :escape
+   :document <- :result :lexer :ns :nodes :writer     <- diamond on :nodes
+   ```
+
+   **Crucially, `Draconic.Xml` itself builds and `Draconic.Xml.Tests` links.** The
+   failure only appears in *consumers* (Engine.Project, Editor.Core, Settings.Tests,
+   Content.Tests) when they `import draconic.xml` - i.e. MSVC writes a `.ifc` it then
+   cannot correctly re-materialize, losing the base class across the diamond. That
+   makes it an `.ifc` round-trip bug rather than anything wrong with the source.
+   Worth a minimal upstream reproducer. Local workaround to try in P2: have `:document`
+   re-export or reorder its partition imports, or flatten the `:nodes`/`:writer`
+   diamond.
+
+6. **C1116 x2** - `stop_token(248): unrecoverable error importing module 'draconic.core'.
+   Specialization of 'std::_Stop_callback_base::_Do_attach' with arguments 'false'`,
+   compiling `DxModule.cppm`. MSVC's own STL interacting with an imported module; no
+   Draconic code in the diagnostic. Blocks RHI.DX12 only. Least likely to be fixable on
+   our side - this is the one candidate for "wait for a toolset update", and the first
+   thing to re-test on a VS bump.
+
+7. **C2059/C2143/C2187/C2065/C2297/C2660/C1903 x~14** - `MarkupLoader.cppm:98`,
+   a lambda with a trailing return type nested inside a *generic* lambda:
+
+   ```cpp
+   auto reg = [&f](core::StringView name, auto maker)          // generic
+   { f.Register(name, [maker]() -> RefPtr<Node> { return maker(); }); };   // line 98
+   ```
+
+   MSVC's parser gives up at the inner lambda; the doctest `DOCTEST_ANON_FUNC_2` and
+   `consume` errors in `MarkupTests.cpp` are downstream cascade, not separate bugs.
+   Confined to `Experimental/GUI`. Easily restructured (hoist the inner lambda or drop
+   the trailing return type).
+
+**Tested and ruled out:** `/permissive-` and `/Zc:preprocessor` fix neither (7) nor the
+doctest cascade - verified by recompiling both TUs with the flags added. Do not assume
+a conformance switch makes these go away. No `C4819` anywhere, so `/utf-8` is not needed.
+
+**Noise to silence before P2 so real errors are visible:** `D9025 x9036`
+(`overriding '/EHs' with '/EHs-'`) - CMake injects a default `/EHsc` that our policy's
+`/EHs-c-` then overrides. Strip the default rather than override it. `C4530 x102`
+(unwind semantics) and `LNK4099 x294` (missing PDB) follow from the same two causes.
+
+**Suggested P2 order:** build-system items (1)(2)(3) and code item (4) first - they are
+mechanical, unblock 8 of 13 targets, and (2)(4) are portability fixes that belong on
+`master` regardless. Then (7). Then (5), the only one needing real thought. Leave (6)
+parked pending a toolset update. Work happens on the `msvc` branch; keep
+non-MSVC-specific fixes as isolated commits so they cherry-pick cleanly.
+
+**Full log:** regenerate with `cmake --build --preset msvc -- -k 0` from a vcvars shell.
+
+
 ## Legacy 'draconic::' type names in serialized data - COMPAT FALLBACK ACTIVE
 
 **Status:** MITIGATED (TypeRegistry::FindByLegacyName). The 2026-08 debrand renamed
