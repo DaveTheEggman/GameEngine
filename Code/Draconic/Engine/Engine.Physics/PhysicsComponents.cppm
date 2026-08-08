@@ -155,6 +155,8 @@ export namespace draconic::engine::physics
         // Runtime input (gameplay/scripts write):
         Float3 moveVelocity{0.0f, 0.0f, 0.0f};
         f32 jumpSpeed = 0.0f; // consumed at the next grounded step
+        Float3 teleportTo{0.0f, 0.0f, 0.0f};
+        bool teleportPending = false; // consumed (snap) at the next step, then cleared
 
         // Runtime (transient):
         CharacterId character;
@@ -168,6 +170,14 @@ export namespace draconic::engine::physics
         // character only" limitation). ----
         void move(f32 velocityX, f32 velocityZ) { moveVelocity = Float3{velocityX, 0.0f, velocityZ}; }
         void jump(f32 speed) { jumpSpeed = speed; }
+        // Teleport/respawn: request a hard snap to (x, y, z). The physics tick moves the
+        // CharacterVirtual (a live character owns its transform, so a plain entity.setPosition would be
+        // overwritten next step) and drops momentum. Applied once, then the request clears.
+        void setPosition(f32 x, f32 y, f32 z)
+        {
+            teleportTo = Float3{x, y, z};
+            teleportPending = true;
+        }
         [[nodiscard]] bool grounded() const { return ground == CharacterGround::OnGround; }
         [[nodiscard]] f32 positionX() const { return currPosition.x; }
         [[nodiscard]] f32 positionY() const { return currPosition.y; }

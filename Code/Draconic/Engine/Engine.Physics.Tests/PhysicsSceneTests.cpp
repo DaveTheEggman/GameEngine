@@ -550,6 +550,85 @@ TEST_CASE("physics.scene: the character component walks, jumps, and lands (inter
     CHECK(play.scene.GetWorldPosition(hero).y == doctest::Approx(0.9f).epsilon(0.03));
 }
 
+TEST_CASE("physics.scene: CharacterComponent.setPosition teleports the character (respawn)")
+{
+    PlayScene play;
+    play.scene.AddSystem<CharacterComponentManager>();
+    play.AddFloor();
+    scene::EntityHandle hero = play.scene.CreateEntity(u8"hero");
+    play.scene.SetLocalPosition(hero, Float3{0.0f, 0.9f, 0.0f});
+    CharacterComponent& character = play.scene.GetSystem<CharacterComponentManager>()->Add(hero);
+    play.Start();
+    play.Step(30); // settle onto the floor
+
+    // Walking, then a teleport away: the snap is exact and drops momentum (moveVelocity zeroed).
+    character.moveVelocity = Float3{3.0f, 0.0f, 0.0f};
+    play.Step(5);
+    character.setPosition(8.0f, 3.0f, -4.0f);
+    play.Step(1); // the fixed step consumes the request: snap + zero velocity + skip integration
+    CHECK(character.teleportPending == false);
+    CHECK(character.moveVelocity.x == doctest::Approx(0.0f));
+    CHECK(character.currPosition.x == doctest::Approx(8.0f).epsilon(0.001));
+    CHECK(character.currPosition.z == doctest::Approx(-4.0f).epsilon(0.001));
+    CHECK(character.prevPosition.x == doctest::Approx(8.0f).epsilon(0.001)); // snap: prev == curr
+
+    // From y=3 it falls and settles at the teleported x/z (no horizontal drift - momentum dropped).
+    play.Step(90);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    const Float3 landed = play.scene.GetWorldPosition(hero);
+    CHECK(landed.x == doctest::Approx(8.0f).epsilon(0.1));
+    CHECK(landed.z == doctest::Approx(-4.0f).epsilon(0.1));
+    CHECK(landed.y == doctest::Approx(0.9f).epsilon(0.05));
+}
+
+// KNOWN GAP (docs/specs/game-ready-scripting.md section 17): a CharacterComponent walking into a
+// sensor does NOT yet raise a TriggerEnter event. The trigger stream comes from the world's
+// RIGID-BODY contact listener, and a CharacterVirtual is a swept capsule, not a body in that solver,
+// so its sensor overlaps never reach it. This guard asserts the CURRENT behavior (no event); when
+// character->sensor contacts are implemented it FLIPS - update it to assert the event fires + delete
+// spec section 17.
+TEST_CASE("physics.scene: a CharacterComponent walking into a trigger raises NO TriggerEnter (known gap)")
+{
+    PlayScene play;
+    play.scene.AddSystem<CharacterComponentManager>();
+    play.AddFloor();
+    // A sensor volume on the character's +x path.
+    const scene::EntityHandle volume = play.AddBox(0.9f, MotionKind::Kinematic);
+    play.scene.SetLocalPosition(volume, Float3{3.0f, 0.9f, 0.0f});
+    RigidBodyComponent* sensor = play.scene.GetSystem<RigidBodyComponentManager>()->Get(volume);
+    sensor->isTrigger = true;
+    sensor->halfExtents = Float3{0.7f, 1.0f, 0.7f};
+    scene::EntityHandle hero = play.scene.CreateEntity(u8"hero");
+    play.scene.SetLocalPosition(hero, Float3{0.0f, 0.9f, 0.0f});
+    CharacterComponent& character = play.scene.GetSystem<CharacterComponentManager>()->Add(hero);
+    play.Start();
+    play.Step(20); // settle
+
+    RecordingListener recorder;
+    Array<IContactListener*> listeners;
+    listeners.PushBack(&recorder);
+    play.physics->SetContactListeners(&listeners);
+
+    // Walk the character straight through where the sensor is; it reaches and passes x=3.
+    character.moveVelocity = Float3{3.0f, 0.0f, 0.0f};
+    bool entered = false;
+    for (int i = 0; i < 240; ++i)
+    {
+        play.Step(1);
+        for (const EntityContact& c : recorder.contacts)
+        {
+            if (c.kind == ContactKind::TriggerEnter &&
+                ((c.a == volume && c.b == hero) || (c.a == hero && c.b == volume)))
+            {
+                entered = true;
+            }
+        }
+    }
+    CHECK(character.currPosition.x > 3.0f);       // it really did walk through the volume
+    CHECK_FALSE(entered);                         // ...yet no trigger event fired (the gap)
+}
+
 // ---- the editor Simulate cycle (regression: stop hung + OOMed the editor) ----
 // Capture -> Start -> frames -> Stop -> Restore -> frames, twice, on the real
 // subsystem stack (SceneSubsystem drives per-scene fixed stepping like the editor).

@@ -231,6 +231,21 @@ export namespace draconic::engine::physics
                         {
                             return;
                         }
+                        // Teleport/respawn (setPosition): snap the CharacterVirtual, drop momentum,
+                        // and skip this step's integration so the snap is exact (interpolation snaps
+                        // too - prev == curr). Ground re-evaluates on the next step.
+                        if (c.teleportPending)
+                        {
+                            m_world->SetCharacterPosition(c.character, c.teleportTo);
+                            m_world->SetCharacterVelocity(c.character, Float3{0, 0, 0});
+                            c.moveVelocity = Float3{0, 0, 0};
+                            c.jumpSpeed = 0.0f;
+                            c.prevPosition = c.teleportTo;
+                            c.currPosition = c.teleportTo;
+                            c.ground = CharacterGround::InAir;
+                            c.teleportPending = false;
+                            return;
+                        }
                         const Float3 current = m_world->CharacterVelocity(c.character);
                         Float3 velocity{c.moveVelocity.x, 0.0f, c.moveVelocity.z};
                         if (c.ground == CharacterGround::OnGround)
@@ -467,6 +482,7 @@ export namespace draconic::engine::physics
                     c.prevPosition = c.currPosition = position;
                     c.moveVelocity = Float3{0, 0, 0};
                     c.jumpSpeed = 0.0f;
+                    c.teleportPending = false;
                 });
         }
 
