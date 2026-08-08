@@ -444,6 +444,7 @@ if(DRACONIC_BUILD_TOOLS)
     if(TARGET Draconic::Fonts.DistanceField.Baker)
         add_subdirectory(Code/Draconic/Editor/Fonts.Editor)
         add_subdirectory(Code/Draconic/Editor/Editor.Fonts) # font asset page: bake intent + live atlas preview
+        add_subdirectory(Code/Draconic/Editor/Editor.Physics) # collision-shape asset page: mesh picker + cook
     endif()
 
     add_subdirectory(Code/Draconic/Tools/Tools.Editor)        # DraconicEditor executable (editor assembly)
