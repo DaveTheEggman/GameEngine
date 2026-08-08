@@ -52,6 +52,15 @@ namespace core = draconic::core;
 
 namespace draconic::editor
 {
+    RefPtr<ui::View> NoticeEditor::CreateEditorView()
+    {
+        auto label = MakeRef<ui::Label>(DefaultAllocator(), message.AsView());
+        label->WordWrap.SetValue(true);
+        label->TextColor.SetValue(
+            Optional<core::Color>{core::Color{0.95f, 0.75f, 0.2f, 1.0f}}); // amber advisory
+        return label;
+    }
+
     RefPtr<ui::View> CollisionMatrixEditor::CreateEditorView()
     {
         m_column = MakeRef<ui::FlexLayout>(DefaultAllocator());
@@ -924,6 +933,28 @@ namespace draconic::editor
 
         SceneEditContext* edit = m_edit;
         EditorContext* editor = m_editor;
+
+        // RigidBody with a Cooked shape but no collision-shape reference: warn, else the body builds
+        // with NO collider (the #7 authoring trap). Advisory only - refreshed when the inspector
+        // rebuilds (reselect / structural change).
+        if (type == &TypeOf<draconic::engine::physics::RigidBodyComponent>())
+        {
+            const scene::EntityHandle e = edit->Resolve(id);
+            auto* bodies = static_cast<draconic::engine::physics::RigidBodyComponentManager*>(&mgr);
+            draconic::engine::physics::RigidBodyComponent* body =
+                e.IsAssigned() ? bodies->Get(e) : nullptr;
+            if (body != nullptr && body->shape == draconic::physics::ShapeKind::Cooked &&
+                body->collisionShape.id.IsNil())
+            {
+                auto notice = MakeRef<NoticeEditor>(DefaultAllocator(), StringView(u8"Collision"),
+                                                    StringView(u8"Physics"));
+                notice->message = String(
+                    u8"Shape is Cooked but no collision shape is set - this body has no collider. "
+                    u8"Assign one (import a mesh with Generate collision, or create a Collision "
+                    u8"Shape asset).");
+                AddEditor(notice.Get(), []() {});
+            }
+        }
 
         // MeshComponent: the material SLOT list (unified array; slot 0 = whole-mesh). Two UIs, chosen
         // by kUseReflectedMaterialSlots: the bespoke mesh-aware editor (below, renders through the same

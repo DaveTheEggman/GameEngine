@@ -233,6 +233,23 @@ export namespace draconic::editor
         RefPtr<ui::FlexLayout> m_column;         // the editor view, kept so a rebuild can repopulate it
     };
 
+    // A read-only inspector NOTICE row: a wrapped advisory label spanning the editor column (no value
+    // editing). Used for conditional hints like "RigidBody shape=Cooked but no collision shape set".
+    class NoticeEditor final : public ui::toolkit::PropertyEditor
+    {
+        DRACONIC_OBJECT(NoticeEditor, ui::toolkit::PropertyEditor)
+    public:
+        String message;
+        NoticeEditor(StringView name, StringView category)
+            : ui::toolkit::PropertyEditor(name, category)
+        {
+        }
+        void RefreshView() override {}
+
+    protected:
+        RefPtr<ui::View> CreateEditorView() override;
+    };
+
     // ui::IconButton + ui::AssetPickerSlot are the shared UI controls (Draconic.UI/Controls); the
     // list editor below composes them.
 
@@ -622,6 +639,7 @@ export namespace draconic::editor
     };
 
     DRACONIC_DEFINE_OBJECT(ResourceRefEditor, "rtti::editor::editor")
+    DRACONIC_DEFINE_OBJECT(NoticeEditor, "rtti::editor::editor")
     DRACONIC_DEFINE_OBJECT(CollisionMatrixEditor, "rtti::editor::editor")
     DRACONIC_DEFINE_OBJECT(ContainerListEditor, "rtti::editor::editor")
     DRACONIC_DEFINE_OBJECT(SceneInspectorView, "rtti::editor::editor")
