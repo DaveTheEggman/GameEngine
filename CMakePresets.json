@@ -82,14 +82,13 @@
     },
     {
       "name": "msvc",
-      "displayName": "MSVC (Ninja, Debug) - TRIAGE, see KNOWN_ISSUES.md",
-      "description": "Requires a Developer Command Prompt (vcvars64) so cl.exe and the Windows SDK are on PATH; Ninja is used for C++20 module support. Warnings-as-errors is OFF while MSVC support is being triaged - turn it back on once the tree builds clean.",
+      "displayName": "MSVC (Ninja, Debug)",
+      "description": "Requires a Developer Command Prompt (vcvars64) so cl.exe and the Windows SDK are on PATH; Ninja is used for C++20 module support.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/msvc",
       "cacheVariables": {
         "CMAKE_CXX_COMPILER": "cl",
-        "CMAKE_BUILD_TYPE": "Debug",
-        "DRACONIC_WARNINGS_AS_ERRORS": "OFF"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {

@@ -215,7 +215,11 @@ target_compile_options(draconic_policy INTERFACE
 if(DRACONIC_WARNINGS_AS_ERRORS)
     target_compile_options(draconic_policy INTERFACE
         $<$<CXX_COMPILER_ID:Clang,GNU>:-Werror>
-        $<$<CXX_COMPILER_ID:MSVC>:/WX>)
+        # /wd4530: "C++ exception handler used, but unwind semantics are not enabled". We disable
+        # exceptions on purpose (/EHs-c- above) while still using the STL, so cl emits this from
+        # ITS OWN headers - 114 instances in a full build, none from Code/. It is a restatement of
+        # a deliberate choice, not a finding, and under /WX it fails ~113 otherwise-clean targets.
+        $<$<CXX_COMPILER_ID:MSVC>:/WX;/wd4530>)
     # Clang on Windows emits a spurious "argument unused during compilation: '-c'"
     # during the CMake module-dependency scan step. Suppress just that diagnostic
     # so -Werror doesn't kill the build.
