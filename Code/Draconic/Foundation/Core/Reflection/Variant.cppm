@@ -465,7 +465,10 @@ export namespace draconic::core
         }
 
     private:
-        static constexpr usize kInlineSize = 3 * sizeof(void*);
+        // Big enough to inline the RESOLVE contexts too - {Scene*, EntityHandle, ComponentManagerBase*}
+        // is 3 words on LP64 but the u64 EntityHandle keeps it from shrinking with the pointers on
+        // wasm32 (4-byte pointers -> 3 words is only 12 bytes), so floor at 24.
+        static constexpr usize kInlineSize = 3 * sizeof(void*) < 24 ? 24 : 3 * sizeof(void*);
         static constexpr usize kInlineAlign = alignof(std::max_align_t);
 
         void* AllocateStorage(usize size, usize align)

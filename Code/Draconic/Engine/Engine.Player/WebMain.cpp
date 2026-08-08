@@ -59,7 +59,9 @@ import draconic.engine.physics;
 import draconic.input.resource;
 import draconic.engine.input;
 import draconic.ui.resource;
+import draconic.ui;           // View / ViewGroup / ProgressBar (the boot-splash controls)
 import draconic.engine.ui;
+import draconic.engine.gameinstance; // SceneLoadHandle (PlayerApplication async level load)
 import draconic.xml.serialization;
 import draconic.settings;
 import draconic.engine.project;
