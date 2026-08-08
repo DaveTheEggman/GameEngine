@@ -5,7 +5,7 @@
 // shaders.dpak beside the exe) runs the exact browser shader path on the desktop - the fast,
 // debuggable repro for web-render bugs before ever opening a browser.
 
-#include "Draconic.Core/Prelude.h"
+#include "Core/Prelude.h"
 // imgui.h must be TEXTUALLY included before `import draconic.imgui` - gcc does not merge the
 // module's global-module-fragment declarations into a LATER textual include (clang does), so
 // include-first is the portable order (same as Sandbox).
@@ -38,7 +38,7 @@ import draconic.engine.ui;
 import draconic.imgui;
 #endif
 
-#include "Draconic.Runtime.Client/AppMain.h"
+#include "Runtime.Client/AppMain.h"
 #include "WebSceneApp.h"
 
 DRACONIC_APP_MAIN(draconic::samples::WebSceneApp)

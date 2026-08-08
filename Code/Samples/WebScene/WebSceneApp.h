@@ -42,13 +42,13 @@ namespace draconic::samples
     namespace ui = draconic::ui;
     namespace rhi = draconic::rhi;
 
-    class WebSceneApp : public runtime::DefaultApplication
+    class WebSceneApp : public draconic::engine::runtime::DefaultApplication
     {
     public:
 #if DRACONIC_HAS_EXTENSION_IMGUI
         void Configure(runtime::IApplicationHost& host) override
         {
-            runtime::DefaultApplication::Configure(host);
+            draconic::engine::runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<draconic::imgui::ImguiSubsystem>(*gfx->Raw(),
@@ -61,9 +61,9 @@ namespace draconic::samples
         {
             // The base wires resource-type registration AND the game-UI render bring-up
             // (UISubsystem::EnsureRenderReady) - skip it and UI silently never draws.
-            runtime::DefaultApplication::OnStartup(host);
+            draconic::engine::runtime::DefaultApplication::OnStartup(host);
             core::ConsoleWrite(u8"WebScene: building the full-renderer scene...\n");
-            if (host.Ctx().GetSubsystem<scene::SceneSubsystem>() == nullptr)
+            if (host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>() == nullptr)
             {
                 core::ConsoleWrite(u8"WebScene: no scene subsystem.\n");
                 return;
@@ -72,7 +72,7 @@ namespace draconic::samples
 
             // The exercise scene turns the optional passes ON by default - it exists to
             // exercise them (the panel can toggle everything off).
-            if (auto* renderSub = host.Ctx().GetSubsystem<render::RenderSubsystem>())
+            if (auto* renderSub = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>())
             {
                 renderSub->SetSsrEnabled(true);
                 renderSub->SetExposure(0.9f);
@@ -94,7 +94,7 @@ namespace draconic::samples
 
         void OnUpdate(runtime::IApplicationHost& host, core::f32 deltaTime) override
         {
-            runtime::DefaultApplication::OnUpdate(host, deltaTime);
+            draconic::engine::runtime::DefaultApplication::OnUpdate(host, deltaTime);
             if (m_scene == nullptr)
             {
                 return;
@@ -104,7 +104,7 @@ namespace draconic::samples
             if (auto* g = host.Ctx().GetSubsystem<draconic::imgui::ImguiSubsystem>())
             {
                 g->NewFrame(host.Shell() != nullptr ? host.Shell()->Input() : nullptr, deltaTime);
-                BuildTweakPanel(host.Ctx().GetSubsystem<render::RenderSubsystem>());
+                BuildTweakPanel(host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>());
             }
 #endif
 
@@ -115,7 +115,7 @@ namespace draconic::samples
             // pointer path routes into game UI and is CONSUMED there.
             if (!m_hudBound)
             {
-                if (auto* canvases = m_scene->GetSystem<ui::UICanvasComponentManager>())
+                if (auto* canvases = m_scene->GetSystem<draconic::engine::ui::UICanvasComponentManager>())
                 {
                     if (auto* canvas = canvases->Get(m_hudEntity);
                         canvas != nullptr && canvas->root.Get() != nullptr)
@@ -169,7 +169,7 @@ namespace draconic::samples
             // Debug draw: immediate-mode, re-issued every frame. The gizmos exercise the 3D pass
             // (lines + bitmap text through the scene camera); the FPS readout stays on regardless
             // and exercises the screen-space pass.
-            if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>())
+            if (auto* render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>())
             {
                 if (m_showDebugDraw)
                 {
@@ -220,23 +220,23 @@ namespace draconic::samples
                     m_tex = nullptr;
                 }
             }
-            runtime::DefaultApplication::OnShutdown(host);
+            draconic::engine::runtime::DefaultApplication::OnShutdown(host);
         }
 
         void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
         {
             if (m_scene != nullptr && frame.height > 0)
             {
-                if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+                if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
                 {
-                    if (render::CameraComponent* cam = cameras->Get(m_camera))
+                    if (draconic::engine::render::CameraComponent* cam = cameras->Get(m_camera))
                     {
                         cam->aspect = static_cast<core::f32>(frame.width) /
                                       static_cast<core::f32>(frame.height);
                     }
                 }
             }
-            runtime::DefaultApplication::OnRenderWindow(host, frame);
+            draconic::engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
 #if DRACONIC_HAS_EXTENSION_IMGUI
             // The debug panel draws over the finished scene on the backbuffer.
             if (auto* g = host.Ctx().GetSubsystem<draconic::imgui::ImguiSubsystem>())
@@ -251,9 +251,9 @@ namespace draconic::samples
 
         void BuildEnvironment()
         {
-            if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>())
+            if (auto* env = m_scene->GetSystem<draconic::engine::render::EnvironmentSystem>())
             {
-                render::EnvironmentSettings& e = env->Environment();
+                draconic::engine::render::EnvironmentSettings& e = env->Environment();
                 e.skyMode = render::SkyMode::Analytic; // Preetham -> IBL bake from the sky
                 e.turbidity = 3.0f;
                 e.ambientColor = core::Color{0.10f, 0.12f, 0.16f, 1.0f};
@@ -263,7 +263,7 @@ namespace draconic::samples
 
         void BuildGeometry()
         {
-            auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
+            auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>();
             if (meshes == nullptr)
             {
                 return;
@@ -273,7 +273,7 @@ namespace draconic::samples
             // roughness are LIVE-tweakable from the panel (the SSR eye test).
             m_floor = m_scene->CreateEntity(u8"floor");
             m_scene->SetLocalPosition(m_floor, core::Float3{0.0f, -0.75f, 0.0f});
-            render::MeshComponent& fm = meshes->Add(m_floor);
+            draconic::engine::render::MeshComponent& fm = meshes->Add(m_floor);
             fm.mesh = geometry::Primitives::Plane(30.0f, 30.0f);
             ApplyFloorMaterial();
 
@@ -290,7 +290,7 @@ namespace draconic::samples
                         e, core::Float3{-6.0f + static_cast<core::f32>(c) * 1.5f,
                                         0.0f,
                                         -4.0f - static_cast<core::f32>(r) * 1.5f});
-                    render::MeshComponent& mc = meshes->Add(e);
+                    draconic::engine::render::MeshComponent& mc = meshes->Add(e);
                     mc.mesh = geometry::Primitives::Sphere(0.6f);
                     const core::f32 rough =
                         0.05f + 0.9f * static_cast<core::f32>(c) / (kCols - 1);
@@ -303,14 +303,14 @@ namespace draconic::samples
             // The spinning cube (TAA motion) + a chrome sphere for the probe to reflect.
             m_cube = m_scene->CreateEntity(u8"cube");
             m_scene->SetLocalPosition(m_cube, core::Float3{0.0f, 0.6f, 0.0f});
-            render::MeshComponent& mc = meshes->Add(m_cube);
+            draconic::engine::render::MeshComponent& mc = meshes->Add(m_cube);
             mc.mesh = geometry::Primitives::Cube(1.0f);
             mc.SetMaterial(materials::CreatePBR(
                 u8"web.cube", core::Float4{0.85f, 0.35f, 0.28f, 1.0f}, 0.1f, 0.4f));
 
             scene::EntityHandle chrome = m_scene->CreateEntity(u8"chrome");
             m_scene->SetLocalPosition(chrome, core::Float3{4.0f, 0.4f, 2.0f});
-            render::MeshComponent& cm = meshes->Add(chrome);
+            draconic::engine::render::MeshComponent& cm = meshes->Add(chrome);
             cm.mesh = geometry::Primitives::Sphere(1.1f);
             cm.SetMaterial(materials::CreatePBR(
                 u8"web.chrome", core::Float4{0.95f, 0.95f, 0.97f, 1.0f}, 1.0f, 0.05f));
@@ -318,7 +318,7 @@ namespace draconic::samples
 
         void BuildLights()
         {
-            auto* lights = m_scene->GetSystem<render::LightComponentManager>();
+            auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>();
             if (lights == nullptr)
             {
                 return;
@@ -331,8 +331,8 @@ namespace draconic::samples
             st.rotation = core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f}, -0.9f) *
                           core::Quaternion::FromAxisAngle(core::Float3{0.0f, 1.0f, 0.0f}, 0.5f);
             m_scene->SetLocalTransform(m_sun, st);
-            render::LightComponent& sl = lights->Add(m_sun);
-            sl.type = render::LightType::Directional;
+            draconic::engine::render::LightComponent& sl = lights->Add(m_sun);
+            sl.type = draconic::engine::render::LightType::Directional;
             sl.color = core::Color{1.0f, 0.95f, 0.9f, 1.0f};
             sl.intensity = 2.0f;
             sl.castsShadows = true;
@@ -343,8 +343,8 @@ namespace draconic::samples
             spotT.position = core::Float3{-3.0f, 5.0f, -2.0f};
             spotT.rotation = core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f}, -1.2f);
             m_scene->SetLocalTransform(spot, spotT);
-            render::LightComponent& spc = lights->Add(spot);
-            spc.type = render::LightType::Spot;
+            draconic::engine::render::LightComponent& spc = lights->Add(spot);
+            spc.type = draconic::engine::render::LightType::Spot;
             spc.color = core::Color{0.4f, 0.75f, 1.0f, 1.0f};
             spc.intensity = 14.0f;
             spc.range = 14.0f;
@@ -355,8 +355,8 @@ namespace draconic::samples
             // The orbiting point light (six-face point shadows, moving).
             m_pointLight = m_scene->CreateEntity(u8"pointlight");
             m_scene->SetLocalPosition(m_pointLight, core::Float3{4.5f, 2.2f, 0.0f});
-            render::LightComponent& pl = lights->Add(m_pointLight);
-            pl.type = render::LightType::Point;
+            draconic::engine::render::LightComponent& pl = lights->Add(m_pointLight);
+            pl.type = draconic::engine::render::LightType::Point;
             pl.color = core::Color{1.0f, 0.55f, 0.3f, 1.0f};
             pl.intensity = 10.0f;
             pl.range = 9.0f;
@@ -365,11 +365,11 @@ namespace draconic::samples
 
         void BuildProbe()
         {
-            if (auto* probes = m_scene->GetSystem<render::ReflectionProbeComponentManager>())
+            if (auto* probes = m_scene->GetSystem<draconic::engine::render::ReflectionProbeComponentManager>())
             {
                 m_probe = m_scene->CreateEntity(u8"probe");
                 m_scene->SetLocalPosition(m_probe, core::Float3{4.0f, 1.0f, 2.0f});
-                render::ReflectionProbeComponent& pc = probes->Add(m_probe);
+                draconic::engine::render::ReflectionProbeComponent& pc = probes->Add(m_probe);
                 pc.halfExtents = core::Float3{5.0f, 3.5f, 5.0f};
                 pc.resolution = 128;
                 pc.parallax = true;
@@ -378,13 +378,13 @@ namespace draconic::samples
 
         void BuildInstancedRing()
         {
-            auto* instanced = m_scene->GetSystem<render::InstancedMeshComponentManager>();
+            auto* instanced = m_scene->GetSystem<draconic::engine::render::InstancedMeshComponentManager>();
             if (instanced == nullptr)
             {
                 return;
             }
             scene::EntityHandle ring = m_scene->CreateEntity(u8"ring");
-            render::InstancedMeshComponent& ic = instanced->Add(ring);
+            draconic::engine::render::InstancedMeshComponent& ic = instanced->Add(ring);
             ic.mesh = geometry::Primitives::Cube(0.3f);
             ic.material = materials::CreatePBR(
                 u8"web.ring", core::Float4{0.3f, 0.8f, 0.5f, 1.0f}, 0.2f, 0.5f);
@@ -409,7 +409,7 @@ namespace draconic::samples
             {
                 return; // texture creation failed; decal/sprites just stay absent
             }
-            if (auto* decals = m_scene->GetSystem<render::DecalComponentManager>())
+            if (auto* decals = m_scene->GetSystem<draconic::engine::render::DecalComponentManager>())
             {
                 m_decal = m_scene->CreateEntity(u8"decal");
                 core::Transform dt = m_scene->GetLocalTransform(m_decal);
@@ -419,12 +419,12 @@ namespace draconic::samples
                 dt.rotation =
                     core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f}, 1.5707963f);
                 m_scene->SetLocalTransform(m_decal, dt);
-                render::DecalComponent& dc = decals->Add(m_decal);
+                draconic::engine::render::DecalComponent& dc = decals->Add(m_decal);
                 dc.texture = m_texView;
                 dc.size = core::Float3{3.0f, 2.0f, 3.0f};
                 dc.color = core::Color{1.0f, 0.9f, 0.4f, 0.9f};
             }
-            if (auto* sprites = m_scene->GetSystem<render::SpriteComponentManager>())
+            if (auto* sprites = m_scene->GetSystem<draconic::engine::render::SpriteComponentManager>())
             {
                 const core::Float3 base{-6.5f, 1.4f, 3.5f};
                 const struct
@@ -443,7 +443,7 @@ namespace draconic::samples
                     m_scene->SetLocalPosition(
                         m_sprites[i],
                         base + core::Float3{static_cast<core::f32>(i) * 1.6f, 0.0f, 0.0f});
-                    render::SpriteComponent& sc = sprites->Add(m_sprites[i]);
+                    draconic::engine::render::SpriteComponent& sc = sprites->Add(m_sprites[i]);
                     sc.texture = m_texView;
                     sc.size = core::Float2{1.2f, 1.2f};
                     sc.tint = kinds[i].tint;
@@ -455,7 +455,7 @@ namespace draconic::samples
 
         void BuildParticles()
         {
-            auto* pmgr = m_scene->GetSystem<particles::ParticleEffectComponentManager>();
+            auto* pmgr = m_scene->GetSystem<draconic::engine::particles::ParticleEffectComponentManager>();
             if (pmgr == nullptr)
             {
                 return;
@@ -524,9 +524,9 @@ namespace draconic::samples
         void BuildCamera()
         {
             m_camera = m_scene->CreateEntity(u8"camera");
-            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+            if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
             {
-                render::CameraComponent& cam = cameras->Add(m_camera);
+                draconic::engine::render::CameraComponent& cam = cameras->Add(m_camera);
                 cam.fovYRadians = 1.04719755f; // 60 deg
                 cam.nearZ = 0.1f;
                 cam.farZ = 200.0f;
@@ -565,9 +565,9 @@ namespace draconic::samples
                 u8"  </Panel>"
                 u8"</Flex>");
             m_hudEntity = m_scene->CreateEntity(u8"hud");
-            if (auto* canvases = m_scene->GetSystem<ui::UICanvasComponentManager>())
+            if (auto* canvases = m_scene->GetSystem<draconic::engine::ui::UICanvasComponentManager>())
             {
-                ui::UICanvasComponent& canvas = canvases->Add(m_hudEntity);
+                draconic::engine::ui::UICanvasComponent& canvas = canvases->Add(m_hudEntity);
                 canvas.document = m_hudDocument;
             }
 
@@ -579,19 +579,19 @@ namespace draconic::samples
                 u8"       style=\"background: rounded-rect(rgb(20, 24, 30), radius=4);\">"
                 u8"  <Label text=\"cube\" font-size=\"13\"/>"
                 u8"</Panel>");
-            if (auto* billboards = m_scene->GetSystem<ui::UIBillboardComponentManager>())
+            if (auto* billboards = m_scene->GetSystem<draconic::engine::ui::UIBillboardComponentManager>())
             {
-                ui::UIBillboardComponent& plate = billboards->Add(m_cube);
+                draconic::engine::ui::UIBillboardComponent& plate = billboards->Add(m_cube);
                 plate.document = m_plateDocument;
                 plate.offset = core::Float3{0.0f, 1.2f, 0.0f};
-                plate.scaleMode = ui::BillboardScale::Distance;
+                plate.scaleMode = draconic::engine::ui::BillboardScale::Distance;
                 plate.referenceDistance = 12.0f;
             }
 
             // Screen-tier badge: OUTSIDE any scene (survives scene swaps), anchored
             // bottom-right by swapping the pushed root's layout params to the overlay
             // layer's frame gravity.
-            if (auto* gameUi = host.Ctx().GetSubsystem<ui::UISubsystem>())
+            if (auto* gameUi = host.Ctx().GetSubsystem<draconic::engine::ui::UISubsystem>())
             {
                 m_badgeDocument = core::MakeRef<ui::UIDocument>(core::DefaultAllocator());
                 m_badgeDocument->markup = core::String(
@@ -618,9 +618,9 @@ namespace draconic::samples
         // replacement is the clean live-tweak path.
         void ApplyFloorMaterial()
         {
-            if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>())
+            if (auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>())
             {
-                if (render::MeshComponent* fm = meshes->Get(m_floor))
+                if (draconic::engine::render::MeshComponent* fm = meshes->Get(m_floor))
                 {
                     fm->SetMaterial(materials::CreatePBR(u8"web.floor",
                                                          core::Float4{0.28f, 0.29f, 0.33f, 1.0f},
@@ -697,7 +697,7 @@ namespace draconic::samples
         // --- the tweak panel --------------------------------------------------------------
 
 #if DRACONIC_HAS_EXTENSION_IMGUI
-        void BuildTweakPanel(render::RenderSubsystem* renderSub)
+        void BuildTweakPanel(draconic::engine::render::RenderSubsystem* renderSub)
         {
             if (renderSub == nullptr || m_scene == nullptr)
             {
@@ -714,7 +714,7 @@ namespace draconic::samples
                 {
                     renderSub->SetExposure(exposure);
                 }
-                if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>())
+                if (auto* env = m_scene->GetSystem<draconic::engine::render::EnvironmentSystem>())
                 {
                     int mode = static_cast<int>(env->Environment().skyMode);
                     const char* modes[] = {"Color", "Procedural", "HDR", "Cubemap", "Analytic"};
@@ -728,9 +728,9 @@ namespace draconic::samples
 
             if (ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                if (auto* lights = m_scene->GetSystem<render::LightComponentManager>())
+                if (auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>())
                 {
-                    if (render::LightComponent* sun = lights->Get(m_sun))
+                    if (draconic::engine::render::LightComponent* sun = lights->Get(m_sun))
                     {
                         // THE regression case: local (spot/point) shadows must be correct
                         // with the sun - and with it, the CSM cascades - disabled.
@@ -783,17 +783,17 @@ namespace draconic::samples
 
             if (ImGui::CollapsingHeader("Features"))
             {
-                if (auto* decals = m_scene->GetSystem<render::DecalComponentManager>())
+                if (auto* decals = m_scene->GetSystem<draconic::engine::render::DecalComponentManager>())
                 {
-                    if (render::DecalComponent* dc = decals->Get(m_decal))
+                    if (draconic::engine::render::DecalComponent* dc = decals->Get(m_decal))
                     {
                         ImGui::Checkbox("Decal", &dc->visible);
                     }
                 }
                 ImGui::Checkbox("Debug draw (gizmos)", &m_showDebugDraw);
-                if (auto* probes = m_scene->GetSystem<render::ReflectionProbeComponentManager>())
+                if (auto* probes = m_scene->GetSystem<draconic::engine::render::ReflectionProbeComponentManager>())
                 {
-                    if (render::ReflectionProbeComponent* pc = probes->Get(m_probe))
+                    if (draconic::engine::render::ReflectionProbeComponent* pc = probes->Get(m_probe))
                     {
                         // Diagnostic for the web black-probe hunt: Realtime re-captures every
                         // frame, separating "capture path broken" from "startup result lost".
@@ -805,16 +805,16 @@ namespace draconic::samples
                         }
                     }
                 }
-                if (auto* sprites = m_scene->GetSystem<render::SpriteComponentManager>())
+                if (auto* sprites = m_scene->GetSystem<draconic::engine::render::SpriteComponentManager>())
                 {
-                    if (render::SpriteComponent* sc = sprites->Get(m_sprites[0]))
+                    if (draconic::engine::render::SpriteComponent* sc = sprites->Get(m_sprites[0]))
                     {
                         bool on = sc->visible;
                         if (ImGui::Checkbox("Sprites", &on))
                         {
                             for (const scene::EntityHandle& h : m_sprites)
                             {
-                                if (render::SpriteComponent* s = sprites->Get(h))
+                                if (draconic::engine::render::SpriteComponent* s = sprites->Get(h))
                                 {
                                     s->visible = on;
                                 }

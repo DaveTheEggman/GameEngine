@@ -21,7 +21,7 @@ target_link_libraries(ParticleFX PRIVATE
     Draconic::Engine.Particles
     Draconic::Particles.Resource       # cooked ParticleEffectResource + factory
     Draconic::Particles.Editor         # ParticleEffectAsset + bake (sample references editor for the demo)
-    Draconic::Editor Draconic::Content Draconic::Resource Draconic::VFS
+    Draconic::Editor.Asset Draconic::Content Draconic::Resource Draconic::VFS
     Draconic::Policy)
 
 # Per-sample cooked-output DB (isolated), matching the other samples' pattern.

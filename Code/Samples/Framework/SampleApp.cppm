@@ -5,7 +5,7 @@
 // window size; the loop skips rendering while minimized.
 
 module;
-#include "Draconic.Core/Prelude.h"
+#include "Core/Prelude.h"
 #include <cstdio>
 #include <cstring>
 

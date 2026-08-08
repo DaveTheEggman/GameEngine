@@ -13,7 +13,7 @@
 // inherited P key dumps the CPU scope tree + per-pass GPU timings. Fly camera: WASD/QE move,
 // hold RMB (or Tab to capture) to look, Shift to move fast, Esc to exit.
 
-#include "Draconic.Core/Prelude.h"
+#include "Core/Prelude.h"
 #include "imgui.h" // Dear ImGui (HUD) - used directly; engine integration is draconic.imgui
 
 import draconic.core;
@@ -49,7 +49,7 @@ namespace materials = draconic::materials;
 
 namespace
 {
-    class StressTestApp final : public runtime::DefaultApplication
+    class StressTestApp final : public draconic::engine::runtime::DefaultApplication
     {
         static constexpr core::i32 kSpheresPerBatch = 8000;
         static constexpr core::f32 kSphereSpacing = 1.5f;
@@ -70,7 +70,7 @@ namespace
         // Register the ImGui subsystem so the benchmark HUD can draw over the scene.
         void Configure(runtime::IApplicationHost& host) override
         {
-            runtime::DefaultApplication::Configure(host);
+            draconic::engine::runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
@@ -79,7 +79,7 @@ namespace
 
         void OnStartup(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
             if (scenes == nullptr)
             {
                 return;
@@ -87,7 +87,7 @@ namespace
             m_scene = PrimaryScenes().CreateScene(u8"stress");
 
             // A modest ambient so unlit-facing hemispheres aren't pure black.
-            if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>())
+            if (auto* env = m_scene->GetSystem<draconic::engine::render::EnvironmentSystem>())
             {
                 env->Environment().ambientColor = core::Color{0.10f, 0.12f, 0.16f, 1.0f};
                 env->Environment().ambientIntensity = 0.30f;
@@ -102,18 +102,18 @@ namespace
             m_sphere = geometry::Primitives::Sphere(0.5f, 16, 8);
 
             // Large ground plane so the bobbing spheres read against a surface.
-            if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>())
+            if (auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>())
             {
                 m_ground = m_scene->CreateEntity(u8"ground");
                 m_scene->SetLocalPosition(m_ground, core::Float3{0.0f, 0.0f, 0.0f});
-                render::MeshComponent& gm = meshes->Add(m_ground);
+                draconic::engine::render::MeshComponent& gm = meshes->Add(m_ground);
                 gm.mesh = geometry::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
                 gm.SetMaterial(materials::CreatePBR(
                     u8"stress.ground", core::Float4{0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f));
             }
 
             // Directional key light.
-            if (auto* lights = m_scene->GetSystem<render::LightComponentManager>())
+            if (auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>())
             {
                 scene::EntityHandle sun = m_scene->CreateEntity(u8"sun");
                 core::Transform st = m_scene->GetLocalTransform(sun);
@@ -121,8 +121,8 @@ namespace
                     core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f}, -0.9f) *
                     core::Quaternion::FromAxisAngle(core::Float3{0.0f, 1.0f, 0.0f}, 0.5f);
                 m_scene->SetLocalTransform(sun, st);
-                render::LightComponent& sl = lights->Add(sun);
-                sl.type = render::LightType::Directional;
+                draconic::engine::render::LightComponent& sl = lights->Add(sun);
+                sl.type = draconic::engine::render::LightType::Directional;
                 sl.color = core::Color{1.0f, 0.95f, 0.9f, 1.0f};
                 sl.intensity = 1.5f;
                 sl.castsShadows = true; // phase 5.1: the spheres cast shadows on the ground
@@ -131,9 +131,9 @@ namespace
 
             // Fly camera, pulled well back + up so the whole grid is in frame (worst case for culling).
             m_camera = m_scene->CreateEntity(u8"camera");
-            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+            if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
             {
-                render::CameraComponent& cam = cameras->Add(m_camera);
+                draconic::engine::render::CameraComponent& cam = cameras->Add(m_camera);
                 cam.fovYRadians = 1.04719755f; // 60 deg
                 cam.nearZ = 0.1f;
                 cam.farZ = 2000.0f;
@@ -144,7 +144,7 @@ namespace
             AddSphereBatch(); // start with one batch
 
             // Lower default exposure: the procedural-sky IBL + sun are bright, so AgX washes out at 1.0.
-            if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>())
+            if (auto* render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>())
             {
                 render->SetExposure(0.5f);
             }
@@ -166,16 +166,16 @@ namespace
         {
             if (m_scene != nullptr && frame.height > 0)
             {
-                if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+                if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
                 {
-                    if (render::CameraComponent* cam = cameras->Get(m_camera))
+                    if (draconic::engine::render::CameraComponent* cam = cameras->Get(m_camera))
                     {
                         cam->aspect = static_cast<core::f32>(frame.width) /
                                       static_cast<core::f32>(frame.height);
                     }
                 }
             }
-            runtime::DefaultApplication::OnRenderWindow(host, frame);
+            draconic::engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
 
             // HUD over the scene (backbuffer is RenderTarget after the default render path).
             if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
@@ -186,14 +186,14 @@ namespace
 
         void OnUpdate(runtime::IApplicationHost& host, core::f32 deltaTime) override
         {
-            runtime::DefaultApplication::OnUpdate(host, deltaTime); // inherited P-key profiler dump
+            draconic::engine::runtime::DefaultApplication::OnUpdate(host, deltaTime); // inherited P-key profiler dump
 
             // Smooth the frame time every frame + build the ImGui HUD (drawn in OnRenderWindow).
             m_frameMs = m_frameMs * 0.9f + (deltaTime * 1000.0f) * 0.1f;
             if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
             {
                 g->NewFrame(host.Shell() != nullptr ? host.Shell()->Input() : nullptr, deltaTime);
-                BuildHud(host.Ctx().GetSubsystem<render::RenderSubsystem>());
+                BuildHud(host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>());
             }
             if (m_scene == nullptr)
             {
@@ -251,7 +251,7 @@ namespace
             }
             if (kb->IsKeyPressed(shell::KeyCode::T))
             { // toggle TAA (activates per-instance motion-vector prev-world path)
-                if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>())
+                if (auto* render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>())
                 {
                     const bool on = !render->TaaEnabled();
                     render->SetTaaEnabled(on);
@@ -260,7 +260,7 @@ namespace
             }
             if (kb->IsKeyPressed(shell::KeyCode::I))
             { // toggle prepass->forward instance-data sharing (A/B regression/perf)
-                if (auto* render = host.Ctx().GetSubsystem<render::RenderSubsystem>())
+                if (auto* render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>())
                 {
                     const bool on = !render->InstanceSharing();
                     render->SetInstanceSharing(on);
@@ -271,9 +271,9 @@ namespace
             }
             if (kb->IsKeyPressed(shell::KeyCode::K))
             { // toggle directional shadows (Sedulous's 104k demo runs shadow-OFF)
-                if (auto* lights = m_scene->GetSystem<render::LightComponentManager>())
+                if (auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>())
                 {
-                    if (render::LightComponent* sl =
+                    if (draconic::engine::render::LightComponent* sl =
                             m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr)
                     {
                         sl->castsShadows = !sl->castsShadows;
@@ -341,9 +341,9 @@ namespace
             m_fly.position = core::Float3{0.0f, kSphereHeight + camY, dist};
             m_fly.yaw = 0.0f;
             m_fly.pitch = -core::Atan2(camY, dist); // look down onto the grid center
-            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+            if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
             {
-                if (render::CameraComponent* cam = cameras->Get(m_camera))
+                if (draconic::engine::render::CameraComponent* cam = cameras->Get(m_camera))
                 {
                     cam->farZ =
                         dist + extent * 2.0f + 200.0f; // cover the grid; don't far-cull spheres
@@ -388,7 +388,7 @@ namespace
             }
             else
             {
-                auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
+                auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>();
                 if (meshes == nullptr)
                 {
                     return;
@@ -398,7 +398,7 @@ namespace
                     const core::i32 index = startIndex + i;
                     scene::EntityHandle e = m_scene->CreateEntity(u8"sphere");
                     m_scene->SetLocalPosition(e, SphereTranslation(index));
-                    render::MeshComponent& mc = meshes->Add(e);
+                    draconic::engine::render::MeshComponent& mc = meshes->Add(e);
                     mc.mesh = m_sphere;
                     AssignSphereMaterial(mc, index);
                     m_spheres.PushBack(e);
@@ -456,7 +456,7 @@ namespace
         }
 
         // Point a sphere's mesh component at the right material for the current mode.
-        void AssignSphereMaterial(render::MeshComponent& mc, core::i32 index)
+        void AssignSphereMaterial(draconic::engine::render::MeshComponent& mc, core::i32 index)
         {
             if (m_uniqueMaterials)
             {
@@ -479,7 +479,7 @@ namespace
         // tracks the mode exactly (in shared mode we drop all the unique materials).
         void RebuildSphereMaterials()
         {
-            auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
+            auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>();
             if (meshes == nullptr)
             {
                 return;
@@ -487,7 +487,7 @@ namespace
             m_uniqueMats.Clear();
             for (core::usize i = 0; i < m_spheres.Size(); ++i)
             {
-                if (render::MeshComponent* mc = meshes->Get(m_spheres[i]))
+                if (draconic::engine::render::MeshComponent* mc = meshes->Get(m_spheres[i]))
                 {
                     AssignSphereMaterial(*mc, static_cast<core::i32>(i));
                 }
@@ -498,7 +498,7 @@ namespace
         // entity on first use, destroys it when the list is empty). Called after m_mmTransforms changes.
         void PushMultiMesh()
         {
-            auto* imm = m_scene->GetSystem<render::InstancedMeshComponentManager>();
+            auto* imm = m_scene->GetSystem<draconic::engine::render::InstancedMeshComponentManager>();
             if (imm == nullptr)
             {
                 return;
@@ -516,7 +516,7 @@ namespace
             {
                 m_multiMeshEntity = m_scene->CreateEntity(u8"multimesh");
             }
-            render::InstancedMeshComponent& c = imm->Has(m_multiMeshEntity)
+            draconic::engine::render::InstancedMeshComponent& c = imm->Has(m_multiMeshEntity)
                                                     ? *imm->Get(m_multiMeshEntity)
                                                     : imm->Add(m_multiMeshEntity);
             c.mesh = m_sphere;
@@ -532,7 +532,7 @@ namespace
         // on whichever representation is live, so the count always matches what's drawn.
         void RebuildMultiMesh()
         {
-            auto* meshes = m_scene->GetSystem<render::MeshComponentManager>();
+            auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>();
             if (meshes == nullptr)
             {
                 return;
@@ -569,7 +569,7 @@ namespace
                         m_mmTransforms[i]; // translation-only spheres: read the position row
                     scene::EntityHandle e = m_scene->CreateEntity(u8"sphere");
                     m_scene->SetLocalPosition(e, core::Float3{xf.m[3][0], xf.m[3][1], xf.m[3][2]});
-                    render::MeshComponent& mc = meshes->Add(e);
+                    draconic::engine::render::MeshComponent& mc = meshes->Add(e);
                     mc.mesh = m_sphere;
                     AssignSphereMaterial(mc, static_cast<core::i32>(i));
                     m_spheres.PushBack(e);
@@ -594,7 +594,7 @@ namespace
         }
 
         // ImGui HUD: benchmark stats + controls (H toggles it). Built in OnUpdate, drawn in OnRenderWindow.
-        void BuildHud(render::RenderSubsystem* render)
+        void BuildHud(draconic::engine::render::RenderSubsystem* render)
         {
             if (!m_showStats)
             {
@@ -663,9 +663,9 @@ namespace
             }
             if (m_scene != nullptr)
             {
-                if (auto* lights = m_scene->GetSystem<render::LightComponentManager>())
+                if (auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>())
                 {
-                    if (render::LightComponent* sl =
+                    if (draconic::engine::render::LightComponent* sl =
                             m_sun.IsAssigned() ? lights->Get(m_sun) : nullptr)
                     {
                         bool sh = sl->castsShadows;

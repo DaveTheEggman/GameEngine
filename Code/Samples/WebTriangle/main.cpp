@@ -9,7 +9,7 @@
 //
 // Build (wasm preset) emits WebTriangle.html + .js + .wasm; open the .html in a WebGPU browser.
 
-#include "Draconic.Core/Prelude.h"
+#include "Core/Prelude.h"
 
 import draconic.core;
 import draconic.runtime;
@@ -21,7 +21,7 @@ import draconic.graphics;     // GraphicsDevice + FrameContext
 import draconic.graphics.gpu; // CreateGraphicsDevice
 import draconic.rhi;
 
-#include "Draconic.Runtime.Client/AppMain.h"
+#include "Runtime.Client/AppMain.h"
 
 namespace core = draconic::core;
 namespace runtime = draconic::runtime;

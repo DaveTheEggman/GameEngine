@@ -1,8 +1,8 @@
 // NetEcho - a console proof of the draconic.net stack end to end: a reliable-UDP server + client
 // over real localhost sockets exchange a few chat lines (client sends, server echoes), then exit.
 // Demonstrates wire -> INetTransport -> reliable-UDP -> real UDP sockets with no graphics.
-#include "Draconic.Core/Prelude.h"
-#include "Draconic.Core/Log/Log.h"
+#include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 
 import draconic.core;
 import draconic.net;

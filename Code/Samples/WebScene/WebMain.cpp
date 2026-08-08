@@ -4,7 +4,7 @@
 // in CMakeLists (unlike the Player, the sample still BUNDLES its shader pack - it has no export
 // step in front of it).
 
-#include "Draconic.Core/Prelude.h"
+#include "Core/Prelude.h"
 // imgui.h must be TEXTUALLY included before `import draconic.imgui` - gcc does not merge the
 // module's global-module-fragment declarations into a LATER textual include (clang does), so
 // include-first is the portable order (same as Sandbox).
@@ -37,7 +37,7 @@ import draconic.engine.ui;
 import draconic.imgui;
 #endif
 
-#include "Draconic.Runtime.Client/AppMain.h"
+#include "Runtime.Client/AppMain.h"
 #include "WebSceneApp.h"
 
 DRACONIC_APP_MAIN(draconic::samples::WebSceneApp)

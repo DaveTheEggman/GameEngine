@@ -4,7 +4,7 @@
 // (docs/design/particles.md): CPU sim on the existing extract->resolve->draw pipeline. GPU-compute sim,
 // trails, mesh particles, and the cooked resource/editor land in later phases.
 
-#include "Draconic.Core/Prelude.h"
+#include "Core/Prelude.h"
 #include "imgui.h"
 
 import draconic.core;
@@ -28,7 +28,7 @@ import draconic.particles;           // the CPU sim (effect/system/modules)
 import draconic.engine.particles; // the ECS component + ParticleSubsystem
 import draconic.particles.resource;  // cooked ParticleEffectResource + factory
 import draconic.particles.editor;    // ParticleEffectAsset + bake (the authoring demo)
-import draconic.editor;              // AssetBuildContext
+import draconic.editor.asset;              // AssetBuildContext
 import draconic.vfs;                 // NativeFileSystem mount for the content DB
 import draconic.content;             // ContentDatabase (cooked-output DB)
 import draconic.resource;            // ResourceManager + Proxy
@@ -54,7 +54,7 @@ namespace editor = draconic::editor;
 
 namespace
 {
-    class ParticleFXApp final : public runtime::DefaultApplication
+    class ParticleFXApp final : public draconic::engine::runtime::DefaultApplication
     {
     public:
         // Run uncapped (vsync off) so the frame time reflects real particle sim/render cost, not the
@@ -68,7 +68,7 @@ namespace
 
         void Configure(runtime::IApplicationHost& host) override
         {
-            runtime::DefaultApplication::Configure(host);
+            draconic::engine::runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
@@ -77,7 +77,7 @@ namespace
 
         void OnStartup(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
             if (scenes == nullptr)
             {
                 return;
@@ -85,7 +85,7 @@ namespace
             m_scene = PrimaryScenes().CreateScene(u8"particlefx");
 
             // Dim cool ambient so the (unlit) additive particles pop against the lit floor.
-            if (auto* env = m_scene->GetSystem<render::EnvironmentSystem>())
+            if (auto* env = m_scene->GetSystem<draconic::engine::render::EnvironmentSystem>())
             {
                 env->Environment().ambientColor = core::Color{0.10f, 0.12f, 0.18f, 1.0f};
                 env->Environment().ambientIntensity = 0.4f;
@@ -94,33 +94,33 @@ namespace
             // Camera: high + pulled back to frame the whole 4x4 showcase grid.
             m_camera = m_scene->CreateEntity(u8"camera");
             m_scene->SetLocalPosition(m_camera, core::Float3{0.0f, 34.0f, 52.0f});
-            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+            if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
             {
-                render::CameraComponent& cam = cameras->Add(m_camera);
+                draconic::engine::render::CameraComponent& cam = cameras->Add(m_camera);
                 cam.clearColor = core::Color{0.02f, 0.02f, 0.04f, 1.0f};
             }
             m_fly.position = core::Float3{0.0f, 34.0f, 52.0f};
             m_fly.pitch = -0.55f;
 
             // A floor for spatial context.
-            if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>())
+            if (auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>())
             {
                 scene::EntityHandle floor = m_scene->CreateEntity(u8"floor");
                 m_scene->SetLocalPosition(floor, core::Float3{0.0f, 0.0f, 0.0f});
-                render::MeshComponent& mc = meshes->Add(floor);
+                draconic::engine::render::MeshComponent& mc = meshes->Add(floor);
                 mc.mesh = geometry::Primitives::Plane(80.0f, 80.0f);
                 mc.SetMaterial(materials::CreatePBR(
                     u8"floor", core::Float4{0.20f, 0.22f, 0.26f, 1.0f}, 0.0f, 0.8f));
             }
-            if (auto* lights = m_scene->GetSystem<render::LightComponentManager>())
+            if (auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>())
             {
                 scene::EntityHandle key = m_scene->CreateEntity(u8"key");
                 core::Transform kt = m_scene->GetLocalTransform(key);
                 kt.rotation =
                     core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f}, -0.9f);
                 m_scene->SetLocalTransform(key, kt);
-                render::LightComponent& lc = lights->Add(key);
-                lc.type = render::LightType::Directional;
+                draconic::engine::render::LightComponent& lc = lights->Add(key);
+                lc.type = draconic::engine::render::LightType::Directional;
                 lc.color = core::Color{0.6f, 0.7f, 0.95f,
                                        1.0f}; // cool + dim so the warm ember point-lights read
                 lc.intensity = 1.0f;
@@ -146,7 +146,7 @@ namespace
             BuildMagicCircle(m_magic);
             BuildFireflies(m_fireflies);
 
-            if (auto* pmgr = m_scene->GetSystem<particles::ParticleEffectComponentManager>())
+            if (auto* pmgr = m_scene->GetSystem<draconic::engine::particles::ParticleEffectComponentManager>())
             {
                 // One system per cell of a 4x4 showcase grid (cells 12-15 reserved for later samples).
                 // Cell 0: billboard fountain (additive soft dots).
@@ -159,7 +159,7 @@ namespace
                 // Cell 1 = opaque solid shards; cell 2 = additive glow (routed to the Transparent pass).
                 m_debrisEmitter = m_scene->CreateEntity(u8"shards-solid");
                 m_scene->SetLocalPosition(m_debrisEmitter, CellPos(1));
-                particles::ParticleEffectComponent& dc = pmgr->Add(m_debrisEmitter);
+                draconic::engine::particles::ParticleEffectComponent& dc = pmgr->Add(m_debrisEmitter);
                 dc.SetEffect(m_debris);
                 dc.mesh = geometry::Primitives::Cube(1.0f);
                 dc.material = materials::CreatePBR(
@@ -168,7 +168,7 @@ namespace
 
                 m_glowEmitter = m_scene->CreateEntity(u8"shards-glow");
                 m_scene->SetLocalPosition(m_glowEmitter, CellPos(2));
-                particles::ParticleEffectComponent& gc = pmgr->Add(m_glowEmitter);
+                draconic::engine::particles::ParticleEffectComponent& gc = pmgr->Add(m_glowEmitter);
                 gc.SetEffect(m_meshGlow);
                 gc.mesh = geometry::Primitives::Cube(1.0f);
                 gc.meshScale = 0.5f;
@@ -184,7 +184,7 @@ namespace
                 // Cell 3: light particles (drifting embers) - a point light per particle + a billboard glow.
                 m_emberEmitter = m_scene->CreateEntity(u8"embers");
                 m_scene->SetLocalPosition(m_emberEmitter, CellPos(3));
-                particles::ParticleEffectComponent& ec = pmgr->Add(m_emberEmitter);
+                draconic::engine::particles::ParticleEffectComponent& ec = pmgr->Add(m_emberEmitter);
                 ec.SetEffect(m_embers);
                 ec.lightIntensity = 14.0f;
                 ec.lightRange =
@@ -206,11 +206,11 @@ namespace
                 m_scene->SetLocalPosition(m_collideEmitter,
                                           CellPos(6) + core::Float3{0.0f, 6.0f, 0.0f});
                 pmgr->Add(m_collideEmitter).SetEffect(m_collide);
-                if (auto* meshes = m_scene->GetSystem<render::MeshComponentManager>())
+                if (auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>())
                 {
                     scene::EntityHandle ob = m_scene->CreateEntity(u8"obstacle");
                     m_scene->SetLocalPosition(ob, obstacle);
-                    render::MeshComponent& omc = meshes->Add(ob);
+                    draconic::engine::render::MeshComponent& omc = meshes->Add(ob);
                     omc.mesh = geometry::Primitives::Sphere(obRadius);
                     omc.SetMaterial(materials::CreatePBR(
                         u8"obstacle", core::Float4{0.7f, 0.7f, 0.72f, 1.0f}, 0.1f, 0.4f));
@@ -246,7 +246,7 @@ namespace
                 // Cell 13: explosion - flipbook fireball blast (atlas texture) + debris/shockwave (soft dot).
                 m_explosionEmitter = m_scene->CreateEntity(u8"explosion");
                 m_scene->SetLocalPosition(m_explosionEmitter, CellPos(13));
-                particles::ParticleEffectComponent& xc = pmgr->Add(m_explosionEmitter);
+                draconic::engine::particles::ParticleEffectComponent& xc = pmgr->Add(m_explosionEmitter);
                 xc.SetEffect(m_explosion);
                 if (rhi::Device* dev =
                         (host.Graphics() != nullptr) ? host.Graphics()->Raw() : nullptr)
@@ -280,7 +280,7 @@ namespace
 
         void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
         {
-            runtime::DefaultApplication::OnRenderWindow(host, frame);
+            draconic::engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
             if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
             {
                 g->Render(frame);
@@ -304,12 +304,12 @@ namespace
                     m_blastTex = nullptr;
                 }
             }
-            runtime::DefaultApplication::OnShutdown(host);
+            draconic::engine::runtime::DefaultApplication::OnShutdown(host);
         }
 
         void OnUpdate(runtime::IApplicationHost& host, core::f32 deltaTime) override
         {
-            runtime::DefaultApplication::OnUpdate(host, deltaTime);
+            draconic::engine::runtime::DefaultApplication::OnUpdate(host, deltaTime);
             m_frameSmooth = m_frameSmooth * 0.9f + deltaTime * 0.1f;
 
             if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
@@ -333,7 +333,7 @@ namespace
                                                      2.5f * core::Sin(m_orbitTime * 1.5f)});
 
                 // A floor label under each cell (debug-draw 3D text), so every system is identified.
-                if (auto* rs = host.Ctx().GetSubsystem<render::RenderSubsystem>())
+                if (auto* rs = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>())
                 {
                     static const core::StringView kNames[16] = {
                         u8"fountain", u8"mesh solid", u8"mesh glow",    u8"embers",
@@ -1099,7 +1099,7 @@ namespace
         // builder into a cooked ParticleEffectResource in the per-sample content DB -> Bind it through the
         // ResourceManager -> drive a component with the cooked Proxy. This is exactly the editor->runtime
         // path (an editor would bake offline; here we bake at startup), proving it end to end in the app.
-        void SetupCookedDemo(particles::ParticleEffectComponentManager& pmgr)
+        void SetupCookedDemo(draconic::engine::particles::ParticleEffectComponentManager& pmgr)
         {
             const core::StringView outputDir(
                 reinterpret_cast<const core::utf8char*>(DRACONIC_PARTICLEFX_OUTPUT_DIR));

@@ -7,7 +7,7 @@
 // The path: CreateShell (SDL3) -> CreateGraphicsDevice (Vulkan) -> Application
 // (+ OpenWindow) -> RunApplication. No bespoke swapchain/loop code in the app.
 
-#include "Draconic.Core/Prelude.h"
+#include "Core/Prelude.h"
 
 import draconic.core;
 import draconic.rhi;

@@ -6,8 +6,8 @@
 // trigger). Fly with WASD/RMB-look; LEFT-CLICK shoves the body under the crosshair; R
 // respawns the stack; the ImGui panel has gravity + time-scale sliders and live counts.
 
-#include "Draconic.Core/Prelude.h"
-#include "Draconic.Runtime.Client/AppMain.h"
+#include "Core/Prelude.h"
+#include "Runtime.Client/AppMain.h"
 #include "imgui.h"
 #include <cmath>
 
@@ -46,7 +46,7 @@ using core::f32;
 
 namespace
 {
-    class PlaygroundApp final : public runtime::DefaultApplication
+    class PlaygroundApp final : public draconic::engine::runtime::DefaultApplication
     {
     public:
         PlaygroundApp()
@@ -61,7 +61,7 @@ namespace
         {
             // Physics/input/UI come from DefaultApplication (H2) - only the sample-local
             // extras register here (double-adding a subsystem = two instances ticking).
-            runtime::DefaultApplication::Configure(host);
+            draconic::engine::runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
@@ -70,13 +70,13 @@ namespace
 
         void OnLaunch(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
             if (scenes == nullptr)
             {
                 return;
             }
             m_scene = PrimaryScenes().CreateScene(u8"playground");
-            m_physics = m_scene->GetSystem<physics::PhysicsSceneSystem>();
+            m_physics = m_scene->GetSystem<draconic::engine::physics::PhysicsSceneSystem>();
             if (m_physics != nullptr)
             {
                 m_physics->Settings().debugDraw = true;
@@ -84,7 +84,7 @@ namespace
 
             // Camera.
             m_camera = m_scene->CreateEntity(u8"camera");
-            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+            if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
             {
                 cameras->Add(m_camera);
             }
@@ -102,7 +102,7 @@ namespace
 
         void OnUpdate(runtime::IApplicationHost& host, f32 dt) override
         {
-            runtime::DefaultApplication::OnUpdate(host, dt);
+            draconic::engine::runtime::DefaultApplication::OnUpdate(host, dt);
             m_fly.Update(host, dt);
             PushCameraToEntity();
 
@@ -121,9 +121,9 @@ namespace
             }
 
             // Arrow-key character drive (world axes) + Space jump.
-            if (auto* characters = m_scene->GetSystem<physics::CharacterComponentManager>())
+            if (auto* characters = m_scene->GetSystem<draconic::engine::physics::CharacterComponentManager>())
             {
-                if (physics::CharacterComponent* hero = characters->Get(m_hero))
+                if (draconic::engine::physics::CharacterComponent* hero = characters->Get(m_hero))
                 {
                     const f32 speed = 4.0f;
                     core::Float3 move{0.0f, 0.0f, 0.0f};
@@ -154,7 +154,7 @@ namespace
             // HUD button binding (once the subsystem instantiated the tree).
             if (!m_hudBound && m_scene != nullptr)
             {
-                if (auto* canvases = m_scene->GetSystem<draconic::ui::UICanvasComponentManager>())
+                if (auto* canvases = m_scene->GetSystem<draconic::engine::ui::UICanvasComponentManager>())
                 {
                     if (auto* canvas = canvases->Get(m_hudEntity);
                         canvas != nullptr && canvas->root.Get() != nullptr)
@@ -186,7 +186,7 @@ namespace
             }
             if (!m_kioskBound && m_scene != nullptr)
             {
-                if (auto* panels = m_scene->GetSystem<draconic::ui::UIWorldPanelComponentManager>())
+                if (auto* panels = m_scene->GetSystem<draconic::engine::ui::UIWorldPanelComponentManager>())
                 {
                     if (auto* panel = panels->Get(m_kioskEntity);
                         panel != nullptr && panel->renderRoot.Get() != nullptr)
@@ -220,7 +220,7 @@ namespace
 
             // Crosshair shove: ray along the camera forward; impulse along the ray.
             // Gated on UI consumption: a click that lands ON the HUD never shoves.
-            auto* gameUi = host.Ctx().GetSubsystem<draconic::ui::UISubsystem>();
+            auto* gameUi = host.Ctx().GetSubsystem<draconic::engine::ui::UISubsystem>();
             const bool uiAte = gameUi != nullptr && gameUi->PointerOverUI();
             if (!uiAte && input->Mouse()->IsButtonPressed(shell::MouseButton::Left) &&
                 m_physics != nullptr && m_physics->World() != nullptr)
@@ -235,9 +235,9 @@ namespace
                 if (!lookCaptured && win != nullptr && win->Width() > 0 && win->Height() > 0)
                 {
                     core::f32 fovY = 1.04719755f; // the camera component's authored fov
-                    if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+                    if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
                     {
-                        if (render::CameraComponent* cam = cameras->Get(m_camera))
+                        if (draconic::engine::render::CameraComponent* cam = cameras->Get(m_camera))
                         {
                             fovY = cam->fovYRadians;
                         }
@@ -288,16 +288,16 @@ namespace
         {
             if (m_scene != nullptr && frame.height > 0)
             {
-                if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+                if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
                 {
-                    if (render::CameraComponent* cam = cameras->Get(m_camera))
+                    if (draconic::engine::render::CameraComponent* cam = cameras->Get(m_camera))
                     {
                         cam->aspect =
                             static_cast<f32>(frame.width) / static_cast<f32>(frame.height);
                     }
                 }
             }
-            runtime::DefaultApplication::OnRenderWindow(host, frame);
+            draconic::engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
             if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
             {
                 g->Render(frame);
@@ -307,12 +307,12 @@ namespace
     private:
         void BuildWorld()
         {
-            auto* bodies = m_scene->GetSystem<physics::RigidBodyComponentManager>();
+            auto* bodies = m_scene->GetSystem<draconic::engine::physics::RigidBodyComponentManager>();
 
             // Ground: an infinite plane (P2) - crates land anywhere, not just on a slab.
             {
                 scene::EntityHandle e = m_scene->CreateEntity(u8"ground");
-                physics::RigidBodyComponent& body = bodies->Add(e);
+                draconic::engine::physics::RigidBodyComponent& body = bodies->Add(e);
                 body.motion = physics::MotionKind::Static;
                 body.layer = physics::PhysicsLayer::Static;
                 body.shape = physics::ShapeKind::Plane;
@@ -344,7 +344,7 @@ namespace
                         m_rampShape->outline = static_cast<core::Array<core::Float3>&&>(outline);
                     }
                     scene::EntityHandle e = m_scene->CreateEntity(u8"ramp");
-                    physics::RigidBodyComponent& body = bodies->Add(e);
+                    draconic::engine::physics::RigidBodyComponent& body = bodies->Add(e);
                     body.motion = physics::MotionKind::Static;
                     body.layer = physics::PhysicsLayer::Static;
                     body.shape = physics::ShapeKind::Cooked;
@@ -378,7 +378,7 @@ namespace
                     }
                     m_boulder = m_scene->CreateEntity(u8"boulder");
                     m_scene->SetLocalPosition(m_boulder, core::Float3{14.0f, 8.0f, 0.0f});
-                    physics::RigidBodyComponent& body = bodies->Add(m_boulder);
+                    draconic::engine::physics::RigidBodyComponent& body = bodies->Add(m_boulder);
                     body.shape = physics::ShapeKind::Cooked;
                     body.collisionShape = m_boulderShape;
                     body.friction = 0.4f;
@@ -392,7 +392,7 @@ namespace
                     scene::EntityHandle e = m_scene->CreateEntity(u8"crate");
                     m_scene->SetLocalPosition(
                         e, core::Float3{(col - 2) * 1.05f, 0.5f + row * 1.05f, 0.0f});
-                    physics::RigidBodyComponent& body = bodies->Add(e);
+                    draconic::engine::physics::RigidBodyComponent& body = bodies->Add(e);
                     body.halfExtents = core::Float3{0.5f, 0.5f, 0.5f};
                     body.friction = 0.6f;
                     m_crates.PushBack(e);
@@ -403,7 +403,7 @@ namespace
             {
                 m_hero = m_scene->CreateEntity(u8"hero");
                 m_scene->SetLocalPosition(m_hero, core::Float3{-6.0f, 0.9f, 4.0f});
-                m_scene->GetSystem<physics::CharacterComponentManager>()->Add(m_hero);
+                m_scene->GetSystem<draconic::engine::physics::CharacterComponentManager>()->Add(m_hero);
 
                 // Billboard proof (UI P2): a nameplate riding the character, distance-scaled.
                 m_nameplateDocument =
@@ -413,13 +413,13 @@ namespace
                     u8"       style=\"background: rounded-rect(rgb(20, 24, 30), radius=4);\">"
                     u8"  <Label text=\"Hero\" font-size=\"13\"/>"
                     u8"</Panel>");
-                auto* billboards = m_scene->GetSystem<draconic::ui::UIBillboardComponentManager>();
+                auto* billboards = m_scene->GetSystem<draconic::engine::ui::UIBillboardComponentManager>();
                 if (billboards != nullptr)
                 {
-                    draconic::ui::UIBillboardComponent& plate = billboards->Add(m_hero);
+                    draconic::engine::ui::UIBillboardComponent& plate = billboards->Add(m_hero);
                     plate.document = m_nameplateDocument;
                     plate.offset = core::Float3{0.0f, 1.4f, 0.0f}; // above the capsule
-                    plate.scaleMode = draconic::ui::BillboardScale::Distance;
+                    plate.scaleMode = draconic::engine::ui::BillboardScale::Distance;
                     plate.referenceDistance = 12.0f;
                 }
             }
@@ -438,10 +438,10 @@ namespace
                     u8"    <Button id=\"kiosk-btn\" text=\"Taps: 0\" width=\"260\" height=\"56\"/>"
                     u8"  </Flex>"
                     u8"</Panel>");
-                auto* panels = m_scene->GetSystem<draconic::ui::UIWorldPanelComponentManager>();
+                auto* panels = m_scene->GetSystem<draconic::engine::ui::UIWorldPanelComponentManager>();
                 if (panels != nullptr)
                 {
-                    draconic::ui::UIWorldPanelComponent& panel = panels->Add(e);
+                    draconic::engine::ui::UIWorldPanelComponent& panel = panels->Add(e);
                     panel.document = m_kioskDocument;
                     panel.sizeMeters = core::Float2{1.6f, 1.0f};
                     panel.pixelsPerMeter = 220.0f;
@@ -454,10 +454,10 @@ namespace
             {
                 scene::EntityHandle e = m_scene->CreateEntity(u8"spinner");
                 m_scene->SetLocalPosition(e, core::Float3{-6.0f, 1.0f, -4.0f});
-                physics::RigidBodyComponent& body = bodies->Add(e);
+                draconic::engine::physics::RigidBodyComponent& body = bodies->Add(e);
                 body.halfExtents = core::Float3{2.0f, 0.1f, 0.1f};
-                physics::JointComponent& joint =
-                    m_scene->GetSystem<physics::JointComponentManager>()->Add(e);
+                draconic::engine::physics::JointComponent& joint =
+                    m_scene->GetSystem<draconic::engine::physics::JointComponentManager>()->Add(e);
                 joint.kind = physics::JointKind::Hinge;
                 joint.localAxis = core::Float3{0.0f, 1.0f, 0.0f};
                 joint.motorEnabled = true;
@@ -482,10 +482,10 @@ namespace
                     u8"  </Panel>"
                     u8"</Flex>");
                 scene::EntityHandle e = m_scene->CreateEntity(u8"hud");
-                auto* canvases = m_scene->GetSystem<draconic::ui::UICanvasComponentManager>();
+                auto* canvases = m_scene->GetSystem<draconic::engine::ui::UICanvasComponentManager>();
                 if (canvases != nullptr)
                 {
-                    draconic::ui::UICanvasComponent& canvas = canvases->Add(e);
+                    draconic::engine::ui::UICanvasComponent& canvas = canvases->Add(e);
                     canvas.document = m_hudDocument;
                     m_hudEntity = e;
                 }
@@ -494,7 +494,7 @@ namespace
             {
                 m_sweeper = m_scene->CreateEntity(u8"sweeper");
                 m_scene->SetLocalPosition(m_sweeper, core::Float3{6.0f, 0.75f, 0.0f});
-                physics::RigidBodyComponent& body = bodies->Add(m_sweeper);
+                draconic::engine::physics::RigidBodyComponent& body = bodies->Add(m_sweeper);
                 body.motion = physics::MotionKind::Kinematic;
                 body.layer = physics::PhysicsLayer::Kinematic;
                 body.halfExtents = core::Float3{0.4f, 0.75f, 0.4f};
@@ -503,7 +503,7 @@ namespace
             {
                 scene::EntityHandle e = m_scene->CreateEntity(u8"trigger");
                 m_scene->SetLocalPosition(e, core::Float3{0.0f, 6.0f, 0.0f});
-                physics::RigidBodyComponent& body = bodies->Add(e);
+                draconic::engine::physics::RigidBodyComponent& body = bodies->Add(e);
                 body.motion = physics::MotionKind::Kinematic;
                 body.isTrigger = true;
                 body.halfExtents = core::Float3{2.0f, 1.0f, 2.0f};
@@ -517,14 +517,14 @@ namespace
             {
                 return;
             }
-            auto* bodies = m_scene->GetSystem<physics::RigidBodyComponentManager>();
+            auto* bodies = m_scene->GetSystem<draconic::engine::physics::RigidBodyComponentManager>();
             int i = 0;
             for (scene::EntityHandle e : m_crates)
             {
                 const int row = i / 5;
                 const int col = i % 5;
                 ++i;
-                physics::RigidBodyComponent* body = bodies->Get(e);
+                draconic::engine::physics::RigidBodyComponent* body = bodies->Get(e);
                 if (body == nullptr || !body->body.IsValid())
                 {
                     continue;
@@ -560,9 +560,9 @@ namespace
             {
                 ImGui::Text("last hit surface slot: %u", m_lastSurface);
             }
-            if (auto* characters = m_scene->GetSystem<physics::CharacterComponentManager>())
+            if (auto* characters = m_scene->GetSystem<draconic::engine::physics::CharacterComponentManager>())
             {
-                if (physics::CharacterComponent* hero = characters->Get(m_hero))
+                if (draconic::engine::physics::CharacterComponent* hero = characters->Get(m_hero))
                 {
                     ImGui::Text("character: %s", hero->ground == physics::CharacterGround::OnGround
                                                      ? "grounded"
@@ -592,7 +592,7 @@ namespace
         }
 
         scene::Scene* m_scene = nullptr;
-        physics::PhysicsSceneSystem* m_physics = nullptr;
+        draconic::engine::physics::PhysicsSceneSystem* m_physics = nullptr;
         scene::EntityHandle m_camera;
         scene::EntityHandle m_sweeper;
         core::Array<scene::EntityHandle> m_crates;

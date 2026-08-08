@@ -8,9 +8,9 @@
 // voice counts. Emitters draw as debug wire spheres. Runs fine without an audio device
 // (Null mode - a warning logs and everything else still works, just silently).
 
-#include "Draconic.Core/Prelude.h"
-#include "Draconic.Core/Log/Log.h"
-#include "Draconic.Runtime.Client/AppMain.h"
+#include "Core/Prelude.h"
+#include "Core/Log/Log.h"
+#include "Runtime.Client/AppMain.h"
 #include "imgui.h"
 #include <cmath>
 
@@ -71,12 +71,12 @@ namespace
         return clip;
     }
 
-    class PlaygroundApp final : public runtime::DefaultApplication
+    class PlaygroundApp final : public draconic::engine::runtime::DefaultApplication
     {
     public:
         void Configure(runtime::IApplicationHost& host) override
         {
-            runtime::DefaultApplication::Configure(host); // registers AudioSubsystem
+            draconic::engine::runtime::DefaultApplication::Configure(host); // registers AudioSubsystem
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
@@ -85,7 +85,7 @@ namespace
 
         void OnLaunch(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<scene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
             if (scenes == nullptr || Audio() == nullptr)
             {
                 return;
@@ -101,11 +101,11 @@ namespace
 
             // Camera entity = the LISTENER (AudioListenerComponent drives the engine).
             m_camera = m_scene->CreateEntity(u8"camera");
-            if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+            if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
             {
                 cameras->Add(m_camera);
             }
-            m_scene->GetSystem<audio::AudioListenerComponentManager>()->Add(m_camera);
+            m_scene->GetSystem<draconic::engine::audio::AudioListenerComponentManager>()->Add(m_camera);
             m_fly.position = core::Float3{0.0f, 2.0f, 14.0f};
             m_fly.moveSpeed = 8.0f;
             m_fly.fastSpeed = 25.0f;
@@ -113,8 +113,8 @@ namespace
             // Ambient pad: a looping streamless clip on the MUSIC bus (autoplay, 2D).
             {
                 scene::EntityHandle e = m_scene->CreateEntity(u8"ambient");
-                audio::AudioSourceComponent& c =
-                    m_scene->GetSystem<audio::AudioSourceComponentManager>()->Add(e);
+                draconic::engine::audio::AudioSourceComponent& c =
+                    m_scene->GetSystem<draconic::engine::audio::AudioSourceComponentManager>()->Add(e);
                 c.clip = m_ambient;
                 c.bus = audio::AudioBus::Music;
                 c.spatial = false;
@@ -136,8 +136,8 @@ namespace
                 scene::EntityHandle e = m_scene->CreateEntity(u8"emitter");
                 m_scene->SetLocalPosition(
                     e, core::Float3{10.0f * std::cos(angle), 1.5f, 10.0f * std::sin(angle)});
-                audio::AudioSourceComponent& c =
-                    m_scene->GetSystem<audio::AudioSourceComponentManager>()->Add(e);
+                draconic::engine::audio::AudioSourceComponent& c =
+                    m_scene->GetSystem<draconic::engine::audio::AudioSourceComponentManager>()->Add(e);
                 c.clip = m_beepLow;
                 c.loop = true;
                 c.autoPlay = true;
@@ -155,7 +155,7 @@ namespace
             {
                 scene::EntityHandle zone = m_scene->CreateEntity(u8"cave-zone");
                 auto& reverb =
-                    m_scene->GetSystem<audio::AudioReverbZoneComponentManager>()->Add(zone);
+                    m_scene->GetSystem<draconic::engine::audio::AudioReverbZoneComponentManager>()->Add(zone);
                 reverb.radius = 12.0f;
                 reverb.edgeFade = 0.4f;
                 reverb.roomSize = 0.8f;
@@ -187,7 +187,7 @@ namespace
 
         void OnUpdate(runtime::IApplicationHost& host, f32 deltaTime) override
         {
-            runtime::DefaultApplication::OnUpdate(host, deltaTime);
+            draconic::engine::runtime::DefaultApplication::OnUpdate(host, deltaTime);
             m_fly.Update(host, deltaTime);
             PushCameraToEntity();
 
@@ -243,16 +243,16 @@ namespace
         {
             if (m_scene != nullptr && frame.height > 0)
             {
-                if (auto* cameras = m_scene->GetSystem<render::CameraComponentManager>())
+                if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
                 {
-                    if (render::CameraComponent* camera = cameras->Get(m_camera))
+                    if (draconic::engine::render::CameraComponent* camera = cameras->Get(m_camera))
                     {
                         camera->aspect =
                             static_cast<f32>(frame.width) / static_cast<f32>(frame.height);
                     }
                 }
             }
-            runtime::DefaultApplication::OnRenderWindow(host, frame);
+            draconic::engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
             if (auto* gui = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
             {
                 gui->Render(frame);
@@ -268,7 +268,7 @@ namespace
 
         void DrawEmitterGizmos(runtime::IApplicationHost& host)
         {
-            auto* renderer = host.Ctx().GetSubsystem<render::RenderSubsystem>();
+            auto* renderer = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>();
             if (renderer == nullptr || m_scene == nullptr)
             {
                 return;

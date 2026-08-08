@@ -6,8 +6,8 @@
 // a Dear ImGui debug panel. The moving square renders as the window clear color (position
 // = color); the point is the input layer, not the drawing.
 
-#include "Draconic.Core/Prelude.h"
-#include "Draconic.Runtime.Client/AppMain.h"
+#include "Core/Prelude.h"
+#include "Runtime.Client/AppMain.h"
 #include "imgui.h"
 #include <cstdio>
 
@@ -148,7 +148,7 @@ namespace
     public:
         void Configure(runtime::IApplicationHost& host) override
         {
-            m_input = host.Ctx().AddSubsystem<input::InputSubsystem>(
+            m_input = host.Ctx().AddSubsystem<draconic::engine::input::InputSubsystem>(
                 host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
@@ -414,7 +414,7 @@ namespace
             }
         }
 
-        input::InputSubsystem* m_input = nullptr;
+        draconic::engine::input::InputSubsystem* m_input = nullptr;
         input::InputMap m_asset;                // pristine defaults
         input::InputBindingOverrides m_overlay; // the user's rebinds (persisted)
         input::ActionRef m_move;
