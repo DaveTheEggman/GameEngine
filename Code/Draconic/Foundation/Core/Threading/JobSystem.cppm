@@ -17,8 +17,16 @@
 module;
 #include "Core/Prelude.h"
 #include <atomic>
-#include <thread>
 #include <type_traits>
+// sys::ThreadYield instead of <thread>. That header is only reachable here for a single
+// std::this_thread::yield() call, but on MSVC it drags <stop_token> into this partition's
+// global module fragment, and cl then cannot re-materialize draconic.core when another module
+// imports it:
+//   stop_token(248): fatal error C1116: unrecoverable error importing module 'draconic.core'.
+//   Specialization of 'std::_Stop_callback_base::_Do_attach' with arguments 'false'
+// which took out the whole DX12 backend. The engine already owns a thread backend, so using it
+// costs nothing and keeps the STL's threading headers out of the interface entirely.
+#include "Core/Threading/ThreadBackend.h"
 
 export module draconic.core:job_system;
 
@@ -434,7 +442,7 @@ export namespace draconic::core
             return !m_external.IsEmpty();
         }
 
-        static void YieldThread() noexcept { std::this_thread::yield(); }
+        static void YieldThread() noexcept { sys::ThreadYield(); }
 
         // The calling thread's worker slot: a worker's index, or -1 for any non-worker thread.
         // A function-local thread_local (single COMDAT instance across TUs) rather than a static

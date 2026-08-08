@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <pthread.h>
+#include <sched.h>   // sched_yield
 
 namespace draconic::core::sys
 {
@@ -68,6 +69,8 @@ namespace draconic::core::sys
     }
 
     std::uint64_t CurrentThreadId() noexcept { return static_cast<std::uint64_t>(pthread_self()); }
+
+    void ThreadYield() noexcept { sched_yield(); }
 
     void MutexInit(void* storage) noexcept { pthread_mutex_init(AsMutex(storage), nullptr); }
     void MutexDestroy(void* storage) noexcept { pthread_mutex_destroy(AsMutex(storage)); }

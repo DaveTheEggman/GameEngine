@@ -22,6 +22,10 @@ namespace draconic::core::sys
     void ThreadJoin(ThreadHandle handle) noexcept;
     void ThreadDetach(ThreadHandle handle) noexcept;
     [[nodiscard]] std::uint64_t CurrentThreadId() noexcept;
+    // Offer the rest of this timeslice to another runnable thread (std::this_thread::yield
+    // equivalent). Here rather than via <thread> so no module interface has to include that
+    // header - see the note in JobSystem.cppm.
+    void ThreadYield() noexcept;
 
     // --- Mutex (opaque storage) -------------------------------------------
     inline constexpr std::size_t kMutexStorageSize = 64;

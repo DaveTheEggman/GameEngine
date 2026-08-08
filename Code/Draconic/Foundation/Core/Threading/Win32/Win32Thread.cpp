@@ -81,6 +81,17 @@ namespace draconic::core::sys
         return static_cast<std::uint64_t>(GetCurrentThreadId());
     }
 
+    void ThreadYield() noexcept
+    {
+        // SwitchToThread only yields to another thread on THIS core and returns 0 if none was
+        // ready; Sleep(0) then gives the scheduler a chance to pick a thread of equal priority
+        // anywhere. The pair is the usual Win32 stand-in for std::this_thread::yield.
+        if (SwitchToThread() == 0)
+        {
+            Sleep(0);
+        }
+    }
+
     void MutexInit(void* storage) noexcept
     {
         InitializeCriticalSection(AsCriticalSection(storage));
