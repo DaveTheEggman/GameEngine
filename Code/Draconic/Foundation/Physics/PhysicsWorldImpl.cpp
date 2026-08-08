@@ -741,6 +741,16 @@ namespace draconic::physics
         return FromJph(m_impl->characters[id.value]->GetLinearVelocity());
     }
 
+    void PhysicsWorld::SetCharacterStrength(CharacterId id, f32 strength)
+    {
+        if (!id.IsValid() || id.value >= m_impl->characters.Size() ||
+            m_impl->characters[id.value] == nullptr)
+        {
+            return;
+        }
+        m_impl->characters[id.value]->SetMaxStrength(strength);
+    }
+
     void PhysicsWorld::UpdateCharacter(CharacterId id, f32 deltaTime)
     {
         if (!id.IsValid() || id.value >= m_impl->characters.Size() ||

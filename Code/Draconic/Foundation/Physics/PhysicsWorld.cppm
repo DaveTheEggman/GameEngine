@@ -311,6 +311,9 @@ export namespace draconic::physics
         /// The FULL velocity for the coming update (the caller folds gravity/jump in).
         void SetCharacterVelocity(CharacterId id, Float3 velocity);
         [[nodiscard]] Float3 CharacterVelocity(CharacterId id) const;
+        /// Max push force (N) the character exerts on dynamic bodies. Set live from the component
+        /// each step so authored/inspector/runtime changes take effect (create seeds it too).
+        void SetCharacterStrength(CharacterId id, f32 strength);
         /// Sweeps the character (slide + stairs + stick-to-floor) against the world.
         /// Call once per fixed step, after Step().
         void UpdateCharacter(CharacterId id, f32 deltaTime);

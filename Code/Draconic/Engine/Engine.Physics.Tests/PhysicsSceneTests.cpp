@@ -582,6 +582,32 @@ TEST_CASE("physics.scene: CharacterComponent.setPosition teleports the character
     CHECK(landed.y == doctest::Approx(0.9f).epsilon(0.05));
 }
 
+TEST_CASE("physics.scene: a strong character shoves a dynamic crate (maxStrength is live)")
+{
+    PlayScene play;
+    play.scene.AddSystem<CharacterComponentManager>();
+    play.AddFloor();
+    // A dynamic crate in the character's +x path (small, so a strong shove reads clearly).
+    const scene::EntityHandle crate = play.AddBox(0.31f);
+    RigidBodyComponent* crateBody = play.scene.GetSystem<RigidBodyComponentManager>()->Get(crate);
+    crateBody->halfExtents = Float3{0.3f, 0.3f, 0.3f};
+    play.scene.SetLocalPosition(crate, Float3{1.0f, 0.31f, 0.0f});
+    scene::EntityHandle hero = play.scene.CreateEntity(u8"hero");
+    play.scene.SetLocalPosition(hero, Float3{0.0f, 0.9f, 0.0f});
+    CharacterComponent& character = play.scene.GetSystem<CharacterComponentManager>()->Add(hero);
+    character.maxStrength = 8000.0f; // strong push force, applied live each step
+    play.Start();
+    play.Step(20); // settle
+
+    const f32 crateStartX = play.scene.GetWorldPosition(crate).x;
+    character.moveVelocity = Float3{2.0f, 0.0f, 0.0f};
+    play.Step(150); // walk into it
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    // A weak (default 500N) character barely nudges a crate; 8000N shoves it clear of its start.
+    CHECK(play.scene.GetWorldPosition(crate).x > crateStartX + 0.3f);
+}
+
 // KNOWN GAP (docs/specs/game-ready-scripting.md section 17): a CharacterComponent walking into a
 // sensor does NOT yet raise a TriggerEnter event. The trigger stream comes from the world's
 // RIGID-BODY contact listener, and a CharacterVirtual is a swept capsule, not a body in that solver,

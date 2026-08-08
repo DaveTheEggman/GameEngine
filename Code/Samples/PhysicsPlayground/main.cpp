@@ -399,11 +399,16 @@ namespace
                 }
             }
             // The character (P3): arrow keys drive it, Space jumps; it climbs the ramp
-            // (stairs + slopes) and shoves crates with its 500N of push.
+            // (stairs + slopes) and shoves crates. The crates are ~1 tonne (1 m^3 at Jolt's
+            // default density), so the default 500N barely nudges them - give the hero real
+            // strength so the shove reads on screen (maxStrength is applied live each step).
             {
                 m_hero = m_scene->CreateEntity(u8"hero");
                 m_scene->SetLocalPosition(m_hero, core::Float3{-6.0f, 0.9f, 4.0f});
-                m_scene->GetSystem<draconic::engine::physics::CharacterComponentManager>()->Add(m_hero);
+                auto& hero =
+                    m_scene->GetSystem<draconic::engine::physics::CharacterComponentManager>()->Add(
+                        m_hero);
+                hero.maxStrength = 6000.0f;
 
                 // Billboard proof (UI P2): a nameplate riding the character, distance-scaled.
                 m_nameplateDocument =

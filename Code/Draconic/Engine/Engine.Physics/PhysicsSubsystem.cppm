@@ -260,6 +260,7 @@ export namespace draconic::engine::physics
                         {
                             velocity.y = current.y + gravity.y * fixedDeltaTime;
                         }
+                        m_world->SetCharacterStrength(c.character, c.maxStrength); // live push force
                         m_world->SetCharacterVelocity(c.character, velocity);
                         m_world->UpdateCharacter(c.character, fixedDeltaTime);
                         c.ground = m_world->GetCharacterGround(c.character);
