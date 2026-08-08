@@ -93,12 +93,65 @@ is why the first triage misfiled it as a parser bug.
 `Draconic.Editor.Scene.Tests` (pre-existing, see its own entry / still uncharacterised),
 `Draconic.GUI.Tests` (known/expected), and `Draconic.RHI.WebGPU.Tests`.
 
-The WebGPU one **differs from clang and is not yet explained**: 13/14 cases and 215/215
-assertions pass, then "sky-shaped draw - z=1.0 vs cleared depth, read-only pass, MRT"
-crashes with an SEH exception after wgpu-native panics with "Parent device is lost" in
-`wgpuQueueSubmitForIndex`. That test passes under clang on the same machine and GPU, so it
-is either an MSVC-specific runtime problem or a flake; it is a runtime issue, not a build
-one, and has not been investigated.
+All three fail identically under clang. **`Draconic.RHI.WebGPU.Tests` is NOT MSVC-specific** -
+an earlier revision of this entry said it passed under clang, which was wrong; the isolated
+case fails the same way on both. It has its own entry below.
+
+
+## WebGPU: a read-only depth attachment kills the device
+
+**Status:** OPEN, root cause isolated 2026-08-08, not fixed. Compiler-independent (fails
+identically under clang and MSVC). Pre-existing on `game-ready-scripting`; the test arrived
+with 58eb5c60 (the debrand/namespace refactor) and appears never to have passed there.
+
+**What:** any render pass with `DepthStencilAttachment::depthReadOnly = true` loses the
+WGPU device. The failure surfaces later and misleadingly, at encoder finish and submit:
+
+```
+[webgpu] uncaptured error (type 2): Validation Error
+  In wgpuCommandEncoderFinish / In a pass parameter / Parent device is lost
+thread '<unnamed>' panicked at src\lib.rs:605:5:
+  Error in wgpuQueueSubmitForIndex: Validation Error / Parent device is lost
+```
+
+wgpu-native panics across the FFI boundary, which reaches doctest as "Unhandled SEH
+exception caught". Fails `Draconic.RHI.WebGPU.Tests` case "rhi.webgpu: sky-shaped draw -
+z=1.0 vs cleared depth, read-only pass, MRT" (`WebGpuRhiTests.cpp:1034`) - 14 assertions in.
+The other 13 cases and all 215 assertions pass.
+
+**Isolated by experiment** (each change made alone, rebuilt, re-run):
+
+| Variation | Result |
+|---|---|
+| as-is | fails |
+| `depthReadOnly = true` -> `depthLoadOp = Load` | **passes, 17/17** |
+| read-only depth, MRT removed (1 color target) | fails |
+| read-only depth, preceding depth-clear pass removed | fails |
+| read-only depth, `depthClearValue` not set on the read-only plane | fails |
+
+So it is `depthReadOnly` alone. Not MRT, not the two-passes-per-encoder shape (the
+cube-faces test does that and passes), not the `depthClearValue` we deliberately set for
+browser validation, and not dependent on a prior write pass.
+
+**Our translation looks correct.** `WebGpuCommandEncoder::BeginRenderPass` sets
+`depthReadOnly = 1` and leaves `depthLoadOp`/`depthStoreOp` at `WGPULoadOp_Undefined` /
+`WGPUStoreOp_Undefined`, which is what the spec requires. The pipeline in the test has
+`depthWriteEnabled = false`, as a read-only pass requires. The device-lost callback in
+`WebGpuAdapter.cppm` never fires - not even with `WGPUDeviceLostReason_Destroyed`, which it
+otherwise swallows - so nothing is releasing or destroying the device on our side. That
+points at wgpu-native (v29, NVIDIA/Vulkan adapter) rather than our code, but it is not
+proven, and no minimal C repro has been written yet.
+
+**Impact today: test-only.** Nothing in the engine sets `depthReadOnly = true` - a grep over
+`Code/` finds only this test. It matters for the *planned* use the backend comment already
+anticipates ("the forward pass reading the prepass depth"), so it should be settled before
+that lands on the WebGPU path.
+
+**Next steps:** write a standalone C repro against wgpu-native and report upstream; check
+whether the D3D12 adapter behaves the same (the run picks Vulkan on this machine); if it is
+a wgpu bug, either pin a version that works or translate read-only depth as
+`Load`/`Store` with a `depthWriteEnabled = false` pipeline, which is behaviourally
+equivalent for us and is exactly the variation that passes above.
 
 
 ## Legacy 'draconic::' type names in serialized data - COMPAT FALLBACK ACTIVE
