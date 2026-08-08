@@ -93,9 +93,16 @@ export namespace draconic::gui
     [[nodiscard]] inline WidgetFactory DefaultWidgetFactory()
     {
         WidgetFactory f;
-        auto reg = [&f](core::StringView name, auto maker)
+        // `maker` is typed, NOT `auto`. As a generic lambda this instantiates
+        // operator()<Maker> in whichever TU imports the module, and MSVC cannot re-parse the
+        // serialized body out of the .ifc - it reports a bogus "C2187: syntax error: 'newline'
+        // was unexpected here" against this line while compiling an unrelated consumer, then
+        // notes "IFC import detected". Taking Factory directly moves the conversion to the call
+        // site (Function accepts any callable whose result converts to RefPtr<Node>, so the
+        // registrations below are unchanged) and leaves nothing generic to instantiate.
+        auto reg = [&f](core::StringView name, WidgetFactory::Factory maker)
         {
-            f.Register(name, [maker]() -> RefPtr<Node> { return maker(); });
+            f.Register(name, core::Move(maker));
         };
         reg(core::StringView(u8"Label"),
             [] { return core::MakeRef<Label>(core::DefaultAllocator()); });

@@ -121,4 +121,55 @@ namespace draconic::editor
         }
         return FindBy(preset.platform.AsView(), preset.config.AsView());
     }
+
+    // Declared in ExportTemplate.cppm; defined here so <filesystem> stays out of the module
+    // interface (see the note at those declarations). Bodies are unchanged from when they were
+    // inline there.
+    Status ImportTemplate(StringView srcDir, StringView templatesRoot, String* outId)
+    {
+        vfs::NativeFileSystem srcFs(srcDir);
+        ExportTemplate manifest;
+        if (!LoadTemplateManifest(srcFs, manifest).IsOk() || manifest.id.IsEmpty())
+        {
+            return Status{ErrorCode::NotFound};
+        }
+
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        const String rootCopy(templatesRoot);
+        fs::create_directories(reinterpret_cast<const char*>(rootCopy.CStr()), ec);
+        const String dst = PathJoin(templatesRoot, manifest.id.AsView());
+        const String srcCopy(srcDir);
+        fs::copy(fs::path(reinterpret_cast<const char*>(srcCopy.CStr())),
+                 fs::path(reinterpret_cast<const char*>(dst.CStr())),
+                 fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
+        if (ec)
+        {
+            return Status{ErrorCode::Internal};
+        }
+        if (outId != nullptr)
+        {
+            *outId = manifest.id;
+        }
+        return Status{};
+    }
+
+    Status RemoveTemplate(StringView templatesRoot, StringView templateId)
+    {
+        if (templateId.IsEmpty())
+        {
+            return Status{ErrorCode::InvalidArgument};
+        }
+        const String dir = PathJoin(templatesRoot, templateId);
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        const auto removed =
+            fs::remove_all(fs::path(reinterpret_cast<const char*>(dir.CStr())), ec);
+        if (ec)
+        {
+            return Status{ErrorCode::Internal};
+        }
+        return (removed > 0) ? Status{}
+                             : Status{ErrorCode::NotFound}; // nothing deleted => not there
+    }
 }

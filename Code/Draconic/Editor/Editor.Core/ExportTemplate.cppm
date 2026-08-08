@@ -9,7 +9,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-#include <filesystem> // recursive dir copy when importing a template bundle
+// NO <filesystem> here - see ImportTemplate below. It lives in ExportTemplateImpl.cpp.
 
 export module draconic.editor.core:export_template;
 
@@ -296,58 +296,24 @@ export namespace draconic::editor
     // `templatesRoot` under its manifest id, so the registry picks it up. Recursive copy (overwrites
     // an existing install of the same id). `outId` receives the imported id. NotFound if the source has
     // no valid template.xml. Shared by the Draconic.Tools.Export CLI and the editor's Import Template action.
-    [[nodiscard]] inline Status ImportTemplate(StringView srcDir, StringView templatesRoot,
-                                               String* outId = nullptr)
-    {
-        vfs::NativeFileSystem srcFs(srcDir);
-        ExportTemplate manifest;
-        if (!LoadTemplateManifest(srcFs, manifest).IsOk() || manifest.id.IsEmpty())
-        {
-            return Status{ErrorCode::NotFound};
-        }
-
-        namespace fs = std::filesystem;
-        std::error_code ec;
-        const String rootCopy(templatesRoot);
-        fs::create_directories(reinterpret_cast<const char*>(rootCopy.CStr()), ec);
-        const String dst = PathJoin(templatesRoot, manifest.id.AsView());
-        const String srcCopy(srcDir);
-        fs::copy(fs::path(reinterpret_cast<const char*>(srcCopy.CStr())),
-                 fs::path(reinterpret_cast<const char*>(dst.CStr())),
-                 fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
-        if (ec)
-        {
-            return Status{ErrorCode::Internal};
-        }
-        if (outId != nullptr)
-        {
-            *outId = manifest.id;
-        }
-        return Status{};
-    }
+    // Defined out-of-line in ExportTemplateImpl.cpp: the body needs <filesystem> for the
+    // recursive copy, and that header must not reach this INTERFACE. On MSVC an STL header in a
+    // module interface's global module fragment gets attached to the module, and consumers then
+    // fail to re-materialize it from the .ifc - here as
+    //   type_traits(2410): error C2678: binary '&': no operator found which takes a left-hand
+    //   operand of type '_Bitmask'
+    // from std::_Bitmask_includes_all<__std_fs_stats_flags>, which broke Draconic.Editor.App.
+    // (Same shape as <stop_token> via <thread> in Core's JobSystem.) The impl unit already
+    // included <filesystem> for exactly this - only the bodies were in the wrong place.
+    [[nodiscard]] Status ImportTemplate(StringView srcDir, StringView templatesRoot,
+                                        String* outId = nullptr);
 
     // Remove an installed template bundle: delete `<templatesRoot>/<templateId>` and everything
     // under it (the editor's templates-manager Remove action; the registry drops it next Refresh).
     // The HOST template is synthesized, not on disk, so it is never removable this way - callers
     // must not offer Remove for it. Empty id / a missing dir is a soft error, not a crash.
-    [[nodiscard]] inline Status RemoveTemplate(StringView templatesRoot, StringView templateId)
-    {
-        if (templateId.IsEmpty())
-        {
-            return Status{ErrorCode::InvalidArgument};
-        }
-        const String dir = PathJoin(templatesRoot, templateId);
-        namespace fs = std::filesystem;
-        std::error_code ec;
-        const auto removed =
-            fs::remove_all(fs::path(reinterpret_cast<const char*>(dir.CStr())), ec);
-        if (ec)
-        {
-            return Status{ErrorCode::Internal};
-        }
-        return (removed > 0) ? Status{}
-                             : Status{ErrorCode::NotFound}; // nothing deleted => not there
-    }
+    // Out-of-line for the same reason as ImportTemplate above.
+    [[nodiscard]] Status RemoveTemplate(StringView templatesRoot, StringView templateId);
 
     // Does a template's engineVersion match this running build's? Empty (an unstamped/hand-written
     // manifest) is treated as a match - the export driver only soft-warns on a real mismatch, so the
