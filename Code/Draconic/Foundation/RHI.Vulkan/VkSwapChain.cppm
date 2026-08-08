@@ -43,6 +43,41 @@ export namespace draconic::rhi::vk
         }
     }
 
+    // Readable names for the swapchain-format negotiation log (I8: silent non-sRGB fallbacks washed
+    // out exported players - name the negotiated format so a bad machine is a one-line diagnosis).
+    // const char* for the printf-style RHI logger (LogInfof/LogWarningf).
+    inline const char* vkFormatName(VkFormat f)
+    {
+        switch (f)
+        {
+        case VK_FORMAT_R8G8B8A8_UNORM:
+            return "R8G8B8A8_UNORM";
+        case VK_FORMAT_R8G8B8A8_SRGB:
+            return "R8G8B8A8_SRGB";
+        case VK_FORMAT_B8G8R8A8_UNORM:
+            return "B8G8R8A8_UNORM";
+        case VK_FORMAT_B8G8R8A8_SRGB:
+            return "B8G8R8A8_SRGB";
+        case VK_FORMAT_R16G16B16A16_SFLOAT:
+            return "R16G16B16A16_SFLOAT";
+        case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
+            return "A2B10G10R10_UNORM_PACK32";
+        default:
+            return "(other)";
+        }
+    }
+
+    inline const char* vkColorSpaceName(VkColorSpaceKHR cs)
+    {
+        switch (cs)
+        {
+        case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR:
+            return "SRGB_NONLINEAR";
+        default:
+            return "(other)";
+        }
+    }
+
     class VkDeviceImpl; // forward
 
     class VkSwapChainImpl : public SwapChain
@@ -158,6 +193,22 @@ export namespace draconic::rhi::vk
         m_format = fromVkFormat(surfFmt.format);
         if (m_format == TextureFormat::Undefined)
             m_format = reqFormat;
+
+        // Surface-format negotiation is a known cause of washed-out exported players: if a machine's
+        // surface lacks our sRGB target, chooseSurfaceFormat silently falls to a UNORM format while
+        // the final pass still assumes encode-on-write. Log request vs result (answers the issue's
+        // own "what is the swapchain format?") and WARN loudly on a non-sRGB negotiation so the next
+        // report is a one-line diagnosis rather than a hunt.
+        LogInfof("[RHI] swapchain surface format: requested %s, negotiated %s [%s]",
+                 vkFormatName(toVkFormat(reqFormat)), vkFormatName(surfFmt.format),
+                 vkColorSpaceName(surfFmt.colorSpace));
+        if (!IsSrgb(m_format))
+        {
+            LogWarningf("[RHI] swapchain negotiated a NON-sRGB format (%s) - the surface offered no "
+                        "sRGB target; output may look washed out where the final pass assumes "
+                        "encode-on-write",
+                        vkFormatName(surfFmt.format));
+        }
 
         VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         if (caps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
