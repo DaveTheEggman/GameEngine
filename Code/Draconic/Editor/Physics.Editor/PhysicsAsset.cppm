@@ -99,7 +99,32 @@ export namespace draconic::physics
             auto* meshAsset = Cast<draconic::geometry::StaticMeshAsset>(object.Get());
             if (meshAsset == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"Physics", u8"collision shape: source is not a mesh asset");
+                utf8char guidChars[37];
+                ca.sourceMesh.ToChars(guidChars);
+                if (object.Get() == nullptr)
+                {
+                    // The instance header names a type but ReadObject built nothing: the mesh
+                    // asset itself did not deserialize (stale on-disk schema is the usual cause -
+                    // the same "failed to deserialize" the cook logs for other assets). The
+                    // collision is a downstream victim, not the source of the break.
+                    DRACONIC_LOG_ERROR(
+                        u8"Physics",
+                        u8"collision cook: source mesh '{}' [{}] ({}) did not deserialize - stale "
+                        u8"schema? delete + re-import the model, then it recooks fresh",
+                        meshInstance->Name(), meshInstance->TypeName(),
+                        StringView(guidChars, 36));
+                }
+                else
+                {
+                    // Resolved to a real object of the wrong type: the sourceMesh guid points at a
+                    // non-mesh instance (skinned mesh, or a wrong-guid import wiring bug).
+                    DRACONIC_LOG_ERROR(
+                        u8"Physics",
+                        u8"collision cook: source '{}' [{}] ({}) is not a StaticMeshAsset - skinned "
+                        u8"meshes have no collision; re-import to regenerate the shape",
+                        meshInstance->Name(), meshInstance->TypeName(),
+                        StringView(guidChars, 36));
+                }
                 return Status{ErrorCode::InvalidArgument};
             }
 
