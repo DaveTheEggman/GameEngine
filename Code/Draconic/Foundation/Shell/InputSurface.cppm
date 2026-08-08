@@ -23,6 +23,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 
 export module draconic.shell:surface;
 
@@ -475,6 +476,7 @@ export namespace draconic::shell
                                     rawMouse->IsButtonPressed(MouseButton::Right) ||
                                     rawMouse->IsButtonPressed(MouseButton::Middle);
 
+            InputSurface* const capturedBefore = m_captured;
             if (m_captured != nullptr && (!anyDown || m_extMouseCapture))
             {
                 m_captured = nullptr;
@@ -482,6 +484,56 @@ export namespace draconic::shell
             if (!m_extMouseCapture && m_captured == nullptr && m_hovered != nullptr && anyPressed)
             {
                 m_captured = m_hovered;
+            }
+
+            // I2 instrumentation (issues-triage: "scene view mouse capture never released", one
+            // hard-to-repro occurrence). Log every capture transition with its reason so the next
+            // occurrence names the path, and trip a loud one-shot watchdog if capture ever persists
+            // with no mouse button down (the leak signature). Cheap + permanent - a watch-list
+            // tripwire, not a fix.
+            if (m_captured != capturedBefore)
+            {
+                if (capturedBefore == nullptr)
+                {
+                    DRACONIC_LOG_DEBUG(u8"Input",
+                                       u8"viewport capture acquired (window {}) - button pressed "
+                                       u8"over the hovered surface",
+                                       m_captured->Window());
+                }
+                else if (m_captured == nullptr && m_extMouseCapture)
+                {
+                    DRACONIC_LOG_DEBUG(u8"Input",
+                                       u8"viewport capture released - external overlay took the mouse");
+                }
+                else if (m_captured == nullptr)
+                {
+                    DRACONIC_LOG_DEBUG(u8"Input",
+                                       u8"viewport capture released - no mouse button held");
+                }
+                else
+                {
+                    DRACONIC_LOG_DEBUG(u8"Input", u8"viewport capture moved to window {}",
+                                       m_captured->Window());
+                }
+                m_captureNoButtonFrames = 0;
+                m_captureLeakLogged = false;
+            }
+
+            if (m_captured != nullptr && !anyDown)
+            {
+                // Should have released above; if capture persists here some path is pinning it.
+                if (++m_captureNoButtonFrames >= kCaptureLeakFrames && !m_captureLeakLogged)
+                {
+                    DRACONIC_LOG_ERROR(u8"Input",
+                                       u8"viewport capture STUCK: held {} frames with no mouse "
+                                       u8"button down (leak - a button-up was likely missed)",
+                                       m_captureNoButtonFrames);
+                    m_captureLeakLogged = true;
+                }
+            }
+            else
+            {
+                m_captureNoButtonFrames = 0;
             }
 
             InputSurface* target = (m_captured != nullptr) ? m_captured : m_hovered;
@@ -542,5 +594,11 @@ export namespace draconic::shell
         bool m_focusFollowsHover = false;
         bool m_extMouseCapture = false;    // external overlay (ImGui) owns the mouse this frame
         bool m_extKeyboardCapture = false; // external overlay owns the keyboard this frame
+
+        // I2 capture-leak watchdog (see Update): frames capture has been held with no button down,
+        // and a one-shot guard so the stuck-capture error logs once per episode, not every frame.
+        core::u32 m_captureNoButtonFrames = 0;
+        bool m_captureLeakLogged = false;
+        static constexpr core::u32 kCaptureLeakFrames = 30; // ~0.5s at 60fps before we shout
     };
 }
