@@ -14,7 +14,7 @@ import draconic.core;
 import :result;
 import :lexer;
 import :ns;
-import :nodes;
+export import :nodes;
 import :writer;
 
 using namespace draconic::core;
