@@ -3,3 +3,8 @@
 # fail against the LF sources they target.
 *.patch -text
 *.diff -text
+
+# Batch files must be CRLF: cmd.exe can misparse LF-only scripts, notably around labels
+# and goto (build-msvc.cmd uses both).
+*.cmd text eol=crlf
+*.bat text eol=crlf
