@@ -28,7 +28,13 @@ export namespace draconic::core
     inline constexpr f32 kEpsilon = 1.0e-6f;
     inline constexpr f32 kFloatMax = 3.402823466e38f;
 
+    // Overloaded so integer and double arguments do not silently narrow through the f32
+    // version. `Abs(a - b)` over two integers is common in pixel/index code and was quietly
+    // round-tripping through float (MSVC C4244); it now stays integral and exact.
     [[nodiscard]] constexpr f32 Abs(f32 x) noexcept { return x < 0.0f ? -x : x; }
+    [[nodiscard]] constexpr f64 Abs(f64 x) noexcept { return x < 0.0 ? -x : x; }
+    [[nodiscard]] constexpr i32 Abs(i32 x) noexcept { return x < 0 ? -x : x; }
+    [[nodiscard]] constexpr i64 Abs(i64 x) noexcept { return x < 0 ? -x : x; }
     [[nodiscard]] inline f32 Sqrt(f32 x) noexcept { return std::sqrt(x); }
     [[nodiscard]] inline f32 Sin(f32 x) noexcept { return std::sin(x); }
     [[nodiscard]] inline f32 Cos(f32 x) noexcept { return std::cos(x); }
