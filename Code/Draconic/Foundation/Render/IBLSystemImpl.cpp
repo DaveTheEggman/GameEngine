@@ -107,9 +107,9 @@ namespace draconic::render
         }
     }
 
-    IBLSystem::IBLSystem::Context* IBLSystem::Prepare(const void* scene, const SkySnapshot& sky,
-                                                      const Float3& sunDir,
-                                                      rendergraph::RenderGraph& graph)
+    IBLSystem::Context* IBLSystem::Prepare(const void* scene, const SkySnapshot& sky,
+                                           const Float3& sunDir,
+                                           rendergraph::RenderGraph& graph)
     {
         if (!m_ready)
         {
@@ -459,7 +459,7 @@ namespace draconic::render
         DeclarePrefilter(ctx, graph, envH, ctx.m_prefilterH);
     }
 
-    IBLSystem::IBLSystem::IblPush IBLSystem::MakeSkyPush(const Context& ctx, i32 face)
+    IBLSystem::IblPush IBLSystem::MakeSkyPush(const Context& ctx, i32 face)
     {
         IblPush p{};
         p.faceIndex = face;
