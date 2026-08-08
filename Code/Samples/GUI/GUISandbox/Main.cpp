@@ -625,10 +625,10 @@ void GUISandbox::BuildUI()
         const i32 scores[6] = {42, 7, 91, 15, 68, 30};
         for (usize i = 0; i < 6; ++i)
         {
-            Array<gui::Variant> row;
-            row.PushBack(gui::Variant(StringView(names[i])));
-            row.PushBack(gui::Variant(static_cast<i64>(scores[i])));
-            m_tableModel->AddRow(Move(row));
+            Array<gui::Variant> cells;
+            cells.PushBack(gui::Variant(StringView(names[i])));
+            cells.PushBack(gui::Variant(static_cast<i64>(scores[i])));
+            m_tableModel->AddRow(Move(cells));
         }
     }
     m_tableProxy = MakeUnique<gui::SortingProxyModel>(DefaultAllocator(), m_tableModel.Get());

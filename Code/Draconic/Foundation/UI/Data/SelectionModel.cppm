@@ -126,11 +126,10 @@ export namespace draconic::ui
         /// The first selected index, or -1.
         [[nodiscard]] i32 FirstSelected() const
         {
-            for (i32 idx : m_selected)
-            {
-                return idx;
-            }
-            return -1;
+            // Iterator form rather than a range-for whose body always returns: the loop's
+            // increment is then provably unreachable, which MSVC reports as C4702.
+            const auto it = m_selected.begin();
+            return (it != m_selected.end()) ? *it : -1;
         }
 
         /// Adjust indices when items are inserted/removed at/above startPos. delta > 0 = insertion, < 0 = removal.

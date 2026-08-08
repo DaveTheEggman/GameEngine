@@ -612,7 +612,7 @@ TEST_CASE("ui.subsystem: preview roots live in the context but never on the scre
     CHECK(Cast<ViewGroup>(preview.Get())->FindByName(u8"pv") != nullptr);
     // ...which is NOT parented to the screen root (RenderOverlay draws only the screen
     // root, so a preview can never leak into game targets)...
-    const u32 screenChildren = ui->ScreenRoot()->ChildCount();
+    const u32 screenChildren = static_cast<u32>(ui->ScreenRoot()->ChildCount());
     CHECK(Cast<ViewGroup>(ui->ScreenRoot())->FindByName(u8"pv") == nullptr);
     // ...and frames tick without disturbing the screen tier.
     ctx.BeginFrame(1.0f / 60.0f);

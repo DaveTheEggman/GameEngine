@@ -1585,131 +1585,137 @@ namespace draconic::editor
         const StringView cat = reinterpret_cast<const utf8char*>(module->GetType()->name);
 
         // Initializers.
-        if (auto* m = Cast<particles::PositionInitializer>(module))
+        if (auto* posInit = Cast<particles::PositionInitializer>(module))
         {
-            RowEmissionShape(g, u8"Shape", &m->shape, cat, page);
-            RowBool(g, u8"Local Space", &m->localSpace, cat, page);
+            RowEmissionShape(g, u8"Shape", &posInit->shape, cat, page);
+            RowBool(g, u8"Local Space", &posInit->localSpace, cat, page);
         }
-        else if (auto* m = Cast<particles::VelocityInitializer>(module))
+        else if (auto* velInit = Cast<particles::VelocityInitializer>(module))
         {
-            RowFloat3(g, u8"Base Velocity", &m->baseVelocity, cat, page);
-            RowFloat3(g, u8"Randomness", &m->randomness, cat, page);
-            RowFloat(g, u8"Shape Dir Speed", &m->shapeDirectionSpeed, cat, page);
-            RowFloat(g, u8"Velocity Inherit", &m->velocityInheritance, cat, page, 0.0, 1.0, 0.01);
-            RowEmissionShape(g, u8"Shape", &m->shape, cat, page);
+            RowFloat3(g, u8"Base Velocity", &velInit->baseVelocity, cat, page);
+            RowFloat3(g, u8"Randomness", &velInit->randomness, cat, page);
+            RowFloat(g, u8"Shape Dir Speed", &velInit->shapeDirectionSpeed, cat, page);
+            RowFloat(g, u8"Velocity Inherit", &velInit->velocityInheritance, cat, page, 0.0, 1.0,
+                     0.01);
+            RowEmissionShape(g, u8"Shape", &velInit->shape, cat, page);
         }
-        else if (auto* m = Cast<particles::LifetimeInitializer>(module))
+        else if (auto* lifeInit = Cast<particles::LifetimeInitializer>(module))
         {
-            RowRangeFloat(g, u8"Lifetime", &m->lifetime, cat, page, 0.0, 100.0, 0.05);
+            RowRangeFloat(g, u8"Lifetime", &lifeInit->lifetime, cat, page, 0.0, 100.0, 0.05);
         }
-        else if (auto* m = Cast<particles::ColorInitializer>(module))
+        else if (auto* colorInit = Cast<particles::ColorInitializer>(module))
         {
-            RowRangeColor(g, u8"Color", &m->color, cat, page);
+            RowRangeColor(g, u8"Color", &colorInit->color, cat, page);
         }
-        else if (auto* m = Cast<particles::SizeInitializer>(module))
+        else if (auto* sizeInit = Cast<particles::SizeInitializer>(module))
         {
-            RowRangeFloat2(g, u8"Size", &m->size, cat, page);
+            RowRangeFloat2(g, u8"Size", &sizeInit->size, cat, page);
         }
-        else if (auto* m = Cast<particles::RotationInitializer>(module))
+        else if (auto* rotInit = Cast<particles::RotationInitializer>(module))
         {
-            RowRangeFloat(g, u8"Rotation", &m->rotation, cat, page);
-            RowRangeFloat(g, u8"Rotation Speed", &m->rotationSpeed, cat, page);
+            RowRangeFloat(g, u8"Rotation", &rotInit->rotation, cat, page);
+            RowRangeFloat(g, u8"Rotation Speed", &rotInit->rotationSpeed, cat, page);
         }
-        else if (auto* m = Cast<particles::MeshOrientationInitializer>(module))
+        else if (auto* orientInit = Cast<particles::MeshOrientationInitializer>(module))
         {
-            RowBool(g, u8"Random Axis", &m->randomAxis, cat, page);
-            RowFloat3(g, u8"Fixed Axis", &m->fixedAxis, cat, page);
+            RowBool(g, u8"Random Axis", &orientInit->randomAxis, cat, page);
+            RowFloat3(g, u8"Fixed Axis", &orientInit->fixedAxis, cat, page);
         }
         // Behaviors.
-        else if (auto* m = Cast<particles::GravityBehavior>(module))
+        else if (auto* gravityMod = Cast<particles::GravityBehavior>(module))
         {
-            RowFloat(g, u8"Multiplier", &m->multiplier, cat, page);
-            RowFloat3(g, u8"Direction", &m->direction, cat, page);
+            RowFloat(g, u8"Multiplier", &gravityMod->multiplier, cat, page);
+            RowFloat3(g, u8"Direction", &gravityMod->direction, cat, page);
         }
-        else if (auto* m = Cast<particles::DragBehavior>(module))
+        else if (auto* dragMod = Cast<particles::DragBehavior>(module))
         {
-            RowFloat(g, u8"Drag", &m->drag, cat, page);
+            RowFloat(g, u8"Drag", &dragMod->drag, cat, page);
         }
-        else if (auto* m = Cast<particles::WindBehavior>(module))
+        else if (auto* windMod = Cast<particles::WindBehavior>(module))
         {
-            RowFloat3(g, u8"Force", &m->force, cat, page);
-            RowFloat(g, u8"Turbulence", &m->turbulence, cat, page);
+            RowFloat3(g, u8"Force", &windMod->force, cat, page);
+            RowFloat(g, u8"Turbulence", &windMod->turbulence, cat, page);
         }
-        else if (auto* m = Cast<particles::TurbulenceBehavior>(module))
+        else if (auto* turbulenceMod = Cast<particles::TurbulenceBehavior>(module))
         {
-            RowFloat(g, u8"Strength", &m->strength, cat, page);
-            RowFloat(g, u8"Frequency", &m->frequency, cat, page);
-            RowFloat(g, u8"Speed", &m->speed, cat, page);
+            RowFloat(g, u8"Strength", &turbulenceMod->strength, cat, page);
+            RowFloat(g, u8"Frequency", &turbulenceMod->frequency, cat, page);
+            RowFloat(g, u8"Speed", &turbulenceMod->speed, cat, page);
         }
-        else if (auto* m = Cast<particles::VortexBehavior>(module))
+        else if (auto* vortexMod = Cast<particles::VortexBehavior>(module))
         {
-            RowFloat(g, u8"Strength", &m->strength, cat, page);
-            RowFloat3(g, u8"Center", &m->center, cat, page);
-            RowFloat3(g, u8"Axis", &m->axis, cat, page);
+            RowFloat(g, u8"Strength", &vortexMod->strength, cat, page);
+            RowFloat3(g, u8"Center", &vortexMod->center, cat, page);
+            RowFloat3(g, u8"Axis", &vortexMod->axis, cat, page);
         }
-        else if (auto* m = Cast<particles::AttractorBehavior>(module))
+        else if (auto* attractorMod = Cast<particles::AttractorBehavior>(module))
         {
-            RowFloat(g, u8"Strength", &m->strength, cat, page);
-            RowFloat3(g, u8"Position", &m->position, cat, page);
-            RowFloat(g, u8"Radius", &m->radius, cat, page, 0.0, 1000.0, 0.05);
+            RowFloat(g, u8"Strength", &attractorMod->strength, cat, page);
+            RowFloat3(g, u8"Position", &attractorMod->position, cat, page);
+            RowFloat(g, u8"Radius", &attractorMod->radius, cat, page, 0.0, 1000.0, 0.05);
         }
-        else if (auto* m = Cast<particles::RadialForceBehavior>(module))
+        else if (auto* radialMod = Cast<particles::RadialForceBehavior>(module))
         {
-            RowFloat(g, u8"Strength", &m->strength, cat, page);
+            RowFloat(g, u8"Strength", &radialMod->strength, cat, page);
         }
-        else if (auto* m = Cast<particles::CollisionBehavior>(module))
+        else if (auto* collisionMod = Cast<particles::CollisionBehavior>(module))
         {
-            RowFloat(g, u8"Radius", &m->radius, cat, page, 0.0, 10.0, 0.01);
-            RowFloat(g, u8"Bounce", &m->bounce, cat, page, 0.0, 1.0, 0.01);
-            RowFloat(g, u8"Friction", &m->friction, cat, page, 0.0, 1.0, 0.01);
-            RowFloat(g, u8"Lifetime Loss", &m->lifetimeLoss, cat, page, 0.0, 1.0, 0.01);
+            RowFloat(g, u8"Radius", &collisionMod->radius, cat, page, 0.0, 10.0, 0.01);
+            RowFloat(g, u8"Bounce", &collisionMod->bounce, cat, page, 0.0, 1.0, 0.01);
+            RowFloat(g, u8"Friction", &collisionMod->friction, cat, page, 0.0, 1.0, 0.01);
+            RowFloat(g, u8"Lifetime Loss", &collisionMod->lifetimeLoss, cat, page, 0.0, 1.0, 0.01);
             // Plane / sphere / box counts + per-primitive fields.
-            RowInt(g, u8"Plane Count", &m->planeCount, u8"Collision Planes", page, 0,
+            RowInt(g, u8"Plane Count", &collisionMod->planeCount, u8"Collision Planes", page, 0,
                    particles::CollisionBehavior::kMaxPlanes);
-            for (i32 i = 0; i < m->planeCount && i < particles::CollisionBehavior::kMaxPlanes; ++i)
+            for (i32 i = 0;
+                 i < collisionMod->planeCount && i < particles::CollisionBehavior::kMaxPlanes; ++i)
             {
                 String c = Format(u8"Plane {}", i);
-                RowFloat3(g, u8"Normal", &m->planes[i].normal, c.AsView(), page);
-                RowFloat(g, u8"Distance", &m->planes[i].distance, c.AsView(), page, -1000.0, 1000.0,
-                         0.05);
+                RowFloat3(g, u8"Normal", &collisionMod->planes[i].normal, c.AsView(), page);
+                RowFloat(g, u8"Distance", &collisionMod->planes[i].distance, c.AsView(), page,
+                         -1000.0, 1000.0, 0.05);
             }
-            RowInt(g, u8"Sphere Count", &m->sphereCount, u8"Collision Spheres", page, 0,
+            RowInt(g, u8"Sphere Count", &collisionMod->sphereCount, u8"Collision Spheres", page, 0,
                    particles::CollisionBehavior::kMaxSpheres);
-            for (i32 i = 0; i < m->sphereCount && i < particles::CollisionBehavior::kMaxSpheres;
+            for (i32 i = 0;
+                 i < collisionMod->sphereCount && i < particles::CollisionBehavior::kMaxSpheres;
                  ++i)
             {
                 String c = Format(u8"Sphere {}", i);
-                RowFloat3(g, u8"Center", &m->spheres[i].center, c.AsView(), page);
-                RowFloat(g, u8"Radius", &m->spheres[i].radius, c.AsView(), page, 0.0, 1000.0, 0.05);
+                RowFloat3(g, u8"Center", &collisionMod->spheres[i].center, c.AsView(), page);
+                RowFloat(g, u8"Radius", &collisionMod->spheres[i].radius, c.AsView(), page, 0.0,
+                         1000.0, 0.05);
             }
-            RowInt(g, u8"Box Count", &m->boxCount, u8"Collision Boxes", page, 0,
+            RowInt(g, u8"Box Count", &collisionMod->boxCount, u8"Collision Boxes", page, 0,
                    particles::CollisionBehavior::kMaxBoxes);
-            for (i32 i = 0; i < m->boxCount && i < particles::CollisionBehavior::kMaxBoxes; ++i)
+            for (i32 i = 0;
+                 i < collisionMod->boxCount && i < particles::CollisionBehavior::kMaxBoxes; ++i)
             {
                 String c = Format(u8"Box {}", i);
-                RowFloat3(g, u8"Center", &m->boxes[i].center, c.AsView(), page);
-                RowFloat3(g, u8"Half Extents", &m->boxes[i].halfExtents, c.AsView(), page);
+                RowFloat3(g, u8"Center", &collisionMod->boxes[i].center, c.AsView(), page);
+                RowFloat3(g, u8"Half Extents", &collisionMod->boxes[i].halfExtents, c.AsView(),
+                          page);
             }
         }
-        else if (auto* m = Cast<particles::ColorOverLifetimeBehavior>(module))
+        else if (auto* colorCurveMod = Cast<particles::ColorOverLifetimeBehavior>(module))
         {
-            RowCurveColor(g, u8"Color", &m->curve, cat, page);
+            RowCurveColor(g, u8"Color", &colorCurveMod->curve, cat, page);
         }
-        else if (auto* m = Cast<particles::AlphaOverLifetimeBehavior>(module))
+        else if (auto* alphaCurveMod = Cast<particles::AlphaOverLifetimeBehavior>(module))
         {
-            RowCurveFloat(g, u8"Alpha", &m->curve, cat, page);
+            RowCurveFloat(g, u8"Alpha", &alphaCurveMod->curve, cat, page);
         }
-        else if (auto* m = Cast<particles::SizeOverLifetimeBehavior>(module))
+        else if (auto* sizeCurveMod = Cast<particles::SizeOverLifetimeBehavior>(module))
         {
-            RowCurveFloat2(g, u8"Size", &m->curve, cat, page);
+            RowCurveFloat2(g, u8"Size", &sizeCurveMod->curve, cat, page);
         }
-        else if (auto* m = Cast<particles::RotationOverLifetimeBehavior>(module))
+        else if (auto* rotCurveMod = Cast<particles::RotationOverLifetimeBehavior>(module))
         {
-            RowCurveFloat(g, u8"Rotation", &m->curve, cat, page);
+            RowCurveFloat(g, u8"Rotation", &rotCurveMod->curve, cat, page);
         }
-        else if (auto* m = Cast<particles::SpeedOverLifetimeBehavior>(module))
+        else if (auto* speedCurveMod = Cast<particles::SpeedOverLifetimeBehavior>(module))
         {
-            RowCurveFloat(g, u8"Speed", &m->curve, cat, page);
+            RowCurveFloat(g, u8"Speed", &speedCurveMod->curve, cat, page);
         }
     }
 

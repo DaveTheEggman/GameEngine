@@ -898,9 +898,16 @@ namespace draconic::editor
         // ContainerListEditor) OR the generic reflection-driven list (already emitted above). Materials
         // is reflected either way (scriptable / tooling-traversable); the flag only picks the inspector
         // UI.
-        if (!kUseReflectedMaterialSlots && mgr.SerializationTypeId() == StringView(u8"mesh"))
+        // `if constexpr` on the flag, then the runtime test: kUseReflectedMaterialSlots is a
+        // compile-time switch, and folding it into a runtime && makes cl 19.44 report
+        // "C4127: conditional expression is constant" (19.51 does not). This also says what is
+        // actually meant - the branch is selected when the code is built, not when it runs.
+        if constexpr (!kUseReflectedMaterialSlots)
         {
-            BuildMaterialSlots(id, category);
+            if (mgr.SerializationTypeId() == StringView(u8"mesh"))
+            {
+                BuildMaterialSlots(id, category);
+            }
         }
 
         // ScriptComponent: the ordered behavior list, each a script picker + the

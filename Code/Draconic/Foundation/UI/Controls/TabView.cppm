@@ -196,7 +196,7 @@ export namespace draconic::ui
             }
 
             // Clip the tabs to the strip band so an overflowing, scrolled strip doesn't spill past it.
-            Rectangle stripClip;
+            Rectangle stripClip{};
             switch (place)
             {
             case TabPlacement::Top:
@@ -440,7 +440,7 @@ export namespace draconic::ui
             const Float2 local = ScreenToLocal(Float2{e.X, e.Y});
             const TabPlacement place = Placement.Value();
             const f32 th = TabHeight.Value();
-            Rectangle strip;
+            Rectangle strip{};
             switch (place)
             {
             case TabPlacement::Top:

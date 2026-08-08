@@ -135,7 +135,7 @@ export namespace draconic::shaders
         /// Cooked-variant count when in pack mode (0 in dev mode) - for diagnostics.
         [[nodiscard]] u32 PackVariantCount() const noexcept
         {
-            return m_pack.Get() != nullptr ? m_pack->Count() : 0u;
+            return m_pack.Get() != nullptr ? static_cast<u32>(m_pack->Count()) : 0u;
         }
 
         /// Resolve a shader variant to a GPU module (null if not ready / unknown). Delegates to the

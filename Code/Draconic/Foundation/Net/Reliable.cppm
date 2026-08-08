@@ -186,7 +186,7 @@ export namespace draconic::net
             TransportStats s;
             if (const Connection* c = FindByPeer(peer))
             {
-                s.rttMs = c->rttMs;
+                s.rttMs = static_cast<f32>(c->rttMs); // Connection tracks rtt in f64
                 s.sentBytes = c->sentBytes;
                 s.recvBytes = c->recvBytes;
             }

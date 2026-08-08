@@ -259,9 +259,9 @@ namespace draconic::editor
         {
             if (!m_idleQueue.IsEmpty())
             {
-                Array<Function<void()>> drained = Move(m_idleQueue);
+                Array<Function<void()>> pending = Move(m_idleQueue);
                 m_idleQueue = Array<Function<void()>>{};
-                for (Function<void()>& action : drained)
+                for (Function<void()>& action : pending)
                 {
                     action();
                 }
