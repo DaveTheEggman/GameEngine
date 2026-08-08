@@ -103,7 +103,12 @@ export namespace draconic::gui
 
             // @keyframes animation: spawn a KeyframeAction when the `animation` property names
             // one, and only once per (widget, animation-name) so ApplyTree doesn't re-spawn it.
-            ApplyAnimation(widget, resolved);
+            //
+            // Read the CACHED style, not `resolved` - that was moved into m_cache above, so it is
+            // an empty shell by now and every `animation` declaration looked absent. Animations
+            // silently never started.
+            if (const ResolvedStyle* stored = m_cache.Find(&widget))
+                ApplyAnimation(widget, *stored);
         }
 
         // Apply to every UIWidget in the subtree.
