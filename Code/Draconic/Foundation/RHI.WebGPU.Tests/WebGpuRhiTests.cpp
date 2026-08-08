@@ -1044,6 +1044,13 @@ TEST_CASE("rhi.webgpu: sky-shaped draw - z=1.0 vs cleared depth, read-only pass,
 
     // Depth target cleared to 1.0 by a first pass (the prepass stand-in).
     TextureDesc depthDesc = TextureDesc::DepthBuffer(TextureFormat::Depth32Float, 4, 4);
+    // Sampled on top of DepthStencil is REQUIRED for the read-only depth pass below, not
+    // decoration: wgpu treats a depthReadOnly attachment as a readable resource and validates
+    // the texture for TEXTURE_BINDING. Without it the pass is rejected, but the diagnostic
+    // arrives much later and misattributed - "Parent device is lost" out of
+    // wgpuCommandEncoderFinish, then a wgpu panic in submit. Backend-independent (d3d12 and
+    // vulkan both). A real prepass-depth reader declares Sampled anyway.
+    depthDesc.usage = TextureUsage::DepthStencil | TextureUsage::Sampled;
     Texture* depthTexture = nullptr;
     REQUIRE(device->CreateTexture(depthDesc, depthTexture).IsOk());
     TextureViewDesc depthViewDesc;

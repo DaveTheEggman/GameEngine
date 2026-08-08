@@ -98,60 +98,47 @@ an earlier revision of this entry said it passed under clang, which was wrong; t
 case fails the same way on both. It has its own entry below.
 
 
-## WebGPU: a read-only depth attachment kills the device
+## WebGPU: read-only depth needs Sampled usage - FIXED
 
-**Status:** OPEN, root cause isolated 2026-08-08, not fixed. Compiler-independent (fails
-identically under clang and MSVC). Pre-existing on `game-ready-scripting`; the test arrived
-with 58eb5c60 (the debrand/namespace refactor) and appears never to have passed there.
+**Status:** FIXED 2026-08-08. Was the last failure in `Draconic.RHI.WebGPU.Tests`
+("sky-shaped draw - z=1.0 vs cleared depth, read-only pass, MRT"). Suite is now 17/17 cases,
+259/259 assertions, on both clang and MSVC.
 
-**What:** any render pass with `DepthStencilAttachment::depthReadOnly = true` loses the
-WGPU device. The failure surfaces later and misleadingly, at encoder finish and submit:
+**Root cause:** wgpu treats a `depthReadOnly` attachment as a READABLE resource and validates
+the underlying texture for `TEXTURE_BINDING`. The test built its depth target with
+`TextureDesc::DepthBuffer`, which declares only `TextureUsage::DepthStencil`, so the
+read-only pass was rejected. Adding `TextureUsage::Sampled` fixes it. A real prepass-depth
+reader declares Sampled anyway, so this was the test under-declaring, not an engine defect.
+
+**Why it took so long to find - worth remembering:** the diagnostic is actively misleading.
+The rejection is silent at `BeginRenderPass`; what surfaces is
 
 ```
-[webgpu] uncaptured error (type 2): Validation Error
-  In wgpuCommandEncoderFinish / In a pass parameter / Parent device is lost
-thread '<unnamed>' panicked at src\lib.rs:605:5:
-  Error in wgpuQueueSubmitForIndex: Validation Error / Parent device is lost
+In wgpuCommandEncoderFinish / In a pass parameter / Parent device is lost
+thread '<unnamed>' panicked at src\lib.rs:605:5: Error in wgpuQueueSubmitForIndex
 ```
 
-wgpu-native panics across the FFI boundary, which reaches doctest as "Unhandled SEH
-exception caught". Fails `Draconic.RHI.WebGPU.Tests` case "rhi.webgpu: sky-shaped draw -
-z=1.0 vs cleared depth, read-only pass, MRT" (`WebGpuRhiTests.cpp:1034`) - 14 assertions in.
-The other 13 cases and all 215 assertions pass.
+- reported two calls later, blamed on device loss, and delivered as a Rust panic that
+crosses the FFI as an SEH exception. The device-lost callback never fires (not even with
+`WGPUDeviceLostReason_Destroyed`, which we otherwise swallow), so "device lost" is not
+literally true. **If you see "Parent device is lost" from wgpu, suspect a missing usage flag
+on an attachment before you suspect device teardown.**
 
-**Isolated by experiment** (each change made alone, rebuilt, re-run):
+Ruled out along the way, each tested in isolation: MRT (fails with a single color target
+too), the two-passes-per-encoder shape (the cube-faces test does that and passes), the
+preceding depth-clear pass (fails without it), the `depthClearValue` we set on read-only
+planes for browser validation, and the graphics backend - **d3d12 fails identically to
+vulkan**, which is what ruled out a driver/HAL cause and pointed at wgpu-core validation.
 
-| Variation | Result |
-|---|---|
-| as-is | fails |
-| `depthReadOnly = true` -> `depthLoadOp = Load` | **passes, 17/17** |
-| read-only depth, MRT removed (1 color target) | fails |
-| read-only depth, preceding depth-clear pass removed | fails |
-| read-only depth, `depthClearValue` not set on the read-only plane | fails |
+Our translation was correct throughout: `WebGpuCommandEncoder::BeginRenderPass` sets
+`depthReadOnly = 1` with load/store left `Undefined`, against a `depthWriteEnabled = false`
+pipeline.
 
-So it is `depthReadOnly` alone. Not MRT, not the two-passes-per-encoder shape (the
-cube-faces test does that and passes), not the `depthClearValue` we deliberately set for
-browser validation, and not dependent on a prior write pass.
-
-**Our translation looks correct.** `WebGpuCommandEncoder::BeginRenderPass` sets
-`depthReadOnly = 1` and leaves `depthLoadOp`/`depthStoreOp` at `WGPULoadOp_Undefined` /
-`WGPUStoreOp_Undefined`, which is what the spec requires. The pipeline in the test has
-`depthWriteEnabled = false`, as a read-only pass requires. The device-lost callback in
-`WebGpuAdapter.cppm` never fires - not even with `WGPUDeviceLostReason_Destroyed`, which it
-otherwise swallows - so nothing is releasing or destroying the device on our side. That
-points at wgpu-native (v29, NVIDIA/Vulkan adapter) rather than our code, but it is not
-proven, and no minimal C repro has been written yet.
-
-**Impact today: test-only.** Nothing in the engine sets `depthReadOnly = true` - a grep over
-`Code/` finds only this test. It matters for the *planned* use the backend comment already
-anticipates ("the forward pass reading the prepass depth"), so it should be settled before
-that lands on the WebGPU path.
-
-**Next steps:** write a standalone C repro against wgpu-native and report upstream; check
-whether the D3D12 adapter behaves the same (the run picks Vulkan on this machine); if it is
-a wgpu bug, either pin a version that works or translate read-only depth as
-`Load`/`Store` with a `depthWriteEnabled = false` pipeline, which is behaviourally
-equivalent for us and is exactly the variation that passes above.
+**Not done:** nothing in `Code/` sets `depthReadOnly` yet, so there is no engine-side
+guard. When the forward pass starts reading prepass depth on WebGPU, the depth target must
+declare Sampled. A cheap safeguard would be for the WebGPU backend to check the flag against
+the texture's usage and log a real error instead of letting wgpu report a device loss;
+that has not been added.
 
 
 ## Legacy 'draconic::' type names in serialized data - COMPAT FALLBACK ACTIVE
