@@ -275,6 +275,7 @@ add_subdirectory(Code/Foundation/Net.Replication)  # StateReplication foundation
 add_subdirectory(Code/Foundation/Xml)       # DOM XML parser + writer over Core
     add_subdirectory(Code/Foundation/Xml.Serialization)
 add_subdirectory(Code/Foundation/Json)      # hand-rolled JSON DOM (MCP wire + game data); RTTI-reflected for script
+add_subdirectory(Code/Foundation/Mcp)       # JSON-RPC 2.0 + MCP protocol (tool/resource registry, stdio); over Json
 add_subdirectory(Code/Foundation/VFS)       # byte access over Core stream primitives
     add_subdirectory(Code/Foundation/VFS.Pak)
 add_subdirectory(Code/Engine/Engine.Project)   # project manifest/layout (runtime-side, editor-free)
@@ -576,6 +577,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Xml.Serialization.Tests         Foundation::Xml.Serialization)
     util_test_suite(Code/Foundation/Xml.Tests                       Foundation::Xml)
     util_test_suite(Code/Foundation/Json.Tests                     Foundation::Json)
+    util_test_suite(Code/Foundation/Mcp.Tests                      Foundation::Mcp)
 
     # Integration - cross-collection flow suites (Code/Integration/README.md). Tiered behind the
     # Integration. prefix: the fast dev loop runs module suites only; review/pre-push include these.
