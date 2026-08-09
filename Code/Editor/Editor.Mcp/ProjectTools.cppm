@@ -14,12 +14,17 @@ export module editor.mcp;
 import foundation.core;
 import foundation.json;
 import foundation.content;
+import foundation.vfs;
 import foundation.mcp;
+import pipeline.core;
+import pipeline.importer;
+import pipeline.cook;
 import editor.core;
 
 using namespace foundation::core;
 using foundation::json::JsonValue;
 namespace content = foundation::content;
+namespace vfs = foundation::vfs;
 
 namespace editor::mcp::detail
 {
@@ -30,6 +35,29 @@ namespace editor::mcp::detail
         choices.PushBack(String(u8"source"));
         choices.PushBack(String(u8"cooked"));
         return choices;
+    }
+
+    // Walk (creating as needed) a slash-joined group path under `root`, returning the leaf group.
+    // Empty path returns root. Used to place an imported asset in a chosen source-DB group.
+    inline content::Group* ResolveGroupPath(content::Group* root, StringView path)
+    {
+        content::Group* group = root;
+        usize start = 0;
+        for (usize i = 0; i <= path.Size(); ++i)
+        {
+            const bool atEnd = (i == path.Size());
+            if (!atEnd && path[i] != utf8char('/'))
+            {
+                continue;
+            }
+            const StringView part = path.SubStr(start, i - start);
+            if (!part.IsEmpty())
+            {
+                group = group->CreateGroup(part);
+            }
+            start = i + 1;
+        }
+        return group;
     }
 
     // A Guid as its canonical 36-char string.
@@ -217,6 +245,101 @@ export namespace editor::mcp
                 out.Set(u8"name", JsonValue::MakeString(String(inst->Name())));
                 out.Set(u8"type", JsonValue::MakeString(String(inst->TypeName())));
                 out.Set(u8"typeNamespace", JsonValue::MakeString(String(inst->TypeNamespace())));
+                return out;
+            });
+    }
+
+    // Registers asset_import / asset_cook - the WRITE side. Both are HEADLESS (editor closed):
+    // import routes an OS file through the shared importer set into the open project's source DB;
+    // cook runs the incremental cook driver over the project. `builders` and `importers` are the
+    // host's registries (populated once from Pipeline::Registration) and must outlive the server.
+    inline void RegisterAssetWriteTools(foundation::mcp::McpServer& server, ProjectSession& session,
+                                        pipeline::BuilderRegistry& builders,
+                                        pipeline::ImporterRegistry& importers)
+    {
+        using foundation::mcp::SchemaBuilder;
+        using foundation::mcp::ToolResult;
+        ProjectSession* s = &session;
+        pipeline::ImporterRegistry* imp = &importers;
+        pipeline::BuilderRegistry* bld = &builders;
+
+        server.RegisterTool(
+            u8"asset_import",
+            u8"Import an OS file into the open project: copy it under Sources/ and create the typed "
+            u8"Asset in the source database (routed by extension). Does not cook - call asset_cook "
+            u8"next.",
+            SchemaBuilder()
+                .Str(u8"source", u8"absolute path to the file to import", true)
+                .Str(u8"group", u8"source-DB group path to place it in (slash-joined; default root)")
+                .Build(),
+            [s, imp](const JsonValue& args) -> ToolResult
+            {
+                if (!s->project)
+                {
+                    return Err(String(u8"no project is open (call project_open first)"));
+                }
+                const String source = args.Get(u8"source").AsString();
+                const String ext = pipeline::FileExtensionLower(source.AsView());
+                pipeline::IFileImporter* importer = imp->FindFor(ext.AsView());
+                if (importer == nullptr)
+                {
+                    return Err(Format(u8"no importer registered for '.{}' files", ext.AsView()));
+                }
+                content::Group* group = detail::ResolveGroupPath(
+                    s->project->SourceDb().RootGroup(), args.Get(u8"group").AsString().AsView());
+
+                pipeline::ImportContext ctx;
+                ctx.sourcesRoot = s->project->SourcesRoot();
+                Result<content::Instance*> imported =
+                    importer->Import(source.AsView(), ctx, *group);
+                if (!imported.HasValue())
+                {
+                    return Err(Format(u8"import of '{}' failed (error {})", source.AsView(),
+                                      static_cast<i32>(imported.Error())));
+                }
+                content::Instance* inst = imported.Value();
+                JsonValue out = JsonValue::MakeObject();
+                out.Set(u8"guid", detail::GuidToJson(inst->Id()));
+                out.Set(u8"name", JsonValue::MakeString(String(inst->Name())));
+                out.Set(u8"type", JsonValue::MakeString(String(inst->TypeName())));
+                out.Set(u8"typeNamespace", JsonValue::MakeString(String(inst->TypeNamespace())));
+                out.Set(u8"importer", JsonValue::MakeString(String(importer->Label())));
+                return out;
+            });
+
+        server.RegisterTool(
+            u8"asset_cook",
+            u8"Run the incremental cook over the open project: plan the dirty set and build it into "
+            u8"the cooked database. Returns the cook stats (planned/cooked/failed/orphans).",
+            SchemaBuilder()
+                .Boolean(u8"force", u8"re-cook every buildable asset regardless of cleanliness")
+                .Build(),
+            [s, bld](const JsonValue& args) -> ToolResult
+            {
+                if (!s->project)
+                {
+                    return Err(String(u8"no project is open (call project_open first)"));
+                }
+                const bool force = args.Get(u8"force").AsBool();
+                // Second mounts on Sources/ + Cache/ (the cook driver hashes source files and
+                // persists the pipeline DB through these); the source/cooked DBs are already open.
+                const String sourcesRoot = s->project->SourcesRoot();
+                const String cacheRoot = s->project->CacheRoot();
+                vfs::NativeFileSystem sourcesMount(sourcesRoot.AsView());
+                vfs::NativeFileSystem cacheMount(cacheRoot.AsView());
+                pipeline::CookDriver driver(s->project->SourceDb(), s->project->CookedDb(), *bld,
+                                            &sourcesMount, &cacheMount, nullptr); // serial (no jobs)
+                pipeline::CookPlan plan = driver.Plan(force);
+                const pipeline::CookStats stats = driver.Execute(plan);
+
+                JsonValue out = JsonValue::MakeObject();
+                out.Set(u8"planned", JsonValue::MakeNumber(static_cast<f64>(plan.dirty.Size())));
+                out.Set(u8"cooked", JsonValue::MakeNumber(static_cast<f64>(stats.cooked)));
+                out.Set(u8"failed", JsonValue::MakeNumber(static_cast<f64>(stats.failed)));
+                out.Set(u8"orphansSwept",
+                        JsonValue::MakeNumber(static_cast<f64>(stats.orphansSwept)));
+                out.Set(u8"upToDate", JsonValue::MakeNumber(static_cast<f64>(plan.upToDate)));
+                out.Set(u8"unbuildable", JsonValue::MakeNumber(static_cast<f64>(plan.unbuildable)));
                 return out;
             });
     }

@@ -15,6 +15,9 @@ import foundation.core;
 import foundation.json;
 import foundation.mcp;
 import foundation.mcp.reflection;
+import pipeline.core;
+import pipeline.importer;
+import pipeline.registration;
 import editor.mcp;
 
 using namespace foundation::core;
@@ -48,9 +51,18 @@ int main(int /*argc*/, char** /*argv*/)
     static StderrSink stderrSink;
     GlobalLogger().AddSink(&stderrSink); // logs -> stderr; stdout is the protocol stream
 
-    // Populate the reflection registry with the surface we can introspect headlessly.
+    // Populate the reflection registry with the surface we can introspect headlessly, plus the
+    // full pipeline type set (so type_list sees every asset/product type and asset_cook can build).
     RegisterCoreTypes();
     foundation::json::RegisterJsonTypes();
+    pipeline::RegisterPipelineTypes();
+
+    // The host's builder + importer registries (from the pipeline composition root); populated
+    // once, they outlive the server and back asset_cook / asset_import.
+    pipeline::BuilderRegistry builders;
+    pipeline::ImporterRegistry importers;
+    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllImporters(importers);
 
     McpServer server;
     server.SetServerInfo(u8"draconic-mcp", u8"0.1.0");
@@ -60,6 +72,7 @@ int main(int /*argc*/, char** /*argv*/)
     editor::mcp::ProjectSession session;
     editor::mcp::RegisterProjectTools(server, session);
     editor::mcp::RegisterAssetTools(server, session);
+    editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
 
     StdioTransport transport;
     Serve(server, transport);
