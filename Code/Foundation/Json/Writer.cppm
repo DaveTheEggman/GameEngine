@@ -78,7 +78,12 @@ namespace foundation::json::detail
         case JsonType::Null: out.Append(u8"null"); break;
         case JsonType::Bool: out.Append(v.AsBool() ? u8"true" : u8"false"); break;
         case JsonType::Number: WriteNumber(out, v.AsNumber()); break;
-        case JsonType::String: WriteEscapedString(out, v.AsString()); break;
+        case JsonType::String:
+        {
+            const String s = v.AsString();
+            WriteEscapedString(out, s.AsView());
+            break;
+        }
         case JsonType::Array:
         {
             const i64 n = v.Count();

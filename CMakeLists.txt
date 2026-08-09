@@ -576,6 +576,10 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Xml.Serialization.Tests         Foundation::Xml.Serialization)
     util_test_suite(Code/Foundation/Xml.Tests                       Foundation::Xml)
     util_test_suite(Code/Foundation/Json.Tests                     Foundation::Json)
+
+    # Integration - cross-collection flow suites (Code/Integration/README.md). Tiered behind the
+    # Integration. prefix: the fast dev loop runs module suites only; review/pre-push include these.
+    util_test_suite(Code/Integration/Integration.Script            Foundation::Script.Wren)  # JSON x scripting
 endif()
 
 # Web-only samples, then stop - the rest of Code/Samples is desktop-only. Honor

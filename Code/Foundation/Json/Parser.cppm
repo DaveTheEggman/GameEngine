@@ -281,7 +281,7 @@ namespace foundation::json::detail
                 {
                     return false;
                 }
-                out = JsonValue::MakeString(s.AsView());
+                out = JsonValue::MakeString(Move(s));
                 return true;
             }
             case u8't':
@@ -382,7 +382,7 @@ namespace foundation::json::detail
                 {
                     return false;
                 }
-                out.Set(key.AsView(), Move(value));
+                out.Set(Move(key), Move(value));
                 SkipWs();
                 const char8_t c = Peek();
                 if (c == u8',')

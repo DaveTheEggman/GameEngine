@@ -46,7 +46,7 @@ export namespace foundation::json
         [[nodiscard]] static JsonValue MakeNull() noexcept { return JsonValue(); }
         [[nodiscard]] static JsonValue MakeBool(bool b);
         [[nodiscard]] static JsonValue MakeNumber(f64 n);
-        [[nodiscard]] static JsonValue MakeString(StringView s);
+        [[nodiscard]] static JsonValue MakeString(String s);
         [[nodiscard]] static JsonValue MakeArray();
         [[nodiscard]] static JsonValue MakeObject();
 
@@ -72,11 +72,9 @@ export namespace foundation::json
         {
             return m_type == JsonType::Number ? static_cast<i64>(m_number) : fallback;
         }
-        // A view into this value's string; script marshals it to an owned string at the boundary.
-        [[nodiscard]] StringView AsString() const noexcept
-        {
-            return m_type == JsonType::String ? m_string.AsView() : StringView{};
-        }
+        // The string value as an OWNED copy ("" if not a string). Owned rather than a view so it
+        // marshals cleanly to script and never aliases the document.
+        [[nodiscard]] String AsString() const { return m_type == JsonType::String ? m_string : String(); }
 
         // --- Array / Object shared: element count -----------------------------------------------
         [[nodiscard]] i64 Count() const noexcept { return static_cast<i64>(m_items.Size()); }
@@ -88,11 +86,11 @@ export namespace foundation::json
         void Add(JsonValue value);
 
         // --- Object -----------------------------------------------------------------------------
-        [[nodiscard]] bool Has(StringView key) const noexcept;
+        [[nodiscard]] bool Has(String key) const;
         // Member by name as an OWNED copy (null if absent).
-        [[nodiscard]] JsonValue Get(StringView key) const;
+        [[nodiscard]] JsonValue Get(String key) const;
         // Set/overwrite a member (coerces a null/non-object into an empty object first).
-        void Set(StringView key, JsonValue value);
+        void Set(String key, JsonValue value);
         // Member names in insertion order (empty unless Object).
         [[nodiscard]] const Array<String>& Keys() const noexcept { return m_keys; }
         // Member name by index as an OWNED copy ("" if out of range) - the script-friendly iterator
@@ -104,7 +102,7 @@ export namespace foundation::json
         [[nodiscard]] String ToString(bool pretty = false) const;
         // Parse JSON text; returns a Null value on any error (script never sees a half-value). Use
         // foundation::json::Parse for the erroring wire path.
-        [[nodiscard]] static JsonValue Parse(StringView text);
+        [[nodiscard]] static JsonValue Parse(String text);
 
         // --- Internal (parser/writer build directly; not part of the script surface) ------------
         [[nodiscard]] const Array<JsonValue>& Items() const noexcept { return m_items; }
@@ -130,11 +128,11 @@ export namespace foundation::json
         v.m_number = n;
         return v;
     }
-    inline JsonValue JsonValue::MakeString(StringView s)
+    inline JsonValue JsonValue::MakeString(String s)
     {
         JsonValue v;
         v.m_type = JsonType::String;
-        v.m_string = String(s);
+        v.m_string = Move(s);
         return v;
     }
     inline JsonValue JsonValue::MakeArray()
@@ -179,30 +177,30 @@ export namespace foundation::json
         }
         return static_cast<usize>(-1);
     }
-    inline bool JsonValue::Has(StringView key) const noexcept
+    inline bool JsonValue::Has(String key) const
     {
-        return m_type == JsonType::Object && IndexOfKey(key) != static_cast<usize>(-1);
+        return m_type == JsonType::Object && IndexOfKey(key.AsView()) != static_cast<usize>(-1);
     }
-    inline JsonValue JsonValue::Get(StringView key) const
+    inline JsonValue JsonValue::Get(String key) const
     {
         if (m_type != JsonType::Object)
         {
             return JsonValue();
         }
-        const usize i = IndexOfKey(key);
+        const usize i = IndexOfKey(key.AsView());
         return i == static_cast<usize>(-1) ? JsonValue() : m_items[i];
     }
-    inline void JsonValue::Set(StringView key, JsonValue value)
+    inline void JsonValue::Set(String key, JsonValue value)
     {
         if (m_type != JsonType::Object)
         {
             *this = JsonValue();
             m_type = JsonType::Object;
         }
-        const usize i = IndexOfKey(key);
+        const usize i = IndexOfKey(key.AsView());
         if (i == static_cast<usize>(-1))
         {
-            m_keys.PushBack(String(key));
+            m_keys.PushBack(Move(key));
             m_items.PushBack(Move(value));
         }
         else

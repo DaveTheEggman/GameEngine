@@ -21,8 +21,8 @@ namespace foundation::json
         return Write(*this, pretty);
     }
 
-    inline JsonValue JsonValue::Parse(foundation::core::StringView text)
+    inline JsonValue JsonValue::Parse(foundation::core::String text)
     {
-        return foundation::json::Parse(text).value; // Null on error - script never sees a half-value
+        return foundation::json::Parse(text.AsView()).value; // Null on error - never a half-value
     }
 }

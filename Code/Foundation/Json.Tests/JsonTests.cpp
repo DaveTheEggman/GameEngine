@@ -1,6 +1,8 @@
+// Unit tests for the JSON DOM (parse / write / build) - foundation.json in isolation, no reflection
+// or scripting. The RTTI/script-usability flow is a cross-collection integration test and lives in
+// Code/Integration/Integration.Script (see Code/Integration/README.md).
 #include <doctest/doctest.h>
 
-#include <cstring>
 #include <initializer_list>
 
 #include "Core/Prelude.h"
@@ -51,7 +53,7 @@ TEST_CASE("json.parse: string escapes")
     // \u00XX control + BMP codepoint (U+00E9 e-acute -> UTF-8 C3 A9).
     ParseResult u = Parse(u8"\"\\u00e9\"");
     CHECK(u.ok);
-    const StringView sv = u.value.AsString();
+    const String sv = u.value.AsString(); // hold the owned copy (AsString returns String, not a view)
     REQUIRE(sv.Size() == 2u);
     CHECK(static_cast<unsigned char>(sv.Data()[0]) == 0xC3u);
     CHECK(static_cast<unsigned char>(sv.Data()[1]) == 0xA9u);
@@ -171,33 +173,4 @@ TEST_CASE("json.build: construct + mutate is value-semantic")
     CHECK(fresh.IsNull());
     fresh.Set(u8"k", JsonValue::MakeBool(true));
     CHECK(fresh.IsObject());
-}
-
-// --- Reflection: the type is script-usable ---------------------------------
-
-TEST_CASE("json.reflection: JsonValue is reflected + invocable")
-{
-    RegisterJsonTypes();
-    RegisterJsonTypes(); // idempotent
-
-    const TypeInfo& t = TypeOf<JsonValue>();
-    CHECK(std::strcmp(t.name, "JsonValue") == 0);
-    CHECK(std::strcmp(t.namespaceName, "rtti::foundation::json") == 0);
-
-    // The script-facing surface is present.
-    for (const char* m : {"MakeObject", "Set", "Get", "Add", "At", "Count", "Has", "KeyAt",
-                          "AsNumber", "AsString", "IsObject", "ToString", "Parse"})
-    {
-        CHECK_MESSAGE(FindMethod(t, m) != nullptr, m);
-    }
-
-    // Invoke through reflection (the path scripts take): AsNumber on a number value.
-    JsonValue num = JsonValue::MakeNumber(3.5);
-    Instance inst = Instance::From(&num);
-    const MethodInfo* asNumber = FindMethod(t, "AsNumber");
-    REQUIRE(asNumber != nullptr);
-    Variant args[] = {Variant::From<f64>(0.0)};
-    Result<Variant> out = InvokeMethod(*asNumber, inst, Span<Variant>{args, 1});
-    REQUIRE(out.HasValue());
-    CHECK(out.Value().Get<f64>() == doctest::Approx(3.5));
 }
