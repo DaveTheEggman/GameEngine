@@ -1,5 +1,5 @@
-// SampleApp - abstract base for RHI samples (adapted from the Draconic sample
-// framework to Draconic's shell). Brings up a window (foundation.shell),
+// SampleApp - abstract base for RHI samples (adapted from a sample
+// framework to this engine.s shell). Brings up a window (foundation.shell),
 // a Vulkan backend (validation-wrapped), device, queue, and swap chain; pumps
 // events, tracks timing, and calls OnRender(). Resize is detected by polling the
 // window size; the loop skips rendering while minimized.
@@ -54,7 +54,7 @@ export namespace samples::framework
         int Run(int argc = 0, char** argv = nullptr);
 
     protected:
-        virtual StringView Title() const { return u8"Draconic Sample"; }
+        virtual StringView Title() const { return u8"RHI Sample"; }
         virtual rhi::DeviceFeatures RequiredFeatures() const { return {}; }
         virtual rhi::TextureFormat SwapChainFormat() const
         {

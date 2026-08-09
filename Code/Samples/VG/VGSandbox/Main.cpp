@@ -788,7 +788,7 @@ void VGSandbox::DrawTextDemo(vg::VGContext& vgc, f32 x, f32 y, f32 t)
     if (!HasFonts())
         return;
 
-    vgc.DrawText(u8"Draconic.VG text rendering", m_fontLarge, Float2{x, y + 30},
+    vgc.DrawText(u8"VG text rendering", m_fontLarge, Float2{x, y + 30},
                  GC(240, 240, 245, 255));
     vgc.DrawText(u8"Medium size - the quick brown fox", m_fontMedium, Float2{x, y + 60},
                  GC(180, 200, 255, 255));

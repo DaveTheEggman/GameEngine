@@ -118,6 +118,7 @@ endif()
 # follows. Dotted, matching the target names.
 set(BUILTIN_PLAYER_BASENAME         "Engine.Player")
 set(BUILDSYSTEM_SHADERPACKCOOK_BASENAME "Tools.ShaderPack")
+set(USER_DATA_DIR_NAME_VALUE        "draconic")  # OS user-data folder (settings/projects/templates)
 
 # Where the DESKTOP build put its executables, as seen from a CROSS build (wasm). The web
 # build shells out to native cook tools by path - it cannot use $<TARGET_FILE:> because those
@@ -173,7 +174,8 @@ target_compile_definitions(policy INTERFACE
     # Optional-module presence flags (0/1) - guard usage in C++ with e.g.
     # `#if OPTION_HAS_EXTENSION_IMGUI` / `#if OPTION_HAS_EXPERIMENTAL_GUI`.
     OPTION_HAS_EXPERIMENTAL_GUI=$<BOOL:${OPTION_EXPERIMENTAL_GUI}>
-    OPTION_HAS_EXTENSION_IMGUI=$<BOOL:${OPTION_EXTENSION_IMGUI}>)
+    OPTION_HAS_EXTENSION_IMGUI=$<BOOL:${OPTION_EXTENSION_IMGUI}>
+    USER_DATA_DIR_NAME=u8\"${USER_DATA_DIR_NAME_VALUE}\")
 
 target_link_options(policy INTERFACE
     # Shipping: strip symbol tables at link (what a dist ships; the honest size number).

@@ -79,8 +79,8 @@ namespace
 
     void RemoveTree()
     {
-        FileDelete(u8"draconic_resource_test_db/steel.rasset");
-        RemoveDirectory(u8"draconic_resource_test_db");
+        FileDelete(u8"scratch_resource_test_db/steel.rasset");
+        RemoveDirectory(u8"scratch_resource_test_db");
     }
 
     void WriteSource(foundation::content::ContentDatabase& db, const Guid& id, i32 shininess,
@@ -105,7 +105,7 @@ TEST_CASE("resource: bind builds a product from a source, with caching")
     RegisterSerializable<MaterialResource>();
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_resource_test_db");
+    NativeFileSystem mount(u8"scratch_resource_test_db");
 
     Guid id;
     {
@@ -155,9 +155,9 @@ TEST_CASE("resource: unresolved binds are enumerable, and heal off the list")
 
     // This case adds late.rasset, which the shared RemoveTree doesn't know about - a
     // leftover from a previous run would make the "missing" id resolve immediately.
-    FileDelete(u8"draconic_resource_test_db/late.rasset");
+    FileDelete(u8"scratch_resource_test_db/late.rasset");
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_resource_test_db");
+    NativeFileSystem mount(u8"scratch_resource_test_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
@@ -194,7 +194,7 @@ TEST_CASE("resource: unresolved binds are enumerable, and heal off the list")
     manager.CollectUnresolved(unresolved);
     CHECK(unresolved.IsEmpty());
 
-    FileDelete(u8"draconic_resource_test_db/late.rasset");
+    FileDelete(u8"scratch_resource_test_db/late.rasset");
     RemoveTree();
 }
 
@@ -204,7 +204,7 @@ TEST_CASE("resource: reload rebuilds the product and proxies see the new value")
     RegisterSerializable<MaterialResource>();
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_resource_test_db");
+    NativeFileSystem mount(u8"scratch_resource_test_db");
 
     Guid id;
     {
@@ -242,12 +242,12 @@ namespace
         const StringView names[] = {u8"a", u8"b", u8"c", u8"parent", u8"child"};
         for (StringView n : names)
         {
-            String f = String(u8"draconic_resource_dep_db/");
+            String f = String(u8"scratch_resource_dep_db/");
             f.Append(n);
             f.Append(u8".rasset");
             FileDelete(f.AsView());
         }
-        RemoveDirectory(u8"draconic_resource_dep_db");
+        RemoveDirectory(u8"scratch_resource_dep_db");
     }
 
     // Create an instance + write a MaterialResource source; returns its id.
@@ -265,7 +265,7 @@ TEST_CASE("resource: a factory-resolved child is an auto-recorded dependency")
     RegisterSerializable<MaterialResource>();
 
     RemoveDepTree();
-    NativeFileSystem mount(u8"draconic_resource_dep_db");
+    NativeFileSystem mount(u8"scratch_resource_dep_db");
 
     Guid parentId, childId;
     {
@@ -304,7 +304,7 @@ TEST_CASE("resource: reload propagates transitively, each resource once")
     RegisterSerializable<MaterialResource>();
 
     RemoveDepTree();
-    NativeFileSystem mount(u8"draconic_resource_dep_db");
+    NativeFileSystem mount(u8"scratch_resource_dep_db");
 
     Guid a, b, c;
     {
@@ -340,7 +340,7 @@ TEST_CASE("resource: a rebuild drops stale dependency edges")
     RegisterSerializable<MaterialResource>();
 
     RemoveDepTree();
-    NativeFileSystem mount(u8"draconic_resource_dep_db");
+    NativeFileSystem mount(u8"scratch_resource_dep_db");
 
     Guid parentId, childId;
     {
@@ -475,8 +475,8 @@ TEST_CASE("resource: garbage collection survives destructor re-entry into the ma
     GlobalTypeRegistry().Register(Reentrant::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_res_reentry_db");
-    (void)CreateDirectory(u8"draconic_res_reentry_db");
+    NativeFileSystem mount(u8"scratch_res_reentry_db");
+    (void)CreateDirectory(u8"scratch_res_reentry_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
 
@@ -575,8 +575,8 @@ TEST_CASE("resource: reload survives the handle map rehashing mid-cascade")
     GlobalTypeRegistry().Register(Burst::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_res_rehash_db");
-    (void)CreateDirectory(u8"draconic_res_rehash_db");
+    NativeFileSystem mount(u8"scratch_res_rehash_db");
+    (void)CreateDirectory(u8"scratch_res_rehash_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
 

@@ -47,7 +47,7 @@ namespace
 
 TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manager attaches it")
 {
-    const StringView dir = u8"draconic_pfxref_test_db";
+    const StringView dir = u8"scratch_pfxref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
     foundation::vfs::NativeFileSystem mount(dir);
@@ -127,7 +127,7 @@ TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manage
 
 TEST_CASE("resource-ref: SetEffect(proxy) still attaches immediately (sample path)")
 {
-    const StringView dir = u8"draconic_pfxref_test_db2";
+    const StringView dir = u8"scratch_pfxref_test_db2";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
     foundation::vfs::NativeFileSystem mount(dir);

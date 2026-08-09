@@ -127,7 +127,7 @@ TEST_CASE("editor-context: open, focus, and close pages")
 {
     RegisterTestTypes();
 
-    const StringView dir = u8"draconic_editor_test_ctx_db";
+    const StringView dir = u8"scratch_editor_test_ctx_db";
     RemoveDbTree(dir);
     foundation::vfs::NativeFileSystem mount(dir);
     foundation::content::ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(),
@@ -203,7 +203,7 @@ TEST_CASE("editor-context: undo/redo routes to the active page")
 {
     RegisterTestTypes();
 
-    const StringView dir = u8"draconic_editor_test_ctx_undo_db";
+    const StringView dir = u8"scratch_editor_test_ctx_undo_db";
     RemoveDbTree(dir);
     foundation::vfs::NativeFileSystem mount(dir);
     foundation::content::ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(),

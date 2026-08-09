@@ -2,7 +2,7 @@
 //
 // AngelScript-specific EDITOR-UI services: everything the in-editor experience needs that
 // depends on ui.toolkit and therefore cannot live in the cook target (the cook links into
-// Draconic.Tools.Cook/Draconic.Tools.Export, which must stay UI-free). Today that is the AngelScript syntax
+// Tools.Cook/Tools.Export, which must stay UI-free). Today that is the AngelScript syntax
 // tables for CodeEditView highlighting, registered into the toolkit's CodeLexerRegistry by
 // language id; the rich completion provider (ICompletionProvider over the engine's
 // AngelScript introspection seam) joins here with code-editor P4.

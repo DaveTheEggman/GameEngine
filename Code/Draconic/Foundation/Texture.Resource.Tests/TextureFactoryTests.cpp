@@ -23,9 +23,9 @@ namespace
 {
     void RemoveTree()
     {
-        FileDelete(u8"draconic_texfac_db/tex.rasset");
-        FileDelete(u8"draconic_texfac_db/tex.data.bin");
-        RemoveDirectory(u8"draconic_texfac_db");
+        FileDelete(u8"scratch_texfac_db/tex.rasset");
+        FileDelete(u8"scratch_texfac_db/tex.data.bin");
+        RemoveDirectory(u8"scratch_texfac_db");
     }
 
     // Author one cooked 2x2 texture instance; returns its id.
@@ -55,7 +55,7 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
     RegisterTextureResource();
     RemoveTree();
 
-    NativeFileSystem mount(u8"draconic_texfac_db");
+    NativeFileSystem mount(u8"scratch_texfac_db");
     Guid id;
 
     // Author a cooked record + raw 2x2 RGBA pixels (the "data" stream).
@@ -118,7 +118,7 @@ TEST_CASE("texture.factory: async load produces the same product as the sync loa
     RegisterTextureResource();
     RemoveTree();
 
-    NativeFileSystem mount(u8"draconic_texfac_db");
+    NativeFileSystem mount(u8"scratch_texfac_db");
     Guid id;
     {
         foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
@@ -182,10 +182,10 @@ TEST_CASE("texture.factory: many concurrent async loads decode on workers withou
     // DecodeStages reading the content DB (ReadObject/ReadData) + the type/serializable registries
     // concurrently. Run under TSAN to validate the concurrent-read analysis.
     RegisterTextureResource();
-    RemoveDirectory(u8"draconic_texfac_concurrent");
+    RemoveDirectory(u8"scratch_texfac_concurrent");
 
     constexpr int kCount = 12;
-    NativeFileSystem mount(u8"draconic_texfac_concurrent");
+    NativeFileSystem mount(u8"scratch_texfac_concurrent");
     Array<Guid> ids;
     {
         foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
@@ -221,5 +221,5 @@ TEST_CASE("texture.factory: many concurrent async loads decode on workers withou
         CHECK(tex->GpuTexture() != nullptr);
     }
 
-    RemoveDirectory(u8"draconic_texfac_concurrent");
+    RemoveDirectory(u8"scratch_texfac_concurrent");
 }

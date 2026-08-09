@@ -198,7 +198,7 @@ namespace engine::player
             {
                 engine::audio::RegisterAudioSettingsTypes();
                 foundation::vfs::NativeFileSystem userFs(
-                    foundation::core::GetUserDataDirectory(u8"draconic").AsView());
+                    foundation::core::GetUserDataDirectory().AsView());
                 UniquePtr<IStream> stream =
                     userFs.Open(UserSettingsFileName().AsView(), FileMode::Read);
                 if (stream)
@@ -341,7 +341,7 @@ namespace engine::player
                 foundation::settings::Settings store;
                 engine::audio::CaptureAudioUserSettings(
                     *Audio()->Engine(), store.Section<engine::audio::AudioUserSettings>());
-                const String dir = foundation::core::GetUserDataDirectory(u8"draconic");
+                const String dir = foundation::core::GetUserDataDirectory();
                 (void)foundation::core::CreateDirectory(dir.AsView());
                 foundation::vfs::NativeFileSystem userFs(dir.AsView());
                 MemoryStream buffer;

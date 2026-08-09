@@ -21,9 +21,9 @@ namespace
 {
     void RemoveTree()
     {
-        FileDelete(u8"draconic_mesh_res_db/cube.rasset");
-        FileDelete(u8"draconic_mesh_res_db/skinned.rasset");
-        RemoveDirectory(u8"draconic_mesh_res_db");
+        FileDelete(u8"scratch_mesh_res_db/cube.rasset");
+        FileDelete(u8"scratch_mesh_res_db/skinned.rasset");
+        RemoveDirectory(u8"scratch_mesh_res_db");
     }
 }
 
@@ -34,7 +34,7 @@ TEST_CASE("static mesh resource: cube round-trips through the resource manager")
     GlobalTypeRegistry().Register(StaticMesh::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_mesh_res_db");
+    NativeFileSystem mount(u8"scratch_mesh_res_db");
 
     Guid id;
     {
@@ -74,7 +74,7 @@ TEST_CASE("static mesh resource: async load matches the sync product")
     GlobalTypeRegistry().Register(StaticMesh::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_mesh_res_db");
+    NativeFileSystem mount(u8"scratch_mesh_res_db");
     Guid id;
     {
         foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
@@ -121,8 +121,8 @@ TEST_CASE("static mesh resource: many concurrent async decodes run without a rac
     RegisterSerializable<StaticMeshSource>();
     GlobalTypeRegistry().Register(StaticMesh::StaticType());
 
-    RemoveDirectory(u8"draconic_mesh_conc_db");
-    NativeFileSystem mount(u8"draconic_mesh_conc_db");
+    RemoveDirectory(u8"scratch_mesh_conc_db");
+    NativeFileSystem mount(u8"scratch_mesh_conc_db");
 
     constexpr int kCount = 10;
     Array<Guid> ids;
@@ -165,7 +165,7 @@ TEST_CASE("static mesh resource: many concurrent async decodes run without a rac
         CHECK(mesh->IndexCount() == 36u);
     }
 
-    RemoveDirectory(u8"draconic_mesh_conc_db");
+    RemoveDirectory(u8"scratch_mesh_conc_db");
 }
 
 TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
@@ -177,7 +177,7 @@ TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
     GlobalTypeRegistry().Register(SkinnedMesh::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_mesh_res_db");
+    NativeFileSystem mount(u8"scratch_mesh_res_db");
 
     Guid id;
     {

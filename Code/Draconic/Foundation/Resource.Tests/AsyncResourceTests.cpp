@@ -191,8 +191,8 @@ RTTI_DEFINE_OBJECT(DecodedBlob, "rtti::resource::test")
 TEST_CASE("resource.async: BindAsync is pending until Pump finalizes it on the main thread")
 {
     RegisterAsyncTypes();
-    CleanDir(u8"draconic_async_db");
-    NativeFileSystem mount(u8"draconic_async_db");
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
@@ -223,8 +223,8 @@ TEST_CASE("resource.async: BindAsync is pending until Pump finalizes it on the m
 TEST_CASE("resource.async: concurrent BindAsync of one id shares a single decode + finalize")
 {
     RegisterAsyncTypes();
-    CleanDir(u8"draconic_async_db");
-    NativeFileSystem mount(u8"draconic_async_db");
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
@@ -252,8 +252,8 @@ TEST_CASE("resource.async: concurrent BindAsync of one id shares a single decode
 TEST_CASE("resource.async: a sync Bind of a pending id block-completes it to Ready")
 {
     RegisterAsyncTypes();
-    CleanDir(u8"draconic_async_db");
-    NativeFileSystem mount(u8"draconic_async_db");
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory; // gate open: the sync upgrade waits on / drives the decode
@@ -277,8 +277,8 @@ TEST_CASE("resource.async: a sync Bind of a pending id block-completes it to Rea
 TEST_CASE("resource.async: a failed decode settles the handle to Failed, no finalize")
 {
     RegisterAsyncTypes();
-    CleanDir(u8"draconic_async_db");
-    NativeFileSystem mount(u8"draconic_async_db");
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
@@ -300,8 +300,8 @@ TEST_CASE("resource.async: a failed decode settles the handle to Failed, no fina
 TEST_CASE("resource.async: BindAsync falls back to a synchronous Ready build when async is off")
 {
     RegisterAsyncTypes();
-    CleanDir(u8"draconic_async_db");
-    NativeFileSystem mount(u8"draconic_async_db");
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
 
@@ -341,8 +341,8 @@ TEST_CASE("resource.async: BindAsync falls back to a synchronous Ready build whe
 TEST_CASE("resource.async: Pump respects its time budget and resumes on the next tick")
 {
     RegisterAsyncTypes();
-    CleanDir(u8"draconic_async_db");
-    NativeFileSystem mount(u8"draconic_async_db");
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
@@ -374,8 +374,8 @@ TEST_CASE("resource.async: Pump respects its time budget and resumes on the next
 TEST_CASE("resource.async: finalize follows decode-completion order (FIFO)")
 {
     RegisterAsyncTypes();
-    CleanDir(u8"draconic_async_db");
-    NativeFileSystem mount(u8"draconic_async_db");
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
@@ -423,8 +423,8 @@ TEST_CASE("resource.async: finalize follows decode-completion order (FIFO)")
 TEST_CASE("resource.async: OnReady fires once on the main thread when the load becomes ready")
 {
     RegisterAsyncTypes();
-    CleanDir(u8"draconic_async_db");
-    NativeFileSystem mount(u8"draconic_async_db");
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
@@ -453,8 +453,8 @@ TEST_CASE("resource.async: OnReady fires once on the main thread when the load b
 TEST_CASE("resource.async: destroying the manager with an in-flight decode drains cleanly")
 {
     RegisterAsyncTypes();
-    CleanDir(u8"draconic_async_db");
-    NativeFileSystem mount(u8"draconic_async_db");
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
@@ -473,8 +473,8 @@ TEST_CASE("resource.async: destroying the manager with an in-flight decode drain
 TEST_CASE("resource.async: Ref::Bind routes through BindAsync under an AsyncBindScope")
 {
     RegisterAsyncTypes();
-    CleanDir(u8"draconic_async_db");
-    NativeFileSystem mount(u8"draconic_async_db");
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
@@ -506,8 +506,8 @@ TEST_CASE("resource.async: Ref::Bind routes through BindAsync under an AsyncBind
 TEST_CASE("resource.async: AsyncLoadBatch reports progress as loads finalize")
 {
     RegisterAsyncTypes();
-    CleanDir(u8"draconic_async_db");
-    NativeFileSystem mount(u8"draconic_async_db");
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db");
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;

@@ -48,7 +48,7 @@ namespace
 
 TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handles")
 {
-    const StringView dir = u8"draconic_resref_test_db";
+    const StringView dir = u8"scratch_resref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
     foundation::vfs::NativeFileSystem mount(dir);
@@ -263,7 +263,7 @@ TEST_CASE("resource-ref: a Ref<StaticMesh> bound to a SKINNED product keeps the 
     // (SkinnedMesh IS-A StaticMesh). The StaticMeshFactory must build the REAL SkinnedMesh for
     // a skinned product - building it as a plain StaticMesh silently drops the skin stream and
     // the mesh can never animate (the "fox plays but doesn't move" bug).
-    const StringView dir = u8"draconic_skinref_test_db";
+    const StringView dir = u8"scratch_skinref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
     foundation::vfs::NativeFileSystem mount(dir);
@@ -322,7 +322,7 @@ TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the
     // material factory and the materialized entries stay null - the SHAPE is what's under
     // test: ids round-trip, the array materializes on resolve, direct fills survive.
     RegisterRenderComponentReflection(); // patches TypeOf<MeshComponent>().dataVersion (v2 gate)
-    const StringView dir = u8"draconic_submesh_ref_test_db";
+    const StringView dir = u8"scratch_submesh_ref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
     foundation::vfs::NativeFileSystem mount(dir);

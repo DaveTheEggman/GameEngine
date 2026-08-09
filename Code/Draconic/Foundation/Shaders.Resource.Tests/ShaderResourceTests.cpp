@@ -31,8 +31,8 @@ namespace
 
     void RemoveTree()
     {
-        FileDelete(u8"draconic_shader_res_db/lit.rasset");
-        RemoveDirectory(u8"draconic_shader_res_db");
+        FileDelete(u8"scratch_shader_res_db/lit.rasset");
+        RemoveDirectory(u8"scratch_shader_res_db");
     }
 }
 
@@ -50,7 +50,7 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
     GlobalTypeRegistry().Register(ShaderResource::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_shader_res_db");
+    NativeFileSystem mount(u8"scratch_shader_res_db");
 
     Guid id;
     {

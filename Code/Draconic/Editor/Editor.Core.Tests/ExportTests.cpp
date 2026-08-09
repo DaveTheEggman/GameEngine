@@ -1,6 +1,6 @@
 // End-to-end export pipeline: author a project programmatically (scene + a cooked mesh asset
 // + a resource ref between them + a game script), ExportProject it, then consume the dist the
-// way Draconic.Engine.Player does - ONE binary ContentDatabase over the pak for products AND scenes, the
+// way Engine.Player does - ONE binary ContentDatabase over the pak for products AND scenes, the
 // script as a raw pak entry, the manifest via the lean project helpers. Everything under the
 // versioned-payload formats.
 #include <atomic> // gcc modules: pull in std::atomic bodies before this import mix
@@ -54,8 +54,8 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
     GlobalTypeRegistry().Register(pipeline::ScriptClassAsset::StaticType());
     RegisterSerializable<pipeline::ScriptClassAsset>();
 
-    const StringView projectDir = u8"draconic_export_script_project";
-    const StringView distDir = u8"draconic_export_script_dist";
+    const StringView projectDir = u8"scratch_export_script_project";
+    const StringView distDir = u8"scratch_export_script_dist";
     NukeTree(projectDir);
     NukeTree(distDir);
 
@@ -132,8 +132,8 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
-    const StringView projectDir = u8"draconic_export_e2e_project";
-    const StringView distDir = u8"draconic_export_e2e_dist";
+    const StringView projectDir = u8"scratch_export_e2e_project";
+    const StringView distDir = u8"scratch_export_e2e_dist";
     NukeTree(projectDir);
     NukeTree(distDir);
 
@@ -210,7 +210,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         CHECK(stats.filesPacked >= 2u); // product + scene envelope + scene stream
     }
 
-    // --- consume the dist exactly like Draconic.Engine.Player's dist mode ---
+    // --- consume the dist exactly like Engine.Player's dist mode ---
     foundation::vfs::NativeFileSystem distRoot(distDir);
     engine::project::ProjectSettings manifest;
     REQUIRE(project::LoadProjectSettings(distRoot, manifest, project::kDistManifestFile).IsOk());
@@ -264,7 +264,7 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
 {
     const String dir = PathJoin(StringView(reinterpret_cast<const utf8char*>(
                                     std::filesystem::temp_directory_path().string().c_str())),
-                                u8"draconic_presets_test");
+                                u8"scratch_presets_test");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
     foundation::vfs::NativeFileSystem root(dir.AsView());
@@ -384,14 +384,14 @@ namespace
     {
         REQUIRE(CreateDirectory(toolDir));
         foundation::vfs::NativeFileSystem toolFs(toolDir);
-        SaveText(toolFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
+        SaveText(toolFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
         registry.Refresh(StringView{}, nullptr, toolDir, &toolFs);
     }
 }
 
 TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-libs")
 {
-    const String dir = TempDir(u8"draconic_template_test");
+    const String dir = TempDir(u8"scratch_template_test");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
     foundation::vfs::NativeFileSystem root(dir.AsView());
@@ -404,10 +404,10 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
     t.config = String(u8"Release");
     t.compiler = String(u8"MSVC");
     t.engineVersion = String(u8"0.1.0");
-    t.playerBinary = String(u8"Draconic.Engine.Player.exe");
+    t.playerBinary = String(u8"Engine.Player.exe");
     t.sidecars.PushBack(String(u8"SDL3.dll"));
     t.sidecars.PushBack(String(u8"dxcompiler.dll"));
-    t.symbols.PushBack(String(u8"Draconic.Engine.Player.pdb"));
+    t.symbols.PushBack(String(u8"Engine.Player.pdb"));
     REQUIRE(editor::SaveTemplateManifest(*root.AsWritable(), t).IsOk());
 
     editor::ExportTemplate loaded;
@@ -416,15 +416,15 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
     CHECK(loaded.platform == u8"Win64");
     CHECK(loaded.config == u8"Release");
     CHECK(loaded.compiler == u8"MSVC");
-    CHECK(loaded.playerBinary == u8"Draconic.Engine.Player.exe");
+    CHECK(loaded.playerBinary == u8"Engine.Player.exe");
     REQUIRE(loaded.sidecars.Size() == 2u);
     CHECK(loaded.sidecars[0] == u8"SDL3.dll");
     CHECK(loaded.sidecars[1] == u8"dxcompiler.dll");
     REQUIRE(loaded.symbols.Size() == 1u);
-    CHECK(loaded.symbols[0] == u8"Draconic.Engine.Player.pdb");
+    CHECK(loaded.symbols[0] == u8"Engine.Player.pdb");
 
     // Host synthesis: id/platform/config/player from the host; sidecars from "<player>.runtime-libs".
-    SaveText(root, u8"Draconic.Engine.Player.runtime-libs", u8"SDL3.dll\r\n\n  dxil.dll  \n");
+    SaveText(root, u8"Engine.Player.runtime-libs", u8"SDL3.dll\r\n\n  dxil.dll  \n");
     editor::ExportTemplate host;
     editor::SynthesizeHostTemplate(dir.AsView(), &root, host);
     CHECK(host.isHost);
@@ -436,7 +436,7 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
     expectedId += u8"-";
     expectedId += GetBuildConfigName();
     CHECK(host.id == expectedId.AsView());
-    CHECK(host.playerBinary == GetExecutableName(u8"Draconic.Engine.Player"));
+    CHECK(host.playerBinary == GetExecutableName(u8"Engine.Player"));
     CHECK(host.directory == dir);
     REQUIRE(host.sidecars.Size() == 2u); // blank line skipped, CR + spaces trimmed
     CHECK(host.sidecars[0] == u8"SDL3.dll");
@@ -447,7 +447,7 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
 
 TEST_CASE("export: a v1 template.xml without a config field reads as Release (back-compat)")
 {
-    const String dir = TempDir(u8"draconic_template_v1_backcompat");
+    const String dir = TempDir(u8"scratch_template_v1_backcompat");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
     foundation::vfs::NativeFileSystem root(dir.AsView());
@@ -462,7 +462,7 @@ TEST_CASE("export: a v1 template.xml without a config field reads as Release (ba
                           u8"<string name=\"name\">Legacy</string>"
                           u8"<string name=\"platform\">Win64</string>"
                           u8"<string name=\"engineVersion\">0.1.0</string>"
-                          u8"<string name=\"playerBinary\">Draconic.Engine.Player.exe</string>"
+                          u8"<string name=\"playerBinary\">Engine.Player.exe</string>"
                           u8"<array name=\"sidecars\" count=\"1\"><string>SDL3.dll</string></array>"
                           u8"<string name=\"notes\"></string>"
                           u8"</root>";
@@ -484,8 +484,8 @@ TEST_CASE("export: a v1 template.xml without a config field reads as Release (ba
 
 TEST_CASE("export: template registry resolves by id, by platform, and host-falls-back")
 {
-    const String rootDir = TempDir(u8"draconic_templates_root");
-    const String hostDir = TempDir(u8"draconic_host_tooldir");
+    const String rootDir = TempDir(u8"scratch_templates_root");
+    const String hostDir = TempDir(u8"scratch_host_tooldir");
     NukeTree(rootDir.AsView());
     NukeTree(hostDir.AsView());
     REQUIRE(CreateDirectory(rootDir.AsView()));
@@ -505,7 +505,7 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
     editor::ExportTemplate foreign;
     foreign.id = String(u8"draconic-foreign-0.1.0");
     foreign.platform = foreignPlatform;
-    foreign.playerBinary = String(u8"Draconic.Engine.Player");
+    foreign.playerBinary = String(u8"Engine.Player");
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), foreign,
                                          u8"foreign-template/template.xml")
                 .IsOk());
@@ -543,8 +543,8 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
 
 TEST_CASE("export: an imported template out-ranks the synthesized host for the host platform")
 {
-    const String rootDir = TempDir(u8"draconic_templates_hostwin");
-    const String hostDir = TempDir(u8"draconic_host_tooldir2");
+    const String rootDir = TempDir(u8"scratch_templates_hostwin");
+    const String hostDir = TempDir(u8"scratch_host_tooldir2");
     NukeTree(rootDir.AsView());
     NukeTree(hostDir.AsView());
     REQUIRE(CreateDirectory(rootDir.AsView()));
@@ -560,7 +560,7 @@ TEST_CASE("export: an imported template out-ranks the synthesized host for the h
     imported.id = String(u8"draconic-host-import");
     imported.platform = String(GetHostPlatformName());
     imported.config = String(GetBuildConfigName());
-    imported.playerBinary = String(u8"Draconic.Engine.Player");
+    imported.playerBinary = String(u8"Engine.Player");
     REQUIRE(
         editor::SaveTemplateManifest(*rootFs.AsWritable(), imported, u8"host-template/template.xml")
             .IsOk());
@@ -592,9 +592,9 @@ TEST_CASE("export: an imported template out-ranks the synthesized host for the h
 
 TEST_CASE("export: ExportOne stages the resolved template's player + sidecars alongside content")
 {
-    const String projectDir = TempDir(u8"draconic_exportone_proj");
-    const String toolDir = TempDir(u8"draconic_exportone_tool");
-    const String outRoot = TempDir(u8"draconic_exportone_out");
+    const String projectDir = TempDir(u8"scratch_exportone_proj");
+    const String toolDir = TempDir(u8"scratch_exportone_tool");
+    const String outRoot = TempDir(u8"scratch_exportone_out");
     NukeTree(projectDir.AsView());
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());
@@ -609,8 +609,8 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
     // Fake host tool dir: a "player" + its runtime-libs listing one sidecar + the sidecar file.
     REQUIRE(CreateDirectory(toolDir.AsView()));
     foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
-    SaveText(toolFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
-    SaveText(toolFs, u8"Draconic.Engine.Player.runtime-libs", u8"libfoo.so\n");
+    SaveText(toolFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
+    SaveText(toolFs, u8"Engine.Player.runtime-libs", u8"libfoo.so\n");
     SaveText(toolFs, u8"libfoo.so", u8"foo\n");
 
     editor::TemplateRegistry registry;
@@ -629,7 +629,7 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
 
     // The dist carries the player, the sidecar, and the content (Content.pak + player.xml).
     foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
-    CHECK(distFs.Exists(GetExecutableName(u8"Draconic.Engine.Player").AsView()));
+    CHECK(distFs.Exists(GetExecutableName(u8"Engine.Player").AsView()));
     CHECK(distFs.Exists(u8"libfoo.so"));
     CHECK(distFs.Exists(u8"Content.pak"));
     CHECK(distFs.Exists(u8"player.xml"));
@@ -644,10 +644,10 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
 
 TEST_CASE("export: a template built against a different engine version warns but still exports")
 {
-    const String projectDir = TempDir(u8"draconic_ev_proj");
-    const String rootDir = TempDir(u8"draconic_ev_root");
-    const String toolDir = TempDir(u8"draconic_ev_tool");
-    const String outRoot = TempDir(u8"draconic_ev_out");
+    const String projectDir = TempDir(u8"scratch_ev_proj");
+    const String rootDir = TempDir(u8"scratch_ev_root");
+    const String toolDir = TempDir(u8"scratch_ev_tool");
+    const String outRoot = TempDir(u8"scratch_ev_out");
     NukeTree(projectDir.AsView());
     NukeTree(rootDir.AsView());
     NukeTree(toolDir.AsView());
@@ -666,12 +666,12 @@ TEST_CASE("export: a template built against a different engine version warns but
     old.id = String(u8"draconic-old-engine");
     old.platform = String(GetHostPlatformName());
     old.engineVersion = String(u8"0.0.0-ancient");
-    old.playerBinary = GetExecutableName(u8"Draconic.Engine.Player");
+    old.playerBinary = GetExecutableName(u8"Engine.Player");
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), old, u8"old-template/template.xml")
                 .IsOk());
     // The player file the driver stages from the template dir.
     foundation::vfs::NativeFileSystem oldDirFs(PathJoin(rootDir.AsView(), u8"old-template").AsView());
-    SaveText(oldDirFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
+    SaveText(oldDirFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
 
     REQUIRE(CreateDirectory(toolDir.AsView()));
     foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
@@ -700,8 +700,8 @@ TEST_CASE("export: a template built against a different engine version warns but
 
 TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
 {
-    const String src = TempDir(u8"draconic_tmpl_src");
-    const String root = TempDir(u8"draconic_tmpl_root2");
+    const String src = TempDir(u8"scratch_tmpl_src");
+    const String root = TempDir(u8"scratch_tmpl_root2");
     NukeTree(src.AsView());
     NukeTree(root.AsView());
     REQUIRE(CreateDirectory(src.AsView()));
@@ -711,10 +711,10 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
     editor::ExportTemplate t;
     t.id = String(u8"draconic-win64-import");
     t.platform = String(u8"Win64");
-    t.playerBinary = String(u8"Draconic.Engine.Player.exe");
+    t.playerBinary = String(u8"Engine.Player.exe");
     t.sidecars.PushBack(String(u8"SDL3.dll"));
     REQUIRE(editor::SaveTemplateManifest(*srcFs.AsWritable(), t).IsOk());
-    SaveText(srcFs, u8"Draconic.Engine.Player.exe", u8"exe\n");
+    SaveText(srcFs, u8"Engine.Player.exe", u8"exe\n");
     SaveText(srcFs, u8"SDL3.dll", u8"dll\n");
 
     String importedId;
@@ -734,7 +734,7 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
     CHECK(found->directory == PathJoin(root.AsView(), u8"draconic-win64-import"));
 
     // A source with no template.xml fails.
-    const String empty = TempDir(u8"draconic_tmpl_empty");
+    const String empty = TempDir(u8"scratch_tmpl_empty");
     NukeTree(empty.AsView());
     REQUIRE(CreateDirectory(empty.AsView()));
     CHECK_FALSE(editor::ImportTemplate(empty.AsView(), root.AsView()).IsOk());
@@ -746,8 +746,8 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
 
 TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry then resolves it")
 {
-    const String base = TempDir(u8"draconic_createtmpl");
-    const String root = TempDir(u8"draconic_createtmpl_root");
+    const String base = TempDir(u8"scratch_createtmpl");
+    const String root = TempDir(u8"scratch_createtmpl_root");
     NukeTree(base.AsView());
     NukeTree(root.AsView());
 
@@ -759,8 +759,8 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
         PathJoin(PathJoin(base.AsView(), u8"Bin").AsView(), u8"Release").AsView(), leaf.AsView());
     REQUIRE(CreateDirectories(binDir.AsView()));
     foundation::vfs::NativeFileSystem binFs(binDir.AsView());
-    SaveText(binFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
-    SaveText(binFs, u8"Draconic.Engine.Player.runtime-libs", u8"libfoo.so\n");
+    SaveText(binFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
+    SaveText(binFs, u8"Engine.Player.runtime-libs", u8"libfoo.so\n");
     SaveText(binFs, u8"libfoo.so", u8"foo\n");
 
     // Install mode: writes into <root>/<id>. config/compiler come from the packaged dir path.
@@ -779,7 +779,7 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     // The bundle exists on disk: manifest + player + the sidecar.
     foundation::vfs::NativeFileSystem bundleFs(createdDir.AsView());
     CHECK(bundleFs.Exists(u8"template.xml"));
-    CHECK(bundleFs.Exists(GetExecutableName(u8"Draconic.Engine.Player").AsView()));
+    CHECK(bundleFs.Exists(GetExecutableName(u8"Engine.Player").AsView()));
     CHECK(bundleFs.Exists(u8"libfoo.so"));
 
     // The manifest stamped config = Release (from the dir), compiler = Clang (from the leaf).
@@ -809,8 +809,8 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
 
 TEST_CASE("export: CreateTemplate --out mode writes a self-contained bundle to the folder")
 {
-    const String base = TempDir(u8"draconic_createtmpl_out");
-    const String outFolder = TempDir(u8"draconic_createtmpl_bundle");
+    const String base = TempDir(u8"scratch_createtmpl_out");
+    const String outFolder = TempDir(u8"scratch_createtmpl_bundle");
     NukeTree(base.AsView());
     NukeTree(outFolder.AsView());
 
@@ -820,7 +820,7 @@ TEST_CASE("export: CreateTemplate --out mode writes a self-contained bundle to t
         PathJoin(PathJoin(base.AsView(), u8"Bin").AsView(), u8"Debug").AsView(), leaf.AsView());
     REQUIRE(CreateDirectories(binDir.AsView()));
     foundation::vfs::NativeFileSystem binFs(binDir.AsView());
-    SaveText(binFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
+    SaveText(binFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
     // No runtime-libs manifest => no sidecars (an rpath-style build); the player alone still packages.
 
     String createdId, createdDir;
@@ -831,7 +831,7 @@ TEST_CASE("export: CreateTemplate --out mode writes a self-contained bundle to t
     CHECK(createdDir == outFolder);
     foundation::vfs::NativeFileSystem bundleFs(outFolder.AsView());
     CHECK(bundleFs.Exists(u8"template.xml"));
-    CHECK(bundleFs.Exists(GetExecutableName(u8"Draconic.Engine.Player").AsView()));
+    CHECK(bundleFs.Exists(GetExecutableName(u8"Engine.Player").AsView()));
 
     editor::ExportTemplate manifest;
     REQUIRE(editor::LoadTemplateManifest(bundleFs, manifest).IsOk());
@@ -851,8 +851,8 @@ TEST_CASE("export: CreateTemplate --out mode writes a self-contained bundle to t
 
 TEST_CASE("export: FindBy resolves exact (platform,config) and falls back preferring Release")
 {
-    const String rootDir = TempDir(u8"draconic_findby_root");
-    const String hostDir = TempDir(u8"draconic_findby_host");
+    const String rootDir = TempDir(u8"scratch_findby_root");
+    const String hostDir = TempDir(u8"scratch_findby_host");
     NukeTree(rootDir.AsView());
     NukeTree(hostDir.AsView());
     REQUIRE(CreateDirectory(rootDir.AsView()));
@@ -871,7 +871,7 @@ TEST_CASE("export: FindBy resolves exact (platform,config) and falls back prefer
         t.id = String(id);
         t.platform = plat;
         t.config = String(cfg);
-        t.playerBinary = String(u8"Draconic.Engine.Player");
+        t.playerBinary = String(u8"Engine.Player");
         const String manifestPath = PathJoin(subdir, u8"template.xml");
         REQUIRE(
             editor::SaveTemplateManifest(*rootFs.AsWritable(), t, manifestPath.AsView()).IsOk());
@@ -913,10 +913,10 @@ TEST_CASE("export: FindBy resolves exact (platform,config) and falls back prefer
 
 TEST_CASE("export: ExportOne stages template symbols only when the preset opts in")
 {
-    const String projectDir = TempDir(u8"draconic_sym_proj");
-    const String rootDir = TempDir(u8"draconic_sym_root");
-    const String toolDir = TempDir(u8"draconic_sym_tool");
-    const String outRoot = TempDir(u8"draconic_sym_out");
+    const String projectDir = TempDir(u8"scratch_sym_proj");
+    const String rootDir = TempDir(u8"scratch_sym_root");
+    const String toolDir = TempDir(u8"scratch_sym_tool");
+    const String outRoot = TempDir(u8"scratch_sym_out");
     NukeTree(projectDir.AsView());
     NukeTree(rootDir.AsView());
     NukeTree(toolDir.AsView());
@@ -934,16 +934,16 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     editor::ExportTemplate t;
     t.id = String(u8"draconic-sym");
     t.platform = String(GetHostPlatformName());
-    t.playerBinary = GetExecutableName(u8"Draconic.Engine.Player");
+    t.playerBinary = GetExecutableName(u8"Engine.Player");
     t.sidecars.PushBack(String(u8"libfoo.so"));
-    t.symbols.PushBack(String(u8"Draconic.Engine.Player.debug"));
+    t.symbols.PushBack(String(u8"Engine.Player.debug"));
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), t, u8"sym-template/template.xml")
                 .IsOk());
     foundation::vfs::NativeFileSystem tmplDirFs(
         PathJoin(rootDir.AsView(), u8"sym-template").AsView());
-    SaveText(tmplDirFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
+    SaveText(tmplDirFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
     SaveText(tmplDirFs, u8"libfoo.so", u8"foo\n");
-    SaveText(tmplDirFs, u8"Draconic.Engine.Player.debug", u8"dwarf\n");
+    SaveText(tmplDirFs, u8"Engine.Player.debug", u8"dwarf\n");
 
     REQUIRE(CreateDirectory(toolDir.AsView()));
     foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
@@ -963,9 +963,9 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
                                   &result)
                     .IsOk());
         foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
-        CHECK(distFs.Exists(GetExecutableName(u8"Draconic.Engine.Player").AsView()));
+        CHECK(distFs.Exists(GetExecutableName(u8"Engine.Player").AsView()));
         CHECK(distFs.Exists(u8"libfoo.so"));                // required sidecar always staged
-        CHECK_FALSE(distFs.Exists(u8"Draconic.Engine.Player.debug")); // symbols stripped by default
+        CHECK_FALSE(distFs.Exists(u8"Engine.Player.debug")); // symbols stripped by default
         CHECK(result.filesStaged == 3u);                    // player + shaders.dpak + sidecar
     }
 
@@ -981,7 +981,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
                                   &result)
                     .IsOk());
         foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
-        CHECK(distFs.Exists(u8"Draconic.Engine.Player.debug")); // opted in
+        CHECK(distFs.Exists(u8"Engine.Player.debug")); // opted in
         CHECK(result.filesStaged == 4u);              // player + shaders.dpak + sidecar + symbol
     }
 
@@ -993,7 +993,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
 
 TEST_CASE("export: a v1 export_presets.xml without config/stageSymbols reads as Release/false")
 {
-    const String dir = TempDir(u8"draconic_presets_v1");
+    const String dir = TempDir(u8"scratch_presets_v1");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
     foundation::vfs::NativeFileSystem root(dir.AsView());
@@ -1043,7 +1043,7 @@ TEST_CASE("export: EditorExportSettings round-trips through the editor settings 
     namespace settings = foundation::settings;
     editor::RegisterEditorSettingsTypes(); // so Settings::Load can instantiate the section
 
-    const String dir = TempDir(u8"draconic_editor_settings");
+    const String dir = TempDir(u8"scratch_editor_settings");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
     foundation::vfs::NativeFileSystem root(dir.AsView());
@@ -1082,9 +1082,9 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
-    const String projectDir = TempDir(u8"draconic_prune_proj");
-    const String toolDir = TempDir(u8"draconic_prune_tool");
-    const String outRoot = TempDir(u8"draconic_prune_out");
+    const String projectDir = TempDir(u8"scratch_prune_proj");
+    const String toolDir = TempDir(u8"scratch_prune_tool");
+    const String outRoot = TempDir(u8"scratch_prune_out");
     NukeTree(projectDir.AsView());
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());
@@ -1197,9 +1197,9 @@ TEST_CASE(
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
-    const String projectDir = TempDir(u8"draconic_prune_pre_proj");
-    const String toolDir = TempDir(u8"draconic_prune_pre_tool");
-    const String outRoot = TempDir(u8"draconic_prune_pre_out");
+    const String projectDir = TempDir(u8"scratch_prune_pre_proj");
+    const String toolDir = TempDir(u8"scratch_prune_pre_tool");
+    const String outRoot = TempDir(u8"scratch_prune_pre_out");
     NukeTree(projectDir.AsView());
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());
@@ -1301,9 +1301,9 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
-    const String projectDir = TempDir(u8"draconic_prunepf_proj");
-    const String toolDir = TempDir(u8"draconic_prunepf_tool");
-    const String outRoot = TempDir(u8"draconic_prunepf_out");
+    const String projectDir = TempDir(u8"scratch_prunepf_proj");
+    const String toolDir = TempDir(u8"scratch_prunepf_tool");
+    const String outRoot = TempDir(u8"scratch_prunepf_out");
     NukeTree(projectDir.AsView());
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());
@@ -1403,7 +1403,7 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
 TEST_CASE(
     "export: ExportPresetsController round-trips add/edit/duplicate/delete through save->load")
 {
-    const String dir = TempDir(u8"draconic_presets_controller");
+    const String dir = TempDir(u8"scratch_presets_controller");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
     foundation::vfs::NativeFileSystem root(dir.AsView());
@@ -1477,8 +1477,8 @@ TEST_CASE(
 
 TEST_CASE("export: RemoveTemplate deletes an installed bundle the registry then drops")
 {
-    const String rootDir = TempDir(u8"draconic_removetmpl_root");
-    const String hostDir = TempDir(u8"draconic_removetmpl_host");
+    const String rootDir = TempDir(u8"scratch_removetmpl_root");
+    const String hostDir = TempDir(u8"scratch_removetmpl_host");
     NukeTree(rootDir.AsView());
     NukeTree(hostDir.AsView());
     REQUIRE(CreateDirectory(rootDir.AsView()));
@@ -1490,7 +1490,7 @@ TEST_CASE("export: RemoveTemplate deletes an installed bundle the registry then 
     editor::ExportTemplate t;
     t.id = String(u8"draconic-remove-me");
     t.platform = String(u8"Win64");
-    t.playerBinary = String(u8"Draconic.Engine.Player.exe");
+    t.playerBinary = String(u8"Engine.Player.exe");
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), t, u8"draconic-remove-me/template.xml")
                 .IsOk());
 
@@ -1541,7 +1541,7 @@ TEST_CASE("export: TemplateEngineMatches flags a version mismatch, passes host +
 
 TEST_CASE("export: ExportRootsSet membership toggle is idempotent and round-trips through XML")
 {
-    const String dir = TempDir(u8"draconic_export_roots_set");
+    const String dir = TempDir(u8"scratch_export_roots_set");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
     foundation::vfs::NativeFileSystem root(dir.AsView());
@@ -1589,7 +1589,7 @@ TEST_CASE("export: ExportRootsSet membership toggle is idempotent and round-trip
 
 TEST_CASE("export: CollectGroupInstances enumerates a group subtree, not its siblings")
 {
-    const String projectDir = TempDir(u8"draconic_export_roots_group");
+    const String projectDir = TempDir(u8"scratch_export_roots_group");
     NukeTree(projectDir.AsView());
     REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"Roots").IsOk());
     UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
@@ -1640,7 +1640,7 @@ TEST_CASE("export: CollectGroupInstances enumerates a group subtree, not its sib
 
 TEST_CASE("export: CollectExportRoots seeds Always-Export flags + group members, deduped by guid")
 {
-    const String projectDir = TempDir(u8"draconic_export_roots_seed");
+    const String projectDir = TempDir(u8"scratch_export_roots_seed");
     NukeTree(projectDir.AsView());
     REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"Roots").IsOk());
     UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
@@ -1701,19 +1701,19 @@ TEST_CASE("export: template create recognizes a WEB build dir (player page + web
     // executable: CreateTemplate must synthesize a platform "Web" template whose player is the
     // page - the reusable web export template (the player fetches the dist from the serving
     // folder, so nothing project-specific is inside).
-    const String dir = TempDir(u8"draconic_web_template_src");
-    const String dest = TempDir(u8"draconic_web_template_out");
+    const String dir = TempDir(u8"scratch_web_template_src");
+    const String dest = TempDir(u8"scratch_web_template_out");
     NukeTree(dir.AsView());
     NukeTree(dest.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
     foundation::vfs::NativeFileSystem root(dir.AsView());
 
-    SaveText(root, u8"Draconic.Engine.Player.html", u8"<html>player page</html>");
-    SaveText(root, u8"Draconic.Engine.Player.js", u8"// glue");
-    SaveText(root, u8"Draconic.Engine.Player.wasm", u8"\0asm");
+    SaveText(root, u8"Engine.Player.html", u8"<html>player page</html>");
+    SaveText(root, u8"Engine.Player.js", u8"// glue");
+    SaveText(root, u8"Engine.Player.wasm", u8"\0asm");
     SaveText(root, u8"serve.py", u8"# server");
-    SaveText(root, u8"Draconic.Engine.Player.runtime-libs",
-             u8"Draconic.Engine.Player.js\nDraconic.Engine.Player.wasm\nserve.py\n");
+    SaveText(root, u8"Engine.Player.runtime-libs",
+             u8"Engine.Player.js\nEngine.Player.wasm\nserve.py\n");
 
     String id, outDir;
     REQUIRE(editor::CreateTemplate(dir.AsView(), dest.AsView(),
@@ -1725,15 +1725,15 @@ TEST_CASE("export: template create recognizes a WEB build dir (player page + web
     REQUIRE(editor::LoadTemplateManifest(out, created).IsOk());
     CHECK(created.platform == u8"Web");
     CHECK(created.compiler == u8"Emscripten");
-    CHECK(created.playerBinary == u8"Draconic.Engine.Player.html");
+    CHECK(created.playerBinary == u8"Engine.Player.html");
     REQUIRE(created.sidecars.Size() == 3u);
-    CHECK(created.sidecars[0] == u8"Draconic.Engine.Player.js");
-    CHECK(created.sidecars[1] == u8"Draconic.Engine.Player.wasm");
+    CHECK(created.sidecars[0] == u8"Engine.Player.js");
+    CHECK(created.sidecars[1] == u8"Engine.Player.wasm");
     CHECK(created.sidecars[2] == u8"serve.py");
     // The bundle materialized the page + every sidecar.
-    CHECK(out.Exists(u8"Draconic.Engine.Player.html"));
-    CHECK(out.Exists(u8"Draconic.Engine.Player.js"));
-    CHECK(out.Exists(u8"Draconic.Engine.Player.wasm"));
+    CHECK(out.Exists(u8"Engine.Player.html"));
+    CHECK(out.Exists(u8"Engine.Player.js"));
+    CHECK(out.Exists(u8"Engine.Player.wasm"));
     CHECK(out.Exists(u8"serve.py"));
 
     NukeTree(dir.AsView());
@@ -1746,10 +1746,10 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     // a served-folder dist (player page + js/wasm/serve.py + Content.pak + player.xml +
     // a WGSL-format shaders.dpak). This is the export-from-editor flow; the output folder
     // is directly servable (serve.py) and the player fetches the three dist files.
-    const String projectDir = TempDir(u8"draconic_webexport_proj");
-    const String rootDir = TempDir(u8"draconic_webexport_root");
-    const String toolDir = TempDir(u8"draconic_webexport_tool");
-    const String outRoot = TempDir(u8"draconic_webexport_out");
+    const String projectDir = TempDir(u8"scratch_webexport_proj");
+    const String rootDir = TempDir(u8"scratch_webexport_root");
+    const String toolDir = TempDir(u8"scratch_webexport_tool");
+    const String outRoot = TempDir(u8"scratch_webexport_out");
     NukeTree(projectDir.AsView());
     NukeTree(rootDir.AsView());
     NukeTree(toolDir.AsView());
@@ -1768,16 +1768,16 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     web.id = String(u8"draconic-web-debug-test");
     web.platform = String(u8"Web");
     web.compiler = String(u8"Emscripten");
-    web.playerBinary = String(u8"Draconic.Engine.Player.html");
-    web.sidecars.PushBack(String(u8"Draconic.Engine.Player.js"));
-    web.sidecars.PushBack(String(u8"Draconic.Engine.Player.wasm"));
+    web.playerBinary = String(u8"Engine.Player.html");
+    web.sidecars.PushBack(String(u8"Engine.Player.js"));
+    web.sidecars.PushBack(String(u8"Engine.Player.wasm"));
     web.sidecars.PushBack(String(u8"serve.py"));
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), web, u8"web-template/template.xml")
                 .IsOk());
     foundation::vfs::NativeFileSystem webDirFs(PathJoin(rootDir.AsView(), u8"web-template").AsView());
-    SaveText(webDirFs, u8"Draconic.Engine.Player.html", u8"<html>player</html>");
-    SaveText(webDirFs, u8"Draconic.Engine.Player.js", u8"// glue");
-    SaveText(webDirFs, u8"Draconic.Engine.Player.wasm", u8"\0asm");
+    SaveText(webDirFs, u8"Engine.Player.html", u8"<html>player</html>");
+    SaveText(webDirFs, u8"Engine.Player.js", u8"// glue");
+    SaveText(webDirFs, u8"Engine.Player.wasm", u8"\0asm");
     SaveText(webDirFs, u8"serve.py", u8"# server");
 
     REQUIRE(CreateDirectory(toolDir.AsView()));
@@ -1798,9 +1798,9 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
 
     // The served folder: page + sidecars + content + the ENGINE shader pack.
     foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
-    CHECK(distFs.Exists(u8"Draconic.Engine.Player.html"));
-    CHECK(distFs.Exists(u8"Draconic.Engine.Player.js"));
-    CHECK(distFs.Exists(u8"Draconic.Engine.Player.wasm"));
+    CHECK(distFs.Exists(u8"Engine.Player.html"));
+    CHECK(distFs.Exists(u8"Engine.Player.js"));
+    CHECK(distFs.Exists(u8"Engine.Player.wasm"));
     CHECK(distFs.Exists(u8"serve.py"));
     CHECK(distFs.Exists(u8"Content.pak"));
     CHECK(distFs.Exists(u8"player.xml"));

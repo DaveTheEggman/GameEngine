@@ -422,7 +422,7 @@ TEST_CASE("wgsl cook: a missing naga binary is reported, not a crash")
     }
     (void)CreateDirectory(u8".test-scratch");
     WgslTranslator translator(*compiler, u8".test-scratch");
-    translator.SetNagaPath(u8"draconic_no_such_naga_zzz");
+    translator.SetNagaPath(u8"scratch_no_such_naga_zzz");
 
     const WgslCookResult r = translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment);
     CHECK_FALSE(r.success);

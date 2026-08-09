@@ -36,7 +36,7 @@ namespace
             // Open a second OS window at runtime - the same call a detachable UI
             // panel would make.
             shell::WindowSettings ws;
-            ws.title = u8"Draconic - Detached";
+            ws.title = u8"MultiWindow - Detached";
             ws.width = 480;
             ws.height = 360;
             m_second = host.OpenWindow(ws, graphics::RenderWindowDesc{});
@@ -67,7 +67,7 @@ namespace
 int main(int /*argc*/, char** /*argv*/)
 {
     shell::WindowSettings ws;
-    ws.title = u8"Draconic - Main";
+    ws.title = u8"MultiWindow - Main";
     ws.width = 800;
     ws.height = 600;
 

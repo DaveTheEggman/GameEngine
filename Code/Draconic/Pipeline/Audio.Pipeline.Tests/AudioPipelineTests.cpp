@@ -145,16 +145,16 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
 {
     RegisterAudioResource();
     RegisterAudioAssets();
-    RemoveDbTree(u8"draconic_audiopipe_src");
-    RemoveDbTree(u8"draconic_audiopipe_out");
+    RemoveDbTree(u8"scratch_audiopipe_src");
+    RemoveDbTree(u8"scratch_audiopipe_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.25f, 8000, 2);
-    REQUIRE(CreateDirectory(u8"draconic_audiopipe_src"));
-    REQUIRE(WriteFile(u8"draconic_audiopipe_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
+    REQUIRE(CreateDirectory(u8"scratch_audiopipe_src"));
+    REQUIRE(WriteFile(u8"scratch_audiopipe_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
                 .IsOk());
 
     AudioClipAsset asset;
@@ -197,25 +197,25 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
     }
     CHECK(identical);
 
-    RemoveDbTree(u8"draconic_audiopipe_src");
-    RemoveDbTree(u8"draconic_audiopipe_out");
+    RemoveDbTree(u8"scratch_audiopipe_src");
+    RemoveDbTree(u8"scratch_audiopipe_out");
 }
 
 TEST_CASE("audio.pipeline: async clip load matches the synchronous product byte-for-byte")
 {
     RegisterAudioResource();
     RegisterAudioAssets();
-    RemoveDbTree(u8"draconic_audioasync_src");
-    RemoveDbTree(u8"draconic_audioasync_out");
+    RemoveDbTree(u8"scratch_audioasync_src");
+    RemoveDbTree(u8"scratch_audioasync_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audioasync_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audioasync_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audioasync_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audioasync_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.25f, 8000, 2);
-    REQUIRE(CreateDirectory(u8"draconic_audioasync_src"));
+    REQUIRE(CreateDirectory(u8"scratch_audioasync_src"));
     REQUIRE(
-        WriteFile(u8"draconic_audioasync_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
+        WriteFile(u8"scratch_audioasync_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
             .IsOk());
 
     AudioClipAsset asset;
@@ -260,8 +260,8 @@ TEST_CASE("audio.pipeline: async clip load matches the synchronous product byte-
     }
     CHECK(identical); // the worker-side ReadData produced the identical container bytes
 
-    RemoveDbTree(u8"draconic_audioasync_src");
-    RemoveDbTree(u8"draconic_audioasync_out");
+    RemoveDbTree(u8"scratch_audioasync_src");
+    RemoveDbTree(u8"scratch_audioasync_out");
 }
 
 TEST_CASE("audio.pipeline: many concurrent async clip decodes run on workers without a race")
@@ -270,17 +270,17 @@ TEST_CASE("audio.pipeline: many concurrent async clip decodes run on workers wit
     // concurrently on workers. Run under TSAN to validate the concurrent-read safety.
     RegisterAudioResource();
     RegisterAudioAssets();
-    RemoveDbTree(u8"draconic_audioconc_src");
-    RemoveDbTree(u8"draconic_audioconc_out");
+    RemoveDbTree(u8"scratch_audioconc_src");
+    RemoveDbTree(u8"scratch_audioconc_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audioconc_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audioconc_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audioconc_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audioconc_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.1f, 8000, 1);
-    REQUIRE(CreateDirectory(u8"draconic_audioconc_src"));
+    REQUIRE(CreateDirectory(u8"scratch_audioconc_src"));
     REQUIRE(
-        WriteFile(u8"draconic_audioconc_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
+        WriteFile(u8"scratch_audioconc_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
             .IsOk());
 
     AudioClipAsset asset;
@@ -321,24 +321,24 @@ TEST_CASE("audio.pipeline: many concurrent async clip decodes run on workers wit
         CHECK(clip->encodedData.Size() == wav.Size());
     }
 
-    RemoveDbTree(u8"draconic_audioconc_src");
-    RemoveDbTree(u8"draconic_audioconc_out");
+    RemoveDbTree(u8"scratch_audioconc_src");
+    RemoveDbTree(u8"scratch_audioconc_out");
 }
 
 TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content stream source")
 {
     RegisterAudioResource();
     RegisterAudioAssets();
-    RemoveDbTree(u8"draconic_audiopipe_stream_src");
-    RemoveDbTree(u8"draconic_audiopipe_stream_out");
+    RemoveDbTree(u8"scratch_audiopipe_stream_src");
+    RemoveDbTree(u8"scratch_audiopipe_stream_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_stream_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_stream_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_stream_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_stream_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.5f);
-    REQUIRE(CreateDirectory(u8"draconic_audiopipe_stream_src"));
-    REQUIRE(WriteFile(u8"draconic_audiopipe_stream_src/tone.wav",
+    REQUIRE(CreateDirectory(u8"scratch_audiopipe_stream_src"));
+    REQUIRE(WriteFile(u8"scratch_audiopipe_stream_src/tone.wav",
                       Span<const byte>(wav.Data(), wav.Size()))
                 .IsOk());
 
@@ -375,19 +375,19 @@ TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content strea
         CHECK(readBack[40] == wav[40]);
     }
 
-    RemoveDbTree(u8"draconic_audiopipe_stream_src");
-    RemoveDbTree(u8"draconic_audiopipe_stream_out");
+    RemoveDbTree(u8"scratch_audiopipe_stream_src");
+    RemoveDbTree(u8"scratch_audiopipe_stream_out");
 }
 
 TEST_CASE("audio.pipeline: the builder VALIDATES - undecodable sources fail the cook")
 {
     RegisterAudioResource();
     RegisterAudioAssets();
-    RemoveDbTree(u8"draconic_audiopipe_bad_src");
-    RemoveDbTree(u8"draconic_audiopipe_bad_out");
+    RemoveDbTree(u8"scratch_audiopipe_bad_src");
+    RemoveDbTree(u8"scratch_audiopipe_bad_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_bad_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_bad_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_bad_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_bad_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     Array<byte> garbage;
@@ -395,8 +395,8 @@ TEST_CASE("audio.pipeline: the builder VALIDATES - undecodable sources fail the 
     {
         garbage.PushBack(static_cast<byte>(i * 3));
     }
-    REQUIRE(CreateDirectory(u8"draconic_audiopipe_bad_src"));
-    REQUIRE(WriteFile(u8"draconic_audiopipe_bad_src/tone.wav",
+    REQUIRE(CreateDirectory(u8"scratch_audiopipe_bad_src"));
+    REQUIRE(WriteFile(u8"scratch_audiopipe_bad_src/tone.wav",
                       Span<const byte>(garbage.Data(), garbage.Size()))
                 .IsOk());
 
@@ -408,8 +408,8 @@ TEST_CASE("audio.pipeline: the builder VALIDATES - undecodable sources fail the 
     ctx.output = outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());
 
-    RemoveDbTree(u8"draconic_audiopipe_bad_src");
-    RemoveDbTree(u8"draconic_audiopipe_bad_out");
+    RemoveDbTree(u8"scratch_audiopipe_bad_src");
+    RemoveDbTree(u8"scratch_audiopipe_bad_out");
 }
 
 TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drops the "
@@ -417,11 +417,11 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
 {
     RegisterAudioResource();
     RegisterAudioAssets();
-    RemoveDbTree(u8"draconic_audiopipe_fx_src");
-    RemoveDbTree(u8"draconic_audiopipe_fx_out");
+    RemoveDbTree(u8"scratch_audiopipe_fx_src");
+    RemoveDbTree(u8"scratch_audiopipe_fx_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_fx_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_fx_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_fx_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_fx_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     // A quiet stereo tone with half a second of pure silence appended.
@@ -433,9 +433,9 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
     }
     Array<byte> wav;
     REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()), 2, 8000, wav));
-    REQUIRE(CreateDirectory(u8"draconic_audiopipe_fx_src"));
+    REQUIRE(CreateDirectory(u8"scratch_audiopipe_fx_src"));
     REQUIRE(
-        WriteFile(u8"draconic_audiopipe_fx_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
+        WriteFile(u8"scratch_audiopipe_fx_src/tone.wav", Span<const byte>(wav.Data(), wav.Size()))
             .IsOk());
 
     AudioClipAsset asset;
@@ -475,8 +475,8 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
     }
     CHECK(peak > 27000); // ~-1 dBFS (was ~3200)
 
-    RemoveDbTree(u8"draconic_audiopipe_fx_src");
-    RemoveDbTree(u8"draconic_audiopipe_fx_out");
+    RemoveDbTree(u8"scratch_audiopipe_fx_src");
+    RemoveDbTree(u8"scratch_audiopipe_fx_out");
 }
 
 TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with probed "
@@ -484,14 +484,14 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
 {
     RegisterAudioResource();
     RegisterAudioAssets();
-    const StringView projectDir = u8"draconic_audiopipe_project";
+    const StringView projectDir = u8"scratch_audiopipe_project";
     auto cleanProject = [&]()
     {
         FileDelete(PathJoin(projectDir, u8"Project.xml"));
         FileDelete(PathJoin(projectDir, u8"Sources/short.wav"));
         FileDelete(PathJoin(projectDir, u8"Sources/long.wav"));
-        FileDelete(PathJoin(projectDir, u8"Content/draconic_audiopipe_short.xasset"));
-        FileDelete(PathJoin(projectDir, u8"Content/draconic_audiopipe_long.xasset"));
+        FileDelete(PathJoin(projectDir, u8"Content/scratch_audiopipe_short.xasset"));
+        FileDelete(PathJoin(projectDir, u8"Content/scratch_audiopipe_long.xasset"));
         for (StringView sub : {u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache"})
         {
             RemoveDirectory(PathJoin(projectDir, sub));
@@ -514,11 +514,11 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
     // Short SFX with an authored smpl loop: stays in-memory, loop points imported.
     Array<byte> shortWav = MakeToneWav(0.25f, 8000, 1);
     AppendSampleLoopChunk(shortWav, 50, 1900);
-    REQUIRE(WriteFile(u8"draconic_audiopipe_short.wav",
+    REQUIRE(WriteFile(u8"scratch_audiopipe_short.wav",
                       Span<const byte>(shortWav.Data(), shortWav.Size()))
                 .IsOk());
     Result<content::Instance*> shortImport =
-        importer.Import(u8"draconic_audiopipe_short.wav", *project,
+        importer.Import(u8"scratch_audiopipe_short.wav", *project,
                         *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(shortImport.HasValue());
     {
@@ -534,10 +534,10 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
     // An 11-second source crosses the duration line: stream pre-checks on.
     const Array<byte> longWav = MakeToneWav(11.0f, 8000, 1);
     REQUIRE(
-        WriteFile(u8"draconic_audiopipe_long.wav", Span<const byte>(longWav.Data(), longWav.Size()))
+        WriteFile(u8"scratch_audiopipe_long.wav", Span<const byte>(longWav.Data(), longWav.Size()))
             .IsOk());
     Result<content::Instance*> longImport =
-        importer.Import(u8"draconic_audiopipe_long.wav", *project, *project->SourceDb().RootGroup(),
+        importer.Import(u8"scratch_audiopipe_long.wav", *project, *project->SourceDb().RootGroup(),
                         nullptr, nullptr, nullptr);
     REQUIRE(longImport.HasValue());
     {
@@ -553,11 +553,11 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
     {
         garbage.PushBack(static_cast<byte>(i));
     }
-    REQUIRE(WriteFile(u8"draconic_audiopipe_garbage.wav",
+    REQUIRE(WriteFile(u8"scratch_audiopipe_garbage.wav",
                       Span<const byte>(garbage.Data(), garbage.Size()))
                 .IsOk());
     CHECK_FALSE(importer
-                    .Import(u8"draconic_audiopipe_garbage.wav", *project,
+                    .Import(u8"scratch_audiopipe_garbage.wav", *project,
                             *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr)
                     .HasValue());
 
@@ -566,13 +566,13 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
     REQUIRE(options.Get() != nullptr);
     CHECK(options->Toggles().Size() == 5u);
 
-    FileDelete(u8"draconic_audiopipe_short.wav");
-    FileDelete(u8"draconic_audiopipe_long.wav");
-    FileDelete(u8"draconic_audiopipe_garbage.wav");
-    FileDelete(PathJoin(projectDir, u8"Sources/draconic_audiopipe_short.wav"));
-    FileDelete(PathJoin(projectDir, u8"Sources/draconic_audiopipe_long.wav"));
-    FileDelete(PathJoin(projectDir, u8"Content/draconic_audiopipe_short.xasset"));
-    FileDelete(PathJoin(projectDir, u8"Content/draconic_audiopipe_long.xasset"));
+    FileDelete(u8"scratch_audiopipe_short.wav");
+    FileDelete(u8"scratch_audiopipe_long.wav");
+    FileDelete(u8"scratch_audiopipe_garbage.wav");
+    FileDelete(PathJoin(projectDir, u8"Sources/scratch_audiopipe_short.wav"));
+    FileDelete(PathJoin(projectDir, u8"Sources/scratch_audiopipe_long.wav"));
+    FileDelete(PathJoin(projectDir, u8"Content/scratch_audiopipe_short.xasset"));
+    FileDelete(PathJoin(projectDir, u8"Content/scratch_audiopipe_long.xasset"));
     cleanProject();
 }
 
@@ -581,9 +581,9 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
 {
     RegisterAudioResource();
     RegisterAudioAssets();
-    RemoveDbTree(u8"draconic_audiopipe_bus");
+    RemoveDbTree(u8"scratch_audiopipe_bus");
 
-    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_bus");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_bus");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     AudioBusLayoutAsset asset;
@@ -625,7 +625,7 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
     CHECK(engine.BusVolume(AudioBus::Music) == doctest::Approx(0.5f));
     CHECK(engine.BusEffectCount(AudioBus::Effects) == 2u);
 
-    RemoveDbTree(u8"draconic_audiopipe_bus");
+    RemoveDbTree(u8"scratch_audiopipe_bus");
 }
 
 TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and load "
@@ -633,9 +633,9 @@ TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and
 {
     RegisterAudioResource();
     RegisterAudioAssets();
-    RemoveDbTree(u8"draconic_audiopipe_named");
+    RemoveDbTree(u8"scratch_audiopipe_named");
 
-    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_named");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_named");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     AudioBusLayoutAsset asset;
@@ -680,16 +680,16 @@ TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and
     CHECK(engine.NamedBusEffectCount(u8"drums") == 1u);
     CHECK(engine.NamedBusMuted(u8"quiet"));
 
-    RemoveDbTree(u8"draconic_audiopipe_named");
+    RemoveDbTree(u8"scratch_audiopipe_named");
 }
 
 TEST_CASE("audio.pipeline: a custom-bus parent CYCLE fails the cook")
 {
     RegisterAudioResource();
     RegisterAudioAssets();
-    RemoveDbTree(u8"draconic_audiopipe_cycle");
+    RemoveDbTree(u8"scratch_audiopipe_cycle");
 
-    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_cycle");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_cycle");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     AudioBusLayoutAsset asset;
@@ -717,7 +717,7 @@ TEST_CASE("audio.pipeline: a custom-bus parent CYCLE fails the cook")
     orphan.custom[0].parent = String(u8"ghost");
     CHECK(builder.Build(orphan, ctx).IsOk());
 
-    RemoveDbTree(u8"draconic_audiopipe_cycle");
+    RemoveDbTree(u8"scratch_audiopipe_cycle");
 }
 
 TEST_CASE("audio.pipeline: bus layout wire is version-tolerant - v0 payloads (no named "
@@ -785,9 +785,9 @@ TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip r
 {
     RegisterAudioResource();
     RegisterAudioAssets();
-    RemoveDbTree(u8"draconic_audiopipe_cue");
+    RemoveDbTree(u8"scratch_audiopipe_cue");
 
-    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_cue");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_cue");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     // Two cooked clips the cue references.
@@ -845,5 +845,5 @@ TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip r
     ctx.output = emptyInstance;
     CHECK_FALSE(builder.Build(empty, ctx).IsOk());
 
-    RemoveDbTree(u8"draconic_audiopipe_cue");
+    RemoveDbTree(u8"scratch_audiopipe_cue");
 }

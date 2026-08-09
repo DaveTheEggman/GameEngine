@@ -32,10 +32,10 @@ namespace
 {
     void RemoveTree()
     {
-        FileDelete(u8"draconic_texpipe_src.png");
-        FileDelete(u8"draconic_texpipe_out_db/diffuse.rasset");
-        FileDelete(u8"draconic_texpipe_out_db/diffuse.data.bin");
-        RemoveDirectory(u8"draconic_texpipe_out_db");
+        FileDelete(u8"scratch_texpipe_src.png");
+        FileDelete(u8"scratch_texpipe_out_db/diffuse.rasset");
+        FileDelete(u8"scratch_texpipe_out_db/diffuse.data.bin");
+        RemoveDirectory(u8"scratch_texpipe_out_db");
     }
 }
 
@@ -54,11 +54,11 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
             px.Data()[i] = static_cast<u8>(i * 5);
         }
         REQUIRE(
-            image::io::SaveImage(src, u8"draconic_texpipe_src.png", image::io::ImageFileFormat::PNG)
+            image::io::SaveImage(src, u8"scratch_texpipe_src.png", image::io::ImageFileFormat::PNG)
                 .IsOk());
     }
 
-    NativeFileSystem outMount(u8"draconic_texpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_texpipe_out_db");
     Guid id;
 
     // --- cook (tooling): TextureAsset -> TextureResource in the output DB ---
@@ -69,7 +69,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
         id = inst->Id();
 
         TextureAsset asset;
-        asset.fileName = foundation::vfs::SourcePath(u8"draconic_texpipe_src.png");
+        asset.fileName = foundation::vfs::SourcePath(u8"scratch_texpipe_src.png");
         asset.SetupForUI(); // clamp, no mips
         asset.colorSpace = image::ImageColorSpace::Srgb;
 
@@ -122,7 +122,7 @@ TEST_CASE("texture.pipeline: builder fails on a missing source file")
     RegisterTextureResource();
     RegisterTextureAsset();
     RemoveTree();
-    NativeFileSystem outMount(u8"draconic_texpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_texpipe_out_db");
     foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"diffuse", TextureResource::StaticType());
@@ -143,7 +143,7 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
 {
     RegisterTextureAsset();
 
-    const StringView dir = u8"draconic_tex_import_project";
+    const StringView dir = u8"scratch_tex_import_project";
     auto cleanTree = [&]()
     {
         FileDelete(PathJoin(dir, u8"Project.xml"));
@@ -194,9 +194,9 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
     RegisterTextureResource();
     RegisterTextureAsset();
     const StringView faceNames[6] = {
-        u8"draconic_texpipe_sky_px.png", u8"draconic_texpipe_sky_nx.png",
-        u8"draconic_texpipe_sky_py.png", u8"draconic_texpipe_sky_ny.png",
-        u8"draconic_texpipe_sky_pz.png", u8"draconic_texpipe_sky_nz.png",
+        u8"scratch_texpipe_sky_px.png", u8"scratch_texpipe_sky_nx.png",
+        u8"scratch_texpipe_sky_py.png", u8"scratch_texpipe_sky_ny.png",
+        u8"scratch_texpipe_sky_pz.png", u8"scratch_texpipe_sky_nz.png",
     };
     auto scrub = [&]()
     {
@@ -204,9 +204,9 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
         {
             FileDelete(f);
         }
-        FileDelete(u8"draconic_texpipe_cube_db/sky.rasset");
-        FileDelete(u8"draconic_texpipe_cube_db/sky.data.bin");
-        RemoveDirectory(u8"draconic_texpipe_cube_db");
+        FileDelete(u8"scratch_texpipe_cube_db/sky.rasset");
+        FileDelete(u8"scratch_texpipe_cube_db/sky.data.bin");
+        RemoveDirectory(u8"scratch_texpipe_cube_db");
     };
     scrub();
 
@@ -230,7 +230,7 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
         CHECK(derived[5].AsView() == faceNames[5]);
     }
 
-    NativeFileSystem outMount(u8"draconic_texpipe_cube_db");
+    NativeFileSystem outMount(u8"scratch_texpipe_cube_db");
     Guid id;
     {
         foundation::content::ContentDatabase outDb(

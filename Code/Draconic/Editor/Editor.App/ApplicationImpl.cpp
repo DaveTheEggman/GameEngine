@@ -1450,7 +1450,7 @@ namespace editor::app
                 {
                     m_context.Notify(editor::NoticeKind::Error,
                                      u8"Create failed - pick a Bin/<Config> build dir "
-                                     u8"containing Draconic.Engine.Player.");
+                                     u8"containing Engine.Player.");
                 }
                 ReopenTemplatesManager(current);
             }});

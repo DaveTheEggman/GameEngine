@@ -53,7 +53,7 @@ TEST_CASE("library: load a real plugin, resolve and call symbols, unload")
 TEST_CASE("library: loading a missing file fails cleanly")
 {
     DynamicLibrary lib;
-    Status status = lib.Load(u8"draconic_definitely_not_a_library.so");
+    Status status = lib.Load(u8"scratch_definitely_not_a_library.so");
     CHECK_FALSE(status.IsOk());
     CHECK(status.Code() == ErrorCode::NotFound);
     CHECK_FALSE(lib.IsLoaded());

@@ -3,7 +3,7 @@
 // modules (draconic.<sys>.editor) get linked HERE and their RegisterEditor(EditorContext&)
 // called on the app's context - the editor core/app libraries never link engine subsystems.
 //
-// Usage: Draconic.Tools.Editor [projectDirectory] [--project <dir>]
+// Usage: Tools.Editor [projectDirectory] [--project <dir>]
 //   With a project (positional or --project): opens it directly (scaffolding Project.xml +
 //   Content/Sources/Cooked/Editor/.cache on first run) - the single-project lifecycle.
 //   With NO project: starts on the built-in PROJECT MANAGER (recent projects from the
@@ -95,7 +95,7 @@ namespace
             UniquePtr<pipeline::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
     }
 
-    // Every engine builder (kept in lockstep with the Draconic.Tools.Cook CLI's set).
+    // Every engine builder (kept in lockstep with the Tools.Cook CLI's set).
     void RegisterAllBuilders(pipeline::BuilderRegistry& registry)
     {
         pipeline::RegisterAssetReflection(); // base Asset::fileName + SourcePath
@@ -651,7 +651,7 @@ int main(int argc, char** argv)
     auto shellPtr = shell::CreateShell(ws);
     if (shellPtr.Get() == nullptr || shellPtr->MainWindow() == nullptr)
     {
-        std::fprintf(stderr, "Draconic.Tools.Editor: failed to create the OS shell/window\n");
+        std::fprintf(stderr, "Tools.Editor: failed to create the OS shell/window\n");
         return 1;
     }
 
@@ -661,7 +661,7 @@ int main(int argc, char** argv)
     auto gpu = graphics::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())
     {
-        std::fprintf(stderr, "Draconic.Tools.Editor: failed to create the graphics device\n");
+        std::fprintf(stderr, "Tools.Editor: failed to create the graphics device\n");
         return 1;
     }
 

@@ -266,7 +266,12 @@ export namespace foundation::core
     // ~/Library/Application Support on macOS) with `appName` appended. Falls back to the bare app name
     // when the base can't be resolved. Where global editor settings live - and the default export
     // templates root (docs/design/export.md §5).
-    [[nodiscard]] inline String GetUserDataDirectory(StringView appName = u8"draconic")
+    // The user-data folder name defaults to the value CMake bakes in (USER_DATA_DIR_NAME_VALUE on
+    // the policy target); the fallback keeps standalone TUs building.
+#ifndef USER_DATA_DIR_NAME
+#define USER_DATA_DIR_NAME u8"draconic"
+#endif
+    [[nodiscard]] inline String GetUserDataDirectory(StringView appName = USER_DATA_DIR_NAME)
     {
         char buffer[1024];
         const usize length = sys::GetUserDataDirectory(buffer, sizeof(buffer));
@@ -342,7 +347,7 @@ export namespace foundation::core
     }
 
     // Directory containing the running executable (its parent), empty on failure. This is the
-    // Bin/<Config>/<Platform> dir - where sibling tools (e.g. Draconic.Engine.Player) live.
+    // Bin/<Config>/<Platform> dir - where sibling tools (e.g. Engine.Player) live.
     [[nodiscard]] inline String GetExecutableDirectory()
     {
         const String path = GetExecutablePath();

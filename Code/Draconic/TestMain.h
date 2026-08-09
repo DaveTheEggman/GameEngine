@@ -1,7 +1,7 @@
 // Shared doctest entry point for all Draconic test binaries.
 //
 // Redirects test-written scratch data (content DBs, cooked projects, temp files - all created
-// via CWD-relative paths like "draconic_xxx_db") into a single gitignored ".test-scratch"
+// via CWD-relative paths like "scratch_xxx_db") into a single gitignored ".test-scratch"
 // directory, so test runs never litter the repo root (or the build dir). Fixture READS are
 // unaffected: they use absolute ${CMAKE_SOURCE_DIR} compile-definition paths.
 #pragma once

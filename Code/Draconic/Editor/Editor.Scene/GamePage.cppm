@@ -2,7 +2,7 @@
 //
 // GameEditorPage (play-in-editor phase 8b, docs/design/roadmap.md MVP item 4): a singleton
 // "Game" dock tab hosting the PLAYER behavior - a FRESH run of the project's default scene,
-// exactly what Draconic.Engine.Player does, in-process. Distinct from the ScenePage's Simulate
+// exactly what Engine.Player does, in-process. Distinct from the ScenePage's Simulate
 // (in-place snapshot -> run -> restore): nothing here is edited, so Play builds everything
 // from scratch (fresh Scene + resolve + Start) and Stop tears it all down - total cleanup IS
 // the restore. Renders through the scene's own primary camera (RenderScene with no override;
@@ -348,7 +348,7 @@ export namespace editor
 
     private:
         // Authored game scenes should carry a camera; a bare scene shouldn't play as a black
-        // screen - frame the origin like Draconic.Engine.Player does.
+        // screen - frame the origin like Engine.Player does.
         void EnsureCamera();
 
         // Play-in-editor input: the project's default map into the shared InputSubsystem,

@@ -59,7 +59,7 @@ TEST_CASE("system: page allocation is usable and page-aligned")
 
 TEST_CASE("system: file write / read / seek / size round-trip")
 {
-    const StringView path = u8"draconic_system_test.tmp";
+    const StringView path = u8"scratch_system_test.tmp";
     const char payload[] = "Draconic file IO";
     const u64 length = sizeof(payload) - 1; // exclude null terminator
 
@@ -98,7 +98,7 @@ TEST_CASE("system: file write / read / seek / size round-trip")
 
 TEST_CASE("system: opening a missing file fails cleanly")
 {
-    FileHandle f = FileOpen(u8"draconic_definitely_missing.xyz", FileMode::Read);
+    FileHandle f = FileOpen(u8"scratch_definitely_missing.xyz", FileMode::Read);
     CHECK_FALSE(FileIsValid(f));
 }
 
@@ -124,20 +124,20 @@ TEST_CASE("system: GetCurrentDirectory returns a non-empty absolute path")
 
 TEST_CASE("system: CreateDirectories makes every missing segment")
 {
-    const StringView root = u8"draconic_sys_mkdirs";
-    CHECK(CreateDirectories(u8"draconic_sys_mkdirs/a/b/c"));
-    CHECK(DirectoryExists(u8"draconic_sys_mkdirs/a/b/c"));
-    CHECK(CreateDirectories(u8"draconic_sys_mkdirs/a/b/c")); // idempotent
-    (void)RemoveDirectory(u8"draconic_sys_mkdirs/a/b/c");
-    (void)RemoveDirectory(u8"draconic_sys_mkdirs/a/b");
-    (void)RemoveDirectory(u8"draconic_sys_mkdirs/a");
+    const StringView root = u8"scratch_sys_mkdirs";
+    CHECK(CreateDirectories(u8"scratch_sys_mkdirs/a/b/c"));
+    CHECK(DirectoryExists(u8"scratch_sys_mkdirs/a/b/c"));
+    CHECK(CreateDirectories(u8"scratch_sys_mkdirs/a/b/c")); // idempotent
+    (void)RemoveDirectory(u8"scratch_sys_mkdirs/a/b/c");
+    (void)RemoveDirectory(u8"scratch_sys_mkdirs/a/b");
+    (void)RemoveDirectory(u8"scratch_sys_mkdirs/a");
     (void)RemoveDirectory(root);
 }
 
 TEST_CASE("system: FileCopyPreserving copies bytes and keeps the mode")
 {
-    const StringView src = u8"draconic_sys_copy_src.bin";
-    const StringView dst = u8"draconic_sys_copy_dst.bin";
+    const StringView src = u8"scratch_sys_copy_src.bin";
+    const StringView dst = u8"scratch_sys_copy_dst.bin";
     {
         FileHandle f = FileOpen(src, FileMode::Write);
         REQUIRE(FileIsValid(f));
@@ -146,7 +146,7 @@ TEST_CASE("system: FileCopyPreserving copies bytes and keeps the mode")
         FileClose(f);
     }
 #if !defined(_WIN32)
-    (void)::chmod("draconic_sys_copy_src.bin", 0755); // the +x bit the copy must keep
+    (void)::chmod("scratch_sys_copy_src.bin", 0755); // the +x bit the copy must keep
 #endif
     CHECK(FileCopyPreserving(src, dst));
     u64 srcSize = 0, dstSize = 0;
@@ -156,7 +156,7 @@ TEST_CASE("system: FileCopyPreserving copies bytes and keeps the mode")
     CHECK(srcSize == dstSize);
 #if !defined(_WIN32)
     struct stat st{};
-    REQUIRE(::stat("draconic_sys_copy_dst.bin", &st) == 0);
+    REQUIRE(::stat("scratch_sys_copy_dst.bin", &st) == 0);
     CHECK((st.st_mode & 0111) != 0); // execute bits preserved
 #endif
     (void)FileDelete(src);
@@ -206,7 +206,7 @@ TEST_CASE("system: RunProcess propagates a non-zero exit code")
 TEST_CASE("system: RunProcess reports failure to spawn a missing binary")
 {
     // Explicit path, no PATH search - a bogus name cannot resolve on any platform.
-    const ProcessResult r = RunProcess(u8"draconic_no_such_binary_zzz", Span<const StringView>());
+    const ProcessResult r = RunProcess(u8"scratch_no_such_binary_zzz", Span<const StringView>());
     CHECK_FALSE(r.Ran());
     CHECK(r.exitCode < 0);
 }

@@ -34,9 +34,9 @@ namespace
 
     void RemoveTree()
     {
-        FileDelete(u8"draconic_mat_res_db/lit_shader.rasset");
-        FileDelete(u8"draconic_mat_res_db/lit_mat.rasset");
-        RemoveDirectory(u8"draconic_mat_res_db");
+        FileDelete(u8"scratch_mat_res_db/lit_shader.rasset");
+        FileDelete(u8"scratch_mat_res_db/lit_mat.rasset");
+        RemoveDirectory(u8"scratch_mat_res_db");
     }
 }
 
@@ -57,7 +57,7 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
     GlobalTypeRegistry().Register(Material::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_mat_res_db");
+    NativeFileSystem mount(u8"scratch_mat_res_db");
 
     Guid shaderId, matId;
     {
@@ -237,7 +237,7 @@ TEST_CASE("material: pre-emissive forward sources upgrade in memory (offset/pad/
 TEST_CASE("material source: sampler address modes round-trip (v2)")
 {
     using namespace foundation::materials;
-    NativeFileSystem mount(u8"draconic_mat_sampler_db");
+    NativeFileSystem mount(u8"scratch_mat_sampler_db");
 
     Guid id;
     {
@@ -262,8 +262,8 @@ TEST_CASE("material source: sampler address modes round-trip (v2)")
         CHECK(read->samplerV == 1);
     }
 
-    FileDelete(u8"draconic_mat_sampler_db/wrapped.rasset");
-    RemoveDirectory(u8"draconic_mat_sampler_db");
+    FileDelete(u8"scratch_mat_sampler_db/wrapped.rasset");
+    RemoveDirectory(u8"scratch_mat_sampler_db");
 }
 
 TEST_CASE("material resource: the retyped render-state enum fields round-trip byte-identically")

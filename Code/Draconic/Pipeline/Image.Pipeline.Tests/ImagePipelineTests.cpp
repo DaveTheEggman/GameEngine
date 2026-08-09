@@ -24,10 +24,10 @@ namespace
 {
     void RemoveTree()
     {
-        FileDelete(u8"draconic_imgpipe_src.png");
-        FileDelete(u8"draconic_imgpipe_out_db/icon.rasset");
-        FileDelete(u8"draconic_imgpipe_out_db/icon.pixels.bin");
-        RemoveDirectory(u8"draconic_imgpipe_out_db");
+        FileDelete(u8"scratch_imgpipe_src.png");
+        FileDelete(u8"scratch_imgpipe_out_db/icon.rasset");
+        FileDelete(u8"scratch_imgpipe_out_db/icon.pixels.bin");
+        RemoveDirectory(u8"scratch_imgpipe_out_db");
     }
 }
 
@@ -45,12 +45,12 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
         {
             px.Data()[i] = static_cast<u8>(i * 7);
         }
-        REQUIRE(foundation::image::io::SaveImage(src, u8"draconic_imgpipe_src.png",
+        REQUIRE(foundation::image::io::SaveImage(src, u8"scratch_imgpipe_src.png",
                                                foundation::image::io::ImageFileFormat::PNG)
                     .IsOk());
     }
 
-    NativeFileSystem outMount(u8"draconic_imgpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_imgpipe_out_db");
 
     // --- cook (tooling): ImageAsset -> ImageResource in the output DB ---
     Guid id;
@@ -61,7 +61,7 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
         id = inst->Id();
 
         ImageAsset asset;
-        asset.fileName = foundation::vfs::SourcePath(u8"draconic_imgpipe_src.png");
+        asset.fileName = foundation::vfs::SourcePath(u8"scratch_imgpipe_src.png");
         asset.colorSpace = ImageColorSpace::Srgb;
 
         ImageAssetBuilder builder;
@@ -111,7 +111,7 @@ TEST_CASE("image.pipeline: builder fails on a missing source file")
     RegisterImageResource();
     RegisterImageAsset();
     RemoveTree();
-    NativeFileSystem outMount(u8"draconic_imgpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_imgpipe_out_db");
     foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"icon", ImageResource::StaticType());

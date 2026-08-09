@@ -70,7 +70,7 @@ TEST_CASE("editor-shell: page panels dock into the center document area as closa
 
 TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
 {
-    const StringView dir = u8"draconic_editor_test_layout";
+    const StringView dir = u8"scratch_editor_test_layout";
     RemoveStateDir(dir);
     REQUIRE(CreateDirectory(dir));
 
@@ -142,7 +142,7 @@ TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
 
 TEST_CASE("editor-layout: restore from a missing file reports NotFound")
 {
-    const StringView dir = u8"draconic_editor_test_layout_missing";
+    const StringView dir = u8"scratch_editor_test_layout_missing";
     RemoveStateDir(dir);
     REQUIRE(CreateDirectory(dir));
 

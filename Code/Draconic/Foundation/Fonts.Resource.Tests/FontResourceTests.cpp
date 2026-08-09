@@ -77,7 +77,7 @@ namespace
 TEST_CASE("font.factory: cooked Alpha8 FontResource -> rasterizer-free Font product")
 {
     RegisterFontResource();
-    const StringView dir = u8"draconic_fontfac_a8_db";
+    const StringView dir = u8"scratch_fontfac_a8_db";
     RemoveTree(dir);
 
     NativeFileSystem mount(dir);
@@ -144,7 +144,7 @@ TEST_CASE("font.factory: cooked Alpha8 FontResource -> rasterizer-free Font prod
 TEST_CASE("font.factory: async load matches the sync product")
 {
     RegisterFontResource();
-    const StringView dir = u8"draconic_fontfac_async_db";
+    const StringView dir = u8"scratch_fontfac_async_db";
     RemoveTree(dir);
     NativeFileSystem mount(dir);
     Guid id;
@@ -198,7 +198,7 @@ TEST_CASE("font.factory: async load matches the sync product")
 TEST_CASE("font.factory: many concurrent async decodes run without a race")
 {
     RegisterFontResource();
-    const StringView dir = u8"draconic_fontfac_conc_db";
+    const StringView dir = u8"scratch_fontfac_conc_db";
     RemoveTree(dir);
     NativeFileSystem mount(dir);
 
@@ -252,7 +252,7 @@ TEST_CASE("font.factory: many concurrent async decodes run without a race")
 TEST_CASE("font.factory: cooked MSDF FontResource keeps range + linear RGBA")
 {
     RegisterFontResource();
-    const StringView dir = u8"draconic_fontfac_df_db";
+    const StringView dir = u8"scratch_fontfac_df_db";
     RemoveTree(dir);
 
     NativeFileSystem mount(dir);
@@ -299,7 +299,7 @@ TEST_CASE("font.factory: cooked MSDF FontResource keeps range + linear RGBA")
 TEST_CASE("font.service: ResourceFontService resolves (family, size) over bound products")
 {
     RegisterFontResource();
-    const StringView dir = u8"draconic_fontsvc_db";
+    const StringView dir = u8"scratch_fontsvc_db";
     RemoveTree(dir);
 
     NativeFileSystem mount(dir);
@@ -356,7 +356,7 @@ TEST_CASE("font.service: ResourceFontService resolves (family, size) over bound 
 TEST_CASE("font.service: DF families synthesize cached per-size scaled views")
 {
     RegisterFontResource();
-    const StringView dir = u8"draconic_fontsvc_df_db";
+    const StringView dir = u8"scratch_fontsvc_df_db";
     RemoveTree(dir);
 
     NativeFileSystem mount(dir);

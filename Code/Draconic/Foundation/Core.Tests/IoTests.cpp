@@ -73,7 +73,7 @@ TEST_CASE("io: MemoryStream seek bounds and overwrite")
 
 TEST_CASE("io: FileStream writes then reads a file")
 {
-    const StringView path = u8"draconic_io_stream_test.tmp";
+    const StringView path = u8"scratch_io_stream_test.tmp";
 
     {
         FileStream out(path, FileMode::Write);
@@ -107,7 +107,7 @@ TEST_CASE("io: FileStream writes then reads a file")
 
 TEST_CASE("io: FileStream on an unopenable path is invalid")
 {
-    FileStream in(u8"draconic_io_missing_file.xyz", FileMode::Read);
+    FileStream in(u8"scratch_io_missing_file.xyz", FileMode::Read);
     CHECK_FALSE(in.IsValid());
     u8 byte = 0;
     CHECK(in.Read(&byte, 1) == 0u);
@@ -366,7 +366,7 @@ TEST_CASE("io: PathJoin")
 
 TEST_CASE("io: ReadFile / WriteFile round-trip")
 {
-    const StringView path = u8"draconic_fs_roundtrip.tmp";
+    const StringView path = u8"scratch_fs_roundtrip.tmp";
     const byte payload[] = {byte{1}, byte{2}, byte{3}, byte{0xFF}, byte{0}, byte{42}};
 
     CHECK(WriteFile(path, Span<const byte>{payload, ArrayCount(payload)}).IsOk());
@@ -381,12 +381,12 @@ TEST_CASE("io: ReadFile / WriteFile round-trip")
     }
 
     CHECK(FileDelete(path));
-    CHECK(ReadFile(u8"draconic_fs_missing.tmp").Error() == ErrorCode::NotFound);
+    CHECK(ReadFile(u8"scratch_fs_missing.tmp").Error() == ErrorCode::NotFound);
 }
 
 TEST_CASE("io: directory create / exists / remove")
 {
-    const StringView dir = u8"draconic_fs_test_dir";
+    const StringView dir = u8"scratch_fs_test_dir";
     CHECK_FALSE(DirectoryExists(dir));
     CHECK(CreateDirectory(dir));
     CHECK(DirectoryExists(dir));
@@ -491,19 +491,19 @@ TEST_CASE("serialization: SerializableRegistry creates by type id, then deserial
 TEST_CASE("io: RemoveDirectoryRecursive deletes a populated tree (rmdir alone cannot)")
 {
     // Build scratch/sub/inner with files at every level.
-    REQUIRE(CreateDirectories(u8"draconic_rmr_scratch/sub/inner"));
-    REQUIRE(WriteFile(u8"draconic_rmr_scratch/top.bin", Span<const byte>{}).IsOk());
+    REQUIRE(CreateDirectories(u8"scratch_rmr_scratch/sub/inner"));
+    REQUIRE(WriteFile(u8"scratch_rmr_scratch/top.bin", Span<const byte>{}).IsOk());
     const byte payload[3] = {byte{1}, byte{2}, byte{3}};
-    REQUIRE(WriteFile(u8"draconic_rmr_scratch/sub/mid.bin", Span<const byte>{payload, 3}).IsOk());
+    REQUIRE(WriteFile(u8"scratch_rmr_scratch/sub/mid.bin", Span<const byte>{payload, 3}).IsOk());
     REQUIRE(
-        WriteFile(u8"draconic_rmr_scratch/sub/inner/leaf.bin", Span<const byte>{payload, 3}).IsOk());
+        WriteFile(u8"scratch_rmr_scratch/sub/inner/leaf.bin", Span<const byte>{payload, 3}).IsOk());
 
     // The raw primitive fails on a populated dir (documented rmdir semantics)...
-    CHECK_FALSE(RemoveDirectory(u8"draconic_rmr_scratch"));
-    CHECK(DirectoryExists(u8"draconic_rmr_scratch"));
+    CHECK_FALSE(RemoveDirectory(u8"scratch_rmr_scratch"));
+    CHECK(DirectoryExists(u8"scratch_rmr_scratch"));
 
     // ...the recursive helper removes the whole tree, and is idempotent on a missing dir.
-    CHECK(RemoveDirectoryRecursive(u8"draconic_rmr_scratch"));
-    CHECK_FALSE(DirectoryExists(u8"draconic_rmr_scratch"));
-    CHECK(RemoveDirectoryRecursive(u8"draconic_rmr_scratch"));
+    CHECK(RemoveDirectoryRecursive(u8"scratch_rmr_scratch"));
+    CHECK_FALSE(DirectoryExists(u8"scratch_rmr_scratch"));
+    CHECK(RemoveDirectoryRecursive(u8"scratch_rmr_scratch"));
 }

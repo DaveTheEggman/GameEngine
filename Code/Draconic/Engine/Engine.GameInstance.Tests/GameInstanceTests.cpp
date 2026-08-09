@@ -509,10 +509,10 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
     GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
     RegisterSerializable<scene::SceneDocument>();
 
-    FileDelete(u8"draconic_gi_load_db/level.rasset");
-    FileDelete(u8"draconic_gi_load_db/level.scene.bin");
-    RemoveDirectory(u8"draconic_gi_load_db");
-    NativeFileSystem mount(u8"draconic_gi_load_db");
+    FileDelete(u8"scratch_gi_load_db/level.rasset");
+    FileDelete(u8"scratch_gi_load_db/level.scene.bin");
+    RemoveDirectory(u8"scratch_gi_load_db");
+    NativeFileSystem mount(u8"scratch_gi_load_db");
 
     Guid sceneId;
     {
@@ -667,7 +667,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
         CHECK(gi.ScriptLoadComplete(ticket));
     }
 
-    FileDelete(u8"draconic_gi_load_db/level.rasset");
-    FileDelete(u8"draconic_gi_load_db/level.scene.bin");
-    RemoveDirectory(u8"draconic_gi_load_db");
+    FileDelete(u8"scratch_gi_load_db/level.rasset");
+    FileDelete(u8"scratch_gi_load_db/level.scene.bin");
+    RemoveDirectory(u8"scratch_gi_load_db");
 }

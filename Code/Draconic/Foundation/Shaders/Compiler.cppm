@@ -1,5 +1,5 @@
 /// DXC shader compiler - loads dxcompiler.dll/libdxcompiler.so at runtime.
-/// Ported from Sedulous.Shaders/ShaderCompiler.bf via the draconic_port.
+/// Ported from Sedulous.Shaders/ShaderCompiler.bf via the port.
 
 module;
 
@@ -408,7 +408,7 @@ namespace foundation::shaders
         if (!s->dxcompiler)
         {
             std::fprintf(stderr,
-                         "draconic.shaders: LoadLibraryW(dxcompiler.dll) failed (error %lu)\n",
+                         "foundation.shaders: LoadLibraryW(dxcompiler.dll) failed (error %lu)\n",
                          GetLastError());
             c->Destroy();
             return ErrorCode::Unknown;
@@ -445,7 +445,7 @@ namespace foundation::shaders
         }
         if (!s->dxcompiler)
         {
-            std::fprintf(stderr, "draconic.shaders: dlopen(libdxcompiler.so) failed: %s\n",
+            std::fprintf(stderr, "foundation.shaders: dlopen(libdxcompiler.so) failed: %s\n",
                          dlerror());
             c->Destroy();
             return ErrorCode::Unknown;
@@ -456,25 +456,25 @@ namespace foundation::shaders
 
         if (!s->createInst)
         {
-            std::fprintf(stderr, "draconic.shaders: DXC library missing DxcCreateInstance\n");
+            std::fprintf(stderr, "foundation.shaders: DXC library missing DxcCreateInstance\n");
             c->Destroy();
             return ErrorCode::Unknown;
         }
         if (FAILED(s->createInst(CLSID_DxcCompiler, IID_PPV_ARGS(&s->dxc))))
         {
-            std::fprintf(stderr, "draconic.shaders: DxcCreateInstance(IDxcCompiler3) failed\n");
+            std::fprintf(stderr, "foundation.shaders: DxcCreateInstance(IDxcCompiler3) failed\n");
             c->Destroy();
             return ErrorCode::Unknown;
         }
         if (FAILED(s->createInst(CLSID_DxcUtils, IID_PPV_ARGS(&s->utils))))
         {
-            std::fprintf(stderr, "draconic.shaders: DxcCreateInstance(IDxcUtils) failed\n");
+            std::fprintf(stderr, "foundation.shaders: DxcCreateInstance(IDxcUtils) failed\n");
             c->Destroy();
             return ErrorCode::Unknown;
         }
         if (FAILED(s->utils->CreateDefaultIncludeHandler(&s->includeHdlr)))
         {
-            std::fprintf(stderr, "draconic.shaders: CreateDefaultIncludeHandler failed\n");
+            std::fprintf(stderr, "foundation.shaders: CreateDefaultIncludeHandler failed\n");
             c->Destroy();
             return ErrorCode::Unknown;
         }

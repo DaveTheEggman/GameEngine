@@ -59,7 +59,7 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType());
     RegisterSerializable<scene::PrefabDocument>();
 
-    const StringView dir = u8"draconic_model_prefab_test_db";
+    const StringView dir = u8"scratch_model_prefab_test_db";
     RemoveTreeMP(dir);
     (void)CreateDirectory(dir);
     foundation::vfs::NativeFileSystem mount(dir);

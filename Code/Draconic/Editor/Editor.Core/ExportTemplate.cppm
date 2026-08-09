@@ -103,7 +103,7 @@ export namespace editor
     // Synthesize the host implicit template from the running tool's own directory (Bin/...), so a dev
     // export for the current platform works with no import.
     // The player target's base name (no exe extension); "<base>.runtime-libs" is the build-emitted
-    // sidecar list beside it (written by draconic_copy_runtime_deps).
+    // sidecar list beside it (written by util_copy_runtime_deps).
     inline constexpr StringView kPlayerBaseName = BUILTIN_PLAYER_BASENAME;
 
     // Read a "<name>.runtime-libs" list (one library basename per line) from `fs` into `out`, skipping
@@ -271,7 +271,7 @@ export namespace editor
     // The built-in default templates root: <user-data-dir>/templates.
     [[nodiscard]] inline String DefaultTemplatesRoot()
     {
-        return PathJoin(GetUserDataDirectory(u8"draconic").AsView(), u8"templates");
+        return PathJoin(GetUserDataDirectory().AsView(), u8"templates");
     }
 
     // Resolve the templates root, most-specific first: an explicit `overrideRoot` (the editor's
@@ -295,7 +295,7 @@ export namespace editor
     // Install a template bundle (a dir holding template.xml + the player + sidecars) into
     // `templatesRoot` under its manifest id, so the registry picks it up. Recursive copy (overwrites
     // an existing install of the same id). `outId` receives the imported id. NotFound if the source has
-    // no valid template.xml. Shared by the Draconic.Tools.Export CLI and the editor's Import Template action.
+    // no valid template.xml. Shared by the Tools.Export CLI and the editor's Import Template action.
     // Defined out-of-line in ExportTemplateImpl.cpp: the body needs <filesystem> for the
     // recursive copy, and that header must not reach this INTERFACE. On MSVC an STL header in a
     // module interface's global module fragment gets attached to the module, and consumers then

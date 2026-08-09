@@ -64,7 +64,7 @@ TEST_CASE("importer: registry routes by extension, first match wins")
 
 TEST_CASE("importer: CopyIntoSources lands the bytes in the project's Sources tree")
 {
-    const StringView dir = u8"draconic_importer_test_project";
+    const StringView dir = u8"scratch_importer_test_project";
     // Clean slate.
     FileDelete(PathJoin(dir, u8"Project.xml"));
     FileDelete(PathJoin(dir, u8"Sources/payload.bin"));
@@ -80,11 +80,11 @@ TEST_CASE("importer: CopyIntoSources lands the bytes in the project's Sources tr
 
     // A loose OS file to import.
     const byte payload[4] = {byte{9}, byte{8}, byte{7}, byte{6}};
-    REQUIRE(WriteFile(u8"draconic_importer_loose.bin", Span<const byte>(payload, 4)).IsOk());
+    REQUIRE(WriteFile(u8"scratch_importer_loose.bin", Span<const byte>(payload, 4)).IsOk());
 
-    Result<String> name = CopyIntoSources(*project, u8"draconic_importer_loose.bin");
+    Result<String> name = CopyIntoSources(*project, u8"scratch_importer_loose.bin");
     REQUIRE(name.HasValue());
-    CHECK(name.Value() == StringView(u8"draconic_importer_loose.bin"));
+    CHECK(name.Value() == StringView(u8"scratch_importer_loose.bin"));
 
     const String copied = PathJoin(project->SourcesRoot().AsView(), name.Value().AsView());
     Result<Array<byte>> bytes = ReadFile(copied.AsView());
@@ -93,11 +93,11 @@ TEST_CASE("importer: CopyIntoSources lands the bytes in the project's Sources tr
     CHECK(bytes.Value()[0] == byte{9});
 
     // Reimporting the same name reuses the existing copy (no error).
-    CHECK(CopyIntoSources(*project, u8"draconic_importer_loose.bin").HasValue());
+    CHECK(CopyIntoSources(*project, u8"scratch_importer_loose.bin").HasValue());
     // Missing source is a clean failure.
-    CHECK_FALSE(CopyIntoSources(*project, u8"draconic_importer_missing.bin").HasValue());
+    CHECK_FALSE(CopyIntoSources(*project, u8"scratch_importer_missing.bin").HasValue());
 
-    FileDelete(u8"draconic_importer_loose.bin");
+    FileDelete(u8"scratch_importer_loose.bin");
     FileDelete(copied.AsView());
     FileDelete(PathJoin(dir, u8"Project.xml"));
     for (StringView sub : {u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache"})

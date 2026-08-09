@@ -2,7 +2,7 @@
 //
 // The RUNTIME-side project definition: the manifest payload (ProjectSettings), the fixed
 // directory layout, and manifest load/save over a VFS root. Split out of the editor so
-// shipping binaries (Draconic.Engine.Player, dist builds) carry ZERO editor code - the editor's
+// shipping binaries (Engine.Player, dist builds) carry ZERO editor code - the editor's
 // EditorProject builds on top of this (mounts, DBs, per-user state stay editor-side).
 
 module;

@@ -51,7 +51,7 @@ RTTI_DEFINE_OBJECT(TestMaterial, "rtti::editor::editor::test")
 
 TEST_CASE("editor-project: create scaffolds the layout and open round-trips the manifest")
 {
-    const StringView dir = u8"draconic_editor_test_project";
+    const StringView dir = u8"scratch_editor_test_project";
     RemoveProjectTree(dir);
 
     REQUIRE(EditorProject::Create(dir, u8"Test Project").IsOk());
@@ -80,7 +80,7 @@ TEST_CASE("editor-project: create scaffolds the layout and open round-trips the 
 
 TEST_CASE("editor-project: open fails without a manifest")
 {
-    const StringView dir = u8"draconic_editor_test_project_missing";
+    const StringView dir = u8"scratch_editor_test_project_missing";
     RemoveProjectTree(dir);
     CHECK(!static_cast<bool>(EditorProject::Open(dir)));
     RemoveProjectTree(dir);
@@ -105,14 +105,14 @@ TEST_CASE("editor-project: an unreadable manifest logs an error (missing one sta
     GlobalLogger().AddSink(&sink);
 
     // Absent manifest: the scaffold path - no error noise.
-    const StringView missingDir = u8"draconic_editor_test_project_silent";
+    const StringView missingDir = u8"scratch_editor_test_project_silent";
     RemoveProjectTree(missingDir);
     CHECK(!static_cast<bool>(EditorProject::Open(missingDir)));
     CHECK(sink.errors == 0);
 
     // Present-but-unparseable manifest (e.g. a pre-versioning format): loud failure -
     // the app shell only surfaces this in the status bar, the console line is the signal.
-    const StringView dir = u8"draconic_editor_test_project_corrupt";
+    const StringView dir = u8"scratch_editor_test_project_corrupt";
     RemoveProjectTree(dir);
     REQUIRE(CreateDirectory(dir));
     {
@@ -150,7 +150,7 @@ TEST_CASE("editor-project: an unreadable manifest logs an error (missing one sta
 
 TEST_CASE("editor-project: settings changes persist through SaveSettings")
 {
-    const StringView dir = u8"draconic_editor_test_project_save";
+    const StringView dir = u8"scratch_editor_test_project_save";
     RemoveProjectTree(dir);
     REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
     Guid savedId;
@@ -196,7 +196,7 @@ TEST_CASE("editor-project: source db is XML, cooked db is binary, both round-tri
     GlobalTypeRegistry().Register(TestMaterial::StaticType());
     RegisterSerializable<TestMaterial>();
 
-    const StringView dir = u8"draconic_editor_test_project_dbs";
+    const StringView dir = u8"scratch_editor_test_project_dbs";
     RemoveProjectTree(dir);
     REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
 
@@ -240,7 +240,7 @@ TEST_CASE("editor-project: source db is XML, cooked db is binary, both round-tri
 
 TEST_CASE("project: manifest round-trips the startup-script asset guid under a versioned payload")
 {
-    const StringView dir = u8"draconic_project_v2_test";
+    const StringView dir = u8"scratch_project_v2_test";
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));
     (void)RemoveDirectory(dir);
 
@@ -264,7 +264,7 @@ TEST_CASE("project: manifest round-trips the startup-script asset guid under a v
 
 TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migrates")
 {
-    const StringView dir = u8"draconic_project_engine_ver_test";
+    const StringView dir = u8"scratch_project_engine_ver_test";
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));
     (void)RemoveDirectory(dir);
 

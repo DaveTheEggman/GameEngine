@@ -58,7 +58,7 @@ TEST_CASE("import glTF -> cooked ModelResource round-trips through the resource 
 
     model::RegisterModelResourceTypes(); // make the cooked types deserializable
 
-    vfs::NativeFileSystem mount(u8"draconic_modelimporter_test_db");
+    vfs::NativeFileSystem mount(u8"scratch_modelimporter_test_db");
     content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(), u8".rasset");
 
     // Cook the model file into the DB; get back the manifest (ModelResource) Guid.
@@ -105,7 +105,7 @@ TEST_CASE("import skinned glTF -> cooked skeleton + animations + skinned mesh")
 
     model::RegisterModelResourceTypes();
 
-    vfs::NativeFileSystem mount(u8"draconic_modelimporter_fox_db");
+    vfs::NativeFileSystem mount(u8"scratch_modelimporter_fox_db");
     content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(), u8".rasset");
 
     Guid modelGuid;
@@ -171,7 +171,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
     RegisterSerializable<foundation::geometry::StaticMeshSource>();
     RegisterSerializable<foundation::geometry::SkinnedMeshSource>();
 
-    const StringView dir = u8"draconic_model_import_project";
+    const StringView dir = u8"scratch_model_import_project";
     auto cleanTree = [&]()
     {
         // Recursive best-effort cleanup of Content/Cooked/Sources/.cache trees.
@@ -280,7 +280,7 @@ TEST_CASE("model-import: external-sidecar .gltf imports and its sidecars land in
     pipeline::RegisterMaterialAsset();
     pipeline::RegisterAnimationAssets();
 
-    const StringView dir = u8"draconic_gltf_import_project";
+    const StringView dir = u8"scratch_gltf_import_project";
     auto cleanTree = [&]()
     {
         for (StringView sub : {u8"Content", u8"Cooked", u8"Sources", u8".cache"})
@@ -357,7 +357,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     pipeline::RegisterMaterialAsset();
     pipeline::RegisterAnimationAssets();
 
-    const StringView dir = u8"draconic_mat_tex_project";
+    const StringView dir = u8"scratch_mat_tex_project";
     auto cleanTree = [&]()
     {
         for (StringView sub : {u8"Content", u8"Cooked", u8"Sources", u8".cache"})
@@ -618,7 +618,7 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
     GlobalTypeRegistry().Register(foundation::texture::TextureResource::StaticType());
     RegisterSerializable<foundation::texture::TextureResource>();
 
-    const StringView dir = u8"draconic_reimport_identity_project";
+    const StringView dir = u8"scratch_reimport_identity_project";
     auto cleanTree = [&]()
     {
         for (StringView sub : {u8"Content", u8"Cooked", u8"Sources", u8".cache"})
@@ -939,7 +939,7 @@ TEST_CASE("model-import: options gate textures/materials/animations")
     pipeline::RegisterMaterialAsset();
     pipeline::RegisterAnimationAssets();
 
-    const StringView dir = u8"draconic_model_import_options_project";
+    const StringView dir = u8"scratch_model_import_options_project";
     CleanProjectTree(dir);
     REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
     UniquePtr<EditorProject> project = EditorProject::Open(dir);
@@ -998,7 +998,7 @@ TEST_CASE("model-import: generate-collision emits CollisionShapeAssets wired to 
     pipeline::RegisterAnimationAssets();
     pipeline::RegisterPhysicsAssets();
 
-    const StringView dir = u8"draconic_model_import_collision_project";
+    const StringView dir = u8"scratch_model_import_collision_project";
     CleanProjectTree(dir);
     REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
     UniquePtr<EditorProject> project = EditorProject::Open(dir);
@@ -1061,7 +1061,7 @@ TEST_CASE("model-import: re-import WITHOUT delete reuses instances (same guids, 
     pipeline::RegisterMaterialAsset();
     pipeline::RegisterAnimationAssets();
 
-    const StringView dir = u8"draconic_model_reimport_project";
+    const StringView dir = u8"scratch_model_reimport_project";
     CleanProjectTree(dir);
     REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
     UniquePtr<EditorProject> project = EditorProject::Open(dir);

@@ -320,7 +320,7 @@ void GUISandbox::BuildUI()
 
     auto title = MakeRef<gui::Label>(DefaultAllocator());
     title->SetSize(Float2{600.0f, 46.0f});
-    title->SetText(u8"Draconic GUI Sandbox");
+    title->SetText(u8"GUI Sandbox");
     title->SetFont(m_fontLarge);
     title->SetTextColor(Col(0.92f, 0.94f, 0.98f));
     m_panel->AddChild(title.Get());
@@ -653,7 +653,7 @@ void GUISandbox::BuildUI()
     m_treeModel = MakeUnique<gui::TreeModel>(DefaultAllocator());
     {
         const i32 src = m_treeModel->AddNode(gui::TreeModel::kRoot, u8"src");
-        const i32 draconic = m_treeModel->AddNode(src, u8"Draconic");
+        const i32 draconic = m_treeModel->AddNode(src, u8"Engine");
         m_treeModel->AddNode(draconic, u8"GUI");
         m_treeModel->AddNode(draconic, u8"Core");
         m_treeModel->AddNode(draconic, u8"Shell");

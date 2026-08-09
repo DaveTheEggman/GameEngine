@@ -26,9 +26,9 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
     RegisterSerializable<SkeletonSource>();
     GlobalTypeRegistry().Register(Skeleton::StaticType());
 
-    FileDelete(u8"draconic_anim_ed_db/skel.rasset");
-    RemoveDirectory(u8"draconic_anim_ed_db");
-    NativeFileSystem mount(u8"draconic_anim_ed_db");
+    FileDelete(u8"scratch_anim_ed_db/skel.rasset");
+    RemoveDirectory(u8"scratch_anim_ed_db");
+    NativeFileSystem mount(u8"scratch_anim_ed_db");
 
     Guid id;
     {
@@ -72,6 +72,6 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
     CHECK(skel->FindBone(u8"child") == 1);
     CHECK(skel->RootBones().Size() == 1);
 
-    FileDelete(u8"draconic_anim_ed_db/skel.rasset");
-    RemoveDirectory(u8"draconic_anim_ed_db");
+    FileDelete(u8"scratch_anim_ed_db/skel.rasset");
+    RemoveDirectory(u8"scratch_anim_ed_db");
 }

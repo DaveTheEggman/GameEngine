@@ -132,8 +132,8 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
           "hash lookups, handler set)")
 {
     RegisterScriptResource();
-    RemoveDbTree(u8"draconic_scriptres_out");
-    foundation::vfs::NativeFileSystem outputMount(u8"draconic_scriptres_out");
+    RemoveDbTree(u8"scratch_scriptres_out");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_scriptres_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     ScriptClassSource cooked;
@@ -193,5 +193,5 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
     CHECK(product->usesCoroutines); // travels the cooked wire (symmetric)
     CHECK(product->ProfileName() != nullptr);
 
-    RemoveDbTree(u8"draconic_scriptres_out");
+    RemoveDbTree(u8"scratch_scriptres_out");
 }

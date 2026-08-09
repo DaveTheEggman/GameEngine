@@ -83,9 +83,9 @@ namespace
             RegisterWrenScriptCook(); // registers the Wren backend + cook (idempotent)
             RegisterScriptResource();
             RegisterScriptAssets();
-            srcDir = String(u8"draconic_scriptpipe_src_");
+            srcDir = String(u8"scratch_scriptpipe_src_");
             srcDir += tag;
-            outDir = String(u8"draconic_scriptpipe_out_");
+            outDir = String(u8"scratch_scriptpipe_out_");
             outDir += tag;
             RemoveTree(srcDir.AsView());
             RemoveTree(outDir.AsView());

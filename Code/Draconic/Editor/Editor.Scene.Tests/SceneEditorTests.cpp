@@ -173,7 +173,7 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
     GlobalTypeRegistry().Register(foundation::scene::SceneDocument::StaticType());
     RegisterSerializable<foundation::scene::SceneDocument>();
 
-    const StringView dir = u8"draconic_editor_scene_test_project";
+    const StringView dir = u8"scratch_editor_scene_test_project";
     RemoveProjectTree(dir);
     REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
     UniquePtr<EditorProject> project = EditorProject::Open(dir);
@@ -336,7 +336,7 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
     GlobalTypeRegistry().Register(foundation::scene::SceneDocument::StaticType());
     RegisterSerializable<foundation::scene::SceneDocument>();
 
-    const StringView dir = u8"draconic_newscene_seed_project";
+    const StringView dir = u8"scratch_newscene_seed_project";
     RemoveProjectTree(dir);
     REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
     UniquePtr<EditorProject> project = EditorProject::Open(dir);

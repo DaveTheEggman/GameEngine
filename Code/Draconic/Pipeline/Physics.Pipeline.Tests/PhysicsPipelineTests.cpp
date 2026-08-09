@@ -46,11 +46,11 @@ TEST_CASE("physics.pipeline: mesh -> CollisionShapeAsset cook -> CollisionShape 
     RegisterPhysicsResource();
     RegisterPhysicsAssets();
     pipeline::RegisterMeshAssets();
-    RemoveTree(u8"draconic_physpipe_src_db");
-    RemoveTree(u8"draconic_physpipe_out_db");
+    RemoveTree(u8"scratch_physpipe_src_db");
+    RemoveTree(u8"scratch_physpipe_out_db");
 
-    foundation::vfs::NativeFileSystem srcMount(u8"draconic_physpipe_src_db");
-    foundation::vfs::NativeFileSystem outMount(u8"draconic_physpipe_out_db");
+    foundation::vfs::NativeFileSystem srcMount(u8"scratch_physpipe_src_db");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_physpipe_out_db");
     content::ContentDatabase srcDb(srcMount, BinarySerializerFactory(), u8".rasset");
     content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
 
@@ -114,8 +114,8 @@ TEST_CASE("physics.pipeline: mesh -> CollisionShapeAsset cook -> CollisionShape 
         CHECK(world.CreateBody(desc).IsValid());
     }
 
-    RemoveTree(u8"draconic_physpipe_src_db");
-    RemoveTree(u8"draconic_physpipe_out_db");
+    RemoveTree(u8"scratch_physpipe_src_db");
+    RemoveTree(u8"scratch_physpipe_out_db");
 }
 
 // Regression (issues-triage #7 / smoke #7): the real editor cook resolves the mesh `reads` edge to
@@ -129,11 +129,11 @@ TEST_CASE("physics.pipeline: collision cooks from the mesh PRODUCT (StaticMeshSo
     RegisterPhysicsAssets();
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>(); // product type for ReadObject
-    RemoveTree(u8"draconic_physpipe_prod_db");
-    RemoveTree(u8"draconic_physpipe_prodout_db");
+    RemoveTree(u8"scratch_physpipe_prod_db");
+    RemoveTree(u8"scratch_physpipe_prodout_db");
 
-    foundation::vfs::NativeFileSystem prodMount(u8"draconic_physpipe_prod_db");
-    foundation::vfs::NativeFileSystem outMount(u8"draconic_physpipe_prodout_db");
+    foundation::vfs::NativeFileSystem prodMount(u8"scratch_physpipe_prod_db");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_physpipe_prodout_db");
     content::ContentDatabase prodDb(prodMount, BinarySerializerFactory(), u8".rasset");
     content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
 
@@ -167,17 +167,17 @@ TEST_CASE("physics.pipeline: collision cooks from the mesh PRODUCT (StaticMeshSo
     CHECK(shape->convex);
     REQUIRE(!shape->blob.IsEmpty());
 
-    RemoveTree(u8"draconic_physpipe_prod_db");
-    RemoveTree(u8"draconic_physpipe_prodout_db");
+    RemoveTree(u8"scratch_physpipe_prod_db");
+    RemoveTree(u8"scratch_physpipe_prodout_db");
 }
 
 TEST_CASE("physics.pipeline: PhysicalMaterialAsset cooks and loads")
 {
     RegisterPhysicsResource();
     RegisterPhysicsAssets();
-    RemoveTree(u8"draconic_physpipe_mat_db");
+    RemoveTree(u8"scratch_physpipe_mat_db");
 
-    foundation::vfs::NativeFileSystem outMount(u8"draconic_physpipe_mat_db");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_physpipe_mat_db");
     content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
     auto* instance =
         outDb.RootGroup()->CreateInstance(u8"surface", PhysicalMaterialSource::StaticType());
@@ -200,5 +200,5 @@ TEST_CASE("physics.pipeline: PhysicalMaterialAsset cooks and loads")
     CHECK(material->restitution == doctest::Approx(0.25f));
     CHECK(material->density == doctest::Approx(2500.0f));
 
-    RemoveTree(u8"draconic_physpipe_mat_db");
+    RemoveTree(u8"scratch_physpipe_mat_db");
 }

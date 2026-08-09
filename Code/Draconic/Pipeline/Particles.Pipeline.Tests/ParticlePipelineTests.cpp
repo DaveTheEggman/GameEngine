@@ -29,8 +29,8 @@ namespace
 {
     void RemoveTree()
     {
-        FileDelete(u8"draconic_pfx_edit_db/smoke.rasset");
-        RemoveDirectory(u8"draconic_pfx_edit_db");
+        FileDelete(u8"scratch_pfx_edit_db/smoke.rasset");
+        RemoveDirectory(u8"scratch_pfx_edit_db");
     }
 }
 
@@ -39,7 +39,7 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
     RegisterParticleEffectAsset();
     RemoveTree();
 
-    NativeFileSystem mount(u8"draconic_pfx_edit_db");
+    NativeFileSystem mount(u8"scratch_pfx_edit_db");
     Guid id;
 
     // Author the effect in an asset, then cook it via the builder into the DB instance.
@@ -101,12 +101,12 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
 {
     RegisterParticleEffectAsset();
     foundation::texture::RegisterTextureResource();
-    FileDelete(u8"draconic_pfx_ref_db/smoketex.rasset");
-    FileDelete(u8"draconic_pfx_ref_db/smoketex.data.bin");
-    FileDelete(u8"draconic_pfx_ref_db/effect.rasset");
-    RemoveDirectory(u8"draconic_pfx_ref_db");
+    FileDelete(u8"scratch_pfx_ref_db/smoketex.rasset");
+    FileDelete(u8"scratch_pfx_ref_db/smoketex.data.bin");
+    FileDelete(u8"scratch_pfx_ref_db/effect.rasset");
+    RemoveDirectory(u8"scratch_pfx_ref_db");
 
-    NativeFileSystem mount(u8"draconic_pfx_ref_db");
+    NativeFileSystem mount(u8"scratch_pfx_ref_db");
     Guid effectId, texId;
 
     {
@@ -165,8 +165,8 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
     REQUIRE(tex);
     CHECK(tex->GpuTexture() != nullptr);
 
-    FileDelete(u8"draconic_pfx_ref_db/smoketex.rasset");
-    FileDelete(u8"draconic_pfx_ref_db/smoketex.data.bin");
-    FileDelete(u8"draconic_pfx_ref_db/effect.rasset");
-    RemoveDirectory(u8"draconic_pfx_ref_db");
+    FileDelete(u8"scratch_pfx_ref_db/smoketex.rasset");
+    FileDelete(u8"scratch_pfx_ref_db/smoketex.data.bin");
+    FileDelete(u8"scratch_pfx_ref_db/effect.rasset");
+    RemoveDirectory(u8"scratch_pfx_ref_db");
 }

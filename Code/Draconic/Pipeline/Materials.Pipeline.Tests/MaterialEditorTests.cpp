@@ -23,8 +23,8 @@ namespace
 {
     void RemoveTree()
     {
-        FileDelete(u8"draconic_mat_edit_db/lit.rasset");
-        RemoveDirectory(u8"draconic_mat_edit_db");
+        FileDelete(u8"scratch_mat_edit_db/lit.rasset");
+        RemoveDirectory(u8"scratch_mat_edit_db");
     }
 }
 
@@ -37,7 +37,7 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
     RemoveTree();
 
     Guid shaderId{0x1122334455667788ull, 0x99aabbccddeeff00ull};
-    NativeFileSystem outMount(u8"draconic_mat_edit_db");
+    NativeFileSystem outMount(u8"scratch_mat_edit_db");
     Guid id;
 
     // --- cook: author a material, import into an asset, build into the output DB ---

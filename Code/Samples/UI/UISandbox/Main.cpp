@@ -3138,7 +3138,7 @@ void UISandbox::BuildViewportTab(ui::TabView* tabView)
     body->Padding = ui::Thickness{8, 8};
     body->AddView(
         MakeRef<ui::Label>(DefaultAllocator(),
-                           StringView(u8"draconic.ui.viewport - a 3D spinning cube hosted in a "
+                           StringView(u8"foundation.ui.viewport - a 3D spinning cube hosted in a "
                                       u8"dockable UI panel. Hover + hold RMB to "
                                       u8"look, WASD/QE to move, wheel to zoom; input is gated to "
                                       u8"the viewport (move off and the camera "
@@ -3245,7 +3245,7 @@ void UISandbox::OnShutdown(runtime::IApplicationHost&)
 int main(int argc, char** argv)
 {
     shell::WindowSettings ws;
-    ws.title = u8"UI Sandbox (draconic.ui)";
+    ws.title = u8"UI Sandbox (foundation.ui)";
     ws.width = 820;
     ws.height = 720;
 

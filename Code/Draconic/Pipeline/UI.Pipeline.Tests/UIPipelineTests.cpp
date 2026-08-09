@@ -38,8 +38,8 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
 {
     RegisterUIResource();
     RegisterUIAssets();
-    RemoveTree(u8"draconic_uipipe_db");
-    foundation::vfs::NativeFileSystem outMount(u8"draconic_uipipe_db");
+    RemoveTree(u8"scratch_uipipe_db");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_db");
     content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
 
     // Document round-trip.
@@ -83,15 +83,15 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
     REQUIRE(group != nullptr);
     CHECK(group->FindByName(u8"ok-btn") != nullptr);
 
-    RemoveTree(u8"draconic_uipipe_db");
+    RemoveTree(u8"scratch_uipipe_db");
 }
 
 TEST_CASE("ui.pipeline: malformed payloads FAIL the cook")
 {
     RegisterUIResource();
     RegisterUIAssets();
-    RemoveTree(u8"draconic_uipipe_bad_db");
-    foundation::vfs::NativeFileSystem outMount(u8"draconic_uipipe_bad_db");
+    RemoveTree(u8"scratch_uipipe_bad_db");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_bad_db");
     content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
     auto* instance = outDb.RootGroup()->CreateInstance(u8"menu", UIDocumentSource::StaticType());
 
@@ -112,7 +112,7 @@ TEST_CASE("ui.pipeline: malformed payloads FAIL the cook")
     UIThemeAsset emptyTheme;
     CHECK_FALSE(themes.Build(emptyTheme, ctx).IsOk());
 
-    RemoveTree(u8"draconic_uipipe_bad_db");
+    RemoveTree(u8"scratch_uipipe_bad_db");
 }
 
 TEST_CASE("ui.pipeline: silent markup drops surface as cook warnings")

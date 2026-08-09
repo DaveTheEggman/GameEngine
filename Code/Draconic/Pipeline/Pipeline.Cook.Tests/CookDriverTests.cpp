@@ -270,7 +270,7 @@ RTTI_DEFINE_OBJECT(ChainAsset, "rtti::pipeline::editor::test")
 
 TEST_CASE("cook: full cook then clean; products carry the source guid + product type")
 {
-    Fixture fx(u8"draconic_cook_test_a");
+    Fixture fx(u8"scratch_cook_test_a");
     fx.WriteSourceFile(u8"a.txt", u8"12345");
     const Guid a = fx.AddWidget(u8"A", 10, u8"a.txt");
     const Guid b = fx.AddWidget(u8"B", 20);
@@ -309,7 +309,7 @@ TEST_CASE("cook: full cook then clean; products carry the source guid + product 
 
 TEST_CASE("cook: source-file edit dirties exactly the consumer; settings + version dirty too")
 {
-    Fixture fx(u8"draconic_cook_test_b");
+    Fixture fx(u8"scratch_cook_test_b");
     fx.WriteSourceFile(u8"a.txt", u8"12345");
     const Guid a = fx.AddWidget(u8"A", 10, u8"a.txt");
     (void)fx.AddWidget(u8"B", 20);
@@ -348,7 +348,7 @@ TEST_CASE("cook: source-file edit dirties exactly the consumer; settings + versi
 
 TEST_CASE("cook: read deps chain hashes + order; references never dirty their consumer")
 {
-    Fixture fx(u8"draconic_cook_test_c");
+    Fixture fx(u8"scratch_cook_test_c");
     fx.WriteSourceFile(u8"tex.bin", u8"xx");
     const Guid texture = fx.AddWidget(u8"Texture", 1, u8"tex.bin");
 
@@ -406,7 +406,7 @@ TEST_CASE("cook: read deps chain hashes + order; references never dirty their co
 
 TEST_CASE("cook: failures stay dirty and keep the record failed; orphans are swept")
 {
-    Fixture fx(u8"draconic_cook_test_d");
+    Fixture fx(u8"scratch_cook_test_d");
     const Guid a = fx.AddWidget(u8"A", 5);
 
     CookDriver driver = fx.MakeDriver();
@@ -436,7 +436,7 @@ TEST_CASE("cook: failures stay dirty and keep the record failed; orphans are swe
 
 TEST_CASE("cook: pipeline db persists across sessions; corruption degrades to a full re-plan")
 {
-    Fixture fx(u8"draconic_cook_test_e");
+    Fixture fx(u8"scratch_cook_test_e");
     fx.WriteSourceFile(u8"a.txt", u8"123");
     (void)fx.AddWidget(u8"A", 1, u8"a.txt");
     (void)fx.AddWidget(u8"B", 2);
@@ -474,7 +474,7 @@ TEST_CASE("cook: pipeline db persists across sessions; corruption degrades to a 
 // workers only read the DB. This cooks a wide level on a real JobSystem.
 TEST_CASE("cook: a wide dependency level cooks in parallel on the JobSystem")
 {
-    Fixture fx(u8"draconic_cook_test_parallel");
+    Fixture fx(u8"scratch_cook_test_parallel");
     constexpr i32 kAssets = 48;
     Array<Guid> ids;
     for (i32 i = 0; i < kAssets; ++i)

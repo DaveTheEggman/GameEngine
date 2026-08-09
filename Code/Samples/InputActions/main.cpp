@@ -242,7 +242,7 @@ namespace
 
         [[nodiscard]] static core::String OverlayPath()
         {
-            return core::PathJoin(core::GetUserDataDirectory(u8"draconic").AsView(),
+            return core::PathJoin(core::GetUserDataDirectory().AsView(),
                                   u8"inputactions.rebinds.xml");
         }
 

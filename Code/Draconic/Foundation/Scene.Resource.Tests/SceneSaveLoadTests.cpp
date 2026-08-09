@@ -31,9 +31,9 @@ namespace
 
     void RemoveTree()
     {
-        FileDelete(u8"draconic_scene_db/level.rasset");
-        FileDelete(u8"draconic_scene_db/level.scene.bin");
-        RemoveDirectory(u8"draconic_scene_db");
+        FileDelete(u8"scratch_scene_db/level.rasset");
+        FileDelete(u8"scratch_scene_db/level.scene.bin");
+        RemoveDirectory(u8"scratch_scene_db");
     }
 }
 
@@ -43,7 +43,7 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
     RegisterSerializable<SceneDocument>();
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_scene_db");
+    NativeFileSystem mount(u8"scratch_scene_db");
 
     Guid id;
     Guid heroId, foeId;

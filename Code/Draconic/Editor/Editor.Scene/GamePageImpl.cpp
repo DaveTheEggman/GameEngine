@@ -2,7 +2,7 @@
 //
 // GameEditorPage (play-in-editor phase 8b, docs/design/roadmap.md MVP item 4): a singleton
 // "Game" dock tab hosting the PLAYER behavior - a FRESH run of the project's default scene,
-// exactly what Draconic.Engine.Player does, in-process. Distinct from the ScenePage's Simulate
+// exactly what Engine.Player does, in-process. Distinct from the ScenePage's Simulate
 // (in-place snapshot -> run -> restore): nothing here is edited, so Play builds everything
 // from scratch (fresh Scene + resolve + Start) and Stop tears it all down - total cleanup IS
 // the restore. Renders through the scene's own primary camera (RenderScene with no override;
@@ -252,7 +252,7 @@ namespace editor
             return;
         }
 
-        // Resolution order mirrors Draconic.Engine.Player: the manifest's guid (authoritative,
+        // Resolution order mirrors Engine.Player: the manifest's guid (authoritative,
         // rename-proof), then the path mirror.
         EditorProject& project = *m_context->Project();
         foundation::content::Instance* instance = nullptr;
@@ -279,7 +279,7 @@ namespace editor
         }
         // The play bracket + game script run on THIS tab's GameInstance (game-instance.md §11): its
         // own scene pairing, run host, error sink - so multiple tabs are isolated. Launch the game
-        // script FIRST (task #123 boot reorder, matching Draconic.Engine.Player): launch()/update(dt)
+        // script FIRST (task #123 boot reorder, matching Engine.Player): launch()/update(dt)
         // run before any scene, so a script tested here boots exactly like the shipped player. The
         // page only resolves the script SOURCE (editor project layout) and surfaces notices.
         if (m_gameInstance != nullptr)
@@ -308,7 +308,7 @@ namespace editor
             return;
         }
         // Products bind from the cooked DB (the editor's shared manager); prefab payloads
-        // come from the source DB - the same split Draconic.Engine.Player uses in project mode.
+        // come from the source DB - the same split Engine.Player uses in project mode.
         if (m_context->Resources() != nullptr)
         {
             scene::ResolveSceneResources(*m_scene, *m_context->Resources());

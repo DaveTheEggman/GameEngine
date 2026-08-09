@@ -1462,7 +1462,7 @@ namespace
                     dbg.DrawText3D(core::Float3{0.0f, 0.5f, 0.0f}, core::StringView(u8"origin"),
                                    core::Color{1.0f, 1.0f, 1.0f, 1.0f});
                     render->DebugScreen().DrawScreenText(12.0f, 12.0f,
-                                                         core::StringView(u8"Draconic Debug Draw"),
+                                                         core::StringView(u8"Debug Draw"),
                                                          core::Color{0.6f, 1.0f, 0.6f, 1.0f}, 2.0f);
                 }
 

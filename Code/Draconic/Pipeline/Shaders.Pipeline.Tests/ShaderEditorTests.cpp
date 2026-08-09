@@ -30,11 +30,11 @@ namespace
 
     void RemoveTree()
     {
-        FileDelete(u8"draconic_shader_edit/lit.vs.hlsl");
-        FileDelete(u8"draconic_shader_edit/lit.fs.hlsl");
-        FileDelete(u8"draconic_shader_edit_db/lit.rasset");
-        RemoveDirectory(u8"draconic_shader_edit");
-        RemoveDirectory(u8"draconic_shader_edit_db");
+        FileDelete(u8"scratch_shader_edit/lit.vs.hlsl");
+        FileDelete(u8"scratch_shader_edit/lit.fs.hlsl");
+        FileDelete(u8"scratch_shader_edit_db/lit.rasset");
+        RemoveDirectory(u8"scratch_shader_edit");
+        RemoveDirectory(u8"scratch_shader_edit_db");
     }
 }
 
@@ -48,13 +48,13 @@ TEST_CASE("shader editor: cooks a ShaderAsset -> ShaderSource from two .hlsl fil
 
     // --- author: write the two source files ---
     {
-        NativeFileSystem src(u8"draconic_shader_edit");
+        NativeFileSystem src(u8"scratch_shader_edit");
         REQUIRE(src.Save(u8"lit.vs.hlsl", Bytes(kVtx)).IsOk());
         REQUIRE(src.Save(u8"lit.fs.hlsl", Bytes(kFrag)).IsOk());
     }
 
     // --- cook: ShaderAsset -> ShaderSource in the output DB ---
-    NativeFileSystem outMount(u8"draconic_shader_edit_db");
+    NativeFileSystem outMount(u8"scratch_shader_edit_db");
     Guid id;
     {
         foundation::content::ContentDatabase outDb(
@@ -67,7 +67,7 @@ TEST_CASE("shader editor: cooks a ShaderAsset -> ShaderSource from two .hlsl fil
 
         ShaderAssetBuilder builder;
         REQUIRE(builder.AssetType() == &ShaderAsset::StaticType());
-        NativeFileSystem srcMount(u8"draconic_shader_edit");
+        NativeFileSystem srcMount(u8"scratch_shader_edit");
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
@@ -94,7 +94,7 @@ TEST_CASE("shader editor: missing source file is an error, not a crash")
     RegisterShaderAsset();
     RemoveTree();
 
-    NativeFileSystem outMount(u8"draconic_shader_edit_db");
+    NativeFileSystem outMount(u8"scratch_shader_edit_db");
     foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"missing", ShaderSource::StaticType());
@@ -104,7 +104,7 @@ TEST_CASE("shader editor: missing source file is an error, not a crash")
                            asset);
 
     ShaderAssetBuilder builder;
-    NativeFileSystem srcMount2(u8"draconic_shader_edit");
+    NativeFileSystem srcMount2(u8"scratch_shader_edit");
     pipeline::AssetBuildContext ctx;
     ctx.sources = &srcMount2;
     ctx.output = inst;

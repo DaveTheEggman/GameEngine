@@ -92,7 +92,7 @@ TEST_CASE("core/system: GetEnvironmentVariable + UserDataDir")
     // PATH is defined on every platform we target; a bogus name is absent.
     CHECK(GetEnvironmentVariable(u8"PATH").HasValue());
     CHECK_FALSE(GetEnvironmentVariable(u8"ENV_DEFINITELY_NOT_SET_XYZ_123").HasValue());
-    CHECK(GetUserDataDirectory(u8"draconic").Size() > 0u);
+    CHECK(GetUserDataDirectory().Size() > 0u);
 
     // The running test executable resolves, and its directory is a prefix of the full path.
     const String exePath = GetExecutablePath();

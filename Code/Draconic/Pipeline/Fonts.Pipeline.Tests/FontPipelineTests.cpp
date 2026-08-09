@@ -25,14 +25,14 @@ using namespace foundation::fonts;
 
 namespace
 {
-    constexpr StringView kSourceFont = u8"draconic_fontpipe_src.ttf";
+    constexpr StringView kSourceFont = u8"scratch_fontpipe_src.ttf";
 
     void RemoveTree()
     {
         FileDelete(kSourceFont);
-        FileDelete(u8"draconic_fontpipe_out_db/uifont.rasset");
-        FileDelete(u8"draconic_fontpipe_out_db/uifont.data.bin");
-        RemoveDirectory(u8"draconic_fontpipe_out_db");
+        FileDelete(u8"scratch_fontpipe_out_db/uifont.rasset");
+        FileDelete(u8"scratch_fontpipe_out_db/uifont.data.bin");
+        RemoveDirectory(u8"scratch_fontpipe_out_db");
     }
 
     // Copy the repo's DejaVu Mono beside the test (the sources mount is the CWD).
@@ -49,7 +49,7 @@ TEST_CASE("font.pipeline: FontAsset raster ramp -> cook -> rasterizer-free Font"
     RemoveTree();
     REQUIRE(StageSourceFont());
 
-    NativeFileSystem outMount(u8"draconic_fontpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_fontpipe_out_db");
     Guid id;
     {
         foundation::content::ContentDatabase outDb(
@@ -120,7 +120,7 @@ TEST_CASE("font.pipeline: MSDF bake cooks a DistanceField resource")
     RemoveTree();
     REQUIRE(StageSourceFont());
 
-    NativeFileSystem outMount(u8"draconic_fontpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_fontpipe_out_db");
     Guid id;
     {
         foundation::content::ContentDatabase outDb(
@@ -179,7 +179,7 @@ TEST_CASE("font.pipeline: builder fails on a missing source file")
 {
     RegisterFontAsset();
     RemoveTree();
-    NativeFileSystem outMount(u8"draconic_fontpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_fontpipe_out_db");
     foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"uifont", FontResource::StaticType());

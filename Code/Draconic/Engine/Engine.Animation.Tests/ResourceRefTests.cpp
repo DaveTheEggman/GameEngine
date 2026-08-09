@@ -61,7 +61,7 @@ namespace
 
 TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through proxy handles")
 {
-    const StringView dir = u8"draconic_animref_test_db";
+    const StringView dir = u8"scratch_animref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
     foundation::vfs::NativeFileSystem mount(dir);

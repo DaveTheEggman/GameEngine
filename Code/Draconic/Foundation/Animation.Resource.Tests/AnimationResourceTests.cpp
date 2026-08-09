@@ -21,9 +21,9 @@ namespace
 {
     void RemoveTree()
     {
-        FileDelete(u8"draconic_anim_res_db/skel.rasset");
-        FileDelete(u8"draconic_anim_res_db/clip.rasset");
-        RemoveDirectory(u8"draconic_anim_res_db");
+        FileDelete(u8"scratch_anim_res_db/skel.rasset");
+        FileDelete(u8"scratch_anim_res_db/clip.rasset");
+        RemoveDirectory(u8"scratch_anim_res_db");
     }
 
     // A 2-bone chain root(0) -> child(1), child translated +Y.
@@ -50,7 +50,7 @@ TEST_CASE("skeleton resource: round-trips through the resource manager")
     GlobalTypeRegistry().Register(Skeleton::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_anim_res_db");
+    NativeFileSystem mount(u8"scratch_anim_res_db");
 
     Guid id;
     {
@@ -94,7 +94,7 @@ TEST_CASE("animation clip resource: round-trips tracks + events")
     GlobalTypeRegistry().Register(AnimationClip::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"draconic_anim_res_db");
+    NativeFileSystem mount(u8"scratch_anim_res_db");
 
     Guid id;
     {
@@ -154,10 +154,10 @@ TEST_CASE("animation graph resource: composite - resolves clip refs through the 
     RegisterSerializable<AnimationGraphSource>();
     GlobalTypeRegistry().Register(AnimationGraph::StaticType());
 
-    FileDelete(u8"draconic_anim_res_db/walk.rasset");
-    FileDelete(u8"draconic_anim_res_db/graph.rasset");
-    RemoveDirectory(u8"draconic_anim_res_db");
-    NativeFileSystem mount(u8"draconic_anim_res_db");
+    FileDelete(u8"scratch_anim_res_db/walk.rasset");
+    FileDelete(u8"scratch_anim_res_db/graph.rasset");
+    RemoveDirectory(u8"scratch_anim_res_db");
+    NativeFileSystem mount(u8"scratch_anim_res_db");
 
     Guid graphId;
     {
@@ -216,7 +216,7 @@ TEST_CASE("animation graph resource: composite - resolves clip refs through the 
     // The clip ref resolved to the actual cooked clip (duration 2.0) via the composite Bind.
     CHECK(NearlyEqual(st->Node()->Duration(), 2.0f));
 
-    FileDelete(u8"draconic_anim_res_db/walk.rasset");
-    FileDelete(u8"draconic_anim_res_db/graph.rasset");
-    RemoveDirectory(u8"draconic_anim_res_db");
+    FileDelete(u8"scratch_anim_res_db/walk.rasset");
+    FileDelete(u8"scratch_anim_res_db/graph.rasset");
+    RemoveDirectory(u8"scratch_anim_res_db");
 }

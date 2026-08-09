@@ -21,8 +21,8 @@ namespace
 {
     void RemoveTree()
     {
-        FileDelete(u8"draconic_pfx_db/effect.rasset");
-        RemoveDirectory(u8"draconic_pfx_db");
+        FileDelete(u8"scratch_pfx_db/effect.rasset");
+        RemoveDirectory(u8"scratch_pfx_db");
     }
 
     // A representative two-system effect: a billboard fountain + a mesh burst with a sub-emitter link.
@@ -64,7 +64,7 @@ TEST_CASE("particles.pipeline: code effect -> cook -> Bind reconstructs an equiv
     RegisterParticleEffectResource();
     RemoveTree();
 
-    NativeFileSystem mount(u8"draconic_pfx_db");
+    NativeFileSystem mount(u8"scratch_pfx_db");
     Guid id;
 
     // Cook: author the effect into a ParticleEffectResource record and write it to the DB.

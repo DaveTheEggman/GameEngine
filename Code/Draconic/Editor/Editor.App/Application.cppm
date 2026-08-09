@@ -111,7 +111,7 @@ export namespace editor::app
         [[nodiscard]] editor::EditorProject* Project() const noexcept;
         [[nodiscard]] EditorShell& Shell() noexcept { return m_shell; }
         /// The exe registers every engine builder here (from registerEditors), mirroring the
-        /// Draconic.Tools.Cook CLI's set - the cook service routes through it.
+        /// Tools.Cook CLI's set - the cook service routes through it.
         [[nodiscard]] pipeline::BuilderRegistry& Builders() noexcept { return m_builders; }
         [[nodiscard]] editor::EditorCookService& CookService() noexcept;
 
@@ -180,8 +180,8 @@ export namespace editor::app
         // === Export ===
 
         // Build a fresh export template registry + presets and run one preset (or all) via the shared
-        // driver - the SAME ExportOne/ExportAll the Draconic.Tools.Export CLI calls. The host template comes
-        // from this editor's own Bin dir (where Draconic.Engine.Player + its .runtime-libs live). (Imported
+        // driver - the SAME ExportOne/ExportAll the Tools.Export CLI calls. The host template comes
+        // from this editor's own Bin dir (where Engine.Player + its .runtime-libs live). (Imported
         // cross-platform templates land with the templates-manager UI; host-platform export works now.)
         // Export runs in TWO safe phases so the UI never freezes: (1) cook through the CookService
         // (background + DB-safe - the cook mutates the DB the UI reads), then (2) once the cook finishes

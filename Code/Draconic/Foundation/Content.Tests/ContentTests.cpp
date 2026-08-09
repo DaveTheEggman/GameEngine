@@ -112,12 +112,12 @@ RTTI_DEFINE_OBJECT(MaterialResource, "rtti::content::test")
 
 TEST_CASE("content: binary round-trip")
 {
-    RunRoundTripTest(u8"draconic_content_test_db_bin", u8".rasset", MakeBinaryFactory);
+    RunRoundTripTest(u8"scratch_content_test_db_bin", u8".rasset", MakeBinaryFactory);
 }
 
 TEST_CASE("content: XML round-trip")
 {
-    RunRoundTripTest(u8"draconic_content_test_db_xml", u8".xasset", MakeXmlFactory);
+    RunRoundTripTest(u8"scratch_content_test_db_xml", u8".xasset", MakeXmlFactory);
 }
 
 TEST_CASE("content: DeleteInstance removes envelope + stream sidecars + registrations")
@@ -125,7 +125,7 @@ TEST_CASE("content: DeleteInstance removes envelope + stream sidecars + registra
     GlobalTypeRegistry().Register(MaterialResource::StaticType());
     RegisterSerializable<MaterialResource>();
 
-    const StringView dir = u8"draconic_content_delete_db";
+    const StringView dir = u8"scratch_content_delete_db";
     RemoveTree(dir);
     NativeFileSystem mount(dir);
     ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
@@ -167,7 +167,7 @@ TEST_CASE("content: CloneInstance deep-copies object + sidecars under a fresh gu
     GlobalTypeRegistry().Register(MaterialResource::StaticType());
     RegisterSerializable<MaterialResource>();
 
-    const StringView dir = u8"draconic_content_clone_db";
+    const StringView dir = u8"scratch_content_clone_db";
     RemoveTree(dir);
     FileDelete(JoinPath(dir, u8"materials/copper.xasset"));
     FileDelete(JoinPath(dir, u8"materials/copper.extra.bin"));
@@ -222,7 +222,7 @@ TEST_CASE("content: RenameInstance moves envelope + sidecars; RenameGroup moves 
     GlobalTypeRegistry().Register(MaterialResource::StaticType());
     RegisterSerializable<MaterialResource>();
 
-    const StringView dir = u8"draconic_content_rename_db";
+    const StringView dir = u8"scratch_content_rename_db";
     RemoveTree(dir);
     FileDelete(JoinPath(dir, u8"materials/bronze.xasset"));
     FileDelete(JoinPath(dir, u8"materials/bronze.extra.bin"));
@@ -286,7 +286,7 @@ TEST_CASE("content: DeleteGroup removes the whole subtree - files, directories, 
     GlobalTypeRegistry().Register(MaterialResource::StaticType());
     RegisterSerializable<MaterialResource>();
 
-    const StringView dir = u8"draconic_content_delgroup_db";
+    const StringView dir = u8"scratch_content_delgroup_db";
     // Explicit cleanup (RemoveTree only knows the shared fixture paths).
     auto scrub = [&]()
     {
@@ -359,8 +359,8 @@ TEST_CASE("content: instance guids are unique across database sessions")
     // Regression: the guid rng was default-seeded (fixed PCG constant), so every session
     // replayed the SAME guid sequence - a delete + reimport in a fresh session gave old
     // guids to different assets, cross-typing persisted cook records/products (crash).
-    const StringView dirA = u8"draconic_content_guid_a";
-    const StringView dirB = u8"draconic_content_guid_b";
+    const StringView dirA = u8"scratch_content_guid_a";
+    const StringView dirB = u8"scratch_content_guid_b";
     RemoveTree(dirA);
     RemoveTree(dirB);
     GlobalTypeRegistry().Register(MaterialResource::StaticType());
@@ -405,7 +405,7 @@ TEST_CASE("content: UniqueInstanceName / UniqueGroupName - the one general dedup
     GlobalTypeRegistry().Register(MaterialResource::StaticType());
     RegisterSerializable<MaterialResource>();
 
-    const StringView dir = u8"draconic_content_unique_name_db";
+    const StringView dir = u8"scratch_content_unique_name_db";
     RemoveTree(dir);
     NativeFileSystem mount(dir);
     ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");

@@ -22,9 +22,9 @@ namespace
 {
     void RemoveTree()
     {
-        FileDelete(u8"draconic_mesh_edit_db/cube.rasset");
-        FileDelete(u8"draconic_mesh_edit_db/skinned.rasset");
-        RemoveDirectory(u8"draconic_mesh_edit_db");
+        FileDelete(u8"scratch_mesh_edit_db/cube.rasset");
+        FileDelete(u8"scratch_mesh_edit_db/skinned.rasset");
+        RemoveDirectory(u8"scratch_mesh_edit_db");
     }
 }
 
@@ -35,7 +35,7 @@ TEST_CASE("mesh editor: cooks a StaticMeshAsset -> StaticMeshSource")
     RegisterMeshAssets();
 
     RemoveTree();
-    NativeFileSystem outMount(u8"draconic_mesh_edit_db");
+    NativeFileSystem outMount(u8"scratch_mesh_edit_db");
     Guid id;
 
     {
@@ -76,7 +76,7 @@ TEST_CASE("mesh editor: cooks a SkinnedMeshAsset -> SkinnedMeshSource")
     RegisterMeshAssets();
 
     RemoveTree();
-    NativeFileSystem outMount(u8"draconic_mesh_edit_db");
+    NativeFileSystem outMount(u8"scratch_mesh_edit_db");
     Guid id;
 
     {

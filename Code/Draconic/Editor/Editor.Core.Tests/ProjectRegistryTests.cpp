@@ -93,7 +93,7 @@ TEST_CASE("project-registry: remove deletes a row; the section round-trips the s
     CHECK(store.Section<RecentProjectsSettings>().entries.Size() == 1u);
 
     // Round-trip through the fs-explicit editor-settings helpers (the store's real backend).
-    const StringView dir = u8"draconic_registry_roundtrip_test";
+    const StringView dir = u8"scratch_registry_roundtrip_test";
     (void)CreateDirectory(dir);
     vfs::NativeFileSystem fs(dir);
     REQUIRE(SaveEditorSettings(*fs.AsWritable(), store).IsOk());
@@ -111,7 +111,7 @@ TEST_CASE("project-registry: remove deletes a row; the section round-trips the s
 
 TEST_CASE("project-registry: probe reads the manifest without opening; NotFound for non-projects")
 {
-    const StringView dir = u8"draconic_registry_probe_test";
+    const StringView dir = u8"scratch_registry_probe_test";
     RemoveProjectTree(dir);
 
     engine::project::ProjectSettings probed;
@@ -155,7 +155,7 @@ TEST_CASE("project-registry: engine-version relation")
 
 TEST_CASE("project-registry: manifest backup copies Project.xml beside itself")
 {
-    const StringView dir = u8"draconic_registry_backup_test";
+    const StringView dir = u8"scratch_registry_backup_test";
     RemoveProjectTree(dir);
     REQUIRE(EditorProject::Create(dir, u8"Backup Me").IsOk());
 
@@ -169,7 +169,7 @@ TEST_CASE("project-registry: manifest backup copies Project.xml beside itself")
     FileDelete(backup.Value().AsView());
     RemoveProjectTree(dir);
 
-    CHECK_FALSE(BackupProjectManifest(u8"draconic_registry_no_such_dir").HasValue());
+    CHECK_FALSE(BackupProjectManifest(u8"scratch_registry_no_such_dir").HasValue());
 }
 
 TEST_CASE("project-manager controller: open gates + prompt copy + registry pass-through")
@@ -180,11 +180,11 @@ TEST_CASE("project-manager controller: open gates + prompt copy + registry pass-
 
     // Not a project.
     ProjectManagerController::OpenDecision decision;
-    controller.DecideOpen(u8"draconic_manager_no_such_dir", decision);
+    controller.DecideOpen(u8"scratch_manager_no_such_dir", decision);
     CHECK(decision.gate == ProjectOpenGate::NotAProject);
 
     // A freshly scaffolded project is stamped with THIS engine: opens directly.
-    const StringView dir = u8"draconic_manager_gate_test";
+    const StringView dir = u8"scratch_manager_gate_test";
     RemoveProjectTree(dir);
     REQUIRE(controller.Create(dir, u8"Gate Test").IsOk());
     controller.DecideOpen(dir, decision);
@@ -234,7 +234,7 @@ TEST_CASE("project-manager controller: open gates + prompt copy + registry pass-
 
 TEST_CASE("project manifest v7: defaultUiFontId (and the once-dropped defaults) round-trip Open")
 {
-    const StringView dir = u8"draconic_manifest_v7_test";
+    const StringView dir = u8"scratch_manifest_v7_test";
     RemoveProjectTree(dir);
     REQUIRE(EditorProject::Create(dir, u8"V7 Test").IsOk());
 

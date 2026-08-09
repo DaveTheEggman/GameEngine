@@ -1,4 +1,4 @@
-// Draconic.Engine.Player - the generic game runner (MVP-to-Export milestone, docs/design/roadmap.md).
+// Engine.Player - the generic game runner (MVP-to-Export milestone, docs/design/roadmap.md).
 //
 // Runs a project with ZERO native game code: engine subsystems + the project's content +
 // the default scene, simulating - and, when the manifest names one, the project's GAME SCRIPT
@@ -10,13 +10,13 @@
 // This is the DESKTOP entry point (SDL shell + a --backend-selected device + the blocking desktop
 // runner + CLI args). The browser sibling is WebMain.cpp; both share PlayerApplication.h.
 //
-// Usage: Draconic.Engine.Player <projectDir> [--scene <source-db-path>] [--exit-after <seconds>]
+// Usage: Engine.Player <projectDir> [--scene <source-db-path>] [--exit-after <seconds>]
 //
 // Two modes, detected by layout:
 //   PROJECT dir (Project.xml): scenes load from the authored source DB (their cooked form IS
 //     the authored form - scenes are builder-less by design), products resolve from Cooked/ -
 //     the editor's own runtime path. The dev loop.
-//   DIST dir (Content.pak + player.xml, staged by Draconic.Tools.Export): ONE binary DB inside the pak
+//   DIST dir (Content.pak + player.xml, staged by Tools.Export): ONE binary DB inside the pak
 //     holds products AND scenes; the game script rides in the pak as a raw entry. Zero editor
 //     code links into this binary - the shipping shape.
 
@@ -152,7 +152,7 @@ int main(int argc, char** argv)
     auto shellPtr = shell::CreateShell(ws);
     if (shellPtr.Get() == nullptr || shellPtr->MainWindow() == nullptr)
     {
-        std::fprintf(stderr, "Draconic.Engine.Player: failed to create the OS shell/window\n");
+        std::fprintf(stderr, "Engine.Player: failed to create the OS shell/window\n");
         return 1;
     }
 
@@ -164,7 +164,7 @@ int main(int argc, char** argv)
     auto gpu = graphics::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())
     {
-        std::fprintf(stderr, "Draconic.Engine.Player: failed to create the graphics device\n");
+        std::fprintf(stderr, "Engine.Player: failed to create the graphics device\n");
         return 1;
     }
 

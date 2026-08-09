@@ -10,15 +10,15 @@ using namespace foundation::vfs;
 
 TEST_CASE("vfs: NativeFileSystem read + scheme-routed VirtualFileSystem")
 {
-    const StringView file = u8"draconic_vfs_test.tmp";
+    const StringView file = u8"scratch_vfs_test.tmp";
     const byte data[] = {byte{7}, byte{8}, byte{9}};
     REQUIRE(WriteFile(file, Span<const byte>{data, ArrayCount(data)}).IsOk());
 
     NativeFileSystem native(u8".");
-    CHECK(native.Exists(u8"draconic_vfs_test.tmp"));
-    CHECK_FALSE(native.Exists(u8"draconic_vfs_nope.xyz"));
+    CHECK(native.Exists(u8"scratch_vfs_test.tmp"));
+    CHECK_FALSE(native.Exists(u8"scratch_vfs_nope.xyz"));
     {
-        UniquePtr<IStream> stream = native.Open(u8"draconic_vfs_test.tmp", FileMode::Read);
+        UniquePtr<IStream> stream = native.Open(u8"scratch_vfs_test.tmp", FileMode::Read);
         REQUIRE(static_cast<bool>(stream));
         byte buffer[3] = {};
         CHECK(stream->Read(buffer, 3) == 3u);
@@ -31,12 +31,12 @@ TEST_CASE("vfs: NativeFileSystem read + scheme-routed VirtualFileSystem")
     vfs.Mount(u8"assets", native);
     CHECK(vfs.GetMount(u8"assets") == &native);
     CHECK(vfs.GetMount(u8"missing") == nullptr);
-    CHECK(vfs.Exists(u8"assets://draconic_vfs_test.tmp"));
+    CHECK(vfs.Exists(u8"assets://scratch_vfs_test.tmp"));
     CHECK_FALSE(vfs.Exists(u8"assets://nope.xyz"));
     CHECK_FALSE(vfs.Exists(u8"unmounted://whatever"));
     CHECK_FALSE(vfs.Exists(u8"schemeless/path")); // no scheme -> rejected
     {
-        UniquePtr<IStream> stream = vfs.Open(u8"assets://draconic_vfs_test.tmp", FileMode::Read);
+        UniquePtr<IStream> stream = vfs.Open(u8"assets://scratch_vfs_test.tmp", FileMode::Read);
         REQUIRE(static_cast<bool>(stream));
         byte b = byte{0};
         CHECK(stream->Read(&b, 1) == 1u);
@@ -74,13 +74,13 @@ TEST_CASE("vfs: writable + enumerable round-trip")
     // Save creates intermediate directories.
     const byte payload[] = {byte{1}, byte{2}, byte{3}, byte{4}};
     REQUIRE(
-        w->Save(u8"draconic_vfs_dir/sub/blob.bin", Span<const byte>{payload, ArrayCount(payload)})
+        w->Save(u8"scratch_vfs_dir/sub/blob.bin", Span<const byte>{payload, ArrayCount(payload)})
             .IsOk());
-    CHECK(native.Exists(u8"draconic_vfs_dir/sub/blob.bin"));
+    CHECK(native.Exists(u8"scratch_vfs_dir/sub/blob.bin"));
 
     // Enumerate the subfolder; the blob is listed and is not a directory.
     Array<DirEntry> entries;
-    REQUIRE(e->Enumerate(u8"draconic_vfs_dir/sub", entries).IsOk());
+    REQUIRE(e->Enumerate(u8"scratch_vfs_dir/sub", entries).IsOk());
     bool foundBlob = false;
     for (const DirEntry& entry : entries)
     {
@@ -94,7 +94,7 @@ TEST_CASE("vfs: writable + enumerable round-trip")
 
     // Enumerate the parent; "sub" is listed as a directory.
     Array<DirEntry> parent;
-    REQUIRE(e->Enumerate(u8"draconic_vfs_dir", parent).IsOk());
+    REQUIRE(e->Enumerate(u8"scratch_vfs_dir", parent).IsOk());
     bool foundSub = false;
     for (const DirEntry& entry : parent)
     {
@@ -108,12 +108,12 @@ TEST_CASE("vfs: writable + enumerable round-trip")
 
     // Enumerate of a missing folder fails.
     Array<DirEntry> missing;
-    CHECK_FALSE(e->Enumerate(u8"draconic_vfs_dir/nope", missing).IsOk());
+    CHECK_FALSE(e->Enumerate(u8"scratch_vfs_dir/nope", missing).IsOk());
 
     // Cleanup.
-    CHECK(w->Delete(u8"draconic_vfs_dir/sub/blob.bin").IsOk());
-    CHECK(RemoveDirectory(u8"draconic_vfs_dir/sub"));
-    CHECK(RemoveDirectory(u8"draconic_vfs_dir"));
+    CHECK(w->Delete(u8"scratch_vfs_dir/sub/blob.bin").IsOk());
+    CHECK(RemoveDirectory(u8"scratch_vfs_dir/sub"));
+    CHECK(RemoveDirectory(u8"scratch_vfs_dir"));
 }
 
 TEST_CASE("vfs: NativeFileSystem stat reports size + modified time")
@@ -148,7 +148,7 @@ TEST_CASE("vfs: NativeFileSystem stat reports size + modified time")
 
 TEST_CASE("vfs: NativeFileSystem change source detects adds, edits, and removals")
 {
-    const StringView dir = u8"draconic_vfs_watch_dir";
+    const StringView dir = u8"scratch_vfs_watch_dir";
     NativeFileSystem cleaner(dir);
     {
         Array<DirEntry> entries;

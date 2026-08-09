@@ -691,7 +691,7 @@ TEST_CASE("edit-context: scene-setting edits are undoable commands and merge lik
 TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right shader")
 {
     pipeline::RegisterMaterialAsset();
-    const StringView dir = u8"draconic_editor_mat_creator_test";
+    const StringView dir = u8"scratch_editor_mat_creator_test";
     auto scrub = [&]()
     {
         FileDelete(PathJoin(dir, u8"Project.xml"));

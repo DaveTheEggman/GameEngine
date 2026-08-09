@@ -48,7 +48,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     // ---- Shell: window via the desktop (SDL3) shell ----
     shell::WindowSettings ws{};
-    ws.title = u8"Draconic Smoketest";
+    ws.title = u8"RHI Smoketest";
     ws.width = 1280;
     ws.height = 720;
     UniquePtr<shell::IShell> plat = shell::CreateShell(ws);

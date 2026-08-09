@@ -444,11 +444,11 @@ TEST_CASE("audio.scene: the Wren Audio facade plays clips/cues/music by CONTENT 
     RegisterAudioResource();
 
     // A hand-cooked content DB: sfx/beep (clip) + sfx/steps (cue referencing it).
-    const StringView dir = u8"draconic_audio_scriptdb";
-    FileDelete(u8"draconic_audio_scriptdb/sfx/beep.rasset");
-    FileDelete(u8"draconic_audio_scriptdb/sfx/beep.data.bin");
-    FileDelete(u8"draconic_audio_scriptdb/sfx/steps.rasset");
-    RemoveDirectory(u8"draconic_audio_scriptdb/sfx");
+    const StringView dir = u8"scratch_audio_scriptdb";
+    FileDelete(u8"scratch_audio_scriptdb/sfx/beep.rasset");
+    FileDelete(u8"scratch_audio_scriptdb/sfx/beep.data.bin");
+    FileDelete(u8"scratch_audio_scriptdb/sfx/steps.rasset");
+    RemoveDirectory(u8"scratch_audio_scriptdb/sfx");
     RemoveDirectory(dir);
     foundation::vfs::NativeFileSystem mount(dir);
     foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
@@ -523,10 +523,10 @@ TEST_CASE("audio.scene: the Wren Audio facade plays clips/cues/music by CONTENT 
     CHECK_FALSE(bare->GetGlobal(u8"Played").Get<bool>());
 
     subsystem.Shutdown();
-    FileDelete(u8"draconic_audio_scriptdb/sfx/beep.rasset");
-    FileDelete(u8"draconic_audio_scriptdb/sfx/beep.data.bin");
-    FileDelete(u8"draconic_audio_scriptdb/sfx/steps.rasset");
-    RemoveDirectory(u8"draconic_audio_scriptdb/sfx");
+    FileDelete(u8"scratch_audio_scriptdb/sfx/beep.rasset");
+    FileDelete(u8"scratch_audio_scriptdb/sfx/beep.data.bin");
+    FileDelete(u8"scratch_audio_scriptdb/sfx/steps.rasset");
+    RemoveDirectory(u8"scratch_audio_scriptdb/sfx");
     RemoveDirectory(dir);
 }
 

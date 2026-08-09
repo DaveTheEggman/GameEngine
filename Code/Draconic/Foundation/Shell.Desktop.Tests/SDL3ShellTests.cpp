@@ -52,7 +52,7 @@ namespace
 TEST_CASE("shell.desktop: SDL3 shell creates a window and reports state")
 {
     WindowSettings settings;
-    settings.title = u8"Draconic Test";
+    settings.title = u8"Shell Test";
     settings.width = 640;
     settings.height = 480;
 

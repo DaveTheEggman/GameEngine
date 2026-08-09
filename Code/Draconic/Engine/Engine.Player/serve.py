@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Serve a Draconic web export from THIS folder. Python 3 stdlib only.
 #
-#   python3 serve.py [port]        (default 8000)  ->  http://localhost:8000/Draconic.Engine.Player.html
+#   python3 serve.py [port]        (default 8000)  ->  http://localhost:8000/Engine.Player.html
 #
 # A plain static server is not quite enough for a wasm app:
 #   - .wasm needs the application/wasm MIME type (streaming compile),
@@ -38,5 +38,5 @@ class Server(socketserver.TCPServer):
 
 with Server(("", PORT), Handler) as httpd:
     print(f"serving on http://localhost:{PORT}/ (Ctrl+C to stop)")
-    print(f"open   http://localhost:{PORT}/Draconic.Engine.Player.html")
+    print(f"open   http://localhost:{PORT}/Engine.Player.html")
     httpd.serve_forever()
