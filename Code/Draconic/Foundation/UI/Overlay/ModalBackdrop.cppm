@@ -14,12 +14,12 @@ import :view;
 import :draw_context;
 import :event_args;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     // Alias so the faithful `Color` field name can still name the core Color type (field shadows type).
-    using ColorValue = draconic::core::Color;
+    using ColorValue = foundation::core::Color;
 
     class ModalBackdrop : public View
     {

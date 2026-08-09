@@ -25,11 +25,12 @@ import draconic.scene;
 import draconic.script;
 import draconic.resource; // ResourceManager - the run's resource-swap seam (Track A resource refs)
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::script
+export namespace foundation::script
 {
-    namespace scene = draconic::scene;
+    namespace scene = foundation::scene;
 
     /// The service key the gameplay facades (Time/Random) resolve per context.
     inline constexpr StringView kScriptRuntimeService = u8"script.runtime";
@@ -85,7 +86,7 @@ export namespace draconic::script
         // LATE-BOUND (a getter, not a stored ptr) so it is correct regardless of the order the host
         // wires things: the composition root owns the manager (DefaultApplication::Resources()) and
         // installs this. Null / returns null on a bare cook VM => the swap sets the id only (unbound).
-        core::Function<draconic::resource::ResourceManager*()> resolveResources;
+        core::Function<foundation::resource::ResourceManager*()> resolveResources;
     };
 
     // ---- the curated behavior facades (camelCase = the script-visible names, the
@@ -432,7 +433,7 @@ export namespace draconic::script
     /// The `Component.of(entity)` factory body (OPTION 1, spec Section 12): a re-resolving handle
     /// of component type T for `entity`, as a RESOLVE-mode Variant. Reflect it on T with the
     /// ReturnType-override so the declared script return IS T:
-    ///     builder.Method<&draconic::script::ComponentOf<T>, T>("of");
+    ///     builder.Method<&foundation::script::ComponentOf<T>, T>("of");
     /// GENERIC - every component-owning module reuses this one body; empty (a clean null in script)
     /// when the entity's scene has no manager for T. The type must also be registered
     /// (GlobalTypeRegistry) + seeded as a Wren emission root + given an extra facade name.
@@ -448,7 +449,7 @@ export namespace draconic::script
     /// on a bare cook VM / when no host wired it. The one place Track A resource-swap ops (a
     /// SceneRender.setMesh, an AudioSource.setClip, ...) reach the manager to Bind a resource id
     /// onto a component's resource::Ref. No ambient scene state - the binding is per-run.
-    [[nodiscard]] inline draconic::resource::ResourceManager* CurrentRunResources()
+    [[nodiscard]] inline foundation::resource::ResourceManager* CurrentRunResources()
     {
         IScriptContext* context = CurrentScriptContext();
         auto* binding =

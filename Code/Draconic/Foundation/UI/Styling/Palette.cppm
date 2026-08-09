@@ -16,10 +16,10 @@ import :color_drawable;
 import :rounded_rect_drawable;
 import :state_list_drawable;
 
-using namespace draconic::core;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace vg = foundation::vg;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct Palette
     {

@@ -11,9 +11,9 @@ export module draconic.model:model_texture;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::model
+export namespace foundation::model
 {
 
     /// Texture wrapping mode.
@@ -169,4 +169,4 @@ export namespace draconic::model
         i32 m_dataSize = 0;
     };
 
-} // namespace draconic::model
+} // namespace foundation::model

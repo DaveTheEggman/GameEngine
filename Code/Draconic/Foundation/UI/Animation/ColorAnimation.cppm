@@ -12,9 +12,9 @@ export module draconic.ui:color_animation;
 import draconic.core;
 import :animation;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ColorAnimation : public Animation
     {

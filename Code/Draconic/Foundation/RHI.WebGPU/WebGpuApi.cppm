@@ -29,7 +29,7 @@ export module draconic.rhi.webgpu:api;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 #if DRACONIC_PLATFORM_WEB
 // Dawn's webgpu.h (the emdawnwebgpu web port) declares none of the wgpu-native extensions,
@@ -38,23 +38,23 @@ using namespace draconic::core;
 // wgpu.h puts them on desktop - that those members are well-formed function pointers. These
 // symbols are never defined, never bound (LoadWebGpuApi binds only the STANDARD list on web),
 // and never invoked (every call site null-guards), so no definition or link dependency exists.
-using WGPUSubmissionIndex = draconic::core::u64;
+using WGPUSubmissionIndex = foundation::core::u64;
 struct WGPUInstanceEnumerateAdapterOptions;
 using WGPULogCallback = void (*)(int, char const*, void*);
 extern "C"
 {
-    draconic::core::usize wgpuInstanceEnumerateAdapters(WGPUInstance, WGPUInstanceEnumerateAdapterOptions const*, WGPUAdapter*);
+    foundation::core::usize wgpuInstanceEnumerateAdapters(WGPUInstance, WGPUInstanceEnumerateAdapterOptions const*, WGPUAdapter*);
     WGPUBool wgpuDevicePoll(WGPUDevice, WGPUBool, WGPUSubmissionIndex const*);
-    WGPUSubmissionIndex wgpuQueueSubmitForIndex(WGPUQueue, draconic::core::usize, WGPUCommandBuffer const*);
+    WGPUSubmissionIndex wgpuQueueSubmitForIndex(WGPUQueue, foundation::core::usize, WGPUCommandBuffer const*);
     float wgpuQueueGetTimestampPeriod(WGPUQueue);
     void wgpuSetLogCallback(WGPULogCallback, void*);
-    void wgpuRenderPassEncoderSetImmediates(WGPURenderPassEncoder, draconic::core::u32, void const*, draconic::core::usize);
-    void wgpuComputePassEncoderSetImmediates(WGPUComputePassEncoder, draconic::core::u32, void const*, draconic::core::usize);
-    void wgpuRenderBundleEncoderSetImmediates(WGPURenderBundleEncoder, draconic::core::u32, void const*, draconic::core::usize);
+    void wgpuRenderPassEncoderSetImmediates(WGPURenderPassEncoder, foundation::core::u32, void const*, foundation::core::usize);
+    void wgpuComputePassEncoderSetImmediates(WGPUComputePassEncoder, foundation::core::u32, void const*, foundation::core::usize);
+    void wgpuRenderBundleEncoderSetImmediates(WGPURenderBundleEncoder, foundation::core::u32, void const*, foundation::core::usize);
 }
 #endif
 
-namespace draconic::rhi::webgpu
+namespace foundation::rhi::webgpu
 {
     // Every STANDARD wgpu entry point the backend uses - present in both the desktop
     // wgpu-native header and Dawn's webgpu.h (the emdawnwebgpu web port). decltype(&::fn)

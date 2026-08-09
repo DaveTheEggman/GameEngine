@@ -25,20 +25,20 @@ import draconic.runtime;
 import draconic.scene;
 import draconic.engine.scene;
 import draconic.script;
-import draconic.script.facades; // draconic::script::Entity (the raycast/contact hit entity)
+import draconic.script.facades; // foundation::script::Entity (the raycast/contact hit entity)
 import draconic.physics;
 // NOTE: no render imports HERE - the debug-draw path lives in SubsystemImpl.cpp (a module
 // implementation unit). Keeping heavyweight imports out of the interface matters for
 // GCC's module loader (-fno-module-lazy consumers force-load the whole import graph).
 
-using namespace draconic::core;
-using namespace draconic::physics;
-using namespace draconic::engine::scene;
+using namespace foundation::core;
+using namespace foundation::physics;
+using namespace engine::scene;
 
-export namespace draconic::engine::physics
+export namespace engine::physics
 {
-    // Foundation aliases (sibling draconic::engine::* namespaces would otherwise shadow these).
-    namespace scene = draconic::scene;
+    // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
+    namespace scene = foundation::scene;
 
     // The body user word carries the owning entity handle. EntityHandle is {u32 index,
     // u32 generation} = exactly 64 bits and unique BY CONSTRUCTION (the generation rejects
@@ -666,7 +666,7 @@ export namespace draconic::engine::physics
 
     // The runtime subsystem: injects the managers + system into every scene (ISceneAware)
     // and drives render-frame interpolation + debug draw with the engine's fixed alpha.
-    class PhysicsSubsystem final : public draconic::runtime::Subsystem, public scene::ISceneAware
+    class PhysicsSubsystem final : public foundation::runtime::Subsystem, public scene::ISceneAware
     {
     public:
         /// Register a consumer of resolved contacts (the script subsystem). Duplicates are
@@ -733,9 +733,9 @@ export namespace draconic::engine::physics
         void OnInit() override { RegisterPhysicsComponentReflection(); }
         void OnReady() override
         {
-            if (draconic::runtime::Context* context = GetContext())
+            if (foundation::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<engine::scene::SceneSubsystem>())
                 {
                     scenes->RegisterSceneAware(this);
                 }
@@ -743,9 +743,9 @@ export namespace draconic::engine::physics
         }
         void OnShutdown() override
         {
-            if (draconic::runtime::Context* context = GetContext())
+            if (foundation::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<engine::scene::SceneSubsystem>())
                 {
                     scenes->UnregisterSceneAware(this);
                 }
@@ -860,19 +860,19 @@ export namespace draconic::engine::physics
         }
         // The ENTITY the last rayCast hit (from the body's packed user word), or an invalid Entity on
         // a miss / a body whose entity is no longer live.
-        [[nodiscard]] draconic::script::Entity rayHitEntity() const
+        [[nodiscard]] foundation::script::Entity rayHitEntity() const
         {
             PhysicsSceneSystem* s = System();
             if (s == nullptr || !s->LastHitValid() || scene == nullptr)
             {
-                return draconic::script::Entity{};
+                return foundation::script::Entity{};
             }
             const scene::EntityHandle handle = UnpackEntity(s->LastHit().userData);
             if (!scene->IsValid(handle))
             {
-                return draconic::script::Entity{};
+                return foundation::script::Entity{};
             }
-            draconic::script::Entity entity;
+            foundation::script::Entity entity;
             entity.scene = scene;
             entity.entityIndex = handle.index;
             entity.entityGeneration = handle.generation;
@@ -899,7 +899,7 @@ export namespace draconic::engine::physics
         // op - a genuine WORLD operation, so it lives on scene.physics keyed by the entity, not on
         // the component data which cannot reach the world). No-op if the entity has no rigid body or
         // its body is not yet created. Fixes the "no scriptable impulse on a dynamic body" gap.
-        void applyImpulse(draconic::script::Entity entity, f32 x, f32 y, f32 z)
+        void applyImpulse(foundation::script::Entity entity, f32 x, f32 y, f32 z)
         {
             PhysicsWorld* world = World();
             if (world == nullptr || scene == nullptr)
@@ -915,7 +915,7 @@ export namespace draconic::engine::physics
         }
 
         // The OPTION 1 factory: ScenePhysics.of(scene). Argument is the bound Scene facade.
-        [[nodiscard]] static ScenePhysics of(draconic::script::Scene sceneHandle)
+        [[nodiscard]] static ScenePhysics of(foundation::script::Scene sceneHandle)
         {
             return ScenePhysics{sceneHandle.scene};
         }

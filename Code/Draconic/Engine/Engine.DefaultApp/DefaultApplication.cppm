@@ -67,18 +67,16 @@ import draconic.net.manager;   // NetworkManager + NetworkStartup/StartNetworkin
 import draconic.engine.net; // NetworkSubsystem (injects the NetworkComponentManager into scenes)
 import draconic.profiler;      // the CPU scope profiler (P-key dump)
 
-namespace rhi = draconic::rhi;
-namespace core = draconic::core;
-namespace net = draconic::net;   // NetworkManager + NetworkStartup + the Net facade
-using namespace draconic::runtime; // foundation runtime: IApplication/IApplicationHost/Subsystem/Context
-using namespace draconic::shell; // IShell + input/window types (moved from draconic::runtime)
-using namespace draconic::
-    graphics; // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
+namespace core = foundation::core;
+namespace net = foundation::net;   // NetworkManager + NetworkStartup + the Net facade
+using namespace foundation::runtime; // foundation runtime: IApplication/IApplicationHost/Subsystem/Context
+using namespace foundation::shell; // IShell + input/window types (moved from foundation::runtime)
+using namespace foundation::graphics; // GraphicsDevice/RenderWindow/FrameContext (moved from foundation::runtime)
 
-export namespace draconic::engine::runtime
+export namespace engine::runtime
 {
-    // Foundation aliases (sibling draconic::engine::* namespaces would otherwise shadow these).
-    namespace net = draconic::net;
+    // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
+    namespace net = foundation::net;
 
     class DefaultApplication : public IApplication
     {
@@ -99,7 +97,7 @@ export namespace draconic::engine::runtime
         // one place (runtime-host.md v3).
         void Configure(IApplicationHost& host) override;
 
-        [[nodiscard]] draconic::engine::script::ScriptSubsystem* Scripts() const noexcept;
+        [[nodiscard]] engine::script::ScriptSubsystem* Scripts() const noexcept;
 
         /// The app's running game (N=1 today). The launch flow creates the game scene in its
         /// Scenes() manager so it groups + ticks + renders as this run's scenes.
@@ -108,7 +106,7 @@ export namespace draconic::engine::runtime
         /// The primary instance's scene group - a scene created here renders (the app renders instance
         /// scenes; there is no default manager). Returns SceneManager& directly so callers need not
         /// name GameInstance.
-        [[nodiscard]] draconic::scene::SceneManager& PrimaryScenes() noexcept;
+        [[nodiscard]] foundation::scene::SceneManager& PrimaryScenes() noexcept;
 
         /// Create an ADDITIONAL running game (multi-instance PIE / an in-editor headless dedicated
         /// server, game-instance.md §11 / networking.md). Wired like the primary - its scene group ticks
@@ -121,9 +119,9 @@ export namespace draconic::engine::runtime
         /// run host, and frees it. The PRIMARY instance is permanent (a member) - a no-op for it.
         void ReleaseInstance(GameInstance* instance);
 
-        [[nodiscard]] draconic::engine::input::InputSubsystem* Input() const noexcept { return m_input; }
-        [[nodiscard]] draconic::engine::physics::PhysicsSubsystem* Physics() const noexcept;
-        [[nodiscard]] draconic::engine::audio::AudioSubsystem* Audio() const noexcept { return m_audio; }
+        [[nodiscard]] engine::input::InputSubsystem* Input() const noexcept { return m_input; }
+        [[nodiscard]] engine::physics::PhysicsSubsystem* Physics() const noexcept;
+        [[nodiscard]] engine::audio::AudioSubsystem* Audio() const noexcept { return m_audio; }
 
         /// Preset BEFORE Configure: the PRIMARY instance enters a server/client role at startup
         /// (default = single-player, no socket). The player's launch flow / editor Game tab fills this
@@ -138,8 +136,8 @@ export namespace draconic::engine::runtime
         void OnFixedUpdate(IApplicationHost& host, core::f32 fixedDeltaTime) override;
         /// Preset BEFORE Configure: audio engine tuning (listener count for split-screen,
         /// voice pool sizes). Defaults suit a single-listener game.
-        void SetAudioEngineSettings(const draconic::audio::AudioEngineSettings& settings);
-        [[nodiscard]] draconic::engine::ui::UISubsystem* UI() const noexcept { return m_ui; }
+        void SetAudioEngineSettings(const foundation::audio::AudioEngineSettings& settings);
+        [[nodiscard]] engine::ui::UISubsystem* UI() const noexcept { return m_ui; }
 
         /// TTF for the game UI's default font (preset BEFORE Configure; the editor passes
         /// its own font path, the player defaults to the dev-tree Roboto).
@@ -152,17 +150,17 @@ export namespace draconic::engine::runtime
         // its cooked DB and lets the app build the manager. ----
 
         /// Borrow an existing manager (editor). Wins over SetContentDatabase.
-        void SetResourceManager(draconic::resource::ResourceManager* borrowed) noexcept;
+        void SetResourceManager(foundation::resource::ResourceManager* borrowed) noexcept;
         /// LATE-bind a borrowed manager after OnStartup (the editor's project manager opens
         /// and closes projects at runtime): sets the borrow AND registers the app's standard
         /// resource factories into it - exactly what OnStartup does for a preset manager.
         /// Pass null to detach (the editor destroys the old manager after this returns; the
         /// app's lazy Resources() consumers all tolerate null between projects).
-        void AttachResourceManager(draconic::resource::ResourceManager* borrowed,
+        void AttachResourceManager(foundation::resource::ResourceManager* borrowed,
                                    IApplicationHost& host);
         /// The cooked-content database the app should build its OWN manager over (player).
-        void SetContentDatabase(draconic::content::IContentDatabase* database) noexcept;
-        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept;
+        void SetContentDatabase(foundation::content::IContentDatabase* database) noexcept;
+        [[nodiscard]] foundation::resource::ResourceManager* Resources() const noexcept;
 
         // Registers the runtime product types + the STANDARD resource factories into the
         // preset/created manager. Subclasses overriding OnStartup call the base AFTER
@@ -176,12 +174,12 @@ export namespace draconic::engine::runtime
 
         /// The scene whose time scale the script's update(dt) follows (and, later, the
         /// scene game services bind against). Set by the launch flow; null = context time.
-        void SetPrimaryScene(draconic::scene::Scene* scene) noexcept;
-        [[nodiscard]] draconic::scene::Scene* PrimaryScene() const noexcept;
+        void SetPrimaryScene(foundation::scene::Scene* scene) noexcept;
+        [[nodiscard]] foundation::scene::Scene* PrimaryScene() const noexcept;
 
         /// Optional per-run error sink (the editor surfaces notices); set BEFORE
         /// StartGameScript, cleared automatically on StopGameScript.
-        void SetGameScriptErrorHandler(draconic::script::IScriptErrorHandler* handler) noexcept;
+        void SetGameScriptErrorHandler(foundation::script::IScriptErrorHandler* handler) noexcept;
 
         /// Compiles + launches the game script from source text - delegated to the run's GameInstance.
         /// The CALLER resolves where the source lives (player: project file / pak entry; editor:
@@ -204,7 +202,7 @@ export namespace draconic::engine::runtime
         // Game.loadSceneAsync). Base = Start + SetSimulationEnabled (the generic half). The player
         // overrides to seed a default camera first (EnsureCamera) so a script-loaded level renders.
         // SetScene (current-scene bookkeeping) is done by GameInstance::PumpScriptLoads BEFORE this.
-        virtual void ApplyLoadedSceneActivation(draconic::scene::Scene* scene);
+        virtual void ApplyLoadedSceneActivation(foundation::scene::Scene* scene);
 
     private:
         // Install the Game.* level-load facade on ONE instance's run host (task #123): the six
@@ -215,48 +213,48 @@ export namespace draconic::engine::runtime
 
         // The standard factory set, registered into whichever manager the app uses (preset at
         // OnStartup or late-attached by the editor's project manager).
-        void RegisterStandardFactories(draconic::resource::ResourceManager& resources,
+        void RegisterStandardFactories(foundation::resource::ResourceManager& resources,
                                        IApplicationHost& host);
 
         // Bridges physics contacts to the script subsystem's neutral ingress. The one place
         // physics and script meet for contacts; the adapter itself lives out-of-tree in
         // draconic.engine.integration so the two subsystems stay mutually independent.
-        draconic::engine::integration::ScriptPhysicsContactBridge m_contactBridge;
+        engine::integration::ScriptPhysicsContactBridge m_contactBridge;
 
-        draconic::geometry::StaticMeshFactory m_meshFactory;
-        draconic::geometry::SkinnedMeshFactory m_skinnedMeshFactory;
-        draconic::materials::MaterialFactory m_materialFactory;
-        draconic::animation::SkeletonFactory m_skeletonFactory;
-        draconic::animation::AnimationClipFactory m_animationClipFactory;
-        draconic::animation::AnimationGraphFactory m_animationGraphFactory;
-        draconic::particles::ParticleEffectFactory m_particleEffectFactory;
-        draconic::input::InputMapFactory m_inputMapFactory;
-        draconic::physics::CollisionShapeFactory m_collisionShapeFactory;
-        draconic::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
-        draconic::audio::AudioClipFactory m_audioClipFactory;
-        draconic::audio::AudioBusLayoutFactory m_busLayoutFactory;
-        draconic::audio::SoundCueFactory m_soundCueFactory;
-        draconic::script::ScriptClassFactory m_scriptClassFactory;
-        draconic::audio::AudioEngineSettings m_audioEngineSettings;
-        draconic::model::ModelFactory m_modelFactory;
-        draconic::ui::UIDocumentFactory m_uiDocumentFactory;
-        draconic::ui::UIThemeFactory m_uiThemeFactory;
-        core::UniquePtr<draconic::texture::TextureFactory> m_textureFactory;
-        draconic::resource::ResourceManager* m_borrowedResources = nullptr;
-        draconic::content::IContentDatabase* m_contentDatabase = nullptr;
-        core::UniquePtr<draconic::resource::ResourceManager> m_ownedResources;
-        draconic::engine::input::InputSubsystem* m_input = nullptr;
-        draconic::engine::ui::UISubsystem* m_ui = nullptr;
+        foundation::geometry::StaticMeshFactory m_meshFactory;
+        foundation::geometry::SkinnedMeshFactory m_skinnedMeshFactory;
+        foundation::materials::MaterialFactory m_materialFactory;
+        foundation::animation::SkeletonFactory m_skeletonFactory;
+        foundation::animation::AnimationClipFactory m_animationClipFactory;
+        foundation::animation::AnimationGraphFactory m_animationGraphFactory;
+        foundation::particles::ParticleEffectFactory m_particleEffectFactory;
+        foundation::input::InputMapFactory m_inputMapFactory;
+        foundation::physics::CollisionShapeFactory m_collisionShapeFactory;
+        foundation::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
+        foundation::audio::AudioClipFactory m_audioClipFactory;
+        foundation::audio::AudioBusLayoutFactory m_busLayoutFactory;
+        foundation::audio::SoundCueFactory m_soundCueFactory;
+        foundation::script::ScriptClassFactory m_scriptClassFactory;
+        foundation::audio::AudioEngineSettings m_audioEngineSettings;
+        foundation::model::ModelFactory m_modelFactory;
+        foundation::ui::UIDocumentFactory m_uiDocumentFactory;
+        foundation::ui::UIThemeFactory m_uiThemeFactory;
+        core::UniquePtr<foundation::texture::TextureFactory> m_textureFactory;
+        foundation::resource::ResourceManager* m_borrowedResources = nullptr;
+        foundation::content::IContentDatabase* m_contentDatabase = nullptr;
+        core::UniquePtr<foundation::resource::ResourceManager> m_ownedResources;
+        engine::input::InputSubsystem* m_input = nullptr;
+        engine::ui::UISubsystem* m_ui = nullptr;
         // Backs the Ui.* script facade with the live screen tier (task #123 step 3.5): the host owns
         // the overlay map + control ops; the binding routes into it and is installed on every run
         // context by the context configurator. App-owned (the screen tier is app-wide).
-        draconic::engine::ui::UiScriptHost m_uiScriptHost;
-        draconic::engine::ui::UiScriptBinding m_uiScriptBinding;
+        engine::ui::UiScriptHost m_uiScriptHost;
+        engine::ui::UiScriptBinding m_uiScriptBinding;
         core::String m_uiFontPath;
-        draconic::engine::physics::PhysicsSubsystem* m_physics = nullptr;
-        draconic::engine::audio::AudioSubsystem* m_audio = nullptr;
+        engine::physics::PhysicsSubsystem* m_physics = nullptr;
+        engine::audio::AudioSubsystem* m_audio = nullptr;
         net::NetworkStartup m_netStartup; // preset before Configure (default = single-player)
-        draconic::engine::script::ScriptSubsystem* m_scripts = nullptr;
+        engine::script::ScriptSubsystem* m_scripts = nullptr;
         // Every running game: the primary (a stable member) + any extras (stable UniquePtr addresses,
         // required because the SceneSubsystem borrows each SceneManager's pointer).
         template <typename Fn>
@@ -280,7 +278,7 @@ export namespace draconic::engine::runtime
         // launch (scripts go online via the Net facade instead).
         void ApplyNetworkStartup(GameInstance& instance);
 
-        draconic::engine::scene::SceneSubsystem* m_scenes = nullptr;
+        engine::scene::SceneSubsystem* m_scenes = nullptr;
         GameInstance m_instance; // the primary running game (app-level ops target this one)
         core::Array<core::UniquePtr<GameInstance>>
             m_extraInstances; // multi-instance PIE / headless server

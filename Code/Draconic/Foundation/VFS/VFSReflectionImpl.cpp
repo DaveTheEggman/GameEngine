@@ -13,9 +13,9 @@ module draconic.vfs;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::vfs
+namespace foundation::vfs
 {
     DRACONIC_REFLECT_VALUE(SourcePath, "rtti::vfs")
     {

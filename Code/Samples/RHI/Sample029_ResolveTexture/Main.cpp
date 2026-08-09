@@ -13,23 +13,22 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vulkan;
 
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
 
 class ResolveTextureSample : public samples::framework::SampleApp
 {
 public:
     using samples::framework::SampleApp::SampleApp;
-    draconic::core::StringView Title() const override
+    foundation::core::StringView Title() const override
     {
         return u8"Sample029 - ResolveTexture (Explicit 4x MSAA)";
     }
 
 protected:
-    draconic::core::Status OnInit() override;
+    foundation::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(draconic::core::u32 w, draconic::core::u32 h) override
+    void OnResize(foundation::core::u32 w, foundation::core::u32 h) override
     {
         recreateMsaaTarget(w, h);
     }
@@ -141,13 +140,13 @@ private:
         1.0f,
     };
 
-    static constexpr draconic::core::u16 kIdx[] = {
+    static constexpr foundation::core::u16 kIdx[] = {
         0, 1, 6, 0, 6, 2, 0, 2, 7, 0, 7, 3, 0, 3, 8, 0, 8, 4, 0, 4, 9, 0, 9, 5, 0, 5, 10, 0, 10, 1,
     };
 
-    static constexpr draconic::core::u32 kSamples = 4;
+    static constexpr foundation::core::u32 kSamples = 4;
 
-    void recreateMsaaTarget(draconic::core::u32 w, draconic::core::u32 h);
+    void recreateMsaaTarget(foundation::core::u32 w, foundation::core::u32 h);
 
     shaders::Compiler* m_compiler = nullptr;
     rhi::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
@@ -158,10 +157,10 @@ private:
     rhi::TextureView* m_msaaView = nullptr;
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
-    draconic::core::u64 m_fenceVal = 0;
+    foundation::core::u64 m_fenceVal = 0;
 };
 
-void ResolveTextureSample::recreateMsaaTarget(draconic::core::u32 w, draconic::core::u32 h)
+void ResolveTextureSample::recreateMsaaTarget(foundation::core::u32 w, foundation::core::u32 h)
 {
     if (m_msaaView)
     {
@@ -189,20 +188,20 @@ void ResolveTextureSample::recreateMsaaTarget(draconic::core::u32 w, draconic::c
     m_device->CreateTextureView(m_msaaTex, tvd, m_msaaView);
 }
 
-draconic::core::Status ResolveTextureSample::OnInit()
+foundation::core::Status ResolveTextureSample::OnInit()
 {
-    using draconic::core::Status, draconic::core::Span, draconic::core::u8;
+    using foundation::core::Status, foundation::core::Span, foundation::core::u8;
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Vertex, u8"VSMain", u8"ResolveVS",
-                                            m_vs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_vs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Fragment, u8"PSMain",
-                                            u8"ResolvePS", m_ps) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            u8"ResolvePS", m_ps) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Vertex and index buffers.
     rhi::BufferDesc vbd{};
@@ -210,15 +209,15 @@ draconic::core::Status ResolveTextureSample::OnInit()
     vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
     vbd.memory = rhi::MemoryLocation::GpuOnly;
     vbd.label = u8"ResolveVB";
-    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::BufferDesc ibd{};
     ibd.size = sizeof(kIdx);
     ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst;
     ibd.memory = rhi::MemoryLocation::GpuOnly;
     ibd.label = u8"ResolveIB";
-    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
@@ -231,8 +230,8 @@ draconic::core::Status ResolveTextureSample::OnInit()
     // Pipeline layout (no bind groups).
     rhi::PipelineLayoutDesc pld{};
     pld.label = u8"ResolvePL";
-    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // MSAA render target.
     recreateMsaaTarget(m_width, m_height);
@@ -257,27 +256,27 @@ draconic::core::Status ResolveTextureSample::OnInit()
     rpd.fragment->shader = {m_ps, u8"PSMain", rhi::ShaderStage::Fragment};
     rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
     rpd.multisample.count = kSamples;
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    return draconic::core::ErrorCode::Ok;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    return foundation::core::ErrorCode::Ok;
 }
 
 void ResolveTextureSample::OnRender()
 {
-    using draconic::core::f32, draconic::core::Span;
+    using foundation::core::f32, foundation::core::Span;
     if (m_fenceVal > 0)
         m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+    if (m_swapChain->AcquireNextImage() != foundation::core::ErrorCode::Ok)
         return;
     m_pool->Reset();
     rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc)
+    if (m_pool->CreateEncoder(enc) != foundation::core::ErrorCode::Ok || !enc)
         return;
 
     // === Step 1: Render star into MSAA texture ===

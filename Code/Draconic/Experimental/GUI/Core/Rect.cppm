@@ -15,10 +15,10 @@ export module draconic.gui:rect;
 
 import draconic.core; // Float2, Rectangle
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // 2D rectangle. (x, y) is the top-left (min) corner.
     struct Rect

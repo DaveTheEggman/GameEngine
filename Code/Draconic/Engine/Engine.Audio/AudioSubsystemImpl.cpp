@@ -14,29 +14,31 @@ import draconic.core;
 import draconic.runtime;
 import draconic.scene;
 import draconic.audio;
+import draconic.materials;
 import draconic.engine.render; // CameraComponentManager (listener fallback)
 import draconic.script.facades; // RegisterExtraFacadeName (Audio into the behavior prelude)
 
-using namespace draconic::core;
-using namespace draconic::audio;
+using namespace foundation::core;
+using namespace foundation::audio;
+namespace core = foundation::core;
 
-namespace draconic::engine::audio
+namespace engine::audio
 {
     namespace
     {
         // Godot behavior: no listener component anywhere = the active camera IS the
         // listener. First enabled camera of the scene wins.
-        [[nodiscard]] bool CameraListenerPose(draconic::scene::Scene& scene, Float3& outPosition,
+        [[nodiscard]] bool CameraListenerPose(foundation::scene::Scene& scene, Float3& outPosition,
                                               Float3& outForward, Float3& outUp)
         {
-            auto* cameras = scene.GetSystem<draconic::engine::render::CameraComponentManager>();
+            auto* cameras = scene.GetSystem<engine::render::CameraComponentManager>();
             if (cameras == nullptr)
             {
                 return false;
             }
             bool found = false;
             cameras->ForEach(
-                [&](draconic::engine::render::CameraComponent&, draconic::scene::EntityHandle e)
+                [&](engine::render::CameraComponent&, foundation::scene::EntityHandle e)
                 {
                     if (found)
                     {
@@ -114,7 +116,7 @@ namespace draconic::engine::audio
 }
 
 // ---- reflection (see :components for why this lives here) ----
-namespace draconic::engine::audio
+namespace engine::audio
 {
     DRACONIC_REFLECT_ENUM(AudioBus, "rtti::engine::audio")
     {
@@ -138,7 +140,7 @@ namespace draconic::engine::audio
             .Attribute("category", String(u8"Audio")).DataVersion(3); // v2: busName (custom buses); v3: reverbSend
         // Script (Track A): AudioSourceComponent.of(entity) -> live volume/pitch/loop/spatial/etc.
         // play/stop/pause + clip swap are engine ops -> SceneAudio.of(scene) (world ops keyed by entity).
-        builder.Method<&draconic::script::ComponentOf<AudioSourceComponent>, AudioSourceComponent>(
+        builder.Method<&foundation::script::ComponentOf<AudioSourceComponent>, AudioSourceComponent>(
             "of");
         builder.Property<&AudioSourceComponent::clip>("clip");
         builder.Property<&AudioSourceComponent::bus>("bus");
@@ -206,19 +208,19 @@ namespace draconic::engine::audio
         GlobalTypeRegistry().Register(Audio::StaticType());
         // So the Wren behavior/Level prelude imports `Audio` too (AngelScript binds by
         // registry). Without this only top-level `main`/Game scripts can see it. Idempotent.
-        draconic::script::RegisterExtraFacadeName(u8"Audio");
+        foundation::script::RegisterExtraFacadeName(u8"Audio");
 
         // Surface the audio SOURCE component to script (AudioSourceComponent.of(entity) - live
         // volume/pitch/loop/...): register it, seed the Wren emission root, name it for the prelude.
         GlobalTypeRegistry().Register(core::TypeOf<AudioSourceComponent>());
-        draconic::script::RegisterExtraScriptRootType(&core::TypeOf<AudioSourceComponent>());
-        draconic::script::RegisterExtraFacadeName(u8"AudioSourceComponent");
+        foundation::script::RegisterExtraScriptRootType(&core::TypeOf<AudioSourceComponent>());
+        foundation::script::RegisterExtraFacadeName(u8"AudioSourceComponent");
 
         // The scene-bound audio handle (SceneAudio.of(scene)): reflect it, register + seed + name it.
         DraconicRegisterValue_SceneAudio();
         GlobalTypeRegistry().Register(core::TypeOf<SceneAudio>());
-        draconic::script::RegisterExtraScriptRootType(&core::TypeOf<SceneAudio>());
-        draconic::script::RegisterExtraFacadeName(u8"SceneAudio");
+        foundation::script::RegisterExtraScriptRootType(&core::TypeOf<SceneAudio>());
+        foundation::script::RegisterExtraFacadeName(u8"SceneAudio");
     }
 
     DRACONIC_REFLECT_VALUE(AudioReverbZoneComponent, "rtti::engine::audio")

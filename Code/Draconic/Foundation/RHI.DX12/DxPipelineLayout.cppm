@@ -14,9 +14,9 @@ import draconic.rhi;
 import :conversions;
 import :bind_group_layout;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     struct DynamicRootEntry
@@ -187,4 +187,4 @@ export namespace draconic::rhi::dx12
         u32 m_numBindGroups = 0;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

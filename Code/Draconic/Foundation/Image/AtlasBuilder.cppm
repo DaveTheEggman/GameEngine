@@ -14,9 +14,9 @@ import draconic.core;
 import :pixel_format;
 import :image_data;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::image
+export namespace foundation::image
 {
     /// Integer rectangle for atlas regions.
     struct RectI

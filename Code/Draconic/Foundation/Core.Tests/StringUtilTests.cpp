@@ -3,7 +3,7 @@
 #include "Core/Prelude.h"
 import draconic.core;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
 TEST_CASE("string-util: IsWhiteSpace / IsDigit / IsHexDigit")
 {

@@ -14,9 +14,9 @@ import :view;
 import :box_constraints;
 import :enums; // Orientation
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     using OrientationValue = Orientation;
 

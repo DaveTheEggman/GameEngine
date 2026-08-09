@@ -15,9 +15,9 @@ import draconic.core;
 import draconic.fonts;
 import :font;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     class TrueTypeFontAtlas final : public IFontAtlas
     {

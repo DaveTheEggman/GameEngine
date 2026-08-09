@@ -14,9 +14,9 @@ export module draconic.ui:theme_icons;
 
 import draconic.core; // StringView
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Built-in SVG icon markup for theme drawable keys.
     struct ThemeIcons

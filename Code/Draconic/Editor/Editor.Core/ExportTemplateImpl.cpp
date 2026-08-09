@@ -19,9 +19,10 @@ import draconic.xml.serialization;
 import draconic.engine.project;
 import :export_preset; // ExportPreset, ExportPresetSet
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace vfs = foundation::vfs;
 
-namespace draconic::editor
+namespace editor
 {
     StringView ExportTemplate::EffectiveConfig() const noexcept
     {
@@ -30,21 +31,21 @@ namespace draconic::editor
 
     void ExportTemplate::Serialize(ISerializer& ar)
     {
-        draconic::core::Serialize(ar, "id", id);
-        draconic::core::Serialize(ar, "name", name);
-        draconic::core::Serialize(ar, "platform", platform);
-        draconic::core::Serialize(ar, "engineVersion", engineVersion);
-        draconic::core::Serialize(ar, "playerBinary", playerBinary);
-        draconic::core::Serialize(ar, "sidecars", sidecars);
-        draconic::core::Serialize(ar, "notes", notes);
+        foundation::core::Serialize(ar, "id", id);
+        foundation::core::Serialize(ar, "name", name);
+        foundation::core::Serialize(ar, "platform", platform);
+        foundation::core::Serialize(ar, "engineVersion", engineVersion);
+        foundation::core::Serialize(ar, "playerBinary", playerBinary);
+        foundation::core::Serialize(ar, "sidecars", sidecars);
+        foundation::core::Serialize(ar, "notes", notes);
         // v2 added the (platform, config) axis: config + compiler metadata + a parallel symbols
         // group. A v1 template.xml lacks these fields, so gate them on the stored data version -
         // reading an old manifest leaves config empty (normalized to Release below) and works.
         if (ar.Version() >= 2)
         {
-            draconic::core::Serialize(ar, "config", config);
-            draconic::core::Serialize(ar, "compiler", compiler);
-            draconic::core::Serialize(ar, "symbols", symbols);
+            foundation::core::Serialize(ar, "config", config);
+            foundation::core::Serialize(ar, "compiler", compiler);
+            foundation::core::Serialize(ar, "symbols", symbols);
         }
         if (ar.Mode() == SerializeMode::Read && config.IsEmpty())
         {

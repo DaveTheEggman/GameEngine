@@ -11,9 +11,9 @@ export module draconic.rhi.dx12:gpu_descriptor_heap;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxGpuDescriptorHeap
@@ -144,4 +144,4 @@ export namespace draconic::rhi::dx12
         Mutex m_mutex; // guards m_nextFree + m_freeBlocks (see allocate)
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

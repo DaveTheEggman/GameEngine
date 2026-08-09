@@ -19,10 +19,10 @@ import :node;
 import :ui_widget;
 import :css_values; // ParseLength (markup spacing)
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     enum class Orientation
     {

@@ -23,9 +23,9 @@ import :commands;
 import :queue;
 import :swapchain;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     // ---- Backend ----
@@ -264,4 +264,4 @@ export namespace draconic::rhi
         virtual void Destroy() = 0;
     };
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

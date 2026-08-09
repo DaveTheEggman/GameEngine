@@ -26,9 +26,10 @@ import draconic.shaders;
 import :shader_system;
 import :file_provider;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::shaders
+export namespace foundation::shaders
 {
     /// How the host picks between the cooked pack and dev compilation. Automatic = dev when
     /// possible, pack otherwise (or when DRACONIC_USE_SHADER_PACK is set in the environment);

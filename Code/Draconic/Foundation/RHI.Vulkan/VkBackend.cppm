@@ -19,7 +19,7 @@ import draconic.rhi;
 import :adapter;
 import :surface;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 // Linux surface types - forward-declared to avoid header pollution. In the module
 // purview (not the GMF): GCC requires the GMF to contain only #includes.
@@ -67,7 +67,7 @@ using PFN_vkCreateWaylandSurfaceKHR = VkResult(VKAPI_PTR*)(VkInstance,
                                                            VkSurfaceKHR*);
 #endif // __linux__
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     /// Configuration for VK backend creation.
@@ -428,4 +428,4 @@ export namespace draconic::rhi::vk
         return ErrorCode::Ok;
     }
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

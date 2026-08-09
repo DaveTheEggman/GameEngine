@@ -15,11 +15,12 @@ export module draconic.shaders.system:shader_system;
 import draconic.core;
 import draconic.rhi;
 import draconic.shaders;
+namespace shaders = foundation::shaders;
 
-namespace core = draconic::core;
-namespace rhi = draconic::rhi;
+namespace core = foundation::core;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::shaders
+export namespace foundation::shaders
 {
 
     /// The pull seam for shader SOURCE (shaders.md P1): instead of passes pushing
@@ -449,4 +450,4 @@ export namespace draconic::shaders
         core::Array<core::String> m_includePaths;
     };
 
-} // namespace draconic::shaders
+} // namespace foundation::shaders

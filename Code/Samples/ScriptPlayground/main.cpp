@@ -41,15 +41,14 @@ import draconic.engine.script;
 
 #include "../Common/FlyCamera.h"
 
-namespace core = draconic::core;
-namespace runtime = draconic::runtime;
-namespace graphics = draconic::graphics;
-namespace shell = draconic::shell;
-namespace scene = draconic::scene;
-namespace render = draconic::render;
-namespace geometry = draconic::geometry;
-namespace materials = draconic::materials;
-namespace script = draconic::script;
+namespace core = foundation::core;
+namespace runtime = foundation::runtime;
+namespace graphics = foundation::graphics;
+namespace shell = foundation::shell;
+namespace scene = foundation::scene;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace script = foundation::script;
 
 using core::f32;
 
@@ -151,7 +150,7 @@ namespace
         return cls;
     }
 
-    class ScriptApp final : public draconic::engine::runtime::DefaultApplication
+    class ScriptApp final : public engine::runtime::DefaultApplication
     {
     public:
         ScriptApp()
@@ -167,7 +166,7 @@ namespace
             // sample self-reports (Mover onStart lines, any behavior fault).
             core::GlobalLogger().AddSink(&m_consoleSink);
 
-            auto* scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
             if (scenes == nullptr)
             {
                 return;
@@ -175,7 +174,7 @@ namespace
             m_scene = PrimaryScenes().CreateScene(u8"scripts");
 
             m_camera = m_scene->CreateEntity(u8"camera");
-            if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
+            if (auto* cameras = m_scene->GetSystem<engine::render::CameraComponentManager>())
             {
                 cameras->Add(m_camera);
             }
@@ -194,7 +193,7 @@ namespace
 
         void OnUpdate(runtime::IApplicationHost& host, f32 dt) override
         {
-            draconic::engine::runtime::DefaultApplication::OnUpdate(host, dt); // ticks the ScriptSubsystem
+            engine::runtime::DefaultApplication::OnUpdate(host, dt); // ticks the ScriptSubsystem
             m_fly.Update(host, dt);
             PushCameraToEntity();
             auto* input = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
@@ -208,23 +207,23 @@ namespace
         {
             if (m_scene != nullptr && frame.height > 0)
             {
-                if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
+                if (auto* cameras = m_scene->GetSystem<engine::render::CameraComponentManager>())
                 {
-                    if (draconic::engine::render::CameraComponent* cam = cameras->Get(m_camera))
+                    if (engine::render::CameraComponent* cam = cameras->Get(m_camera))
                     {
                         cam->aspect =
                             static_cast<f32>(frame.width) / static_cast<f32>(frame.height);
                     }
                 }
             }
-            draconic::engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
+            engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
         }
 
     private:
         void BuildWorld()
         {
-            auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>();
-            auto* scripts = m_scene->GetSystem<draconic::engine::script::ScriptComponentManager>();
+            auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>();
+            auto* scripts = m_scene->GetSystem<engine::script::ScriptComponentManager>();
             if (meshes == nullptr || scripts == nullptr)
             {
                 return;
@@ -237,7 +236,7 @@ namespace
                 scene::EntityHandle ground = m_scene->CreateEntity(u8"ground");
                 m_scene->SetLocalPosition(ground, core::Float3{0.0f, -0.6f, 0.0f});
                 core::RefPtr<geometry::StaticMesh> slab = geometry::Primitives::Cube(1.0f);
-                draconic::engine::render::MeshComponent& mc = meshes->Add(ground);
+                engine::render::MeshComponent& mc = meshes->Add(ground);
                 mc.mesh = slab;
                 mc.SetMaterial(materials::CreatePBR(
                     u8"lit", core::Float4{0.15f, 0.16f, 0.19f, 1.0f}, 0.0f, 0.8f));
@@ -251,14 +250,14 @@ namespace
             m_beacon = m_scene->CreateEntity(u8"beacon");
             m_scene->SetLocalPosition(m_beacon, core::Float3{0.0f, 0.5f, 0.0f});
             {
-                draconic::engine::render::MeshComponent& mc = meshes->Add(m_beacon);
+                engine::render::MeshComponent& mc = meshes->Add(m_beacon);
                 mc.mesh = cube;
                 mc.SetMaterial(materials::CreatePBR(u8"lit", core::Float4{1.0f, 0.85f, 0.2f, 1.0f},
                                                     0.0f, 0.3f));
                 mc.color = core::Color{1.0f, 0.85f, 0.2f, 1.0f};
                 // The beacon SPINS (Spinner behavior, default 90 deg/s).
-                draconic::engine::script::ScriptComponent& sc = scripts->Add(m_beacon);
-                draconic::engine::script::ScriptBehavior spin;
+                engine::script::ScriptComponent& sc = scripts->Add(m_beacon);
+                engine::script::ScriptBehavior spin;
                 spin.script.SetDirect(m_spinner);
                 sc.behaviors.PushBack(core::Move(spin));
             }
@@ -271,16 +270,16 @@ namespace
                 scene::EntityHandle e = m_scene->CreateEntity(u8"mover");
                 m_scene->SetLocalPosition(
                     e, core::Float3{core::Cos(angle) * 8.0f, 0.5f, core::Sin(angle) * 8.0f});
-                draconic::engine::render::MeshComponent& mc = meshes->Add(e);
+                engine::render::MeshComponent& mc = meshes->Add(e);
                 mc.mesh = cube;
                 const f32 hue = static_cast<f32>(i) / kMovers;
                 mc.SetMaterial(materials::CreatePBR(
                     u8"lit", core::Float4{0.3f + 0.6f * hue, 0.4f, 1.0f - 0.6f * hue, 1.0f}, 0.0f,
                     0.4f));
 
-                draconic::engine::script::ScriptComponent& sc = scripts->Add(e);
+                engine::script::ScriptComponent& sc = scripts->Add(e);
                 // Behavior 1: Mover with a per-instance speed OVERRIDE + the target entity.
-                draconic::engine::script::ScriptBehavior mover;
+                engine::script::ScriptBehavior mover;
                 mover.script.SetDirect(m_mover);
                 script::ScriptPropertyValue speed;
                 speed.kind = script::ScriptPropertyType::Float;
@@ -292,7 +291,7 @@ namespace
                 mover.SetOverride(script::ScriptPropertyNameHash(u8"target"), target);
                 sc.behaviors.PushBack(core::Move(mover));
                 // Behavior 2 (ordered after the mover): Spinner, slower.
-                draconic::engine::script::ScriptBehavior spin;
+                engine::script::ScriptBehavior spin;
                 spin.script.SetDirect(m_spinner);
                 script::ScriptPropertyValue spinSpeed;
                 spinSpeed.kind = script::ScriptPropertyType::Float;
@@ -320,7 +319,7 @@ namespace
         core::RefPtr<script::ScriptClass> m_mover;
         core::RefPtr<script::ScriptClass> m_spinner;
         core::ConsoleSink m_consoleSink;
-        draconic::samples::FlyCamera m_fly;
+        samples::FlyCamera m_fly;
     };
 }
 

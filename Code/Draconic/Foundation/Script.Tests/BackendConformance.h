@@ -18,9 +18,9 @@
 import draconic.core;
 import draconic.script;
 
-namespace draconic::script::conformance
+namespace foundation::script::conformance
 {
-    using namespace draconic::core;
+    using namespace foundation::core;
 
     // A real native API that takes a script function as a typed callback (the delegate
     // seam's "user"): an event a behavior subscribes to, that native code later fires.

@@ -28,17 +28,18 @@ import draconic.texture;
 import draconic.vg;
 import :vertex;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace vg = foundation::vg;
 
-export namespace draconic::vg::renderer
+export namespace foundation::vg::renderer
 {
     /// The stencil-capable depth-stencil format a device accepts at the given sample
     /// count, probed with a tiny texture (Vulkan drivers commonly support only one of
     /// D24S8 / D32S8). Undefined = none - the host skips the stencil config.
-    [[nodiscard]] inline draconic::rhi::TextureFormat
-    PickStencilCapableFormat(draconic::rhi::Device& device, draconic::core::u32 sampleCount)
+    [[nodiscard]] inline foundation::rhi::TextureFormat
+    PickStencilCapableFormat(foundation::rhi::Device& device, foundation::core::u32 sampleCount)
     {
-        namespace rhi = draconic::rhi;
+        namespace rhi = foundation::rhi;
         const rhi::TextureFormat candidates[3] = {rhi::TextureFormat::Depth24PlusStencil8,
                                                   rhi::TextureFormat::Depth32FloatStencil8,
                                                   rhi::TextureFormat::Stencil8};
@@ -69,12 +70,12 @@ export namespace draconic::vg::renderer
     /// match the pass, so BOTH values apply to ALL pipelines, not just the stencil ones.
     struct VGTargetConfig
     {
-        draconic::core::u32 sampleCount = 1;
-        draconic::rhi::TextureFormat depthStencilFormat = draconic::rhi::TextureFormat::Undefined;
+        foundation::core::u32 sampleCount = 1;
+        foundation::rhi::TextureFormat depthStencilFormat = foundation::rhi::TextureFormat::Undefined;
     };
 
-    namespace rhi = draconic::rhi;
-    namespace image = draconic::image;
+    namespace rhi = foundation::rhi;
+    namespace image = foundation::image;
 
     /// Projection uniform (one per slice, padded to UniformSlotSize on the GPU). The DF fields
     /// carry the MSDF spread + atlas size for the distance-field fragment shader's screen-space
@@ -230,7 +231,7 @@ export namespace draconic::vg::renderer
         }
 
         /// Upload one batch into the shared frame buffers; returns a slice token.
-        VGRenderSlice Prepare(draconic::vg::VGBatch& batch, i32 frameIndex, u32 width, u32 height)
+        VGRenderSlice Prepare(foundation::vg::VGBatch& batch, i32 frameIndex, u32 width, u32 height)
         {
             // The batch's eviction list is the invalidation signal for the identity-keyed
             // texture cache (the producer freed/recycled those sources - e.g. gradient-LUT
@@ -278,7 +279,7 @@ export namespace draconic::vg::renderer
                 m_batchTextures.PushBack(batch.textures[i]);
             for (usize i = 0; i < batch.commands.Size(); ++i)
             {
-                draconic::vg::VGCommand cmd = batch.commands[i];
+                foundation::vg::VGCommand cmd = batch.commands[i];
                 if (cmd.textureIndex >= 0)
                     cmd.textureIndex = cmd.textureIndex + textureBase;
                 m_drawCommands.PushBack(cmd);
@@ -379,7 +380,7 @@ export namespace draconic::vg::renderer
             const i32 cmdEnd = slice.drawCommandStart + slice.drawCommandCount;
             for (i32 i = slice.drawCommandStart; i < cmdEnd; ++i)
             {
-                const draconic::vg::VGCommand& cmd = m_drawCommands[static_cast<usize>(i)];
+                const foundation::vg::VGCommand& cmd = m_drawCommands[static_cast<usize>(i)];
                 if (cmd.indexCount == 0)
                     continue;
 
@@ -405,8 +406,8 @@ export namespace draconic::vg::renderer
                 if (m_coverPipeline != nullptr || m_clipApplyPipeline != nullptr)
                 {
                     const bool wantsClipRef =
-                        cmd.clipMode == draconic::vg::VGClipMode::Stencil ||
-                        cmd.fillPhase == draconic::vg::VGFillPhase::ClipApply;
+                        cmd.clipMode == foundation::vg::VGClipMode::Stencil ||
+                        cmd.fillPhase == foundation::vg::VGFillPhase::ClipApply;
                     const i32 wantedRef = wantsClipRef ? 0x80 : 0;
                     if (wantedRef != currentStencilRef)
                     {
@@ -426,14 +427,14 @@ export namespace draconic::vg::renderer
                     currentSpread = cmd.gradientSpread;
                 }
 
-                if (cmd.clipMode == draconic::vg::VGClipMode::Scissor &&
+                if (cmd.clipMode == foundation::vg::VGClipMode::Scissor &&
                     cmd.clipRect.width > 0.0f && cmd.clipRect.height > 0.0f)
                 {
                     const ScissorRect scissor =
                         ComputeScissor(cmd.clipRect, viewportX, viewportY, width, height);
                     renderPass.SetScissor(scissor.x, scissor.y, scissor.width, scissor.height);
                 }
-                else if (cmd.clipMode == draconic::vg::VGClipMode::Scissor)
+                else if (cmd.clipMode == foundation::vg::VGClipMode::Scissor)
                 {
                     renderPass.SetScissor(0, 0, 0, 0); // empty clip hides everything
                 }
@@ -757,53 +758,53 @@ export namespace draconic::vg::renderer
         /// The pipeline a command renders with: stencil write/cover variants for
         /// stencil-phase commands (null = unconfigured, caller skips), else the
         /// draw-mode variant with default fallback.
-        [[nodiscard]] rhi::RenderPipeline* PipelineFor(const draconic::vg::VGCommand& cmd)
+        [[nodiscard]] rhi::RenderPipeline* PipelineFor(const foundation::vg::VGCommand& cmd)
         {
             const bool blended = cmd.blendMode != vg::VGBlendMode::Normal;
             const bool clipped = cmd.clipMode == vg::VGClipMode::Stencil;
             switch (cmd.fillPhase)
             {
-            case draconic::vg::VGFillPhase::ClipApply:
+            case foundation::vg::VGFillPhase::ClipApply:
                 return m_clipApplyPipeline; // null = unconfigured, command skipped
-            case draconic::vg::VGFillPhase::ClipClear:
+            case foundation::vg::VGFillPhase::ClipClear:
                 return m_clipClearPipeline;
-            case draconic::vg::VGFillPhase::StencilWrite:
+            case foundation::vg::VGFillPhase::StencilWrite:
                 // Color-masked winding accumulation: the blend state is irrelevant, the
                 // clip state is not (a clipped fill only accumulates inside the mask).
                 if (clipped)
-                    return cmd.fillRule == draconic::vg::FillRule::EvenOdd
+                    return cmd.fillRule == foundation::vg::FillRule::EvenOdd
                                ? ClippedWrite(StencilRole::WriteEvenOdd, m_clippedWriteEvenOdd)
                                : ClippedWrite(StencilRole::WriteNonZero, m_clippedWriteNonZero);
-                return cmd.fillRule == draconic::vg::FillRule::EvenOdd ? m_stencilWriteEvenOdd
+                return cmd.fillRule == foundation::vg::FillRule::EvenOdd ? m_stencilWriteEvenOdd
                                                                        : m_stencilWriteNonZero;
-            case draconic::vg::VGFillPhase::StencilCover:
+            case foundation::vg::VGFillPhase::StencilCover:
                 if (m_coverPipeline == nullptr)
                     return nullptr;
-                if (cmd.drawMode == draconic::vg::VGDrawMode::GradientRadial &&
+                if (cmd.drawMode == foundation::vg::VGDrawMode::GradientRadial &&
                     m_coverGradRadialPipeline != nullptr)
                     return (blended || clipped)
                                ? Variant(PipelineKind::CoverRadial, cmd.blendMode, clipped)
                                : m_coverGradRadialPipeline;
-                if (cmd.drawMode == draconic::vg::VGDrawMode::GradientConic &&
+                if (cmd.drawMode == foundation::vg::VGDrawMode::GradientConic &&
                     m_coverGradConicPipeline != nullptr)
                     return (blended || clipped)
                                ? Variant(PipelineKind::CoverConic, cmd.blendMode, clipped)
                                : m_coverGradConicPipeline;
                 return (blended || clipped) ? Variant(PipelineKind::Cover, cmd.blendMode, clipped)
                                             : m_coverPipeline;
-            case draconic::vg::VGFillPhase::Direct:
+            case foundation::vg::VGFillPhase::Direct:
                 break;
             }
-            if (cmd.drawMode == draconic::vg::VGDrawMode::DistanceField && m_dfPipeline != nullptr)
+            if (cmd.drawMode == foundation::vg::VGDrawMode::DistanceField && m_dfPipeline != nullptr)
                 return (blended || clipped)
                            ? Variant(PipelineKind::DistanceField, cmd.blendMode, clipped)
                            : m_dfPipeline;
-            if (cmd.drawMode == draconic::vg::VGDrawMode::GradientRadial &&
+            if (cmd.drawMode == foundation::vg::VGDrawMode::GradientRadial &&
                 m_gradRadialPipeline != nullptr)
                 return (blended || clipped)
                            ? Variant(PipelineKind::GradRadial, cmd.blendMode, clipped)
                            : m_gradRadialPipeline;
-            if (cmd.drawMode == draconic::vg::VGDrawMode::GradientConic &&
+            if (cmd.drawMode == foundation::vg::VGDrawMode::GradientConic &&
                 m_gradConicPipeline != nullptr)
                 return (blended || clipped)
                            ? Variant(PipelineKind::GradConic, cmd.blendMode, clipped)
@@ -1169,7 +1170,7 @@ export namespace draconic::vg::renderer
 
             const u32 w = texture->Width();
             const u32 h = texture->Height();
-            const rhi::TextureFormat fmt = draconic::texture::TextureFormatUtils::Convert(
+            const rhi::TextureFormat fmt = foundation::texture::TextureFormatUtils::Convert(
                 texture->Format(), texture->ColorSpace());
 
             rhi::TextureDesc td{};
@@ -1343,7 +1344,7 @@ export namespace draconic::vg::renderer
         Array<UniquePtr<CachedTexture>> m_textureCache;
         Array<RetiredTexture> m_retiredTextures;
         Array<const image::ImageData*> m_batchTextures;
-        Array<draconic::vg::VGCommand> m_drawCommands;
+        Array<foundation::vg::VGCommand> m_drawCommands;
 
         Array<u32> m_frameVertexOffsets;
         Array<u32> m_frameIndexOffsets;

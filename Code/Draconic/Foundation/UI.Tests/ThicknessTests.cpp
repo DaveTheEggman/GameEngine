@@ -5,7 +5,7 @@
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::ui;
+using namespace foundation::ui;
 
 TEST_CASE("thickness: Default_IsZero")
 {

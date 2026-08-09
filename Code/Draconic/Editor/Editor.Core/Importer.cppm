@@ -21,9 +21,9 @@ import draconic.core;
 import draconic.content;
 import :project;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
     /// Importer-specific options, shown by the import dialog before the import runs. The
     /// dialog renders one checkbox per Toggle (each points into the options object) - a
@@ -55,7 +55,7 @@ export namespace draconic::editor
     /// from the importer's prepared payload (kept alive through the flush).
     struct DeferredImportWrite
     {
-        draconic::content::Instance* instance = nullptr; // borrowed; the DB owns it
+        foundation::content::Instance* instance = nullptr; // borrowed; the DB owns it
         RefPtr<ISerializable> object;                    // envelope write when set
         String streamName;                               // data-stream write when set
         Span<const byte> view{};
@@ -152,8 +152,8 @@ export namespace draconic::editor
         /// `deferredWrites`: when non-null, the importer MAY park its bulk writes there
         /// instead of writing inline - the caller flushes them on a worker (null =
         /// headless/tests: everything writes inline).
-        [[nodiscard]] virtual Result<draconic::content::Instance*>
-        Import(StringView sourcePath, EditorProject& project, draconic::content::Group& group,
+        [[nodiscard]] virtual Result<foundation::content::Instance*>
+        Import(StringView sourcePath, EditorProject& project, foundation::content::Group& group,
                const ImportOptions* options = nullptr, Object* prepared = nullptr,
                Array<DeferredImportWrite>* deferredWrites = nullptr) = 0;
     };

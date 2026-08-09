@@ -41,10 +41,10 @@ import draconic.script.facades;
 import draconic.script.pipeline;
 import draconic.script.angelscript;
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation::script;
 
-namespace draconic::pipeline{
+namespace pipeline{
     namespace
     {
         // ---- small string helpers (metadata parsing) ------------------------------
@@ -470,7 +470,7 @@ namespace draconic::pipeline{
                 RegisterReflectedTypes(*manager);
 
                 asIScriptEngine* engine = static_cast<asIScriptEngine*>(
-                    draconic::script::angelscript::AngelScriptEngineHandle(*manager));
+                    foundation::script::angelscript::AngelScriptEngineHandle(*manager));
                 if (engine == nullptr)
                 {
                     return false;
@@ -495,7 +495,7 @@ namespace draconic::pipeline{
                 // The same coroutine support section the runtime adds per module, so a
                 // coroutine-using behavior compiles here exactly as it runs.
                 const StringView coroutinePrelude =
-                    draconic::script::angelscript::AngelScriptCoroutineModulePrelude();
+                    foundation::script::angelscript::AngelScriptCoroutineModulePrelude();
                 (void)builder.AddSectionFromMemory(
                     "__coroutine_support", reinterpret_cast<const char*>(coroutinePrelude.Data()),
                     static_cast<unsigned>(coroutinePrelude.Size()));
@@ -509,7 +509,7 @@ namespace draconic::pipeline{
                 }
 
                 out.className =
-                    FindScriptClassName(source, draconic::editor::FileStemOf(assetName));
+                    FindScriptClassName(source, editor::FileStemOf(assetName));
                 out.handlers = ScanScriptHandlers(source);
                 out.usesCoroutines = ScriptReferencesCoroutineStart(source);
 
@@ -527,7 +527,7 @@ namespace draconic::pipeline{
 
     void RegisterAngelScriptScriptCook()
     {
-        draconic::script::angelscript::RegisterAngelScriptBackend();
+        foundation::script::angelscript::RegisterAngelScriptBackend();
         ScriptLanguageCookRegistry::Get().Register(
             String(u8"angelscript"),
             UniquePtr<IScriptLanguageCook>(DefaultAllocator().New<AngelScriptScriptCook>(),

@@ -15,9 +15,9 @@ import :clip;
 import :sampler;
 import :pose;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::animation
+export namespace foundation::animation
 {
 
     enum class PlaybackState
@@ -268,4 +268,4 @@ export namespace draconic::animation
         AnimationEventHandler m_eventHandler;
     };
 
-} // namespace draconic::animation
+} // namespace foundation::animation

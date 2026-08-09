@@ -22,9 +22,9 @@ import draconic.resource;
 import :entity;
 import :phase;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::scene
+export namespace foundation::scene
 {
 
     class Scene;                // defined in :scene (same module)
@@ -73,7 +73,7 @@ export namespace draconic::scene
         // Bind every resource::Ref this system holds (settings blocks included) through the
         // manager - the post-load resolve pass. ComponentManagerBase overrides it for component
         // pools; plain systems with resource-bearing settings override it too. Default: nothing.
-        virtual void ResolveResources(draconic::resource::ResourceManager& /*manager*/) {}
+        virtual void ResolveResources(foundation::resource::ResourceManager& /*manager*/) {}
 
         // Lower runs earlier within a phase.
         [[nodiscard]] virtual i32 UpdateOrder() const noexcept { return 0; }
@@ -82,4 +82,4 @@ export namespace draconic::scene
         [[nodiscard]] virtual bool IsSimulationOnly() const noexcept { return false; }
     };
 
-} // namespace draconic::scene
+} // namespace foundation::scene

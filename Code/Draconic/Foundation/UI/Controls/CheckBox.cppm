@@ -26,11 +26,11 @@ import :input_enums;
 import :enums;
 import :palette;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class CheckBox : public View
     {

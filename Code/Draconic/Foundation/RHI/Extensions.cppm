@@ -17,9 +17,9 @@ import :descriptors;
 import :ext_descriptors;
 import :resources;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     /// Mesh shader render pass extension. Implemented by backend
@@ -77,4 +77,4 @@ export namespace draconic::rhi
                                u32 depth = 1) = 0;
     };
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

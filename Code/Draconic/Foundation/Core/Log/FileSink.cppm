@@ -12,7 +12,7 @@ import :string;
 import :system;
 import :logger;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // Appends to a file.
     class FileSink final : public ILogSink

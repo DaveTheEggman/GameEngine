@@ -11,9 +11,9 @@ import draconic.rhi;
 import :validated_command_encoder;
 import :validated_render_bundle_encoder;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     class ValidatedCommandPool : public CommandPool
@@ -90,4 +90,4 @@ export namespace draconic::rhi::validation
         Array<ValidatedRenderBundleEncoder*> m_bundleEncoders; // wrappers freed on Reset
     };
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

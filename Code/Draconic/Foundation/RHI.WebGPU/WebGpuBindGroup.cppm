@@ -18,9 +18,9 @@ import :buffer;
 import :texture_view;
 import :sampler;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuBindGroup final : public BindGroup
     {

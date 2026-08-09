@@ -14,7 +14,7 @@ import :base;
 import :string;
 import :guid;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     enum class SerializeMode
     {

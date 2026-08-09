@@ -32,13 +32,17 @@ import draconic.ui.viewport;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
+namespace runtime = foundation::runtime;
+namespace ui = foundation::ui;
+namespace vg = foundation::vg;
 
-namespace draconic::editor
+namespace editor
 {
     Status UIDocumentEditorPage::Save()
     {
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             (m_context->Project() != nullptr)
                 ? m_context->Project()->SourceDb().GetInstance(InstanceId())
                 : nullptr;
@@ -46,7 +50,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        draconic::pipeline::UIDocumentAsset asset;
+        pipeline::UIDocumentAsset asset;
         asset.markup = String(m_markup.AsView());
         const Status written = instance->WriteObject(asset);
         if (written.IsOk())
@@ -75,7 +79,7 @@ namespace draconic::editor
     }
 
     void UIDocumentEditorPage::OnAfterSceneRender(runtime::IApplicationHost&,
-                                                  draconic::graphics::FrameContext& frame)
+                                                  foundation::graphics::FrameContext& frame)
     {
         if (!m_viewport->IsReady() || !frame.valid)
         {
@@ -120,7 +124,7 @@ namespace draconic::editor
         {
             return;
         }
-        draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
+        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
         if (window == nullptr || window == m_hostWindow)
         {
             return;
@@ -149,15 +153,15 @@ namespace draconic::editor
         // editor wants the failing LINE as an Error marker (P3 diagnostics).
         ui::MarkupLoader::Initialize();
         {
-            draconic::xml::XmlDocument probe;
-            const draconic::xml::XmlResult result = probe.Parse(m_markup.AsView());
+            foundation::xml::XmlDocument probe;
+            const foundation::xml::XmlResult result = probe.Parse(m_markup.AsView());
             Array<ui::toolkit::CodeDiagnostic> diagnostics;
-            if (draconic::xml::IsError(result))
+            if (foundation::xml::IsError(result))
             {
                 ui::toolkit::CodeDiagnostic diagnostic;
                 diagnostic.isError = true;
                 diagnostic.line = probe.ErrorLine() - 1; // 1-based -> buffer lines
-                diagnostic.message = String(draconic::xml::Describe(result));
+                diagnostic.message = String(foundation::xml::Describe(result));
                 diagnostics.PushBack(Move(diagnostic));
             }
             m_editor->Document().SetDiagnostics(Move(diagnostics));
@@ -208,11 +212,11 @@ namespace draconic::editor
     }
     const TypeInfo* UIDocumentPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::UIDocumentAsset::StaticType();
+        return &pipeline::UIDocumentAsset::StaticType();
     }
 
     UniquePtr<EditorPage> UIDocumentPageFactory::CreatePage(EditorContext& context,
-                                                            draconic::content::Instance& instance)
+                                                            foundation::content::Instance& instance)
     {
         auto* page =
             DefaultAllocator().New<UIDocumentEditorPage>(context, *m_host, *m_uiHost, instance);

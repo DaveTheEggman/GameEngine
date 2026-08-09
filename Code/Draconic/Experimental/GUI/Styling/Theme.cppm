@@ -13,10 +13,10 @@ export module draconic.gui:theme;
 
 import draconic.core; // StringView
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // Built-in dark theme.
     [[nodiscard]] inline core::StringView DefaultDarkThemeCSS()

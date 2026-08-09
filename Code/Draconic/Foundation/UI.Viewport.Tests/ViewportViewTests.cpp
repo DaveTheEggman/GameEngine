@@ -15,11 +15,11 @@ import draconic.ui.viewport;
 import draconic.shell;
 import draconic.shell.null;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
-namespace vg = draconic::vg;
-namespace ui = draconic::ui;
-using draconic::ui::viewport::ViewportView;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
+namespace vg = foundation::vg;
+namespace ui = foundation::ui;
+using foundation::ui::viewport::ViewportView;
 
 namespace
 {
@@ -222,7 +222,7 @@ TEST_CASE("ui.viewport: SyncInputRegion emits a PHYSICAL surface region at DpiSc
     vg::renderer::VGRenderer renderer;
     REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 2).IsOk());
 
-    draconic::shell::NullInputManager input; // input != null -> the view creates an InputSurface
+    foundation::shell::NullInputManager input; // input != null -> the view creates an InputSurface
 
     // Heap-allocate (RefPtr): the view becomes a child of a RootView, which owns its children.
     auto root = MakeRef<ui::RootView>(DefaultAllocator());

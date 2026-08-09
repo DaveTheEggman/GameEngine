@@ -14,9 +14,9 @@ export module draconic.profiler;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::profiler
+export namespace foundation::profiler
 {
 
     // One completed scope. `name` is a borrowed string literal (the macro passes literals).
@@ -258,4 +258,4 @@ export namespace draconic::profiler
         ScopedProfile& operator=(const ScopedProfile&) = delete;
     };
 
-} // namespace draconic::profiler
+} // namespace foundation::profiler

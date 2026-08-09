@@ -7,7 +7,7 @@
 
 #include <stb_truetype.h>
 
-namespace draconic::fonts::df
+namespace foundation::fonts::df
 {
 
     // Build an msdfgen::Shape from stb_truetype glyph vertices.
@@ -121,4 +121,4 @@ namespace draconic::fonts::df
         return true;
     }
 
-} // namespace draconic::fonts::df
+} // namespace foundation::fonts::df

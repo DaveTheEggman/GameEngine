@@ -26,11 +26,12 @@ import draconic.scene;
 import draconic.scene.resource; // ResolveSceneResources (pasted/restored refs bind immediately)
 import draconic.editor.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace scene = foundation::scene;
 
-namespace draconic::editor
+namespace editor
 {
-    void SceneEditContext::SetResources(draconic::resource::ResourceManager* resources) noexcept
+    void SceneEditContext::SetResources(foundation::resource::ResourceManager* resources) noexcept
     {
         m_resources = resources;
     }
@@ -175,7 +176,7 @@ namespace draconic::editor
         MemoryStream buffer;
         BinarySerializer ar(buffer, SerializeMode::Write);
         String typeId = String(mgr->SerializationTypeId());
-        draconic::core::Serialize(ar, "type", typeId);
+        foundation::core::Serialize(ar, "type", typeId);
         mgr->WriteComponent(ar, e);
         if (!ar.IsOk())
         {
@@ -197,7 +198,7 @@ namespace draconic::editor
         (void)buffer.Seek(0, SeekOrigin::Begin);
         BinarySerializer ar(buffer, SerializeMode::Read);
         String typeId;
-        draconic::core::Serialize(ar, "type", typeId);
+        foundation::core::Serialize(ar, "type", typeId);
         return ar.IsOk() ? typeId : String{};
     }
 
@@ -418,24 +419,24 @@ namespace draconic::editor
     void SceneEditContext::WriteSubtreeRecords(BinarySerializer& ar, Array<SubtreeRecord>& records)
     {
         u32 count = static_cast<u32>(records.Size());
-        draconic::core::Serialize(ar, "count", count);
+        foundation::core::Serialize(ar, "count", count);
         for (SubtreeRecord& r : records)
         {
             ar.Key("id");
             ar.GuidValue(r.id);
             ar.Key("parent");
             ar.GuidValue(r.parent);
-            draconic::core::Serialize(ar, "name", r.name);
-            draconic::core::Serialize(ar, "position", r.local.position);
-            draconic::core::Serialize(ar, "rotation", r.local.rotation);
-            draconic::core::Serialize(ar, "scale", r.local.scale);
-            draconic::core::Serialize(ar, "active", r.active);
+            foundation::core::Serialize(ar, "name", r.name);
+            foundation::core::Serialize(ar, "position", r.local.position);
+            foundation::core::Serialize(ar, "rotation", r.local.rotation);
+            foundation::core::Serialize(ar, "scale", r.local.scale);
+            foundation::core::Serialize(ar, "active", r.active);
             u32 componentCount = static_cast<u32>(r.components.Size());
-            draconic::core::Serialize(ar, "components", componentCount);
+            foundation::core::Serialize(ar, "components", componentCount);
             for (SubtreeComponentRecord& c : r.components)
             {
-                draconic::core::Serialize(ar, "type", c.typeId);
-                draconic::core::Serialize(ar, "blob", c.blob);
+                foundation::core::Serialize(ar, "type", c.typeId);
+                foundation::core::Serialize(ar, "blob", c.blob);
             }
         }
     }
@@ -448,7 +449,7 @@ namespace draconic::editor
         (void)buffer.Seek(0, SeekOrigin::Begin);
         BinarySerializer ar(buffer, SerializeMode::Read);
         u32 count = 0;
-        draconic::core::Serialize(ar, "count", count);
+        foundation::core::Serialize(ar, "count", count);
         for (u32 i = 0; i < count && ar.IsOk(); ++i)
         {
             SubtreeRecord r;
@@ -456,18 +457,18 @@ namespace draconic::editor
             ar.GuidValue(r.id);
             ar.Key("parent");
             ar.GuidValue(r.parent);
-            draconic::core::Serialize(ar, "name", r.name);
-            draconic::core::Serialize(ar, "position", r.local.position);
-            draconic::core::Serialize(ar, "rotation", r.local.rotation);
-            draconic::core::Serialize(ar, "scale", r.local.scale);
-            draconic::core::Serialize(ar, "active", r.active);
+            foundation::core::Serialize(ar, "name", r.name);
+            foundation::core::Serialize(ar, "position", r.local.position);
+            foundation::core::Serialize(ar, "rotation", r.local.rotation);
+            foundation::core::Serialize(ar, "scale", r.local.scale);
+            foundation::core::Serialize(ar, "active", r.active);
             u32 componentCount = 0;
-            draconic::core::Serialize(ar, "components", componentCount);
+            foundation::core::Serialize(ar, "components", componentCount);
             for (u32 c = 0; c < componentCount && ar.IsOk(); ++c)
             {
                 SubtreeComponentRecord component;
-                draconic::core::Serialize(ar, "type", component.typeId);
-                draconic::core::Serialize(ar, "blob", component.blob);
+                foundation::core::Serialize(ar, "type", component.typeId);
+                foundation::core::Serialize(ar, "blob", component.blob);
                 r.components.PushBack(Move(component));
             }
             records.PushBack(Move(r));
@@ -552,7 +553,7 @@ namespace draconic::editor
         MemoryStream buffer;
         BinarySerializer ar(buffer, SerializeMode::Write);
         String typeId = String(manager->SerializationTypeId());
-        draconic::core::Serialize(ar, "type", typeId);
+        foundation::core::Serialize(ar, "type", typeId);
         if (!ar.IsOk())
         {
             return false;

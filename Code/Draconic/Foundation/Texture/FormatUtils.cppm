@@ -12,12 +12,12 @@ import draconic.core;
 import draconic.rhi;
 import draconic.image;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::texture
+export namespace foundation::texture
 {
-    namespace rhi = draconic::rhi;
-    namespace image = draconic::image;
+    namespace rhi = foundation::rhi;
+    namespace image = foundation::image;
 
     class TextureFormatUtils
     {

@@ -18,11 +18,11 @@ import draconic.core;  // ContentFit, Float2, String, StringView, u32
 import draconic.gui;   // EventDispatcher, MouseButton, KeyMod*, IClipboard
 import draconic.shell; // InputEvent, InputEventKind, MouseButton, KeyModifiers, IWindow, IShell
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace shell = draconic::shell;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace shell = foundation::shell;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // Translates platform input events into EventDispatcher injections.
     class GuiInputBridge

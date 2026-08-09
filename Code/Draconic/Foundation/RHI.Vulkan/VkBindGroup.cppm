@@ -20,9 +20,9 @@ import :sampler;
 import :accel_struct;
 import :descriptor_pool_manager;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkBindGroupImpl : public BindGroup
@@ -276,4 +276,4 @@ export namespace draconic::rhi::vk
         BindingShifts m_shifts{};
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

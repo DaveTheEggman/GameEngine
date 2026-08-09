@@ -12,7 +12,7 @@ import :float3;
 import :float4x4;
 import :quaternion;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Transform - position / rotation / scale, composed as S * R * T.
@@ -45,9 +45,9 @@ export namespace draconic::core
         [[nodiscard]] static Transform Lerp(const Transform& a, const Transform& b, f32 t) noexcept
         {
             return Transform{
-                draconic::core::Lerp(a.position, b.position, t),
-                draconic::core::Slerp(a.rotation, b.rotation, t),
-                draconic::core::Lerp(a.scale, b.scale, t),
+                foundation::core::Lerp(a.position, b.position, t),
+                foundation::core::Slerp(a.rotation, b.rotation, t),
+                foundation::core::Lerp(a.scale, b.scale, t),
             };
         }
     };

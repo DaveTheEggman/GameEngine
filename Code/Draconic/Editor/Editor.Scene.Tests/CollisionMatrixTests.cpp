@@ -11,19 +11,19 @@ import draconic.core;
 import draconic.editor.scene;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 TEST_CASE("inspector: the collision-groups matrix rebuilds its grid when a group is added")
 {
     // Heap-allocated (as PropertyEditors always are in the inspector): RequestRebuild takes a
     // RefPtr(this) to survive the deferred drain, so a stack instance would delete itself.
-    RefPtr<draconic::editor::CollisionMatrixEditor> editor =
-        MakeRef<draconic::editor::CollisionMatrixEditor>(DefaultAllocator(), u8"Collision Groups",
+    RefPtr<editor::CollisionMatrixEditor> editor =
+        MakeRef<editor::CollisionMatrixEditor>(DefaultAllocator(), u8"Collision Groups",
                                                          u8"Physics");
     editor->names.PushBack(String(u8"Default"));
     editor->matrix.PushBack(0xFFFFFFFFu);
 
-    auto* grid = static_cast<draconic::ui::ViewGroup*>(editor->EditorView()); // a FlexLayout column
+    auto* grid = static_cast<foundation::ui::ViewGroup*>(editor->EditorView()); // a FlexLayout column
     REQUIRE(grid != nullptr);
     const usize before = grid->ChildCount(); // one group row + the "+ Add Group" button
 

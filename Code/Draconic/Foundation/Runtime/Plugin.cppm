@@ -16,9 +16,9 @@ export module draconic.runtime:plugin;
 import draconic.core;
 import :context;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::runtime
+export namespace foundation::runtime
 {
     class IRuntimePlugin
     {

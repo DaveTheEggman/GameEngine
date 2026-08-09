@@ -13,9 +13,9 @@ import draconic.rhi;
 import :conversions;
 import :binding_shifts;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     inline VkDescriptorType toVkDescriptorType(const BindGroupLayoutEntry& e)
@@ -133,4 +133,4 @@ export namespace draconic::rhi::vk
         u32 m_bindlessCount = 0;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

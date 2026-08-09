@@ -13,7 +13,7 @@ export module draconic.core:string_util;
 import :base;   // char8_t, usize, i32
 import :string; // StringView
 
-export namespace draconic::core
+export namespace foundation::core
 {
     [[nodiscard]] constexpr bool IsWhiteSpace(char8_t c) noexcept
     {

@@ -21,9 +21,9 @@ import :draw_context;
 import :drawable;
 import :style_property;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class TooltipView : public ViewGroup
     {

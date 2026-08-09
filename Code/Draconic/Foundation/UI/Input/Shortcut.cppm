@@ -12,9 +12,9 @@ export module draconic.ui:shortcut;
 import draconic.core; // Function, String, Object
 import :input_enums;  // KeyCode, KeyModifiers
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View; // Scope back-pointer (non-owning); defined in :view.
 

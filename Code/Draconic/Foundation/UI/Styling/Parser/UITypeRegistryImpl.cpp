@@ -12,7 +12,7 @@ module;
 
 module draconic.ui;
 
-namespace draconic::ui
+namespace foundation::ui
 {
     void UITypeRegistry::RegisterBuiltins()
     {

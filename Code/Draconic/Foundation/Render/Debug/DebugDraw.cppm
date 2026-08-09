@@ -14,9 +14,9 @@ export module draconic.render:debug_draw;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::render::debug
+export namespace foundation::render::debug
 {
 
     // World-space geometry vertex (16B): position + packed RGBA8 color (byte0=R -> matches Unorm8x4).
@@ -164,4 +164,4 @@ export namespace draconic::render::debug
         Array<u8> m_textChars;
     };
 
-} // namespace draconic::render::debug
+} // namespace foundation::render::debug

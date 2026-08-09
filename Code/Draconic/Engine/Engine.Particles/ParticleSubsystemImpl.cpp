@@ -13,9 +13,10 @@ module draconic.engine.particles;
 import draconic.core;
 import draconic.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-namespace draconic::engine::particles
+namespace engine::particles
 {
     DRACONIC_REFLECT_VALUE(ParticleEffectComponent, "rtti::engine::particles")
     {
@@ -23,7 +24,7 @@ namespace draconic::engine::particles
             .Attribute("category", String(u8"Effects"))
             // Script (Track A): ParticleEffectComponent.of(entity) -> live visible/meshScale/light*.
             // play/stop/setEffect are instance ops -> SceneParticles.of(scene) (world ops keyed by entity).
-            .Method<&draconic::script::ComponentOf<ParticleEffectComponent>, ParticleEffectComponent>(
+            .Method<&foundation::script::ComponentOf<ParticleEffectComponent>, ParticleEffectComponent>(
                 "of")
             .Property<&ParticleEffectComponent::effectAsset>("effect")
             .Property<&ParticleEffectComponent::mesh>("mesh")
@@ -63,13 +64,13 @@ namespace draconic::engine::particles
         RegisterParticleComponentReflection(); // ensure component TypeData (incl `of`) is built first
         // Surface the particle component (ParticleEffectComponent.of(entity)): register + seed root + name.
         GlobalTypeRegistry().Register(core::TypeOf<ParticleEffectComponent>());
-        draconic::script::RegisterExtraScriptRootType(&core::TypeOf<ParticleEffectComponent>());
-        draconic::script::RegisterExtraFacadeName(u8"ParticleEffectComponent");
+        foundation::script::RegisterExtraScriptRootType(&core::TypeOf<ParticleEffectComponent>());
+        foundation::script::RegisterExtraFacadeName(u8"ParticleEffectComponent");
 
         // The scene-bound particles handle (SceneParticles.of(scene)): reflect + register + seed + name.
         DraconicRegisterValue_SceneParticles();
         GlobalTypeRegistry().Register(core::TypeOf<SceneParticles>());
-        draconic::script::RegisterExtraScriptRootType(&core::TypeOf<SceneParticles>());
-        draconic::script::RegisterExtraFacadeName(u8"SceneParticles");
+        foundation::script::RegisterExtraScriptRootType(&core::TypeOf<SceneParticles>());
+        foundation::script::RegisterExtraFacadeName(u8"SceneParticles");
     }
 }

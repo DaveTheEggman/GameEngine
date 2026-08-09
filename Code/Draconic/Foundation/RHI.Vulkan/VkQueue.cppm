@@ -14,9 +14,9 @@ import :command_buffer;
 import :fence;
 import :transfer_batch;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkDeviceImpl; // forward
@@ -80,4 +80,4 @@ export namespace draconic::rhi::vk
         IAllocator& m_allocator;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

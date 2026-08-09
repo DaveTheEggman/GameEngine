@@ -14,7 +14,7 @@ export module draconic.editor.script.wren;
 
 import draconic.core;
 
-export namespace draconic::editor{
+export namespace editor{
     /// Registers Wren's editor-UI services (the CodeEditView lexer). An editor entry point's
     /// job, beside RegisterWrenScriptBackend/RegisterWrenScriptCook.
     void RegisterWrenEditorUI();

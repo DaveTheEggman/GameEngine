@@ -17,9 +17,9 @@ import draconic.rhi;
 import :shader_module;
 import :pipeline_layout;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxRayTracingPipelineImpl : public RayTracingPipeline
@@ -263,4 +263,4 @@ export namespace draconic::rhi::dx12
         std::vector<std::wstring> m_groupExportNames;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

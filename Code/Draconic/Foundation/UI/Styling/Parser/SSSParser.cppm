@@ -51,11 +51,11 @@ import :color_functions;
 import :ui_type_registry;
 import :iresource_provider;
 
-using namespace draconic::core;
-namespace image = draconic::image;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace image = foundation::image;
+namespace vg = foundation::vg;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class SSSParser;
     class View; // for SSSParser::ApplyInlineStyle (body in Styling/Parser/SSSParserImpl.cpp)

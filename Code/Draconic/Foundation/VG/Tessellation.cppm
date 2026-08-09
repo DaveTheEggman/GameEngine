@@ -21,9 +21,9 @@ import :fills;
 import :path;
 import :shapes;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg
+export namespace foundation::vg
 {
     /// Triangulates polygons using the ear-clipping algorithm.
     class Triangulator

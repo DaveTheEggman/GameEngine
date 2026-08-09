@@ -33,11 +33,11 @@ import draconic.shell;
 //   draconic.graphics.null - CreateNullGraphicsDevice (headless)
 //   draconic.graphics.gpu  - CreateGraphicsDevice (Vulkan/DX12)
 
-namespace core = draconic::core;
-using namespace draconic::shell; // IShell + input/window types (moved from draconic::runtime)
-namespace rhi = draconic::rhi;
+namespace core = foundation::core;
+using namespace foundation::shell; // IShell + input/window types (moved from foundation::runtime)
+namespace rhi = foundation::rhi;
 
-export namespace draconic::graphics
+export namespace foundation::graphics
 {
     // Null is a real headless option (CI / servers / tests) - no GPU required.
     enum class BackendType : core::u8

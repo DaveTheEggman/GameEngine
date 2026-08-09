@@ -26,14 +26,14 @@ import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.runtime;
 
-namespace core = draconic::core;
-namespace shell = draconic::shell;
-namespace graphics = draconic::graphics;
-namespace ui = draconic::ui;
+namespace core = foundation::core;
+namespace shell = foundation::shell;
+namespace graphics = foundation::graphics;
+namespace ui = foundation::ui;
 
-// draconic::ui::application nests in draconic::ui, so View / RootView resolve unqualified and
+// foundation::ui::application nests in foundation::ui, so View / RootView resolve unqualified and
 // toolkit::* / runtime-host types resolve via the parent namespace.
-export namespace draconic::ui::application
+export namespace foundation::ui::application
 {
     using core::f32;
     using core::i32;
@@ -45,7 +45,7 @@ export namespace draconic::ui::application
     class RuntimeDockableWindowHost final : public toolkit::IDockableWindowHost
     {
     public:
-        RuntimeDockableWindowHost(draconic::runtime::IApplicationHost& host,
+        RuntimeDockableWindowHost(foundation::runtime::IApplicationHost& host,
                                   ui::runtime::UIHost& uiHost) noexcept
             : m_host(&host), m_uiHost(&uiHost)
         {
@@ -266,7 +266,7 @@ export namespace draconic::ui::application
             }
         }
 
-        draconic::runtime::IApplicationHost* m_host; // borrowed
+        foundation::runtime::IApplicationHost* m_host; // borrowed
         ui::runtime::UIHost* m_uiHost;               // borrowed (the app owns it)
         core::Array<Entry> m_entries;
 

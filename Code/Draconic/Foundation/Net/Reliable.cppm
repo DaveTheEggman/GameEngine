@@ -23,9 +23,9 @@ import :transport;
 import :datagram;
 import :wire;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::net
+export namespace foundation::net
 {
 
     // Tunables for a ReliableTransport (all times in ms).

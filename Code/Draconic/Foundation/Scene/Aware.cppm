@@ -14,9 +14,9 @@ export module draconic.scene:aware;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::scene
+export namespace foundation::scene
 {
 
     class Scene; // defined in :scene (same module)
@@ -35,4 +35,4 @@ export namespace draconic::scene
         virtual void OnSceneDestroyed(Scene& /*scene*/) {}
     };
 
-} // namespace draconic::scene
+} // namespace foundation::scene

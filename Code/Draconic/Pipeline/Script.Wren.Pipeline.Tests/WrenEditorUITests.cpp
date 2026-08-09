@@ -5,13 +5,14 @@
 import draconic.core;
 import draconic.ui.toolkit;
 import draconic.editor.script.wren;
+import draconic.ui;
 
-using namespace draconic::core;
-using namespace draconic::ui::toolkit;
+using namespace foundation::core;
+using namespace foundation::ui::toolkit;
 
 TEST_CASE("wren-editor-ui: LexerRegistration")
 {
-    draconic::editor::RegisterWrenEditorUI();
+    editor::RegisterWrenEditorUI();
     UniquePtr<ICodeLexer> lexer = CodeLexerRegistry::Get().Create(u8"wren");
     REQUIRE(lexer.Get() != nullptr);
 

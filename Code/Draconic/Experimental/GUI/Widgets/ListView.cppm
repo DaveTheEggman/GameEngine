@@ -19,11 +19,11 @@ import :model_index;
 import :model;
 import :abstract_item_view;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // A list row: an ItemRow containing a single (hit-transparent) Label.
     class ListRow : public ItemRow

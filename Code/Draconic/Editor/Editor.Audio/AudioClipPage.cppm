@@ -26,13 +26,13 @@ import draconic.ui;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace audio = draconic::audio;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace audio = foundation::audio;
 
     /// The peak waveform strip: symmetric per-bucket bars around the midline plus an
     /// optional playhead (fraction of the clip; < 0 hides it).
@@ -53,11 +53,11 @@ export namespace draconic::editor
     {
     public:
         AudioClipEditorPage(EditorContext& context, runtime::IApplicationHost& host,
-                            draconic::content::Instance& instance)
+                            foundation::content::Instance& instance)
             : m_context(&context), m_title(instance.Name())
         {
             SetInstanceId(instance.Id());
-            m_audio = host.Ctx().GetSubsystem<draconic::engine::audio::AudioSubsystem>();
+            m_audio = host.Ctx().GetSubsystem<engine::audio::AudioSubsystem>();
             LoadClip(instance);
 
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
@@ -134,7 +134,7 @@ export namespace draconic::editor
         void OnClose() override { StopAudition(); }
 
     private:
-        void LoadClip(draconic::content::Instance& instance);
+        void LoadClip(foundation::content::Instance& instance);
 
         void RefreshInfo();
 
@@ -147,7 +147,7 @@ export namespace draconic::editor
         void SetAuditionVolume(f32 volume);
 
         EditorContext* m_context = nullptr;
-        draconic::engine::audio::AudioSubsystem* m_audio = nullptr; // the RUNTIME context's subsystem
+        engine::audio::AudioSubsystem* m_audio = nullptr; // the RUNTIME context's subsystem
         String m_title;
         bool m_loop = false;
         bool m_paused = false;
@@ -170,7 +170,7 @@ export namespace draconic::editor
         explicit AudioClipPageFactory(runtime::IApplicationHost& host) : m_host(&host) {}
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
 
     private:
         runtime::IApplicationHost* m_host;

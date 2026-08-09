@@ -8,7 +8,7 @@
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 // --- Debug / assertions ----------------------------------------------------
 // We install a non-breaking handler so failed asserts record instead of trap.

@@ -23,10 +23,10 @@ import draconic.script.facades;  // RegisterScriptFacadeReflection (the cook VM'
 import draconic.script.pipeline;   // IScriptLanguageCook + registry + shared cook helpers
 import draconic.script.wren;     // ensures the Wren backend is available to the registry
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation::script;
 
-export namespace draconic::pipeline{
+export namespace pipeline{
     // The New Asset starter (the behavior convention pre-filled). Property values reach an
     // instance through plain Wren SETTERS ("speed" -> `speed=(v)`) - harvested names are
     // pushed via `Invoke("<name>=")` at instantiate, after construct new(entity).

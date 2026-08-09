@@ -31,9 +31,17 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :camera;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace animation = foundation::animation;
+namespace core = foundation::core;
+namespace render = foundation::render;
+namespace rhi = foundation::rhi;
+namespace runtime = foundation::runtime;
+namespace ui = foundation::ui;
+namespace vg = foundation::vg;
+namespace fonts = foundation::fonts;
 
-namespace draconic::editor
+namespace editor
 {
     namespace
     {
@@ -178,7 +186,7 @@ namespace draconic::editor
             }
             if (context.Project() != nullptr)
             {
-                if (draconic::content::Instance* inst =
+                if (foundation::content::Instance* inst =
                         context.Project()->SourceDb().GetInstance(id))
                 {
                     return String(inst->Name());
@@ -193,21 +201,21 @@ namespace draconic::editor
     AnimationGraphEditorPage::AnimationGraphEditorPage(EditorContext& context,
                                                        runtime::IApplicationHost& host,
                                                        ui::runtime::UIHost& uiHost,
-                                                       draconic::content::Instance& instance)
+                                                       foundation::content::Instance& instance)
         : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
         m_router =
-            MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
+            MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
         m_camera.position = Float3{0.0f, 1.4f, 3.2f};
         m_camera.LookAt(Float3{0.0f, 0.9f, 0.0f});
-        m_scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
-        m_render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>();
+        m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
+        m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
 
         SetInstanceId(instance.Id());
 
         RefPtr<ISerializable> object = instance.ReadObject();
-        m_asset = RefPtr<draconic::pipeline::AnimationGraphAsset>(
-            Cast<draconic::pipeline::AnimationGraphAsset>(object.Get()));
+        m_asset = RefPtr<pipeline::AnimationGraphAsset>(
+            Cast<pipeline::AnimationGraphAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor",
@@ -1806,7 +1814,7 @@ namespace draconic::editor
             }
             else
             {
-                self->m_skeleton = draconic::resource::Proxy<animation::Skeleton>{};
+                self->m_skeleton = foundation::resource::Proxy<animation::Skeleton>{};
             }
             String label(u8"Skeleton: ");
             label.Append(AssetLabel(*self->m_context, picked).AsView());
@@ -1906,7 +1914,7 @@ namespace draconic::editor
         DrawSkeletonWireframe(draw, *m_playerSkeleton, m_player->GetLocalPoses(), m_worldScratch);
     }
 
-    void DrawSkeletonWireframe(draconic::render::debug::DebugDraw& draw,
+    void DrawSkeletonWireframe(foundation::render::debug::DebugDraw& draw,
                                animation::Skeleton& skeleton,
                                Span<const animation::BoneTransform> localPoses,
                                Array<Float4x4>& worldScratch)
@@ -1937,12 +1945,12 @@ namespace draconic::editor
 
     void AnimationGraphEditorPage::EnsureViewportBound()
     {
-        draconic::ui::RootView* root = m_viewport->Root();
+        foundation::ui::RootView* root = m_viewport->Root();
         if (root == nullptr)
         {
             return;
         }
-        draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
+        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
         if (window == nullptr || window == m_hostWindow)
         {
             return;
@@ -1990,7 +1998,7 @@ namespace draconic::editor
     }
 
     void AnimationGraphEditorPage::OnRenderWindow(runtime::IApplicationHost&,
-                                                  draconic::graphics::FrameContext& frame)
+                                                  foundation::graphics::FrameContext& frame)
     {
         if (!m_viewport->IsReady() || !frame.valid)
         {
@@ -2036,7 +2044,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             m_context->Project()->SourceDb().GetInstance(InstanceId());
         if (instance == nullptr)
         {
@@ -2075,19 +2083,19 @@ namespace draconic::editor
 
     const TypeInfo* AnimationGraphPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::AnimationGraphAsset::StaticType();
+        return &pipeline::AnimationGraphAsset::StaticType();
     }
 
     UniquePtr<EditorPage>
     AnimationGraphPageFactory::CreatePage(EditorContext& context,
-                                          draconic::content::Instance& instance)
+                                          foundation::content::Instance& instance)
     {
         auto* page =
             DefaultAllocator().New<AnimationGraphEditorPage>(context, *m_host, *m_uiHost, instance);
         return UniquePtr<EditorPage>(page, DefaultAllocator());
     }
 
-    void SeedDefaultAnimationGraph(draconic::pipeline::AnimationGraphAsset& asset)
+    void SeedDefaultAnimationGraph(pipeline::AnimationGraphAsset& asset)
     {
         animation::AnimationGraphSource& source = asset.source;
         source.paramNames.PushBack(String(u8"Speed"));
@@ -2111,17 +2119,17 @@ namespace draconic::editor
         asset.layerAnyStatePositions.PushBack(Float2{60.0f, 40.0f});
     }
 
-    inline draconic::content::Instance*
-    CreateAnimationGraphInstance(EditorContext& context, draconic::content::Group* group)
+    inline foundation::content::Instance*
+    CreateAnimationGraphInstance(EditorContext& context, foundation::content::Group* group)
     {
         if (context.Project() == nullptr)
         {
             return nullptr;
         }
-        draconic::content::Group* target = group;
+        foundation::content::Group* target = group;
         if (target == nullptr)
         {
-            draconic::content::Group* root = context.Project()->SourceDb().RootGroup();
+            foundation::content::Group* root = context.Project()->SourceDb().RootGroup();
             target = root->GetGroup(u8"Animation");
             if (target == nullptr)
             {
@@ -2135,13 +2143,13 @@ namespace draconic::editor
 
         const String name = target->UniqueInstanceName(u8"AnimationGraph");
 
-        draconic::content::Instance* instance =
-            target->CreateInstance(name.AsView(), draconic::pipeline::AnimationGraphAsset::StaticType());
+        foundation::content::Instance* instance =
+            target->CreateInstance(name.AsView(), pipeline::AnimationGraphAsset::StaticType());
         if (instance == nullptr)
         {
             return nullptr;
         }
-        draconic::pipeline::AnimationGraphAsset asset;
+        pipeline::AnimationGraphAsset asset;
         SeedDefaultAnimationGraph(asset);
         if (!instance->WriteObject(asset).IsOk())
         {
@@ -2160,7 +2168,7 @@ namespace draconic::editor
 
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Animation Graph");
-        creator.create = [](EditorContext& ctx, draconic::content::Group* group)
+        creator.create = [](EditorContext& ctx, foundation::content::Group* group)
         { return CreateAnimationGraphInstance(ctx, group); };
         context.RegisterCreator(Move(creator));
     }

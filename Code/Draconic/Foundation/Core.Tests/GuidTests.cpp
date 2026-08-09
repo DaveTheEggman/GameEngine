@@ -4,7 +4,7 @@
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 TEST_CASE("guid: nil and default")
 {

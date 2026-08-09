@@ -19,11 +19,11 @@ import draconic.vfs;
 import draconic.xml.serialization;
 import draconic.settings;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace vfs = draconic::vfs;
+    namespace vfs = foundation::vfs;
 
     inline constexpr StringView kExportPresetsFile = u8"export_presets.xml";
 
@@ -51,25 +51,25 @@ export namespace draconic::editor
 
         void Serialize(ISerializer& ar)
         {
-            draconic::core::Serialize(ar, "name", name);
-            draconic::core::Serialize(ar, "platform", platform);
-            draconic::core::Serialize(ar, "templateId", templateId);
-            draconic::core::Serialize(ar, "playerName", playerName);
-            draconic::core::Serialize(ar, "outputSubdir", outputSubdir);
-            draconic::core::Serialize(ar, "additionalFiles", additionalFiles);
+            foundation::core::Serialize(ar, "name", name);
+            foundation::core::Serialize(ar, "platform", platform);
+            foundation::core::Serialize(ar, "templateId", templateId);
+            foundation::core::Serialize(ar, "playerName", playerName);
+            foundation::core::Serialize(ar, "outputSubdir", outputSubdir);
+            foundation::core::Serialize(ar, "additionalFiles", additionalFiles);
             // v2 added the config axis: a preset selects (platform, config) and opts symbols in/out.
             // A v1 export_presets.xml lacks these, so gate them on the stored ExportPresetSet version -
             // an old file reads config="" (=> Release at resolution) and stageSymbols=false (stripped).
             if (ar.Version() >= 2)
             {
-                draconic::core::Serialize(ar, "config", config);
-                draconic::core::Serialize(ar, "stageSymbols", stageSymbols);
+                foundation::core::Serialize(ar, "config", config);
+                foundation::core::Serialize(ar, "stageSymbols", stageSymbols);
             }
             // v3 added closure pruning. Absent (v1/v2) => false = today's "pack everything", so a
             // preset written before this axis keeps shipping the whole cooked dir (back-compat).
             if (ar.Version() >= 3)
             {
-                draconic::core::Serialize(ar, "pruneToReachable", pruneToReachable);
+                foundation::core::Serialize(ar, "pruneToReachable", pruneToReachable);
             }
         }
     };
@@ -94,7 +94,7 @@ export namespace draconic::editor
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "presets", presets);
+            foundation::core::Serialize(ar, "presets", presets);
         }
 
         // Find a preset by name (case-sensitive); null when absent.
@@ -133,7 +133,7 @@ export namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
         if (!ctx || ctx->serializer == nullptr)
         {
@@ -151,7 +151,7 @@ export namespace draconic::editor
                                                   StringView fileName = kExportPresetsFile)
     {
         MemoryStream buffer;
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
         if (!ctx || ctx->serializer == nullptr)
         {
@@ -181,11 +181,11 @@ export namespace draconic::editor
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "templatesRoot", templatesRoot);
+            foundation::core::Serialize(ar, "templatesRoot", templatesRoot);
         }
     };
 
-    namespace settings = draconic::settings;
+    namespace settings = foundation::settings;
 
     DRACONIC_DEFINE_OBJECT_VERSIONED(ExportPresetSet, "rtti::editor::editor", 3)
     DRACONIC_DEFINE_OBJECT_VERSIONED(EditorExportSettings, "rtti::editor::editor", 1)

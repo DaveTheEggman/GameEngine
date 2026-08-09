@@ -13,9 +13,9 @@ export module draconic.scene:phase;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::scene
+export namespace foundation::scene
 {
 
     enum class ScenePhase : u8
@@ -31,4 +31,4 @@ export namespace draconic::scene
         Count,
     };
 
-} // namespace draconic::scene
+} // namespace foundation::scene

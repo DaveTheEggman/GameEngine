@@ -20,12 +20,12 @@ import draconic.scene;
 import draconic.render;
 import draconic.engine.render;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace scene = draconic::scene;
-    namespace render = draconic::render;
+    namespace scene = foundation::scene;
+    namespace render = foundation::render;
 
     /// Drawing context passed to gizmo renderers.
     struct GizmoContext

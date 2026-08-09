@@ -12,9 +12,9 @@ export module draconic.ui:float2_animation;
 import draconic.core;
 import :animation;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class Float2Animation : public Animation
     {

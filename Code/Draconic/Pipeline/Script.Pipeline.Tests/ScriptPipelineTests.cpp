@@ -21,10 +21,10 @@ import draconic.script.resource;
 import draconic.script.pipeline;
 import draconic.script.wren.pipeline; // the Wren cook (starter + compile/harvest) under test
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::script;
-namespace content = draconic::content;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::script;
+namespace content = foundation::content;
 
 namespace
 {
@@ -66,8 +66,8 @@ namespace
     {
         String srcDir;
         String outDir;
-        UniquePtr<draconic::vfs::NativeFileSystem> sources;
-        UniquePtr<draconic::vfs::NativeFileSystem> output;
+        UniquePtr<foundation::vfs::NativeFileSystem> sources;
+        UniquePtr<foundation::vfs::NativeFileSystem> output;
         UniquePtr<content::ContentDatabase> outputDb;
 
         explicit CookBed(StringView tag)
@@ -91,9 +91,9 @@ namespace
             RemoveTree(outDir.AsView());
             REQUIRE(CreateDirectory(srcDir.AsView()));
             sources =
-                MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(), srcDir.AsView());
+                MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(), srcDir.AsView());
             output =
-                MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(), outDir.AsView());
+                MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(), outDir.AsView());
             outputDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(), *output,
                                                             BinarySerializerFactory(), u8".rasset");
         }
@@ -119,10 +119,10 @@ namespace
                                   content::Instance*& outInstance)
         {
             ScriptClassAsset asset;
-            asset.fileName = draconic::vfs::SourcePath(fileName);
+            asset.fileName = foundation::vfs::SourcePath(fileName);
             asset.language = String(language);
             ScriptClassAssetBuilder builder;
-            draconic::pipeline::AssetBuildContext ctx;
+            pipeline::AssetBuildContext ctx;
             ctx.sources = sources.Get();
             if (outInstance == nullptr)
             {
@@ -225,9 +225,9 @@ TEST_CASE("script.pipeline: full harvest round-trip - source -> cook -> factory 
     REQUIRE(bed.Cook(u8"mover.wren", u8"wren", instance).IsOk());
 
     ScriptClassFactory factory;
-    draconic::resource::ResourceManager manager(*bed.outputDb);
+    foundation::resource::ResourceManager manager(*bed.outputDb);
     manager.AddFactory(&factory);
-    draconic::resource::Proxy<ScriptClass> product = manager.Bind<ScriptClass>(instance->Id());
+    foundation::resource::Proxy<ScriptClass> product = manager.Bind<ScriptClass>(instance->Id());
     REQUIRE(product);
     CHECK(product->language == u8"wren");
     CHECK(product->className == u8"Mover");
@@ -416,10 +416,10 @@ TEST_CASE("script.pipeline: B3 - the neutral builder resolves a per-language COO
     content::Instance* second =
         bed.outputDb->RootGroup()->CreateInstance(u8"cooked2", ScriptClassSource::StaticType());
     ScriptClassAsset asset;
-    asset.fileName = draconic::vfs::SourcePath(u8"fake.ftl");
+    asset.fileName = foundation::vfs::SourcePath(u8"fake.ftl");
     asset.language = String(u8"nosuchlang");
     ScriptClassAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.sources = bed.sources.Get();
     ctx.output = second;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());

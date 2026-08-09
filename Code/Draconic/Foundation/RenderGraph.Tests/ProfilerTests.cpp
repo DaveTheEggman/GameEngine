@@ -7,8 +7,8 @@
 import draconic.core;
 import draconic.rendergraph;
 
-using namespace draconic::core;
-using namespace draconic::rendergraph;
+using namespace foundation::core;
+using namespace foundation::rendergraph;
 
 TEST_CASE("rg.profiler: uninitialized is safe and reports zero")
 {

@@ -18,12 +18,12 @@ import draconic.particles;
 import draconic.particles.resource;
 import draconic.particles.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::vfs;
-using namespace draconic::resource;
-using namespace draconic::particles;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::vfs;
+using namespace foundation::resource;
+using namespace foundation::particles;
+namespace rhi = foundation::rhi;
 
 namespace
 {
@@ -44,7 +44,7 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
 
     // Author the effect in an asset, then cook it via the builder into the DB instance.
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst =
             db.RootGroup()->CreateInstance(u8"smoke", ParticleEffectResource::StaticType());
@@ -62,7 +62,7 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
             ParticleCurveFloat2::Linear(Float2{1, 1}, Float2{3, 3});
 
         ParticleEffectAssetBuilder builder;
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.output = inst;
         ctx.db = &db;
         REQUIRE(builder.AssetType() == &ParticleEffectAsset::StaticType());
@@ -70,7 +70,7 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
     }
 
     // Load the cooked resource back.
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     ParticleEffectFactory factory;
     ResourceManager manager(db);
@@ -100,7 +100,7 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
 TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID -> bound Proxy")
 {
     RegisterParticleEffectAsset();
-    draconic::texture::RegisterTextureResource();
+    foundation::texture::RegisterTextureResource();
     FileDelete(u8"draconic_pfx_ref_db/smoketex.rasset");
     FileDelete(u8"draconic_pfx_ref_db/smoketex.data.bin");
     FileDelete(u8"draconic_pfx_ref_db/effect.rasset");
@@ -110,14 +110,14 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
     Guid effectId, texId;
 
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
 
         // Cook a texture the effect will reference.
         auto* texInst = db.RootGroup()->CreateInstance(
-            u8"smoketex", draconic::texture::TextureResource::StaticType());
+            u8"smoketex", foundation::texture::TextureResource::StaticType());
         texId = texInst->Id();
-        draconic::texture::TextureResource tr;
+        foundation::texture::TextureResource tr;
         tr.width = 2;
         tr.height = 2;
         tr.format = rhi::TextureFormat::RGBA8Unorm;
@@ -139,7 +139,7 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
         asset.SetSystemTexturePath(0, u8"smoketex");
 
         ParticleEffectAssetBuilder builder;
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.output = fxInst;
         ctx.db = &db;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -147,10 +147,10 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
 
     // Load with both factories so the effect's Create can Bind the referenced texture.
     rhi::null::NullDevice device{DefaultAllocator()};
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     ParticleEffectFactory pfxFactory;
-    draconic::texture::TextureFactory texFactory(device);
+    foundation::texture::TextureFactory texFactory(device);
     ResourceManager manager(db);
     manager.AddFactory(&pfxFactory);
     manager.AddFactory(&texFactory);
@@ -161,7 +161,7 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
     // The path was resolved to the texture's cooked GUID during Build...
     CHECK(res->Effect().GetSystem(0)->textureRef == texId);
     // ...and the factory bound it to a live, hot-reload-following Proxy<Texture>.
-    Proxy<draconic::texture::Texture> tex = res->SystemTexture(0);
+    Proxy<foundation::texture::Texture> tex = res->SystemTexture(0);
     REQUIRE(tex);
     CHECK(tex->GpuTexture() != nullptr);
 

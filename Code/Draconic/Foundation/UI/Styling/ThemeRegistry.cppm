@@ -17,9 +17,9 @@ import :style_sheet;
 import :theme_palette;
 import :theme_extension;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::ui::detail
+namespace foundation::ui::detail
 {
     inline Array<IThemeExtension*>& ThemeExtensionList()
     {
@@ -28,7 +28,7 @@ namespace draconic::ui::detail
     }
 }
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct ThemeRegistry
     {

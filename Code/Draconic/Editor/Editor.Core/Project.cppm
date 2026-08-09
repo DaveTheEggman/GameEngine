@@ -29,23 +29,24 @@ import draconic.xml.serialization;
 import draconic.engine.project;
 import :export_roots; // the project owns its "Always Export" set (export_roots.xml)
 
-using namespace draconic::core;
-using namespace draconic::engine::project;
+using namespace foundation::core;
+using namespace engine::project;
+namespace vfs = foundation::vfs;
 
-export namespace draconic::editor
+export namespace editor
 {
     // The manifest payload + directory layout live in draconic.engine.project (runtime-side,
     // editor-free - the player/dist builds read the same manifest without editor code).
-    using draconic::engine::project::kCookedAssetExtension;
-    using draconic::engine::project::kEngineVersionString;
-    using draconic::engine::project::kProjectCacheDir;
-    using draconic::engine::project::kProjectContentDir;
-    using draconic::engine::project::kProjectCookedDir;
-    using draconic::engine::project::kProjectEditorDir;
-    using draconic::engine::project::kProjectManifestFile;
-    using draconic::engine::project::kProjectSourcesDir;
-    using draconic::engine::project::kSourceAssetExtension;
-    using draconic::engine::project::ProjectSettings;
+    using engine::project::kCookedAssetExtension;
+    using engine::project::kEngineVersionString;
+    using engine::project::kProjectCacheDir;
+    using engine::project::kProjectContentDir;
+    using engine::project::kProjectCookedDir;
+    using engine::project::kProjectEditorDir;
+    using engine::project::kProjectManifestFile;
+    using engine::project::kProjectSourcesDir;
+    using engine::project::kSourceAssetExtension;
+    using engine::project::ProjectSettings;
 
     // An opened project: the manifest + the mounted source and cooked content databases.
     class EditorProject
@@ -90,7 +91,7 @@ export namespace draconic::editor
         {
             vfs::NativeFileSystem root(directory);
             ProjectSettings settings;
-            if (!draconic::engine::project::LoadProjectSettings(root, settings).IsOk())
+            if (!engine::project::LoadProjectSettings(root, settings).IsOk())
             {
                 // A present-but-unreadable manifest is an ERROR the user must see (the app
                 // shell only reflects failure in the status bar); absent = the scaffold path.
@@ -117,13 +118,13 @@ export namespace draconic::editor
             }
 
             if (!settings.engineVersion.IsEmpty() &&
-                settings.engineVersion != draconic::engine::project::kEngineVersionString)
+                settings.engineVersion != engine::project::kEngineVersionString)
             {
                 // Today: informational. The launcher/project-manager (planned) routes projects
                 // to their engine version and drives migration on upgrade.
                 DRACONIC_LOG_WARNING(
                     u8"Project", u8"project was last saved by engine {} (this editor is {})",
-                    settings.engineVersion, draconic::engine::project::kEngineVersionString);
+                    settings.engineVersion, engine::project::kEngineVersionString);
             }
             EditorProject* project = DefaultAllocator().New<EditorProject>(directory, settings);
             return UniquePtr<EditorProject>(project, DefaultAllocator());
@@ -135,12 +136,12 @@ export namespace draconic::editor
         [[nodiscard]] const ProjectSettings& Settings() const noexcept { return m_settings; }
 
         /// The authored source database (XML envelopes) - what the editor edits.
-        [[nodiscard]] draconic::content::ContentDatabase& SourceDb() noexcept
+        [[nodiscard]] foundation::content::ContentDatabase& SourceDb() noexcept
         {
             return *m_sourceDb;
         }
         /// The cooked output database (binary envelopes) - what the runtime loads.
-        [[nodiscard]] draconic::content::ContentDatabase& CookedDb() noexcept
+        [[nodiscard]] foundation::content::ContentDatabase& CookedDb() noexcept
         {
             return *m_cookedDb;
         }
@@ -183,7 +184,7 @@ export namespace draconic::editor
             {
                 return Status{ErrorCode::NotSupported};
             }
-            return draconic::editor::SaveExportRoots(*writable, m_exportRoots);
+            return editor::SaveExportRoots(*writable, m_exportRoots);
         }
 
         // Internal (public for allocator New); use Create/Open. Fields are moved out of
@@ -194,10 +195,10 @@ export namespace draconic::editor
                   DefaultAllocator(), PathJoin(directory, kProjectContentDir).AsView())),
               m_cookedMount(MakeUnique<vfs::NativeFileSystem>(
                   DefaultAllocator(), PathJoin(directory, kProjectCookedDir).AsView())),
-              m_sourceDb(MakeUnique<draconic::content::ContentDatabase>(
-                  DefaultAllocator(), *m_contentMount, draconic::xml::XmlSerializerFactory(),
+              m_sourceDb(MakeUnique<foundation::content::ContentDatabase>(
+                  DefaultAllocator(), *m_contentMount, foundation::xml::XmlSerializerFactory(),
                   kSourceAssetExtension)),
-              m_cookedDb(MakeUnique<draconic::content::ContentDatabase>(
+              m_cookedDb(MakeUnique<foundation::content::ContentDatabase>(
                   DefaultAllocator(), *m_cookedMount, BinarySerializerFactory(),
                   kCookedAssetExtension))
         {
@@ -239,7 +240,7 @@ export namespace draconic::editor
             }
             // One manifest format: the lean lib's helpers (versioned payload included) - the
             // player reads the same file with zero editor code.
-            return draconic::engine::project::SaveProjectSettings(*writable, settings);
+            return engine::project::SaveProjectSettings(*writable, settings);
         }
 
         String m_directory;
@@ -247,8 +248,8 @@ export namespace draconic::editor
         ExportRootsSet m_exportRoots; // "Always Export" set (export_roots.xml); empty when absent
         UniquePtr<vfs::NativeFileSystem> m_contentMount;
         UniquePtr<vfs::NativeFileSystem> m_cookedMount;
-        UniquePtr<draconic::content::ContentDatabase> m_sourceDb;
-        UniquePtr<draconic::content::ContentDatabase> m_cookedDb;
+        UniquePtr<foundation::content::ContentDatabase> m_sourceDb;
+        UniquePtr<foundation::content::ContentDatabase> m_cookedDb;
     };
 
 }

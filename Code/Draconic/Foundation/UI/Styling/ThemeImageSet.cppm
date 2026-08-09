@@ -18,10 +18,10 @@ import draconic.core;  // HashMap, Array, String, StringView, Optional
 import draconic.image; // ImageData, NineSlice
 import :control_state;
 
-using namespace draconic::core;
-namespace image = draconic::image;
+using namespace foundation::core;
+namespace image = foundation::image;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Entry for a single image in a ThemeImageSet.
     struct ThemeImageEntry

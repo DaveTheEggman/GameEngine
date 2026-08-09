@@ -12,9 +12,9 @@ module draconic.texture;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::texture
+namespace foundation::texture
 {
     DRACONIC_REFLECT_ENUM(TextureShape, "rtti::texture")
     {

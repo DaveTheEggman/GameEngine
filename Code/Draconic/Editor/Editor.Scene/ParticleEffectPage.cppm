@@ -50,16 +50,16 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :camera;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace vg = draconic::vg;
-    namespace scene = draconic::scene;
-    namespace render = draconic::render;
-    namespace particles = draconic::particles;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace vg = foundation::vg;
+    namespace scene = foundation::scene;
+    namespace render = foundation::render;
+    namespace particles = foundation::particles;
 
     // ---- Authoring-tree node model ------------------------------------------------------------
     // A flat table of nodes (nodeId = index) rebuilt from the effect on every structural change.
@@ -106,15 +106,15 @@ export namespace draconic::editor
     public:
         ParticleEffectEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                                  ui::runtime::UIHost& uiHost,
-                                 draconic::content::Instance& instance);
+                                 foundation::content::Instance& instance);
 
-        [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
+        [[nodiscard]] foundation::ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] Status Save() override;
 
         void OnUpdate(runtime::IApplicationHost&, f32 dt) override;
         void OnRenderWindow(runtime::IApplicationHost&,
-                            draconic::graphics::FrameContext& frame) override;
+                            foundation::graphics::FrameContext& frame) override;
         void OnClose() override;
 
         // Record a coalesced undo step for an in-place scalar edit that already happened (merge by
@@ -163,7 +163,7 @@ export namespace draconic::editor
 
         // --- preview scene ---
         void BuildPreviewScene();
-        [[nodiscard]] draconic::engine::particles::ParticleEffectComponent* PreviewComponent() const;
+        [[nodiscard]] engine::particles::ParticleEffectComponent* PreviewComponent() const;
 
         // --- transport ---
         void Play();
@@ -203,16 +203,16 @@ export namespace draconic::editor
         ui::runtime::UIHost* m_uiHost = nullptr;
         String m_title;
 
-        RefPtr<draconic::pipeline::ParticleEffectAsset> m_asset;
+        RefPtr<pipeline::ParticleEffectAsset> m_asset;
 
         // preview world
-        draconic::engine::scene::SceneSubsystem* m_scenes = nullptr;
+        engine::scene::SceneSubsystem* m_scenes = nullptr;
         scene::SceneManager m_sceneManager;
-        draconic::engine::render::RenderSubsystem* m_render = nullptr;
+        engine::render::RenderSubsystem* m_render = nullptr;
         scene::Scene* m_scene = nullptr;
         scene::EntityHandle m_emitter;
         EditorCamera m_camera;
-        UniquePtr<draconic::shell::InputRouter> m_router;
+        UniquePtr<foundation::shell::InputRouter> m_router;
 
         // views
         RefPtr<ui::viewport::ViewportView> m_viewport;
@@ -221,8 +221,8 @@ export namespace draconic::editor
         RefPtr<ui::toolkit::PropertyGrid> m_grid;
         RefPtr<ui::Label> m_statsLabel; // live overlay text
         RefPtr<ui::Label> m_titleLabel; // inspector header ("Systems: N")
-        RefPtr<draconic::ui::View> m_content;
-        draconic::graphics::RenderWindow* m_hostWindow = nullptr;
+        RefPtr<foundation::ui::View> m_content;
+        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
 
         // tree state
         Array<ParticleTreeNode> m_nodes;
@@ -267,7 +267,7 @@ export namespace draconic::editor
 
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
 
     private:
         runtime::IApplicationHost* m_host;

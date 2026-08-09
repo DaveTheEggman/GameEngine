@@ -15,9 +15,9 @@ import :command_buffer;
 import :fence;
 import :transfer_batch;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxDeviceImpl; // forward
@@ -147,4 +147,4 @@ export namespace draconic::rhi::dx12
         IAllocator& m_allocator;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

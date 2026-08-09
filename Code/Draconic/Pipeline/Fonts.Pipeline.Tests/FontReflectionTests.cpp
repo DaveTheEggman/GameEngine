@@ -8,8 +8,8 @@
 import draconic.core;
 import draconic.fonts.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace pipeline;
 
 namespace
 {
@@ -34,8 +34,8 @@ namespace
 
 TEST_CASE("reflection-p1: FontAsset exposes its flat authored fields with attributes")
 {
-    draconic::pipeline::RegisterFontAsset();
-    const TypeInfo& type = draconic::pipeline::FontAsset::StaticType();
+    pipeline::RegisterFontAsset();
+    const TypeInfo& type = pipeline::FontAsset::StaticType();
 
     CHECK(CEq(type.name, "FontAsset"));
     // family + mode + dfSize + first/lastCodepoint + atlasWidth/Height = 7 (sizes deferred).
@@ -57,10 +57,10 @@ TEST_CASE("reflection-p1: FontAsset exposes its flat authored fields with attrib
 
 TEST_CASE("reflection-p1: FontAsset string/scalar properties round-trip")
 {
-    draconic::pipeline::RegisterFontAsset();
-    const TypeInfo& type = draconic::pipeline::FontAsset::StaticType();
+    pipeline::RegisterFontAsset();
+    const TypeInfo& type = pipeline::FontAsset::StaticType();
 
-    draconic::pipeline::FontAsset asset;
+    pipeline::FontAsset asset;
     Instance inst = Instance::From(&asset);
 
     const PropertyInfo* family = FindProperty(type, "family");
@@ -82,16 +82,16 @@ TEST_CASE("reflection-p1: FontAsset string/scalar properties round-trip")
 
 TEST_CASE("reflection-p1: FontBakeMode enum resolves named values")
 {
-    draconic::pipeline::RegisterFontAsset();
+    pipeline::RegisterFontAsset();
 
-    const TypeInfo& mode = TypeOf<draconic::pipeline::FontBakeMode>();
+    const TypeInfo& mode = TypeOf<pipeline::FontBakeMode>();
     CHECK(IsEnum(mode));
     CHECK(EnumeratorCount(mode) == 2u);
     CHECK(CEq(EnumValueName(mode, 0), "RasterRamp"));
     CHECK(CEq(EnumValueName(mode, 1), "DistanceField"));
 
     const PropertyInfo* modeProp =
-        FindProperty(draconic::pipeline::FontAsset::StaticType(), "mode");
+        FindProperty(pipeline::FontAsset::StaticType(), "mode");
     REQUIRE(modeProp != nullptr);
     REQUIRE(modeProp->type != nullptr);
     CHECK(IsEnum(*modeProp->type));

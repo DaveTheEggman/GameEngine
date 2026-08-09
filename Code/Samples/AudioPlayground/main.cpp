@@ -30,16 +30,15 @@ import draconic.imgui;
 import draconic.audio;
 import draconic.engine.audio;
 
-#include "../Common/FlyCamera.h" // after the imports: uses draconic::core/runtime types
+#include "../Common/FlyCamera.h" // after the imports: uses foundation::core/runtime types
 
-namespace core = draconic::core;
-namespace runtime = draconic::runtime;
-namespace graphics = draconic::graphics;
-namespace shell = draconic::shell;
-namespace scene = draconic::scene;
-namespace render = draconic::render;
-namespace audio = draconic::audio;
-namespace imgui = draconic::imgui;
+namespace core = foundation::core;
+namespace runtime = foundation::runtime;
+namespace graphics = foundation::graphics;
+namespace shell = foundation::shell;
+namespace scene = foundation::scene;
+namespace audio = foundation::audio;
+namespace imgui = extensions::imgui;
 
 using core::f32;
 
@@ -71,12 +70,12 @@ namespace
         return clip;
     }
 
-    class PlaygroundApp final : public draconic::engine::runtime::DefaultApplication
+    class PlaygroundApp final : public engine::runtime::DefaultApplication
     {
     public:
         void Configure(runtime::IApplicationHost& host) override
         {
-            draconic::engine::runtime::DefaultApplication::Configure(host); // registers AudioSubsystem
+            engine::runtime::DefaultApplication::Configure(host); // registers AudioSubsystem
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
@@ -85,7 +84,7 @@ namespace
 
         void OnLaunch(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
             if (scenes == nullptr || Audio() == nullptr)
             {
                 return;
@@ -101,11 +100,11 @@ namespace
 
             // Camera entity = the LISTENER (AudioListenerComponent drives the engine).
             m_camera = m_scene->CreateEntity(u8"camera");
-            if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
+            if (auto* cameras = m_scene->GetSystem<engine::render::CameraComponentManager>())
             {
                 cameras->Add(m_camera);
             }
-            m_scene->GetSystem<draconic::engine::audio::AudioListenerComponentManager>()->Add(m_camera);
+            m_scene->GetSystem<engine::audio::AudioListenerComponentManager>()->Add(m_camera);
             m_fly.position = core::Float3{0.0f, 2.0f, 14.0f};
             m_fly.moveSpeed = 8.0f;
             m_fly.fastSpeed = 25.0f;
@@ -113,8 +112,8 @@ namespace
             // Ambient pad: a looping streamless clip on the MUSIC bus (autoplay, 2D).
             {
                 scene::EntityHandle e = m_scene->CreateEntity(u8"ambient");
-                draconic::engine::audio::AudioSourceComponent& c =
-                    m_scene->GetSystem<draconic::engine::audio::AudioSourceComponentManager>()->Add(e);
+                engine::audio::AudioSourceComponent& c =
+                    m_scene->GetSystem<engine::audio::AudioSourceComponentManager>()->Add(e);
                 c.clip = m_ambient;
                 c.bus = audio::AudioBus::Music;
                 c.spatial = false;
@@ -136,8 +135,8 @@ namespace
                 scene::EntityHandle e = m_scene->CreateEntity(u8"emitter");
                 m_scene->SetLocalPosition(
                     e, core::Float3{10.0f * std::cos(angle), 1.5f, 10.0f * std::sin(angle)});
-                draconic::engine::audio::AudioSourceComponent& c =
-                    m_scene->GetSystem<draconic::engine::audio::AudioSourceComponentManager>()->Add(e);
+                engine::audio::AudioSourceComponent& c =
+                    m_scene->GetSystem<engine::audio::AudioSourceComponentManager>()->Add(e);
                 c.clip = m_beepLow;
                 c.loop = true;
                 c.autoPlay = true;
@@ -155,7 +154,7 @@ namespace
             {
                 scene::EntityHandle zone = m_scene->CreateEntity(u8"cave-zone");
                 auto& reverb =
-                    m_scene->GetSystem<draconic::engine::audio::AudioReverbZoneComponentManager>()->Add(zone);
+                    m_scene->GetSystem<engine::audio::AudioReverbZoneComponentManager>()->Add(zone);
                 reverb.radius = 12.0f;
                 reverb.edgeFade = 0.4f;
                 reverb.roomSize = 0.8f;
@@ -187,7 +186,7 @@ namespace
 
         void OnUpdate(runtime::IApplicationHost& host, f32 deltaTime) override
         {
-            draconic::engine::runtime::DefaultApplication::OnUpdate(host, deltaTime);
+            engine::runtime::DefaultApplication::OnUpdate(host, deltaTime);
             m_fly.Update(host, deltaTime);
             PushCameraToEntity();
 
@@ -243,16 +242,16 @@ namespace
         {
             if (m_scene != nullptr && frame.height > 0)
             {
-                if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
+                if (auto* cameras = m_scene->GetSystem<engine::render::CameraComponentManager>())
                 {
-                    if (draconic::engine::render::CameraComponent* camera = cameras->Get(m_camera))
+                    if (engine::render::CameraComponent* camera = cameras->Get(m_camera))
                     {
                         camera->aspect =
                             static_cast<f32>(frame.width) / static_cast<f32>(frame.height);
                     }
                 }
             }
-            draconic::engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
+            engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
             if (auto* gui = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
             {
                 gui->Render(frame);
@@ -268,7 +267,7 @@ namespace
 
         void DrawEmitterGizmos(runtime::IApplicationHost& host)
         {
-            auto* renderer = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>();
+            auto* renderer = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
             if (renderer == nullptr || m_scene == nullptr)
             {
                 return;
@@ -346,7 +345,7 @@ namespace
         core::Float3 m_lastOneShotPosition{0, 0, 0};
         bool m_haveOneShot = false;
         core::u32 m_randomState = 0x12345678u;
-        draconic::samples::FlyCamera m_fly;
+        samples::FlyCamera m_fly;
     };
 }
 

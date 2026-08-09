@@ -15,11 +15,11 @@ export module draconic.editor.app:log_view;
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace ui = draconic::ui;
+    namespace ui = foundation::ui;
 
     class LogView : public ui::ViewGroup
     {

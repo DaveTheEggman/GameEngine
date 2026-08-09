@@ -18,18 +18,20 @@ import draconic.particles;
 import draconic.particles.resource;
 import draconic.content;
 
-using namespace draconic::core;
-using namespace draconic::particles;
-namespace content = draconic::content;
+using namespace foundation::core;
+using namespace foundation;
+using namespace foundation::particles;
+namespace core = foundation::core;
+namespace content = foundation::content;
 
-export namespace draconic::pipeline{
+export namespace pipeline{
     // Edit-time asset: the authored effect (embedded, since there is no external source file - unlike an
     // imported texture). Serialized to a readable .particlefx (XmlSerializer) as fileName + the effect
     // graph. This is a distinct type from the cooked ParticleEffectResource; Build() transforms one into
     // the other.
-    class ParticleEffectAsset final : public draconic::pipeline::Asset
+    class ParticleEffectAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(ParticleEffectAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(ParticleEffectAsset, pipeline::Asset)
     public:
         [[nodiscard]] ParticleEffect& Effect() noexcept { return m_effect; }
         [[nodiscard]] const ParticleEffect& Effect() const noexcept { return m_effect; }
@@ -57,7 +59,7 @@ export namespace draconic::pipeline{
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName (unused for authored effects)
+            pipeline::Asset::Serialize(ar); // fileName (unused for authored effects)
             SerializeEffect(ar, m_effect);          // the authored effect graph
             core::Serialize(ar, "texturePaths", m_systemTexturePaths); // edit-time soft refs
         }
@@ -68,7 +70,7 @@ export namespace draconic::pipeline{
     };
 
     // The bake: cook a ParticleEffectAsset into the output content Instance as a ParticleEffectResource.
-    class ParticleEffectAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class ParticleEffectAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -79,8 +81,8 @@ export namespace draconic::pipeline{
         {
             return &ParticleEffectResource::StaticType();
         }
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             if (ctx.output == nullptr)
             {

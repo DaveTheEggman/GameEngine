@@ -12,7 +12,7 @@ export module draconic.core:thread;
 import :base;
 import :allocator;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     class Thread
     {

@@ -24,7 +24,7 @@ import :float2;
 import :float3;
 import :float4;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Vector4

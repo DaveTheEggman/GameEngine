@@ -20,10 +20,12 @@ import draconic.shaders.system;
 import :debug_font;
 import :debug_draw;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-namespace draconic::render
+namespace foundation::render
 {
     Status DebugDrawPass::Initialize()
     {

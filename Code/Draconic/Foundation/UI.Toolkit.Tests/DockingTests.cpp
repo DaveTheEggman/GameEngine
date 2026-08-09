@@ -5,10 +5,9 @@
 import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;
-using namespace draconic::ui;
-using namespace draconic::ui::toolkit;
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::ui;
+using namespace foundation::ui::toolkit;
+using namespace foundation::core;
 
 // new Label("Content") -> a RefPtr<Label>; pass .Get() to AddPanel (the panel/tree adopts a ref).
 static RefPtr<Label> MakeLabel(StringView text) { return MakeRef<Label>(DefaultAllocator(), text); }

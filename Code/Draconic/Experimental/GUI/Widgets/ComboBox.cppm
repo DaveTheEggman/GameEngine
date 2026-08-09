@@ -25,12 +25,12 @@ import :ui_widget;
 import :list_box;
 import :event_dispatcher;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
+namespace vg = foundation::vg;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class ComboBox : public UIWidget
     {

@@ -13,7 +13,7 @@
 
 export module draconic.core:core_reflection;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // Registers all Core value types for reflection (patches each TypeOf<T>()) and
     // adds them to the GlobalTypeRegistry. Idempotent; call once at startup.

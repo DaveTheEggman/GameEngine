@@ -15,9 +15,9 @@ export module draconic.script:script_introspection;
 
 import draconic.core;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::script
+export namespace foundation::script
 {
     /// What kind of member a bound API entry is, in the language's own terms.
     enum class ScriptApiMemberKind : core::u8

@@ -8,9 +8,9 @@ import draconic.rhi;
 import draconic.rhi.null;
 import draconic.render;
 
-using namespace draconic::core;
-using namespace draconic::render;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::render;
+namespace rhi = foundation::rhi;
 
 TEST_CASE("FrameArena: allocations are distinct, aligned, and reset reuses chunks")
 {
@@ -266,12 +266,12 @@ TEST_CASE("RendererRegistry routes categories to renderers")
 
 namespace
 {
-    struct FakeSceneOverlay final : draconic::render::ISceneOverlay
+    struct FakeSceneOverlay final : foundation::render::ISceneOverlay
     {
         i32 order = 0;
         explicit FakeSceneOverlay(i32 o) : order(o) {}
         [[nodiscard]] i32 OverlayOrder() const noexcept override { return order; }
-        void Render(rhi::RenderPassEncoder&, const draconic::render::SceneOverlayView&) override {}
+        void Render(rhi::RenderPassEncoder&, const foundation::render::SceneOverlayView&) override {}
     };
 }
 
@@ -279,15 +279,15 @@ TEST_CASE("overlay views: color-only by default (depthStencilFormat Undefined)")
 {
     // Sources must treat Undefined as "no stencil in this pass" and fall back to
     // tessellated fills; a pass that attaches a DS advertises its exact format.
-    draconic::render::SceneOverlayView sceneView;
-    CHECK(sceneView.depthStencilFormat == draconic::rhi::TextureFormat::Undefined);
-    draconic::render::ScreenOverlayView screenView;
-    CHECK(screenView.depthStencilFormat == draconic::rhi::TextureFormat::Undefined);
+    foundation::render::SceneOverlayView sceneView;
+    CHECK(sceneView.depthStencilFormat == foundation::rhi::TextureFormat::Undefined);
+    foundation::render::ScreenOverlayView screenView;
+    CHECK(screenView.depthStencilFormat == foundation::rhi::TextureFormat::Undefined);
 }
 
 TEST_CASE("overlay registry: sorted by order, stable ties, idempotent, removable")
 {
-    draconic::render::OverlayRegistry<draconic::render::ISceneOverlay> registry;
+    foundation::render::OverlayRegistry<foundation::render::ISceneOverlay> registry;
     CHECK(registry.IsEmpty());
 
     FakeSceneOverlay foreground{10};

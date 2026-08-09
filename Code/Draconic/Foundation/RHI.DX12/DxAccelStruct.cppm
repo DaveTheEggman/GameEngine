@@ -12,9 +12,9 @@ export module draconic.rhi.dx12:accel_struct;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxAccelStructImpl : public AccelStruct
@@ -61,4 +61,4 @@ export namespace draconic::rhi::dx12
         ComPtr<ID3D12Resource> m_resource;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

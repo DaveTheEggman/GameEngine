@@ -37,23 +37,20 @@ import draconic.engine.particles;   // *.of + SceneParticles (Track A, particle 
 import draconic.net.replication;    // NetworkComponent + manager + .of (Track A, net surface)
 import draconic.engine.ui;          // world-space UI components + managers + .of (Track A, UI surface)
 
-using namespace draconic::core;
-using namespace draconic::engine::ui;
-using namespace draconic::engine::script;
-using namespace draconic::engine::scene;
-using namespace draconic::engine::render;
-using namespace draconic::engine::physics;
-using namespace draconic::engine::particles;
-using namespace draconic::engine::integration;
-using namespace draconic::engine::audio;
-using namespace draconic::engine::animation;
-using namespace draconic::script;
-namespace scene = draconic::scene;
-namespace physics = draconic::physics;
-namespace render = draconic::render;
-namespace audio = draconic::audio;
-namespace anim = draconic::animation;
-namespace particles = draconic::particles;
+using namespace foundation::core;
+using namespace engine::ui;
+using namespace engine::script;
+using namespace engine::scene;
+using namespace engine::render;
+using namespace engine::physics;
+using namespace engine::particles;
+using namespace engine::integration;
+using namespace engine::audio;
+using namespace engine::animation;
+using namespace foundation::script;
+namespace scene = foundation::scene;
+namespace physics = foundation::physics;
+namespace anim = foundation::animation;
 
 // ---- OPTION 1 (Fable ruling, spec Section 12): a component reached ONLY via a per-type
 // `Gadget.of(entity)` factory whose DECLARED return IS the component type. Proves the whole
@@ -74,7 +71,7 @@ DRACONIC_REFLECT_VALUE(Gadget, "rtti::engine::script::test")
 {
     builder.Property<&Gadget::power>("power");
     // The generic OPTION 1 factory: Gadget.of(entity) -> a RESOLVE handle of type Gadget.
-    builder.Method<&draconic::script::ComponentOf<Gadget>, Gadget>("of");
+    builder.Method<&foundation::script::ComponentOf<Gadget>, Gadget>("of");
 }
 namespace
 {
@@ -88,8 +85,8 @@ namespace
         {
             DraconicRegisterValue_Gadget();
             GlobalTypeRegistry().Register(TypeOf<Gadget>());
-            draconic::script::RegisterExtraScriptRootType(&TypeOf<Gadget>());
-            draconic::script::RegisterExtraFacadeName(u8"Gadget");
+            foundation::script::RegisterExtraScriptRootType(&TypeOf<Gadget>());
+            foundation::script::RegisterExtraFacadeName(u8"Gadget");
             return true;
         }();
         (void)once;
@@ -180,7 +177,7 @@ namespace
                 return true;
             }();
             (void)logReady;
-            draconic::script::wren::RegisterWrenScriptBackend();
+            foundation::script::wren::RegisterWrenScriptBackend();
             RegisterCoreTypes();
             RegisterScriptComponentReflection();
             RegisterScriptFacadeReflection();
@@ -1077,7 +1074,7 @@ TEST_CASE("script.scene: Scene.find / Scene.findByPath resolve entities in the c
 TEST_CASE("script.scene: an AngelScript behavior runs the neutral lifecycle path "
           "(onStart + onUpdate(dt)) - proves both backends, uniformly")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
     ScriptedScene bed;
     RefPtr<ScriptClass> mover =
         MakeClassLang(u8"angelscript", u8"Mover",
@@ -1113,7 +1110,7 @@ TEST_CASE("script.scene: an AngelScript behavior runs the neutral lifecycle path
 
 TEST_CASE("script.scene: a breakpoint in a behavior handler pauses the game and resumes clean")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
     ScriptedScene bed;
     // Line-numbered so the breakpoint below lands inside onUpdate BEFORE x is incremented.
     RefPtr<ScriptClass> breaker =
@@ -1196,7 +1193,7 @@ TEST_CASE("script.scene: a breakpoint in a behavior handler pauses the game and 
 TEST_CASE("script.scene: an AngelScript harvested float property applies (default + override) "
           "and drives onUpdate")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
 
     auto makeSpeeder = []()
     {
@@ -1378,7 +1375,7 @@ TEST_CASE("script.scene: disabling a behavior cancels its pending coroutine (nev
 
 namespace
 {
-    namespace runtime = draconic::runtime;
+    namespace runtime = foundation::runtime;
 
     // Builds a Context with all three subsystems started + a live scene, returns the scene.
     // Acts as its OWN composition root: bridges physics contacts to the script subsystem's
@@ -1388,22 +1385,22 @@ namespace
     struct ContactWorld
     {
         runtime::Context ctx;
-        draconic::engine::scene::SceneSubsystem* scenes = nullptr;
-        draconic::engine::physics::PhysicsSubsystem* physics = nullptr;
+        engine::scene::SceneSubsystem* scenes = nullptr;
+        engine::physics::PhysicsSubsystem* physics = nullptr;
         ScriptSubsystem* scripts = nullptr;
         scene::Scene* scene = nullptr;
         UniquePtr<scene::SceneManager> sm; // this bed's scene group (subsystem owns none)
-        draconic::engine::integration::ScriptPhysicsContactBridge bridge; // the composition-root adapter
+        engine::integration::ScriptPhysicsContactBridge bridge; // the composition-root adapter
 
         ContactWorld()
         {
-            draconic::script::wren::RegisterWrenScriptBackend();
+            foundation::script::wren::RegisterWrenScriptBackend();
             RegisterCoreTypes();
-            draconic::engine::physics::RegisterPhysicsComponentReflection();
+            engine::physics::RegisterPhysicsComponentReflection();
             RegisterScriptComponentReflection();
             RegisterScriptFacadeReflection();
-            scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
-            physics = ctx.AddSubsystem<draconic::engine::physics::PhysicsSubsystem>();
+            scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
+            physics = ctx.AddSubsystem<engine::physics::PhysicsSubsystem>();
             scripts = ctx.AddSubsystem<ScriptSubsystem>();
             ctx.Startup();
             bridge.Install(*physics, *scripts); // the composition-root bridge (the real adapter)
@@ -1422,7 +1419,7 @@ namespace
         {
             scene::EntityHandle e = scene->CreateEntity(name);
             scene->SetLocalPosition(e, position);
-            auto& body = scene->GetSystem<draconic::engine::physics::RigidBodyComponentManager>()->Add(e);
+            auto& body = scene->GetSystem<engine::physics::RigidBodyComponentManager>()->Add(e);
             body.motion = motion;
             body.layer = motion == physics::MotionKind::Static ? physics::PhysicsLayer::Static
                          : motion == physics::MotionKind::Kinematic
@@ -1514,13 +1511,13 @@ TEST_CASE("script.scene: a physics trigger dispatches onTriggerEnter(other) to a
 TEST_CASE("script.scene: behaviors tick without error when no physics subsystem is present "
           "(contact-listener registration is guarded)")
 {
-    namespace runtime = draconic::runtime;
+    namespace runtime = foundation::runtime;
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     ctx.AddSubsystem<ScriptSubsystem>(); // NO physics subsystem
-    draconic::script::wren::RegisterWrenScriptBackend();
+    foundation::script::wren::RegisterWrenScriptBackend();
     RegisterCoreTypes();
     RegisterScriptComponentReflection();
     RegisterScriptFacadeReflection();
@@ -1674,7 +1671,7 @@ TEST_CASE("script.scene: entity.scene.spawn works from a resumed coroutine - a F
 
 TEST_CASE("script.scene: an AngelScript behavior spawns through self.scene() (bound Scene, 2nd backend)")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
     ScriptedScene bed;
     int spawnCalls = 0;
     scene::Scene* spawnedScene = nullptr;
@@ -1847,7 +1844,7 @@ TEST_CASE("script.scene: two scenes sharing one Level class get INDEPENDENT obje
 
 TEST_CASE("script.scene: an AngelScript Level runs the tier (2nd backend)")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
     ScriptedScene bed;
     SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
     level->SetRunHost(&bed.host);
@@ -1928,7 +1925,7 @@ TEST_CASE("script.scene: OPTION 1 - Component.of(entity).field mutates the live 
 TEST_CASE("script.scene: OPTION 1 - Component::of(entity).field mutates the live component "
           "(AngelScript) - cross-backend parity")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
     EnsureGadgetRegistered();
 
     ScriptedScene bed;
@@ -1960,12 +1957,12 @@ TEST_CASE("script.scene: OPTION 1 - Component::of(entity).field mutates the live
 TEST_CASE("script.scene: OPTION 1 - RigidBodyComponent.of(entity).friction mutates the live "
           "physics component (Wren)")
 {
-    draconic::engine::physics::RegisterPhysicsScriptFacade(); // register components as script classes + of() (idempotent)
+    engine::physics::RegisterPhysicsScriptFacade(); // register components as script classes + of() (idempotent)
 
     ContactWorld world;
     const scene::EntityHandle e = world.AddBody(u8"e", Float3{0, 2, 0}, physics::MotionKind::Dynamic,
                                                 Float3{0.5f, 0.5f, 0.5f});
-    auto* bodies = world.scene->GetSystem<draconic::engine::physics::RigidBodyComponentManager>();
+    auto* bodies = world.scene->GetSystem<engine::physics::RigidBodyComponentManager>();
     REQUIRE(bodies->Get(e) != nullptr);
     bodies->Get(e)->friction = 0.1f;
 
@@ -1990,7 +1987,7 @@ TEST_CASE("script.scene: OPTION 1 - RigidBodyComponent.of(entity).friction mutat
 // facade reads (both delegate to PhysicsSceneSystem->World()->Gravity()), verified against ground truth.
 TEST_CASE("script.scene: ScenePhysics.of(scene) reads + writes gravity on THIS scene's world (Wren)")
 {
-    draconic::engine::physics::RegisterPhysicsScriptFacade();
+    engine::physics::RegisterPhysicsScriptFacade();
     ContactWorld world; // the world is created on scene Start (inside Play), not before
 
     const scene::EntityHandle e = world.scene->CreateEntity(u8"driver");
@@ -2008,7 +2005,7 @@ TEST_CASE("script.scene: ScenePhysics.of(scene) reads + writes gravity on THIS s
     world.Attach(e, driver);
 
     world.Play(2); // onStart: ScenePhysics.of(scene).setGravity + gravityY
-    auto* sys = world.scene->GetSystem<draconic::engine::physics::PhysicsSceneSystem>();
+    auto* sys = world.scene->GetSystem<engine::physics::PhysicsSceneSystem>();
     REQUIRE(sys != nullptr);
     REQUIRE(sys->World() != nullptr);
     CHECK(world.scene->GetLocalTransform(e).position.x == doctest::Approx(-20.0f)); // gravityY read
@@ -2020,8 +2017,8 @@ TEST_CASE("script.scene: ScenePhysics.of(scene) reads + writes gravity on THIS s
 TEST_CASE("script.scene: ScenePhysics.of(scene) reads + writes gravity on THIS scene's world "
           "(AngelScript) - cross-backend parity")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
-    draconic::engine::physics::RegisterPhysicsScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    engine::physics::RegisterPhysicsScriptFacade();
     ContactWorld world;
 
     const scene::EntityHandle e = world.scene->CreateEntity(u8"driver");
@@ -2040,7 +2037,7 @@ TEST_CASE("script.scene: ScenePhysics.of(scene) reads + writes gravity on THIS s
     world.Attach(e, driver);
 
     world.Play(2);
-    auto* sys = world.scene->GetSystem<draconic::engine::physics::PhysicsSceneSystem>();
+    auto* sys = world.scene->GetSystem<engine::physics::PhysicsSceneSystem>();
     REQUIRE(sys != nullptr);
     REQUIRE(sys->World() != nullptr);
     CHECK(world.scene->GetLocalTransform(e).position.x == doctest::Approx(-20.0f)); // gravityY read
@@ -2053,9 +2050,9 @@ TEST_CASE("script.scene: ScenePhysics.of(scene) reads + writes gravity on THIS s
 // character only" limitation.
 TEST_CASE("script.scene: CharacterComponent.of(entity).move/jump - per-entity control (Wren)")
 {
-    draconic::engine::physics::RegisterPhysicsScriptFacade();
+    engine::physics::RegisterPhysicsScriptFacade();
     ScriptedScene bed;
-    auto* characters = bed.scene.AddSystem<draconic::engine::physics::CharacterComponentManager>();
+    auto* characters = bed.scene.AddSystem<engine::physics::CharacterComponentManager>();
 
     RefPtr<ScriptClass> driver = MakeClass(u8"Driver",
                                            u8"class Driver {\n"
@@ -2080,10 +2077,10 @@ TEST_CASE("script.scene: CharacterComponent.of(entity).move/jump - per-entity co
 
 TEST_CASE("script.scene: CharacterComponent.of(entity).move/jump - per-entity control (AngelScript)")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
-    draconic::engine::physics::RegisterPhysicsScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    engine::physics::RegisterPhysicsScriptFacade();
     ScriptedScene bed;
-    auto* characters = bed.scene.AddSystem<draconic::engine::physics::CharacterComponentManager>();
+    auto* characters = bed.scene.AddSystem<engine::physics::CharacterComponentManager>();
 
     RefPtr<ScriptClass> driver =
         MakeClassLang(u8"angelscript", u8"Driver",
@@ -2112,7 +2109,7 @@ TEST_CASE("script.scene: CharacterComponent.of(entity).move/jump - per-entity co
 // by entity. The upward impulse gives the dynamic body positive Y velocity.
 TEST_CASE("script.scene: ScenePhysics.of(scene).applyImpulse(entity, ...) - scriptable impulse (Wren)")
 {
-    draconic::engine::physics::RegisterPhysicsScriptFacade();
+    engine::physics::RegisterPhysicsScriptFacade();
     ContactWorld world;
     const scene::EntityHandle e = world.AddBody(u8"ball", Float3{0, 5, 0},
                                                 physics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
@@ -2127,8 +2124,8 @@ TEST_CASE("script.scene: ScenePhysics.of(scene).applyImpulse(entity, ...) - scri
     world.Attach(e, pusher);
 
     world.Play(2); // onStart applies the impulse; the next step integrates it
-    auto* sys = world.scene->GetSystem<draconic::engine::physics::PhysicsSceneSystem>();
-    auto* bodies = world.scene->GetSystem<draconic::engine::physics::RigidBodyComponentManager>();
+    auto* sys = world.scene->GetSystem<engine::physics::PhysicsSceneSystem>();
+    auto* bodies = world.scene->GetSystem<engine::physics::RigidBodyComponentManager>();
     REQUIRE(sys->World() != nullptr);
     REQUIRE(bodies->Get(e) != nullptr);
     CHECK(sys->World()->LinearVelocity(bodies->Get(e)->body).y > 0.0f); // impulse dominated gravity
@@ -2194,7 +2191,7 @@ TEST_CASE("script.scene: scene.events.emit reaches a sibling behavior AND the Le
 TEST_CASE("script.scene: scene.events.emit reaches a sibling behavior AND the Level's "
           "on<Event>(payload) - the 2nd backend (AngelScript)")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
     ScriptedScene bed;
     SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
     level->SetRunHost(&bed.host);
@@ -2332,10 +2329,10 @@ TEST_CASE("script.scene: scene.events.emit carries a reflected component handle 
 
 TEST_CASE("script.scene: MeshComponent.of / LightComponent.of set live render props (Wren)")
 {
-    draconic::engine::render::RegisterRenderScriptFacade();
+    engine::render::RegisterRenderScriptFacade();
     ScriptedScene bed;
-    auto* meshes = bed.scene.AddSystem<draconic::engine::render::MeshComponentManager>();
-    auto* lights = bed.scene.AddSystem<draconic::engine::render::LightComponentManager>();
+    auto* meshes = bed.scene.AddSystem<engine::render::MeshComponentManager>();
+    auto* lights = bed.scene.AddSystem<engine::render::LightComponentManager>();
 
     RefPtr<ScriptClass> tweaker =
         MakeClass(u8"Tweaker",
@@ -2353,7 +2350,7 @@ TEST_CASE("script.scene: MeshComponent.of / LightComponent.of set live render pr
 
     const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
     meshes->Add(e).visible = true;
-    draconic::engine::render::LightComponent& light = lights->Add(e);
+    engine::render::LightComponent& light = lights->Add(e);
     light.intensity = 1.0f;
     light.enabled = true;
 
@@ -2370,11 +2367,11 @@ TEST_CASE("script.scene: MeshComponent.of / LightComponent.of set live render pr
 
 TEST_CASE("script.scene: MeshComponent::of / LightComponent::of set live render props (AngelScript)")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
-    draconic::engine::render::RegisterRenderScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    engine::render::RegisterRenderScriptFacade();
     ScriptedScene bed;
-    auto* meshes = bed.scene.AddSystem<draconic::engine::render::MeshComponentManager>();
-    auto* lights = bed.scene.AddSystem<draconic::engine::render::LightComponentManager>();
+    auto* meshes = bed.scene.AddSystem<engine::render::MeshComponentManager>();
+    auto* lights = bed.scene.AddSystem<engine::render::LightComponentManager>();
 
     RefPtr<ScriptClass> tweaker = MakeClassLang(
         u8"angelscript", u8"Tweaker",
@@ -2415,9 +2412,9 @@ TEST_CASE("script.scene: MeshComponent::of / LightComponent::of set live render 
 TEST_CASE("script.scene: SceneRender.setMesh / setMaterial swap a component's resource id from "
           "script (Wren)")
 {
-    draconic::engine::render::RegisterRenderScriptFacade();
+    engine::render::RegisterRenderScriptFacade();
     ScriptedScene bed;
-    auto* meshes = bed.scene.AddSystem<draconic::engine::render::MeshComponentManager>();
+    auto* meshes = bed.scene.AddSystem<engine::render::MeshComponentManager>();
 
     RefPtr<ScriptClass> swapper =
         MakeClass(u8"Swapper",
@@ -2472,10 +2469,10 @@ TEST_CASE("script.scene: SceneRender.setMesh / setMaterial swap a component's re
 TEST_CASE("script.scene: AudioSourceComponent.of props + SceneAudio.of play/stop/pause/setClip "
           "are bound and control the component (Wren)")
 {
-    draconic::engine::audio::RegisterAudioScriptFacade();
+    engine::audio::RegisterAudioScriptFacade();
     ScriptedScene bed;
-    auto* sources = bed.scene.AddSystem<draconic::engine::audio::AudioSourceComponentManager>();
-    (void)bed.scene.AddSystem<draconic::engine::audio::AudioSceneSystem>(); // no engine set -> ops are safe no-ops
+    auto* sources = bed.scene.AddSystem<engine::audio::AudioSourceComponentManager>();
+    (void)bed.scene.AddSystem<engine::audio::AudioSceneSystem>(); // no engine set -> ops are safe no-ops
 
     RefPtr<ScriptClass> tweaker =
         MakeClass(u8"AudioTweaker",
@@ -2526,11 +2523,11 @@ TEST_CASE("script.scene: AudioSourceComponent.of props + SceneAudio.of play/stop
 TEST_CASE("script.scene: AudioSourceComponent::of props + SceneAudio::of play/stop/setClip "
           "are bound and control the component (AngelScript)")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
-    draconic::engine::audio::RegisterAudioScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    engine::audio::RegisterAudioScriptFacade();
     ScriptedScene bed;
-    auto* sources = bed.scene.AddSystem<draconic::engine::audio::AudioSourceComponentManager>();
-    (void)bed.scene.AddSystem<draconic::engine::audio::AudioSceneSystem>();
+    auto* sources = bed.scene.AddSystem<engine::audio::AudioSourceComponentManager>();
+    (void)bed.scene.AddSystem<engine::audio::AudioSceneSystem>();
 
     RefPtr<ScriptClass> tweaker = MakeClassLang(
         u8"angelscript", u8"AudioTweaker",
@@ -2572,7 +2569,7 @@ TEST_CASE("script.scene: AudioSourceComponent::of props + SceneAudio::of play/st
 // Wren/AngelScript parity gap for editor-picked resource properties.
 TEST_CASE("script.scene: an asset (Guid) editor property applies to an AngelScript handle member")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
     ScriptedScene bed;
     RefPtr<ScriptClass> cls = MakeClassLang(
         u8"angelscript", u8"Holder",
@@ -2601,10 +2598,10 @@ TEST_CASE("script.scene: an asset (Guid) editor property applies to an AngelScri
 // Sprite, Decal, InstancedMesh, ReflectionProbe. Spot-check Camera + Sprite from a behavior.
 TEST_CASE("script.scene: CameraComponent.of / SpriteComponent.of set live props (Wren)")
 {
-    draconic::engine::render::RegisterRenderScriptFacade();
+    engine::render::RegisterRenderScriptFacade();
     ScriptedScene bed;
-    auto* cameras = bed.scene.AddSystem<draconic::engine::render::CameraComponentManager>();
-    auto* sprites = bed.scene.AddSystem<draconic::engine::render::SpriteComponentManager>();
+    auto* cameras = bed.scene.AddSystem<engine::render::CameraComponentManager>();
+    auto* sprites = bed.scene.AddSystem<engine::render::SpriteComponentManager>();
 
     RefPtr<ScriptClass> tweaker =
         MakeClass(u8"ViewTweaker",
@@ -2643,10 +2640,10 @@ TEST_CASE("script.scene: CameraComponent.of / SpriteComponent.of set live props 
 TEST_CASE("script.scene: SkeletalAnimation/AnimationGraph .of + SceneAnimation ops are bound and "
           "control the components (Wren)")
 {
-    draconic::engine::animation::RegisterAnimationScriptFacade();
+    engine::animation::RegisterAnimationScriptFacade();
     ScriptedScene bed;
-    auto* skel = bed.scene.AddSystem<draconic::engine::animation::SkeletalAnimationComponentManager>();
-    auto* graph = bed.scene.AddSystem<draconic::engine::animation::AnimationGraphComponentManager>();
+    auto* skel = bed.scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
+    auto* graph = bed.scene.AddSystem<engine::animation::AnimationGraphComponentManager>();
 
     RefPtr<ScriptClass> tweaker =
         MakeClass(u8"AnimTweaker",
@@ -2698,11 +2695,11 @@ TEST_CASE("script.scene: SkeletalAnimation/AnimationGraph .of + SceneAnimation o
 
 TEST_CASE("script.scene: SkeletalAnimation::of + SceneAnimation ops are bound (AngelScript)")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
-    draconic::engine::animation::RegisterAnimationScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    engine::animation::RegisterAnimationScriptFacade();
     ScriptedScene bed;
-    auto* skel = bed.scene.AddSystem<draconic::engine::animation::SkeletalAnimationComponentManager>();
-    (void)bed.scene.AddSystem<draconic::engine::animation::AnimationGraphComponentManager>();
+    auto* skel = bed.scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
+    (void)bed.scene.AddSystem<engine::animation::AnimationGraphComponentManager>();
 
     RefPtr<ScriptClass> tweaker = MakeClassLang(
         u8"angelscript", u8"AnimTweaker",
@@ -2746,10 +2743,10 @@ TEST_CASE("script.scene: SkeletalAnimation::of + SceneAnimation ops are bound (A
 TEST_CASE("script.scene: EnvironmentSettings.of / PostProcessSettings.of edit the scene's live "
           "render settings (Wren)")
 {
-    draconic::engine::render::RegisterRenderScriptFacade();
+    engine::render::RegisterRenderScriptFacade();
     ScriptedScene bed;
-    auto* envSys = bed.scene.AddSystem<draconic::engine::render::EnvironmentSystem>();
-    auto* postSys = bed.scene.AddSystem<draconic::engine::render::PostProcessSystem>();
+    auto* envSys = bed.scene.AddSystem<engine::render::EnvironmentSystem>();
+    auto* postSys = bed.scene.AddSystem<engine::render::PostProcessSystem>();
 
     RefPtr<ScriptClass> tweaker =
         MakeClass(u8"EnvTweaker",
@@ -2782,11 +2779,11 @@ TEST_CASE("script.scene: EnvironmentSettings.of / PostProcessSettings.of edit th
 TEST_CASE("script.scene: EnvironmentSettings::of / PostProcessSettings::of edit the scene's live "
           "render settings (AngelScript)")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
-    draconic::engine::render::RegisterRenderScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    engine::render::RegisterRenderScriptFacade();
     ScriptedScene bed;
-    auto* envSys = bed.scene.AddSystem<draconic::engine::render::EnvironmentSystem>();
-    auto* postSys = bed.scene.AddSystem<draconic::engine::render::PostProcessSystem>();
+    auto* envSys = bed.scene.AddSystem<engine::render::EnvironmentSystem>();
+    auto* postSys = bed.scene.AddSystem<engine::render::PostProcessSystem>();
 
     RefPtr<ScriptClass> tweaker = MakeClassLang(
         u8"angelscript", u8"EnvTweaker",
@@ -2819,9 +2816,9 @@ TEST_CASE("script.scene: EnvironmentSettings::of / PostProcessSettings::of edit 
 TEST_CASE("script.scene: ParticleEffectComponent.of + SceneParticles.of ops are bound and control "
           "the component (Wren)")
 {
-    draconic::engine::particles::RegisterParticleScriptFacade();
+    engine::particles::RegisterParticleScriptFacade();
     ScriptedScene bed;
-    auto* fx = bed.scene.AddSystem<draconic::engine::particles::ParticleEffectComponentManager>();
+    auto* fx = bed.scene.AddSystem<engine::particles::ParticleEffectComponentManager>();
 
     RefPtr<ScriptClass> tweaker =
         MakeClass(u8"FxTweaker",
@@ -2870,10 +2867,10 @@ TEST_CASE("script.scene: ParticleEffectComponent.of + SceneParticles.of ops are 
 
 TEST_CASE("script.scene: ParticleEffectComponent::of + SceneParticles::of ops are bound (AngelScript)")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
-    draconic::engine::particles::RegisterParticleScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    engine::particles::RegisterParticleScriptFacade();
     ScriptedScene bed;
-    auto* fx = bed.scene.AddSystem<draconic::engine::particles::ParticleEffectComponentManager>();
+    auto* fx = bed.scene.AddSystem<engine::particles::ParticleEffectComponentManager>();
 
     RefPtr<ScriptClass> tweaker = MakeClassLang(
         u8"angelscript", u8"FxTweaker",
@@ -2911,9 +2908,9 @@ TEST_CASE("script.scene: ParticleEffectComponent::of + SceneParticles::of ops ar
 // LightType enum (Directional=0, Point=1, Spot=2). Proves the Wren enum marshalling half.
 TEST_CASE("script.scene: an enum component property reads/writes as an int in Wren")
 {
-    draconic::engine::render::RegisterRenderScriptFacade();
+    engine::render::RegisterRenderScriptFacade();
     ScriptedScene bed;
-    auto* lights = bed.scene.AddSystem<draconic::engine::render::LightComponentManager>();
+    auto* lights = bed.scene.AddSystem<engine::render::LightComponentManager>();
 
     RefPtr<ScriptClass> tweaker =
         MakeClass(u8"EnumTest",
@@ -2927,22 +2924,22 @@ TEST_CASE("script.scene: an enum component property reads/writes as an int in Wr
                   {u8"onStart"});
 
     const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
-    lights->Add(e).type = draconic::engine::render::LightType::Directional; // 0
+    lights->Add(e).type = engine::render::LightType::Directional; // 0
 
     bed.Start();
     bed.Frame();
 
     REQUIRE(lights->Get(e) != nullptr);
-    CHECK(lights->Get(e)->type == draconic::engine::render::LightType::Spot); // read (==0) + write (=2) both crossed
+    CHECK(lights->Get(e)->type == engine::render::LightType::Spot); // read (==0) + write (=2) both crossed
 }
 
 // AngelScript gets NATIVE enums (named). LightComponent.type is a LightType enum.
 TEST_CASE("script.scene: an enum component property reads/writes as a native enum in AngelScript")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
-    draconic::engine::render::RegisterRenderScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    engine::render::RegisterRenderScriptFacade();
     ScriptedScene bed;
-    auto* lights = bed.scene.AddSystem<draconic::engine::render::LightComponentManager>();
+    auto* lights = bed.scene.AddSystem<engine::render::LightComponentManager>();
 
     RefPtr<ScriptClass> tweaker = MakeClassLang(
         u8"angelscript", u8"EnumTest",
@@ -2957,22 +2954,22 @@ TEST_CASE("script.scene: an enum component property reads/writes as a native enu
         {u8"onStart"});
 
     const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
-    lights->Add(e).type = draconic::engine::render::LightType::Directional;
+    lights->Add(e).type = engine::render::LightType::Directional;
 
     bed.Start();
     bed.Frame();
 
     REQUIRE(lights->Get(e) != nullptr);
-    CHECK(lights->Get(e)->type == draconic::engine::render::LightType::Spot); // named-enum read + write crossed
+    CHECK(lights->Get(e)->type == engine::render::LightType::Spot); // named-enum read + write crossed
 }
 
 // ---- Track A (net surface): NetworkComponent.of - authority (an enum) for authority-gated gameplay.
 TEST_CASE("script.scene: NetworkComponent.of exposes replication authority - AngelScript (named enum)")
 {
-    draconic::script::angelscript::RegisterAngelScriptBackend();
-    draconic::net::RegisterNetworkComponentScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    foundation::net::RegisterNetworkComponentScriptFacade();
     ScriptedScene bed;
-    auto* net = bed.scene.AddSystem<draconic::net::NetworkComponentManager>();
+    auto* net = bed.scene.AddSystem<foundation::net::NetworkComponentManager>();
 
     RefPtr<ScriptClass> tweaker = MakeClassLang(
         u8"angelscript", u8"NetTweaker",
@@ -2988,21 +2985,21 @@ TEST_CASE("script.scene: NetworkComponent.of exposes replication authority - Ang
         {u8"onStart"});
 
     const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
-    net->Add(e).authority = draconic::net::NetworkAuthority::Server;
+    net->Add(e).authority = foundation::net::NetworkAuthority::Server;
 
     bed.Start();
     bed.Frame();
 
     REQUIRE(net->Get(e) != nullptr);
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"authoritative"));
-    CHECK(net->Get(e)->authority == draconic::net::NetworkAuthority::Client);
+    CHECK(net->Get(e)->authority == foundation::net::NetworkAuthority::Client);
 }
 
 TEST_CASE("script.scene: NetworkComponent.of authority crosses as an int in Wren")
 {
-    draconic::net::RegisterNetworkComponentScriptFacade();
+    foundation::net::RegisterNetworkComponentScriptFacade();
     ScriptedScene bed;
-    auto* net = bed.scene.AddSystem<draconic::net::NetworkComponentManager>();
+    auto* net = bed.scene.AddSystem<foundation::net::NetworkComponentManager>();
 
     RefPtr<ScriptClass> tweaker =
         MakeClass(u8"NetTweaker",
@@ -3017,14 +3014,14 @@ TEST_CASE("script.scene: NetworkComponent.of authority crosses as an int in Wren
                   {u8"onStart"});
 
     const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
-    net->Add(e).authority = draconic::net::NetworkAuthority::Server;
+    net->Add(e).authority = foundation::net::NetworkAuthority::Server;
 
     bed.Start();
     bed.Frame();
 
     REQUIRE(net->Get(e) != nullptr);
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"authoritative"));
-    CHECK(net->Get(e)->authority == draconic::net::NetworkAuthority::Client);
+    CHECK(net->Get(e)->authority == foundation::net::NetworkAuthority::Client);
 }
 
 // ---- Track A (UI world-space surface): UICanvasComponent / UIBillboardComponent /
@@ -3032,11 +3029,11 @@ TEST_CASE("script.scene: NetworkComponent.of authority crosses as an int in Wren
 //      The app SCREEN tier (IScreenOverlay, loading screen) is deliberately NOT exposed here.
 TEST_CASE("script.scene: the world-space UI components reach script via .of (Wren)")
 {
-    draconic::engine::ui::RegisterUiScriptFacade();
+    engine::ui::RegisterUiScriptFacade();
     ScriptedScene bed;
-    auto* canvases = bed.scene.AddSystem<draconic::engine::ui::UICanvasComponentManager>();
-    auto* billboards = bed.scene.AddSystem<draconic::engine::ui::UIBillboardComponentManager>();
-    auto* panels = bed.scene.AddSystem<draconic::engine::ui::UIWorldPanelComponentManager>();
+    auto* canvases = bed.scene.AddSystem<engine::ui::UICanvasComponentManager>();
+    auto* billboards = bed.scene.AddSystem<engine::ui::UIBillboardComponentManager>();
+    auto* panels = bed.scene.AddSystem<engine::ui::UIWorldPanelComponentManager>();
 
     RefPtr<ScriptClass> tweaker =
         MakeClass(u8"UiTweaker",

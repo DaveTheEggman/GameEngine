@@ -8,8 +8,8 @@ import draconic.runtime.client;
 import draconic.shell;
 import draconic.graphics;
 
-using namespace draconic::core;
-using namespace draconic::runtime;
+using namespace foundation::core;
+using namespace foundation::runtime;
 
 namespace
 {
@@ -55,7 +55,7 @@ namespace
 
 TEST_CASE("runtime: time scale clamps at zero and defaults to realtime")
 {
-    draconic::runtime::Context ctx;
+    foundation::runtime::Context ctx;
     CHECK(ctx.TimeScale() == 1.0f);
     ctx.SetTimeScale(0.5f);
     CHECK(ctx.TimeScale() == 0.5f);
@@ -63,9 +63,9 @@ TEST_CASE("runtime: time scale clamps at zero and defaults to realtime")
     CHECK(ctx.TimeScale() == 0.0f);
 
     // Half-speed feeding the stepper: 60 raw frames at 1/60 yield ~30 fixed steps.
-    draconic::runtime::FixedStepper stepper;
+    foundation::runtime::FixedStepper stepper;
     ctx.SetTimeScale(0.5f);
-    draconic::core::u32 steps = 0;
+    foundation::core::u32 steps = 0;
     for (int i = 0; i < 60; ++i)
     {
         steps += stepper.Advance((1.0f / 60.0f) * ctx.TimeScale());
@@ -76,13 +76,13 @@ TEST_CASE("runtime: time scale clamps at zero and defaults to realtime")
 
 TEST_CASE("runtime: fixed stepper - exact cadence, alpha, and the hitch clamp")
 {
-    using draconic::runtime::FixedStepper;
+    using foundation::runtime::FixedStepper;
 
     // Exact cadence: sixty 1/60 frames = sixty steps, alpha stays ~0 (no drift blowup).
     FixedStepper stepper;
     stepper.step = 1.0f / 60.0f;
     stepper.maxSteps = 4;
-    draconic::core::u32 total = 0;
+    foundation::core::u32 total = 0;
     for (int i = 0; i < 60; ++i)
     {
         total += stepper.Advance(1.0f / 60.0f);
@@ -320,29 +320,29 @@ TEST_CASE("runtime: PluginHost::Load reports failure for a missing library")
 namespace
 {
     // A minimal app that records which context it configured into.
-    struct EmbeddedProbeApp final : draconic::runtime::IApplication
+    struct EmbeddedProbeApp final : foundation::runtime::IApplication
     {
-        draconic::runtime::Context* configuredInto = nullptr;
-        void Configure(draconic::runtime::IApplicationHost& host) override
+        foundation::runtime::Context* configuredInto = nullptr;
+        void Configure(foundation::runtime::IApplicationHost& host) override
         {
             configuredInto = &host.Ctx();
         }
     };
 
-    struct NullOuterHost final : draconic::runtime::IApplicationHost
+    struct NullOuterHost final : foundation::runtime::IApplicationHost
     {
-        draconic::runtime::Context editorContext;
-        draconic::runtime::Context& Ctx() noexcept override { return editorContext; }
-        draconic::shell::IShell* Shell() noexcept override { return nullptr; }
-        draconic::graphics::GraphicsDevice* Graphics() noexcept override { return nullptr; }
-        draconic::graphics::RenderWindow* MainRenderWindow() noexcept override { return nullptr; }
-        draconic::graphics::RenderWindow*
-        OpenWindow(const draconic::shell::WindowSettings&,
-                   const draconic::graphics::RenderWindowDesc&) override
+        foundation::runtime::Context editorContext;
+        foundation::runtime::Context& Ctx() noexcept override { return editorContext; }
+        foundation::shell::IShell* Shell() noexcept override { return nullptr; }
+        foundation::graphics::GraphicsDevice* Graphics() noexcept override { return nullptr; }
+        foundation::graphics::RenderWindow* MainRenderWindow() noexcept override { return nullptr; }
+        foundation::graphics::RenderWindow*
+        OpenWindow(const foundation::shell::WindowSettings&,
+                   const foundation::graphics::RenderWindowDesc&) override
         {
             return nullptr;
         }
-        void CloseWindow(draconic::graphics::RenderWindow*) override {}
+        void CloseWindow(foundation::graphics::RenderWindow*) override {}
         void RequestExit(int) override {}
     };
 }
@@ -350,8 +350,8 @@ namespace
 TEST_CASE("embedded host routes Ctx to the runtime context and exit to the embedder")
 {
     NullOuterHost outer;
-    draconic::runtime::Context runtimeContext;
-    draconic::runtime::EmbeddedApplicationHost embedded(outer, runtimeContext);
+    foundation::runtime::Context runtimeContext;
+    foundation::runtime::EmbeddedApplicationHost embedded(outer, runtimeContext);
 
     // The hosted app configures into the EMBEDDED context, not the editor's.
     EmbeddedProbeApp app;
@@ -366,7 +366,7 @@ TEST_CASE("embedded host routes Ctx to the runtime context and exit to the embed
     // Exit means "stop the play session" - the embedder's handler receives it.
     int exitCode = -1;
     embedded.SetExitHandler(
-        draconic::core::Function<void(int)>{[&](int code) { exitCode = code; }});
+        foundation::core::Function<void(int)>{[&](int code) { exitCode = code; }});
     embedded.RequestExit(7);
     CHECK(exitCode == 7);
 }

@@ -15,9 +15,9 @@ import draconic.core;
 import draconic.fonts;
 import :factories;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     // Caches fonts at multiple sizes; thread-safe for concurrent access.
     class FontManager

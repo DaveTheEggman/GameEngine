@@ -12,9 +12,9 @@ import draconic.core;
 import draconic.rhi;
 import :conversions;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkSamplerImpl : public Sampler
@@ -66,4 +66,4 @@ export namespace draconic::rhi::vk
         VkSampler m_sampler = VK_NULL_HANDLE;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

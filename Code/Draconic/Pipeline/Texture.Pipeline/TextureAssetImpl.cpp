@@ -18,10 +18,10 @@ import draconic.pipeline.core;
 import draconic.texture;
 import draconic.image;
 
-using namespace draconic::core;
-using namespace draconic::texture;
+using namespace foundation::core;
+using namespace foundation::texture;
 
-namespace draconic::pipeline{
+namespace pipeline{
     DRACONIC_REFLECT(TextureAsset, "rtti::editor::texture")
     {
         builder.Attribute("displayName", String(u8"Texture"))

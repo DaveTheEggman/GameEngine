@@ -26,9 +26,9 @@ import draconic.resource;
 import :entity;
 import :system;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::scene
+export namespace foundation::scene
 {
 
     // Non-generic interface a Scene uses to hold heterogeneous managers and route by type.
@@ -63,7 +63,7 @@ export namespace draconic::scene
 
         // Bind every component's resource::Ref fields through the manager (the post-load
         // resolve pass; asset-pipeline design §8). Default: nothing to resolve.
-        void ResolveResources(draconic::resource::ResourceManager& /*manager*/) override {}
+        void ResolveResources(foundation::resource::ResourceManager& /*manager*/) override {}
 
         // Destroying an entity destroys its component in this manager.
         void OnEntityDestroyed(EntityHandle entity) override { RemoveComponent(entity); }
@@ -227,7 +227,7 @@ export namespace draconic::scene
     {
         // Fallback for components without resource::Ref fields (see ResolveOne).
         template <typename T>
-        void ResolveResources(draconic::resource::ResourceManager&, T&)
+        void ResolveResources(foundation::resource::ResourceManager&, T&)
         {
         }
     }
@@ -276,7 +276,7 @@ export namespace draconic::scene
         // ADL hook like Serialize: components with resource::Ref fields define
         // `ResolveResources(ResourceManager&, T&)` in their namespace; others resolve to
         // the no-op fallback below.
-        void ResolveResources(draconic::resource::ResourceManager& manager) override
+        void ResolveResources(foundation::resource::ResourceManager& manager) override
         {
             this->ForEach([&](T& c, EntityHandle) { ResolveOne(manager, c); });
         }
@@ -286,15 +286,15 @@ export namespace draconic::scene
         // brings the core overloads into scope for the component's own field serialization.
         static void SerializeOne(ISerializer& ar, T& value)
         {
-            using draconic::core::Serialize;
+            using foundation::core::Serialize;
             Serialize(ar, value);
         }
-        static void ResolveOne(draconic::resource::ResourceManager& manager, T& value)
+        static void ResolveOne(foundation::resource::ResourceManager& manager, T& value)
         {
-            using draconic::scene::detail::ResolveResources; // no-op fallback
+            using foundation::scene::detail::ResolveResources; // no-op fallback
             ResolveResources(manager, value);
         }
         String m_typeId;
     };
 
-} // namespace draconic::scene
+} // namespace foundation::scene

@@ -25,9 +25,12 @@ import draconic.ui;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace audio = foundation::audio;
+namespace runtime = foundation::runtime;
+namespace ui = foundation::ui;
 
-namespace draconic::editor
+namespace editor
 {
     Status AudioClipEditorPage::Save()
     {
@@ -68,10 +71,10 @@ namespace draconic::editor
         m_status->SetText(text.AsView());
     }
 
-    void AudioClipEditorPage::LoadClip(draconic::content::Instance& instance)
+    void AudioClipEditorPage::LoadClip(foundation::content::Instance& instance)
     {
         RefPtr<ISerializable> object = instance.ReadObject();
-        auto* asset = Cast<draconic::pipeline::AudioClipAsset>(object.Get());
+        auto* asset = Cast<pipeline::AudioClipAsset>(object.Get());
         if (asset == nullptr || m_context->Project() == nullptr)
         {
             return;
@@ -181,11 +184,11 @@ namespace draconic::editor
     }
     const TypeInfo* AudioClipPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::AudioClipAsset::StaticType();
+        return &pipeline::AudioClipAsset::StaticType();
     }
 
     UniquePtr<EditorPage> AudioClipPageFactory::CreatePage(EditorContext& context,
-                                                           draconic::content::Instance& instance)
+                                                           foundation::content::Instance& instance)
     {
         auto* page = DefaultAllocator().New<AudioClipEditorPage>(context, *m_host, instance);
         return UniquePtr<EditorPage>(page, DefaultAllocator());

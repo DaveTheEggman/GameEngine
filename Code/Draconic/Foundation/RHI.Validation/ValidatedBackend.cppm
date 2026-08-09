@@ -10,9 +10,9 @@ import draconic.core;
 import draconic.rhi;
 import :validated_adapter;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     class ValidatedBackend : public Backend
@@ -92,4 +92,4 @@ export namespace draconic::rhi::validation
         return allocator.New<ValidatedBackend>(inner, allocator);
     }
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

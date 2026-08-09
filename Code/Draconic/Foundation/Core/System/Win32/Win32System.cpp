@@ -21,7 +21,7 @@
 #undef GetEnvironmentVariable // windows.h maps it to ...A; we define our own and call ...A directly
 #undef GetCurrentDirectory    // ditto (GetCurrentDirectoryA)
 
-namespace draconic::core::sys
+namespace foundation::core::sys
 {
     std::uint64_t GetTicks() noexcept
     {
@@ -859,7 +859,7 @@ namespace draconic::core::sys
 
 #include <io.h>
 
-namespace draconic::core::sys
+namespace foundation::core::sys
 {
     int WriteBacktrace(int fd) noexcept
     {

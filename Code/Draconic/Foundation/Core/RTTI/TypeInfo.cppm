@@ -13,7 +13,7 @@ import :base;
 import :hash;
 import :string;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     using TypeId = u64;
 

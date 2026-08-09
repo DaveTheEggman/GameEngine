@@ -11,7 +11,7 @@ export module draconic.core:easings;
 import :base;
 import :math;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // A function mapping t in [0,1] to an eased interpolation factor.
     using EasingFunction = f32 (*)(f32);

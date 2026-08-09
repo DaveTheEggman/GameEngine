@@ -11,7 +11,7 @@ module;
 
 export module draconic.ui:ipopup_owner;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View;
 

@@ -16,10 +16,10 @@ import :style_rule;
 import :media_query;
 import :ui_widget;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // The flat, cascaded property set for one element.
     class ResolvedStyle

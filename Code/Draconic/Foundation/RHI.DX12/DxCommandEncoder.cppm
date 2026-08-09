@@ -35,9 +35,9 @@ import :ray_tracing_pipeline;
 import :render_pass_encoder;
 import :compute_pass_encoder;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxDeviceImpl; // forward
@@ -1039,4 +1039,4 @@ export namespace draconic::rhi::dx12
     // DxRenderBundleEncoderImpl definitions plus the device's heaps + command
     // signatures to build the pass-encoder context structs.
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

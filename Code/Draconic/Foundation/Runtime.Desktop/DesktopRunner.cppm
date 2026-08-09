@@ -17,11 +17,12 @@ import draconic.core;
 import draconic.shell;          // IShell (interface only - the concrete shell is handed in)
 import draconic.graphics;       // GraphicsDevice (handed to the app)
 import draconic.runtime.client; // IApplication + ApplicationHost (the runner drives these)
+namespace shell = foundation::shell;
 
-namespace core = draconic::core;
-using namespace draconic::graphics; // GraphicsDevice (moved from draconic::runtime)
+namespace core = foundation::core;
+using namespace foundation::graphics; // GraphicsDevice (moved from foundation::runtime)
 
-export namespace draconic::runtime
+export namespace foundation::runtime
 {
     // Desktop runner: block-loop the app against the shell until either stops, clamped to
     // maxFrameTime. DRACONIC_APP_MAIN calls it on desktop; returns the app's exit code.

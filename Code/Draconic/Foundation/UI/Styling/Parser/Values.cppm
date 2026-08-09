@@ -17,9 +17,9 @@ import draconic.core; // Color, StringView, Optional
 import :thickness;
 import :unit;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct StyleValueParser
     {

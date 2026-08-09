@@ -17,10 +17,10 @@ import draconic.rhi;
 import :types;
 import :material;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::materials
+export namespace foundation::materials
 {
 
     class MaterialInstance;
@@ -265,4 +265,4 @@ export namespace draconic::materials
         bool m_inDirtyList = false;
     };
 
-} // namespace draconic::materials
+} // namespace foundation::materials

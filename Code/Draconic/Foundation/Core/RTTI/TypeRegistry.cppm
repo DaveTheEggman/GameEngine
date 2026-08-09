@@ -14,7 +14,7 @@ import :hash_map;
 import :string;
 import :string_hash;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // The availability domain a type was registered under - an OPEN set identified by
     // name hash, not an enum: core owns only the DEFAULT domain "Runtime" (what a shipped

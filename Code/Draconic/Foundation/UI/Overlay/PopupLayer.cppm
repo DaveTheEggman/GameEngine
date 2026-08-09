@@ -24,9 +24,9 @@ import :ipopup_owner;
 import :popup_entry;
 import :modal_backdrop;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class PopupLayer : public ViewGroup
     {

@@ -10,9 +10,9 @@ export module draconic.model:model_material;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::model
+export namespace foundation::model
 {
 
     /// Alpha blending mode.
@@ -70,4 +70,4 @@ export namespace draconic::model
         String m_name;
     };
 
-} // namespace draconic::model
+} // namespace foundation::model

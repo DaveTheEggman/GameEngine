@@ -25,9 +25,11 @@ import draconic.vg;
 import draconic.fonts;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Interpolation modes available per-channel on CurveCanvas. Hermite is first (=0) so a
     /// zero-initialized ChannelDescriptor defaults to Hermite, the right pick for particle / animation curves.

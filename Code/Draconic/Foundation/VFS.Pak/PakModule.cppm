@@ -26,9 +26,9 @@ export module draconic.vfs.pak;
 import draconic.core;
 import draconic.vfs;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vfs
+export namespace foundation::vfs
 {
     inline constexpr u32 kPakMagic = 0x4B415052u; // 'RPAK'
     inline constexpr u32 kPakVersion = 1u;

@@ -14,9 +14,9 @@ export module draconic.editor.scene:camera;
 import draconic.core;
 import draconic.shell;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
     struct EditorCamera
     {
@@ -66,9 +66,9 @@ export namespace draconic::editor
         }
 
         // Apply this frame's input from explicit (gated) devices.
-        void Update(draconic::shell::IKeyboard* kb, draconic::shell::IMouse* mouse, f32 dt)
+        void Update(foundation::shell::IKeyboard* kb, foundation::shell::IMouse* mouse, f32 dt)
         {
-            namespace shell = draconic::shell;
+            namespace shell = foundation::shell;
             if (kb == nullptr)
             {
                 return;

@@ -12,9 +12,10 @@ module draconic.ui;
 
 import draconic.image; // image::ImageData for the (empty) image registry
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace image = foundation::image;
 
-namespace draconic::ui
+namespace foundation::ui
 {
     void SSSParser::ApplyInlineStyle(View* view, StringView body)
     {

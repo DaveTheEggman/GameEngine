@@ -7,9 +7,9 @@ import draconic.core;
 import draconic.vg;
 import draconic.gui;
 
-using namespace draconic::gui;
-namespace core = draconic::core;
-namespace vg = draconic::vg;
+using namespace experimental::gui;
+namespace core = foundation::core;
+namespace vg = foundation::vg;
 
 namespace
 {

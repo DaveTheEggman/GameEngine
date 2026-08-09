@@ -15,9 +15,9 @@ import :flex_layout;
 import :event;
 import :radio_button;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class RadioGroup : public FlexLayout
     {

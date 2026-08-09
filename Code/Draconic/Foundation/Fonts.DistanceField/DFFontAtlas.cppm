@@ -12,9 +12,9 @@ export module draconic.fonts.distancefield:atlas;
 import draconic.core;
 import draconic.fonts;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     class DFFontAtlas final : public IFontAtlas
     {

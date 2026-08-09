@@ -13,9 +13,9 @@ import draconic.rhi;
 import :conversions;
 import :texture;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkTextureViewImpl : public TextureView
@@ -99,4 +99,4 @@ export namespace draconic::rhi::vk
         u32 m_height = 0;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

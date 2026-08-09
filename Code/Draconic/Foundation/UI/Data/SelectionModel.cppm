@@ -13,9 +13,9 @@ export module draconic.ui:selection_model;
 import draconic.core; // HashSet, Array, Event? (Event is a UI partition)
 import :event;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     enum class SelectionMode
     {

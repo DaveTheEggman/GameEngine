@@ -5,8 +5,8 @@
 import draconic.core;
 import draconic.vg;
 
-using namespace draconic::core;
-using namespace draconic::vg;
+using namespace foundation::core;
+using namespace foundation::vg;
 
 TEST_CASE("vgcontext: FillRect produces vertices and indices")
 {

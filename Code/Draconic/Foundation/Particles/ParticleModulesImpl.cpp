@@ -18,9 +18,9 @@ module draconic.particles;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::particles
+namespace foundation::particles
 {
     // ---- range leaf value types --------------------------------------------------------------
     DRACONIC_REFLECT_VALUE(RangeFloat, "rtti::particles")

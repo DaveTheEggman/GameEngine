@@ -12,10 +12,11 @@ import draconic.net;
 import draconic.script;
 import draconic.script.facades; // RegisterExtraFacadeName (the Wren prelude hook)
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation::script;
+namespace core = foundation::core;
 
-namespace draconic::net
+namespace foundation::net
 {
     DRACONIC_REFLECT(Net, "rtti::net")
     {

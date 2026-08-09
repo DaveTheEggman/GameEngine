@@ -19,9 +19,10 @@ import draconic.vg;
 import draconic.fonts;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
 
-namespace draconic::ui::toolkit
+namespace foundation::ui::toolkit
 {
     // Module-linkage helper (not exported, but not TU-local either, so the exported controls' inline
     // draws below may reference it under GCC's stricter modules rules).
@@ -31,7 +32,7 @@ namespace draconic::ui::toolkit
     }
 }
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     class
         Toolbar; // forward - items resolve styles off their parent Toolbar (OnDraw defined out-of-line)

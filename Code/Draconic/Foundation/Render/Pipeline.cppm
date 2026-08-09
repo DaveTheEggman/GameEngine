@@ -41,10 +41,11 @@ import :debug_pass;
 import :decal_pass;
 import :sky;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // Halton(base) low-discrepancy sequence term (1-based index).
@@ -743,4 +744,4 @@ export namespace draconic::render
         u32 m_frameIndex = 0;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

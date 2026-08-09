@@ -1,7 +1,7 @@
 // Draconic UI - :image_drawable partition
 //
 // Draws an image stretched to fill bounds. Ported from Sedulous.UI/src/Drawing/ImageDrawable.bf.
-// Sedulous IImageData -> draconic::image::ImageData (non-owning pointer; the image is owned by the
+// Sedulous IImageData -> foundation::image::ImageData (non-owning pointer; the image is owned by the
 // theme/atlas, not the drawable).
 
 module;
@@ -15,10 +15,10 @@ import draconic.image; // ImageData
 import :drawable;
 import :draw_context;
 
-using namespace draconic::core;
-namespace image = draconic::image;
+using namespace foundation::core;
+namespace image = foundation::image;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ImageDrawable : public Drawable
     {

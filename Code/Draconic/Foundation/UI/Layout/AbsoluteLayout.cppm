@@ -17,9 +17,9 @@ import :box_constraints;
 import :size_spec;
 import :thickness;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// LayoutParams for an AbsoluteLayout child: explicit X/Y.
     class AbsoluteLayoutParams : public LayoutParams

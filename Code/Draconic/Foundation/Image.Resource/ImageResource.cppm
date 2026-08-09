@@ -17,10 +17,10 @@ import draconic.image;
 import draconic.content;
 import draconic.resource;
 
-using namespace draconic::core;
-using namespace draconic::resource;
+using namespace foundation::core;
+using namespace foundation::resource;
 
-export namespace draconic::image
+export namespace foundation::image
 {
     // Cooked CPU image: dims/format/colorspace + owned pixels. The runtime product.
     class ImageResource final : public ISerializable
@@ -34,10 +34,10 @@ export namespace draconic::image
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "width", width);
-            draconic::core::Serialize(ar, "height", height);
-            draconic::core::Serialize(ar, "format", format);
-            draconic::core::Serialize(ar, "colorSpace", colorSpace);
+            foundation::core::Serialize(ar, "width", width);
+            foundation::core::Serialize(ar, "height", height);
+            foundation::core::Serialize(ar, "format", format);
+            foundation::core::Serialize(ar, "colorSpace", colorSpace);
         }
 
         [[nodiscard]] Span<const u8> Pixels() const noexcept
@@ -67,7 +67,7 @@ export namespace draconic::image
         }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             (void)manager;
             RefPtr<ISerializable> object = instance.ReadObject();

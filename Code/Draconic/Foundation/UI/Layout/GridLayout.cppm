@@ -15,9 +15,9 @@ import :view;
 import :layout_params;
 import :box_constraints;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::ui::detail
+namespace foundation::ui::detail
 {
     [[nodiscard]] inline i32 ClampI(i32 v, i32 lo, i32 hi)
     {
@@ -25,7 +25,7 @@ namespace draconic::ui::detail
     }
 }
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Grid track sizing mode.
     enum class TrackSizeMode

@@ -13,7 +13,7 @@ import :base;
 import :math;
 import :float2;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Float3

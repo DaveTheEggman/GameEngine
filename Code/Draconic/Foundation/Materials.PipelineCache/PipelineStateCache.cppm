@@ -24,10 +24,11 @@ import draconic.shaders;
 import draconic.shaders.system;
 import draconic.materials;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::materials
+export namespace foundation::materials
 {
 
     class PipelineStateCache
@@ -278,4 +279,4 @@ export namespace draconic::materials
         Array<rhi::RenderPipeline*> m_retired; // superseded by reload, awaiting GPU-safe free
     };
 
-} // namespace draconic::materials
+} // namespace foundation::materials

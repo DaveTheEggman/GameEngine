@@ -14,9 +14,9 @@ export module draconic.shell:input;
 import draconic.core;
 import :input_types;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::shell
+export namespace foundation::shell
 {
     class IKeyboard
     {

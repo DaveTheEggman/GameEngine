@@ -19,24 +19,24 @@
 #define DRACONIC_OBJECT(Type, BaseType)                                                            \
 public:                                                                                            \
     using Super = BaseType;                                                                        \
-    static const ::draconic::core::TypeInfo& StaticType() noexcept;                                \
-    const ::draconic::core::TypeInfo* GetType() const noexcept override { return &StaticType(); }
+    static const ::foundation::core::TypeInfo& StaticType() noexcept;                                \
+    const ::foundation::core::TypeInfo* GetType() const noexcept override { return &StaticType(); }
 
 // Defines StaticType() for a Type with no reflected properties.
 #define DRACONIC_DEFINE_OBJECT(Type, Namespace)                                                    \
-    const ::draconic::core::TypeInfo& Type::StaticType() noexcept                                  \
+    const ::foundation::core::TypeInfo& Type::StaticType() noexcept                                  \
     {                                                                                              \
-        static const ::draconic::core::TypeInfo info =                                             \
-            ::draconic::core::MakeTypeInfo<Type>(#Type, Namespace, &Super::StaticType());          \
+        static const ::foundation::core::TypeInfo info =                                             \
+            ::foundation::core::MakeTypeInfo<Type>(#Type, Namespace, &Super::StaticType());          \
         return info;                                                                               \
     }
 
 // DRACONIC_DEFINE_OBJECT with a serialization DATA VERSION (migration): bump the number when
 // the type's serialized layout changes; the Serialize body branches on ar.Version().
 #define DRACONIC_DEFINE_OBJECT_VERSIONED(Type, Namespace, DataVersion)                             \
-    const ::draconic::core::TypeInfo& Type::StaticType() noexcept                                  \
+    const ::foundation::core::TypeInfo& Type::StaticType() noexcept                                  \
     {                                                                                              \
-        static const ::draconic::core::TypeInfo info = ::draconic::core::MakeTypeInfo<Type>(       \
+        static const ::foundation::core::TypeInfo info = ::foundation::core::MakeTypeInfo<Type>(       \
             #Type, Namespace, &Super::StaticType(), DataVersion);                                  \
         return info;                                                                               \
     }
@@ -47,19 +47,19 @@ public:                                                                         
 //       builder.Property<&Entity::name>("name");
 //   }
 #define DRACONIC_REFLECT(Type, Namespace)                                                          \
-    static void DraconicReflect_##Type(::draconic::core::TypeBuilder<Type>& builder);              \
-    const ::draconic::core::TypeInfo& Type::StaticType() noexcept                                  \
+    static void DraconicReflect_##Type(::foundation::core::TypeBuilder<Type>& builder);              \
+    const ::foundation::core::TypeInfo& Type::StaticType() noexcept                                  \
     {                                                                                              \
-        static ::draconic::core::TypeData draconicTypeData = []()                                  \
+        static ::foundation::core::TypeData draconicTypeData = []()                                  \
         {                                                                                          \
-            ::draconic::core::TypeBuilder<Type> builder(#Type, Namespace, &Super::StaticType());   \
+            ::foundation::core::TypeBuilder<Type> builder(#Type, Namespace, &Super::StaticType());   \
             DraconicReflect_##Type(builder);                                                       \
             return builder.Build();                                                                \
         }();                                                                                       \
         return draconicTypeData.info;                                                              \
     }                                                                                              \
     static void DraconicReflect_##Type(                                                            \
-        [[maybe_unused]] ::draconic::core::TypeBuilder<Type>& builder)
+        [[maybe_unused]] ::foundation::core::TypeBuilder<Type>& builder)
 
 // Reflects an enum's named values. Defines a registration function
 // DraconicRegisterEnum_<EnumType>() to be called explicitly at startup, e.g.:
@@ -70,15 +70,15 @@ public:                                                                         
 //   }
 //   // later: DraconicRegisterEnum_Color();
 #define DRACONIC_REFLECT_ENUM(EnumType, Namespace)                                                 \
-    static void DraconicEnumBody_##EnumType(::draconic::core::EnumBuilder<EnumType>&);             \
+    static void DraconicEnumBody_##EnumType(::foundation::core::EnumBuilder<EnumType>&);             \
     void DraconicRegisterEnum_##EnumType()                                                         \
     {                                                                                              \
-        ::draconic::core::EnumBuilder<EnumType> builder(#EnumType, Namespace);                     \
+        ::foundation::core::EnumBuilder<EnumType> builder(#EnumType, Namespace);                     \
         DraconicEnumBody_##EnumType(builder);                                                      \
         builder.Build();                                                                           \
     }                                                                                              \
     static void DraconicEnumBody_##EnumType(                                                       \
-        [[maybe_unused]] ::draconic::core::EnumBuilder<EnumType>& builder)
+        [[maybe_unused]] ::foundation::core::EnumBuilder<EnumType>& builder)
 
 // Reflects a non-Object value type (plain struct) non-intrusively: builds its
 // properties/methods with a TypeBuilder and patches the type's TypeOf<T>() in
@@ -91,19 +91,19 @@ public:                                                                         
 //   }
 //   // later: DraconicRegisterValue_Float3();
 #define DRACONIC_REFLECT_VALUE(Type, Namespace)                                                    \
-    static void DraconicReflectValue_##Type(::draconic::core::TypeBuilder<Type>& builder);         \
+    static void DraconicReflectValue_##Type(::foundation::core::TypeBuilder<Type>& builder);         \
     void DraconicRegisterValue_##Type()                                                            \
     {                                                                                              \
-        static ::draconic::core::TypeData draconicTypeData = []()                                  \
+        static ::foundation::core::TypeData draconicTypeData = []()                                  \
         {                                                                                          \
-            ::draconic::core::TypeBuilder<Type> builder(#Type, Namespace, nullptr);                \
+            ::foundation::core::TypeBuilder<Type> builder(#Type, Namespace, nullptr);                \
             DraconicReflectValue_##Type(builder);                                                  \
             return builder.Build();                                                                \
         }();                                                                                       \
-        const_cast<::draconic::core::TypeInfo&>(::draconic::core::TypeOf<Type>()) =                \
+        const_cast<::foundation::core::TypeInfo&>(::foundation::core::TypeOf<Type>()) =                \
             draconicTypeData.info;                                                                 \
     }                                                                                              \
     static void DraconicReflectValue_##Type(                                                       \
-        [[maybe_unused]] ::draconic::core::TypeBuilder<Type>& builder)
+        [[maybe_unused]] ::foundation::core::TypeBuilder<Type>& builder)
 
 #endif // DRACONIC_CORE_RTTI_REFLECT_H

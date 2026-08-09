@@ -18,9 +18,9 @@ export module draconic.render:extract_ctx;
 import draconic.core;
 import :data;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     class RenderContext
@@ -80,4 +80,4 @@ export namespace draconic::render
         u32 m_slots = 0;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

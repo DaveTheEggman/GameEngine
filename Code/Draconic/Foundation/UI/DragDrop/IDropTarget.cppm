@@ -13,9 +13,9 @@ export module draconic.ui:idrop_target;
 import draconic.core;
 import :drag_drop_effects;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class DragData;
 

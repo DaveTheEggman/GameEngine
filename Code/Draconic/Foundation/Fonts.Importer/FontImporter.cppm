@@ -15,9 +15,9 @@ import draconic.fonts;
 import draconic.fonts.baked;
 import draconic.fonts.ttf;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     // Owns a (BakedFont, BakedFontAtlas) pair produced by an import. The
     // destructor frees both unless TakeOwnership() transfers them out.

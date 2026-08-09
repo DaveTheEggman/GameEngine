@@ -5,9 +5,9 @@ export module draconic.image:pixel_format;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::image
+export namespace foundation::image
 {
 
     enum class PixelFormat : u32
@@ -96,4 +96,4 @@ export namespace draconic::image
                f == PixelFormat::RGBA32F;
     }
 
-} // namespace draconic::image
+} // namespace foundation::image

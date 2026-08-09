@@ -11,9 +11,9 @@ export module draconic.texture:types;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::texture
+export namespace foundation::texture
 {
     // The logical shape of a texture asset.
     enum class TextureShape : u8

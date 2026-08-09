@@ -16,10 +16,10 @@ import draconic.vg;   // VGContext
 import :rect;
 import :transform2d;
 
-using namespace draconic::core;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace vg = foundation::vg;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class DrawContext
     {

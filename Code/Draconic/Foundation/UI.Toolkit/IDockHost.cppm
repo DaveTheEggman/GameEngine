@@ -14,9 +14,9 @@ export module draconic.ui.toolkit:idock_host;
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     class DockablePanel;
     class DockableWindow;

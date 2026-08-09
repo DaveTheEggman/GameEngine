@@ -21,14 +21,14 @@ import draconic.rhi.null;
 import draconic.input;
 import draconic.engine.input;
 
-using namespace draconic::core;
-using namespace draconic::engine::ui;
-using namespace draconic::engine::scene;
-using namespace draconic::engine::render;
-using namespace draconic::engine::input;
-using namespace draconic::ui;
-namespace scene = draconic::scene;
-namespace runtime = draconic::runtime;
+using namespace foundation::core;
+using namespace engine::ui;
+using namespace engine::scene;
+using namespace engine::render;
+using namespace engine::input;
+using namespace foundation::ui;
+namespace scene = foundation::scene;
+namespace runtime = foundation::runtime;
 
 namespace
 {
@@ -43,7 +43,7 @@ namespace
 TEST_CASE("ui.subsystem: canvases instantiate, hot-reload, and sync visibility")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
@@ -140,7 +140,7 @@ TEST_CASE("ui.subsystem: canvas component serialization round-trips")
 TEST_CASE("ui.subsystem: billboards project through the scene camera and park behind it")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
@@ -148,11 +148,11 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
     // The camera manager comes from the render subsystem normally; add it directly here.
     ctx.Startup();
     scene::Scene* scene = sm.CreateScene(u8"world");
-    scene->AddSystem<draconic::engine::render::CameraComponentManager>();
+    scene->AddSystem<engine::render::CameraComponentManager>();
 
     // A camera at origin looking down -Z (identity rotation), and two anchors.
     scene::EntityHandle cam = scene->CreateEntity(u8"cam");
-    scene->GetSystem<draconic::engine::render::CameraComponentManager>()->Add(cam);
+    scene->GetSystem<engine::render::CameraComponentManager>()->Add(cam);
     scene::EntityHandle front = scene->CreateEntity(u8"front");
     scene->SetLocalPosition(front, Float3{0.0f, 0.0f, -10.0f});
     scene::EntityHandle behind = scene->CreateEntity(u8"behind");
@@ -174,7 +174,7 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
     // synthetic view whose VP has clip.w = -z_view (camera at origin looking down -Z),
     // the shape every real perspective produces. front (z=-10) is on-axis -> centered;
     // behind (z=+10) gets clip.w < 0 -> parks off-screen.
-    draconic::render::SceneOverlayView view;
+    foundation::render::SceneOverlayView view;
     view.sceneKey = scene;
     view.viewProjection = Float4x4::Identity();
     view.viewProjection(2, 3) = -1.0f; // clip.w = -z (row-vector convention)
@@ -221,7 +221,7 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
 TEST_CASE("ui.subsystem: the scene-less screen tier survives scene swaps and stays topmost")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
@@ -261,7 +261,7 @@ TEST_CASE("ui.subsystem: the scene-less screen tier survives scene swaps and sta
 namespace
 {
     // A minimal script delegate that records how many times native code fires it.
-    class RecordingDelegate final : public draconic::script::IScriptDelegate
+    class RecordingDelegate final : public foundation::script::IScriptDelegate
     {
     public:
         int calls = 0;
@@ -274,7 +274,7 @@ namespace
 
     // A delegate that pops an overlay when fired - to exercise the pop-from-inside-a-click-handler
     // path (the standard "close menu" button), which must DEFER the tree detach.
-    class PopDelegate final : public draconic::script::IScriptDelegate
+    class PopDelegate final : public foundation::script::IScriptDelegate
     {
     public:
         UiScriptHost* host = nullptr;
@@ -392,7 +392,7 @@ TEST_CASE("ui.scripthost: push/pop from INSIDE a click handler defers the tree m
 TEST_CASE("ui.subsystem: an EMPTY overlay layer never blocks canvas hit-testing")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
@@ -438,7 +438,7 @@ TEST_CASE("ui.subsystem: an EMPTY overlay layer never blocks canvas hit-testing"
 TEST_CASE("ui.subsystem: a PASSIVE screen overlay (badge) never turns the layer modal")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
@@ -476,40 +476,40 @@ TEST_CASE("ui.subsystem: a PASSIVE screen overlay (badge) never turns the layer 
 namespace
 {
     // Minimal pad/provider fakes for the nav pump (the input tests' pattern).
-    struct NavFakePad final : draconic::shell::IGamepad
+    struct NavFakePad final : foundation::shell::IGamepad
     {
-        bool down[static_cast<u32>(draconic::shell::GamepadButton::Count)] = {};
-        bool pressed[static_cast<u32>(draconic::shell::GamepadButton::Count)] = {};
-        f32 axes[static_cast<u32>(draconic::shell::GamepadAxis::Count)] = {};
+        bool down[static_cast<u32>(foundation::shell::GamepadButton::Count)] = {};
+        bool pressed[static_cast<u32>(foundation::shell::GamepadButton::Count)] = {};
+        f32 axes[static_cast<u32>(foundation::shell::GamepadAxis::Count)] = {};
         [[nodiscard]] i32 Index() const override { return 0; }
         [[nodiscard]] StringView Name() const override { return u8"fake"; }
         [[nodiscard]] bool Connected() const override { return true; }
-        [[nodiscard]] bool IsButtonDown(draconic::shell::GamepadButton b) const override
+        [[nodiscard]] bool IsButtonDown(foundation::shell::GamepadButton b) const override
         {
             return down[static_cast<u32>(b)];
         }
-        [[nodiscard]] bool IsButtonPressed(draconic::shell::GamepadButton b) const override
+        [[nodiscard]] bool IsButtonPressed(foundation::shell::GamepadButton b) const override
         {
             return pressed[static_cast<u32>(b)];
         }
-        [[nodiscard]] bool IsButtonReleased(draconic::shell::GamepadButton) const override
+        [[nodiscard]] bool IsButtonReleased(foundation::shell::GamepadButton) const override
         {
             return false;
         }
-        [[nodiscard]] f32 Axis(draconic::shell::GamepadAxis a) const override
+        [[nodiscard]] f32 Axis(foundation::shell::GamepadAxis a) const override
         {
             return axes[static_cast<u32>(a)];
         }
         void SetRumble(f32, f32, u32) override {}
     };
 
-    struct NavFakeDevices final : draconic::input::IInputSourceProvider
+    struct NavFakeDevices final : foundation::input::IInputSourceProvider
     {
         NavFakePad pad;
-        [[nodiscard]] draconic::shell::IMouse* Mouse() override { return nullptr; }
-        [[nodiscard]] draconic::shell::IKeyboard* Keyboard() override { return nullptr; }
+        [[nodiscard]] foundation::shell::IMouse* Mouse() override { return nullptr; }
+        [[nodiscard]] foundation::shell::IKeyboard* Keyboard() override { return nullptr; }
         [[nodiscard]] i32 GamepadCount() const override { return 1; }
-        [[nodiscard]] draconic::shell::IGamepad* Gamepad(i32 index) override
+        [[nodiscard]] foundation::shell::IGamepad* Gamepad(i32 index) override
         {
             return index == 0 ? &pad : nullptr;
         }
@@ -519,10 +519,10 @@ namespace
 TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activates")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
-    auto* input = ctx.AddSubsystem<draconic::engine::input::InputSubsystem>(nullptr);
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
@@ -552,7 +552,7 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
     CHECK(focus->FocusedView() == nullptr);
 
     // First Down press bootstraps focus to the first focusable...
-    devices.pad.down[static_cast<u32>(draconic::shell::GamepadButton::DPadDown)] = true;
+    devices.pad.down[static_cast<u32>(foundation::shell::GamepadButton::DPadDown)] = true;
     ctx.BeginFrame(1.0f / 60.0f);
     ui->Context().UpdateRootView(root);
     REQUIRE(focus->FocusedView() != nullptr);
@@ -563,7 +563,7 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
     CHECK(focus->FocusedView()->Name.AsView() == u8"top");
     ctx.BeginFrame(0.35f); // crosses the 0.4s initial delay
     CHECK(focus->FocusedView()->Name.AsView() == u8"bottom");
-    devices.pad.down[static_cast<u32>(draconic::shell::GamepadButton::DPadDown)] = false;
+    devices.pad.down[static_cast<u32>(foundation::shell::GamepadButton::DPadDown)] = false;
     ctx.BeginFrame(1.0f / 60.0f);
 
     // South = Submit: the focused button activates through the Return path.
@@ -571,10 +571,10 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
     Cast<ViewGroup>(canvas.root.Get())
         ->FindByName<Button>(u8"bottom")
         ->OnClick.Add([&clicked](ButtonBase*) { clicked = true; });
-    devices.pad.pressed[static_cast<u32>(draconic::shell::GamepadButton::South)] = true;
+    devices.pad.pressed[static_cast<u32>(foundation::shell::GamepadButton::South)] = true;
     ctx.BeginFrame(1.0f / 60.0f);
     CHECK(clicked);
-    devices.pad.pressed[static_cast<u32>(draconic::shell::GamepadButton::South)] = false;
+    devices.pad.pressed[static_cast<u32>(foundation::shell::GamepadButton::South)] = false;
 
     // An OCCUPIED screen tier is modal: input routing flips to the screen root.
     RefPtr<UIDocument> modal = MakeRef<UIDocument>(DefaultAllocator());
@@ -593,7 +593,7 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
 TEST_CASE("ui.subsystem: preview roots live in the context but never on the screen root")
 {
     runtime::Context ctx;
-    ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
@@ -626,7 +626,7 @@ TEST_CASE("ui.subsystem: preview roots live in the context but never on the scre
 TEST_CASE("ui.subsystem: canvases stack by order; billboard layer stays below; despawn sweeps")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
@@ -714,7 +714,7 @@ TEST_CASE(
     "ui.subsystem: ReferenceResolution scaler lays out at the reference size and scales to fit")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
@@ -775,29 +775,29 @@ namespace
 {
     // An event-first provider fake: no polled devices, just this frame's tagged stream
     // (the shape ShellInputSource/GameViewportInputSource produce for key/text).
-    struct EventFakeDevices final : draconic::input::IInputSourceProvider
+    struct EventFakeDevices final : foundation::input::IInputSourceProvider
     {
-        Array<draconic::shell::InputEvent> events;
-        [[nodiscard]] draconic::shell::IMouse* Mouse() override { return nullptr; }
-        [[nodiscard]] draconic::shell::IKeyboard* Keyboard() override { return nullptr; }
+        Array<foundation::shell::InputEvent> events;
+        [[nodiscard]] foundation::shell::IMouse* Mouse() override { return nullptr; }
+        [[nodiscard]] foundation::shell::IKeyboard* Keyboard() override { return nullptr; }
         [[nodiscard]] i32 GamepadCount() const override { return 0; }
-        [[nodiscard]] draconic::shell::IGamepad* Gamepad(i32) override { return nullptr; }
-        [[nodiscard]] Span<const draconic::shell::InputEvent> Events() override
+        [[nodiscard]] foundation::shell::IGamepad* Gamepad(i32) override { return nullptr; }
+        [[nodiscard]] Span<const foundation::shell::InputEvent> Events() override
         {
             return {events.Data(), events.Size()};
         }
 
-        void PushKey(draconic::shell::InputEventKind kind, draconic::shell::KeyCode key)
+        void PushKey(foundation::shell::InputEventKind kind, foundation::shell::KeyCode key)
         {
-            draconic::shell::InputEvent e;
+            foundation::shell::InputEvent e;
             e.kind = kind;
             e.key = key;
             events.PushBack(e);
         }
         void PushText(StringView text)
         {
-            draconic::shell::InputEvent e;
-            e.kind = draconic::shell::InputEventKind::TextInput;
+            foundation::shell::InputEvent e;
+            e.kind = foundation::shell::InputEventKind::TextInput;
             usize i = 0;
             for (; i < text.Size() && i < 31; ++i)
             {
@@ -812,10 +812,10 @@ namespace
 TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME follows focus")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
-    auto* input = ctx.AddSubsystem<draconic::engine::input::InputSubsystem>(nullptr);
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
@@ -823,7 +823,7 @@ TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME foll
     input->SetSourceProvider(&devices);
 
     // The player-window IME target (headless stand-in).
-    draconic::shell::NullWindow window(1, draconic::shell::WindowSettings{});
+    foundation::shell::NullWindow window(1, foundation::shell::WindowSettings{});
     ui->SetTextInputTarget(&window);
 
     scene::Scene* scene = sm.CreateScene(u8"menu");
@@ -862,8 +862,8 @@ TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME foll
     CHECK(edit->Text() == u8"hi");
 
     // ...as do ordered key events (Backspace erases the last character).
-    devices.PushKey(draconic::shell::InputEventKind::KeyDown, draconic::shell::KeyCode::Backspace);
-    devices.PushKey(draconic::shell::InputEventKind::KeyUp, draconic::shell::KeyCode::Backspace);
+    devices.PushKey(foundation::shell::InputEventKind::KeyDown, foundation::shell::KeyCode::Backspace);
+    devices.PushKey(foundation::shell::InputEventKind::KeyUp, foundation::shell::KeyCode::Backspace);
     ctx.BeginFrame(1.0f / 60.0f);
     devices.events.Clear();
     CHECK(edit->Text() == u8"h");
@@ -880,16 +880,16 @@ TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME foll
 TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay out of the tiers")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
     // Headless GPU: the Null RHI device (texture lifecycle without a real GPU).
-    draconic::rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
     ui->EnsureRenderReady(device, 2);
-    draconic::rhi::null::NullCommandEncoder encoder;
+    foundation::rhi::null::NullCommandEncoder encoder;
 
     scene::Scene* scene = sm.CreateScene(u8"world");
     auto* canvases = scene->GetSystem<UICanvasComponentManager>();
@@ -975,7 +975,7 @@ TEST_CASE(
     "ui.subsystem: the project-default theme swaps the context stylesheet (GameTheme fallback)")
 {
     runtime::Context ctx;
-    ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
@@ -1011,7 +1011,7 @@ TEST_CASE("ui.subsystem: removing a canvas or billboard COMPONENT sweeps its tre
     // component (entity stays) - the UI must disappear. Same for billboards, whose
     // layer needed its own sweep.
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
@@ -1043,7 +1043,7 @@ namespace
 {
     // A pointer-capable provider fake: settable position + button state for the polled
     // pump, plus the tagged event stream - the full shape a real source presents.
-    struct PointerFakeMouse final : draconic::shell::IMouse
+    struct PointerFakeMouse final : foundation::shell::IMouse
     {
         f32 x = 0.0f;
         f32 y = 0.0f;
@@ -1056,15 +1056,15 @@ namespace
         [[nodiscard]] f32 DeltaY() const override { return 0.0f; }
         [[nodiscard]] f32 ScrollX() const override { return 0.0f; }
         [[nodiscard]] f32 ScrollY() const override { return 0.0f; }
-        [[nodiscard]] bool IsButtonDown(draconic::shell::MouseButton b) const override
+        [[nodiscard]] bool IsButtonDown(foundation::shell::MouseButton b) const override
         {
             return buttons[static_cast<u32>(b) & 7];
         }
-        [[nodiscard]] bool IsButtonPressed(draconic::shell::MouseButton) const override
+        [[nodiscard]] bool IsButtonPressed(foundation::shell::MouseButton) const override
         {
             return false;
         }
-        [[nodiscard]] bool IsButtonReleased(draconic::shell::MouseButton) const override
+        [[nodiscard]] bool IsButtonReleased(foundation::shell::MouseButton) const override
         {
             return false;
         }
@@ -1072,30 +1072,30 @@ namespace
         void SetRelativeMode(bool) override {}
         [[nodiscard]] bool CursorVisible() const override { return true; }
         void SetCursorVisible(bool) override {}
-        void SetCursor(draconic::shell::CursorType) override {}
+        void SetCursor(foundation::shell::CursorType) override {}
         void SetGlobalCapture(bool) override {}
     };
 
-    struct PointerFakeDevices final : draconic::input::IInputSourceProvider
+    struct PointerFakeDevices final : foundation::input::IInputSourceProvider
     {
         PointerFakeMouse mouse;
         bool mousePresent = true; // false = pointer-less frame (pad/keyboard-only path)
-        Array<draconic::shell::InputEvent> events;
-        [[nodiscard]] draconic::shell::IMouse* Mouse() override
+        Array<foundation::shell::InputEvent> events;
+        [[nodiscard]] foundation::shell::IMouse* Mouse() override
         {
             return mousePresent ? &mouse : nullptr;
         }
-        [[nodiscard]] draconic::shell::IKeyboard* Keyboard() override { return nullptr; }
+        [[nodiscard]] foundation::shell::IKeyboard* Keyboard() override { return nullptr; }
         [[nodiscard]] i32 GamepadCount() const override { return 0; }
-        [[nodiscard]] draconic::shell::IGamepad* Gamepad(i32) override { return nullptr; }
-        [[nodiscard]] Span<const draconic::shell::InputEvent> Events() override
+        [[nodiscard]] foundation::shell::IGamepad* Gamepad(i32) override { return nullptr; }
+        [[nodiscard]] Span<const foundation::shell::InputEvent> Events() override
         {
             return {events.Data(), events.Size()};
         }
         void PushText(StringView text)
         {
-            draconic::shell::InputEvent e;
-            e.kind = draconic::shell::InputEventKind::TextInput;
+            foundation::shell::InputEvent e;
+            e.kind = foundation::shell::InputEventKind::TextInput;
             usize i = 0;
             for (; i < text.Size() && i < 31; ++i)
             {
@@ -1107,11 +1107,11 @@ namespace
         // One full click at the CURRENT position across two pump frames.
         void PressLeft()
         {
-            mouse.buttons[static_cast<u32>(draconic::shell::MouseButton::Left)] = true;
+            mouse.buttons[static_cast<u32>(foundation::shell::MouseButton::Left)] = true;
         }
         void ReleaseLeft()
         {
-            mouse.buttons[static_cast<u32>(draconic::shell::MouseButton::Left)] = false;
+            mouse.buttons[static_cast<u32>(foundation::shell::MouseButton::Left)] = false;
         }
     };
 }
@@ -1120,10 +1120,10 @@ TEST_CASE(
     "ui.subsystem: a bound source confines routing + consumption to ITS scene (game-ui.md §9)")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
-    auto* input = ctx.AddSubsystem<draconic::engine::input::InputSubsystem>(nullptr);
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
@@ -1213,16 +1213,16 @@ TEST_CASE(
 TEST_CASE("ui.subsystem: ScreenTierOnly keeps un-bound input out of scene UI (editor policy)")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
-    auto* input = ctx.AddSubsystem<draconic::engine::input::InputSubsystem>(nullptr);
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
     PointerFakeDevices devices;
     input->SetSourceProvider(&devices); // un-bound...
-    input->SetUnboundScenePolicy(draconic::engine::input::UnboundInputScenePolicy::ScreenTierOnly);
+    input->SetUnboundScenePolicy(engine::input::UnboundInputScenePolicy::ScreenTierOnly);
 
     scene::Scene* scene = sm.CreateScene(u8"editing");
     scene::EntityHandle e = scene->CreateEntity(u8"hud");
@@ -1286,24 +1286,24 @@ TEST_CASE("ui.subsystem: ScreenTierOnly keeps un-bound input out of scene UI (ed
 TEST_CASE("ui.subsystem: RT canvases auto-bind the entity's sprite/decal texture override")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
 
-    draconic::rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
     ui->EnsureRenderReady(device, 2);
-    draconic::rhi::null::NullCommandEncoder encoder;
+    foundation::rhi::null::NullCommandEncoder encoder;
 
     // The render managers normally come from the RenderSubsystem; add them directly
     // (the camera-manager test's pattern).
     scene::Scene* scene = sm.CreateScene(u8"world");
-    scene->AddSystem<draconic::engine::render::SpriteComponentManager>();
-    scene->AddSystem<draconic::engine::render::DecalComponentManager>();
+    scene->AddSystem<engine::render::SpriteComponentManager>();
+    scene->AddSystem<engine::render::DecalComponentManager>();
     auto* canvases = scene->GetSystem<UICanvasComponentManager>();
-    auto* sprites = scene->GetSystem<draconic::engine::render::SpriteComponentManager>();
-    auto* decals = scene->GetSystem<draconic::engine::render::DecalComponentManager>();
+    auto* sprites = scene->GetSystem<engine::render::SpriteComponentManager>();
+    auto* decals = scene->GetSystem<engine::render::DecalComponentManager>();
 
     // One entity carries the RT canvas AND the material components that show it -
     // the declarative contract: same entity = auto-bound, no scripting needed.
@@ -1379,7 +1379,7 @@ TEST_CASE("ui.worldpanel: ray/uv math - front and back hits, edges, parallel mis
     CHECK_FALSE(RayHitWorldPanel(Float3{0, 0, 5}, Float3{0, 0, 1}, panel, size).hit);
 
     // Pointer-ray unprojection: the view center looks straight down the camera axis.
-    draconic::render::ViewCamera camera;
+    foundation::render::ViewCamera camera;
     camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 16.0f / 9.0f, 0.1f, 100.0f);
     Float3 origin, direction;
     PointerRayFromCamera(camera, Float2{640.0f, 360.0f}, Float2{1280.0f, 720.0f}, origin,
@@ -1393,25 +1393,25 @@ TEST_CASE("ui.worldpanel: instantiates, renders to its target, drives the sprite
           "takes a ray-routed click")
 {
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
-    auto* input = ctx.AddSubsystem<draconic::engine::input::InputSubsystem>(nullptr);
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
-    draconic::rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
     ui->EnsureRenderReady(device, 2);
-    draconic::rhi::null::NullCommandEncoder encoder;
+    foundation::rhi::null::NullCommandEncoder encoder;
 
     PointerFakeDevices devices;
     input->SetSourceProvider(&devices);
 
     scene::Scene* scene = sm.CreateScene(u8"world");
-    scene->AddSystem<draconic::engine::render::CameraComponentManager>();
-    scene->AddSystem<draconic::engine::render::SpriteComponentManager>();
+    scene->AddSystem<engine::render::CameraComponentManager>();
+    scene->AddSystem<engine::render::SpriteComponentManager>();
     scene::EntityHandle cam = scene->CreateEntity(u8"cam");
     scene->SetLocalPosition(cam, Float3{0.0f, 2.0f, 10.0f});
-    scene->GetSystem<draconic::engine::render::CameraComponentManager>()->Add(cam);
+    scene->GetSystem<engine::render::CameraComponentManager>()->Add(cam);
 
     scene::EntityHandle e = scene->CreateEntity(u8"kiosk");
     scene->SetLocalPosition(e, Float3{0.0f, 2.0f, 0.0f});
@@ -1437,9 +1437,9 @@ TEST_CASE("ui.worldpanel: instantiates, renders to its target, drives the sprite
 
     // The sprite is DRIVEN: auto-added, entity-oriented, texture-bound, and inflated
     // by the border ratio so the CONTENT keeps the authored world size.
-    auto* sprite = scene->GetSystem<draconic::engine::render::SpriteComponentManager>()->Get(e);
+    auto* sprite = scene->GetSystem<engine::render::SpriteComponentManager>()->Get(e);
     REQUIRE(sprite != nullptr);
-    CHECK(sprite->orientation == draconic::engine::render::SpriteOrientation::EntityOriented);
+    CHECK(sprite->orientation == engine::render::SpriteOrientation::EntityOriented);
     CHECK(sprite->size.x == doctest::Approx(2.0f * 204.0f / 200.0f));
     CHECK(sprite->size.y == doctest::Approx(1.0f * 104.0f / 100.0f));
     CHECK(sprite->texture == panel.renderTextureView);
@@ -1460,9 +1460,9 @@ TEST_CASE("ui.worldpanel: instantiates, renders to its target, drives the sprite
     CHECK(ui->Context().ActiveInputRoot() == panel.renderRoot.Get());
     CHECK(ui->PointerOverUI());
 
-    devices.mouse.buttons[static_cast<u32>(draconic::shell::MouseButton::Left)] = true;
+    devices.mouse.buttons[static_cast<u32>(foundation::shell::MouseButton::Left)] = true;
     ctx.BeginFrame(1.0f / 60.0f);
-    devices.mouse.buttons[static_cast<u32>(draconic::shell::MouseButton::Left)] = false;
+    devices.mouse.buttons[static_cast<u32>(foundation::shell::MouseButton::Left)] = false;
     ctx.BeginFrame(1.0f / 60.0f);
     CHECK(clicked);
 
@@ -1479,7 +1479,7 @@ TEST_CASE("ui.worldpanel: the ray hits under an OBLIQUE camera (the playground p
     // Reproduces PhysicsPlayground exactly: fly camera at (8,6,14) yaw 0.5 pitch -0.3,
     // kiosk at (4,1.6,-6) identity-oriented, 1.6x1.0 m. The pointer is placed at the
     // kiosk center's PROJECTED screen position - the ray must come back to uv ~center.
-    draconic::render::ViewCamera camera;
+    foundation::render::ViewCamera camera;
     const Quaternion rotation = FromYawPitchRoll(0.5f, -0.3f, 0.0f);
     Float4x4 world = RotationMatrix(rotation);
     world.m[3][0] = 8.0f;
@@ -1517,24 +1517,24 @@ TEST_CASE("ui.subsystem: a stretched full-screen canvas does NOT swallow the poi
     // hit-TRANSPARENT or one HUD eats the pointer everywhere: consumption reads true on
     // empty space (crate clicks die) and the scene root outbids every world panel.
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
-    auto* input = ctx.AddSubsystem<draconic::engine::input::InputSubsystem>(nullptr);
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
-    draconic::rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
     ui->EnsureRenderReady(device, 2);
-    draconic::rhi::null::NullCommandEncoder encoder;
+    foundation::rhi::null::NullCommandEncoder encoder;
     PointerFakeDevices devices;
     input->SetSourceProvider(&devices);
 
     scene::Scene* scene = sm.CreateScene(u8"world");
-    scene->AddSystem<draconic::engine::render::CameraComponentManager>();
-    scene->AddSystem<draconic::engine::render::SpriteComponentManager>();
+    scene->AddSystem<engine::render::CameraComponentManager>();
+    scene->AddSystem<engine::render::SpriteComponentManager>();
     scene::EntityHandle cam = scene->CreateEntity(u8"cam");
     scene->SetLocalPosition(cam, Float3{0.0f, 2.0f, 10.0f});
-    scene->GetSystem<draconic::engine::render::CameraComponentManager>()->Add(cam);
+    scene->GetSystem<engine::render::CameraComponentManager>()->Add(cam);
 
     // A PhysicsPlayground-style HUD: stretched root Flex, content in one corner.
     scene::EntityHandle hud = scene->CreateEntity(u8"hud");
@@ -1591,10 +1591,10 @@ TEST_CASE("ui.subsystem: a press over EMPTY space never consumes the pointer "
     // (PhysicsPlayground's LMB crate shove polls IsButtonPressed on exactly the press
     // frame, so it was gated 100% of the time while the HUD kept working).
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
-    auto* input = ctx.AddSubsystem<draconic::engine::input::InputSubsystem>(nullptr);
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
     PointerFakeDevices devices;

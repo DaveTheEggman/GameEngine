@@ -12,11 +12,11 @@ export module draconic.rendergraph:types;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rendergraph
+export namespace foundation::rendergraph
 {
-    namespace rhi = draconic::rhi;
+    namespace rhi = foundation::rhi;
 
     // Handle to a graph resource (texture or buffer); generation-checked for staleness.
     struct RGHandle

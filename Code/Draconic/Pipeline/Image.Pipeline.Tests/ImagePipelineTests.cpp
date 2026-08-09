@@ -14,11 +14,11 @@ import draconic.image.io;
 import draconic.image.resource;
 import draconic.image.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::vfs;
-using namespace draconic::resource;
-using namespace draconic::image;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::vfs;
+using namespace foundation::resource;
+using namespace foundation::image;
 
 namespace
 {
@@ -45,8 +45,8 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
         {
             px.Data()[i] = static_cast<u8>(i * 7);
         }
-        REQUIRE(draconic::image::io::SaveImage(src, u8"draconic_imgpipe_src.png",
-                                               draconic::image::io::ImageFileFormat::PNG)
+        REQUIRE(foundation::image::io::SaveImage(src, u8"draconic_imgpipe_src.png",
+                                               foundation::image::io::ImageFileFormat::PNG)
                     .IsOk());
     }
 
@@ -55,25 +55,25 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
     // --- cook (tooling): ImageAsset -> ImageResource in the output DB ---
     Guid id;
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"icon", ImageResource::StaticType());
         id = inst->Id();
 
         ImageAsset asset;
-        asset.fileName = draconic::vfs::SourcePath(u8"draconic_imgpipe_src.png");
+        asset.fileName = foundation::vfs::SourcePath(u8"draconic_imgpipe_src.png");
         asset.colorSpace = ImageColorSpace::Srgb;
 
         ImageAssetBuilder builder;
         NativeFileSystem srcMount(u8".");
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
     // --- runtime load (device-free): cooked ImageResource via the manager ---
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     ImageFactory factory;
     ResourceManager manager(outDb);
@@ -112,15 +112,15 @@ TEST_CASE("image.pipeline: builder fails on a missing source file")
     RegisterImageAsset();
     RemoveTree();
     NativeFileSystem outMount(u8"draconic_imgpipe_out_db");
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"icon", ImageResource::StaticType());
 
     ImageAsset asset;
-    asset.fileName = draconic::vfs::SourcePath(u8"does_not_exist_xyz.png");
+    asset.fileName = foundation::vfs::SourcePath(u8"does_not_exist_xyz.png");
     ImageAssetBuilder builder;
     NativeFileSystem srcMount2(u8".");
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.sources = &srcMount2;
     ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());

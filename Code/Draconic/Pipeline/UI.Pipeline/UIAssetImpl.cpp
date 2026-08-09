@@ -14,10 +14,10 @@ module draconic.ui.pipeline;
 import draconic.core;
 import draconic.pipeline.core;
 
-using namespace draconic::core;
-using namespace draconic::ui;
+using namespace foundation::core;
+using namespace foundation::ui;
 
-namespace draconic::pipeline{
+namespace pipeline{
     DRACONIC_REFLECT(UIDocumentAsset, "rtti::editor::ui")
     {
         builder.Attribute("displayName", String(u8"UI Document"))

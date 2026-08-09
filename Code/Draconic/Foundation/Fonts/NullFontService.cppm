@@ -12,20 +12,20 @@ import draconic.core;
 import draconic.image;
 import :interfaces;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     class NullFontService final : public IFontService
     {
     public:
         [[nodiscard]] CachedFont* GetFont(f32) override { return nullptr; }
         [[nodiscard]] CachedFont* GetFont(StringView, f32) override { return nullptr; }
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(CachedFont*) override
+        [[nodiscard]] foundation::image::ImageData* GetAtlasTexture(CachedFont*) override
         {
             return nullptr;
         }
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(StringView, f32) override
+        [[nodiscard]] foundation::image::ImageData* GetAtlasTexture(StringView, f32) override
         {
             return nullptr;
         }

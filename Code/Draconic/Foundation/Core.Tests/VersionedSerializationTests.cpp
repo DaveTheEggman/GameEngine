@@ -7,7 +7,7 @@
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 namespace
 {
@@ -19,10 +19,10 @@ namespace
     };
     void Serialize(ISerializer& ar, Soldier& s)
     {
-        draconic::core::Serialize(ar, "health", s.health);
+        foundation::core::Serialize(ar, "health", s.health);
         if (ar.Version() >= 2)
         {
-            draconic::core::Serialize(ar, "armor", s.armor);
+            foundation::core::Serialize(ar, "armor", s.armor);
         }
         else if (ar.Mode() == SerializeMode::Read)
         {

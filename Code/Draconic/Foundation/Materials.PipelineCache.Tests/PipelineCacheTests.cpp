@@ -13,10 +13,10 @@ import draconic.shaders.system;
 import draconic.materials;
 import draconic.materials.pipelinecache;
 
-using namespace draconic::core;
-using namespace draconic::materials;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
+using namespace foundation::core;
+using namespace foundation::materials;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
 
 namespace
 {

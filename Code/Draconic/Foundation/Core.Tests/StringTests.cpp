@@ -2,7 +2,7 @@
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 // String / StringView / StringBuilder and UTF-8<->UTF-16 transcoding.
 // String is the primary UTF-8 type; WideString is the UTF-16 (Win32-edge) type.

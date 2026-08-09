@@ -21,9 +21,9 @@ import :surface;
 import :texture;
 import :texture_view;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuSwapChain final : public SwapChain
     {

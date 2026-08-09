@@ -21,7 +21,7 @@ import :hash_map;
 import :iserializable;
 import :object; // Cast<Base> for the polymorphic-container create adapter
 
-export namespace draconic::core
+export namespace foundation::core
 {
     using SerializableFactory = RefPtr<ISerializable> (*)();
 

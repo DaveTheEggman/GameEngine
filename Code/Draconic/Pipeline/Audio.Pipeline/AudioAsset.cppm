@@ -1,7 +1,7 @@
 // Draconic::AudioEditor - the `draconic.audio.editor` module (tooling).
 //
 // Source-side audio authoring + cook (docs/design/audio.md §5):
-//   * AudioClipAsset (draconic::pipeline::Asset): references the copied source file + import
+//   * AudioClipAsset (pipeline::Asset): references the copied source file + import
 //     settings (stream / force-mono / loop+points / trim / normalize / gain).
 //   * AudioClipAssetBuilder: transcode-free write-through v1 - validate + probe via the
 //     draconic.audio codec helpers, and write the ORIGINAL container bytes as the "data"
@@ -30,16 +30,16 @@ import draconic.content;
 import draconic.audio;
 import draconic.audio.resource;
 
-using namespace draconic::core;
-using namespace draconic::audio;
+using namespace foundation::core;
+using namespace foundation::audio;
 
-export namespace draconic::pipeline{
-    namespace content = draconic::content;
+export namespace pipeline{
+    namespace content = foundation::content;
 
     // Source asset: the audio file + how it should cook.
-    class AudioClipAsset final : public draconic::pipeline::Asset
+    class AudioClipAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(AudioClipAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(AudioClipAsset, pipeline::Asset)
     public:
         bool stream = false;         // decode on the fly at runtime (music/ambience)
         bool keepCompressed = false; // in-memory clips: decode on play, not on load
@@ -53,16 +53,16 @@ export namespace draconic::pipeline{
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName
-            draconic::core::Serialize(ar, "stream", stream);
-            draconic::core::Serialize(ar, "keepCompressed", keepCompressed);
-            draconic::core::Serialize(ar, "forceMono", forceMono);
-            draconic::core::Serialize(ar, "loop", loop);
-            draconic::core::Serialize(ar, "loopStartFrame", loopStartFrame);
-            draconic::core::Serialize(ar, "loopEndFrame", loopEndFrame);
-            draconic::core::Serialize(ar, "trimTrailingSilence", trimTrailingSilence);
-            draconic::core::Serialize(ar, "normalize", normalize);
-            draconic::core::Serialize(ar, "gain", gain);
+            pipeline::Asset::Serialize(ar); // fileName
+            foundation::core::Serialize(ar, "stream", stream);
+            foundation::core::Serialize(ar, "keepCompressed", keepCompressed);
+            foundation::core::Serialize(ar, "forceMono", forceMono);
+            foundation::core::Serialize(ar, "loop", loop);
+            foundation::core::Serialize(ar, "loopStartFrame", loopStartFrame);
+            foundation::core::Serialize(ar, "loopEndFrame", loopEndFrame);
+            foundation::core::Serialize(ar, "trimTrailingSilence", trimTrailingSilence);
+            foundation::core::Serialize(ar, "normalize", normalize);
+            foundation::core::Serialize(ar, "gain", gain);
         }
     };
 
@@ -122,7 +122,7 @@ export namespace draconic::pipeline{
     }
 
     // Cooks an AudioClipAsset -> AudioClipSource (+ "data" container-byte stream).
-    class AudioClipAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class AudioClipAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -135,8 +135,8 @@ export namespace draconic::pipeline{
         }
         [[nodiscard]] u32 Version() const override { return 1; }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const AudioClipAsset& audioAsset = static_cast<const AudioClipAsset&>(asset);
             if (ctx.output == nullptr)
@@ -161,7 +161,7 @@ export namespace draconic::pipeline{
                 return Status{ErrorCode::InvalidArgument};
             }
 
-            String extension = draconic::editor::FileExtensionLower(audioAsset.fileName.View());
+            String extension = editor::FileExtensionLower(audioAsset.fileName.View());
 
             // Destructive options re-encode (decode -> process -> WAV). Everything else
             // writes the original container bytes through untouched.
@@ -296,9 +296,9 @@ export namespace draconic::pipeline{
 
     // Import-dialog options (all toggles; the Stream auto-default is computed from the
     // probed file at import, so the checkbox here is a FORCE, not the whole story).
-    class AudioImportOptions final : public draconic::editor::ImportOptions
+    class AudioImportOptions final : public editor::ImportOptions
     {
-        DRACONIC_OBJECT(AudioImportOptions, draconic::editor::ImportOptions)
+        DRACONIC_OBJECT(AudioImportOptions, editor::ImportOptions)
     public:
         bool stream = false;
         bool forceMono = false;
@@ -331,7 +331,7 @@ export namespace draconic::pipeline{
 
     // OS-file importer (editor drag-drop): copies the audio file into Sources/ and
     // creates an AudioClipAsset named after the file stem.
-    class AudioFileImporter final : public draconic::editor::IFileImporter
+    class AudioFileImporter final : public editor::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"Audio"; }
@@ -348,15 +348,15 @@ export namespace draconic::pipeline{
             return false;
         }
 
-        [[nodiscard]] RefPtr<draconic::editor::ImportOptions> CreateOptions() const override
+        [[nodiscard]] RefPtr<editor::ImportOptions> CreateOptions() const override
         {
             return MakeRef<AudioImportOptions>(DefaultAllocator());
         }
 
         [[nodiscard]] Result<content::Instance*>
-        Import(StringView sourcePath, draconic::editor::EditorProject& project,
-               content::Group& group, const draconic::editor::ImportOptions* options, Object*,
-               Array<draconic::editor::DeferredImportWrite>*) override
+        Import(StringView sourcePath, editor::EditorProject& project,
+               content::Group& group, const editor::ImportOptions* options, Object*,
+               Array<editor::DeferredImportWrite>*) override
         {
             Result<Array<byte>> bytes = ReadFile(sourcePath);
             if (!bytes.HasValue())
@@ -373,13 +373,13 @@ export namespace draconic::pipeline{
                 return Err(ErrorCode::InvalidArgument);
             }
 
-            Result<String> fileName = draconic::editor::CopyIntoSources(project, sourcePath);
+            Result<String> fileName = editor::CopyIntoSources(project, sourcePath);
             if (!fileName.HasValue())
             {
                 return Err(fileName.Error());
             }
 
-            const StringView stem = draconic::editor::FileStemOf(fileName.Value().AsView());
+            const StringView stem = editor::FileStemOf(fileName.Value().AsView());
             content::Instance* instance = group.CreateInstance(stem, AudioClipAsset::StaticType());
             if (instance == nullptr)
             {
@@ -388,7 +388,7 @@ export namespace draconic::pipeline{
 
             const auto* audioOptions = static_cast<const AudioImportOptions*>(options);
             AudioClipAsset asset;
-            asset.fileName = draconic::vfs::SourcePath(fileName.Value().AsView());
+            asset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
             asset.stream =
                 (audioOptions != nullptr && audioOptions->stream) ||
                 ShouldStreamAudioByDefault(metadata.durationSeconds, bytes.Value().Size());
@@ -403,7 +403,7 @@ export namespace draconic::pipeline{
             // WAV smpl loop points: authored loops win over the checkbox default.
             u64 loopStart = 0;
             u64 loopEnd = 0;
-            if (draconic::editor::FileExtensionLower(sourcePath) == u8"wav" &&
+            if (editor::FileExtensionLower(sourcePath) == u8"wav" &&
                 ParseWavSampleLoop(Span<const byte>(bytes.Value().Data(), bytes.Value().Size()),
                                    loopStart, loopEnd))
             {
@@ -432,9 +432,9 @@ export namespace draconic::pipeline{
 
     inline constexpr usize kAudioCustomBusSlotCount = 8;
 
-    class AudioBusLayoutAsset final : public draconic::pipeline::Asset
+    class AudioBusLayoutAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(AudioBusLayoutAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(AudioBusLayoutAsset, pipeline::Asset)
     public:
         struct Bus
         {
@@ -465,18 +465,18 @@ export namespace draconic::pipeline{
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar);
+            pipeline::Asset::Serialize(ar);
             auto serializeBus = [&ar](Bus& bus)
             {
-                draconic::core::Serialize(ar, "volume", bus.volume);
-                draconic::core::Serialize(ar, "muted", bus.muted);
-                draconic::core::Serialize(ar, "lowpassHz", bus.lowpassHz);
-                draconic::core::Serialize(ar, "highpassHz", bus.highpassHz);
-                draconic::core::Serialize(ar, "delaySeconds", bus.delaySeconds);
-                draconic::core::Serialize(ar, "delayDecay", bus.delayDecay);
-                draconic::core::Serialize(ar, "reverbWet", bus.reverbWet);
-                draconic::core::Serialize(ar, "reverbRoomSize", bus.reverbRoomSize);
-                draconic::core::Serialize(ar, "reverbDamping", bus.reverbDamping);
+                foundation::core::Serialize(ar, "volume", bus.volume);
+                foundation::core::Serialize(ar, "muted", bus.muted);
+                foundation::core::Serialize(ar, "lowpassHz", bus.lowpassHz);
+                foundation::core::Serialize(ar, "highpassHz", bus.highpassHz);
+                foundation::core::Serialize(ar, "delaySeconds", bus.delaySeconds);
+                foundation::core::Serialize(ar, "delayDecay", bus.delayDecay);
+                foundation::core::Serialize(ar, "reverbWet", bus.reverbWet);
+                foundation::core::Serialize(ar, "reverbRoomSize", bus.reverbRoomSize);
+                foundation::core::Serialize(ar, "reverbDamping", bus.reverbDamping);
             };
             serializeBus(master);
             serializeBus(effects);
@@ -485,19 +485,19 @@ export namespace draconic::pipeline{
             if (ar.Version() >= 2) // v2: the custom-bus slot bank
             {
                 u32 slots = kAudioCustomBusSlotCount;
-                draconic::core::Serialize(ar, "customSlots", slots);
+                foundation::core::Serialize(ar, "customSlots", slots);
                 const u32 count = Min<u32>(slots, kAudioCustomBusSlotCount);
                 for (u32 i = 0; i < count; ++i)
                 {
-                    draconic::core::Serialize(ar, "name", custom[i].name);
-                    draconic::core::Serialize(ar, "parent", custom[i].parent);
+                    foundation::core::Serialize(ar, "name", custom[i].name);
+                    foundation::core::Serialize(ar, "parent", custom[i].parent);
                     serializeBus(custom[i].bus);
                 }
             }
         }
     };
 
-    class AudioBusLayoutAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class AudioBusLayoutAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -510,8 +510,8 @@ export namespace draconic::pipeline{
         }
         [[nodiscard]] u32 Version() const override { return 2; } // v2: custom buses
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const auto& layoutAsset = static_cast<const AudioBusLayoutAsset&>(asset);
             if (ctx.output == nullptr)
@@ -667,9 +667,9 @@ export namespace draconic::pipeline{
 
     inline constexpr usize kSoundCueSlotCount = 8;
 
-    class SoundCueAsset final : public draconic::pipeline::Asset
+    class SoundCueAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(SoundCueAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(SoundCueAsset, pipeline::Asset)
     public:
         Guid clipIds[kSoundCueSlotCount]{};
         f32 weights[kSoundCueSlotCount] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
@@ -681,25 +681,25 @@ export namespace draconic::pipeline{
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar);
+            pipeline::Asset::Serialize(ar);
             u32 slots = kSoundCueSlotCount;
-            draconic::core::Serialize(ar, "slots", slots);
+            foundation::core::Serialize(ar, "slots", slots);
             const u32 count = Min<u32>(slots, kSoundCueSlotCount);
             for (u32 i = 0; i < count; ++i)
             {
                 ar.Key("clip");
                 ar.GuidValue(clipIds[i]);
-                draconic::core::Serialize(ar, "weight", weights[i]);
+                foundation::core::Serialize(ar, "weight", weights[i]);
             }
-            draconic::core::Serialize(ar, "mode", mode);
-            draconic::core::Serialize(ar, "pitchMin", pitchMin);
-            draconic::core::Serialize(ar, "pitchMax", pitchMax);
-            draconic::core::Serialize(ar, "volumeMin", volumeMin);
-            draconic::core::Serialize(ar, "volumeMax", volumeMax);
+            foundation::core::Serialize(ar, "mode", mode);
+            foundation::core::Serialize(ar, "pitchMin", pitchMin);
+            foundation::core::Serialize(ar, "pitchMax", pitchMax);
+            foundation::core::Serialize(ar, "volumeMin", volumeMin);
+            foundation::core::Serialize(ar, "volumeMax", volumeMax);
         }
     };
 
-    class SoundCueAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class SoundCueAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -712,8 +712,8 @@ export namespace draconic::pipeline{
         }
         [[nodiscard]] u32 Version() const override { return 1; }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const auto& cueAsset = static_cast<const SoundCueAsset&>(asset);
             if (ctx.output == nullptr)

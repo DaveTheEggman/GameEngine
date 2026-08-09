@@ -1,4 +1,4 @@
-/// Conversion utilities between draconic::rhi enums and DX12/DXGI enums.
+/// Conversion utilities between foundation::rhi enums and DX12/DXGI enums.
 /// Ported from Sedulous.RHI.DX12/DX12Conversions.bf.
 
 module;
@@ -11,9 +11,9 @@ export module draconic.rhi.dx12:conversions;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     inline DXGI_FORMAT toDxgiFormat(TextureFormat f)
@@ -643,4 +643,4 @@ export namespace draconic::rhi::dx12
         }
     }
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

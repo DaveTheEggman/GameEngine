@@ -12,9 +12,9 @@ import draconic.settings;
 import draconic.xml;
 import draconic.xml.serialization;
 
-using namespace draconic::core;
-using namespace draconic::input;
-namespace shell = draconic::shell;
+using namespace foundation::core;
+using namespace foundation::input;
+namespace shell = foundation::shell;
 
 #include "InputTestSupport.h"
 
@@ -56,14 +56,14 @@ TEST_CASE("input: map round-trips through binary AND xml serializers")
         verify(loaded);
     }
     {
-        draconic::xml::XmlSerializer writer;
+        foundation::xml::XmlSerializer writer;
         SerializeInputMap(writer, map);
         REQUIRE(writer.IsOk());
         String text;
         writer.GetOutput(text);
-        draconic::xml::XmlDocument doc;
-        REQUIRE(doc.Parse(text.AsView()) == draconic::xml::XmlResult::Ok);
-        draconic::xml::XmlSerializer reader(doc);
+        foundation::xml::XmlDocument doc;
+        REQUIRE(doc.Parse(text.AsView()) == foundation::xml::XmlResult::Ok);
+        foundation::xml::XmlSerializer reader(doc);
         InputMap loaded;
         SerializeInputMap(reader, loaded);
         REQUIRE(reader.IsOk());
@@ -284,13 +284,13 @@ TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, p
         replacement.PushBack(k);
         overlay.Set(u8"Gameplay", u8"Jump", static_cast<Array<Binding>&&>(replacement));
     }
-    draconic::settings::Settings store;
+    foundation::settings::Settings store;
     store.Section<InputBindingOverrides>().overrides =
         overlay.overrides; // sections are non-copyable objects
     MemoryStream file;
     REQUIRE(store.Save(file, BinarySerializerFactory()).IsOk());
     (void)file.Seek(0, SeekOrigin::Begin);
-    draconic::settings::Settings loadedStore;
+    foundation::settings::Settings loadedStore;
     REQUIRE(loadedStore.Load(file, BinarySerializerFactory()).IsOk());
     const InputBindingOverrides* loaded = loadedStore.Find<InputBindingOverrides>();
     REQUIRE(loaded != nullptr);
@@ -759,7 +759,7 @@ TEST_CASE("input: the UI consumption mask gates device classes independently")
 
 TEST_CASE("input reflection: the leaf value types + enums reflect (P2 breadth)")
 {
-    using namespace draconic::input;
+    using namespace foundation::input;
     RegisterInputTypeReflection();
 
     // Binding: 17 flat scalar properties; `source` is a named enum (dropdown-ready).
@@ -791,7 +791,7 @@ TEST_CASE("input reflection: the leaf value types + enums reflect (P2 breadth)")
 
 TEST_CASE("input reflection: the InputMap container tree is traversable via reflection")
 {
-    using namespace draconic::input;
+    using namespace foundation::input;
     RegisterInputTypeReflection();
 
     // A small live map: one set -> one action -> one binding.

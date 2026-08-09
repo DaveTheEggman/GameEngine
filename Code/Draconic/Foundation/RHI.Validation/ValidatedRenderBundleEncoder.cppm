@@ -9,9 +9,9 @@ export module draconic.rhi.validation:validated_render_bundle_encoder;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     // Wraps an inner bundle so the validation layer can unwrap it at ExecuteBundles time.
@@ -201,4 +201,4 @@ export namespace draconic::rhi::validation
         bool m_finished = false;
     };
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

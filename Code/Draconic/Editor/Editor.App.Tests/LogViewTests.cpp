@@ -8,8 +8,8 @@
 import draconic.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
-using namespace draconic::editor::app;
+using namespace foundation::core;
+using namespace editor::app;
 
 TEST_CASE("editor-logview: entries accumulate with category-prefixed, level-bucketed rows")
 {

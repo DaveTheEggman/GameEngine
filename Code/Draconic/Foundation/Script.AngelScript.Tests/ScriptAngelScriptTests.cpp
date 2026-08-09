@@ -16,8 +16,8 @@ import draconic.script;
 import draconic.script.angelscript;
 import draconic.script.wren;
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation::script;
 
 // A reflected Object-derived type to exercise object classes in AngelScript.
 namespace
@@ -828,7 +828,7 @@ TEST_CASE("angelscript: LoadBehaviorModule reports each class's sourceName as it
 
 TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.md B2)")
 {
-    draconic::script::conformance::Dialect dialect;
+    foundation::script::conformance::Dialect dialect;
     dialect.languageId = u8"angelscript";
     dialect.functionsModule = u8"int answer = 42;\n"
                               u8"double add(double a, double b) { return a + b; }\n"
@@ -877,8 +877,8 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.m
     dialect.debugLocalName = u8"tag";
     dialect.debugLocalValue = u8"\"hit\"";
 
-    draconic::script::conformance::RunScriptBackendConformance(
-        []() { return draconic::script::angelscript::CreateScriptManager(); }, dialect);
+    foundation::script::conformance::RunScriptBackendConformance(
+        []() { return foundation::script::angelscript::CreateScriptManager(); }, dialect);
 }
 
 TEST_CASE("angelscript: declares Coroutines + Delegates + Debugger; profiler/bytecode absent (B4)")

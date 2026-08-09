@@ -25,12 +25,12 @@ import draconic.shaders.system;
 import draconic.render;
 import draconic.rendergraph;
 
-using namespace draconic::core;
-using namespace draconic::render;
-namespace rhi = draconic::rhi;
-namespace geometry = draconic::geometry;
-namespace materials = draconic::materials;
-namespace shaders = draconic::shaders;
+using namespace foundation::core;
+using namespace foundation::render;
+namespace rhi = foundation::rhi;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace shaders = foundation::shaders;
 
 namespace
 {

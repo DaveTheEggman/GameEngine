@@ -12,12 +12,14 @@ module;
 module draconic.engine.animation;
 
 import draconic.core;
+import draconic.script;
 import draconic.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
 
-using namespace draconic::core;
-using namespace draconic::animation;
+using namespace foundation::core;
+using namespace foundation::animation;
+namespace core = foundation::core;
 
-namespace draconic::engine::animation
+namespace engine::animation
 {
 
     DRACONIC_REFLECT_VALUE(SkeletalAnimationComponent, "rtti::engine::animation")
@@ -26,7 +28,7 @@ namespace draconic::engine::animation
             .Attribute("category", String(u8"Animation"))
             // Script (Track A): SkeletalAnimationComponent.of(entity) -> live speed/startTime/autoPlay.
             // play/stop/setClip are player ops -> SceneAnimation.of(scene) (world ops keyed by entity).
-            .Method<&draconic::script::ComponentOf<SkeletalAnimationComponent>,
+            .Method<&foundation::script::ComponentOf<SkeletalAnimationComponent>,
                     SkeletalAnimationComponent>("of")
             .Property<&SkeletalAnimationComponent::skeleton>("skeleton")
             .Property<&SkeletalAnimationComponent::clip>("clip")
@@ -41,7 +43,7 @@ namespace draconic::engine::animation
             .Attribute("category", String(u8"Animation"))
             // Script (Track A): AnimationGraphComponent.of(entity) -> live `active`; graph params
             // (setFloat/setBool/setTrigger) are player ops -> SceneAnimation.of(scene).
-            .Method<&draconic::script::ComponentOf<AnimationGraphComponent>, AnimationGraphComponent>(
+            .Method<&foundation::script::ComponentOf<AnimationGraphComponent>, AnimationGraphComponent>(
                 "of")
             .Property<&AnimationGraphComponent::skeleton>("skeleton")
             .Property<&AnimationGraphComponent::graph>("graph")
@@ -74,7 +76,7 @@ namespace draconic::engine::animation
         // Script (Track A): InstancedSkinningComponent.of(entity) -> live poseCount/speed (the crowd
         // skinning tunables). Pure data; the manager reads them each frame.
         builder
-            .Method<&draconic::script::ComponentOf<InstancedSkinningComponent>,
+            .Method<&foundation::script::ComponentOf<InstancedSkinningComponent>,
                     InstancedSkinningComponent>("of")
             .Property<&InstancedSkinningComponent::poseCount>("poseCount")
             .Property<&InstancedSkinningComponent::speed>("speed");
@@ -109,14 +111,14 @@ namespace draconic::engine::animation
         for (const Entry& component : components)
         {
             GlobalTypeRegistry().Register(*component.type);
-            draconic::script::RegisterExtraScriptRootType(component.type);
-            draconic::script::RegisterExtraFacadeName(component.name);
+            foundation::script::RegisterExtraScriptRootType(component.type);
+            foundation::script::RegisterExtraFacadeName(component.name);
         }
 
         // The scene-bound animation handle (SceneAnimation.of(scene)): reflect + register + seed + name.
         DraconicRegisterValue_SceneAnimation();
         GlobalTypeRegistry().Register(core::TypeOf<SceneAnimation>());
-        draconic::script::RegisterExtraScriptRootType(&core::TypeOf<SceneAnimation>());
-        draconic::script::RegisterExtraFacadeName(u8"SceneAnimation");
+        foundation::script::RegisterExtraScriptRootType(&core::TypeOf<SceneAnimation>());
+        foundation::script::RegisterExtraFacadeName(u8"SceneAnimation");
     }
 }

@@ -29,12 +29,13 @@ import draconic.script.pipeline;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace ui = draconic::ui;
-    namespace content = draconic::content;
+    namespace ui = foundation::ui;
+    namespace content = foundation::content;
 
     // The backend's ACTUAL bound API for one language (IScriptManager::DescribeBoundApi),
     // built ONCE per page and shared by every consumer - completion AND the API browser read
@@ -47,12 +48,12 @@ export namespace draconic::editor
     {
     public:
         void SetLanguage(StringView languageId) { m_language = String(languageId); }
-        [[nodiscard]] const Array<draconic::script::ScriptApiType>& Types() const;
+        [[nodiscard]] const Array<foundation::script::ScriptApiType>& Types() const;
 
     private:
         String m_language;
         mutable bool m_built = false;
-        mutable Array<draconic::script::ScriptApiType> m_types;
+        mutable Array<foundation::script::ScriptApiType> m_types;
     };
 
     // Completion over the shared surface: type/namespace names at top level, and a type's
@@ -99,7 +100,7 @@ export namespace draconic::editor
     // matching TYPE name keeps the whole type; otherwise only matching members (and their
     // type row) survive. Empty filter keeps everything.
     [[nodiscard]] ScriptApiTree
-    BuildScriptApiTree(const Array<draconic::script::ScriptApiType>& types, StringView filter);
+    BuildScriptApiTree(const Array<foundation::script::ScriptApiType>& types, StringView filter);
 
     // The openable API browser panel: a filter box over a namespace/class > members tree of
     // the language's bound API, fed by the SAME shared surface completion uses.
@@ -152,7 +153,7 @@ export namespace draconic::editor
             }
             String language;
             RefPtr<ISerializable> object = instance.ReadObject();
-            if (auto* asset = Cast<draconic::pipeline::ScriptClassAsset>(object.Get()))
+            if (auto* asset = Cast<pipeline::ScriptClassAsset>(object.Get()))
             {
                 m_doc.Bind(sourcesRoot.AsView(), asset->fileName.View(),
                            asset->language.AsView());
@@ -294,7 +295,7 @@ export namespace draconic::editor
 
         [[nodiscard]] Status Save() override;
 
-        void OnUpdate(draconic::runtime::IApplicationHost&, f32 dt) override;
+        void OnUpdate(foundation::runtime::IApplicationHost&, f32 dt) override;
 
     private:
         // Compile-check the current buffer, repaint the status line + error list, and project
@@ -305,7 +306,7 @@ export namespace draconic::editor
         static void AppendCount(String& out, usize value);
 
         EditorContext* m_context = nullptr;
-        draconic::pipeline::ScriptSourceDocument m_doc;
+        pipeline::ScriptSourceDocument m_doc;
         String m_title;
         f32 m_validateDelay = 0.0f;
         u64 m_executionVersionSeen = static_cast<u64>(-1); // poll stamp (ExecutionLine sync)
@@ -332,7 +333,7 @@ export namespace draconic::editor
     // registry, so this works for whichever language the New Asset item is for.
     inline content::Instance* CreateScriptInstance(EditorContext& context, content::Group* group,
                                                    StringView languageId, StringView extension,
-                                                   draconic::pipeline::ScriptTier tier,
+                                                   pipeline::ScriptTier tier,
                                                    StringView baseName)
     {
         if (context.Project() == nullptr)
@@ -348,8 +349,8 @@ export namespace draconic::editor
         fileName.PushBack(utf8char('.'));
         fileName.Append(extension);
 
-        draconic::pipeline::IScriptLanguageCook* cook =
-            draconic::pipeline::ScriptLanguageCookRegistry::Get().FindByLanguage(languageId);
+        pipeline::IScriptLanguageCook* cook =
+            pipeline::ScriptLanguageCookRegistry::Get().FindByLanguage(languageId);
         if (cook == nullptr)
         {
             return nullptr;
@@ -366,13 +367,13 @@ export namespace draconic::editor
         }
 
         content::Instance* instance =
-            target->CreateInstance(name.AsView(), draconic::pipeline::ScriptClassAsset::StaticType());
+            target->CreateInstance(name.AsView(), pipeline::ScriptClassAsset::StaticType());
         if (instance == nullptr)
         {
             return nullptr;
         }
-        draconic::pipeline::ScriptClassAsset asset;
-        asset.fileName = draconic::vfs::SourcePath(fileName.AsView());
+        pipeline::ScriptClassAsset asset;
+        asset.fileName = foundation::vfs::SourcePath(fileName.AsView());
         asset.language = String(languageId);
         if (!instance->WriteObject(asset).IsOk())
         {
@@ -392,15 +393,15 @@ export namespace draconic::editor
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<ScriptClassPageFactory>(), DefaultAllocator()));
 
-        const auto backends = draconic::script::ScriptBackendRegistry::Get().All();
+        const auto backends = foundation::script::ScriptBackendRegistry::Get().All();
         DRACONIC_LOG_INFO(u8"Editor",
                           u8"RegisterScriptEditor: {} script backend(s) in the registry",
                           backends.Size());
         core::u32 registeredCreators = 0;
-        for (const draconic::script::ScriptBackendDesc& backend : backends)
+        for (const foundation::script::ScriptBackendDesc& backend : backends)
         {
             // A backend with no cook (compile/harvest) cannot seed a starter - skip it.
-            if (draconic::pipeline::ScriptLanguageCookRegistry::Get().FindByLanguage(
+            if (pipeline::ScriptLanguageCookRegistry::Get().FindByLanguage(
                     backend.languageId.AsView()) == nullptr)
             {
                 DRACONIC_LOG_WARNING(
@@ -420,14 +421,14 @@ export namespace draconic::editor
             // cook's tier starter. Labels read "<Language> <Tier>" under the Scripts category.
             struct TierDesc
             {
-                draconic::pipeline::ScriptTier tier;
+                pipeline::ScriptTier tier;
                 StringView suffix;   // label suffix
                 StringView baseName; // unique-name stem
             };
             const TierDesc kTiers[] = {
-                {draconic::pipeline::ScriptTier::Behavior, u8"Behavior", u8"NewBehavior"},
-                {draconic::pipeline::ScriptTier::Level, u8"Level", u8"NewLevel"},
-                {draconic::pipeline::ScriptTier::Game, u8"Game", u8"NewGame"},
+                {pipeline::ScriptTier::Behavior, u8"Behavior", u8"NewBehavior"},
+                {pipeline::ScriptTier::Level, u8"Level", u8"NewLevel"},
+                {pipeline::ScriptTier::Game, u8"Game", u8"NewGame"},
             };
             for (const TierDesc& t : kTiers)
             {

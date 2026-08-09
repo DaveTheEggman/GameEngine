@@ -19,6 +19,7 @@ export module draconic.engine.gameinstance;
 
 import draconic.core;
 import draconic.scene;
+import draconic.shell;
 import draconic.scene.resource; // LoadScene / ResolveSceneResources / ResolveScenePrefabs
 import draconic.content;        // content::Instance (the cooked scene record)
 import draconic.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
@@ -28,20 +29,24 @@ import draconic.script.facades; // RegisterExtraFacadeName (the SceneLoader beha
 import draconic.net.manager; // NetworkManager + INetworkController + NetScriptBinding
 import draconic.input;       // ActionRuntime + IInputSourceProvider + InputMap (per-instance input)
 
-using namespace draconic::core;
+using namespace foundation::core;
+using namespace foundation;
+namespace content = foundation::content;
+namespace core = foundation::core;
+namespace resource = foundation::resource;
 
-export namespace draconic::engine::runtime
+export namespace engine::runtime
 {
-    // Foundation aliases (sibling draconic::engine::* namespaces would otherwise shadow these).
-    namespace net = draconic::net;
-    namespace scene = draconic::scene;
-    namespace script = draconic::script;
+    // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
+    namespace net = foundation::net;
+    namespace scene = foundation::scene;
+    namespace script = foundation::script;
 
 
-    namespace scene = draconic::scene;
-    namespace script = draconic::script;
-    namespace net = draconic::net;
-    namespace input = draconic::input;
+    namespace scene = foundation::scene;
+    namespace script = foundation::script;
+    namespace net = foundation::net;
+    namespace input = foundation::input;
 
     // A hook the app sets once and GameInstance fires on every go-online, passing the freshly created
     // endpoint. The app uses it to wire per-endpoint setup that needs app state (e.g. the prefab
@@ -352,7 +357,7 @@ export namespace draconic::engine::runtime
         /// scenes' behaviors ("one gameplay context per instance", game-instance.md §11). Owned HERE now;
         /// the ScriptSubsystem borrows it (a later step has the instance drive it directly). Moving the
         /// storage onto the instance is the prerequisite for per-instance runs (Array<GameInstance>).
-        [[nodiscard]] draconic::engine::script::ScriptRunHost& RunHost() noexcept { return m_runHost; }
+        [[nodiscard]] engine::script::ScriptRunHost& RunHost() noexcept { return m_runHost; }
 
         /// This run's scene group (game-instance.md §11.2 / §4.4): the set of scenes the run manages + its
         /// current scene, ticked on the Context lane once registered with the SceneSubsystem. Wire its
@@ -410,7 +415,7 @@ export namespace draconic::engine::runtime
         /// Net facade resolves THIS instance's controller. Idempotent; safe when the context is null.
         void InstallNetBinding();
 
-        draconic::engine::script::ScriptRunHost m_runHost;    // owned: the game's script context (§11.10)
+        engine::script::ScriptRunHost m_runHost;    // owned: the game's script context (§11.10)
         scene::SceneManager m_sceneManager; // owned; registered with the SceneSubsystem to tick
         scene::Scene* m_scene = nullptr;
         script::IScriptErrorHandler* m_errorHandler = nullptr;

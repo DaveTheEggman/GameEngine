@@ -10,9 +10,9 @@ export module draconic.vg:enums;
 
 import draconic.core;
 
-export namespace draconic::vg
+export namespace foundation::vg
 {
-    using draconic::core::u8;
+    using foundation::core::u8;
 
     /// Determines how the interior of a path is calculated.
     enum class FillRule

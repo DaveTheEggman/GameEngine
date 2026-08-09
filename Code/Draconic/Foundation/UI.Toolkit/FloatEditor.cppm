@@ -17,9 +17,9 @@ import draconic.vg;
 import draconic.ui;
 import :property_editor;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Float property editor - NumericField with focus-based edit transactions.
     class FloatEditor : public PropertyEditor

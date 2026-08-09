@@ -27,9 +27,12 @@ import draconic.ui;
 import :code_document;
 import :code_lexer;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
+namespace ui = foundation::ui;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
 
     /// Colors per token kind (CodeTokenKind::Default always draws in the theme's TextColor).

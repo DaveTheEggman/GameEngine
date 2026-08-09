@@ -12,7 +12,7 @@ import :base;
 import :ref_counted;
 import :type_info;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Object - polymorphic reflection root. Derives from RefCounted, so every

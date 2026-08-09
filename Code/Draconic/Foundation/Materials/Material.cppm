@@ -18,10 +18,11 @@ import draconic.shaders;
 import :types;
 import :pipeline;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::materials
+export namespace foundation::materials
 {
 
     // Shared material template. Properties are declared once; defaults seed every
@@ -204,4 +205,4 @@ export namespace draconic::materials
 
     DRACONIC_DEFINE_OBJECT(Material, "rtti::materials")
 
-} // namespace draconic::materials
+} // namespace foundation::materials

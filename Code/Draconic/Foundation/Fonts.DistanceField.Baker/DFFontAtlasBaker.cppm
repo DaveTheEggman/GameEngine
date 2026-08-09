@@ -22,7 +22,7 @@ import draconic.fonts.io;
 import draconic.fonts.distancefield;
 import draconic.fonts.ttf;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 namespace
 {
@@ -59,7 +59,7 @@ namespace
     };
 }
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
 
     class DFFontAtlasBaker final : public IFontAtlasBaker
@@ -86,7 +86,7 @@ export namespace draconic::fonts
 
         [[nodiscard]] bool CanBake(const IFont& font, const FontLoadOptions& opts) const override
         {
-            return font.BackendTypeId() == draconic::fonts::kTrueTypeFontTypeId &&
+            return font.BackendTypeId() == foundation::fonts::kTrueTypeFontTypeId &&
                    opts.atlasMode == AtlasMode::DistanceField;
         }
 
@@ -251,4 +251,4 @@ export namespace draconic::fonts
         }
     };
 
-} // namespace draconic::fonts
+} // namespace foundation::fonts

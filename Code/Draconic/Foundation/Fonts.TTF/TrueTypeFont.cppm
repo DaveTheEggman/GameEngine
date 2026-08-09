@@ -13,9 +13,9 @@ export module draconic.fonts.ttf:font;
 import draconic.core;
 import draconic.fonts;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     // Backend tag returned by TrueTypeFont::BackendTypeId() so the TTF atlas
     // baker can recover the concrete type without RTTI.

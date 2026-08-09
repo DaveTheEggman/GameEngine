@@ -14,11 +14,12 @@ import draconic.core;
 import draconic.script;
 import draconic.script.facades;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-namespace draconic::editor
+namespace editor
 {
-    namespace script = draconic::script;
+    namespace script = foundation::script;
 
     const Array<script::ScriptApiType>& ScriptApiSurface::Types() const
     {
@@ -29,14 +30,14 @@ namespace draconic::editor
         m_built = true; // one attempt; a language without a backend just stays empty
 
         core::RegisterCoreTypes();
-        draconic::script::RegisterScriptFacadeReflection();
+        foundation::script::RegisterScriptFacadeReflection();
         RefPtr<script::IScriptManager> manager =
             script::CreateScriptManagerForLanguage(m_language.AsView());
         if (manager.Get() == nullptr)
         {
             return m_types;
         }
-        draconic::script::RegisterReflectedTypes(*manager);
+        foundation::script::RegisterReflectedTypes(*manager);
         m_types = manager->DescribeBoundApi();
         return m_types;
     }

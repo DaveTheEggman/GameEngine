@@ -12,7 +12,7 @@ export module draconic.core:tracking_allocator;
 import :base;
 import :allocator;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // TrackingAllocator - wraps another allocator and tracks live/total

@@ -5,7 +5,7 @@
 
 export module draconic.ui:style_property;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     enum class StyleProperty
     {

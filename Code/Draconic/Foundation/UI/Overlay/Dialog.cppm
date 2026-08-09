@@ -34,9 +34,9 @@ import :label;
 import :button_base;
 import :button;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     enum class DialogResult
     {

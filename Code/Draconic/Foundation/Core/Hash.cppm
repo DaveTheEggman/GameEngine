@@ -13,7 +13,7 @@ export module draconic.core:hash;
 
 import :base;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // FNV-1a, 64-bit.
     [[nodiscard]] inline u64 HashBytes(const void* data, usize size,

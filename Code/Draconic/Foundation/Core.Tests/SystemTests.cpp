@@ -11,7 +11,7 @@
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 // --- System ----------------------------------------------------------------
 

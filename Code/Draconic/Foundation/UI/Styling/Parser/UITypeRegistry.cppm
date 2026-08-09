@@ -17,9 +17,9 @@ export module draconic.ui:ui_type_registry;
 
 import draconic.core; // TypeInfo, HashMap, String, StringView
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::ui::detail
+namespace foundation::ui::detail
 {
     inline HashMap<String, const TypeInfo*>& UITypeMap()
     {
@@ -28,7 +28,7 @@ namespace draconic::ui::detail
     }
 }
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct UITypeRegistry
     {

@@ -43,11 +43,10 @@ import :input_filter;
 import :palette;
 import :context_menu;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class EditText : public View, public ITextEditHost
     {

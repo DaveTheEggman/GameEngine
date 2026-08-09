@@ -27,7 +27,7 @@ import :path;
 import :array;
 import :span;
 
-namespace draconic::core::detail
+namespace foundation::core::detail
 {
     // Ensure a StringView is null-terminated for C APIs. If the view is
     // already backed by a null-terminated String, the copy is unnecessary
@@ -44,7 +44,7 @@ namespace draconic::core::detail
 
 }
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // --- Time --------------------------------------------------------------
 

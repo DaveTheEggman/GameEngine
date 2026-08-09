@@ -10,9 +10,9 @@ import draconic.net.replication;
 import draconic.net.manager;
 import draconic.scene;
 
-using namespace draconic::core;
-namespace net = draconic::net;
-namespace scene = draconic::scene;
+using namespace foundation::core;
+namespace net = foundation::net;
+namespace scene = foundation::scene;
 
 namespace
 {
@@ -24,8 +24,8 @@ namespace
 
     inline void Serialize(ISerializer& ar, RepMover& m)
     {
-        draconic::core::Serialize(ar, "position", m.position);
-        draconic::core::Serialize(ar, "health", m.health);
+        foundation::core::Serialize(ar, "position", m.position);
+        foundation::core::Serialize(ar, "health", m.health);
     }
 
     class RepMoverManager final : public scene::SerializableComponentManager<RepMover>
@@ -45,7 +45,7 @@ DRACONIC_REFLECT_VALUE(RepMover, "rtti::net::test")
 TEST_CASE("net-manager: state replicates server -> client through the manager + transport")
 {
     DraconicRegisterValue_RepMover();
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     net::SimConditions sim;
     sim.latencyMs = 15.0f;
@@ -119,7 +119,7 @@ TEST_CASE("net-manager: state replicates server -> client through the manager + 
 
 TEST_CASE("net-manager: a NetworkedTransform replicates an entity's movement server -> client")
 {
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     net::SimConditions sim;
     sim.latencyMs = 15.0f;
@@ -186,7 +186,7 @@ TEST_CASE("net-manager: a NetworkedTransform replicates an entity's movement ser
 
 TEST_CASE("net-manager: a shared authored scene matches by stable id (no duplicate on the client)")
 {
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     net::SimConditions sim;
     sim.seed = 21;

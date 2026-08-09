@@ -14,10 +14,10 @@ import draconic.core; // String, StringView, Array, i64, Move
 import :style_selector;
 import :media_query;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     struct StyleProperty
     {

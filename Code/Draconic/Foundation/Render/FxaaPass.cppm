@@ -18,10 +18,12 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // Anti-aliases a tonemapped LDR transient into the final LDR target. Owns the fullscreen pipeline +
@@ -251,4 +253,4 @@ export namespace draconic::render
         u64 m_bgGen[kMaxSlots] = {};
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

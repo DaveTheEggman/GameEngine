@@ -7,7 +7,7 @@ export module draconic.core:fixed_array;
 import :base;
 import :span;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // FixedArray - fixed-capacity, stack-allocated array with a live count.

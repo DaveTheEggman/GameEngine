@@ -23,10 +23,10 @@ import draconic.core;
 import draconic.rhi;
 import :data;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // Per-view settings (grows with post config, layer mask, etc. in later phases).
@@ -213,4 +213,4 @@ export namespace draconic::render
         usize m_count = 0;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

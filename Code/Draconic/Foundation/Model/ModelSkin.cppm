@@ -11,9 +11,9 @@ export module draconic.model:model_skin;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::model
+export namespace foundation::model
 {
 
     /// Skin data binding joints to inverse bind matrices.
@@ -59,4 +59,4 @@ export namespace draconic::model
         Array<Float4x4> m_inverseBindMatrices;
     };
 
-} // namespace draconic::model
+} // namespace foundation::model

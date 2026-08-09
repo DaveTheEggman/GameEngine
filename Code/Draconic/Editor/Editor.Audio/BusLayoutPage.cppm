@@ -23,18 +23,18 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace audio = draconic::audio;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace audio = foundation::audio;
 
     // True when re-parenting custom slot `slotIndex` under `newParent` would create a cycle
     // among the custom slots (fixed-bus parents can never cycle). Pure - the page's parent
     // dropdown filters with it and the tests pin it.
-    [[nodiscard]] bool AudioBusWouldCycle(const draconic::pipeline::AudioBusLayoutAsset& asset, i32 slotIndex,
+    [[nodiscard]] bool AudioBusWouldCycle(const pipeline::AudioBusLayoutAsset& asset, i32 slotIndex,
                                           StringView newParent);
 
     class BusLayoutTreeAdapter; // defined below
@@ -43,9 +43,9 @@ export namespace draconic::editor
     {
     public:
         AudioBusLayoutEditorPage(EditorContext& context, runtime::IApplicationHost& host,
-                                 draconic::content::Instance& instance);
+                                 foundation::content::Instance& instance);
 
-        [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
+        [[nodiscard]] foundation::ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] Status Save() override;
 
@@ -104,7 +104,7 @@ export namespace draconic::editor
         void RebuildTree();
         void RebuildInspector();
         void QueueStructural(StringView undoKey, Function<void()> mutate);
-        [[nodiscard]] draconic::pipeline::AudioBusLayoutAsset::Bus* SelectedBus();
+        [[nodiscard]] pipeline::AudioBusLayoutAsset::Bus* SelectedBus();
 
         [[nodiscard]] Array<byte> SnapshotAsset() const;
         void ApplyAssetBlob(const Array<byte>& blob);
@@ -114,13 +114,13 @@ export namespace draconic::editor
         EditorContext* m_context = nullptr;
         String m_title;
 
-        RefPtr<draconic::pipeline::AudioBusLayoutAsset> m_asset;
+        RefPtr<pipeline::AudioBusLayoutAsset> m_asset;
 
         RefPtr<ui::toolkit::DraggableTreeView> m_tree;
         UniquePtr<BusLayoutTreeAdapter> m_adapter;
         RefPtr<ui::toolkit::PropertyGrid> m_grid;
         RefPtr<ui::Label> m_inspectorTitle;
-        RefPtr<draconic::ui::View> m_content;
+        RefPtr<foundation::ui::View> m_content;
 
         Array<BusNode> m_nodes;
         Array<i32> m_roots;
@@ -156,7 +156,7 @@ export namespace draconic::editor
 
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
 
     private:
         runtime::IApplicationHost* m_host;

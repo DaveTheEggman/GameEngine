@@ -16,10 +16,10 @@ import :action;
 import :node;
 import :rectangle_drawable;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // Interpolates the target's position from `from` to `to`.
     class MoveAction : public ActionInterpolation

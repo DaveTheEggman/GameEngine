@@ -16,9 +16,9 @@ export module draconic.ui.toolkit:idockable_window_host;
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Implement in the Application class and assign to DockManager's DockableWindowHost.
     class IDockableWindowHost

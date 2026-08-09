@@ -51,10 +51,9 @@ import :list_view;
 import :tree_view;
 import :grid_view;
 
-using namespace draconic::core;
-namespace image = draconic::image;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Factory for creating a fully image-skinned StyleSheet from a ThemeImageSet.
     struct TexturedTheme

@@ -21,9 +21,9 @@ export module draconic.shaders:compiler;
 import draconic.core;
 import :types;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::shaders
+export namespace foundation::shaders
 {
 
     /// Configuration for compiler creation.
@@ -50,11 +50,11 @@ export namespace draconic::shaders
     [[nodiscard]] Status createCompiler(const CompilerDesc& desc, Compiler*& out,
                                         IAllocator& allocator = DefaultAllocator());
 
-} // namespace draconic::shaders (exported)
+} // namespace foundation::shaders (exported)
 
 // ---- Implementation ----
 
-namespace draconic::shaders
+namespace foundation::shaders
 {
 
 #ifdef _WIN32
@@ -483,4 +483,4 @@ namespace draconic::shaders
         return ErrorCode::Ok;
     }
 
-} // namespace draconic::shaders
+} // namespace foundation::shaders

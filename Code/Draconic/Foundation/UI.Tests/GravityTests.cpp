@@ -4,8 +4,8 @@
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::ui;
-namespace core = draconic::core;
+using namespace foundation::ui;
+namespace core = foundation::core;
 
 TEST_CASE("gravity: None_IsZero") { CHECK(static_cast<core::u32>(Gravity::None) == 0u); }
 

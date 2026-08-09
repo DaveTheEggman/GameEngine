@@ -23,9 +23,9 @@ import :undo_stack;
 import :input_filter;
 import :input_enums; // KeyCode, KeyModifiers, HasFlag
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Type of editing action for undo coalescing.
     enum class EditActionType

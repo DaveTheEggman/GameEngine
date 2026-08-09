@@ -11,20 +11,19 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vulkan;
 
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
 
 class MRTSample : public samples::framework::SampleApp
 {
 public:
     using samples::framework::SampleApp::SampleApp;
-    draconic::core::StringView Title() const override { return u8"Sample011 - MRT"; }
+    foundation::core::StringView Title() const override { return u8"Sample011 - MRT"; }
 
 protected:
-    draconic::core::Status OnInit() override;
+    foundation::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(draconic::core::u32 /*w*/, draconic::core::u32 /*h*/) override
+    void OnResize(foundation::core::u32 /*w*/, foundation::core::u32 /*h*/) override
     {
         createRenderTargets();
     }
@@ -58,7 +57,7 @@ private:
         0,    .6f,  0, 1,   .8f, .2f, 1, -.3f, -.3f, 0, .2f, .3f, 1,   1,
         .7f,  -.1f, 0, .2f, .3f, 1,   1, .2f,  .5f,  0, .2f, .8f, 1,   1,
     };
-    static constexpr draconic::core::u16 kIdx[] = {0, 1, 2, 3, 4, 5};
+    static constexpr foundation::core::u16 kIdx[] = {0, 1, 2, 3, 4, 5};
 
     void createRenderTargets();
 
@@ -75,7 +74,7 @@ private:
     rhi::TextureView *m_colorRTView = nullptr, *m_brightRTView = nullptr;
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
-    draconic::core::u64 m_fenceVal = 0;
+    foundation::core::u64 m_fenceVal = 0;
 };
 
 void MRTSample::createRenderTargets()
@@ -125,45 +124,45 @@ void MRTSample::createRenderTargets()
                                   rhi::BindGroupEntry::SamplerEntry(m_sampler)};
     rhi::BindGroupDesc bgd{};
     bgd.layout = m_compBgl;
-    bgd.entries = draconic::core::Span<const rhi::BindGroupEntry>(bgE, 3);
+    bgd.entries = foundation::core::Span<const rhi::BindGroupEntry>(bgE, 3);
     m_device->CreateBindGroup(bgd, m_compBg);
 }
 
-draconic::core::Status MRTSample::OnInit()
+foundation::core::Status MRTSample::OnInit()
 {
-    using draconic::core::Status, draconic::core::Span, draconic::core::u8;
+    using foundation::core::Status, foundation::core::Span, foundation::core::u8;
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kGBufShader,
                                             shaders::ShaderStage::Vertex, u8"VSMain", u8"GBufVS",
-                                            m_gbVs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_gbVs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kGBufShader,
                                             shaders::ShaderStage::Fragment, u8"PSMain", u8"GBufPS",
-                                            m_gbPs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_gbPs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kCompShader,
                                             shaders::ShaderStage::Vertex, u8"VSMain", u8"CompVS",
-                                            m_compVs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_compVs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kCompShader,
                                             shaders::ShaderStage::Fragment, u8"PSMain", u8"CompPS",
-                                            m_compPs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_compPs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::BufferDesc vbd{};
     vbd.size = sizeof(kVerts);
     vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
     vbd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::BufferDesc ibd{};
     ibd.size = sizeof(kIdx);
     ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst;
     ibd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0,
@@ -177,13 +176,13 @@ draconic::core::Status MRTSample::OnInit()
     sd.magFilter = rhi::FilterMode::Nearest;
     sd.addressU = rhi::AddressMode::ClampToEdge;
     sd.addressV = rhi::AddressMode::ClampToEdge;
-    if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateSampler(sd, m_sampler) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // GBuffer pipeline (empty layout, 2 color targets).
     rhi::PipelineLayoutDesc gpld{};
-    if (m_device->CreatePipelineLayout(gpld, m_gbPl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(gpld, m_gbPl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::VertexAttribute attrs[2] = {{rhi::VertexFormat::Float32x3, 0, 0},
                                      {rhi::VertexFormat::Float32x4, 12, 1}};
     rhi::VertexBufferLayout vbl{};
@@ -202,8 +201,8 @@ draconic::core::Status MRTSample::OnInit()
     grpd.fragment = rhi::FragmentState{};
     grpd.fragment->shader = {m_gbPs, u8"PSMain", rhi::ShaderStage::Fragment};
     grpd.fragment->targets = Span<const rhi::ColorTargetState>(gbCt, 2);
-    if (m_device->CreateRenderPipeline(grpd, m_gbPipe) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(grpd, m_gbPipe) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Composite BGL + pipeline (3 bindings: 2 textures + 1 sampler).
     rhi::BindGroupLayoutEntry cE[3] = {
@@ -213,13 +212,13 @@ draconic::core::Status MRTSample::OnInit()
     };
     rhi::BindGroupLayoutDesc cBgld{};
     cBgld.entries = Span<const rhi::BindGroupLayoutEntry>(cE, 3);
-    if (m_device->CreateBindGroupLayout(cBgld, m_compBgl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(cBgld, m_compBgl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::BindGroupLayout* cSets[1] = {m_compBgl};
     rhi::PipelineLayoutDesc cpld{};
     cpld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(cSets, 1);
-    if (m_device->CreatePipelineLayout(cpld, m_compPl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(cpld, m_compPl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::ColorTargetState compCt{};
     compCt.format = m_swapChain->Format();
     rhi::RenderPipelineDesc crpd{};
@@ -228,28 +227,28 @@ draconic::core::Status MRTSample::OnInit()
     crpd.fragment = rhi::FragmentState{};
     crpd.fragment->shader = {m_compPs, u8"PSMain", rhi::ShaderStage::Fragment};
     crpd.fragment->targets = Span<const rhi::ColorTargetState>(&compCt, 1);
-    if (m_device->CreateRenderPipeline(crpd, m_compPipe) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(crpd, m_compPipe) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     createRenderTargets();
     if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    return draconic::core::ErrorCode::Ok;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    return foundation::core::ErrorCode::Ok;
 }
 
 void MRTSample::OnRender()
 {
-    using draconic::core::f32, draconic::core::Span;
+    using foundation::core::f32, foundation::core::Span;
     if (m_fenceVal > 0)
         m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+    if (m_swapChain->AcquireNextImage() != foundation::core::ErrorCode::Ok)
         return;
     m_pool->Reset();
     rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc)
+    if (m_pool->CreateEncoder(enc) != foundation::core::ErrorCode::Ok || !enc)
         return;
 
     // Pass 1: render to 2 RTs.

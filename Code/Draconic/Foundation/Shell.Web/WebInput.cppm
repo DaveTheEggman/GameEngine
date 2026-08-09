@@ -17,9 +17,9 @@ export module draconic.shell.web:input;
 import draconic.core;
 import draconic.shell;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::shell
+export namespace foundation::shell
 {
     // Map a DOM KeyboardEvent.code (the physical key, layout-independent - "KeyW", "ArrowUp",
     // "Space", "ShiftLeft", ...) to a Draconic KeyCode.

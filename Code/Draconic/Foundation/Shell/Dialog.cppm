@@ -13,9 +13,9 @@ export module draconic.shell:dialog;
 
 import draconic.core;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::shell
+export namespace foundation::shell
 {
     // A file-type filter for open/save dialogs. `pattern` is a semicolon-separated list of
     // extensions WITHOUT dots (the SDL form): name = u8"Images", pattern = u8"png;jpg;jpeg".

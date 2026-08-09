@@ -36,16 +36,18 @@ import draconic.engine.render; // RenderSubsystem (overlay-role registration)
 import draconic.script;         // the Ui facade reflection body
 import draconic.script.facades; // RegisterExtraFacadeName (behavior-prelude hook)
 
-using namespace draconic::core;
-using namespace draconic::ui;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+using namespace foundation::ui;
+namespace core = foundation::core;
+namespace rhi = foundation::rhi;
+namespace vg = foundation::vg;
 
-namespace draconic::engine::ui
+namespace engine::ui
 {
-    // Foundation aliases (sibling draconic::engine::* namespaces would otherwise shadow these).
-    namespace render = draconic::render;
-    namespace scene = draconic::scene;
-    namespace script = draconic::script;
+    // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
+    namespace render = foundation::render;
+    namespace scene = foundation::scene;
+    namespace script = foundation::script;
 
     // The Ui.* facade reflection body + registration (kept out of the interface unit per the GCC
     // gcm-cluster rule). Owned by the UISubsystem (the out-of-tree facade pattern, like Net).
@@ -66,7 +68,7 @@ namespace draconic::engine::ui
         {
             RegisterUIComponentReflection(); // build component TypeData (incl `of`) first
             GlobalTypeRegistry().Register(Ui::StaticType());
-            draconic::script::RegisterExtraFacadeName(
+            foundation::script::RegisterExtraFacadeName(
                 u8"Ui"); // Wren behavior prelude imports it (AngelScript binds by registry)
 
             // The WORLD-space UI components -> script .of (live data: order/visible/interactive/
@@ -84,8 +86,8 @@ namespace draconic::engine::ui
             for (const Entry& component : components)
             {
                 GlobalTypeRegistry().Register(*component.type);
-                draconic::script::RegisterExtraScriptRootType(component.type);
-                draconic::script::RegisterExtraFacadeName(component.name);
+                foundation::script::RegisterExtraScriptRootType(component.type);
+                foundation::script::RegisterExtraFacadeName(component.name);
             }
             return true;
         }();
@@ -340,7 +342,7 @@ namespace draconic::engine::ui
     // Per-target-format VG pipeline (backbuffer vs viewport formats differ).
     struct UISubsystem::RenderState
     {
-        draconic::shaders::ShaderSystemHost shaderHost; // owns the ShaderSystem + VG modules
+        foundation::shaders::ShaderSystemHost shaderHost; // owns the ShaderSystem + VG modules
         rhi::Device* device = nullptr;
         rhi::ShaderModule* vertexShader = nullptr;       // borrowed from shaderHost
         rhi::ShaderModule* fragmentShader = nullptr;     // borrowed from shaderHost
@@ -390,7 +392,7 @@ namespace draconic::engine::ui
         // 4x is universally supported for 8-bit color on Vulkan and guaranteed by WebGPU).
         static constexpr u32 kCanvasMsaaSamples = 4;
 
-        explicit RenderState(draconic::fonts::IFontService* fonts) : vgContext(fonts) {}
+        explicit RenderState(foundation::fonts::IFontService* fonts) : vgContext(fonts) {}
 
         ~RenderState()
         {
@@ -652,13 +654,13 @@ namespace draconic::engine::ui
     void UISubsystem::OnInit()
     {
         MarkupLoader::Initialize();
-        m_fonts = MakeUnique<draconic::fonts::TrueTypeFontService>(DefaultAllocator());
+        m_fonts = MakeUnique<foundation::fonts::TrueTypeFontService>(DefaultAllocator());
         StringView fontPath = m_fontPath.AsView();
         if (fontPath.IsEmpty())
         {
             fontPath = u8"Data/Assets/fonts/roboto/Roboto-Regular.ttf"; // dev-tree default
         }
-        if (m_fonts->LoadFont(u8"Roboto", fontPath) == draconic::fonts::FontLoadResult::Success)
+        if (m_fonts->LoadFont(u8"Roboto", fontPath) == foundation::fonts::FontLoadResult::Success)
         {
             m_fonts->SetDefaultFamily(u8"Roboto");
         }
@@ -684,24 +686,24 @@ namespace draconic::engine::ui
 
     void UISubsystem::OnReady()
     {
-        if (draconic::runtime::Context* context = GetContext())
+        if (foundation::runtime::Context* context = GetContext())
         {
-            m_input = context->GetSubsystem<draconic::engine::input::InputSubsystem>();
-            if (auto* scenes = context->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+            m_input = context->GetSubsystem<engine::input::InputSubsystem>();
+            if (auto* scenes = context->GetSubsystem<engine::scene::SceneSubsystem>())
             {
                 scenes->RegisterSceneAware(this); // injects the canvas manager per scene
             }
             // The overlay roles: scene tier draws inside the compose per view; screen
             // tier draws when the host calls RenderOverlays per window target. Headless
             // contexts (tests, cooker) have no render subsystem - both stay unregistered.
-            if (auto* render = context->GetSubsystem<draconic::engine::render::RenderSubsystem>())
+            if (auto* render = context->GetSubsystem<engine::render::RenderSubsystem>())
             {
                 m_sceneRenderer = render;
                 m_screenRenderer = render;
                 m_sceneRenderer->RegisterOverlay(
-                    static_cast<draconic::render::ISceneOverlay*>(this));
+                    static_cast<foundation::render::ISceneOverlay*>(this));
                 m_screenRenderer->RegisterOverlay(
-                    static_cast<draconic::render::IScreenOverlay*>(this));
+                    static_cast<foundation::render::IScreenOverlay*>(this));
             }
         }
     }
@@ -710,18 +712,18 @@ namespace draconic::engine::ui
     {
         if (m_sceneRenderer != nullptr)
         {
-            m_sceneRenderer->UnregisterOverlay(static_cast<draconic::render::ISceneOverlay*>(this));
+            m_sceneRenderer->UnregisterOverlay(static_cast<foundation::render::ISceneOverlay*>(this));
             m_sceneRenderer = nullptr;
         }
         if (m_screenRenderer != nullptr)
         {
             m_screenRenderer->UnregisterOverlay(
-                static_cast<draconic::render::IScreenOverlay*>(this));
+                static_cast<foundation::render::IScreenOverlay*>(this));
             m_screenRenderer = nullptr;
         }
-        if (draconic::runtime::Context* context = GetContext())
+        if (foundation::runtime::Context* context = GetContext())
         {
-            if (auto* scenes = context->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+            if (auto* scenes = context->GetSubsystem<engine::scene::SceneSubsystem>())
             {
                 scenes->UnregisterSceneAware(this);
             }
@@ -1078,8 +1080,8 @@ namespace draconic::engine::ui
         {
             return;
         }
-        draconic::input::IInputSourceProvider& devices = m_input->ActiveSource();
-        draconic::shell::IMouse* mouse = devices.Mouse();
+        foundation::input::IInputSourceProvider& devices = m_input->ActiveSource();
+        foundation::shell::IMouse* mouse = devices.Mouse();
         InputManager& inputManager = *m_context.GetInputManager();
 
         // Per-surface scene binding (game-ui.md §9 known edge): which scene roots may
@@ -1095,7 +1097,7 @@ namespace draconic::engine::ui
         // stay modal while occupied.
         const void* boundSceneKey = m_input->BoundSceneKey();
         const bool unboundReachesScenes =
-            m_input->UnboundScenePolicy() == draconic::engine::input::UnboundInputScenePolicy::AllScenes;
+            m_input->UnboundScenePolicy() == engine::input::UnboundInputScenePolicy::AllScenes;
         auto sceneRootEligible = [&](const SceneUI& ui) noexcept
         {
             if (boundSceneKey != nullptr)
@@ -1181,8 +1183,8 @@ namespace draconic::engine::ui
                         {
                             continue;
                         }
-                        draconic::render::ViewCamera camera;
-                        if (!draconic::engine::render::ExtractPrimaryCamera(*sceneUI.scene, camera))
+                        foundation::render::ViewCamera camera;
+                        if (!engine::render::ExtractPrimaryCamera(*sceneUI.scene, camera))
                         {
                             continue;
                         }
@@ -1300,9 +1302,9 @@ namespace draconic::engine::ui
             const f32 x = panelPointer ? panelPointerPx.x : mouse->X();
             const f32 y = panelPointer ? panelPointerPx.y : mouse->Y();
             inputManager.ProcessMouseMove(x, y);
-            const draconic::shell::MouseButton shellButtons[3] = {
-                draconic::shell::MouseButton::Left, draconic::shell::MouseButton::Right,
-                draconic::shell::MouseButton::Middle};
+            const foundation::shell::MouseButton shellButtons[3] = {
+                foundation::shell::MouseButton::Left, foundation::shell::MouseButton::Right,
+                foundation::shell::MouseButton::Middle};
             const MouseButton uiButtons[3] = {MouseButton::Left, MouseButton::Right,
                                               MouseButton::Middle};
             for (u32 i = 0; i < 3; ++i)
@@ -1332,13 +1334,13 @@ namespace draconic::engine::ui
         // skipped here (mouse is polled above - dispatching both would double-fire).
         // The provider gates: the player streams its window's events, the Game tab's
         // viewport source streams only while the viewport owns keyboard focus. ----
-        for (const draconic::shell::InputEvent& event : devices.Events())
+        for (const foundation::shell::InputEvent& event : devices.Events())
         {
             switch (event.kind)
             {
-            case draconic::shell::InputEventKind::KeyDown:
-            case draconic::shell::InputEventKind::KeyUp:
-            case draconic::shell::InputEventKind::TextInput:
+            case foundation::shell::InputEventKind::KeyDown:
+            case foundation::shell::InputEventKind::KeyUp:
+            case foundation::shell::InputEventKind::TextInput:
                 (void)m_bridge.Dispatch(event);
                 break;
             default:
@@ -1355,17 +1357,17 @@ namespace draconic::engine::ui
         // (synthesized Escape). Hold-repeat: 0.4s initial, 0.12s after. The pad is
         // deliberately NOT a consumption class - gameplay pad actions keep working
         // (menus that want exclusivity push an input SET, the existing mechanism). ----
-        draconic::shell::IGamepad* pad = devices.Gamepad(0);
+        foundation::shell::IGamepad* pad = devices.Gamepad(0);
         if (pad != nullptr && pad->Connected() && m_screenRoot.Get() != nullptr)
         {
-            const f32 stickX = pad->Axis(draconic::shell::GamepadAxis::LeftX);
-            const f32 stickY = pad->Axis(draconic::shell::GamepadAxis::LeftY);
+            const f32 stickX = pad->Axis(foundation::shell::GamepadAxis::LeftX);
+            const f32 stickY = pad->Axis(foundation::shell::GamepadAxis::LeftY);
             constexpr f32 kThreshold = 0.6f;
             const bool wants[4] = {
-                pad->IsButtonDown(draconic::shell::GamepadButton::DPadUp) || stickY < -kThreshold,
-                pad->IsButtonDown(draconic::shell::GamepadButton::DPadDown) || stickY > kThreshold,
-                pad->IsButtonDown(draconic::shell::GamepadButton::DPadLeft) || stickX < -kThreshold,
-                pad->IsButtonDown(draconic::shell::GamepadButton::DPadRight) || stickX > kThreshold,
+                pad->IsButtonDown(foundation::shell::GamepadButton::DPadUp) || stickY < -kThreshold,
+                pad->IsButtonDown(foundation::shell::GamepadButton::DPadDown) || stickY > kThreshold,
+                pad->IsButtonDown(foundation::shell::GamepadButton::DPadLeft) || stickX < -kThreshold,
+                pad->IsButtonDown(foundation::shell::GamepadButton::DPadRight) || stickX > kThreshold,
             };
             const FocusDirection directions[4] = {FocusDirection::Up, FocusDirection::Down,
                                                   FocusDirection::Left, FocusDirection::Right};
@@ -1406,14 +1408,14 @@ namespace draconic::engine::ui
                     (void)focus->MoveFocus(directions[i]);
                 }
             }
-            if (pad->IsButtonPressed(draconic::shell::GamepadButton::South))
+            if (pad->IsButtonPressed(foundation::shell::GamepadButton::South))
             {
                 inputManager.ProcessKeyDown(KeyCode::Return, KeyModifiers::None, false,
                                             m_context.TotalTime());
                 inputManager.ProcessKeyUp(KeyCode::Return, KeyModifiers::None,
                                           m_context.TotalTime());
             }
-            if (pad->IsButtonPressed(draconic::shell::GamepadButton::East))
+            if (pad->IsButtonPressed(foundation::shell::GamepadButton::East))
             {
                 inputManager.ProcessKeyDown(KeyCode::Escape, KeyModifiers::None, false,
                                             m_context.TotalTime());
@@ -1463,7 +1465,7 @@ namespace draconic::engine::ui
         const bool keyboard = m_context.WantsTextInput();
         m_pointerConsumed = pointer;
         m_input->Runtime().SetConsumptionMask(
-            draconic::input::ActionRuntime::ConsumptionMask{pointer, keyboard});
+            foundation::input::ActionRuntime::ConsumptionMask{pointer, keyboard});
     }
 
     // The scene-tier per-view sync: canvas visibility from the authored flag, then
@@ -1694,8 +1696,8 @@ namespace draconic::engine::ui
             {
                 continue;
             }
-            auto* sprites = sceneUI.scene->GetSystem<draconic::engine::render::SpriteComponentManager>();
-            auto* decals = sceneUI.scene->GetSystem<draconic::engine::render::DecalComponentManager>();
+            auto* sprites = sceneUI.scene->GetSystem<engine::render::SpriteComponentManager>();
+            auto* decals = sceneUI.scene->GetSystem<engine::render::DecalComponentManager>();
             // Declarative RT-canvas -> material binding: the canvas ENTITY's own sprite/
             // decal runtime `texture` override tracks the canvas's CURRENT view (which
             // changes on resize). Deliberately UI-side: it writes the SAME override
@@ -1843,13 +1845,13 @@ namespace draconic::engine::ui
                         // Drive the sprite (auto-added): the panel's quad in the world.
                         if (sprites != nullptr)
                         {
-                            draconic::engine::render::SpriteComponent* sprite = sprites->Get(entity);
+                            engine::render::SpriteComponent* sprite = sprites->Get(entity);
                             if (sprite == nullptr)
                             {
                                 sprite = &sprites->Add(entity);
                             }
                             sprite->orientation =
-                                draconic::engine::render::SpriteOrientation::EntityOriented;
+                                engine::render::SpriteOrientation::EntityOriented;
                             // Inflate by the transparent border so the CONTENT keeps the
                             // authored world size (texture maps whole-quad).
                             sprite->size = Float2{
@@ -1921,7 +1923,7 @@ namespace draconic::engine::ui
             if (target.view != nullptr && sceneAlive)
             {
                 if (auto* sprites =
-                        target.scene->GetSystem<draconic::engine::render::SpriteComponentManager>())
+                        target.scene->GetSystem<engine::render::SpriteComponentManager>())
                 {
                     if (auto* sprite = sprites->Get(target.entity);
                         sprite != nullptr && sprite->texture == target.view)
@@ -1930,7 +1932,7 @@ namespace draconic::engine::ui
                     }
                 }
                 if (auto* decals =
-                        target.scene->GetSystem<draconic::engine::render::DecalComponentManager>())
+                        target.scene->GetSystem<engine::render::DecalComponentManager>())
                 {
                     if (auto* decal = decals->Get(target.entity);
                         decal != nullptr && decal->texture == target.view)
@@ -2005,7 +2007,7 @@ namespace draconic::engine::ui
         DrawRootInto(root, encoder, target, format, width, height, frameIndex);
     }
 
-    void UISubsystem::SetDefaultFont(const draconic::fonts::Font* font)
+    void UISubsystem::SetDefaultFont(const foundation::fonts::Font* font)
     {
         if (font == nullptr || font->EntryCount() == 0)
         {
@@ -2014,7 +2016,7 @@ namespace draconic::engine::ui
             m_context.SetFontService(m_fonts.Get());
             return;
         }
-        m_resourceFonts = MakeUnique<draconic::fonts::ResourceFontService>(DefaultAllocator());
+        m_resourceFonts = MakeUnique<foundation::fonts::ResourceFontService>(DefaultAllocator());
         m_resourceFonts->AddFont(font);
         m_context.SetFontService(m_resourceFonts.Get());
         DRACONIC_LOG_INFO(u8"UI", u8"default font bound: '{}' ({} baked size(s))",
@@ -2068,19 +2070,19 @@ namespace draconic::engine::ui
             return;
         }
         m_render->vertexShader = m_render->shaderHost.GetVariant(
-            u8"vg", draconic::shaders::ShaderStage::Vertex, draconic::shaders::ShaderFlags::None);
+            u8"vg", foundation::shaders::ShaderStage::Vertex, foundation::shaders::ShaderFlags::None);
         m_render->fragmentShader = m_render->shaderHost.GetVariant(
-            u8"vg", draconic::shaders::ShaderStage::Fragment, draconic::shaders::ShaderFlags::None);
+            u8"vg", foundation::shaders::ShaderStage::Fragment, foundation::shaders::ShaderFlags::None);
         m_render->gradRadialShader =
-            m_render->shaderHost.GetVariant(u8"vg_grad_radial", draconic::shaders::ShaderStage::Fragment,
-                                            draconic::shaders::ShaderFlags::None);
+            m_render->shaderHost.GetVariant(u8"vg_grad_radial", foundation::shaders::ShaderStage::Fragment,
+                                            foundation::shaders::ShaderFlags::None);
         m_render->gradConicShader =
-            m_render->shaderHost.GetVariant(u8"vg_grad_conic", draconic::shaders::ShaderStage::Fragment,
-                                            draconic::shaders::ShaderFlags::None);
+            m_render->shaderHost.GetVariant(u8"vg_grad_conic", foundation::shaders::ShaderStage::Fragment,
+                                            foundation::shaders::ShaderFlags::None);
         // MSDF text fragment (the DistanceField draw-mode pipeline).
         m_render->dfShader =
-            m_render->shaderHost.GetVariant(u8"vg_df", draconic::shaders::ShaderStage::Fragment,
-                                            draconic::shaders::ShaderFlags::None);
+            m_render->shaderHost.GetVariant(u8"vg_df", foundation::shaders::ShaderStage::Fragment,
+                                            foundation::shaders::ShaderFlags::None);
         // Per-pixel radial/conic gradients only if both shaders resolved (a pre-cooked pack may
         // predate them); otherwise every renderer + the context fall back to the affine LUT.
         m_render->vgContext.SetPerPixelGradients(m_render->gradRadialShader != nullptr &&
@@ -2096,7 +2098,7 @@ namespace draconic::engine::ui
 }
 
 // ---- reflection (impl unit per the GCC rule) ----
-namespace draconic::engine::ui
+namespace engine::ui
 {
     DRACONIC_REFLECT_ENUM(CanvasScalerMode, "rtti::engine::ui")
     {
@@ -2128,7 +2130,7 @@ namespace draconic::engine::ui
             .Attribute("category", String(u8"UI")).DataVersion(1);
         // Script (Track A): world-space UI component .of(entity) -> live data (offset/orientation/
         // scale/visible). The SCREEN tier (IScreenOverlay, loading screen) is deliberately NOT exposed.
-        builder.Method<&draconic::script::ComponentOf<UIBillboardComponent>, UIBillboardComponent>(
+        builder.Method<&foundation::script::ComponentOf<UIBillboardComponent>, UIBillboardComponent>(
             "of");
         builder.Property<&UIBillboardComponent::document>("document");
         builder.Property<&UIBillboardComponent::offset>("offset");
@@ -2144,7 +2146,7 @@ namespace draconic::engine::ui
     {
         builder.Attribute("displayName", String(u8"UI Canvas"))
             .Attribute("category", String(u8"UI")).DataVersion(2); // v2 added the RenderTexture canvas mode
-        builder.Method<&draconic::script::ComponentOf<UICanvasComponent>, UICanvasComponent>("of");
+        builder.Method<&foundation::script::ComponentOf<UICanvasComponent>, UICanvasComponent>("of");
         builder.Property<&UICanvasComponent::document>("document");
         builder.Property<&UICanvasComponent::theme>("theme");
         builder.Property<&UICanvasComponent::order>("order");
@@ -2161,7 +2163,7 @@ namespace draconic::engine::ui
     {
         builder.Attribute("displayName", String(u8"UI World Panel"))
             .Attribute("category", String(u8"UI")).DataVersion(1);
-        builder.Method<&draconic::script::ComponentOf<UIWorldPanelComponent>, UIWorldPanelComponent>(
+        builder.Method<&foundation::script::ComponentOf<UIWorldPanelComponent>, UIWorldPanelComponent>(
             "of");
         builder.Property<&UIWorldPanelComponent::document>("document");
         builder.Property<&UIWorldPanelComponent::theme>("theme");

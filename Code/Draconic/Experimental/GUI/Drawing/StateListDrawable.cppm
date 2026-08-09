@@ -17,9 +17,9 @@ import :draw_context;
 import :drawable;
 import :control_state;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class StateListDrawable : public Drawable
     {

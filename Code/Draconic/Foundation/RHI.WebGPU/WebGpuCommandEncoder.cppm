@@ -29,9 +29,9 @@ import :render_pass_encoder;
 import :compute_pass_encoder;
 import :render_bundle_encoder;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuCommandEncoder final : public CommandEncoder
     {

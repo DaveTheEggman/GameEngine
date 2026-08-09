@@ -24,10 +24,12 @@ import draconic.shaders;
 import draconic.shaders.system;
 import :data; // ReflectionProbe / kMaxReflectionProbes / ProbeUpdateMode
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // GPU-side probe record (set-0 t9 StructuredBuffer), 64 bytes. Packed so the forward can, per froxel,
@@ -234,4 +236,4 @@ export namespace draconic::render
         u32 m_captureWarmup = 20;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

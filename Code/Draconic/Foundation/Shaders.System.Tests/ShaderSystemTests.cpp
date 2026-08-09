@@ -13,9 +13,9 @@ import draconic.rhi.null;
 import draconic.shaders;
 import draconic.shaders.system;
 
-using namespace draconic::core;
-using namespace draconic::shaders;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::shaders;
+namespace rhi = foundation::rhi;
 
 namespace
 {

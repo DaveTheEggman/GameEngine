@@ -8,7 +8,7 @@
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 TEST_CASE("base: fundamental type widths")
 {

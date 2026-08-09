@@ -5,9 +5,9 @@
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::ui;
-namespace core = draconic::core;
-using namespace draconic::core;
+using namespace foundation::ui;
+namespace core = foundation::core;
+using namespace foundation::core;
 
 TEST_CASE("tokenizer: Ident")
 {

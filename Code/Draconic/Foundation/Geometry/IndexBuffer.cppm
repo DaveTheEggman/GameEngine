@@ -11,9 +11,9 @@ export module draconic.geometry:index_buffer;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::geometry
+export namespace foundation::geometry
 {
 
     class IndexBuffer
@@ -119,4 +119,4 @@ export namespace draconic::geometry
         Format m_format = Format::U32;
     };
 
-} // namespace draconic::geometry
+} // namespace foundation::geometry

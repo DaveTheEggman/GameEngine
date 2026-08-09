@@ -84,12 +84,12 @@ import draconic.vfs.pak; // dist mode: one Content.pak holds products + scenes +
 
 #include "PlayerApplication.h" // the shared runner (uses the imports above)
 
-using namespace draconic::core;
-namespace runtime = draconic::runtime;
-namespace shell = draconic::shell;
-namespace graphics = draconic::graphics;
-using draconic::player::PlayerApplication;
-using draconic::player::PlayerOptions;
+using namespace foundation::core;
+namespace runtime = foundation::runtime;
+namespace shell = foundation::shell;
+namespace graphics = foundation::graphics;
+using engine::player::PlayerApplication;
+using engine::player::PlayerOptions;
 
 extern "C" const char* DraconicBuildStamp();
 

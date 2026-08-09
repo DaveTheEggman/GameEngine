@@ -21,11 +21,11 @@ import draconic.audio;
 import draconic.audio.resource;
 import draconic.audio.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::resource;
-using namespace draconic::audio;
-namespace content = draconic::content;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::resource;
+using namespace foundation::audio;
+namespace content = foundation::content;
 
 namespace
 {
@@ -148,8 +148,8 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
     RemoveDbTree(u8"draconic_audiopipe_src");
     RemoveDbTree(u8"draconic_audiopipe_out");
 
-    draconic::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_src");
-    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.25f, 8000, 2);
@@ -158,14 +158,14 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
                 .IsOk());
 
     AudioClipAsset asset;
-    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
+    asset.fileName = foundation::vfs::SourcePath(u8"tone.wav");
     asset.gain = 0.8f;
     asset.loop = true;
     asset.loopStartFrame = 10;
     asset.loopEndFrame = 900;
 
     AudioClipAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.sources = &sourceMount;
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
@@ -208,8 +208,8 @@ TEST_CASE("audio.pipeline: async clip load matches the synchronous product byte-
     RemoveDbTree(u8"draconic_audioasync_src");
     RemoveDbTree(u8"draconic_audioasync_out");
 
-    draconic::vfs::NativeFileSystem sourceMount(u8"draconic_audioasync_src");
-    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audioasync_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audioasync_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audioasync_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.25f, 8000, 2);
@@ -219,10 +219,10 @@ TEST_CASE("audio.pipeline: async clip load matches the synchronous product byte-
             .IsOk());
 
     AudioClipAsset asset;
-    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
+    asset.fileName = foundation::vfs::SourcePath(u8"tone.wav");
     asset.gain = 0.8f;
     AudioClipAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.sources = &sourceMount;
     auto* inst = outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
     ctx.output = inst;
@@ -273,8 +273,8 @@ TEST_CASE("audio.pipeline: many concurrent async clip decodes run on workers wit
     RemoveDbTree(u8"draconic_audioconc_src");
     RemoveDbTree(u8"draconic_audioconc_out");
 
-    draconic::vfs::NativeFileSystem sourceMount(u8"draconic_audioconc_src");
-    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audioconc_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audioconc_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audioconc_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.1f, 8000, 1);
@@ -284,9 +284,9 @@ TEST_CASE("audio.pipeline: many concurrent async clip decodes run on workers wit
             .IsOk());
 
     AudioClipAsset asset;
-    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
+    asset.fileName = foundation::vfs::SourcePath(u8"tone.wav");
     AudioClipAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.sources = &sourceMount;
 
     constexpr int kCount = 10;
@@ -332,8 +332,8 @@ TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content strea
     RemoveDbTree(u8"draconic_audiopipe_stream_src");
     RemoveDbTree(u8"draconic_audiopipe_stream_out");
 
-    draconic::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_stream_src");
-    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_stream_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_stream_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_stream_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.5f);
@@ -343,11 +343,11 @@ TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content strea
                 .IsOk());
 
     AudioClipAsset asset;
-    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
+    asset.fileName = foundation::vfs::SourcePath(u8"tone.wav");
     asset.stream = true;
 
     AudioClipAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.sources = &sourceMount;
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
@@ -386,8 +386,8 @@ TEST_CASE("audio.pipeline: the builder VALIDATES - undecodable sources fail the 
     RemoveDbTree(u8"draconic_audiopipe_bad_src");
     RemoveDbTree(u8"draconic_audiopipe_bad_out");
 
-    draconic::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_bad_src");
-    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_bad_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_bad_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_bad_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     Array<byte> garbage;
@@ -401,9 +401,9 @@ TEST_CASE("audio.pipeline: the builder VALIDATES - undecodable sources fail the 
                 .IsOk());
 
     AudioClipAsset asset;
-    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
+    asset.fileName = foundation::vfs::SourcePath(u8"tone.wav");
     AudioClipAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.sources = &sourceMount;
     ctx.output = outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());
@@ -420,8 +420,8 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
     RemoveDbTree(u8"draconic_audiopipe_fx_src");
     RemoveDbTree(u8"draconic_audiopipe_fx_out");
 
-    draconic::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_fx_src");
-    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_fx_out");
+    foundation::vfs::NativeFileSystem sourceMount(u8"draconic_audiopipe_fx_src");
+    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_fx_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     // A quiet stereo tone with half a second of pure silence appended.
@@ -439,13 +439,13 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
             .IsOk());
 
     AudioClipAsset asset;
-    asset.fileName = draconic::vfs::SourcePath(u8"tone.wav");
+    asset.fileName = foundation::vfs::SourcePath(u8"tone.wav");
     asset.forceMono = true;
     asset.trimTrailingSilence = true;
     asset.normalize = true;
 
     AudioClipAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.sources = &sourceMount;
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
@@ -499,9 +499,9 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
         RemoveDirectory(projectDir);
     };
     cleanProject();
-    REQUIRE(draconic::editor::EditorProject::Create(projectDir, u8"AudioTest").IsOk());
-    UniquePtr<draconic::editor::EditorProject> project =
-        draconic::editor::EditorProject::Open(projectDir);
+    REQUIRE(editor::EditorProject::Create(projectDir, u8"AudioTest").IsOk());
+    UniquePtr<editor::EditorProject> project =
+        editor::EditorProject::Open(projectDir);
     REQUIRE(static_cast<bool>(project));
 
     AudioFileImporter importer;
@@ -562,7 +562,7 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
                     .HasValue());
 
     // Import options object exposes the five toggles.
-    RefPtr<draconic::editor::ImportOptions> options = importer.CreateOptions();
+    RefPtr<editor::ImportOptions> options = importer.CreateOptions();
     REQUIRE(options.Get() != nullptr);
     CHECK(options->Toggles().Size() == 5u);
 
@@ -583,7 +583,7 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
     RegisterAudioAssets();
     RemoveDbTree(u8"draconic_audiopipe_bus");
 
-    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_bus");
+    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_bus");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     AudioBusLayoutAsset asset;
@@ -594,7 +594,7 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
     asset.effects.delayDecay = 1.5f; // out of range: the builder clamps to 0.99
 
     AudioBusLayoutAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"mixer", AudioBusLayoutSource::StaticType());
     ctx.output = outputInstance;
@@ -635,7 +635,7 @@ TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and
     RegisterAudioAssets();
     RemoveDbTree(u8"draconic_audiopipe_named");
 
-    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_named");
+    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_named");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     AudioBusLayoutAsset asset;
@@ -650,7 +650,7 @@ TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and
     asset.custom[5].name = String(u8"Music"); // fixed-name shadow: skipped
 
     AudioBusLayoutAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"tree", AudioBusLayoutSource::StaticType());
     ctx.output = outputInstance;
@@ -689,7 +689,7 @@ TEST_CASE("audio.pipeline: a custom-bus parent CYCLE fails the cook")
     RegisterAudioAssets();
     RemoveDbTree(u8"draconic_audiopipe_cycle");
 
-    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_cycle");
+    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_cycle");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     AudioBusLayoutAsset asset;
@@ -699,7 +699,7 @@ TEST_CASE("audio.pipeline: a custom-bus parent CYCLE fails the cook")
     asset.custom[1].parent = String(u8"a");
 
     AudioBusLayoutAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"cyclic", AudioBusLayoutSource::StaticType());
     ctx.output = outputInstance;
@@ -787,7 +787,7 @@ TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip r
     RegisterAudioAssets();
     RemoveDbTree(u8"draconic_audiopipe_cue");
 
-    draconic::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_cue");
+    foundation::vfs::NativeFileSystem outputMount(u8"draconic_audiopipe_cue");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     // Two cooked clips the cue references.
@@ -817,7 +817,7 @@ TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip r
     asset.pitchMax = 0.8f; // reversed range: builder normalizes
 
     SoundCueAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"footsteps", SoundCueSource::StaticType());
     ctx.output = outputInstance;

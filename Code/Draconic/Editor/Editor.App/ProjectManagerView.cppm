@@ -33,12 +33,14 @@ import draconic.ui.toolkit;
 import draconic.engine.project;
 import draconic.editor.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
+using namespace foundation;
+namespace shell = foundation::shell;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace ui = draconic::ui;
-    namespace project = draconic::engine::project;
+    namespace ui = foundation::ui;
+    namespace project = engine::project;
 
     class ProjectManagerView final
     {
@@ -51,7 +53,7 @@ export namespace draconic::editor::app
         ProjectManagerView(const ProjectManagerView&) = delete;
         ProjectManagerView& operator=(const ProjectManagerView&) = delete;
 
-        void Build(draconic::editor::ProjectManagerController& controller,
+        void Build(editor::ProjectManagerController& controller,
                    shell::IDialogService* dialogs, ui::UIContext* uiContext, u32 width,
                    u32 height)
         {
@@ -192,7 +194,7 @@ export namespace draconic::editor::app
                 String engineVersion = entry.engineVersion;
                 bool missing = false;
                 EngineVersionRelation relation = EngineVersionRelation::Same;
-                draconic::engine::project::ProjectSettings probed;
+                engine::project::ProjectSettings probed;
                 if (ProbeProject(entry.path.AsView(), probed).IsOk())
                 {
                     name = probed.name;
@@ -315,14 +317,14 @@ export namespace draconic::editor::app
                 return;
             }
             ProjectManagerView* self = this;
-            m_dialogs->ShowOpenFolder(draconic::shell::DialogResultCallback{
+            m_dialogs->ShowOpenFolder(foundation::shell::DialogResultCallback{
                 [self](Span<const String> paths)
                 {
                     if (paths.Size() == 0)
                     {
                         return; // cancelled
                     }
-                    draconic::engine::project::ProjectSettings probed;
+                    engine::project::ProjectSettings probed;
                     if (!ProbeProject(paths[0].AsView(), probed).IsOk())
                     {
                         self->SetStatus(
@@ -374,7 +376,7 @@ export namespace draconic::editor::app
                         {
                             return;
                         }
-                        self->m_dialogs->ShowOpenFolder(draconic::shell::DialogResultCallback{
+                        self->m_dialogs->ShowOpenFolder(foundation::shell::DialogResultCallback{
                             [dirRaw](Span<const String> paths)
                             {
                                 if (paths.Size() > 0)
@@ -417,7 +419,7 @@ export namespace draconic::editor::app
             dialog->Show(m_uiContext);
         }
 
-        draconic::editor::ProjectManagerController* m_controller = nullptr;
+        editor::ProjectManagerController* m_controller = nullptr;
         shell::IDialogService* m_dialogs = nullptr;
         ui::UIContext* m_uiContext = nullptr;
         RefPtr<ui::RootView> m_root;

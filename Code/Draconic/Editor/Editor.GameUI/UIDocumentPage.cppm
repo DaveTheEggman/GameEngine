@@ -32,26 +32,26 @@ import draconic.ui.viewport;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace vg = draconic::vg;
-    namespace rhi = draconic::rhi;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace vg = foundation::vg;
+    namespace rhi = foundation::rhi;
 
     class UIDocumentEditorPage final : public app::UIEditorPage
     {
     public:
         UIDocumentEditorPage(EditorContext& context, runtime::IApplicationHost& host,
-                             ui::runtime::UIHost& uiHost, draconic::content::Instance& instance)
+                             ui::runtime::UIHost& uiHost, foundation::content::Instance& instance)
             : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
         {
-            m_ui = host.Ctx().GetSubsystem<draconic::engine::ui::UISubsystem>();
+            m_ui = host.Ctx().GetSubsystem<engine::ui::UISubsystem>();
             SetInstanceId(instance.Id());
             RefPtr<ISerializable> object = instance.ReadObject();
-            if (auto* asset = Cast<draconic::pipeline::UIDocumentAsset>(object.Get()))
+            if (auto* asset = Cast<pipeline::UIDocumentAsset>(object.Get()))
             {
                 m_markup = String(asset->markup.AsView());
             }
@@ -124,7 +124,7 @@ export namespace draconic::editor
         void OnUpdate(runtime::IApplicationHost&, f32 dt) override;
 
         void OnAfterSceneRender(runtime::IApplicationHost&,
-                                draconic::graphics::FrameContext& frame) override;
+                                foundation::graphics::FrameContext& frame) override;
 
         void OnClose() override;
 
@@ -138,8 +138,8 @@ export namespace draconic::editor
         EditorContext* m_context = nullptr;
         runtime::IApplicationHost* m_host = nullptr;
         ui::runtime::UIHost* m_uiHost = nullptr;
-        draconic::engine::ui::UISubsystem* m_ui = nullptr; // the RUNTIME context's subsystem
-        draconic::graphics::RenderWindow* m_hostWindow = nullptr;
+        engine::ui::UISubsystem* m_ui = nullptr; // the RUNTIME context's subsystem
+        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
         String m_title;
         String m_markup;
         f32 m_previewDelay = 0.0f;
@@ -160,7 +160,7 @@ export namespace draconic::editor
         }
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
 
     private:
         runtime::IApplicationHost* m_host;

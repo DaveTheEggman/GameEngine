@@ -13,9 +13,9 @@ export module draconic.ui:ilist_adapter;
 import draconic.core; // RefPtr
 import :view;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Observer for adapter data changes (ListView implements this).
     class IListAdapterObserver

@@ -16,11 +16,11 @@ import draconic.model;
 import draconic.animation;
 import draconic.animation.resource;
 
-using namespace draconic::core;
-namespace model = draconic::model;
-namespace animation = draconic::animation;
+using namespace foundation::core;
+namespace model = foundation::model;
+namespace animation = foundation::animation;
 
-export namespace draconic::pipeline
+export namespace pipeline
 {
 
     // model bone index -> skeleton joint index (the skin's joint order). -1 for bones not in the skin.
@@ -133,4 +133,4 @@ export namespace draconic::pipeline
         }
     }
 
-} // namespace draconic::pipeline
+} // namespace pipeline

@@ -23,11 +23,11 @@ import draconic.graphics;
 import draconic.runtime;
 import :app;
 
-namespace core = draconic::core;
-using namespace draconic::shell;
-using namespace draconic::graphics;
+namespace core = foundation::core;
+using namespace foundation::shell;
+using namespace foundation::graphics;
 
-export namespace draconic::runtime
+export namespace foundation::runtime
 {
     class EmbeddedApplicationHost final : public IApplicationHost
     {

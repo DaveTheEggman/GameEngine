@@ -12,10 +12,10 @@ import draconic.pipeline.core;
 import draconic.shaders.resource;
 import draconic.shaders.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::vfs;
-using namespace draconic::shaders;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::vfs;
+using namespace foundation::shaders;
 
 namespace
 {
@@ -57,8 +57,8 @@ TEST_CASE("shader editor: cooks a ShaderAsset -> ShaderSource from two .hlsl fil
     NativeFileSystem outMount(u8"draconic_shader_edit_db");
     Guid id;
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"lit", ShaderSource::StaticType());
         id = inst->Id();
 
@@ -68,7 +68,7 @@ TEST_CASE("shader editor: cooks a ShaderAsset -> ShaderSource from two .hlsl fil
         ShaderAssetBuilder builder;
         REQUIRE(builder.AssetType() == &ShaderAsset::StaticType());
         NativeFileSystem srcMount(u8"draconic_shader_edit");
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -76,8 +76,8 @@ TEST_CASE("shader editor: cooks a ShaderAsset -> ShaderSource from two .hlsl fil
 
     // --- verify: read back the cooked ShaderSource ---
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         RefPtr<ISerializable> object = outDb.ReadObject(id);
         ShaderSource* cooked = Cast<ShaderSource>(object.Get());
         REQUIRE(cooked != nullptr);
@@ -95,7 +95,7 @@ TEST_CASE("shader editor: missing source file is an error, not a crash")
     RemoveTree();
 
     NativeFileSystem outMount(u8"draconic_shader_edit_db");
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"missing", ShaderSource::StaticType());
 
@@ -105,7 +105,7 @@ TEST_CASE("shader editor: missing source file is an error, not a crash")
 
     ShaderAssetBuilder builder;
     NativeFileSystem srcMount2(u8"draconic_shader_edit");
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.sources = &srcMount2;
     ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());

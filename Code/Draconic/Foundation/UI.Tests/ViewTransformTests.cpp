@@ -4,8 +4,8 @@
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::ui;
-namespace core = draconic::core;
+using namespace foundation::ui;
+namespace core = foundation::core;
 
 TEST_CASE("view-transform: Default_IsIdentity")
 {

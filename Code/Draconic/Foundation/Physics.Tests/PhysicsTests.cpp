@@ -11,8 +11,8 @@
 import draconic.core;
 import draconic.physics;
 
-using namespace draconic::core;
-using namespace draconic::physics;
+using namespace foundation::core;
+using namespace foundation::physics;
 
 namespace
 {

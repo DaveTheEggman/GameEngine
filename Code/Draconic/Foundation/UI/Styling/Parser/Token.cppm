@@ -10,9 +10,9 @@ export module draconic.ui:sss_token;
 
 import draconic.core; // StringView
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     enum class TokenKind
     {

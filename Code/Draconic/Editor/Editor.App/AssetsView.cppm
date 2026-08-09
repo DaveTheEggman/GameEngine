@@ -37,12 +37,12 @@ import draconic.editor.core;
 import :editor_icons;
 import :import_dialog;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace ui = draconic::ui;
-    namespace content = draconic::content;
+    namespace ui = foundation::ui;
+    namespace content = foundation::content;
 
     class AssetsView final : public ui::ViewGroup
     {
@@ -52,15 +52,15 @@ export namespace draconic::editor::app
         Function<void(content::Instance&)> OnOpenInstance;
         /// Create an asset via a registry creator (wired by the application - it also opens it).
         /// `group` = the group the menu was invoked for (creations land there).
-        Function<void(const draconic::editor::EditorContext::AssetCreator&, content::Group*)>
+        Function<void(const editor::EditorContext::AssetCreator&, content::Group*)>
             OnCreate;
         /// Close any open editor page for this instance BEFORE it is deleted (wired by the
         /// application; called from a mutation-queue action, so synchronous teardown is safe).
         Function<void(const Guid&)> OnCloseInstancePage;
 
-        AssetsView(draconic::editor::EditorContext& context,
-                   draconic::editor::EditorCookService& cook,
-                   draconic::editor::EditorJobService* jobs = nullptr)
+        AssetsView(editor::EditorContext& context,
+                   editor::EditorCookService& cook,
+                   editor::EditorJobService* jobs = nullptr)
             : m_context(&context), m_cook(&cook), m_jobs(jobs)
         {
             auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
@@ -241,16 +241,16 @@ export namespace draconic::editor::app
         /// Runs the import (post-dialog). Slow importers (models) split: the parse/decode
         /// runs on the JOB worker so the UI stays live (with the status-bar progress), and
         /// only the fast DB fan-out lands back on the main thread in CommitImport.
-        void ExecuteImport(String path, draconic::editor::IFileImporter* importer,
-                           RefPtr<draconic::editor::ImportOptions> options);
+        void ExecuteImport(String path, editor::IFileImporter* importer,
+                           RefPtr<editor::ImportOptions> options);
 
         /// The main-thread tail: DB fan-out (+ the build-lock re-check, so a cook that
         /// started while the dialog/worker was busy still queues instead of racing).
-        void CommitImport(String path, draconic::editor::IFileImporter* importer,
-                          RefPtr<draconic::editor::ImportOptions> options, RefPtr<Object> prepared);
+        void CommitImport(String path, editor::IFileImporter* importer,
+                          RefPtr<editor::ImportOptions> options, RefPtr<Object> prepared);
 
-        void FinishImport(content::Instance& primary, draconic::editor::IFileImporter* importer,
-                          const RefPtr<draconic::editor::ImportOptions>& options);
+        void FinishImport(content::Instance& primary, editor::IFileImporter* importer,
+                          const RefPtr<editor::ImportOptions>& options);
 
         /// Full rebuild: group tree + list (project open/close, create/delete/import).
         void Rebuild();
@@ -493,7 +493,7 @@ export namespace draconic::editor::app
                 iconRow->AddView(iconView.Get());
                 auto name = MakeRef<NameLabel>(DefaultAllocator());
                 name->FontSize.SetValue(12.0f);
-                name->HAlign.SetValue(draconic::fonts::TextAlignment::Center);
+                name->HAlign.SetValue(foundation::fonts::TextAlignment::Center);
                 name->Ellipsis.SetValue(
                     true); // long asset names truncate with "..." instead of overflowing the tile
                 ConfigureNameLabel(*name, *m_owner);
@@ -668,9 +668,9 @@ export namespace draconic::editor::app
 
         [[nodiscard]] content::Instance* Resolve(const Guid& id);
 
-        draconic::editor::EditorContext* m_context;  // borrowed
-        draconic::editor::EditorCookService* m_cook; // borrowed (app-owned)
-        draconic::editor::EditorJobService* m_jobs = nullptr;
+        editor::EditorContext* m_context;  // borrowed
+        editor::EditorCookService* m_cook; // borrowed (app-owned)
+        editor::EditorJobService* m_jobs = nullptr;
         RefPtr<ui::TreeView> m_tree;
         RefPtr<ui::ListView> m_list;
         RefPtr<ui::GridView> m_grid;

@@ -16,9 +16,9 @@ module draconic.materials.resource;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::materials
+namespace foundation::materials
 {
     DRACONIC_REFLECT(MaterialSource, "rtti::materials")
     {

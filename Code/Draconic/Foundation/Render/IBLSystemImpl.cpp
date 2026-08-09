@@ -30,10 +30,12 @@ import draconic.shaders;
 import draconic.shaders.system;
 import :data;        // SkySnapshot / SkyMode / ExtractedScene (context identity)
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-namespace draconic::render
+namespace foundation::render
 {
     Status IBLSystem::Initialize()
     {

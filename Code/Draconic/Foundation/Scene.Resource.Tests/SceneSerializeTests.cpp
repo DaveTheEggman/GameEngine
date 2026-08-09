@@ -10,8 +10,8 @@ import draconic.scene;
 import draconic.scene.resource;
 import draconic.xml.serialization;
 
-using namespace draconic::core;
-using namespace draconic::scene;
+using namespace foundation::core;
+using namespace foundation::scene;
 
 namespace
 {
@@ -19,7 +19,7 @@ namespace
     {
         f32 value = 100.0f;
     };
-    void Serialize(ISerializer& ar, Health& h) { draconic::core::Serialize(ar, "value", h.value); }
+    void Serialize(ISerializer& ar, Health& h) { foundation::core::Serialize(ar, "value", h.value); }
 
     class HealthManager : public SerializableComponentManager<Health>
     {
@@ -276,7 +276,7 @@ namespace
     void Serialize(ISerializer& ar, Turret& t)
     {
         t.seenVersion = ar.Version(); // record what the scope exposes (test probe)
-        draconic::core::Serialize(ar, "range", t.range);
+        foundation::core::Serialize(ar, "range", t.range);
     }
     class TurretManager : public SerializableComponentManager<Turret>
     {
@@ -345,8 +345,8 @@ namespace
         [[nodiscard]] StringView SettingsId() const noexcept override { return u8"fog"; }
         void SerializeSettings(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "density", settings.density);
-            draconic::core::Serialize(ar, "tint", settings.tint);
+            foundation::core::Serialize(ar, "density", settings.density);
+            foundation::core::Serialize(ar, "tint", settings.tint);
         }
         FogSettings settings;
     };
@@ -1537,9 +1537,9 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     health->Get(wheel)->value = 77.0f; // an override that must survive every hop
 
     // Hop 1: XML text.
-    draconic::xml::XmlSerializer xmlOut;
+    foundation::xml::XmlSerializer xmlOut;
     SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
-                   draconic::scene::detail::SceneStreamEncoding::Text);
+                   foundation::scene::detail::SceneStreamEncoding::Text);
     REQUIRE(xmlOut.IsOk());
     String text1;
     xmlOut.GetOutput(text1);
@@ -1572,10 +1572,10 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     (void)textStream.Write(reinterpret_cast<const byte*>(text1.CStr()), text1.Size());
     (void)textStream.Seek(0, SeekOrigin::Begin);
     {
-        draconic::scene::detail::SceneStreamReader reader;
+        foundation::scene::detail::SceneStreamReader reader;
         Serializer* ar = reader.Open(textStream);
         REQUIRE(ar != nullptr);
-        REQUIRE(reader.Encoding() == draconic::scene::detail::SceneStreamEncoding::Text);
+        REQUIRE(reader.Encoding() == foundation::scene::detail::SceneStreamEncoding::Text);
         SerializeScene(*ar, loaded, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
         REQUIRE(ar->IsOk());
     }
@@ -1586,17 +1586,17 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     {
         BinarySerializer ar(binary, SerializeMode::Write);
         SerializeScene(ar, loaded, nullptr, ScenePrefabMode::Referenced, true,
-                       draconic::scene::detail::SceneStreamEncoding::Binary);
+                       foundation::scene::detail::SceneStreamEncoding::Binary);
         REQUIRE(ar.IsOk());
     }
     (void)binary.Seek(0, SeekOrigin::Begin);
     Scene last(u8"last");
     HealthManager* lastHealth = last.AddSystem<HealthManager>();
     {
-        draconic::scene::detail::SceneStreamReader reader;
+        foundation::scene::detail::SceneStreamReader reader;
         Serializer* ar = reader.Open(binary);
         REQUIRE(ar != nullptr);
-        REQUIRE(reader.Encoding() == draconic::scene::detail::SceneStreamEncoding::Binary);
+        REQUIRE(reader.Encoding() == foundation::scene::detail::SceneStreamEncoding::Binary);
         SerializeScene(*ar, last, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
     }
     ResolveScenePrefabs(last, resolver);
@@ -1616,9 +1616,9 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
 
     // Stability: re-saving the loaded scene as XML reproduces the SAME text - saves can
     // never generate noise diffs.
-    draconic::xml::XmlSerializer xmlAgain;
+    foundation::xml::XmlSerializer xmlAgain;
     SerializeScene(xmlAgain, loaded, nullptr, ScenePrefabMode::Referenced, true,
-                   draconic::scene::detail::SceneStreamEncoding::Text);
+                   foundation::scene::detail::SceneStreamEncoding::Text);
     String text2;
     xmlAgain.GetOutput(text2);
     CHECK(text1 == text2);
@@ -1633,9 +1633,9 @@ TEST_CASE("text scenes: unknown component types SKIP; later records still load")
     health->Add(a).value = 1.0f;
     health->Add(b).value = 2.0f;
 
-    draconic::xml::XmlSerializer xmlOut;
+    foundation::xml::XmlSerializer xmlOut;
     SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
-                   draconic::scene::detail::SceneStreamEncoding::Text);
+                   foundation::scene::detail::SceneStreamEncoding::Text);
     String text;
     xmlOut.GetOutput(text);
 
@@ -1662,7 +1662,7 @@ TEST_CASE("text scenes: unknown component types SKIP; later records still load")
     MemoryStream stream;
     (void)stream.Write(reinterpret_cast<const byte*>(mutated.CStr()), mutated.Size());
     (void)stream.Seek(0, SeekOrigin::Begin);
-    draconic::scene::detail::SceneStreamReader reader;
+    foundation::scene::detail::SceneStreamReader reader;
     Serializer* ar = reader.Open(stream);
     REQUIRE(ar != nullptr);
     SerializeScene(*ar, loaded, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
@@ -1691,9 +1691,9 @@ TEST_CASE("text scenes: transcode to binary preserves parked prefab pendings")
     EntityHandle wheel = SpawnPrefab(scene, innerStream, innerId);
     REQUIRE(wheel.IsAssigned());
     health->Get(wheel)->value = 55.0f;
-    draconic::xml::XmlSerializer xmlOut;
+    foundation::xml::XmlSerializer xmlOut;
     SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
-                   draconic::scene::detail::SceneStreamEncoding::Text);
+                   foundation::scene::detail::SceneStreamEncoding::Text);
     String text;
     xmlOut.GetOutput(text);
 
@@ -1715,7 +1715,7 @@ TEST_CASE("text scenes: transcode to binary preserves parked prefab pendings")
     MemoryStream binStream;
     (void)binStream.Write(binary.Value().Data(), binary.Value().Size());
     (void)binStream.Seek(0, SeekOrigin::Begin);
-    draconic::scene::detail::SceneStreamReader reader;
+    foundation::scene::detail::SceneStreamReader reader;
     Serializer* ar = reader.Open(binStream);
     REQUIRE(ar != nullptr);
     SerializeScene(*ar, player, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
@@ -1837,9 +1837,9 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
 
     // --- 1) a fresh save uses the proper forms: full transform names + canonical guids ---
     {
-        draconic::xml::XmlSerializer xmlOut;
+        foundation::xml::XmlSerializer xmlOut;
         SerializeScene(xmlOut, author, nullptr, ScenePrefabMode::Referenced, true,
-                       draconic::scene::detail::SceneStreamEncoding::Text);
+                       foundation::scene::detail::SceneStreamEncoding::Text);
         REQUIRE(xmlOut.IsOk());
         String text;
         xmlOut.GetOutput(text);
@@ -1857,19 +1857,19 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
 
     // --- 2) a legacy v2 XML stream (hi/lo guid fields, pos/rot/scl keys) still loads ---
     // Replicates the exact wire shapes the v2 writer produced.
-    draconic::xml::XmlSerializer legacyOut;
+    foundation::xml::XmlSerializer legacyOut;
     auto legacyGuid = [](ISerializer& ar, const char* key, Guid g)
     {
         ar.Key(key);
-        draconic::core::Serialize(ar, "hi", g.high);
-        draconic::core::Serialize(ar, "lo", g.low);
+        foundation::core::Serialize(ar, "hi", g.high);
+        foundation::core::Serialize(ar, "lo", g.low);
     };
-    u32 magic = draconic::scene::detail::kSceneStreamMagic;
+    u32 magic = foundation::scene::detail::kSceneStreamMagic;
     u32 version = 2;
-    draconic::core::Serialize(legacyOut, "magic", magic);
-    draconic::core::Serialize(legacyOut, "version", version);
+    foundation::core::Serialize(legacyOut, "magic", magic);
+    foundation::core::Serialize(legacyOut, "version", version);
     String sceneName(u8"legacy");
-    draconic::core::Serialize(legacyOut, "name", sceneName);
+    foundation::core::Serialize(legacyOut, "name", sceneName);
     legacyOut.Key("entities");
     u32 entityCount = 2;
     legacyOut.BeginArray(entityCount);
@@ -1883,12 +1883,12 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
         Guid parentId = p.IsAssigned() ? author.GetEntityId(p) : Guid{};
         Transform lt = author.GetLocalTransform(e);
         legacyGuid(legacyOut, "id", id);
-        draconic::core::Serialize(legacyOut, "name", ename);
-        draconic::core::Serialize(legacyOut, "active", active);
+        foundation::core::Serialize(legacyOut, "name", ename);
+        foundation::core::Serialize(legacyOut, "active", active);
         legacyGuid(legacyOut, "parent", parentId);
-        draconic::core::Serialize(legacyOut, "pos", lt.position);
-        draconic::core::Serialize(legacyOut, "rot", lt.rotation);
-        draconic::core::Serialize(legacyOut, "scl", lt.scale);
+        foundation::core::Serialize(legacyOut, "pos", lt.position);
+        foundation::core::Serialize(legacyOut, "rot", lt.rotation);
+        foundation::core::Serialize(legacyOut, "scl", lt.scale);
     }
     legacyOut.EndArray();
     legacyOut.Key("components");
@@ -1899,7 +1899,7 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
         Guid ownerId = author.GetEntityId(hero);
         legacyGuid(legacyOut, "owner", ownerId);
         String typeId(u8"demo.Health");
-        draconic::core::Serialize(legacyOut, "type", typeId);
+        foundation::core::Serialize(legacyOut, "type", typeId);
         legacyOut.Key("data");
         legacyOut.BeginObject();
         health->WriteComponent(legacyOut, hero);
@@ -1911,8 +1911,8 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
     u32 settingsCount = 0;
     legacyOut.BeginArray(settingsCount);
     legacyOut.EndArray();
-    u8 mode = draconic::scene::detail::kPrefabWireReferenced3;
-    draconic::core::Serialize(legacyOut, "prefabMode", mode);
+    u8 mode = foundation::scene::detail::kPrefabWireReferenced3;
+    foundation::core::Serialize(legacyOut, "prefabMode", mode);
     legacyOut.Key("prefabInstances");
     u32 instanceCount = 0;
     legacyOut.BeginArray(instanceCount);
@@ -1927,10 +1927,10 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
 
     Scene loaded(u8"loaded");
     HealthManager* loadedHealth = loaded.AddSystem<HealthManager>();
-    draconic::scene::detail::SceneStreamReader reader;
+    foundation::scene::detail::SceneStreamReader reader;
     Serializer* ar = reader.Open(stream);
     REQUIRE(ar != nullptr);
-    REQUIRE(reader.Encoding() == draconic::scene::detail::SceneStreamEncoding::Text);
+    REQUIRE(reader.Encoding() == foundation::scene::detail::SceneStreamEncoding::Text);
     SerializeScene(*ar, loaded, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
     REQUIRE(ar->IsOk());
 

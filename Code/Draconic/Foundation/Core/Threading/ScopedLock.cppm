@@ -7,7 +7,7 @@ module;
 
 export module draconic.core:scoped_lock;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     template <typename Lockable>
     class ScopedLock

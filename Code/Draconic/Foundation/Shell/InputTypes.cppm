@@ -12,9 +12,9 @@ export module draconic.shell:input_types;
 
 import draconic.core;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::shell
+export namespace foundation::shell
 {
     // ---- Keyboard ---------------------------------------------------------
 

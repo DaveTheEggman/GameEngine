@@ -7,8 +7,8 @@
 import draconic.core;
 import draconic.scene;
 
-using namespace draconic::core;
-using namespace draconic::scene;
+using namespace foundation::core;
+using namespace foundation::scene;
 
 namespace
 {

@@ -25,12 +25,12 @@ import :model_index;
 import :model;
 import :abstract_item_view;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
+namespace vg = foundation::vg;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // A clickable expand/collapse arrow: points right when collapsed, down when expanded.
     class TreeArrow : public UIWidget

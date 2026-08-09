@@ -17,9 +17,10 @@ export module draconic.ui.toolkit:node_graph_types;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Direction of a port on a node.
     enum class PortDirection : u8

@@ -14,10 +14,10 @@ module draconic.physics.pipeline;
 import draconic.core;
 import draconic.pipeline.core;
 
-using namespace draconic::core;
-using namespace draconic::physics;
+using namespace foundation::core;
+using namespace foundation::physics;
 
-namespace draconic::pipeline{
+namespace pipeline{
     DRACONIC_REFLECT_ENUM(CollisionCookKind, "rtti::editor::physics")
     {
         builder.Value("ConvexHull", CollisionCookKind::ConvexHull);

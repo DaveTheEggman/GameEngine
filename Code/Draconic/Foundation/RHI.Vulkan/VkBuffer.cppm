@@ -13,9 +13,9 @@ import draconic.rhi;
 import :adapter;
 import :conversions;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkDeviceImpl; // forward
@@ -120,4 +120,4 @@ export namespace draconic::rhi::vk
         void* m_mappedPtr = nullptr;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

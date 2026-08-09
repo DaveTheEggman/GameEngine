@@ -1,7 +1,7 @@
 // Draconic::FontsEditor - the `draconic.fonts.editor` module (tooling).
 //
 // Source-side font authoring + cook (the editor tier of the fonts triad):
-//   * FontAsset (draconic::pipeline::Asset): references a TTF/OTF/TTC file in Sources/ + the bake
+//   * FontAsset (pipeline::Asset): references a TTF/OTF/TTC file in Sources/ + the bake
 //     intent - atlas mode (raster size ramp or one MSDF bake), pixel sizes, codepoint
 //     range, atlas dimensions, and the runtime family name.
 //   * FontAssetBuilder (DefaultAssetBuilder): cooks a FontAsset into a runtime
@@ -33,11 +33,11 @@ import draconic.fonts.distancefield.baker;
 import draconic.fonts.resource;
 import draconic.content;
 
-using namespace draconic::core;
-using namespace draconic::fonts;
+using namespace foundation::core;
+using namespace foundation::fonts;
 
-export namespace draconic::pipeline{
-    namespace content = draconic::content;
+export namespace pipeline{
+    namespace content = foundation::content;
 
     // How the asset bakes: a ramp of coverage rasterizations (one atlas per size), or a
     // single MSDF atlas (size-independent sampling once the UI's DF path is on).
@@ -48,9 +48,9 @@ export namespace draconic::pipeline{
     };
 
     // Source asset: a font file + how it should become a cooked FontResource.
-    class FontAsset final : public draconic::pipeline::Asset
+    class FontAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(FontAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(FontAsset, pipeline::Asset)
     public:
         String family;      // runtime family name ("" = the file's own family at cook)
         FontBakeMode mode = FontBakeMode::RasterRamp;
@@ -77,22 +77,22 @@ export namespace draconic::pipeline{
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName
-            draconic::core::Serialize(ar, "family", family);
+            pipeline::Asset::Serialize(ar); // fileName
+            foundation::core::Serialize(ar, "family", family);
             u32 bakeMode = static_cast<u32>(mode);
-            draconic::core::Serialize(ar, "mode", bakeMode);
+            foundation::core::Serialize(ar, "mode", bakeMode);
             mode = static_cast<FontBakeMode>(bakeMode);
-            draconic::core::Serialize(ar, "sizes", sizes);
-            draconic::core::Serialize(ar, "dfSize", dfSize);
-            draconic::core::Serialize(ar, "firstCodepoint", firstCodepoint);
-            draconic::core::Serialize(ar, "lastCodepoint", lastCodepoint);
-            draconic::core::Serialize(ar, "atlasWidth", atlasWidth);
-            draconic::core::Serialize(ar, "atlasHeight", atlasHeight);
+            foundation::core::Serialize(ar, "sizes", sizes);
+            foundation::core::Serialize(ar, "dfSize", dfSize);
+            foundation::core::Serialize(ar, "firstCodepoint", firstCodepoint);
+            foundation::core::Serialize(ar, "lastCodepoint", lastCodepoint);
+            foundation::core::Serialize(ar, "atlasWidth", atlasWidth);
+            foundation::core::Serialize(ar, "atlasHeight", atlasHeight);
         }
     };
 
     // Cooks a FontAsset into a FontResource (record entries + concatenated "data" pixels).
-    class FontAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class FontAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -104,8 +104,8 @@ export namespace draconic::pipeline{
             return &FontResource::StaticType();
         }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const FontAsset& fa = static_cast<const FontAsset&>(asset); // guarded by AssetType()
             if (ctx.output == nullptr || fa.fileName.IsEmpty())
@@ -338,7 +338,7 @@ export namespace draconic::pipeline{
     };
 
     // Claims dropped .ttf/.otf/.ttc files: copy into Sources/, create the FontAsset.
-    class FontAssetImporter final : public draconic::editor::IFileImporter
+    class FontAssetImporter final : public editor::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"Font"; }
@@ -349,23 +349,23 @@ export namespace draconic::pipeline{
         }
 
         [[nodiscard]] Result<content::Instance*>
-        Import(StringView sourcePath, draconic::editor::EditorProject& project,
-               content::Group& group, const draconic::editor::ImportOptions*, Object*,
-               Array<draconic::editor::DeferredImportWrite>*) override
+        Import(StringView sourcePath, editor::EditorProject& project,
+               content::Group& group, const editor::ImportOptions*, Object*,
+               Array<editor::DeferredImportWrite>*) override
         {
-            Result<String> fileName = draconic::editor::CopyIntoSources(project, sourcePath);
+            Result<String> fileName = editor::CopyIntoSources(project, sourcePath);
             if (!fileName.HasValue())
             {
                 return Err(fileName.Error());
             }
-            const StringView stem = draconic::editor::FileStemOf(fileName.Value().AsView());
+            const StringView stem = editor::FileStemOf(fileName.Value().AsView());
             content::Instance* instance = group.CreateInstance(stem, FontAsset::StaticType());
             if (instance == nullptr)
             {
                 return Err(ErrorCode::Unknown);
             }
             FontAsset asset;
-            asset.fileName = draconic::vfs::SourcePath(fileName.Value().AsView());
+            asset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
             asset.family = String(stem); // sensible default; cook falls back to the file's name
             const Status written = instance->WriteObject(asset);
             if (!written.IsOk())

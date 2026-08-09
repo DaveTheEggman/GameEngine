@@ -14,9 +14,9 @@ export module draconic.fonts.io:interfaces;
 import draconic.core;
 import draconic.fonts;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     // Parses a source-format font (TTF, OTF, ...) into a queryable IFont. The
     // returned font is heap-allocated; the caller takes ownership.

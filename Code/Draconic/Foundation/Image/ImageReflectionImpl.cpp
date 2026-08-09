@@ -12,9 +12,9 @@ module draconic.image;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::image
+namespace foundation::image
 {
     DRACONIC_REFLECT_ENUM(ImageColorSpace, "rtti::image")
     {

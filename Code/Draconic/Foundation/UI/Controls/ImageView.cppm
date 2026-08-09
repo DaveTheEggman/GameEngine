@@ -18,11 +18,11 @@ import :property;
 import :box_constraints;
 import :draw_context;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace image = draconic::image;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace image = foundation::image;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// How an ImageView scales its source to fit its bounds.
     enum class ScaleType
@@ -37,7 +37,7 @@ export namespace draconic::ui
     {
         DRACONIC_OBJECT(ImageView, View)
     public:
-        Property<::draconic::ui::ScaleType> ScaleType{::draconic::ui::ScaleType::FitCenter};
+        Property<::foundation::ui::ScaleType> ScaleType{::foundation::ui::ScaleType::FitCenter};
         Property<core::Color> Tint{core::Color::White};
 
         ImageView()
@@ -83,13 +83,13 @@ export namespace draconic::ui
 
             switch (ScaleType.Value())
             {
-            case ::draconic::ui::ScaleType::None:
+            case ::foundation::ui::ScaleType::None:
                 ctx.VG().DrawImage(m_image, Rectangle{0, 0, iw, ih}, srcRect, Tint.Value());
                 break;
-            case ::draconic::ui::ScaleType::FillBounds:
+            case ::foundation::ui::ScaleType::FillBounds:
                 ctx.VG().DrawImage(m_image, dstRect, srcRect, Tint.Value());
                 break;
-            case ::draconic::ui::ScaleType::FitCenter:
+            case ::foundation::ui::ScaleType::FitCenter:
             {
                 const f32 scale = Min(Width() / iw, Height() / ih);
                 const f32 fitW = iw * scale, fitH = ih * scale;
@@ -99,7 +99,7 @@ export namespace draconic::ui
                     srcRect, Tint.Value());
                 break;
             }
-            case ::draconic::ui::ScaleType::CenterCrop:
+            case ::foundation::ui::ScaleType::CenterCrop:
             {
                 const f32 scale = Max(Width() / iw, Height() / ih);
                 const f32 cropW = Width() / scale, cropH = Height() / scale;

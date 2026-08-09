@@ -19,10 +19,11 @@ import draconic.rhi;
 import draconic.shaders;
 import :types;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::materials
+export namespace foundation::materials
 {
 
     // Full render-state for a material. Content-hashable PSO-cache key.
@@ -291,4 +292,4 @@ export namespace draconic::materials
         static constexpr VA kInstanceOffsets[1] = {{VF::Uint32x4, 0, 5}};
     };
 
-} // namespace draconic::materials
+} // namespace foundation::materials

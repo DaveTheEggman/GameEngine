@@ -13,10 +13,11 @@ import draconic.xml.serialization;
 import draconic.engine.project;
 import draconic.editor.core;
 
-using namespace draconic::core;
-using namespace draconic::editor;
-namespace settings = draconic::settings;
-namespace project = draconic::engine::project;
+using namespace foundation::core;
+using namespace editor;
+namespace vfs = foundation::vfs;
+namespace settings = foundation::settings;
+namespace project = engine::project;
 
 namespace
 {
@@ -113,7 +114,7 @@ TEST_CASE("project-registry: probe reads the manifest without opening; NotFound 
     const StringView dir = u8"draconic_registry_probe_test";
     RemoveProjectTree(dir);
 
-    draconic::engine::project::ProjectSettings probed;
+    engine::project::ProjectSettings probed;
     CHECK(ProbeProject(dir, probed).Code() == ErrorCode::NotFound); // no dir at all
 
     REQUIRE(EditorProject::Create(dir, u8"Probe Me").IsOk());
@@ -162,7 +163,7 @@ TEST_CASE("project-registry: manifest backup copies Project.xml beside itself")
     REQUIRE(backup.HasValue());
     CHECK(FileExists(backup.Value().AsView()));
     // The original manifest is untouched and still probes.
-    draconic::engine::project::ProjectSettings probed;
+    engine::project::ProjectSettings probed;
     CHECK(ProbeProject(dir, probed).IsOk());
 
     FileDelete(backup.Value().AsView());
@@ -281,16 +282,16 @@ TEST_CASE("editor.settings: a store with EVERY section round-trips (registry sur
 {
     RegisterEditorSettingsTypes();
     RegisterProjectRegistryTypes();
-    draconic::settings::Settings store;
+    foundation::settings::Settings store;
     store.Section<EditorUiSettings>().uiScale = 1.2f;
     TouchRecentProject(store, u8"/proj/a", u8"A", u8"0.1.0");
 
     MemoryStream buffer;
-    REQUIRE(store.Save(buffer, draconic::xml::XmlSerializerFactory()).IsOk());
+    REQUIRE(store.Save(buffer, foundation::xml::XmlSerializerFactory()).IsOk());
     (void)buffer.Seek(0, SeekOrigin::Begin);
 
-    draconic::settings::Settings loaded;
-    REQUIRE(loaded.Load(buffer, draconic::xml::XmlSerializerFactory()).IsOk());
+    foundation::settings::Settings loaded;
+    REQUIRE(loaded.Load(buffer, foundation::xml::XmlSerializerFactory()).IsOk());
     const RecentProjectsSettings* reg = loaded.Find<RecentProjectsSettings>();
     REQUIRE(reg != nullptr);
     REQUIRE(reg->entries.Size() == 1u);

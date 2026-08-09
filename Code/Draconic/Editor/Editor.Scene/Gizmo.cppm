@@ -36,13 +36,15 @@ import draconic.scene;
 import draconic.render;
 import draconic.editor.core;
 import :edit;
+import draconic.materials;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace scene = draconic::scene;
-    namespace render = draconic::render;
+    namespace scene = foundation::scene;
+    namespace render = foundation::render;
 
     enum class GizmoMode : u8
     {

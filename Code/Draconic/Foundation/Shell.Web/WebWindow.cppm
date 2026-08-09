@@ -14,9 +14,9 @@ export module draconic.shell.web:window;
 import draconic.core;
 import draconic.shell;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::shell
+export namespace foundation::shell
 {
     class WebWindow final : public IWindow
     {

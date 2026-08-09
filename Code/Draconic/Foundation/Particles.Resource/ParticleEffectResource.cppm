@@ -20,12 +20,13 @@ import draconic.resource;
 import draconic.texture;
 import draconic.texture.resource;
 
-using namespace draconic::core;
-namespace content = draconic::content;
-namespace resource = draconic::resource;
-namespace texture = draconic::texture;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace content = foundation::content;
+namespace resource = foundation::resource;
+namespace texture = foundation::texture;
 
-export namespace draconic::particles
+export namespace foundation::particles
 {
     // ---- Effect serializer (bidirectional; ported from Sedulous ParticleEffectSerializer) --------
 
@@ -195,7 +196,7 @@ export namespace draconic::particles
     }
 }
 
-export namespace draconic::particles
+export namespace foundation::particles
 {
     // ---- Cooked resource ---------------------------------------------------------------------
     // Both the cooked record AND the runtime product (no GPU transform needed): holds a template

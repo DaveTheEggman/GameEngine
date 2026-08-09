@@ -28,9 +28,9 @@ module draconic.audio;
 import draconic.core;
 import draconic.vfs;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::audio
+namespace foundation::audio
 {
     namespace
     {

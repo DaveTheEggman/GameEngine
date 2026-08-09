@@ -19,10 +19,10 @@ import :types;
 import :material;
 import :instance;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::materials
+export namespace foundation::materials
 {
 
     class MaterialSystem final : public IMaterialInstanceSink
@@ -652,4 +652,4 @@ export namespace draconic::materials
         Array<MaterialInstance*> m_dirty;
     };
 
-} // namespace draconic::materials
+} // namespace foundation::materials

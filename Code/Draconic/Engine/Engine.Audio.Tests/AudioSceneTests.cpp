@@ -21,10 +21,10 @@ import draconic.resource;
 import draconic.script;
 import draconic.script.wren;
 
-using namespace draconic::core;
-using namespace draconic::engine::audio;
-using namespace draconic::audio;
-namespace scene = draconic::scene;
+using namespace foundation::core;
+using namespace engine::audio;
+using namespace foundation::audio;
+namespace scene = foundation::scene;
 
 namespace
 {
@@ -450,9 +450,9 @@ TEST_CASE("audio.scene: the Wren Audio facade plays clips/cues/music by CONTENT 
     FileDelete(u8"draconic_audio_scriptdb/sfx/steps.rasset");
     RemoveDirectory(u8"draconic_audio_scriptdb/sfx");
     RemoveDirectory(dir);
-    draconic::vfs::NativeFileSystem mount(dir);
-    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
-    draconic::content::Group* sfx = db.RootGroup()->CreateGroup(u8"sfx");
+    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::Group* sfx = db.RootGroup()->CreateGroup(u8"sfx");
     REQUIRE(sfx != nullptr);
 
     RefPtr<AudioClip> tone = MakeToneClip(0.5f);
@@ -479,7 +479,7 @@ TEST_CASE("audio.scene: the Wren Audio facade plays clips/cues/music by CONTENT 
 
     AudioClipFactory clipFactory;
     SoundCueFactory cueFactory;
-    draconic::resource::ResourceManager manager(db);
+    foundation::resource::ResourceManager manager(db);
     manager.AddFactory(&clipFactory);
     manager.AddFactory(&cueFactory);
 
@@ -491,10 +491,10 @@ TEST_CASE("audio.scene: the Wren Audio facade plays clips/cues/music by CONTENT 
     subsystem.Init();
     REQUIRE(subsystem.Engine() != nullptr);
 
-    RefPtr<draconic::script::IScriptManager> scripts =
-        draconic::script::wren::CreateScriptManager();
-    draconic::script::RegisterReflectedTypes(*scripts);
-    RefPtr<draconic::script::IScriptContext> ctx = scripts->CreateContext();
+    RefPtr<foundation::script::IScriptManager> scripts =
+        foundation::script::wren::CreateScriptManager();
+    foundation::script::RegisterReflectedTypes(*scripts);
+    RefPtr<foundation::script::IScriptContext> ctx = scripts->CreateContext();
     REQUIRE(ctx.Get() != nullptr);
     subsystem.ExposeToScript(*ctx, &manager);
 
@@ -518,7 +518,7 @@ TEST_CASE("audio.scene: the Wren Audio facade plays clips/cues/music by CONTENT 
     CHECK(music.bus == AudioBus::Music);
 
     // No binding bound: playback calls report false, never a fault.
-    RefPtr<draconic::script::IScriptContext> bare = scripts->CreateContext();
+    RefPtr<foundation::script::IScriptContext> bare = scripts->CreateContext();
     REQUIRE(bare->Load(u8"var Played = Audio.playOneShot(\"sfx/beep\")\n", u8"main").IsOk());
     CHECK_FALSE(bare->GetGlobal(u8"Played").Get<bool>());
 
@@ -540,13 +540,13 @@ TEST_CASE("audio.settings: user volumes capture -> store round-trip -> apply")
     engine.SetBusVolume(AudioBus::Music, 0.25f);
     engine.SetBusMuted(AudioBus::Effects, true);
 
-    draconic::settings::Settings store;
+    foundation::settings::Settings store;
     CaptureAudioUserSettings(engine, store.Section<AudioUserSettings>());
 
     MemoryStream buffer;
     REQUIRE(store.Save(buffer, BinarySerializerFactory()).IsOk());
     (void)buffer.Seek(0, SeekOrigin::Begin);
-    draconic::settings::Settings loaded;
+    foundation::settings::Settings loaded;
     REQUIRE(loaded.Load(buffer, BinarySerializerFactory()).IsOk());
     const AudioUserSettings* user = loaded.Find<AudioUserSettings>();
     REQUIRE(user != nullptr);

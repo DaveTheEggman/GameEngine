@@ -1,7 +1,7 @@
 // Draconic::MeshEditor - the `draconic.geometry.editor` module (tooling).
 //
 // Source-side mesh authoring + cook:
-//   * StaticMeshAsset / SkinnedMeshAsset (draconic::pipeline::Asset): wrap a cooked
+//   * StaticMeshAsset / SkinnedMeshAsset (pipeline::Asset): wrap a cooked
 //     Static/SkinnedMeshSource. (A real pipeline cooks these from an imported model
 //     via a ModelMesh->StaticMesh converter - the tooling we did not port; the asset
 //     here carries the already-resolved source.)
@@ -24,39 +24,39 @@ import draconic.content;
 import draconic.geometry;
 import draconic.geometry.resource;
 
-using namespace draconic::core;
-using namespace draconic::geometry;
+using namespace foundation::core;
+using namespace foundation::geometry;
 
-export namespace draconic::pipeline{
+export namespace pipeline{
 
-    class StaticMeshAsset final : public draconic::pipeline::Asset
+    class StaticMeshAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(StaticMeshAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(StaticMeshAsset, pipeline::Asset)
     public:
         StaticMeshSource source;
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName (source model note)
+            pipeline::Asset::Serialize(ar); // fileName (source model note)
             source.Serialize(ar);
         }
     };
 
-    class SkinnedMeshAsset final : public draconic::pipeline::Asset
+    class SkinnedMeshAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(SkinnedMeshAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(SkinnedMeshAsset, pipeline::Asset)
     public:
         SkinnedMeshSource source;
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar);
+            pipeline::Asset::Serialize(ar);
             source.Serialize(ar);
         }
     };
 
     // Cooks a StaticMeshAsset -> StaticMeshSource in the output DB.
-    class StaticMeshAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class StaticMeshAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -67,8 +67,8 @@ export namespace draconic::pipeline{
         {
             return &StaticMeshSource::StaticType();
         }
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const StaticMeshAsset& ma = static_cast<const StaticMeshAsset&>(asset);
             if (ctx.output == nullptr)
@@ -81,7 +81,7 @@ export namespace draconic::pipeline{
     };
 
     // Cooks a SkinnedMeshAsset -> SkinnedMeshSource in the output DB.
-    class SkinnedMeshAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class SkinnedMeshAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -92,8 +92,8 @@ export namespace draconic::pipeline{
         {
             return &SkinnedMeshSource::StaticType();
         }
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const SkinnedMeshAsset& ma = static_cast<const SkinnedMeshAsset&>(asset);
             if (ctx.output == nullptr)
@@ -131,4 +131,4 @@ export namespace draconic::pipeline{
     DRACONIC_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "rtti::editor::geometry",
                                      2) // v2 = Float4 tangent vertex blobs
 
-} // namespace draconic::geometry
+} // namespace foundation::geometry

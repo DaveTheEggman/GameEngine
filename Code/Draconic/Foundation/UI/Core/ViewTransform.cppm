@@ -11,10 +11,10 @@ export module draconic.ui:view_transform;
 
 import draconic.core; // Float2
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct ViewTransform
     {

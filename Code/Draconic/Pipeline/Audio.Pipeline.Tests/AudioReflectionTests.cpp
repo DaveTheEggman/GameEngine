@@ -8,8 +8,8 @@
 import draconic.core;
 import draconic.audio.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace pipeline;
 
 namespace
 {
@@ -34,8 +34,8 @@ namespace
 
 TEST_CASE("reflection-p1: AudioClipAsset exposes its authored fields with attributes")
 {
-    draconic::pipeline::RegisterAudioAssets();
-    const TypeInfo& type = draconic::pipeline::AudioClipAsset::StaticType();
+    pipeline::RegisterAudioAssets();
+    const TypeInfo& type = pipeline::AudioClipAsset::StaticType();
 
     CHECK(CEq(type.name, "AudioClipAsset"));
     CHECK(PropertyCount(type) == 9u);
@@ -59,10 +59,10 @@ TEST_CASE("reflection-p1: AudioClipAsset exposes its authored fields with attrib
 
 TEST_CASE("reflection-p1: AudioClipAsset bool/scalar properties round-trip")
 {
-    draconic::pipeline::RegisterAudioAssets();
-    const TypeInfo& type = draconic::pipeline::AudioClipAsset::StaticType();
+    pipeline::RegisterAudioAssets();
+    const TypeInfo& type = pipeline::AudioClipAsset::StaticType();
 
-    draconic::pipeline::AudioClipAsset asset;
+    pipeline::AudioClipAsset asset;
     Instance inst = Instance::From(&asset);
 
     const PropertyInfo* stream = FindProperty(type, "stream");

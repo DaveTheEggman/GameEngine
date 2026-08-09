@@ -18,9 +18,9 @@ export module draconic.scene:events;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::scene
+export namespace foundation::scene
 {
     class EventBus
     {

@@ -7,7 +7,7 @@ export module draconic.core:ring_buffer;
 import :base;
 import :allocator;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // RingBuffer - fixed-capacity circular FIFO. PushBack/PopFront; full pushes

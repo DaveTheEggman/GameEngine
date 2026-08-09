@@ -11,9 +11,9 @@ import draconic.rhi;
 import :validated_fence;
 import :validated_transfer_batch;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     class ValidatedQueue : public Queue
@@ -110,4 +110,4 @@ export namespace draconic::rhi::validation
         IAllocator& m_allocator;
     };
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

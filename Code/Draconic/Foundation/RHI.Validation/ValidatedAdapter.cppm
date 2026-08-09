@@ -9,9 +9,9 @@ export module draconic.rhi.validation:validated_adapter;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     class ValidatedDevice;
@@ -35,4 +35,4 @@ export namespace draconic::rhi::validation
         IAllocator& m_allocator;
     };
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

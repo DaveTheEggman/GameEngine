@@ -18,9 +18,9 @@ export module draconic.vfs:native_filesystem;
 import draconic.core;
 import :ifilesystem;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vfs
+export namespace foundation::vfs
 {
     // =======================================================================
     // NativeFileSystem - backs logical paths with a real directory prefix.

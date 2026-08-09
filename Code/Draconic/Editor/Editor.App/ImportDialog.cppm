@@ -19,11 +19,11 @@ import draconic.core;
 import draconic.ui;
 import draconic.editor.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace ui = draconic::ui;
+    namespace ui = foundation::ui;
 
     class ImportOptionsDialog final : public ui::Dialog
     {
@@ -33,7 +33,7 @@ export namespace draconic::editor::app
         Function<void()> OnImport;
 
         ImportOptionsDialog(StringView sourcePath, StringView destination,
-                            RefPtr<draconic::editor::ImportOptions> options)
+                            RefPtr<editor::ImportOptions> options)
             : ui::Dialog(u8"Import"), m_options(Move(options))
         {
             MaxWidth.SetValue(480.0f);
@@ -43,12 +43,12 @@ export namespace draconic::editor::app
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6.0f;
 
-            AddInfoRow(*column, u8"Source:", draconic::editor::FileNameOf(sourcePath));
+            AddInfoRow(*column, u8"Source:", editor::FileNameOf(sourcePath));
             AddInfoRow(*column, u8"Into:", destination);
 
             if (m_options.Get() != nullptr)
             {
-                for (const draconic::editor::ImportOptions::Toggle& toggle : m_options->Toggles())
+                for (const editor::ImportOptions::Toggle& toggle : m_options->Toggles())
                 {
                     if (toggle.value == nullptr)
                     {
@@ -87,7 +87,7 @@ export namespace draconic::editor::app
             AddButton(u8"Cancel", ui::DialogResult::Cancel);
         }
 
-        [[nodiscard]] draconic::editor::ImportOptions* Options() const noexcept
+        [[nodiscard]] editor::ImportOptions* Options() const noexcept
         {
             return m_options.Get();
         }
@@ -122,7 +122,7 @@ export namespace draconic::editor::app
             column.AddView(row.Get(), lp);
         }
 
-        RefPtr<draconic::editor::ImportOptions> m_options;
+        RefPtr<editor::ImportOptions> m_options;
     };
 
     DRACONIC_DEFINE_OBJECT(ImportOptionsDialog, "rtti::editor::editor::app")

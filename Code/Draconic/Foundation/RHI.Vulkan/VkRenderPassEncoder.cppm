@@ -20,9 +20,9 @@ import :query_set;
 import :mesh_pipeline;
 import :render_bundle_encoder;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkRenderPassEncoderImpl : public RenderPassEncoder, public MeshShaderPassExt
@@ -206,4 +206,4 @@ export namespace draconic::rhi::vk
         PFN_vkCmdDrawMeshTasksIndirectCountEXT m_pfnDrawMeshIndCount = nullptr;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

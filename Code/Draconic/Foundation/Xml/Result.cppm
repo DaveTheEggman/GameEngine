@@ -11,9 +11,9 @@ export module draconic.xml:result;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::xml
+export namespace foundation::xml
 {
     enum class XmlResult : u32
     {

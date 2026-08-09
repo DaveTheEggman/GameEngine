@@ -15,10 +15,10 @@ import :style_rule;
 import :style_sheet;
 import :media_query;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-namespace draconic::gui
+namespace experimental::gui
 {
     // Remove /* ... */ comments (run-copied so indices in the result are contiguous).
     [[nodiscard]] inline core::String StripComments(core::StringView s)
@@ -47,7 +47,7 @@ namespace draconic::gui
     }
 }
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class CSSParser
     {

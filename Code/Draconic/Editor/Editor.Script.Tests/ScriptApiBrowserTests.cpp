@@ -7,9 +7,9 @@ import draconic.core;
 import draconic.script;
 import draconic.editor.script;
 
-using namespace draconic::core;
-using namespace draconic::editor;
-namespace script = draconic::script;
+using namespace foundation::core;
+using namespace editor;
+namespace script = foundation::script;
 
 namespace
 {

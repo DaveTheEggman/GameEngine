@@ -14,16 +14,16 @@ import draconic.vg;
 import draconic.fonts;
 import :types;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg::svg
+export namespace foundation::vg::svg
 {
     /// Renders an SVGDocument to a VGContext.
     class SVGRenderer
     {
     public:
         /// Render scaled to fit `bounds`. `tint` (if set) overrides all colors.
-        static void Render(draconic::vg::VGContext& vg, const SVGDocument& document,
+        static void Render(foundation::vg::VGContext& vg, const SVGDocument& document,
                            Rectangle bounds, Optional<Color> tint = {})
         {
             if (document.elements.IsEmpty())
@@ -45,7 +45,7 @@ export namespace draconic::vg::svg
         /// Render a single element and its children. `document` (optional) resolves
         /// fill="url(#id)" gradient references; without it those fall back to the
         /// element's fallback color.
-        static void RenderElement(draconic::vg::VGContext& vg, const SVGElement& element,
+        static void RenderElement(foundation::vg::VGContext& vg, const SVGElement& element,
                                   Optional<Color> tint = {},
                                   const SVGDocument* document = nullptr)
         {
@@ -100,13 +100,13 @@ export namespace draconic::vg::svg
         /// objectBoundingBox (the SVG default) maps the gradient's fractional geometry
         /// onto the path's bounds; userSpaceOnUse takes document coordinates directly
         /// (the VG transform already maps those to the screen).
-        static void FillWithGradient(draconic::vg::VGContext& vg, const draconic::vg::Path& path,
+        static void FillWithGradient(foundation::vg::VGContext& vg, const foundation::vg::Path& path,
                                      const SVGGradient& gradient)
         {
             const Rectangle b = path.GetBounds();
             if (gradient.radial)
             {
-                draconic::vg::VGRadialGradientFill fill;
+                foundation::vg::VGRadialGradientFill fill;
                 if (gradient.userSpace)
                 {
                     fill.center = Float2{gradient.cx, gradient.cy};
@@ -126,7 +126,7 @@ export namespace draconic::vg::svg
             }
             else
             {
-                draconic::vg::VGLinearGradientFill fill;
+                foundation::vg::VGLinearGradientFill fill;
                 if (gradient.userSpace)
                 {
                     fill.startPoint = Float2{gradient.x1, gradient.y1};
@@ -145,7 +145,7 @@ export namespace draconic::vg::svg
             }
         }
 
-        static void RenderText(draconic::vg::VGContext& vg, const SVGElement& element,
+        static void RenderText(foundation::vg::VGContext& vg, const SVGElement& element,
                                Optional<Color> tint)
         {
             if (element.textContent.AsView().IsEmpty() || vg.FontService() == nullptr)
@@ -159,7 +159,7 @@ export namespace draconic::vg::svg
                 Sqrt(transform.m[1][0] * transform.m[1][0] + transform.m[1][1] * transform.m[1][1]);
             const f32 effectiveFontSize = element.fontSize * scaleY;
 
-            draconic::fonts::CachedFont* font = vg.FontService()->GetFont(effectiveFontSize);
+            foundation::fonts::CachedFont* font = vg.FontService()->GetFont(effectiveFontSize);
             if (font == nullptr)
                 return;
 

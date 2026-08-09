@@ -23,10 +23,10 @@ import draconic.rhi;
 
 #include "Runtime.Client/AppMain.h"
 
-namespace core = draconic::core;
-namespace runtime = draconic::runtime;
-namespace graphics = draconic::graphics;
-namespace rhi = draconic::rhi;
+namespace core = foundation::core;
+namespace runtime = foundation::runtime;
+namespace graphics = foundation::graphics;
+namespace rhi = foundation::rhi;
 
 namespace
 {

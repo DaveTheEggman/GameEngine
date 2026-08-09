@@ -17,9 +17,9 @@ import :texture;
 import :texture_view;
 import :descriptor_heap;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxDeviceImpl; // forward
@@ -213,4 +213,4 @@ export namespace draconic::rhi::dx12
         DxDescriptorHeapAllocator* m_dsvHeap = nullptr;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

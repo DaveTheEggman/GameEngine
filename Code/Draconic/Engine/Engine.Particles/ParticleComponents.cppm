@@ -30,23 +30,23 @@ import draconic.texture.resource;
 import draconic.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneParticles handle)
 import :renderdata;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
-namespace scene = draconic::scene;
-namespace render = draconic::render;
-namespace geometry = draconic::geometry;
-namespace materials = draconic::materials;
-namespace resource = draconic::resource;
-namespace texture = draconic::texture;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
+namespace scene = foundation::scene;
+namespace render = foundation::render;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace resource = foundation::resource;
+namespace texture = foundation::texture;
 
-using namespace draconic::particles; // foundation sim types (ParticleEffect, ParticleBlendMode, ...)
+using namespace foundation::particles; // foundation sim types (ParticleEffect, ParticleBlendMode, ...)
 
-export namespace draconic::engine::particles
+export namespace engine::particles
 {
-    // Foundation aliases (sibling draconic::engine::* namespaces would otherwise shadow these).
-    namespace render = draconic::render;
-    namespace scene = draconic::scene;
-    namespace script = draconic::script;
+    // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
+    namespace render = foundation::render;
+    namespace scene = foundation::scene;
+    namespace script = foundation::script;
 
     // Attach a particle effect to an entity. The effect is borrowed (the app owns it now; a cooked
     // ParticleEffectResource later). SetEffect spins up the runtime instance.
@@ -58,8 +58,8 @@ export namespace draconic::engine::particles
             nullptr; // billboard atlas (borrowed); null = untextured (soft dot)
         // Mesh-mode systems (ParticleRenderMode::Mesh) draw this mesh per particle through the instanced-
         // mesh path. Held while attached; per-particle transform = position * axis/rotation * (size*meshScale).
-        draconic::resource::Ref<geometry::StaticMesh> mesh;
-        draconic::resource::Ref<materials::Material> material;
+        foundation::resource::Ref<geometry::StaticMesh> mesh;
+        foundation::resource::Ref<materials::Material> material;
         f32 meshScale = 1.0f;
         // Light-mode systems (ParticleRenderMode::Light) add a point light per particle (capped) to the
         // scene's clustered-forward light list, so particles illuminate their surroundings; they also draw
@@ -72,7 +72,7 @@ export namespace draconic::engine::particles
         // the component's own independent clone (stable address across component moves - the
         // instance borrows *ownedEffect). The manager attaches/re-attaches when the resolved
         // product changes (a pick, a load, or a hot reload).
-        draconic::resource::Ref<ParticleEffectResource> effectAsset;
+        foundation::resource::Ref<ParticleEffectResource> effectAsset;
         UniquePtr<ParticleEffect> ownedEffect;
         ParticleEffectResource* attachedResource = nullptr; // what ownedEffect was cloned from
 
@@ -109,13 +109,13 @@ export namespace draconic::engine::particles
     // Persist the resource refs + tunables; the live instance/clone and the raw view are runtime-only.
     inline void Serialize(ISerializer& ar, ParticleEffectComponent& c)
     {
-        draconic::core::Serialize(ar, "effect", c.effectAsset);
-        draconic::core::Serialize(ar, "mesh", c.mesh);
-        draconic::core::Serialize(ar, "material", c.material);
-        draconic::core::Serialize(ar, "meshScale", c.meshScale);
-        draconic::core::Serialize(ar, "lightIntensity", c.lightIntensity);
-        draconic::core::Serialize(ar, "lightRange", c.lightRange);
-        draconic::core::Serialize(ar, "visible", c.visible);
+        foundation::core::Serialize(ar, "effect", c.effectAsset);
+        foundation::core::Serialize(ar, "mesh", c.mesh);
+        foundation::core::Serialize(ar, "material", c.material);
+        foundation::core::Serialize(ar, "meshScale", c.meshScale);
+        foundation::core::Serialize(ar, "lightIntensity", c.lightIntensity);
+        foundation::core::Serialize(ar, "lightRange", c.lightRange);
+        foundation::core::Serialize(ar, "visible", c.visible);
     }
 
     inline void ResolveResources(resource::ResourceManager& manager, ParticleEffectComponent& c)
@@ -686,7 +686,7 @@ export namespace draconic::engine::particles
         scene::Scene* scene = nullptr;
 
         // Begin/resume emission on the entity's effect. No-op if no effect is attached yet.
-        void play(draconic::script::Entity entity) const
+        void play(foundation::script::Entity entity) const
         {
             if (ParticleEffectInstance* i = Instance(entity))
             {
@@ -694,7 +694,7 @@ export namespace draconic::engine::particles
             }
         }
         // Stop emitting (live particles finish out).
-        void stop(draconic::script::Entity entity) const
+        void stop(foundation::script::Entity entity) const
         {
             if (ParticleEffectInstance* i = Instance(entity))
             {
@@ -702,7 +702,7 @@ export namespace draconic::engine::particles
             }
         }
         // Reset to empty and begin emitting fresh (a one-shot re-trigger).
-        void restart(draconic::script::Entity entity) const
+        void restart(foundation::script::Entity entity) const
         {
             if (ParticleEffectInstance* i = Instance(entity))
             {
@@ -711,7 +711,7 @@ export namespace draconic::engine::particles
             }
         }
         // Pause/resume the whole simulation for this effect (freezes live particles too).
-        void pause(draconic::script::Entity entity, bool paused) const
+        void pause(foundation::script::Entity entity, bool paused) const
         {
             if (ParticleEffectInstance* i = Instance(entity))
             {
@@ -719,32 +719,32 @@ export namespace draconic::engine::particles
             }
         }
         // True while the effect is still emitting or has live particles.
-        [[nodiscard]] bool isPlaying(draconic::script::Entity entity) const
+        [[nodiscard]] bool isPlaying(foundation::script::Entity entity) const
         {
             ParticleEffectInstance* i = Instance(entity);
             return i != nullptr && !i->IsFinished();
         }
         // Swap the entity's effect to resource `id`, binding it through the run's resource manager;
         // the manager re-attaches (re-clones) the new effect next tick.
-        void setEffect(draconic::script::Entity entity, Guid id) const
+        void setEffect(foundation::script::Entity entity, Guid id) const
         {
             if (ParticleEffectComponent* c = Component(entity))
             {
                 c->effectAsset.SetId(id);
-                if (auto* resources = draconic::script::CurrentRunResources())
+                if (auto* resources = foundation::script::CurrentRunResources())
                 {
                     c->effectAsset.Bind(*resources);
                 }
             }
         }
 
-        [[nodiscard]] static SceneParticles of(draconic::script::Scene sceneHandle)
+        [[nodiscard]] static SceneParticles of(foundation::script::Scene sceneHandle)
         {
             return SceneParticles{sceneHandle.scene};
         }
 
     private:
-        [[nodiscard]] ParticleEffectComponent* Component(draconic::script::Entity entity) const
+        [[nodiscard]] ParticleEffectComponent* Component(foundation::script::Entity entity) const
         {
             if (scene == nullptr)
             {
@@ -753,7 +753,7 @@ export namespace draconic::engine::particles
             auto* manager = scene->GetSystem<ParticleEffectComponentManager>();
             return (manager != nullptr) ? manager->Get(entity.Handle()) : nullptr;
         }
-        [[nodiscard]] ParticleEffectInstance* Instance(draconic::script::Entity entity) const
+        [[nodiscard]] ParticleEffectInstance* Instance(foundation::script::Entity entity) const
         {
             ParticleEffectComponent* c = Component(entity);
             return (c != nullptr) ? c->instance.Get() : nullptr;
@@ -764,7 +764,7 @@ export namespace draconic::engine::particles
 
 // Reflection (tooling). The DRACONIC_REFLECT_VALUE body + RegisterParticleComponentReflection()
 // live in ParticleSubsystemImpl.cpp (kept out of this interface; see gcc-module-interface-hygiene).
-export namespace draconic::engine::particles
+export namespace engine::particles
 {
     void RegisterParticleComponentReflection();
 

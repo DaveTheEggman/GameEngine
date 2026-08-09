@@ -13,9 +13,10 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace ui = foundation::ui;
 
-namespace draconic::editor
+namespace editor
 {
     namespace
     {
@@ -374,7 +375,7 @@ namespace draconic::editor
     // ============================ Page ======================================================
 
     GenericAssetEditorPage::GenericAssetEditorPage(EditorContext& context,
-                                                   draconic::content::Instance& instance)
+                                                   foundation::content::Instance& instance)
         : m_context(&context), m_title(instance.Name())
     {
         SetInstanceId(instance.Id());
@@ -669,7 +670,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             m_context->Project()->SourceDb().GetInstance(InstanceId());
         if (instance == nullptr)
         {
@@ -693,7 +694,7 @@ namespace draconic::editor
     }
 
     UniquePtr<EditorPage> GenericAssetPageFactory::CreatePage(EditorContext& context,
-                                                              draconic::content::Instance& instance)
+                                                              foundation::content::Instance& instance)
     {
         auto* page = DefaultAllocator().New<GenericAssetEditorPage>(context, instance);
         return UniquePtr<EditorPage>(page, DefaultAllocator());

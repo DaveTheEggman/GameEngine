@@ -11,9 +11,9 @@ export module draconic.ui:easing;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Short UI-friendly names for the core easing functions.
     struct Easing
@@ -26,19 +26,19 @@ export namespace draconic::ui
         static constexpr EasingFunction EaseInOut = &EaseInOutQuadratic;
 
         // Cubic (default for smooth UI animations)
-        static constexpr EasingFunction EaseInCubic = &draconic::core::EaseInCubic;
-        static constexpr EasingFunction EaseOutCubic = &draconic::core::EaseOutCubic;
-        static constexpr EasingFunction EaseInOutCubic = &draconic::core::EaseInOutCubic;
+        static constexpr EasingFunction EaseInCubic = &foundation::core::EaseInCubic;
+        static constexpr EasingFunction EaseOutCubic = &foundation::core::EaseOutCubic;
+        static constexpr EasingFunction EaseInOutCubic = &foundation::core::EaseInOutCubic;
 
         // Quartic
-        static constexpr EasingFunction EaseInQuartic = &draconic::core::EaseInQuartic;
-        static constexpr EasingFunction EaseOutQuartic = &draconic::core::EaseOutQuartic;
-        static constexpr EasingFunction EaseInOutQuartic = &draconic::core::EaseInOutQuartic;
+        static constexpr EasingFunction EaseInQuartic = &foundation::core::EaseInQuartic;
+        static constexpr EasingFunction EaseOutQuartic = &foundation::core::EaseOutQuartic;
+        static constexpr EasingFunction EaseInOutQuartic = &foundation::core::EaseInOutQuartic;
 
         // Quintic
-        static constexpr EasingFunction EaseInQuintic = &draconic::core::EaseInQuintic;
-        static constexpr EasingFunction EaseOutQuintic = &draconic::core::EaseOutQuintic;
-        static constexpr EasingFunction EaseInOutQuintic = &draconic::core::EaseInOutQuintic;
+        static constexpr EasingFunction EaseInQuintic = &foundation::core::EaseInQuintic;
+        static constexpr EasingFunction EaseOutQuintic = &foundation::core::EaseOutQuintic;
+        static constexpr EasingFunction EaseInOutQuintic = &foundation::core::EaseInOutQuintic;
 
         // Bounce
         static constexpr EasingFunction BounceIn = &EaseInBounce;

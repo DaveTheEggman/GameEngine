@@ -18,7 +18,7 @@ import :span;
 import :string;
 import :system;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     class IStream
     {

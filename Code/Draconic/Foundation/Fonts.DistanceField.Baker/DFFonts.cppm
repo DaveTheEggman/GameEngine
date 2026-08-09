@@ -12,9 +12,9 @@ import draconic.fonts;
 import draconic.fonts.io;
 import :baker;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
 
     class DFFonts
@@ -43,4 +43,4 @@ export namespace draconic::fonts
         static inline DFFontAtlasBaker* s_baker = nullptr;
     };
 
-} // namespace draconic::fonts
+} // namespace foundation::fonts

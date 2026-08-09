@@ -33,16 +33,16 @@ import draconic.content;  // Instance lookup by content path
 // (a module implementation unit), keeping heavyweight imports out of the interface for
 // GCC's -fno-module-lazy consumers.
 
-using namespace draconic::core;
-using namespace draconic::audio;
+using namespace foundation::core;
+using namespace foundation::audio;
 
-export namespace draconic::engine::audio
+export namespace engine::audio
 {
-    // Foundation aliases (sibling draconic::engine::* namespaces would otherwise shadow these).
-    namespace scene = draconic::scene;
-    namespace script = draconic::script;
+    // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
+    namespace scene = foundation::scene;
+    namespace script = foundation::script;
 
-    namespace scene = draconic::scene;
+    namespace scene = foundation::scene;
 
     class AudioSubsystem; // forward (the script binding carries it)
 
@@ -56,7 +56,7 @@ export namespace draconic::engine::audio
     {
         AudioEngine* engine = nullptr;
         AudioSubsystem* subsystem = nullptr;                      // cue state + helpers
-        draconic::resource::ResourceManager* resources = nullptr; // path -> product
+        foundation::resource::ResourceManager* resources = nullptr; // path -> product
     };
 
     /// One listener's world pose this frame (multi-listener collection).
@@ -83,12 +83,12 @@ export namespace draconic::engine::audio
         void Serialize(ISerializer& ar) override
         {
             u32 busCount = static_cast<u32>(AudioBus::Count);
-            draconic::core::Serialize(ar, "busCount", busCount);
+            foundation::core::Serialize(ar, "busCount", busCount);
             const u32 buses = Min(busCount, static_cast<u32>(AudioBus::Count));
             for (u32 bus = 0; bus < buses; ++bus)
             {
-                draconic::core::Serialize(ar, "volume", volumes[bus]);
-                draconic::core::Serialize(ar, "muted", muted[bus]);
+                foundation::core::Serialize(ar, "volume", volumes[bus]);
+                foundation::core::Serialize(ar, "muted", muted[bus]);
             }
         }
     };
@@ -500,7 +500,7 @@ export namespace draconic::engine::audio
         }
 
         // Start (or restart) the entity's source voice now. No-op if it has no AudioSourceComponent.
-        void play(draconic::script::Entity entity) const
+        void play(foundation::script::Entity entity) const
         {
             if (AudioSceneSystem* sys = System())
             {
@@ -508,7 +508,7 @@ export namespace draconic::engine::audio
             }
         }
         // Stop the entity's source voice (releases the voice handle).
-        void stop(draconic::script::Entity entity) const
+        void stop(foundation::script::Entity entity) const
         {
             if (AudioSceneSystem* sys = System())
             {
@@ -516,7 +516,7 @@ export namespace draconic::engine::audio
             }
         }
         // Pause/resume the entity's source voice.
-        void pause(draconic::script::Entity entity, bool paused) const
+        void pause(foundation::script::Entity entity, bool paused) const
         {
             if (AudioSceneSystem* sys = System())
             {
@@ -524,14 +524,14 @@ export namespace draconic::engine::audio
             }
         }
         // True while the entity's source voice is audibly playing.
-        [[nodiscard]] bool isPlaying(draconic::script::Entity entity) const
+        [[nodiscard]] bool isPlaying(foundation::script::Entity entity) const
         {
             AudioSceneSystem* sys = System();
             return sys != nullptr && sys->IsPlaying(entity.Handle());
         }
         // Swap the entity's AudioSource clip to resource `id`, binding it through the run's resource
         // manager (the next play uses it). No-op if the entity has no AudioSourceComponent.
-        void setClip(draconic::script::Entity entity, Guid id) const
+        void setClip(foundation::script::Entity entity, Guid id) const
         {
             if (scene == nullptr)
             {
@@ -544,13 +544,13 @@ export namespace draconic::engine::audio
                 return;
             }
             c->clip.SetId(id);
-            if (auto* resources = draconic::script::CurrentRunResources())
+            if (auto* resources = foundation::script::CurrentRunResources())
             {
                 c->clip.Bind(*resources);
             }
         }
 
-        [[nodiscard]] static SceneAudio of(draconic::script::Scene sceneHandle)
+        [[nodiscard]] static SceneAudio of(foundation::script::Scene sceneHandle)
         {
             return SceneAudio{sceneHandle.scene};
         }
@@ -559,7 +559,7 @@ export namespace draconic::engine::audio
     // The runtime subsystem: owns the ONE AudioEngine, injects the managers + system
     // into every scene (ISceneAware), pushes the winning listener, and exposes the
     // engine-global one-shot API (docs/design/audio.md §6).
-    class AudioSubsystem final : public draconic::runtime::Subsystem, public scene::ISceneAware
+    class AudioSubsystem final : public foundation::runtime::Subsystem, public scene::ISceneAware
     {
     public:
         explicit AudioSubsystem(const AudioEngineSettings& engineSettings = {})
@@ -650,8 +650,8 @@ export namespace draconic::engine::audio
         /// scripting facade (class Audio below) resolves it per context. Call once per
         /// context, AFTER init. `resources` (optional) enables content-path playback
         /// (Audio.playOneShot("Sounds/laser") etc.); without it those calls no-op.
-        void ExposeToScript(draconic::script::IScriptContext& context,
-                            draconic::resource::ResourceManager* resources = nullptr)
+        void ExposeToScript(foundation::script::IScriptContext& context,
+                            foundation::resource::ResourceManager* resources = nullptr)
         {
             m_scriptBinding.engine = m_engine.Get();
             m_scriptBinding.subsystem = this;
@@ -667,7 +667,7 @@ export namespace draconic::engine::audio
         // by TYPE: a clip path plays the clip, a cue path resolves one weighted trigger
         // (a cue handed to playOneShot behaves like the component's cue-wins rule).
 
-        VoiceHandle PlayOneShotByPath(draconic::resource::ResourceManager& resources,
+        VoiceHandle PlayOneShotByPath(foundation::resource::ResourceManager& resources,
                                       StringView path, AudioBus bus = AudioBus::Effects)
         {
             const ResolvedPathContent content = ResolveContentPath(resources, path);
@@ -684,7 +684,7 @@ export namespace draconic::engine::audio
             return PlayOneShot(content.clip, bus);
         }
 
-        VoiceHandle PlayOneShot3DByPath(draconic::resource::ResourceManager& resources,
+        VoiceHandle PlayOneShot3DByPath(foundation::resource::ResourceManager& resources,
                                         StringView path, Float3 position)
         {
             const ResolvedPathContent content = ResolveContentPath(resources, path);
@@ -702,7 +702,7 @@ export namespace draconic::engine::audio
             return PlayOneShot3D(content.clip, position);
         }
 
-        VoiceHandle PlayCueByPath(draconic::resource::ResourceManager& resources, StringView path,
+        VoiceHandle PlayCueByPath(foundation::resource::ResourceManager& resources, StringView path,
                                   AudioBus bus = AudioBus::Effects)
         {
             const ResolvedPathContent content = ResolveContentPath(resources, path);
@@ -717,7 +717,7 @@ export namespace draconic::engine::audio
             return {};
         }
 
-        VoiceHandle PlayMusicByPath(draconic::resource::ResourceManager& resources, StringView path,
+        VoiceHandle PlayMusicByPath(foundation::resource::ResourceManager& resources, StringView path,
                                     f32 crossFadeSeconds = 1.0f)
         {
             const ResolvedPathContent content = ResolveContentPath(resources, path);
@@ -796,9 +796,9 @@ export namespace draconic::engine::audio
         }
         void OnReady() override
         {
-            if (draconic::runtime::Context* context = GetContext())
+            if (foundation::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<engine::scene::SceneSubsystem>())
                 {
                     scenes->RegisterSceneAware(this);
                 }
@@ -806,9 +806,9 @@ export namespace draconic::engine::audio
         }
         void OnShutdown() override
         {
-            if (draconic::runtime::Context* context = GetContext())
+            if (foundation::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<engine::scene::SceneSubsystem>())
                 {
                     scenes->UnregisterSceneAware(this);
                 }
@@ -836,10 +836,10 @@ export namespace draconic::engine::audio
         // Path -> cooked product, sniffed by the instance's TYPE name. Binding through
         // the manager caches the product exactly like component refs do.
         [[nodiscard]] ResolvedPathContent
-        ResolveContentPath(draconic::resource::ResourceManager& resources, StringView path)
+        ResolveContentPath(foundation::resource::ResourceManager& resources, StringView path)
         {
             ResolvedPathContent result;
-            draconic::content::Instance* instance = resources.Database().GetInstance(path);
+            foundation::content::Instance* instance = resources.Database().GetInstance(path);
             if (instance == nullptr)
             {
                 WarnPathOnce(path, u8"no content at this path");
@@ -933,7 +933,7 @@ export namespace draconic::engine::audio
     public:
         [[nodiscard]] static AudioScriptBinding* ResolveBinding()
         {
-            draconic::script::IScriptContext* context = draconic::script::CurrentScriptContext();
+            foundation::script::IScriptContext* context = foundation::script::CurrentScriptContext();
             return context != nullptr
                        ? static_cast<AudioScriptBinding*>(context->GetService(kAudioScriptService))
                        : nullptr;
@@ -949,7 +949,7 @@ export namespace draconic::engine::audio
         // carries them when the host wired a manager into ExposeToScript).
         [[nodiscard]] static bool
         ResolvePlayback(AudioSubsystem*& outSubsystem,
-                        draconic::resource::ResourceManager*& outResources)
+                        foundation::resource::ResourceManager*& outResources)
         {
             AudioScriptBinding* binding = ResolveBinding();
             if (binding == nullptr || binding->subsystem == nullptr ||
@@ -966,7 +966,7 @@ export namespace draconic::engine::audio
         static bool playOneShot(String path)
         {
             AudioSubsystem* subsystem = nullptr;
-            draconic::resource::ResourceManager* resources = nullptr;
+            foundation::resource::ResourceManager* resources = nullptr;
             if (!ResolvePlayback(subsystem, resources))
             {
                 return false;
@@ -976,7 +976,7 @@ export namespace draconic::engine::audio
         static bool playOneShot3D(String path, f32 x, f32 y, f32 z)
         {
             AudioSubsystem* subsystem = nullptr;
-            draconic::resource::ResourceManager* resources = nullptr;
+            foundation::resource::ResourceManager* resources = nullptr;
             if (!ResolvePlayback(subsystem, resources))
             {
                 return false;
@@ -987,7 +987,7 @@ export namespace draconic::engine::audio
         static bool playCue(String path)
         {
             AudioSubsystem* subsystem = nullptr;
-            draconic::resource::ResourceManager* resources = nullptr;
+            foundation::resource::ResourceManager* resources = nullptr;
             if (!ResolvePlayback(subsystem, resources))
             {
                 return false;
@@ -997,7 +997,7 @@ export namespace draconic::engine::audio
         static bool playMusic(String path, f32 fadeSeconds)
         {
             AudioSubsystem* subsystem = nullptr;
-            draconic::resource::ResourceManager* resources = nullptr;
+            foundation::resource::ResourceManager* resources = nullptr;
             if (!ResolvePlayback(subsystem, resources))
             {
                 return false;

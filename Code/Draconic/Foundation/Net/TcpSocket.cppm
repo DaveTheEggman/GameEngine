@@ -11,9 +11,10 @@ export module draconic.net:tcp_socket;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::net
+export namespace foundation::net
 {
 
     // A connected TCP stream (a client connection, or one accepted by a TcpListener). Movable, RAII.

@@ -15,10 +15,10 @@ module draconic.audio.pipeline;
 import draconic.core;
 import draconic.pipeline.core;
 
-using namespace draconic::core;
-using namespace draconic::audio;
+using namespace foundation::core;
+using namespace foundation::audio;
 
-namespace draconic::pipeline{
+namespace pipeline{
     DRACONIC_REFLECT(AudioClipAsset, "rtti::editor::audio")
     {
         builder.Attribute("displayName", String(u8"Audio Clip"))

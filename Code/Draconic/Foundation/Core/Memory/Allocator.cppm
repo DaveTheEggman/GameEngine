@@ -18,7 +18,7 @@ export module draconic.core:allocator;
 
 import :base;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Alignment helpers

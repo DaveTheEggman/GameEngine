@@ -13,9 +13,9 @@ export module draconic.ui:drag_data;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Base class for drag-and-drop payload data.
     class DragData : public Object

@@ -17,9 +17,9 @@ import :compute_pipeline;
 import :pipeline_layout;
 import :query_set;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkComputePassEncoderImpl : public ComputePassEncoder
@@ -92,4 +92,4 @@ export namespace draconic::rhi::vk
         VkComputePipelineImpl* m_current = nullptr;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

@@ -9,8 +9,8 @@
 import draconic.core;
 import draconic.editor.core;
 
-using namespace draconic::core;
-using namespace draconic::editor;
+using namespace foundation::core;
+using namespace editor;
 
 namespace
 {

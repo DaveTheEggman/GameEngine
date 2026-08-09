@@ -14,12 +14,12 @@ import draconic.rhi;
 import draconic.image;
 import :format_utils;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::texture
+export namespace foundation::texture
 {
-    namespace rhi = draconic::rhi;
-    namespace image = draconic::image;
+    namespace rhi = foundation::rhi;
+    namespace image = foundation::image;
 
     // Raw texture data for upload to the GPU. Fields are lowercase (descriptor
     // convention, matching RHI descs); the caller provides correctly-formatted

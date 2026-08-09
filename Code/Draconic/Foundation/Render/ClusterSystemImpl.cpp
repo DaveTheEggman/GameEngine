@@ -23,10 +23,12 @@ import :data;
 import :views;
 import :resources;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-namespace draconic::render
+namespace foundation::render
 {
     Status ClusterSystem::Initialize()
     {

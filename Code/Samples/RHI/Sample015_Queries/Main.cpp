@@ -13,18 +13,17 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vulkan;
 
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
 
 class QuerySample : public samples::framework::SampleApp
 {
 public:
     using samples::framework::SampleApp::SampleApp;
-    draconic::core::StringView Title() const override { return u8"Sample015 - GPU Queries"; }
+    foundation::core::StringView Title() const override { return u8"Sample015 - GPU Queries"; }
 
 protected:
-    draconic::core::Status OnInit() override;
+    foundation::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 
@@ -39,7 +38,7 @@ private:
         0.0f, 0.5f, 0.0f, 1.0f,  0.3f,  0.3f, 1.0f, 0.5f, -0.5f, 0.0f, 0.3f,
         1.0f, 0.3f, 1.0f, -0.5f, -0.5f, 0.0f, 0.3f, 0.3f, 1.0f,  1.0f,
     };
-    static constexpr draconic::core::u16 kIdx[] = {0, 1, 2};
+    static constexpr foundation::core::u16 kIdx[] = {0, 1, 2};
 
     shaders::Compiler* m_compiler = nullptr;
     rhi::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
@@ -50,38 +49,38 @@ private:
     rhi::Buffer* m_queryResultBuf = nullptr;
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
-    draconic::core::u64 m_fenceVal = 0;
+    foundation::core::u64 m_fenceVal = 0;
     int m_frameCount = 0;
     float m_lastReportTime = 0.0f;
 };
 
-draconic::core::Status QuerySample::OnInit()
+foundation::core::Status QuerySample::OnInit()
 {
-    using draconic::core::Status, draconic::core::Span, draconic::core::u8;
+    using foundation::core::Status, foundation::core::Span, foundation::core::u8;
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Vertex, u8"VSMain", u8"VS",
-                                            m_vs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_vs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Fragment, u8"PSMain", u8"PS",
-                                            m_ps) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_ps) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::BufferDesc vbd{};
     vbd.size = sizeof(kVerts);
     vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
     vbd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::BufferDesc ibd{};
     ibd.size = sizeof(kIdx);
     ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst;
     ibd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
@@ -92,8 +91,8 @@ draconic::core::Status QuerySample::OnInit()
     m_graphicsQueue->DestroyTransferBatch(batch);
 
     rhi::PipelineLayoutDesc pld{};
-    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::VertexAttribute attrs[2] = {{rhi::VertexFormat::Float32x3, 0, 0},
                                      {rhi::VertexFormat::Float32x4, 12, 1}};
@@ -109,35 +108,35 @@ draconic::core::Status QuerySample::OnInit()
     rpd.fragment = rhi::FragmentState{};
     rpd.fragment->shader = {m_ps, u8"PSMain", rhi::ShaderStage::Fragment};
     rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Timestamp query set: 2 queries (before + after render pass).
     rhi::QuerySetDesc qsd{};
     qsd.type = rhi::QueryType::Timestamp;
     qsd.count = 2;
-    if (m_device->CreateQuerySet(qsd, m_tsQuerySet) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateQuerySet(qsd, m_tsQuerySet) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Buffer to receive resolved query results (2 * uint64 = 16 bytes).
     rhi::BufferDesc qbd{};
     qbd.size = 16;
     qbd.usage = rhi::BufferUsage::CopyDst;
     qbd.memory = rhi::MemoryLocation::GpuToCpu;
-    if (m_device->CreateBuffer(qbd, m_queryResultBuf) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(qbd, m_queryResultBuf) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    return draconic::core::ErrorCode::Ok;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    return foundation::core::ErrorCode::Ok;
 }
 
 void QuerySample::OnRender()
 {
-    using draconic::core::f32, draconic::core::u64, draconic::core::Span;
+    using foundation::core::f32, foundation::core::u64, foundation::core::Span;
     if (m_fenceVal > 0)
         m_fence->Wait(m_fenceVal, ~0ull);
 
@@ -161,11 +160,11 @@ void QuerySample::OnRender()
         }
     }
 
-    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+    if (m_swapChain->AcquireNextImage() != foundation::core::ErrorCode::Ok)
         return;
     m_pool->Reset();
     rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc)
+    if (m_pool->CreateEncoder(enc) != foundation::core::ErrorCode::Ok || !enc)
         return;
 
     // Reset queries for this frame.

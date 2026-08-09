@@ -6,7 +6,7 @@
 
 export module draconic.ui:icommand;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ICommand
     {

@@ -13,9 +13,8 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vulkan;
 
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
 
 struct InstanceData
 {
@@ -27,13 +26,13 @@ class InstancingSample : public samples::framework::SampleApp
 {
 public:
     using samples::framework::SampleApp::SampleApp;
-    draconic::core::StringView Title() const override
+    foundation::core::StringView Title() const override
     {
         return u8"Sample007 - Instanced Rendering";
     }
 
 protected:
-    draconic::core::Status OnInit() override;
+    foundation::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 
@@ -68,7 +67,7 @@ private:
     static constexpr float kQuadVerts[] = {
         -0.04f, -0.04f, 0.0f, 0.04f, -0.04f, 0.0f, 0.04f, 0.04f, 0.0f, -0.04f, 0.04f, 0.0f,
     };
-    static constexpr draconic::core::u16 kQuadIdx[] = {0, 1, 2, 0, 2, 3};
+    static constexpr foundation::core::u16 kQuadIdx[] = {0, 1, 2, 0, 2, 3};
 
     void updateInstances();
 
@@ -80,38 +79,38 @@ private:
     rhi::RenderPipeline* m_pipeline = nullptr;
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
-    draconic::core::u64 m_fenceVal = 0;
+    foundation::core::u64 m_fenceVal = 0;
 };
 
-draconic::core::Status InstancingSample::OnInit()
+foundation::core::Status InstancingSample::OnInit()
 {
-    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::f32,
-        draconic::core::u32;
+    using foundation::core::Status, foundation::core::Span, foundation::core::u8, foundation::core::f32,
+        foundation::core::u32;
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Vertex, u8"VSMain", u8"VS",
-                                            m_vs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_vs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Fragment, u8"PSMain", u8"PS",
-                                            m_ps) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_ps) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Vertex + index buffers (GpuOnly, static quad geometry).
     rhi::BufferDesc vbd{};
     vbd.size = sizeof(kQuadVerts);
     vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
     vbd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::BufferDesc ibd{};
     ibd.size = sizeof(kQuadIdx);
     ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst;
     ibd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
@@ -127,16 +126,16 @@ draconic::core::Status InstancingSample::OnInit()
     instBd.size = kInstanceCount * sizeof(InstanceData);
     instBd.usage = rhi::BufferUsage::Vertex;
     instBd.memory = rhi::MemoryLocation::CpuToGpu;
-    if (m_device->CreateBuffer(instBd, m_instBuf) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(instBd, m_instBuf) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     m_instMapped = m_instBuf->Map();
     if (!m_instMapped)
-        return draconic::core::ErrorCode::Unknown;
+        return foundation::core::ErrorCode::Unknown;
 
     // Pipeline layout (empty - no bind groups needed).
     rhi::PipelineLayoutDesc pld{};
-    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Two vertex buffer layouts: slot 0 = per-vertex, slot 1 = per-instance.
     rhi::VertexAttribute vtxAttrs[1] = {{rhi::VertexFormat::Float32x3, 0, 0}};
@@ -163,15 +162,15 @@ draconic::core::Status InstancingSample::OnInit()
     rpd.fragment = rhi::FragmentState{};
     rpd.fragment->shader = {m_ps, u8"PSMain", rhi::ShaderStage::Fragment};
     rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    return draconic::core::ErrorCode::Ok;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    return foundation::core::ErrorCode::Ok;
 }
 
 void InstancingSample::updateInstances()
@@ -208,17 +207,17 @@ void InstancingSample::updateInstances()
 
 void InstancingSample::OnRender()
 {
-    using draconic::core::f32, draconic::core::Span;
+    using foundation::core::f32, foundation::core::Span;
     if (m_fenceVal > 0)
         m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+    if (m_swapChain->AcquireNextImage() != foundation::core::ErrorCode::Ok)
         return;
 
     updateInstances();
 
     m_pool->Reset();
     rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc)
+    if (m_pool->CreateEncoder(enc) != foundation::core::ErrorCode::Ok || !enc)
         return;
     enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined,
                            rhi::ResourceState::RenderTarget);

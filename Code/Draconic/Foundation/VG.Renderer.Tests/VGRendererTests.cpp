@@ -12,11 +12,11 @@ import draconic.image;
 import draconic.vg;
 import draconic.vg.renderer;
 
-using namespace draconic::core;
-using namespace draconic::vg;
-using namespace draconic::vg::renderer;
-namespace rhi = draconic::rhi;
-namespace image = draconic::image;
+using namespace foundation::core;
+using namespace foundation::vg;
+using namespace foundation::vg::renderer;
+namespace rhi = foundation::rhi;
+namespace image = foundation::image;
 
 namespace
 {
@@ -193,7 +193,7 @@ TEST_CASE("vg.renderer: empty batch yields an invalid slice")
 
 TEST_CASE("vg.renderer: ComputeScissor clamps to content then offsets to the viewport")
 {
-    using draconic::vg::renderer::VGRenderer;
+    using foundation::vg::renderer::VGRenderer;
 
     // Fully inside: clamp is a no-op, the viewport origin offsets the rect.
     {
@@ -265,7 +265,7 @@ TEST_CASE("vg.renderer: batch eviction retires cached textures until frames age 
     // The producer announces the LUT's death through the batch's eviction list: the
     // entry must leave the cache IMMEDIATELY (the address may be recycled this frame)
     // but its GPU resources retire until every in-flight frame has aged past them.
-    const draconic::image::ImageData* lut = ctx.GetBatch().textures[1];
+    const foundation::image::ImageData* lut = ctx.GetBatch().textures[1];
     VGBatch evictionBatch;
     evictionBatch.evictedTextures.PushBack(lut);
     renderer.BeginFrame(1);

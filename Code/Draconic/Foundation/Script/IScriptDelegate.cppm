@@ -21,9 +21,9 @@ export module draconic.script:script_delegate;
 
 import draconic.core;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::script
+export namespace foundation::script
 {
     /// A script function exposed to native code as a typed callback. A native API takes
     /// one as `RefPtr<IScriptDelegate>`; holding the RefPtr keeps the script function
@@ -39,7 +39,7 @@ export namespace draconic::script
     };
 }
 
-namespace draconic::script
+namespace foundation::script
 {
     // StaticType() defined here (not a reflected registry type - scripts never construct
     // an IScriptDelegate; the type identity only needs to exist so reflected method

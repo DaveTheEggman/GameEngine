@@ -6,8 +6,8 @@ import draconic.core;
 import draconic.net;
 import draconic.net.manager;
 
-using namespace draconic::core;
-namespace net = draconic::net;
+using namespace foundation::core;
+namespace net = foundation::net;
 
 TEST_CASE("net-manager: server + client connect, and an RPC routes through the manager")
 {

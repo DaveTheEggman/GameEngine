@@ -22,9 +22,9 @@ import draconic.core;
 import draconic.vg;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Abstract base for typed property editors used by PropertyGrid. Subclasses implement
     /// CreateEditorView() to return the editing control and RefreshView() to update it from external state.

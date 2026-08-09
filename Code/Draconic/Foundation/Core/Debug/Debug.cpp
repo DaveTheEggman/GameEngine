@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-namespace draconic::core
+namespace foundation::core
 {
     namespace
     {

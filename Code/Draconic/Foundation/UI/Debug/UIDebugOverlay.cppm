@@ -14,7 +14,7 @@ export module draconic.ui:ui_debug_overlay;
 import draconic.core;
 import :draw_context; // UIDrawContext (referenced in the signature; body uses ctx.VG()/DebugSettings())
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View;
 

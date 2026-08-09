@@ -15,14 +15,15 @@ module;
 export module draconic.runtime.web;
 
 import draconic.core;
+namespace shell = foundation::shell;
 import draconic.shell;          // IShell (interface only - the concrete shell is handed in)
 import draconic.graphics;       // GraphicsDevice (handed to the app)
 import draconic.runtime.client; // IApplication + ApplicationHost (the runner drives these)
 
-namespace core = draconic::core;
-using namespace draconic::graphics; // GraphicsDevice (moved from draconic::runtime)
+namespace core = foundation::core;
+using namespace foundation::graphics; // GraphicsDevice (moved from foundation::runtime)
 
-namespace draconic::runtime
+namespace foundation::runtime
 {
     // What the emscripten frame callback needs. The callback is a plain C function pointer with a
     // single void* arg (no captures in a -fno-exceptions/-fno-rtti world), so the per-run state
@@ -71,7 +72,7 @@ namespace draconic::runtime
     }
 }
 
-export namespace draconic::runtime
+export namespace foundation::runtime
 {
     // Web runner: start the app, then hand the frame cadence to the browser and return. Unlike the
     // desktop runner this does NOT block - the loop runs after main() returns (fps=0 =>

@@ -13,10 +13,10 @@ module draconic.content;
 import draconic.core;
 import draconic.vfs;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
+using namespace foundation::core;
+using namespace foundation::vfs;
 
-namespace draconic::content
+namespace foundation::content
 {
     ContentDatabase::ContentDatabase(IFileSystem& mount, SerializerFactory factory,
                                      StringView fileExtension, SerializableRegistry& serializables,

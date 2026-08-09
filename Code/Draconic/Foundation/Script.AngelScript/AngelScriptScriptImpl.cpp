@@ -34,9 +34,9 @@ module draconic.script.angelscript;
 import draconic.core;
 import draconic.script;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-namespace draconic::script::angelscript
+namespace foundation::script::angelscript
 {
     inline const char* CStr(const core::String& s) noexcept
     {

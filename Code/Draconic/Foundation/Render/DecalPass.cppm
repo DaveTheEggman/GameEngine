@@ -27,10 +27,12 @@ import draconic.shaders.system;
 import :data;
 import :resources;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // The scene HDR format decals blend into (matches TonemapPass::HdrFormat / AoPass).
@@ -147,4 +149,4 @@ export namespace draconic::render
         HashMap<rhi::TextureView*, TexBindGroup> m_texBindGroups;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

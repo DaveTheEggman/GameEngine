@@ -12,9 +12,9 @@ export module draconic.render:debug_font;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::render::debug
+export namespace foundation::render::debug
 {
 
     // Glyph + atlas geometry (95 printable ASCII glyphs, 16 per row -> 128x48 atlas).
@@ -197,4 +197,4 @@ export namespace draconic::render::debug
         return true;
     }
 
-} // namespace draconic::render::debug
+} // namespace foundation::render::debug

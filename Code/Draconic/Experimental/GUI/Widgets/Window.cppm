@@ -25,11 +25,11 @@ import :label;
 import :ui_widget;
 import :event_dispatcher;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // A widget that reports incremental world-space cursor deltas while dragged. Internal to
     // Window (title bar + resize grip), but generally reusable.

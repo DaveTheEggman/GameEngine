@@ -15,11 +15,12 @@ import draconic.core;
 import draconic.ui;
 import draconic.script;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace ui = foundation::ui;
 
-namespace draconic::editor
+namespace editor
 {
-    namespace script = draconic::script;
+    namespace script = foundation::script;
 
     namespace
     {

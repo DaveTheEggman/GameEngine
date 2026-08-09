@@ -16,10 +16,10 @@ import draconic.rhi;
 import draconic.rhi.null;
 import draconic.graphics;
 
-namespace core = draconic::core;
-namespace rhi = draconic::rhi;
+namespace core = foundation::core;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::graphics
+export namespace foundation::graphics
 {
     // Create a headless GraphicsDevice backed by the Null RHI. No Vulkan required.
     core::Result<core::UniquePtr<GraphicsDevice>>

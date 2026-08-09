@@ -20,10 +20,12 @@ import draconic.shaders.system;
 import :debug_font;
 import :debug_draw;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     class DebugDrawPass
@@ -119,4 +121,4 @@ export namespace draconic::render
         u64 m_screenCap[kMaxSlots] = {};
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

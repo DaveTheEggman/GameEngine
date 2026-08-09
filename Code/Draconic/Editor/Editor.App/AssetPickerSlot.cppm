@@ -15,10 +15,10 @@ export module draconic.editor.app:asset_picker_slot;
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::core;
-namespace ui = draconic::ui;
+using namespace foundation::core;
+namespace ui = foundation::ui;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
     class AssetPickerSlot : public ui::Button
     {

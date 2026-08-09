@@ -22,13 +22,16 @@ import draconic.geometry;  // StaticMesh::bounds (world bounding sphere for shad
 import draconic.texture.resource; // texture::Texture (cooked product behind sprite/decal refs)
 import :components;
 
-using namespace draconic::core;
-using namespace draconic::render;
+using namespace foundation::core;
+using namespace foundation::render;
+namespace materials = foundation::materials;
+namespace rhi = foundation::rhi;
+namespace texture = foundation::texture;
 
-namespace draconic::engine::render
+namespace engine::render
 {
-    // Foundation alias (sibling draconic::engine::scene would otherwise shadow draconic::scene).
-    namespace scene = draconic::scene;
+    // Foundation alias (sibling engine::scene would otherwise shadow foundation::scene).
+    namespace scene = foundation::scene;
 
     u64 PackEntity(scene::EntityHandle e) noexcept
     {

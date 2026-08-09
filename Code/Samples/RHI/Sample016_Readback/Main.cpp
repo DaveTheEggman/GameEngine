@@ -13,18 +13,17 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vulkan;
 
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
 
 class ReadbackSample : public samples::framework::SampleApp
 {
 public:
     using samples::framework::SampleApp::SampleApp;
-    draconic::core::StringView Title() const override { return u8"Sample016 - GPU Readback"; }
+    foundation::core::StringView Title() const override { return u8"Sample016 - GPU Readback"; }
 
 protected:
-    draconic::core::Status OnInit() override;
+    foundation::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 
@@ -35,7 +34,7 @@ private:
         PSInput VSMain(VSInput i) { PSInput o; o.Position = float4(i.Position,1); o.Color = i.Color; return o; }
         float4 PSMain(PSInput i) : SV_TARGET { return i.Color; }
     )";
-    static constexpr draconic::core::u32 kTexSize = 16;
+    static constexpr foundation::core::u32 kTexSize = 16;
     static constexpr float kVerts[] = {
         0.0f, 1.0f, 0.0f, 1.0f,  0.0f,  0.0f, 1.0f, 1.0f, -1.0f, 0.0f, 0.0f,
         1.0f, 0.0f, 1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,  1.0f,
@@ -53,32 +52,32 @@ private:
     rhi::Buffer* m_readbackBuf = nullptr;
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
-    draconic::core::u64 m_fenceVal = 0;
+    foundation::core::u64 m_fenceVal = 0;
     bool m_hasReadback = false;
     float m_lastReportTime = 0.0f;
 };
 
-draconic::core::Status ReadbackSample::OnInit()
+foundation::core::Status ReadbackSample::OnInit()
 {
-    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
+    using foundation::core::Status, foundation::core::Span, foundation::core::u8, foundation::core::u32;
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Vertex, u8"VSMain", u8"VS",
-                                            m_vs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_vs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Fragment, u8"PSMain", u8"PS",
-                                            m_ps) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_ps) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::BufferDesc vbd{};
     vbd.size = sizeof(kVerts);
     vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
     vbd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0,
@@ -87,8 +86,8 @@ draconic::core::Status ReadbackSample::OnInit()
     m_graphicsQueue->DestroyTransferBatch(batch);
 
     rhi::PipelineLayoutDesc pld{};
-    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Small offscreen RGBA8 texture.
     rhi::TextureDesc td{};
@@ -97,14 +96,14 @@ draconic::core::Status ReadbackSample::OnInit()
     td.height = kTexSize;
     td.mipLevelCount = 1;
     td.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopySrc;
-    if (m_device->CreateTexture(td, m_offTex) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_offTex) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::TextureViewDesc tvd{};
     tvd.format = rhi::TextureFormat::RGBA8Unorm;
     tvd.mipLevelCount = 1;
     tvd.arrayLayerCount = 1;
-    if (m_device->CreateTextureView(m_offTex, tvd, m_offView) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_offTex, tvd, m_offView) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Readback buffer with row alignment (256 bytes for DX12 compat).
     u32 bytesPerRow = ((kTexSize * 4 + 255) / 256) * 256;
@@ -112,8 +111,8 @@ draconic::core::Status ReadbackSample::OnInit()
     rbd.size = bytesPerRow * kTexSize;
     rbd.usage = rhi::BufferUsage::CopyDst;
     rbd.memory = rhi::MemoryLocation::GpuToCpu;
-    if (m_device->CreateBuffer(rbd, m_readbackBuf) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(rbd, m_readbackBuf) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::VertexAttribute attrs[2] = {{rhi::VertexFormat::Float32x3, 0, 0},
                                      {rhi::VertexFormat::Float32x4, 12, 1}};
@@ -131,21 +130,21 @@ draconic::core::Status ReadbackSample::OnInit()
     rpd.fragment = rhi::FragmentState{};
     rpd.fragment->shader = {m_ps, u8"PSMain", rhi::ShaderStage::Fragment};
     rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
-    if (m_device->CreateRenderPipeline(rpd, m_offPipeline) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_offPipeline) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Pipeline for swapchain (different format).
     ct.format = m_swapChain->Format();
     rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
-    if (m_device->CreateRenderPipeline(rpd, m_swapPipeline) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_swapPipeline) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    return draconic::core::ErrorCode::Ok;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    return foundation::core::ErrorCode::Ok;
 }
 
 void ReadbackSample::readbackPixels()
@@ -153,13 +152,13 @@ void ReadbackSample::readbackPixels()
     void* mapped = m_readbackBuf->Map();
     if (!mapped)
         return;
-    draconic::core::u32 bytesPerRow = ((kTexSize * 4 + 255) / 256) * 256;
-    auto* data = static_cast<draconic::core::u8*>(mapped);
+    foundation::core::u32 bytesPerRow = ((kTexSize * 4 + 255) / 256) * 256;
+    auto* data = static_cast<foundation::core::u8*>(mapped);
 
     std::printf("=== Readback: %ux%u RGBA8 texture ===\n", kTexSize, kTexSize);
-    auto printPixel = [&](draconic::core::u32 x, draconic::core::u32 y, const char* label)
+    auto printPixel = [&](foundation::core::u32 x, foundation::core::u32 y, const char* label)
     {
-        draconic::core::u32 off = y * bytesPerRow + x * 4;
+        foundation::core::u32 off = y * bytesPerRow + x * 4;
         std::printf("  %s (%u,%u): R=%u G=%u B=%u A=%u\n", label, x, y, data[off], data[off + 1],
                     data[off + 2], data[off + 3]);
     };
@@ -170,10 +169,10 @@ void ReadbackSample::readbackPixels()
     printPixel(kTexSize - 1, kTexSize - 1, "Bottom-right");
 
     int nonBlack = 0;
-    for (draconic::core::u32 y = 0; y < kTexSize; ++y)
-        for (draconic::core::u32 x = 0; x < kTexSize; ++x)
+    for (foundation::core::u32 y = 0; y < kTexSize; ++y)
+        for (foundation::core::u32 x = 0; x < kTexSize; ++x)
         {
-            draconic::core::u32 off = y * bytesPerRow + x * 4;
+            foundation::core::u32 off = y * bytesPerRow + x * 4;
             if (data[off] > 0 || data[off + 1] > 0 || data[off + 2] > 0)
                 nonBlack++;
         }
@@ -184,7 +183,7 @@ void ReadbackSample::readbackPixels()
 
 void ReadbackSample::OnRender()
 {
-    using draconic::core::f32, draconic::core::Span;
+    using foundation::core::f32, foundation::core::Span;
     if (m_fenceVal > 0)
         m_fence->Wait(m_fenceVal, ~0ull);
 
@@ -194,11 +193,11 @@ void ReadbackSample::OnRender()
         m_lastReportTime = m_totalTime;
     }
 
-    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+    if (m_swapChain->AcquireNextImage() != foundation::core::ErrorCode::Ok)
         return;
     m_pool->Reset();
     rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc)
+    if (m_pool->CreateEncoder(enc) != foundation::core::ErrorCode::Ok || !enc)
         return;
 
     // Render triangle to offscreen texture.
@@ -223,7 +222,7 @@ void ReadbackSample::OnRender()
     enc->TransitionTexture(m_offTex, rhi::ResourceState::RenderTarget, rhi::ResourceState::CopySrc);
 
     // Copy texture to readback buffer.
-    draconic::core::u32 bytesPerRow = ((kTexSize * 4 + 255) / 256) * 256;
+    foundation::core::u32 bytesPerRow = ((kTexSize * 4 + 255) / 256) * 256;
     rhi::BufferTextureCopyRegion region{};
     region.bufferOffset = 0;
     region.bytesPerRow = bytesPerRow;

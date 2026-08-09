@@ -1,4 +1,4 @@
-/// Conversion utilities between draconic::rhi enums and Vulkan enums.
+/// Conversion utilities between foundation::rhi enums and Vulkan enums.
 /// Ported from Sedulous.RHI.Vulkan/VulkanConversions.bf.
 
 module;
@@ -11,9 +11,9 @@ export module draconic.rhi.vulkan:conversions;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     /// Depth format support flags - set once at VkDevice init via setDepthFormatSupport().
@@ -632,4 +632,4 @@ export namespace draconic::rhi::vk
         return f;
     }
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

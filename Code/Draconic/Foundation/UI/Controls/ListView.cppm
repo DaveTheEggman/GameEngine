@@ -36,10 +36,10 @@ import :ilist_adapter;
 import :selection_model;
 import :view_recycler;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ListView : public ViewGroup, public IListAdapterObserver
     {

@@ -12,10 +12,10 @@ import draconic.core; // Color, Rectangle
 import :drawable;
 import :draw_context;
 
-using namespace draconic::core;
-namespace core = draconic::core; // to name core::Color where the field shadows the type
+using namespace foundation::core;
+namespace core = foundation::core; // to name core::Color where the field shadows the type
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ColorDrawable : public Drawable
     {

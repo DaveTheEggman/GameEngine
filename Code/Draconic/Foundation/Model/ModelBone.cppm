@@ -12,9 +12,9 @@ export module draconic.model:model_bone;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::model
+export namespace foundation::model
 {
 
     /// A bone/node in the model skeleton hierarchy.
@@ -119,4 +119,4 @@ export namespace draconic::model
         Array<ModelBone*> m_children;
     };
 
-} // namespace draconic::model
+} // namespace foundation::model

@@ -8,7 +8,7 @@
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 // --- IO: MemoryStream ------------------------------------------------------
 
@@ -415,9 +415,9 @@ namespace
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "id", id);
-            draconic::core::Serialize(ar, "label", label);
-            draconic::core::Serialize(ar, "position", position);
+            foundation::core::Serialize(ar, "id", id);
+            foundation::core::Serialize(ar, "label", label);
+            foundation::core::Serialize(ar, "position", position);
         }
     };
 }

@@ -6,7 +6,7 @@
 #include "Core/Prelude.h"
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 namespace
 {

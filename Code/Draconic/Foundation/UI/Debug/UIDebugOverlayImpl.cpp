@@ -11,9 +11,9 @@ module;
 
 module draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::ui
+namespace foundation::ui
 {
     namespace
     {

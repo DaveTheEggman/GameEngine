@@ -10,9 +10,9 @@ import draconic.core;
 import draconic.rhi;
 import :validated_fence;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     class ValidatedTransferBatch : public TransferBatch
@@ -128,4 +128,4 @@ export namespace draconic::rhi::validation
         i32 m_pendingWrites = 0;
     };
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

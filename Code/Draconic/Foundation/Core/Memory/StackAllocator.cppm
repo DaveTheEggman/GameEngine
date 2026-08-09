@@ -11,7 +11,7 @@ export module draconic.core:stack_allocator;
 import :base;
 import :allocator;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // StackAllocator - LIFO bump allocator with markers. Free is a no-op;

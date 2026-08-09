@@ -56,9 +56,9 @@ import :list_view;
 import :tree_view;
 import :grid_view;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Maps XML element names to View factories and property setters. Registration-based (explicit and
     /// debuggable) - used by MarkupLoader to create views and set attributes from .sml files.

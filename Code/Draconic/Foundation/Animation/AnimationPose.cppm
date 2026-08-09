@@ -12,9 +12,9 @@ export module draconic.animation:pose;
 import draconic.core;
 import :skeleton; // BoneTransform
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::animation
+export namespace foundation::animation
 {
 
     struct AnimationPose
@@ -32,4 +32,4 @@ export namespace draconic::animation
         [[nodiscard]] bool HasMorphWeights() const noexcept { return morphWeights.Size() > 0; }
     };
 
-} // namespace draconic::animation
+} // namespace foundation::animation

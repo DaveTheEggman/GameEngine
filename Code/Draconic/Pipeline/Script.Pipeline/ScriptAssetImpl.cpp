@@ -14,10 +14,10 @@ module draconic.script.pipeline;
 import draconic.core;
 import draconic.pipeline.core;
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation::script;
 
-namespace draconic::pipeline{
+namespace pipeline{
     DRACONIC_REFLECT(ScriptClassAsset, "rtti::editor::script")
     {
         builder.Attribute("displayName", String(u8"Script"))

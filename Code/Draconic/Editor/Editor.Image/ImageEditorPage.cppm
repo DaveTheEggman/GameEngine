@@ -24,18 +24,18 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace ui = draconic::ui;
-    namespace image = draconic::image;
+    namespace ui = foundation::ui;
+    namespace image = foundation::image;
 
     // Inspect + color-space page for an ImageAsset.
     class ImageEditorPage final : public app::UIEditorPage
     {
     public:
-        ImageEditorPage(EditorContext& context, draconic::content::Instance& instance);
+        ImageEditorPage(EditorContext& context, foundation::content::Instance& instance);
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
@@ -86,7 +86,7 @@ export namespace draconic::editor
 
         EditorContext* m_context = nullptr;
         String m_title;
-        RefPtr<draconic::pipeline::ImageAsset> m_asset;
+        RefPtr<pipeline::ImageAsset> m_asset;
         UniquePtr<image::OwnedImageData> m_preview; // kept alive for the ImageView (borrowed ptr)
         image::PixelFormat m_sourceFormat = image::PixelFormat::RGBA8;
         usize m_sourceBytes = 0;
@@ -104,7 +104,7 @@ export namespace draconic::editor
     public:
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
     };
 
     inline void RegisterImageEditor(EditorContext& context)

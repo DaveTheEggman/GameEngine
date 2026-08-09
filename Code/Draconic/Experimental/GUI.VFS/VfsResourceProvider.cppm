@@ -19,17 +19,18 @@ import draconic.image.io; // LoadImageFromMemory
 import draconic.vfs;      // IFileSystem
 import draconic.gui;      // IResourceProvider
 
-using namespace draconic::core;
-namespace image = draconic::image;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace image = foundation::image;
 
-export namespace draconic::gui::vfs
+export namespace experimental::gui::vfs
 {
     // IResourceProvider that loads (and decodes) images from a VFS filesystem. The caller owns
     // the filesystem - this provider does not delete it.
-    class VfsResourceProvider final : public draconic::gui::IResourceProvider
+    class VfsResourceProvider final : public experimental::gui::IResourceProvider
     {
     public:
-        explicit VfsResourceProvider(draconic::vfs::IFileSystem* fs) noexcept : m_fs(fs) {}
+        explicit VfsResourceProvider(foundation::vfs::IFileSystem* fs) noexcept : m_fs(fs) {}
 
         // Load + decode image data at `path`. Returns a borrowed pointer owned by this provider
         // (cached in m_images), or null if the file is missing or fails to decode.
@@ -64,7 +65,7 @@ export namespace draconic::gui::vfs
         }
 
     private:
-        draconic::vfs::IFileSystem* m_fs;
+        foundation::vfs::IFileSystem* m_fs;
         Array<UniquePtr<image::OwnedImageData>> m_images; // decoded images owned by this provider
     };
 }

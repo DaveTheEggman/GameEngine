@@ -17,8 +17,9 @@ import draconic.editor.core;
 import draconic.editor.scene;
 import draconic.shell;
 
-using namespace draconic::core;
-using namespace draconic::editor;
+using namespace foundation::core;
+using namespace editor;
+namespace scene = foundation::scene;
 
 namespace
 {
@@ -93,14 +94,14 @@ TEST_CASE("editor-camera: LookAt aims forward at the target with a level horizon
 namespace
 {
     // Minimal input stubs: only what the camera's Update path reads.
-    struct StubKeyboard final : draconic::shell::IKeyboard
+    struct StubKeyboard final : foundation::shell::IKeyboard
     {
-        [[nodiscard]] bool IsKeyDown(draconic::shell::KeyCode) const override { return false; }
-        [[nodiscard]] bool IsKeyPressed(draconic::shell::KeyCode) const override { return false; }
-        [[nodiscard]] bool IsKeyReleased(draconic::shell::KeyCode) const override { return false; }
-        [[nodiscard]] draconic::shell::KeyModifiers Modifiers() const override { return {}; }
+        [[nodiscard]] bool IsKeyDown(foundation::shell::KeyCode) const override { return false; }
+        [[nodiscard]] bool IsKeyPressed(foundation::shell::KeyCode) const override { return false; }
+        [[nodiscard]] bool IsKeyReleased(foundation::shell::KeyCode) const override { return false; }
+        [[nodiscard]] foundation::shell::KeyModifiers Modifiers() const override { return {}; }
     };
-    struct StubMouse final : draconic::shell::IMouse
+    struct StubMouse final : foundation::shell::IMouse
     {
         f32 scrollY = 0.0f;
         [[nodiscard]] f32 X() const override { return 0; }
@@ -111,15 +112,15 @@ namespace
         [[nodiscard]] f32 DeltaY() const override { return 0; }
         [[nodiscard]] f32 ScrollX() const override { return 0; }
         [[nodiscard]] f32 ScrollY() const override { return scrollY; }
-        [[nodiscard]] bool IsButtonDown(draconic::shell::MouseButton) const override
+        [[nodiscard]] bool IsButtonDown(foundation::shell::MouseButton) const override
         {
             return false;
         }
-        [[nodiscard]] bool IsButtonPressed(draconic::shell::MouseButton) const override
+        [[nodiscard]] bool IsButtonPressed(foundation::shell::MouseButton) const override
         {
             return false;
         }
-        [[nodiscard]] bool IsButtonReleased(draconic::shell::MouseButton) const override
+        [[nodiscard]] bool IsButtonReleased(foundation::shell::MouseButton) const override
         {
             return false;
         }
@@ -127,7 +128,7 @@ namespace
         void SetRelativeMode(bool) override {}
         [[nodiscard]] bool CursorVisible() const override { return true; }
         void SetCursorVisible(bool) override {}
-        void SetCursor(draconic::shell::CursorType) override {}
+        void SetCursor(foundation::shell::CursorType) override {}
         void SetGlobalCapture(bool) override {}
     };
 }
@@ -169,8 +170,8 @@ TEST_CASE("editor-camera: wheel dolly keeps the orbit pivot fixed at any zoom")
 
 TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument instances")
 {
-    GlobalTypeRegistry().Register(draconic::scene::SceneDocument::StaticType());
-    RegisterSerializable<draconic::scene::SceneDocument>();
+    GlobalTypeRegistry().Register(foundation::scene::SceneDocument::StaticType());
+    RegisterSerializable<foundation::scene::SceneDocument>();
 
     const StringView dir = u8"draconic_editor_scene_test_project";
     RemoveProjectTree(dir);
@@ -185,7 +186,7 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
     EditorContext empty;
     CHECK(CreateSceneInstance(empty) == nullptr);
 
-    draconic::content::Instance* first = CreateSceneInstance(ctx);
+    foundation::content::Instance* first = CreateSceneInstance(ctx);
     REQUIRE(first != nullptr);
     CHECK(first->Name() == u8"Scene");
     CHECK(first->Path() == u8"Scenes/Scene");
@@ -194,12 +195,12 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
     // The primary object materialized and round-trips.
     RefPtr<ISerializable> obj = first->ReadObject();
     REQUIRE(obj.Get() != nullptr);
-    auto* doc = Cast<draconic::scene::SceneDocument>(obj.Get());
+    auto* doc = Cast<foundation::scene::SceneDocument>(obj.Get());
     REQUIRE(doc != nullptr);
     CHECK(doc->name == u8"Scene");
 
     // Second create picks a unique name in the same group.
-    draconic::content::Instance* second = CreateSceneInstance(ctx);
+    foundation::content::Instance* second = CreateSceneInstance(ctx);
     REQUIRE(second != nullptr);
     CHECK(second->Name() == u8"Scene.2");
     CHECK(second->Id() != first->Id());
@@ -257,14 +258,14 @@ TEST_CASE("inspector: rebuilds when the selection switches entities")
 
     edit.EntitySelection().Set(a);
     inspector.Refresh();
-    auto* nameEditor = draconic::core::Cast<draconic::ui::toolkit::StringEditor>(
+    auto* nameEditor = foundation::core::Cast<foundation::ui::toolkit::StringEditor>(
         inspector.Grid()->GetProperty(u8"Name"));
     REQUIRE(nameEditor != nullptr);
     CHECK(nameEditor->Value() == u8"Alpha");
 
     edit.EntitySelection().Set(b);
     inspector.Refresh();
-    nameEditor = draconic::core::Cast<draconic::ui::toolkit::StringEditor>(
+    nameEditor = foundation::core::Cast<foundation::ui::toolkit::StringEditor>(
         inspector.Grid()->GetProperty(u8"Name"));
     REQUIRE(nameEditor != nullptr);
     CHECK(nameEditor->Value() == u8"Beta");
@@ -332,8 +333,8 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
 {
     // Fresh scenes must be LIT out of the box - an authored "Sun" entity with a shadow-casting
     // directional light (saved content, not editor magic), angled down so shading has direction.
-    GlobalTypeRegistry().Register(draconic::scene::SceneDocument::StaticType());
-    RegisterSerializable<draconic::scene::SceneDocument>();
+    GlobalTypeRegistry().Register(foundation::scene::SceneDocument::StaticType());
+    RegisterSerializable<foundation::scene::SceneDocument>();
 
     const StringView dir = u8"draconic_newscene_seed_project";
     RemoveProjectTree(dir);
@@ -343,16 +344,16 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
     EditorContext ctx;
     ctx.SetProject(project.Get());
 
-    draconic::content::Instance* instance = CreateSceneInstance(ctx);
+    foundation::content::Instance* instance = CreateSceneInstance(ctx);
     REQUIRE(instance != nullptr);
 
-    draconic::scene::Scene loaded;
-    loaded.AddSystem<draconic::engine::render::LightComponentManager>();
-    REQUIRE(draconic::scene::LoadScene(*instance, loaded).IsOk());
+    foundation::scene::Scene loaded;
+    loaded.AddSystem<engine::render::LightComponentManager>();
+    REQUIRE(foundation::scene::LoadScene(*instance, loaded).IsOk());
 
-    draconic::scene::EntityHandle sun{};
+    foundation::scene::EntityHandle sun{};
     loaded.ForEachEntity(
-        [&](draconic::scene::EntityHandle e)
+        [&](foundation::scene::EntityHandle e)
         {
             if (loaded.GetEntityName(e) == u8"Sun")
             {
@@ -360,10 +361,10 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
             }
         });
     REQUIRE(sun.IsAssigned());
-    auto* lights = loaded.GetSystem<draconic::engine::render::LightComponentManager>();
-    draconic::engine::render::LightComponent* light = lights->Get(sun);
+    auto* lights = loaded.GetSystem<engine::render::LightComponentManager>();
+    engine::render::LightComponent* light = lights->Get(sun);
     REQUIRE(light != nullptr);
-    CHECK(light->type == draconic::engine::render::LightType::Directional);
+    CHECK(light->type == engine::render::LightType::Directional);
     CHECK(light->castsShadows);
     // Angled, not identity: the light's forward must have a downward component.
     const Transform t = loaded.GetLocalTransform(sun);

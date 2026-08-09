@@ -5,8 +5,8 @@
 import draconic.core;
 import draconic.gui;
 
-using namespace draconic::gui;
-namespace core = draconic::core;
+using namespace experimental::gui;
+namespace core = foundation::core;
 
 namespace
 {

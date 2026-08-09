@@ -48,9 +48,9 @@ import :compute_pass_encoder;
 import :queue;
 import :swap_chain;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxDeviceImpl : public Device
@@ -1372,4 +1372,4 @@ export namespace draconic::rhi::dx12
         m_trackedBundleEncoders.Clear();
     }
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

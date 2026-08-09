@@ -18,9 +18,9 @@ export module draconic.editor.core:log_buffer;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
     struct EditorLogEntry
     {

@@ -7,7 +7,7 @@ export module draconic.core:intrusive_list;
 
 import :base;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // IntrusiveList - doubly-linked list whose link lives in the element.

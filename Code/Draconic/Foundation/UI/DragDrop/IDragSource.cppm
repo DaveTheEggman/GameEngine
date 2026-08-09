@@ -14,9 +14,9 @@ export module draconic.ui:idrag_source;
 import draconic.core;
 import :drag_drop_effects;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View;
     class DragData;

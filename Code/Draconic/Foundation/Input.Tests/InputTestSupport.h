@@ -3,8 +3,8 @@
 // Header-only test scaffolding (internal linkage - each including TU gets its own copy).
 // The includer MUST already have done, before #include-ing this:
 //     import draconic.core; import draconic.shell; import draconic.input;
-//     using namespace draconic::core; using namespace draconic::input;
-//     namespace shell = draconic::shell;
+//     using namespace foundation::core; using namespace foundation::input;
+//     namespace shell = foundation::shell;
 // Used by BOTH Foundation/Input.Tests (foundation action-model tests) and
 // Engine/Engine.Input.Tests (the InputSubsystem + Wren-facade tests).
 #pragma once

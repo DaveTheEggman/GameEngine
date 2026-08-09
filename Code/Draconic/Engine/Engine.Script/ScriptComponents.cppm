@@ -19,10 +19,10 @@ import draconic.resource;
 import draconic.script;
 import draconic.script.resource;
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation::script;
 
-export namespace draconic::engine::script
+export namespace engine::script
 {
     struct ScriptPropertyOverride
     {
@@ -32,14 +32,14 @@ export namespace draconic::engine::script
 
     inline void Serialize(ISerializer& ar, ScriptPropertyOverride& o)
     {
-        draconic::core::Serialize(ar, "nameHash", o.nameHash);
-        draconic::core::Serialize(ar, "value", o.value);
+        foundation::core::Serialize(ar, "nameHash", o.nameHash);
+        foundation::core::Serialize(ar, "value", o.value);
     }
 
     struct ScriptBehavior
     {
         // Authored:
-        draconic::resource::Ref<ScriptClass> script;
+        foundation::resource::Ref<ScriptClass> script;
         bool enabled = true;
         f32 updateInterval = 0.0f; // seconds between onUpdate calls; <=0 = every tick (P3
                                    // throttling). The delivered dt is the ACCUMULATED time.
@@ -92,10 +92,10 @@ export namespace draconic::engine::script
 
     inline void Serialize(ISerializer& ar, ScriptBehavior& b)
     {
-        draconic::core::Serialize(ar, "script", b.script);
-        draconic::core::Serialize(ar, "enabled", b.enabled);
-        draconic::core::Serialize(ar, "updateInterval", b.updateInterval);
-        draconic::core::Serialize(ar, "overrides", b.overrides); // count-prefixed array scope
+        foundation::core::Serialize(ar, "script", b.script);
+        foundation::core::Serialize(ar, "enabled", b.enabled);
+        foundation::core::Serialize(ar, "updateInterval", b.updateInterval);
+        foundation::core::Serialize(ar, "overrides", b.overrides); // count-prefixed array scope
     }
 
     struct ScriptComponent
@@ -105,10 +105,10 @@ export namespace draconic::engine::script
 
     inline void Serialize(ISerializer& ar, ScriptComponent& c)
     {
-        draconic::core::Serialize(ar, "behaviors", c.behaviors);
+        foundation::core::Serialize(ar, "behaviors", c.behaviors);
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager, ScriptComponent& c)
+    inline void ResolveResources(foundation::resource::ResourceManager& manager, ScriptComponent& c)
     {
         for (ScriptBehavior& behavior : c.behaviors)
         {
@@ -119,7 +119,7 @@ export namespace draconic::engine::script
     class ScriptSceneSystem; // forward (:subsystem) - the destroy hook dispatches onDestroy
 
     class ScriptComponentManager final
-        : public draconic::scene::SerializableComponentManager<ScriptComponent>
+        : public foundation::scene::SerializableComponentManager<ScriptComponent>
     {
     public:
         ScriptComponentManager() : SerializableComponentManager<ScriptComponent>(u8"script") {}
@@ -132,7 +132,7 @@ export namespace draconic::engine::script
     protected:
         // Defined in the :subsystem partition's implementation (needs ScriptSceneSystem).
         void OnComponentDestroyed(ScriptComponent& component,
-                                  draconic::scene::EntityHandle entity) override;
+                                  foundation::scene::EntityHandle entity) override;
 
     private:
         ScriptSceneSystem* m_scriptSystem = nullptr;

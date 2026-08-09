@@ -15,11 +15,11 @@ import draconic.settings;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
-using namespace draconic::editor;
-using namespace draconic::editor::app;
+using namespace foundation::core;
+using namespace editor;
+using namespace editor::app;
 
-namespace ui = draconic::ui;
+namespace ui = foundation::ui;
 
 namespace
 {
@@ -60,7 +60,7 @@ TEST_CASE("editor-shell: page panels dock into the center document area as closa
     EditorShell shell;
     shell.Build(ctx, nullptr, 1280, 720);
 
-    auto content = MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8"scene content"));
+    auto content = MakeRef<foundation::ui::Label>(DefaultAllocator(), StringView(u8"scene content"));
     ui::toolkit::DockablePanel* page = shell.AddPagePanel(u8"Scene 1", content.Get());
     REQUIRE(page != nullptr);
 
@@ -83,7 +83,7 @@ TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
     RegisterEditorProjectSettingsTypes();
     UniquePtr<ui::toolkit::DockLayoutNode> before = shell.Docks()->ExportLayout();
     REQUIRE(static_cast<bool>(before));
-    draconic::settings::Settings store;
+    foundation::settings::Settings store;
     REQUIRE(shell.SaveLayout(store).IsOk());
     REQUIRE(SaveProjectEditorSettings(store, dir).IsOk());
     CHECK(FileExists(PathJoin(dir, kProjectEditorSettingsFile)));
@@ -92,7 +92,7 @@ TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
     // tree matches the saved one again.
     shell.Docks()->UndockPanel(shell.AssetsPanel());
     CHECK(shell.Docks()->FindPanelById(u8"assets") != nullptr); // still registered while undocked
-    draconic::settings::Settings loaded;
+    foundation::settings::Settings loaded;
     REQUIRE(LoadProjectEditorSettings(loaded, dir).IsOk());
     REQUIRE(shell.RestoreLayout(loaded).IsOk());
     UniquePtr<ui::toolkit::DockLayoutNode> after = shell.Docks()->ExportLayout();
@@ -150,7 +150,7 @@ TEST_CASE("editor-layout: restore from a missing file reports NotFound")
     EditorShell shell;
     shell.Build(ctx, nullptr, 640, 480);
     // A store with no captured snapshot (and a directory with no store file) both = NotFound.
-    draconic::settings::Settings store;
+    foundation::settings::Settings store;
     CHECK(shell.RestoreLayout(store).Code() == ErrorCode::NotFound);
     CHECK(LoadProjectEditorSettings(store, dir).Code() == ErrorCode::NotFound);
 
@@ -162,11 +162,11 @@ TEST_CASE("editor-layout: layout node round-trips nested splits through XML")
     // A hand-built split tree: [A | (B tabbed C)] over D - exercises nesting, ratios, tab order.
     ui::toolkit::DockLayoutNode root;
     root.Type = ui::toolkit::DockLayoutNodeType::Split;
-    root.Direction = draconic::ui::Orientation::Vertical;
+    root.Direction = foundation::ui::Orientation::Vertical;
     root.SplitRatio = 0.75f;
     root.First = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
     root.First->Type = ui::toolkit::DockLayoutNodeType::Split;
-    root.First->Direction = draconic::ui::Orientation::Horizontal;
+    root.First->Direction = foundation::ui::Orientation::Horizontal;
     root.First->SplitRatio = 0.25f;
     root.First->First = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
     root.First->First->PanelIds.PushBack(String(u8"a"));
@@ -180,7 +180,7 @@ TEST_CASE("editor-layout: layout node round-trips nested splits through XML")
     // Write to XML text, read back.
     MemoryStream buffer;
     {
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
         REQUIRE(ctx->serializer != nullptr);
         SerializeLayoutNode(*ctx->serializer, root);
@@ -191,7 +191,7 @@ TEST_CASE("editor-layout: layout node round-trips nested splits through XML")
     ui::toolkit::DockLayoutNode loaded;
     {
         (void)buffer.Seek(0, SeekOrigin::Begin); // reuse the write stream for reading
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Read);
         REQUIRE(ctx->serializer != nullptr);
         SerializeLayoutNode(*ctx->serializer, loaded);
@@ -199,7 +199,7 @@ TEST_CASE("editor-layout: layout node round-trips nested splits through XML")
     }
 
     CHECK(loaded.Type == ui::toolkit::DockLayoutNodeType::Split);
-    CHECK(loaded.Direction == draconic::ui::Orientation::Vertical);
+    CHECK(loaded.Direction == foundation::ui::Orientation::Vertical);
     CHECK(loaded.SplitRatio == doctest::Approx(0.75f));
     REQUIRE(static_cast<bool>(loaded.First));
     REQUIRE(static_cast<bool>(loaded.Second));

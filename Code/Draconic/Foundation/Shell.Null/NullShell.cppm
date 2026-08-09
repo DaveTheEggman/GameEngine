@@ -16,9 +16,9 @@ export module draconic.shell.null;
 import draconic.core;
 import draconic.shell;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::shell
+export namespace foundation::shell
 {
     class NullWindow final : public IWindow
     {

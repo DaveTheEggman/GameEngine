@@ -26,10 +26,10 @@ import draconic.rhi.validation;
 import draconic.graphics;
 import draconic.graphics.null; // Null backend delegation
 
-namespace core = draconic::core;
-namespace rhi = draconic::rhi;
+namespace core = foundation::core;
+namespace rhi = foundation::rhi;
 
-namespace draconic::graphics
+namespace foundation::graphics
 {
     core::Result<core::UniquePtr<GraphicsDevice>>
     CreateGraphicsDevice(const GraphicsDeviceDesc& desc)

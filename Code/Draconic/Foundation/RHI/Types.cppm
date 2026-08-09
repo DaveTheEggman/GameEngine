@@ -9,9 +9,9 @@ import draconic.core;
 import :enums;
 import :texture_format;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     /// Maximum number of simultaneous color attachments.
@@ -161,4 +161,4 @@ export namespace draconic::rhi
         u32 bindGroupIndex = 1;
     };
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

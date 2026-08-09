@@ -45,9 +45,9 @@ module draconic.physics;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::physics
+namespace foundation::physics
 {
     // ---- layers ----
     // ObjectLayer encoding: (semantic << 8) | designer group. Semantics keep the fixed

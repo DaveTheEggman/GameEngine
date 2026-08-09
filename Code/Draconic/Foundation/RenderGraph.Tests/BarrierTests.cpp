@@ -11,9 +11,9 @@ import draconic.core;
 import draconic.rhi;
 import draconic.rendergraph;
 
-using namespace draconic::core;
-using namespace draconic::rendergraph;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::rendergraph;
+namespace rhi = foundation::rhi;
 using RS = rhi::ResourceState;
 using AT = RGAccessType;
 

@@ -29,19 +29,19 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace ui = draconic::ui;
-    namespace image = draconic::image;
-    namespace texture = draconic::texture;
+    namespace ui = foundation::ui;
+    namespace image = foundation::image;
+    namespace texture = foundation::texture;
 
     // Import-settings + preview page for a TextureAsset.
     class TextureEditorPage final : public app::UIEditorPage
     {
     public:
-        TextureEditorPage(EditorContext& context, draconic::content::Instance& instance);
+        TextureEditorPage(EditorContext& context, foundation::content::Instance& instance);
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
@@ -50,7 +50,7 @@ export namespace draconic::editor
     private:
         // Decode the source image (external file, or the embedded "pixels" stream) into an
         // RGBA8 CPU buffer kept alive for the ImageView. Leaves m_preview null on failure.
-        void LoadPreview(draconic::content::Instance& instance);
+        void LoadPreview(foundation::content::Instance& instance);
 
         // Build the property rows (color space / shape / sampler / mips / anisotropy + presets).
         void BuildGrid();
@@ -61,7 +61,7 @@ export namespace draconic::editor
         // === undo: whole-asset blob snapshots ===
 
         // Run one edit as an undoable command: snapshot -> mutate -> snapshot -> push.
-        void ApplyEdit(StringView mergeKey, Function<void(draconic::pipeline::TextureAsset&)> mutate);
+        void ApplyEdit(StringView mergeKey, Function<void(pipeline::TextureAsset&)> mutate);
         [[nodiscard]] Array<byte> Snapshot() const;
         void ApplyBlob(const Array<byte>& blob);
 
@@ -107,7 +107,7 @@ export namespace draconic::editor
 
         EditorContext* m_context = nullptr;
         String m_title;
-        RefPtr<draconic::pipeline::TextureAsset> m_asset;
+        RefPtr<pipeline::TextureAsset> m_asset;
         UniquePtr<image::OwnedImageData> m_preview; // kept alive for the ImageView (borrowed ptr)
         image::PixelFormat m_sourceFormat = image::PixelFormat::RGBA8; // pre-preview source format
 
@@ -123,7 +123,7 @@ export namespace draconic::editor
     public:
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
     };
 
     inline void RegisterTextureEditor(EditorContext& context)

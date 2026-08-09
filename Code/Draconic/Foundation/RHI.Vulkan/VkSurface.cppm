@@ -11,9 +11,9 @@ export module draconic.rhi.vulkan:surface;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkSurfaceImpl : public Surface
@@ -40,4 +40,4 @@ export namespace draconic::rhi::vk
         VkInstance m_instance = VK_NULL_HANDLE;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

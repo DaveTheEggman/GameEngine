@@ -28,12 +28,12 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import :edit;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace ui = draconic::ui;
-    namespace scene = draconic::scene;
+    namespace ui = foundation::ui;
+    namespace scene = foundation::scene;
 
     class SceneHierarchyView : public ui::ViewGroup
     {

@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include <sched.h>   // sched_yield
 
-namespace draconic::core::sys
+namespace foundation::core::sys
 {
     static_assert(sizeof(pthread_mutex_t) <= kMutexStorageSize, "kMutexStorageSize too small");
     static_assert(alignof(pthread_mutex_t) <= kMutexStorageAlign, "kMutexStorageAlign too small");

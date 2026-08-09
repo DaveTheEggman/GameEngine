@@ -6,8 +6,8 @@
 import draconic.core;
 import draconic.shaders;
 
-using namespace draconic::core;
-using namespace draconic::shaders;
+using namespace foundation::core;
+using namespace foundation::shaders;
 
 namespace
 {

@@ -20,19 +20,21 @@ import draconic.scene;
 import draconic.render;
 import draconic.engine.render;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace render = foundation::render;
+namespace scene = foundation::scene;
 
-namespace draconic::editor
+namespace editor
 {
     const TypeInfo* CameraGizmoRenderer::ComponentType() const
     {
-        return &TypeOf<draconic::engine::render::CameraComponent>();
+        return &TypeOf<engine::render::CameraComponent>();
     }
 
     void CameraGizmoRenderer::Draw(const Instance& component, scene::EntityHandle owner,
                                    GizmoContext& ctx)
     {
-        const auto* camera = component.TryGet<draconic::engine::render::CameraComponent>();
+        const auto* camera = component.TryGet<engine::render::CameraComponent>();
         if (camera == nullptr)
         {
             return;
@@ -52,13 +54,13 @@ namespace draconic::editor
     }
     const TypeInfo* DecalGizmoRenderer::ComponentType() const
     {
-        return &TypeOf<draconic::engine::render::DecalComponent>();
+        return &TypeOf<engine::render::DecalComponent>();
     }
 
     void DecalGizmoRenderer::Draw(const Instance& component, scene::EntityHandle owner,
                                   GizmoContext& ctx)
     {
-        const auto* decal = component.TryGet<draconic::engine::render::DecalComponent>();
+        const auto* decal = component.TryGet<engine::render::DecalComponent>();
         if (decal == nullptr)
         {
             return;
@@ -127,13 +129,13 @@ namespace draconic::editor
     }
     const TypeInfo* LightGizmoRenderer::ComponentType() const
     {
-        return &TypeOf<draconic::engine::render::LightComponent>();
+        return &TypeOf<engine::render::LightComponent>();
     }
 
     void LightGizmoRenderer::Draw(const Instance& component, scene::EntityHandle owner,
                                   GizmoContext& ctx)
     {
-        const auto* light = component.TryGet<draconic::engine::render::LightComponent>();
+        const auto* light = component.TryGet<engine::render::LightComponent>();
         if (light == nullptr)
         {
             return;
@@ -148,20 +150,20 @@ namespace draconic::editor
 
         switch (light->type)
         {
-        case draconic::engine::render::LightType::Directional:
+        case engine::render::LightType::Directional:
         {
             detail::DrawCenterCross(dd, position, 0.3f, color);
             const Float3 tip = position + forward * 1.5f;
             dd.DrawArrow(position, tip, color, 0.2f);
             break;
         }
-        case draconic::engine::render::LightType::Point:
+        case engine::render::LightType::Point:
         {
             dd.DrawWireSphere(position, light->range, color, 24);
             detail::DrawCenterCross(dd, position, 0.15f, color);
             break;
         }
-        case draconic::engine::render::LightType::Spot:
+        case engine::render::LightType::Spot:
         {
             const f32 tipDist = Max(light->range, 0.1f);
             const Float3 tipCenter = position + forward * tipDist;
@@ -182,13 +184,13 @@ namespace draconic::editor
     }
     const TypeInfo* ReflectionProbeGizmoRenderer::ComponentType() const
     {
-        return &TypeOf<draconic::engine::render::ReflectionProbeComponent>();
+        return &TypeOf<engine::render::ReflectionProbeComponent>();
     }
 
     void ReflectionProbeGizmoRenderer::Draw(const Instance& component, scene::EntityHandle owner,
                                             GizmoContext& ctx)
     {
-        const auto* probe = component.TryGet<draconic::engine::render::ReflectionProbeComponent>();
+        const auto* probe = component.TryGet<engine::render::ReflectionProbeComponent>();
         if (probe == nullptr)
         {
             return;

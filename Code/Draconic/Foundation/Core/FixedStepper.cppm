@@ -14,7 +14,7 @@ export module draconic.core:fixed_stepper;
 
 import :base;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     struct FixedStepper
     {

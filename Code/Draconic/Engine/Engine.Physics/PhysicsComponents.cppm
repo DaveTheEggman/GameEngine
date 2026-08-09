@@ -17,10 +17,10 @@ import draconic.resource;
 import draconic.physics;
 import draconic.physics.resource;
 
-using namespace draconic::core;
-using namespace draconic::physics;
+using namespace foundation::core;
+using namespace foundation::physics;
 
-export namespace draconic::engine::physics
+export namespace engine::physics
 {
     struct RigidBodyComponent
     {
@@ -43,9 +43,9 @@ export namespace draconic::engine::physics
         // allows it (PhysicsSceneSettings::groupCollides).
         u8 collisionGroup = 0;
         // shape == ShapeKind::Cooked: the cooked collision-shape resource to use.
-        draconic::resource::Ref<CollisionShape> collisionShape;
+        foundation::resource::Ref<CollisionShape> collisionShape;
         // Optional surface override: when set, wins over the inline friction/restitution.
-        draconic::resource::Ref<PhysicalMaterial> material;
+        foundation::resource::Ref<PhysicalMaterial> material;
 
         // Runtime (transient):
         BodyId body;
@@ -64,7 +64,7 @@ export namespace draconic::engine::physics
         f32 radius = 0.5f;
         f32 halfHeight = 0.5f;
         f32 planeHalfExtent = 1000.0f;                          // shape == Plane
-        draconic::resource::Ref<CollisionShape> collisionShape; // shape == Cooked
+        foundation::resource::Ref<CollisionShape> collisionShape; // shape == Cooked
     };
 
     inline void Serialize(ISerializer& ar, RigidBodyComponent& c)
@@ -72,27 +72,27 @@ export namespace draconic::engine::physics
         u8 motion = static_cast<u8>(c.motion);
         u8 layer = static_cast<u8>(c.layer);
         u8 shape = static_cast<u8>(c.shape);
-        draconic::core::Serialize(ar, "motion", motion);
-        draconic::core::Serialize(ar, "layer", layer);
-        draconic::core::Serialize(ar, "shape", shape);
+        foundation::core::Serialize(ar, "motion", motion);
+        foundation::core::Serialize(ar, "layer", layer);
+        foundation::core::Serialize(ar, "shape", shape);
         c.motion = static_cast<MotionKind>(motion);
         c.layer = static_cast<PhysicsLayer>(layer);
         c.shape = static_cast<ShapeKind>(shape);
-        draconic::core::Serialize(ar, "halfExtents", c.halfExtents);
-        draconic::core::Serialize(ar, "radius", c.radius);
-        draconic::core::Serialize(ar, "halfHeight", c.halfHeight);
-        draconic::core::Serialize(ar, "planeHalfExtent", c.planeHalfExtent);
-        draconic::core::Serialize(ar, "friction", c.friction);
-        draconic::core::Serialize(ar, "restitution", c.restitution);
-        draconic::core::Serialize(ar, "linearDamping", c.linearDamping);
-        draconic::core::Serialize(ar, "angularDamping", c.angularDamping);
-        draconic::core::Serialize(ar, "isTrigger", c.isTrigger);
-        draconic::core::Serialize(ar, "collisionGroup", c.collisionGroup);
-        draconic::core::Serialize(ar, "collisionShape", c.collisionShape);
-        draconic::core::Serialize(ar, "material", c.material);
+        foundation::core::Serialize(ar, "halfExtents", c.halfExtents);
+        foundation::core::Serialize(ar, "radius", c.radius);
+        foundation::core::Serialize(ar, "halfHeight", c.halfHeight);
+        foundation::core::Serialize(ar, "planeHalfExtent", c.planeHalfExtent);
+        foundation::core::Serialize(ar, "friction", c.friction);
+        foundation::core::Serialize(ar, "restitution", c.restitution);
+        foundation::core::Serialize(ar, "linearDamping", c.linearDamping);
+        foundation::core::Serialize(ar, "angularDamping", c.angularDamping);
+        foundation::core::Serialize(ar, "isTrigger", c.isTrigger);
+        foundation::core::Serialize(ar, "collisionGroup", c.collisionGroup);
+        foundation::core::Serialize(ar, "collisionShape", c.collisionShape);
+        foundation::core::Serialize(ar, "material", c.material);
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager,
+    inline void ResolveResources(foundation::resource::ResourceManager& manager,
                                  RigidBodyComponent& c)
     {
         c.collisionShape.Bind(manager);
@@ -102,22 +102,22 @@ export namespace draconic::engine::physics
     inline void Serialize(ISerializer& ar, ColliderComponent& c)
     {
         u8 shape = static_cast<u8>(c.shape);
-        draconic::core::Serialize(ar, "shape", shape);
+        foundation::core::Serialize(ar, "shape", shape);
         c.shape = static_cast<ShapeKind>(shape);
-        draconic::core::Serialize(ar, "halfExtents", c.halfExtents);
-        draconic::core::Serialize(ar, "radius", c.radius);
-        draconic::core::Serialize(ar, "halfHeight", c.halfHeight);
-        draconic::core::Serialize(ar, "planeHalfExtent", c.planeHalfExtent);
-        draconic::core::Serialize(ar, "collisionShape", c.collisionShape);
+        foundation::core::Serialize(ar, "halfExtents", c.halfExtents);
+        foundation::core::Serialize(ar, "radius", c.radius);
+        foundation::core::Serialize(ar, "halfHeight", c.halfHeight);
+        foundation::core::Serialize(ar, "planeHalfExtent", c.planeHalfExtent);
+        foundation::core::Serialize(ar, "collisionShape", c.collisionShape);
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager, ColliderComponent& c)
+    inline void ResolveResources(foundation::resource::ResourceManager& manager, ColliderComponent& c)
     {
         c.collisionShape.Bind(manager);
     }
 
     class RigidBodyComponentManager final
-        : public draconic::scene::SerializableComponentManager<RigidBodyComponent>
+        : public foundation::scene::SerializableComponentManager<RigidBodyComponent>
     {
     public:
         RigidBodyComponentManager()
@@ -127,7 +127,7 @@ export namespace draconic::engine::physics
     };
 
     class ColliderComponentManager final
-        : public draconic::scene::SerializableComponentManager<ColliderComponent>
+        : public foundation::scene::SerializableComponentManager<ColliderComponent>
     {
     public:
         ColliderComponentManager()
@@ -186,17 +186,17 @@ export namespace draconic::engine::physics
 
     inline void Serialize(ISerializer& ar, CharacterComponent& c)
     {
-        draconic::core::Serialize(ar, "radius", c.radius);
-        draconic::core::Serialize(ar, "halfHeight", c.halfHeight);
-        draconic::core::Serialize(ar, "maxSlopeDegrees", c.maxSlopeDegrees);
-        draconic::core::Serialize(ar, "mass", c.mass);
-        draconic::core::Serialize(ar, "maxStrength", c.maxStrength);
-        draconic::core::Serialize(ar, "stepUp", c.stepUp);
-        draconic::core::Serialize(ar, "stepDown", c.stepDown);
+        foundation::core::Serialize(ar, "radius", c.radius);
+        foundation::core::Serialize(ar, "halfHeight", c.halfHeight);
+        foundation::core::Serialize(ar, "maxSlopeDegrees", c.maxSlopeDegrees);
+        foundation::core::Serialize(ar, "mass", c.mass);
+        foundation::core::Serialize(ar, "maxStrength", c.maxStrength);
+        foundation::core::Serialize(ar, "stepUp", c.stepUp);
+        foundation::core::Serialize(ar, "stepDown", c.stepDown);
     }
 
     class CharacterComponentManager final
-        : public draconic::scene::SerializableComponentManager<CharacterComponent>
+        : public foundation::scene::SerializableComponentManager<CharacterComponent>
     {
     public:
         CharacterComponentManager()
@@ -230,22 +230,22 @@ export namespace draconic::engine::physics
     inline void Serialize(ISerializer& ar, JointComponent& c)
     {
         u8 kind = static_cast<u8>(c.kind);
-        draconic::core::Serialize(ar, "kind", kind);
+        foundation::core::Serialize(ar, "kind", kind);
         c.kind = static_cast<JointKind>(kind);
-        draconic::core::Serialize(ar, "targetEntity", c.targetEntity);
-        draconic::core::Serialize(ar, "localAnchor", c.localAnchor);
-        draconic::core::Serialize(ar, "localAxis", c.localAxis);
-        draconic::core::Serialize(ar, "limitMin", c.limitMin);
-        draconic::core::Serialize(ar, "limitMax", c.limitMax);
-        draconic::core::Serialize(ar, "minDistance", c.minDistance);
-        draconic::core::Serialize(ar, "maxDistance", c.maxDistance);
-        draconic::core::Serialize(ar, "motorEnabled", c.motorEnabled);
-        draconic::core::Serialize(ar, "motorTargetVelocity", c.motorTargetVelocity);
-        draconic::core::Serialize(ar, "motorLimit", c.motorLimit);
+        foundation::core::Serialize(ar, "targetEntity", c.targetEntity);
+        foundation::core::Serialize(ar, "localAnchor", c.localAnchor);
+        foundation::core::Serialize(ar, "localAxis", c.localAxis);
+        foundation::core::Serialize(ar, "limitMin", c.limitMin);
+        foundation::core::Serialize(ar, "limitMax", c.limitMax);
+        foundation::core::Serialize(ar, "minDistance", c.minDistance);
+        foundation::core::Serialize(ar, "maxDistance", c.maxDistance);
+        foundation::core::Serialize(ar, "motorEnabled", c.motorEnabled);
+        foundation::core::Serialize(ar, "motorTargetVelocity", c.motorTargetVelocity);
+        foundation::core::Serialize(ar, "motorLimit", c.motorLimit);
     }
 
     class JointComponentManager final
-        : public draconic::scene::SerializableComponentManager<JointComponent>
+        : public foundation::scene::SerializableComponentManager<JointComponent>
     {
     public:
         JointComponentManager() : SerializableComponentManager<JointComponent>(u8"physics.Joint") {}
@@ -270,11 +270,11 @@ export namespace draconic::engine::physics
     // code (the whole-block undo command replays these exact bytes).
     inline void SerializePhysicsSceneSettings(ISerializer& ar, PhysicsSceneSettings& settings)
     {
-        draconic::core::Serialize(ar, "gravity", settings.gravity);
-        draconic::core::Serialize(ar, "collisionSteps", settings.collisionSteps);
-        draconic::core::Serialize(ar, "debugDraw", settings.debugDraw);
-        draconic::core::Serialize(ar, "groupNames", settings.groupNames);
-        draconic::core::Serialize(ar, "groupCollides", settings.groupCollides);
+        foundation::core::Serialize(ar, "gravity", settings.gravity);
+        foundation::core::Serialize(ar, "collisionSteps", settings.collisionSteps);
+        foundation::core::Serialize(ar, "debugDraw", settings.debugDraw);
+        foundation::core::Serialize(ar, "groupNames", settings.groupNames);
+        foundation::core::Serialize(ar, "groupCollides", settings.groupCollides);
     }
 
     // Defined in SubsystemImpl.cpp: the DRACONIC_REFLECT_* bodies live there because

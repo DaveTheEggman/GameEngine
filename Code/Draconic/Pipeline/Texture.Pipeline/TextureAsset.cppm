@@ -1,7 +1,7 @@
 // Draconic::TextureEditor - the `draconic.texture.editor` module (tooling).
 //
 // Source-side texture authoring + cook:
-//   * TextureAsset (draconic::pipeline::Asset): references an image file + the GPU-texture
+//   * TextureAsset (pipeline::Asset): references an image file + the GPU-texture
 //     intent (color space, shape, sampler state). Presets mirror Sedulous's.
 //   * TextureAssetBuilder (DefaultAssetBuilder): cooks a TextureAsset into a
 //     runtime TextureResource - decode the file, resolve the RHI format from the
@@ -29,17 +29,18 @@ import draconic.image;
 import draconic.image.io;
 import draconic.content;
 
-using namespace draconic::core;
-using namespace draconic::texture;
+using namespace foundation::core;
+using namespace foundation::texture;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::pipeline{
-    namespace image = draconic::image;
-    namespace content = draconic::content;
+export namespace pipeline{
+    namespace image = foundation::image;
+    namespace content = foundation::content;
 
     // Source asset: an image file + how it should become a GPU texture.
-    class TextureAsset final : public draconic::pipeline::Asset
+    class TextureAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(TextureAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(TextureAsset, pipeline::Asset)
     public:
         image::ImageColorSpace colorSpace = image::ImageColorSpace::Srgb;
         // Embedded mode (model imports): fileName empty + width/height set; the RGBA8 pixels
@@ -57,18 +58,18 @@ export namespace draconic::pipeline{
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName
-            draconic::core::Serialize(ar, "colorSpace", colorSpace);
-            draconic::core::Serialize(ar, "embeddedWidth", embeddedWidth);
-            draconic::core::Serialize(ar, "embeddedHeight", embeddedHeight);
-            draconic::core::Serialize(ar, "shape", shape);
-            draconic::core::Serialize(ar, "minFilter", minFilter);
-            draconic::core::Serialize(ar, "magFilter", magFilter);
-            draconic::core::Serialize(ar, "wrapU", wrapU);
-            draconic::core::Serialize(ar, "wrapV", wrapV);
-            draconic::core::Serialize(ar, "wrapW", wrapW);
-            draconic::core::Serialize(ar, "generateMipmaps", generateMipmaps);
-            draconic::core::Serialize(ar, "anisotropy", anisotropy);
+            pipeline::Asset::Serialize(ar); // fileName
+            foundation::core::Serialize(ar, "colorSpace", colorSpace);
+            foundation::core::Serialize(ar, "embeddedWidth", embeddedWidth);
+            foundation::core::Serialize(ar, "embeddedHeight", embeddedHeight);
+            foundation::core::Serialize(ar, "shape", shape);
+            foundation::core::Serialize(ar, "minFilter", minFilter);
+            foundation::core::Serialize(ar, "magFilter", magFilter);
+            foundation::core::Serialize(ar, "wrapU", wrapU);
+            foundation::core::Serialize(ar, "wrapV", wrapV);
+            foundation::core::Serialize(ar, "wrapW", wrapW);
+            foundation::core::Serialize(ar, "generateMipmaps", generateMipmaps);
+            foundation::core::Serialize(ar, "anisotropy", anisotropy);
         }
 
         // Presets (subset of Sedulous's).
@@ -136,7 +137,7 @@ export namespace draconic::pipeline{
         static void Import2D(StringView path, image::ImageColorSpace colorSpace,
                              TextureAsset& outAsset)
         {
-            outAsset.fileName = draconic::vfs::SourcePath(path);
+            outAsset.fileName = foundation::vfs::SourcePath(path);
             outAsset.SetupFor3D();
             outAsset.colorSpace = colorSpace;
         }
@@ -144,14 +145,14 @@ export namespace draconic::pipeline{
         // An HDR equirectangular sky (linear, clamped, no mips).
         static void ImportEquirectangular(StringView path, TextureAsset& outAsset)
         {
-            outAsset.fileName = draconic::vfs::SourcePath(path);
+            outAsset.fileName = foundation::vfs::SourcePath(path);
             outAsset.SetupForEquirectangularSkybox();
         }
 
         // A cubemap sky from 6 face files (the first is stored as the asset source).
         static void ImportCubemap(StringView firstFacePath, TextureAsset& outAsset)
         {
-            outAsset.fileName = draconic::vfs::SourcePath(firstFacePath);
+            outAsset.fileName = foundation::vfs::SourcePath(firstFacePath);
             outAsset.SetupForCubemapSkybox();
         }
 
@@ -278,7 +279,7 @@ export namespace draconic::pipeline{
 
     // Cooks a TextureAsset -> TextureResource (decode + resolve RHI format ->
     // cooked record + "data" pixel stream).
-    class TextureAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class TextureAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -292,9 +293,9 @@ export namespace draconic::pipeline{
 
         // Embedded-mode textures read the "pixels" sidecar stream - declare it so the recipe
         // hash chains its bytes (the envelope hash doesn't cover sidecars).
-        void ScanDependencies(const draconic::pipeline::Asset& asset,
-                              draconic::pipeline::AssetBuildContext&,
-                              draconic::pipeline::AssetDependencies& out) override
+        void ScanDependencies(const pipeline::Asset& asset,
+                              pipeline::AssetBuildContext&,
+                              pipeline::AssetDependencies& out) override
         {
             const TextureAsset& ta = static_cast<const TextureAsset&>(asset);
             if (ta.fileName.IsEmpty() && ta.embeddedWidth > 0)
@@ -312,15 +313,15 @@ export namespace draconic::pipeline{
                     {
                         if (faces[i].AsView() != ta.fileName.View())
                         {
-                            out.files.PushBack(draconic::vfs::SourcePath(faces[i].AsView()));
+                            out.files.PushBack(foundation::vfs::SourcePath(faces[i].AsView()));
                         }
                     }
                 }
             }
         }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const TextureAsset& ta =
                 static_cast<const TextureAsset&>(asset); // guarded by AssetType()
@@ -387,7 +388,7 @@ export namespace draconic::pipeline{
         // Cook a 6-face cubemap: derive the face paths from the +X face's naming convention,
         // load each through the VFS, validate (square, matching size/format), concatenate.
         [[nodiscard]] static Status BuildCubemap(const TextureAsset& ta,
-                                                 draconic::pipeline::AssetBuildContext& ctx)
+                                                 pipeline::AssetBuildContext& ctx)
         {
             Array<String> facePaths;
             if (!TextureImporter::DetectCubemapFaces(ta.fileName.View(), facePaths).IsOk() ||
@@ -465,7 +466,7 @@ export namespace draconic::pipeline{
         }
 
         [[nodiscard]] static Status BuildEmbedded(const TextureAsset& ta,
-                                                  draconic::pipeline::AssetBuildContext& ctx)
+                                                  pipeline::AssetBuildContext& ctx)
         {
             if (ctx.source == nullptr)
             {
@@ -521,7 +522,7 @@ export namespace draconic::pipeline{
     //   - a cube-face name (sky_px.png etc.) with all 6 sibling faces present
     //                                           -> ONE cube asset (all 6 faces copied)
     //   - anything else                         -> the standard 3D preset
-    class TextureFileImporter final : public draconic::editor::IFileImporter
+    class TextureFileImporter final : public editor::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"Texture"; }
@@ -539,9 +540,9 @@ export namespace draconic::pipeline{
         }
 
         [[nodiscard]] Result<content::Instance*>
-        Import(StringView sourcePath, draconic::editor::EditorProject& project,
-               content::Group& group, const draconic::editor::ImportOptions*, Object*,
-               Array<draconic::editor::DeferredImportWrite>*) override
+        Import(StringView sourcePath, editor::EditorProject& project,
+               content::Group& group, const editor::ImportOptions*, Object*,
+               Array<editor::DeferredImportWrite>*) override
         {
             // Cubemap intent: the dropped file's stem matches a face convention (px/nx/...,
             // _posx/..., right/left/...) AND all 6 sibling faces exist beside it. Any one
@@ -566,13 +567,13 @@ export namespace draconic::pipeline{
                 }
             }
 
-            Result<String> fileName = draconic::editor::CopyIntoSources(project, sourcePath);
+            Result<String> fileName = editor::CopyIntoSources(project, sourcePath);
             if (!fileName.HasValue())
             {
                 return Err(fileName.Error());
             }
 
-            const StringView stem = draconic::editor::FileStemOf(fileName.Value().AsView());
+            const StringView stem = editor::FileStemOf(fileName.Value().AsView());
             content::Instance* instance = group.CreateInstance(stem, TextureAsset::StaticType());
             if (instance == nullptr)
             {
@@ -580,8 +581,8 @@ export namespace draconic::pipeline{
             }
 
             TextureAsset asset;
-            asset.fileName = draconic::vfs::SourcePath(fileName.Value().AsView());
-            if (draconic::editor::FileExtensionLower(sourcePath) == u8"hdr")
+            asset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
+            if (editor::FileExtensionLower(sourcePath) == u8"hdr")
             {
                 asset.SetupForEquirectangularSkybox(); // .hdr = an environment, not a surface map
             }
@@ -601,14 +602,14 @@ export namespace draconic::pipeline{
         // Copy all 6 faces into Sources/ and create ONE cube TextureAsset. fileName = the
         // +X face; the builder re-derives the face set from its naming convention at cook.
         [[nodiscard]] static Result<content::Instance*>
-        ImportCube(const Array<String>& facePaths, draconic::editor::EditorProject& project,
+        ImportCube(const Array<String>& facePaths, editor::EditorProject& project,
                    content::Group& group)
         {
             String posXName;
             for (usize i = 0; i < facePaths.Size(); ++i)
             {
                 Result<String> copied =
-                    draconic::editor::CopyIntoSources(project, facePaths[i].AsView());
+                    editor::CopyIntoSources(project, facePaths[i].AsView());
                 if (!copied.HasValue())
                 {
                     return Err(copied.Error());
@@ -621,7 +622,7 @@ export namespace draconic::pipeline{
 
             // "sky_px" -> "sky" (strip the face suffix + a trailing separator); fall back to
             // the full stem when the convention leaves nothing.
-            const StringView posXStem = draconic::editor::FileStemOf(posXName.AsView());
+            const StringView posXStem = editor::FileStemOf(posXName.AsView());
             Array<String> derived;
             String name;
             if (TextureImporter::DetectCubemapFaces(posXName.AsView(), derived).IsOk())
@@ -634,7 +635,7 @@ export namespace draconic::pipeline{
                 {
                     ++common;
                 }
-                StringView prefix = draconic::editor::FileStemOf(a.SubStr(0, common));
+                StringView prefix = editor::FileStemOf(a.SubStr(0, common));
                 while (!prefix.IsEmpty() && (prefix[prefix.Size() - 1] == utf8char('_') ||
                                              prefix[prefix.Size() - 1] == utf8char('-')))
                 {
@@ -654,7 +655,7 @@ export namespace draconic::pipeline{
                 return Err(ErrorCode::Unknown);
             }
             TextureAsset asset;
-            asset.fileName = draconic::vfs::SourcePath(posXName.AsView());
+            asset.fileName = foundation::vfs::SourcePath(posXName.AsView());
             asset.SetupForCubemapSkybox();
             const Status written = instance->WriteObject(asset);
             if (!written.IsOk())

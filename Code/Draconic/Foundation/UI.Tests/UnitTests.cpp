@@ -4,7 +4,7 @@
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::ui;
+using namespace foundation::ui;
 
 TEST_CASE("unit: Dp_ResolveAtScale1") { CHECK(Unit::Dp(100.0f).Resolve(1.0f) == 100.0f); }
 TEST_CASE("unit: Dp_ResolveAtScale2") { CHECK(Unit::Dp(100.0f).Resolve(2.0f) == 200.0f); }

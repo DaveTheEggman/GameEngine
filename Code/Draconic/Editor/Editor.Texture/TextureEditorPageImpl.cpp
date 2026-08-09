@@ -17,9 +17,12 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace image = foundation::image;
+namespace texture = foundation::texture;
+namespace ui = foundation::ui;
 
-namespace draconic::editor
+namespace editor
 {
     namespace
     {
@@ -79,13 +82,13 @@ namespace draconic::editor
     } // namespace
 
     TextureEditorPage::TextureEditorPage(EditorContext& context,
-                                         draconic::content::Instance& instance)
+                                         foundation::content::Instance& instance)
         : m_context(&context), m_title(instance.Name())
     {
         SetInstanceId(instance.Id());
 
         RefPtr<ISerializable> object = instance.ReadObject();
-        m_asset = RefPtr<draconic::pipeline::TextureAsset>(Cast<draconic::pipeline::TextureAsset>(object.Get()));
+        m_asset = RefPtr<pipeline::TextureAsset>(Cast<pipeline::TextureAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor", u8"texture '{}' failed to read - page opens empty",
@@ -141,7 +144,7 @@ namespace draconic::editor
         RefreshInfo();
     }
 
-    void TextureEditorPage::LoadPreview(draconic::content::Instance& instance)
+    void TextureEditorPage::LoadPreview(foundation::content::Instance& instance)
     {
         if (m_asset.Get() == nullptr)
         {
@@ -246,8 +249,8 @@ namespace draconic::editor
                                         return;
                                     }
                                     self->ApplyEdit(u8"preset",
-                                                    Function<void(draconic::pipeline::TextureAsset&)>{
-                                                        [index](draconic::pipeline::TextureAsset& a)
+                                                    Function<void(pipeline::TextureAsset&)>{
+                                                        [index](pipeline::TextureAsset& a)
                                                         {
                                                             switch (index)
                                                             {
@@ -283,8 +286,8 @@ namespace draconic::editor
                     {
                         self->ApplyEdit(
                             u8"colorSpace",
-                            Function<void(draconic::pipeline::TextureAsset&)>{
-                                [v](draconic::pipeline::TextureAsset& a)
+                            Function<void(pipeline::TextureAsset&)>{
+                                [v](pipeline::TextureAsset& a)
                                 { a.colorSpace = static_cast<image::ImageColorSpace>(v); }});
                     }},
                 StringView(u8"Texture"));
@@ -299,8 +302,8 @@ namespace draconic::editor
                     [self](i32 v)
                     {
                         self->ApplyEdit(u8"shape",
-                                        Function<void(draconic::pipeline::TextureAsset&)>{
-                                            [v](draconic::pipeline::TextureAsset& a)
+                                        Function<void(pipeline::TextureAsset&)>{
+                                            [v](pipeline::TextureAsset& a)
                                             { a.shape = static_cast<texture::TextureShape>(v); }});
                     }},
                 StringView(u8"Texture"));
@@ -310,7 +313,7 @@ namespace draconic::editor
 
         // --- Sampling: filters, wraps, mipmaps, anisotropy ---
         auto addFilterRow = [self](StringView label, StringView key,
-                                   texture::TextureFilter draconic::pipeline::TextureAsset::* field)
+                                   texture::TextureFilter pipeline::TextureAsset::* field)
         {
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
                 DefaultAllocator(), label, static_cast<i32>(self->m_asset.Get()->*field),
@@ -320,19 +323,19 @@ namespace draconic::editor
                     {
                         self->ApplyEdit(
                             key.AsView(),
-                            Function<void(draconic::pipeline::TextureAsset&)>{
-                                [field, v](draconic::pipeline::TextureAsset& a)
+                            Function<void(pipeline::TextureAsset&)>{
+                                [field, v](pipeline::TextureAsset& a)
                                 { a.*field = static_cast<texture::TextureFilter>(v); }});
                     }},
                 StringView(u8"Sampling"));
             self->AddEditor(editor.Get(), [self, raw = editor.Get(), field]()
                             { raw->SetValue(static_cast<i32>(self->m_asset.Get()->*field)); });
         };
-        addFilterRow(u8"Min Filter", u8"minFilter", &draconic::pipeline::TextureAsset::minFilter);
-        addFilterRow(u8"Mag Filter", u8"magFilter", &draconic::pipeline::TextureAsset::magFilter);
+        addFilterRow(u8"Min Filter", u8"minFilter", &pipeline::TextureAsset::minFilter);
+        addFilterRow(u8"Mag Filter", u8"magFilter", &pipeline::TextureAsset::magFilter);
 
         auto addWrapRow = [self](StringView label, StringView key,
-                                 texture::TextureWrap draconic::pipeline::TextureAsset::* field)
+                                 texture::TextureWrap pipeline::TextureAsset::* field)
         {
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
                 DefaultAllocator(), label, static_cast<i32>(self->m_asset.Get()->*field),
@@ -341,17 +344,17 @@ namespace draconic::editor
                     [self, field, key = String(key)](i32 v)
                     {
                         self->ApplyEdit(key.AsView(),
-                                        Function<void(draconic::pipeline::TextureAsset&)>{
-                                            [field, v](draconic::pipeline::TextureAsset& a)
+                                        Function<void(pipeline::TextureAsset&)>{
+                                            [field, v](pipeline::TextureAsset& a)
                                             { a.*field = static_cast<texture::TextureWrap>(v); }});
                     }},
                 StringView(u8"Sampling"));
             self->AddEditor(editor.Get(), [self, raw = editor.Get(), field]()
                             { raw->SetValue(static_cast<i32>(self->m_asset.Get()->*field)); });
         };
-        addWrapRow(u8"Wrap U", u8"wrapU", &draconic::pipeline::TextureAsset::wrapU);
-        addWrapRow(u8"Wrap V", u8"wrapV", &draconic::pipeline::TextureAsset::wrapV);
-        addWrapRow(u8"Wrap W", u8"wrapW", &draconic::pipeline::TextureAsset::wrapW);
+        addWrapRow(u8"Wrap U", u8"wrapU", &pipeline::TextureAsset::wrapU);
+        addWrapRow(u8"Wrap V", u8"wrapV", &pipeline::TextureAsset::wrapV);
+        addWrapRow(u8"Wrap W", u8"wrapW", &pipeline::TextureAsset::wrapW);
 
         {
             auto editor = MakeRef<ui::toolkit::BoolEditor>(
@@ -359,8 +362,8 @@ namespace draconic::editor
                 Function<void(bool)>{[self](bool v)
                                      {
                                          self->ApplyEdit(u8"generateMipmaps",
-                                                         Function<void(draconic::pipeline::TextureAsset&)>{
-                                                             [v](draconic::pipeline::TextureAsset& a)
+                                                         Function<void(pipeline::TextureAsset&)>{
+                                                             [v](pipeline::TextureAsset& a)
                                                              { a.generateMipmaps = v; }});
                                      }},
                 StringView(u8"Sampling"));
@@ -374,8 +377,8 @@ namespace draconic::editor
                 Function<void(f32)>{[self](f32 v)
                                     {
                                         self->ApplyEdit(u8"anisotropy",
-                                                        Function<void(draconic::pipeline::TextureAsset&)>{
-                                                            [v](draconic::pipeline::TextureAsset& a)
+                                                        Function<void(pipeline::TextureAsset&)>{
+                                                            [v](pipeline::TextureAsset& a)
                                                             { a.anisotropy = v; }});
                                     }},
                 StringView(u8"Sampling"));
@@ -437,7 +440,7 @@ namespace draconic::editor
     }
 
     void TextureEditorPage::ApplyEdit(StringView mergeKey,
-                                      Function<void(draconic::pipeline::TextureAsset&)> mutate)
+                                      Function<void(pipeline::TextureAsset&)> mutate)
     {
         if (m_asset.Get() == nullptr)
         {
@@ -458,7 +461,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             m_context->Project()->SourceDb().GetInstance(InstanceId());
         if (instance == nullptr)
         {
@@ -477,12 +480,12 @@ namespace draconic::editor
 
     const TypeInfo* TextureEditorPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::TextureAsset::StaticType();
+        return &pipeline::TextureAsset::StaticType();
     }
 
     UniquePtr<EditorPage>
     TextureEditorPageFactory::CreatePage(EditorContext& context,
-                                         draconic::content::Instance& instance)
+                                         foundation::content::Instance& instance)
     {
         auto* page = DefaultAllocator().New<TextureEditorPage>(context, instance);
         return UniquePtr<EditorPage>(page, DefaultAllocator());

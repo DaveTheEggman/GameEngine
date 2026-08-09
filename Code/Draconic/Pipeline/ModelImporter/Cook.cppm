@@ -34,21 +34,22 @@ import :mesh_convert;
 import :anim_convert;
 import draconic.model.resource;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
-namespace model = draconic::model;
-namespace geometry = draconic::geometry;
-namespace materials = draconic::materials;
-namespace texture = draconic::texture;
-namespace animation = draconic::animation;
-namespace content = draconic::content;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace rhi = foundation::rhi;
+namespace model = foundation::model;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace texture = foundation::texture;
+namespace animation = foundation::animation;
+namespace content = foundation::content;
 
-export namespace draconic::pipeline
+export namespace pipeline
 {
-    // The cooked-model runtime types now live in draconic::model (draconic.model.resource).
-    using draconic::model::ModelManifestSource;
-    using draconic::model::ModelNode;
-    using draconic::model::ModelResource;
+    // The cooked-model runtime types now live in foundation::model (draconic.model.resource).
+    using foundation::model::ModelManifestSource;
+    using foundation::model::ModelNode;
+    using foundation::model::ModelResource;
 
     // True if the model mesh carries skinning (Joints/Weights vertex elements).
     [[nodiscard]] inline bool IsSkinnedMesh(const model::ModelMesh& mesh) noexcept
@@ -125,7 +126,7 @@ export namespace draconic::pipeline
                               StringView namePrefix, const Array<Guid>& textureGuids,
                               Array<Guid>& outMatGuids, Array<Guid>& outAlbedo)
     {
-        draconic::pipeline::MaterialAssetBuilder builder;
+        pipeline::MaterialAssetBuilder builder;
         HashMap<u64, Guid> bakedMR; // per-pair bake cache (materials often share maps)
         const Span<model::ModelMaterial* const> materials = model.materials();
         for (usize i = 0; i < materials.Size(); ++i)
@@ -142,8 +143,8 @@ export namespace draconic::pipeline
             built->SetDefaultFloat(u8"OcclusionStrength", m.occlusionStrength);
             built->SetDefaultFloat(u8"NormalScale", m.normalScale);
             built->SetDefaultFloat(u8"AlphaCutoff", m.alphaCutoff);
-            draconic::pipeline::MaterialAsset asset;
-            draconic::pipeline::MaterialImporter::Import(*built, Guid{},
+            pipeline::MaterialAsset asset;
+            pipeline::MaterialImporter::Import(*built, Guid{},
                                                 asset); // nil shaderId -> use shaderName
             asset.source.shaderName = String(u8"forward");
             // Wire every authored texture (see FileImport::ImportMaterials - same self-contained rule).
@@ -219,20 +220,20 @@ export namespace draconic::pipeline
                 }
                 // Authored pipeline state: alpha mode -> blend (Mask = alpha-tested cutout w/ holey
                 // shadows; Blend = transparent pass) and double-sided -> no culling.
-                if (m.alphaMode == draconic::model::AlphaMode::Mask)
+                if (m.alphaMode == foundation::model::AlphaMode::Mask)
                 {
                     asset.source.blendMode =
-                        draconic::materials::BlendMode::Masked;
+                        foundation::materials::BlendMode::Masked;
                 }
-                else if (m.alphaMode == draconic::model::AlphaMode::Blend)
+                else if (m.alphaMode == foundation::model::AlphaMode::Blend)
                 {
                     asset.source.blendMode =
-                        draconic::materials::BlendMode::AlphaBlend;
+                        foundation::materials::BlendMode::AlphaBlend;
                 }
                 if (m.doubleSided)
                 {
                     asset.source.cullMode =
-                        draconic::materials::CullModeConfig::None;
+                        foundation::materials::CullModeConfig::None;
                 }
                 MaterialSamplerModes(model, m, asset.source.samplerU, asset.source.samplerV);
             }
@@ -247,7 +248,7 @@ export namespace draconic::pipeline
                 outAlbedo.PushBack(Guid{});
                 continue;
             }
-            draconic::pipeline::AssetBuildContext ctx;
+            pipeline::AssetBuildContext ctx;
             ctx.output = inst;
             if (builder.Build(asset, ctx).IsOk())
             {
@@ -297,15 +298,15 @@ export namespace draconic::pipeline
             const model::ModelSkin& skin = *model.skins()[0];
             boneToJoint = BuildBoneToJoint(skin);
 
-            draconic::pipeline::SkeletonAsset skelAsset;
+            pipeline::SkeletonAsset skelAsset;
             SkeletonSourceFromModel(model, skin, boneToJoint, skelAsset.source);
-            draconic::pipeline::SkeletonAssetBuilder skelBuilder;
+            pipeline::SkeletonAssetBuilder skelBuilder;
             content::Instance* skelInst =
                 root->CreateInstance(Format(u8"{}.skeleton", namePrefix).AsView(),
                                      animation::SkeletonSource::StaticType());
             if (skelInst != nullptr)
             {
-                draconic::pipeline::AssetBuildContext ctx;
+                pipeline::AssetBuildContext ctx;
                 ctx.output = skelInst;
                 if (skelBuilder.Build(skelAsset, ctx).IsOk())
                 {
@@ -313,11 +314,11 @@ export namespace draconic::pipeline
                 }
             }
 
-            draconic::pipeline::AnimationClipAssetBuilder clipBuilder;
+            pipeline::AnimationClipAssetBuilder clipBuilder;
             const Span<model::ModelAnimation* const> animations = model.animations();
             for (usize a = 0; a < animations.Size(); ++a)
             {
-                draconic::pipeline::AnimationClipAsset clipAsset;
+                pipeline::AnimationClipAsset clipAsset;
                 AnimationClipSourceFromModel(
                     *animations[a], boneToJoint,
                     Format(u8"{}.{}", namePrefix,
@@ -333,7 +334,7 @@ export namespace draconic::pipeline
                 {
                     continue;
                 }
-                draconic::pipeline::AssetBuildContext ctx;
+                pipeline::AssetBuildContext ctx;
                 ctx.output = clipInst;
                 if (clipBuilder.Build(clipAsset, ctx).IsOk())
                 {
@@ -342,8 +343,8 @@ export namespace draconic::pipeline
             }
         }
 
-        draconic::pipeline::StaticMeshAssetBuilder meshBuilder;
-        draconic::pipeline::SkinnedMeshAssetBuilder skinnedBuilder;
+        pipeline::StaticMeshAssetBuilder meshBuilder;
+        pipeline::SkinnedMeshAssetBuilder skinnedBuilder;
         const Span<model::ModelMesh* const> meshes = model.meshes();
         for (usize i = 0; i < meshes.Size(); ++i)
         {
@@ -359,19 +360,19 @@ export namespace draconic::pipeline
             {
                 return Status{ErrorCode::Unknown};
             }
-            draconic::pipeline::AssetBuildContext ctx;
+            pipeline::AssetBuildContext ctx;
             ctx.output = inst;
 
             Status s;
             if (skinned)
             {
-                draconic::pipeline::SkinnedMeshAsset asset;
+                pipeline::SkinnedMeshAsset asset;
                 SkinnedMeshSourceFromModel(m, /*skeletonIndex*/ 0, asset.source);
                 s = skinnedBuilder.Build(asset, ctx);
             }
             else
             {
-                draconic::pipeline::StaticMeshAsset asset;
+                pipeline::StaticMeshAsset asset;
                 StaticMeshSourceFromModel(m, asset.source);
                 s = meshBuilder.Build(asset, ctx);
             }
@@ -418,4 +419,4 @@ export namespace draconic::pipeline
         return Status{};
     }
 
-} // namespace draconic::pipeline
+} // namespace pipeline

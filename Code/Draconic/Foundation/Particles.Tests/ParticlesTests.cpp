@@ -8,8 +8,8 @@
 import draconic.core;
 import draconic.particles;
 
-using namespace draconic::core;
-namespace particles = draconic::particles;
+using namespace foundation::core;
+namespace particles = foundation::particles;
 
 // ---- value types -------------------------------------------------------------------------------
 
@@ -709,7 +709,7 @@ TEST_CASE("AlphaOverLifetime sets the envelope (no per-frame accumulation)")
 
 TEST_CASE("particle reflection (batch 1): flat/range module types reflect their config")
 {
-    using namespace draconic::particles;
+    using namespace foundation::particles;
     RegisterParticleModules(); // registers module types + the range value types
 
     // A flat behavior: scalar + Float3 properties.
@@ -742,7 +742,7 @@ TEST_CASE("particle reflection (batch 1): flat/range module types reflect their 
 
 TEST_CASE("particle reflection (batch 2): emission-shape initializers reflect")
 {
-    using namespace draconic::particles;
+    using namespace foundation::particles;
     RegisterParticleModules();
 
     // EmissionShape: flat struct whose `type` is a named enum (8 shapes).
@@ -773,7 +773,7 @@ TEST_CASE("particle reflection (batch 2): emission-shape initializers reflect")
 
 TEST_CASE("particle reflection (batch 3): force + collision modules reflect their flat config")
 {
-    using namespace draconic::particles;
+    using namespace foundation::particles;
     RegisterParticleModules();
 
     const TypeInfo& attractor = AttractorBehavior::StaticType();
@@ -796,7 +796,7 @@ TEST_CASE("particle reflection (batch 3): force + collision modules reflect thei
 
 TEST_CASE("particle reflection (batch 4): curve behaviors reflect via BoundedArray - 20/20 modules")
 {
-    using namespace draconic::particles;
+    using namespace foundation::particles;
     RegisterParticleModules();
 
     // AlphaOverLifetime.curve is a Nested ParticleCurveFloat; its `keys` is a count-bound container.
@@ -836,7 +836,7 @@ TEST_CASE("particle reflection (batch 4): curve behaviors reflect via BoundedArr
 
 TEST_CASE("particle reflection (batch 5): a polymorphic module array resolves each module's type")
 {
-    using namespace draconic::particles;
+    using namespace foundation::particles;
     RegisterParticleModules();
 
     // A heterogeneous behavior list (the shape ParticleSystem holds): two different concrete
@@ -872,7 +872,7 @@ TEST_CASE("particle reflection (batch 5): a polymorphic module array resolves ea
 
 TEST_CASE("particle reflection (batch 6): polymorphic add/remove/move + EnumerateDerived")
 {
-    using namespace draconic::particles;
+    using namespace foundation::particles;
     RegisterParticleModules();
 
     Array<RefPtr<ParticleBehavior>> behaviors;
@@ -914,7 +914,7 @@ TEST_CASE("particle reflection (batch 6): polymorphic add/remove/move + Enumerat
 
 TEST_CASE("particle reflection (batch 7): a whole effect traverses effect -> system -> module -> value")
 {
-    using namespace draconic::particles;
+    using namespace foundation::particles;
     RegisterParticleModules(); // also registers the effect/system/emitter value types + systems container
 
     // The effect-graph value types are published to the global registry (so the script harvest / the

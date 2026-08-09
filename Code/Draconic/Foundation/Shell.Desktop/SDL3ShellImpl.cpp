@@ -17,9 +17,9 @@ module draconic.shell.desktop;
 import draconic.core;
 import draconic.shell;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-namespace draconic::shell
+namespace foundation::shell
 {
     // ---- file-local SDL helpers, PIMPL'd out of SDL3Shell.cppm (sec 3.2 / sec 10.6) ----
     struct Context

@@ -19,21 +19,23 @@ import draconic.physics;
 import draconic.physics.resource;
 import draconic.render;
 import draconic.engine.render;
+import draconic.materials;
 import draconic.script.facades; // RegisterExtraFacadeName (Physics into the behavior prelude)
 
-using namespace draconic::core;
-using namespace draconic::physics;
+using namespace foundation::core;
+using namespace foundation::physics;
+namespace core = foundation::core;
 
-namespace draconic::engine::physics
+namespace engine::physics
 {
     namespace
     {
         // Body wireframes: green = awake dynamic, grey = sleeping, blue = static/kinematic,
         // yellow = trigger.
-        void DrawPhysicsDebug(PhysicsSceneSystem& system, draconic::render::debug::DebugDraw& draw)
+        void DrawPhysicsDebug(PhysicsSceneSystem& system, foundation::render::debug::DebugDraw& draw)
         {
             PhysicsWorld* world = system.World();
-            draconic::scene::Scene* scene = system.ScenePtr();
+            foundation::scene::Scene* scene = system.ScenePtr();
             if (world == nullptr || scene == nullptr)
             {
                 return;
@@ -44,7 +46,7 @@ namespace draconic::engine::physics
                 return;
             }
             bodies->ForEach(
-                [&](RigidBodyComponent& c, draconic::scene::EntityHandle e)
+                [&](RigidBodyComponent& c, foundation::scene::EntityHandle e)
                 {
                     if (!c.body.IsValid())
                     {
@@ -123,7 +125,7 @@ namespace draconic::engine::physics
             if (auto* characters = scene->GetSystem<CharacterComponentManager>())
             {
                 characters->ForEach(
-                    [&](CharacterComponent& c, draconic::scene::EntityHandle)
+                    [&](CharacterComponent& c, foundation::scene::EntityHandle)
                     {
                         if (!c.character.IsValid())
                         {
@@ -148,12 +150,12 @@ namespace draconic::engine::physics
 
     void PhysicsSubsystem::Update(f32)
     {
-        draconic::runtime::Context* context = GetContext();
+        foundation::runtime::Context* context = GetContext();
         if (context == nullptr)
         {
             return;
         }
-        auto* render = context->GetSubsystem<draconic::engine::render::RenderSubsystem>();
+        auto* render = context->GetSubsystem<engine::render::RenderSubsystem>();
         for (const SceneEntry& entry : Systems())
         {
             // Per-scene alpha: each scene steps on its OWN accumulator/time scale.
@@ -167,7 +169,7 @@ namespace draconic::engine::physics
 }
 
 // ---- reflection (see :components for why this lives here) ----
-namespace draconic::engine::physics
+namespace engine::physics
 {
     DRACONIC_REFLECT_ENUM(MotionKind, "rtti::engine::physics")
     {
@@ -229,7 +231,7 @@ namespace draconic::engine::physics
         builder.Property<&RigidBodyComponent::collisionShape>("collisionShape");
         builder.Property<&RigidBodyComponent::material>("material");
         // OPTION 1 (spec Section 12): RigidBodyComponent.of(entity) -> a re-resolving handle.
-        builder.Method<&draconic::script::ComponentOf<RigidBodyComponent>, RigidBodyComponent>("of");
+        builder.Method<&foundation::script::ComponentOf<RigidBodyComponent>, RigidBodyComponent>("of");
     }
 
     DRACONIC_REFLECT_VALUE(ColliderComponent, "rtti::engine::physics")
@@ -261,7 +263,7 @@ namespace draconic::engine::physics
         builder.Property<&CharacterComponent::stepUp>("stepUp");
         builder.Property<&CharacterComponent::stepDown>("stepDown");
         // OPTION 1 (spec Section 12): CharacterComponent.of(entity) -> a re-resolving handle.
-        builder.Method<&draconic::script::ComponentOf<CharacterComponent>, CharacterComponent>("of");
+        builder.Method<&foundation::script::ComponentOf<CharacterComponent>, CharacterComponent>("of");
         // Per-entity character control (component-data ops - fixes the static facade's first-character
         // limitation): Character.of(entity).move(x, z) / .jump(speed) / .grounded() / .positionY().
         builder.Method<&CharacterComponent::move>("move", {"velocityX", "velocityZ"});
@@ -334,17 +336,17 @@ namespace draconic::engine::physics
         for (const core::TypeInfo* component : components)
         {
             GlobalTypeRegistry().Register(*component);
-            draconic::script::RegisterExtraScriptRootType(component);
+            foundation::script::RegisterExtraScriptRootType(component);
         }
-        draconic::script::RegisterExtraFacadeName(u8"RigidBodyComponent");
-        draconic::script::RegisterExtraFacadeName(u8"CharacterComponent");
+        foundation::script::RegisterExtraFacadeName(u8"RigidBodyComponent");
+        foundation::script::RegisterExtraFacadeName(u8"CharacterComponent");
 
         // The scene-bound physics handle (ScenePhysics.of(scene)): reflect it, register it, seed the
         // Wren emission root (nothing else reaches it), and make the class name prelude-visible.
         DraconicRegisterValue_ScenePhysics();
         GlobalTypeRegistry().Register(core::TypeOf<ScenePhysics>());
-        draconic::script::RegisterExtraScriptRootType(&core::TypeOf<ScenePhysics>());
-        draconic::script::RegisterExtraFacadeName(u8"ScenePhysics");
+        foundation::script::RegisterExtraScriptRootType(&core::TypeOf<ScenePhysics>());
+        foundation::script::RegisterExtraFacadeName(u8"ScenePhysics");
     }
 
     void RegisterPhysicsComponentReflection()

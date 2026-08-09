@@ -31,30 +31,37 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :camera;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace animation = foundation::animation;
+namespace render = foundation::render;
+namespace rhi = foundation::rhi;
+namespace runtime = foundation::runtime;
+namespace ui = foundation::ui;
+namespace vg = foundation::vg;
+namespace fonts = foundation::fonts;
 
-namespace draconic::editor
+namespace editor
 {
     // ============================ Construction ==============================================
 
     AnimationClipEditorPage::AnimationClipEditorPage(EditorContext& context,
                                                      runtime::IApplicationHost& host,
                                                      ui::runtime::UIHost& uiHost,
-                                                     draconic::content::Instance& instance)
+                                                     foundation::content::Instance& instance)
         : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
         m_router =
-            MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
+            MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
         m_camera.position = Float3{0.0f, 1.4f, 3.2f};
         m_camera.LookAt(Float3{0.0f, 0.9f, 0.0f});
-        m_scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
-        m_render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>();
+        m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
+        m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
 
         SetInstanceId(instance.Id());
 
         RefPtr<ISerializable> object = instance.ReadObject();
-        m_asset = RefPtr<draconic::pipeline::AnimationClipAsset>(
-            Cast<draconic::pipeline::AnimationClipAsset>(object.Get()));
+        m_asset = RefPtr<pipeline::AnimationClipAsset>(
+            Cast<pipeline::AnimationClipAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor",
@@ -175,12 +182,12 @@ namespace draconic::editor
             }
             else
             {
-                self->m_skeleton = draconic::resource::Proxy<animation::Skeleton>{};
+                self->m_skeleton = foundation::resource::Proxy<animation::Skeleton>{};
             }
             String label(u8"Skeleton: ");
             if (self->m_context->Project() != nullptr && !picked.IsNil())
             {
-                if (draconic::content::Instance* inst =
+                if (foundation::content::Instance* inst =
                         self->m_context->Project()->SourceDb().GetInstance(picked))
                 {
                     label.Append(inst->Name());
@@ -506,7 +513,7 @@ namespace draconic::editor
     }
 
     void AnimationClipEditorPage::OnRenderWindow(runtime::IApplicationHost&,
-                                                 draconic::graphics::FrameContext& frame)
+                                                 foundation::graphics::FrameContext& frame)
     {
         if (!m_viewport->IsReady() || !frame.valid)
         {
@@ -548,12 +555,12 @@ namespace draconic::editor
 
     void AnimationClipEditorPage::EnsureViewportBound()
     {
-        draconic::ui::RootView* root = m_viewport->Root();
+        foundation::ui::RootView* root = m_viewport->Root();
         if (root == nullptr)
         {
             return;
         }
-        draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
+        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
         if (window == nullptr || window == m_hostWindow)
         {
             return;
@@ -585,7 +592,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             m_context->Project()->SourceDb().GetInstance(InstanceId());
         if (instance == nullptr)
         {
@@ -622,12 +629,12 @@ namespace draconic::editor
 
     const TypeInfo* AnimationClipPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::AnimationClipAsset::StaticType();
+        return &pipeline::AnimationClipAsset::StaticType();
     }
 
     UniquePtr<EditorPage>
     AnimationClipPageFactory::CreatePage(EditorContext& context,
-                                         draconic::content::Instance& instance)
+                                         foundation::content::Instance& instance)
     {
         auto* page =
             DefaultAllocator().New<AnimationClipEditorPage>(context, *m_host, *m_uiHost, instance);

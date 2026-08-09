@@ -24,9 +24,9 @@ import :draw_context;
 import :svg_drawable;
 import :palette;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class IconButton : public ButtonBase
     {

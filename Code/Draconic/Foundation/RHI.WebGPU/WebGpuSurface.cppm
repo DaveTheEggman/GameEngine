@@ -10,9 +10,9 @@ import draconic.core;
 import draconic.rhi;
 import :api;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuSurface final : public Surface
     {

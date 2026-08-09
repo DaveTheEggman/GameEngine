@@ -30,7 +30,7 @@ import :string;        // String attribute values (category/displayName) for the
 // ---------------------------------------------------------------------------
 // Properties (RTTI phase c)
 // ---------------------------------------------------------------------------
-namespace draconic::core::detail
+namespace foundation::core::detail
 {
     template <typename>
     struct MemberTraits;
@@ -196,7 +196,7 @@ namespace draconic::core::detail
     }
 }
 
-export namespace draconic::core
+export namespace foundation::core
 {
     enum class PropertyFlags : u32
     {
@@ -1018,7 +1018,7 @@ export namespace draconic::core
     }
 }
 
-namespace draconic::core::detail
+namespace foundation::core::detail
 {
     // ---- bounded-array (count-bound inline vector) container support --------------------------
     // A `T member[N]` C-array paired with a live `count` member (the logical length) is reflected
@@ -1464,7 +1464,7 @@ namespace draconic::core::detail
     }
 }
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // Holds a type's TypeInfo together with the property/method arrays it points
     // into. Stored as a single static (see DRACONIC_REFLECT); Array's move
@@ -1632,7 +1632,7 @@ export namespace draconic::core
         TypeBuilder& Attribute(const char* key, V value)
         {
             m_data.attributes.PushBack(
-                draconic::core::Attribute{key, Variant::From<V>(Move(value))});
+                foundation::core::Attribute{key, Variant::From<V>(Move(value))});
             return *this;
         }
 
@@ -1648,10 +1648,10 @@ export namespace draconic::core
             }
             while (m_data.propertyAttributes.Size() < m_data.properties.Size())
             {
-                m_data.propertyAttributes.PushBack(Array<draconic::core::Attribute>{});
+                m_data.propertyAttributes.PushBack(Array<foundation::core::Attribute>{});
             }
             m_data.propertyAttributes[m_data.properties.Size() - 1].PushBack(
-                draconic::core::Attribute{key, Variant::From<V>(Move(value))});
+                foundation::core::Attribute{key, Variant::From<V>(Move(value))});
             return *this;
         }
 
@@ -1659,7 +1659,7 @@ export namespace draconic::core
         TypeBuilder& Constant(const char* name, V value)
         {
             m_data.constants.PushBack(
-                draconic::core::ConstantInfo{name, &TypeOf<V>(), Variant::From<V>(Move(value))});
+                foundation::core::ConstantInfo{name, &TypeOf<V>(), Variant::From<V>(Move(value))});
             return *this;
         }
 
@@ -1695,7 +1695,7 @@ export namespace draconic::core
             // move - only the outer array's control block moves).
             while (m_data.propertyAttributes.Size() < m_data.properties.Size())
             {
-                m_data.propertyAttributes.PushBack(Array<draconic::core::Attribute>{});
+                m_data.propertyAttributes.PushBack(Array<foundation::core::Attribute>{});
             }
             for (usize i = 0; i < m_data.properties.Size(); ++i)
             {

@@ -21,9 +21,9 @@ import :render_pipeline;
 import :render_bundle_encoder;
 import :push_constant_emulator;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuRenderPassEncoder final : public RenderPassEncoder
     {

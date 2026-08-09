@@ -19,10 +19,11 @@ import :data;  // ShadowCascades
 import :views;     // ViewCamera
 import :resources; // GpuRetireQueue
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // Unproject an NDC corner (clip xy in [-1,1], z in [0,1]) to world space via the inverse view-proj.
@@ -306,4 +307,4 @@ export namespace draconic::render
         rhi::ResourceState m_atlasStates[kMaxFramesInFlight] = {};
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

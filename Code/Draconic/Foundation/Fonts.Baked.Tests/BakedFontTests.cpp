@@ -8,8 +8,8 @@ import draconic.core;
 import draconic.fonts;
 import draconic.fonts.baked;
 
-using namespace draconic::core;
-using namespace draconic::fonts;
+using namespace foundation::core;
+using namespace foundation::fonts;
 
 TEST_CASE("baked.font: metrics round-trip")
 {
@@ -37,7 +37,7 @@ TEST_CASE("baked.font: glyph table")
     infoA.glyphIndex = 17;
     infoA.advanceWidth = 12.5f;
     infoA.leftSideBearing = 0.5f;
-    infoA.boundingBox = draconic::fonts::Rectangle(0, -10, 12, 10);
+    infoA.boundingBox = foundation::fonts::Rectangle(0, -10, 12, 10);
     infoA.hasBitmap = true;
     font.SetGlyph(static_cast<i32>('A'), infoA);
 

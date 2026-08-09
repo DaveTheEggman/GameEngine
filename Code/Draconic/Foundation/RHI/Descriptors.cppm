@@ -10,9 +10,9 @@ import :texture_format;
 import :types;
 import :forward;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     // ---- Resources ----
@@ -516,4 +516,4 @@ export namespace draconic::rhi
         Span<const MemoryBarrier> memoryBarriers;
     };
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

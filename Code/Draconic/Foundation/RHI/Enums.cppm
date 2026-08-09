@@ -4,9 +4,9 @@ export module draconic.rhi:enums;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     enum class DeviceType : u32
@@ -451,4 +451,4 @@ export namespace draconic::rhi
         return static_cast<AccelStructBuildFlags>(static_cast<u32>(a) | static_cast<u32>(b));
     }
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

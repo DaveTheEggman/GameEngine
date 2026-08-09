@@ -19,18 +19,18 @@ import draconic.engine.particles;
 import draconic.scene;
 import draconic.scene.resource;
 
-using namespace draconic::core;
-using namespace draconic::engine::particles;
-namespace scene = draconic::scene;
-namespace resource = draconic::resource;
-namespace particles = draconic::particles;
+using namespace foundation::core;
+using namespace engine::particles;
+namespace scene = foundation::scene;
+namespace resource = foundation::resource;
+namespace particles = foundation::particles;
 
 namespace
 {
     void RemoveTree(StringView root)
     {
-        draconic::vfs::NativeFileSystem fs(root);
-        Array<draconic::vfs::DirEntry> entries;
+        foundation::vfs::NativeFileSystem fs(root);
+        Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
             for (const auto& e : entries)
@@ -50,18 +50,18 @@ TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manage
     const StringView dir = u8"draconic_pfxref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    draconic::vfs::NativeFileSystem mount(dir);
+    foundation::vfs::NativeFileSystem mount(dir);
 
     particles::RegisterParticleEffectResource();
 
     // Cook an effect with one 64-particle system into the content DB.
-    draconic::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
     Guid effectId;
     {
         particles::ParticleEffectResource resource;
         particles::ParticleSystem& sys = resource.Effect().AddSystem(64);
         sys.emitter.isEmitting = true;
-        draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
+        foundation::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
             u8"Puff", particles::ParticleEffectResource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(resource).IsOk());
@@ -76,10 +76,10 @@ TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manage
     MemoryStream blob;
     {
         scene::Scene scene;
-        scene.AddSystem<draconic::engine::particles::ParticleEffectComponentManager>();
+        scene.AddSystem<engine::particles::ParticleEffectComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Emitter");
-        draconic::engine::particles::ParticleEffectComponent& c =
-            scene.GetSystem<draconic::engine::particles::ParticleEffectComponentManager>()->Add(e);
+        engine::particles::ParticleEffectComponent& c =
+            scene.GetSystem<engine::particles::ParticleEffectComponentManager>()->Add(e);
         c.effectAsset.SetId(effectId);
         c.lightRange = 7.0f;
 
@@ -89,7 +89,7 @@ TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manage
     }
 
     scene::Scene loaded;
-    loaded.AddSystem<draconic::engine::particles::ParticleEffectComponentManager>();
+    loaded.AddSystem<engine::particles::ParticleEffectComponentManager>();
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
     {
         BinarySerializer ar(blob, SerializeMode::Read);
@@ -97,11 +97,11 @@ TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manage
         REQUIRE(ar.IsOk());
     }
 
-    auto* mgr = loaded.GetSystem<draconic::engine::particles::ParticleEffectComponentManager>();
+    auto* mgr = loaded.GetSystem<engine::particles::ParticleEffectComponentManager>();
     REQUIRE(mgr != nullptr);
     REQUIRE(mgr->ComponentCount() == 1u);
-    draconic::engine::particles::ParticleEffectComponent* c = nullptr;
-    mgr->ForEach([&](draconic::engine::particles::ParticleEffectComponent& pc, scene::EntityHandle) { c = &pc; });
+    engine::particles::ParticleEffectComponent* c = nullptr;
+    mgr->ForEach([&](engine::particles::ParticleEffectComponent& pc, scene::EntityHandle) { c = &pc; });
     REQUIRE(c != nullptr);
     CHECK(c->effectAsset.id == effectId);
     CHECK(c->effectAsset.Get() == nullptr);
@@ -130,15 +130,15 @@ TEST_CASE("resource-ref: SetEffect(proxy) still attaches immediately (sample pat
     const StringView dir = u8"draconic_pfxref_test_db2";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    draconic::vfs::NativeFileSystem mount(dir);
+    foundation::vfs::NativeFileSystem mount(dir);
 
     particles::RegisterParticleEffectResource();
-    draconic::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
     Guid effectId;
     {
         particles::ParticleEffectResource resource;
         (void)resource.Effect().AddSystem(16);
-        draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
+        foundation::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
             u8"Spark", particles::ParticleEffectResource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(resource).IsOk());
@@ -148,7 +148,7 @@ TEST_CASE("resource-ref: SetEffect(proxy) still attaches immediately (sample pat
     particles::ParticleEffectFactory factory;
     resources.AddFactory(&factory);
 
-    draconic::engine::particles::ParticleEffectComponent c;
+    engine::particles::ParticleEffectComponent c;
     c.SetEffect(resources.Bind<particles::ParticleEffectResource>(effectId));
     REQUIRE(c.instance.Get() != nullptr);
     REQUIRE(c.effectAsset.Get() != nullptr);

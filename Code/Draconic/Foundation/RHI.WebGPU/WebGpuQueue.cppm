@@ -21,9 +21,9 @@ import :command_buffer;
 import :transfer_batch;
 import :fence;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuQueue final : public Queue
     {

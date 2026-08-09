@@ -22,11 +22,11 @@ import draconic.editor.core;
 import :layout;
 import :log_view;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace ui = draconic::ui;
+    namespace ui = foundation::ui;
 
     // Stable persistence ids for the GLOBAL panels (LoadDockLayout match keys - do not rename).
     inline constexpr StringView kPanelWelcome = u8"welcome";
@@ -41,7 +41,7 @@ export namespace draconic::editor::app
         EditorShell& operator=(const EditorShell&) = delete;
 
         // Build the chrome. `dockHost` (nullable) lets panels float into real OS windows.
-        void Build(draconic::editor::EditorContext& context,
+        void Build(editor::EditorContext& context,
                    ui::toolkit::IDockableWindowHost* dockHost, u32 width, u32 height)
         {
             m_root = MakeRef<ui::RootView>(DefaultAllocator());
@@ -94,7 +94,7 @@ export namespace draconic::editor::app
 
         /// Replace the Assets panel's placeholder with the real browser (once the project +
         /// cook service exist).
-        void SetAssetsContent(draconic::ui::View* content)
+        void SetAssetsContent(foundation::ui::View* content)
         {
             if (m_assets != nullptr)
             {
@@ -121,11 +121,11 @@ export namespace draconic::editor::app
 
         // Dock-layout persistence via the per-project settings STORE (the app owns loading
         // and saving the store's file); these only capture/apply the dock snapshot section.
-        [[nodiscard]] Status SaveLayout(draconic::settings::Settings& store) const
+        [[nodiscard]] Status SaveLayout(foundation::settings::Settings& store) const
         {
             return CaptureDockLayout(*m_dock, store);
         }
-        [[nodiscard]] Status RestoreLayout(draconic::settings::Settings& store) const
+        [[nodiscard]] Status RestoreLayout(foundation::settings::Settings& store) const
         {
             return ApplyDockLayout(*m_dock, store);
         }

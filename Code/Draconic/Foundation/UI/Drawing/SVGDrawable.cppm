@@ -19,10 +19,10 @@ import draconic.vg.svg; // SVGDocument, SVGLoader, SVGRenderer
 import :drawable;
 import :draw_context;
 
-using namespace draconic::core;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace vg = foundation::vg;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class SVGDrawable : public Drawable
     {
@@ -94,7 +94,7 @@ export namespace draconic::ui
     public:
         struct BakedVariant
         {
-            const draconic::image::ImageData* atlas = nullptr; // borrowed
+            const foundation::image::ImageData* atlas = nullptr; // borrowed
             Rectangle srcRect;                                 // texel region in the atlas
             f32 sizePx = 0.0f;                                 // the square size it was baked at
         };

@@ -11,9 +11,9 @@ import draconic.content;
 import draconic.scene;
 import draconic.scene.resource;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
-using namespace draconic::scene;
+using namespace foundation::core;
+using namespace foundation::vfs;
+using namespace foundation::scene;
 
 namespace
 {
@@ -21,7 +21,7 @@ namespace
     {
         i32 team = 0;
     };
-    void Serialize(ISerializer& ar, Tag& t) { draconic::core::Serialize(ar, "team", t.team); }
+    void Serialize(ISerializer& ar, Tag& t) { foundation::core::Serialize(ar, "team", t.team); }
 
     class TagManager : public SerializableComponentManager<Tag>
     {
@@ -59,7 +59,7 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
         heroId = scene.GetEntityId(hero);
         foeId = scene.GetEntityId(foe);
 
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"level", SceneDocument::StaticType());
         id = inst->Id();
@@ -68,7 +68,7 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
 
     {
         // load into a fresh scene whose manager is injected first (as a subsystem would)
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.GetInstance(id);
         REQUIRE(inst != nullptr);

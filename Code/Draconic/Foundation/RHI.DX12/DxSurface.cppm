@@ -11,9 +11,9 @@ export module draconic.rhi.dx12:surface;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxSurfaceImpl : public Surface
@@ -27,4 +27,4 @@ export namespace draconic::rhi::dx12
         HWND m_hwnd = nullptr;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

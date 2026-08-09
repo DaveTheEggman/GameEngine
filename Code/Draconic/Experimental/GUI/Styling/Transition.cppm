@@ -24,12 +24,12 @@ import :ui_node;       // UINode
 import :actions;       // FadeAction
 import :resource_provider;
 
-namespace fonts = draconic::fonts;
+namespace fonts = foundation::fonts;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     struct TransitionDefinition
     {

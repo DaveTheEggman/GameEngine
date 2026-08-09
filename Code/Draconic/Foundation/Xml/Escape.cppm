@@ -11,9 +11,9 @@ export module draconic.xml:escape;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::xml
+export namespace foundation::xml
 {
     // Escapes element text content: & < >.
     inline void EscapeText(StringView text, String& output)

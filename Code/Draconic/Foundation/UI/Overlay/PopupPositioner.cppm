@@ -11,9 +11,9 @@ export module draconic.ui:popup_positioner;
 
 import draconic.core; // Rectangle, Float2
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct PopupPositioner
     {

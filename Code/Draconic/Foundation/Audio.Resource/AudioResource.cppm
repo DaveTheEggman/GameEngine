@@ -4,7 +4,7 @@
 //   * AudioClipSource - the cooked record: probed metadata + import intent, with the
 //     ORIGINAL compressed container bytes in the instance's "data" stream (Traktor's
 //     compressed-cook model - never PCM sidecars; miniaudio records/sniffs the decoder).
-//   * AudioClipFactory - builds the runtime draconic::audio::AudioClip a component's
+//   * AudioClipFactory - builds the runtime foundation::audio::AudioClip a component's
 //     Ref<> binds. Non-streamed clips load the container bytes into memory; streamed
 //     clips get a ContentInstanceStreamSource so miniaudio pages the bytes on demand
 //     straight out of the content mount (pak included - Instance::ReadData seeks).
@@ -24,10 +24,10 @@ import draconic.resource;
 import draconic.content;
 import draconic.audio;
 
-using namespace draconic::core;
-namespace resource = draconic::resource;
+using namespace foundation::core;
+namespace resource = foundation::resource;
 
-export namespace draconic::audio
+export namespace foundation::audio
 {
     // Cooked clip record. The container bytes live in the "data" stream beside it.
     class AudioClipSource : public ISerializable
@@ -48,17 +48,17 @@ export namespace draconic::audio
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "channels", channels);
-            draconic::core::Serialize(ar, "sampleRate", sampleRate);
-            draconic::core::Serialize(ar, "frameCount", frameCount);
-            draconic::core::Serialize(ar, "durationSeconds", durationSeconds);
-            draconic::core::Serialize(ar, "gain", gain);
-            draconic::core::Serialize(ar, "loop", loop);
-            draconic::core::Serialize(ar, "loopStartFrame", loopStartFrame);
-            draconic::core::Serialize(ar, "loopEndFrame", loopEndFrame);
-            draconic::core::Serialize(ar, "stream", stream);
-            draconic::core::Serialize(ar, "keepCompressed", keepCompressed);
-            draconic::core::Serialize(ar, "containerExtension", containerExtension);
+            foundation::core::Serialize(ar, "channels", channels);
+            foundation::core::Serialize(ar, "sampleRate", sampleRate);
+            foundation::core::Serialize(ar, "frameCount", frameCount);
+            foundation::core::Serialize(ar, "durationSeconds", durationSeconds);
+            foundation::core::Serialize(ar, "gain", gain);
+            foundation::core::Serialize(ar, "loop", loop);
+            foundation::core::Serialize(ar, "loopStartFrame", loopStartFrame);
+            foundation::core::Serialize(ar, "loopEndFrame", loopEndFrame);
+            foundation::core::Serialize(ar, "stream", stream);
+            foundation::core::Serialize(ar, "keepCompressed", keepCompressed);
+            foundation::core::Serialize(ar, "containerExtension", containerExtension);
         }
     };
 
@@ -68,7 +68,7 @@ export namespace draconic::audio
     class ContentInstanceStreamSource final : public IAudioStreamSource
     {
     public:
-        explicit ContentInstanceStreamSource(draconic::content::Instance& instance) noexcept
+        explicit ContentInstanceStreamSource(foundation::content::Instance& instance) noexcept
             : m_instance(&instance)
         {
         }
@@ -79,7 +79,7 @@ export namespace draconic::audio
         }
 
     private:
-        draconic::content::Instance* m_instance;
+        foundation::content::Instance* m_instance;
     };
 
     class AudioClipFactory final : public resource::IResourceFactory
@@ -91,7 +91,7 @@ export namespace draconic::audio
         }
 
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             return BuildClip(instance);
         }
@@ -103,7 +103,7 @@ export namespace draconic::audio
         // on the main thread (see RegisterAudioResource). The instance outlives the product, so a
         // streamed clip's ContentInstanceStreamSource stays valid.
         [[nodiscard]] bool SupportsAsync() const override { return true; }
-        [[nodiscard]] RefPtr<Object> DecodeStage(draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> DecodeStage(foundation::content::Instance& instance) override
         {
             return BuildClip(instance);
         }
@@ -114,7 +114,7 @@ export namespace draconic::audio
         }
 
     private:
-        [[nodiscard]] static RefPtr<Object> BuildClip(draconic::content::Instance& instance)
+        [[nodiscard]] static RefPtr<Object> BuildClip(foundation::content::Instance& instance)
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             AudioClipSource* source = Cast<AudioClipSource>(object.Get());
@@ -180,10 +180,10 @@ export namespace draconic::audio
         {
             auto serializeSettings = [&ar](AudioBusSettings& settings)
             {
-                draconic::core::Serialize(ar, "volume", settings.volume);
-                draconic::core::Serialize(ar, "muted", settings.muted);
+                foundation::core::Serialize(ar, "volume", settings.volume);
+                foundation::core::Serialize(ar, "muted", settings.muted);
                 u32 effectCount = static_cast<u32>(settings.effects.Size());
-                draconic::core::Serialize(ar, "effectCount", effectCount);
+                foundation::core::Serialize(ar, "effectCount", effectCount);
                 if (ar.Mode() == SerializeMode::Read)
                 {
                     settings.effects.Resize(effectCount);
@@ -192,19 +192,19 @@ export namespace draconic::audio
                 {
                     AudioBusEffectDesc& effect = settings.effects[i];
                     u8 kind = static_cast<u8>(effect.kind);
-                    draconic::core::Serialize(ar, "kind", kind);
+                    foundation::core::Serialize(ar, "kind", kind);
                     effect.kind = static_cast<AudioBusEffectKind>(kind);
-                    draconic::core::Serialize(ar, "frequencyHz", effect.frequencyHz);
-                    draconic::core::Serialize(ar, "delaySeconds", effect.delaySeconds);
-                    draconic::core::Serialize(ar, "delayDecay", effect.delayDecay);
-                    draconic::core::Serialize(ar, "roomSize", effect.roomSize);
-                    draconic::core::Serialize(ar, "damping", effect.damping);
-                    draconic::core::Serialize(ar, "wetLevel", effect.wetLevel);
+                    foundation::core::Serialize(ar, "frequencyHz", effect.frequencyHz);
+                    foundation::core::Serialize(ar, "delaySeconds", effect.delaySeconds);
+                    foundation::core::Serialize(ar, "delayDecay", effect.delayDecay);
+                    foundation::core::Serialize(ar, "roomSize", effect.roomSize);
+                    foundation::core::Serialize(ar, "damping", effect.damping);
+                    foundation::core::Serialize(ar, "wetLevel", effect.wetLevel);
                 }
             };
 
             u32 busCount = static_cast<u32>(AudioBus::Count);
-            draconic::core::Serialize(ar, "busCount", busCount);
+            foundation::core::Serialize(ar, "busCount", busCount);
             const u32 buses = Min(busCount, static_cast<u32>(AudioBus::Count));
             for (u32 bus = 0; bus < buses; ++bus)
             {
@@ -214,7 +214,7 @@ export namespace draconic::audio
             if (ar.Version() >= 2) // v2: named custom buses (generic, growable)
             {
                 u32 customCount = static_cast<u32>(layout.customBuses.Size());
-                draconic::core::Serialize(ar, "customBusCount", customCount);
+                foundation::core::Serialize(ar, "customBusCount", customCount);
                 if (ar.Mode() == SerializeMode::Read)
                 {
                     layout.customBuses.Resize(customCount);
@@ -222,8 +222,8 @@ export namespace draconic::audio
                 for (u32 i = 0; i < customCount; ++i)
                 {
                     AudioNamedBus& named = layout.customBuses[i];
-                    draconic::core::Serialize(ar, "name", named.name);
-                    draconic::core::Serialize(ar, "parent", named.parent);
+                    foundation::core::Serialize(ar, "name", named.name);
+                    foundation::core::Serialize(ar, "parent", named.parent);
                     serializeSettings(named.settings);
                 }
             }
@@ -247,7 +247,7 @@ export namespace draconic::audio
         }
 
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             AudioBusLayoutSource* source = Cast<AudioBusLayoutSource>(object.Get());
@@ -283,7 +283,7 @@ export namespace draconic::audio
         void Serialize(ISerializer& ar) override
         {
             u32 count = static_cast<u32>(variants.Size());
-            draconic::core::Serialize(ar, "variantCount", count);
+            foundation::core::Serialize(ar, "variantCount", count);
             if (ar.Mode() == SerializeMode::Read)
             {
                 variants.Resize(count);
@@ -292,13 +292,13 @@ export namespace draconic::audio
             {
                 ar.Key("clip");
                 ar.GuidValue(variants[i].clipId);
-                draconic::core::Serialize(ar, "weight", variants[i].weight);
+                foundation::core::Serialize(ar, "weight", variants[i].weight);
             }
-            draconic::core::Serialize(ar, "mode", mode);
-            draconic::core::Serialize(ar, "pitchMin", pitchMin);
-            draconic::core::Serialize(ar, "pitchMax", pitchMax);
-            draconic::core::Serialize(ar, "volumeMin", volumeMin);
-            draconic::core::Serialize(ar, "volumeMax", volumeMax);
+            foundation::core::Serialize(ar, "mode", mode);
+            foundation::core::Serialize(ar, "pitchMin", pitchMin);
+            foundation::core::Serialize(ar, "pitchMax", pitchMax);
+            foundation::core::Serialize(ar, "volumeMin", volumeMin);
+            foundation::core::Serialize(ar, "volumeMax", volumeMax);
         }
     };
 
@@ -311,7 +311,7 @@ export namespace draconic::audio
         }
 
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             SoundCueSource* source = Cast<SoundCueSource>(object.Get());

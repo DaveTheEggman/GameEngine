@@ -23,9 +23,9 @@ import draconic.core;
 import draconic.rhi;
 import :render_pass_encoder;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     // DxRenderBundleImpl lives in :render_pass_encoder (so ExecuteBundles can use it without a
@@ -94,4 +94,4 @@ export namespace draconic::rhi::dx12
         DxRenderBundleImpl* m_bundle = nullptr;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

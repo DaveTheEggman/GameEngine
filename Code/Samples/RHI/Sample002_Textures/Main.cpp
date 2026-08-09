@@ -11,18 +11,17 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vulkan;
 
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
 
 class TextureSample : public samples::framework::SampleApp
 {
 public:
     using samples::framework::SampleApp::SampleApp;
-    draconic::core::StringView Title() const override { return u8"Sample002 - Textured Quad"; }
+    foundation::core::StringView Title() const override { return u8"Sample002 - Textured Quad"; }
 
 protected:
-    draconic::core::Status OnInit() override;
+    foundation::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 
@@ -47,7 +46,7 @@ private:
         -0.5f, 0.5f,  0.0f, 0.0f, 0.0f, 0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
         0.5f,  -0.5f, 0.0f, 1.0f, 1.0f, -0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
     };
-    static constexpr draconic::core::u16 kIndexData[] = {0, 1, 2, 0, 2, 3};
+    static constexpr foundation::core::u16 kIndexData[] = {0, 1, 2, 0, 2, 3};
 
     shaders::Compiler* m_compiler = nullptr;
     rhi::Buffer* m_vb = nullptr;
@@ -63,38 +62,38 @@ private:
     rhi::RenderPipeline* m_pipeline = nullptr;
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
-    draconic::core::u64 m_fenceVal = 0;
+    foundation::core::u64 m_fenceVal = 0;
 };
 
-draconic::core::Status TextureSample::OnInit()
+foundation::core::Status TextureSample::OnInit()
 {
-    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
+    using foundation::core::Status, foundation::core::Span, foundation::core::u8, foundation::core::u32;
 
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShaderSource,
                                             shaders::ShaderStage::Vertex, u8"VSMain", u8"QuadVS",
-                                            m_vs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_vs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShaderSource,
                                             shaders::ShaderStage::Fragment, u8"PSMain", u8"QuadPS",
-                                            m_ps) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_ps) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Vertex + index buffers.
     rhi::BufferDesc vbd{};
     vbd.size = sizeof(kVertexData);
     vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
     vbd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::BufferDesc ibd{};
     ibd.size = sizeof(kIndexData);
     ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst;
     ibd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Checkerboard texture 64x64 RGBA8.
     constexpr u32 tw = 64, th = 64;
@@ -115,8 +114,8 @@ draconic::core::Status TextureSample::OnInit()
     td.width = tw;
     td.height = th;
     td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
-    if (m_device->CreateTexture(td, m_tex) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_tex) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Upload.
     rhi::TransferBatch* batch = nullptr;
@@ -138,13 +137,13 @@ draconic::core::Status TextureSample::OnInit()
     tvd.format = rhi::TextureFormat::RGBA8Unorm;
     tvd.mipLevelCount = 1;
     tvd.arrayLayerCount = 1;
-    if (m_device->CreateTextureView(m_tex, tvd, m_texView) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_tex, tvd, m_texView) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::SamplerDesc sd{};
     sd.minFilter = rhi::FilterMode::Nearest;
     sd.magFilter = rhi::FilterMode::Nearest;
-    if (m_device->CreateSampler(sd, m_sampler) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateSampler(sd, m_sampler) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Bind group layout + bind group.
     rhi::BindGroupLayoutEntry bglEntries[2] = {
@@ -153,8 +152,8 @@ draconic::core::Status TextureSample::OnInit()
     };
     rhi::BindGroupLayoutDesc bgld{};
     bgld.entries = Span<const rhi::BindGroupLayoutEntry>(bglEntries, 2);
-    if (m_device->CreateBindGroupLayout(bgld, m_bgl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(bgld, m_bgl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::BindGroupEntry bgEntries[2] = {
         rhi::BindGroupEntry::TextureEntry(m_texView),
@@ -163,15 +162,15 @@ draconic::core::Status TextureSample::OnInit()
     rhi::BindGroupDesc bgd{};
     bgd.layout = m_bgl;
     bgd.entries = Span<const rhi::BindGroupEntry>(bgEntries, 2);
-    if (m_device->CreateBindGroup(bgd, m_bg) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(bgd, m_bg) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Pipeline layout.
     rhi::BindGroupLayout* sets[1] = {m_bgl};
     rhi::PipelineLayoutDesc pld{};
     pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(sets, 1);
-    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Render pipeline.
     rhi::VertexAttribute attrs[2] = {{rhi::VertexFormat::Float32x3, 0, 0},
@@ -190,28 +189,28 @@ draconic::core::Status TextureSample::OnInit()
     rpd.fragment = rhi::FragmentState{};
     rpd.fragment->shader = {m_ps, u8"PSMain", rhi::ShaderStage::Fragment};
     rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
-    return draconic::core::ErrorCode::Ok;
+    return foundation::core::ErrorCode::Ok;
 }
 
 void TextureSample::OnRender()
 {
     if (m_fenceVal > 0)
         m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+    if (m_swapChain->AcquireNextImage() != foundation::core::ErrorCode::Ok)
         return;
     m_pool->Reset();
 
     rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc)
+    if (m_pool->CreateEncoder(enc) != foundation::core::ErrorCode::Ok || !enc)
         return;
 
     enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined,
@@ -228,8 +227,8 @@ void TextureSample::OnRender()
     auto* rp = enc->BeginRenderPass(rpd);
     rp->SetPipeline(m_pipeline);
     rp->SetBindGroup(0, m_bg);
-    rp->SetViewport(0, 0, static_cast<draconic::core::f32>(m_width),
-                    static_cast<draconic::core::f32>(m_height), 0, 1);
+    rp->SetViewport(0, 0, static_cast<foundation::core::f32>(m_width),
+                    static_cast<foundation::core::f32>(m_height), 0, 1);
     rp->SetScissor(0, 0, m_width, m_height);
     rp->SetVertexBuffer(0, m_vb, 0);
     rp->SetIndexBuffer(m_ib, rhi::IndexFormat::UInt16, 0);
@@ -242,7 +241,7 @@ void TextureSample::OnRender()
     rhi::CommandBuffer* cb = enc->Finish();
     m_fenceVal++;
     rhi::CommandBuffer* cbs[1] = {cb};
-    m_graphicsQueue->Submit(draconic::core::Span<rhi::CommandBuffer* const>(cbs, 1), m_fence,
+    m_graphicsQueue->Submit(foundation::core::Span<rhi::CommandBuffer* const>(cbs, 1), m_fence,
                             m_fenceVal);
     m_swapChain->Present(m_graphicsQueue);
     m_pool->DestroyEncoder(enc);

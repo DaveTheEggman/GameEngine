@@ -15,9 +15,9 @@ import :view;
 import :ilist_adapter;
 import :itree_adapter;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class FlattenedTreeAdapter : public IListAdapter, public ITreeAdapterObserver
     {

@@ -11,9 +11,9 @@ import draconic.pipeline.core;
 import draconic.input;
 import draconic.input.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::input;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::input;
 
 TEST_CASE("input editor: InputMapAsset exposes its InputMap as a Nested, traversable property")
 {

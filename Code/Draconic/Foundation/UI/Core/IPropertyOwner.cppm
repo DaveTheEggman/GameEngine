@@ -12,7 +12,7 @@ export module draconic.ui:property_owner;
 
 import :enums;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class IPropertyOwner
     {

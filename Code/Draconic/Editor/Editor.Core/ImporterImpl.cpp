@@ -21,9 +21,9 @@ import draconic.core;
 import draconic.content;
 import :project;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::editor
+namespace editor
 {
     RefPtr<Object> IFileImporter::PrepareOnWorker(StringView /*sourcePath*/) { return {}; }
     void ImporterRegistry::Register(UniquePtr<IFileImporter> importer)

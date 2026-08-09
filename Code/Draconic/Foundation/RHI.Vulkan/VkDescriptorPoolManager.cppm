@@ -10,9 +10,9 @@ export module draconic.rhi.vulkan:descriptor_pool_manager;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkDescriptorPoolManager
@@ -138,4 +138,4 @@ export namespace draconic::rhi::vk
         VkDescriptorSet m_lastAllocatedSet = VK_NULL_HANDLE;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

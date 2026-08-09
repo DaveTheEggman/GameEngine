@@ -13,9 +13,9 @@ import draconic.content;
 import draconic.resource;
 import draconic.script.resource;
 
-using namespace draconic::core;
-using namespace draconic::script;
-namespace content = draconic::content;
+using namespace foundation::core;
+using namespace foundation::script;
+namespace content = foundation::content;
 
 namespace
 {
@@ -133,7 +133,7 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
 {
     RegisterScriptResource();
     RemoveDbTree(u8"draconic_scriptres_out");
-    draconic::vfs::NativeFileSystem outputMount(u8"draconic_scriptres_out");
+    foundation::vfs::NativeFileSystem outputMount(u8"draconic_scriptres_out");
     content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
     ScriptClassSource cooked;
@@ -169,9 +169,9 @@ TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadat
     REQUIRE(instance->WriteObject(cooked).IsOk());
 
     ScriptClassFactory factory;
-    draconic::resource::ResourceManager manager(outputDb);
+    foundation::resource::ResourceManager manager(outputDb);
     manager.AddFactory(&factory);
-    draconic::resource::Proxy<ScriptClass> product = manager.Bind<ScriptClass>(instance->Id());
+    foundation::resource::Proxy<ScriptClass> product = manager.Bind<ScriptClass>(instance->Id());
     REQUIRE(product);
     CHECK(product->language == u8"wren");
     CHECK(product->className == u8"Mover");

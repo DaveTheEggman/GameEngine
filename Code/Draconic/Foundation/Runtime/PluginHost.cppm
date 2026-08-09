@@ -15,9 +15,9 @@ import draconic.core;
 import :context;
 import :plugin;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::runtime
+export namespace foundation::runtime
 {
     class PluginHost
     {

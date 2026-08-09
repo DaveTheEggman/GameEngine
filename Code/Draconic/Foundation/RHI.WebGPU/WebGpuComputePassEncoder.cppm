@@ -14,9 +14,9 @@ import :buffer;
 import :compute_pipeline;
 import :push_constant_emulator;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuComputePassEncoder final : public ComputePassEncoder
     {

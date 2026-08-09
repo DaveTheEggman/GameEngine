@@ -6,8 +6,8 @@ import draconic.core;
 import draconic.content;
 import draconic.pipeline.core;
 import draconic.vfs;
-using namespace draconic::core;
-    using namespace draconic::pipeline;
+using namespace foundation::core;
+    using namespace pipeline;
 
 namespace
 {
@@ -20,7 +20,7 @@ namespace
         void Serialize(ISerializer& ar) override
         {
             Asset::Serialize(ar); // fileName
-            draconic::core::Serialize(ar, "quality", quality);
+            foundation::core::Serialize(ar, "quality", quality);
         }
     };
 }
@@ -29,7 +29,7 @@ DRACONIC_DEFINE_OBJECT(WidgetAsset, "rtti::editor::editor::test")
 TEST_CASE("editor: Asset carries a source file path + settings (round-trips)")
 {
     WidgetAsset a;
-    a.fileName = draconic::vfs::SourcePath(u8"art/widget.png");
+    a.fileName = foundation::vfs::SourcePath(u8"art/widget.png");
     a.quality = 7;
 
     MemoryStream buffer;
@@ -66,7 +66,7 @@ namespace
         [[nodiscard]] u32 Version() const override { return 3; }
         void ScanDependencies(const Asset&, AssetBuildContext&, AssetDependencies& out) override
         {
-            out.files.PushBack(draconic::vfs::SourcePath(u8"extra.bin"));
+            out.files.PushBack(foundation::vfs::SourcePath(u8"extra.bin"));
         }
         [[nodiscard]] Status Build(const Asset&, AssetBuildContext&) override { return Status{}; }
     };
@@ -74,7 +74,7 @@ namespace
 
 TEST_CASE("editor: source files read through the VFS mount")
 {
-    draconic::vfs::NativeFileSystem mount(u8".");
+    foundation::vfs::NativeFileSystem mount(u8".");
     const byte payload[3] = {byte{'a'}, byte{'b'}, byte{'c'}};
     REQUIRE(mount.AsWritable()->Save(u8"editor_vfs_src.txt", Span<const byte>(payload, 3)).IsOk());
 

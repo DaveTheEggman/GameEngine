@@ -17,9 +17,10 @@ import draconic.core;
 import draconic.vfs;
 import :export_preset;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace vfs = foundation::vfs;
 
-export namespace draconic::editor
+export namespace editor
 {
     // Owns a project's ExportPresetSet and the add/edit/duplicate/delete operations the editor's
     // presets panel performs on it. Value-holding (copy the loaded set in, mutate, save back), so a

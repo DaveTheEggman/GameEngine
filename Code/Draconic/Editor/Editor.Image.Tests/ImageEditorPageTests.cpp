@@ -12,30 +12,30 @@ import draconic.vfs;
 import draconic.editor.image;
 import draconic.editor.core;
 
-using namespace draconic::core;
-namespace image = draconic::image;
+using namespace foundation::core;
+namespace image = foundation::image;
 
 TEST_CASE("ImageEditorPageFactory reports the ImageAsset primary type")
 {
-    draconic::editor::ImageEditorPageFactory factory;
-    CHECK(factory.PrimaryType() == &draconic::pipeline::ImageAsset::StaticType());
+    editor::ImageEditorPageFactory factory;
+    CHECK(factory.PrimaryType() == &pipeline::ImageAsset::StaticType());
 }
 
 TEST_CASE("ImageEditor registers a factory the registry routes for ImageAsset")
 {
-    draconic::editor::EditorContext context;
-    draconic::editor::RegisterImageEditor(context);
+    editor::EditorContext context;
+    editor::RegisterImageEditor(context);
 
-    draconic::editor::IEditorPageFactory* found =
-        context.Pages().FindFactory(draconic::pipeline::ImageAsset::StaticType());
+    editor::IEditorPageFactory* found =
+        context.Pages().FindFactory(pipeline::ImageAsset::StaticType());
     REQUIRE(found != nullptr);
-    CHECK(found->PrimaryType() == &draconic::pipeline::ImageAsset::StaticType());
+    CHECK(found->PrimaryType() == &pipeline::ImageAsset::StaticType());
 }
 
 TEST_CASE("ImageAsset blob snapshot round-trips fileName + color space (undo path)")
 {
-    draconic::pipeline::ImageAsset a;
-    a.fileName = draconic::vfs::SourcePath(u8"Textures/rock.png");
+    pipeline::ImageAsset a;
+    a.fileName = foundation::vfs::SourcePath(u8"Textures/rock.png");
     a.colorSpace = image::ImageColorSpace::Linear;
 
     MemoryStream stream;
@@ -45,7 +45,7 @@ TEST_CASE("ImageAsset blob snapshot round-trips fileName + color space (undo pat
         REQUIRE(ar.IsOk());
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
-    draconic::pipeline::ImageAsset b;
+    pipeline::ImageAsset b;
     {
         BinarySerializer ar(stream, SerializeMode::Read);
         b.Serialize(ar);

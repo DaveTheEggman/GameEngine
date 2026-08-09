@@ -12,9 +12,9 @@ export module draconic.shell.web:dialogs;
 import draconic.core;
 import draconic.shell;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::shell
+export namespace foundation::shell
 {
     class WebDialogService final : public IDialogService
     {

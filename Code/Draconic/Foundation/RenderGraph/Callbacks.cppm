@@ -11,11 +11,11 @@ export module draconic.rendergraph:callbacks;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rendergraph
+export namespace foundation::rendergraph
 {
-    namespace rhi = draconic::rhi;
+    namespace rhi = foundation::rhi;
 
     using RenderPassExecuteCallback = Function<void(rhi::RenderPassEncoder&)>;
     using ComputePassExecuteCallback = Function<void(rhi::ComputePassEncoder&)>;

@@ -17,9 +17,9 @@ import :enums;
 import :event;
 import :property_owner;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     template <typename T>
     class Property

@@ -50,9 +50,17 @@ import draconic.editor.app;
 import :camera;    // EditorCamera (fly camera on the preview viewport)
 import :inspector; // ResourceRefEditor (the picker row)
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace materials = foundation::materials;
+namespace render = foundation::render;
+namespace rhi = foundation::rhi;
+namespace runtime = foundation::runtime;
+namespace scene = foundation::scene;
+namespace ui = foundation::ui;
+namespace vg = foundation::vg;
 
-namespace draconic::editor
+namespace editor
 {
     void MaterialEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
     {
@@ -92,7 +100,7 @@ namespace draconic::editor
     }
 
     void MaterialEditorPage::OnRenderWindow(runtime::IApplicationHost&,
-                                            draconic::graphics::FrameContext& frame)
+                                            foundation::graphics::FrameContext& frame)
     {
         if (!m_viewport->IsReady() || !frame.valid)
         {
@@ -138,7 +146,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             m_context->Project()->SourceDb().GetInstance(InstanceId());
         if (instance == nullptr)
         {
@@ -230,10 +238,10 @@ namespace draconic::editor
         m_scene->SetSimulationEnabled(false);
 
         m_sphere = m_scene->CreateEntity(u8"PreviewSphere");
-        m_previewMesh = draconic::geometry::Primitives::Sphere(1.0f, 48, 24);
-        if (auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>())
+        m_previewMesh = foundation::geometry::Primitives::Sphere(1.0f, 48, 24);
+        if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
         {
-            draconic::engine::render::MeshComponent& mc = meshes->Add(m_sphere);
+            engine::render::MeshComponent& mc = meshes->Add(m_sphere);
             mc.mesh = m_previewMesh.Get(); // direct override (runtime-built, not an asset)
         }
 
@@ -242,9 +250,9 @@ namespace draconic::editor
         t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
                      Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
         m_scene->SetLocalTransform(sun, t);
-        if (auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>())
+        if (auto* lights = m_scene->GetSystem<engine::render::LightComponentManager>())
         {
-            draconic::engine::render::LightComponent& light = lights->Add(sun);
+            engine::render::LightComponent& light = lights->Add(sun);
             light.castsShadows = false; // a lone sphere has nothing to shadow
         }
     }
@@ -260,7 +268,7 @@ namespace draconic::editor
         RefPtr<materials::Material> material = MakeRef<materials::Material>(DefaultAllocator());
         material->name = String(src.name.AsView());
         material->shaderName = String(src.shaderName.AsView());
-        material->shaderFlags = static_cast<draconic::shaders::ShaderFlags>(src.shaderFlags);
+        material->shaderFlags = static_cast<foundation::shaders::ShaderFlags>(src.shaderFlags);
         for (usize i = 0; i < src.propNames.Size(); ++i)
         {
             materials::MaterialPropertyDef d{};
@@ -295,8 +303,8 @@ namespace draconic::editor
                 {
                     continue;
                 }
-                draconic::resource::Proxy<draconic::texture::Texture> tex =
-                    m_context->Resources()->Bind<draconic::texture::Texture>(src.textureIds[i]);
+                foundation::resource::Proxy<foundation::texture::Texture> tex =
+                    m_context->Resources()->Bind<foundation::texture::Texture>(src.textureIds[i]);
                 // Track the proxy + the RAW view captured into the material: a texture
                 // hot-reload (cook) destroys that view under us, so OnUpdate watches for
                 // the proxy's view changing and rebuilds the preview material (otherwise
@@ -311,11 +319,11 @@ namespace draconic::editor
         }
 
         m_previewMaterial = material;
-        if (auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>())
+        if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
         {
-            if (draconic::engine::render::MeshComponent* mc = meshes->Get(m_sphere))
+            if (engine::render::MeshComponent* mc = meshes->Get(m_sphere))
             {
-                mc->SetMaterial(RefPtr<draconic::materials::Material>(
+                mc->SetMaterial(RefPtr<foundation::materials::Material>(
                     m_previewMaterial.Get())); // direct override
             }
         }
@@ -323,7 +331,7 @@ namespace draconic::editor
 
     void MaterialEditorPage::LoadPreviewPref()
     {
-        draconic::settings::Settings* store = m_context->ProjectEditorSettings();
+        foundation::settings::Settings* store = m_context->ProjectEditorSettings();
         if (store == nullptr)
         {
             return;
@@ -344,7 +352,7 @@ namespace draconic::editor
 
     void MaterialEditorPage::SavePreviewPref()
     {
-        draconic::settings::Settings* store = m_context->ProjectEditorSettings();
+        foundation::settings::Settings* store = m_context->ProjectEditorSettings();
         if (store == nullptr)
         {
             return;
@@ -376,8 +384,8 @@ namespace draconic::editor
         {
             return;
         }
-        auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>();
-        draconic::engine::render::MeshComponent* mc = (meshes != nullptr) ? meshes->Get(m_sphere) : nullptr;
+        auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>();
+        engine::render::MeshComponent* mc = (meshes != nullptr) ? meshes->Get(m_sphere) : nullptr;
         if (mc == nullptr)
         {
             return;
@@ -386,14 +394,14 @@ namespace draconic::editor
         if (!m_previewMeshGuid.IsNil() && m_context->Resources() != nullptr)
         {
             m_previewMesh = nullptr;
-            mc->mesh.SetDirect(core::RefPtr<draconic::geometry::StaticMesh>{});
+            mc->mesh.SetDirect(core::RefPtr<foundation::geometry::StaticMesh>{});
             mc->mesh.SetId(m_previewMeshGuid);
             mc->mesh.Bind(*m_context->Resources());
             FramePreview(mc->mesh.Get());
             return;
         }
 
-        namespace geometry = draconic::geometry;
+        namespace geometry = foundation::geometry;
         switch (m_previewShape)
         {
         case 1:
@@ -420,7 +428,7 @@ namespace draconic::editor
         FramePreview(m_previewMesh.Get());
     }
 
-    void MaterialEditorPage::FramePreview(const draconic::geometry::StaticMesh* mesh)
+    void MaterialEditorPage::FramePreview(const foundation::geometry::StaticMesh* mesh)
     {
         f32 radius = 1.0f;
         Float3 center{0.0f, 0.0f, 0.0f};
@@ -479,7 +487,7 @@ namespace draconic::editor
                 }
                 if (self->m_context->Project() != nullptr)
                 {
-                    if (draconic::content::Instance* inst =
+                    if (foundation::content::Instance* inst =
                             self->m_context->Project()->SourceDb().GetInstance(
                                 self->m_previewMeshGuid))
                     {
@@ -500,7 +508,7 @@ namespace draconic::editor
                 Array<String> typeNames;
                 typeNames.PushBack(String(u8"StaticMeshAsset"));
                 typeNames.PushBack(String(u8"SkinnedMeshAsset"));
-                auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+                auto dialog = MakeRef<editor::app::AssetPickerDialog>(
                     DefaultAllocator(), *self->m_context, Move(typeNames));
                 dialog->OnPicked = [self, meshRaw, meshName](const Guid& picked)
                 {
@@ -673,7 +681,7 @@ namespace draconic::editor
             }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"TextureAsset"));
-            auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+            auto dialog = MakeRef<editor::app::AssetPickerDialog>(
                 DefaultAllocator(), *self->m_context, Move(typeNames));
             dialog->OnPicked = [self, slot](const Guid& picked)
             {
@@ -718,7 +726,7 @@ namespace draconic::editor
         }
         if (m_context->Project() != nullptr)
         {
-            if (draconic::content::Instance* inst =
+            if (foundation::content::Instance* inst =
                     m_context->Project()->SourceDb().GetInstance(target))
             {
                 return inst->Name();
@@ -727,11 +735,11 @@ namespace draconic::editor
         return u8"(missing)";
     }
 
-    void MaterialEditorPage::AddEditor(draconic::ui::toolkit::PropertyEditor* editor,
+    void MaterialEditorPage::AddEditor(foundation::ui::toolkit::PropertyEditor* editor,
                                        Function<void()> refresher)
     {
-        m_grid->AddProperty(RefPtr<draconic::ui::toolkit::PropertyEditor>(editor));
-        draconic::ui::toolkit::PropertyEditor* raw = editor;
+        m_grid->AddProperty(RefPtr<foundation::ui::toolkit::PropertyEditor>(editor));
+        foundation::ui::toolkit::PropertyEditor* raw = editor;
         m_refreshers.PushBack(Function<void()>{[raw, pull = Move(refresher)]()
                                                {
                                                    if (!raw->IsEditing())
@@ -779,12 +787,12 @@ namespace draconic::editor
 
     void MaterialEditorPage::EnsureViewportBound()
     {
-        draconic::ui::RootView* root = m_viewport->Root();
+        foundation::ui::RootView* root = m_viewport->Root();
         if (root == nullptr)
         {
             return;
         }
-        draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
+        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
         if (window == nullptr || window == m_hostWindow)
         {
             return;
@@ -811,12 +819,12 @@ namespace draconic::editor
     }
     const TypeInfo* MaterialEditorPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::MaterialAsset::StaticType();
+        return &pipeline::MaterialAsset::StaticType();
     }
 
     UniquePtr<EditorPage>
     MaterialEditorPageFactory::CreatePage(EditorContext& context,
-                                          draconic::content::Instance& instance)
+                                          foundation::content::Instance& instance)
     {
         MaterialEditorPage* page =
             DefaultAllocator().New<MaterialEditorPage>(context, *m_host, *m_uiHost, instance);

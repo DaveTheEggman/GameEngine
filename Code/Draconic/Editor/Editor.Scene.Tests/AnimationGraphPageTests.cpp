@@ -13,14 +13,14 @@ import draconic.animation.resource;
 import draconic.animation.pipeline;
 import draconic.editor.scene;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-namespace anim = draconic::animation;
+using namespace foundation::core;
+using namespace pipeline;
+namespace anim = foundation::animation;
 
 TEST_CASE("animation graph page: default seed = one layer, Idle default state, Speed param")
 {
-    draconic::pipeline::AnimationGraphAsset asset;
-    draconic::editor::SeedDefaultAnimationGraph(asset);
+    pipeline::AnimationGraphAsset asset;
+    editor::SeedDefaultAnimationGraph(asset);
 
     REQUIRE(asset.source.paramNames.Size() == 1u);
     CHECK(asset.source.paramNames[0].AsView() == u8"Speed");
@@ -43,8 +43,8 @@ TEST_CASE("animation graph page: default seed = one layer, Idle default state, S
 
 TEST_CASE("animation graph page: asset round-trips source + canvas layout (undo blob path)")
 {
-    draconic::pipeline::AnimationGraphAsset a;
-    draconic::editor::SeedDefaultAnimationGraph(a);
+    pipeline::AnimationGraphAsset a;
+    editor::SeedDefaultAnimationGraph(a);
     // Author a bit beyond the seed: a second state, a transition with a condition, a moved node.
     anim::GraphStateData run;
     run.name = String(u8"Run");
@@ -73,7 +73,7 @@ TEST_CASE("animation graph page: asset round-trips source + canvas layout (undo 
         REQUIRE(ar.IsOk());
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
-    draconic::pipeline::AnimationGraphAsset b;
+    pipeline::AnimationGraphAsset b;
     {
         BinarySerializer ar(stream, SerializeMode::Read);
         b.Serialize(ar);
@@ -106,7 +106,7 @@ TEST_CASE("animation graph page: asset round-trips source + canvas layout (undo 
 
 TEST_CASE("animation clip page: asset round-trips loop flag + events (undo blob path)")
 {
-    draconic::pipeline::AnimationClipAsset a;
+    pipeline::AnimationClipAsset a;
     a.source.name = String(u8"Walk");
     a.source.duration = 1.25f;
     a.source.isLooping = true;
@@ -122,7 +122,7 @@ TEST_CASE("animation clip page: asset round-trips loop flag + events (undo blob 
         REQUIRE(ar.IsOk());
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
-    draconic::pipeline::AnimationClipAsset b;
+    pipeline::AnimationClipAsset b;
     {
         BinarySerializer ar(stream, SerializeMode::Read);
         b.Serialize(ar);
@@ -151,7 +151,7 @@ TEST_CASE("skeleton page: SkeletonStatLines reports bones/roots/depth")
     skeleton.FindRootBones();
     skeleton.BuildChildIndices();
 
-    const Array<String> lines = draconic::editor::SkeletonStatLines(skeleton);
+    const Array<String> lines = editor::SkeletonStatLines(skeleton);
     bool sawBones = false, sawRoots = false, sawDepth = false;
     for (const String& line : lines)
     {

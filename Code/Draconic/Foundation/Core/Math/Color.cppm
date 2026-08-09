@@ -7,7 +7,7 @@ export module draconic.core:color;
 import :base;
 import :math;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Color - linear RGBA, float components (typically 0..1).

@@ -4,7 +4,7 @@
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::ui;
+using namespace foundation::ui;
 
 TEST_CASE("size-spec: Fixed_CarriesUnit")
 {

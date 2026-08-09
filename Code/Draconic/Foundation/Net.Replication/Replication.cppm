@@ -17,10 +17,11 @@ import draconic.net;      // BitWriter / BitReader (:wire)
 import draconic.scene;    // Scene / EntityHandle / ComponentManagerBase (snapshot assembly)
 import draconic.resource; // ResourceManager (SerializableComponentManager's ResolveResources seam)
 
-using namespace draconic::core;
-namespace scene = draconic::scene;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace scene = foundation::scene;
 
-export namespace draconic::net
+export namespace foundation::net
 {
 
     // ---- identity + authority -------------------------------------------------------------------
@@ -114,11 +115,11 @@ export namespace draconic::net
     // ADL serialization for scene persistence (bidirectional; enum via the temp-u8 idiom).
     inline void Serialize(ISerializer& ar, NetworkComponent& c)
     {
-        draconic::core::Serialize(ar, "id", c.id.value);
+        foundation::core::Serialize(ar, "id", c.id.value);
         u8 authority = static_cast<u8>(c.authority);
-        draconic::core::Serialize(ar, "authority", authority);
+        foundation::core::Serialize(ar, "authority", authority);
         c.authority = static_cast<NetworkAuthority>(authority);
-        draconic::core::Serialize(
+        foundation::core::Serialize(
             ar, "prefab", c.prefab); // the Guid overload routes through ISerializer::GuidValue
     }
 
@@ -147,9 +148,9 @@ export namespace draconic::net
 
     inline void Serialize(ISerializer& ar, NetworkedTransform& t)
     {
-        draconic::core::Serialize(ar, "position", t.position);
-        draconic::core::Serialize(ar, "rotation", t.rotation);
-        draconic::core::Serialize(ar, "scale", t.scale);
+        foundation::core::Serialize(ar, "position", t.position);
+        foundation::core::Serialize(ar, "rotation", t.rotation);
+        foundation::core::Serialize(ar, "scale", t.scale);
     }
 
     class NetworkedTransformComponentManager final

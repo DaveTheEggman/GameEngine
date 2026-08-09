@@ -4,8 +4,8 @@
 import draconic.core;
 import draconic.vg.svg;
 
-using namespace draconic::core;
-using namespace draconic::vg::svg;
+using namespace foundation::core;
+using namespace foundation::vg::svg;
 
 TEST_CASE("svg.color: hex6")
 {

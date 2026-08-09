@@ -16,10 +16,10 @@ import draconic.shaders.system;
 import draconic.vg;
 import draconic.vg.renderer;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
-namespace vg = draconic::vg;
-namespace shaders = draconic::shaders;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
+namespace vg = foundation::vg;
+namespace shaders = foundation::shaders;
 
 namespace
 {

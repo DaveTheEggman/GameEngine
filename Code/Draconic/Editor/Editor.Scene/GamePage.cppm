@@ -47,16 +47,17 @@ import draconic.engine.gameinstance; // GameInstance - this tab drives its OWN r
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace scene = draconic::scene;
-    namespace render = draconic::render;
-    namespace vg = draconic::vg;
-    namespace script = draconic::script;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace scene = foundation::scene;
+    namespace render = foundation::render;
+    namespace vg = foundation::vg;
+    namespace script = foundation::script;
 
     // The debugger panel (script-debugger.md P1): a Break/Continue/StepInto/StepOver toolbar, a
     // call-stack list, and a locals tree with one level of lazy object expansion. It consumes
@@ -202,40 +203,40 @@ export namespace draconic::editor
     // gating and transformation (mouse hover+transform, keyboard focus, gamepads gated on
     // focus via SurfaceGamepad, touch transformed + spatially gated). This class only
     // adapts the surface to the input runtime's provider seam - no gating logic here.
-    class GameViewportInputSource final : public draconic::input::IInputSourceProvider
+    class GameViewportInputSource final : public foundation::input::IInputSourceProvider
     {
     public:
         ui::viewport::ViewportView* viewport = nullptr;       // borrowed
-        draconic::shell::IInputManager* shellInput = nullptr; // borrowed (count only)
+        foundation::shell::IInputManager* shellInput = nullptr; // borrowed (count only)
 
-        [[nodiscard]] draconic::shell::IKeyboard* Keyboard() override;
-        [[nodiscard]] draconic::shell::IMouse* Mouse() override;
+        [[nodiscard]] foundation::shell::IKeyboard* Keyboard() override;
+        [[nodiscard]] foundation::shell::IMouse* Mouse() override;
         [[nodiscard]] i32 GamepadCount() const override;
-        [[nodiscard]] draconic::shell::IGamepad* Gamepad(i32 index) override;
-        [[nodiscard]] draconic::shell::ITouch* Touch() override;
-        [[nodiscard]] Span<const draconic::shell::InputEvent> Events() override;
+        [[nodiscard]] foundation::shell::IGamepad* Gamepad(i32 index) override;
+        [[nodiscard]] foundation::shell::ITouch* Touch() override;
+        [[nodiscard]] Span<const foundation::shell::InputEvent> Events() override;
     };
 
     // Wren runtime faults during play surface as editor notices, not console-only lines.
-    class GameScriptErrorSink final : public draconic::script::IScriptErrorHandler
+    class GameScriptErrorSink final : public foundation::script::IScriptErrorHandler
     {
     public:
         EditorContext* context = nullptr;
-        void OnError(const draconic::script::ScriptError& error) override;
+        void OnError(const foundation::script::ScriptError& error) override;
     };
 
     class GameEditorPage final : public app::UIEditorPage
     {
     public:
         GameEditorPage(EditorContext& context, runtime::IApplicationHost& host,
-                       ui::runtime::UIHost& uiHost, draconic::engine::runtime::DefaultApplication* embeddedApp,
-                       draconic::engine::runtime::GameInstance* instance)
+                       ui::runtime::UIHost& uiHost, engine::runtime::DefaultApplication* embeddedApp,
+                       engine::runtime::GameInstance* instance)
             : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_app(embeddedApp),
               m_gameInstance(instance)
         {
-            m_scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
-            m_render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>();
-            m_input = host.Ctx().GetSubsystem<draconic::engine::input::InputSubsystem>();
+            m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
+            m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
+            m_input = host.Ctx().GetSubsystem<engine::input::InputSubsystem>();
             m_shellInput = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
 
             m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
@@ -273,40 +274,40 @@ export namespace draconic::editor
             m_resolutionButton = m_toolbar->AddButton(u8"Res: Auto");
             m_resolutionButton->OnClick.Add([self](ui::toolkit::ToolbarButton*)
                                             { self->CycleResolution(); });
-            m_statusLabel = MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8""));
+            m_statusLabel = MakeRef<foundation::ui::Label>(DefaultAllocator(), StringView(u8""));
             m_statusLabel->FontSize.SetValue(13.0f);
             {
-                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Height = draconic::ui::SizeSpec::Match();
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Height = foundation::ui::SizeSpec::Match();
                 m_toolbar->AddView(m_statusLabel.Get(), lp);
             }
 
-            auto column = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
-            column->Direction = draconic::ui::Orientation::Vertical;
+            auto column = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+            column->Direction = foundation::ui::Orientation::Vertical;
             {
-                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = draconic::ui::SizeSpec::Match();
-                lp->Height = draconic::ui::SizeSpec::Fixed(draconic::ui::Unit::Px(30));
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = foundation::ui::SizeSpec::Match();
+                lp->Height = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Px(30));
                 column->AddView(m_toolbar.Get(), lp);
             }
             // The play stage: the game viewport (grows) beside the debugger panel (fixed).
             auto stage = MakeRef<ui::FlexLayout>(DefaultAllocator());
             stage->Direction = ui::Orientation::Horizontal;
             {
-                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = 1.0f;
-                lp->Height = draconic::ui::SizeSpec::Match();
+                lp->Height = foundation::ui::SizeSpec::Match();
                 stage->AddView(m_viewport.Get(), lp);
             }
             {
-                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = draconic::ui::SizeSpec::Fixed(draconic::ui::Unit::Px(300));
-                lp->Height = draconic::ui::SizeSpec::Match();
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Px(300));
+                lp->Height = foundation::ui::SizeSpec::Match();
                 stage->AddView(m_debuggerPanel.RootView(), lp);
             }
             {
-                auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = draconic::ui::SizeSpec::Match();
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = foundation::ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 column->AddView(stage.Get(), lp);
             }
@@ -316,7 +317,7 @@ export namespace draconic::editor
 
         [[nodiscard]] StringView Title() const override { return u8"Game"; }
         [[nodiscard]] Status Save() override { return Status{}; } // nothing here is a document
-        [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
+        [[nodiscard]] foundation::ui::View* ContentView() override { return m_content.Get(); }
 
         // The scene group this tab's game scene belongs to: the embedded app's GameInstance manager
         // (game-instance.md §11), so the game scene groups + ticks + is bound to the instance's run
@@ -338,10 +339,10 @@ export namespace draconic::editor
         void OnUpdate(runtime::IApplicationHost& host, f32 dt) override;
 
         void OnRenderWindow(runtime::IApplicationHost&,
-                            draconic::graphics::FrameContext& frame) override;
+                            foundation::graphics::FrameContext& frame) override;
 
         void OnAfterSceneRender(runtime::IApplicationHost& host,
-                                draconic::graphics::FrameContext& frame) override;
+                                foundation::graphics::FrameContext& frame) override;
 
         void OnClose() override;
 
@@ -383,19 +384,19 @@ export namespace draconic::editor
         EditorContext* m_context = nullptr;
         runtime::IApplicationHost* m_host = nullptr;
         ui::runtime::UIHost* m_uiHost = nullptr;
-        draconic::engine::runtime::DefaultApplication* m_app = nullptr; // the embedded game application (v3)
-        draconic::engine::runtime::GameInstance* m_gameInstance =
+        engine::runtime::DefaultApplication* m_app = nullptr; // the embedded game application (v3)
+        engine::runtime::GameInstance* m_gameInstance =
             nullptr; // THIS tab's running game (its own run host + scenes)
-        draconic::graphics::RenderWindow* m_hostWindow =
+        foundation::graphics::RenderWindow* m_hostWindow =
             nullptr; // borrowed; tracks dock/float moves
-        draconic::engine::scene::SceneSubsystem* m_scenes = nullptr;
-        draconic::engine::render::RenderSubsystem* m_render = nullptr;
+        engine::scene::SceneSubsystem* m_scenes = nullptr;
+        engine::render::RenderSubsystem* m_render = nullptr;
         scene::Scene* m_scene = nullptr;
-        draconic::engine::input::InputSubsystem* m_input = nullptr;
-        draconic::shell::IInputManager* m_shellInput = nullptr;
+        engine::input::InputSubsystem* m_input = nullptr;
+        foundation::shell::IInputManager* m_shellInput = nullptr;
         GameViewportInputSource m_viewportSource;
 
-        RefPtr<draconic::ui::View> m_content;
+        RefPtr<foundation::ui::View> m_content;
         RefPtr<ui::toolkit::Toolbar> m_toolbar;
         ui::toolkit::ToolbarButton* m_playButton = nullptr;
         ui::toolkit::ToolbarButton* m_stopButton = nullptr;
@@ -408,9 +409,9 @@ export namespace draconic::editor
         GameDebugListener m_debugListener;  // debugger state sink (drained in OnUpdate)
         bool m_simPausedByDebugger = false; // we disabled sim for a breakpoint
         Array<EditorContext::ScriptBreakpoint> m_appliedBreakpoints; // mirror on the debugger
-        RefPtr<draconic::ui::Label> m_statusLabel;
+        RefPtr<foundation::ui::Label> m_statusLabel;
         RefPtr<ui::viewport::ViewportView> m_viewport;
-        UniquePtr<draconic::shell::InputRouter>
+        UniquePtr<foundation::shell::InputRouter>
             m_router;                         // gates the viewport surface (hover/focus)
         scene::SceneManager m_fallbackScenes; // no-embedded-app placeholder group (see SceneGroup)
 

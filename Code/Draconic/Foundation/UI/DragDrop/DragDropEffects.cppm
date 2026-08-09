@@ -10,9 +10,9 @@ export module draconic.ui:drag_drop_effects;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Describes the type of operation a drag-and-drop will perform.
     enum class DragDropEffects : i32

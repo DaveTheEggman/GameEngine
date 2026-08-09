@@ -34,10 +34,10 @@ import draconic.pipeline.core;
 import draconic.pipeline.cook;
 import :project;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace pipeline;
 
-export namespace draconic::editor
+export namespace editor
 {
     enum class CookBadge : u8
     {
@@ -110,7 +110,7 @@ export namespace draconic::editor
         [[nodiscard]] usize LastFailedCount() const noexcept { return m_lastFailedCountMain; }
 
         /// Cheap per-instance cook state for the Assets panel (no recipe recompute).
-        [[nodiscard]] CookBadge BadgeFor(draconic::content::Instance& instance);
+        [[nodiscard]] CookBadge BadgeFor(foundation::content::Instance& instance);
 
     private:
         void Post(String message);
@@ -125,8 +125,8 @@ export namespace draconic::editor
 
         EditorProject* m_project = nullptr;    // borrowed
         BuilderRegistry* m_builders = nullptr; // borrowed (exe-assembled)
-        UniquePtr<draconic::vfs::NativeFileSystem> m_sources;
-        UniquePtr<draconic::vfs::NativeFileSystem> m_cache;
+        UniquePtr<foundation::vfs::NativeFileSystem> m_sources;
+        UniquePtr<foundation::vfs::NativeFileSystem> m_cache;
         UniquePtr<JobSystem> m_jobs;
         UniquePtr<CookDriver> m_driver;
         UniquePtr<Thread> m_worker;
@@ -149,7 +149,7 @@ export namespace draconic::editor
         bool m_pendingRootsForce = false;
         CookPlan m_plan; // worker-planned, main-prepared, worker-built
         Atomic<bool> m_planReady{false};
-        draconic::vfs::IChangeSource* m_watcher = nullptr; // borrowed (sources mount owns it)
+        foundation::vfs::IChangeSource* m_watcher = nullptr; // borrowed (sources mount owns it)
         Array<String> m_watchChanged;
         f64 m_lastWatchPoll = 0.0;
     };

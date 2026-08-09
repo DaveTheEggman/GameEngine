@@ -24,14 +24,14 @@ import draconic.animation.resource;
 import draconic.resource;
 import draconic.content;
 
-using namespace draconic::core;
-using namespace draconic::resource;
-namespace geometry = draconic::geometry;
-namespace materials = draconic::materials;
-namespace texture = draconic::texture;
-namespace animation = draconic::animation;
+using namespace foundation::core;
+using namespace foundation::resource;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace texture = foundation::texture;
+namespace animation = foundation::animation;
 
-export namespace draconic::model
+export namespace foundation::model
 {
 
     // One node of the imported hierarchy: local TRS + an optional mesh reference (index into
@@ -47,12 +47,12 @@ export namespace draconic::model
     // Free Serialize for ModelNode (ADL-found by the generic Array<T> serializer).
     inline void Serialize(ISerializer& ar, ModelNode& n)
     {
-        draconic::core::Serialize(ar, "name", n.name);
-        draconic::core::Serialize(ar, "parent", n.parentIndex);
-        draconic::core::Serialize(ar, "t", n.localTransform.position);
-        draconic::core::Serialize(ar, "r", n.localTransform.rotation);
-        draconic::core::Serialize(ar, "s", n.localTransform.scale);
-        draconic::core::Serialize(ar, "mesh", n.meshIndex);
+        foundation::core::Serialize(ar, "name", n.name);
+        foundation::core::Serialize(ar, "parent", n.parentIndex);
+        foundation::core::Serialize(ar, "t", n.localTransform.position);
+        foundation::core::Serialize(ar, "r", n.localTransform.rotation);
+        foundation::core::Serialize(ar, "s", n.localTransform.scale);
+        foundation::core::Serialize(ar, "mesh", n.meshIndex);
     }
 
     // Authored/cooked manifest: the leaf resource Guids + the node hierarchy.
@@ -76,17 +76,17 @@ export namespace draconic::model
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "meshGuids", meshGuids);
-            draconic::core::Serialize(ar, "meshSkinned", meshSkinned);
-            draconic::core::Serialize(ar, "meshMaterial", meshMaterial);
-            draconic::core::Serialize(ar, "collisionGuids", collisionGuids);
-            draconic::core::Serialize(ar, "materialGuids", materialGuids);
-            draconic::core::Serialize(ar, "materialAlbedo", materialAlbedo);
-            draconic::core::Serialize(ar, "nodes", nodes);
-            draconic::core::Serialize(ar, "skeletonGuid", skeletonGuid);
-            draconic::core::Serialize(ar, "animationGuids", animationGuids);
-            draconic::core::Serialize(ar, "boundsMin", boundsMin);
-            draconic::core::Serialize(ar, "boundsMax", boundsMax);
+            foundation::core::Serialize(ar, "meshGuids", meshGuids);
+            foundation::core::Serialize(ar, "meshSkinned", meshSkinned);
+            foundation::core::Serialize(ar, "meshMaterial", meshMaterial);
+            foundation::core::Serialize(ar, "collisionGuids", collisionGuids);
+            foundation::core::Serialize(ar, "materialGuids", materialGuids);
+            foundation::core::Serialize(ar, "materialAlbedo", materialAlbedo);
+            foundation::core::Serialize(ar, "nodes", nodes);
+            foundation::core::Serialize(ar, "skeletonGuid", skeletonGuid);
+            foundation::core::Serialize(ar, "animationGuids", animationGuids);
+            foundation::core::Serialize(ar, "boundsMin", boundsMin);
+            foundation::core::Serialize(ar, "boundsMax", boundsMax);
         }
     };
 
@@ -121,7 +121,7 @@ export namespace draconic::model
         }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             ModelManifestSource* src = Cast<ModelManifestSource>(object.Get());
@@ -229,4 +229,4 @@ export namespace draconic::model
         GlobalTypeRegistry().Register(animation::AnimationClip::StaticType());
     }
 
-} // namespace draconic::model
+} // namespace foundation::model

@@ -24,9 +24,12 @@ import draconic.rhi.validation;
 import draconic.shell;
 import draconic.shell.desktop;
 
-using namespace draconic::core;
+using namespace foundation::core;
+using namespace foundation;
+namespace rhi = foundation::rhi;
+namespace shell = foundation::shell;
 
-export namespace draconic::samples::framework
+export namespace samples::framework
 {
 
     enum class BackendType
@@ -346,4 +349,4 @@ export namespace draconic::samples::framework
         m_shellOwner.Reset(); // destroys the window + shell
     }
 
-} // namespace draconic::samples::framework
+} // namespace samples::framework

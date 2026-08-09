@@ -20,7 +20,7 @@ import :atomic;
 import :mutex;
 import :scoped_lock;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     enum class LogLevel : u8
     {

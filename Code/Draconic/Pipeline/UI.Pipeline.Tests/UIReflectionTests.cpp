@@ -5,19 +5,19 @@
 import draconic.core;
 import draconic.ui.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace pipeline;
 
 TEST_CASE("reflection-p1: UIDocumentAsset exposes markup and round-trips")
 {
-    draconic::pipeline::RegisterUIAssets();
-    const TypeInfo& type = draconic::pipeline::UIDocumentAsset::StaticType();
+    pipeline::RegisterUIAssets();
+    const TypeInfo& type = pipeline::UIDocumentAsset::StaticType();
 
     CHECK(PropertyCount(type) == 1u);
     const PropertyInfo* markup = FindProperty(type, "markup");
     REQUIRE(markup != nullptr);
 
-    draconic::pipeline::UIDocumentAsset asset;
+    pipeline::UIDocumentAsset asset;
     Instance inst = Instance::From(&asset);
     CHECK(SetProperty(*markup, inst, Variant::From(String(u8"<panel/>"))).IsOk());
     CHECK(GetProperty(*markup, inst).Get<String>().AsView() == StringView(u8"<panel/>"));
@@ -26,14 +26,14 @@ TEST_CASE("reflection-p1: UIDocumentAsset exposes markup and round-trips")
 
 TEST_CASE("reflection-p1: UIThemeAsset exposes stylesheet and round-trips")
 {
-    draconic::pipeline::RegisterUIAssets();
-    const TypeInfo& type = draconic::pipeline::UIThemeAsset::StaticType();
+    pipeline::RegisterUIAssets();
+    const TypeInfo& type = pipeline::UIThemeAsset::StaticType();
 
     CHECK(PropertyCount(type) == 1u);
     const PropertyInfo* sheet = FindProperty(type, "stylesheet");
     REQUIRE(sheet != nullptr);
 
-    draconic::pipeline::UIThemeAsset asset;
+    pipeline::UIThemeAsset asset;
     Instance inst = Instance::From(&asset);
     CHECK(SetProperty(*sheet, inst, Variant::From(String(u8"panel{}"))).IsOk());
     CHECK(asset.stylesheet.AsView() == StringView(u8"panel{}"));

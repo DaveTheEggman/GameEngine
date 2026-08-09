@@ -17,16 +17,15 @@ import draconic.engine.animation;
 import draconic.modelimporter;
 import draconic.editor.scene;
 
-using namespace draconic::core;
-namespace scene = draconic::scene;
-namespace render = draconic::render;
+using namespace foundation::core;
+namespace scene = foundation::scene;
 
 namespace
 {
     void RemoveTreeMP(StringView root)
     {
-        draconic::vfs::NativeFileSystem fs(root);
-        Array<draconic::vfs::DirEntry> entries;
+        foundation::vfs::NativeFileSystem fs(root);
+        Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
             for (const auto& e : entries)
@@ -38,7 +37,7 @@ namespace
                 }
                 // One level of group subdirectories (the model group) - a stale "Prefab"
                 // instance in there flips the regeneration check on reruns.
-                Array<draconic::vfs::DirEntry> inner;
+                Array<foundation::vfs::DirEntry> inner;
                 if (fs.AsEnumerable()->Enumerate(e.name.AsView(), inner).IsOk())
                 {
                     for (const auto& f : inner)
@@ -56,15 +55,15 @@ namespace
 
 TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the instance")
 {
-    draconic::pipeline::RegisterModelManifestAsset();
+    pipeline::RegisterModelManifestAsset();
     GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType());
     RegisterSerializable<scene::PrefabDocument>();
 
     const StringView dir = u8"draconic_model_prefab_test_db";
     RemoveTreeMP(dir);
     (void)CreateDirectory(dir);
-    draconic::vfs::NativeFileSystem mount(dir);
-    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
 
     // Hand-authored manifest: root node + a multi-material static mesh node + a skinned node.
     const Guid meshStatic{0x51, 0x1};
@@ -74,7 +73,7 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     const Guid skeleton{0x71, 0x1};
     const Guid clip{0x72, 0x1};
 
-    draconic::pipeline::ModelManifestAsset asset;
+    pipeline::ModelManifestAsset asset;
     asset.manifest.meshGuids.PushBack(meshStatic);
     asset.manifest.meshGuids.PushBack(meshSkinned);
     asset.manifest.meshSkinned.PushBack(0);
@@ -86,32 +85,32 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     asset.manifest.skeletonGuid = skeleton;
     asset.manifest.animationGuids.PushBack(clip);
     {
-        draconic::model::ModelNode rootNode;
+        foundation::model::ModelNode rootNode;
         rootNode.name = String(u8"Armature");
         rootNode.parentIndex = -1;
         asset.manifest.nodes.PushBack(Move(rootNode));
-        draconic::model::ModelNode meshNode;
+        foundation::model::ModelNode meshNode;
         meshNode.name = String(u8"Body");
         meshNode.parentIndex = 0;
         meshNode.meshIndex = 0;
         meshNode.localTransform.position = Float3{1.0f, 2.0f, 3.0f};
         asset.manifest.nodes.PushBack(Move(meshNode));
-        draconic::model::ModelNode skinNode;
+        foundation::model::ModelNode skinNode;
         skinNode.name = String(u8"Skin");
         skinNode.parentIndex = 0;
         skinNode.meshIndex = 1;
         asset.manifest.nodes.PushBack(Move(skinNode));
     }
 
-    draconic::content::Group* group = db.RootGroup()->CreateGroup(u8"Fox");
+    foundation::content::Group* group = db.RootGroup()->CreateGroup(u8"Fox");
     REQUIRE(group != nullptr);
-    draconic::content::Instance* manifestInst =
-        group->CreateInstance(u8"Fox", draconic::pipeline::ModelManifestAsset::StaticType());
+    foundation::content::Instance* manifestInst =
+        group->CreateInstance(u8"Fox", pipeline::ModelManifestAsset::StaticType());
     REQUIRE(manifestInst != nullptr);
     REQUIRE(manifestInst->WriteObject(asset).IsOk());
 
-    draconic::editor::ModelPrefabResult generated =
-        draconic::editor::GenerateModelPrefab(*manifestInst);
+    editor::ModelPrefabResult generated =
+        editor::GenerateModelPrefab(*manifestInst);
     REQUIRE(generated.instance != nullptr);
     CHECK(!generated.regenerated);
     CHECK(generated.instance->Name() == StringView(u8"Prefab"));
@@ -122,8 +121,8 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     UniquePtr<IStream> payload = generated.instance->ReadData(u8"scene");
     REQUIRE(payload.Get() != nullptr);
     scene::Scene level(u8"level");
-    auto* meshes = level.AddSystem<draconic::engine::render::MeshComponentManager>();
-    auto* anims = level.AddSystem<draconic::engine::animation::SkeletalAnimationComponentManager>();
+    auto* meshes = level.AddSystem<engine::render::MeshComponentManager>();
+    auto* anims = level.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
     scene::EntityHandle root = scene::SpawnPrefab(level, *payload, prefabId);
     REQUIRE(root.IsAssigned());
     CHECK(level.GetEntityName(root) == StringView(u8"Fox"));
@@ -135,7 +134,7 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     usize meshCount = 0;
     bool sawStatic = false, sawSkinned = false;
     meshes->ForEach(
-        [&](draconic::engine::render::MeshComponent& c, scene::EntityHandle e)
+        [&](engine::render::MeshComponent& c, scene::EntityHandle e)
         {
             ++meshCount;
             if (c.mesh.id == meshStatic)
@@ -159,7 +158,7 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
 
     usize animCount = 0;
     anims->ForEach(
-        [&](draconic::engine::animation::SkeletalAnimationComponent& c, scene::EntityHandle)
+        [&](engine::animation::SkeletalAnimationComponent& c, scene::EntityHandle)
         {
             ++animCount;
             CHECK(c.skeleton.id == skeleton);
@@ -168,8 +167,8 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     CHECK(animCount == 1u); // only the SKINNED node animates
 
     // Regeneration finds + reuses the instance: same guid, refreshed payload.
-    draconic::editor::ModelPrefabResult again =
-        draconic::editor::GenerateModelPrefab(*manifestInst);
+    editor::ModelPrefabResult again =
+        editor::GenerateModelPrefab(*manifestInst);
     REQUIRE(again.instance != nullptr);
     CHECK(again.regenerated);
     CHECK(again.instance->Id() == prefabId);

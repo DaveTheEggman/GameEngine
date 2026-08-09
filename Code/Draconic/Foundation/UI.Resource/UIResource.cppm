@@ -20,10 +20,10 @@ import draconic.core;
 import draconic.resource;
 import draconic.content;
 
-using namespace draconic::core;
-using namespace draconic::resource;
+using namespace foundation::core;
+using namespace foundation::resource;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Cooked UI document: a validated `.sml` view-tree payload.
     class UIDocumentSource : public ISerializable
@@ -34,7 +34,7 @@ export namespace draconic::ui
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "markup", markup);
+            foundation::core::Serialize(ar, "markup", markup);
         }
     };
 
@@ -55,7 +55,7 @@ export namespace draconic::ui
             return &UIDocument::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             UIDocumentSource* source = Cast<UIDocumentSource>(object.Get());
@@ -78,7 +78,7 @@ export namespace draconic::ui
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "stylesheet", stylesheet);
+            foundation::core::Serialize(ar, "stylesheet", stylesheet);
         }
     };
 
@@ -97,7 +97,7 @@ export namespace draconic::ui
             return &UITheme::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             UIThemeSource* source = Cast<UIThemeSource>(object.Get());

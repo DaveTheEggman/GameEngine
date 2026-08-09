@@ -12,10 +12,10 @@ import draconic.resource;
 import draconic.particles;
 import draconic.particles.resource;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
-using namespace draconic::resource;
-using namespace draconic::particles;
+using namespace foundation::core;
+using namespace foundation::vfs;
+using namespace foundation::resource;
+using namespace foundation::particles;
 
 namespace
 {
@@ -69,7 +69,7 @@ TEST_CASE("particles.pipeline: code effect -> cook -> Bind reconstructs an equiv
 
     // Cook: author the effect into a ParticleEffectResource record and write it to the DB.
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst =
             db.RootGroup()->CreateInstance(u8"effect", ParticleEffectResource::StaticType());
@@ -81,7 +81,7 @@ TEST_CASE("particles.pipeline: code effect -> cook -> Bind reconstructs an equiv
     }
 
     // Load: bind the cooked resource back through the manager + factory.
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     ParticleEffectFactory factory;
     ResourceManager manager(db);

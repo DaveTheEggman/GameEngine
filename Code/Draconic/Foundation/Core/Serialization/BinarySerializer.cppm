@@ -22,7 +22,7 @@ import :function;
 import :array; // frame stack + RawRemainder blob
 import :span; // MemoryStream::Bytes()
 
-export namespace draconic::core
+export namespace foundation::core
 {
     namespace detail
     {

@@ -24,10 +24,11 @@ import :data;
 import :pipeline;
 import :resources;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // One instance record uploaded to the instance stream (64 bytes = 4x float4, matches the VS inputs).
@@ -129,4 +130,4 @@ export namespace draconic::render
         HashMap<rhi::TextureView*, TexBindGroup> m_texBindGroups;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

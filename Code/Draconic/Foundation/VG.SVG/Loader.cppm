@@ -15,9 +15,9 @@ import draconic.vg;
 import :types;
 import :parsers;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg::svg
+export namespace foundation::vg::svg
 {
     /// Loads SVG documents from string content (icon-systems subset).
     class SVGLoader
@@ -255,9 +255,9 @@ export namespace draconic::vg::svg
                 if (const String* spread = attrs.Find(String(u8"spreadMethod")))
                 {
                     if (EqualsIgnoreCase(spread->AsView(), u8"repeat"))
-                        grad.spread = draconic::vg::VGGradientSpread::Repeat;
+                        grad.spread = foundation::vg::VGGradientSpread::Repeat;
                     else if (EqualsIgnoreCase(spread->AsView(), u8"reflect"))
-                        grad.spread = draconic::vg::VGGradientSpread::Reflect;
+                        grad.spread = foundation::vg::VGGradientSpread::Reflect;
                 }
                 if (!isSelfClosing)
                     ParseGradientStops(content, pos, grad);
@@ -417,7 +417,7 @@ export namespace draconic::vg::svg
                 if (const String* style = stopAttrs.Find(String(u8"style")))
                     ParseStopStyle(style->AsView(), color, alpha);
                 color.a *= alpha;
-                grad.stops.PushBack(draconic::vg::GradientStop(offset, color));
+                grad.stops.PushBack(foundation::vg::GradientStop(offset, color));
             }
             SkipClosingTag(content, pos, u8"gradient");
         }

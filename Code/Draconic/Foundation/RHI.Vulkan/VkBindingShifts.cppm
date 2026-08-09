@@ -6,9 +6,9 @@ export module draconic.rhi.vulkan:binding_shifts;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     /// Maps HLSL register spaces to Vulkan descriptor bindings.
@@ -57,4 +57,4 @@ export namespace draconic::rhi::vk
         }
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

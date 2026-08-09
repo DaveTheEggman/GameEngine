@@ -12,7 +12,7 @@ export module draconic.core:float2;
 import :base;
 import :math;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Float2

@@ -24,9 +24,10 @@ import :system;
 import :component;
 import :events;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::scene
+export namespace foundation::scene
 {
 
     class Scene
@@ -492,4 +493,4 @@ export namespace draconic::scene
         f32 m_fixedAlpha = 0.0f;
     };
 
-} // namespace draconic::scene
+} // namespace foundation::scene

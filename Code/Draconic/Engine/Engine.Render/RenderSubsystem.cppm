@@ -31,18 +31,20 @@ import :components;
 import :extract;
 import :scene_renderer;
 
-using namespace draconic::core;
-using namespace draconic::render;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::render;
+namespace materials = foundation::materials;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::engine::render
+export namespace engine::render
 {
-    // Foundation aliases: inside draconic::engine::render, the sibling draconic::engine::scene would
-    // otherwise shadow the foundation draconic::scene these reference. (The engine SceneSubsystem is
-    // spelled draconic::engine::scene::SceneSubsystem where needed.)
-    namespace scene = draconic::scene;
+    // Foundation aliases: inside engine::render, the sibling engine::scene would
+    // otherwise shadow the foundation foundation::scene these reference. (The engine SceneSubsystem is
+    // spelled engine::scene::SceneSubsystem where needed.)
+    namespace scene = foundation::scene;
 
-    class RenderSubsystem final : public draconic::runtime::Subsystem,
+    class RenderSubsystem final : public foundation::runtime::Subsystem,
                                   public ISceneRenderer,
                                   public IScreenRenderer,
                                   public scene::ISceneAware
@@ -300,4 +302,4 @@ export namespace draconic::engine::render
         RenderContext m_renderCtx;             // per-worker extraction arenas
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

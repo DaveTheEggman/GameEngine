@@ -30,17 +30,26 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :camera;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace render = foundation::render;
+namespace rhi = foundation::rhi;
+namespace runtime = foundation::runtime;
+namespace scene = foundation::scene;
+namespace ui = foundation::ui;
+namespace vg = foundation::vg;
 
-namespace draconic::editor
+namespace editor
 {
     MeshEditorPage::MeshEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                                    ui::runtime::UIHost& uiHost,
-                                   draconic::content::Instance& instance)
+                                   foundation::content::Instance& instance)
         : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
         m_router =
-            MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
+            MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
         m_camera.position = Float3{4.0f, 3.0f, 6.0f};
         m_camera.LookAt(Float3{0.0f, 0.0f, 0.0f});
 
@@ -48,8 +57,8 @@ namespace draconic::editor
         // product bind on it - set it from the instance now (the later SetInstanceId is the same value).
         SetInstanceId(instance.Id());
 
-        m_scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
-        m_render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>();
+        m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
+        m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
         m_defaultMaterial = materials::CreatePBR(u8"MeshPreview");
 
         BuildPreviewScene();
@@ -101,7 +110,7 @@ namespace draconic::editor
         m_scene->SetSimulationEnabled(false);
 
         m_entity = m_scene->CreateEntity(u8"PreviewMesh");
-        if (auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>())
+        if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
         {
             meshes->Add(m_entity); // mesh bound in BindMesh once the product resolves
         }
@@ -111,9 +120,9 @@ namespace draconic::editor
         t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
                      Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
         m_scene->SetLocalTransform(sun, t);
-        if (auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>())
+        if (auto* lights = m_scene->GetSystem<engine::render::LightComponentManager>())
         {
-            draconic::engine::render::LightComponent& light = lights->Add(sun);
+            engine::render::LightComponent& light = lights->Add(sun);
             light.castsShadows = false;
         }
     }
@@ -231,8 +240,8 @@ namespace draconic::editor
 
     void MeshEditorPage::PointComponentAtMesh(geometry::StaticMesh* mesh)
     {
-        auto* meshes = m_scene ? m_scene->GetSystem<draconic::engine::render::MeshComponentManager>() : nullptr;
-        draconic::engine::render::MeshComponent* mc = (meshes != nullptr) ? meshes->Get(m_entity) : nullptr;
+        auto* meshes = m_scene ? m_scene->GetSystem<engine::render::MeshComponentManager>() : nullptr;
+        engine::render::MeshComponent* mc = (meshes != nullptr) ? meshes->Get(m_entity) : nullptr;
         if (mc == nullptr)
         {
             return;
@@ -250,7 +259,7 @@ namespace draconic::editor
     }
 
     void MeshEditorPage::OnRenderWindow(runtime::IApplicationHost&,
-                                        draconic::graphics::FrameContext& frame)
+                                        foundation::graphics::FrameContext& frame)
     {
         if (!m_viewport->IsReady() || !frame.valid)
         {
@@ -306,12 +315,12 @@ namespace draconic::editor
 
     void MeshEditorPage::EnsureViewportBound()
     {
-        draconic::ui::RootView* root = m_viewport->Root();
+        foundation::ui::RootView* root = m_viewport->Root();
         if (root == nullptr)
         {
             return;
         }
-        draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
+        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
         if (window == nullptr || window == m_hostWindow)
         {
             return;
@@ -338,7 +347,7 @@ namespace draconic::editor
     }
 
     UniquePtr<EditorPage> MeshEditorPageFactory::CreatePage(EditorContext& context,
-                                                            draconic::content::Instance& instance)
+                                                            foundation::content::Instance& instance)
     {
         auto* page = DefaultAllocator().New<MeshEditorPage>(context, *m_host, *m_uiHost, instance);
         return UniquePtr<EditorPage>(page, DefaultAllocator());
@@ -348,11 +357,11 @@ namespace draconic::editor
                             ui::runtime::UIHost& uiHost)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<MeshEditorPageFactory>(draconic::pipeline::StaticMeshAsset::StaticType(),
+            DefaultAllocator().New<MeshEditorPageFactory>(pipeline::StaticMeshAsset::StaticType(),
                                                           host, uiHost),
             DefaultAllocator()));
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<MeshEditorPageFactory>(draconic::pipeline::SkinnedMeshAsset::StaticType(),
+            DefaultAllocator().New<MeshEditorPageFactory>(pipeline::SkinnedMeshAsset::StaticType(),
                                                           host, uiHost),
             DefaultAllocator()));
     }

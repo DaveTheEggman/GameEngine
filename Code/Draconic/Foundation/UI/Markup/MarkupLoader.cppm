@@ -21,10 +21,10 @@ import :style_property;
 import :markup_registry;
 import :sss_parser; // SSSParser::ApplyInlineStyle for style="..."
 
-using namespace draconic::core;
-namespace xml = draconic::xml;
+using namespace foundation::core;
+namespace xml = foundation::xml;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Loads a View tree from an XML (.sml) string. Uses MarkupRegistry for element type resolution and
     /// property binding.

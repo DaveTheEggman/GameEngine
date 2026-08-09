@@ -21,9 +21,9 @@ import :query_set;
 import :descriptor_staging;
 import :gpu_descriptor_heap;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     /// Pointers needed by the compute pass encoder, provided by the command encoder.
@@ -196,4 +196,4 @@ export namespace draconic::rhi::dx12
         DxComputePipelineImpl* m_currentPipeline = nullptr;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

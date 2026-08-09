@@ -31,9 +31,10 @@ import :color_picker;
 import :property_grid;
 import :toast_host;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Registers default theme styles for all draconic.ui.toolkit controls (Pattern-B injected
     /// IThemeExtension - hand it to ThemeRegistry before building a theme).

@@ -8,8 +8,8 @@
 import draconic.core;
 import draconic.geometry;
 
-using namespace draconic::core;
-using namespace draconic::geometry;
+using namespace foundation::core;
+using namespace foundation::geometry;
 
 TEST_CASE("stream layouts are the GPU-canonical sizes")
 {

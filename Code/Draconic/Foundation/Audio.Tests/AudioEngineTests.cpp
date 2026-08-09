@@ -12,8 +12,8 @@
 import draconic.core;
 import draconic.audio;
 
-using namespace draconic::core;
-using namespace draconic::audio;
+using namespace foundation::core;
+using namespace foundation::audio;
 
 namespace
 {

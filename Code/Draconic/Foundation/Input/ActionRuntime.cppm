@@ -21,11 +21,12 @@ import draconic.core;
 import draconic.shell;
 import :input_map;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::input
+export namespace foundation::input
 {
-    namespace shell = draconic::shell;
+    namespace shell = foundation::shell;
 
     // The per-context script service key: the Input facade resolves an ActionRuntime under this key
     // (each context can read a DIFFERENT runtime - the shared editor runtime, or a per-GameInstance

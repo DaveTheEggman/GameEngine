@@ -13,9 +13,9 @@ import draconic.core;
 import :style;
 import :path;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg
+export namespace foundation::vg
 {
     /// Static helper for building common shapes as Paths.
     class ShapeBuilder

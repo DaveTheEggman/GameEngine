@@ -15,10 +15,10 @@ import draconic.core; // Array, String, usize
 import :variant;
 import :model_index;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // Observer notified when a model changes (a view implements this to re-read + relayout).
     class IModelClient

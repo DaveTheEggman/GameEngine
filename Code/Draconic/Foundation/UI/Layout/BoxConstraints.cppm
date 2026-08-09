@@ -11,9 +11,9 @@ export module draconic.ui:box_constraints;
 import draconic.core; // Max, Min, kFloatMax
 import :thickness;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct BoxConstraints
     {

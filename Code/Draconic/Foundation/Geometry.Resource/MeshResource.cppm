@@ -19,10 +19,10 @@ import draconic.resource;
 import draconic.content;
 import draconic.geometry;
 
-using namespace draconic::core;
-using namespace draconic::resource;
+using namespace foundation::core;
+using namespace foundation::resource;
 
-export namespace draconic::geometry
+export namespace foundation::geometry
 {
 
     // Cooked static mesh: raw static-stream bytes + 32-bit indices + submeshes (parallel
@@ -100,8 +100,8 @@ export namespace draconic::geometry
         // Shared by the skinned subclass so it can append after the static fields.
         void SerializeStatic(ISerializer& ar)
         {
-            draconic::core::Serialize(ar, "name", name);
-            draconic::core::Serialize(ar, "vertexBlob", vertexBlob);
+            foundation::core::Serialize(ar, "name", name);
+            foundation::core::Serialize(ar, "vertexBlob", vertexBlob);
             // v1 blobs predate the Float4 tangent (48-byte stride, Float3 tangent at offset 36):
             // expand each vertex in place with handedness +1 - identical look, no re-authoring.
             if (ar.Mode() == SerializeMode::Read && ar.Version() < 2)
@@ -126,11 +126,11 @@ export namespace draconic::geometry
                     vertexBlob = Move(wide);
                 }
             }
-            draconic::core::Serialize(ar, "indexData", indexData);
-            draconic::core::Serialize(ar, "subStart", subStart);
-            draconic::core::Serialize(ar, "subCount", subCount);
-            draconic::core::Serialize(ar, "subMaterial", subMaterial);
-            draconic::core::Serialize(ar, "subPrim", subPrim);
+            foundation::core::Serialize(ar, "indexData", indexData);
+            foundation::core::Serialize(ar, "subStart", subStart);
+            foundation::core::Serialize(ar, "subCount", subCount);
+            foundation::core::Serialize(ar, "subMaterial", subMaterial);
+            foundation::core::Serialize(ar, "subPrim", subPrim);
         }
     };
 
@@ -145,8 +145,8 @@ export namespace draconic::geometry
         void Serialize(ISerializer& ar) override
         {
             SerializeStatic(ar);
-            draconic::core::Serialize(ar, "skinningBlob", skinningBlob);
-            draconic::core::Serialize(ar, "skeletonIndex", skeletonIndex);
+            foundation::core::Serialize(ar, "skinningBlob", skinningBlob);
+            foundation::core::Serialize(ar, "skeletonIndex", skeletonIndex);
         }
 
         static void FromMesh(const SkinnedMesh& mesh, SkinnedMeshSource& out)
@@ -190,12 +190,12 @@ export namespace draconic::geometry
             return &StaticMesh::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             return BuildMesh(instance);
         }
         [[nodiscard]] bool SupportsAsync() const override { return true; }
-        [[nodiscard]] RefPtr<Object> DecodeStage(draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> DecodeStage(foundation::content::Instance& instance) override
         {
             return BuildMesh(instance);
         }
@@ -205,7 +205,7 @@ export namespace draconic::geometry
         }
 
     private:
-        [[nodiscard]] static RefPtr<Object> BuildMesh(draconic::content::Instance& instance)
+        [[nodiscard]] static RefPtr<Object> BuildMesh(foundation::content::Instance& instance)
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             // A SkinnedMeshSource IS-A StaticMeshSource, so a Ref<StaticMesh> can legitimately bind
@@ -237,12 +237,12 @@ export namespace draconic::geometry
             return &SkinnedMesh::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             return BuildMesh(instance);
         }
         [[nodiscard]] bool SupportsAsync() const override { return true; }
-        [[nodiscard]] RefPtr<Object> DecodeStage(draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> DecodeStage(foundation::content::Instance& instance) override
         {
             return BuildMesh(instance);
         }
@@ -252,7 +252,7 @@ export namespace draconic::geometry
         }
 
     private:
-        [[nodiscard]] static RefPtr<Object> BuildMesh(draconic::content::Instance& instance)
+        [[nodiscard]] static RefPtr<Object> BuildMesh(foundation::content::Instance& instance)
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             SkinnedMeshSource* src = Cast<SkinnedMeshSource>(object.Get());
@@ -269,4 +269,4 @@ export namespace draconic::geometry
     DRACONIC_DEFINE_OBJECT_VERSIONED(StaticMeshSource, "rtti::geometry", 2)
     DRACONIC_DEFINE_OBJECT_VERSIONED(SkinnedMeshSource, "rtti::geometry", 2)
 
-} // namespace draconic::geometry
+} // namespace foundation::geometry

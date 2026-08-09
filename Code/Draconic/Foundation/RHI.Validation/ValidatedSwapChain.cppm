@@ -10,9 +10,9 @@ import draconic.core;
 import draconic.rhi;
 import :validated_queue;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     class ValidatedSwapChain : public SwapChain
@@ -64,4 +64,4 @@ export namespace draconic::rhi::validation
         bool m_imageAcquired = false;
     };
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

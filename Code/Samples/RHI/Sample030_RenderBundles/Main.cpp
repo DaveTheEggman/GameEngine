@@ -13,18 +13,17 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vulkan;
 
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
 
 class RenderBundlesSample : public samples::framework::SampleApp
 {
 public:
     using samples::framework::SampleApp::SampleApp;
-    draconic::core::StringView Title() const override { return u8"Sample030 - Render Bundles"; }
+    foundation::core::StringView Title() const override { return u8"Sample030 - Render Bundles"; }
 
 protected:
-    draconic::core::Status OnInit() override;
+    foundation::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 
@@ -55,56 +54,56 @@ private:
     rhi::RenderPipeline* m_pipeline = nullptr;
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
-    draconic::core::u64 m_fenceVal = 0;
+    foundation::core::u64 m_fenceVal = 0;
 };
 
-draconic::core::Status RenderBundlesSample::OnInit()
+foundation::core::Status RenderBundlesSample::OnInit()
 {
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShaderSource,
                                             shaders::ShaderStage::Vertex, u8"VSMain", u8"BundleVS",
-                                            m_vs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_vs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShaderSource,
                                             shaders::ShaderStage::Fragment, u8"PSMain",
-                                            u8"BundlePS", m_ps) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            u8"BundlePS", m_ps) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::BufferDesc bd{};
     bd.size = sizeof(kVertexData);
     bd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
     bd.memory = rhi::MemoryLocation::GpuOnly;
     bd.label = u8"BundleVB";
-    if (m_device->CreateBuffer(bd, m_vertexBuf) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(bd, m_vertexBuf) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(
         m_vertexBuf, 0,
-        draconic::core::Span<const draconic::core::u8>(
-            reinterpret_cast<const draconic::core::u8*>(kVertexData), sizeof(kVertexData)));
+        foundation::core::Span<const foundation::core::u8>(
+            reinterpret_cast<const foundation::core::u8*>(kVertexData), sizeof(kVertexData)));
     batch->Submit();
     m_graphicsQueue->DestroyTransferBatch(batch);
 
     rhi::BindGroupLayoutDesc bglDesc{};
     bglDesc.label = u8"EmptyBGL";
-    if (m_device->CreateBindGroupLayout(bglDesc, m_bgl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(bglDesc, m_bgl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::PipelineLayoutDesc pld{};
     rhi::BindGroupLayout* sets[1] = {m_bgl};
-    pld.bindGroupLayouts = draconic::core::Span<rhi::BindGroupLayout* const>(sets, 1);
+    pld.bindGroupLayouts = foundation::core::Span<rhi::BindGroupLayout* const>(sets, 1);
     pld.label = u8"BundlePL";
-    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::VertexAttribute attrs[2] = {{rhi::VertexFormat::Float32x3, 0, 0},
                                      {rhi::VertexFormat::Float32x3, 12, 1}};
     rhi::VertexBufferLayout vbl{};
     vbl.stride = 24;
-    vbl.attributes = draconic::core::Span<const rhi::VertexAttribute>(attrs, 2);
+    vbl.attributes = foundation::core::Span<const rhi::VertexAttribute>(attrs, 2);
     rhi::ColorTargetState ct{};
     ct.format = m_swapChain->Format();
     ct.writeMask = rhi::ColorWriteMask::All;
@@ -112,33 +111,33 @@ draconic::core::Status RenderBundlesSample::OnInit()
     rhi::RenderPipelineDesc rpd{};
     rpd.layout = m_pl;
     rpd.vertex.shader = {m_vs, u8"VSMain", rhi::ShaderStage::Vertex};
-    rpd.vertex.buffers = draconic::core::Span<const rhi::VertexBufferLayout>(&vbl, 1);
+    rpd.vertex.buffers = foundation::core::Span<const rhi::VertexBufferLayout>(&vbl, 1);
     rpd.fragment = rhi::FragmentState{};
     rpd.fragment->shader = {m_ps, u8"PSMain", rhi::ShaderStage::Fragment};
-    rpd.fragment->targets = draconic::core::Span<const rhi::ColorTargetState>(&ct, 1);
+    rpd.fragment->targets = foundation::core::Span<const rhi::ColorTargetState>(&ct, 1);
     rpd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
     rpd.label = u8"BundlePipeline";
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    return draconic::core::ErrorCode::Ok;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    return foundation::core::ErrorCode::Ok;
 }
 
 void RenderBundlesSample::OnRender()
 {
     if (m_fenceVal > 0)
         m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+    if (m_swapChain->AcquireNextImage() != foundation::core::ErrorCode::Ok)
         return;
 
     m_pool->Reset();
     rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc)
+    if (m_pool->CreateEncoder(enc) != foundation::core::ErrorCode::Ok || !enc)
         return;
 
     enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined,
@@ -174,13 +173,13 @@ void RenderBundlesSample::OnRender()
 
     auto* rp = enc->BeginRenderPass(rpd);
     // Viewport/scissor must be set on the parent pass - DX12 bundles inherit these.
-    rp->SetViewport(0, 0, static_cast<draconic::core::f32>(m_width),
-                    static_cast<draconic::core::f32>(m_height), 0, 1);
+    rp->SetViewport(0, 0, static_cast<foundation::core::f32>(m_width),
+                    static_cast<foundation::core::f32>(m_height), 0, 1);
     rp->SetScissor(0, 0, m_width, m_height);
     if (bundle)
     {
         rhi::RenderBundle* bundles[1] = {bundle};
-        rp->ExecuteBundles(draconic::core::Span<rhi::RenderBundle* const>(bundles, 1));
+        rp->ExecuteBundles(foundation::core::Span<rhi::RenderBundle* const>(bundles, 1));
     }
     rp->End();
 
@@ -190,7 +189,7 @@ void RenderBundlesSample::OnRender()
     rhi::CommandBuffer* cb = enc->Finish();
     m_fenceVal++;
     rhi::CommandBuffer* cbs[1] = {cb};
-    m_graphicsQueue->Submit(draconic::core::Span<rhi::CommandBuffer* const>(cbs, 1), m_fence,
+    m_graphicsQueue->Submit(foundation::core::Span<rhi::CommandBuffer* const>(cbs, 1), m_fence,
                             m_fenceVal);
 
     m_swapChain->Present(m_graphicsQueue);

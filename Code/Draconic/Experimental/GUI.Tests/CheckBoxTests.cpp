@@ -6,8 +6,8 @@ import draconic.core;
 import draconic.vg;
 import draconic.gui;
 
-using namespace draconic::gui;
-namespace core = draconic::core;
+using namespace experimental::gui;
+namespace core = foundation::core;
 
 namespace
 {
@@ -76,14 +76,14 @@ TEST_CASE("checkbox: draws box outline, plus a check when checked")
     auto cb = Make<CheckBox>();
     cb->SetSize(core::Float2{24.0f, 24.0f});
 
-    draconic::vg::VGContext ctxUnchecked;
+    foundation::vg::VGContext ctxUnchecked;
     DrawContext dcU{ctxUnchecked};
     cb->Draw(dcU);
     const core::usize unchecked = ctxUnchecked.GetBatch().vertices.Size();
     CHECK(unchecked > 0); // outline
 
     cb->SetChecked(true);
-    draconic::vg::VGContext ctxChecked;
+    foundation::vg::VGContext ctxChecked;
     DrawContext dcC{ctxChecked};
     cb->Draw(dcC);
     CHECK(ctxChecked.GetBatch().vertices.Size() > unchecked); // outline + check fill

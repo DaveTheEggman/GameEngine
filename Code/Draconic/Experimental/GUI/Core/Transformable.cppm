@@ -13,10 +13,10 @@ export module draconic.gui:transformable;
 import draconic.core; // Float2
 import :transform2d;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class Transformable
     {

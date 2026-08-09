@@ -8,9 +8,12 @@ import draconic.core;
 import draconic.rhi;
 import draconic.shaders;
 
-using namespace draconic::core;
+using namespace foundation::core;
+using namespace foundation;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
 
-export namespace draconic::samples::framework
+export namespace samples::framework
 {
 
     /// Compile HLSL source to a ShaderModule with a specific shader model.
@@ -75,4 +78,4 @@ export namespace draconic::samples::framework
                                out);
     }
 
-} // namespace draconic::samples::framework
+} // namespace samples::framework

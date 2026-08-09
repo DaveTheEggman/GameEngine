@@ -17,10 +17,10 @@ import draconic.core;
 import draconic.pipeline.core;
 import draconic.materials.resource; // MaterialSource (the nested reflected type)
 
-using namespace draconic::core;
-using namespace draconic::materials;
+using namespace foundation::core;
+using namespace foundation::materials;
 
-namespace draconic::pipeline{
+namespace pipeline{
     DRACONIC_REFLECT(MaterialAsset, "rtti::editor::materials")
     {
         builder.Attribute("displayName", String(u8"Material"))

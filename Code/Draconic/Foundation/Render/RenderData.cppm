@@ -27,12 +27,14 @@ import draconic.rhi;
 import draconic.geometry;
 import draconic.materials;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
-    namespace rhi = draconic::rhi;
+    namespace rhi = foundation::rhi;
 
     // Forward MRT G-buffer aux target formats, shared by the PSO config (:mesh_renderer) and the pass /
     // transient declarations (:pipeline): target 1 = view-space normal (octahedral XY), target 2 =
@@ -733,4 +735,4 @@ export namespace draconic::render
         // 8 passes (even) → result ends back in `items`; nothing to copy.
     }
 
-} // namespace draconic::render
+} // namespace foundation::render

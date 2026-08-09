@@ -10,9 +10,9 @@ import draconic.rhi;
 import draconic.rhi.null;
 import draconic.rendergraph;
 
-using namespace draconic::core;
-using namespace draconic::rendergraph;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::rendergraph;
+namespace rhi = foundation::rhi;
 
 namespace
 {

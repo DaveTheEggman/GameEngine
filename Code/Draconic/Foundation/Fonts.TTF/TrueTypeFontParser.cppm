@@ -15,9 +15,9 @@ import draconic.fonts.io;
 import :common;
 import :font;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     class TrueTypeFontParser final : public IFontParser
     {

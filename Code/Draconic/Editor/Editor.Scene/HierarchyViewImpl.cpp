@@ -28,9 +28,11 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import :edit;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace scene = foundation::scene;
+namespace ui = foundation::ui;
 
-namespace draconic::editor
+namespace editor
 {
     void SceneHierarchyView::Refresh()
     {

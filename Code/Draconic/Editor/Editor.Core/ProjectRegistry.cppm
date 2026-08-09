@@ -24,13 +24,13 @@ import draconic.settings;
 import draconic.xml.serialization;
 import draconic.engine.project;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace vfs = draconic::vfs;
-    namespace settings = draconic::settings;
-    namespace project = draconic::engine::project;
+    namespace vfs = foundation::vfs;
+    namespace settings = foundation::settings;
+    namespace project = engine::project;
 
     // One known project. `path` is the project DIRECTORY as the user opened it (the identity
     // key - compared verbatim); name/engineVersion are the last-seen manifest snapshot.
@@ -42,9 +42,9 @@ export namespace draconic::editor
 
         void Serialize(ISerializer& ar)
         {
-            draconic::core::Serialize(ar, "path", path);
-            draconic::core::Serialize(ar, "name", name);
-            draconic::core::Serialize(ar, "engineVersion", engineVersion);
+            foundation::core::Serialize(ar, "path", path);
+            foundation::core::Serialize(ar, "name", name);
+            foundation::core::Serialize(ar, "engineVersion", engineVersion);
         }
     };
 
@@ -66,7 +66,7 @@ export namespace draconic::editor
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "entries", entries);
+            foundation::core::Serialize(ar, "entries", entries);
         }
 
         [[nodiscard]] const RecentProjectEntry* Find(StringView path) const
@@ -135,7 +135,7 @@ export namespace draconic::editor
 
     // Read a project's manifest WITHOUT opening the project (no content DBs, no dir scaffolding).
     // NotFound: no manifest at `directory` (not a project / moved / deleted).
-    [[nodiscard]] inline Status ProbeProject(StringView directory, draconic::engine::project::ProjectSettings& out)
+    [[nodiscard]] inline Status ProbeProject(StringView directory, engine::project::ProjectSettings& out)
     {
         if (!DirectoryExists(directory))
         {
@@ -212,7 +212,7 @@ export namespace draconic::editor
     // and whole-tree safety is version control's job (the prompt says so).
     [[nodiscard]] inline Result<String> BackupProjectManifest(StringView directory)
     {
-        draconic::engine::project::ProjectSettings probed;
+        engine::project::ProjectSettings probed;
         if (Status s = ProbeProject(directory, probed); !s.IsOk())
         {
             return Err(s.Code());

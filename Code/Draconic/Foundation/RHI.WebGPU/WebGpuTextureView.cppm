@@ -12,9 +12,9 @@ import :api;
 import :conversions;
 import :texture;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuTextureView final : public TextureView
     {

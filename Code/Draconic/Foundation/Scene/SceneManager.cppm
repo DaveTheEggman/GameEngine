@@ -20,9 +20,9 @@ import draconic.core;
 import :scene;
 import :aware;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::scene
+export namespace foundation::scene
 {
 
     /// The app-wide list of scene-aware subsystems (physics/audio/render/script). Owned once by
@@ -313,4 +313,4 @@ export namespace draconic::scene
         bool m_updating = false;
     };
 
-} // namespace draconic::scene
+} // namespace foundation::scene

@@ -11,9 +11,9 @@ export module draconic.rhi.vulkan:barrier_helper;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     struct StageAccess
@@ -149,4 +149,4 @@ export namespace draconic::rhi::vk
         return VK_IMAGE_LAYOUT_UNDEFINED;
     }
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

@@ -18,9 +18,9 @@ import draconic.core;
 import draconic.content;
 import :command;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
     class EditorContext; // defined in :context (pages receive it on creation)
 
@@ -56,7 +56,7 @@ export namespace draconic::editor
         /// Rebind this page to a DIFFERENT source instance (Save As): the caller created
         /// `instance` and invokes Save() next, so the page's current content lands there.
         /// Pages that cache the asset's name override (calling the base) to refresh it.
-        virtual void OnSavedAs(draconic::content::Instance& instance)
+        virtual void OnSavedAs(foundation::content::Instance& instance)
         {
             m_instanceId = instance.Id();
         }
@@ -83,7 +83,7 @@ export namespace draconic::editor
 
         /// Create a page editing `instance`. Null on failure (unreadable object etc.).
         [[nodiscard]] virtual UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) = 0;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) = 0;
     };
 
     // Factory registry with Traktor-style nearest-type dispatch: the factory whose

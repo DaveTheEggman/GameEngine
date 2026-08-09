@@ -22,18 +22,17 @@ import draconic.engine.render; // RenderSubsystem + IRenderExtractor seam
 import :renderer;
 import :components;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
-namespace scene = draconic::scene;
-namespace render = draconic::render;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
+namespace scene = foundation::scene;
 
-export namespace draconic::engine::particles
+export namespace engine::particles
 {
-    // Foundation aliases (sibling draconic::engine::* namespaces would otherwise shadow these).
-    namespace scene = draconic::scene;
+    // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
+    namespace scene = foundation::scene;
 
-    class ParticleSubsystem final : public draconic::runtime::Subsystem, public scene::ISceneAware
+    class ParticleSubsystem final : public foundation::runtime::Subsystem, public scene::ISceneAware
     {
     public:
         // Inject the particle manager into each new scene, then register it (as the scene's render-data
@@ -61,16 +60,16 @@ export namespace draconic::engine::particles
 
         void OnReady() override
         {
-            draconic::runtime::Context* ctx = GetContext();
+            foundation::runtime::Context* ctx = GetContext();
             if (ctx == nullptr)
             {
                 return;
             }
-            if (auto* scenes = ctx->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+            if (auto* scenes = ctx->GetSubsystem<engine::scene::SceneSubsystem>())
             {
                 scenes->RegisterSceneAware(this);
             }
-            m_render = ctx->GetSubsystem<draconic::engine::render::RenderSubsystem>();
+            m_render = ctx->GetSubsystem<engine::render::RenderSubsystem>();
             EnsureRenderer(); // GPU systems are up by OnReady (RenderSubsystem::OnInit ran first)
         }
 
@@ -101,7 +100,7 @@ export namespace draconic::engine::particles
             }
         }
 
-        draconic::engine::render::RenderSubsystem* m_render = nullptr;
+        engine::render::RenderSubsystem* m_render = nullptr;
         UniquePtr<ParticleRenderer> m_renderer;
         u16 m_billboardRendererId = 0;
     };

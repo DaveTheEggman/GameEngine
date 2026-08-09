@@ -20,7 +20,7 @@
 
 #include "Core/Prelude.h"
 
-namespace draconic::core
+namespace foundation::core
 {
     // Reports a failed assertion. Returns true if the caller should break into
     // the debugger / trap. Plain const char* keeps this dependency-free and
@@ -45,14 +45,14 @@ namespace draconic::core
     void DebugBreak() noexcept;
 }
 
-#define DRACONIC_DEBUGBREAK() ::draconic::core::DebugBreak()
+#define DRACONIC_DEBUGBREAK() ::foundation::core::DebugBreak()
 
 // Core check expression: evaluates `cond`; on failure reports and, if the
 // handler requests it, breaks. Yields void.
 #define DRACONIC_ASSERT_IMPL(cond, msg)                                                            \
     (DRACONIC_LIKELY(!!(cond))                                                                     \
          ? (void)0                                                                                 \
-         : (::draconic::core::ReportAssertFailure(#cond, (msg), __FILE__, __LINE__, __func__)      \
+         : (::foundation::core::ReportAssertFailure(#cond, (msg), __FILE__, __LINE__, __func__)      \
                 ? DRACONIC_DEBUGBREAK()                                                            \
                 : (void)0))
 
@@ -78,10 +78,10 @@ namespace draconic::core
 #define DRACONIC_ENSURE(cond)                                                                      \
     (DRACONIC_LIKELY(!!(cond))                                                                     \
          ? true                                                                                    \
-         : (::draconic::core::ReportAssertFailure(#cond, nullptr, __FILE__, __LINE__, __func__),   \
+         : (::foundation::core::ReportAssertFailure(#cond, nullptr, __FILE__, __LINE__, __func__),   \
             false))
 
 #define DRACONIC_UNREACHABLE()                                                                     \
-    (::draconic::core::ReportFatal("reached unreachable code", __FILE__, __LINE__, __func__))
+    (::foundation::core::ReportFatal("reached unreachable code", __FILE__, __LINE__, __func__))
 
 #endif // DRACONIC_CORE_DEBUG_ASSERT_H

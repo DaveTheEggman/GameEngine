@@ -4,7 +4,7 @@
 // (System/Linux, System/Win32) as plain external-linkage functions. The
 // :system module partition exports thin wrappers that forward here, keeping OS
 // headers out of the module BMI. Uses <cstdint>/<cstddef> types so it needs no
-// module import; draconic::core's u64/usize are aliases of these exact types.
+// module import; foundation::core's u64/usize are aliases of these exact types.
 
 #ifndef DRACONIC_CORE_SYSTEM_BACKEND_H
 #define DRACONIC_CORE_SYSTEM_BACKEND_H
@@ -12,7 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace draconic::core::sys
+namespace foundation::core::sys
 {
     // --- Time --------------------------------------------------------------
     std::uint64_t GetTicks() noexcept;         // high-resolution monotonic counter

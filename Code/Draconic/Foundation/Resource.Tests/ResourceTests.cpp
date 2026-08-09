@@ -8,9 +8,9 @@ import draconic.vfs;
 import draconic.content;
 import draconic.resource;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
-using namespace draconic::resource;
+using namespace foundation::core;
+using namespace foundation::vfs;
+using namespace foundation::resource;
 
 namespace
 {
@@ -26,9 +26,9 @@ namespace
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "shininess", shininess);
-            draconic::core::Serialize(ar, "shader", shader);
-            draconic::core::Serialize(ar, "editorNote", editorNote);
+            foundation::core::Serialize(ar, "shininess", shininess);
+            foundation::core::Serialize(ar, "shader", shader);
+            foundation::core::Serialize(ar, "editorNote", editorNote);
         }
     };
 
@@ -54,7 +54,7 @@ namespace
         HashMap<Guid, Guid> bindMap; // when building key, Bind value (a child) -> auto-edge
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             ++builds;
             // Resolving a child via the manager mid-build auto-records a dependency.
@@ -83,7 +83,7 @@ namespace
         RemoveDirectory(u8"draconic_resource_test_db");
     }
 
-    void WriteSource(draconic::content::ContentDatabase& db, const Guid& id, i32 shininess,
+    void WriteSource(foundation::content::ContentDatabase& db, const Guid& id, i32 shininess,
                      StringView shader)
     {
         auto* instance = db.GetInstance(id);
@@ -109,14 +109,14 @@ TEST_CASE("resource: bind builds a product from a source, with caching")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
         id = steel->Id();
         WriteSource(db, id, 64, u8"pbr");
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
     ResourceManager manager(db);
@@ -158,7 +158,7 @@ TEST_CASE("resource: unresolved binds are enumerable, and heal off the list")
     FileDelete(u8"draconic_resource_test_db/late.rasset");
     RemoveTree();
     NativeFileSystem mount(u8"draconic_resource_test_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
     ResourceManager manager(db);
@@ -208,14 +208,14 @@ TEST_CASE("resource: reload rebuilds the product and proxies see the new value")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
         id = steel->Id();
         WriteSource(db, id, 64, u8"pbr");
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
     ResourceManager manager(db);
@@ -251,7 +251,7 @@ namespace
     }
 
     // Create an instance + write a MaterialResource source; returns its id.
-    Guid MakeInstance(draconic::content::ContentDatabase& db, StringView name, i32 shininess)
+    Guid MakeInstance(foundation::content::ContentDatabase& db, StringView name, i32 shininess)
     {
         auto* inst = db.RootGroup()->CreateInstance(name, MaterialResource::StaticType());
         WriteSource(db, inst->Id(), shininess, name);
@@ -269,13 +269,13 @@ TEST_CASE("resource: a factory-resolved child is an auto-recorded dependency")
 
     Guid parentId, childId;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         childId = MakeInstance(db, u8"child", 64);
         parentId = MakeInstance(db, u8"parent", 32);
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
     factory.bindMap.InsertOrAssign(parentId, childId); // building parent Binds child
@@ -308,14 +308,14 @@ TEST_CASE("resource: reload propagates transitively, each resource once")
 
     Guid a, b, c;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         a = MakeInstance(db, u8"a", 16);
         b = MakeInstance(db, u8"b", 32);
         c = MakeInstance(db, u8"c", 64);
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
     factory.bindMap.InsertOrAssign(a, b); // a -> b
@@ -344,13 +344,13 @@ TEST_CASE("resource: a rebuild drops stale dependency edges")
 
     Guid parentId, childId;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         childId = MakeInstance(db, u8"child", 64);
         parentId = MakeInstance(db, u8"parent", 32);
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
     factory.bindMap.InsertOrAssign(parentId, childId);
@@ -439,7 +439,7 @@ namespace
         DRACONIC_OBJECT(ReentrantSource, ISerializable)
     public:
         Guid other;
-        void Serialize(ISerializer& ar) override { draconic::core::Serialize(ar, other); }
+        void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, other); }
     };
     DRACONIC_DEFINE_OBJECT(ReentrantSource, "test")
 
@@ -451,7 +451,7 @@ namespace
             return &Reentrant::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             auto* src = Cast<ReentrantSource>(object.Get());
@@ -477,7 +477,7 @@ TEST_CASE("resource: garbage collection survives destructor re-entry into the ma
     RemoveTree();
     NativeFileSystem mount(u8"draconic_res_reentry_db");
     (void)CreateDirectory(u8"draconic_res_reentry_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
 
     auto* a = db.RootGroup()->CreateInstance(u8"A", ReentrantSource::StaticType());
@@ -531,7 +531,7 @@ namespace
         Array<Guid> children;
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "children", children);
+            foundation::core::Serialize(ar, "children", children);
         }
     };
     DRACONIC_DEFINE_OBJECT(BurstSource, "test")
@@ -542,7 +542,7 @@ namespace
         i32 builds = 0;
         [[nodiscard]] const TypeInfo* ProductType() const override { return &Burst::StaticType(); }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             ++builds;
             RefPtr<ISerializable> object = instance.ReadObject();
@@ -577,11 +577,11 @@ TEST_CASE("resource: reload survives the handle map rehashing mid-cascade")
     RemoveTree();
     NativeFileSystem mount(u8"draconic_res_rehash_db");
     (void)CreateDirectory(u8"draconic_res_rehash_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
 
     BurstSource parentSource;
-    Array<draconic::content::Instance*> children;
+    Array<foundation::content::Instance*> children;
     for (i32 i = 0; i < 64; ++i)
     {
         String name = Format(u8"child{}", i);

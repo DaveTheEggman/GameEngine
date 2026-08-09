@@ -20,10 +20,10 @@ import :node;
 import :ui_widget;
 import :parse_util; // IsIdentChar, ReadIdent
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-namespace draconic::gui
+namespace experimental::gui
 {
     // CSS specificity buckets (packed, matching eepp: lexicographic id > class > tag).
     inline constexpr i64 kSpecificityId = 1048576;
@@ -31,7 +31,7 @@ namespace draconic::gui
     inline constexpr i64 kSpecificityTag = 1;
 }
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     enum class Combinator
     {

@@ -47,9 +47,9 @@ import :list_view;
 import :tree_view;
 import :grid_view;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Factory for creating the default dark theme as a StyleSheet.
     struct DarkTheme

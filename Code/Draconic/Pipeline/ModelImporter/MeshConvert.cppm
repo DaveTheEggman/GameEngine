@@ -18,11 +18,13 @@ import draconic.model;
 import draconic.geometry;
 import draconic.geometry.resource;
 
-using namespace draconic::core;
-namespace model = draconic::model;
-namespace geometry = draconic::geometry;
+using namespace foundation::core;
+using namespace foundation;
+namespace core = foundation::core;
+namespace model = foundation::model;
+namespace geometry = foundation::geometry;
 
-namespace draconic::pipeline
+namespace pipeline
 {
 
     // ---- per-element readers (by semantic; default if the element is absent) ----
@@ -424,4 +426,4 @@ namespace draconic::pipeline
         }
     } // export
 
-} // namespace draconic::pipeline
+} // namespace pipeline

@@ -23,9 +23,9 @@ import :types;
 import :compiler;
 import :flags;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::shaders
+export namespace foundation::shaders
 {
     // Where translation stopped (Ok on success).
     enum class WgslCookStage

@@ -18,26 +18,26 @@ import draconic.runtime.client;
 import draconic.ui;
 import draconic.editor.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    class UIEditorPage : public draconic::editor::EditorPage
+    class UIEditorPage : public editor::EditorPage
     {
     public:
         /// The view docked into the center document area (owned by the page).
-        [[nodiscard]] virtual draconic::ui::View* ContentView() = 0;
+        [[nodiscard]] virtual foundation::ui::View* ContentView() = 0;
 
         /// Per-frame hook, after the UI laid out (viewport rects are current).
-        virtual void OnUpdate(draconic::runtime::IApplicationHost& host, f32 dt)
+        virtual void OnUpdate(foundation::runtime::IApplicationHost& host, f32 dt)
         {
             (void)host;
             (void)dt;
         }
 
         /// Per-window render hook, before the UI draws (offscreen content the UI then samples).
-        virtual void OnRenderWindow(draconic::runtime::IApplicationHost& host,
-                                    draconic::graphics::FrameContext& frame)
+        virtual void OnRenderWindow(foundation::runtime::IApplicationHost& host,
+                                    foundation::graphics::FrameContext& frame)
         {
             (void)host;
             (void)frame;
@@ -45,8 +45,8 @@ export namespace draconic::editor::app
 
         /// After the scene renderer's EndRendering (targets are COMPOSED): overlays that
         /// draw ON the page's offscreen content (the Game tab's screen-tier UI).
-        virtual void OnAfterSceneRender(draconic::runtime::IApplicationHost& host,
-                                        draconic::graphics::FrameContext& frame)
+        virtual void OnAfterSceneRender(foundation::runtime::IApplicationHost& host,
+                                        foundation::graphics::FrameContext& frame)
         {
             (void)host;
             (void)frame;

@@ -8,9 +8,9 @@ import draconic.vfs;
 import draconic.content;
 import draconic.xml.serialization;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
-using namespace draconic::content;
+using namespace foundation::core;
+using namespace foundation::vfs;
+using namespace foundation::content;
 
 namespace
 {
@@ -23,8 +23,8 @@ namespace
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "shininess", shininess);
-            draconic::core::Serialize(ar, "shader", shader);
+            foundation::core::Serialize(ar, "shininess", shininess);
+            foundation::core::Serialize(ar, "shader", shader);
         }
     };
 
@@ -55,7 +55,7 @@ namespace
             Group* materials = db.RootGroup()->CreateGroup(u8"materials");
             REQUIRE(materials != nullptr);
 
-            draconic::content::Instance* steel =
+            foundation::content::Instance* steel =
                 materials->CreateInstance(u8"steel", MaterialResource::StaticType());
             REQUIRE(steel != nullptr);
             steelId = steel->Id();
@@ -77,8 +77,8 @@ namespace
             REQUIRE(materials != nullptr);
             REQUIRE(materials->GetInstance(u8"steel") != nullptr);
 
-            draconic::content::Instance* byPath = db.GetInstance(u8"materials/steel");
-            draconic::content::Instance* byGuid = db.GetInstance(steelId);
+            foundation::content::Instance* byPath = db.GetInstance(u8"materials/steel");
+            foundation::content::Instance* byGuid = db.GetInstance(steelId);
             REQUIRE(byPath != nullptr);
             CHECK(byPath == byGuid);
             CHECK(byPath->Id() == steelId);
@@ -105,7 +105,7 @@ namespace
     }
 
     SerializerFactory MakeBinaryFactory() { return BinarySerializerFactory(); }
-    SerializerFactory MakeXmlFactory() { return draconic::xml::XmlSerializerFactory(); }
+    SerializerFactory MakeXmlFactory() { return foundation::xml::XmlSerializerFactory(); }
 }
 
 DRACONIC_DEFINE_OBJECT(MaterialResource, "rtti::content::test")
@@ -131,7 +131,7 @@ TEST_CASE("content: DeleteInstance removes envelope + stream sidecars + registra
     ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
 
     Group* materials = db.RootGroup()->CreateGroup(u8"materials");
-    draconic::content::Instance* steel =
+    foundation::content::Instance* steel =
         materials->CreateInstance(u8"steel", MaterialResource::StaticType());
     REQUIRE(steel != nullptr);
     const Guid id = steel->Id();
@@ -153,7 +153,7 @@ TEST_CASE("content: DeleteInstance removes envelope + stream sidecars + registra
 
     // Unknown ids are a clean NotFound; a fresh explicit-id instance is registered.
     CHECK(db.DeleteInstance(id).Code() == ErrorCode::NotFound);
-    draconic::content::Instance* again =
+    foundation::content::Instance* again =
         materials->CreateInstanceWithId(id, u8"steel", MaterialResource::StaticType());
     REQUIRE(again != nullptr);
     CHECK(again->Id() == id);
@@ -175,7 +175,7 @@ TEST_CASE("content: CloneInstance deep-copies object + sidecars under a fresh gu
     ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
 
     Group* materials = db.RootGroup()->CreateGroup(u8"materials");
-    draconic::content::Instance* steel =
+    foundation::content::Instance* steel =
         materials->CreateInstance(u8"steel", MaterialResource::StaticType());
     REQUIRE(steel != nullptr);
     MaterialResource res;
@@ -185,7 +185,7 @@ TEST_CASE("content: CloneInstance deep-copies object + sidecars under a fresh gu
     const byte extra[] = {byte{9}, byte{8}, byte{7}};
     REQUIRE(steel->WriteData(u8"extra", Span<const byte>(extra, 3)).IsOk());
 
-    draconic::content::Instance* copy = db.CloneInstance(steel->Id(), u8"copper");
+    foundation::content::Instance* copy = db.CloneInstance(steel->Id(), u8"copper");
     REQUIRE(copy != nullptr);
     CHECK(copy->Id() != steel->Id()); // fresh identity
     CHECK(copy->Name() == u8"copper");
@@ -233,7 +233,7 @@ TEST_CASE("content: RenameInstance moves envelope + sidecars; RenameGroup moves 
     ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
 
     Group* materials = db.RootGroup()->CreateGroup(u8"materials");
-    draconic::content::Instance* steel =
+    foundation::content::Instance* steel =
         materials->CreateInstance(u8"steel", MaterialResource::StaticType());
     REQUIRE(steel != nullptr);
     const Guid id = steel->Id();
@@ -261,7 +261,7 @@ TEST_CASE("content: RenameInstance moves envelope + sidecars; RenameGroup moves 
     }
 
     // Collisions + bad input fail cleanly.
-    draconic::content::Instance* other =
+    foundation::content::Instance* other =
         materials->CreateInstance(u8"iron", MaterialResource::StaticType());
     REQUIRE(other != nullptr);
     CHECK(db.RenameInstance(other->Id(), u8"bronze").Code() == ErrorCode::AlreadyExists);
@@ -306,11 +306,11 @@ TEST_CASE("content: DeleteGroup removes the whole subtree - files, directories, 
         // outer/ { a (+sidecar), inner/ { b } } and an unrelated sibling instance.
         Group* outer = db.RootGroup()->CreateGroup(u8"outer");
         Group* inner = outer->CreateGroup(u8"inner");
-        draconic::content::Instance* a =
+        foundation::content::Instance* a =
             outer->CreateInstance(u8"a", MaterialResource::StaticType());
-        draconic::content::Instance* b =
+        foundation::content::Instance* b =
             inner->CreateInstance(u8"b", MaterialResource::StaticType());
-        draconic::content::Instance* keep =
+        foundation::content::Instance* keep =
             db.RootGroup()->CreateInstance(u8"keep", MaterialResource::StaticType());
         REQUIRE(a != nullptr);
         REQUIRE(b != nullptr);
@@ -417,7 +417,7 @@ TEST_CASE("content: UniqueInstanceName / UniqueGroupName - the one general dedup
 
     // A taken base steps to `base.2`, `base.3`, ... (CreateInstance would silently
     // return the EXISTING instance - the overwrite hazard the helper exists for).
-    draconic::content::Instance* first =
+    foundation::content::Instance* first =
         group->CreateInstance(u8"Thing", MaterialResource::StaticType());
     REQUIRE(first != nullptr);
     CHECK(group->CreateInstance(u8"Thing", MaterialResource::StaticType()) == first);

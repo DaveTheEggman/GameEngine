@@ -23,10 +23,10 @@ import :sss_parser;
 import :ui_type_registry;
 import :iresource_provider;
 
-using namespace draconic::core;
-namespace image = draconic::image;
+using namespace foundation::core;
+namespace image = foundation::image;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class StyleSheetLoader
     {

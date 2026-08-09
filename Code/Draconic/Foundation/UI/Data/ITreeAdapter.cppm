@@ -13,9 +13,9 @@ export module draconic.ui:itree_adapter;
 import draconic.core;
 import :view;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Observer for tree-adapter data changes (FlattenedTreeAdapter implements this).
     class ITreeAdapterObserver

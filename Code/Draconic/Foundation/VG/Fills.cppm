@@ -13,9 +13,9 @@ export module draconic.vg:fills;
 import draconic.core;
 import :enums; // VGGradientSpread
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg
+export namespace foundation::vg
 {
     /// A color stop in a gradient at a normalized offset (0-1).
     struct GradientStop

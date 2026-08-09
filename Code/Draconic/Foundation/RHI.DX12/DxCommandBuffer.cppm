@@ -12,9 +12,9 @@ export module draconic.rhi.dx12:command_buffer;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxCommandBufferImpl : public CommandBuffer
@@ -37,4 +37,4 @@ export namespace draconic::rhi::dx12
         ID3D12GraphicsCommandList* m_cmdList = nullptr; // raw, released via release()
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

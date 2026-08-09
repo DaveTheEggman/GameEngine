@@ -10,11 +10,10 @@ import draconic.graphics;
 import draconic.graphics.null;
 import draconic.runtime.client;
 
-using namespace draconic::core;
-using namespace draconic::runtime;
-using namespace draconic::shell;
-using namespace draconic::
-    graphics; // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
+using namespace foundation::core;
+using namespace foundation::runtime;
+using namespace foundation::shell;
+using namespace foundation::graphics; // GraphicsDevice/RenderWindow/FrameContext (moved from foundation::runtime)
 
 namespace
 {

@@ -26,11 +26,11 @@ import draconic.scene;
 import draconic.scene.resource; // ResolveSceneResources (pasted/restored refs bind immediately)
 import draconic.editor.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace scene = draconic::scene;
+    namespace scene = foundation::scene;
 
     class SceneEditContext
     {
@@ -50,7 +50,7 @@ export namespace draconic::editor
         /// materialize components from blobs (paste, duplicate, destroy-undo) resolve the
         /// scene's resource refs immediately - without it, a pasted mesh ref stays unbound and
         /// nothing renders until the next scene load runs the resolve pass.
-        void SetResources(draconic::resource::ResourceManager* resources) noexcept;
+        void SetResources(foundation::resource::ResourceManager* resources) noexcept;
         void ResolveRestoredResources();
 
         /// Payload resolver for NESTED prefab records (wired by the page from the source DB).
@@ -138,7 +138,7 @@ export namespace draconic::editor
         template <typename T>
         void SetComponentResourceRef(const Guid& entity, const TypeInfo* componentType,
                                      const char* property, const Guid& value,
-                                     draconic::resource::ResourceManager* resources)
+                                     foundation::resource::ResourceManager* resources)
         {
             (void)m_commands->Execute(UniquePtr<IEditorCommand>(
                 DefaultAllocator().New<SetResourceRefCommand<T>>(*this, entity, componentType,
@@ -164,7 +164,7 @@ export namespace draconic::editor
         template <typename T>
         void SetSceneSettingResourceRef(const TypeInfo* settingsType, const char* property,
                                         const Guid& value,
-                                        draconic::resource::ResourceManager* resources)
+                                        foundation::resource::ResourceManager* resources)
         {
             (void)m_commands->Execute(
                 UniquePtr<IEditorCommand>(DefaultAllocator().New<SetSceneSettingRefCommand<T>>(
@@ -568,7 +568,7 @@ export namespace draconic::editor
                 (void)buffer.Write(m_blob.Data(), m_blob.Size());
                 (void)buffer.Seek(0, SeekOrigin::Begin);
                 BinarySerializer ar(buffer, SerializeMode::Read);
-                draconic::core::Serialize(ar, "type", m_typeId);
+                foundation::core::Serialize(ar, "type", m_typeId);
                 scene::ComponentManagerBase* mgr =
                     scene.FindManagerBySerializationId(m_typeId.AsView());
                 if (mgr == nullptr || !ar.IsOk())
@@ -1024,7 +1024,7 @@ export namespace draconic::editor
         public:
             SetSceneSettingRefCommand(SceneEditContext& ctx, const TypeInfo* settingsType,
                                       const char* property, const Guid& value,
-                                      draconic::resource::ResourceManager* resources)
+                                      foundation::resource::ResourceManager* resources)
                 : m_ctx(&ctx), m_settingsType(settingsType), m_property(property), m_new(value),
                   m_resources(resources)
             {
@@ -1032,7 +1032,7 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                draconic::resource::Ref<T>* ref = ResolveRef();
+                foundation::resource::Ref<T>* ref = ResolveRef();
                 if (ref == nullptr)
                 {
                     return false;
@@ -1048,7 +1048,7 @@ export namespace draconic::editor
             }
             void Undo() override
             {
-                if (draconic::resource::Ref<T>* ref = ResolveRef())
+                if (foundation::resource::Ref<T>* ref = ResolveRef())
                 {
                     ref->SetId(m_old);
                     ref->Rebind(m_resources);
@@ -1057,7 +1057,7 @@ export namespace draconic::editor
             [[nodiscard]] StringView TypeId() const override { return u8"set_scene_setting_ref"; }
 
         private:
-            [[nodiscard]] draconic::resource::Ref<T>* ResolveRef()
+            [[nodiscard]] foundation::resource::Ref<T>* ResolveRef()
             {
                 scene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
                 if (system == nullptr)
@@ -1069,7 +1069,7 @@ export namespace draconic::editor
                 void* address = (prop != nullptr && prop->address != nullptr)
                                     ? prop->address(settings)
                                     : nullptr;
-                return static_cast<draconic::resource::Ref<T>*>(address);
+                return static_cast<foundation::resource::Ref<T>*>(address);
             }
 
             SceneEditContext* m_ctx;
@@ -1078,7 +1078,7 @@ export namespace draconic::editor
             Guid m_new;
             Guid m_old;
             bool m_hasOld = false;
-            draconic::resource::ResourceManager* m_resources;
+            foundation::resource::ResourceManager* m_resources;
         };
 
         template <typename T>
@@ -1087,7 +1087,7 @@ export namespace draconic::editor
         public:
             SetResourceRefCommand(SceneEditContext& ctx, const Guid& entity, const TypeInfo* type,
                                   const char* property, const Guid& value,
-                                  draconic::resource::ResourceManager* resources)
+                                  foundation::resource::ResourceManager* resources)
                 : m_ctx(&ctx), m_entity(entity), m_type(type), m_property(property), m_new(value),
                   m_resources(resources)
             {
@@ -1095,7 +1095,7 @@ export namespace draconic::editor
 
             [[nodiscard]] bool Execute() override
             {
-                draconic::resource::Ref<T>* ref = ResolveRef();
+                foundation::resource::Ref<T>* ref = ResolveRef();
                 if (ref == nullptr)
                 {
                     return false;
@@ -1111,7 +1111,7 @@ export namespace draconic::editor
             }
             void Undo() override
             {
-                if (draconic::resource::Ref<T>* ref = ResolveRef())
+                if (foundation::resource::Ref<T>* ref = ResolveRef())
                 {
                     ref->SetId(m_old);
                     ref->Rebind(m_resources);
@@ -1121,7 +1121,7 @@ export namespace draconic::editor
 
         private:
             // Component pools move on add/remove, so the address re-derives every apply.
-            [[nodiscard]] draconic::resource::Ref<T>* ResolveRef()
+            [[nodiscard]] foundation::resource::Ref<T>* ResolveRef()
             {
                 const scene::EntityHandle e = m_ctx->Resolve(m_entity);
                 scene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
@@ -1135,7 +1135,7 @@ export namespace draconic::editor
                 void* address = (prop != nullptr && prop->address != nullptr)
                                     ? prop->address(component)
                                     : nullptr;
-                return static_cast<draconic::resource::Ref<T>*>(address);
+                return static_cast<foundation::resource::Ref<T>*>(address);
             }
 
             SceneEditContext* m_ctx;
@@ -1145,7 +1145,7 @@ export namespace draconic::editor
             Guid m_new;
             Guid m_old;
             bool m_hasOld = false;
-            draconic::resource::ResourceManager* m_resources;
+            foundation::resource::ResourceManager* m_resources;
         };
 
         class SetTransformCommand final : public IEditorCommand
@@ -1717,7 +1717,7 @@ export namespace draconic::editor
         };
 
         scene::Scene* m_scene;
-        draconic::resource::ResourceManager* m_resources = nullptr;
+        foundation::resource::ResourceManager* m_resources = nullptr;
         scene::PrefabPayloadResolver
             m_prefabResolver; // borrowed (optional)              // borrowed (SceneSubsystem owns it via the page)
         EditorCommandStack* m_commands; // borrowed (the page owns its stack)

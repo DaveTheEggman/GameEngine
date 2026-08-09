@@ -14,9 +14,9 @@ export module draconic.ui:animation;
 import draconic.core;
 import :event;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View;
 

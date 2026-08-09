@@ -14,9 +14,9 @@ module draconic.pipeline.core;
 import draconic.core;
 import draconic.vfs;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::pipeline
+namespace pipeline
 {
     DRACONIC_REFLECT(Asset, "rtti::editor::asset")
     {
@@ -30,7 +30,7 @@ namespace draconic::pipeline
     {
         static const bool once = []()
         {
-            draconic::vfs::RegisterVFSReflection(); // SourcePath (fileName's type)
+            foundation::vfs::RegisterVFSReflection(); // SourcePath (fileName's type)
             GlobalTypeRegistry().Register(Asset::StaticType(), TypeDomain(u8"Editor"));
             return true;
         }();

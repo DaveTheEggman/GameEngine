@@ -18,9 +18,9 @@ export module draconic.editor.core:command;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
     // A single reversible edit. TypeId() is the merge/group identity (a stable literal, e.g.
     // "set_property"); commands of different types never merge.

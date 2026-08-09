@@ -17,9 +17,10 @@ import draconic.vg;
 import draconic.fonts;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Horizontal path display with clickable segments and separator arrows.
     /// Used for file path navigation, hierarchy display, etc.
@@ -103,8 +104,8 @@ export namespace draconic::ui::toolkit
             if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(bgDrawable))
             {
                 const f32 cr = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
-                const draconic::vg::CornerRadii saved = rrd->Radii;
-                rrd->Radii = draconic::vg::CornerRadii{cr, cr, cr, cr};
+                const foundation::vg::CornerRadii saved = rrd->Radii;
+                rrd->Radii = foundation::vg::CornerRadii{cr, cr, cr, cr};
                 rrd->Draw(ctx, Rectangle{0, 0, Width(), h});
                 rrd->Radii = saved;
             }

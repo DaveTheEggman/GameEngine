@@ -12,8 +12,8 @@ import draconic.core;
 import draconic.editor.core;
 import draconic.editor.generic;
 
-using namespace draconic::core;
-using namespace draconic::editor;
+using namespace foundation::core;
+using namespace editor;
 
 namespace
 {
@@ -34,22 +34,22 @@ namespace
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "friction", friction);
-            draconic::core::Serialize(ar, "group", group);
-            draconic::core::Serialize(ar, "enabled", enabled);
-            draconic::core::Serialize(ar, "note", note);
-            draconic::core::Serialize(ar, "mesh", mesh);
-            draconic::core::Serialize(ar, "weights", weights);
+            foundation::core::Serialize(ar, "friction", friction);
+            foundation::core::Serialize(ar, "group", group);
+            foundation::core::Serialize(ar, "enabled", enabled);
+            foundation::core::Serialize(ar, "note", note);
+            foundation::core::Serialize(ar, "mesh", mesh);
+            foundation::core::Serialize(ar, "weights", weights);
             ar.Key("blob");
             ar.Blob(blob, sizeof(blob));
-            draconic::core::Serialize(ar, "hasExtra", hasExtra);
+            foundation::core::Serialize(ar, "hasExtra", hasExtra);
             if (hasExtra)
             {
-                draconic::core::Serialize(ar, "extra", extra);
+                foundation::core::Serialize(ar, "extra", extra);
             }
             if (ar.Version() >= 2)
             {
-                draconic::core::Serialize(ar, "gated", gated);
+                foundation::core::Serialize(ar, "gated", gated);
             }
         }
     };
@@ -152,10 +152,10 @@ TEST_CASE("asset form: a conditional-branch patch changes the shape (rescan dete
 
 TEST_CASE("asset form: the fallback factory routes ANY serializable; bespoke pages win")
 {
-    draconic::editor::EditorContext context;
+    editor::EditorContext context;
     RegisterGenericAssetEditor(context);
     // The probe type routes to the fallback via its ISerializable base.
-    draconic::editor::IEditorPageFactory* found =
+    editor::IEditorPageFactory* found =
         context.Pages().FindFactory(FormProbeAsset::StaticType());
     REQUIRE(found != nullptr);
     CHECK(found->PrimaryType() == &ISerializable::StaticType());

@@ -31,14 +31,15 @@ import :components;
 import :extract;
 import :scene_renderer;
 
-using namespace draconic::core;
-using namespace draconic::render;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::render;
+namespace materials = foundation::materials;
+namespace rhi = foundation::rhi;
 
-namespace draconic::engine::render
+namespace engine::render
 {
-    // Foundation alias (sibling draconic::engine::scene would otherwise shadow draconic::scene).
-    namespace scene = draconic::scene;
+    // Foundation alias (sibling engine::scene would otherwise shadow foundation::scene).
+    namespace scene = foundation::scene;
 
     u16 RenderSubsystem::RegisterRenderer(Renderer& renderer)
     {
@@ -759,9 +760,9 @@ namespace draconic::engine::render
     void RenderSubsystem::OnReady()
     {
         // Register as scene-aware so we inject our managers into scenes the app creates.
-        if (draconic::runtime::Context* ctx = GetContext())
+        if (foundation::runtime::Context* ctx = GetContext())
         {
-            if (auto* scenes = ctx->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+            if (auto* scenes = ctx->GetSubsystem<engine::scene::SceneSubsystem>())
             {
                 scenes->RegisterSceneAware(this);
             }
@@ -770,9 +771,9 @@ namespace draconic::engine::render
 
     void RenderSubsystem::OnShutdown()
     {
-        if (draconic::runtime::Context* ctx = GetContext())
+        if (foundation::runtime::Context* ctx = GetContext())
         {
-            if (auto* scenes = ctx->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+            if (auto* scenes = ctx->GetSubsystem<engine::scene::SceneSubsystem>())
             {
                 scenes->UnregisterSceneAware(this);
             }

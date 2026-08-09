@@ -23,9 +23,9 @@ import draconic.rhi.dx12;
 import draconic.rhi.webgpu;
 #endif
 
-static const char* adapterTypeStr(draconic::rhi::AdapterType t)
+static const char* adapterTypeStr(foundation::rhi::AdapterType t)
 {
-    using draconic::rhi::AdapterType;
+    using foundation::rhi::AdapterType;
     switch (t)
     {
     case AdapterType::DiscreteGpu:
@@ -41,10 +41,10 @@ static const char* adapterTypeStr(draconic::rhi::AdapterType t)
 
 int main(int /*argc*/, char** /*argv*/)
 {
-    using namespace draconic::core;
-    using namespace draconic::rhi;
-    namespace rhi = draconic::rhi;
-    namespace shell = draconic::shell;
+    using namespace foundation::core;
+    using namespace foundation::rhi;
+    namespace rhi = foundation::rhi;
+    namespace shell = foundation::shell;
 
     // ---- Shell: window via the desktop (SDL3) shell ----
     shell::WindowSettings ws{};
@@ -71,7 +71,7 @@ int main(int /*argc*/, char** /*argv*/)
     // ---- VK backend (wrapped in validation layer) ----
     rhi::vk::VkBackendDesc vkDesc{.enableValidation = true};
     Backend* rawBackend = nullptr;
-    if (rhi::vk::CreateBackend(vkDesc, rawBackend) != draconic::core::ErrorCode::Ok)
+    if (rhi::vk::CreateBackend(vkDesc, rawBackend) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createBackend failed\n");
         return 1;
@@ -98,7 +98,7 @@ int main(int /*argc*/, char** /*argv*/)
     dd.transferQueueCount = 1;
     dd.requiredFeatures.meshShaders = adapterInfo.supportedFeatures.meshShaders;
     Device* device = nullptr;
-    if (chosen->CreateDevice(dd, device) != draconic::core::ErrorCode::Ok)
+    if (chosen->CreateDevice(dd, device) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createDevice failed\n");
         backend->Destroy();
@@ -107,7 +107,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     // ---- Surface + swap chain ----
     Surface* surface = nullptr;
-    if (backend->CreateSurface(native, display, surface) != draconic::core::ErrorCode::Ok)
+    if (backend->CreateSurface(native, display, surface) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createSurface failed\n");
         device->Destroy();
@@ -123,7 +123,7 @@ int main(int /*argc*/, char** /*argv*/)
     sd.bufferCount = 2;
     sd.label = u8"main";
     SwapChain* swap = nullptr;
-    if (device->CreateSwapChain(surface, sd, swap) != draconic::core::ErrorCode::Ok)
+    if (device->CreateSwapChain(surface, sd, swap) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createSwapChain failed\n");
         device->DestroySurface(surface);
@@ -140,7 +140,7 @@ int main(int /*argc*/, char** /*argv*/)
     ubDesc.memory = MemoryLocation::CpuToGpu;
     ubDesc.label = u8"smoketest_uniform";
     Buffer* ub = nullptr;
-    if (device->CreateBuffer(ubDesc, ub) != draconic::core::ErrorCode::Ok)
+    if (device->CreateBuffer(ubDesc, ub) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createBuffer failed\n");
     }
@@ -158,7 +158,7 @@ int main(int /*argc*/, char** /*argv*/)
     sampDesc.maxAnisotropy = 16;
     sampDesc.label = u8"smoketest_sampler";
     Sampler* samp = nullptr;
-    if (device->CreateSampler(sampDesc, samp) != draconic::core::ErrorCode::Ok)
+    if (device->CreateSampler(sampDesc, samp) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createSampler failed\n");
     }
@@ -179,7 +179,7 @@ int main(int /*argc*/, char** /*argv*/)
     shDesc.code = Span<const u8>(reinterpret_cast<const u8*>(kSpvNoop), sizeof(kSpvNoop));
     shDesc.label = u8"smoketest_noop_fs";
     ShaderModule* sh = nullptr;
-    if (device->CreateShaderModule(shDesc, sh) != draconic::core::ErrorCode::Ok)
+    if (device->CreateShaderModule(shDesc, sh) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createShaderModule failed\n");
     }
@@ -198,7 +198,7 @@ int main(int /*argc*/, char** /*argv*/)
     bglDesc.entries = Span<const BindGroupLayoutEntry>(layoutEntries, 2);
     bglDesc.label = u8"smoketest_bgl";
     BindGroupLayout* bgl = nullptr;
-    if (device->CreateBindGroupLayout(bglDesc, bgl) != draconic::core::ErrorCode::Ok)
+    if (device->CreateBindGroupLayout(bglDesc, bgl) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createBindGroupLayout failed\n");
     }
@@ -212,7 +212,7 @@ int main(int /*argc*/, char** /*argv*/)
     plDesc.bindGroupLayouts = Span<BindGroupLayout* const>(plSets, 1);
     plDesc.label = u8"smoketest_pl";
     PipelineLayout* pl = nullptr;
-    if (device->CreatePipelineLayout(plDesc, pl) != draconic::core::ErrorCode::Ok)
+    if (device->CreatePipelineLayout(plDesc, pl) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createPipelineLayout failed\n");
     }
@@ -224,7 +224,7 @@ int main(int /*argc*/, char** /*argv*/)
     PipelineCacheDesc pcDesc{};
     pcDesc.label = u8"smoketest_pc";
     PipelineCache* pc = nullptr;
-    if (device->CreatePipelineCache(pcDesc, pc) != draconic::core::ErrorCode::Ok)
+    if (device->CreatePipelineCache(pcDesc, pc) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createPipelineCache failed\n");
     }
@@ -241,7 +241,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     // ---- Command pool + fence ----
     CommandPool* pool = nullptr;
-    if (device->CreateCommandPool(QueueType::Graphics, pool) != draconic::core::ErrorCode::Ok)
+    if (device->CreateCommandPool(QueueType::Graphics, pool) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createCommandPool failed\n");
     }
@@ -251,7 +251,7 @@ int main(int /*argc*/, char** /*argv*/)
     }
 
     Fence* fence = nullptr;
-    if (device->CreateFence(0, fence) != draconic::core::ErrorCode::Ok)
+    if (device->CreateFence(0, fence) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createFence failed\n");
     }
@@ -266,7 +266,7 @@ int main(int /*argc*/, char** /*argv*/)
     qsDesc.count = 16;
     qsDesc.label = u8"smoketest_qs";
     QuerySet* qs = nullptr;
-    if (device->CreateQuerySet(qsDesc, qs) != draconic::core::ErrorCode::Ok)
+    if (device->CreateQuerySet(qsDesc, qs) != foundation::core::ErrorCode::Ok)
     {
         std::fprintf(stderr, "createQuerySet failed\n");
     }
@@ -282,14 +282,14 @@ int main(int /*argc*/, char** /*argv*/)
     u64 fenceValue = 0;
     for (int frame = 0; frame < 3; ++frame)
     {
-        if (swap->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+        if (swap->AcquireNextImage() != foundation::core::ErrorCode::Ok)
         {
             std::fprintf(stderr, "acquireNextImage failed on frame %d\n", frame);
             break;
         }
 
         CommandEncoder* enc = nullptr;
-        if (pool && pool->CreateEncoder(enc) == draconic::core::ErrorCode::Ok && enc)
+        if (pool && pool->CreateEncoder(enc) == foundation::core::ErrorCode::Ok && enc)
         {
             enc->TransitionTexture(swap->CurrentTexture(), ResourceState::Undefined,
                                    ResourceState::Present);
@@ -332,10 +332,10 @@ int main(int /*argc*/, char** /*argv*/)
     // ---- DXC shader compilation test ----
 #ifdef DRACONIC_HAS_SHADERS
     {
-        namespace shaders = draconic::shaders;
+        namespace shaders = foundation::shaders;
         shaders::Compiler* shaderc = nullptr;
         if (shaders::createCompiler(shaders::CompilerDesc{}, shaderc) !=
-            draconic::core::ErrorCode::Ok)
+            foundation::core::ErrorCode::Ok)
         {
             std::fprintf(stderr, "shaders: createCompiler failed\n");
         }
@@ -348,10 +348,10 @@ int main(int /*argc*/, char** /*argv*/)
             opts.shaderModel = u8"6_0";
             opts.optimizationLevel = 3;
             shaders::CompileResult cr{};
-            draconic::core::Status r = shaderc->compile(
+            foundation::core::Status r = shaderc->compile(
                 reinterpret_cast<const u8*>(kHlsl), sizeof(kHlsl) - 1,
                 shaders::ShaderStage::Fragment, u8"main", shaders::ShaderTarget::SPIRV, opts, cr);
-            if (r == draconic::core::ErrorCode::Ok)
+            if (r == foundation::core::ErrorCode::Ok)
             {
                 u32 magic = cr.bytecodeSize >= 4 ? *reinterpret_cast<const u32*>(cr.bytecode) : 0u;
                 std::printf("HLSL->SPIR-V: %zu bytes, magic=0x%08x %s\n", cr.bytecodeSize, magic,

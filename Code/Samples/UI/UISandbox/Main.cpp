@@ -35,18 +35,17 @@ import draconic.ui.viewport;
 
 #include "../../Common/FlyCamera.h" // shared free-fly camera, driven from the viewport's gated devices
 
-using namespace draconic::core;
-namespace runtime = draconic::runtime;
-namespace graphics = draconic::graphics;
-namespace ui = draconic::ui;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
-namespace shell = draconic::shell;
-namespace image = draconic::image;
-namespace fonts = draconic::fonts;
-namespace vg = draconic::vg;
-namespace vfs = draconic::vfs;
-namespace samples = draconic::samples;
+using namespace foundation::core;
+namespace runtime = foundation::runtime;
+namespace graphics = foundation::graphics;
+namespace ui = foundation::ui;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
+namespace shell = foundation::shell;
+namespace image = foundation::image;
+namespace fonts = foundation::fonts;
+namespace vg = foundation::vg;
+namespace vfs = foundation::vfs;
 
 namespace
 {
@@ -420,7 +419,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
     // A tree row view: draws depth-indented text (TreeView overlays the expand arrows). No DRACONIC_
     // OBJECT (this sample TU imports modules only, not the reflection header) - the adapter recovers it
     // via static_cast since it created the view.
-    class TreeItemView final : public draconic::ui::View
+    class TreeItemView final : public foundation::ui::View
     {
     public:
         void Set(StringView text, i32 depth)
@@ -428,13 +427,13 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
             m_text = String(text);
             m_depth = depth;
         }
-        void OnDraw(draconic::ui::UIDrawContext& ctx) override
+        void OnDraw(foundation::ui::UIDrawContext& ctx) override
         {
             if (m_text.Size() > 0 && ctx.FontService() != nullptr)
             {
                 const f32 textX = static_cast<f32>(m_depth + 1) * m_indent;
                 const Color color = ResolveStyleColor(
-                    draconic::ui::StyleProperty::TextColor,
+                    foundation::ui::StyleProperty::TextColor,
                     Color{220.0f / 255.0f, 220.0f / 255.0f, 230.0f / 255.0f, 1.0f});
                 if (fonts::CachedFont* font =
                         ctx.FontService()->GetFont(ResolveStyleFontFamily(), 14.0f))
@@ -453,18 +452,18 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
     };
 
     // Demo list adapter: N "Item k" labels.
-    class DemoListAdapter final : public draconic::ui::ListAdapterBase
+    class DemoListAdapter final : public foundation::ui::ListAdapterBase
     {
     public:
         explicit DemoListAdapter(i32 count) : m_count(count) {}
         [[nodiscard]] i32 ItemCount() const override { return m_count; }
-        [[nodiscard]] RefPtr<draconic::ui::View> CreateView(i32) override
+        [[nodiscard]] RefPtr<foundation::ui::View> CreateView(i32) override
         {
-            return MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView{});
+            return MakeRef<foundation::ui::Label>(DefaultAllocator(), StringView{});
         }
-        void BindView(draconic::ui::View* view, i32 position) override
+        void BindView(foundation::ui::View* view, i32 position) override
         {
-            if (auto* label = draconic::core::Cast<draconic::ui::Label>(view))
+            if (auto* label = foundation::core::Cast<foundation::ui::Label>(view))
             {
                 char8_t buf[24] = u8"Item ";
                 usize p = 5;
@@ -479,7 +478,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
     };
 
     // Demo tree adapter: 5 folders x 3 files; folder 0 has a subfolder with 2 files.
-    class DemoTreeAdapter final : public draconic::ui::ITreeAdapter
+    class DemoTreeAdapter final : public foundation::ui::ITreeAdapter
     {
     public:
         [[nodiscard]] i32 RootCount() const override { return 5; }
@@ -519,11 +518,11 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         {
             return (nodeId >= 0 && nodeId < 5) || nodeId == 50;
         }
-        [[nodiscard]] RefPtr<draconic::ui::View> CreateView(i32) override
+        [[nodiscard]] RefPtr<foundation::ui::View> CreateView(i32) override
         {
             return MakeRef<TreeItemView>(DefaultAllocator());
         }
-        void BindView(draconic::ui::View* view, i32 nodeId, i32 depth, bool) override
+        void BindView(foundation::ui::View* view, i32 nodeId, i32 depth, bool) override
         {
             auto* item =
                 static_cast<TreeItemView*>(view); // adapter created it, so the type is known
@@ -542,96 +541,96 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
 
     // Custom drag payload carrying the source chip. No DRACONIC_OBJECT (sample TU) - the drop targets
     // guard on Format() == "demo/chip" and static_cast, since only chips produce that format.
-    class ChipDragData final : public draconic::ui::DragData
+    class ChipDragData final : public foundation::ui::DragData
     {
     public:
         DragChip* SourceChip;
         explicit ChipDragData(DragChip* source)
-            : draconic::ui::DragData(u8"demo/chip"), SourceChip(source)
+            : foundation::ui::DragData(u8"demo/chip"), SourceChip(source)
         {
         }
     };
 
     // A draggable coloured chip (ColorView + IDragSource).
-    class DragChip final : public draconic::ui::ColorView, public draconic::ui::IDragSource
+    class DragChip final : public foundation::ui::ColorView, public foundation::ui::IDragSource
     {
     public:
-        explicit DragChip(draconic::core::Color color)
-            : draconic::ui::ColorView(color, 30.0f, 30.0f)
+        explicit DragChip(foundation::core::Color color)
+            : foundation::ui::ColorView(color, 30.0f, 30.0f)
         {
         }
-        [[nodiscard]] draconic::ui::IDragSource* AsDragSource() override { return this; }
-        [[nodiscard]] RefPtr<draconic::ui::DragData> CreateDragData() override
+        [[nodiscard]] foundation::ui::IDragSource* AsDragSource() override { return this; }
+        [[nodiscard]] RefPtr<foundation::ui::DragData> CreateDragData() override
         {
             return MakeRef<ChipDragData>(DefaultAllocator(), this);
         }
-        [[nodiscard]] RefPtr<draconic::ui::View> CreateDragVisual(draconic::ui::DragData*) override
+        [[nodiscard]] RefPtr<foundation::ui::View> CreateDragVisual(foundation::ui::DragData*) override
         {
-            auto panel = MakeRef<draconic::ui::Panel>(DefaultAllocator());
-            panel->Padding = draconic::ui::Thickness{6, 2};
-            panel->SetStyle(draconic::ui::StyleProperty::Background,
-                            RefPtr<draconic::ui::Drawable>(MakeRef<draconic::ui::ColorDrawable>(
+            auto panel = MakeRef<foundation::ui::Panel>(DefaultAllocator());
+            panel->Padding = foundation::ui::Thickness{6, 2};
+            panel->SetStyle(foundation::ui::StyleProperty::Background,
+                            RefPtr<foundation::ui::Drawable>(MakeRef<foundation::ui::ColorDrawable>(
                                 DefaultAllocator(), Color.Value())));
             panel->AddView(
-                MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8"chip")).Get());
+                MakeRef<foundation::ui::Label>(DefaultAllocator(), StringView(u8"chip")).Get());
             return panel;
         }
-        void OnDragStarted(draconic::ui::DragData*) override { Opacity = 0.4f; }
-        void OnDragCompleted(draconic::ui::DragData*, draconic::ui::DragDropEffects, bool) override
+        void OnDragStarted(foundation::ui::DragData*) override { Opacity = 0.4f; }
+        void OnDragCompleted(foundation::ui::DragData*, foundation::ui::DragDropEffects, bool) override
         {
             Opacity = 1.0f;
         }
     };
 
     // A container that accepts chip drops and reorders by swapping colours (FlexLayout + IDropTarget).
-    class ChipReorderContainer final : public draconic::ui::FlexLayout,
-                                       public draconic::ui::IDropTarget
+    class ChipReorderContainer final : public foundation::ui::FlexLayout,
+                                       public foundation::ui::IDropTarget
     {
     public:
-        [[nodiscard]] draconic::ui::IDropTarget* AsDropTarget() override { return this; }
-        [[nodiscard]] draconic::ui::DragDropEffects CanAcceptDrop(draconic::ui::DragData* data, f32,
+        [[nodiscard]] foundation::ui::IDropTarget* AsDropTarget() override { return this; }
+        [[nodiscard]] foundation::ui::DragDropEffects CanAcceptDrop(foundation::ui::DragData* data, f32,
                                                                   f32) override
         {
             return data->Format() == StringView(u8"demo/chip")
-                       ? draconic::ui::DragDropEffects::Move
-                       : draconic::ui::DragDropEffects::None;
+                       ? foundation::ui::DragDropEffects::Move
+                       : foundation::ui::DragDropEffects::None;
         }
-        void OnDragEnter(draconic::ui::DragData*, f32, f32) override {}
-        void OnDragOver(draconic::ui::DragData*, f32, f32) override {}
-        void OnDragLeave(draconic::ui::DragData*) override {}
-        [[nodiscard]] draconic::ui::DragDropEffects OnDrop(draconic::ui::DragData* data, f32 localX,
+        void OnDragEnter(foundation::ui::DragData*, f32, f32) override {}
+        void OnDragOver(foundation::ui::DragData*, f32, f32) override {}
+        void OnDragLeave(foundation::ui::DragData*) override {}
+        [[nodiscard]] foundation::ui::DragDropEffects OnDrop(foundation::ui::DragData* data, f32 localX,
                                                            f32) override
         {
             if (data->Format() != StringView(u8"demo/chip"))
             {
-                return draconic::ui::DragDropEffects::None;
+                return foundation::ui::DragDropEffects::None;
             }
             DragChip* source = static_cast<ChipDragData*>(data)->SourceChip;
             for (usize i = 0; i < ChildCount(); ++i)
             {
-                draconic::ui::View* child = GetChildAt(i);
+                foundation::ui::View* child = GetChildAt(i);
                 if (localX >= child->Bounds.x && localX < child->Bounds.x + child->Width())
                 {
                     DragChip* target = static_cast<DragChip*>(child);
                     if (target != source)
                     {
-                        const draconic::core::Color tmp = source->Color.Value();
+                        const foundation::core::Color tmp = source->Color.Value();
                         source->Color.SetValue(target->Color.Value());
                         target->Color.SetValue(tmp);
                     }
-                    return draconic::ui::DragDropEffects::Move;
+                    return foundation::ui::DragDropEffects::Move;
                 }
             }
-            return draconic::ui::DragDropEffects::None;
+            return foundation::ui::DragDropEffects::None;
         }
     };
 
     // A drop box that recolours to the dropped chip's colour (View + IDropTarget).
-    class ColorDropBox final : public draconic::ui::View, public draconic::ui::IDropTarget
+    class ColorDropBox final : public foundation::ui::View, public foundation::ui::IDropTarget
     {
     public:
-        [[nodiscard]] draconic::ui::IDropTarget* AsDropTarget() override { return this; }
-        void OnDraw(draconic::ui::UIDrawContext& ctx) override
+        [[nodiscard]] foundation::ui::IDropTarget* AsDropTarget() override { return this; }
+        void OnDraw(foundation::ui::UIDrawContext& ctx) override
         {
             const Rectangle bounds{0, 0, Width(), Height()};
             ctx.VG().FillRoundedRect(bounds, 4.0f, m_bg);
@@ -649,25 +648,25 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
                 }
             }
         }
-        [[nodiscard]] draconic::ui::DragDropEffects CanAcceptDrop(draconic::ui::DragData* data, f32,
+        [[nodiscard]] foundation::ui::DragDropEffects CanAcceptDrop(foundation::ui::DragData* data, f32,
                                                                   f32) override
         {
             return data->Format() == StringView(u8"demo/chip")
-                       ? draconic::ui::DragDropEffects::Copy
-                       : draconic::ui::DragDropEffects::None;
+                       ? foundation::ui::DragDropEffects::Copy
+                       : foundation::ui::DragDropEffects::None;
         }
-        void OnDragEnter(draconic::ui::DragData*, f32, f32) override
+        void OnDragEnter(foundation::ui::DragData*, f32, f32) override
         {
             m_text = String(u8"Release!");
             Invalidate();
         }
-        void OnDragOver(draconic::ui::DragData*, f32, f32) override {}
-        void OnDragLeave(draconic::ui::DragData*) override
+        void OnDragOver(foundation::ui::DragData*, f32, f32) override {}
+        void OnDragLeave(foundation::ui::DragData*) override
         {
             m_text = String(u8"Drop here");
             Invalidate();
         }
-        [[nodiscard]] draconic::ui::DragDropEffects OnDrop(draconic::ui::DragData* data, f32,
+        [[nodiscard]] foundation::ui::DragDropEffects OnDrop(foundation::ui::DragData* data, f32,
                                                            f32) override
         {
             if (data->Format() == StringView(u8"demo/chip"))
@@ -676,11 +675,11 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
                 m_text = String(u8"Dropped!");
                 Invalidate();
             }
-            return draconic::ui::DragDropEffects::Copy;
+            return foundation::ui::DragDropEffects::Copy;
         }
 
     protected:
-        void OnMeasure(draconic::ui::BoxConstraints constraints) override
+        void OnMeasure(foundation::ui::BoxConstraints constraints) override
         {
             MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
                                   constraints.ConstrainHeight(30)};
@@ -692,16 +691,16 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
     };
 
     // A bordered area that opens a nested ContextMenu on right-click.
-    class ContextMenuDemoArea final : public draconic::ui::View
+    class ContextMenuDemoArea final : public foundation::ui::View
     {
     public:
-        void OnDraw(draconic::ui::UIDrawContext& ctx) override
+        void OnDraw(foundation::ui::UIDrawContext& ctx) override
         {
             const Rectangle bounds{0, 0, Width(), Height()};
             const Color bg =
-                ResolveStyleColor(draconic::ui::StyleProperty::BorderColor,
+                ResolveStyleColor(foundation::ui::StyleProperty::BorderColor,
                                   Color{50.0f / 255.0f, 55.0f / 255.0f, 65.0f / 255.0f, 1.0f});
-            ctx.VG().FillRoundedRect(bounds, 4.0f, draconic::ui::Palette::Darken(bg, 0.3f));
+            ctx.VG().FillRoundedRect(bounds, 4.0f, foundation::ui::Palette::Darken(bg, 0.3f));
             ctx.VG().StrokeRoundedRect(bounds, 4.0f, bg, 1.0f);
             if (ctx.FontService() != nullptr)
             {
@@ -715,25 +714,25 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
                 }
             }
         }
-        void OnMouseDown(draconic::ui::MouseEventArgs& e) override
+        void OnMouseDown(foundation::ui::MouseEventArgs& e) override
         {
-            if (e.Button != draconic::ui::MouseButton::Right || Context == nullptr)
+            if (e.Button != foundation::ui::MouseButton::Right || Context == nullptr)
             {
                 return;
             }
-            auto menu = MakeRef<draconic::ui::ContextMenu>(DefaultAllocator());
+            auto menu = MakeRef<foundation::ui::ContextMenu>(DefaultAllocator());
             menu->AddItem(u8"Cut", []() {});
             menu->AddItem(u8"Copy", []() {});
             menu->AddItem(u8"Paste", []() {});
             menu->AddSeparator();
-            draconic::ui::MenuItem* sub = menu->AddSubmenu(u8"More");
-            auto* subMenu = draconic::core::Cast<draconic::ui::ContextMenu>(sub->Submenu.Get());
+            foundation::ui::MenuItem* sub = menu->AddSubmenu(u8"More");
+            auto* subMenu = foundation::core::Cast<foundation::ui::ContextMenu>(sub->Submenu.Get());
             subMenu->AddItem(u8"Select All", []() {});
             subMenu->AddItem(u8"Find", []() {});
             subMenu->AddSeparator();
-            draconic::ui::MenuItem* nested = subMenu->AddSubmenu(u8"Even More");
+            foundation::ui::MenuItem* nested = subMenu->AddSubmenu(u8"Even More");
             auto* nestedMenu =
-                draconic::core::Cast<draconic::ui::ContextMenu>(nested->Submenu.Get());
+                foundation::core::Cast<foundation::ui::ContextMenu>(nested->Submenu.Get());
             nestedMenu->AddItem(u8"Nested Item 1", []() {});
             nestedMenu->AddItem(u8"Nested Item 2", []() {});
             menu->AddSeparator();
@@ -745,7 +744,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         }
 
     protected:
-        void OnMeasure(draconic::ui::BoxConstraints constraints) override
+        void OnMeasure(foundation::ui::BoxConstraints constraints) override
         {
             MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
                                   constraints.ConstrainHeight(80)};
@@ -753,46 +752,46 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
     };
 
     // A Button whose tooltip is custom (multi-line) content, via ITooltipProvider.
-    class RichTooltipButton final : public draconic::ui::Button,
-                                    public draconic::ui::ITooltipProvider
+    class RichTooltipButton final : public foundation::ui::Button,
+                                    public foundation::ui::ITooltipProvider
     {
     public:
-        explicit RichTooltipButton(StringView text) : draconic::ui::Button(text)
+        explicit RichTooltipButton(StringView text) : foundation::ui::Button(text)
         {
             IsTooltipInteractive = true;
         }
-        [[nodiscard]] draconic::ui::ITooltipProvider* AsTooltipProvider() override { return this; }
-        [[nodiscard]] RefPtr<draconic::ui::View> CreateTooltipContent() override
+        [[nodiscard]] foundation::ui::ITooltipProvider* AsTooltipProvider() override { return this; }
+        [[nodiscard]] RefPtr<foundation::ui::View> CreateTooltipContent() override
         {
-            auto layout = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
-            layout->Direction = draconic::ui::Orientation::Vertical;
+            auto layout = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+            layout->Direction = foundation::ui::Orientation::Vertical;
             layout->Spacing = 4.0f;
             layout->AddView(
-                MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8"Rich Tooltip"))
+                MakeRef<foundation::ui::Label>(DefaultAllocator(), StringView(u8"Rich Tooltip"))
                     .Get());
-            layout->AddView(MakeRef<draconic::ui::Separator>(DefaultAllocator()).Get());
-            auto l1 = MakeRef<draconic::ui::Label>(
+            layout->AddView(MakeRef<foundation::ui::Separator>(DefaultAllocator()).Get());
+            auto l1 = MakeRef<foundation::ui::Label>(
                 DefaultAllocator(), StringView(u8"This tooltip has multiple lines,"));
             l1->AddClass(u8"label-dim");
             layout->AddView(l1.Get());
-            auto l2 = MakeRef<draconic::ui::Label>(
+            auto l2 = MakeRef<foundation::ui::Label>(
                 DefaultAllocator(), StringView(u8"a separator, and custom content."));
             l2->AddClass(u8"label-dim");
             layout->AddView(l2.Get());
-            auto colorRow = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
-            colorRow->Direction = draconic::ui::Orientation::Horizontal;
+            auto colorRow = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+            colorRow->Direction = foundation::ui::Orientation::Horizontal;
             colorRow->Spacing = 4.0f;
-            colorRow->AddView(MakeRef<draconic::ui::ColorView>(
+            colorRow->AddView(MakeRef<foundation::ui::ColorView>(
                                   DefaultAllocator(),
                                   Color{220.0f / 255.0f, 60.0f / 255.0f, 60.0f / 255.0f, 1.0f},
                                   16.0f, 16.0f)
                                   .Get());
-            colorRow->AddView(MakeRef<draconic::ui::ColorView>(
+            colorRow->AddView(MakeRef<foundation::ui::ColorView>(
                                   DefaultAllocator(),
                                   Color{60.0f / 255.0f, 180.0f / 255.0f, 60.0f / 255.0f, 1.0f},
                                   16.0f, 16.0f)
                                   .Get());
-            colorRow->AddView(MakeRef<draconic::ui::ColorView>(
+            colorRow->AddView(MakeRef<foundation::ui::ColorView>(
                                   DefaultAllocator(),
                                   Color{60.0f / 255.0f, 60.0f / 255.0f, 220.0f / 255.0f, 1.0f},
                                   16.0f, 16.0f)
@@ -803,20 +802,20 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
     };
 
     // Demo grid adapter: N coloured cells.
-    class DemoGridAdapter final : public draconic::ui::ListAdapterBase
+    class DemoGridAdapter final : public foundation::ui::ListAdapterBase
     {
     public:
         explicit DemoGridAdapter(i32 count) : m_count(count) {}
         [[nodiscard]] i32 ItemCount() const override { return m_count; }
-        [[nodiscard]] RefPtr<draconic::ui::View> CreateView(i32) override
+        [[nodiscard]] RefPtr<foundation::ui::View> CreateView(i32) override
         {
-            return MakeRef<draconic::ui::ColorView>(
+            return MakeRef<foundation::ui::ColorView>(
                 DefaultAllocator(), Color{100.0f / 255.0f, 100.0f / 255.0f, 100.0f / 255.0f, 1.0f},
                 0.0f, 0.0f);
         }
-        void BindView(draconic::ui::View* view, i32 position) override
+        void BindView(foundation::ui::View* view, i32 position) override
         {
-            if (auto* cv = draconic::core::Cast<draconic::ui::ColorView>(view))
+            if (auto* cv = foundation::core::Cast<foundation::ui::ColorView>(view))
             {
                 const f32 r = (60 + (position * 7) % 160) / 255.0f;
                 const f32 g = (80 + (position * 13) % 140) / 255.0f;
@@ -852,14 +851,14 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         [[nodiscard]] i32 GetDepth(i32) const override { return 0; }
         [[nodiscard]] bool HasChildren(i32) const override { return false; }
 
-        [[nodiscard]] RefPtr<draconic::ui::View> CreateView(i32) override
+        [[nodiscard]] RefPtr<foundation::ui::View> CreateView(i32) override
         {
-            return MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView{});
+            return MakeRef<foundation::ui::Label>(DefaultAllocator(), StringView{});
         }
 
-        void BindView(draconic::ui::View* view, i32 nodeId, i32, bool) override
+        void BindView(foundation::ui::View* view, i32 nodeId, i32, bool) override
         {
-            if (auto* label = draconic::core::Cast<draconic::ui::Label>(view))
+            if (auto* label = foundation::core::Cast<foundation::ui::Label>(view))
             {
                 if (nodeId >= 0 && nodeId < static_cast<i32>(m_items.Size()))
                 {
@@ -1575,7 +1574,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
     tabView->AddTab(u8"Pause (.sml)", pauseView.Get(), true);
 
     // The root Flex is a ViewGroup - FindByName walks its subtree.
-    ui::ViewGroup* pauseRoot = draconic::core::Cast<ui::ViewGroup>(pauseView.Get());
+    ui::ViewGroup* pauseRoot = foundation::core::Cast<ui::ViewGroup>(pauseView.Get());
     if (pauseRoot == nullptr)
     {
         return;

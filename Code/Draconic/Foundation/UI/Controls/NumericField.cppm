@@ -37,11 +37,11 @@ import :text_editing_behavior;
 import :input_filter;
 import :palette;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class NumericField : public View, public ITextEditHost
     {

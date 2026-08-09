@@ -24,9 +24,9 @@ import :descriptor_staging;
 import :gpu_descriptor_heap;
 import :mesh_pipeline;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     // A recorded bundle command list (+ its allocator, which must outlive GPU execution). Lives
@@ -528,4 +528,4 @@ export namespace draconic::rhi::dx12
         u32 m_cachedVbCount = 0;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

@@ -14,11 +14,11 @@ import draconic.vg;   // CornerRadii
 import :drawable;
 import :draw_context;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace vg = foundation::vg;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class RoundedRectDrawable : public Drawable
     {

@@ -12,9 +12,9 @@ import draconic.core;
 import draconic.rhi;
 import :adapter;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkAccelStructImpl : public AccelStruct
@@ -125,4 +125,4 @@ export namespace draconic::rhi::vk
         u64 m_deviceAddress = 0;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

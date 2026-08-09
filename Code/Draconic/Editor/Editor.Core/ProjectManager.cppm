@@ -16,12 +16,12 @@ import draconic.engine.project;
 import :project;
 import :project_registry;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace settings = draconic::settings;
-    namespace project = draconic::engine::project;
+    namespace settings = foundation::settings;
+    namespace project = engine::project;
 
     // What Open must do for a directory, decided from the manifest probe + version relation.
     enum class ProjectOpenGate
@@ -40,7 +40,7 @@ export namespace draconic::editor
         struct OpenDecision
         {
             ProjectOpenGate gate = ProjectOpenGate::NotAProject;
-            draconic::engine::project::ProjectSettings probed; // valid unless NotAProject
+            engine::project::ProjectSettings probed; // valid unless NotAProject
             String promptTitle;              // set for the two prompt gates
             String promptBody;
         };

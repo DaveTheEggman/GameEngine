@@ -17,9 +17,9 @@ export module draconic.net:wire;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::net
+export namespace foundation::net
 {
 
     // Packs values bit-by-bit into a growing byte buffer (LSB-first). Call Data()/ByteCount() to read

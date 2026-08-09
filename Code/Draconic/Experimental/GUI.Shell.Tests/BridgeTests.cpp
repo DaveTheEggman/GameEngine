@@ -8,9 +8,9 @@ import draconic.shell.null;
 import draconic.gui;
 import draconic.gui.shell;
 
-using namespace draconic::gui;
-namespace core = draconic::core;
-namespace shell = draconic::shell;
+using namespace experimental::gui;
+namespace core = foundation::core;
+namespace shell = foundation::shell;
 
 namespace
 {
@@ -92,7 +92,7 @@ TEST_CASE("bridge: left press+release becomes a click; button mapping is explici
     GuiInputBridge bridge{root->GetEventDispatcher()};
 
     int clicks = 0;
-    draconic::gui::MouseButton downButton = draconic::gui::MouseButton::Left;
+    experimental::gui::MouseButton downButton = experimental::gui::MouseButton::Left;
     child->AddEventListener(EventType::MouseClick, [&](const Event&) { ++clicks; });
     child->AddEventListener(EventType::MouseDown, [&](const Event& e)
                             { downButton = static_cast<const MouseEvent&>(e).Button; });
@@ -109,7 +109,7 @@ TEST_CASE("bridge: left press+release becomes a click; button mapping is explici
     // shell Middle (index 1) maps to gui Middle (index 2) - explicitly, not by value.
     bridge.Dispatch(MakeButtonEvent(shell::InputEventKind::MouseButtonDown, 20.0f, 20.0f,
                                     shell::MouseButton::Middle));
-    CHECK(downButton == draconic::gui::MouseButton::Middle);
+    CHECK(downButton == experimental::gui::MouseButton::Middle);
     bridge.Dispatch(MakeButtonEvent(shell::InputEventKind::MouseButtonUp, 20.0f, 20.0f,
                                     shell::MouseButton::Middle));
     CHECK(clicks == 1); // still 1: the middle press did not add a click

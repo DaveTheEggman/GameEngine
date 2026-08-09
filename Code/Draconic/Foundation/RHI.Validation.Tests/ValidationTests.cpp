@@ -7,8 +7,8 @@ import draconic.rhi;
 import draconic.rhi.null;
 import draconic.rhi.validation;
 
-using namespace draconic::core;
-using namespace draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::rhi;
 
 TEST_CASE("rhi.validation: wraps a backend and forwards valid calls")
 {

@@ -11,9 +11,9 @@ export module draconic.rhi.vulkan:command_buffer;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkCommandBufferImpl : public CommandBuffer
@@ -27,4 +27,4 @@ export namespace draconic::rhi::vk
         VkCommandBuffer m_cmdBuf = VK_NULL_HANDLE;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

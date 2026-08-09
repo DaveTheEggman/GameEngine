@@ -13,9 +13,9 @@ export module draconic.model.io;
 import draconic.core;
 import draconic.model;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::model::io
+export namespace foundation::model::io
 {
 
     /// Abstract base for format-specific model loaders.
@@ -104,4 +104,4 @@ export namespace draconic::model::io
 
     inline bool hasLoaders() { return !detail::loaders().IsEmpty(); }
 
-} // namespace draconic::model::io
+} // namespace foundation::model::io

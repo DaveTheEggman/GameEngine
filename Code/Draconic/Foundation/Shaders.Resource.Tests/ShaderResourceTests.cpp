@@ -15,11 +15,11 @@ import draconic.shaders;
 import draconic.shaders.system;
 import draconic.shaders.resource;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
-using namespace draconic::resource;
-using namespace draconic::shaders;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::vfs;
+using namespace foundation::resource;
+using namespace foundation::shaders;
+namespace rhi = foundation::rhi;
 
 namespace
 {
@@ -54,7 +54,7 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"lit", ShaderSource::StaticType());
         id = inst->Id();
@@ -65,7 +65,7 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
         REQUIRE(inst->WriteObject(s).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     rhi::null::NullDevice device{DefaultAllocator()};
     ShaderSystem system(*compiler, device);

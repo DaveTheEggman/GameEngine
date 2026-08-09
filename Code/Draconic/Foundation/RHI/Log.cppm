@@ -12,9 +12,9 @@ export module draconic.rhi:log;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
     inline void LogWrite(bool error, const char* utf8)
     {

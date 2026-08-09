@@ -13,9 +13,9 @@ module draconic.ui.toolkit;
 import draconic.core;
 import :code_lexer_scan;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::ui::toolkit
+namespace foundation::ui::toolkit
 {
     namespace
     {

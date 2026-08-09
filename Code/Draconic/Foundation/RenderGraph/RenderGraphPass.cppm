@@ -16,11 +16,11 @@ import :types;
 import :descriptors;
 import :callbacks;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rendergraph
+export namespace foundation::rendergraph
 {
-    namespace rhi = draconic::rhi;
+    namespace rhi = foundation::rhi;
 
     class RenderGraphPass
     {

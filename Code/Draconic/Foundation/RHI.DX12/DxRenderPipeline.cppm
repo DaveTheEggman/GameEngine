@@ -19,9 +19,9 @@ import :pipeline_layout;
 import :shader_module;
 import :pipeline_cache;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxRenderPipelineImpl : public RenderPipeline
@@ -189,4 +189,4 @@ export namespace draconic::rhi::dx12
         u32 m_vtxBufCount = 0;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

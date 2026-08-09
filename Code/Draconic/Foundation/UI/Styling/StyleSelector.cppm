@@ -12,9 +12,9 @@ export module draconic.ui:style_selector;
 import draconic.core; // TypeInfo, IsDerivedFrom, Array, String, StringView, Optional, i32
 import :control_state;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class
         View; // defined in :view; Matches() body lives there (breaks the View<->styling module cycle)

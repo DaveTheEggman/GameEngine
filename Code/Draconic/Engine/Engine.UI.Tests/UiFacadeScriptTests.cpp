@@ -14,15 +14,15 @@ import draconic.script;
 import draconic.script.wren;
 import draconic.script.angelscript;
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation::script;
 
 namespace
 {
     // Fake UISubsystem-screen-tier host pointers + what each call recorded.
     struct UiFake
     {
-        draconic::engine::ui::UiScriptBinding binding;
+        engine::ui::UiScriptBinding binding;
         int pushCalls = 0;
         Guid pushedDoc;
         i32 popped = -1;
@@ -109,14 +109,14 @@ namespace
 TEST_CASE("ui-facade: Wren pushes an overlay, drives controls by id, binds + fires a click handler")
 {
     RegisterCoreTypes();
-    draconic::engine::ui::RegisterUiScriptFacade();
+    engine::ui::RegisterUiScriptFacade();
 
     RefPtr<IScriptManager> manager = wren::CreateScriptManager();
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
     UiFake fake;
-    draconic::engine::ui::InstallUiScriptService(*ctx, fake.binding);
+    engine::ui::InstallUiScriptService(*ctx, fake.binding);
 
     // Top-level Wren reaches the reflected facades in "main" directly (RegisterReflectedTypes emitted
     // them). The click handler sets a module global we read back after firing the delegate.
@@ -139,14 +139,14 @@ TEST_CASE("ui-facade: Wren pushes an overlay, drives controls by id, binds + fir
 TEST_CASE("ui-facade: AngelScript pushes an overlay, drives controls by id, binds + fires a click")
 {
     RegisterCoreTypes();
-    draconic::engine::ui::RegisterUiScriptFacade();
+    engine::ui::RegisterUiScriptFacade();
 
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
     UiFake fake;
-    draconic::engine::ui::InstallUiScriptService(*ctx, fake.binding);
+    engine::ui::InstallUiScriptService(*ctx, fake.binding);
 
     // AngelScript: statics live in the type's namespace (Ui::pushOverlay); the click handler is a
     // natural void() wrapped in the engine-provided `Action` funcdef, and sets a global we read

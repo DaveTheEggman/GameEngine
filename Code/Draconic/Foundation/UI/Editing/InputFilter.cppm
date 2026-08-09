@@ -12,9 +12,9 @@ export module draconic.ui:input_filter;
 
 import draconic.core; // Function
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Predefined input filter modes.
     enum class InputFilterMode

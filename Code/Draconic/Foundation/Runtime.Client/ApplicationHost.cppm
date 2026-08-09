@@ -31,12 +31,11 @@ import draconic.shell;
 import draconic.graphics;
 import draconic.profiler;
 
-namespace core = draconic::core;
-using namespace draconic::shell; // IShell + input/window types (moved from draconic::runtime)
-using namespace draconic::
-    graphics; // GraphicsDevice/RenderWindow/FrameContext (moved from draconic::runtime)
+namespace core = foundation::core;
+using namespace foundation::shell; // IShell + input/window types (moved from foundation::runtime)
+using namespace foundation::graphics; // GraphicsDevice/RenderWindow/FrameContext (moved from foundation::runtime)
 
-export namespace draconic::runtime
+export namespace foundation::runtime
 {
     class ApplicationHost final : public IApplicationHost
     {

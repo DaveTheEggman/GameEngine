@@ -14,10 +14,10 @@ import draconic.materials;
 import draconic.materials.resource;
 import draconic.materials.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::vfs;
-using namespace draconic::materials;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::vfs;
+using namespace foundation::materials;
 
 namespace
 {
@@ -42,8 +42,8 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
 
     // --- cook: author a material, import into an asset, build into the output DB ---
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"lit", MaterialSource::StaticType());
         id = inst->Id();
 
@@ -60,15 +60,15 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
 
         MaterialAssetBuilder builder;
         REQUIRE(builder.AssetType() == &MaterialAsset::StaticType());
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
     // --- verify: read back the cooked MaterialSource ---
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         RefPtr<ISerializable> object = outDb.ReadObject(id);
         MaterialSource* cooked = Cast<MaterialSource>(object.Get());
         REQUIRE(cooked != nullptr);

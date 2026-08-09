@@ -8,9 +8,9 @@ import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;
 
-using namespace draconic::core;
-using namespace draconic::ui;
-namespace ui = draconic::ui;
+using namespace foundation::core;
+using namespace foundation::ui;
+namespace ui = foundation::ui;
 
 namespace
 {

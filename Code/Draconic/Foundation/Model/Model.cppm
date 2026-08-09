@@ -20,9 +20,9 @@ import :model_mesh;
 import :model_animation;
 import :model_skin;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::model
+export namespace foundation::model
 {
 
     /// Result of a model load operation.
@@ -378,4 +378,4 @@ export namespace draconic::model
         AABB m_bounds;
     };
 
-} // namespace draconic::model
+} // namespace foundation::model

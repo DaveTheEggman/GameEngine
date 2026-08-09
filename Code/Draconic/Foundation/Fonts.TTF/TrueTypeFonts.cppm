@@ -15,9 +15,9 @@ import draconic.fonts.io;
 import :parser;
 import :atlas_baker;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::fonts
+namespace foundation::fonts
 {
     TrueTypeFontParser*& ParserSlot()
     {
@@ -31,7 +31,7 @@ namespace draconic::fonts
     }
 }
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     class TrueTypeFonts
     {

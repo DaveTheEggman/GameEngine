@@ -8,7 +8,7 @@ module;
 
 export module draconic.core:atomic;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     template <typename T>
     using Atomic = std::atomic<T>;

@@ -13,9 +13,10 @@ export module draconic.animation:clip;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::animation
+export namespace foundation::animation
 {
 
     // Event callback: (event name, event time in seconds). The engine's move-only delegate. Defined here
@@ -363,4 +364,4 @@ export namespace draconic::animation
 
     DRACONIC_DEFINE_OBJECT(AnimationClip, "rtti::animation")
 
-} // namespace draconic::animation
+} // namespace foundation::animation

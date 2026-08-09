@@ -17,10 +17,12 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // Builds the bloom pyramid from an HDR input; returns the mip-0 (half-res) accumulated bloom handle,
@@ -84,4 +86,4 @@ export namespace draconic::render
         HashMap<rhi::TextureView*, Entry> m_bindGroups;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

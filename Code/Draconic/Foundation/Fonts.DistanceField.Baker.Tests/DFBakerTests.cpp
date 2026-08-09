@@ -12,8 +12,8 @@ import draconic.fonts.distancefield;
 import draconic.fonts.distancefield.baker;
 import draconic.fonts.ttf;
 
-using namespace draconic::core;
-using namespace draconic::fonts;
+using namespace foundation::core;
+using namespace foundation::fonts;
 
 namespace
 {

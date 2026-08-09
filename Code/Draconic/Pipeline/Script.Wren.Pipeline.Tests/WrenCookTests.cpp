@@ -14,9 +14,9 @@ import draconic.script.resource;
 import draconic.script.pipeline;
 import draconic.script.wren.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::script;
 
 namespace
 {

@@ -7,19 +7,19 @@
 import draconic.core;
 import draconic.fonts;
 
-using namespace draconic::core;
-using namespace draconic::fonts;
+using namespace foundation::core;
+using namespace foundation::fonts;
 
 TEST_CASE("fonts.rect: construction, bounds, contains, FromBounds")
 {
-    const draconic::fonts::Rectangle def;
+    const foundation::fonts::Rectangle def;
     CHECK(def.x == 0);
     CHECK(def.y == 0);
     CHECK(def.width == 0);
     CHECK(def.height == 0);
     CHECK(def.IsEmpty());
 
-    const draconic::fonts::Rectangle r(10, 20, 100, 50);
+    const foundation::fonts::Rectangle r(10, 20, 100, 50);
     CHECK(r.x == 10);
     CHECK(r.width == 100);
     CHECK_FALSE(r.IsEmpty());
@@ -34,7 +34,7 @@ TEST_CASE("fonts.rect: construction, bounds, contains, FromBounds")
     CHECK_FALSE(r.Contains(5, 40));
     CHECK_FALSE(r.Contains(50, 100));
 
-    const draconic::fonts::Rectangle b = draconic::fonts::Rectangle::FromBounds(10, 20, 110, 70);
+    const foundation::fonts::Rectangle b = foundation::fonts::Rectangle::FromBounds(10, 20, 110, 70);
     CHECK(b.x == 10);
     CHECK(b.y == 20);
     CHECK(b.width == 100);
@@ -190,7 +190,7 @@ namespace
             info.glyphIndex = 1;
             info.advanceWidth = 20.0f;
             info.leftSideBearing = 2.0f;
-            info.boundingBox = draconic::fonts::Rectangle(1.0f, 2.0f, 3.0f, 4.0f);
+            info.boundingBox = foundation::fonts::Rectangle(1.0f, 2.0f, 3.0f, 4.0f);
             return info;
         }
         [[nodiscard]] f32 GetKerning(i32, i32) const override { return -1.5f; }

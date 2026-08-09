@@ -12,9 +12,9 @@ export module draconic.ui:control_state;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     enum class ControlState : u32
     {

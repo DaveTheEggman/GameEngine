@@ -15,7 +15,7 @@ module;
 
 export module draconic.core:base;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Fundamental integer / floating types

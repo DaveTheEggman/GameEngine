@@ -28,12 +28,13 @@ import draconic.xml.serialization;
 import draconic.editor.core; // EditorContext (favorites)
 import draconic.ui.toolkit;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace vfs = foundation::vfs;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace ui = draconic::ui;
-    namespace settings = draconic::settings;
+    namespace ui = foundation::ui;
+    namespace settings = foundation::settings;
 
     // The one per-project editor-state file (hand-editable XML, like every settings store).
     inline constexpr StringView kProjectEditorSettingsFile = u8"editor.project.settings.xml";
@@ -42,16 +43,16 @@ export namespace draconic::editor::app
     inline void SerializeLayoutNode(ISerializer& ar, ui::toolkit::DockLayoutNode& node)
     {
         ar.BeginObject();
-        draconic::core::Serialize(ar, "type", node.Type);
-        draconic::core::Serialize(ar, "direction", node.Direction);
-        draconic::core::Serialize(ar, "ratio", node.SplitRatio);
-        draconic::core::Serialize(ar, "activeTab", node.ActiveTabIndex);
-        draconic::core::Serialize(ar, "panels", node.PanelIds);
+        foundation::core::Serialize(ar, "type", node.Type);
+        foundation::core::Serialize(ar, "direction", node.Direction);
+        foundation::core::Serialize(ar, "ratio", node.SplitRatio);
+        foundation::core::Serialize(ar, "activeTab", node.ActiveTabIndex);
+        foundation::core::Serialize(ar, "panels", node.PanelIds);
 
         bool hasFirst = static_cast<bool>(node.First);
         bool hasSecond = static_cast<bool>(node.Second);
-        draconic::core::Serialize(ar, "hasFirst", hasFirst);
-        draconic::core::Serialize(ar, "hasSecond", hasSecond);
+        foundation::core::Serialize(ar, "hasFirst", hasFirst);
+        foundation::core::Serialize(ar, "hasSecond", hasSecond);
         if (hasFirst)
         {
             if (ar.Mode() == SerializeMode::Read)
@@ -83,7 +84,7 @@ export namespace draconic::editor::app
         void Serialize(ISerializer& ar) override
         {
             bool hasRoot = static_cast<bool>(root);
-            draconic::core::Serialize(ar, "hasRoot", hasRoot);
+            foundation::core::Serialize(ar, "hasRoot", hasRoot);
             if (hasRoot)
             {
                 if (ar.Mode() == SerializeMode::Read)
@@ -104,7 +105,7 @@ export namespace draconic::editor::app
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "favorites", favorites);
+            foundation::core::Serialize(ar, "favorites", favorites);
         }
     };
 
@@ -117,7 +118,7 @@ export namespace draconic::editor::app
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "pages", pages);
+            foundation::core::Serialize(ar, "pages", pages);
             ar.Key("active");
             ar.GuidValue(active);
         }
@@ -167,7 +168,7 @@ export namespace draconic::editor::app
         return Status{};
     }
 
-    inline void CaptureFavorites(draconic::editor::EditorContext& context,
+    inline void CaptureFavorites(editor::EditorContext& context,
                                  settings::Settings& store)
     {
         EditorFavoritesSettings& section = store.Section<EditorFavoritesSettings>();
@@ -179,7 +180,7 @@ export namespace draconic::editor::app
         store.MarkChanged<EditorFavoritesSettings>();
     }
 
-    inline void ApplyFavorites(draconic::editor::EditorContext& context,
+    inline void ApplyFavorites(editor::EditorContext& context,
                                settings::Settings& store)
     {
         if (const EditorFavoritesSettings* section = store.Find<EditorFavoritesSettings>())
@@ -230,7 +231,7 @@ export namespace draconic::editor::app
         {
             return Status{ErrorCode::NotFound};
         }
-        return store.Load(*stream, draconic::xml::XmlSerializerFactory());
+        return store.Load(*stream, foundation::xml::XmlSerializerFactory());
     }
 
     // Persist the per-project store; on success, delete the pre-unification bespoke files
@@ -239,7 +240,7 @@ export namespace draconic::editor::app
                                                           StringView directory)
     {
         MemoryStream buffer;
-        if (Status s = store.Save(buffer, draconic::xml::XmlSerializerFactory()); !s.IsOk())
+        if (Status s = store.Save(buffer, foundation::xml::XmlSerializerFactory()); !s.IsOk())
         {
             return s;
         }

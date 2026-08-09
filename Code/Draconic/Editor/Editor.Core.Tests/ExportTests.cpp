@@ -31,11 +31,10 @@ import draconic.script.wren.pipeline; // RegisterWrenScriptCook
 import draconic.script.pipeline;      // ScriptClassAsset + ScriptClassAssetBuilder
 import draconic.script.resource;    // RegisterScriptResource + ScriptClass + ScriptClassFactory
 
-using namespace draconic::core;
-namespace editor = draconic::editor;
-namespace project = draconic::engine::project;
-namespace scene = draconic::scene;
-namespace geometry = draconic::geometry;
+using namespace foundation::core;
+namespace project = engine::project;
+namespace scene = foundation::scene;
+namespace geometry = foundation::geometry;
 
 namespace
 {
@@ -48,12 +47,12 @@ namespace
 
 TEST_CASE("export: a startup script asset cooks into the dist pak and binds like the player")
 {
-    namespace script = draconic::script;
+    namespace script = foundation::script;
     script::wren::RegisterWrenScriptBackend();
-    draconic::pipeline::RegisterWrenScriptCook();
+    pipeline::RegisterWrenScriptCook();
     script::RegisterScriptResource();
-    GlobalTypeRegistry().Register(draconic::pipeline::ScriptClassAsset::StaticType());
-    RegisterSerializable<draconic::pipeline::ScriptClassAsset>();
+    GlobalTypeRegistry().Register(pipeline::ScriptClassAsset::StaticType());
+    RegisterSerializable<pipeline::ScriptClassAsset>();
 
     const StringView projectDir = u8"draconic_export_script_project";
     const StringView distDir = u8"draconic_export_script_dist";
@@ -76,11 +75,11 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
                     .IsOk());
 
         // The ScriptClassAsset instance recording file + language (the picker's target).
-        draconic::content::Instance* scriptAsset = project->SourceDb().RootGroup()->CreateInstance(
-            u8"NetGame", draconic::pipeline::ScriptClassAsset::StaticType());
+        foundation::content::Instance* scriptAsset = project->SourceDb().RootGroup()->CreateInstance(
+            u8"NetGame", pipeline::ScriptClassAsset::StaticType());
         REQUIRE(scriptAsset != nullptr);
-        draconic::pipeline::ScriptClassAsset asset;
-        asset.fileName = draconic::vfs::SourcePath(u8"game.wren");
+        pipeline::ScriptClassAsset asset;
+        asset.fileName = foundation::vfs::SourcePath(u8"game.wren");
         asset.language = String(u8"wren");
         REQUIRE(scriptAsset->WriteObject(asset).IsOk());
         scriptId = scriptAsset->Id();
@@ -90,9 +89,9 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
     }
 
     // Export (cooks the reachable closure - here the startup script) with the script builder.
-    draconic::pipeline::BuilderRegistry registry;
-    registry.Register(UniquePtr<draconic::pipeline::IAssetBuilder>(
-        DefaultAllocator().New<draconic::pipeline::ScriptClassAssetBuilder>(), DefaultAllocator()));
+    pipeline::BuilderRegistry registry;
+    registry.Register(UniquePtr<pipeline::IAssetBuilder>(
+        DefaultAllocator().New<pipeline::ScriptClassAssetBuilder>(), DefaultAllocator()));
     editor::ExportStats stats;
     {
         UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
@@ -102,20 +101,20 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
     }
 
     // Consume the dist exactly like the player: manifest guid -> Bind<ScriptClass> from the pak.
-    draconic::vfs::NativeFileSystem distRoot(distDir);
-    draconic::engine::project::ProjectSettings manifest;
+    foundation::vfs::NativeFileSystem distRoot(distDir);
+    engine::project::ProjectSettings manifest;
     REQUIRE(project::LoadProjectSettings(distRoot, manifest, project::kDistManifestFile).IsOk());
     CHECK(manifest.startupScriptId == scriptId);
 
-    draconic::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
+    foundation::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
                                           project::kCookedAssetExtension);
-    draconic::resource::ResourceManager resources(db);
+    foundation::resource::ResourceManager resources(db);
     script::ScriptClassFactory scriptFactory;
     resources.AddFactory(&scriptFactory);
 
-    draconic::resource::Proxy<script::ScriptClass> proxy =
+    foundation::resource::Proxy<script::ScriptClass> proxy =
         resources.Bind<script::ScriptClass>(manifest.startupScriptId);
     REQUIRE(static_cast<bool>(proxy));
     CHECK(proxy->className == u8"Game"); // the cook harvested the class
@@ -129,7 +128,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
 {
     GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
     RegisterSerializable<scene::SceneDocument>();
-    draconic::pipeline::RegisterMeshAssets();
+    pipeline::RegisterMeshAssets();
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
@@ -148,18 +147,18 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         REQUIRE(static_cast<bool>(project));
 
         // A cooked-pipeline asset: a cube mesh (what the primitive creators produce).
-        draconic::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
-        draconic::content::Instance* meshAsset =
-            meshes->CreateInstance(u8"Cube", draconic::pipeline::StaticMeshAsset::StaticType());
+        foundation::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
+        foundation::content::Instance* meshAsset =
+            meshes->CreateInstance(u8"Cube", pipeline::StaticMeshAsset::StaticType());
         REQUIRE(meshAsset != nullptr);
-        draconic::pipeline::StaticMeshAsset asset;
-        draconic::pipeline::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
+        pipeline::StaticMeshAsset asset;
+        pipeline::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
         REQUIRE(meshAsset->WriteObject(asset).IsOk());
         meshId = meshAsset->Id();
 
         // A scene whose entity references the mesh by guid.
-        draconic::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
-        draconic::content::Instance* sceneInstance =
+        foundation::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
+        foundation::content::Instance* sceneInstance =
             scenes->CreateInstance(u8"Main", scene::SceneDocument::StaticType());
         REQUIRE(sceneInstance != nullptr);
         scene::SceneDocument doc;
@@ -168,10 +167,10 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         sceneId = sceneInstance->Id();
         {
             scene::Scene scene(u8"Main");
-            scene.AddSystem<draconic::engine::render::MeshComponentManager>();
+            scene.AddSystem<engine::render::MeshComponentManager>();
             const scene::EntityHandle e = scene.CreateEntity(u8"Box");
-            draconic::engine::render::MeshComponent& mc =
-                scene.GetSystem<draconic::engine::render::MeshComponentManager>()->Add(e);
+            engine::render::MeshComponent& mc =
+                scene.GetSystem<engine::render::MeshComponentManager>()->Add(e);
             mc.mesh.SetId(meshId);
             REQUIRE(scene::SaveScene(scene, *sceneInstance).IsOk());
         }
@@ -185,9 +184,9 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         REQUIRE(project->SaveSettings().IsOk());
 
         // --- export ---
-        draconic::pipeline::BuilderRegistry registry;
-        registry.Register(UniquePtr<draconic::pipeline::IAssetBuilder>(
-            DefaultAllocator().New<draconic::pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
+        pipeline::BuilderRegistry registry;
+        registry.Register(UniquePtr<pipeline::IAssetBuilder>(
+            DefaultAllocator().New<pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
         // Pre-transcode the scene stream like the editor/CLI do: the staged pak carries
         // the BINARY wire even though the source (SaveScene) is XML now.
         HashMap<Guid, Array<byte>> sceneStreams;
@@ -195,7 +194,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
             UniquePtr<IStream> src = sceneInstance->ReadData(u8"scene");
             REQUIRE(src.Get() != nullptr);
             scene::Scene scratch(u8"scratch");
-            scratch.AddSystem<draconic::engine::render::MeshComponentManager>();
+            scratch.AddSystem<engine::render::MeshComponentManager>();
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*src, scratch, /*includeSettings=*/true);
             REQUIRE(bytes.HasValue());
@@ -212,23 +211,23 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     }
 
     // --- consume the dist exactly like Draconic.Engine.Player's dist mode ---
-    draconic::vfs::NativeFileSystem distRoot(distDir);
-    draconic::engine::project::ProjectSettings manifest;
+    foundation::vfs::NativeFileSystem distRoot(distDir);
+    engine::project::ProjectSettings manifest;
     REQUIRE(project::LoadProjectSettings(distRoot, manifest, project::kDistManifestFile).IsOk());
     CHECK(manifest.defaultScene == u8"Scenes/Main");
     CHECK(manifest.defaultSceneId == sceneId); // dist manifest carries the guid too
     CHECK(manifest.startupScriptId ==
           scriptId); // the startup script rides as a guid (bound from the DB)
 
-    draconic::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
+    foundation::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
                                           project::kCookedAssetExtension);
 
     // The scene loads from the pak under its ORIGINAL guid/path, and its mesh ref resolves
     // against the pak-hosted product through the CPU mesh factory.
     // Resolve by guid (the player's primary path), then confirm the path mirror agrees.
-    draconic::content::Instance* sceneInstance = db.GetInstance(manifest.defaultSceneId);
+    foundation::content::Instance* sceneInstance = db.GetInstance(manifest.defaultSceneId);
     REQUIRE(sceneInstance != nullptr);
     CHECK(sceneInstance->Id() == sceneId);
     CHECK(db.GetInstance(manifest.defaultScene.AsView()) == sceneInstance);
@@ -242,15 +241,15 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         CHECK(first != static_cast<byte>(u8'<'));
     }
     scene::Scene scene;
-    auto* meshes = scene.AddSystem<draconic::engine::render::MeshComponentManager>();
+    auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
     REQUIRE(scene::LoadScene(*sceneInstance, scene).IsOk());
-    draconic::resource::ResourceManager resources(db);
+    foundation::resource::ResourceManager resources(db);
     geometry::StaticMeshFactory meshFactory;
     resources.AddFactory(&meshFactory);
     scene::ResolveSceneResources(scene, resources);
 
-    draconic::engine::render::MeshComponent* mc = nullptr;
-    meshes->ForEach([&](draconic::engine::render::MeshComponent& c, scene::EntityHandle) { mc = &c; });
+    engine::render::MeshComponent* mc = nullptr;
+    meshes->ForEach([&](engine::render::MeshComponent& c, scene::EntityHandle) { mc = &c; });
     REQUIRE(mc != nullptr);
     CHECK(mc->mesh.id == meshId);
     geometry::StaticMesh* mesh = mc->mesh.Get();
@@ -268,7 +267,7 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
                                 u8"draconic_presets_test");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    draconic::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView());
 
     // Absent file => NotFound, so callers know to fall back to defaults.
     {
@@ -338,7 +337,7 @@ namespace
                             std::filesystem::temp_directory_path().string().c_str())),
                         leaf);
     }
-    void SaveText(draconic::vfs::NativeFileSystem& fs, StringView name, StringView text)
+    void SaveText(foundation::vfs::NativeFileSystem& fs, StringView name, StringView text)
     {
         (void)fs.AsWritable()->Save(
             name, Span<const byte>(reinterpret_cast<const byte*>(text.Data()), text.Size()));
@@ -350,16 +349,16 @@ namespace
     // parked prefab instances (the scene->prefab->asset chain).
     editor::SceneReferenceScanner MakePruningScanner()
     {
-        return [](draconic::content::Instance& instance, draconic::content::ContentDatabase& db,
+        return [](foundation::content::Instance& instance, foundation::content::ContentDatabase& db,
                   editor::SceneReferences& out)
         {
             scene::Scene scene;
-            scene.AddSystem<draconic::engine::render::MeshComponentManager>();
+            scene.AddSystem<engine::render::MeshComponentManager>();
             if (!scene::LoadScene(instance, scene).IsOk())
             {
                 return;
             }
-            draconic::resource::ResourceManager collector(db);
+            foundation::resource::ResourceManager collector(db);
             scene::ResolveSceneResources(scene, collector);
             collector.CollectUnresolved(out.resources);
             scene.ForEachPendingPrefabInstance([&out](scene::Scene::PendingPrefabInstance& pending)
@@ -368,13 +367,13 @@ namespace
     }
 
     // Author a cube StaticMeshAsset under `group` and return its guid.
-    Guid AuthorMesh(draconic::content::Group& group, StringView name)
+    Guid AuthorMesh(foundation::content::Group& group, StringView name)
     {
-        draconic::content::Instance* inst =
-            group.CreateInstance(name, draconic::pipeline::StaticMeshAsset::StaticType());
+        foundation::content::Instance* inst =
+            group.CreateInstance(name, pipeline::StaticMeshAsset::StaticType());
         REQUIRE(inst != nullptr);
-        draconic::pipeline::StaticMeshAsset asset;
-        draconic::pipeline::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
+        pipeline::StaticMeshAsset asset;
+        pipeline::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
         REQUIRE(inst->WriteObject(asset).IsOk());
         return inst->Id();
     }
@@ -384,7 +383,7 @@ namespace
     void SetupHostTemplate(StringView toolDir, editor::TemplateRegistry& registry)
     {
         REQUIRE(CreateDirectory(toolDir));
-        draconic::vfs::NativeFileSystem toolFs(toolDir);
+        foundation::vfs::NativeFileSystem toolFs(toolDir);
         SaveText(toolFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
         registry.Refresh(StringView{}, nullptr, toolDir, &toolFs);
     }
@@ -395,7 +394,7 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
     const String dir = TempDir(u8"draconic_template_test");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    draconic::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView());
 
     // template.xml round-trip, including the v2 (platform, config) axis: config + compiler + symbols[].
     editor::ExportTemplate t;
@@ -451,7 +450,7 @@ TEST_CASE("export: a v1 template.xml without a config field reads as Release (ba
     const String dir = TempDir(u8"draconic_template_v1_backcompat");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    draconic::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView());
 
     // A hand-written v1 manifest: the OLD schema (dataVersion 1, no config/compiler/symbols). This is
     // exactly what a pre-config-axis editor wrote; it must still load, defaulting config -> Release.
@@ -493,8 +492,8 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
     REQUIRE(CreateDirectory(hostDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"foreign-template").AsView()));
 
-    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
-    draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView());
 
     // One imported template for a NON-host platform, so the host-fallback check below is valid on
     // every host: if the import shared the host platform it would out-rank the synthesized host
@@ -552,8 +551,8 @@ TEST_CASE("export: an imported template out-ranks the synthesized host for the h
     REQUIRE(CreateDirectory(hostDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"host-template").AsView()));
 
-    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
-    draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView());
 
     // An imported template for the SAME platform AND config as this host build - so the exact-match
     // pass returns both, and the imported (non-host) bundle must win the tiebreak.
@@ -609,7 +608,7 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
 
     // Fake host tool dir: a "player" + its runtime-libs listing one sidecar + the sidecar file.
     REQUIRE(CreateDirectory(toolDir.AsView()));
-    draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
     SaveText(toolFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
     SaveText(toolFs, u8"Draconic.Engine.Player.runtime-libs", u8"libfoo.so\n");
     SaveText(toolFs, u8"libfoo.so", u8"foo\n");
@@ -622,14 +621,14 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
     preset.platform = String(GetHostPlatformName()); // -> the host template
     preset.outputSubdir = String(u8"host");
 
-    draconic::pipeline::BuilderRegistry builders; // no assets -> no builders needed
+    pipeline::BuilderRegistry builders; // no assets -> no builders needed
     editor::ExportResult result;
     REQUIRE(
         editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result)
             .IsOk());
 
     // The dist carries the player, the sidecar, and the content (Content.pak + player.xml).
-    draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+    foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
     CHECK(distFs.Exists(GetExecutableName(u8"Draconic.Engine.Player").AsView()));
     CHECK(distFs.Exists(u8"libfoo.so"));
     CHECK(distFs.Exists(u8"Content.pak"));
@@ -662,7 +661,7 @@ TEST_CASE("export: a template built against a different engine version warns but
     // An imported template for the host platform stamped with a DIFFERENT engine version.
     REQUIRE(CreateDirectory(rootDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"old-template").AsView()));
-    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
     editor::ExportTemplate old;
     old.id = String(u8"draconic-old-engine");
     old.platform = String(GetHostPlatformName());
@@ -671,11 +670,11 @@ TEST_CASE("export: a template built against a different engine version warns but
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), old, u8"old-template/template.xml")
                 .IsOk());
     // The player file the driver stages from the template dir.
-    draconic::vfs::NativeFileSystem oldDirFs(PathJoin(rootDir.AsView(), u8"old-template").AsView());
+    foundation::vfs::NativeFileSystem oldDirFs(PathJoin(rootDir.AsView(), u8"old-template").AsView());
     SaveText(oldDirFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
 
     REQUIRE(CreateDirectory(toolDir.AsView()));
-    draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
     editor::TemplateRegistry registry;
     registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
 
@@ -684,7 +683,7 @@ TEST_CASE("export: a template built against a different engine version warns but
     preset.templateId = String(u8"draconic-old-engine"); // resolve to the mismatched template
     preset.outputSubdir = String(u8"old");
 
-    draconic::pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders;
     editor::ExportResult result;
     // Export still SUCCEEDS (soft match) ...
     REQUIRE(
@@ -708,7 +707,7 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
     REQUIRE(CreateDirectory(src.AsView()));
 
     // A source bundle: template.xml + a fake player + a sidecar.
-    draconic::vfs::NativeFileSystem srcFs(src.AsView());
+    foundation::vfs::NativeFileSystem srcFs(src.AsView());
     editor::ExportTemplate t;
     t.id = String(u8"draconic-win64-import");
     t.platform = String(u8"Win64");
@@ -723,8 +722,8 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
     CHECK(importedId == u8"draconic-win64-import");
 
     // The registry over the root now resolves it (alongside the synthesized host template).
-    draconic::vfs::NativeFileSystem rootFs(root.AsView());
-    draconic::vfs::NativeFileSystem toolFs(src.AsView()); // any dir for the host template
+    foundation::vfs::NativeFileSystem rootFs(root.AsView());
+    foundation::vfs::NativeFileSystem toolFs(src.AsView()); // any dir for the host template
     editor::TemplateRegistry reg;
     reg.Refresh(root.AsView(), &rootFs, src.AsView(), &toolFs);
     const editor::ExportTemplate* found = reg.FindById(u8"draconic-win64-import");
@@ -759,7 +758,7 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     const String binDir = PathJoin(
         PathJoin(PathJoin(base.AsView(), u8"Bin").AsView(), u8"Release").AsView(), leaf.AsView());
     REQUIRE(CreateDirectories(binDir.AsView()));
-    draconic::vfs::NativeFileSystem binFs(binDir.AsView());
+    foundation::vfs::NativeFileSystem binFs(binDir.AsView());
     SaveText(binFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
     SaveText(binFs, u8"Draconic.Engine.Player.runtime-libs", u8"libfoo.so\n");
     SaveText(binFs, u8"libfoo.so", u8"foo\n");
@@ -773,12 +772,12 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     String expectedId(u8"draconic-");
     expectedId += editor::AsciiLower(GetHostPlatformName());
     expectedId += u8"-release-";
-    expectedId += draconic::engine::project::kEngineVersionString;
+    expectedId += engine::project::kEngineVersionString;
     CHECK(createdId == expectedId.AsView());
     CHECK(createdDir == PathJoin(root.AsView(), createdId.AsView()));
 
     // The bundle exists on disk: manifest + player + the sidecar.
-    draconic::vfs::NativeFileSystem bundleFs(createdDir.AsView());
+    foundation::vfs::NativeFileSystem bundleFs(createdDir.AsView());
     CHECK(bundleFs.Exists(u8"template.xml"));
     CHECK(bundleFs.Exists(GetExecutableName(u8"Draconic.Engine.Player").AsView()));
     CHECK(bundleFs.Exists(u8"libfoo.so"));
@@ -793,8 +792,8 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     CHECK(manifest.sidecars[0] == u8"libfoo.so");
 
     // The registry over the root now finds the created template.
-    draconic::vfs::NativeFileSystem rootFs(root.AsView());
-    draconic::vfs::NativeFileSystem toolFs(base.AsView()); // any dir for the host template
+    foundation::vfs::NativeFileSystem rootFs(root.AsView());
+    foundation::vfs::NativeFileSystem toolFs(base.AsView()); // any dir for the host template
     editor::TemplateRegistry reg;
     reg.Refresh(root.AsView(), &rootFs, base.AsView(), &toolFs);
     const editor::ExportTemplate* found = reg.FindById(createdId.AsView());
@@ -820,7 +819,7 @@ TEST_CASE("export: CreateTemplate --out mode writes a self-contained bundle to t
     const String binDir = PathJoin(
         PathJoin(PathJoin(base.AsView(), u8"Bin").AsView(), u8"Debug").AsView(), leaf.AsView());
     REQUIRE(CreateDirectories(binDir.AsView()));
-    draconic::vfs::NativeFileSystem binFs(binDir.AsView());
+    foundation::vfs::NativeFileSystem binFs(binDir.AsView());
     SaveText(binFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
     // No runtime-libs manifest => no sidecars (an rpath-style build); the player alone still packages.
 
@@ -830,7 +829,7 @@ TEST_CASE("export: CreateTemplate --out mode writes a self-contained bundle to t
                 .IsOk());
     // ExportFolder writes straight into the given folder (zip it to distribute).
     CHECK(createdDir == outFolder);
-    draconic::vfs::NativeFileSystem bundleFs(outFolder.AsView());
+    foundation::vfs::NativeFileSystem bundleFs(outFolder.AsView());
     CHECK(bundleFs.Exists(u8"template.xml"));
     CHECK(bundleFs.Exists(GetExecutableName(u8"Draconic.Engine.Player").AsView()));
 
@@ -867,7 +866,7 @@ TEST_CASE("export: FindBy resolves exact (platform,config) and falls back prefer
     const auto writeTemplate = [&](StringView id, StringView cfg, StringView subdir)
     {
         REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), subdir).AsView()));
-        draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+        foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
         editor::ExportTemplate t;
         t.id = String(id);
         t.platform = plat;
@@ -880,8 +879,8 @@ TEST_CASE("export: FindBy resolves exact (platform,config) and falls back prefer
     writeTemplate(u8"draconic-dbg", u8"Debug", u8"dbg");
     writeTemplate(u8"draconic-rel", u8"Release", u8"rel");
 
-    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
-    draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView());
     editor::TemplateRegistry reg;
     reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
 
@@ -931,7 +930,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     // An imported template with a player, one required sidecar, and one SYMBOL file.
     REQUIRE(CreateDirectory(rootDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"sym-template").AsView()));
-    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
     editor::ExportTemplate t;
     t.id = String(u8"draconic-sym");
     t.platform = String(GetHostPlatformName());
@@ -940,18 +939,18 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     t.symbols.PushBack(String(u8"Draconic.Engine.Player.debug"));
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), t, u8"sym-template/template.xml")
                 .IsOk());
-    draconic::vfs::NativeFileSystem tmplDirFs(
+    foundation::vfs::NativeFileSystem tmplDirFs(
         PathJoin(rootDir.AsView(), u8"sym-template").AsView());
     SaveText(tmplDirFs, GetExecutableName(u8"Draconic.Engine.Player").AsView(), u8"#!player\n");
     SaveText(tmplDirFs, u8"libfoo.so", u8"foo\n");
     SaveText(tmplDirFs, u8"Draconic.Engine.Player.debug", u8"dwarf\n");
 
     REQUIRE(CreateDirectory(toolDir.AsView()));
-    draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
     editor::TemplateRegistry registry;
     registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
 
-    draconic::pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders;
 
     // Default preset: symbols stripped from the dist (sidecar staged, symbol not).
     {
@@ -963,7 +962,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
         REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false,
                                   &result)
                     .IsOk());
-        draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+        foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
         CHECK(distFs.Exists(GetExecutableName(u8"Draconic.Engine.Player").AsView()));
         CHECK(distFs.Exists(u8"libfoo.so"));                // required sidecar always staged
         CHECK_FALSE(distFs.Exists(u8"Draconic.Engine.Player.debug")); // symbols stripped by default
@@ -981,7 +980,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
         REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false,
                                   &result)
                     .IsOk());
-        draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+        foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
         CHECK(distFs.Exists(u8"Draconic.Engine.Player.debug")); // opted in
         CHECK(result.filesStaged == 4u);              // player + shaders.dpak + sidecar + symbol
     }
@@ -997,7 +996,7 @@ TEST_CASE("export: a v1 export_presets.xml without config/stageSymbols reads as 
     const String dir = TempDir(u8"draconic_presets_v1");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    draconic::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView());
 
     // A hand-written v1 export_presets.xml (dataVersion 1, no config/stageSymbols on the preset).
     const StringView v1 = u8"<root>"
@@ -1041,13 +1040,13 @@ TEST_CASE("export: ResolveTemplatesRoot prefers an explicit override")
 
 TEST_CASE("export: EditorExportSettings round-trips through the editor settings store")
 {
-    namespace settings = draconic::settings;
+    namespace settings = foundation::settings;
     editor::RegisterEditorSettingsTypes(); // so Settings::Load can instantiate the section
 
     const String dir = TempDir(u8"draconic_editor_settings");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    draconic::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView());
 
     // First run: no file => NotFound, and the section is absent (reads as its defaults on access).
     {
@@ -1079,7 +1078,7 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
 {
     GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
     RegisterSerializable<scene::SceneDocument>();
-    draconic::pipeline::RegisterMeshAssets();
+    pipeline::RegisterMeshAssets();
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
@@ -1095,12 +1094,12 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     REQUIRE(static_cast<bool>(project));
 
     // Two authored meshes; the scene references only the first.
-    draconic::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
+    foundation::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
     const Guid meshRefId = AuthorMesh(*meshes, u8"Referenced");
     const Guid meshDeadId = AuthorMesh(*meshes, u8"Unreferenced");
 
-    draconic::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
-    draconic::content::Instance* sceneInst =
+    foundation::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
+    foundation::content::Instance* sceneInst =
         scenes->CreateInstance(u8"Main", scene::SceneDocument::StaticType());
     REQUIRE(sceneInst != nullptr);
     {
@@ -1111,18 +1110,18 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     const Guid sceneId = sceneInst->Id();
     {
         scene::Scene scene(u8"Main");
-        scene.AddSystem<draconic::engine::render::MeshComponentManager>();
+        scene.AddSystem<engine::render::MeshComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Box");
-        scene.GetSystem<draconic::engine::render::MeshComponentManager>()->Add(e).mesh.SetId(meshRefId);
+        scene.GetSystem<engine::render::MeshComponentManager>()->Add(e).mesh.SetId(meshRefId);
         REQUIRE(scene::SaveScene(scene, *sceneInst).IsOk());
     }
     project->Settings().defaultSceneId = sceneId;
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    draconic::pipeline::BuilderRegistry builders;
-    builders.Register(UniquePtr<draconic::pipeline::IAssetBuilder>(
-        DefaultAllocator().New<draconic::pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    pipeline::BuilderRegistry builders;
+    builders.Register(UniquePtr<pipeline::IAssetBuilder>(
+        DefaultAllocator().New<pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
     editor::TemplateRegistry registry;
     SetupHostTemplate(toolDir.AsView(), registry);
     const editor::SceneReferenceScanner scanner = MakePruningScanner();
@@ -1138,10 +1137,10 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
                               &result, {}, true, nullptr, &scanner)
                 .IsOk());
 
-    draconic::vfs::PakFileSystem pak(
+    foundation::vfs::PakFileSystem pak(
         PathJoin(result.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
                                           project::kCookedAssetExtension);
     CHECK(db.GetInstance(sceneId) != nullptr);    // scene staged
     CHECK(db.GetInstance(meshRefId) != nullptr);  // referenced mesh kept
@@ -1161,7 +1160,7 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
         }
     }
     CHECK(droppedDead);
-    draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+    foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
     CHECK(distFs.Exists(u8"export-report.txt")); // report written beside the dist
 
     // --- non-pruned (default) export: EVERYTHING ships, no report (escape hatch, no regression) ---
@@ -1173,15 +1172,15 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     REQUIRE(editor::ExportOne(*project, full, registry, builders, outRoot.AsView(), false,
                               &fullResult, {}, true, nullptr, &scanner)
                 .IsOk());
-    draconic::vfs::PakFileSystem fullPak(
+    foundation::vfs::PakFileSystem fullPak(
         PathJoin(fullResult.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(fullPak.IsValid());
-    draconic::content::ContentDatabase fullDb(fullPak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase fullDb(fullPak, BinarySerializerFactory(),
                                               project::kCookedAssetExtension);
     CHECK(fullDb.GetInstance(meshRefId) != nullptr);
     CHECK(fullDb.GetInstance(meshDeadId) != nullptr); // unreferenced ships when not pruning
     CHECK_FALSE(fullResult.pruning.pruned);
-    draconic::vfs::NativeFileSystem fullFs(fullResult.outputDir.AsView());
+    foundation::vfs::NativeFileSystem fullFs(fullResult.outputDir.AsView());
     CHECK_FALSE(fullFs.Exists(u8"export-report.txt"));
 
     NukeTree(projectDir.AsView());
@@ -1194,7 +1193,7 @@ TEST_CASE(
 {
     GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
     RegisterSerializable<scene::SceneDocument>();
-    draconic::pipeline::RegisterMeshAssets();
+    pipeline::RegisterMeshAssets();
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
@@ -1209,12 +1208,12 @@ TEST_CASE(
     UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
-    draconic::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
+    foundation::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
     const Guid meshRefId = AuthorMesh(*meshes, u8"Referenced");
     const Guid meshDeadId = AuthorMesh(*meshes, u8"Unreferenced");
 
-    draconic::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
-    draconic::content::Instance* sceneInst =
+    foundation::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
+    foundation::content::Instance* sceneInst =
         scenes->CreateInstance(u8"Main", scene::SceneDocument::StaticType());
     REQUIRE(sceneInst != nullptr);
     {
@@ -1225,18 +1224,18 @@ TEST_CASE(
     const Guid sceneId = sceneInst->Id();
     {
         scene::Scene scene(u8"Main");
-        scene.AddSystem<draconic::engine::render::MeshComponentManager>();
+        scene.AddSystem<engine::render::MeshComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Box");
-        scene.GetSystem<draconic::engine::render::MeshComponentManager>()->Add(e).mesh.SetId(meshRefId);
+        scene.GetSystem<engine::render::MeshComponentManager>()->Add(e).mesh.SetId(meshRefId);
         REQUIRE(scene::SaveScene(scene, *sceneInst).IsOk());
     }
     project->Settings().defaultSceneId = sceneId;
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    draconic::pipeline::BuilderRegistry builders;
-    builders.Register(UniquePtr<draconic::pipeline::IAssetBuilder>(
-        DefaultAllocator().New<draconic::pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    pipeline::BuilderRegistry builders;
+    builders.Register(UniquePtr<pipeline::IAssetBuilder>(
+        DefaultAllocator().New<pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
     editor::TemplateRegistry registry;
     SetupHostTemplate(toolDir.AsView(), registry);
 
@@ -1258,10 +1257,10 @@ TEST_CASE(
                               &result, {}, true, nullptr, /*scanner*/ nullptr, &reachable)
                 .IsOk());
 
-    draconic::vfs::PakFileSystem pak(
+    foundation::vfs::PakFileSystem pak(
         PathJoin(result.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
                                           project::kCookedAssetExtension);
     CHECK(db.GetInstance(sceneId) != nullptr);
     CHECK(db.GetInstance(meshRefId) != nullptr);
@@ -1279,10 +1278,10 @@ TEST_CASE(
     REQUIRE(editor::ExportOne(*project, noHelp, registry, builders, outRoot.AsView(), false,
                               &noHelpResult)
                 .IsOk());
-    draconic::vfs::PakFileSystem noHelpPak(
+    foundation::vfs::PakFileSystem noHelpPak(
         PathJoin(noHelpResult.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(noHelpPak.IsValid());
-    draconic::content::ContentDatabase noHelpDb(noHelpPak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase noHelpDb(noHelpPak, BinarySerializerFactory(),
                                                 project::kCookedAssetExtension);
     CHECK(noHelpDb.GetInstance(meshDeadId) != nullptr); // fell back to pack-everything
     CHECK_FALSE(noHelpResult.pruning.pruned);
@@ -1298,7 +1297,7 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     RegisterSerializable<scene::SceneDocument>();
     GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType());
     RegisterSerializable<scene::PrefabDocument>();
-    draconic::pipeline::RegisterMeshAssets();
+    pipeline::RegisterMeshAssets();
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
@@ -1313,15 +1312,15 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
-    draconic::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
+    foundation::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
     const Guid meshInPrefab = AuthorMesh(*meshes, u8"PrefabMesh");
     const Guid meshDead = AuthorMesh(*meshes, u8"Unreferenced");
 
     // The prefab body: an entity with a MeshComponent -> meshInPrefab, captured into the prefab
     // instance's "scene" stream. meshInPrefab is reachable ONLY through this prefab.
-    draconic::content::Group* prefabsGroup =
+    foundation::content::Group* prefabsGroup =
         project->SourceDb().RootGroup()->CreateGroup(u8"Prefabs");
-    draconic::content::Instance* prefabInst =
+    foundation::content::Instance* prefabInst =
         prefabsGroup->CreateInstance(u8"Barrel", scene::PrefabDocument::StaticType());
     REQUIRE(prefabInst != nullptr);
     {
@@ -1332,9 +1331,9 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     const Guid prefabId = prefabInst->Id();
     {
         scene::Scene author(u8"Barrel");
-        author.AddSystem<draconic::engine::render::MeshComponentManager>();
+        author.AddSystem<engine::render::MeshComponentManager>();
         const scene::EntityHandle e = author.CreateEntity(u8"Body");
-        author.GetSystem<draconic::engine::render::MeshComponentManager>()->Add(e).mesh.SetId(meshInPrefab);
+        author.GetSystem<engine::render::MeshComponentManager>()->Add(e).mesh.SetId(meshInPrefab);
         MemoryStream payload;
         REQUIRE(scene::CapturePrefab(author, e, payload).IsOk());
         const Span<const byte> bytes = payload.Bytes();
@@ -1343,8 +1342,8 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
 
     // The main scene spawns the prefab, then saves it (persists as ref + deltas -> a
     // PendingPrefabInstance on load, NOT a flattened mesh).
-    draconic::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
-    draconic::content::Instance* sceneInst =
+    foundation::content::Group* scenes = project->SourceDb().RootGroup()->CreateGroup(u8"Scenes");
+    foundation::content::Instance* sceneInst =
         scenes->CreateInstance(u8"Main", scene::SceneDocument::StaticType());
     REQUIRE(sceneInst != nullptr);
     {
@@ -1355,7 +1354,7 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     const Guid sceneId = sceneInst->Id();
     {
         scene::Scene scene(u8"Main");
-        scene.AddSystem<draconic::engine::render::MeshComponentManager>();
+        scene.AddSystem<engine::render::MeshComponentManager>();
         UniquePtr<IStream> payloadStream = prefabInst->ReadData(u8"scene");
         REQUIRE(payloadStream.Get() != nullptr);
         const scene::EntityHandle spawned = scene::SpawnPrefab(scene, *payloadStream, prefabId);
@@ -1367,9 +1366,9 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    draconic::pipeline::BuilderRegistry builders;
-    builders.Register(UniquePtr<draconic::pipeline::IAssetBuilder>(
-        DefaultAllocator().New<draconic::pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    pipeline::BuilderRegistry builders;
+    builders.Register(UniquePtr<pipeline::IAssetBuilder>(
+        DefaultAllocator().New<pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
     editor::TemplateRegistry registry;
     SetupHostTemplate(toolDir.AsView(), registry);
     const editor::SceneReferenceScanner scanner = MakePruningScanner();
@@ -1386,10 +1385,10 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
 
     // The whole chain is kept: scene staged, prefab staged (scene->prefab), the prefab's mesh cooked
     // in (prefab->asset); the unreferenced mesh is gone.
-    draconic::vfs::PakFileSystem pak(
+    foundation::vfs::PakFileSystem pak(
         PathJoin(result.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    draconic::content::ContentDatabase db(pak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
                                           project::kCookedAssetExtension);
     CHECK(db.GetInstance(sceneId) != nullptr);
     CHECK(db.GetInstance(prefabId) != nullptr);     // prefab staged
@@ -1407,7 +1406,7 @@ TEST_CASE(
     const String dir = TempDir(u8"draconic_presets_controller");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    draconic::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView());
 
     // First load, no file yet => seeded with the built-in default (one host-platform preset).
     editor::ExportPresetsController ctl;
@@ -1486,8 +1485,8 @@ TEST_CASE("export: RemoveTemplate deletes an installed bundle the registry then 
     REQUIRE(CreateDirectory(hostDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"draconic-remove-me").AsView()));
 
-    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
-    draconic::vfs::NativeFileSystem hostFs(hostDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView());
     editor::ExportTemplate t;
     t.id = String(u8"draconic-remove-me");
     t.platform = String(u8"Win64");
@@ -1505,7 +1504,7 @@ TEST_CASE("export: RemoveTemplate deletes an installed bundle the registry then 
     // Remove the bundle dir; a fresh registry no longer sees it (host template remains).
     REQUIRE(editor::RemoveTemplate(rootDir.AsView(), u8"draconic-remove-me").IsOk());
     {
-        draconic::vfs::NativeFileSystem rootFs2(rootDir.AsView());
+        foundation::vfs::NativeFileSystem rootFs2(rootDir.AsView());
         editor::TemplateRegistry reg;
         reg.Refresh(rootDir.AsView(), &rootFs2, hostDir.AsView(), &hostFs);
         CHECK(reg.FindById(u8"draconic-remove-me") == nullptr);
@@ -1524,7 +1523,7 @@ TEST_CASE("export: TemplateEngineMatches flags a version mismatch, passes host +
 {
     // The synthesized host template carries this build's engine version => matches.
     editor::ExportTemplate host;
-    host.engineVersion = String(draconic::engine::project::kEngineVersionString);
+    host.engineVersion = String(engine::project::kEngineVersionString);
     CHECK(editor::TemplateEngineMatches(host));
 
     // A stamped, differing version => mismatch (the "!" note in the templates manager).
@@ -1545,7 +1544,7 @@ TEST_CASE("export: ExportRootsSet membership toggle is idempotent and round-trip
     const String dir = TempDir(u8"draconic_export_roots_set");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    draconic::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView());
 
     editor::ExportRootsSet set;
     CHECK(set.IsEmpty());
@@ -1596,16 +1595,16 @@ TEST_CASE("export: CollectGroupInstances enumerates a group subtree, not its sib
     UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
-    draconic::content::ContentDatabase& db = project->SourceDb();
+    foundation::content::ContentDatabase& db = project->SourceDb();
     const TypeInfo& ty = scene::SceneDocument::StaticType(); // any type; enumeration ignores it
 
-    draconic::content::Group* weapons = db.RootGroup()->CreateGroup(u8"Weapons");
+    foundation::content::Group* weapons = db.RootGroup()->CreateGroup(u8"Weapons");
     const Guid sword = weapons->CreateInstance(u8"Sword", ty)->Id();
     const Guid axe = weapons->CreateInstance(u8"Axe", ty)->Id();
-    draconic::content::Group* rare = weapons->CreateGroup(u8"Rare"); // nested subtree
+    foundation::content::Group* rare = weapons->CreateGroup(u8"Rare"); // nested subtree
     const Guid excalibur = rare->CreateInstance(u8"Excalibur", ty)->Id();
 
-    draconic::content::Group* props = db.RootGroup()->CreateGroup(u8"Props");
+    foundation::content::Group* props = db.RootGroup()->CreateGroup(u8"Props");
     const Guid crate = props->CreateInstance(u8"Crate", ty)->Id();
 
     // "Weapons" pulls its own instances AND the nested Rare subtree, but not the Props sibling.
@@ -1647,14 +1646,14 @@ TEST_CASE("export: CollectExportRoots seeds Always-Export flags + group members,
     UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
-    draconic::content::ContentDatabase& db = project->SourceDb();
+    foundation::content::ContentDatabase& db = project->SourceDb();
     const TypeInfo& ty = scene::SceneDocument::StaticType();
 
-    draconic::content::Group* scenes = db.RootGroup()->CreateGroup(u8"Scenes");
+    foundation::content::Group* scenes = db.RootGroup()->CreateGroup(u8"Scenes");
     const Guid mainScene = scenes->CreateInstance(u8"Main", ty)->Id();
     const Guid weaponMesh =
         db.RootGroup()->CreateGroup(u8"Meshes")->CreateInstance(u8"Sword", ty)->Id();
-    draconic::content::Group* runtime = db.RootGroup()->CreateGroup(u8"RuntimeLoaded");
+    foundation::content::Group* runtime = db.RootGroup()->CreateGroup(u8"RuntimeLoaded");
     const Guid table = runtime->CreateInstance(u8"LootTable", ty)->Id();
 
     project->Settings().defaultSceneId = mainScene;
@@ -1707,7 +1706,7 @@ TEST_CASE("export: template create recognizes a WEB build dir (player page + web
     NukeTree(dir.AsView());
     NukeTree(dest.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    draconic::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView());
 
     SaveText(root, u8"Draconic.Engine.Player.html", u8"<html>player page</html>");
     SaveText(root, u8"Draconic.Engine.Player.js", u8"// glue");
@@ -1721,7 +1720,7 @@ TEST_CASE("export: template create recognizes a WEB build dir (player page + web
                                    editor::TemplateOutput::ExportFolder, &id, &outDir)
                 .IsOk());
 
-    draconic::vfs::NativeFileSystem out(outDir.AsView());
+    foundation::vfs::NativeFileSystem out(outDir.AsView());
     editor::ExportTemplate created;
     REQUIRE(editor::LoadTemplateManifest(out, created).IsOk());
     CHECK(created.platform == u8"Web");
@@ -1764,7 +1763,7 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     // An installed Web template (the shape `--template create <wasm build dir>` produces).
     REQUIRE(CreateDirectory(rootDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"web-template").AsView()));
-    draconic::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
     editor::ExportTemplate web;
     web.id = String(u8"draconic-web-debug-test");
     web.platform = String(u8"Web");
@@ -1775,14 +1774,14 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     web.sidecars.PushBack(String(u8"serve.py"));
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), web, u8"web-template/template.xml")
                 .IsOk());
-    draconic::vfs::NativeFileSystem webDirFs(PathJoin(rootDir.AsView(), u8"web-template").AsView());
+    foundation::vfs::NativeFileSystem webDirFs(PathJoin(rootDir.AsView(), u8"web-template").AsView());
     SaveText(webDirFs, u8"Draconic.Engine.Player.html", u8"<html>player</html>");
     SaveText(webDirFs, u8"Draconic.Engine.Player.js", u8"// glue");
     SaveText(webDirFs, u8"Draconic.Engine.Player.wasm", u8"\0asm");
     SaveText(webDirFs, u8"serve.py", u8"# server");
 
     REQUIRE(CreateDirectory(toolDir.AsView()));
-    draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
     editor::TemplateRegistry registry;
     registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
 
@@ -1791,14 +1790,14 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     preset.platform = String(u8"Web"); // -> the Web template by platform
     preset.outputSubdir = String(u8"web");
 
-    draconic::pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders;
     editor::ExportResult result;
     REQUIRE(
         editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result)
             .IsOk());
 
     // The served folder: page + sidecars + content + the ENGINE shader pack.
-    draconic::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+    foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
     CHECK(distFs.Exists(u8"Draconic.Engine.Player.html"));
     CHECK(distFs.Exists(u8"Draconic.Engine.Player.js"));
     CHECK(distFs.Exists(u8"Draconic.Engine.Player.wasm"));
@@ -1811,14 +1810,14 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     {
         UniquePtr<IStream> packStream = distFs.Open(u8"shaders.dpak", FileMode::Read);
         REQUIRE(static_cast<bool>(packStream));
-        draconic::shaders::CookedShaderPack pack;
+        foundation::shaders::CookedShaderPack pack;
         REQUIRE(pack.Read(*packStream).IsOk());
-        CHECK(pack.Find(u8"tonemap", draconic::shaders::ShaderStage::Fragment,
-                        draconic::shaders::ShaderFlags::None,
-                        draconic::shaders::CookedShaderFormat::Wgsl) != nullptr);
-        CHECK(pack.Find(u8"tonemap", draconic::shaders::ShaderStage::Fragment,
-                        draconic::shaders::ShaderFlags::None,
-                        draconic::shaders::CookedShaderFormat::SpirV) == nullptr);
+        CHECK(pack.Find(u8"tonemap", foundation::shaders::ShaderStage::Fragment,
+                        foundation::shaders::ShaderFlags::None,
+                        foundation::shaders::CookedShaderFormat::Wgsl) != nullptr);
+        CHECK(pack.Find(u8"tonemap", foundation::shaders::ShaderStage::Fragment,
+                        foundation::shaders::ShaderFlags::None,
+                        foundation::shaders::CookedShaderFormat::SpirV) == nullptr);
     }
 
     NukeTree(projectDir.AsView());

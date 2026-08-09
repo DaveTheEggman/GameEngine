@@ -6,8 +6,8 @@ import draconic.core;
 import draconic.shell;
 import draconic.shell.null;
 
-using namespace draconic::core;
-using namespace draconic::shell;
+using namespace foundation::core;
+using namespace foundation::shell;
 
 TEST_CASE("shell.null: a headless shell reports a window and run state")
 {

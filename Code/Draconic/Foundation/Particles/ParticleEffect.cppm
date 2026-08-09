@@ -22,9 +22,9 @@ import :types;
 import :streams;
 import :modules;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::particles
+export namespace foundation::particles
 {
     // ---- ParticleEmitter (spawn timing only) -------------------------------------------------
 
@@ -132,7 +132,7 @@ export namespace draconic::particles
     public:
         // Reflection hook (defined in ParticleEffectReflectionImpl.cpp): a member function so it can
         // reach the private module lists (m_initializers / m_behaviors) without exposing them.
-        static void BuildReflection(draconic::core::TypeBuilder<ParticleSystem>& builder);
+        static void BuildReflection(foundation::core::TypeBuilder<ParticleSystem>& builder);
 
         // Config
         String name;
@@ -735,7 +735,7 @@ export namespace draconic::particles
     public:
         // Reflection hook (defined in ParticleEffectReflectionImpl.cpp): a member function so it can
         // reach the private systems list (m_systems) without exposing it.
-        static void BuildReflection(draconic::core::TypeBuilder<ParticleEffect>& builder);
+        static void BuildReflection(foundation::core::TypeBuilder<ParticleEffect>& builder);
 
         String name;
 

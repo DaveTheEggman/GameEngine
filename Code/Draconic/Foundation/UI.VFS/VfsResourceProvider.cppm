@@ -20,18 +20,17 @@ import draconic.image.io; // LoadImageFromMemory
 import draconic.vfs;      // IFileSystem
 import draconic.ui;       // IResourceProvider
 
-using namespace draconic::core;
-namespace image = draconic::image;
-namespace vfs = draconic::vfs;
+using namespace foundation::core;
+namespace image = foundation::image;
 
-export namespace draconic::ui::vfs
+export namespace foundation::ui::vfs
 {
     /// IResourceProvider that loads resources from a VFS filesystem. The caller owns the filesystem -
     /// this provider does not delete it.
     class VfsResourceProvider final : public IResourceProvider
     {
     public:
-        explicit VfsResourceProvider(draconic::vfs::IFileSystem* fs) noexcept : m_fs(fs) {}
+        explicit VfsResourceProvider(foundation::vfs::IFileSystem* fs) noexcept : m_fs(fs) {}
 
         /// Load text content from a path relative to the filesystem root. Empty files succeed (matching
         /// Sedulous's length<=0 -> Ok).
@@ -101,7 +100,7 @@ export namespace draconic::ui::vfs
         }
 
     private:
-        draconic::vfs::IFileSystem* m_fs;
+        foundation::vfs::IFileSystem* m_fs;
         Array<UniquePtr<image::OwnedImageData>> m_images; // decoded images owned by this provider
     };
 }

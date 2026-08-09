@@ -10,9 +10,9 @@ import draconic.core;
 import draconic.rhi;
 import :validated_render_bundle_encoder;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     class ValidatedCommandEncoder; // forward
@@ -361,4 +361,4 @@ export namespace draconic::rhi::validation
         bool m_ended = false;
     };
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

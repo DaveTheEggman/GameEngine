@@ -17,10 +17,10 @@ export module draconic.ui:iresource_provider;
 import draconic.core;  // StringView, String
 import draconic.image; // ImageData
 
-using namespace draconic::core;
-namespace image = draconic::image;
+using namespace foundation::core;
+namespace image = foundation::image;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class IResourceProvider
     {

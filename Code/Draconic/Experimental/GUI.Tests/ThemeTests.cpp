@@ -8,10 +8,10 @@ import draconic.fonts;
 import draconic.image;
 import draconic.gui;
 
-using namespace draconic::gui;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
-namespace image = draconic::image;
+using namespace experimental::gui;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
+namespace image = foundation::image;
 
 namespace
 {

@@ -18,10 +18,13 @@ import :cluster_system;
 import :resources;
 import :gpu_mesh;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-namespace draconic::render
+namespace foundation::render
 {
     Status MeshRenderer::Initialize()
     {

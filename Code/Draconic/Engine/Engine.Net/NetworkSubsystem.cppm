@@ -22,19 +22,19 @@ import draconic.scene;           // Scene, ISceneAware
 import draconic.engine.scene; // SceneSubsystem (to register as scene-aware)
 import draconic.net.replication; // NetworkComponentManager + RegisterReplicationComponents
 
-using namespace draconic::net;
+using namespace foundation::net;
 
-export namespace draconic::engine::net
+export namespace engine::net
 {
 
-    class NetworkSubsystem final : public draconic::runtime::Subsystem,
-                                   public draconic::scene::ISceneAware
+    class NetworkSubsystem final : public foundation::runtime::Subsystem,
+                                   public foundation::scene::ISceneAware
     {
     public:
         // Inject the NetworkComponent manager into each new scene so authored NetworkComponents (and
         // the server's runtime AssignNetworkId) have a home. Replicated-state component managers (e.g.
         // the transform) are injected by their own subsystems - this adds only the identity tag pool.
-        void OnSceneCreated(draconic::scene::Scene& scene) override
+        void OnSceneCreated(foundation::scene::Scene& scene) override
         {
             scene.AddSystem<NetworkComponentManager>(); // identity (NetworkId + authority + prefab)
             scene.AddSystem<
@@ -49,9 +49,9 @@ export namespace draconic::engine::net
 
         void OnReady() override
         {
-            if (draconic::runtime::Context* ctx = GetContext())
+            if (foundation::runtime::Context* ctx = GetContext())
             {
-                if (auto* scenes = ctx->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+                if (auto* scenes = ctx->GetSubsystem<engine::scene::SceneSubsystem>())
                 {
                     scenes->RegisterSceneAware(this);
                 }
@@ -60,9 +60,9 @@ export namespace draconic::engine::net
 
         void OnShutdown() override
         {
-            if (draconic::runtime::Context* ctx = GetContext())
+            if (foundation::runtime::Context* ctx = GetContext())
             {
-                if (auto* scenes = ctx->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+                if (auto* scenes = ctx->GetSubsystem<engine::scene::SceneSubsystem>())
                 {
                     scenes->UnregisterSceneAware(this);
                 }
@@ -70,4 +70,4 @@ export namespace draconic::engine::net
         }
     };
 
-} // namespace draconic::net
+} // namespace foundation::net

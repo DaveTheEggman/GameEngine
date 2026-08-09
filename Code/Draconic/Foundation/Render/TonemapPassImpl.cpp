@@ -16,10 +16,12 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-namespace draconic::render
+namespace foundation::render
 {
     Status TonemapPass::Initialize()
     {

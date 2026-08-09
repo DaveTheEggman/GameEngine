@@ -13,9 +13,9 @@ export module draconic.ui:iaccelerator_handler;
 import draconic.core;
 import :input_enums; // KeyCode, KeyModifiers
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class IAcceleratorHandler
     {

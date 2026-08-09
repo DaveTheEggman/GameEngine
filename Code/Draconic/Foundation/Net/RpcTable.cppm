@@ -19,9 +19,9 @@ import :transport;
 import :session;
 import :wire;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::net
+export namespace foundation::net
 {
 
     // Channel 254 is reserved for RPC (255 is session control). Route Received events on this channel

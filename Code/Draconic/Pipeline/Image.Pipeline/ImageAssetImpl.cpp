@@ -15,10 +15,10 @@ import draconic.core;
 import draconic.pipeline.core;
 import draconic.image;
 
-using namespace draconic::core;
-using namespace draconic::image;
+using namespace foundation::core;
+using namespace foundation::image;
 
-namespace draconic::pipeline{
+namespace pipeline{
     DRACONIC_REFLECT(ImageAsset, "rtti::editor::image")
     {
         builder.Attribute("displayName", String(u8"Image"))

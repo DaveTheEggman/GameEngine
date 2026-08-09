@@ -46,23 +46,21 @@ import draconic.engine.animation; // SkeletalAnimationComponent(Manager) - engin
 #define DRACONIC_SANDBOX_OUTPUT_DIR ""
 #endif
 
-namespace core = draconic::core;
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace runtime = draconic::runtime;
-namespace graphics = draconic::graphics;
-namespace shell = draconic::shell;
-namespace scene = draconic::scene;
-namespace render = draconic::render;
-namespace imgui = draconic::imgui;
-namespace geometry = draconic::geometry;
-namespace materials = draconic::materials;
-namespace texture = draconic::texture;
-namespace vfs = draconic::vfs;
-namespace content = draconic::content;
-namespace resource = draconic::resource;
-namespace model = draconic::model;
-namespace animation = draconic::animation;
+namespace core = foundation::core;
+namespace rhi = foundation::rhi;
+namespace runtime = foundation::runtime;
+namespace graphics = foundation::graphics;
+namespace shell = foundation::shell;
+namespace scene = foundation::scene;
+namespace imgui = extensions::imgui;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace texture = foundation::texture;
+namespace vfs = foundation::vfs;
+namespace content = foundation::content;
+namespace resource = foundation::resource;
+namespace model = foundation::model;
+namespace animation = foundation::animation;
 
 namespace
 {
@@ -74,7 +72,7 @@ namespace
     static constexpr core::f32 kFloorBaseSize =
         120.0f; // base floor-plane size (scaled to cover the grid)
 
-    class AnimStressTestApp final : public draconic::engine::runtime::DefaultApplication
+    class AnimStressTestApp final : public engine::runtime::DefaultApplication
     {
     public:
         // Run uncapped (vsync off) so the frame time reflects real CPU+GPU skinning work, not the
@@ -89,7 +87,7 @@ namespace
         // Register the ImGui subsystem so the benchmark HUD can draw over the scene.
         void Configure(runtime::IApplicationHost& host) override
         {
-            draconic::engine::runtime::DefaultApplication::Configure(host);
+            engine::runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
@@ -98,7 +96,7 @@ namespace
 
         void OnStartup(runtime::IApplicationHost& host) override
         {
-            auto* scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
             if (scenes == nullptr)
             {
                 return;
@@ -108,7 +106,7 @@ namespace
             m_scene = PrimaryScenes().CreateScene(u8"sandbox");
 
             // Per-scene environment ambient (a dim cool indirect term; IBL replaces it later).
-            if (auto* env = m_scene->GetSystem<draconic::engine::render::EnvironmentSystem>())
+            if (auto* env = m_scene->GetSystem<engine::render::EnvironmentSystem>())
             {
                 env->Environment().ambientColor = core::Color{0.12f, 0.16f, 0.28f, 1.0f};
                 env->Environment().ambientIntensity = 0.35f;
@@ -123,20 +121,20 @@ namespace
             core::Transform camT = m_scene->GetLocalTransform(m_camera);
             camT.rotation = core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f}, -0.48f);
             m_scene->SetLocalTransform(m_camera, camT);
-            if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
+            if (auto* cameras = m_scene->GetSystem<engine::render::CameraComponentManager>())
             {
-                draconic::engine::render::CameraComponent& cam = cameras->Add(m_camera); // default 60deg perspective
+                engine::render::CameraComponent& cam = cameras->Add(m_camera); // default 60deg perspective
                 cam.clearColor =
                     core::Color{0.02f, 0.02f, 0.03f, 1.0f}; // dark backdrop so the lit scene reads
             }
 
             // A large horizontal floor (Plane normal = +Y) under the scene - the animated models stand
             // on it and the lights cast their shadows onto it.
-            if (auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>())
+            if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
             {
                 m_floor = m_scene->CreateEntity(u8"floor");
                 m_scene->SetLocalPosition(m_floor, core::Float3{0.0f, -7.0f, 0.0f});
-                draconic::engine::render::MeshComponent& fmc = meshes->Add(m_floor);
+                engine::render::MeshComponent& fmc = meshes->Add(m_floor);
                 fmc.mesh = geometry::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
                 fmc.SetMaterial(materials::CreatePBR(u8"lit", core::Float4{0.5f, 0.5f, 0.53f, 1.0f},
                                                      0.0f, 0.65f));
@@ -144,7 +142,7 @@ namespace
 
             // One directional shadow-casting key light - the whole scene (skinning benchmark, kept light
             // to isolate skinning/animation cost, à la Flax's "5,000 basic characters" reference scene).
-            if (auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>())
+            if (auto* lights = m_scene->GetSystem<engine::render::LightComponentManager>())
             {
                 scene::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
                 core::Transform kt = m_scene->GetLocalTransform(key);
@@ -152,8 +150,8 @@ namespace
                     core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f}, -0.9f) *
                     core::Quaternion::FromAxisAngle(core::Float3{0.0f, 1.0f, 0.0f}, 0.5f);
                 m_scene->SetLocalTransform(key, kt);
-                draconic::engine::render::LightComponent& kl = lights->Add(key);
-                kl.type = draconic::engine::render::LightType::Directional;
+                engine::render::LightComponent& kl = lights->Add(key);
+                kl.type = engine::render::LightType::Directional;
                 kl.color = core::Color{1.0f, 0.97f, 0.92f, 1.0f};
                 kl.intensity = 2.5f;
                 kl.castsShadows = true; // directional CSM
@@ -162,7 +160,7 @@ namespace
             LoadImportedModel(host); // cook the character + spawn the initial grid
 
             // Lower default exposure: the procedural-sky IBL + sun are bright, so AgX washes out at 1.0.
-            if (auto* render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>())
+            if (auto* render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>())
             {
                 render->SetExposure(0.5f);
             }
@@ -234,7 +232,7 @@ namespace
             }
             core::Guid modelGuid;
             const model::ModelLoadResult r =
-                draconic::pipeline::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
+                pipeline::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
             if (r != model::ModelLoadResult::Ok)
             {
                 core::ConsoleWrite(core::Format(u8"AnimStressTest: model import failed ({})\n",
@@ -277,7 +275,7 @@ namespace
         // own AnimationPlayer over the shared skeleton.
         void SpawnInstance(core::Float3 position)
         {
-            auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>();
+            auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>();
             if (meshes == nullptr || !m_model)
             {
                 return;
@@ -294,7 +292,7 @@ namespace
             core::Array<scene::EntityHandle> entities;
             core::Array<scene::EntityHandle> skinnedEntities;
             entities.Reserve(m_model->nodes.Size());
-            for (const draconic::pipeline::ModelNode& node : m_model->nodes)
+            for (const pipeline::ModelNode& node : m_model->nodes)
             {
                 scene::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
                 m_scene->SetLocalTransform(e, node.localTransform);
@@ -302,7 +300,7 @@ namespace
             }
             for (core::usize i = 0; i < m_model->nodes.Size(); ++i)
             {
-                const draconic::pipeline::ModelNode& node = m_model->nodes[i];
+                const pipeline::ModelNode& node = m_model->nodes[i];
                 if (node.parentIndex >= 0 &&
                     static_cast<core::usize>(node.parentIndex) < entities.Size())
                 {
@@ -325,7 +323,7 @@ namespace
                 {
                     continue;
                 }
-                draconic::engine::render::MeshComponent& mc = meshes->Add(entities[i]);
+                engine::render::MeshComponent& mc = meshes->Add(entities[i]);
                 mc.mesh = core::RefPtr<geometry::StaticMesh>(mesh);
                 mc.color = core::Color{1.0f, 1.0f, 1.0f, 1.0f};
                 mc.SetMaterials(m_modelMats); // unified list; slot 0 covers out-of-range
@@ -341,11 +339,11 @@ namespace
             if (m_model->skeleton && !m_clips.IsEmpty() && skinnedEntities.Size() > 0)
             {
                 if (auto* anims =
-                        m_scene->GetSystem<draconic::engine::animation::SkeletalAnimationComponentManager>())
+                        m_scene->GetSystem<engine::animation::SkeletalAnimationComponentManager>())
                 {
                     animation::AnimationClip* clip = m_clips[static_cast<core::usize>(
                         m_rng.NextInt(0, static_cast<core::i32>(m_clips.Size()) - 1))];
-                    draconic::engine::animation::SkeletalAnimationComponent& a = anims->Add(modelRoot);
+                    engine::animation::SkeletalAnimationComponent& a = anims->Add(modelRoot);
                     a.skeleton = m_model->skeleton.Get();
                     a.clip = clip;
                     a.meshEntities =
@@ -407,9 +405,9 @@ namespace
             m_fly.pitch = -core::Atan2(camY, dist); // look down onto the grid center
             // Extend the far plane to cover the whole grid from this distance, so no characters get
             // frustum-far-culled (which would make the throughput measurement cheaper than it is).
-            if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
+            if (auto* cameras = m_scene->GetSystem<engine::render::CameraComponentManager>())
             {
-                if (draconic::engine::render::CameraComponent* cam = cameras->Get(m_camera))
+                if (engine::render::CameraComponent* cam = cameras->Get(m_camera))
                 {
                     cam->nearZ = 0.5f;
                     cam->farZ = dist + extent * 2.0f + 100.0f;
@@ -430,16 +428,16 @@ namespace
         {
             if (m_scene != nullptr && frame.height > 0)
             {
-                if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
+                if (auto* cameras = m_scene->GetSystem<engine::render::CameraComponentManager>())
                 {
-                    if (draconic::engine::render::CameraComponent* cam = cameras->Get(m_camera))
+                    if (engine::render::CameraComponent* cam = cameras->Get(m_camera))
                     {
                         cam->aspect = static_cast<core::f32>(frame.width) /
                                       static_cast<core::f32>(frame.height);
                     }
                 }
             }
-            draconic::engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
+            engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
 
             // HUD over the scene (backbuffer is RenderTarget after the default render path).
             if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
@@ -450,13 +448,13 @@ namespace
 
         void OnUpdate(runtime::IApplicationHost& host, core::f32 deltaTime) override
         {
-            draconic::engine::runtime::DefaultApplication::OnUpdate(host, deltaTime); // keep the P-key profiling dump
+            engine::runtime::DefaultApplication::OnUpdate(host, deltaTime); // keep the P-key profiling dump
 
             // ImGui HUD: open the frame + build the stats window (drawn in OnRenderWindow).
             if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
             {
                 g->NewFrame(host.Shell() != nullptr ? host.Shell()->Input() : nullptr, deltaTime);
-                BuildHud(host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>());
+                BuildHud(host.Ctx().GetSubsystem<engine::render::RenderSubsystem>());
             }
 
             // Fly camera (WASD/QE move, RMB/Tab look, Shift fast). Drives the scene camera entity; Esc exits.
@@ -479,7 +477,7 @@ namespace
                     }
                     if (kb->IsKeyPressed(shell::KeyCode::I))
                     { // toggle prepass->forward instance-data sharing (A/B)
-                        if (auto* render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>())
+                        if (auto* render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>())
                         {
                             const bool on = !render->InstanceSharing();
                             render->SetInstanceSharing(on);
@@ -526,8 +524,8 @@ namespace
                     core::ConsoleWrite(core::Format(
                         u8"=== AnimStressTest PROFILE: chars={}  fps={}  frame={} ms ===\n",
                         m_instances.Size(), static_cast<core::u32>(fps + 0.5f), m_frameTimeMs));
-                    core::ConsoleWrite(draconic::profiler::Profiler::Get().BuildReport().AsView());
-                    if (auto* renderer = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>())
+                    core::ConsoleWrite(foundation::profiler::Profiler::Get().BuildReport().AsView());
+                    if (auto* renderer = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>())
                     {
                         core::String gpu;
                         renderer->BuildGpuProfileReport(gpu);
@@ -565,7 +563,7 @@ namespace
         }
 
         // ImGui HUD: character count + frame stats + exposure/bloom controls (H toggles it).
-        void BuildHud(draconic::engine::render::RenderSubsystem* render)
+        void BuildHud(engine::render::RenderSubsystem* render)
         {
             if (!m_showHud)
             {

@@ -6,8 +6,8 @@ import draconic.core;
 import draconic.vg;
 import draconic.gui;
 
-using namespace draconic::gui;
-namespace core = draconic::core;
+using namespace experimental::gui;
+namespace core = foundation::core;
 
 namespace
 {
@@ -119,7 +119,7 @@ TEST_CASE("slider: draws track + fill + handle")
     s->SetSize(core::Float2{120.0f, 20.0f});
     s->SetValue(0.5f);
 
-    draconic::vg::VGContext ctx;
+    foundation::vg::VGContext ctx;
     DrawContext dc{ctx};
     s->Draw(dc);
     CHECK(ctx.GetBatch().vertices.Size() > 0);

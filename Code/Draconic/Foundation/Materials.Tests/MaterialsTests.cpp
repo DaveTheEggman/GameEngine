@@ -11,10 +11,10 @@ import draconic.rhi.null;
 import draconic.shaders;
 import draconic.materials;
 
-using namespace draconic::core;
-using namespace draconic::materials;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
+using namespace foundation::core;
+using namespace foundation::materials;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
 
 TEST_CASE("material builder: lays out uniforms + declares properties")
 {

@@ -5,8 +5,8 @@
 import draconic.core;
 import draconic.net;
 
-using namespace draconic::core;
-namespace net = draconic::net;
+using namespace foundation::core;
+namespace net = foundation::net;
 
 TEST_CASE("udp: endpoint pack/unpack and IPv4 parsing round-trip")
 {

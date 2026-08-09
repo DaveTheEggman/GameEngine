@@ -12,9 +12,9 @@ export module draconic.fonts:types;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     // Simple rectangle for glyph bounds.
     struct Rectangle
@@ -301,15 +301,15 @@ export namespace draconic::fonts
     }
 }
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // Hash for FontCacheKey, mirroring Sedulous: path hash combined with the
     // pixel height quantized to hundredths. Equality (operator==) uses a 0.001
     // tolerance - fine for the discrete font sizes a cache ever sees.
     template <>
-    struct Hash<draconic::fonts::FontCacheKey>
+    struct Hash<foundation::fonts::FontCacheKey>
     {
-        [[nodiscard]] u64 operator()(const draconic::fonts::FontCacheKey& key) const noexcept
+        [[nodiscard]] u64 operator()(const foundation::fonts::FontCacheKey& key) const noexcept
         {
             const u64 pathHash = Hash<String>{}(key.path);
             const u64 heightBucket = static_cast<u64>(static_cast<i64>(key.pixelHeight * 100.0f));

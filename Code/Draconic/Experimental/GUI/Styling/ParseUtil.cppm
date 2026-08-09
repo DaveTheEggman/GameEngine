@@ -12,10 +12,10 @@ export module draconic.gui:parse_util;
 
 import draconic.core; // StringView
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // A CSS identifier character: letters, digits, '-' (kebab-case) and '_'.
     [[nodiscard]] constexpr bool IsIdentChar(char8_t c) noexcept

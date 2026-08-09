@@ -14,9 +14,9 @@ export module draconic.editor.core:job_service;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
     // Handed to a job's worker function; thread-safe progress reporting back to the UI. One mutex
     // guards the whole snapshot (fraction/step/log); cancellation is a lock-free flag.

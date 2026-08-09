@@ -14,9 +14,9 @@ import draconic.core;
 import draconic.shell;
 import :window;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::shell
+export namespace foundation::shell
 {
     class WebWindowManager final : public IWindowManager
     {

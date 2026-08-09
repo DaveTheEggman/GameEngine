@@ -21,10 +21,10 @@ import draconic.vg;
 import draconic.fonts;
 import draconic.ui;
 
-using namespace draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Colored single-character axis label used as a NumericField prefix.
     class AxisLabel : public View

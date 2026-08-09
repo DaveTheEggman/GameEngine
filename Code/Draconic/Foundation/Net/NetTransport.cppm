@@ -16,9 +16,9 @@ export module draconic.net:transport;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::net
+export namespace foundation::net
 {
 
     // A connected remote. 0 = invalid/none.

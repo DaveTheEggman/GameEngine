@@ -37,9 +37,11 @@ import draconic.editor.core;
 import :editor_icons;
 import :import_dialog;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace content = foundation::content;
+namespace ui = foundation::ui;
 
-namespace draconic::editor::app
+namespace editor::app
 {
     void AssetsView::Refresh()
     {
@@ -56,18 +58,18 @@ namespace draconic::editor::app
         {
             return;
         }
-        const String ext = draconic::editor::FileExtensionLower(path);
-        draconic::editor::IFileImporter* importer = m_context->Importers().FindFor(ext.AsView());
+        const String ext = editor::FileExtensionLower(path);
+        editor::IFileImporter* importer = m_context->Importers().FindFor(ext.AsView());
         if (importer == nullptr)
         {
             String message(u8"No importer for '");
-            message += draconic::editor::FileNameOf(path);
+            message += editor::FileNameOf(path);
             message += u8"'.";
-            m_context->Notify(draconic::editor::NoticeKind::Warning, message.AsView());
+            m_context->Notify(editor::NoticeKind::Warning, message.AsView());
             return;
         }
 
-        RefPtr<draconic::editor::ImportOptions> options = importer->CreateOptions();
+        RefPtr<editor::ImportOptions> options = importer->CreateOptions();
         if (options.Get() == nullptr)
         {
             ExecuteImport(String(path), importer, {});
@@ -80,13 +82,13 @@ namespace draconic::editor::app
             MakeRef<ImportOptionsDialog>(DefaultAllocator(), path, group->Path().AsView(), options);
         AssetsView* self = this;
         dialog->OnImport = [self, file = String(path), importer,
-                            opts = RefPtr<draconic::editor::ImportOptions>(options.Get())]()
+                            opts = RefPtr<editor::ImportOptions>(options.Get())]()
         { self->ExecuteImport(file, importer, opts); };
         dialog->Show(Context);
     }
 
-    void AssetsView::ExecuteImport(String path, draconic::editor::IFileImporter* importer,
-                                   RefPtr<draconic::editor::ImportOptions> options)
+    void AssetsView::ExecuteImport(String path, editor::IFileImporter* importer,
+                                   RefPtr<editor::ImportOptions> options)
     {
         if (m_context->Project() == nullptr)
         {
@@ -95,12 +97,12 @@ namespace draconic::editor::app
         if (importer->WantsWorkerPrepare() && m_jobs != nullptr)
         {
             String title(u8"Importing ");
-            title += draconic::editor::FileNameOf(path.AsView());
+            title += editor::FileNameOf(path.AsView());
             auto* holder = DefaultAllocator().New<RefPtr<Object>>();
             AssetsView* self = this;
             m_jobs->Submit(title.AsView(),
-                           Function<Status(draconic::editor::JobContext&)>{
-                               [importer, path, holder](draconic::editor::JobContext& job) -> Status
+                           Function<Status(editor::JobContext&)>{
+                               [importer, path, holder](editor::JobContext& job) -> Status
                                {
                                    job.SetStep(u8"loading + decoding", 1, 2);
                                    *holder = importer->PrepareOnWorker(path.AsView());
@@ -116,9 +118,9 @@ namespace draconic::editor::app
                                    if (!result.IsOk())
                                    {
                                        String message(u8"Import failed: '");
-                                       message += draconic::editor::FileNameOf(path.AsView());
+                                       message += editor::FileNameOf(path.AsView());
                                        message += u8"' (see Console).";
-                                       self->m_context->Notify(draconic::editor::NoticeKind::Error,
+                                       self->m_context->Notify(editor::NoticeKind::Error,
                                                                message.AsView());
                                        return;
                                    }
@@ -129,8 +131,8 @@ namespace draconic::editor::app
         CommitImport(path, importer, options, {});
     }
 
-    void AssetsView::CommitImport(String path, draconic::editor::IFileImporter* importer,
-                                  RefPtr<draconic::editor::ImportOptions> options,
+    void AssetsView::CommitImport(String path, editor::IFileImporter* importer,
+                                  RefPtr<editor::ImportOptions> options,
                                   RefPtr<Object> prepared)
     {
         if (m_context->Project() == nullptr)
@@ -145,7 +147,7 @@ namespace draconic::editor::app
             m_cook->RunWhenIdle(
                 Function<void()>{[self, path, importer, options, prepared]()
                                  { self->CommitImport(path, importer, options, prepared); }});
-            m_context->Notify(draconic::editor::NoticeKind::Info,
+            m_context->Notify(editor::NoticeKind::Info,
                               u8"Import queued until the current cook finishes.");
             return;
         }
@@ -153,16 +155,16 @@ namespace draconic::editor::app
                                     ? m_selectedGroup
                                     : m_context->Project()->SourceDb().RootGroup();
         auto deferred =
-            MakeUnique<Array<draconic::editor::DeferredImportWrite>>(DefaultAllocator());
+            MakeUnique<Array<editor::DeferredImportWrite>>(DefaultAllocator());
         Result<content::Instance*> imported =
             importer->Import(path.AsView(), *m_context->Project(), *group, options.Get(),
                              prepared.Get(), (m_jobs != nullptr) ? deferred.Get() : nullptr);
         if (!imported.HasValue() || imported.Value() == nullptr)
         {
             String message(u8"Import failed: '");
-            message += draconic::editor::FileNameOf(path.AsView());
+            message += editor::FileNameOf(path.AsView());
             message += u8"' (see Console).";
-            m_context->Notify(draconic::editor::NoticeKind::Error, message.AsView());
+            m_context->Notify(editor::NoticeKind::Error, message.AsView());
             Rebuild();
             return;
         }
@@ -178,19 +180,19 @@ namespace draconic::editor::app
         // cooks out and queues deletes). The prepared payload stays alive - the views
         // borrow its decoded pixels.
         String title(u8"Writing ");
-        title += draconic::editor::FileNameOf(path.AsView());
+        title += editor::FileNameOf(path.AsView());
         AssetsView* self = this;
         auto* writes = deferred.Release();
         const Guid primaryId = primary->Id();
         m_jobs->Submit(
             title.AsView(),
-            Function<Status(draconic::editor::JobContext&)>{
-                [writes, prepared](draconic::editor::JobContext& job) -> Status
+            Function<Status(editor::JobContext&)>{
+                [writes, prepared](editor::JobContext& job) -> Status
                 {
                     Status result{};
                     for (usize i = 0; i < writes->Size(); ++i)
                     {
-                        draconic::editor::DeferredImportWrite& write = (*writes)[i];
+                        editor::DeferredImportWrite& write = (*writes)[i];
                         job.SetStep(write.Label(), i + 1, writes->Size());
                         job.SetFraction(static_cast<f32>(i) / static_cast<f32>(writes->Size()));
                         const Status s = write.Execute();
@@ -212,7 +214,7 @@ namespace draconic::editor::app
                             : nullptr;
                     if (!result.IsOk() || primary == nullptr)
                     {
-                        self->m_context->Notify(draconic::editor::NoticeKind::Error,
+                        self->m_context->Notify(editor::NoticeKind::Error,
                                                 u8"Import data write FAILED (see Console).");
                         self->Rebuild();
                         return;
@@ -222,15 +224,15 @@ namespace draconic::editor::app
     }
 
     void AssetsView::FinishImport(content::Instance& primary,
-                                  draconic::editor::IFileImporter* importer,
-                                  const RefPtr<draconic::editor::ImportOptions>& options)
+                                  editor::IFileImporter* importer,
+                                  const RefPtr<editor::ImportOptions>& options)
     {
         String message(u8"Imported '");
         message += primary.Name();
         message += u8"' (";
         message += importer->Label();
         message += u8").";
-        m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
+        m_context->Notify(editor::NoticeKind::Success, message.AsView());
         m_context->NotifyImported(primary, options.Get());
         // Cook the imported assets explicitly (scoped to the primary's group; the plan
         // skips anything clean). Auto-cook used to ride on the Sources/ watcher noticing
@@ -486,16 +488,16 @@ namespace draconic::editor::app
         text.Append(instance->Name());
         switch (m_cook->BadgeFor(*instance))
         {
-        case draconic::editor::CookBadge::Cooked:
+        case editor::CookBadge::Cooked:
             color = Color{0.6f, 0.9f, 0.6f, 1.0f};
             break;
-        case draconic::editor::CookBadge::Missing:
+        case editor::CookBadge::Missing:
             color = Color{0.95f, 0.85f, 0.5f, 1.0f};
             break;
-        case draconic::editor::CookBadge::Failed:
+        case editor::CookBadge::Failed:
             color = Color{1.0f, 0.45f, 0.45f, 1.0f};
             break;
-        case draconic::editor::CookBadge::NoBuilder:
+        case editor::CookBadge::NoBuilder:
             break;
         }
     }
@@ -520,19 +522,19 @@ namespace draconic::editor::app
         text.Append(instance->TypeName());
         switch (m_cook->BadgeFor(*instance))
         {
-        case draconic::editor::CookBadge::Cooked:
+        case editor::CookBadge::Cooked:
             text.Append(u8"  [cooked]");
             color = Color{0.6f, 0.9f, 0.6f, 1.0f};
             break;
-        case draconic::editor::CookBadge::Missing:
+        case editor::CookBadge::Missing:
             text.Append(u8"  [not cooked]");
             color = Color{0.95f, 0.85f, 0.5f, 1.0f};
             break;
-        case draconic::editor::CookBadge::Failed:
+        case editor::CookBadge::Failed:
             text.Append(u8"  [FAILED]");
             color = Color{1.0f, 0.45f, 0.45f, 1.0f};
             break;
-        case draconic::editor::CookBadge::NoBuilder:
+        case editor::CookBadge::NoBuilder:
             break;
         }
     }
@@ -750,7 +752,7 @@ namespace draconic::editor::app
         // Top-level creators, then categorized ones ("Primitives") in submenus, then the
         // group + cook actions.
         Array<StringView> categories;
-        for (const draconic::editor::EditorContext::AssetCreator& creator : m_context->Creators())
+        for (const editor::EditorContext::AssetCreator& creator : m_context->Creators())
         {
             if (creator.category.IsEmpty())
             {
@@ -821,7 +823,7 @@ namespace draconic::editor::app
             {
                 continue;
             }
-            for (const draconic::editor::EditorContext::AssetCreator& creator :
+            for (const editor::EditorContext::AssetCreator& creator :
                  m_context->Creators())
             {
                 if (creator.category.AsView() != category)
@@ -849,7 +851,7 @@ namespace draconic::editor::app
 
     bool AssetsView::IsInstanceExportRoot(const Guid& id) const
     {
-        draconic::editor::EditorProject* project = m_context->Project();
+        editor::EditorProject* project = m_context->Project();
         return project != nullptr && project->ExportRoots().HasInstance(id);
     }
 
@@ -872,14 +874,14 @@ namespace draconic::editor::app
 
     bool AssetsView::IsGroupExportRoot(content::Group* group) const
     {
-        draconic::editor::EditorProject* project = m_context->Project();
+        editor::EditorProject* project = m_context->Project();
         return project != nullptr && group != nullptr &&
                project->ExportRoots().HasGroup(group->Path().AsView());
     }
 
     void AssetsView::ToggleInstanceExportRoot(const Guid& id)
     {
-        draconic::editor::EditorProject* project = m_context->Project();
+        editor::EditorProject* project = m_context->Project();
         if (project == nullptr)
         {
             return;
@@ -892,7 +894,7 @@ namespace draconic::editor::app
 
     void AssetsView::ToggleGroupExportRoot(content::Group* group)
     {
-        draconic::editor::EditorProject* project = m_context->Project();
+        editor::EditorProject* project = m_context->Project();
         if (project == nullptr || group == nullptr)
         {
             return;
@@ -903,14 +905,14 @@ namespace draconic::editor::app
 
     void AssetsView::AfterExportRootChange(bool nowRoot, StringView name, bool isGroup)
     {
-        draconic::editor::EditorProject* project = m_context->Project();
+        editor::EditorProject* project = m_context->Project();
         if (project == nullptr)
         {
             return;
         }
         if (Status s = project->SaveExportRoots(); !s.IsOk())
         {
-            m_context->Notify(draconic::editor::NoticeKind::Error,
+            m_context->Notify(editor::NoticeKind::Error,
                               u8"Failed to save export roots (export_roots.xml)");
             return;
         }
@@ -921,7 +923,7 @@ namespace draconic::editor::app
         {
             message += u8" (contents)";
         }
-        m_context->Notify(draconic::editor::NoticeKind::Info, message.AsView());
+        m_context->Notify(editor::NoticeKind::Info, message.AsView());
         RebuildList();
     }
 
@@ -933,7 +935,7 @@ namespace draconic::editor::app
             AssetsView* self = this;
             m_cook->RunWhenIdle(
                 Function<void()>{[self, parent]() { self->CreateGroupIn(parent); }});
-            m_context->Notify(draconic::editor::NoticeKind::Info,
+            m_context->Notify(editor::NoticeKind::Info,
                               u8"New group queued until the current cook finishes.");
             return;
         }
@@ -965,7 +967,7 @@ namespace draconic::editor::app
         content::Instance* copy = db.CloneInstance(id, name.AsView());
         if (copy == nullptr)
         {
-            m_context->Notify(draconic::editor::NoticeKind::Error,
+            m_context->Notify(editor::NoticeKind::Error,
                               u8"Duplicate FAILED (see console).");
             return;
         }
@@ -999,7 +1001,7 @@ namespace draconic::editor::app
             m_cook->RunWhenIdle(
                 Function<void()>{[self, id, renamed = String(name)]()
                                  { self->ApplyRenameInstance(id, renamed.AsView()); }});
-            m_context->Notify(draconic::editor::NoticeKind::Info,
+            m_context->Notify(editor::NoticeKind::Info,
                               u8"Rename queued until the current cook finishes.");
             return;
         }
@@ -1016,7 +1018,7 @@ namespace draconic::editor::app
         const Status renamed = m_context->Project()->SourceDb().RenameInstance(id, name);
         if (!renamed.IsOk())
         {
-            m_context->Notify(draconic::editor::NoticeKind::Error,
+            m_context->Notify(editor::NoticeKind::Error,
                               renamed.Code() == ErrorCode::AlreadyExists
                                   ? StringView(u8"NOT renamed: name already taken.")
                                   : StringView(u8"Rename FAILED (see console)."));
@@ -1049,7 +1051,7 @@ namespace draconic::editor::app
             m_cook->RunWhenIdle(
                 Function<void()>{[self, group, renamed = String(name)]()
                                  { self->ApplyRenameGroup(group, renamed.AsView()); }});
-            m_context->Notify(draconic::editor::NoticeKind::Info,
+            m_context->Notify(editor::NoticeKind::Info,
                               u8"Rename queued until the current cook finishes.");
             return;
         }
@@ -1061,7 +1063,7 @@ namespace draconic::editor::app
         const Status renamed = m_context->Project()->SourceDb().RenameGroup(*group, name);
         if (!renamed.IsOk())
         {
-            m_context->Notify(draconic::editor::NoticeKind::Error,
+            m_context->Notify(editor::NoticeKind::Error,
                               renamed.Code() == ErrorCode::AlreadyExists
                                   ? StringView(u8"NOT renamed: name already taken.")
                                   : StringView(u8"Rename FAILED (see console)."));
@@ -1262,7 +1264,7 @@ namespace draconic::editor::app
             Array<Guid> copy = ids;
             m_cook->RunWhenIdle(
                 Function<void()>{[self, copy = Move(copy)]() { self->DeleteInstances(copy); }});
-            m_context->Notify(draconic::editor::NoticeKind::Info,
+            m_context->Notify(editor::NoticeKind::Info,
                               u8"Delete queued until the current cook finishes.");
             return;
         }
@@ -1375,7 +1377,7 @@ namespace draconic::editor::app
         {
             AssetsView* self = this;
             m_cook->RunWhenIdle(Function<void()>{[self, group]() { self->DeleteGroupNow(group); }});
-            m_context->Notify(draconic::editor::NoticeKind::Info,
+            m_context->Notify(editor::NoticeKind::Info,
                               u8"Delete queued until the current cook finishes.");
             return;
         }
@@ -1409,7 +1411,7 @@ namespace draconic::editor::app
         else
         {
             DRACONIC_LOG_WARNING(u8"Assets", u8"delete FAILED for group '{}'", path);
-            m_context->Notify(draconic::editor::NoticeKind::Error,
+            m_context->Notify(editor::NoticeKind::Error,
                               u8"Delete group FAILED (see console).");
         }
         ClearDefaultSceneIfGone();

@@ -10,9 +10,9 @@ export module draconic.ui:gravity;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     enum class Gravity : u32
     {

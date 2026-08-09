@@ -11,7 +11,7 @@ module;
 
 module draconic.gui;
 
-namespace draconic::gui
+namespace experimental::gui
 {
     void Node::RequestFocus()
     {

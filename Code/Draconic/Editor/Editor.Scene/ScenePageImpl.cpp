@@ -50,9 +50,15 @@ import :component_gizmos;
 import :hierarchy;
 import :inspector;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace render = foundation::render;
+namespace rhi = foundation::rhi;
+namespace runtime = foundation::runtime;
+namespace scene = foundation::scene;
+namespace ui = foundation::ui;
+namespace vg = foundation::vg;
 
-namespace draconic::editor
+namespace editor
 {
     const TypeInfo* PrefabEditorPageFactory::PrimaryType() const
     {
@@ -60,7 +66,7 @@ namespace draconic::editor
     }
 
     UniquePtr<EditorPage> PrefabEditorPageFactory::CreatePage(EditorContext& context,
-                                                              draconic::content::Instance& instance)
+                                                              foundation::content::Instance& instance)
     {
         return UniquePtr<EditorPage>(
             DefaultAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
@@ -121,7 +127,7 @@ namespace draconic::editor
     }
 
     void SceneEditorPage::OnRenderWindow(runtime::IApplicationHost&,
-                                         draconic::graphics::FrameContext& frame)
+                                         foundation::graphics::FrameContext& frame)
     {
         if (!m_viewport->IsReady() || !frame.valid)
         {
@@ -205,12 +211,12 @@ namespace draconic::editor
         MemoryStream payload;
         if (!scene::CapturePrefab(*m_scene, live, payload).IsOk())
         {
-            m_context->Notify(draconic::editor::NoticeKind::Error, u8"Prefab capture failed.");
+            m_context->Notify(editor::NoticeKind::Error, u8"Prefab capture failed.");
             return;
         }
 
-        draconic::content::Group* root = m_context->Project()->SourceDb().RootGroup();
-        draconic::content::Group* prefabs = root->GetGroup(u8"Prefabs");
+        foundation::content::Group* root = m_context->Project()->SourceDb().RootGroup();
+        foundation::content::Group* prefabs = root->GetGroup(u8"Prefabs");
         if (prefabs == nullptr)
         {
             prefabs = root->CreateGroup(u8"Prefabs");
@@ -221,7 +227,7 @@ namespace draconic::editor
             base = String(u8"Prefab");
         }
         const String name = prefabs->UniqueInstanceName(base.AsView());
-        draconic::content::Instance* asset =
+        foundation::content::Instance* asset =
             prefabs->CreateInstance(name.AsView(), scene::PrefabDocument::StaticType());
         if (asset == nullptr)
         {
@@ -231,7 +237,7 @@ namespace draconic::editor
         doc.name = name;
         if (!asset->WriteObject(doc).IsOk() || !asset->WriteData(u8"scene", payload.Bytes()).IsOk())
         {
-            m_context->Notify(draconic::editor::NoticeKind::Error, u8"Prefab asset write failed.");
+            m_context->Notify(editor::NoticeKind::Error, u8"Prefab asset write failed.");
             return;
         }
 
@@ -249,7 +255,7 @@ namespace draconic::editor
             String message(u8"Created prefab '");
             message += name;
             message += u8"'.";
-            m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
+            m_context->Notify(editor::NoticeKind::Success, message.AsView());
         }
     }
 
@@ -264,11 +270,11 @@ namespace draconic::editor
         {
             return;
         }
-        draconic::content::Instance* asset =
+        foundation::content::Instance* asset =
             m_context->Project()->SourceDb().GetInstance(state->prefabId);
         if (asset == nullptr)
         {
-            m_context->Notify(draconic::editor::NoticeKind::Warning,
+            m_context->Notify(editor::NoticeKind::Warning,
                               u8"The instance's prefab asset no longer exists.");
             return;
         }
@@ -280,19 +286,19 @@ namespace draconic::editor
         message += u8"'? The prefab asset is rewritten and every instance in open scenes "
                    u8"updates to match. This cannot be undone.";
         SceneEditorPage* page = this;
-        RefPtr<draconic::ui::Dialog> dialog =
-            draconic::ui::Dialog::Confirm(u8"Apply to Prefab", message.AsView());
+        RefPtr<foundation::ui::Dialog> dialog =
+            foundation::ui::Dialog::Confirm(u8"Apply to Prefab", message.AsView());
         dialog->OnClosed.Add(
-            draconic::ui::Event<void(draconic::ui::Dialog*, draconic::ui::DialogResult)>::Handler{
-                [page, rootId](draconic::ui::Dialog*, draconic::ui::DialogResult result)
+            foundation::ui::Event<void(foundation::ui::Dialog*, foundation::ui::DialogResult)>::Handler{
+                [page, rootId](foundation::ui::Dialog*, foundation::ui::DialogResult result)
                 {
-                    if (result != draconic::ui::DialogResult::OK)
+                    if (result != foundation::ui::DialogResult::OK)
                     {
                         return;
                     }
                     // Deferred: rebuilding instances destroys + respawns entities (and
                     // their hierarchy rows), never mid-event-dispatch.
-                    draconic::ui::UIContext* ctx = page->m_content->Context;
+                    foundation::ui::UIContext* ctx = page->m_content->Context;
                     if (ctx == nullptr)
                     {
                         return;
@@ -314,11 +320,11 @@ namespace draconic::editor
         {
             return;
         }
-        draconic::content::Instance* asset =
+        foundation::content::Instance* asset =
             m_context->Project()->SourceDb().GetInstance(state->prefabId);
         if (asset == nullptr)
         {
-            m_context->Notify(draconic::editor::NoticeKind::Warning,
+            m_context->Notify(editor::NoticeKind::Warning,
                               u8"The instance's prefab asset no longer exists.");
             return;
         }
@@ -328,7 +334,7 @@ namespace draconic::editor
                  .IsOk() ||
             !asset->WriteData(u8"scene", payload.Bytes()).IsOk())
         {
-            m_context->Notify(draconic::editor::NoticeKind::Error, u8"Apply to Prefab failed.");
+            m_context->Notify(editor::NoticeKind::Error, u8"Apply to Prefab failed.");
             return;
         }
         Array<byte> bytes;
@@ -354,7 +360,7 @@ namespace draconic::editor
         }
         // An open editor page on the prefab itself shows the TEMPLATE (plain entities,
         // not an instance) - the rebuild above can't reach it; tell it to refresh.
-        for (const UniquePtr<draconic::editor::EditorPage>& open : m_context->OpenPages())
+        for (const UniquePtr<editor::EditorPage>& open : m_context->OpenPages())
         {
             if (open->InstanceId() == prefabId)
             {
@@ -364,7 +370,7 @@ namespace draconic::editor
         String message(u8"Applied to prefab '");
         message += asset->Name();
         message += u8"' (not undoable - the asset changed).";
-        m_context->Notify(draconic::editor::NoticeKind::Success, message.AsView());
+        m_context->Notify(editor::NoticeKind::Success, message.AsView());
     }
 
     void SceneEditorPage::RevertInstance(const Guid& rootId)
@@ -384,19 +390,19 @@ namespace draconic::editor
                    u8"any non-prefab entities parented under it are destroyed. This cannot "
                    u8"be undone.";
         SceneEditorPage* page = this;
-        RefPtr<draconic::ui::Dialog> dialog =
-            draconic::ui::Dialog::Confirm(u8"Revert Instance", message.AsView());
+        RefPtr<foundation::ui::Dialog> dialog =
+            foundation::ui::Dialog::Confirm(u8"Revert Instance", message.AsView());
         dialog->OnClosed.Add(
-            draconic::ui::Event<void(draconic::ui::Dialog*, draconic::ui::DialogResult)>::Handler{
-                [page, rootId](draconic::ui::Dialog*, draconic::ui::DialogResult result)
+            foundation::ui::Event<void(foundation::ui::Dialog*, foundation::ui::DialogResult)>::Handler{
+                [page, rootId](foundation::ui::Dialog*, foundation::ui::DialogResult result)
                 {
-                    if (result != draconic::ui::DialogResult::OK)
+                    if (result != foundation::ui::DialogResult::OK)
                     {
                         return;
                     }
                     // Deferred: the revert destroys entities (and their hierarchy rows),
                     // never mid-event-dispatch.
-                    draconic::ui::UIContext* ctx = page->m_content->Context;
+                    foundation::ui::UIContext* ctx = page->m_content->Context;
                     if (ctx == nullptr)
                     {
                         return;
@@ -418,13 +424,13 @@ namespace draconic::editor
         {
             return;
         }
-        draconic::content::Instance* asset =
+        foundation::content::Instance* asset =
             m_context->Project()->SourceDb().GetInstance(state->prefabId);
         UniquePtr<IStream> payload =
             (asset != nullptr) ? asset->ReadData(u8"scene") : UniquePtr<IStream>{};
         if (payload.Get() == nullptr)
         {
-            m_context->Notify(draconic::editor::NoticeKind::Warning,
+            m_context->Notify(editor::NoticeKind::Warning,
                               u8"The instance's prefab asset no longer exists.");
             return;
         }
@@ -439,7 +445,7 @@ namespace draconic::editor
             {
                 scene::ResolveSceneResources(*m_scene, *m_context->Resources());
             }
-            m_context->Notify(draconic::editor::NoticeKind::Info,
+            m_context->Notify(editor::NoticeKind::Info,
                               u8"Instance reverted to its prefab (not undoable).");
         }
     }
@@ -452,7 +458,7 @@ namespace draconic::editor
         }
         Array<String> typeNames;
         typeNames.PushBack(String(u8"PrefabDocument"));
-        auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+        auto dialog = MakeRef<editor::app::AssetPickerDialog>(
             DefaultAllocator(), *m_context, Move(typeNames));
         SceneEditorPage* page = this;
         dialog->OnPicked = [page, parent](const Guid& picked)
@@ -461,13 +467,13 @@ namespace draconic::editor
             {
                 return;
             }
-            draconic::content::Instance* prefab =
+            foundation::content::Instance* prefab =
                 page->m_context->Project()->SourceDb().GetInstance(picked);
             UniquePtr<IStream> payload =
                 (prefab != nullptr) ? prefab->ReadData(u8"scene") : UniquePtr<IStream>{};
             if (payload.Get() == nullptr)
             {
-                page->m_context->Notify(draconic::editor::NoticeKind::Warning,
+                page->m_context->Notify(editor::NoticeKind::Warning,
                                         u8"Prefab has no content yet (save it once first).");
                 return;
             }
@@ -476,7 +482,7 @@ namespace draconic::editor
             (void)payload->Read(bytes.Data(), bytes.Size());
             if (picked == page->InstanceId())
             {
-                page->m_context->Notify(draconic::editor::NoticeKind::Warning,
+                page->m_context->Notify(editor::NoticeKind::Warning,
                                         u8"A prefab cannot contain an instance of itself.");
                 return;
             }
@@ -491,7 +497,7 @@ namespace draconic::editor
         {
             return;
         }
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             m_context->Project()->SourceDb().GetInstance(InstanceId());
         if (instance == nullptr)
         {
@@ -502,7 +508,7 @@ namespace draconic::editor
             String message(u8"'");
             message += m_title;
             message += u8"' changed on disk but has unsaved edits here - not refreshed.";
-            m_context->Notify(draconic::editor::NoticeKind::Warning, message.AsView());
+            m_context->Notify(editor::NoticeKind::Warning, message.AsView());
             return;
         }
 
@@ -530,7 +536,7 @@ namespace draconic::editor
                     Function<UniquePtr<IStream>(const Guid&)>{
                         [context](const Guid& prefabId) -> UniquePtr<IStream>
                         {
-                            draconic::content::Instance* prefab =
+                            foundation::content::Instance* prefab =
                                 context->Project()->SourceDb().GetInstance(prefabId);
                             return (prefab != nullptr) ? prefab->ReadData(u8"scene")
                                                        : UniquePtr<IStream>{};
@@ -544,9 +550,9 @@ namespace draconic::editor
         ClearDirty(); // Commands().Clear() notifies OnChanged, which marks dirty
     }
 
-    void SceneEditorPage::OnSavedAs(draconic::content::Instance& instance)
+    void SceneEditorPage::OnSavedAs(foundation::content::Instance& instance)
     {
-        draconic::editor::EditorPage::OnSavedAs(instance);
+        editor::EditorPage::OnSavedAs(instance);
         m_title = String(instance.Name());
         // SavePrefab stamps the document name from the scene, so the fork gets its own.
         if (m_scene != nullptr)
@@ -561,7 +567,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             m_context->Project()->SourceDb().GetInstance(InstanceId());
         if (instance == nullptr)
         {
@@ -579,7 +585,7 @@ namespace draconic::editor
             }
             if (rootCount > 1)
             {
-                m_context->Notify(draconic::editor::NoticeKind::Warning,
+                m_context->Notify(editor::NoticeKind::Warning,
                                   u8"A prefab needs exactly one root entity - parent "
                                   u8"everything under a single root, then save.");
                 return Status{ErrorCode::InvalidArgument};
@@ -595,7 +601,7 @@ namespace draconic::editor
                 });
             if (selfReference)
             {
-                m_context->Notify(draconic::editor::NoticeKind::Warning,
+                m_context->Notify(editor::NoticeKind::Warning,
                                   u8"A prefab cannot contain an instance of itself - "
                                   u8"remove it, then save.");
                 return Status{ErrorCode::InvalidArgument};
@@ -659,7 +665,7 @@ namespace draconic::editor
 
     bool SceneEditorPage::MakeMouseRay(GizmoRay& out) const
     {
-        draconic::shell::IMouse* mouse = m_viewport->Mouse();
+        foundation::shell::IMouse* mouse = m_viewport->Mouse();
         const u32 w = m_viewport->RenderWidth();
         const u32 h = m_viewport->RenderHeight();
         if (mouse == nullptr || w == 0 || h == 0)
@@ -706,33 +712,33 @@ namespace draconic::editor
             return m_gizmos->Update(in);
         }
 
-        draconic::shell::IMouse* mouse = m_viewport->Mouse();
-        draconic::shell::IKeyboard* kb = m_viewport->Keyboard();
+        foundation::shell::IMouse* mouse = m_viewport->Mouse();
+        foundation::shell::IKeyboard* kb = m_viewport->Keyboard();
 
         const bool cameraOwnsMouse =
-            (kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftAlt) ||
-                               kb->IsKeyDown(draconic::shell::KeyCode::RightAlt))) ||
-            mouse->IsButtonDown(draconic::shell::MouseButton::Right) ||
+            (kb != nullptr && (kb->IsKeyDown(foundation::shell::KeyCode::LeftAlt) ||
+                               kb->IsKeyDown(foundation::shell::KeyCode::RightAlt))) ||
+            mouse->IsButtonDown(foundation::shell::MouseButton::Right) ||
             m_camera.mouseCaptured; // Tab-captured fly mode owns WASD too
         if (!cameraOwnsMouse)
         {
-            in.leftPressed = mouse->IsButtonPressed(draconic::shell::MouseButton::Left);
-            in.leftDown = mouse->IsButtonDown(draconic::shell::MouseButton::Left);
+            in.leftPressed = mouse->IsButtonPressed(foundation::shell::MouseButton::Left);
+            in.leftDown = mouse->IsButtonDown(foundation::shell::MouseButton::Left);
         }
         // Release always reaches the controller so an in-flight drag can finish even if a
         // modifier goes down mid-drag.
-        in.leftReleased = mouse->IsButtonReleased(draconic::shell::MouseButton::Left) ||
-                          !mouse->IsButtonDown(draconic::shell::MouseButton::Left);
+        in.leftReleased = mouse->IsButtonReleased(foundation::shell::MouseButton::Left) ||
+                          !mouse->IsButtonDown(foundation::shell::MouseButton::Left);
         if (kb != nullptr)
         {
-            in.snap = kb->IsKeyDown(draconic::shell::KeyCode::LeftCtrl) ||
-                      kb->IsKeyDown(draconic::shell::KeyCode::RightCtrl);
+            in.snap = kb->IsKeyDown(foundation::shell::KeyCode::LeftCtrl) ||
+                      kb->IsKeyDown(foundation::shell::KeyCode::RightCtrl);
             if (!cameraOwnsMouse) // W/E/R fly keys belong to the camera while flying
             {
-                in.keyTranslate = kb->IsKeyPressed(draconic::shell::KeyCode::W);
-                in.keyRotate = kb->IsKeyPressed(draconic::shell::KeyCode::E);
-                in.keyScale = kb->IsKeyPressed(draconic::shell::KeyCode::R);
-                in.keyToggleSpace = kb->IsKeyPressed(draconic::shell::KeyCode::X);
+                in.keyTranslate = kb->IsKeyPressed(foundation::shell::KeyCode::W);
+                in.keyRotate = kb->IsKeyPressed(foundation::shell::KeyCode::E);
+                in.keyScale = kb->IsKeyPressed(foundation::shell::KeyCode::R);
+                in.keyToggleSpace = kb->IsKeyPressed(foundation::shell::KeyCode::X);
             }
         }
         return m_gizmos->Update(in);
@@ -765,13 +771,13 @@ namespace draconic::editor
             { m_componentGizmos.DrawEntity(e, selection.Contains(m_scene->GetEntityId(e)), ctx); });
     }
 
-    void SceneEditorPage::ShowPostFlagsMenu(draconic::ui::View* anchor)
+    void SceneEditorPage::ShowPostFlagsMenu(foundation::ui::View* anchor)
     {
         if (anchor == nullptr)
         {
             return;
         }
-        auto menu = MakeRef<draconic::ui::ContextMenu>(DefaultAllocator());
+        auto menu = MakeRef<foundation::ui::ContextMenu>(DefaultAllocator());
         SceneEditorPage* self = this;
         const auto mark = [](bool on) { return on ? StringView(u8"[x] ") : StringView(u8"[ ] "); };
         const auto add = [&](StringView label, bool render::ViewPostOverride::* field)
@@ -793,14 +799,13 @@ namespace draconic::editor
 
     void SceneEditorPage::BuildViewportToolbar()
     {
-        namespace editor = draconic::editor;
         m_toolbar = MakeRef<ui::toolkit::Toolbar>(DefaultAllocator());
         editor::app::EditorIcons& icons = editor::app::EditorIcons::Get();
         GizmoController* gizmos = m_gizmos.Get();
-        auto icon = [](draconic::ui::SVGDrawable* drawable)
+        auto icon = [](foundation::ui::SVGDrawable* drawable)
         {
-            return Function<void(draconic::ui::UIDrawContext&, Rectangle)>{
-                [drawable](draconic::ui::UIDrawContext& ctx, Rectangle rect)
+            return Function<void(foundation::ui::UIDrawContext&, Rectangle)>{
+                [drawable](foundation::ui::UIDrawContext& ctx, Rectangle rect)
                 {
                     if (drawable != nullptr)
                     {
@@ -844,10 +849,10 @@ namespace draconic::editor
 
         // One toggle whose icon + label read the LIVE space (checked = world).
         m_spaceToggle = m_toolbar->AddToggle(u8"World");
-        m_spaceToggle->SetIcon(Function<void(draconic::ui::UIDrawContext&, Rectangle)>{
-            [gizmos, &icons](draconic::ui::UIDrawContext& ctx, Rectangle rect)
+        m_spaceToggle->SetIcon(Function<void(foundation::ui::UIDrawContext&, Rectangle)>{
+            [gizmos, &icons](foundation::ui::UIDrawContext& ctx, Rectangle rect)
             {
-                draconic::ui::SVGDrawable* drawable = (gizmos->Space() == GizmoSpace::World)
+                foundation::ui::SVGDrawable* drawable = (gizmos->Space() == GizmoSpace::World)
                                                           ? icons.worldSpace.Get()
                                                           : icons.localSpace.Get();
                 if (drawable != nullptr)
@@ -877,8 +882,8 @@ namespace draconic::editor
 
         // Spacer pushes the simulation cluster to the right edge (Sedulous toolbar shape).
         {
-            auto spacer = MakeRef<draconic::ui::Panel>(DefaultAllocator());
-            auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
+            auto spacer = MakeRef<foundation::ui::Panel>(DefaultAllocator());
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
             lp->Grow = 1.0f;
             m_toolbar->AddView(spacer.Get(), lp);
         }
@@ -893,11 +898,11 @@ namespace draconic::editor
         m_stopButton = m_toolbar->AddButton(u8"Stop");
         m_stopButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->StopSimulation(); });
         // The at-a-glance state readout (user report: Play gave no visual indication).
-        m_simLabel = MakeRef<draconic::ui::Label>(DefaultAllocator(), StringView(u8""));
+        m_simLabel = MakeRef<foundation::ui::Label>(DefaultAllocator(), StringView(u8""));
         m_simLabel->FontSize.SetValue(13.0f);
         {
-            auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
-            lp->Height = draconic::ui::SizeSpec::Match();
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Height = foundation::ui::SizeSpec::Match();
             m_toolbar->AddView(m_simLabel.Get(), lp);
         }
         RefreshSimToolbar();
@@ -943,7 +948,7 @@ namespace draconic::editor
         m_scene->Stop();
         if (m_simSnapshot)
         {
-            draconic::resource::ResourceManager* resources =
+            foundation::resource::ResourceManager* resources =
                 (m_context != nullptr) ? m_context->Resources() : nullptr;
             if (!m_simSnapshot->Restore(*m_scene, resources).IsOk())
             {
@@ -993,8 +998,8 @@ namespace draconic::editor
     void SceneEditorPage::ScenePage_GridToggleInit()
     {
         m_gridToggle = m_toolbar->AddToggle(u8"");
-        m_gridToggle->SetIcon(Function<void(draconic::ui::UIDrawContext&, Rectangle)>{
-            [](draconic::ui::UIDrawContext& ctx, Rectangle rect)
+        m_gridToggle->SetIcon(Function<void(foundation::ui::UIDrawContext&, Rectangle)>{
+            [](foundation::ui::UIDrawContext& ctx, Rectangle rect)
             {
                 if (auto* drawable = editor::app::EditorIcons::Get().grid.Get())
                 {
@@ -1029,8 +1034,8 @@ namespace draconic::editor
         }
         Selection<Guid>& selection = m_editContext->EntitySelection();
         scene::Scene& scene = *m_scene;
-        auto* meshes = scene.GetSystem<draconic::engine::render::MeshComponentManager>();
-        auto* instanced = scene.GetSystem<draconic::engine::render::InstancedMeshComponentManager>();
+        auto* meshes = scene.GetSystem<engine::render::MeshComponentManager>();
+        auto* instanced = scene.GetSystem<engine::render::InstancedMeshComponentManager>();
         scene.ForEachEntity(
             [&](scene::EntityHandle e)
             {
@@ -1050,9 +1055,9 @@ namespace draconic::editor
 
                 if (meshes != nullptr)
                 {
-                    if (draconic::engine::render::MeshComponent* mc = meshes->Get(e))
+                    if (engine::render::MeshComponent* mc = meshes->Get(e))
                     {
-                        if (draconic::geometry::StaticMesh* mesh = mc->mesh.Get())
+                        if (foundation::geometry::StaticMesh* mesh = mc->mesh.Get())
                         {
                             dd.DrawTransformedBox(mesh->bounds.min, mesh->bounds.max, world, color);
                             return;
@@ -1061,7 +1066,7 @@ namespace draconic::editor
                 }
                 if (instanced != nullptr)
                 {
-                    if (draconic::engine::render::InstancedMeshComponent* imc = instanced->Get(e))
+                    if (engine::render::InstancedMeshComponent* imc = instanced->Get(e))
                     {
                         if (imc->mesh.Get() != nullptr && imc->Count() > 0 &&
                             imc->cachedRadius > 0.0f)
@@ -1133,7 +1138,7 @@ namespace draconic::editor
         {
             return false;
         }
-        auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>();
+        auto* cameras = m_scene->GetSystem<engine::render::CameraComponentManager>();
         return cameras != nullptr && cameras->Get(entity) != nullptr;
     }
 
@@ -1198,12 +1203,12 @@ namespace draconic::editor
         {
             return;
         }
-        auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>();
+        auto* cameras = m_scene->GetSystem<engine::render::CameraComponentManager>();
         if (cameras == nullptr)
         {
             return;
         }
-        draconic::engine::render::CameraComponent* cam = cameras->Get(m_previewTarget);
+        engine::render::CameraComponent* cam = cameras->Get(m_previewTarget);
         if (cam == nullptr)
         {
             return;
@@ -1232,14 +1237,14 @@ namespace draconic::editor
         {
             return;
         }
-        draconic::shell::IMouse* mouse = m_viewport->Mouse();
-        draconic::shell::IKeyboard* kb = m_viewport->Keyboard();
-        if (mouse == nullptr || !mouse->IsButtonPressed(draconic::shell::MouseButton::Left))
+        foundation::shell::IMouse* mouse = m_viewport->Mouse();
+        foundation::shell::IKeyboard* kb = m_viewport->Keyboard();
+        if (mouse == nullptr || !mouse->IsButtonPressed(foundation::shell::MouseButton::Left))
         {
             return;
         }
-        const bool alt = kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftAlt) ||
-                                           kb->IsKeyDown(draconic::shell::KeyCode::RightAlt));
+        const bool alt = kb != nullptr && (kb->IsKeyDown(foundation::shell::KeyCode::LeftAlt) ||
+                                           kb->IsKeyDown(foundation::shell::KeyCode::RightAlt));
         if (alt)
         {
             return;
@@ -1279,8 +1284,8 @@ namespace draconic::editor
             });
 
         Selection<Guid>& selection = m_editContext->EntitySelection();
-        const bool ctrl = kb != nullptr && (kb->IsKeyDown(draconic::shell::KeyCode::LeftCtrl) ||
-                                            kb->IsKeyDown(draconic::shell::KeyCode::RightCtrl));
+        const bool ctrl = kb != nullptr && (kb->IsKeyDown(foundation::shell::KeyCode::LeftCtrl) ||
+                                            kb->IsKeyDown(foundation::shell::KeyCode::RightCtrl));
         if (best != Guid{})
         {
             if (ctrl)
@@ -1300,12 +1305,12 @@ namespace draconic::editor
 
     void SceneEditorPage::EnsureViewportBound()
     {
-        draconic::ui::RootView* root = m_viewport->Root();
+        foundation::ui::RootView* root = m_viewport->Root();
         if (root == nullptr)
         {
             return;
         }
-        draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
+        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
         if (window == nullptr || window == m_hostWindow)
         {
             return;
@@ -1349,7 +1354,7 @@ namespace draconic::editor
     }
 
     UniquePtr<EditorPage> SceneEditorPageFactory::CreatePage(EditorContext& context,
-                                                             draconic::content::Instance& instance)
+                                                             foundation::content::Instance& instance)
     {
         return UniquePtr<EditorPage>(
             DefaultAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),

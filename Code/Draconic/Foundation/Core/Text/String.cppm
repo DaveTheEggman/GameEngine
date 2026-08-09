@@ -19,7 +19,7 @@ import :base;
 import :allocator;
 import :hash;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     template <typename CharT>
     [[nodiscard]] constexpr usize CStringLength(const CharT* str) noexcept

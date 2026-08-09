@@ -15,9 +15,9 @@ export module draconic.input:input_map;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::input
+export namespace foundation::input
 {
     // Declared, never inferred (Sedulous's collapsed {X,Y} was lossy): querying a Button as a
     // vector is a caller error surfaced by the editor's validation, not a silent 0.
@@ -148,26 +148,26 @@ export namespace draconic::input
     inline void SerializeBinding(ISerializer& ar, Binding& b, u32 version = kInputMapVersion)
     {
         u8 source = static_cast<u8>(b.source);
-        draconic::core::Serialize(ar, "source", source);
+        foundation::core::Serialize(ar, "source", source);
         b.source = static_cast<BindingSource>(source);
-        draconic::core::Serialize(ar, "code", b.code);
-        draconic::core::Serialize(ar, "modifiers", b.modifiers);
-        draconic::core::Serialize(ar, "device", b.device);
-        draconic::core::Serialize(ar, "deadZone", b.deadZone);
-        draconic::core::Serialize(ar, "scale", b.scale);
-        draconic::core::Serialize(ar, "invert", b.invert);
-        draconic::core::Serialize(ar, "normalize", b.normalize);
-        draconic::core::Serialize(ar, "negX", b.negX);
-        draconic::core::Serialize(ar, "posX", b.posX);
-        draconic::core::Serialize(ar, "negY", b.negY);
-        draconic::core::Serialize(ar, "posY", b.posY);
+        foundation::core::Serialize(ar, "code", b.code);
+        foundation::core::Serialize(ar, "modifiers", b.modifiers);
+        foundation::core::Serialize(ar, "device", b.device);
+        foundation::core::Serialize(ar, "deadZone", b.deadZone);
+        foundation::core::Serialize(ar, "scale", b.scale);
+        foundation::core::Serialize(ar, "invert", b.invert);
+        foundation::core::Serialize(ar, "normalize", b.normalize);
+        foundation::core::Serialize(ar, "negX", b.negX);
+        foundation::core::Serialize(ar, "posX", b.posX);
+        foundation::core::Serialize(ar, "negY", b.negY);
+        foundation::core::Serialize(ar, "posY", b.posY);
         if (version >= 2)
         {
-            draconic::core::Serialize(ar, "regionX", b.regionX);
-            draconic::core::Serialize(ar, "regionY", b.regionY);
-            draconic::core::Serialize(ar, "regionW", b.regionW);
-            draconic::core::Serialize(ar, "regionH", b.regionH);
-            draconic::core::Serialize(ar, "stickRadius", b.stickRadius);
+            foundation::core::Serialize(ar, "regionX", b.regionX);
+            foundation::core::Serialize(ar, "regionY", b.regionY);
+            foundation::core::Serialize(ar, "regionW", b.regionW);
+            foundation::core::Serialize(ar, "regionH", b.regionH);
+            foundation::core::Serialize(ar, "stickRadius", b.stickRadius);
         }
     }
 
@@ -175,7 +175,7 @@ export namespace draconic::input
     {
         const bool writing = ar.Mode() == SerializeMode::Write;
         u32 version = kInputMapVersion;
-        draconic::core::Serialize(ar, "version", version);
+        foundation::core::Serialize(ar, "version", version);
 
         u32 setCount = writing ? static_cast<u32>(map.sets.Size()) : 0;
         ar.Key("sets");
@@ -188,8 +188,8 @@ export namespace draconic::input
         for (u32 s = 0; s < setCount; ++s)
         {
             ActionSet& set = map.sets[s];
-            draconic::core::Serialize(ar, "name", set.name);
-            draconic::core::Serialize(ar, "priority", set.priority);
+            foundation::core::Serialize(ar, "name", set.name);
+            foundation::core::Serialize(ar, "priority", set.priority);
             u32 actionCount = writing ? static_cast<u32>(set.actions.Size()) : 0;
             ar.Key("actions");
             ar.BeginArray(actionCount);
@@ -200,20 +200,20 @@ export namespace draconic::input
             for (u32 a = 0; a < actionCount; ++a)
             {
                 Action& action = set.actions[a];
-                draconic::core::Serialize(ar, "name", action.name);
+                foundation::core::Serialize(ar, "name", action.name);
                 u8 kind = static_cast<u8>(action.kind);
-                draconic::core::Serialize(ar, "kind", kind);
+                foundation::core::Serialize(ar, "kind", kind);
                 action.kind = static_cast<ActionKind>(kind);
-                draconic::core::Serialize(ar, "sensitivity", action.processors.sensitivity);
-                draconic::core::Serialize(ar, "gravity", action.processors.gravity);
-                draconic::core::Serialize(ar, "snap", action.processors.snap);
-                draconic::core::Serialize(ar, "responseExponent",
+                foundation::core::Serialize(ar, "sensitivity", action.processors.sensitivity);
+                foundation::core::Serialize(ar, "gravity", action.processors.gravity);
+                foundation::core::Serialize(ar, "snap", action.processors.snap);
+                foundation::core::Serialize(ar, "responseExponent",
                                           action.processors.responseExponent);
-                draconic::core::Serialize(ar, "timeScale", action.processors.timeScale);
+                foundation::core::Serialize(ar, "timeScale", action.processors.timeScale);
                 u8 interaction = static_cast<u8>(action.interaction.kind);
-                draconic::core::Serialize(ar, "interaction", interaction);
+                foundation::core::Serialize(ar, "interaction", interaction);
                 action.interaction.kind = static_cast<InteractionKind>(interaction);
-                draconic::core::Serialize(ar, "interactionSeconds", action.interaction.seconds);
+                foundation::core::Serialize(ar, "interactionSeconds", action.interaction.seconds);
                 u32 bindingCount = writing ? static_cast<u32>(action.bindings.Size()) : 0;
                 ar.Key("bindings");
                 ar.BeginArray(bindingCount);
@@ -263,8 +263,8 @@ export namespace draconic::input
             for (u32 i = 0; i < count; ++i)
             {
                 InputBindingOverride& o = overrides[i];
-                draconic::core::Serialize(ar, "set", o.setName);
-                draconic::core::Serialize(ar, "action", o.actionName);
+                foundation::core::Serialize(ar, "set", o.setName);
+                foundation::core::Serialize(ar, "action", o.actionName);
                 u32 bindingCount = writing ? static_cast<u32>(o.bindings.Size()) : 0;
                 ar.Key("bindings");
                 ar.BeginArray(bindingCount);

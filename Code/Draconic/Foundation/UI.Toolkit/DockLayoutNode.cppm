@@ -13,9 +13,9 @@ export module draconic.ui.toolkit:dock_layout_node;
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Describes the type of a dock layout node.
     enum class DockLayoutNodeType

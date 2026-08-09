@@ -24,10 +24,10 @@ import :action;
 import :action_manager;
 import :mutation_queue;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class EventDispatcher; // owned by the SceneNode; reached via GetEventDispatcher()
 

@@ -16,9 +16,9 @@ export module draconic.audio:cue;
 import draconic.core;
 import :clip;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::audio
+export namespace foundation::audio
 {
     enum class SoundCueMode : u8
     {

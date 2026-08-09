@@ -6,8 +6,8 @@
 import draconic.core;
 import draconic.image;
 
-using namespace draconic::core;
-using namespace draconic::image;
+using namespace foundation::core;
+using namespace foundation::image;
 
 namespace
 {

@@ -9,10 +9,10 @@ import draconic.runtime;
 import draconic.scene;
 import draconic.engine.scene;
 
-using namespace draconic::core;
-using namespace draconic::engine::scene;
-using namespace draconic::scene;
-namespace runtime = draconic::runtime;
+using namespace foundation::core;
+using namespace engine::scene;
+using namespace foundation::scene;
+namespace runtime = foundation::runtime;
 
 namespace
 {

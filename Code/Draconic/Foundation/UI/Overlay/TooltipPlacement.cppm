@@ -8,7 +8,7 @@ module;
 
 export module draconic.ui:tooltip_placement;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Where the tooltip appears relative to the anchor view.
     enum class TooltipPlacement

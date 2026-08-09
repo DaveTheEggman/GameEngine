@@ -13,9 +13,9 @@ import draconic.rhi;
 import :conversions;
 import :bind_group_layout;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkPipelineLayoutImpl : public PipelineLayout
@@ -68,4 +68,4 @@ export namespace draconic::rhi::vk
         VkPipelineLayout m_layout = VK_NULL_HANDLE;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

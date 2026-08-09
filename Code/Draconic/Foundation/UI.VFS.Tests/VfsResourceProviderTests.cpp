@@ -6,9 +6,9 @@ import draconic.core;
 import draconic.vfs;
 import draconic.ui.vfs;
 
-using namespace draconic::core;
-namespace vfs = draconic::vfs;
-namespace ui = draconic::ui;
+using namespace foundation::core;
+namespace vfs = foundation::vfs;
+namespace ui = foundation::ui;
 
 namespace
 {

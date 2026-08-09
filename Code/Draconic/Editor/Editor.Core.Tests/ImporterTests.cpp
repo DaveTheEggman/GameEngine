@@ -10,8 +10,8 @@ import draconic.core;
 import draconic.content;
 import draconic.editor.core;
 
-using namespace draconic::core;
-using namespace draconic::editor;
+using namespace foundation::core;
+using namespace editor;
 
 namespace
 {
@@ -23,8 +23,8 @@ namespace
         {
             return extension == StringView(u8"fak");
         }
-        [[nodiscard]] Result<draconic::content::Instance*>
-        Import(StringView, EditorProject&, draconic::content::Group&, const ImportOptions*, Object*,
+        [[nodiscard]] Result<foundation::content::Instance*>
+        Import(StringView, EditorProject&, foundation::content::Group&, const ImportOptions*, Object*,
                Array<DeferredImportWrite>*) override
         {
             return Err(ErrorCode::NotSupported);

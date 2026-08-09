@@ -9,9 +9,9 @@ import draconic.core;
 import draconic.settings;
 import draconic.xml.serialization; // XML factory, to exercise passthrough on both backends
 
-using namespace draconic::core;
-namespace settings = draconic::settings;
-namespace xml = draconic::xml;
+using namespace foundation::core;
+namespace settings = foundation::settings;
+namespace xml = foundation::xml;
 
 namespace
 {
@@ -25,8 +25,8 @@ namespace
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "profile", profile);
-            draconic::core::Serialize(ar, "locale", locale);
+            foundation::core::Serialize(ar, "profile", profile);
+            foundation::core::Serialize(ar, "locale", locale);
         }
     };
     DRACONIC_DEFINE_OBJECT_VERSIONED(GameSettings, "rtti::test", 1)
@@ -112,7 +112,7 @@ namespace
         DRACONIC_OBJECT(SecA, ISerializable)
     public:
         i32 a = 0;
-        void Serialize(ISerializer& ar) override { draconic::core::Serialize(ar, "a", a); }
+        void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, "a", a); }
     };
     DRACONIC_DEFINE_OBJECT_VERSIONED(SecA, "rtti::test", 1)
 
@@ -124,8 +124,8 @@ namespace
         String tag = String(u8"");
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "x", x);
-            draconic::core::Serialize(ar, "tag", tag);
+            foundation::core::Serialize(ar, "x", x);
+            foundation::core::Serialize(ar, "tag", tag);
         }
     };
     DRACONIC_DEFINE_OBJECT_VERSIONED(SecX, "rtti::test", 1)
@@ -135,7 +135,7 @@ namespace
         DRACONIC_OBJECT(SecB, ISerializable)
     public:
         i32 b = 0;
-        void Serialize(ISerializer& ar) override { draconic::core::Serialize(ar, "b", b); }
+        void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, "b", b); }
     };
     DRACONIC_DEFINE_OBJECT_VERSIONED(SecB, "rtti::test", 1)
 

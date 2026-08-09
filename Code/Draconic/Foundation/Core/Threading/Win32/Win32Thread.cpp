@@ -12,7 +12,7 @@
 
 #include <cstdlib>
 
-namespace draconic::core::sys
+namespace foundation::core::sys
 {
     static_assert(sizeof(CRITICAL_SECTION) <= kMutexStorageSize, "kMutexStorageSize too small");
     static_assert(alignof(CRITICAL_SECTION) <= kMutexStorageAlign, "kMutexStorageAlign too small");

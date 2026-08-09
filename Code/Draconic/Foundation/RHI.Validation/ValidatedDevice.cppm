@@ -14,9 +14,9 @@ import :validated_swap_chain;
 import :validated_command_pool;
 import :validated_queue;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     class ValidatedDevice : public Device
@@ -573,4 +573,4 @@ export namespace draconic::rhi::validation
         Array<QuerySet*> m_liveQuerySets;
     };
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

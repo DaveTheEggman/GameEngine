@@ -18,17 +18,17 @@ import draconic.engine.render; // MeshComponentManager (the skeletal tick's feed
 import draconic.scene;
 import draconic.scene.resource;
 
-using namespace draconic::core;
-namespace scene = draconic::scene;
-namespace resource = draconic::resource;
-namespace animation = draconic::animation;
+using namespace foundation::core;
+namespace scene = foundation::scene;
+namespace resource = foundation::resource;
+namespace animation = foundation::animation;
 
 namespace
 {
     void RemoveTree(StringView root)
     {
-        draconic::vfs::NativeFileSystem fs(root);
-        Array<draconic::vfs::DirEntry> entries;
+        foundation::vfs::NativeFileSystem fs(root);
+        Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
             for (const auto& e : entries)
@@ -64,7 +64,7 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
     const StringView dir = u8"draconic_animref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    draconic::vfs::NativeFileSystem mount(dir);
+    foundation::vfs::NativeFileSystem mount(dir);
 
     GlobalTypeRegistry().Register(animation::SkeletonSource::StaticType());
     RegisterSerializable<animation::SkeletonSource>();
@@ -72,7 +72,7 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
     RegisterSerializable<animation::AnimationClipSource>();
 
     // Cook a skeleton + a clip into the content DB (the products a model import fans out).
-    draconic::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
     Guid skeletonId;
     Guid clipId;
     {
@@ -80,7 +80,7 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
         BuildSkeleton(skel);
         animation::SkeletonSource source;
         animation::SkeletonSource::FromSkeleton(skel, source);
-        draconic::content::Instance* inst =
+        foundation::content::Instance* inst =
             cookedDb.RootGroup()->CreateInstance(u8"Skel", animation::SkeletonSource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(source).IsOk());
@@ -96,7 +96,7 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
         track->AddKeyframe(2.0f, Float3{0, 1, 0});
         animation::AnimationClipSource source;
         animation::AnimationClipSource::FromClip(clip, source);
-        draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
+        foundation::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
             u8"Walk", animation::AnimationClipSource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(source).IsOk());
@@ -113,10 +113,10 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
     MemoryStream blob;
     {
         scene::Scene scene;
-        scene.AddSystem<draconic::engine::animation::SkeletalAnimationComponentManager>();
+        scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Rig");
-        draconic::engine::animation::SkeletalAnimationComponent& a =
-            scene.GetSystem<draconic::engine::animation::SkeletalAnimationComponentManager>()->Add(e);
+        engine::animation::SkeletalAnimationComponent& a =
+            scene.GetSystem<engine::animation::SkeletalAnimationComponentManager>()->Add(e);
         a.skeleton.SetId(skeletonId);
         a.clip.SetId(clipId);
         a.speed = 1.5f;
@@ -129,8 +129,8 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
 
     // Load into a FRESH scene, then run the post-load resolve pass.
     scene::Scene loaded;
-    loaded.AddSystem<draconic::engine::render::MeshComponentManager>();
-    loaded.AddSystem<draconic::engine::animation::SkeletalAnimationComponentManager>();
+    loaded.AddSystem<engine::render::MeshComponentManager>();
+    loaded.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
     {
         BinarySerializer ar(blob, SerializeMode::Read);
@@ -138,11 +138,11 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
         REQUIRE(ar.IsOk());
     }
 
-    auto* mgr = loaded.GetSystem<draconic::engine::animation::SkeletalAnimationComponentManager>();
+    auto* mgr = loaded.GetSystem<engine::animation::SkeletalAnimationComponentManager>();
     REQUIRE(mgr != nullptr);
     REQUIRE(mgr->ComponentCount() == 1u);
-    draconic::engine::animation::SkeletalAnimationComponent* a = nullptr;
-    mgr->ForEach([&](draconic::engine::animation::SkeletalAnimationComponent& c, scene::EntityHandle) { a = &c; });
+    engine::animation::SkeletalAnimationComponent* a = nullptr;
+    mgr->ForEach([&](engine::animation::SkeletalAnimationComponent& c, scene::EntityHandle) { a = &c; });
     REQUIRE(a != nullptr);
 
     // Identity + tunables survived; nothing is bound until the resolve pass runs.
@@ -182,7 +182,7 @@ TEST_CASE("resource-ref: raw runtime skeleton/clip pointers still assign (sample
     RefPtr<animation::AnimationClip> clip = MakeRef<animation::AnimationClip>(DefaultAllocator());
     clip->duration = 1.0f;
 
-    draconic::engine::animation::SkeletalAnimationComponent a;
+    engine::animation::SkeletalAnimationComponent a;
     a.skeleton = skel.Get();
     a.clip = clip.Get();
     CHECK(a.skeleton.Get() == skel.Get());
@@ -197,8 +197,8 @@ TEST_CASE("resource-ref: sequential picks start playback (skeleton first, clip l
     // when the clip arrives after the player was already built for the skeleton (and re-play
     // when the clip behind the ref changes, e.g. a hot reload or a different pick).
     scene::Scene scene;
-    scene.AddSystem<draconic::engine::render::MeshComponentManager>();
-    auto* mgr = scene.AddSystem<draconic::engine::animation::SkeletalAnimationComponentManager>();
+    scene.AddSystem<engine::render::MeshComponentManager>();
+    auto* mgr = scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
     const scene::EntityHandle e = scene.CreateEntity(u8"Rig");
 
     RefPtr<animation::Skeleton> skel = MakeRef<animation::Skeleton>(DefaultAllocator(), 2);
@@ -208,7 +208,7 @@ TEST_CASE("resource-ref: sequential picks start playback (skeleton first, clip l
     RefPtr<animation::AnimationClip> run = MakeRef<animation::AnimationClip>(DefaultAllocator());
     run->duration = 0.5f;
 
-    draconic::engine::animation::SkeletalAnimationComponent& a = mgr->Add(e);
+    engine::animation::SkeletalAnimationComponent& a = mgr->Add(e);
 
     // Frame 1: only the skeleton is picked - a player exists but nothing plays.
     a.skeleton = skel.Get();

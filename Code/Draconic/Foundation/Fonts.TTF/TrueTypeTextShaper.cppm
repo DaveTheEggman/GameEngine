@@ -12,9 +12,9 @@ export module draconic.fonts.ttf:text_shaper;
 import draconic.core;
 import draconic.fonts;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     class TrueTypeTextShaper final : public ITextShaper
     {

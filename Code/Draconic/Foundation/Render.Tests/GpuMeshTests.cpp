@@ -9,10 +9,10 @@ import draconic.rhi.null;
 import draconic.geometry;
 import draconic.render;
 
-using namespace draconic::core;
-using namespace draconic::render;
-namespace rhi = draconic::rhi;
-namespace geometry = draconic::geometry;
+using namespace foundation::core;
+using namespace foundation::render;
+namespace rhi = foundation::rhi;
+namespace geometry = foundation::geometry;
 
 TEST_CASE("mesh GPU cache: uploads on first use, reuses after, frees on clear")
 {

@@ -13,9 +13,9 @@ export module draconic.ui:animation_manager;
 import draconic.core;
 import :animation;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View;
 

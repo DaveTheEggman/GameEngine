@@ -22,15 +22,15 @@ import draconic.animation; // Skeleton, AnimationClip, AnimationPlayer, Animatio
 import draconic.engine.render; // MeshComponentManager / MeshComponent (the feed target)
 import draconic.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneAnimation handle)
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::engine::animation
+export namespace engine::animation
 {
-    // Foundation aliases (sibling draconic::engine::* namespaces would otherwise shadow these).
-    namespace scene = draconic::scene;
-    namespace animation = draconic::animation;
-    namespace script = draconic::script;
-    using namespace draconic::animation; // bare foundation animation types (BoneTransform, ...)
+    // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
+    namespace scene = foundation::scene;
+    namespace animation = foundation::animation;
+    namespace script = foundation::script;
+    using namespace foundation::animation; // bare foundation animation types (BoneTransform, ...)
 
 
     // Skeletal animation on an entity: a player over a (borrowed, shared) skeleton plays a clip and
@@ -43,8 +43,8 @@ export namespace draconic::engine::animation
         // Resource refs: Guid-serialized + proxy-resolved (editor pickers/scene round-trip), or
         // direct runtime objects (samples/spawn code). The manager rebuilds the player when the
         // skeleton object changes (a pick or a hot reload).
-        draconic::resource::Ref<animation::Skeleton> skeleton;
-        draconic::resource::Ref<animation::AnimationClip> clip;
+        foundation::resource::Ref<animation::Skeleton> skeleton;
+        foundation::resource::Ref<animation::AnimationClip> clip;
         UniquePtr<animation::AnimationPlayer> player;   // created lazily by the manager
         animation::Skeleton* playerSkeleton = nullptr;  // the skeleton the player was built for
         animation::AnimationClip* playerClip = nullptr; // the clip last handed to the player
@@ -59,14 +59,14 @@ export namespace draconic::engine::animation
     // once entity-reference serialization exists.)
     inline void Serialize(ISerializer& ar, SkeletalAnimationComponent& c)
     {
-        draconic::core::Serialize(ar, "skeleton", c.skeleton);
-        draconic::core::Serialize(ar, "clip", c.clip);
-        draconic::core::Serialize(ar, "speed", c.speed);
-        draconic::core::Serialize(ar, "startTime", c.startTime);
-        draconic::core::Serialize(ar, "autoPlay", c.autoPlay);
+        foundation::core::Serialize(ar, "skeleton", c.skeleton);
+        foundation::core::Serialize(ar, "clip", c.clip);
+        foundation::core::Serialize(ar, "speed", c.speed);
+        foundation::core::Serialize(ar, "startTime", c.startTime);
+        foundation::core::Serialize(ar, "autoPlay", c.autoPlay);
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager,
+    inline void ResolveResources(foundation::resource::ResourceManager& manager,
                                  SkeletalAnimationComponent& c)
     {
         c.skeleton.Bind(manager);
@@ -99,7 +99,7 @@ export namespace draconic::engine::animation
             {
                 return;
             }
-            auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>();
+            auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>();
             if (meshes == nullptr)
             {
                 return;
@@ -144,7 +144,7 @@ export namespace draconic::engine::animation
                     const Span<const Float4x4> prev = a.player->GetPrevSkinningMatrices();
                     const auto feed = [&](scene::EntityHandle e)
                     {
-                        if (draconic::engine::render::MeshComponent* mc = meshes->Get(e))
+                        if (engine::render::MeshComponent* mc = meshes->Get(e))
                         {
                             mc->boneMatrices = mats.Data();
                             mc->prevBoneMatrices = prev.Data();
@@ -177,8 +177,8 @@ export namespace draconic::engine::animation
     // entity). All borrowed resources must outlive the component.
     struct AnimationGraphComponent
     {
-        draconic::resource::Ref<animation::Skeleton> skeleton;
-        draconic::resource::Ref<animation::AnimationGraph> graph;
+        foundation::resource::Ref<animation::Skeleton> skeleton;
+        foundation::resource::Ref<animation::AnimationGraph> graph;
         UniquePtr<animation::AnimationGraphPlayer> player; // created lazily by the manager
         animation::Skeleton* playerSkeleton = nullptr;     // what the player was built for
         animation::AnimationGraph* playerGraph = nullptr;
@@ -188,12 +188,12 @@ export namespace draconic::engine::animation
 
     inline void Serialize(ISerializer& ar, AnimationGraphComponent& c)
     {
-        draconic::core::Serialize(ar, "skeleton", c.skeleton);
-        draconic::core::Serialize(ar, "graph", c.graph);
-        draconic::core::Serialize(ar, "active", c.active);
+        foundation::core::Serialize(ar, "skeleton", c.skeleton);
+        foundation::core::Serialize(ar, "graph", c.graph);
+        foundation::core::Serialize(ar, "active", c.active);
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager,
+    inline void ResolveResources(foundation::resource::ResourceManager& manager,
                                  AnimationGraphComponent& c)
     {
         c.skeleton.Bind(manager);
@@ -226,7 +226,7 @@ export namespace draconic::engine::animation
             {
                 return;
             }
-            auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>();
+            auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>();
             if (meshes == nullptr)
             {
                 return;
@@ -259,7 +259,7 @@ export namespace draconic::engine::animation
                     const Span<const Float4x4> prev = a.player->GetPrevSkinningMatrices();
                     const auto feed = [&](scene::EntityHandle e)
                     {
-                        if (draconic::engine::render::MeshComponent* mc = meshes->Get(e))
+                        if (engine::render::MeshComponent* mc = meshes->Get(e))
                         {
                             mc->boneMatrices = mats.Data();
                             mc->prevBoneMatrices = prev.Data();
@@ -284,7 +284,7 @@ export namespace draconic::engine::animation
         scene::Scene* m_scene = nullptr;
     };
 
-    // Instanced skinning for CROWDS: the companion to a draconic::engine::render::InstancedMeshComponent (a "MultiMesh") that
+    // Instanced skinning for CROWDS: the companion to a engine::render::InstancedMeshComponent (a "MultiMesh") that
     // makes its N instances animate at only M = poseCount unique phases. Each frame the manager samples the
     // clip at M evenly-spaced phases (advancing together on a shared clock) into a shared POSE POOL of M
     // skinning palettes, and feeds the pool to the target InstancedMeshComponent - which draws instance i
@@ -323,7 +323,7 @@ export namespace draconic::engine::animation
             {
                 return;
             }
-            auto* imm = m_scene->GetSystem<draconic::engine::render::InstancedMeshComponentManager>();
+            auto* imm = m_scene->GetSystem<engine::render::InstancedMeshComponentManager>();
             if (imm == nullptr)
             {
                 return;
@@ -393,7 +393,7 @@ export namespace draconic::engine::animation
 
                     const auto feed = [&](scene::EntityHandle e)
                     {
-                        if (draconic::engine::render::InstancedMeshComponent* c = imm->Get(e))
+                        if (engine::render::InstancedMeshComponent* c = imm->Get(e))
                         {
                             c->posePool =
                                 s.posePool
@@ -437,7 +437,7 @@ export namespace draconic::engine::animation
         // --- single-clip playback (SkeletalAnimationComponent) ---
         // Play the entity's currently-bound clip from the start (manual re-trigger; autoPlay covers
         // the first start). No-op if the player is not built yet or the entity has no skeletal anim.
-        void play(draconic::script::Entity entity) const
+        void play(foundation::script::Entity entity) const
         {
             SkeletalAnimationComponent* c = Skeletal(entity);
             if (c != nullptr && c->player.Get() != nullptr)
@@ -445,38 +445,38 @@ export namespace draconic::engine::animation
                 c->player->Play(c->clip.Get());
             }
         }
-        void stop(draconic::script::Entity entity) const
+        void stop(foundation::script::Entity entity) const
         {
             if (animation::AnimationPlayer* p = SkeletalPlayer(entity))
             {
                 p->Stop();
             }
         }
-        void pause(draconic::script::Entity entity) const
+        void pause(foundation::script::Entity entity) const
         {
             if (animation::AnimationPlayer* p = SkeletalPlayer(entity))
             {
                 p->Pause();
             }
         }
-        void resume(draconic::script::Entity entity) const
+        void resume(foundation::script::Entity entity) const
         {
             if (animation::AnimationPlayer* p = SkeletalPlayer(entity))
             {
                 p->Resume();
             }
         }
-        [[nodiscard]] bool isPlaying(draconic::script::Entity entity) const
+        [[nodiscard]] bool isPlaying(foundation::script::Entity entity) const
         {
             animation::AnimationPlayer* p = SkeletalPlayer(entity);
             return p != nullptr && p->State() == animation::PlaybackState::Playing;
         }
-        [[nodiscard]] f32 time(draconic::script::Entity entity) const
+        [[nodiscard]] f32 time(foundation::script::Entity entity) const
         {
             animation::AnimationPlayer* p = SkeletalPlayer(entity);
             return p != nullptr ? p->CurrentTime() : 0.0f;
         }
-        void setTime(draconic::script::Entity entity, f32 seconds) const
+        void setTime(foundation::script::Entity entity, f32 seconds) const
         {
             if (animation::AnimationPlayer* p = SkeletalPlayer(entity))
             {
@@ -485,12 +485,12 @@ export namespace draconic::engine::animation
         }
         // Swap the entity's animation clip to resource `id`, binding it through the run's resource
         // manager; the manager picks up the change next tick (autoPlay replays it).
-        void setClip(draconic::script::Entity entity, Guid id) const
+        void setClip(foundation::script::Entity entity, Guid id) const
         {
             if (SkeletalAnimationComponent* c = Skeletal(entity))
             {
                 c->clip.SetId(id);
-                if (auto* resources = draconic::script::CurrentRunResources())
+                if (auto* resources = foundation::script::CurrentRunResources())
                 {
                     c->clip.Bind(*resources);
                 }
@@ -498,21 +498,21 @@ export namespace draconic::engine::animation
         }
 
         // --- state-machine parameters (AnimationGraphComponent) ---
-        void setFloat(draconic::script::Entity entity, String name, f32 value) const
+        void setFloat(foundation::script::Entity entity, String name, f32 value) const
         {
             if (animation::AnimationGraphPlayer* p = GraphPlayer(entity))
             {
                 p->SetFloat(name.AsView(), value);
             }
         }
-        void setBool(draconic::script::Entity entity, String name, bool value) const
+        void setBool(foundation::script::Entity entity, String name, bool value) const
         {
             if (animation::AnimationGraphPlayer* p = GraphPlayer(entity))
             {
                 p->SetBool(name.AsView(), value);
             }
         }
-        void setTrigger(draconic::script::Entity entity, String name) const
+        void setTrigger(foundation::script::Entity entity, String name) const
         {
             if (animation::AnimationGraphPlayer* p = GraphPlayer(entity))
             {
@@ -520,13 +520,13 @@ export namespace draconic::engine::animation
             }
         }
 
-        [[nodiscard]] static SceneAnimation of(draconic::script::Scene sceneHandle)
+        [[nodiscard]] static SceneAnimation of(foundation::script::Scene sceneHandle)
         {
             return SceneAnimation{sceneHandle.scene};
         }
 
     private:
-        [[nodiscard]] SkeletalAnimationComponent* Skeletal(draconic::script::Entity entity) const
+        [[nodiscard]] SkeletalAnimationComponent* Skeletal(foundation::script::Entity entity) const
         {
             if (scene == nullptr)
             {
@@ -535,12 +535,12 @@ export namespace draconic::engine::animation
             auto* manager = scene->GetSystem<SkeletalAnimationComponentManager>();
             return (manager != nullptr) ? manager->Get(entity.Handle()) : nullptr;
         }
-        [[nodiscard]] animation::AnimationPlayer* SkeletalPlayer(draconic::script::Entity e) const
+        [[nodiscard]] animation::AnimationPlayer* SkeletalPlayer(foundation::script::Entity e) const
         {
             SkeletalAnimationComponent* c = Skeletal(e);
             return (c != nullptr) ? c->player.Get() : nullptr;
         }
-        [[nodiscard]] animation::AnimationGraphPlayer* GraphPlayer(draconic::script::Entity e) const
+        [[nodiscard]] animation::AnimationGraphPlayer* GraphPlayer(foundation::script::Entity e) const
         {
             if (scene == nullptr)
             {
@@ -557,7 +557,7 @@ export namespace draconic::engine::animation
 // Reflection (tooling: the editor inspector). The DRACONIC_REFLECT_VALUE bodies +
 // RegisterAnimationComponentReflection() live in AnimationSubsystemImpl.cpp, kept out of this
 // interface partition (see gcc-module-interface-hygiene).
-export namespace draconic::engine::animation
+export namespace engine::animation
 {
     void RegisterAnimationComponentReflection();
 

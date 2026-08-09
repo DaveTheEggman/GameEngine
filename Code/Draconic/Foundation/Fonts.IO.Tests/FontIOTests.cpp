@@ -11,8 +11,8 @@ import draconic.fonts;
 import draconic.fonts.baked;
 import draconic.fonts.io;
 
-using namespace draconic::core;
-using namespace draconic::fonts;
+using namespace foundation::core;
+using namespace foundation::fonts;
 
 namespace
 {

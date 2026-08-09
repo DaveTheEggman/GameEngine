@@ -32,10 +32,12 @@ import :export_preset;
 import :export_roots;
 import :export_template;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace foundation;
+using namespace pipeline;
+namespace shaders = foundation::shaders;
 
-namespace draconic::editor
+namespace editor
 {
     namespace
     {
@@ -178,14 +180,14 @@ namespace draconic::editor
             ExportRoot root;
             root.id = id;
             root.reason = reason;
-            if (draconic::content::Instance* inst = project.SourceDb().GetInstance(id))
+            if (foundation::content::Instance* inst = project.SourceDb().GetInstance(id))
             {
                 root.name = inst->Path();
             }
             roots.PushBack(Move(root));
         };
 
-        const draconic::engine::project::ProjectSettings& settings = project.Settings();
+        const engine::project::ProjectSettings& settings = project.Settings();
 
         add(settings.defaultSceneId, ExportRootReason::DefaultScene);
 
@@ -245,7 +247,7 @@ namespace draconic::editor
         while (head < queue.Size())
         {
             const Guid id = queue[head++];
-            draconic::content::Instance* inst = project.SourceDb().GetInstance(id);
+            foundation::content::Instance* inst = project.SourceDb().GetInstance(id);
             if (inst == nullptr)
             {
                 continue;
@@ -275,8 +277,8 @@ namespace draconic::editor
                          Span<const Guid> planRoots, bool cook, bool rebuild, ExportStats& stats,
                          Array<Guid>& outReachable, const ExportProgress& onProgress)
     {
-        draconic::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
-        draconic::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
+        foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
+        foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
         JobSystem jobs;
         CookDriver driver(project.SourceDb(), project.CookedDb(), builders, &sourcesMount,
                           &cacheMount, &jobs);
@@ -354,15 +356,15 @@ namespace draconic::editor
         }
         const String stagingDir = PathJoin(outDir, u8".stage-scenes");
         (void)CreateDirectory(stagingDir.AsView());
-        draconic::vfs::NativeFileSystem stagingMount(stagingDir.AsView());
+        foundation::vfs::NativeFileSystem stagingMount(stagingDir.AsView());
         Array<String> droppedScenes; // for the pruning report
         {
-            draconic::content::ContentDatabase staging(stagingMount, BinarySerializerFactory(),
-                                                       draconic::engine::project::kCookedAssetExtension);
-            Array<draconic::content::Instance*> scenes;
+            foundation::content::ContentDatabase staging(stagingMount, BinarySerializerFactory(),
+                                                       engine::project::kCookedAssetExtension);
+            Array<foundation::content::Instance*> scenes;
             detail::CollectScenes(*project.SourceDb().RootGroup(), scenes);
             usize staged = 0;
-            for (draconic::content::Instance* scene : scenes)
+            for (foundation::content::Instance* scene : scenes)
             {
                 if (reachable != nullptr && reachable->Find(scene->Id()) == nullptr)
                 {
@@ -388,9 +390,9 @@ namespace draconic::editor
         if (reachable != nullptr)
         {
             reachablePaths = MakeUnique<HashMap<String, u8>>(DefaultAllocator());
-            Array<draconic::content::Instance*> cooked;
+            Array<foundation::content::Instance*> cooked;
             detail::CollectAllInstances(*project.CookedDb().RootGroup(), cooked);
-            for (draconic::content::Instance* product : cooked)
+            for (foundation::content::Instance* product : cooked)
             {
                 if (reachable->Find(product->Id()) != nullptr)
                 {
@@ -402,9 +404,9 @@ namespace draconic::editor
             // the SOURCE db, not the cooked db: a scoped cook never PRODUCES the unreachable assets,
             // so they wouldn't appear cooked - but they're exactly what pruning left out, so the
             // report must name them (scenes are reported via droppedScenes above).
-            Array<draconic::content::Instance*> sources;
+            Array<foundation::content::Instance*> sources;
             detail::CollectAllInstances(*project.SourceDb().RootGroup(), sources);
-            for (draconic::content::Instance* src : sources)
+            for (foundation::content::Instance* src : sources)
             {
                 const bool isSceneLike =
                     src->TypeName() == u8"SceneDocument" || src->TypeName() == u8"PrefabDocument";
@@ -419,9 +421,9 @@ namespace draconic::editor
         {
             onProgress(u8"Packing Content.pak...", 0.78f);
         }
-        draconic::vfs::PakBuilder pak;
-        draconic::vfs::NativeFileSystem cookedMount(
-            PathJoin(project.Directory(), draconic::engine::project::kProjectCookedDir).AsView());
+        foundation::vfs::PakBuilder pak;
+        foundation::vfs::NativeFileSystem cookedMount(
+            PathJoin(project.Directory(), engine::project::kProjectCookedDir).AsView());
         if (!detail::PackTree(cookedMount, *cookedMount.AsEnumerable(), u8"", pak,
                               stats.filesPacked, reachablePaths.Get()) ||
             !detail::PackTree(stagingMount, *stagingMount.AsEnumerable(), u8"", pak,
@@ -433,7 +435,7 @@ namespace draconic::editor
         // The startup game script needs no special staging - it is a cooked ScriptClass asset in the
         // reachability closure, so it already rides in the content DB pak like every other asset. The
         // dist manifest carries its guid (below); the player binds it from the content DB.
-        const String pakPath = PathJoin(outDir, draconic::engine::project::kDistContentPak);
+        const String pakPath = PathJoin(outDir, engine::project::kDistContentPak);
         if (!pak.Write(pakPath.AsView()).IsOk())
         {
             DRACONIC_LOG_ERROR(u8"Export", u8"failed to write Content.pak");
@@ -446,8 +448,8 @@ namespace draconic::editor
             onProgress(u8"Writing manifest...", 0.9f);
         }
         {
-            draconic::vfs::NativeFileSystem outMount(outDir);
-            draconic::engine::project::ProjectSettings dist;
+            foundation::vfs::NativeFileSystem outMount(outDir);
+            engine::project::ProjectSettings dist;
             dist.name = String(project.Settings().name.AsView());
             dist.defaultSceneId = project.Settings().defaultSceneId;
             dist.defaultScene = String(project.Settings().defaultScene.AsView());
@@ -461,8 +463,8 @@ namespace draconic::editor
             dist.defaultBusLayoutId = project.Settings().defaultBusLayoutId;
             dist.defaultUiThemeId = project.Settings().defaultUiThemeId;
             dist.defaultUiFontId = project.Settings().defaultUiFontId;
-            if (!draconic::engine::project::SaveProjectSettings(*outMount.AsWritable(), dist,
-                                                        draconic::engine::project::kDistManifestFile)
+            if (!engine::project::SaveProjectSettings(*outMount.AsWritable(), dist,
+                                                        engine::project::kDistManifestFile)
                      .IsOk())
             {
                 DRACONIC_LOG_ERROR(u8"Export", u8"failed to write the dist manifest");
@@ -493,7 +495,7 @@ namespace draconic::editor
             DRACONIC_LOG_INFO(u8"Export", u8"pruned dist: {} kept, {} dropped ({} root(s))",
                               report.keptCount, report.dropped.Size(), report.roots.Size());
             {
-                draconic::vfs::NativeFileSystem outMount(outDir);
+                foundation::vfs::NativeFileSystem outMount(outDir);
                 (void)outMount.AsWritable()->Save(
                     u8"export-report.txt",
                     Span<const byte>(reinterpret_cast<const byte*>(text.CStr()), text.Size()));
@@ -519,8 +521,8 @@ namespace draconic::editor
         {
             onProgress(u8"Cooking content...", 0.05f);
         }
-        draconic::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
-        draconic::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
+        foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
+        foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
         JobSystem jobs;
         CookDriver driver(project.SourceDb(), project.CookedDb(), builders, &sourcesMount,
                           &cacheMount, &jobs);
@@ -586,19 +588,19 @@ namespace draconic::editor
         // but we don't know that it is - so warn and keep going rather than block. Empty version = an
         // older/hand-written template with no stamp; skip.
         if (!tmpl->engineVersion.IsEmpty() &&
-            tmpl->engineVersion != draconic::engine::project::kEngineVersionString)
+            tmpl->engineVersion != engine::project::kEngineVersionString)
         {
             DRACONIC_LOG_WARNING(u8"Export",
                                  u8"template '{}' was built against engine {} but this build is {} "
                                  u8"- exporting anyway",
                                  tmpl->id, tmpl->engineVersion,
-                                 draconic::engine::project::kEngineVersionString);
+                                 engine::project::kEngineVersionString);
             result.engineVersionWarning = String(u8"Template '");
             result.engineVersionWarning += tmpl->id;
             result.engineVersionWarning += u8"' targets engine ";
             result.engineVersionWarning += tmpl->engineVersion;
             result.engineVersionWarning += u8" (this build is ";
-            result.engineVersionWarning += draconic::engine::project::kEngineVersionString;
+            result.engineVersionWarning += engine::project::kEngineVersionString;
             result.engineVersionWarning += u8").";
         }
 

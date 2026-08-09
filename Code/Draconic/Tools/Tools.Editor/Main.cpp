@@ -83,96 +83,95 @@ import draconic.editor.script.angelscript;
 import draconic.script.resource;
 import draconic.script.pipeline;
 
-using namespace draconic::core;
-namespace editor = draconic::editor;
-namespace shell = draconic::shell;
+using namespace foundation::core;
+namespace shell = foundation::shell;
 
 namespace
 {
     template <typename T>
-    void AddBuilder(draconic::pipeline::BuilderRegistry& registry)
+    void AddBuilder(pipeline::BuilderRegistry& registry)
     {
         registry.Register(
-            UniquePtr<draconic::pipeline::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
+            UniquePtr<pipeline::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
     }
 
     // Every engine builder (kept in lockstep with the Draconic.Tools.Cook CLI's set).
-    void RegisterAllBuilders(draconic::pipeline::BuilderRegistry& registry)
+    void RegisterAllBuilders(pipeline::BuilderRegistry& registry)
     {
-        draconic::pipeline::RegisterAssetReflection(); // base Asset::fileName + SourcePath
-        draconic::pipeline::RegisterTextureAsset();
-        draconic::pipeline::RegisterFontAsset(); // asset + FontResource product
-        draconic::pipeline::RegisterImageAsset();
-        draconic::pipeline::RegisterMeshAssets();
-        draconic::pipeline::RegisterAnimationAssets();
-        draconic::pipeline::RegisterMaterialAsset();
-        draconic::pipeline::RegisterShaderAsset();
-        draconic::pipeline::RegisterParticleEffectAsset();
-        draconic::pipeline::RegisterInputMapAsset();
-        draconic::pipeline::RegisterModelManifestAsset();
+        pipeline::RegisterAssetReflection(); // base Asset::fileName + SourcePath
+        pipeline::RegisterTextureAsset();
+        pipeline::RegisterFontAsset(); // asset + FontResource product
+        pipeline::RegisterImageAsset();
+        pipeline::RegisterMeshAssets();
+        pipeline::RegisterAnimationAssets();
+        pipeline::RegisterMaterialAsset();
+        pipeline::RegisterShaderAsset();
+        pipeline::RegisterParticleEffectAsset();
+        pipeline::RegisterInputMapAsset();
+        pipeline::RegisterModelManifestAsset();
         // Product/resource types: ReadObject constructs cooked products BY TYPE NAME, so the
         // runtime-facing types must be registered too (meshes/materials/textures/animation/
         // manifest via the model-importer helper, plus the image resource).
-        draconic::model::RegisterModelResourceTypes();
-        draconic::image::RegisterImageResource();
-        draconic::pipeline::RegisterPhysicsAssets();
-        draconic::physics::RegisterPhysicsResource();
-        draconic::pipeline::RegisterUIAssets();
-        draconic::ui::RegisterUIResource();
-        draconic::pipeline::RegisterAudioAssets();
-        draconic::audio::RegisterAudioResource();
-        draconic::pipeline::RegisterScriptAssets();
-        draconic::script::RegisterScriptResource();
+        foundation::model::RegisterModelResourceTypes();
+        foundation::image::RegisterImageResource();
+        pipeline::RegisterPhysicsAssets();
+        foundation::physics::RegisterPhysicsResource();
+        pipeline::RegisterUIAssets();
+        foundation::ui::RegisterUIResource();
+        pipeline::RegisterAudioAssets();
+        foundation::audio::RegisterAudioResource();
+        pipeline::RegisterScriptAssets();
+        foundation::script::RegisterScriptResource();
         // The builder resolves a per-language COOK through the registry (B3);
         // registering backends + cooks is the entry point's job - both languages.
-        draconic::script::wren::RegisterWrenScriptBackend();
-        draconic::script::angelscript::RegisterAngelScriptBackend();
-        draconic::pipeline::RegisterWrenScriptCook();
-        draconic::pipeline::RegisterAngelScriptScriptCook();
+        foundation::script::wren::RegisterWrenScriptBackend();
+        foundation::script::angelscript::RegisterAngelScriptBackend();
+        pipeline::RegisterWrenScriptCook();
+        pipeline::RegisterAngelScriptScriptCook();
         // Per-language EDITOR-UI services (CodeEditView lexers; completion providers later).
-        draconic::editor::RegisterWrenEditorUI();
-        draconic::editor::RegisterAngelScriptEditorUI();
+        editor::RegisterWrenEditorUI();
+        editor::RegisterAngelScriptEditorUI();
 
-        AddBuilder<draconic::pipeline::TextureAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::FontAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::ImageAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::StaticMeshAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::SkinnedMeshAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::SkeletonAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::AnimationClipAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::AnimationGraphAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::MaterialAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::ShaderAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::ParticleEffectAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::InputMapAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::ModelManifestAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::CollisionShapeAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::PhysicalMaterialAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::UIDocumentAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::UIThemeAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::AudioClipAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::AudioBusLayoutAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::SoundCueAssetBuilder>(registry);
-        AddBuilder<draconic::pipeline::ScriptClassAssetBuilder>(registry);
+        AddBuilder<pipeline::TextureAssetBuilder>(registry);
+        AddBuilder<pipeline::FontAssetBuilder>(registry);
+        AddBuilder<pipeline::ImageAssetBuilder>(registry);
+        AddBuilder<pipeline::StaticMeshAssetBuilder>(registry);
+        AddBuilder<pipeline::SkinnedMeshAssetBuilder>(registry);
+        AddBuilder<pipeline::SkeletonAssetBuilder>(registry);
+        AddBuilder<pipeline::AnimationClipAssetBuilder>(registry);
+        AddBuilder<pipeline::AnimationGraphAssetBuilder>(registry);
+        AddBuilder<pipeline::MaterialAssetBuilder>(registry);
+        AddBuilder<pipeline::ShaderAssetBuilder>(registry);
+        AddBuilder<pipeline::ParticleEffectAssetBuilder>(registry);
+        AddBuilder<pipeline::InputMapAssetBuilder>(registry);
+        AddBuilder<pipeline::ModelManifestAssetBuilder>(registry);
+        AddBuilder<pipeline::CollisionShapeAssetBuilder>(registry);
+        AddBuilder<pipeline::PhysicalMaterialAssetBuilder>(registry);
+        AddBuilder<pipeline::UIDocumentAssetBuilder>(registry);
+        AddBuilder<pipeline::UIThemeAssetBuilder>(registry);
+        AddBuilder<pipeline::AudioClipAssetBuilder>(registry);
+        AddBuilder<pipeline::AudioBusLayoutAssetBuilder>(registry);
+        AddBuilder<pipeline::SoundCueAssetBuilder>(registry);
+        AddBuilder<pipeline::ScriptClassAssetBuilder>(registry);
     }
 
     // Create a StaticMeshAsset in the project's Meshes/ group from a procedural primitive,
     // named uniquely (Cube, Cube2, ...). The creator system cooks it right after, so it shows
     // up in the mesh pickers without further steps (quick prototyping, not whiteboxing).
-    draconic::content::Instance*
+    foundation::content::Instance*
     CreatePrimitiveMeshInstance(editor::EditorContext& ctx, StringView baseName,
-                                RefPtr<draconic::geometry::StaticMesh> mesh,
-                                draconic::content::Group* target)
+                                RefPtr<foundation::geometry::StaticMesh> mesh,
+                                foundation::content::Group* target)
     {
         editor::EditorProject* project = ctx.Project();
         if (project == nullptr || mesh.Get() == nullptr)
         {
             return nullptr;
         }
-        draconic::content::Group* meshes = target;
+        foundation::content::Group* meshes = target;
         if (meshes == nullptr)
         {
-            draconic::content::Group* root = project->SourceDb().RootGroup();
+            foundation::content::Group* root = project->SourceDb().RootGroup();
             meshes = root->GetGroup(u8"Meshes");
             if (meshes == nullptr)
             {
@@ -186,14 +185,14 @@ namespace
 
         const String name = meshes->UniqueInstanceName(baseName);
 
-        draconic::content::Instance* instance = meshes->CreateInstance(
-            name.AsView(), draconic::pipeline::StaticMeshAsset::StaticType());
+        foundation::content::Instance* instance = meshes->CreateInstance(
+            name.AsView(), pipeline::StaticMeshAsset::StaticType());
         if (instance == nullptr)
         {
             return nullptr;
         }
-        draconic::pipeline::StaticMeshAsset asset;
-        draconic::pipeline::MeshImporter::Import(*mesh, asset);
+        pipeline::StaticMeshAsset asset;
+        pipeline::MeshImporter::Import(*mesh, asset);
         if (!instance->WriteObject(asset).IsOk())
         {
             return nullptr;
@@ -203,7 +202,7 @@ namespace
 
     void RegisterPrimitiveMeshCreators(editor::EditorContext& context)
     {
-        namespace geometry = draconic::geometry;
+        namespace geometry = foundation::geometry;
         struct Entry
         {
             const utf8char* label;
@@ -225,9 +224,9 @@ namespace
             auto make = e.make;
             String base(StringView(e.label));
             creator.create =
-                [make, base](editor::EditorContext& ctx, draconic::content::Group* group)
+                [make, base](editor::EditorContext& ctx, foundation::content::Group* group)
             { return CreatePrimitiveMeshInstance(ctx, base.AsView(), make(), group); };
-            context.RegisterCreator(draconic::core::Move(creator));
+            context.RegisterCreator(foundation::core::Move(creator));
         }
     }
 
@@ -248,7 +247,7 @@ namespace
 
     void SeedNewProject(editor::EditorContext& ctx, editor::EditorProject& project)
     {
-        draconic::content::Group* root = project.SourceDb().RootGroup();
+        foundation::content::Group* root = project.SourceDb().RootGroup();
 
         // 1) The baseline UI font: Roboto imported as a real FontAsset + set as the
         //    manifest's default (the guid the player binds; source guid == product guid).
@@ -257,16 +256,16 @@ namespace
             Result<String> copied = editor::CopyIntoSources(project, source.AsView());
             if (copied.HasValue())
             {
-                draconic::content::Group* fonts = root->GetGroup(u8"Fonts");
+                foundation::content::Group* fonts = root->GetGroup(u8"Fonts");
                 if (fonts == nullptr)
                 {
                     fonts = root->CreateGroup(u8"Fonts");
                 }
-                if (draconic::content::Instance* instance = fonts->CreateInstance(
-                        u8"Roboto", draconic::pipeline::FontAsset::StaticType()))
+                if (foundation::content::Instance* instance = fonts->CreateInstance(
+                        u8"Roboto", pipeline::FontAsset::StaticType()))
                 {
-                    draconic::pipeline::FontAsset asset;
-                    asset.fileName = draconic::vfs::SourcePath(copied.Value().AsView());
+                    pipeline::FontAsset asset;
+                    asset.fileName = foundation::vfs::SourcePath(copied.Value().AsView());
                     asset.family = String(u8"Roboto");
                     if (instance->WriteObject(asset).IsOk())
                     {
@@ -289,16 +288,16 @@ namespace
             Result<String> copied = editor::CopyIntoSources(project, source.AsView());
             if (copied.HasValue())
             {
-                draconic::content::Group* env = root->GetGroup(u8"Environment");
+                foundation::content::Group* env = root->GetGroup(u8"Environment");
                 if (env == nullptr)
                 {
                     env = root->CreateGroup(u8"Environment");
                 }
-                if (draconic::content::Instance* instance = env->CreateInstance(
-                        u8"BlueSky", draconic::pipeline::TextureAsset::StaticType()))
+                if (foundation::content::Instance* instance = env->CreateInstance(
+                        u8"BlueSky", pipeline::TextureAsset::StaticType()))
                 {
-                    draconic::pipeline::TextureAsset asset;
-                    asset.fileName = draconic::vfs::SourcePath(copied.Value().AsView());
+                    pipeline::TextureAsset asset;
+                    asset.fileName = foundation::vfs::SourcePath(copied.Value().AsView());
                     asset.SetupForEquirectangularSkybox();
                     (void)instance->WriteObject(asset);
                 }
@@ -306,18 +305,18 @@ namespace
         }
 
         // 3) Primitive meshes (the same creator path as File > New > Primitives).
-        (void)CreatePrimitiveMeshInstance(ctx, u8"Cube", draconic::geometry::Primitives::Cube(),
+        (void)CreatePrimitiveMeshInstance(ctx, u8"Cube", foundation::geometry::Primitives::Cube(),
                                           nullptr);
         (void)CreatePrimitiveMeshInstance(ctx, u8"Sphere",
-                                          draconic::geometry::Primitives::Sphere(), nullptr);
-        (void)CreatePrimitiveMeshInstance(ctx, u8"Plane", draconic::geometry::Primitives::Plane(),
+                                          foundation::geometry::Primitives::Sphere(), nullptr);
+        (void)CreatePrimitiveMeshInstance(ctx, u8"Plane", foundation::geometry::Primitives::Plane(),
                                           nullptr);
 
         DRACONIC_LOG_INFO(u8"Editor", u8"starter content seeded (font/sky/primitives)");
     }
 }
-namespace graphics = draconic::graphics;
-namespace runtime = draconic::runtime;
+namespace graphics = foundation::graphics;
+namespace runtime = foundation::runtime;
 
 // The embedded fallback font (EmbeddedEditorFont.cpp, generated by EmbedBinary.cmake).
 extern const unsigned char g_draconicEmbeddedEditorFont[];
@@ -329,7 +328,7 @@ int main(int argc, char** argv)
 {
     // Log capture FIRST (design doc §3.10): the editor buffer + console output go on the global
     // logger before shell/device creation, so early startup logs reach the Console panel.
-    draconic::editor::EditorLogBuffer logBuffer;
+    editor::EditorLogBuffer logBuffer;
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&logBuffer);
     GlobalLogger().AddSink(&consoleSink);
@@ -378,37 +377,37 @@ int main(int argc, char** argv)
     config.seedNewProject = [](editor::EditorContext& ctx, editor::EditorProject& project)
     { SeedNewProject(ctx, project); };
     config.registerEditors = [](editor::app::EditorApplication& app,
-                                draconic::runtime::IApplicationHost& host,
-                                draconic::ui::runtime::UIHost& uiHost)
+                                foundation::runtime::IApplicationHost& host,
+                                foundation::ui::runtime::UIHost& uiHost)
     {
-        app.SetSceneRenderer(host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>());
-        draconic::editor::RegisterSceneEditor(app.Context(), host, uiHost,
+        app.SetSceneRenderer(host.Ctx().GetSubsystem<engine::render::RenderSubsystem>());
+        editor::RegisterSceneEditor(app.Context(), host, uiHost,
                                               app.EmbeddedApplication());
-        draconic::editor::RegisterMaterialEditor(app.Context(), host, uiHost);
-        draconic::editor::RegisterMeshEditor(app.Context(), host, uiHost);
-        draconic::editor::RegisterParticleEditor(app.Context(), host, uiHost);
-        draconic::editor::RegisterAnimationGraphEditor(app.Context(), host, uiHost);
-        draconic::editor::RegisterAnimationClipEditor(app.Context(), host, uiHost);
-        draconic::editor::RegisterSkeletonEditor(app.Context(), host, uiHost);
-        draconic::editor::RegisterInputEditor(app.Context(), host);
-        draconic::editor::RegisterGameUIEditor(app.Context(), host, uiHost);
-        draconic::editor::RegisterAudioClipEditor(app.Context(), host);
-        draconic::editor::RegisterBusLayoutEditor(app.Context(), host);
-        draconic::editor::RegisterTextureEditor(app.Context());
-        draconic::editor::RegisterImageEditor(app.Context());
-        draconic::editor::RegisterFontEditor(app.Context());
-        draconic::editor::RegisterCollisionShapeEditor(app.Context());
+        editor::RegisterMaterialEditor(app.Context(), host, uiHost);
+        editor::RegisterMeshEditor(app.Context(), host, uiHost);
+        editor::RegisterParticleEditor(app.Context(), host, uiHost);
+        editor::RegisterAnimationGraphEditor(app.Context(), host, uiHost);
+        editor::RegisterAnimationClipEditor(app.Context(), host, uiHost);
+        editor::RegisterSkeletonEditor(app.Context(), host, uiHost);
+        editor::RegisterInputEditor(app.Context(), host);
+        editor::RegisterGameUIEditor(app.Context(), host, uiHost);
+        editor::RegisterAudioClipEditor(app.Context(), host);
+        editor::RegisterBusLayoutEditor(app.Context(), host);
+        editor::RegisterTextureEditor(app.Context());
+        editor::RegisterImageEditor(app.Context());
+        editor::RegisterFontEditor(app.Context());
+        editor::RegisterCollisionShapeEditor(app.Context());
         // The FALLBACK page registers like any factory: nearest-base dispatch routes every
         // bespoke page first; anything else lands on the generic serialize-driven form
         // instead of the hard "No editor registered" failure.
-        draconic::editor::RegisterGenericAssetEditor(app.Context());
+        editor::RegisterGenericAssetEditor(app.Context());
         // Script behavior page + per-backend "New Asset > <Lang> Script" creators (scripting.md
         // §5). RegisterScriptEditor fans creators over backends that have a registered COOK, so the
         // cooks must be registered FIRST — RegisterAllBuilders (below) also registers them for the
         // cook service, but that runs later, so register them here too (idempotent by languageId).
-        draconic::pipeline::RegisterWrenScriptCook();
-        draconic::pipeline::RegisterAngelScriptScriptCook();
-        draconic::editor::RegisterScriptEditor(app.Context());
+        pipeline::RegisterWrenScriptCook();
+        pipeline::RegisterAngelScriptScriptCook();
+        editor::RegisterScriptEditor(app.Context());
         RegisterPrimitiveMeshCreators(app.Context());
         {
             // New Asset > Input Map: seeded with the conventional Gameplay starter set.
@@ -417,21 +416,21 @@ int main(int argc, char** argv)
             inputCreator.label = String(u8"Input Map");
             inputCreator.create =
                 [](editor::EditorContext& ctx,
-                   draconic::content::Group* group) -> draconic::content::Instance*
+                   foundation::content::Group* group) -> foundation::content::Instance*
             {
                 if (ctx.Project() == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::content::Group* target =
+                foundation::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
-                draconic::content::Instance* instance = target->CreateInstance(
-                    target->UniqueInstanceName(u8"InputMap").AsView(), draconic::pipeline::InputMapAsset::StaticType());
+                foundation::content::Instance* instance = target->CreateInstance(
+                    target->UniqueInstanceName(u8"InputMap").AsView(), pipeline::InputMapAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::pipeline::InputMapAsset asset;
+                pipeline::InputMapAsset asset;
                 asset.SeedDefaultContent();
                 if (!instance->WriteObject(asset).IsOk())
                 {
@@ -448,21 +447,21 @@ int main(int argc, char** argv)
             materialCreator.label = String(u8"Physical Material");
             materialCreator.create =
                 [](editor::EditorContext& ctx,
-                   draconic::content::Group* group) -> draconic::content::Instance*
+                   foundation::content::Group* group) -> foundation::content::Instance*
             {
                 if (ctx.Project() == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::content::Group* target =
+                foundation::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
-                draconic::content::Instance* instance = target->CreateInstance(
-                    target->UniqueInstanceName(u8"PhysicalMaterial").AsView(), draconic::pipeline::PhysicalMaterialAsset::StaticType());
+                foundation::content::Instance* instance = target->CreateInstance(
+                    target->UniqueInstanceName(u8"PhysicalMaterial").AsView(), pipeline::PhysicalMaterialAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::pipeline::PhysicalMaterialAsset asset;
+                pipeline::PhysicalMaterialAsset asset;
                 if (!instance->WriteObject(asset).IsOk())
                 {
                     return nullptr;
@@ -477,21 +476,21 @@ int main(int argc, char** argv)
             busLayoutCreator.label = String(u8"Audio Bus Layout");
             busLayoutCreator.create =
                 [](editor::EditorContext& ctx,
-                   draconic::content::Group* group) -> draconic::content::Instance*
+                   foundation::content::Group* group) -> foundation::content::Instance*
             {
                 if (ctx.Project() == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::content::Group* target =
+                foundation::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
-                draconic::content::Instance* instance = target->CreateInstance(
-                    target->UniqueInstanceName(u8"BusLayout").AsView(), draconic::pipeline::AudioBusLayoutAsset::StaticType());
+                foundation::content::Instance* instance = target->CreateInstance(
+                    target->UniqueInstanceName(u8"BusLayout").AsView(), pipeline::AudioBusLayoutAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::pipeline::AudioBusLayoutAsset asset;
+                pipeline::AudioBusLayoutAsset asset;
                 if (!instance->WriteObject(asset).IsOk())
                 {
                     return nullptr;
@@ -505,21 +504,21 @@ int main(int argc, char** argv)
             editor::EditorContext::AssetCreator cueCreator;
             cueCreator.label = String(u8"Sound Cue");
             cueCreator.create = [](editor::EditorContext& ctx,
-                                   draconic::content::Group* group) -> draconic::content::Instance*
+                                   foundation::content::Group* group) -> foundation::content::Instance*
             {
                 if (ctx.Project() == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::content::Group* target =
+                foundation::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
-                draconic::content::Instance* instance = target->CreateInstance(
-                    target->UniqueInstanceName(u8"SoundCue").AsView(), draconic::pipeline::SoundCueAsset::StaticType());
+                foundation::content::Instance* instance = target->CreateInstance(
+                    target->UniqueInstanceName(u8"SoundCue").AsView(), pipeline::SoundCueAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::pipeline::SoundCueAsset asset;
+                pipeline::SoundCueAsset asset;
                 if (!instance->WriteObject(asset).IsOk())
                 {
                     return nullptr;
@@ -538,22 +537,22 @@ int main(int argc, char** argv)
             documentCreator.label = String(u8"UI Document");
             documentCreator.create =
                 [](editor::EditorContext& ctx,
-                   draconic::content::Group* group) -> draconic::content::Instance*
+                   foundation::content::Group* group) -> foundation::content::Instance*
             {
                 if (ctx.Project() == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::content::Group* target =
+                foundation::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
-                draconic::content::Instance* instance = target->CreateInstance(
-                    target->UniqueInstanceName(u8"UIDocument").AsView(), draconic::pipeline::UIDocumentAsset::StaticType());
+                foundation::content::Instance* instance = target->CreateInstance(
+                    target->UniqueInstanceName(u8"UIDocument").AsView(), pipeline::UIDocumentAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::pipeline::UIDocumentAsset asset;
-                asset.markup = String(draconic::pipeline::kUIDocumentStarter);
+                pipeline::UIDocumentAsset asset;
+                asset.markup = String(pipeline::kUIDocumentStarter);
                 if (!instance->WriteObject(asset).IsOk())
                 {
                     return nullptr;
@@ -566,22 +565,22 @@ int main(int argc, char** argv)
             themeCreator.label = String(u8"UI Theme");
             themeCreator.create =
                 [](editor::EditorContext& ctx,
-                   draconic::content::Group* group) -> draconic::content::Instance*
+                   foundation::content::Group* group) -> foundation::content::Instance*
             {
                 if (ctx.Project() == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::content::Group* target =
+                foundation::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
-                draconic::content::Instance* instance =
-                    target->CreateInstance(target->UniqueInstanceName(u8"UITheme").AsView(), draconic::pipeline::UIThemeAsset::StaticType());
+                foundation::content::Instance* instance =
+                    target->CreateInstance(target->UniqueInstanceName(u8"UITheme").AsView(), pipeline::UIThemeAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::pipeline::UIThemeAsset asset;
-                asset.stylesheet = String(draconic::pipeline::kUIThemeStarter);
+                pipeline::UIThemeAsset asset;
+                asset.stylesheet = String(pipeline::kUIThemeStarter);
                 if (!instance->WriteObject(asset).IsOk())
                 {
                     return nullptr;
@@ -597,21 +596,21 @@ int main(int argc, char** argv)
             shapeCreator.label = String(u8"Collision Shape");
             shapeCreator.create =
                 [](editor::EditorContext& ctx,
-                   draconic::content::Group* group) -> draconic::content::Instance*
+                   foundation::content::Group* group) -> foundation::content::Instance*
             {
                 if (ctx.Project() == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::content::Group* target =
+                foundation::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
-                draconic::content::Instance* instance = target->CreateInstance(
-                    target->UniqueInstanceName(u8"CollisionShape").AsView(), draconic::pipeline::CollisionShapeAsset::StaticType());
+                foundation::content::Instance* instance = target->CreateInstance(
+                    target->UniqueInstanceName(u8"CollisionShape").AsView(), pipeline::CollisionShapeAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
                 }
-                draconic::pipeline::CollisionShapeAsset asset;
+                pipeline::CollisionShapeAsset asset;
                 if (!instance->WriteObject(asset).IsOk())
                 {
                     return nullptr;
@@ -625,18 +624,18 @@ int main(int argc, char** argv)
 
         // OS-file importers (drag-drop onto the editor).
         app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
-            DefaultAllocator().New<draconic::pipeline::TextureFileImporter>(), DefaultAllocator()));
+            DefaultAllocator().New<pipeline::TextureFileImporter>(), DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
-            DefaultAllocator().New<draconic::pipeline::ModelFileImporter>(),
+            DefaultAllocator().New<pipeline::ModelFileImporter>(),
             DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
-            DefaultAllocator().New<draconic::pipeline::UIFileImporter>(), DefaultAllocator()));
+            DefaultAllocator().New<pipeline::UIFileImporter>(), DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
-            DefaultAllocator().New<draconic::pipeline::AudioFileImporter>(), DefaultAllocator()));
+            DefaultAllocator().New<pipeline::AudioFileImporter>(), DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
-            DefaultAllocator().New<draconic::pipeline::ScriptFileImporter>(), DefaultAllocator()));
+            DefaultAllocator().New<pipeline::ScriptFileImporter>(), DefaultAllocator()));
         app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
-            DefaultAllocator().New<draconic::pipeline::FontAssetImporter>(), DefaultAllocator()));
+            DefaultAllocator().New<pipeline::FontAssetImporter>(), DefaultAllocator()));
 
         // Resource factories come from the embedded DefaultApplication (registered into
         // the editor's preset ResourceManager at its OnStartup) - none registered here.

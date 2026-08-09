@@ -16,9 +16,9 @@ import :datagram;
 import :reliable;
 import :wire;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::net
+export namespace foundation::net
 {
 
     // A session's role. A listen-server is also a local player; a dedicated server has no local player

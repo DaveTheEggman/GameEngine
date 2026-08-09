@@ -34,13 +34,14 @@ import draconic.vg.renderer;
 import draconic.ui;
 import draconic.shell;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace shell = foundation::shell;
 
-export namespace draconic::ui::viewport
+export namespace foundation::ui::viewport
 {
-    namespace rhi = draconic::rhi;
-    namespace image = draconic::image;
-    namespace vg = draconic::vg;
+    namespace rhi = foundation::rhi;
+    namespace image = foundation::image;
+    namespace vg = foundation::vg;
 
     class ViewportView;
 
@@ -255,7 +256,7 @@ export namespace draconic::ui::viewport
             // scale != 100%. The CONTENT resolution stays the RT's own size (MakeMouseRay divides
             // the content mouse by RenderWidth), so only the region-space conversion is needed here.
             f32 dpi = 1.0f;
-            if (draconic::ui::RootView* rv = draconic::core::Cast<draconic::ui::RootView>(root))
+            if (foundation::ui::RootView* rv = foundation::core::Cast<foundation::ui::RootView>(root))
             {
                 dpi = Max(rv->DpiScale, 0.01f);
             }

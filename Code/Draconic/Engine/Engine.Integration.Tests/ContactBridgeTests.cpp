@@ -11,11 +11,11 @@ import draconic.physics;         // ContactKind
 import draconic.engine.script;   // ScriptContactKind
 import draconic.engine.integration;
 
-using namespace draconic::core;
-using draconic::engine::integration::ScriptPhysicsContactBridge;
-using draconic::engine::integration::ToScriptContactKind;
-using CK = draconic::physics::ContactKind;
-using SK = draconic::engine::script::ScriptContactKind;
+using namespace foundation::core;
+using engine::integration::ScriptPhysicsContactBridge;
+using engine::integration::ToScriptContactKind;
+using CK = foundation::physics::ContactKind;
+using SK = engine::script::ScriptContactKind;
 
 TEST_CASE("integration: ToScriptContactKind maps every physics contact kind onto its script kind")
 {

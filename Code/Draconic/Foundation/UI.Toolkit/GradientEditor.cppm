@@ -19,9 +19,10 @@ import draconic.core;
 import draconic.vg;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Interactive color-ramp editor with direct-manipulation stops.
     class GradientEditor : public View

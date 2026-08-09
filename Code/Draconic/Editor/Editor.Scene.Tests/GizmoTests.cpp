@@ -13,9 +13,9 @@ import draconic.engine.render;
 import draconic.editor.core;
 import draconic.editor.scene;
 
-using namespace draconic::core;
-using namespace draconic::editor;
-namespace core = draconic::core;
+using namespace foundation::core;
+using namespace editor;
+namespace core = foundation::core;
 
 namespace
 {
@@ -206,7 +206,7 @@ namespace
 
 TEST_CASE("gizmo-controller: a drag session is exactly one undo entry restoring the start")
 {
-    draconic::scene::Scene scene;
+    foundation::scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     GizmoController ctl(edit);
@@ -232,7 +232,7 @@ TEST_CASE("gizmo-controller: a drag session is exactly one undo entry restoring 
     CHECK(ctl.Update(Frame(grab + Float3{2.0f, 0, 0}, false, false, true)));
     CHECK_FALSE(ctl.Gizmo().IsDragging());
 
-    const draconic::scene::EntityHandle e = edit.Resolve(id);
+    const foundation::scene::EntityHandle e = edit.Resolve(id);
     CHECK(scene.GetLocalTransform(e).position.x == doctest::Approx(2.0f).epsilon(0.05f));
 
     // Exactly ONE undo entry; undo restores the exact start.
@@ -259,7 +259,7 @@ TEST_CASE("gizmo-controller: a drag session is exactly one undo entry restoring 
 
 TEST_CASE("gizmo-controller: world drags convert into a rotated parent's space")
 {
-    draconic::scene::Scene scene;
+    foundation::scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     GizmoController ctl(edit);
@@ -299,7 +299,7 @@ TEST_CASE("gizmo-controller: world drags convert into a rotated parent's space")
 
 TEST_CASE("gizmo-controller: mode keys, space toggle, and scale forcing local")
 {
-    draconic::scene::Scene scene;
+    foundation::scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     GizmoController ctl(edit);
@@ -354,19 +354,19 @@ TEST_CASE("gizmo-registry: renderers resolve by component type; unselected entit
     RegisterBuiltinGizmoRenderers(registry);
     CHECK(registry.Count() == 4u);
 
-    CHECK(registry.Find(&TypeOf<draconic::engine::render::LightComponent>()) != nullptr);
-    CHECK(registry.Find(&TypeOf<draconic::engine::render::ReflectionProbeComponent>()) != nullptr);
-    CHECK(registry.Find(&TypeOf<draconic::engine::render::CameraComponent>()) != nullptr);
-    CHECK(registry.Find(&TypeOf<draconic::engine::render::DecalComponent>()) != nullptr);
+    CHECK(registry.Find(&TypeOf<engine::render::LightComponent>()) != nullptr);
+    CHECK(registry.Find(&TypeOf<engine::render::ReflectionProbeComponent>()) != nullptr);
+    CHECK(registry.Find(&TypeOf<engine::render::CameraComponent>()) != nullptr);
+    CHECK(registry.Find(&TypeOf<engine::render::DecalComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<f32>()) == nullptr);
 
     // Built-ins draw only when selected (design: unselected wireframes everywhere are noise).
-    CHECK_FALSE(registry.Find(&TypeOf<draconic::engine::render::LightComponent>())->DrawWhenUnselected());
+    CHECK_FALSE(registry.Find(&TypeOf<engine::render::LightComponent>())->DrawWhenUnselected());
 }
 
 TEST_CASE("gizmo-controller: pose tracks selection even while the pointer is off the viewport")
 {
-    draconic::scene::Scene scene;
+    foundation::scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     GizmoController ctl(edit);
@@ -426,7 +426,7 @@ TEST_CASE("gizmo-controller: a pointer-less update follows an entity the simulat
     // Simulate mode drives the gizmo with pointerValid=false every frame (read-only).
     // The reported bug: physics moved the selected box and the gizmo stayed at the
     // pre-play pose - the page skipped Update entirely while simulating.
-    draconic::scene::Scene scene;
+    foundation::scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     GizmoController ctl(edit);

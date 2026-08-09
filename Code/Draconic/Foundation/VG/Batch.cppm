@@ -17,11 +17,11 @@ import :vertex;
 import :path;
 import :tessellation;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg
+export namespace foundation::vg
 {
-    namespace image = draconic::image;
+    namespace image = foundation::image;
 
     /// A single draw command: a run of geometry sharing render state.
     struct VGCommand

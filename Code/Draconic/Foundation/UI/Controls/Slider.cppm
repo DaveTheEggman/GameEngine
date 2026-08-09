@@ -24,10 +24,10 @@ import :event_args;
 import :input_enums;
 import :enums;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class Slider : public View
     {
@@ -37,7 +37,7 @@ export namespace draconic::ui
         Property<f32> Min{0.0f};
         Property<f32> Max{1.0f};
         Property<f32> Step{0.0f};
-        Property<::draconic::ui::Orientation> Orientation{::draconic::ui::Orientation::Horizontal};
+        Property<::foundation::ui::Orientation> Orientation{::foundation::ui::Orientation::Horizontal};
 
         Event<void(Slider*, f32)> OnValueChanged;
         Event<void(Slider*)> OnDragStarted;
@@ -127,7 +127,7 @@ export namespace draconic::ui
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            if (Orientation.Value() == ::draconic::ui::Orientation::Horizontal)
+            if (Orientation.Value() == ::foundation::ui::Orientation::Horizontal)
                 MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
                                       constraints.ConstrainHeight(20.0f)};
             else
@@ -154,7 +154,7 @@ export namespace draconic::ui
             const Color fillCol{80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f};
             const Color thumbCol{220.0f / 255.0f, 220.0f / 255.0f, 230.0f / 255.0f, 1.0f};
 
-            if (Orientation.Value() == ::draconic::ui::Orientation::Horizontal)
+            if (Orientation.Value() == ::foundation::ui::Orientation::Horizontal)
             {
                 const f32 trackY = (Height() - trackHeight) * 0.5f;
                 const f32 trackLeft = thumbHalf;
@@ -284,7 +284,7 @@ export namespace draconic::ui
                 ResolvePartFloat(u8"thumb", StyleProperty::Width, GetControlState(), 16.0f);
             const f32 thumbHalf = thumbSize * 0.5f;
             f32 progress;
-            if (Orientation.Value() == ::draconic::ui::Orientation::Horizontal)
+            if (Orientation.Value() == ::foundation::ui::Orientation::Horizontal)
             {
                 const f32 trackW = Width() - thumbSize;
                 progress = trackW > 0 ? (localX - thumbHalf) / trackW : 0.0f;

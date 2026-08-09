@@ -32,10 +32,12 @@ import :cluster_system;
 import :resources;
 import :gpu_mesh;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace materials = foundation::materials;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     class MeshRenderer final : public Renderer
@@ -603,4 +605,4 @@ export namespace draconic::render
         bool m_ready = false;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

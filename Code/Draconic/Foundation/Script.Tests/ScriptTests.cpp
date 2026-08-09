@@ -6,8 +6,8 @@
 import draconic.core;
 import draconic.script;
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation::script;
 
 // A tiny reflected object to exercise object-valued globals.
 namespace
@@ -127,7 +127,7 @@ TEST_CASE("script: backend reports unsupported operations cleanly")
 namespace
 {
     // A registry-conformance fake: records the two-phase order the contract promises.
-    class FakeScriptManager final : public draconic::script::IScriptManager
+    class FakeScriptManager final : public foundation::script::IScriptManager
     {
     public:
         u32 registered = 0;
@@ -143,7 +143,7 @@ namespace
             finalized = true;
             finalizedAfterAll = registered > 0;
         }
-        [[nodiscard]] RefPtr<draconic::script::IScriptContext> CreateContext() override
+        [[nodiscard]] RefPtr<foundation::script::IScriptContext> CreateContext() override
         {
             return {};
         }
@@ -153,7 +153,7 @@ namespace
 TEST_CASE("script.backend: registry resolves by language and extension; file dispatch "
           "falls back to a sole backend")
 {
-    using namespace draconic::script;
+    using namespace foundation::script;
     ScriptBackendRegistry& registry = ScriptBackendRegistry::Get();
 
     ScriptBackendDesc wrenLike;
@@ -203,7 +203,7 @@ TEST_CASE("script.backend: RegisterReflectedTypes drives the two-phase contract 
           "(collect all, THEN finalize - the AngelScript requirement)")
 {
     FakeScriptManager manager;
-    draconic::script::RegisterReflectedTypes(manager);
+    foundation::script::RegisterReflectedTypes(manager);
     CHECK(manager.registered > 0); // the global registry is never empty here
     CHECK(manager.finalized);
     CHECK(manager.finalizedAfterAll); // finalize came after every RegisterType
@@ -211,8 +211,8 @@ TEST_CASE("script.backend: RegisterReflectedTypes drives the two-phase contract 
 
 TEST_CASE("script.backend: capability flags default to None and compose (B4)")
 {
-    using draconic::script::HasScriptCapability;
-    using draconic::script::ScriptCapabilities;
+    using foundation::script::HasScriptCapability;
+    using foundation::script::ScriptCapabilities;
 
     FakeScriptManager manager;
     CHECK(manager.Capabilities() == ScriptCapabilities::None);
@@ -244,7 +244,7 @@ TEST_CASE("script.backend: unset seams default to null factories / unsupported")
 
 TEST_CASE("script.debug: snapshot value types are wire-symmetric (remote-transport ready)")
 {
-    using namespace draconic::script;
+    using namespace foundation::script;
 
     const auto roundTrip = [](auto value)
     {
@@ -253,7 +253,7 @@ TEST_CASE("script.debug: snapshot value types are wire-symmetric (remote-transpo
         {
             BinarySerializer writer(stream, SerializeMode::Write);
             T copy = value;
-            Serialize(writer, copy); // ADL finds draconic::script::Serialize
+            Serialize(writer, copy); // ADL finds foundation::script::Serialize
             REQUIRE(writer.IsOk());
         }
         (void)stream.Seek(0, SeekOrigin::Begin);

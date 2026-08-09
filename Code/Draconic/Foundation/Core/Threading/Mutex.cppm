@@ -10,7 +10,7 @@ export module draconic.core:mutex;
 
 import :base;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     class Mutex
     {

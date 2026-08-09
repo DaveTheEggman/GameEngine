@@ -11,9 +11,9 @@ import draconic.graphics.null;
 import draconic.shell;
 import draconic.shell.null;
 
-using namespace draconic::core;
-using namespace draconic::graphics; // GraphicsDevice etc. (moved from draconic::runtime)
-using namespace draconic::shell;
+using namespace foundation::core;
+using namespace foundation::graphics; // GraphicsDevice etc. (moved from foundation::runtime)
+using namespace foundation::shell;
 
 TEST_CASE("graphics: GraphicsDevice brings up over the null backend")
 {

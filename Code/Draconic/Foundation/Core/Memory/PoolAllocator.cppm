@@ -12,7 +12,7 @@ export module draconic.core:pool_allocator;
 import :base;
 import :allocator;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // PoolAllocator - fixed-size block allocator over a caller buffer.

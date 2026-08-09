@@ -18,9 +18,9 @@ export module draconic.ui:itext_edit_host;
 import draconic.core; // StringView
 import :iclipboard;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ITextEditHost
     {

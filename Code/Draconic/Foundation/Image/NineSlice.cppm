@@ -11,9 +11,9 @@ export module draconic.image:nine_slice;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::image
+export namespace foundation::image
 {
     /// Border insets (in pixels) for 9-slice image scaling.
     struct NineSlice

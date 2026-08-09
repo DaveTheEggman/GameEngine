@@ -48,12 +48,12 @@ import :image;
 import :list_box;
 import :window;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
-namespace xml = draconic::xml;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
+namespace xml = foundation::xml;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // Maps markup element names to widget constructors.
     class WidgetFactory

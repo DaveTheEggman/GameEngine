@@ -11,9 +11,9 @@ export module draconic.ui:event;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     template <typename Signature>
     class Event; // primary template undefined; only void(Args...) is valid

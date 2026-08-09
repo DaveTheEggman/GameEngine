@@ -24,10 +24,10 @@ import :atlas_image_drawable;
 import :atlas_nine_slice_drawable;
 import :state_list_drawable;
 
-using namespace draconic::core;
-namespace image = draconic::image;
+using namespace foundation::core;
+namespace image = foundation::image;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// A (ControlState, region-name) pair for building a StateListDrawable from atlas regions.
     struct StateImageEntry

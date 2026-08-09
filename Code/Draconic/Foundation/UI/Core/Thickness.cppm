@@ -11,9 +11,9 @@ export module draconic.ui:thickness;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct Thickness
     {

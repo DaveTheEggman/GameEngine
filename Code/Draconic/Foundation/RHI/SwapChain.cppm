@@ -8,9 +8,9 @@ import :texture_format;
 import :resources;
 import :queue;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     class SwapChain
@@ -44,4 +44,4 @@ export namespace draconic::rhi
         virtual Status Resize(u32 width, u32 height) = 0;
     };
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

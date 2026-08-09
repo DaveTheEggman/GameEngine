@@ -19,9 +19,16 @@ import draconic.script.facades; // RegisterExtraFacadeName (SceneLoader behavior
 import draconic.net.manager; // NetworkManager factories + InstallNetScriptService
 import draconic.input;       // kInputScriptService (install the per-instance runtime)
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace content = foundation::content;
+namespace core = foundation::core;
+namespace input = foundation::input;
+namespace net = foundation::net;
+namespace resource = foundation::resource;
+namespace scene = foundation::scene;
+namespace script = foundation::script;
 
-namespace draconic::engine::runtime
+namespace engine::runtime
 {
     // The SceneLoader.* facade reflection body + registration (kept out of the interface unit per the
     // GCC gcm-cluster rule). Owned by the game-instance project (the out-of-tree facade pattern).
@@ -42,7 +49,7 @@ namespace draconic::engine::runtime
         static const bool once = []()
         {
             GlobalTypeRegistry().Register(SceneLoader::StaticType());
-            draconic::script::RegisterExtraFacadeName(
+            foundation::script::RegisterExtraFacadeName(
                 u8"SceneLoader"); // Wren behavior prelude imports it (AngelScript binds by registry)
             return true;
         }();
@@ -184,11 +191,11 @@ namespace draconic::engine::runtime
         {
             // OnSceneCreated (the ScriptSubsystem) added the behavior + level script systems bound to
             // the DEFAULT host; re-bind BOTH to THIS instance's host so they share the game's context.
-            if (auto* system = scene->GetSystem<draconic::engine::script::ScriptSceneSystem>())
+            if (auto* system = scene->GetSystem<engine::script::ScriptSceneSystem>())
             {
                 system->SetRunHost(&m_runHost);
             }
-            if (auto* level = scene->GetSystem<draconic::engine::script::SceneScriptSystem>())
+            if (auto* level = scene->GetSystem<engine::script::SceneScriptSystem>())
             {
                 level->SetRunHost(&m_runHost);
             }

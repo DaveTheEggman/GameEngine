@@ -26,9 +26,9 @@ import draconic.core;
 import draconic.resource;
 import draconic.content;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::script
+export namespace foundation::script
 {
     // ---- property values ----
 
@@ -120,29 +120,29 @@ export namespace draconic::script
     inline void Serialize(ISerializer& ar, ScriptPropertyValue& v)
     {
         u8 kind = static_cast<u8>(v.kind);
-        draconic::core::Serialize(ar, "kind", kind);
+        foundation::core::Serialize(ar, "kind", kind);
         v.kind = static_cast<ScriptPropertyType>(kind);
         switch (v.kind)
         {
         case ScriptPropertyType::Float:
         case ScriptPropertyType::Int:
-            draconic::core::Serialize(ar, "number", v.number);
+            foundation::core::Serialize(ar, "number", v.number);
             break;
         case ScriptPropertyType::Bool:
-            draconic::core::Serialize(ar, "boolean", v.boolean);
+            foundation::core::Serialize(ar, "boolean", v.boolean);
             break;
         case ScriptPropertyType::String:
-            draconic::core::Serialize(ar, "text", v.text);
+            foundation::core::Serialize(ar, "text", v.text);
             break;
         case ScriptPropertyType::Color:
-            draconic::core::Serialize(ar, "color", v.color);
+            foundation::core::Serialize(ar, "color", v.color);
             break;
         case ScriptPropertyType::Vec3:
-            draconic::core::Serialize(ar, "vector", v.vector);
+            foundation::core::Serialize(ar, "vector", v.vector);
             break;
         case ScriptPropertyType::Entity:
         case ScriptPropertyType::Asset:
-            draconic::core::Serialize(ar, "guid", v.guid);
+            foundation::core::Serialize(ar, "guid", v.guid);
             break;
         case ScriptPropertyType::None:
         default:
@@ -194,14 +194,14 @@ export namespace draconic::script
 
     inline void Serialize(ISerializer& ar, ScriptPropertyDesc& d)
     {
-        draconic::core::Serialize(ar, "name", d.name);
-        draconic::core::Serialize(ar, "hash", d.hash);
+        foundation::core::Serialize(ar, "name", d.name);
+        foundation::core::Serialize(ar, "hash", d.hash);
         u8 type = static_cast<u8>(d.type);
-        draconic::core::Serialize(ar, "type", type);
+        foundation::core::Serialize(ar, "type", type);
         d.type = static_cast<ScriptPropertyType>(type);
-        draconic::core::Serialize(ar, "assetType", d.assetType);
-        draconic::core::Serialize(ar, "default", d.defaultValue);
-        draconic::core::Serialize(ar, "description", d.description);
+        foundation::core::Serialize(ar, "assetType", d.assetType);
+        foundation::core::Serialize(ar, "default", d.defaultValue);
+        foundation::core::Serialize(ar, "description", d.description);
     }
 
     // ---- the cooked record ----
@@ -222,13 +222,13 @@ export namespace draconic::script
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "language", language);
-            draconic::core::Serialize(ar, "className", className);
-            draconic::core::Serialize(ar, "sourceName", sourceName);
-            draconic::core::Serialize(ar, "source", source);
-            draconic::core::Serialize(ar, "properties", properties);
-            draconic::core::Serialize(ar, "handlers", handlers);
-            draconic::core::Serialize(ar, "usesCoroutines", usesCoroutines);
+            foundation::core::Serialize(ar, "language", language);
+            foundation::core::Serialize(ar, "className", className);
+            foundation::core::Serialize(ar, "sourceName", sourceName);
+            foundation::core::Serialize(ar, "source", source);
+            foundation::core::Serialize(ar, "properties", properties);
+            foundation::core::Serialize(ar, "handlers", handlers);
+            foundation::core::Serialize(ar, "usesCoroutines", usesCoroutines);
         }
     };
 
@@ -287,7 +287,7 @@ export namespace draconic::script
         String m_profileName;
     };
 
-    class ScriptClassFactory final : public draconic::resource::IResourceFactory
+    class ScriptClassFactory final : public foundation::resource::IResourceFactory
     {
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override
@@ -295,8 +295,8 @@ export namespace draconic::script
             return &ScriptClass::StaticType();
         }
 
-        [[nodiscard]] RefPtr<Object> Create(draconic::resource::ResourceManager&,
-                                            draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> Create(foundation::resource::ResourceManager&,
+                                            foundation::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             ScriptClassSource* source = Cast<ScriptClassSource>(object.Get());

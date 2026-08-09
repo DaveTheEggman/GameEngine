@@ -11,7 +11,7 @@ export module draconic.core:linear_allocator;
 import :base;
 import :allocator;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // LinearAllocator - bump-pointer arena over a caller-provided buffer.

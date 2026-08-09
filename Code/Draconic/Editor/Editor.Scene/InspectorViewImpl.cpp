@@ -47,10 +47,12 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :edit;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace scene = foundation::scene;
+namespace ui = foundation::ui;
+namespace core = foundation::core;
 
-namespace draconic::editor
+namespace editor
 {
     RefPtr<ui::View> NoticeEditor::CreateEditorView()
     {
@@ -150,7 +152,7 @@ namespace draconic::editor
             column.AddView(row.Get(), lp);
         }
 
-        if (count < draconic::physics::kCollisionGroupCount)
+        if (count < foundation::physics::kCollisionGroupCount)
         {
             auto add = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"+ Add Group"));
             add->FontSize.SetValue(Optional<f32>{12.0f});
@@ -176,7 +178,7 @@ namespace draconic::editor
         column->Spacing = 2.0f;
 
         ContainerListEditor* self = this;
-        draconic::editor::app::EditorIcons& icons = draconic::editor::app::EditorIcons::Get();
+        editor::app::EditorIcons& icons = editor::app::EditorIcons::Get();
 
         // Header: a spacer that grows + the add icon button pinned to the right.
         {
@@ -210,7 +212,7 @@ namespace draconic::editor
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 4.0f;
 
-            auto slot = MakeRef<draconic::editor::app::AssetPickerSlot>(DefaultAllocator(), slotNames[i].AsView());
+            auto slot = MakeRef<editor::app::AssetPickerSlot>(DefaultAllocator(), slotNames[i].AsView());
             slot->FontSize.SetValue(Optional<f32>{12.0f});
             slot->OnClick.Add([self, i](ui::ButtonBase*)
                               {
@@ -505,7 +507,7 @@ namespace draconic::editor
                                                        : Instance{};
                         });
                 }
-                if (type == &TypeOf<draconic::engine::physics::PhysicsSceneSettings>())
+                if (type == &TypeOf<engine::physics::PhysicsSceneSettings>())
                 {
                     BuildCollisionMatrixRow(type, category);
                 }
@@ -514,7 +516,7 @@ namespace draconic::editor
 
     void SceneInspectorView::BuildCollisionMatrixRow(const TypeInfo* type, StringView category)
     {
-        using draconic::engine::physics::PhysicsSceneSettings;
+        using engine::physics::PhysicsSceneSettings;
         SceneEditContext* edit = m_edit;
         scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
         if (system == nullptr)
@@ -542,7 +544,7 @@ namespace draconic::editor
         {
             MemoryStream buffer;
             BinarySerializer writer(buffer, SerializeMode::Write);
-            draconic::engine::physics::SerializePhysicsSceneSettings(writer, copy);
+            engine::physics::SerializePhysicsSceneSettings(writer, copy);
             Array<byte> blob;
             const Span<const byte> bytes = buffer.Bytes();
             blob.Reserve(bytes.Size());
@@ -624,17 +626,17 @@ namespace draconic::editor
 
         // Resource references (the environment's sky texture): the browser-mirroring picker,
         // writing through the settings-flavored ref command.
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::texture::Texture>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::texture::Texture>>())
         {
-            BuildSettingResourceRefRow<draconic::texture::Texture>(type, prop, category,
+            BuildSettingResourceRefRow<foundation::texture::Texture>(type, prop, category,
                                                                    {u8"TextureAsset"});
             return;
         }
         // The scene's Level-script reference (SceneScriptSettings::script): the same
         // browser-mirroring picker, filtered to script class assets.
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::script::ScriptClass>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::script::ScriptClass>>())
         {
-            BuildSettingResourceRefRow<draconic::script::ScriptClass>(type, prop, category,
+            BuildSettingResourceRefRow<foundation::script::ScriptClass>(type, prop, category,
                                                                       {u8"ScriptClassAsset"});
             return;
         }
@@ -937,13 +939,13 @@ namespace draconic::editor
         // RigidBody with a Cooked shape but no collision-shape reference: warn, else the body builds
         // with NO collider (the #7 authoring trap). Advisory only - refreshed when the inspector
         // rebuilds (reselect / structural change).
-        if (type == &TypeOf<draconic::engine::physics::RigidBodyComponent>())
+        if (type == &TypeOf<engine::physics::RigidBodyComponent>())
         {
             const scene::EntityHandle e = edit->Resolve(id);
-            auto* bodies = static_cast<draconic::engine::physics::RigidBodyComponentManager*>(&mgr);
-            draconic::engine::physics::RigidBodyComponent* body =
+            auto* bodies = static_cast<engine::physics::RigidBodyComponentManager*>(&mgr);
+            engine::physics::RigidBodyComponent* body =
                 e.IsAssigned() ? bodies->Get(e) : nullptr;
-            if (body != nullptr && body->shape == draconic::physics::ShapeKind::Cooked &&
+            if (body != nullptr && body->shape == foundation::physics::ShapeKind::Cooked &&
                 body->collisionShape.id.IsNil())
             {
                 auto notice = MakeRef<NoticeEditor>(DefaultAllocator(), StringView(u8"Collision"),
@@ -1016,7 +1018,7 @@ namespace draconic::editor
         // icon runs the action; clicking elsewhere on the header toggles the section). Only regular
         // components get these - Transform / scene-settings sections do not add header actions.
         {
-            draconic::editor::app::EditorIcons& icons = draconic::editor::app::EditorIcons::Get();
+            editor::app::EditorIcons& icons = editor::app::EditorIcons::Get();
             auto actions = MakeRef<ui::FlexLayout>(DefaultAllocator());
             actions->Direction = ui::Orientation::Horizontal;
             actions->Spacing = 2.0f;
@@ -1076,84 +1078,84 @@ namespace draconic::editor
         // Resource references: a picker over the source DB's matching assets. Matched by
         // EXACT Ref<T> type identity (the TypeInfo pointer), so the unregistered template
         // type name ("<value>") never matters.
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::geometry::StaticMesh>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::geometry::StaticMesh>>())
         {
             // SkinnedMeshAsset too: SkinnedMesh IS-A StaticMesh (bind pose when drawn
             // through the static path), so both asset types are valid targets.
-            BuildResourceRefRow<draconic::geometry::StaticMesh>(
+            BuildResourceRefRow<foundation::geometry::StaticMesh>(
                 id, type, prop, category, {u8"StaticMeshAsset", u8"SkinnedMeshAsset"});
             return;
         }
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::materials::Material>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::materials::Material>>())
         {
-            BuildResourceRefRow<draconic::materials::Material>(id, type, prop, category,
+            BuildResourceRefRow<foundation::materials::Material>(id, type, prop, category,
                                                                {u8"MaterialAsset"});
             return;
         }
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::animation::Skeleton>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::animation::Skeleton>>())
         {
-            BuildResourceRefRow<draconic::animation::Skeleton>(id, type, prop, category,
+            BuildResourceRefRow<foundation::animation::Skeleton>(id, type, prop, category,
                                                                {u8"SkeletonAsset"});
             return;
         }
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::animation::AnimationClip>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::animation::AnimationClip>>())
         {
-            BuildResourceRefRow<draconic::animation::AnimationClip>(id, type, prop, category,
+            BuildResourceRefRow<foundation::animation::AnimationClip>(id, type, prop, category,
                                                                     {u8"AnimationClipAsset"});
             return;
         }
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::animation::AnimationGraph>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::animation::AnimationGraph>>())
         {
-            BuildResourceRefRow<draconic::animation::AnimationGraph>(id, type, prop, category,
+            BuildResourceRefRow<foundation::animation::AnimationGraph>(id, type, prop, category,
                                                                      {u8"AnimationGraphAsset"});
             return;
         }
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::texture::Texture>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::texture::Texture>>())
         {
-            BuildResourceRefRow<draconic::texture::Texture>(id, type, prop, category,
+            BuildResourceRefRow<foundation::texture::Texture>(id, type, prop, category,
                                                             {u8"TextureAsset"});
             return;
         }
         if (prop.type ==
-            &TypeOf<draconic::resource::Ref<draconic::particles::ParticleEffectResource>>())
+            &TypeOf<foundation::resource::Ref<foundation::particles::ParticleEffectResource>>())
         {
-            BuildResourceRefRow<draconic::particles::ParticleEffectResource>(
+            BuildResourceRefRow<foundation::particles::ParticleEffectResource>(
                 id, type, prop, category, {u8"ParticleEffectAsset"});
             return;
         }
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::physics::CollisionShape>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::physics::CollisionShape>>())
         {
-            BuildResourceRefRow<draconic::physics::CollisionShape>(id, type, prop, category,
+            BuildResourceRefRow<foundation::physics::CollisionShape>(id, type, prop, category,
                                                                    {u8"CollisionShapeAsset"});
             return;
         }
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::physics::PhysicalMaterial>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::physics::PhysicalMaterial>>())
         {
-            BuildResourceRefRow<draconic::physics::PhysicalMaterial>(id, type, prop, category,
+            BuildResourceRefRow<foundation::physics::PhysicalMaterial>(id, type, prop, category,
                                                                      {u8"PhysicalMaterialAsset"});
             return;
         }
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::audio::AudioClip>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::audio::AudioClip>>())
         {
-            BuildResourceRefRow<draconic::audio::AudioClip>(id, type, prop, category,
+            BuildResourceRefRow<foundation::audio::AudioClip>(id, type, prop, category,
                                                             {u8"AudioClipAsset"});
             return;
         }
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::audio::SoundCue>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::audio::SoundCue>>())
         {
-            BuildResourceRefRow<draconic::audio::SoundCue>(id, type, prop, category,
+            BuildResourceRefRow<foundation::audio::SoundCue>(id, type, prop, category,
                                                            {u8"SoundCueAsset"});
             return;
         }
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::ui::UIDocument>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::ui::UIDocument>>())
         {
-            BuildResourceRefRow<draconic::ui::UIDocument>(id, type, prop, category,
+            BuildResourceRefRow<foundation::ui::UIDocument>(id, type, prop, category,
                                                           {u8"UIDocumentAsset"});
             return;
         }
-        if (prop.type == &TypeOf<draconic::resource::Ref<draconic::ui::UITheme>>())
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::ui::UITheme>>())
         {
-            BuildResourceRefRow<draconic::ui::UITheme>(id, type, prop, category,
+            BuildResourceRefRow<foundation::ui::UITheme>(id, type, prop, category,
                                                        {u8"UIThemeAsset"});
             return;
         }
@@ -1473,19 +1475,19 @@ namespace draconic::editor
     }
 
     void SceneInspectorView::MutateMeshMaterials(
-        const Guid& id, const Function<void(draconic::engine::render::MeshComponent&)>& mutate)
+        const Guid& id, const Function<void(engine::render::MeshComponent&)>& mutate)
     {
         const scene::EntityHandle e = m_edit->Resolve(id);
-        auto* manager = m_edit->Scene().GetSystem<draconic::engine::render::MeshComponentManager>();
-        draconic::engine::render::MeshComponent* live =
+        auto* manager = m_edit->Scene().GetSystem<engine::render::MeshComponentManager>();
+        engine::render::MeshComponent* live =
             (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
         if (live == nullptr)
         {
             return;
         }
-        const draconic::engine::render::MeshComponent before = *live;
+        const engine::render::MeshComponent before = *live;
         mutate(*live);
-        Array<byte> blob = m_edit->CopyComponent(id, &TypeOf<draconic::engine::render::MeshComponent>());
+        Array<byte> blob = m_edit->CopyComponent(id, &TypeOf<engine::render::MeshComponent>());
         *live = before;
         if (!blob.IsEmpty())
         {
@@ -1493,7 +1495,7 @@ namespace draconic::editor
         }
     }
 
-    Array<String> SceneInspectorView::MaterialSlotNames(const draconic::engine::render::MeshComponent& mc)
+    Array<String> SceneInspectorView::MaterialSlotNames(const engine::render::MeshComponent& mc)
     {
         Array<String> names;
         for (usize i = 0; i < mc.materials.Size(); ++i)
@@ -1518,8 +1520,8 @@ namespace draconic::editor
     void SceneInspectorView::BuildMaterialSlots(const Guid& id, StringView category)
     {
         const scene::EntityHandle e = m_edit->Resolve(id);
-        auto* manager = m_edit->Scene().GetSystem<draconic::engine::render::MeshComponentManager>();
-        draconic::engine::render::MeshComponent* mc =
+        auto* manager = m_edit->Scene().GetSystem<engine::render::MeshComponentManager>();
+        engine::render::MeshComponent* mc =
             (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
         if (mc == nullptr)
         {
@@ -1538,15 +1540,15 @@ namespace draconic::editor
         {
             self->MutateMeshMaterials(
                 id,
-                [](draconic::engine::render::MeshComponent& c)
+                [](engine::render::MeshComponent& c)
                 {
-                    c.materials.PushBack(draconic::resource::Ref<draconic::materials::Material>{});
+                    c.materials.PushBack(foundation::resource::Ref<foundation::materials::Material>{});
                 });
         };
         slots->OnRemoveSlot = [self, id](usize slot)
         {
             self->MutateMeshMaterials(id,
-                                      [slot](draconic::engine::render::MeshComponent& c)
+                                      [slot](engine::render::MeshComponent& c)
                                       {
                                           if (slot < c.materials.Size())
                                           {
@@ -1558,12 +1560,12 @@ namespace draconic::editor
         {
             self->MutateMeshMaterials(
                 id,
-                [slot, up](draconic::engine::render::MeshComponent& c)
+                [slot, up](engine::render::MeshComponent& c)
                 {
                     const usize other = up ? slot - 1 : slot + 1;
                     if (slot < c.materials.Size() && other < c.materials.Size())
                     {
-                        draconic::resource::Ref<draconic::materials::Material> tmp =
+                        foundation::resource::Ref<foundation::materials::Material> tmp =
                             c.materials[slot];
                         c.materials[slot] = c.materials[other];
                         c.materials[other] = tmp;
@@ -1578,20 +1580,20 @@ namespace draconic::editor
             }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"MaterialAsset"));
-            auto picker = MakeRef<draconic::editor::app::AssetPickerDialog>(
+            auto picker = MakeRef<editor::app::AssetPickerDialog>(
                 DefaultAllocator(), *self->m_editor, Move(typeNames));
             picker->OnPicked = [self, id, slot](const Guid& picked)
             {
                 self->MutateMeshMaterials(
                     id,
-                    [slot, picked](draconic::engine::render::MeshComponent& c)
+                    [slot, picked](engine::render::MeshComponent& c)
                     {
                         if (slot >= c.materials.Size())
                         {
                             return;
                         }
                         c.materials[slot] =
-                            draconic::resource::Ref<draconic::materials::Material>{};
+                            foundation::resource::Ref<foundation::materials::Material>{};
                         c.materials[slot].SetId(picked);
                     });
             };
@@ -1603,8 +1605,8 @@ namespace draconic::editor
                   {
                       const scene::EntityHandle live = self->m_edit->Resolve(id);
                       auto* mgr =
-                          self->m_edit->Scene().GetSystem<draconic::engine::render::MeshComponentManager>();
-                      draconic::engine::render::MeshComponent* c =
+                          self->m_edit->Scene().GetSystem<engine::render::MeshComponentManager>();
+                      engine::render::MeshComponent* c =
                           (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
                       if (c == nullptr)
                       {
@@ -1624,19 +1626,19 @@ namespace draconic::editor
     }
 
     void SceneInspectorView::MutateScriptComponent(
-        const Guid& id, const Function<void(draconic::engine::script::ScriptComponent&)>& mutate)
+        const Guid& id, const Function<void(engine::script::ScriptComponent&)>& mutate)
     {
         const scene::EntityHandle e = m_edit->Resolve(id);
-        auto* manager = m_edit->Scene().GetSystem<draconic::engine::script::ScriptComponentManager>();
-        draconic::engine::script::ScriptComponent* live =
+        auto* manager = m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
+        engine::script::ScriptComponent* live =
             (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
         if (live == nullptr)
         {
             return;
         }
-        const draconic::engine::script::ScriptComponent before = *live;
+        const engine::script::ScriptComponent before = *live;
         mutate(*live);
-        Array<byte> blob = m_edit->CopyComponent(id, &TypeOf<draconic::engine::script::ScriptComponent>());
+        Array<byte> blob = m_edit->CopyComponent(id, &TypeOf<engine::script::ScriptComponent>());
         *live = before;
         if (!blob.IsEmpty())
         {
@@ -1644,8 +1646,8 @@ namespace draconic::editor
         }
     }
 
-    draconic::script::ScriptClass*
-    SceneInspectorView::BehaviorClass(const draconic::engine::script::ScriptBehavior& behavior)
+    foundation::script::ScriptClass*
+    SceneInspectorView::BehaviorClass(const engine::script::ScriptBehavior& behavior)
     {
         if (behavior.script.Get() != nullptr)
         {
@@ -1655,14 +1657,14 @@ namespace draconic::editor
         {
             return nullptr;
         }
-        auto proxy = m_editor->Resources()->Bind<draconic::script::ScriptClass>(behavior.script.id);
+        auto proxy = m_editor->Resources()->Bind<foundation::script::ScriptClass>(behavior.script.id);
         return proxy.Get();
     }
 
-    u64 SceneInspectorView::ScriptBehaviorsSignature(const draconic::engine::script::ScriptComponent& c)
+    u64 SceneInspectorView::ScriptBehaviorsSignature(const engine::script::ScriptComponent& c)
     {
         u64 hash = HashInteger(c.behaviors.Size());
-        for (const draconic::engine::script::ScriptBehavior& b : c.behaviors)
+        for (const engine::script::ScriptBehavior& b : c.behaviors)
         {
             hash = HashBytes(&b.script.id, sizeof(Guid), hash);
             const u64 flags = (b.enabled ? 1u : 0u) | (b.overrides.Size() << 1);
@@ -1674,8 +1676,8 @@ namespace draconic::editor
     void SceneInspectorView::BuildScriptBehaviors(const Guid& id, StringView category)
     {
         const scene::EntityHandle e = m_edit->Resolve(id);
-        auto* manager = m_edit->Scene().GetSystem<draconic::engine::script::ScriptComponentManager>();
-        draconic::engine::script::ScriptComponent* component =
+        auto* manager = m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
+        engine::script::ScriptComponent* component =
             (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
         if (component == nullptr)
         {
@@ -1693,8 +1695,8 @@ namespace draconic::editor
             Function<void()>{[self, id]()
                              {
                                  self->MutateScriptComponent(
-                                     id, [](draconic::engine::script::ScriptComponent& c)
-                                     { c.behaviors.PushBack(draconic::engine::script::ScriptBehavior{}); });
+                                     id, [](engine::script::ScriptComponent& c)
+                                     { c.behaviors.PushBack(engine::script::ScriptBehavior{}); });
                              }},
             category);
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(add.Get()));
@@ -1710,8 +1712,8 @@ namespace draconic::editor
             {
                 const scene::EntityHandle live = self->m_edit->Resolve(id);
                 auto* mgr =
-                    self->m_edit->Scene().GetSystem<draconic::engine::script::ScriptComponentManager>();
-                draconic::engine::script::ScriptComponent* c =
+                    self->m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
+                engine::script::ScriptComponent* c =
                     (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
                 if (c != nullptr && self->ScriptBehaviorsSignature(*c) != signature)
                 {
@@ -1724,14 +1726,14 @@ namespace draconic::editor
                                                      usize index)
     {
         const scene::EntityHandle e = m_edit->Resolve(id);
-        auto* manager = m_edit->Scene().GetSystem<draconic::engine::script::ScriptComponentManager>();
-        draconic::engine::script::ScriptComponent* component =
+        auto* manager = m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
+        engine::script::ScriptComponent* component =
             (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
         if (component == nullptr || index >= component->behaviors.Size())
         {
             return;
         }
-        draconic::engine::script::ScriptBehavior& behavior = component->behaviors[index];
+        engine::script::ScriptBehavior& behavior = component->behaviors[index];
         SceneInspectorView* self = this;
 
         // Script picker (AssetPickerDialog filtered to ScriptClass).
@@ -1748,20 +1750,20 @@ namespace draconic::editor
             }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"ScriptClassAsset"));
-            auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+            auto dialog = MakeRef<editor::app::AssetPickerDialog>(
                 DefaultAllocator(), *self->m_editor, Move(typeNames));
             dialog->OnPicked = [self, id, index](const Guid& picked)
             {
                 self->MutateScriptComponent(
                     id,
-                    [index, picked](draconic::engine::script::ScriptComponent& c)
+                    [index, picked](engine::script::ScriptComponent& c)
                     {
                         if (index >= c.behaviors.Size())
                         {
                             return;
                         }
                         c.behaviors[index].script =
-                            draconic::resource::Ref<draconic::script::ScriptClass>{};
+                            foundation::resource::Ref<foundation::script::ScriptClass>{};
                         c.behaviors[index].script.SetId(picked);
                         c.behaviors[index].overrides.Clear(); // metadata changed
                     });
@@ -1774,8 +1776,8 @@ namespace draconic::editor
             {
                 const scene::EntityHandle live = self->m_edit->Resolve(id);
                 auto* mgr =
-                    self->m_edit->Scene().GetSystem<draconic::engine::script::ScriptComponentManager>();
-                draconic::engine::script::ScriptComponent* c =
+                    self->m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
+                engine::script::ScriptComponent* c =
                     (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
                 if (c == nullptr || index >= c->behaviors.Size())
                 {
@@ -1793,7 +1795,7 @@ namespace draconic::editor
                                  {
                                      self->MutateScriptComponent(
                                          id,
-                                         [index, value](draconic::engine::script::ScriptComponent& c)
+                                         [index, value](engine::script::ScriptComponent& c)
                                          {
                                              if (index < c.behaviors.Size())
                                              {
@@ -1812,7 +1814,7 @@ namespace draconic::editor
                                 {
                                     self->MutateScriptComponent(
                                         id,
-                                        [index, value](draconic::engine::script::ScriptComponent& c)
+                                        [index, value](engine::script::ScriptComponent& c)
                                         {
                                             if (index < c.behaviors.Size())
                                             {
@@ -1832,11 +1834,11 @@ namespace draconic::editor
                              {
                                  self->MutateScriptComponent(
                                      id,
-                                     [index](draconic::engine::script::ScriptComponent& c)
+                                     [index](engine::script::ScriptComponent& c)
                                      {
                                          if (index > 0 && index < c.behaviors.Size())
                                          {
-                                             draconic::engine::script::ScriptBehavior tmp =
+                                             engine::script::ScriptBehavior tmp =
                                                  Move(c.behaviors[index]);
                                              c.behaviors[index] = Move(c.behaviors[index - 1]);
                                              c.behaviors[index - 1] = Move(tmp);
@@ -1852,7 +1854,7 @@ namespace draconic::editor
                              {
                                  self->MutateScriptComponent(
                                      id,
-                                     [index](draconic::engine::script::ScriptComponent& c)
+                                     [index](engine::script::ScriptComponent& c)
                                      {
                                          if (index < c.behaviors.Size())
                                          {
@@ -1864,12 +1866,12 @@ namespace draconic::editor
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(remove.Get()));
 
         // Property rows from the cooked ScriptClass metadata (data-driven; no VM).
-        draconic::script::ScriptClass* scriptClass = BehaviorClass(behavior);
+        foundation::script::ScriptClass* scriptClass = BehaviorClass(behavior);
         if (scriptClass == nullptr)
         {
             return;
         }
-        for (const draconic::script::ScriptPropertyDesc& property : scriptClass->properties)
+        for (const foundation::script::ScriptPropertyDesc& property : scriptClass->properties)
         {
             BuildScriptPropertyRow(id, category, index, property);
         }
@@ -1877,19 +1879,19 @@ namespace draconic::editor
 
     void
     SceneInspectorView::BuildScriptPropertyRow(const Guid& id, StringView category, usize index,
-                                               const draconic::script::ScriptPropertyDesc& property)
+                                               const foundation::script::ScriptPropertyDesc& property)
     {
         SceneInspectorView* self = this;
         const u64 hash = property.hash;
-        using draconic::engine::script::ScriptComponent;
-        using draconic::script::ScriptPropertyType;
-        using draconic::script::ScriptPropertyValue;
+        using engine::script::ScriptComponent;
+        using foundation::script::ScriptPropertyType;
+        using foundation::script::ScriptPropertyValue;
 
         // The effective value = override if present, else the harvested default.
         auto effective = [self, id, index, hash, property]() -> ScriptPropertyValue
         {
             const scene::EntityHandle live = self->m_edit->Resolve(id);
-            auto* mgr = self->m_edit->Scene().GetSystem<draconic::engine::script::ScriptComponentManager>();
+            auto* mgr = self->m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
             ScriptComponent* c = (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
             if (c != nullptr && index < c->behaviors.Size())
             {
@@ -2054,18 +2056,18 @@ namespace draconic::editor
 
     void SceneInspectorView::BuildScriptEntityPropertyRow(
         const Guid& id, StringView category, usize index,
-        const draconic::script::ScriptPropertyDesc& property)
+        const foundation::script::ScriptPropertyDesc& property)
     {
-        using draconic::engine::script::ScriptComponent;
-        using draconic::script::ScriptPropertyType;
-        using draconic::script::ScriptPropertyValue;
+        using engine::script::ScriptComponent;
+        using foundation::script::ScriptPropertyType;
+        using foundation::script::ScriptPropertyValue;
         SceneInspectorView* self = this;
         const u64 hash = property.hash;
 
         auto currentTarget = [self, id, index, hash]() -> Guid
         {
             const scene::EntityHandle live = self->m_edit->Resolve(id);
-            auto* mgr = self->m_edit->Scene().GetSystem<draconic::engine::script::ScriptComponentManager>();
+            auto* mgr = self->m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
             ScriptComponent* c = (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
             if (c != nullptr && index < c->behaviors.Size())
             {
@@ -2106,7 +2108,7 @@ namespace draconic::editor
                           {
                               self->MutateScriptComponent(
                                   id,
-                                  [index, hash](draconic::engine::script::ScriptComponent& c)
+                                  [index, hash](engine::script::ScriptComponent& c)
                                   {
                                       if (index < c.behaviors.Size())
                                       {
@@ -2126,7 +2128,7 @@ namespace draconic::editor
                         {
                             self->MutateScriptComponent(
                                 id,
-                                [index, hash, target](draconic::engine::script::ScriptComponent& c)
+                                [index, hash, target](engine::script::ScriptComponent& c)
                                 {
                                     if (index >= c.behaviors.Size())
                                     {
@@ -2152,11 +2154,11 @@ namespace draconic::editor
 
     void SceneInspectorView::BuildScriptAssetPropertyRow(
         const Guid& id, StringView category, usize index,
-        const draconic::script::ScriptPropertyDesc& property)
+        const foundation::script::ScriptPropertyDesc& property)
     {
-        using draconic::engine::script::ScriptComponent;
-        using draconic::script::ScriptPropertyType;
-        using draconic::script::ScriptPropertyValue;
+        using engine::script::ScriptComponent;
+        using foundation::script::ScriptPropertyType;
+        using foundation::script::ScriptPropertyValue;
         SceneInspectorView* self = this;
         const u64 hash = property.hash;
         const String assetType = property.assetType.IsEmpty() ? String(u8"") : property.assetType;
@@ -2164,7 +2166,7 @@ namespace draconic::editor
         auto currentTarget = [self, id, index, hash]() -> Guid
         {
             const scene::EntityHandle live = self->m_edit->Resolve(id);
-            auto* mgr = self->m_edit->Scene().GetSystem<draconic::engine::script::ScriptComponentManager>();
+            auto* mgr = self->m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
             ScriptComponent* c = (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
             if (c != nullptr && index < c->behaviors.Size())
             {
@@ -2194,13 +2196,13 @@ namespace draconic::editor
             String assetTypeName(assetType.AsView());
             assetTypeName.Append(u8"Asset");
             typeNames.PushBack(Move(assetTypeName));
-            auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+            auto dialog = MakeRef<editor::app::AssetPickerDialog>(
                 DefaultAllocator(), *self->m_editor, Move(typeNames));
             dialog->OnPicked = [self, id, index, hash](const Guid& picked)
             {
                 self->MutateScriptComponent(
                     id,
-                    [index, hash, picked](draconic::engine::script::ScriptComponent& c)
+                    [index, hash, picked](engine::script::ScriptComponent& c)
                     {
                         if (index >= c.behaviors.Size())
                         {
@@ -2226,7 +2228,7 @@ namespace draconic::editor
         }
         if (m_editor->Project() != nullptr)
         {
-            if (draconic::content::Instance* inst =
+            if (foundation::content::Instance* inst =
                     m_editor->Project()->SourceDb().GetInstance(target))
             {
                 return inst->Name();
@@ -2279,7 +2281,7 @@ namespace draconic::editor
             (void)buffer.Seek(0, SeekOrigin::Begin);
             BinarySerializer ar(buffer, SerializeMode::Read);
             String typeId;
-            draconic::core::Serialize(ar, "type", typeId);
+            foundation::core::Serialize(ar, "type", typeId);
             mgr->ReadComponent(ar, e);
         }
         if (!after.IsEmpty())
@@ -2297,7 +2299,7 @@ namespace draconic::editor
         }
         SceneInspectorView* self = this;
         const PropertyInfo* propPtr = &prop;
-        using MatRef = draconic::resource::Ref<draconic::materials::Material>;
+        using MatRef = foundation::resource::Ref<foundation::materials::Material>;
 
         // Per-slot display text from the live container: a material Ref shows its asset name / "None";
         // a struct element shows its type label. Recomputed by the refresher to detect changes.
@@ -2405,7 +2407,7 @@ namespace draconic::editor
             }
             Array<String> typeNames;
             typeNames.PushBack(String(u8"MaterialAsset"));
-            auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+            auto dialog = MakeRef<editor::app::AssetPickerDialog>(
                 DefaultAllocator(), *self->m_editor, Move(typeNames));
             dialog->OnPicked = [self, id, type, propPtr, i](const Guid& target)
             {

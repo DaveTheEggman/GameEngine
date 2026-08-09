@@ -39,18 +39,20 @@ import draconic.ui.resource;
 import draconic.script;         // Object / IScriptContext / IScriptDelegate / the run-context service
 import draconic.script.facades; // RegisterExtraFacadeName (the behavior-module prelude hook)
 
-using namespace draconic::core;
-using namespace draconic::ui;
+using namespace foundation::core;
+using namespace foundation::ui;
+namespace core = foundation::core;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::engine::ui
+export namespace engine::ui
 {
-    // Foundation aliases (sibling draconic::engine::* namespaces would otherwise shadow these).
-    namespace render = draconic::render;
-    namespace scene = draconic::scene;
-    namespace script = draconic::script;
+    // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
+    namespace render = foundation::render;
+    namespace scene = foundation::scene;
+    namespace script = foundation::script;
 
-    namespace scene = draconic::scene;
-    namespace script = draconic::script;
+    namespace scene = foundation::scene;
+    namespace script = foundation::script;
 
     // ---- Ui.* script facade (task #123 step 3.5): the UISubsystem's OWN script surface, owned HERE
     // (not the neutral Foundation facade lib) - the out-of-tree pattern draconic.net's `Net` facade
@@ -91,7 +93,7 @@ export namespace draconic::engine::ui
     /// Ui.*: game-UI SCREEN overlays for scripts, asset-driven + id-addressed. pushOverlay resolves
     /// a cooked UIDocument by guid, instantiates it, pushes it on the screen tier -> a handle;
     /// setText/setProgress/setVisible address a control by its authored id; onClick binds a script
-    /// fn to a control's click (the menu-building primitive). With draconic::runtime's SceneLoader,
+    /// fn to a control's click (the menu-building primitive). With foundation::runtime's SceneLoader,
     /// a script-driven loading screen is `var s = Ui.pushOverlay(DOC); var t = SceneLoader.
     /// loadSceneAsync(LVL); while (!SceneLoader.loadComplete(t)) { Ui.setProgress(s, "progress",
     /// SceneLoader.loadProgress(t)); yield } Ui.popOverlay(s)`. Unwired = safe no-ops (pushOverlay
@@ -214,8 +216,8 @@ export namespace draconic::engine::ui
     struct UICanvasComponent
     {
         // Authored:
-        draconic::resource::Ref<UIDocument> document;
-        draconic::resource::Ref<UITheme> theme; // optional override (nil = context theme)
+        foundation::resource::Ref<UIDocument> document;
+        foundation::resource::Ref<UITheme> theme; // optional override (nil = context theme)
         i32 order = 0;                          // draw/dispatch order (higher = on top)
         bool visible = true;
         bool interactive = true;
@@ -240,26 +242,26 @@ export namespace draconic::engine::ui
 
     inline void Serialize(ISerializer& ar, UICanvasComponent& c)
     {
-        draconic::core::Serialize(ar, "document", c.document);
-        draconic::core::Serialize(ar, "theme", c.theme);
-        draconic::core::Serialize(ar, "order", c.order);
-        draconic::core::Serialize(ar, "visible", c.visible);
+        foundation::core::Serialize(ar, "document", c.document);
+        foundation::core::Serialize(ar, "theme", c.theme);
+        foundation::core::Serialize(ar, "order", c.order);
+        foundation::core::Serialize(ar, "visible", c.visible);
         u8 scaler = static_cast<u8>(c.scalerMode);
-        draconic::core::Serialize(ar, "scalerMode", scaler);
+        foundation::core::Serialize(ar, "scalerMode", scaler);
         c.scalerMode = static_cast<CanvasScalerMode>(scaler);
-        draconic::core::Serialize(ar, "referenceResolution", c.referenceResolution);
-        draconic::core::Serialize(ar, "interactive", c.interactive);
+        foundation::core::Serialize(ar, "referenceResolution", c.referenceResolution);
+        foundation::core::Serialize(ar, "interactive", c.interactive);
         if (ar.Version() >= 2) // v2 added the RenderTexture canvas mode
         {
             u8 render = static_cast<u8>(c.renderMode);
-            draconic::core::Serialize(ar, "renderMode", render);
+            foundation::core::Serialize(ar, "renderMode", render);
             c.renderMode = static_cast<CanvasRenderMode>(render);
-            draconic::core::Serialize(ar, "renderTextureWidth", c.renderTextureWidth);
-            draconic::core::Serialize(ar, "renderTextureHeight", c.renderTextureHeight);
+            foundation::core::Serialize(ar, "renderTextureWidth", c.renderTextureWidth);
+            foundation::core::Serialize(ar, "renderTextureHeight", c.renderTextureHeight);
         }
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager, UICanvasComponent& c)
+    inline void ResolveResources(foundation::resource::ResourceManager& manager, UICanvasComponent& c)
     {
         c.document.Bind(manager);
         c.theme.Bind(manager);
@@ -293,7 +295,7 @@ export namespace draconic::engine::ui
     struct UIBillboardComponent
     {
         // Authored:
-        draconic::resource::Ref<UIDocument> document;
+        foundation::resource::Ref<UIDocument> document;
         Float3 offset{0.0f, 0.0f, 0.0f};
         BillboardOrientation orientation = BillboardOrientation::Cylindrical;
         BillboardScale scaleMode = BillboardScale::Fixed;
@@ -309,21 +311,21 @@ export namespace draconic::engine::ui
 
     inline void Serialize(ISerializer& ar, UIBillboardComponent& c)
     {
-        draconic::core::Serialize(ar, "document", c.document);
-        draconic::core::Serialize(ar, "offset", c.offset);
+        foundation::core::Serialize(ar, "document", c.document);
+        foundation::core::Serialize(ar, "offset", c.offset);
         u8 orientation = static_cast<u8>(c.orientation);
-        draconic::core::Serialize(ar, "orientation", orientation);
+        foundation::core::Serialize(ar, "orientation", orientation);
         c.orientation = static_cast<BillboardOrientation>(orientation);
         u8 scale = static_cast<u8>(c.scaleMode);
-        draconic::core::Serialize(ar, "scaleMode", scale);
+        foundation::core::Serialize(ar, "scaleMode", scale);
         c.scaleMode = static_cast<BillboardScale>(scale);
-        draconic::core::Serialize(ar, "referenceDistance", c.referenceDistance);
-        draconic::core::Serialize(ar, "minScale", c.minScale);
-        draconic::core::Serialize(ar, "maxScale", c.maxScale);
-        draconic::core::Serialize(ar, "visible", c.visible);
+        foundation::core::Serialize(ar, "referenceDistance", c.referenceDistance);
+        foundation::core::Serialize(ar, "minScale", c.minScale);
+        foundation::core::Serialize(ar, "maxScale", c.maxScale);
+        foundation::core::Serialize(ar, "visible", c.visible);
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager,
+    inline void ResolveResources(foundation::resource::ResourceManager& manager,
                                  UIBillboardComponent& c)
     {
         c.document.Bind(manager);
@@ -351,8 +353,8 @@ export namespace draconic::engine::ui
     struct UIWorldPanelComponent
     {
         // Authored:
-        draconic::resource::Ref<UIDocument> document;
-        draconic::resource::Ref<UITheme> theme; // optional override (nil = context theme)
+        foundation::resource::Ref<UIDocument> document;
+        foundation::resource::Ref<UITheme> theme; // optional override (nil = context theme)
         Float2 sizeMeters{1.6f, 0.9f};          // world extent of the quad
         f32 pixelsPerMeter = 200.0f;            // texture density (target = size * ppm)
         bool interactive = true;
@@ -370,15 +372,15 @@ export namespace draconic::engine::ui
 
     inline void Serialize(ISerializer& ar, UIWorldPanelComponent& c)
     {
-        draconic::core::Serialize(ar, "document", c.document);
-        draconic::core::Serialize(ar, "theme", c.theme);
-        draconic::core::Serialize(ar, "sizeMeters", c.sizeMeters);
-        draconic::core::Serialize(ar, "pixelsPerMeter", c.pixelsPerMeter);
-        draconic::core::Serialize(ar, "interactive", c.interactive);
-        draconic::core::Serialize(ar, "visible", c.visible);
+        foundation::core::Serialize(ar, "document", c.document);
+        foundation::core::Serialize(ar, "theme", c.theme);
+        foundation::core::Serialize(ar, "sizeMeters", c.sizeMeters);
+        foundation::core::Serialize(ar, "pixelsPerMeter", c.pixelsPerMeter);
+        foundation::core::Serialize(ar, "interactive", c.interactive);
+        foundation::core::Serialize(ar, "visible", c.visible);
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager,
+    inline void ResolveResources(foundation::resource::ResourceManager& manager,
                                  UIWorldPanelComponent& c)
     {
         c.document.Bind(manager);
@@ -465,10 +467,10 @@ export namespace draconic::engine::ui
 
     void RegisterUIComponentReflection();
 
-    class UISubsystem final : public draconic::runtime::Subsystem,
+    class UISubsystem final : public foundation::runtime::Subsystem,
                               public scene::ISceneAware,
-                              public draconic::render::ISceneOverlay,
-                              public draconic::render::IScreenOverlay
+                              public foundation::render::ISceneOverlay,
+                              public foundation::render::IScreenOverlay
     {
     public:
         UISubsystem();           // defined in the impl unit (RenderState is opaque here)
@@ -488,7 +490,7 @@ export namespace draconic::engine::ui
         /// hosts whose IME another bridge owns (the editor - its UIHost reconciles from
         /// the EDITOR context, with ViewportView forwarding the game's wish) leave it
         /// null. Null also clears it.
-        void SetTextInputTarget(draconic::shell::IWindow* window) noexcept
+        void SetTextInputTarget(foundation::shell::IWindow* window) noexcept
         {
             m_bridge.SetTextInputTarget(window);
         }
@@ -506,7 +508,7 @@ export namespace draconic::engine::ui
         /// the TTF fallback service. Hosts call it at startup from the manifest's
         /// defaultUiFontId (player + editor), exactly like SetDefaultTheme. The product is
         /// BORROWED (the ResourceManager's cache keeps it alive).
-        void SetDefaultFont(const draconic::fonts::Font* font);
+        void SetDefaultFont(const foundation::fonts::Font* font);
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
         /// per-scene roots - see SceneRoot).
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
@@ -742,13 +744,13 @@ export namespace draconic::engine::ui
         RefPtr<RootView> m_screenRoot;
         RefPtr<ViewGroup> m_overlayLayer; // scene-LESS screen tier, ABOVE everything
         RefPtr<StyleSheet> m_theme;
-        UniquePtr<draconic::fonts::TrueTypeFontService> m_fonts;
-        UniquePtr<draconic::fonts::ResourceFontService>
+        UniquePtr<foundation::fonts::TrueTypeFontService> m_fonts;
+        UniquePtr<foundation::fonts::ResourceFontService>
             m_resourceFonts; // the cooked-font service when a default font product is bound
         Array<SceneUI> m_sceneUIs;
-        draconic::engine::input::InputSubsystem* m_input = nullptr;
-        draconic::render::ISceneRenderer* m_sceneRenderer = nullptr; // overlay registration seam
-        draconic::render::IScreenRenderer* m_screenRenderer = nullptr;
+        engine::input::InputSubsystem* m_input = nullptr;
+        foundation::render::ISceneRenderer* m_sceneRenderer = nullptr; // overlay registration seam
+        foundation::render::IScreenRenderer* m_screenRenderer = nullptr;
         u64 m_frameSerial = 0;              // gates VGRenderer::BeginFrame to once per frame
         u64 m_canvasTexturesSerial = ~0ull; // gates RenderCanvasTextures to once per frame
 

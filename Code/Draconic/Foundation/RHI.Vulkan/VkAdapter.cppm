@@ -14,9 +14,9 @@ export module draconic.rhi.vulkan:adapter;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkDeviceImpl; // forward
@@ -277,4 +277,4 @@ export namespace draconic::rhi::vk
         bool m_supportsRayTracing = false;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

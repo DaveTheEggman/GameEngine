@@ -14,9 +14,9 @@ import draconic.rhi;
 import :adapter;
 import :conversions;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::rhi::vk
+namespace foundation::rhi::vk
 {
     // Live VkDeviceMemory objects backing textures. One vkAllocateMemory per texture (no
     // sub-allocation), so this both trends toward the driver's maxMemoryAllocationCount and sums the
@@ -25,7 +25,7 @@ namespace draconic::rhi::vk
     static i32 g_liveTexAllocs = 0;
 }
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkTextureImpl : public Texture
@@ -187,4 +187,4 @@ export namespace draconic::rhi::vk
         Array<VkImageLayout> m_subresourceLayouts;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

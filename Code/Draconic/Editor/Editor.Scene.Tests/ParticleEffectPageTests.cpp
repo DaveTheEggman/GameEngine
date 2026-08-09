@@ -10,13 +10,13 @@ import draconic.core;
 import draconic.particles;
 import draconic.editor.scene;
 
-using namespace draconic::core;
-namespace particles = draconic::particles;
+using namespace foundation::core;
+namespace particles = foundation::particles;
 
 TEST_CASE("particle page: default seed builds a one-system fountain with the core modules")
 {
     particles::ParticleEffect fx;
-    draconic::editor::SeedDefaultParticleEffect(fx);
+    editor::SeedDefaultParticleEffect(fx);
 
     REQUIRE(fx.SystemCount() == 1);
     particles::ParticleSystem* sys = fx.GetSystem(0);

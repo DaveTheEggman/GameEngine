@@ -11,9 +11,9 @@ module;
 
 module draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::ui
+namespace foundation::ui
 {
     // === View cluster method bodies (kept out of the :view interface partition to slim its BMI) ===
 

@@ -10,9 +10,9 @@ import :types;
 import :descriptors;
 import :resources;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     // ---- Render Command Encoder (shared draw-recording surface) ----
@@ -277,4 +277,4 @@ export namespace draconic::rhi
         virtual void Destroy() = 0;
     };
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

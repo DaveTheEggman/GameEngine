@@ -34,19 +34,19 @@ import draconic.pipeline.core;
 import draconic.pipeline.cook;
 import :project;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace pipeline;
 
-namespace draconic::editor
+namespace editor
 {
     void EditorCookService::Initialize(EditorProject& project, BuilderRegistry& builders)
     {
         Shutdown();
         m_project = &project;
         m_builders = &builders;
-        m_sources = MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(),
+        m_sources = MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(),
                                                                 project.SourcesRoot().AsView());
-        m_cache = MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(),
+        m_cache = MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(),
                                                               project.CacheRoot().AsView());
         m_jobs = MakeUnique<JobSystem>(DefaultAllocator());
         m_driver =
@@ -54,7 +54,7 @@ namespace draconic::editor
                                    builders, m_sources.Get(), m_cache.Get(), m_jobs.Get());
 
         // Watch Sources/ for external edits (stat sweep; throttled from Update).
-        if (draconic::vfs::IWatchableFileSystem* watchable = m_sources->AsWatchable())
+        if (foundation::vfs::IWatchableFileSystem* watchable = m_sources->AsWatchable())
         {
             m_watcher = watchable->ChangeSource();
             if (m_watcher != nullptr)
@@ -324,7 +324,7 @@ namespace draconic::editor
         return Span<const Guid>(m_lastCookedMain.Data(), m_lastCookedMain.Size());
     }
 
-    CookBadge EditorCookService::BadgeFor(draconic::content::Instance& instance)
+    CookBadge EditorCookService::BadgeFor(foundation::content::Instance& instance)
     {
         if (!IsReady() || m_builders == nullptr)
         {

@@ -17,9 +17,10 @@ import draconic.core; // Color, Optional, RefPtr, String, StringView
 import :thickness;
 import :drawable;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class StyleValue
     {

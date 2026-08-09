@@ -28,11 +28,11 @@ import draconic.vfs;
 import draconic.content;
 import draconic.xml.serialization;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace vfs = draconic::vfs;
+    namespace vfs = foundation::vfs;
 
     inline constexpr StringView kExportRootsFile = u8"export_roots.xml";
 
@@ -47,8 +47,8 @@ export namespace draconic::editor
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "instances", instances);
-            draconic::core::Serialize(ar, "groups", groups);
+            foundation::core::Serialize(ar, "instances", instances);
+            foundation::core::Serialize(ar, "groups", groups);
         }
 
         [[nodiscard]] bool IsEmpty() const noexcept
@@ -141,10 +141,10 @@ export namespace draconic::editor
 
     // Resolve a group by its mount-relative path ("" = the root group; "a/b" walks child groups).
     // Null when a segment is missing. Mirrors ContentDatabase::GetInstance(path)'s segment walk.
-    [[nodiscard]] inline draconic::content::Group*
-    FindGroupByPath(draconic::content::ContentDatabase& db, StringView path)
+    [[nodiscard]] inline foundation::content::Group*
+    FindGroupByPath(foundation::content::ContentDatabase& db, StringView path)
     {
-        draconic::content::Group* group = db.RootGroup();
+        foundation::content::Group* group = db.RootGroup();
         usize start = 0;
         for (usize i = 0; i <= path.Size(); ++i)
         {
@@ -171,29 +171,29 @@ export namespace draconic::editor
     // Append every instance guid under a group subtree (the group at `groupPath` AND all its
     // descendant groups) to `out`. This is the group-root's "subtree-as-root" expansion - dynamic
     // membership by construction (whatever is under the folder NOW). A missing group is a no-op.
-    inline void CollectGroupInstances(draconic::content::ContentDatabase& db, StringView groupPath,
+    inline void CollectGroupInstances(foundation::content::ContentDatabase& db, StringView groupPath,
                                       Array<Guid>& out)
     {
-        draconic::content::Group* start = FindGroupByPath(db, groupPath);
+        foundation::content::Group* start = FindGroupByPath(db, groupPath);
         if (start == nullptr)
         {
             return;
         }
 
-        Array<draconic::content::Group*> stack;
+        Array<foundation::content::Group*> stack;
         stack.PushBack(start);
         while (!stack.IsEmpty())
         {
-            draconic::content::Group* g = stack[stack.Size() - 1];
+            foundation::content::Group* g = stack[stack.Size() - 1];
             stack.RemoveAt(stack.Size() - 1);
-            for (draconic::content::Instance* inst : g->Instances())
+            for (foundation::content::Instance* inst : g->Instances())
             {
                 if (inst != nullptr)
                 {
                     out.PushBack(inst->Id());
                 }
             }
-            for (draconic::content::Group* child : g->Groups())
+            for (foundation::content::Group* child : g->Groups())
             {
                 if (child != nullptr)
                 {
@@ -213,7 +213,7 @@ export namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
         if (!ctx || ctx->serializer == nullptr)
         {
@@ -231,7 +231,7 @@ export namespace draconic::editor
                                                 StringView fileName = kExportRootsFile)
     {
         MemoryStream buffer;
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
         if (!ctx || ctx->serializer == nullptr)
         {

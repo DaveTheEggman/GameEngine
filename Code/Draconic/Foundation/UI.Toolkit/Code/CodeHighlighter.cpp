@@ -10,9 +10,9 @@ module draconic.ui.toolkit;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::ui::toolkit
+namespace foundation::ui::toolkit
 {
     void CodeHighlighter::SetLexer(ICodeLexer* lexer)
     {

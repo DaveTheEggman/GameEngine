@@ -13,9 +13,10 @@ export module draconic.net:udp_socket;
 import draconic.core;
 import :datagram;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::net
+export namespace foundation::net
 {
 
     // Pack/unpack an IPv4 DatagramEndpoint (value = (ip << 16) | port, host order).

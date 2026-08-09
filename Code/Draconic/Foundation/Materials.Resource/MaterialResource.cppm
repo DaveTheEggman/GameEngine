@@ -25,10 +25,13 @@ import draconic.texture;
 import draconic.texture.resource;
 import draconic.materials;
 
-using namespace draconic::core;
-using namespace draconic::resource;
+using namespace foundation::core;
+using namespace foundation::resource;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
+namespace texture = foundation::texture;
 
-export namespace draconic::materials
+export namespace foundation::materials
 {
 
     // Authored material: a shader reference (by resource id) + declared properties (as
@@ -69,26 +72,26 @@ export namespace draconic::materials
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "name", name);
-            draconic::core::Serialize(ar, "shaderId", shaderId);
-            draconic::core::Serialize(ar, "shaderName", shaderName);
-            draconic::core::Serialize(ar, "shaderFlags", shaderFlags);
-            draconic::core::Serialize(ar, "blendMode", blendMode);
-            draconic::core::Serialize(ar, "depthMode", depthMode);
-            draconic::core::Serialize(ar, "cullMode", cullMode);
-            draconic::core::Serialize(ar, "vertexLayout", vertexLayout);
-            draconic::core::Serialize(ar, "propNames", propNames);
-            draconic::core::Serialize(ar, "propTypes", propTypes);
-            draconic::core::Serialize(ar, "propBindings", propBindings);
-            draconic::core::Serialize(ar, "propOffsets", propOffsets);
-            draconic::core::Serialize(ar, "propSizes", propSizes);
-            draconic::core::Serialize(ar, "uniformDefaults", uniformDefaults);
-            draconic::core::Serialize(ar, "textureSlots", textureSlots);
-            draconic::core::Serialize(ar, "textureIds", textureIds);
+            foundation::core::Serialize(ar, "name", name);
+            foundation::core::Serialize(ar, "shaderId", shaderId);
+            foundation::core::Serialize(ar, "shaderName", shaderName);
+            foundation::core::Serialize(ar, "shaderFlags", shaderFlags);
+            foundation::core::Serialize(ar, "blendMode", blendMode);
+            foundation::core::Serialize(ar, "depthMode", depthMode);
+            foundation::core::Serialize(ar, "cullMode", cullMode);
+            foundation::core::Serialize(ar, "vertexLayout", vertexLayout);
+            foundation::core::Serialize(ar, "propNames", propNames);
+            foundation::core::Serialize(ar, "propTypes", propTypes);
+            foundation::core::Serialize(ar, "propBindings", propBindings);
+            foundation::core::Serialize(ar, "propOffsets", propOffsets);
+            foundation::core::Serialize(ar, "propSizes", propSizes);
+            foundation::core::Serialize(ar, "uniformDefaults", uniformDefaults);
+            foundation::core::Serialize(ar, "textureSlots", textureSlots);
+            foundation::core::Serialize(ar, "textureIds", textureIds);
             if (ar.Version() >= 2)
             { // v2: sampler address modes (older sources read Repeat)
-                draconic::core::Serialize(ar, "samplerU", samplerU);
-                draconic::core::Serialize(ar, "samplerV", samplerV);
+                foundation::core::Serialize(ar, "samplerU", samplerU);
+                foundation::core::Serialize(ar, "samplerV", samplerV);
             }
         }
 
@@ -218,7 +221,7 @@ export namespace draconic::materials
         }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             MaterialSource* src = Cast<MaterialSource>(object.Get());
@@ -320,4 +323,4 @@ export namespace draconic::materials
     // MaterialSource::StaticType() is defined WITH its reflected properties + data version (2)
     // in MaterialResourceImpl.cpp (GCC module hygiene: DRACONIC_REFLECT bodies out of interfaces).
 
-} // namespace draconic::materials
+} // namespace foundation::materials

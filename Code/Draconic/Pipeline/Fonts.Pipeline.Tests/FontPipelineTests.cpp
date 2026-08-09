@@ -17,11 +17,11 @@ import draconic.image;
 import draconic.fonts.resource;
 import draconic.fonts.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::vfs;
-using namespace draconic::resource;
-using namespace draconic::fonts;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::vfs;
+using namespace foundation::resource;
+using namespace foundation::fonts;
 
 namespace
 {
@@ -52,13 +52,13 @@ TEST_CASE("font.pipeline: FontAsset raster ramp -> cook -> rasterizer-free Font"
     NativeFileSystem outMount(u8"draconic_fontpipe_out_db");
     Guid id;
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"uifont", FontResource::StaticType());
         id = inst->Id();
 
         FontAsset asset;
-        asset.fileName = draconic::vfs::SourcePath(kSourceFont);
+        asset.fileName = foundation::vfs::SourcePath(kSourceFont);
         asset.family = String(u8"TestMono");
         asset.sizes.Clear();
         asset.sizes.PushBack(12.0f);
@@ -72,13 +72,13 @@ TEST_CASE("font.pipeline: FontAsset raster ramp -> cook -> rasterizer-free Font"
         REQUIRE(builder.AssetType() == &FontAsset::StaticType());
         REQUIRE(builder.ProductType() == &FontResource::StaticType());
         NativeFileSystem srcMount(u8".");
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     FontFactory factory;
     ResourceManager manager(outDb);
@@ -123,13 +123,13 @@ TEST_CASE("font.pipeline: MSDF bake cooks a DistanceField resource")
     NativeFileSystem outMount(u8"draconic_fontpipe_out_db");
     Guid id;
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"uifont", FontResource::StaticType());
         id = inst->Id();
 
         FontAsset asset;
-        asset.fileName = draconic::vfs::SourcePath(kSourceFont);
+        asset.fileName = foundation::vfs::SourcePath(kSourceFont);
         asset.mode = FontBakeMode::DistanceField;
         asset.dfSize = 32.0f;
         asset.firstCodepoint = 'A';
@@ -139,13 +139,13 @@ TEST_CASE("font.pipeline: MSDF bake cooks a DistanceField resource")
 
         FontAssetBuilder builder;
         NativeFileSystem srcMount(u8".");
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     FontFactory factory;
     ResourceManager manager(outDb);
@@ -160,7 +160,7 @@ TEST_CASE("font.pipeline: MSDF bake cooks a DistanceField resource")
     CHECK(entry.atlas->DistanceFieldRange() > 0.0f);
     CHECK(entry.atlas->Contains('Q'));
     REQUIRE(entry.atlasImage);
-    CHECK(entry.atlasImage->ColorSpace() == draconic::image::ImageColorSpace::Linear);
+    CHECK(entry.atlasImage->ColorSpace() == foundation::image::ImageColorSpace::Linear);
 
     RemoveTree();
 }
@@ -180,15 +180,15 @@ TEST_CASE("font.pipeline: builder fails on a missing source file")
     RegisterFontAsset();
     RemoveTree();
     NativeFileSystem outMount(u8"draconic_fontpipe_out_db");
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"uifont", FontResource::StaticType());
 
     FontAsset asset;
-    asset.fileName = draconic::vfs::SourcePath(u8"does_not_exist_xyz.ttf");
+    asset.fileName = foundation::vfs::SourcePath(u8"does_not_exist_xyz.ttf");
     FontAssetBuilder builder;
     NativeFileSystem srcMount(u8".");
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.sources = &srcMount;
     ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());

@@ -21,9 +21,12 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
+namespace image = foundation::image;
+namespace ui = foundation::ui;
 
-namespace draconic::editor
+namespace editor
 {
     namespace
     {
@@ -103,13 +106,13 @@ namespace draconic::editor
         }
     } // namespace
 
-    FontEditorPage::FontEditorPage(EditorContext& context, draconic::content::Instance& instance)
+    FontEditorPage::FontEditorPage(EditorContext& context, foundation::content::Instance& instance)
         : m_context(&context), m_title(instance.Name())
     {
         SetInstanceId(instance.Id());
 
         RefPtr<ISerializable> object = instance.ReadObject();
-        m_asset = RefPtr<draconic::pipeline::FontAsset>(Cast<draconic::pipeline::FontAsset>(object.Get()));
+        m_asset = RefPtr<pipeline::FontAsset>(Cast<pipeline::FontAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor", u8"font '{}' failed to read - page opens empty",
@@ -179,7 +182,7 @@ namespace draconic::editor
         request.valid = true;
         request.path =
             PathJoin(m_context->Project()->SourcesRoot().AsView(), m_asset->fileName.View());
-        request.distanceField = m_asset->mode == draconic::pipeline::FontBakeMode::DistanceField;
+        request.distanceField = m_asset->mode == pipeline::FontBakeMode::DistanceField;
         // Coverage previews at the ramp's LARGEST size (the most informative atlas).
         request.size = m_asset->dfSize;
         if (!request.distanceField)
@@ -446,14 +449,14 @@ namespace draconic::editor
             Span<const StringView>{kModeItems, 2},
             Function<void(i32)>{[self](i32 v)
                                 {
-                                    self->m_asset->mode = static_cast<draconic::pipeline::FontBakeMode>(v);
+                                    self->m_asset->mode = static_cast<pipeline::FontBakeMode>(v);
                                     self->CommitEdit(u8"mode");
                                 }},
             u8"Font");
         m_modeRow = mode.Get();
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(mode.Get()));
 
-        if (m_asset->mode == draconic::pipeline::FontBakeMode::RasterRamp)
+        if (m_asset->mode == pipeline::FontBakeMode::RasterRamp)
         {
         auto sizes = MakeRef<ui::toolkit::StringEditor>(
             DefaultAllocator(), u8"Sizes (px)", FormatSizes(m_asset->sizes).AsView(),
@@ -474,7 +477,7 @@ namespace draconic::editor
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(sizes.Get()));
         }
 
-        if (m_asset->mode == draconic::pipeline::FontBakeMode::DistanceField)
+        if (m_asset->mode == pipeline::FontBakeMode::DistanceField)
         {
         auto dfSize = MakeRef<ui::toolkit::FloatEditor>(
             DefaultAllocator(), u8"MSDF Size (px)", static_cast<f64>(m_asset->dfSize), 8.0, 128.0,
@@ -564,7 +567,7 @@ namespace draconic::editor
                                          Move(extensions));
                                      dialog->OnPicked = [self](StringView picked)
                                      {
-                                         self->m_asset->fileName = draconic::vfs::SourcePath(picked);
+                                         self->m_asset->fileName = foundation::vfs::SourcePath(picked);
                                          self->CommitEdit(u8"file");
                                          self->RefreshRows();
                                      };
@@ -682,7 +685,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             m_context->Project()->SourceDb().GetInstance(InstanceId());
         if (instance == nullptr)
         {
@@ -700,11 +703,11 @@ namespace draconic::editor
 
     const TypeInfo* FontEditorPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::FontAsset::StaticType();
+        return &pipeline::FontAsset::StaticType();
     }
 
     UniquePtr<EditorPage> FontEditorPageFactory::CreatePage(EditorContext& context,
-                                                            draconic::content::Instance& instance)
+                                                            foundation::content::Instance& instance)
     {
         auto* page = DefaultAllocator().New<FontEditorPage>(context, instance);
         return UniquePtr<EditorPage>(page, DefaultAllocator());

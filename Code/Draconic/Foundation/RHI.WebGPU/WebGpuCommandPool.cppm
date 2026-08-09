@@ -18,9 +18,9 @@ import :blit_helper;
 import :command_encoder;
 import :render_bundle_encoder;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuCommandPool final : public CommandPool
     {

@@ -22,7 +22,7 @@ export module draconic.core:simd;
 
 import :base;
 
-export namespace draconic::core::simd
+export namespace foundation::core::simd
 {
     struct alignas(16) f32x4
     {

@@ -23,13 +23,12 @@ import draconic.vg;
 import draconic.vg.renderer;
 import draconic.vg.svg;
 
-using namespace draconic::core;
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
-namespace image = draconic::image;
-namespace fonts = draconic::fonts;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
+namespace image = foundation::image;
+namespace fonts = foundation::fonts;
+namespace vg = foundation::vg;
 
 namespace
 {

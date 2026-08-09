@@ -15,9 +15,10 @@ export module draconic.animation:skeleton;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::animation
+export namespace foundation::animation
 {
 
     // A compact per-bone transform for animation (pos/rot/scale). Reuses the core math type.
@@ -299,4 +300,4 @@ export namespace draconic::animation
 
     DRACONIC_DEFINE_OBJECT(Skeleton, "rtti::animation")
 
-} // namespace draconic::animation
+} // namespace foundation::animation

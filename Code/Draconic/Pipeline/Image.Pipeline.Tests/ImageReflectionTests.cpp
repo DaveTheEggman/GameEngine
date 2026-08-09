@@ -6,13 +6,13 @@ import draconic.core;
 import draconic.image;
 import draconic.image.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace pipeline;
 
 TEST_CASE("reflection-p1: ImageAsset exposes colorSpace as a reflected enum")
 {
-    draconic::pipeline::RegisterImageAsset();
-    const TypeInfo& type = draconic::pipeline::ImageAsset::StaticType();
+    pipeline::RegisterImageAsset();
+    const TypeInfo& type = pipeline::ImageAsset::StaticType();
 
     CHECK(PropertyCount(type) == 1u);
     const PropertyInfo* cs = FindProperty(type, "colorSpace");
@@ -21,11 +21,11 @@ TEST_CASE("reflection-p1: ImageAsset exposes colorSpace as a reflected enum")
     CHECK(IsEnum(*cs->type));
 
     // Round-trip through the address escape-hatch (enum Variants aren't constructible at runtime).
-    draconic::pipeline::ImageAsset asset;
+    pipeline::ImageAsset asset;
     Instance inst = Instance::From(&asset);
     REQUIRE(cs->address != nullptr);
-    auto* field = static_cast<draconic::image::ImageColorSpace*>(cs->address(inst));
+    auto* field = static_cast<foundation::image::ImageColorSpace*>(cs->address(inst));
     REQUIRE(field != nullptr);
-    *field = draconic::image::ImageColorSpace::Linear;
-    CHECK(asset.colorSpace == draconic::image::ImageColorSpace::Linear);
+    *field = foundation::image::ImageColorSpace::Linear;
+    CHECK(asset.colorSpace == foundation::image::ImageColorSpace::Linear);
 }

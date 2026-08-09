@@ -20,10 +20,10 @@ import draconic.script.facades;
 import draconic.script.pipeline;
 import draconic.script.wren;
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation::script;
 
-namespace draconic::pipeline{
+namespace pipeline{
     namespace
     {
         // Parses "a,b,c[,d]" into up to 4 floats; returns the count parsed.
@@ -405,7 +405,7 @@ namespace draconic::pipeline{
                 }
 
                 out.className =
-                    FindScriptClassName(source, draconic::editor::FileStemOf(assetName));
+                    FindScriptClassName(source, editor::FileStemOf(assetName));
                 out.handlers = ScanScriptHandlers(source);
                 // Wren coroutine opt-in: the shared startCoroutine( surface OR extending
                 // the Wren `Behavior` base (`is Behavior`).
@@ -433,7 +433,7 @@ namespace draconic::pipeline{
     {
         // The cook needs the Wren backend in the registry; register it idempotently so a
         // cook is never resolvable without its VM.
-        draconic::script::wren::RegisterWrenScriptBackend();
+        foundation::script::wren::RegisterWrenScriptBackend();
         ScriptLanguageCookRegistry::Get().Register(
             String(u8"wren"), UniquePtr<IScriptLanguageCook>(
                                   DefaultAllocator().New<WrenScriptCook>(), DefaultAllocator()));

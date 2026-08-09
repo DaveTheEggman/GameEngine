@@ -37,9 +37,12 @@ import draconic.render;
 import draconic.editor.core;
 import :edit;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace render = foundation::render;
+namespace scene = foundation::scene;
 
-namespace draconic::editor
+namespace editor
 {
     void GizmoController::SetMode(GizmoMode mode) noexcept
     {

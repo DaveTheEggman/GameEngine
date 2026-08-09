@@ -24,9 +24,9 @@ import draconic.core;
 import draconic.script;
 import draconic.script.facades; // BehaviorFacadeNames() - the prelude's import list
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-namespace draconic::script::wren
+namespace foundation::script::wren
 {
     // The OPTIONAL Wren `Behavior` base class (scripting.md §3.3 coroutines), injected
     // into every behaviors module right after the facade prelude. A behavior opts in with
@@ -610,7 +610,7 @@ namespace draconic::script::wren
         // Additional emission roots registered by other modules: types reached only via a factory
         // whose DECLARED return is that type (e.g. component types via RigidBody.of(entity)), which
         // no static signature names. Seed them exactly like constructor-seeded types.
-        for (const core::TypeInfo* t : draconic::script::ExtraScriptRootTypes())
+        for (const core::TypeInfo* t : foundation::script::ExtraScriptRootTypes())
         {
             push(t);
         }
@@ -1910,7 +1910,7 @@ namespace draconic::script::wren
     }
 }
 
-export namespace draconic::script::wren
+export namespace foundation::script::wren
 {
     [[nodiscard]] core::RefPtr<IScriptManager> CreateScriptManager()
     {

@@ -23,12 +23,13 @@ import draconic.model;
 import draconic.model.io;
 import draconic.image;
 import draconic.image.io;
+namespace image = foundation::image;
 
-export namespace draconic::model::gltf
+export namespace foundation::model::gltf
 {
 
-    using namespace draconic::core;
-    using namespace draconic::model;
+    using namespace foundation::core;
+    using namespace foundation::model;
 
     // cgltf hands back char* (UTF-8); the engine String is UTF-8 too, so this just
     // wraps the bytes in an owned String - no transcoding.
@@ -342,7 +343,7 @@ export namespace draconic::model::gltf
                         if (std::strncmp(uriC, "data:", 5) == 0)
                         {
                             // Base64 encoded data URI (e.g., "data:image/png;base64,iVBORw0...")
-                            draconic::image::Image img;
+                            foundation::image::Image img;
                             if (loadImageFromDataUri(uriC, img))
                                 storeImageData(img, texture);
                         }
@@ -352,7 +353,7 @@ export namespace draconic::model::gltf
                             std::filesystem::path imagePath =
                                 std::filesystem::path(m_basePath) / uriC;
                             const std::string imgPath = imagePath.string();
-                            draconic::image::Image img;
+                            foundation::image::Image img;
                             if (image::io::LoadImage(Utf8FromC(imgPath.c_str()), img) ==
                                 ErrorCode::Ok)
                                 storeImageData(img, texture);
@@ -365,7 +366,7 @@ export namespace draconic::model::gltf
                         size_t size = gltfImage->buffer_view->size;
                         if (bufferData && size > 0)
                         {
-                            draconic::image::Image img;
+                            foundation::image::Image img;
                             if (image::io::LoadImageFromMemory(Span<const u8>(bufferData, size),
                                                                img) == ErrorCode::Ok)
                                 storeImageData(img, texture);
@@ -407,28 +408,28 @@ export namespace draconic::model::gltf
         // Image helpers
         // -----------------------------------------------------------------------
 
-        static TexturePixelFormat convertPixelFormat(draconic::image::PixelFormat fmt)
+        static TexturePixelFormat convertPixelFormat(foundation::image::PixelFormat fmt)
         {
             switch (fmt)
             {
-            case draconic::image::PixelFormat::R8:
+            case foundation::image::PixelFormat::R8:
                 return TexturePixelFormat::R8;
-            case draconic::image::PixelFormat::RG8:
+            case foundation::image::PixelFormat::RG8:
                 return TexturePixelFormat::RG8;
-            case draconic::image::PixelFormat::RGB8:
+            case foundation::image::PixelFormat::RGB8:
                 return TexturePixelFormat::RGB8;
-            case draconic::image::PixelFormat::RGBA8:
+            case foundation::image::PixelFormat::RGBA8:
                 return TexturePixelFormat::RGBA8;
-            case draconic::image::PixelFormat::BGR8:
+            case foundation::image::PixelFormat::BGR8:
                 return TexturePixelFormat::BGR8;
-            case draconic::image::PixelFormat::BGRA8:
+            case foundation::image::PixelFormat::BGRA8:
                 return TexturePixelFormat::BGRA8;
             default:
                 return TexturePixelFormat::Unknown;
             }
         }
 
-        static void storeImageData(const draconic::image::Image& image, ModelTexture* texture)
+        static void storeImageData(const foundation::image::Image& image, ModelTexture* texture)
         {
             texture->width = static_cast<i32>(image.Width());
             texture->height = static_cast<i32>(image.Height());
@@ -443,7 +444,7 @@ export namespace draconic::model::gltf
             }
         }
 
-        bool loadImageFromDataUri(const char* dataUri, draconic::image::Image& outImage)
+        bool loadImageFromDataUri(const char* dataUri, foundation::image::Image& outImage)
         {
 
             // Format: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
@@ -1046,4 +1047,4 @@ export namespace draconic::model::gltf
         }
     };
 
-} // namespace draconic::model::gltf
+} // namespace foundation::model::gltf

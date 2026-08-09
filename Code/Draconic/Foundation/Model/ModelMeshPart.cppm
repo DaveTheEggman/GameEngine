@@ -5,9 +5,9 @@ export module draconic.model:mesh_part;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::model
+export namespace foundation::model
 {
 
     /// A sub-range of a mesh's index buffer bound to one material.
@@ -24,4 +24,4 @@ export namespace draconic::model
         }
     };
 
-} // namespace draconic::model
+} // namespace foundation::model

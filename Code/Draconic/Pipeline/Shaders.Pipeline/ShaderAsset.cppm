@@ -1,7 +1,7 @@
 // Draconic::ShaderEditor - the `draconic.shaders.editor` module (tooling).
 //
 // Source-side shader authoring + cook:
-//   * ShaderAsset (draconic::pipeline::Asset): a shader name + the two HLSL source files
+//   * ShaderAsset (pipeline::Asset): a shader name + the two HLSL source files
 //     (vertex via the inherited fileName, fragment alongside). v1 is two-stage to
 //     match ShaderSource; more stages can be added the same way.
 //   * ShaderAssetBuilder (DefaultAssetBuilder): reads both .hlsl files and cooks a
@@ -23,32 +23,32 @@ import draconic.vfs;
 import draconic.shaders.resource;
 import draconic.content;
 
-using namespace draconic::core;
-using namespace draconic::shaders;
+using namespace foundation::core;
+using namespace foundation::shaders;
 
-namespace draconic::pipeline{
+namespace pipeline{
 }
 
-export namespace draconic::pipeline{
+export namespace pipeline{
     // Source asset: a shader name + the two HLSL files (vertex = inherited fileName,
     // fragment alongside). Paths are relative to the sources mount at cook time.
-    class ShaderAsset final : public draconic::pipeline::Asset
+    class ShaderAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(ShaderAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(ShaderAsset, pipeline::Asset)
     public:
         String name;         // logical shader name (how materials reference it)
         String fragmentFile; // fragment-stage HLSL file (vertex = fileName)
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName (vertex source)
-            draconic::core::Serialize(ar, "name", name);
-            draconic::core::Serialize(ar, "fragmentFile", fragmentFile);
+            pipeline::Asset::Serialize(ar); // fileName (vertex source)
+            foundation::core::Serialize(ar, "name", name);
+            foundation::core::Serialize(ar, "fragmentFile", fragmentFile);
         }
     };
 
     // Cooks a ShaderAsset -> ShaderSource (read both .hlsl files -> inline source).
-    class ShaderAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class ShaderAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -62,19 +62,19 @@ export namespace draconic::pipeline{
 
         // The fragment file is a second source input (vertex = the implicit fileName): editing
         // it must dirty this shader's recipe hash.
-        void ScanDependencies(const draconic::pipeline::Asset& asset,
-                              draconic::pipeline::AssetBuildContext&,
-                              draconic::pipeline::AssetDependencies& out) override
+        void ScanDependencies(const pipeline::Asset& asset,
+                              pipeline::AssetBuildContext&,
+                              pipeline::AssetDependencies& out) override
         {
             const ShaderAsset& sa = static_cast<const ShaderAsset&>(asset);
             if (!sa.fragmentFile.IsEmpty())
             {
-                out.files.PushBack(draconic::vfs::SourcePath(sa.fragmentFile.AsView()));
+                out.files.PushBack(foundation::vfs::SourcePath(sa.fragmentFile.AsView()));
             }
         }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const ShaderAsset& sa =
                 static_cast<const ShaderAsset&>(asset); // guarded by AssetType()
@@ -109,7 +109,7 @@ export namespace draconic::pipeline{
                            ShaderAsset& outAsset)
         {
             outAsset.name = String(name);
-            outAsset.fileName = draconic::vfs::SourcePath(vertexFile);
+            outAsset.fileName = foundation::vfs::SourcePath(vertexFile);
             outAsset.fragmentFile = String(fragmentFile);
         }
     };

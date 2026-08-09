@@ -30,10 +30,9 @@ import :selection_model;
 import :itree_adapter;
 import :flattened_tree_adapter;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class TreeView : public ViewGroup
     {

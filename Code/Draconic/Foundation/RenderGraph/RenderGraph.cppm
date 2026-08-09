@@ -26,11 +26,12 @@ import :barrier_solver;
 import :profiler;
 import :transient_pool;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::rendergraph
+export namespace foundation::rendergraph
 {
-    namespace rhi = draconic::rhi;
+    namespace rhi = foundation::rhi;
 
     class RenderGraph
     {

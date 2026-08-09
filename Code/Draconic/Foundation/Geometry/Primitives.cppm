@@ -14,9 +14,9 @@ import draconic.core;
 import :types;
 import :mesh;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::geometry
+export namespace foundation::geometry
 {
 
     class Primitives
@@ -336,4 +336,4 @@ export namespace draconic::geometry
         }
     };
 
-} // namespace draconic::geometry
+} // namespace foundation::geometry

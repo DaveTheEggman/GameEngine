@@ -39,9 +39,9 @@ import :swap_chain;
 import :descriptor_pool_manager;
 import :conversions;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkDeviceImpl : public Device
@@ -1057,4 +1057,4 @@ export namespace draconic::rhi::vk
             m_device->markLost();
     }
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

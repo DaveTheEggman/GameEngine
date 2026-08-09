@@ -21,11 +21,11 @@ import :style_property;
 import :draw_context;
 import :palette;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class Label : public View
     {

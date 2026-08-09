@@ -32,9 +32,9 @@ export module draconic.script.angelscript;
 import draconic.core;
 import draconic.script;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::script::angelscript
+export namespace foundation::script::angelscript
 {
     [[nodiscard]] core::RefPtr<IScriptManager> CreateScriptManager();
 

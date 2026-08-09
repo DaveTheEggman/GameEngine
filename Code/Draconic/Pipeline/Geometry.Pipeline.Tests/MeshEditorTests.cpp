@@ -13,10 +13,10 @@ import draconic.geometry;
 import draconic.geometry.resource;
 import draconic.geometry.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::vfs;
-using namespace draconic::geometry;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::vfs;
+using namespace foundation::geometry;
 
 namespace
 {
@@ -39,8 +39,8 @@ TEST_CASE("mesh editor: cooks a StaticMeshAsset -> StaticMeshSource")
     Guid id;
 
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
 
@@ -50,14 +50,14 @@ TEST_CASE("mesh editor: cooks a StaticMeshAsset -> StaticMeshSource")
 
         StaticMeshAssetBuilder builder;
         REQUIRE(builder.AssetType() == &StaticMeshAsset::StaticType());
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         RefPtr<ISerializable> object = outDb.ReadObject(id);
         StaticMeshSource* cooked = Cast<StaticMeshSource>(object.Get());
         REQUIRE(cooked != nullptr);
@@ -80,8 +80,8 @@ TEST_CASE("mesh editor: cooks a SkinnedMeshAsset -> SkinnedMeshSource")
     Guid id;
 
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst =
             outDb.RootGroup()->CreateInstance(u8"skinned", SkinnedMeshSource::StaticType());
         id = inst->Id();
@@ -99,14 +99,14 @@ TEST_CASE("mesh editor: cooks a SkinnedMeshAsset -> SkinnedMeshSource")
         MeshImporter::Import(*mesh, asset);
 
         SkinnedMeshAssetBuilder builder;
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         RefPtr<ISerializable> object = outDb.ReadObject(id);
         SkinnedMeshSource* cooked = Cast<SkinnedMeshSource>(object.Get());
         REQUIRE(cooked != nullptr);

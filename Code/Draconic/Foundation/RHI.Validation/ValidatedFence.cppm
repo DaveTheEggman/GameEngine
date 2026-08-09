@@ -9,9 +9,9 @@ export module draconic.rhi.validation:validated_fence;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     class ValidatedFence : public Fence
@@ -52,4 +52,4 @@ export namespace draconic::rhi::validation
         u64 m_lastSignaled = 0;
     };
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

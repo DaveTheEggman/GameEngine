@@ -14,7 +14,7 @@ export module draconic.core:math;
 
 import :base;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Constants & scalar functions

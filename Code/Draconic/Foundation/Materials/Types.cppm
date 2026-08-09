@@ -14,9 +14,9 @@ export module draconic.materials:types;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::materials
+export namespace foundation::materials
 {
 
     // The kind of a declared material property. Scalars/vectors/matrices pack into a
@@ -130,4 +130,4 @@ export namespace draconic::materials
     /// Idempotent; defined in TypesReflectionImpl.cpp. Call from a startup registrar.
     void RegisterMaterialsTypeReflection();
 
-} // namespace draconic::materials
+} // namespace foundation::materials

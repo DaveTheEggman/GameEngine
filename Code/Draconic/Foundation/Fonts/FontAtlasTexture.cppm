@@ -13,16 +13,16 @@ import draconic.core;
 import draconic.image;
 import :interfaces;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     class FontAtlasTexture
     {
     public:
         // Returns a heap OwnedImageData (caller deletes), or null if the atlas has
         // no usable pixel data.
-        [[nodiscard]] static draconic::image::OwnedImageData*
+        [[nodiscard]] static foundation::image::OwnedImageData*
         ExpandR8ToRGBA8(const IFontAtlas* atlas)
         {
             if (atlas == nullptr)
@@ -52,8 +52,8 @@ export namespace draconic::fonts
                 rgba[i * 4 + 2] = 255;   // B
                 rgba[i * 4 + 3] = r8[i]; // A = coverage
             }
-            return DefaultAllocator().New<draconic::image::OwnedImageData>(
-                w, h, draconic::image::PixelFormat::RGBA8,
+            return DefaultAllocator().New<foundation::image::OwnedImageData>(
+                w, h, foundation::image::PixelFormat::RGBA8,
                 Span<const u8>(rgba.Data(), rgba.Size()));
         }
     };

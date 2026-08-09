@@ -17,10 +17,10 @@ import draconic.core;  // Float2, StringView, DecodeUtf8
 import draconic.ui;    // UIContext, InputManager, KeyCode, MouseButton, KeyModifiers
 import draconic.shell; // InputEvent, InputSurface, IMouse, IWindow
 
-using namespace draconic::core;
-namespace shell = draconic::shell;
+using namespace foundation::core;
+namespace shell = foundation::shell;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Bridges the platform (shell) clipboard into the UI's abstract IClipboard seam, so text controls'
     /// Cut/Copy/Paste work. The app sets it via UIContext::SetClipboard. Borrows the shell (non-owning).

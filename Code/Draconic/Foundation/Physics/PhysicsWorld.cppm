@@ -20,9 +20,9 @@ export module draconic.physics:world;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::physics
+export namespace foundation::physics
 {
     // ---- public vocabulary (engine types only) ----
 

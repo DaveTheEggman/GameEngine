@@ -19,11 +19,11 @@ import draconic.shell.desktop;
 import draconic.graphics;
 import draconic.graphics.gpu;
 
-namespace core = draconic::core;
-namespace runtime = draconic::runtime;
-namespace graphics = draconic::graphics;
-namespace shell = draconic::shell;
-namespace rhi = draconic::rhi;
+namespace core = foundation::core;
+namespace runtime = foundation::runtime;
+namespace graphics = foundation::graphics;
+namespace shell = foundation::shell;
+namespace rhi = foundation::rhi;
 
 namespace
 {

@@ -14,9 +14,9 @@ import draconic.core; // Object
 import :thickness;
 import :size_spec;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class LayoutParams : public Object
     {

@@ -21,9 +21,9 @@ import :api;
 import :conversions;
 import :bind_group_layout;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     /// A pipeline's push-constant emulation binding, snapshotted onto pipelines so the pass
     /// encoders can resolve it on SetPipeline. `group` is -1 when the pipeline issues native

@@ -47,13 +47,13 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :edit;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace ui = draconic::ui;
-    namespace scene = draconic::scene;
+    namespace ui = foundation::ui;
+    namespace scene = foundation::scene;
 
     // A property row for resource::Ref fields: [name | button showing the current asset,
     // click = picker menu]. The value text refreshes from the ref's Guid each frame.
@@ -461,7 +461,7 @@ export namespace draconic::editor
             const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
             void* address =
                 (p != nullptr && p->address != nullptr) ? p->address(component) : nullptr;
-            return (address != nullptr) ? static_cast<draconic::resource::Ref<T>*>(address)->id
+            return (address != nullptr) ? static_cast<foundation::resource::Ref<T>*>(address)->id
                                         : Guid{};
         }
 
@@ -469,13 +469,13 @@ export namespace draconic::editor
         // live value, mutate live, snapshot to a clipboard blob, restore, PASTE (the paste
         // command captures the pre-state, so every slot action is one undo step).
         void MutateMeshMaterials(const Guid& id,
-                                 const Function<void(draconic::engine::render::MeshComponent&)>& mutate);
+                                 const Function<void(engine::render::MeshComponent&)>& mutate);
 
         /// The display names the slots editor renders - recomputed by its refresher to
         /// detect shape/content changes (the inspector Signature only sees selection +
         /// component PRESENCE, so a data-only slot mutation or its undo changes nothing it
         /// watches).
-        [[nodiscard]] Array<String> MaterialSlotNames(const draconic::engine::render::MeshComponent& mc);
+        [[nodiscard]] Array<String> MaterialSlotNames(const engine::render::MeshComponent& mc);
 
         void BuildMaterialSlots(const Guid& id, StringView category);
 
@@ -484,35 +484,35 @@ export namespace draconic::editor
         // - the paste command captures the pre-state, so every action is one undo step).
         void
         MutateScriptComponent(const Guid& id,
-                              const Function<void(draconic::engine::script::ScriptComponent&)>& mutate);
+                              const Function<void(engine::script::ScriptComponent&)>& mutate);
 
         // The cooked ScriptClass a behavior references (bound through the editor's
         // resource manager so the harvested metadata is available; null when unset or
         // not yet cooked).
-        [[nodiscard]] draconic::script::ScriptClass*
-        BehaviorClass(const draconic::engine::script::ScriptBehavior& behavior);
+        [[nodiscard]] foundation::script::ScriptClass*
+        BehaviorClass(const engine::script::ScriptBehavior& behavior);
 
         // Signature of the behavior list's SHAPE (count + script ids + enabled flags +
         // override counts) - the refresher forces a rebuild when it changes, since the
         // inspector's own Signature only watches selection + component presence.
-        [[nodiscard]] u64 ScriptBehaviorsSignature(const draconic::engine::script::ScriptComponent& c);
+        [[nodiscard]] u64 ScriptBehaviorsSignature(const engine::script::ScriptComponent& c);
 
         void BuildScriptBehaviors(const Guid& id, StringView category);
 
         void BuildScriptBehaviorRows(const Guid& id, StringView category, usize index);
 
         void BuildScriptPropertyRow(const Guid& id, StringView category, usize index,
-                                    const draconic::script::ScriptPropertyDesc& property);
+                                    const foundation::script::ScriptPropertyDesc& property);
 
         // Entity-typed property: a picker over the CURRENT scene's entities (a menu of
         // names; the override stores the target's guid).
         void BuildScriptEntityPropertyRow(const Guid& id, StringView category, usize index,
-                                          const draconic::script::ScriptPropertyDesc& property);
+                                          const foundation::script::ScriptPropertyDesc& property);
 
         // Asset-typed property (asset:<TypeName>): an AssetPickerDialog over that
         // asset type; the override stores the picked guid.
         void BuildScriptAssetPropertyRow(const Guid& id, StringView category, usize index,
-                                         const draconic::script::ScriptPropertyDesc& property);
+                                         const foundation::script::ScriptPropertyDesc& property);
 
         [[nodiscard]] StringView AssetNameFor(const Guid& target);
 
@@ -529,7 +529,7 @@ export namespace draconic::editor
             const PropertyInfo* p = FindProperty(*type, propName);
             void* address =
                 (p != nullptr && p->address != nullptr) ? p->address(settings) : nullptr;
-            return (address != nullptr) ? static_cast<draconic::resource::Ref<T>*>(address)->id
+            return (address != nullptr) ? static_cast<foundation::resource::Ref<T>*>(address)->id
                                         : Guid{};
         }
 
@@ -559,9 +559,9 @@ export namespace draconic::editor
                 {
                     return;
                 }
-                draconic::resource::ResourceManager* resources = self->m_editor->Resources();
+                foundation::resource::ResourceManager* resources = self->m_editor->Resources();
                 Array<String> typeNames = assetTypes;
-                auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+                auto dialog = MakeRef<editor::app::AssetPickerDialog>(
                     DefaultAllocator(), *self->m_editor, Move(typeNames));
                 dialog->OnPicked = [edit, type, propName, resources](const Guid& target)
                 { edit->SetSceneSettingResourceRef<T>(type, propName, target, resources); };
@@ -599,11 +599,11 @@ export namespace draconic::editor
                 {
                     return;
                 }
-                draconic::resource::ResourceManager* resources = self->m_editor->Resources();
+                foundation::resource::ResourceManager* resources = self->m_editor->Resources();
 
                 // The browser-mirroring picker (readonly; favorites pinned first; [Clear] = none).
                 Array<String> typeNames = assetTypes;
-                auto dialog = MakeRef<draconic::editor::app::AssetPickerDialog>(
+                auto dialog = MakeRef<editor::app::AssetPickerDialog>(
                     DefaultAllocator(), *self->m_editor, Move(typeNames));
                 dialog->OnPicked = [edit, id, type, propName, resources](const Guid& target)
                 { edit->SetComponentResourceRef<T>(id, type, propName, target, resources); };

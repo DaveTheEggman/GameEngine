@@ -15,7 +15,7 @@ import :base;
 import :random;
 import :string;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     struct Guid
     {

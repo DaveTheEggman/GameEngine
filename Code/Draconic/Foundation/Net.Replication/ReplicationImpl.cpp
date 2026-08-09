@@ -14,9 +14,10 @@ import draconic.net;
 import draconic.scene;
 import draconic.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace scene = foundation::scene;
 
-namespace draconic::net
+namespace foundation::net
 {
 
     namespace
@@ -419,7 +420,7 @@ namespace draconic::net
             .DataVersion(1);
         // Script (Track A): NetworkComponent.of(entity) -> read `authority` (is this entity server- or
         // client-owned) for authority-gated gameplay. The Net session facade stays app-global (Net.*).
-        builder.Method<&draconic::script::ComponentOf<NetworkComponent>, NetworkComponent>("of");
+        builder.Method<&foundation::script::ComponentOf<NetworkComponent>, NetworkComponent>("of");
         builder.Property<&NetworkComponent::id>("id");
         builder.Property<&NetworkComponent::authority>("authority");
         builder.Property<&NetworkComponent::prefab>("prefab");
@@ -498,8 +499,8 @@ namespace draconic::net
         // script surface.)
         GlobalTypeRegistry().Register(TypeOf<NetworkAuthority>());
         GlobalTypeRegistry().Register(TypeOf<NetworkComponent>());
-        draconic::script::RegisterExtraScriptRootType(&TypeOf<NetworkComponent>());
-        draconic::script::RegisterExtraFacadeName(u8"NetworkComponent");
+        foundation::script::RegisterExtraScriptRootType(&TypeOf<NetworkComponent>());
+        foundation::script::RegisterExtraFacadeName(u8"NetworkComponent");
         // NOTE: NetworkAuthority (an enum) is deliberately NOT facade-named. Wren does not emit enum
         // classes, so `import ... for NetworkAuthority` in the behavior prelude would fail to resolve
         // and break EVERY behavior's compile. The enum crosses as its underlying int in Wren; in

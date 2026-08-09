@@ -20,16 +20,14 @@ import draconic.net.manager; // NetworkManager (the endpoint the instance owns)
 import draconic.input;       // ActionRuntime / IInputSourceProvider (per-instance input)
 import draconic.shell;       // IKeyboard / KeyCode (a minimal fake device)
 
-using namespace draconic::core;
-namespace runtime = draconic::runtime;
-namespace script = draconic::script; // raw manager/context for the SceneLoader facade battery
-namespace scene = draconic::scene;
-namespace content = draconic::content;
-namespace resource = draconic::resource;
-namespace net = draconic::net;
-namespace input = draconic::input;
-namespace shell = draconic::shell;
-using draconic::vfs::NativeFileSystem;
+using namespace foundation::core;
+namespace script = foundation::script; // raw manager/context for the SceneLoader facade battery
+namespace scene = foundation::scene;
+namespace content = foundation::content;
+namespace resource = foundation::resource;
+namespace input = foundation::input;
+namespace shell = foundation::shell;
+using foundation::vfs::NativeFileSystem;
 
 namespace
 {
@@ -103,7 +101,7 @@ TEST_CASE("script.facades: reserved contract-class names (Game/Level) are refuse
 
 TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fresh instance idle")
 {
-    draconic::engine::runtime::GameInstance gi;
+    engine::runtime::GameInstance gi;
     CHECK(gi.InstanceTimeScale() == doctest::Approx(1.0f));
     gi.SetInstanceTimeScale(0.5f);
     CHECK(gi.InstanceTimeScale() == doctest::Approx(0.5f));
@@ -127,8 +125,8 @@ TEST_CASE("game-instance: each instance's input runtime reads ONLY its own sourc
     // The multi-instance-PIE fix: each GameInstance has its OWN ActionRuntime bound to its OWN source,
     // so one tab's keys never reach another tab's game (the shared-runtime bug that flipped the server
     // tab into a client). Same map, same key, two sources - only the source with the key held fires.
-    draconic::engine::runtime::GameInstance a;
-    draconic::engine::runtime::GameInstance b;
+    engine::runtime::GameInstance a;
+    engine::runtime::GameInstance b;
     OneKeySource srcA;
     srcA.keyboard.key = shell::KeyCode::H;
     srcA.keyboard.down = true; // A holds H
@@ -161,8 +159,8 @@ TEST_CASE("game-instance: each instance owns an independent networked endpoint (
 {
     // The per-instance networking model: a GameInstance IS the INetworkController, opening its OWN
     // real UDP endpoint on StartServer/Connect. Two instances in one process = two isolated endpoints.
-    draconic::engine::runtime::GameInstance server;
-    draconic::engine::runtime::GameInstance client;
+    engine::runtime::GameInstance server;
+    engine::runtime::GameInstance client;
     CHECK(server.NetEndpoint() == nullptr); // offline until a role is entered
 
     REQUIRE(server.StartServer(/*port=*/0, /*dedicated=*/true));
@@ -192,9 +190,9 @@ TEST_CASE("game-instance: each instance owns an independent networked endpoint (
 TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
 {
     RegisterCoreTypes();
-    draconic::script::wren::RegisterWrenScriptBackend();
+    foundation::script::wren::RegisterWrenScriptBackend();
 
-    draconic::engine::runtime::GameInstance gi;
+    engine::runtime::GameInstance gi;
     const bool ok = gi.StartScript(u8"class Game {\n"
                                    u8"  construct new() {}\n"
                                    u8"  launch() {}\n"
@@ -225,11 +223,11 @@ TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a p
           "orchestrator (Wren)")
 {
     RegisterCoreTypes();
-    draconic::script::RegisterScriptFacadeReflection();
-    draconic::engine::runtime::RegisterSceneLoaderScriptFacade(); // SceneLoader facade (owned by this project)
-    draconic::script::wren::RegisterWrenScriptBackend();
+    foundation::script::RegisterScriptFacadeReflection();
+    engine::runtime::RegisterSceneLoaderScriptFacade(); // SceneLoader facade (owned by this project)
+    foundation::script::wren::RegisterWrenScriptBackend();
 
-    draconic::engine::runtime::GameInstance gi;
+    engine::runtime::GameInstance gi;
     CHECK_FALSE(gi.SceneReady()); // no scene yet - the orchestrator-first condition
     const bool ok = gi.StartScript(
         u8"import \"main\" for SceneLoader\n"
@@ -261,11 +259,11 @@ TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a p
           "orchestrator (AngelScript)")
 {
     RegisterCoreTypes();
-    draconic::script::RegisterScriptFacadeReflection();
-    draconic::engine::runtime::RegisterSceneLoaderScriptFacade(); // SceneLoader facade (owned by this project)
-    draconic::script::angelscript::RegisterAngelScriptBackend();
+    foundation::script::RegisterScriptFacadeReflection();
+    engine::runtime::RegisterSceneLoaderScriptFacade(); // SceneLoader facade (owned by this project)
+    foundation::script::angelscript::RegisterAngelScriptBackend();
 
-    draconic::engine::runtime::GameInstance gi;
+    engine::runtime::GameInstance gi;
     // A facade named `Game` would fail HERE with "Name conflict. 'Game' is an extended data type" -
     // the SceneLoader rename is exactly what lets this `class Game` compile alongside the facade.
     const bool ok = gi.StartScript(
@@ -300,7 +298,7 @@ namespace
     // Fake load host: hands back a fixed ticket, reports complete on the 2nd poll of THAT ticket.
     struct SceneLoaderFake
     {
-        draconic::engine::runtime::SceneLoaderScriptBinding binding;
+        engine::runtime::SceneLoaderScriptBinding binding;
         int asyncCalls = 0;
         Guid requested;
         int completePolls = 0;
@@ -330,14 +328,14 @@ namespace
 TEST_CASE("game-instance: SceneLoader.loadSceneAsync -> ticket, polled to completion (Wren)")
 {
     RegisterCoreTypes();
-    draconic::engine::runtime::RegisterSceneLoaderScriptFacade();
+    engine::runtime::RegisterSceneLoaderScriptFacade();
 
-    RefPtr<script::IScriptManager> manager = draconic::script::wren::CreateScriptManager();
-    draconic::script::RegisterReflectedTypes(*manager);
+    RefPtr<script::IScriptManager> manager = foundation::script::wren::CreateScriptManager();
+    foundation::script::RegisterReflectedTypes(*manager);
     RefPtr<script::IScriptContext> ctx = manager->CreateContext();
 
     SceneLoaderFake fake;
-    draconic::engine::runtime::InstallSceneLoaderScriptService(*ctx, fake.binding);
+    engine::runtime::InstallSceneLoaderScriptService(*ctx, fake.binding);
 
     // Kick the load, then poll to completion; record the observable results in module globals.
     const Status status =
@@ -359,14 +357,14 @@ TEST_CASE("game-instance: SceneLoader.loadSceneAsync -> ticket, polled to comple
 TEST_CASE("game-instance: SceneLoader.loadSceneAsync -> ticket, polled to completion (AngelScript)")
 {
     RegisterCoreTypes();
-    draconic::engine::runtime::RegisterSceneLoaderScriptFacade();
+    engine::runtime::RegisterSceneLoaderScriptFacade();
 
-    RefPtr<script::IScriptManager> manager = draconic::script::angelscript::CreateScriptManager();
-    draconic::script::RegisterReflectedTypes(*manager);
+    RefPtr<script::IScriptManager> manager = foundation::script::angelscript::CreateScriptManager();
+    foundation::script::RegisterReflectedTypes(*manager);
     RefPtr<script::IScriptContext> ctx = manager->CreateContext();
 
     SceneLoaderFake fake;
-    draconic::engine::runtime::InstallSceneLoaderScriptService(*ctx, fake.binding);
+    engine::runtime::InstallSceneLoaderScriptService(*ctx, fake.binding);
 
     const Status status = ctx->Load(u8"int t;\n"
                                     u8"bool Poll1; double Prog; bool Poll2;\n"
@@ -390,9 +388,9 @@ TEST_CASE("game-instance: SceneLoader.loadSceneAsync -> ticket, polled to comple
 TEST_CASE("game-instance: a debugger suspension in update is not a fault - the script survives")
 {
     RegisterCoreTypes();
-    draconic::script::angelscript::RegisterAngelScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
 
-    draconic::engine::runtime::GameInstance gi;
+    engine::runtime::GameInstance gi;
     const bool ok = gi.StartScript(u8"class Game {\n"               // 1
                                    u8"  void launch() {}\n"         // 2
                                    u8"  void update(double dt) {\n" // 3
@@ -405,21 +403,21 @@ TEST_CASE("game-instance: a debugger suspension in update is not a fault - the s
     REQUIRE(ok);
     REQUIRE(gi.ScriptRunning());
 
-    draconic::script::IScriptDebugger* debugger = nullptr;
-    gi.RunHost().RequestDebugger(Function<void(draconic::script::IScriptDebugger&)>{
-        [&debugger](draconic::script::IScriptDebugger& created)
+    foundation::script::IScriptDebugger* debugger = nullptr;
+    gi.RunHost().RequestDebugger(Function<void(foundation::script::IScriptDebugger&)>{
+        [&debugger](foundation::script::IScriptDebugger& created)
         {
             created.SetBreakpoint(u8"game.as", 4);
             debugger = &created;
         }});
     REQUIRE(debugger != nullptr);
 
-    struct BreakCounter final : draconic::script::IScriptDebuggerListener
+    struct BreakCounter final : foundation::script::IScriptDebuggerListener
     {
         int breaks = 0;
-        void OnDebuggerStateChanged(draconic::script::ScriptDebuggerState state) override
+        void OnDebuggerStateChanged(foundation::script::ScriptDebuggerState state) override
         {
-            if (state == draconic::script::ScriptDebuggerState::Breakpoint)
+            if (state == foundation::script::ScriptDebuggerState::Breakpoint)
             {
                 ++breaks;
             }
@@ -471,12 +469,12 @@ TEST_CASE("game-instance: a debugger suspension in update is not a fault - the s
 TEST_CASE("game-instance: two instances own separate, isolated run-host contexts")
 {
     RegisterCoreTypes();
-    draconic::script::wren::RegisterWrenScriptBackend();
+    foundation::script::wren::RegisterWrenScriptBackend();
 
     const char8_t* src =
         u8"class Game { construct new() {}\n launch() {}\n update(dt) {}\n exit() {}\n}\n";
-    draconic::engine::runtime::GameInstance a;
-    draconic::engine::runtime::GameInstance b;
+    engine::runtime::GameInstance a;
+    engine::runtime::GameInstance b;
     REQUIRE(a.StartScript(src, u8"game.wren"));
     REQUIRE(b.StartScript(src, u8"game.wren"));
 
@@ -498,9 +496,9 @@ TEST_CASE("game-instance: two instances own separate, isolated run-host contexts
 TEST_CASE("game-instance: a missing Game class fails to start cleanly")
 {
     RegisterCoreTypes();
-    draconic::script::wren::RegisterWrenScriptBackend();
+    foundation::script::wren::RegisterWrenScriptBackend();
 
-    draconic::engine::runtime::GameInstance gi;
+    engine::runtime::GameInstance gi;
     const bool ok = gi.StartScript(u8"var X = 1\n", u8"game.wren");
     CHECK_FALSE(ok); // no `Game` class
     CHECK_FALSE(gi.ScriptRunning());
@@ -536,7 +534,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
 
     SUBCASE("sync LoadScene returns the active, resolved scene")
     {
-        draconic::engine::runtime::GameInstance gi;
+        engine::runtime::GameInstance gi;
         scene::Scene* s =
             gi.LoadScene(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{});
         REQUIRE(s != nullptr);
@@ -546,8 +544,8 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
 
     SUBCASE("async LoadSceneAsync creates the scene INACTIVE until ActivateLoadedScene")
     {
-        draconic::engine::runtime::GameInstance gi;
-        draconic::engine::runtime::SceneLoadHandle handle =
+        engine::runtime::GameInstance gi;
+        engine::runtime::SceneLoadHandle handle =
             gi.LoadSceneAsync(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{});
         REQUIRE(handle.Scene() != nullptr);
         CHECK_FALSE(handle.Failed());
@@ -565,8 +563,8 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
     {
         auto* empty =
             db.RootGroup()->CreateInstance(u8"empty", scene::SceneDocument::StaticType());
-        draconic::engine::runtime::GameInstance gi;
-        draconic::engine::runtime::SceneLoadHandle handle =
+        engine::runtime::GameInstance gi;
+        engine::runtime::SceneLoadHandle handle =
             gi.LoadSceneAsync(*empty, resources, Function<UniquePtr<IStream>(const Guid&)>{});
         CHECK(handle.Failed());
         CHECK(handle.IsComplete());
@@ -577,7 +575,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
 
     SUBCASE("script-load registry: ticket -> poll -> PumpScriptLoads activates + runs the policy")
     {
-        draconic::engine::runtime::GameInstance gi;
+        engine::runtime::GameInstance gi;
         CHECK_FALSE(gi.SceneReady()); // no current scene at launch (orchestrator-first boot)
 
         // The app owns the render/sim policy; here a fake records which scene it activated.
@@ -586,7 +584,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
             Function<void(scene::Scene*)>{[&](scene::Scene* s) { policyRanOn = s; }});
 
         // The Game facade hands the in-flight handle to the instance and gets a ticket back.
-        draconic::engine::runtime::SceneLoadHandle handle =
+        engine::runtime::SceneLoadHandle handle =
             gi.LoadSceneAsync(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{});
         REQUIRE(handle.Scene() != nullptr);
         scene::Scene* pending = handle.Scene();
@@ -622,7 +620,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
     {
         auto* empty =
             db.RootGroup()->CreateInstance(u8"empty2", scene::SceneDocument::StaticType());
-        draconic::engine::runtime::GameInstance gi;
+        engine::runtime::GameInstance gi;
         const i32 ticket = gi.TrackScriptLoad(
             gi.LoadSceneAsync(*empty, resources, Function<UniquePtr<IStream>(const Guid&)>{}));
         CHECK(ticket == 1);
@@ -637,8 +635,8 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
         // Fable review finding: the tracked handle holds a raw Scene*. Destroying the pending
         // scene before it activates must drop the tracked load, or PumpScriptLoads would later
         // activate freed memory.
-        draconic::engine::runtime::GameInstance gi;
-        draconic::engine::runtime::SceneLoadHandle handle =
+        engine::runtime::GameInstance gi;
+        engine::runtime::SceneLoadHandle handle =
             gi.LoadSceneAsync(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{});
         REQUIRE(handle.Scene() != nullptr);
         scene::Scene* pending = handle.Scene();
@@ -657,7 +655,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
         // Fable review finding: m_scriptLoads used to grow monotonically. After activation the
         // entry is dropped, so re-destroying the (now active) scene is a safe no-op and the ticket
         // still reads terminal-safe - the externally observable contract is unchanged.
-        draconic::engine::runtime::GameInstance gi;
+        engine::runtime::GameInstance gi;
         const i32 ticket = gi.TrackScriptLoad(
             gi.LoadSceneAsync(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{}));
         gi.PumpScriptLoads(); // activates + retires the entry

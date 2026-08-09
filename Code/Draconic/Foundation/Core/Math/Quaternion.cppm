@@ -17,7 +17,7 @@ import :math;
 import :float3;
 import :float4x4;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Quaternion - unit quaternion rotation (x, y, z, w).

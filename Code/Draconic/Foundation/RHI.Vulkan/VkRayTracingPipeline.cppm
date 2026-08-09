@@ -14,9 +14,9 @@ import :shader_module;
 import :pipeline_layout;
 import :pipeline_cache;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkRayTracingPipelineImpl : public RayTracingPipeline
@@ -127,4 +127,4 @@ export namespace draconic::rhi::vk
         VkPipelineLayoutImpl* m_layout = nullptr;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

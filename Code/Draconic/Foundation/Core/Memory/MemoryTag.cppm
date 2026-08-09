@@ -14,7 +14,7 @@ export module draconic.core:memory_tag;
 import :base;
 import :allocator;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Memory tagging - attribute allocations to a category. Core does NOT

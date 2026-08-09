@@ -14,10 +14,10 @@ export module draconic.gui:media_query;
 import draconic.core; // StringView, Array, f32
 import :css_values;   // ParseLength
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // The environment a media query is evaluated against.
     struct MediaContext

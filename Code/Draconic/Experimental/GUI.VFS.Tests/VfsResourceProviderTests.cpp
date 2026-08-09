@@ -9,10 +9,10 @@ import draconic.image.io;
 import draconic.vfs;
 import draconic.gui.vfs;
 
-using namespace draconic::core;
-namespace vfs = draconic::vfs;
-namespace image = draconic::image;
-namespace gui = draconic::gui;
+using namespace foundation::core;
+namespace vfs = foundation::vfs;
+namespace image = foundation::image;
+namespace gui = experimental::gui;
 
 namespace
 {

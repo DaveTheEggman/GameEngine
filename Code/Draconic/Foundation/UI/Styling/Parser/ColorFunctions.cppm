@@ -14,9 +14,9 @@ export module draconic.ui:color_functions;
 import draconic.core; // Color, Min, Max
 import :palette;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct ColorFunctions
     {

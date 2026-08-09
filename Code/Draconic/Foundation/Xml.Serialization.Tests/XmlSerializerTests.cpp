@@ -5,8 +5,8 @@
 import draconic.core;
 import draconic.xml;
 import draconic.xml.serialization;
-using namespace draconic::core;
-using namespace draconic::xml;
+using namespace foundation::core;
+using namespace foundation::xml;
 
 namespace
 {
@@ -199,9 +199,9 @@ namespace
     };
     void Serialize(ISerializer& ar, FlatNode& n)
     {
-        draconic::core::Serialize(ar, "name", n.name);
-        draconic::core::Serialize(ar, "parent", n.parent);
-        draconic::core::Serialize(ar, "mesh", n.mesh);
+        foundation::core::Serialize(ar, "name", n.name);
+        foundation::core::Serialize(ar, "parent", n.parent);
+        foundation::core::Serialize(ar, "mesh", n.mesh);
     }
 }
 
@@ -223,7 +223,7 @@ TEST_CASE("xml.serialize: array of keyed structs round-trips each element distin
     String out;
     {
         XmlSerializer w;
-        draconic::core::Serialize(w, "nodes", nodes);
+        foundation::core::Serialize(w, "nodes", nodes);
         REQUIRE(w.IsOk());
         w.GetOutput(out);
     }
@@ -232,7 +232,7 @@ TEST_CASE("xml.serialize: array of keyed structs round-trips each element distin
     REQUIRE(parsed.Parse(out.AsView()) == XmlResult::Ok);
     XmlSerializer r(parsed);
     Array<FlatNode> loaded;
-    draconic::core::Serialize(r, "nodes", loaded);
+    foundation::core::Serialize(r, "nodes", loaded);
     REQUIRE(r.IsOk());
     REQUIRE(loaded.Size() == 3u);
     CHECK(loaded[0].name == StringView(u8"node0"));

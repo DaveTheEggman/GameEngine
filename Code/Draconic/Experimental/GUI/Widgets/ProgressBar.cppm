@@ -15,11 +15,11 @@ import :rect;
 import :draw_context;
 import :ui_widget;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace vg = foundation::vg;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class ProgressBar : public UIWidget
     {

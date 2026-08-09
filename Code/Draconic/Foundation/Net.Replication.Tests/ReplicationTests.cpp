@@ -10,9 +10,9 @@ import draconic.net; // BitWriter / BitReader
 import draconic.net.replication;
 import draconic.scene; // Scene / EntityHandle / SerializableComponentManager
 
-using namespace draconic::core;
-namespace net = draconic::net;
-namespace scene = draconic::scene;
+using namespace foundation::core;
+namespace net = foundation::net;
+namespace scene = foundation::scene;
 
 namespace
 {
@@ -32,13 +32,13 @@ namespace
     // ADL serialization (required to instantiate SerializableComponentManager<Mover>).
     inline void Serialize(ISerializer& ar, Mover& m)
     {
-        draconic::core::Serialize(ar, "position", m.position);
-        draconic::core::Serialize(ar, "rotation", m.rotation);
-        draconic::core::Serialize(ar, "speed", m.speed);
-        draconic::core::Serialize(ar, "grounded", m.grounded);
-        draconic::core::Serialize(ar, "health", m.health);
-        draconic::core::Serialize(ar, "localOnly", m.localOnly);
-        draconic::core::Serialize(ar, "label", m.label);
+        foundation::core::Serialize(ar, "position", m.position);
+        foundation::core::Serialize(ar, "rotation", m.rotation);
+        foundation::core::Serialize(ar, "speed", m.speed);
+        foundation::core::Serialize(ar, "grounded", m.grounded);
+        foundation::core::Serialize(ar, "health", m.health);
+        foundation::core::Serialize(ar, "localOnly", m.localOnly);
+        foundation::core::Serialize(ar, "label", m.label);
     }
 
     // A serializable pool so Mover can live in a scene + carry the wire type tag "test.Mover".
@@ -138,7 +138,7 @@ TEST_CASE("replication: field codec round-trips supported scalars + rejects unsu
 TEST_CASE("replication: a full snapshot round-trips networked entities server -> client")
 {
     DraconicRegisterValue_Mover();
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     // --- server scene: two networked entities, each with a Mover ---
     scene::Scene server;
@@ -211,7 +211,7 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
 TEST_CASE(
     "replication: NetworkedTransform bridges the entity transform through capture -> wire -> apply")
 {
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
@@ -254,7 +254,7 @@ TEST_CASE(
 TEST_CASE(
     "replication: AssignSceneNetworkIds assigns ids to authored-networked entities (idempotent)")
 {
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     scene::Scene scene;
     auto* netMgr = scene.AddSystem<net::NetworkComponentManager>();
@@ -281,7 +281,7 @@ TEST_CASE(
 TEST_CASE("replication: per-peer delta sends only what changed since the peer's last delta")
 {
     DraconicRegisterValue_Mover();
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
@@ -362,7 +362,7 @@ TEST_CASE("replication: per-peer delta sends only what changed since the peer's 
 TEST_CASE("replication: late-join full snapshot spawns prefabs via the spawn handler")
 {
     DraconicRegisterValue_Mover();
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     // Server: two entities network-spawned from prefabs, each with replicated Mover state.
     scene::Scene server;
@@ -427,7 +427,7 @@ TEST_CASE("replication: late-join full snapshot spawns prefabs via the spawn han
 TEST_CASE("replication: a delta spawns a newly-added networked entity via its prefab")
 {
     DraconicRegisterValue_Mover();
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
@@ -541,7 +541,7 @@ TEST_CASE("replication: per-peer relevancy hides non-relevant entities and remov
           "(fog of war)")
 {
     DraconicRegisterValue_Mover();
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
@@ -640,7 +640,7 @@ TEST_CASE("replication: per-peer relevancy hides non-relevant entities and remov
 TEST_CASE("replication: ApplyDelta records interpolatable state, SampleInterpolation smooths it")
 {
     DraconicRegisterValue_Mover();
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     scene::Scene server;
     server.AddSystem<net::NetworkComponentManager>();
@@ -692,15 +692,15 @@ TEST_CASE("replication: network components carry displayName + category attribut
 {
     // Without these the inspector's add-component menu drops the type in the "Other" bucket
     // (editor-polish.md P1 - authored intent, not name heuristics). These predate the standing rule.
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
     const struct
     {
         const TypeInfo* type;
         StringView displayName;
     } expectations[] = {
-        {&TypeOf<draconic::net::NetworkComponent>(), u8"Network Identity"},
-        {&TypeOf<draconic::net::NetworkedTransform>(), u8"Networked Transform"},
+        {&TypeOf<foundation::net::NetworkComponent>(), u8"Network Identity"},
+        {&TypeOf<foundation::net::NetworkedTransform>(), u8"Networked Transform"},
     };
     for (const auto& expectation : expectations)
     {

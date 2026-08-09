@@ -19,9 +19,9 @@ export module draconic.script:script_debug;
 
 import draconic.core;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::script
+export namespace foundation::script
 {
     // ---- debugger snapshot value types (plain data, wire-symmetric) --------------
 

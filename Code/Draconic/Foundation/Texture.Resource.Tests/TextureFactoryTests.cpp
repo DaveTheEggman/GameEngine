@@ -13,11 +13,11 @@ import draconic.rhi.null;
 import draconic.texture;
 import draconic.texture.resource;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
-using namespace draconic::resource;
-using namespace draconic::texture;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::vfs;
+using namespace foundation::resource;
+using namespace foundation::texture;
+namespace rhi = foundation::rhi;
 
 namespace
 {
@@ -29,7 +29,7 @@ namespace
     }
 
     // Author one cooked 2x2 texture instance; returns its id.
-    Guid AuthorTexture(draconic::content::ContentDatabase& db, StringView name)
+    Guid AuthorTexture(foundation::content::ContentDatabase& db, StringView name)
     {
         auto* inst = db.RootGroup()->CreateInstance(name, TextureResource::StaticType());
         TextureResource res;
@@ -60,7 +60,7 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
 
     // Author a cooked record + raw 2x2 RGBA pixels (the "data" stream).
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"tex", TextureResource::StaticType());
         id = inst->Id();
@@ -88,7 +88,7 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
 
     // Load through the manager with a device-backed factory (Null backend).
     rhi::null::NullDevice device{DefaultAllocator()};
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     TextureFactory factory(device);
     ResourceManager manager(db);
@@ -121,7 +121,7 @@ TEST_CASE("texture.factory: async load produces the same product as the sync loa
     NativeFileSystem mount(u8"draconic_texfac_db");
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"tex", TextureResource::StaticType());
         id = inst->Id();
@@ -146,7 +146,7 @@ TEST_CASE("texture.factory: async load produces the same product as the sync loa
     }
 
     rhi::null::NullDevice device{DefaultAllocator()};
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     TextureFactory factory(device);
 
@@ -188,7 +188,7 @@ TEST_CASE("texture.factory: many concurrent async loads decode on workers withou
     NativeFileSystem mount(u8"draconic_texfac_concurrent");
     Array<Guid> ids;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         for (int i = 0; i < kCount; ++i)
         {
@@ -199,7 +199,7 @@ TEST_CASE("texture.factory: many concurrent async loads decode on workers withou
     }
 
     rhi::null::NullDevice device{DefaultAllocator()};
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     TextureFactory factory(device);
     JobSystem jobs;

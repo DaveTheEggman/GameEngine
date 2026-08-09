@@ -2,7 +2,7 @@
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 TEST_CASE("random: deterministic and seed-dependent")
 {

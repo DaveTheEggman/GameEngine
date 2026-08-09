@@ -16,10 +16,11 @@ import draconic.rhi;
 import draconic.geometry;
 import :resources;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace geometry = foundation::geometry;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // GPU location of one mesh, ready to bind + draw: the (pooled) vertex + index buffers and the
@@ -183,4 +184,4 @@ export namespace draconic::render
         HashMap<u64, GpuMesh> m_cache;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

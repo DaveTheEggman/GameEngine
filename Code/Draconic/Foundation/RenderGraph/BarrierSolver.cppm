@@ -18,11 +18,11 @@ import :resource;
 import :pass;
 import :state_tracker;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rendergraph
+export namespace foundation::rendergraph
 {
-    namespace rhi = draconic::rhi;
+    namespace rhi = foundation::rhi;
 
     class BarrierSolver
     {

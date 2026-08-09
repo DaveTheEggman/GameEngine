@@ -14,10 +14,10 @@ import draconic.vfs;
 import draconic.pipeline.core;
 import draconic.pipeline.cook;
 
-using namespace draconic::core;
-    using namespace draconic::pipeline;
-namespace content = draconic::content;
-namespace vfs = draconic::vfs;
+using namespace foundation::core;
+    using namespace pipeline;
+namespace content = foundation::content;
+namespace vfs = foundation::vfs;
 
 namespace
 {
@@ -31,7 +31,7 @@ namespace
         void Serialize(ISerializer& ar) override
         {
             Asset::Serialize(ar);
-            draconic::core::Serialize(ar, "quality", quality);
+            foundation::core::Serialize(ar, "quality", quality);
         }
     };
 
@@ -42,7 +42,7 @@ namespace
         i32 cookedValue = 0;
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "cookedValue", cookedValue);
+            foundation::core::Serialize(ar, "cookedValue", cookedValue);
         }
     };
 
@@ -94,8 +94,8 @@ namespace
         void Serialize(ISerializer& ar) override
         {
             Asset::Serialize(ar);
-            draconic::core::Serialize(ar, "readDep", readDep);
-            draconic::core::Serialize(ar, "refDep", refDep);
+            foundation::core::Serialize(ar, "readDep", readDep);
+            foundation::core::Serialize(ar, "refDep", refDep);
         }
     };
 
@@ -214,7 +214,7 @@ namespace
             REQUIRE(inst != nullptr);
             CookWidgetAsset asset;
             asset.quality = quality;
-            asset.fileName = draconic::vfs::SourcePath(file);
+            asset.fileName = foundation::vfs::SourcePath(file);
             REQUIRE(inst->WriteObject(asset).IsOk());
             return inst->Id();
         }
@@ -332,7 +332,7 @@ TEST_CASE("cook: source-file edit dirties exactly the consumer; settings + versi
         content::Instance* inst = fx.sourceDb->GetInstance(a);
         CookWidgetAsset asset;
         asset.quality = 11;
-        asset.fileName = draconic::vfs::SourcePath(u8"a.txt");
+        asset.fileName = foundation::vfs::SourcePath(u8"a.txt");
         REQUIRE(inst->WriteObject(asset).IsOk());
     }
     CookPlan p2 = driver.Plan();

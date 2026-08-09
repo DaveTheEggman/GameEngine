@@ -12,7 +12,7 @@ import :base;
 import :math;
 import :float3;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // AABB - axis-aligned bounding box.

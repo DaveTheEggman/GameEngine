@@ -17,9 +17,9 @@ export module draconic.settings;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::settings
+export namespace foundation::settings
 {
     // A store of typed settings sections. One instance = one persisted file's worth (layering across
     // user/project files composes multiple Settings; a later phase). Not copyable (owns live sections).

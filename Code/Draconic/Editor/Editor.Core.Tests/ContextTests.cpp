@@ -13,8 +13,8 @@ import draconic.content;
 import draconic.xml.serialization;
 import draconic.editor.core;
 
-using namespace draconic::core;
-using namespace draconic::editor;
+using namespace foundation::core;
+using namespace editor;
 
 namespace
 {
@@ -58,7 +58,7 @@ namespace
         TestPageFactory(const TypeInfo& type, StringView title) : m_type(&type), m_title(title) {}
         [[nodiscard]] const TypeInfo* PrimaryType() const override { return m_type; }
         [[nodiscard]] UniquePtr<EditorPage> CreatePage(EditorContext&,
-                                                       draconic::content::Instance&) override
+                                                       foundation::content::Instance&) override
         {
             return UniquePtr<EditorPage>(DefaultAllocator().New<TestPage>(m_title.AsView()),
                                          DefaultAllocator());
@@ -129,8 +129,8 @@ TEST_CASE("editor-context: open, focus, and close pages")
 
     const StringView dir = u8"draconic_editor_test_ctx_db";
     RemoveDbTree(dir);
-    draconic::vfs::NativeFileSystem mount(dir);
-    draconic::content::ContentDatabase db(mount, draconic::xml::XmlSerializerFactory(),
+    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::content::ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(),
                                           u8".xasset");
 
     auto* a = db.RootGroup()->CreateInstance(u8"a", BaseAsset::StaticType());
@@ -205,8 +205,8 @@ TEST_CASE("editor-context: undo/redo routes to the active page")
 
     const StringView dir = u8"draconic_editor_test_ctx_undo_db";
     RemoveDbTree(dir);
-    draconic::vfs::NativeFileSystem mount(dir);
-    draconic::content::ContentDatabase db(mount, draconic::xml::XmlSerializerFactory(),
+    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::content::ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(),
                                           u8".xasset");
     auto* a = db.RootGroup()->CreateInstance(u8"a", BaseAsset::StaticType());
     REQUIRE(a != nullptr);

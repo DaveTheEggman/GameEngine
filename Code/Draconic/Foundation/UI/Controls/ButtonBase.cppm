@@ -25,9 +25,9 @@ import :palette;
 import :event_args;
 import :input_enums;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ButtonBase : public View
     {

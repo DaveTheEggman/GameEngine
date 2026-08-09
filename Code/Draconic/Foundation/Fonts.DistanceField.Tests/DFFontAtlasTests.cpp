@@ -4,8 +4,8 @@ import draconic.core;
 import draconic.fonts;
 import draconic.fonts.distancefield;
 
-using namespace draconic::core;
-using namespace draconic::fonts;
+using namespace foundation::core;
+using namespace foundation::fonts;
 
 TEST_CASE("DFFontAtlas: mode returns DistanceField")
 {

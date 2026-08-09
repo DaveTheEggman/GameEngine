@@ -16,10 +16,10 @@ import draconic.core;
 import draconic.pipeline.core;
 import draconic.input; // InputMap (the nested reflected type)
 
-using namespace draconic::core;
-using namespace draconic::input;
+using namespace foundation::core;
+using namespace foundation::input;
 
-namespace draconic::pipeline{
+namespace pipeline{
     DRACONIC_REFLECT(InputMapAsset, "rtti::editor::input")
     {
         builder.Attribute("displayName", String(u8"Input Map"))

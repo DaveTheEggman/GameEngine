@@ -16,9 +16,9 @@ import draconic.ui;
 import :property_editor;
 import :vector_fields; // reuse AxisLabel + AxisColors
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Property editor for Float4 values. Four NumericFields (X, Y, Z, W) side by side with axis labels.
     class Float4Editor : public PropertyEditor

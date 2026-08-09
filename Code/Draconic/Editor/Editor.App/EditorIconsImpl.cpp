@@ -19,9 +19,10 @@ module draconic.editor.app;
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace ui = foundation::ui;
 
-namespace draconic::editor::app
+namespace editor::app
 {
     EditorIcons& EditorIcons::Get()
     {

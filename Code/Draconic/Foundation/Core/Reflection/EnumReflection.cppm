@@ -14,7 +14,7 @@ import :type_info;
 import :array;
 import :span;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Enum reflection (phase e). EnumBuilder patches the enum's TypeOf<E>()

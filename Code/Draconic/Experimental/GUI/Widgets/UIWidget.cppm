@@ -15,10 +15,10 @@ import draconic.core; // String, StringView, Array
 import :thickness;
 import :ui_node;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class UIWidget : public UINode
     {

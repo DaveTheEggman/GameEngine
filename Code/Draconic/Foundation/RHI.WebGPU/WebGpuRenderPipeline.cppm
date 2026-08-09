@@ -17,9 +17,9 @@ import :conversions;
 import :pipeline_layout;
 import :shader_module;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuRenderPipeline final : public RenderPipeline
     {

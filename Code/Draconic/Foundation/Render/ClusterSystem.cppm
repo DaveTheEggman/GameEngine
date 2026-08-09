@@ -23,10 +23,12 @@ import :data;
 import :views;
 import :resources;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // What a built cluster grid exposes to the forward pass (the buffers + the grid params the
@@ -159,4 +161,4 @@ export namespace draconic::render
         bool m_ready = false;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

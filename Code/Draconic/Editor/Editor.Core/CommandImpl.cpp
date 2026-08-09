@@ -18,9 +18,9 @@ module draconic.editor.core;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::editor
+namespace editor
 {
     bool EditorCommandStack::Execute(UniquePtr<IEditorCommand> command)
     {

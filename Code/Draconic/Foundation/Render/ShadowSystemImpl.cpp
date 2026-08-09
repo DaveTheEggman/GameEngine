@@ -18,10 +18,11 @@ import draconic.rendergraph;
 import :data;  // ShadowCascades
 import :views; // ViewCamera
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace rhi = foundation::rhi;
 
-namespace draconic::render
+namespace foundation::render
 {
     rhi::TextureView* ShadowSystem::PrepareFrame(u32 frameIndex, u32 viewCount)
     {

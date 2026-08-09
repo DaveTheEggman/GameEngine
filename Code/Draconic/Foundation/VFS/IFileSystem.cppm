@@ -16,9 +16,9 @@ export module draconic.vfs:ifilesystem;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vfs
+export namespace foundation::vfs
 {
     class IEnumerableFileSystem;
     class IWritableFileSystem;

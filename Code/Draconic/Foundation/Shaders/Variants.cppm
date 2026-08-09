@@ -23,9 +23,9 @@ import draconic.core;
 import :types;
 import :flags;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::shaders
+export namespace foundation::shaders
 {
     struct VariantDirective
     {

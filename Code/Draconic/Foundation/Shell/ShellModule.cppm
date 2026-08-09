@@ -21,9 +21,9 @@ export import :dialog;
 
 import draconic.core;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::shell
+export namespace foundation::shell
 {
     enum class WindowSystem : core::u8
     {

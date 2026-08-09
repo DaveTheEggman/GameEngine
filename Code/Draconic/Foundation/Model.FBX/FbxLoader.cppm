@@ -24,12 +24,13 @@ import draconic.model;
 import draconic.model.io;
 import draconic.image;
 import draconic.image.io;
+namespace image = foundation::image;
 
-export namespace draconic::model::fbx
+export namespace foundation::model::fbx
 {
 
-    using namespace draconic::core;
-    using namespace draconic::model;
+    using namespace foundation::core;
+    using namespace foundation::model;
 
     // ufbx hands back char* (UTF-8); the engine String is UTF-8 too, so these just
     // wrap the bytes in an owned String - no transcoding.
@@ -382,7 +383,7 @@ export namespace draconic::model::fbx
                 if (tex->content.size > 0 && tex->content.data)
                 {
                     // Embedded texture data.
-                    draconic::image::Image img;
+                    foundation::image::Image img;
                     if (image::io::LoadImageFromMemory(
                             Span<const u8>(static_cast<const u8*>(tex->content.data),
                                            tex->content.size),
@@ -414,7 +415,7 @@ export namespace draconic::model::fbx
 
                         if (std::filesystem::exists(imagePath))
                         {
-                            draconic::image::Image img;
+                            foundation::image::Image img;
                             if (image::io::LoadImage(Utf8FromC(imagePath.c_str()), img) ==
                                 ErrorCode::Ok)
                             {
@@ -436,7 +437,7 @@ export namespace draconic::model::fbx
                                 auto candidatePath = (parentDir / relPath).string();
                                 if (std::filesystem::exists(candidatePath))
                                 {
-                                    draconic::image::Image img;
+                                    foundation::image::Image img;
                                     if (image::io::LoadImage(Utf8FromC(candidatePath.c_str()),
                                                              img) == ErrorCode::Ok)
                                     {
@@ -454,7 +455,7 @@ export namespace draconic::model::fbx
                     if (!loaded && tex->filename.data && tex->filename.length > 0)
                     {
                         std::string absPath(tex->filename.data, tex->filename.length);
-                        draconic::image::Image img;
+                        foundation::image::Image img;
                         if (image::io::LoadImage(Utf8FromC(absPath.c_str()), img) == ErrorCode::Ok)
                         {
                             storeImageData(img, modelTex);
@@ -483,28 +484,28 @@ export namespace draconic::model::fbx
         // Image helpers
         // -----------------------------------------------------------------------
 
-        static TexturePixelFormat convertPixelFormat(draconic::image::PixelFormat fmt)
+        static TexturePixelFormat convertPixelFormat(foundation::image::PixelFormat fmt)
         {
             switch (fmt)
             {
-            case draconic::image::PixelFormat::R8:
+            case foundation::image::PixelFormat::R8:
                 return TexturePixelFormat::R8;
-            case draconic::image::PixelFormat::RG8:
+            case foundation::image::PixelFormat::RG8:
                 return TexturePixelFormat::RG8;
-            case draconic::image::PixelFormat::RGB8:
+            case foundation::image::PixelFormat::RGB8:
                 return TexturePixelFormat::RGB8;
-            case draconic::image::PixelFormat::RGBA8:
+            case foundation::image::PixelFormat::RGBA8:
                 return TexturePixelFormat::RGBA8;
-            case draconic::image::PixelFormat::BGR8:
+            case foundation::image::PixelFormat::BGR8:
                 return TexturePixelFormat::BGR8;
-            case draconic::image::PixelFormat::BGRA8:
+            case foundation::image::PixelFormat::BGRA8:
                 return TexturePixelFormat::BGRA8;
             default:
                 return TexturePixelFormat::Unknown;
             }
         }
 
-        static void storeImageData(const draconic::image::Image& image, ModelTexture* texture)
+        static void storeImageData(const foundation::image::Image& image, ModelTexture* texture)
         {
             texture->width = static_cast<i32>(image.Width());
             texture->height = static_cast<i32>(image.Height());
@@ -1346,4 +1347,4 @@ export namespace draconic::model::fbx
         }
     };
 
-} // namespace draconic::model::fbx
+} // namespace foundation::model::fbx

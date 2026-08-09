@@ -19,17 +19,17 @@ import draconic.ui;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace ui = draconic::ui;
+    namespace ui = foundation::ui;
 
     // Authoring page for a CollisionShapeAsset (pick a mesh, choose the cook, cook it).
     class CollisionShapeEditorPage final : public app::UIEditorPage
     {
     public:
-        CollisionShapeEditorPage(EditorContext& context, draconic::content::Instance& instance);
+        CollisionShapeEditorPage(EditorContext& context, foundation::content::Instance& instance);
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
@@ -39,11 +39,11 @@ export namespace draconic::editor
         void PickMesh();
         void RefreshStatus();
         [[nodiscard]] String MeshName(const Guid& id) const;
-        [[nodiscard]] static StringView CookLabel(draconic::pipeline::CollisionCookKind kind);
+        [[nodiscard]] static StringView CookLabel(pipeline::CollisionCookKind kind);
 
         EditorContext* m_context = nullptr;
         String m_title;
-        RefPtr<draconic::pipeline::CollisionShapeAsset> m_asset;
+        RefPtr<pipeline::CollisionShapeAsset> m_asset;
         RefPtr<ui::View> m_content;
         RefPtr<ui::Label> m_meshLabel;
         RefPtr<ui::Button> m_cookButton;
@@ -55,10 +55,10 @@ export namespace draconic::editor
     public:
         [[nodiscard]] const TypeInfo* PrimaryType() const override
         {
-            return &draconic::pipeline::CollisionShapeAsset::StaticType();
+            return &pipeline::CollisionShapeAsset::StaticType();
         }
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override
         {
             return UniquePtr<EditorPage>(
                 DefaultAllocator().New<CollisionShapeEditorPage>(context, instance),

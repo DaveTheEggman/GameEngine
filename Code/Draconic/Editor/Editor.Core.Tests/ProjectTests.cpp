@@ -14,8 +14,8 @@ import draconic.xml.serialization;
 import draconic.engine.project;
 import draconic.editor.core;
 
-using namespace draconic::core;
-using namespace draconic::editor;
+using namespace foundation::core;
+using namespace editor;
 
 namespace
 {
@@ -27,7 +27,7 @@ namespace
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "shininess", shininess);
+            foundation::core::Serialize(ar, "shininess", shininess);
         }
     };
 
@@ -116,7 +116,7 @@ TEST_CASE("editor-project: an unreadable manifest logs an error (missing one sta
     RemoveProjectTree(dir);
     REQUIRE(CreateDirectory(dir));
     {
-        draconic::vfs::NativeFileSystem root(dir);
+        foundation::vfs::NativeFileSystem root(dir);
         const StringView garbage = u8"<root><string name=\"name\">P</string></root>";
         REQUIRE(root.AsWritable()
                     ->Save(u8"Project.xml",
@@ -273,22 +273,22 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
     {
         UniquePtr<EditorProject> project = EditorProject::Open(dir);
         REQUIRE(static_cast<bool>(project));
-        CHECK(project->Settings().engineVersion == draconic::engine::project::kEngineVersionString);
+        CHECK(project->Settings().engineVersion == engine::project::kEngineVersionString);
     }
 
     // MIGRATION IN ANGER: a manifest written by the v1 ProjectSettings layout (no
     // engineVersion key) still opens - Serialize's `ar.Version() >= 2` branch skips the
     // missing field; the next save upgrades the file to v2 with the stamp.
     {
-        draconic::vfs::NativeFileSystem root(dir);
-        draconic::engine::project::ProjectSettings v1;
+        foundation::vfs::NativeFileSystem root(dir);
+        engine::project::ProjectSettings v1;
         v1.name = String(u8"P");
         v1.defaultScene = String(u8"Scenes/S");
         MemoryStream buffer;
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
         const SerializedDataVersion chain[] = {
-            {draconic::engine::project::ProjectSettings::StaticType().id, 1u}};
+            {engine::project::ProjectSettings::StaticType().id, 1u}};
         ctx->serializer->Key("dataVersions");
         u32 count = 1;
         ctx->serializer->BeginArray(count);
@@ -316,7 +316,7 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
     {
         UniquePtr<EditorProject> project = EditorProject::Open(dir);
         REQUIRE(static_cast<bool>(project));
-        CHECK(project->Settings().engineVersion == draconic::engine::project::kEngineVersionString);
+        CHECK(project->Settings().engineVersion == engine::project::kEngineVersionString);
     }
 
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));

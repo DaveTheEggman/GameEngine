@@ -19,9 +19,9 @@ export module draconic.audio:clip;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::audio
+export namespace foundation::audio
 {
     // Probed shape of an encoded audio payload.
     struct AudioClipMetadata

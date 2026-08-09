@@ -17,12 +17,12 @@ import draconic.materials.pipelinecache;
 import draconic.render;
 import draconic.rendergraph;
 
-using namespace draconic::core;
-using namespace draconic::render;
-namespace rhi = draconic::rhi;
-namespace geometry = draconic::geometry;
-namespace materials = draconic::materials;
-namespace shaders = draconic::shaders;
+using namespace foundation::core;
+using namespace foundation::render;
+namespace rhi = foundation::rhi;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace shaders = foundation::shaders;
 
 namespace
 {
@@ -523,7 +523,7 @@ TEST_CASE("IBLSystem: per-scene contexts; env rebuilds when a scene's sky-textur
     // Two scenes with DIFFERENT skies get their own contexts and products.
     IBLSystem::Context *ctxA = nullptr, *ctxB = nullptr;
     {
-        draconic::rendergraph::RenderGraph graph(&h.device);
+        foundation::rendergraph::RenderGraph graph(&h.device);
         ibl.BeginFrame(graph);
         ctxA = ibl.Prepare(&sceneA, procedural, sun, graph);
         ctxB = ibl.Prepare(&sceneB, hdr, sun, graph);
@@ -541,7 +541,7 @@ TEST_CASE("IBLSystem: per-scene contexts; env rebuilds when a scene's sky-textur
     // Steady state: same scenes re-Prepare into the SAME contexts with no rebuild.
     const u64 genA = ctxA->Generation(), genB = ctxB->Generation();
     {
-        draconic::rendergraph::RenderGraph graph(&h.device);
+        foundation::rendergraph::RenderGraph graph(&h.device);
         ibl.BeginFrame(graph);
         CHECK(ibl.Prepare(&sceneA, procedural, sun, graph) == ctxA);
         CHECK(ibl.Prepare(&sceneB, hdr, sun, graph) == ctxB);
@@ -553,7 +553,7 @@ TEST_CASE("IBLSystem: per-scene contexts; env rebuilds when a scene's sky-textur
     // only B rebuilds.
     hdr.textureUid = 102;
     {
-        draconic::rendergraph::RenderGraph graph(&h.device);
+        foundation::rendergraph::RenderGraph graph(&h.device);
         ibl.BeginFrame(graph);
         (void)ibl.Prepare(&sceneA, procedural, sun, graph);
         (void)ibl.Prepare(&sceneB, hdr, sun, graph);

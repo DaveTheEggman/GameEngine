@@ -21,7 +21,7 @@ import :aabb;
 import :plane;
 import :span;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     enum class ContainmentType : u8
     {

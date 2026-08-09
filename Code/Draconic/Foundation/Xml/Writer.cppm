@@ -13,9 +13,9 @@ import draconic.core;
 import :nodes;
 import :escape;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::xml
+export namespace foundation::xml
 {
     class XmlDocument; // defined in :document
 
@@ -225,11 +225,11 @@ export namespace draconic::xml
         // Escaping re-exposed for API parity (forwards to the :escape helpers).
         static void EscapeText(StringView text, String& output)
         {
-            draconic::xml::EscapeText(text, output);
+            foundation::xml::EscapeText(text, output);
         }
         static void EscapeAttributeValue(StringView value, String& output)
         {
-            draconic::xml::EscapeAttributeValue(value, output);
+            foundation::xml::EscapeAttributeValue(value, output);
         }
 
     private:

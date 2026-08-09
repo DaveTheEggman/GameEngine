@@ -17,9 +17,9 @@ import :style;
 import :path;
 import :tessellation;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg
+export namespace foundation::vg
 {
     /// Pre-tessellated path data for reuse across frames.
     class CachedPath

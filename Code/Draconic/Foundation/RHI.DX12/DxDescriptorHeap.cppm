@@ -10,9 +10,9 @@ export module draconic.rhi.dx12:descriptor_heap;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxDescriptorHeapAllocator
@@ -88,4 +88,4 @@ export namespace draconic::rhi::dx12
         Array<u8> m_alive;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

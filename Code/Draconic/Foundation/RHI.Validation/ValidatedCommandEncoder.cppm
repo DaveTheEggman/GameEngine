@@ -12,9 +12,9 @@ import :validated_render_pass_encoder;
 import :validated_compute_pass_encoder;
 import :validated_render_bundle_encoder;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     enum class EncoderState
@@ -467,4 +467,4 @@ export namespace draconic::rhi::validation
             m_parent->onPassEnded();
     }
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

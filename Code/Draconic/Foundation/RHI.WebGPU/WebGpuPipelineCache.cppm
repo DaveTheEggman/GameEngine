@@ -12,9 +12,9 @@ export module draconic.rhi.webgpu:pipeline_cache;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuPipelineCache final : public PipelineCache
     {

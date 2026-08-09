@@ -17,12 +17,13 @@ import draconic.rhi;
 import draconic.rhi.null; // NullDevice (headless RenderSubsystem for the DebugView keying test)
 import draconic.texture.resource; // texture::Texture (the sky-texture product)
 
-using namespace draconic::core;
-using namespace draconic::engine::render;
-using namespace draconic::render;
-namespace scene = draconic::scene;
-namespace geometry = draconic::geometry;
-namespace materials = draconic::materials;
+using namespace foundation::core;
+using namespace engine::render;
+using namespace foundation::render;
+namespace rhi = foundation::rhi;
+namespace scene = foundation::scene;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
 
 namespace
 {
@@ -291,29 +292,29 @@ TEST_CASE("instanced-mesh: seeded identity instance + entity-relative compositio
 
 TEST_CASE("ExtractEnvironmentInto carries the sky texture product (uid identity, cube flag)")
 {
-    draconic::scene::Scene scene(u8"s");
-    auto* env = scene.AddSystem<draconic::engine::render::EnvironmentSystem>();
-    env->Environment().skyMode = draconic::render::SkyMode::Cubemap;
+    foundation::scene::Scene scene(u8"s");
+    auto* env = scene.AddSystem<engine::render::EnvironmentSystem>();
+    env->Environment().skyMode = foundation::render::SkyMode::Cubemap;
 
     // A cube-shaped product (no GPU objects needed - identity/shape are what extraction reads).
-    RefPtr<draconic::texture::Texture> sky =
-        MakeRef<draconic::texture::Texture>(DefaultAllocator());
+    RefPtr<foundation::texture::Texture> sky =
+        MakeRef<foundation::texture::Texture>(DefaultAllocator());
     sky->Adopt(nullptr, nullptr, nullptr, nullptr, 64, 64, rhi::TextureFormat::RGBA8Unorm,
                /*isCube*/ true);
     env->Environment().skyTexture =
         sky.Get(); // direct override (picker/serialized path binds by guid)
 
-    draconic::render::ExtractedScene out;
-    draconic::engine::render::ExtractEnvironmentInto(scene, out);
-    CHECK(out.Sky().mode == draconic::render::SkyMode::Cubemap);
+    foundation::render::ExtractedScene out;
+    engine::render::ExtractEnvironmentInto(scene, out);
+    CHECK(out.Sky().mode == foundation::render::SkyMode::Cubemap);
     CHECK(out.Sky().textureUid == sky->Uid());
     CHECK(out.Sky().textureUid != 0u);
     CHECK(out.Sky().textureIsCube);
 
     // No texture -> no identity (the IBL keeps its programmatic/procedural source).
-    env->Environment().skyTexture = draconic::resource::Ref<draconic::texture::Texture>{};
-    draconic::render::ExtractedScene out2;
-    draconic::engine::render::ExtractEnvironmentInto(scene, out2);
+    env->Environment().skyTexture = foundation::resource::Ref<foundation::texture::Texture>{};
+    foundation::render::ExtractedScene out2;
+    engine::render::ExtractEnvironmentInto(scene, out2);
     CHECK(out2.Sky().textureUid == 0u);
 }
 
@@ -335,8 +336,8 @@ TEST_CASE("extraction refreshes the material cache from the refs EVERY frame (la
     MeshComponent& mc = meshes->Add(e);
     mc.mesh = cube;
     // Two slots: slot 0 resolved, slot 1 UNRESOLVED (a bare guid - the pre-cook state).
-    mc.materials.PushBack(draconic::resource::Ref<materials::Material>(matA));
-    draconic::resource::Ref<materials::Material> late;
+    mc.materials.PushBack(foundation::resource::Ref<materials::Material>(matA));
+    foundation::resource::Ref<materials::Material> late;
     late.SetId(Guid{0x1, 0x2});
     mc.materials.PushBack(late);
 

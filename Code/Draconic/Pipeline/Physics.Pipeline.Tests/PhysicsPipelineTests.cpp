@@ -17,12 +17,12 @@ import draconic.physics;
 import draconic.physics.resource;
 import draconic.physics.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::resource;
-using namespace draconic::physics;
-namespace geometry = draconic::geometry;
-namespace content = draconic::content;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::resource;
+using namespace foundation::physics;
+namespace geometry = foundation::geometry;
+namespace content = foundation::content;
 
 namespace
 {
@@ -45,20 +45,20 @@ TEST_CASE("physics.pipeline: mesh -> CollisionShapeAsset cook -> CollisionShape 
 {
     RegisterPhysicsResource();
     RegisterPhysicsAssets();
-    draconic::pipeline::RegisterMeshAssets();
+    pipeline::RegisterMeshAssets();
     RemoveTree(u8"draconic_physpipe_src_db");
     RemoveTree(u8"draconic_physpipe_out_db");
 
-    draconic::vfs::NativeFileSystem srcMount(u8"draconic_physpipe_src_db");
-    draconic::vfs::NativeFileSystem outMount(u8"draconic_physpipe_out_db");
+    foundation::vfs::NativeFileSystem srcMount(u8"draconic_physpipe_src_db");
+    foundation::vfs::NativeFileSystem outMount(u8"draconic_physpipe_out_db");
     content::ContentDatabase srcDb(srcMount, BinarySerializerFactory(), u8".rasset");
     content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
 
     // Source mesh asset: a unit cube captured into a StaticMeshSource.
     auto* meshInstance =
-        srcDb.RootGroup()->CreateInstance(u8"cube", draconic::pipeline::StaticMeshAsset::StaticType());
+        srcDb.RootGroup()->CreateInstance(u8"cube", pipeline::StaticMeshAsset::StaticType());
     {
-        draconic::pipeline::StaticMeshAsset meshAsset;
+        pipeline::StaticMeshAsset meshAsset;
         RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
         geometry::StaticMeshSource::FromMesh(*cube, meshAsset.source);
         REQUIRE(meshInstance->WriteObject(meshAsset).IsOk());
@@ -74,10 +74,10 @@ TEST_CASE("physics.pipeline: mesh -> CollisionShapeAsset cook -> CollisionShape 
 
         // Dependencies: the mesh guid must be declared as a hash-chained read.
         CollisionShapeAssetBuilder builder;
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.db = &srcDb;
-        draconic::pipeline::AssetDependencies deps;
+        pipeline::AssetDependencies deps;
         builder.ScanDependencies(asset, ctx, deps);
         REQUIRE(deps.reads.Size() == 1);
         CHECK(deps.reads[0] == meshInstance->Id());
@@ -132,8 +132,8 @@ TEST_CASE("physics.pipeline: collision cooks from the mesh PRODUCT (StaticMeshSo
     RemoveTree(u8"draconic_physpipe_prod_db");
     RemoveTree(u8"draconic_physpipe_prodout_db");
 
-    draconic::vfs::NativeFileSystem prodMount(u8"draconic_physpipe_prod_db");
-    draconic::vfs::NativeFileSystem outMount(u8"draconic_physpipe_prodout_db");
+    foundation::vfs::NativeFileSystem prodMount(u8"draconic_physpipe_prod_db");
+    foundation::vfs::NativeFileSystem outMount(u8"draconic_physpipe_prodout_db");
     content::ContentDatabase prodDb(prodMount, BinarySerializerFactory(), u8".rasset");
     content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
 
@@ -151,7 +151,7 @@ TEST_CASE("physics.pipeline: collision cooks from the mesh PRODUCT (StaticMeshSo
     asset.cook = CollisionCookKind::ConvexHull;
 
     CollisionShapeAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.sources = &prodMount;
     ctx.db = &prodDb;
     auto* outInstance =
@@ -177,7 +177,7 @@ TEST_CASE("physics.pipeline: PhysicalMaterialAsset cooks and loads")
     RegisterPhysicsAssets();
     RemoveTree(u8"draconic_physpipe_mat_db");
 
-    draconic::vfs::NativeFileSystem outMount(u8"draconic_physpipe_mat_db");
+    foundation::vfs::NativeFileSystem outMount(u8"draconic_physpipe_mat_db");
     content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
     auto* instance =
         outDb.RootGroup()->CreateInstance(u8"surface", PhysicalMaterialSource::StaticType());
@@ -187,7 +187,7 @@ TEST_CASE("physics.pipeline: PhysicalMaterialAsset cooks and loads")
     asset.restitution = 0.25f;
     asset.density = 2500.0f;
     PhysicalMaterialAssetBuilder builder;
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.output = instance;
     REQUIRE(builder.Build(asset, ctx).IsOk());
 

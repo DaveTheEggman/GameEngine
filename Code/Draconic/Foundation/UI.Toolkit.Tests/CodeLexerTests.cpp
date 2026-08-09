@@ -10,9 +10,9 @@
 import draconic.core;
 import draconic.ui.toolkit;
 
-using namespace draconic::ui::toolkit;
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::ui::toolkit;
+using namespace foundation::core;
+namespace core = foundation::core;
 
 namespace
 {

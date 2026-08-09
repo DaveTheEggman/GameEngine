@@ -18,18 +18,18 @@ import draconic.ui;
 import draconic.editor.core;
 import draconic.settings;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace ui = draconic::ui;
-    namespace settings = draconic::settings;
+    namespace ui = foundation::ui;
+    namespace settings = foundation::settings;
 
     class EditorPreferencesDialog final : public ui::Dialog
     {
         DRACONIC_OBJECT(EditorPreferencesDialog, ui::Dialog)
     public:
-        EditorPreferencesDialog(draconic::editor::EditorContext& context, settings::Settings& store)
+        EditorPreferencesDialog(editor::EditorContext& context, settings::Settings& store)
             : ui::Dialog(u8"Preferences"), m_context(&context), m_settings(&store)
         {
             MinWidth.SetValue(480.0f);
@@ -42,18 +42,18 @@ export namespace draconic::editor::app
             column->Spacing = 8;
 
             StringView current;
-            if (const draconic::editor::EditorExportSettings* s =
-                    store.Find<draconic::editor::EditorExportSettings>())
+            if (const editor::EditorExportSettings* s =
+                    store.Find<editor::EditorExportSettings>())
             {
                 current = s->templatesRoot.AsView();
             }
             m_rootEdit = AddTextRow(*column, u8"Templates root", current);
-            m_rootEdit->SetPlaceholder(draconic::editor::DefaultTemplatesRoot().AsView());
+            m_rootEdit->SetPlaceholder(editor::DefaultTemplatesRoot().AsView());
 
             StringView fontPath;
             StringView monoPath;
-            if (const draconic::editor::EditorFontSettings* f =
-                    store.Find<draconic::editor::EditorFontSettings>())
+            if (const editor::EditorFontSettings* f =
+                    store.Find<editor::EditorFontSettings>())
             {
                 fontPath = f->fontPath.AsView();
                 monoPath = f->monoFontPath.AsView();
@@ -63,8 +63,8 @@ export namespace draconic::editor::app
             m_monoFontEdit = AddTextRow(*column, u8"Mono font (.ttf)", monoPath);
             m_monoFontEdit->SetPlaceholder(u8"built-in");
             f32 uiScale = 1.0f;
-            if (const draconic::editor::EditorUiSettings* u =
-                    store.Find<draconic::editor::EditorUiSettings>())
+            if (const editor::EditorUiSettings* u =
+                    store.Find<editor::EditorUiSettings>())
             {
                 uiScale = Clamp(u->uiScale, 1.0f, 2.0f);
             }
@@ -176,34 +176,34 @@ export namespace draconic::editor::app
 
         void Apply()
         {
-            m_settings->Section<draconic::editor::EditorExportSettings>().templatesRoot =
+            m_settings->Section<editor::EditorExportSettings>().templatesRoot =
                 String(m_rootEdit->Text());
-            m_settings->MarkChanged<draconic::editor::EditorExportSettings>();
-            draconic::editor::EditorFontSettings& fontPrefs =
-                m_settings->Section<draconic::editor::EditorFontSettings>();
+            m_settings->MarkChanged<editor::EditorExportSettings>();
+            editor::EditorFontSettings& fontPrefs =
+                m_settings->Section<editor::EditorFontSettings>();
             fontPrefs.fontPath = String(m_fontEdit->Text());
             fontPrefs.monoFontPath = String(m_monoFontEdit->Text());
-            m_settings->MarkChanged<draconic::editor::EditorFontSettings>();
+            m_settings->MarkChanged<editor::EditorFontSettings>();
             const f32 uiScale = Clamp(m_uiScaleSlider->Value.Value(), 1.0f, 2.0f);
-            m_settings->Section<draconic::editor::EditorUiSettings>().uiScale = uiScale;
-            m_settings->MarkChanged<draconic::editor::EditorUiSettings>();
+            m_settings->Section<editor::EditorUiSettings>().uiScale = uiScale;
+            m_settings->MarkChanged<editor::EditorUiSettings>();
             if (OnUiScaleApplied)
             {
                 OnUiScaleApplied(uiScale); // live: host scale + icon re-bake
             }
-            if (draconic::editor::SaveEditorSettingsToUserData(*m_settings).IsOk())
+            if (editor::SaveEditorSettingsToUserData(*m_settings).IsOk())
             {
                 m_context->SetStatus(u8"Preferences saved.");
             }
             else
             {
-                m_context->Notify(draconic::editor::NoticeKind::Error,
+                m_context->Notify(editor::NoticeKind::Error,
                                   u8"Preferences save FAILED (see console).");
             }
             Close(ui::DialogResult::OK);
         }
 
-        draconic::editor::EditorContext* m_context;
+        editor::EditorContext* m_context;
         settings::Settings* m_settings;
         ui::EditText* m_rootEdit = nullptr;
         ui::EditText* m_fontEdit = nullptr;

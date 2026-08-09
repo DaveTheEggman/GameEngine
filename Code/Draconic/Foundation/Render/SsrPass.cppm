@@ -25,10 +25,12 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // Owns the SSR pipeline. Produces a fresh HDR transient (scene with reflections composited in).
@@ -197,4 +199,4 @@ export namespace draconic::render
         u32 m_lastFrame = 0xFFFFFFFFu;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

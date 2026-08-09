@@ -17,13 +17,13 @@ import draconic.core;
 import draconic.runtime;
 import draconic.scene;
 
-using namespace draconic::core;
-using namespace draconic::scene;
+using namespace foundation::core;
+using namespace foundation::scene;
 
-export namespace draconic::engine::scene
+export namespace engine::scene
 {
 
-    class SceneSubsystem final : public draconic::runtime::Subsystem
+    class SceneSubsystem final : public foundation::runtime::Subsystem
     {
     public:
         [[nodiscard]] i32 UpdateOrder() const noexcept override
@@ -123,4 +123,4 @@ export namespace draconic::engine::scene
             m_managers; // all registered managers (borrowed; owned by pages/instances)
     };
 
-} // namespace draconic::scene
+} // namespace foundation::scene

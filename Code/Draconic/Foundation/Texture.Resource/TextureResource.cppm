@@ -24,12 +24,12 @@ import draconic.texture;
 import draconic.content;
 import draconic.resource;
 
-using namespace draconic::core;
-using namespace draconic::resource;
+using namespace foundation::core;
+using namespace foundation::resource;
 
-export namespace draconic::texture
+export namespace foundation::texture
 {
-    namespace rhi = draconic::rhi;
+    namespace rhi = foundation::rhi;
 
     // Cooked texture record (output DB). Pixels are the "data" stream.
     class TextureResource final : public ISerializable
@@ -52,19 +52,19 @@ export namespace draconic::texture
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "width", width);
-            draconic::core::Serialize(ar, "height", height);
-            draconic::core::Serialize(ar, "depthOrArrayLayers", depthOrArrayLayers);
-            draconic::core::Serialize(ar, "mipLevels", mipLevels);
-            draconic::core::Serialize(ar, "format", format);
-            draconic::core::Serialize(ar, "shape", shape);
-            draconic::core::Serialize(ar, "minFilter", minFilter);
-            draconic::core::Serialize(ar, "magFilter", magFilter);
-            draconic::core::Serialize(ar, "wrapU", wrapU);
-            draconic::core::Serialize(ar, "wrapV", wrapV);
-            draconic::core::Serialize(ar, "wrapW", wrapW);
-            draconic::core::Serialize(ar, "generateMipmaps", generateMipmaps);
-            draconic::core::Serialize(ar, "anisotropy", anisotropy);
+            foundation::core::Serialize(ar, "width", width);
+            foundation::core::Serialize(ar, "height", height);
+            foundation::core::Serialize(ar, "depthOrArrayLayers", depthOrArrayLayers);
+            foundation::core::Serialize(ar, "mipLevels", mipLevels);
+            foundation::core::Serialize(ar, "format", format);
+            foundation::core::Serialize(ar, "shape", shape);
+            foundation::core::Serialize(ar, "minFilter", minFilter);
+            foundation::core::Serialize(ar, "magFilter", magFilter);
+            foundation::core::Serialize(ar, "wrapU", wrapU);
+            foundation::core::Serialize(ar, "wrapV", wrapV);
+            foundation::core::Serialize(ar, "wrapW", wrapW);
+            foundation::core::Serialize(ar, "generateMipmaps", generateMipmaps);
+            foundation::core::Serialize(ar, "anisotropy", anisotropy);
         }
     };
 
@@ -167,7 +167,7 @@ export namespace draconic::texture
         }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             (void)manager;
             RefPtr<ISerializable> object = instance.ReadObject();
@@ -183,7 +183,7 @@ export namespace draconic::texture
         // --- async path (task #123): decode (record + pixel bytes) on a worker, upload on main ---
         [[nodiscard]] bool SupportsAsync() const override { return true; }
 
-        [[nodiscard]] RefPtr<Object> DecodeStage(draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> DecodeStage(foundation::content::Instance& instance) override
         {
             RefPtr<DecodedTexture> decoded = MakeRef<DecodedTexture>(DefaultAllocator());
             decoded->record = instance.ReadObject();
@@ -215,7 +215,7 @@ export namespace draconic::texture
     private:
         // Read the cooked "data" stream (heavy pixel bytes). Pure: opens an independent stream, so
         // it is safe to call from a worker (see DecodedTexture).
-        [[nodiscard]] static Array<u8> ReadCookedPixels(draconic::content::Instance& instance)
+        [[nodiscard]] static Array<u8> ReadCookedPixels(foundation::content::Instance& instance)
         {
             Array<u8> pixels;
             if (UniquePtr<IStream> stream = instance.ReadData(u8"data"))

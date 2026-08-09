@@ -27,10 +27,10 @@ import :enums;
 import :scroll_bar;
 import :momentum_helper;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Scroll bar visibility policy.
     enum class ScrollBarPolicy

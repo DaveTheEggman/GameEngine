@@ -18,10 +18,12 @@ import draconic.shaders;
 import draconic.shaders.system;
 import :data;        // kGVelocityFormat (sky writes camera-motion velocity for TAA)
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     class SkyPass
@@ -96,4 +98,4 @@ export namespace draconic::render
         Slot m_slots[kMaxSlots] = {};
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

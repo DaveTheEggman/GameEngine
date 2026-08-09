@@ -24,19 +24,19 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace ui = draconic::ui;
-    namespace image = draconic::image;
-    namespace fonts = draconic::fonts;
+    namespace ui = foundation::ui;
+    namespace image = foundation::image;
+    namespace fonts = foundation::fonts;
 
     // Authoring page for a FontAsset (bake intent + live atlas preview).
     class FontEditorPage final : public app::UIEditorPage
     {
     public:
-        FontEditorPage(EditorContext& context, draconic::content::Instance& instance);
+        FontEditorPage(EditorContext& context, foundation::content::Instance& instance);
 
         ~FontEditorPage() override;
 
@@ -132,7 +132,7 @@ export namespace draconic::editor
 
         EditorContext* m_context = nullptr;
         String m_title;
-        RefPtr<draconic::pipeline::FontAsset> m_asset;
+        RefPtr<pipeline::FontAsset> m_asset;
         UniquePtr<image::OwnedImageData> m_preview; // kept alive for the ImageView (borrowed ptr)
         usize m_previewGlyphs = 0;
         f32 m_previewSize = 0.0f;
@@ -158,7 +158,7 @@ export namespace draconic::editor
         ui::toolkit::IntEditor* m_atlasWidthRow = nullptr;
         ui::toolkit::IntEditor* m_atlasHeightRow = nullptr;
         ui::toolkit::StringEditor* m_fileRow = nullptr;
-        draconic::pipeline::FontBakeMode m_gridMode = draconic::pipeline::FontBakeMode::RasterRamp; // mode the grid was built for
+        pipeline::FontBakeMode m_gridMode = pipeline::FontBakeMode::RasterRamp; // mode the grid was built for
         Array<byte> m_undoBaseline;
     };
 
@@ -167,7 +167,7 @@ export namespace draconic::editor
     public:
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
     };
 
     inline void RegisterFontEditor(EditorContext& context)

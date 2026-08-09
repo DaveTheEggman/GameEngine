@@ -11,7 +11,7 @@ export module draconic.core:unique_ptr;
 import :base;
 import :allocator;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     template <typename T>
     class UniquePtr

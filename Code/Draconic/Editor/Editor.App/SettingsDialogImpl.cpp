@@ -23,9 +23,11 @@ import draconic.ui;
 import draconic.editor.core;
 import :asset_picker_dialog;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace content = foundation::content;
+namespace ui = foundation::ui;
 
-namespace draconic::editor::app
+namespace editor::app
 {
     ui::FlexLayout* ProjectSettingsDialog::AddRow(ui::FlexLayout& column, StringView label)
     {
@@ -259,7 +261,7 @@ namespace draconic::editor::app
 
     void ProjectSettingsDialog::Apply()
     {
-        draconic::editor::EditorProject* project = m_context->Project();
+        editor::EditorProject* project = m_context->Project();
         if (project == nullptr)
         {
             Close(ui::DialogResult::Cancel);
@@ -296,7 +298,7 @@ namespace draconic::editor::app
         }
         else
         {
-            m_context->Notify(draconic::editor::NoticeKind::Error,
+            m_context->Notify(editor::NoticeKind::Error,
                               u8"Project settings save FAILED (see console).");
         }
         Close(ui::DialogResult::OK);

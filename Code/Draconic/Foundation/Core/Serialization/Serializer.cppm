@@ -18,7 +18,7 @@ import :function;
 import :io;
 import :array; // data-version scope stack
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // Backends extend this, not ISerializer directly.
     class Serializer : public ISerializer

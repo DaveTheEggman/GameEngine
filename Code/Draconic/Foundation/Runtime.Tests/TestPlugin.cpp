@@ -7,8 +7,8 @@
 import draconic.core;
 import draconic.runtime;
 
-using namespace draconic::core;
-using namespace draconic::runtime;
+using namespace foundation::core;
+using namespace foundation::runtime;
 
 #if defined(_WIN32)
 #define DRACONIC_PLUGIN_EXPORT __declspec(dllexport)

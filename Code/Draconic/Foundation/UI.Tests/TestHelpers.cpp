@@ -4,14 +4,14 @@ import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"
 
-using namespace draconic::ui;
-using namespace draconic::core;
+using namespace foundation::ui;
+using namespace foundation::core;
 
-namespace draconic::ui::tests
+namespace foundation::ui::tests
 {
     void TestView::OnMeasure(BoxConstraints constraints)
     {
-        MeasuredSize = draconic::core::Float2{constraints.ConstrainWidth(DesiredWidth),
+        MeasuredSize = foundation::core::Float2{constraints.ConstrainWidth(DesiredWidth),
                                               constraints.ConstrainHeight(DesiredHeight)};
     }
 

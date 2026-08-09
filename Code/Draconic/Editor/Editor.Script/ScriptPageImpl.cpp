@@ -20,13 +20,15 @@ import draconic.script.pipeline;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace content = foundation::content;
+namespace ui = foundation::ui;
 
-namespace draconic::editor
+namespace editor
 {
     const TypeInfo* ScriptClassPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::ScriptClassAsset::StaticType();
+        return &pipeline::ScriptClassAsset::StaticType();
     }
 
     UniquePtr<EditorPage> ScriptClassPageFactory::CreatePage(EditorContext& context,
@@ -61,7 +63,7 @@ namespace draconic::editor
         return written;
     }
 
-    void ScriptEditorPage::OnUpdate(draconic::runtime::IApplicationHost&, f32 dt)
+    void ScriptEditorPage::OnUpdate(foundation::runtime::IApplicationHost&, f32 dt)
     {
         m_apiBrowser.Update(); // deferred tree rebuild (filter edits only mark dirty)
 
@@ -96,12 +98,12 @@ namespace draconic::editor
     void ScriptEditorPage::RefreshCompileStatus()
     {
         const bool ok = m_doc.Validate();
-        Span<const draconic::pipeline::ScriptSourceDocument::CompileError> errors = m_doc.Errors();
+        Span<const pipeline::ScriptSourceDocument::CompileError> errors = m_doc.Errors();
 
         // Project errors onto the buffer: one Error marker (with the message as the row's
         // diagnostic) per line. Wholesale replace per validation run.
         Array<ui::toolkit::CodeDiagnostic> diagnostics;
-        for (const draconic::pipeline::ScriptSourceDocument::CompileError& e : errors)
+        for (const pipeline::ScriptSourceDocument::CompileError& e : errors)
         {
             ui::toolkit::CodeDiagnostic diagnostic;
             diagnostic.isError = true; // the compile-check path only reports compile errors
@@ -130,7 +132,7 @@ namespace draconic::editor
         m_status->SetText(summary.AsView());
 
         String detail;
-        for (const draconic::pipeline::ScriptSourceDocument::CompileError& e : errors)
+        for (const pipeline::ScriptSourceDocument::CompileError& e : errors)
         {
             if (!detail.IsEmpty())
             {

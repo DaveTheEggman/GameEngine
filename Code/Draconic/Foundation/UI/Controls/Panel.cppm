@@ -18,9 +18,9 @@ import :control_state;
 import :draw_context;
 import :drawable;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class Panel : public ViewGroup
     {

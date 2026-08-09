@@ -14,9 +14,9 @@ module draconic.editor;
 import draconic.core;
 import draconic.vfs;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::editor
+namespace editor
 {
     DRACONIC_REFLECT(Asset, "rtti::editor::asset")
     {
@@ -30,7 +30,7 @@ namespace draconic::editor
     {
         static const bool once = []()
         {
-            draconic::vfs::RegisterVFSReflection(); // SourcePath (fileName's type)
+            foundation::vfs::RegisterVFSReflection(); // SourcePath (fileName's type)
             GlobalTypeRegistry().Register(Asset::StaticType(), TypeDomain(u8"Editor"));
             return true;
         }();

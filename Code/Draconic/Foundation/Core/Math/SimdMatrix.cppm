@@ -17,7 +17,7 @@ import :simd;
 import :simd_vector;
 import :float4x4;
 
-namespace draconic::core::detail
+namespace foundation::core::detail
 {
     // Row-vector * matrix: v.x*row0 + v.y*row1 + v.z*row2 + v.w*row3.
     [[nodiscard]] inline simd::f32x4 TransformRow(simd::f32x4 v, const simd::f32x4 rows[4]) noexcept
@@ -30,7 +30,7 @@ namespace draconic::core::detail
     }
 }
 
-export namespace draconic::core
+export namespace foundation::core
 {
     struct alignas(16) Matrix4
     {

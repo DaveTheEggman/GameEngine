@@ -19,7 +19,7 @@ import :allocator;
 import :string;
 import :guid;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     class FormatBuffer
     {

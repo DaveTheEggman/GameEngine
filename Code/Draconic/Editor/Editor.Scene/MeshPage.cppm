@@ -42,26 +42,26 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :camera; // EditorCamera (orbit/fly camera on the preview viewport)
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace vg = draconic::vg;
-    namespace scene = draconic::scene;
-    namespace render = draconic::render;
-    namespace geometry = draconic::geometry;
-    namespace materials = draconic::materials;
-    namespace resource = draconic::resource;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace vg = foundation::vg;
+    namespace scene = foundation::scene;
+    namespace render = foundation::render;
+    namespace geometry = foundation::geometry;
+    namespace materials = foundation::materials;
+    namespace resource = foundation::resource;
 
     class MeshEditorPage final : public app::UIEditorPage
     {
     public:
         MeshEditorPage(EditorContext& context, runtime::IApplicationHost& host,
-                       ui::runtime::UIHost& uiHost, draconic::content::Instance& instance);
+                       ui::runtime::UIHost& uiHost, foundation::content::Instance& instance);
 
-        [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
+        [[nodiscard]] foundation::ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
 
         // Viewer: a mesh asset has no re-authorable fields (see the module comment).
@@ -69,7 +69,7 @@ export namespace draconic::editor
 
         void OnUpdate(runtime::IApplicationHost&, f32 dt) override;
         void OnRenderWindow(runtime::IApplicationHost&,
-                            draconic::graphics::FrameContext& frame) override;
+                            foundation::graphics::FrameContext& frame) override;
         void OnClose() override;
 
     private:
@@ -98,9 +98,9 @@ export namespace draconic::editor
         ui::runtime::UIHost* m_uiHost = nullptr;
         String m_title;
 
-        draconic::engine::scene::SceneSubsystem* m_scenes = nullptr;
+        engine::scene::SceneSubsystem* m_scenes = nullptr;
         scene::SceneManager m_sceneManager; // this page's OWN preview scene group
-        draconic::engine::render::RenderSubsystem* m_render = nullptr;
+        engine::render::RenderSubsystem* m_render = nullptr;
         scene::Scene* m_scene = nullptr;
         scene::EntityHandle m_entity;
         RefPtr<materials::Material> m_defaultMaterial;
@@ -109,12 +109,12 @@ export namespace draconic::editor
         u64 m_lastUid = 0;                                 // product identity - detects hot-reload
 
         EditorCamera m_camera;
-        UniquePtr<draconic::shell::InputRouter> m_router;
+        UniquePtr<foundation::shell::InputRouter> m_router;
 
         RefPtr<ui::viewport::ViewportView> m_viewport;
-        RefPtr<draconic::ui::FlexLayout> m_statsColumn; // one Label per stat line
-        RefPtr<draconic::ui::View> m_content;
-        draconic::graphics::RenderWindow* m_hostWindow = nullptr;
+        RefPtr<foundation::ui::FlexLayout> m_statsColumn; // one Label per stat line
+        RefPtr<foundation::ui::View> m_content;
+        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
     };
 
     class MeshEditorPageFactory final : public IEditorPageFactory
@@ -128,7 +128,7 @@ export namespace draconic::editor
 
         [[nodiscard]] const TypeInfo* PrimaryType() const override { return m_type; }
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
 
     private:
         const TypeInfo* m_type;
@@ -140,7 +140,7 @@ export namespace draconic::editor
     // per submesh) - the viewer's readout. Free + pure so it is unit-tested without a live host.
     [[nodiscard]] Array<String> MeshStatLines(const geometry::StaticMesh& mesh);
 
-    // Registers the viewer for BOTH mesh asset types (they are sibling draconic::pipeline::Asset subclasses,
+    // Registers the viewer for BOTH mesh asset types (they are sibling pipeline::Asset subclasses,
     // so a factory each - not one via nearest-type dispatch).
     void RegisterMeshEditor(EditorContext& context, runtime::IApplicationHost& host,
                             ui::runtime::UIHost& uiHost);

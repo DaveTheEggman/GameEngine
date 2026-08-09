@@ -2,7 +2,7 @@
 
 export module draconic.rhi:forward;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     class Backend;
@@ -41,4 +41,4 @@ export namespace draconic::rhi
     class MeshShaderPassExt;
     class RayTracingEncoderExt;
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

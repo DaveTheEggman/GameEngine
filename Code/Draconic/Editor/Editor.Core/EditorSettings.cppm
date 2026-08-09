@@ -21,12 +21,12 @@ import draconic.xml.serialization;
 import draconic.settings;
 import :export_preset; // EditorExportSettings (registered below)
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace settings = draconic::settings;
-    namespace vfs = draconic::vfs;
+    namespace settings = foundation::settings;
+    namespace vfs = foundation::vfs;
 
     // Editor-level FONT preferences (a Settings section): explicit .ttf paths for the UI
     // and mono families. Empty (the default) = the built-in resolution chain (the dev-tree
@@ -40,8 +40,8 @@ export namespace draconic::editor
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "fontPath", fontPath);
-            draconic::core::Serialize(ar, "monoFontPath", monoFontPath);
+            foundation::core::Serialize(ar, "fontPath", fontPath);
+            foundation::core::Serialize(ar, "monoFontPath", monoFontPath);
         }
     };
 
@@ -56,7 +56,7 @@ export namespace draconic::editor
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "uiScale", uiScale);
+            foundation::core::Serialize(ar, "uiScale", uiScale);
         }
     };
 
@@ -90,7 +90,7 @@ export namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        return out.Load(*stream, draconic::xml::XmlSerializerFactory());
+        return out.Load(*stream, foundation::xml::XmlSerializerFactory());
     }
 
     // Persist the editor settings store to `root` (XML).
@@ -99,7 +99,7 @@ export namespace draconic::editor
                                                    StringView fileName = kEditorSettingsFile)
     {
         MemoryStream buffer;
-        if (Status s = in.Save(buffer, draconic::xml::XmlSerializerFactory()); !s.IsOk())
+        if (Status s = in.Save(buffer, foundation::xml::XmlSerializerFactory()); !s.IsOk())
         {
             return s;
         }

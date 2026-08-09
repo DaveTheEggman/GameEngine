@@ -25,10 +25,10 @@ import draconic.vg;
 import draconic.fonts;
 import draconic.ui;
 
-using namespace draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     enum class ToastSeverity : u8
     {
@@ -75,7 +75,7 @@ export namespace draconic::ui::toolkit
                 // rounded left corners coincide exactly with the card's - a thinner bar can't match a
                 // larger radius and reads as a separate rounded box floating inside the card.
                 ctx.VG().FillRoundedRect(Rectangle{0, 0, r, Height()},
-                                         draconic::vg::CornerRadii{r, 0.0f, 0.0f, r}, Accent);
+                                         foundation::vg::CornerRadii{r, 0.0f, 0.0f, r}, Accent);
             }
             else
             {

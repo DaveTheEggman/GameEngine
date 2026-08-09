@@ -18,9 +18,9 @@ export module draconic.xml.serialization;
 import draconic.core;
 import draconic.xml;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::xml
+export namespace foundation::xml
 {
     // ISerializer backend over an XML DOM.
     //

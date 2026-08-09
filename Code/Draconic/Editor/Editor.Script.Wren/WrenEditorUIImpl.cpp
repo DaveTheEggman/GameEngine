@@ -12,12 +12,12 @@ module draconic.editor.script.wren;
 import draconic.core;
 import draconic.ui.toolkit;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::editor{
+namespace editor{
     namespace
     {
-        namespace toolkit = draconic::ui::toolkit;
+        namespace toolkit = foundation::ui::toolkit;
 
         constexpr StringView kWrenKeywords[] = {
             u8"as",    u8"break", u8"class",   u8"construct", u8"continue", u8"else",

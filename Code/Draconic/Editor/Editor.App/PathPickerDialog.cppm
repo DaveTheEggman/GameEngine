@@ -24,11 +24,11 @@ import draconic.core;
 import draconic.vfs;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace ui = draconic::ui;
+    namespace ui = foundation::ui;
 
     class PathPickerDialog final : public ui::Dialog
     {
@@ -183,7 +183,7 @@ export namespace draconic::editor::app
         // Recursive walk from the root; `m_files` keeps root-relative paths.
         void CollectFiles(StringView rootPath)
         {
-            draconic::vfs::NativeFileSystem fs(rootPath);
+            foundation::vfs::NativeFileSystem fs(rootPath);
             auto* enumerable = fs.AsEnumerable();
             if (enumerable == nullptr)
             {
@@ -195,12 +195,12 @@ export namespace draconic::editor::app
             {
                 const String folder = Move(pending[pending.Size() - 1]);
                 pending.RemoveAt(pending.Size() - 1);
-                Array<draconic::vfs::DirEntry> entries;
+                Array<foundation::vfs::DirEntry> entries;
                 if (!enumerable->Enumerate(folder.AsView(), entries).IsOk())
                 {
                     continue;
                 }
-                for (const draconic::vfs::DirEntry& entry : entries)
+                for (const foundation::vfs::DirEntry& entry : entries)
                 {
                     String path = folder.IsEmpty()
                                       ? String(entry.name.AsView())

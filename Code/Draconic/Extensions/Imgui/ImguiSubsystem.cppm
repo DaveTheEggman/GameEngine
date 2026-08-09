@@ -21,14 +21,15 @@ import draconic.shaders;
 import draconic.shaders.system;
 import :renderer;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
-namespace shell = draconic::shell;
+using namespace foundation::core;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
+namespace shell = foundation::shell;
 
-export namespace draconic::imgui
+export namespace extensions::imgui
 {
 
-    class ImguiSubsystem final : public draconic::runtime::Subsystem
+    class ImguiSubsystem final : public foundation::runtime::Subsystem
     {
     public:
         ImguiSubsystem(rhi::Device& device, u32 framesInFlight) noexcept
@@ -62,7 +63,7 @@ export namespace draconic::imgui
 
         // Finish the UI frame + render it onto the frame's backbuffer (drawn over the scene). Call after the
         // app has rendered its scene to the backbuffer, before present.
-        void Render(draconic::graphics::FrameContext& frame)
+        void Render(foundation::graphics::FrameContext& frame)
         {
             if (!m_ready)
             {
@@ -188,4 +189,4 @@ export namespace draconic::imgui
         bool m_frameOpen = false;
     };
 
-} // namespace draconic::imgui
+} // namespace extensions::imgui

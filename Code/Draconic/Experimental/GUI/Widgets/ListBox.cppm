@@ -23,11 +23,11 @@ import :label;
 import :ui_widget;
 import :scroll_view;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // One selectable row. Internal to the ListBox, exposed as a Label for styling.
     class ListBoxItem : public Label

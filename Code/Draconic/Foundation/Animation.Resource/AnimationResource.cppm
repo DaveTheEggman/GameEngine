@@ -16,10 +16,10 @@ import draconic.resource;
 import draconic.content;
 import draconic.animation;
 
-using namespace draconic::core;
-namespace resource = draconic::resource;
+using namespace foundation::core;
+namespace resource = foundation::resource;
 
-export namespace draconic::animation
+export namespace foundation::animation
 {
 
     // ---- skeleton ------------------------------------------------------------------------------
@@ -39,13 +39,13 @@ export namespace draconic::animation
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "name", name);
-            draconic::core::Serialize(ar, "boneNames", boneNames);
-            draconic::core::Serialize(ar, "parentIndices", parentIndices);
-            draconic::core::Serialize(ar, "translations", translations);
-            draconic::core::Serialize(ar, "rotations", rotations);
-            draconic::core::Serialize(ar, "scales", scales);
-            draconic::core::Serialize(ar, "inverseBindPoses", inverseBindPoses);
+            foundation::core::Serialize(ar, "name", name);
+            foundation::core::Serialize(ar, "boneNames", boneNames);
+            foundation::core::Serialize(ar, "parentIndices", parentIndices);
+            foundation::core::Serialize(ar, "translations", translations);
+            foundation::core::Serialize(ar, "rotations", rotations);
+            foundation::core::Serialize(ar, "scales", scales);
+            foundation::core::Serialize(ar, "inverseBindPoses", inverseBindPoses);
         }
 
         // Capture a runtime Skeleton into this source (for cooking).
@@ -107,7 +107,7 @@ export namespace draconic::animation
             return &Skeleton::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             (void)manager;
             RefPtr<ISerializable> object = instance.ReadObject();
@@ -152,18 +152,18 @@ export namespace draconic::animation
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "name", name);
-            draconic::core::Serialize(ar, "duration", duration);
-            draconic::core::Serialize(ar, "isLooping", isLooping);
-            draconic::core::Serialize(ar, "trackBone", trackBone);
-            draconic::core::Serialize(ar, "trackKind", trackKind);
-            draconic::core::Serialize(ar, "trackInterp", trackInterp);
-            draconic::core::Serialize(ar, "trackStart", trackStart);
-            draconic::core::Serialize(ar, "trackCount", trackCount);
-            draconic::core::Serialize(ar, "keyTimes", keyTimes);
-            draconic::core::Serialize(ar, "keyValues", keyValues);
-            draconic::core::Serialize(ar, "eventTimes", eventTimes);
-            draconic::core::Serialize(ar, "eventNames", eventNames);
+            foundation::core::Serialize(ar, "name", name);
+            foundation::core::Serialize(ar, "duration", duration);
+            foundation::core::Serialize(ar, "isLooping", isLooping);
+            foundation::core::Serialize(ar, "trackBone", trackBone);
+            foundation::core::Serialize(ar, "trackKind", trackKind);
+            foundation::core::Serialize(ar, "trackInterp", trackInterp);
+            foundation::core::Serialize(ar, "trackStart", trackStart);
+            foundation::core::Serialize(ar, "trackCount", trackCount);
+            foundation::core::Serialize(ar, "keyTimes", keyTimes);
+            foundation::core::Serialize(ar, "keyValues", keyValues);
+            foundation::core::Serialize(ar, "eventTimes", eventTimes);
+            foundation::core::Serialize(ar, "eventNames", eventNames);
         }
 
         static void FromClip(const AnimationClip& clip, AnimationClipSource& out)
@@ -282,7 +282,7 @@ export namespace draconic::animation
             return &AnimationClip::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             (void)manager;
             RefPtr<ISerializable> object = instance.ReadObject();
@@ -318,14 +318,14 @@ export namespace draconic::animation
     };
     inline void Serialize(ISerializer& ar, GraphNodeData& n)
     {
-        draconic::core::Serialize(ar, "kind", n.kind);
-        draconic::core::Serialize(ar, "clipRef", n.clipRef);
-        draconic::core::Serialize(ar, "paramIndex", n.paramIndex);
-        draconic::core::Serialize(ar, "paramIndexX", n.paramIndexX);
-        draconic::core::Serialize(ar, "paramIndexY", n.paramIndexY);
-        draconic::core::Serialize(ar, "entryThresholds", n.entryThresholds);
-        draconic::core::Serialize(ar, "entryPositions", n.entryPositions);
-        draconic::core::Serialize(ar, "entryClips", n.entryClips);
+        foundation::core::Serialize(ar, "kind", n.kind);
+        foundation::core::Serialize(ar, "clipRef", n.clipRef);
+        foundation::core::Serialize(ar, "paramIndex", n.paramIndex);
+        foundation::core::Serialize(ar, "paramIndexX", n.paramIndexX);
+        foundation::core::Serialize(ar, "paramIndexY", n.paramIndexY);
+        foundation::core::Serialize(ar, "entryThresholds", n.entryThresholds);
+        foundation::core::Serialize(ar, "entryPositions", n.entryPositions);
+        foundation::core::Serialize(ar, "entryClips", n.entryClips);
     }
 
     struct GraphConditionData
@@ -336,9 +336,9 @@ export namespace draconic::animation
     };
     inline void Serialize(ISerializer& ar, GraphConditionData& c)
     {
-        draconic::core::Serialize(ar, "paramIndex", c.paramIndex);
-        draconic::core::Serialize(ar, "op", c.op);
-        draconic::core::Serialize(ar, "threshold", c.threshold);
+        foundation::core::Serialize(ar, "paramIndex", c.paramIndex);
+        foundation::core::Serialize(ar, "op", c.op);
+        foundation::core::Serialize(ar, "threshold", c.threshold);
     }
 
     struct GraphTransitionData
@@ -352,13 +352,13 @@ export namespace draconic::animation
     };
     inline void Serialize(ISerializer& ar, GraphTransitionData& t)
     {
-        draconic::core::Serialize(ar, "src", t.src);
-        draconic::core::Serialize(ar, "dst", t.dst);
-        draconic::core::Serialize(ar, "duration", t.duration);
-        draconic::core::Serialize(ar, "hasExitTime", t.hasExitTime);
-        draconic::core::Serialize(ar, "exitTime", t.exitTime);
-        draconic::core::Serialize(ar, "priority", t.priority);
-        draconic::core::Serialize(ar, "conditions", t.conditions);
+        foundation::core::Serialize(ar, "src", t.src);
+        foundation::core::Serialize(ar, "dst", t.dst);
+        foundation::core::Serialize(ar, "duration", t.duration);
+        foundation::core::Serialize(ar, "hasExitTime", t.hasExitTime);
+        foundation::core::Serialize(ar, "exitTime", t.exitTime);
+        foundation::core::Serialize(ar, "priority", t.priority);
+        foundation::core::Serialize(ar, "conditions", t.conditions);
     }
 
     struct GraphStateData
@@ -370,10 +370,10 @@ export namespace draconic::animation
     };
     inline void Serialize(ISerializer& ar, GraphStateData& s)
     {
-        draconic::core::Serialize(ar, "name", s.name);
-        draconic::core::Serialize(ar, "speed", s.speed);
-        draconic::core::Serialize(ar, "loop", s.loop);
-        draconic::core::Serialize(ar, "node", s.node);
+        foundation::core::Serialize(ar, "name", s.name);
+        foundation::core::Serialize(ar, "speed", s.speed);
+        foundation::core::Serialize(ar, "loop", s.loop);
+        foundation::core::Serialize(ar, "node", s.node);
     }
 
     struct GraphLayerData
@@ -388,13 +388,13 @@ export namespace draconic::animation
     };
     inline void Serialize(ISerializer& ar, GraphLayerData& l)
     {
-        draconic::core::Serialize(ar, "name", l.name);
-        draconic::core::Serialize(ar, "defaultState", l.defaultState);
-        draconic::core::Serialize(ar, "blendMode", l.blendMode);
-        draconic::core::Serialize(ar, "weight", l.weight);
-        draconic::core::Serialize(ar, "maskWeights", l.maskWeights);
-        draconic::core::Serialize(ar, "states", l.states);
-        draconic::core::Serialize(ar, "transitions", l.transitions);
+        foundation::core::Serialize(ar, "name", l.name);
+        foundation::core::Serialize(ar, "defaultState", l.defaultState);
+        foundation::core::Serialize(ar, "blendMode", l.blendMode);
+        foundation::core::Serialize(ar, "weight", l.weight);
+        foundation::core::Serialize(ar, "maskWeights", l.maskWeights);
+        foundation::core::Serialize(ar, "states", l.states);
+        foundation::core::Serialize(ar, "transitions", l.transitions);
     }
 
     // Cooked graph: parameters (name/type + default values) + layers (states/transitions/mask).
@@ -411,12 +411,12 @@ export namespace draconic::animation
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "paramNames", paramNames);
-            draconic::core::Serialize(ar, "paramTypes", paramTypes);
-            draconic::core::Serialize(ar, "paramFloats", paramFloats);
-            draconic::core::Serialize(ar, "paramInts", paramInts);
-            draconic::core::Serialize(ar, "paramBools", paramBools);
-            draconic::core::Serialize(ar, "layers", layers);
+            foundation::core::Serialize(ar, "paramNames", paramNames);
+            foundation::core::Serialize(ar, "paramTypes", paramTypes);
+            foundation::core::Serialize(ar, "paramFloats", paramFloats);
+            foundation::core::Serialize(ar, "paramInts", paramInts);
+            foundation::core::Serialize(ar, "paramBools", paramBools);
+            foundation::core::Serialize(ar, "layers", layers);
         }
 
         // Build a runtime AnimationGraph, resolving clip references through the manager.
@@ -535,7 +535,7 @@ export namespace draconic::animation
             return &AnimationGraph::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             AnimationGraphSource* src = Cast<AnimationGraphSource>(object.Get());
@@ -553,4 +553,4 @@ export namespace draconic::animation
     DRACONIC_DEFINE_OBJECT(AnimationClipSource, "rtti::animation")
     DRACONIC_DEFINE_OBJECT(AnimationGraphSource, "rtti::animation")
 
-} // namespace draconic::animation
+} // namespace foundation::animation

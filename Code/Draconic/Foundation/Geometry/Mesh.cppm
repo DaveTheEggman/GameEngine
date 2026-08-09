@@ -22,9 +22,9 @@ import draconic.core;
 import :types;
 import :index_buffer;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::geometry
+export namespace foundation::geometry
 {
 
     class StaticMesh : public Object
@@ -271,4 +271,4 @@ export namespace draconic::geometry
     DRACONIC_DEFINE_OBJECT(StaticMesh, "rtti::geometry")
     DRACONIC_DEFINE_OBJECT(SkinnedMesh, "rtti::geometry")
 
-} // namespace draconic::geometry
+} // namespace foundation::geometry

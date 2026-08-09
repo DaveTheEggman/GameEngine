@@ -14,11 +14,11 @@ import draconic.core; // Color, Optional, StringView, f32
 import draconic.vg;   // CornerRadii
 import :thickness;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace vg = foundation::vg;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     [[nodiscard]] inline Optional<Color> ParseNamedColor(core::StringView s); // defined below
 

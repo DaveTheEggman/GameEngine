@@ -23,7 +23,7 @@ import :ref_counted;
 import :type_info;
 import :object;
 
-namespace draconic::core::detail
+namespace foundation::core::detail
 {
     template <typename T>
     struct VariantOps
@@ -34,7 +34,7 @@ namespace draconic::core::detail
         }
         static void Move(void* dst, void* src)
         {
-            Construct<T>(dst, draconic::core::Move(*static_cast<T*>(src)));
+            Construct<T>(dst, foundation::core::Move(*static_cast<T*>(src)));
         }
         static void Destroy(void* obj) { Destruct(static_cast<T*>(obj)); }
     };
@@ -74,7 +74,7 @@ namespace draconic::core::detail
     };
 }
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // Reflection mutation generation: bumped whenever a reflected container is STRUCTURALLY mutated
     // (create/emplace/remove/move - the reflection wrappers bump it centrally so registrants cannot

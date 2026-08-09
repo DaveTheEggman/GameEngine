@@ -28,9 +28,9 @@ import :compute_pass_encoder;
 import :accel_struct;
 import :ray_tracing_pipeline;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkCommandEncoderImpl : public CommandEncoder, public RayTracingEncoderExt
@@ -947,4 +947,4 @@ export namespace draconic::rhi::vk
         return enc;
     }
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

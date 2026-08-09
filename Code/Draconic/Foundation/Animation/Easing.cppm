@@ -11,9 +11,10 @@ export module draconic.animation:easing;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::animation
+export namespace foundation::animation
 {
 
     // Serializable easing type (1:1 with the core Easings family). Order matters - it's the serialized
@@ -136,4 +137,4 @@ export namespace draconic::animation
         return ToFunction(type)(t);
     }
 
-} // namespace draconic::animation
+} // namespace foundation::animation

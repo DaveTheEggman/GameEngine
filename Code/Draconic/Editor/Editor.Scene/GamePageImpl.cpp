@@ -47,9 +47,16 @@ import draconic.engine.gameinstance; // GameInstance - this tab drives its OWN r
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace render = foundation::render;
+namespace rhi = foundation::rhi;
+namespace runtime = foundation::runtime;
+namespace scene = foundation::scene;
+namespace script = foundation::script;
+namespace ui = foundation::ui;
+namespace vg = foundation::vg;
 
-namespace draconic::editor
+namespace editor
 {
     void DebuggerPanel::SetDebugger(script::IScriptDebugger* debugger)
     {
@@ -248,7 +255,7 @@ namespace draconic::editor
         // Resolution order mirrors Draconic.Engine.Player: the manifest's guid (authoritative,
         // rename-proof), then the path mirror.
         EditorProject& project = *m_context->Project();
-        draconic::content::Instance* instance = nullptr;
+        foundation::content::Instance* instance = nullptr;
         if (!project.Settings().defaultSceneId.IsNil())
         {
             instance = project.SourceDb().GetInstance(project.Settings().defaultSceneId);
@@ -318,7 +325,7 @@ namespace draconic::editor
                         {
                             return UniquePtr<IStream>{};
                         }
-                        draconic::content::Instance* prefab =
+                        foundation::content::Instance* prefab =
                             context->Project()->SourceDb().GetInstance(prefabId);
                         return (prefab != nullptr) ? prefab->ReadData(u8"scene")
                                                    : UniquePtr<IStream>{};
@@ -361,7 +368,7 @@ namespace draconic::editor
         // with the run, returning the editor to inert (ScreenTierOnly) game UI.
         if (m_input != nullptr)
         {
-            m_input->SetMap(draconic::input::InputMap{});
+            m_input->SetMap(foundation::input::InputMap{});
             m_input->SetSourceProvider(&m_viewportSource, nullptr);
         }
         // Drop the debugger wiring BEFORE the run tears the debugger down (the panel
@@ -398,12 +405,12 @@ namespace draconic::editor
 
     void GameEditorPage::EnsureViewportBound()
     {
-        draconic::ui::RootView* root = m_viewport->Root();
+        foundation::ui::RootView* root = m_viewport->Root();
         if (root == nullptr)
         {
             return;
         }
-        draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
+        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
         if (window == nullptr || window == m_hostWindow)
         {
             return;
@@ -431,7 +438,7 @@ namespace draconic::editor
             // reads no keyboard - the game viewport must own a router or its input is dead.
             if (m_router.Get() == nullptr)
             {
-                m_router = MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(),
+                m_router = MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(),
                                                                     m_host->Shell()->Input());
             }
             if (m_viewport->Surface() != nullptr)
@@ -473,7 +480,7 @@ namespace draconic::editor
     }
 
     void GameEditorPage::OnRenderWindow(runtime::IApplicationHost&,
-                                        draconic::graphics::FrameContext& frame)
+                                        foundation::graphics::FrameContext& frame)
     {
         if (!m_viewport->IsReady() || !frame.valid)
         {
@@ -521,7 +528,7 @@ namespace draconic::editor
     }
 
     void GameEditorPage::OnAfterSceneRender(runtime::IApplicationHost& host,
-                                            draconic::graphics::FrameContext& frame)
+                                            foundation::graphics::FrameContext& frame)
     {
         // Scene-tier UI (HUD canvases/billboards) already landed in the viewport
         // inside the compose. This composites the game's WINDOW-SPACE overlays
@@ -531,7 +538,7 @@ namespace draconic::editor
         {
             return;
         }
-        auto* render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>();
+        auto* render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
         if (render == nullptr)
         {
             return;
@@ -582,13 +589,13 @@ namespace draconic::editor
 
     void GameEditorPage::EnsureCamera()
     {
-        auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>();
+        auto* cameras = m_scene->GetSystem<engine::render::CameraComponentManager>();
         if (cameras == nullptr)
         {
             return;
         }
         bool hasCamera = false;
-        cameras->ForEach([&](draconic::engine::render::CameraComponent&, scene::EntityHandle) { hasCamera = true; });
+        cameras->ForEach([&](engine::render::CameraComponent&, scene::EntityHandle) { hasCamera = true; });
         if (hasCamera)
         {
             return;
@@ -630,7 +637,7 @@ namespace draconic::editor
         {
             return;
         }
-        auto proxy = m_context->Resources()->Bind<draconic::input::InputMapResource>(mapId);
+        auto proxy = m_context->Resources()->Bind<foundation::input::InputMapResource>(mapId);
         if (proxy)
         {
             if (m_gameInstance != nullptr)
@@ -648,7 +655,7 @@ namespace draconic::editor
 
     void GameEditorPage::BindBusLayout(runtime::IApplicationHost& host)
     {
-        auto* audio = host.Ctx().GetSubsystem<draconic::engine::audio::AudioSubsystem>();
+        auto* audio = host.Ctx().GetSubsystem<engine::audio::AudioSubsystem>();
         if (audio == nullptr || audio->Engine() == nullptr)
         {
             return;
@@ -659,7 +666,7 @@ namespace draconic::editor
             return;
         }
         auto proxy =
-            m_context->Resources()->Bind<draconic::audio::AudioBusLayoutResource>(layoutId);
+            m_context->Resources()->Bind<foundation::audio::AudioBusLayoutResource>(layoutId);
         if (proxy)
         {
             audio->Engine()->ApplyBusLayout(proxy->layout);
@@ -680,7 +687,7 @@ namespace draconic::editor
         {
             return;
         }
-        auto proxy = m_context->Resources()->Bind<draconic::script::ScriptClass>(scriptId);
+        auto proxy = m_context->Resources()->Bind<foundation::script::ScriptClass>(scriptId);
         if (!proxy || proxy->source.IsEmpty())
         {
             m_context->Notify(NoticeKind::Warning, u8"Game: startup script asset not found.");
@@ -885,7 +892,7 @@ namespace draconic::editor
             }
         }
     }
-    void GameScriptErrorSink::OnError(const draconic::script::ScriptError& error)
+    void GameScriptErrorSink::OnError(const foundation::script::ScriptError& error)
     {
         if (context == nullptr)
         {
@@ -895,12 +902,12 @@ namespace draconic::editor
         message += error.message;
         context->Notify(NoticeKind::Error, message.AsView());
     }
-    draconic::shell::IKeyboard* GameViewportInputSource::Keyboard()
+    foundation::shell::IKeyboard* GameViewportInputSource::Keyboard()
     {
         return viewport != nullptr ? viewport->Keyboard() : nullptr;
     }
 
-    draconic::shell::IMouse* GameViewportInputSource::Mouse()
+    foundation::shell::IMouse* GameViewportInputSource::Mouse()
     {
         return viewport != nullptr ? viewport->Mouse() : nullptr;
     }
@@ -911,18 +918,18 @@ namespace draconic::editor
         return shellInput != nullptr ? Min(shellInput->GamepadCount(), 8) : 0;
     }
 
-    draconic::shell::IGamepad* GameViewportInputSource::Gamepad(i32 index)
+    foundation::shell::IGamepad* GameViewportInputSource::Gamepad(i32 index)
     {
         auto* surface = viewport != nullptr ? viewport->Surface() : nullptr;
         return surface != nullptr ? surface->Gamepad(index) : nullptr;
     }
 
-    draconic::shell::ITouch* GameViewportInputSource::Touch()
+    foundation::shell::ITouch* GameViewportInputSource::Touch()
     {
         return viewport != nullptr ? viewport->Touch() : nullptr;
     }
 
-    Span<const draconic::shell::InputEvent> GameViewportInputSource::Events()
+    Span<const foundation::shell::InputEvent> GameViewportInputSource::Events()
     {
         // Key/text events stream only while the viewport owns keyboard focus - the
         // same gate SurfaceKeyboard applies to the polled reads.

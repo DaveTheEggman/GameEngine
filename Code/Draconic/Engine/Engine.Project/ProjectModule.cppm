@@ -15,9 +15,11 @@ import draconic.core;
 import draconic.vfs;
 import draconic.xml.serialization;
 
-using namespace draconic::core;
+using namespace foundation::core;
+using namespace foundation;
+namespace vfs = foundation::vfs;
 
-export namespace draconic::engine::project
+export namespace engine::project
 {
     // The ENGINE version (distinct from per-type data versions): stamped into every saved
     // project manifest so tooling - the editor today, the launcher/project manager later -
@@ -70,19 +72,19 @@ export namespace draconic::engine::project
         // the manifest helpers below (DRACONIC_DEFINE_OBJECT_VERSIONED sets the current one).
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "name", name);
+            foundation::core::Serialize(ar, "name", name);
             if (ar.Version() >= 2) // v2 added the engine stamp
             {
-                draconic::core::Serialize(ar, "engineVersion", engineVersion);
+                foundation::core::Serialize(ar, "engineVersion", engineVersion);
             }
             if (ar.Version() >= 3) // v3 made the default scene guid-authoritative
             {
                 ar.Key("defaultSceneId");
                 ar.GuidValue(defaultSceneId);
             }
-            draconic::core::Serialize(ar, "defaultScene", defaultScene);
-            draconic::core::Serialize(ar, "startupScript", startupScript);
-            draconic::core::Serialize(ar, "nativeModule", nativeModule);
+            foundation::core::Serialize(ar, "defaultScene", defaultScene);
+            foundation::core::Serialize(ar, "startupScript", startupScript);
+            foundation::core::Serialize(ar, "nativeModule", nativeModule);
             if (ar.Version() >= 4) // v4 added the default input map
             {
                 ar.Key("defaultInputMapId");
@@ -123,7 +125,7 @@ export namespace draconic::engine::project
         {
             return Status{ErrorCode::NotFound};
         }
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
         if (!ctx || ctx->serializer == nullptr)
         {
@@ -142,7 +144,7 @@ export namespace draconic::engine::project
     {
         settings.engineVersion = String(kEngineVersionString); // every save re-stamps
         MemoryStream buffer;
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
         if (!ctx || ctx->serializer == nullptr)
         {

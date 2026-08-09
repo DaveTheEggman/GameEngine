@@ -24,7 +24,7 @@ export module draconic.core:time;
 import :base;
 import :system; // GetTicks, GetTickFrequency
 
-namespace draconic::core::detail
+namespace foundation::core::detail
 {
     // Overflow-safe tick<->nanosecond conversion. Splitting into whole + remainder
     // keeps the intermediate products within u64 for any frequency up to ~1e9 Hz
@@ -54,7 +54,7 @@ namespace draconic::core::detail
     }
 }
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // A signed span of time, stored as integer nanoseconds. Construct via From*;
     // read via As*. Arithmetic and comparison behave like a plain number.

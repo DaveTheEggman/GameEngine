@@ -11,12 +11,11 @@ import draconic.audio;
 import draconic.audio.pipeline;
 import draconic.editor.audio;
 
-using namespace draconic::core;
-namespace audio = draconic::audio;
+using namespace foundation::core;
 
 TEST_CASE("bus layout page: AudioBusWouldCycle catches direct + transitive cycles")
 {
-    draconic::pipeline::AudioBusLayoutAsset asset;
+    pipeline::AudioBusLayoutAsset asset;
     // A -> B -> C (parents point UP the chain).
     asset.custom[0].name = String(u8"A");
     asset.custom[0].parent = String(u8"B");
@@ -27,19 +26,19 @@ TEST_CASE("bus layout page: AudioBusWouldCycle catches direct + transitive cycle
 
     // Re-parenting C under A closes the loop (transitively). Under B likewise. Under a
     // fixed bus never cycles.
-    CHECK(draconic::editor::AudioBusWouldCycle(asset, 2, u8"A"));
-    CHECK(draconic::editor::AudioBusWouldCycle(asset, 2, u8"B"));
-    CHECK_FALSE(draconic::editor::AudioBusWouldCycle(asset, 2, u8"Effects"));
-    CHECK_FALSE(draconic::editor::AudioBusWouldCycle(asset, 2, u8"Master"));
+    CHECK(editor::AudioBusWouldCycle(asset, 2, u8"A"));
+    CHECK(editor::AudioBusWouldCycle(asset, 2, u8"B"));
+    CHECK_FALSE(editor::AudioBusWouldCycle(asset, 2, u8"Effects"));
+    CHECK_FALSE(editor::AudioBusWouldCycle(asset, 2, u8"Master"));
     // A under C is the DIRECT ancestor case.
-    CHECK(draconic::editor::AudioBusWouldCycle(asset, 0, u8"A"));
+    CHECK(editor::AudioBusWouldCycle(asset, 0, u8"A"));
     // A under an unused name: no slot resolves - no cycle.
-    CHECK_FALSE(draconic::editor::AudioBusWouldCycle(asset, 0, u8"Nope"));
+    CHECK_FALSE(editor::AudioBusWouldCycle(asset, 0, u8"Nope"));
 }
 
 TEST_CASE("bus layout page: asset round-trips buses + custom slots (undo blob path)")
 {
-    draconic::pipeline::AudioBusLayoutAsset a;
+    pipeline::AudioBusLayoutAsset a;
     a.music.volume = 0.3f;
     a.effects.lowpassHz = 1500.0f;
     a.custom[0].name = String(u8"drums");
@@ -52,16 +51,16 @@ TEST_CASE("bus layout page: asset round-trips buses + custom slots (undo blob pa
     MemoryStream stream;
     {
         BinarySerializer ar(stream, SerializeMode::Write);
-        BeginVersionedPayload(ar, draconic::pipeline::AudioBusLayoutAsset::StaticType());
+        BeginVersionedPayload(ar, pipeline::AudioBusLayoutAsset::StaticType());
         a.Serialize(ar);
         EndVersionedPayload(ar);
         REQUIRE(ar.IsOk());
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
-    draconic::pipeline::AudioBusLayoutAsset b;
+    pipeline::AudioBusLayoutAsset b;
     {
         BinarySerializer ar(stream, SerializeMode::Read);
-        BeginVersionedPayload(ar, draconic::pipeline::AudioBusLayoutAsset::StaticType());
+        BeginVersionedPayload(ar, pipeline::AudioBusLayoutAsset::StaticType());
         b.Serialize(ar);
         EndVersionedPayload(ar);
         REQUIRE(ar.IsOk());

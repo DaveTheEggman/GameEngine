@@ -16,9 +16,9 @@ import draconic.core;
 import :pixel_format;
 import :image_data;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::image
+export namespace foundation::image
 {
 
     // Pixel access uses the engine's packed byte color, core::Color32 (the image
@@ -85,7 +85,7 @@ export namespace draconic::image
 
         void Clear()
         {
-            if (draconic::image::HasAlpha(m_format))
+            if (foundation::image::HasAlpha(m_format))
                 FillColor(Color32::Transparent);
             else
                 std::memset(m_data.Data(), 0, m_data.Size());
@@ -101,11 +101,11 @@ export namespace draconic::image
         }
 
         /// Whether this image's format carries an alpha channel.
-        [[nodiscard]] bool HasAlpha() const { return draconic::image::HasAlpha(m_format); }
+        [[nodiscard]] bool HasAlpha() const { return foundation::image::HasAlpha(m_format); }
         /// Number of channels in this image's pixel format.
         [[nodiscard]] i32 GetChannelCount() const
         {
-            return static_cast<i32>(draconic::image::ChannelCount(m_format));
+            return static_cast<i32>(foundation::image::ChannelCount(m_format));
         }
 
         void FillColor(Color32 c)
@@ -583,4 +583,4 @@ export namespace draconic::image
         Array<u8> m_data;
     };
 
-} // namespace draconic::image
+} // namespace foundation::image

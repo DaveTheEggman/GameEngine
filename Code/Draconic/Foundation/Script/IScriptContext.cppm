@@ -13,9 +13,9 @@ export module draconic.script:script_context;
 import draconic.core;
 import :script_debug; // IScriptBlob (the LoadBlob seam)
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::script
+export namespace foundation::script
 {
     enum class ScriptErrorKind
     {

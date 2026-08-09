@@ -22,13 +22,14 @@ import draconic.geometry;  // StaticMesh::bounds (world bounding sphere for shad
 import draconic.texture.resource; // texture::Texture (cooked product behind sprite/decal refs)
 import :components;
 
-using namespace draconic::core;
-using namespace draconic::render;
+using namespace foundation::core;
+using namespace foundation::render;
+namespace materials = foundation::materials;
 
-export namespace draconic::engine::render
+export namespace engine::render
 {
-    // Foundation alias (sibling draconic::engine::scene would otherwise shadow draconic::scene).
-    namespace scene = draconic::scene;
+    // Foundation alias (sibling engine::scene would otherwise shadow foundation::scene).
+    namespace scene = foundation::scene;
 
 
     // Packs an entity handle into the opaque MeshRenderData::entityId (for pick; opaque to core).
@@ -100,4 +101,4 @@ export namespace draconic::engine::render
     // ReflectionProbeSystem consumes the list (capture + prefilter + froxel assignment) at frame time.
     void ExtractReflectionProbesInto(scene::Scene& scene, ExtractedScene& out);
 
-} // namespace draconic::render
+} // namespace foundation::render

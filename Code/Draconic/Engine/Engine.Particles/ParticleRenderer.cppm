@@ -18,18 +18,20 @@ import draconic.shaders.system;
 import draconic.render; // Renderer, RenderRecordContext, ResolvedDraw, DrawItem, DynamicUniformRing, categories
 import draconic.particles; // ParticleBlendMode
 import :renderdata;
+import draconic.materials;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
-namespace render = draconic::render;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
+namespace render = foundation::render;
 
-using namespace draconic::particles; // foundation sim types (ParticleEffect, ParticleBlendMode, ...)
+using namespace foundation::particles; // foundation sim types (ParticleEffect, ParticleBlendMode, ...)
 
-export namespace draconic::engine::particles
+export namespace engine::particles
 {
-    // Foundation aliases (sibling draconic::engine::* namespaces would otherwise shadow these).
-    namespace render = draconic::render;
+    // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
+    namespace render = foundation::render;
 
     class ParticleRenderer final : public render::Renderer
     {

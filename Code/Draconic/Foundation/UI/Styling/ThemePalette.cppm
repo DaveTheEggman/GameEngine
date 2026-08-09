@@ -11,9 +11,9 @@ export module draconic.ui:theme_palette;
 
 import draconic.core; // Color
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct ThemePalette
     {

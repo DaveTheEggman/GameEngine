@@ -20,9 +20,9 @@ import :selection;
 import :page;
 import :project;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::editor
+namespace editor
 {
     void EditorContext::RequestCook(bool rebuild)
     {
@@ -50,12 +50,12 @@ namespace draconic::editor
         m_assetSelection.Clear();
     }
 
-    void EditorContext::SetResources(draconic::resource::ResourceManager* resources) noexcept
+    void EditorContext::SetResources(foundation::resource::ResourceManager* resources) noexcept
     {
         m_resources = resources;
     }
 
-    draconic::resource::ResourceManager* EditorContext::Resources() const noexcept
+    foundation::resource::ResourceManager* EditorContext::Resources() const noexcept
     {
         return m_resources;
     }
@@ -123,7 +123,7 @@ namespace draconic::editor
         return Span<const AssetCreator>{m_creators.Data(), m_creators.Size()};
     }
 
-    EditorPage* EditorContext::OpenPage(draconic::content::Instance& instance)
+    EditorPage* EditorContext::OpenPage(foundation::content::Instance& instance)
     {
         for (const UniquePtr<EditorPage>& page : m_pages)
         {
@@ -235,18 +235,18 @@ namespace draconic::editor
         }
     }
 
-    Selection<const draconic::content::Instance*>& EditorContext::AssetSelection() noexcept
+    Selection<const foundation::content::Instance*>& EditorContext::AssetSelection() noexcept
     {
         return m_assetSelection;
     }
 
     void EditorContext::AddImportListener(
-        Function<void(draconic::content::Instance&, const ImportOptions*)> listener)
+        Function<void(foundation::content::Instance&, const ImportOptions*)> listener)
     {
         m_importListeners.PushBack(Move(listener));
     }
 
-    void EditorContext::NotifyImported(draconic::content::Instance& instance,
+    void EditorContext::NotifyImported(foundation::content::Instance& instance,
                                        const ImportOptions* options)
     {
         for (const auto& listener : m_importListeners)

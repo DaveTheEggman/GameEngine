@@ -20,9 +20,10 @@ import draconic.vg;
 import draconic.ui;
 import :property_editor;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Range/slider property editor - Slider + NumericField side by side. Both synced.
     class RangeEditor : public PropertyEditor

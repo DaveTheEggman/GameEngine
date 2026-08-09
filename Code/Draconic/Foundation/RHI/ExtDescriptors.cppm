@@ -11,9 +11,9 @@ import :types;
 import :forward;
 import :descriptors;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     // ---- Mesh shader pipeline ----
@@ -100,4 +100,4 @@ export namespace draconic::rhi
         StringView label;
     };
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

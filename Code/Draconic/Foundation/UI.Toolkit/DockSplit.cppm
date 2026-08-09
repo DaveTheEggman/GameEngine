@@ -16,9 +16,9 @@ import draconic.core;
 import draconic.vg;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Binary split node for the dock tree.
     class DockSplit : public ViewGroup
@@ -26,13 +26,13 @@ export namespace draconic::ui::toolkit
         DRACONIC_OBJECT(DockSplit, ViewGroup)
     public:
         explicit DockSplit(
-            ::draconic::ui::Orientation orientation = ::draconic::ui::Orientation::Horizontal)
+            ::foundation::ui::Orientation orientation = ::foundation::ui::Orientation::Horizontal)
             : m_orientation(orientation)
         {
         }
 
-        [[nodiscard]] ::draconic::ui::Orientation Orientation() const { return m_orientation; }
-        void SetOrientation(::draconic::ui::Orientation value)
+        [[nodiscard]] ::foundation::ui::Orientation Orientation() const { return m_orientation; }
+        void SetOrientation(::foundation::ui::Orientation value)
         {
             m_orientation = value;
             Invalidate();
@@ -176,7 +176,7 @@ export namespace draconic::ui::toolkit
                     m_isDividerHovered = overDivider;
                     if (overDivider)
                     {
-                        Cursor = (m_orientation == ::draconic::ui::Orientation::Horizontal)
+                        Cursor = (m_orientation == ::foundation::ui::Orientation::Horizontal)
                                      ? CursorType::SizeWE
                                      : CursorType::SizeNS;
                     }
@@ -216,7 +216,7 @@ export namespace draconic::ui::toolkit
             const f32 w = constraints.ConstrainWidth(200);
             const f32 h = constraints.ConstrainHeight(200);
 
-            if (m_orientation == ::draconic::ui::Orientation::Horizontal)
+            if (m_orientation == ::foundation::ui::Orientation::Horizontal)
             {
                 const f32 available = w - m_dividerSize;
                 const f32 firstW = available * m_splitRatio;
@@ -252,7 +252,7 @@ export namespace draconic::ui::toolkit
         {
             (void)left;
             (void)top;
-            if (m_orientation == ::draconic::ui::Orientation::Horizontal)
+            if (m_orientation == ::foundation::ui::Orientation::Horizontal)
             {
                 const f32 available = width - m_dividerSize;
                 const f32 firstW = available * m_splitRatio;
@@ -290,7 +290,7 @@ export namespace draconic::ui::toolkit
 
         [[nodiscard]] Rectangle GetDividerRect() const
         {
-            if (m_orientation == ::draconic::ui::Orientation::Horizontal)
+            if (m_orientation == ::foundation::ui::Orientation::Horizontal)
             {
                 const f32 available = Width() - m_dividerSize;
                 const f32 firstW = available * m_splitRatio;
@@ -307,7 +307,7 @@ export namespace draconic::ui::toolkit
         void UpdateSplitFromMouse(f32 localX, f32 localY)
         {
             f32 ratio;
-            if (m_orientation == ::draconic::ui::Orientation::Horizontal)
+            if (m_orientation == ::foundation::ui::Orientation::Horizontal)
             {
                 const f32 available = Width() - m_dividerSize;
                 if (available <= 0)
@@ -328,7 +328,7 @@ export namespace draconic::ui::toolkit
             SetSplitRatio(ratio);
         }
 
-        ::draconic::ui::Orientation m_orientation = ::draconic::ui::Orientation::Horizontal;
+        ::foundation::ui::Orientation m_orientation = ::foundation::ui::Orientation::Horizontal;
         f32 m_splitRatio = 0.5f;
         f32 m_dividerSize = 4;
         f32 m_minPaneSize = 50;

@@ -19,9 +19,9 @@ import draconic.rhi;
 import :api;
 import :conversions;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class WebGpuBlitHelper final
     {

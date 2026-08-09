@@ -18,7 +18,7 @@
 //   import draconic.graphics;
 //   import draconic.graphics.gpu;
 //   #include "Runtime.Client/AppMain.h"
-//   class MyApp final : public draconic::runtime::IApplication { ... };
+//   class MyApp final : public foundation::runtime::IApplication { ... };
 //   DRACONIC_APP_MAIN(MyApp)
 
 #ifndef DRACONIC_RUNTIME_CLIENT_APPMAIN_H
@@ -44,19 +44,19 @@ extern "C" const char* DraconicBuildStamp();
 #define DRACONIC_APP_MAIN(AppType)                                                                 \
     int main()                                                                                     \
     {                                                                                              \
-        static ::draconic::core::ConsoleSink draconicConsoleSink;                                  \
-        ::draconic::core::GlobalLogger().AddSink(&draconicConsoleSink);                            \
-        ::draconic::core::GlobalLogger().SetMinLevel(::draconic::core::LogLevel::Info);            \
+        static ::foundation::core::ConsoleSink draconicConsoleSink;                                  \
+        ::foundation::core::GlobalLogger().AddSink(&draconicConsoleSink);                            \
+        ::foundation::core::GlobalLogger().SetMinLevel(::foundation::core::LogLevel::Info);            \
         DRACONIC_LOG_INFO(u8"Build", u8"Draconic build {}",                                        \
                           reinterpret_cast<const char8_t*>(DraconicBuildStamp()));                 \
-        static ::draconic::shell::WebShell draconicShell;                                          \
-        ::draconic::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
-        draconicGpuDesc.backend = ::draconic::graphics::BackendType::WebGPU;                       \
-        static auto draconicGpu = ::draconic::graphics::CreateGraphicsDevice(draconicGpuDesc);     \
-        ::draconic::graphics::GraphicsDevice* draconicDevice =                                     \
+        static ::foundation::shell::WebShell draconicShell;                                          \
+        ::foundation::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
+        draconicGpuDesc.backend = ::foundation::graphics::BackendType::WebGPU;                       \
+        static auto draconicGpu = ::foundation::graphics::CreateGraphicsDevice(draconicGpuDesc);     \
+        ::foundation::graphics::GraphicsDevice* draconicDevice =                                     \
             draconicGpu.HasValue() ? draconicGpu.Value().Get() : nullptr;                          \
         static AppType draconicApp;                                                                \
-        return ::draconic::runtime::RunApplication(draconicApp, draconicShell, draconicDevice);    \
+        return ::foundation::runtime::RunApplication(draconicApp, draconicShell, draconicDevice);    \
     }
 
 #else
@@ -68,19 +68,19 @@ extern "C" const char* DraconicBuildStamp();
 #define DRACONIC_APP_MAIN(AppType)                                                                 \
     int main(int argc, char** argv)                                                                \
     {                                                                                              \
-        static ::draconic::core::ConsoleSink draconicConsoleSink;                                  \
-        ::draconic::core::GlobalLogger().AddSink(&draconicConsoleSink);                            \
+        static ::foundation::core::ConsoleSink draconicConsoleSink;                                  \
+        ::foundation::core::GlobalLogger().AddSink(&draconicConsoleSink);                            \
         DRACONIC_LOG_INFO(u8"Build", u8"Draconic build {}",                                        \
                           reinterpret_cast<const char8_t*>(DraconicBuildStamp()));                 \
-        auto shell = ::draconic::shell::CreateShell();                                             \
-        ::draconic::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
+        auto shell = ::foundation::shell::CreateShell();                                             \
+        ::foundation::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
         draconicGpuDesc.backend =                                                                  \
-            ::draconic::graphics::SelectBackendFromArguments(argc, argv);                          \
-        auto draconicGpu = ::draconic::graphics::CreateGraphicsDevice(draconicGpuDesc);            \
-        ::draconic::graphics::GraphicsDevice* draconicDevice =                                     \
+            ::foundation::graphics::SelectBackendFromArguments(argc, argv);                          \
+        auto draconicGpu = ::foundation::graphics::CreateGraphicsDevice(draconicGpuDesc);            \
+        ::foundation::graphics::GraphicsDevice* draconicDevice =                                     \
             draconicGpu.HasValue() ? draconicGpu.Value().Get() : nullptr;                          \
         AppType app;                                                                               \
-        return ::draconic::runtime::RunApplication(app, *shell, draconicDevice);                   \
+        return ::foundation::runtime::RunApplication(app, *shell, draconicDevice);                   \
     }
 
 #endif // DRACONIC_PLATFORM_WEB

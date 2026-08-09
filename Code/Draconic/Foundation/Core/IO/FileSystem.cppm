@@ -17,7 +17,7 @@ import :string;
 import :system;
 import :io;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // Reads an entire file into a byte buffer.
     [[nodiscard]] inline Result<Array<byte>> ReadFile(StringView path,

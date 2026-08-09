@@ -20,13 +20,13 @@ import draconic.texture;
 import draconic.texture.resource;
 import draconic.texture.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::vfs;
-using namespace draconic::resource;
-using namespace draconic::texture;
-namespace image = draconic::image;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::vfs;
+using namespace foundation::resource;
+using namespace foundation::texture;
+namespace image = foundation::image;
+namespace rhi = foundation::rhi;
 
 namespace
 {
@@ -63,20 +63,20 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
 
     // --- cook (tooling): TextureAsset -> TextureResource in the output DB ---
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"diffuse", TextureResource::StaticType());
         id = inst->Id();
 
         TextureAsset asset;
-        asset.fileName = draconic::vfs::SourcePath(u8"draconic_texpipe_src.png");
+        asset.fileName = foundation::vfs::SourcePath(u8"draconic_texpipe_src.png");
         asset.SetupForUI(); // clamp, no mips
         asset.colorSpace = image::ImageColorSpace::Srgb;
 
         TextureAssetBuilder builder;
         REQUIRE(builder.AssetType() == &TextureAsset::StaticType());
-        draconic::vfs::NativeFileSystem srcMount(u8".");
-        draconic::pipeline::AssetBuildContext ctx;
+        foundation::vfs::NativeFileSystem srcMount(u8".");
+        pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -84,7 +84,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
 
     // --- runtime load: cooked TextureResource -> live GPU Texture (model A) ---
     rhi::null::NullDevice device{DefaultAllocator()};
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     TextureFactory factory(device);
     ResourceManager manager(outDb);
@@ -123,15 +123,15 @@ TEST_CASE("texture.pipeline: builder fails on a missing source file")
     RegisterTextureAsset();
     RemoveTree();
     NativeFileSystem outMount(u8"draconic_texpipe_out_db");
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"diffuse", TextureResource::StaticType());
 
     TextureAsset asset;
-    asset.fileName = draconic::vfs::SourcePath(u8"does_not_exist_xyz.png");
+    asset.fileName = foundation::vfs::SourcePath(u8"does_not_exist_xyz.png");
     TextureAssetBuilder builder;
-    draconic::vfs::NativeFileSystem srcMount(u8".");
-    draconic::pipeline::AssetBuildContext ctx;
+    foundation::vfs::NativeFileSystem srcMount(u8".");
+    pipeline::AssetBuildContext ctx;
     ctx.sources = &srcMount;
     ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());
@@ -156,8 +156,8 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
         RemoveDirectory(dir);
     };
     cleanTree();
-    REQUIRE(draconic::editor::EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<draconic::editor::EditorProject> project = draconic::editor::EditorProject::Open(dir);
+    REQUIRE(editor::EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(dir);
     REQUIRE(static_cast<bool>(project));
 
     // A loose "PNG" (the importer copies bytes + creates the asset; decoding happens at cook).
@@ -169,10 +169,10 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
     CHECK(importer.Accepts(u8"jpeg"));
     CHECK_FALSE(importer.Accepts(u8"gltf"));
 
-    Result<draconic::content::Instance*> imported = importer.Import(
+    Result<foundation::content::Instance*> imported = importer.Import(
         u8"brick.png", *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
-    draconic::content::Instance* instance = imported.Value();
+    foundation::content::Instance* instance = imported.Value();
     REQUIRE(instance != nullptr);
     CHECK(instance->Name() == StringView(u8"brick"));
     CHECK(instance->TypeName() == StringView(u8"TextureAsset"));
@@ -233,24 +233,24 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
     NativeFileSystem outMount(u8"draconic_texpipe_cube_db");
     Guid id;
     {
-        draconic::content::ContentDatabase outDb(
-            outMount, draconic::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase outDb(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"sky", TextureResource::StaticType());
         id = inst->Id();
 
         TextureAsset asset;
-        asset.fileName = draconic::vfs::SourcePath(faceNames[0]); // the +X face
+        asset.fileName = foundation::vfs::SourcePath(faceNames[0]); // the +X face
         asset.SetupForCubemapSkybox();
 
         // The recipe must chain ALL faces (editing -nz alone must re-cook the cube).
         TextureAssetBuilder builder;
-        draconic::pipeline::AssetBuildContext scanCtx;
-        draconic::pipeline::AssetDependencies deps;
+        pipeline::AssetBuildContext scanCtx;
+        pipeline::AssetDependencies deps;
         builder.ScanDependencies(asset, scanCtx, deps);
         CHECK(deps.files.Size() == 5u); // the 5 non-+X faces (fileName is the implicit dep)
 
-        draconic::vfs::NativeFileSystem srcMount(u8".");
-        draconic::pipeline::AssetBuildContext ctx;
+        foundation::vfs::NativeFileSystem srcMount(u8".");
+        pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -258,7 +258,7 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
 
     // Runtime: the factory builds a real cube (6 layers, cube view, per-face upload).
     rhi::null::NullDevice device{DefaultAllocator()};
-    draconic::content::ContentDatabase outDb(outMount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     TextureFactory factory(device);
     ResourceManager manager(outDb);

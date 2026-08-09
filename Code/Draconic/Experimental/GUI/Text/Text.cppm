@@ -16,11 +16,11 @@ import draconic.fonts; // CachedFont, IFont, FontMetrics
 import :rect;
 import :draw_context;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     enum class TextHAlign
     {

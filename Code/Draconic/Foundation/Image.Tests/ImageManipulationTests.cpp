@@ -8,8 +8,8 @@
 import draconic.core;
 import draconic.image;
 
-using namespace draconic::core;
-using namespace draconic::image;
+using namespace foundation::core;
+using namespace foundation::image;
 
 TEST_CASE("image.manip: creation")
 {

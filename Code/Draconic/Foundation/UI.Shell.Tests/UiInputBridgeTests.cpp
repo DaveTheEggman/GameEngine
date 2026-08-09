@@ -9,10 +9,10 @@ import draconic.ui.shell;
 import draconic.shell;
 import draconic.shell.null;
 
-using namespace draconic::core;
-using namespace draconic::ui;
-namespace core = draconic::core;
-namespace shell = draconic::shell;
+using namespace foundation::core;
+using namespace foundation::ui;
+namespace core = foundation::core;
+namespace shell = foundation::shell;
 
 namespace
 {

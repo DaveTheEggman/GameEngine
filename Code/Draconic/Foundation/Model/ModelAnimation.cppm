@@ -11,9 +11,9 @@ export module draconic.model:model_animation;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::model
+export namespace foundation::model
 {
 
     /// Animation interpolation type.
@@ -202,4 +202,4 @@ export namespace draconic::model
         Array<AnimationChannel*> m_channels;
     };
 
-} // namespace draconic::model
+} // namespace foundation::model

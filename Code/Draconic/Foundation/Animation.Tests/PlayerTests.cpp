@@ -6,8 +6,8 @@
 import draconic.core;
 import draconic.animation;
 
-using namespace draconic::core;
-using namespace draconic::animation;
+using namespace foundation::core;
+using namespace foundation::animation;
 
 // A 1-bone skeleton with a position clip moving +Y over 1s.
 static void SetupBone(Skeleton& s)

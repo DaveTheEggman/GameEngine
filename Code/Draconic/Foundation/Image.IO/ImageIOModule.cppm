@@ -1,6 +1,6 @@
 /// Concrete image loading and saving via stb_image / stb_image_write.
 /// No abstract loader/writer - direct stb dependency.
-/// Works with draconic::image::Image directly.
+/// Works with foundation::image::Image directly.
 
 module;
 #include "Core/Prelude.h"
@@ -18,9 +18,9 @@ export module draconic.image.io;
 import draconic.core;
 import draconic.image;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::image::io
+export namespace foundation::image::io
 {
 
     /// File format for saving.
@@ -128,4 +128,4 @@ export namespace draconic::image::io
         return ok != 0 ? ErrorCode::Ok : ErrorCode::Unknown;
     }
 
-} // namespace draconic::image::io
+} // namespace foundation::image::io

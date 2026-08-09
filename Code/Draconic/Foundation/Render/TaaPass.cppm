@@ -23,10 +23,12 @@ import draconic.rendergraph;
 import draconic.shaders;
 import draconic.shaders.system;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // Owns the TAA resolve pipeline + per-view color-history ping-pong. One per renderer.
@@ -112,4 +114,4 @@ export namespace draconic::render
         HashMap<rhi::TextureView*, Entry> m_bindGroups;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

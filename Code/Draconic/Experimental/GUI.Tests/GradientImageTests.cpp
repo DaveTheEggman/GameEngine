@@ -7,10 +7,10 @@ import draconic.vg;
 import draconic.image;
 import draconic.gui;
 
-using namespace draconic::gui;
-namespace core = draconic::core;
-namespace vg = draconic::vg;
-namespace image = draconic::image;
+using namespace experimental::gui;
+namespace core = foundation::core;
+namespace vg = foundation::vg;
+namespace image = foundation::image;
 
 namespace
 {

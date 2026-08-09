@@ -11,9 +11,9 @@ export module draconic.rhi.dx12:fence;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxFenceImpl : public Fence
@@ -64,4 +64,4 @@ export namespace draconic::rhi::dx12
         HANDLE m_event = nullptr;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

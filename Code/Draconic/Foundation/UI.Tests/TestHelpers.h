@@ -4,58 +4,58 @@
 #pragma once
 #include "Core/Reflection/Reflect.h"
 
-namespace draconic::ui::tests
+namespace foundation::ui::tests
 {
     /// Minimal concrete View with a fixed desired size.
-    class TestView : public draconic::ui::View
+    class TestView : public foundation::ui::View
     {
-        DRACONIC_OBJECT(TestView, draconic::ui::View)
+        DRACONIC_OBJECT(TestView, foundation::ui::View)
     public:
-        draconic::core::f32 DesiredWidth = 50.0f;
-        draconic::core::f32 DesiredHeight = 30.0f;
+        foundation::core::f32 DesiredWidth = 50.0f;
+        foundation::core::f32 DesiredHeight = 30.0f;
 
         TestView() = default;
-        TestView(draconic::core::f32 w, draconic::core::f32 h) : DesiredWidth(w), DesiredHeight(h)
+        TestView(foundation::core::f32 w, foundation::core::f32 h) : DesiredWidth(w), DesiredHeight(h)
         {
         }
 
     protected:
-        void OnMeasure(draconic::ui::BoxConstraints constraints) override;
+        void OnMeasure(foundation::ui::BoxConstraints constraints) override;
     };
 
     /// Minimal concrete ViewGroup that lays out each child to fill its bounds.
-    class TestGroup : public draconic::ui::ViewGroup
+    class TestGroup : public foundation::ui::ViewGroup
     {
-        DRACONIC_OBJECT(TestGroup, draconic::ui::ViewGroup)
+        DRACONIC_OBJECT(TestGroup, foundation::ui::ViewGroup)
     protected:
-        void OnLayout(draconic::core::f32 left, draconic::core::f32 top, draconic::core::f32 width,
-                      draconic::core::f32 height) override;
+        void OnLayout(foundation::core::f32 left, foundation::core::f32 top, foundation::core::f32 width,
+                      foundation::core::f32 height) override;
     };
 
     /// Simple IListAdapter test double (Sedulous.UI.Tests SimpleListAdapter): a mutable Count and
     /// 100x30 TestView items. Not an Object, so it's header-inline (no DRACONIC_OBJECT needed).
-    class SimpleListAdapter : public draconic::ui::ListAdapterBase
+    class SimpleListAdapter : public foundation::ui::ListAdapterBase
     {
     public:
-        draconic::core::i32 Count = 0;
-        explicit SimpleListAdapter(draconic::core::i32 count) : Count(count) {}
-        [[nodiscard]] draconic::core::i32 ItemCount() const override { return Count; }
-        [[nodiscard]] draconic::core::RefPtr<draconic::ui::View>
-        CreateView(draconic::core::i32) override
+        foundation::core::i32 Count = 0;
+        explicit SimpleListAdapter(foundation::core::i32 count) : Count(count) {}
+        [[nodiscard]] foundation::core::i32 ItemCount() const override { return Count; }
+        [[nodiscard]] foundation::core::RefPtr<foundation::ui::View>
+        CreateView(foundation::core::i32) override
         {
-            return draconic::core::MakeRef<TestView>(draconic::core::DefaultAllocator(), 100.0f,
+            return foundation::core::MakeRef<TestView>(foundation::core::DefaultAllocator(), 100.0f,
                                                      30.0f);
         }
-        void BindView(draconic::ui::View*, draconic::core::i32) override {}
+        void BindView(foundation::ui::View*, foundation::core::i32) override {}
     };
 
     /// Test tree adapter (Sedulous.UI.Tests SimpleTreeAdapter): 3 roots; root 0 has 2 children (10,11),
     /// root 1 has 1 child (20), root 2 has none. Depth 1 for ids >= 10, else 0.
-    class SimpleTreeAdapter : public draconic::ui::ITreeAdapter
+    class SimpleTreeAdapter : public foundation::ui::ITreeAdapter
     {
     public:
-        [[nodiscard]] draconic::core::i32 RootCount() const override { return 3; }
-        [[nodiscard]] draconic::core::i32 GetChildCount(draconic::core::i32 nodeId) const override
+        [[nodiscard]] foundation::core::i32 RootCount() const override { return 3; }
+        [[nodiscard]] foundation::core::i32 GetChildCount(foundation::core::i32 nodeId) const override
         {
             if (nodeId == -1)
             {
@@ -71,8 +71,8 @@ namespace draconic::ui::tests
             }
             return 0;
         }
-        [[nodiscard]] draconic::core::i32 GetChildId(draconic::core::i32 parentId,
-                                                     draconic::core::i32 childIndex) const override
+        [[nodiscard]] foundation::core::i32 GetChildId(foundation::core::i32 parentId,
+                                                     foundation::core::i32 childIndex) const override
         {
             if (parentId == -1)
             {
@@ -88,34 +88,34 @@ namespace draconic::ui::tests
             } // 20
             return -1;
         }
-        [[nodiscard]] draconic::core::i32 GetDepth(draconic::core::i32 nodeId) const override
+        [[nodiscard]] foundation::core::i32 GetDepth(foundation::core::i32 nodeId) const override
         {
             return nodeId >= 10 ? 1 : 0;
         }
-        [[nodiscard]] bool HasChildren(draconic::core::i32 nodeId) const override
+        [[nodiscard]] bool HasChildren(foundation::core::i32 nodeId) const override
         {
             return nodeId == 0 || nodeId == 1;
         }
-        [[nodiscard]] draconic::core::RefPtr<draconic::ui::View>
-        CreateView(draconic::core::i32) override
+        [[nodiscard]] foundation::core::RefPtr<foundation::ui::View>
+        CreateView(foundation::core::i32) override
         {
-            return draconic::core::MakeRef<TestView>(draconic::core::DefaultAllocator(), 100.0f,
+            return foundation::core::MakeRef<TestView>(foundation::core::DefaultAllocator(), 100.0f,
                                                      30.0f);
         }
-        void BindView(draconic::ui::View*, draconic::core::i32, draconic::core::i32, bool) override
+        void BindView(foundation::ui::View*, foundation::core::i32, foundation::core::i32, bool) override
         {
         }
     };
 
     /// Sets up a UIContext + RootView (both owned by the caller).
-    inline void Init(draconic::ui::UIContext& ctx, draconic::ui::RootView* root,
-                     draconic::core::f32 width = 800.0f, draconic::core::f32 height = 600.0f)
+    inline void Init(foundation::ui::UIContext& ctx, foundation::ui::RootView* root,
+                     foundation::core::f32 width = 800.0f, foundation::core::f32 height = 600.0f)
     {
-        root->ViewportSize = draconic::core::Float2{width, height};
+        root->ViewportSize = foundation::core::Float2{width, height};
         ctx.AddRootView(root);
     }
 
-    inline void LayoutPass(draconic::ui::UIContext& ctx, draconic::ui::RootView* root)
+    inline void LayoutPass(foundation::ui::UIContext& ctx, foundation::ui::RootView* root)
     {
         ctx.BeginFrame(0.016f);
         ctx.UpdateRootView(root);

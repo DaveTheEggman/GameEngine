@@ -9,9 +9,9 @@ export module draconic.rhi.null;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::null
+export namespace foundation::rhi::null
 {
 
     // ---- Stub resource classes ----
@@ -605,4 +605,4 @@ export namespace draconic::rhi::null
         return ErrorCode::Ok;
     }
 
-} // namespace draconic::rhi::null
+} // namespace foundation::rhi::null

@@ -30,10 +30,12 @@ import draconic.shaders;
 import draconic.shaders.system;
 import :data;        // SkySnapshot / SkyMode / ExtractedScene (context identity)
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // Owns the per-scene IBL contexts + the passes that build their products. One per renderer.
@@ -312,4 +314,4 @@ export namespace draconic::render
         u64 m_pipelineShaderVersion = 0; // summed ShaderSystem::Version at build (hot reload)
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

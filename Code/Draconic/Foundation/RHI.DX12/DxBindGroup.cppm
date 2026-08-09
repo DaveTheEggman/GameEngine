@@ -20,9 +20,9 @@ import :texture_view;
 import :sampler;
 import :accel_struct;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxAccelStructImpl; // forward
@@ -277,4 +277,4 @@ export namespace draconic::rhi::dx12
         Array<u64> m_dynAddrs;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

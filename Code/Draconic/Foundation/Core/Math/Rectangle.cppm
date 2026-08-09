@@ -10,7 +10,7 @@ export module draconic.core:rectangle;
 import :base;
 import :float2;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Rectangle - 2D rectangle (x, y is the min corner).

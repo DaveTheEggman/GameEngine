@@ -18,16 +18,16 @@ import draconic.scene;           // Scene, ISceneAware
 import draconic.engine.scene; // SceneSubsystem (to register as scene-aware)
 import :components;
 
-export namespace draconic::engine::animation
+export namespace engine::animation
 {
 
-    class AnimationSubsystem final : public draconic::runtime::Subsystem,
-                                     public draconic::scene::ISceneAware
+    class AnimationSubsystem final : public foundation::runtime::Subsystem,
+                                     public foundation::scene::ISceneAware
     {
     public:
         // Injects the animation managers into each new scene (they tick in PostUpdate): the graph
         // manager (state machines / blend trees) runs first, then the simple single-clip manager.
-        void OnSceneCreated(draconic::scene::Scene& scene) override
+        void OnSceneCreated(foundation::scene::Scene& scene) override
         {
             scene.AddSystem<AnimationGraphComponentManager>();
             scene.AddSystem<SkeletalAnimationComponentManager>();
@@ -42,9 +42,9 @@ export namespace draconic::engine::animation
 
         void OnReady() override
         {
-            if (draconic::runtime::Context* ctx = GetContext())
+            if (foundation::runtime::Context* ctx = GetContext())
             {
-                if (auto* scenes = ctx->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+                if (auto* scenes = ctx->GetSubsystem<engine::scene::SceneSubsystem>())
                 {
                     scenes->RegisterSceneAware(this);
                 }
@@ -53,9 +53,9 @@ export namespace draconic::engine::animation
 
         void OnShutdown() override
         {
-            if (draconic::runtime::Context* ctx = GetContext())
+            if (foundation::runtime::Context* ctx = GetContext())
             {
-                if (auto* scenes = ctx->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+                if (auto* scenes = ctx->GetSubsystem<engine::scene::SceneSubsystem>())
                 {
                     scenes->UnregisterSceneAware(this);
                 }
@@ -63,4 +63,4 @@ export namespace draconic::engine::animation
         }
     };
 
-} // namespace draconic::animation
+} // namespace foundation::animation

@@ -11,9 +11,9 @@ export module draconic.ui:input_enums;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Mouse button identifiers.
     enum class MouseButton

@@ -9,8 +9,8 @@ import draconic.core;
 import :view;
 import :property;
 import :box_constraints;
-using namespace draconic::core;
-export namespace draconic::ui
+using namespace foundation::core;
+export namespace foundation::ui
 {
     class Spacer : public View
     {

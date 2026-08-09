@@ -11,21 +11,20 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vulkan;
 
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
-using draconic::core::Float4x4;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
+using foundation::core::Float4x4;
 
 class WireframeSample : public samples::framework::SampleApp
 {
 public:
     using samples::framework::SampleApp::SampleApp;
-    draconic::core::StringView Title() const override { return u8"Sample012 - Wireframe"; }
+    foundation::core::StringView Title() const override { return u8"Sample012 - Wireframe"; }
 
 protected:
-    draconic::core::Status OnInit() override;
+    foundation::core::Status OnInit() override;
     void OnRender() override;
-    void OnResize(draconic::core::u32 w, draconic::core::u32 h) override
+    void OnResize(foundation::core::u32 w, foundation::core::u32 h) override
     {
         m_depthBuf.Recreate(m_device, w, h);
     }
@@ -50,25 +49,25 @@ private:
     rhi::RenderPipeline* m_wirePipe = nullptr;
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
-    draconic::core::u64 m_fenceVal = 0;
-    draconic::core::u32 m_indexCount = 0;
+    foundation::core::u64 m_fenceVal = 0;
+    foundation::core::u32 m_indexCount = 0;
     samples::framework::DepthBuffer m_depthBuf;
 };
 
-draconic::core::Status WireframeSample::OnInit()
+foundation::core::Status WireframeSample::OnInit()
 {
-    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::f32;
+    using foundation::core::Status, foundation::core::Span, foundation::core::u8, foundation::core::f32;
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Vertex, u8"VSMain", u8"VS",
-                                            m_vs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_vs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Fragment, u8"PSMain", u8"PS",
-                                            m_ps) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_ps) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Icosahedron.
     f32 t = (1.0f + std::sqrt(5.0f)) / 2.0f;
@@ -80,7 +79,7 @@ draconic::core::Status WireframeSample::OnInit()
         0,  -a, -b, 1, .6f, .3f, 1, 0,  a,  -b, .6f, .3f, 1,   1, b,  0,  -a, .3f, 1,   .6f, 1,
         b,  0,  a,  1, .6f, .6f, 1, -b, 0,  -a, .6f, 1,   .3f, 1, -b, 0,  a,  .6f, .3f, .6f, 1,
     };
-    draconic::core::u16 idxData[60] = {
+    foundation::core::u16 idxData[60] = {
         0, 11, 5,  0, 5,  1, 0, 1, 7, 0, 7,  10, 0, 10, 11, 1, 5, 9, 5, 11,
         4, 11, 10, 2, 10, 7, 6, 7, 1, 8, 3,  9,  4, 3,  4,  2, 3, 2, 6, 3,
         6, 8,  3,  8, 9,  4, 9, 5, 2, 4, 11, 6,  2, 10, 8,  6, 7, 9, 8, 1,
@@ -91,14 +90,14 @@ draconic::core::Status WireframeSample::OnInit()
     vbd.size = sizeof(vertData);
     vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
     vbd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::BufferDesc ibd{};
     ibd.size = sizeof(idxData);
     ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst;
     ibd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
     batch->WriteBuffer(m_vb, 0,
@@ -112,27 +111,27 @@ draconic::core::Status WireframeSample::OnInit()
     ubd.size = 256;
     ubd.usage = rhi::BufferUsage::Uniform;
     ubd.memory = rhi::MemoryLocation::CpuToGpu;
-    if (m_device->CreateBuffer(ubd, m_ub) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ubd, m_ub) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     m_ubMapped = m_ub->Map();
 
     rhi::BindGroupLayoutEntry bglE[1] = {
         rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex)};
     rhi::BindGroupLayoutDesc bgld{};
     bgld.entries = Span<const rhi::BindGroupLayoutEntry>(bglE, 1);
-    if (m_device->CreateBindGroupLayout(bgld, m_bgl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(bgld, m_bgl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::BindGroupEntry bgE[1] = {rhi::BindGroupEntry::BufferEntry(m_ub, 0, 64)};
     rhi::BindGroupDesc bgd{};
     bgd.layout = m_bgl;
     bgd.entries = Span<const rhi::BindGroupEntry>(bgE, 1);
-    if (m_device->CreateBindGroup(bgd, m_bg) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(bgd, m_bg) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::BindGroupLayout* sets[1] = {m_bgl};
     rhi::PipelineLayoutDesc pld{};
     pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(sets, 1);
-    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     m_depthBuf.Recreate(m_device, m_width, m_height);
 
@@ -156,23 +155,23 @@ draconic::core::Status WireframeSample::OnInit()
     rpd.depthStencil->format = rhi::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthCompare = rhi::CompareFunction::LessEqual;
     rpd.depthStencil->depthWriteEnabled = false;
-    if (m_device->CreateRenderPipeline(rpd, m_wirePipe) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_wirePipe) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    return draconic::core::ErrorCode::Ok;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    return foundation::core::ErrorCode::Ok;
 }
 
 void WireframeSample::OnRender()
 {
-    using draconic::core::f32, draconic::core::Span;
+    using foundation::core::f32, foundation::core::Span;
     if (m_fenceVal > 0)
         m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+    if (m_swapChain->AcquireNextImage() != foundation::core::ErrorCode::Ok)
         return;
     f32 aspect = static_cast<f32>(m_width) / static_cast<f32>(m_height);
     Float4x4 model = Float4x4::RotationY(m_totalTime * 0.8f);
@@ -182,7 +181,7 @@ void WireframeSample::OnRender()
     // PerspectiveFovRH gives clip.w = -viewZ, so geometry must have negative view z.
     f32 view[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -3, 1};
     Float4x4 proj =
-        Float4x4::PerspectiveFovRH(draconic::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
+        Float4x4::PerspectiveFovRH(foundation::core::DegreesToRadians(45.0f), aspect, 0.1f, 100.0f);
     Float4x4 vMat;
     std::memcpy(vMat.Data(), view, 64);
     Float4x4 mvp = model * vMat * proj;
@@ -190,7 +189,7 @@ void WireframeSample::OnRender()
 
     m_pool->Reset();
     rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc)
+    if (m_pool->CreateEncoder(enc) != foundation::core::ErrorCode::Ok || !enc)
         return;
     enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined,
                            rhi::ResourceState::RenderTarget);

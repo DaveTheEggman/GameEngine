@@ -70,7 +70,7 @@ import draconic.vfs.pak;
 #include "PlayerApplication.h"      // the shared runner (uses the imports above)
 #include "Runtime.Client/AppMain.h" // DRACONIC_APP_MAIN (web body: WebShell + WebGPU + rAF runner)
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 namespace
 {
@@ -95,20 +95,20 @@ namespace
 
     // Default-constructible so DRACONIC_APP_MAIN can own it in static storage: the dist is
     // fetched from the serving folder into the MEMFS root, so the project dir is ".".
-    class WebPlayerApplication final : public draconic::player::PlayerApplication
+    class WebPlayerApplication final : public engine::player::PlayerApplication
     {
     public:
         WebPlayerApplication() : PlayerApplication(MakeOptions()) {}
 
     private:
-        static draconic::player::PlayerOptions MakeOptions()
+        static engine::player::PlayerOptions MakeOptions()
         {
             // Fetch BEFORE the app boots: the project loader reads player.xml/Content.pak
             // during Initialize, and the render subsystem loads shaders.dpak on device init.
             FetchDistFile("player.xml");
             FetchDistFile("Content.pak");
             FetchDistFile("shaders.dpak");
-            draconic::player::PlayerOptions options;
+            engine::player::PlayerOptions options;
             options.projectDir = String(u8".");
             return options;
         }

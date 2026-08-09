@@ -7,8 +7,8 @@
 import draconic.core;
 import draconic.animation;
 
-using namespace draconic::core;
-using namespace draconic::animation;
+using namespace foundation::core;
+using namespace foundation::animation;
 
 // A 3-bone chain root(0) -> child(1) -> grandchild(2), each translated +Y from its parent.
 static void BuildChain(Skeleton& s)

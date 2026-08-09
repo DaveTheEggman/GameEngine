@@ -6,7 +6,7 @@ export module draconic.core:random;
 
 import :base;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Random - PCG32. Deterministic and seedable (good for replays/tests).

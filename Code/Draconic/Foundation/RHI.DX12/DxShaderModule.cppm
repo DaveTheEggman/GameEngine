@@ -11,9 +11,9 @@ export module draconic.rhi.dx12:shader_module;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxShaderModuleImpl : public ShaderModule
@@ -37,4 +37,4 @@ export namespace draconic::rhi::dx12
         Array<u8> m_bytecode;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

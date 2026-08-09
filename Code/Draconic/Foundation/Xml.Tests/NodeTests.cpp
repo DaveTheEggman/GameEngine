@@ -3,8 +3,8 @@
 #include "Core/Prelude.h"
 import draconic.core;
 import draconic.xml;
-using namespace draconic::core;
-using namespace draconic::xml;
+using namespace foundation::core;
+using namespace foundation::xml;
 
 namespace
 {

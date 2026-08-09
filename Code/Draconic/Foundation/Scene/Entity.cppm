@@ -13,9 +13,9 @@ export module draconic.scene:entity;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::scene
+export namespace foundation::scene
 {
 
     struct EntityHandle
@@ -45,4 +45,4 @@ export namespace draconic::scene
         }
     };
 
-} // namespace draconic::scene
+} // namespace foundation::scene

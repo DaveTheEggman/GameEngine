@@ -13,9 +13,9 @@ export module draconic.fonts:text_util;
 import draconic.core;
 import :interfaces; // IFont (MeasureString) for TruncateToWidth
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     // Decodes the Unicode codepoint starting at `text[index]`, advancing
     // `index` past the consumed byte(s). A malformed/truncated sequence decodes

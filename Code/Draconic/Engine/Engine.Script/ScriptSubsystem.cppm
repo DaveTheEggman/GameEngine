@@ -33,6 +33,7 @@ export import draconic.script.facades; // Entity/Log/Time/Random + the run-servi
 
 import draconic.core;
 import draconic.runtime;
+import draconic.runtime;
 import draconic.scene;
 import draconic.engine.scene;
 import draconic.resource;
@@ -40,15 +41,18 @@ import draconic.script;
 import draconic.script.resource;
 import draconic.profiler;
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation;
+using namespace foundation::script;
+namespace core = foundation::core;
+namespace resource = foundation::resource;
 
-export namespace draconic::engine::script
+export namespace engine::script
 {
-    // Foundation aliases (sibling draconic::engine::* namespaces would otherwise shadow these).
-    namespace scene = draconic::scene;
+    // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
+    namespace scene = foundation::scene;
 
-    namespace scene = draconic::scene;
+    namespace scene = foundation::scene;
 
     // ---- the script event bridge (Track B): scene bus events -> on<Event> handlers ----
 
@@ -1165,8 +1169,8 @@ export namespace draconic::engine::script
 
     inline void SerializeSceneScriptSettings(ISerializer& ar, SceneScriptSettings& s)
     {
-        draconic::core::Serialize(ar, "script", s.script);
-        draconic::core::Serialize(ar, "enabled", s.enabled);
+        foundation::core::Serialize(ar, "script", s.script);
+        foundation::core::Serialize(ar, "enabled", s.enabled);
     }
 
     /// The scene-root script tier (Unreal Level Blueprint / Godot scene script). One `Level` object
@@ -1274,7 +1278,7 @@ export namespace draconic::engine::script
             {
                 return; // no Level bound (or still pending on an async load) - the system is inert
             }
-            Scene handle; // the bound Scene ctor arg (draconic::script::Scene, this scene)
+            Scene handle; // the bound Scene ctor arg (foundation::script::Scene, this scene)
             handle.scene = m_scene;
             Variant arg = Variant::From(handle);
             m_boundClass = scriptClass;
@@ -1366,7 +1370,7 @@ export namespace draconic::engine::script
         TriggerExit
     };
 
-    class ScriptSubsystem final : public draconic::runtime::Subsystem, public scene::ISceneAware
+    class ScriptSubsystem final : public foundation::runtime::Subsystem, public scene::ISceneAware
     {
     public:
         /// The DEFAULT run host - the one for the editor's editing/loose scenes (game-instance.md
@@ -1581,9 +1585,9 @@ export namespace draconic::engine::script
         void OnReady() override
         {
             ConfigureRunHost(m_ownedRunHost); // wire the default (editor-scene) run host once
-            if (draconic::runtime::Context* context = GetContext())
+            if (foundation::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<engine::scene::SceneSubsystem>())
                 {
                     scenes->RegisterSceneAware(this);
                 }
@@ -1591,9 +1595,9 @@ export namespace draconic::engine::script
         }
         void OnShutdown() override
         {
-            if (draconic::runtime::Context* context = GetContext())
+            if (foundation::runtime::Context* context = GetContext())
             {
-                if (auto* scenes = context->GetSubsystem<draconic::engine::scene::SceneSubsystem>())
+                if (auto* scenes = context->GetSubsystem<engine::scene::SceneSubsystem>())
                 {
                     scenes->UnregisterSceneAware(this);
                 }

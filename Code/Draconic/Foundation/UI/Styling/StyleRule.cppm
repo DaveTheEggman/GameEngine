@@ -21,9 +21,10 @@ import :style_property;
 import :style_value;
 import :style_selector;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     // Object (RefCounted) so a StyleSheet can own rules via RefPtr and return stable references
     // from its fluent builders.

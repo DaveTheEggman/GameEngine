@@ -14,7 +14,7 @@ export module draconic.editor.script.angelscript;
 
 import draconic.core;
 
-export namespace draconic::editor{
+export namespace editor{
     /// Registers AngelScript's editor-UI services (the CodeEditView lexer, under both the
     /// canonical "angelscript" id and the "as" alias). An editor entry point's job, beside
     /// RegisterAngelScriptBackend/RegisterAngelScriptScriptCook.

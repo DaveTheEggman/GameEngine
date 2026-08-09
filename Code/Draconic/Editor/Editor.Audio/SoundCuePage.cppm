@@ -21,30 +21,30 @@ import draconic.ui;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace audio = draconic::audio;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace audio = foundation::audio;
 
     class SoundCueEditorPage final : public app::UIEditorPage
     {
     public:
         SoundCueEditorPage(EditorContext& context, runtime::IApplicationHost& host,
-                           draconic::content::Instance& instance)
+                           foundation::content::Instance& instance)
             : m_context(&context), m_title(instance.Name())
         {
             SetInstanceId(instance.Id());
-            m_audio = host.Ctx().GetSubsystem<draconic::engine::audio::AudioSubsystem>();
+            m_audio = host.Ctx().GetSubsystem<engine::audio::AudioSubsystem>();
             if (RefPtr<ISerializable> object = instance.ReadObject())
             {
-                if (auto* asset = Cast<draconic::pipeline::SoundCueAsset>(object.Get()))
+                if (auto* asset = Cast<pipeline::SoundCueAsset>(object.Get()))
                 {
                     // Field-wise copy (the Asset base is non-copyable).
                     m_asset.fileName = asset->fileName; // SourcePath copies
-                    for (usize i = 0; i < draconic::pipeline::kSoundCueSlotCount; ++i)
+                    for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
                     {
                         m_asset.clipIds[i] = asset->clipIds[i];
                         m_asset.weights[i] = asset->weights[i];
@@ -62,7 +62,7 @@ export namespace draconic::editor
             column->Spacing = 6.0f;
 
             // Slot rows: "<clip name>" [Pick...] [Clear] weight [field]
-            for (usize i = 0; i < draconic::pipeline::kSoundCueSlotCount; ++i)
+            for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
             {
                 auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
                 row->Direction = ui::Orientation::Horizontal;
@@ -167,7 +167,7 @@ export namespace draconic::editor
             }
 
             m_content = column;
-            for (usize i = 0; i < draconic::pipeline::kSoundCueSlotCount; ++i)
+            for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
             {
                 RefreshSlot(i);
             }
@@ -199,9 +199,9 @@ export namespace draconic::editor
         [[nodiscard]] RefPtr<audio::AudioClip> LoadSlotClip(usize slot);
 
         EditorContext* m_context = nullptr;
-        draconic::engine::audio::AudioSubsystem* m_audio = nullptr;
+        engine::audio::AudioSubsystem* m_audio = nullptr;
         String m_title;
-        draconic::pipeline::SoundCueAsset m_asset;
+        pipeline::SoundCueAsset m_asset;
         Random m_rng;
         i32 m_lastVariant = -1;
         u32 m_sequentialCursor = 0;
@@ -209,8 +209,8 @@ export namespace draconic::editor
         String m_pickText;
         HashMap<Guid, RefPtr<audio::AudioClip>> m_clipCache;
         RefPtr<ui::View> m_content;
-        RefPtr<ui::Label> m_slotLabels[draconic::pipeline::kSoundCueSlotCount];
-        RefPtr<ui::NumericField> m_weightFields[draconic::pipeline::kSoundCueSlotCount];
+        RefPtr<ui::Label> m_slotLabels[pipeline::kSoundCueSlotCount];
+        RefPtr<ui::NumericField> m_weightFields[pipeline::kSoundCueSlotCount];
         Array<RefPtr<ui::NumericField>> m_jitterFields;
         RefPtr<ui::Button> m_modeButton;
         RefPtr<ui::Label> m_status;
@@ -222,7 +222,7 @@ export namespace draconic::editor
         explicit SoundCuePageFactory(runtime::IApplicationHost& host) : m_host(&host) {}
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
 
     private:
         runtime::IApplicationHost* m_host;

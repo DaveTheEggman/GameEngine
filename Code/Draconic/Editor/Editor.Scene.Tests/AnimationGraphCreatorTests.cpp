@@ -13,14 +13,14 @@ import draconic.pipeline.core;
 import draconic.editor.core;
 import draconic.editor.scene;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::editor;
-namespace anim = draconic::animation;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace editor;
+namespace anim = foundation::animation;
 
 TEST_CASE("animation graph: creator path round-trips through a real project")
 {
-    draconic::pipeline::RegisterAnimationAssets();
+    pipeline::RegisterAnimationAssets();
 
     const StringView dir = u8"graph_crash_repro_project";
     FileDelete(PathJoin(dir, u8"Project.xml"));
@@ -38,21 +38,21 @@ TEST_CASE("animation graph: creator path round-trips through a real project")
     EditorContext ctx;
     ctx.SetProject(project.Get());
 
-    draconic::content::Group* root = project->SourceDb().RootGroup();
-    draconic::content::Group* group = root->CreateGroup(u8"Animations");
+    foundation::content::Group* root = project->SourceDb().RootGroup();
+    foundation::content::Group* group = root->CreateGroup(u8"Animations");
     REQUIRE(group != nullptr);
 
-    draconic::content::Instance* instance =
-        group->CreateInstance(u8"AnimationGraph", draconic::pipeline::AnimationGraphAsset::StaticType());
+    foundation::content::Instance* instance =
+        group->CreateInstance(u8"AnimationGraph", pipeline::AnimationGraphAsset::StaticType());
     REQUIRE(instance != nullptr);
-    draconic::pipeline::AnimationGraphAsset asset;
+    pipeline::AnimationGraphAsset asset;
     SeedDefaultAnimationGraph(asset);
     REQUIRE(instance->WriteObject(asset).IsOk());
 
     // The page-open read path.
     RefPtr<ISerializable> obj = instance->ReadObject();
     REQUIRE(obj.Get() != nullptr);
-    auto* readBack = Cast<draconic::pipeline::AnimationGraphAsset>(obj.Get());
+    auto* readBack = Cast<pipeline::AnimationGraphAsset>(obj.Get());
     REQUIRE(readBack != nullptr);
     CHECK(readBack->source.layers.Size() == 1u);
     CHECK(readBack->layerStatePositions.Size() == 1u);

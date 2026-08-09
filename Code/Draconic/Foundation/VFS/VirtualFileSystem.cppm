@@ -14,9 +14,9 @@ export module draconic.vfs:vfs;
 import draconic.core;
 import :ifilesystem;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vfs
+export namespace foundation::vfs
 {
     class VirtualFileSystem final : public IFileSystem
     {

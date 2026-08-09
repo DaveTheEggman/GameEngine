@@ -5,9 +5,9 @@ export module draconic.model:vertex_format;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::model
+export namespace foundation::model
 {
 
     /// Vertex element semantic types.
@@ -73,4 +73,4 @@ export namespace draconic::model
         }
     };
 
-} // namespace draconic::model
+} // namespace foundation::model

@@ -14,11 +14,11 @@ import draconic.animation;
 import draconic.animation.resource;
 import draconic.animation.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::vfs;
-using namespace draconic::resource;
-using namespace draconic::animation;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::vfs;
+using namespace foundation::resource;
+using namespace foundation::animation;
 
 TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it back")
 {
@@ -32,7 +32,7 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"skel", SkeletonSource::StaticType());
         id = inst->Id();
@@ -51,16 +51,16 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
         skel.ComputeInverseBindPoses();
 
         SkeletonAsset asset;
-        asset.fileName = draconic::vfs::SourcePath(u8"models/char.gltf");
+        asset.fileName = foundation::vfs::SourcePath(u8"models/char.gltf");
         SkeletonSource::FromSkeleton(skel, asset.source);
 
         SkeletonAssetBuilder builder;
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     SkeletonFactory factory;
     ResourceManager manager(db);

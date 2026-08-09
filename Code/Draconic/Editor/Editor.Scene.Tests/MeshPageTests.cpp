@@ -11,15 +11,15 @@ import draconic.core;
 import draconic.geometry;
 import draconic.editor.scene;
 
-using namespace draconic::core;
-namespace geometry = draconic::geometry;
+using namespace foundation::core;
+namespace geometry = foundation::geometry;
 
 TEST_CASE("MeshStatLines reports counts, bounds, skinning, and per-submesh rows")
 {
     RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(2.0f);
     REQUIRE(cube.Get() != nullptr);
 
-    Array<String> lines = draconic::editor::MeshStatLines(*cube);
+    Array<String> lines = editor::MeshStatLines(*cube);
 
     // Header block: name, vertices, indices, submeshes, bounds, skinned - then one line per submesh.
     REQUIRE(lines.Size() >= 6 + cube->subMeshes.Size());
@@ -64,7 +64,7 @@ TEST_CASE("MeshStatLines counts match the mesh geometry")
     REQUIRE(sphere->VertexCount() > 0);
     REQUIRE(sphere->IndexCount() > 0);
 
-    Array<String> lines = draconic::editor::MeshStatLines(*sphere);
+    Array<String> lines = editor::MeshStatLines(*sphere);
 
     const String vExpected = Format(u8"Vertices: {}", sphere->VertexCount());
     const String iExpected = Format(u8"Indices: {}", sphere->IndexCount());

@@ -14,9 +14,9 @@ import draconic.core; // Array, ViewId-compatible
 import :view_id;
 import :input_enums; // FocusDirection
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View;
     class UIContext;

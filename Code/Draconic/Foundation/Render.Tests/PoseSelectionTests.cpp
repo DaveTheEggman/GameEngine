@@ -9,8 +9,8 @@
 import draconic.core;
 import draconic.render;
 
-using namespace draconic::core;
-using namespace draconic::render;
+using namespace foundation::core;
+using namespace foundation::render;
 
 TEST_CASE("SelectPose: Sequential is i % M")
 {

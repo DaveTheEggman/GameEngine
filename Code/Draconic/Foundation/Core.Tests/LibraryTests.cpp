@@ -8,7 +8,7 @@
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 // Web has no dynamic linking (dlopen'd sidecars are a DESKTOP concept - web ships
 // everything linked in), so the plugin-loading cases sit out; the missing-file

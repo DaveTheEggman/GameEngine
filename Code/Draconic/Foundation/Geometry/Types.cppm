@@ -13,9 +13,9 @@ export module draconic.geometry:types;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::geometry
+export namespace foundation::geometry
 {
 
     // Primitive topology a submesh is drawn with.
@@ -85,4 +85,4 @@ export namespace draconic::geometry
     static_assert(alignof(VertexSkinning) == 4,
                   "skinning stream must stay 4-byte aligned (packed, not SIMD)");
 
-} // namespace draconic::geometry
+} // namespace foundation::geometry

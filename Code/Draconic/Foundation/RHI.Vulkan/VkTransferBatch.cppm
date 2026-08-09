@@ -17,9 +17,9 @@ import :buffer;
 import :texture;
 import :fence;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkTransferBatchImpl : public TransferBatch
@@ -341,4 +341,4 @@ export namespace draconic::rhi::vk
         u64 m_asyncValue = 0;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

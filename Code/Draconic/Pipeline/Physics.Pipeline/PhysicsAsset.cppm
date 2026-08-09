@@ -1,7 +1,7 @@
 // Draconic::PhysicsEditor - the `draconic.physics.editor` module (tooling).
 //
 // Source-side physics authoring + cook (docs/design/physics.md §5):
-//   * CollisionShapeAsset (draconic::pipeline::Asset): references a source MESH asset by guid +
+//   * CollisionShapeAsset (pipeline::Asset): references a source MESH asset by guid +
 //     cook settings (convex/trimesh, hull tolerance). The builder cooks via Jolt from
 //     the mesh's already-extracted StaticMeshSource (positions/indices/material slots) -
 //     no gltf/fbx reload - and declares a hash-chained `reads` edge on the mesh, so a
@@ -26,10 +26,10 @@ import draconic.geometry.resource;
 import draconic.physics;
 import draconic.physics.resource;
 
-using namespace draconic::core;
-using namespace draconic::physics;
+using namespace foundation::core;
+using namespace foundation::physics;
 
-export namespace draconic::pipeline{
+export namespace pipeline{
     enum class CollisionCookKind : u8
     {
         ConvexHull = 0, // dynamic-capable simplified hull
@@ -37,9 +37,9 @@ export namespace draconic::pipeline{
     };
 
     // Source asset: which mesh to cook + how.
-    class CollisionShapeAsset final : public draconic::pipeline::Asset
+    class CollisionShapeAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(CollisionShapeAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(CollisionShapeAsset, pipeline::Asset)
     public:
         Guid sourceMesh; // StaticMeshAsset guid
         CollisionCookKind cook = CollisionCookKind::ConvexHull;
@@ -47,16 +47,16 @@ export namespace draconic::pipeline{
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName (unused; guid-sourced)
-            draconic::core::Serialize(ar, "sourceMesh", sourceMesh);
+            pipeline::Asset::Serialize(ar); // fileName (unused; guid-sourced)
+            foundation::core::Serialize(ar, "sourceMesh", sourceMesh);
             u8 kind = static_cast<u8>(cook);
-            draconic::core::Serialize(ar, "cook", kind);
+            foundation::core::Serialize(ar, "cook", kind);
             cook = static_cast<CollisionCookKind>(kind);
-            draconic::core::Serialize(ar, "hullTolerance", hullTolerance);
+            foundation::core::Serialize(ar, "hullTolerance", hullTolerance);
         }
     };
 
-    class CollisionShapeAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class CollisionShapeAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -69,9 +69,9 @@ export namespace draconic::pipeline{
         }
         [[nodiscard]] u32 Version() const override { return 1; }
 
-        void ScanDependencies(const draconic::pipeline::Asset& asset,
-                              draconic::pipeline::AssetBuildContext&,
-                              draconic::pipeline::AssetDependencies& out) override
+        void ScanDependencies(const pipeline::Asset& asset,
+                              pipeline::AssetBuildContext&,
+                              pipeline::AssetDependencies& out) override
         {
             const CollisionShapeAsset& ca = static_cast<const CollisionShapeAsset&>(asset);
             if (!ca.sourceMesh.IsNil())
@@ -80,8 +80,8 @@ export namespace draconic::pipeline{
             }
         }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const CollisionShapeAsset& ca = static_cast<const CollisionShapeAsset&>(asset);
             if (ctx.output == nullptr || ctx.db == nullptr)
@@ -89,7 +89,7 @@ export namespace draconic::pipeline{
                 return Status{ErrorCode::InvalidArgument};
             }
 
-            draconic::content::Instance* meshInstance = ctx.db->GetInstance(ca.sourceMesh);
+            foundation::content::Instance* meshInstance = ctx.db->GetInstance(ca.sourceMesh);
             if (meshInstance == nullptr)
             {
                 DRACONIC_LOG_ERROR(u8"Physics", u8"collision shape: source mesh not found in db");
@@ -101,12 +101,12 @@ export namespace draconic::pipeline{
             // that is what the real editor cook hands us here. Headless/source-db paths instead yield
             // the StaticMeshAsset that embeds the same source; accept either so the cook works from
             // whichever the db resolves the guid to.
-            const draconic::geometry::StaticMeshSource* meshSource = nullptr;
-            if (auto* product = Cast<draconic::geometry::StaticMeshSource>(object.Get()))
+            const foundation::geometry::StaticMeshSource* meshSource = nullptr;
+            if (auto* product = Cast<foundation::geometry::StaticMeshSource>(object.Get()))
             {
                 meshSource = product;
             }
-            else if (auto* meshAsset = Cast<draconic::pipeline::StaticMeshAsset>(object.Get()))
+            else if (auto* meshAsset = Cast<pipeline::StaticMeshAsset>(object.Get()))
             {
                 meshSource = &meshAsset->source;
             }
@@ -153,10 +153,10 @@ export namespace draconic::pipeline{
 
         // Shared with the model importer's generate-collision path (cooks without a db).
         [[nodiscard]] static Status
-        CookFromMeshSource(const draconic::geometry::StaticMeshSource& mesh,
+        CookFromMeshSource(const foundation::geometry::StaticMeshSource& mesh,
                            const CollisionShapeAsset& settings, CollisionShapeSource& out)
         {
-            const usize stride = sizeof(draconic::geometry::StaticMeshVertex);
+            const usize stride = sizeof(foundation::geometry::StaticMeshVertex);
             const usize vertexCount = mesh.vertexBlob.Size() / stride;
             if (vertexCount == 0)
             {
@@ -191,9 +191,9 @@ export namespace draconic::pipeline{
                 Array<u32> slots;
                 for (usize s = 0; s < mesh.subStart.Size(); ++s)
                 {
-                    const auto primitive = static_cast<draconic::geometry::PrimitiveType>(
+                    const auto primitive = static_cast<foundation::geometry::PrimitiveType>(
                         s < mesh.subPrim.Size() ? mesh.subPrim[s] : 0);
-                    if (primitive != draconic::geometry::PrimitiveType::Triangles)
+                    if (primitive != foundation::geometry::PrimitiveType::Triangles)
                     {
                         continue;
                     }
@@ -242,9 +242,9 @@ export namespace draconic::pipeline{
     };
 
     // Authored surface properties -> cooked PhysicalMaterialSource (a straight copy).
-    class PhysicalMaterialAsset final : public draconic::pipeline::Asset
+    class PhysicalMaterialAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(PhysicalMaterialAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(PhysicalMaterialAsset, pipeline::Asset)
     public:
         f32 friction = 0.5f;
         f32 restitution = 0.0f;
@@ -252,14 +252,14 @@ export namespace draconic::pipeline{
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar);
-            draconic::core::Serialize(ar, "friction", friction);
-            draconic::core::Serialize(ar, "restitution", restitution);
-            draconic::core::Serialize(ar, "density", density);
+            pipeline::Asset::Serialize(ar);
+            foundation::core::Serialize(ar, "friction", friction);
+            foundation::core::Serialize(ar, "restitution", restitution);
+            foundation::core::Serialize(ar, "density", density);
         }
     };
 
-    class PhysicalMaterialAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class PhysicalMaterialAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -271,8 +271,8 @@ export namespace draconic::pipeline{
             return &PhysicalMaterialSource::StaticType();
         }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const PhysicalMaterialAsset& ma = static_cast<const PhysicalMaterialAsset&>(asset);
             if (ctx.output == nullptr)

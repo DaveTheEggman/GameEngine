@@ -30,9 +30,11 @@ import draconic.ui;
 import draconic.fonts;
 import :node_graph_types;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// How a canvas anchors + renders its connections.
     enum class ConnectionStyle : u8

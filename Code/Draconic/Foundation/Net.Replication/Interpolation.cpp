@@ -10,9 +10,9 @@ module draconic.net.replication;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::net
+namespace foundation::net
 {
 
     namespace

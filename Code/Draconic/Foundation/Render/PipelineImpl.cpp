@@ -26,10 +26,11 @@ import :debug_pass;
 import :decal_pass;
 import :sky;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rendergraph = foundation::rendergraph;
+namespace rhi = foundation::rhi;
 
-namespace draconic::render
+namespace foundation::render
 {
     void Renderer::PrepareFrame(u32 maxDraws, u32 frameIndex)
     {

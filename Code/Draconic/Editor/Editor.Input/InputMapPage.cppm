@@ -28,26 +28,25 @@ import draconic.ui.runtime;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace input = draconic::input;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace input = foundation::input;
 
     namespace detail
     {
         [[nodiscard]] inline String KeyName(u32 code)
         {
-            namespace shell = draconic::shell;
-            const shell::KeyCode key = static_cast<shell::KeyCode>(code);
-            const u32 a = static_cast<u32>(shell::KeyCode::A);
-            const u32 z = static_cast<u32>(shell::KeyCode::Z);
-            const u32 n0 = static_cast<u32>(shell::KeyCode::Num0);
-            const u32 n9 = static_cast<u32>(shell::KeyCode::Num9);
-            const u32 f1 = static_cast<u32>(shell::KeyCode::F1);
-            const u32 f24 = static_cast<u32>(shell::KeyCode::F24);
+            const foundation::shell::KeyCode key = static_cast<foundation::shell::KeyCode>(code);
+            const u32 a = static_cast<u32>(foundation::shell::KeyCode::A);
+            const u32 z = static_cast<u32>(foundation::shell::KeyCode::Z);
+            const u32 n0 = static_cast<u32>(foundation::shell::KeyCode::Num0);
+            const u32 n9 = static_cast<u32>(foundation::shell::KeyCode::Num9);
+            const u32 f1 = static_cast<u32>(foundation::shell::KeyCode::F1);
+            const u32 f24 = static_cast<u32>(foundation::shell::KeyCode::F24);
             String out;
             if (code >= a && code <= z)
             {
@@ -67,35 +66,35 @@ export namespace draconic::editor
             }
             switch (key)
             {
-            case shell::KeyCode::Return:
+            case foundation::shell::KeyCode::Return:
                 return String(u8"Return");
-            case shell::KeyCode::Escape:
+            case foundation::shell::KeyCode::Escape:
                 return String(u8"Escape");
-            case shell::KeyCode::Backspace:
+            case foundation::shell::KeyCode::Backspace:
                 return String(u8"Backspace");
-            case shell::KeyCode::Tab:
+            case foundation::shell::KeyCode::Tab:
                 return String(u8"Tab");
-            case shell::KeyCode::Space:
+            case foundation::shell::KeyCode::Space:
                 return String(u8"Space");
-            case shell::KeyCode::Left:
+            case foundation::shell::KeyCode::Left:
                 return String(u8"Left");
-            case shell::KeyCode::Right:
+            case foundation::shell::KeyCode::Right:
                 return String(u8"Right");
-            case shell::KeyCode::Up:
+            case foundation::shell::KeyCode::Up:
                 return String(u8"Up");
-            case shell::KeyCode::Down:
+            case foundation::shell::KeyCode::Down:
                 return String(u8"Down");
-            case shell::KeyCode::LeftShift:
+            case foundation::shell::KeyCode::LeftShift:
                 return String(u8"LShift");
-            case shell::KeyCode::RightShift:
+            case foundation::shell::KeyCode::RightShift:
                 return String(u8"RShift");
-            case shell::KeyCode::LeftCtrl:
+            case foundation::shell::KeyCode::LeftCtrl:
                 return String(u8"LCtrl");
-            case shell::KeyCode::RightCtrl:
+            case foundation::shell::KeyCode::RightCtrl:
                 return String(u8"RCtrl");
-            case shell::KeyCode::LeftAlt:
+            case foundation::shell::KeyCode::LeftAlt:
                 return String(u8"LAlt");
-            case shell::KeyCode::RightAlt:
+            case foundation::shell::KeyCode::RightAlt:
                 return String(u8"RAlt");
             default:
                 break;
@@ -107,31 +106,31 @@ export namespace draconic::editor
 
         [[nodiscard]] inline StringView PadButtonName(u32 code)
         {
-            switch (static_cast<shell::GamepadButton>(code))
+            switch (static_cast<foundation::shell::GamepadButton>(code))
             {
-            case shell::GamepadButton::South:
+            case foundation::shell::GamepadButton::South:
                 return u8"Pad South";
-            case shell::GamepadButton::East:
+            case foundation::shell::GamepadButton::East:
                 return u8"Pad East";
-            case shell::GamepadButton::West:
+            case foundation::shell::GamepadButton::West:
                 return u8"Pad West";
-            case shell::GamepadButton::North:
+            case foundation::shell::GamepadButton::North:
                 return u8"Pad North";
-            case shell::GamepadButton::LeftShoulder:
+            case foundation::shell::GamepadButton::LeftShoulder:
                 return u8"Pad LB";
-            case shell::GamepadButton::RightShoulder:
+            case foundation::shell::GamepadButton::RightShoulder:
                 return u8"Pad RB";
-            case shell::GamepadButton::DPadUp:
+            case foundation::shell::GamepadButton::DPadUp:
                 return u8"DPad Up";
-            case shell::GamepadButton::DPadDown:
+            case foundation::shell::GamepadButton::DPadDown:
                 return u8"DPad Down";
-            case shell::GamepadButton::DPadLeft:
+            case foundation::shell::GamepadButton::DPadLeft:
                 return u8"DPad Left";
-            case shell::GamepadButton::DPadRight:
+            case foundation::shell::GamepadButton::DPadRight:
                 return u8"DPad Right";
-            case shell::GamepadButton::Start:
+            case foundation::shell::GamepadButton::Start:
                 return u8"Pad Start";
-            case shell::GamepadButton::Back:
+            case foundation::shell::GamepadButton::Back:
                 return u8"Pad Back";
             default:
                 return u8"Pad Button";
@@ -145,13 +144,13 @@ export namespace draconic::editor
             case input::BindingSource::Key:
                 return KeyName(b.code);
             case input::BindingSource::MouseButton:
-                switch (static_cast<shell::MouseButton>(b.code))
+                switch (static_cast<foundation::shell::MouseButton>(b.code))
                 {
-                case shell::MouseButton::Left:
+                case foundation::shell::MouseButton::Left:
                     return String(u8"Mouse Left");
-                case shell::MouseButton::Right:
+                case foundation::shell::MouseButton::Right:
                     return String(u8"Mouse Right");
-                case shell::MouseButton::Middle:
+                case foundation::shell::MouseButton::Middle:
                     return String(u8"Mouse Middle");
                 default:
                     return String(u8"Mouse Button");
@@ -172,19 +171,19 @@ export namespace draconic::editor
             case input::BindingSource::GamepadButton:
                 return String(PadButtonName(b.code));
             case input::BindingSource::GamepadAxis:
-                switch (static_cast<shell::GamepadAxis>(b.code))
+                switch (static_cast<foundation::shell::GamepadAxis>(b.code))
                 {
-                case shell::GamepadAxis::LeftX:
+                case foundation::shell::GamepadAxis::LeftX:
                     return String(u8"Pad Left X");
-                case shell::GamepadAxis::LeftY:
+                case foundation::shell::GamepadAxis::LeftY:
                     return String(u8"Pad Left Y");
-                case shell::GamepadAxis::RightX:
+                case foundation::shell::GamepadAxis::RightX:
                     return String(u8"Pad Right X");
-                case shell::GamepadAxis::RightY:
+                case foundation::shell::GamepadAxis::RightY:
                     return String(u8"Pad Right Y");
-                case shell::GamepadAxis::LeftTrigger:
+                case foundation::shell::GamepadAxis::LeftTrigger:
                     return String(u8"Pad LT");
-                case shell::GamepadAxis::RightTrigger:
+                case foundation::shell::GamepadAxis::RightTrigger:
                     return String(u8"Pad RT");
                 default:
                     return String(u8"Pad Axis");
@@ -305,11 +304,11 @@ export namespace draconic::editor
     {
     public:
         InputMapEditorPage(EditorContext& context, runtime::IApplicationHost&,
-                           draconic::content::Instance& instance)
+                           foundation::content::Instance& instance)
             : m_context(&context), m_title(instance.Name())
         {
             RefPtr<ISerializable> object = instance.ReadObject();
-            if (auto* asset = Cast<draconic::pipeline::InputMapAsset>(object.Get()))
+            if (auto* asset = Cast<pipeline::InputMapAsset>(object.Get()))
             {
                 m_map = asset->Map();
             }
@@ -482,7 +481,7 @@ export namespace draconic::editor
         explicit InputMapPageFactory(runtime::IApplicationHost& host) : m_host(&host) {}
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
 
     private:
         runtime::IApplicationHost* m_host;

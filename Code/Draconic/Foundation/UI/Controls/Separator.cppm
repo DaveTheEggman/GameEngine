@@ -18,15 +18,15 @@ import :style_property;
 import :draw_context;
 import :enums; // Orientation
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class Separator : public View
     {
         DRACONIC_OBJECT(Separator, View)
     public:
-        Property<::draconic::ui::Orientation> Orientation{::draconic::ui::Orientation::Horizontal};
+        Property<::foundation::ui::Orientation> Orientation{::foundation::ui::Orientation::Horizontal};
         Property<f32> SeparatorThickness{1.0f};
 
         Separator()
@@ -34,7 +34,7 @@ export namespace draconic::ui
             Orientation.SetOwner(this);
             SeparatorThickness.SetOwner(this);
         }
-        explicit Separator(::draconic::ui::Orientation orientation) : Separator()
+        explicit Separator(::foundation::ui::Orientation orientation) : Separator()
         {
             Orientation.SetSilent(orientation);
         }
@@ -42,7 +42,7 @@ export namespace draconic::ui
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            if (Orientation.Value() == ::draconic::ui::Orientation::Horizontal)
+            if (Orientation.Value() == ::foundation::ui::Orientation::Horizontal)
                 MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
                                       constraints.ConstrainHeight(SeparatorThickness.Value())};
             else

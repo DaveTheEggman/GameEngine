@@ -12,18 +12,17 @@ import draconic.shaders;
 import draconic.samples.framework;
 import draconic.rhi.vulkan;
 
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
 
 class BorderSamplerSample : public samples::framework::SampleApp
 {
 public:
     using samples::framework::SampleApp::SampleApp;
-    draconic::core::StringView Title() const override { return u8"Sample013 - Border Sampler"; }
+    foundation::core::StringView Title() const override { return u8"Sample013 - Border Sampler"; }
 
 protected:
-    draconic::core::Status OnInit() override;
+    foundation::core::Status OnInit() override;
     void OnRender() override;
     void OnShutdown() override;
 
@@ -50,7 +49,7 @@ private:
         -0.25f, -0.25f, 0.0f, -0.5f, -0.5f, 0.25f,  -0.25f, 0.0f, 1.5f,  -0.5f,
         0.25f,  0.25f,  0.0f, 1.5f,  1.5f,  -0.25f, 0.25f,  0.0f, -0.5f, 1.5f,
     };
-    static constexpr draconic::core::u16 kQuadIdx[] = {0, 1, 2, 0, 2, 3};
+    static constexpr foundation::core::u16 kQuadIdx[] = {0, 1, 2, 0, 2, 3};
 
     shaders::Compiler* m_compiler = nullptr;
     rhi::ShaderModule *m_vs = nullptr, *m_ps = nullptr;
@@ -68,52 +67,52 @@ private:
     rhi::RenderPipeline* m_pipeline = nullptr;
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
-    draconic::core::u64 m_fenceVal = 0;
+    foundation::core::u64 m_fenceVal = 0;
 };
 
-draconic::core::Status BorderSamplerSample::OnInit()
+foundation::core::Status BorderSamplerSample::OnInit()
 {
     if (!m_device->features.borderSampling)
     {
         rhi::LogError("ERROR: Border sampling (ClampToBorder) is not supported by this "
                       "device/backend");
-        return draconic::core::ErrorCode::Unknown;
+        return foundation::core::ErrorCode::Unknown;
     }
 
-    using draconic::core::Status, draconic::core::Span, draconic::core::u8, draconic::core::u32;
+    using foundation::core::Status, foundation::core::Span, foundation::core::u8, foundation::core::u32;
     if (shaders::createCompiler(shaders::CompilerDesc{}, m_compiler) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Vertex, u8"VSMain", u8"VS",
-                                            m_vs) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_vs) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (samples::framework::CompileToModule(m_compiler, m_device, kShader,
                                             shaders::ShaderStage::Fragment, u8"PSMain", u8"PS",
-                                            m_ps) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+                                            m_ps) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Buffers.
     rhi::BufferDesc vbd{};
     vbd.size = sizeof(kQuadVerts);
     vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
     vbd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(vbd, m_vb) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(vbd, m_vb) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::BufferDesc ibd{};
     ibd.size = sizeof(kQuadIdx);
     ibd.usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst;
     ibd.memory = rhi::MemoryLocation::GpuOnly;
-    if (m_device->CreateBuffer(ibd, m_ib) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ibd, m_ib) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Uniform buffer: 3 slots * 256 bytes (DX12 CBV alignment).
     rhi::BufferDesc ubd{};
     ubd.size = 768;
     ubd.usage = rhi::BufferUsage::Uniform;
     ubd.memory = rhi::MemoryLocation::CpuToGpu;
-    if (m_device->CreateBuffer(ubd, m_ub) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBuffer(ubd, m_ub) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     m_ubMapped = m_ub->Map();
     // Write all 3 offsets upfront.
     float off0[4] = {-0.55f, 0.0f, 0.0f, 0.0f};
@@ -142,8 +141,8 @@ draconic::core::Status BorderSamplerSample::OnInit()
     td.height = th;
     td.mipLevelCount = 1;
     td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
-    if (m_device->CreateTexture(td, m_tex) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateTexture(td, m_tex) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::TransferBatch* batch = nullptr;
     m_graphicsQueue->CreateTransferBatch(batch);
@@ -163,11 +162,11 @@ draconic::core::Status BorderSamplerSample::OnInit()
     tvd.format = rhi::TextureFormat::RGBA8Unorm;
     tvd.mipLevelCount = 1;
     tvd.arrayLayerCount = 1;
-    if (m_device->CreateTextureView(m_tex, tvd, m_texView) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateTextureView(m_tex, tvd, m_texView) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Three samplers with ClampToBorder and different border colors.
-    auto makeSampler = [&](rhi::SamplerBorderColor bc, rhi::Sampler*& out) -> draconic::core::Status
+    auto makeSampler = [&](rhi::SamplerBorderColor bc, rhi::Sampler*& out) -> foundation::core::Status
     {
         rhi::SamplerDesc sd{};
         sd.minFilter = rhi::FilterMode::Nearest;
@@ -179,14 +178,14 @@ draconic::core::Status BorderSamplerSample::OnInit()
         return m_device->CreateSampler(sd, out);
     };
     if (makeSampler(rhi::SamplerBorderColor::TransparentBlack, m_sampTransparent) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (makeSampler(rhi::SamplerBorderColor::OpaqueBlack, m_sampOpaqueBlack) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     if (makeSampler(rhi::SamplerBorderColor::OpaqueWhite, m_sampOpaqueWhite) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Bind group layout: set 0 = texture + sampler.
     rhi::BindGroupLayoutEntry tE[2] = {
@@ -194,11 +193,11 @@ draconic::core::Status BorderSamplerSample::OnInit()
         rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment)};
     rhi::BindGroupLayoutDesc tBgld{};
     tBgld.entries = Span<const rhi::BindGroupLayoutEntry>(tE, 2);
-    if (m_device->CreateBindGroupLayout(tBgld, m_texBgl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(tBgld, m_texBgl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Three bind groups, one per sampler.
-    auto makeBG = [&](rhi::Sampler* s, rhi::BindGroup*& out) -> draconic::core::Status
+    auto makeBG = [&](rhi::Sampler* s, rhi::BindGroup*& out) -> foundation::core::Status
     {
         rhi::BindGroupEntry e[2] = {rhi::BindGroupEntry::TextureEntry(m_texView),
                                     rhi::BindGroupEntry::SamplerEntry(s)};
@@ -207,12 +206,12 @@ draconic::core::Status BorderSamplerSample::OnInit()
         bgd.entries = Span<const rhi::BindGroupEntry>(e, 2);
         return m_device->CreateBindGroup(bgd, out);
     };
-    if (makeBG(m_sampTransparent, m_bgTransparent) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    if (makeBG(m_sampOpaqueBlack, m_bgOpaqueBlack) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    if (makeBG(m_sampOpaqueWhite, m_bgOpaqueWhite) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (makeBG(m_sampTransparent, m_bgTransparent) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    if (makeBG(m_sampOpaqueBlack, m_bgOpaqueBlack) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    if (makeBG(m_sampOpaqueWhite, m_bgOpaqueWhite) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Bind group layout: set 1 = uniform buffer with dynamic offset.
     rhi::BindGroupLayoutEntry uEntry =
@@ -221,21 +220,21 @@ draconic::core::Status BorderSamplerSample::OnInit()
     rhi::BindGroupLayoutEntry uE[1] = {uEntry};
     rhi::BindGroupLayoutDesc uBgld{};
     uBgld.entries = Span<const rhi::BindGroupLayoutEntry>(uE, 1);
-    if (m_device->CreateBindGroupLayout(uBgld, m_uboBgl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroupLayout(uBgld, m_uboBgl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
     rhi::BindGroupEntry uBgE[1] = {rhi::BindGroupEntry::BufferEntry(m_ub, 0, 16)};
     rhi::BindGroupDesc uBgd{};
     uBgd.layout = m_uboBgl;
     uBgd.entries = Span<const rhi::BindGroupEntry>(uBgE, 1);
-    if (m_device->CreateBindGroup(uBgd, m_uboBg) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateBindGroup(uBgd, m_uboBg) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     // Pipeline layout.
     rhi::BindGroupLayout* sets[2] = {m_texBgl, m_uboBgl};
     rhi::PipelineLayoutDesc pld{};
     pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>(sets, 2);
-    if (m_device->CreatePipelineLayout(pld, m_pl) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreatePipelineLayout(pld, m_pl) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     rhi::VertexAttribute attrs[2] = {{rhi::VertexFormat::Float32x3, 0, 0},
                                      {rhi::VertexFormat::Float32x2, 12, 1}};
@@ -252,27 +251,27 @@ draconic::core::Status BorderSamplerSample::OnInit()
     rpd.fragment = rhi::FragmentState{};
     rpd.fragment->shader = {m_ps, u8"PSMain", rhi::ShaderStage::Fragment};
     rpd.fragment->targets = Span<const rhi::ColorTargetState>(&ct, 1);
-    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
+    if (m_device->CreateRenderPipeline(rpd, m_pipeline) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
 
     if (m_device->CreateCommandPool(rhi::QueueType::Graphics, m_pool) !=
-        draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    if (m_device->CreateFence(0, m_fence) != draconic::core::ErrorCode::Ok)
-        return draconic::core::ErrorCode::Unknown;
-    return draconic::core::ErrorCode::Ok;
+        foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    if (m_device->CreateFence(0, m_fence) != foundation::core::ErrorCode::Ok)
+        return foundation::core::ErrorCode::Unknown;
+    return foundation::core::ErrorCode::Ok;
 }
 
 void BorderSamplerSample::OnRender()
 {
-    using draconic::core::f32, draconic::core::u32, draconic::core::Span;
+    using foundation::core::f32, foundation::core::u32, foundation::core::Span;
     if (m_fenceVal > 0)
         m_fence->Wait(m_fenceVal, ~0ull);
-    if (m_swapChain->AcquireNextImage() != draconic::core::ErrorCode::Ok)
+    if (m_swapChain->AcquireNextImage() != foundation::core::ErrorCode::Ok)
         return;
     m_pool->Reset();
     rhi::CommandEncoder* enc = nullptr;
-    if (m_pool->CreateEncoder(enc) != draconic::core::ErrorCode::Ok || !enc)
+    if (m_pool->CreateEncoder(enc) != foundation::core::ErrorCode::Ok || !enc)
         return;
     enc->TransitionTexture(m_swapChain->CurrentTexture(), rhi::ResourceState::Undefined,
                            rhi::ResourceState::RenderTarget);

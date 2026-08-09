@@ -15,12 +15,12 @@
 #if DRACONIC_PROFILING
 
 #define DRACONIC_PROFILE_SCOPE(name)                                                               \
-    ::draconic::profiler::ScopedProfile DRACONIC_PROFILE_CONCAT(draconicProfScope_, __LINE__)      \
+    ::foundation::profiler::ScopedProfile DRACONIC_PROFILE_CONCAT(draconicProfScope_, __LINE__)      \
     {                                                                                              \
         (name)                                                                                     \
     }
-#define DRACONIC_PROFILE_FRAME_BEGIN() ::draconic::profiler::Profiler::Get().BeginFrame()
-#define DRACONIC_PROFILE_FRAME_END() ::draconic::profiler::Profiler::Get().EndFrame()
+#define DRACONIC_PROFILE_FRAME_BEGIN() ::foundation::profiler::Profiler::Get().BeginFrame()
+#define DRACONIC_PROFILE_FRAME_END() ::foundation::profiler::Profiler::Get().EndFrame()
 
 #else
 

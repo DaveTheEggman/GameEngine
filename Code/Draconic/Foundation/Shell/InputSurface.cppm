@@ -31,9 +31,9 @@ import draconic.core;
 import :input;
 import :input_types;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::shell
+export namespace foundation::shell
 {
     class InputSurface; // defined below; facades hold a back-pointer.
 

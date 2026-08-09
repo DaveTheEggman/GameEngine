@@ -12,9 +12,9 @@ export module draconic.ui:event_args;
 import draconic.core; // Float2
 import :input_enums;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Pooled mouse event args.
     struct MouseEventArgs

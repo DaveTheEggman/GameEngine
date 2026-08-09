@@ -9,7 +9,7 @@ import :allocator;
 import :hash;
 import :hash_map;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // HashSet - a set of keys, built on HashMap. Iterates keys.

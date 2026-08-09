@@ -5,9 +5,9 @@ export module draconic.model:model_vertex;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::model
+export namespace foundation::model
 {
 
     /// Standard vertex format for static models (52 bytes). tangent.w = TBN handedness (+-1).
@@ -53,4 +53,4 @@ export namespace draconic::model
 
     static_assert(sizeof(SkinnedModelVertex) == 76, "SkinnedModelVertex must be 76 bytes");
 
-} // namespace draconic::model
+} // namespace foundation::model

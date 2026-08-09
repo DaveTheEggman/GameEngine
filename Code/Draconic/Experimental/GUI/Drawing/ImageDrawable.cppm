@@ -16,11 +16,11 @@ import :rect;
 import :draw_context;
 import :drawable;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace image = draconic::image;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace image = foundation::image;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class ImageDrawable : public Drawable
     {

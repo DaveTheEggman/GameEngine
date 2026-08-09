@@ -9,9 +9,9 @@ import draconic.script;
 import draconic.script.wren;
 import draconic.editor.script;
 
-using namespace draconic::core;
-using namespace draconic::editor;
-namespace toolkit = draconic::ui::toolkit;
+using namespace foundation::core;
+using namespace editor;
+namespace toolkit = foundation::ui::toolkit;
 
 namespace
 {
@@ -30,7 +30,7 @@ namespace
 
 TEST_CASE("editor-script: bound-API completion (wren)")
 {
-    draconic::script::wren::RegisterWrenScriptBackend();
+    foundation::script::wren::RegisterWrenScriptBackend();
 
     ScriptApiSurface surface;
     surface.SetLanguage(u8"wren");

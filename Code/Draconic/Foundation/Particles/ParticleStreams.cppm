@@ -14,9 +14,9 @@ export module draconic.particles:streams;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::particles
+export namespace foundation::particles
 {
     // Attribute channels. Core three (Position/Age/Lifetime) are always allocated; the rest are
     // added on demand by the modules that need them. Custom..MaxStreams is user-reserved space.

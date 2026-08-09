@@ -13,9 +13,9 @@ import draconic.image;
 import draconic.texture;
 import draconic.texture.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-namespace image = draconic::image;
+using namespace foundation::core;
+using namespace pipeline;
+namespace image = foundation::image;
 
 namespace
 {
@@ -51,9 +51,9 @@ namespace
 
 TEST_CASE("reflection-p1: TextureAsset exposes its authored properties with tooling attributes")
 {
-    draconic::pipeline::RegisterTextureAsset(); // registers the type + its enum reflection
+    pipeline::RegisterTextureAsset(); // registers the type + its enum reflection
 
-    const TypeInfo& type = draconic::pipeline::TextureAsset::StaticType();
+    const TypeInfo& type = pipeline::TextureAsset::StaticType();
 
     // Identity preserved when the type went from identity-only to reflected.
     CHECK(CEq(type.name, "TextureAsset"));
@@ -83,10 +83,10 @@ TEST_CASE("reflection-p1: TextureAsset exposes its authored properties with tool
 
 TEST_CASE("reflection-p1: TextureAsset scalar/bool properties round-trip through get/set")
 {
-    draconic::pipeline::RegisterTextureAsset();
-    const TypeInfo& type = draconic::pipeline::TextureAsset::StaticType();
+    pipeline::RegisterTextureAsset();
+    const TypeInfo& type = pipeline::TextureAsset::StaticType();
 
-    draconic::pipeline::TextureAsset asset;
+    pipeline::TextureAsset asset;
     Instance inst = Instance::From(&asset);
 
     const PropertyInfo* aniso = FindProperty(type, "anisotropy");
@@ -109,18 +109,18 @@ TEST_CASE("reflection-p1: TextureAsset scalar/bool properties round-trip through
 
 TEST_CASE("reflection-p1: enum property types resolve named values")
 {
-    draconic::pipeline::RegisterTextureAsset(); // also registers the enum reflection
+    pipeline::RegisterTextureAsset(); // also registers the enum reflection
 
     // The owning-module enums are reflected (enum-by-name dropdowns depend on this).
-    const TypeInfo& shape = TypeOf<draconic::texture::TextureShape>();
+    const TypeInfo& shape = TypeOf<foundation::texture::TextureShape>();
     CHECK(IsEnum(shape));
     CHECK(EnumeratorCount(shape) == 5u);
-    CHECK(CEq(EnumValueName(shape, static_cast<i64>(draconic::texture::TextureShape::Cubemap)),
+    CHECK(CEq(EnumValueName(shape, static_cast<i64>(foundation::texture::TextureShape::Cubemap)),
               "Cubemap"));
 
-    const TypeInfo& wrap = TypeOf<draconic::texture::TextureWrap>();
+    const TypeInfo& wrap = TypeOf<foundation::texture::TextureWrap>();
     CHECK(IsEnum(wrap));
-    CHECK(CEq(EnumValueName(wrap, static_cast<i64>(draconic::texture::TextureWrap::ClampToEdge)),
+    CHECK(CEq(EnumValueName(wrap, static_cast<i64>(foundation::texture::TextureWrap::ClampToEdge)),
               "ClampToEdge"));
 
     const TypeInfo& cs = TypeOf<image::ImageColorSpace>();
@@ -130,7 +130,7 @@ TEST_CASE("reflection-p1: enum property types resolve named values")
 
     // The colorSpace property's declared type IS the reflected enum (the page maps it to a dropdown).
     const PropertyInfo* colorSpace =
-        FindProperty(draconic::pipeline::TextureAsset::StaticType(), "colorSpace");
+        FindProperty(pipeline::TextureAsset::StaticType(), "colorSpace");
     REQUIRE(colorSpace != nullptr);
     REQUIRE(colorSpace->type != nullptr);
     CHECK(IsEnum(*colorSpace->type));
@@ -138,10 +138,10 @@ TEST_CASE("reflection-p1: enum property types resolve named values")
 
 TEST_CASE("reflection-p1: the base Asset::fileName is inherited by every concrete asset")
 {
-    draconic::pipeline::RegisterAssetReflection();
-    draconic::pipeline::RegisterTextureAsset();
+    pipeline::RegisterAssetReflection();
+    pipeline::RegisterTextureAsset();
 
-    const TypeInfo& type = draconic::pipeline::TextureAsset::StaticType();
+    const TypeInfo& type = pipeline::TextureAsset::StaticType();
 
     // fileName is NOT an own property of TextureAsset (it lives on the base)...
     CHECK(FindProperty(type, "fileName") != nullptr);         // ...but the base chain finds it
@@ -155,21 +155,21 @@ TEST_CASE("reflection-p1: the base Asset::fileName is inherited by every concret
     // Round-trip a SourcePath through the inherited property.
     const PropertyInfo* fileName = FindProperty(type, "fileName");
     REQUIRE(fileName != nullptr);
-    draconic::pipeline::TextureAsset asset;
+    pipeline::TextureAsset asset;
     Instance inst = Instance::From(&asset);
     CHECK(SetProperty(*fileName, inst,
-                      Variant::From(draconic::vfs::SourcePath(u8"Textures/wood.png")))
+                      Variant::From(foundation::vfs::SourcePath(u8"Textures/wood.png")))
               .IsOk());
     CHECK(asset.fileName.View() == StringView(u8"Textures/wood.png"));
-    CHECK(GetProperty(*fileName, inst).Get<draconic::vfs::SourcePath>().View() ==
+    CHECK(GetProperty(*fileName, inst).Get<foundation::vfs::SourcePath>().View() ==
           StringView(u8"Textures/wood.png"));
 }
 
 TEST_CASE("reflection-p1: SourcePath reflects as a value type with read accessors")
 {
-    draconic::pipeline::RegisterAssetReflection(); // registers SourcePath reflection
+    pipeline::RegisterAssetReflection(); // registers SourcePath reflection
 
-    const TypeInfo& type = TypeOf<draconic::vfs::SourcePath>();
+    const TypeInfo& type = TypeOf<foundation::vfs::SourcePath>();
     CHECK(CEq(type.name, "SourcePath"));
     CHECK(FindMethod(type, "View") != nullptr);
     CHECK(FindMethod(type, "Stem") != nullptr);
@@ -179,7 +179,7 @@ TEST_CASE("reflection-p1: SourcePath reflects as a value type with read accessor
     Variant args[] = {Variant::From(StringView(u8"Audio/hit.wav"))};
     Result<Variant> made = Construct(type, Span<Variant>{args, 1});
     REQUIRE(made.HasValue());
-    const draconic::vfs::SourcePath path = made.Value().Get<draconic::vfs::SourcePath>();
+    const foundation::vfs::SourcePath path = made.Value().Get<foundation::vfs::SourcePath>();
     CHECK(path.View() == StringView(u8"Audio/hit.wav"));
     CHECK(path.Extension().AsView() == StringView(u8"wav"));
 }

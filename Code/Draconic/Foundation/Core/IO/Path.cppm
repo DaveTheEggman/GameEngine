@@ -12,7 +12,7 @@ import :base;
 import :allocator;
 import :string;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     inline constexpr utf8char kPathSeparator = utf8char('/');
 

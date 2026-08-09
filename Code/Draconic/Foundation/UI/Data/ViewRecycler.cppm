@@ -14,9 +14,9 @@ import draconic.core; // HashMap, Array, RefPtr, Move
 import :view;
 import :ilist_adapter;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ViewRecycler
     {

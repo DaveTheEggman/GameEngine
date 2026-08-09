@@ -19,9 +19,9 @@ import draconic.core;
 import draconic.fonts;
 import :interfaces;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::fonts
+namespace foundation::fonts
 {
     // Shared process-global storage (function-local statics so the lists live
     // for the program's lifetime and are shared across translation units).
@@ -38,7 +38,7 @@ namespace draconic::fonts
     }
 }
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     // Registry + dispatcher for IFontParser implementations.
     class FontParserFactory

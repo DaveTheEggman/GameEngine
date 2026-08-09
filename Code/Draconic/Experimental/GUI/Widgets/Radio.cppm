@@ -18,10 +18,10 @@ import :event;
 import :draw_context;
 import :ui_widget;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class RadioGroup; // controller defined below; a button routes selection through it
 

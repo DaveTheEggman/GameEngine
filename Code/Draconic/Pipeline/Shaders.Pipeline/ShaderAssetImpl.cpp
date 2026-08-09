@@ -14,10 +14,10 @@ module draconic.shaders.pipeline;
 import draconic.core;
 import draconic.pipeline.core;
 
-using namespace draconic::core;
-using namespace draconic::shaders;
+using namespace foundation::core;
+using namespace foundation::shaders;
 
-namespace draconic::pipeline{
+namespace pipeline{
     DRACONIC_REFLECT(ShaderAsset, "rtti::editor::shaders")
     {
         builder.Attribute("displayName", String(u8"Shader"))

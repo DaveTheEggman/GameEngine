@@ -17,26 +17,26 @@ import draconic.image.io;
 import draconic.image.resource;
 import draconic.content;
 
-using namespace draconic::core;
-using namespace draconic::image;
+using namespace foundation::core;
+using namespace foundation::image;
 
-export namespace draconic::pipeline{
+export namespace pipeline{
     // Source asset: references an image file; colorSpace says how to interpret it.
-    class ImageAsset final : public draconic::pipeline::Asset
+    class ImageAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(ImageAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(ImageAsset, pipeline::Asset)
     public:
         ImageColorSpace colorSpace = ImageColorSpace::Srgb;
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName
-            draconic::core::Serialize(ar, "colorSpace", colorSpace);
+            pipeline::Asset::Serialize(ar); // fileName
+            foundation::core::Serialize(ar, "colorSpace", colorSpace);
         }
     };
 
     // Cooks an ImageAsset -> ImageResource (decode file -> header + pixel stream).
-    class ImageAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class ImageAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -48,8 +48,8 @@ export namespace draconic::pipeline{
             return &ImageResource::StaticType();
         }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const ImageAsset& ia = static_cast<const ImageAsset&>(asset); // guarded by AssetType()
             if (ctx.output == nullptr)

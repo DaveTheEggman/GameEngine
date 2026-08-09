@@ -13,9 +13,9 @@ import draconic.runtime.client;
 import draconic.runtime.desktop; // RunApplication (the desktop runner)
 import draconic.shell.desktop;
 
-using namespace draconic::core;
-using namespace draconic::runtime;
-using namespace draconic::shell;
+using namespace foundation::core;
+using namespace foundation::runtime;
+using namespace foundation::shell;
 
 namespace
 {

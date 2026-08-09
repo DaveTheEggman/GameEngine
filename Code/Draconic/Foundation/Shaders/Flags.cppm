@@ -11,9 +11,9 @@ export module draconic.shaders:flags;
 import draconic.core;
 import :types;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::shaders
+export namespace foundation::shaders
 {
 
     enum class ShaderFlags : u32
@@ -100,4 +100,4 @@ export namespace draconic::shaders
         }
     };
 
-} // namespace draconic::shaders
+} // namespace foundation::shaders

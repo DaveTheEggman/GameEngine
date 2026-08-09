@@ -21,15 +21,14 @@ import draconic.vg.renderer;
 import draconic.gui;
 import draconic.gui.shell;
 
-using namespace draconic::core;
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
-namespace shell = draconic::shell;
-namespace image = draconic::image;
-namespace fonts = draconic::fonts;
-namespace vg = draconic::vg;
-namespace gui = draconic::gui;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
+namespace shell = foundation::shell;
+namespace image = foundation::image;
+namespace fonts = foundation::fonts;
+namespace vg = foundation::vg;
+namespace gui = experimental::gui;
 
 namespace
 {

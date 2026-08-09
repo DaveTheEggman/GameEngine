@@ -19,19 +19,19 @@ import draconic.scene;
 import draconic.scene.resource;
 import draconic.engine.render;
 
-using namespace draconic::core;
-using namespace draconic::engine::render;
-using namespace draconic::render;
-namespace scene = draconic::scene;
-namespace resource = draconic::resource;
-namespace geometry = draconic::geometry;
+using namespace foundation::core;
+using namespace engine::render;
+using namespace foundation::render;
+namespace scene = foundation::scene;
+namespace resource = foundation::resource;
+namespace geometry = foundation::geometry;
 
 namespace
 {
     void RemoveTree(StringView root)
     {
-        draconic::vfs::NativeFileSystem fs(root);
-        Array<draconic::vfs::DirEntry> entries;
+        foundation::vfs::NativeFileSystem fs(root);
+        Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
             for (const auto& e : entries)
@@ -51,18 +51,18 @@ TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handl
     const StringView dir = u8"draconic_resref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    draconic::vfs::NativeFileSystem mount(dir);
+    foundation::vfs::NativeFileSystem mount(dir);
 
     // A cooked mesh product: a unit cube baked into a StaticMeshSource instance.
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
-    draconic::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
     Guid meshId;
     {
         RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
         geometry::StaticMeshSource source;
         geometry::StaticMeshSource::FromMesh(*cube, source);
-        draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
+        foundation::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
             u8"Cube", geometry::StaticMeshSource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(source).IsOk());
@@ -266,11 +266,11 @@ TEST_CASE("resource-ref: a Ref<StaticMesh> bound to a SKINNED product keeps the 
     const StringView dir = u8"draconic_skinref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    draconic::vfs::NativeFileSystem mount(dir);
+    foundation::vfs::NativeFileSystem mount(dir);
 
     GlobalTypeRegistry().Register(geometry::SkinnedMeshSource::StaticType());
     RegisterSerializable<geometry::SkinnedMeshSource>();
-    draconic::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
 
     Guid meshId;
     {
@@ -289,7 +289,7 @@ TEST_CASE("resource-ref: a Ref<StaticMesh> bound to a SKINNED product keeps the 
 
         geometry::SkinnedMeshSource source;
         geometry::SkinnedMeshSource::FromMesh(*skinned, source);
-        draconic::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
+        foundation::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
             u8"SkinnedCube", geometry::SkinnedMeshSource::StaticType());
         REQUIRE(inst != nullptr);
         REQUIRE(inst->WriteObject(source).IsOk());
@@ -325,8 +325,8 @@ TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the
     const StringView dir = u8"draconic_submesh_ref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    draconic::vfs::NativeFileSystem mount(dir);
-    draconic::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
     resource::ResourceManager resources(cookedDb);
 
     const Guid matA{0xA1, 0x1};
@@ -337,7 +337,7 @@ TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the
         scene.AddSystem<MeshComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Multi");
         MeshComponent& mc = scene.GetSystem<MeshComponentManager>()->Add(e);
-        draconic::resource::Ref<draconic::materials::Material> ra, rb;
+        foundation::resource::Ref<foundation::materials::Material> ra, rb;
         ra.SetId(matA);
         rb.SetId(matB);
         mc.materials.PushBack(ra);

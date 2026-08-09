@@ -30,9 +30,15 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :camera;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace animation = foundation::animation;
+namespace render = foundation::render;
+namespace rhi = foundation::rhi;
+namespace runtime = foundation::runtime;
+namespace ui = foundation::ui;
+namespace vg = foundation::vg;
 
-namespace draconic::editor
+namespace editor
 {
     // ============================ Tree adapter ==============================================
 
@@ -101,15 +107,15 @@ namespace draconic::editor
 
     SkeletonEditorPage::SkeletonEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                                            ui::runtime::UIHost& uiHost,
-                                           draconic::content::Instance& instance)
+                                           foundation::content::Instance& instance)
         : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
         m_router =
-            MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
+            MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
         m_camera.position = Float3{0.0f, 1.4f, 3.2f};
         m_camera.LookAt(Float3{0.0f, 0.9f, 0.0f});
-        m_scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
-        m_render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>();
+        m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
+        m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
 
         SetInstanceId(instance.Id());
         if (m_context->Resources() != nullptr)
@@ -354,7 +360,7 @@ namespace draconic::editor
     }
 
     void SkeletonEditorPage::OnRenderWindow(runtime::IApplicationHost&,
-                                            draconic::graphics::FrameContext& frame)
+                                            foundation::graphics::FrameContext& frame)
     {
         if (!m_viewport->IsReady() || !frame.valid)
         {
@@ -396,12 +402,12 @@ namespace draconic::editor
 
     void SkeletonEditorPage::EnsureViewportBound()
     {
-        draconic::ui::RootView* root = m_viewport->Root();
+        foundation::ui::RootView* root = m_viewport->Root();
         if (root == nullptr)
         {
             return;
         }
-        draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
+        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
         if (window == nullptr || window == m_hostWindow)
         {
             return;
@@ -452,11 +458,11 @@ namespace draconic::editor
 
     const TypeInfo* SkeletonPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::SkeletonAsset::StaticType();
+        return &pipeline::SkeletonAsset::StaticType();
     }
 
     UniquePtr<EditorPage> SkeletonPageFactory::CreatePage(EditorContext& context,
-                                                          draconic::content::Instance& instance)
+                                                          foundation::content::Instance& instance)
     {
         auto* page =
             DefaultAllocator().New<SkeletonEditorPage>(context, *m_host, *m_uiHost, instance);

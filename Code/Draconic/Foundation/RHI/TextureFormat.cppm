@@ -4,9 +4,9 @@ export module draconic.rhi:texture_format;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     /// Pixel formats for textures and render targets. Naming follows
@@ -213,4 +213,4 @@ export namespace draconic::rhi
         }
     }
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

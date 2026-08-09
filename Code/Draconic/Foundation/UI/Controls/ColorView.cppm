@@ -16,10 +16,10 @@ import :property;
 import :box_constraints;
 import :draw_context;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ColorView : public View
     {

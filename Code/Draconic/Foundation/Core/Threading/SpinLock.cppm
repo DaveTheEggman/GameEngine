@@ -8,7 +8,7 @@ module;
 
 export module draconic.core:spin_lock;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     class SpinLock
     {

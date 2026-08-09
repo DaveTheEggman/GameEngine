@@ -19,11 +19,11 @@ export module draconic.editor.app:editor_icons;
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace ui = draconic::ui;
+    namespace ui = foundation::ui;
 
     class EditorIcons
     {

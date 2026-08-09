@@ -13,9 +13,9 @@ import draconic.rhi;
 import :conversions;
 import :descriptor_heap;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxSamplerImpl : public Sampler
@@ -86,4 +86,4 @@ export namespace draconic::rhi::dx12
         DxDescriptorHeapAllocator* m_samplerHeap = nullptr;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

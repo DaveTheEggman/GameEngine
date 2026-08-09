@@ -28,12 +28,12 @@ import draconic.content;
 import draconic.vfs;
 import draconic.pipeline.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::pipeline
+export namespace pipeline
 {
-    namespace content = draconic::content;
-    namespace vfs = draconic::vfs;
+    namespace content = foundation::content;
+    namespace vfs = foundation::vfs;
 
     // === Pipeline DB ===
 
@@ -59,10 +59,10 @@ export namespace draconic::pipeline
 
     inline void Serialize(ISerializer& ar, CookFileMemo& m)
     {
-        draconic::core::Serialize(ar, "path", m.path);
-        draconic::core::Serialize(ar, "size", m.size);
-        draconic::core::Serialize(ar, "mtime", m.modifiedTime);
-        draconic::core::Serialize(ar, "hash", m.contentHash);
+        foundation::core::Serialize(ar, "path", m.path);
+        foundation::core::Serialize(ar, "size", m.size);
+        foundation::core::Serialize(ar, "mtime", m.modifiedTime);
+        foundation::core::Serialize(ar, "hash", m.contentHash);
     }
 
     /// The persisted pipeline state (.cache/cook.db): source Guid -> CookRecord.
@@ -136,8 +136,8 @@ export namespace draconic::pipeline
         u64 recipeHash = 0;
         AssetDependencies deps;
         i32 level = 0; // dependency depth (items cook level-by-level, parallel within)
-        draconic::content::Instance* product = nullptr; // pre-created SERIALLY before workers run
-        draconic::content::Instance* sourceInstance = nullptr; // snapshotted in PrepareProducts
+        foundation::content::Instance* product = nullptr; // pre-created SERIALLY before workers run
+        foundation::content::Instance* sourceInstance = nullptr; // snapshotted in PrepareProducts
     };
 
     struct CookPlan

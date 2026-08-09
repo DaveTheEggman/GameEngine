@@ -17,31 +17,31 @@ import draconic.content;
 import draconic.animation;
 import draconic.animation.resource;
 
-using namespace draconic::core;
-using namespace draconic::animation;
+using namespace foundation::core;
+using namespace foundation::animation;
 
-export namespace draconic::pipeline{
+export namespace pipeline{
 
-    class SkeletonAsset final : public draconic::pipeline::Asset
+    class SkeletonAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(SkeletonAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(SkeletonAsset, pipeline::Asset)
     public:
         SkeletonSource source;
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName (source model note)
+            pipeline::Asset::Serialize(ar); // fileName (source model note)
             source.Serialize(ar);
         }
     };
 
-    class AnimationClipAsset final : public draconic::pipeline::Asset
+    class AnimationClipAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(AnimationClipAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(AnimationClipAsset, pipeline::Asset)
     public:
         AnimationClipSource source;
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar);
+            pipeline::Asset::Serialize(ar);
             source.Serialize(ar);
         }
     };
@@ -50,23 +50,23 @@ export namespace draconic::pipeline{
     // Editor-only canvas layout rides on the ASSET (the builder cooks `source` alone, so none of it
     // reaches the runtime wire): per layer, per state, the node position on the graph canvas -
     // parallel to source.layers[i].states (the page keeps them in sync on add/remove).
-    class AnimationGraphAsset final : public draconic::pipeline::Asset
+    class AnimationGraphAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(AnimationGraphAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(AnimationGraphAsset, pipeline::Asset)
     public:
         AnimationGraphSource source;
         Array<Array<Float2>> layerStatePositions;
         Array<Float2> layerAnyStatePositions; // the per-layer "Any State" pseudo-node
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar);
+            pipeline::Asset::Serialize(ar);
             source.Serialize(ar);
-            draconic::core::Serialize(ar, "layerStatePositions", layerStatePositions);
-            draconic::core::Serialize(ar, "layerAnyStatePositions", layerAnyStatePositions);
+            foundation::core::Serialize(ar, "layerStatePositions", layerStatePositions);
+            foundation::core::Serialize(ar, "layerAnyStatePositions", layerAnyStatePositions);
         }
     };
 
-    class SkeletonAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class SkeletonAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -77,15 +77,15 @@ export namespace draconic::pipeline{
         {
             return &SkeletonSource::StaticType();
         }
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const SkeletonAsset& a = static_cast<const SkeletonAsset&>(asset);
             return ctx.output->WriteObject(const_cast<SkeletonSource&>(a.source));
         }
     };
 
-    class AnimationClipAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class AnimationClipAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -96,8 +96,8 @@ export namespace draconic::pipeline{
         {
             return &AnimationClipSource::StaticType();
         }
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const AnimationClipAsset& a = static_cast<const AnimationClipAsset&>(asset);
             return ctx.output->WriteObject(const_cast<AnimationClipSource&>(a.source));
@@ -115,7 +115,7 @@ export namespace draconic::pipeline{
         RegisterSerializable<AnimationGraphAsset>();
     }
 
-    class AnimationGraphAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class AnimationGraphAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -126,8 +126,8 @@ export namespace draconic::pipeline{
         {
             return &AnimationGraphSource::StaticType();
         }
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const AnimationGraphAsset& a = static_cast<const AnimationGraphAsset&>(asset);
             return ctx.output->WriteObject(const_cast<AnimationGraphSource&>(a.source));
@@ -138,4 +138,4 @@ export namespace draconic::pipeline{
     DRACONIC_DEFINE_OBJECT(AnimationClipAsset, "rtti::editor::animation")
     DRACONIC_DEFINE_OBJECT(AnimationGraphAsset, "rtti::editor::animation")
 
-} // namespace draconic::animation
+} // namespace foundation::animation

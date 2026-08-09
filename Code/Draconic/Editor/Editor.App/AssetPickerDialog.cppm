@@ -27,12 +27,12 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import :editor_icons;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace ui = draconic::ui;
-    namespace content = draconic::content;
+    namespace ui = foundation::ui;
+    namespace content = foundation::content;
 
     class AssetPickerDialog final : public ui::Dialog
     {
@@ -41,7 +41,7 @@ export namespace draconic::editor::app
         /// The pick result: an instance id, or nil for [Clear]. Fired once, before close.
         Function<void(const Guid&)> OnPicked;
 
-        AssetPickerDialog(draconic::editor::EditorContext& context, Array<String> assetTypeNames)
+        AssetPickerDialog(editor::EditorContext& context, Array<String> assetTypeNames)
             : ui::Dialog(u8"Select asset"), m_context(&context), m_typeNames(Move(assetTypeNames))
         {
             MinWidth.SetValue(520.0f);
@@ -315,7 +315,7 @@ export namespace draconic::editor::app
 
         void ShowRowMenu(i32 position, f32 x, f32 y);
 
-        draconic::editor::EditorContext* m_context; // borrowed
+        editor::EditorContext* m_context; // borrowed
         Array<String> m_typeNames;
         RefPtr<ui::TreeView> m_tree;
         RefPtr<ui::ListView> m_list;

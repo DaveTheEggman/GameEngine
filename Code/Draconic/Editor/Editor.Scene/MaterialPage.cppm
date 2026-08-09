@@ -52,34 +52,35 @@ import draconic.editor.app;
 import :camera;    // EditorCamera (fly camera on the preview viewport)
 import :inspector; // ResourceRefEditor (the picker row)
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace vg = draconic::vg;
-    namespace scene = draconic::scene;
-    namespace render = draconic::render;
-    namespace materials = draconic::materials;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace vg = foundation::vg;
+    namespace scene = foundation::scene;
+    namespace render = foundation::render;
+    namespace materials = foundation::materials;
 
     class MaterialEditorPage final : public app::UIEditorPage
     {
     public:
         MaterialEditorPage(EditorContext& context, runtime::IApplicationHost& host,
-                           ui::runtime::UIHost& uiHost, draconic::content::Instance& instance)
+                           ui::runtime::UIHost& uiHost, foundation::content::Instance& instance)
             : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
         {
             // Fly camera on the preview viewport (hover/focus-gated devices, like scene pages).
             m_router =
-                MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
+                MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
             m_camera.position = Float3{0.0f, 0.9f, 2.6f};
             m_camera.LookAt(Float3{0.0f, 0.0f, 0.0f});
 
             // The edited object: the instance's MaterialAsset (kept live; Save writes it back).
             RefPtr<ISerializable> object = instance.ReadObject();
             m_asset =
-                RefPtr<draconic::pipeline::MaterialAsset>(Cast<draconic::pipeline::MaterialAsset>(object.Get()));
+                RefPtr<pipeline::MaterialAsset>(Cast<pipeline::MaterialAsset>(object.Get()));
             if (m_asset.Get() != nullptr)
             {
                 // Pre-emissive assets gain the factor in memory (black default); saving the
@@ -92,8 +93,8 @@ export namespace draconic::editor
                                    m_title);
             }
 
-            m_scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
-            m_render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>();
+            m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
+            m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
 
             BuildPreviewScene();
 
@@ -113,20 +114,20 @@ export namespace draconic::editor
             m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
             m_viewport->ClearColor = rhi::ClearColor{0.10f, 0.11f, 0.13f, 1.0f};
 
-            m_grid = MakeRef<draconic::ui::toolkit::PropertyGrid>(DefaultAllocator());
+            m_grid = MakeRef<foundation::ui::toolkit::PropertyGrid>(DefaultAllocator());
             RebuildGrid();
 
             // Inset the property grid off the pane edge (matches the scene inspector / hierarchy).
-            auto gridColumn = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
-            gridColumn->Direction = draconic::ui::Orientation::Vertical;
-            gridColumn->Padding = draconic::ui::Thickness{8, 6};
+            auto gridColumn = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+            gridColumn->Direction = foundation::ui::Orientation::Vertical;
+            gridColumn->Padding = foundation::ui::Thickness{8, 6};
             {
-                auto grow = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
                 grow->Grow = 1.0f;
                 gridColumn->AddView(m_grid.Get(), grow);
             }
 
-            m_content = MakeRef<draconic::ui::toolkit::SplitView>(DefaultAllocator());
+            m_content = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
             m_content->SetSplitRatio(0.62f);
             m_content->SetPanes(m_viewport.Get(), gridColumn.Get());
 
@@ -135,13 +136,13 @@ export namespace draconic::editor
 
         // === UIEditorPage ===
 
-        [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
+        [[nodiscard]] foundation::ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
 
         void OnUpdate(runtime::IApplicationHost&, f32 dt) override;
 
         void OnRenderWindow(runtime::IApplicationHost&,
-                            draconic::graphics::FrameContext& frame) override;
+                            foundation::graphics::FrameContext& frame) override;
 
         [[nodiscard]] Status Save() override;
 
@@ -218,7 +219,7 @@ export namespace draconic::editor
         void ApplyPreviewMesh();
 
         // Reframe the fly camera to fit `mesh` (asset meshes vary wildly in size).
-        void FramePreview(const draconic::geometry::StaticMesh* mesh);
+        void FramePreview(const foundation::geometry::StaticMesh* mesh);
 
         void RebuildGrid();
 
@@ -229,11 +230,11 @@ export namespace draconic::editor
         // A texture-slot picker row (TextureAsset picker; [Clear] unbinds the slot).
         void AddTextureRow(const String& slot);
 
-        [[nodiscard]] draconic::ui::UIContext* Context() const noexcept { return m_grid->Context; }
+        [[nodiscard]] foundation::ui::UIContext* Context() const noexcept { return m_grid->Context; }
 
         [[nodiscard]] StringView AssetNameFor(const Guid& target);
 
-        void AddEditor(draconic::ui::toolkit::PropertyEditor* editor, Function<void()> refresher);
+        void AddEditor(foundation::ui::toolkit::PropertyEditor* editor, Function<void()> refresher);
 
         // Uniform blob access by property name (offset/size from the source's tables).
         void ReadUniform(StringView name, void* out, usize bytes) const;
@@ -246,28 +247,28 @@ export namespace draconic::editor
         ui::runtime::UIHost* m_uiHost;
         String m_title;
 
-        RefPtr<draconic::pipeline::MaterialAsset> m_asset;
+        RefPtr<pipeline::MaterialAsset> m_asset;
 
-        draconic::engine::scene::SceneSubsystem* m_scenes = nullptr;
+        engine::scene::SceneSubsystem* m_scenes = nullptr;
         scene::SceneManager
             m_sceneManager; // this page's OWN preview scene group (registered with m_scenes)
-        draconic::engine::render::RenderSubsystem* m_render = nullptr;
+        engine::render::RenderSubsystem* m_render = nullptr;
         scene::Scene* m_scene = nullptr;
         scene::EntityHandle m_sphere;
-        RefPtr<draconic::geometry::StaticMesh> m_previewMesh;
+        RefPtr<foundation::geometry::StaticMesh> m_previewMesh;
         RefPtr<materials::Material> m_previewMaterial;
         EditorCamera m_camera;
-        UniquePtr<draconic::shell::InputRouter> m_router;
+        UniquePtr<foundation::shell::InputRouter> m_router;
         u32 m_previewShape = 0; // index into the Shape enum row
         Guid m_previewMeshGuid; // nil = primitive shape
-        Array<draconic::resource::Proxy<draconic::texture::Texture>> m_previewTextures;
+        Array<foundation::resource::Proxy<foundation::texture::Texture>> m_previewTextures;
         Array<rhi::TextureView*> m_previewTextureViews; // views captured into the material
 
         RefPtr<ui::viewport::ViewportView> m_viewport;
-        RefPtr<draconic::ui::toolkit::PropertyGrid> m_grid;
-        RefPtr<draconic::ui::toolkit::SplitView> m_content;
+        RefPtr<foundation::ui::toolkit::PropertyGrid> m_grid;
+        RefPtr<foundation::ui::toolkit::SplitView> m_content;
         Array<Function<void()>> m_refreshers;
-        draconic::graphics::RenderWindow* m_hostWindow = nullptr;
+        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
     };
 
     class MaterialEditorPageFactory final : public IEditorPageFactory
@@ -281,7 +282,7 @@ export namespace draconic::editor
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
 
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
 
     private:
         runtime::IApplicationHost* m_host;
@@ -289,17 +290,17 @@ export namespace draconic::editor
     };
 
     // Create a preset material instance in `group` (or Materials/ from the File menu).
-    inline draconic::content::Instance*
-    CreateMaterialInstance(EditorContext& context, draconic::content::Group* group, bool unlit)
+    inline foundation::content::Instance*
+    CreateMaterialInstance(EditorContext& context, foundation::content::Group* group, bool unlit)
     {
         if (context.Project() == nullptr)
         {
             return nullptr;
         }
-        draconic::content::Group* target = group;
+        foundation::content::Group* target = group;
         if (target == nullptr)
         {
-            draconic::content::Group* root = context.Project()->SourceDb().RootGroup();
+            foundation::content::Group* root = context.Project()->SourceDb().RootGroup();
             target = root->GetGroup(u8"Materials");
             if (target == nullptr)
             {
@@ -313,8 +314,8 @@ export namespace draconic::editor
 
         const String name = target->UniqueInstanceName(u8"Material");
 
-        draconic::content::Instance* instance =
-            target->CreateInstance(name.AsView(), draconic::pipeline::MaterialAsset::StaticType());
+        foundation::content::Instance* instance =
+            target->CreateInstance(name.AsView(), pipeline::MaterialAsset::StaticType());
         if (instance == nullptr)
         {
             return nullptr;
@@ -322,8 +323,8 @@ export namespace draconic::editor
 
         RefPtr<materials::Material> built =
             unlit ? materials::CreateUnlit(name.AsView()) : materials::CreatePBR(name.AsView());
-        draconic::pipeline::MaterialAsset asset;
-        draconic::pipeline::MaterialImporter::Import(*built, Guid{}, asset);
+        pipeline::MaterialAsset asset;
+        pipeline::MaterialImporter::Import(*built, Guid{}, asset);
         if (!instance->WriteObject(asset).IsOk())
         {
             return nullptr;
@@ -346,7 +347,7 @@ export namespace draconic::editor
         {
             ar.Key("asset");
             ar.GuidValue(asset);
-            draconic::core::Serialize(ar, "shape", shape);
+            foundation::core::Serialize(ar, "shape", shape);
             ar.Key("mesh");
             ar.GuidValue(mesh);
         }
@@ -367,15 +368,15 @@ export namespace draconic::editor
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "prefs", prefs);
+            foundation::core::Serialize(ar, "prefs", prefs);
         }
     };
 
     inline void RegisterMaterialEditor(EditorContext& context, runtime::IApplicationHost& host,
                                        ui::runtime::UIHost& uiHost)
     {
-        GlobalTypeRegistry().Register(draconic::pipeline::MaterialAsset::StaticType(), TypeDomain(u8"Editor"));
-        RegisterSerializable<draconic::pipeline::MaterialAsset>();
+        GlobalTypeRegistry().Register(pipeline::MaterialAsset::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<pipeline::MaterialAsset>();
         // The preview-prefs section (registered before the app loads the per-project store).
         GlobalTypeRegistry().Register(MaterialPreviewSettings::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<MaterialPreviewSettings>();
@@ -386,14 +387,14 @@ export namespace draconic::editor
         EditorContext::AssetCreator pbr;
         pbr.label = String(u8"PBR Material");
         pbr.category = String(u8"Materials");
-        pbr.create = [](EditorContext& ctx, draconic::content::Group* group)
+        pbr.create = [](EditorContext& ctx, foundation::content::Group* group)
         { return CreateMaterialInstance(ctx, group, /*unlit*/ false); };
         context.RegisterCreator(Move(pbr));
 
         EditorContext::AssetCreator unlit;
         unlit.label = String(u8"Unlit Material");
         unlit.category = String(u8"Materials");
-        unlit.create = [](EditorContext& ctx, draconic::content::Group* group)
+        unlit.create = [](EditorContext& ctx, foundation::content::Group* group)
         { return CreateMaterialInstance(ctx, group, /*unlit*/ true); };
         context.RegisterCreator(Move(unlit));
     }

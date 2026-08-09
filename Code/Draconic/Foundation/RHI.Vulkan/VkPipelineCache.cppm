@@ -11,9 +11,9 @@ export module draconic.rhi.vulkan:pipeline_cache;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     class VkPipelineCacheImpl : public PipelineCache
@@ -67,4 +67,4 @@ export namespace draconic::rhi::vk
         VkDevice m_device = VK_NULL_HANDLE;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

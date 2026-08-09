@@ -12,27 +12,27 @@ import draconic.physics;
 import draconic.engine.physics;
 import draconic.engine.script;
 
-namespace draconic::engine::integration
+namespace engine::integration
 {
-    draconic::engine::script::ScriptContactKind
-    ToScriptContactKind(draconic::physics::ContactKind kind) noexcept
+    engine::script::ScriptContactKind
+    ToScriptContactKind(foundation::physics::ContactKind kind) noexcept
     {
-        using SK = draconic::engine::script::ScriptContactKind;
+        using SK = engine::script::ScriptContactKind;
         switch (kind)
         {
-        case draconic::physics::ContactKind::Begin:
+        case foundation::physics::ContactKind::Begin:
             return SK::Begin;
-        case draconic::physics::ContactKind::End:
+        case foundation::physics::ContactKind::End:
             return SK::End;
-        case draconic::physics::ContactKind::TriggerEnter:
+        case foundation::physics::ContactKind::TriggerEnter:
             return SK::TriggerEnter;
-        case draconic::physics::ContactKind::TriggerExit:
+        case foundation::physics::ContactKind::TriggerExit:
             return SK::TriggerExit;
         }
         return SK::Begin;
     }
 
-    void ScriptPhysicsContactBridge::Listener::OnContact(const draconic::engine::physics::EntityContact& c)
+    void ScriptPhysicsContactBridge::Listener::OnContact(const engine::physics::EntityContact& c)
     {
         if (scripts == nullptr)
         {
@@ -47,8 +47,8 @@ namespace draconic::engine::integration
         Uninstall();
     }
 
-    void ScriptPhysicsContactBridge::Install(draconic::engine::physics::PhysicsSubsystem& physics,
-                                             draconic::engine::script::ScriptSubsystem& scripts)
+    void ScriptPhysicsContactBridge::Install(engine::physics::PhysicsSubsystem& physics,
+                                             engine::script::ScriptSubsystem& scripts)
     {
         Uninstall(); // drop any prior registration so a re-Install re-points cleanly
         m_listener.scripts = &scripts;

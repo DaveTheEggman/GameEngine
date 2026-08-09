@@ -11,7 +11,7 @@ import :base;
 import :math;
 import :float3;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Plane - normal·p + d = 0.

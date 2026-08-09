@@ -28,10 +28,11 @@ import draconic.core;
 import draconic.rhi;
 import draconic.scene;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace scene = foundation::scene;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
 
     // The camera for a view: world→view and view→clip, plus the world-space eye (for depth
@@ -256,4 +257,4 @@ export namespace draconic::render
                                     u32 frameIndex) = 0;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

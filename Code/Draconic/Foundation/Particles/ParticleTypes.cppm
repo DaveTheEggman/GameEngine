@@ -10,9 +10,10 @@ export module draconic.particles:types;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::particles
+export namespace foundation::particles
 {
     // ---- Simulation / space / render mode enums (ParticleTypes.bf) ----------------------------
 
@@ -677,7 +678,7 @@ export namespace draconic::particles
     // Bidirectional Serialize(ISerializer&, T&) overloads for the authoring value types. Found by ADL
     // from core's Serialize(ar, "key", value). Fields decomposed (not blobbed) - readable in the XML
     // asset, portable in the binary cook. Curves write keyCount then the active keys only.
-    using draconic::core::ISerializer;
+    using foundation::core::ISerializer;
     inline void Serialize(ISerializer& ar, RangeFloat& v)
     {
         core::Serialize(ar, "min", v.min);

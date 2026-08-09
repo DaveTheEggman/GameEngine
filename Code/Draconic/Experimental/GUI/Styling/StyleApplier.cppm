@@ -28,12 +28,10 @@ import :style_sheet; // ResolvedStyle
 import :css_values;
 import :resource_provider;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
-namespace image = draconic::image;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // Strip a CSS url(...) wrapper (and any quotes) to the inner resource name; returns the
     // value unchanged if it is not a url() form.

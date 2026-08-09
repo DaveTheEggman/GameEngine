@@ -19,9 +19,9 @@ import draconic.content;
 import draconic.materials;
 import draconic.materials.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::editor;
-namespace scene = draconic::scene;
+using namespace foundation::core;
+using namespace editor;
+namespace scene = foundation::scene;
 
 namespace
 {
@@ -32,7 +32,7 @@ namespace
 
     void Serialize(ISerializer& ar, HealthComponent& c)
     {
-        draconic::core::Serialize(ar, "amount", c.amount);
+        foundation::core::Serialize(ar, "amount", c.amount);
     }
 
     class HealthManager final : public scene::SerializableComponentManager<HealthComponent>
@@ -418,16 +418,16 @@ TEST_CASE("scene-edit: remove-component undo via serialization blob (serializabl
 TEST_CASE("edit-context: destroy-undo restores light components (and their values)")
 {
     scene::Scene scene;
-    scene.AddSystem<draconic::engine::render::LightComponentManager>();
+    scene.AddSystem<engine::render::LightComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
     const Guid id = edit.CreateEntity(u8"Sun");
-    auto* lights = scene.GetSystem<draconic::engine::render::LightComponentManager>();
+    auto* lights = scene.GetSystem<engine::render::LightComponentManager>();
     REQUIRE(lights != nullptr);
     {
-        draconic::engine::render::LightComponent& light = lights->Add(edit.Resolve(id));
-        light.type = draconic::engine::render::LightType::Spot;
+        engine::render::LightComponent& light = lights->Add(edit.Resolve(id));
+        light.type = engine::render::LightType::Spot;
         light.intensity = 3.5f;
         light.range = 42.0f;
         light.castsShadows = true;
@@ -439,9 +439,9 @@ TEST_CASE("edit-context: destroy-undo restores light components (and their value
     commands.Undo();
     const scene::EntityHandle restored = edit.Resolve(id);
     REQUIRE(restored.IsAssigned());
-    draconic::engine::render::LightComponent* light = lights->Get(restored);
+    engine::render::LightComponent* light = lights->Get(restored);
     REQUIRE(light != nullptr);                               // the component came back...
-    CHECK(light->type == draconic::engine::render::LightType::Spot); // ...with its exact values
+    CHECK(light->type == engine::render::LightType::Spot); // ...with its exact values
     CHECK(light->intensity == doctest::Approx(3.5f));
     CHECK(light->range == doctest::Approx(42.0f));
     CHECK(light->castsShadows);
@@ -450,16 +450,16 @@ TEST_CASE("edit-context: destroy-undo restores light components (and their value
 TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, one undo")
 {
     scene::Scene scene;
-    scene.AddSystem<draconic::engine::render::LightComponentManager>();
+    scene.AddSystem<engine::render::LightComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
     const Guid parent = edit.CreateEntity(u8"Rig");
     const Guid child = edit.CreateEntity(u8"Lamp", parent);
     scene.SetLocalPosition(edit.Resolve(parent), Float3{3, 0, 0});
-    auto* lights = scene.GetSystem<draconic::engine::render::LightComponentManager>();
+    auto* lights = scene.GetSystem<engine::render::LightComponentManager>();
     {
-        draconic::engine::render::LightComponent& light = lights->Add(edit.Resolve(child));
+        engine::render::LightComponent& light = lights->Add(edit.Resolve(child));
         light.intensity = 7.0f;
     }
 
@@ -479,7 +479,7 @@ TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, o
     const scene::EntityHandle copyChild = scene.GetFirstChild(copyRoot);
     CHECK(scene.GetEntityName(copyChild) == u8"Lamp");
     CHECK(scene.GetEntityId(copyChild) != child);
-    draconic::engine::render::LightComponent* light = lights->Get(copyChild);
+    engine::render::LightComponent* light = lights->Get(copyChild);
     REQUIRE(light != nullptr);
     CHECK(light->intensity == doctest::Approx(7.0f));
 
@@ -495,14 +495,14 @@ TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, o
 TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
 {
     scene::Scene sceneA;
-    sceneA.AddSystem<draconic::engine::render::LightComponentManager>();
+    sceneA.AddSystem<engine::render::LightComponentManager>();
     EditorCommandStack commandsA;
     SceneEditContext editA(sceneA, commandsA);
 
     const Guid src = editA.CreateEntity(u8"Prop");
     const Guid srcChild = editA.CreateEntity(u8"Bulb", src);
     {
-        auto* lights = sceneA.GetSystem<draconic::engine::render::LightComponentManager>();
+        auto* lights = sceneA.GetSystem<engine::render::LightComponentManager>();
         lights->Add(editA.Resolve(srcChild)).range = 12.0f;
     }
     const Array<byte> blob = editA.CopyEntity(src);
@@ -510,7 +510,7 @@ TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
 
     // Paste into a DIFFERENT scene (its own command stack), under a chosen parent.
     scene::Scene sceneB;
-    sceneB.AddSystem<draconic::engine::render::LightComponentManager>();
+    sceneB.AddSystem<engine::render::LightComponentManager>();
     EditorCommandStack commandsB;
     SceneEditContext editB(sceneB, commandsB);
     const Guid target = editB.CreateEntity(u8"Holder");
@@ -522,8 +522,8 @@ TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
     CHECK(sceneB.GetEntityName(root) == u8"Prop");
     CHECK(sceneB.GetEntityId(sceneB.GetParent(root)) == target);
     REQUIRE(sceneB.GetChildCount(root) == 1u);
-    auto* lightsB = sceneB.GetSystem<draconic::engine::render::LightComponentManager>();
-    draconic::engine::render::LightComponent* light = lightsB->Get(sceneB.GetFirstChild(root));
+    auto* lightsB = sceneB.GetSystem<engine::render::LightComponentManager>();
+    engine::render::LightComponent* light = lightsB->Get(sceneB.GetFirstChild(root));
     REQUIRE(light != nullptr);
     CHECK(light->range == doctest::Approx(12.0f));
 
@@ -542,16 +542,16 @@ TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
 TEST_CASE("edit-context: copy/paste component - add, overwrite, and exact undo")
 {
     scene::Scene scene;
-    scene.AddSystem<draconic::engine::render::LightComponentManager>();
+    scene.AddSystem<engine::render::LightComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
-    auto* lights = scene.GetSystem<draconic::engine::render::LightComponentManager>();
+    auto* lights = scene.GetSystem<engine::render::LightComponentManager>();
 
     const Guid a = edit.CreateEntity(u8"A");
     const Guid b = edit.CreateEntity(u8"B");
     lights->Add(edit.Resolve(a)).intensity = 9.0f;
 
-    const Array<byte> blob = edit.CopyComponent(a, &TypeOf<draconic::engine::render::LightComponent>());
+    const Array<byte> blob = edit.CopyComponent(a, &TypeOf<engine::render::LightComponent>());
     REQUIRE(!blob.IsEmpty());
     CHECK(SceneEditContext::PeekComponentTypeId(Span<const byte>{blob.Data(), blob.Size()}) ==
           u8"light");
@@ -576,16 +576,16 @@ TEST_CASE("edit-context: copy/paste component - add, overwrite, and exact undo")
 
 TEST_CASE("edit-context: generic container mutation (MutateComponent-style add) persists + undoes")
 {
-    draconic::engine::render::RegisterRenderComponentReflection();
+    engine::render::RegisterRenderComponentReflection();
     scene::Scene scene;
-    scene.AddSystem<draconic::engine::render::MeshComponentManager>();
+    scene.AddSystem<engine::render::MeshComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
-    auto* meshes = scene.GetSystem<draconic::engine::render::MeshComponentManager>();
+    auto* meshes = scene.GetSystem<engine::render::MeshComponentManager>();
     const Guid a = edit.CreateEntity(u8"Mesh");
     (void)meshes->Add(edit.Resolve(a)); // empty materials
 
-    const TypeInfo* type = &TypeOf<draconic::engine::render::MeshComponent>();
+    const TypeInfo* type = &TypeOf<engine::render::MeshComponent>();
     const PropertyInfo* matProp = FindProperty(*type, "materials");
     REQUIRE(matProp != nullptr);
     REQUIRE(matProp->type != nullptr);
@@ -616,7 +616,7 @@ TEST_CASE("edit-context: generic container mutation (MutateComponent-style add) 
         (void)buffer.Seek(0, SeekOrigin::Begin);
         BinarySerializer ar(buffer, SerializeMode::Read);
         String typeId;
-        draconic::core::Serialize(ar, "type", typeId);
+        foundation::core::Serialize(ar, "type", typeId);
         meshes->ReadComponent(ar, edit.Resolve(a));
     }
     CHECK(ContainerSize(ci, containerInstance()) == 0u); // restored
@@ -649,7 +649,7 @@ namespace
         [[nodiscard]] StringView SettingsId() const noexcept override { return u8"wind"; }
         void SerializeSettings(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "speed", settings.speed);
+            foundation::core::Serialize(ar, "speed", settings.speed);
         }
         WindSettings settings;
     };
@@ -671,7 +671,7 @@ TEST_CASE("edit-context: scene-setting edits are undoable commands and merge lik
     RegisterWindReflection();
     scene::Scene scene(u8"s");
     WindSystem* wind = scene.AddSystem<WindSystem>();
-    draconic::editor::EditorCommandStack commands;
+    editor::EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
     const TypeInfo* type = &TypeOf<WindSettings>();
@@ -690,7 +690,7 @@ TEST_CASE("edit-context: scene-setting edits are undoable commands and merge lik
 
 TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right shader")
 {
-    draconic::pipeline::RegisterMaterialAsset();
+    pipeline::RegisterMaterialAsset();
     const StringView dir = u8"draconic_editor_mat_creator_test";
     auto scrub = [&]()
     {
@@ -705,19 +705,19 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
         RemoveDirectory(dir);
     };
     scrub();
-    REQUIRE(draconic::editor::EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<draconic::editor::EditorProject> project = draconic::editor::EditorProject::Open(dir);
+    REQUIRE(editor::EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(dir);
     REQUIRE(static_cast<bool>(project));
-    draconic::editor::EditorContext ctx;
+    editor::EditorContext ctx;
     ctx.SetProject(project.Get());
 
     // PBR: the lit property set on the "forward" shader; lands in Materials/ (unique names).
-    draconic::content::Instance* pbr = CreateMaterialInstance(ctx, nullptr, /*unlit*/ false);
+    foundation::content::Instance* pbr = CreateMaterialInstance(ctx, nullptr, /*unlit*/ false);
     REQUIRE(pbr != nullptr);
     CHECK(pbr->Path() == u8"Materials/Material");
     {
         RefPtr<ISerializable> object = pbr->ReadObject();
-        auto* asset = Cast<draconic::pipeline::MaterialAsset>(object.Get());
+        auto* asset = Cast<pipeline::MaterialAsset>(object.Get());
         REQUIRE(asset != nullptr);
         CHECK(asset->source.shaderName == u8"forward");
         bool hasMetallic = false;
@@ -732,12 +732,12 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
     }
 
     // Unlit: BaseColor + AlbedoMap only, on the "unlit" shader.
-    draconic::content::Instance* unlit = CreateMaterialInstance(ctx, nullptr, /*unlit*/ true);
+    foundation::content::Instance* unlit = CreateMaterialInstance(ctx, nullptr, /*unlit*/ true);
     REQUIRE(unlit != nullptr);
     CHECK(unlit->Path() == u8"Materials/Material.2");
     {
         RefPtr<ISerializable> object = unlit->ReadObject();
-        auto* asset = Cast<draconic::pipeline::MaterialAsset>(object.Get());
+        auto* asset = Cast<pipeline::MaterialAsset>(object.Get());
         REQUIRE(asset != nullptr);
         CHECK(asset->source.shaderName == u8"unlit");
         bool hasMetallic = false, hasBase = false;
@@ -807,13 +807,13 @@ TEST_CASE("scene-edit: PrettifyPropertyName")
 
 TEST_CASE("scene-edit: render components carry the inspector attribute annotations")
 {
-    draconic::engine::render::RegisterRenderComponentReflection();
+    engine::render::RegisterRenderComponentReflection();
 
     // Spot-only light angles hide behind the type condition; intensity gets a slider.
-    const TypeInfo& light = TypeOf<draconic::engine::render::LightComponent>();
+    const TypeInfo& light = TypeOf<engine::render::LightComponent>();
     const PropertyInfo* inner = FindProperty(light, "innerAngle");
     REQUIRE(inner != nullptr);
-    const draconic::core::Attribute* vis = FindAttribute(*inner, u8"visibleWhen");
+    const foundation::core::Attribute* vis = FindAttribute(*inner, u8"visibleWhen");
     REQUIRE(vis != nullptr);
     PropertyCondition c;
     REQUIRE(ParsePropertyCondition(vis->value.TryGet<String>()->AsView(), c));
@@ -823,16 +823,16 @@ TEST_CASE("scene-edit: render components carry the inspector attribute annotatio
 
     const PropertyInfo* intensity = FindProperty(light, "intensity");
     REQUIRE(intensity != nullptr);
-    const draconic::core::Attribute* range = FindAttribute(*intensity, u8"range");
+    const foundation::core::Attribute* range = FindAttribute(*intensity, u8"range");
     REQUIRE(range != nullptr);
     CHECK(range->value.TryGet<Float4>() != nullptr);
 
     // Environment: turbidity is Analytic-only with a bounded slider.
-    const TypeInfo& env = TypeOf<draconic::engine::render::EnvironmentSettings>();
+    const TypeInfo& env = TypeOf<engine::render::EnvironmentSettings>();
     const PropertyInfo* turbidity = FindProperty(env, "turbidity");
     REQUIRE(turbidity != nullptr);
     CHECK(FindAttribute(*turbidity, u8"range") != nullptr);
-    const draconic::core::Attribute* tvis = FindAttribute(*turbidity, u8"visibleWhen");
+    const foundation::core::Attribute* tvis = FindAttribute(*turbidity, u8"visibleWhen");
     REQUIRE(tvis != nullptr);
     REQUIRE(ParsePropertyCondition(tvis->value.TryGet<String>()->AsView(), c));
     CHECK(MatchesPropertyCondition(c, 1));  // Analytic
@@ -841,7 +841,7 @@ TEST_CASE("scene-edit: render components carry the inspector attribute annotatio
     // Display-name override on the shared zenith/color slot.
     const PropertyInfo* zenith = FindProperty(env, "skyZenith");
     REQUIRE(zenith != nullptr);
-    const draconic::core::Attribute* label = FindAttribute(*zenith, u8"displayName");
+    const foundation::core::Attribute* label = FindAttribute(*zenith, u8"displayName");
     REQUIRE(label != nullptr);
     CHECK(label->value.TryGet<String>()->AsView() == StringView(u8"Sky Zenith / Color"));
 }
@@ -910,7 +910,7 @@ TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
     const Guid after = edit.CreateEntity(u8"After", parent);
     {
         scene::EntityHandle h = edit.Resolve(original);
-        draconic::core::Transform t = scene.GetLocalTransform(h);
+        foundation::core::Transform t = scene.GetLocalTransform(h);
         t.position = Float3{4, 5, 6};
         scene.SetLocalTransform(h, t);
     }

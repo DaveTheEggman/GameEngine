@@ -24,9 +24,9 @@ import :style_value;
 import :style_selector;
 import :style_rule;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class
         View; // defined in :view; Resolve(view,prop) body lives there (breaks the View<->styling cycle)

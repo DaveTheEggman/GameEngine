@@ -20,9 +20,9 @@ import draconic.ui;
 import :code_document;
 import :code_edit_view;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
 
     class MarkupCompletionProvider final : public ICompletionProvider

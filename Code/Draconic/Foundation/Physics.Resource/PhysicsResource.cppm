@@ -19,10 +19,10 @@ import draconic.core;
 import draconic.resource;
 import draconic.content;
 
-using namespace draconic::core;
-namespace resource = draconic::resource;
+using namespace foundation::core;
+namespace resource = foundation::resource;
 
-export namespace draconic::physics
+export namespace foundation::physics
 {
     // Cooked collision shape: the Jolt binary blob + debug outline (xyz triples, 3 per
     // triangle). Both produced by the CollisionShapeAssetBuilder.
@@ -36,9 +36,9 @@ export namespace draconic::physics
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "convex", convex);
-            draconic::core::Serialize(ar, "shapeBlob", shapeBlob);
-            draconic::core::Serialize(ar, "outline", outline);
+            foundation::core::Serialize(ar, "convex", convex);
+            foundation::core::Serialize(ar, "shapeBlob", shapeBlob);
+            foundation::core::Serialize(ar, "outline", outline);
         }
     };
 
@@ -65,7 +65,7 @@ export namespace draconic::physics
             return &CollisionShape::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             CollisionShapeSource* source = Cast<CollisionShapeSource>(object.Get());
@@ -103,9 +103,9 @@ export namespace draconic::physics
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "friction", friction);
-            draconic::core::Serialize(ar, "restitution", restitution);
-            draconic::core::Serialize(ar, "density", density);
+            foundation::core::Serialize(ar, "friction", friction);
+            foundation::core::Serialize(ar, "restitution", restitution);
+            foundation::core::Serialize(ar, "density", density);
         }
     };
 
@@ -126,7 +126,7 @@ export namespace draconic::physics
             return &PhysicalMaterial::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             PhysicalMaterialSource* source = Cast<PhysicalMaterialSource>(object.Get());

@@ -13,9 +13,9 @@ export module draconic.xml:lexer;
 import draconic.core;
 import :result;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::xml
+export namespace foundation::xml
 {
     class XmlLexer
     {

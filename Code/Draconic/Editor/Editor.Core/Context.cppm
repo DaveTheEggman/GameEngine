@@ -22,9 +22,9 @@ import :page;
 import :job_service;
 import :project;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
     /// User-facing notification severity (the application maps these to UI toasts).
     enum class NoticeKind : u8
@@ -77,17 +77,17 @@ export namespace draconic::editor
         // === Resources (runtime products over the project's cooked DB) ===
         // Owned by the application (created at project open); pages resolve scene refs and the
         // inspector's pickers bind through it. Null until a project is open.
-        void SetResources(draconic::resource::ResourceManager* resources) noexcept;
+        void SetResources(foundation::resource::ResourceManager* resources) noexcept;
 
         /// The PER-PROJECT editor-state settings store (<project>/Editor/ - dock layout,
         /// favorites, open pages, per-page prefs). Borrowed; the app owns it and sets it for
         /// the lifetime of the open project (null between projects). Pages mutate their
         /// section + MarkChanged, then RequestProjectEditorSettingsSave() to persist.
-        void SetProjectEditorSettings(draconic::settings::Settings* store) noexcept
+        void SetProjectEditorSettings(foundation::settings::Settings* store) noexcept
         {
             m_projectEditorSettings = store;
         }
-        [[nodiscard]] draconic::settings::Settings* ProjectEditorSettings() const noexcept
+        [[nodiscard]] foundation::settings::Settings* ProjectEditorSettings() const noexcept
         {
             return m_projectEditorSettings;
         }
@@ -99,7 +99,7 @@ export namespace draconic::editor
                 OnProjectEditorSettingsSaveRequested();
             }
         }
-        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept;
+        [[nodiscard]] foundation::resource::ResourceManager* Resources() const noexcept;
 
         // === Registries ===
 
@@ -115,7 +115,7 @@ export namespace draconic::editor
             String category;
             // `group` = the browser group the user invoked the creator FROM (null = no context,
             // e.g. the File menu - the creator picks its own default group).
-            Function<draconic::content::Instance*(EditorContext&, draconic::content::Group*)>
+            Function<foundation::content::Instance*(EditorContext&, foundation::content::Group*)>
                 create;
             // Only document-like creations (scenes) become the project's default scene when it
             // is unset; data assets (primitive meshes, materials) never should.
@@ -148,7 +148,7 @@ export namespace draconic::editor
         /// Open (or focus) a page editing `instance`: an existing page for the same instance is
         /// activated; otherwise the registry's nearest-type factory creates one. Null if no
         /// factory matches or the instance's type isn't registered.
-        EditorPage* OpenPage(draconic::content::Instance& instance);
+        EditorPage* OpenPage(foundation::content::Instance& instance);
 
         /// Adopt an instance-LESS page (the Game tab): same ownership + active-page flow as
         /// OpenPage, but the caller constructs it (no instance, no factory dispatch).
@@ -173,7 +173,7 @@ export namespace draconic::editor
 
         /// Global asset selection (asset browser / instance pickers). Entity selection is
         /// per-scene-page (phase 3).
-        [[nodiscard]] Selection<const draconic::content::Instance*>& AssetSelection() noexcept;
+        [[nodiscard]] Selection<const foundation::content::Instance*>& AssetSelection() noexcept;
 
         // === Import notifications ===
 
@@ -182,7 +182,7 @@ export namespace draconic::editor
         /// post-import steps that live above the importer's layer - e.g. model->prefab
         /// generation, which needs scene machinery the importer library never links.
         void AddImportListener(
-            Function<void(draconic::content::Instance&, const ImportOptions*)> listener);
+            Function<void(foundation::content::Instance&, const ImportOptions*)> listener);
 
         /// Play-in-editor seam: creates the singleton Game page (the player behavior in a
         /// tab). Registered by the scene editor plugin; unset = the Game menu item notifies.
@@ -198,7 +198,7 @@ export namespace draconic::editor
         /// machinery editor.core never links); returns false for non-scene instances or
         /// on failure (the exporter then stages the source verbatim - the runtime sniffs).
         /// MAIN-THREAD only (creates a scratch scene through the SceneSubsystem).
-        Function<bool(draconic::content::Instance&, Array<byte>&)> SceneStreamStager;
+        Function<bool(foundation::content::Instance&, Array<byte>&)> SceneStreamStager;
 
         /// Export reachability seam: collects the assets a scene/prefab instance references, for the
         /// export closure (docs/design/export-reachability.md). Loads the instance over the app's full
@@ -207,11 +207,11 @@ export namespace draconic::editor
         /// Registered by the scene editor plugin (needs scene machinery). MAIN-THREAD only (loads a
         /// scene through the SceneSubsystem), which is exactly why the editor pre-scans with this on
         /// the main thread and hands the resulting guid set to the background export job.
-        Function<bool(draconic::content::Instance&, draconic::content::ContentDatabase&,
+        Function<bool(foundation::content::Instance&, foundation::content::ContentDatabase&,
                       Array<Guid>& /*outResources*/, Array<Guid>& /*outPrefabs*/)>
             SceneRefScanner;
 
-        void NotifyImported(draconic::content::Instance& instance, const ImportOptions* options);
+        void NotifyImported(foundation::content::Instance& instance, const ImportOptions* options);
 
         // === Script breakpoints (the debugger, script-debugger.md P1) ===
         // Shared editor state: the ScriptPage gutter toggles them per source file+line, and a
@@ -284,18 +284,18 @@ export namespace draconic::editor
 
         EditorProject* m_project = nullptr;
         EditorJobService* m_jobs = nullptr; // borrowed (app-owned)
-        draconic::resource::ResourceManager* m_resources = nullptr; // borrowed (app-owned)
-        draconic::settings::Settings* m_projectEditorSettings = nullptr; // borrowed (app-owned)
+        foundation::resource::ResourceManager* m_resources = nullptr; // borrowed (app-owned)
+        foundation::settings::Settings* m_projectEditorSettings = nullptr; // borrowed (app-owned)
         ImporterRegistry m_importers;                               // borrowed
         EditorPageRegistry m_pageRegistry;
         Array<AssetCreator> m_creators;
         String m_clipboardKind;
         Array<byte> m_clipboard;
         Array<Guid> m_favorites;
-        Array<Function<void(draconic::content::Instance&, const ImportOptions*)>> m_importListeners;
+        Array<Function<void(foundation::content::Instance&, const ImportOptions*)>> m_importListeners;
         Array<UniquePtr<EditorPage>> m_pages;
         EditorPage* m_activePage = nullptr;
-        Selection<const draconic::content::Instance*> m_assetSelection;
+        Selection<const foundation::content::Instance*> m_assetSelection;
         Array<ScriptBreakpoint> m_breakpoints; // shared script debugger breakpoints
         ScriptExecutionPoint m_executionPoint; // paused-debugger location (versioned)
         u64 m_executionPointVersion = 0;

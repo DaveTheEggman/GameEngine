@@ -19,11 +19,11 @@ import draconic.xml.serialization;
 import draconic.engine.project;
 import :export_preset; // ExportPreset, ExportPresetSet
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace vfs = draconic::vfs;
+    namespace vfs = foundation::vfs;
 
     inline constexpr StringView kTemplateManifestFile = u8"template.xml";
 
@@ -65,7 +65,7 @@ export namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(*stream, SerializeMode::Read);
         if (!ctx || ctx->serializer == nullptr)
         {
@@ -83,7 +83,7 @@ export namespace draconic::editor
                                                      StringView fileName = kTemplateManifestFile)
     {
         MemoryStream buffer;
-        SerializerFactory factory = draconic::xml::XmlSerializerFactory();
+        SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
         if (!ctx || ctx->serializer == nullptr)
         {
@@ -255,7 +255,7 @@ export namespace draconic::editor
         out.name += u8" ";
         out.name += out.config;
         out.name += u8" (host build)";
-        out.engineVersion = String(draconic::engine::project::kEngineVersionString);
+        out.engineVersion = String(engine::project::kEngineVersionString);
         out.playerBinary =
             GetExecutableName(kPlayerBaseName); // host-based (this template is the host)
         out.directory = String(hostToolDir);
@@ -321,7 +321,7 @@ export namespace draconic::editor
     [[nodiscard]] inline bool TemplateEngineMatches(const ExportTemplate& tmpl)
     {
         return tmpl.engineVersion.IsEmpty() ||
-               tmpl.engineVersion.AsView() == draconic::engine::project::kEngineVersionString;
+               tmpl.engineVersion.AsView() == engine::project::kEngineVersionString;
     }
 
     // Where CreateTemplate writes the bundle it builds.

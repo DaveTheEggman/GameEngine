@@ -16,11 +16,11 @@ import draconic.rhi;
 import draconic.render;    // RenderData base + RenderCategories
 import draconic.particles; // ParticleBlendMode
 
-using namespace draconic::core;
-using namespace draconic::particles;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::particles;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::engine::particles
+export namespace engine::particles
 {
     // One packed billboard instance (80 bytes = 5x float4, matches the ParticleRenderer VS inputs).
     struct ParticleBillboardInstance
@@ -34,7 +34,7 @@ export namespace draconic::engine::particles
     static_assert(sizeof(ParticleBillboardInstance) == 80);
 
     // Both particle render-data kinds ride the one particle rendererId; this tells them apart in Resolve.
-    struct ParticleRenderDataBase : draconic::render::RenderData
+    struct ParticleRenderDataBase : foundation::render::RenderData
     {
         u8 particleKind = 0; // 0 = billboard batch, 1 = trail ribbon
     };

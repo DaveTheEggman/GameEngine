@@ -23,10 +23,10 @@ import draconic.vfs;
 import draconic.shaders;
 import :shader_system;
 
-namespace core = draconic::core;
-namespace vfs = draconic::vfs;
+namespace core = foundation::core;
+namespace vfs = foundation::vfs;
 
-export namespace draconic::shaders
+export namespace foundation::shaders
 {
     class FileShaderSourceProvider final : public IShaderSourceProvider
     {

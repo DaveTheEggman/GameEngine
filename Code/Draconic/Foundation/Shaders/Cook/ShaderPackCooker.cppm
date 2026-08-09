@@ -19,9 +19,9 @@ import :pack;
 import :compiler;
 import :wgsl_cook;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::shaders
+export namespace foundation::shaders
 {
     struct ShaderCookOptions
     {

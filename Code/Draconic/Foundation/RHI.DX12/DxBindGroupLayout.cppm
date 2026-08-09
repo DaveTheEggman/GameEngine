@@ -13,9 +13,9 @@ import draconic.core;
 import draconic.rhi;
 import :conversions;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     struct DxBindingRangeInfo
@@ -101,4 +101,4 @@ export namespace draconic::rhi::dx12
         bool m_hasBindless = false;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

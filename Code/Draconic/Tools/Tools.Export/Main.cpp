@@ -1,5 +1,5 @@
 // Draconic.Tools.Export - packages a project into shippable dist(s). A thin CLI over the export DRIVER in
-// draconic::editor (the editor's Export menu calls the same ExportOne/ExportAll; tests drive it
+// editor (the editor's Export menu calls the same ExportOne/ExportAll; tests drive it
 // headlessly). The whole dist - content (Content.pak + player.xml) AND the player + its runtime
 // sidecars - comes from an export preset resolving to an export template, so a preset produces the
 // same result whichever surface triggers it. Links ZERO editor code into the result.
@@ -64,10 +64,9 @@ import draconic.script.resource;
 import draconic.script.pipeline;
 import draconic.engine.physics;
 
-using namespace draconic::core;
-namespace editor = draconic::editor;
-namespace scene = draconic::scene;
-namespace vfs = draconic::vfs;
+using namespace foundation::core;
+namespace scene = foundation::scene;
+namespace vfs = foundation::vfs;
 namespace fs = std::filesystem;
 
 namespace
@@ -85,10 +84,10 @@ namespace
     }
 
     template <typename T>
-    void Add(draconic::pipeline::BuilderRegistry& registry)
+    void Add(pipeline::BuilderRegistry& registry)
     {
         registry.Register(
-            UniquePtr<draconic::pipeline::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
+            UniquePtr<pipeline::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
     }
 
     // Same manager set the subsystems inject into every scene (kept in lockstep, like the
@@ -97,36 +96,36 @@ namespace
     // no device, no subsystem lifecycle needed.
     void AddAllSceneManagers(scene::Scene& scene)
     {
-        namespace render = draconic::render;
-        namespace animation = draconic::animation;
-        namespace particles = draconic::particles;
-        scene.AddSystem<draconic::engine::render::MeshComponentManager>();
-        scene.AddSystem<draconic::engine::render::InstancedMeshComponentManager>();
-        scene.AddSystem<draconic::engine::render::SpriteComponentManager>();
-        scene.AddSystem<draconic::engine::render::DecalComponentManager>();
-        scene.AddSystem<draconic::engine::render::CameraComponentManager>();
-        scene.AddSystem<draconic::engine::render::LightComponentManager>();
-        scene.AddSystem<draconic::engine::render::ReflectionProbeComponentManager>();
-        scene.AddSystem<draconic::engine::render::EnvironmentSystem>();
-        scene.AddSystem<draconic::engine::animation::AnimationGraphComponentManager>();
-        scene.AddSystem<draconic::engine::animation::SkeletalAnimationComponentManager>();
-        scene.AddSystem<draconic::engine::animation::InstancedSkinningComponentManager>();
-        scene.AddSystem<draconic::engine::particles::ParticleEffectComponentManager>();
-        namespace physics = draconic::physics;
-        scene.AddSystem<draconic::engine::physics::RigidBodyComponentManager>();
-        scene.AddSystem<draconic::engine::physics::ColliderComponentManager>();
-        scene.AddSystem<draconic::engine::physics::JointComponentManager>();
-        scene.AddSystem<draconic::engine::physics::CharacterComponentManager>();
-        scene.AddSystem<draconic::engine::physics::PhysicsSceneSystem>(); // carries the settings block
+        namespace render = foundation::render;
+        namespace animation = foundation::animation;
+        namespace particles = foundation::particles;
+        scene.AddSystem<engine::render::MeshComponentManager>();
+        scene.AddSystem<engine::render::InstancedMeshComponentManager>();
+        scene.AddSystem<engine::render::SpriteComponentManager>();
+        scene.AddSystem<engine::render::DecalComponentManager>();
+        scene.AddSystem<engine::render::CameraComponentManager>();
+        scene.AddSystem<engine::render::LightComponentManager>();
+        scene.AddSystem<engine::render::ReflectionProbeComponentManager>();
+        scene.AddSystem<engine::render::EnvironmentSystem>();
+        scene.AddSystem<engine::animation::AnimationGraphComponentManager>();
+        scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
+        scene.AddSystem<engine::animation::InstancedSkinningComponentManager>();
+        scene.AddSystem<engine::particles::ParticleEffectComponentManager>();
+        namespace physics = foundation::physics;
+        scene.AddSystem<engine::physics::RigidBodyComponentManager>();
+        scene.AddSystem<engine::physics::ColliderComponentManager>();
+        scene.AddSystem<engine::physics::JointComponentManager>();
+        scene.AddSystem<engine::physics::CharacterComponentManager>();
+        scene.AddSystem<engine::physics::PhysicsSceneSystem>(); // carries the settings block
     }
 
     // Pre-transcode every scene/prefab TEXT source stream to the binary wire (the editor
     // does the same on its main thread before the pack job) - the staged pak then matches
     // an editor export exactly. A stream that fails to transcode stages verbatim (the
     // runtime sniffs), so this can only improve the output.
-    void CollectSceneStreams(draconic::content::Group& group, HashMap<Guid, Array<byte>>& out)
+    void CollectSceneStreams(foundation::content::Group& group, HashMap<Guid, Array<byte>>& out)
     {
-        for (draconic::content::Instance* instance : group.Instances())
+        for (foundation::content::Instance* instance : group.Instances())
         {
             const bool isScene = instance->TypeName() == StringView(u8"SceneDocument");
             const bool isPrefab = instance->TypeName() == StringView(u8"PrefabDocument");
@@ -148,7 +147,7 @@ namespace
                 out.InsertOrAssign(instance->Id(), Move(bytes.Value()));
             }
         }
-        for (draconic::content::Group* child : group.Groups())
+        for (foundation::content::Group* child : group.Groups())
         {
             CollectSceneStreams(*child, out);
         }
@@ -160,7 +159,7 @@ namespace
     // library stays subsystem-agnostic; this bridges the scene->asset edges PlanFor can't see.
     editor::SceneReferenceScanner MakeSceneScanner()
     {
-        return [](draconic::content::Instance& instance, draconic::content::ContentDatabase& db,
+        return [](foundation::content::Instance& instance, foundation::content::ContentDatabase& db,
                   editor::SceneReferences& out)
         {
             scene::Scene scene;
@@ -169,7 +168,7 @@ namespace
             {
                 return;
             }
-            draconic::resource::ResourceManager collector(
+            foundation::resource::ResourceManager collector(
                 db); // no factories -> all binds unresolved
             scene::ResolveSceneResources(scene, collector);
             collector.CollectUnresolved(out.resources);
@@ -179,59 +178,59 @@ namespace
     }
 
     // Same builder set as Draconic.Tools.Cook/Draconic.Tools.Editor (kept in lockstep).
-    void RegisterAllBuilders(draconic::pipeline::BuilderRegistry& registry)
+    void RegisterAllBuilders(pipeline::BuilderRegistry& registry)
     {
-        draconic::pipeline::RegisterAssetReflection(); // base Asset::fileName + SourcePath
-        draconic::pipeline::RegisterTextureAsset();
-        draconic::pipeline::RegisterFontAsset(); // asset + FontResource product
-        draconic::pipeline::RegisterImageAsset();
-        draconic::pipeline::RegisterMeshAssets();
-        draconic::pipeline::RegisterAnimationAssets();
-        draconic::pipeline::RegisterMaterialAsset();
-        draconic::pipeline::RegisterShaderAsset();
-        draconic::pipeline::RegisterParticleEffectAsset();
-        draconic::pipeline::RegisterInputMapAsset();
-        draconic::pipeline::RegisterModelManifestAsset();
-        draconic::model::RegisterModelResourceTypes();
-        draconic::image::RegisterImageResource();
-        draconic::pipeline::RegisterPhysicsAssets();
-        draconic::physics::RegisterPhysicsResource();
-        draconic::pipeline::RegisterUIAssets();
-        draconic::ui::RegisterUIResource();
-        draconic::pipeline::RegisterAudioAssets();
-        draconic::audio::RegisterAudioResource();
-        draconic::pipeline::RegisterScriptAssets();
-        draconic::script::RegisterScriptResource();
+        pipeline::RegisterAssetReflection(); // base Asset::fileName + SourcePath
+        pipeline::RegisterTextureAsset();
+        pipeline::RegisterFontAsset(); // asset + FontResource product
+        pipeline::RegisterImageAsset();
+        pipeline::RegisterMeshAssets();
+        pipeline::RegisterAnimationAssets();
+        pipeline::RegisterMaterialAsset();
+        pipeline::RegisterShaderAsset();
+        pipeline::RegisterParticleEffectAsset();
+        pipeline::RegisterInputMapAsset();
+        pipeline::RegisterModelManifestAsset();
+        foundation::model::RegisterModelResourceTypes();
+        foundation::image::RegisterImageResource();
+        pipeline::RegisterPhysicsAssets();
+        foundation::physics::RegisterPhysicsResource();
+        pipeline::RegisterUIAssets();
+        foundation::ui::RegisterUIResource();
+        pipeline::RegisterAudioAssets();
+        foundation::audio::RegisterAudioResource();
+        pipeline::RegisterScriptAssets();
+        foundation::script::RegisterScriptResource();
         // The builder resolves a per-language COOK through the registry (B3);
         // registering backends + cooks is the entry point's job - both languages.
-        draconic::script::wren::RegisterWrenScriptBackend();
-        draconic::script::angelscript::RegisterAngelScriptBackend();
-        draconic::pipeline::RegisterWrenScriptCook();
-        draconic::pipeline::RegisterAngelScriptScriptCook();
+        foundation::script::wren::RegisterWrenScriptBackend();
+        foundation::script::angelscript::RegisterAngelScriptBackend();
+        pipeline::RegisterWrenScriptCook();
+        pipeline::RegisterAngelScriptScriptCook();
         GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
         RegisterSerializable<scene::SceneDocument>();
 
-        Add<draconic::pipeline::TextureAssetBuilder>(registry);
-        Add<draconic::pipeline::FontAssetBuilder>(registry);
-        Add<draconic::pipeline::ImageAssetBuilder>(registry);
-        Add<draconic::pipeline::StaticMeshAssetBuilder>(registry);
-        Add<draconic::pipeline::SkinnedMeshAssetBuilder>(registry);
-        Add<draconic::pipeline::SkeletonAssetBuilder>(registry);
-        Add<draconic::pipeline::AnimationClipAssetBuilder>(registry);
-        Add<draconic::pipeline::AnimationGraphAssetBuilder>(registry);
-        Add<draconic::pipeline::MaterialAssetBuilder>(registry);
-        Add<draconic::pipeline::ShaderAssetBuilder>(registry);
-        Add<draconic::pipeline::ParticleEffectAssetBuilder>(registry);
-        Add<draconic::pipeline::InputMapAssetBuilder>(registry);
-        Add<draconic::pipeline::ModelManifestAssetBuilder>(registry);
-        Add<draconic::pipeline::CollisionShapeAssetBuilder>(registry);
-        Add<draconic::pipeline::PhysicalMaterialAssetBuilder>(registry);
-        Add<draconic::pipeline::UIDocumentAssetBuilder>(registry);
-        Add<draconic::pipeline::UIThemeAssetBuilder>(registry);
-        Add<draconic::pipeline::AudioClipAssetBuilder>(registry);
-        Add<draconic::pipeline::AudioBusLayoutAssetBuilder>(registry);
-        Add<draconic::pipeline::SoundCueAssetBuilder>(registry);
-        Add<draconic::pipeline::ScriptClassAssetBuilder>(registry);
+        Add<pipeline::TextureAssetBuilder>(registry);
+        Add<pipeline::FontAssetBuilder>(registry);
+        Add<pipeline::ImageAssetBuilder>(registry);
+        Add<pipeline::StaticMeshAssetBuilder>(registry);
+        Add<pipeline::SkinnedMeshAssetBuilder>(registry);
+        Add<pipeline::SkeletonAssetBuilder>(registry);
+        Add<pipeline::AnimationClipAssetBuilder>(registry);
+        Add<pipeline::AnimationGraphAssetBuilder>(registry);
+        Add<pipeline::MaterialAssetBuilder>(registry);
+        Add<pipeline::ShaderAssetBuilder>(registry);
+        Add<pipeline::ParticleEffectAssetBuilder>(registry);
+        Add<pipeline::InputMapAssetBuilder>(registry);
+        Add<pipeline::ModelManifestAssetBuilder>(registry);
+        Add<pipeline::CollisionShapeAssetBuilder>(registry);
+        Add<pipeline::PhysicalMaterialAssetBuilder>(registry);
+        Add<pipeline::UIDocumentAssetBuilder>(registry);
+        Add<pipeline::UIThemeAssetBuilder>(registry);
+        Add<pipeline::AudioClipAssetBuilder>(registry);
+        Add<pipeline::AudioBusLayoutAssetBuilder>(registry);
+        Add<pipeline::SoundCueAssetBuilder>(registry);
+        Add<pipeline::ScriptClassAssetBuilder>(registry);
     }
 
     // Directory containing this executable (Bin/... - where Draconic.Engine.Player + its .runtime-libs live,
@@ -436,14 +435,14 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    draconic::pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders;
     RegisterAllBuilders(builders);
 
     // Component reflection (data-version gates) before any scene stream deserializes.
-    draconic::engine::render::RegisterRenderComponentReflection();
-    draconic::engine::animation::RegisterAnimationComponentReflection();
-    draconic::engine::particles::RegisterParticleComponentReflection();
-    draconic::engine::physics::RegisterPhysicsComponentReflection();
+    engine::render::RegisterRenderComponentReflection();
+    engine::animation::RegisterAnimationComponentReflection();
+    engine::particles::RegisterParticleComponentReflection();
+    engine::physics::RegisterPhysicsComponentReflection();
     HashMap<Guid, Array<byte>> sceneStreams;
     CollectSceneStreams(*project->SourceDb().RootGroup(), sceneStreams);
 

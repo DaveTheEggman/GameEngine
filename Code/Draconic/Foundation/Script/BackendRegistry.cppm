@@ -15,9 +15,9 @@ export module draconic.script:backend_registry;
 import draconic.core;
 import :script_manager;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::script
+export namespace foundation::script
 {
     struct ScriptBackendDesc
     {

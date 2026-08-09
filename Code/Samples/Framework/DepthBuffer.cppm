@@ -5,9 +5,11 @@ export module draconic.samples.framework:depth_buffer;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
+using namespace foundation;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::samples::framework
+export namespace samples::framework
 {
 
     struct DepthBuffer
@@ -55,4 +57,4 @@ export namespace draconic::samples::framework
         }
     };
 
-} // namespace draconic::samples::framework
+} // namespace samples::framework

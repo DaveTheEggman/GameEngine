@@ -16,9 +16,9 @@ import draconic.rhi;
 import :surface;
 import :adapter;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     /// Configuration for DX12 backend creation.
@@ -167,4 +167,4 @@ export namespace draconic::rhi::dx12
         return ErrorCode::Ok;
     }
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

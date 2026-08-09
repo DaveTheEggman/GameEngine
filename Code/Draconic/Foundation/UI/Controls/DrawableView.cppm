@@ -19,13 +19,12 @@ import :box_constraints;
 import :draw_context;
 import :drawable;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     // Alias so the faithful `Drawable` field name can still name the Drawable type (RefPtr element).
-    using DrawablePtr = RefPtr<::draconic::ui::Drawable>;
+    using DrawablePtr = RefPtr<::foundation::ui::Drawable>;
 
     class DrawableView : public View
     {

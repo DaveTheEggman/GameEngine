@@ -27,7 +27,7 @@ import :string;
 import :array;
 import :guid;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // -----------------------------------------------------------------------
     // Scalar type mapping - C++ type to ScalarKind (enums via underlying type).
@@ -232,7 +232,7 @@ export namespace draconic::core
 // Write: emits the type's CURRENT data-version chain (concrete first, then every versioned
 // base) and pushes it as the active scope. Read: parses the stored chain and pushes THAT -
 // so the Serialize body sees the version the data was written with.
-export namespace draconic::core
+export namespace foundation::core
 {
     inline void BeginVersionedPayload(ISerializer& ar, const TypeInfo& type)
     {

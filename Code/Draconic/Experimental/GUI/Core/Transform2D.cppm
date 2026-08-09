@@ -24,10 +24,10 @@ import draconic.core; // Float2, Float4x4, Cos/Sin, NearlyEqual
 
 import :rect;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-namespace draconic::gui
+namespace experimental::gui
 {
     [[nodiscard]] constexpr f32 Min4(f32 w, f32 x, f32 y, f32 z) noexcept
     {
@@ -43,7 +43,7 @@ namespace draconic::gui
     }
 }
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     struct Transform2D
     {

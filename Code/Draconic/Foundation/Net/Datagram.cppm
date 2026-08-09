@@ -14,9 +14,9 @@ export module draconic.net:datagram;
 import draconic.core;
 import :transport; // SimConditions (shared sim knobs)
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::net
+export namespace foundation::net
 {
 
     // An opaque datagram address. Real UDP packs IPv4+port; the sim uses a socket index. Comparable +

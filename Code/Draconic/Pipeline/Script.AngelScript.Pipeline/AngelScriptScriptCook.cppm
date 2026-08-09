@@ -23,9 +23,9 @@ export module draconic.script.angelscript.pipeline;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::pipeline{
+export namespace pipeline{
     // The New Asset starter for AngelScript: a behavior class whose constructor takes the
     // entity handle, with the lifecycle handlers stubbed. No properties (harvest deferred).
     inline constexpr StringView kAngelScriptBehaviorStarter =

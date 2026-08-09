@@ -38,16 +38,16 @@ import draconic.editor.app;
 import :camera;
 import :animation_graph_page; // DrawSkeletonWireframe (shared preview helper)
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace vg = draconic::vg;
-    namespace scene = draconic::scene;
-    namespace render = draconic::render;
-    namespace animation = draconic::animation;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace vg = foundation::vg;
+    namespace scene = foundation::scene;
+    namespace render = foundation::render;
+    namespace animation = foundation::animation;
 
     class SkeletonTreeAdapter; // defined below
 
@@ -55,16 +55,16 @@ export namespace draconic::editor
     {
     public:
         SkeletonEditorPage(EditorContext& context, runtime::IApplicationHost& host,
-                           ui::runtime::UIHost& uiHost, draconic::content::Instance& instance);
+                           ui::runtime::UIHost& uiHost, foundation::content::Instance& instance);
 
-        [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
+        [[nodiscard]] foundation::ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         // Viewer: skeletons carry no re-authorable fields (imported), so Save is a no-op.
         [[nodiscard]] Status Save() override { return Status{}; }
 
         void OnUpdate(runtime::IApplicationHost&, f32 dt) override;
         void OnRenderWindow(runtime::IApplicationHost&,
-                            draconic::graphics::FrameContext& frame) override;
+                            foundation::graphics::FrameContext& frame) override;
         void OnClose() override;
 
     private:
@@ -90,24 +90,24 @@ export namespace draconic::editor
         ui::runtime::UIHost* m_uiHost = nullptr;
         String m_title;
 
-        draconic::resource::Proxy<animation::Skeleton> m_skeleton; // cooked product
+        foundation::resource::Proxy<animation::Skeleton> m_skeleton; // cooked product
         animation::Skeleton* m_lastSkeleton = nullptr;             // watchdog (identity)
 
         // preview world (debug-draw only)
-        draconic::engine::scene::SceneSubsystem* m_scenes = nullptr;
+        engine::scene::SceneSubsystem* m_scenes = nullptr;
         scene::SceneManager m_sceneManager;
-        draconic::engine::render::RenderSubsystem* m_render = nullptr;
+        engine::render::RenderSubsystem* m_render = nullptr;
         scene::Scene* m_scene = nullptr;
         EditorCamera m_camera;
-        UniquePtr<draconic::shell::InputRouter> m_router;
+        UniquePtr<foundation::shell::InputRouter> m_router;
         RefPtr<ui::viewport::ViewportView> m_viewport;
-        draconic::graphics::RenderWindow* m_hostWindow = nullptr;
+        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
 
         RefPtr<ui::toolkit::DraggableTreeView> m_tree;
         UniquePtr<SkeletonTreeAdapter> m_adapter;
         RefPtr<ui::toolkit::PropertyGrid> m_grid;
         RefPtr<ui::Label> m_statsLabel;
-        RefPtr<draconic::ui::View> m_content;
+        RefPtr<foundation::ui::View> m_content;
 
         Array<BoneNode> m_nodes; // nodeId = index (bone order)
         Array<i32> m_roots;
@@ -147,7 +147,7 @@ export namespace draconic::editor
 
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
 
     private:
         runtime::IApplicationHost* m_host;

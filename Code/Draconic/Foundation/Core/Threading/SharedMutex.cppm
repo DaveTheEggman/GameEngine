@@ -12,7 +12,7 @@ import :mutex;
 import :condition_variable;
 import :scoped_lock;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     class SharedMutex
     {

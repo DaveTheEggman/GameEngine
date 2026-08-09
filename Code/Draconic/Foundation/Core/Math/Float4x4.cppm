@@ -18,7 +18,7 @@ import :float2;
 import :float3;
 import :float4;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Float4x4 - 4x4, row-major, row-vector convention.

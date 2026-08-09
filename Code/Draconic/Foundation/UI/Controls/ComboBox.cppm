@@ -31,11 +31,10 @@ import :palette;
 import :ipopup_owner;
 import :popup_layer; // ShowPopup/ClosePopup on the RootView's PopupLayer
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ComboBox : public View, public IPopupOwner
     {

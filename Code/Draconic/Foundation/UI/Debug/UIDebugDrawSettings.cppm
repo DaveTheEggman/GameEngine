@@ -6,7 +6,7 @@
 
 export module draconic.ui:debug_settings;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct UIDebugDrawSettings
     {

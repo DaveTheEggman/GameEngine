@@ -48,10 +48,10 @@ import :list_view;
 import :tree_view;
 import :grid_view;
 
-using namespace draconic::core;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace vg = foundation::vg;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Factory for creating a dark theme with consistent rounded corners everywhere.
     struct RoundedDarkTheme

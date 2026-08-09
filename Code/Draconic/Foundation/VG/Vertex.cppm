@@ -15,9 +15,9 @@ export module draconic.vg:vertex;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg
+export namespace foundation::vg
 {
     /// Vertex structure for vector graphics with analytical AA support.
     struct VGVertex

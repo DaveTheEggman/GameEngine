@@ -17,9 +17,9 @@ import :view;
 import :box_constraints;
 import :draw_context;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class DragAdorner : public ViewGroup
     {

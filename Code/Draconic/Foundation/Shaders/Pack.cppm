@@ -15,9 +15,9 @@ import draconic.core;
 import :types;
 import :flags;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::shaders
+export namespace foundation::shaders
 {
     // The cooked blob format for a target backend. WGSL is TEXT; the other two are bytecode.
     enum class CookedShaderFormat : u32

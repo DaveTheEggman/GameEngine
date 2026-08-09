@@ -11,7 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace draconic::core::sys
+namespace foundation::core::sys
 {
     // --- Threads -----------------------------------------------------------
     using ThreadHandle = std::uintptr_t;

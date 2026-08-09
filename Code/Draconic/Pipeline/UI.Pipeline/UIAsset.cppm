@@ -26,10 +26,10 @@ import draconic.content;
 import draconic.ui;
 import draconic.ui.resource;
 
-using namespace draconic::core;
-using namespace draconic::ui;
+using namespace foundation::core;
+using namespace foundation::ui;
 
-export namespace draconic::pipeline{
+export namespace pipeline{
     // The UISandbox pause-menu vocabulary (kebab-case attributes, explicit sizes -
     // unsized children in a root Flex stretch into bars).
     inline constexpr StringView kUIDocumentStarter =
@@ -48,33 +48,33 @@ export namespace draconic::pipeline{
         u8"/* Game theme overrides - selectors match control types and .classes. */\n"
         u8"Label { text-color: #E8E8E8; }\n";
 
-    class UIDocumentAsset final : public draconic::pipeline::Asset
+    class UIDocumentAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(UIDocumentAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(UIDocumentAsset, pipeline::Asset)
     public:
         String markup;
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar);
-            draconic::core::Serialize(ar, "markup", markup);
+            pipeline::Asset::Serialize(ar);
+            foundation::core::Serialize(ar, "markup", markup);
         }
     };
 
-    class UIThemeAsset final : public draconic::pipeline::Asset
+    class UIThemeAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(UIThemeAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(UIThemeAsset, pipeline::Asset)
     public:
         String stylesheet;
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar);
-            draconic::core::Serialize(ar, "stylesheet", stylesheet);
+            pipeline::Asset::Serialize(ar);
+            foundation::core::Serialize(ar, "stylesheet", stylesheet);
         }
     };
 
-    class UIDocumentAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class UIDocumentAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -86,8 +86,8 @@ export namespace draconic::pipeline{
             return &UIDocumentSource::StaticType();
         }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const UIDocumentAsset& da = static_cast<const UIDocumentAsset&>(asset);
             if (ctx.output == nullptr)
@@ -121,7 +121,7 @@ export namespace draconic::pipeline{
         }
     };
 
-    class UIThemeAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class UIThemeAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -133,8 +133,8 @@ export namespace draconic::pipeline{
             return &UIThemeSource::StaticType();
         }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const UIThemeAsset& ta = static_cast<const UIThemeAsset&>(asset);
             if (ctx.output == nullptr)
@@ -161,7 +161,7 @@ export namespace draconic::pipeline{
     };
 
     /// Drag-drop importer for `.sml` / `.sss` files (text embeds into the asset).
-    class UIFileImporter final : public draconic::editor::IFileImporter
+    class UIFileImporter final : public editor::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"UI"; }
@@ -170,10 +170,10 @@ export namespace draconic::pipeline{
             return extension == u8"sml" || extension == u8"sss";
         }
 
-        [[nodiscard]] Result<draconic::content::Instance*>
-        Import(StringView sourcePath, draconic::editor::EditorProject& project,
-               draconic::content::Group& group, const draconic::editor::ImportOptions*, Object*,
-               Array<draconic::editor::DeferredImportWrite>*) override
+        [[nodiscard]] Result<foundation::content::Instance*>
+        Import(StringView sourcePath, editor::EditorProject& project,
+               foundation::content::Group& group, const editor::ImportOptions*, Object*,
+               Array<editor::DeferredImportWrite>*) override
         {
             (void)project;
             FileStream stream(sourcePath, FileMode::Read);
@@ -189,9 +189,9 @@ export namespace draconic::pipeline{
             }
             String text(StringView(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size()));
             const StringView stem =
-                draconic::editor::FileStemOf(draconic::editor::FileNameOf(sourcePath));
-            const bool isTheme = draconic::editor::FileExtensionLower(sourcePath) == u8"sss";
-            draconic::content::Instance* instance = group.CreateInstance(
+                editor::FileStemOf(editor::FileNameOf(sourcePath));
+            const bool isTheme = editor::FileExtensionLower(sourcePath) == u8"sss";
+            foundation::content::Instance* instance = group.CreateInstance(
                 stem, isTheme ? UIThemeAsset::StaticType() : UIDocumentAsset::StaticType());
             if (instance == nullptr)
             {

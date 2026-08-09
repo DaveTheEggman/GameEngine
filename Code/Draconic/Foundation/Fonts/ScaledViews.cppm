@@ -21,9 +21,9 @@ import :types;
 import :interfaces;
 import :text_util;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     class ScaledFontView final : public IFont
     {

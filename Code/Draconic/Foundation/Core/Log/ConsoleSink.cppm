@@ -12,7 +12,7 @@ import :string;
 import :system;
 import :logger;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // Writes to stdout (stderr for Error/Fatal).
     class ConsoleSink final : public ILogSink

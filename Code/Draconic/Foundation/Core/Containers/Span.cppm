@@ -7,7 +7,7 @@ export module draconic.core:span;
 
 import :base;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Span - non-owning view over contiguous elements.

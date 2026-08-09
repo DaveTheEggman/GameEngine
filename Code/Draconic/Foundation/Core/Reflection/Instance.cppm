@@ -11,7 +11,7 @@ export module draconic.core:instance;
 import :base;
 import :type_info;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Instance - a borrowed, type-erased pointer to a live object.

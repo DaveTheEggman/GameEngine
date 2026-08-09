@@ -1,7 +1,7 @@
 // Draconic::MaterialEditor - the `draconic.materials.editor` module (tooling).
 //
 // Source-side material authoring + cook:
-//   * MaterialAsset (draconic::pipeline::Asset): wraps a MaterialSource (the authored material -
+//   * MaterialAsset (pipeline::Asset): wraps a MaterialSource (the authored material -
 //     shader reference + declared properties + render-state presets + default
 //     uniforms). A material has no external source file to decode, so the asset IS
 //     the authored data; cooking resolves it into the product DB.
@@ -24,28 +24,28 @@ import draconic.content;
 import draconic.materials;
 import draconic.materials.resource;
 
-using namespace draconic::core;
-using namespace draconic::materials;
+using namespace foundation::core;
+using namespace foundation::materials;
 
-export namespace draconic::pipeline{
+export namespace pipeline{
 
     // Source asset wrapping the authored material data.
-    class MaterialAsset final : public draconic::pipeline::Asset
+    class MaterialAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(MaterialAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(MaterialAsset, pipeline::Asset)
     public:
         MaterialSource source;
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName (optional authoring note)
+            pipeline::Asset::Serialize(ar); // fileName (optional authoring note)
             source.Serialize(ar);
         }
     };
 
     // Cooks a MaterialAsset -> MaterialSource in the output DB (the authored source is
     // already the runtime source; writing it is the cook).
-    class MaterialAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class MaterialAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -59,9 +59,9 @@ export namespace draconic::pipeline{
 
         // Bound textures are runtime REFERENCES: their products must exist, but a texture edit
         // never re-cooks the material (the factory re-binds at load/reload).
-        void ScanDependencies(const draconic::pipeline::Asset& asset,
-                              draconic::pipeline::AssetBuildContext&,
-                              draconic::pipeline::AssetDependencies& out) override
+        void ScanDependencies(const pipeline::Asset& asset,
+                              pipeline::AssetBuildContext&,
+                              pipeline::AssetDependencies& out) override
         {
             const MaterialAsset& ma = static_cast<const MaterialAsset&>(asset);
             for (const Guid& id : ma.source.textureIds)
@@ -73,8 +73,8 @@ export namespace draconic::pipeline{
             }
         }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const MaterialAsset& ma =
                 static_cast<const MaterialAsset&>(asset); // guarded by AssetType()
@@ -108,4 +108,4 @@ export namespace draconic::pipeline{
     // MaterialAsset::StaticType() is defined WITH its reflected surface (a Nested `source`
     // property) in MaterialAssetImpl.cpp - GCC module hygiene: DRACONIC_REFLECT out of interfaces.
 
-} // namespace draconic::materials
+} // namespace foundation::materials

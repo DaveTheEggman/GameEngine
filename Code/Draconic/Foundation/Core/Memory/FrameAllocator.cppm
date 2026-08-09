@@ -12,7 +12,7 @@ import :base;
 import :allocator;
 import :linear_allocator;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // FrameAllocator - double-buffered linear allocator. Splits a buffer in

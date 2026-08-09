@@ -12,10 +12,10 @@ import draconic.resource;
 import draconic.geometry;
 import draconic.geometry.resource;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
-using namespace draconic::resource;
-using namespace draconic::geometry;
+using namespace foundation::core;
+using namespace foundation::vfs;
+using namespace foundation::resource;
+using namespace foundation::geometry;
 
 namespace
 {
@@ -38,7 +38,7 @@ TEST_CASE("static mesh resource: cube round-trips through the resource manager")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
@@ -49,7 +49,7 @@ TEST_CASE("static mesh resource: cube round-trips through the resource manager")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     StaticMeshFactory factory;
     ResourceManager manager(db);
@@ -77,7 +77,7 @@ TEST_CASE("static mesh resource: async load matches the sync product")
     NativeFileSystem mount(u8"draconic_mesh_res_db");
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
@@ -87,7 +87,7 @@ TEST_CASE("static mesh resource: async load matches the sync product")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     StaticMeshFactory factory;
 
@@ -127,7 +127,7 @@ TEST_CASE("static mesh resource: many concurrent async decodes run without a rac
     constexpr int kCount = 10;
     Array<Guid> ids;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         RefPtr<StaticMesh> cube = Primitives::Cube(2.0f);
         StaticMeshSource src;
@@ -143,7 +143,7 @@ TEST_CASE("static mesh resource: many concurrent async decodes run without a rac
         }
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     StaticMeshFactory factory;
     JobSystem jobs;
@@ -181,7 +181,7 @@ TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
 
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"skinned", SkinnedMeshSource::StaticType());
         id = inst->Id();
@@ -206,7 +206,7 @@ TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     SkinnedMeshFactory factory;
     ResourceManager manager(db);

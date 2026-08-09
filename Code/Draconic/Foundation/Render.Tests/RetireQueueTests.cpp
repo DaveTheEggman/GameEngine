@@ -9,9 +9,9 @@ import draconic.rhi;
 import draconic.rhi.null;
 import draconic.render;
 
-using namespace draconic::core;
-using namespace draconic::render;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::render;
+namespace rhi = foundation::rhi;
 
 TEST_CASE("render.retire: entries age out after framesInFlight + 1 ticks")
 {

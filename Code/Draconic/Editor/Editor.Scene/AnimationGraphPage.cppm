@@ -47,16 +47,16 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :camera;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace vg = draconic::vg;
-    namespace scene = draconic::scene;
-    namespace render = draconic::render;
-    namespace animation = draconic::animation;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace vg = foundation::vg;
+    namespace scene = foundation::scene;
+    namespace render = foundation::render;
+    namespace animation = foundation::animation;
 
     // What the inspector is currently showing. Identity survives rebuilds (indices into the
     // source, re-validated on every use).
@@ -86,15 +86,15 @@ export namespace draconic::editor
     public:
         AnimationGraphEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                                  ui::runtime::UIHost& uiHost,
-                                 draconic::content::Instance& instance);
+                                 foundation::content::Instance& instance);
 
-        [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
+        [[nodiscard]] foundation::ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] Status Save() override;
 
         void OnUpdate(runtime::IApplicationHost&, f32 dt) override;
         void OnRenderWindow(runtime::IApplicationHost&,
-                            draconic::graphics::FrameContext& frame) override;
+                            foundation::graphics::FrameContext& frame) override;
         void OnClose() override;
 
         // Record a coalesced undo step for an in-place edit that already happened (merge by key).
@@ -191,14 +191,14 @@ export namespace draconic::editor
         ui::runtime::UIHost* m_uiHost = nullptr;
         String m_title;
 
-        RefPtr<draconic::pipeline::AnimationGraphAsset> m_asset;
+        RefPtr<pipeline::AnimationGraphAsset> m_asset;
 
         // views
         RefPtr<ui::toolkit::NodeGraphCanvas> m_canvas;
         RefPtr<ui::FlexLayout> m_leftRows; // layers + parameters rows
         RefPtr<ui::toolkit::PropertyGrid> m_grid;
         RefPtr<ui::Label> m_inspectorTitle;
-        RefPtr<draconic::ui::View> m_content;
+        RefPtr<foundation::ui::View> m_content;
 
         i32 m_selectedLayer = 0; // the layer shown on the canvas
         GraphSel m_selected;
@@ -206,20 +206,20 @@ export namespace draconic::editor
         bool m_syncingCanvas = false; // guard: canvas events ignored during RebuildCanvas
 
         // preview world (debug-draw only)
-        draconic::engine::scene::SceneSubsystem* m_scenes = nullptr;
+        engine::scene::SceneSubsystem* m_scenes = nullptr;
         scene::SceneManager m_sceneManager;
-        draconic::engine::render::RenderSubsystem* m_render = nullptr;
+        engine::render::RenderSubsystem* m_render = nullptr;
         scene::Scene* m_scene = nullptr;
         EditorCamera m_camera;
-        UniquePtr<draconic::shell::InputRouter> m_router;
+        UniquePtr<foundation::shell::InputRouter> m_router;
         RefPtr<ui::viewport::ViewportView> m_viewport;
-        draconic::graphics::RenderWindow* m_hostWindow = nullptr;
+        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
         RefPtr<ui::Button> m_skeletonButton; // shows the picked skeleton's name
         RefPtr<ui::Button> m_playButton;
         RefPtr<ui::Label> m_previewStatus; // current state + transition readout
 
         Guid m_skeletonGuid{};
-        draconic::resource::Proxy<animation::Skeleton> m_skeleton;
+        foundation::resource::Proxy<animation::Skeleton> m_skeleton;
         RefPtr<animation::AnimationGraph> m_previewGraph; // player borrows it - keep alive
         UniquePtr<animation::AnimationGraphPlayer> m_player;
         animation::Skeleton* m_playerSkeleton = nullptr; // hot-reload guard (pointer identity)
@@ -238,7 +238,7 @@ export namespace draconic::editor
 
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
 
     private:
         runtime::IApplicationHost* m_host;
@@ -248,14 +248,14 @@ export namespace draconic::editor
     // Draw a skeleton as a bone wireframe (parent->joint lines + joint crosses) into a debug
     // lane. `worldScratch` is the caller's reusable world-pose buffer. Shared by the animation
     // graph + clip preview pages.
-    void DrawSkeletonWireframe(draconic::render::debug::DebugDraw& draw,
+    void DrawSkeletonWireframe(foundation::render::debug::DebugDraw& draw,
                                animation::Skeleton& skeleton,
                                Span<const animation::BoneTransform> localPoses,
                                Array<Float4x4>& worldScratch);
 
     // Seed a fresh graph: one layer with an "Idle" clip state (default) + a float "Speed"
     // parameter. Free + pure so the New-Asset seed is unit-tested without a live host.
-    void SeedDefaultAnimationGraph(draconic::pipeline::AnimationGraphAsset& asset);
+    void SeedDefaultAnimationGraph(pipeline::AnimationGraphAsset& asset);
 
     // Registers the AnimationGraph page factory + an "Animation Graph" New-Asset creator.
     void RegisterAnimationGraphEditor(EditorContext& context, runtime::IApplicationHost& host,

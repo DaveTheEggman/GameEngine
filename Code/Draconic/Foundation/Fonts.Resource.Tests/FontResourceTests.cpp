@@ -14,10 +14,10 @@ import draconic.fonts;
 import draconic.fonts.resource;
 import draconic.image;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
-using namespace draconic::resource;
-using namespace draconic::fonts;
+using namespace foundation::core;
+using namespace foundation::vfs;
+using namespace foundation::resource;
+using namespace foundation::fonts;
 
 namespace
 {
@@ -83,7 +83,7 @@ TEST_CASE("font.factory: cooked Alpha8 FontResource -> rasterizer-free Font prod
     NativeFileSystem mount(dir);
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
 
@@ -102,7 +102,7 @@ TEST_CASE("font.factory: cooked Alpha8 FontResource -> rasterizer-free Font prod
                     .IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
     ResourceManager manager(db);
     FontFactory factory;
     manager.AddFactory(&factory);
@@ -133,7 +133,7 @@ TEST_CASE("font.factory: cooked Alpha8 FontResource -> rasterizer-free Font prod
     CHECK(closest->atlas->TryGetRegion('A', region));
     CHECK(region.width == 2);
     REQUIRE(closest->atlasImage);
-    CHECK(closest->atlasImage->Format() == draconic::image::PixelFormat::RGBA8);
+    CHECK(closest->atlasImage->Format() == foundation::image::PixelFormat::RGBA8);
     CHECK(closest->atlasImage->PixelData().Size() == 2u * 2u * 4u);
     // Alpha channel carries the coverage texel (entry 0 starts at offset 0: 0x10).
     CHECK(closest->atlasImage->PixelData()[3] == 0x10);
@@ -149,7 +149,7 @@ TEST_CASE("font.factory: async load matches the sync product")
     NativeFileSystem mount(dir);
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
         FontResource res;
@@ -165,7 +165,7 @@ TEST_CASE("font.factory: async load matches the sync product")
                     .IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
     FontFactory factory;
 
     ResourceManager syncManager(db);
@@ -205,7 +205,7 @@ TEST_CASE("font.factory: many concurrent async decodes run without a race")
     constexpr int kCount = 10;
     Array<Guid> ids;
     {
-        draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
         for (int i = 0; i < kCount; ++i)
         {
             char8_t name[8] = {u8'f', u8'n', u8't', static_cast<char8_t>(u8'0' + i / 10),
@@ -226,7 +226,7 @@ TEST_CASE("font.factory: many concurrent async decodes run without a race")
         }
     }
 
-    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
     FontFactory factory;
     JobSystem jobs;
     ResourceManager manager(db, &jobs);
@@ -258,7 +258,7 @@ TEST_CASE("font.factory: cooked MSDF FontResource keeps range + linear RGBA")
     NativeFileSystem mount(dir);
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
 
@@ -276,7 +276,7 @@ TEST_CASE("font.factory: cooked MSDF FontResource keeps range + linear RGBA")
                     .IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
     ResourceManager manager(db);
     FontFactory factory;
     manager.AddFactory(&factory);
@@ -289,7 +289,7 @@ TEST_CASE("font.factory: cooked MSDF FontResource keeps range + linear RGBA")
     CHECK(entry.atlas->Mode() == AtlasMode::DistanceField);
     CHECK(entry.atlas->DistanceFieldRange() == doctest::Approx(3.0f));
     REQUIRE(entry.atlasImage);
-    CHECK(entry.atlasImage->ColorSpace() == draconic::image::ImageColorSpace::Linear);
+    CHECK(entry.atlasImage->ColorSpace() == foundation::image::ImageColorSpace::Linear);
     // Entry 1's slice starts at pixelOffset 16.
     CHECK(entry.atlasImage->PixelData()[0] == 16);
 
@@ -305,7 +305,7 @@ TEST_CASE("font.service: ResourceFontService resolves (family, size) over bound 
     NativeFileSystem mount(dir);
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
         FontResource res;
@@ -317,7 +317,7 @@ TEST_CASE("font.service: ResourceFontService resolves (family, size) over bound 
                     .IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
     ResourceManager manager(db);
     FontFactory factory;
     manager.AddFactory(&factory);
@@ -362,7 +362,7 @@ TEST_CASE("font.service: DF families synthesize cached per-size scaled views")
     NativeFileSystem mount(dir);
     Guid id;
     {
-        draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
         FontResource res;
@@ -374,7 +374,7 @@ TEST_CASE("font.service: DF families synthesize cached per-size scaled views")
                     .IsOk());
     }
 
-    draconic::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
     ResourceManager manager(db);
     FontFactory factory;
     manager.AddFactory(&factory);

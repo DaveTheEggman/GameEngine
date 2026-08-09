@@ -32,18 +32,18 @@ import draconic.fonts;
 import draconic.ui;
 import draconic.ui.shell;
 
-namespace core = draconic::core;
-namespace rhi = draconic::rhi;
-namespace shaders = draconic::shaders;
-namespace shell = draconic::shell;
-namespace graphics = draconic::graphics;
-namespace vg = draconic::vg;
-namespace image = draconic::image;
-namespace fonts = draconic::fonts;
+namespace core = foundation::core;
+namespace rhi = foundation::rhi;
+namespace shaders = foundation::shaders;
+namespace shell = foundation::shell;
+namespace graphics = foundation::graphics;
+namespace vg = foundation::vg;
+namespace image = foundation::image;
+namespace fonts = foundation::fonts;
 
-// draconic::ui::runtime nests in draconic::ui, so UIContext / RootView / InputManager / UiInputBridge /
+// foundation::ui::runtime nests in foundation::ui, so UIContext / RootView / InputManager / UiInputBridge /
 // ShellClipboard resolve unqualified.
-export namespace draconic::ui::runtime
+export namespace foundation::ui::runtime
 {
     using core::f32;
     using core::i32;

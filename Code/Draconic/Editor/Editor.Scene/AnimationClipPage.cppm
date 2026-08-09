@@ -38,30 +38,30 @@ import draconic.editor.app;
 import :camera;
 import :animation_graph_page; // DrawSkeletonWireframe (shared preview helper)
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace runtime = draconic::runtime;
-    namespace ui = draconic::ui;
-    namespace vg = draconic::vg;
-    namespace scene = draconic::scene;
-    namespace render = draconic::render;
-    namespace animation = draconic::animation;
+    namespace runtime = foundation::runtime;
+    namespace ui = foundation::ui;
+    namespace vg = foundation::vg;
+    namespace scene = foundation::scene;
+    namespace render = foundation::render;
+    namespace animation = foundation::animation;
 
     class AnimationClipEditorPage final : public app::UIEditorPage
     {
     public:
         AnimationClipEditorPage(EditorContext& context, runtime::IApplicationHost& host,
-                                ui::runtime::UIHost& uiHost, draconic::content::Instance& instance);
+                                ui::runtime::UIHost& uiHost, foundation::content::Instance& instance);
 
-        [[nodiscard]] draconic::ui::View* ContentView() override { return m_content.Get(); }
+        [[nodiscard]] foundation::ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] Status Save() override;
 
         void OnUpdate(runtime::IApplicationHost&, f32 dt) override;
         void OnRenderWindow(runtime::IApplicationHost&,
-                            draconic::graphics::FrameContext& frame) override;
+                            foundation::graphics::FrameContext& frame) override;
         void OnClose() override;
 
         // Record a coalesced undo step for an in-place edit that already happened (merge by key).
@@ -118,28 +118,28 @@ export namespace draconic::editor
         ui::runtime::UIHost* m_uiHost = nullptr;
         String m_title;
 
-        RefPtr<draconic::pipeline::AnimationClipAsset> m_asset;
-        draconic::resource::Proxy<animation::AnimationClip> m_clip; // cooked product (hot-swaps)
+        RefPtr<pipeline::AnimationClipAsset> m_asset;
+        foundation::resource::Proxy<animation::AnimationClip> m_clip; // cooked product (hot-swaps)
 
         // preview world (debug-draw only)
-        draconic::engine::scene::SceneSubsystem* m_scenes = nullptr;
+        engine::scene::SceneSubsystem* m_scenes = nullptr;
         scene::SceneManager m_sceneManager;
-        draconic::engine::render::RenderSubsystem* m_render = nullptr;
+        engine::render::RenderSubsystem* m_render = nullptr;
         scene::Scene* m_scene = nullptr;
         EditorCamera m_camera;
-        UniquePtr<draconic::shell::InputRouter> m_router;
+        UniquePtr<foundation::shell::InputRouter> m_router;
         RefPtr<ui::viewport::ViewportView> m_viewport;
-        draconic::graphics::RenderWindow* m_hostWindow = nullptr;
+        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
 
         RefPtr<ui::Button> m_skeletonButton;
         RefPtr<ui::Button> m_playButton;
         RefPtr<ui::Slider> m_timeSlider; // normalized [0..1] scrub
         RefPtr<ui::Label> m_timeLabel;
         RefPtr<ui::toolkit::PropertyGrid> m_grid;
-        RefPtr<draconic::ui::View> m_content;
+        RefPtr<foundation::ui::View> m_content;
 
         Guid m_skeletonGuid{};
-        draconic::resource::Proxy<animation::Skeleton> m_skeleton;
+        foundation::resource::Proxy<animation::Skeleton> m_skeleton;
         Array<animation::BoneTransform> m_poseScratch;
         Array<Float4x4> m_worldScratch;
         Array<byte> m_undoBaseline;
@@ -158,7 +158,7 @@ export namespace draconic::editor
 
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
 
     private:
         runtime::IApplicationHost* m_host;

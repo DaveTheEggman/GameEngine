@@ -15,10 +15,10 @@ import :thickness;
 import :drawable;
 import :draw_context;
 
-using namespace draconic::core;
-namespace image = draconic::image;
+using namespace foundation::core;
+namespace image = foundation::image;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class AtlasNineSliceDrawable : public Drawable
     {

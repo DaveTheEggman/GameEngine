@@ -17,9 +17,9 @@ import draconic.vfs;
 import draconic.content;
 import draconic.resource;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
-using namespace draconic::resource;
+using namespace foundation::core;
+using namespace foundation::vfs;
+using namespace foundation::resource;
 
 namespace
 {
@@ -30,7 +30,7 @@ namespace
         DRACONIC_OBJECT(AsyncSource, ISerializable)
     public:
         i32 value = 0;
-        void Serialize(ISerializer& ar) override { draconic::core::Serialize(ar, "value", value); }
+        void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, "value", value); }
     };
 
     class AsyncProduct final : public Object
@@ -69,7 +69,7 @@ namespace
 
         // Synchronous fallback (un-migrated factory / no job system): reads the source directly.
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& /*manager*/,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             createCalls.fetch_add(1, std::memory_order_relaxed);
             RefPtr<ISerializable> source = instance.ReadObject();
@@ -88,7 +88,7 @@ namespace
         // Worker thread: pure, no manager/GPU/globals. Reads only pre-populated maps (main writes
         // them before any BindAsync, never during) and builds a DecodedBlob whose type was
         // force-initialized on the main thread.
-        [[nodiscard]] RefPtr<Object> DecodeStage(draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> DecodeStage(foundation::content::Instance& instance) override
         {
             decodeCalls.fetch_add(1, std::memory_order_relaxed);
             const Guid id = instance.Id();
@@ -163,7 +163,7 @@ namespace
         (void)DecodedBlob::StaticType();
     }
 
-    Guid MakeInstance(draconic::content::ContentDatabase& db, AsyncFactory& factory, StringView name,
+    Guid MakeInstance(foundation::content::ContentDatabase& db, AsyncFactory& factory, StringView name,
                       i32 value, int slot)
     {
         auto* instance = db.RootGroup()->CreateInstance(name, AsyncSource::StaticType());
@@ -193,7 +193,7 @@ TEST_CASE("resource.async: BindAsync is pending until Pump finalizes it on the m
     RegisterAsyncTypes();
     CleanDir(u8"draconic_async_db");
     NativeFileSystem mount(u8"draconic_async_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     factory.gates[0].store(false, std::memory_order_relaxed); // hold the decode closed
@@ -225,7 +225,7 @@ TEST_CASE("resource.async: concurrent BindAsync of one id shares a single decode
     RegisterAsyncTypes();
     CleanDir(u8"draconic_async_db");
     NativeFileSystem mount(u8"draconic_async_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     factory.gates[0].store(false, std::memory_order_relaxed);
@@ -254,7 +254,7 @@ TEST_CASE("resource.async: a sync Bind of a pending id block-completes it to Rea
     RegisterAsyncTypes();
     CleanDir(u8"draconic_async_db");
     NativeFileSystem mount(u8"draconic_async_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory; // gate open: the sync upgrade waits on / drives the decode
     JobSystem jobs;
@@ -279,7 +279,7 @@ TEST_CASE("resource.async: a failed decode settles the handle to Failed, no fina
     RegisterAsyncTypes();
     CleanDir(u8"draconic_async_db");
     NativeFileSystem mount(u8"draconic_async_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     factory.failDecode = true;
@@ -302,7 +302,7 @@ TEST_CASE("resource.async: BindAsync falls back to a synchronous Ready build whe
     RegisterAsyncTypes();
     CleanDir(u8"draconic_async_db");
     NativeFileSystem mount(u8"draconic_async_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
 
     SUBCASE("un-migrated factory (SupportsAsync == false)")
@@ -343,7 +343,7 @@ TEST_CASE("resource.async: Pump respects its time budget and resumes on the next
     RegisterAsyncTypes();
     CleanDir(u8"draconic_async_db");
     NativeFileSystem mount(u8"draconic_async_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     factory.finalizeSleepMs = 5; // each finalize (>1ms budget) => at most one per Pump
@@ -376,7 +376,7 @@ TEST_CASE("resource.async: finalize follows decode-completion order (FIFO)")
     RegisterAsyncTypes();
     CleanDir(u8"draconic_async_db");
     NativeFileSystem mount(u8"draconic_async_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     for (int i = 0; i < 3; ++i)
@@ -425,7 +425,7 @@ TEST_CASE("resource.async: OnReady fires once on the main thread when the load b
     RegisterAsyncTypes();
     CleanDir(u8"draconic_async_db");
     NativeFileSystem mount(u8"draconic_async_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     JobSystem jobs;
@@ -455,7 +455,7 @@ TEST_CASE("resource.async: destroying the manager with an in-flight decode drain
     RegisterAsyncTypes();
     CleanDir(u8"draconic_async_db");
     NativeFileSystem mount(u8"draconic_async_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     JobSystem jobs;
@@ -475,7 +475,7 @@ TEST_CASE("resource.async: Ref::Bind routes through BindAsync under an AsyncBind
     RegisterAsyncTypes();
     CleanDir(u8"draconic_async_db");
     NativeFileSystem mount(u8"draconic_async_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     factory.gates[0].store(false, std::memory_order_relaxed); // hold the decode
@@ -508,7 +508,7 @@ TEST_CASE("resource.async: AsyncLoadBatch reports progress as loads finalize")
     RegisterAsyncTypes();
     CleanDir(u8"draconic_async_db");
     NativeFileSystem mount(u8"draconic_async_db");
-    draconic::content::ContentDatabase db(mount, draconic::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     for (int i = 0; i < 3; ++i)

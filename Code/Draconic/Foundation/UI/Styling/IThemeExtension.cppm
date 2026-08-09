@@ -11,7 +11,7 @@ export module draconic.ui:theme_extension;
 import :style_sheet;
 import :theme_palette;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class IThemeExtension
     {

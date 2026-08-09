@@ -31,10 +31,10 @@ import :export_preset;
 import :export_roots;
 import :export_template;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace pipeline;
 
-export namespace draconic::editor
+export namespace editor
 {
     struct ExportStats
     {
@@ -91,7 +91,7 @@ export namespace draconic::editor
     // id, since nothing built), plus each parked prefab instance's prefabId. Same reason the
     // scene-stream transcode (sceneStreams) is a caller hook.
     using SceneReferenceScanner = Function<void(
-        draconic::content::Instance&, draconic::content::ContentDatabase&, SceneReferences&)>;
+        foundation::content::Instance&, foundation::content::ContentDatabase&, SceneReferences&)>;
 
     // The loud, auditable record of a pruned export: which roots were kept and WHY, plus what was
     // dropped. Lives on ExportResult (CLI prints it, editor Console shows it) and is written beside
@@ -137,17 +137,17 @@ export namespace draconic::editor
         // Recursively add every file under `folder` to the pak (locator = mount-relative path).
         // When `reachablePaths` is non-null, packs ONLY files whose owning instance path is in the
         // set (closure pruning); null packs the whole tree (the default "export everything").
-        bool PackTree(draconic::vfs::IFileSystem& mount,
-                      draconic::vfs::IEnumerableFileSystem& enumerable, StringView folder,
-                      draconic::vfs::PakBuilder& pak, usize& fileCount,
+        bool PackTree(foundation::vfs::IFileSystem& mount,
+                      foundation::vfs::IEnumerableFileSystem& enumerable, StringView folder,
+                      foundation::vfs::PakBuilder& pak, usize& fileCount,
                       const HashMap<String, u8>* reachablePaths = nullptr)
         {
-            Array<draconic::vfs::DirEntry> entries;
+            Array<foundation::vfs::DirEntry> entries;
             if (!enumerable.Enumerate(folder, entries).IsOk())
             {
                 return folder.IsEmpty();
             }
-            for (const draconic::vfs::DirEntry& entry : entries)
+            for (const foundation::vfs::DirEntry& entry : entries)
             {
                 const String path = PathJoin(folder, entry.name.AsView());
                 if (entry.isDirectory)
@@ -181,11 +181,11 @@ export namespace draconic::editor
         }
 
         // Re-encode a scene instance into a binary envelope in the staging DB - SAME guid/path.
-        bool StageScene(draconic::content::Instance& scene,
-                        draconic::content::ContentDatabase& staging,
+        bool StageScene(foundation::content::Instance& scene,
+                        foundation::content::ContentDatabase& staging,
                         const HashMap<Guid, Array<byte>>* sceneStreams)
         {
-            draconic::content::Group* group = staging.RootGroup();
+            foundation::content::Group* group = staging.RootGroup();
             const String path = scene.OwningGroup().Path();
             usize start = 0;
             const StringView folder = path.AsView();
@@ -208,20 +208,20 @@ export namespace draconic::editor
             // Scenes AND prefabs stage the same way (runtime scenes keep prefab instances as
             // ref+deltas, so the prefab payloads must ship in the pak for the load-time respawn).
             RefPtr<ISerializable> object = scene.ReadObject();
-            draconic::content::Instance* staged = nullptr;
-            if (auto* doc = Cast<draconic::scene::SceneDocument>(object.Get()))
+            foundation::content::Instance* staged = nullptr;
+            if (auto* doc = Cast<foundation::scene::SceneDocument>(object.Get()))
             {
                 staged = group->CreateInstanceWithId(scene.Id(), scene.Name(),
-                                                     draconic::scene::SceneDocument::StaticType());
+                                                     foundation::scene::SceneDocument::StaticType());
                 if (staged == nullptr || !staged->WriteObject(*doc).IsOk())
                 {
                     return false;
                 }
             }
-            else if (auto* prefab = Cast<draconic::scene::PrefabDocument>(object.Get()))
+            else if (auto* prefab = Cast<foundation::scene::PrefabDocument>(object.Get()))
             {
                 staged = group->CreateInstanceWithId(scene.Id(), scene.Name(),
-                                                     draconic::scene::PrefabDocument::StaticType());
+                                                     foundation::scene::PrefabDocument::StaticType());
                 if (staged == nullptr || !staged->WriteObject(*prefab).IsOk())
                 {
                     return false;
@@ -261,10 +261,10 @@ export namespace draconic::editor
             return true;
         }
 
-        void CollectScenes(draconic::content::Group& group,
-                           Array<draconic::content::Instance*>& out)
+        void CollectScenes(foundation::content::Group& group,
+                           Array<foundation::content::Instance*>& out)
         {
-            for (draconic::content::Instance* instance : group.Instances())
+            for (foundation::content::Instance* instance : group.Instances())
             {
                 if (instance->TypeName() == u8"SceneDocument" ||
                     instance->TypeName() == u8"PrefabDocument")
@@ -272,21 +272,21 @@ export namespace draconic::editor
                     out.PushBack(instance);
                 }
             }
-            for (draconic::content::Group* child : group.Groups())
+            for (foundation::content::Group* child : group.Groups())
             {
                 CollectScenes(*child, out);
             }
         }
 
         // Every instance in a database (used to enumerate cooked products for the dropped report).
-        void CollectAllInstances(draconic::content::Group& group,
-                                 Array<draconic::content::Instance*>& out)
+        void CollectAllInstances(foundation::content::Group& group,
+                                 Array<foundation::content::Instance*>& out)
         {
-            for (draconic::content::Instance* instance : group.Instances())
+            for (foundation::content::Instance* instance : group.Instances())
             {
                 out.PushBack(instance);
             }
-            for (draconic::content::Group* child : group.Groups())
+            for (foundation::content::Group* child : group.Groups())
             {
                 CollectAllInstances(*child, out);
             }
@@ -294,12 +294,12 @@ export namespace draconic::editor
 
         // The source instance whose asset imports `fileName` (the startup script's own asset, if the
         // project imported the script). Nil when none - the script FILE still ships either way.
-        [[nodiscard]] inline Guid FindAssetByFileName(draconic::content::ContentDatabase& db,
+        [[nodiscard]] inline Guid FindAssetByFileName(foundation::content::ContentDatabase& db,
                                                       StringView fileName)
         {
-            Array<draconic::content::Instance*> instances;
+            Array<foundation::content::Instance*> instances;
             CollectAllInstances(*db.RootGroup(), instances);
-            for (draconic::content::Instance* instance : instances)
+            for (foundation::content::Instance* instance : instances)
             {
                 RefPtr<ISerializable> object = instance->ReadObject();
                 if (const Asset* asset = Cast<Asset>(object.Get()))
@@ -315,11 +315,11 @@ export namespace draconic::editor
 
         void RemoveTreeRecursive(StringView root)
         {
-            draconic::vfs::NativeFileSystem fs(root);
-            Array<draconic::vfs::DirEntry> entries;
+            foundation::vfs::NativeFileSystem fs(root);
+            Array<foundation::vfs::DirEntry> entries;
             if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
             {
-                for (const draconic::vfs::DirEntry& entry : entries)
+                for (const foundation::vfs::DirEntry& entry : entries)
                 {
                     if (entry.isDirectory)
                     {

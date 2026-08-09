@@ -13,9 +13,9 @@ module draconic.ui.toolkit:code_lexer_scan;
 import draconic.core;
 import :code_lexer;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::ui::toolkit::lexer_scan
+namespace foundation::ui::toolkit::lexer_scan
 {
     [[nodiscard]] constexpr bool IsDigit(char8_t cursor) noexcept { return cursor >= u8'0' && cursor <= u8'9'; }
     [[nodiscard]] constexpr bool IsIdentStart(char8_t cursor) noexcept

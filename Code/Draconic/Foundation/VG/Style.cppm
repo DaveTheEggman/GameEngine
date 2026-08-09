@@ -11,9 +11,9 @@ export module draconic.vg:style;
 import draconic.core;
 import :enums;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg
+export namespace foundation::vg
 {
     /// Per-corner radii for rounded rectangles.
     struct CornerRadii

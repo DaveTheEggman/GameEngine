@@ -4,8 +4,8 @@
 import draconic.core;
 import draconic.model;
 
-using namespace draconic::core;
-using namespace draconic::model;
+using namespace foundation::core;
+using namespace foundation::model;
 
 TEST_CASE("model: core data types - names round-trip as wide strings")
 {

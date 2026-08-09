@@ -13,9 +13,9 @@ export module draconic.fonts.baked;
 import draconic.core;
 import draconic.fonts;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     // IFont backed by pre-baked glyph + kerning tables.
     class BakedFont final : public IFont

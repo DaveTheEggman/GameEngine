@@ -17,9 +17,10 @@ import draconic.vg;
 import draconic.fonts;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Horizontal menu bar with dropdown ContextMenus. Click a title to open its dropdown; while open,
     /// hover other titles to switch. Escape or click-outside closes.

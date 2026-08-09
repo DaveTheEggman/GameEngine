@@ -12,9 +12,9 @@ export module draconic.fonts.ttf:common;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     // ASCII case-insensitive compare for extension matching.
     [[nodiscard]] inline bool ExtEquals(StringView a, StringView b)

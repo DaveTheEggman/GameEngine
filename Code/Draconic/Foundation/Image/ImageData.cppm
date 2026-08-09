@@ -14,9 +14,9 @@ export module draconic.image:image_data;
 import draconic.core;
 import :pixel_format;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::image
+export namespace foundation::image
 {
 
     /// Color space of the pixel data.
@@ -150,4 +150,4 @@ export namespace draconic::image
         usize m_length = 0;
     };
 
-} // namespace draconic::image
+} // namespace foundation::image

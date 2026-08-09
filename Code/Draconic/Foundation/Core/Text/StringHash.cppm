@@ -14,7 +14,7 @@ import :base;
 import :hash;
 import :string;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // FNV-1a, 64-bit, over the view's UTF-8 bytes; constexpr-evaluable.
     [[nodiscard]] constexpr u64 HashText(StringView text) noexcept

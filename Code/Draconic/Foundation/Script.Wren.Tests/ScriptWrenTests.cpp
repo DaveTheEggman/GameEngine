@@ -7,8 +7,8 @@ import draconic.core;
 import draconic.script;
 import draconic.script.wren;
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation::script;
 
 // A reflected Object-derived type to exercise object foreign classes in Wren.
 namespace
@@ -583,7 +583,7 @@ TEST_CASE("wren: a script object outlives the local context reference")
 
 TEST_CASE("wren: CERTIFIED - the backend conformance battery (scripting.md B2)")
 {
-    draconic::script::conformance::Dialect dialect;
+    foundation::script::conformance::Dialect dialect;
     dialect.languageId = u8"wren";
     dialect.functionsModule = u8"var answer = 42\n"
                               u8"var add = Fn.new {|a, b| a + b }\n"
@@ -657,8 +657,8 @@ TEST_CASE("wren: CERTIFIED - the backend conformance battery (scripting.md B2)")
                              u8"  }\n"
                              u8"}\n";
 
-    draconic::script::conformance::RunScriptBackendConformance(
-        []() { return draconic::script::wren::CreateScriptManager(); }, dialect);
+    foundation::script::conformance::RunScriptBackendConformance(
+        []() { return foundation::script::wren::CreateScriptManager(); }, dialect);
 }
 
 TEST_CASE("wren: declares the Coroutines + Delegates capabilities; seams absent (B4)")

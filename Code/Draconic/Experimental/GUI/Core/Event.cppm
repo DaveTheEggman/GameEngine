@@ -12,10 +12,10 @@ export module draconic.gui:event;
 
 import draconic.core; // Function, String
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class Node;
 

@@ -32,10 +32,10 @@ import :ipopup_owner;
 import :popup_layer;
 import :popup_positioner;
 
-using namespace draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ContextMenu;
 

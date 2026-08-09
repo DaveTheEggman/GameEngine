@@ -17,20 +17,20 @@ import draconic.pipeline.core;
 import draconic.input;
 import draconic.input.resource;
 
-using namespace draconic::core;
-using namespace draconic::input;
+using namespace foundation::core;
+using namespace foundation::input;
 
-export namespace draconic::pipeline{
-    class InputMapAsset final : public draconic::pipeline::Asset
+export namespace pipeline{
+    class InputMapAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(InputMapAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(InputMapAsset, pipeline::Asset)
     public:
         [[nodiscard]] InputMap& Map() noexcept { return m_map; }
         [[nodiscard]] const InputMap& Map() const noexcept { return m_map; }
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName (unused - authored in-editor)
+            pipeline::Asset::Serialize(ar); // fileName (unused - authored in-editor)
             SerializeInputMap(ar, m_map);
         }
 
@@ -58,7 +58,7 @@ export namespace draconic::pipeline{
         InputMap m_map;
     };
 
-    class InputMapAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class InputMapAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -69,8 +69,8 @@ export namespace draconic::pipeline{
         {
             return &InputMapResource::StaticType();
         }
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             if (ctx.output == nullptr)
             {

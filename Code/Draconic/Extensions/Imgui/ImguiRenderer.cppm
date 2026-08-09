@@ -17,10 +17,12 @@ import draconic.rhi;
 import draconic.shaders;
 import draconic.shaders.system;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation;
+namespace shaders = foundation::shaders;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::imgui
+export namespace extensions::imgui
 {
 
     // The ImGui VS/PS ship in the engine shader corpus (imgui.vs / imgui.ps) and are resolved via
@@ -515,4 +517,4 @@ export namespace draconic::imgui
         FrameSlot m_frames[kMaxFIF] = {};
     };
 
-} // namespace draconic::imgui
+} // namespace extensions::imgui

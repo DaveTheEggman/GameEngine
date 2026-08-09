@@ -17,10 +17,10 @@ import :rect;
 import :draw_context;
 import :drawable;
 
-using namespace draconic::core;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace vg = foundation::vg;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class BorderDrawable : public Drawable
     {

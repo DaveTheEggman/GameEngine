@@ -13,9 +13,9 @@ import draconic.rhi;
 import :pipeline_layout;
 import :shader_module;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxComputePipelineImpl : public ComputePipeline
@@ -55,4 +55,4 @@ export namespace draconic::rhi::dx12
         DxPipelineLayoutImpl* m_layout = nullptr;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

@@ -29,11 +29,11 @@ import :resource_provider;
 import :css_values; // ParseLength
 import :actions;    // KeyframeAction
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class StyleManager
     {

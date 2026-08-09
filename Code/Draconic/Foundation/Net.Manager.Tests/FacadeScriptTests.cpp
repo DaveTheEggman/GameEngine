@@ -14,9 +14,9 @@ import draconic.script;
 import draconic.script.wren;
 import draconic.script.angelscript;
 
-using namespace draconic::core;
-using namespace draconic::script;
-namespace net = draconic::net;
+using namespace foundation::core;
+using namespace foundation::script;
+namespace net = foundation::net;
 
 namespace
 {

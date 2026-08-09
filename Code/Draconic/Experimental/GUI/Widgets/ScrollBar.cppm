@@ -22,11 +22,11 @@ import :rectangle_drawable;
 import :ui_widget;
 import :linear_layout; // Orientation
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace vg = foundation::vg;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     class ScrollBar : public UIWidget
     {

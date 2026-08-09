@@ -23,12 +23,12 @@ import :shapes;
 import :tessellation;
 import :batch;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg
+export namespace foundation::vg
 {
-    namespace image = draconic::image;
-    namespace fonts = draconic::fonts;
+    namespace image = foundation::image;
+    namespace fonts = foundation::fonts;
 
     /// Internal per-state-stack snapshot for VGContext.
     struct VGState

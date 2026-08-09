@@ -15,9 +15,9 @@ import :flattened_tree_adapter; // FlattenedTreeAdapter (named directly)
 import :selection_model;        // SelectionModel (tree.Selection())
 import :list_view;              // ListView (tree.InternalListView())
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class HierarchicalState
     {

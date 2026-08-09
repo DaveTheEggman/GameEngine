@@ -11,9 +11,9 @@ export module draconic.vg:curves;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg
+export namespace foundation::vg
 {
     /// Utility functions for Bezier curve math.
     class CurveUtils

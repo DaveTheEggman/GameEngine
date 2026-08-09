@@ -15,15 +15,16 @@ export module draconic.net.manager;
 
 import draconic.core;
 import draconic.net;
-import draconic.net.replication; // StateReplication / InterpolationBuffer (same draconic::net namespace)
+import draconic.net.replication; // StateReplication / InterpolationBuffer (same foundation::net namespace)
 import draconic.scene;           // Scene (the replicated world)
 import draconic.script;          // Object / IScriptContext / CurrentScriptContext / SetService
 
-using namespace draconic::core;
-using namespace draconic::script; // Object, IScriptContext, CurrentScriptContext (the facade base)
-namespace scene = draconic::scene;
+using namespace foundation::core;
+namespace core = foundation::core;
+using namespace foundation::script; // Object, IScriptContext, CurrentScriptContext (the facade base)
+namespace scene = foundation::scene;
 
-export namespace draconic::net
+export namespace foundation::net
 {
 
     // The service key the Net facade resolves per script context (distinct from script.runtime).

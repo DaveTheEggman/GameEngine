@@ -18,10 +18,10 @@ import :rect;
 import :node;
 import :ui_widget;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // Anchor bitmask: one horizontal bit and one vertical bit. Combine with '|' (e.g.
     // AnchorRight | AnchorBottom = bottom-right corner). Missing horizontal/vertical bits

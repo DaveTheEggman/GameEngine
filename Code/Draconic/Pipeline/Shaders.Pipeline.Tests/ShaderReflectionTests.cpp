@@ -5,13 +5,13 @@
 import draconic.core;
 import draconic.shaders.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace pipeline;
 
 TEST_CASE("reflection-p1: ShaderAsset exposes name + fragmentFile with labels, and round-trips")
 {
-    draconic::pipeline::RegisterShaderAsset();
-    const TypeInfo& type = draconic::pipeline::ShaderAsset::StaticType();
+    pipeline::RegisterShaderAsset();
+    const TypeInfo& type = pipeline::ShaderAsset::StaticType();
 
     CHECK(PropertyCount(type) == 2u);
     const PropertyInfo* name = FindProperty(type, "name");
@@ -20,7 +20,7 @@ TEST_CASE("reflection-p1: ShaderAsset exposes name + fragmentFile with labels, a
     REQUIRE(frag != nullptr);
     CHECK(FindAttribute(*frag, u8"displayName") != nullptr);
 
-    draconic::pipeline::ShaderAsset asset;
+    pipeline::ShaderAsset asset;
     Instance inst = Instance::From(&asset);
     CHECK(SetProperty(*name, inst, Variant::From(String(u8"Lit"))).IsOk());
     CHECK(asset.name.AsView() == StringView(u8"Lit"));

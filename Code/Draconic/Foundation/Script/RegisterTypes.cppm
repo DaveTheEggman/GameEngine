@@ -12,9 +12,9 @@ export module draconic.script:script_register;
 import draconic.core;
 import :script_manager;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::script
+export namespace foundation::script
 {
     inline void
     RegisterReflectedTypes(IScriptManager& manager,

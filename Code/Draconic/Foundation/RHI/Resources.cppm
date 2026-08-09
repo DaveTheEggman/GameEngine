@@ -10,9 +10,9 @@ import :types;
 import :descriptors;
 import :ext_descriptors;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     /// GPU buffer (vertex, index, uniform, storage, etc.).
@@ -195,4 +195,4 @@ export namespace draconic::rhi
         PipelineLayout* layout = nullptr;
     };
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

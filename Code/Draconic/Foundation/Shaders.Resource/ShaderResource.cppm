@@ -21,11 +21,11 @@ import draconic.shaders.system;
 import draconic.resource;
 import draconic.content;
 
-using namespace draconic::core;
-using namespace draconic::resource;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::resource;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::shaders
+export namespace foundation::shaders
 {
 
     // Authored shader: a name + per-stage HLSL. (v1 carries inline source; a path /
@@ -40,9 +40,9 @@ export namespace draconic::shaders
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "name", name);
-            draconic::core::Serialize(ar, "vertexSource", vertexSource);
-            draconic::core::Serialize(ar, "fragmentSource", fragmentSource);
+            foundation::core::Serialize(ar, "name", name);
+            foundation::core::Serialize(ar, "vertexSource", vertexSource);
+            foundation::core::Serialize(ar, "fragmentSource", fragmentSource);
         }
     };
 
@@ -88,7 +88,7 @@ export namespace draconic::shaders
         }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             (void)manager;
             RefPtr<ISerializable> object = instance.ReadObject();
@@ -116,4 +116,4 @@ export namespace draconic::shaders
     DRACONIC_DEFINE_OBJECT(ShaderSource, "rtti::shaders")
     DRACONIC_DEFINE_OBJECT(ShaderResource, "rtti::shaders")
 
-} // namespace draconic::shaders
+} // namespace foundation::shaders

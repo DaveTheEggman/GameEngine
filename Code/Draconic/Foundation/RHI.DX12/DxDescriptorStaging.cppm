@@ -15,9 +15,9 @@ import draconic.core;
 import draconic.rhi; // LogErrorf
 import :gpu_descriptor_heap;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxDescriptorStaging
@@ -154,4 +154,4 @@ export namespace draconic::rhi::dx12
         Array<StagedRun> m_staged; // dedup cache, cleared each Reset
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

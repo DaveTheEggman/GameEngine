@@ -14,11 +14,11 @@ import draconic.vg;    // VGContext
 import draconic.fonts; // IFontService
 import :debug_settings;
 
-using namespace draconic::core;
-namespace vg = draconic::vg;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace vg = foundation::vg;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class UIDrawContext
     {

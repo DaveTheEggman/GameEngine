@@ -15,9 +15,9 @@ export module draconic.ui:undo_stack;
 
 import draconic.core; // String, StringView, Array, Max
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// A single undo entry capturing full text state.
     struct UndoEntry

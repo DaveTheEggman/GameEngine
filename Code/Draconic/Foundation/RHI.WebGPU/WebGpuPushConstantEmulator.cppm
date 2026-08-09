@@ -19,9 +19,9 @@ import draconic.core;
 import :api;
 import :pipeline_layout;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::webgpu
+export namespace foundation::rhi::webgpu
 {
     class PushConstantEmulator
     {

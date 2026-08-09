@@ -6,9 +6,9 @@ import draconic.core;
 import draconic.vg;
 import draconic.vg.svg;
 
-using namespace draconic::core;
-using namespace draconic::vg;
-using namespace draconic::vg::svg;
+using namespace foundation::core;
+using namespace foundation::vg;
+using namespace foundation::vg::svg;
 
 TEST_CASE("svg.loader: parses viewBox + shapes")
 {
@@ -113,23 +113,23 @@ TEST_CASE("svg.loader: parses defs gradients (attrs, style stops, spreadMethod, 
     REQUIRE(doc.elements.Size() == 1u);
     CHECK(doc.elements[0].fillGradientId.AsView() == u8"lin");
 
-    const draconic::vg::svg::SVGGradient* lin = doc.gradients.Find(String(u8"lin"));
+    const foundation::vg::svg::SVGGradient* lin = doc.gradients.Find(String(u8"lin"));
     REQUIRE(lin != nullptr);
     CHECK(!lin->radial);
     CHECK(!lin->userSpace);
     CHECK(lin->x2 == doctest::Approx(1.0f)); // "100%" -> 1.0
-    CHECK(lin->spread == draconic::vg::VGGradientSpread::Reflect);
+    CHECK(lin->spread == foundation::vg::VGGradientSpread::Reflect);
     REQUIRE(lin->stops.Size() == 2u);
     CHECK(lin->stops[0].color.r == doctest::Approx(1.0f));
     CHECK(lin->stops[1].color.b == doctest::Approx(1.0f)); // style= form parsed
     CHECK(lin->stops[1].color.a == doctest::Approx(0.5f)); // stop-opacity applied
 
-    const draconic::vg::svg::SVGGradient* rad = doc.gradients.Find(String(u8"rad"));
+    const foundation::vg::svg::SVGGradient* rad = doc.gradients.Find(String(u8"rad"));
     REQUIRE(rad != nullptr);
     CHECK(rad->radial);
     CHECK(rad->userSpace);
     CHECK(rad->r == doctest::Approx(0.25f));
-    CHECK(rad->spread == draconic::vg::VGGradientSpread::Repeat);
+    CHECK(rad->spread == foundation::vg::VGGradientSpread::Repeat);
 }
 
 TEST_CASE("svg.renderer: a gradient fill bakes a LUT and spreads ride the command")
@@ -151,7 +151,7 @@ TEST_CASE("svg.renderer: a gradient fill bakes a LUT and spreads ride the comman
     CHECK(batch.textures.Size() == 2u); // white + the baked gradient LUT
     REQUIRE(!batch.commands.IsEmpty());
     CHECK(batch.commands[batch.commands.Size() - 1].gradientSpread ==
-          draconic::vg::VGGradientSpread::Repeat);
+          foundation::vg::VGGradientSpread::Repeat);
 
     // A missing reference falls back to the fallback fill color (no crash, no LUT).
     const StringView broken =

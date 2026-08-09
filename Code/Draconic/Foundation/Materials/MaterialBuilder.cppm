@@ -17,12 +17,14 @@ import :types;
 import :pipeline;
 import :material;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace shaders = foundation::shaders;
 namespace core =
-    draconic::core; // to name the packed types where builder methods (Float2/3/4) shadow them
-namespace rhi = draconic::rhi;
+    foundation::core; // to name the packed types where builder methods (Float2/3/4) shadow them
+namespace rhi = foundation::rhi;
 
-export namespace draconic::materials
+export namespace foundation::materials
 {
 
     class MaterialBuilder
@@ -219,4 +221,4 @@ export namespace draconic::materials
             .Build();
     }
 
-} // namespace draconic::materials
+} // namespace foundation::materials

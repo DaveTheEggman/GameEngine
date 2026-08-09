@@ -8,7 +8,7 @@ import :base;
 import :allocator;
 import :span;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Array - growable, allocator-backed dynamic array.

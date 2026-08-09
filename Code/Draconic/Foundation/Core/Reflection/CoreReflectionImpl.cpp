@@ -42,7 +42,7 @@ import :plane;
 import :rectangle;
 import :guid;
 
-namespace draconic::core
+namespace foundation::core
 {
     // Matrices store a C array (f32[N][N]) that can't be a property, so their
     // elements are exposed via the container facility: a flat, row-major view of
@@ -259,7 +259,7 @@ namespace draconic::core
     }
 }
 
-namespace draconic::core
+namespace foundation::core
 {
     // Registers all Core value types for reflection (patches each TypeOf<T>())
     // and adds them to the GlobalTypeRegistry. Idempotent; call once at startup.

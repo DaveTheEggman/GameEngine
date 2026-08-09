@@ -21,10 +21,10 @@ export module draconic.content;
 import draconic.core;
 import draconic.vfs;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
+using namespace foundation::core;
+using namespace foundation::vfs;
 
-export namespace draconic::content
+export namespace foundation::content
 {
     class ContentDatabase;
     class Group;

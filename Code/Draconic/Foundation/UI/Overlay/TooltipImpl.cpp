@@ -10,9 +10,9 @@ module;
 
 module draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::ui
+namespace foundation::ui
 {
     TooltipManager::TooltipManager(UIContext* context) : m_context(context)
     {

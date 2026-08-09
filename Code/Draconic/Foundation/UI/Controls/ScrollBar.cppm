@@ -23,10 +23,10 @@ import :event_args;
 import :input_enums;
 import :enums;
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class ScrollBar : public View
     {

@@ -13,9 +13,9 @@ export module draconic.runtime:context;
 import draconic.core;
 import :subsystem;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::runtime
+export namespace foundation::runtime
 {
     class Context
     {

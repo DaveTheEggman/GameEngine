@@ -27,9 +27,9 @@ import draconic.core;
 import draconic.content;
 export import draconic.vfs; // Asset::fileName is vfs::SourcePath
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::pipeline
+export namespace pipeline
 {
     // Source/authoring asset: a serializable that references an external source
     // file (relative to the sources mount). Concrete assets derive this and
@@ -41,11 +41,11 @@ export namespace draconic::pipeline
         // Source file, relative to the sources mount (empty = embedded data). Typed:
         // normalization guarantees forward-slash relative form in cooked data - a
         // Windows-authored backslash path heals on load instead of breaking the VFS.
-        draconic::vfs::SourcePath fileName;
+        foundation::vfs::SourcePath fileName;
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "fileName", fileName);
+            foundation::core::Serialize(ar, "fileName", fileName);
         }
     };
 
@@ -54,18 +54,18 @@ export namespace draconic::pipeline
     // resolve cross-asset references during the bake).
     struct AssetBuildContext
     {
-        draconic::vfs::IFileSystem* sources = nullptr; // mount for Asset::fileName + extra files
-        draconic::content::Instance* source =
+        foundation::vfs::IFileSystem* sources = nullptr; // mount for Asset::fileName + extra files
+        foundation::content::Instance* source =
             nullptr; // the SOURCE instance being cooked (embedded data streams)
-        draconic::content::Instance* output = nullptr;     // cooked resource is written here
-        draconic::content::IContentDatabase* db = nullptr; // for resolving referenced assets
+        foundation::content::Instance* output = nullptr;     // cooked resource is written here
+        foundation::content::IContentDatabase* db = nullptr; // for resolving referenced assets
     };
 
     // What one build consumes beyond the implicit Asset::fileName. The cook driver hashes files
     // and chains `reads`; `references` only order the cook (see the design doc, §3).
     struct AssetDependencies
     {
-        Array<draconic::vfs::SourcePath> files; // extra source files read (mount-relative)
+        Array<foundation::vfs::SourcePath> files; // extra source files read (mount-relative)
         Array<String> sourceStreams; // the source instance's data streams the build reads
                                      // (embedded payloads live in SIDECAR files the envelope
                                      // hash doesn't cover - declaring them chains their bytes)

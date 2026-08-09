@@ -14,12 +14,12 @@ import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.script;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::editor
+namespace editor
 {
-    namespace toolkit = draconic::ui::toolkit;
-    namespace script = draconic::script;
+    namespace toolkit = foundation::ui::toolkit;
+    namespace script = foundation::script;
 
     void ScriptApiCompletionProvider::Collect(const toolkit::CodeDocument& document,
                                               toolkit::CodePosition cursor, StringView prefix,

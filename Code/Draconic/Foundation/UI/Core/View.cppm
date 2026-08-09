@@ -59,11 +59,11 @@ import :input_manager;
 import :focus_manager;
 import :shortcut_manager;
 
-using namespace draconic::core;
-namespace fonts = draconic::fonts;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
+namespace vg = foundation::vg;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View;
     class ViewGroup;
@@ -781,7 +781,7 @@ export namespace draconic::ui
     protected:
         virtual LayoutParamsPtr CreateDefaultLayoutParams()
         {
-            return MakeRef<::draconic::ui::LayoutParams>(DefaultAllocator());
+            return MakeRef<::foundation::ui::LayoutParams>(DefaultAllocator());
         }
 
         /// Build child constraints from parent constraints and the child's LayoutParams SizeSpec.

@@ -18,7 +18,7 @@ export module draconic.core:function;
 import :base;
 import :allocator;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     template <typename Signature>
     class Function; // primary template undefined; only R(Args...) is valid

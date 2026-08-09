@@ -28,9 +28,11 @@ import draconic.content;
 import draconic.vfs;
 import draconic.pipeline.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace content = foundation::content;
+namespace vfs = foundation::vfs;
 
-namespace draconic::pipeline
+namespace pipeline
 {
     CookRecord* CookDb::Find(const Guid& source)
     {
@@ -471,7 +473,7 @@ namespace draconic::pipeline
         {
             h = detail::FoldHash(h, 'F', HashSourceFile(asset.fileName.View(), previous, memos));
         }
-        for (const draconic::vfs::SourcePath& file : deps.files)
+        for (const foundation::vfs::SourcePath& file : deps.files)
         {
             h = detail::FoldHash(h, 'F', HashSourceFile(file.View(), previous, memos));
         }

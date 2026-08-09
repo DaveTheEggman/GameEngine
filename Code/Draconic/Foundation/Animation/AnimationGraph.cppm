@@ -17,9 +17,9 @@ import :skeleton; // Skeleton, Bone, BoneTransform
 import :clip;     // AnimationClip, AnimationEventHandler
 import :sampler;  // SampleClip, BlendPoses
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::animation
+export namespace foundation::animation
 {
 
     // ---- state nodes ---------------------------------------------------------------------------
@@ -1244,4 +1244,4 @@ export namespace draconic::animation
 
     DRACONIC_DEFINE_OBJECT(AnimationGraph, "rtti::animation")
 
-} // namespace draconic::animation
+} // namespace foundation::animation

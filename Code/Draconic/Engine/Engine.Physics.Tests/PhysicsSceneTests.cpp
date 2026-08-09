@@ -16,10 +16,10 @@ import draconic.script;
 import draconic.script.facades; // ExtraFacadeNames (the behavior-prelude facade list)
 import draconic.script.wren;
 
-using namespace draconic::core;
-using namespace draconic::engine::physics;
-using namespace draconic::physics;
-namespace scene = draconic::scene;
+using namespace foundation::core;
+using namespace engine::physics;
+using namespace foundation::physics;
+namespace scene = foundation::scene;
 
 namespace
 {
@@ -391,7 +391,7 @@ TEST_CASE("physics.scene: ScenePhysics is in the Wren BEHAVIOR prelude (not just
     // scene-physics handle is reachable from a component behavior (or a Level) only if its name
     // is in that list.
     bool inPrelude = false;
-    for (const StringView facade : draconic::script::ExtraFacadeNames())
+    for (const StringView facade : foundation::script::ExtraFacadeNames())
     {
         inPrelude = inPrelude || facade == StringView(u8"ScenePhysics");
     }
@@ -698,9 +698,9 @@ import draconic.scene.resource;
 
 TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore) terminates")
 {
-    namespace runtime = draconic::runtime;
+    namespace runtime = foundation::runtime;
     runtime::Context ctx;
-    auto* scenes = ctx.AddSubsystem<draconic::engine::scene::SceneSubsystem>();
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm(&scenes->AwareRegistry());
     scenes->RegisterManager(&sm);
     ctx.AddSubsystem<PhysicsSubsystem>();

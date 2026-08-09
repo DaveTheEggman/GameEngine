@@ -18,9 +18,9 @@ import :drag_data;   // RefPtr<DragData> member (complete type -> no incomplete-
 import :input_enums; // MouseButton
 import :enums;       // CursorType
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View;
     class UIContext;

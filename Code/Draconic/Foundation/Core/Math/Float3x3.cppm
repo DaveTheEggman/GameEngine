@@ -17,7 +17,7 @@ import :math;
 import :float3;
 import :float4x4;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // Float3x3 - 3x3, row-major, row-vector convention. Rotation / normal matrices.

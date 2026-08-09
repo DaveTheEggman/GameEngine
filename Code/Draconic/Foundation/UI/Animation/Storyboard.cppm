@@ -13,9 +13,9 @@ export module draconic.ui:storyboard;
 import draconic.core;
 import :animation;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class Storyboard : public Animation
     {

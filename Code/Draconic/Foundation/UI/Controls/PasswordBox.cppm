@@ -15,9 +15,9 @@ import :property;
 import :event_args;
 import :input_enums; // KeyCode, KeyModifiers, HasFlag
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class PasswordBox : public EditText
     {

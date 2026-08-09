@@ -5,8 +5,8 @@
 import draconic.core;
 import draconic.profiler;
 
-using namespace draconic::core;
-using namespace draconic::profiler;
+using namespace foundation::core;
+using namespace foundation::profiler;
 
 TEST_CASE("profiler: a single scope is recorded")
 {

@@ -16,9 +16,9 @@ import draconic.vg;
 import draconic.ui;
 import :dock_position;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// A dock target zone with position and bounds.
     struct DockTarget

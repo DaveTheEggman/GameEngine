@@ -24,9 +24,9 @@ module draconic.particles;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::particles
+namespace foundation::particles
 {
     DRACONIC_REFLECT_ENUM(EmissionMode, "rtti::particles")
     {

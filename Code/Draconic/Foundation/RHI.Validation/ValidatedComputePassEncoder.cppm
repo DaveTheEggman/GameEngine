@@ -9,9 +9,9 @@ export module draconic.rhi.validation:validated_compute_pass_encoder;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::validation
+export namespace foundation::rhi::validation
 {
 
     class ValidatedCommandEncoder; // forward
@@ -140,4 +140,4 @@ export namespace draconic::rhi::validation
         bool m_ended = false;
     };
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

@@ -45,16 +45,15 @@ import :project_manager_view;
 import :shell;
 import :ui_page;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace pipeline;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace runtime = draconic::runtime;
-    namespace graphics = draconic::graphics;
-    namespace fonts = draconic::fonts;
-    namespace ui = draconic::ui;
-    namespace editor = draconic::editor;
+    namespace runtime = foundation::runtime;
+    namespace graphics = foundation::graphics;
+    namespace fonts = foundation::fonts;
+    namespace ui = foundation::ui;
 
     class EditorApplication;
 
@@ -73,7 +72,7 @@ export namespace draconic::editor::app
 
         // Log capture registered on GlobalLogger by main() BEFORE anything else runs, so early
         // startup logs reach the console panel. Borrowed; main owns it (outlives the app).
-        draconic::editor::EditorLogBuffer* logBuffer = nullptr;
+        editor::EditorLogBuffer* logBuffer = nullptr;
 
         // Start on the PROJECT MANAGER screen instead of opening projectDirectory (set by
         // main() when no project was given). File > Close Project returns to the manager only
@@ -99,7 +98,7 @@ export namespace draconic::editor::app
         /// sky + primitive meshes, and the manifest defaults that reference them). Runs
         /// once, right after the fresh project opens; the exe composes it because only the
         /// exe links every asset type. Null = new projects start empty.
-        Function<void(draconic::editor::EditorContext&, draconic::editor::EditorProject&)>
+        Function<void(editor::EditorContext&, editor::EditorProject&)>
             seedNewProject;
     };
 
@@ -108,27 +107,27 @@ export namespace draconic::editor::app
     public:
         explicit EditorApplication(EditorAppConfig config) : m_config(Move(config)) {}
 
-        [[nodiscard]] draconic::editor::EditorContext& Context() noexcept { return m_context; }
-        [[nodiscard]] draconic::editor::EditorProject* Project() const noexcept;
+        [[nodiscard]] editor::EditorContext& Context() noexcept { return m_context; }
+        [[nodiscard]] editor::EditorProject* Project() const noexcept;
         [[nodiscard]] EditorShell& Shell() noexcept { return m_shell; }
         /// The exe registers every engine builder here (from registerEditors), mirroring the
         /// Draconic.Tools.Cook CLI's set - the cook service routes through it.
-        [[nodiscard]] draconic::pipeline::BuilderRegistry& Builders() noexcept { return m_builders; }
-        [[nodiscard]] draconic::editor::EditorCookService& CookService() noexcept;
+        [[nodiscard]] pipeline::BuilderRegistry& Builders() noexcept { return m_builders; }
+        [[nodiscard]] editor::EditorCookService& CookService() noexcept;
 
         /// The exe registers runtime resource factories here (from registerEditors); the app
         /// owns them + the ResourceManager over the project's cooked DB.
-        void AddResourceFactory(UniquePtr<draconic::resource::IResourceFactory> factory);
-        [[nodiscard]] draconic::resource::ResourceManager* Resources() const noexcept;
+        void AddResourceFactory(UniquePtr<foundation::resource::IResourceFactory> factory);
+        [[nodiscard]] foundation::resource::ResourceManager* Resources() const noexcept;
         /// The embedded game application (valid after OnStartup; the Game page drives its
         /// play bracket through it).
-        [[nodiscard]] draconic::engine::runtime::DefaultApplication* EmbeddedApplication() const noexcept;
+        [[nodiscard]] engine::runtime::DefaultApplication* EmbeddedApplication() const noexcept;
 
         void Configure(runtime::IApplicationHost& host) override;
 
         /// The renderer interface the app drives its per-frame scene bracket through (injected
         /// by the exe from registerEditors; null = no scene rendering). Borrowed.
-        void SetSceneRenderer(draconic::render::ISceneRenderer* renderer) noexcept;
+        void SetSceneRenderer(foundation::render::ISceneRenderer* renderer) noexcept;
 
         void OnStartup(runtime::IApplicationHost& host) override;
 
@@ -139,7 +138,7 @@ export namespace draconic::editor::app
         /// page's own asset when its cook is missing/failed. Fully cooked pages request
         /// nothing - no worker spin-up on every open (six restored pages = six no-op cooks
         /// otherwise).
-        void CookMissingForPage(draconic::content::Instance& instance);
+        void CookMissingForPage(foundation::content::Instance& instance);
 
         /// Open (or focus) the singleton Game tab (play-in-editor: the player behavior
         /// in-process; the page's own toolbar runs Play/Stop). Created through the scene
@@ -150,7 +149,7 @@ export namespace draconic::editor::app
         void OpenGamePage(bool newInstance = false);
 
         /// Open (or focus) a page for `instance` and dock its content as a center tab.
-        UIEditorPage* OpenInstancePage(draconic::content::Instance& instance);
+        UIEditorPage* OpenInstancePage(foundation::content::Instance& instance);
 
         // Tear down a page whose panel is closing/closed (the DockManager owns panel
         // destruction; this handles only the page side).
@@ -170,7 +169,7 @@ export namespace draconic::editor::app
     private:
         // File > New <creator>: create the source instance, remember it as the project's default
         // document if none is set yet (so a fresh project reopens where you left off), open it.
-        void CreateAndOpen(const draconic::editor::EditorContext::AssetCreator& creator, draconic::content::Group* group = nullptr);
+        void CreateAndOpen(const editor::EditorContext::AssetCreator& creator, foundation::content::Group* group = nullptr);
 
         // True = nothing dirty, exit may proceed. Otherwise shows the exit prompt and returns
         // false; its buttons finish the job (save-all -> exit / discard -> exit / cancel).
@@ -195,7 +194,7 @@ export namespace draconic::editor::app
         // types first). Absent on first run - the store stays empty and sections read as defaults.
         // Recursive walk feeding the export pre-transcode (main thread; scene/prefab typed
         // instances only - the stager filters).
-        void CollectSceneStreams(draconic::content::Group& group);
+        void CollectSceneStreams(foundation::content::Group& group);
 
         void LoadEditorSettings();
 
@@ -325,17 +324,17 @@ export namespace draconic::editor::app
 
         EditorAppConfig m_config;
         runtime::IApplicationHost* m_host = nullptr; // borrowed
-        draconic::render::ISceneRenderer* m_sceneRenderer = nullptr;
+        foundation::render::ISceneRenderer* m_sceneRenderer = nullptr;
         // The embedded runtime (v3): gameplay subsystems + ALL scene hosting live here.
         runtime::Context m_runtimeContext;
         UniquePtr<runtime::EmbeddedApplicationHost> m_embeddedHost;
         runtime::FixedStepper
             m_embeddedFixedStepper; // drives the embedded app's OnFixedUpdate (net) in-editor
-        UniquePtr<draconic::engine::runtime::DefaultApplication> m_embeddedApp;
+        UniquePtr<engine::runtime::DefaultApplication> m_embeddedApp;
         bool m_stopGameRequested = false; // borrowed (exe injects)
 
         // Log drain state (see DrainLog).
-        Array<draconic::editor::EditorLogEntry> m_pendingLog;
+        Array<editor::EditorLogEntry> m_pendingLog;
         u64 m_logSequence = 0;
 
         // Open pages and their center-tab panels (panels owned by the DockManager).
@@ -344,16 +343,16 @@ export namespace draconic::editor::app
             UIEditorPage* page = nullptr;                // borrowed (context owns the page)
             ui::toolkit::DockablePanel* panel = nullptr; // borrowed (dock manager owns the panel)
         };
-        draconic::editor::EditorContext m_context;
-        UniquePtr<draconic::editor::EditorProject> m_project;
-        draconic::pipeline::BuilderRegistry m_builders; // exe-assembled (registerEditors)
-        draconic::editor::EditorCookService m_cookService;
-        draconic::editor::EditorJobService m_jobService; // generic background jobs (export, ...)
-        draconic::settings::Settings
+        editor::EditorContext m_context;
+        UniquePtr<editor::EditorProject> m_project;
+        pipeline::BuilderRegistry m_builders; // exe-assembled (registerEditors)
+        editor::EditorCookService m_cookService;
+        editor::EditorJobService m_jobService; // generic background jobs (export, ...)
+        foundation::settings::Settings
             m_editorSettings; // per-user editor prefs (<userdata>/editor.settings.xml)
-        draconic::editor::ProjectManagerController m_projectManager{
+        editor::ProjectManagerController m_projectManager{
             m_editorSettings}; // headless manager decisions (open gate, registry, create)
-        UniquePtr<draconic::settings::Settings>
+        UniquePtr<foundation::settings::Settings>
             m_projectEditorSettings; // per-project editor state (<project>/Editor/); one store,
                                      // typed sections (dock layout, favorites, open pages, ...)
         struct PendingExport
@@ -377,13 +376,13 @@ export namespace draconic::editor::app
         f32 m_testOpenElapsed = 0.0f;       // DRACONIC_TEST_OPEN hook
         u32 m_testOpenStage = 0;
         bool m_autoRebuilt = false;
-        Array<draconic::shell::DroppedFile> m_droppedFiles; // per-frame drain buffer
-        Array<UniquePtr<draconic::resource::IResourceFactory>> m_resourceFactories; // exe-assembled
-        UniquePtr<draconic::resource::ResourceManager> m_resources;
+        Array<foundation::shell::DroppedFile> m_droppedFiles; // per-frame drain buffer
+        Array<UniquePtr<foundation::resource::IResourceFactory>> m_resourceFactories; // exe-assembled
+        UniquePtr<foundation::resource::ResourceManager> m_resources;
 
         UniquePtr<fonts::TrueTypeFontService> m_fontService;
         ui::toolkit::ToolkitThemeExtension m_toolkitTheme;
-        RefPtr<draconic::ui::StyleSheet> m_styleSheet;
+        RefPtr<foundation::ui::StyleSheet> m_styleSheet;
 
         // TEARDOWN ORDER RULE: the UIHost (owns the UIContext + InputManager) is declared
         // BEFORE every view-holding member below, so it destructs AFTER them - view teardown

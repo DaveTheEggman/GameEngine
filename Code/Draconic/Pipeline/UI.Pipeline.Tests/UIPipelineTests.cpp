@@ -13,11 +13,11 @@ import draconic.ui;
 import draconic.ui.resource;
 import draconic.ui.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
-using namespace draconic::resource;
-using namespace draconic::ui;
-namespace content = draconic::content;
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::resource;
+using namespace foundation::ui;
+namespace content = foundation::content;
 
 namespace
 {
@@ -39,7 +39,7 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
     RegisterUIResource();
     RegisterUIAssets();
     RemoveTree(u8"draconic_uipipe_db");
-    draconic::vfs::NativeFileSystem outMount(u8"draconic_uipipe_db");
+    foundation::vfs::NativeFileSystem outMount(u8"draconic_uipipe_db");
     content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
 
     // Document round-trip.
@@ -48,7 +48,7 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
         UIDocumentAsset asset;
         asset.markup = String(kUIDocumentStarter);
         UIDocumentAssetBuilder builder;
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.output = docInstance;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
@@ -58,7 +58,7 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
         UIThemeAsset asset;
         asset.stylesheet = String(kUIThemeStarter);
         UIThemeAssetBuilder builder;
-        draconic::pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx;
         ctx.output = themeInstance;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
@@ -91,11 +91,11 @@ TEST_CASE("ui.pipeline: malformed payloads FAIL the cook")
     RegisterUIResource();
     RegisterUIAssets();
     RemoveTree(u8"draconic_uipipe_bad_db");
-    draconic::vfs::NativeFileSystem outMount(u8"draconic_uipipe_bad_db");
+    foundation::vfs::NativeFileSystem outMount(u8"draconic_uipipe_bad_db");
     content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
     auto* instance = outDb.RootGroup()->CreateInstance(u8"menu", UIDocumentSource::StaticType());
 
-    draconic::pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx;
     ctx.output = instance;
 
     UIDocumentAssetBuilder documents;

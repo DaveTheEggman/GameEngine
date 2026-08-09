@@ -16,9 +16,9 @@ import :input_enums; // MouseButton, KeyCode, KeyModifiers
 import :event_args;
 import :enums; // CursorType
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View;
     class UIContext;

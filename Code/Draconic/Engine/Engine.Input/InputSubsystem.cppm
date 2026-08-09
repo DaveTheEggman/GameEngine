@@ -18,10 +18,10 @@ import draconic.runtime;
 import draconic.script;
 import draconic.input;
 
-using namespace draconic::core;
-using namespace draconic::input;
+using namespace foundation::core;
+using namespace foundation::input;
 
-export namespace draconic::engine::input
+export namespace engine::input
 {
     /// The service key ExposeToScript binds and the scripting facade resolves.
     // kInputScriptService now lives in draconic.input (:runtime) so per-instance owners (GameInstance)
@@ -40,11 +40,11 @@ export namespace draconic::engine::input
         ScreenTierOnly, // un-bound input reaches only the scene-less screen tier (editor)
     };
 
-    class InputSubsystem final : public draconic::runtime::Subsystem
+    class InputSubsystem final : public foundation::runtime::Subsystem
     {
     public:
         /// `input` = the shell's device hub (null tolerated: headless runs read released).
-        explicit InputSubsystem(draconic::shell::IInputManager* input) : m_shellSource(input) {}
+        explicit InputSubsystem(foundation::shell::IInputManager* input) : m_shellSource(input) {}
 
         [[nodiscard]] ActionRuntime& Runtime() noexcept { return m_runtime; }
 
@@ -114,14 +114,14 @@ export namespace draconic::engine::input
         /// Binds THIS subsystem's runtime as `context`'s input service - the scripting
         /// facade (class Input below) resolves it per context, so two contexts can read
         /// two different runtimes (players; editor vs game). Call once per created context.
-        void ExposeToScript(draconic::script::IScriptContext& context)
+        void ExposeToScript(foundation::script::IScriptContext& context)
         {
             context.SetService(kInputScriptService, &m_runtime);
         }
 
         void Update(f32 deltaTime) override
         {
-            if (draconic::runtime::Context* context = GetContext())
+            if (foundation::runtime::Context* context = GetContext())
             {
                 m_runtime.SetTimeScale(context->TimeScale());
             }
@@ -151,7 +151,7 @@ export namespace draconic::engine::input
     public:
         [[nodiscard]] static ActionRuntime* Resolve()
         {
-            draconic::script::IScriptContext* context = draconic::script::CurrentScriptContext();
+            foundation::script::IScriptContext* context = foundation::script::CurrentScriptContext();
             return context != nullptr
                        ? static_cast<ActionRuntime*>(context->GetService(kInputScriptService))
                        : nullptr;

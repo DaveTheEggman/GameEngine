@@ -16,9 +16,9 @@ import :pass;
 import :resource;
 import :graph;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rendergraph
+export namespace foundation::rendergraph
 {
     enum class ValidationSeverity
     {

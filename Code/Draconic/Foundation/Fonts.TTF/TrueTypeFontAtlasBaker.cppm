@@ -17,9 +17,9 @@ import :common;
 import :font;
 import :atlas;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     class TrueTypeFontAtlasBaker final : public IFontAtlasBaker
     {

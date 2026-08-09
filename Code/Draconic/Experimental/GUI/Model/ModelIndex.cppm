@@ -11,10 +11,9 @@ export module draconic.gui:model_index;
 
 import draconic.core; // i32
 
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // Which aspect of a cell a view is requesting (display text, a sort key, an icon, ...).
     enum class ModelRole

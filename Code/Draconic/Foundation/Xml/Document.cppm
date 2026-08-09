@@ -17,9 +17,9 @@ import :ns;
 export import :nodes;
 import :writer;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::xml
+export namespace foundation::xml
 {
     struct XmlParseSettings
     {
@@ -765,7 +765,7 @@ export namespace draconic::xml
 }
 
 // ---- Out-of-line definitions that need XmlDocument complete ----
-namespace draconic::xml
+namespace foundation::xml
 {
     XmlDocument* XmlNode::OwnerDocument() const
     {

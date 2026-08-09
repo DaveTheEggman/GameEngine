@@ -14,11 +14,11 @@ import draconic.fonts;
 import draconic.image; // ImageData (StubFontService::GetAtlasTexture return type)
 #include "TestHelpers.h"
 
-using namespace draconic::ui;
-using namespace draconic::ui::tests;
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::ui;
+using namespace foundation::ui::tests;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
 
 namespace
 {
@@ -29,11 +29,11 @@ namespace
     public:
         [[nodiscard]] fonts::CachedFont* GetFont(f32) override { return nullptr; }
         [[nodiscard]] fonts::CachedFont* GetFont(StringView, f32) override { return nullptr; }
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(fonts::CachedFont*) override
+        [[nodiscard]] foundation::image::ImageData* GetAtlasTexture(fonts::CachedFont*) override
         {
             return nullptr;
         }
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(StringView, f32) override
+        [[nodiscard]] foundation::image::ImageData* GetAtlasTexture(StringView, f32) override
         {
             return nullptr;
         }

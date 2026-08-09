@@ -30,9 +30,9 @@ import draconic.vfs;
 import :clip;
 import :reverb; // AudioReverbParams (the scene-reverb seam)
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::audio
+export namespace foundation::audio
 {
     // The default bus layout: Master <- { Effects, Music, UI } (BusLayout-as-data is P2;
     // the enum IS the P1 layout). Runtime mapping: one ma_sound_group per bus.
@@ -247,7 +247,7 @@ export namespace draconic::audio
         u32 dyingVoiceCapacity = 8;             // 0 = legacy immediate cut; full = oldest hard-cuts
         f32 dedupeWindowSeconds = 1.0f / 30.0f; // recent-play merge window (Traktor)
         /// Optional mount for path-addressed streaming (clip stream sources don't need it).
-        draconic::vfs::IFileSystem* fileSystem = nullptr;
+        foundation::vfs::IFileSystem* fileSystem = nullptr;
     };
 
     class AudioEngine

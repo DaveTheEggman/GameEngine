@@ -15,10 +15,9 @@ import draconic.shell.desktop;
 import draconic.graphics; // GraphicsDevice + FrameContext (DRACONIC_APP_MAIN sets up the device)
 import draconic.graphics.gpu; // CreateGraphicsDevice
 
-namespace core = draconic::core;
-namespace runtime = draconic::runtime;
-namespace graphics = draconic::graphics;
-namespace shell = draconic::shell;
+namespace core = foundation::core;
+namespace runtime = foundation::runtime;
+namespace graphics = foundation::graphics;
 
 namespace
 {

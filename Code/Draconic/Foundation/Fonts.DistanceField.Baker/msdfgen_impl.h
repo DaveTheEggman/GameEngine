@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace draconic::fonts::df
+namespace foundation::fonts::df
 {
 
     using u8 = uint8_t;
@@ -17,4 +17,4 @@ namespace draconic::fonts::df
                            i32 height, f64 pxRange, f64 scaleX, f64 scaleY, f64 translateX,
                            f64 translateY, u8* rgbaOut);
 
-} // namespace draconic::fonts::df
+} // namespace foundation::fonts::df

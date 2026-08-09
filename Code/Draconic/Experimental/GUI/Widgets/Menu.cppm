@@ -35,12 +35,12 @@ import :node;
 import :ui_widget;
 import :event_dispatcher;
 
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace fonts = draconic::fonts;
-namespace vg = draconic::vg;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace fonts = foundation::fonts;
+namespace vg = foundation::vg;
 
-export namespace draconic::gui
+export namespace experimental::gui
 {
     // === Row base ===============================================================
     // A row in a menu. Reports its preferred height and, on hover, notifies the owning menu

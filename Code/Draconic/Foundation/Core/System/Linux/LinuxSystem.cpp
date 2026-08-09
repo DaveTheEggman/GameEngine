@@ -20,7 +20,7 @@
 #include <cstdlib> // std::getenv
 #include <cstring> // std::strlen, std::memcpy
 
-namespace draconic::core::sys
+namespace foundation::core::sys
 {
     std::uint64_t GetTicks() noexcept
     {
@@ -834,7 +834,7 @@ namespace draconic::core::sys
 // the host (node --stack-trace-limit / browser devtools), so WriteBacktrace is a no-op.
 #if defined(__EMSCRIPTEN__)
 
-namespace draconic::core::sys
+namespace foundation::core::sys
 {
     int WriteBacktrace(int) noexcept { return 0; }
 }
@@ -843,7 +843,7 @@ namespace draconic::core::sys
 
 #include <execinfo.h>
 
-namespace draconic::core::sys
+namespace foundation::core::sys
 {
     int WriteBacktrace(int fd) noexcept
     {

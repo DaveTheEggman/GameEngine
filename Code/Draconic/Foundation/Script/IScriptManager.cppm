@@ -14,9 +14,9 @@ import :script_context;
 import :script_introspection; // DescribeBoundApi surface
 import :script_debug;         // IScriptDebugger / IScriptProfiler / IScriptBlob seams
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::script
+export namespace foundation::script
 {
     /// Optional backend features (scripting.md B4), declared per backend and consumed
     /// contract-first: a consumer CHECKS the flag and degrades cleanly - a backend

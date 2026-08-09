@@ -5,9 +5,9 @@ import draconic.core;
 import draconic.image;
 import draconic.vg;
 
-using namespace draconic::core;
-using namespace draconic::vg;
-namespace image = draconic::image;
+using namespace foundation::core;
+using namespace foundation::vg;
+namespace image = foundation::image;
 
 TEST_CASE("vg.context: white texture sits at index 0")
 {
@@ -213,7 +213,7 @@ TEST_CASE("vg.context: identical gradients share ONE cached LUT, stable across f
     ctx.FillPath(path, grad, FillRule::NonZero, false);
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.textures.Size() == 2u); // white + ONE shared LUT, not one per fill
-    const draconic::image::ImageData* firstFrameLut = batch.textures[1];
+    const foundation::image::ImageData* firstFrameLut = batch.textures[1];
 
     ctx.Clear();
     CHECK(ctx.GetBatch().evictedTextures.IsEmpty()); // tiny cache: nothing evicted
@@ -232,8 +232,8 @@ TEST_CASE("vg.context: identical gradients share ONE cached LUT, stable across f
 
 TEST_CASE("vg.fills: ApplyGradientSpread pad/repeat/reflect mapping")
 {
-    using draconic::vg::ApplyGradientSpread;
-    using draconic::vg::VGGradientSpread;
+    using foundation::vg::ApplyGradientSpread;
+    using foundation::vg::VGGradientSpread;
     // Pad clamps.
     CHECK(ApplyGradientSpread(-0.5f, VGGradientSpread::Pad) == doctest::Approx(0.0f));
     CHECK(ApplyGradientSpread(1.7f, VGGradientSpread::Pad) == doctest::Approx(1.0f));
@@ -264,7 +264,7 @@ TEST_CASE("vg.context: gradient spread rides the command and cuts the batch")
     pad.AddStop(0.0f, Color::Red);
     pad.AddStop(1.0f, Color::Blue);
     VGLinearGradientFill repeat = pad;
-    repeat.spread = draconic::vg::VGGradientSpread::Repeat;
+    repeat.spread = foundation::vg::VGGradientSpread::Repeat;
 
     ctx.FillPath(path, pad, FillRule::NonZero, false);
     ctx.FillPath(path, repeat, FillRule::NonZero, false);
@@ -273,8 +273,8 @@ TEST_CASE("vg.context: gradient spread rides the command and cuts the batch")
     REQUIRE(batch.commands.Size() >= 2u);
     const VGCommand& first = batch.commands[batch.commands.Size() - 2];
     const VGCommand& second = batch.commands[batch.commands.Size() - 1];
-    CHECK(first.gradientSpread == draconic::vg::VGGradientSpread::Pad);
-    CHECK(second.gradientSpread == draconic::vg::VGGradientSpread::Repeat);
+    CHECK(first.gradientSpread == foundation::vg::VGGradientSpread::Pad);
+    CHECK(second.gradientSpread == foundation::vg::VGGradientSpread::Repeat);
     CHECK(first.textureIndex == second.textureIndex); // same LUT, different sampler
 }
 
@@ -286,16 +286,16 @@ TEST_CASE("vg.tessellation: non-pad linear gradients emit the RAW parameter")
     VGLinearGradientFill repeat(Float2{0.0f, 0.0f}, Float2{5.0f, 0.0f});
     repeat.AddStop(0.0f, Color::Red);
     repeat.AddStop(1.0f, Color::Blue);
-    repeat.spread = draconic::vg::VGGradientSpread::Repeat;
+    repeat.spread = foundation::vg::VGGradientSpread::Repeat;
     const Rectangle bounds{0.0f, 0.0f, 10.0f, 10.0f};
     const Float2 rawFar = FillTessellator::GradientTexCoord(
-        draconic::vg::VGGradientTess::LinearLut, repeat, Float2{10.0f, 0.0f}, bounds);
+        foundation::vg::VGGradientTess::LinearLut, repeat, Float2{10.0f, 0.0f}, bounds);
     CHECK(rawFar.x == doctest::Approx(2.0f)); // raw, NOT clamped/compressed
 
     VGLinearGradientFill pad = repeat;
-    pad.spread = draconic::vg::VGGradientSpread::Pad;
+    pad.spread = foundation::vg::VGGradientSpread::Pad;
     const Float2 padFar = FillTessellator::GradientTexCoord(
-        draconic::vg::VGGradientTess::LinearLut, pad, Float2{10.0f, 0.0f}, bounds);
+        foundation::vg::VGGradientTess::LinearLut, pad, Float2{10.0f, 0.0f}, bounds);
     CHECK(padFar.x == doctest::Approx(255.5f / 256.0f)); // clamped to the last texel center
 }
 
@@ -311,15 +311,15 @@ TEST_CASE("vg.context: blend mode rides the command and cuts the batch")
     const Path path = pb.ToPath();
 
     ctx.FillPath(path, Color::Red, FillRule::NonZero, false);
-    ctx.SetBlendMode(draconic::vg::VGBlendMode::Additive);
+    ctx.SetBlendMode(foundation::vg::VGBlendMode::Additive);
     ctx.FillPath(path, Color::Blue, FillRule::NonZero, false);
-    ctx.SetBlendMode(draconic::vg::VGBlendMode::Normal);
+    ctx.SetBlendMode(foundation::vg::VGBlendMode::Normal);
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(batch.commands.Size() >= 2u);
     const VGCommand& first = batch.commands[batch.commands.Size() - 2];
     const VGCommand& second = batch.commands[batch.commands.Size() - 1];
-    CHECK(first.blendMode == draconic::vg::VGBlendMode::Normal);
-    CHECK(second.blendMode == draconic::vg::VGBlendMode::Additive);
+    CHECK(first.blendMode == foundation::vg::VGBlendMode::Normal);
+    CHECK(second.blendMode == foundation::vg::VGBlendMode::Additive);
 }
 
 TEST_CASE("vg.context: PushClipPath emits write+apply, marks draws, PopClipPath clears")
@@ -348,13 +348,13 @@ TEST_CASE("vg.context: PushClipPath emits write+apply, marks draws, PopClipPath 
     // Expected command stream: StencilWrite (clip winding), ClipApply, the CLIPPED
     // fill, ClipClear, the unclipped fill.
     REQUIRE(batch.commands.Size() == 5u);
-    CHECK(batch.commands[0].fillPhase == draconic::vg::VGFillPhase::StencilWrite);
-    CHECK(batch.commands[0].clipMode == draconic::vg::VGClipMode::None); // mask writing
-    CHECK(batch.commands[1].fillPhase == draconic::vg::VGFillPhase::ClipApply);
-    CHECK(batch.commands[2].fillPhase == draconic::vg::VGFillPhase::Direct);
-    CHECK(batch.commands[2].clipMode == draconic::vg::VGClipMode::Stencil);
-    CHECK(batch.commands[3].fillPhase == draconic::vg::VGFillPhase::ClipClear);
-    CHECK(batch.commands[4].clipMode == draconic::vg::VGClipMode::None);
+    CHECK(batch.commands[0].fillPhase == foundation::vg::VGFillPhase::StencilWrite);
+    CHECK(batch.commands[0].clipMode == foundation::vg::VGClipMode::None); // mask writing
+    CHECK(batch.commands[1].fillPhase == foundation::vg::VGFillPhase::ClipApply);
+    CHECK(batch.commands[2].fillPhase == foundation::vg::VGFillPhase::Direct);
+    CHECK(batch.commands[2].clipMode == foundation::vg::VGClipMode::Stencil);
+    CHECK(batch.commands[3].fillPhase == foundation::vg::VGFillPhase::ClipClear);
+    CHECK(batch.commands[4].clipMode == foundation::vg::VGClipMode::None);
 }
 
 TEST_CASE("vg.context: a COMPLEX fill inside a clip keeps both stencil roles")
@@ -385,10 +385,10 @@ TEST_CASE("vg.context: a COMPLEX fill inside a clip keeps both stencil roles")
     VGBatch& batch = ctx.GetBatch();
     // clip write + apply, star write + cover, clip clear.
     REQUIRE(batch.commands.Size() == 5u);
-    CHECK(batch.commands[2].fillPhase == draconic::vg::VGFillPhase::StencilWrite);
-    CHECK(batch.commands[2].clipMode == draconic::vg::VGClipMode::Stencil);
-    CHECK(batch.commands[3].fillPhase == draconic::vg::VGFillPhase::StencilCover);
-    CHECK(batch.commands[3].clipMode == draconic::vg::VGClipMode::Stencil);
+    CHECK(batch.commands[2].fillPhase == foundation::vg::VGFillPhase::StencilWrite);
+    CHECK(batch.commands[2].clipMode == foundation::vg::VGClipMode::Stencil);
+    CHECK(batch.commands[3].fillPhase == foundation::vg::VGFillPhase::StencilCover);
+    CHECK(batch.commands[3].clipMode == foundation::vg::VGClipMode::Stencil);
 }
 
 TEST_CASE("vg.context: PushClipPath without stencil support degrades to bounds scissor")
@@ -413,7 +413,7 @@ TEST_CASE("vg.context: PushClipPath without stencil support degrades to bounds s
     VGBatch& batch = ctx.GetBatch();
     REQUIRE(!batch.commands.IsEmpty());
     const VGCommand& cmd = batch.commands[batch.commands.Size() - 1];
-    CHECK(cmd.clipMode == draconic::vg::VGClipMode::Scissor);
+    CHECK(cmd.clipMode == foundation::vg::VGClipMode::Scissor);
     CHECK(cmd.clipRect.x == doctest::Approx(10.0f)); // TRANSFORMED bounds
     CHECK(cmd.clipRect.width == doctest::Approx(20.0f));
 }

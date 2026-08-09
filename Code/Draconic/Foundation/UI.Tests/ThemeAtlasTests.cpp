@@ -8,10 +8,10 @@ import draconic.core;
 import draconic.image;
 import draconic.ui;
 
-using namespace draconic::ui;
-namespace core = draconic::core;
-namespace image = draconic::image;
-using namespace draconic::core;
+using namespace foundation::ui;
+namespace core = foundation::core;
+namespace image = foundation::image;
+using namespace foundation::core;
 
 static image::OwnedImageData MakeTestImage(u32 w, u32 h, u8 r, u8 g, u8 b)
 {

@@ -6,12 +6,12 @@ import draconic.core;
 import draconic.ui.toolkit;
 import draconic.editor.script.angelscript;
 
-using namespace draconic::core;
-using namespace draconic::ui::toolkit;
+using namespace foundation::core;
+using namespace foundation::ui::toolkit;
 
 TEST_CASE("angelscript-editor-ui: LexerRegistration")
 {
-    draconic::editor::RegisterAngelScriptEditorUI();
+    editor::RegisterAngelScriptEditorUI();
     CHECK(CodeLexerRegistry::Get().Create(u8"as").Get() != nullptr);
     UniquePtr<ICodeLexer> lexer = CodeLexerRegistry::Get().Create(u8"angelscript");
     REQUIRE(lexer.Get() != nullptr);

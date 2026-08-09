@@ -15,7 +15,7 @@ import :base;
 import :string;
 import :io;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // =======================================================================
     // BinaryWriter - typed binary output over an IStream.

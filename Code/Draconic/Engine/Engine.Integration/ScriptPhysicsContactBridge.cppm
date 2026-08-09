@@ -20,12 +20,12 @@ import draconic.physics;        // ContactKind (the foundation contact enum)
 import draconic.engine.physics; // PhysicsSubsystem, IContactListener, EntityContact
 import draconic.engine.script;  // ScriptSubsystem, ScriptContactKind
 
-export namespace draconic::engine::integration
+export namespace engine::integration
 {
     /// Maps the physics contact vocabulary onto the script subsystem's neutral one. Free +
     /// pure so it is trivially testable without either subsystem.
-    [[nodiscard]] draconic::engine::script::ScriptContactKind
-    ToScriptContactKind(draconic::physics::ContactKind kind) noexcept;
+    [[nodiscard]] engine::script::ScriptContactKind
+    ToScriptContactKind(foundation::physics::ContactKind kind) noexcept;
 
     /// Registers a physics contact listener that forwards resolved contacts to a script
     /// subsystem, translating the contact kind. The composition root (the app) owns one of
@@ -43,8 +43,8 @@ export namespace draconic::engine::integration
 
         /// Point `physics` contacts at `scripts`. Calling again re-points cleanly (it
         /// Uninstall()s the prior registration first), so it is safe to re-wire.
-        void Install(draconic::engine::physics::PhysicsSubsystem& physics,
-                     draconic::engine::script::ScriptSubsystem& scripts);
+        void Install(engine::physics::PhysicsSubsystem& physics,
+                     engine::script::ScriptSubsystem& scripts);
 
         /// Unregister from the physics subsystem. Idempotent; a no-op when not installed.
         void Uninstall();
@@ -52,13 +52,13 @@ export namespace draconic::engine::integration
         [[nodiscard]] bool Installed() const noexcept { return m_physics != nullptr; }
 
     private:
-        struct Listener final : public draconic::engine::physics::IContactListener
+        struct Listener final : public engine::physics::IContactListener
         {
-            draconic::engine::script::ScriptSubsystem* scripts = nullptr;
-            void OnContact(const draconic::engine::physics::EntityContact& contact) override;
+            engine::script::ScriptSubsystem* scripts = nullptr;
+            void OnContact(const engine::physics::EntityContact& contact) override;
         };
 
         Listener m_listener;
-        draconic::engine::physics::PhysicsSubsystem* m_physics = nullptr;
+        engine::physics::PhysicsSubsystem* m_physics = nullptr;
     };
 }

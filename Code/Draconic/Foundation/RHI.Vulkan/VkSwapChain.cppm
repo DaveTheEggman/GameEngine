@@ -16,9 +16,9 @@ import :surface;
 import :texture;
 import :texture_view;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     // Minimal reverse format mapping for swap chain format negotiation.
@@ -426,4 +426,4 @@ export namespace draconic::rhi::vk
         }
     }
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

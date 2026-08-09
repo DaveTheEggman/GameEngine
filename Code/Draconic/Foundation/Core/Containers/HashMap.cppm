@@ -15,7 +15,7 @@ import :base;
 import :allocator;
 import :hash;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     template <typename K, typename V, typename Hasher = Hash<K>>
     class HashMap

@@ -41,4 +41,4 @@ import draconic.imgui;
 #include "Runtime.Client/AppMain.h"
 #include "WebSceneApp.h"
 
-DRACONIC_APP_MAIN(draconic::samples::WebSceneApp)
+DRACONIC_APP_MAIN(samples::WebSceneApp)

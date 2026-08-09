@@ -14,9 +14,9 @@ export module draconic.ui:sss_tokenizer;
 import draconic.core; // StringView, Array
 import :sss_token;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::ui::detail
+namespace foundation::ui::detail
 {
     [[nodiscard]] inline bool IsDigitC(utf8char c) { return c >= u8'0' && c <= u8'9'; }
     [[nodiscard]] inline bool IsLetterC(utf8char c)
@@ -51,7 +51,7 @@ namespace draconic::ui::detail
     }
 }
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Lexer for .sss stylesheet files.
     class Tokenizer

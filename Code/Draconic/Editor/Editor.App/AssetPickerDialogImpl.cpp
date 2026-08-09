@@ -27,9 +27,11 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import :editor_icons;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace content = foundation::content;
+namespace ui = foundation::ui;
 
-namespace draconic::editor::app
+namespace editor::app
 {
     bool AssetPickerDialog::TypeMatches(content::Instance& instance) const
     {

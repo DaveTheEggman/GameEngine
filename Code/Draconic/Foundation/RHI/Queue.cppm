@@ -7,9 +7,9 @@ import draconic.core;
 import :enums;
 import :resources;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi
+export namespace foundation::rhi
 {
 
     class TransferBatch;
@@ -46,4 +46,4 @@ export namespace draconic::rhi
         [[nodiscard]] virtual f32 TimestampPeriod() const = 0;
     };
 
-} // namespace draconic::rhi
+} // namespace foundation::rhi

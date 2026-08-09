@@ -21,7 +21,7 @@ import :type_info;
 import :object;
 import :iserializer;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     class ISerializable : public Object
     {

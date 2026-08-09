@@ -14,9 +14,9 @@ export module draconic.vg.renderer:vertex;
 import draconic.core;
 import draconic.vg;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg::renderer
+export namespace foundation::vg::renderer
 {
     struct VGRenderVertex
     {
@@ -27,7 +27,7 @@ export namespace draconic::vg::renderer
 
         VGRenderVertex() = default;
 
-        explicit VGRenderVertex(const draconic::vg::VGVertex& v)
+        explicit VGRenderVertex(const foundation::vg::VGVertex& v)
         {
             position[0] = v.position.x;
             position[1] = v.position.y;

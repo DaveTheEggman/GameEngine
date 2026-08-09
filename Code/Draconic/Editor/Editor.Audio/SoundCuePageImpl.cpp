@@ -21,9 +21,12 @@ import draconic.ui;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace audio = foundation::audio;
+namespace runtime = foundation::runtime;
+namespace ui = foundation::ui;
 
-namespace draconic::editor
+namespace editor
 {
     void SoundCueEditorPage::OnUpdate(runtime::IApplicationHost&, f32)
     {
@@ -48,7 +51,7 @@ namespace draconic::editor
 
     Status SoundCueEditorPage::Save()
     {
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             (m_context->Project() != nullptr)
                 ? m_context->Project()->SourceDb().GetInstance(InstanceId())
                 : nullptr;
@@ -131,7 +134,7 @@ namespace draconic::editor
             m_slotLabels[slot]->SetText(u8"(empty)");
             return;
         }
-        draconic::content::Instance* clip = m_context->Project()->SourceDb().GetInstance(id);
+        foundation::content::Instance* clip = m_context->Project()->SourceDb().GetInstance(id);
         m_slotLabels[slot]->SetText(clip != nullptr ? StringView(clip->Path())
                                                     : StringView(u8"(missing)"));
     }
@@ -155,7 +158,7 @@ namespace draconic::editor
         cue.pitchMax = m_asset.pitchMax;
         cue.volumeMin = m_asset.volumeMin;
         cue.volumeMax = m_asset.volumeMax;
-        for (usize i = 0; i < draconic::pipeline::kSoundCueSlotCount; ++i)
+        for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
         {
             audio::SoundCueVariant variant;
             variant.clip = LoadSlotClip(i);
@@ -192,10 +195,10 @@ namespace draconic::editor
         {
             return *cached;
         }
-        draconic::content::Instance* instance = m_context->Project()->SourceDb().GetInstance(id);
+        foundation::content::Instance* instance = m_context->Project()->SourceDb().GetInstance(id);
         RefPtr<ISerializable> object =
             instance != nullptr ? instance->ReadObject() : RefPtr<ISerializable>{};
-        auto* asset = Cast<draconic::pipeline::AudioClipAsset>(object.Get());
+        auto* asset = Cast<pipeline::AudioClipAsset>(object.Get());
         if (asset == nullptr)
         {
             return {};
@@ -225,11 +228,11 @@ namespace draconic::editor
     }
     const TypeInfo* SoundCuePageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::SoundCueAsset::StaticType();
+        return &pipeline::SoundCueAsset::StaticType();
     }
 
     UniquePtr<EditorPage> SoundCuePageFactory::CreatePage(EditorContext& context,
-                                                          draconic::content::Instance& instance)
+                                                          foundation::content::Instance& instance)
     {
         auto* page = DefaultAllocator().New<SoundCueEditorPage>(context, *m_host, instance);
         return UniquePtr<EditorPage>(page, DefaultAllocator());

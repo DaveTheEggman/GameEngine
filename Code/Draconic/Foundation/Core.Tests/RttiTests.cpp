@@ -8,7 +8,7 @@
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 // --- A small reflected hierarchy for the RTTI tests ------------------------
 namespace

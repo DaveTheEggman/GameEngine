@@ -18,9 +18,10 @@ import draconic.core;
 import :types;
 import :streams;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::particles
+export namespace foundation::particles
 {
     // ---- Base classes ------------------------------------------------------------------------
 
@@ -599,21 +600,21 @@ export namespace draconic::particles
             {
                 ar.Key("plane");
                 ar.BeginObject();
-                draconic::particles::Serialize(ar, planes[i]);
+                foundation::particles::Serialize(ar, planes[i]);
                 ar.EndObject();
             }
             for (i32 i = 0; i < Clamp(sphereCount, 0, kMaxSpheres); ++i)
             {
                 ar.Key("sphere");
                 ar.BeginObject();
-                draconic::particles::Serialize(ar, spheres[i]);
+                foundation::particles::Serialize(ar, spheres[i]);
                 ar.EndObject();
             }
             for (i32 i = 0; i < Clamp(boxCount, 0, kMaxBoxes); ++i)
             {
                 ar.Key("box");
                 ar.BeginObject();
-                draconic::particles::Serialize(ar, boxes[i]);
+                foundation::particles::Serialize(ar, boxes[i]);
                 ar.EndObject();
             }
             core::Serialize(ar, "radius", radius);

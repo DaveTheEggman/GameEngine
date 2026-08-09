@@ -26,12 +26,12 @@ import draconic.imgui;
 import draconic.input;
 import draconic.engine.input;
 
-namespace core = draconic::core;
-namespace runtime = draconic::runtime;
-namespace graphics = draconic::graphics;
-namespace shell = draconic::shell;
-namespace input = draconic::input;
-namespace imgui = draconic::imgui;
+namespace core = foundation::core;
+namespace runtime = foundation::runtime;
+namespace graphics = foundation::graphics;
+namespace shell = foundation::shell;
+namespace input = foundation::input;
+namespace imgui = extensions::imgui;
 
 using core::f32;
 using core::u32;
@@ -148,7 +148,7 @@ namespace
     public:
         void Configure(runtime::IApplicationHost& host) override
         {
-            m_input = host.Ctx().AddSubsystem<draconic::engine::input::InputSubsystem>(
+            m_input = host.Ctx().AddSubsystem<engine::input::InputSubsystem>(
                 host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
@@ -256,8 +256,8 @@ namespace
             core::MemoryStream stream;
             (void)stream.Write(bytes.Value().Data(), bytes.Value().Size());
             (void)stream.Seek(0, core::SeekOrigin::Begin);
-            draconic::settings::Settings store;
-            if (store.Load(stream, draconic::xml::XmlSerializerFactory()).IsOk())
+            foundation::settings::Settings store;
+            if (store.Load(stream, foundation::xml::XmlSerializerFactory()).IsOk())
             {
                 if (const auto* section = store.Find<input::InputBindingOverrides>())
                 {
@@ -269,10 +269,10 @@ namespace
 
         void SaveOverlay()
         {
-            draconic::settings::Settings store;
+            foundation::settings::Settings store;
             store.Section<input::InputBindingOverrides>().overrides = m_overlay.overrides;
             core::MemoryStream stream;
-            if (store.Save(stream, draconic::xml::XmlSerializerFactory()).IsOk())
+            if (store.Save(stream, foundation::xml::XmlSerializerFactory()).IsOk())
             {
                 if (core::WriteFile(OverlayPath().AsView(), stream.Bytes()).IsOk())
                 {
@@ -414,7 +414,7 @@ namespace
             }
         }
 
-        draconic::engine::input::InputSubsystem* m_input = nullptr;
+        engine::input::InputSubsystem* m_input = nullptr;
         input::InputMap m_asset;                // pristine defaults
         input::InputBindingOverrides m_overlay; // the user's rebinds (persisted)
         input::ActionRef m_move;

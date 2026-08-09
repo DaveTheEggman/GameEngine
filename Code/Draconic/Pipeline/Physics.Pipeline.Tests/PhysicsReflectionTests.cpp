@@ -7,8 +7,8 @@
 import draconic.core;
 import draconic.physics.pipeline;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace pipeline;
 
 namespace
 {
@@ -33,8 +33,8 @@ namespace
 
 TEST_CASE("reflection-p1: PhysicalMaterialAsset properties round-trip with ranges")
 {
-    draconic::pipeline::RegisterPhysicsAssets();
-    const TypeInfo& type = draconic::pipeline::PhysicalMaterialAsset::StaticType();
+    pipeline::RegisterPhysicsAssets();
+    const TypeInfo& type = pipeline::PhysicalMaterialAsset::StaticType();
 
     CHECK(CEq(type.name, "PhysicalMaterialAsset"));
     CHECK(PropertyCount(type) == 3u);
@@ -47,7 +47,7 @@ TEST_CASE("reflection-p1: PhysicalMaterialAsset properties round-trip with range
     REQUIRE(density != nullptr);
     CHECK(FindAttribute(*friction, u8"range") != nullptr);
 
-    draconic::pipeline::PhysicalMaterialAsset mat;
+    pipeline::PhysicalMaterialAsset mat;
     Instance inst = Instance::From(&mat);
     CHECK(SetProperty(*friction, inst, Variant::From(0.8f)).IsOk());
     CHECK(GetProperty(*friction, inst).Get<f32>() == doctest::Approx(0.8f));
@@ -58,8 +58,8 @@ TEST_CASE("reflection-p1: PhysicalMaterialAsset properties round-trip with range
 
 TEST_CASE("reflection-p1: CollisionShapeAsset exposes the cook enum + conditional field")
 {
-    draconic::pipeline::RegisterPhysicsAssets();
-    const TypeInfo& type = draconic::pipeline::CollisionShapeAsset::StaticType();
+    pipeline::RegisterPhysicsAssets();
+    const TypeInfo& type = pipeline::CollisionShapeAsset::StaticType();
 
     CHECK(PropertyCount(type) == 3u);
     const PropertyInfo* cook = FindProperty(type, "cook");
@@ -67,7 +67,7 @@ TEST_CASE("reflection-p1: CollisionShapeAsset exposes the cook enum + conditiona
     REQUIRE(cook->type != nullptr);
     CHECK(IsEnum(*cook->type));
     CHECK(CEq(EnumValueName(*cook->type,
-                            static_cast<i64>(draconic::pipeline::CollisionCookKind::TriangleMesh)),
+                            static_cast<i64>(pipeline::CollisionCookKind::TriangleMesh)),
               "TriangleMesh"));
 
     // hullTolerance is convex-hull only (visibleWhen the generic page evaluates).
@@ -80,8 +80,8 @@ TEST_CASE("reflection-p1: CollisionShapeAsset exposes the cook enum + conditiona
 
 TEST_CASE("reflection-p1: CollisionCookKind enum reflects both values")
 {
-    draconic::pipeline::RegisterPhysicsAssets();
-    const TypeInfo& kind = TypeOf<draconic::pipeline::CollisionCookKind>();
+    pipeline::RegisterPhysicsAssets();
+    const TypeInfo& kind = TypeOf<pipeline::CollisionCookKind>();
     CHECK(IsEnum(kind));
     CHECK(EnumeratorCount(kind) == 2u);
     CHECK(CEq(EnumValueName(kind, 0), "ConvexHull"));

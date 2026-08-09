@@ -13,15 +13,16 @@ import draconic.ui;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace content = foundation::content;
 
-namespace draconic::editor
+namespace editor
 {
-    namespace ui = draconic::ui;
+    namespace ui = foundation::ui;
 
-    StringView CollisionShapeEditorPage::CookLabel(draconic::pipeline::CollisionCookKind kind)
+    StringView CollisionShapeEditorPage::CookLabel(pipeline::CollisionCookKind kind)
     {
-        return kind == draconic::pipeline::CollisionCookKind::ConvexHull ? StringView(u8"Convex hull (dynamic)")
+        return kind == pipeline::CollisionCookKind::ConvexHull ? StringView(u8"Convex hull (dynamic)")
                                                               : StringView(u8"Triangle mesh (static)");
     }
 
@@ -59,7 +60,7 @@ namespace draconic::editor
         SetInstanceId(instance.Id());
         RefPtr<ISerializable> object = instance.ReadObject();
         m_asset =
-            RefPtr<draconic::pipeline::CollisionShapeAsset>(Cast<draconic::pipeline::CollisionShapeAsset>(object.Get()));
+            RefPtr<pipeline::CollisionShapeAsset>(Cast<pipeline::CollisionShapeAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor", u8"collision shape '{}' failed to read - page opens empty",
@@ -100,9 +101,9 @@ namespace draconic::editor
                         return;
                     }
                     self->m_asset->cook =
-                        self->m_asset->cook == draconic::pipeline::CollisionCookKind::ConvexHull
-                            ? draconic::pipeline::CollisionCookKind::TriangleMesh
-                            : draconic::pipeline::CollisionCookKind::ConvexHull;
+                        self->m_asset->cook == pipeline::CollisionCookKind::ConvexHull
+                            ? pipeline::CollisionCookKind::TriangleMesh
+                            : pipeline::CollisionCookKind::ConvexHull;
                     self->m_cookButton->SetText(CookLabel(self->m_asset->cook));
                     self->MarkDirty();
                 });

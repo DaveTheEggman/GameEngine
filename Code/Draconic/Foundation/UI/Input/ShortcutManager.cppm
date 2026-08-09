@@ -13,9 +13,9 @@ import draconic.core; // Array, RefPtr, Function
 import :input_enums;  // KeyCode, KeyModifiers
 import :shortcut;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View;
     class UIContext;

@@ -10,9 +10,9 @@ export module draconic.ui.toolkit:dock_position;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Position for docking a panel relative to a target.
     enum class DockPosition

@@ -12,11 +12,11 @@ import draconic.ui;
 import draconic.image;
 #include "TestHelpers.h"
 
-using namespace draconic::ui;
-using namespace draconic::ui::tests;
-using namespace draconic::core;
-namespace core = draconic::core;
-namespace image = draconic::image;
+using namespace foundation::ui;
+using namespace foundation::ui::tests;
+using namespace foundation::core;
+namespace core = foundation::core;
+namespace image = foundation::image;
 
 // Register the drawable factories + the element types these parser tests reference.
 static void EnsureGlobals()

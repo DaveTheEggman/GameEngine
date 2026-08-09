@@ -27,9 +27,9 @@ import draconic.rhi;
 import draconic.geometry;
 import draconic.materials;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::render
+namespace foundation::render
 {
     RenderCategory CategoryRegistry::Register(StringView name, SortMode sort, PassAffinity affinity)
     {

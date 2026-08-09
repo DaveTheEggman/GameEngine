@@ -5,9 +5,8 @@
 import draconic.core;
 import draconic.ui;
 
-using namespace draconic::ui;
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::ui;
+using namespace foundation::core;
 
 TEST_CASE("popup-positioner: BestFit_PositionsBelowAnchor")
 {

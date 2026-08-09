@@ -15,9 +15,9 @@ import :conversions;
 import :texture;
 import :descriptor_heap;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxTextureViewImpl : public TextureView
@@ -368,4 +368,4 @@ export namespace draconic::rhi::dx12
         bool m_hasSrv = false, m_hasRtv = false, m_hasDsv = false, m_hasUav = false;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

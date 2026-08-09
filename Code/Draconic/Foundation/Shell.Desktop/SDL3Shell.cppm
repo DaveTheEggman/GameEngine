@@ -29,9 +29,9 @@ export module draconic.shell.desktop;
 import draconic.core;
 import draconic.shell;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::shell
+export namespace foundation::shell
 {
     // Human-readable WSI name for the diagnostic log line (compared against the RHI's surface-WSI log).
     [[nodiscard]] inline core::StringView WindowSystemName(WindowSystem s) noexcept

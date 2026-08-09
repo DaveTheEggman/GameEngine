@@ -9,10 +9,9 @@ import draconic.render.api;
 import draconic.engine.render;
 import draconic.editor.scene;
 
-using namespace draconic::core;
-namespace scene = draconic::scene;
-namespace render = draconic::render;
-namespace editor = draconic::editor;
+using namespace foundation::core;
+namespace scene = foundation::scene;
+namespace render = foundation::render;
 
 namespace
 {
@@ -34,7 +33,7 @@ namespace
 
 TEST_CASE("camera-preview: BuildCameraPreviewOverride maps a component + world to a CameraOverride")
 {
-    draconic::engine::render::CameraComponent cam;
+    engine::render::CameraComponent cam;
     cam.fovYRadians = 1.0f;
     cam.aspect = 4.0f / 3.0f;
     cam.nearZ = 0.5f;

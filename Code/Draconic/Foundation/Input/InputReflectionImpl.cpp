@@ -16,9 +16,9 @@ module draconic.input;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::input
+namespace foundation::input
 {
     DRACONIC_REFLECT_ENUM(BindingSource, "rtti::input")
     {

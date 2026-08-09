@@ -12,9 +12,9 @@ export module draconic.ui:momentum_helper;
 
 import draconic.core; // Float2, Abs, Min
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct MomentumHelper
     {

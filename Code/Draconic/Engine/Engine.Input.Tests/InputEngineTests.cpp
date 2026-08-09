@@ -17,16 +17,16 @@ import draconic.script;
 import draconic.script.wren;
 import draconic.engine.input;
 
-using namespace draconic::core;
-using namespace draconic::engine::input;
-using namespace draconic::input;
-namespace shell = draconic::shell;
+using namespace foundation::core;
+using namespace engine::input;
+using namespace foundation::input;
+namespace shell = foundation::shell;
 
 #include "InputTestSupport.h"
 
 TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
 {
-    draconic::engine::input::RegisterInputScriptFacade();
+    engine::input::RegisterInputScriptFacade();
 
     // Two runtimes, two contexts - each script reads ITS OWN bound runtime (players /
     // editor-vs-game). No process globals anywhere.
@@ -44,16 +44,16 @@ TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
     FakeDevices idle;
     runtimeB.Update(idle, 1.0f / 60.0f); // ...B sees nothing
 
-    RefPtr<draconic::script::IScriptManager> manager =
-        draconic::script::wren::CreateScriptManager();
-    draconic::script::RegisterReflectedTypes(*manager);
+    RefPtr<foundation::script::IScriptManager> manager =
+        foundation::script::wren::CreateScriptManager();
+    foundation::script::RegisterReflectedTypes(*manager);
 
-    RefPtr<draconic::script::IScriptContext> ctxA = manager->CreateContext();
-    RefPtr<draconic::script::IScriptContext> ctxB = manager->CreateContext();
-    RefPtr<draconic::script::IScriptContext> ctxNone = manager->CreateContext();
+    RefPtr<foundation::script::IScriptContext> ctxA = manager->CreateContext();
+    RefPtr<foundation::script::IScriptContext> ctxB = manager->CreateContext();
+    RefPtr<foundation::script::IScriptContext> ctxNone = manager->CreateContext();
     REQUIRE(ctxA.Get() != nullptr);
-    ctxA->SetService(draconic::input::kInputScriptService, &runtimeA);
-    ctxB->SetService(draconic::input::kInputScriptService, &runtimeB);
+    ctxA->SetService(foundation::input::kInputScriptService, &runtimeA);
+    ctxB->SetService(foundation::input::kInputScriptService, &runtimeB);
 
     const StringView script = u8"var Down = Input.isDown(\"Jump\")\n"
                               u8"var MoveY = Input.valueY(\"Move\")\n";

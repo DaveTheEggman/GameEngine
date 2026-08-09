@@ -22,10 +22,10 @@ export module draconic.render:resources;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
-namespace rhi = draconic::rhi;
+using namespace foundation::core;
+namespace rhi = foundation::rhi;
 
-export namespace draconic::render
+export namespace foundation::render
 {
     /// Frames-in-flight deferred GPU destruction: the web-safe replacement for the
     /// grow-path `WaitIdle` (on web the wait pumps the browser event loop MID-FRAME,
@@ -423,4 +423,4 @@ export namespace draconic::render
         u32 m_generation = 0;
     };
 
-} // namespace draconic::render
+} // namespace foundation::render

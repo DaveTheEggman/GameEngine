@@ -6,9 +6,9 @@ import draconic.core;
 import draconic.ui;
 import draconic.ui.toolkit;
 
-using namespace draconic::ui;
-using namespace draconic::ui::toolkit;
-using namespace draconic::core;
+using namespace foundation::ui;
+using namespace foundation::ui::toolkit;
+using namespace foundation::core;
 
 TEST_CASE("toolkit-themeextension: AppliesRulesForBothPalettes")
 {

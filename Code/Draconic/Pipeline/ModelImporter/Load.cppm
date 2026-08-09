@@ -18,11 +18,11 @@ import draconic.model.fbx;
 import draconic.content;
 import :cook;
 
-using namespace draconic::core;
-namespace model = draconic::model;
-namespace content = draconic::content;
+using namespace foundation::core;
+namespace model = foundation::model;
+namespace content = foundation::content;
 
-export namespace draconic::pipeline
+export namespace pipeline
 {
 
     // Load a glTF/GLB/FBX/OBJ file and cook it into `db`. `prefix` namespaces the created
@@ -53,4 +53,4 @@ export namespace draconic::pipeline
         return s.IsOk() ? model::ModelLoadResult::Ok : model::ModelLoadResult::InvalidData;
     }
 
-} // namespace draconic::pipeline
+} // namespace pipeline

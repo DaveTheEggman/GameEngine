@@ -8,15 +8,14 @@ import draconic.scene;
 import draconic.net.replication; // NetworkComponentManager identity ("net.Network")
 import draconic.engine.net;
 
-using namespace draconic::core;
-namespace net = draconic::net;
-namespace scene = draconic::scene;
+using namespace foundation::core;
+namespace scene = foundation::scene;
 
 TEST_CASE("net-subsystem: OnSceneCreated injects the NetworkComponentManager")
 {
-    draconic::net::RegisterReplicationComponents();
+    foundation::net::RegisterReplicationComponents();
 
-    draconic::engine::net::NetworkSubsystem subsystem;
+    engine::net::NetworkSubsystem subsystem;
     scene::Scene scene;
 
     // No net managers until the subsystem injects them (a bare scene is not networked).

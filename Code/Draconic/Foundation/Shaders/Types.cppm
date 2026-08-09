@@ -4,9 +4,9 @@ export module draconic.shaders:types;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::shaders
+export namespace foundation::shaders
 {
 
     enum class ShaderStage : u32
@@ -77,4 +77,4 @@ export namespace draconic::shaders
         bool success = false;
     };
 
-} // namespace draconic::shaders
+} // namespace foundation::shaders

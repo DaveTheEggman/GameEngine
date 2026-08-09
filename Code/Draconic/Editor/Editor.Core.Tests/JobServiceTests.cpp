@@ -7,8 +7,7 @@
 import draconic.core;
 import draconic.editor.core;
 
-using namespace draconic::core;
-namespace editor = draconic::editor;
+using namespace foundation::core;
 
 namespace
 {
@@ -101,7 +100,7 @@ TEST_CASE("cook service: external mutation lock defers RunWhenIdle until release
 {
     // The app wires ExternalMutationLock to the job service (a background export reads the
     // DBs from its worker) - structural mutations must defer exactly like during a cook.
-    draconic::editor::EditorCookService cook;
+    editor::EditorCookService cook;
     bool busy = false;
     cook.ExternalMutationLock = [&busy]() { return busy; };
     CHECK(!cook.MutationLocked());

@@ -10,8 +10,8 @@ import draconic.core;
 import draconic.rhi;
 import draconic.rhi.webgpu;
 
-using namespace draconic::core;
-using namespace draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::rhi;
 
 namespace
 {

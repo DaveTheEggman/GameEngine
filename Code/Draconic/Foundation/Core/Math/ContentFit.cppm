@@ -16,7 +16,7 @@ import :base;
 import :float2;
 import :rectangle;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // How content is scaled to fit its region:
     //  Stretch      - fill the region, ignore aspect (may distort).

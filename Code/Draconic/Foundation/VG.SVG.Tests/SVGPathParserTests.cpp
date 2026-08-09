@@ -5,9 +5,9 @@ import draconic.core;
 import draconic.vg;
 import draconic.vg.svg;
 
-using namespace draconic::core;
-using namespace draconic::vg;
-using namespace draconic::vg::svg;
+using namespace foundation::core;
+using namespace foundation::vg;
+using namespace foundation::vg::svg;
 
 TEST_CASE("svg.path: MoveTo absolute")
 {

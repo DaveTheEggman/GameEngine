@@ -12,9 +12,9 @@ import :validated_backend;
 import :validated_adapter;
 import :validated_device;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::rhi::validation
+namespace foundation::rhi::validation
 {
 
     ValidatedAdapter* ValidatedBackend::CreateValidatedAdapter(Adapter* inner,
@@ -36,4 +36,4 @@ namespace draconic::rhi::validation
         return ErrorCode::Ok;
     }
 
-} // namespace draconic::rhi::validation
+} // namespace foundation::rhi::validation

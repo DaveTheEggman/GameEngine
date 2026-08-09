@@ -14,7 +14,7 @@ import :string;
 import :ring_buffer;
 import :logger;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     // Keeps the most recent messages in a ring buffer (for tools / in-app
     // consoles). Fixed-size records; long category/message text is truncated.

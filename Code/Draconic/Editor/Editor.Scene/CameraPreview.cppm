@@ -15,12 +15,12 @@ import draconic.scene;
 import draconic.render.api;    // ViewCamera / CameraOverride
 import draconic.engine.render; // CameraComponent
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace scene = draconic::scene;
-    namespace render = draconic::render;
+    namespace scene = foundation::scene;
+    namespace render = foundation::render;
 
     // Build the CameraOverride a camera-preview renders through, from the target CameraComponent and
     // the entity's WORLD matrix. Matches the runtime primary-camera extraction (Engine.Render
@@ -28,7 +28,7 @@ export namespace draconic::editor
     // eye position from the world origin. Aspect comes from the component (the preview panel is
     // sized to match, so the framing shown is the camera's real framing).
     [[nodiscard]] inline render::CameraOverride
-    BuildCameraPreviewOverride(const draconic::engine::render::CameraComponent& camera, const Float4x4& world)
+    BuildCameraPreviewOverride(const engine::render::CameraComponent& camera, const Float4x4& world)
     {
         render::ViewCamera view;
         view.view = Inverse(world);

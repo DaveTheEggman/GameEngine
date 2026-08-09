@@ -5,10 +5,10 @@ import draconic.core;
 import draconic.rhi;
 import draconic.image;
 import draconic.texture;
-using namespace draconic::core;
-using namespace draconic::texture;
-namespace rhi = draconic::rhi;
-namespace image = draconic::image;
+using namespace foundation::core;
+using namespace foundation::texture;
+namespace rhi = foundation::rhi;
+namespace image = foundation::image;
 
 TEST_CASE("textures.data: Create2D / mips / cube / array")
 {

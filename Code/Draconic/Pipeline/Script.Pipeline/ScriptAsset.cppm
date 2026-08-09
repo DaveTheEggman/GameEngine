@@ -2,7 +2,7 @@
 //
 // Source-side script authoring + cook (docs/design/scripting.md §5 + §7.5 B3), fully
 // BACKEND-NEUTRAL - no language syntax lives here:
-//   * ScriptClassAsset (draconic::pipeline::Asset): the copied script file + its LANGUAGE id
+//   * ScriptClassAsset (pipeline::Asset): the copied script file + its LANGUAGE id
 //     (defaulted from the imported file's extension - backend neutrality B3). The asset
 //     is just source bytes + a language id + cooked metadata; nothing language-specific.
 //   * IScriptLanguageCook: the per-language cook SERVICE. Each language library provides
@@ -35,23 +35,23 @@ import draconic.content;
 import draconic.script;
 import draconic.script.resource;
 
-using namespace draconic::core;
-using namespace draconic::script;
+using namespace foundation::core;
+using namespace foundation::script;
 
-export namespace draconic::pipeline{
-    namespace content = draconic::content;
+export namespace pipeline{
+    namespace content = foundation::content;
 
     // Source asset: the script file + the backend that compiles it.
-    class ScriptClassAsset final : public draconic::pipeline::Asset
+    class ScriptClassAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(ScriptClassAsset, draconic::pipeline::Asset)
+        DRACONIC_OBJECT(ScriptClassAsset, pipeline::Asset)
     public:
         String language; // backend id ("wren"), defaulted from the file extension
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::pipeline::Asset::Serialize(ar); // fileName
-            draconic::core::Serialize(ar, "language", language);
+            pipeline::Asset::Serialize(ar); // fileName
+            foundation::core::Serialize(ar, "language", language);
         }
     };
 
@@ -439,7 +439,7 @@ export namespace draconic::pipeline{
     // Cooks a ScriptClassAsset -> ScriptClassSource by delegating to the language cook the
     // asset's LANGUAGE resolves to (B3). A THIN shell: it reads the source, resolves the
     // cook, and delegates - no language syntax, no VM handling.
-    class ScriptClassAssetBuilder final : public draconic::pipeline::DefaultAssetBuilder
+    class ScriptClassAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -452,8 +452,8 @@ export namespace draconic::pipeline{
         }
         [[nodiscard]] u32 Version() const override { return 1; }
 
-        [[nodiscard]] Status Build(const draconic::pipeline::Asset& asset,
-                                   draconic::pipeline::AssetBuildContext& ctx) override
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
         {
             const ScriptClassAsset& scriptAsset = static_cast<const ScriptClassAsset&>(asset);
             if (ctx.output == nullptr)
@@ -498,7 +498,7 @@ export namespace draconic::pipeline{
     // OS-file importer (editor drag-drop): accepts any extension a REGISTERED script
     // backend claims (B3 - language-clean), copies the file into Sources/, and creates
     // a ScriptClassAsset whose language records the owning backend. No options dialog.
-    class ScriptFileImporter final : public draconic::editor::IFileImporter
+    class ScriptFileImporter final : public editor::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"Script"; }
@@ -508,17 +508,17 @@ export namespace draconic::pipeline{
             return ScriptBackendRegistry::Get().FindByExtension(extension) != nullptr;
         }
 
-        [[nodiscard]] RefPtr<draconic::editor::ImportOptions> CreateOptions() const override
+        [[nodiscard]] RefPtr<editor::ImportOptions> CreateOptions() const override
         {
             return {}; // no options dialog - the drop imports immediately
         }
 
         [[nodiscard]] Result<content::Instance*>
-        Import(StringView sourcePath, draconic::editor::EditorProject& project,
-               content::Group& group, const draconic::editor::ImportOptions*, Object*,
-               Array<draconic::editor::DeferredImportWrite>*) override
+        Import(StringView sourcePath, editor::EditorProject& project,
+               content::Group& group, const editor::ImportOptions*, Object*,
+               Array<editor::DeferredImportWrite>*) override
         {
-            const String extension = draconic::editor::FileExtensionLower(sourcePath);
+            const String extension = editor::FileExtensionLower(sourcePath);
             const ScriptBackendDesc* backend =
                 ScriptBackendRegistry::Get().FindByExtension(extension.AsView());
             if (backend == nullptr)
@@ -526,13 +526,13 @@ export namespace draconic::pipeline{
                 return Err(ErrorCode::NotSupported);
             }
 
-            Result<String> fileName = draconic::editor::CopyIntoSources(project, sourcePath);
+            Result<String> fileName = editor::CopyIntoSources(project, sourcePath);
             if (!fileName.HasValue())
             {
                 return Err(fileName.Error());
             }
 
-            const StringView stem = draconic::editor::FileStemOf(fileName.Value().AsView());
+            const StringView stem = editor::FileStemOf(fileName.Value().AsView());
             content::Instance* instance =
                 group.CreateInstance(stem, ScriptClassAsset::StaticType());
             if (instance == nullptr)
@@ -541,7 +541,7 @@ export namespace draconic::pipeline{
             }
 
             ScriptClassAsset asset;
-            asset.fileName = draconic::vfs::SourcePath(fileName.Value().AsView());
+            asset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
             asset.language = String(backend->languageId.AsView());
             const Status written = instance->WriteObject(asset);
             if (!written.IsOk())

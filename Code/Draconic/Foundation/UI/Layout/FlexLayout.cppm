@@ -21,9 +21,9 @@ import :thickness;
 import :enums; // Orientation
 import :gravity;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Main-axis content distribution.
     enum class Justify
@@ -53,7 +53,7 @@ export namespace draconic::ui
         f32 Grow = 0.0f;           ///< Extra main-axis space this child absorbs.
         f32 Shrink = 0.0f;         ///< How much this child shrinks when space is insufficient.
         Optional<Align> AlignSelf; ///< Cross-axis override (empty = parent AlignItems).
-        ::draconic::ui::Gravity Gravity = ::draconic::ui::Gravity::None; ///< Cross-axis gravity.
+        ::foundation::ui::Gravity Gravity = ::foundation::ui::Gravity::None; ///< Cross-axis gravity.
         FlexLayoutParams() = default;
     };
 

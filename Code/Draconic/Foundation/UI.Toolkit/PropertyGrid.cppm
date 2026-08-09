@@ -21,10 +21,10 @@ import draconic.fonts;
 import draconic.ui;
 import :property_editor;
 
-using namespace draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Property inspector grid. Displays PropertyEditors grouped by category into Expanders.
     class PropertyGrid : public ViewGroup
@@ -52,9 +52,9 @@ export namespace draconic::ui::toolkit
             RefPtr<FlexLayout> content = MakeRef<FlexLayout>(DefaultAllocator());
             content->Direction = Orientation::Vertical;
             m_content = content.Get();
-            // `LayoutParams` names View's shadowing member here, so the type is spelled draconic::ui::LayoutParams.
-            RefPtr<draconic::ui::LayoutParams> lp =
-                MakeRef<draconic::ui::LayoutParams>(DefaultAllocator());
+            // `LayoutParams` names View's shadowing member here, so the type is spelled foundation::ui::LayoutParams.
+            RefPtr<foundation::ui::LayoutParams> lp =
+                MakeRef<foundation::ui::LayoutParams>(DefaultAllocator());
             lp->Width = SizeSpec::Match();
             m_scrollView->AddView(content.Get(), lp);
         }

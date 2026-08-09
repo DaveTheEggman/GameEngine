@@ -11,8 +11,8 @@ import draconic.fonts;
 import draconic.fonts.io;
 import draconic.fonts.ttf;
 
-using namespace draconic::core;
-using namespace draconic::fonts;
+using namespace foundation::core;
+using namespace foundation::fonts;
 
 namespace
 {
@@ -217,7 +217,7 @@ TEST_CASE("ttf.ui: GetSelectionRects empty selection")
     Array<GlyphPosition> positions;
     (void)shaper.ShapeText(*font, u8"Hello", positions);
 
-    Array<draconic::fonts::Rectangle> rects;
+    Array<foundation::fonts::Rectangle> rects;
     shaper.GetSelectionRects(*font, AsSpan(positions), SelectionRange(2, 2),
                              font->Metrics().lineHeight, rects);
     CHECK(rects.Size() == 0);
@@ -236,7 +236,7 @@ TEST_CASE("ttf.ui: GetSelectionRects single line")
     Array<GlyphPosition> positions;
     (void)shaper.ShapeText(*font, u8"Hello", positions);
 
-    Array<draconic::fonts::Rectangle> rects;
+    Array<foundation::fonts::Rectangle> rects;
     shaper.GetSelectionRects(*font, AsSpan(positions), SelectionRange(1, 4),
                              font->Metrics().lineHeight, rects);
     REQUIRE(rects.Size() == 1);

@@ -14,9 +14,9 @@ export module draconic.rhi.dx12:adapter;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxDeviceImpl; // forward
@@ -132,4 +132,4 @@ export namespace draconic::rhi::dx12
         DXGI_ADAPTER_DESC1 m_desc{};
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

@@ -22,9 +22,10 @@ import draconic.core;
 import draconic.vg;
 import draconic.ui;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Interactive HSV color picker with SV square, hue strip, alpha strip, RGB fields, hex input,
     /// and current/original preview swatches.

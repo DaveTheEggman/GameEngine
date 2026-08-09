@@ -7,8 +7,8 @@
 import draconic.core;
 import draconic.animation;
 
-using namespace draconic::core;
-using namespace draconic::animation;
+using namespace foundation::core;
+using namespace foundation::animation;
 
 static IAnimationStateNode* kNullNode = static_cast<IAnimationStateNode*>(nullptr);
 

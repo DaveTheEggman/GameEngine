@@ -12,9 +12,9 @@ import draconic.core;
 import :skeleton; // BoneTransform, Skeleton
 import :clip;     // AnimationTrack, AnimationClip, InterpolationMode
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::animation
+export namespace foundation::animation
 {
 
     // --- cubic spline (Hermite) helpers ---
@@ -178,4 +178,4 @@ export namespace draconic::animation
         }
     }
 
-} // namespace draconic::animation
+} // namespace foundation::animation

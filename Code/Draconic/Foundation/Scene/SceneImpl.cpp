@@ -12,9 +12,9 @@ module draconic.scene;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::scene
+namespace foundation::scene
 {
     EntityHandle Scene::CreateEntity(StringView name)
     {

@@ -15,9 +15,11 @@ import draconic.content;
 import draconic.resource;
 import draconic.input;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace content = foundation::content;
+namespace resource = foundation::resource;
 
-export namespace draconic::input
+export namespace foundation::input
 {
     // Cooked record AND runtime product (data-only, no GPU transform - the particles model).
     class InputMapResource final : public ISerializable

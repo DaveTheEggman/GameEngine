@@ -9,7 +9,7 @@ export module draconic.core:condition_variable;
 import :base;
 import :mutex;
 
-export namespace draconic::core
+export namespace foundation::core
 {
     class ConditionVariable
     {

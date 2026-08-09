@@ -15,10 +15,10 @@ module draconic.fonts.pipeline;
 import draconic.core;
 import draconic.pipeline.core;
 
-using namespace draconic::core;
-using namespace draconic::fonts;
+using namespace foundation::core;
+using namespace foundation::fonts;
 
-namespace draconic::pipeline{
+namespace pipeline{
     DRACONIC_REFLECT_ENUM(FontBakeMode, "rtti::editor::fonts")
     {
         builder.Value("RasterRamp", FontBakeMode::RasterRamp);

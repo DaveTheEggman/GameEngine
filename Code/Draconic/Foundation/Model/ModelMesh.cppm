@@ -15,9 +15,9 @@ import draconic.core;
 import :vertex_format;
 import :mesh_part;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::model
+export namespace foundation::model
 {
 
     /// Primitive topology.
@@ -324,4 +324,4 @@ export namespace draconic::model
         bool m_hasTangents = false;
     };
 
-} // namespace draconic::model
+} // namespace foundation::model

@@ -21,9 +21,9 @@ export module draconic.graphics.gpu;
 import draconic.core;
 import draconic.graphics;
 
-namespace core = draconic::core;
+namespace core = foundation::core;
 
-export namespace draconic::graphics
+export namespace foundation::graphics
 {
     // Create a GraphicsDevice for the requested backend. Returns an error if the
     // backend is unavailable (e.g. DX12 off this platform) or bring-up fails.

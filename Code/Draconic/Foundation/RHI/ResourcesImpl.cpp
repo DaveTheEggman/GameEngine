@@ -9,8 +9,9 @@ module;
 module draconic.rhi;
 
 import draconic.core;
+namespace core = foundation::core;
 
-namespace draconic::rhi
+namespace foundation::rhi
 {
     core::u64 NextTextureViewUniqueId() noexcept
     {

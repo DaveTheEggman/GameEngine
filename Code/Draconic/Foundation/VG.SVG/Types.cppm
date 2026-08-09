@@ -14,9 +14,9 @@ export module draconic.vg.svg:types;
 import draconic.core;
 import draconic.vg;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg::svg
+export namespace foundation::vg::svg
 {
     /// Types of SVG elements.
     enum class SVGElementType
@@ -51,8 +51,8 @@ export namespace draconic::vg::svg
         // Radial geometry (focal point unsupported - center-only, like the VG fill).
         f32 cx = 0.5f, cy = 0.5f, r = 0.5f;
         bool userSpace = false; // gradientUnits="userSpaceOnUse"
-        draconic::vg::VGGradientSpread spread = draconic::vg::VGGradientSpread::Pad;
-        Array<draconic::vg::GradientStop> stops;
+        foundation::vg::VGGradientSpread spread = foundation::vg::VGGradientSpread::Pad;
+        Array<foundation::vg::GradientStop> stops;
     };
 
     /// A parsed SVG element.
@@ -60,7 +60,7 @@ export namespace draconic::vg::svg
     {
     public:
         SVGElementType type = SVGElementType::Path;
-        Optional<draconic::vg::Path> path;         ///< Tessellatable geometry (shapes/paths).
+        Optional<foundation::vg::Path> path;         ///< Tessellatable geometry (shapes/paths).
         Float4x4 transform = Float4x4::Identity(); ///< Element transform.
         Optional<Color> fillColor;                 ///< Fill color (empty = none/inherit).
         String fillGradientId; ///< Set when fill="url(#id)" - resolved via the document.

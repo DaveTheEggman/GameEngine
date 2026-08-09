@@ -22,10 +22,10 @@ import :draw_context;
 import :control_state;
 import :palette;
 
-using namespace draconic::core;
-namespace fonts = draconic::fonts;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class Button : public ButtonBase
     {

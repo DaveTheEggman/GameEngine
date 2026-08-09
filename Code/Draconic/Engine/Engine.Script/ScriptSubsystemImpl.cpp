@@ -16,14 +16,14 @@ import draconic.resource; // resource::Ref (SceneScriptSettings.script)
 import draconic.script;
 import draconic.script.resource;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::engine::script
+namespace engine::script
 {
     // Destroying an entity (or removing the component) delivers onDestroy through the
     // scene's script system before the instances are dropped.
     void ScriptComponentManager::OnComponentDestroyed(ScriptComponent& component,
-                                                      draconic::scene::EntityHandle entity)
+                                                      foundation::scene::EntityHandle entity)
     {
         if (m_scriptSystem != nullptr)
         {

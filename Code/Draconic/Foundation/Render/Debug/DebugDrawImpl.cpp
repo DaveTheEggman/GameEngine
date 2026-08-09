@@ -14,9 +14,9 @@ module draconic.render;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::render::debug
+namespace foundation::render::debug
 {
     const Array<DebugVertex>& DebugDraw::OverlayLineVertices() const noexcept
     {

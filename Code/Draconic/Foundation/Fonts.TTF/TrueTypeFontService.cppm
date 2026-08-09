@@ -19,16 +19,16 @@ import draconic.vfs;
 import :text_shaper;
 import :init;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     class TrueTypeFontService final : public IFontService
     {
     public:
         // `fileSystem` is optional + non-owning. When set, LoadFont treats the
         // locator as a path opened through it; otherwise as a disk path.
-        explicit TrueTypeFontService(draconic::vfs::IFileSystem* fileSystem = nullptr)
+        explicit TrueTypeFontService(foundation::vfs::IFileSystem* fileSystem = nullptr)
             : m_fileSystem(fileSystem)
         {
             TrueTypeFonts::Initialize();
@@ -127,7 +127,7 @@ export namespace draconic::fonts
             return m_defaultFont;
         }
 
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(CachedFont* font) override
+        [[nodiscard]] foundation::image::ImageData* GetAtlasTexture(CachedFont* font) override
         {
             for (FontEntry* entry : m_fonts)
                 if (entry->cachedFont == font)
@@ -135,7 +135,7 @@ export namespace draconic::fonts
             return nullptr;
         }
 
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(StringView familyName,
+        [[nodiscard]] foundation::image::ImageData* GetAtlasTexture(StringView familyName,
                                                                   f32 pixelHeight) override
         {
             if (const FontEntry* exact = FindExact(familyName, pixelHeight))
@@ -157,7 +157,7 @@ export namespace draconic::fonts
             String family;
             f32 pixelHeight = 0;
             CachedFont* cachedFont = nullptr;                   // owns font/atlas/shaper
-            draconic::image::OwnedImageData* texture = nullptr; // owned unless sharedTexture
+            foundation::image::OwnedImageData* texture = nullptr; // owned unless sharedTexture
             bool sharedTexture = false; // scaled-view entry: texture belongs to the base entry
         };
 
@@ -228,11 +228,11 @@ export namespace draconic::fonts
             // Distance-field atlases already store RGBA texels (the MSDF channels); wrap them
             // directly in a LINEAR image (no sRGB decode - the field is geometric, not color).
             // Coverage atlases are single-channel R8 and expand to RGBA8 as before.
-            draconic::image::OwnedImageData* texture =
+            foundation::image::OwnedImageData* texture =
                 (atlas->Mode() == AtlasMode::DistanceField)
-                    ? DefaultAllocator().New<draconic::image::OwnedImageData>(
-                          atlas->Width(), atlas->Height(), draconic::image::PixelFormat::RGBA8,
-                          atlas->PixelData(), draconic::image::ImageColorSpace::Linear)
+                    ? DefaultAllocator().New<foundation::image::OwnedImageData>(
+                          atlas->Width(), atlas->Height(), foundation::image::PixelFormat::RGBA8,
+                          atlas->PixelData(), foundation::image::ImageColorSpace::Linear)
                     : FontAtlasTexture::ExpandR8ToRGBA8(atlas);
             if (texture == nullptr)
             {
@@ -286,7 +286,7 @@ export namespace draconic::fonts
             return best;
         }
 
-        draconic::vfs::IFileSystem* m_fileSystem = nullptr; // non-owning
+        foundation::vfs::IFileSystem* m_fileSystem = nullptr; // non-owning
         Array<FontEntry*> m_fonts;
         String m_defaultFontFamily = String(u8"Default");
         CachedFont* m_defaultFont = nullptr;

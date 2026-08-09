@@ -20,9 +20,9 @@ import draconic.ui;
 import :property_editor;
 import :vector_fields; // reuse AxisLabel + AxisColors
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     /// Property editor for Float3 values. Three NumericFields (X, Y, Z) side by side with axis labels.
     class Float3Editor : public PropertyEditor

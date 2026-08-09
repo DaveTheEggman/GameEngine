@@ -17,9 +17,9 @@ import :view_transform;
 import :animation;
 import :float_animation;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// Static convenience methods for creating common view animations.
     struct ViewAnimator

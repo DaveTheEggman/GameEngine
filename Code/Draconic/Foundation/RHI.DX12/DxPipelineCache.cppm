@@ -11,9 +11,9 @@ export module draconic.rhi.dx12:pipeline_cache;
 import draconic.core;
 import draconic.rhi;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxPipelineCacheImpl : public PipelineCache
@@ -61,4 +61,4 @@ export namespace draconic::rhi::dx12
         ComPtr<ID3D12PipelineLibrary> m_library;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

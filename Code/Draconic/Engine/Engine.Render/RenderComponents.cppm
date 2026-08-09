@@ -5,7 +5,7 @@
 /// mesh + material to draw at its entity's transform; a CameraComponent describes a
 /// view frustum (its view comes from the entity's world transform). The RenderSubsystem
 /// injects these managers into each scene (via ISceneAware); extraction (:extract) reads
-/// them into a draconic::engine::render::ExtractedView that gets pushed to the renderer.
+/// them into a engine::render::ExtractedView that gets pushed to the renderer.
 
 module;
 #include "Core/Prelude.h"
@@ -22,13 +22,18 @@ import draconic.texture.resource; // texture::Texture (cooked product behind spr
 import draconic.render; // SkySnapshot/SkyMode (snapshot layer; render.subsystem depends on render)
 import draconic.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneRender handle)
 
-using namespace draconic::core;
-using namespace draconic::render;
+using namespace foundation::core;
+using namespace foundation;
+using namespace foundation::render;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace rhi = foundation::rhi;
+namespace texture = foundation::texture;
 
-export namespace draconic::engine::render
+export namespace engine::render
 {
-    // Foundation alias (sibling draconic::engine::scene would otherwise shadow draconic::scene).
-    namespace scene = draconic::scene;
+    // Foundation alias (sibling engine::scene would otherwise shadow foundation::scene).
+    namespace scene = foundation::scene;
 
     // What to draw at an entity: a mesh + the material to draw it with. Resource refs
     // (resource::Ref): a serialized Guid resolved through the ResourceManager's proxy handles
@@ -38,7 +43,7 @@ export namespace draconic::engine::render
     // many share one mesh + material, so it rides the per-instance data path.
     struct MeshComponent
     {
-        draconic::resource::Ref<geometry::StaticMesh> mesh;
+        foundation::resource::Ref<geometry::StaticMesh> mesh;
         // THE material list, indexed by SubMesh::materialIndex. Slot 0 doubles as the whole-mesh
         // material: single-material meshes hold ONE entry, and a submesh whose index is out of
         // range (or whose slot is unresolved) falls back to slot 0. Serialized identity lives in
@@ -46,7 +51,7 @@ export namespace draconic::engine::render
         // proxies EVERY frame - late cooks and hot reloads heal live (the previous design
         // snapshotted RefPtrs once at resolve, pinning pre-cook nulls until a page reopen), and
         // the renderer stays resource-agnostic.
-        Array<draconic::resource::Ref<materials::Material>> materials;
+        Array<foundation::resource::Ref<materials::Material>> materials;
         Array<RefPtr<materials::Material>> materialCache; // runtime-only; refreshed at extract
         Color color = Color{1.0f, 1.0f, 1.0f, 1.0f};
         bool visible = true;
@@ -55,14 +60,14 @@ export namespace draconic::engine::render
         void SetMaterial(const RefPtr<materials::Material>& m)
         {
             materials.Clear();
-            materials.PushBack(draconic::resource::Ref<materials::Material>(m));
+            materials.PushBack(foundation::resource::Ref<materials::Material>(m));
         }
         void SetMaterials(const Array<RefPtr<materials::Material>>& list)
         {
             materials.Clear();
             for (const RefPtr<materials::Material>& m : list)
             {
-                materials.PushBack(draconic::resource::Ref<materials::Material>(m));
+                materials.PushBack(foundation::resource::Ref<materials::Material>(m));
             }
         }
 
@@ -85,8 +90,8 @@ export namespace draconic::engine::render
     // docs/design/instanced-mesh.md.
     struct InstancedMeshComponent
     {
-        draconic::resource::Ref<geometry::StaticMesh> mesh;
-        draconic::resource::Ref<materials::Material> material;
+        foundation::resource::Ref<geometry::StaticMesh> mesh;
+        foundation::resource::Ref<materials::Material> material;
         // Seed one identity instance so a freshly added component (editor workflow) renders its mesh
         // at the entity's transform immediately; authored sets replace it (SetInstances/load).
         InstancedMeshComponent() { instances.PushBack(Float4x4::Identity()); }
@@ -236,7 +241,7 @@ export namespace draconic::engine::render
     {
         rhi::TextureView* texture =
             nullptr; // runtime override (samples/procedural); wins over textureAsset
-        draconic::resource::Ref<texture::Texture>
+        foundation::resource::Ref<texture::Texture>
             textureAsset;                 // cooked texture (editor picker/serialized)
         Float2 size = Float2{1.0f, 1.0f}; // world-unit width/height
         Float4 uvRect = Float4{0.0f, 0.0f, 1.0f,
@@ -256,7 +261,7 @@ export namespace draconic::engine::render
     {
         rhi::TextureView* texture =
             nullptr; // runtime override (samples/procedural); wins over textureAsset
-        draconic::resource::Ref<texture::Texture>
+        foundation::resource::Ref<texture::Texture>
             textureAsset; // cooked texture (editor picker/serialized)
         Float3 size = Float3{1.0f, 1.0f, 1.0f};
         Color color = Color{1.0f, 1.0f, 1.0f, 1.0f};
@@ -287,25 +292,25 @@ export namespace draconic::engine::render
     // pointers and per-frame skinning state never touch disk.
     inline void Serialize(ISerializer& ar, MeshComponent& c)
     {
-        draconic::core::Serialize(ar, "mesh", c.mesh);
+        foundation::core::Serialize(ar, "mesh", c.mesh);
         if (ar.Version() >= 3)
         { // v3: ONE materials array (slot 0 = whole-mesh)
-            draconic::core::Serialize(ar, "materials", c.materials);
-            draconic::core::Serialize(ar, "color", c.color);
-            draconic::core::Serialize(ar, "visible", c.visible);
+            foundation::core::Serialize(ar, "materials", c.materials);
+            foundation::core::Serialize(ar, "color", c.color);
+            foundation::core::Serialize(ar, "visible", c.visible);
         }
         else
         {
             // v1/v2 migration: singular `material` + optional v2 submesh array fold into the
             // unified list (submesh array wins - it was the complete per-index set).
-            draconic::resource::Ref<materials::Material> single;
-            draconic::core::Serialize(ar, "material", single);
-            draconic::core::Serialize(ar, "color", c.color);
-            draconic::core::Serialize(ar, "visible", c.visible);
-            Array<draconic::resource::Ref<materials::Material>> submesh;
+            foundation::resource::Ref<materials::Material> single;
+            foundation::core::Serialize(ar, "material", single);
+            foundation::core::Serialize(ar, "color", c.color);
+            foundation::core::Serialize(ar, "visible", c.visible);
+            Array<foundation::resource::Ref<materials::Material>> submesh;
             if (ar.Version() >= 2)
             {
-                draconic::core::Serialize(ar, "submeshMaterials", submesh);
+                foundation::core::Serialize(ar, "submeshMaterials", submesh);
             }
             if (ar.Mode() == SerializeMode::Read)
             {
@@ -313,7 +318,7 @@ export namespace draconic::engine::render
                 if (!submesh.IsEmpty())
                 {
                     c.materials =
-                        static_cast<Array<draconic::resource::Ref<materials::Material>>&&>(submesh);
+                        static_cast<Array<foundation::resource::Ref<materials::Material>>&&>(submesh);
                 }
                 else if (!single.id.IsNil() || single.Get() != nullptr)
                 {
@@ -323,10 +328,10 @@ export namespace draconic::engine::render
         }
     }
 
-    inline void ResolveResources(draconic::resource::ResourceManager& manager, MeshComponent& c)
+    inline void ResolveResources(foundation::resource::ResourceManager& manager, MeshComponent& c)
     {
         c.mesh.Bind(manager);
-        for (draconic::resource::Ref<materials::Material>& r : c.materials)
+        for (foundation::resource::Ref<materials::Material>& r : c.materials)
         {
             r.Bind(manager);
         }
@@ -346,40 +351,40 @@ export namespace draconic::engine::render
     {
         u8 type = static_cast<u8>(c.type);
         u8 shadowUpdate = static_cast<u8>(c.shadowUpdate);
-        draconic::core::Serialize(ar, "type", type);
-        draconic::core::Serialize(ar, "color", c.color);
-        draconic::core::Serialize(ar, "intensity", c.intensity);
-        draconic::core::Serialize(ar, "range", c.range);
-        draconic::core::Serialize(ar, "innerAngle", c.innerAngle);
-        draconic::core::Serialize(ar, "outerAngle", c.outerAngle);
-        draconic::core::Serialize(ar, "shadowUpdate", shadowUpdate);
-        draconic::core::Serialize(ar, "enabled", c.enabled);
-        draconic::core::Serialize(ar, "castsShadows", c.castsShadows);
+        foundation::core::Serialize(ar, "type", type);
+        foundation::core::Serialize(ar, "color", c.color);
+        foundation::core::Serialize(ar, "intensity", c.intensity);
+        foundation::core::Serialize(ar, "range", c.range);
+        foundation::core::Serialize(ar, "innerAngle", c.innerAngle);
+        foundation::core::Serialize(ar, "outerAngle", c.outerAngle);
+        foundation::core::Serialize(ar, "shadowUpdate", shadowUpdate);
+        foundation::core::Serialize(ar, "enabled", c.enabled);
+        foundation::core::Serialize(ar, "castsShadows", c.castsShadows);
         c.type = static_cast<LightType>(type);
         c.shadowUpdate = static_cast<ShadowUpdateMode>(shadowUpdate);
     }
 
     inline void Serialize(ISerializer& ar, CameraComponent& c)
     {
-        draconic::core::Serialize(ar, "fovYRadians", c.fovYRadians);
-        draconic::core::Serialize(ar, "aspect", c.aspect);
-        draconic::core::Serialize(ar, "nearZ", c.nearZ);
-        draconic::core::Serialize(ar, "farZ", c.farZ);
-        draconic::core::Serialize(ar, "clearColor", c.clearColor);
-        draconic::core::Serialize(ar, "primary", c.primary);
+        foundation::core::Serialize(ar, "fovYRadians", c.fovYRadians);
+        foundation::core::Serialize(ar, "aspect", c.aspect);
+        foundation::core::Serialize(ar, "nearZ", c.nearZ);
+        foundation::core::Serialize(ar, "farZ", c.farZ);
+        foundation::core::Serialize(ar, "clearColor", c.clearColor);
+        foundation::core::Serialize(ar, "primary", c.primary);
     }
 
     inline void Serialize(ISerializer& ar, ReflectionProbeComponent& c)
     {
         u8 update = static_cast<u8>(c.update);
-        draconic::core::Serialize(ar, "halfExtents", c.halfExtents);
-        draconic::core::Serialize(ar, "blendDistance", c.blendDistance);
-        draconic::core::Serialize(ar, "intensity", c.intensity);
-        draconic::core::Serialize(ar, "resolution", c.resolution);
-        draconic::core::Serialize(ar, "priority", c.priority);
-        draconic::core::Serialize(ar, "update", update);
-        draconic::core::Serialize(ar, "parallax", c.parallax);
-        draconic::core::Serialize(ar, "enabled", c.enabled);
+        foundation::core::Serialize(ar, "halfExtents", c.halfExtents);
+        foundation::core::Serialize(ar, "blendDistance", c.blendDistance);
+        foundation::core::Serialize(ar, "intensity", c.intensity);
+        foundation::core::Serialize(ar, "resolution", c.resolution);
+        foundation::core::Serialize(ar, "priority", c.priority);
+        foundation::core::Serialize(ar, "update", update);
+        foundation::core::Serialize(ar, "parallax", c.parallax);
+        foundation::core::Serialize(ar, "enabled", c.enabled);
         c.update = static_cast<ProbeUpdateMode>(update);
     }
 
@@ -388,14 +393,14 @@ export namespace draconic::engine::render
     // with boundsVersion 0, so the first extract re-uploads and recomputes bounds.
     inline void Serialize(ISerializer& ar, InstancedMeshComponent& c)
     {
-        draconic::core::Serialize(ar, "mesh", c.mesh);
-        draconic::core::Serialize(ar, "material", c.material);
-        draconic::core::Serialize(ar, "instances", c.instances);
-        draconic::core::Serialize(ar, "color", c.color);
-        draconic::core::Serialize(ar, "tints", c.tints);
-        draconic::core::Serialize(ar, "visible", c.visible);
+        foundation::core::Serialize(ar, "mesh", c.mesh);
+        foundation::core::Serialize(ar, "material", c.material);
+        foundation::core::Serialize(ar, "instances", c.instances);
+        foundation::core::Serialize(ar, "color", c.color);
+        foundation::core::Serialize(ar, "tints", c.tints);
+        foundation::core::Serialize(ar, "visible", c.visible);
     }
-    inline void ResolveResources(draconic::resource::ResourceManager& manager,
+    inline void ResolveResources(foundation::resource::ResourceManager& manager,
                                  InstancedMeshComponent& c)
     {
         c.mesh.Bind(manager);
@@ -414,31 +419,31 @@ export namespace draconic::engine::render
     // Persist the texture ref + plain fields; the raw view override is runtime-only.
     inline void Serialize(ISerializer& ar, SpriteComponent& c)
     {
-        draconic::core::Serialize(ar, "texture", c.textureAsset);
-        draconic::core::Serialize(ar, "size", c.size);
-        draconic::core::Serialize(ar, "uvRect", c.uvRect);
-        draconic::core::Serialize(ar, "tint", c.tint);
+        foundation::core::Serialize(ar, "texture", c.textureAsset);
+        foundation::core::Serialize(ar, "size", c.size);
+        foundation::core::Serialize(ar, "uvRect", c.uvRect);
+        foundation::core::Serialize(ar, "tint", c.tint);
         u32 orientation = static_cast<u32>(c.orientation);
-        draconic::core::Serialize(ar, "orientation", orientation);
+        foundation::core::Serialize(ar, "orientation", orientation);
         c.orientation = static_cast<SpriteOrientation>(orientation);
-        draconic::core::Serialize(ar, "additive", c.additive);
-        draconic::core::Serialize(ar, "visible", c.visible);
+        foundation::core::Serialize(ar, "additive", c.additive);
+        foundation::core::Serialize(ar, "visible", c.visible);
     }
-    inline void ResolveResources(draconic::resource::ResourceManager& manager, SpriteComponent& c)
+    inline void ResolveResources(foundation::resource::ResourceManager& manager, SpriteComponent& c)
     {
         c.textureAsset.Bind(manager);
     }
 
     inline void Serialize(ISerializer& ar, DecalComponent& c)
     {
-        draconic::core::Serialize(ar, "texture", c.textureAsset);
-        draconic::core::Serialize(ar, "size", c.size);
-        draconic::core::Serialize(ar, "color", c.color);
-        draconic::core::Serialize(ar, "fadeStart", c.fadeStart);
-        draconic::core::Serialize(ar, "fadeEnd", c.fadeEnd);
-        draconic::core::Serialize(ar, "visible", c.visible);
+        foundation::core::Serialize(ar, "texture", c.textureAsset);
+        foundation::core::Serialize(ar, "size", c.size);
+        foundation::core::Serialize(ar, "color", c.color);
+        foundation::core::Serialize(ar, "fadeStart", c.fadeStart);
+        foundation::core::Serialize(ar, "fadeEnd", c.fadeEnd);
+        foundation::core::Serialize(ar, "visible", c.visible);
     }
-    inline void ResolveResources(draconic::resource::ResourceManager& manager, DecalComponent& c)
+    inline void ResolveResources(foundation::resource::ResourceManager& manager, DecalComponent& c)
     {
         c.textureAsset.Bind(manager);
     }
@@ -504,7 +509,7 @@ export namespace draconic::engine::render
         // The textured modes' source: HDREquirect = a 2D .hdr texture asset; Cubemap = a
         // cube-shaped texture asset. Ignored by the untextured modes. (The programmatic
         // RenderSubsystem::SetSkyEquirect/SetSkyCubemap pixel paths remain for tools/samples.)
-        draconic::resource::Ref<texture::Texture> skyTexture;
+        foundation::resource::Ref<texture::Texture> skyTexture;
         // Procedural sky (Unity-default-like: a soft, hazy, low-saturation daytime blue rather than
         // a punchy vivid one - dimmer horizon, desaturated zenith, near-neutral ground).
         Color skyHorizon = Color{0.52f, 0.60f, 0.70f, 1.0f};
@@ -530,7 +535,7 @@ export namespace draconic::engine::render
         }
         [[nodiscard]] void* SettingsInstance() noexcept override { return &m_env; }
         [[nodiscard]] StringView SettingsId() const noexcept override { return u8"environment"; }
-        void ResolveResources(draconic::resource::ResourceManager& manager) override
+        void ResolveResources(foundation::resource::ResourceManager& manager) override
         {
             m_env.skyTexture.Bind(manager);
         }
@@ -538,29 +543,29 @@ export namespace draconic::engine::render
         {
             if (ar.Version() >= 2)
             { // v2 added the sky texture reference
-                draconic::core::Serialize(ar, "skyTexture", m_env.skyTexture);
+                foundation::core::Serialize(ar, "skyTexture", m_env.skyTexture);
             }
-            draconic::core::Serialize(ar, "ambientColor", m_env.ambientColor);
-            draconic::core::Serialize(ar, "ambientIntensity", m_env.ambientIntensity);
+            foundation::core::Serialize(ar, "ambientColor", m_env.ambientColor);
+            foundation::core::Serialize(ar, "ambientIntensity", m_env.ambientIntensity);
             u32 mode = static_cast<u32>(m_env.skyMode);
-            draconic::core::Serialize(ar, "skyMode", mode);
+            foundation::core::Serialize(ar, "skyMode", mode);
             if (ar.Mode() == SerializeMode::Read)
             {
                 m_env.skyMode = static_cast<SkyMode>(mode);
             }
-            draconic::core::Serialize(ar, "skyIntensity", m_env.skyIntensity);
+            foundation::core::Serialize(ar, "skyIntensity", m_env.skyIntensity);
             if (ar.Version() >= 3)
             { // v3 split the visible-sky backdrop dimmer out of skyIntensity
-                draconic::core::Serialize(ar, "skyBackgroundIntensity",
+                foundation::core::Serialize(ar, "skyBackgroundIntensity",
                                           m_env.skyBackgroundIntensity);
             }
-            draconic::core::Serialize(ar, "skyRotation", m_env.skyRotation);
-            draconic::core::Serialize(ar, "skyHorizon", m_env.skyHorizon);
-            draconic::core::Serialize(ar, "skyZenith", m_env.skyZenith);
-            draconic::core::Serialize(ar, "skyGround", m_env.skyGround);
-            draconic::core::Serialize(ar, "sunIntensity", m_env.sunIntensity);
-            draconic::core::Serialize(ar, "sunAngularSize", m_env.sunAngularSize);
-            draconic::core::Serialize(ar, "turbidity", m_env.turbidity);
+            foundation::core::Serialize(ar, "skyRotation", m_env.skyRotation);
+            foundation::core::Serialize(ar, "skyHorizon", m_env.skyHorizon);
+            foundation::core::Serialize(ar, "skyZenith", m_env.skyZenith);
+            foundation::core::Serialize(ar, "skyGround", m_env.skyGround);
+            foundation::core::Serialize(ar, "sunIntensity", m_env.sunIntensity);
+            foundation::core::Serialize(ar, "sunAngularSize", m_env.sunAngularSize);
+            foundation::core::Serialize(ar, "turbidity", m_env.turbidity);
         }
 
     private:
@@ -634,22 +639,22 @@ export namespace draconic::engine::render
         [[nodiscard]] StringView SettingsId() const noexcept override { return u8"postprocess"; }
         void SerializeSettings(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "exposureEV", m_post.exposureEV);
+            foundation::core::Serialize(ar, "exposureEV", m_post.exposureEV);
             SerializeEnum(ar, "tonemapOperator", m_post.tonemapOperator);
-            draconic::core::Serialize(ar, "bloomEnabled", m_post.bloomEnabled);
-            draconic::core::Serialize(ar, "bloomThreshold", m_post.bloomThreshold);
-            draconic::core::Serialize(ar, "bloomKnee", m_post.bloomKnee);
-            draconic::core::Serialize(ar, "bloomIntensity", m_post.bloomIntensity);
+            foundation::core::Serialize(ar, "bloomEnabled", m_post.bloomEnabled);
+            foundation::core::Serialize(ar, "bloomThreshold", m_post.bloomThreshold);
+            foundation::core::Serialize(ar, "bloomKnee", m_post.bloomKnee);
+            foundation::core::Serialize(ar, "bloomIntensity", m_post.bloomIntensity);
             SerializeEnum(ar, "aoMode", m_post.aoMode);
-            draconic::core::Serialize(ar, "aoStrength", m_post.aoStrength);
-            draconic::core::Serialize(ar, "aoRadius", m_post.aoRadius);
-            draconic::core::Serialize(ar, "aoIntensity", m_post.aoIntensity);
-            draconic::core::Serialize(ar, "ssrEnabled", m_post.ssrEnabled);
-            draconic::core::Serialize(ar, "ssrIntensity", m_post.ssrIntensity);
+            foundation::core::Serialize(ar, "aoStrength", m_post.aoStrength);
+            foundation::core::Serialize(ar, "aoRadius", m_post.aoRadius);
+            foundation::core::Serialize(ar, "aoIntensity", m_post.aoIntensity);
+            foundation::core::Serialize(ar, "ssrEnabled", m_post.ssrEnabled);
+            foundation::core::Serialize(ar, "ssrIntensity", m_post.ssrIntensity);
             SerializeEnum(ar, "aaMode", m_post.aaMode);
-            draconic::core::Serialize(ar, "taaBlendFactor", m_post.taaBlendFactor);
-            draconic::core::Serialize(ar, "taaVarianceGamma", m_post.taaVarianceGamma);
-            draconic::core::Serialize(ar, "fxaaSubpixel", m_post.fxaaSubpixel);
+            foundation::core::Serialize(ar, "taaBlendFactor", m_post.taaBlendFactor);
+            foundation::core::Serialize(ar, "taaVarianceGamma", m_post.taaVarianceGamma);
+            foundation::core::Serialize(ar, "fxaaSubpixel", m_post.fxaaSubpixel);
         }
 
     private:
@@ -658,7 +663,7 @@ export namespace draconic::engine::render
         static void SerializeEnum(ISerializer& ar, const char* key, E& value)
         {
             u32 raw = static_cast<u32>(value);
-            draconic::core::Serialize(ar, key, raw);
+            foundation::core::Serialize(ar, key, raw);
             if (ar.Mode() == SerializeMode::Read)
             {
                 value = static_cast<E>(raw);
@@ -674,7 +679,7 @@ export namespace draconic::engine::render
     [[nodiscard]] inline ViewPostConfig ResolveScenePost(const PostProcessSettings& s)
     {
         ViewPostConfig vp;
-        vp.exposure = draconic::core::Pow(2.0f, s.exposureEV);
+        vp.exposure = foundation::core::Pow(2.0f, s.exposureEV);
         vp.agxTonemap = (s.tonemapOperator == TonemapOperator::AgX);
         vp.bloomEnabled = s.bloomEnabled;
         vp.bloomThreshold = s.bloomThreshold;
@@ -757,14 +762,14 @@ export namespace draconic::engine::render
     // EnvironmentSettings.of(scene): a re-resolving handle over the scene's live environment settings
     // (empty if the scene has no EnvironmentSystem). Reflected on EnvironmentSettings with the
     // ReturnType-override so the declared script return IS EnvironmentSettings.
-    [[nodiscard]] inline Variant EnvironmentSettingsOf(draconic::script::Scene sceneHandle)
+    [[nodiscard]] inline Variant EnvironmentSettingsOf(foundation::script::Scene sceneHandle)
     {
         return Variant::Resolving(&TypeOf<EnvironmentSettings>(),
                                   &settingsref::ResolveEnvironmentSettings,
                                   settingsref::SceneSettingsCtx{sceneHandle.scene});
     }
     // PostProcessSettings.of(scene): a re-resolving handle over the scene's live post settings.
-    [[nodiscard]] inline Variant PostProcessSettingsOf(draconic::script::Scene sceneHandle)
+    [[nodiscard]] inline Variant PostProcessSettingsOf(foundation::script::Scene sceneHandle)
     {
         return Variant::Resolving(&TypeOf<PostProcessSettings>(),
                                   &settingsref::ResolvePostProcessSettings,
@@ -782,7 +787,7 @@ export namespace draconic::engine::render
         // Swap the entity's MeshComponent mesh to resource `id`, binding it through the run's
         // resource manager so the swap takes effect live (a bare VM with no manager sets the id
         // only, unbound). No-op if the scene is null or the entity has no MeshComponent.
-        void setMesh(draconic::script::Entity entity, Guid id) const
+        void setMesh(foundation::script::Entity entity, Guid id) const
         {
             MeshComponent* mesh = MeshOf(entity);
             if (mesh == nullptr)
@@ -790,7 +795,7 @@ export namespace draconic::engine::render
                 return;
             }
             mesh->mesh.SetId(id);
-            if (auto* resources = draconic::script::CurrentRunResources())
+            if (auto* resources = foundation::script::CurrentRunResources())
             {
                 mesh->mesh.Bind(*resources);
             }
@@ -798,7 +803,7 @@ export namespace draconic::engine::render
 
         // Swap the entity's slot-0 material (single-material meshes / the whole-mesh slot) to
         // resource `id`, binding it through the run's resource manager.
-        void setMaterial(draconic::script::Entity entity, Guid id) const
+        void setMaterial(foundation::script::Entity entity, Guid id) const
         {
             MeshComponent* mesh = MeshOf(entity);
             if (mesh == nullptr)
@@ -807,22 +812,22 @@ export namespace draconic::engine::render
             }
             if (mesh->materials.IsEmpty())
             {
-                mesh->materials.PushBack(draconic::resource::Ref<materials::Material>{});
+                mesh->materials.PushBack(foundation::resource::Ref<materials::Material>{});
             }
             mesh->materials[0].SetId(id);
-            if (auto* resources = draconic::script::CurrentRunResources())
+            if (auto* resources = foundation::script::CurrentRunResources())
             {
                 mesh->materials[0].Bind(*resources);
             }
         }
 
-        [[nodiscard]] static SceneRender of(draconic::script::Scene sceneHandle)
+        [[nodiscard]] static SceneRender of(foundation::script::Scene sceneHandle)
         {
             return SceneRender{sceneHandle.scene};
         }
 
     private:
-        [[nodiscard]] MeshComponent* MeshOf(draconic::script::Entity entity) const
+        [[nodiscard]] MeshComponent* MeshOf(foundation::script::Entity entity) const
         {
             if (scene == nullptr)
             {
@@ -833,12 +838,12 @@ export namespace draconic::engine::render
         }
     };
 
-} // namespace draconic::render (exported)
+} // namespace foundation::render (exported)
 
 // Registers all render component/enum reflection (idempotent). Called by RenderSubsystem::OnInit
 // so every app with a renderer gets reflected components for free. Non-inline: the body touches
 // module-linkage registration functions, which an exported inline definition may not.
-export namespace draconic::engine::render
+export namespace engine::render
 {
     void RegisterRenderComponentReflection();
 

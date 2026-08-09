@@ -34,9 +34,10 @@ import :idockable_window_host;
 import :dock_zone_indicator;
 import :dock_split;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace fonts = foundation::fonts;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
     // Forward declarations for the cyclic cluster.
     class DockDragPreview;
@@ -1110,8 +1111,8 @@ export namespace draconic::ui::toolkit
             {
                 if (RoundedRectDrawable* rrd = Cast<RoundedRectDrawable>(d))
                 {
-                    const draconic::vg::CornerRadii saved = rrd->Radii;
-                    rrd->Radii = draconic::vg::CornerRadii{tabCr, tabCr, 0.0f, 0.0f};
+                    const foundation::vg::CornerRadii saved = rrd->Radii;
+                    rrd->Radii = foundation::vg::CornerRadii{tabCr, tabCr, 0.0f, 0.0f};
                     rrd->Draw(ctx, rect);
                     rrd->Radii = saved;
                 }
@@ -2038,10 +2039,10 @@ export namespace draconic::ui::toolkit
                 target = target->Parent;
             }
 
-            const ::draconic::ui::Orientation orientation =
+            const ::foundation::ui::Orientation orientation =
                 (position == DockPosition::Left || position == DockPosition::Right)
-                    ? ::draconic::ui::Orientation::Horizontal
-                    : ::draconic::ui::Orientation::Vertical;
+                    ? ::foundation::ui::Orientation::Horizontal
+                    : ::foundation::ui::Orientation::Vertical;
             RefPtr<DockSplit> split = MakeRef<DockSplit>(DefaultAllocator(), orientation);
 
             RefPtr<DockTabGroup> group = MakeRef<DockTabGroup>(DefaultAllocator());

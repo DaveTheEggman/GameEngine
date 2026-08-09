@@ -28,9 +28,12 @@ import draconic.ui.runtime;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace input = foundation::input;
+namespace runtime = foundation::runtime;
+namespace ui = foundation::ui;
 
-namespace draconic::editor
+namespace editor
 {
     Status InputMapEditorPage::Save()
     {
@@ -42,7 +45,7 @@ namespace draconic::editor
             m_context->Notify(NoticeKind::Error, message.AsView());
             return Status{ErrorCode::InvalidArgument};
         }
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             (m_context->Project() != nullptr)
                 ? m_context->Project()->SourceDb().GetInstance(InstanceId())
                 : nullptr;
@@ -50,7 +53,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        draconic::pipeline::InputMapAsset asset;
+        pipeline::InputMapAsset asset;
         asset.Map() = m_map;
         const Status written = instance->WriteObject(asset);
         if (written.IsOk())
@@ -72,7 +75,7 @@ namespace draconic::editor
             return;
         }
         if (shellInput->Keyboard() != nullptr &&
-            shellInput->Keyboard()->IsKeyPressed(draconic::shell::KeyCode::Escape))
+            shellInput->Keyboard()->IsKeyPressed(foundation::shell::KeyCode::Escape))
         {
             m_listening = false;
             RefreshStatus();
@@ -684,11 +687,11 @@ namespace draconic::editor
     }
     const TypeInfo* InputMapPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::InputMapAsset::StaticType();
+        return &pipeline::InputMapAsset::StaticType();
     }
 
     UniquePtr<EditorPage> InputMapPageFactory::CreatePage(EditorContext& context,
-                                                          draconic::content::Instance& instance)
+                                                          foundation::content::Instance& instance)
     {
         auto* page = DefaultAllocator().New<InputMapEditorPage>(context, *m_host, instance);
         return UniquePtr<EditorPage>(page, DefaultAllocator());

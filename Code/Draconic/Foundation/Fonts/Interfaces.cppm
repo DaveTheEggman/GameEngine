@@ -14,9 +14,9 @@ import draconic.core;
 import draconic.image;
 import :types;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
     // Font data + metrics.
     class IFont
@@ -135,8 +135,8 @@ export namespace draconic::fonts
 
         [[nodiscard]] virtual CachedFont* GetFont(f32 pixelHeight) = 0;
         [[nodiscard]] virtual CachedFont* GetFont(StringView familyName, f32 pixelHeight) = 0;
-        [[nodiscard]] virtual draconic::image::ImageData* GetAtlasTexture(CachedFont* font) = 0;
-        [[nodiscard]] virtual draconic::image::ImageData* GetAtlasTexture(StringView familyName,
+        [[nodiscard]] virtual foundation::image::ImageData* GetAtlasTexture(CachedFont* font) = 0;
+        [[nodiscard]] virtual foundation::image::ImageData* GetAtlasTexture(StringView familyName,
                                                                           f32 pixelHeight) = 0;
         virtual void ReleaseFont(CachedFont* font) = 0;
         [[nodiscard]] virtual StringView DefaultFontFamily() const = 0;

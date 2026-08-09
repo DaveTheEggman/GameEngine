@@ -12,9 +12,10 @@ import draconic.core;
 import draconic.scene;
 import draconic.script;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace core = foundation::core;
 
-namespace draconic::script
+namespace foundation::script
 {
     DRACONIC_REFLECT_VALUE(Entity, "rtti::script")
     {

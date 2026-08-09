@@ -16,9 +16,9 @@ export module draconic.ui.toolkit:code_document;
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui::toolkit
+export namespace foundation::ui::toolkit
 {
 
     // ---- positions ---------------------------------------------------------------------------

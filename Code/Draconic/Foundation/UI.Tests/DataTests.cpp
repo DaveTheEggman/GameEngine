@@ -8,10 +8,10 @@ import draconic.core;
 import draconic.ui;
 #include "TestHelpers.h"
 
-using namespace draconic::ui;
-using namespace draconic::ui::tests;
-using namespace draconic::core;
-namespace core = draconic::core;
+using namespace foundation::ui;
+using namespace foundation::ui::tests;
+using namespace foundation::core;
+namespace core = foundation::core;
 
 // SimpleListAdapter test double lives in TestHelpers.h (shared with ListViewTests).
 

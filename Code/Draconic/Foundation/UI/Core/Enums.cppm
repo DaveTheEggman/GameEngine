@@ -6,7 +6,7 @@
 
 export module draconic.ui:enums;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     /// View visibility state.
     enum class Visibility

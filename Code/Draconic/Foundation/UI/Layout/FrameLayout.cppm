@@ -22,9 +22,9 @@ import :thickness;
 import :gravity;
 import :gravity_helper;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     using GravityValue = Gravity;
 

@@ -19,9 +19,9 @@ export module draconic.resource;
 import draconic.core;
 import draconic.content;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::resource
+export namespace foundation::resource
 {
     // Typed Guid naming a resource that binds to product type T.
     template <typename T>
@@ -196,7 +196,7 @@ export namespace draconic::resource
     void Serialize(ISerializer& ar, Ref<T>& ref)
     {
         const Guid before = ref.id;
-        draconic::core::Serialize(ar, ref.id);
+        foundation::core::Serialize(ar, ref.id);
         if (ref.id != before)
         {
             ref.ClearBinding();
@@ -219,7 +219,7 @@ export namespace draconic::resource
         // child resources via manager.Bind<…>(childId) - and doing so AUTOMATICALLY
         // records a dependency edge, so reloading a child reloads this resource too.
         [[nodiscard]] virtual RefPtr<Object> Create(ResourceManager& manager,
-                                                    draconic::content::Instance& instance) = 0;
+                                                    foundation::content::Instance& instance) = 0;
 
         // --- Optional async two-stage path (task #123). Default: SupportsAsync() == false, so the
         //     manager builds synchronously via Create() (unchanged). A factory opts in by
@@ -229,7 +229,7 @@ export namespace draconic::resource
         //     thread and turns the decoded intermediate into the product (GPU upload, child
         //     manager.Bind()s, registry writes); a null return signals failure.
         [[nodiscard]] virtual bool SupportsAsync() const { return false; }
-        [[nodiscard]] virtual RefPtr<Object> DecodeStage(draconic::content::Instance& instance)
+        [[nodiscard]] virtual RefPtr<Object> DecodeStage(foundation::content::Instance& instance)
         {
             (void)instance;
             return nullptr;
@@ -254,7 +254,7 @@ export namespace draconic::resource
         // `jobs` is the shared JobSystem used for async decode (BindAsync). Null = async degrades
         // to a synchronous Bind, so every existing caller keeps working unchanged. The constructing
         // thread is recorded as the main thread (async finalize / Pump must run on it).
-        explicit ResourceManager(draconic::content::IContentDatabase& database,
+        explicit ResourceManager(foundation::content::IContentDatabase& database,
                                  JobSystem* jobs = nullptr) noexcept
             : m_database(&database), m_jobs(jobs), m_mainThreadId(Thread::CurrentId())
         {
@@ -278,7 +278,7 @@ export namespace draconic::resource
 
         /// The backing content database (path-addressed lookups: script facades and
         /// tooling resolve editor-visible content paths to instances, then Bind by id).
-        [[nodiscard]] draconic::content::IContentDatabase& Database() const noexcept
+        [[nodiscard]] foundation::content::IContentDatabase& Database() const noexcept
         {
             return *m_database;
         }
@@ -587,7 +587,7 @@ export namespace draconic::resource
             }
             handle.Replace(nullptr);
 
-            draconic::content::Instance* instance = m_database->GetInstance(id);
+            foundation::content::Instance* instance = m_database->GetInstance(id);
             if (instance == nullptr)
             {
                 return;
@@ -614,7 +614,7 @@ export namespace draconic::resource
         {
             handle->SetProductTypeId(productTypeId);
 
-            draconic::content::Instance* instance = m_database->GetInstance(id);
+            foundation::content::Instance* instance = m_database->GetInstance(id);
             IResourceFactory* const* factorySlot = m_factories.Find(productTypeId);
             IResourceFactory* factory = (factorySlot != nullptr) ? *factorySlot : nullptr;
 
@@ -839,7 +839,7 @@ export namespace draconic::resource
             arr->PushBack(value);
         }
 
-        draconic::content::IContentDatabase* m_database;
+        foundation::content::IContentDatabase* m_database;
         HashMap<TypeId, IResourceFactory*> m_factories;
         HashMap<Guid, RefPtr<ResourceHandle>> m_handles;
         HashMap<Guid, Array<Guid>> m_dependencies; // id -> resources it depends on

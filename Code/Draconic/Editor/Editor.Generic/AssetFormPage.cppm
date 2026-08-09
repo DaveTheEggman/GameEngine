@@ -28,11 +28,11 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor
+export namespace editor
 {
-    namespace ui = draconic::ui;
+    namespace ui = foundation::ui;
 
     // ---- the serialize-driven form model -----------------------------------------------------
 
@@ -83,7 +83,7 @@ export namespace draconic::editor
     class GenericAssetEditorPage final : public app::UIEditorPage
     {
     public:
-        GenericAssetEditorPage(EditorContext& context, draconic::content::Instance& instance);
+        GenericAssetEditorPage(EditorContext& context, foundation::content::Instance& instance);
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
@@ -149,7 +149,7 @@ export namespace draconic::editor
     public:
         [[nodiscard]] const TypeInfo* PrimaryType() const override;
         [[nodiscard]] UniquePtr<EditorPage>
-        CreatePage(EditorContext& context, draconic::content::Instance& instance) override;
+        CreatePage(EditorContext& context, foundation::content::Instance& instance) override;
     };
 
     // Registers the fallback factory. Bespoke pages always win (nearest-base dispatch); this

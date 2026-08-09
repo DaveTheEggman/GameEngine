@@ -15,9 +15,9 @@ import draconic.core;
 import :enums;
 import :curves;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg
+export namespace foundation::vg
 {
     /// Commands that define path geometry.
     enum class PathCommand : u8

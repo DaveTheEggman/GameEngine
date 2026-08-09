@@ -7,8 +7,8 @@ import draconic.core;
 import draconic.vfs;
 import draconic.vfs.pak;
 
-using namespace draconic::core;
-using namespace draconic::vfs;
+using namespace foundation::core;
+using namespace foundation::vfs;
 
 namespace
 {

@@ -32,12 +32,12 @@ import draconic.image;
 import draconic.content;
 import draconic.resource;
 
-using namespace draconic::core;
-using namespace draconic::resource;
+using namespace foundation::core;
+using namespace foundation::resource;
 
-export namespace draconic::fonts
+export namespace foundation::fonts
 {
-    namespace image = draconic::image;
+    namespace image = foundation::image;
 
     // How the cooked atlas payload is encoded (uniform across a resource's entries).
     enum class FontResourcePixels : u32
@@ -55,15 +55,15 @@ export namespace draconic::fonts
 
         void Serialize(ISerializer& ar)
         {
-            draconic::core::Serialize(ar, "codepoint", codepoint);
-            draconic::core::Serialize(ar, "glyphIndex", info.glyphIndex);
-            draconic::core::Serialize(ar, "advanceWidth", info.advanceWidth);
-            draconic::core::Serialize(ar, "leftSideBearing", info.leftSideBearing);
-            draconic::core::Serialize(ar, "bbX", info.boundingBox.x);
-            draconic::core::Serialize(ar, "bbY", info.boundingBox.y);
-            draconic::core::Serialize(ar, "bbW", info.boundingBox.width);
-            draconic::core::Serialize(ar, "bbH", info.boundingBox.height);
-            draconic::core::Serialize(ar, "hasBitmap", info.hasBitmap);
+            foundation::core::Serialize(ar, "codepoint", codepoint);
+            foundation::core::Serialize(ar, "glyphIndex", info.glyphIndex);
+            foundation::core::Serialize(ar, "advanceWidth", info.advanceWidth);
+            foundation::core::Serialize(ar, "leftSideBearing", info.leftSideBearing);
+            foundation::core::Serialize(ar, "bbX", info.boundingBox.x);
+            foundation::core::Serialize(ar, "bbY", info.boundingBox.y);
+            foundation::core::Serialize(ar, "bbW", info.boundingBox.width);
+            foundation::core::Serialize(ar, "bbH", info.boundingBox.height);
+            foundation::core::Serialize(ar, "hasBitmap", info.hasBitmap);
             if (ar.Mode() == SerializeMode::Read)
             {
                 info.codepoint = codepoint;
@@ -85,9 +85,9 @@ export namespace draconic::fonts
 
         void Serialize(ISerializer& ar)
         {
-            draconic::core::Serialize(ar, "first", first);
-            draconic::core::Serialize(ar, "second", second);
-            draconic::core::Serialize(ar, "amount", amount);
+            foundation::core::Serialize(ar, "first", first);
+            foundation::core::Serialize(ar, "second", second);
+            foundation::core::Serialize(ar, "amount", amount);
         }
     };
     inline void Serialize(ISerializer& ar, FontResourceKerning& k)
@@ -104,14 +104,14 @@ export namespace draconic::fonts
 
         void Serialize(ISerializer& ar)
         {
-            draconic::core::Serialize(ar, "codepoint", codepoint);
-            draconic::core::Serialize(ar, "x", region.x);
-            draconic::core::Serialize(ar, "y", region.y);
-            draconic::core::Serialize(ar, "width", region.width);
-            draconic::core::Serialize(ar, "height", region.height);
-            draconic::core::Serialize(ar, "offsetX", region.offsetX);
-            draconic::core::Serialize(ar, "offsetY", region.offsetY);
-            draconic::core::Serialize(ar, "advanceX", region.advanceX);
+            foundation::core::Serialize(ar, "codepoint", codepoint);
+            foundation::core::Serialize(ar, "x", region.x);
+            foundation::core::Serialize(ar, "y", region.y);
+            foundation::core::Serialize(ar, "width", region.width);
+            foundation::core::Serialize(ar, "height", region.height);
+            foundation::core::Serialize(ar, "offsetX", region.offsetX);
+            foundation::core::Serialize(ar, "offsetY", region.offsetY);
+            foundation::core::Serialize(ar, "advanceX", region.advanceX);
         }
     };
     inline void Serialize(ISerializer& ar, FontResourceRegion& r)
@@ -148,21 +148,21 @@ export namespace draconic::fonts
 
         void Serialize(ISerializer& ar)
         {
-            draconic::core::Serialize(ar, "pixelHeight", pixelHeight);
-            draconic::core::Serialize(ar, "ascent", ascent);
-            draconic::core::Serialize(ar, "descent", descent);
-            draconic::core::Serialize(ar, "lineGap", lineGap);
-            draconic::core::Serialize(ar, "scale", scale);
-            draconic::core::Serialize(ar, "glyphs", glyphs);
-            draconic::core::Serialize(ar, "kerning", kerning);
-            draconic::core::Serialize(ar, "regions", regions);
-            draconic::core::Serialize(ar, "atlasWidth", atlasWidth);
-            draconic::core::Serialize(ar, "atlasHeight", atlasHeight);
-            draconic::core::Serialize(ar, "whitePixelU", whitePixelU);
-            draconic::core::Serialize(ar, "whitePixelV", whitePixelV);
-            draconic::core::Serialize(ar, "dfPixelRange", dfPixelRange);
-            draconic::core::Serialize(ar, "pixelOffset", pixelOffset);
-            draconic::core::Serialize(ar, "pixelBytes", pixelBytes);
+            foundation::core::Serialize(ar, "pixelHeight", pixelHeight);
+            foundation::core::Serialize(ar, "ascent", ascent);
+            foundation::core::Serialize(ar, "descent", descent);
+            foundation::core::Serialize(ar, "lineGap", lineGap);
+            foundation::core::Serialize(ar, "scale", scale);
+            foundation::core::Serialize(ar, "glyphs", glyphs);
+            foundation::core::Serialize(ar, "kerning", kerning);
+            foundation::core::Serialize(ar, "regions", regions);
+            foundation::core::Serialize(ar, "atlasWidth", atlasWidth);
+            foundation::core::Serialize(ar, "atlasHeight", atlasHeight);
+            foundation::core::Serialize(ar, "whitePixelU", whitePixelU);
+            foundation::core::Serialize(ar, "whitePixelV", whitePixelV);
+            foundation::core::Serialize(ar, "dfPixelRange", dfPixelRange);
+            foundation::core::Serialize(ar, "pixelOffset", pixelOffset);
+            foundation::core::Serialize(ar, "pixelBytes", pixelBytes);
         }
     };
     inline void Serialize(ISerializer& ar, FontResourceEntry& e)
@@ -183,11 +183,11 @@ export namespace draconic::fonts
 
         void Serialize(ISerializer& ar) override
         {
-            draconic::core::Serialize(ar, "family", family);
+            foundation::core::Serialize(ar, "family", family);
             u32 mode = static_cast<u32>(pixels);
-            draconic::core::Serialize(ar, "pixels", mode);
+            foundation::core::Serialize(ar, "pixels", mode);
             pixels = static_cast<FontResourcePixels>(mode);
-            draconic::core::Serialize(ar, "entries", entries);
+            foundation::core::Serialize(ar, "entries", entries);
         }
     };
 
@@ -251,7 +251,7 @@ export namespace draconic::fonts
         }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
-                                            draconic::content::Instance& instance) override
+                                            foundation::content::Instance& instance) override
         {
             return BuildFont(instance);
         }
@@ -262,7 +262,7 @@ export namespace draconic::fonts
         // and FinalizeStage is a no-op. Safe: content-DB reads open independent streams and the
         // FontResource + Font types are registered on the main thread at startup.
         [[nodiscard]] bool SupportsAsync() const override { return true; }
-        [[nodiscard]] RefPtr<Object> DecodeStage(draconic::content::Instance& instance) override
+        [[nodiscard]] RefPtr<Object> DecodeStage(foundation::content::Instance& instance) override
         {
             return BuildFont(instance);
         }
@@ -272,7 +272,7 @@ export namespace draconic::fonts
         }
 
     private:
-        [[nodiscard]] static RefPtr<Object> BuildFont(draconic::content::Instance& instance)
+        [[nodiscard]] static RefPtr<Object> BuildFont(foundation::content::Instance& instance)
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             FontResource* res = Cast<FontResource>(object.Get());
@@ -474,7 +474,7 @@ export namespace draconic::fonts
             return entry->cached;
         }
 
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(CachedFont* font) override
+        [[nodiscard]] foundation::image::ImageData* GetAtlasTexture(CachedFont* font) override
         {
             for (Entry& entry : m_entries)
             {
@@ -486,7 +486,7 @@ export namespace draconic::fonts
             return nullptr;
         }
 
-        [[nodiscard]] draconic::image::ImageData* GetAtlasTexture(StringView familyName,
+        [[nodiscard]] foundation::image::ImageData* GetAtlasTexture(StringView familyName,
                                                                   f32 pixelHeight) override
         {
             Entry* entry = FindClosest(familyName, pixelHeight);
@@ -510,7 +510,7 @@ export namespace draconic::fonts
             String family;
             f32 pixelHeight = 0.0f;
             CachedFont* cached = nullptr;              // owned wrapper (see class comment)
-            draconic::image::ImageData* image = nullptr; // product-owned
+            foundation::image::ImageData* image = nullptr; // product-owned
             bool ownsViews = false; // scaled entry: cached->font/atlas are owned view wrappers
         };
 

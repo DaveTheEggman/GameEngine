@@ -17,9 +17,9 @@ import :lexer;
 import :ns;
 import :escape;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::xml
+export namespace foundation::xml
 {
     enum class XmlNodeType : u8
     {

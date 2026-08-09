@@ -6,8 +6,8 @@ import draconic.core;
 import draconic.rhi;
 import draconic.rhi.null;
 
-using namespace draconic::core;
-using namespace draconic::rhi;
+using namespace foundation::core;
+using namespace foundation::rhi;
 
 TEST_CASE("rhi.null: backend enumerates an adapter and creates a device")
 {
@@ -73,7 +73,7 @@ TEST_CASE("rhi: texture views carry unique monotonic ids (address-reuse guard)")
 
     TextureView* a = nullptr;
     REQUIRE(device->CreateTextureView(texture, TextureViewDesc{}, a).IsOk());
-    const draconic::core::u64 idA = a->uniqueId;
+    const foundation::core::u64 idA = a->uniqueId;
     CHECK(idA != 0u);
 
     TextureView* b = nullptr;

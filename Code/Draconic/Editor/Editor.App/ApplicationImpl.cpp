@@ -46,27 +46,31 @@ import :preferences_dialog;
 import :shell;
 import :ui_page;
 
-using namespace draconic::core;
-using namespace draconic::pipeline;
+using namespace foundation::core;
+using namespace pipeline;
+namespace fonts = foundation::fonts;
+namespace graphics = foundation::graphics;
+namespace runtime = foundation::runtime;
+namespace ui = foundation::ui;
 
-namespace draconic::editor::app
+namespace editor::app
 {
     // Recursively: does the source DB hold any FontAsset? (Answers "the project HAS fonts but none is
     // the default" so the game-UI can warn actionably instead of silently rendering no text.)
-    [[nodiscard]] static bool ProjectHasFontAssets(draconic::content::Group* group)
+    [[nodiscard]] static bool ProjectHasFontAssets(foundation::content::Group* group)
     {
         if (group == nullptr)
         {
             return false;
         }
-        for (draconic::content::Instance* instance : group->Instances())
+        for (foundation::content::Instance* instance : group->Instances())
         {
             if (instance->TypeName() == StringView(u8"FontAsset"))
             {
                 return true;
             }
         }
-        for (draconic::content::Group* child : group->Groups())
+        for (foundation::content::Group* child : group->Groups())
         {
             if (ProjectHasFontAssets(child))
             {
@@ -82,18 +86,18 @@ namespace draconic::editor::app
     // distance-field pipeline). Flip back to false to restore the raster ramp.
     constexpr bool kUseDistanceFieldFonts = true;
 
-    draconic::editor::EditorProject* EditorApplication::Project() const noexcept
+    editor::EditorProject* EditorApplication::Project() const noexcept
     {
         return m_project.Get();
     }
 
-    draconic::editor::EditorCookService& EditorApplication::CookService() noexcept
+    editor::EditorCookService& EditorApplication::CookService() noexcept
     {
         return m_cookService;
     }
 
     void
-    EditorApplication::AddResourceFactory(UniquePtr<draconic::resource::IResourceFactory> factory)
+    EditorApplication::AddResourceFactory(UniquePtr<foundation::resource::IResourceFactory> factory)
     {
         if (!factory)
         {
@@ -106,12 +110,12 @@ namespace draconic::editor::app
         m_resourceFactories.PushBack(Move(factory));
     }
 
-    draconic::resource::ResourceManager* EditorApplication::Resources() const noexcept
+    foundation::resource::ResourceManager* EditorApplication::Resources() const noexcept
     {
         return m_resources.Get();
     }
 
-    draconic::engine::runtime::DefaultApplication* EditorApplication::EmbeddedApplication() const noexcept
+    engine::runtime::DefaultApplication* EditorApplication::EmbeddedApplication() const noexcept
     {
         return m_embeddedApp.Get();
     }
@@ -124,7 +128,7 @@ namespace draconic::editor::app
         }
     }
 
-    void EditorApplication::SetSceneRenderer(draconic::render::ISceneRenderer* renderer) noexcept
+    void EditorApplication::SetSceneRenderer(foundation::render::ISceneRenderer* renderer) noexcept
     {
         m_sceneRenderer = renderer;
     }
@@ -235,11 +239,11 @@ namespace draconic::editor::app
 
         // Theme: register the toolkit extension BEFORE creating the stylesheet (extensions
         // only apply to themes built afterward), then the editor defaults to dark.
-        draconic::ui::ThemeRegistry::RegisterExtension(&m_toolkitTheme);
+        foundation::ui::ThemeRegistry::RegisterExtension(&m_toolkitTheme);
         // Editor theme: the warm "Graphite & Orange" palette on the rounded theme (soft corners
         // everywhere) - a crafted, less-bland alternative to the stock flat/square cool-grey dark.
-        const draconic::ui::ThemePalette palette = draconic::ui::ThemePalette::GraphiteOrange();
-        m_styleSheet = draconic::ui::RoundedDarkTheme::Create(palette);
+        const foundation::ui::ThemePalette palette = foundation::ui::ThemePalette::GraphiteOrange();
+        m_styleSheet = foundation::ui::RoundedDarkTheme::Create(palette);
         // The window CLEAR color comes from the same palette: any surface the chrome doesn't
         // cover (the project-manager screen most of all) must read as the theme's background,
         // not the UIHost's hard-coded near-black default.
@@ -249,8 +253,8 @@ namespace draconic::editor::app
         // better noticeably smaller and tighter than the theme's 14px/6x4 control chrome
         // (a full inspector column of them is the densest text in the editor).
         m_styleSheet->ForClass(u8"property-field")
-            .Set(draconic::ui::StyleProperty::FontSize, 12.0f)
-            .Set(draconic::ui::StyleProperty::Padding, draconic::ui::Thickness{5, 2});
+            .Set(foundation::ui::StyleProperty::FontSize, 12.0f)
+            .Set(foundation::ui::StyleProperty::Padding, foundation::ui::Thickness{5, 2});
 
         // Icon BAKE (the Godot-verified crispness recipe): rasterize every editor SVG icon
         // once, 4x supersampled, into a shared atlas at the chrome sizes the UI actually
@@ -274,15 +278,15 @@ namespace draconic::editor::app
             if (icons.close)
             {
                 icons.close->TintColor =
-                    draconic::core::Color{palette.Text.r, palette.Text.g, palette.Text.b,
+                    foundation::core::Color{palette.Text.r, palette.Text.g, palette.Text.b,
                                           190.0f / 255.0f};
-                const draconic::ui::DrawablePtr closeIcon(icons.close.Get());
+                const foundation::ui::DrawablePtr closeIcon(icons.close.Get());
                 m_styleSheet
                     ->ForTypePseudo(&ui::toolkit::DockablePanel::StaticType(), u8"close-button")
-                    .Set(draconic::ui::StyleProperty::Background, closeIcon);
+                    .Set(foundation::ui::StyleProperty::Background, closeIcon);
                 m_styleSheet
                     ->ForTypePseudo(&ui::toolkit::DockTabGroup::StaticType(), u8"close-button")
-                    .Set(draconic::ui::StyleProperty::Background, closeIcon);
+                    .Set(foundation::ui::StyleProperty::Background, closeIcon);
             }
         }
         m_uiHost->Context().SetStyleSheet(m_styleSheet);
@@ -297,7 +301,7 @@ namespace draconic::editor::app
         // side-by-side tab groups, Save was hitting whichever page opened last, not the tab
         // the user selected. Non-page panels (Console, Assets) leave the active page alone.
         m_shell.Docks()->OnPanelActivated.Add(
-            draconic::ui::Event<void(ui::toolkit::DockablePanel*)>::Handler{
+            foundation::ui::Event<void(ui::toolkit::DockablePanel*)>::Handler{
                 [this](ui::toolkit::DockablePanel* panel)
                 {
                     if (panel == nullptr)
@@ -313,7 +317,7 @@ namespace draconic::editor::app
                         }
                     }
                 }});
-        m_uiHost->AttachWindow(mainRw, RefPtr<draconic::ui::RootView>(m_shell.Root()));
+        m_uiHost->AttachWindow(mainRw, RefPtr<foundation::ui::RootView>(m_shell.Root()));
 
         // Toast overlay on the main window root (input passes through outside the cards);
         // EditorContext::Notify routes here, and also mirrors to the status bar.
@@ -345,7 +349,7 @@ namespace draconic::editor::app
                 DRACONIC_LOG_INFO(u8"Editor", u8"embedded app requested exit({})", code);
                 m_stopGameRequested = true;
             }});
-        m_embeddedApp = MakeUnique<draconic::engine::runtime::DefaultApplication>(DefaultAllocator());
+        m_embeddedApp = MakeUnique<engine::runtime::DefaultApplication>(DefaultAllocator());
         if (!m_config.fontPath.IsEmpty())
         {
             m_embeddedApp->SetUIFontPath(m_config.fontPath.AsView());
@@ -361,7 +365,7 @@ namespace draconic::editor::app
         if (m_embeddedApp->Input() != nullptr)
         {
             m_embeddedApp->Input()->SetUnboundScenePolicy(
-                draconic::engine::input::UnboundInputScenePolicy::ScreenTierOnly);
+                engine::input::UnboundInputScenePolicy::ScreenTierOnly);
         }
         m_runtimeContext.Startup();
         m_embeddedApp->OnStartup(*m_embeddedHost);
@@ -393,7 +397,7 @@ namespace draconic::editor::app
         }
     }
 
-    void EditorApplication::CookMissingForPage(draconic::content::Instance& instance)
+    void EditorApplication::CookMissingForPage(foundation::content::Instance& instance)
     {
         if (m_project.Get() == nullptr)
         {
@@ -445,7 +449,7 @@ namespace draconic::editor::app
             m_context.Notify(editor::NoticeKind::Info, u8"No game page registered in this build.");
             return;
         }
-        UniquePtr<draconic::editor::EditorPage> page = m_context.GamePageFactory(newInstance);
+        UniquePtr<editor::EditorPage> page = m_context.GamePageFactory(newInstance);
         if (!page)
         {
             return;
@@ -482,10 +486,10 @@ namespace draconic::editor::app
         m_pagePanels.PushBack(PagePanel{uiPage, panel});
     }
 
-    UIEditorPage* EditorApplication::OpenInstancePage(draconic::content::Instance& instance)
+    UIEditorPage* EditorApplication::OpenInstancePage(foundation::content::Instance& instance)
     {
         const usize before = m_context.OpenPages().Size();
-        draconic::editor::EditorPage* page = m_context.OpenPage(instance);
+        editor::EditorPage* page = m_context.OpenPage(instance);
         if (page == nullptr)
         {
             m_context.Notify(editor::NoticeKind::Warning,
@@ -689,7 +693,7 @@ namespace draconic::editor::app
                 Guid id;
                 if (Guid::TryParse(StringView(reinterpret_cast<const utf8char*>(testOpen)), id))
                 {
-                    if (draconic::content::Instance* instance =
+                    if (foundation::content::Instance* instance =
                             m_project->SourceDb().GetInstance(id))
                     {
                         (void)OpenInstancePage(*instance);
@@ -721,7 +725,7 @@ namespace draconic::editor::app
                 {
                     ++m_testOpenStage;
                     const String groupName(spec.SubStr(0, semi));
-                    if (draconic::content::Group* group =
+                    if (foundation::content::Group* group =
                             m_project->SourceDb().RootGroup()->GetGroup(groupName.AsView()))
                     {
                         m_cookService.RunWhenIdle(
@@ -803,7 +807,7 @@ namespace draconic::editor::app
         {
             m_droppedFiles.Clear();
             host.Shell()->DrainDroppedFiles(m_droppedFiles);
-            for (const draconic::shell::DroppedFile& drop : m_droppedFiles)
+            for (const foundation::shell::DroppedFile& drop : m_droppedFiles)
             {
                 m_assetsView->ImportFile(drop.path.AsView());
             }
@@ -900,21 +904,21 @@ namespace draconic::editor::app
     }
 
     void
-    EditorApplication::CreateAndOpen(const draconic::editor::EditorContext::AssetCreator& creator,
-                                     draconic::content::Group* group)
+    EditorApplication::CreateAndOpen(const editor::EditorContext::AssetCreator& creator,
+                                     foundation::content::Group* group)
     {
         // Cook gate: the plan worker reads the DBs with their structure frozen -
         // creating instances mid-plan is a race. Queue and replay when idle.
         if (m_cookService.MutationLocked())
         {
-            const draconic::editor::EditorContext::AssetCreator* entry = &creator;
+            const editor::EditorContext::AssetCreator* entry = &creator;
             m_cookService.RunWhenIdle(
                 Function<void()>{[this, entry, group]() { CreateAndOpen(*entry, group); }});
             m_context.Notify(editor::NoticeKind::Info,
                              u8"Create queued until the current cook finishes.");
             return;
         }
-        draconic::content::Instance* instance = creator.create(m_context, group);
+        foundation::content::Instance* instance = creator.create(m_context, group);
         if (instance == nullptr)
         {
             m_context.Notify(editor::NoticeKind::Error, u8"Create failed (no project open?).");
@@ -960,18 +964,18 @@ namespace draconic::editor::app
         AppendCountTo(message, dirtyCount);
         message += (dirtyCount == 1) ? StringView(u8" page has unsaved changes.")
                                      : StringView(u8" pages have unsaved changes.");
-        RefPtr<draconic::ui::Dialog> dialog =
-            MakeRef<draconic::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
-        RefPtr<draconic::ui::Label> label =
-            MakeRef<draconic::ui::Label>(DefaultAllocator(), message.AsView());
+        RefPtr<foundation::ui::Dialog> dialog =
+            MakeRef<foundation::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
+        RefPtr<foundation::ui::Label> label =
+            MakeRef<foundation::ui::Label>(DefaultAllocator(), message.AsView());
         label->WordWrap.SetValue(true);
         dialog->SetContent(label.Get());
 
-        draconic::ui::Dialog* rawDialog = dialog.Get();
-        draconic::ui::Button* saveAll =
-            dialog->AddButton(u8"Save All & Exit", draconic::ui::DialogResult::None);
+        foundation::ui::Dialog* rawDialog = dialog.Get();
+        foundation::ui::Button* saveAll =
+            dialog->AddButton(u8"Save All & Exit", foundation::ui::DialogResult::None);
         saveAll->OnClick.Add(
-            [this, rawDialog](draconic::ui::ButtonBase*)
+            [this, rawDialog](foundation::ui::ButtonBase*)
             {
                 bool allSaved = true;
                 for (const PagePanel& entry : m_pagePanels)
@@ -990,18 +994,18 @@ namespace draconic::editor::app
                     m_context.Notify(editor::NoticeKind::Error,
                                      u8"Save FAILED (see console) - staying open.");
                 }
-                rawDialog->Close(allSaved ? draconic::ui::DialogResult::OK
-                                          : draconic::ui::DialogResult::Cancel);
+                rawDialog->Close(allSaved ? foundation::ui::DialogResult::OK
+                                          : foundation::ui::DialogResult::Cancel);
             });
-        draconic::ui::Button* discard =
-            dialog->AddButton(u8"Exit Without Saving", draconic::ui::DialogResult::None);
+        foundation::ui::Button* discard =
+            dialog->AddButton(u8"Exit Without Saving", foundation::ui::DialogResult::None);
         discard->OnClick.Add(
-            [this, rawDialog](draconic::ui::ButtonBase*)
+            [this, rawDialog](foundation::ui::ButtonBase*)
             {
                 m_host->RequestExit();
-                rawDialog->Close(draconic::ui::DialogResult::OK);
+                rawDialog->Close(foundation::ui::DialogResult::OK);
             });
-        dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
+        dialog->AddButton(u8"Cancel", foundation::ui::DialogResult::Cancel);
         dialog->Show(&m_uiHost->Context());
         return false;
     }
@@ -1040,9 +1044,9 @@ namespace draconic::editor::app
             false); // safe background cook; OnUpdate fires the export job after it
     }
 
-    void EditorApplication::CollectSceneStreams(draconic::content::Group& group)
+    void EditorApplication::CollectSceneStreams(foundation::content::Group& group)
     {
-        for (draconic::content::Instance* instance : group.Instances())
+        for (foundation::content::Instance* instance : group.Instances())
         {
             Array<byte> bytes;
             if (m_context.SceneStreamStager(*instance, bytes))
@@ -1050,7 +1054,7 @@ namespace draconic::editor::app
                 m_exportSceneStreams.InsertOrAssign(instance->Id(), Move(bytes));
             }
         }
-        for (draconic::content::Group* child : group.Groups())
+        for (foundation::content::Group* child : group.Groups())
         {
             CollectSceneStreams(*child);
         }
@@ -1114,8 +1118,8 @@ namespace draconic::editor::app
 
     void EditorApplication::SubmitExportJob(String presetName, bool all)
     {
-        draconic::editor::EditorProject* project = m_project.Get();
-        draconic::pipeline::BuilderRegistry* builders = &m_builders;
+        editor::EditorProject* project = m_project.Get();
+        pipeline::BuilderRegistry* builders = &m_builders;
 
         // MAIN-THREAD pre-pass: transcode scene/prefab TEXT sources to the binary wire
         // (the stager needs the SceneSubsystem). One export at a time (IsBusy-guarded),
@@ -1131,7 +1135,7 @@ namespace draconic::editor::app
         // whether pruning is requested, and the job then reuses this copy instead of re-reading.
         m_exportPresets.presets.Clear();
         {
-            draconic::vfs::NativeFileSystem projectFs(project->Directory());
+            foundation::vfs::NativeFileSystem projectFs(project->Directory());
             if (!editor::LoadExportPresets(projectFs, m_exportPresets).IsOk())
             {
                 editor::DefaultExportPresets(m_exportPresets);
@@ -1149,7 +1153,7 @@ namespace draconic::editor::app
         {
             EditorApplication* self = this;
             const editor::SceneReferenceScanner adapter =
-                [self](draconic::content::Instance& inst, draconic::content::ContentDatabase& db,
+                [self](foundation::content::Instance& inst, foundation::content::ContentDatabase& db,
                        editor::SceneReferences& refs)
             { self->m_context.SceneRefScanner(inst, db, refs.resources, refs.prefabs); };
             const Array<editor::ExportRoot> seeds = editor::CollectExportRoots(*project);
@@ -1170,8 +1174,8 @@ namespace draconic::editor::app
             [project, builders, toolDir, templatesRoot, presetName, all, outRoot, sceneStreams,
              reachableRoots, presetsPtr](editor::JobContext& ctx) -> Status
             {
-                draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
-                draconic::vfs::NativeFileSystem rootFs(
+                foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
+                foundation::vfs::NativeFileSystem rootFs(
                     templatesRoot.AsView()); // imported templates
                 editor::TemplateRegistry registry;
                 registry.Refresh(templatesRoot.AsView(), &rootFs, toolDir.AsView(), &toolFs);
@@ -1243,8 +1247,8 @@ namespace draconic::editor::app
     {
         const String toolDir = GetExecutableDirectory();
         const String templatesRoot = TemplatesRoot();
-        draconic::vfs::NativeFileSystem toolFs(toolDir.AsView());
-        draconic::vfs::NativeFileSystem rootFs(templatesRoot.AsView());
+        foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
+        foundation::vfs::NativeFileSystem rootFs(templatesRoot.AsView());
         out.Refresh(templatesRoot.AsView(), &rootFs, toolDir.AsView(), &toolFs);
     }
 
@@ -1304,7 +1308,7 @@ namespace draconic::editor::app
         {
             return;
         }
-        draconic::vfs::NativeFileSystem projectFs(m_project->Directory());
+        foundation::vfs::NativeFileSystem projectFs(m_project->Directory());
         if (!m_presetsController.Save(*projectFs.AsWritable()).IsOk())
         {
             m_context.Notify(editor::NoticeKind::Error,
@@ -1362,7 +1366,7 @@ namespace draconic::editor::app
             return;
         }
         m_host->Shell()->Dialogs()->ShowOpenFile(
-            draconic::shell::DialogResultCallback{
+            foundation::shell::DialogResultCallback{
                 [target](Span<const String> paths)
                 {
                     if (paths.Size() == 0)
@@ -1391,7 +1395,7 @@ namespace draconic::editor::app
             m_context.Notify(editor::NoticeKind::Error, u8"File dialogs are unavailable.");
             return;
         }
-        m_host->Shell()->Dialogs()->ShowOpenFolder(draconic::shell::DialogResultCallback{
+        m_host->Shell()->Dialogs()->ShowOpenFolder(foundation::shell::DialogResultCallback{
             [this, current](Span<const String> paths)
             {
                 if (paths.Size() == 0)
@@ -1424,7 +1428,7 @@ namespace draconic::editor::app
             m_context.Notify(editor::NoticeKind::Error, u8"File dialogs are unavailable.");
             return;
         }
-        m_host->Shell()->Dialogs()->ShowOpenFolder(draconic::shell::DialogResultCallback{
+        m_host->Shell()->Dialogs()->ShowOpenFolder(foundation::shell::DialogResultCallback{
             [this, current](Span<const String> paths)
             {
                 if (paths.Size() == 0)
@@ -1566,7 +1570,7 @@ namespace draconic::editor::app
         }
 
         {
-            draconic::vfs::NativeFileSystem projectFs(m_project->Directory());
+            foundation::vfs::NativeFileSystem projectFs(m_project->Directory());
             m_presetsController.Load(projectFs); // reflects edits persisted by the editor form
         }
 
@@ -1850,7 +1854,7 @@ namespace draconic::editor::app
         {
             return;
         }
-        draconic::content::Instance* original =
+        foundation::content::Instance* original =
             m_project->SourceDb().GetInstance(page->InstanceId());
         if (original == nullptr)
         {
@@ -1867,7 +1871,7 @@ namespace draconic::editor::app
             return;
         }
 
-        draconic::content::Group* group = &original->OwningGroup();
+        foundation::content::Group* group = &original->OwningGroup();
         String suggested(original->Name());
         suggested += u8" Copy";
         while (group->GetInstance(suggested.AsView()) != nullptr)
@@ -1878,44 +1882,44 @@ namespace draconic::editor::app
         String prompt(u8"New name (created next to '");
         prompt += original->Name();
         prompt += u8"'):";
-        RefPtr<draconic::ui::Dialog> dialog =
-            MakeRef<draconic::ui::Dialog>(DefaultAllocator(), StringView(u8"Save As"));
-        auto column = MakeRef<draconic::ui::FlexLayout>(DefaultAllocator());
-        column->Direction = draconic::ui::Orientation::Vertical;
+        RefPtr<foundation::ui::Dialog> dialog =
+            MakeRef<foundation::ui::Dialog>(DefaultAllocator(), StringView(u8"Save As"));
+        auto column = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+        column->Direction = foundation::ui::Orientation::Vertical;
         column->Spacing = 6.0f;
-        RefPtr<draconic::ui::Label> label =
-            MakeRef<draconic::ui::Label>(DefaultAllocator(), prompt.AsView());
+        RefPtr<foundation::ui::Label> label =
+            MakeRef<foundation::ui::Label>(DefaultAllocator(), prompt.AsView());
         label->WordWrap.SetValue(true);
         {
-            auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
-            lp->Width = draconic::ui::SizeSpec::Match();
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = foundation::ui::SizeSpec::Match();
             column->AddView(label.Get(), lp);
         }
-        auto nameEdit = MakeRef<draconic::ui::EditText>(DefaultAllocator());
+        auto nameEdit = MakeRef<foundation::ui::EditText>(DefaultAllocator());
         nameEdit->SetText(suggested.AsView());
         {
-            auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
-            lp->Width = draconic::ui::SizeSpec::Match();
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = foundation::ui::SizeSpec::Match();
             column->AddView(nameEdit.Get(), lp);
         }
         // Inline validation line: empty until a rejected attempt; the dialog stays up.
-        auto errorLabel = MakeRef<draconic::ui::Label>(DefaultAllocator());
+        auto errorLabel = MakeRef<foundation::ui::Label>(DefaultAllocator());
         errorLabel->WordWrap.SetValue(true);
         errorLabel->TextColor.SetValue(Color{0.90f, 0.35f, 0.35f, 1.0f});
         {
-            auto lp = MakeRef<draconic::ui::FlexLayoutParams>(DefaultAllocator());
-            lp->Width = draconic::ui::SizeSpec::Match();
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = foundation::ui::SizeSpec::Match();
             column->AddView(errorLabel.Get(), lp);
         }
         dialog->SetContent(column.Get());
 
-        draconic::ui::Dialog* rawDialog = dialog.Get();
-        draconic::ui::EditText* rawEdit = nameEdit.Get();
-        draconic::ui::Label* rawError = errorLabel.Get();
+        foundation::ui::Dialog* rawDialog = dialog.Get();
+        foundation::ui::EditText* rawEdit = nameEdit.Get();
+        foundation::ui::Label* rawError = errorLabel.Get();
         const Guid pageId = page->InstanceId();
-        draconic::ui::Button* save = dialog->AddButton(u8"Save", draconic::ui::DialogResult::None);
+        foundation::ui::Button* save = dialog->AddButton(u8"Save", foundation::ui::DialogResult::None);
         save->OnClick.Add(
-            [this, pageId, group, type, rawDialog, rawEdit, rawError](draconic::ui::ButtonBase*)
+            [this, pageId, group, type, rawDialog, rawEdit, rawError](foundation::ui::ButtonBase*)
             {
                 const StringView newName = rawEdit->Text();
                 if (newName.IsEmpty())
@@ -1940,10 +1944,10 @@ namespace draconic::editor::app
                 }
                 if (target == nullptr)
                 {
-                    rawDialog->Close(draconic::ui::DialogResult::Cancel);
+                    rawDialog->Close(foundation::ui::DialogResult::Cancel);
                     return;
                 }
-                draconic::content::Instance* fresh = group->CreateInstance(newName, *type);
+                foundation::content::Instance* fresh = group->CreateInstance(newName, *type);
                 if (fresh == nullptr)
                 {
                     m_context.Notify(editor::NoticeKind::Error,
@@ -1962,9 +1966,9 @@ namespace draconic::editor::app
                 {
                     m_context.Notify(editor::NoticeKind::Error, u8"Save As FAILED (see Console).");
                 }
-                rawDialog->Close(draconic::ui::DialogResult::OK);
+                rawDialog->Close(foundation::ui::DialogResult::OK);
             });
-        dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
+        dialog->AddButton(u8"Cancel", foundation::ui::DialogResult::Cancel);
         dialog->Show(&m_uiHost->Context());
     }
 
@@ -1974,39 +1978,39 @@ namespace draconic::editor::app
         String message(u8"'");
         message += page->Title();
         message += u8"' has unsaved changes.";
-        RefPtr<draconic::ui::Dialog> dialog =
-            MakeRef<draconic::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
-        RefPtr<draconic::ui::Label> label =
-            MakeRef<draconic::ui::Label>(DefaultAllocator(), message.AsView());
+        RefPtr<foundation::ui::Dialog> dialog =
+            MakeRef<foundation::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
+        RefPtr<foundation::ui::Label> label =
+            MakeRef<foundation::ui::Label>(DefaultAllocator(), message.AsView());
         label->WordWrap.SetValue(true);
         dialog->SetContent(label.Get());
 
-        draconic::ui::Dialog* rawDialog = dialog.Get();
-        draconic::ui::Button* save = dialog->AddButton(u8"Save", draconic::ui::DialogResult::None);
+        foundation::ui::Dialog* rawDialog = dialog.Get();
+        foundation::ui::Button* save = dialog->AddButton(u8"Save", foundation::ui::DialogResult::None);
         save->OnClick.Add(
-            [this, page, panel, rawDialog](draconic::ui::ButtonBase*)
+            [this, page, panel, rawDialog](foundation::ui::ButtonBase*)
             {
                 if (page->Save().IsOk())
                 {
                     panel->OnCloseRequested.Invoke(panel);
-                    rawDialog->Close(draconic::ui::DialogResult::OK);
+                    rawDialog->Close(foundation::ui::DialogResult::OK);
                 }
                 else
                 {
                     m_context.Notify(editor::NoticeKind::Error,
                                      u8"Save FAILED (see console) - page stays open.");
-                    rawDialog->Close(draconic::ui::DialogResult::Cancel);
+                    rawDialog->Close(foundation::ui::DialogResult::Cancel);
                 }
             });
-        draconic::ui::Button* discard =
-            dialog->AddButton(u8"Discard", draconic::ui::DialogResult::None);
+        foundation::ui::Button* discard =
+            dialog->AddButton(u8"Discard", foundation::ui::DialogResult::None);
         discard->OnClick.Add(
-            [panel, rawDialog](draconic::ui::ButtonBase*)
+            [panel, rawDialog](foundation::ui::ButtonBase*)
             {
                 panel->OnCloseRequested.Invoke(panel);
-                rawDialog->Close(draconic::ui::DialogResult::OK);
+                rawDialog->Close(foundation::ui::DialogResult::OK);
             });
-        dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
+        dialog->AddButton(u8"Cancel", foundation::ui::DialogResult::Cancel);
         dialog->Show(&m_uiHost->Context());
     }
 
@@ -2015,7 +2019,7 @@ namespace draconic::editor::app
         for (const PagePanel& entry : m_pagePanels)
         {
             String title;
-            draconic::content::Instance* instance =
+            foundation::content::Instance* instance =
                 m_project ? m_project->SourceDb().GetInstance(entry.page->InstanceId()) : nullptr;
             if (instance != nullptr)
             {
@@ -2044,7 +2048,7 @@ namespace draconic::editor::app
         }
         m_pendingLog.Clear();
         m_logSequence = m_config.logBuffer->CollectSince(m_logSequence, m_pendingLog);
-        for (const draconic::editor::EditorLogEntry& entry : m_pendingLog)
+        for (const editor::EditorLogEntry& entry : m_pendingLog)
         {
             m_shell.Console()->AddEntry(entry.level, entry.category.AsView(),
                                         entry.message.AsView());
@@ -2059,16 +2063,16 @@ namespace draconic::editor::app
             return;
         }
 
-        m_project = draconic::editor::EditorProject::Open(directory);
+        m_project = editor::EditorProject::Open(directory);
         if (!m_project && !m_config.startInProjectManager)
         {
             // CLI launch keeps the historical scaffold fallback (a bare directory becomes a
             // fresh project). The manager scaffolds only through its explicit New Project flow.
             const Status created =
-                draconic::editor::EditorProject::Create(directory, m_config.projectName.AsView());
+                editor::EditorProject::Create(directory, m_config.projectName.AsView());
             if (created.IsOk())
             {
-                m_project = draconic::editor::EditorProject::Open(directory);
+                m_project = editor::EditorProject::Open(directory);
             }
         }
 
@@ -2093,14 +2097,14 @@ namespace draconic::editor::app
             if (graphics::RenderWindow* mainRw = m_host->MainRenderWindow())
             {
                 m_uiHost->DetachWindow(mainRw);
-                m_uiHost->AttachWindow(mainRw, RefPtr<draconic::ui::RootView>(m_shell.Root()));
+                m_uiHost->AttachWindow(mainRw, RefPtr<foundation::ui::RootView>(m_shell.Root()));
             }
             m_inManagerMode = false;
         }
 
         // The per-project editor-state STORE (one structured file: dock layout, favorites,
         // open pages, per-page prefs). Absent on a fresh project - sections read as defaults.
-        m_projectEditorSettings = MakeUnique<draconic::settings::Settings>(DefaultAllocator());
+        m_projectEditorSettings = MakeUnique<foundation::settings::Settings>(DefaultAllocator());
         (void)LoadProjectEditorSettings(*m_projectEditorSettings,
                                         m_project->EditorStateRoot().AsView());
         m_context.SetProjectEditorSettings(m_projectEditorSettings.Get());
@@ -2128,7 +2132,7 @@ namespace draconic::editor::app
         // (which also registers its standard factories into the manager - the same set a
         // preset manager receives at its startup).
         // Share the global JobSystem for async resource decode (task #123); null = sync loads.
-        m_resources = MakeUnique<draconic::resource::ResourceManager>(
+        m_resources = MakeUnique<foundation::resource::ResourceManager>(
             DefaultAllocator(), m_project->CookedDb(),
             HasGlobalJobSystem() ? &GlobalJobs() : nullptr);
         for (const auto& factory : m_resourceFactories)
@@ -2145,7 +2149,7 @@ namespace draconic::editor::app
             const Guid themeId = m_project->Settings().defaultUiThemeId;
             if (!themeId.IsNil())
             {
-                if (auto themeProxy = m_resources->Bind<draconic::ui::UITheme>(themeId))
+                if (auto themeProxy = m_resources->Bind<foundation::ui::UITheme>(themeId))
                 {
                     m_embeddedApp->UI()->SetDefaultTheme(themeProxy.Get());
                 }
@@ -2155,7 +2159,7 @@ namespace draconic::editor::app
             const Guid fontId = m_project->Settings().defaultUiFontId;
             if (!fontId.IsNil())
             {
-                if (auto fontProxy = m_resources->Bind<draconic::fonts::Font>(fontId))
+                if (auto fontProxy = m_resources->Bind<foundation::fonts::Font>(fontId))
                 {
                     m_embeddedApp->UI()->SetDefaultFont(fontProxy.Get());
                 }
@@ -2184,11 +2188,11 @@ namespace draconic::editor::app
         m_assetsView =
             MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService, &m_jobService);
         AssetsView* assets = m_assetsView.Get();
-        m_assetsView->OnOpenInstance = [this](draconic::content::Instance& instance)
+        m_assetsView->OnOpenInstance = [this](foundation::content::Instance& instance)
         { (void)OpenInstancePage(instance); };
         m_assetsView->OnCreate =
-            [this](const draconic::editor::EditorContext::AssetCreator& creator,
-                   draconic::content::Group* group) { CreateAndOpen(creator, group); };
+            [this](const editor::EditorContext::AssetCreator& creator,
+                   foundation::content::Group* group) { CreateAndOpen(creator, group); };
         // Delete-while-open policy: close-then-delete. Called from a mutation-queue
         // action (never mid-event-dispatch), so synchronous panel + page teardown is
         // safe here - the same pair of steps the tab close button triggers.
@@ -2248,7 +2252,7 @@ namespace draconic::editor::app
                 UIEditorPage* toActivate = nullptr;
                 for (const Guid& id : pages)
                 {
-                    if (draconic::content::Instance* instance =
+                    if (foundation::content::Instance* instance =
                             m_project->SourceDb().GetInstance(id))
                     {
                         UIEditorPage* page = OpenInstancePage(*instance);
@@ -2267,7 +2271,7 @@ namespace draconic::editor::app
             {
                 // No saved page set (first launch): fall back to the default scene -
                 // guid first (authoritative), path mirror for guid-less manifests.
-                draconic::content::Instance* instance = nullptr;
+                foundation::content::Instance* instance = nullptr;
                 if (!m_project->Settings().defaultSceneId.IsNil())
                 {
                     instance =
@@ -2289,7 +2293,7 @@ namespace draconic::editor::app
         // Record the open in the per-user registry (most-recent-first; snapshot refreshed).
         m_projectManager.NoteOpened(directory, m_project->Name(),
                                     m_project->Settings().engineVersion.AsView());
-        (void)draconic::editor::SaveEditorSettingsToUserData(m_editorSettings);
+        (void)editor::SaveEditorSettingsToUserData(m_editorSettings);
 
         // Starter content for a manager-created project (baseline font/sky/meshes + the
         // manifest defaults). Once, before the first cook pass picks everything up.
@@ -2390,7 +2394,7 @@ namespace draconic::editor::app
                     { CreateFromManager(path.AsView(), projectName.AsView()); }});
             };
             m_managerView->OnStoreChanged = [this]()
-            { (void)draconic::editor::SaveEditorSettingsToUserData(m_editorSettings); };
+            { (void)editor::SaveEditorSettingsToUserData(m_editorSettings); };
             m_managerView->Build(m_projectManager, m_host->Shell()->Dialogs(),
                                  &m_uiHost->Context(), mainRw->Window().Width(),
                                  mainRw->Window().Height());
@@ -2402,7 +2406,7 @@ namespace draconic::editor::app
         if (!m_inManagerMode)
         {
             m_uiHost->DetachWindow(mainRw);
-            m_uiHost->AttachWindow(mainRw, RefPtr<draconic::ui::RootView>(m_managerView->Root()));
+            m_uiHost->AttachWindow(mainRw, RefPtr<foundation::ui::RootView>(m_managerView->Root()));
             m_inManagerMode = true;
         }
     }
@@ -2411,9 +2415,9 @@ namespace draconic::editor::app
     {
         // The controller decides (probe + version relation + prompt copy); this method only
         // renders dialogs for the prompt gates and runs the open it owns.
-        draconic::editor::ProjectManagerController::OpenDecision decision;
+        editor::ProjectManagerController::OpenDecision decision;
         m_projectManager.DecideOpen(directory, decision);
-        if (decision.gate == draconic::editor::ProjectOpenGate::NotAProject)
+        if (decision.gate == editor::ProjectOpenGate::NotAProject)
         {
             if (m_managerView)
             {
@@ -2421,40 +2425,40 @@ namespace draconic::editor::app
             }
             return;
         }
-        if (decision.gate == draconic::editor::ProjectOpenGate::OpenDirectly)
+        if (decision.gate == editor::ProjectOpenGate::OpenDirectly)
         {
             OpenProjectAt(directory);
             return;
         }
 
         const String dir(directory);
-        RefPtr<draconic::ui::Dialog> dialog =
-            MakeRef<draconic::ui::Dialog>(DefaultAllocator(), decision.promptTitle.AsView());
-        RefPtr<draconic::ui::Label> label =
-            MakeRef<draconic::ui::Label>(DefaultAllocator(), decision.promptBody.AsView());
+        RefPtr<foundation::ui::Dialog> dialog =
+            MakeRef<foundation::ui::Dialog>(DefaultAllocator(), decision.promptTitle.AsView());
+        RefPtr<foundation::ui::Label> label =
+            MakeRef<foundation::ui::Label>(DefaultAllocator(), decision.promptBody.AsView());
         label->WordWrap.SetValue(true);
         dialog->SetContent(label.Get());
-        draconic::ui::Dialog* rawDialog = dialog.Get();
+        foundation::ui::Dialog* rawDialog = dialog.Get();
 
-        if (decision.gate == draconic::editor::ProjectOpenGate::PromptNewerEngine)
+        if (decision.gate == editor::ProjectOpenGate::PromptNewerEngine)
         {
-            draconic::ui::Button* openAnyway =
-                dialog->AddButton(u8"Open Anyway", draconic::ui::DialogResult::None);
+            foundation::ui::Button* openAnyway =
+                dialog->AddButton(u8"Open Anyway", foundation::ui::DialogResult::None);
             openAnyway->OnClick.Add(
-                [this, rawDialog, dir](draconic::ui::ButtonBase*)
+                [this, rawDialog, dir](foundation::ui::ButtonBase*)
                 {
-                    rawDialog->Close(draconic::ui::DialogResult::OK);
+                    rawDialog->Close(foundation::ui::DialogResult::OK);
                     OpenProjectAt(dir.AsView());
                 });
         }
         else // PromptOlderBackup: the Godot-style backup-and-upgrade prompt
         {
-            draconic::ui::Button* backupOpen =
-                dialog->AddButton(u8"Back Up && Open", draconic::ui::DialogResult::None);
+            foundation::ui::Button* backupOpen =
+                dialog->AddButton(u8"Back Up && Open", foundation::ui::DialogResult::None);
             backupOpen->OnClick.Add(
-                [this, rawDialog, dir](draconic::ui::ButtonBase*)
+                [this, rawDialog, dir](foundation::ui::ButtonBase*)
                 {
-                    rawDialog->Close(draconic::ui::DialogResult::OK);
+                    rawDialog->Close(foundation::ui::DialogResult::OK);
                     if (!m_projectManager.BackupManifest(dir.AsView()).HasValue())
                     {
                         if (m_managerView)
@@ -2469,12 +2473,12 @@ namespace draconic::editor::app
                         (void)m_project->SaveSettings(); // re-stamp to this engine immediately
                     }
                 });
-            draconic::ui::Button* openOnly =
-                dialog->AddButton(u8"Open Without Backup", draconic::ui::DialogResult::None);
+            foundation::ui::Button* openOnly =
+                dialog->AddButton(u8"Open Without Backup", foundation::ui::DialogResult::None);
             openOnly->OnClick.Add(
-                [this, rawDialog, dir](draconic::ui::ButtonBase*)
+                [this, rawDialog, dir](foundation::ui::ButtonBase*)
                 {
-                    rawDialog->Close(draconic::ui::DialogResult::OK);
+                    rawDialog->Close(foundation::ui::DialogResult::OK);
                     OpenProjectAt(dir.AsView());
                     if (m_project)
                     {
@@ -2482,7 +2486,7 @@ namespace draconic::editor::app
                     }
                 });
         }
-        dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
+        dialog->AddButton(u8"Cancel", foundation::ui::DialogResult::Cancel);
         dialog->Show(&m_uiHost->Context());
     }
 
@@ -2538,18 +2542,18 @@ namespace draconic::editor::app
         AppendCountTo(message, dirtyCount);
         message += (dirtyCount == 1) ? StringView(u8" page has unsaved changes.")
                                      : StringView(u8" pages have unsaved changes.");
-        RefPtr<draconic::ui::Dialog> dialog =
-            MakeRef<draconic::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
-        RefPtr<draconic::ui::Label> label =
-            MakeRef<draconic::ui::Label>(DefaultAllocator(), message.AsView());
+        RefPtr<foundation::ui::Dialog> dialog =
+            MakeRef<foundation::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
+        RefPtr<foundation::ui::Label> label =
+            MakeRef<foundation::ui::Label>(DefaultAllocator(), message.AsView());
         label->WordWrap.SetValue(true);
         dialog->SetContent(label.Get());
 
-        draconic::ui::Dialog* rawDialog = dialog.Get();
-        draconic::ui::Button* saveAll =
-            dialog->AddButton(u8"Save All && Close Project", draconic::ui::DialogResult::None);
+        foundation::ui::Dialog* rawDialog = dialog.Get();
+        foundation::ui::Button* saveAll =
+            dialog->AddButton(u8"Save All && Close Project", foundation::ui::DialogResult::None);
         saveAll->OnClick.Add(
-            [this, rawDialog, queueClose](draconic::ui::ButtonBase*)
+            [this, rawDialog, queueClose](foundation::ui::ButtonBase*)
             {
                 bool allSaved = true;
                 for (const PagePanel& entry : m_pagePanels)
@@ -2568,18 +2572,18 @@ namespace draconic::editor::app
                     m_context.Notify(editor::NoticeKind::Error,
                                      u8"Save FAILED (see console) - staying open.");
                 }
-                rawDialog->Close(allSaved ? draconic::ui::DialogResult::OK
-                                          : draconic::ui::DialogResult::Cancel);
+                rawDialog->Close(allSaved ? foundation::ui::DialogResult::OK
+                                          : foundation::ui::DialogResult::Cancel);
             });
-        draconic::ui::Button* discard =
-            dialog->AddButton(u8"Close Without Saving", draconic::ui::DialogResult::None);
+        foundation::ui::Button* discard =
+            dialog->AddButton(u8"Close Without Saving", foundation::ui::DialogResult::None);
         discard->OnClick.Add(
-            [rawDialog, queueClose](draconic::ui::ButtonBase*)
+            [rawDialog, queueClose](foundation::ui::ButtonBase*)
             {
                 queueClose();
-                rawDialog->Close(draconic::ui::DialogResult::OK);
+                rawDialog->Close(foundation::ui::DialogResult::OK);
             });
-        dialog->AddButton(u8"Cancel", draconic::ui::DialogResult::Cancel);
+        dialog->AddButton(u8"Cancel", foundation::ui::DialogResult::Cancel);
         dialog->Show(&m_uiHost->Context());
     }
 
@@ -2622,11 +2626,11 @@ namespace draconic::editor::app
     {
         EditorIcons& icons = EditorIcons::Get();
         const f32 scale = (contentScale > 0.1f) ? contentScale : 1.0f;
-        const draconic::core::u32 kBaseSizes[] = {10, 12, 14, 16, 20, 24, 32};
-        draconic::core::Array<draconic::core::u32> sizes;
-        for (draconic::core::u32 base : kBaseSizes)
+        const foundation::core::u32 kBaseSizes[] = {10, 12, 14, 16, 20, 24, 32};
+        foundation::core::Array<foundation::core::u32> sizes;
+        for (foundation::core::u32 base : kBaseSizes)
         {
-            const draconic::core::u32 scaled = static_cast<draconic::core::u32>(
+            const foundation::core::u32 scaled = static_cast<foundation::core::u32>(
                 static_cast<f32>(base) * scale + 0.5f);
             if (sizes.IsEmpty() || sizes[sizes.Size() - 1] != scaled)
             {
@@ -2635,9 +2639,9 @@ namespace draconic::editor::app
         }
         const auto bakeable = icons.Bakeable();
         (void)m_uiHost->BakeSvgDrawables(
-            draconic::core::Span<draconic::ui::BakedSVGDrawable* const>(bakeable.Data(),
+            foundation::core::Span<foundation::ui::BakedSVGDrawable* const>(bakeable.Data(),
                                                                         bakeable.Size()),
-            draconic::core::Span<const draconic::core::u32>(sizes.Data(), sizes.Size()));
+            foundation::core::Span<const foundation::core::u32>(sizes.Data(), sizes.Size()));
         m_iconBakeScale = scale;
     }
 
@@ -2647,10 +2651,10 @@ namespace draconic::editor::app
         // Conventional order (editor-polish.md P2): File holds document/app essentials
         // only; per-user prefs live under Edit; project-scoped concerns (settings,
         // export, templates) get their own Project menu; Build stays cook-only.
-        draconic::ui::ContextMenu* file = bar->AddMenu(u8"File");
-        draconic::ui::ContextMenu* editMenu = bar->AddMenu(u8"Edit");
-        draconic::ui::ContextMenu* project = bar->AddMenu(u8"Project");
-        if (draconic::ui::ContextMenu* build = bar->AddMenu(u8"Build"))
+        foundation::ui::ContextMenu* file = bar->AddMenu(u8"File");
+        foundation::ui::ContextMenu* editMenu = bar->AddMenu(u8"Edit");
+        foundation::ui::ContextMenu* project = bar->AddMenu(u8"Project");
+        if (foundation::ui::ContextMenu* build = bar->AddMenu(u8"Build"))
         {
             build->AddItem(u8"Cook All", [this]() { m_cookService.RequestCook(false); });
             build->AddItem(u8"Rebuild All", [this]() { m_cookService.RequestCook(true); });
@@ -2663,7 +2667,7 @@ namespace draconic::editor::app
             // File > New <creator> from the registry (per-subsystem editor modules).
             // Categorized creators (e.g. "Primitives") nest in a submenu of that name.
             Array<StringView> categories;
-            for (const draconic::editor::EditorContext::AssetCreator& creator :
+            for (const editor::EditorContext::AssetCreator& creator :
                  m_context.Creators())
             {
                 if (creator.category.IsEmpty())
@@ -2690,13 +2694,13 @@ namespace draconic::editor::app
             }
             for (StringView category : categories)
             {
-                draconic::ui::MenuItem* submenuItem = file->AddSubmenu(category);
-                auto* submenu = Cast<draconic::ui::ContextMenu>(submenuItem->Submenu.Get());
+                foundation::ui::MenuItem* submenuItem = file->AddSubmenu(category);
+                auto* submenu = Cast<foundation::ui::ContextMenu>(submenuItem->Submenu.Get());
                 if (submenu == nullptr)
                 {
                     continue;
                 }
-                for (const draconic::editor::EditorContext::AssetCreator& creator :
+                for (const editor::EditorContext::AssetCreator& creator :
                      m_context.Creators())
                 {
                     if (creator.category.AsView() != category)
@@ -2786,23 +2790,23 @@ namespace draconic::editor::app
         // Keyboard equivalents via the UI ShortcutManager. Shortcuts dispatch AFTER the
         // focused view, and text controls mark their key-downs handled - so a focused
         // textbox keeps Ctrl+Z for its own text undo and these fire everywhere else.
-        draconic::ui::ShortcutManager* shortcuts = m_uiHost->Context().GetShortcuts();
-        shortcuts->AddGlobal(draconic::ui::KeyCode::Z, draconic::ui::KeyModifiers::Ctrl,
+        foundation::ui::ShortcutManager* shortcuts = m_uiHost->Context().GetShortcuts();
+        shortcuts->AddGlobal(foundation::ui::KeyCode::Z, foundation::ui::KeyModifiers::Ctrl,
                              [this]() { m_context.Undo(); });
-        shortcuts->AddGlobal(draconic::ui::KeyCode::Z,
-                             draconic::ui::KeyModifiers::Ctrl | draconic::ui::KeyModifiers::Shift,
+        shortcuts->AddGlobal(foundation::ui::KeyCode::Z,
+                             foundation::ui::KeyModifiers::Ctrl | foundation::ui::KeyModifiers::Shift,
                              [this]() { m_context.Redo(); });
-        shortcuts->AddGlobal(draconic::ui::KeyCode::Y, draconic::ui::KeyModifiers::Ctrl,
+        shortcuts->AddGlobal(foundation::ui::KeyCode::Y, foundation::ui::KeyModifiers::Ctrl,
                              [this]() { m_context.Redo(); });
-        shortcuts->AddGlobal(draconic::ui::KeyCode::S, draconic::ui::KeyModifiers::Ctrl,
+        shortcuts->AddGlobal(foundation::ui::KeyCode::S, foundation::ui::KeyModifiers::Ctrl,
                              [this]() { SaveActivePage(); });
 
-        if (draconic::ui::ContextMenu* game = bar->AddMenu(u8"Game"))
+        if (foundation::ui::ContextMenu* game = bar->AddMenu(u8"Game"))
         {
             game->AddItem(u8"Play", [this]() { OpenGamePage(false); });
             game->AddItem(u8"Play New Instance", [this]() { OpenGamePage(true); });
         }
-        if (draconic::ui::ContextMenu* view = bar->AddMenu(u8"View"))
+        if (foundation::ui::ContextMenu* view = bar->AddMenu(u8"View"))
         {
             view->AddItem(u8"Reset Layout",
                           [this]()
@@ -2812,7 +2816,7 @@ namespace draconic::editor::app
                           });
         }
 
-        if (draconic::ui::ContextMenu* help = bar->AddMenu(u8"Help"))
+        if (foundation::ui::ContextMenu* help = bar->AddMenu(u8"Help"))
         {
             help->AddItem(u8"About",
                           [this]()

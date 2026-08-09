@@ -12,9 +12,9 @@ import draconic.core; // Rectangle, Max
 import :thickness;
 import :gravity;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct GravityHelper
     {

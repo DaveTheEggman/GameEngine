@@ -20,12 +20,12 @@
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-namespace draconic::player
+namespace engine::player
 {
-    using namespace draconic::core;
-    namespace runtime = draconic::runtime;
-    namespace scene = draconic::scene;
-    namespace resource = draconic::resource;
+    using namespace foundation::core;
+    namespace runtime = foundation::runtime;
+    namespace scene = foundation::scene;
+    namespace resource = foundation::resource;
 
     struct PlayerOptions
     {
@@ -34,21 +34,21 @@ namespace draconic::player
         f32 exitAfterSeconds = 0.0f;
     };
 
-    class PlayerApplication : public draconic::engine::runtime::DefaultApplication
+    class PlayerApplication : public engine::runtime::DefaultApplication
     {
     public:
         explicit PlayerApplication(PlayerOptions options) : m_options(Move(options)) {}
 
         void OnStartup(runtime::IApplicationHost& host) override
         {
-            namespace project = draconic::engine::project;
-            m_root = MakeUnique<draconic::vfs::NativeFileSystem>(DefaultAllocator(),
+            namespace project = engine::project;
+            m_root = MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(),
                                                                  m_options.projectDir.AsView());
 
             // Dist layout wins when present (a staged dist can sit inside a project tree).
             if (m_root->Exists(project::kDistContentPak))
             {
-                m_pak = MakeUnique<draconic::vfs::PakFileSystem>(
+                m_pak = MakeUnique<foundation::vfs::PakFileSystem>(
                     DefaultAllocator(),
                     PathJoin(m_options.projectDir.AsView(), project::kDistContentPak).AsView());
                 if (!m_pak->IsValid() ||
@@ -60,7 +60,7 @@ namespace draconic::player
                     host.RequestExit(1);
                     return;
                 }
-                m_contentDb = MakeUnique<draconic::content::ContentDatabase>(
+                m_contentDb = MakeUnique<foundation::content::ContentDatabase>(
                     DefaultAllocator(), *m_pak, BinarySerializerFactory(),
                     project::kCookedAssetExtension);
                 m_sceneDb = m_contentDb.Get(); // scenes live IN the pak, binary like products
@@ -75,16 +75,16 @@ namespace draconic::player
                     host.RequestExit(1);
                     return;
                 }
-                m_contentMount = MakeUnique<draconic::vfs::NativeFileSystem>(
+                m_contentMount = MakeUnique<foundation::vfs::NativeFileSystem>(
                     DefaultAllocator(),
                     PathJoin(m_options.projectDir.AsView(), project::kProjectContentDir).AsView());
-                m_cookedMount = MakeUnique<draconic::vfs::NativeFileSystem>(
+                m_cookedMount = MakeUnique<foundation::vfs::NativeFileSystem>(
                     DefaultAllocator(),
                     PathJoin(m_options.projectDir.AsView(), project::kProjectCookedDir).AsView());
-                m_sourceDb = MakeUnique<draconic::content::ContentDatabase>(
-                    DefaultAllocator(), *m_contentMount, draconic::xml::XmlSerializerFactory(),
+                m_sourceDb = MakeUnique<foundation::content::ContentDatabase>(
+                    DefaultAllocator(), *m_contentMount, foundation::xml::XmlSerializerFactory(),
                     project::kSourceAssetExtension);
-                m_contentDb = MakeUnique<draconic::content::ContentDatabase>(
+                m_contentDb = MakeUnique<foundation::content::ContentDatabase>(
                     DefaultAllocator(), *m_cookedMount, BinarySerializerFactory(),
                     project::kCookedAssetExtension);
                 m_sceneDb = m_sourceDb.Get(); // authored scenes; products from the cooked DB
@@ -102,7 +102,7 @@ namespace draconic::player
             // The app builds the resource manager + standard factories over this DB
             // (product types registered there too - runtime-host.md v3 infra preset).
             SetContentDatabase(m_contentDb.Get());
-            draconic::engine::runtime::DefaultApplication::OnStartup(host);
+            engine::runtime::DefaultApplication::OnStartup(host);
 
             // Game-UI IME lifecycle: the player owns its window, so the UI subsystem
             // drives StartTextInput/StopTextInput on it as game EditText focus moves.
@@ -119,7 +119,7 @@ namespace draconic::player
             {
                 return;
             }
-            auto* scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
+            auto* scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
             if (scenes == nullptr)
             {
                 return;
@@ -127,7 +127,7 @@ namespace draconic::player
 
             // Resolution order: --scene path override, the manifest's guid (authoritative,
             // rename-proof), then the path mirror (v2 manifests).
-            draconic::content::Instance* instance = nullptr;
+            foundation::content::Instance* instance = nullptr;
             if (!m_options.sceneOverride.IsEmpty())
             {
                 instance = m_sceneDb->GetInstance(m_options.sceneOverride.AsView());
@@ -158,7 +158,7 @@ namespace draconic::player
             // (per-instance input; the game reads its own runtime). Nil/unresolved = no actions bound.
             if (Input() != nullptr && !m_settings.defaultInputMapId.IsNil())
             {
-                auto mapProxy = Resources()->Bind<draconic::input::InputMapResource>(
+                auto mapProxy = Resources()->Bind<foundation::input::InputMapResource>(
                     m_settings.defaultInputMapId);
                 if (mapProxy)
                 {
@@ -177,7 +177,7 @@ namespace draconic::player
             if (Audio() != nullptr && Audio()->Engine() != nullptr &&
                 !m_settings.defaultBusLayoutId.IsNil())
             {
-                auto layoutProxy = Resources()->Bind<draconic::audio::AudioBusLayoutResource>(
+                auto layoutProxy = Resources()->Bind<foundation::audio::AudioBusLayoutResource>(
                     m_settings.defaultBusLayoutId);
                 if (layoutProxy)
                 {
@@ -196,19 +196,19 @@ namespace draconic::player
             // (Audio.setBusVolume) persist for free.
             if (Audio() != nullptr && Audio()->Engine() != nullptr)
             {
-                draconic::engine::audio::RegisterAudioSettingsTypes();
-                draconic::vfs::NativeFileSystem userFs(
-                    draconic::core::GetUserDataDirectory(u8"draconic").AsView());
+                engine::audio::RegisterAudioSettingsTypes();
+                foundation::vfs::NativeFileSystem userFs(
+                    foundation::core::GetUserDataDirectory(u8"draconic").AsView());
                 UniquePtr<IStream> stream =
                     userFs.Open(UserSettingsFileName().AsView(), FileMode::Read);
                 if (stream)
                 {
-                    draconic::settings::Settings store;
-                    if (store.Load(*stream, draconic::xml::XmlSerializerFactory()).IsOk())
+                    foundation::settings::Settings store;
+                    if (store.Load(*stream, foundation::xml::XmlSerializerFactory()).IsOk())
                     {
-                        if (const auto* audio = store.Find<draconic::engine::audio::AudioUserSettings>())
+                        if (const auto* audio = store.Find<engine::audio::AudioUserSettings>())
                         {
-                            draconic::engine::audio::ApplyAudioUserSettings(*Audio()->Engine(), *audio);
+                            engine::audio::ApplyAudioUserSettings(*Audio()->Engine(), *audio);
                             DRACONIC_LOG_INFO(u8"Player", u8"user audio settings applied");
                         }
                     }
@@ -221,7 +221,7 @@ namespace draconic::player
             if (UI() != nullptr && !m_settings.defaultUiFontId.IsNil())
             {
                 auto fontProxy =
-                    Resources()->Bind<draconic::fonts::Font>(m_settings.defaultUiFontId);
+                    Resources()->Bind<foundation::fonts::Font>(m_settings.defaultUiFontId);
                 if (fontProxy)
                 {
                     UI()->SetDefaultFont(fontProxy.Get());
@@ -245,7 +245,7 @@ namespace draconic::player
             if (UI() != nullptr && !m_settings.defaultUiThemeId.IsNil())
             {
                 auto themeProxy =
-                    Resources()->Bind<draconic::ui::UITheme>(m_settings.defaultUiThemeId);
+                    Resources()->Bind<foundation::ui::UITheme>(m_settings.defaultUiThemeId);
                 if (themeProxy)
                 {
                     UI()->SetDefaultTheme(themeProxy.Get());
@@ -270,13 +270,13 @@ namespace draconic::player
             {
                 m_bootScenePath = String(instance->Path());
                 m_splashView = PushSplash();
-                draconic::content::ContentDatabase* sceneDb = m_sceneDb;
+                foundation::content::ContentDatabase* sceneDb = m_sceneDb;
                 m_bootLoad = Instance().LoadSceneAsync(
                     *instance, *Resources(),
                     Function<UniquePtr<IStream>(const Guid&)>{
                         [sceneDb](const Guid& prefabId) -> UniquePtr<IStream>
                         {
-                            draconic::content::Instance* prefab =
+                            foundation::content::Instance* prefab =
                                 (sceneDb != nullptr) ? sceneDb->GetInstance(prefabId) : nullptr;
                             return (prefab != nullptr) ? prefab->ReadData(u8"scene")
                                                        : UniquePtr<IStream>{};
@@ -307,7 +307,7 @@ namespace draconic::player
 
         void OnUpdate(runtime::IApplicationHost& host, f32 deltaTime) override
         {
-            draconic::engine::runtime::DefaultApplication::OnUpdate(host,
+            engine::runtime::DefaultApplication::OnUpdate(host,
                                                   deltaTime); // pumps resources + ticks the game script
             if (m_booting)
             {
@@ -338,20 +338,20 @@ namespace draconic::player
             // Persist the user's mixer state (see the startup load).
             if (Audio() != nullptr && Audio()->Engine() != nullptr)
             {
-                draconic::settings::Settings store;
-                draconic::engine::audio::CaptureAudioUserSettings(
-                    *Audio()->Engine(), store.Section<draconic::engine::audio::AudioUserSettings>());
-                const String dir = draconic::core::GetUserDataDirectory(u8"draconic");
-                (void)draconic::core::CreateDirectory(dir.AsView());
-                draconic::vfs::NativeFileSystem userFs(dir.AsView());
+                foundation::settings::Settings store;
+                engine::audio::CaptureAudioUserSettings(
+                    *Audio()->Engine(), store.Section<engine::audio::AudioUserSettings>());
+                const String dir = foundation::core::GetUserDataDirectory(u8"draconic");
+                (void)foundation::core::CreateDirectory(dir.AsView());
+                foundation::vfs::NativeFileSystem userFs(dir.AsView());
                 MemoryStream buffer;
-                if (store.Save(buffer, draconic::xml::XmlSerializerFactory()).IsOk())
+                if (store.Save(buffer, foundation::xml::XmlSerializerFactory()).IsOk())
                 {
                     (void)userFs.AsWritable()->Save(UserSettingsFileName().AsView(),
                                                     buffer.Bytes());
                 }
             }
-            draconic::engine::runtime::DefaultApplication::OnShutdown(host); // releases products device-alive
+            engine::runtime::DefaultApplication::OnShutdown(host); // releases products device-alive
         }
 
     private:
@@ -368,13 +368,13 @@ namespace draconic::player
             {
                 return;
             }
-            auto* cameras = scene->GetSystem<draconic::engine::render::CameraComponentManager>();
+            auto* cameras = scene->GetSystem<engine::render::CameraComponentManager>();
             if (cameras == nullptr)
             {
                 return;
             }
             bool hasCamera = false;
-            cameras->ForEach([&](draconic::engine::render::CameraComponent&, scene::EntityHandle)
+            cameras->ForEach([&](engine::render::CameraComponent&, scene::EntityHandle)
                              { hasCamera = true; });
             if (hasCamera)
             {
@@ -410,7 +410,7 @@ namespace draconic::player
             {
                 return;
             }
-            auto proxy = Resources()->Bind<draconic::script::ScriptClass>(scriptId);
+            auto proxy = Resources()->Bind<foundation::script::ScriptClass>(scriptId);
             if (!proxy || proxy->source.IsEmpty())
             {
                 DRACONIC_LOG_ERROR(u8"Player", u8"startup script asset not found");
@@ -447,20 +447,20 @@ namespace draconic::player
             DRACONIC_LOG_INFO(u8"Player", u8"running scene '{}'", m_bootScenePath);
         }
 
-        [[nodiscard]] RefPtr<draconic::ui::View> PushSplash()
+        [[nodiscard]] RefPtr<foundation::ui::View> PushSplash()
         {
             if (UI() == nullptr)
             {
                 return {};
             }
-            RefPtr<draconic::ui::UIDocument> doc;
+            RefPtr<foundation::ui::UIDocument> doc;
             if (!m_settings.loadingDocumentId.IsNil() && Resources() != nullptr)
             {
                 auto proxy =
-                    Resources()->Bind<draconic::ui::UIDocument>(m_settings.loadingDocumentId);
+                    Resources()->Bind<foundation::ui::UIDocument>(m_settings.loadingDocumentId);
                 if (proxy.Get() != nullptr)
                 {
-                    doc = RefPtr<draconic::ui::UIDocument>(proxy.Get());
+                    doc = RefPtr<foundation::ui::UIDocument>(proxy.Get());
                 }
             }
             if (!doc)
@@ -481,12 +481,12 @@ namespace draconic::player
 
         void DriveSplash(f32 progress)
         {
-            draconic::ui::ViewGroup* root = Cast<draconic::ui::ViewGroup>(m_splashView.Get());
+            foundation::ui::ViewGroup* root = Cast<foundation::ui::ViewGroup>(m_splashView.Get());
             if (root == nullptr)
             {
                 return;
             }
-            if (auto* bar = root->FindByName<draconic::ui::ProgressBar>(u8"progress"))
+            if (auto* bar = root->FindByName<foundation::ui::ProgressBar>(u8"progress"))
             {
                 bar->Value.SetValue(progress);
             }
@@ -495,10 +495,10 @@ namespace draconic::player
         // The built-in default splash (bare-bones - a status label + progress bar). A shipped game
         // authors its own UIDocument and sets loadingDocumentId; this just proves the flow works with
         // zero authoring. The `status`/`progress` ids are the app<->document contract.
-        [[nodiscard]] static RefPtr<draconic::ui::UIDocument> DefaultSplashDocument()
+        [[nodiscard]] static RefPtr<foundation::ui::UIDocument> DefaultSplashDocument()
         {
-            RefPtr<draconic::ui::UIDocument> doc =
-                MakeRef<draconic::ui::UIDocument>(DefaultAllocator());
+            RefPtr<foundation::ui::UIDocument> doc =
+                MakeRef<foundation::ui::UIDocument>(DefaultAllocator());
             doc->markup = String(u8"<FlexLayout>"
                                  u8"<Label id=\"status\" text=\"Loading...\"/>"
                                  u8"<ProgressBar id=\"progress\"/>"
@@ -508,19 +508,19 @@ namespace draconic::player
 
         PlayerOptions m_options;
         f32 m_elapsed = 0.0f;
-        draconic::engine::project::ProjectSettings m_settings;
-        UniquePtr<draconic::vfs::NativeFileSystem> m_root;
-        UniquePtr<draconic::vfs::PakFileSystem> m_pak;             // dist mode only
-        UniquePtr<draconic::vfs::NativeFileSystem> m_contentMount; // project mode only
-        UniquePtr<draconic::vfs::NativeFileSystem> m_cookedMount;
-        UniquePtr<draconic::content::ContentDatabase> m_sourceDb;  // project mode: authored scenes
-        UniquePtr<draconic::content::ContentDatabase> m_contentDb; // products (and dist scenes)
-        draconic::content::ContentDatabase* m_sceneDb = nullptr;   // where scenes come from
+        engine::project::ProjectSettings m_settings;
+        UniquePtr<foundation::vfs::NativeFileSystem> m_root;
+        UniquePtr<foundation::vfs::PakFileSystem> m_pak;             // dist mode only
+        UniquePtr<foundation::vfs::NativeFileSystem> m_contentMount; // project mode only
+        UniquePtr<foundation::vfs::NativeFileSystem> m_cookedMount;
+        UniquePtr<foundation::content::ContentDatabase> m_sourceDb;  // project mode: authored scenes
+        UniquePtr<foundation::content::ContentDatabase> m_contentDb; // products (and dist scenes)
+        foundation::content::ContentDatabase* m_sceneDb = nullptr;   // where scenes come from
         scene::Scene* m_scene = nullptr;                           // owned by the SceneSubsystem
 
         // Boot splash + async default-scene load (task #123 step 4).
-        draconic::engine::runtime::SceneLoadHandle m_bootLoad;     // the in-flight async boot load
-        RefPtr<draconic::ui::View> m_splashView; // the pushed splash overlay (null = none)
+        engine::runtime::SceneLoadHandle m_bootLoad;     // the in-flight async boot load
+        RefPtr<foundation::ui::View> m_splashView; // the pushed splash overlay (null = none)
         String m_bootScenePath;
         bool m_booting = false;
     };

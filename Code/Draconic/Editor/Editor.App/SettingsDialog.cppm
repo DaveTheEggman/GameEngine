@@ -23,18 +23,18 @@ import draconic.ui;
 import draconic.editor.core;
 import :asset_picker_dialog;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::editor::app
+export namespace editor::app
 {
-    namespace ui = draconic::ui;
-    namespace content = draconic::content;
+    namespace ui = foundation::ui;
+    namespace content = foundation::content;
 
     class ProjectSettingsDialog final : public ui::Dialog
     {
         DRACONIC_OBJECT(ProjectSettingsDialog, ui::Dialog)
     public:
-        explicit ProjectSettingsDialog(draconic::editor::EditorContext& context)
+        explicit ProjectSettingsDialog(editor::EditorContext& context)
             : ui::Dialog(u8"Project Settings"), m_context(&context)
         {
             MinWidth.SetValue(460.0f);
@@ -42,7 +42,7 @@ export namespace draconic::editor::app
             MaxWidth.SetValue(560.0f);
             MaxHeight.SetValue(560.0f); // taller so the ~8 rows fit; the ScrollView handles overflow
 
-            draconic::editor::EditorProject* project = context.Project();
+            editor::EditorProject* project = context.Project();
 
             auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
@@ -332,7 +332,7 @@ export namespace draconic::editor::app
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Engine version");
                 auto value =
-                    MakeRef<ui::Label>(DefaultAllocator(), draconic::editor::kEngineVersionString);
+                    MakeRef<ui::Label>(DefaultAllocator(), editor::kEngineVersionString);
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->AlignSelf = ui::Align::Center;
                 row->AddView(value.Get(), lp);
@@ -381,7 +381,7 @@ export namespace draconic::editor::app
 
         void Apply();
 
-        draconic::editor::EditorContext* m_context;
+        editor::EditorContext* m_context;
         Guid m_inputMapId{};
         Guid m_busLayoutId{};
         RefPtr<ui::Label> m_inputMapLabel;

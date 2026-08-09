@@ -16,9 +16,11 @@ import draconic.ui.toolkit;
 import draconic.editor.core;
 import draconic.editor.app;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace image = foundation::image;
+namespace ui = foundation::ui;
 
-namespace draconic::editor
+namespace editor
 {
     namespace
     {
@@ -44,13 +46,13 @@ namespace draconic::editor
         }
     } // namespace
 
-    ImageEditorPage::ImageEditorPage(EditorContext& context, draconic::content::Instance& instance)
+    ImageEditorPage::ImageEditorPage(EditorContext& context, foundation::content::Instance& instance)
         : m_context(&context), m_title(instance.Name())
     {
         SetInstanceId(instance.Id());
 
         RefPtr<ISerializable> object = instance.ReadObject();
-        m_asset = RefPtr<draconic::pipeline::ImageAsset>(Cast<draconic::pipeline::ImageAsset>(object.Get()));
+        m_asset = RefPtr<pipeline::ImageAsset>(Cast<pipeline::ImageAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor", u8"image '{}' failed to read - page opens empty",
@@ -265,7 +267,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             m_context->Project()->SourceDb().GetInstance(InstanceId());
         if (instance == nullptr)
         {
@@ -283,11 +285,11 @@ namespace draconic::editor
 
     const TypeInfo* ImageEditorPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::ImageAsset::StaticType();
+        return &pipeline::ImageAsset::StaticType();
     }
 
     UniquePtr<EditorPage> ImageEditorPageFactory::CreatePage(EditorContext& context,
-                                                             draconic::content::Instance& instance)
+                                                             foundation::content::Instance& instance)
     {
         auto* page = DefaultAllocator().New<ImageEditorPage>(context, instance);
         return UniquePtr<EditorPage>(page, DefaultAllocator());

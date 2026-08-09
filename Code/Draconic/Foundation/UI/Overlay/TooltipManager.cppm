@@ -17,9 +17,9 @@ import draconic.core;
 import :view_id;
 import :tooltip_placement;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     class View;
     class UIContext;

@@ -5,7 +5,7 @@
 
 import draconic.core;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
 // Reflection of Core value types is registered explicitly; idempotent, so each
 // test can ensure it.

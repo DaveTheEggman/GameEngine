@@ -16,8 +16,8 @@
 import draconic.core;
 import draconic.shaders;
 
-using namespace draconic::core;
-namespace shaders = draconic::shaders;
+using namespace foundation::core;
+namespace shaders = foundation::shaders;
 
 namespace
 {

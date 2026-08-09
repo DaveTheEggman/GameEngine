@@ -16,9 +16,9 @@ import :theme_palette;
 import :dark_theme;
 import :light_theme;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::ui
+export namespace foundation::ui
 {
     struct GameTheme
     {

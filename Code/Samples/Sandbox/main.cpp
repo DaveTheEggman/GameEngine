@@ -50,28 +50,27 @@ import draconic.animation;          // AnimationPlayer (drives GPU skinning)
 #define DRACONIC_SANDBOX_OUTPUT_DIR ""
 #endif
 
-namespace core = draconic::core;
-namespace samples = draconic::samples;
-namespace rhi = draconic::rhi;
-namespace runtime = draconic::runtime;
-namespace graphics = draconic::graphics;
-namespace shell = draconic::shell;
-namespace scene = draconic::scene;
-namespace render = draconic::render;
-namespace geometry = draconic::geometry;
-namespace materials = draconic::materials;
-namespace texture = draconic::texture;
-namespace vfs = draconic::vfs;
-namespace content = draconic::content;
-namespace resource = draconic::resource;
-namespace model = draconic::model;
-namespace animation = draconic::animation;
-namespace imgui = draconic::imgui;
-namespace particles = draconic::particles;
+namespace core = foundation::core;
+namespace rhi = foundation::rhi;
+namespace runtime = foundation::runtime;
+namespace graphics = foundation::graphics;
+namespace shell = foundation::shell;
+namespace scene = foundation::scene;
+namespace render = foundation::render;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace texture = foundation::texture;
+namespace vfs = foundation::vfs;
+namespace content = foundation::content;
+namespace resource = foundation::resource;
+namespace model = foundation::model;
+namespace animation = foundation::animation;
+namespace imgui = extensions::imgui;
+namespace particles = foundation::particles;
 
 namespace
 {
-    class SandboxApp final : public draconic::engine::runtime::DefaultApplication
+    class SandboxApp final : public engine::runtime::DefaultApplication
     {
     public:
         // Run uncapped (vsync off) so the FPS/frame-ms readout reflects real CPU+GPU cost, not the
@@ -86,7 +85,7 @@ namespace
         // Register the standard subsystems (DefaultApplication) + the ImGui debug UI on top.
         void Configure(runtime::IApplicationHost& host) override
         {
-            draconic::engine::runtime::DefaultApplication::Configure(host);
+            engine::runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
@@ -101,9 +100,9 @@ namespace
 
             // Per-scene environment: drives IBL (split-sum ambient from a procedural sky) + the flat
             // fallback. The procedural sky's gradient + sun feed the SH9 diffuse + prefiltered specular.
-            if (auto* env = m_scene->GetSystem<draconic::engine::render::EnvironmentSystem>())
+            if (auto* env = m_scene->GetSystem<engine::render::EnvironmentSystem>())
             {
-                draconic::engine::render::EnvironmentSettings& e = env->Environment();
+                engine::render::EnvironmentSettings& e = env->Environment();
                 e.ambientColor = core::Color{0.12f, 0.16f, 0.28f, 1.0f}; // flat fallback (IBL off)
                 e.ambientIntensity = 0.35f;
                 e.skyMode = render::SkyMode::Procedural;
@@ -115,7 +114,7 @@ namespace
             }
 
             // Load an HDR equirectangular environment so F5 can cycle to it (mode starts Procedural).
-            if (auto* render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>())
+            if (auto* render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>())
             {
                 // Default exposure below 1.0 - the procedural sky + IBL ambient are bright, so the AgX
                 // tonemap washes out at 1.0. Tune live via the Environment window's Exposure slider.
@@ -123,9 +122,9 @@ namespace
                 core::String hdrPath = core::Format(
                     u8"{}/BlueSky.hdr", core::StringView(reinterpret_cast<const core::utf8char*>(
                                             DRACONIC_SANDBOX_ENV_DIR)));
-                draconic::image::Image img;
-                if (draconic::image::io::LoadImage(hdrPath.AsView(), img).IsOk() &&
-                    img.Format() == draconic::image::PixelFormat::RGBA32F)
+                foundation::image::Image img;
+                if (foundation::image::io::LoadImage(hdrPath.AsView(), img).IsOk() &&
+                    img.Format() == foundation::image::PixelFormat::RGBA32F)
                 {
                     const core::Span<const core::u8> px = img.PixelData();
                     const core::Span<const core::f32> rgba{
@@ -152,7 +151,7 @@ namespace
                                  core::StringView(reinterpret_cast<const core::utf8char*>(
                                      DRACONIC_SANDBOX_ENV_DIR)));
                 core::Array<core::String> facePaths;
-                if (draconic::pipeline::TextureImporter::DetectCubemapFaces(oneFace.AsView(), facePaths)
+                if (pipeline::TextureImporter::DetectCubemapFaces(oneFace.AsView(), facePaths)
                         .IsOk() &&
                     facePaths.Size() == 6)
                 {
@@ -163,7 +162,7 @@ namespace
                     }
                     core::Array<core::u8> cube;
                     core::u32 cubeFace = 0;
-                    if (draconic::pipeline::TextureImporter::LoadCubemap(
+                    if (pipeline::TextureImporter::LoadCubemap(
                             core::Span<const core::StringView>{faceViews, 6}, cube, cubeFace)
                             .IsOk())
                     {
@@ -185,20 +184,20 @@ namespace
             core::Transform camT = m_scene->GetLocalTransform(m_camera);
             camT.rotation = core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f}, -0.48f);
             m_scene->SetLocalTransform(m_camera, camT);
-            if (auto* cameras = m_scene->GetSystem<draconic::engine::render::CameraComponentManager>())
+            if (auto* cameras = m_scene->GetSystem<engine::render::CameraComponentManager>())
             {
-                draconic::engine::render::CameraComponent& cam = cameras->Add(m_camera); // default 60deg perspective
+                engine::render::CameraComponent& cam = cameras->Add(m_camera); // default 60deg perspective
                 cam.clearColor =
                     core::Color{0.02f, 0.02f, 0.03f, 1.0f}; // dark backdrop so the lit scene reads
             }
 
             // A large horizontal floor (Plane normal = +Y) under the scene - the point lights hover
             // above it and cast visible pools on it. The two cube grids stand on the floor.
-            if (auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>())
+            if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
             {
                 m_floorEntity = m_scene->CreateEntity(u8"floor");
                 m_scene->SetLocalPosition(m_floorEntity, core::Float3{0.0f, 0.0f, 0.0f});
-                draconic::engine::render::MeshComponent& fmc = meshes->Add(m_floorEntity);
+                engine::render::MeshComponent& fmc = meshes->Add(m_floorEntity);
                 fmc.mesh = geometry::Primitives::Plane(120.0f, 120.0f);
                 // Semi-glossy DIELECTRIC green floor (non-metallic, moderate roughness): shadows read
                 // clearly (not washed out by a mirror-metal reflection) while SSR still shows softly.
@@ -221,7 +220,7 @@ namespace
                     m_scene->SetLocalPosition(b,
                                               core::Float3{-7.5f + 5.0f * static_cast<core::f32>(k),
                                                            kFloorY + kBoxSize * 0.5f, 10.0f});
-                    draconic::engine::render::MeshComponent& bmc = meshes->Add(b);
+                    engine::render::MeshComponent& bmc = meshes->Add(b);
                     bmc.mesh = box;
                     bmc.SetMaterial(boxMat);
                 }
@@ -243,7 +242,7 @@ namespace
                     m_scene->SetLocalPosition(s,
                                               core::Float3{-7.5f + 5.0f * static_cast<core::f32>(k),
                                                            kFloorY + kBallR, 16.0f});
-                    draconic::engine::render::MeshComponent& smc = meshes->Add(s);
+                    engine::render::MeshComponent& smc = meshes->Add(s);
                     smc.mesh = ball;
                     smc.SetMaterial(ballMat);
                 }
@@ -264,7 +263,7 @@ namespace
                     m_scene->SetLocalPosition(
                         g, core::Float3{-26.0f, kFloorY + 6.0f + 3.0f * static_cast<core::f32>(k),
                                         16.0f});
-                    draconic::engine::render::MeshComponent& gmc = meshes->Add(g);
+                    engine::render::MeshComponent& gmc = meshes->Add(g);
                     gmc.mesh = ball;
                     gmc.SetMaterial(glassMat);
                 }
@@ -286,7 +285,7 @@ namespace
                             m_scene->SetLocalPosition(
                                 m, core::Float3{-5.0f + 5.0f * static_cast<core::f32>(k),
                                                 kFloorY + 3.5f, 24.0f});
-                            draconic::engine::render::MeshComponent& mmc = meshes->Add(m);
+                            engine::render::MeshComponent& mmc = meshes->Add(m);
                             mmc.mesh = ball;
                             mmc.SetMaterial(maskMat);
                         }
@@ -296,13 +295,13 @@ namespace
 
             // Lights: a dim directional key (down-forward) + a bright point light that orbits the
             // grid in OnUpdate, so the per-light forward shade is visible (moving highlight).
-            if (auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>())
+            if (auto* lights = m_scene->GetSystem<engine::render::LightComponentManager>())
             {
                 scene::EntityHandle key = m_scene->CreateEntity(u8"keyLight");
                 m_keyLight = key;
                 ApplyKeyLightDir(); // pitch/yaw -> entity rotation (steeper downward tilt by default)
-                draconic::engine::render::LightComponent& kl = lights->Add(key);
-                kl.type = draconic::engine::render::LightType::Directional;
+                engine::render::LightComponent& kl = lights->Add(key);
+                kl.type = engine::render::LightType::Directional;
                 kl.color = core::Color{0.4f, 0.5f, 0.7f, 1.0f};
                 kl.intensity = 0.5f;    // key light: bright enough that its shadow reads
                 kl.castsShadows = true; // directional CSM (5.2) + spot (5.3a) + point cube (5.3b)
@@ -321,8 +320,8 @@ namespace
                         const core::Float3 base{-15.0f + 30.0f * fi, 5.5f,
                                                 -2.0f + 16.0f * fj}; // hover above floor
                         m_scene->SetLocalPosition(e, base);
-                        draconic::engine::render::LightComponent& pl = lights->Add(e);
-                        pl.type = draconic::engine::render::LightType::Point;
+                        engine::render::LightComponent& pl = lights->Add(e);
+                        pl.type = engine::render::LightType::Point;
                         pl.color =
                             core::Color{0.4f + 0.6f * fi, 0.4f + 0.6f * fj, 1.0f - 0.6f * fi, 1.0f};
                         pl.intensity = 14.0f;
@@ -343,8 +342,8 @@ namespace
                 st.rotation = core::Quaternion::FromAxisAngle(core::Float3{1.0f, 0.0f, 0.0f},
                                                               -1.5f); // nearly straight down
                 m_scene->SetLocalTransform(spot, st);
-                draconic::engine::render::LightComponent& sl = lights->Add(spot);
-                sl.type = draconic::engine::render::LightType::Spot;
+                engine::render::LightComponent& sl = lights->Add(spot);
+                sl.type = engine::render::LightType::Spot;
                 sl.color = core::Color{1.0f, 0.92f, 0.78f, 1.0f}; // warm, to contrast the blue key
                 sl.intensity = 120.0f; // inverse-square over ~14u to the floor
                 sl.range = 30.0f;
@@ -352,14 +351,14 @@ namespace
                 sl.outerAngle = 0.75f;  // wide cone: cover both the box + sphere rows
                 sl.castsShadows = true; // spot atlas shadow caster (5.3a)
                 sl.shadowUpdate =
-                    draconic::engine::render::ShadowUpdateMode::Static; // static scene -> cached atlas layer (5.4b)
+                    engine::render::ShadowUpdateMode::Static; // static scene -> cached atlas layer (5.4b)
 
                 // A shadow-casting POINT light hovering among the floor boxes/spheres - the phase 5.3b
                 // cube-shadow demo. Its 6 atlas faces cast shadows radially (onto the floor + box sides).
                 scene::EntityHandle pt = m_scene->CreateEntity(u8"shadowPoint");
                 m_scene->SetLocalPosition(pt, core::Float3{4.0f, 5.0f, 13.0f});
-                draconic::engine::render::LightComponent& pls = lights->Add(pt);
-                pls.type = draconic::engine::render::LightType::Point;
+                engine::render::LightComponent& pls = lights->Add(pt);
+                pls.type = engine::render::LightType::Point;
                 pls.color =
                     core::Color{0.5f, 1.0f, 0.6f, 1.0f}; // green, distinct from the warm spot
                 pls.intensity = 28.0f;
@@ -370,12 +369,12 @@ namespace
             // TWO reflection probes, side by side with an overlap in the middle, to show multi-probe blending:
             // each captures from its own center (so their local reflections differ), and fragments in the
             // overlap blend the two by influence weight. Realtime -> round-robin re-captures one per frame.
-            if (auto* probes = m_scene->GetSystem<draconic::engine::render::ReflectionProbeComponentManager>())
+            if (auto* probes = m_scene->GetSystem<engine::render::ReflectionProbeComponentManager>())
             {
                 m_probeEntity = m_scene->CreateEntity(
                     u8"reflectionProbeL"); // left probe (F6/UI toggles this one)
                 m_scene->SetLocalPosition(m_probeEntity, core::Float3{-8.0f, 6.0f, 16.0f});
-                draconic::engine::render::ReflectionProbeComponent& rpL = probes->Add(m_probeEntity);
+                engine::render::ReflectionProbeComponent& rpL = probes->Add(m_probeEntity);
                 rpL.halfExtents = core::Float3{12.0f, 12.0f, 14.0f}; // covers x[-20,4]
                 rpL.blendDistance = 4.0f;
                 rpL.update = render::ProbeUpdateMode::Realtime;
@@ -383,7 +382,7 @@ namespace
                 scene::EntityHandle probeR =
                     m_scene->CreateEntity(u8"reflectionProbeR"); // right probe
                 m_scene->SetLocalPosition(probeR, core::Float3{8.0f, 6.0f, 16.0f});
-                draconic::engine::render::ReflectionProbeComponent& rpR = probes->Add(probeR);
+                engine::render::ReflectionProbeComponent& rpR = probes->Add(probeR);
                 rpR.halfExtents =
                     core::Float3{12.0f, 12.0f, 14.0f}; // covers x[-4,20] -> overlap x[-4,4]
                 rpR.blendDistance = 4.0f;
@@ -406,7 +405,7 @@ namespace
         // up here, not only in the dedicated ParticleFX showcase.
         void BuildParticleDemo()
         {
-            auto* pmgr = m_scene->GetSystem<draconic::engine::particles::ParticleEffectComponentManager>();
+            auto* pmgr = m_scene->GetSystem<engine::particles::ParticleEffectComponentManager>();
             if (pmgr == nullptr)
             {
                 return;
@@ -531,7 +530,7 @@ namespace
             {
                 return;
             }
-            auto* decals = m_scene->GetSystem<draconic::engine::render::DecalComponentManager>();
+            auto* decals = m_scene->GetSystem<engine::render::DecalComponentManager>();
             if (decals == nullptr)
             {
                 return;
@@ -543,7 +542,7 @@ namespace
             }
 
             scene::EntityHandle e = m_scene->CreateEntity(u8"floorDecal");
-            draconic::engine::render::DecalComponent& dc = decals->Add(e);
+            engine::render::DecalComponent& dc = decals->Add(e);
             dc.texture = logo;
             dc.size =
                 core::Float3{8.0f, 8.0f, 6.0f}; // 8x8 floor footprint; 6-unit box depth spans y=0
@@ -568,9 +567,9 @@ namespace
             const core::StringView imageDir(
                 reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_IMAGE_DIR));
 
-            draconic::pipeline::TextureAsset asset;
-            draconic::pipeline::TextureImporter::Import2D(u8"draconic_logo_no_text.png",
-                                               draconic::image::ImageColorSpace::Srgb,
+            pipeline::TextureAsset asset;
+            pipeline::TextureImporter::Import2D(u8"draconic_logo_no_text.png",
+                                               foundation::image::ImageColorSpace::Srgb,
                                                asset); // sRGB albedo
 
             // Create a content instance of the cooked record type, then cook the asset into it.
@@ -581,9 +580,9 @@ namespace
             {
                 return nullptr;
             }
-            draconic::pipeline::TextureAssetBuilder builder;
-            draconic::vfs::NativeFileSystem imageMount(imageDir);
-            draconic::pipeline::AssetBuildContext ctx;
+            pipeline::TextureAssetBuilder builder;
+            foundation::vfs::NativeFileSystem imageMount(imageDir);
+            pipeline::AssetBuildContext ctx;
             ctx.sources = &imageMount; // the mount resolves the PNG
             ctx.output = inst;
             if (!builder.Build(asset, ctx).IsOk())
@@ -605,7 +604,7 @@ namespace
             {
                 return;
             }
-            auto* sprites = m_scene->GetSystem<draconic::engine::render::SpriteComponentManager>();
+            auto* sprites = m_scene->GetSystem<engine::render::SpriteComponentManager>();
             if (sprites == nullptr)
             {
                 return;
@@ -617,7 +616,7 @@ namespace
                 return;
             }
 
-            using draconic::engine::render::SpriteOrientation;
+            using engine::render::SpriteOrientation;
             struct Variant
             {
                 const char8_t* name;
@@ -646,7 +645,7 @@ namespace
             {
                 const Variant& v = variants[i];
                 scene::EntityHandle e = m_scene->CreateEntity(v.name);
-                draconic::engine::render::SpriteComponent& sp = sprites->Add(e);
+                engine::render::SpriteComponent& sp = sprites->Add(e);
                 sp.texture = logo;
                 sp.size = core::Float2{3.0f, 3.0f};
                 sp.tint = v.tint;
@@ -665,7 +664,7 @@ namespace
         void SpawnModel(core::StringView prefix, core::StringView path, core::Float3 position,
                         bool useGraph = false)
         {
-            auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>();
+            auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>();
             if (meshes == nullptr || m_contentDb.Get() == nullptr)
             {
                 return;
@@ -673,7 +672,7 @@ namespace
 
             core::Guid modelGuid;
             const model::ModelLoadResult r =
-                draconic::pipeline::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
+                pipeline::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
             if (r != model::ModelLoadResult::Ok)
             {
                 core::ConsoleWrite(core::Format(u8"Sandbox: model import failed ({}) for {}\n",
@@ -712,7 +711,7 @@ namespace
             core::Array<scene::EntityHandle> entities;
             core::Array<scene::EntityHandle> skinnedEntities;
             entities.Reserve(model->nodes.Size());
-            for (const draconic::pipeline::ModelNode& node : model->nodes)
+            for (const pipeline::ModelNode& node : model->nodes)
             {
                 scene::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
                 m_scene->SetLocalTransform(e, node.localTransform);
@@ -720,7 +719,7 @@ namespace
             }
             for (core::usize i = 0; i < model->nodes.Size(); ++i)
             {
-                const draconic::pipeline::ModelNode& node = model->nodes[i];
+                const pipeline::ModelNode& node = model->nodes[i];
                 if (node.parentIndex >= 0 &&
                     static_cast<core::usize>(node.parentIndex) < entities.Size())
                 {
@@ -743,7 +742,7 @@ namespace
                 {
                     continue;
                 }
-                draconic::engine::render::MeshComponent& mc = meshes->Add(entities[i]);
+                engine::render::MeshComponent& mc = meshes->Add(entities[i]);
                 mc.mesh = core::RefPtr<geometry::StaticMesh>(
                     mesh); // hold a ref (manager owns the handle)
                 mc.color = core::Color{1.0f, 1.0f, 1.0f, 1.0f};
@@ -769,11 +768,11 @@ namespace
                 if (useGraph)
                 {
                     if (auto* graphMgr =
-                            m_scene->GetSystem<draconic::engine::animation::AnimationGraphComponentManager>())
+                            m_scene->GetSystem<engine::animation::AnimationGraphComponentManager>())
                     {
                         core::RefPtr<animation::AnimationGraph> graph =
                             BuildClipCyclerGraph(*model);
-                        draconic::engine::animation::AnimationGraphComponent& gc = graphMgr->Add(modelRoot);
+                        engine::animation::AnimationGraphComponent& gc = graphMgr->Add(modelRoot);
                         gc.skeleton = model->skeleton.Get();
                         gc.graph = graph.Get();
                         gc.meshEntities =
@@ -784,9 +783,9 @@ namespace
                     }
                 }
                 else if (auto* skelMgr =
-                             m_scene->GetSystem<draconic::engine::animation::SkeletalAnimationComponentManager>())
+                             m_scene->GetSystem<engine::animation::SkeletalAnimationComponentManager>())
                 {
-                    draconic::engine::animation::SkeletalAnimationComponent& sa = skelMgr->Add(modelRoot);
+                    engine::animation::SkeletalAnimationComponent& sa = skelMgr->Add(modelRoot);
                     sa.skeleton = model->skeleton.Get();
                     sa.clip = model->animations[0].Get();
                     sa.meshEntities =
@@ -844,12 +843,12 @@ namespace
             {
                 return;
             }
-            auto* graphMgr = m_scene->GetSystem<draconic::engine::animation::AnimationGraphComponentManager>();
+            auto* graphMgr = m_scene->GetSystem<engine::animation::AnimationGraphComponentManager>();
             if (graphMgr == nullptr)
             {
                 return;
             }
-            if (draconic::engine::animation::AnimationGraphComponent* gc = graphMgr->Get(m_graphChar))
+            if (engine::animation::AnimationGraphComponent* gc = graphMgr->Get(m_graphChar))
             {
                 if (gc->player.Get() != nullptr)
                 {
@@ -881,9 +880,9 @@ namespace
             {
                 return;
             }
-            if (auto* env = m_scene->GetSystem<draconic::engine::render::EnvironmentSystem>())
+            if (auto* env = m_scene->GetSystem<engine::render::EnvironmentSystem>())
             {
-                draconic::engine::render::EnvironmentSettings& e = env->Environment();
+                engine::render::EnvironmentSettings& e = env->Environment();
                 e.skyMode =
                     (e.skyMode == render::SkyMode::Procedural)    ? render::SkyMode::Analytic
                     : (e.skyMode == render::SkyMode::Analytic)    ? render::SkyMode::HDREquirect
@@ -899,7 +898,7 @@ namespace
             {
                 return;
             }
-            if (auto* probes = m_scene->GetSystem<draconic::engine::render::ReflectionProbeComponentManager>())
+            if (auto* probes = m_scene->GetSystem<engine::render::ReflectionProbeComponentManager>())
             {
                 if (auto* rp = probes->Get(m_probeEntity))
                 {
@@ -910,7 +909,7 @@ namespace
 
         // Live debug UI (ImGui): scene environment tweakables wired straight to EnvironmentSettings -
         // editing these re-runs the IBL precompute next frame, so the ambient updates live.
-        void BuildDebugUI(draconic::engine::render::RenderSubsystem* render)
+        void BuildDebugUI(engine::render::RenderSubsystem* render)
         {
             if (m_scene == nullptr)
             {
@@ -1060,9 +1059,9 @@ namespace
                     }
                 }
             }
-            if (auto* env = m_scene->GetSystem<draconic::engine::render::EnvironmentSystem>())
+            if (auto* env = m_scene->GetSystem<engine::render::EnvironmentSystem>())
             {
-                draconic::engine::render::EnvironmentSettings& e = env->Environment();
+                engine::render::EnvironmentSettings& e = env->Environment();
                 // Sky source selector (also F5 to cycle). Picking a mode re-runs the IBL precompute.
                 const char* modes[] = {"Procedural", "Analytic (Preetham)", "HDR Equirect",
                                        "Cubemap"};
@@ -1113,9 +1112,9 @@ namespace
             }
             // Directional (key) light - the actual scene illumination + sky sun direction. Distinct from
             // "Sun Intensity" above (that's the sky's sun disc brightness, not the light that shades surfaces).
-            if (auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>())
+            if (auto* lights = m_scene->GetSystem<engine::render::LightComponentManager>())
             {
-                if (draconic::engine::render::LightComponent* kl =
+                if (engine::render::LightComponent* kl =
                         m_keyLight.IsAssigned() ? lights->Get(m_keyLight) : nullptr)
                 {
                     ImGui::SeparatorText("Directional Light");
@@ -1136,9 +1135,9 @@ namespace
                 }
             }
             // Reflection probe: toggle box parallax (also F6) to compare parallax-corrected vs infinite-env.
-            if (auto* probes = m_scene->GetSystem<draconic::engine::render::ReflectionProbeComponentManager>())
+            if (auto* probes = m_scene->GetSystem<engine::render::ReflectionProbeComponentManager>())
             {
-                if (draconic::engine::render::ReflectionProbeComponent* rp =
+                if (engine::render::ReflectionProbeComponent* rp =
                         m_probeEntity.IsAssigned() ? probes->Get(m_probeEntity) : nullptr)
                 {
                     ImGui::SeparatorText("Reflection Probe");
@@ -1230,7 +1229,7 @@ namespace
         // swapchain). Exercises the full multi-view path + the configurable target final state.
         void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
         {
-            auto* render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>();
+            auto* render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
             auto* gfx = host.Graphics();
             if (m_scene == nullptr || render == nullptr || !render->IsReady() || gfx == nullptr ||
                 gfx->Raw() == nullptr || frame.encoder == nullptr || frame.backbuffer == nullptr ||
@@ -1345,14 +1344,14 @@ namespace
 
         void OnUpdate(runtime::IApplicationHost& host, core::f32 deltaTime) override
         {
-            draconic::engine::runtime::DefaultApplication::OnUpdate(host, deltaTime); // keep the P-key profiling dump
+            engine::runtime::DefaultApplication::OnUpdate(host, deltaTime); // keep the P-key profiling dump
 
             // ImGui debug UI: open the frame (feed input + size) then build the tweakables. The draw
             // data is rendered over the scene in OnRenderWindow.
             if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
             {
                 g->NewFrame(host.Shell() != nullptr ? host.Shell()->Input() : nullptr, deltaTime);
-                BuildDebugUI(host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>());
+                BuildDebugUI(host.Ctx().GetSubsystem<engine::render::RenderSubsystem>());
             }
 
             // Viewport-input routing. Build the router + one surface per split half once the shell
@@ -1438,7 +1437,7 @@ namespace
             // a ground grid, an arrow from the spot, 3D + screen text). Both split-screen views render
             // these, each projected through its OWN camera - and they're keyed to this scene, so a second
             // scene's gizmos would never bleed in.
-            if (auto* render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>())
+            if (auto* render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>())
             {
                 // Debug gizmos toggle (ImGui "Debug Draw" checkbox). The FPS readout below stays on.
                 if (m_showDebugDraw)
@@ -1587,7 +1586,7 @@ namespace
         // supplies each cube's hue). Otherwise each cube gets its own material with a per-cube PBR
         // matrix (roughness sweeps smooth→rough across X, top half metallic) -> many distinct
         // draws -> parallel command recording. Both grids run every frame.
-        void BuildGrid(draconic::engine::render::MeshComponentManager& meshes,
+        void BuildGrid(engine::render::MeshComponentManager& meshes,
                        const core::RefPtr<geometry::StaticMesh>& cube, core::f32 originX,
                        bool instanced)
         {
@@ -1616,7 +1615,7 @@ namespace
                     const core::Float4 baseColor{static_cast<core::f32>(x) / (kGrid - 1),
                                                  static_cast<core::f32>(y) / (kGrid - 1), 0.6f,
                                                  1.0f};
-                    draconic::engine::render::MeshComponent& mc = meshes.Add(e);
+                    engine::render::MeshComponent& mc = meshes.Add(e);
                     mc.mesh = cube;
                     if (instanced)
                     {
@@ -1643,9 +1642,9 @@ namespace
         // the material is the clean live-tweak path (no instance-mutation API needed).
         void ApplyFloorMaterial()
         {
-            if (auto* meshes = m_scene->GetSystem<draconic::engine::render::MeshComponentManager>())
+            if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
             {
-                if (draconic::engine::render::MeshComponent* fmc = meshes->Get(m_floorEntity))
+                if (engine::render::MeshComponent* fmc = meshes->Get(m_floorEntity))
                 {
                     fmc->SetMaterial(materials::CreatePBR(
                         u8"lit", core::Float4{0.12f, 0.45f, 0.22f, 1.0f}, m_floorMetallic,

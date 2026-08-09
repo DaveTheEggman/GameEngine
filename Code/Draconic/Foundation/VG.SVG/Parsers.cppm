@@ -14,9 +14,9 @@ export module draconic.vg.svg:parsers;
 import draconic.core;
 import draconic.vg;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::vg::svg
+export namespace foundation::vg::svg
 {
     namespace detail
     {
@@ -483,7 +483,7 @@ export namespace draconic::vg::svg
     class SVGPathParser
     {
     public:
-        static Status Parse(StringView pathData, draconic::vg::PathBuilder& builder)
+        static Status Parse(StringView pathData, foundation::vg::PathBuilder& builder)
         {
             usize pos = 0;
             f32 currentX = 0.0f, currentY = 0.0f;

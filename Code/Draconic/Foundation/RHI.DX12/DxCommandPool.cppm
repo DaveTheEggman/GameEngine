@@ -15,9 +15,9 @@ import :conversions;
 import :command_buffer;
 import :descriptor_staging;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::dx12
+export namespace foundation::rhi::dx12
 {
 
     class DxDeviceImpl;         // forward
@@ -124,4 +124,4 @@ export namespace draconic::rhi::dx12
         DxDescriptorStaging m_srvStaging;
     };
 
-} // namespace draconic::rhi::dx12
+} // namespace foundation::rhi::dx12

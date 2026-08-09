@@ -6,8 +6,8 @@
 import draconic.core;
 import draconic.net;
 
-using namespace draconic::core;
-namespace net = draconic::net;
+using namespace foundation::core;
+namespace net = foundation::net;
 
 namespace
 {

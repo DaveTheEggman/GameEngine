@@ -31,9 +31,17 @@ import draconic.editor.core;
 import draconic.editor.app;
 import :camera;
 
-using namespace draconic::core;
+using namespace foundation::core;
+namespace particles = foundation::particles;
+namespace render = foundation::render;
+namespace rhi = foundation::rhi;
+namespace runtime = foundation::runtime;
+namespace scene = foundation::scene;
+namespace ui = foundation::ui;
+namespace vg = foundation::vg;
+namespace fonts = foundation::fonts;
 
-namespace draconic::editor
+namespace editor
 {
     namespace
     {
@@ -649,27 +657,27 @@ namespace draconic::editor
     ParticleEffectEditorPage::ParticleEffectEditorPage(EditorContext& context,
                                                        runtime::IApplicationHost& host,
                                                        ui::runtime::UIHost& uiHost,
-                                                       draconic::content::Instance& instance)
+                                                       foundation::content::Instance& instance)
         : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
         m_router =
-            MakeUnique<draconic::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
+            MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
         m_camera.position = Float3{0.0f, 2.0f, 6.0f};
         m_camera.LookAt(Float3{0.0f, 1.0f, 0.0f});
 
         SetInstanceId(instance.Id());
 
         RefPtr<ISerializable> object = instance.ReadObject();
-        m_asset = RefPtr<draconic::pipeline::ParticleEffectAsset>(
-            Cast<draconic::pipeline::ParticleEffectAsset>(object.Get()));
+        m_asset = RefPtr<pipeline::ParticleEffectAsset>(
+            Cast<pipeline::ParticleEffectAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor",
                                u8"particle effect '{}' failed to read - page opens empty", m_title);
         }
 
-        m_scenes = host.Ctx().GetSubsystem<draconic::engine::scene::SceneSubsystem>();
-        m_render = host.Ctx().GetSubsystem<draconic::engine::render::RenderSubsystem>();
+        m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
+        m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
 
         BuildPreviewScene();
         m_undoBaseline = SnapshotEffect();
@@ -808,7 +816,7 @@ namespace draconic::editor
         m_scene = m_sceneManager.CreateScene(u8"particle.preview");
 
         m_emitter = m_scene->CreateEntity(u8"Emitter");
-        if (auto* mgr = m_scene->GetSystem<draconic::engine::particles::ParticleEffectComponentManager>())
+        if (auto* mgr = m_scene->GetSystem<engine::particles::ParticleEffectComponentManager>())
         {
             mgr->Add(m_emitter).SetEffect(m_asset->Effect());
         }
@@ -818,20 +826,20 @@ namespace draconic::editor
         t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
                      Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
         m_scene->SetLocalTransform(sun, t);
-        if (auto* lights = m_scene->GetSystem<draconic::engine::render::LightComponentManager>())
+        if (auto* lights = m_scene->GetSystem<engine::render::LightComponentManager>())
         {
-            draconic::engine::render::LightComponent& light = lights->Add(sun);
+            engine::render::LightComponent& light = lights->Add(sun);
             light.castsShadows = false;
         }
     }
 
-    draconic::engine::particles::ParticleEffectComponent* ParticleEffectEditorPage::PreviewComponent() const
+    engine::particles::ParticleEffectComponent* ParticleEffectEditorPage::PreviewComponent() const
     {
         if (m_scene == nullptr)
         {
             return nullptr;
         }
-        auto* mgr = m_scene->GetSystem<draconic::engine::particles::ParticleEffectComponentManager>();
+        auto* mgr = m_scene->GetSystem<engine::particles::ParticleEffectComponentManager>();
         return mgr != nullptr ? mgr->Get(m_emitter) : nullptr;
     }
 
@@ -847,7 +855,7 @@ namespace draconic::editor
                 m_asset->Effect().GetSystem(i)->emitter.isEmitting = true;
             }
         }
-        if (draconic::engine::particles::ParticleEffectComponent* c = PreviewComponent())
+        if (engine::particles::ParticleEffectComponent* c = PreviewComponent())
         {
             if (c->instance)
             {
@@ -857,7 +865,7 @@ namespace draconic::editor
     }
     void ParticleEffectEditorPage::Stop()
     {
-        if (draconic::engine::particles::ParticleEffectComponent* c = PreviewComponent())
+        if (engine::particles::ParticleEffectComponent* c = PreviewComponent())
         {
             if (c->instance)
             {
@@ -867,7 +875,7 @@ namespace draconic::editor
     }
     void ParticleEffectEditorPage::Restart()
     {
-        if (draconic::engine::particles::ParticleEffectComponent* c = PreviewComponent())
+        if (engine::particles::ParticleEffectComponent* c = PreviewComponent())
         {
             if (c->instance)
             {
@@ -879,7 +887,7 @@ namespace draconic::editor
     void ParticleEffectEditorPage::SetPaused(bool paused)
     {
         m_paused = paused;
-        if (draconic::engine::particles::ParticleEffectComponent* c = PreviewComponent())
+        if (engine::particles::ParticleEffectComponent* c = PreviewComponent())
         {
             if (c->instance)
             {
@@ -1026,7 +1034,7 @@ namespace draconic::editor
             mutate();
             self->m_selected = reselect;
             // Reattach the preview (modules recreated) so the live sim uses the new module set.
-            if (draconic::engine::particles::ParticleEffectComponent* c = self->PreviewComponent())
+            if (engine::particles::ParticleEffectComponent* c = self->PreviewComponent())
             {
                 if (self->m_asset.Get() != nullptr)
                 {
@@ -1772,7 +1780,7 @@ namespace draconic::editor
         BinarySerializer ar(stream, SerializeMode::Read);
         particles::SerializeEffect(ar, m_asset->Effect());
         m_undoBaseline = blob;
-        if (draconic::engine::particles::ParticleEffectComponent* c = PreviewComponent())
+        if (engine::particles::ParticleEffectComponent* c = PreviewComponent())
         {
             c->SetEffect(m_asset->Effect());
         }
@@ -1908,7 +1916,7 @@ namespace draconic::editor
     }
 
     void ParticleEffectEditorPage::OnRenderWindow(runtime::IApplicationHost&,
-                                                  draconic::graphics::FrameContext& frame)
+                                                  foundation::graphics::FrameContext& frame)
     {
         if (!m_viewport->IsReady() || !frame.valid)
         {
@@ -1954,7 +1962,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        draconic::content::Instance* instance =
+        foundation::content::Instance* instance =
             m_context->Project()->SourceDb().GetInstance(InstanceId());
         if (instance == nullptr)
         {
@@ -1990,12 +1998,12 @@ namespace draconic::editor
 
     void ParticleEffectEditorPage::EnsureViewportBound()
     {
-        draconic::ui::RootView* root = m_viewport->Root();
+        foundation::ui::RootView* root = m_viewport->Root();
         if (root == nullptr)
         {
             return;
         }
-        draconic::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
+        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
         if (window == nullptr || window == m_hostWindow)
         {
             return;
@@ -2025,12 +2033,12 @@ namespace draconic::editor
 
     const TypeInfo* ParticleEffectPageFactory::PrimaryType() const
     {
-        return &draconic::pipeline::ParticleEffectAsset::StaticType();
+        return &pipeline::ParticleEffectAsset::StaticType();
     }
 
     UniquePtr<EditorPage>
     ParticleEffectPageFactory::CreatePage(EditorContext& context,
-                                          draconic::content::Instance& instance)
+                                          foundation::content::Instance& instance)
     {
         auto* page =
             DefaultAllocator().New<ParticleEffectEditorPage>(context, *m_host, *m_uiHost, instance);
@@ -2051,17 +2059,17 @@ namespace draconic::editor
         sys.emitter.spawnRate = 120.0f;
     }
 
-    inline draconic::content::Instance*
-    CreateParticleEffectInstance(EditorContext& context, draconic::content::Group* group)
+    inline foundation::content::Instance*
+    CreateParticleEffectInstance(EditorContext& context, foundation::content::Group* group)
     {
         if (context.Project() == nullptr)
         {
             return nullptr;
         }
-        draconic::content::Group* target = group;
+        foundation::content::Group* target = group;
         if (target == nullptr)
         {
-            draconic::content::Group* root = context.Project()->SourceDb().RootGroup();
+            foundation::content::Group* root = context.Project()->SourceDb().RootGroup();
             target = root->GetGroup(u8"ParticleEffects");
             if (target == nullptr)
             {
@@ -2075,13 +2083,13 @@ namespace draconic::editor
 
         const String name = target->UniqueInstanceName(u8"ParticleEffect");
 
-        draconic::content::Instance* instance =
-            target->CreateInstance(name.AsView(), draconic::pipeline::ParticleEffectAsset::StaticType());
+        foundation::content::Instance* instance =
+            target->CreateInstance(name.AsView(), pipeline::ParticleEffectAsset::StaticType());
         if (instance == nullptr)
         {
             return nullptr;
         }
-        draconic::pipeline::ParticleEffectAsset asset;
+        pipeline::ParticleEffectAsset asset;
         SeedDefaultParticleEffect(asset.Effect());
         if (!instance->WriteObject(asset).IsOk())
         {
@@ -2100,7 +2108,7 @@ namespace draconic::editor
 
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Particle Effect");
-        creator.create = [](EditorContext& ctx, draconic::content::Group* group)
+        creator.create = [](EditorContext& ctx, foundation::content::Group* group)
         { return CreateParticleEffectInstance(ctx, group); };
         context.RegisterCreator(Move(creator));
     }

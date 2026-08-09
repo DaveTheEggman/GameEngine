@@ -11,12 +11,12 @@ module draconic.editor.script.angelscript;
 import draconic.core;
 import draconic.ui.toolkit;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-namespace draconic::editor{
+namespace editor{
     namespace
     {
-        namespace toolkit = draconic::ui::toolkit;
+        namespace toolkit = foundation::ui::toolkit;
 
         constexpr StringView kAngelScriptKeywords[] = {
             u8"abstract",  u8"and",      u8"auto",      u8"break",     u8"case",    u8"cast",

@@ -23,9 +23,9 @@ import :bind_group;
 import :render_pipeline;
 import :pipeline_layout;
 
-using namespace draconic::core;
+using namespace foundation::core;
 
-export namespace draconic::rhi::vk
+export namespace foundation::rhi::vk
 {
 
     // An immutable, replayable secondary command buffer. Valid until the owning pool resets.
@@ -152,4 +152,4 @@ export namespace draconic::rhi::vk
         bool m_finished = false;
     };
 
-} // namespace draconic::rhi::vk
+} // namespace foundation::rhi::vk

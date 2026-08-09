@@ -26,7 +26,7 @@ export module draconic.core:ref_counted;
 import :base;
 import :allocator;
 
-namespace draconic::core::detail
+namespace foundation::core::detail
 {
     struct RefControl
     {
@@ -53,7 +53,7 @@ namespace draconic::core::detail
     }
 }
 
-export namespace draconic::core
+export namespace foundation::core
 {
     template <typename T>
     class RefPtr;
