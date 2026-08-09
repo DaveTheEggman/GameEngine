@@ -12,6 +12,15 @@ module;
 #include <cstdlib>
 #include <cstring>
 
+// VkApplicationInfo identity strings; CMake bakes these from the project name on the RHI.Vulkan
+// target. Required - no in-source default, so the name lives only in the build system.
+#ifndef VULKAN_APPLICATION_NAME
+#error "VULKAN_APPLICATION_NAME is not defined - set it on the RHI.Vulkan target (from ${PROJECT_NAME})"
+#endif
+#ifndef VULKAN_ENGINE_NAME
+#error "VULKAN_ENGINE_NAME is not defined - set it on the RHI.Vulkan target (from ${PROJECT_NAME})"
+#endif
+
 export module foundation.rhi.vulkan:backend;
 
 import foundation.core;
@@ -231,9 +240,9 @@ export namespace foundation::rhi::vk
             // ---- Application info ----
             VkApplicationInfo appInfo{};
             appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-            appInfo.pApplicationName = "Draconic";
+            appInfo.pApplicationName = VULKAN_APPLICATION_NAME;
             appInfo.applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
-            appInfo.pEngineName = "Draconic";
+            appInfo.pEngineName = VULKAN_ENGINE_NAME;
             appInfo.engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
             appInfo.apiVersion = VK_API_VERSION_1_3;
 

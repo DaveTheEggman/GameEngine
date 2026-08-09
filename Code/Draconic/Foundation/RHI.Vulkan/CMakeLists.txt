@@ -4,6 +4,12 @@
 add_library(RHI.Vulkan STATIC)
 add_library(Foundation::RHI.Vulkan ALIAS RHI.Vulkan)
 
+# VkApplicationInfo identity: the app + engine names reported to the Vulkan driver/tools, baked
+# from the CMake project name (VkBackend.cppm requires these - no in-source default).
+target_compile_definitions(RHI.Vulkan PRIVATE
+    VULKAN_APPLICATION_NAME=\"${PROJECT_NAME}\"
+    VULKAN_ENGINE_NAME=\"${PROJECT_NAME}\")
+
 target_link_libraries(RHI.Vulkan
     PUBLIC Foundation::RHI Foundation::Core Foundation::Policy
     PRIVATE Vulkan::Vulkan)
