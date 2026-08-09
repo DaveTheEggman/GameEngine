@@ -19,7 +19,7 @@ using namespace foundation::core;
 using namespace foundation::audio;
 
 namespace pipeline{
-    DRACONIC_REFLECT(AudioClipAsset, "rtti::editor::audio")
+    DRACONIC_REFLECT(AudioClipAsset, "rtti::pipeline::audio")
     {
         builder.Attribute("displayName", String(u8"Audio Clip"))
             .Attribute("category", String(u8"Audio"))

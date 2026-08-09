@@ -264,9 +264,9 @@ namespace
     }
 }
 
-DRACONIC_DEFINE_OBJECT(CookWidgetAsset, "rtti::editor::editor::test")
-DRACONIC_DEFINE_OBJECT(CookWidgetProduct, "rtti::editor::editor::test")
-DRACONIC_DEFINE_OBJECT(ChainAsset, "rtti::editor::editor::test")
+DRACONIC_DEFINE_OBJECT(CookWidgetAsset, "rtti::pipeline::editor::test")
+DRACONIC_DEFINE_OBJECT(CookWidgetProduct, "rtti::pipeline::editor::test")
+DRACONIC_DEFINE_OBJECT(ChainAsset, "rtti::pipeline::editor::test")
 
 TEST_CASE("cook: full cook then clean; products carry the source guid + product type")
 {

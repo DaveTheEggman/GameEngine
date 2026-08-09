@@ -121,5 +121,5 @@ export namespace pipeline{
         RegisterSerializable<ParticleEffectAsset>();
     }
 
-    DRACONIC_DEFINE_OBJECT(ParticleEffectAsset, "rtti::editor::particles")
+    DRACONIC_DEFINE_OBJECT(ParticleEffectAsset, "rtti::pipeline::particles")
 }

@@ -18,7 +18,7 @@ using namespace foundation::core;
 using namespace foundation::script;
 
 namespace pipeline{
-    DRACONIC_REFLECT(ScriptClassAsset, "rtti::editor::script")
+    DRACONIC_REFLECT(ScriptClassAsset, "rtti::pipeline::script")
     {
         builder.Attribute("displayName", String(u8"Script"))
             .Attribute("category", String(u8"Scripting"))

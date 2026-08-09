@@ -18,7 +18,7 @@ using namespace foundation::core;
 using namespace foundation::shaders;
 
 namespace pipeline{
-    DRACONIC_REFLECT(ShaderAsset, "rtti::editor::shaders")
+    DRACONIC_REFLECT(ShaderAsset, "rtti::pipeline::shaders")
     {
         builder.Attribute("displayName", String(u8"Shader"))
             .Attribute("category", String(u8"Rendering"))

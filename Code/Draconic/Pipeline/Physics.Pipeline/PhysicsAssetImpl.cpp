@@ -18,13 +18,13 @@ using namespace foundation::core;
 using namespace foundation::physics;
 
 namespace pipeline{
-    DRACONIC_REFLECT_ENUM(CollisionCookKind, "rtti::editor::physics")
+    DRACONIC_REFLECT_ENUM(CollisionCookKind, "rtti::pipeline::physics")
     {
         builder.Value("ConvexHull", CollisionCookKind::ConvexHull);
         builder.Value("TriangleMesh", CollisionCookKind::TriangleMesh);
     }
 
-    DRACONIC_REFLECT(CollisionShapeAsset, "rtti::editor::physics")
+    DRACONIC_REFLECT(CollisionShapeAsset, "rtti::pipeline::physics")
     {
         builder.Attribute("displayName", String(u8"Collision Shape"))
             .Attribute("category", String(u8"Physics"))
@@ -38,7 +38,7 @@ namespace pipeline{
             .PropAttribute("visibleWhen", String(u8"cook=0")); // convex hull only
     }
 
-    DRACONIC_REFLECT(PhysicalMaterialAsset, "rtti::editor::physics")
+    DRACONIC_REFLECT(PhysicalMaterialAsset, "rtti::pipeline::physics")
     {
         builder.Attribute("displayName", String(u8"Physical Material"))
             .Attribute("category", String(u8"Physics"))

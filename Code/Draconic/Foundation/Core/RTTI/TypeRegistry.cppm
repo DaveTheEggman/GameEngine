@@ -91,38 +91,69 @@ export namespace foundation::core
         // LEGACY-NAME COMPATIBILITY (2026-08 debrand): serialized data (content envelopes,
         // settings sections, scenes) stores qualified type names, and the debrand renamed
         // every registration namespace: Foundation "draconic::X" -> "rtti::X" and Engine
-        // "draconic::X" -> "rtti::engine::X". Old files must keep resolving, so a miss on
-        // a "draconic::"-prefixed namespace retries both current spellings. Data converges
-        // to the new names on its next save; remove this once no pre-debrand files matter.
+        // "draconic::X" -> "rtti::engine::X". Separately, the asset-cook types moved from the
+        // Editor collection to the Pipeline collection, so their identity went
+        // "rtti::editor::<lib>" -> "rtti::pipeline::<lib>" (and the pre-debrand spelling was
+        // "draconic::editor::<lib>"). Old files must keep resolving, so a miss on a legacy
+        // namespace retries the current spellings. Data converges to the new names on its next
+        // save; remove this once no pre-debrand / pre-move files matter.
         [[nodiscard]] const TypeInfo* FindByLegacyName(const char* namespaceName,
                                                        const char* name) const noexcept
         {
-            constexpr usize kLegacyLength = 8; // strlen("draconic")
             if (namespaceName == nullptr)
             {
                 return nullptr;
             }
-            for (usize i = 0; i < kLegacyLength; ++i)
+            char remapped[256];
+            // "draconic[::rest]": pre-debrand root. -> "rtti[::rest]" (Foundation) or
+            // "rtti::engine[::rest]" (Engine subsystems - their C++ namespace moved too).
+            if (StartsWith(namespaceName, "draconic"))
             {
-                if (namespaceName[i] != "draconic"[i])
+                const char* rest = namespaceName + 8; // "" or "::rest"
+                if (rest[0] != '\0' && !(rest[0] == ':' && rest[1] == ':'))
                 {
-                    return nullptr; // not a legacy-prefixed namespace
+                    return nullptr; // e.g. "draconicish::x" - not ours
+                }
+                if (const TypeInfo* found =
+                        FindById(ComputeTypeId(ComposeNamespace(remapped, "rtti", rest), name)))
+                {
+                    return found;
+                }
+                if (const TypeInfo* found = FindById(
+                        ComputeTypeId(ComposeNamespace(remapped, "rtti::engine", rest), name)))
+                {
+                    return found;
+                }
+                // "draconic::editor::<lib>" asset-cook type -> "rtti::pipeline::<lib>".
+                if (StartsWith(rest, "::editor"))
+                {
+                    return FindById(ComputeTypeId(
+                        ComposeNamespace(remapped, "rtti::pipeline", rest + 8 /*"::editor"*/), name));
+                }
+                return nullptr;
+            }
+            // "rtti::editor::<lib>": post-debrand asset-cook type, before it moved to the
+            // Pipeline collection. -> "rtti::pipeline::<lib>".
+            if (StartsWith(namespaceName, "rtti::editor"))
+            {
+                return FindById(ComputeTypeId(
+                    ComposeNamespace(remapped, "rtti::pipeline", namespaceName + 12 /*"rtti::editor"*/),
+                    name));
+            }
+            return nullptr;
+        }
+
+        // Prefix test: does `s` begin with `prefix`?
+        [[nodiscard]] static bool StartsWith(const char* s, const char* prefix) noexcept
+        {
+            for (usize i = 0; prefix[i] != '\0'; ++i)
+            {
+                if (s[i] != prefix[i])
+                {
+                    return false;
                 }
             }
-            const char* rest = namespaceName + kLegacyLength; // "" or "::rest"
-            if (rest[0] != '\0' && !(rest[0] == ':' && rest[1] == ':'))
-            {
-                return nullptr; // e.g. "draconicish::x" - not ours
-            }
-            // "draconic[::rest]" -> "rtti[::rest]" (Foundation), then
-            // "rtti::engine[::rest]" (Engine subsystems - their C++ namespace moved too).
-            char remapped[256];
-            if (const TypeInfo* found =
-                    FindById(ComputeTypeId(ComposeNamespace(remapped, "rtti", rest), name)))
-            {
-                return found;
-            }
-            return FindById(ComputeTypeId(ComposeNamespace(remapped, "rtti::engine", rest), name));
+            return true;
         }
 
     private:

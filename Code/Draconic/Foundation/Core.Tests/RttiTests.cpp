@@ -1132,3 +1132,29 @@ TEST_CASE("rtti: legacy 'draconic::' namespaces resolve to the current 'rtti::' 
     CHECK(registry.FindByName("draconicish::zoo", "Animal") == nullptr);
     CHECK(registry.FindByName("other::zoo", "Animal") == nullptr);
 }
+
+TEST_CASE("rtti: legacy 'editor::' asset-cook namespaces resolve to the current 'pipeline::'")
+{
+    // The asset-cook types moved from the Editor collection to the Pipeline collection, so a
+    // cooked type's identity went "rtti::editor::<lib>" -> "rtti::pipeline::<lib>" (and the
+    // pre-debrand spelling was "draconic::editor::<lib>"). Cooked products on disk still carry
+    // the old names until re-cooked, so both legacy spellings must resolve.
+    TypeRegistry registry;
+    static const TypeInfo pipelineShaped{ComputeTypeId("rtti::pipeline::geometry", "CookWidget"),
+                                         "CookWidget",
+                                         "rtti::pipeline::geometry",
+                                         0,
+                                         0,
+                                         nullptr};
+    registry.Register(pipelineShaped);
+
+    // Current name resolves.
+    CHECK(registry.FindByName("rtti::pipeline::geometry", "CookWidget") == &pipelineShaped);
+    // Post-debrand, pre-move spelling.
+    CHECK(registry.FindByName("rtti::editor::geometry", "CookWidget") == &pipelineShaped);
+    // Pre-debrand, pre-move spelling.
+    CHECK(registry.FindByName("draconic::editor::geometry", "CookWidget") == &pipelineShaped);
+
+    // A non-cook "editor::" that never moved stays a miss (no false positives).
+    CHECK(registry.FindByName("rtti::editor::somethingelse", "CookWidget") == nullptr);
+}

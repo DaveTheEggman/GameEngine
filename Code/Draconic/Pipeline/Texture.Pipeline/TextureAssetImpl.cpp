@@ -22,7 +22,7 @@ using namespace foundation::core;
 using namespace foundation::texture;
 
 namespace pipeline{
-    DRACONIC_REFLECT(TextureAsset, "rtti::editor::texture")
+    DRACONIC_REFLECT(TextureAsset, "rtti::pipeline::texture")
     {
         builder.Attribute("displayName", String(u8"Texture"))
             .Attribute("category", String(u8"Textures"))

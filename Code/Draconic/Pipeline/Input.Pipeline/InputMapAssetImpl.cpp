@@ -20,7 +20,7 @@ using namespace foundation::core;
 using namespace foundation::input;
 
 namespace pipeline{
-    DRACONIC_REFLECT(InputMapAsset, "rtti::editor::input")
+    DRACONIC_REFLECT(InputMapAsset, "rtti::pipeline::input")
     {
         builder.Attribute("displayName", String(u8"Input Map"))
             .Attribute("category", String(u8"Input"))

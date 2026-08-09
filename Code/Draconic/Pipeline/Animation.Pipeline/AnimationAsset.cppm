@@ -134,8 +134,8 @@ export namespace pipeline{
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(SkeletonAsset, "rtti::editor::animation")
-    DRACONIC_DEFINE_OBJECT(AnimationClipAsset, "rtti::editor::animation")
-    DRACONIC_DEFINE_OBJECT(AnimationGraphAsset, "rtti::editor::animation")
+    DRACONIC_DEFINE_OBJECT(SkeletonAsset, "rtti::pipeline::animation")
+    DRACONIC_DEFINE_OBJECT(AnimationClipAsset, "rtti::pipeline::animation")
+    DRACONIC_DEFINE_OBJECT(AnimationGraphAsset, "rtti::pipeline::animation")
 
 } // namespace foundation::animation

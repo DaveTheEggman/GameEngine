@@ -126,9 +126,9 @@ export namespace pipeline{
         RegisterSerializable<SkinnedMeshAsset>();
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "rtti::editor::geometry",
+    DRACONIC_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "rtti::pipeline::geometry",
                                      2) // v2 = Float4 tangent vertex blobs
-    DRACONIC_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "rtti::editor::geometry",
+    DRACONIC_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "rtti::pipeline::geometry",
                                      2) // v2 = Float4 tangent vertex blobs
 
 } // namespace foundation::geometry

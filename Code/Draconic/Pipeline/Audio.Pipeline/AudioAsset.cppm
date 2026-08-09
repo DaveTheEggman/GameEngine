@@ -771,8 +771,8 @@ export namespace pipeline{
     // AudioClipAsset's StaticType() is defined WITH reflected properties in AudioAssetImpl.cpp
     // (reflection track P1). The remaining audio assets stay identity-only for now (bus layout /
     // sound cue carry nested structure that a flat property pass doesn't cover).
-    DRACONIC_DEFINE_OBJECT(AudioImportOptions, "rtti::editor::audio")
+    DRACONIC_DEFINE_OBJECT(AudioImportOptions, "rtti::pipeline::audio")
     // v2: the custom-bus slot bank (see Serialize) - v0/v1 sources read cleanly.
-    DRACONIC_DEFINE_OBJECT_VERSIONED(AudioBusLayoutAsset, "rtti::editor::audio", 2)
-    DRACONIC_DEFINE_OBJECT(SoundCueAsset, "rtti::editor::audio")
+    DRACONIC_DEFINE_OBJECT_VERSIONED(AudioBusLayoutAsset, "rtti::pipeline::audio", 2)
+    DRACONIC_DEFINE_OBJECT(SoundCueAsset, "rtti::pipeline::audio")
 }

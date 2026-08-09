@@ -19,13 +19,13 @@ using namespace foundation::core;
 using namespace foundation::fonts;
 
 namespace pipeline{
-    DRACONIC_REFLECT_ENUM(FontBakeMode, "rtti::editor::fonts")
+    DRACONIC_REFLECT_ENUM(FontBakeMode, "rtti::pipeline::fonts")
     {
         builder.Value("RasterRamp", FontBakeMode::RasterRamp);
         builder.Value("DistanceField", FontBakeMode::DistanceField);
     }
 
-    DRACONIC_REFLECT(FontAsset, "rtti::editor::fonts")
+    DRACONIC_REFLECT(FontAsset, "rtti::pipeline::fonts")
     {
         builder.Attribute("displayName", String(u8"Font"))
             .Attribute("category", String(u8"Fonts"))

@@ -18,7 +18,7 @@ using namespace foundation::core;
 
 namespace pipeline
 {
-    DRACONIC_REFLECT(Asset, "rtti::editor::asset")
+    DRACONIC_REFLECT(Asset, "rtti::pipeline::asset")
     {
         builder.Property<&Asset::fileName>("fileName")
             .PropAttribute("displayName", String(u8"Source File"))

@@ -19,7 +19,7 @@ using namespace foundation::core;
 using namespace foundation::image;
 
 namespace pipeline{
-    DRACONIC_REFLECT(ImageAsset, "rtti::editor::image")
+    DRACONIC_REFLECT(ImageAsset, "rtti::pipeline::image")
     {
         builder.Attribute("displayName", String(u8"Image"))
             .Attribute("category", String(u8"Textures"))

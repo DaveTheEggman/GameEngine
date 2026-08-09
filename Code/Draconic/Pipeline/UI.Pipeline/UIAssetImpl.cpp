@@ -18,7 +18,7 @@ using namespace foundation::core;
 using namespace foundation::ui;
 
 namespace pipeline{
-    DRACONIC_REFLECT(UIDocumentAsset, "rtti::editor::ui")
+    DRACONIC_REFLECT(UIDocumentAsset, "rtti::pipeline::ui")
     {
         builder.Attribute("displayName", String(u8"UI Document"))
             .Attribute("category", String(u8"UI"))
@@ -26,7 +26,7 @@ namespace pipeline{
             .PropAttribute("displayName", String(u8"Markup"));
     }
 
-    DRACONIC_REFLECT(UIThemeAsset, "rtti::editor::ui")
+    DRACONIC_REFLECT(UIThemeAsset, "rtti::pipeline::ui")
     {
         builder.Attribute("displayName", String(u8"UI Theme"))
             .Attribute("category", String(u8"UI"))

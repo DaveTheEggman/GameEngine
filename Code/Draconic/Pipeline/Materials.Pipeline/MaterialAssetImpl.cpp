@@ -21,7 +21,7 @@ using namespace foundation::core;
 using namespace foundation::materials;
 
 namespace pipeline{
-    DRACONIC_REFLECT(MaterialAsset, "rtti::editor::materials")
+    DRACONIC_REFLECT(MaterialAsset, "rtti::pipeline::materials")
     {
         builder.Attribute("displayName", String(u8"Material"))
             .Attribute("category", String(u8"Materials"))

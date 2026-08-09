@@ -921,7 +921,7 @@ export namespace pipeline
         RegisterSerializable<ModelManifestAsset>();
     }
 
-    DRACONIC_DEFINE_OBJECT(ModelManifestAsset, "rtti::editor::modelimporter")
-    DRACONIC_DEFINE_OBJECT(ModelImportOptions, "rtti::editor::modelimporter")
-    DRACONIC_DEFINE_OBJECT(LoadedModel, "rtti::editor::modelimporter")
+    DRACONIC_DEFINE_OBJECT(ModelManifestAsset, "rtti::pipeline::modelimporter")
+    DRACONIC_DEFINE_OBJECT(ModelImportOptions, "rtti::pipeline::modelimporter")
+    DRACONIC_DEFINE_OBJECT(LoadedModel, "rtti::pipeline::modelimporter")
 }
