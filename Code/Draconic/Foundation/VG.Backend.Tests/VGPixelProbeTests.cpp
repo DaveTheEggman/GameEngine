@@ -45,7 +45,7 @@ namespace
         Pixels out;
         shaders::ShaderSystemHost host;
         if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
-                                         DRACONIC_ENGINE_SHADER_DIR))))
+                                         BUILTIN_ENGINE_SHADER_DIR))))
         {
             return out;
         }

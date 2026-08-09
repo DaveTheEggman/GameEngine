@@ -47,63 +47,63 @@ public:                                                                         
 //       builder.Property<&Entity::name>("name");
 //   }
 #define REFLECT_MEMBERS(Type, Namespace)                                                          \
-    static void DraconicReflect_##Type(::foundation::core::TypeBuilder<Type>& builder);              \
+    static void RttiReflect_##Type(::foundation::core::TypeBuilder<Type>& builder);              \
     const ::foundation::core::TypeInfo& Type::StaticType() noexcept                                  \
     {                                                                                              \
         static ::foundation::core::TypeData draconicTypeData = []()                                  \
         {                                                                                          \
             ::foundation::core::TypeBuilder<Type> builder(#Type, Namespace, &Super::StaticType());   \
-            DraconicReflect_##Type(builder);                                                       \
+            RttiReflect_##Type(builder);                                                       \
             return builder.Build();                                                                \
         }();                                                                                       \
         return draconicTypeData.info;                                                              \
     }                                                                                              \
-    static void DraconicReflect_##Type(                                                            \
+    static void RttiReflect_##Type(                                                            \
         [[maybe_unused]] ::foundation::core::TypeBuilder<Type>& builder)
 
 // Reflects an enum's named values. Defines a registration function
-// DraconicRegisterEnum_<EnumType>() to be called explicitly at startup, e.g.:
+// RttiRegisterEnum_<EnumType>() to be called explicitly at startup, e.g.:
 //   REFLECT_ENUM(Color, "rtti::game")
 //   {
 //       builder.Value("Red", Color::Red);
 //       builder.Value("Green", Color::Green);
 //   }
-//   // later: DraconicRegisterEnum_Color();
+//   // later: RttiRegisterEnum_Color();
 #define REFLECT_ENUM(EnumType, Namespace)                                                 \
-    static void DraconicEnumBody_##EnumType(::foundation::core::EnumBuilder<EnumType>&);             \
-    void DraconicRegisterEnum_##EnumType()                                                         \
+    static void RttiEnumBody_##EnumType(::foundation::core::EnumBuilder<EnumType>&);             \
+    void RttiRegisterEnum_##EnumType()                                                         \
     {                                                                                              \
         ::foundation::core::EnumBuilder<EnumType> builder(#EnumType, Namespace);                     \
-        DraconicEnumBody_##EnumType(builder);                                                      \
+        RttiEnumBody_##EnumType(builder);                                                      \
         builder.Build();                                                                           \
     }                                                                                              \
-    static void DraconicEnumBody_##EnumType(                                                       \
+    static void RttiEnumBody_##EnumType(                                                       \
         [[maybe_unused]] ::foundation::core::EnumBuilder<EnumType>& builder)
 
 // Reflects a non-Object value type (plain struct) non-intrusively: builds its
 // properties/methods with a TypeBuilder and patches the type's TypeOf<T>() in
 // place (so it gains a qualified name/id + members without an intrusive
-// StaticType()). Defines DraconicRegisterValue_<Type>() to call once at startup,
+// StaticType()). Defines RttiRegisterValue_<Type>() to call once at startup,
 // e.g.:
 //   REFLECT_VALUE(Float3, "rtti::core")
 //   {
 //       builder.Property<&Float3::x>("x").Property<&Float3::y>("y").Property<&Float3::z>("z");
 //   }
-//   // later: DraconicRegisterValue_Float3();
+//   // later: RttiRegisterValue_Float3();
 #define REFLECT_VALUE(Type, Namespace)                                                    \
-    static void DraconicReflectValue_##Type(::foundation::core::TypeBuilder<Type>& builder);         \
-    void DraconicRegisterValue_##Type()                                                            \
+    static void RttiReflectValue_##Type(::foundation::core::TypeBuilder<Type>& builder);         \
+    void RttiRegisterValue_##Type()                                                            \
     {                                                                                              \
         static ::foundation::core::TypeData draconicTypeData = []()                                  \
         {                                                                                          \
             ::foundation::core::TypeBuilder<Type> builder(#Type, Namespace, nullptr);                \
-            DraconicReflectValue_##Type(builder);                                                  \
+            RttiReflectValue_##Type(builder);                                                  \
             return builder.Build();                                                                \
         }();                                                                                       \
         const_cast<::foundation::core::TypeInfo&>(::foundation::core::TypeOf<Type>()) =                \
             draconicTypeData.info;                                                                 \
     }                                                                                              \
-    static void DraconicReflectValue_##Type(                                                       \
+    static void RttiReflectValue_##Type(                                                       \
         [[maybe_unused]] ::foundation::core::TypeBuilder<Type>& builder)
 
 #endif // FOUNDATION_CORE_RTTI_REFLECT_H

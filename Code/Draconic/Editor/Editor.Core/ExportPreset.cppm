@@ -170,14 +170,14 @@ export namespace editor
 
     // Editor-level export preferences - a Settings section (foundation.settings store), NOT project-local
     // and NOT in export_presets.xml. Currently just the templates-root override: when non-empty it wins
-    // over $DRACONIC_TEMPLATES_DIR and the built-in <user-data>/templates default (see
+    // over $ENV_TEMPLATES_DIR and the built-in <user-data>/templates default (see
     // ResolveTemplatesRoot in :export_template), letting the user point the editor at a shared or
     // checked-out templates directory. Empty (the default) preserves the env-then-default behaviour.
     class EditorExportSettings final : public ISerializable
     {
         RTTI_OBJECT(EditorExportSettings, ISerializable)
     public:
-        String templatesRoot; // "" => $DRACONIC_TEMPLATES_DIR, else <user-data>/templates
+        String templatesRoot; // "" => $ENV_TEMPLATES_DIR, else <user-data>/templates
 
         void Serialize(ISerializer& ar) override
         {

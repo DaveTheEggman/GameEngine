@@ -553,8 +553,8 @@ namespace engine::render
         // The ShaderSystemHost encapsulates the pack-vs-dev decision (cooked shaders.dpak beside the
         // executable => no compiler; otherwise DXC + a file provider over the engine shader root with
         // hot reload). The same host every consumer (VG/UI, ImGui) uses. Inert if neither is present.
-#ifdef DRACONIC_ENGINE_SHADER_DIR
-        constexpr StringView kEngineShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#ifdef BUILTIN_ENGINE_SHADER_DIR
+        constexpr StringView kEngineShaderRoot = u8"" BUILTIN_ENGINE_SHADER_DIR;
 #else
         constexpr StringView kEngineShaderRoot = u8"Shaders";
 #endif
@@ -580,12 +580,12 @@ namespace engine::render
             {
                 // The runtime compiler (DXC) cannot emit WGSL - that is a cook-time path (naga).
                 // Every shader lookup will miss and the scene renders BLACK. The usual cause is
-                // ENV_WEBGPU_WGSL=1 without DRACONIC_USE_SHADER_PACK=1 (or no cooked
+                // ENV_WEBGPU_WGSL=1 without OPTION_USE_SHADER_PACK=1 (or no cooked
                 // shaders.dpak beside the executable).
                 rhi::LogErrorf("RenderSubsystem: the device wants WGSL but there is no cooked "
                                "shader pack - the runtime compiler cannot produce WGSL, so "
                                "NOTHING will render. Cook a WGSL shaders.dpak next to the "
-                               "executable and set DRACONIC_USE_SHADER_PACK=1.");
+                               "executable and set OPTION_USE_SHADER_PACK=1.");
             }
         }
 

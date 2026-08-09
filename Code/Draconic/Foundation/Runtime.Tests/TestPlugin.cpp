@@ -1,6 +1,6 @@
 // A real plugin shared library, dynamically loaded by the PluginHost::Load test.
 // It registers a subsystem on load and removes it on unload; the subsystem bumps
-// a counter the test observes across the library boundary via DraconicTestPluginTicks.
+// a counter the test observes across the library boundary via TestPluginTicks.
 
 #include "Core/Prelude.h"
 
@@ -29,7 +29,7 @@ namespace
     class TestPlugin final : public IRuntimePlugin
     {
     public:
-        [[nodiscard]] StringView Name() const noexcept override { return u8"DraconicTestPlugin"; }
+        [[nodiscard]] StringView Name() const noexcept override { return u8"TestPlugin"; }
 
         // The plugin owns its subsystem; it registers it non-owningly and removes
         // it on unload, before the host closes this library.
@@ -45,11 +45,11 @@ namespace
 }
 
 // Factory resolved by PluginHost::Load. The instance is owned by this library.
-extern "C" PLUGIN_EXPORT IRuntimePlugin* DraconicCreatePlugin()
+extern "C" PLUGIN_EXPORT IRuntimePlugin* CreatePlugin()
 {
     static TestPlugin plugin;
     return &plugin;
 }
 
 // Lets the test observe the plugin subsystem's activity across the library boundary.
-extern "C" PLUGIN_EXPORT int DraconicTestPluginTicks() { return g_ticks; }
+extern "C" PLUGIN_EXPORT int TestPluginTicks() { return g_ticks; }

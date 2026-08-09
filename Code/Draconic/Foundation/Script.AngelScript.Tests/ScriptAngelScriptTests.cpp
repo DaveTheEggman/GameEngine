@@ -225,7 +225,7 @@ namespace
     void RegisterHouse(IScriptManager& manager)
     {
         static bool once = [] {
-            DraconicRegisterValue_Room();
+            RttiRegisterValue_Room();
             RegisterUniquePtrArrayType<Room>();
             return true;
         }();

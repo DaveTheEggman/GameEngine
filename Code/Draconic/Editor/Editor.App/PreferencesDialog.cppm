@@ -2,7 +2,7 @@
 //
 // EditorPreferencesDialog: a modal editor for PER-USER editor preferences (the foundation.settings
 // store persisted at <user-data>/editor.settings.xml) - distinct from ProjectSettingsDialog, which
-// edits the project manifest. Fields: the export templates root (blank = "$DRACONIC_TEMPLATES_DIR,
+// edits the project manifest. Fields: the export templates root (blank = "$ENV_TEMPLATES_DIR,
 // else <user-data>/templates", shown as the placeholder) and the editor FONT paths (blank = the
 // built-in chain: dev-tree face, then the exe-embedded fallback). [Save] writes the sections back
 // into the store and persists it; font changes apply on the next editor start. [Cancel] discards.

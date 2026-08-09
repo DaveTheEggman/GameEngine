@@ -199,7 +199,7 @@ export namespace editor::app
         void LoadEditorSettings();
 
         // The editor's export templates root: the EditorExportSettings override when set, else
-        // $DRACONIC_TEMPLATES_DIR, else the <user-data>/templates default (same order as the CLI).
+        // $ENV_TEMPLATES_DIR, else the <user-data>/templates default (same order as the CLI).
         [[nodiscard]] String TemplatesRoot() const;
 
         // Absolute form of `path`, resolved against the CWD. The project directory can be relative,

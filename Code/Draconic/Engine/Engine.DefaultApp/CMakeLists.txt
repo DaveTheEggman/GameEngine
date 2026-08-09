@@ -27,15 +27,15 @@ target_link_libraries(Engine.DefaultApp
 # AS_MAX_PORTABILITY). Linked by forward-referenced name (resolves at generate time), so ordering vs
 # the Script subdir - which configures AFTER Runtime on the web branch - does not matter. Turn one OFF
 # to drop that backend from the player/app entirely; keep at least one for scripted games.
-option(DRACONIC_ENABLE_WREN "Build the Wren script backend into DefaultApplication" ON)
-option(DRACONIC_ENABLE_ANGELSCRIPT "Build the AngelScript script backend into DefaultApplication" ON)
-if(DRACONIC_ENABLE_WREN)
+option(OPTION_ENABLE_WREN "Build the Wren script backend into DefaultApplication" ON)
+option(OPTION_ENABLE_ANGELSCRIPT "Build the AngelScript script backend into DefaultApplication" ON)
+if(OPTION_ENABLE_WREN)
     target_link_libraries(Engine.DefaultApp PUBLIC Foundation::Script.Wren)
-    target_compile_definitions(Engine.DefaultApp PUBLIC DRACONIC_HAS_WREN)
+    target_compile_definitions(Engine.DefaultApp PUBLIC OPTION_HAS_WREN)
 endif()
-if(DRACONIC_ENABLE_ANGELSCRIPT)
+if(OPTION_ENABLE_ANGELSCRIPT)
     target_link_libraries(Engine.DefaultApp PUBLIC Foundation::Script.AngelScript)
-    target_compile_definitions(Engine.DefaultApp PUBLIC DRACONIC_HAS_ANGELSCRIPT)
+    target_compile_definitions(Engine.DefaultApp PUBLIC OPTION_HAS_ANGELSCRIPT)
 endif()
 
 target_sources(Engine.DefaultApp

@@ -4,7 +4,7 @@ target_link_libraries(Fonts.Pipeline.Tests PRIVATE
     Editor::Core Foundation::Content Foundation::Resource Foundation::VFS Foundation::Image doctest::doctest)
 target_compile_definitions(Fonts.Pipeline.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
-    DRACONIC_TEST_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/dejavu/DejaVuSansMono.ttf")
+    TEST_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/dejavu/DejaVuSansMono.ttf")
 target_compile_options(Fonts.Pipeline.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 add_test(NAME Fonts.Pipeline.Tests COMMAND Fonts.Pipeline.Tests)

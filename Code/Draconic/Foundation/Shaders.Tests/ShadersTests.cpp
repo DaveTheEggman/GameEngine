@@ -121,7 +121,7 @@ namespace
 
 // --- Engine-shader cook (enumerate corpus -> pack) -------------------------
 
-#ifdef DRACONIC_ENGINE_SHADER_DIR
+#ifdef BUILTIN_ENGINE_SHADER_DIR
 TEST_CASE("cook: the engine corpus cooks to a SPIR-V pack (lint clean, variants expanded)")
 {
     Compiler* compiler = MakeCompiler();
@@ -135,7 +135,7 @@ TEST_CASE("cook: the engine corpus cooks to a SPIR-V pack (lint clean, variants 
     // enumeration + the drift-lint + every shader compiling. The WGSL path is covered above.
     const CookedShaderFormat formats[] = {CookedShaderFormat::SpirV};
     ShaderCookOptions opts;
-    opts.shaderDir = StringView(reinterpret_cast<const char8_t*>(DRACONIC_ENGINE_SHADER_DIR));
+    opts.shaderDir = StringView(reinterpret_cast<const char8_t*>(BUILTIN_ENGINE_SHADER_DIR));
     opts.scratchDir = u8".test-scratch";
     opts.formats = Span<const CookedShaderFormat>(formats, 1);
 
@@ -205,7 +205,7 @@ TEST_CASE("cook: drift-lint fails a shader that #ifdefs an undeclared flag")
     (void)FileDelete(u8".test-scratch/badshaders/drift.ps.hlsl");
     compiler->Destroy();
 }
-#endif // DRACONIC_ENGINE_SHADER_DIR
+#endif // BUILTIN_ENGINE_SHADER_DIR
 
 // --- Cooked shader pack (serialize / lookup) -------------------------------
 

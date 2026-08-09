@@ -59,10 +59,10 @@ namespace foundation::materials
     {
         static const bool once = []()
         {
-            DraconicRegisterEnum_BlendMode();
-            DraconicRegisterEnum_DepthMode();
-            DraconicRegisterEnum_CullModeConfig();
-            DraconicRegisterEnum_VertexLayoutType();
+            RttiRegisterEnum_BlendMode();
+            RttiRegisterEnum_DepthMode();
+            RttiRegisterEnum_CullModeConfig();
+            RttiRegisterEnum_VertexLayoutType();
             return true;
         }();
         (void)once;

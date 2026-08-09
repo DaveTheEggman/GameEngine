@@ -16,17 +16,17 @@ target_sources(Runtime.Client
 
 
 # Build stamp: regenerated EVERY build (content-compared, so no-op builds stay no-op) and
-# compiled into Runtime.Client - every app that uses DRACONIC_APP_MAIN logs it at startup.
+# compiled into Runtime.Client - every app that uses APP_MAIN logs it at startup.
 # The definitive "which build is this" answer, most valuable on web where .wasm caches hard.
-set(DRACONIC_BUILD_STAMP_CPP "${CMAKE_CURRENT_BINARY_DIR}/BuildStamp.cpp")
+set(BUILDSYSTEM_BUILD_STAMP_CPP "${CMAKE_CURRENT_BINARY_DIR}/BuildStamp.cpp")
 execute_process(COMMAND ${CMAKE_COMMAND}
-    -DOUT=${DRACONIC_BUILD_STAMP_CPP} -DSRC_ROOT=${CMAKE_SOURCE_DIR}
+    -DOUT=${BUILDSYSTEM_BUILD_STAMP_CPP} -DSRC_ROOT=${CMAKE_SOURCE_DIR}
     -P ${CMAKE_SOURCE_DIR}/cmake/GenerateBuildStamp.cmake) # exists at configure
 add_custom_target(BuildStamp.Tick
     COMMAND ${CMAKE_COMMAND}
-        -DOUT=${DRACONIC_BUILD_STAMP_CPP} -DSRC_ROOT=${CMAKE_SOURCE_DIR}
+        -DOUT=${BUILDSYSTEM_BUILD_STAMP_CPP} -DSRC_ROOT=${CMAKE_SOURCE_DIR}
         -P ${CMAKE_SOURCE_DIR}/cmake/GenerateBuildStamp.cmake
-    BYPRODUCTS ${DRACONIC_BUILD_STAMP_CPP}
+    BYPRODUCTS ${BUILDSYSTEM_BUILD_STAMP_CPP}
     COMMENT "Refreshing build stamp")
 add_dependencies(Runtime.Client BuildStamp.Tick)
-target_sources(Runtime.Client PRIVATE ${DRACONIC_BUILD_STAMP_CPP})
+target_sources(Runtime.Client PRIVATE ${BUILDSYSTEM_BUILD_STAMP_CPP})

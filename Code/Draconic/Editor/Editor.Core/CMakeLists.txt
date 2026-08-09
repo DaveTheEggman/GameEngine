@@ -14,13 +14,13 @@ target_link_libraries(Editor.Core
 # relocated editor falls back to a "Shaders" dir beside it.
 if(TARGET Foundation::Shaders)
     target_compile_definitions(Editor.Core PRIVATE
-        DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
+        BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
 endif()
 
 # The player executable basename, from the build's single source of truth (root CMakeLists). The
 # export host-template stages "<base>[.exe]" and reads "<base>.runtime-libs" beside the running tool.
 target_compile_definitions(Editor.Core PRIVATE
-    DRACONIC_PLAYER_BASENAME=u8"${DRACONIC_PLAYER_BASENAME}")
+    BUILTIN_PLAYER_BASENAME=u8"${BUILTIN_PLAYER_BASENAME}")
 
 target_sources(Editor.Core
     PRIVATE

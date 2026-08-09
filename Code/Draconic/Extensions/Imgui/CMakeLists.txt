@@ -18,4 +18,4 @@ target_sources(Imgui
 # Dev-mode shader source root: the ShaderSystemHost compiles the ImGui shaders (imgui.vs/imgui.ps)
 # on demand from here when no cooked pack is present (a dist/browser ships shaders.dpak instead).
 target_compile_definitions(Imgui
-    PRIVATE DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
+    PRIVATE BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")

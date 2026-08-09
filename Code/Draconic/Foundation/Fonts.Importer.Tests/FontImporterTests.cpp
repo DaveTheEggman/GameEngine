@@ -18,7 +18,7 @@ namespace
     String AssetPath(const char* rel)
     {
         String p;
-        for (const char* s = DRACONIC_FONTS_ASSET_DIR; *s != '\0'; ++s)
+        for (const char* s = BUILTIN_FONTS_ASSET_DIR; *s != '\0'; ++s)
             p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
         for (const char* s = rel; *s != '\0'; ++s)
             p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));

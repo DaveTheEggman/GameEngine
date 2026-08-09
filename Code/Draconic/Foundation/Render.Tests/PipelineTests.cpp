@@ -36,7 +36,7 @@ namespace
         if (!initialized)
         {
             initialized = true;
-            REQUIRE(provider.Initialize(u8"" DRACONIC_ENGINE_SHADER_DIR).IsOk());
+            REQUIRE(provider.Initialize(u8"" BUILTIN_ENGINE_SHADER_DIR).IsOk());
         }
         return provider;
     }

@@ -1,7 +1,7 @@
 // Main.cpp - the DESKTOP entry for WebScene (see WebSceneApp.h - the shared full-renderer
 // exercise scene). Desktop platform trio via APP_MAIN's desktop body, which also gives
 // the backend flags: `WebScene --vulkan` vs `--webgpu` compares the SAME scene across backends,
-// and `DRACONIC_USE_SHADER_PACK=1 ENV_WEBGPU_WGSL=1 WebScene --webgpu` (with a WGSL
+// and `OPTION_USE_SHADER_PACK=1 ENV_WEBGPU_WGSL=1 WebScene --webgpu` (with a WGSL
 // shaders.dpak beside the exe) runs the exact browser shader path on the desktop - the fast,
 // debuggable repro for web-render bugs before ever opening a browser.
 
@@ -9,7 +9,7 @@
 // imgui.h must be TEXTUALLY included before `import extensions.imgui` - gcc does not merge the
 // module's global-module-fragment declarations into a LATER textual include (clang does), so
 // include-first is the portable order (same as Sandbox).
-#if DRACONIC_HAS_EXTENSION_IMGUI
+#if OPTION_HAS_EXTENSION_IMGUI
 #include "imgui.h"
 #endif
 
@@ -34,7 +34,7 @@ import engine.particles;
 import foundation.ui;
 import foundation.ui.resource; // UIDocument (runtime markup documents)
 import engine.ui;
-#if DRACONIC_HAS_EXTENSION_IMGUI
+#if OPTION_HAS_EXTENSION_IMGUI
 import extensions.imgui;
 #endif
 

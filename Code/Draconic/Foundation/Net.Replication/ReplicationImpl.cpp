@@ -480,10 +480,10 @@ namespace foundation::net
     {
         static const bool once = []()
         {
-            DraconicRegisterEnum_NetworkAuthority();
-            DraconicRegisterValue_NetworkComponent();
+            RttiRegisterEnum_NetworkAuthority();
+            RttiRegisterValue_NetworkComponent();
             GlobalTypeRegistry().Register(TypeOf<NetworkComponent>());
-            DraconicRegisterValue_NetworkedTransform();
+            RttiRegisterValue_NetworkedTransform();
             GlobalTypeRegistry().Register(TypeOf<NetworkedTransform>());
             return true;
         }();

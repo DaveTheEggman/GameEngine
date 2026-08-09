@@ -273,7 +273,7 @@ namespace foundation::rhi::webgpu
     };
 
     /// Fills `api` - desktop: dlopen the wgpu-native sidecar (explicit path override,
-    /// else the vendored DRACONIC_WGPU_PATH, else the bare soname so a relocated dist
+    /// else the vendored BUILDSYSTEM_WGPU_PATH, else the bare soname so a relocated dist
     /// resolves the copy staged beside the executable via $ORIGIN); web: direct symbols.
     export Status LoadWebGpuApi(WebGpuApi& api, StringView libraryPathOverride);
 
@@ -305,10 +305,10 @@ namespace foundation::rhi::webgpu
             String path(libraryPathOverride);
             lib = LoadLibraryA(reinterpret_cast<const char*>(path.CStr()));
         }
-#ifdef DRACONIC_WGPU_PATH
+#ifdef BUILDSYSTEM_WGPU_PATH
         if (lib == nullptr)
         {
-            lib = LoadLibraryA(DRACONIC_WGPU_PATH);
+            lib = LoadLibraryA(BUILDSYSTEM_WGPU_PATH);
         }
 #endif
         if (lib == nullptr)
@@ -328,10 +328,10 @@ namespace foundation::rhi::webgpu
             String path(libraryPathOverride);
             lib = dlopen(reinterpret_cast<const char*>(path.CStr()), RTLD_NOW | RTLD_LOCAL);
         }
-#ifdef DRACONIC_WGPU_PATH
+#ifdef BUILDSYSTEM_WGPU_PATH
         if (lib == nullptr)
         {
-            lib = dlopen(DRACONIC_WGPU_PATH, RTLD_NOW | RTLD_LOCAL);
+            lib = dlopen(BUILDSYSTEM_WGPU_PATH, RTLD_NOW | RTLD_LOCAL);
         }
 #endif
         if (lib == nullptr)

@@ -89,8 +89,8 @@ namespace editor
         // dir beside a relocated editor).
         StringView EngineShaderDir()
         {
-#ifdef DRACONIC_ENGINE_SHADER_DIR
-            constexpr StringView baked = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#ifdef BUILTIN_ENGINE_SHADER_DIR
+            constexpr StringView baked = u8"" BUILTIN_ENGINE_SHADER_DIR;
 #else
             constexpr StringView baked = u8"Shaders";
 #endif

@@ -1,7 +1,7 @@
 // Ported from Sedulous.Fonts.Tests TTF suites (loader/font/atlas/shaper).
 // Sedulous loaded system fonts from C:/Windows/Fonts; Draconic bundles the
 // Roboto asset (copied from Sedulous/Assets) and points at it via the
-// DRACONIC_FONTS_ASSET_DIR compile definition.
+// BUILTIN_FONTS_ASSET_DIR compile definition.
 #include <doctest/doctest.h>
 
 #include "Core/Prelude.h"
@@ -20,7 +20,7 @@ namespace
     String AssetPath(const char* rel)
     {
         String p;
-        for (const char* s = DRACONIC_FONTS_ASSET_DIR; *s != '\0'; ++s)
+        for (const char* s = BUILTIN_FONTS_ASSET_DIR; *s != '\0'; ++s)
             p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
         for (const char* s = rel; *s != '\0'; ++s)
             p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));

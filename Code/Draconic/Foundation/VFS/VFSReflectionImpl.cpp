@@ -32,7 +32,7 @@ namespace foundation::vfs
     {
         static const bool once = []()
         {
-            DraconicRegisterValue_SourcePath();
+            RttiRegisterValue_SourcePath();
             return true;
         }();
         (void)once;

@@ -217,7 +217,7 @@ namespace engine::audio
         foundation::script::RegisterExtraFacadeName(u8"AudioSourceComponent");
 
         // The scene-bound audio handle (SceneAudio.of(scene)): reflect it, register + seed + name it.
-        DraconicRegisterValue_SceneAudio();
+        RttiRegisterValue_SceneAudio();
         GlobalTypeRegistry().Register(core::TypeOf<SceneAudio>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<SceneAudio>());
         foundation::script::RegisterExtraFacadeName(u8"SceneAudio");
@@ -239,11 +239,11 @@ namespace engine::audio
     {
         static const bool once = []()
         {
-            DraconicRegisterEnum_AudioBus();
-            DraconicRegisterEnum_AudioAttenuationModel();
-            DraconicRegisterValue_AudioSourceComponent();
-            DraconicRegisterValue_AudioListenerComponent();
-            DraconicRegisterValue_AudioReverbZoneComponent();
+            RttiRegisterEnum_AudioBus();
+            RttiRegisterEnum_AudioAttenuationModel();
+            RttiRegisterValue_AudioSourceComponent();
+            RttiRegisterValue_AudioListenerComponent();
+            RttiRegisterValue_AudioReverbZoneComponent();
             return true;
         }();
         (void)once;

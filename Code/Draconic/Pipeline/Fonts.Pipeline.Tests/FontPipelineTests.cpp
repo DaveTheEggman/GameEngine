@@ -39,7 +39,7 @@ namespace
     bool StageSourceFont()
     {
         return FileCopyPreserving(
-            StringView(reinterpret_cast<const utf8char*>(DRACONIC_TEST_FONT_PATH)), kSourceFont);
+            StringView(reinterpret_cast<const utf8char*>(TEST_FONT_PATH)), kSourceFont);
     }
 }
 

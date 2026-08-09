@@ -91,14 +91,14 @@ namespace graphics = foundation::graphics;
 using engine::player::PlayerApplication;
 using engine::player::PlayerOptions;
 
-extern "C" const char* DraconicBuildStamp();
+extern "C" const char* BuildStamp();
 
 int main(int argc, char** argv)
 {
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&consoleSink);
     LOG_INFO(u8"Build", u8"Draconic build {}",
-                      reinterpret_cast<const char8_t*>(DraconicBuildStamp()));
+                      reinterpret_cast<const char8_t*>(BuildStamp()));
     GlobalLogger().SetMinLevel(LogLevel::Info);
 
     PlayerOptions options;

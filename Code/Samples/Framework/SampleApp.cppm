@@ -14,10 +14,10 @@ export module samples.framework:sample_app;
 import foundation.core;
 import foundation.rhi;
 import foundation.rhi.vulkan;
-#ifdef DRACONIC_HAS_DX12
+#ifdef OPTION_HAS_DX12
 import foundation.rhi.dx12;
 #endif
-#ifdef DRACONIC_HAS_WEBGPU
+#ifdef OPTION_HAS_WEBGPU
 import foundation.rhi.webgpu;
 #endif
 import foundation.rhi.validation;
@@ -233,7 +233,7 @@ export namespace samples::framework
         }
         case BackendType::DX12:
         {
-#ifdef DRACONIC_HAS_DX12
+#ifdef OPTION_HAS_DX12
             rhi::dx12::DxBackendDesc desc{};
             desc.enableValidation = m_validationEnabled;
             if (!rhi::dx12::CreateDxBackend(desc, raw).IsOk())
@@ -249,7 +249,7 @@ export namespace samples::framework
         }
         case BackendType::WebGPU:
         {
-#ifdef DRACONIC_HAS_WEBGPU
+#ifdef OPTION_HAS_WEBGPU
             rhi::webgpu::WebGpuBackendDesc desc{};
             if (!rhi::webgpu::CreateBackend(desc, raw).IsOk())
             {

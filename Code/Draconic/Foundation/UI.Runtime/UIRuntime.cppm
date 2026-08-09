@@ -892,8 +892,8 @@ export namespace foundation::ui::runtime
         // the renderer uses - no more bespoke inline-HLSL compile here.
         void InitShaders()
         {
-#ifdef DRACONIC_ENGINE_SHADER_DIR
-            constexpr core::StringView kShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#ifdef BUILTIN_ENGINE_SHADER_DIR
+            constexpr core::StringView kShaderRoot = u8"" BUILTIN_ENGINE_SHADER_DIR;
 #else
             constexpr core::StringView kShaderRoot = u8"Shaders";
 #endif

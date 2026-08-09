@@ -25,7 +25,7 @@
 
 #include "../Common/FlyCamera.h" // shared free-fly camera (WASD/QE + RMB-look)
 
-#if DRACONIC_HAS_EXTENSION_IMGUI
+#if OPTION_HAS_EXTENSION_IMGUI
 #include "imgui.h"
 #endif
 
@@ -45,7 +45,7 @@ namespace samples
     class WebSceneApp : public engine::runtime::DefaultApplication
     {
     public:
-#if DRACONIC_HAS_EXTENSION_IMGUI
+#if OPTION_HAS_EXTENSION_IMGUI
         void Configure(runtime::IApplicationHost& host) override
         {
             engine::runtime::DefaultApplication::Configure(host);
@@ -100,7 +100,7 @@ namespace samples
                 return;
             }
 
-#if DRACONIC_HAS_EXTENSION_IMGUI
+#if OPTION_HAS_EXTENSION_IMGUI
             if (auto* g = host.Ctx().GetSubsystem<extensions::imgui::ImguiSubsystem>())
             {
                 g->NewFrame(host.Shell() != nullptr ? host.Shell()->Input() : nullptr, deltaTime);
@@ -237,7 +237,7 @@ namespace samples
                 }
             }
             engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
-#if DRACONIC_HAS_EXTENSION_IMGUI
+#if OPTION_HAS_EXTENSION_IMGUI
             // The debug panel draws over the finished scene on the backbuffer.
             if (auto* g = host.Ctx().GetSubsystem<extensions::imgui::ImguiSubsystem>())
             {
@@ -696,7 +696,7 @@ namespace samples
 
         // --- the tweak panel --------------------------------------------------------------
 
-#if DRACONIC_HAS_EXTENSION_IMGUI
+#if OPTION_HAS_EXTENSION_IMGUI
         void BuildTweakPanel(engine::render::RenderSubsystem* renderSub)
         {
             if (renderSub == nullptr || m_scene == nullptr)

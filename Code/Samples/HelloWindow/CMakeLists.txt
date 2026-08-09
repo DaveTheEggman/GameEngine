@@ -12,4 +12,4 @@ target_link_libraries(HelloWindow PRIVATE
     Foundation::Graphics
     Foundation::Graphics.Gpu
     Foundation::Policy)
-draconic_copy_sdl3_dll(HelloWindow)
+util_copy_sdl3_dll(HelloWindow)

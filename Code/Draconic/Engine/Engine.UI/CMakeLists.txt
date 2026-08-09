@@ -19,5 +19,5 @@ target_sources(Engine.UI
 # Dev-mode shader source root: the ShaderSystemHost compiles the VG shaders (vg.vs/vg.ps) on demand
 # from here when no cooked pack is present (a dist/browser ships shaders.dpak and needs no compiler).
 target_compile_definitions(Engine.UI
-    PRIVATE DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
+    PRIVATE BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
 

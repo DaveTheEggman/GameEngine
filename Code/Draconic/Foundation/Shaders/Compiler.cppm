@@ -420,8 +420,8 @@ namespace foundation::shaders
             std::string path;
             if (desc.dxcompilerPath.IsEmpty())
             {
-#ifdef DRACONIC_DXC_PATH
-                path = DRACONIC_DXC_PATH;
+#ifdef BUILDSYSTEM_DXC_PATH
+                path = BUILDSYSTEM_DXC_PATH;
 #else
                 path = "libdxcompiler.so";
 #endif
@@ -433,7 +433,7 @@ namespace foundation::shaders
                             desc.dxcompilerPath.Size());
             }
             s->dxcompiler = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);
-            // Fallback for a RELOCATED dist: DRACONIC_DXC_PATH is the vendored source-tree lib's
+            // Fallback for a RELOCATED dist: BUILDSYSTEM_DXC_PATH is the vendored source-tree lib's
             // ABSOLUTE path, which does not exist on another machine. Retry the bare soname so the
             // dynamic loader searches the binary's RUNPATH ($ORIGIN => the libdxcompiler.so staged
             // beside the executable), LD_LIBRARY_PATH, and the system dirs (mirrors the Win32

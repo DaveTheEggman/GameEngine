@@ -293,7 +293,7 @@ REFLECT_VALUE(Turret, "demo")
 
 TEST_CASE("scene-serialize: component records carry the reflected type's data version")
 {
-    DraconicRegisterValue_Turret(); // patches TypeOf<Turret> (name + dataVersion 3)
+    RttiRegisterValue_Turret(); // patches TypeOf<Turret> (name + dataVersion 3)
     REQUIRE(TypeOf<Turret>().dataVersion == 3u);
 
     Scene a(u8"level");

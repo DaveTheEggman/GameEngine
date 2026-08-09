@@ -2058,8 +2058,8 @@ namespace engine::ui
         // Resolve the VG shaders through the shared ShaderSystemHost: cooked WGSL from shaders.dpak
         // (dist/browser, no compiler) or on-demand DXC over Data/Shaders (dev). The VG shaders ship
         // in the engine corpus (vg.vs/vg.ps) like every other shader.
-#ifdef DRACONIC_ENGINE_SHADER_DIR
-        constexpr StringView kShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#ifdef BUILTIN_ENGINE_SHADER_DIR
+        constexpr StringView kShaderRoot = u8"" BUILTIN_ENGINE_SHADER_DIR;
 #else
         constexpr StringView kShaderRoot = u8"Shaders";
 #endif
@@ -2177,13 +2177,13 @@ namespace engine::ui
     {
         static const bool once = []()
         {
-            DraconicRegisterEnum_CanvasScalerMode();
-            DraconicRegisterEnum_CanvasRenderMode();
-            DraconicRegisterEnum_BillboardOrientation();
-            DraconicRegisterEnum_BillboardScale();
-            DraconicRegisterValue_UICanvasComponent();
-            DraconicRegisterValue_UIWorldPanelComponent();
-            DraconicRegisterValue_UIBillboardComponent();
+            RttiRegisterEnum_CanvasScalerMode();
+            RttiRegisterEnum_CanvasRenderMode();
+            RttiRegisterEnum_BillboardOrientation();
+            RttiRegisterEnum_BillboardScale();
+            RttiRegisterValue_UICanvasComponent();
+            RttiRegisterValue_UIWorldPanelComponent();
+            RttiRegisterValue_UIBillboardComponent();
             return true;
         }();
         (void)once;

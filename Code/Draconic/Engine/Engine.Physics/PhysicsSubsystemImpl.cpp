@@ -343,7 +343,7 @@ namespace engine::physics
 
         // The scene-bound physics handle (ScenePhysics.of(scene)): reflect it, register it, seed the
         // Wren emission root (nothing else reaches it), and make the class name prelude-visible.
-        DraconicRegisterValue_ScenePhysics();
+        RttiRegisterValue_ScenePhysics();
         GlobalTypeRegistry().Register(core::TypeOf<ScenePhysics>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<ScenePhysics>());
         foundation::script::RegisterExtraFacadeName(u8"ScenePhysics");
@@ -353,15 +353,15 @@ namespace engine::physics
     {
         static const bool once = []()
         {
-            DraconicRegisterEnum_MotionKind();
-            DraconicRegisterEnum_PhysicsLayer();
-            DraconicRegisterEnum_ShapeKind();
-            DraconicRegisterEnum_JointKind();
-            DraconicRegisterValue_RigidBodyComponent();
-            DraconicRegisterValue_ColliderComponent();
-            DraconicRegisterValue_JointComponent();
-            DraconicRegisterValue_CharacterComponent();
-            DraconicRegisterValue_PhysicsSceneSettings();
+            RttiRegisterEnum_MotionKind();
+            RttiRegisterEnum_PhysicsLayer();
+            RttiRegisterEnum_ShapeKind();
+            RttiRegisterEnum_JointKind();
+            RttiRegisterValue_RigidBodyComponent();
+            RttiRegisterValue_ColliderComponent();
+            RttiRegisterValue_JointComponent();
+            RttiRegisterValue_CharacterComponent();
+            RttiRegisterValue_PhysicsSceneSettings();
             return true;
         }();
         (void)once;

@@ -26,6 +26,6 @@ target_link_libraries(ParticleFX PRIVATE
 
 # Per-sample cooked-output DB (isolated), matching the other samples' pattern.
 target_compile_definitions(ParticleFX PRIVATE
-    DRACONIC_PARTICLEFX_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/Data/Output/ParticleFX")
+    SAMPLE_PARTICLEFX_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/Data/Output/ParticleFX")
 
-draconic_copy_sdl3_dll(ParticleFX)
+util_copy_sdl3_dll(ParticleFX)

@@ -55,7 +55,7 @@ namespace pipeline{
     {
         static const bool once = []()
         {
-            DraconicRegisterEnum_CollisionCookKind();
+            RttiRegisterEnum_CollisionCookKind();
             return true;
         }();
         (void)once;

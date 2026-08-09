@@ -34,7 +34,7 @@ target_link_libraries(AnimStressTest PRIVATE
 # Absolute asset paths (cwd-independent), mirroring the VGSandbox font-path pattern:
 # the raw model files (read by the loaders) + the cooked-resource output database.
 target_compile_definitions(AnimStressTest PRIVATE
-    DRACONIC_SANDBOX_MODEL_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/models"
-    DRACONIC_SANDBOX_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/Data/Output/AnimStressTest")   # per-sample cooked-output DB (isolated from other samples)
+    SAMPLE_SANDBOX_MODEL_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/models"
+    SAMPLE_SANDBOX_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/Data/Output/AnimStressTest")   # per-sample cooked-output DB (isolated from other samples)
 
-draconic_copy_sdl3_dll(AnimStressTest)
+util_copy_sdl3_dll(AnimStressTest)

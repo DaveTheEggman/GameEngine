@@ -22,12 +22,12 @@ target_link_libraries(SamplesFramework PUBLIC
 # DX12 backend - Windows only.
 if(TARGET Foundation::RHI.DX12)
     target_link_libraries(SamplesFramework PUBLIC Foundation::RHI.DX12)
-    target_compile_definitions(SamplesFramework PUBLIC DRACONIC_HAS_DX12)
+    target_compile_definitions(SamplesFramework PUBLIC OPTION_HAS_DX12)
 endif()
 
 if(TARGET Foundation::RHI.WebGPU)
     target_link_libraries(SamplesFramework PUBLIC Foundation::RHI.WebGPU)
-    target_compile_definitions(SamplesFramework PUBLIC DRACONIC_HAS_WEBGPU)
+    target_compile_definitions(SamplesFramework PUBLIC OPTION_HAS_WEBGPU)
 endif()
 
 target_sources(SamplesFramework

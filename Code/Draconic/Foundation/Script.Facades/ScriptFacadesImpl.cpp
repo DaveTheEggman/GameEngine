@@ -182,14 +182,14 @@ namespace foundation::script
     {
         static const bool once = []()
         {
-            DraconicRegisterValue_Entity();
+            RttiRegisterValue_Entity();
             GlobalTypeRegistry().Register(TypeOf<Entity>());
             GlobalTypeRegistry().Register(Log::StaticType());
             GlobalTypeRegistry().Register(Time::StaticType());
             GlobalTypeRegistry().Register(Random::StaticType());
-            DraconicRegisterValue_Scene(); // now a bound value type (mirrors Entity)
+            RttiRegisterValue_Scene(); // now a bound value type (mirrors Entity)
             GlobalTypeRegistry().Register(TypeOf<Scene>());
-            DraconicRegisterValue_SceneEvents(); // the scene.events handle (mirrors Scene)
+            RttiRegisterValue_SceneEvents(); // the scene.events handle (mirrors Scene)
             GlobalTypeRegistry().Register(TypeOf<SceneEvents>());
             return true;
         }();

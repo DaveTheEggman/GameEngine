@@ -34,8 +34,8 @@ namespace
 {
     // VG shaders ship in the engine corpus (vg.vs/vg.ps); resolved via ShaderSystemHost in OnInit.
 
-#ifndef DRACONIC_GUI_FONT_PATH
-#define DRACONIC_GUI_FONT_PATH ""
+#ifndef BUILTIN_GUI_FONT_PATH
+#define BUILTIN_GUI_FONT_PATH ""
 #endif
 
     // App-specific rules layered on top of the built-in theme: two button accent classes, a
@@ -134,7 +134,7 @@ private:
     void LoadFontSize(StringView path, f32 pixelHeight);
     [[nodiscard]] bool HasFonts() const
     {
-        return !StringView(reinterpret_cast<const utf8char*>(DRACONIC_GUI_FONT_PATH)).IsEmpty();
+        return !StringView(reinterpret_cast<const utf8char*>(BUILTIN_GUI_FONT_PATH)).IsEmpty();
     }
 
     // Render plumbing (mirrors VGSandbox).
@@ -198,8 +198,8 @@ Status GUISandbox::OnInit()
 {
     // Resolve the VG shaders through the shared ShaderSystemHost (cooked pack or dev DXC over
     // Data/Shaders) - the same cooked corpus (vg.vs/vg.ps) the runtime UI uses.
-#ifdef DRACONIC_ENGINE_SHADER_DIR
-    constexpr StringView kShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#ifdef BUILTIN_ENGINE_SHADER_DIR
+    constexpr StringView kShaderRoot = u8"" BUILTIN_ENGINE_SHADER_DIR;
 #else
     constexpr StringView kShaderRoot = u8"Shaders";
 #endif
@@ -231,7 +231,7 @@ Status GUISandbox::OnInit()
     m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
     if (HasFonts())
     {
-        const StringView fontPath(reinterpret_cast<const utf8char*>(DRACONIC_GUI_FONT_PATH));
+        const StringView fontPath(reinterpret_cast<const utf8char*>(BUILTIN_GUI_FONT_PATH));
         LoadFontSize(fontPath, 18.0f);
         LoadFontSize(fontPath, 30.0f);
         m_font = m_fontService->GetFont(u8"Roboto", 18.0f);

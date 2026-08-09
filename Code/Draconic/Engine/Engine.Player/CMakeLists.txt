@@ -76,12 +76,12 @@ else()
 
     # Stage the player's runtime deps beside it + emit Engine.Player.runtime-libs (the export
     # host-template reads that list for its sidecars). SDL3 rides in as EXTRA (no-op when
-    # DRACONIC_SDL3_DLL is unset); DXC (libdxcompiler.so / dxcompiler.dll) is dlopen'd at runtime by
+    # BUILDSYSTEM_SDL3_DLL is unset); DXC (libdxcompiler.so / dxcompiler.dll) is dlopen'd at runtime by
     # the renderer's shader compiler and is NOT a link dependency, so it must be staged explicitly -
     # without it a copied dist finds no DXC and the renderer stays inert. On Linux, $ORIGIN on the
     # player's RUNPATH lets the loader find the staged copy beside the exe (Windows searches the exe
     # dir for a bare DLL by default).
-    draconic_copy_runtime_deps(Engine.Player EXTRA ${DRACONIC_SDL3_DLL} ${DRACONIC_DXC_LIB})
+    util_copy_runtime_deps(Engine.Player EXTRA ${BUILDSYSTEM_SDL3_DLL} ${BUILDSYSTEM_DXC_LIB})
     if(UNIX AND NOT APPLE)
         set_property(TARGET Engine.Player APPEND PROPERTY BUILD_RPATH "$ORIGIN")
         set_property(TARGET Engine.Player PROPERTY INSTALL_RPATH "$ORIGIN")
@@ -89,4 +89,4 @@ else()
 
 endif()
 
-set_target_properties(Engine.Player PROPERTIES OUTPUT_NAME ${DRACONIC_PLAYER_BASENAME})
+set_target_properties(Engine.Player PROPERTIES OUTPUT_NAME ${BUILTIN_PLAYER_BASENAME})

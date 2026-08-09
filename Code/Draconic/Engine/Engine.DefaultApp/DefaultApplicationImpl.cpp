@@ -25,11 +25,11 @@ import engine.physics;   // PhysicsSubsystem (Jolt worlds + interpolation)
 import foundation.input;               // the action model/runtime
 import engine.input;     // InputSubsystem + the Wren Input facade
 import foundation.script;              // IScriptManager/Context (the game script)
-#ifdef DRACONIC_HAS_WREN
-import foundation.script.wren;         // the Wren backend (primary; toggle via DRACONIC_ENABLE_WREN)
+#ifdef OPTION_HAS_WREN
+import foundation.script.wren;         // the Wren backend (primary; toggle via OPTION_ENABLE_WREN)
 #endif
-#ifdef DRACONIC_HAS_ANGELSCRIPT
-import foundation.script.angelscript; // the AngelScript backend (second backend; DRACONIC_ENABLE_ANGELSCRIPT)
+#ifdef OPTION_HAS_ANGELSCRIPT
+import foundation.script.angelscript; // the AngelScript backend (second backend; OPTION_ENABLE_ANGELSCRIPT)
 #endif
 import foundation.script.resource;     // cooked script classes + factory (entity behaviors)
 import engine.script;    // ScriptSubsystem (behaviors + the run's shared context)
@@ -164,11 +164,11 @@ namespace engine::runtime
         engine::ui::RegisterUiScriptFacade(); // Ui.* (owned by the UISubsystem)
         // Every built backend registers (batteries-included); a run resolves by the game script's
         // LANGUAGE - one gameplay context per run stays the locked rule. Each backend is independently
-        // toggleable (DRACONIC_ENABLE_WREN / _ANGELSCRIPT); both build on every platform, web included.
-#ifdef DRACONIC_HAS_WREN
+        // toggleable (OPTION_ENABLE_WREN / _ANGELSCRIPT); both build on every platform, web included.
+#ifdef OPTION_HAS_WREN
         foundation::script::wren::RegisterWrenScriptBackend();
 #endif
-#ifdef DRACONIC_HAS_ANGELSCRIPT
+#ifdef OPTION_HAS_ANGELSCRIPT
         foundation::script::angelscript::RegisterAngelScriptBackend();
 #endif
         // Networking (net.md §6): the Net facade type is registered here; each GameInstance owns

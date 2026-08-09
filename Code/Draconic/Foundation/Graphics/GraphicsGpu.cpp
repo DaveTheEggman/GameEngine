@@ -13,13 +13,13 @@ module foundation.graphics.gpu;
 
 import foundation.core;
 import foundation.rhi;
-#ifdef DRACONIC_HAS_VULKAN
+#ifdef OPTION_HAS_VULKAN
 import foundation.rhi.vulkan;
 #endif
-#ifdef DRACONIC_HAS_DX12
+#ifdef OPTION_HAS_DX12
 import foundation.rhi.dx12;
 #endif
-#ifdef DRACONIC_HAS_WEBGPU
+#ifdef OPTION_HAS_WEBGPU
 import foundation.rhi.webgpu;
 #endif
 import foundation.rhi.validation;
@@ -44,7 +44,7 @@ namespace foundation::graphics
         {
         case BackendType::Vulkan:
         {
-#ifdef DRACONIC_HAS_VULKAN
+#ifdef OPTION_HAS_VULKAN
             rhi::vk::VkBackendDesc bd{};
             bd.enableValidation = desc.enableValidation;
             if (!rhi::vk::CreateBackend(bd, raw).IsOk())
@@ -58,7 +58,7 @@ namespace foundation::graphics
         }
         case BackendType::DX12:
         {
-#ifdef DRACONIC_HAS_DX12
+#ifdef OPTION_HAS_DX12
             rhi::dx12::DxBackendDesc bd{};
             bd.enableValidation = desc.enableValidation;
             if (!rhi::dx12::CreateDxBackend(bd, raw).IsOk())
@@ -72,7 +72,7 @@ namespace foundation::graphics
         }
         case BackendType::WebGPU:
         {
-#ifdef DRACONIC_HAS_WEBGPU
+#ifdef OPTION_HAS_WEBGPU
             rhi::webgpu::WebGpuBackendDesc bd{};
             if (!rhi::webgpu::CreateBackend(bd, raw).IsOk())
             {

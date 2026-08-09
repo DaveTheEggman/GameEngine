@@ -24,7 +24,7 @@ export namespace foundation::rhi::webgpu
 {
     struct WebGpuBackendDesc
     {
-        /// Explicit sidecar path; empty = the vendored DRACONIC_WGPU_PATH, then the
+        /// Explicit sidecar path; empty = the vendored BUILDSYSTEM_WGPU_PATH, then the
         /// bare soname (a relocated dist's $ORIGIN-staged copy).
         StringView libraryPathOverride;
     };

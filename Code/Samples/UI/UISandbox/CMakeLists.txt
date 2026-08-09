@@ -8,6 +8,6 @@ target_link_libraries(UISandbox PRIVATE
     Foundation::Shell Foundation::Image Foundation::Fonts Foundation::Fonts.TTF
     Foundation::VG Foundation::VG.Renderer Foundation::UI Foundation::UI.Toolkit Foundation::UI.Viewport Foundation::UI.Shell Foundation::UI.VFS Foundation::VFS)
 target_compile_definitions(UISandbox PRIVATE
-    DRACONIC_UI_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
-    DRACONIC_UI_ASSET_DIR="${CMAKE_SOURCE_DIR}/Data/Assets")
-draconic_copy_sdl3_dll(UISandbox)
+    BUILTIN_UI_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
+    BUILTIN_UI_ASSET_DIR="${CMAKE_SOURCE_DIR}/Data/Assets")
+util_copy_sdl3_dll(UISandbox)

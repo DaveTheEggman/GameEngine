@@ -43,5 +43,5 @@ export namespace foundation::runtime
     using CreatePluginFn = IRuntimePlugin* (*)();
 
     // The exported symbol name PluginHost::Load resolves in a plugin library.
-    inline constexpr core::StringView CreatePluginSymbol = u8"DraconicCreatePlugin";
+    inline constexpr core::StringView CreatePluginSymbol = u8"CreatePlugin";
 }

@@ -2,7 +2,7 @@
 //
 // Kept OUT of the :types interface partition (REFLECT_* bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). Types.cppm declares RegisterTextureReflection();
-// this unit defines it + the DraconicRegisterEnum_* bodies. Reflection track P1.
+// this unit defines it + the RttiRegisterEnum_* bodies. Reflection track P1.
 
 module;
 #include "Core/Prelude.h"
@@ -45,9 +45,9 @@ namespace foundation::texture
     {
         static const bool once = []()
         {
-            DraconicRegisterEnum_TextureShape();
-            DraconicRegisterEnum_TextureFilter();
-            DraconicRegisterEnum_TextureWrap();
+            RttiRegisterEnum_TextureShape();
+            RttiRegisterEnum_TextureFilter();
+            RttiRegisterEnum_TextureWrap();
             return true;
         }();
         (void)once;

@@ -71,7 +71,7 @@ TEST_CASE("replication: NetworkId validity + equality")
 
 TEST_CASE("replication: layout harvest picks marked + supported fields only")
 {
-    DraconicRegisterValue_Mover();
+    RttiRegisterValue_Mover();
     const Span<const PropertyInfo* const> layout = net::ReplicatedProperties(TypeOf<Mover>());
     // position, rotation, speed, grounded, health = 5. localOnly (unmarked) + label (unsupported) out.
     REQUIRE(layout.Size() == 5u);
@@ -81,7 +81,7 @@ TEST_CASE("replication: layout harvest picks marked + supported fields only")
 
 TEST_CASE("replication: a component round-trips its replicated fields through the wire")
 {
-    DraconicRegisterValue_Mover();
+    RttiRegisterValue_Mover();
 
     Mover source;
     source.position = Float3{1.5f, -2.0f, 3.25f};
@@ -137,7 +137,7 @@ TEST_CASE("replication: field codec round-trips supported scalars + rejects unsu
 
 TEST_CASE("replication: a full snapshot round-trips networked entities server -> client")
 {
-    DraconicRegisterValue_Mover();
+    RttiRegisterValue_Mover();
     foundation::net::RegisterReplicationComponents();
 
     // --- server scene: two networked entities, each with a Mover ---
@@ -280,7 +280,7 @@ TEST_CASE(
 
 TEST_CASE("replication: per-peer delta sends only what changed since the peer's last delta")
 {
-    DraconicRegisterValue_Mover();
+    RttiRegisterValue_Mover();
     foundation::net::RegisterReplicationComponents();
 
     scene::Scene server;
@@ -361,7 +361,7 @@ TEST_CASE("replication: per-peer delta sends only what changed since the peer's 
 
 TEST_CASE("replication: late-join full snapshot spawns prefabs via the spawn handler")
 {
-    DraconicRegisterValue_Mover();
+    RttiRegisterValue_Mover();
     foundation::net::RegisterReplicationComponents();
 
     // Server: two entities network-spawned from prefabs, each with replicated Mover state.
@@ -426,7 +426,7 @@ TEST_CASE("replication: late-join full snapshot spawns prefabs via the spawn han
 
 TEST_CASE("replication: a delta spawns a newly-added networked entity via its prefab")
 {
-    DraconicRegisterValue_Mover();
+    RttiRegisterValue_Mover();
     foundation::net::RegisterReplicationComponents();
 
     scene::Scene server;
@@ -498,7 +498,7 @@ TEST_CASE("replication: LerpFieldValue interpolates floats/vectors and snaps dis
 TEST_CASE(
     "replication: interpolation buffer lerps transforms and snaps discrete fields at render time")
 {
-    DraconicRegisterValue_Mover();
+    RttiRegisterValue_Mover();
     net::InterpolationBuffer buf;
     const net::NetworkId id{1};
     const u32 typeHash = 0xABCDu;
@@ -540,7 +540,7 @@ TEST_CASE(
 TEST_CASE("replication: per-peer relevancy hides non-relevant entities and removes them on exit "
           "(fog of war)")
 {
-    DraconicRegisterValue_Mover();
+    RttiRegisterValue_Mover();
     foundation::net::RegisterReplicationComponents();
 
     scene::Scene server;
@@ -639,7 +639,7 @@ TEST_CASE("replication: per-peer relevancy hides non-relevant entities and remov
 
 TEST_CASE("replication: ApplyDelta records interpolatable state, SampleInterpolation smooths it")
 {
-    DraconicRegisterValue_Mover();
+    RttiRegisterValue_Mover();
     foundation::net::RegisterReplicationComponents();
 
     scene::Scene server;

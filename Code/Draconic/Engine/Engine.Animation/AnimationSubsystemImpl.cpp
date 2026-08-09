@@ -3,7 +3,7 @@
 // Kept OUT of the :components interface partition: REFLECT_* bodies in an interface
 // unit make GCC emit an unreadable gcm cluster for consumers (see gcc-module-interface-hygiene).
 // Components.cppm declares RegisterAnimationComponentReflection(); this unit defines it and the
-// DraconicRegisterValue_* bodies.
+// RttiRegisterValue_* bodies.
 
 module;
 #include "Core/Prelude.h"
@@ -86,9 +86,9 @@ namespace engine::animation
     {
         static const bool once = []()
         {
-            DraconicRegisterValue_SkeletalAnimationComponent();
-            DraconicRegisterValue_AnimationGraphComponent();
-            DraconicRegisterValue_InstancedSkinningComponent();
+            RttiRegisterValue_SkeletalAnimationComponent();
+            RttiRegisterValue_AnimationGraphComponent();
+            RttiRegisterValue_InstancedSkinningComponent();
             return true;
         }();
         (void)once;
@@ -116,7 +116,7 @@ namespace engine::animation
         }
 
         // The scene-bound animation handle (SceneAnimation.of(scene)): reflect + register + seed + name.
-        DraconicRegisterValue_SceneAnimation();
+        RttiRegisterValue_SceneAnimation();
         GlobalTypeRegistry().Register(core::TypeOf<SceneAnimation>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<SceneAnimation>());
         foundation::script::RegisterExtraFacadeName(u8"SceneAnimation");

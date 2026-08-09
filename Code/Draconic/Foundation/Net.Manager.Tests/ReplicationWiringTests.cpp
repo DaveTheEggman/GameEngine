@@ -44,7 +44,7 @@ REFLECT_VALUE(RepMover, "rtti::net::test")
 
 TEST_CASE("net-manager: state replicates server -> client through the manager + transport")
 {
-    DraconicRegisterValue_RepMover();
+    RttiRegisterValue_RepMover();
     foundation::net::RegisterReplicationComponents();
 
     net::SimConditions sim;

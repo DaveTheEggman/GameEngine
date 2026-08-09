@@ -15,7 +15,7 @@ target_link_libraries(Engine.Particles
 
 target_sources(Engine.Particles
     PRIVATE
-        ParticleSubsystemImpl.cpp   # DRACONIC_REFLECT_VALUE body (see ParticleComponents.cppm)
+        ParticleSubsystemImpl.cpp   # REFLECT_VALUE body (see ParticleComponents.cppm)
     PUBLIC
         FILE_SET particles_subsystem_modules TYPE CXX_MODULES FILES
             ParticleRenderData.cppm

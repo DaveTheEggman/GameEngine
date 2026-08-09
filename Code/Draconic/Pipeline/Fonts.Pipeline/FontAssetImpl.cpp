@@ -53,7 +53,7 @@ namespace pipeline{
     {
         static const bool once = []()
         {
-            DraconicRegisterEnum_FontBakeMode();
+            RttiRegisterEnum_FontBakeMode();
             return true;
         }();
         (void)once;

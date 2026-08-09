@@ -243,7 +243,7 @@ namespace
         return String(StringView(reinterpret_cast<const utf8char*>(dir.c_str())));
     }
 
-    // Templates root: $DRACONIC_TEMPLATES_DIR or <user-data-dir>/templates (the CLI has no editor
+    // Templates root: $ENV_TEMPLATES_DIR or <user-data-dir>/templates (the CLI has no editor
     // settings, so it passes no override - same resolution the editor uses with an empty setting).
     [[nodiscard]] String TemplatesRoot() { return editor::ResolveTemplatesRoot(); }
 

@@ -2,7 +2,7 @@
 //
 // Kept OUT of the :image_data interface partition (REFLECT_* bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). ImageData.cppm declares RegisterImageReflection();
-// this unit defines it + the DraconicRegisterEnum_ImageColorSpace body. Reflection track P1.
+// this unit defines it + the RttiRegisterEnum_ImageColorSpace body. Reflection track P1.
 
 module;
 #include "Core/Prelude.h"
@@ -26,7 +26,7 @@ namespace foundation::image
     {
         static const bool once = []()
         {
-            DraconicRegisterEnum_ImageColorSpace();
+            RttiRegisterEnum_ImageColorSpace();
             return true;
         }();
         (void)once;

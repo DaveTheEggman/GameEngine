@@ -5,7 +5,7 @@
 //        --tint--> validated (Chrome/Dawn conformance oracle)
 //
 // COOK-TIME ONLY (export path), never a runtime path: it shells out to the vendored naga + tint
-// executables via core::RunProcess (paths baked in as DRACONIC_NAGA_PATH / DRACONIC_TINT_PATH by
+// executables via core::RunProcess (paths baked in as BUILDSYSTEM_NAGA_PATH / BUILDSYSTEM_TINT_PATH by
 // ThirdParty/CMakeLists.txt -> ThirdParty::ShaderCookTools). naga is the version-matched translator
 // (its naga == wgpu-native's WGSL validator); tint errors on WGSL uniformity violations naga only
 // warns on, so it is the second gate that catches browser-incompatible shaders at cook time.
@@ -55,11 +55,11 @@ export namespace foundation::shaders
         WgslTranslator(Compiler& compiler, StringView scratchDir)
             : m_compiler(&compiler), m_scratchDir(scratchDir)
         {
-#ifdef DRACONIC_NAGA_PATH
-            m_naga = String(reinterpret_cast<const char8_t*>(DRACONIC_NAGA_PATH));
+#ifdef BUILDSYSTEM_NAGA_PATH
+            m_naga = String(reinterpret_cast<const char8_t*>(BUILDSYSTEM_NAGA_PATH));
 #endif
-#ifdef DRACONIC_TINT_PATH
-            m_tint = String(reinterpret_cast<const char8_t*>(DRACONIC_TINT_PATH));
+#ifdef BUILDSYSTEM_TINT_PATH
+            m_tint = String(reinterpret_cast<const char8_t*>(BUILDSYSTEM_TINT_PATH));
 #endif
         }
 
@@ -80,7 +80,7 @@ export namespace foundation::shaders
             if (m_naga.IsEmpty())
             {
                 result.failedStage = WgslCookStage::Translate;
-                result.error = String(u8"naga-cli not vendored for this host (DRACONIC_NAGA_PATH "
+                result.error = String(u8"naga-cli not vendored for this host (BUILDSYSTEM_NAGA_PATH "
                                       u8"unset) - cannot translate to WGSL");
                 return result;
             }
@@ -93,7 +93,7 @@ export namespace foundation::shaders
             // PUSH_CONSTANT blocks as ordinary cbuffers (register(b0, spaceN)) so naga emits a
             // @group(spaceN) @binding(0) var<uniform> the browser accepts; the WebGPU backend feeds
             // it per-draw via its push-constant emulation (see Data/Shaders/push_constant.hlsli).
-            defines.PushBack(ShaderDefine{u8"DRACONIC_PUSH_CONSTANT_AS_CBUFFER", u8"1"});
+            defines.PushBack(ShaderDefine{u8"PUSH_CONSTANT_AS_CBUFFER", u8"1"});
             CompileOptions opts{};
             opts.shaderModel = u8"6_0";
             opts.optimizationLevel = 3;

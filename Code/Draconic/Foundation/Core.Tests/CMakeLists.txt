@@ -41,7 +41,7 @@ add_dependencies(Core.Tests DraconicTestPlugin)
 # so the other TUs don't each emit a main.
 target_compile_definitions(Core.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
-    DRACONIC_TEST_PLUGIN_PATH="$<TARGET_FILE:DraconicTestPlugin>")
+    TEST_PLUGIN_PATH="$<TARGET_FILE:DraconicTestPlugin>")
 
 # doctest 2.4.11 includes <ciso646>, which emits a deprecation #warning under
 # C++23. It's third-party noise - de-promote just that warning for this target;

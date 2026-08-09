@@ -127,15 +127,15 @@ namespace foundation::input
     {
         static const bool once = []()
         {
-            DraconicRegisterEnum_BindingSource();
-            DraconicRegisterEnum_ActionKind();
-            DraconicRegisterEnum_InteractionKind();
-            DraconicRegisterValue_Binding();
-            DraconicRegisterValue_Interaction();
-            DraconicRegisterValue_ActionProcessors();
-            DraconicRegisterValue_Action();
-            DraconicRegisterValue_ActionSet();
-            DraconicRegisterValue_InputMap();
+            RttiRegisterEnum_BindingSource();
+            RttiRegisterEnum_ActionKind();
+            RttiRegisterEnum_InteractionKind();
+            RttiRegisterValue_Binding();
+            RttiRegisterValue_Interaction();
+            RttiRegisterValue_ActionProcessors();
+            RttiRegisterValue_Action();
+            RttiRegisterValue_ActionSet();
+            RttiRegisterValue_InputMap();
             // The array element types are reflected above; register the containers so a reflected
             // Array<> member is IsContainer with generic indexed access to its elements.
             RegisterArrayType<Binding>();

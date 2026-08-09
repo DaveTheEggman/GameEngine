@@ -7,7 +7,7 @@ target_link_libraries(Engine.Input
 
 target_sources(Engine.Input
     PRIVATE
-        InputSubsystemImpl.cpp   # DRACONIC_REFLECT body (see InputSubsystem.cppm)
+        InputSubsystemImpl.cpp   # REFLECT_MEMBERS body (see InputSubsystem.cppm)
     PUBLIC
         FILE_SET input_subsystem_modules TYPE CXX_MODULES FILES
             InputSubsystem.cppm)

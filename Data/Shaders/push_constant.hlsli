@@ -11,7 +11,7 @@
 //     is ignored and it is a plain cbuffer at (b0, space1) that the DX12 root signature places
 //     as root constants. Byte-identical to the raw declaration these shaders used before.
 //
-//   Browser WebGPU (define DRACONIC_PUSH_CONSTANT_AS_CBUFFER, set by the web cook):
+//   Browser WebGPU (define PUSH_CONSTANT_AS_CBUFFER, set by the web cook):
 //     ConstantBuffer<TonemapPush> pc : register(b0, space1)
 //     Browser WebGPU has no push constants / immediates (pipeline layouts with push-constant
 //     ranges fail), so the block becomes an ordinary uniform buffer. Under the engine binding
@@ -25,17 +25,17 @@
 // one at the call site.
 //
 // The browser form has no consumer yet (the browser backend is gated on this shaders track's
-// P3); it is validated when that backend lands. Until DRACONIC_PUSH_CONSTANT_AS_CBUFFER is set
+// P3); it is validated when that backend lands. Until PUSH_CONSTANT_AS_CBUFFER is set
 // the expansion is exactly the native push-constant declaration - zero behavior change.
 
-#ifndef DRACONIC_PUSH_CONSTANT_HLSLI
-#define DRACONIC_PUSH_CONSTANT_HLSLI
+#ifndef PUSH_CONSTANT_HLSLI
+#define PUSH_CONSTANT_HLSLI
 
-#ifdef DRACONIC_PUSH_CONSTANT_AS_CBUFFER
+#ifdef PUSH_CONSTANT_AS_CBUFFER
 #define PUSH_CONSTANT(Type, name, space) ConstantBuffer<Type> name : register(b0, space)
 #else
 #define PUSH_CONSTANT(Type, name, space)                                                            \
     [[vk::push_constant]] ConstantBuffer<Type> name : register(b0, space)
 #endif
 
-#endif // DRACONIC_PUSH_CONSTANT_HLSLI
+#endif // PUSH_CONSTANT_HLSLI

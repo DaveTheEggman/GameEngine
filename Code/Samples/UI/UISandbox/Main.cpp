@@ -290,12 +290,12 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         Array<rhi::BindGroup*> m_bindGroups;
     };
 
-#ifndef DRACONIC_UI_FONT_PATH
-#define DRACONIC_UI_FONT_PATH ""
+#ifndef BUILTIN_UI_FONT_PATH
+#define BUILTIN_UI_FONT_PATH ""
 #endif
 
-#ifndef DRACONIC_UI_ASSET_DIR
-#define DRACONIC_UI_ASSET_DIR ""
+#ifndef BUILTIN_UI_ASSET_DIR
+#define BUILTIN_UI_ASSET_DIR ""
 #endif
 
     // Appends "<n>" into buf (small values); caller supplies the prefix.
@@ -905,7 +905,7 @@ private:
     void LoadFontSize(StringView family, StringView path, f32 pixelHeight);
     [[nodiscard]] bool HasFonts() const
     {
-        return !StringView(reinterpret_cast<const utf8char*>(DRACONIC_UI_FONT_PATH)).IsEmpty();
+        return !StringView(reinterpret_cast<const utf8char*>(BUILTIN_UI_FONT_PATH)).IsEmpty();
     }
     [[nodiscard]] static RefPtr<ui::FlexLayoutParams> LP(ui::SizeSpec w, ui::SizeSpec h)
     {
@@ -1036,7 +1036,7 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
     m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
     if (HasFonts())
     {
-        const StringView fontPath(reinterpret_cast<const utf8char*>(DRACONIC_UI_FONT_PATH));
+        const StringView fontPath(reinterpret_cast<const utf8char*>(BUILTIN_UI_FONT_PATH));
         LoadFontSize(u8"Roboto", fontPath, 14.0f);
         LoadFontSize(u8"Roboto", fontPath, 16.0f);
         LoadFontSize(u8"Roboto", fontPath, 24.0f);
@@ -1044,9 +1044,9 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
         // Decorative families for the pause-menu FontFamily demo (copied from Sedulous assets). GetFont
         // falls back to Roboto if a family is missing, so the demo still renders if these fail to load.
         const StringView monsterPath(reinterpret_cast<const utf8char*>(
-            DRACONIC_UI_ASSET_DIR "/fonts/attack-of-monster/Attack Of Monster.ttf"));
+            BUILTIN_UI_ASSET_DIR "/fonts/attack-of-monster/Attack Of Monster.ttf"));
         const StringView junglePath(reinterpret_cast<const utf8char*>(
-            DRACONIC_UI_ASSET_DIR "/fonts/jungle-adventurer/JungleAdventurer.ttf"));
+            BUILTIN_UI_ASSET_DIR "/fonts/jungle-adventurer/JungleAdventurer.ttf"));
         const f32 decorativeSizes[] = {14.0f, 18.0f, 24.0f, 32.0f};
         for (f32 s : decorativeSizes)
         {
@@ -1290,7 +1290,7 @@ void UISandbox::EnsureResourceProvider()
     {
         return;
     }
-    const StringView assetDir(reinterpret_cast<const utf8char*>(DRACONIC_UI_ASSET_DIR));
+    const StringView assetDir(reinterpret_cast<const utf8char*>(BUILTIN_UI_ASSET_DIR));
     if (assetDir.IsEmpty())
     {
         return;
@@ -1544,7 +1544,7 @@ void UISandbox::BuildDockingTab(ui::TabView* tabView)
 // Sedulous; if they fail to load, GetFont falls back to Roboto and the screen still renders.
 void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
 {
-    const StringView assetDir(reinterpret_cast<const utf8char*>(DRACONIC_UI_ASSET_DIR));
+    const StringView assetDir(reinterpret_cast<const utf8char*>(BUILTIN_UI_ASSET_DIR));
     if (assetDir.IsEmpty())
     {
         return;

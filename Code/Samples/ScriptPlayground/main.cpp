@@ -155,8 +155,8 @@ namespace
     public:
         ScriptApp()
         {
-#ifdef DRACONIC_PLAYGROUND_FONT
-            SetUIFontPath(reinterpret_cast<const core::utf8char*>(DRACONIC_PLAYGROUND_FONT));
+#ifdef BUILTIN_PLAYGROUND_FONT
+            SetUIFontPath(reinterpret_cast<const core::utf8char*>(BUILTIN_PLAYGROUND_FONT));
 #endif
         }
 

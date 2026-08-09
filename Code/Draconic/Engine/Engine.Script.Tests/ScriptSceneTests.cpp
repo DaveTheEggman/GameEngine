@@ -75,7 +75,7 @@ REFLECT_VALUE(Gadget, "rtti::engine::script::test")
 }
 namespace
 {
-    // Register the component once (idempotent) - AFTER the reflect macro so DraconicRegisterValue_
+    // Register the component once (idempotent) - AFTER the reflect macro so RttiRegisterValue_
     // Gadget is declared. Runs its reflect builder (patches TypeOf<Gadget>), puts it in the registry
     // (both backends emit it), seeds it as an extra emission root (Wren reachability), and makes its
     // class name import-visible in Wren behavior preludes.
@@ -83,7 +83,7 @@ namespace
     {
         static const bool once = []()
         {
-            DraconicRegisterValue_Gadget();
+            RttiRegisterValue_Gadget();
             GlobalTypeRegistry().Register(TypeOf<Gadget>());
             foundation::script::RegisterExtraScriptRootType(&TypeOf<Gadget>());
             foundation::script::RegisterExtraFacadeName(u8"Gadget");

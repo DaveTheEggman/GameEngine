@@ -8,7 +8,7 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND}
         -DIN=${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf
         -DOUT=${_embedded_font_src}
-        -DSYMBOL=g_draconicEmbeddedEditorFont
+        -DSYMBOL=g_embeddedEditorFont
         -P ${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake
     DEPENDS "${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
             "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake"
@@ -29,10 +29,10 @@ target_link_libraries(Tools.Editor PRIVATE
     Foundation::Script Foundation::Script.Wren Foundation::Script.AngelScript Foundation::Script.Resource Foundation::Script.Facades Pipeline::Script Pipeline::Script.Wren Editor::Script.Wren Pipeline::Script.AngelScript Editor::Script.AngelScript Engine::Script Editor::Script Foundation::UI.Resource Pipeline::UI Editor::GameUI Editor::Audio Editor::Texture Editor::Image Editor::Fonts Editor::Physics Editor::Generic Pipeline::ModelImporter Foundation::Image.Resource
     Foundation::Animation.Resource)
 target_compile_definitions(Tools.Editor PRIVATE
-    DRACONIC_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
-    DRACONIC_EDITOR_BASELINE_ASSETS="${CMAKE_SOURCE_DIR}/Data/Assets"
-    DRACONIC_EDITOR_MONO_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/dejavu/DejaVuSansMono.ttf")
+    BUILTIN_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
+    BUILTIN_EDITOR_BASELINE_ASSETS="${CMAKE_SOURCE_DIR}/Data/Assets"
+    BUILTIN_EDITOR_MONO_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/dejavu/DejaVuSansMono.ttf")
 # Copy SDL3.dll next to the executable on Windows (same as the samples' helper, which is
 # defined in Code/Samples/ and not visible here).
-draconic_copy_runtime_deps(Tools.Editor EXTRA ${DRACONIC_SDL3_DLL})
+util_copy_runtime_deps(Tools.Editor EXTRA ${BUILDSYSTEM_SDL3_DLL})
 

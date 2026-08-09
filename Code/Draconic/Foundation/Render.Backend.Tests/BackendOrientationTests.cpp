@@ -6,7 +6,7 @@
 // halves (or culls the plane), so it fails loudly here instead of in someone's eyes.
 //
 // Run it on the cooked-pack WGSL path too (the browser's shaders, on wgpu-native):
-//   DRACONIC_USE_SHADER_PACK=1 ENV_WEBGPU_WGSL=1 ./Draconic.Render.Backend.Tests
+//   OPTION_USE_SHADER_PACK=1 ENV_WEBGPU_WGSL=1 ./Draconic.Render.Backend.Tests
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
@@ -56,13 +56,13 @@ namespace
     {
         Probe probe;
 
-        // ShaderSystemHost: dev DXC/SPIR-V by default; DRACONIC_USE_SHADER_PACK=1 (+
+        // ShaderSystemHost: dev DXC/SPIR-V by default; OPTION_USE_SHADER_PACK=1 (+
         // ENV_WEBGPU_WGSL=1) runs the probe on the cooked pack - i.e. the BROWSER'S
         // WGSL shader path on wgpu-native, so an ingestion-convention divergence between
         // the SPIR-V and WGSL frontends shows up right here, locally.
         shaders::ShaderSystemHost host;
         if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
-                                         DRACONIC_ENGINE_SHADER_DIR))))
+                                         BUILTIN_ENGINE_SHADER_DIR))))
         {
             return probe;
         }

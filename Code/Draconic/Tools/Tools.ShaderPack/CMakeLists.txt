@@ -11,4 +11,4 @@ target_link_libraries(Tools.ShaderPack PRIVATE
     Foundation::Shaders
     Foundation::Policy)
 
-set_target_properties(Tools.ShaderPack PROPERTIES OUTPUT_NAME ${DRACONIC_SHADERPACKCOOK_BASENAME})
+set_target_properties(Tools.ShaderPack PROPERTIES OUTPUT_NAME ${BUILDSYSTEM_SHADERPACKCOOK_BASENAME})

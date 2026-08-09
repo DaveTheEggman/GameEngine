@@ -39,11 +39,11 @@ import engine.animation; // SkeletalAnimationComponent(Manager) - engine-driven 
 
 #include "../Common/FlyCamera.h" // shared free-fly camera (uses the imported runtime/core types)
 
-#ifndef DRACONIC_SANDBOX_MODEL_DIR
-#define DRACONIC_SANDBOX_MODEL_DIR ""
+#ifndef SAMPLE_SANDBOX_MODEL_DIR
+#define SAMPLE_SANDBOX_MODEL_DIR ""
 #endif
-#ifndef DRACONIC_SANDBOX_OUTPUT_DIR
-#define DRACONIC_SANDBOX_OUTPUT_DIR ""
+#ifndef SAMPLE_SANDBOX_OUTPUT_DIR
+#define SAMPLE_SANDBOX_OUTPUT_DIR ""
 #endif
 
 namespace core = foundation::core;
@@ -177,9 +177,9 @@ namespace
         void LoadImportedModel(runtime::IApplicationHost& host)
         {
             const core::StringView outputDir(
-                reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_OUTPUT_DIR));
+                reinterpret_cast<const core::utf8char*>(SAMPLE_SANDBOX_OUTPUT_DIR));
             const core::StringView modelDir(
-                reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_MODEL_DIR));
+                reinterpret_cast<const core::utf8char*>(SAMPLE_SANDBOX_MODEL_DIR));
             if (outputDir.IsEmpty() || modelDir.IsEmpty())
             {
                 return;

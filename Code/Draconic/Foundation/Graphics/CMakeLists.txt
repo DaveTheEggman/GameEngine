@@ -38,7 +38,7 @@ target_sources(Graphics.Null
 
 # Foundation::Graphics.Gpu - `draconic.graphics.gpu` (the GPU backend factory). Built when at least
 # one GPU RHI backend is available - Vulkan/DX12 on desktop, WebGPU on web - and links + flags each
-# present backend (DRACONIC_HAS_*). The backend imports live in the implementation unit, off every
+# present backend (OPTION_HAS_*). The backend imports live in the implementation unit, off every
 # consumer's module closure.
 if(TARGET Foundation::RHI.Vulkan OR TARGET Foundation::RHI.DX12 OR TARGET Foundation::RHI.WebGPU)
     add_library(Graphics.Gpu STATIC)
@@ -55,17 +55,17 @@ if(TARGET Foundation::RHI.Vulkan OR TARGET Foundation::RHI.DX12 OR TARGET Founda
 
     if(TARGET Foundation::RHI.Vulkan)
         target_link_libraries(Graphics.Gpu PUBLIC Foundation::RHI.Vulkan)
-        target_compile_definitions(Graphics.Gpu PUBLIC DRACONIC_HAS_VULKAN)
+        target_compile_definitions(Graphics.Gpu PUBLIC OPTION_HAS_VULKAN)
     endif()
 
     if(TARGET Foundation::RHI.DX12)
         target_link_libraries(Graphics.Gpu PUBLIC Foundation::RHI.DX12)
-        target_compile_definitions(Graphics.Gpu PUBLIC DRACONIC_HAS_DX12)
+        target_compile_definitions(Graphics.Gpu PUBLIC OPTION_HAS_DX12)
     endif()
 
     if(TARGET Foundation::RHI.WebGPU)
         target_link_libraries(Graphics.Gpu PUBLIC Foundation::RHI.WebGPU)
-        target_compile_definitions(Graphics.Gpu PUBLIC DRACONIC_HAS_WEBGPU)
+        target_compile_definitions(Graphics.Gpu PUBLIC OPTION_HAS_WEBGPU)
     endif()
 
     target_sources(Graphics.Gpu

@@ -18,7 +18,7 @@ target_link_libraries(AudioPlayground PRIVATE
     Foundation::Audio Engine::Audio
     Extensions::Imgui
     Foundation::Policy)
-draconic_copy_sdl3_dll(AudioPlayground)
+util_copy_sdl3_dll(AudioPlayground)
 
 target_compile_definitions(AudioPlayground PRIVATE
-    DRACONIC_AUDIO_SAMPLE_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Data")
+    SAMPLE_AUDIO_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Data")

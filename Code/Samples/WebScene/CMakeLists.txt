@@ -1,6 +1,6 @@
 # WebScene - the FULL-RENDERER exercise scene (WebSceneApp.h), built for BOTH targets:
 #   - desktop (Main.cpp): `WebScene --vulkan` vs `--webgpu` compares the same scene per backend,
-#     and DRACONIC_USE_SHADER_PACK=1 DRACONIC_WEBGPU_WGSL=1 runs the browser's WGSL shader path
+#     and OPTION_USE_SHADER_PACK=1 ENV_WEBGPU_WGSL=1 runs the browser's WGSL shader path
 #     on wgpu-native - the fast local repro for web-render bugs.
 #   - web (WebMain.cpp): the same app on WebShell + the rAF runner, bundling a cooked WGSL
 #     shaders.dpak (no compiler in the browser). ASYNCIFY for the synchronous GPU waits.
@@ -34,7 +34,7 @@ if(EMSCRIPTEN)
         ${_webscene_common_libs}
         Foundation::Shell.Web
         Foundation::Runtime.Web)
-    if(DRACONIC_EXTENSION_IMGUI)
+    if(OPTION_EXTENSION_IMGUI)
         target_link_libraries(WebScene PRIVATE Extensions::Imgui)
     endif()
 
@@ -43,7 +43,7 @@ if(EMSCRIPTEN)
     # must be built first by any desktop preset (a native authoring tool, never built for wasm).
     set(_web_shader_pack "${CMAKE_CURRENT_BINARY_DIR}/shaders.dpak")
     set(_cook_tool
-        "${DRACONIC_HOST_BIN_DIR}/${DRACONIC_SHADERPACKCOOK_BASENAME}${DRACONIC_HOST_EXE_SUFFIX}")
+        "${BUILDSYSTEM_HOST_BIN_DIR}/${BUILDSYSTEM_SHADERPACKCOOK_BASENAME}${BUILDSYSTEM_HOST_EXE_SUFFIX}")
     file(GLOB _engine_shader_sources CONFIGURE_DEPENDS
         "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsl" "${CMAKE_SOURCE_DIR}/Data/Shaders/*.hlsli")
     add_custom_command(
@@ -84,9 +84,9 @@ else()
         ${_webscene_common_libs}
         Foundation::Shell.Desktop
         Foundation::Runtime.Desktop)
-    if(DRACONIC_EXTENSION_IMGUI)
+    if(OPTION_EXTENSION_IMGUI)
         target_link_libraries(WebScene PRIVATE Extensions::Imgui)
     endif()
-    draconic_copy_runtime_deps(WebScene EXTRA ${DRACONIC_SDL3_DLL})
+    util_copy_runtime_deps(WebScene EXTRA ${BUILDSYSTEM_SDL3_DLL})
 
 endif()

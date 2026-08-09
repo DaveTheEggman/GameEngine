@@ -19,4 +19,4 @@ target_link_libraries(RenderStressTest PRIVATE
     Foundation::Geometry
     Foundation::Materials
     Foundation::Policy)
-draconic_copy_sdl3_dll(RenderStressTest)
+util_copy_sdl3_dll(RenderStressTest)

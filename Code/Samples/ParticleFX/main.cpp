@@ -1099,7 +1099,7 @@ namespace
         void SetupCookedDemo(engine::particles::ParticleEffectComponentManager& pmgr)
         {
             const core::StringView outputDir(
-                reinterpret_cast<const core::utf8char*>(DRACONIC_PARTICLEFX_OUTPUT_DIR));
+                reinterpret_cast<const core::utf8char*>(SAMPLE_PARTICLEFX_OUTPUT_DIR));
             if (outputDir.IsEmpty())
             {
                 return;

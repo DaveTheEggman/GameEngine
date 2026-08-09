@@ -13,7 +13,7 @@ target_link_libraries(Engine.Script
 
 target_sources(Engine.Script
     PRIVATE
-        ScriptSubsystemImpl.cpp   # implementation unit: the DRACONIC_REFLECT_* bodies (GCC gcm rule)
+        ScriptSubsystemImpl.cpp   # implementation unit: the REFLECT_* bodies (GCC gcm rule)
     PUBLIC
         FILE_SET script_subsystem_modules TYPE CXX_MODULES FILES
             ScriptSubsystem.cppm

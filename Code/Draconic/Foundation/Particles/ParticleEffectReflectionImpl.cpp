@@ -90,10 +90,10 @@ namespace foundation::particles
             return;
         }
         registered = true;
-        DraconicRegisterEnum_EmissionMode();
-        DraconicRegisterValue_ParticleEmitter();
-        DraconicRegisterValue_ParticleSystem();
-        DraconicRegisterValue_ParticleEffect();
+        RttiRegisterEnum_EmissionMode();
+        RttiRegisterValue_ParticleEmitter();
+        RttiRegisterValue_ParticleSystem();
+        RttiRegisterValue_ParticleEffect();
         // The systems array is a homogeneous UniquePtr container; the module arrays are polymorphic
         // containers already registered by RegisterParticleModuleReflection().
         RegisterUniquePtrArrayType<ParticleSystem>();

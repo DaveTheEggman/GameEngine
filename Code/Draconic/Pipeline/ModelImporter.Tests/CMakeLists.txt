@@ -15,9 +15,9 @@ target_link_libraries(ModelImporter.Tests PRIVATE
 
 target_compile_definitions(ModelImporter.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
-    DRACONIC_MI_TEST_DUCK="${CMAKE_SOURCE_DIR}/Data/Assets/models/Duck/glTF/Duck.gltf"
-    DRACONIC_MI_TEST_FOX="${CMAKE_SOURCE_DIR}/Data/Assets/models/Fox/glTF/Fox.gltf"
-    DRACONIC_MI_TEST_GLB="${CMAKE_SOURCE_DIR}/Data/Assets/models/KenneyPlatformerCharacters/GLB/character-oozi.glb")
+    TEST_MI_DUCK="${CMAKE_SOURCE_DIR}/Data/Assets/models/Duck/glTF/Duck.gltf"
+    TEST_MI_FOX="${CMAKE_SOURCE_DIR}/Data/Assets/models/Fox/glTF/Fox.gltf"
+    TEST_MI_GLB="${CMAKE_SOURCE_DIR}/Data/Assets/models/KenneyPlatformerCharacters/GLB/character-oozi.glb")
 
 target_compile_options(ModelImporter.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"

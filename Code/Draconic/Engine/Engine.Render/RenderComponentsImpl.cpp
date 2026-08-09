@@ -2,7 +2,7 @@
 //
 // Kept OUT of the :components interface partition (REFLECT_* bodies make GCC emit a
 // gcm cluster; see gcc-module-interface-hygiene). RenderComponents.cppm declares
-// RegisterRenderComponentReflection(); this unit defines it + the DraconicRegister* bodies.
+// RegisterRenderComponentReflection(); this unit defines it + the RttiRegister* bodies.
 
 module;
 #include "Core/Prelude.h"
@@ -339,24 +339,24 @@ namespace engine::render
     {
         static const bool once = []()
         {
-            DraconicRegisterEnum_LightType();
-            DraconicRegisterEnum_SpriteOrientation();
-            DraconicRegisterEnum_ShadowUpdateMode();
-            DraconicRegisterEnum_ProbeUpdateMode();
-            DraconicRegisterEnum_SkyMode();
-            DraconicRegisterValue_EnvironmentSettings();
-            DraconicRegisterEnum_TonemapOperator();
-            DraconicRegisterEnum_AaMode();
-            DraconicRegisterEnum_AoMode();
-            DraconicRegisterValue_PostProcessSettings();
+            RttiRegisterEnum_LightType();
+            RttiRegisterEnum_SpriteOrientation();
+            RttiRegisterEnum_ShadowUpdateMode();
+            RttiRegisterEnum_ProbeUpdateMode();
+            RttiRegisterEnum_SkyMode();
+            RttiRegisterValue_EnvironmentSettings();
+            RttiRegisterEnum_TonemapOperator();
+            RttiRegisterEnum_AaMode();
+            RttiRegisterEnum_AoMode();
+            RttiRegisterValue_PostProcessSettings();
             RegisterArrayType<foundation::resource::Ref<foundation::materials::Material>>();
-            DraconicRegisterValue_MeshComponent();
-            DraconicRegisterValue_InstancedMeshComponent();
-            DraconicRegisterValue_CameraComponent();
-            DraconicRegisterValue_LightComponent();
-            DraconicRegisterValue_SpriteComponent();
-            DraconicRegisterValue_DecalComponent();
-            DraconicRegisterValue_ReflectionProbeComponent();
+            RttiRegisterValue_MeshComponent();
+            RttiRegisterValue_InstancedMeshComponent();
+            RttiRegisterValue_CameraComponent();
+            RttiRegisterValue_LightComponent();
+            RttiRegisterValue_SpriteComponent();
+            RttiRegisterValue_DecalComponent();
+            RttiRegisterValue_ReflectionProbeComponent();
             return true;
         }();
         (void)once;
@@ -391,7 +391,7 @@ namespace engine::render
 
         // The scene-bound render handle (SceneRender.of(scene)): reflect it, register it, seed the
         // Wren emission root (nothing else reaches it), and make the class name prelude-visible.
-        DraconicRegisterValue_SceneRender();
+        RttiRegisterValue_SceneRender();
         GlobalTypeRegistry().Register(core::TypeOf<SceneRender>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<SceneRender>());
         foundation::script::RegisterExtraFacadeName(u8"SceneRender");

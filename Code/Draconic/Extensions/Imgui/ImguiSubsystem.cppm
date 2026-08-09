@@ -94,8 +94,8 @@ export namespace extensions::imgui
         {
             // Resolve the ImGui shaders via the shared ShaderSystemHost: cooked WGSL from the pack
             // (dist/browser, no compiler) or dev DXC over Data/Shaders. Needs one or the other.
-#ifdef DRACONIC_ENGINE_SHADER_DIR
-            constexpr StringView kShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#ifdef BUILTIN_ENGINE_SHADER_DIR
+            constexpr StringView kShaderRoot = u8"" BUILTIN_ENGINE_SHADER_DIR;
 #else
             constexpr StringView kShaderRoot = u8"Shaders";
 #endif

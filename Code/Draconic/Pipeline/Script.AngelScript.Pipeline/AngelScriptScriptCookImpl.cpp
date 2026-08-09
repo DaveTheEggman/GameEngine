@@ -483,7 +483,7 @@ namespace pipeline{
                 engine->SetMessageCallback(asFUNCTION(ForwardBuildMessage), &forward, asCALL_CDECL);
 
                 CScriptBuilder builder;
-                if (builder.StartNewModule(engine, "DraconicAsCookHarvest") < 0)
+                if (builder.StartNewModule(engine, "AsCookHarvest") < 0)
                 {
                     engine->ClearMessageCallback();
                     return false;

@@ -11,7 +11,7 @@ target_link_libraries(Engine.Animation
 
 target_sources(Engine.Animation
     PRIVATE
-        AnimationSubsystemImpl.cpp   # DRACONIC_REFLECT_VALUE bodies (see AnimationComponents.cppm)
+        AnimationSubsystemImpl.cpp   # REFLECT_VALUE bodies (see AnimationComponents.cppm)
     PUBLIC
         FILE_SET animation_subsystem_modules TYPE CXX_MODULES FILES
             AnimationComponents.cppm

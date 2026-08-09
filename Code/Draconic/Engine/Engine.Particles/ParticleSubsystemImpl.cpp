@@ -53,7 +53,7 @@ namespace engine::particles
     {
         static const bool once = []()
         {
-            DraconicRegisterValue_ParticleEffectComponent();
+            RttiRegisterValue_ParticleEffectComponent();
             return true;
         }();
         (void)once;
@@ -68,7 +68,7 @@ namespace engine::particles
         foundation::script::RegisterExtraFacadeName(u8"ParticleEffectComponent");
 
         // The scene-bound particles handle (SceneParticles.of(scene)): reflect + register + seed + name.
-        DraconicRegisterValue_SceneParticles();
+        RttiRegisterValue_SceneParticles();
         GlobalTypeRegistry().Register(core::TypeOf<SceneParticles>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<SceneParticles>());
         foundation::script::RegisterExtraFacadeName(u8"SceneParticles");

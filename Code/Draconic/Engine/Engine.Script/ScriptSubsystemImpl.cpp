@@ -70,9 +70,9 @@ namespace engine::script
     {
         static const bool once = []()
         {
-            DraconicRegisterValue_ScriptComponent();
+            RttiRegisterValue_ScriptComponent();
             GlobalTypeRegistry().Register(TypeOf<ScriptComponent>());
-            DraconicRegisterValue_SceneScriptSettings();
+            RttiRegisterValue_SceneScriptSettings();
             GlobalTypeRegistry().Register(TypeOf<SceneScriptSettings>());
             return true;
         }();

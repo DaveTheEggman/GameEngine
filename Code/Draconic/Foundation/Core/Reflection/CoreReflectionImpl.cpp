@@ -4,7 +4,7 @@
 // interface partition: REFLECT_* bodies in a partition interface make GCC
 // emit an unreadable gcm cluster for consumers (see gcc-module-interface-hygiene).
 // The interface (CoreReflection.cppm) only declares RegisterCoreTypes(); this unit
-// defines it plus every DraconicRegisterValue_/DraconicRegisterEnum_ body.
+// defines it plus every RttiRegisterValue_/RttiRegisterEnum_ body.
 //
 // Plain value types are reflected non-intrusively via REFLECT_VALUE, which
 // patches each type's TypeOf<T>() in place. Matrices (Float3x3/Float4x4) expose their
@@ -266,31 +266,31 @@ namespace foundation::core
     // Declared (exported) in the :core_reflection interface partition.
     void RegisterCoreTypes()
     {
-        DraconicRegisterValue_Float2();
+        RttiRegisterValue_Float2();
         GlobalTypeRegistry().Register(TypeOf<Float2>());
-        DraconicRegisterValue_Float3();
+        RttiRegisterValue_Float3();
         GlobalTypeRegistry().Register(TypeOf<Float3>());
-        DraconicRegisterValue_Float4();
+        RttiRegisterValue_Float4();
         GlobalTypeRegistry().Register(TypeOf<Float4>());
-        DraconicRegisterValue_Color();
+        RttiRegisterValue_Color();
         GlobalTypeRegistry().Register(TypeOf<Color>());
-        DraconicRegisterValue_Quaternion();
+        RttiRegisterValue_Quaternion();
         GlobalTypeRegistry().Register(TypeOf<Quaternion>());
-        DraconicRegisterValue_Transform();
+        RttiRegisterValue_Transform();
         GlobalTypeRegistry().Register(TypeOf<Transform>());
-        DraconicRegisterValue_Float4x4();
+        RttiRegisterValue_Float4x4();
         GlobalTypeRegistry().Register(TypeOf<Float4x4>());
-        DraconicRegisterValue_Float3x3();
+        RttiRegisterValue_Float3x3();
         GlobalTypeRegistry().Register(TypeOf<Float3x3>());
         RegisterMatrixElements<Float4x4, 4>(); // flat element access (after the patch above)
         RegisterMatrixElements<Float3x3, 3>();
-        DraconicRegisterValue_AABB();
+        RttiRegisterValue_AABB();
         GlobalTypeRegistry().Register(TypeOf<AABB>());
-        DraconicRegisterValue_Plane();
+        RttiRegisterValue_Plane();
         GlobalTypeRegistry().Register(TypeOf<Plane>());
-        DraconicRegisterValue_Rectangle();
+        RttiRegisterValue_Rectangle();
         GlobalTypeRegistry().Register(TypeOf<Rectangle>());
-        DraconicRegisterValue_Guid();
+        RttiRegisterValue_Guid();
         GlobalTypeRegistry().Register(TypeOf<Guid>());
 
         // Free-standing (namespace-level) math constants.
@@ -306,15 +306,15 @@ namespace foundation::core
         constants.Register("rtti::core", "kFloatMax", f32Type, Variant::From<f32>(kFloatMax));
 
         // Public enums (patch TypeOf<E>() with enumerators, then register).
-        DraconicRegisterEnum_LogLevel();
+        RttiRegisterEnum_LogLevel();
         GlobalTypeRegistry().Register(TypeOf<LogLevel>());
-        DraconicRegisterEnum_ErrorCode();
+        RttiRegisterEnum_ErrorCode();
         GlobalTypeRegistry().Register(TypeOf<ErrorCode>());
-        DraconicRegisterEnum_SerializeMode();
+        RttiRegisterEnum_SerializeMode();
         GlobalTypeRegistry().Register(TypeOf<SerializeMode>());
-        DraconicRegisterEnum_FileMode();
+        RttiRegisterEnum_FileMode();
         GlobalTypeRegistry().Register(TypeOf<FileMode>());
-        DraconicRegisterEnum_SeekOrigin();
+        RttiRegisterEnum_SeekOrigin();
         GlobalTypeRegistry().Register(TypeOf<SeekOrigin>());
     }
 }

@@ -14,7 +14,7 @@ add_dependencies(Runtime.Tests Runtime.TestPlugin)
 
 target_compile_definitions(Runtime.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
-    DRACONIC_TEST_PLUGIN_PATH="$<TARGET_FILE:Runtime.TestPlugin>")
+    TEST_PLUGIN_PATH="$<TARGET_FILE:Runtime.TestPlugin>")
 
 target_compile_options(Runtime.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"

@@ -7,6 +7,6 @@ target_link_libraries(Script.Facades PUBLIC
     Foundation::Core Foundation::Scene Foundation::Script Foundation::Policy)
 target_sources(Script.Facades
     PRIVATE
-        ScriptFacadesImpl.cpp   # implementation unit: the DRACONIC_REFLECT_* bodies (GCC gcm rule)
+        ScriptFacadesImpl.cpp   # implementation unit: the REFLECT_* bodies (GCC gcm rule)
     PUBLIC
         FILE_SET script_facades_modules TYPE CXX_MODULES FILES ScriptFacades.cppm)

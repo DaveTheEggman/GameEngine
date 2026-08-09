@@ -8,7 +8,7 @@
 // imgui.h must be TEXTUALLY included before `import extensions.imgui` - gcc does not merge the
 // module's global-module-fragment declarations into a LATER textual include (clang does), so
 // include-first is the portable order (same as Sandbox).
-#if DRACONIC_HAS_EXTENSION_IMGUI
+#if OPTION_HAS_EXTENSION_IMGUI
 #include "imgui.h"
 #endif
 
@@ -33,7 +33,7 @@ import engine.particles;
 import foundation.ui;
 import foundation.ui.resource; // UIDocument (runtime markup documents)
 import engine.ui;
-#if DRACONIC_HAS_EXTENSION_IMGUI
+#if OPTION_HAS_EXTENSION_IMGUI
 import extensions.imgui;
 #endif
 

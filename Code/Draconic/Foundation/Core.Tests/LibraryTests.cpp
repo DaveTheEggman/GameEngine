@@ -19,7 +19,7 @@ using namespace foundation::core;
 // is now UTF-8, so wrap in a StringView directly.
 static StringView PluginPath()
 {
-    return StringView{reinterpret_cast<const utf8char*>(DRACONIC_TEST_PLUGIN_PATH)};
+    return StringView{reinterpret_cast<const utf8char*>(TEST_PLUGIN_PATH)};
 }
 
 // --- Library ---------------------------------------------------------------
@@ -33,12 +33,12 @@ TEST_CASE("library: load a real plugin, resolve and call symbols, unload")
     CHECK(lib.IsLoaded());
 
     using AddFn = int (*)(int, int);
-    AddFn add = lib.GetSymbol<AddFn>(u8"DraconicTestAdd");
+    AddFn add = lib.GetSymbol<AddFn>(u8"TestAdd");
     REQUIRE(add != nullptr);
     CHECK(add(2, 3) == 5);
 
     using AnswerFn = int (*)();
-    AnswerFn answer = lib.GetSymbol<AnswerFn>(u8"DraconicTestAnswer");
+    AnswerFn answer = lib.GetSymbol<AnswerFn>(u8"TestAnswer");
     REQUIRE(answer != nullptr);
     CHECK(answer() == 42);
 
@@ -70,7 +70,7 @@ TEST_CASE("library: move transfers ownership")
     CHECK(b.IsLoaded());
 
     using AnswerFn = int (*)();
-    AnswerFn answer = b.GetSymbol<AnswerFn>(u8"DraconicTestAnswer");
+    AnswerFn answer = b.GetSymbol<AnswerFn>(u8"TestAnswer");
     REQUIRE(answer != nullptr);
     CHECK(answer() == 42);
 }

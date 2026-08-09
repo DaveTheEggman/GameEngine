@@ -34,8 +34,8 @@ namespace
 {
     // VG shaders ship in the engine corpus (vg.vs/vg.ps); resolved via ShaderSystemHost in OnInit.
 
-#ifndef DRACONIC_VG_FONT_PATH
-#define DRACONIC_VG_FONT_PATH ""
+#ifndef BUILTIN_VG_FONT_PATH
+#define BUILTIN_VG_FONT_PATH ""
 #endif
 
     // Gradient stops take the engine's float Color; UI colors are byte Color32.
@@ -86,7 +86,7 @@ private:
     static f32 HueToRGB(f32 p, f32 q, f32 t);
     [[nodiscard]] bool HasFonts() const
     {
-        return !StringView(reinterpret_cast<const utf8char*>(DRACONIC_VG_FONT_PATH)).IsEmpty();
+        return !StringView(reinterpret_cast<const utf8char*>(BUILTIN_VG_FONT_PATH)).IsEmpty();
     }
 
     shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules
@@ -127,8 +127,8 @@ Status VGSandbox::OnInit()
 {
     // Resolve the VG shaders through the shared ShaderSystemHost (cooked pack or dev DXC over
     // Data/Shaders) - the SAME cooked corpus (vg.vs/vg.ps/vg_df.ps) the runtime UI uses.
-#ifdef DRACONIC_ENGINE_SHADER_DIR
-    constexpr StringView kShaderRoot = u8"" DRACONIC_ENGINE_SHADER_DIR;
+#ifdef BUILTIN_ENGINE_SHADER_DIR
+    constexpr StringView kShaderRoot = u8"" BUILTIN_ENGINE_SHADER_DIR;
 #else
     constexpr StringView kShaderRoot = u8"Shaders";
 #endif
@@ -173,7 +173,7 @@ Status VGSandbox::OnInit()
     m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
     if (HasFonts())
     {
-        const StringView fontPath(reinterpret_cast<const utf8char*>(DRACONIC_VG_FONT_PATH));
+        const StringView fontPath(reinterpret_cast<const utf8char*>(BUILTIN_VG_FONT_PATH));
         LoadFontSize(fontPath, 14.0f);
         LoadFontSize(fontPath, 20.0f);
         LoadFontSize(fontPath, 36.0f);

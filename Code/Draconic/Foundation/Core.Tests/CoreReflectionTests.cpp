@@ -384,7 +384,7 @@ REFLECT_VALUE(AttrWidget, "rtti::tests")
 TEST_CASE("core-reflection: per-property attributes via PropAttribute")
 {
     EnsureRegistered();
-    DraconicRegisterValue_AttrWidget();
+    RttiRegisterValue_AttrWidget();
 
     const TypeInfo& type = TypeOf<AttrWidget>();
     const PropertyInfo* speed = FindProperty(type, "speed");

@@ -344,8 +344,8 @@ TEST_CASE("scene-edit: transform + active commands (merge, undo)")
 
 TEST_CASE("scene-edit: component property commands (variant + raw enum, merge, undo)")
 {
-    DraconicRegisterEnum_TestMode();
-    DraconicRegisterValue_WidgetComponent();
+    RttiRegisterEnum_TestMode();
+    RttiRegisterValue_WidgetComponent();
 
     scene::Scene scene;
     auto* widgets = scene.AddSystem<WidgetManager>();
@@ -663,7 +663,7 @@ REFLECT_VALUE(WindSettings, "rtti::editor::editor::test")
 
 namespace
 {
-    void RegisterWindReflection() { DraconicRegisterValue_WindSettings(); }
+    void RegisterWindReflection() { RttiRegisterValue_WindSettings(); }
 }
 
 TEST_CASE("edit-context: scene-setting edits are undoable commands and merge like scrubs")

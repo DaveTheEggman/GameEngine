@@ -16,7 +16,7 @@ namespace
     // Build dirs hand us a narrow UTF-8 path; the IO/Library APIs take StringView.
     [[nodiscard]] StringView PluginPath()
     {
-        return StringView{reinterpret_cast<const utf8char*>(DRACONIC_TEST_PLUGIN_PATH)};
+        return StringView{reinterpret_cast<const utf8char*>(TEST_PLUGIN_PATH)};
     }
 
     // Distinct subsystem types (distinct TypeOf<> keys). Each records its tag in a
@@ -286,7 +286,7 @@ TEST_CASE("runtime: PluginHost::Load loads a plugin from a shared library")
         auto loaded = host.Load(PluginPath());
         REQUIRE(loaded.HasValue());
         CHECK(host.Count() == 1u);
-        CHECK(loaded.Value()->Name() == StringView{u8"DraconicTestPlugin"});
+        CHECK(loaded.Value()->Name() == StringView{u8"TestPlugin"});
 
         ctx.Startup();
         ctx.Update(0.016f);
@@ -295,7 +295,7 @@ TEST_CASE("runtime: PluginHost::Load loads a plugin from a shared library")
         // handle to the same image shares the counter (dlopen refcounts).
         DynamicLibrary probe{PluginPath()};
         REQUIRE(probe.IsLoaded());
-        const auto ticks = probe.GetSymbol<int (*)()>(u8"DraconicTestPluginTicks");
+        const auto ticks = probe.GetSymbol<int (*)()>(u8"TestPluginTicks");
         REQUIRE(ticks != nullptr);
         CHECK(ticks() == 1);
 

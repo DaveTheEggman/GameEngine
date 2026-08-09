@@ -10,7 +10,7 @@
 ///   - PACK mode: a cooked shaders.dpak beside the executable (or in the cwd) => no compiler,
 ///     prebuilt blobs in the device's backend format (WGSL in a browser). The dist / web path,
 ///     entered when dev mode is unavailable - or explicitly, via ShaderPackPolicy::ForcePack or
-///     the DRACONIC_USE_SHADER_PACK environment variable (pack-on-desktop testing).
+///     the OPTION_USE_SHADER_PACK environment variable (pack-on-desktop testing).
 ///
 /// This is the single implementation of "how do I get a ShaderSystem for this device"; before it,
 /// the renderer had its own copy and VG/UI/ImGui each DXC-compiled inline HLSL with no pack path.
@@ -32,7 +32,7 @@ namespace rhi = foundation::rhi;
 export namespace foundation::shaders
 {
     /// How the host picks between the cooked pack and dev compilation. Automatic = dev when
-    /// possible, pack otherwise (or when DRACONIC_USE_SHADER_PACK is set in the environment);
+    /// possible, pack otherwise (or when OPTION_USE_SHADER_PACK is set in the environment);
     /// the Force values pin one mode - primarily for tests and pack-on-desktop verification.
     enum class ShaderPackPolicy
     {
@@ -50,7 +50,7 @@ export namespace foundation::shaders
         ShaderSystemHost& operator=(const ShaderSystemHost&) = delete;
 
         /// Build the ShaderSystem for `device`. `engineShaderRoot` is the dev-mode HLSL source root
-        /// (e.g. DRACONIC_ENGINE_SHADER_DIR, or "Shaders" beside a dist). Returns true if a
+        /// (e.g. BUILTIN_ENGINE_SHADER_DIR, or "Shaders" beside a dist). Returns true if a
         /// ShaderSystem is ready (either a dev compiler+provider or a cooked pack).
         bool Initialize(rhi::Device& device, StringView engineShaderRoot,
                         ShaderPackPolicy policy = ShaderPackPolicy::Automatic)
@@ -81,7 +81,7 @@ export namespace foundation::shaders
             {
                 wantPack = false;
             }
-            else if (devPossible && GetEnvironmentVariable(u8"DRACONIC_USE_SHADER_PACK").HasValue())
+            else if (devPossible && GetEnvironmentVariable(u8"OPTION_USE_SHADER_PACK").HasValue())
             {
                 wantPack = true;
             }

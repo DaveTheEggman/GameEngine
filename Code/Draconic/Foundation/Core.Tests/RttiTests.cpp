@@ -489,11 +489,11 @@ TEST_CASE("rtti: a Nested property recurses into a non-copyable member via addre
     CHECK(GetProperty(*valueProp, ptrInst).Get<int>() == 99);
 }
 
-void DraconicRegisterValue_BoundedThing(); // emitted by REFLECT_VALUE above
+void RttiRegisterValue_BoundedThing(); // emitted by REFLECT_VALUE above
 
 TEST_CASE("rtti: a BoundedArray reflects a count-bound C-array as a clamped container")
 {
-    DraconicRegisterValue_BoundedThing(); // patches TypeOf<BoundedThing> with its reflected surface
+    RttiRegisterValue_BoundedThing(); // patches TypeOf<BoundedThing> with its reflected surface
     const PropertyInfo* prop = FindProperty(TypeOf<BoundedThing>(), "values");
     REQUIRE(prop != nullptr);
     CHECK(IsNested(*prop));      // structural: harvest skips it, tooling recurses
@@ -552,7 +552,7 @@ TEST_CASE("rtti: container mutation - emplaceDefault / removeAt / moveElement")
     CHECK_FALSE(ContainerRemoveAt(c, inst, 9).IsOk()); // out of range
 
     // BoundedArray mutation respects the count + capacity.
-    DraconicRegisterValue_BoundedThing();
+    RttiRegisterValue_BoundedThing();
     const PropertyInfo* prop = FindProperty(TypeOf<BoundedThing>(), "values");
     REQUIRE(prop != nullptr);
     const ContainerInfo& bc = *prop->type->container;
@@ -642,7 +642,7 @@ TEST_CASE("rtti: an addressAt descent reaches a polymorphic element without a Va
 
 TEST_CASE("rtti: an Array<UniquePtr<T>> reflects a move-only value via addressAt")
 {
-    DraconicRegisterValue_UniqueLeaf();
+    RttiRegisterValue_UniqueLeaf();
     RegisterUniquePtrArrayType<UniqueLeaf>();
     const TypeInfo& t = TypeOf<Array<UniquePtr<UniqueLeaf>>>();
     REQUIRE(IsContainer(t));
@@ -719,7 +719,7 @@ TEST_CASE("rtti: a Variant borrow edits a nested value in place, pins its root, 
 
 TEST_CASE("rtti: a Variant borrow goes stale on structural container mutation (no UAF)")
 {
-    DraconicRegisterValue_UniqueLeaf();
+    RttiRegisterValue_UniqueLeaf();
     RegisterUniquePtrArrayType<UniqueLeaf>();
     const ContainerInfo& c = *TypeOf<Array<UniquePtr<UniqueLeaf>>>().container;
     Array<UniquePtr<UniqueLeaf>> arr;
@@ -969,7 +969,7 @@ TEST_CASE("rtti: method invoke rejects wrong arity and arg types")
 
 TEST_CASE("rtti: enum reflection exposes named values")
 {
-    DraconicRegisterEnum_TestColor();
+    RttiRegisterEnum_TestColor();
 
     const TypeInfo& type = TypeOf<TestColor>();
     CHECK(IsEnum(type));
@@ -987,7 +987,7 @@ TEST_CASE("rtti: enum reflection exposes named values")
 
 TEST_CASE("rtti: enum values round-trip through a Variant")
 {
-    DraconicRegisterEnum_TestColor();
+    RttiRegisterEnum_TestColor();
 
     Variant v = Variant::From(TestColor::Green);
     REQUIRE(v.Is<TestColor>());

@@ -104,7 +104,7 @@ export namespace editor
     // export for the current platform works with no import.
     // The player target's base name (no exe extension); "<base>.runtime-libs" is the build-emitted
     // sidecar list beside it (written by draconic_copy_runtime_deps).
-    inline constexpr StringView kPlayerBaseName = DRACONIC_PLAYER_BASENAME;
+    inline constexpr StringView kPlayerBaseName = BUILTIN_PLAYER_BASENAME;
 
     // Read a "<name>.runtime-libs" list (one library basename per line) from `fs` into `out`, skipping
     // blank lines and trimming trailing CR/whitespace. Absent/empty file => no entries added.
@@ -275,7 +275,7 @@ export namespace editor
     }
 
     // Resolve the templates root, most-specific first: an explicit `overrideRoot` (the editor's
-    // EditorExportSettings::templatesRoot; empty when unset) wins, then $DRACONIC_TEMPLATES_DIR, then
+    // EditorExportSettings::templatesRoot; empty when unset) wins, then $ENV_TEMPLATES_DIR, then
     // DefaultTemplatesRoot(). Shared by the CLI (which passes no override) and the editor (which passes
     // its setting), so both resolve identically.
     [[nodiscard]] inline String ResolveTemplatesRoot(StringView overrideRoot = {})
@@ -284,7 +284,7 @@ export namespace editor
         {
             return String(overrideRoot);
         }
-        if (Optional<String> env = GetEnvironmentVariable(u8"DRACONIC_TEMPLATES_DIR");
+        if (Optional<String> env = GetEnvironmentVariable(u8"ENV_TEMPLATES_DIR");
             env.HasValue() && !env->IsEmpty())
         {
             return static_cast<String&&>(*env);

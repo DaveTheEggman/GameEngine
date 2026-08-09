@@ -9,6 +9,6 @@
 
 extern "C"
 {
-    PLUGIN_EXPORT int DraconicTestAdd(int a, int b) { return a + b; }
-    PLUGIN_EXPORT int DraconicTestAnswer() { return 42; }
+    PLUGIN_EXPORT int TestAdd(int a, int b) { return a + b; }
+    PLUGIN_EXPORT int TestAnswer() { return 42; }
 }

@@ -35,11 +35,11 @@ import engine.physics;   // PhysicsSubsystem (Jolt worlds + interpolation)
 import foundation.input;               // the action model/runtime
 import engine.input;     // InputSubsystem + the Wren Input facade
 import foundation.script;              // IScriptManager/Context (the game script)
-#ifdef DRACONIC_HAS_WREN
-import foundation.script.wren;         // the Wren backend (primary; toggle via DRACONIC_ENABLE_WREN)
+#ifdef OPTION_HAS_WREN
+import foundation.script.wren;         // the Wren backend (primary; toggle via OPTION_ENABLE_WREN)
 #endif
-#ifdef DRACONIC_HAS_ANGELSCRIPT
-import foundation.script.angelscript; // the AngelScript backend (second backend; DRACONIC_ENABLE_ANGELSCRIPT)
+#ifdef OPTION_HAS_ANGELSCRIPT
+import foundation.script.angelscript; // the AngelScript backend (second backend; OPTION_ENABLE_ANGELSCRIPT)
 #endif
 import foundation.script.resource;     // cooked script classes + factory (entity behaviors)
 import engine.script;    // ScriptSubsystem (behaviors + the run's shared context)

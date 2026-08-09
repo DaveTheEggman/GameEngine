@@ -5,7 +5,7 @@
 if(WIN32 AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL3/cmake/SDL3Config.cmake)
     set(SDL3_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SDL3/cmake" CACHE PATH "SDL3 CMake config" FORCE)
     if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL3/lib/x64/SDL3.dll)
-        set(DRACONIC_SDL3_DLL "${CMAKE_CURRENT_SOURCE_DIR}/SDL3/lib/x64/SDL3.dll" CACHE FILEPATH "" FORCE)
+        set(BUILDSYSTEM_SDL3_DLL "${CMAKE_CURRENT_SOURCE_DIR}/SDL3/lib/x64/SDL3.dll" CACHE FILEPATH "" FORCE)
     endif()
 endif()
 
@@ -20,16 +20,16 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
     target_include_directories(dxc_headers
         SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include)
 
-    # DRACONIC_DXC_LIB (cache): the absolute path to the DXC runtime library, so apps that ship
+    # BUILDSYSTEM_DXC_LIB (cache): the absolute path to the DXC runtime library, so apps that ship
     # (Engine.Player) can STAGE it beside the executable as a sidecar - DXC is loaded at runtime
     # (renderer compiles HLSL on demand), so a dist that lacks it renders nothing on any machine
-    # but this one (where the compiled-in DRACONIC_DXC_PATH rpath still resolves into the tree).
+    # but this one (where the compiled-in BUILDSYSTEM_DXC_PATH rpath still resolves into the tree).
     if(WIN32)
         set(_dxc_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/DXC/lib/win-x64")
         if(EXISTS "${_dxc_lib_dir}/dxcompiler.dll")
             target_compile_definitions(dxc_headers
-                INTERFACE DRACONIC_DXC_PATH="${_dxc_lib_dir}/dxcompiler.dll")
-            set(DRACONIC_DXC_LIB "${_dxc_lib_dir}/dxcompiler.dll" CACHE INTERNAL
+                INTERFACE BUILDSYSTEM_DXC_PATH="${_dxc_lib_dir}/dxcompiler.dll")
+            set(BUILDSYSTEM_DXC_LIB "${_dxc_lib_dir}/dxcompiler.dll" CACHE INTERNAL
                 "DXC runtime library to stage beside shipping apps")
             message(STATUS "DXC runtime: ${_dxc_lib_dir}")
         endif()
@@ -37,8 +37,8 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
         set(_dxc_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/DXC/lib/linux-x86_64")
         if(EXISTS "${_dxc_lib_dir}/libdxcompiler.so")
             target_compile_definitions(dxc_headers
-                INTERFACE DRACONIC_DXC_PATH="${_dxc_lib_dir}/libdxcompiler.so")
-            set(DRACONIC_DXC_LIB "${_dxc_lib_dir}/libdxcompiler.so" CACHE INTERNAL
+                INTERFACE BUILDSYSTEM_DXC_PATH="${_dxc_lib_dir}/libdxcompiler.so")
+            set(BUILDSYSTEM_DXC_LIB "${_dxc_lib_dir}/libdxcompiler.so" CACHE INTERNAL
                 "DXC runtime library to stage beside shipping apps")
             list(APPEND CMAKE_BUILD_RPATH "${_dxc_lib_dir}")
             set(CMAKE_BUILD_RPATH "${CMAKE_BUILD_RPATH}" PARENT_SCOPE)
@@ -65,8 +65,8 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/include/webgpu/webgpu.h)
         set(_wgpu_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/lib/win-x64")
         if(EXISTS "${_wgpu_lib_dir}/wgpu_native.dll")
             target_compile_definitions(wgpu_headers
-                INTERFACE DRACONIC_WGPU_PATH="${_wgpu_lib_dir}/wgpu_native.dll")
-            set(DRACONIC_WGPU_LIB "${_wgpu_lib_dir}/wgpu_native.dll" CACHE INTERNAL
+                INTERFACE BUILDSYSTEM_WGPU_PATH="${_wgpu_lib_dir}/wgpu_native.dll")
+            set(BUILDSYSTEM_WGPU_LIB "${_wgpu_lib_dir}/wgpu_native.dll" CACHE INTERNAL
                 "wgpu-native runtime library to stage beside shipping apps")
             message(STATUS "wgpu-native runtime: ${_wgpu_lib_dir}")
         endif()
@@ -74,8 +74,8 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/include/webgpu/webgpu.h)
         set(_wgpu_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/lib/linux-x86_64")
         if(EXISTS "${_wgpu_lib_dir}/libwgpu_native.so")
             target_compile_definitions(wgpu_headers
-                INTERFACE DRACONIC_WGPU_PATH="${_wgpu_lib_dir}/libwgpu_native.so")
-            set(DRACONIC_WGPU_LIB "${_wgpu_lib_dir}/libwgpu_native.so" CACHE INTERNAL
+                INTERFACE BUILDSYSTEM_WGPU_PATH="${_wgpu_lib_dir}/libwgpu_native.so")
+            set(BUILDSYSTEM_WGPU_LIB "${_wgpu_lib_dir}/libwgpu_native.so" CACHE INTERNAL
                 "wgpu-native runtime library to stage beside shipping apps")
             list(APPEND CMAKE_BUILD_RPATH "${_wgpu_lib_dir}")
             set(CMAKE_BUILD_RPATH "${CMAKE_BUILD_RPATH}" PARENT_SCOPE)
@@ -108,13 +108,13 @@ else()
     set(_tint_exe "${CMAKE_CURRENT_SOURCE_DIR}/Tint/bin/linux-x86_64/tint")
 endif()
 if(EXISTS "${_naga_exe}")
-    target_compile_definitions(shader_cook_tools INTERFACE DRACONIC_NAGA_PATH="${_naga_exe}")
+    target_compile_definitions(shader_cook_tools INTERFACE BUILDSYSTEM_NAGA_PATH="${_naga_exe}")
     message(STATUS "naga-cli (WGSL cook): ${_naga_exe}")
 else()
     message(STATUS "naga-cli not present for this host - WGSL cook will report it missing.")
 endif()
 if(EXISTS "${_tint_exe}")
-    target_compile_definitions(shader_cook_tools INTERFACE DRACONIC_TINT_PATH="${_tint_exe}")
+    target_compile_definitions(shader_cook_tools INTERFACE BUILDSYSTEM_TINT_PATH="${_tint_exe}")
     message(STATUS "tint (WGSL conformance): ${_tint_exe}")
 else()
     message(STATUS "tint not present for this host - WGSL cook will FAIL unless validateWgsl=false is passed explicitly.")
@@ -194,8 +194,8 @@ endif() # NOT EMSCRIPTEN (msdfgen gated until a web consumer needs it)
 # PUBLIC + SYSTEM so draconic.physics can #include <Jolt/...>; consumers MUST define
 # the same JPH_* macros, so they are PUBLIC compile definitions here. Does not link
 # policy (vendored code builds without our -Werror).
-file(GLOB_RECURSE draconic_jolt_sources ${CMAKE_CURRENT_SOURCE_DIR}/JoltPhysics/Jolt/*.cpp)
-add_library(jolt STATIC ${draconic_jolt_sources})
+file(GLOB_RECURSE util_jolt_sources ${CMAKE_CURRENT_SOURCE_DIR}/JoltPhysics/Jolt/*.cpp)
+add_library(jolt STATIC ${util_jolt_sources})
 add_library(ThirdParty::Jolt ALIAS jolt)
 target_include_directories(jolt SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/JoltPhysics)
 target_compile_features(jolt PUBLIC cxx_std_17)
@@ -212,20 +212,20 @@ set_target_properties(jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # policy (vendored code builds without our -Werror). scriptstdstring_utils.cpp is
 # deliberately not vendored (needs scriptarray). scriptbuilder parses [metadata] ahead of
 # declarations (the AngelScript editor cook harvests behavior properties through it).
-file(GLOB draconic_angelscript_sources ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/*.cpp)
+file(GLOB util_angelscript_sources ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/*.cpp)
 # x64 Windows needs a hand-written native-call trampoline; the glob above only picks up .cpp,
 # and AngelScript ships the same routines twice, once per assembler dialect. Clang takes the
 # GNU-syntax .S; MSVC takes the MASM .asm (built via enable_language(ASM_MASM) at the root).
 # Miss this and CallX64 / GetReturnedFloat / GetReturnedDouble are unresolved at link.
 if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-    list(APPEND draconic_angelscript_sources
+    list(APPEND util_angelscript_sources
         ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/as_callfunc_x64_msvc_clang.S)
 elseif(MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-    list(APPEND draconic_angelscript_sources
+    list(APPEND util_angelscript_sources
         ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/as_callfunc_x64_msvc_asm.asm)
 endif()
 add_library(angelscript STATIC
-    ${draconic_angelscript_sources}
+    ${util_angelscript_sources}
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptstdstring/scriptstdstring.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptbuilder/scriptbuilder.cpp)
 add_library(ThirdParty::AngelScript ALIAS angelscript)

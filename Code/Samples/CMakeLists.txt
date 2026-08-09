@@ -1,11 +1,11 @@
 # Draconic sample applications. Built when their required backends are available.
 
 # Stage runtime deps (SDL3.dll + any other linked DLLs) next to a sample exe.
-# Thin forwarder to the global draconic_copy_runtime_deps so the ~40 sample call
+# Thin forwarder to the global util_copy_runtime_deps so the ~40 sample call
 # sites need no change; the vendored SDL3 DLL rides in as EXTRA (a no-op when
-# DRACONIC_SDL3_DLL is unset, e.g. on Linux).
-function(draconic_copy_sdl3_dll target)
-    draconic_copy_runtime_deps(${target} EXTRA ${DRACONIC_SDL3_DLL})
+# BUILDSYSTEM_SDL3_DLL is unset, e.g. on Linux).
+function(util_copy_sdl3_dll target)
+    util_copy_runtime_deps(${target} EXTRA ${BUILDSYSTEM_SDL3_DLL})
 endfunction()
 
 # NetEcho - console proof of draconic.net (no graphics); builds + runs anywhere.
@@ -19,15 +19,15 @@ if(TARGET Foundation::Shell.Desktop AND TARGET Foundation::Runtime.Desktop AND T
     add_subdirectory(MultiWindow)
     # Samples with an ImGui debug UI - honor the extension option, or an
     # -DDRACONIC_EXTENSION_IMGUI=OFF configure dies on a missing Extensions::Imgui target.
-    if(DRACONIC_EXTENSION_IMGUI)
+    if(OPTION_EXTENSION_IMGUI)
         add_subdirectory(InputActions)       # draconic.input consumer proof (named actions end-to-end)
         add_subdirectory(PhysicsPlayground)  # physics P1 consumer proof (crates/trigger/raycast on Jolt)
         add_subdirectory(AudioPlayground)    # audio P1 consumer proof (ambient loop + positional one-shots on miniaudio)
         add_subdirectory(RenderStressTest)   # worst-case benchmark to keep perf honest
     endif()
     # These dev harnesses link the authoring pipeline (ModelImporter / *.Editor cook libs), so they
-    # only build when the tooling is present (DRACONIC_BUILD_TOOLS; always off for web).
-    if(DRACONIC_BUILD_TOOLS AND DRACONIC_EXTENSION_IMGUI)
+    # only build when the tooling is present (OPTION_BUILD_TOOLS; always off for web).
+    if(OPTION_BUILD_TOOLS AND OPTION_EXTENSION_IMGUI)
         add_subdirectory(Sandbox)            # the dev harness we grow the engine in
         add_subdirectory(AnimStressTest)     # animation/skinning benchmark (Sandbox copy, stripped toward a grid)
         add_subdirectory(AnimatedCrowd)      # skinned-crowd instancing (InstancedMeshComponent + InstancedSkinning)
@@ -43,7 +43,7 @@ if(TARGET Samples::Framework)
     add_subdirectory(RHI)
     add_subdirectory(WebScene) # full-renderer exercise scene (desktop build; also the web sample)
     add_subdirectory(VG)  # VG sandbox - end-to-end VG stack demo
-    if(DRACONIC_EXPERIMENTAL_GUI)
+    if(OPTION_EXPERIMENTAL_GUI)
         add_subdirectory(GUI) # GUI sandbox - draconic.gui widgets + CSS on the VG renderer
     endif()
     add_subdirectory(UI)  # UI sandbox - draconic.ui (Sedulous.UI port) on the VG renderer

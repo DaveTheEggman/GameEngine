@@ -13,13 +13,13 @@ import foundation.rhi.null;
 import foundation.rhi.validation;
 import foundation.shell;
 import foundation.shell.desktop;
-#ifdef DRACONIC_HAS_SHADERS
+#ifdef OPTION_HAS_SHADERS
 import foundation.shaders;
 #endif
-#ifdef DRACONIC_HAS_DX12
+#ifdef OPTION_HAS_DX12
 import foundation.rhi.dx12;
 #endif
-#ifdef DRACONIC_HAS_WEBGPU
+#ifdef OPTION_HAS_WEBGPU
 import foundation.rhi.webgpu;
 #endif
 
@@ -330,7 +330,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     // ---- Cleanup ----
     // ---- DXC shader compilation test ----
-#ifdef DRACONIC_HAS_SHADERS
+#ifdef OPTION_HAS_SHADERS
     {
         namespace shaders = foundation::shaders;
         shaders::Compiler* shaderc = nullptr;
@@ -443,7 +443,7 @@ int main(int /*argc*/, char** /*argv*/)
     }
 
     // ===== DX12 backend (Windows only) =====
-#ifdef DRACONIC_HAS_DX12
+#ifdef OPTION_HAS_DX12
     {
         std::printf("\n=== DX12 Backend ===\n");
 
@@ -513,7 +513,7 @@ int main(int /*argc*/, char** /*argv*/)
 #endif
 
     // ===== WebGPU backend (wgpu-native sidecar; skips cleanly when absent) =====
-#ifdef DRACONIC_HAS_WEBGPU
+#ifdef OPTION_HAS_WEBGPU
     {
         std::printf("\n=== WebGPU Backend ===\n");
 

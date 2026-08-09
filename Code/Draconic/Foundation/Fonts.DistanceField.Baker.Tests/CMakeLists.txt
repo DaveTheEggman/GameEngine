@@ -6,7 +6,7 @@ target_link_libraries(Fonts.DistanceField.Baker.Tests PRIVATE
     doctest::doctest)
 target_compile_definitions(Fonts.DistanceField.Baker.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
-    DRACONIC_FONTS_ASSET_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/fonts")
+    BUILTIN_FONTS_ASSET_DIR="${CMAKE_SOURCE_DIR}/Data/Assets/fonts")
 target_compile_options(Fonts.DistanceField.Baker.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 add_test(NAME Fonts.DistanceField.Baker.Tests COMMAND Fonts.DistanceField.Baker.Tests)

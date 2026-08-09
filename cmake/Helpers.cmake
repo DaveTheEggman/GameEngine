@@ -1,7 +1,7 @@
-# Reusable Draconic CMake helpers. Included once from the root CMakeLists, so the
+# Reusable CMake helpers. Included once from the root CMakeLists, so the
 # functions defined here are visible in every add_subdirectory() below it.
 
-# draconic_copy_runtime_deps(<target> [EXTRA <file>...])
+# util_copy_runtime_deps(<target> [EXTRA <file>...])
 #
 # POST_BUILD, stage everything <target> needs to run next to its executable:
 #
@@ -12,14 +12,14 @@
 #  * `EXTRA` copies loose files that are NOT link dependencies and so are invisible
 #    to TARGET_RUNTIME_DLLS - e.g. a library loaded at runtime via dlopen/LoadLibrary
 #    (dxcompiler.dll), or a known vendored DLL path. Empty entries are skipped, so
-#    passing an unset variable (e.g. ${DRACONIC_SDL3_DLL} on Linux) is harmless.
+#    passing an unset variable (e.g. ${BUILDSYSTEM_SDL3_DLL} on Linux) is harmless.
 #
 # copy_if_different keeps the copy incremental; a file staged twice is harmless.
 #
 # NOTE: on Windows a bare call (no EXTRA) needs the target to link >=1 shared
 # dependency - copy_if_different requires at least one source. All our apps link
-# SDL3, so in practice pass `EXTRA ${DRACONIC_SDL3_DLL}` and it is always covered.
-function(draconic_copy_runtime_deps target)
+# SDL3, so in practice pass `EXTRA ${BUILDSYSTEM_SDL3_DLL}` and it is always covered.
+function(util_copy_runtime_deps target)
     cmake_parse_arguments(ARG "" "" "EXTRA" ${ARGN})
 
     if(WIN32)

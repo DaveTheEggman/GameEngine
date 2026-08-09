@@ -12,4 +12,4 @@ target_link_libraries(InputActions PRIVATE
     Foundation::Input Engine::Input
     Foundation::Settings Foundation::Xml.Serialization Extensions::Imgui
     Foundation::Policy)
-draconic_copy_sdl3_dll(InputActions)
+util_copy_sdl3_dll(InputActions)

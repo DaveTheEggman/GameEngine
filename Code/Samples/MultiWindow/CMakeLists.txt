@@ -13,4 +13,4 @@ target_link_libraries(MultiWindow PRIVATE
     Foundation::Graphics
     Foundation::Graphics.Gpu
     Foundation::Policy)
-draconic_copy_sdl3_dll(MultiWindow)
+util_copy_sdl3_dll(MultiWindow)

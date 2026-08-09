@@ -30,7 +30,7 @@
 // The build identity compiled into Runtime.Client (GenerateBuildStamp.cmake): git short
 // hash + dirty flag + build minute. Logged first thing by APP_MAIN so a running
 // binary - ESPECIALLY a browser-cached .wasm - can always be matched to a build.
-extern "C" const char* DraconicBuildStamp();
+extern "C" const char* BuildStamp();
 
 #if PLATFORM_WEB
 
@@ -48,7 +48,7 @@ extern "C" const char* DraconicBuildStamp();
         ::foundation::core::GlobalLogger().AddSink(&draconicConsoleSink);                            \
         ::foundation::core::GlobalLogger().SetMinLevel(::foundation::core::LogLevel::Info);            \
         LOG_INFO(u8"Build", u8"Draconic build {}",                                        \
-                          reinterpret_cast<const char8_t*>(DraconicBuildStamp()));                 \
+                          reinterpret_cast<const char8_t*>(BuildStamp()));                 \
         static ::foundation::shell::WebShell draconicShell;                                          \
         ::foundation::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
         draconicGpuDesc.backend = ::foundation::graphics::BackendType::WebGPU;                       \
@@ -71,7 +71,7 @@ extern "C" const char* DraconicBuildStamp();
         static ::foundation::core::ConsoleSink draconicConsoleSink;                                  \
         ::foundation::core::GlobalLogger().AddSink(&draconicConsoleSink);                            \
         LOG_INFO(u8"Build", u8"Draconic build {}",                                        \
-                          reinterpret_cast<const char8_t*>(DraconicBuildStamp()));                 \
+                          reinterpret_cast<const char8_t*>(BuildStamp()));                 \
         auto shell = ::foundation::shell::CreateShell();                                             \
         ::foundation::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
         draconicGpuDesc.backend =                                                                  \

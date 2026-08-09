@@ -248,19 +248,19 @@ namespace foundation::particles
     {
         static const bool once = []()
         {
-            DraconicRegisterValue_RangeFloat();
-            DraconicRegisterValue_RangeFloat2();
-            DraconicRegisterValue_RangeColor();
-            DraconicRegisterEnum_EmissionShapeType();
-            DraconicRegisterValue_EmissionShape();
-            DraconicRegisterValue_CollisionPlane();
-            DraconicRegisterValue_CollisionSphere();
-            DraconicRegisterValue_CollisionBox();
-            DraconicRegisterValue_CurveKeyFloat();
-            DraconicRegisterValue_CurveKeyColor();
-            DraconicRegisterValue_ParticleCurveFloat();
-            DraconicRegisterValue_ParticleCurveColor();
-            DraconicRegisterValue_ParticleCurveFloat2();
+            RttiRegisterValue_RangeFloat();
+            RttiRegisterValue_RangeFloat2();
+            RttiRegisterValue_RangeColor();
+            RttiRegisterEnum_EmissionShapeType();
+            RttiRegisterValue_EmissionShape();
+            RttiRegisterValue_CollisionPlane();
+            RttiRegisterValue_CollisionSphere();
+            RttiRegisterValue_CollisionBox();
+            RttiRegisterValue_CurveKeyFloat();
+            RttiRegisterValue_CurveKeyColor();
+            RttiRegisterValue_ParticleCurveFloat();
+            RttiRegisterValue_ParticleCurveColor();
+            RttiRegisterValue_ParticleCurveFloat2();
             // The module arrays are polymorphic: register Array<RefPtr<Base>> as a polymorphic
             // container so tooling recurses into each module's concrete reflected type. Pass the
             // standard serialization create-by-type adapter (the factory flows in as function

@@ -43,11 +43,11 @@ import foundation.animation;          // AnimationPlayer (drives GPU skinning)
 
 #include "../Common/FlyCamera.h" // shared free-fly camera (uses the imported runtime/core types)
 
-#ifndef DRACONIC_SANDBOX_MODEL_DIR
-#define DRACONIC_SANDBOX_MODEL_DIR ""
+#ifndef SAMPLE_SANDBOX_MODEL_DIR
+#define SAMPLE_SANDBOX_MODEL_DIR ""
 #endif
-#ifndef DRACONIC_SANDBOX_OUTPUT_DIR
-#define DRACONIC_SANDBOX_OUTPUT_DIR ""
+#ifndef SAMPLE_SANDBOX_OUTPUT_DIR
+#define SAMPLE_SANDBOX_OUTPUT_DIR ""
 #endif
 
 namespace core = foundation::core;
@@ -121,7 +121,7 @@ namespace
                 render->SetExposure(0.5f);
                 core::String hdrPath = core::Format(
                     u8"{}/BlueSky.hdr", core::StringView(reinterpret_cast<const core::utf8char*>(
-                                            DRACONIC_SANDBOX_ENV_DIR)));
+                                            SAMPLE_SANDBOX_ENV_DIR)));
                 foundation::image::Image img;
                 if (foundation::image::io::LoadImage(hdrPath.AsView(), img).IsOk() &&
                     img.Format() == foundation::image::PixelFormat::RGBA32F)
@@ -149,7 +149,7 @@ namespace
                 core::String oneFace =
                     core::Format(u8"{}/cube_sky/px.png",
                                  core::StringView(reinterpret_cast<const core::utf8char*>(
-                                     DRACONIC_SANDBOX_ENV_DIR)));
+                                     SAMPLE_SANDBOX_ENV_DIR)));
                 core::Array<core::String> facePaths;
                 if (pipeline::TextureImporter::DetectCubemapFaces(oneFace.AsView(), facePaths)
                         .IsOk() &&
@@ -474,9 +474,9 @@ namespace
         void LoadImportedModel(runtime::IApplicationHost& host)
         {
             const core::StringView outputDir(
-                reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_OUTPUT_DIR));
+                reinterpret_cast<const core::utf8char*>(SAMPLE_SANDBOX_OUTPUT_DIR));
             const core::StringView modelDir(
-                reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_MODEL_DIR));
+                reinterpret_cast<const core::utf8char*>(SAMPLE_SANDBOX_MODEL_DIR));
             if (outputDir.IsEmpty() || modelDir.IsEmpty())
             {
                 return;
@@ -565,7 +565,7 @@ namespace
                 return nullptr;
             }
             const core::StringView imageDir(
-                reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_IMAGE_DIR));
+                reinterpret_cast<const core::utf8char*>(SAMPLE_SANDBOX_IMAGE_DIR));
 
             pipeline::TextureAsset asset;
             pipeline::TextureImporter::Import2D(u8"draconic_logo_no_text.png",

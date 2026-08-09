@@ -6,6 +6,6 @@ target_link_libraries(VGSandbox PRIVATE
     Foundation::Image Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.DistanceField Foundation::Fonts.DistanceField.Baker
     Foundation::VG Foundation::VG.Renderer Foundation::VG.SVG)
 target_compile_definitions(VGSandbox PRIVATE
-    DRACONIC_VG_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
-    DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
-draconic_copy_sdl3_dll(VGSandbox)
+    BUILTIN_VG_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
+    BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
+util_copy_sdl3_dll(VGSandbox)
