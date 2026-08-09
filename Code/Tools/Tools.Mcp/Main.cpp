@@ -15,6 +15,7 @@ import foundation.core;
 import foundation.json;
 import foundation.mcp;
 import foundation.mcp.reflection;
+import foundation.mcp.script;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
@@ -67,6 +68,7 @@ int main(int /*argc*/, char** /*argv*/)
     McpServer server;
     server.SetServerInfo(u8"draconic-mcp", u8"0.1.0");
     RegisterReflectionTools(server);
+    RegisterScriptTools(server); // script_api: the per-backend bound API for writing scripts
 
     // The host's current project (project_open/create populate it); outlives the server.
     editor::mcp::ProjectSession session;

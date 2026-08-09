@@ -385,6 +385,7 @@ if(TARGET ThirdParty::AngelScript)
 endif()
 add_subdirectory(Code/Foundation/Script.Resource)   # cooked script classes + factory (source + harvested metadata)
 add_subdirectory(Code/Foundation/Script.Facades)    # curated behavior facades (Entity/Log/Time/Random) - shared by cook VM + runtime
+add_subdirectory(Code/Foundation/Mcp.Script)        # MCP scripting tools (script_api) over Mcp + Script + Script.Facades
 add_subdirectory(Code/Foundation/Net.Manager)       # per-instance networked endpoint (NetworkManager) + Net script facade (over Net + Script)
 add_subdirectory(Code/Engine/Engine.Net)     # once-per-context NetworkSubsystem (injects NetworkComponentManager into scenes)
 add_subdirectory(Code/Foundation/Shell)     # raw platform/OS service (IShell: window/input/events) over Core; below Runtime
@@ -601,6 +602,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Json.Tests                     Foundation::Json)
     util_test_suite(Code/Foundation/Mcp.Tests                      Foundation::Mcp)
     util_test_suite(Code/Foundation/Mcp.Reflection.Tests           Foundation::Mcp.Reflection)
+    util_test_suite(Code/Foundation/Mcp.Script.Tests               Foundation::Mcp.Script)
 
     # Integration - cross-collection flow suites (Code/Integration/README.md). Tiered behind the
     # Integration. prefix: the fast dev loop runs module suites only; review/pre-push include these.

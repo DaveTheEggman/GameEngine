@@ -3,6 +3,6 @@
 
 add_executable(Tools.Mcp Main.cpp)
 target_link_libraries(Tools.Mcp PRIVATE
-    Foundation::Mcp.Reflection Editor::Mcp
+    Foundation::Mcp.Reflection Foundation::Mcp.Script Editor::Mcp
     Pipeline::Registration Pipeline::Core Pipeline::Importer # the write tools' builder/importer set
     Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)
