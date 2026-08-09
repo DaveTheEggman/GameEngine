@@ -241,3 +241,39 @@ endif()
 # On Emscripten as_config.h auto-enables AS_MAX_PORTABILITY (native-call trampolines compile out; the
 # backend is all-generic) AND AS_NO_THREADS, so the web build needs no pthread / SharedArrayBuffer and
 # no manual define here - matching the single-threaded web v1 (JobSystem inline) model.
+
+# Luau 0.733 - vendored BY COPY, FULL upstream tree (github.com/luau-lang/luau, release
+# tag 0.733; MIT + the original Lua license). We define our OWN target over the sources
+# rather than add_subdirectory-ing their CMake (house pattern; their build wants options,
+# tests, and CLI wiring we do not). Compiled TODAY: VM + Compiler + Ast + Bytecode +
+# Common + Config - the interpreter + source->bytecode path. In the tree but NOT compiled
+# yet: Analysis (the P5 typechecker for script_validate - own target when that lands),
+# CodeGen (JIT - our targets are interpreter-only), CLI/tests/bench/fuzz/tools/extern/
+# Inliner/Require. Being vendored in full keeps upstream bumps a plain re-copy.
+#
+# LUA_USE_LONGJMP=1 is REQUIRED, PUBLIC: the engine builds -fno-exceptions, so Luau's
+# error unwinding must be longjmp, never a C++ throw - a script error crossing our frames
+# as an exception is a hard abort. PUBLIC so every consumer sees the same luaconf shape.
+# BYTECODE COMPAT NOTE: Luau bytecode is NOT stable across versions - the script cook
+# fingerprint must include this vendored version (see docs/specs/luau-backend.md).
+file(GLOB util_luau_sources
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/VM/src/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/Compiler/src/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/Ast/src/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/Bytecode/src/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/Common/src/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/Config/src/*.cpp)
+add_library(luau STATIC ${util_luau_sources})
+add_library(ThirdParty::Luau ALIAS luau)
+target_include_directories(luau SYSTEM PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/VM/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/Compiler/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/Ast/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/Bytecode/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/Common/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/Config/include)
+target_include_directories(luau PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/luau/VM/src)
+target_compile_definitions(luau PUBLIC LUA_USE_LONGJMP=1)
+target_compile_features(luau PRIVATE cxx_std_17)
+set_target_properties(luau PROPERTIES POSITION_INDEPENDENT_CODE ON)

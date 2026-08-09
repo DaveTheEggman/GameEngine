@@ -5,6 +5,21 @@ and the plan. Keep newest first.
 
 ---
 
+## Sanitizer build dirs clobber Bin after the suffix-variable rename - TRIPWIRED
+
+**Status:** MITIGATED (root CMakeLists tripwire). The debrand renamed
+DRACONIC_OUTPUT_SUFFIX -> BUILDSYSTEM_OUTPUT_SUFFIX; a pre-rename build/asan
+or build/tsan dir still carries the OLD cache entry while the new variable
+reads empty - so a sanitizer build writes UNSUFFIXED output and clobbers
+Bin/<Config>/<Plat>-<Comp> with sanitized binaries AND static libs (bit
+Fable on 2026-08-09; the regular build then fails linking with __ubsan
+references, and the fix is deleting Bin/.../lib/*.a + a full rebuild).
+The root CMakeLists now FATALs on the stale-cache combination with the
+one-line reconfigure in the message. ANY machine with pre-rename sanitizer
+dirs (including Windows) must reconfigure:
+`cmake -S . -B build/asan -DBUILDSYSTEM_OUTPUT_SUFFIX=-ASAN` (same for tsan).
+
+
 ## MSVC support (I9) - P2 COMPLETE, TREE BUILDS CLEAN
 
 **Status:** P1 triage 2026-08-08, P2 fixes same day, on branch `msvc`.

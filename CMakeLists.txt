@@ -59,6 +59,17 @@ endif()
 # project that lived beside the binaries). Set BUILDSYSTEM_OUTPUT_SUFFIX (e.g. "-ASAN") in
 # sanitizer configure runs.
 set(BUILDSYSTEM_OUTPUT_SUFFIX "" CACHE STRING "Suffix for the Bin output dir (e.g. -ASAN)")
+# TRIPWIRE (debrand migration): the suffix variable was renamed from DRACONIC_OUTPUT_SUFFIX.
+# A pre-rename sanitizer build dir still carries the OLD cache entry while the new one is
+# empty - and then writes UNSUFFIXED output, clobbering the regular Bin with sanitized
+# binaries (this happened). Fail loudly instead; the fix is a one-line reconfigure.
+if(DEFINED CACHE{DRACONIC_OUTPUT_SUFFIX} AND NOT "$CACHE{DRACONIC_OUTPUT_SUFFIX}" STREQUAL ""
+   AND "${BUILDSYSTEM_OUTPUT_SUFFIX}" STREQUAL "")
+    message(FATAL_ERROR "Stale DRACONIC_OUTPUT_SUFFIX='$CACHE{DRACONIC_OUTPUT_SUFFIX}' in this "
+        "build dir but BUILDSYSTEM_OUTPUT_SUFFIX is empty (the variable was renamed). "
+        "Reconfigure with -DBUILDSYSTEM_OUTPUT_SUFFIX=$CACHE{DRACONIC_OUTPUT_SUFFIX} "
+        "or this build would clobber the unsuffixed Bin outputs.")
+endif()
 set(BUILDSYSTEM_BIN_DIR "${CMAKE_SOURCE_DIR}/Bin/$<CONFIG>/${_dr_plat}-${_dr_comp}${BUILDSYSTEM_OUTPUT_SUFFIX}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY     "${BUILDSYSTEM_BIN_DIR}")       # exes + Windows DLLs
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY     "${BUILDSYSTEM_BIN_DIR}")       # .so plugins/modules (beside the exe)
@@ -368,6 +379,7 @@ endif()
 add_subdirectory(Code/Foundation/Script)
 # --- Script backends (Wren always; AngelScript where the vendored lib built) ---
 add_subdirectory(Code/Foundation/Script.Wren)
+add_subdirectory(Code/Foundation/Script.Luau)
 if(TARGET ThirdParty::AngelScript)
     add_subdirectory(Code/Foundation/Script.AngelScript)
 endif()
@@ -558,6 +570,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Script.Resource.Tests           Foundation::Script.Resource)
     util_test_suite(Code/Foundation/Script.Tests                    Foundation::Script)
     util_test_suite(Code/Foundation/Script.Wren.Tests               Foundation::Script.Wren)
+    util_test_suite(Code/Foundation/Script.Luau.Tests               Foundation::Script.Luau)
     util_test_suite(Code/Foundation/Settings.Tests                  Foundation::Settings)
     util_test_suite(Code/Foundation/Shaders.Resource.Tests          Foundation::Shaders.Resource)
     util_test_suite(Code/Foundation/Shaders.System.Tests            Foundation::Shaders.System)
