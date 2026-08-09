@@ -6,7 +6,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:unique_ptr;
+export module foundation.core:unique_ptr;
 
 import :base;
 import :allocator;

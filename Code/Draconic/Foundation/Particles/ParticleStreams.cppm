@@ -1,4 +1,4 @@
-// draconic.particles:streams - the SoA particle stream container, ported from
+// foundation.particles:streams - the SoA particle stream container, ported from
 // Sedulous.Particles (ParticleStream.bf, CPUStream.bf, ParticleStreamContainer.bf).
 //
 // Particle state is Structure-of-Arrays: one typed stream per attribute, held in a fixed
@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.particles:streams;
+export module foundation.particles:streams;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

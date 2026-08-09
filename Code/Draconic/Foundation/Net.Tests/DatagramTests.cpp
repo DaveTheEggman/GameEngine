@@ -1,10 +1,10 @@
-// draconic.net:datagram - the in-memory unreliable datagram sim.
+// foundation.net:datagram - the in-memory unreliable datagram sim.
 #include <doctest/doctest.h>
 #include <initializer_list>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.net;
+import foundation.core;
+import foundation.net;
 
 using namespace foundation::core;
 namespace net = foundation::net;

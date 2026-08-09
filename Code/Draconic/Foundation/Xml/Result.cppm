@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.xml:result;
+export module foundation.xml:result;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

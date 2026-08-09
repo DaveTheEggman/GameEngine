@@ -10,13 +10,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:debug_pass;
+export module foundation.render:debug_pass;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rendergraph;
-import draconic.shaders;
-import draconic.shaders.system;
+import foundation.core;
+import foundation.rhi;
+import foundation.rendergraph;
+import foundation.shaders;
+import foundation.shaders.system;
 import :debug_font;
 import :debug_draw;
 

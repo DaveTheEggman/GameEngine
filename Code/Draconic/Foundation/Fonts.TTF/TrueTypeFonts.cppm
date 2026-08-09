@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - draconic.fonts.ttf:init partition
+// Draconic::FontsTTF - foundation.fonts.ttf:init partition
 //
 // Registers/unregisters the TTF parser + atlas baker with the IO factories.
 // Ported from Sedulous.Fonts.TTF/TrueTypeFonts.bf. Initialize news the parser
@@ -8,10 +8,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.ttf:init;
+export module foundation.fonts.ttf:init;
 
-import draconic.core;
-import draconic.fonts.io;
+import foundation.core;
+import foundation.fonts.io;
 import :parser;
 import :atlas_baker;
 

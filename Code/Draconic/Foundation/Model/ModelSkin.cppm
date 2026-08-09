@@ -7,9 +7,9 @@ module;
 #include <string>
 #include <vector>
 
-export module draconic.model:model_skin;
+export module foundation.model:model_skin;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

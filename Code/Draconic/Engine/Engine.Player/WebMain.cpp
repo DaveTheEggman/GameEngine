@@ -14,58 +14,58 @@
 #include "Core/Reflection/Reflect.h"
 #include <emscripten/emscripten.h>
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.fonts;
-import draconic.fonts.resource;
-import draconic.shell;
-import draconic.shell.web; // WebShell (the browser shell) - required by DRACONIC_APP_MAIN's web body
-import draconic.graphics;
-import draconic.graphics.gpu;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.runtime.web; // RunApplication (the rAF runner) - required by DRACONIC_APP_MAIN
-import draconic.engine.defaultapp;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.scene.resource;
-import draconic.render;
-import draconic.engine.render;
-import draconic.animation;
-import draconic.animation.resource;
-import draconic.engine.animation;
-import draconic.particles;
-import draconic.particles.resource;
-import draconic.engine.particles;
-import draconic.geometry;
-import draconic.geometry.resource;
-import draconic.audio;
-import draconic.audio.resource;
-import draconic.engine.audio;
-import draconic.materials;
-import draconic.materials.resource;
-import draconic.texture;
-import draconic.texture.resource;
-import draconic.image.resource;
-import draconic.model.resource;
-import draconic.script;
-import draconic.script.resource;
-import draconic.input;
-import draconic.physics;
-import draconic.physics.resource;
-import draconic.engine.physics;
-import draconic.input.resource;
-import draconic.engine.input;
-import draconic.ui.resource;
-import draconic.ui;           // View / ViewGroup / ProgressBar (the boot-splash controls)
-import draconic.engine.ui;
-import draconic.engine.gameinstance; // SceneLoadHandle (PlayerApplication async level load)
-import draconic.xml.serialization;
-import draconic.settings;
-import draconic.engine.project;
-import draconic.vfs.pak;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.fonts;
+import foundation.fonts.resource;
+import foundation.shell;
+import foundation.shell.web; // WebShell (the browser shell) - required by DRACONIC_APP_MAIN's web body
+import foundation.graphics;
+import foundation.graphics.gpu;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.runtime.web; // RunApplication (the rAF runner) - required by DRACONIC_APP_MAIN
+import engine.defaultapp;
+import foundation.scene;
+import engine.scene;
+import foundation.scene.resource;
+import foundation.render;
+import engine.render;
+import foundation.animation;
+import foundation.animation.resource;
+import engine.animation;
+import foundation.particles;
+import foundation.particles.resource;
+import engine.particles;
+import foundation.geometry;
+import foundation.geometry.resource;
+import foundation.audio;
+import foundation.audio.resource;
+import engine.audio;
+import foundation.materials;
+import foundation.materials.resource;
+import foundation.texture;
+import foundation.texture.resource;
+import foundation.image.resource;
+import foundation.model.resource;
+import foundation.script;
+import foundation.script.resource;
+import foundation.input;
+import foundation.physics;
+import foundation.physics.resource;
+import engine.physics;
+import foundation.input.resource;
+import engine.input;
+import foundation.ui.resource;
+import foundation.ui;           // View / ViewGroup / ProgressBar (the boot-splash controls)
+import engine.ui;
+import engine.gameinstance; // SceneLoadHandle (PlayerApplication async level load)
+import foundation.xml.serialization;
+import foundation.settings;
+import engine.project;
+import foundation.vfs.pak;
 
 #include "PlayerApplication.h"      // the shared runner (uses the imports above)
 #include "Runtime.Client/AppMain.h" // DRACONIC_APP_MAIN (web body: WebShell + WebGPU + rAF runner)

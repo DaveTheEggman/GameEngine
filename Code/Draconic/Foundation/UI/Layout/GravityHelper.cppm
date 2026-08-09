@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:gravity_helper;
+export module foundation.ui:gravity_helper;
 
-import draconic.core; // Rectangle, Max
+import foundation.core; // Rectangle, Max
 import :thickness;
 import :gravity;
 

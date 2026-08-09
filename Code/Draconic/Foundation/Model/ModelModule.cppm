@@ -1,6 +1,6 @@
 /// Primary module for the model library. Re-exports all partitions.
 
-export module draconic.model;
+export module foundation.model;
 
 export import :vertex_format;
 export import :model_vertex;

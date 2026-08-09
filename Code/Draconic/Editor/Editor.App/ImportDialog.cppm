@@ -13,11 +13,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.app:import_dialog;
+export module editor.app:import_dialog;
 
-import draconic.core;
-import draconic.ui;
-import draconic.editor.core;
+import foundation.core;
+import foundation.ui;
+import editor.core;
 
 using namespace foundation::core;
 

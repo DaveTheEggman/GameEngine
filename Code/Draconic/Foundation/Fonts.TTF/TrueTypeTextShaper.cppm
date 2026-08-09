@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - draconic.fonts.ttf:text_shaper partition
+// Draconic::FontsTTF - foundation.fonts.ttf:text_shaper partition
 //
 // Basic left-to-right text shaper + UI helpers (hit testing, cursor/selection
 // geometry, word wrapping) over any IFont. Ported faithfully from
@@ -7,10 +7,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.ttf:text_shaper;
+export module foundation.fonts.ttf:text_shaper;
 
-import draconic.core;
-import draconic.fonts;
+import foundation.core;
+import foundation.fonts;
 
 using namespace foundation::core;
 

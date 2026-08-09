@@ -2,9 +2,9 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.shell;
-import draconic.shell.null;
+import foundation.core;
+import foundation.shell;
+import foundation.shell.null;
 
 using namespace foundation::core;
 using namespace foundation::shell;

@@ -11,9 +11,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:undo_stack;
+export module foundation.ui:undo_stack;
 
-import draconic.core; // String, StringView, Array, Max
+import foundation.core; // String, StringView, Array, Max
 
 using namespace foundation::core;
 

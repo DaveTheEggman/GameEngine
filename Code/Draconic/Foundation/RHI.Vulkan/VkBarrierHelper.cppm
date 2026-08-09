@@ -6,10 +6,10 @@ module;
 
 #include "VkIncludes.h"
 
-export module draconic.rhi.vulkan:barrier_helper;
+export module foundation.rhi.vulkan:barrier_helper;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

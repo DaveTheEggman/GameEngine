@@ -1,16 +1,16 @@
 // Draconic GUI - :parse_util partition
 //
 // CSS-specific identifier scanning for the styling parsers. The generic helpers
-// (IsWhiteSpace / IsDigit / IsHexDigit / HexValue / Trim) now live in draconic.core
+// (IsWhiteSpace / IsDigit / IsHexDigit / HexValue / Trim) now live in foundation.core
 // (:string_util); what remains here is the CSS identifier grammar ([A-Za-z0-9_-], which
 // includes '-' for kebab-case names), which is CSS-flavored rather than generic.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:parse_util;
+export module experimental.gui:parse_util;
 
-import draconic.core; // StringView
+import foundation.core; // StringView
 
 using namespace foundation::core;
 namespace core = foundation::core;

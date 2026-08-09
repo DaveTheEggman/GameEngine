@@ -2,9 +2,9 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.null;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.null;
 
 using namespace foundation::core;
 using namespace foundation::rhi;

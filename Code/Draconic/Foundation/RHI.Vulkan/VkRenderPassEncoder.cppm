@@ -6,10 +6,10 @@ module;
 
 #include "VkIncludes.h"
 
-export module draconic.rhi.vulkan:render_pass_encoder;
+export module foundation.rhi.vulkan:render_pass_encoder;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :buffer;
 import :bind_group;

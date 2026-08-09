@@ -1,4 +1,4 @@
-/// Draconic::ShaderResource - the `draconic.shaders.resource` module.
+/// Draconic::ShaderResource - the `foundation.shaders.resource` module.
 ///
 /// Shaders as resources: a `ShaderSource` (authored content: name + per-stage HLSL)
 /// is built by `ShaderFactory` into a runtime `ShaderResource`. The factory
@@ -12,14 +12,14 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.shaders.resource;
+export module foundation.shaders.resource;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
-import draconic.shaders.system;
-import draconic.resource;
-import draconic.content;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
+import foundation.shaders.system;
+import foundation.resource;
+import foundation.content;
 
 using namespace foundation::core;
 using namespace foundation::resource;

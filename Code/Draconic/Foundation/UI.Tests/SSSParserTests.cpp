@@ -7,9 +7,9 @@
 // remain DEFERRED until those controls are ported.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
-import draconic.image;
+import foundation.core;
+import foundation.ui;
+import foundation.image;
 #include "TestHelpers.h"
 
 using namespace foundation::ui;

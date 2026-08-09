@@ -12,20 +12,20 @@
 //   IApplication     - the app/game: registers subsystems + lifecycle hooks.
 //
 // DefaultApplication (the opinionated base that registers engine default
-// subsystems) lives in a SEPARATE library (draconic.engine.defaultapp) so this base
+// subsystems) lives in a SEPARATE library (engine.defaultapp) so this base
 // client never pulls in the engine subsystem libraries - only apps that opt into
 // the defaults link it.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.runtime.client:app;
+export module foundation.runtime.client:app;
 
-import draconic.core;
-import draconic.rhi; // PresentMode for the main window's swapchain
-import draconic.runtime;
-import draconic.shell;
-import draconic.graphics;
+import foundation.core;
+import foundation.rhi; // PresentMode for the main window's swapchain
+import foundation.runtime;
+import foundation.shell;
+import foundation.graphics;
 
 namespace core = foundation::core;
 using namespace foundation::shell; // IShell + input/window types (moved from foundation::runtime)
@@ -49,7 +49,7 @@ export namespace foundation::runtime
     // Advance() returns how many fixed steps this frame runs (clamped; excess time dropped);
     // Alpha() is the leftover fraction of a step in [0,1) - the interpolation weight render
     // consumers (physics pose smoothing) blend prev->current poses with.
-    // The fixed-timestep accumulator moved to draconic.core (scenes own one each
+    // The fixed-timestep accumulator moved to foundation.core (scenes own one each
     // since per-scene time); re-exposed here for the host's app-level lane.
     using FixedStepper = core::FixedStepper;
 

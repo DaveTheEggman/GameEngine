@@ -7,10 +7,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rendergraph:transient_pool;
+export module foundation.rendergraph:transient_pool;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

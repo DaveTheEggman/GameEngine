@@ -11,7 +11,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:bounds;
+export module foundation.core:bounds;
 
 import :base;
 import :math;

@@ -4,14 +4,14 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.texture;
-import draconic.texture.resource;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.texture;
+import foundation.texture.resource;
 
 using namespace foundation::core;
 using namespace foundation::vfs;

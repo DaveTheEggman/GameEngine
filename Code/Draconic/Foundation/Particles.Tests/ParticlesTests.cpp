@@ -1,12 +1,12 @@
-// draconic.particles - CPU runtime coverage: value types (ranges/curves/emission shapes), the
+// foundation.particles - CPU runtime coverage: value types (ranges/curves/emission shapes), the
 // SoA stream container (lazy alloc / typed access / swap-remove / compaction), the modules
 // (initializers + behaviors), and the effect/system Update loop (spawn, integrate, age, die),
 // plus sub-emitters, LOD, and determinism. No GPU/renderer.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.particles;
+import foundation.core;
+import foundation.particles;
 
 using namespace foundation::core;
 namespace particles = foundation::particles;

@@ -16,15 +16,15 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:mesh_renderer;
+export module foundation.render:mesh_renderer;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.geometry;
-import draconic.shaders;
-import draconic.shaders.system;
-import draconic.materials;
-import draconic.materials.pipelinecache;
+import foundation.core;
+import foundation.rhi;
+import foundation.geometry;
+import foundation.shaders;
+import foundation.shaders.system;
+import foundation.materials;
+import foundation.materials.pipelinecache;
 import :data;
 import :views;
 import :pipeline;

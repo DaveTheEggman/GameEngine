@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:string_list_model;
+export module experimental.gui:string_list_model;
 
-import draconic.core; // Array, String, StringView, Move
+import foundation.core; // Array, String, StringView, Move
 import :variant;
 import :model_index;
 import :model;

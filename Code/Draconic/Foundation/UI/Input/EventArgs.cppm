@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:event_args;
+export module foundation.ui:event_args;
 
-import draconic.core; // Float2
+import foundation.core; // Float2
 import :input_enums;
 
 using namespace foundation::core;

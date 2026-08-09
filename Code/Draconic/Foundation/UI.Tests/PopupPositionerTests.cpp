@@ -2,8 +2,8 @@
 // Float2; RectangleF -> core::Rectangle; Vector2 -> Float2; Math.Abs(d) < eps -> doctest::Approx.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::ui;
 using namespace foundation::core;

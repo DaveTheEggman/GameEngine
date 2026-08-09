@@ -10,9 +10,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:linear_layout;
+export module experimental.gui:linear_layout;
 
-import draconic.core; // Float2, Max
+import foundation.core; // Float2, Max
 import :rect;
 import :thickness;
 import :node;

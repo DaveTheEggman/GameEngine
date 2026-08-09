@@ -5,7 +5,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:scoped_lock;
+export module foundation.core:scoped_lock;
 
 export namespace foundation::core
 {

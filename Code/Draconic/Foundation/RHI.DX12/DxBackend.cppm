@@ -9,10 +9,10 @@ module;
 
 #include <cstdio>
 
-export module draconic.rhi.dx12:backend;
+export module foundation.rhi.dx12:backend;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :surface;
 import :adapter;
 

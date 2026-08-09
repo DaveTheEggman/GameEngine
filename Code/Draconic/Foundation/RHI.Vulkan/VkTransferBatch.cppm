@@ -8,10 +8,10 @@ module;
 
 #include <cstring>
 
-export module draconic.rhi.vulkan:transfer_batch;
+export module foundation.rhi.vulkan:transfer_batch;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :buffer;
 import :texture;

@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:hierarchical_state;
+export module foundation.ui:hierarchical_state;
 
-import draconic.core;
+import foundation.core;
 import :tree_view;
 import :flattened_tree_adapter; // FlattenedTreeAdapter (named directly)
 import :selection_model;        // SelectionModel (tree.Selection())

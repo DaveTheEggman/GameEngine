@@ -12,9 +12,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:action;
+export module experimental.gui:action;
 
-import draconic.core; // Object, Function, Duration, Max, Min
+import foundation.core; // Object, Function, Duration, Max, Min
 
 using namespace foundation::core;
 namespace core = foundation::core;

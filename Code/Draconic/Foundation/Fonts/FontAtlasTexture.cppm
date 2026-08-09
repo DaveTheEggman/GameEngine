@@ -7,10 +7,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts:atlas_texture;
+export module foundation.fonts:atlas_texture;
 
-import draconic.core;
-import draconic.image;
+import foundation.core;
+import foundation.image;
 import :interfaces;
 
 using namespace foundation::core;

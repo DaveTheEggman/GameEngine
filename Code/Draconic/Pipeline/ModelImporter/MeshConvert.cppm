@@ -11,12 +11,12 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.modelimporter:mesh_convert;
+export module modelimporter:mesh_convert;
 
-import draconic.core;
-import draconic.model;
-import draconic.geometry;
-import draconic.geometry.resource;
+import foundation.core;
+import foundation.model;
+import foundation.geometry;
+import foundation.geometry.resource;
 
 using namespace foundation::core;
 using namespace foundation;

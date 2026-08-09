@@ -2,21 +2,21 @@
 //
 // This is a classic header (macros can't live in a module). Use it in the app's
 // main translation unit, which must import:
-//   - draconic.runtime.client          (IApplication)
-//   - draconic.runtime.desktop         (RunApplication - the desktop runner)
-//   - draconic.shell.desktop           (CreateShell)
-//   - draconic.graphics + draconic.graphics.gpu (the GPU device)
+//   - foundation.runtime.client          (IApplication)
+//   - foundation.runtime.desktop         (RunApplication - the desktop runner)
+//   - foundation.shell.desktop           (CreateShell)
+//   - foundation.graphics + foundation.graphics.gpu (the GPU device)
 // The entry point creates the shell window, a GraphicsDevice (so the window
 // actually presents - without one the window never becomes visible on Wayland),
 // the app, and hands all three to the desktop runner (which drives an
 // ApplicationHost). AppType must be an IApplication (or DefaultApplication), and
 // should clear/draw in OnRenderWindow (e.g. `frame.Clear(...)`).
 //
-//   import draconic.runtime.client;
-//   import draconic.runtime.desktop;
-//   import draconic.shell.desktop;
-//   import draconic.graphics;
-//   import draconic.graphics.gpu;
+//   import foundation.runtime.client;
+//   import foundation.runtime.desktop;
+//   import foundation.shell.desktop;
+//   import foundation.graphics;
+//   import foundation.graphics.gpu;
 //   #include "Runtime.Client/AppMain.h"
 //   class MyApp final : public foundation::runtime::IApplication { ... };
 //   DRACONIC_APP_MAIN(MyApp)
@@ -34,12 +34,12 @@ extern "C" const char* DraconicBuildStamp();
 
 #if DRACONIC_PLATFORM_WEB
 
-// Emscripten entry. Unlike desktop, the web runner (draconic.runtime.web) does NOT block: it
+// Emscripten entry. Unlike desktop, the web runner (foundation.runtime.web) does NOT block: it
 // registers a requestAnimationFrame callback and returns, and the browser drives frames after
 // main() unwinds. So the shell, the GPU device, and the app must OUTLIVE main's return - they live
 // in static storage here. The backend is always WebGPU (there is no argv), and device creation
 // blocks-and-yields to the browser via ASYNCIFY (see the WebGPU backend's pump), so the link must
-// enable ASYNCIFY. The app TU imports draconic.shell.web + draconic.runtime.web (not the desktop
+// enable ASYNCIFY. The app TU imports foundation.shell.web + foundation.runtime.web (not the desktop
 // pair). The canvas defaults to "#canvas" (Emscripten's default shell canvas id).
 #define DRACONIC_APP_MAIN(AppType)                                                                 \
     int main()                                                                                     \

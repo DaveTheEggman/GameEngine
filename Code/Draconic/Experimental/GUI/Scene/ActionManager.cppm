@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:action_manager;
+export module experimental.gui:action_manager;
 
-import draconic.core; // RefPtr, Array, Duration, Move
+import foundation.core; // RefPtr, Array, Duration, Move
 import :action;
 
 using namespace foundation::core;

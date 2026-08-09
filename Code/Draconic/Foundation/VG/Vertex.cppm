@@ -11,9 +11,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg:vertex;
+export module foundation.vg:vertex;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

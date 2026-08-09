@@ -5,8 +5,8 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.geometry;
+import foundation.core;
+import foundation.geometry;
 
 using namespace foundation::core;
 using namespace foundation::geometry;

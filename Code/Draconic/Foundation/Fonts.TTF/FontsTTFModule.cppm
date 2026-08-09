@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - the `draconic.fonts.ttf` module.
+// Draconic::FontsTTF - the `foundation.fonts.ttf` module.
 //
 // TrueType/OpenType backend over stb_truetype: a TrueTypeFont (IFont), a
 // stb-packed TrueTypeFontAtlas (IFontAtlas), the matching parser + atlas baker,
@@ -6,7 +6,7 @@
 // IFontService. Ported from Sedulous.Fonts.TTF - its own library, matching
 // Sedulous. One named module composed of partitions.
 
-export module draconic.fonts.ttf;
+export module foundation.fonts.ttf;
 
 export import :common;
 export import :font;

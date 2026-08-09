@@ -1,4 +1,4 @@
-// Draconic::Graphics - the `draconic.graphics` module.
+// Draconic::Graphics - the `foundation.graphics` module.
 //
 // The RHI render host, promoted out of the per-sample bring-up code so samples,
 // the UI, and the renderer share one tested path. Two pieces:
@@ -22,16 +22,16 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.graphics;
+export module foundation.graphics;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shell;
+import foundation.core;
+import foundation.rhi;
+import foundation.shell;
 // Backend factories live in sibling modules so this core host imports only the
 // base RHI (keeps it GPU-backend-agnostic and avoids importing heavy backend
 // modules into this interface - which GCC's module reader chokes on):
-//   draconic.graphics.null - CreateNullGraphicsDevice (headless)
-//   draconic.graphics.gpu  - CreateGraphicsDevice (Vulkan/DX12)
+//   foundation.graphics.null - CreateNullGraphicsDevice (headless)
+//   foundation.graphics.gpu  - CreateGraphicsDevice (Vulkan/DX12)
 
 namespace core = foundation::core;
 using namespace foundation::shell; // IShell + input/window types (moved from foundation::runtime)
@@ -245,7 +245,7 @@ export namespace foundation::graphics
         // Build a GraphicsDevice from an already-created backend (takes
         // ownership): enumerate adapters, create the logical device + graphics
         // queue. Backend-agnostic - GPU backends (Vulkan/DX12) are built by the
-        // `draconic.graphics.gpu` factory, which then calls this. On failure
+        // `foundation.graphics.gpu` factory, which then calls this. On failure
         // the backend is destroyed.
         static core::Result<core::UniquePtr<GraphicsDevice>>
         FromBackend(rhi::Backend* backend, core::u32 framesInFlight,

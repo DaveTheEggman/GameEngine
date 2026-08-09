@@ -11,10 +11,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.core:export_controller;
+export module editor.core:export_controller;
 
-import draconic.core;
-import draconic.vfs;
+import foundation.core;
+import foundation.vfs;
 import :export_preset;
 
 using namespace foundation::core;

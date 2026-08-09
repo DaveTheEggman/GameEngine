@@ -9,12 +9,12 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:style_applier;
+export module experimental.gui:style_applier;
 
-import draconic.core;  // Cast, Optional, Color, Float2, MakeRef, DefaultAllocator
-import draconic.fonts; // CachedFont, IFontService
-import draconic.image; // ImageData
-import draconic.vg;    // CornerRadii
+import foundation.core;  // Cast, Optional, Color, Float2, MakeRef, DefaultAllocator
+import foundation.fonts; // CachedFont, IFontService
+import foundation.image; // ImageData
+import foundation.vg;    // CornerRadii
 import :thickness;
 import :text; // TextHAlign / TextVAlign
 import :node;

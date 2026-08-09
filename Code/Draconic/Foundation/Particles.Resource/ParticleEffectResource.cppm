@@ -1,6 +1,6 @@
-// draconic.particles.resource - the cooked ParticleEffectResource (runtime input), its serializer,
+// foundation.particles.resource - the cooked ParticleEffectResource (runtime input), its serializer,
 // and its resource factory. A ParticleEffectResource IS a reflected ISerializable that holds a
-// runtime ParticleEffect; the cook (draconic.particles.editor) writes one into the content DB, the
+// runtime ParticleEffect; the cook (foundation.particles.editor) writes one into the content DB, the
 // factory reconstructs it at Bind. Polymorphic modules round-trip via the reflection/serializable
 // registry (Serializables().Create by type-id) - the same machinery TextureResource uses.
 //
@@ -11,14 +11,14 @@ module;
 #include "Core/Reflection/Reflect.h"
 #include <utility> // std::move
 
-export module draconic.particles.resource;
+export module foundation.particles.resource;
 
-import draconic.core;
-import draconic.particles;
-import draconic.content;
-import draconic.resource;
-import draconic.texture;
-import draconic.texture.resource;
+import foundation.core;
+import foundation.particles;
+import foundation.content;
+import foundation.resource;
+import foundation.texture;
+import foundation.texture.resource;
 
 using namespace foundation::core;
 namespace core = foundation::core;

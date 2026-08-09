@@ -4,9 +4,9 @@
 // `.left` (the image module's field convention), so `Slices.left` here is the faithful equivalent.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.image;
-import draconic.ui;
+import foundation.core;
+import foundation.image;
+import foundation.ui;
 
 using namespace foundation::ui;
 namespace core = foundation::core;

@@ -1,9 +1,9 @@
 /// Abstract command recording interfaces: CommandPool, CommandEncoder,
 /// RenderPassEncoder, ComputePassEncoder, TransferBatch.
 
-export module draconic.rhi:commands;
+export module foundation.rhi:commands;
 
-import draconic.core;
+import foundation.core;
 import :forward;
 import :enums;
 import :types;

@@ -5,18 +5,18 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.pipeline.core;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.texture;
-import draconic.texture.resource;
-import draconic.particles;
-import draconic.particles.resource;
-import draconic.particles.pipeline;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import pipeline.core;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.texture;
+import foundation.texture.resource;
+import foundation.particles;
+import foundation.particles.resource;
+import particles.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

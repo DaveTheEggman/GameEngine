@@ -1,4 +1,4 @@
-// Draconic::AudioSubsystem - the `draconic.engine.audio` module.
+// Draconic::AudioSubsystem - the `engine.audio` module.
 //
 // Scene integration (docs/design/audio.md §6): an AudioSceneSystem per scene owns a
 // per-scene voice group (open question 1: YES - pause/stop-all per scene falls out of
@@ -15,20 +15,20 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.engine.audio;
+export module engine.audio;
 
 export import :components;
 
-import draconic.core;
-import draconic.runtime;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.audio;
-import draconic.script;   // ExposeToScript + the Audio facade's service seam
-import draconic.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneAudio handle)
-import draconic.settings; // AudioUserSettings section (persisted volumes)
-import draconic.resource; // ResourceManager (script content-path playback)
-import draconic.content;  // Instance lookup by content path
+import foundation.core;
+import foundation.runtime;
+import foundation.scene;
+import engine.scene;
+import foundation.audio;
+import foundation.script;   // ExposeToScript + the Audio facade's service seam
+import foundation.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneAudio handle)
+import foundation.settings; // AudioUserSettings section (persisted volumes)
+import foundation.resource; // ResourceManager (script content-path playback)
+import foundation.content;  // Instance lookup by content path
 // NOTE: no render imports HERE - the camera-fallback listener lives in SubsystemImpl.cpp
 // (a module implementation unit), keeping heavyweight imports out of the interface for
 // GCC's -fno-module-lazy consumers.
@@ -68,7 +68,7 @@ export namespace engine::audio
         Float3 velocity{0.0f, 0.0f, 0.0f};
     };
 
-    // ---- persisted user volumes (P2): a draconic.settings SECTION ----
+    // ---- persisted user volumes (P2): a foundation.settings SECTION ----
     // Bus volumes/mutes as the USER's mixer state (options-menu sliders). Applied AFTER
     // any project bus layout - the layout is the artistic baseline, the user's setting
     // is absolute (the way options menus behave). Hosts load it at startup and capture

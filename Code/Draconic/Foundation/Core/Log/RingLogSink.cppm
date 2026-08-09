@@ -6,7 +6,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:ring_log_sink;
+export module foundation.core:ring_log_sink;
 
 import :base;
 import :allocator;

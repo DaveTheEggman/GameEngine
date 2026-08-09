@@ -10,10 +10,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:rounded_dark_theme;
+export module foundation.ui:rounded_dark_theme;
 
-import draconic.core;
-import draconic.vg; // CornerRadii
+import foundation.core;
+import foundation.vg; // CornerRadii
 import :style_sheet;
 import :style_rule;
 import :style_property;

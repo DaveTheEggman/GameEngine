@@ -13,7 +13,7 @@ module;
 #include "Core/Debug/Assert.h"
 #include <type_traits>
 
-export module draconic.core:function;
+export module foundation.core:function;
 
 import :base;
 import :allocator;

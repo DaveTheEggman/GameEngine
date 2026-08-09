@@ -7,9 +7,9 @@ module;
 #include <string>
 #include <vector>
 
-export module draconic.model:model_animation;
+export module foundation.model:model_animation;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

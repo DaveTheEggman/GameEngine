@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:drag_drop_manager;
+export module foundation.ui:drag_drop_manager;
 
-import draconic.core;
+import foundation.core;
 import :drag_drop_effects;
 import :drag_data;   // RefPtr<DragData> member (complete type -> no incomplete-RefPtr gcc issue)
 import :input_enums; // MouseButton

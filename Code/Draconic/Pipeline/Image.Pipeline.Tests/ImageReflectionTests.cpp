@@ -2,9 +2,9 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-import draconic.core;
-import draconic.image;
-import draconic.image.pipeline;
+import foundation.core;
+import foundation.image;
+import image.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

@@ -7,10 +7,10 @@ module;
 
 #include "VkIncludes.h"
 
-export module draconic.rhi.vulkan:texture;
+export module foundation.rhi.vulkan:texture;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :adapter;
 import :conversions;
 

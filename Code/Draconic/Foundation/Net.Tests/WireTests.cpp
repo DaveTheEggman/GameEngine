@@ -1,9 +1,9 @@
-// draconic.net:wire - bit-level pack/unpack, varints, ranged-float quantization, overflow safety.
+// foundation.net:wire - bit-level pack/unpack, varints, ranged-float quantization, overflow safety.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.net;
+import foundation.core;
+import foundation.net;
 
 using namespace foundation::core;
 namespace net = foundation::net;

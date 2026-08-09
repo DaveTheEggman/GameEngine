@@ -3,7 +3,7 @@
 // or throttled machine can't make them flaky.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

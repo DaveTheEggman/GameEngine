@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:clipboard;
+export module experimental.gui:clipboard;
 
-import draconic.core; // String, StringView
+import foundation.core; // String, StringView
 
 using namespace foundation::core;
 namespace core = foundation::core;

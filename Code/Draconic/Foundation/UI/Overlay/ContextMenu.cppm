@@ -14,11 +14,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:context_menu;
+export module foundation.ui:context_menu;
 
-import draconic.core;
-import draconic.vg;
-import draconic.fonts;
+import foundation.core;
+import foundation.vg;
+import foundation.fonts;
 import :view;
 import :box_constraints;
 import :draw_context;

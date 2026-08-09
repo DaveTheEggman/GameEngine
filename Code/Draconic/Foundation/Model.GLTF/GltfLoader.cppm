@@ -16,13 +16,13 @@ module;
 
 #include "cgltf.h"
 
-export module draconic.model.gltf;
+export module foundation.model.gltf;
 
-import draconic.core;
-import draconic.model;
-import draconic.model.io;
-import draconic.image;
-import draconic.image.io;
+import foundation.core;
+import foundation.model;
+import foundation.model.io;
+import foundation.image;
+import foundation.image.io;
 namespace image = foundation::image;
 
 export namespace foundation::model::gltf

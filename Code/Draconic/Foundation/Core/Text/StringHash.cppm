@@ -8,7 +8,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:string_hash;
+export module foundation.core:string_hash;
 
 import :base;
 import :hash;

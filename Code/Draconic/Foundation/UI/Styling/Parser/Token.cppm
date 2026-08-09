@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:sss_token;
+export module foundation.ui:sss_token;
 
-import draconic.core; // StringView
+import foundation.core; // StringView
 
 using namespace foundation::core;
 

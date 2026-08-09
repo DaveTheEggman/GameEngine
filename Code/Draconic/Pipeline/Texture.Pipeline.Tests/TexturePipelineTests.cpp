@@ -6,19 +6,19 @@
 #include "Core/Prelude.h"
 #include <initializer_list>
 #include "Core/Reflection/Reflect.h"
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.image;
-import draconic.image.io;
-import draconic.texture;
-import draconic.texture.resource;
-import draconic.texture.pipeline;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.rhi;
+import foundation.rhi.null;
+import pipeline.core;
+import editor.core;
+import foundation.image;
+import foundation.image.io;
+import foundation.texture;
+import foundation.texture.resource;
+import texture.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

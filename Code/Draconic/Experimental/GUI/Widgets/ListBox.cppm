@@ -11,10 +11,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:list_box;
+export module experimental.gui:list_box;
 
-import draconic.core;  // RefPtr, MakeRef, Array, Function, Move, String, Max, Min
-import draconic.fonts; // CachedFont
+import foundation.core;  // RefPtr, MakeRef, Array, Function, Move, String, Max, Min
+import foundation.fonts; // CachedFont
 import :rect;
 import :event;
 import :drawable;

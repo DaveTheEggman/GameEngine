@@ -10,9 +10,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.xml:nodes;
+export module foundation.xml:nodes;
 
-import draconic.core;
+import foundation.core;
 import :lexer;
 import :ns;
 import :escape;

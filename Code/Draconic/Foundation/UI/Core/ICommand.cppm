@@ -4,7 +4,7 @@
 // when clicked if CanExecute() is true. Ported from Sedulous.UI/src/Core/ICommand.bf.
 // Injected/held-by-reference (pattern B) - implemented by non-View app command objects.
 
-export module draconic.ui:icommand;
+export module foundation.ui:icommand;
 
 export namespace foundation::ui
 {

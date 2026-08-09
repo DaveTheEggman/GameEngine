@@ -1,4 +1,4 @@
-// draconic.particles:modules - the initializer/behavior module taxonomy + the concrete
+// foundation.particles:modules - the initializer/behavior module taxonomy + the concrete
 // modules + the CPU simulator + the runtime type-id registry. Ported from Sedulous.Particles
 // (ParticleInitializer.bf, ParticleBehavior.bf, ParticleSimulator.bf, CPUSimulator.bf,
 // Initializers/*, Behaviors/*, ParticleTypeRegistry.bf).
@@ -12,9 +12,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h" // DRACONIC_OBJECT / DRACONIC_DEFINE_OBJECT
 
-export module draconic.particles:modules;
+export module foundation.particles:modules;
 
-import draconic.core;
+import foundation.core;
 import :types;
 import :streams;
 
@@ -933,7 +933,7 @@ export namespace foundation::particles
     // EmissionMode enum + the Array<UniquePtr<ParticleSystem>> container), so tooling/scripting can
     // traverse a whole effect: effect -> systems -> modules -> ranges/curves. Defined in
     // ParticleEffectReflectionImpl.cpp (the :effect types are not visible from :modules, so this is a
-    // forward declaration resolved at link time within draconic.particles); idempotent.
+    // forward declaration resolved at link time within foundation.particles); idempotent.
     void RegisterParticleEffectReflection();
 
     // Register every module type (hierarchy) + a construct-by-type-id entry for the concrete ones.

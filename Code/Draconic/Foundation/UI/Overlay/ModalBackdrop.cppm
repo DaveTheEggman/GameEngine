@@ -7,9 +7,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:modal_backdrop;
+export module foundation.ui:modal_backdrop;
 
-import draconic.core;
+import foundation.core;
 import :view;
 import :draw_context;
 import :event_args;

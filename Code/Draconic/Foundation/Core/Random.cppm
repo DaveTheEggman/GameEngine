@@ -2,7 +2,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:random;
+export module foundation.core:random;
 
 import :base;
 

@@ -4,9 +4,9 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.baked;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.baked;
 
 using namespace foundation::core;
 using namespace foundation::fonts;

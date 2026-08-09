@@ -14,11 +14,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:numeric_field;
+export module foundation.ui:numeric_field;
 
-import draconic.core;
-import draconic.vg;
-import draconic.fonts;
+import foundation.core;
+import foundation.vg;
+import foundation.fonts;
 import :view;
 import :property;
 import :event;

@@ -4,8 +4,8 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.animation;
+import foundation.core;
+import foundation.animation;
 
 using namespace foundation::core;
 using namespace foundation::animation;

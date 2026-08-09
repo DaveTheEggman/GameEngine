@@ -22,11 +22,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:view;
+export module foundation.ui:view;
 
-import draconic.core; // Object, RefPtr, Array, HashMap, String, StringView, Float2, Rectangle, Function, Cast, IsDerivedFrom, TypeInfo, Max, Min, Optional
-import draconic.vg;   // VGContext (child draw transforms)
-import draconic.fonts; // IFontService (UIContext seam + font-family resolution)
+import foundation.core; // Object, RefPtr, Array, HashMap, String, StringView, Float2, Rectangle, Function, Cast, IsDerivedFrom, TypeInfo, Max, Min, Optional
+import foundation.vg;   // VGContext (child draw transforms)
+import foundation.fonts; // IFontService (UIContext seam + font-family resolution)
 import :enums;         // Visibility, CursorType, InvalidationKind
 import :control_state;
 import :property_owner; // IPropertyOwner

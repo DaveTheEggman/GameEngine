@@ -1,8 +1,8 @@
-/// Draconic::Render - `draconic.render`, the renderer (scene-agnostic).
+/// Draconic::Render - `foundation.render`, the renderer (scene-agnostic).
 ///
 /// The renderer consumes a per-scene `ExtractedScene` (world-space `RenderData`) and draws
 /// the views over it; it knows nothing about the scene/ECS world. The scene-integration
-/// layer (components, extraction, the RenderSubsystem) lives in draconic.engine.render and
+/// layer (components, extraction, the RenderSubsystem) lives in engine.render and
 /// depends on THIS - one-way.
 ///
 /// Partitions: `:data` (the render-data contract + frame arena + radix sort), `:views`
@@ -10,7 +10,7 @@
 /// the single per-frame RenderFrame driver), `:mesh_renderer` (the built-in mesh drawer),
 /// `:gpu_mesh` (mesh GPU upload cache).
 
-export module draconic.render;
+export module foundation.render;
 
 export import :data;
 export import :views;

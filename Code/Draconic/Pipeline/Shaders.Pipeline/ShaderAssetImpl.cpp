@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.shaders.pipeline;
+module shaders.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
+import foundation.core;
+import pipeline.core;
 
 using namespace foundation::core;
 using namespace foundation::shaders;

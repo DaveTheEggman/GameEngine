@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:content_button;
+export module foundation.ui:content_button;
 
-import draconic.core;
-import draconic.vg;
+import foundation.core;
+import foundation.vg;
 import :button_base;
 import :view;
 import :control_state;

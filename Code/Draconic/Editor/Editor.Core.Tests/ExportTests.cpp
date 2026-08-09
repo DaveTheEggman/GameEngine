@@ -10,26 +10,26 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.vfs.pak;
-import draconic.content;
-import draconic.resource;
-import draconic.engine.project;
-import draconic.geometry;
-import draconic.geometry.pipeline;
-import draconic.geometry.resource;
-import draconic.engine.render;
-import draconic.scene;
-import draconic.scene.resource;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.settings;
-import draconic.shaders; // CookedShaderPack (the web export test reads the staged pack)
-import draconic.script.wren;        // the Wren backend (the cook compile-checks against it)
-import draconic.script.wren.pipeline; // RegisterWrenScriptCook
-import draconic.script.pipeline;      // ScriptClassAsset + ScriptClassAssetBuilder
-import draconic.script.resource;    // RegisterScriptResource + ScriptClass + ScriptClassFactory
+import foundation.core;
+import foundation.vfs;
+import foundation.vfs.pak;
+import foundation.content;
+import foundation.resource;
+import engine.project;
+import foundation.geometry;
+import geometry.pipeline;
+import foundation.geometry.resource;
+import engine.render;
+import foundation.scene;
+import foundation.scene.resource;
+import pipeline.core;
+import editor.core;
+import foundation.settings;
+import foundation.shaders; // CookedShaderPack (the web export test reads the staged pack)
+import foundation.script.wren;        // the Wren backend (the cook compile-checks against it)
+import script.wren.pipeline; // RegisterWrenScriptCook
+import script.pipeline;      // ScriptClassAsset + ScriptClassAssetBuilder
+import foundation.script.resource;    // RegisterScriptResource + ScriptClass + ScriptClassFactory
 
 using namespace foundation::core;
 namespace project = engine::project;

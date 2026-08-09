@@ -1,4 +1,4 @@
-// draconic.engine.particles:renderdata - the render-data the particle billboard path produces.
+// engine.particles:renderdata - the render-data the particle billboard path produces.
 //
 // A ParticleBillboardRenderData is a BATCH: one item per (system, texture, blend) carrying a
 // borrowed pointer to `count` packed billboard instances. This is the key difference from the
@@ -9,12 +9,12 @@ module;
 #include "Core/Prelude.h"
 #include <type_traits>
 
-export module draconic.engine.particles:renderdata;
+export module engine.particles:renderdata;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.render;    // RenderData base + RenderCategories
-import draconic.particles; // ParticleBlendMode
+import foundation.core;
+import foundation.rhi;
+import foundation.render;    // RenderData base + RenderCategories
+import foundation.particles; // ParticleBlendMode
 
 using namespace foundation::core;
 using namespace foundation::particles;

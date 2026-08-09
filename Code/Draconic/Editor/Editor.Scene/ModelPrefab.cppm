@@ -17,20 +17,20 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.scene:model_prefab;
+export module editor.scene:model_prefab;
 
-import draconic.core;
-import draconic.content;
-import draconic.resource;
-import draconic.materials;
-import draconic.scene;
-import draconic.scene.resource;
-import draconic.engine.render;
-import draconic.engine.animation;
-import draconic.physics;
-import draconic.engine.physics;
-import draconic.modelimporter;
-import draconic.editor.core;
+import foundation.core;
+import foundation.content;
+import foundation.resource;
+import foundation.materials;
+import foundation.scene;
+import foundation.scene.resource;
+import engine.render;
+import engine.animation;
+import foundation.physics;
+import engine.physics;
+import modelimporter;
+import editor.core;
 
 using namespace foundation::core;
 

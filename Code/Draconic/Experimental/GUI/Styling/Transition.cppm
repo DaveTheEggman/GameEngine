@@ -13,13 +13,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:transition;
+export module experimental.gui:transition;
 
-import draconic.core;  // String, StringView, Array, Optional, f32, Duration, MakeRef, Move
+import foundation.core;  // String, StringView, Array, Optional, f32, Duration, MakeRef, Move
 import :style_sheet;   // ResolvedStyle
 import :style_applier; // ApplyStyle
 import :css_values;    // ParseLength
-import draconic.fonts; // IFontService
+import foundation.fonts; // IFontService
 import :ui_node;       // UINode
 import :actions;       // FadeAction
 import :resource_provider;

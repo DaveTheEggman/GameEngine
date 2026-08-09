@@ -1,4 +1,4 @@
-// Draconic Shell - draconic.shell.desktop implementation unit.
+// Draconic Shell - foundation.shell.desktop implementation unit.
 //
 // Out-of-line definitions for the SDL3 backend classes (sec 3.2 / sec 10.6): all the SDL_*
 // call sites live here. SDL3Shell.cppm keeps the class declarations (which reference SDL
@@ -12,10 +12,10 @@ module;
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL_main.h>
 
-module draconic.shell.desktop;
+module foundation.shell.desktop;
 
-import draconic.core;
-import draconic.shell;
+import foundation.core;
+import foundation.shell;
 
 namespace core = foundation::core;
 

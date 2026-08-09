@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:bind_group - BindGroup over WGPUBindGroup.
+/// foundation.rhi.webgpu:bind_group - BindGroup over WGPUBindGroup.
 ///
 /// Desc entries are POSITIONAL against the layout's entries (the RHI contract all
 /// backends share); each resolves to the layout entry's SHIFTED binding number.
@@ -7,10 +7,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:bind_group;
+export module foundation.rhi.webgpu:bind_group;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 import :bind_group_layout;

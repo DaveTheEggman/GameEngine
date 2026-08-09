@@ -3,8 +3,8 @@
 // ui.shell bridge can drive the window's IME from focus. Not a port - covered here per the additions rule.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 #include "TestHelpers.h"
 
 using namespace foundation::ui;

@@ -8,9 +8,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.texture;
+module foundation.texture;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

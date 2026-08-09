@@ -1,13 +1,13 @@
-/// draconic.rhi.webgpu:compute_pipeline - ComputePipeline over WGPUComputePipeline.
+/// foundation.rhi.webgpu:compute_pipeline - ComputePipeline over WGPUComputePipeline.
 
 module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:compute_pipeline;
+export module foundation.rhi.webgpu:compute_pipeline;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 import :pipeline_layout;

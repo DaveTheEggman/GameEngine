@@ -7,7 +7,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:type_info;
+export module foundation.core:type_info;
 
 import :base;
 import :hash;

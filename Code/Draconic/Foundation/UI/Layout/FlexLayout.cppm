@@ -9,9 +9,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:flex_layout;
+export module foundation.ui:flex_layout;
 
-import draconic.core; // Max, Optional, RefPtr
+import foundation.core; // Max, Optional, RefPtr
 import :view;
 import :layout_params;
 import :box_constraints;

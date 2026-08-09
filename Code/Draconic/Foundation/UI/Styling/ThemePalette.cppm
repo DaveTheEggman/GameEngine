@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:theme_palette;
+export module foundation.ui:theme_palette;
 
-import draconic.core; // Color
+import foundation.core; // Color
 
 using namespace foundation::core;
 

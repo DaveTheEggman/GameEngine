@@ -18,7 +18,7 @@ module;
 #pragma clang diagnostic ignored "-WTU-local-entity-exposure"
 #endif
 
-export module draconic.core:system;
+export module foundation.core:system;
 
 import :base;
 import :allocator;
@@ -415,7 +415,7 @@ export namespace foundation::core
         return result;
     }
 
-    // --- UDP sockets (IPv4) - the draconic.net datagram backend wraps these ---
+    // --- UDP sockets (IPv4) - the foundation.net datagram backend wraps these ---
     using SocketHandle = sys::SocketHandle;
     inline constexpr SocketHandle kInvalidSocket = sys::kInvalidSocket;
 
@@ -444,7 +444,7 @@ export namespace foundation::core
         return sys::UdpRecvFrom(socket, out, outCap, &fromIp, &fromPort);
     }
 
-    // --- TCP (stream) sockets - the draconic.http / websocket / debugger transports wrap these ---
+    // --- TCP (stream) sockets - the foundation.http / websocket / debugger transports wrap these ---
     [[nodiscard]] inline SocketHandle TcpListen(u16 port, u16* outBoundPort = nullptr) noexcept
     {
         return sys::TcpListen(port, outBoundPort);

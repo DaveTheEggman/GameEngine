@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts:text_util;
+export module foundation.fonts:text_util;
 
-import draconic.core;
+import foundation.core;
 import :interfaces; // IFont (MeasureString) for TruncateToWidth
 
 using namespace foundation::core;

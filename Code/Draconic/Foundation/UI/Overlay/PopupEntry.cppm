@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:popup_entry;
+export module foundation.ui:popup_entry;
 
-import draconic.core; // RefPtr
+import foundation.core; // RefPtr
 import :view;
 import :ipopup_owner;
 

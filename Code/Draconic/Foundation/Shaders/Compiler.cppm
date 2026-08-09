@@ -16,9 +16,9 @@ module;
 #include <dlfcn.h>
 #endif
 
-export module draconic.shaders:compiler;
+export module foundation.shaders:compiler;
 
-import draconic.core;
+import foundation.core;
 import :types;
 
 using namespace foundation::core;

@@ -5,14 +5,14 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.pipeline.core;
-import draconic.animation;
-import draconic.animation.resource;
-import draconic.animation.pipeline;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import pipeline.core;
+import foundation.animation;
+import foundation.animation.resource;
+import animation.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

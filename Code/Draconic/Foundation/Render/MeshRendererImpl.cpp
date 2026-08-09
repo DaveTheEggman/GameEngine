@@ -1,16 +1,16 @@
-// Draconic Render - draconic.render:mesh_renderer implementation unit (sec 3.2 / sec 10.6).
+// Draconic Render - foundation.render:mesh_renderer implementation unit (sec 3.2 / sec 10.6).
 module;
 #include "Core/Prelude.h"
 
-module draconic.render;
+module foundation.render;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.geometry;
-import draconic.shaders;
-import draconic.shaders.system;
-import draconic.materials;
-import draconic.materials.pipelinecache;
+import foundation.core;
+import foundation.rhi;
+import foundation.geometry;
+import foundation.shaders;
+import foundation.shaders.system;
+import foundation.materials;
+import foundation.materials.pipelinecache;
 import :data;
 import :views;
 import :pipeline;

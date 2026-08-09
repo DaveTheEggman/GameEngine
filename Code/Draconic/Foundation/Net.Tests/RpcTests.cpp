@@ -1,9 +1,9 @@
-// draconic.net:rpc - name-hashed RPCs with wire-serialized args over a NetSession.
+// foundation.net:rpc - name-hashed RPCs with wire-serialized args over a NetSession.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.net;
+import foundation.core;
+import foundation.net;
 
 using namespace foundation::core;
 namespace net = foundation::net;

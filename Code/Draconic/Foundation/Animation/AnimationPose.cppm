@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.animation:pose;
+export module foundation.animation:pose;
 
-import draconic.core;
+import foundation.core;
 import :skeleton; // BoneTransform
 
 using namespace foundation::core;

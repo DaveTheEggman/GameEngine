@@ -8,7 +8,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:iserializer;
+export module foundation.core:iserializer;
 
 import :base;
 import :string;

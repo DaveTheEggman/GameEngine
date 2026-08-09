@@ -7,7 +7,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:enum_reflection;
+export module foundation.core:enum_reflection;
 
 import :base;
 import :type_info;

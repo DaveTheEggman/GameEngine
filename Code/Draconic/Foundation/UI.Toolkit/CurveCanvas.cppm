@@ -18,12 +18,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:curve_canvas;
+export module foundation.ui.toolkit:curve_canvas;
 
-import draconic.core;
-import draconic.vg;
-import draconic.fonts;
-import draconic.ui;
+import foundation.core;
+import foundation.vg;
+import foundation.fonts;
+import foundation.ui;
 
 using namespace foundation::core;
 namespace core = foundation::core;

@@ -15,9 +15,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:scroll_view;
+export module experimental.gui:scroll_view;
 
-import draconic.core; // RefPtr, MakeRef, Function, Move, Max, Min, Float2
+import foundation.core; // RefPtr, MakeRef, Function, Move, Max, Min, Float2
 import :rect;
 import :node;
 import :event;

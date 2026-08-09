@@ -1,4 +1,4 @@
-// Draconic::UIEditor - the `draconic.ui.editor` module (tooling).
+// Draconic::UIEditor - the `foundation.ui.editor` module (tooling).
 //
 // Source-side game-UI authoring + cook (docs/design/game-ui.md §5):
 //   * UIDocumentAsset / UIThemeAsset: text payloads (.sml view-tree / .sss stylesheet),
@@ -17,14 +17,14 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.pipeline;
+export module ui.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.editor.core; // IFileImporter/EditorProject/import plumbing
-import draconic.content;
-import draconic.ui;
-import draconic.ui.resource;
+import foundation.core;
+import pipeline.core;
+import editor.core; // IFileImporter/EditorProject/import plumbing
+import foundation.content;
+import foundation.ui;
+import foundation.ui.resource;
 
 using namespace foundation::core;
 using namespace foundation::ui;

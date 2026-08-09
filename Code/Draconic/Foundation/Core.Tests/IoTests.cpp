@@ -6,7 +6,7 @@
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 
@@ -397,7 +397,7 @@ TEST_CASE("io: directory create / exists / remove")
 
 // --- IO: Virtual file system -----------------------------------------------
 
-// VFS (NativeFileSystem / VirtualFileSystem) moved to draconic.vfs - see
+// VFS (NativeFileSystem / VirtualFileSystem) moved to foundation.vfs - see
 // Code/Draconic/VFS/Tests/VfsTests.cpp.
 
 // --- Serialization: ISerializable ------------------------------------------

@@ -7,10 +7,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:palette;
+export module foundation.ui:palette;
 
-import draconic.core; // Color, Min, Max, RefPtr
-import draconic.vg;   // CornerRadii
+import foundation.core; // Color, Min, Max, RefPtr
+import foundation.vg;   // CornerRadii
 import :control_state;
 import :color_drawable;
 import :rounded_rect_drawable;

@@ -9,17 +9,17 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-module draconic.editor.audio;
+module editor.audio;
 
-import draconic.core;
-import draconic.content;
-import draconic.runtime.client;
-import draconic.audio;
-import draconic.audio.pipeline;
-import draconic.engine.audio;
-import draconic.ui;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.runtime.client;
+import foundation.audio;
+import audio.pipeline;
+import engine.audio;
+import foundation.ui;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 namespace audio = foundation::audio;

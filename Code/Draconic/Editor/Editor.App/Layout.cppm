@@ -1,7 +1,7 @@
 // Draconic::EditorApp - :layout partition.
 //
 // PER-PROJECT editor-state persistence, UNIFIED on the structured settings store
-// (draconic.settings): ONE file - <project>/Editor/editor.project.settings.xml - holding
+// (foundation.settings): ONE file - <project>/Editor/editor.project.settings.xml - holding
 // typed, versioned sections instead of the former bespoke trio (layout.xml + favorites.bin +
 // pages.bin; those are deleted on the first save, no legacy read):
 //
@@ -19,14 +19,14 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.app:layout;
+export module editor.app:layout;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.settings;
-import draconic.xml.serialization;
-import draconic.editor.core; // EditorContext (favorites)
-import draconic.ui.toolkit;
+import foundation.core;
+import foundation.vfs;
+import foundation.settings;
+import foundation.xml.serialization;
+import editor.core; // EditorContext (favorites)
+import foundation.ui.toolkit;
 
 using namespace foundation::core;
 namespace vfs = foundation::vfs;

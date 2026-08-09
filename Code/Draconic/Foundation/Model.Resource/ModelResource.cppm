@@ -1,28 +1,28 @@
-// Draconic::ModelResource - the `draconic.model.resource` module.
+// Draconic::ModelResource - the `foundation.model.resource` module.
 //
 // The RUNTIME side of the cooked model family: ModelNode + ModelManifestSource (the
 // cooked manifest tying mesh/material/skeleton/animation guids + node hierarchy
 // together), the ModelResource runtime composite + ModelFactory, and the family-wide
-// type registration. Moved OUT of draconic.modelimporter (tooling) - the player/runtime
+// type registration. Moved OUT of modelimporter (tooling) - the player/runtime
 // must not link importer/editor libraries for its cooked types.
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.model.resource;
+export module foundation.model.resource;
 
-import draconic.core;
-import draconic.geometry;
-import draconic.geometry.resource;
-import draconic.materials;
-import draconic.materials.resource;
-import draconic.texture;
-import draconic.texture.resource;
-import draconic.animation;
-import draconic.animation.resource;
-import draconic.resource;
-import draconic.content;
+import foundation.core;
+import foundation.geometry;
+import foundation.geometry.resource;
+import foundation.materials;
+import foundation.materials.resource;
+import foundation.texture;
+import foundation.texture.resource;
+import foundation.animation;
+import foundation.animation.resource;
+import foundation.resource;
+import foundation.content;
 
 using namespace foundation::core;
 using namespace foundation::resource;

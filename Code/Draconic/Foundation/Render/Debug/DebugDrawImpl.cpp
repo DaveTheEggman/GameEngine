@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.render;
+module foundation.render;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

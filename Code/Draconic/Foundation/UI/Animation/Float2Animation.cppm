@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:float2_animation;
+export module foundation.ui:float2_animation;
 
-import draconic.core;
+import foundation.core;
 import :animation;
 
 using namespace foundation::core;

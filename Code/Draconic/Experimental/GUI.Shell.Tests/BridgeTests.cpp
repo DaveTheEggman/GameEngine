@@ -2,11 +2,11 @@
 // EventDispatcher injections (hover/click/key/text), map enums, and apply a ContentFit.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.shell;
-import draconic.shell.null;
-import draconic.gui;
-import draconic.gui.shell;
+import foundation.core;
+import foundation.shell;
+import foundation.shell.null;
+import experimental.gui;
+import experimental.gui.shell;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

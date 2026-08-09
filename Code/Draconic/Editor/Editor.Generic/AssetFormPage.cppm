@@ -1,4 +1,4 @@
-// Draconic::EditorGeneric - the `draconic.editor.generic` module.
+// Draconic::EditorGeneric - the `editor.generic` module.
 //
 // GenericAssetEditorPage (editor-pages-gap.md, the LAST page of the bespoke track): the fallback
 // property-form editor for EVERY asset without a dedicated page. Registered against
@@ -19,14 +19,14 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.generic;
+export module editor.generic;
 
-import draconic.core;
-import draconic.content;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.ui;
+import foundation.ui.toolkit;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 

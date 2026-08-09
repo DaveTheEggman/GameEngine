@@ -1,4 +1,4 @@
-// Draconic::ImageResource - the `draconic.image.resource` module.
+// Draconic::ImageResource - the `foundation.image.resource` module.
 //
 // Runtime CPU-image resource (model B): the cooked, device-free pixel data a
 // runtime consumer (e.g. the VG renderer) loads through the resource manager and
@@ -10,12 +10,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.image.resource;
+export module foundation.image.resource;
 
-import draconic.core;
-import draconic.image;
-import draconic.content;
-import draconic.resource;
+import foundation.core;
+import foundation.image;
+import foundation.content;
+import foundation.resource;
 
 using namespace foundation::core;
 using namespace foundation::resource;

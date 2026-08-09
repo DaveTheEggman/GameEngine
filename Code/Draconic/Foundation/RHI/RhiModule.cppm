@@ -1,4 +1,4 @@
-export module draconic.rhi;
+export module foundation.rhi;
 
 export import :log;
 export import :enums;

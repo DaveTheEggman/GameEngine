@@ -1,4 +1,4 @@
-// draconic.script.editor tests: the cook helpers (class-name/handler scan, harvest
+// foundation.script.editor tests: the cook helpers (class-name/handler scan, harvest
 // record parse), the FULL harvest round-trip (source -> builder's cooker VM -> cooked
 // record -> factory -> runtime metadata), the compile-error path (cook FAILS, the last
 // good cooked record survives), and B3 backend-neutrality (the builder resolves its
@@ -9,17 +9,17 @@
 #include "Core/Prelude.h"
 #include <initializer_list>
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.script;
-import draconic.script.wren;
-import draconic.script.resource;
-import draconic.script.pipeline;
-import draconic.script.wren.pipeline; // the Wren cook (starter + compile/harvest) under test
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import pipeline.core;
+import editor.core;
+import foundation.script;
+import foundation.script.wren;
+import foundation.script.resource;
+import script.pipeline;
+import script.wren.pipeline; // the Wren cook (starter + compile/harvest) under test
 
 using namespace foundation::core;
 using namespace pipeline;

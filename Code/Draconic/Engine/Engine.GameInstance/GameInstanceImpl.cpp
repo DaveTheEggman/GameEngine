@@ -6,18 +6,18 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h" // the SceneLoader facade reflection body
 
-module draconic.engine.gameinstance;
+module engine.gameinstance;
 
-import draconic.core;
-import draconic.scene;
-import draconic.scene.resource; // LoadScene / ResolveSceneResources / ResolveScenePrefabs
-import draconic.content;        // content::Instance
-import draconic.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
-import draconic.script;
-import draconic.engine.script;
-import draconic.script.facades; // RegisterExtraFacadeName (SceneLoader behavior-prelude hook)
-import draconic.net.manager; // NetworkManager factories + InstallNetScriptService
-import draconic.input;       // kInputScriptService (install the per-instance runtime)
+import foundation.core;
+import foundation.scene;
+import foundation.scene.resource; // LoadScene / ResolveSceneResources / ResolveScenePrefabs
+import foundation.content;        // content::Instance
+import foundation.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
+import foundation.script;
+import engine.script;
+import foundation.script.facades; // RegisterExtraFacadeName (SceneLoader behavior-prelude hook)
+import foundation.net.manager; // NetworkManager factories + InstallNetScriptService
+import foundation.input;       // kInputScriptService (install the per-instance runtime)
 
 using namespace foundation::core;
 namespace content = foundation::content;

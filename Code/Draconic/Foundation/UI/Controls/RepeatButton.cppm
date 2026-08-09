@@ -7,9 +7,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:repeat_button;
+export module foundation.ui:repeat_button;
 
-import draconic.core;
+import foundation.core;
 import :button;
 import :event_args;
 import :input_enums;

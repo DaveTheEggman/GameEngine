@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.core:job_service;
+export module editor.core:job_service;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

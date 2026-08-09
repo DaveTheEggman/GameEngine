@@ -14,9 +14,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.core:log_buffer;
+export module editor.core:log_buffer;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

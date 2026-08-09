@@ -5,12 +5,12 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.pipeline.core;
-import draconic.shaders.resource;
-import draconic.shaders.pipeline;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import pipeline.core;
+import foundation.shaders.resource;
+import shaders.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

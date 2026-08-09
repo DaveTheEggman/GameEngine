@@ -3,10 +3,10 @@
 // A mock font (6px/byte advance) drives caret-placement measurement.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.fonts;
-import draconic.vg;
-import draconic.gui;
+import foundation.core;
+import foundation.fonts;
+import foundation.vg;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

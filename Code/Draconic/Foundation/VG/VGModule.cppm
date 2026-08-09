@@ -1,7 +1,7 @@
 /// Primary module for the vector-graphics library. Re-exports all partitions.
 /// Ported from Sedulous.VG.
 
-export module draconic.vg;
+export module foundation.vg;
 
 export import :enums;
 export import :vertex;

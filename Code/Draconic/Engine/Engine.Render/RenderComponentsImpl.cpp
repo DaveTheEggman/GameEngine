@@ -8,15 +8,15 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.engine.render;
+module engine.render;
 
-import draconic.core;
-import draconic.resource;
-import draconic.scene;
-import draconic.geometry;
-import draconic.materials;
-import draconic.rhi;
-import draconic.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
+import foundation.core;
+import foundation.resource;
+import foundation.scene;
+import foundation.geometry;
+import foundation.materials;
+import foundation.rhi;
+import foundation.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
 
 using namespace foundation::core;
 using namespace foundation::render;

@@ -16,30 +16,30 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-module draconic.editor.scene;
+module editor.scene;
 
-import draconic.core;
-import draconic.content;
-import draconic.rhi;
-import draconic.graphics;
-import draconic.shell;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.engine.defaultapp;
-import draconic.engine.gameinstance; // GameInstance (the Game tab's run; multi-instance factory)
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.scene.resource;
-import draconic.render;
-import draconic.engine.render;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.ui.runtime;
-import draconic.engine.ui; // game-UI RenderTexture canvases (live in editing viewports)
-import draconic.ui.viewport;
-import draconic.vg.renderer;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.rhi;
+import foundation.graphics;
+import foundation.shell;
+import foundation.runtime;
+import foundation.runtime.client;
+import engine.defaultapp;
+import engine.gameinstance; // GameInstance (the Game tab's run; multi-instance factory)
+import foundation.scene;
+import engine.scene;
+import foundation.scene.resource;
+import foundation.render;
+import engine.render;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.ui.runtime;
+import engine.ui; // game-UI RenderTexture canvases (live in editing viewports)
+import foundation.ui.viewport;
+import foundation.vg.renderer;
+import editor.core;
+import editor.app;
 import :camera;
 import :camera_preview;
 import :edit;

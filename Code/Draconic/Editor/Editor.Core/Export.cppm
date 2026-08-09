@@ -16,16 +16,16 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.core:export_pipeline;
+export module editor.core:export_pipeline;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.vfs.pak;
-import draconic.content;
-import draconic.engine.project;
-import draconic.scene.resource;
-import draconic.pipeline.core;
-import draconic.pipeline.cook;
+import foundation.core;
+import foundation.vfs;
+import foundation.vfs.pak;
+import foundation.content;
+import engine.project;
+import foundation.scene.resource;
+import pipeline.core;
+import pipeline.cook;
 import :project;
 import :export_preset;
 import :export_roots;

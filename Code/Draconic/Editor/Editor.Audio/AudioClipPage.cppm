@@ -1,4 +1,4 @@
-// Draconic::EditorAudio - the `draconic.editor.audio` module.
+// Draconic::EditorAudio - the `editor.audio` module.
 //
 // AudioClipPage (audio.md P2): the audition page. Opens an AudioClipAsset with a peak
 // waveform (decoded from the copied source file - the same container bytes the cook
@@ -11,20 +11,20 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.audio;
+export module editor.audio;
 
 export import :sound_cue_page;
 export import :bus_layout_page;
 
-import draconic.core;
-import draconic.content;
-import draconic.runtime.client;
-import draconic.audio;
-import draconic.audio.pipeline;
-import draconic.engine.audio;
-import draconic.ui;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.runtime.client;
+import foundation.audio;
+import audio.pipeline;
+import engine.audio;
+import foundation.ui;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 

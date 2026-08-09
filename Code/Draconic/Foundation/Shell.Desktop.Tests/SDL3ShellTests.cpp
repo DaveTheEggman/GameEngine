@@ -6,12 +6,12 @@
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h> // synthetic events + window id (tests exercise the close path)
 
-import draconic.core;
-import draconic.runtime;
-import draconic.shell;
-import draconic.runtime.client;
-import draconic.runtime.desktop; // RunApplication (the desktop runner)
-import draconic.shell.desktop;
+import foundation.core;
+import foundation.runtime;
+import foundation.shell;
+import foundation.runtime.client;
+import foundation.runtime.desktop; // RunApplication (the desktop runner)
+import foundation.shell.desktop;
 
 using namespace foundation::core;
 using namespace foundation::runtime;
@@ -257,7 +257,7 @@ TEST_CASE("shell.desktop: RunApplication drives the app until it exits")
     }
 
     FrameCountApp app;
-    const int code = RunApplication(app, shell); // the desktop runner (draconic.runtime.desktop)
+    const int code = RunApplication(app, shell); // the desktop runner (foundation.runtime.desktop)
 
     CHECK(code == 3);
     CHECK(app.frames == 5); // RequestExit(3) ended the loop

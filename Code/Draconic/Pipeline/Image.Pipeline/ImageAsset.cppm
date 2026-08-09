@@ -1,4 +1,4 @@
-// Draconic::ImageEditor - the `draconic.image.editor` module.
+// Draconic::ImageEditor - the `foundation.image.editor` module.
 //
 // Tooling: the source ImageAsset (an image file + color-space intent) and the
 // builder that cooks it into a runtime ImageResource (decode the file, write the
@@ -8,14 +8,14 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.image.pipeline;
+export module image.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.image;
-import draconic.image.io;
-import draconic.image.resource;
-import draconic.content;
+import foundation.core;
+import pipeline.core;
+import foundation.image;
+import foundation.image.io;
+import foundation.image.resource;
+import foundation.content;
 
 using namespace foundation::core;
 using namespace foundation::image;
@@ -92,7 +92,7 @@ export namespace pipeline{
 
     // Registers ImageAsset for content-DB construction + deserialization. ImageAsset's own
     // reflection body (colorSpace property) is its StaticType(), in ImageAssetImpl.cpp; the
-    // ImageColorSpace enum reflection lives in draconic.image. Reflection track P1.
+    // ImageColorSpace enum reflection lives in foundation.image. Reflection track P1.
     inline void RegisterImageAsset()
     {
         RegisterImageReflection(); // ImageColorSpace names for the property grid

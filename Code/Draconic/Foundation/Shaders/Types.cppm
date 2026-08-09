@@ -1,8 +1,8 @@
 /// Shader compilation types.
 
-export module draconic.shaders:types;
+export module foundation.shaders:types;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

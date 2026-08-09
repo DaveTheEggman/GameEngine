@@ -2,17 +2,17 @@
 //
 // DrawContext: the renderer seam eepp's UI lacked. eepp widgets/drawables draw straight
 // through global Primitives / GlobalBatchRenderer / GLi; here every draw call routes
-// through a VGContext instead. Thin wrapper (mirrors draconic.ui's UIDrawContext) adding
+// through a VGContext instead. Thin wrapper (mirrors foundation.ui's UIDrawContext) adding
 // clip / transform / opacity stacking and the DPI scale; the font service is added when
 // the text phase lands.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:draw_context;
+export module experimental.gui:draw_context;
 
-import draconic.core; // Float4x4
-import draconic.vg;   // VGContext
+import foundation.core; // Float4x4
+import foundation.vg;   // VGContext
 import :rect;
 import :transform2d;
 

@@ -15,13 +15,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:probes;
+export module foundation.render:probes;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rendergraph;
-import draconic.shaders;
-import draconic.shaders.system;
+import foundation.core;
+import foundation.rhi;
+import foundation.rendergraph;
+import foundation.shaders;
+import foundation.shaders.system;
 import :data; // ReflectionProbe / kMaxReflectionProbes / ProbeUpdateMode
 
 using namespace foundation::core;

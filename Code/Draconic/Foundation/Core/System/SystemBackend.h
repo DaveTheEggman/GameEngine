@@ -142,7 +142,7 @@ namespace foundation::core::sys
     void* LibrarySymbol(LibraryHandle handle, const char* name) noexcept; // nullptr if absent
     void LibraryClose(LibraryHandle handle) noexcept;
 
-    // --- UDP sockets (IPv4; the draconic.net datagram backend wraps these) --
+    // --- UDP sockets (IPv4; the foundation.net datagram backend wraps these) --
     // Opaque handle: a POSIX fd or a Win32 SOCKET. kInvalidSocket = failure.
     using SocketHandle = std::uintptr_t;
     constexpr SocketHandle kInvalidSocket = ~static_cast<SocketHandle>(0);
@@ -169,8 +169,8 @@ namespace foundation::core::sys
     std::int64_t UdpRecvFrom(SocketHandle socket, void* out, std::size_t outCap,
                              std::uint32_t* fromIp, std::uint16_t* fromPort) noexcept;
 
-    // --- TCP (stream) sockets (the draconic.http / websocket transports wrap these) --
-    // All non-blocking. Consumers: HTTP client (draconic.http), a P5 WebSocket transport, and the
+    // --- TCP (stream) sockets (the foundation.http / websocket transports wrap these) --
+    // All non-blocking. Consumers: HTTP client (foundation.http), a P5 WebSocket transport, and the
     // script debugger's remote transport. Not used by the UDP game networking.
     //
     // Open a listening socket on `port` (0 = OS-assigned); *outBoundPort gets the actual port.

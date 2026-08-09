@@ -14,10 +14,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.app:editor_icons;
+export module editor.app:editor_icons;
 
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::core;
 

@@ -1,6 +1,6 @@
-/// Primary module for draconic.image. Re-exports all partitions.
+/// Primary module for foundation.image. Re-exports all partitions.
 
-export module draconic.image;
+export module foundation.image;
 
 export import :pixel_format;
 export import :image_data;

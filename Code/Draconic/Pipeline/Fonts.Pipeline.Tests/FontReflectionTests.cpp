@@ -5,8 +5,8 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 #include <initializer_list>
-import draconic.core;
-import draconic.fonts.pipeline;
+import foundation.core;
+import fonts.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

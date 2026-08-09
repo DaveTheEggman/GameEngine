@@ -3,8 +3,8 @@
 // injected as abstract events (the shell bridge's job), hit-tested via the tree's OverFind.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.gui;
+import foundation.core;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

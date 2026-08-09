@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:theme_icons;
+export module foundation.ui:theme_icons;
 
-import draconic.core; // StringView
+import foundation.core; // StringView
 
 using namespace foundation::core;
 

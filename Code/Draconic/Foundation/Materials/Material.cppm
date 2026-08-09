@@ -10,11 +10,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.materials:material;
+export module foundation.materials:material;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
 import :types;
 import :pipeline;
 

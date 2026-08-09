@@ -3,9 +3,9 @@
 // NOTE: the two NineSlice_* tests are deferred until NineSliceDrawable is ported.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.image;
-import draconic.ui;
+import foundation.core;
+import foundation.image;
+import foundation.ui;
 
 using namespace foundation::ui;
 namespace core = foundation::core;

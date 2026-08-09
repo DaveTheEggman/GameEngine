@@ -11,7 +11,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:serializable_registry;
+export module foundation.core:serializable_registry;
 
 import :base;
 import :type_info;

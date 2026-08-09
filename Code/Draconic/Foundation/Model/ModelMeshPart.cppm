@@ -1,9 +1,9 @@
 /// Defines a portion of a mesh that uses a specific material.
 /// Ported from Sedulous.Models/ModelMeshPart.bf.
 
-export module draconic.model:mesh_part;
+export module foundation.model:mesh_part;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

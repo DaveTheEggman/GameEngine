@@ -1,4 +1,4 @@
-// Draconic Content - draconic.content implementation unit.
+// Draconic Content - foundation.content implementation unit.
 //
 // Out-of-line definitions for Instance/Group/ContentDatabase (sec 3.2 / sec 10.6).
 // ContentModule.cppm keeps the class declarations + trivial inline accessors.
@@ -8,10 +8,10 @@ module;
 #include <chrono>
 #include <random>
 
-module draconic.content;
+module foundation.content;
 
-import draconic.core;
-import draconic.vfs;
+import foundation.core;
+import foundation.vfs;
 
 using namespace foundation::core;
 using namespace foundation::vfs;

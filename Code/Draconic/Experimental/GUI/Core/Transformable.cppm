@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:transformable;
+export module experimental.gui:transformable;
 
-import draconic.core; // Float2
+import foundation.core; // Float2
 import :transform2d;
 
 using namespace foundation::core;

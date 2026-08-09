@@ -1,4 +1,4 @@
-// Draconic::RuntimeGameInstance - the `draconic.engine.gameinstance` module.
+// Draconic::RuntimeGameInstance - the `engine.gameinstance` module.
 //
 // A single RUNNING GAME as a first-class object (docs/design/game-instance.md): its scene pairing,
 // its script run context + `Game` object + error sink, and its instance time scale. The player owns
@@ -15,19 +15,19 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h" // the SceneLoader facade (DRACONIC_OBJECT)
 
-export module draconic.engine.gameinstance;
+export module engine.gameinstance;
 
-import draconic.core;
-import draconic.scene;
-import draconic.shell;
-import draconic.scene.resource; // LoadScene / ResolveSceneResources / ResolveScenePrefabs
-import draconic.content;        // content::Instance (the cooked scene record)
-import draconic.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
-import draconic.script;
-import draconic.engine.script;
-import draconic.script.facades; // RegisterExtraFacadeName (the SceneLoader behavior-prelude hook)
-import draconic.net.manager; // NetworkManager + INetworkController + NetScriptBinding
-import draconic.input;       // ActionRuntime + IInputSourceProvider + InputMap (per-instance input)
+import foundation.core;
+import foundation.scene;
+import foundation.shell;
+import foundation.scene.resource; // LoadScene / ResolveSceneResources / ResolveScenePrefabs
+import foundation.content;        // content::Instance (the cooked scene record)
+import foundation.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
+import foundation.script;
+import engine.script;
+import foundation.script.facades; // RegisterExtraFacadeName (the SceneLoader behavior-prelude hook)
+import foundation.net.manager; // NetworkManager + INetworkController + NetScriptBinding
+import foundation.input;       // ActionRuntime + IInputSourceProvider + InputMap (per-instance input)
 
 using namespace foundation::core;
 using namespace foundation;
@@ -55,7 +55,7 @@ export namespace engine::runtime
 
     // ---- SceneLoader.* script facade (task #123): the running instance's LEVEL-LOAD control surfaced
     // to scripts. Owned HERE (the project that owns load orchestration), NOT the neutral Foundation
-    // facade lib - the out-of-tree pattern draconic.net's Net facade uses. A SceneLoaderScriptBinding
+    // facade lib - the out-of-tree pattern foundation.net's Net facade uses. A SceneLoaderScriptBinding
     // is installed as a per-context service; the app fills its pointers, backed by THIS instance's
     // LoadSceneAsync + ticket registry + the content DB (guid -> cooked scene). Named SceneLoader (NOT
     // Game): a facade sharing the mandatory `Game` orchestrator class name is a hard AngelScript name

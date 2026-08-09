@@ -6,10 +6,10 @@ module;
 
 #include "DxIncludes.h"
 
-export module draconic.rhi.dx12:buffer;
+export module foundation.rhi.dx12:buffer;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 
 using namespace foundation::core;

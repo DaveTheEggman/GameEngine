@@ -1,4 +1,4 @@
-// Draconic::FontsIO - draconic.fonts.io:manager partition
+// Draconic::FontsIO - foundation.fonts.io:manager partition
 //
 // Thread-safe font cache keyed by (path, pixel height). Loads source-format
 // fonts through the parser/baker factories on a miss, caches the resulting
@@ -9,10 +9,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.io:manager;
+export module foundation.fonts.io:manager;
 
-import draconic.core;
-import draconic.fonts;
+import foundation.core;
+import foundation.fonts;
 import :factories;
 
 using namespace foundation::core;

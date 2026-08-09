@@ -17,10 +17,10 @@ module;
 
 #include "DxIncludes.h"
 
-export module draconic.rhi.dx12:render_bundle_encoder;
+export module foundation.rhi.dx12:render_bundle_encoder;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :render_pass_encoder;
 
 using namespace foundation::core;

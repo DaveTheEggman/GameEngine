@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:conversions - RHI enum/format -> WebGPU translations.
+/// foundation.rhi.webgpu:conversions - RHI enum/format -> WebGPU translations.
 ///
 /// The RHI's TextureFormat deliberately follows WebGPU conventions, so the format
 /// table is near-1:1. Genuine gaps map to Undefined and the caller fails with
@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:conversions;
+export module foundation.rhi.webgpu:conversions;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

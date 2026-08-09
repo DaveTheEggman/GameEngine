@@ -1,10 +1,10 @@
-// The native event bus (draconic.scene :events) - exercised with ZERO scripting, because the
+// The native event bus (foundation.scene :events) - exercised with ZERO scripting, because the
 // C++-only contract is load-bearing: a C++-only game must publish/subscribe with native callbacks.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.scene;
+import foundation.core;
+import foundation.scene;
 
 using namespace foundation::core;
 using namespace foundation::scene;

@@ -29,12 +29,12 @@ module;
 #include "Core/Prelude.h"
 #include <initializer_list>
 
-module draconic.editor.scene;
+module editor.scene;
 
-import draconic.core;
-import draconic.scene;
-import draconic.render;
-import draconic.editor.core;
+import foundation.core;
+import foundation.scene;
+import foundation.render;
+import editor.core;
 import :edit;
 
 using namespace foundation::core;

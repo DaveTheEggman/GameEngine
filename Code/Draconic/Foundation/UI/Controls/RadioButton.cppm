@@ -8,10 +8,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:radio_button;
+export module foundation.ui:radio_button;
 
-import draconic.core;
-import draconic.fonts; // CachedFont, TextAlignment, VerticalAlignment
+import foundation.core;
+import foundation.fonts; // CachedFont, TextAlignment, VerticalAlignment
 import :view;
 import :event;
 import :property;

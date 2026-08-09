@@ -10,7 +10,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Math/SimdConfig.h"
 
-export module draconic.core:simd_matrix;
+export module foundation.core:simd_matrix;
 
 import :base;
 import :simd;

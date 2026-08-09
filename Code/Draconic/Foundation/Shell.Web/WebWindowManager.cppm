@@ -1,4 +1,4 @@
-// Draconic::ShellWeb - `draconic.shell.web:window_manager`.
+// Draconic::ShellWeb - `foundation.shell.web:window_manager`.
 //
 // One canvas => one window. The main window is created at construction; additional CreateWindow
 // calls fail (a browser page has a single WebGPU canvas here - multi-canvas is a later concern).
@@ -8,10 +8,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shell.web:window_manager;
+export module foundation.shell.web:window_manager;
 
-import draconic.core;
-import draconic.shell;
+import foundation.core;
+import foundation.shell;
 import :window;
 
 namespace core = foundation::core;

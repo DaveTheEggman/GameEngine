@@ -18,28 +18,28 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.scene:mesh_page;
+export module editor.scene:mesh_page;
 
-import draconic.core;
-import draconic.content;
-import draconic.rhi;
-import draconic.graphics;
-import draconic.shell;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.geometry;
-import draconic.materials;
-import draconic.resource;
-import draconic.render;
-import draconic.engine.render;
-import draconic.ui;
-import draconic.ui.runtime;
-import draconic.ui.viewport;
-import draconic.vg.renderer;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.rhi;
+import foundation.graphics;
+import foundation.shell;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.scene;
+import engine.scene;
+import foundation.geometry;
+import foundation.materials;
+import foundation.resource;
+import foundation.render;
+import engine.render;
+import foundation.ui;
+import foundation.ui.runtime;
+import foundation.ui.viewport;
+import foundation.vg.renderer;
+import editor.core;
+import editor.app;
 import :camera; // EditorCamera (orbit/fly camera on the preview viewport)
 
 using namespace foundation::core;

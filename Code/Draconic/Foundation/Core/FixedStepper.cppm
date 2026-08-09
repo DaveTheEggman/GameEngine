@@ -10,7 +10,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:fixed_stepper;
+export module foundation.core:fixed_stepper;
 
 import :base;
 

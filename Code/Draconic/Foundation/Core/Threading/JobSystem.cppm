@@ -20,15 +20,15 @@ module;
 #include <type_traits>
 // sys::ThreadYield instead of <thread>. That header is only reachable here for a single
 // std::this_thread::yield() call, but on MSVC it drags <stop_token> into this partition's
-// global module fragment, and cl then cannot re-materialize draconic.core when another module
+// global module fragment, and cl then cannot re-materialize foundation.core when another module
 // imports it:
-//   stop_token(248): fatal error C1116: unrecoverable error importing module 'draconic.core'.
+//   stop_token(248): fatal error C1116: unrecoverable error importing module 'foundation.core'.
 //   Specialization of 'std::_Stop_callback_base::_Do_attach' with arguments 'false'
 // which took out the whole DX12 backend. The engine already owns a thread backend, so using it
 // costs nothing and keeps the STL's threading headers out of the interface entirely.
 #include "Core/Threading/ThreadBackend.h"
 
-export module draconic.core:job_system;
+export module foundation.core:job_system;
 
 import :base;
 import :allocator;

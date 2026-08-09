@@ -11,9 +11,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.audio:cue;
+export module foundation.audio:cue;
 
-import draconic.core;
+import foundation.core;
 import :clip;
 
 using namespace foundation::core;

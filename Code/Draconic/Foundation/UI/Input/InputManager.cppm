@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:input_manager;
+export module foundation.ui:input_manager;
 
-import draconic.core;
+import foundation.core;
 import :view_id;
 import :input_enums; // MouseButton, KeyCode, KeyModifiers
 import :event_args;

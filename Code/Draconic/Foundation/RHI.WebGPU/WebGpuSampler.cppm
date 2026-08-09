@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:sampler - Sampler over WGPUSampler.
+/// foundation.rhi.webgpu:sampler - Sampler over WGPUSampler.
 ///
 /// Two narrowings vs the RHI desc (both logged nowhere - they are static, documented
 /// facts of the platform): ClampToBorder becomes ClampToEdge (no border sampling in
@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:sampler;
+export module foundation.rhi.webgpu:sampler;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 

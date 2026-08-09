@@ -8,7 +8,7 @@
 // Deviations from Sedulous (deliberate, documented):
 //   * Initialize takes the two pre-compiled rhi::ShaderModule* (vert, frag)
 //     rather than a ShaderSystem - shader compilation (DXC) is the caller's job
-//     via draconic.shaders, keeping this lib's dependency to pure RHI.
+//     via foundation.shaders, keeping this lib's dependency to pure RHI.
 //   * Per-renderer external textures ARE supported (RegisterExternalTexture /
 //     UnregisterExternalTexture) so a caller-owned rhi::TextureView - e.g. a
 //     ui::viewport offscreen render target - can be sampled via DrawImage. The
@@ -19,13 +19,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg.renderer:renderer;
+export module foundation.vg.renderer:renderer;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.image;
-import draconic.texture;
-import draconic.vg;
+import foundation.core;
+import foundation.rhi;
+import foundation.image;
+import foundation.texture;
+import foundation.vg;
 import :vertex;
 
 using namespace foundation::core;

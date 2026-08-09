@@ -5,12 +5,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.net.manager;
+module foundation.net.manager;
 
-import draconic.core;
-import draconic.net;
-import draconic.script;
-import draconic.script.facades; // RegisterExtraFacadeName (the Wren prelude hook)
+import foundation.core;
+import foundation.net;
+import foundation.script;
+import foundation.script.facades; // RegisterExtraFacadeName (the Wren prelude hook)
 
 using namespace foundation::core;
 using namespace foundation::script;

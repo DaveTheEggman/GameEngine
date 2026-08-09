@@ -5,7 +5,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:file_sink;
+export module foundation.core:file_sink;
 
 import :base;
 import :string;

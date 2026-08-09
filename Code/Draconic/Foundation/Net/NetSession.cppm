@@ -1,6 +1,6 @@
-/// Draconic::Net - `draconic.net:session` partition.
+/// Draconic::Net - `foundation.net:session` partition.
 ///
-/// The session layer (docs/design/networking.md §3 `draconic.net.session`, P1): roles, a peer
+/// The session layer (docs/design/networking.md §3 `foundation.net.session`, P1): roles, a peer
 /// registry, and the connect/disconnect lifecycle over the reliable-UDP transport. A NetSession is
 /// the API the game (and the replication/RPC layers) talk to - the server tracks its connected
 /// clients, the client tracks its one server, and Broadcast fans a message out to every peer.
@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.net:session;
+export module foundation.net:session;
 
-import draconic.core;
+import foundation.core;
 import :transport;
 import :datagram;
 import :reliable;

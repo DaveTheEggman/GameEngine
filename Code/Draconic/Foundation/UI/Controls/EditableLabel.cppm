@@ -15,11 +15,11 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:editable_label;
+export module foundation.ui:editable_label;
 
-import draconic.core;
-import draconic.vg;
-import draconic.fonts;
+import foundation.core;
+import foundation.vg;
+import foundation.fonts;
 import :edit_text;
 import :view;
 import :property;

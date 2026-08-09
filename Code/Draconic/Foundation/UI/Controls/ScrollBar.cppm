@@ -9,9 +9,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:scroll_bar;
+export module foundation.ui:scroll_bar;
 
-import draconic.core;
+import foundation.core;
 import :view;
 import :event;
 import :control_state;

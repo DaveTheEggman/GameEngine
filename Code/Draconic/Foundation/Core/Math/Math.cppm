@@ -10,7 +10,7 @@ module;
 #include "Core/Prelude.h"
 #include <cmath>
 
-export module draconic.core:math;
+export module foundation.core:math;
 
 import :base;
 

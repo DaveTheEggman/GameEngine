@@ -15,9 +15,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:text_editing_behavior;
+export module foundation.ui:text_editing_behavior;
 
-import draconic.core; // String, StringView, Array, Clamp, Min, Max, DecodeUtf8, AppendUtf8, Optional
+import foundation.core; // String, StringView, Array, Clamp, Min, Max, DecodeUtf8, AppendUtf8, Optional
 import :itext_edit_host;
 import :undo_stack;
 import :input_filter;

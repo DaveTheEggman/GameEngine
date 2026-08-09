@@ -10,9 +10,9 @@
 
 module;
 
-export module draconic.rhi:device;
+export module foundation.rhi:device;
 
-import draconic.core;
+import foundation.core;
 import :enums;
 import :texture_format;
 import :types;

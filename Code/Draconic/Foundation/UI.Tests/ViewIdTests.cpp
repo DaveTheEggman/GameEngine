@@ -2,8 +2,8 @@
 // ViewId.ToString appends a debug string via core::AppendFormat (Sedulous ViewId.ToString).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::ui;
 using namespace foundation::core;

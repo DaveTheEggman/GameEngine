@@ -4,9 +4,9 @@
 // needed. Beef `scope X()`/`new X()` -> MakeRef<X>(DefaultAllocator()); ref-equality `===` -> pointer ==.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
-import draconic.ui.toolkit;
+import foundation.core;
+import foundation.ui;
+import foundation.ui.toolkit;
 
 using namespace foundation::ui;
 using namespace foundation::ui::toolkit;

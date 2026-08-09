@@ -9,13 +9,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.core:context;
+export module editor.core:context;
 
-import draconic.core;
-import draconic.resource;
-import draconic.settings;
+import foundation.core;
+import foundation.resource;
+import foundation.settings;
 import :importer;
-import draconic.content;
+import foundation.content;
 import :command;
 import :selection;
 import :page;

@@ -1,14 +1,14 @@
-// Draconic::UIRuntime - the `draconic.ui.runtime` module.
+// Draconic::UIRuntime - the `foundation.ui.runtime` module.
 //
-// UIHost: the reusable bridge that draws draconic.ui on the runtime's multi-window graphics host
-// (draconic.graphics). It owns ONE UIContext with N RootViews (one per window), compiles the shared VG
+// UIHost: the reusable bridge that draws foundation.ui on the runtime's multi-window graphics host
+// (foundation.graphics). It owns ONE UIContext with N RootViews (one per window), compiles the shared VG
 // shaders once, and gives each window its own VGContext + VGRenderer + InputSurface stashed on the
 // RenderWindow as a UIWindowData (graphics::IRenderWindowData - the payload the host reserves for exactly
 // this). Mirrors the Sedulous "one UIContext / N RootViews / per-window swapchain" model.
 //
 // TOOLKIT-FREE by design: it renders any RootView, so games (single-window) and the editor (multi-window)
-// share it. The docking / floating-window workbench lives ABOVE this in draconic.ui.application, which is
-// the only module that pulls in draconic.ui.toolkit.
+// share it. The docking / floating-window workbench lives ABOVE this in foundation.ui.application, which is
+// the only module that pulls in foundation.ui.toolkit.
 //
 // A game's IApplication owns a UIHost, AttachWindow(mainWindow, root) once, then calls Update(dt) from
 // OnUpdate and RenderWindow(frame) from OnRenderWindow. No bespoke swapchain / VG bring-up in the app.
@@ -16,21 +16,21 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui.runtime;
+export module foundation.ui.runtime;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.image;
-import draconic.shaders;
-import draconic.shaders.system; // ShaderSystemHost (cooked-pack-or-dev shader resolution)
-import draconic.shell;
-import draconic.graphics;
-import draconic.vg;
-import draconic.vg.renderer;
-import draconic.vg.svg;
-import draconic.fonts;
-import draconic.ui;
-import draconic.ui.shell;
+import foundation.core;
+import foundation.rhi;
+import foundation.image;
+import foundation.shaders;
+import foundation.shaders.system; // ShaderSystemHost (cooked-pack-or-dev shader resolution)
+import foundation.shell;
+import foundation.graphics;
+import foundation.vg;
+import foundation.vg.renderer;
+import foundation.vg.svg;
+import foundation.fonts;
+import foundation.ui;
+import foundation.ui.shell;
 
 namespace core = foundation::core;
 namespace rhi = foundation::rhi;
@@ -156,7 +156,7 @@ export namespace foundation::ui::runtime
         static constexpr u32 kMsaaSamples = 4;
     };
 
-    /// Renders draconic.ui on the runtime graphics host. Construct once (compiles the VG shaders), attach
+    /// Renders foundation.ui on the runtime graphics host. Construct once (compiles the VG shaders), attach
     /// a RootView per window, drive Update()/RenderWindow() from the app's OnUpdate/OnRenderWindow.
     class UIHost
     {

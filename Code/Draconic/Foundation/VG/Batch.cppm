@@ -8,10 +8,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg:batch;
+export module foundation.vg:batch;
 
-import draconic.core;
-import draconic.image;
+import foundation.core;
+import foundation.image;
 import :enums;
 import :vertex;
 import :path;

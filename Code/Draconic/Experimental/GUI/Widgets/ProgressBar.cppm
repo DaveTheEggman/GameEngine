@@ -7,10 +7,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:progress_bar;
+export module experimental.gui:progress_bar;
 
-import draconic.core; // Color, Max, Min
-import draconic.vg;   // CornerRadii
+import foundation.core; // Color, Max, Min
+import foundation.vg;   // CornerRadii
 import :rect;
 import :draw_context;
 import :ui_widget;

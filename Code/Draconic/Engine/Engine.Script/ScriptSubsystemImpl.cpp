@@ -8,13 +8,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.engine.script;
+module engine.script;
 
-import draconic.core;
-import draconic.scene;
-import draconic.resource; // resource::Ref (SceneScriptSettings.script)
-import draconic.script;
-import draconic.script.resource;
+import foundation.core;
+import foundation.scene;
+import foundation.resource; // resource::Ref (SceneScriptSettings.script)
+import foundation.script;
+import foundation.script.resource;
 
 using namespace foundation::core;
 

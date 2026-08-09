@@ -4,7 +4,7 @@
 // Zero overhead when all flags are false (AnyEnabled() gates the work). Ported from
 // Sedulous.UI/src/Debug/UIDebugDrawSettings.bf.
 
-export module draconic.ui:debug_settings;
+export module foundation.ui:debug_settings;
 
 export namespace foundation::ui
 {

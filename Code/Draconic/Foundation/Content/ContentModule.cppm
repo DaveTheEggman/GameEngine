@@ -1,4 +1,4 @@
-// Draconic::Content - the `draconic.content` module.
+// Draconic::Content - the `foundation.content` module.
 //
 // A content database: a hierarchical store of serializable objects, addressed by
 // Guid (stable) or by path. A Group is a folder; an Instance is one stored unit
@@ -16,10 +16,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.content;
+export module foundation.content;
 
-import draconic.core;
-import draconic.vfs;
+import foundation.core;
+import foundation.vfs;
 
 using namespace foundation::core;
 using namespace foundation::vfs;

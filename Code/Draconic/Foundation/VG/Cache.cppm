@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg:cache;
+export module foundation.vg:cache;
 
-import draconic.core;
+import foundation.core;
 import :enums;
 import :vertex;
 import :style;

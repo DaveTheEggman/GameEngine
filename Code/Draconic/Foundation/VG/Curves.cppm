@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg:curves;
+export module foundation.vg:curves;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

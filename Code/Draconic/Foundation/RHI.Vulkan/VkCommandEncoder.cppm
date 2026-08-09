@@ -8,10 +8,10 @@ module;
 
 #include <cstring>
 
-export module draconic.rhi.vulkan:command_encoder;
+export module foundation.rhi.vulkan:command_encoder;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :barrier_helper;
 import :buffer;

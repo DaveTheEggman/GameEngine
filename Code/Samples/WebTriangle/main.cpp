@@ -11,15 +11,15 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.shell;
-import draconic.runtime.web;  // RunApplication (browser runner) - required by DRACONIC_APP_MAIN
-import draconic.shell.web;    // WebShell - required by DRACONIC_APP_MAIN
-import draconic.graphics;     // GraphicsDevice + FrameContext
-import draconic.graphics.gpu; // CreateGraphicsDevice
-import draconic.rhi;
+import foundation.core;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.shell;
+import foundation.runtime.web;  // RunApplication (browser runner) - required by DRACONIC_APP_MAIN
+import foundation.shell.web;    // WebShell - required by DRACONIC_APP_MAIN
+import foundation.graphics;     // GraphicsDevice + FrameContext
+import foundation.graphics.gpu; // CreateGraphicsDevice
+import foundation.rhi;
 
 #include "Runtime.Client/AppMain.h"
 

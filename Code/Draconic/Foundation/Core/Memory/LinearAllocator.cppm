@@ -6,7 +6,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:linear_allocator;
+export module foundation.core:linear_allocator;
 
 import :base;
 import :allocator;

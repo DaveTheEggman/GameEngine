@@ -12,9 +12,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.ui.toolkit:code_document;
+export module foundation.ui.toolkit:code_document;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

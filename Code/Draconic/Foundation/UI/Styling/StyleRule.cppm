@@ -12,9 +12,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:style_rule;
+export module foundation.ui:style_rule;
 
-import draconic.core; // Object, Array, Optional, RefPtr, Color, StringView
+import foundation.core; // Object, Array, Optional, RefPtr, Color, StringView
 import :thickness;
 import :drawable;
 import :style_property;

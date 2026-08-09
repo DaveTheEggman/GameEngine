@@ -10,10 +10,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.materials:instance;
+export module foundation.materials:instance;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :types;
 import :material;
 

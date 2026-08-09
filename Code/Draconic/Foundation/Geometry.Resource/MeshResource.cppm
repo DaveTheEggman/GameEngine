@@ -1,4 +1,4 @@
-/// Draconic::MeshResource - the `draconic.geometry.resource` module.
+/// Draconic::MeshResource - the `foundation.geometry.resource` module.
 ///
 /// Meshes as resources: a StaticMeshSource / SkinnedMeshSource (cooked content - the
 /// raw vertex stream, indices, submeshes, and for skinned the parallel skinning
@@ -12,12 +12,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.geometry.resource;
+export module foundation.geometry.resource;
 
-import draconic.core;
-import draconic.resource;
-import draconic.content;
-import draconic.geometry;
+import foundation.core;
+import foundation.resource;
+import foundation.content;
+import foundation.geometry;
 
 using namespace foundation::core;
 using namespace foundation::resource;

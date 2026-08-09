@@ -4,10 +4,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rhi.validation:validated_queue;
+export module foundation.rhi.validation:validated_queue;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :validated_fence;
 import :validated_transfer_batch;
 

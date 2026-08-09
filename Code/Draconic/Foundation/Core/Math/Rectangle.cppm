@@ -5,7 +5,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:rectangle;
+export module foundation.core:rectangle;
 
 import :base;
 import :float2;

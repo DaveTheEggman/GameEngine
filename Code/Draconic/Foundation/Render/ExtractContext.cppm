@@ -13,9 +13,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:extract_ctx;
+export module foundation.render:extract_ctx;
 
-import draconic.core;
+import foundation.core;
 import :data;
 
 using namespace foundation::core;

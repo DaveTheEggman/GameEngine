@@ -9,7 +9,7 @@ module;
 #include <type_traits>
 #include <utility>
 
-export module draconic.core:reflection;
+export module foundation.core:reflection;
 
 import :base;
 import :allocator;

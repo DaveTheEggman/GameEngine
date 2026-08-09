@@ -7,11 +7,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg.svg:renderer;
+export module foundation.vg.svg:renderer;
 
-import draconic.core;
-import draconic.vg;
-import draconic.fonts;
+import foundation.core;
+import foundation.vg;
+import foundation.fonts;
 import :types;
 
 using namespace foundation::core;

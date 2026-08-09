@@ -11,9 +11,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:tooltip_manager;
+export module foundation.ui:tooltip_manager;
 
-import draconic.core;
+import foundation.core;
 import :view_id;
 import :tooltip_placement;
 

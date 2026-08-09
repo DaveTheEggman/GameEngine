@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:slider;
+export module experimental.gui:slider;
 
-import draconic.core; // Color, Function, Move, Max, Min, Float2, Rectangle
-import draconic.vg;   // CornerRadii
+import foundation.core; // Color, Function, Move, Max, Min, Float2, Rectangle
+import foundation.vg;   // CornerRadii
 import :rect;
 import :event;
 import :draw_context;

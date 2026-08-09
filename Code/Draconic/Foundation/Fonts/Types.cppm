@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts:types;
+export module foundation.fonts:types;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

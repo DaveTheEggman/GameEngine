@@ -6,16 +6,16 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.fonts;
-import draconic.image;
-import draconic.fonts.resource;
-import draconic.fonts.pipeline;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import pipeline.core;
+import editor.core;
+import foundation.fonts;
+import foundation.image;
+import foundation.fonts.resource;
+import fonts.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

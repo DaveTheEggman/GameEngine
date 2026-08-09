@@ -9,7 +9,7 @@ module;
 #include "Core/Debug/Assert.h"
 #include <type_traits>
 
-export module draconic.core:hash_map;
+export module foundation.core:hash_map;
 
 import :base;
 import :allocator;

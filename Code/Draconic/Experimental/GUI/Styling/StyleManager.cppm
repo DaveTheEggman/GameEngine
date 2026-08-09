@@ -13,10 +13,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:style_manager;
+export module experimental.gui:style_manager;
 
-import draconic.core;  // HashMap, Cast, Move, Array, StringView, Float2, Duration, MakeRef
-import draconic.fonts; // IFontService
+import foundation.core;  // HashMap, Cast, Move, Array, StringView, Float2, Duration, MakeRef
+import foundation.fonts; // IFontService
 import :node;
 import :ui_node;
 import :ui_widget;

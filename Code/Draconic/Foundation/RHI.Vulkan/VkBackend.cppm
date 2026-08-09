@@ -12,10 +12,10 @@ module;
 #include <cstdlib>
 #include <cstring>
 
-export module draconic.rhi.vulkan:backend;
+export module foundation.rhi.vulkan:backend;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :adapter;
 import :surface;
 

@@ -12,18 +12,18 @@
 /// and views share per-frame state (the view pool, the renderers' transient buffers) without
 /// clobbering each other. Views are collected, then composed together at End. (§9.) Phase 1
 /// records directly into the command encoder via `ForwardPass`; phase 3 routes the same
-/// pass-group through draconic.rendergraph (MRT + automatic barriers + transient aliasing).
+/// pass-group through foundation.rendergraph (MRT + automatic barriers + transient aliasing).
 
 module;
 #include "Core/Prelude.h"
 #include "Profiler/Profiler.h"
 
-export module draconic.render:pipeline;
+export module foundation.render:pipeline;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rendergraph;
-import draconic.profiler;
+import foundation.core;
+import foundation.rhi;
+import foundation.rendergraph;
+import foundation.profiler;
 import :data;
 import :views;
 import :cluster_system;

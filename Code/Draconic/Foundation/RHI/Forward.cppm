@@ -1,6 +1,6 @@
 /// Forward declarations for all RHI types.
 
-export module draconic.rhi:forward;
+export module foundation.rhi:forward;
 
 export namespace foundation::rhi
 {

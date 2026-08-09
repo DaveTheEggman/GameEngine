@@ -1,8 +1,8 @@
-// Draconic::FontsResource - the `draconic.fonts.resource` module (runtime).
+// Draconic::FontsResource - the `foundation.fonts.resource` module (runtime).
 //
 // The FONT as a runtime resource - the triad tier the original port skipped
 // ("Ported from Sedulous.Fonts (excluding Fonts.Resources)"; roadmap: "Fonts -> proper
-// triad"). Same model-A shape as draconic.texture.resource:
+// triad"). Same model-A shape as foundation.texture.resource:
 //
 //   * FontResource (ISerializable): the cooked *record* loaded from the output DB - the
 //     family, the atlas pixel mode (Alpha8 coverage or RGBA MSDF), and one ENTRY per baked
@@ -21,16 +21,16 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.fonts.resource;
+export module foundation.fonts.resource;
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.baked;
-import draconic.fonts.ttf;
-import draconic.fonts.distancefield;
-import draconic.image;
-import draconic.content;
-import draconic.resource;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.baked;
+import foundation.fonts.ttf;
+import foundation.fonts.distancefield;
+import foundation.image;
+import foundation.content;
+import foundation.resource;
 
 using namespace foundation::core;
 using namespace foundation::resource;

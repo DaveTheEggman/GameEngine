@@ -6,9 +6,9 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.particles;
-import draconic.editor.scene;
+import foundation.core;
+import foundation.particles;
+import editor.scene;
 
 using namespace foundation::core;
 namespace particles = foundation::particles;

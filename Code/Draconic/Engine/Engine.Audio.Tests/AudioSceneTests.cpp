@@ -1,4 +1,4 @@
-// draconic.engine.audio tests: the scene integration headless - autoplay on scene
+// engine.audio tests: the scene integration headless - autoplay on scene
 // start, per-frame position/velocity sync (the doppler feed), finished-voice reap into
 // the component, the per-scene group pausing with scene simulation, the component
 // control surface, the listener component pose, and component serialization round-trip.
@@ -8,18 +8,18 @@
 #include "Core/Prelude.h"
 #include <cmath>
 
-import draconic.core;
-import draconic.scene;
-import draconic.scene.resource;
-import draconic.audio;
-import draconic.engine.audio;
-import draconic.audio.resource; // cooked records (the Wren path-play test's DB)
-import draconic.settings;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.script;
-import draconic.script.wren;
+import foundation.core;
+import foundation.scene;
+import foundation.scene.resource;
+import foundation.audio;
+import engine.audio;
+import foundation.audio.resource; // cooked records (the Wren path-play test's DB)
+import foundation.settings;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.script;
+import foundation.script.wren;
 
 using namespace foundation::core;
 using namespace engine::audio;

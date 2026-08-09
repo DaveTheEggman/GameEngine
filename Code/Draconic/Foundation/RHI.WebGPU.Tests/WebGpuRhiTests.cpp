@@ -6,9 +6,9 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.webgpu;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.webgpu;
 
 using namespace foundation::core;
 using namespace foundation::rhi;

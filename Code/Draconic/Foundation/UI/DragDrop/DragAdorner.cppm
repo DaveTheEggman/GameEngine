@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:drag_adorner;
+export module foundation.ui:drag_adorner;
 
-import draconic.core;
-import draconic.vg;
+import foundation.core;
+import foundation.vg;
 import :view;
 import :box_constraints;
 import :draw_context;

@@ -7,10 +7,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rendergraph:pass_builder;
+export module foundation.rendergraph:pass_builder;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :types;
 import :descriptors;
 import :callbacks;

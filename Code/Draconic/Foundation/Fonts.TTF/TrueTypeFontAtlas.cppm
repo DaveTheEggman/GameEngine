@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - draconic.fonts.ttf:atlas partition
+// Draconic::FontsTTF - foundation.fonts.ttf:atlas partition
 //
 // IFontAtlas produced by stb_truetype's packed-font API. Holds the packed
 // 8-bit coverage buffer + per-codepoint stbtt_packedchar records and maps
@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "stb_truetype.h"
 
-export module draconic.fonts.ttf:atlas;
+export module foundation.fonts.ttf:atlas;
 
-import draconic.core;
-import draconic.fonts;
+import foundation.core;
+import foundation.fonts;
 import :font;
 
 using namespace foundation::core;

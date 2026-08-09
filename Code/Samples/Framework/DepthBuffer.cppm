@@ -1,9 +1,9 @@
 /// Reusable depth buffer helper for samples.
 
-export module draconic.samples.framework:depth_buffer;
+export module samples.framework:depth_buffer;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 using namespace foundation;

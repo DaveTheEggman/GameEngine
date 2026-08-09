@@ -1,16 +1,16 @@
-// Draconic GUI - primary module interface unit for `draconic.gui`.
+// Draconic GUI - primary module interface unit for `experimental.gui`.
 //
 // A fresh, eepp-derived retained-mode UI framework built bottom-up on the Draconic
 // VG/Fonts stack (see docs/design/gui-port.md). Distinct from the parked Sedulous port
-// draconic.ui: eepp is progressively SLICED onto Draconic infra, not lifted wholesale.
-// Platform-agnostic core; a separate draconic.gui.shell bridge will feed its abstract
+// foundation.ui: eepp is progressively SLICED onto Draconic infra, not lifted wholesale.
+// Platform-agnostic core; a separate experimental.gui.shell bridge will feed its abstract
 // input/clipboard seams.
 //
 // One named module composed of partitions (one per subsystem), re-exported here so
-// consumers write a single `import draconic.gui;`. Add `export import :partition;`
+// consumers write a single `import experimental.gui;`. Add `export import :partition;`
 // lines as the port progresses (Phase 0: geometry primitives -> Phase 1: Node ...).
 
-export module draconic.gui;
+export module experimental.gui;
 
 export import :rect;
 export import :transform2d;

@@ -1,4 +1,4 @@
-// Draconic::InputEditor - the `draconic.input.editor` module.
+// Draconic::InputEditor - the `foundation.input.editor` module.
 //
 // The authored input-map asset (source, XML envelope like every authored asset) + its
 // builder. Cook = VALIDATE + write-through: the model is pure data, so the bake's whole
@@ -9,13 +9,13 @@ module;
 #include "Core/Reflection/Reflect.h"
 #include "Core/Log/Log.h"
 
-export module draconic.input.pipeline;
+export module input.pipeline;
 
-import draconic.core;
-import draconic.content;
-import draconic.pipeline.core;
-import draconic.input;
-import draconic.input.resource;
+import foundation.core;
+import foundation.content;
+import pipeline.core;
+import foundation.input;
+import foundation.input.resource;
 
 using namespace foundation::core;
 using namespace foundation::input;

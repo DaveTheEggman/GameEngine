@@ -1,6 +1,6 @@
-/// Draconic::Net - `draconic.net:rpc` partition.
+/// Draconic::Net - `foundation.net:rpc` partition.
 ///
-/// Remote procedure calls (docs/design/networking.md §3 `draconic.net.rpc`, P1). An RpcTable maps
+/// Remote procedure calls (docs/design/networking.md §3 `foundation.net.rpc`, P1). An RpcTable maps
 /// RPC names to handlers; Call serializes (rpc-id + args) and sends it over a NetSession on a
 /// reserved channel; the receiver Dispatches it to the registered handler. Args are written/read
 /// through the bit-exact wire layer - the same primitives the (later) reflection auto-marshaling
@@ -12,9 +12,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.net:rpc;
+export module foundation.net:rpc;
 
-import draconic.core;
+import foundation.core;
 import :transport;
 import :session;
 import :wire;

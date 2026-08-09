@@ -7,9 +7,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:panel;
+export module foundation.ui:panel;
 
-import draconic.core;
+import foundation.core;
 import :view;
 import :box_constraints;
 import :thickness;

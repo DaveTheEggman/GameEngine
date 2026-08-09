@@ -6,10 +6,10 @@ module;
 
 #include "VkIncludes.h"
 
-export module draconic.rhi.vulkan:bind_group;
+export module foundation.rhi.vulkan:bind_group;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :binding_shifts;
 import :bind_group_layout;

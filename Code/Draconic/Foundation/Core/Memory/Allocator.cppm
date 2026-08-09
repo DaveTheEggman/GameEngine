@@ -14,7 +14,7 @@ module;
 #include <cstring> // memcpy / memmove / memset
 #include <new>     // placement new
 
-export module draconic.core:allocator;
+export module foundation.core:allocator;
 
 import :base;
 

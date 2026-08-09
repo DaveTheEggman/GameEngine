@@ -7,9 +7,9 @@ module;
 
 #include "DxIncludes.h"
 
-export module draconic.rhi.dx12:gpu_descriptor_heap;
+export module foundation.rhi.dx12:gpu_descriptor_heap;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

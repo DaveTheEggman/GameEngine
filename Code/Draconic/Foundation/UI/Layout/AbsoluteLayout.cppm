@@ -8,9 +8,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:absolute_layout;
+export module foundation.ui:absolute_layout;
 
-import draconic.core; // Max, RefPtr, kFloatMax
+import foundation.core; // Max, RefPtr, kFloatMax
 import :view;
 import :layout_params;
 import :box_constraints;

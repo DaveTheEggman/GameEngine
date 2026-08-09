@@ -13,9 +13,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:itext_edit_host;
+export module foundation.ui:itext_edit_host;
 
-import draconic.core; // StringView
+import foundation.core; // StringView
 import :iclipboard;
 
 using namespace foundation::core;

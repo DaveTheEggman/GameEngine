@@ -1,4 +1,4 @@
-// Draconic::ShellWeb - `draconic.shell.web:dialogs`.
+// Draconic::ShellWeb - `foundation.shell.web:dialogs`.
 //
 // The web shell's file-dialog service. Stubbed to cancel immediately; the browser equivalents are a
 // hidden <input type=file> (open) and an anchor-download (save), wired here later. Kept as the web
@@ -7,10 +7,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shell.web:dialogs;
+export module foundation.shell.web:dialogs;
 
-import draconic.core;
-import draconic.shell;
+import foundation.core;
+import foundation.shell;
 
 namespace core = foundation::core;
 

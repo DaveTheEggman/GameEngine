@@ -6,10 +6,10 @@ module;
 
 #include "VkIncludes.h"
 
-export module draconic.rhi.vulkan:ray_tracing_pipeline;
+export module foundation.rhi.vulkan:ray_tracing_pipeline;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :shader_module;
 import :pipeline_layout;
 import :pipeline_cache;

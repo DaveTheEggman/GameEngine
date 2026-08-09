@@ -7,10 +7,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rendergraph:descriptors;
+export module foundation.rendergraph:descriptors;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :types;
 
 using namespace foundation::core;

@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:box_constraints;
+export module foundation.ui:box_constraints;
 
-import draconic.core; // Max, Min, kFloatMax
+import foundation.core; // Max, Min, kFloatMax
 import :thickness;
 
 using namespace foundation::core;

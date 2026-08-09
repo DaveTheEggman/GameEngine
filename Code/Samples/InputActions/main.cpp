@@ -1,4 +1,4 @@
-// InputActions - the draconic.input consumer proof, now the WHOLE stack in one app:
+// InputActions - the foundation.input consumer proof, now the WHOLE stack in one app:
 // named actions (WASD/stick/touch move, Jump via key/pad/touch region), an exclusive Menu
 // set (suppression + held-latching), the Flax-style smoothing, the engine TIME SCALE, the
 // USER REBIND OVERLAY (capture-next-input, persisted to the user settings file, reset to
@@ -11,20 +11,20 @@
 #include "imgui.h"
 #include <cstdio>
 
-import draconic.core;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.shell;
-import draconic.runtime.desktop;
-import draconic.shell.desktop;
-import draconic.graphics;
-import draconic.graphics.gpu;
-import draconic.xml;
-import draconic.xml.serialization;
-import draconic.settings;
-import draconic.imgui;
-import draconic.input;
-import draconic.engine.input;
+import foundation.core;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.shell;
+import foundation.runtime.desktop;
+import foundation.shell.desktop;
+import foundation.graphics;
+import foundation.graphics.gpu;
+import foundation.xml;
+import foundation.xml.serialization;
+import foundation.settings;
+import extensions.imgui;
+import foundation.input;
+import engine.input;
 
 namespace core = foundation::core;
 namespace runtime = foundation::runtime;

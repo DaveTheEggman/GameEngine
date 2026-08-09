@@ -5,8 +5,8 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.scene;
+import foundation.core;
+import foundation.scene;
 
 using namespace foundation::core;
 using namespace foundation::scene;

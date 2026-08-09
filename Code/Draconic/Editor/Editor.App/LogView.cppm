@@ -1,7 +1,7 @@
 // Draconic::EditorApp - :log_view partition.
 //
 // LogView: the Console panel content (docs/design/editor.md §3.10) - Sedulous's LogView shape
-// on draconic.ui, plus category display (core logs carry categories; Sedulous had none). A
+// on foundation.ui, plus category display (core logs carry categories; Sedulous had none). A
 // filter/action toolbar (per-level CheckBoxes + Clear) over a recycled ListView of level-colored
 // rows; bounded entry count; auto-scroll to the newest entry. Fed once per frame by
 // EditorApplication draining the EditorLogBuffer.
@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.app:log_view;
+export module editor.app:log_view;
 
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::core;
 

@@ -1,24 +1,24 @@
-// draconic.engine.gameinstance - the extracted run bracket owns the script run state + time scale.
+// engine.gameinstance - the extracted run bracket owns the script run state + time scale.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.engine.gameinstance;
-import draconic.runtime;      // foundation runtime Context/Subsystem (was transitively reachable pre-namespace-split)
-import draconic.scene;
-import draconic.scene.resource;    // SceneDocument + LoadScene round-trip
-import draconic.content;           // ContentDatabase / Instance
-import draconic.resource;          // ResourceManager
-import draconic.vfs;               // NativeFileSystem
-import draconic.script;
-import draconic.script.facades; // RegisterScriptFacadeReflection (the Scene facade)
-import draconic.script.wren;
-import draconic.script.angelscript;
-import draconic.net;         // NetSession queries (IsServer/PeerCount)
-import draconic.net.manager; // NetworkManager (the endpoint the instance owns)
-import draconic.input;       // ActionRuntime / IInputSourceProvider (per-instance input)
-import draconic.shell;       // IKeyboard / KeyCode (a minimal fake device)
+import foundation.core;
+import engine.gameinstance;
+import foundation.runtime;      // foundation runtime Context/Subsystem (was transitively reachable pre-namespace-split)
+import foundation.scene;
+import foundation.scene.resource;    // SceneDocument + LoadScene round-trip
+import foundation.content;           // ContentDatabase / Instance
+import foundation.resource;          // ResourceManager
+import foundation.vfs;               // NativeFileSystem
+import foundation.script;
+import foundation.script.facades; // RegisterScriptFacadeReflection (the Scene facade)
+import foundation.script.wren;
+import foundation.script.angelscript;
+import foundation.net;         // NetSession queries (IsServer/PeerCount)
+import foundation.net.manager; // NetworkManager (the endpoint the instance owns)
+import foundation.input;       // ActionRuntime / IInputSourceProvider (per-instance input)
+import foundation.shell;       // IKeyboard / KeyCode (a minimal fake device)
 
 using namespace foundation::core;
 namespace script = foundation::script; // raw manager/context for the SceneLoader facade battery

@@ -6,9 +6,9 @@ module;
 
 #include <string>
 
-export module draconic.model:model_material;
+export module foundation.model:model_material;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

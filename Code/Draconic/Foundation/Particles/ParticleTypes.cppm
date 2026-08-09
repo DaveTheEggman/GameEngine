@@ -1,4 +1,4 @@
-// draconic.particles:types - the particle value primitives, ported from Sedulous.Particles
+// foundation.particles:types - the particle value primitives, ported from Sedulous.Particles
 // (ParticleTypes.bf, RangeValue.bf, ParticleCurve.bf, EmissionShape.bf, ParticleEvent.bf,
 // ParticleBehavior.bf's update context). Pure value types over Core math. Fields adapt to
 // Draconic's camelCase convention; methods stay PascalCase.
@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.particles:types;
+export module foundation.particles:types;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 namespace core = foundation::core;
@@ -674,7 +674,7 @@ export namespace foundation::particles
         Random* rng = nullptr;
     };
 
-    // ---- Serialization (draconic.core :serialize) --------------------------------------------
+    // ---- Serialization (foundation.core :serialize) --------------------------------------------
     // Bidirectional Serialize(ISerializer&, T&) overloads for the authoring value types. Found by ADL
     // from core's Serialize(ar, "key", value). Fields decomposed (not blobbed) - readable in the XML
     // asset, portable in the binary cook. Curves write keyCount then the active keys only.

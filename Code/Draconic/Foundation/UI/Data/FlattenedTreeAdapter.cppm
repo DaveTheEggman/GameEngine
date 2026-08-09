@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:flattened_tree_adapter;
+export module foundation.ui:flattened_tree_adapter;
 
-import draconic.core;
+import foundation.core;
 import :view;
 import :ilist_adapter;
 import :itree_adapter;

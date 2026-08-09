@@ -9,10 +9,10 @@ module;
 #include <algorithm>
 #include <cstring>
 
-export module draconic.rhi.dx12:texture;
+export module foundation.rhi.dx12:texture;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 
 using namespace foundation::core;

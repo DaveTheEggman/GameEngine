@@ -4,10 +4,10 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.rendergraph;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.rendergraph;
 
 using namespace foundation::core;
 using namespace foundation::rendergraph;

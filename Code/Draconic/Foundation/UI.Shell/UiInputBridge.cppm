@@ -1,21 +1,21 @@
-// Draconic UI - `draconic.ui.shell`: the platform input bridge for draconic.ui.
+// Draconic UI - `foundation.ui.shell`: the platform input bridge for foundation.ui.
 //
-// Keeps the core draconic.ui platform-agnostic: it exposes UIContext's InputManager (physical-pixel
-// Process* API) and this bridge is the only place that knows draconic.shell. It translates a stream of
+// Keeps the core foundation.ui platform-agnostic: it exposes UIContext's InputManager (physical-pixel
+// Process* API) and this bridge is the only place that knows foundation.shell. It translates a stream of
 // shell::InputEvent (already gated/transformed by InputSurface/InputRouter, see [[viewport-input]]) into
 // InputManager calls, and drives the window's text input (IME) from focus via UIContext::WantsTextInput()
 // - the mechanism Sedulous shell never finished. Reimplemented for Draconic (NOT ported from Sedulous.
-// UI.Shell), mirroring the draconic.gui GuiInputBridge, per the port plan: InputSurface consumption lives
+// UI.Shell), mirroring the experimental.gui GuiInputBridge, per the port plan: InputSurface consumption lives
 // here, never in the core.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui.shell;
+export module foundation.ui.shell;
 
-import draconic.core;  // Float2, StringView, DecodeUtf8
-import draconic.ui;    // UIContext, InputManager, KeyCode, MouseButton, KeyModifiers
-import draconic.shell; // InputEvent, InputSurface, IMouse, IWindow
+import foundation.core;  // Float2, StringView, DecodeUtf8
+import foundation.ui;    // UIContext, InputManager, KeyCode, MouseButton, KeyModifiers
+import foundation.shell; // InputEvent, InputSurface, IMouse, IWindow
 
 using namespace foundation::core;
 namespace shell = foundation::shell;

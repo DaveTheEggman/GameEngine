@@ -2,7 +2,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:fixed_array;
+export module foundation.core:fixed_array;
 
 import :base;
 import :span;

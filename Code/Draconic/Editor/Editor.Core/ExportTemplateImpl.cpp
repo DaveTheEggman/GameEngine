@@ -11,12 +11,12 @@ module;
 #include "Core/Reflection/Reflect.h"
 #include <filesystem> // recursive dir copy when importing a template bundle
 
-module draconic.editor.core;
+module editor.core;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.xml.serialization;
-import draconic.engine.project;
+import foundation.core;
+import foundation.vfs;
+import foundation.xml.serialization;
+import engine.project;
 import :export_preset; // ExportPreset, ExportPresetSet
 
 using namespace foundation::core;

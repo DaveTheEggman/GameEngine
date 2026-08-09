@@ -1,5 +1,5 @@
 // SampleApp - abstract base for RHI samples (adapted from the Draconic sample
-// framework to Draconic's shell). Brings up a window (draconic.shell),
+// framework to Draconic's shell). Brings up a window (foundation.shell),
 // a Vulkan backend (validation-wrapped), device, queue, and swap chain; pumps
 // events, tracks timing, and calls OnRender(). Resize is detected by polling the
 // window size; the loop skips rendering while minimized.
@@ -9,20 +9,20 @@ module;
 #include <cstdio>
 #include <cstring>
 
-export module draconic.samples.framework:sample_app;
+export module samples.framework:sample_app;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.vulkan;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.vulkan;
 #ifdef DRACONIC_HAS_DX12
-import draconic.rhi.dx12;
+import foundation.rhi.dx12;
 #endif
 #ifdef DRACONIC_HAS_WEBGPU
-import draconic.rhi.webgpu;
+import foundation.rhi.webgpu;
 #endif
-import draconic.rhi.validation;
-import draconic.shell;
-import draconic.shell.desktop;
+import foundation.rhi.validation;
+import foundation.shell;
+import foundation.shell.desktop;
 
 using namespace foundation::core;
 using namespace foundation;

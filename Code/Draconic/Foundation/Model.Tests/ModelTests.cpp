@@ -1,8 +1,8 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.model;
+import foundation.core;
+import foundation.model;
 
 using namespace foundation::core;
 using namespace foundation::model;

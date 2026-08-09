@@ -11,10 +11,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:scroll_bar;
+export module experimental.gui:scroll_bar;
 
-import draconic.core; // Color, Function, Move, Max, Min, Float2, Rectangle, RefPtr, MakeRef
-import draconic.vg;   // CornerRadii
+import foundation.core; // Color, Function, Move, Max, Min, Float2, Rectangle, RefPtr, MakeRef
+import foundation.vg;   // CornerRadii
 import :rect;
 import :event;
 import :draw_context;

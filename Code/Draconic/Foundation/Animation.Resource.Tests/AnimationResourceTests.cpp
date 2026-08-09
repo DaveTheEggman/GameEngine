@@ -5,12 +5,12 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.animation;
-import draconic.animation.resource;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.animation;
+import foundation.animation.resource;
 
 using namespace foundation::core;
 using namespace foundation::vfs;

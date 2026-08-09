@@ -1,9 +1,9 @@
-/// Draconic::RenderApi - the `draconic.render.api` module.
+/// Draconic::RenderApi - the `foundation.render.api` module.
 ///
 /// The renderer's SCENE-RENDERING INTERFACE, extracted into a light module (core + rhi + scene
 /// only) so tools can drive scene rendering through `ISceneRenderer` without linking the
 /// renderer (the editor shell's layering rule; Sedulous models the same split with its
-/// Abstractions assemblies). `draconic.render` re-exports everything here, so renderer-side
+/// Abstractions assemblies). `foundation.render` re-exports everything here, so renderer-side
 /// code is unaffected; `RenderSubsystem` implements `ISceneRenderer`.
 ///
 /// The lifecycle (one bracket per frame, N views inside):
@@ -22,11 +22,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render.api;
+export module foundation.render.api;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.scene;
+import foundation.core;
+import foundation.rhi;
+import foundation.scene;
 
 using namespace foundation::core;
 namespace scene = foundation::scene;

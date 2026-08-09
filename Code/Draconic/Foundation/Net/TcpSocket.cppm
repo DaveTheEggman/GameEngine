@@ -1,15 +1,15 @@
-/// Draconic::Net - `draconic.net:tcp_socket` partition.
+/// Draconic::Net - `foundation.net:tcp_socket` partition.
 ///
 /// RAII TCP stream sockets over the Core/System TCP primitive (docs/design/networking.md §3.1), for
-/// the future draconic.http / WebSocket / script-debugger transports - NOT the UDP game transport.
+/// the future foundation.http / WebSocket / script-debugger transports - NOT the UDP game transport.
 /// Each socket holds one WSA refcount (a no-op on POSIX), transferred on move. IPv4 for v1.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.net:tcp_socket;
+export module foundation.net:tcp_socket;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 namespace core = foundation::core;

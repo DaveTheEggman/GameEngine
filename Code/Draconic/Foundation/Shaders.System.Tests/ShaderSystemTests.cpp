@@ -7,11 +7,11 @@
 #include <filesystem>
 #include <fstream>
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.shaders;
-import draconic.shaders.system;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.shaders;
+import foundation.shaders.system;
 
 using namespace foundation::core;
 using namespace foundation::shaders;

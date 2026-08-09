@@ -7,11 +7,11 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.animation;
-import draconic.animation.resource;
-import draconic.animation.pipeline;
-import draconic.editor.scene;
+import foundation.core;
+import foundation.animation;
+import foundation.animation.resource;
+import animation.pipeline;
+import editor.scene;
 
 using namespace foundation::core;
 using namespace pipeline;

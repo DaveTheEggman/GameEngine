@@ -3,8 +3,8 @@
 #include "Core/Prelude.h" // <new> reachability for container instantiation (GCC)
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.script;
+import foundation.core;
+import foundation.script;
 
 using namespace foundation::core;
 using namespace foundation::script;

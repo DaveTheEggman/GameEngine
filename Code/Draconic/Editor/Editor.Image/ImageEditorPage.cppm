@@ -1,4 +1,4 @@
-// Draconic::EditorImage - the `draconic.editor.image` module.
+// Draconic::EditorImage - the `editor.image` module.
 //
 // ImageEditorPage (editor-pages-gap.md, the Texture page's source-side sibling): the inspect +
 // intent surface over an ImageAsset - the raw source image that Texture assets (and future
@@ -12,17 +12,17 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.image;
+export module editor.image;
 
-import draconic.core;
-import draconic.content;
-import draconic.image;
-import draconic.image.io;
-import draconic.image.pipeline;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.image;
+import foundation.image.io;
+import image.pipeline;
+import foundation.ui;
+import foundation.ui.toolkit;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 

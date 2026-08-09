@@ -10,9 +10,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.animation:graph;
+export module foundation.animation:graph;
 
-import draconic.core;
+import foundation.core;
 import :skeleton; // Skeleton, Bone, BoneTransform
 import :clip;     // AnimationClip, AnimationEventHandler
 import :sampler;  // SampleClip, BlendPoses

@@ -1,13 +1,13 @@
-/// Draconic::Geometry - `draconic.geometry`, the engine's runtime mesh format.
+/// Draconic::Geometry - `foundation.geometry`, the engine's runtime mesh format.
 ///
-/// Distinct from draconic.model (the importer's representation of a loaded file): this
+/// Distinct from foundation.model (the importer's representation of a loaded file): this
 /// is the canonical, GPU-upload-ready mesh the renderer and scene components consume.
 /// A converter (tooling, not ported) turns an imported ModelMesh into a StaticMesh /
 /// SkinnedMesh. Aggregates the partitions: value types (:types), the index buffer
 /// (:index_buffer), the StaticMesh/SkinnedMesh formats (:mesh), and procedural
 /// primitives (:primitives).
 
-export module draconic.geometry;
+export module foundation.geometry;
 
 export import :types;
 export import :index_buffer;

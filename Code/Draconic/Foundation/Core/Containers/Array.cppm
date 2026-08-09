@@ -2,7 +2,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:array;
+export module foundation.core:array;
 
 import :base;
 import :allocator;

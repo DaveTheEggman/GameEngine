@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - draconic.fonts.ttf:atlas_baker partition
+// Draconic::FontsTTF - foundation.fonts.ttf:atlas_baker partition
 //
 // IFontAtlasBaker for TrueType/OpenType: bakes a TrueTypeFont into a
 // TrueTypeFontAtlas via stb's pack-font-range. Requires a concrete
@@ -8,11 +8,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.ttf:atlas_baker;
+export module foundation.fonts.ttf:atlas_baker;
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.io;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.io;
 import :common;
 import :font;
 import :atlas;

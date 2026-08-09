@@ -6,11 +6,11 @@ module;
 #include "Core/Reflection/Reflect.h"
 #include "Core/Log/Log.h"
 
-module draconic.script.facades;
+module foundation.script.facades;
 
-import draconic.core;
-import draconic.scene;
-import draconic.script;
+import foundation.core;
+import foundation.scene;
+import foundation.script;
 
 using namespace foundation::core;
 namespace core = foundation::core;

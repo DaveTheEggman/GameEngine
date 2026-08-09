@@ -1,21 +1,21 @@
-// Draconic::EditorTexture - the `draconic.editor.texture` module (implementation).
+// Draconic::EditorTexture - the `editor.texture` module (implementation).
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-module draconic.editor.texture;
+module editor.texture;
 
-import draconic.core;
-import draconic.content;
-import draconic.image;
-import draconic.image.io;
-import draconic.texture;
-import draconic.texture.pipeline;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.image;
+import foundation.image.io;
+import foundation.texture;
+import texture.pipeline;
+import foundation.ui;
+import foundation.ui.toolkit;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 namespace image = foundation::image;

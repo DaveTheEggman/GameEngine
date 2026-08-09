@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include <cstdlib> // std::strtof
 
-export module draconic.vg.svg:parsers;
+export module foundation.vg.svg:parsers;
 
-import draconic.core;
-import draconic.vg;
+import foundation.core;
+import foundation.vg;
 
 using namespace foundation::core;
 

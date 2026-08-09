@@ -1,5 +1,5 @@
 // ParticleFX - the particle-system showcase. Builds a ParticleEffect in code (an additive fountain),
-// attaches it to an entity via ParticleEffectComponent, and lets draconic.engine.particles tick the
+// attaches it to an entity via ParticleEffectComponent, and lets engine.particles tick the
 // CPU sim + draw the billboards through the dedicated ParticleRenderer. Phase 2 of the particle track
 // (docs/design/particles.md): CPU sim on the existing extract->resolve->draw pipeline. GPU-compute sim,
 // trails, mesh particles, and the cooked resource/editor land in later phases.
@@ -7,31 +7,31 @@
 #include "Core/Prelude.h"
 #include "imgui.h"
 
-import draconic.core;
-import draconic.rhi;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.shell;
-import draconic.runtime.desktop;
-import draconic.shell.desktop;
-import draconic.graphics;
-import draconic.graphics.gpu;
-import draconic.engine.defaultapp;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.engine.render;
-import draconic.render;
-import draconic.imgui;
-import draconic.geometry;
-import draconic.materials;
-import draconic.particles;           // the CPU sim (effect/system/modules)
-import draconic.engine.particles; // the ECS component + ParticleSubsystem
-import draconic.particles.resource;  // cooked ParticleEffectResource + factory
-import draconic.particles.pipeline;    // ParticleEffectAsset + bake (the authoring demo)
-import draconic.pipeline.core;              // AssetBuildContext
-import draconic.vfs;                 // NativeFileSystem mount for the content DB
-import draconic.content;             // ContentDatabase (cooked-output DB)
-import draconic.resource;            // ResourceManager + Proxy
+import foundation.core;
+import foundation.rhi;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.shell;
+import foundation.runtime.desktop;
+import foundation.shell.desktop;
+import foundation.graphics;
+import foundation.graphics.gpu;
+import engine.defaultapp;
+import foundation.scene;
+import engine.scene;
+import engine.render;
+import foundation.render;
+import extensions.imgui;
+import foundation.geometry;
+import foundation.materials;
+import foundation.particles;           // the CPU sim (effect/system/modules)
+import engine.particles; // the ECS component + ParticleSubsystem
+import foundation.particles.resource;  // cooked ParticleEffectResource + factory
+import particles.pipeline;    // ParticleEffectAsset + bake (the authoring demo)
+import pipeline.core;              // AssetBuildContext
+import foundation.vfs;                 // NativeFileSystem mount for the content DB
+import foundation.content;             // ContentDatabase (cooked-output DB)
+import foundation.resource;            // ResourceManager + Proxy
 
 #include "../Common/FlyCamera.h"
 

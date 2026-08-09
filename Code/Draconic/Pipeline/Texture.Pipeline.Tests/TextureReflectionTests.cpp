@@ -6,12 +6,12 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 #include <initializer_list>
-import draconic.core;
-import draconic.vfs;
-import draconic.pipeline.core;
-import draconic.image;
-import draconic.texture;
-import draconic.texture.pipeline;
+import foundation.core;
+import foundation.vfs;
+import pipeline.core;
+import foundation.image;
+import foundation.texture;
+import texture.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

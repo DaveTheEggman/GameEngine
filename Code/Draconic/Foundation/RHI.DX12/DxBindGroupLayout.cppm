@@ -7,10 +7,10 @@ module;
 
 #include <cstdint>
 
-export module draconic.rhi.dx12:bind_group_layout;
+export module foundation.rhi.dx12:bind_group_layout;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 
 using namespace foundation::core;

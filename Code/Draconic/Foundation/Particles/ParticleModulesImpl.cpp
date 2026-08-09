@@ -14,9 +14,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.particles;
+module foundation.particles;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

@@ -7,9 +7,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:password_box;
+export module foundation.ui:password_box;
 
-import draconic.core; // String, StringView, DecodeUtf8, AppendUtf8
+import foundation.core; // String, StringView, DecodeUtf8, AppendUtf8
 import :edit_text;
 import :property;
 import :event_args;

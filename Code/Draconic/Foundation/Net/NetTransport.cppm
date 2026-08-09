@@ -1,4 +1,4 @@
-/// Draconic::Net - `draconic.net:transport` partition.
+/// Draconic::Net - `foundation.net:transport` partition.
 ///
 /// The transport seam (docs/design/networking.md §4). `INetTransport` is the swappable-backend
 /// abstraction the rest of the stack (session, reliability, RPC, replication) rides on - because
@@ -12,9 +12,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.net:transport;
+export module foundation.net:transport;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

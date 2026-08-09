@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:device - Device over WGPUDevice.
+/// foundation.rhi.webgpu:device - Device over WGPUDevice.
 ///
 /// BRING-UP STAGE: real device/queue lifecycle (creation, loss latch, WaitIdle,
 /// fences, destruction); every resource/pipeline/command factory is an HONEST
@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:device;
+export module foundation.rhi.webgpu:device;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :blit_helper;
 import :buffer;

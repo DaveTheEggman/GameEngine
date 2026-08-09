@@ -1,4 +1,4 @@
-// Draconic::RuntimeClient - the `draconic.runtime.client` module.
+// Draconic::RuntimeClient - the `foundation.runtime.client` module.
 //
 // ApplicationHost: the concrete, generic host that drives exactly ONE IApplication.
 // Owns a Context, an optional (borrowed) GraphicsDevice, and the LIST of
@@ -20,16 +20,16 @@ module;
 #include "Core/Prelude.h"
 #include "Profiler/Profiler.h"
 
-export module draconic.runtime.client;
+export module foundation.runtime.client;
 
 export import :app;           // ApplicationSettings, IApplicationHost, IApplication
 export import :embedded_host; // EmbeddedApplicationHost (editor-embedded runtime)
 
-import draconic.core;
-import draconic.runtime;
-import draconic.shell;
-import draconic.graphics;
-import draconic.profiler;
+import foundation.core;
+import foundation.runtime;
+import foundation.shell;
+import foundation.graphics;
+import foundation.profiler;
 
 namespace core = foundation::core;
 using namespace foundation::shell; // IShell + input/window types (moved from foundation::runtime)

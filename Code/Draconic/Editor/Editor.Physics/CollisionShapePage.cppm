@@ -1,4 +1,4 @@
-// Draconic::EditorPhysics - the `draconic.editor.physics` module (tooling).
+// Draconic::EditorPhysics - the `editor.physics` module (tooling).
 //
 // CollisionShapeEditorPage: the bespoke authoring page for a CollisionShapeAsset. It replaces the
 // generic asset form (a raw guid row) with a TYPED mesh picker (no guid string), a cook-kind toggle
@@ -10,14 +10,14 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.physics;
+export module editor.physics;
 
-import draconic.core;
-import draconic.content;
-import draconic.physics.pipeline; // CollisionShapeAsset + CollisionCookKind
-import draconic.ui;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import physics.pipeline; // CollisionShapeAsset + CollisionCookKind
+import foundation.ui;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 

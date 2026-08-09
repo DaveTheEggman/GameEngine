@@ -6,12 +6,12 @@
 //
 // Classic header (the DRACONIC_APP_MAIN pattern): it carries no `import` of its own and uses names
 // the INCLUDING TU must bring in first. Include it AFTER these imports:
-//   draconic.core, draconic.vfs, draconic.vfs.pak, draconic.content, draconic.resource,
-//   draconic.runtime, draconic.runtime.client, draconic.engine.defaultapp,
-//   draconic.scene, draconic.engine.scene, draconic.scene.resource,
-//   draconic.render, draconic.script, draconic.script.resource,
-//   draconic.input, draconic.audio, draconic.audio.resource, draconic.ui.resource,
-//   draconic.engine.ui, draconic.settings, draconic.project, draconic.xml.serialization
+//   foundation.core, foundation.vfs, foundation.vfs.pak, foundation.content, foundation.resource,
+//   foundation.runtime, foundation.runtime.client, engine.defaultapp,
+//   foundation.scene, engine.scene, foundation.scene.resource,
+//   foundation.render, foundation.script, foundation.script.resource,
+//   foundation.input, foundation.audio, foundation.audio.resource, foundation.ui.resource,
+//   engine.ui, foundation.settings, foundation.project, foundation.xml.serialization
 // The two entry points add only the PLATFORM trio (shell + runner + graphics) on top.
 
 #ifndef DRACONIC_TOOLS_PLAYER_PLAYERAPPLICATION_H

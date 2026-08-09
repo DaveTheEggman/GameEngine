@@ -8,14 +8,14 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.modelimporter:load;
+export module modelimporter:load;
 
-import draconic.core;
-import draconic.model;
-import draconic.model.io;
-import draconic.model.gltf;
-import draconic.model.fbx;
-import draconic.content;
+import foundation.core;
+import foundation.model;
+import foundation.model.io;
+import foundation.model.gltf;
+import foundation.model.fbx;
+import foundation.content;
 import :cook;
 
 using namespace foundation::core;

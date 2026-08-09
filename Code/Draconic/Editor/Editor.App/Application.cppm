@@ -3,7 +3,7 @@
 // EditorApplication: the editor as a runtime IApplication (docs/design/editor.md §3.2) - the
 // UISandbox wiring, assembled for real: TrueType font service + UIHost + RuntimeDockableWindowHost
 // (floating panels = borderless OS windows, drag-follow Tick) + the EditorShell chrome on the main
-// window, with the EditorContext + EditorProject from draconic.editor.core underneath. Opens (or
+// window, with the EditorContext + EditorProject from editor.core underneath. Opens (or
 // scaffolds) the project directory on startup, restores the per-user dock layout, saves it on
 // shutdown. Phase 1: chrome + project only; pages/panels grow in later phases.
 
@@ -13,30 +13,30 @@ module;
 #include "Core/Log/Log.h"
 #include <cstdlib>
 
-export module draconic.editor.app:application;
+export module editor.app:application;
 
-import draconic.core;
-import draconic.shell;
-import draconic.graphics;
-import draconic.fonts;
-import draconic.fonts.ttf;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.engine.defaultapp; // the embedded game application (v3)
-import draconic.ui.resource;        // UITheme (the manifest's default game-UI theme)
-import draconic.engine.ui;       // UISubsystem (SetDefaultTheme)
-import draconic.engine.input;    // InputSubsystem (the embedded runtime's scene-input policy)
-import draconic.render.api;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.ui.runtime;
-import draconic.ui.application;
-import draconic.content;
-import draconic.vfs;
-import draconic.resource;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.settings;
+import foundation.core;
+import foundation.shell;
+import foundation.graphics;
+import foundation.fonts;
+import foundation.fonts.ttf;
+import foundation.runtime;
+import foundation.runtime.client;
+import engine.defaultapp; // the embedded game application (v3)
+import foundation.ui.resource;        // UITheme (the manifest's default game-UI theme)
+import engine.ui;       // UISubsystem (SetDefaultTheme)
+import engine.input;    // InputSubsystem (the embedded runtime's scene-input policy)
+import foundation.render.api;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.ui.runtime;
+import foundation.ui.application;
+import foundation.content;
+import foundation.vfs;
+import foundation.resource;
+import pipeline.core;
+import editor.core;
+import foundation.settings;
 import :assets_view;
 import :editor_icons;
 import :settings_dialog;

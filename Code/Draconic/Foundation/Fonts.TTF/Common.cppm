@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - draconic.fonts.ttf:common partition
+// Draconic::FontsTTF - foundation.fonts.ttf:common partition
 //
 // Small helpers shared by the TTF parser + atlas baker: the supported
 // extension list and a case-insensitive extension compare. Sedulous duplicated
@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.ttf:common;
+export module foundation.fonts.ttf:common;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

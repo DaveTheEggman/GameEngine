@@ -14,9 +14,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-module draconic.editor.core;
+module editor.core;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

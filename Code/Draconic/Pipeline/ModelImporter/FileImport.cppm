@@ -18,40 +18,40 @@ module;
 #include "Core/Reflection/Reflect.h"
 #include <initializer_list>
 
-export module draconic.modelimporter:file_import;
+export module modelimporter:file_import;
 
-import draconic.core;
-import draconic.model;
-import draconic.model.io;
-import draconic.model.gltf;
-import draconic.model.fbx;
-import draconic.geometry;
-import draconic.geometry.resource;
-import draconic.geometry.pipeline;
-import draconic.materials;
-import draconic.materials.resource;
-import draconic.materials.pipeline;
-import draconic.texture;
-import draconic.texture.pipeline;
-import draconic.image;
-import draconic.animation;
-import draconic.animation.resource;
-import draconic.animation.pipeline;
-import draconic.vfs;
-import draconic.content;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.physics.pipeline;
+import foundation.core;
+import foundation.model;
+import foundation.model.io;
+import foundation.model.gltf;
+import foundation.model.fbx;
+import foundation.geometry;
+import foundation.geometry.resource;
+import geometry.pipeline;
+import foundation.materials;
+import foundation.materials.resource;
+import materials.pipeline;
+import foundation.texture;
+import texture.pipeline;
+import foundation.image;
+import foundation.animation;
+import foundation.animation.resource;
+import animation.pipeline;
+import foundation.vfs;
+import foundation.content;
+import pipeline.core;
+import editor.core;
+import physics.pipeline;
 import :mesh_convert;
 import :anim_convert;
-import draconic.model.resource;
+import foundation.model.resource;
 import :cook; // IsSkinnedMesh + the conversion helpers' home
 
 using namespace foundation::core;
 
 export namespace pipeline
 {
-    // The cooked-model runtime types now live in foundation::model (draconic.model.resource).
+    // The cooked-model runtime types now live in foundation::model (foundation.model.resource).
     using foundation::model::ModelManifestSource;
     using foundation::model::ModelNode;
     using foundation::model::ModelResource;
@@ -197,7 +197,7 @@ export namespace pipeline
         foundation::model::Model model;
     };
 
-    /// OS-file importer for model files: loads through draconic.model and fans out source
+    /// OS-file importer for model files: loads through foundation.model and fans out source
     /// instances into a subgroup named after the file stem.
     class ModelFileImporter final : public editor::IFileImporter
     {

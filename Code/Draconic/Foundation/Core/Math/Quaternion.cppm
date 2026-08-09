@@ -10,7 +10,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:quaternion;
+export module foundation.core:quaternion;
 
 import :base;
 import :math;

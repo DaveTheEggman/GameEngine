@@ -8,9 +8,9 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.editor.core;
-import draconic.editor.generic;
+import foundation.core;
+import editor.core;
+import editor.generic;
 
 using namespace foundation::core;
 using namespace editor;

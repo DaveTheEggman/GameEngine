@@ -8,10 +8,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg.svg:loader;
+export module foundation.vg.svg:loader;
 
-import draconic.core;
-import draconic.vg;
+import foundation.core;
+import foundation.vg;
 import :types;
 import :parsers;
 

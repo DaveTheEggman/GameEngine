@@ -8,10 +8,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:nine_slice_drawable;
+export module foundation.ui:nine_slice_drawable;
 
-import draconic.core;  // Color, Rectangle, Float2, Optional, Max
-import draconic.image; // ImageData, NineSlice
+import foundation.core;  // Color, Rectangle, Float2, Optional, Max
+import foundation.image; // ImageData, NineSlice
 import :thickness;
 import :drawable;
 import :draw_context;

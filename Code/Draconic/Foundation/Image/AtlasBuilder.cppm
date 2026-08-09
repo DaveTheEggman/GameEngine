@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.image:atlas_builder;
+export module foundation.image:atlas_builder;
 
-import draconic.core;
+import foundation.core;
 import :pixel_format;
 import :image_data;
 

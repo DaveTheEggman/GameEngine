@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:render_pass_encoder - RenderPassEncoder over WGPURenderPassEncoder.
+/// foundation.rhi.webgpu:render_pass_encoder - RenderPassEncoder over WGPURenderPassEncoder.
 ///
 /// SetPushConstants takes native immediates where available (see :pipeline_layout), else the
 /// uniform-buffer fallback (:push_constant_emulator) - the shadow is flushed and bound before
@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:render_pass_encoder;
+export module foundation.rhi.webgpu:render_pass_encoder;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :bind_group;
 import :buffer;

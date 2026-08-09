@@ -4,16 +4,16 @@
 // end-to-end); RenderContent fires the render callback bracketed by state transitions.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.image;
-import draconic.vg;
-import draconic.vg.renderer;
-import draconic.ui;
-import draconic.ui.viewport;
-import draconic.shell;
-import draconic.shell.null;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.image;
+import foundation.vg;
+import foundation.vg.renderer;
+import foundation.ui;
+import foundation.ui.viewport;
+import foundation.shell;
+import foundation.shell.null;
 
 using namespace foundation::core;
 namespace rhi = foundation::rhi;

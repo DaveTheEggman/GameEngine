@@ -13,7 +13,7 @@ module;
 #include <new> // placement new
 #include <type_traits>
 
-export module draconic.core:base;
+export module foundation.core:base;
 
 export namespace foundation::core
 {

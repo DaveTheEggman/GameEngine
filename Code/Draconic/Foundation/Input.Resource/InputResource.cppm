@@ -1,4 +1,4 @@
-// Draconic::InputResource - the `draconic.input.resource` module.
+// Draconic::InputResource - the `foundation.input.resource` module.
 //
 // The cooked form of an input map: pure data (no processing beyond validation at cook),
 // deserialized straight into the runtime's InputMap. The subsystem/app binds the project's
@@ -8,12 +8,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.input.resource;
+export module foundation.input.resource;
 
-import draconic.core;
-import draconic.content;
-import draconic.resource;
-import draconic.input;
+import foundation.core;
+import foundation.content;
+import foundation.resource;
+import foundation.input;
 
 using namespace foundation::core;
 namespace content = foundation::content;

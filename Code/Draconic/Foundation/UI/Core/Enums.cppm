@@ -4,7 +4,7 @@
 // CursorType, InvalidationKind). Grouped into one partition (Beef had a file per
 // enum; a language-difference divergence for practicality).
 
-export module draconic.ui:enums;
+export module foundation.ui:enums;
 
 export namespace foundation::ui
 {

@@ -6,10 +6,10 @@ module;
 
 #include "DxIncludes.h"
 
-export module draconic.rhi.dx12:sampler;
+export module foundation.rhi.dx12:sampler;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :descriptor_heap;
 

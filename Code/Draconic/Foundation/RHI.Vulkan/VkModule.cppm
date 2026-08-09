@@ -1,4 +1,4 @@
-export module draconic.rhi.vulkan;
+export module foundation.rhi.vulkan;
 
 export import :conversions;
 export import :surface;

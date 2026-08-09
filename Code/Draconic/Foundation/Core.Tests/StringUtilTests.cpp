@@ -1,7 +1,7 @@
 // Draconic Core - :string_util tests: character classification and whitespace trimming.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
+import foundation.core;
 
 namespace core = foundation::core;
 

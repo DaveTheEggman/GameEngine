@@ -4,22 +4,22 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.runtime;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.ui;
-import draconic.ui.resource;
-import draconic.engine.ui;
-import draconic.script; // IScriptDelegate (the Ui host onClick test)
-import draconic.render.api;
-import draconic.engine.render;
-import draconic.shell;
-import draconic.shell.null;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.input;
-import draconic.engine.input;
+import foundation.core;
+import foundation.runtime;
+import foundation.scene;
+import engine.scene;
+import foundation.ui;
+import foundation.ui.resource;
+import engine.ui;
+import foundation.script; // IScriptDelegate (the Ui host onClick test)
+import foundation.render.api;
+import engine.render;
+import foundation.shell;
+import foundation.shell.null;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.input;
+import engine.input;
 
 using namespace foundation::core;
 using namespace engine::ui;

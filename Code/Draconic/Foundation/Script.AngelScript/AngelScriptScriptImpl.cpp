@@ -29,10 +29,10 @@ module;
 #include <new>
 #include <string>
 
-module draconic.script.angelscript;
+module foundation.script.angelscript;
 
-import draconic.core;
-import draconic.script;
+import foundation.core;
+import foundation.script;
 
 namespace core = foundation::core;
 

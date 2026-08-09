@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:queue - Queue over the device's single WGPUQueue.
+/// foundation.rhi.webgpu:queue - Queue over the device's single WGPUQueue.
 ///
 /// WebGPU exposes exactly ONE queue per device. The RHI models Graphics/Compute/
 /// Transfer queues, so the device hands out three thin wrappers that all funnel into
@@ -11,10 +11,10 @@ module;
 #include "Core/Debug/Assert.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:queue;
+export module foundation.rhi.webgpu:queue;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :buffer;
 import :command_buffer;

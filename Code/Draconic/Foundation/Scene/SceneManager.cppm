@@ -9,14 +9,14 @@
 /// runtime layer. A SceneManager reads only its OWN group config; it never reaches up to an instance.
 /// SceneSubsystem owns the app-wide SceneAwareRegistry + a DEFAULT SceneManager (loose / editor scenes);
 /// instances own their own. Context-agnostic: the driver passes the context time-scale + fixed-step in
-/// (no runtime dependency, so draconic.scene stays runtime-free).
+/// (no runtime dependency, so foundation.scene stays runtime-free).
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.scene:manager;
+export module foundation.scene:manager;
 
-import draconic.core;
+import foundation.core;
 import :scene;
 import :aware;
 

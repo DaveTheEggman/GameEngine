@@ -11,12 +11,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.texture.pipeline;
+module texture.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.texture;
-import draconic.image;
+import foundation.core;
+import pipeline.core;
+import foundation.texture;
+import foundation.image;
 
 using namespace foundation::core;
 using namespace foundation::texture;

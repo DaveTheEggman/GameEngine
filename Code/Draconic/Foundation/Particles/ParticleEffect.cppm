@@ -1,4 +1,4 @@
-// draconic.particles:effect - the particle object model, ported from Sedulous.Particles
+// foundation.particles:effect - the particle object model, ported from Sedulous.Particles
 // (ParticleEmitter.bf, ParticleSystem.bf, ParticleEffect.bf, ParticleEffectInstance.bf).
 //
 //   ParticleEffect        - asset definition: a list of systems + sub-emitter links.
@@ -15,9 +15,9 @@ module;
 #include "Core/Prelude.h"
 #include <utility> // std::move / std::forward (module-local; core Move/Forward also exist)
 
-export module draconic.particles:effect;
+export module foundation.particles:effect;
 
-import draconic.core;
+import foundation.core;
 import :types;
 import :streams;
 import :modules;

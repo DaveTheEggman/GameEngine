@@ -8,7 +8,7 @@
 // self-contained/testable, and is faithful to Sedulous (whose Property stores an
 // IPropertyOwner). It is never tree-queried, so the As*() capability split is unaffected.
 
-export module draconic.ui:property_owner;
+export module foundation.ui:property_owner;
 
 import :enums;
 

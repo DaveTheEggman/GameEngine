@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:query_set - QuerySet over WGPUQuerySet.
+/// foundation.rhi.webgpu:query_set - QuerySet over WGPUQuerySet.
 ///
 /// Timestamp sets require the TimestampQuery feature (requested at device creation
 /// when the adapter has it); occlusion sets are core. PipelineStatistics has no
@@ -8,10 +8,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:query_set;
+export module foundation.rhi.webgpu:query_set;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 

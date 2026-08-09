@@ -5,17 +5,17 @@
 #include "Core/Prelude.h"
 #include <initializer_list>
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.pipeline.core;
-import draconic.geometry;
-import draconic.geometry.pipeline;
-import draconic.geometry.resource;
-import draconic.physics;
-import draconic.physics.resource;
-import draconic.physics.pipeline;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import pipeline.core;
+import foundation.geometry;
+import geometry.pipeline;
+import foundation.geometry.resource;
+import foundation.physics;
+import foundation.physics.resource;
+import physics.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

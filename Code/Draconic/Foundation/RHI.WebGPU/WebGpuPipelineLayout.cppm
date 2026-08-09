@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:pipeline_layout - PipelineLayout over WGPUPipelineLayout.
+/// foundation.rhi.webgpu:pipeline_layout - PipelineLayout over WGPUPipelineLayout.
 ///
 /// Push constants take one of two shapes:
 ///  - IMMEDIATES (wgpu-native, WGPUNativeFeature_Immediates): the layout declares
@@ -13,10 +13,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:pipeline_layout;
+export module foundation.rhi.webgpu:pipeline_layout;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 import :bind_group_layout;

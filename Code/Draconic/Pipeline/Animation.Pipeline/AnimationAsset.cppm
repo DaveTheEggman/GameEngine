@@ -1,21 +1,21 @@
-/// Draconic::AnimationEditor - the `draconic.animation.editor` module.
+/// Draconic::AnimationEditor - the `foundation.animation.editor` module.
 ///
 /// Authoring/cook side: a SkeletonAsset / AnimationClipAsset wraps the cooked source + the source
 /// file reference; the builders cook them into the content DB (Source -> product at load). Mirrors
-/// draconic.geometry.editor. (The model importer - draconic.model IR -> these sources - lands later;
+/// foundation.geometry.editor. (The model importer - foundation.model IR -> these sources - lands later;
 /// for now sources are populated round-trip from the runtime types via the resource layer.)
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.animation.pipeline;
+export module animation.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.content;
-import draconic.animation;
-import draconic.animation.resource;
+import foundation.core;
+import pipeline.core;
+import foundation.content;
+import foundation.animation;
+import foundation.animation.resource;
 
 using namespace foundation::core;
 using namespace foundation::animation;

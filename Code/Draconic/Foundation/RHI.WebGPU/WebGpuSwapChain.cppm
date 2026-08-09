@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:swapchain - SwapChain over the configured WGPUSurface.
+/// foundation.rhi.webgpu:swapchain - SwapChain over the configured WGPUSurface.
 ///
 /// WebGPU has no swapchain object: the surface is CONFIGURED (format/size/present
 /// mode) and each frame borrows the current texture. AcquireNextImage wraps the
@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:swapchain;
+export module foundation.rhi.webgpu:swapchain;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 import :queue;

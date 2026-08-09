@@ -11,7 +11,7 @@
 // the interface so GCC does not emit a gcm cluster for consumers
 // (see gcc-module-interface-hygiene).
 
-export module draconic.core:core_reflection;
+export module foundation.core:core_reflection;
 
 export namespace foundation::core
 {

@@ -3,11 +3,11 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.geometry;
-import draconic.render;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.geometry;
+import foundation.render;
 
 using namespace foundation::core;
 using namespace foundation::render;

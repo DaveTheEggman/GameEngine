@@ -6,16 +6,16 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.geometry;
-import draconic.materials;
-import draconic.shaders;
-import draconic.shaders.system;
-import draconic.materials.pipelinecache;
-import draconic.render;
-import draconic.rendergraph;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.geometry;
+import foundation.materials;
+import foundation.shaders;
+import foundation.shaders.system;
+import foundation.materials.pipelinecache;
+import foundation.render;
+import foundation.rendergraph;
 
 using namespace foundation::core;
 using namespace foundation::render;

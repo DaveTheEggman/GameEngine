@@ -1,8 +1,8 @@
 // Ported from Sedulous.VG.Tests/SVGColorParserTests.bf.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.vg.svg;
+import foundation.core;
+import foundation.vg.svg;
 
 using namespace foundation::core;
 using namespace foundation::vg::svg;

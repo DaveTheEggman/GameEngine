@@ -7,9 +7,9 @@ module;
 #include <cstring>
 #include <string>
 
-export module draconic.model:model_texture;
+export module foundation.model:model_texture;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

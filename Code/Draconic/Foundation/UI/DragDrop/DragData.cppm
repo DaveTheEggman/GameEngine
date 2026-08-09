@@ -9,9 +9,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:drag_data;
+export module foundation.ui:drag_data;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

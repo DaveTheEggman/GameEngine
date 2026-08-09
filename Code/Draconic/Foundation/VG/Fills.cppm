@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg:fills;
+export module foundation.vg:fills;
 
-import draconic.core;
+import foundation.core;
 import :enums; // VGGradientSpread
 
 using namespace foundation::core;

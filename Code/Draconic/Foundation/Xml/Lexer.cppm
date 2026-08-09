@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.xml:lexer;
+export module foundation.xml:lexer;
 
-import draconic.core;
+import foundation.core;
 import :result;
 
 using namespace foundation::core;

@@ -4,8 +4,8 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-import draconic.core;
-import draconic.physics.pipeline;
+import foundation.core;
+import physics.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

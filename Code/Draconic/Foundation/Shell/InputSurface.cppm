@@ -25,9 +25,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.shell:surface;
+export module foundation.shell:surface;
 
-import draconic.core;
+import foundation.core;
 import :input;
 import :input_types;
 

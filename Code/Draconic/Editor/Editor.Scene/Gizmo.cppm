@@ -29,14 +29,14 @@ module;
 #include "Core/Prelude.h"
 #include <initializer_list>
 
-export module draconic.editor.scene:gizmo;
+export module editor.scene:gizmo;
 
-import draconic.core;
-import draconic.scene;
-import draconic.render;
-import draconic.editor.core;
+import foundation.core;
+import foundation.scene;
+import foundation.render;
+import editor.core;
 import :edit;
-import draconic.materials;
+import foundation.materials;
 
 using namespace foundation::core;
 namespace core = foundation::core;

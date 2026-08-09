@@ -1,11 +1,11 @@
 // Draconic GUI - Drawing/render-seam tests. Metadata + behavior (drawing needs no GPU:
 // a VGContext tessellates into a CPU vertex batch, so we can assert geometry is produced).
-// StateList fallback semantics mirror the eepp/draconic.ui pattern.
+// StateList fallback semantics mirror the eepp/foundation.ui pattern.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.vg;
-import draconic.gui;
+import foundation.core;
+import foundation.vg;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;
@@ -41,7 +41,7 @@ TEST_CASE("drawing: BorderDrawable width")
     CHECK(b.GetWidth() == doctest::Approx(3.0f));
 }
 
-// === StateListDrawable dispatch (eepp/draconic.ui fallback pattern) ===
+// === StateListDrawable dispatch (eepp/foundation.ui fallback pattern) ===
 
 TEST_CASE("drawing: StateList falls back to Normal")
 {

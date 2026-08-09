@@ -18,9 +18,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:transform2d;
+export module experimental.gui:transform2d;
 
-import draconic.core; // Float2, Float4x4, Cos/Sin, NearlyEqual
+import foundation.core; // Float2, Float4x4, Cos/Sin, NearlyEqual
 
 import :rect;
 

@@ -1,10 +1,10 @@
-// draconic.net:reliable - the reliable-UDP transport over the lossy datagram sim.
+// foundation.net:reliable - the reliable-UDP transport over the lossy datagram sim.
 #include <doctest/doctest.h>
 #include <initializer_list>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.net;
+import foundation.core;
+import foundation.net;
 
 using namespace foundation::core;
 namespace net = foundation::net;

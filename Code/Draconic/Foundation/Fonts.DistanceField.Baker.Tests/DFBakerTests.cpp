@@ -6,11 +6,11 @@
 #include <doctest/doctest.h>
 #include <cstdio>
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.distancefield;
-import draconic.fonts.distancefield.baker;
-import draconic.fonts.ttf;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.distancefield;
+import foundation.fonts.distancefield.baker;
+import foundation.fonts.ttf;
 
 using namespace foundation::core;
 using namespace foundation::fonts;

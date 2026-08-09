@@ -1,9 +1,9 @@
-// draconic.runtime.desktop - the desktop application runner.
+// foundation.runtime.desktop - the desktop application runner.
 //
 // RunApplication is the DESKTOP execution model: a blocking wall-clock loop that drives an
 // IApplication (via ApplicationHost) against an IShell until either stops. It lives here -
-// separate from the shell backend (draconic.shell.desktop) and from the execution-model-agnostic
-// client (draconic.runtime.client) - precisely BECAUSE the loop is execution-model-specific:
+// separate from the shell backend (foundation.shell.desktop) and from the execution-model-agnostic
+// client (foundation.runtime.client) - precisely BECAUSE the loop is execution-model-specific:
 // desktop blocks in a while-loop, whereas Emscripten must yield to the browser via a callback
 // (its runner will be this module's sibling). The loop works entirely through the abstract IShell
 // interface, so it is windowing-backend agnostic; the concrete shell is constructed by the entry
@@ -11,12 +11,12 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.runtime.desktop;
+export module foundation.runtime.desktop;
 
-import draconic.core;
-import draconic.shell;          // IShell (interface only - the concrete shell is handed in)
-import draconic.graphics;       // GraphicsDevice (handed to the app)
-import draconic.runtime.client; // IApplication + ApplicationHost (the runner drives these)
+import foundation.core;
+import foundation.shell;          // IShell (interface only - the concrete shell is handed in)
+import foundation.graphics;       // GraphicsDevice (handed to the app)
+import foundation.runtime.client; // IApplication + ApplicationHost (the runner drives these)
 namespace shell = foundation::shell;
 
 namespace core = foundation::core;

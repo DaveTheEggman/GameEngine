@@ -4,10 +4,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rhi.validation:wiring;
+export module foundation.rhi.validation:wiring;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :validated_backend;
 import :validated_adapter;
 import :validated_device;

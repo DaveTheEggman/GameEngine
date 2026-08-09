@@ -19,11 +19,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:edit_text;
+export module foundation.ui:edit_text;
 
-import draconic.core; // String, StringView, RefPtr, Array, Span, Utf8Length, DecodeUtf8, Clamp, Max, Min
-import draconic.vg;
-import draconic.fonts; // CachedFont, GlyphPosition, SelectionRange, Rectangle, TextAlignment, VerticalAlignment
+import foundation.core; // String, StringView, RefPtr, Array, Span, Utf8Length, DecodeUtf8, Clamp, Max, Min
+import foundation.vg;
+import foundation.fonts; // CachedFont, GlyphPosition, SelectionRange, Rectangle, TextAlignment, VerticalAlignment
 import :view;
 import :property;
 import :event;

@@ -2,8 +2,8 @@
 // callback, and scroll-into-view for an off-screen selection.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.gui;
+import foundation.core;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

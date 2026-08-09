@@ -16,13 +16,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.core:project_registry;
+export module editor.core:project_registry;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.settings;
-import draconic.xml.serialization;
-import draconic.engine.project;
+import foundation.core;
+import foundation.vfs;
+import foundation.settings;
+import foundation.xml.serialization;
+import engine.project;
 
 using namespace foundation::core;
 

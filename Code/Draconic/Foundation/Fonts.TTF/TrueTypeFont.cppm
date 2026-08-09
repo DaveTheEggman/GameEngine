@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - draconic.fonts.ttf:font partition
+// Draconic::FontsTTF - foundation.fonts.ttf:font partition
 //
 // TrueType/OpenType IFont backed by stb_truetype. Owns the raw font bytes and
 // an stbtt_fontinfo, caches per-codepoint GlyphInfo, and extracts the family
@@ -8,10 +8,10 @@ module;
 #include "Core/Prelude.h"
 #include "stb_truetype.h"
 
-export module draconic.fonts.ttf:font;
+export module foundation.fonts.ttf:font;
 
-import draconic.core;
-import draconic.fonts;
+import foundation.core;
+import foundation.fonts;
 
 using namespace foundation::core;
 

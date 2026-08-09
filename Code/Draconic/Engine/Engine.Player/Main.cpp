@@ -29,58 +29,58 @@
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.fonts;
-import draconic.fonts.resource;
-import draconic.shell;
-import draconic.shell.desktop;
-import draconic.graphics;
-import draconic.graphics.gpu;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.runtime.desktop;
-import draconic.engine.defaultapp;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.scene.resource;
-import draconic.render;
-import draconic.engine.render;
-import draconic.animation;
-import draconic.animation.resource;
-import draconic.engine.animation;
-import draconic.particles;
-import draconic.particles.resource;
-import draconic.engine.particles;
-import draconic.geometry;
-import draconic.geometry.resource;
-import draconic.audio;
-import draconic.audio.resource;
-import draconic.engine.audio;
-import draconic.materials;
-import draconic.materials.resource;
-import draconic.texture;
-import draconic.texture.resource;
-import draconic.image.resource;
-import draconic.model.resource;
-import draconic.script;
-import draconic.script.resource; // ScriptClass (the cooked game script, bound from the content DB)
-import draconic.input;
-import draconic.physics;
-import draconic.physics.resource;
-import draconic.engine.physics;
-import draconic.input.resource;
-import draconic.engine.input;
-import draconic.ui.resource;  // UITheme (the manifest's default theme)
-import draconic.ui;           // View / ViewGroup / ProgressBar (the boot-splash controls)
-import draconic.engine.ui; // UISubsystem (IME target + default theme + the boot splash overlay)
-import draconic.engine.gameinstance; // SceneLoadHandle (the async boot load)
-import draconic.xml.serialization;
-import draconic.settings;
-import draconic.engine.project; // manifest + layout (runtime-side, editor-free)
-import draconic.vfs.pak; // dist mode: one Content.pak holds products + scenes + scripts
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.fonts;
+import foundation.fonts.resource;
+import foundation.shell;
+import foundation.shell.desktop;
+import foundation.graphics;
+import foundation.graphics.gpu;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.runtime.desktop;
+import engine.defaultapp;
+import foundation.scene;
+import engine.scene;
+import foundation.scene.resource;
+import foundation.render;
+import engine.render;
+import foundation.animation;
+import foundation.animation.resource;
+import engine.animation;
+import foundation.particles;
+import foundation.particles.resource;
+import engine.particles;
+import foundation.geometry;
+import foundation.geometry.resource;
+import foundation.audio;
+import foundation.audio.resource;
+import engine.audio;
+import foundation.materials;
+import foundation.materials.resource;
+import foundation.texture;
+import foundation.texture.resource;
+import foundation.image.resource;
+import foundation.model.resource;
+import foundation.script;
+import foundation.script.resource; // ScriptClass (the cooked game script, bound from the content DB)
+import foundation.input;
+import foundation.physics;
+import foundation.physics.resource;
+import engine.physics;
+import foundation.input.resource;
+import engine.input;
+import foundation.ui.resource;  // UITheme (the manifest's default theme)
+import foundation.ui;           // View / ViewGroup / ProgressBar (the boot-splash controls)
+import engine.ui; // UISubsystem (IME target + default theme + the boot splash overlay)
+import engine.gameinstance; // SceneLoadHandle (the async boot load)
+import foundation.xml.serialization;
+import foundation.settings;
+import engine.project; // manifest + layout (runtime-side, editor-free)
+import foundation.vfs.pak; // dist mode: one Content.pak holds products + scenes + scripts
 
 #include "PlayerApplication.h" // the shared runner (uses the imports above)
 

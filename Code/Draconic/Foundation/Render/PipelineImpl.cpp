@@ -1,14 +1,14 @@
-// Draconic Render - draconic.render:pipeline implementation unit (sec 3.2 / sec 10.6).
+// Draconic Render - foundation.render:pipeline implementation unit (sec 3.2 / sec 10.6).
 module;
 #include "Core/Prelude.h"
 #include "Profiler/Profiler.h"
 
-module draconic.render;
+module foundation.render;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rendergraph;
-import draconic.profiler;
+import foundation.core;
+import foundation.rhi;
+import foundation.rendergraph;
+import foundation.profiler;
 import :data;
 import :views;
 import :cluster_system;

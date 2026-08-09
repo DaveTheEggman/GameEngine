@@ -1,4 +1,4 @@
-// Draconic::FontsIO - the `draconic.fonts.io` module.
+// Draconic::FontsIO - the `foundation.fonts.io` module.
 //
 // The source-format font load pipeline: IFontParser/IFontAtlasBaker contracts,
 // the extension-routed factories that dispatch over them, and a thread-safe
@@ -6,7 +6,7 @@
 // Sedulous.Fonts.IO - its own library, matching Sedulous. One named module
 // composed of partitions.
 
-export module draconic.fonts.io;
+export module foundation.fonts.io;
 
 export import :interfaces;
 export import :factories;

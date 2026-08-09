@@ -3,9 +3,9 @@
 // case-insensitive filter (type match keeps the whole type; member match keeps its type row).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.script;
-import draconic.editor.script;
+import foundation.core;
+import foundation.script;
+import editor.script;
 
 using namespace foundation::core;
 using namespace editor;

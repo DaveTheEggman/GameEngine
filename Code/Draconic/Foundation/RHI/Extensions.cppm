@@ -8,9 +8,9 @@
 ///   if (auto* mp = dynamic_cast<MeshShaderPassExt*>(renderPass)) { ... }
 ///   if (auto* rt = dynamic_cast<RayTracingEncoderExt*>(encoder)) { ... }
 
-export module draconic.rhi:extensions;
+export module foundation.rhi:extensions;
 
-import draconic.core;
+import foundation.core;
 import :enums;
 import :types;
 import :descriptors;

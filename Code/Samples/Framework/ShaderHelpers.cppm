@@ -2,11 +2,11 @@
 /// Automatically selects SPIR-V (Vulkan) or DXIL (DX12) based on device type.
 /// Applies Vulkan binding shifts when targeting SPIR-V.
 
-export module draconic.samples.framework:shader_helpers;
+export module samples.framework:shader_helpers;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
 
 using namespace foundation::core;
 using namespace foundation;

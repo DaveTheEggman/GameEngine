@@ -1,4 +1,4 @@
-// Draconic::RuntimeDefaultApp - the `draconic.engine.defaultapp` module.
+// Draconic::RuntimeDefaultApp - the `engine.defaultapp` module.
 //
 // DefaultApplication: an opinionated IApplication base that registers the standard
 // engine subsystems. A game that wants the batteries-included engine writes
@@ -6,7 +6,7 @@
 // (calling the base first); a game that wants only its own subsystems implements
 // IApplication directly and links none of this.
 //
-// This lives in its OWN library - separate from draconic.runtime.client - precisely
+// This lives in its OWN library - separate from foundation.runtime.client - precisely
 // so the base client never pulls in the engine subsystem libraries. It registers ALL
 // standard gameplay subsystems (runtime-host.md v3: the editor embeds THIS same class
 // against its runtime context, so subsystem registration lives here, not in entry
@@ -17,55 +17,55 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.engine.defaultapp;
+export module engine.defaultapp;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.runtime.client;       // IApplication, IApplicationHost
-import draconic.engine.gameinstance; // GameInstance - this app's running game (scene + script bracket)
-import draconic.shell;                // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
-import draconic.graphics;             // GraphicsDevice, FrameContext
-import draconic.scene;                // Scene
-import draconic.engine.scene;      // SceneSubsystem (the standard scene driver)
-import draconic.engine.render;     // RenderSubsystem (the standard renderer)
-import draconic.engine.animation; // AnimationSubsystem (drives skeletal animation from the scene)
-import draconic.engine.particles; // ParticleSubsystem (scene-driven CPU sim)
-import draconic.physics;             // ContactKind/EntityContact (the contact bridge)
-import draconic.engine.physics;   // PhysicsSubsystem (Jolt worlds + interpolation)
-import draconic.input;               // the action model/runtime
-import draconic.engine.input;     // InputSubsystem + the Wren Input facade
-import draconic.script;              // IScriptManager/Context (the game script)
+import foundation.core;
+import foundation.rhi;
+import foundation.runtime.client;       // IApplication, IApplicationHost
+import engine.gameinstance; // GameInstance - this app's running game (scene + script bracket)
+import foundation.shell;                // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
+import foundation.graphics;             // GraphicsDevice, FrameContext
+import foundation.scene;                // Scene
+import engine.scene;      // SceneSubsystem (the standard scene driver)
+import engine.render;     // RenderSubsystem (the standard renderer)
+import engine.animation; // AnimationSubsystem (drives skeletal animation from the scene)
+import engine.particles; // ParticleSubsystem (scene-driven CPU sim)
+import foundation.physics;             // ContactKind/EntityContact (the contact bridge)
+import engine.physics;   // PhysicsSubsystem (Jolt worlds + interpolation)
+import foundation.input;               // the action model/runtime
+import engine.input;     // InputSubsystem + the Wren Input facade
+import foundation.script;              // IScriptManager/Context (the game script)
 #ifdef DRACONIC_HAS_WREN
-import draconic.script.wren;         // the Wren backend (primary; toggle via DRACONIC_ENABLE_WREN)
+import foundation.script.wren;         // the Wren backend (primary; toggle via DRACONIC_ENABLE_WREN)
 #endif
 #ifdef DRACONIC_HAS_ANGELSCRIPT
-import draconic.script.angelscript; // the AngelScript backend (second backend; DRACONIC_ENABLE_ANGELSCRIPT)
+import foundation.script.angelscript; // the AngelScript backend (second backend; DRACONIC_ENABLE_ANGELSCRIPT)
 #endif
-import draconic.script.resource;     // cooked script classes + factory (entity behaviors)
-import draconic.engine.script;    // ScriptSubsystem (behaviors + the run's shared context)
-import draconic.engine.integration; // ScriptPhysicsContactBridge (physics contacts -> script ingress)
-import draconic.resource;            // ResourceManager (owned or borrowed - see the preset seam)
-import draconic.content;             // IContentDatabase (preset by the entry point)
-import draconic.scene.resource;      // SceneDocument (product-type registration)
-import draconic.geometry.resource;   // mesh factories
-import draconic.materials.resource;  // material factory
-import draconic.animation.resource;  // skeleton/clip/graph factories
-import draconic.particles.resource;  // particle-effect factory
-import draconic.input.resource;      // input-map factory
-import draconic.physics.resource;    // collision-shape/physical-material factories
-import draconic.texture.resource;    // texture factory (device-backed)
-import draconic.image.resource;      // image resource registration
-import draconic.model.resource;      // cooked-model family types + registration
-import draconic.ui.resource;         // cooked UI documents/themes (game-ui)
-import draconic.engine.ui;        // the game screen tier (canvases + overlay + consumption)
-import draconic.audio;               // AudioEngine (owned by the audio subsystem)
-import draconic.audio.resource;      // cooked audio clips + factory
-import draconic.engine.audio;     // AudioSubsystem (voices/buses/one-shots + scene sync)
-import draconic.net;                 // UdpSocket / DatagramEndpoint (the transport)
-import draconic.net.replication;     // NetworkId / StateReplication (the spawn-handler seam)
-import draconic.net.manager;   // NetworkManager + NetworkStartup/StartNetworking + the Net facade
-import draconic.engine.net; // NetworkSubsystem (injects the NetworkComponentManager into scenes)
-import draconic.profiler;      // the CPU scope profiler (P-key dump)
+import foundation.script.resource;     // cooked script classes + factory (entity behaviors)
+import engine.script;    // ScriptSubsystem (behaviors + the run's shared context)
+import engine.integration; // ScriptPhysicsContactBridge (physics contacts -> script ingress)
+import foundation.resource;            // ResourceManager (owned or borrowed - see the preset seam)
+import foundation.content;             // IContentDatabase (preset by the entry point)
+import foundation.scene.resource;      // SceneDocument (product-type registration)
+import foundation.geometry.resource;   // mesh factories
+import foundation.materials.resource;  // material factory
+import foundation.animation.resource;  // skeleton/clip/graph factories
+import foundation.particles.resource;  // particle-effect factory
+import foundation.input.resource;      // input-map factory
+import foundation.physics.resource;    // collision-shape/physical-material factories
+import foundation.texture.resource;    // texture factory (device-backed)
+import foundation.image.resource;      // image resource registration
+import foundation.model.resource;      // cooked-model family types + registration
+import foundation.ui.resource;         // cooked UI documents/themes (game-ui)
+import engine.ui;        // the game screen tier (canvases + overlay + consumption)
+import foundation.audio;               // AudioEngine (owned by the audio subsystem)
+import foundation.audio.resource;      // cooked audio clips + factory
+import engine.audio;     // AudioSubsystem (voices/buses/one-shots + scene sync)
+import foundation.net;                 // UdpSocket / DatagramEndpoint (the transport)
+import foundation.net.replication;     // NetworkId / StateReplication (the spawn-handler seam)
+import foundation.net.manager;   // NetworkManager + NetworkStartup/StartNetworking + the Net facade
+import engine.net; // NetworkSubsystem (injects the NetworkComponentManager into scenes)
+import foundation.profiler;      // the CPU scope profiler (P-key dump)
 
 namespace core = foundation::core;
 namespace net = foundation::net;   // NetworkManager + NetworkStartup + the Net facade
@@ -218,7 +218,7 @@ export namespace engine::runtime
 
         // Bridges physics contacts to the script subsystem's neutral ingress. The one place
         // physics and script meet for contacts; the adapter itself lives out-of-tree in
-        // draconic.engine.integration so the two subsystems stay mutually independent.
+        // engine.integration so the two subsystems stay mutually independent.
         engine::integration::ScriptPhysicsContactBridge m_contactBridge;
 
         foundation::geometry::StaticMeshFactory m_meshFactory;

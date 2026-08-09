@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.texture:types;
+export module foundation.texture:types;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

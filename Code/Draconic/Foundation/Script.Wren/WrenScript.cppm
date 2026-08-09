@@ -1,4 +1,4 @@
-// Draconic::ScriptWren - Wren VM backend (draconic.script.wren).
+// Draconic::ScriptWren - Wren VM backend (foundation.script.wren).
 //
 // Implements Draconic::Script on Wren and binds reflected types into the VM:
 // each registered type with a constructor becomes a Wren `foreign class` whose
@@ -18,11 +18,11 @@ module;
 #include "WrenInclude.h"
 #include <utility>
 
-export module draconic.script.wren;
+export module foundation.script.wren;
 
-import draconic.core;
-import draconic.script;
-import draconic.script.facades; // BehaviorFacadeNames() - the prelude's import list
+import foundation.core;
+import foundation.script;
+import foundation.script.facades; // BehaviorFacadeNames() - the prelude's import list
 
 namespace core = foundation::core;
 

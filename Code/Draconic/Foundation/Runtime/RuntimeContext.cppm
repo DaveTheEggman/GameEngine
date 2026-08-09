@@ -8,9 +8,9 @@ module;
 #include "Core/Prelude.h"
 #include <type_traits>
 
-export module draconic.runtime:context;
+export module foundation.runtime:context;
 
-import draconic.core;
+import foundation.core;
 import :subsystem;
 
 namespace core = foundation::core;

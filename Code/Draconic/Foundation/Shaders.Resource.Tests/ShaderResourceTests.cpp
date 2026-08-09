@@ -5,15 +5,15 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.shaders;
-import draconic.shaders.system;
-import draconic.shaders.resource;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.shaders;
+import foundation.shaders.system;
+import foundation.shaders.resource;
 
 using namespace foundation::core;
 using namespace foundation::vfs;

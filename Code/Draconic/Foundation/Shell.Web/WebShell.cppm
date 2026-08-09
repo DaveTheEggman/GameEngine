@@ -1,23 +1,23 @@
-// Draconic::ShellWeb - the `draconic.shell.web` module (primary interface unit).
+// Draconic::ShellWeb - the `foundation.shell.web` module (primary interface unit).
 //
 // A self-contained IShell backed by a single HTML <canvas> under Emscripten - the web counterpart
 // of the SDL3 desktop backend. The pieces live in partitions: :window (the canvas window),
 // :window_manager (the single-window host + resize pump), :input (the input devices), :dialogs (the
 // file-dialog service). This unit re-exports them and composes WebShell. The frame cadence is NOT
-// here: the browser drives it through draconic.runtime.web (emscripten_set_main_loop).
+// here: the browser drives it through foundation.runtime.web (emscripten_set_main_loop).
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shell.web;
+export module foundation.shell.web;
 
 export import :window;
 export import :window_manager;
 export import :input;
 export import :dialogs;
 
-import draconic.core;
-import draconic.shell;
+import foundation.core;
+import foundation.shell;
 
 namespace core = foundation::core;
 

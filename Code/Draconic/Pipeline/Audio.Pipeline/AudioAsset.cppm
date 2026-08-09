@@ -1,10 +1,10 @@
-// Draconic::AudioEditor - the `draconic.audio.editor` module (tooling).
+// Draconic::AudioEditor - the `foundation.audio.editor` module (tooling).
 //
 // Source-side audio authoring + cook (docs/design/audio.md §5):
 //   * AudioClipAsset (pipeline::Asset): references the copied source file + import
 //     settings (stream / force-mono / loop+points / trim / normalize / gain).
 //   * AudioClipAssetBuilder: transcode-free write-through v1 - validate + probe via the
-//     draconic.audio codec helpers, and write the ORIGINAL container bytes as the "data"
+//     foundation.audio codec helpers, and write the ORIGINAL container bytes as the "data"
 //     stream. When a destructive option is on (force mono / trim trailing silence /
 //     normalize) the source is decoded, processed, and re-encoded as WAV (the one
 //     container we write); untouched sources cook byte-identical.
@@ -13,7 +13,7 @@
 //     WAV `smpl` loop points are detected and enable looping.
 //
 // Never linked by the runtime. miniaudio itself never appears here - the codec seam in
-// draconic.audio keeps this module decoder-free.
+// foundation.audio keeps this module decoder-free.
 
 module;
 #include "Core/Prelude.h"
@@ -21,14 +21,14 @@ module;
 #include "Core/Reflection/Reflect.h"
 #include <initializer_list>
 
-export module draconic.audio.pipeline;
+export module audio.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.content;
-import draconic.audio;
-import draconic.audio.resource;
+import foundation.core;
+import pipeline.core;
+import editor.core;
+import foundation.content;
+import foundation.audio;
+import foundation.audio.resource;
 
 using namespace foundation::core;
 using namespace foundation::audio;

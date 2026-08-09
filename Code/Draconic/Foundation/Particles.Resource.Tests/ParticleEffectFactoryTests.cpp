@@ -5,12 +5,12 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.particles;
-import draconic.particles.resource;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.particles;
+import foundation.particles.resource;
 
 using namespace foundation::core;
 using namespace foundation::vfs;

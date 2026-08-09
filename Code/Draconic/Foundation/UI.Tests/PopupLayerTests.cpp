@@ -4,8 +4,8 @@
 // eager ctor creation). Popups are MakeRef'd and passed by .Get(); `new`+`delete` -> RefPtr (RAII).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 #include "TestHelpers.h"
 
 using namespace foundation::ui;

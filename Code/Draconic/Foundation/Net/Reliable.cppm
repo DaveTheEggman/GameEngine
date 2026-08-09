@@ -1,4 +1,4 @@
-/// Draconic::Net - `draconic.net:reliable` partition.
+/// Draconic::Net - `foundation.net:reliable` partition.
 ///
 /// Reliable-UDP over the unreliable datagram substrate (docs/design/networking.md §4). A
 /// `ReliableTransport` (an INetTransport) manages per-remote connections over an IDatagramSocket and
@@ -16,9 +16,9 @@ module;
 #include "Core/Debug/Assert.h"
 #include "Core/Log/Log.h"
 
-export module draconic.net:reliable;
+export module foundation.net:reliable;
 
-import draconic.core;
+import foundation.core;
 import :transport;
 import :datagram;
 import :wire;

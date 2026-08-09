@@ -2,8 +2,8 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.vfs;
+import foundation.core;
+import foundation.vfs;
 
 using namespace foundation::core;
 using namespace foundation::vfs;
@@ -222,7 +222,7 @@ TEST_CASE("vfs: NativeFileSystem change source detects adds, edits, and removals
     (void)RemoveDirectory(dir);
 }
 
-// --- SourcePath (draconic.vfs:source_path) ---------------------------------------------
+// --- SourcePath (foundation.vfs:source_path) ---------------------------------------------
 
 TEST_CASE("vfs.sourcePath: normalization table")
 {

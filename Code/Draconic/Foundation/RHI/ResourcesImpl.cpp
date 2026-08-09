@@ -6,9 +6,9 @@
 module;
 #include <atomic>
 
-module draconic.rhi;
+module foundation.rhi;
 
-import draconic.core;
+import foundation.core;
 namespace core = foundation::core;
 
 namespace foundation::rhi

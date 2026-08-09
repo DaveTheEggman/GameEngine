@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:tooltip_view;
+export module foundation.ui:tooltip_view;
 
-import draconic.core;
-import draconic.vg;
+import foundation.core;
+import foundation.vg;
 import :view;
 import :box_constraints;
 import :thickness;

@@ -11,9 +11,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:relative_layout;
+export module experimental.gui:relative_layout;
 
-import draconic.core; // Float2, HashMap
+import foundation.core; // Float2, HashMap
 import :rect;
 import :node;
 import :ui_widget;

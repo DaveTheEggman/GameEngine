@@ -10,11 +10,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:tab_view;
+export module foundation.ui:tab_view;
 
-import draconic.core;
-import draconic.vg;
-import draconic.fonts;
+import foundation.core;
+import foundation.vg;
+import foundation.fonts;
 import :view;
 import :property;
 import :event;

@@ -1,4 +1,4 @@
-// Draconic::FontsIO - draconic.fonts.io:factories partition
+// Draconic::FontsIO - foundation.fonts.io:factories partition
 //
 // Process-global registries + dispatchers for IFontParser / IFontAtlasBaker.
 // Extension-based routing: each parser/baker declares the extensions it
@@ -13,10 +13,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.io:factories;
+export module foundation.fonts.io:factories;
 
-import draconic.core;
-import draconic.fonts;
+import foundation.core;
+import foundation.fonts;
 import :interfaces;
 
 using namespace foundation::core;

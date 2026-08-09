@@ -16,9 +16,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.physics:world;
+export module foundation.physics:world;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

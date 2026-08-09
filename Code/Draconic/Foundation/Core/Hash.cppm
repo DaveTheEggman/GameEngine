@@ -9,7 +9,7 @@ module;
 #include "Core/Prelude.h"
 #include <type_traits>
 
-export module draconic.core:hash;
+export module foundation.core:hash;
 
 import :base;
 

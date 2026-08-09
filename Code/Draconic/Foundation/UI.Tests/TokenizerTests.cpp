@@ -2,8 +2,8 @@
 // value, List<Token> -> Array<Token>, Math.Abs(...) < eps -> doctest::Approx).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::ui;
 namespace core = foundation::core;

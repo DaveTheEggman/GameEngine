@@ -1,20 +1,20 @@
-// Draconic::GraphicsNull - the `draconic.graphics.null` module.
+// Draconic::GraphicsNull - the `foundation.graphics.null` module.
 //
 // Headless GraphicsDevice factory over the Null RHI backend (no GPU). For CI,
 // servers, and tests, and the reference for what a real backend provides. Kept in
-// its own module so the core host (draconic.graphics) imports only the base
+// its own module so the core host (foundation.graphics) imports only the base
 // RHI - importing a backend module into the core interface trips GCC's module
 // reader, and keeps the host GPU-backend-agnostic.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.graphics.null;
+export module foundation.graphics.null;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.graphics;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.graphics;
 
 namespace core = foundation::core;
 namespace rhi = foundation::rhi;

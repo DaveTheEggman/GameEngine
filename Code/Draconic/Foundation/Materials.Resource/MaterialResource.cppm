@@ -1,10 +1,10 @@
-/// Draconic::MaterialResource - the `draconic.materials.resource` module.
+/// Draconic::MaterialResource - the `foundation.materials.resource` module.
 ///
 /// Materials as resources: a `MaterialSource` (authored content - references a shader
 /// by Guid, plus declared properties + render-state presets + the default-uniform
 /// blob) is built by `MaterialFactory` into a runtime `Material`. The factory Binds
 /// the referenced `ShaderResource` mid-build, which AUTOMATICALLY records a
-/// material→shader dependency edge (see draconic.resource): reloading the shader
+/// material→shader dependency edge (see foundation.resource): reloading the shader
 /// transitively reloads the material. The product is the data-only `Material`; its
 /// GPU bind-group layout is still inferred later by the MaterialSystem.
 
@@ -13,17 +13,17 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.materials.resource;
+export module foundation.materials.resource;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.resource;
-import draconic.content;
-import draconic.shaders;
-import draconic.shaders.resource;
-import draconic.texture;
-import draconic.texture.resource;
-import draconic.materials;
+import foundation.core;
+import foundation.rhi;
+import foundation.resource;
+import foundation.content;
+import foundation.shaders;
+import foundation.shaders.resource;
+import foundation.texture;
+import foundation.texture.resource;
+import foundation.materials;
 
 using namespace foundation::core;
 using namespace foundation::resource;

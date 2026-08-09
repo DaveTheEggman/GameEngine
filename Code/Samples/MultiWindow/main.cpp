@@ -9,15 +9,15 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.rhi;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.shell;
-import draconic.runtime.desktop;
-import draconic.shell.desktop;
-import draconic.graphics;
-import draconic.graphics.gpu;
+import foundation.core;
+import foundation.rhi;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.shell;
+import foundation.runtime.desktop;
+import foundation.shell.desktop;
+import foundation.graphics;
+import foundation.graphics.gpu;
 
 namespace core = foundation::core;
 namespace runtime = foundation::runtime;

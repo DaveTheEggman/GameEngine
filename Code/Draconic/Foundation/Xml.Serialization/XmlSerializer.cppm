@@ -1,9 +1,9 @@
-// Draconic::XmlSerialization - the `draconic.xml.serialization` module.
+// Draconic::XmlSerialization - the `foundation.xml.serialization` module.
 //
 // An XML backend for Core's format-agnostic ISerializer/Serializer contract:
 // the first text-based serialization backend. One Serialize() path runs either
 // direction; this maps the Key()/scope/Scalar/Text calls onto an XML DOM
-// (draconic.xml). Inspired by Sedulous.Serialization.Xml's DOM scheme (typed
+// (foundation.xml). Inspired by Sedulous.Serialization.Xml's DOM scheme (typed
 // element tags + a `name` attribute), adapted to Draconic's leaner interface.
 //
 // Layering: kept out of Core (which can't depend on Xml) and out of the XML DOM
@@ -13,10 +13,10 @@ module;
 #include "Core/Prelude.h"
 #include <cstdlib> // strtoll / strtoull / strtod
 
-export module draconic.xml.serialization;
+export module foundation.xml.serialization;
 
-import draconic.core;
-import draconic.xml;
+import foundation.core;
+import foundation.xml;
 
 using namespace foundation::core;
 

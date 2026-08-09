@@ -15,10 +15,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.scene:system;
+export module foundation.scene:system;
 
-import draconic.core;
-import draconic.resource;
+import foundation.core;
+import foundation.resource;
 import :entity;
 import :phase;
 

@@ -6,10 +6,10 @@ module;
 
 #include "DxIncludes.h"
 
-export module draconic.rhi.dx12:compute_pipeline;
+export module foundation.rhi.dx12:compute_pipeline;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :pipeline_layout;
 import :shader_module;
 

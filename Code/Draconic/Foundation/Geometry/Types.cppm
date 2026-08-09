@@ -1,7 +1,7 @@
 /// Draconic::Geometry - the `:types` partition.
 ///
 /// Value-type vocabulary for the engine's runtime mesh format (distinct from
-/// draconic.model, which is the importer's representation of a loaded file): the
+/// foundation.model, which is the importer's representation of a loaded file): the
 /// primitive topology, a submesh range, and the two vertex streams. A skinned mesh
 /// reuses the static vertex stream and adds a *parallel* skinning stream, so its
 /// static data is byte-identical to a static mesh (see :mesh).
@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.geometry:types;
+export module foundation.geometry:types;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

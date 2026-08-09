@@ -10,9 +10,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:grid_layout;
+export module experimental.gui:grid_layout;
 
-import draconic.core; // Float2, Max
+import foundation.core; // Float2, Max
 import :rect;
 import :node;
 import :ui_widget;

@@ -21,11 +21,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:sss_parser;
+export module foundation.ui:sss_parser;
 
-import draconic.core;
-import draconic.image;
-import draconic.vg;
+import foundation.core;
+import foundation.image;
+import foundation.vg;
 import :style_property;
 import :style_value;
 import :style_rule;

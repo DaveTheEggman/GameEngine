@@ -9,9 +9,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:state_list_drawable;
+export module experimental.gui:state_list_drawable;
 
-import draconic.core; // RefPtr, HashMap, Move
+import foundation.core; // RefPtr, HashMap, Move
 import :rect;
 import :draw_context;
 import :drawable;

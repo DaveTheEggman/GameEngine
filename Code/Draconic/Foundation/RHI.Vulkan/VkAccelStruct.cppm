@@ -6,10 +6,10 @@ module;
 
 #include "VkIncludes.h"
 
-export module draconic.rhi.vulkan:accel_struct;
+export module foundation.rhi.vulkan:accel_struct;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :adapter;
 
 using namespace foundation::core;

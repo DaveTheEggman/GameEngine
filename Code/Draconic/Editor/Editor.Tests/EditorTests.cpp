@@ -2,10 +2,10 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-import draconic.core;
-import draconic.content;
-import draconic.pipeline.core;
-import draconic.vfs;
+import foundation.core;
+import foundation.content;
+import pipeline.core;
+import foundation.vfs;
 using namespace foundation::core;
     using namespace pipeline;
 

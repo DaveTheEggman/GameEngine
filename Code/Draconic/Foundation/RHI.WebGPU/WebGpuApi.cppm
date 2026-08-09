@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:api - the loaded WebGPU function table.
+/// foundation.rhi.webgpu:api - the loaded WebGPU function table.
 ///
 /// The backend never links wgpu at build time. On DESKTOP the implementation is a
 /// runtime SIDECAR (wgpu-native, same pattern as DXC - see dxc-runtime-sidecar):
@@ -25,9 +25,9 @@ module;
 #include <dlfcn.h>
 #endif
 
-export module draconic.rhi.webgpu:api;
+export module foundation.rhi.webgpu:api;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

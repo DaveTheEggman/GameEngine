@@ -1,8 +1,8 @@
 /// Abstract swap chain for double/triple-buffered presentation.
 
-export module draconic.rhi:swapchain;
+export module foundation.rhi:swapchain;
 
-import draconic.core;
+import foundation.core;
 import :enums;
 import :texture_format;
 import :resources;

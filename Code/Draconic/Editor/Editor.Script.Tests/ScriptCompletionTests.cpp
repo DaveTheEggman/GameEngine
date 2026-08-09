@@ -3,11 +3,11 @@
 // + a type's members after `Type.`.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui.toolkit;
-import draconic.script;
-import draconic.script.wren;
-import draconic.editor.script;
+import foundation.core;
+import foundation.ui.toolkit;
+import foundation.script;
+import foundation.script.wren;
+import editor.script;
 
 using namespace foundation::core;
 using namespace editor;

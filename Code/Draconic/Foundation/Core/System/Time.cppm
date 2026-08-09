@@ -19,7 +19,7 @@ module;
 #include "Core/Prelude.h"
 #include <compare>
 
-export module draconic.core:time;
+export module foundation.core:time;
 
 import :base;
 import :system; // GetTicks, GetTickFrequency

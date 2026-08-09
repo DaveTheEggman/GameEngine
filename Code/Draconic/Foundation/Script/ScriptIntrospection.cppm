@@ -11,9 +11,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.script:script_introspection;
+export module foundation.script:script_introspection;
 
-import draconic.core;
+import foundation.core;
 
 namespace core = foundation::core;
 

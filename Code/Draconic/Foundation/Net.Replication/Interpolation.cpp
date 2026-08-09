@@ -6,9 +6,9 @@ module;
 #include "Core/Prelude.h"
 #include <cmath>
 
-module draconic.net.replication;
+module foundation.net.replication;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

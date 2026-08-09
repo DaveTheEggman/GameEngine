@@ -1,30 +1,30 @@
-// Draconic::GraphicsGpu - implementation unit for `draconic.graphics.gpu`.
+// Draconic::GraphicsGpu - implementation unit for `foundation.graphics.gpu`.
 //
 // All the backend-coupled code (Vulkan / DX12 / validation) lives here rather than
 // in the interface unit. Because these imports sit in the implementation unit,
-// consumers of draconic.graphics.gpu never load the backend BMIs at compile time -
+// consumers of foundation.graphics.gpu never load the backend BMIs at compile time -
 // they only link the backends. This is the "only Vulkan-coupled part" of the render
 // host, kept off every consumer's module closure.
 
 module;
 #include "Core/Prelude.h"
 
-module draconic.graphics.gpu;
+module foundation.graphics.gpu;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 #ifdef DRACONIC_HAS_VULKAN
-import draconic.rhi.vulkan;
+import foundation.rhi.vulkan;
 #endif
 #ifdef DRACONIC_HAS_DX12
-import draconic.rhi.dx12;
+import foundation.rhi.dx12;
 #endif
 #ifdef DRACONIC_HAS_WEBGPU
-import draconic.rhi.webgpu;
+import foundation.rhi.webgpu;
 #endif
-import draconic.rhi.validation;
-import draconic.graphics;
-import draconic.graphics.null; // Null backend delegation
+import foundation.rhi.validation;
+import foundation.graphics;
+import foundation.graphics.null; // Null backend delegation
 
 namespace core = foundation::core;
 namespace rhi = foundation::rhi;

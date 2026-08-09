@@ -11,10 +11,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:textured_theme;
+export module foundation.ui:textured_theme;
 
-import draconic.core;
-import draconic.image; // ImageData, NineSlice
+import foundation.core;
+import foundation.image; // ImageData, NineSlice
 import :style_sheet;
 import :style_rule;
 import :style_property;

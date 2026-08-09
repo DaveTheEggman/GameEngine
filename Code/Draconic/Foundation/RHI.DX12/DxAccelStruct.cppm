@@ -7,10 +7,10 @@ module;
 
 #include "DxIncludes.h"
 
-export module draconic.rhi.dx12:accel_struct;
+export module foundation.rhi.dx12:accel_struct;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

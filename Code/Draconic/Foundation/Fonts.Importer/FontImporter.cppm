@@ -1,4 +1,4 @@
-// Draconic::FontsImporter - the `draconic.fonts.importer` module.
+// Draconic::FontsImporter - the `foundation.fonts.importer` module.
 //
 // Editor/build-time baking: turns TTF/OTF/TTC bytes into pre-rasterized
 // BakedFont + BakedFontAtlas objects (the shipped game then loads those and
@@ -8,12 +8,12 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.importer;
+export module foundation.fonts.importer;
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.baked;
-import draconic.fonts.ttf;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.baked;
+import foundation.fonts.ttf;
 
 using namespace foundation::core;
 

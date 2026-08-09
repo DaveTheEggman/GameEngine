@@ -16,9 +16,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shaders:wgsl_cook;
+export module foundation.shaders:wgsl_cook;
 
-import draconic.core;
+import foundation.core;
 import :types;
 import :compiler;
 import :flags;

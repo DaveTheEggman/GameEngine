@@ -1,13 +1,13 @@
-// draconic.settings: typed sections round-trip through the serializer abstraction (binary factory
+// foundation.settings: typed sections round-trip through the serializer abstraction (binary factory
 // here; the editor exercises the XML factory). Also covers defaults, change notification, and the
 // core UserDataDir / GetEnvironmentVariable helpers the store's storage location builds on.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.settings;
-import draconic.xml.serialization; // XML factory, to exercise passthrough on both backends
+import foundation.core;
+import foundation.settings;
+import foundation.xml.serialization; // XML factory, to exercise passthrough on both backends
 
 using namespace foundation::core;
 namespace settings = foundation::settings;

@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:momentum_helper;
+export module foundation.ui:momentum_helper;
 
-import draconic.core; // Float2, Abs, Min
+import foundation.core; // Float2, Abs, Min
 
 using namespace foundation::core;
 

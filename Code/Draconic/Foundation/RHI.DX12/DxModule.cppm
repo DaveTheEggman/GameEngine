@@ -1,10 +1,10 @@
-/// Primary module for draconic.rhi.dx12. Re-exports all partitions.
+/// Primary module for foundation.rhi.dx12. Re-exports all partitions.
 /// DX12 backend - Windows only.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rhi.dx12;
+export module foundation.rhi.dx12;
 
 export import :conversions;
 export import :surface;

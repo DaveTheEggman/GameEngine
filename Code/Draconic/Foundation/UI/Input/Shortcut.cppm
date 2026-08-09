@@ -7,9 +7,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:shortcut;
+export module foundation.ui:shortcut;
 
-import draconic.core; // Function, String, Object
+import foundation.core; // Function, String, Object
 import :input_enums;  // KeyCode, KeyModifiers
 
 using namespace foundation::core;

@@ -1,4 +1,4 @@
-// Draconic::Project - the `draconic.engine.project` module.
+// Draconic::Project - the `engine.project` module.
 //
 // The RUNTIME-side project definition: the manifest payload (ProjectSettings), the fixed
 // directory layout, and manifest load/save over a VFS root. Split out of the editor so
@@ -9,11 +9,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.engine.project;
+export module engine.project;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.xml.serialization;
+import foundation.core;
+import foundation.vfs;
+import foundation.xml.serialization;
 
 using namespace foundation::core;
 using namespace foundation;

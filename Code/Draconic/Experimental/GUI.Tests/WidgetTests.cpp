@@ -2,8 +2,8 @@
 // state (hover/press/focus/disabled), and the CSS identity surface (tag/id/classes).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.gui;
+import foundation.core;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

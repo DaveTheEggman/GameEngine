@@ -1,4 +1,4 @@
-// Draconic::GraphicsGpu - the `draconic.graphics.gpu` module (interface unit).
+// Draconic::GraphicsGpu - the `foundation.graphics.gpu` module (interface unit).
 //
 // The GPU-backend factory for GraphicsDevice: turns a GraphicsDeviceDesc into a
 // live device on Vulkan or DX12 (validation-wrapped on request), then delegates
@@ -6,7 +6,7 @@
 // to GraphicsDevice::CreateNull.
 //
 // The declaration here is deliberately backend-agnostic: it imports only
-// draconic.graphics/core, so consumers (Application, the UI, the renderer, the
+// foundation.graphics/core, so consumers (Application, the UI, the renderer, the
 // editor) pull NO backend BMIs at compile time - the Vulkan/DX12/validation
 // coupling lives entirely in the implementation unit (GraphicsGpu.cpp) and is a
 // link-time dependency only. Keeping the backends out of this interface keeps every
@@ -16,10 +16,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.graphics.gpu;
+export module foundation.graphics.gpu;
 
-import draconic.core;
-import draconic.graphics;
+import foundation.core;
+import foundation.graphics;
 
 namespace core = foundation::core;
 

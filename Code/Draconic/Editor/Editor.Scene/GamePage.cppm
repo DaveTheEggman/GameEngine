@@ -12,40 +12,40 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.scene:game_page;
+export module editor.scene:game_page;
 
-import draconic.core;
-import draconic.content;
-import draconic.vfs;
-import draconic.resource;
-import draconic.scene;
-import draconic.scene.resource;
-import draconic.engine.render;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.graphics;
-import draconic.engine.scene;
-import draconic.rhi;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.ui.runtime;
-import draconic.vg.renderer;
-import draconic.ui.viewport;
-import draconic.script;
-import draconic.script.resource;  // ScriptClass (the cooked game script, bound from the content DB)
-import draconic.engine.script; // ScriptSubsystem / ScriptRunHost (debugger wiring)
-import draconic.shell;
-import draconic.input;
-import draconic.input.resource;
-import draconic.engine.input;
-import draconic.engine.physics;
-import draconic.audio;
-import draconic.audio.resource;
-import draconic.engine.audio;
-import draconic.engine.defaultapp;
-import draconic.engine.gameinstance; // GameInstance - this tab drives its OWN run (multi-instance PIE)
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.vfs;
+import foundation.resource;
+import foundation.scene;
+import foundation.scene.resource;
+import engine.render;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.graphics;
+import engine.scene;
+import foundation.rhi;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.ui.runtime;
+import foundation.vg.renderer;
+import foundation.ui.viewport;
+import foundation.script;
+import foundation.script.resource;  // ScriptClass (the cooked game script, bound from the content DB)
+import engine.script; // ScriptSubsystem / ScriptRunHost (debugger wiring)
+import foundation.shell;
+import foundation.input;
+import foundation.input.resource;
+import engine.input;
+import engine.physics;
+import foundation.audio;
+import foundation.audio.resource;
+import engine.audio;
+import engine.defaultapp;
+import engine.gameinstance; // GameInstance - this tab drives its OWN run (multi-instance PIE)
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 namespace rhi = foundation::rhi;

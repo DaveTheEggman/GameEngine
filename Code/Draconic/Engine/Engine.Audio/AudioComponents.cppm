@@ -9,12 +9,12 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.audio:components;
+export module engine.audio:components;
 
-import draconic.core;
-import draconic.scene;
-import draconic.resource;
-import draconic.audio;
+import foundation.core;
+import foundation.scene;
+import foundation.resource;
+import foundation.audio;
 
 using namespace foundation::core;
 using namespace foundation::audio;

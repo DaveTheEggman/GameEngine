@@ -8,11 +8,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:image_view;
+export module foundation.ui:image_view;
 
-import draconic.core;
-import draconic.vg;
-import draconic.image; // ImageData
+import foundation.core;
+import foundation.vg;
+import foundation.image; // ImageData
 import :view;
 import :property;
 import :box_constraints;

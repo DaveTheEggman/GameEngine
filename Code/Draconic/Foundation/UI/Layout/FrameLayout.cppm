@@ -12,9 +12,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:frame_layout;
+export module foundation.ui:frame_layout;
 
-import draconic.core; // Max, RefPtr, Rectangle
+import foundation.core; // Max, RefPtr, Rectangle
 import :view;         // View, ViewGroup, LayoutParamsPtr
 import :layout_params;
 import :box_constraints;

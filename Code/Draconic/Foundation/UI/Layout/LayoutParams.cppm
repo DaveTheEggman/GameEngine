@@ -8,9 +8,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:layout_params;
+export module foundation.ui:layout_params;
 
-import draconic.core; // Object
+import foundation.core; // Object
 import :thickness;
 import :size_spec;
 

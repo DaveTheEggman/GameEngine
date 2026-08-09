@@ -1,24 +1,24 @@
-// Draconic UI - `draconic.ui.vfs`: an IResourceProvider backed by a VFS filesystem.
+// Draconic UI - `foundation.ui.vfs`: an IResourceProvider backed by a VFS filesystem.
 //
 // The IO model that backs the UI's resource provider: StyleSheetLoader (@import / @icon SVG text) and
 // the image/nine-slice drawable factories resolve external files through this. Ported from
 // Sedulous.UI.IO/src/VfsResourceProvider.bf. Kept in a SEPARATE module (like Sedulous.UI.IO) so the
-// core draconic.ui stays free of a VFS dependency - the app wires this provider into StyleSheetLoader.
+// core foundation.ui stays free of a VFS dependency - the app wires this provider into StyleSheetLoader.
 //
-// Divergences (language): Beef IMount -> draconic.vfs::IFileSystem (borrowed, caller-owned); Beef
+// Divergences (language): Beef IMount -> foundation.vfs::IFileSystem (borrowed, caller-owned); Beef
 // Result<void>/Result<IImageData> -> the ported IResourceProvider's bool / borrowed const ImageData*
 // (this provider owns the decoded images in m_images, matching "provider owns the returned image").
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui.vfs;
+export module foundation.ui.vfs;
 
-import draconic.core;     // IStream, FileMode, SeekOrigin, Array, String, Span, UniquePtr
-import draconic.image;    // ImageData, OwnedImageData
-import draconic.image.io; // LoadImageFromMemory
-import draconic.vfs;      // IFileSystem
-import draconic.ui;       // IResourceProvider
+import foundation.core;     // IStream, FileMode, SeekOrigin, Array, String, Span, UniquePtr
+import foundation.image;    // ImageData, OwnedImageData
+import foundation.image.io; // LoadImageFromMemory
+import foundation.vfs;      // IFileSystem
+import foundation.ui;       // IResourceProvider
 
 using namespace foundation::core;
 namespace image = foundation::image;

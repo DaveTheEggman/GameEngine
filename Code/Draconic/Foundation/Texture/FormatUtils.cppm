@@ -6,11 +6,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.texture:format_utils;
+export module foundation.texture:format_utils;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.image;
+import foundation.core;
+import foundation.rhi;
+import foundation.image;
 
 using namespace foundation::core;
 

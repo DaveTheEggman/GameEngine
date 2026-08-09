@@ -5,12 +5,12 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include <new>
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.image;
-import draconic.vg;
-import draconic.vg.renderer;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.image;
+import foundation.vg;
+import foundation.vg.renderer;
 
 using namespace foundation::core;
 using namespace foundation::vg;

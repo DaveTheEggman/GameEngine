@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:command_encoder - CommandEncoder over WGPUCommandEncoder.
+/// foundation.rhi.webgpu:command_encoder - CommandEncoder over WGPUCommandEncoder.
 ///
 /// WebGPU encoders are ONE-SHOT; the wrapper is reusable - after Finish, the next
 /// Begin* / copy call lazily opens a fresh WGPUCommandEncoder, which is exactly the
@@ -13,10 +13,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:command_encoder;
+export module foundation.rhi.webgpu:command_encoder;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :blit_helper;
 import :conversions;

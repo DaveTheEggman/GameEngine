@@ -1,8 +1,8 @@
 // VG core leaf types: vertex layout, gradient stop interpolation, fills, style.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.vg;
+import foundation.core;
+import foundation.vg;
 
 using namespace foundation::core;
 using namespace foundation::vg;

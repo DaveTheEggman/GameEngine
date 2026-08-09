@@ -11,9 +11,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:markup_registry;
+export module foundation.ui:markup_registry;
 
-import draconic.core;
+import foundation.core;
 import :view;
 import :layout_params;
 import :size_spec;

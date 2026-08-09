@@ -3,9 +3,9 @@
 // CompletionModel unit coverage (filter ranking + popup key routing without a UIContext).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
-import draconic.ui.toolkit;
+import foundation.core;
+import foundation.ui;
+import foundation.ui.toolkit;
 
 using namespace foundation::ui;
 using namespace foundation::ui::toolkit;

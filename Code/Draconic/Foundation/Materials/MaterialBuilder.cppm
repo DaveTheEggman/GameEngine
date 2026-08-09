@@ -8,11 +8,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.materials:builder;
+export module foundation.materials:builder;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
 import :types;
 import :pipeline;
 import :material;

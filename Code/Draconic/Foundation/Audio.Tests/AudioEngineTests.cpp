@@ -1,4 +1,4 @@
-// draconic.audio core tests: the HEADLESS engine (no device - Update() pumps the mixer,
+// foundation.audio core tests: the HEADLESS engine (no device - Update() pumps the mixer,
 // so the whole voice state machine runs deterministically): handle validity across slot
 // generations, the Traktor steal policy (free -> lower priority -> farthest same
 // priority), fade-then-reap on stop, pause/resume, recent-play dedupe, buses, per-scene
@@ -9,8 +9,8 @@
 #include "Core/Prelude.h"
 #include <cmath>
 
-import draconic.core;
-import draconic.audio;
+import foundation.core;
+import foundation.audio;
 
 using namespace foundation::core;
 using namespace foundation::audio;

@@ -11,11 +11,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:svg_drawable;
+export module foundation.ui:svg_drawable;
 
-import draconic.core;
-import draconic.image;   // Color, Rectangle, Float2, Optional, Result, RefPtr, String
-import draconic.vg.svg; // SVGDocument, SVGLoader, SVGRenderer
+import foundation.core;
+import foundation.image;   // Color, Rectangle, Float2, Optional, Result, RefPtr, String
+import foundation.vg.svg; // SVGDocument, SVGLoader, SVGRenderer
 import :drawable;
 import :draw_context;
 

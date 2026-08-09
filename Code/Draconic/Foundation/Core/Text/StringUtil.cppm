@@ -8,7 +8,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:string_util;
+export module foundation.core:string_util;
 
 import :base;   // char8_t, usize, i32
 import :string; // StringView

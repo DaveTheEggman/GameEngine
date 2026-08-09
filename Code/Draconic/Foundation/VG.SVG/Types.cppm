@@ -9,10 +9,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg.svg:types;
+export module foundation.vg.svg:types;
 
-import draconic.core;
-import draconic.vg;
+import foundation.core;
+import foundation.vg;
 
 using namespace foundation::core;
 

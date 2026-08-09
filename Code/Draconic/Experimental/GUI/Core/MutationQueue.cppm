@@ -3,14 +3,14 @@
 // MutationQueue: deferred operations drained at a safe sync point (end of the SceneNode
 // update). This is how tree edits made mid-traversal (notably Node::Close) are applied
 // without mutating the tree while it is being walked - eepp's SceneNode close-queue role,
-// generalized to arbitrary deferred ops (same shape as draconic.ui's MutationQueue).
+// generalized to arbitrary deferred ops (same shape as foundation.ui's MutationQueue).
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:mutation_queue;
+export module experimental.gui:mutation_queue;
 
-import draconic.core; // Function, Array, Move
+import foundation.core; // Function, Array, Move
 
 using namespace foundation::core;
 namespace core = foundation::core;

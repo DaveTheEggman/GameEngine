@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:selection_model;
+export module foundation.ui:selection_model;
 
-import draconic.core; // HashSet, Array, Event? (Event is a UI partition)
+import foundation.core; // HashSet, Array, Event? (Event is a UI partition)
 import :event;
 
 using namespace foundation::core;

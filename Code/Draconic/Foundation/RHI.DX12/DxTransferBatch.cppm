@@ -9,10 +9,10 @@ module;
 #include <cstring>
 #include <vector>
 
-export module draconic.rhi.dx12:transfer_batch;
+export module foundation.rhi.dx12:transfer_batch;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :buffer;
 import :texture;

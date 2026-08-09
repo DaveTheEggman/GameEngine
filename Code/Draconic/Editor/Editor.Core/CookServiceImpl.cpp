@@ -25,13 +25,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-module draconic.editor.core;
+module editor.core;
 
-import draconic.core;
-import draconic.content;
-import draconic.vfs;
-import draconic.pipeline.core;
-import draconic.pipeline.cook;
+import foundation.core;
+import foundation.content;
+import foundation.vfs;
+import pipeline.core;
+import pipeline.cook;
 import :project;
 
 using namespace foundation::core;

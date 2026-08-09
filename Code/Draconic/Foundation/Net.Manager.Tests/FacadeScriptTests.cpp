@@ -1,4 +1,4 @@
-// draconic.net.manager - the Net facade PROVEN end-to-end on both script backends.
+// foundation.net.manager - the Net facade PROVEN end-to-end on both script backends.
 //
 // ManagerTests.cpp checks the facade TYPE registers; this drives a real Wren / AngelScript
 // VM: a server manager installs its net.runtime service into the context, then a script calls
@@ -7,12 +7,12 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.net;
-import draconic.net.manager;
-import draconic.script;
-import draconic.script.wren;
-import draconic.script.angelscript;
+import foundation.core;
+import foundation.net;
+import foundation.net.manager;
+import foundation.script;
+import foundation.script.wren;
+import foundation.script.angelscript;
 
 using namespace foundation::core;
 using namespace foundation::script;

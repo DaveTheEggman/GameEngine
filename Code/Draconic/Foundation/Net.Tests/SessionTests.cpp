@@ -1,10 +1,10 @@
-// draconic.net:session - roles, peer registry, lifecycle, broadcast (over the sim).
+// foundation.net:session - roles, peer registry, lifecycle, broadcast (over the sim).
 #include <doctest/doctest.h>
 #include <initializer_list>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.net;
+import foundation.core;
+import foundation.net;
 
 using namespace foundation::core;
 namespace net = foundation::net;

@@ -1,9 +1,9 @@
 /// Vertex element semantics, formats, and descriptors.
 /// Ported from Sedulous.Models/VertexFormat.bf.
 
-export module draconic.model:vertex_format;
+export module foundation.model:vertex_format;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

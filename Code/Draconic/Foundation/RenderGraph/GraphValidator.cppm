@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rendergraph:validator;
+export module foundation.rendergraph:validator;
 
-import draconic.core;
+import foundation.core;
 import :types;
 import :pass;
 import :resource;

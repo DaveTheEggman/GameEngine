@@ -6,10 +6,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:progress_bar;
+export module foundation.ui:progress_bar;
 
-import draconic.core;
-import draconic.vg;
+import foundation.core;
+import foundation.vg;
 import :view;
 import :event;
 import :property;

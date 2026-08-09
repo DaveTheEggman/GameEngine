@@ -9,9 +9,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:actions;
+export module experimental.gui:actions;
 
-import draconic.core; // Float2, Duration, Lerp, Function, RefPtr, Array, Move, Color, MakeRef
+import foundation.core; // Float2, Duration, Lerp, Function, RefPtr, Array, Move, Color, MakeRef
 import :action;
 import :node;
 import :rectangle_drawable;

@@ -6,7 +6,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:path;
+export module foundation.core:path;
 
 import :base;
 import :allocator;

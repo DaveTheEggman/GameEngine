@@ -10,7 +10,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:constant_registry;
+export module foundation.core:constant_registry;
 
 import :base;
 import :array;

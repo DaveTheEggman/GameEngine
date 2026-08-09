@@ -7,10 +7,10 @@ module;
 
 #include "DxIncludes.h"
 
-export module draconic.rhi.dx12:swap_chain;
+export module foundation.rhi.dx12:swap_chain;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :surface;
 import :texture;

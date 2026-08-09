@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:transfer_batch - TransferBatch over queue writes.
+/// foundation.rhi.webgpu:transfer_batch - TransferBatch over queue writes.
 ///
 /// WebGPU's wgpuQueueWriteBuffer/WriteTexture ARE staged uploads (the runtime owns
 /// the staging ring), so the batch records payload COPIES and replays them as queue
@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:transfer_batch;
+export module foundation.rhi.webgpu:transfer_batch;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :buffer;
 import :texture;

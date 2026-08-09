@@ -1,4 +1,4 @@
-// Draconic::AudioResource - the `draconic.audio.resource` module.
+// Draconic::AudioResource - the `foundation.audio.resource` module.
 //
 // Cooked audio content (docs/design/audio.md §4):
 //   * AudioClipSource - the cooked record: probed metadata + import intent, with the
@@ -17,12 +17,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.audio.resource;
+export module foundation.audio.resource;
 
-import draconic.core;
-import draconic.resource;
-import draconic.content;
-import draconic.audio;
+import foundation.core;
+import foundation.resource;
+import foundation.content;
+import foundation.audio;
 
 using namespace foundation::core;
 namespace resource = foundation::resource;

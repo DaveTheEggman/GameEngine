@@ -10,9 +10,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:radio;
+export module experimental.gui:radio;
 
-import draconic.core; // Color, Function, Move, Array
+import foundation.core; // Color, Function, Move, Array
 import :rect;
 import :event;
 import :draw_context;

@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shaders:pack_cook;
+export module foundation.shaders:pack_cook;
 
-import draconic.core;
+import foundation.core;
 import :types;
 import :flags;
 import :variants;

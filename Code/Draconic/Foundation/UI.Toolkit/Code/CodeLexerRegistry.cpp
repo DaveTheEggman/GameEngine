@@ -3,9 +3,9 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.ui.toolkit;
+module foundation.ui.toolkit;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

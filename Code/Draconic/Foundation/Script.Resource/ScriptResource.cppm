@@ -1,4 +1,4 @@
-// Draconic::ScriptResource - the `draconic.script.resource` module.
+// Draconic::ScriptResource - the `foundation.script.resource` module.
 //
 // Cooked script classes (docs/design/scripting.md §4): a ScriptClass is SOURCE TEXT +
 // harvested metadata - never bytecode (Wren has no stable serialized form; compilation
@@ -20,11 +20,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.script.resource;
+export module foundation.script.resource;
 
-import draconic.core;
-import draconic.resource;
-import draconic.content;
+import foundation.core;
+import foundation.resource;
+import foundation.content;
 
 using namespace foundation::core;
 

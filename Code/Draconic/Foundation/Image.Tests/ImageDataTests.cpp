@@ -4,8 +4,8 @@
 // scope/new -> stack/Array; nullable RectangleI -> const RectI*.)
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.image;
+import foundation.core;
+import foundation.image;
 
 using namespace foundation::core;
 using namespace foundation::image;

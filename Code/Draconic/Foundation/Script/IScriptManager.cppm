@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.script:script_manager;
+export module foundation.script:script_manager;
 
-import draconic.core;
+import foundation.core;
 import :script_context;
 import :script_introspection; // DescribeBoundApi surface
 import :script_debug;         // IScriptDebugger / IScriptProfiler / IScriptBlob seams

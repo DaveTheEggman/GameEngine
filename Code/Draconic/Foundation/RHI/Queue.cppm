@@ -1,9 +1,9 @@
 /// Abstract GPU command queue. Handles command submission, fence
 /// synchronization, and transfer batch creation.
 
-export module draconic.rhi:queue;
+export module foundation.rhi:queue;
 
-import draconic.core;
+import foundation.core;
 import :enums;
 import :resources;
 

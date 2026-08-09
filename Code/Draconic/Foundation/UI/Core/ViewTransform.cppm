@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:view_transform;
+export module foundation.ui:view_transform;
 
-import draconic.core; // Float2
+import foundation.core; // Float2
 
 using namespace foundation::core;
 namespace core = foundation::core;

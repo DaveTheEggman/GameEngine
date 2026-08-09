@@ -19,10 +19,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.scene:component;
+export module foundation.scene:component;
 
-import draconic.core;
-import draconic.resource;
+import foundation.core;
+import foundation.resource;
 import :entity;
 import :system;
 

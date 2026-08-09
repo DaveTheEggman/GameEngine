@@ -7,11 +7,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:draw_context;
+export module foundation.ui:draw_context;
 
-import draconic.core;  // Rectangle
-import draconic.vg;    // VGContext
-import draconic.fonts; // IFontService
+import foundation.core;  // Rectangle
+import foundation.vg;    // VGContext
+import foundation.fonts; // IFontService
 import :debug_settings;
 
 using namespace foundation::core;

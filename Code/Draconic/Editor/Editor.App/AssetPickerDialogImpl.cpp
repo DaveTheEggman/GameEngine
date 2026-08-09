@@ -18,13 +18,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.editor.app;
+module editor.app;
 
-import draconic.core;
-import draconic.content;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.editor.core;
+import foundation.core;
+import foundation.content;
+import foundation.ui;
+import foundation.ui.toolkit;
+import editor.core;
 import :editor_icons;
 
 using namespace foundation::core;

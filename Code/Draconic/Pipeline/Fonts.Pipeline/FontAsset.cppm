@@ -1,4 +1,4 @@
-// Draconic::FontsEditor - the `draconic.fonts.editor` module (tooling).
+// Draconic::FontsEditor - the `foundation.fonts.editor` module (tooling).
 //
 // Source-side font authoring + cook (the editor tier of the fonts triad):
 //   * FontAsset (pipeline::Asset): references a TTF/OTF/TTC file in Sources/ + the bake
@@ -18,20 +18,20 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.fonts.pipeline;
+export module fonts.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.fonts;
-import draconic.fonts.ttf;
-import draconic.fonts.io;
-import draconic.fonts.baked;
-import draconic.fonts.importer;
-import draconic.fonts.distancefield;
-import draconic.fonts.distancefield.baker;
-import draconic.fonts.resource;
-import draconic.content;
+import foundation.core;
+import pipeline.core;
+import editor.core;
+import foundation.fonts;
+import foundation.fonts.ttf;
+import foundation.fonts.io;
+import foundation.fonts.baked;
+import foundation.fonts.importer;
+import foundation.fonts.distancefield;
+import foundation.fonts.distancefield.baker;
+import foundation.fonts.resource;
+import foundation.content;
 
 using namespace foundation::core;
 using namespace foundation::fonts;

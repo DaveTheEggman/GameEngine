@@ -4,10 +4,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rhi.validation:validated_render_bundle_encoder;
+export module foundation.rhi.validation:validated_render_bundle_encoder;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

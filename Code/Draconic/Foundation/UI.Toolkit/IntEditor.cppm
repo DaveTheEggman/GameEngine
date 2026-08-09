@@ -11,11 +11,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:int_editor;
+export module foundation.ui.toolkit:int_editor;
 
-import draconic.core;
-import draconic.vg;
-import draconic.ui;
+import foundation.core;
+import foundation.vg;
+import foundation.ui;
 import :property_editor;
 
 using namespace foundation::core;

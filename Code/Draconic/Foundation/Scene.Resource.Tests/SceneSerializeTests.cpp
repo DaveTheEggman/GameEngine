@@ -5,10 +5,10 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.scene;
-import draconic.scene.resource;
-import draconic.xml.serialization;
+import foundation.core;
+import foundation.scene;
+import foundation.scene.resource;
+import foundation.xml.serialization;
 
 using namespace foundation::core;
 using namespace foundation::scene;

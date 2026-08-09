@@ -1,4 +1,4 @@
-// Draconic::ScriptSubsystem - the `draconic.engine.script` module.
+// Draconic::ScriptSubsystem - the `engine.script` module.
 //
 // Entity behaviors (docs/design/scripting.md §3 + §7 P1): a ScriptSceneSystem per scene
 // instantiates each behavior's cooked ScriptClass in the run's ONE gameplay script
@@ -26,20 +26,20 @@ module;
 #include "Core/Log/Log.h"
 #include "Profiler/Profiler.h"
 
-export module draconic.engine.script;
+export module engine.script;
 
 export import :components;
-export import draconic.script.facades; // Entity/Log/Time/Random + the run-service binding
+export import foundation.script.facades; // Entity/Log/Time/Random + the run-service binding
 
-import draconic.core;
-import draconic.runtime;
-import draconic.runtime;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.resource;
-import draconic.script;
-import draconic.script.resource;
-import draconic.profiler;
+import foundation.core;
+import foundation.runtime;
+import foundation.runtime;
+import foundation.scene;
+import engine.scene;
+import foundation.resource;
+import foundation.script;
+import foundation.script.resource;
+import foundation.profiler;
 
 using namespace foundation::core;
 using namespace foundation;

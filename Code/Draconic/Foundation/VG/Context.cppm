@@ -9,11 +9,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg:context;
+export module foundation.vg:context;
 
-import draconic.core;
-import draconic.image;
-import draconic.fonts;
+import foundation.core;
+import foundation.image;
+import foundation.fonts;
 import :enums;
 import :vertex;
 import :style;

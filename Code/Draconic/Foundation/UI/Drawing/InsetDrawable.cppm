@@ -8,9 +8,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:inset_drawable;
+export module foundation.ui:inset_drawable;
 
-import draconic.core; // RefPtr, Rectangle, Max
+import foundation.core; // RefPtr, Rectangle, Max
 import :thickness;
 import :control_state;
 import :drawable;

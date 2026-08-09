@@ -1,4 +1,4 @@
-// Draconic::Fonts - draconic.fonts:scaled_views partition.
+// Draconic::Fonts - foundation.fonts:scaled_views partition.
 //
 // SIZE VIEWS over a base font/atlas: everything screen-space (metrics, advances, kerning,
 // glyph-quad geometry) scales by requestedPx / bakedPx while the atlas texels and UVs stay
@@ -14,9 +14,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts:scaled_views;
+export module foundation.fonts:scaled_views;
 
-import draconic.core;
+import foundation.core;
 import :types;
 import :interfaces;
 import :text_util;

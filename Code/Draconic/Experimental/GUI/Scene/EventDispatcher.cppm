@@ -13,9 +13,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:event_dispatcher;
+export module experimental.gui:event_dispatcher;
 
-import draconic.core; // Float2, StringView
+import foundation.core; // Float2, StringView
 import :node;
 import :event;
 import :clipboard;

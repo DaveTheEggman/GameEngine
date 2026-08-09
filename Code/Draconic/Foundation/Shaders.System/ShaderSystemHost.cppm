@@ -18,11 +18,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shaders.system:host;
+export module foundation.shaders.system:host;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
 import :shader_system;
 import :file_provider;
 

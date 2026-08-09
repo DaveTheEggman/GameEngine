@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:backend - Backend entry point + factory.
+/// foundation.rhi.webgpu:backend - Backend entry point + factory.
 ///
 /// Owns the loaded function table (desktop: the dlopen'd wgpu-native sidecar), the
 /// WGPUInstance, and the enumerated adapters. Desktop enumeration uses wgpu-native's
@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:backend;
+export module foundation.rhi.webgpu:backend;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :adapter;
 import :surface;

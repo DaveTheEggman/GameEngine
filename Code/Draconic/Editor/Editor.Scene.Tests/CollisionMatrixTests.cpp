@@ -7,9 +7,9 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.editor.scene;
-import draconic.ui;
+import foundation.core;
+import editor.scene;
+import foundation.ui;
 
 using namespace foundation::core;
 

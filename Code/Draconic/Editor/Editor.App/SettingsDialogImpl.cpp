@@ -15,12 +15,12 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.editor.app;
+module editor.app;
 
-import draconic.core;
-import draconic.content;
-import draconic.ui;
-import draconic.editor.core;
+import foundation.core;
+import foundation.content;
+import foundation.ui;
+import editor.core;
 import :asset_picker_dialog;
 
 using namespace foundation::core;

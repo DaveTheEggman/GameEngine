@@ -1,4 +1,4 @@
-// GUI Sandbox - the first on-screen test of draconic.gui. Builds a small widget tree
+// GUI Sandbox - the first on-screen test of experimental.gui. Builds a small widget tree
 // (panel + labels + buttons in a LinearLayout), styles it with CSS via a StyleManager, and
 // renders it through the same VG -> VGRenderer -> RHI path as VGSandbox. Input is driven by
 // an InputSurface (fullscreen, gated by an InputRouter) polled into the GUI EventDispatcher
@@ -6,20 +6,20 @@
 
 #include <new>
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.vulkan;
-import draconic.shaders;
-import draconic.shaders.system; // ShaderSystemHost
-import draconic.samples.framework;
-import draconic.shell;
-import draconic.image;
-import draconic.fonts;
-import draconic.fonts.ttf;
-import draconic.vg;
-import draconic.vg.renderer;
-import draconic.gui;
-import draconic.gui.shell;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.vulkan;
+import foundation.shaders;
+import foundation.shaders.system; // ShaderSystemHost
+import samples.framework;
+import foundation.shell;
+import foundation.image;
+import foundation.fonts;
+import foundation.fonts.ttf;
+import foundation.vg;
+import foundation.vg.renderer;
+import experimental.gui;
+import experimental.gui.shell;
 
 using namespace foundation::core;
 namespace rhi = foundation::rhi;

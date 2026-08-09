@@ -3,7 +3,7 @@
 #include "Core/Prelude.h" // brings <new> into reach for container instantiation (GCC)
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

@@ -5,10 +5,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rhi.validation:validated_device;
+export module foundation.rhi.validation:validated_device;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :validated_fence;
 import :validated_swap_chain;
 import :validated_command_pool;

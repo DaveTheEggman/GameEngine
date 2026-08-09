@@ -2,9 +2,9 @@
 // end-to-end on a small document.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.vg;
-import draconic.vg.svg;
+import foundation.core;
+import foundation.vg;
+import foundation.vg.svg;
 
 using namespace foundation::core;
 using namespace foundation::vg;

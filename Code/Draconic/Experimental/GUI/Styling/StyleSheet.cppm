@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:style_sheet;
+export module experimental.gui:style_sheet;
 
-import draconic.core; // String, StringView, Array, i64, Move
+import foundation.core; // String, StringView, Array, i64, Move
 import :style_selector;
 import :style_rule;
 import :media_query;

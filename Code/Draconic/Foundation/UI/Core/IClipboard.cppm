@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:iclipboard;
+export module foundation.ui:iclipboard;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

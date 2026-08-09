@@ -13,12 +13,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.core:editor_settings;
+export module editor.core:editor_settings;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.xml.serialization;
-import draconic.settings;
+import foundation.core;
+import foundation.vfs;
+import foundation.xml.serialization;
+import foundation.settings;
 import :export_preset; // EditorExportSettings (registered below)
 
 using namespace foundation::core;

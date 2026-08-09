@@ -20,31 +20,31 @@ module;
 #include <limits>
 #include <initializer_list>
 
-module draconic.editor.scene;
+module editor.scene;
 
-import draconic.core;
-import draconic.content;
-import draconic.resource;
-import draconic.geometry;
-import draconic.animation;
-import draconic.materials;
-import draconic.texture.resource;
-import draconic.particles.resource;
-import draconic.scene;
-import draconic.engine.render;
-import draconic.physics;
-import draconic.physics.resource;
-import draconic.engine.physics;
-import draconic.audio;
-import draconic.audio.resource;
-import draconic.engine.audio;
-import draconic.ui.resource;
-import draconic.script.resource;
-import draconic.engine.script;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.resource;
+import foundation.geometry;
+import foundation.animation;
+import foundation.materials;
+import foundation.texture.resource;
+import foundation.particles.resource;
+import foundation.scene;
+import engine.render;
+import foundation.physics;
+import foundation.physics.resource;
+import engine.physics;
+import foundation.audio;
+import foundation.audio.resource;
+import engine.audio;
+import foundation.ui.resource;
+import foundation.script.resource;
+import engine.script;
+import foundation.ui;
+import foundation.ui.toolkit;
+import editor.core;
+import editor.app;
 import :edit;
 
 using namespace foundation::core;

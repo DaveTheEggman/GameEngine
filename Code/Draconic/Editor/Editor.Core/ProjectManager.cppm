@@ -1,5 +1,5 @@
 // The project-manager CONTROLLER - the headless decision layer between the manager UI and
-// the registry/manifest primitives (:project_registry). The UI (draconic.editor.app's
+// the registry/manifest primitives (:project_registry). The UI (editor.app's
 // ProjectManagerView + the application's dialogs) renders what this class decides; nothing
 // here touches a view, so the open-gate logic and prompt copy are unit-testable.
 //
@@ -8,11 +8,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.core:project_manager;
+export module editor.core:project_manager;
 
-import draconic.core;
-import draconic.settings;
-import draconic.engine.project;
+import foundation.core;
+import foundation.settings;
+import engine.project;
 import :project;
 import :project_registry;
 

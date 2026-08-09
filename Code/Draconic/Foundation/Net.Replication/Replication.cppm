@@ -1,21 +1,21 @@
-/// Draconic::NetReplication - the `draconic.net.replication` module (docs/design/networking.md §5, §7 P2).
+/// Draconic::NetReplication - the `foundation.net.replication` module (docs/design/networking.md §5, §7 P2).
 ///
 /// The foundation of StateReplication: a stable per-entity NetworkId + authority, and - the central
 /// bet of the design - a REFLECTION-DRIVEN field codec. A component marks properties `Replicated`
 /// (via the existing per-property attribute system, so no per-component net code is hand-written),
 /// and this layer harvests that layout once per type and streams the marked fields through the
 /// `:wire` BitWriter/BitReader. Snapshot assembly, per-peer delta, spawn and relevancy stack on top
-/// of this codec in later slices; this unit depends only on Core (reflection) + draconic.net (wire).
+/// of this codec in later slices; this unit depends only on Core (reflection) + foundation.net (wire).
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.net.replication;
+export module foundation.net.replication;
 
-import draconic.core;
-import draconic.net;      // BitWriter / BitReader (:wire)
-import draconic.scene;    // Scene / EntityHandle / ComponentManagerBase (snapshot assembly)
-import draconic.resource; // ResourceManager (SerializableComponentManager's ResolveResources seam)
+import foundation.core;
+import foundation.net;      // BitWriter / BitReader (:wire)
+import foundation.scene;    // Scene / EntityHandle / ComponentManagerBase (snapshot assembly)
+import foundation.resource; // ResourceManager (SerializableComponentManager's ResolveResources seam)
 
 using namespace foundation::core;
 namespace core = foundation::core;

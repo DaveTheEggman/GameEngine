@@ -13,9 +13,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vfs:native_filesystem;
+export module foundation.vfs:native_filesystem;
 
-import draconic.core;
+import foundation.core;
 import :ifilesystem;
 
 using namespace foundation::core;

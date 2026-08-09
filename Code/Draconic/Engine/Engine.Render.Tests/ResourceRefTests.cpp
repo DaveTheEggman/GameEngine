@@ -7,17 +7,17 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.geometry;
-import draconic.geometry.resource;
-import draconic.materials;
-import draconic.materials.resource;
-import draconic.scene;
-import draconic.scene.resource;
-import draconic.engine.render;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.geometry;
+import foundation.geometry.resource;
+import foundation.materials;
+import foundation.materials.resource;
+import foundation.scene;
+import foundation.scene.resource;
+import engine.render;
 
 using namespace foundation::core;
 using namespace engine::render;

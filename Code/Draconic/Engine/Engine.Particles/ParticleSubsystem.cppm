@@ -1,4 +1,4 @@
-// draconic.engine.particles:subsystem - the Context-level ParticleSubsystem.
+// engine.particles:subsystem - the Context-level ParticleSubsystem.
 //
 // Mirrors AnimationSubsystem: injects the ParticleEffectComponentManager into every scene (so
 // attaching a ParticleEffectComponent is all an app needs). Additionally it owns the dedicated
@@ -9,16 +9,16 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.particles:subsystem;
+export module engine.particles:subsystem;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders.system;
-import draconic.runtime;          // Subsystem, Context
-import draconic.scene;            // Scene, ISceneAware
-import draconic.engine.scene;  // SceneSubsystem
-import draconic.render;           // ExtractedScene
-import draconic.engine.render; // RenderSubsystem + IRenderExtractor seam
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders.system;
+import foundation.runtime;          // Subsystem, Context
+import foundation.scene;            // Scene, ISceneAware
+import engine.scene;  // SceneSubsystem
+import foundation.render;           // ExtractedScene
+import engine.render; // RenderSubsystem + IRenderExtractor seam
 import :renderer;
 import :components;
 

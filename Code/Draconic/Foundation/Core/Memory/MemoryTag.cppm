@@ -9,7 +9,7 @@ module;
 #include "Core/Debug/Assert.h"
 #include <atomic>
 
-export module draconic.core:memory_tag;
+export module foundation.core:memory_tag;
 
 import :base;
 import :allocator;

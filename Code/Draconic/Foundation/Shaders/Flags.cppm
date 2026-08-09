@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h" // <new> for placement-new at GCC container instantiation sites
 
-export module draconic.shaders:flags;
+export module foundation.shaders:flags;
 
-import draconic.core;
+import foundation.core;
 import :types;
 
 using namespace foundation::core;

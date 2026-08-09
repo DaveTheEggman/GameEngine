@@ -1,8 +1,8 @@
-// Draconic GUI - `draconic.gui.shell`: the platform input bridge.
+// Draconic GUI - `experimental.gui.shell`: the platform input bridge.
 //
 // Keeps the GUI core platform-agnostic: the core EventDispatcher exposes an abstract
 // Inject* API; this bridge is the ONLY place that knows about the platform input layer
-// (draconic.shell). It translates a stream of shell::InputEvent (already gated/transformed
+// (foundation.shell). It translates a stream of shell::InputEvent (already gated/transformed
 // by InputSurface/InputRouter, see [[viewport-input]]) into dispatcher injections, mapping
 // platform enums to GUI enums and window-space positions to content space via a ContentFit.
 //
@@ -12,11 +12,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui.shell;
+export module experimental.gui.shell;
 
-import draconic.core;  // ContentFit, Float2, String, StringView, u32
-import draconic.gui;   // EventDispatcher, MouseButton, KeyMod*, IClipboard
-import draconic.shell; // InputEvent, InputEventKind, MouseButton, KeyModifiers, IWindow, IShell
+import foundation.core;  // ContentFit, Float2, String, StringView, u32
+import experimental.gui;   // EventDispatcher, MouseButton, KeyMod*, IClipboard
+import foundation.shell; // InputEvent, InputEventKind, MouseButton, KeyModifiers, IWindow, IShell
 
 using namespace foundation::core;
 namespace core = foundation::core;

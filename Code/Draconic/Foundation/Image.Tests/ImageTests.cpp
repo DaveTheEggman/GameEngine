@@ -1,9 +1,9 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.image;
-import draconic.image.io;
+import foundation.core;
+import foundation.image;
+import foundation.image.io;
 
 using namespace foundation::core;
 using namespace foundation::image;

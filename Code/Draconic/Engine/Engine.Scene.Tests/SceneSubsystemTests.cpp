@@ -4,10 +4,10 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.runtime;
-import draconic.scene;
-import draconic.engine.scene;
+import foundation.core;
+import foundation.runtime;
+import foundation.scene;
+import engine.scene;
 
 using namespace foundation::core;
 using namespace engine::scene;

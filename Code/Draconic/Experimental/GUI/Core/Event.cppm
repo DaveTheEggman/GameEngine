@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:event;
+export module experimental.gui:event;
 
-import draconic.core; // Function, String
+import foundation.core; // Function, String
 
 using namespace foundation::core;
 namespace core = foundation::core;

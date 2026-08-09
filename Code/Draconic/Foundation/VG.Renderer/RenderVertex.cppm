@@ -9,10 +9,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg.renderer:vertex;
+export module foundation.vg.renderer:vertex;
 
-import draconic.core;
-import draconic.vg;
+import foundation.core;
+import foundation.vg;
 
 using namespace foundation::core;
 

@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:size_spec;
+export module foundation.ui:size_spec;
 
-import draconic.core;
+import foundation.core;
 import :unit;
 
 using namespace foundation::core;

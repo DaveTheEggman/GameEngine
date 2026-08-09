@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.geometry:index_buffer;
+export module foundation.geometry:index_buffer;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

@@ -6,10 +6,10 @@ module;
 
 #include "VkIncludes.h"
 
-export module draconic.rhi.vulkan:mesh_pipeline;
+export module foundation.rhi.vulkan:mesh_pipeline;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :shader_module;
 import :pipeline_layout;

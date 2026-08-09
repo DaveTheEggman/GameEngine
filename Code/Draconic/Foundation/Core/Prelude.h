@@ -7,7 +7,7 @@
 //
 //     module;
 //     #include "Core/Prelude.h"
-//     export module draconic.core:base;
+//     export module foundation.core:base;
 //
 // Keep this tiny, dependency-free, and include-once.
 

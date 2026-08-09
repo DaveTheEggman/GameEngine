@@ -12,12 +12,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.core:export_preset;
+export module editor.core:export_preset;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.xml.serialization;
-import draconic.settings;
+import foundation.core;
+import foundation.vfs;
+import foundation.xml.serialization;
+import foundation.settings;
 
 using namespace foundation::core;
 
@@ -168,7 +168,7 @@ export namespace editor
         return writable.Save(fileName, buffer.Bytes());
     }
 
-    // Editor-level export preferences - a Settings section (draconic.settings store), NOT project-local
+    // Editor-level export preferences - a Settings section (foundation.settings store), NOT project-local
     // and NOT in export_presets.xml. Currently just the templates-root override: when non-empty it wins
     // over $DRACONIC_TEMPLATES_DIR and the built-in <user-data>/templates default (see
     // ResolveTemplatesRoot in :export_template), letting the user point the editor at a shared or

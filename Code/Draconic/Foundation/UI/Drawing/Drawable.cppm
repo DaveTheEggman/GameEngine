@@ -11,9 +11,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:drawable;
+export module foundation.ui:drawable;
 
-import draconic.core; // Object, Optional, Float2, Rectangle
+import foundation.core; // Object, Optional, Float2, Rectangle
 import :thickness;
 import :control_state;
 import :draw_context;

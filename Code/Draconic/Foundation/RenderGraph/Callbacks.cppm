@@ -6,10 +6,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rendergraph:callbacks;
+export module foundation.rendergraph:callbacks;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

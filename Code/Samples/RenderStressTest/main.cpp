@@ -14,24 +14,24 @@
 // hold RMB (or Tab to capture) to look, Shift to move fast, Esc to exit.
 
 #include "Core/Prelude.h"
-#include "imgui.h" // Dear ImGui (HUD) - used directly; engine integration is draconic.imgui
+#include "imgui.h" // Dear ImGui (HUD) - used directly; engine integration is extensions.imgui
 
-import draconic.core;
-import draconic.rhi; // PresentMode (run the benchmark vsync-off)
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.shell;
-import draconic.runtime.desktop;
-import draconic.shell.desktop;
-import draconic.graphics;
-import draconic.graphics.gpu;
-import draconic.engine.defaultapp;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.engine.render;
-import draconic.imgui; // ImguiSubsystem (HUD)
-import draconic.geometry;
-import draconic.materials;
+import foundation.core;
+import foundation.rhi; // PresentMode (run the benchmark vsync-off)
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.shell;
+import foundation.runtime.desktop;
+import foundation.shell.desktop;
+import foundation.graphics;
+import foundation.graphics.gpu;
+import engine.defaultapp;
+import foundation.scene;
+import engine.scene;
+import engine.render;
+import extensions.imgui; // ImguiSubsystem (HUD)
+import foundation.geometry;
+import foundation.materials;
 
 #include "../Common/FlyCamera.h" // shared free-fly camera (uses the imported runtime/core types)
 

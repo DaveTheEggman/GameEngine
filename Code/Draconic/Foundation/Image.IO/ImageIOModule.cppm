@@ -13,10 +13,10 @@ module;
 #include "stb_image.h"
 #include "stb_image_write.h"
 
-export module draconic.image.io;
+export module foundation.image.io;
 
-import draconic.core;
-import draconic.image;
+import foundation.core;
+import foundation.image;
 
 using namespace foundation::core;
 

@@ -1,4 +1,4 @@
-// Draconic Scene - draconic.scene:scene implementation unit.
+// Draconic Scene - foundation.scene:scene implementation unit.
 //
 // Out-of-line definitions for Scene's non-trivial member functions (sec 3.2 / sec 10.6).
 // The class declaration + trivial inline accessors stay in Scene.cppm; the substantial
@@ -8,9 +8,9 @@ module;
 #include "Core/Prelude.h"
 #include <type_traits>
 
-module draconic.scene;
+module foundation.scene;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

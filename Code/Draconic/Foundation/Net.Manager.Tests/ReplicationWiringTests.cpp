@@ -1,14 +1,14 @@
-// draconic.net.manager - StateReplication driven end-to-end through NetworkManager over the sim
+// foundation.net.manager - StateReplication driven end-to-end through NetworkManager over the sim
 // transport: a server-assigned networked entity's replicated state reaches a connected client's scene.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.net;
-import draconic.net.replication;
-import draconic.net.manager;
-import draconic.scene;
+import foundation.core;
+import foundation.net;
+import foundation.net.replication;
+import foundation.net.manager;
+import foundation.scene;
 
 using namespace foundation::core;
 namespace net = foundation::net;

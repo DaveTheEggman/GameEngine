@@ -18,13 +18,13 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.editor.scene;
+module editor.scene;
 
-import draconic.core;
-import draconic.resource;
-import draconic.scene;
-import draconic.scene.resource; // ResolveSceneResources (pasted/restored refs bind immediately)
-import draconic.editor.core;
+import foundation.core;
+import foundation.resource;
+import foundation.scene;
+import foundation.scene.resource; // ResolveSceneResources (pasted/restored refs bind immediately)
+import editor.core;
 
 using namespace foundation::core;
 namespace scene = foundation::scene;

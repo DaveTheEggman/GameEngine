@@ -18,12 +18,12 @@ module;
 #include "Core/Debug/Assert.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:code_edit_view;
+export module foundation.ui.toolkit:code_edit_view;
 
-import draconic.core;
-import draconic.vg;
-import draconic.fonts;
-import draconic.ui;
+import foundation.core;
+import foundation.vg;
+import foundation.fonts;
+import foundation.ui;
 import :code_document;
 import :code_lexer;
 

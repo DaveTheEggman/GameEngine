@@ -1,9 +1,9 @@
-// draconic.net:socket - the TCP stream backend over localhost (integration: uses the OS TCP stack).
+// foundation.net:socket - the TCP stream backend over localhost (integration: uses the OS TCP stack).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.net;
+import foundation.core;
+import foundation.net;
 
 using namespace foundation::core;
 namespace net = foundation::net;

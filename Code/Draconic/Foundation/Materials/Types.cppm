@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.materials:types;
+export module foundation.materials:types;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

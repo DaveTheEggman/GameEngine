@@ -8,9 +8,9 @@ module;
 #include <string>
 #include <vector>
 
-export module draconic.model:model_bone;
+export module foundation.model:model_bone;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

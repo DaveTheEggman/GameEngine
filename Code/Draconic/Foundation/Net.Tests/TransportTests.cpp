@@ -1,10 +1,10 @@
-// draconic.net:transport - the loopback/sim transport (deterministic latency/loss/reorder/dup).
+// foundation.net:transport - the loopback/sim transport (deterministic latency/loss/reorder/dup).
 #include <doctest/doctest.h>
 #include <initializer_list>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.net;
+import foundation.core;
+import foundation.net;
 
 using namespace foundation::core;
 namespace net = foundation::net;

@@ -1,7 +1,7 @@
 /// Validation layer module surface.
 /// Provides CreateValidatedBackend() as the entry point.
 
-export module draconic.rhi.validation;
+export module foundation.rhi.validation;
 
 export import :validated_backend;
 export import :validated_adapter;

@@ -1,6 +1,6 @@
-// draconic.engine.ui - the Ui.* script facade PROVEN end-to-end on both backends.
+// engine.ui - the Ui.* script facade PROVEN end-to-end on both backends.
 //
-// The Ui facade is owned by the UISubsystem (the out-of-tree pattern draconic.net's Net facade
+// The Ui facade is owned by the UISubsystem (the out-of-tree pattern foundation.net's Net facade
 // uses), NOT the neutral Foundation facade lib. This drives a real Wren / AngelScript VM: a fake
 // UiScriptBinding (standing in for the live UISubsystem screen tier) is installed as the context's
 // ui.runtime service, then a script pushes an overlay, drives its controls by id, binds a click
@@ -8,11 +8,11 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.engine.ui; // Ui / UiScriptBinding / InstallUiScriptService / RegisterUiScriptFacade
-import draconic.script;
-import draconic.script.wren;
-import draconic.script.angelscript;
+import foundation.core;
+import engine.ui; // Ui / UiScriptBinding / InstallUiScriptService / RegisterUiScriptFacade
+import foundation.script;
+import foundation.script.wren;
+import foundation.script.angelscript;
 
 using namespace foundation::core;
 using namespace foundation::script;

@@ -11,25 +11,25 @@
 #include "imgui.h"
 #include <cmath>
 
-import draconic.core;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.engine.defaultapp;
-import draconic.shell;
-import draconic.runtime.desktop;
-import draconic.shell.desktop;
-import draconic.graphics;
-import draconic.graphics.gpu;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.engine.render;
-import draconic.imgui;
-import draconic.physics;
-import draconic.physics.resource;
-import draconic.engine.physics;
-import draconic.ui;
-import draconic.ui.resource;
-import draconic.engine.ui;
+import foundation.core;
+import foundation.runtime;
+import foundation.runtime.client;
+import engine.defaultapp;
+import foundation.shell;
+import foundation.runtime.desktop;
+import foundation.shell.desktop;
+import foundation.graphics;
+import foundation.graphics.gpu;
+import foundation.scene;
+import engine.scene;
+import engine.render;
+import extensions.imgui;
+import foundation.physics;
+import foundation.physics.resource;
+import engine.physics;
+import foundation.ui;
+import foundation.ui.resource;
+import engine.ui;
 
 #include "../Common/FlyCamera.h" // after the imports: uses foundation::core/runtime types
 

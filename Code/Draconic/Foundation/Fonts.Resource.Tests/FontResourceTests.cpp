@@ -6,13 +6,13 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.fonts;
-import draconic.fonts.resource;
-import draconic.image;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.fonts;
+import foundation.fonts.resource;
+import foundation.image;
 
 using namespace foundation::core;
 using namespace foundation::vfs;

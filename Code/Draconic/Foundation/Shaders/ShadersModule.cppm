@@ -1,4 +1,4 @@
-export module draconic.shaders;
+export module foundation.shaders;
 
 export import :types;
 export import :flags;

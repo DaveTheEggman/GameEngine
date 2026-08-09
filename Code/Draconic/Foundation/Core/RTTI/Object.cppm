@@ -6,7 +6,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:object;
+export module foundation.core:object;
 
 import :base;
 import :ref_counted;

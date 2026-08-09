@@ -18,9 +18,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vfs:source_path;
+export module foundation.vfs:source_path;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

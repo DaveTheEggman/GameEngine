@@ -16,11 +16,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shaders.system:file_provider;
+export module foundation.shaders.system:file_provider;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.shaders;
+import foundation.core;
+import foundation.vfs;
+import foundation.shaders;
 import :shader_system;
 
 namespace core = foundation::core;

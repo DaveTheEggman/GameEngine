@@ -1,4 +1,4 @@
-// Draconic::EditorScript - the `draconic.editor.script` module.
+// Draconic::EditorScript - the `editor.script` module.
 //
 // ScriptEditorPage implementation: Save (write source + recook + notify), the debounced
 // compile-check, and the error surface - status line, error list, and CodeEditView Error
@@ -8,17 +8,17 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-module draconic.editor.script;
+module editor.script;
 
-import draconic.core;
-import draconic.content;
-import draconic.runtime.client;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.script;
-import draconic.script.pipeline;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.runtime.client;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.script;
+import script.pipeline;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 namespace content = foundation::content;

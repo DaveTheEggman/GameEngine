@@ -3,8 +3,8 @@
 // item/submenu structure only (no popup, no font).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::ui;
 using namespace foundation::core;

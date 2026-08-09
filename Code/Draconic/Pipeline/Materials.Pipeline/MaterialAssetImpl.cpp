@@ -11,11 +11,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.materials.pipeline;
+module materials.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.materials.resource; // MaterialSource (the nested reflected type)
+import foundation.core;
+import pipeline.core;
+import foundation.materials.resource; // MaterialSource (the nested reflected type)
 
 using namespace foundation::core;
 using namespace foundation::materials;

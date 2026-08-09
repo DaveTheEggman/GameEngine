@@ -10,11 +10,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:dock_split;
+export module foundation.ui.toolkit:dock_split;
 
-import draconic.core;
-import draconic.vg;
-import draconic.ui;
+import foundation.core;
+import foundation.vg;
+import foundation.ui;
 
 using namespace foundation::core;
 

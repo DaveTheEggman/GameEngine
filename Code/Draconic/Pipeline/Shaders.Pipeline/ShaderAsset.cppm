@@ -1,4 +1,4 @@
-// Draconic::ShaderEditor - the `draconic.shaders.editor` module (tooling).
+// Draconic::ShaderEditor - the `foundation.shaders.editor` module (tooling).
 //
 // Source-side shader authoring + cook:
 //   * ShaderAsset (pipeline::Asset): a shader name + the two HLSL source files
@@ -15,13 +15,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.shaders.pipeline;
+export module shaders.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.vfs;
-import draconic.shaders.resource;
-import draconic.content;
+import foundation.core;
+import pipeline.core;
+import foundation.vfs;
+import foundation.shaders.resource;
+import foundation.content;
 
 using namespace foundation::core;
 using namespace foundation::shaders;

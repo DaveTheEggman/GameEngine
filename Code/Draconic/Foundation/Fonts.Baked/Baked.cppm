@@ -1,4 +1,4 @@
-// Draconic::FontsBaked - the `draconic.fonts.baked` module.
+// Draconic::FontsBaked - the `foundation.fonts.baked` module.
 //
 // Pre-baked IFont / IFontAtlas implementations with no rasterizer dependency:
 // shipped games get every glyph + region from disk (resource deserialization)
@@ -8,10 +8,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.baked;
+export module foundation.fonts.baked;
 
-import draconic.core;
-import draconic.fonts;
+import foundation.core;
+import foundation.fonts;
 
 using namespace foundation::core;
 

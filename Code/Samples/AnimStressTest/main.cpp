@@ -5,37 +5,37 @@
 
 #include "Core/Prelude.h"
 #include "Profiler/Profiler.h" // DRACONIC_PROFILE_SCOPE (isolate animation-drive cost)
-#include "imgui.h"             // Dear ImGui (HUD) - used directly; integration is draconic.imgui
+#include "imgui.h"             // Dear ImGui (HUD) - used directly; integration is extensions.imgui
 
-import draconic.core;
-import draconic.profiler;
-import draconic.rhi; // offscreen render target (Texture / ResourceState / Blit)
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.shell;
-import draconic.runtime.desktop;
-import draconic.shell.desktop;
-import draconic.graphics;
-import draconic.graphics.gpu;
-import draconic.engine.defaultapp; // DefaultApplication (scene + render subsystems)
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.engine.render; // MeshComponent / CameraComponent + their managers
-import draconic.render;           // ViewCamera / ViewportRect (split-screen overrides)
-import draconic.imgui;            // ImguiSubsystem (HUD)
-import draconic.geometry;
-import draconic.geometry.resource; // StaticMeshFactory + StaticMesh product
-import draconic.materials;
-import draconic.materials.resource;  // MaterialFactory (cooked materials)
-import draconic.texture.resource;    // TextureFactory (cooked textures)
-import draconic.animation.resource;  // Skeleton/AnimationClip factories
-import draconic.vfs;                 // NativeFileSystem mount for the content DB
-import draconic.content;             // ContentDatabase (cooked-resource output)
-import draconic.resource;            // ResourceManager + Proxy
-import draconic.model;               // ModelLoadResult
-import draconic.modelimporter;       // LoadAndCook + ImportedModel manifest
-import draconic.animation;           // AnimationClip / Skeleton
-import draconic.engine.animation; // SkeletalAnimationComponent(Manager) - engine-driven skinning
+import foundation.core;
+import foundation.profiler;
+import foundation.rhi; // offscreen render target (Texture / ResourceState / Blit)
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.shell;
+import foundation.runtime.desktop;
+import foundation.shell.desktop;
+import foundation.graphics;
+import foundation.graphics.gpu;
+import engine.defaultapp; // DefaultApplication (scene + render subsystems)
+import foundation.scene;
+import engine.scene;
+import engine.render; // MeshComponent / CameraComponent + their managers
+import foundation.render;           // ViewCamera / ViewportRect (split-screen overrides)
+import extensions.imgui;            // ImguiSubsystem (HUD)
+import foundation.geometry;
+import foundation.geometry.resource; // StaticMeshFactory + StaticMesh product
+import foundation.materials;
+import foundation.materials.resource;  // MaterialFactory (cooked materials)
+import foundation.texture.resource;    // TextureFactory (cooked textures)
+import foundation.animation.resource;  // Skeleton/AnimationClip factories
+import foundation.vfs;                 // NativeFileSystem mount for the content DB
+import foundation.content;             // ContentDatabase (cooked-resource output)
+import foundation.resource;            // ResourceManager + Proxy
+import foundation.model;               // ModelLoadResult
+import modelimporter;       // LoadAndCook + ImportedModel manifest
+import foundation.animation;           // AnimationClip / Skeleton
+import engine.animation; // SkeletalAnimationComponent(Manager) - engine-driven skinning
 
 #include "../Common/FlyCamera.h" // shared free-fly camera (uses the imported runtime/core types)
 

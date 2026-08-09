@@ -8,10 +8,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:image_drawable;
+export module foundation.ui:image_drawable;
 
-import draconic.core;  // Color, Rectangle, Float2, Optional
-import draconic.image; // ImageData
+import foundation.core;  // Color, Rectangle, Float2, Optional
+import foundation.image; // ImageData
 import :drawable;
 import :draw_context;
 

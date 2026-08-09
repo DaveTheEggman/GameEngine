@@ -1,7 +1,7 @@
 /// Draconic::RenderSubsystem - the `:components` partition.
 ///
 /// The render-facing scene components + their managers - the scene-coupled side of the
-/// renderer (draconic.render itself stays scene-agnostic). A MeshComponent references a
+/// renderer (foundation.render itself stays scene-agnostic). A MeshComponent references a
 /// mesh + material to draw at its entity's transform; a CameraComponent describes a
 /// view frustum (its view comes from the entity's world transform). The RenderSubsystem
 /// injects these managers into each scene (via ISceneAware); extraction (:extract) reads
@@ -10,17 +10,17 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.render:components;
+export module engine.render:components;
 
-import draconic.core;
-import draconic.resource;
-import draconic.scene;
-import draconic.geometry;
-import draconic.materials;
-import draconic.rhi; // rhi::TextureView (a SpriteComponent references a texture to draw)
-import draconic.texture.resource; // texture::Texture (cooked product behind sprite/decal texture refs)
-import draconic.render; // SkySnapshot/SkyMode (snapshot layer; render.subsystem depends on render)
-import draconic.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneRender handle)
+import foundation.core;
+import foundation.resource;
+import foundation.scene;
+import foundation.geometry;
+import foundation.materials;
+import foundation.rhi; // rhi::TextureView (a SpriteComponent references a texture to draw)
+import foundation.texture.resource; // texture::Texture (cooked product behind sprite/decal texture refs)
+import foundation.render; // SkySnapshot/SkyMode (snapshot layer; render.subsystem depends on render)
+import foundation.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneRender handle)
 
 using namespace foundation::core;
 using namespace foundation;
@@ -111,7 +111,7 @@ export namespace engine::render
         bool visible = true;
 
         // GPU-skinned crowds: a shared POSE POOL of `poseCount` skinning palettes (each `boneCount` matrices),
-        // set per frame by the InstancedSkinningComponent companion (draconic.engine.animation). When posePool is
+        // set per frame by the InstancedSkinningComponent companion (engine.animation). When posePool is
         // non-null the set draws SKINNED, and instance i uses pose (i % poseCount) - so N animated instances
         // cost only M = poseCount palette computes, not N. Borrowed (valid for the frame it's set); null => the
         // set draws static. The mesh must be a skinned mesh (has a skin stream). See docs/design/instanced-mesh.md SS7.
@@ -482,7 +482,7 @@ export namespace engine::render
         }
     };
 
-    // SkyMode is defined in the snapshot layer (draconic.render :data) and reused here.
+    // SkyMode is defined in the snapshot layer (foundation.render :data) and reused here.
 
     // The scene's environment - ONE per scene (not a component). Drives both the IBL ambient and the
     // (upcoming) visible sky. A plain SceneSystem injected by the RenderSubsystem; extraction reads it

@@ -15,9 +15,9 @@ module;
 #include "Core/Prelude.h"
 #include <type_traits>
 
-export module draconic.scene:scene;
+export module foundation.scene:scene;
 
-import draconic.core;
+import foundation.core;
 import :entity;
 import :phase;
 import :system;

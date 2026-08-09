@@ -2,8 +2,8 @@
 // rules from the padding-inset content box, and re-laid-out on size/child changes.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.gui;
+import foundation.core;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

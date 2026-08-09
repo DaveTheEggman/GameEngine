@@ -11,10 +11,10 @@
 #include "Core/Prelude.h" // <new> reachability for reflection containers (GCC)
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.script;
-import draconic.script.angelscript;
-import draconic.script.wren;
+import foundation.core;
+import foundation.script;
+import foundation.script.angelscript;
+import foundation.script.wren;
 
 using namespace foundation::core;
 using namespace foundation::script;

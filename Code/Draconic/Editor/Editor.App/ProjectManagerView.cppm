@@ -23,15 +23,15 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.app:project_manager_view;
+export module editor.app:project_manager_view;
 
-import draconic.core;
-import draconic.settings;
-import draconic.shell;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.engine.project;
-import draconic.editor.core;
+import foundation.core;
+import foundation.settings;
+import foundation.shell;
+import foundation.ui;
+import foundation.ui.toolkit;
+import engine.project;
+import editor.core;
 
 using namespace foundation::core;
 using namespace foundation;

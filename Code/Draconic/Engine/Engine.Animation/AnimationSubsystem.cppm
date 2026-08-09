@@ -10,12 +10,12 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.animation:subsystem;
+export module engine.animation:subsystem;
 
-import draconic.core;
-import draconic.runtime;         // Subsystem, Context
-import draconic.scene;           // Scene, ISceneAware
-import draconic.engine.scene; // SceneSubsystem (to register as scene-aware)
+import foundation.core;
+import foundation.runtime;         // Subsystem, Context
+import foundation.scene;           // Scene, ISceneAware
+import engine.scene; // SceneSubsystem (to register as scene-aware)
 import :components;
 
 export namespace engine::animation

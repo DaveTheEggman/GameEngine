@@ -15,10 +15,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.core:importer;
+export module editor.core:importer;
 
-import draconic.core;
-import draconic.content;
+import foundation.core;
+import foundation.content;
 import :project;
 
 using namespace foundation::core;

@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:idrop_target;
+export module foundation.ui:idrop_target;
 
-import draconic.core;
+import foundation.core;
 import :drag_drop_effects;
 
 using namespace foundation::core;

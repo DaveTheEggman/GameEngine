@@ -7,10 +7,10 @@ module;
 
 #include "DxIncludes.h"
 
-export module draconic.rhi.dx12:bind_group;
+export module foundation.rhi.dx12:bind_group;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :bind_group_layout;
 import :gpu_descriptor_heap;

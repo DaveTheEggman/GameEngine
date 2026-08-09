@@ -5,7 +5,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:type_registry;
+export module foundation.core:type_registry;
 
 import :base;
 import :type_info;

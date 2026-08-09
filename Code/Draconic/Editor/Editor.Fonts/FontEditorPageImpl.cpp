@@ -1,25 +1,25 @@
-// Draconic::EditorFonts - the `draconic.editor.fonts` module (implementation).
+// Draconic::EditorFonts - the `editor.fonts` module (implementation).
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-module draconic.editor.fonts;
+module editor.fonts;
 
-import draconic.core;
-import draconic.content;
-import draconic.vfs;
-import draconic.image;
-import draconic.fonts;
-import draconic.fonts.ttf;
-import draconic.fonts.io;
-import draconic.fonts.importer;
-import draconic.fonts.distancefield.baker;
-import draconic.fonts.pipeline;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.vfs;
+import foundation.image;
+import foundation.fonts;
+import foundation.fonts.ttf;
+import foundation.fonts.io;
+import foundation.fonts.importer;
+import foundation.fonts.distancefield.baker;
+import fonts.pipeline;
+import foundation.ui;
+import foundation.ui.toolkit;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 namespace fonts = foundation::fonts;

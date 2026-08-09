@@ -14,7 +14,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.core:iserializable;
+export module foundation.core:iserializable;
 
 import :base;
 import :type_info;

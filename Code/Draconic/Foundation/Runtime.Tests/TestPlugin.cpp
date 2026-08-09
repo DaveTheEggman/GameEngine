@@ -4,8 +4,8 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.runtime;
+import foundation.core;
+import foundation.runtime;
 
 using namespace foundation::core;
 using namespace foundation::runtime;

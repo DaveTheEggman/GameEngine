@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:gravity;
+export module foundation.ui:gravity;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

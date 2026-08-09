@@ -2,10 +2,10 @@
 // encodes the Wren quirks (nested block comments, """ raw strings).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui.toolkit;
-import draconic.editor.script.wren;
-import draconic.ui;
+import foundation.core;
+import foundation.ui.toolkit;
+import editor.script.wren;
+import foundation.ui;
 
 using namespace foundation::core;
 using namespace foundation::ui::toolkit;

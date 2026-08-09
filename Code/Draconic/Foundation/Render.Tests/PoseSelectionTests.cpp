@@ -6,8 +6,8 @@
 #include <initializer_list>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.render;
+import foundation.core;
+import foundation.render;
 
 using namespace foundation::core;
 using namespace foundation::render;

@@ -7,10 +7,10 @@ module;
 
 #include "DxIncludes.h"
 
-export module draconic.rhi.dx12:command_pool;
+export module foundation.rhi.dx12:command_pool;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :command_buffer;
 import :descriptor_staging;

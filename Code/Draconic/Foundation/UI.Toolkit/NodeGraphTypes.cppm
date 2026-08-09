@@ -13,9 +13,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui.toolkit:node_graph_types;
+export module foundation.ui.toolkit:node_graph_types;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 namespace core = foundation::core;

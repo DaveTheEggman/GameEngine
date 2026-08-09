@@ -6,14 +6,14 @@
 #include "Core/Prelude.h"
 #include "Runtime.Client/AppMain.h"
 
-import draconic.core;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.shell;
-import draconic.runtime.desktop;
-import draconic.shell.desktop;
-import draconic.graphics; // GraphicsDevice + FrameContext (DRACONIC_APP_MAIN sets up the device)
-import draconic.graphics.gpu; // CreateGraphicsDevice
+import foundation.core;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.shell;
+import foundation.runtime.desktop;
+import foundation.shell.desktop;
+import foundation.graphics; // GraphicsDevice + FrameContext (DRACONIC_APP_MAIN sets up the device)
+import foundation.graphics.gpu; // CreateGraphicsDevice
 
 namespace core = foundation::core;
 namespace runtime = foundation::runtime;

@@ -12,10 +12,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:iresource_provider;
+export module foundation.ui:iresource_provider;
 
-import draconic.core;  // StringView, String
-import draconic.image; // ImageData
+import foundation.core;  // StringView, String
+import foundation.image; // ImageData
 
 using namespace foundation::core;
 namespace image = foundation::image;

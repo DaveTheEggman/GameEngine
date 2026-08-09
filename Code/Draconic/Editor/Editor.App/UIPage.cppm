@@ -1,7 +1,7 @@
 // Draconic::EditorApp - :ui_page partition.
 //
 // UIEditorPage: the UI-side extension of the headless editor::EditorPage - a page that owns a
-// draconic.ui content view (docked as a closable center tab by EditorApplication) and receives
+// foundation.ui content view (docked as a closable center tab by EditorApplication) and receives
 // the app's frame hooks so it can drive per-page work (viewport binding, camera, offscreen
 // rendering). Every IEditorPageFactory registered into THIS app's context must produce
 // UIEditorPages (EditorApplication static_casts on open) - the headless EditorPage stays UI-free
@@ -10,13 +10,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.app:ui_page;
+export module editor.app:ui_page;
 
-import draconic.core;
-import draconic.graphics;
-import draconic.runtime.client;
-import draconic.ui;
-import draconic.editor.core;
+import foundation.core;
+import foundation.graphics;
+import foundation.runtime.client;
+import foundation.ui;
+import editor.core;
 
 using namespace foundation::core;
 

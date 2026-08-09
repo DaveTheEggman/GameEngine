@@ -11,9 +11,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:rect;
+export module experimental.gui:rect;
 
-import draconic.core; // Float2, Rectangle
+import foundation.core; // Float2, Rectangle
 
 using namespace foundation::core;
 namespace core = foundation::core;

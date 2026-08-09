@@ -4,17 +4,17 @@
 /// per stage (its HLSL source); GetVariant(name, stage, flags) compiles the
 /// permutation (flags -> #defines) via DXC, creates the GPU ShaderModule, and
 /// caches it by (nameHash, stage, flags). This is the layer above the stateless
-/// draconic.shaders Compiler that the material/PSO layers build on. Needs the RHI
-/// to create modules, so it's separate from the RHI-free draconic.shaders.
+/// foundation.shaders Compiler that the material/PSO layers build on. Needs the RHI
+/// to create modules, so it's separate from the RHI-free foundation.shaders.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shaders.system:shader_system;
+export module foundation.shaders.system:shader_system;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
 namespace shaders = foundation::shaders;
 
 namespace core = foundation::core;
@@ -47,7 +47,7 @@ export namespace foundation::shaders
 
     // Map a device's expected shader format (rhi::ShaderFormat) to the cooked-pack blob format.
     // The two enums are parallel but distinct: rhi is RHI-layer, CookedShaderFormat is pack-layer
-    // (draconic.shaders is RHI-free). Pure so the mapping is unit-testable without a live device.
+    // (foundation.shaders is RHI-free). Pure so the mapping is unit-testable without a live device.
     [[nodiscard]] inline CookedShaderFormat SelectCookedFormat(rhi::ShaderFormat format) noexcept
     {
         switch (format)

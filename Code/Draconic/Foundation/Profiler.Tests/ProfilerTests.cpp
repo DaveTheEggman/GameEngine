@@ -2,8 +2,8 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.profiler;
+import foundation.core;
+import foundation.profiler;
 
 using namespace foundation::core;
 using namespace foundation::profiler;

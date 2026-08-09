@@ -7,9 +7,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:radio_group;
+export module foundation.ui:radio_group;
 
-import draconic.core;
+import foundation.core;
 import :view;
 import :flex_layout;
 import :event;

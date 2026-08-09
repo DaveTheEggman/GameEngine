@@ -1,4 +1,4 @@
-// draconic.engine.particles:components - the ECS bridge between draconic.particles (the CPU
+// engine.particles:components - the ECS bridge between foundation.particles (the CPU
 // sim) and the renderer. Ported in spirit from Sedulous's ParticleComponent(Manager).
 //
 //   ParticleEffectComponent        - attaches a ParticleEffect to an entity; owns its runtime instance.
@@ -13,21 +13,21 @@ module;
 #include "Profiler/Profiler.h" // DRACONIC_PROFILE_SCOPE (compiles to nothing when disabled)
 #include <algorithm>           // std::sort (per-particle back-to-front ordering)
 
-export module draconic.engine.particles:components;
+export module engine.particles:components;
 
-import draconic.core;
-import draconic.profiler;
-import draconic.rhi;                // TextureView (billboard texture)
-import draconic.scene;              // Scene, ComponentManager, EntityHandle, ScenePhase
-import draconic.render;             // ExtractedScene, RenderCategories, MultiMeshRenderData
-import draconic.geometry;           // StaticMesh (mesh-mode particles)
-import draconic.materials;          // Material (mesh-mode particles)
-import draconic.particles;          // ParticleEffect / ParticleEffectInstance / ParticleSystem
-import draconic.resource;           // Proxy (cooked-resource handle)
-import draconic.particles.resource; // ParticleEffectResource + CloneEffect (cooked-effect path)
-import draconic.texture;            // Texture::View() for resolved per-system textures
-import draconic.texture.resource;
-import draconic.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneParticles handle)
+import foundation.core;
+import foundation.profiler;
+import foundation.rhi;                // TextureView (billboard texture)
+import foundation.scene;              // Scene, ComponentManager, EntityHandle, ScenePhase
+import foundation.render;             // ExtractedScene, RenderCategories, MultiMeshRenderData
+import foundation.geometry;           // StaticMesh (mesh-mode particles)
+import foundation.materials;          // Material (mesh-mode particles)
+import foundation.particles;          // ParticleEffect / ParticleEffectInstance / ParticleSystem
+import foundation.resource;           // Proxy (cooked-resource handle)
+import foundation.particles.resource; // ParticleEffectResource + CloneEffect (cooked-effect path)
+import foundation.texture;            // Texture::View() for resolved per-system textures
+import foundation.texture.resource;
+import foundation.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneParticles handle)
 import :renderdata;
 
 using namespace foundation::core;

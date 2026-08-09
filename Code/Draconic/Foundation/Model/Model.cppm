@@ -8,9 +8,9 @@ module;
 #include <string>
 #include <vector>
 
-export module draconic.model:model;
+export module foundation.model:model;
 
-import draconic.core;
+import foundation.core;
 import :vertex_format;
 import :mesh_part;
 import :model_texture;

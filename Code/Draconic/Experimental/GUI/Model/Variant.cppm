@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:variant;
+export module experimental.gui:variant;
 
-import draconic.core; // String, StringView, Color, i64, f64
+import foundation.core; // String, StringView, Color, i64, f64
 
 using namespace foundation::core;
 namespace core = foundation::core;

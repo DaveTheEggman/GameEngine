@@ -1,4 +1,4 @@
-// Draconic::Editor.Script.Wren - the `draconic.editor.script.wren` module.
+// Draconic::Editor.Script.Wren - the `editor.script.wren` module.
 //
 // The Wren syntax tables + lexer registration. Wren quirks encoded in the spec: block
 // comments NEST, and """ delimits raw (multi-line) strings; no preprocessor, no char
@@ -7,10 +7,10 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.editor.script.wren;
+module editor.script.wren;
 
-import draconic.core;
-import draconic.ui.toolkit;
+import foundation.core;
+import foundation.ui.toolkit;
 
 using namespace foundation::core;
 

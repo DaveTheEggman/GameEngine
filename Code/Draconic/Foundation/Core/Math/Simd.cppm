@@ -18,7 +18,7 @@ module;
 #pragma clang diagnostic ignored "-WTU-local-entity-exposure"
 #endif
 
-export module draconic.core:simd;
+export module foundation.core:simd;
 
 import :base;
 

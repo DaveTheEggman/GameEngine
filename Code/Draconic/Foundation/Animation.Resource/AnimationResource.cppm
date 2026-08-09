@@ -1,20 +1,20 @@
-/// Draconic::AnimationResource - the `draconic.animation.resource` module.
+/// Draconic::AnimationResource - the `foundation.animation.resource` module.
 ///
 /// Skeletons + animation clips as resources: a cooked SkeletonSource / AnimationClipSource
 /// (ISerializable - flat parallel arrays) is built by a factory into the runtime
-/// animation::Skeleton / animation::AnimationClip. Mirrors draconic.geometry.resource
+/// animation::Skeleton / animation::AnimationClip. Mirrors foundation.geometry.resource
 /// (Source -> Factory -> Product). The graph resource (composite, references clips) lands later.
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.animation.resource;
+export module foundation.animation.resource;
 
-import draconic.core;
-import draconic.resource;
-import draconic.content;
-import draconic.animation;
+import foundation.core;
+import foundation.resource;
+import foundation.content;
+import foundation.animation;
 
 using namespace foundation::core;
 namespace resource = foundation::resource;

@@ -8,9 +8,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:dock_layout;
+export module foundation.ui:dock_layout;
 
-import draconic.core; // Max
+import foundation.core; // Max
 import :view;
 import :layout_params;
 import :box_constraints;

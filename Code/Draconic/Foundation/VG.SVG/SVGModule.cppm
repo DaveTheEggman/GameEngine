@@ -1,7 +1,7 @@
 /// Primary module for the SVG library. Re-exports all partitions.
 /// Ported from Sedulous.VG.SVG.
 
-export module draconic.vg.svg;
+export module foundation.vg.svg;
 
 export import :types;
 export import :parsers;

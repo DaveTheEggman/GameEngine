@@ -25,29 +25,29 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.scene:particle_effect_page;
+export module editor.scene:particle_effect_page;
 
-import draconic.core;
-import draconic.content;
-import draconic.rhi;
-import draconic.graphics;
-import draconic.shell;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.particles;
-import draconic.particles.pipeline;
-import draconic.engine.particles;
-import draconic.render;
-import draconic.engine.render;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.ui.runtime;
-import draconic.ui.viewport;
-import draconic.vg.renderer;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.rhi;
+import foundation.graphics;
+import foundation.shell;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.scene;
+import engine.scene;
+import foundation.particles;
+import particles.pipeline;
+import engine.particles;
+import foundation.render;
+import engine.render;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.ui.runtime;
+import foundation.ui.viewport;
+import foundation.vg.renderer;
+import editor.core;
+import editor.app;
 import :camera;
 
 using namespace foundation::core;

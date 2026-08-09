@@ -8,13 +8,13 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.image;
-import draconic.texture;
-import draconic.texture.pipeline;
-import draconic.editor.core;
-import draconic.editor.texture;
+import foundation.core;
+import foundation.vfs;
+import foundation.image;
+import foundation.texture;
+import texture.pipeline;
+import editor.core;
+import editor.texture;
 
 using namespace foundation::core;
 namespace texture = foundation::texture;

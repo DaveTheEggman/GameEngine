@@ -2,7 +2,7 @@
 // (shaders.dpak). This is the standalone shader half of what the exporter does: enumerate a shader
 // directory (Data/Shaders), compile every stage x variant to the requested backend blobs, and write
 // the pack. It needs DXC (SPIR-V/DXIL) and, for WGSL, the vendored naga + tint (baked paths in
-// draconic.shaders), so it is a desktop authoring tool - the WGSL pack it produces is what the WEB
+// foundation.shaders), so it is a desktop authoring tool - the WGSL pack it produces is what the WEB
 // build ships and loads at runtime (no compiler in the browser).
 //
 //   Draconic.Tools.ShaderPack <shaderDir> <output.dpak> [wgsl] [spirv] [dxil]
@@ -13,8 +13,8 @@
 
 #include <cstdio>
 
-import draconic.core;
-import draconic.shaders;
+import foundation.core;
+import foundation.shaders;
 
 using namespace foundation::core;
 namespace shaders = foundation::shaders;

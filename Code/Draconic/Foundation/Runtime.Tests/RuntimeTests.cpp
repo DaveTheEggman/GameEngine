@@ -2,11 +2,11 @@
 
 #include "Core/Prelude.h" // <new> reachability for container instantiation (GCC)
 
-import draconic.core;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.shell;
-import draconic.graphics;
+import foundation.core;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.shell;
+import foundation.graphics;
 
 using namespace foundation::core;
 using namespace foundation::runtime;

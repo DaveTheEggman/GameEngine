@@ -13,26 +13,26 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.modelimporter:cook;
+export module modelimporter:cook;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.model;
-import draconic.geometry;
-import draconic.geometry.resource;
-import draconic.geometry.pipeline;
-import draconic.materials;
-import draconic.materials.resource;
-import draconic.materials.pipeline;
-import draconic.texture.resource;
-import draconic.animation;
-import draconic.animation.resource;
-import draconic.animation.pipeline;
-import draconic.content;
-import draconic.pipeline.core;
+import foundation.core;
+import foundation.rhi;
+import foundation.model;
+import foundation.geometry;
+import foundation.geometry.resource;
+import geometry.pipeline;
+import foundation.materials;
+import foundation.materials.resource;
+import materials.pipeline;
+import foundation.texture.resource;
+import foundation.animation;
+import foundation.animation.resource;
+import animation.pipeline;
+import foundation.content;
+import pipeline.core;
 import :mesh_convert;
 import :anim_convert;
-import draconic.model.resource;
+import foundation.model.resource;
 
 using namespace foundation::core;
 namespace core = foundation::core;
@@ -46,7 +46,7 @@ namespace content = foundation::content;
 
 export namespace pipeline
 {
-    // The cooked-model runtime types now live in foundation::model (draconic.model.resource).
+    // The cooked-model runtime types now live in foundation::model (foundation.model.resource).
     using foundation::model::ModelManifestSource;
     using foundation::model::ModelNode;
     using foundation::model::ModelResource;

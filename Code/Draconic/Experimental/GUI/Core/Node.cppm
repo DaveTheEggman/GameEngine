@@ -10,9 +10,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:node;
+export module experimental.gui:node;
 
-import draconic.core; // Object, RefPtr, Array, Move, Float2
+import foundation.core; // Object, RefPtr, Array, Move, Float2
 import :rect;
 import :transform2d;
 import :transformable;

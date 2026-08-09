@@ -20,13 +20,13 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.core:project;
+export module editor.core:project;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.xml.serialization;
-import draconic.engine.project;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.xml.serialization;
+import engine.project;
 import :export_roots; // the project owns its "Always Export" set (export_roots.xml)
 
 using namespace foundation::core;
@@ -35,7 +35,7 @@ namespace vfs = foundation::vfs;
 
 export namespace editor
 {
-    // The manifest payload + directory layout live in draconic.engine.project (runtime-side,
+    // The manifest payload + directory layout live in engine.project (runtime-side,
     // editor-free - the player/dist builds read the same manifest without editor code).
     using engine::project::kCookedAssetExtension;
     using engine::project::kEngineVersionString;

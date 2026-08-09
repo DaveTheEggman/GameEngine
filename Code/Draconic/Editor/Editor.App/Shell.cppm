@@ -12,13 +12,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.app:shell;
+export module editor.app:shell;
 
-import draconic.core;
-import draconic.ui;
-import draconic.settings;
-import draconic.ui.toolkit;
-import draconic.editor.core;
+import foundation.core;
+import foundation.ui;
+import foundation.settings;
+import foundation.ui.toolkit;
+import editor.core;
 import :layout;
 import :log_view;
 

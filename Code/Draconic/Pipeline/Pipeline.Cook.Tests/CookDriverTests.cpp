@@ -8,11 +8,11 @@
 #include "Core/Reflection/Reflect.h"
 #include <initializer_list>
 
-import draconic.core;
-import draconic.content;
-import draconic.vfs;
-import draconic.pipeline.core;
-import draconic.pipeline.cook;
+import foundation.core;
+import foundation.content;
+import foundation.vfs;
+import pipeline.core;
+import pipeline.cook;
 
 using namespace foundation::core;
     using namespace pipeline;

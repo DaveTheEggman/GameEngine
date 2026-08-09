@@ -2,18 +2,18 @@
 //
 // Kept OUT of the ImageAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). ImageAsset::StaticType() gains its colorSpace property here;
-// the ImageColorSpace enum reflection lives in draconic.image (RegisterImageReflection).
+// the ImageColorSpace enum reflection lives in foundation.image (RegisterImageReflection).
 // Reflection track P1.
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.image.pipeline;
+module image.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.image;
+import foundation.core;
+import pipeline.core;
+import foundation.image;
 
 using namespace foundation::core;
 using namespace foundation::image;

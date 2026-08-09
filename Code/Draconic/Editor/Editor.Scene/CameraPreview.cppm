@@ -8,12 +8,12 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.scene:camera_preview;
+export module editor.scene:camera_preview;
 
-import draconic.core;
-import draconic.scene;
-import draconic.render.api;    // ViewCamera / CameraOverride
-import draconic.engine.render; // CameraComponent
+import foundation.core;
+import foundation.scene;
+import foundation.render.api;    // ViewCamera / CameraOverride
+import engine.render; // CameraComponent
 
 using namespace foundation::core;
 

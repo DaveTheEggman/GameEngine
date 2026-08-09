@@ -1,4 +1,4 @@
-// Draconic::Resource - the `draconic.resource` module.
+// Draconic::Resource - the `foundation.resource` module.
 //
 // The resource manager: turns content-database *source* objects (ISerializable,
 // full editor fidelity) into runtime *products* (lean Objects) via factories,
@@ -14,10 +14,10 @@ module;
 #include "Core/Debug/Assert.h"
 #include "Core/Prelude.h"
 
-export module draconic.resource;
+export module foundation.resource;
 
-import draconic.core;
-import draconic.content;
+import foundation.core;
+import foundation.content;
 
 using namespace foundation::core;
 

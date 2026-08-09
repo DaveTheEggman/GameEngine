@@ -1,4 +1,4 @@
-/// Draconic::PipelineCache - the `draconic.materials.pipelinecache` module.
+/// Draconic::PipelineCache - the `foundation.materials.pipelinecache` module.
 ///
 /// The render-side PSO cache: the one piece of the shader/material stack that lives
 /// outside the resource system (the "lone exception" from the hot-reload design). It
@@ -16,13 +16,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.materials.pipelinecache;
+export module foundation.materials.pipelinecache;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
-import draconic.shaders.system;
-import draconic.materials;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
+import foundation.shaders.system;
+import foundation.materials;
 
 using namespace foundation::core;
 namespace shaders = foundation::shaders;

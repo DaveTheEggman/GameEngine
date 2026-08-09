@@ -2,7 +2,7 @@
 //
 // The document model (docs/design/editor.md §3.4): each open asset is an EditorPage - a dock
 // tab with its OWN command stack (Sedulous/Traktor per-page undo), dirty tracking, and Save.
-// This is the HEADLESS half: concrete pages live in UI-side modules (draconic.editor.app /
+// This is the HEADLESS half: concrete pages live in UI-side modules (editor.app /
 // draconic.<sys>.editor) and add their widget tree on top.
 //
 // Pages are created by IEditorPageFactory, dispatched by the instance's primary-object type
@@ -12,10 +12,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.core:page;
+export module editor.core:page;
 
-import draconic.core;
-import draconic.content;
+import foundation.core;
+import foundation.content;
 import :command;
 
 using namespace foundation::core;

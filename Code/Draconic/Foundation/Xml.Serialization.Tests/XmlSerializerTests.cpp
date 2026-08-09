@@ -2,9 +2,9 @@
 // Serialize() driver in both directions, plus a look at the emitted XML.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.xml;
-import draconic.xml.serialization;
+import foundation.core;
+import foundation.xml;
+import foundation.xml.serialization;
 using namespace foundation::core;
 using namespace foundation::xml;
 

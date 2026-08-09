@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:control_state;
+export module foundation.ui:control_state;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

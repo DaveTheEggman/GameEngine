@@ -4,10 +4,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rhi.validation:validated_adapter;
+export module foundation.rhi.validation:validated_adapter;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

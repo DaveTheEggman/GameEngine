@@ -6,7 +6,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:frame_allocator;
+export module foundation.core:frame_allocator;
 
 import :base;
 import :allocator;

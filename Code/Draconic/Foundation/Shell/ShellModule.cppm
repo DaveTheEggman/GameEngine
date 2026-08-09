@@ -1,4 +1,4 @@
-// Draconic::Shell - the `draconic.shell` module.
+// Draconic::Shell - the `foundation.shell` module.
 //
 // IShell is the raw OS/window service - the "shell" (Sedulous's term for it):
 // windowing, the OS event pump, run state, and raw input devices (keyboard,
@@ -12,14 +12,14 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shell;
+export module foundation.shell;
 
 export import :input_types;
 export import :input;
 export import :surface;
 export import :dialog;
 
-import draconic.core;
+import foundation.core;
 
 namespace core = foundation::core;
 

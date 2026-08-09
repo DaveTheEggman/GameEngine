@@ -9,9 +9,9 @@ module;
 #include "Core/Prelude.h"
 #include <cstdlib> // std::strtof
 
-export module draconic.ui:sss_tokenizer;
+export module foundation.ui:sss_tokenizer;
 
-import draconic.core; // StringView, Array
+import foundation.core; // StringView, Array
 import :sss_token;
 
 using namespace foundation::core;

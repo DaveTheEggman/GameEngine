@@ -11,30 +11,30 @@ module;
 #include <cstdio>
 #include <cstdlib>
 
-module draconic.engine.ui;
+module engine.ui;
 
-import draconic.core;
-import draconic.runtime;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.resource;
-import draconic.shell;
-import draconic.rhi;
-import draconic.fonts;
-import draconic.fonts.ttf;
-import draconic.fonts.resource;
-import draconic.input;
-import draconic.engine.input;
-import draconic.shaders;
-import draconic.shaders.system; // ShaderSystemHost (cooked-pack-or-dev shader resolution)
-import draconic.vg;
-import draconic.vg.renderer;
-import draconic.ui;
-import draconic.ui.resource;
-import draconic.render.api;
-import draconic.engine.render; // RenderSubsystem (overlay-role registration)
-import draconic.script;         // the Ui facade reflection body
-import draconic.script.facades; // RegisterExtraFacadeName (behavior-prelude hook)
+import foundation.core;
+import foundation.runtime;
+import foundation.scene;
+import engine.scene;
+import foundation.resource;
+import foundation.shell;
+import foundation.rhi;
+import foundation.fonts;
+import foundation.fonts.ttf;
+import foundation.fonts.resource;
+import foundation.input;
+import engine.input;
+import foundation.shaders;
+import foundation.shaders.system; // ShaderSystemHost (cooked-pack-or-dev shader resolution)
+import foundation.vg;
+import foundation.vg.renderer;
+import foundation.ui;
+import foundation.ui.resource;
+import foundation.render.api;
+import engine.render; // RenderSubsystem (overlay-role registration)
+import foundation.script;         // the Ui facade reflection body
+import foundation.script.facades; // RegisterExtraFacadeName (behavior-prelude hook)
 
 using namespace foundation::core;
 using namespace foundation::ui;

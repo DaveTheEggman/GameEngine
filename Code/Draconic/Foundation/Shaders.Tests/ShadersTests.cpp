@@ -3,8 +3,8 @@
 #include "Core/Prelude.h"
 #include <cstring>
 
-import draconic.core;
-import draconic.shaders;
+import foundation.core;
+import foundation.shaders;
 
 using namespace foundation::core;
 using namespace foundation::shaders;

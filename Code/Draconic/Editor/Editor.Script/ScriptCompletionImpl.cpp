@@ -1,4 +1,4 @@
-// Draconic::EditorScript - the `draconic.editor.script` module.
+// Draconic::EditorScript - the `editor.script` module.
 //
 // ScriptApiCompletionProvider implementation: serves candidates from the page's SHARED
 // ScriptApiSurface (the same data the API browser shows) - type/namespace names at top
@@ -7,12 +7,12 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.editor.script;
+module editor.script;
 
-import draconic.core;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.script;
+import foundation.core;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.script;
 
 using namespace foundation::core;
 

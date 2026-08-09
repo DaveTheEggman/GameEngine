@@ -1,4 +1,4 @@
-// Draconic::Editor.Script.Wren - the `draconic.editor.script.wren` module.
+// Draconic::Editor.Script.Wren - the `editor.script.wren` module.
 //
 // Wren-specific EDITOR-UI services: everything the in-editor experience needs that depends on
 // ui.toolkit and therefore cannot live in the cook target (Draconic::ScriptWrenEditor links
@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.script.wren;
+export module editor.script.wren;
 
-import draconic.core;
+import foundation.core;
 
 export namespace editor{
     /// Registers Wren's editor-UI services (the CodeEditView lexer). An editor entry point's

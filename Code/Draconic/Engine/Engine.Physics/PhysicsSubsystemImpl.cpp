@@ -9,18 +9,18 @@ module;
 #include "Core/Reflection/Reflect.h"
 #include <cmath>
 
-module draconic.engine.physics;
+module engine.physics;
 
-import draconic.core;
-import draconic.runtime;
-import draconic.scene;
-import draconic.resource;
-import draconic.physics;
-import draconic.physics.resource;
-import draconic.render;
-import draconic.engine.render;
-import draconic.materials;
-import draconic.script.facades; // RegisterExtraFacadeName (Physics into the behavior prelude)
+import foundation.core;
+import foundation.runtime;
+import foundation.scene;
+import foundation.resource;
+import foundation.physics;
+import foundation.physics.resource;
+import foundation.render;
+import engine.render;
+import foundation.materials;
+import foundation.script.facades; // RegisterExtraFacadeName (Physics into the behavior prelude)
 
 using namespace foundation::core;
 using namespace foundation::physics;

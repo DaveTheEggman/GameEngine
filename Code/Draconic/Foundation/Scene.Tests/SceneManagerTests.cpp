@@ -1,10 +1,10 @@
-// draconic.scene :manager - SceneManager owns a group of scenes, fans out ISceneAware via a shared
+// foundation.scene :manager - SceneManager owns a group of scenes, fans out ISceneAware via a shared
 // registry, and ticks its own group (the linchpin of the GameInstance model; game-instance.md §11).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.scene;
+import foundation.core;
+import foundation.scene;
 
 using namespace foundation::core;
 using namespace foundation::scene;

@@ -7,9 +7,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:flow_layout;
+export module foundation.ui:flow_layout;
 
-import draconic.core; // Max, kFloatMax
+import foundation.core; // Max, kFloatMax
 import :view;
 import :box_constraints;
 import :enums; // Orientation

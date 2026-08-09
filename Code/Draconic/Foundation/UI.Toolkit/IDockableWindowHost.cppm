@@ -11,10 +11,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui.toolkit:idockable_window_host;
+export module foundation.ui.toolkit:idockable_window_host;
 
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::core;
 

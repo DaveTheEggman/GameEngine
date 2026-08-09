@@ -2,8 +2,8 @@
 // transitioned opacity change through the ActionManager (CSS -> Action-system integration).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.gui;
+import foundation.core;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

@@ -5,11 +5,11 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.graphics;
-import draconic.graphics.null;
-import draconic.shell;
-import draconic.shell.null;
+import foundation.core;
+import foundation.graphics;
+import foundation.graphics.null;
+import foundation.shell;
+import foundation.shell.null;
 
 using namespace foundation::core;
 using namespace foundation::graphics; // GraphicsDevice etc. (moved from foundation::runtime)

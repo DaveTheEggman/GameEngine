@@ -12,11 +12,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.materials:pipeline;
+export module foundation.materials:pipeline;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
 import :types;
 
 using namespace foundation::core;
@@ -202,7 +202,7 @@ export namespace foundation::materials
             case VertexLayoutType::Mesh:
                 return 52;
             // A skinned mesh's buffer 0 IS the static stream (52B) - the skinning data
-            // is a SEPARATE buffer (see SkinningStream*), matching draconic.geometry's
+            // is a SEPARATE buffer (see SkinningStream*), matching foundation.geometry's
             // SkinnedMesh : StaticMesh layout. So a skinned draw binds two vertex buffers.
             case VertexLayoutType::SkinnedMesh:
                 return 52;
@@ -255,7 +255,7 @@ export namespace foundation::materials
         }
 
         // The skinning vertex buffer a skinned draw binds: joints (location 6) + weights (location 7),
-        // stride 24 - matches draconic.geometry::VertexSkinning. Skinned draws are ALWAYS instanced now, so
+        // stride 24 - matches foundation.geometry::VertexSkinning. Skinned draws are ALWAYS instanced now, so
         // the instance-stepped DataOffsets takes location 5 and DXC (which assigns input locations
         // sequentially by declaration order, dataOffsets declared before joints/weights) lands these at 6/7.
         [[nodiscard]] static u32 SkinningStreamStride() noexcept { return 24; }

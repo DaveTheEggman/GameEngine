@@ -1,10 +1,10 @@
 /// HLSL register binding shift configuration.
 /// Ported from Sedulous.RHI.Vulkan/VulkanDevice.bf (VulkanBindingShifts).
 
-export module draconic.rhi.vulkan:binding_shifts;
+export module foundation.rhi.vulkan:binding_shifts;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

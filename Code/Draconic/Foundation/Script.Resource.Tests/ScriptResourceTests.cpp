@@ -1,4 +1,4 @@
-// draconic.script.resource tests: the tagged property-value wire (every kind, symmetric
+// foundation.script.resource tests: the tagged property-value wire (every kind, symmetric
 // writer/reader), harvested-metadata round-trip through the cooked record, and the
 // ScriptClassFactory (cooked record -> runtime product; metadata parse only, no VM).
 
@@ -7,11 +7,11 @@
 #include "Core/Prelude.h"
 #include <initializer_list>
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.script.resource;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.script.resource;
 
 using namespace foundation::core;
 using namespace foundation::script;

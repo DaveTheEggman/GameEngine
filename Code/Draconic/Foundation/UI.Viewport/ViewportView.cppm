@@ -1,4 +1,4 @@
-// Draconic UI Viewport - `draconic.ui.viewport`
+// Draconic UI Viewport - `foundation.ui.viewport`
 //
 // ViewportView: a retained-mode ui::View that hosts 3D-rendered content. It owns an offscreen
 // color + depth render target, fires a render callback (OnRender) so the app draws 3D into those
@@ -24,15 +24,15 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.viewport;
+export module foundation.ui.viewport;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.image;
-import draconic.vg;
-import draconic.vg.renderer;
-import draconic.ui;
-import draconic.shell;
+import foundation.core;
+import foundation.rhi;
+import foundation.image;
+import foundation.vg;
+import foundation.vg.renderer;
+import foundation.ui;
+import foundation.shell;
 
 using namespace foundation::core;
 namespace shell = foundation::shell;

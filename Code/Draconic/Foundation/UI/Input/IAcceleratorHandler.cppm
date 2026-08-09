@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:iaccelerator_handler;
+export module foundation.ui:iaccelerator_handler;
 
-import draconic.core;
+import foundation.core;
 import :input_enums; // KeyCode, KeyModifiers
 
 using namespace foundation::core;

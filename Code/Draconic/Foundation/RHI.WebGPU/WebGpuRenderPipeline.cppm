@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:render_pipeline - RenderPipeline over WGPURenderPipeline.
+/// foundation.rhi.webgpu:render_pipeline - RenderPipeline over WGPURenderPipeline.
 ///
 /// One honest narrowing: FillMode::Wireframe has no WebGPU shape (polygon mode is
 /// not in the API) - NotSupported, callers keep their debug-wireframe toggles off
@@ -8,10 +8,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:render_pipeline;
+export module foundation.rhi.webgpu:render_pipeline;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 import :pipeline_layout;

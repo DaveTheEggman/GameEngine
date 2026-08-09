@@ -3,7 +3,7 @@
 #include "Core/Debug/Assert.h"
 #include "Core/Log/Log.h"
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

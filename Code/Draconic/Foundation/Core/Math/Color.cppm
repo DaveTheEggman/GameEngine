@@ -2,7 +2,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:color;
+export module foundation.core:color;
 
 import :base;
 import :math;

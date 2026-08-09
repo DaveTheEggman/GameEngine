@@ -4,8 +4,8 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-export module draconic.ui:spacer;
-import draconic.core;
+export module foundation.ui:spacer;
+import foundation.core;
 import :view;
 import :property;
 import :box_constraints;

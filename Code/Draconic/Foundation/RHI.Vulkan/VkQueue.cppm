@@ -6,10 +6,10 @@ module;
 
 #include "VkIncludes.h"
 
-export module draconic.rhi.vulkan:queue;
+export module foundation.rhi.vulkan:queue;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :command_buffer;
 import :fence;
 import :transfer_batch;

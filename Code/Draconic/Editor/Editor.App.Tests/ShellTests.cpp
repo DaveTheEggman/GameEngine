@@ -7,13 +7,13 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.xml.serialization;
-import draconic.settings;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.xml.serialization;
+import foundation.settings;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 using namespace editor;

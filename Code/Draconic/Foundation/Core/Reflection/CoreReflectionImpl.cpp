@@ -15,7 +15,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.core;
+module foundation.core;
 
 import :base;
 import :type_info;

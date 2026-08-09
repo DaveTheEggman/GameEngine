@@ -11,9 +11,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:icon_button;
+export module foundation.ui:icon_button;
 
-import draconic.core;
+import foundation.core;
 import :button_base;
 import :view;
 import :control_state;

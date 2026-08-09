@@ -5,7 +5,7 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

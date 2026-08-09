@@ -1,4 +1,4 @@
-// Draconic::ScriptFacades - the `draconic.script.facades` module.
+// Draconic::ScriptFacades - the `foundation.script.facades` module.
 //
 // The curated behavior facades (docs/design/scripting.md §3.5): the per-entity
 // `Entity` handle behaviors receive as their constructor argument, plus Log/Time/
@@ -18,12 +18,12 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.script.facades;
+export module foundation.script.facades;
 
-import draconic.core;
-import draconic.scene;
-import draconic.script;
-import draconic.resource; // ResourceManager - the run's resource-swap seam (Track A resource refs)
+import foundation.core;
+import foundation.scene;
+import foundation.script;
+import foundation.resource; // ResourceManager - the run's resource-swap seam (Track A resource refs)
 
 using namespace foundation::core;
 namespace core = foundation::core;
@@ -42,7 +42,7 @@ export namespace foundation::script
     /// the authored order. Kept in sync with RegisterScriptFacadeReflection below.
     [[nodiscard]] core::Span<const core::StringView> BehaviorFacadeNames();
 
-    /// Register an ADDITIONAL facade name from an out-of-tree module (e.g. draconic.net's `Net`),
+    /// Register an ADDITIONAL facade name from an out-of-tree module (e.g. foundation.net's `Net`),
     /// so the behavior prelude imports it too - without this base lib depending on that module.
     /// Idempotent; call alongside the module's own reflection registration. Names are borrowed as
     /// interned copies. See ExtraFacadeNames.
@@ -381,8 +381,8 @@ export namespace foundation::script
         return handle;
     }
 
-    // emit publishes straight onto the scene's native EventBus. Both draconic.script.facades and
-    // draconic.scene are Foundation, so no ScriptRuntimeBinding hook is needed (unlike spawn, which
+    // emit publishes straight onto the scene's native EventBus. Both foundation.script.facades and
+    // foundation.scene are Foundation, so no ScriptRuntimeBinding hook is needed (unlike spawn, which
     // reaches an Engine-owned content DB): the call is a direct, host-independent Publish. Delivery
     // to scripts is the engine's job (the script event bridge drains the bus and dispatches
     // on<Name>). A null/empty name or null scene is a safe no-op.

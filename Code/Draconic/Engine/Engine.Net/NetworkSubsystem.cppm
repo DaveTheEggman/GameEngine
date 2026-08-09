@@ -1,4 +1,4 @@
-/// Draconic::NetworkSubsystem - the `draconic.engine.net` module.
+/// Draconic::NetworkSubsystem - the `engine.net` module.
 ///
 /// A Context-level subsystem (once-per-context BY CONTRACT) that integrates networking into scenes:
 /// it injects the NetworkComponentManager into every scene (via ISceneAware), so authoring a
@@ -6,7 +6,7 @@
 /// registers the replicated-component reflection.
 ///
 /// This is the SCENE-INTEGRATION half of networking, deliberately separate from the per-instance
-/// ENDPOINT (draconic.net.manager's NetworkManager, one per running game). The distinction: injecting
+/// ENDPOINT (foundation.net.manager's NetworkManager, one per running game). The distinction: injecting
 /// the component manager is a once-per-context concern (a Subsystem, like PhysicsSubsystem injecting
 /// its managers); the live endpoint (server vs client) is per-GameInstance. The subsystem does no
 /// per-frame work - the endpoint drives replication over the manager the subsystem installed.
@@ -14,13 +14,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.net;
+export module engine.net;
 
-import draconic.core;
-import draconic.runtime;         // Subsystem, Context
-import draconic.scene;           // Scene, ISceneAware
-import draconic.engine.scene; // SceneSubsystem (to register as scene-aware)
-import draconic.net.replication; // NetworkComponentManager + RegisterReplicationComponents
+import foundation.core;
+import foundation.runtime;         // Subsystem, Context
+import foundation.scene;           // Scene, ISceneAware
+import engine.scene; // SceneSubsystem (to register as scene-aware)
+import foundation.net.replication; // NetworkComponentManager + RegisterReplicationComponents
 
 using namespace foundation::net;
 

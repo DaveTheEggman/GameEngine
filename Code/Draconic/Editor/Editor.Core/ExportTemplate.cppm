@@ -11,12 +11,12 @@ module;
 #include "Core/Reflection/Reflect.h"
 // NO <filesystem> here - see ImportTemplate below. It lives in ExportTemplateImpl.cpp.
 
-export module draconic.editor.core:export_template;
+export module editor.core:export_template;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.xml.serialization;
-import draconic.engine.project;
+import foundation.core;
+import foundation.vfs;
+import foundation.xml.serialization;
+import engine.project;
 import :export_preset; // ExportPreset, ExportPresetSet
 
 using namespace foundation::core;

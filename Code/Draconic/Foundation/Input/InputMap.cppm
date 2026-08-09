@@ -11,9 +11,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.input:input_map;
+export module foundation.input:input_map;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

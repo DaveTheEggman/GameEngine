@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:border_drawable;
+export module experimental.gui:border_drawable;
 
-import draconic.core; // Color
-import draconic.vg;   // CornerRadii
+import foundation.core; // Color
+import foundation.vg;   // CornerRadii
 import :rect;
 import :draw_context;
 import :drawable;

@@ -3,7 +3,7 @@
 // Identifies a style property settable in a StyleRule. COUNT sizes property arrays.
 // Ported from Sedulous.UI/src/Styling/StyleProperty.bf.
 
-export module draconic.ui:style_property;
+export module foundation.ui:style_property;
 
 export namespace foundation::ui
 {

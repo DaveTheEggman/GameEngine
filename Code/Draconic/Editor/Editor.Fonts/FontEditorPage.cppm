@@ -1,4 +1,4 @@
-// Draconic::EditorFonts - the `draconic.editor.fonts` module.
+// Draconic::EditorFonts - the `editor.fonts` module.
 //
 // FontEditorPage: the bespoke authoring page for FontAsset (the fonts-triad source asset).
 // Left: a live CPU bake preview - the atlas the cook would produce at the preview size
@@ -12,17 +12,17 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.fonts;
+export module editor.fonts;
 
-import draconic.core;
-import draconic.content;
-import draconic.image;
-import draconic.fonts;
-import draconic.fonts.pipeline;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.image;
+import foundation.fonts;
+import fonts.pipeline;
+import foundation.ui;
+import foundation.ui.toolkit;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 

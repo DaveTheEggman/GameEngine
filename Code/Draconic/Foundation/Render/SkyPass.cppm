@@ -9,13 +9,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:sky;
+export module foundation.render:sky;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rendergraph;
-import draconic.shaders;
-import draconic.shaders.system;
+import foundation.core;
+import foundation.rhi;
+import foundation.rendergraph;
+import foundation.shaders;
+import foundation.shaders.system;
 import :data;        // kGVelocityFormat (sky writes camera-motion velocity for TAA)
 
 using namespace foundation::core;

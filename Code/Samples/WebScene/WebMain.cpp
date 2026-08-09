@@ -5,36 +5,36 @@
 // step in front of it).
 
 #include "Core/Prelude.h"
-// imgui.h must be TEXTUALLY included before `import draconic.imgui` - gcc does not merge the
+// imgui.h must be TEXTUALLY included before `import extensions.imgui` - gcc does not merge the
 // module's global-module-fragment declarations into a LATER textual include (clang does), so
 // include-first is the portable order (same as Sandbox).
 #if DRACONIC_HAS_EXTENSION_IMGUI
 #include "imgui.h"
 #endif
 
-import draconic.core;
-import draconic.rhi;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.shell;
-import draconic.runtime.web;  // RunApplication (browser runner) - required by DRACONIC_APP_MAIN
-import draconic.shell.web;    // WebShell - required by DRACONIC_APP_MAIN
-import draconic.graphics;
-import draconic.graphics.gpu;
-import draconic.engine.defaultapp;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.render; // SkyMode/AoMode + the RenderSubsystem tweak surface
-import draconic.engine.render;
-import draconic.geometry;
-import draconic.materials;
-import draconic.particles;
-import draconic.engine.particles;
-import draconic.ui;
-import draconic.ui.resource; // UIDocument (runtime markup documents)
-import draconic.engine.ui;
+import foundation.core;
+import foundation.rhi;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.shell;
+import foundation.runtime.web;  // RunApplication (browser runner) - required by DRACONIC_APP_MAIN
+import foundation.shell.web;    // WebShell - required by DRACONIC_APP_MAIN
+import foundation.graphics;
+import foundation.graphics.gpu;
+import engine.defaultapp;
+import foundation.scene;
+import engine.scene;
+import foundation.render; // SkyMode/AoMode + the RenderSubsystem tweak surface
+import engine.render;
+import foundation.geometry;
+import foundation.materials;
+import foundation.particles;
+import engine.particles;
+import foundation.ui;
+import foundation.ui.resource; // UIDocument (runtime markup documents)
+import engine.ui;
 #if DRACONIC_HAS_EXTENSION_IMGUI
-import draconic.imgui;
+import extensions.imgui;
 #endif
 
 #include "Runtime.Client/AppMain.h"

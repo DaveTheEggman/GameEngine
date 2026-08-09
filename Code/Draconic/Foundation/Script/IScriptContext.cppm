@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.script:script_context;
+export module foundation.script:script_context;
 
-import draconic.core;
+import foundation.core;
 import :script_debug; // IScriptBlob (the LoadBlob seam)
 
 namespace core = foundation::core;

@@ -9,15 +9,15 @@
 #include <initializer_list>
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.scene;
-import draconic.scene.resource;
-import draconic.engine.render;
-import draconic.editor.core;
-import draconic.editor.scene;
-import draconic.content;
-import draconic.materials;
-import draconic.materials.pipeline;
+import foundation.core;
+import foundation.scene;
+import foundation.scene.resource;
+import engine.render;
+import editor.core;
+import editor.scene;
+import foundation.content;
+import foundation.materials;
+import materials.pipeline;
 
 using namespace foundation::core;
 using namespace editor;

@@ -5,13 +5,13 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.shaders;
-import draconic.shaders.system;
-import draconic.materials;
-import draconic.materials.pipelinecache;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.shaders;
+import foundation.shaders.system;
+import foundation.materials;
+import foundation.materials.pipelinecache;
 
 using namespace foundation::core;
 using namespace foundation::materials;

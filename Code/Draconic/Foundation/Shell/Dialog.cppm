@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shell:dialog;
+export module foundation.shell:dialog;
 
-import draconic.core;
+import foundation.core;
 
 namespace core = foundation::core;
 

@@ -1,4 +1,4 @@
-// Draconic::EditorGameUI - the `draconic.editor.gameui` module.
+// Draconic::EditorGameUI - the `editor.gameui` module.
 //
 // UIDocumentPage (game-ui.md P2): text editing + LIVE PREVIEW for UIDocumentAssets.
 // The preview renders through the RUNTIME CONTEXT's UISubsystem - the GAME's context,
@@ -14,23 +14,23 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.gameui;
+export module editor.gameui;
 
-import draconic.core;
-import draconic.content;
-import draconic.runtime.client;
-import draconic.graphics;
-import draconic.rhi;
-import draconic.vg.renderer;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.ui.resource;
-import draconic.ui.pipeline;
-import draconic.ui.runtime;
-import draconic.engine.ui;
-import draconic.ui.viewport;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.runtime.client;
+import foundation.graphics;
+import foundation.rhi;
+import foundation.vg.renderer;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.ui.resource;
+import ui.pipeline;
+import foundation.ui.runtime;
+import engine.ui;
+import foundation.ui.viewport;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 

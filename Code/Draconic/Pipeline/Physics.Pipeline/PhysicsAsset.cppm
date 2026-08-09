@@ -1,4 +1,4 @@
-// Draconic::PhysicsEditor - the `draconic.physics.editor` module (tooling).
+// Draconic::PhysicsEditor - the `foundation.physics.editor` module (tooling).
 //
 // Source-side physics authoring + cook (docs/design/physics.md §5):
 //   * CollisionShapeAsset (pipeline::Asset): references a source MESH asset by guid +
@@ -15,16 +15,16 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.physics.pipeline;
+export module physics.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.content;
-import draconic.geometry;
-import draconic.geometry.pipeline;
-import draconic.geometry.resource;
-import draconic.physics;
-import draconic.physics.resource;
+import foundation.core;
+import pipeline.core;
+import foundation.content;
+import foundation.geometry;
+import geometry.pipeline;
+import foundation.geometry.resource;
+import foundation.physics;
+import foundation.physics.resource;
 
 using namespace foundation::core;
 using namespace foundation::physics;

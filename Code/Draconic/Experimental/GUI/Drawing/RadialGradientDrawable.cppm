@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:radial_gradient_drawable;
+export module experimental.gui:radial_gradient_drawable;
 
-import draconic.core; // Color, Float2, Array, Distance, Max
-import draconic.vg;   // VGRadialGradientFill, GradientStop, PathBuilder
+import foundation.core; // Color, Float2, Array, Distance, Max
+import foundation.vg;   // VGRadialGradientFill, GradientStop, PathBuilder
 import :rect;
 import :draw_context;
 import :drawable;

@@ -21,12 +21,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:docking;
+export module foundation.ui.toolkit:docking;
 
-import draconic.core;
-import draconic.vg;
-import draconic.ui;
-import draconic.fonts;
+import foundation.core;
+import foundation.vg;
+import foundation.ui;
+import foundation.fonts;
 import :dock_position;
 import :dock_layout_node;
 import :idock_host;

@@ -1,4 +1,4 @@
-// draconic.engine.integration tests: the physics-contact -> script bridge in isolation.
+// engine.integration tests: the physics-contact -> script bridge in isolation.
 // The kind mapping is pure (no subsystems needed); the full contact->behavior delivery through
 // this SAME bridge is covered end-to-end by the ContactWorld battery in the script scene tests.
 
@@ -6,10 +6,10 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.physics;         // ContactKind
-import draconic.engine.script;   // ScriptContactKind
-import draconic.engine.integration;
+import foundation.core;
+import foundation.physics;         // ContactKind
+import engine.script;   // ScriptContactKind
+import engine.integration;
 
 using namespace foundation::core;
 using engine::integration::ScriptPhysicsContactBridge;

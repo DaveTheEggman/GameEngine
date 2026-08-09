@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg:path;
+export module foundation.vg:path;
 
-import draconic.core;
+import foundation.core;
 import :enums;
 import :curves;
 

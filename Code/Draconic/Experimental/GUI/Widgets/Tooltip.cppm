@@ -11,10 +11,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:tooltip;
+export module experimental.gui:tooltip;
 
-import draconic.core;  // RefPtr, MakeRef, String, StringView, Float2, Max
-import draconic.fonts; // CachedFont
+import foundation.core;  // RefPtr, MakeRef, String, StringView, Float2, Max
+import foundation.fonts; // CachedFont
 import :rect;
 import :draw_context;
 import :text;

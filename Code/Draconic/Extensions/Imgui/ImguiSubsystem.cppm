@@ -10,15 +10,15 @@ module;
 #include "Core/Prelude.h"
 #include "imgui.h"
 
-export module draconic.imgui:subsystem;
+export module extensions.imgui:subsystem;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.runtime;  // Subsystem
-import draconic.shell;    // IInputManager / IMouse / IKeyboard / KeyCode / MouseButton
-import draconic.graphics; // FrameContext
-import draconic.shaders;
-import draconic.shaders.system;
+import foundation.core;
+import foundation.rhi;
+import foundation.runtime;  // Subsystem
+import foundation.shell;    // IInputManager / IMouse / IKeyboard / KeyCode / MouseButton
+import foundation.graphics; // FrameContext
+import foundation.shaders;
+import foundation.shaders.system;
 import :renderer;
 
 using namespace foundation::core;

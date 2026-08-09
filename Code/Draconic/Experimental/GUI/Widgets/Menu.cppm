@@ -20,11 +20,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:menu;
+export module experimental.gui:menu;
 
-import draconic.core;  // RefPtr, MakeRef, Array, Function, Move, Max, Cast
-import draconic.fonts; // CachedFont
-import draconic.vg;    // PathBuilder, StrokeStyle
+import foundation.core;  // RefPtr, MakeRef, Array, Function, Move, Max, Cast
+import foundation.fonts; // CachedFont
+import foundation.vg;    // PathBuilder, StrokeStyle
 import :rect;
 import :event;
 import :draw_context;

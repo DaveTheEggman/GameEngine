@@ -1,13 +1,13 @@
-/// draconic.rhi.webgpu:compute_pass_encoder - ComputePassEncoder over WGPUComputePassEncoder.
+/// foundation.rhi.webgpu:compute_pass_encoder - ComputePassEncoder over WGPUComputePassEncoder.
 
 module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:compute_pass_encoder;
+export module foundation.rhi.webgpu:compute_pass_encoder;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :bind_group;
 import :buffer;

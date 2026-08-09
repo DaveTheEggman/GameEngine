@@ -11,17 +11,17 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.audio:bus_layout_page;
+export module editor.audio:bus_layout_page;
 
-import draconic.core;
-import draconic.content;
-import draconic.runtime.client;
-import draconic.audio;
-import draconic.audio.pipeline;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.runtime.client;
+import foundation.audio;
+import audio.pipeline;
+import foundation.ui;
+import foundation.ui.toolkit;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 

@@ -17,11 +17,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:text_field;
+export module experimental.gui:text_field;
 
-import draconic.core; // String, StringView, Color, Function, Move, Min, Max, Utf8*Boundary, IsWhiteSpace
-import draconic.fonts; // CachedFont
-import draconic.vg;    // CornerRadii
+import foundation.core; // String, StringView, Color, Function, Move, Min, Max, Utf8*Boundary, IsWhiteSpace
+import foundation.fonts; // CachedFont
+import foundation.vg;    // CornerRadii
 import :rect;
 import :draw_context;
 import :text;

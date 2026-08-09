@@ -1,4 +1,4 @@
-// Draconic::ShellNull - the `draconic.shell.null` module.
+// Draconic::ShellNull - the `foundation.shell.null` module.
 //
 // A headless IShell implementation: no real window or OS events. Useful for
 // tests, tools, and headless servers, and as the reference for what a real
@@ -11,10 +11,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shell.null;
+export module foundation.shell.null;
 
-import draconic.core;
-import draconic.shell;
+import foundation.core;
+import foundation.shell;
 
 namespace core = foundation::core;
 

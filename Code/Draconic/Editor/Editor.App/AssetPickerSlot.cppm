@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.app:asset_picker_slot;
+export module editor.app:asset_picker_slot;
 
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::core;
 namespace ui = foundation::ui;

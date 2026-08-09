@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.audio:reverb;
+export module foundation.audio:reverb;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

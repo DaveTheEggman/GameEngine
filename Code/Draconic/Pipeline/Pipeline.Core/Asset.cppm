@@ -1,4 +1,4 @@
-// Draconic::Editor.Core - the `draconic.editor.core` module.
+// Draconic::Editor.Core - the `editor.core` module.
 //
 // The tooling/authoring base for the asset pipeline (docs/design/asset-pipeline.md): an `Asset`
 // is the editor/source object (references an external source file + import settings) and an
@@ -21,11 +21,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.pipeline.core;
+export module pipeline.core;
 
-import draconic.core;
-import draconic.content;
-export import draconic.vfs; // Asset::fileName is vfs::SourcePath
+import foundation.core;
+import foundation.content;
+export import foundation.vfs; // Asset::fileName is vfs::SourcePath
 
 using namespace foundation::core;
 

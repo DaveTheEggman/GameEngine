@@ -1,15 +1,15 @@
 // Draconic UI - :easing partition
 //
-// Convenience re-exports of draconic.core's easing functions (:easings) with short, UI-friendly names.
+// Convenience re-exports of foundation.core's easing functions (:easings) with short, UI-friendly names.
 // Ported from Sedulous.UI/src/Animation/Easing.bf (Beef `static class` of readonly EasingFunction ->
 // a struct of static constexpr function-pointer members). EasingFunction = f32(*)(f32).
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:easing;
+export module foundation.ui:easing;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

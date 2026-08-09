@@ -9,10 +9,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.scene:camera;
+export module editor.scene:camera;
 
-import draconic.core;
-import draconic.shell;
+import foundation.core;
+import foundation.shell;
 
 using namespace foundation::core;
 

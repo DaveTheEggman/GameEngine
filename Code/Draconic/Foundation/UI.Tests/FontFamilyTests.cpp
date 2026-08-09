@@ -8,10 +8,10 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-import draconic.core;
-import draconic.ui;
-import draconic.fonts;
-import draconic.image; // ImageData (StubFontService::GetAtlasTexture return type)
+import foundation.core;
+import foundation.ui;
+import foundation.fonts;
+import foundation.image; // ImageData (StubFontService::GetAtlasTexture return type)
 #include "TestHelpers.h"
 
 using namespace foundation::ui;

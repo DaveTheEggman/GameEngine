@@ -7,9 +7,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:shape_drawable;
+export module foundation.ui:shape_drawable;
 
-import draconic.core; // Function, Rectangle
+import foundation.core; // Function, Rectangle
 import :drawable;
 import :draw_context;
 

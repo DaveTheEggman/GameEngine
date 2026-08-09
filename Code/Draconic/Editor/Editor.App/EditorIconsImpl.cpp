@@ -14,10 +14,10 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.editor.app;
+module editor.app;
 
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::core;
 namespace ui = foundation::ui;

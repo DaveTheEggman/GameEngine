@@ -13,9 +13,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:ui_type_registry;
+export module foundation.ui:ui_type_registry;
 
-import draconic.core; // TypeInfo, HashMap, String, StringView
+import foundation.core; // TypeInfo, HashMap, String, StringView
 
 using namespace foundation::core;
 

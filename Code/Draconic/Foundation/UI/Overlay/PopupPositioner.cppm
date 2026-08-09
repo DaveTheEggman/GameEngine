@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:popup_positioner;
+export module foundation.ui:popup_positioner;
 
-import draconic.core; // Rectangle, Float2
+import foundation.core; // Rectangle, Float2
 
 using namespace foundation::core;
 

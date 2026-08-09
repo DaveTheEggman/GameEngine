@@ -1,4 +1,4 @@
-// Draconic::Editor.Script.AngelScript - the `draconic.editor.script.angelscript` module.
+// Draconic::Editor.Script.AngelScript - the `editor.script.angelscript` module.
 //
 // The AngelScript syntax tables + lexer registration. Spec quirks: """ heredoc strings and
 // char literals; block comments do not nest, no preprocessor lines.
@@ -6,10 +6,10 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.editor.script.angelscript;
+module editor.script.angelscript;
 
-import draconic.core;
-import draconic.ui.toolkit;
+import foundation.core;
+import foundation.ui.toolkit;
 
 using namespace foundation::core;
 

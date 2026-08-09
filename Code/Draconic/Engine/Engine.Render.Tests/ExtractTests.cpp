@@ -5,17 +5,17 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.scene;
-import draconic.geometry;
-import draconic.materials;
-import draconic.render;           // ExtractedScene / MeshRenderData / ViewCamera (scene-agnostic)
-import draconic.engine.render; // components + ExtractSceneInto / ExtractPrimaryCamera
-import draconic.scene.resource;   // SerializeScene (post-process settings round-trip)
-import draconic.resource;
-import draconic.rhi;
-import draconic.rhi.null; // NullDevice (headless RenderSubsystem for the DebugView keying test)
-import draconic.texture.resource; // texture::Texture (the sky-texture product)
+import foundation.core;
+import foundation.scene;
+import foundation.geometry;
+import foundation.materials;
+import foundation.render;           // ExtractedScene / MeshRenderData / ViewCamera (scene-agnostic)
+import engine.render; // components + ExtractSceneInto / ExtractPrimaryCamera
+import foundation.scene.resource;   // SerializeScene (post-process settings round-trip)
+import foundation.resource;
+import foundation.rhi;
+import foundation.rhi.null; // NullDevice (headless RenderSubsystem for the DebugView keying test)
+import foundation.texture.resource; // texture::Texture (the sky-texture product)
 
 using namespace foundation::core;
 using namespace engine::render;

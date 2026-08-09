@@ -6,10 +6,10 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.io;
-import draconic.fonts.ttf;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.io;
+import foundation.fonts.ttf;
 
 using namespace foundation::core;
 using namespace foundation::fonts;

@@ -7,16 +7,16 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.animation;
-import draconic.animation.resource;
-import draconic.engine.animation;
-import draconic.engine.render; // MeshComponentManager (the skeletal tick's feed target)
-import draconic.scene;
-import draconic.scene.resource;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.animation;
+import foundation.animation.resource;
+import engine.animation;
+import engine.render; // MeshComponentManager (the skeletal tick's feed target)
+import foundation.scene;
+import foundation.scene.resource;
 
 using namespace foundation::core;
 namespace scene = foundation::scene;

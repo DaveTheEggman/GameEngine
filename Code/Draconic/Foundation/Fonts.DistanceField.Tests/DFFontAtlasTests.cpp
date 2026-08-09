@@ -1,8 +1,8 @@
 #include <doctest/doctest.h>
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.distancefield;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.distancefield;
 
 using namespace foundation::core;
 using namespace foundation::fonts;

@@ -1,4 +1,4 @@
-// draconic.engine.physics tests: the scene integration headless - component-driven
+// engine.physics tests: the scene integration headless - component-driven
 // body building (incl. hierarchy compounding), the fixed-step sync, render-frame
 // interpolation between fixed poses, kinematic scene-follow, and play-cycle teardown.
 
@@ -7,14 +7,14 @@
 #include "Core/Prelude.h"
 #include <cmath>
 
-import draconic.core;
-import draconic.scene;
-import draconic.physics;
-import draconic.physics.resource;
-import draconic.engine.physics;
-import draconic.script;
-import draconic.script.facades; // ExtraFacadeNames (the behavior-prelude facade list)
-import draconic.script.wren;
+import foundation.core;
+import foundation.scene;
+import foundation.physics;
+import foundation.physics.resource;
+import engine.physics;
+import foundation.script;
+import foundation.script.facades; // ExtraFacadeNames (the behavior-prelude facade list)
+import foundation.script.wren;
 
 using namespace foundation::core;
 using namespace engine::physics;
@@ -692,9 +692,9 @@ TEST_CASE("physics.scene: a CharacterComponent walking into a trigger raises NO 
 // Capture -> Start -> frames -> Stop -> Restore -> frames, twice, on the real
 // subsystem stack (SceneSubsystem drives per-scene fixed stepping like the editor).
 
-import draconic.runtime;
-import draconic.engine.scene;
-import draconic.scene.resource;
+import foundation.runtime;
+import engine.scene;
+import foundation.scene.resource;
 
 TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore) terminates")
 {

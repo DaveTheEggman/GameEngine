@@ -5,7 +5,7 @@
 // model, never PCM sidecars). Streamed clips carry a re-openable byte source instead of
 // bytes, so the engine can page-decode them straight out of the cooked content mount
 // (pak included) through the ma_vfs bridge. The cooked record + factory live in
-// draconic.audio.resource; this type stays content-DB-agnostic.
+// foundation.audio.resource; this type stays content-DB-agnostic.
 //
 // The codec helpers (probe/decode/encode) are the editor/builder seam: declared here,
 // implemented in EngineImpl.cpp (the module implementation unit that talks to miniaudio),
@@ -15,9 +15,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.audio:clip;
+export module foundation.audio:clip;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

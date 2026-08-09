@@ -8,10 +8,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rendergraph:profiler;
+export module foundation.rendergraph:profiler;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

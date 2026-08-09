@@ -3,7 +3,7 @@ module;
 #include "Core/Debug/Assert.h"
 #include <type_traits>
 
-export module draconic.core:span;
+export module foundation.core:span;
 
 import :base;
 

@@ -4,14 +4,14 @@
 #include "Core/Prelude.h"
 #include <initializer_list>
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.pipeline.core;
-import draconic.ui;
-import draconic.ui.resource;
-import draconic.ui.pipeline;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import pipeline.core;
+import foundation.ui;
+import foundation.ui.resource;
+import ui.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

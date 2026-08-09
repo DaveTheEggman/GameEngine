@@ -7,11 +7,11 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.xml.serialization;
-import draconic.editor.core;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.xml.serialization;
+import editor.core;
 
 using namespace foundation::core;
 using namespace editor;

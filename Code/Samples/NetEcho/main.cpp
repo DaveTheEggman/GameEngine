@@ -1,11 +1,11 @@
-// NetEcho - a console proof of the draconic.net stack end to end: a reliable-UDP server + client
+// NetEcho - a console proof of the foundation.net stack end to end: a reliable-UDP server + client
 // over real localhost sockets exchange a few chat lines (client sends, server echoes), then exit.
 // Demonstrates wire -> INetTransport -> reliable-UDP -> real UDP sockets with no graphics.
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-import draconic.core;
-import draconic.net;
+import foundation.core;
+import foundation.net;
 
 using namespace foundation::core;
 namespace net = foundation::net;

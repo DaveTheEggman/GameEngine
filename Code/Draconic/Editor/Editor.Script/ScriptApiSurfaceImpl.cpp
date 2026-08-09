@@ -1,4 +1,4 @@
-// Draconic::EditorScript - the `draconic.editor.script` module.
+// Draconic::EditorScript - the `editor.script` module.
 //
 // ScriptApiSurface implementation: the ONE bound-API build for a page. Replays the
 // runtime's exact registration sequence (ScriptSubsystem) against a throwaway manager -
@@ -8,11 +8,11 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.editor.script;
+module editor.script;
 
-import draconic.core;
-import draconic.script;
-import draconic.script.facades;
+import foundation.core;
+import foundation.script;
+import foundation.script.facades;
 
 using namespace foundation::core;
 namespace core = foundation::core;

@@ -1,12 +1,12 @@
-// Draconic::Input - the `draconic.input` module.
+// Draconic::Input - the `foundation.input` module.
 //
 // The engine-level ACTION layer (docs/design/input.md): named actions over data-driven
 // bindings, evaluated against the shell's device facades. Engine-global, not per-scene -
-// input belongs to a player, not a world. The raw device layer lives in draconic.shell;
-// the asset/cooked forms live in draconic.input.editor / draconic.input.resource; the
-// runtime hookup lives in draconic.engine.input.
+// input belongs to a player, not a world. The raw device layer lives in foundation.shell;
+// the asset/cooked forms live in foundation.input.editor / foundation.input.resource; the
+// runtime hookup lives in engine.input.
 
-export module draconic.input;
+export module foundation.input;
 
 export import :input_map;
 export import :action_runtime;

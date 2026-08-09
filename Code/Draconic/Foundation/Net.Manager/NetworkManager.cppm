@@ -1,4 +1,4 @@
-/// Draconic::NetworkManager - the `draconic.net.manager` module (docs/design/networking.md §6).
+/// Draconic::NetworkManager - the `foundation.net.manager` module (docs/design/networking.md §6).
 ///
 /// A NETWORKED ENDPOINT, owned per running game (a GameInstance): NetworkManager owns a live
 /// NetSession + RpcTable over an IDatagramSocket (real UDP or the sim), is driven each fixed step,
@@ -11,13 +11,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.net.manager;
+export module foundation.net.manager;
 
-import draconic.core;
-import draconic.net;
-import draconic.net.replication; // StateReplication / InterpolationBuffer (same foundation::net namespace)
-import draconic.scene;           // Scene (the replicated world)
-import draconic.script;          // Object / IScriptContext / CurrentScriptContext / SetService
+import foundation.core;
+import foundation.net;
+import foundation.net.replication; // StateReplication / InterpolationBuffer (same foundation::net namespace)
+import foundation.scene;           // Scene (the replicated world)
+import foundation.script;          // Object / IScriptContext / CurrentScriptContext / SetService
 
 using namespace foundation::core;
 namespace core = foundation::core;
@@ -37,7 +37,7 @@ export namespace foundation::net
 
     // The owner of a running game's networking (a GameInstance): the Net facade drives roles (start
     // server / connect / disconnect) and reaches the live endpoint THROUGH it. Behind an interface so
-    // draconic.net.manager never depends on the runtime layer - the dependency points DOWN (runtime
+    // foundation.net.manager never depends on the runtime layer - the dependency points DOWN (runtime
     // implements this). The controller outlives every endpoint it creates, so the binding never dangles.
     class INetworkController
     {

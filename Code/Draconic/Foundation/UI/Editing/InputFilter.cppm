@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:input_filter;
+export module foundation.ui:input_filter;
 
-import draconic.core; // Function
+import foundation.core; // Function
 
 using namespace foundation::core;
 

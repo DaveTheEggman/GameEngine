@@ -8,10 +8,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:toggle_button;
+export module foundation.ui:toggle_button;
 
-import draconic.core;
-import draconic.vg;
+import foundation.core;
+import foundation.vg;
 import :button_base;
 import :label;
 import :view;

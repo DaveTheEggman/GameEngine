@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.shell:input;
+export module foundation.shell:input;
 
-import draconic.core;
+import foundation.core;
 import :input_types;
 
 namespace core = foundation::core;

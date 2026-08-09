@@ -8,10 +8,10 @@ module;
 #include <cstring>
 #include <vector>
 
-export module draconic.model.io;
+export module foundation.model.io;
 
-import draconic.core;
-import draconic.model;
+import foundation.core;
+import foundation.model;
 
 using namespace foundation::core;
 

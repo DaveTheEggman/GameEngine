@@ -6,10 +6,10 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.audio;
-import draconic.audio.pipeline;
-import draconic.editor.audio;
+import foundation.core;
+import foundation.audio;
+import audio.pipeline;
+import editor.audio;
 
 using namespace foundation::core;
 

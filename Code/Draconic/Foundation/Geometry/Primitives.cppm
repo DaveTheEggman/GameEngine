@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.geometry:primitives;
+export module foundation.geometry:primitives;
 
-import draconic.core;
+import foundation.core;
 import :types;
 import :mesh;
 

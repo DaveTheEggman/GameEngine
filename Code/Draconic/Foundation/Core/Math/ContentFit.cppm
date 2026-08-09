@@ -10,7 +10,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:content_fit;
+export module foundation.core:content_fit;
 
 import :base;
 import :float2;

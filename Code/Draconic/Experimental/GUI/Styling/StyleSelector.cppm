@@ -13,9 +13,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:style_selector;
+export module experimental.gui:style_selector;
 
-import draconic.core; // String, StringView, Array, i64, Cast
+import foundation.core; // String, StringView, Array, i64, Cast
 import :node;
 import :ui_widget;
 import :parse_util; // IsIdentChar, ReadIdent

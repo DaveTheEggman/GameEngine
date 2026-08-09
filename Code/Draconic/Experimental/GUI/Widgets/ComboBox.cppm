@@ -10,11 +10,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:combo_box;
+export module experimental.gui:combo_box;
 
-import draconic.core;  // RefPtr, MakeRef, Array, String, Function, Move, Min, Float2
-import draconic.fonts; // CachedFont
-import draconic.vg;    // PathBuilder
+import foundation.core;  // RefPtr, MakeRef, Array, String, Function, Move, Min, Float2
+import foundation.fonts; // CachedFont
+import foundation.vg;    // PathBuilder
 import :rect;
 import :event;
 import :draw_context;

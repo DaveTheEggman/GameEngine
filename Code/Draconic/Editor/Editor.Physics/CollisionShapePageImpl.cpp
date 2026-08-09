@@ -4,14 +4,14 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-module draconic.editor.physics;
+module editor.physics;
 
-import draconic.core;
-import draconic.content;
-import draconic.physics.pipeline;
-import draconic.ui;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import physics.pipeline;
+import foundation.ui;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 namespace content = foundation::content;

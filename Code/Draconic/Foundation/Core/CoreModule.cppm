@@ -1,10 +1,10 @@
 // Draconic Core - primary module interface unit
 //
-// `draconic.core` is one named module composed of partitions (one per subsystem).
-// This unit re-exports them so consumers write a single `import draconic.core;`.
+// `foundation.core` is one named module composed of partitions (one per subsystem).
+// This unit re-exports them so consumers write a single `import foundation.core;`.
 // As subsystems land, add an `export import :partition;` line here.
 
-export module draconic.core;
+export module foundation.core;
 
 export import :base;
 export import :allocator;

@@ -22,12 +22,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:node_graph_canvas;
+export module foundation.ui.toolkit:node_graph_canvas;
 
-import draconic.core;
-import draconic.vg;
-import draconic.ui;
-import draconic.fonts;
+import foundation.core;
+import foundation.vg;
+import foundation.ui;
+import foundation.fonts;
 import :node_graph_types;
 
 using namespace foundation::core;

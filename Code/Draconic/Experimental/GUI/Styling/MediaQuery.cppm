@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:media_query;
+export module experimental.gui:media_query;
 
-import draconic.core; // StringView, Array, f32
+import foundation.core; // StringView, Array, f32
 import :css_values;   // ParseLength
 
 using namespace foundation::core;

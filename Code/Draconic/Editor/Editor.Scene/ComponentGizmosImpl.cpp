@@ -13,12 +13,12 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.editor.scene;
+module editor.scene;
 
-import draconic.core;
-import draconic.scene;
-import draconic.render;
-import draconic.engine.render;
+import foundation.core;
+import foundation.scene;
+import foundation.render;
+import engine.render;
 
 using namespace foundation::core;
 namespace render = foundation::render;

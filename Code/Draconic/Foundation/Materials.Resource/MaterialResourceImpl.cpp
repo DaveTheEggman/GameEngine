@@ -12,9 +12,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.materials.resource;
+module foundation.materials.resource;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

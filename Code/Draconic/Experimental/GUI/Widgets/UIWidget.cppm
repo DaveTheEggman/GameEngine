@@ -9,9 +9,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:ui_widget;
+export module experimental.gui:ui_widget;
 
-import draconic.core; // String, StringView, Array
+import foundation.core; // String, StringView, Array
 import :thickness;
 import :ui_node;
 

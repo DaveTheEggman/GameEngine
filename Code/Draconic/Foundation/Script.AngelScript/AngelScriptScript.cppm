@@ -1,4 +1,4 @@
-// Draconic::ScriptAngelScript - AngelScript backend (draconic.script.angelscript).
+// Draconic::ScriptAngelScript - AngelScript backend (foundation.script.angelscript).
 //
 // Implements Draconic::Script on AngelScript (the second certified backend - the
 // proof that the contract is backend-agnostic). Reflected types are emitted with
@@ -27,10 +27,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.script.angelscript;
+export module foundation.script.angelscript;
 
-import draconic.core;
-import draconic.script;
+import foundation.core;
+import foundation.script;
 
 namespace core = foundation::core;
 

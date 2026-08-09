@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:pipeline_cache - PipelineCache stand-in.
+/// foundation.rhi.webgpu:pipeline_cache - PipelineCache stand-in.
 ///
 /// WebGPU has no pipeline-cache object (the browser/driver caches internally), and
 /// the RHI contract treats caches as best-effort - so creation succeeds with an
@@ -7,10 +7,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rhi.webgpu:pipeline_cache;
+export module foundation.rhi.webgpu:pipeline_cache;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

@@ -13,12 +13,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:property_grid;
+export module foundation.ui.toolkit:property_grid;
 
-import draconic.core;
-import draconic.vg;
-import draconic.fonts;
-import draconic.ui;
+import foundation.core;
+import foundation.vg;
+import foundation.fonts;
+import foundation.ui;
 import :property_editor;
 
 using namespace foundation::core;

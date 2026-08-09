@@ -2,10 +2,10 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.null;
-import draconic.rhi.validation;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.rhi.validation;
 
 using namespace foundation::core;
 using namespace foundation::rhi;

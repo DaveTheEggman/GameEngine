@@ -1,4 +1,4 @@
-// Draconic::UISubsystem - the `draconic.engine.ui` module (game-ui.md P1).
+// Draconic::UISubsystem - the `engine.ui` module (game-ui.md P1).
 //
 // The game screen tier: UICanvasComponents reference cooked UIDocuments; the subsystem
 // owns ONE UIContext (GameTheme default stylesheet; core controls only - never the
@@ -18,26 +18,26 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.engine.ui;
+export module engine.ui;
 
-import draconic.core;
-import draconic.runtime;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.resource;
-import draconic.shell;
-import draconic.rhi;
-import draconic.fonts;
-import draconic.fonts.ttf;
-import draconic.fonts.resource;
-import draconic.input;
-import draconic.engine.input;
-import draconic.render.api; // the two-tier overlay roles (ISceneOverlay/IScreenOverlay)
-import draconic.ui;
-import draconic.ui.shell; // UiInputBridge (key/text mapping + IME lifecycle)
-import draconic.ui.resource;
-import draconic.script;         // Object / IScriptContext / IScriptDelegate / the run-context service
-import draconic.script.facades; // RegisterExtraFacadeName (the behavior-module prelude hook)
+import foundation.core;
+import foundation.runtime;
+import foundation.scene;
+import engine.scene;
+import foundation.resource;
+import foundation.shell;
+import foundation.rhi;
+import foundation.fonts;
+import foundation.fonts.ttf;
+import foundation.fonts.resource;
+import foundation.input;
+import engine.input;
+import foundation.render.api; // the two-tier overlay roles (ISceneOverlay/IScreenOverlay)
+import foundation.ui;
+import foundation.ui.shell; // UiInputBridge (key/text mapping + IME lifecycle)
+import foundation.ui.resource;
+import foundation.script;         // Object / IScriptContext / IScriptDelegate / the run-context service
+import foundation.script.facades; // RegisterExtraFacadeName (the behavior-module prelude hook)
 
 using namespace foundation::core;
 using namespace foundation::ui;
@@ -55,7 +55,7 @@ export namespace engine::ui
     namespace script = foundation::script;
 
     // ---- Ui.* script facade (task #123 step 3.5): the UISubsystem's OWN script surface, owned HERE
-    // (not the neutral Foundation facade lib) - the out-of-tree pattern draconic.net's `Net` facade
+    // (not the neutral Foundation facade lib) - the out-of-tree pattern foundation.net's `Net` facade
     // uses. A UiScriptBinding is installed as a per-context service; the app backs its pointers with
     // the live UISubsystem SCREEN tier (PushScreenOverlay/ScreenRoot) + resource manager. The facade
     // is asset-driven + id-addressed - the view hierarchy never reaches script; documents are the

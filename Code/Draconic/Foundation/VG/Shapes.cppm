@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg:shapes;
+export module foundation.vg:shapes;
 
-import draconic.core;
+import foundation.core;
 import :style;
 import :path;
 

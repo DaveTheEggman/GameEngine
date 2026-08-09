@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:model;
+export module experimental.gui:model;
 
-import draconic.core; // Array, String, usize
+import foundation.core; // Array, String, usize
 import :variant;
 import :model_index;
 

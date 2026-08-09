@@ -11,9 +11,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.runtime:plugin;
+export module foundation.runtime:plugin;
 
-import draconic.core;
+import foundation.core;
 import :context;
 
 namespace core = foundation::core;

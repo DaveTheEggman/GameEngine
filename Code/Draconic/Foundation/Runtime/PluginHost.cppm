@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.runtime:pluginhost;
+export module foundation.runtime:pluginhost;
 
-import draconic.core;
+import foundation.core;
 import :context;
 import :plugin;
 

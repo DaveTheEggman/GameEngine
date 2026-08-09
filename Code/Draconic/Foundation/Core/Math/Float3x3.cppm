@@ -10,7 +10,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:float3x3;
+export module foundation.core:float3x3;
 
 import :base;
 import :math;

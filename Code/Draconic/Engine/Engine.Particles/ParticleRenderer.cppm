@@ -1,4 +1,4 @@
-// draconic.engine.particles:renderer - the dedicated billboard particle Renderer.
+// engine.particles:renderer - the dedicated billboard particle Renderer.
 //
 // Modeled on SpriteRenderer (SV_VertexID quad + hardware instancing + per-frame ring + blended
 // forward pass), but with a richer per-instance record and VS: per-particle rotation and a
@@ -9,16 +9,16 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.particles:renderer;
+export module engine.particles:renderer;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
-import draconic.shaders.system;
-import draconic.render; // Renderer, RenderRecordContext, ResolvedDraw, DrawItem, DynamicUniformRing, categories
-import draconic.particles; // ParticleBlendMode
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
+import foundation.shaders.system;
+import foundation.render; // Renderer, RenderRecordContext, ResolvedDraw, DrawItem, DynamicUniformRing, categories
+import foundation.particles; // ParticleBlendMode
 import :renderdata;
-import draconic.materials;
+import foundation.materials;
 
 using namespace foundation::core;
 namespace core = foundation::core;

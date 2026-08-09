@@ -6,9 +6,9 @@ module;
 
 #include "VkIncludes.h"
 
-export module draconic.rhi.vulkan:descriptor_pool_manager;
+export module foundation.rhi.vulkan:descriptor_pool_manager;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

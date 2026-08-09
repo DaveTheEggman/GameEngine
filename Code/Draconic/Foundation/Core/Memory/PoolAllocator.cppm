@@ -7,7 +7,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:pool_allocator;
+export module foundation.core:pool_allocator;
 
 import :base;
 import :allocator;

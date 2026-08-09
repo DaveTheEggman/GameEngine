@@ -2,7 +2,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:ring_buffer;
+export module foundation.core:ring_buffer;
 
 import :base;
 import :allocator;

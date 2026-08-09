@@ -16,11 +16,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:color_picker;
+export module foundation.ui.toolkit:color_picker;
 
-import draconic.core;
-import draconic.vg;
-import draconic.ui;
+import foundation.core;
+import foundation.vg;
+import foundation.ui;
 
 using namespace foundation::core;
 namespace core = foundation::core;

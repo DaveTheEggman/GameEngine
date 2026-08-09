@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rendergraph:debug;
+export module foundation.rendergraph:debug;
 
-import draconic.core;
+import foundation.core;
 import :types;
 import :pass;
 import :resource;

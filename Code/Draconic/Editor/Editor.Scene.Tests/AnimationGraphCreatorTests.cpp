@@ -4,14 +4,14 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.content;
-import draconic.animation;
-import draconic.animation.resource;
-import draconic.animation.pipeline;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.editor.scene;
+import foundation.core;
+import foundation.content;
+import foundation.animation;
+import foundation.animation.resource;
+import animation.pipeline;
+import pipeline.core;
+import editor.core;
+import editor.scene;
 
 using namespace foundation::core;
 using namespace pipeline;

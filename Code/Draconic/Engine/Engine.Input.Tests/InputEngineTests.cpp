@@ -1,7 +1,7 @@
 // Draconic::Engine.Input tests - the ENGINE-level input surface: the InputSubsystem
 // (per-surface scene binding / source overrides) and the per-context Wren Input facade.
 //
-// Split out of Foundation/Input.Tests: these exercise draconic.engine.input (+ the script
+// Split out of Foundation/Input.Tests: these exercise engine.input (+ the script
 // backend), so they live in the Engine collection - Foundation must not link Engine. The
 // pure foundation action-model/rebind/interaction/reflection tests stay in Foundation.
 
@@ -9,13 +9,13 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.shell;
-import draconic.input;
-import draconic.settings;
-import draconic.script;
-import draconic.script.wren;
-import draconic.engine.input;
+import foundation.core;
+import foundation.shell;
+import foundation.input;
+import foundation.settings;
+import foundation.script;
+import foundation.script.wren;
+import engine.input;
 
 using namespace foundation::core;
 using namespace engine::input;

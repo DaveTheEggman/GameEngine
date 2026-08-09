@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:focus_manager;
+export module foundation.ui:focus_manager;
 
-import draconic.core; // Array, ViewId-compatible
+import foundation.core; // Array, ViewId-compatible
 import :view_id;
 import :input_enums; // FocusDirection
 

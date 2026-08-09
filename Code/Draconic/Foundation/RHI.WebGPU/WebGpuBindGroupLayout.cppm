@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:bind_group_layout - BindGroupLayout over WGPUBindGroupLayout.
+/// foundation.rhi.webgpu:bind_group_layout - BindGroupLayout over WGPUBindGroupLayout.
 ///
 /// Bindings are declared SHIFTED (ShiftedBinding - the compact WebGPU profile,
 /// matching what the compile side bakes into SPIR-V for WebGPU devices). Bindless
@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:bind_group_layout;
+export module foundation.rhi.webgpu:bind_group_layout;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 

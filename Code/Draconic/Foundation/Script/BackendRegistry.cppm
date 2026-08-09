@@ -10,9 +10,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.script:backend_registry;
+export module foundation.script:backend_registry;
 
-import draconic.core;
+import foundation.core;
 import :script_manager;
 
 using namespace foundation::core;

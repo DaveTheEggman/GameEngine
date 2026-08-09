@@ -8,10 +8,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui.toolkit:dock_layout_node;
+export module foundation.ui.toolkit:dock_layout_node;
 
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::core;
 

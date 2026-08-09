@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:unit;
+export module foundation.ui:unit;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

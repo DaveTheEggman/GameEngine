@@ -10,10 +10,10 @@ module;
 #include <algorithm>
 #include <cstring>
 
-export module draconic.rhi.dx12:command_encoder;
+export module foundation.rhi.dx12:command_encoder;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :buffer;
 import :texture;

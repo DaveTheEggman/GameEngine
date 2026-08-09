@@ -1,4 +1,4 @@
-/// Draconic::SceneSubsystem - `draconic.engine.scene`.
+/// Draconic::SceneSubsystem - `engine.scene`.
 ///
 /// The Context-level scene driver, a PURE REGISTRY (game-instance.md §11 final): it owns the app-wide
 /// ISceneAware registry and a list of registered SceneManagers, and drives every registered manager's
@@ -6,16 +6,16 @@
 /// owns NO scenes itself - there is no implicit "default" group. Every owner of scenes (a GameInstance,
 /// an editor page) creates its OWN SceneManager over the shared registry and registers it here. The
 /// scene lifecycle + tick logic live in SceneManager; this class only fans the Context time-scale /
-/// fixed-step to the managers (draconic.scene stays runtime-free - the manager takes those as params).
+/// fixed-step to the managers (foundation.scene stays runtime-free - the manager takes those as params).
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.scene;
+export module engine.scene;
 
-import draconic.core;
-import draconic.runtime;
-import draconic.scene;
+import foundation.core;
+import foundation.runtime;
+import foundation.scene;
 
 using namespace foundation::core;
 using namespace foundation::scene;

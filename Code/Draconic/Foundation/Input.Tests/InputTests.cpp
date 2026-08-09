@@ -1,16 +1,16 @@
-// draconic.input tests: model round-trip (binary + XML) + validation, and ActionRuntime
+// foundation.input tests: model round-trip (binary + XML) + validation, and ActionRuntime
 // evaluation over SYNTHETIC devices (the design's testing contract - no real hardware).
 
 #include <doctest/doctest.h>
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.shell;
-import draconic.input;
-import draconic.settings;
-import draconic.xml;
-import draconic.xml.serialization;
+import foundation.core;
+import foundation.shell;
+import foundation.input;
+import foundation.settings;
+import foundation.xml;
+import foundation.xml.serialization;
 
 using namespace foundation::core;
 using namespace foundation::input;

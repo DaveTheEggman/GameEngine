@@ -4,7 +4,7 @@
 // self-describing, so its BeginFramedRegion/EndFramedRegion are no-ops - covered in the XML tests.)
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

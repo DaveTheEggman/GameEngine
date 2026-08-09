@@ -12,7 +12,7 @@ module;
 #include <charconv>
 #include <type_traits>
 
-export module draconic.core:format;
+export module foundation.core:format;
 
 import :base;
 import :allocator;

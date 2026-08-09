@@ -9,9 +9,9 @@ module;
 #include <cstring>
 #include <vector>
 
-export module draconic.image:image_data;
+export module foundation.image:image_data;
 
-import draconic.core;
+import foundation.core;
 import :pixel_format;
 
 using namespace foundation::core;

@@ -23,10 +23,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.audio:engine;
+export module foundation.audio:engine;
 
-import draconic.core;
-import draconic.vfs;
+import foundation.core;
+import foundation.vfs;
 import :clip;
 import :reverb; // AudioReverbParams (the scene-reverb seam)
 

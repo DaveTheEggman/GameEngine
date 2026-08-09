@@ -1,4 +1,4 @@
-/// Draconic::Net - `draconic.net:udp_socket` partition.
+/// Draconic::Net - `foundation.net:udp_socket` partition.
 ///
 /// The REAL UDP IDatagramSocket backend: wraps the Core/System UDP primitives (docs/design/
 /// networking.md §3.1 - sockets live in Core/System) so ReliableTransport, proven against the
@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.net:udp_socket;
+export module foundation.net:udp_socket;
 
-import draconic.core;
+import foundation.core;
 import :datagram;
 
 using namespace foundation::core;

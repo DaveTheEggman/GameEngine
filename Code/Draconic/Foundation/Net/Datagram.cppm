@@ -1,4 +1,4 @@
-/// Draconic::Net - `draconic.net:datagram` partition.
+/// Draconic::Net - `foundation.net:datagram` partition.
 ///
 /// The UNRELIABLE datagram substrate the reliability layer is built on (docs/design/networking.md
 /// §4). `IDatagramSocket` is a connectionless send/recv over an opaque `DatagramEndpoint`; its
@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.net:datagram;
+export module foundation.net:datagram;
 
-import draconic.core;
+import foundation.core;
 import :transport; // SimConditions (shared sim knobs)
 
 using namespace foundation::core;

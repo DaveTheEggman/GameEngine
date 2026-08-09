@@ -11,15 +11,15 @@
 #include <cmath>
 #include <initializer_list>
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.audio;
-import draconic.audio.resource;
-import draconic.audio.pipeline;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import pipeline.core;
+import editor.core;
+import foundation.audio;
+import foundation.audio.resource;
+import audio.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

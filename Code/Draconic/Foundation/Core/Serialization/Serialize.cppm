@@ -10,7 +10,7 @@ module;
 #include "Core/Prelude.h"
 #include <type_traits>
 
-export module draconic.core:serialize;
+export module foundation.core:serialize;
 
 import :base;
 import :serializer;

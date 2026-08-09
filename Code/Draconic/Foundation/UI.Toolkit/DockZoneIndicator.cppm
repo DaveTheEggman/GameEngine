@@ -9,11 +9,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:dock_zone_indicator;
+export module foundation.ui.toolkit:dock_zone_indicator;
 
-import draconic.core;
-import draconic.vg;
-import draconic.ui;
+import foundation.core;
+import foundation.vg;
+import foundation.ui;
 import :dock_position;
 
 using namespace foundation::core;

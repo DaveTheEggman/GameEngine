@@ -7,17 +7,17 @@
 //
 // Beef `List<Stop>` -> Array<Stop>; `Span<Stop>` -> Span<const Stop>; nested `struct Stop` -> a public
 // nested value struct; byte `Color(r,g,b,a)` -> private static Rgb(); float `Color(r,g,b,a)` -> Color{...}.
-// The immediate path API (BeginPath/MoveTo/LineTo/ClosePath/Fill/Stroke) ports 1:1 to draconic.vg.
+// The immediate path API (BeginPath/MoveTo/LineTo/ClosePath/Fill/Stroke) ports 1:1 to foundation.vg.
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:gradient_editor;
+export module foundation.ui.toolkit:gradient_editor;
 
-import draconic.core;
-import draconic.vg;
-import draconic.ui;
+import foundation.core;
+import foundation.vg;
+import foundation.ui;
 
 using namespace foundation::core;
 namespace core = foundation::core;

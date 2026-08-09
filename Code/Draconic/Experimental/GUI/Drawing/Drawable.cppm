@@ -10,9 +10,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:drawable;
+export module experimental.gui:drawable;
 
-import draconic.core; // Object, Optional, Float2, Color
+import foundation.core; // Object, Optional, Float2, Color
 import :rect;
 import :draw_context;
 import :control_state;

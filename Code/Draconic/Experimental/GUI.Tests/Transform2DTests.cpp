@@ -3,8 +3,8 @@
 // core::TransformPoint2D (the VG DrawContext convention) identically.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.gui;
+import foundation.core;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

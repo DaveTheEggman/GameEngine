@@ -5,12 +5,12 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.image;
-import draconic.image.pipeline;
-import draconic.vfs;
-import draconic.editor.image;
-import draconic.editor.core;
+import foundation.core;
+import foundation.image;
+import image.pipeline;
+import foundation.vfs;
+import editor.image;
+import editor.core;
 
 using namespace foundation::core;
 namespace image = foundation::image;

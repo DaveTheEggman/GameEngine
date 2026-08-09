@@ -12,10 +12,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:popup_layer;
+export module foundation.ui:popup_layer;
 
-import draconic.core;
-import draconic.vg;
+import foundation.core;
+import foundation.vg;
 import :view;
 import :box_constraints;
 import :draw_context;

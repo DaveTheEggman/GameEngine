@@ -15,12 +15,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.runtime.client:embedded_host;
+export module foundation.runtime.client:embedded_host;
 
-import draconic.core;
-import draconic.shell;
-import draconic.graphics;
-import draconic.runtime;
+import foundation.core;
+import foundation.shell;
+import foundation.graphics;
+import foundation.runtime;
 import :app;
 
 namespace core = foundation::core;

@@ -18,11 +18,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.app:path_picker_dialog;
+export module editor.app:path_picker_dialog;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.ui;
+import foundation.core;
+import foundation.vfs;
+import foundation.ui;
 
 using namespace foundation::core;
 

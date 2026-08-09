@@ -1,4 +1,4 @@
-// draconic.engine.script tests - the behaviors core, HEADLESS (real Wren VM, real
+// engine.script tests - the behaviors core, HEADLESS (real Wren VM, real
 // Scene, zero device deps): lifecycle dispatch (deferred start, onUpdate(dt), enable/
 // disable edges, onDestroy on entity destroy AND scene stop), defaults + hash-keyed
 // overrides, the fault-disables-one-behavior rule, hot reload (product swap ->
@@ -12,30 +12,30 @@
 #include "Core/Reflection/Reflect.h" // DRACONIC_REFLECT_VALUE (the OPTION 1 test component)
 #include <initializer_list>
 
-import draconic.core;
-import draconic.runtime;
-import draconic.scene;
-import draconic.scene.resource;
-import draconic.engine.scene;
-import draconic.resource;
-import draconic.script;
-import draconic.script.facades; // script::Entity + RegisterExtraScriptRootType/FacadeName (OPTION 1)
-import draconic.script.wren;
-import draconic.script.angelscript;
-import draconic.script.resource;
-import draconic.engine.script;
-import draconic.physics;
-import draconic.engine.physics;
-import draconic.engine.integration; // ScriptPhysicsContactBridge (the extracted composition-root adapter)
-import draconic.engine.render;      // MeshComponent/LightComponent .of (Track A, render surface)
-import draconic.audio;              // AudioSourceComponent + its manager (Track A, audio surface)
-import draconic.engine.audio;       // AudioSourceComponent.of + SceneAudio (Track A, audio surface)
-import draconic.animation;          // animation components + managers (Track A, animation surface)
-import draconic.engine.animation;   // *.of + SceneAnimation (Track A, animation surface)
-import draconic.particles;          // ParticleEffectComponent + manager (Track A, particle surface)
-import draconic.engine.particles;   // *.of + SceneParticles (Track A, particle surface)
-import draconic.net.replication;    // NetworkComponent + manager + .of (Track A, net surface)
-import draconic.engine.ui;          // world-space UI components + managers + .of (Track A, UI surface)
+import foundation.core;
+import foundation.runtime;
+import foundation.scene;
+import foundation.scene.resource;
+import engine.scene;
+import foundation.resource;
+import foundation.script;
+import foundation.script.facades; // script::Entity + RegisterExtraScriptRootType/FacadeName (OPTION 1)
+import foundation.script.wren;
+import foundation.script.angelscript;
+import foundation.script.resource;
+import engine.script;
+import foundation.physics;
+import engine.physics;
+import engine.integration; // ScriptPhysicsContactBridge (the extracted composition-root adapter)
+import engine.render;      // MeshComponent/LightComponent .of (Track A, render surface)
+import foundation.audio;              // AudioSourceComponent + its manager (Track A, audio surface)
+import engine.audio;       // AudioSourceComponent.of + SceneAudio (Track A, audio surface)
+import foundation.animation;          // animation components + managers (Track A, animation surface)
+import engine.animation;   // *.of + SceneAnimation (Track A, animation surface)
+import foundation.particles;          // ParticleEffectComponent + manager (Track A, particle surface)
+import engine.particles;   // *.of + SceneParticles (Track A, particle surface)
+import foundation.net.replication;    // NetworkComponent + manager + .of (Track A, net surface)
+import engine.ui;          // world-space UI components + managers + .of (Track A, UI surface)
 
 using namespace foundation::core;
 using namespace engine::ui;
@@ -1380,7 +1380,7 @@ namespace
     // Builds a Context with all three subsystems started + a live scene, returns the scene.
     // Acts as its OWN composition root: bridges physics contacts to the script subsystem's
     // neutral DeliverContact ingress with the SAME adapter DefaultApplication uses in a real
-    // run (draconic.engine.integration) - so these contact tests also exercise that bridge, and
+    // run (engine.integration) - so these contact tests also exercise that bridge, and
     // the script subsystem itself keeps no physics dependency.
     struct ContactWorld
     {

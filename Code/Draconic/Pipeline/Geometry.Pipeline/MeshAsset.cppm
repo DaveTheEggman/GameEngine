@@ -1,4 +1,4 @@
-// Draconic::MeshEditor - the `draconic.geometry.editor` module (tooling).
+// Draconic::MeshEditor - the `foundation.geometry.editor` module (tooling).
 //
 // Source-side mesh authoring + cook:
 //   * StaticMeshAsset / SkinnedMeshAsset (pipeline::Asset): wrap a cooked
@@ -16,13 +16,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.geometry.pipeline;
+export module geometry.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.content;
-import draconic.geometry;
-import draconic.geometry.resource;
+import foundation.core;
+import pipeline.core;
+import foundation.content;
+import foundation.geometry;
+import foundation.geometry.resource;
 
 using namespace foundation::core;
 using namespace foundation::geometry;

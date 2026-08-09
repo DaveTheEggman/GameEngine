@@ -1,6 +1,6 @@
 // Draconic::Materials - reflection implementation unit: the material render-state enums.
 //
-// Reflected in their OWNING module (draconic.materials) so any consumer of a reflected
+// Reflected in their OWNING module (foundation.materials) so any consumer of a reflected
 // MaterialSource property whose type is one of these (blendMode/depthMode/cullMode/vertexLayout,
 // retyped from u8) sees a proper enum - IsEnum + named values, so tooling can render a name
 // dropdown instead of a raw integer. DRACONIC_REFLECT_ENUM bodies live out of the interface
@@ -11,9 +11,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.materials;
+module foundation.materials;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

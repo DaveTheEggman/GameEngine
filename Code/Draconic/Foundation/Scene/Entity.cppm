@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.scene:entity;
+export module foundation.scene:entity;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

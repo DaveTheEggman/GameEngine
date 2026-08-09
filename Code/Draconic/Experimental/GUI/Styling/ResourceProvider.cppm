@@ -1,9 +1,9 @@
 // Draconic GUI - :resource_provider partition
 //
 // IResourceProvider: the seam the CSS engine uses to load image assets referenced by
-// background-image: url(path). Aligned with Sedulous.UI / draconic.ui's IResourceProvider - it
+// background-image: url(path). Aligned with Sedulous.UI / foundation.ui's IResourceProvider - it
 // returns a raw, provider-owned image (not a framework Drawable), so the provider stays a pure
-// asset loader (VFS + draconic.image) with no dependency on the GUI's drawable types; the
+// asset loader (VFS + foundation.image) with no dependency on the GUI's drawable types; the
 // StyleApplier wraps the image into an ImageDrawable. Font resolution is a separate seam
 // (IFontProvider). @import / SVG text loading (Sedulous's LoadText) is deferred until we load
 // stylesheets from files.
@@ -11,10 +11,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:resource_provider;
+export module experimental.gui:resource_provider;
 
-import draconic.core;  // StringView
-import draconic.image; // ImageData
+import foundation.core;  // StringView
+import foundation.image; // ImageData
 
 using namespace foundation::core;
 namespace core = foundation::core;

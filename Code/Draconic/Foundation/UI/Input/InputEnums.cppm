@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:input_enums;
+export module foundation.ui:input_enums;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

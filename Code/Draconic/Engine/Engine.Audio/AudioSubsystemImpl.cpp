@@ -8,15 +8,15 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.engine.audio;
+module engine.audio;
 
-import draconic.core;
-import draconic.runtime;
-import draconic.scene;
-import draconic.audio;
-import draconic.materials;
-import draconic.engine.render; // CameraComponentManager (listener fallback)
-import draconic.script.facades; // RegisterExtraFacadeName (Audio into the behavior prelude)
+import foundation.core;
+import foundation.runtime;
+import foundation.scene;
+import foundation.audio;
+import foundation.materials;
+import engine.render; // CameraComponentManager (listener fallback)
+import foundation.script.facades; // RegisterExtraFacadeName (Audio into the behavior prelude)
 
 using namespace foundation::core;
 using namespace foundation::audio;

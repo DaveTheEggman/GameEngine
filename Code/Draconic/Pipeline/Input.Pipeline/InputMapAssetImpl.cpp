@@ -10,11 +10,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.input.pipeline;
+module input.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.input; // InputMap (the nested reflected type)
+import foundation.core;
+import pipeline.core;
+import foundation.input; // InputMap (the nested reflected type)
 
 using namespace foundation::core;
 using namespace foundation::input;

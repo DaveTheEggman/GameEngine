@@ -1,4 +1,4 @@
-// Draconic::FontsIO - draconic.fonts.io:interfaces partition
+// Draconic::FontsIO - foundation.fonts.io:interfaces partition
 //
 // The source-format load pipeline contracts: IFontParser (source bytes -> a
 // queryable IFont) and IFontAtlasBaker (a parsed IFont -> a renderable
@@ -9,10 +9,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.io:interfaces;
+export module foundation.fonts.io:interfaces;
 
-import draconic.core;
-import draconic.fonts;
+import foundation.core;
+import foundation.fonts;
 
 using namespace foundation::core;
 

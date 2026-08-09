@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - draconic.fonts.ttf:service partition
+// Draconic::FontsTTF - foundation.fonts.ttf:service partition
 //
 // IFontService that loads TrueType/OpenType fonts through the source-format
 // pipeline (parse -> bake -> expand-to-RGBA8). With a VFS file system set, the
@@ -9,13 +9,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.ttf:service;
+export module foundation.fonts.ttf:service;
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.io;
-import draconic.image;
-import draconic.vfs;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.io;
+import foundation.image;
+import foundation.vfs;
 import :text_shaper;
 import :init;
 

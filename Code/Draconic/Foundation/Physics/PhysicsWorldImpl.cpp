@@ -41,9 +41,9 @@ module;
 #include <cmath>
 #include <cstring>
 
-module draconic.physics;
+module foundation.physics;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

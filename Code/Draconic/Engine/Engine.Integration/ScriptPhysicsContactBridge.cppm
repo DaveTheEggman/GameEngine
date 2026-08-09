@@ -1,4 +1,4 @@
-// Draconic::EngineIntegration - the `draconic.engine.integration` module.
+// Draconic::EngineIntegration - the `engine.integration` module.
 //
 // Cross-subsystem composition helpers: the small adapters that let two otherwise-independent
 // subsystems cooperate, owned by a composition root (the app) and depending on BOTH sides so
@@ -8,17 +8,17 @@
 // subsystem's neutral DeliverContact ingress. Physics exposes IContactListener (knows nothing
 // about scripts); the script subsystem exposes DeliverContact in its own vocabulary (knows
 // nothing about physics); this bridge is the ONE place that names both and translates between
-// them, so draconic.engine.physics and draconic.engine.script stay mutually independent.
+// them, so engine.physics and engine.script stay mutually independent.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.integration;
+export module engine.integration;
 
-import draconic.core;
-import draconic.physics;        // ContactKind (the foundation contact enum)
-import draconic.engine.physics; // PhysicsSubsystem, IContactListener, EntityContact
-import draconic.engine.script;  // ScriptSubsystem, ScriptContactKind
+import foundation.core;
+import foundation.physics;        // ContactKind (the foundation contact enum)
+import engine.physics; // PhysicsSubsystem, IContactListener, EntityContact
+import engine.script;  // ScriptSubsystem, ScriptContactKind
 
 export namespace engine::integration
 {

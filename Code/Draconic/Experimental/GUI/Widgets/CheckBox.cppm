@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:check_box;
+export module experimental.gui:check_box;
 
-import draconic.core; // Color, Function, Move, Max
-import draconic.vg;   // CornerRadii
+import foundation.core; // Color, Function, Move, Max
+import foundation.vg;   // CornerRadii
 import :rect;
 import :event;
 import :draw_context;

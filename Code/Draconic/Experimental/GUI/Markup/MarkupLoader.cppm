@@ -19,11 +19,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:markup;
+export module experimental.gui:markup;
 
-import draconic.core; // RefPtr, MakeRef, Array, String, StringView, Function, Move, Cast, IsWhiteSpace
-import draconic.fonts; // IFontService
-import draconic.xml;   // XmlDocument, XmlElement, XmlAttribute, XmlResult
+import foundation.core; // RefPtr, MakeRef, Array, String, StringView, Function, Move, Cast, IsWhiteSpace
+import foundation.fonts; // IFontService
+import foundation.xml;   // XmlDocument, XmlElement, XmlAttribute, XmlResult
 import :node;
 import :ui_node;
 import :ui_widget;

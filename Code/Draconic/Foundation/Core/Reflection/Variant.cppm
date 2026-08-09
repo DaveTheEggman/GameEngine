@@ -15,7 +15,7 @@ module;
 #include <cstring>
 #include <type_traits>
 
-export module draconic.core:variant;
+export module foundation.core:variant;
 
 import :base;
 import :allocator;

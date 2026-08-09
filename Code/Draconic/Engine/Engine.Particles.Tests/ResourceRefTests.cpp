@@ -9,15 +9,15 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.particles;
-import draconic.particles.resource;
-import draconic.engine.particles;
-import draconic.scene;
-import draconic.scene.resource;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.particles;
+import foundation.particles.resource;
+import engine.particles;
+import foundation.scene;
+import foundation.scene.resource;
 
 using namespace foundation::core;
 using namespace engine::particles;

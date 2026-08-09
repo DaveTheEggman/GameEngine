@@ -5,12 +5,12 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.engine.integration;
+module engine.integration;
 
-import draconic.core;
-import draconic.physics;
-import draconic.engine.physics;
-import draconic.engine.script;
+import foundation.core;
+import foundation.physics;
+import engine.physics;
+import engine.script;
 
 namespace engine::integration
 {

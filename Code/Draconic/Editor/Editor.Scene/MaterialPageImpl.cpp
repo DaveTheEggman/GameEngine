@@ -19,34 +19,34 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-module draconic.editor.scene;
+module editor.scene;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.rhi;
-import draconic.graphics;
-import draconic.shell;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.geometry;
-import draconic.materials;
-import draconic.materials.resource;
-import draconic.materials.pipeline;
-import draconic.texture.resource;
-import draconic.resource;
-import draconic.shaders;
-import draconic.render;
-import draconic.engine.render;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.ui.runtime;
-import draconic.ui.viewport;
-import draconic.vg.renderer;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.rhi;
+import foundation.graphics;
+import foundation.shell;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.scene;
+import engine.scene;
+import foundation.geometry;
+import foundation.materials;
+import foundation.materials.resource;
+import materials.pipeline;
+import foundation.texture.resource;
+import foundation.resource;
+import foundation.shaders;
+import foundation.render;
+import engine.render;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.ui.runtime;
+import foundation.ui.viewport;
+import foundation.vg.renderer;
+import editor.core;
+import editor.app;
 import :camera;    // EditorCamera (fly camera on the preview viewport)
 import :inspector; // ResourceRefEditor (the picker row)
 

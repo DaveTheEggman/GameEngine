@@ -15,10 +15,10 @@ module;
 #include <mutex>
 #include <unordered_map>
 
-export module draconic.rhi.dx12:device;
+export module foundation.rhi.dx12:device;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :adapter;
 import :surface;

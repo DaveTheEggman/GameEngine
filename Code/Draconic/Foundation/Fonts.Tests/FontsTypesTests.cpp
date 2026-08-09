@@ -4,8 +4,8 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.fonts;
+import foundation.core;
+import foundation.fonts;
 
 using namespace foundation::core;
 using namespace foundation::fonts;
@@ -168,7 +168,7 @@ TEST_CASE("fonts.textDecorationMetrics: defaults + from-font")
     CHECK(m.strikethroughThickness >= 1);
 }
 
-// --- scaled views (draconic.fonts:scaled_views) -------------------------------------
+// --- scaled views (foundation.fonts:scaled_views) -------------------------------------
 
 namespace
 {

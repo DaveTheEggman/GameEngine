@@ -11,10 +11,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:table_view;
+export module experimental.gui:table_view;
 
-import draconic.core;  // RefPtr, MakeRef, Array, Function, Move, Max, Float2
-import draconic.fonts; // CachedFont
+import foundation.core;  // RefPtr, MakeRef, Array, Function, Move, Max, Float2
+import foundation.fonts; // CachedFont
 import :rect;
 import :event;
 import :label;

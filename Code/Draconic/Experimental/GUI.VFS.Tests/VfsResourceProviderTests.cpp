@@ -1,13 +1,13 @@
-// Tests for draconic.gui.vfs::VfsResourceProvider - loads + decodes background-image assets from
+// Tests for experimental.gui.vfs::VfsResourceProvider - loads + decodes background-image assets from
 // a VFS. A mock in-memory IFileSystem exercises the plumbing; a real BMP round-trip (SaveImage ->
 // NativeFileSystem -> LoadImage) exercises the decode path.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.image;
-import draconic.image.io;
-import draconic.vfs;
-import draconic.gui.vfs;
+import foundation.core;
+import foundation.image;
+import foundation.image.io;
+import foundation.vfs;
+import experimental.gui.vfs;
 
 using namespace foundation::core;
 namespace vfs = foundation::vfs;

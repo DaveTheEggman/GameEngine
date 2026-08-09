@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.image:nine_slice;
+export module foundation.image:nine_slice;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

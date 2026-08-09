@@ -12,9 +12,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:button;
+export module experimental.gui:button;
 
-import draconic.core; // Function, Move
+import foundation.core; // Function, Move
 import :event;        // MouseEvent
 import :text;         // TextHAlign / TextVAlign
 import :label;

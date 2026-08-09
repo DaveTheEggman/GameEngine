@@ -8,7 +8,7 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.ui;
+module foundation.ui;
 
 using namespace foundation::core;
 

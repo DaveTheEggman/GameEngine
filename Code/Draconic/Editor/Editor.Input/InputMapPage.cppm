@@ -1,4 +1,4 @@
-// Draconic::EditorInput - the `draconic.editor.input` module.
+// Draconic::EditorInput - the `editor.input` module.
 //
 // InputMapPage (input P2): the editing surface for InputMapAsset - a scrollable
 // sets > actions > bindings outline with add/remove, in-place renames, kind/interaction
@@ -13,20 +13,20 @@ module;
 #include "Core/Log/Log.h"
 #include <cstdlib>
 
-export module draconic.editor.input;
+export module editor.input;
 
-import draconic.core;
-import draconic.content;
-import draconic.shell;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.input;
-import draconic.input.pipeline;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.ui.runtime;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.shell;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.input;
+import input.pipeline;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.ui.runtime;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 

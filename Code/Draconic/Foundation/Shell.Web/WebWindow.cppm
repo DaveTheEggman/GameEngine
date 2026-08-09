@@ -1,4 +1,4 @@
-// Draconic::ShellWeb - `draconic.shell.web:window`.
+// Draconic::ShellWeb - `foundation.shell.web:window`.
 //
 // The web shell's window IS an HTML <canvas>. Its size comes from the live canvas
 // (emscripten_get_canvas_element_size), and Native() hands back the canvas CSS selector, which the
@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include <emscripten/html5.h>
 
-export module draconic.shell.web:window;
+export module foundation.shell.web:window;
 
-import draconic.core;
-import draconic.shell;
+import foundation.core;
+import foundation.shell;
 
 namespace core = foundation::core;
 

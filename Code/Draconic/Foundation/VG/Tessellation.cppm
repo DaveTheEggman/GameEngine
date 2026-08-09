@@ -11,9 +11,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg:tessellation;
+export module foundation.vg:tessellation;
 
-import draconic.core;
+import foundation.core;
 import :enums;
 import :vertex;
 import :style;

@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:fence - CPU-side timeline fence.
+/// foundation.rhi.webgpu:fence - CPU-side timeline fence.
 ///
 /// WebGPU has no fence object. The RHI's timeline contract is emulated CPU-side:
 /// Queue::Submit(..., fence, value) registers a wgpuQueueOnSubmittedWorkDone
@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:fence;
+export module foundation.rhi.webgpu:fence;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 
 using namespace foundation::core;

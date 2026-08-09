@@ -1,10 +1,10 @@
-// draconic.net.manager - the runtime networking home (NetworkManager) mechanics + facade registration.
+// foundation.net.manager - the runtime networking home (NetworkManager) mechanics + facade registration.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.net;
-import draconic.net.manager;
+import foundation.core;
+import foundation.net;
+import foundation.net.manager;
 
 using namespace foundation::core;
 namespace net = foundation::net;

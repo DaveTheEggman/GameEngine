@@ -7,12 +7,12 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.net.replication;
+module foundation.net.replication;
 
-import draconic.core;
-import draconic.net;
-import draconic.scene;
-import draconic.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
+import foundation.core;
+import foundation.net;
+import foundation.scene;
+import foundation.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
 
 using namespace foundation::core;
 namespace scene = foundation::scene;

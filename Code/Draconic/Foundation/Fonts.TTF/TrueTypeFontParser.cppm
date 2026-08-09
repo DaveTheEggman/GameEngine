@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - draconic.fonts.ttf:parser partition
+// Draconic::FontsTTF - foundation.fonts.ttf:parser partition
 //
 // IFontParser for TrueType/OpenType (.ttf/.ttc/.otf): copies source bytes into
 // an owned buffer and builds a TrueTypeFont. Atlas baking is a separate step.
@@ -7,11 +7,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.ttf:parser;
+export module foundation.fonts.ttf:parser;
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.io;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.io;
 import :common;
 import :font;
 

@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:property;
+export module foundation.ui:property;
 
-import draconic.core;
+import foundation.core;
 import :enums;
 import :event;
 import :property_owner;

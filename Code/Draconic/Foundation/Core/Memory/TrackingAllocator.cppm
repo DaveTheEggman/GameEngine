@@ -7,7 +7,7 @@ module;
 #include "Core/Prelude.h"
 #include <atomic>
 
-export module draconic.core:tracking_allocator;
+export module foundation.core:tracking_allocator;
 
 import :base;
 import :allocator;

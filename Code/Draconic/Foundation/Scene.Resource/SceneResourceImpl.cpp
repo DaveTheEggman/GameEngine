@@ -1,4 +1,4 @@
-// Draconic Scene - draconic.scene.resource implementation unit.
+// Draconic Scene - foundation.scene.resource implementation unit.
 //
 // Out-of-line definitions for SceneResource's public serialization API (sec 3.2 / sec 10.6):
 // the free-function bodies (SerializeScene, CapturePrefab, SpawnPrefab, LoadScene, ...) and the
@@ -10,14 +10,14 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.scene.resource;
+module foundation.scene.resource;
 
-import draconic.core;
-import draconic.resource;
-import draconic.content;
-import draconic.scene;
-import draconic.xml;
-import draconic.xml.serialization;
+import foundation.core;
+import foundation.resource;
+import foundation.content;
+import foundation.scene;
+import foundation.xml;
+import foundation.xml.serialization;
 
 using namespace foundation::core;
 

@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.animation:player;
+export module foundation.animation:player;
 
-import draconic.core;
+import foundation.core;
 import :skeleton;
 import :clip;
 import :sampler;

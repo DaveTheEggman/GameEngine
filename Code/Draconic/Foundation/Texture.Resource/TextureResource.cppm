@@ -1,4 +1,4 @@
-// Draconic::TextureResource - the `draconic.texture.resource` module (runtime).
+// Draconic::TextureResource - the `foundation.texture.resource` module (runtime).
 //
 // The GPU texture as a runtime resource (model A, Traktor-style):
 //   * TextureResource (ISerializable): the cooked *record* loaded from the output
@@ -16,13 +16,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.texture.resource;
+export module foundation.texture.resource;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.texture;
-import draconic.content;
-import draconic.resource;
+import foundation.core;
+import foundation.rhi;
+import foundation.texture;
+import foundation.content;
+import foundation.resource;
 
 using namespace foundation::core;
 using namespace foundation::resource;

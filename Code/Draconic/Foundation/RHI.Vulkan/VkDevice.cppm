@@ -9,10 +9,10 @@ module;
 #include <cstdio>
 #include <cstring>
 
-export module draconic.rhi.vulkan:device;
+export module foundation.rhi.vulkan:device;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :adapter;
 import :surface;
 import :buffer;

@@ -12,10 +12,10 @@ module;
 #include <cstdint>
 #include <cstring>
 
-export module draconic.rhi.dx12:mesh_pipeline;
+export module foundation.rhi.dx12:mesh_pipeline;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :conversions;
 import :pipeline_layout;
 import :shader_module;

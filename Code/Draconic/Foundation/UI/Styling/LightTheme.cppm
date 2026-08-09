@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:light_theme;
+export module foundation.ui:light_theme;
 
-import draconic.core;
+import foundation.core;
 import :style_sheet;
 import :style_rule;
 import :style_property;

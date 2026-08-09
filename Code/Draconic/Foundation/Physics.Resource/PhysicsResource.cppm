@@ -1,4 +1,4 @@
-// Draconic::PhysicsResource - the `draconic.physics.resource` module.
+// Draconic::PhysicsResource - the `foundation.physics.resource` module.
 //
 // Cooked physics content (docs/design/physics.md §5), mirroring the mesh-resource split:
 //   * CollisionShapeSource  - the cooked record: a Jolt binary shape blob (from
@@ -13,11 +13,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.physics.resource;
+export module foundation.physics.resource;
 
-import draconic.core;
-import draconic.resource;
-import draconic.content;
+import foundation.core;
+import foundation.resource;
+import foundation.content;
 
 using namespace foundation::core;
 namespace resource = foundation::resource;

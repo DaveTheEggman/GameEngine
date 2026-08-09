@@ -5,7 +5,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:shared_mutex;
+export module foundation.core:shared_mutex;
 
 import :base;
 import :mutex;

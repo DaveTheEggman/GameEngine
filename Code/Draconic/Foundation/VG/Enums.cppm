@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.vg:enums;
+export module foundation.vg:enums;
 
-import draconic.core;
+import foundation.core;
 
 export namespace foundation::vg
 {

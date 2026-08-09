@@ -1,4 +1,4 @@
-// Draconic::ScriptAngelScriptEditor - the `draconic.script.angelscript.editor` module.
+// Draconic::ScriptAngelScriptEditor - the `foundation.script.angelscript.editor` module.
 //
 // The AngelScript cook service (scripting.md §5 + §7.5): compile-check in a cooker-owned
 // AngelScript VM (resolved through the backend registry by language) + the shared
@@ -19,9 +19,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.script.angelscript.pipeline;
+export module script.angelscript.pipeline;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

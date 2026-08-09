@@ -10,12 +10,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:menu_bar;
+export module foundation.ui.toolkit:menu_bar;
 
-import draconic.core;
-import draconic.vg;
-import draconic.fonts;
-import draconic.ui;
+import foundation.core;
+import foundation.vg;
+import foundation.fonts;
+import foundation.ui;
 
 using namespace foundation::core;
 namespace fonts = foundation::fonts;

@@ -4,10 +4,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rhi.validation:validated_swap_chain;
+export module foundation.rhi.validation:validated_swap_chain;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :validated_queue;
 
 using namespace foundation::core;

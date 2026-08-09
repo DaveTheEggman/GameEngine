@@ -9,9 +9,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:image;
+export module experimental.gui:image;
 
-import draconic.core; // RefPtr, Move, Optional, Float2, Min, Max
+import foundation.core; // RefPtr, Move, Optional, Float2, Min, Max
 import :rect;
 import :draw_context;
 import :drawable;

@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:ilist_adapter;
+export module foundation.ui:ilist_adapter;
 
-import draconic.core; // RefPtr
+import foundation.core; // RefPtr
 import :view;
 
 using namespace foundation::core;

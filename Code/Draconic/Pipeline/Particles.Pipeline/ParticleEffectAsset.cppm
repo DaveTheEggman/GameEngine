@@ -1,4 +1,4 @@
-// draconic.particles.editor - the edit-time ParticleEffectAsset + its builder (the bake). Tooling
+// foundation.particles.editor - the edit-time ParticleEffectAsset + its builder (the bake). Tooling
 // only; the runtime/app never links this. Unlike an imported asset (e.g. a texture importing an
 // external .png), a particle effect is AUTHORED - so the asset embeds the effect itself and Build()
 // cooks it into a ParticleEffectResource with no source-file load. Ref resolution + curve->LUT baking
@@ -10,13 +10,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.particles.pipeline;
+export module particles.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.particles;
-import draconic.particles.resource;
-import draconic.content;
+import foundation.core;
+import pipeline.core;
+import foundation.particles;
+import foundation.particles.resource;
+import foundation.content;
 
 using namespace foundation::core;
 using namespace foundation;

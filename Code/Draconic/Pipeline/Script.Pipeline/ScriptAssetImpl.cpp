@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.script.pipeline;
+module script.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
+import foundation.core;
+import pipeline.core;
 
 using namespace foundation::core;
 using namespace foundation::script;

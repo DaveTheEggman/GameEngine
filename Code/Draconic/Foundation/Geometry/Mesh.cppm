@@ -16,9 +16,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.geometry:mesh;
+export module foundation.geometry:mesh;
 
-import draconic.core;
+import foundation.core;
 import :types;
 import :index_buffer;
 

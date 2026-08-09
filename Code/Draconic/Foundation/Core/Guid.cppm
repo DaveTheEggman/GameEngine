@@ -9,7 +9,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:guid;
+export module foundation.core:guid;
 
 import :base;
 import :random;

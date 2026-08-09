@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

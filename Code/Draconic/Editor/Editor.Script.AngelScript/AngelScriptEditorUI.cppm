@@ -1,4 +1,4 @@
-// Draconic::Editor.Script.AngelScript - the `draconic.editor.script.angelscript` module.
+// Draconic::Editor.Script.AngelScript - the `editor.script.angelscript` module.
 //
 // AngelScript-specific EDITOR-UI services: everything the in-editor experience needs that
 // depends on ui.toolkit and therefore cannot live in the cook target (the cook links into
@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.script.angelscript;
+export module editor.script.angelscript;
 
-import draconic.core;
+import foundation.core;
 
 export namespace editor{
     /// Registers AngelScript's editor-UI services (the CodeEditView lexer, under both the

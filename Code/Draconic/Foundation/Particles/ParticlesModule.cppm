@@ -1,10 +1,10 @@
-// draconic.particles - the CPU particle runtime, aggregating its partitions. A faithful
+// foundation.particles - the CPU particle runtime, aggregating its partitions. A faithful
 // port of SedulousEngine's Sedulous.Particles (CPU side): the SoA stream container, the
 // initializer/behavior module taxonomy, the effect/system/emitter/instance object model,
 // and the CPU simulator. The cooked resource, GPU-compute simulator, ECS/render
 // integration, and editor authoring are separate layers on top. See docs/design/particles.md.
 
-export module draconic.particles;
+export module foundation.particles;
 
 export import :types;   // enums, RangeValue, ParticleCurve, EmissionShape, events, update context
 export import :streams; // ParticleStreamId + SoA stream container (ParticleStream / CPUStream)

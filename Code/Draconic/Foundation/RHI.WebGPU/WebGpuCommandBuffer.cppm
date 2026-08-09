@@ -1,13 +1,13 @@
-/// draconic.rhi.webgpu:command_buffer - CommandBuffer over WGPUCommandBuffer.
+/// foundation.rhi.webgpu:command_buffer - CommandBuffer over WGPUCommandBuffer.
 
 module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:command_buffer;
+export module foundation.rhi.webgpu:command_buffer;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 
 using namespace foundation::core;

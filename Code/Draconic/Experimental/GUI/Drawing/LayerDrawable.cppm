@@ -9,9 +9,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:layer_drawable;
+export module experimental.gui:layer_drawable;
 
-import draconic.core; // Array, RefPtr, Move, Max
+import foundation.core; // Array, RefPtr, Move, Max
 import :rect;
 import :thickness;
 import :control_state;

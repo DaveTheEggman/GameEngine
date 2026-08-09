@@ -6,21 +6,21 @@
 #include <cstdint>
 #include <cstring>
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.vulkan;
-import draconic.rhi.null;
-import draconic.rhi.validation;
-import draconic.shell;
-import draconic.shell.desktop;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.vulkan;
+import foundation.rhi.null;
+import foundation.rhi.validation;
+import foundation.shell;
+import foundation.shell.desktop;
 #ifdef DRACONIC_HAS_SHADERS
-import draconic.shaders;
+import foundation.shaders;
 #endif
 #ifdef DRACONIC_HAS_DX12
-import draconic.rhi.dx12;
+import foundation.rhi.dx12;
 #endif
 #ifdef DRACONIC_HAS_WEBGPU
-import draconic.rhi.webgpu;
+import foundation.rhi.webgpu;
 #endif
 
 static const char* adapterTypeStr(foundation::rhi::AdapterType t)

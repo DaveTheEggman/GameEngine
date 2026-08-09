@@ -2,9 +2,9 @@
 // callback, and standalone (no-group) behavior.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.vg;
-import draconic.gui;
+import foundation.core;
+import foundation.vg;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

@@ -1,9 +1,9 @@
 /// Abstract resource classes. Each represents a GPU-allocated object
 /// owned and destroyed by the Device.
 
-export module draconic.rhi:resources;
+export module foundation.rhi:resources;
 
-import draconic.core;
+import foundation.core;
 import :enums;
 import :texture_format;
 import :types;

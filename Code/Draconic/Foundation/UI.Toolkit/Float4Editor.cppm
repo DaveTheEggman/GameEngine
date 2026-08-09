@@ -8,11 +8,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.toolkit:float4_editor;
+export module foundation.ui.toolkit:float4_editor;
 
-import draconic.core;
-import draconic.vg;
-import draconic.ui;
+import foundation.core;
+import foundation.vg;
+import foundation.ui;
 import :property_editor;
 import :vector_fields; // reuse AxisLabel + AxisColors
 

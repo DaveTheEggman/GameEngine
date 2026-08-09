@@ -2,8 +2,8 @@
 // SetValue(), Beef delegate -> core::Function, scope Property -> stack Property).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::ui;
 using namespace foundation::core;

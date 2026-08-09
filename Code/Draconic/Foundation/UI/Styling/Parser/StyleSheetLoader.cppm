@@ -11,10 +11,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:style_sheet_loader;
+export module foundation.ui:style_sheet_loader;
 
-import draconic.core;  // HashMap, String, StringView, Color, RefPtr
-import draconic.image; // ImageData
+import foundation.core;  // HashMap, String, StringView, Color, RefPtr
+import foundation.image; // ImageData
 import :style_sheet;
 import :theme_palette;
 import :sss_token;

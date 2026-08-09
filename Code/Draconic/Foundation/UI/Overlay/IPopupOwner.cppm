@@ -9,7 +9,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:ipopup_owner;
+export module foundation.ui:ipopup_owner;
 
 export namespace foundation::ui
 {

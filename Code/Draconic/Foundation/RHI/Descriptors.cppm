@@ -2,9 +2,9 @@
 
 module;
 
-export module draconic.rhi:descriptors;
+export module foundation.rhi:descriptors;
 
-import draconic.core;
+import foundation.core;
 import :enums;
 import :texture_format;
 import :types;

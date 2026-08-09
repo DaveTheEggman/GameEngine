@@ -8,10 +8,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:css_values;
+export module experimental.gui:css_values;
 
-import draconic.core; // Color, Optional, StringView, f32
-import draconic.vg;   // CornerRadii
+import foundation.core; // Color, Optional, StringView, f32
+import foundation.vg;   // CornerRadii
 import :thickness;
 
 using namespace foundation::core;

@@ -1,4 +1,4 @@
-// Draconic::MaterialEditor - the `draconic.materials.editor` module (tooling).
+// Draconic::MaterialEditor - the `foundation.materials.editor` module (tooling).
 //
 // Source-side material authoring + cook:
 //   * MaterialAsset (pipeline::Asset): wraps a MaterialSource (the authored material -
@@ -16,13 +16,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.materials.pipeline;
+export module materials.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.content;
-import draconic.materials;
-import draconic.materials.resource;
+import foundation.core;
+import pipeline.core;
+import foundation.content;
+import foundation.materials;
+import foundation.materials.resource;
 
 using namespace foundation::core;
 using namespace foundation::materials;

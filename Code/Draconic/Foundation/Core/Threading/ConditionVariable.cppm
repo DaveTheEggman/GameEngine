@@ -4,7 +4,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Threading/ThreadBackend.h"
 
-export module draconic.core:condition_variable;
+export module foundation.core:condition_variable;
 
 import :base;
 import :mutex;

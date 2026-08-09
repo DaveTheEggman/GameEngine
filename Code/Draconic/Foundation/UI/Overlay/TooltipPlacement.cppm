@@ -6,7 +6,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:tooltip_placement;
+export module foundation.ui:tooltip_placement;
 
 export namespace foundation::ui
 {

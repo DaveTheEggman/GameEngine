@@ -1,5 +1,5 @@
 // VG Sandbox - faithful port of Sedulous Samples/VG/VGSandbox. A NanoVG-style
-// demo exercising the whole VG stack (draconic.vg + .renderer + .svg + fonts +
+// demo exercising the whole VG stack (foundation.vg + .renderer + .svg + fonts +
 // image): line widths/caps/joins, animated eyes, an HSL color wheel, an area
 // graph, scissor clipping, image draws, text, UI convenience primitives,
 // immediate-mode paths, and SVG rendering. Window/device/swapchain via the
@@ -8,20 +8,20 @@
 #include <new>
 #include <cstdio>
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.vulkan;
-import draconic.shaders;
-import draconic.shaders.system; // ShaderSystemHost
-import draconic.samples.framework;
-import draconic.image;
-import draconic.fonts;
-import draconic.fonts.ttf;
-import draconic.fonts.distancefield;
-import draconic.fonts.distancefield.baker;
-import draconic.vg;
-import draconic.vg.renderer;
-import draconic.vg.svg;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.vulkan;
+import foundation.shaders;
+import foundation.shaders.system; // ShaderSystemHost
+import samples.framework;
+import foundation.image;
+import foundation.fonts;
+import foundation.fonts.ttf;
+import foundation.fonts.distancefield;
+import foundation.fonts.distancefield.baker;
+import foundation.vg;
+import foundation.vg.renderer;
+import foundation.vg.svg;
 
 using namespace foundation::core;
 namespace rhi = foundation::rhi;

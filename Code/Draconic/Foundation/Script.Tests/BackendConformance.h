@@ -15,8 +15,8 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.script;
+import foundation.core;
+import foundation.script;
 
 namespace foundation::script::conformance
 {

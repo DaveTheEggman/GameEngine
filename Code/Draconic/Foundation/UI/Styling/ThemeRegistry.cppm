@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:theme_registry;
+export module foundation.ui:theme_registry;
 
-import draconic.core; // Array
+import foundation.core; // Array
 import :style_sheet;
 import :theme_palette;
 import :theme_extension;

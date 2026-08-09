@@ -9,10 +9,10 @@ module;
 
 #include <cstring>
 
-export module draconic.rhi.vulkan:adapter;
+export module foundation.rhi.vulkan:adapter;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

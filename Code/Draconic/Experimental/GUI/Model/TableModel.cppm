@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:table_model;
+export module experimental.gui:table_model;
 
-import draconic.core; // Array, String, StringView, Move
+import foundation.core; // Array, String, StringView, Move
 import :variant;
 import :model_index;
 import :model;

@@ -1,6 +1,6 @@
 // Draconic UI Toolkit - :toolkit_theme_extension partition
 //
-// Registers default theme styles for every draconic.ui.toolkit control (dock manager / panels / tab
+// Registers default theme styles for every foundation.ui.toolkit control (dock manager / panels / tab
 // groups / splits / floating windows + the menu/tool/status bars + split view + breadcrumb + color
 // picker + property grid). A faithful port of Sedulous.UI.Toolkit/src/ToolkitThemeExtension.bf.
 //
@@ -15,11 +15,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui.toolkit:toolkit_theme_extension;
+export module foundation.ui.toolkit:toolkit_theme_extension;
 
-import draconic.core;
-import draconic.vg;
-import draconic.ui;
+import foundation.core;
+import foundation.vg;
+import foundation.ui;
 
 import :docking; // DockManager / DockablePanel / DockTabGroup / DockSplit / DockableWindow
 import :menu_bar;
@@ -36,7 +36,7 @@ namespace core = foundation::core;
 
 export namespace foundation::ui::toolkit
 {
-    /// Registers default theme styles for all draconic.ui.toolkit controls (Pattern-B injected
+    /// Registers default theme styles for all foundation.ui.toolkit controls (Pattern-B injected
     /// IThemeExtension - hand it to ThemeRegistry before building a theme).
     class ToolkitThemeExtension : public IThemeExtension
     {

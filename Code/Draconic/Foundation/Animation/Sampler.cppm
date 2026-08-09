@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.animation:sampler;
+export module foundation.animation:sampler;
 
-import draconic.core;
+import foundation.core;
 import :skeleton; // BoneTransform, Skeleton
 import :clip;     // AnimationTrack, AnimationClip, InterpolationMode
 

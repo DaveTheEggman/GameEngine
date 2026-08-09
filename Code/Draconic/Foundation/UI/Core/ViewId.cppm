@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:view_id;
+export module foundation.ui:view_id;
 
-import draconic.core; // Atomic
+import foundation.core; // Atomic
 
 using namespace foundation::core;
 namespace core = foundation::core;

@@ -2,10 +2,10 @@
 // checks (VGContext tessellates into a CPU vertex batch).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.vg;
-import draconic.image;
-import draconic.gui;
+import foundation.core;
+import foundation.vg;
+import foundation.image;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

@@ -9,11 +9,11 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:gpu_mesh;
+export module foundation.render:gpu_mesh;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.geometry;
+import foundation.core;
+import foundation.rhi;
+import foundation.geometry;
 import :resources;
 
 using namespace foundation::core;

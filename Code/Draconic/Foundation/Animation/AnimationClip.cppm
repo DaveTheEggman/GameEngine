@@ -9,9 +9,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.animation:clip;
+export module foundation.animation:clip;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 namespace core = foundation::core;

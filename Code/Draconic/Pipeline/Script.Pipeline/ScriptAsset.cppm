@@ -1,4 +1,4 @@
-// Draconic::ScriptEditor - the `draconic.script.editor` module (tooling).
+// Draconic::ScriptEditor - the `foundation.script.editor` module (tooling).
 //
 // Source-side script authoring + cook (docs/design/scripting.md §5 + §7.5 B3), fully
 // BACKEND-NEUTRAL - no language syntax lives here:
@@ -6,7 +6,7 @@
 //     (defaulted from the imported file's extension - backend neutrality B3). The asset
 //     is just source bytes + a language id + cooked metadata; nothing language-specific.
 //   * IScriptLanguageCook: the per-language cook SERVICE. Each language library provides
-//     one (Wren: draconic.script.wren.editor; AngelScript: draconic.script.angelscript.editor)
+//     one (Wren: foundation.script.wren.editor; AngelScript: foundation.script.angelscript.editor)
 //     and registers it into ScriptLanguageCookRegistry, keyed by languageId (mirroring the
 //     ScriptBackendRegistry). A cook compile-checks + harvests metadata; the New-Asset
 //     starter template is its NewAssetTemplate().
@@ -26,14 +26,14 @@ module;
 #include "Core/Reflection/Reflect.h"
 #include "Core/Log/Log.h"
 
-export module draconic.script.pipeline;
+export module script.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.content;
-import draconic.script;
-import draconic.script.resource;
+import foundation.core;
+import pipeline.core;
+import editor.core;
+import foundation.content;
+import foundation.script;
+import foundation.script.resource;
 
 using namespace foundation::core;
 using namespace foundation::script;
@@ -369,7 +369,7 @@ export namespace pipeline{
     /// A language's cook: compile-check + metadata harvest + the New-Asset starter. The
     /// only place a language's specifics live on the cook side; the neutral builder
     /// resolves one by languageId and delegates. Implemented per language in its own
-    /// library (draconic.script.<lang>.editor), registered via ScriptLanguageCookRegistry.
+    /// library (foundation.script.<lang>.editor), registered via ScriptLanguageCookRegistry.
     class IScriptLanguageCook
     {
     public:

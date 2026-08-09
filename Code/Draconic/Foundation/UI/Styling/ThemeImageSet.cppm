@@ -12,10 +12,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:theme_image_set;
+export module foundation.ui:theme_image_set;
 
-import draconic.core;  // HashMap, Array, String, StringView, Optional
-import draconic.image; // ImageData, NineSlice
+import foundation.core;  // HashMap, Array, String, StringView, Optional
+import foundation.image; // ImageData, NineSlice
 import :control_state;
 
 using namespace foundation::core;

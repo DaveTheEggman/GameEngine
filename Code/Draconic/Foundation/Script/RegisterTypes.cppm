@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.script:script_register;
+export module foundation.script:script_register;
 
-import draconic.core;
+import foundation.core;
 import :script_manager;
 
 namespace core = foundation::core;

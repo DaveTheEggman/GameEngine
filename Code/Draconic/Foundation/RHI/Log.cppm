@@ -8,9 +8,9 @@ module;
 #include <cstdio>
 #include <cstdarg>
 
-export module draconic.rhi:log;
+export module foundation.rhi:log;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

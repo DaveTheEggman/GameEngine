@@ -1,4 +1,4 @@
-// draconic.physics core tests: headless Jolt world - "determinism-enough" simulation
+// foundation.physics core tests: headless Jolt world - "determinism-enough" simulation
 // (spawn/step/assert poses), the layer matrix, compound building, queries, kinematic
 // motion, and contact/trigger buffering.
 
@@ -8,8 +8,8 @@
 #include <cmath>
 #include <cstdio>
 
-import draconic.core;
-import draconic.physics;
+import foundation.core;
+import foundation.physics;
 
 using namespace foundation::core;
 using namespace foundation::physics;

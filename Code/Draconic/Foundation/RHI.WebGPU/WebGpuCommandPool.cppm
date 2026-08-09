@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:command_pool - CommandPool over per-encoder allocation.
+/// foundation.rhi.webgpu:command_pool - CommandPool over per-encoder allocation.
 ///
 /// WebGPU has no pool object - encoders come straight from the device and are
 /// one-shot. The pool is ownership bookkeeping: it allocates encoder wrappers and
@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:command_pool;
+export module foundation.rhi.webgpu:command_pool;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :blit_helper;
 import :command_encoder;

@@ -2,8 +2,8 @@
 // Color/length/bool/Thickness, and apply a resolved (or parsed) stylesheet onto a widget.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.gui;
+import foundation.core;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

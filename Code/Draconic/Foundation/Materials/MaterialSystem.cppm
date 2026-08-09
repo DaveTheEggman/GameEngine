@@ -11,10 +11,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.materials:system;
+export module foundation.materials:system;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :types;
 import :material;
 import :instance;

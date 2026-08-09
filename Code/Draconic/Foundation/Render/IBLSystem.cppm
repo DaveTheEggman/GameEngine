@@ -21,13 +21,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:ibl;
+export module foundation.render:ibl;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rendergraph;
-import draconic.shaders;
-import draconic.shaders.system;
+import foundation.core;
+import foundation.rhi;
+import foundation.rendergraph;
+import foundation.shaders;
+import foundation.shaders.system;
 import :data;        // SkySnapshot / SkyMode / ExtractedScene (context identity)
 
 using namespace foundation::core;

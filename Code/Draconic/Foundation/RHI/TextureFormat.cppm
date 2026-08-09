@@ -1,8 +1,8 @@
 /// Texture format enum and query helpers.
 
-export module draconic.rhi:texture_format;
+export module foundation.rhi:texture_format;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

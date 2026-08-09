@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:color_functions;
+export module foundation.ui:color_functions;
 
-import draconic.core; // Color, Min, Max
+import foundation.core; // Color, Min, Max
 import :palette;
 
 using namespace foundation::core;

@@ -12,9 +12,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:scene_node;
+export module experimental.gui:scene_node;
 
-import draconic.core; // Duration
+import foundation.core; // Duration
 import :node;
 import :action_manager;
 import :mutation_queue;

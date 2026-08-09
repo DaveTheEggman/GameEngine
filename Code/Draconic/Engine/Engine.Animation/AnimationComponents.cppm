@@ -7,20 +7,20 @@
 /// replaces driving players by hand in app code - the engine now animates skinned meshes from the
 /// scene tick.
 ///
-/// It sits at the animation<->render seam (depends on both draconic.animation and the render
+/// It sits at the animation<->render seam (depends on both foundation.animation and the render
 /// components); neither of those depends back on it.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.animation:components;
+export module engine.animation:components;
 
-import draconic.core;
-import draconic.resource;
-import draconic.scene;
-import draconic.animation; // Skeleton, AnimationClip, AnimationPlayer, AnimationGraph(+Player)
-import draconic.engine.render; // MeshComponentManager / MeshComponent (the feed target)
-import draconic.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneAnimation handle)
+import foundation.core;
+import foundation.resource;
+import foundation.scene;
+import foundation.animation; // Skeleton, AnimationClip, AnimationPlayer, AnimationGraph(+Player)
+import engine.render; // MeshComponentManager / MeshComponent (the feed target)
+import foundation.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneAnimation handle)
 
 using namespace foundation::core;
 

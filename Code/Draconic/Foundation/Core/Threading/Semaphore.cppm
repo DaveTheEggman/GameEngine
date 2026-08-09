@@ -5,7 +5,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:semaphore;
+export module foundation.core:semaphore;
 
 import :base;
 import :mutex;

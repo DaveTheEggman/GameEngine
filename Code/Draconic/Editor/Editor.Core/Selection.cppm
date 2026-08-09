@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.editor.core:selection;
+export module editor.core:selection;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

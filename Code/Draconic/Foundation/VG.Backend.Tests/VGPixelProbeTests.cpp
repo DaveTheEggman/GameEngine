@@ -7,14 +7,14 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rhi.vulkan;
-import draconic.rhi.webgpu;
-import draconic.shaders;
-import draconic.shaders.system;
-import draconic.vg;
-import draconic.vg.renderer;
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.vulkan;
+import foundation.rhi.webgpu;
+import foundation.shaders;
+import foundation.shaders.system;
+import foundation.vg;
+import foundation.vg.renderer;
 
 using namespace foundation::core;
 namespace rhi = foundation::rhi;

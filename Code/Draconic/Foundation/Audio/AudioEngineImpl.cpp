@@ -23,10 +23,10 @@ module;
 #include <cstdlib>
 #include <cstring>
 
-module draconic.audio;
+module foundation.audio;
 
-import draconic.core;
-import draconic.vfs;
+import foundation.core;
+import foundation.vfs;
 
 using namespace foundation::core;
 
@@ -232,7 +232,7 @@ namespace foundation::audio
 
     struct AudioEngine::Impl
     {
-        // ---- ma_vfs bridge: miniaudio streams straight out of draconic.vfs ----
+        // ---- ma_vfs bridge: miniaudio streams straight out of foundation.vfs ----
         // First member so a pointer to Bridge is a valid ma_vfs*.
         struct Bridge
         {

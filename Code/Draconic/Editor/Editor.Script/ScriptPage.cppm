@@ -1,4 +1,4 @@
-// Draconic::EditorScript - the `draconic.editor.script` module.
+// Draconic::EditorScript - the `editor.script` module.
 //
 // ScriptEditorPage (scripting.md §5, "ScriptPage - phase 2"): an in-editor code editor for a
 // ScriptClassAsset's behavior source, built on ui::toolkit::CodeEditView (code-editor.md P1):
@@ -16,18 +16,18 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.script;
+export module editor.script;
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.runtime.client;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.script;
-import draconic.script.pipeline;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.runtime.client;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.script;
+import script.pipeline;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 namespace core = foundation::core;

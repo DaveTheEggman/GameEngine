@@ -1,8 +1,8 @@
 // Ported from Sedulous.Xml.Tests/NamespaceTests.bf
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.xml;
+import foundation.core;
+import foundation.xml;
 using namespace foundation::core;
 using namespace foundation::xml;
 

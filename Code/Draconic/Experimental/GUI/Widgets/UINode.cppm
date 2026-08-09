@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:ui_node;
+export module experimental.gui:ui_node;
 
-import draconic.core;  // RefPtr, Max, Move, Color
-import draconic.fonts; // CachedFont
+import foundation.core;  // RefPtr, Max, Move, Color
+import foundation.fonts; // CachedFont
 import :rect;
 import :thickness;
 import :control_state;

@@ -10,7 +10,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.ui;
+module foundation.ui;
 
 namespace foundation::ui
 {

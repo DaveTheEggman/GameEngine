@@ -9,10 +9,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rendergraph:state_tracker;
+export module foundation.rendergraph:state_tracker;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :types;
 
 using namespace foundation::core;

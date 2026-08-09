@@ -8,7 +8,7 @@ module;
 #include "Core/Prelude.h"
 #include <cstring> // memcpy (avoids the pedantic void*->function-pointer cast)
 
-export module draconic.core:library;
+export module foundation.core:library;
 
 import :base;
 import :string;

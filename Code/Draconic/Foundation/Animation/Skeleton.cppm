@@ -11,9 +11,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.animation:skeleton;
+export module foundation.animation:skeleton;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 namespace core = foundation::core;

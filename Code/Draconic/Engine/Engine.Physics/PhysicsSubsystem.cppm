@@ -1,4 +1,4 @@
-// Draconic::PhysicsSubsystem - the `draconic.engine.physics` module.
+// Draconic::PhysicsSubsystem - the `engine.physics` module.
 //
 // Scene integration (docs/design/physics.md §3.2): a PhysicsSceneSystem per scene owns its
 // PhysicsWorld; bodies build from RigidBodyComponents (+ descendant ColliderComponents
@@ -16,17 +16,17 @@ module;
 #include "Core/Reflection/Reflect.h" // DRACONIC_OBJECT (the Physics facade)
 #include <cmath>
 
-export module draconic.engine.physics;
+export module engine.physics;
 
 export import :components;
 
-import draconic.core;
-import draconic.runtime;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.script;
-import draconic.script.facades; // foundation::script::Entity (the raycast/contact hit entity)
-import draconic.physics;
+import foundation.core;
+import foundation.runtime;
+import foundation.scene;
+import engine.scene;
+import foundation.script;
+import foundation.script.facades; // foundation::script::Entity (the raycast/contact hit entity)
+import foundation.physics;
 // NOTE: no render imports HERE - the debug-draw path lives in SubsystemImpl.cpp (a module
 // implementation unit). Keeping heavyweight imports out of the interface matters for
 // GCC's module loader (-fno-module-lazy consumers force-load the whole import graph).

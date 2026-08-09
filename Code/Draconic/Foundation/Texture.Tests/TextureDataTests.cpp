@@ -1,10 +1,10 @@
-// Tests for draconic.texture: descriptor factories, format conversion, mip sizes.
+// Tests for foundation.texture: descriptor factories, format conversion, mip sizes.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.rhi;
-import draconic.image;
-import draconic.texture;
+import foundation.core;
+import foundation.rhi;
+import foundation.image;
+import foundation.texture;
 using namespace foundation::core;
 using namespace foundation::texture;
 namespace rhi = foundation::rhi;

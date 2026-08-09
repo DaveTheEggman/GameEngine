@@ -8,10 +8,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.engine.input;
+module engine.input;
 
-import draconic.core;
-import draconic.script.facades; // RegisterExtraFacadeName (Input into the behavior prelude)
+import foundation.core;
+import foundation.script.facades; // RegisterExtraFacadeName (Input into the behavior prelude)
 
 using namespace foundation::core;
 using namespace foundation::input;

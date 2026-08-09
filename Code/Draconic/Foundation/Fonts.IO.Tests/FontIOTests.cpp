@@ -1,4 +1,4 @@
-// Validates the draconic.fonts.io port: extension-routed parser/baker factories
+// Validates the foundation.fonts.io port: extension-routed parser/baker factories
 // and the FontManager cache. Sedulous exercised this path through its TTF
 // backend; here we drive it with fake parser/baker built on the baked types so
 // the IO layer is tested in isolation (no stb_truetype).
@@ -6,10 +6,10 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.baked;
-import draconic.fonts.io;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.baked;
+import foundation.fonts.io;
 
 using namespace foundation::core;
 using namespace foundation::fonts;

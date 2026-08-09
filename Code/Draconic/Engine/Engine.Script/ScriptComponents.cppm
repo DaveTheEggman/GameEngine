@@ -11,13 +11,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.script:components;
+export module engine.script:components;
 
-import draconic.core;
-import draconic.scene;
-import draconic.resource;
-import draconic.script;
-import draconic.script.resource;
+import foundation.core;
+import foundation.scene;
+import foundation.resource;
+import foundation.script;
+import foundation.script.resource;
 
 using namespace foundation::core;
 using namespace foundation::script;

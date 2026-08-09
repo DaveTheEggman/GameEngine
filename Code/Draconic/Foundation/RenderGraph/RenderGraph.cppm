@@ -11,10 +11,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.rendergraph:graph;
+export module foundation.rendergraph:graph;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :types;
 import :descriptors;
 import :callbacks;

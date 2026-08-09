@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:itooltip_provider;
+export module foundation.ui:itooltip_provider;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

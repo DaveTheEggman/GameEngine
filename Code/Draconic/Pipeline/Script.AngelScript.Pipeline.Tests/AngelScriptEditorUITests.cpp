@@ -2,9 +2,9 @@
 // "angelscript" id and the "as" alias, with AngelScript classification.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui.toolkit;
-import draconic.editor.script.angelscript;
+import foundation.core;
+import foundation.ui.toolkit;
+import editor.script.angelscript;
 
 using namespace foundation::core;
 using namespace foundation::ui::toolkit;

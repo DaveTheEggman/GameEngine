@@ -9,10 +9,10 @@ module;
 
 #include <cstring>
 
-export module draconic.rhi.dx12:adapter;
+export module foundation.rhi.dx12:adapter;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

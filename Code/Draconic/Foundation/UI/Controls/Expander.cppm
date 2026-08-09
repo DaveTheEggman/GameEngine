@@ -8,11 +8,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:expander;
+export module foundation.ui:expander;
 
-import draconic.core;
-import draconic.vg;
-import draconic.fonts; // CachedFont, TextAlignment, VerticalAlignment
+import foundation.core;
+import foundation.vg;
+import foundation.fonts; // CachedFont, TextAlignment, VerticalAlignment
 import :view;
 import :event;
 import :property;

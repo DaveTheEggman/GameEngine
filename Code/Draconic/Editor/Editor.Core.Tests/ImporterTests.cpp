@@ -6,9 +6,9 @@
 #include "Core/Prelude.h"
 #include <initializer_list>
 
-import draconic.core;
-import draconic.content;
-import draconic.editor.core;
+import foundation.core;
+import foundation.content;
+import editor.core;
 
 using namespace foundation::core;
 using namespace editor;

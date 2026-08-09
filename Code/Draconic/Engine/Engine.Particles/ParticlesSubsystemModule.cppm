@@ -1,10 +1,10 @@
-// draconic.engine.particles - scene/render integration for the particle system: the ECS
+// engine.particles - scene/render integration for the particle system: the ECS
 // component + manager (which ticks the CPU sim and provides billboard render-data), the dedicated
 // ParticleRenderer, and the Context-level ParticleSubsystem that wires them into RenderSubsystem via
 // its generic register-renderer / register-provider seam. Depends on render.subsystem + scene +
-// draconic.particles; draconic.render stays ignorant of particles. See docs/design/particles.md.
+// foundation.particles; foundation.render stays ignorant of particles. See docs/design/particles.md.
 
-export module draconic.engine.particles;
+export module engine.particles;
 
 export import :renderdata; // ParticleBillboardInstance + ParticleBillboardRenderData
 export import :renderer;   // ParticleRenderer (dedicated billboard Renderer)

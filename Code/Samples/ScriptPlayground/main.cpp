@@ -1,4 +1,4 @@
-// ScriptPlayground - the draconic.script entity-behaviors P1 consumer proof: a scene of
+// ScriptPlayground - the foundation.script entity-behaviors P1 consumer proof: a scene of
 // cubes carrying WREN BEHAVIORS ticked by the ScriptSubsystem under simulation. Two
 // behaviors demonstrate the model end-to-end:
 //   * Mover  - reads a `speed` float property + a `target` entity property; walks toward
@@ -19,25 +19,25 @@
 #include "Core/Prelude.h"
 #include "Runtime.Client/AppMain.h"
 
-import draconic.core;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.engine.defaultapp;
-import draconic.shell;
-import draconic.runtime.desktop;
-import draconic.shell.desktop;
-import draconic.graphics;
-import draconic.graphics.gpu;
-import draconic.scene;
-import draconic.engine.scene;
-import draconic.engine.render;
-import draconic.geometry;
-import draconic.geometry.resource;
-import draconic.materials;
-import draconic.materials.resource;
-import draconic.script;
-import draconic.script.resource;
-import draconic.engine.script;
+import foundation.core;
+import foundation.runtime;
+import foundation.runtime.client;
+import engine.defaultapp;
+import foundation.shell;
+import foundation.runtime.desktop;
+import foundation.shell.desktop;
+import foundation.graphics;
+import foundation.graphics.gpu;
+import foundation.scene;
+import engine.scene;
+import engine.render;
+import foundation.geometry;
+import foundation.geometry.resource;
+import foundation.materials;
+import foundation.materials.resource;
+import foundation.script;
+import foundation.script.resource;
+import engine.script;
 
 #include "../Common/FlyCamera.h"
 

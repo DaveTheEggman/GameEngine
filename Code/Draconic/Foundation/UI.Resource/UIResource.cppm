@@ -1,4 +1,4 @@
-// Draconic::UIResource - the `draconic.ui.resource` module.
+// Draconic::UIResource - the `foundation.ui.resource` module.
 //
 // Cooked game-UI content (docs/design/game-ui.md §4). v1 payloads are VALIDATED TEXT:
 // the cook parses (markup / SSS) and FAILS on errors, but ships the source text - the
@@ -6,7 +6,7 @@
 // the same records). Documents are TEMPLATES: every canvas instantiates its own view
 // tree from UIDocument::markup; themes parse once per bind and are shared.
 //
-// Deliberately FREE of the draconic.ui framework: validation lives in the editor
+// Deliberately FREE of the foundation.ui framework: validation lives in the editor
 // builders, instantiation in the subsystem - a headless tool can read these records
 // without pulling the whole UI stack.
 
@@ -14,11 +14,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui.resource;
+export module foundation.ui.resource;
 
-import draconic.core;
-import draconic.resource;
-import draconic.content;
+import foundation.core;
+import foundation.resource;
+import foundation.content;
 
 using namespace foundation::core;
 using namespace foundation::resource;

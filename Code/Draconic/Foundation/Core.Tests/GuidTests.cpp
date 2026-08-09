@@ -2,7 +2,7 @@
 
 #include "Core/Prelude.h" // brings <new> into reach for container instantiation (GCC)
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

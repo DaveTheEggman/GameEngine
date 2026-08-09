@@ -5,7 +5,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:plane;
+export module foundation.core:plane;
 
 import :base;
 import :math;

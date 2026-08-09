@@ -9,12 +9,12 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.modelimporter:anim_convert;
+export module modelimporter:anim_convert;
 
-import draconic.core;
-import draconic.model;
-import draconic.animation;
-import draconic.animation.resource;
+import foundation.core;
+import foundation.model;
+import foundation.animation;
+import foundation.animation.resource;
 
 using namespace foundation::core;
 namespace model = foundation::model;

@@ -8,10 +8,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rendergraph:resource;
+export module foundation.rendergraph:resource;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :types;
 import :descriptors;
 import :persistent_resource;

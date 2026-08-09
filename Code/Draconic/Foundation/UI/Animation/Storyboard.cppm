@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:storyboard;
+export module foundation.ui:storyboard;
 
-import draconic.core;
+import foundation.core;
 import :animation;
 
 using namespace foundation::core;

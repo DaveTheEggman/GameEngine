@@ -6,7 +6,7 @@ module;
 #include "Core/Prelude.h"
 #include <atomic>
 
-export module draconic.core:atomic;
+export module foundation.core:atomic;
 
 export namespace foundation::core
 {

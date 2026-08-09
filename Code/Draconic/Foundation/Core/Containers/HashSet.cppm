@@ -2,7 +2,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
 
-export module draconic.core:hash_set;
+export module foundation.core:hash_set;
 
 import :base;
 import :allocator;

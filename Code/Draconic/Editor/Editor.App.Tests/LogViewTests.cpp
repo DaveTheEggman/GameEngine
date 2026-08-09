@@ -5,8 +5,8 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.editor.app;
+import foundation.core;
+import editor.app;
 
 using namespace foundation::core;
 using namespace editor::app;

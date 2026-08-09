@@ -1,4 +1,4 @@
-// Draconic::FontsDFBaker - draconic.fonts.distancefield.baker:baker partition
+// Draconic::FontsDFBaker - foundation.fonts.distancefield.baker:baker partition
 //
 // IFontAtlasBaker that generates MSDF atlases via msdfgen (core-only).
 // Extracts glyph outlines from TrueTypeFont raw data via stb_truetype,
@@ -14,13 +14,13 @@ module;
 #include <cmath>
 #include <cstring>
 
-export module draconic.fonts.distancefield.baker:baker;
+export module foundation.fonts.distancefield.baker:baker;
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.io;
-import draconic.fonts.distancefield;
-import draconic.fonts.ttf;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.io;
+import foundation.fonts.distancefield;
+import foundation.fonts.ttf;
 
 using namespace foundation::core;
 

@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:ui_debug_overlay;
+export module foundation.ui:ui_debug_overlay;
 
-import draconic.core;
+import foundation.core;
 import :draw_context; // UIDrawContext (referenced in the signature; body uses ctx.VG()/DebugSettings())
 
 export namespace foundation::ui

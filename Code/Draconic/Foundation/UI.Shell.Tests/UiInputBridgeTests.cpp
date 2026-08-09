@@ -1,13 +1,13 @@
-// Tests for UiInputBridge (draconic.ui.shell) - a Draconic reimplementation, covered per the additions
+// Tests for UiInputBridge (foundation.ui.shell) - a Draconic reimplementation, covered per the additions
 // rule. Synthetic shell::InputEvents drive a UIContext through the bridge; a mock IWindow verifies the
 // focus-driven text-input (IME) sync.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
-import draconic.ui.shell;
-import draconic.shell;
-import draconic.shell.null;
+import foundation.core;
+import foundation.ui;
+import foundation.ui.shell;
+import foundation.shell;
+import foundation.shell.null;
 
 using namespace foundation::core;
 using namespace foundation::ui;

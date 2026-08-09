@@ -3,9 +3,9 @@
 #include "Core/Prelude.h"
 #include <cstring>
 
-import draconic.core;
-import draconic.vfs;
-import draconic.vfs.pak;
+import foundation.core;
+import foundation.vfs;
+import foundation.vfs.pak;
 
 using namespace foundation::core;
 using namespace foundation::vfs;

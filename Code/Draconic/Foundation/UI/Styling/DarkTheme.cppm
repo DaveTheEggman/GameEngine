@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:dark_theme;
+export module foundation.ui:dark_theme;
 
-import draconic.core;
+import foundation.core;
 import :style_sheet;
 import :style_rule;
 import :style_property;

@@ -13,14 +13,14 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:views;
+export module foundation.render:views;
 
-// ViewCamera + ViewportRect moved to the light `draconic.render.api` module (with
-// ISceneRenderer); re-exported here so draconic.render importers see them unchanged.
-export import draconic.render.api;
+// ViewCamera + ViewportRect moved to the light `foundation.render.api` module (with
+// ISceneRenderer); re-exported here so foundation.render importers see them unchanged.
+export import foundation.render.api;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :data;
 
 using namespace foundation::core;

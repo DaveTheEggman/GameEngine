@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.ui.toolkit:code_lexer_scan;
+module foundation.ui.toolkit:code_lexer_scan;
 
-import draconic.core;
+import foundation.core;
 import :code_lexer;
 
 using namespace foundation::core;

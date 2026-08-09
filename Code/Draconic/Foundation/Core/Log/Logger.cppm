@@ -10,7 +10,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:logger;
+export module foundation.core:logger;
 
 import :base;
 import :array;

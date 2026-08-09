@@ -3,9 +3,9 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rendergraph;
+import foundation.core;
+import foundation.rhi;
+import foundation.rendergraph;
 
 using namespace foundation::core;
 using namespace foundation::rendergraph;

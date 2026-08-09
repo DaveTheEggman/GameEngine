@@ -9,11 +9,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.engine.animation;
+module engine.animation;
 
-import draconic.core;
-import draconic.script;
-import draconic.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
+import foundation.core;
+import foundation.script;
+import foundation.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
 
 using namespace foundation::core;
 using namespace foundation::animation;

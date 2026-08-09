@@ -9,7 +9,7 @@ module;
 #include "Core/Prelude.h"
 #include <type_traits>
 
-export module draconic.core:binary_io;
+export module foundation.core:binary_io;
 
 import :base;
 import :string;

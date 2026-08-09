@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:model_index;
+export module experimental.gui:model_index;
 
-import draconic.core; // i32
+import foundation.core; // i32
 
 using namespace foundation::core;
 

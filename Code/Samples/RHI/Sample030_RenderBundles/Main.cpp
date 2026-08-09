@@ -7,11 +7,11 @@
 #include <cstdio>
 #include <cstdint>
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
-import draconic.samples.framework;
-import draconic.rhi.vulkan;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
+import samples.framework;
+import foundation.rhi.vulkan;
 
 namespace rhi = foundation::rhi;
 namespace shaders = foundation::shaders;

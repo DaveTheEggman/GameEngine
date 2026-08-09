@@ -1,6 +1,6 @@
 // Shared test doubles for the View cluster (faithful port of Sedulous.UI.Tests/src/TestHelpers.bf).
 // Declared here, defined once in TestHelpers.cpp (DRACONIC_OBJECT type-info must be single-definition).
-// The including TU must `import draconic.ui;` before including this header.
+// The including TU must `import foundation.ui;` before including this header.
 #pragma once
 #include "Core/Reflection/Reflect.h"
 

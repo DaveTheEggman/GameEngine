@@ -10,12 +10,12 @@ module;
 #include "imgui.h"
 #include <cstring>
 
-export module draconic.imgui:renderer;
+export module extensions.imgui:renderer;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
-import draconic.shaders.system;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
+import foundation.shaders.system;
 
 using namespace foundation::core;
 using namespace foundation;

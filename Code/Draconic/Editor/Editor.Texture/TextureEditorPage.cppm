@@ -1,4 +1,4 @@
-// Draconic::EditorTexture - the `draconic.editor.texture` module.
+// Draconic::EditorTexture - the `editor.texture` module.
 //
 // TextureEditorPage (editor-pages-gap.md, bespoke pass #1): the import-settings surface over
 // TextureAsset. A CPU preview of the source image on the left (decoded through the same
@@ -16,18 +16,18 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.texture;
+export module editor.texture;
 
-import draconic.core;
-import draconic.content;
-import draconic.image;
-import draconic.image.io;
-import draconic.texture;
-import draconic.texture.pipeline;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.editor.core;
-import draconic.editor.app;
+import foundation.core;
+import foundation.content;
+import foundation.image;
+import foundation.image.io;
+import foundation.texture;
+import texture.pipeline;
+import foundation.ui;
+import foundation.ui.toolkit;
+import editor.core;
+import editor.app;
 
 using namespace foundation::core;
 

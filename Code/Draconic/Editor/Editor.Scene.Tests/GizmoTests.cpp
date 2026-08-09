@@ -7,11 +7,11 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.scene;
-import draconic.engine.render;
-import draconic.editor.core;
-import draconic.editor.scene;
+import foundation.core;
+import foundation.scene;
+import engine.render;
+import editor.core;
+import editor.scene;
 
 using namespace foundation::core;
 using namespace editor;

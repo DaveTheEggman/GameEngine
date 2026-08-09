@@ -3,10 +3,10 @@
 // built-in default theme restyles the standard widgets.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.fonts;
-import draconic.image;
-import draconic.gui;
+import foundation.core;
+import foundation.fonts;
+import foundation.image;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

@@ -1,6 +1,6 @@
 // Draconic::EditorApp - :preferences_dialog partition.
 //
-// EditorPreferencesDialog: a modal editor for PER-USER editor preferences (the draconic.settings
+// EditorPreferencesDialog: a modal editor for PER-USER editor preferences (the foundation.settings
 // store persisted at <user-data>/editor.settings.xml) - distinct from ProjectSettingsDialog, which
 // edits the project manifest. Fields: the export templates root (blank = "$DRACONIC_TEMPLATES_DIR,
 // else <user-data>/templates", shown as the placeholder) and the editor FONT paths (blank = the
@@ -11,12 +11,12 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.editor.app:preferences_dialog;
+export module editor.app:preferences_dialog;
 
-import draconic.core;
-import draconic.ui;
-import draconic.editor.core;
-import draconic.settings;
+import foundation.core;
+import foundation.ui;
+import editor.core;
+import foundation.settings;
 
 using namespace foundation::core;
 

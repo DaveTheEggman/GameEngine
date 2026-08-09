@@ -1,15 +1,15 @@
 /// Draconic::Animation - the `:easing` partition.
 ///
-/// EasingType: a serializable enum mapping 1:1 to the core easing functions (draconic.core :easings).
+/// EasingType: a serializable enum mapping 1:1 to the core easing functions (foundation.core :easings).
 /// Ported faithfully from Sedulous.Animation.EasingType. The functions themselves live in core math;
 /// this is the animation-facing enum + lookup.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.animation:easing;
+export module foundation.animation:easing;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 namespace core = foundation::core;

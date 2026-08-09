@@ -9,7 +9,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h" // Cast
 
-module draconic.ui;
+module foundation.ui;
 
 using namespace foundation::core;
 

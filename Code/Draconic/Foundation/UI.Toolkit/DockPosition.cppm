@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui.toolkit:dock_position;
+export module foundation.ui.toolkit:dock_position;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

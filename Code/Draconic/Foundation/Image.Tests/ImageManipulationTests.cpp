@@ -5,8 +5,8 @@
 // (0,255,0) maps to our Color32::Green).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.image;
+import foundation.core;
+import foundation.image;
 
 using namespace foundation::core;
 using namespace foundation::image;

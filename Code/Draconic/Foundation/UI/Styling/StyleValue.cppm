@@ -11,9 +11,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:style_value;
+export module foundation.ui:style_value;
 
-import draconic.core; // Color, Optional, RefPtr, String, StringView
+import foundation.core; // Color, Optional, RefPtr, String, StringView
 import :thickness;
 import :drawable;
 

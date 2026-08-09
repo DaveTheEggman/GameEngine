@@ -6,12 +6,12 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.settings;
-import draconic.xml.serialization;
-import draconic.engine.project;
-import draconic.editor.core;
+import foundation.core;
+import foundation.vfs;
+import foundation.settings;
+import foundation.xml.serialization;
+import engine.project;
+import editor.core;
 
 using namespace foundation::core;
 using namespace editor;

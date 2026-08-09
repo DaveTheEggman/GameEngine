@@ -6,7 +6,7 @@
 // fallback on other targets) against an independent implementation.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

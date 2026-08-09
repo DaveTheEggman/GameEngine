@@ -26,14 +26,14 @@ module;
 #include "Core/Reflection/Reflect.h"
 #include "Core/Log/Log.h"
 
-export module draconic.editor.app:assets_view;
+export module editor.app:assets_view;
 
-import draconic.core;
-import draconic.content;
-import draconic.fonts;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.editor.core;
+import foundation.core;
+import foundation.content;
+import foundation.fonts;
+import foundation.ui;
+import foundation.ui.toolkit;
+import editor.core;
 import :editor_icons;
 import :import_dialog;
 

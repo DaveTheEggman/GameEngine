@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:shader_module - ShaderModule over WGPUShaderModule.
+/// foundation.rhi.webgpu:shader_module - ShaderModule over WGPUShaderModule.
 ///
 /// Desktop dev loop: the ShaderModuleDesc carries the SAME DXC-produced SPIR-V the
 /// Vulkan backend consumes, ingested through the STANDARD WGPUShaderSourceSPIRV
@@ -12,10 +12,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:shader_module;
+export module foundation.rhi.webgpu:shader_module;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 

@@ -4,15 +4,15 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.resource;
-import draconic.pipeline.core;
-import draconic.image;
-import draconic.image.io;
-import draconic.image.resource;
-import draconic.image.pipeline;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import pipeline.core;
+import foundation.image;
+import foundation.image.io;
+import foundation.image.resource;
+import image.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

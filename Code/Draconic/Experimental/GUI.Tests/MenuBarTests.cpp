@@ -4,8 +4,8 @@
 // 2*padding (24px) wide and the bar is `barHeight` tall - giving a deterministic layout.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.gui;
+import foundation.core;
+import experimental.gui;
 
 using namespace experimental::gui;
 namespace core = foundation::core;

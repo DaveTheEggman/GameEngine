@@ -3,9 +3,9 @@
 
 module;
 
-export module draconic.rhi:types;
+export module foundation.rhi:types;
 
-import draconic.core;
+import foundation.core;
 import :enums;
 import :texture_format;
 

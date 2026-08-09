@@ -1,4 +1,4 @@
-// Draconic::RenderGraph - the `draconic.rendergraph` module.
+// Draconic::RenderGraph - the `foundation.rendergraph` module.
 //
 // A render graph over the RHI: passes declare resource accesses, the graph
 // resolves dependencies, allocates/aliases transient resources, and inserts the
@@ -6,7 +6,7 @@
 // the same one Draconic's RHI is a faithful port of). One named module composed of
 // partitions, re-exported here.
 
-export module draconic.rendergraph;
+export module foundation.rendergraph;
 
 export import :types;
 export import :callbacks;

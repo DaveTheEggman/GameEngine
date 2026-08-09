@@ -14,12 +14,12 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:sprite_renderer;
+export module foundation.render:sprite_renderer;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
-import draconic.shaders.system;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
+import foundation.shaders.system;
 import :data;
 import :pipeline;
 import :resources;

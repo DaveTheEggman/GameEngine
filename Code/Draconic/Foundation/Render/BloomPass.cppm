@@ -9,13 +9,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:bloom;
+export module foundation.render:bloom;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rendergraph;
-import draconic.shaders;
-import draconic.shaders.system;
+import foundation.core;
+import foundation.rhi;
+import foundation.rendergraph;
+import foundation.shaders;
+import foundation.shaders.system;
 
 using namespace foundation::core;
 namespace rendergraph = foundation::rendergraph;

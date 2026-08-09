@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:buffer - Buffer over WGPUBuffer, with the Map emulation.
+/// foundation.rhi.webgpu:buffer - Buffer over WGPUBuffer, with the Map emulation.
 ///
 /// The RHI's Map contract is Vulkan-shaped: a PERSISTENT COHERENT pointer - callers
 /// may Map once, hold the pointer, write every frame, and never Unmap (Vulkan's Unmap
@@ -21,10 +21,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:buffer;
+export module foundation.rhi.webgpu:buffer;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 

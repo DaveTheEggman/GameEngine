@@ -21,7 +21,7 @@ module;
 #include <atomic>
 #include <type_traits>
 
-export module draconic.core:ref_counted;
+export module foundation.core:ref_counted;
 
 import :base;
 import :allocator;

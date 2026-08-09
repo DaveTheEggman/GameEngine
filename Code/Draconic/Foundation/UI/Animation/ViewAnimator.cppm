@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:view_animator;
+export module foundation.ui:view_animator;
 
-import draconic.core;
+import foundation.core;
 import :view;
 import :view_transform;
 import :animation;

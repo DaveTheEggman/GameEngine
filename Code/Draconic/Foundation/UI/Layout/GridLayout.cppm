@@ -8,9 +8,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:grid_layout;
+export module foundation.ui:grid_layout;
 
-import draconic.core; // Max, Min, Array
+import foundation.core; // Max, Min, Array
 import :view;
 import :layout_params;
 import :box_constraints;

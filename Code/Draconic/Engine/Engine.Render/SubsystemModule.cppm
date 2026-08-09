@@ -1,12 +1,12 @@
-/// Draconic::RenderSubsystem - `draconic.engine.render`, the scene side of rendering.
+/// Draconic::RenderSubsystem - `engine.render`, the scene side of rendering.
 ///
 /// Render components (mesh / camera) + their managers, and the extraction that pushes a
 /// engine::render::ExtractedView to the renderer. This is where scene and renderer meet - it
-/// depends on both draconic.scene and draconic.render; the renderer depends on neither. A
+/// depends on both foundation.scene and foundation.render; the renderer depends on neither. A
 /// later partition adds the RenderSubsystem (injects the managers via ISceneAware, and
 /// each frame extracts + draws).
 
-export module draconic.engine.render;
+export module engine.render;
 
 export import :components;
 export import :scene_renderer;

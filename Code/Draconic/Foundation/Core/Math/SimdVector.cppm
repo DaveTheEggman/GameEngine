@@ -15,7 +15,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Math/SimdConfig.h"
 
-export module draconic.core:simd_vector;
+export module foundation.core:simd_vector;
 
 import :base;
 import :math; // Sqrt, kEpsilon

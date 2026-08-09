@@ -7,10 +7,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:gradient_drawable;
+export module foundation.ui:gradient_drawable;
 
-import draconic.core; // Color, Float2, Rectangle
-import draconic.vg;   // VGLinearGradientFill, Path
+import foundation.core; // Color, Float2, Rectangle
+import foundation.vg;   // VGLinearGradientFill, Path
 import :drawable;
 import :draw_context;
 

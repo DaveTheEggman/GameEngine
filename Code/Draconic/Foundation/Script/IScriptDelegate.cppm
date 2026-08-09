@@ -17,9 +17,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.script:script_delegate;
+export module foundation.script:script_delegate;
 
-import draconic.core;
+import foundation.core;
 
 namespace core = foundation::core;
 

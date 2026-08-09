@@ -1,4 +1,4 @@
-// draconic.script.wren.editor tests: the Wren cook service in isolation - the starter
+// foundation.script.wren.editor tests: the Wren cook service in isolation - the starter
 // template, the `static properties` harvest, and the Wren-only `is Behavior` coroutine
 // opt-in - driven straight through IScriptLanguageCook (no project/VFS needed since Cook
 // takes source bytes directly). The full source->builder->factory round-trip is covered
@@ -8,11 +8,11 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.script;
-import draconic.script.resource;
-import draconic.script.pipeline;
-import draconic.script.wren.pipeline;
+import foundation.core;
+import foundation.script;
+import foundation.script.resource;
+import script.pipeline;
+import script.wren.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

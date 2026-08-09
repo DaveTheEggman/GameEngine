@@ -12,9 +12,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:sorting_proxy_model;
+export module experimental.gui:sorting_proxy_model;
 
-import draconic.core; // Array, i32, usize
+import foundation.core; // Array, i32, usize
 import :variant;
 import :model_index;
 import :model;

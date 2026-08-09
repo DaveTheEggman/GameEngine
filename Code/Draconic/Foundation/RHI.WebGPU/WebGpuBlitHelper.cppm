@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:blit_helper - the internal fullscreen blit pass.
+/// foundation.rhi.webgpu:blit_helper - the internal fullscreen blit pass.
 ///
 /// WebGPU has no vkCmdBlitImage: scaling blits and mip generation are a render pass
 /// that samples the source into the destination (the same approach DX12 backends
@@ -12,10 +12,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:blit_helper;
+export module foundation.rhi.webgpu:blit_helper;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 

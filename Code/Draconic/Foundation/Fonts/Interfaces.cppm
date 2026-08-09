@@ -8,10 +8,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts:interfaces;
+export module foundation.fonts:interfaces;
 
-import draconic.core;
-import draconic.image;
+import foundation.core;
+import foundation.image;
 import :types;
 
 using namespace foundation::core;

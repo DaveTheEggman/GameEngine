@@ -6,7 +6,7 @@ module;
 #include "Core/Prelude.h"
 #include <atomic>
 
-export module draconic.core:spin_lock;
+export module foundation.core:spin_lock;
 
 export namespace foundation::core
 {

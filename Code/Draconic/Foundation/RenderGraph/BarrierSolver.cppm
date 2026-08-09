@@ -9,10 +9,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.rendergraph:barrier_solver;
+export module foundation.rendergraph:barrier_solver;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :types;
 import :resource;
 import :pass;

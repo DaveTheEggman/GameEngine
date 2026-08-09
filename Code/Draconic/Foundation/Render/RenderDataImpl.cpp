@@ -2,7 +2,7 @@
 ///
 /// The render-data contract - and the boundary that keeps the renderer scene-agnostic.
 /// Render data is *extracted and pushed to* the renderer; the renderer never reaches back
-/// into a scene (one-way: the scene-integration layer in draconic.engine.render depends
+/// into a scene (one-way: the scene-integration layer in engine.render depends
 /// on this, not the reverse).
 ///
 /// A `RenderData` is a unit of renderable work: a `RenderCategory` tag plus the data a
@@ -20,12 +20,12 @@ module;
 #include <new>
 #include <type_traits>
 
-module draconic.render;
+module foundation.render;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.geometry;
-import draconic.materials;
+import foundation.core;
+import foundation.rhi;
+import foundation.geometry;
+import foundation.materials;
 
 using namespace foundation::core;
 

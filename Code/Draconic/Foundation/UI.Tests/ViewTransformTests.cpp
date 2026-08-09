@@ -1,8 +1,8 @@
 // Ported from Sedulous.UI.Tests/src/ViewTransformTests.bf (faithful; Vector2 -> core::Float2).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 
 using namespace foundation::ui;
 namespace core = foundation::core;

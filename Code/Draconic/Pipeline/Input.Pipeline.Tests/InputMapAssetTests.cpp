@@ -1,4 +1,4 @@
-// draconic.input.editor tests: InputMapAsset's reflected surface - a Nested `map` property whose
+// foundation.input.editor tests: InputMapAsset's reflected surface - a Nested `map` property whose
 // InputMap tree (sets -> actions -> bindings) is traversable via reflection (scriptability). The
 // input editor page itself stays bespoke; this proves the asset is reflection-visible.
 
@@ -6,10 +6,10 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.input;
-import draconic.input.pipeline;
+import foundation.core;
+import pipeline.core;
+import foundation.input;
+import input.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

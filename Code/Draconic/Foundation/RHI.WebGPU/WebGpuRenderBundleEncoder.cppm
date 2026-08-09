@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:render_bundle_encoder - RenderBundle(+Encoder) over WGPU.
+/// foundation.rhi.webgpu:render_bundle_encoder - RenderBundle(+Encoder) over WGPU.
 ///
 /// Bundles are a native WebGPU concept (the RHI's bundle-safe command subset is
 /// DEFINED as "valid inside a WebGPU render bundle") - a direct mapping. The
@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:render_bundle_encoder;
+export module foundation.rhi.webgpu:render_bundle_encoder;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 import :bind_group;

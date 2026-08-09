@@ -1,4 +1,4 @@
-// UI Sandbox - the first on-screen test of draconic.ui (the Sedulous.UI port). Builds a small View tree
+// UI Sandbox - the first on-screen test of foundation.ui (the Sedulous.UI port). Builds a small View tree
 // (a themed FlexLayout panel of controls), styles it with the ported DarkTheme StyleSheet, lays it out
 // with UIContext, and renders it through the same VG -> VGRenderer -> RHI path as VGSandbox/GUISandbox.
 // Input is driven by a fullscreen InputSurface (gated by an InputRouter) pumped into the UIContext's
@@ -9,29 +9,29 @@
 #include <new>
 #include <cstdio>
 
-import draconic.core;
-import draconic.rhi;
-import draconic.shaders;
-import draconic.shell;
-import draconic.image;
-import draconic.fonts;
-import draconic.fonts.ttf;
-import draconic.vg;
-import draconic.vg.renderer;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.ui.shell;
-import draconic.ui.vfs;
-import draconic.vfs;
-import draconic.runtime;
-import draconic.runtime.client;
-import draconic.runtime.desktop;
-import draconic.shell.desktop;
-import draconic.graphics;
-import draconic.graphics.gpu;
-import draconic.ui.runtime;
-import draconic.ui.application;
-import draconic.ui.viewport;
+import foundation.core;
+import foundation.rhi;
+import foundation.shaders;
+import foundation.shell;
+import foundation.image;
+import foundation.fonts;
+import foundation.fonts.ttf;
+import foundation.vg;
+import foundation.vg.renderer;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.ui.shell;
+import foundation.ui.vfs;
+import foundation.vfs;
+import foundation.runtime;
+import foundation.runtime.client;
+import foundation.runtime.desktop;
+import foundation.shell.desktop;
+import foundation.graphics;
+import foundation.graphics.gpu;
+import foundation.ui.runtime;
+import foundation.ui.application;
+import foundation.ui.viewport;
 
 #include "../../Common/FlyCamera.h" // shared free-fly camera, driven from the viewport's gated devices
 
@@ -49,7 +49,7 @@ namespace vfs = foundation::vfs;
 
 namespace
 {
-    // VG shader source now lives in draconic.vg.renderer (VertexShaderSource/FragmentShaderSource),
+    // VG shader source now lives in foundation.vg.renderer (VertexShaderSource/FragmentShaderSource),
     // shared by every VG consumer instead of being copied into each sample.
 
     // A minimal, self-contained spinning cube rendered via raw RHI into a ViewportView's offscreen
@@ -945,17 +945,17 @@ private:
     void BuildDragDropTab(ui::TabView* tabView);
     void BuildAnimationsTab(ui::TabView* tabView);
     void BuildToolkitTab(
-        ui::TabView* tabView); // draconic.ui.toolkit: bars + split + tree + color picker
+        ui::TabView* tabView); // foundation.ui.toolkit: bars + split + tree + color picker
     void
-    BuildPropertyGridTab(ui::TabView* tabView); // draconic.ui.toolkit: PropertyGrid + all editors
+    BuildPropertyGridTab(ui::TabView* tabView); // foundation.ui.toolkit: PropertyGrid + all editors
     void
-    BuildCurveEditorTab(ui::TabView* tabView); // draconic.ui.toolkit: CurveCanvas tangent editor
+    BuildCurveEditorTab(ui::TabView* tabView); // foundation.ui.toolkit: CurveCanvas tangent editor
     void
-    BuildNodeGraphTab(ui::TabView* tabView); // draconic.ui.toolkit: NodeGraphCanvas state machine
+    BuildNodeGraphTab(ui::TabView* tabView); // foundation.ui.toolkit: NodeGraphCanvas state machine
     void BuildDockingTab(
-        ui::TabView* tabView); // draconic.ui.application: DockManager + OS floating windows
+        ui::TabView* tabView); // foundation.ui.application: DockManager + OS floating windows
     void BuildViewportTab(
-        ui::TabView* tabView); // draconic.ui.viewport: ViewportView hosting a spinning cube
+        ui::TabView* tabView); // foundation.ui.viewport: ViewportView hosting a spinning cube
     void BuildPauseMenuTab(
         ui::TabView* tabView); // loads a .sml screen via a VFS-backed resource provider
 
@@ -965,7 +965,7 @@ private:
 
     UniquePtr<fonts::TrueTypeFontService> m_fontService;
 
-    // VFS-backed resource provider for loading the pause-menu .sml (draconic.ui.vfs over a NativeFileSystem
+    // VFS-backed resource provider for loading the pause-menu .sml (foundation.ui.vfs over a NativeFileSystem
     // rooted at Data/Assets/ui). Kept alive for the app's lifetime (Sedulous keeps mGuiResourceProvider).
     UniquePtr<vfs::NativeFileSystem> m_uiFs;
     UniquePtr<ui::vfs::VfsResourceProvider> m_resProvider;
@@ -990,7 +990,7 @@ private:
     UniquePtr<DemoTreeAdapter> m_treeAdapter;
     UniquePtr<DemoGridAdapter> m_gridAdapter;
 
-    // draconic.ui.toolkit: the theme extension must outlive every theme build (ThemeRegistry stores it by
+    // foundation.ui.toolkit: the theme extension must outlive every theme build (ThemeRegistry stores it by
     // pointer), and the DraggableTreeView borrows its reorder adapter, so both live on the app.
     ui::toolkit::ToolkitThemeExtension m_toolkitThemeExt;
     UniquePtr<ReorderableListAdapter> m_reorderAdapter;
@@ -1000,7 +1000,7 @@ private:
     UniquePtr<ui::application::RuntimeDockableWindowHost> m_dockHost;
     RefPtr<ui::toolkit::DockManager> m_dockManager;
 
-    // draconic.ui.viewport: a ViewportView hosting a raw-RHI spinning cube. The view owns the offscreen
+    // foundation.ui.viewport: a ViewportView hosting a raw-RHI spinning cube. The view owns the offscreen
     // RT + gated InputSurface; the app owns an InputRouter and a FlyCamera driven by that surface's gated
     // devices (occlusion-gated by IsHovered()/IsFocused()). Wired in OnStartup after AttachWindow.
     graphics::RenderWindow* m_mainRw = nullptr;
@@ -1169,7 +1169,7 @@ void UISandbox::LoadFontSize(StringView family, StringView path, f32 pixelHeight
 
 void UISandbox::BuildUI()
 {
-    // Register the toolkit theme extension so draconic.ui.toolkit controls get styled. Must happen before
+    // Register the toolkit theme extension so foundation.ui.toolkit controls get styled. Must happen before
     // the first theme is built (extensions only apply to themes created afterward).
     ui::ThemeRegistry::RegisterExtension(&m_toolkitThemeExt);
     ApplyTheme(); // Dark by default; the Theme button toggles Dark <-> Light
@@ -1240,9 +1240,9 @@ void UISandbox::BuildUI()
     BuildPropertyGridTab(tabView.Get());
     BuildCurveEditorTab(tabView.Get());
     BuildNodeGraphTab(tabView.Get());
-    BuildViewportTab(tabView.Get()); // draconic.ui.viewport: a 3D spinning cube in a UI panel
+    BuildViewportTab(tabView.Get()); // foundation.ui.viewport: a 3D spinning cube in a UI panel
     BuildDockingTab(
-        tabView.Get()); // draconic.ui.application: DockManager -> real OS floating windows (last)
+        tabView.Get()); // foundation.ui.application: DockManager -> real OS floating windows (last)
     BuildPauseMenuTab(tabView.Get());
 }
 
@@ -1501,8 +1501,8 @@ RefPtr<ui::StyleSheet> UISandbox::CreateTexturedTheme()
 
 // === Tab 10: Pause Menu (.sml) - loads a screen from disk through a VFS-backed resource provider ===
 // Faithful port of Sedulous UISandboxApp's pause-menu demo: a NativeFileSystem rooted at Data/Assets/ui is
-// wrapped in a VfsResourceProvider (draconic.ui.vfs); we read the .sml text through it and hand it to
-// === Docking demo (draconic.ui.application) ===
+// wrapped in a VfsResourceProvider (foundation.ui.vfs); we read the .sml text through it and hand it to
+// === Docking demo (foundation.ui.application) ===
 // A DockManager wired to the RuntimeDockableWindowHost: 5 panels laid out IDE-style (Scene center,
 // Hierarchy left, Inspector right, Console+Assets bottom-tabbed). Docking/splitting/tabbing happen inside
 // this tab; dragging a panel OUT floats it into a real borderless OS window (host.OpenWindow), redockable

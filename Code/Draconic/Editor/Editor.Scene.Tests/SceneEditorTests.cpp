@@ -1,4 +1,4 @@
-// draconic.editor.scene headless tests: EditorCamera orientation math and the scene asset
+// editor.scene headless tests: EditorCamera orientation math and the scene asset
 // creator (unique naming, SceneDocument primary, project round-trip). The page itself needs a
 // running host/renderer and is exercised in the editor app (on-screen path).
 
@@ -6,16 +6,16 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.content;
-import draconic.scene;
-import draconic.scene.resource;
-import draconic.engine.render;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.editor.core;
-import draconic.editor.scene;
-import draconic.shell;
+import foundation.core;
+import foundation.content;
+import foundation.scene;
+import foundation.scene.resource;
+import engine.render;
+import foundation.ui;
+import foundation.ui.toolkit;
+import editor.core;
+import editor.scene;
+import foundation.shell;
 
 using namespace foundation::core;
 using namespace editor;

@@ -1,4 +1,4 @@
-// draconic.script.angelscript.editor tests: the AngelScript cook - compile-check in a
+// foundation.script.angelscript.editor tests: the AngelScript cook - compile-check in a
 // cooker-owned AngelScript VM (resolved by language), the SHARED handler scan, the starter
 // template, and [metadata] PROPERTY HARVEST (typed member field + `[default, "desc"]`).
 
@@ -6,11 +6,11 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.script;
-import draconic.script.resource;
-import draconic.script.pipeline;
-import draconic.script.angelscript.pipeline;
+import foundation.core;
+import foundation.script;
+import foundation.script.resource;
+import script.pipeline;
+import script.angelscript.pipeline;
 
 using namespace foundation::core;
 using namespace pipeline;

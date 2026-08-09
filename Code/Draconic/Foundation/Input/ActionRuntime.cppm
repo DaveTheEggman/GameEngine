@@ -15,10 +15,10 @@ module;
 #include "Core/Prelude.h"
 #include <cmath>
 
-export module draconic.input:action_runtime;
+export module foundation.input:action_runtime;
 
-import draconic.core;
-import draconic.shell;
+import foundation.core;
+import foundation.shell;
 import :input_map;
 
 using namespace foundation::core;

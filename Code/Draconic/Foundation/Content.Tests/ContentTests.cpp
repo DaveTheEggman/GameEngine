@@ -3,10 +3,10 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-import draconic.core;
-import draconic.vfs;
-import draconic.content;
-import draconic.xml.serialization;
+import foundation.core;
+import foundation.vfs;
+import foundation.content;
+import foundation.xml.serialization;
 
 using namespace foundation::core;
 using namespace foundation::vfs;

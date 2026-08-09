@@ -6,7 +6,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:theme_extension;
+export module foundation.ui:theme_extension;
 
 import :style_sheet;
 import :theme_palette;

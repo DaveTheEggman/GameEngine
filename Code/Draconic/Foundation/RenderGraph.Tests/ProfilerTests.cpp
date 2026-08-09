@@ -4,8 +4,8 @@
 
 #include "Core/Prelude.h"
 
-import draconic.core;
-import draconic.rendergraph;
+import foundation.core;
+import foundation.rendergraph;
 
 using namespace foundation::core;
 using namespace foundation::rendergraph;

@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:itree_adapter;
+export module foundation.ui:itree_adapter;
 
-import draconic.core;
+import foundation.core;
 import :view;
 
 using namespace foundation::core;

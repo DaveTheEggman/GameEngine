@@ -17,9 +17,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:abstract_item_view;
+export module experimental.gui:abstract_item_view;
 
-import draconic.core; // RefPtr, MakeRef, Array, Function, Move, Max, Min, Float2
+import foundation.core; // RefPtr, MakeRef, Array, Function, Move, Max, Min, Float2
 import :rect;
 import :event;
 import :draw_context;

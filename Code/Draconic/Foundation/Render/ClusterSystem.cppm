@@ -12,13 +12,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:cluster_system;
+export module foundation.render:cluster_system;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rendergraph;
-import draconic.shaders;
-import draconic.shaders.system;
+import foundation.core;
+import foundation.rhi;
+import foundation.rendergraph;
+import foundation.shaders;
+import foundation.shaders.system;
 import :data;
 import :views;
 import :resources;

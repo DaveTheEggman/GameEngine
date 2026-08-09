@@ -1,6 +1,6 @@
-// draconic.runtime.web - the browser (Emscripten) application runner.
+// foundation.runtime.web - the browser (Emscripten) application runner.
 //
-// The web sibling of draconic.runtime.desktop. Same job - drive an IApplication (via
+// The web sibling of foundation.runtime.desktop. Same job - drive an IApplication (via
 // ApplicationHost) against an IShell, one frame at a time - but the EXECUTION MODEL differs: a
 // browser cannot own a blocking wall-clock loop (it must return to the event loop to paint, run
 // timers, and resolve WebGPU promises), so instead of a while-loop this registers a per-frame
@@ -12,13 +12,13 @@ module;
 #include "Core/Prelude.h"
 #include <emscripten/emscripten.h>
 
-export module draconic.runtime.web;
+export module foundation.runtime.web;
 
-import draconic.core;
+import foundation.core;
 namespace shell = foundation::shell;
-import draconic.shell;          // IShell (interface only - the concrete shell is handed in)
-import draconic.graphics;       // GraphicsDevice (handed to the app)
-import draconic.runtime.client; // IApplication + ApplicationHost (the runner drives these)
+import foundation.shell;          // IShell (interface only - the concrete shell is handed in)
+import foundation.graphics;       // GraphicsDevice (handed to the app)
+import foundation.runtime.client; // IApplication + ApplicationHost (the runner drives these)
 
 namespace core = foundation::core;
 using namespace foundation::graphics; // GraphicsDevice (moved from foundation::runtime)

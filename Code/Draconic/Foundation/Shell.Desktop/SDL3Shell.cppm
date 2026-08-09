@@ -1,4 +1,4 @@
-// Draconic::ShellDesktop - the `draconic.shell.desktop` module.
+// Draconic::ShellDesktop - the `foundation.shell.desktop` module.
 //
 // The desktop shell target (Windows/Linux/macOS), implemented on SDL3:
 // SDL3Shell covers Wayland, X11, Win32, and Cocoa in one backend, plus input,
@@ -24,10 +24,10 @@ module;
 
 #include "Shell.Desktop/SdlForward.h" // opaque SDL_Window/Cursor/Gamepad (interface uses pointers only)
 
-export module draconic.shell.desktop;
+export module foundation.shell.desktop;
 
-import draconic.core;
-import draconic.shell;
+import foundation.core;
+import foundation.shell;
 
 namespace core = foundation::core;
 

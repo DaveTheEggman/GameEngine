@@ -8,10 +8,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:button;
+export module foundation.ui:button;
 
-import draconic.core;
-import draconic.fonts; // CachedFont, TextAlignment, VerticalAlignment
+import foundation.core;
+import foundation.fonts; // CachedFont, TextAlignment, VerticalAlignment
 import :button_base;
 import :view;
 import :property;

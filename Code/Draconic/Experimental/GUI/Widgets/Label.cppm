@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:label;
+export module experimental.gui:label;
 
-import draconic.core;  // StringView, Color, Float2
-import draconic.fonts; // CachedFont
+import foundation.core;  // StringView, Color, Float2
+import foundation.fonts; // CachedFont
 import :rect;
 import :draw_context;
 import :text;

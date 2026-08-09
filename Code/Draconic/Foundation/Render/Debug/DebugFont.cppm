@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:debug_font;
+export module foundation.render:debug_font;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

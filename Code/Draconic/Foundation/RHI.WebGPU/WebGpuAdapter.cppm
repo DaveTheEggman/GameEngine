@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:adapter - Adapter over WGPUAdapter.
+/// foundation.rhi.webgpu:adapter - Adapter over WGPUAdapter.
 ///
 /// GetInfo maps WGPUAdapterInfo/limits/features onto the RHI's AdapterInfo;
 /// CreateDevice performs the async wgpuAdapterRequestDevice through the
@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:adapter;
+export module foundation.rhi.webgpu:adapter;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :device;
 

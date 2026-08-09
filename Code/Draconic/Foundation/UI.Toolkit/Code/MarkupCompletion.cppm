@@ -1,22 +1,22 @@
 // Draconic UI Toolkit - :markup_completion partition
 //
-// Completion provider for draconic.ui MARKUP documents, fed by the MarkupRegistry's real
+// Completion provider for foundation.ui MARKUP documents, fed by the MarkupRegistry's real
 // vocabulary (the same tables the loader validates against): element names right after
 // `<` / `</`, attribute names inside a tag (the element's registered properties + the
 // layout-param union - which layout params apply depends on the parent container, so the
 // union is offered). Line-local context; plain text between tags offers nothing.
 //
-// Lives in toolkit (not an editor page): MarkupRegistry is part of draconic.ui itself, the
+// Lives in toolkit (not an editor page): MarkupRegistry is part of foundation.ui itself, the
 // same generic tier as the XmlLexer - unlike script-language providers, whose knowledge
 // belongs to the per-language editor-UI modules.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui.toolkit:markup_completion;
+export module foundation.ui.toolkit:markup_completion;
 
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 import :code_document;
 import :code_edit_view;
 

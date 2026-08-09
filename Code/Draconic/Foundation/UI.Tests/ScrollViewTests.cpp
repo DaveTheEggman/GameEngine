@@ -3,8 +3,8 @@
 // tuple -> Float2. Logic only - no font service needed.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui;
+import foundation.core;
+import foundation.ui;
 #include "TestHelpers.h"
 
 using namespace foundation::ui;

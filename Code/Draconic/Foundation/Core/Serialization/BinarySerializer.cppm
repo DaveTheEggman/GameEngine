@@ -8,7 +8,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.core:binary_serializer;
+export module foundation.core:binary_serializer;
 
 import :base;
 import :serializer;

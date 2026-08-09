@@ -6,10 +6,10 @@ module;
 
 #include "DxIncludes.h"
 
-export module draconic.rhi.dx12:pipeline_cache;
+export module foundation.rhi.dx12:pipeline_cache;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

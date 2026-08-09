@@ -1,9 +1,9 @@
-// Draconic GUI - `draconic.gui.vfs`: an IResourceProvider backed by a VFS filesystem.
+// Draconic GUI - `experimental.gui.vfs`: an IResourceProvider backed by a VFS filesystem.
 //
 // The concrete image loader for the GUI's CSS resource seam: background-image: url(path) resolves
-// through this. Kept in a SEPARATE module (like draconic.gui.shell, and mirroring
-// draconic.ui.vfs) so the core draconic.gui stays free of a VFS dependency - the app links this
-// and hands the provider to a StyleManager. Modeled on draconic.ui.vfs::VfsResourceProvider.
+// through this. Kept in a SEPARATE module (like experimental.gui.shell, and mirroring
+// foundation.ui.vfs) so the core experimental.gui stays free of a VFS dependency - the app links this
+// and hands the provider to a StyleManager. Modeled on foundation.ui.vfs::VfsResourceProvider.
 //
 // The provider owns the decoded images (m_images), matching the IResourceProvider contract that
 // LoadImage returns a borrowed, provider-owned pointer.
@@ -11,13 +11,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui.vfs;
+export module experimental.gui.vfs;
 
-import draconic.core;     // IStream, FileMode, SeekOrigin, Array, Span, UniquePtr, MakeUnique
-import draconic.image;    // ImageData, Image, OwnedImageData
-import draconic.image.io; // LoadImageFromMemory
-import draconic.vfs;      // IFileSystem
-import draconic.gui;      // IResourceProvider
+import foundation.core;     // IStream, FileMode, SeekOrigin, Array, Span, UniquePtr, MakeUnique
+import foundation.image;    // ImageData, Image, OwnedImageData
+import foundation.image.io; // LoadImageFromMemory
+import foundation.vfs;      // IFileSystem
+import experimental.gui;      // IResourceProvider
 
 using namespace foundation::core;
 namespace core = foundation::core;

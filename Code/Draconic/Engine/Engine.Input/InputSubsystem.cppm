@@ -1,4 +1,4 @@
-// Draconic::InputSubsystem - the `draconic.engine.input` module.
+// Draconic::InputSubsystem - the `engine.input` module.
 //
 // The runtime hookup: owns the ActionRuntime + the device provider and evaluates once per
 // frame in Update (before scenes tick - Subsystem registration order puts input ahead of
@@ -10,13 +10,13 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.engine.input;
+export module engine.input;
 
-import draconic.core;
-import draconic.shell;
-import draconic.runtime;
-import draconic.script;
-import draconic.input;
+import foundation.core;
+import foundation.shell;
+import foundation.runtime;
+import foundation.script;
+import foundation.input;
 
 using namespace foundation::core;
 using namespace foundation::input;
@@ -24,7 +24,7 @@ using namespace foundation::input;
 export namespace engine::input
 {
     /// The service key ExposeToScript binds and the scripting facade resolves.
-    // kInputScriptService now lives in draconic.input (:runtime) so per-instance owners (GameInstance)
+    // kInputScriptService now lives in foundation.input (:runtime) so per-instance owners (GameInstance)
     // can install their own runtime under it without importing this subsystem.
 
     /// How game-UI input routing treats the active source when it carries NO scene
@@ -140,7 +140,7 @@ export namespace engine::input
     };
 
     // The scripting facade: a foreign class named `Input` whose STATIC methods resolve the
-    // CURRENT script context's bound runtime (draconic.script's CurrentScriptContext seam,
+    // CURRENT script context's bound runtime (foundation.script's CurrentScriptContext seam,
     // pushed by the backend around every reflected dispatch). NO process globals: a context
     // without the service - or a call from outside any script - reads released. The Wren
     // backend cannot inject host objects as module globals (wren has no host-side variable

@@ -1,11 +1,11 @@
-// Draconic::UIApplication - the `draconic.ui.application` module.
+// Draconic::UIApplication - the `foundation.ui.application` module.
 //
 // The docking / workbench layer: RuntimeDockableWindowHost implements the toolkit's IDockableWindowHost in
 // terms of the runtime host (IApplicationHost::OpenWindow/CloseWindow) + the reusable UIHost + the shell's
 // window geometry / global mouse. A DockManager's floating panels become real borderless OS windows, each
 // its own RootView attached to the shared UIHost. This is the ONLY UI module that pulls in
-// draconic.ui.toolkit, so docking cannot bleed into games (which never link it) or into the toolkit-free
-// draconic.ui.shell / draconic.ui.runtime layers.
+// foundation.ui.toolkit, so docking cannot bleed into games (which never link it) or into the toolkit-free
+// foundation.ui.shell / foundation.ui.runtime layers.
 //
 // Usage: construct once with the app's IApplicationHost + its UIHost, then
 //   dockManager->DockableWindowHost = &host;
@@ -16,15 +16,15 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h" // Cast<DockPanelDragData> for the drag-follow
 
-export module draconic.ui.application;
+export module foundation.ui.application;
 
-import draconic.core;
-import draconic.shell;
-import draconic.graphics;
-import draconic.runtime.client;
-import draconic.ui;
-import draconic.ui.toolkit;
-import draconic.ui.runtime;
+import foundation.core;
+import foundation.shell;
+import foundation.graphics;
+import foundation.runtime.client;
+import foundation.ui;
+import foundation.ui.toolkit;
+import foundation.ui.runtime;
 
 namespace core = foundation::core;
 namespace shell = foundation::shell;

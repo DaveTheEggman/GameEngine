@@ -1,11 +1,11 @@
-/// Draconic::AnimationSubsystem - `draconic.engine.animation`, the scene side of skeletal animation.
+/// Draconic::AnimationSubsystem - `engine.animation`, the scene side of skeletal animation.
 ///
 /// SkeletalAnimationComponent (single clip) + AnimationGraphComponent (state machine / blend trees),
 /// their managers (the animation<->render seam), and the AnimationSubsystem that injects the managers
-/// into scenes. Depends on draconic.animation (foundation) + draconic.scene + draconic.engine.render
+/// into scenes. Depends on foundation.animation (foundation) + foundation.scene + engine.render
 /// (the MeshComponent feed target); none of those depend back on it.
 
-export module draconic.engine.animation;
+export module engine.animation;
 
 export import :components;
 export import :subsystem;

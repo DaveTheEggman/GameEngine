@@ -7,7 +7,7 @@ module;
 #include "Core/Debug/Assert.h"
 #include "Core/Threading/ThreadBackend.h"
 
-export module draconic.core:thread;
+export module foundation.core:thread;
 
 import :base;
 import :allocator;

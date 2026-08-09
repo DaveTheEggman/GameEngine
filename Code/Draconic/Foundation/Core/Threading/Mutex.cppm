@@ -6,7 +6,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Threading/ThreadBackend.h"
 
-export module draconic.core:mutex;
+export module foundation.core:mutex;
 
 import :base;
 

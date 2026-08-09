@@ -1,4 +1,4 @@
-// Draconic::FontsDF - draconic.fonts.distancefield:atlas partition
+// Draconic::FontsDF - foundation.fonts.distancefield:atlas partition
 //
 // IFontAtlas for distance-field (MSDF) atlases: stores RGBA8 linear pixel data
 // plus per-glyph AtlasRegion entries. Pure data type with no msdfgen dependency;
@@ -7,10 +7,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.distancefield:atlas;
+export module foundation.fonts.distancefield:atlas;
 
-import draconic.core;
-import draconic.fonts;
+import foundation.core;
+import foundation.fonts;
 
 using namespace foundation::core;
 

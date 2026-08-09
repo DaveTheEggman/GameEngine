@@ -9,9 +9,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:tree_model;
+export module experimental.gui:tree_model;
 
-import draconic.core; // Array, String, StringView, i32, i64
+import foundation.core; // Array, String, StringView, i32, i64
 import :variant;
 import :model_index;
 import :model;

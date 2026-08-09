@@ -1,8 +1,8 @@
 // All RHI enumerations and flag operators.
 
-export module draconic.rhi:enums;
+export module foundation.rhi:enums;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

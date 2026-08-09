@@ -7,10 +7,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:rounded_rect_drawable;
+export module foundation.ui:rounded_rect_drawable;
 
-import draconic.core; // Color, Rectangle
-import draconic.vg;   // CornerRadii
+import foundation.core; // Color, Rectangle
+import foundation.vg;   // CornerRadii
 import :drawable;
 import :draw_context;
 

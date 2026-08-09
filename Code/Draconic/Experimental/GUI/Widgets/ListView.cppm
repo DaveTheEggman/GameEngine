@@ -9,10 +9,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:list_view;
+export module experimental.gui:list_view;
 
-import draconic.core;  // RefPtr, MakeRef, Move
-import draconic.fonts; // CachedFont
+import foundation.core;  // RefPtr, MakeRef, Move
+import foundation.fonts; // CachedFont
 import :rect;
 import :label;
 import :model_index;

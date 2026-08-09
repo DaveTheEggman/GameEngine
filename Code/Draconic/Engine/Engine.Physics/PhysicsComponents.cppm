@@ -9,13 +9,13 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.physics:components;
+export module engine.physics:components;
 
-import draconic.core;
-import draconic.scene;
-import draconic.resource;
-import draconic.physics;
-import draconic.physics.resource;
+import foundation.core;
+import foundation.scene;
+import foundation.resource;
+import foundation.physics;
+import foundation.physics.resource;
 
 using namespace foundation::core;
 using namespace foundation::physics;

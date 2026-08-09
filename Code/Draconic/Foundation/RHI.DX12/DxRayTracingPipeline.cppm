@@ -10,10 +10,10 @@ module;
 #include <string>
 #include <vector>
 
-export module draconic.rhi.dx12:ray_tracing_pipeline;
+export module foundation.rhi.dx12:ray_tracing_pipeline;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :shader_module;
 import :pipeline_layout;
 

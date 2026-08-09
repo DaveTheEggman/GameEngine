@@ -1,9 +1,9 @@
-// Draconic::ScriptWrenEditor - the `draconic.script.wren.editor` module (tooling).
+// Draconic::ScriptWrenEditor - the `foundation.script.wren.editor` module (tooling).
 //
 // The Wren cook service (scripting.md §5 + §7.5): compile-checks a Wren behavior in a
 // cooker-owned Wren VM (resolved through the backend registry by language), harvests the
 // `static properties` map via a Fiber probe, scans handlers, and supplies the New-Asset
-// starter. ALL Wren-specific cook syntax lives HERE, not in the neutral draconic.script.editor.
+// starter. ALL Wren-specific cook syntax lives HERE, not in the neutral foundation.script.editor.
 //
 // This is a plain module interface unit: it spins up the cook VM through the NEUTRAL
 // IScriptContext surface (CreateScriptManagerForLanguage), so no Wren C header appears
@@ -14,14 +14,14 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.script.wren.pipeline;
+export module script.wren.pipeline;
 
-import draconic.core;
-import draconic.script; // registry + IScriptManager/IScriptContext + RegisterReflectedTypes
-import draconic.script.resource; // ScriptClassSource + ScriptPropertyDesc + parse helpers
-import draconic.script.facades;  // RegisterScriptFacadeReflection (the cook VM's "main" surface)
-import draconic.script.pipeline;   // IScriptLanguageCook + registry + shared cook helpers
-import draconic.script.wren;     // ensures the Wren backend is available to the registry
+import foundation.core;
+import foundation.script; // registry + IScriptManager/IScriptContext + RegisterReflectedTypes
+import foundation.script.resource; // ScriptClassSource + ScriptPropertyDesc + parse helpers
+import foundation.script.facades;  // RegisterScriptFacadeReflection (the cook VM's "main" surface)
+import script.pipeline;   // IScriptLanguageCook + registry + shared cook helpers
+import foundation.script.wren;     // ensures the Wren backend is available to the registry
 
 using namespace foundation::core;
 using namespace foundation::script;

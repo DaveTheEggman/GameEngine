@@ -13,10 +13,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:theme_atlas;
+export module foundation.ui:theme_atlas;
 
-import draconic.core;  // Color, RefPtr, Span, StringView, Rectangle
-import draconic.image; // ImageAtlasBuilder, ImageData, NineSlice, RectI
+import foundation.core;  // Color, RefPtr, Span, StringView, Rectangle
+import foundation.image; // ImageAtlasBuilder, ImageData, NineSlice, RectI
 import :thickness;
 import :control_state;
 import :drawable;

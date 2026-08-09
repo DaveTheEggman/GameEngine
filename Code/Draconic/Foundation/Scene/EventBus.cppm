@@ -14,9 +14,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module draconic.scene:events;
+export module foundation.scene:events;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

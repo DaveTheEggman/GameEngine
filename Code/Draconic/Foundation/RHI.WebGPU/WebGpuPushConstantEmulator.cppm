@@ -1,4 +1,4 @@
-/// draconic.rhi.webgpu:push_constant_emulator - the uniform-buffer push-constant fallback.
+/// foundation.rhi.webgpu:push_constant_emulator - the uniform-buffer push-constant fallback.
 ///
 /// Where a device has no immediates path (browsers - Dawn/emdawnwebgpu - or the fallback
 /// forced for testing on wgpu-native), push constants are emulated: the block is bound as an
@@ -13,9 +13,9 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:push_constant_emulator;
+export module foundation.rhi.webgpu:push_constant_emulator;
 
-import draconic.core;
+import foundation.core;
 import :api;
 import :pipeline_layout;
 

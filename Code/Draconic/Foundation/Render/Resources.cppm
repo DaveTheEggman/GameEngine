@@ -17,10 +17,10 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:resources;
+export module foundation.render:resources;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 namespace rhi = foundation::rhi;

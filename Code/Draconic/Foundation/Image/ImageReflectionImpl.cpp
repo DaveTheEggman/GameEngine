@@ -8,9 +8,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module draconic.image;
+module foundation.image;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

@@ -10,11 +10,11 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.render;
+module foundation.render;
 
-import draconic.core;
-import draconic.rhi;
-import draconic.rendergraph;
+import foundation.core;
+import foundation.rhi;
+import foundation.rendergraph;
 import :data;  // ShadowCascades
 import :views; // ViewCamera
 

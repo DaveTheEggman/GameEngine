@@ -1,15 +1,15 @@
-// Draconic::FontsDFBaker - draconic.fonts.distancefield.baker:init partition
+// Draconic::FontsDFBaker - foundation.fonts.distancefield.baker:init partition
 //
 // Registration helper for the distance-field atlas baker.
 
 module;
 #include "Core/Prelude.h"
 
-export module draconic.fonts.distancefield.baker:init;
+export module foundation.fonts.distancefield.baker:init;
 
-import draconic.core;
-import draconic.fonts;
-import draconic.fonts.io;
+import foundation.core;
+import foundation.fonts;
+import foundation.fonts.io;
 import :baker;
 
 using namespace foundation::core;

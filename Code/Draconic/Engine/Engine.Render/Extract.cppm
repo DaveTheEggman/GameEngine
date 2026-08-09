@@ -2,7 +2,7 @@
 ///
 /// Extraction: read a Scene's render components into a render::ExtractedScene (world-space
 /// RenderData) + a render::ViewCamera, both pushed to the (scene-agnostic) renderer. This is
-/// the one-way seam - this layer depends on both draconic.scene and draconic.render; the renderer
+/// the one-way seam - this layer depends on both foundation.scene and foundation.render; the renderer
 /// depends on neither. Run after the scene's transforms are current (the tick).
 ///
 /// These are the providers in the design's terms (§5): a MeshComponent provider and the
@@ -12,14 +12,14 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.engine.render:extract;
+export module engine.render:extract;
 
-import draconic.core;
-import draconic.scene;
-import draconic.render;    // ExtractedScene / MeshRenderData / ViewCamera / categories
-import draconic.materials; // BlendMode (category mapping)
-import draconic.geometry;  // StaticMesh::bounds (world bounding sphere for shadow-caster culling)
-import draconic.texture.resource; // texture::Texture (cooked product behind sprite/decal refs)
+import foundation.core;
+import foundation.scene;
+import foundation.render;    // ExtractedScene / MeshRenderData / ViewCamera / categories
+import foundation.materials; // BlendMode (category mapping)
+import foundation.geometry;  // StaticMesh::bounds (world bounding sphere for shadow-caster culling)
+import foundation.texture.resource; // texture::Texture (cooked product behind sprite/decal refs)
 import :components;
 
 using namespace foundation::core;

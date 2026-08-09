@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:style_selector;
+export module foundation.ui:style_selector;
 
-import draconic.core; // TypeInfo, IsDerivedFrom, Array, String, StringView, Optional, i32
+import foundation.core; // TypeInfo, IsDerivedFrom, Array, String, StringView, Optional, i32
 import :control_state;
 
 using namespace foundation::core;

@@ -1,4 +1,4 @@
-// Draconic::TextureEditor - the `draconic.texture.editor` module (tooling).
+// Draconic::TextureEditor - the `foundation.texture.editor` module (tooling).
 //
 // Source-side texture authoring + cook:
 //   * TextureAsset (pipeline::Asset): references an image file + the GPU-texture
@@ -17,17 +17,17 @@ module;
 #include "Core/Reflection/Reflect.h"
 #include <initializer_list>
 
-export module draconic.texture.pipeline;
+export module texture.pipeline;
 
-import draconic.core;
-import draconic.pipeline.core;
-import draconic.editor.core;
-import draconic.rhi;
-import draconic.texture;
-import draconic.texture.resource;
-import draconic.image;
-import draconic.image.io;
-import draconic.content;
+import foundation.core;
+import pipeline.core;
+import editor.core;
+import foundation.rhi;
+import foundation.texture;
+import foundation.texture.resource;
+import foundation.image;
+import foundation.image.io;
+import foundation.content;
 
 using namespace foundation::core;
 using namespace foundation::texture;

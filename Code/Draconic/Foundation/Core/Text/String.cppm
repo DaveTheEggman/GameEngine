@@ -13,7 +13,7 @@ module;
 #include <charconv>
 #include <system_error>
 
-export module draconic.core:string;
+export module foundation.core:string;
 
 import :base;
 import :allocator;

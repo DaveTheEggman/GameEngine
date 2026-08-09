@@ -13,9 +13,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui.toolkit:code_lexer;
+export module foundation.ui.toolkit:code_lexer;
 
-import draconic.core;
+import foundation.core;
 import :code_document;
 
 using namespace foundation::core;
@@ -155,7 +155,7 @@ export namespace foundation::ui::toolkit
     // ---- language registry -------------------------------------------------------------------
 
     /// Language-id -> lexer-factory registry. TOOLKIT SHIPS NO LANGUAGE TABLES: the modules
-    /// that OWN a language register here (draconic.editor.script registers "wren" and
+    /// that OWN a language register here (editor.script registers "wren" and
     /// "angelscript" beside the page; the shader page will bring "hlsl") - the same layering
     /// as ICompletionProvider, where reflection-fed providers plug in from outside. Pages
     /// with static knowledge (the XML document page) construct their lexer directly instead.

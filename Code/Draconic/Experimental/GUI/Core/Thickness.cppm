@@ -6,9 +6,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.gui:thickness;
+export module experimental.gui:thickness;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

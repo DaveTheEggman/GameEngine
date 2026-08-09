@@ -10,9 +10,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.render:debug_draw;
+export module foundation.render:debug_draw;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

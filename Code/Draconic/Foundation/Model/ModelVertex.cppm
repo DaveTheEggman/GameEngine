@@ -1,9 +1,9 @@
 /// Standard and skinned vertex structs for model data.
 /// Ported from Sedulous.Models/ModelVertex.bf.
 
-export module draconic.model:model_vertex;
+export module foundation.model:model_vertex;
 
-import draconic.core;
+import foundation.core;
 
 using namespace foundation::core;
 

@@ -9,9 +9,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:drawable_view;
+export module foundation.ui:drawable_view;
 
-import draconic.core;
+import foundation.core;
 import :view;
 import :property;
 import :control_state;

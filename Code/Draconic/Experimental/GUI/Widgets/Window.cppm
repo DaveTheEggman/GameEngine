@@ -12,10 +12,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.gui:window;
+export module experimental.gui:window;
 
-import draconic.core;  // RefPtr, MakeRef, Function, Move, Max, Float2
-import draconic.fonts; // CachedFont
+import foundation.core;  // RefPtr, MakeRef, Function, Move, Max, Float2
+import foundation.fonts; // CachedFont
 import :rect;
 import :event;
 import :drawable;

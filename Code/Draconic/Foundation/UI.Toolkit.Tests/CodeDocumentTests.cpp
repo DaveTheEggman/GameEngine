@@ -3,8 +3,8 @@
 // execution line, word boundaries, and the word harvest behind document-word completion.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-import draconic.core;
-import draconic.ui.toolkit;
+import foundation.core;
+import foundation.ui.toolkit;
 
 using namespace foundation::ui::toolkit;
 using namespace foundation::core;

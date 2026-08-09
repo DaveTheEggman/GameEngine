@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-module draconic.ui;
+module foundation.ui;
 
-import draconic.image; // image::ImageData for the (empty) image registry
+import foundation.image; // image::ImageData for the (empty) image registry
 
 using namespace foundation::core;
 namespace image = foundation::image;

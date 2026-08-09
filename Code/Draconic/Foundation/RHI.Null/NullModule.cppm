@@ -4,10 +4,10 @@
 module;
 #include "Core/Prelude.h" // <new> reachability for placement-new in core templates (GCC)
 
-export module draconic.rhi.null;
+export module foundation.rhi.null;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 
 using namespace foundation::core;
 

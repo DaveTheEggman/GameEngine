@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:shortcut_manager;
+export module foundation.ui:shortcut_manager;
 
-import draconic.core; // Array, RefPtr, Function
+import foundation.core; // Array, RefPtr, Function
 import :input_enums;  // KeyCode, KeyModifiers
 import :shortcut;
 

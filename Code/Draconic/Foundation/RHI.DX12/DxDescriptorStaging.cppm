@@ -9,10 +9,10 @@ module;
 
 #include <algorithm>
 
-export module draconic.rhi.dx12:descriptor_staging;
+export module foundation.rhi.dx12:descriptor_staging;
 
-import draconic.core;
-import draconic.rhi; // LogErrorf
+import foundation.core;
+import foundation.rhi; // LogErrorf
 import :gpu_descriptor_heap;
 
 using namespace foundation::core;

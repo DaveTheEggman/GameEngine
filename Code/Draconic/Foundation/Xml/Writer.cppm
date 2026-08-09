@@ -7,9 +7,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.xml:writer;
+export module foundation.xml:writer;
 
-import draconic.core;
+import foundation.core;
 import :nodes;
 import :escape;
 

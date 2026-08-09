@@ -7,11 +7,11 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:toggle_switch;
+export module foundation.ui:toggle_switch;
 
-import draconic.core;
-import draconic.vg;
-import draconic.fonts; // CachedFont, TextAlignment, VerticalAlignment
+import foundation.core;
+import foundation.vg;
+import foundation.fonts; // CachedFont, TextAlignment, VerticalAlignment
 import :view;
 import :event;
 import :property;

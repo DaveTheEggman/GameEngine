@@ -10,10 +10,10 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:label;
+export module foundation.ui:label;
 
-import draconic.core;
-import draconic.fonts; // CachedFont, TextAlignment, VerticalAlignment, GlyphPosition
+import foundation.core;
+import foundation.fonts; // CachedFont, TextAlignment, VerticalAlignment, GlyphPosition
 import :view;
 import :property;
 import :box_constraints;

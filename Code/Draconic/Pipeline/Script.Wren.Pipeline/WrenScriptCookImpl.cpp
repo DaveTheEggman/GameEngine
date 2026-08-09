@@ -10,15 +10,15 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-module draconic.script.wren.pipeline;
+module script.wren.pipeline;
 
-import draconic.core;
-import draconic.editor.core; // FileStemOf
-import draconic.script;
-import draconic.script.resource;
-import draconic.script.facades;
-import draconic.script.pipeline;
-import draconic.script.wren;
+import foundation.core;
+import editor.core; // FileStemOf
+import foundation.script;
+import foundation.script.resource;
+import foundation.script.facades;
+import script.pipeline;
+import foundation.script.wren;
 
 using namespace foundation::core;
 using namespace foundation::script;

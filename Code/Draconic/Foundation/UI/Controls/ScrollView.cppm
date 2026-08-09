@@ -12,9 +12,9 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module draconic.ui:scroll_view;
+export module foundation.ui:scroll_view;
 
-import draconic.core;
+import foundation.core;
 import :view;
 import :property;
 import :event;

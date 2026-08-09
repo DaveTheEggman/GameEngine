@@ -1,13 +1,13 @@
-/// draconic.rhi.webgpu:texture_view - TextureView over WGPUTextureView.
+/// foundation.rhi.webgpu:texture_view - TextureView over WGPUTextureView.
 
 module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-export module draconic.rhi.webgpu:texture_view;
+export module foundation.rhi.webgpu:texture_view;
 
-import draconic.core;
-import draconic.rhi;
+import foundation.core;
+import foundation.rhi;
 import :api;
 import :conversions;
 import :texture;

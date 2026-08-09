@@ -8,9 +8,9 @@
 module;
 #include "Core/Prelude.h"
 
-export module draconic.ui:view_recycler;
+export module foundation.ui:view_recycler;
 
-import draconic.core; // HashMap, Array, RefPtr, Move
+import foundation.core; // HashMap, Array, RefPtr, Move
 import :view;
 import :ilist_adapter;
 

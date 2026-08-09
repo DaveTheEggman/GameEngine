@@ -2,8 +2,8 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-import draconic.core;
-import draconic.script.pipeline;
+import foundation.core;
+import script.pipeline;
 
 using namespace foundation::core;
 
