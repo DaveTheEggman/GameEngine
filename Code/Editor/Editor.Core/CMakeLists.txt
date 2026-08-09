@@ -5,7 +5,7 @@ add_library(Editor.Core STATIC)
 add_library(Editor::Core ALIAS Editor.Core)
 
 target_link_libraries(Editor.Core
-    PUBLIC Foundation::Core Foundation::VFS Foundation::VFS.Pak Foundation::Content Foundation::Xml.Serialization Engine::Project
+    PUBLIC Pipeline::Importer Foundation::Core Foundation::VFS Foundation::VFS.Pak Foundation::Content Foundation::Xml.Serialization Engine::Project
            Foundation::Settings Foundation::Scene.Resource
            Pipeline::Cook Foundation::Resource Foundation::Policy
            Foundation::Shaders) # export cooks the engine shader pack (shaders.dpak)
@@ -27,7 +27,6 @@ target_sources(Editor.Core
         CookServiceImpl.cpp
         ContextImpl.cpp
         CommandImpl.cpp
-        ImporterImpl.cpp
         ExportTemplateImpl.cpp
         ExportImpl.cpp
     PUBLIC
@@ -48,6 +47,5 @@ target_sources(Editor.Core
             ExportTemplate.cppm
             ExportController.cppm
             CookService.cppm
-            Importer.cppm
             EditorCoreModule.cppm)
 

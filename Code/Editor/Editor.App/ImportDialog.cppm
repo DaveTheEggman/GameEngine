@@ -33,7 +33,7 @@ export namespace editor::app
         Function<void()> OnImport;
 
         ImportOptionsDialog(StringView sourcePath, StringView destination,
-                            RefPtr<editor::ImportOptions> options)
+                            RefPtr<pipeline::ImportOptions> options)
             : ui::Dialog(u8"Import"), m_options(Move(options))
         {
             MaxWidth.SetValue(480.0f);
@@ -43,12 +43,12 @@ export namespace editor::app
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6.0f;
 
-            AddInfoRow(*column, u8"Source:", editor::FileNameOf(sourcePath));
+            AddInfoRow(*column, u8"Source:", pipeline::FileNameOf(sourcePath));
             AddInfoRow(*column, u8"Into:", destination);
 
             if (m_options.Get() != nullptr)
             {
-                for (const editor::ImportOptions::Toggle& toggle : m_options->Toggles())
+                for (const pipeline::ImportOptions::Toggle& toggle : m_options->Toggles())
                 {
                     if (toggle.value == nullptr)
                     {
@@ -87,7 +87,7 @@ export namespace editor::app
             AddButton(u8"Cancel", ui::DialogResult::Cancel);
         }
 
-        [[nodiscard]] editor::ImportOptions* Options() const noexcept
+        [[nodiscard]] pipeline::ImportOptions* Options() const noexcept
         {
             return m_options.Get();
         }
@@ -122,7 +122,7 @@ export namespace editor::app
             column.AddView(row.Get(), lp);
         }
 
-        RefPtr<editor::ImportOptions> m_options;
+        RefPtr<pipeline::ImportOptions> m_options;
     };
 
     RTTI_DEFINE_OBJECT(ImportOptionsDialog, "rtti::editor::editor::app")

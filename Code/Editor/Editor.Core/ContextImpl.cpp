@@ -13,7 +13,7 @@ module editor.core;
 
 import foundation.core;
 import foundation.resource;
-import :importer;
+import pipeline.importer;
 import foundation.content;
 import :command;
 import :selection;
@@ -241,13 +241,13 @@ namespace editor
     }
 
     void EditorContext::AddImportListener(
-        Function<void(foundation::content::Instance&, const ImportOptions*)> listener)
+        Function<void(foundation::content::Instance&, const pipeline::ImportOptions*)> listener)
     {
         m_importListeners.PushBack(Move(listener));
     }
 
     void EditorContext::NotifyImported(foundation::content::Instance& instance,
-                                       const ImportOptions* options)
+                                       const pipeline::ImportOptions* options)
     {
         for (const auto& listener : m_importListeners)
         {

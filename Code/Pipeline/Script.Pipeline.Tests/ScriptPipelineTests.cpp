@@ -15,6 +15,7 @@ import foundation.content;
 import foundation.resource;
 import pipeline.core;
 import editor.core;
+import pipeline.importer;
 import foundation.script;
 import foundation.script.wren;
 import foundation.script.resource;

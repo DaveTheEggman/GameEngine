@@ -40,7 +40,7 @@ import animation.pipeline;
 import foundation.vfs;
 import foundation.content;
 import pipeline.core;
-import editor.core;
+import pipeline.importer;
 import physics.pipeline;
 import :mesh_convert;
 import :anim_convert;
@@ -129,9 +129,9 @@ export namespace pipeline
     };
 
     /// Options for one model import (the import dialog renders the toggles).
-    class ModelImportOptions final : public editor::ImportOptions
+    class ModelImportOptions final : public pipeline::ImportOptions
     {
-        RTTI_OBJECT(ModelImportOptions, editor::ImportOptions)
+        RTTI_OBJECT(ModelImportOptions, pipeline::ImportOptions)
     public:
         bool importTextures = true;     // embedded/sidecar images -> TextureAssets
         bool importMaterials = true;    // PBR materials (texture slots wired when textures import)
@@ -199,14 +199,14 @@ export namespace pipeline
 
     /// OS-file importer for model files: loads through foundation.model and fans out source
     /// instances into a subgroup named after the file stem.
-    class ModelFileImporter final : public editor::IFileImporter
+    class ModelFileImporter final : public pipeline::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"Model"; }
 
-        [[nodiscard]] RefPtr<editor::ImportOptions> CreateOptions() const override
+        [[nodiscard]] RefPtr<pipeline::ImportOptions> CreateOptions() const override
         {
-            return RefPtr<editor::ImportOptions>(
+            return RefPtr<pipeline::ImportOptions>(
                 MakeRef<ModelImportOptions>(DefaultAllocator()).Get());
         }
 
@@ -235,16 +235,16 @@ export namespace pipeline
         }
 
         [[nodiscard]] Result<content::Instance*>
-        Import(StringView sourcePath, editor::EditorProject& project, content::Group& group,
-               const editor::ImportOptions* options, Object* prepared,
-               Array<editor::DeferredImportWrite>* deferredWrites) override
+        Import(StringView sourcePath, const pipeline::ImportContext& context, content::Group& group,
+               const pipeline::ImportOptions* options, Object* prepared,
+               Array<pipeline::DeferredImportWrite>* deferredWrites) override
         {
             const ModelImportOptions defaults;
             const ModelImportOptions& opt =
                 (options != nullptr) ? static_cast<const ModelImportOptions&>(*options) : defaults;
             // Source provenance copy: the file NAME is known without copying; the copy
             // itself (and the .gltf sidecars below) is bulk file IO - deferred when possible.
-            const StringView sourceFileName = editor::FileNameOf(sourcePath);
+            const StringView sourceFileName = pipeline::FileNameOf(sourcePath);
             if (sourceFileName.IsEmpty())
             {
                 return Err(ErrorCode::InvalidArgument);
@@ -252,14 +252,14 @@ export namespace pipeline
             Result<String> fileName = Result<String>(String(sourceFileName));
             if (deferredWrites != nullptr)
             {
-                editor::DeferredImportWrite copy;
+                pipeline::DeferredImportWrite copy;
                 copy.copyFrom = String(sourcePath);
-                copy.copyTo = PathJoin(project.SourcesRoot().AsView(), sourceFileName);
-                deferredWrites->PushBack(static_cast<editor::DeferredImportWrite&&>(copy));
+                copy.copyTo = PathJoin(context.sourcesRoot.AsView(), sourceFileName);
+                deferredWrites->PushBack(static_cast<pipeline::DeferredImportWrite&&>(copy));
             }
             else
             {
-                fileName = editor::CopyIntoSources(project, sourcePath);
+                fileName = pipeline::CopyIntoSources(context, sourcePath);
                 if (!fileName.HasValue())
                 {
                     return Err(fileName.Error());
@@ -288,12 +288,12 @@ export namespace pipeline
 
             // .gltf: copy the referenced sidecars (buffers/images by relative uri) into
             // Sources/ so the imported source set is complete.
-            if (editor::FileExtensionLower(sourcePath) == StringView(u8"gltf"))
+            if (pipeline::FileExtensionLower(sourcePath) == StringView(u8"gltf"))
             {
-                CopyGltfSidecars(sourcePath, project, deferredWrites);
+                CopyGltfSidecars(sourcePath, context, deferredWrites);
             }
 
-            const StringView stem = editor::FileStemOf(fileName.Value().AsView());
+            const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
             content::Group* modelGroup = group.CreateGroup(stem);
             if (modelGroup == nullptr)
             {
@@ -377,8 +377,8 @@ export namespace pipeline
         // original file into Sources/, preserving relative subpaths. Data URIs and
         // parent-escaping paths are skipped. A plain text scan (the uris live in JSON string
         // values); failures only log - the import itself already succeeded from the original.
-        static void CopyGltfSidecars(StringView originalPath, editor::EditorProject& project,
-                                     Array<editor::DeferredImportWrite>* deferredWrites)
+        static void CopyGltfSidecars(StringView originalPath, const pipeline::ImportContext& context,
+                                     Array<pipeline::DeferredImportWrite>* deferredWrites)
         {
             Result<Array<byte>> bytes = ReadFile(originalPath);
             if (!bytes.HasValue())
@@ -401,7 +401,7 @@ export namespace pipeline
             }
             const StringView dir = originalPath.SubStr(0, dirEnd);
 
-            foundation::vfs::NativeFileSystem sources(project.SourcesRoot().AsView());
+            foundation::vfs::NativeFileSystem sources(context.sourcesRoot.AsView());
             const StringView key = u8"\"uri\"";
             for (usize i = 0; i + key.Size() < text.Size(); ++i)
             {
@@ -457,10 +457,10 @@ export namespace pipeline
                 from.Append(uri);
                 if (deferredWrites != nullptr)
                 {
-                    editor::DeferredImportWrite copy;
+                    pipeline::DeferredImportWrite copy;
                     copy.copyFrom = from;
-                    copy.copyTo = PathJoin(project.SourcesRoot().AsView(), uri);
-                    deferredWrites->PushBack(static_cast<editor::DeferredImportWrite&&>(copy));
+                    copy.copyTo = PathJoin(context.sourcesRoot.AsView(), uri);
+                    deferredWrites->PushBack(static_cast<pipeline::DeferredImportWrite&&>(copy));
                     continue;
                 }
                 Result<Array<byte>> payload = ReadFile(from.AsView());
@@ -521,7 +521,7 @@ export namespace pipeline
 
         static void ImportTextures(const foundation::model::Model& model, content::Group& group,
                                    Array<Guid>& outGuids, Array<String>& claimed,
-                                   Array<editor::DeferredImportWrite>* deferredWrites)
+                                   Array<pipeline::DeferredImportWrite>* deferredWrites)
         {
             // Color space follows USAGE: data maps (normal/MR/AO) stay linear - sRGB-decoding
             // them corrupts the values (a flat normal 0.5 would linearize to ~0.21).
@@ -567,11 +567,11 @@ export namespace pipeline
                     // Decoded pixels are the import's bulk (100s of MB for a big model) -
                     // park them for the worker flush; the view borrows from the prepared
                     // model, which the caller keeps alive until the flush completes.
-                    editor::DeferredImportWrite write;
+                    pipeline::DeferredImportWrite write;
                     write.instance = inst;
                     write.streamName = String(u8"pixels");
                     write.view = pixels;
-                    deferredWrites->PushBack(static_cast<editor::DeferredImportWrite&&>(write));
+                    deferredWrites->PushBack(static_cast<pipeline::DeferredImportWrite&&>(write));
                     outGuids.PushBack(inst->Id());
                     continue;
                 }
@@ -585,7 +585,7 @@ export namespace pipeline
         static Guid GetOrBakePackedMR(const foundation::model::Model& model, content::Group& group,
                                       HashMap<u64, Guid>& cache, i32 roughIdx, i32 metalIdx,
                                       Array<String>& claimed,
-                                      Array<editor::DeferredImportWrite>* deferredWrites)
+                                      Array<pipeline::DeferredImportWrite>* deferredWrites)
         {
             const u64 key = (static_cast<u64>(static_cast<u32>(roughIdx)) << 32) |
                             static_cast<u64>(static_cast<u32>(metalIdx));
@@ -618,14 +618,14 @@ export namespace pipeline
             if (deferredWrites != nullptr)
             {
                 // Baked pixels are produced HERE, so the deferred write owns them.
-                editor::DeferredImportWrite write;
+                pipeline::DeferredImportWrite write;
                 write.instance = inst;
                 write.streamName = String(u8"pixels");
                 for (u8 b : pixels)
                 {
                     write.owned.PushBack(static_cast<byte>(b));
                 }
-                deferredWrites->PushBack(static_cast<editor::DeferredImportWrite&&>(write));
+                deferredWrites->PushBack(static_cast<pipeline::DeferredImportWrite&&>(write));
             }
             else if (!inst->WriteData(u8"pixels",
                                       Span<const byte>{reinterpret_cast<const byte*>(pixels.Data()),
@@ -642,7 +642,7 @@ export namespace pipeline
         static void ImportMaterials(const foundation::model::Model& model, content::Group& group,
                                     const Array<Guid>& textureGuids, ModelManifestSource& manifest,
                                     Array<String>& claimed,
-                                    Array<editor::DeferredImportWrite>* deferredWrites)
+                                    Array<pipeline::DeferredImportWrite>* deferredWrites)
         {
             HashMap<u64, Guid> bakedMR; // per-pair bake cache (see GetOrBakePackedMR)
             const Span<foundation::model::ModelMaterial* const> materials = model.materials();
@@ -779,7 +779,7 @@ export namespace pipeline
                                                  content::Group& group,
                                                  ModelManifestSource& manifest,
                                                  Array<String>& claimed,
-                                                 Array<editor::DeferredImportWrite>* deferredWrites)
+                                                 Array<pipeline::DeferredImportWrite>* deferredWrites)
         {
             const bool hasSkin = model.skins().Size() > 0;
             const Span<foundation::model::ModelMesh* const> meshes = model.meshes();
@@ -806,10 +806,10 @@ export namespace pipeline
                     }
                     if (deferredWrites != nullptr)
                     {
-                        editor::DeferredImportWrite write;
+                        pipeline::DeferredImportWrite write;
                         write.instance = inst;
                         write.object = RefPtr<ISerializable>(asset.Get());
-                        deferredWrites->PushBack(static_cast<editor::DeferredImportWrite&&>(write));
+                        deferredWrites->PushBack(static_cast<pipeline::DeferredImportWrite&&>(write));
                     }
                     else
                     {
@@ -828,10 +828,10 @@ export namespace pipeline
                     }
                     if (deferredWrites != nullptr)
                     {
-                        editor::DeferredImportWrite write;
+                        pipeline::DeferredImportWrite write;
                         write.instance = inst;
                         write.object = RefPtr<ISerializable>(asset.Get());
-                        deferredWrites->PushBack(static_cast<editor::DeferredImportWrite&&>(write));
+                        deferredWrites->PushBack(static_cast<pipeline::DeferredImportWrite&&>(write));
                     }
                     else
                     {

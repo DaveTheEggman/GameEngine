@@ -34,7 +34,7 @@ module;
 module script.angelscript.pipeline;
 
 import foundation.core;
-import editor.core; // FileStemOf
+import pipeline.importer;
 import foundation.script;
 import foundation.script.resource;
 import foundation.script.facades;
@@ -509,7 +509,7 @@ namespace pipeline{
                 }
 
                 out.className =
-                    FindScriptClassName(source, editor::FileStemOf(assetName));
+                    FindScriptClassName(source, pipeline::FileStemOf(assetName));
                 out.handlers = ScanScriptHandlers(source);
                 out.usesCoroutines = ScriptReferencesCoroutineStart(source);
 

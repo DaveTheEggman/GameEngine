@@ -17,6 +17,7 @@ import foundation.content;
 import foundation.resource;
 import pipeline.core;
 import editor.core;
+import pipeline.importer;
 import foundation.audio;
 import foundation.audio.resource;
 import audio.pipeline;
@@ -518,7 +519,7 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
                       Span<const byte>(shortWav.Data(), shortWav.Size()))
                 .IsOk());
     Result<content::Instance*> shortImport =
-        importer.Import(u8"scratch_audiopipe_short.wav", *project,
+        importer.Import(u8"scratch_audiopipe_short.wav", pipeline::ImportContext{project->SourcesRoot()},
                         *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(shortImport.HasValue());
     {
@@ -537,7 +538,7 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
         WriteFile(u8"scratch_audiopipe_long.wav", Span<const byte>(longWav.Data(), longWav.Size()))
             .IsOk());
     Result<content::Instance*> longImport =
-        importer.Import(u8"scratch_audiopipe_long.wav", *project, *project->SourceDb().RootGroup(),
+        importer.Import(u8"scratch_audiopipe_long.wav", pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(),
                         nullptr, nullptr, nullptr);
     REQUIRE(longImport.HasValue());
     {
@@ -557,12 +558,12 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
                       Span<const byte>(garbage.Data(), garbage.Size()))
                 .IsOk());
     CHECK_FALSE(importer
-                    .Import(u8"scratch_audiopipe_garbage.wav", *project,
+                    .Import(u8"scratch_audiopipe_garbage.wav", pipeline::ImportContext{project->SourcesRoot()},
                             *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr)
                     .HasValue());
 
     // Import options object exposes the five toggles.
-    RefPtr<editor::ImportOptions> options = importer.CreateOptions();
+    RefPtr<pipeline::ImportOptions> options = importer.CreateOptions();
     REQUIRE(options.Get() != nullptr);
     CHECK(options->Toggles().Size() == 5u);
 

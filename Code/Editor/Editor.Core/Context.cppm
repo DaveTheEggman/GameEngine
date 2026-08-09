@@ -14,7 +14,7 @@ export module editor.core:context;
 import foundation.core;
 import foundation.resource;
 import foundation.settings;
-import :importer;
+import pipeline.importer;
 import foundation.content;
 import :command;
 import :selection;
@@ -72,7 +72,7 @@ export namespace editor
         [[nodiscard]] EditorProject* Project() const noexcept { return m_project; }
 
         // === Importers (OS file -> Sources/ + typed Asset instance; exe-registered) ===
-        [[nodiscard]] ImporterRegistry& Importers() noexcept { return m_importers; }
+        [[nodiscard]] pipeline::ImporterRegistry& Importers() noexcept { return m_importers; }
 
         // === Resources (runtime products over the project's cooked DB) ===
         // Owned by the application (created at project open); pages resolve scene refs and the
@@ -182,7 +182,7 @@ export namespace editor
         /// post-import steps that live above the importer's layer - e.g. model->prefab
         /// generation, which needs scene machinery the importer library never links.
         void AddImportListener(
-            Function<void(foundation::content::Instance&, const ImportOptions*)> listener);
+            Function<void(foundation::content::Instance&, const pipeline::ImportOptions*)> listener);
 
         /// Play-in-editor seam: creates the singleton Game page (the player behavior in a
         /// tab). Registered by the scene editor plugin; unset = the Game menu item notifies.
@@ -211,7 +211,7 @@ export namespace editor
                       Array<Guid>& /*outResources*/, Array<Guid>& /*outPrefabs*/)>
             SceneRefScanner;
 
-        void NotifyImported(foundation::content::Instance& instance, const ImportOptions* options);
+        void NotifyImported(foundation::content::Instance& instance, const pipeline::ImportOptions* options);
 
         // === Script breakpoints (the debugger, script-debugger.md P1) ===
         // Shared editor state: the ScriptPage gutter toggles them per source file+line, and a
@@ -286,13 +286,13 @@ export namespace editor
         EditorJobService* m_jobs = nullptr; // borrowed (app-owned)
         foundation::resource::ResourceManager* m_resources = nullptr; // borrowed (app-owned)
         foundation::settings::Settings* m_projectEditorSettings = nullptr; // borrowed (app-owned)
-        ImporterRegistry m_importers;                               // borrowed
+        pipeline::ImporterRegistry m_importers;                               // borrowed
         EditorPageRegistry m_pageRegistry;
         Array<AssetCreator> m_creators;
         String m_clipboardKind;
         Array<byte> m_clipboard;
         Array<Guid> m_favorites;
-        Array<Function<void(foundation::content::Instance&, const ImportOptions*)>> m_importListeners;
+        Array<Function<void(foundation::content::Instance&, const pipeline::ImportOptions*)>> m_importListeners;
         Array<UniquePtr<EditorPage>> m_pages;
         EditorPage* m_activePage = nullptr;
         Selection<const foundation::content::Instance*> m_assetSelection;

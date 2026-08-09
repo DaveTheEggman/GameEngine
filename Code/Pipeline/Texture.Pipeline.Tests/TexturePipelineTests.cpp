@@ -14,6 +14,7 @@ import foundation.rhi;
 import foundation.rhi.null;
 import pipeline.core;
 import editor.core;
+import pipeline.importer;
 import foundation.image;
 import foundation.image.io;
 import foundation.texture;
@@ -170,7 +171,7 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
     CHECK_FALSE(importer.Accepts(u8"gltf"));
 
     Result<foundation::content::Instance*> imported = importer.Import(
-        u8"brick.png", *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+        u8"brick.png", pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
     foundation::content::Instance* instance = imported.Value();
     REQUIRE(instance != nullptr);

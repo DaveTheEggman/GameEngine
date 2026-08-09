@@ -21,7 +21,7 @@ export module ui.pipeline;
 
 import foundation.core;
 import pipeline.core;
-import editor.core; // IFileImporter/EditorProject/import plumbing
+import pipeline.importer;
 import foundation.content;
 import foundation.ui;
 import foundation.ui.resource;
@@ -161,7 +161,7 @@ export namespace pipeline{
     };
 
     /// Drag-drop importer for `.sml` / `.sss` files (text embeds into the asset).
-    class UIFileImporter final : public editor::IFileImporter
+    class UIFileImporter final : public pipeline::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"UI"; }
@@ -171,11 +171,11 @@ export namespace pipeline{
         }
 
         [[nodiscard]] Result<foundation::content::Instance*>
-        Import(StringView sourcePath, editor::EditorProject& project,
-               foundation::content::Group& group, const editor::ImportOptions*, Object*,
-               Array<editor::DeferredImportWrite>*) override
+        Import(StringView sourcePath, const pipeline::ImportContext& context,
+               foundation::content::Group& group, const pipeline::ImportOptions*, Object*,
+               Array<pipeline::DeferredImportWrite>*) override
         {
-            (void)project;
+            (void)context;
             FileStream stream(sourcePath, FileMode::Read);
             if (!stream.IsValid())
             {
@@ -189,8 +189,8 @@ export namespace pipeline{
             }
             String text(StringView(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size()));
             const StringView stem =
-                editor::FileStemOf(editor::FileNameOf(sourcePath));
-            const bool isTheme = editor::FileExtensionLower(sourcePath) == u8"sss";
+                pipeline::FileStemOf(pipeline::FileNameOf(sourcePath));
+            const bool isTheme = pipeline::FileExtensionLower(sourcePath) == u8"sss";
             foundation::content::Instance* instance = group.CreateInstance(
                 stem, isTheme ? UIThemeAsset::StaticType() : UIDocumentAsset::StaticType());
             if (instance == nullptr)

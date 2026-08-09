@@ -17,7 +17,7 @@ export import :project_manager;
 export import :page;
 export import :context;
 export import :cook_service;
-export import :importer;
+export import pipeline.importer; // the import framework moved to Pipeline (MCP P1 opening step)
 export import :log_buffer;
 export import :job_service;
 export import :export_preset;

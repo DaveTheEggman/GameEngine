@@ -58,18 +58,18 @@ namespace editor::app
         {
             return;
         }
-        const String ext = editor::FileExtensionLower(path);
-        editor::IFileImporter* importer = m_context->Importers().FindFor(ext.AsView());
+        const String ext = pipeline::FileExtensionLower(path);
+        pipeline::IFileImporter* importer = m_context->Importers().FindFor(ext.AsView());
         if (importer == nullptr)
         {
             String message(u8"No importer for '");
-            message += editor::FileNameOf(path);
+            message += pipeline::FileNameOf(path);
             message += u8"'.";
             m_context->Notify(editor::NoticeKind::Warning, message.AsView());
             return;
         }
 
-        RefPtr<editor::ImportOptions> options = importer->CreateOptions();
+        RefPtr<pipeline::ImportOptions> options = importer->CreateOptions();
         if (options.Get() == nullptr)
         {
             ExecuteImport(String(path), importer, {});
@@ -82,13 +82,13 @@ namespace editor::app
             MakeRef<ImportOptionsDialog>(DefaultAllocator(), path, group->Path().AsView(), options);
         AssetsView* self = this;
         dialog->OnImport = [self, file = String(path), importer,
-                            opts = RefPtr<editor::ImportOptions>(options.Get())]()
+                            opts = RefPtr<pipeline::ImportOptions>(options.Get())]()
         { self->ExecuteImport(file, importer, opts); };
         dialog->Show(Context);
     }
 
-    void AssetsView::ExecuteImport(String path, editor::IFileImporter* importer,
-                                   RefPtr<editor::ImportOptions> options)
+    void AssetsView::ExecuteImport(String path, pipeline::IFileImporter* importer,
+                                   RefPtr<pipeline::ImportOptions> options)
     {
         if (m_context->Project() == nullptr)
         {
@@ -97,7 +97,7 @@ namespace editor::app
         if (importer->WantsWorkerPrepare() && m_jobs != nullptr)
         {
             String title(u8"Importing ");
-            title += editor::FileNameOf(path.AsView());
+            title += pipeline::FileNameOf(path.AsView());
             auto* holder = DefaultAllocator().New<RefPtr<Object>>();
             AssetsView* self = this;
             m_jobs->Submit(title.AsView(),
@@ -118,7 +118,7 @@ namespace editor::app
                                    if (!result.IsOk())
                                    {
                                        String message(u8"Import failed: '");
-                                       message += editor::FileNameOf(path.AsView());
+                                       message += pipeline::FileNameOf(path.AsView());
                                        message += u8"' (see Console).";
                                        self->m_context->Notify(editor::NoticeKind::Error,
                                                                message.AsView());
@@ -131,8 +131,8 @@ namespace editor::app
         CommitImport(path, importer, options, {});
     }
 
-    void AssetsView::CommitImport(String path, editor::IFileImporter* importer,
-                                  RefPtr<editor::ImportOptions> options,
+    void AssetsView::CommitImport(String path, pipeline::IFileImporter* importer,
+                                  RefPtr<pipeline::ImportOptions> options,
                                   RefPtr<Object> prepared)
     {
         if (m_context->Project() == nullptr)
@@ -155,14 +155,16 @@ namespace editor::app
                                     ? m_selectedGroup
                                     : m_context->Project()->SourceDb().RootGroup();
         auto deferred =
-            MakeUnique<Array<editor::DeferredImportWrite>>(DefaultAllocator());
+            MakeUnique<Array<pipeline::DeferredImportWrite>>(DefaultAllocator());
         Result<content::Instance*> imported =
-            importer->Import(path.AsView(), *m_context->Project(), *group, options.Get(),
+            importer->Import(path.AsView(),
+                             pipeline::ImportContext{m_context->Project()->SourcesRoot()},
+                             *group, options.Get(),
                              prepared.Get(), (m_jobs != nullptr) ? deferred.Get() : nullptr);
         if (!imported.HasValue() || imported.Value() == nullptr)
         {
             String message(u8"Import failed: '");
-            message += editor::FileNameOf(path.AsView());
+            message += pipeline::FileNameOf(path.AsView());
             message += u8"' (see Console).";
             m_context->Notify(editor::NoticeKind::Error, message.AsView());
             Rebuild();
@@ -180,7 +182,7 @@ namespace editor::app
         // cooks out and queues deletes). The prepared payload stays alive - the views
         // borrow its decoded pixels.
         String title(u8"Writing ");
-        title += editor::FileNameOf(path.AsView());
+        title += pipeline::FileNameOf(path.AsView());
         AssetsView* self = this;
         auto* writes = deferred.Release();
         const Guid primaryId = primary->Id();
@@ -192,7 +194,7 @@ namespace editor::app
                     Status result{};
                     for (usize i = 0; i < writes->Size(); ++i)
                     {
-                        editor::DeferredImportWrite& write = (*writes)[i];
+                        pipeline::DeferredImportWrite& write = (*writes)[i];
                         job.SetStep(write.Label(), i + 1, writes->Size());
                         job.SetFraction(static_cast<f32>(i) / static_cast<f32>(writes->Size()));
                         const Status s = write.Execute();
@@ -224,8 +226,8 @@ namespace editor::app
     }
 
     void AssetsView::FinishImport(content::Instance& primary,
-                                  editor::IFileImporter* importer,
-                                  const RefPtr<editor::ImportOptions>& options)
+                                  pipeline::IFileImporter* importer,
+                                  const RefPtr<pipeline::ImportOptions>& options)
     {
         String message(u8"Imported '");
         message += primary.Name();

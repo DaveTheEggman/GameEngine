@@ -1,4 +1,4 @@
-// Editor::Core - :importer partition.
+// Pipeline::Importer - the `pipeline.importer` module.
 //
 // The file-import seam (asset-pipeline design §7): an OS file (drag-dropped onto the editor)
 // becomes a SOURCE - the raw bytes copied into the project's Sources/ tree - plus a typed Asset
@@ -15,16 +15,23 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module editor.core:importer;
+export module pipeline.importer;
 
 import foundation.core;
 import foundation.content;
-import :project;
 
 using namespace foundation::core;
 
-export namespace editor
+export namespace pipeline
 {
+    /// Everything an import needs to know about WHERE it lands - deliberately not the
+    /// editor's project object: the pipeline is headless-drivable (CLI, MCP, tests), so the
+    /// caller supplies the two facts imports consume and keeps its project model to itself.
+    struct ImportContext
+    {
+        String sourcesRoot; // absolute OS path to the project's Sources/ tree
+    };
+
     /// Importer-specific options, shown by the import dialog before the import runs. The
     /// dialog renders one checkbox per Toggle (each points into the options object) - a
     /// declarative description, no reflection required. Subclasses add their fields and
@@ -153,12 +160,13 @@ export namespace editor
         /// instead of writing inline - the caller flushes them on a worker (null =
         /// headless/tests: everything writes inline).
         [[nodiscard]] virtual Result<foundation::content::Instance*>
-        Import(StringView sourcePath, EditorProject& project, foundation::content::Group& group,
-               const ImportOptions* options = nullptr, Object* prepared = nullptr,
+        Import(StringView sourcePath, const ImportContext& context,
+               foundation::content::Group& group, const ImportOptions* options = nullptr,
+               Object* prepared = nullptr,
                Array<DeferredImportWrite>* deferredWrites = nullptr) = 0;
     };
 
-    RTTI_DEFINE_OBJECT(ImportOptions, "rtti::editor::editor")
+    RTTI_DEFINE_OBJECT(ImportOptions, "rtti::pipeline::importer")
 
     class ImporterRegistry
     {
@@ -234,8 +242,8 @@ export namespace editor
     /// Asset should reference. An existing SAME-CONTENT file is reused untouched; changed
     /// bytes OVERWRITE it (a re-import must see the edited file - the old skip-if-exists
     /// behavior silently kept stale sources). The copy goes through the core file API and the
-    /// project path only - the pipeline reads it back through the sources MOUNT.
-    [[nodiscard]] inline Result<String> CopyIntoSources(EditorProject& project,
+    /// context's sources root only - the pipeline reads it back through the sources MOUNT.
+    [[nodiscard]] inline Result<String> CopyIntoSources(const ImportContext& context,
                                                         StringView sourcePath)
     {
         const StringView fileName = FileNameOf(sourcePath);
@@ -243,7 +251,7 @@ export namespace editor
         {
             return Err(ErrorCode::InvalidArgument);
         }
-        const String target = PathJoin(project.SourcesRoot().AsView(), fileName);
+        const String target = PathJoin(context.sourcesRoot.AsView(), fileName);
 
         Result<Array<byte>> bytes = ReadFile(sourcePath);
         if (!bytes.HasValue())

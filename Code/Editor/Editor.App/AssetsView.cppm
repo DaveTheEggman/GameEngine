@@ -241,16 +241,16 @@ export namespace editor::app
         /// Runs the import (post-dialog). Slow importers (models) split: the parse/decode
         /// runs on the JOB worker so the UI stays live (with the status-bar progress), and
         /// only the fast DB fan-out lands back on the main thread in CommitImport.
-        void ExecuteImport(String path, editor::IFileImporter* importer,
-                           RefPtr<editor::ImportOptions> options);
+        void ExecuteImport(String path, pipeline::IFileImporter* importer,
+                           RefPtr<pipeline::ImportOptions> options);
 
         /// The main-thread tail: DB fan-out (+ the build-lock re-check, so a cook that
         /// started while the dialog/worker was busy still queues instead of racing).
-        void CommitImport(String path, editor::IFileImporter* importer,
-                          RefPtr<editor::ImportOptions> options, RefPtr<Object> prepared);
+        void CommitImport(String path, pipeline::IFileImporter* importer,
+                          RefPtr<pipeline::ImportOptions> options, RefPtr<Object> prepared);
 
-        void FinishImport(content::Instance& primary, editor::IFileImporter* importer,
-                          const RefPtr<editor::ImportOptions>& options);
+        void FinishImport(content::Instance& primary, pipeline::IFileImporter* importer,
+                          const RefPtr<pipeline::ImportOptions>& options);
 
         /// Full rebuild: group tree + list (project open/close, create/delete/import).
         void Rebuild();

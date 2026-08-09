@@ -1,4 +1,4 @@
-// Editor::Core - :importer partition.
+// Pipeline::Importer - implementation unit.
 //
 // The file-import seam (asset-pipeline design §7): an OS file (drag-dropped onto the editor)
 // becomes a SOURCE - the raw bytes copied into the project's Sources/ tree - plus a typed Asset
@@ -15,15 +15,14 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-module editor.core;
+module pipeline.importer;
 
 import foundation.core;
 import foundation.content;
-import :project;
 
 using namespace foundation::core;
 
-namespace editor
+namespace pipeline
 {
     RefPtr<Object> IFileImporter::PrepareOnWorker(StringView /*sourcePath*/) { return {}; }
     void ImporterRegistry::Register(UniquePtr<IFileImporter> importer)

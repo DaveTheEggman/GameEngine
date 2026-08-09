@@ -2,7 +2,7 @@
 add_library(Audio.Pipeline STATIC)
 add_library(Pipeline::Audio ALIAS Audio.Pipeline)
 target_link_libraries(Audio.Pipeline PUBLIC
-    Foundation::Core Pipeline::Core Editor::Core Foundation::Content
+    Foundation::Core Pipeline::Core Pipeline::Importer Foundation::Content
     Foundation::Audio Foundation::Audio.Resource Foundation::Policy)
 target_sources(Audio.Pipeline
     PRIVATE

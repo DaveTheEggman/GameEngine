@@ -12,6 +12,7 @@ import foundation.content;
 import foundation.resource;
 import pipeline.core;
 import editor.core;
+import pipeline.importer;
 import foundation.fonts;
 import foundation.image;
 import foundation.fonts.resource;

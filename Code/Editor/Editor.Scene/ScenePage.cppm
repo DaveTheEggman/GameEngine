@@ -697,7 +697,7 @@ export namespace editor
 
         context.AddImportListener(
             [editorContext, appHost](foundation::content::Instance& instance,
-                                     const ImportOptions* options)
+                                     const pipeline::ImportOptions* options)
             {
                 if (instance.TypeName() != StringView(u8"ModelManifestAsset"))
                 {
@@ -706,7 +706,7 @@ export namespace editor
                 if (options != nullptr)
                 {
                     auto* modelOptions = Cast<pipeline::ModelImportOptions>(
-                        const_cast<ImportOptions*>(options));
+                        const_cast<pipeline::ImportOptions*>(options));
                     if (modelOptions != nullptr && !modelOptions->generatePrefab)
                     {
                         return;

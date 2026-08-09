@@ -253,7 +253,7 @@ namespace
         //    manifest's default (the guid the player binds; source guid == product guid).
         {
             const String source = BaselineAssetPath(u8"fonts/roboto/Roboto-Regular.ttf");
-            Result<String> copied = editor::CopyIntoSources(project, source.AsView());
+            Result<String> copied = pipeline::CopyIntoSources(pipeline::ImportContext{project.SourcesRoot()}, source.AsView());
             if (copied.HasValue())
             {
                 foundation::content::Group* fonts = root->GetGroup(u8"Fonts");
@@ -285,7 +285,7 @@ namespace
         // 2) The default sky: BlueSky.hdr as an equirectangular skybox texture.
         {
             const String source = BaselineAssetPath(u8"environment/BlueSky.hdr");
-            Result<String> copied = editor::CopyIntoSources(project, source.AsView());
+            Result<String> copied = pipeline::CopyIntoSources(pipeline::ImportContext{project.SourcesRoot()}, source.AsView());
             if (copied.HasValue())
             {
                 foundation::content::Group* env = root->GetGroup(u8"Environment");
@@ -623,18 +623,18 @@ int main(int argc, char** argv)
         RegisterAllBuilders(app.Builders()); // the cook service routes through this set
 
         // OS-file importers (drag-drop onto the editor).
-        app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
+        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
             DefaultAllocator().New<pipeline::TextureFileImporter>(), DefaultAllocator()));
-        app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
+        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
             DefaultAllocator().New<pipeline::ModelFileImporter>(),
             DefaultAllocator()));
-        app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
+        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
             DefaultAllocator().New<pipeline::UIFileImporter>(), DefaultAllocator()));
-        app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
+        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
             DefaultAllocator().New<pipeline::AudioFileImporter>(), DefaultAllocator()));
-        app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
+        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
             DefaultAllocator().New<pipeline::ScriptFileImporter>(), DefaultAllocator()));
-        app.Context().Importers().Register(UniquePtr<editor::IFileImporter>(
+        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
             DefaultAllocator().New<pipeline::FontAssetImporter>(), DefaultAllocator()));
 
         // Resource factories come from the embedded DefaultApplication (registered into

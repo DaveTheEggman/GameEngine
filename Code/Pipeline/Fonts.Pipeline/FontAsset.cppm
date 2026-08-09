@@ -22,7 +22,7 @@ export module fonts.pipeline;
 
 import foundation.core;
 import pipeline.core;
-import editor.core;
+import pipeline.importer;
 import foundation.fonts;
 import foundation.fonts.ttf;
 import foundation.fonts.io;
@@ -338,7 +338,7 @@ export namespace pipeline{
     };
 
     // Claims dropped .ttf/.otf/.ttc files: copy into Sources/, create the FontAsset.
-    class FontAssetImporter final : public editor::IFileImporter
+    class FontAssetImporter final : public pipeline::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"Font"; }
@@ -349,16 +349,16 @@ export namespace pipeline{
         }
 
         [[nodiscard]] Result<content::Instance*>
-        Import(StringView sourcePath, editor::EditorProject& project,
-               content::Group& group, const editor::ImportOptions*, Object*,
-               Array<editor::DeferredImportWrite>*) override
+        Import(StringView sourcePath, const pipeline::ImportContext& context,
+               content::Group& group, const pipeline::ImportOptions*, Object*,
+               Array<pipeline::DeferredImportWrite>*) override
         {
-            Result<String> fileName = editor::CopyIntoSources(project, sourcePath);
+            Result<String> fileName = pipeline::CopyIntoSources(context, sourcePath);
             if (!fileName.HasValue())
             {
                 return Err(fileName.Error());
             }
-            const StringView stem = editor::FileStemOf(fileName.Value().AsView());
+            const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
             content::Instance* instance = group.CreateInstance(stem, FontAsset::StaticType());
             if (instance == nullptr)
             {

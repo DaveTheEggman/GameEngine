@@ -9,7 +9,7 @@ add_library(Pipeline::ModelImporter ALIAS ModelImporter)
 
 target_link_libraries(ModelImporter
     PUBLIC
-        Foundation::Core Editor::Core Foundation::Policy
+        Foundation::Core Pipeline::Importer Foundation::Policy
         Foundation::Model     Foundation::Model.IO  Foundation::Model.GLTF  Foundation::Model.FBX
         Foundation::Geometry  Foundation::Geometry.Resource     Pipeline::Geometry
         Foundation::Materials Foundation::Materials.Resource Pipeline::Materials

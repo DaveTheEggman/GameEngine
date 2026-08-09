@@ -25,7 +25,7 @@ export module audio.pipeline;
 
 import foundation.core;
 import pipeline.core;
-import editor.core;
+import pipeline.importer;
 import foundation.content;
 import foundation.audio;
 import foundation.audio.resource;
@@ -161,7 +161,7 @@ export namespace pipeline{
                 return Status{ErrorCode::InvalidArgument};
             }
 
-            String extension = editor::FileExtensionLower(audioAsset.fileName.View());
+            String extension = pipeline::FileExtensionLower(audioAsset.fileName.View());
 
             // Destructive options re-encode (decode -> process -> WAV). Everything else
             // writes the original container bytes through untouched.
@@ -296,9 +296,9 @@ export namespace pipeline{
 
     // Import-dialog options (all toggles; the Stream auto-default is computed from the
     // probed file at import, so the checkbox here is a FORCE, not the whole story).
-    class AudioImportOptions final : public editor::ImportOptions
+    class AudioImportOptions final : public pipeline::ImportOptions
     {
-        RTTI_OBJECT(AudioImportOptions, editor::ImportOptions)
+        RTTI_OBJECT(AudioImportOptions, pipeline::ImportOptions)
     public:
         bool stream = false;
         bool forceMono = false;
@@ -331,7 +331,7 @@ export namespace pipeline{
 
     // OS-file importer (editor drag-drop): copies the audio file into Sources/ and
     // creates an AudioClipAsset named after the file stem.
-    class AudioFileImporter final : public editor::IFileImporter
+    class AudioFileImporter final : public pipeline::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"Audio"; }
@@ -348,15 +348,15 @@ export namespace pipeline{
             return false;
         }
 
-        [[nodiscard]] RefPtr<editor::ImportOptions> CreateOptions() const override
+        [[nodiscard]] RefPtr<pipeline::ImportOptions> CreateOptions() const override
         {
             return MakeRef<AudioImportOptions>(DefaultAllocator());
         }
 
         [[nodiscard]] Result<content::Instance*>
-        Import(StringView sourcePath, editor::EditorProject& project,
-               content::Group& group, const editor::ImportOptions* options, Object*,
-               Array<editor::DeferredImportWrite>*) override
+        Import(StringView sourcePath, const pipeline::ImportContext& context,
+               content::Group& group, const pipeline::ImportOptions* options, Object*,
+               Array<pipeline::DeferredImportWrite>*) override
         {
             Result<Array<byte>> bytes = ReadFile(sourcePath);
             if (!bytes.HasValue())
@@ -373,13 +373,13 @@ export namespace pipeline{
                 return Err(ErrorCode::InvalidArgument);
             }
 
-            Result<String> fileName = editor::CopyIntoSources(project, sourcePath);
+            Result<String> fileName = pipeline::CopyIntoSources(context, sourcePath);
             if (!fileName.HasValue())
             {
                 return Err(fileName.Error());
             }
 
-            const StringView stem = editor::FileStemOf(fileName.Value().AsView());
+            const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
             content::Instance* instance = group.CreateInstance(stem, AudioClipAsset::StaticType());
             if (instance == nullptr)
             {
@@ -403,7 +403,7 @@ export namespace pipeline{
             // WAV smpl loop points: authored loops win over the checkbox default.
             u64 loopStart = 0;
             u64 loopEnd = 0;
-            if (editor::FileExtensionLower(sourcePath) == u8"wav" &&
+            if (pipeline::FileExtensionLower(sourcePath) == u8"wav" &&
                 ParseWavSampleLoop(Span<const byte>(bytes.Value().Data(), bytes.Value().Size()),
                                    loopStart, loopEnd))
             {

@@ -4,7 +4,7 @@
 add_library(Script.Pipeline STATIC)
 add_library(Pipeline::Script ALIAS Script.Pipeline)
 target_link_libraries(Script.Pipeline PUBLIC
-    Foundation::Core Pipeline::Core Editor::Core Foundation::Content
+    Foundation::Core Pipeline::Core Pipeline::Importer Foundation::Content
     Foundation::Script Foundation::Script.Resource Foundation::Policy)
 target_sources(Script.Pipeline
     PRIVATE

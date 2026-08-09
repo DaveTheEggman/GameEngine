@@ -20,6 +20,7 @@ import modelimporter;
 import physics.pipeline;
 import pipeline.core;
 import editor.core;
+import pipeline.importer;
 import pipeline.cook;
 
 using namespace pipeline;
@@ -217,7 +218,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
     CHECK(importer.Accepts(u8"glb"));
     Result<foundation::content::Instance*> imported =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_GLB),
-                        *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
     foundation::content::Instance* manifestInst = imported.Value();
     REQUIRE(manifestInst != nullptr);
@@ -323,7 +324,7 @@ TEST_CASE("model-import: external-sidecar .gltf imports and its sidecars land in
     pipeline::ModelFileImporter importer;
     Result<foundation::content::Instance*> imported =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_FOX),
-                        *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
     REQUIRE(imported.Value() != nullptr);
 
@@ -401,7 +402,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     pipeline::ModelFileImporter importer;
     Result<foundation::content::Instance*> imported =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_DUCK),
-                        *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
 
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
@@ -677,7 +678,7 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
     pipeline::ModelFileImporter importer;
     Result<foundation::content::Instance*> firstImport =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_DUCK),
-                        *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(firstImport.HasValue());
 
     foundation::content::Group* duckGroup = project->SourceDb().RootGroup()->GetGroup(u8"Duck");
@@ -704,7 +705,7 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
     // === user step 2: reimport the same file ===
     Result<foundation::content::Instance*> secondImport =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_DUCK),
-                        *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(secondImport.HasValue());
     foundation::content::Group* duckGroup2 = project->SourceDb().RootGroup()->GetGroup(u8"Duck");
     REQUIRE(duckGroup2 != nullptr);
@@ -965,7 +966,7 @@ TEST_CASE("model-import: options gate textures/materials/animations")
     options->importAnimations = false;
     Result<foundation::content::Instance*> imported =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_GLB),
-                        *project, *project->SourceDb().RootGroup(), options, nullptr, nullptr);
+                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), options, nullptr, nullptr);
     REQUIRE(imported.HasValue());
 
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
@@ -1011,7 +1012,7 @@ TEST_CASE("model-import: generate-collision emits CollisionShapeAssets wired to 
     options->collisionConvex = true;
     Result<foundation::content::Instance*> imported =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_GLB),
-                        *project, *project->SourceDb().RootGroup(), options, nullptr, nullptr);
+                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), options, nullptr, nullptr);
     REQUIRE(imported.HasValue());
 
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
@@ -1070,7 +1071,7 @@ TEST_CASE("model-import: re-import WITHOUT delete reuses instances (same guids, 
     pipeline::ModelFileImporter importer;
     Result<foundation::content::Instance*> first =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_DUCK),
-                        *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(first.HasValue());
 
     foundation::content::Group* duck = project->SourceDb().RootGroup()->GetGroup(u8"Duck");
@@ -1087,7 +1088,7 @@ TEST_CASE("model-import: re-import WITHOUT delete reuses instances (same guids, 
     // guids survive (placed refs + the prefab keep working) and nothing duplicates as ".2".
     Result<foundation::content::Instance*> second =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_DUCK),
-                        *project, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(second.HasValue());
     CHECK(second.Value()->Id() == first.Value()->Id());
 

@@ -30,7 +30,7 @@ export module script.pipeline;
 
 import foundation.core;
 import pipeline.core;
-import editor.core;
+import pipeline.importer;
 import foundation.content;
 import foundation.script;
 import foundation.script.resource;
@@ -498,7 +498,7 @@ export namespace pipeline{
     // OS-file importer (editor drag-drop): accepts any extension a REGISTERED script
     // backend claims (B3 - language-clean), copies the file into Sources/, and creates
     // a ScriptClassAsset whose language records the owning backend. No options dialog.
-    class ScriptFileImporter final : public editor::IFileImporter
+    class ScriptFileImporter final : public pipeline::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"Script"; }
@@ -508,17 +508,17 @@ export namespace pipeline{
             return ScriptBackendRegistry::Get().FindByExtension(extension) != nullptr;
         }
 
-        [[nodiscard]] RefPtr<editor::ImportOptions> CreateOptions() const override
+        [[nodiscard]] RefPtr<pipeline::ImportOptions> CreateOptions() const override
         {
             return {}; // no options dialog - the drop imports immediately
         }
 
         [[nodiscard]] Result<content::Instance*>
-        Import(StringView sourcePath, editor::EditorProject& project,
-               content::Group& group, const editor::ImportOptions*, Object*,
-               Array<editor::DeferredImportWrite>*) override
+        Import(StringView sourcePath, const pipeline::ImportContext& context,
+               content::Group& group, const pipeline::ImportOptions*, Object*,
+               Array<pipeline::DeferredImportWrite>*) override
         {
-            const String extension = editor::FileExtensionLower(sourcePath);
+            const String extension = pipeline::FileExtensionLower(sourcePath);
             const ScriptBackendDesc* backend =
                 ScriptBackendRegistry::Get().FindByExtension(extension.AsView());
             if (backend == nullptr)
@@ -526,13 +526,13 @@ export namespace pipeline{
                 return Err(ErrorCode::NotSupported);
             }
 
-            Result<String> fileName = editor::CopyIntoSources(project, sourcePath);
+            Result<String> fileName = pipeline::CopyIntoSources(context, sourcePath);
             if (!fileName.HasValue())
             {
                 return Err(fileName.Error());
             }
 
-            const StringView stem = editor::FileStemOf(fileName.Value().AsView());
+            const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
             content::Instance* instance =
                 group.CreateInstance(stem, ScriptClassAsset::StaticType());
             if (instance == nullptr)

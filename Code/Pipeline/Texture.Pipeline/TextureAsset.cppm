@@ -21,7 +21,7 @@ export module texture.pipeline;
 
 import foundation.core;
 import pipeline.core;
-import editor.core;
+import pipeline.importer;
 import foundation.rhi;
 import foundation.texture;
 import foundation.texture.resource;
@@ -522,7 +522,7 @@ export namespace pipeline{
     //   - a cube-face name (sky_px.png etc.) with all 6 sibling faces present
     //                                           -> ONE cube asset (all 6 faces copied)
     //   - anything else                         -> the standard 3D preset
-    class TextureFileImporter final : public editor::IFileImporter
+    class TextureFileImporter final : public pipeline::IFileImporter
     {
     public:
         [[nodiscard]] StringView Label() const override { return u8"Texture"; }
@@ -540,9 +540,9 @@ export namespace pipeline{
         }
 
         [[nodiscard]] Result<content::Instance*>
-        Import(StringView sourcePath, editor::EditorProject& project,
-               content::Group& group, const editor::ImportOptions*, Object*,
-               Array<editor::DeferredImportWrite>*) override
+        Import(StringView sourcePath, const pipeline::ImportContext& context,
+               content::Group& group, const pipeline::ImportOptions*, Object*,
+               Array<pipeline::DeferredImportWrite>*) override
         {
             // Cubemap intent: the dropped file's stem matches a face convention (px/nx/...,
             // _posx/..., right/left/...) AND all 6 sibling faces exist beside it. Any one
@@ -562,18 +562,18 @@ export namespace pipeline{
                     }
                     if (allPresent)
                     {
-                        return ImportCube(facePaths, project, group);
+                        return ImportCube(facePaths, context, group);
                     }
                 }
             }
 
-            Result<String> fileName = editor::CopyIntoSources(project, sourcePath);
+            Result<String> fileName = pipeline::CopyIntoSources(context, sourcePath);
             if (!fileName.HasValue())
             {
                 return Err(fileName.Error());
             }
 
-            const StringView stem = editor::FileStemOf(fileName.Value().AsView());
+            const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
             content::Instance* instance = group.CreateInstance(stem, TextureAsset::StaticType());
             if (instance == nullptr)
             {
@@ -582,7 +582,7 @@ export namespace pipeline{
 
             TextureAsset asset;
             asset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
-            if (editor::FileExtensionLower(sourcePath) == u8"hdr")
+            if (pipeline::FileExtensionLower(sourcePath) == u8"hdr")
             {
                 asset.SetupForEquirectangularSkybox(); // .hdr = an environment, not a surface map
             }
@@ -602,14 +602,14 @@ export namespace pipeline{
         // Copy all 6 faces into Sources/ and create ONE cube TextureAsset. fileName = the
         // +X face; the builder re-derives the face set from its naming convention at cook.
         [[nodiscard]] static Result<content::Instance*>
-        ImportCube(const Array<String>& facePaths, editor::EditorProject& project,
+        ImportCube(const Array<String>& facePaths, const pipeline::ImportContext& context,
                    content::Group& group)
         {
             String posXName;
             for (usize i = 0; i < facePaths.Size(); ++i)
             {
                 Result<String> copied =
-                    editor::CopyIntoSources(project, facePaths[i].AsView());
+                    pipeline::CopyIntoSources(context, facePaths[i].AsView());
                 if (!copied.HasValue())
                 {
                     return Err(copied.Error());
@@ -622,7 +622,7 @@ export namespace pipeline{
 
             // "sky_px" -> "sky" (strip the face suffix + a trailing separator); fall back to
             // the full stem when the convention leaves nothing.
-            const StringView posXStem = editor::FileStemOf(posXName.AsView());
+            const StringView posXStem = pipeline::FileStemOf(posXName.AsView());
             Array<String> derived;
             String name;
             if (TextureImporter::DetectCubemapFaces(posXName.AsView(), derived).IsOk())
@@ -635,7 +635,7 @@ export namespace pipeline{
                 {
                     ++common;
                 }
-                StringView prefix = editor::FileStemOf(a.SubStr(0, common));
+                StringView prefix = pipeline::FileStemOf(a.SubStr(0, common));
                 while (!prefix.IsEmpty() && (prefix[prefix.Size() - 1] == utf8char('_') ||
                                              prefix[prefix.Size() - 1] == utf8char('-')))
                 {

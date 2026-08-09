@@ -8,10 +8,10 @@
 
 import foundation.core;
 import foundation.content;
-import editor.core;
+import pipeline.importer;
 
 using namespace foundation::core;
-using namespace editor;
+using namespace pipeline;
 
 namespace
 {
@@ -24,7 +24,8 @@ namespace
             return extension == StringView(u8"fak");
         }
         [[nodiscard]] Result<foundation::content::Instance*>
-        Import(StringView, EditorProject&, foundation::content::Group&, const ImportOptions*, Object*,
+        Import(StringView, const ImportContext&, foundation::content::Group&,
+               const pipeline::ImportOptions*, Object*,
                Array<DeferredImportWrite>*) override
         {
             return Err(ErrorCode::NotSupported);
@@ -74,28 +75,29 @@ TEST_CASE("importer: CopyIntoSources lands the bytes in the project's Sources tr
     }
     RemoveDirectory(dir);
 
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
-    REQUIRE(static_cast<bool>(project));
+    // Project-free: CopyIntoSources needs only a sources DIRECTORY - the pipeline is
+    // headless-drivable by design, so the test provides a bare scratch tree, no editor.
+    const String sourcesRoot = PathJoin(dir, u8"Sources");
+    REQUIRE(CreateDirectories(sourcesRoot.AsView()));
 
     // A loose OS file to import.
     const byte payload[4] = {byte{9}, byte{8}, byte{7}, byte{6}};
     REQUIRE(WriteFile(u8"scratch_importer_loose.bin", Span<const byte>(payload, 4)).IsOk());
 
-    Result<String> name = CopyIntoSources(*project, u8"scratch_importer_loose.bin");
+    Result<String> name = CopyIntoSources(ImportContext{String(sourcesRoot.AsView())}, u8"scratch_importer_loose.bin");
     REQUIRE(name.HasValue());
     CHECK(name.Value() == StringView(u8"scratch_importer_loose.bin"));
 
-    const String copied = PathJoin(project->SourcesRoot().AsView(), name.Value().AsView());
+    const String copied = PathJoin(sourcesRoot.AsView(), name.Value().AsView());
     Result<Array<byte>> bytes = ReadFile(copied.AsView());
     REQUIRE(bytes.HasValue());
     CHECK(bytes.Value().Size() == 4u);
     CHECK(bytes.Value()[0] == byte{9});
 
     // Reimporting the same name reuses the existing copy (no error).
-    CHECK(CopyIntoSources(*project, u8"scratch_importer_loose.bin").HasValue());
+    CHECK(CopyIntoSources(ImportContext{String(sourcesRoot.AsView())}, u8"scratch_importer_loose.bin").HasValue());
     // Missing source is a clean failure.
-    CHECK_FALSE(CopyIntoSources(*project, u8"scratch_importer_missing.bin").HasValue());
+    CHECK_FALSE(CopyIntoSources(ImportContext{String(sourcesRoot.AsView())}, u8"scratch_importer_missing.bin").HasValue());
 
     FileDelete(u8"scratch_importer_loose.bin");
     FileDelete(copied.AsView());

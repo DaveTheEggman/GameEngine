@@ -5,7 +5,7 @@ add_library(Fonts.Pipeline STATIC)
 add_library(Pipeline::Fonts ALIAS Fonts.Pipeline)
 
 target_link_libraries(Fonts.Pipeline
-    PUBLIC Foundation::Core Pipeline::Core Editor::Core
+    PUBLIC Foundation::Core Pipeline::Core Pipeline::Importer
            Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.IO Foundation::Fonts.Baked
            Foundation::Fonts.Importer Foundation::Fonts.DistanceField
            Foundation::Fonts.DistanceField.Baker Foundation::Fonts.Resource

@@ -254,7 +254,7 @@ namespace editor
 
         // Resolution order mirrors Engine.Player: the manifest's guid (authoritative,
         // rename-proof), then the path mirror.
-        EditorProject& project = *m_context->Project();
+        editor::EditorProject& project = *m_context->Project();
         foundation::content::Instance* instance = nullptr;
         if (!project.Settings().defaultSceneId.IsNil())
         {
