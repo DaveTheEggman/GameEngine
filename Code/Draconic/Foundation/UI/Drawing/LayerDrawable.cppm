@@ -1,4 +1,4 @@
-// Draconic UI - :layer_drawable partition
+// UI - :layer_drawable partition
 //
 // Stacks multiple drawables with per-layer insets, drawn in order. Ported from
 // Sedulous.UI/src/Drawing/LayerDrawable.bf. Layers own a RefPtr<Drawable> (auto-released).

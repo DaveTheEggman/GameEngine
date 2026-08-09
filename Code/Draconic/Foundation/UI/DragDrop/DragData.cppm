@@ -1,4 +1,4 @@
-// Draconic UI - :drag_data partition
+// UI - :drag_data partition
 //
 // Base class for drag-and-drop payload data. Subclass to carry typed data; the Format string enables
 // type matching between drag sources and drop targets. Ported from Sedulous.UI/src/DragDrop/DragData.bf.

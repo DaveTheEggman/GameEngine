@@ -1,4 +1,4 @@
-// Draconic GUI - SortingProxyModel tests: reorder a source model's rows by a column (numeric by
+// GUI - SortingProxyModel tests: reorder a source model's rows by a column (numeric by
 // value, strings lexically), toggle asc/desc, map proxy rows to source, and re-sort + notify on
 // source changes. Also the TableView header-click -> ToggleSort wiring.
 #include <doctest/doctest.h>

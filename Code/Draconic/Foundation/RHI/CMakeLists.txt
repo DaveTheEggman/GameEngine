@@ -1,5 +1,5 @@
 # Foundation::RHI - the `foundation.rhi` module (the backend-agnostic RHI interface).
-# Ported from the Draconic RHI, adapted to Draconic types (foundation.core) and the
+# Ported from the Sedulous RHI, adapted to our types (foundation.core) and the
 # minimal-STL / -fno-exceptions / -fno-rtti policy. Backends (Null, Vulkan, DX12,
 # Validation) are separate targets.
 

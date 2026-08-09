@@ -1,4 +1,4 @@
-// Draconic Core - Prelude
+// Core - Prelude
 //
 // The one classic header allowed to cross the module boundary. Holds everything
 // macro-based (platform/compiler detection, attributes, build config), since

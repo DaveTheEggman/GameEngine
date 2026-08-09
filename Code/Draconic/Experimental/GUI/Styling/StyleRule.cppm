@@ -1,4 +1,4 @@
-// Draconic GUI - :style_rule partition
+// GUI - :style_rule partition
 //
 // StyleProperty + StyleRule: a CSS declaration block. Ported from eepp's
 // css/StyleSheetProperty + StyleSheetStyle. A StyleRule pairs one StyleSelector with a list

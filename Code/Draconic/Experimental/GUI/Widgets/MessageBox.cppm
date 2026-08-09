@@ -1,4 +1,4 @@
-// Draconic GUI - :message_box partition
+// GUI - :message_box partition
 //
 // MessageBox: a modal dialog with a message and a row of standard buttons (OK / OK-Cancel /
 // Yes-No). Modeled on eepp's UIMessageBox (role only) - a Window subclass whose content is a

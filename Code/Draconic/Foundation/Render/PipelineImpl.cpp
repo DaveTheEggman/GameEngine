@@ -1,4 +1,4 @@
-// Draconic Render - foundation.render:pipeline implementation unit (sec 3.2 / sec 10.6).
+// Render - foundation.render:pipeline implementation unit (sec 3.2 / sec 10.6).
 module;
 #include "Core/Prelude.h"
 #include "Profiler/Profiler.h"

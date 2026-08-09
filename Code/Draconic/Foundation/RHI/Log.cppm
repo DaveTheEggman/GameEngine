@@ -1,6 +1,6 @@
 // RHI logging shim. The ported backends use printf-style char* logging
 // (logError / logWarning / logErrorf / logWarningf); this routes those to
-// Draconic's console. A thin compatibility layer so the large backend bodies
+// the console. A thin compatibility layer so the large backend bodies
 // port unchanged.
 
 module;

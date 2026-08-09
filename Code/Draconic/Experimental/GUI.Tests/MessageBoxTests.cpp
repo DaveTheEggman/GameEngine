@@ -1,4 +1,4 @@
-// Draconic GUI - modal Window + MessageBox tests: OpenModal adds a scrim and confines input to
+// GUI - modal Window + MessageBox tests: OpenModal adds a scrim and confines input to
 // the dialog (background clicks are swallowed by the dispatcher's modal root); MessageBox shows
 // the right buttons and reports the pressed result, then closes.
 #include <doctest/doctest.h>

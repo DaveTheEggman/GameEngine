@@ -1,4 +1,4 @@
-// Draconic GUI - :list_view partition
+// GUI - :list_view partition
 //
 // ListView: a virtualized, single-column model-backed list. Modeled on eepp's UIListView. The
 // virtualization, scrolling, and selection all live in AbstractItemView; ListView only says how

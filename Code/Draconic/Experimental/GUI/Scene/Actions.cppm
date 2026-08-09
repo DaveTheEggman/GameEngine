@@ -1,4 +1,4 @@
-// Draconic GUI - :actions partition
+// GUI - :actions partition
 //
 // Concrete actions that animate a Node: Move / Fade / Scale (interpolated), Delay,
 // Runnable (a deferred callback), and Sequence (run children in order). Derived from

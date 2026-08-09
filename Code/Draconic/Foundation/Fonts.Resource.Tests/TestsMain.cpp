@@ -1,2 +1,2 @@
-// Draconic tests - doctest entry point (shared main: redirects scratch data to .test-scratch/).
+// Tests - doctest entry point (shared main: redirects scratch data to .test-scratch/).
 #include "TestMain.h"

@@ -1,4 +1,4 @@
-// Draconic GUI - :layer_drawable partition
+// GUI - :layer_drawable partition
 //
 // LayerDrawable: stacks multiple drawables with per-layer insets, drawn in order. This is
 // the CSS-`background` compositor role of eepp's UINodeDrawable (a background color plus

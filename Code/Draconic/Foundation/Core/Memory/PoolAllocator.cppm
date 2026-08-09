@@ -1,4 +1,4 @@
-// Draconic Core - :pool_allocator partition
+// Core - :pool_allocator partition
 //
 // PoolAllocator: fixed-size block allocator over a caller buffer; O(1)
 // allocate/free via an intrusive free list.

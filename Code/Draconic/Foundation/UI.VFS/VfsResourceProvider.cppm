@@ -1,4 +1,4 @@
-// Draconic UI - `foundation.ui.vfs`: an IResourceProvider backed by a VFS filesystem.
+// UI - `foundation.ui.vfs`: an IResourceProvider backed by a VFS filesystem.
 //
 // The IO model that backs the UI's resource provider: StyleSheetLoader (@import / @icon SVG text) and
 // the image/nine-slice drawable factories resolve external files through this. Ported from

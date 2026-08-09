@@ -1,4 +1,4 @@
-// Draconic UI - :drawable partition
+// UI - :drawable partition
 //
 // Drawable: base class for composable visual primitives. Stateless; render into a bounds
 // via UIDrawContext. Ported from Sedulous.UI/src/Drawing/Drawable.bf.

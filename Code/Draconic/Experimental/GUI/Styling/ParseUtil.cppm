@@ -1,4 +1,4 @@
-// Draconic GUI - :parse_util partition
+// GUI - :parse_util partition
 //
 // CSS-specific identifier scanning for the styling parsers. The generic helpers
 // (IsWhiteSpace / IsDigit / IsHexDigit / HexValue / Trim) now live in foundation.core

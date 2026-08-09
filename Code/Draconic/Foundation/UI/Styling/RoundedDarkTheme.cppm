@@ -1,4 +1,4 @@
-// Draconic UI - :rounded_dark_theme partition
+// UI - :rounded_dark_theme partition
 //
 // Dark theme variant with consistent rounded corners everywhere - demonstrates that the drawable-based
 // styling system supports different visual styles from the same control set. Ported from

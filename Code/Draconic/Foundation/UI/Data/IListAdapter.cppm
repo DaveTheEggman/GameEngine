@@ -1,4 +1,4 @@
-// Draconic UI - :ilist_adapter partition
+// UI - :ilist_adapter partition
 //
 // Data source contract for ListView (+ its observer). Ported from Sedulous.UI/src/Data/IListAdapter.bf.
 // Pattern-B injected interfaces (held-by-reference, not tree-queried), so plain abstract classes; Beef

@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - primary module interface unit for `foundation.ui.toolkit`.
+// UI Toolkit - primary module interface unit for `foundation.ui.toolkit`.
 //
 // The editor-grade widget set (a faithful port of Sedulous.UI.Toolkit) layered on foundation.ui: docking,
 // property grid, node graph, color/gradient/curve editors, and the menu/tool/status bars. One named

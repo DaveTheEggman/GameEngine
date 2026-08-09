@@ -1,4 +1,4 @@
-// Draconic Core - Debug / assertions
+// Core - Debug / assertions
 //
 // Assertions are macro-based, so they live in a classic header (macros cannot
 // be exported by modules). The reporting functions have external linkage in the

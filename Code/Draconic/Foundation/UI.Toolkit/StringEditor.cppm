@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :string_editor partition
+// UI Toolkit - :string_editor partition
 //
 // String property editor - an EditText with focus-based edit transactions. BeginEdit on focus gained,
 // EndEdit on focus lost or Enter (OnSubmit); Escape cancels and restores the pre-edit value. Ported from

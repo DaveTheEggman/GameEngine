@@ -1,4 +1,4 @@
-// Draconic Core - :memory_tag partition
+// Core - :memory_tag partition
 //
 // Memory tagging: attribute allocations to a named category via an open
 // registry (Core does not enumerate subsystems). TaggedAllocator records

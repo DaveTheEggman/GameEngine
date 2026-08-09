@@ -1,4 +1,4 @@
-// Draconic GUI - :tree_view partition
+// GUI - :tree_view partition
 //
 // TreeView: a virtualized, model-backed tree. Modeled on eepp's UITreeView. It flattens the
 // currently-visible (expanded) nodes of a tree Model into a list and virtualizes that list

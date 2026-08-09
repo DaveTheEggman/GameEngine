@@ -31,7 +31,7 @@ if(EMSCRIPTEN)
     # TEMPLATE - export any project, drop its files beside the player, serve, browse - and the
     # web build no longer needs a native cook tool or a pre-exported dist to CONFIGURE.
 
-    # Full-window canvas shell, the player's own (shipping-facing: <title>Draconic Player</title>, its
+    # Full-window canvas shell, the player's own (shipping-facing: <title>Player</title>, its
     # <canvas id=canvas> matches WebShell's default selector; DPR-aware resize drives the swapchain).
     set(_web_shell "${CMAKE_CURRENT_SOURCE_DIR}/shell.html")
     set_source_files_properties(WebMain.cpp PROPERTIES OBJECT_DEPENDS "${_web_shell}")

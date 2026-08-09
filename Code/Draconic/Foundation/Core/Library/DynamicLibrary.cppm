@@ -1,4 +1,4 @@
-// Draconic Core - :library partition
+// Core - :library partition
 //
 // DynamicLibrary: an RAII handle over the System raw dynamic-library calls,
 // with typed symbol resolution. Foundation for the future plugin/module system

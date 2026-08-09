@@ -1,4 +1,4 @@
-// Draconic GUI - :image_drawable partition
+// GUI - :image_drawable partition
 //
 // ImageDrawable: draws an image stretched to fill the destination rect, with a tint.
 // Derived from eepp's Texture/TextureRegion drawing (batched textured quad); maps to VG's

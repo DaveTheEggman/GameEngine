@@ -1,10 +1,10 @@
-// Draconic UI - `foundation.ui.shell`: the platform input bridge for foundation.ui.
+// UI - `foundation.ui.shell`: the platform input bridge for foundation.ui.
 //
 // Keeps the core foundation.ui platform-agnostic: it exposes UIContext's InputManager (physical-pixel
 // Process* API) and this bridge is the only place that knows foundation.shell. It translates a stream of
 // shell::InputEvent (already gated/transformed by InputSurface/InputRouter, see [[viewport-input]]) into
 // InputManager calls, and drives the window's text input (IME) from focus via UIContext::WantsTextInput()
-// - the mechanism Sedulous shell never finished. Reimplemented for Draconic (NOT ported from Sedulous.
+// - the mechanism Sedulous shell never finished. Reimplemented for us (NOT ported from Sedulous.
 // UI.Shell), mirroring the experimental.gui GuiInputBridge, per the port plan: InputSurface consumption lives
 // here, never in the core.
 

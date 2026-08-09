@@ -1,4 +1,4 @@
-// Draconic UI - :content_button partition
+// UI - :content_button partition
 //
 // Button with arbitrary View content - icons, icon+text combos, or any custom content layout. Ported
 // from Sedulous.UI/src/Controls/ContentButton.bf. Content is RefPtr-owned (Beef raw owned + manual

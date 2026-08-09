@@ -1,4 +1,4 @@
-// Draconic Core - :quaternion partition
+// Core - :quaternion partition
 // Quaternion: unit quaternion rotation - FromAxisAngle, Hamilton product,
 // Conjugate/Dot/Normalized/Slerp, RotateVector, and RotationMatrix (-> Float4x4).
 //

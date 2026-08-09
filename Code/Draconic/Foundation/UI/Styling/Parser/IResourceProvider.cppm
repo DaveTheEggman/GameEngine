@@ -1,4 +1,4 @@
-// Draconic UI - :iresource_provider partition
+// UI - :iresource_provider partition
 //
 // Interface for loading external resources referenced by .sss stylesheets. The runtime layer
 // provides an implementation that bridges to VFS. If no provider is given, @import and

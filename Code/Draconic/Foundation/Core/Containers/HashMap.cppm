@@ -1,4 +1,4 @@
-// Draconic Core - :hash_map partition
+// Core - :hash_map partition
 //
 // Open-addressing hash map: power-of-two capacity, linear probing, tombstones
 // on erase, max load factor 3/4. Allocator-backed. Keys are compared with

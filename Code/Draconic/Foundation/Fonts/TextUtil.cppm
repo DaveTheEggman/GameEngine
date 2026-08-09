@@ -1,7 +1,7 @@
 // Foundation::Fonts - :text_util partition
 //
 // Codepoint iteration over a UTF-8 StringView. Mirrors how Sedulous walked text
-// with Beef's `StringView.DecodedChars` (Beef strings are UTF-8); Draconic's
+// with Beef's `StringView.DecodedChars` (Beef strings are UTF-8); Our
 // String is UTF-8 too, so font measuring/shaping decodes UTF-8 sequences here.
 // Shared by the baked font and the TTF text shaper.
 

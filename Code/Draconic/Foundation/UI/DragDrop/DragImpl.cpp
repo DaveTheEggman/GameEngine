@@ -1,4 +1,4 @@
-// Draconic UI - module implementation unit for DragDropManager.
+// UI - module implementation unit for DragDropManager.
 //
 // Holds the View-touching bodies of DragDropManager (it reaches across the whole View cluster: UIContext,
 // RootView, PopupLayer, DragAdorner, IDragSource, IDropTarget). Like InputImpl.cpp / TooltipImpl.cpp it

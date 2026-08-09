@@ -1,8 +1,8 @@
-// Draconic GUI - :text partition
+// GUI - :text partition
 //
 // Text: a measurable, drawable run of text on a font, rendered through the DrawContext/VG
 // seam. Derived from eepp's Graphics::Text (the object UITextView/labels cache), adapted to
-// Draconic: it holds a non-owning foundation.fonts CachedFont (owned by the font service),
+// our needs: it holds a non-owning foundation.fonts CachedFont (owned by the font service),
 // measures via IFont metrics, and draws via VG's DrawText. Rich styling (per-range colors,
 // outline/shadow, wrap, bidi) is deferred to later text work.
 

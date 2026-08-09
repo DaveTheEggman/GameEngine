@@ -1,4 +1,4 @@
-// Draconic GUI - Text tests: measurement and alignment logic against a mock IFont (6px
+// GUI - Text tests: measurement and alignment logic against a mock IFont (6px
 // advance/byte, 12px line height). The full glyph-render path (atlas + texture) is an
 // integration concern; here we assert Text's own logic + the draw guards.
 #include <doctest/doctest.h>

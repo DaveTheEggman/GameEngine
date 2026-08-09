@@ -1,4 +1,4 @@
-// Draconic GUI - Node draw tests: the tree renders through the DrawContext/VG seam.
+// GUI - Node draw tests: the tree renders through the DrawContext/VG seam.
 // GPU-free (VGContext tessellates into a CPU vertex batch), so we assert geometry is
 // produced and that visibility/alpha gate drawing.
 #include <doctest/doctest.h>

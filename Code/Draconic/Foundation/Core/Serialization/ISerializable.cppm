@@ -1,4 +1,4 @@
-// Draconic Core - :iserializable partition
+// Core - :iserializable partition
 //
 // ISerializable: the polymorphic serialization base. A type that wants to be
 // serialized through the format-agnostic ISerializer (and stored in the content

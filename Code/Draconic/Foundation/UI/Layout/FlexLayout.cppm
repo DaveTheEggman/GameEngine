@@ -1,4 +1,4 @@
-// Draconic UI - :flex_layout partition
+// UI - :flex_layout partition
 //
 // CSS Flexbox-inspired container: grow distribution, justify-content, cross-axis alignment. Ported
 // from Sedulous.UI/src/Layout/FlexLayout.bf. (Beef nested LayoutParams -> FlexLayoutParams; ComputeJustify

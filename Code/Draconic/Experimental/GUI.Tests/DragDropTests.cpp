@@ -1,4 +1,4 @@
-// Draconic GUI - drag-and-drop tests: a source begins a drag, the dispatcher delivers
+// GUI - drag-and-drop tests: a source begins a drag, the dispatcher delivers
 // enter/over/leave to the nearest accepting target under the cursor, and Drop on release;
 // non-accepting targets are skipped; cancel/removal clean up.
 #include <doctest/doctest.h>

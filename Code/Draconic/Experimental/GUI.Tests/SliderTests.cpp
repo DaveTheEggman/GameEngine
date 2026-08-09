@@ -1,4 +1,4 @@
-// Draconic GUI - Slider tests: value clamping + change callback, drag-to-set, and pointer
+// GUI - Slider tests: value clamping + change callback, drag-to-set, and pointer
 // capture (a drag keeps tracking after the cursor leaves the slider).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

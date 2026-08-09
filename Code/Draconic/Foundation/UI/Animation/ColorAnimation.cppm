@@ -1,4 +1,4 @@
-// Draconic UI - :color_animation partition
+// UI - :color_animation partition
 //
 // Animates a Color value from a start to an end color via a setter delegate. Ported from
 // Sedulous.UI/src/Animation/ColorAnimation.bf. Beef `Color.Lerp` -> core::Lerp(Color,Color,f32) (free

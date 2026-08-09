@@ -1,4 +1,4 @@
-// Draconic Core - :string_util partition
+// Core - :string_util partition
 //
 // Small, generic string/character scanning helpers over the UTF-8 StringView: ASCII
 // character classification (whitespace / digit / hex) and whitespace trimming. Kept

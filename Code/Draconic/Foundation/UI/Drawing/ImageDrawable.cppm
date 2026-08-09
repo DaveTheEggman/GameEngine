@@ -1,4 +1,4 @@
-// Draconic UI - :image_drawable partition
+// UI - :image_drawable partition
 //
 // Draws an image stretched to fill bounds. Ported from Sedulous.UI/src/Drawing/ImageDrawable.bf.
 // Sedulous IImageData -> foundation::image::ImageData (non-owning pointer; the image is owned by the

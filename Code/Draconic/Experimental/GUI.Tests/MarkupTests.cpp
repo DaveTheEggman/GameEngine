@@ -1,4 +1,4 @@
-// Draconic GUI - MarkupLoader tests: inflate a widget tree from XML - element -> widget,
+// GUI - MarkupLoader tests: inflate a widget tree from XML - element -> widget,
 // nesting -> children, id/class -> identity, claimed attributes (text/orientation) structural,
 // and everything else applied as inline CSS through the StyleApplier.
 #include <doctest/doctest.h>

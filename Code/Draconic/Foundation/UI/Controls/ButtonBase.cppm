@@ -1,4 +1,4 @@
-// Draconic UI - :button_base partition
+// UI - :button_base partition
 //
 // Abstract base for button types: click event, pressed state, ICommand binding, focus/keyboard
 // handling, button-chrome drawing. Ported from Sedulous.UI/src/Controls/ButtonBase.bf.

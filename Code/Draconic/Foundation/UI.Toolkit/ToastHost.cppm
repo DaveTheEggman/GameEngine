@@ -1,8 +1,8 @@
-// Draconic UI Toolkit - :toast_host partition
+// UI Toolkit - :toast_host partition
 //
 // Transient notification overlay ("toasts"): a full-viewport pass-through layer that stacks
 // notification cards in its bottom-right corner, newest nearest the corner. Not a Sedulous port
-// (upstream has no toast control) - designed for the Draconic editor but app-agnostic.
+// (upstream has no toast control) - designed for the editor but app-agnostic.
 //
 // Behavior contract:
 //  - Show() adds a card; durationSeconds > 0 auto-expires it, <= 0 is STICKY (stays until the

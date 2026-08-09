@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :bool_editor partition
+// UI Toolkit - :bool_editor partition
 //
 // Boolean property editor - a CheckBox. Instant edit: BeginEdit + value change + EndEdit on each toggle.
 // Ported from Sedulous.UI.Toolkit/src/PropertyGrid/BoolEditor.bf. Beef `delegate void(bool) Setter` ->

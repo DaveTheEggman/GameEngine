@@ -1,4 +1,4 @@
-// Draconic UI - :scroll_view partition
+// UI - :scroll_view partition
 //
 // Scrollable container: content can exceed the viewport, with optional scroll bars and momentum-based
 // kinetic scrolling. Ported from Sedulous.UI/src/Controls/ScrollView.bf. The two ScrollBars are VISUAL

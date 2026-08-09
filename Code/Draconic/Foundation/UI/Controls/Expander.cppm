@@ -1,4 +1,4 @@
-// Draconic UI - :expander partition
+// UI - :expander partition
 //
 // Collapsible container with a clickable header and expandable body. Ported from
 // Sedulous.UI/src/Controls/Expander.bf. (IsExpanded property -> IsExpanded()/SetIsExpanded(); header

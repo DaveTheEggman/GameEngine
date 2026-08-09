@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :idockable_window_host partition
+// UI Toolkit - :idockable_window_host partition
 //
 // Bridge between the docking system (UI layer) and the application (framework layer). Abstracts whether
 // dockable windows are real OS windows or virtual (PopupLayer) overlays. Ported from

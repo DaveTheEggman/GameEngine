@@ -1,4 +1,4 @@
-// Draconic Script - :script_register partition
+// Script - :script_register partition
 //
 // Bridges reflection -> scripting: registers every type in a TypeRegistry with a
 // script manager. Call after the engine's RegisterCoreTypes() (and any

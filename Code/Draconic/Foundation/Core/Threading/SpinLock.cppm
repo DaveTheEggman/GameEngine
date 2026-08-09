@@ -1,4 +1,4 @@
-// Draconic Core - :spin_lock partition
+// Core - :spin_lock partition
 //
 // Busy-wait exclusive lock for very short critical sections.
 

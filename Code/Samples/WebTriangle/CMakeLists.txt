@@ -1,4 +1,4 @@
-# WebTriangle - the first browser-running Draconic app. Emscripten-only: it links the web app
+# WebTriangle - the first browser-running app. Emscripten-only: it links the web app
 # stack (WebShell + the web runner + the WebGPU graphics factory) and emits an HTML shell + .js +
 # .wasm. ASYNCIFY is required because device bring-up blocks-and-yields to the browser event loop
 # (see the WebGPU backend's pump). The emdawnwebgpu port flag rides in transitively from

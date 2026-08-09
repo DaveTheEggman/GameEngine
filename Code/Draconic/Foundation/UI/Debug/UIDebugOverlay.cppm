@@ -1,4 +1,4 @@
-// Draconic UI - :ui_debug_overlay partition
+// UI - :ui_debug_overlay partition
 //
 // Draws debug overlays (bounds / padding / margin / hit-target / focus) for a view, in the view's local
 // space. Called after the normal draw pass in ViewGroup's DrawChildren. Ported from Sedulous.UI/src/Debug/

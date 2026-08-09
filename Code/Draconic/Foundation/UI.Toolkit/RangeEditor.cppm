@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :range_editor partition
+// UI Toolkit - :range_editor partition
 //
 // Range/slider property editor - a Slider + NumericField side by side (both synced). Ported from
 // Sedulous.UI.Toolkit/src/PropertyGrid/RangeEditor.bf. Beef `float` -> f32; `delegate void(float) Setter`

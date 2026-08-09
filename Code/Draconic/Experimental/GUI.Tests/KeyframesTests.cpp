@@ -1,4 +1,4 @@
-// Draconic GUI - @keyframes tests: parsing keyframe blocks, and the animation runtime (an
+// GUI - @keyframes tests: parsing keyframe blocks, and the animation runtime (an
 // `animation` property spawns a KeyframeAction that interpolates opacity across the stops as the
 // scene ticks, looping when requested).
 #include <doctest/doctest.h>

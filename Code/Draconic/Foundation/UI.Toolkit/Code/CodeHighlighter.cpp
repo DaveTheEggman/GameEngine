@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - CodeHighlighter implementation (declared in :code_lexer).
+// UI Toolkit - CodeHighlighter implementation (declared in :code_lexer).
 //
 // The incremental per-line cache: relex from the first invalid line, converging as soon as a
 // cached line's entry state matches the incoming chain, lazily up to the requested line.

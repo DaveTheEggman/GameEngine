@@ -1,4 +1,4 @@
-// Draconic GUI - :thickness partition
+// GUI - :thickness partition
 //
 // Thickness: four edge insets (padding / margin / border / layer inset). Adapts eepp,
 // which overloads Rectf's Left/Top/Right/Bottom for this; a dedicated type is clearer.

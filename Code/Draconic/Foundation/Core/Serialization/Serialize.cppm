@@ -1,4 +1,4 @@
-// Draconic Core - :serialize partition
+// Core - :serialize partition
 //
 // Serialize(ISerializer&, T&) free functions for Core's own types: describe a
 // type's data once, runs either direction and works for any backend (binary or

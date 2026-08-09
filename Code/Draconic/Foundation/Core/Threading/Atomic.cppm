@@ -1,4 +1,4 @@
-// Draconic Core - :atomic partition
+// Core - :atomic partition
 //
 // Atomic<T> aliases the language <atomic>.
 

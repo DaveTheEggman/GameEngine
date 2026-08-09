@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - CLikeLexer implementation (declared in :code_lexer).
+// UI Toolkit - CLikeLexer implementation (declared in :code_lexer).
 //
 // One configurable scanner covers the C-family languages the editor hosts; language identity
 // lives entirely in the CLikeLexerSpec its OWNER supplies (keyword/type tables + quirk flags:

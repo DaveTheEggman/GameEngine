@@ -1,4 +1,4 @@
-// Draconic GUI - :style_manager partition
+// GUI - :style_manager partition
 //
 // StyleManager: the glue that makes a StyleSheet live on a widget tree. It resolves each
 // UIWidget against the sheet (+ MediaContext), applies the result, and - by caching the

@@ -1,4 +1,4 @@
-// Draconic Core - :stack_allocator partition
+// Core - :stack_allocator partition
 //
 // StackAllocator: LIFO bump allocator with markers; reclaim to a marker.
 

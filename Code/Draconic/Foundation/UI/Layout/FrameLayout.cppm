@@ -1,4 +1,4 @@
-// Draconic UI - :frame_layout partition
+// UI - :frame_layout partition
 //
 // Stacks children on top of each other, each positioned independently by Gravity. Simplest ViewGroup.
 // Ported from Sedulous.UI/src/Layout/FrameLayout.bf.

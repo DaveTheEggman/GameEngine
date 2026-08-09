@@ -1,4 +1,4 @@
-// Draconic GUI - :tree_model partition
+// GUI - :tree_model partition
 //
 // TreeModel: a concrete hierarchical Model - nodes with a text label and children. Modeled on
 // eepp's tree models (role only). Nodes are stored in a flat array; a ModelIndex's InternalId

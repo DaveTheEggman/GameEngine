@@ -1,4 +1,4 @@
-// Draconic UI - :undo_stack partition
+// UI - :undo_stack partition
 //
 // Fixed-capacity undo/redo stack for text editing. Stores full text snapshots (not deltas).
 // Ported from Sedulous.UI/src/Editing/UndoStack.bf. Self-contained (no View dependency).

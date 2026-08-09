@@ -1,4 +1,4 @@
-// Draconic UI - :idrop_target partition
+// UI - :idrop_target partition
 //
 // Implement on a View subclass to make it a drop target. Ported from Sedulous.UI/src/DragDrop/IDropTarget.bf.
 // Pattern A (tree-queried) - the interface is a plain abstract base; a View exposes it via a virtual

@@ -1,4 +1,4 @@
-// Draconic UI - :popup_entry partition
+// UI - :popup_entry partition
 //
 // Entry tracking a single popup in the PopupLayer. Ported from Sedulous.UI/src/Overlay/PopupEntry.bf.
 // The popup is held as a RefPtr<View> (RAII co-ownership while open); the Owner is borrowed. OwnsView is

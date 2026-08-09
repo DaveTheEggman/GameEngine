@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :code_lexer partition (interface).
+// UI Toolkit - :code_lexer partition (interface).
 //
 // The lexing seam of CodeEditView (docs/design/code-editor.md P2), built on the line-state
 // model: a lexer receives ONE line plus the entry state (e.g. "inside a block comment") and

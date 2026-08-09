@@ -1,7 +1,7 @@
-// Draconic GUI - :text_field partition
+// GUI - :text_field partition
 //
 // TextField: a single-line, editable text control - the widget driven by the keyboard and
-// text-input path. A lean Draconic-native control modeled on eepp's UITextInput (role only):
+// text-input path. A lean native control modeled on eepp's UITextInput (role only):
 // it maintains an editable UTF-8 buffer and a caret (a byte offset at a codepoint boundary),
 // plus a selection anchor. It inserts characters from OnTextInput, handles editing/navigation
 // keys (backspace/delete/left/right/home/end, with Shift extending the selection) and the

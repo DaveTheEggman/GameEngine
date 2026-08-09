@@ -1,4 +1,4 @@
-// Draconic GUI - :menu partition
+// GUI - :menu partition
 //
 // Menu (PopupMenu): a floating vertical list of rows - a context menu or a menu dropped from a
 // menu bar. Modeled on eepp's UIMenu/UIPopUpMenu family (role only). Open() shows it as a

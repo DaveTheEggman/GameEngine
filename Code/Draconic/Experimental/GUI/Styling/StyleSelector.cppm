@@ -1,4 +1,4 @@
-// Draconic GUI - :style_selector partition
+// GUI - :style_selector partition
 //
 // CSS selector matching, ported from eepp's css/StyleSheetSelector(+Rule). A StyleSelector
 // is a chain of compound StyleSelectorRules joined by combinators (descendant / child);

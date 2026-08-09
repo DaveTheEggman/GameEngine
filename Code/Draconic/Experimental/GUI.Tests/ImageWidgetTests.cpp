@@ -1,4 +1,4 @@
-// Draconic GUI - Image widget tests: the scale modes compute the right destination rect
+// GUI - Image widget tests: the scale modes compute the right destination rect
 // (aspect-preserving Fit/Fill, centered Center, natural None, box Stretch) from a drawable's
 // intrinsic size.
 #include <doctest/doctest.h>

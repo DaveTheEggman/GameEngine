@@ -74,7 +74,7 @@ namespace foundation::shaders
 
     static CompilerState* stateOf(Compiler* c) { return static_cast<CompilerState*>(c->state); }
 
-    // Draconic StringView (UTF-8) -> std::wstring for DXC. Decodes UTF-8 codepoints,
+    // StringView (UTF-8) -> std::wstring for DXC. Decodes UTF-8 codepoints,
     // then on Windows (wchar_t = UTF-16) emits surrogate pairs for astral code
     // points; on Linux (wchar_t = UTF-32) emits the codepoint directly.
     static std::wstring widen(StringView s)

@@ -1,4 +1,4 @@
-// Draconic Core - :binary_io partition
+// Core - :binary_io partition
 //
 // BinaryWriter / BinaryReader: thin typed wrappers over an IStream for raw
 // binary I/O. They track a sticky "ok" flag (set false on a short transfer) so

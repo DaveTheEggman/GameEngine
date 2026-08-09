@@ -1,4 +1,4 @@
-// Draconic GUI - :model partition
+// GUI - :model partition
 //
 // IModel: the abstract data source a model-backed view renders. Modeled on eepp's Models::Model
 // (role only, common subset). A model exposes a grid of cells (RowCount x ColumnCount), returns

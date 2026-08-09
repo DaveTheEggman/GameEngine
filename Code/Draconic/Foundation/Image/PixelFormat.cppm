@@ -1,5 +1,4 @@
 /// Pixel format enum for CPU-side image data.
-/// Ported from Sedulous.Images.PixelFormat / old Draconic port.
 
 export module foundation.image:pixel_format;
 

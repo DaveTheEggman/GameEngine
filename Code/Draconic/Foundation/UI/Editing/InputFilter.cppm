@@ -1,4 +1,4 @@
-// Draconic UI - :input_filter partition
+// UI - :input_filter partition
 //
 // Filters characters before insertion into a text control. Ported from
 // Sedulous.UI/src/Editing/InputFilter.bf. Self-contained (no View dependency); a plain value type

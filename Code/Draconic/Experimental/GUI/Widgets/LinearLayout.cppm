@@ -1,4 +1,4 @@
-// Draconic GUI - :linear_layout partition
+// GUI - :linear_layout partition
 //
 // LinearLayout: stacks its children in a row or column with spacing, starting from the
 // padding-inset content bounds. Modeled on eepp's UILinearLayout (role, not a line-for-line

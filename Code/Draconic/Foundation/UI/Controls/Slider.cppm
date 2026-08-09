@@ -1,4 +1,4 @@
-// Draconic UI - :slider partition
+// UI - :slider partition
 //
 // Value slider with track, fill, and draggable thumb. Ported from Sedulous.UI/src/Controls/Slider.bf.
 // (The Min/Max/Orientation properties shadow core::Min/Max and the Orientation type, so the core

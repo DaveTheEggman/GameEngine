@@ -1,4 +1,4 @@
-// Draconic GUI - :window partition
+// GUI - :window partition
 //
 // Window: a movable, resizable panel with a title bar and a content area. Modeled on eepp's
 // UIWindow (role only). Dragging the title bar moves the window; dragging the bottom-right

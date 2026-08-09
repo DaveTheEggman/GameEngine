@@ -1,4 +1,4 @@
-// Draconic UI - :view partition (the mutually-recursive View cluster)
+// UI - :view partition (the mutually-recursive View cluster)
 //
 // View / ViewGroup / RootView / UIContext / MutationQueue. Ported from Sedulous.UI/src/Core/*.bf.
 // These classes reference one another cyclically (View<->ViewGroup<->UIContext<->MutationQueue) AND

@@ -1,4 +1,4 @@
-// Draconic Core - Threading backend, Linux (pthreads) implementation.
+// Core - Threading backend, Linux (pthreads) implementation.
 
 #include "Core/Threading/ThreadBackend.h"
 

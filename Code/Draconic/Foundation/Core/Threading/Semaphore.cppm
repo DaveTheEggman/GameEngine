@@ -1,4 +1,4 @@
-// Draconic Core - :semaphore partition
+// Core - :semaphore partition
 //
 // Counting semaphore (Mutex + ConditionVariable).
 

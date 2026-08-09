@@ -1,4 +1,4 @@
-// Draconic UI - :absolute_layout partition
+// UI - :absolute_layout partition
 //
 // Positions children at explicit X/Y coordinates. Ported from Sedulous.UI/src/Layout/AbsoluteLayout.bf.
 // (Beef nested `AbsoluteLayout.LayoutParams` -> top-level `AbsoluteLayoutParams`; the class's own

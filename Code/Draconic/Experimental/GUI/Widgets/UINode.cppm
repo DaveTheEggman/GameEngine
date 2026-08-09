@@ -1,4 +1,4 @@
-// Draconic GUI - :ui_node partition
+// GUI - :ui_node partition
 //
 // UINode: a Node with UI chrome. Ported from eepp's UI::UINode - adds padding (a content
 // inset), a state-aware skin, and a ControlState that tracks pointer/focus/enabled so

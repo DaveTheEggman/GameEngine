@@ -1,4 +1,4 @@
-// Draconic UI - :tooltip_view partition
+// UI - :tooltip_view partition
 //
 // Tooltip container with a themed background. Content is any View (defaults to a simple text label set
 // by TooltipManager). Ported from Sedulous.UI/src/Overlay/TooltipView.bf. Ownership: Beef raw mContent

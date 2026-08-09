@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :curve_canvas partition
+// UI Toolkit - :curve_canvas partition
 //
 // Multi-channel interactive curve editor canvas. Model-agnostic: callers describe their channels via
 // SetChannels, push initial keys via SetKeys(channelIdx, ...), and listen to OnKey* events to project

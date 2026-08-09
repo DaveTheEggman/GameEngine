@@ -1,4 +1,4 @@
-// Draconic UI - :password_box partition
+// UI - :password_box partition
 //
 // Masked password input. Extends EditText to display mask characters instead of the real text, and
 // disables clipboard copy/cut for security. Ported from Sedulous.UI/src/Controls/PasswordBox.bf.

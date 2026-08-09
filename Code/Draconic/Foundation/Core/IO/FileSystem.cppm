@@ -1,4 +1,4 @@
-// Draconic Core - :filesystem partition
+// Core - :filesystem partition
 //
 // Whole-file convenience helpers over FileStream. Directory queries live in
 // :system (DirectoryExists/CreateDirectory/RemoveDirectory) and are re-exported

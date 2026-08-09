@@ -1,4 +1,4 @@
-// Draconic GUI - :style_sheet partition
+// GUI - :style_sheet partition
 //
 // ResolvedStyle + StyleSheet: the cascade. Ported from eepp's css/StyleSheet(::getElement
 // Styles). A StyleSheet is an ordered list of StyleRules; Resolve(element) gathers the rules

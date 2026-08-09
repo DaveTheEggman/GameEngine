@@ -1,4 +1,4 @@
-// Draconic GUI - ProgressBar tests: clamping and draw.
+// GUI - ProgressBar tests: clamping and draw.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import foundation.core;

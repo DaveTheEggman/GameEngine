@@ -1,4 +1,4 @@
-// Draconic UI - :size_spec partition
+// UI - :size_spec partition
 //
 // How a view should be sized along one axis (Fixed(Unit) / Match / Wrap). Stored on LayoutParams.
 // Ported from Sedulous.UI/src/Layout/SizeSpec.bf (discriminated union -> kind + payload struct).

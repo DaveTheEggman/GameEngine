@@ -1,4 +1,4 @@
-// Draconic Core - :frame_allocator partition
+// Core - :frame_allocator partition
 //
 // FrameAllocator: double-buffered linear allocator; NextFrame() swaps halves
 // so a frame's allocations stay valid through the following frame.

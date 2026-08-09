@@ -1,4 +1,4 @@
-// Draconic GUI - :mutation_queue partition
+// GUI - :mutation_queue partition
 //
 // MutationQueue: deferred operations drained at a safe sync point (end of the SceneNode
 // update). This is how tree edits made mid-traversal (notably Node::Close) are applied

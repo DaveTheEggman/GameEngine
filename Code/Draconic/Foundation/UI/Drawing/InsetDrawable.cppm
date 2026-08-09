@@ -1,4 +1,4 @@
-// Draconic UI - :inset_drawable partition
+// UI - :inset_drawable partition
 //
 // Wraps a drawable and insets its draw bounds; advertises the inset as DrawablePadding
 // so layout can query it. Ported from Sedulous.UI/src/Drawing/InsetDrawable.bf.

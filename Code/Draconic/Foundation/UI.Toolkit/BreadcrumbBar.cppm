@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :breadcrumb_bar partition
+// UI Toolkit - :breadcrumb_bar partition
 //
 // Horizontal path display with clickable segments and separator arrows. Ported from
 // Sedulous.UI.Toolkit/src/BreadcrumbBar.bf. Beef `List<String>` owned -> Array<String>;

@@ -1,4 +1,4 @@
-// Draconic UI - :view_transform partition
+// UI - :view_transform partition
 //
 // Post-layout transform applied during drawing and hit testing (does NOT affect layout).
 // Applied in order: translate to origin, scale, rotate, translate back, then translate.

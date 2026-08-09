@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :menu_bar partition
+// UI Toolkit - :menu_bar partition
 //
 // Horizontal menu bar with dropdown ContextMenus. Ported from Sedulous.UI.Toolkit/src/MenuBar.bf.
 // Beef `List<MenuEntry{String Title; ContextMenu Menu}>` with manual delete -> Array<MenuEntry> holding

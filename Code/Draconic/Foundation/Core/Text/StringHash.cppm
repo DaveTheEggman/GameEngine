@@ -1,4 +1,4 @@
-// Draconic Core - :string_hash partition
+// Core - :string_hash partition
 //
 // StringHash: a string's identity as a 64-bit FNV-1a hash - cheap to store, compare, and
 // key on, constexpr to build from a literal. The text itself is NOT retained (this is an

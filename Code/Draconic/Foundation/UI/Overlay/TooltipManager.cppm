@@ -1,4 +1,4 @@
-// Draconic UI - :tooltip_manager partition
+// UI - :tooltip_manager partition
 //
 // Manages tooltip display timing. Owns a single reusable TooltipView; ticked by UIContext each frame
 // (Update), notified of hover/press by the InputManager and of deletions by UIContext. Ported from

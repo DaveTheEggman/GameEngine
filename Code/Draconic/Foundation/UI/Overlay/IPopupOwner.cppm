@@ -1,4 +1,4 @@
-// Draconic UI - :ipopup_owner partition
+// UI - :ipopup_owner partition
 //
 // Implemented to receive notification when a popup you opened is closed. In practice every owner is
 // also a View; OwnerView() exposes that so PopupLayer can walk parent chains to cascade-close popups

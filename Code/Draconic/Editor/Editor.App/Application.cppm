@@ -87,7 +87,7 @@ export namespace editor::app
         f32 autoRebuildSeconds = 0.0f;
 
         // The assembly seams (design doc §3.1) - editor.app never links engine modules or the
-        // draconic.<sys>.editor plugin modules; the EXECUTABLE composes them here:
+        // editor plugin modules; the EXECUTABLE composes them here:
         /// Called from IApplication::Configure - register engine subsystems (scene/render/...).
         Function<void(runtime::IApplicationHost&)> configureEngine;
         /// Called at the end of OnStartup - per-subsystem RegisterEditor entry points, plus

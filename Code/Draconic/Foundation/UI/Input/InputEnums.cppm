@@ -1,4 +1,4 @@
-// Draconic UI - :input_enums partition
+// UI - :input_enums partition
 //
 // Input enums ported from Sedulous.UI/src/Input (MouseButton, KeyModifiers, EventPhase,
 // FocusDirection, KeyCode). Values match Sedulous.Shell.Input so a runtime bridge can cast directly.

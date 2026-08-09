@@ -1,4 +1,4 @@
-// Draconic GUI - :variant partition
+// GUI - :variant partition
 //
 // Variant: a small tagged value a Model hands to a view for a cell - the currency of the MVC
 // layer. Modeled on eepp's Models::Variant (role only, common subset): empty / bool / int /

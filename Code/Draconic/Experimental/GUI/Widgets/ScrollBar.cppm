@@ -1,4 +1,4 @@
-// Draconic GUI - :scroll_bar partition
+// GUI - :scroll_bar partition
 //
 // ScrollBar: a draggable indicator of a scroll position in [0,1], with a thumb whose length
 // reflects the visible proportion (viewport / content). Modeled on eepp's UIScrollBar (role,

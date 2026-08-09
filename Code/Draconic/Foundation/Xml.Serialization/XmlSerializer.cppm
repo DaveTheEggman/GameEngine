@@ -4,7 +4,7 @@
 // the first text-based serialization backend. One Serialize() path runs either
 // direction; this maps the Key()/scope/Scalar/Text calls onto an XML DOM
 // (foundation.xml). Inspired by Sedulous.Serialization.Xml's DOM scheme (typed
-// element tags + a `name` attribute), adapted to Draconic's leaner interface.
+// element tags + a `name` attribute), adapted to our leaner interface.
 //
 // Layering: kept out of Core (which can't depend on Xml) and out of the XML DOM
 // library (which stays serialization-agnostic) - mirrors Sedulous.Serialization.Xml.

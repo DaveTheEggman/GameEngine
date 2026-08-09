@@ -1,4 +1,4 @@
-// Draconic UI - :iaccelerator_handler partition
+// UI - :iaccelerator_handler partition
 //
 // Implement on a View to receive Alt+key accelerator events. Accelerators are searched top-down
 // through the tree (via View::AsAcceleratorHandler()), bypassing normal focus-based key routing.

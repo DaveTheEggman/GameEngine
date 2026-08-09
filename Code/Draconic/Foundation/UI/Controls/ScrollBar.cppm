@@ -1,4 +1,4 @@
-// Draconic UI - :scroll_bar partition
+// UI - :scroll_bar partition
 //
 // Standalone scrollbar (used by ScrollView internally). Ported from Sedulous.UI/src/Controls/ScrollBar.bf.
 // Beef get/set properties (Value/MaxValue/ViewportSize/IsHorizontal) -> methods; Math.Clamp/Max ->

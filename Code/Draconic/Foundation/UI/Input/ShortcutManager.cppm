@@ -1,4 +1,4 @@
-// Draconic UI - :shortcut_manager partition
+// UI - :shortcut_manager partition
 //
 // Manages global and scoped keyboard shortcuts, owned by UIContext. Dispatch order: focused-view key
 // handlers -> ShortcutManager -> IAcceleratorHandler. Ported from Sedulous.UI/src/Input/ShortcutManager.bf.

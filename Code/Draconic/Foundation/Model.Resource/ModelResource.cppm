@@ -194,8 +194,8 @@ export namespace foundation::model
     RTTI_DEFINE_OBJECT(ModelResource, "rtti::modelimporter")
 
     // Registers the importer's serializable types (+ the geometry source types it cooks and
-    // reads back) with the global type + serializable registries. Registration is explicit in
-    // Draconic (RTTI_DEFINE_OBJECT only defines StaticType); call this once before binding cooked
+    // reads back) with the global type + serializable registries. Registration is explicit
+    // (RTTI_DEFINE_OBJECT only defines StaticType); call this once before binding cooked
     // models so the content DB can polymorphically deserialize them. Idempotent.
     // Registers the whole cooked-model family's product/source types (model manifest +
     // mesh/material/texture/animation) for by-type-name construction at runtime.

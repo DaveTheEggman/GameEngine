@@ -135,7 +135,7 @@ TEST_CASE("tab-view: KeyboardNavigation")
     CHECK(tabs->SelectedIndex() == 0);
 }
 
-// Draconic addition (not in Sedulous.UI.Tests): the TabView clears its hovered-tab highlight when the
+// Our addition (not in Sedulous.UI.Tests): the TabView clears its hovered-tab highlight when the
 // cursor leaves the view. Sedulous' TabView has no OnMouseLeave, so a hovered tab stays stuck in the
 // Hover state after the mouse moves away; this verifies our OnMouseLeave fix.
 TEST_CASE("tab-view: HoverClearsOnMouseLeave")
@@ -158,7 +158,7 @@ TEST_CASE("tab-view: HoverClearsOnMouseLeave")
     CHECK(tabs->HoveredTabIndex() == -1);
 }
 
-// Draconic addition (not in Sedulous.UI.Tests): overflow scrolling of the tab strip, ported from the
+// Our addition (not in Sedulous.UI.Tests): overflow scrolling of the tab strip, ported from the
 // dock tab strip. With no font service each tab uses the 80px fallback width, so six tabs (480px) overflow
 // a 400px view. The scroll shifts m_tabRects (reused for hit-testing), which we observe via HoveredTabIndex:
 // once the strip scrolls right, the leftmost tab moves off-screen and a later tab sits under x=10.

@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :markup_completion partition
+// UI Toolkit - :markup_completion partition
 //
 // Completion provider for foundation.ui MARKUP documents, fed by the MarkupRegistry's real
 // vocabulary (the same tables the loader validates against): element names right after

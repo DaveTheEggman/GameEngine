@@ -1,4 +1,4 @@
-// Draconic UI - :drawable_view partition
+// UI - :drawable_view partition
 //
 // View that renders any Drawable at a given size. Uses DesiredWidth/DesiredHeight if set, else the
 // drawable's IntrinsicSize, else 0. Ported from Sedulous.UI/src/Controls/DrawableView.bf. The Beef

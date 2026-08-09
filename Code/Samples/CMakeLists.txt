@@ -1,4 +1,4 @@
-# Draconic sample applications. Built when their required backends are available.
+# Sample applications. Built when their required backends are available.
 
 # Stage runtime deps (SDL3.dll + any other linked DLLs) next to a sample exe.
 # Thin forwarder to the global util_copy_runtime_deps so the ~40 sample call

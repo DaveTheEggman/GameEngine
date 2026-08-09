@@ -1,4 +1,4 @@
-// Draconic UI - :combo_box partition
+// UI - :combo_box partition
 //
 // Drop-down selector: shows the selected item + a dropdown arrow, and opens a dedicated ComboBoxDropdown
 // panel (not ContextMenu) via the RootView's PopupLayer. Ported from Sedulous.UI/src/Controls/ComboBox.bf.

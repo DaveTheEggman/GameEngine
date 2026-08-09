@@ -1,4 +1,4 @@
-// Draconic UI - :style_sheet_loader partition
+// UI - :style_sheet_loader partition
 //
 // Entry point for loading .sss stylesheet files. Ported from
 // Sedulous.UI/src/Styling/Parser/StyleSheetLoader.bf.

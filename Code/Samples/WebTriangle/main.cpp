@@ -1,4 +1,4 @@
-// WebTriangle - the first Draconic app that runs in a browser.
+// WebTriangle - the first app that runs in a browser.
 //
 // It uses the RUNTIME framework (APP_MAIN -> IApplication driven by an ApplicationHost),
 // NOT the Vulkan/SDL3 SampleApp framework: a WebShell hands the host an HTML <canvas>, the WebGPU

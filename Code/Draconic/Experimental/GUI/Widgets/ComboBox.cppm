@@ -1,4 +1,4 @@
-// Draconic GUI - :combo_box partition
+// GUI - :combo_box partition
 //
 // ComboBox: a control that shows the current selection and, when clicked, drops down a list of
 // choices. Modeled on eepp's UIDropDownList (role only), built by composition: the dropdown is

@@ -1,4 +1,4 @@
-// Draconic Script - :script_delegate partition
+// Script - :script_delegate partition
 //
 // IScriptDelegate: a script function held as a native callback (Traktor's
 // IRuntimeDelegate). A native API takes one as RefPtr<IScriptDelegate>; holding it

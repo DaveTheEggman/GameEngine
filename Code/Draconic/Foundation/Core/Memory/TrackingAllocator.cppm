@@ -1,4 +1,4 @@
-// Draconic Core - :tracking_allocator partition
+// Core - :tracking_allocator partition
 //
 // TrackingAllocator: wraps an allocator, tracks live/total bytes+counts and
 // peak (per-allocation header). Thread-safe (atomic counters).

@@ -1,4 +1,4 @@
-// Draconic UI - :text_editing_behavior partition
+// UI - :text_editing_behavior partition
 //
 // Reusable text-editing logic: cursor management, selection, keyboard shortcuts, mouse interaction,
 // clipboard, and undo/redo. Operates on CHARACTER indices (not byte offsets), talking to its host

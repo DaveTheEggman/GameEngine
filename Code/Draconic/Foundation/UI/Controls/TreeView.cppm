@@ -1,4 +1,4 @@
-// Draconic UI - :tree_view partition
+// UI - :tree_view partition
 //
 // Tree view built on a FlattenedTreeAdapter + an internal ListView for virtualization; draws indent +
 // expand/collapse chevrons and toggles expansion on arrow-zone clicks / Left-Right keys. Ported from

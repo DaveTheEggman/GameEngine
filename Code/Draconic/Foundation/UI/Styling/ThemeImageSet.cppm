@@ -1,4 +1,4 @@
-// Draconic UI - :theme_image_set partition
+// UI - :theme_image_set partition
 //
 // Generic container for theme images, keyed by "styleClass:propertyName". Pass to a textured-theme
 // factory to build a fully image-skinned StyleSheet. Ported from the ThemeImageEntry/ThemeImageSet

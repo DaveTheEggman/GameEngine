@@ -1,4 +1,4 @@
-// Draconic GUI - theme + resource-backed CSS props: text color, font-family/size and
+// GUI - theme + resource-backed CSS props: text color, font-family/size and
 // background-image resolve through the StyleManager (with an IResourceProvider), and the
 // built-in default theme restyles the standard widgets.
 #include <doctest/doctest.h>

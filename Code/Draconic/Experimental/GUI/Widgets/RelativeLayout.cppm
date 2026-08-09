@@ -1,4 +1,4 @@
-// Draconic GUI - :relative_layout partition
+// GUI - :relative_layout partition
 //
 // RelativeLayout: positions each child by an anchor relative to the parent's padding-inset
 // content box - pin to an edge, a corner, or center, horizontally and/or vertically. Modeled

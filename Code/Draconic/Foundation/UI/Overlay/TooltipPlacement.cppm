@@ -1,4 +1,4 @@
-// Draconic UI - :tooltip_placement partition
+// UI - :tooltip_placement partition
 //
 // Where a tooltip appears relative to its anchor view. Ported verbatim from
 // Sedulous.UI/src/Overlay/TooltipPlacement.bf.

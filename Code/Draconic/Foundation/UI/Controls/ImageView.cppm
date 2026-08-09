@@ -1,4 +1,4 @@
-// Draconic UI - :image_view partition
+// UI - :image_view partition
 //
 // Displays an image with configurable scaling. Ported from Sedulous.UI/src/Controls/ImageView.bf.
 // (The `ScaleType` property shadows the enum type, so enum values are fully qualified. Image is a

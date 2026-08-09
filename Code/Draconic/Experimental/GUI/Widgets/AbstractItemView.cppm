@@ -1,4 +1,4 @@
-// Draconic GUI - :abstract_item_view partition
+// GUI - :abstract_item_view partition
 //
 // AbstractItemView: the shared engine behind ListView / TableView / TreeView. Modeled on eepp's
 // UIAbstractView. It owns the parts every model-backed, scrolling, selectable view needs:

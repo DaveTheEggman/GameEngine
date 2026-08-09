@@ -1,4 +1,4 @@
-// Draconic GUI - :rect partition
+// GUI - :rect partition
 //
 // Rect: 2D float rectangle stored as (x, y, width, height) - matching core::Rectangle
 // and the VG render surface, so it converts losslessly for DrawContext. Adapts eepp's
@@ -6,7 +6,7 @@
 // reproduce eepp's field reads, while storage stays x/y/w/h for the render path.
 //
 // Derived from eepp include/eepp/math/rect.hpp; eepp Vector2f -> core::Float2,
-// camelCase -> Draconic PascalCase.
+// camelCase -> PascalCase.
 
 module;
 #include "Core/Prelude.h"

@@ -1,4 +1,4 @@
-// Draconic GUI - Transform2D tests. Derived from eepp Transform behavior (translate/
+// GUI - Transform2D tests. Derived from eepp Transform behavior (translate/
 // rotate/scale/combine/inverse/transformPoint), plus a check that ToMatrix() feeds
 // core::TransformPoint2D (the VG DrawContext convention) identically.
 #include <doctest/doctest.h>

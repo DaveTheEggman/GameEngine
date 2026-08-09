@@ -1,4 +1,4 @@
-// Draconic Animation - animation.subsystem implementation unit: the component reflection bodies.
+// Animation - animation.subsystem implementation unit: the component reflection bodies.
 //
 // Kept OUT of the :components interface partition: REFLECT_* bodies in an interface
 // unit make GCC emit an unreadable gcm cluster for consumers (see gcc-module-interface-hygiene).

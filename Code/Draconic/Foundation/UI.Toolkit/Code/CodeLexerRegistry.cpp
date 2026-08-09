@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - CodeLexerRegistry implementation (declared in :code_lexer).
+// UI Toolkit - CodeLexerRegistry implementation (declared in :code_lexer).
 
 module;
 #include "Core/Prelude.h"

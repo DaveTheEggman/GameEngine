@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :idock_host partition
+// UI Toolkit - :idock_host partition
 //
 // Interface for the docking system host that manages floating panels. Implemented by DockManager.
 // Ported from Sedulous.UI.Toolkit/src/Docking/IDockHost.bf. Pure-abstract; DockablePanel/DockableWindow

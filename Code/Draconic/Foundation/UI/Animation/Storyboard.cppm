@@ -1,4 +1,4 @@
-// Draconic UI - :storyboard partition
+// UI - :storyboard partition
 //
 // Groups multiple animations to play sequentially or in parallel. A Storyboard is itself an Animation, so
 // it can be nested. Ported from Sedulous.UI/src/Animation/Storyboard.bf. Beef `List<Animation> ~ Delete

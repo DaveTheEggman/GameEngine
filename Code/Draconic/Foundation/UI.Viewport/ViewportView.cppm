@@ -1,4 +1,4 @@
-// Draconic UI Viewport - `foundation.ui.viewport`
+// UI Viewport - `foundation.ui.viewport`
 //
 // ViewportView: a retained-mode ui::View that hosts 3D-rendered content. It owns an offscreen
 // color + depth render target, fires a render callback (OnRender) so the app draws 3D into those
@@ -14,7 +14,7 @@
 //     IViewportInputHandler event list. The app runs an InputRouter, registers Surface(), and drives a
 //     controller (e.g. FlyCamera) from the gated devices - occlusion-gated by IsHovered()/IsFocused().
 //
-// Barriers: draconic's RHI is explicit, so RenderContent brackets the app's OnRender with the color/
+// Barriers: RHI is explicit, so RenderContent brackets the app's OnRender with the color/
 // depth state transitions (Sedulous's RHI tracked these implicitly) - the one necessary deviation.
 //
 // A single offscreen RT (not a per-frame ring) is correct: the RT is only GPU-touched (3D pass writes,

@@ -1,4 +1,4 @@
-// Draconic UI - :control_state partition
+// UI - :control_state partition
 //
 // Visual state of a control as bit flags (combinable, e.g. Checked | Hover).
 // StateListDrawable uses these for drawable lookup with fallback; .sss selectors match

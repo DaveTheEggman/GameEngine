@@ -1,4 +1,4 @@
-// Draconic GUI - :transformable partition
+// GUI - :transformable partition
 //
 // Transformable: 2D position / rotation / scale with a lazily-recomputed combined
 // Transform2D (+ its inverse). The math base of Node. Ported from eepp's

@@ -1,4 +1,4 @@
-// Draconic UI - :selection_model partition
+// UI - :selection_model partition
 //
 // Decoupled selection state: tracks selected indices independently of the data view (multiple views can
 // share one). Ported from Sedulous.UI/src/Data/SelectionModel.bf. Self-contained (no View). HashSet<i32>

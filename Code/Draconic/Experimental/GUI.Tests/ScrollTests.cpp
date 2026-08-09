@@ -1,4 +1,4 @@
-// Draconic GUI - ScrollBar + ScrollView tests: scroll offset clamping, wheel bubbling from
+// GUI - ScrollBar + ScrollView tests: scroll offset clamping, wheel bubbling from
 // hovered content, drag (with the leave-during-capture regression), and ScrollBar<->ScrollView
 // composition.
 #include <doctest/doctest.h>

@@ -1,4 +1,4 @@
-// Draconic Core - :constant_registry partition
+// Core - :constant_registry partition
 //
 // A registry of named constants that aren't members of a struct - e.g.
 // namespace-level math constants (foundation::core::kPi, kEpsilon). Per-type

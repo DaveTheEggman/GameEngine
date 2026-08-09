@@ -1,4 +1,4 @@
-// Draconic GUI - :sorting_proxy_model partition
+// GUI - :sorting_proxy_model partition
 //
 // SortingProxyModel: wraps a source Model and presents the same columns with the rows reordered
 // by a sort column. Modeled on eepp's Models::SortingProxyModel (role only). It is both an

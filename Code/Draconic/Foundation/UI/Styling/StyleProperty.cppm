@@ -1,4 +1,4 @@
-// Draconic UI - :style_property partition
+// UI - :style_property partition
 //
 // Identifies a style property settable in a StyleRule. COUNT sizes property arrays.
 // Ported from Sedulous.UI/src/Styling/StyleProperty.bf.

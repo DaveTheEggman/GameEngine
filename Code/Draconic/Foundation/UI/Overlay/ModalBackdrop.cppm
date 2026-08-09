@@ -1,4 +1,4 @@
-// Draconic UI - :modal_backdrop partition
+// UI - :modal_backdrop partition
 //
 // Semi-transparent backdrop drawn behind modal popups; blocks input to underlying content by consuming
 // all mouse events. Ported from Sedulous.UI/src/Overlay/ModalBackdrop.bf.

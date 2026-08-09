@@ -1,4 +1,4 @@
-// Draconic Core - :reflection partition (RTTI phases c-f)
+// Core - :reflection partition (RTTI phases c-f)
 //
 // Reflection runtime built on Variant/Instance: properties, methods, enums'
 // attributes, container reflection, and the TypeBuilder used by REFLECT_MEMBERS.

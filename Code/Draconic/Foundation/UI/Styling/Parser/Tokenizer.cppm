@@ -1,4 +1,4 @@
-// Draconic UI - :sss_tokenizer partition
+// UI - :sss_tokenizer partition
 //
 // Lexer for .sss stylesheet files. Ported from Sedulous.UI/src/Styling/Parser/Tokenizer.bf.
 //

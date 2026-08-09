@@ -1,4 +1,4 @@
-// Draconic Core - SIMD backend selection (GMF-only header; not part of the module interface).
+// Core - SIMD backend selection (GMF-only header; not part of the module interface).
 //
 // Included in the global-module-fragment of the :simd* partitions to pick the register backend
 // and pull in the intrinsic declarations. Macros do not cross the module boundary, so each simd

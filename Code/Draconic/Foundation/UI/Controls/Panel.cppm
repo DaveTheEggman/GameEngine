@@ -1,4 +1,4 @@
-// Draconic UI - :panel partition
+// UI - :panel partition
 //
 // Container with an optional background drawable; children fill the panel minus padding. Ported from
 // Sedulous.UI/src/Controls/Panel.bf.

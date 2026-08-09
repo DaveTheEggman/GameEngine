@@ -1,4 +1,4 @@
-// Draconic Script - :script_introspection partition
+// Script - :script_introspection partition
 //
 // The accurate data source for a future ScriptClassesView / autocomplete: what is
 // callable in THIS backend's language and how it is spelled. The reflection registry

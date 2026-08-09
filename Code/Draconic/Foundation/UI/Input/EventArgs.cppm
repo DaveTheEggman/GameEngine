@@ -1,4 +1,4 @@
-// Draconic UI - :event_args partition
+// UI - :event_args partition
 //
 // Pooled input event args (mouse/key/wheel/text). One instance reused per event type to avoid
 // allocation in the hot input path. Ported from Sedulous.UI/src/Input/*EventArgs.bf. These carry only

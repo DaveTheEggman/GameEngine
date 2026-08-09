@@ -1,4 +1,4 @@
-// Draconic UI - :rounded_rect_drawable partition
+// UI - :rounded_rect_drawable partition
 //
 // Filled rounded rectangle with optional border; per-corner radii via vg::CornerRadii.
 // Ported from Sedulous.UI/src/Drawing/RoundedRectDrawable.bf.

@@ -1,4 +1,4 @@
-// Draconic GUI - :drawable partition
+// GUI - :drawable partition
 //
 // Drawable: base for composable visual primitives, rendered into a destination Rect via
 // DrawContext. Derived from eepp's Drawable (include/eepp/graphics/drawable.hpp): keeps

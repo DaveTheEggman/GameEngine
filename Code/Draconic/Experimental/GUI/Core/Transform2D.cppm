@@ -1,4 +1,4 @@
-// Draconic GUI - :transform2d partition
+// GUI - :transform2d partition
 //
 // Transform2D: a 2D affine transform, the primitive Transformable (Phase 1) composes
 // and hands to the VG-backed DrawContext. Stored as 6 floats in column-vector affine
@@ -12,8 +12,8 @@
 // TransformPoint2D reads (row-vector, translation in row 3), so a subtree transform
 // feeds DrawContext losslessly and rotation matches Float4x4::RotationZ.
 //
-// Derived from eepp include/eepp/math/transform.hpp; angles are RADIANS (Draconic/VG
-// convention, not eepp's degrees); camelCase -> Draconic PascalCase.
+// Derived from eepp include/eepp/math/transform.hpp; angles are RADIANS (VG
+// convention, not eepp's degrees); camelCase -> PascalCase.
 
 module;
 #include "Core/Prelude.h"

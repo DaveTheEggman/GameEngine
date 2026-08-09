@@ -1,4 +1,4 @@
-// Draconic GUI - ListView tests: virtualization (only visible rows realized), single selection
+// GUI - ListView tests: virtualization (only visible rows realized), single selection
 // via mouse + keyboard, wheel/scroll-into-view, and reacting to model updates.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

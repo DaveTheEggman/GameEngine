@@ -2,7 +2,7 @@
 ///
 /// The top-level model import pipeline: it converts a loaded `foundation.model` Model
 /// (the loader IR) into the engine's cooked *Source types and cooks them through the
-/// editor stack into a content database. Faithful-but-fit-for-Draconic: import is
+/// editor stack into a content database. Faithful-but-fit-for-us: import is
 /// hierarchy-preserving (node -> entity), not Sedulous's unconditional mesh merge.
 export module modelimporter;
 

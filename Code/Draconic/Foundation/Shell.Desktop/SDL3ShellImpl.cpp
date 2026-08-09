@@ -1,4 +1,4 @@
-// Draconic Shell - foundation.shell.desktop implementation unit.
+// Shell - foundation.shell.desktop implementation unit.
 //
 // Out-of-line definitions for the SDL3 backend classes (sec 3.2 / sec 10.6): all the SDL_*
 // call sites live here. SDL3Shell.cppm keeps the class declarations (which reference SDL

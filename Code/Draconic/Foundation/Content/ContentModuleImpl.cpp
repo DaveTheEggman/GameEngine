@@ -1,4 +1,4 @@
-// Draconic Content - foundation.content implementation unit.
+// Content - foundation.content implementation unit.
 //
 // Out-of-line definitions for Instance/Group/ContentDatabase (sec 3.2 / sec 10.6).
 // ContentModule.cppm keeps the class declarations + trivial inline accessors.

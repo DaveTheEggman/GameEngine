@@ -1,4 +1,4 @@
-// Draconic UI - :debug_settings partition
+// UI - :debug_settings partition
 //
 // Flags controlling which debug overlays are drawn after the normal render pass.
 // Zero overhead when all flags are false (AnyEnabled() gates the work). Ported from

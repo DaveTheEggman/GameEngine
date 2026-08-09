@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :toolkit_theme_extension partition
+// UI Toolkit - :toolkit_theme_extension partition
 //
 // Registers default theme styles for every foundation.ui.toolkit control (dock manager / panels / tab
 // groups / splits / floating windows + the menu/tool/status bars + split view + breadcrumb + color

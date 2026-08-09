@@ -1,4 +1,4 @@
-// Draconic UI - :flattened_tree_adapter partition
+// UI - :flattened_tree_adapter partition
 //
 // Wraps an ITreeAdapter to present as an IListAdapter for ListView virtualization: maintains expansion
 // state and a flat list of currently-visible nodes (in display order). Ported from Sedulous.UI/src/Data/

@@ -1,4 +1,4 @@
-// Draconic.Particles - effect-graph reflection (out of the interface: GCC module hygiene keeps
+// Particles - effect-graph reflection (out of the interface: GCC module hygiene keeps
 // REFLECT_MEMBERS bodies in an impl unit). Reflects the value types that make up an authored effect
 // so tooling and scripting can traverse it end to end:
 //

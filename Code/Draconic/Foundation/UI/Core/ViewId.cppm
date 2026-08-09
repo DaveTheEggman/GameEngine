@@ -1,4 +1,4 @@
-// Draconic UI - :view_id partition
+// UI - :view_id partition
 //
 // Unique identifier for a view. Used by managers (Input, Focus, DragDrop) to track
 // views safely without raw pointers: if a view is deleted, lookups by its ViewId

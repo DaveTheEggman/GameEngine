@@ -1,4 +1,4 @@
-// Draconic UI - :popup_layer partition
+// UI - :popup_layer partition
 //
 // Central overlay manager: always the last child of RootView (topmost for drawing, first for hit-test).
 // Manages popup lifecycle, modal backdrops, and click-outside dismissal. Popups are NOT regular children

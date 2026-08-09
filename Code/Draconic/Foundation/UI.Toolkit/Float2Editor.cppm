@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :float2_editor partition
+// UI Toolkit - :float2_editor partition
 //
 // Property editor for Float2 values - two NumericFields (X, Y) side by side with colored axis labels.
 // Ported from Sedulous.UI.Toolkit/src/PropertyGrid/Vector2Editor.bf. Beef `Vector2` -> core Float2

@@ -1,4 +1,4 @@
-// Draconic UI - :enums partition
+// UI - :enums partition
 //
 // Small Core enums ported from Sedulous.UI/src/Core (Visibility, Orientation,
 // CursorType, InvalidationKind). Grouped into one partition (Beef had a file per

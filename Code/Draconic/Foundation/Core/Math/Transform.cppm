@@ -1,4 +1,4 @@
-// Draconic Core - :transform partition
+// Core - :transform partition
 // Transform: position / rotation / scale, composed as S * R * T into a Float4x4.
 
 module;

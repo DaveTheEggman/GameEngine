@@ -1,4 +1,4 @@
-// Draconic UI - :color_drawable partition
+// UI - :color_drawable partition
 //
 // Fills bounds with a solid color. Ported from Sedulous.UI/src/Drawing/ColorDrawable.bf.
 

@@ -1,4 +1,4 @@
-// Draconic UI - :separator partition
+// UI - :separator partition
 //
 // Horizontal or vertical divider line. Ported from Sedulous.UI/src/Controls/Separator.bf.
 // (The `Orientation` property shadows the enum type, so enum values are fully qualified.)

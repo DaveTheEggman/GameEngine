@@ -1,4 +1,4 @@
-// Draconic Core - :object partition
+// Core - :object partition
 //
 // Object: the polymorphic reflection root (derives RefCounted), plus the
 // Cast/IsA helpers that replace dynamic_cast by walking the base chain.

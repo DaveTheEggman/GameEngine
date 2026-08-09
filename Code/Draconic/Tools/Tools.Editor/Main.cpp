@@ -1,6 +1,6 @@
-// Draconic Editor - the editor executable (docs/design/editor.md §3.1: the ASSEMBLY point).
+// Editor - the editor executable (docs/design/editor.md §3.1: the ASSEMBLY point).
 // Creates the OS shell + graphics device and runs EditorApplication. Per-subsystem editor
-// modules (draconic.<sys>.editor) get linked HERE and their RegisterEditor(EditorContext&)
+// modules get linked HERE and their RegisterEditor(EditorContext&)
 // called on the app's context - the editor core/app libraries never link engine subsystems.
 //
 // Usage: Tools.Editor [projectDirectory] [--project <dir>]
@@ -332,7 +332,7 @@ int main(int argc, char** argv)
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&logBuffer);
     GlobalLogger().AddSink(&consoleSink);
-    LOG_INFO(u8"Build", u8"Draconic build {}",
+    LOG_INFO(u8"Build", u8"Editor build {}",
                       reinterpret_cast<const char8_t*>(BuildStamp()));
     GlobalLogger().SetMinLevel(LogLevel::Debug); // the Console panel has a Debug filter toggle
 
@@ -644,7 +644,7 @@ int main(int argc, char** argv)
     LOG_INFO(u8"Editor", u8"starting (project: {})", config.projectDirectory);
 
     shell::WindowSettings ws;
-    ws.title = u8"Draconic Editor";
+    ws.title = u8"Editor";
     ws.width = 1600;
     ws.height = 900;
 

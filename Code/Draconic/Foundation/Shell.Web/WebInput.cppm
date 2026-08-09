@@ -22,7 +22,7 @@ namespace core = foundation::core;
 export namespace foundation::shell
 {
     // Map a DOM KeyboardEvent.code (the physical key, layout-independent - "KeyW", "ArrowUp",
-    // "Space", "ShiftLeft", ...) to a Draconic KeyCode.
+    // "Space", "ShiftLeft", ...) to a native KeyCode.
     [[nodiscard]] inline KeyCode KeyCodeFromDom(const char* code) noexcept
     {
         if (code == nullptr || code[0] == '\0')
@@ -342,7 +342,7 @@ export namespace foundation::shell
     private:
         static constexpr core::i32 kMaxButtons = 20; // W3C standard-mapping button count
         static constexpr core::i32 kMaxAxes = 8;
-        // Draconic button -> browser standard-mapping index (-1 = unmapped).
+        // Native button -> browser standard-mapping index (-1 = unmapped).
         static core::i32 BrowserButton(GamepadButton b) noexcept
         {
             switch (b)

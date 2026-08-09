@@ -1,4 +1,4 @@
-// Shared doctest entry point for all Draconic test binaries.
+// Shared doctest entry point for all test binaries.
 //
 // Redirects test-written scratch data (content DBs, cooked projects, temp files - all created
 // via CWD-relative paths like "scratch_xxx_db") into a single gitignored ".test-scratch"

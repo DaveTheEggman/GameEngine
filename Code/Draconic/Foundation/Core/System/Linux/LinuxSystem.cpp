@@ -1,4 +1,4 @@
-// Draconic Core - System backend, Linux implementation.
+// Core - System backend, Linux implementation.
 
 #include "Core/System/SystemBackend.h"
 

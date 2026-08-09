@@ -1,4 +1,4 @@
-// Draconic UI - :style_rule partition
+// UI - :style_rule partition
 //
 // A single style rule: a selector plus a set of property assignments. Ported from
 // Sedulous.UI/src/Styling/StyleRule.bf.

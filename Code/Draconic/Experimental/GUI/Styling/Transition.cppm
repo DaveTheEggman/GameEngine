@@ -1,4 +1,4 @@
-// Draconic GUI - :transition partition
+// GUI - :transition partition
 //
 // CSS transitions wired to the Action system. Ported from eepp's css/TransitionDefinition:
 // parse the `transition` shorthand (`property duration [timing] [delay]`, comma-separated),

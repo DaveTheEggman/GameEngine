@@ -1,4 +1,4 @@
-// Draconic Core - :aabb partition
+// Core - :aabb partition
 //
 // AABB: axis-aligned bounding box (Min/Max corners) with Contains/
 // Intersects/Expand and Merge.

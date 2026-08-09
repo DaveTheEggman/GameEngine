@@ -1,4 +1,4 @@
-// Draconic UI - :drag_drop_manager partition
+// UI - :drag_drop_manager partition
 //
 // Drag-and-drop state machine within a UIContext, driven by the InputManager at the mouse-event points.
 // Ported from Sedulous.UI/src/DragDrop/DragDropManager.bf. Like the Input/Tooltip managers this is a

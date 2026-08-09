@@ -1,4 +1,4 @@
-// Draconic Runtime - :plugin partition
+// Runtime - :plugin partition
 //
 // IRuntimePlugin: a unit of engine functionality delivered separately from the
 // core executable. A plugin registers its subsystems/services into the Context

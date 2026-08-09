@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :code_lexer_scan partition (module-internal).
+// UI Toolkit - :code_lexer_scan partition (module-internal).
 //
 // Shared scanning primitives for the concrete lexers (CLikeLexer.cpp, XmlLexer.cpp): a
 // byte+codepoint cursor, character classes, and the token emitter. An INTERNAL partition

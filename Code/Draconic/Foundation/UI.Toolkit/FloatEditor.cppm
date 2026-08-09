@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :float_editor partition
+// UI Toolkit - :float_editor partition
 //
 // Float property editor - a NumericField with focus-based edit transactions (Escape restores the pre-edit
 // value). Ported from Sedulous.UI.Toolkit/src/PropertyGrid/FloatEditor.bf. Beef `double` -> f64; `delegate

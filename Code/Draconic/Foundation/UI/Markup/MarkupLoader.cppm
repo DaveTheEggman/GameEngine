@@ -1,4 +1,4 @@
-// Draconic UI - :markup_loader partition
+// UI - :markup_loader partition
 //
 // Loads a View tree from an XML (.sml) string using MarkupRegistry for element/property resolution.
 // Ported from Sedulous.UI/src/Markup/MarkupLoader.bf, on foundation.xml (Code/Draconic/Xml). Ownership:

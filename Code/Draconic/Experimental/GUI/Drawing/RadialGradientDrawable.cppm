@@ -1,4 +1,4 @@
-// Draconic GUI - :radial_gradient_drawable partition
+// GUI - :radial_gradient_drawable partition
 //
 // RadialGradientDrawable: a multi-stop radial gradient centered within the destination
 // rect. Derived from eepp's RadialGradientDrawable (ColorStop list + center + radius);

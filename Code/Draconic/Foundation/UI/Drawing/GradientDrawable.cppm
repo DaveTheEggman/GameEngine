@@ -1,4 +1,4 @@
-// Draconic UI - :gradient_drawable partition
+// UI - :gradient_drawable partition
 //
 // Linear gradient fill with two colors and a direction. Ported from
 // Sedulous.UI/src/Drawing/GradientDrawable.bf (VGLinearGradientFill + a rect Path).

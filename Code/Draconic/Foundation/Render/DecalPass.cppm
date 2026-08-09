@@ -6,7 +6,7 @@
 /// on whatever surface is under the box (including animated meshes, since it reads the depth buffer).
 ///
 /// Runs after the forward+sky pass and BEFORE AO/TAA, blending into the HDR (so decals get TAA-resolved).
-/// Draconic matches Sedulous's shader assumptions (row-major, D3D-style [0,1] clip depth, top-origin uv
+/// Matches Sedulous's shader assumptions (row-major, D3D-style [0,1] clip depth, top-origin uv
 /// under the negative viewport - same reconstruction as AoPass), so the projection math ports verbatim.
 ///
 /// v1 draws a FULLSCREEN triangle per decal (robust across split-screen sub-rects + no box winding/cull

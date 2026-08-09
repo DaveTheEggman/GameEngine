@@ -1,4 +1,4 @@
-// Draconic GUI - TextField tests: the keyboard/text-input path end-to-end. Text arrives via
+// GUI - TextField tests: the keyboard/text-input path end-to-end. Text arrives via
 // the EventDispatcher's InjectText (routed to the focused node), editing keys via InjectKeyDown.
 // A mock font (6px/byte advance) drives caret-placement measurement.
 #include <doctest/doctest.h>

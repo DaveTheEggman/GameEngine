@@ -1,4 +1,4 @@
-// Draconic Core - :io partition (streams)
+// Core - :io partition (streams)
 //
 // IStream is the read/write/seek abstraction; FileStream wraps the System file
 // primitives, MemoryStream is an in-memory growable buffer. The serialization

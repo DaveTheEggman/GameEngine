@@ -1,4 +1,4 @@
-// Draconic UI - module implementation unit for UITypeRegistry::RegisterBuiltins.
+// UI - module implementation unit for UITypeRegistry::RegisterBuiltins.
 //
 // Registers every built-in View/layout/control type name so .sss element selectors (View, ButtonBase,
 // ComboBox, EditText, ComboBox::arrow, ...) resolve to a concrete type. Kept in an impl unit because it

@@ -1,4 +1,4 @@
-// Draconic UI - :event partition
+// UI - :event partition
 //
 // Event<void(Args...)>: a minimal multicast delegate over core::Function, the port's
 // equivalent of Beef's `Event<delegate void(...)>` used pervasively across Sedulous.UI

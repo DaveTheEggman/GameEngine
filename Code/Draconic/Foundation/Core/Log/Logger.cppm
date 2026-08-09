@@ -1,4 +1,4 @@
-// Draconic Core - :logger partition
+// Core - :logger partition
 //
 // Logging frontend: log levels, the ILogSink interface, the Logger (sink list
 // + level filter) and the Logf frontend behind the LOG_* macros.

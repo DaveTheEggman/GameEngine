@@ -1,4 +1,4 @@
-// Draconic UI - module implementation unit for SSSParser::ApplyInlineStyle.
+// UI - module implementation unit for SSSParser::ApplyInlineStyle.
 //
 // Holds the View-touching body of SSSParser::ApplyInlineStyle (it reaches into the View cluster for
 // GetOrCreateInlineSheet/Invalidate), so :sss_parser stays free of an :view import. Ported from

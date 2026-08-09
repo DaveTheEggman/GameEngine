@@ -1,4 +1,4 @@
-// Draconic UI - :view_animator partition
+// UI - :view_animator partition
 //
 // Static convenience factories for common view animations. Returned animations are NOT automatically
 // added to an AnimationManager - the caller adds them (ctx.Animations()->Add(ViewAnimator::FadeIn(...))).

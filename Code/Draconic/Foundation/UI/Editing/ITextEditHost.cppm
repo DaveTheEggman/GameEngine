@@ -1,4 +1,4 @@
-// Draconic UI - :itext_edit_host partition
+// UI - :itext_edit_host partition
 //
 // Interface that TextEditingBehavior uses to talk to its host control (EditText). The host owns
 // the text, handles font/shaping, and fires events. Ported from Sedulous.UI/src/Editing/ITextEditHost.bf.

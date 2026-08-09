@@ -1,4 +1,4 @@
-// Draconic GUI - :check_box partition
+// GUI - :check_box partition
 //
 // CheckBox: a toggleable box. A lean Draconic-native control modeled on eepp's UICheckBox
 // (role only). Clicking toggles the checked state and fires OnCheckedChanged; OnDraw renders

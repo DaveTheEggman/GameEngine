@@ -1,4 +1,4 @@
-// Draconic UI - :nine_slice_drawable partition
+// UI - :nine_slice_drawable partition
 //
 // 9-slice image drawable with optional Expand (shadow/glow extending beyond the logical bounds).
 // Ported from Sedulous.UI/src/Drawing/NineSliceDrawable.bf. Slices is image::NineSlice (lowercase

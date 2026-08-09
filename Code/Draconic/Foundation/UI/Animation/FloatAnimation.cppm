@@ -1,4 +1,4 @@
-// Draconic UI - :float_animation partition
+// UI - :float_animation partition
 //
 // Animates a float value from a start to an end value via a setter delegate. Ported from
 // Sedulous.UI/src/Animation/FloatAnimation.bf. Beef owned `delegate void(float) ~ delete _` ->

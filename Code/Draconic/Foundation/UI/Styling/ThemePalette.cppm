@@ -1,4 +1,4 @@
-// Draconic UI - :theme_palette partition
+// UI - :theme_palette partition
 //
 // Seed colors for a theme; controls + theme builders derive consistent state variants from these.
 // Ported from Sedulous.UI/src/Styling/ThemePalette.bf. Byte colors -> float (v/255); the default

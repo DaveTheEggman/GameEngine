@@ -1,4 +1,4 @@
-// Draconic UI - :draw_context partition
+// UI - :draw_context partition
 //
 // Drawing context passed to View.OnDraw(). Wraps a VGContext with clip stacking, plus
 // the font service and DPI scale. Ported from Sedulous.UI/src/Drawing/UIDrawContext.bf.

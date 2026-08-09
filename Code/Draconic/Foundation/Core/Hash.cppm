@@ -1,4 +1,4 @@
-// Draconic Core - :hash partition
+// Core - :hash partition
 //
 // Hashing utilities: a byte hash (FNV-1a, 64-bit), an integer finalizer, and
 // the Hash<T> function object used by hashed containers. (Hash specializations

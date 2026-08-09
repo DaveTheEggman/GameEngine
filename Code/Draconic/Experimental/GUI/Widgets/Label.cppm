@@ -1,4 +1,4 @@
-// Draconic GUI - :label partition
+// GUI - :label partition
 //
 // Label: a UIWidget that displays a line of text. The thinnest real control - it composes
 // the Phase-4 Text primitive (drawn in the padding-inset content bounds) onto the widget

@@ -1,4 +1,4 @@
-// Draconic GUI - MVC data-core tests: Variant (typed value + ToString + Compare), ModelIndex,
+// GUI - MVC data-core tests: Variant (typed value + ToString + Compare), ModelIndex,
 // and StringListModel (row/column/data + client notification on mutation).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

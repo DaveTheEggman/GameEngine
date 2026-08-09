@@ -1,4 +1,4 @@
-// Draconic UI - :view_recycler partition
+// UI - :view_recycler partition
 //
 // Pool of views keyed by view type: recycles views that scroll out of the viewport so ListView doesn't
 // allocate per scroll. Ported from Sedulous.UI/src/Data/ViewRecycler.bf. Beef Dictionary<int32,

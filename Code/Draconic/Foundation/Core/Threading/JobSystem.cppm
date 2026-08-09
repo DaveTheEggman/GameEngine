@@ -1,4 +1,4 @@
-// Draconic Core - :job_system partition
+// Core - :job_system partition
 //
 // A stackless work-stealing job system: a fixed (pre-sized) worker pool with per-worker
 // deques, ParallelFor fan-out, and counter-based dependencies (Submit / SubmitAfter /

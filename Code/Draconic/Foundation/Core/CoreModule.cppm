@@ -1,4 +1,4 @@
-// Draconic Core - primary module interface unit
+// Core - primary module interface unit
 //
 // `foundation.core` is one named module composed of partitions (one per subsystem).
 // This unit re-exports them so consumers write a single `import foundation.core;`.

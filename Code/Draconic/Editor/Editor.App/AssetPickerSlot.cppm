@@ -1,4 +1,4 @@
-// Draconic Editor App - :asset_picker_slot partition
+// Editor App - :asset_picker_slot partition
 //
 // A reference "slot": a button that shows the current asset's name (or a placeholder like "None"),
 // clickable (via the inherited OnClick) to open a type-filtered asset picker the consumer wires.

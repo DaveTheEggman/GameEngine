@@ -1,4 +1,4 @@
-// Draconic Core - logging macros (classic header).
+// Core - logging macros (classic header).
 //
 // Convenience front-end over foundation::core::Logf. Include this and `import
 // foundation.core;`. The macros are stripped at LogLevel::Fatal+ granularity in

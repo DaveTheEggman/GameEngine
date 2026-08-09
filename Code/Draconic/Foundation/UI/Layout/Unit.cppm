@@ -1,4 +1,4 @@
-// Draconic UI - :unit partition
+// UI - :unit partition
 //
 // Type-safe dimensional value carrying intent (dp/pt/px); resolves to pixels at layout time given
 // the DPI scale. Ported from Sedulous.UI/src/Layout/Unit.bf. Beef discriminated union (all cases

@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :button_editor partition
+// UI Toolkit - :button_editor partition
 //
 // Property editor that displays a clickable Button (used for actions like "Add Condition"). Ported from
 // Sedulous.UI.Toolkit/src/PropertyGrid/ButtonEditor.bf. Beef `delegate void() Action` -> Function<void()>;

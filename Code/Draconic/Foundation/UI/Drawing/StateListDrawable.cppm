@@ -1,4 +1,4 @@
-// Draconic UI - :state_list_drawable partition
+// UI - :state_list_drawable partition
 //
 // Maps ControlState flags -> Drawable with fallback lookup (tries the exact flag
 // combination, then strips flags one at a time, ultimately falling back to Normal).

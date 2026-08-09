@@ -1,4 +1,4 @@
-// Draconic UI - :tab_view partition
+// UI - :tab_view partition
 //
 // Tabbed container: clickable tab headers + switchable content, Top/Bottom/Left/Right strip placement,
 // optional closable tabs. Ported from Sedulous.UI/src/Controls/TabView.bf. Each tab's content is a

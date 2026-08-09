@@ -1,4 +1,4 @@
-// Draconic Core - :simd_matrix partition
+// Core - :simd_matrix partition
 //
 // Matrix4: aligned (16-byte) SIMD 4x4 matrix, backed by four simd::f32x4 rows. Same convention as the
 // packed Float4x4 (row-major storage, row vectors: v' = v * M, left-to-right composition). Reach for

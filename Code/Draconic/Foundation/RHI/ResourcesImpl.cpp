@@ -1,4 +1,4 @@
-// Draconic RHI - :resources implementation unit.
+// RHI - :resources implementation unit.
 //
 // Out-of-line bodies whose headers must stay out of the interface (GCC gcm-cluster
 // hygiene): currently just the TextureView unique-id counter (<atomic>).

@@ -1,4 +1,4 @@
-// Draconic UI - :hierarchical_state partition
+// UI - :hierarchical_state partition
 //
 // Captures/restores TreeView state (expansion + selection + scroll) across data reloads or view
 // rebuilds. Ported from Sedulous.UI/src/Data/HierarchicalState.bf. Depends on TreeView (its FlatAdapter /

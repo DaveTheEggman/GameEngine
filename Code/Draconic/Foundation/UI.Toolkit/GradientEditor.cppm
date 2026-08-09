@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :gradient_editor partition
+// UI Toolkit - :gradient_editor partition
 //
 // Interactive color-ramp editor. Stops along a normalized [0,1] time axis carry RGBA (HDR-allowed Float4);
 // the widget renders a live linearly-interpolated gradient strip and lets the user add / move / delete /

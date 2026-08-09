@@ -1,4 +1,4 @@
-// Draconic GUI - :string_list_model partition
+// GUI - :string_list_model partition
 //
 // StringListModel: the simplest concrete Model - a single column of strings, one per row.
 // Modeled on eepp's Models::ItemListModel/StringMapModel role. Backs a ListView; mutating it

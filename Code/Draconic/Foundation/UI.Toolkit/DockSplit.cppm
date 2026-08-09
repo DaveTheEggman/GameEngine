@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :dock_split partition
+// UI Toolkit - :dock_split partition
 //
 // Binary split node for the dock tree: two children separated by a draggable divider. Direct ViewGroup,
 // no SplitView wrapper. Ported from Sedulous.UI.Toolkit/src/Docking/DockSplit.bf. Uses only

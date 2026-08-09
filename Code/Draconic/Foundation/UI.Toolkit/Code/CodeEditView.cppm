@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :code_edit_view partition
+// UI Toolkit - :code_edit_view partition
 //
 // CodeEditView (docs/design/code-editor.md): the purpose-built code editor widget over the
 // :code_document core. Virtualized monospace rendering (only visible lines are drawn; column

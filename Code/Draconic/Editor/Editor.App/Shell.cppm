@@ -139,7 +139,7 @@ export namespace editor::app
             m_welcome = m_dock->AddPanel(
                 u8"Welcome",
                 MakeRef<ui::Label>(DefaultAllocator(),
-                                   StringView(u8"Draconic Editor - open an asset to begin"))
+                                   StringView(u8"Editor - open an asset to begin"))
                     .Get());
             m_welcome->SetPersistenceId(kPanelWelcome);
             m_welcome->SetClosable(false);

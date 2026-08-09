@@ -1,4 +1,4 @@
-// Draconic UI - :layout_params partition
+// UI - :layout_params partition
 //
 // Base layout parameters for a view within a container. Container-specific subclasses add fields
 // (e.g. FlexLayoutParams adds Grow/Shrink). Ported from Sedulous.UI/src/Layout/LayoutParams.bf.

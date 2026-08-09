@@ -1,4 +1,4 @@
-// Draconic UI - :theme_extension partition
+// UI - :theme_extension partition
 //
 // Lets external libraries inject style rules into a theme StyleSheet after base theme init.
 // Ported from Sedulous.UI/src/Styling/IThemeExtension.bf. Injected/held-by-reference (pattern B).

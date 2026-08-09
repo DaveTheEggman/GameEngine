@@ -1,4 +1,4 @@
-// Draconic GUI - `experimental.gui.shell`: the platform input bridge.
+// GUI - `experimental.gui.shell`: the platform input bridge.
 //
 // Keeps the GUI core platform-agnostic: the core EventDispatcher exposes an abstract
 // Inject* API; this bridge is the ONLY place that knows about the platform input layer
@@ -6,7 +6,7 @@
 // by InputSurface/InputRouter, see [[viewport-input]]) into dispatcher injections, mapping
 // platform enums to GUI enums and window-space positions to content space via a ContentFit.
 //
-// Reimplemented for Draconic (not ported from eepp/Sedulous), per the port plan: the
+// Reimplemented for us (not ported from eepp/Sedulous), per the port plan: the
 // InputSurface consumption lives here, never in the core.
 
 module;

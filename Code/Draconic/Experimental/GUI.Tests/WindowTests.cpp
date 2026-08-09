@@ -1,4 +1,4 @@
-// Draconic GUI - Window tests: title-bar drag moves the window, the grip resizes it (clamped
+// GUI - Window tests: title-bar drag moves the window, the grip resizes it (clamped
 // to the minimum), title clicks fall through to the draggable bar, and a press raises the
 // window to the front.
 #include <doctest/doctest.h>

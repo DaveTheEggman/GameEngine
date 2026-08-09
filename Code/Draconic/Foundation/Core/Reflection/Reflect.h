@@ -1,4 +1,4 @@
-// Draconic Core - RTTI declaration macros (classic header).
+// Core - RTTI declaration macros (classic header).
 //
 // Use inside an Object-derived class to wire up type identity, then define the
 // type once in a .cpp. Registration stays explicit - call

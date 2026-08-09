@@ -1,4 +1,4 @@
-// Draconic UI - :idrag_source partition
+// UI - :idrag_source partition
 //
 // Implement on a View subclass to make it draggable. Ported from Sedulous.UI/src/DragDrop/IDragSource.bf.
 // Pattern A (tree-queried) - the interface is a plain abstract base; a View exposes it via a virtual

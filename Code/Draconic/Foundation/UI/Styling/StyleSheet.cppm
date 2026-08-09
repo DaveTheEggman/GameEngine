@@ -1,4 +1,4 @@
-// Draconic UI - :style_sheet partition
+// UI - :style_sheet partition
 //
 // Rule-based cascading style system: rules match views by type/class/state; most specific match
 // wins. Ported from Sedulous.UI/src/Styling/StyleSheet.bf.

@@ -1,4 +1,4 @@
-// Draconic UI - :property_owner partition
+// UI - :property_owner partition
 //
 // IPropertyOwner: objects that own Property<T> instances and respond to value changes
 // with invalidation. Ported from Sedulous.UI/src/Core/IPropertyOwner.bf.

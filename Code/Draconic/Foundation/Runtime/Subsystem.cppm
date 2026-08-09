@@ -1,4 +1,4 @@
-// Draconic Runtime - :subsystem partition
+// Runtime - :subsystem partition
 //
 // Subsystem: the unit of engine functionality the Context owns and drives.
 // Lifecycle: OnRegister -> Init/Ready -> (frames) -> PrepareShutdown/Shutdown.

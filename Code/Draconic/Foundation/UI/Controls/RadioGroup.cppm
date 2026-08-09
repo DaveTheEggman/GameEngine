@@ -1,4 +1,4 @@
-// Draconic UI - :radio_group partition
+// UI - :radio_group partition
 //
 // Groups RadioButtons for mutual exclusion (a vertical FlexLayout). Ported from
 // Sedulous.UI/src/Controls/RadioGroup.bf.

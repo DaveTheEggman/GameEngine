@@ -1,4 +1,4 @@
-// Draconic UI - :edit_text partition
+// UI - :edit_text partition
 //
 // Single-line and multiline text input control. Implements ITextEditHost for TextEditingBehavior;
 // supports selection, cursor, clipboard, undo/redo, input filtering, prefix/suffix decorations.

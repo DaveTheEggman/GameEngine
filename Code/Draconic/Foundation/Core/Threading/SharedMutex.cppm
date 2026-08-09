@@ -1,4 +1,4 @@
-// Draconic Core - :shared_mutex partition
+// Core - :shared_mutex partition
 //
 // Writer-preferring read/write lock + ScopedSharedLock guard.
 

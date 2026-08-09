@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :dock_layout_node partition
+// UI Toolkit - :dock_layout_node partition
 //
 // Serializable snapshot of a dock tree node, used by DockManager.ExportLayout/ApplyLayout for layout
 // persistence. Ported from Sedulous.UI.Toolkit/src/Docking/DockLayoutNode.bf. A PLAIN value struct

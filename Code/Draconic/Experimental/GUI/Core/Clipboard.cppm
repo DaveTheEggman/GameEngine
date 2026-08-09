@@ -1,4 +1,4 @@
-// Draconic GUI - :clipboard partition
+// GUI - :clipboard partition
 //
 // IClipboard: the GUI core's abstract system-clipboard seam. Text widgets (TextField)
 // cut/copy/paste through this interface, so the core stays platform-agnostic - exactly

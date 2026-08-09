@@ -1,4 +1,4 @@
-// Draconic Core - :core_reflection implementation unit
+// Core - :core_reflection implementation unit
 //
 // The reflection bodies for Core's value types. Kept OUT of the :core_reflection
 // interface partition: REFLECT_* bodies in a partition interface make GCC

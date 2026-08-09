@@ -1,7 +1,7 @@
-// Draconic GUI - :node partition
+// GUI - :node partition
 //
 // Node: the retained-mode scene-graph node - the tree content base (eepp Scene::Node).
-// Ported from eepp include/eepp/scene/node.hpp, adapted to Draconic: Object +
+// Ported from eepp include/eepp/scene/node.hpp, adapted to our Core: Object +
 // Transformable bases (Cast<T> downcasts); the raw-pointer intrusive sibling list becomes
 // an owning Array<RefPtr<Node>> children with a non-owning parent back-pointer. Draws its
 // subtree through the DrawContext/VG seam (eepp's nodeDraw + matrix/clip, on VG).

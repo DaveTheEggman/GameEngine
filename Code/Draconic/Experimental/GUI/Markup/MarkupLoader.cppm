@@ -1,4 +1,4 @@
-// Draconic GUI - :markup partition
+// GUI - :markup partition
 //
 // MarkupLoader: inflate a widget tree from XML markup. Modeled on eepp's layout loading (role
 // only). An element name selects a widget from a WidgetFactory; nested elements become children;

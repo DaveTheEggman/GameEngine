@@ -97,7 +97,7 @@ int main(int argc, char** argv)
 {
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&consoleSink);
-    LOG_INFO(u8"Build", u8"Draconic build {}",
+    LOG_INFO(u8"Build", u8"Player build {}",
                       reinterpret_cast<const char8_t*>(BuildStamp()));
     GlobalLogger().SetMinLevel(LogLevel::Info);
 
@@ -146,7 +146,7 @@ int main(int argc, char** argv)
     }
 
     shell::WindowSettings ws;
-    ws.title = u8"Draconic Player";
+    ws.title = u8"Player";
     ws.width = 1280;
     ws.height = 720;
     auto shellPtr = shell::CreateShell(ws);

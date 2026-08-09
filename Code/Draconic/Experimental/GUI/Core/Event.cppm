@@ -1,4 +1,4 @@
-// Draconic GUI - :event partition
+// GUI - :event partition
 //
 // Event + EventType + EventCallback: the high-level typed-event foundation nodes register
 // listeners on. Derived from eepp's Scene::Event / Event::EventType. The enum starts with

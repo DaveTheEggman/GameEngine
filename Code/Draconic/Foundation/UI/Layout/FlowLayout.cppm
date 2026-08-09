@@ -1,4 +1,4 @@
-// Draconic UI - :flow_layout partition
+// UI - :flow_layout partition
 //
 // Arranges children left-to-right (horizontal) or top-to-bottom (vertical), wrapping to the next
 // line/column when space runs out. Ported from Sedulous.UI/src/Layout/FlowLayout.bf.

@@ -1,4 +1,4 @@
-// Draconic UI - :style_value_parser partition
+// UI - :style_value_parser partition
 //
 // Parses style value literals from .sss token text (shared between the .sss parser and the .sml
 // markup loader). Ported from Sedulous.UI/src/Styling/Parser/Values.bf (StyleValueParser).

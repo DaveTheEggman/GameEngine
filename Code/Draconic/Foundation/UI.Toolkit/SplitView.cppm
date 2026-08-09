@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :split_view partition
+// UI Toolkit - :split_view partition
 //
 // Resizable two-pane container with a draggable divider. Ported from Sedulous.UI.Toolkit/src/SplitView.bf.
 // Panes are borrowed raw View* (the child tree owns the RefPtr). Beef `Math.Clamp` -> core::Clamp;

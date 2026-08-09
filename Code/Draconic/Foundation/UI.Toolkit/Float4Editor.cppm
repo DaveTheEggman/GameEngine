@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :float4_editor partition
+// UI Toolkit - :float4_editor partition
 //
 // Property editor for Float4 values - four NumericFields (X, Y, Z, W) with colored axis labels.
 // A mechanical sibling of Float3Editor (the faithful Sedulous port); grown here for the editor

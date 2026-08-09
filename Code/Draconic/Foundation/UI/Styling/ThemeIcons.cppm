@@ -1,4 +1,4 @@
-// Draconic UI - :theme_icons partition
+// UI - :theme_icons partition
 //
 // Built-in SVG icon definitions for theme drawable keys. These are string constants compiled into
 // the binary - no file loading needed. Themes register these as SVGDrawables for icon style

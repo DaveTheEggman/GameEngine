@@ -4,7 +4,7 @@
 // the IEditorCommand/EditorCommandStack undo spine, the EditorPage document model, the
 // Selection sets, and the EditorProject (manifest + source/cooked content databases). No UI
 // imports - fully unit-testable; the UI shell lives in editor.app, and per-subsystem
-// editor plugins in draconic.<sys>.editor modules register into the context.
+// editor plugins in modules register into the context.
 
 export module editor.core;
 

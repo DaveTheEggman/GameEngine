@@ -1,4 +1,4 @@
-// Draconic Core - :rectangle partition
+// Core - :rectangle partition
 //
 // Rectangle: 2D rectangle (x,y is the min corner) with Contains/Intersects.
 

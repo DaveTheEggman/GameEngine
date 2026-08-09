@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :docking partition (mutually-recursive docking cluster)
+// UI Toolkit - :docking partition (mutually-recursive docking cluster)
 //
 // The six docking types that reference one another cyclically live in ONE partition (the established
 // "mutually-recursive types share one partition" rule). Ported from Sedulous.UI.Toolkit/src/Docking/

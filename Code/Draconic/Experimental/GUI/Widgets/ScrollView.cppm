@@ -1,4 +1,4 @@
-// Draconic GUI - :scroll_view partition
+// GUI - :scroll_view partition
 //
 // ScrollView: a container that clips its content to the viewport and offsets it by a scroll
 // amount, so a large content area can be panned within a smaller box. Modeled on eepp's

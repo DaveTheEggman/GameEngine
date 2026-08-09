@@ -1,4 +1,4 @@
-// Draconic Core - :file_sink partition
+// Core - :file_sink partition
 //
 // FileSink: appends formatted lines to a file.
 

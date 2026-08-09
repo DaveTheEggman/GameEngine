@@ -1,4 +1,4 @@
-// Draconic GUI - :menu_bar partition
+// GUI - :menu_bar partition
 //
 // MenuBar: a horizontal strip of buttons, each opening a Menu below it - the classic
 // application menu bar. Modeled on eepp's UIMenuBar (role only). Clicking a button toggles its

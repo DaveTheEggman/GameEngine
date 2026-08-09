@@ -1,4 +1,4 @@
-// Draconic Core - :linear_allocator partition
+// Core - :linear_allocator partition
 //
 // LinearAllocator: bump-pointer arena over a caller buffer; bulk Reset().
 

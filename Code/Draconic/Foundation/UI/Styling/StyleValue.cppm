@@ -1,4 +1,4 @@
-// Draconic UI - :style_value partition
+// UI - :style_value partition
 //
 // A tagged value stored in a StyleRule: a discriminated union of Color / Float / Thickness /
 // Drawable / Bool / String / None. Ported from Sedulous.UI/src/Styling/StyleValue.bf.

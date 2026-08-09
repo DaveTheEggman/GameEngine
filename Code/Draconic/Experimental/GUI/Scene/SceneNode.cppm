@@ -1,4 +1,4 @@
-// Draconic GUI - :scene_node partition
+// GUI - :scene_node partition
 //
 // SceneNode: the root of a widget tree AND its coordinator (eepp Scene::SceneNode). A Node
 // subclass that sits at the top; it owns the ActionManager and the MutationQueue, and its

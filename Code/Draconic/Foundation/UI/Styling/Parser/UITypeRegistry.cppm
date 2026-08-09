@@ -1,4 +1,4 @@
-// Draconic UI - :ui_type_registry partition
+// UI - :ui_type_registry partition
 //
 // Maps short string names to View types (our RTTI TypeInfo). Used by the .sss parser for element
 // selectors and by the .sml loader for element resolution. User controls register via

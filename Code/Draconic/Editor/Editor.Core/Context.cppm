@@ -3,7 +3,7 @@
 // EditorContext: the central service object handed to every page/panel/plugin (Sedulous's
 // EditorContext, Traktor's IEditor). Holds the open project, the registries, the open pages +
 // active page, the global asset selection, and the status sink. Per-subsystem editor modules
-// (draconic.<sys>.editor) register their factories here from RegisterEditor(EditorContext&);
+// register their factories here from RegisterEditor(EditorContext&);
 // the statically-assembled editor executable calls those entry points (design doc §3.1).
 
 module;

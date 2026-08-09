@@ -1,4 +1,4 @@
-// Draconic GUI - :state_list_drawable partition
+// GUI - :state_list_drawable partition
 //
 // StateListDrawable: maps a ControlState to a child Drawable and dispatches Draw to it,
 // falling back to Normal when a state has no entry. Derived from eepp's StateListDrawable

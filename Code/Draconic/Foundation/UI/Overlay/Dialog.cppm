@@ -1,4 +1,4 @@
-// Draconic UI - :dialog partition
+// UI - :dialog partition
 //
 // Modal dialog with title, content, and a right-aligned button row. Shown via PopupLayer as a centered
 // modal popup. Ported from Sedulous.UI/src/Overlay/Dialog.bf. Ownership: Beef `new FlexLayout` + manual

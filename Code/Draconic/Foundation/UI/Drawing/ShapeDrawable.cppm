@@ -1,4 +1,4 @@
-// Draconic UI - :shape_drawable partition
+// UI - :shape_drawable partition
 //
 // Delegate-based custom drawing without subclassing. Ported from
 // Sedulous.UI/src/Drawing/ShapeDrawable.bf (Beef delegate -> core::Function).

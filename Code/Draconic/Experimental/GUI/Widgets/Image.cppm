@@ -1,4 +1,4 @@
-// Draconic GUI - :image partition
+// GUI - :image partition
 //
 // Image: a widget that draws a Drawable (an ImageDrawable/NineSlice/gradient/…) inside its
 // content box with a scale mode. Modeled on eepp's UIImage (role only). The drawable is drawn

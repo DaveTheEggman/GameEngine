@@ -1,4 +1,4 @@
-// Draconic UI - :list_view partition
+// UI - :list_view partition
 //
 // Virtualized list: only creates/binds views for the visible range, recycling views that scroll out.
 // Uses IListAdapter for data + view creation and ViewRecycler for pooling; supports fixed item height

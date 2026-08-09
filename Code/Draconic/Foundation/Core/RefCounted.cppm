@@ -1,4 +1,4 @@
-// Draconic Core - :ref_counted partition
+// Core - :ref_counted partition
 //
 // Intrusive strong+weak reference counting (no std:: equivalent). One
 // mechanism: a co-allocated RefControl shared by the object and its weak refs.

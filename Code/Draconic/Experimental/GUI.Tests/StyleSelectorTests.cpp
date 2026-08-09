@@ -1,4 +1,4 @@
-// Draconic GUI - CSS StyleSelector tests: parsing, specificity, and matching against the
+// GUI - CSS StyleSelector tests: parsing, specificity, and matching against the
 // UIWidget identity (tag/#id/.class), pseudo-classes via control state, and descendant /
 // child combinators. Derived from eepp css selector semantics (common subset).
 #include <doctest/doctest.h>

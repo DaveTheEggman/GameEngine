@@ -1,4 +1,4 @@
-// Draconic GUI - Drawing/render-seam tests. Metadata + behavior (drawing needs no GPU:
+// GUI - Drawing/render-seam tests. Metadata + behavior (drawing needs no GPU:
 // a VGContext tessellates into a CPU vertex batch, so we can assert geometry is produced).
 // StateList fallback semantics mirror the eepp/foundation.ui pattern.
 #include <doctest/doctest.h>

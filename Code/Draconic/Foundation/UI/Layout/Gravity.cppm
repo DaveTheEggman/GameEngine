@@ -1,4 +1,4 @@
-// Draconic UI - :gravity partition
+// UI - :gravity partition
 //
 // Alignment flags for positioning a view within its parent's available space (combine H + V with |).
 // Ported from Sedulous.UI/src/Layout/Gravity.bf (Beef flags enum -> enum class + bitwise operators).

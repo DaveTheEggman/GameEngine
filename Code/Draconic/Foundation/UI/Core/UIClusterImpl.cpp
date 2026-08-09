@@ -1,4 +1,4 @@
-// Draconic UI - module implementation unit for foundation.ui.
+// UI - module implementation unit for foundation.ui.
 //
 // Holds the two styling methods that call into View (StyleSelector::Matches, StyleSheet::Resolve).
 // They cannot live in the :view interface partition without making :style_selector/:style_sheet depend

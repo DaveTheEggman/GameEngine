@@ -1,4 +1,4 @@
-// Draconic UI - :color_functions partition
+// UI - :color_functions partition
 //
 // Built-in color manipulation functions for .sss stylesheets:
 // lighten($color, 10%), darken($color, 10%), alpha($color, 0.5), mix($a, $b, 0.5).

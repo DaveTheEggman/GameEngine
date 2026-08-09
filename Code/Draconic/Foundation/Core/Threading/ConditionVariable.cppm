@@ -1,4 +1,4 @@
-// Draconic Core - :condition_variable partition
+// Core - :condition_variable partition
 
 module;
 #include "Core/Prelude.h"

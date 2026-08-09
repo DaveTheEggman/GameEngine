@@ -1,4 +1,4 @@
-// Draconic GUI - :linear_gradient_drawable partition
+// GUI - :linear_gradient_drawable partition
 //
 // LinearGradientDrawable: a multi-stop linear gradient across the destination rect at a
 // given angle. Derived from eepp's LinearGradientDrawable (ColorStop list + angle, which

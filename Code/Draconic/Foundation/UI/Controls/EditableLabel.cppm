@@ -1,4 +1,4 @@
-// Draconic UI - :editable_label partition
+// UI - :editable_label partition
 //
 // Displays as a plain text label and switches to an editable field on BeginEdit() (double-click or
 // slow-click). Extends EditText for cursor/selection/clipboard in edit mode. Ported from

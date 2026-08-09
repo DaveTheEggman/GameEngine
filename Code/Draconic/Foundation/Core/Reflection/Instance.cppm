@@ -1,4 +1,4 @@
-// Draconic Core - :instance partition
+// Core - :instance partition
 //
 // Instance: a borrowed, type-erased { void*, TypeInfo* } target for member
 // access (the `this` of a reflected property/method call). Non-owning.

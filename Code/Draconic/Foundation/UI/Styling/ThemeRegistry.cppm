@@ -1,4 +1,4 @@
-// Draconic UI - :theme_registry partition
+// UI - :theme_registry partition
 //
 // Central registry for theme extensions, applied to every theme StyleSheet created by the
 // theme factories. Ported from Sedulous.UI/src/Styling/ThemeRegistry.bf.

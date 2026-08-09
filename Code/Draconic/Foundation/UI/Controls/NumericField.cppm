@@ -1,4 +1,4 @@
-// Draconic UI - :numeric_field partition
+// UI - :numeric_field partition
 //
 // Numeric input field with optional integrated up/down spin buttons. Self-contained: owns its own
 // TextEditingBehavior and implements ITextEditHost (like EditText, but the text mirrors a clamped f64

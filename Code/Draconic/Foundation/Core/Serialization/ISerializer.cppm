@@ -1,4 +1,4 @@
-// Draconic Core - :iserializer partition
+// Core - :iserializer partition
 //
 // The serialization contract: a mode-aware, format-agnostic interface. One
 // Serialize() path runs either direction, and the interface speaks in *intent*

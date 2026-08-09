@@ -1,10 +1,10 @@
-// Draconic Core - :bounds partition
+// Core - :bounds partition
 //
 // Bounding-volume suite ported from SedulousEngine (Sedulous.Core.Mathematics): ContainmentType,
 // PlaneIntersectionType, Ray, BoundingSphere, BoundingFrustum, plus BoundingBox helpers over the
 // existing AABB. The types are mutually recursive (ray↔sphere↔frustum↔box), so they live in ONE
-// partition; cross-type Contains/Intersects are FREE FUNCTIONS defined after the structs (Draconic
-// idiom; avoids C++ incomplete-type issues with Sedulous's member overloads). Sedulous's nullable
+// partition; cross-type Contains/Intersects are FREE FUNCTIONS defined after the structs (avoids
+// C++ incomplete-type issues with Sedulous's member overloads). Sedulous's nullable
 // `float?` ray results become `bool Intersects(..., f32& outT)` (false = no hit). Approximate
 // comparisons use Sedulous's exact 1E-7 epsilon.
 

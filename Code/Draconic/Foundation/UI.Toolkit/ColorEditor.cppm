@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :color_editor partition
+// UI Toolkit - :color_editor partition
 //
 // Color property editor - a ColorView swatch that opens a ColorPicker (the already-ported toolkit control)
 // inside a core Dialog on click. BeginEdit when the picker opens, EndEdit on OK, CancelEdit on Cancel.

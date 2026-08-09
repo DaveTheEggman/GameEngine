@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :color_picker partition
+// UI Toolkit - :color_picker partition
 //
 // Interactive HSV color picker: SV square + hue strip + alpha strip + RGB number fields + hex input +
 // current/original preview swatches. Ported from Sedulous.UI.Toolkit/src/ColorPicker.bf (a ViewGroup).

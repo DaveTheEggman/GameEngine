@@ -1,4 +1,4 @@
-// Draconic UI - :momentum_helper partition
+// UI - :momentum_helper partition
 //
 // Physics-based kinetic scrolling helper. A plain value struct embedded in ScrollView: call Update()
 // each frame and apply the returned displacement to the scroll offset. Ported from Sedulous.UI/src/

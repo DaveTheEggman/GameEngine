@@ -1,4 +1,4 @@
-// Draconic UI - :sss_parser partition
+// UI - :sss_parser partition
 //
 // Parses .sss stylesheet text into a StyleSheet (used internally by StyleSheetLoader). Ported from
 // Sedulous.UI/src/Styling/Parser/SSSParser.bf, with DrawableFactoryRegistry

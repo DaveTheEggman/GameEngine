@@ -2,7 +2,7 @@
 //
 // The filesystem contract: a minimal read interface (IFileSystem) plus optional
 // capability interfaces a backend implements only if it can (enumerate, write,
-// watch). C++ has no real interfaces and Draconic builds -fno-rtti, so capability
+// watch). C++ has no real interfaces and we build -fno-rtti, so capability
 // discovery is done with virtual As*() query methods that return the interface
 // pointer or null - the same idiom the RHI uses (see RHI/Commands.cppm). The
 // capability interfaces are independent bases (not derived from IFileSystem), so

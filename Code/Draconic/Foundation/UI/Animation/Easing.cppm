@@ -1,4 +1,4 @@
-// Draconic UI - :easing partition
+// UI - :easing partition
 //
 // Convenience re-exports of foundation.core's easing functions (:easings) with short, UI-friendly names.
 // Ported from Sedulous.UI/src/Animation/Easing.bf (Beef `static class` of readonly EasingFunction ->

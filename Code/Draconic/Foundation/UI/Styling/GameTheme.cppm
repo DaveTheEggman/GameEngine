@@ -1,4 +1,4 @@
-// Draconic UI - :game_theme partition.
+// UI - :game_theme partition.
 //
 // GameTheme: the DEFAULT stylesheet for GAME UI (the UISubsystem's context ships with it;
 // games override per-context, per-canvas via cooked UITheme assets, or per-control - all

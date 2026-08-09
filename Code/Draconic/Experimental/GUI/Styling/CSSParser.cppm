@@ -1,4 +1,4 @@
-// Draconic GUI - :css_parser partition
+// GUI - :css_parser partition
 //
 // CSSParser: turns `.css` text into a StyleSheet. Ported from eepp's css/StyleSheetParser
 // (common subset). Handles `/* comments */`, comma-separated selector lists, and

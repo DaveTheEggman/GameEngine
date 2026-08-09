@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :float3_editor partition
+// UI Toolkit - :float3_editor partition
 //
 // Property editor for Float3 values - three NumericFields (X, Y, Z) side by side with colored axis labels.
 // Ported from Sedulous.UI.Toolkit/src/PropertyGrid/Vector3Editor.bf. Beef `Vector3` -> core Float3

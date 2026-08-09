@@ -3,7 +3,7 @@
 // Drawable ownership via SetStyle. The ResolveStyleFontFamily / FontService resolution subset (5 cases) is
 // already ported in FontFamilyTests.cpp and is NOT duplicated here.
 //
-// API mapping (Beef -> Draconic):
+// API mapping (Beef -> C++):
 //   view.SetInlineStyle(.Prop, .XxxVal(v))        -> view->SetStyle(StyleProperty::Prop, v)  (typed overloads)
 //   view.SetInlinePartStyle(part, .Prop, .XxxVal) -> view->SetPartStyle(part, StyleProperty::Prop, v)
 //   view.GetInlineStyle(.Prop)                    -> view->GetInlineStyle(StyleProperty::Prop)
@@ -465,7 +465,7 @@ TEST_CASE("inline-style: Resolution_InlineBeatsLocalOnAncestor")
 
 // === Drawable ownership via SetStyle ===
 //
-// Draconic's SetStyle takes a RefPtr<Drawable>: passing a temporary (Move) transfers the caller's ref
+// Our SetStyle takes a RefPtr<Drawable>: passing a temporary (Move) transfers the caller's ref
 // (Beef's consumeRef: true default); passing a retained RefPtr copy keeps the caller's ref alive
 // (Beef's consumeRef: false). The inline sheet releases its ref when the view is destroyed or the value
 // is overwritten. LiveCount (ctor++/dtor--) proves the release. `delete view` -> view.Reset() (sole owner).

@@ -1,4 +1,4 @@
-// Draconic Script - :script_manager partition
+// Script - :script_manager partition
 //
 // IScriptManager: the VM. Reflected types are registered with it (it walks each
 // TypeInfo to build the backend's bindings), and it creates execution contexts.

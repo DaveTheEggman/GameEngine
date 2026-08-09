@@ -1,4 +1,4 @@
-// Draconic Core - Debug runtime (classic TU; see Assert.h for the rationale).
+// Core - Debug runtime (classic TU; see Assert.h for the rationale).
 
 #include "Core/Debug/Assert.h"
 #include "Core/System/SystemBackend.h"
@@ -44,7 +44,7 @@ namespace foundation::core
         }
 
         std::fprintf(stderr,
-                     "\nDraconic assertion failed\n"
+                     "\nAssertion failed\n"
                      "  expression: %s\n"
                      "  message   : %s\n"
                      "  location  : %s:%d\n"
@@ -58,7 +58,7 @@ namespace foundation::core
     void ReportFatal(const char* message, const char* file, int line, const char* function) noexcept
     {
         std::fprintf(stderr,
-                     "\nDraconic fatal error\n"
+                     "\nFatal error\n"
                      "  message : %s\n"
                      "  location: %s:%d\n"
                      "  function: %s\n",

@@ -1,7 +1,7 @@
 // foundation.particles:types - the particle value primitives, ported from Sedulous.Particles
 // (ParticleTypes.bf, RangeValue.bf, ParticleCurve.bf, EmissionShape.bf, ParticleEvent.bf,
 // ParticleBehavior.bf's update context). Pure value types over Core math. Fields adapt to
-// Draconic's camelCase convention; methods stay PascalCase.
+// our camelCase convention; methods stay PascalCase.
 
 module;
 #include "Core/Prelude.h"

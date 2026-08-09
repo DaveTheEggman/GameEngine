@@ -1,4 +1,4 @@
-// Draconic GUI - primary module interface unit for `experimental.gui`.
+// GUI - primary module interface unit for `experimental.gui`.
 //
 // A fresh, eepp-derived retained-mode UI framework built bottom-up on the Draconic
 // VG/Fonts stack (see docs/design/gui-port.md). Distinct from the parked Sedulous port

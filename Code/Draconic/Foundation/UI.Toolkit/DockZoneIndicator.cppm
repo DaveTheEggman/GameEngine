@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :dock_zone_indicator partition
+// UI Toolkit - :dock_zone_indicator partition
 //
 // Overlay showing dock drop zones during drag operations. Hit-test transparent; drawn manually by
 // DockManager. Ported from Sedulous.UI.Toolkit/src/Docking/DockZoneIndicator.bf. Beef `List<DockTarget>`

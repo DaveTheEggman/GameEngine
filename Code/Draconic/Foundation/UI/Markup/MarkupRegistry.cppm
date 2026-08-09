@@ -1,4 +1,4 @@
-// Draconic UI - :markup_registry partition
+// UI - :markup_registry partition
 //
 // Maps XML element names to View factories and property/layout-param setters (registration-based, not
 // reflection). Ported from Sedulous.UI/src/Markup/MarkupRegistry.bf. Divergences: Beef `delegate View()`

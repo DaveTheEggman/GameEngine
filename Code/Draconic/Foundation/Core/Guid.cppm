@@ -1,4 +1,4 @@
-// Draconic Core - :guid partition
+// Core - :guid partition
 //
 // Guid: a 128-bit globally unique identifier (asset ids, object ids, ...).
 // Generate() produces an RFC 4122 version-4 (random) GUID from a caller-owned

@@ -1,4 +1,4 @@
-// Draconic UI - :icommand partition
+// UI - :icommand partition
 //
 // ICommand: MVVM-style command binding on controls. ButtonBase.Command executes this
 // when clicked if CanExecute() is true. Ported from Sedulous.UI/src/Core/ICommand.bf.

@@ -1,4 +1,4 @@
-// Draconic GUI - Node tree tests: ownership, reparenting, z-order, geometry, world-space
+// GUI - Node tree tests: ownership, reparenting, z-order, geometry, world-space
 // conversion, hit testing, visibility, invalidation, and event listeners. Derived from
 // eepp Scene::Node behavior, adapted to the RefPtr-owned child tree.
 #include <doctest/doctest.h>

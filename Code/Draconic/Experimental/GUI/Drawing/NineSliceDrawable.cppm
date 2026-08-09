@@ -1,4 +1,4 @@
-// Draconic GUI - :nine_slice_drawable partition
+// GUI - :nine_slice_drawable partition
 //
 // NineSliceDrawable: draws an image as a nine-patch (fixed corners, stretched edges/
 // center) filling the destination rect. Derived from eepp's NinePatch (9 batched textured

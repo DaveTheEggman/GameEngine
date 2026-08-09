@@ -1,4 +1,4 @@
-// Draconic GUI - :theme partition
+// GUI - :theme partition
 //
 // A theme is just a default stylesheet: built-in CSS that styles the standard widget tags plus
 // their pseudo-element parts (slider::fill, window::title, scrollbar::thumb, checkbox::mark,

@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :property_editor partition
+// UI Toolkit - :property_editor partition
 //
 // Abstract base for the typed property editors used by PropertyGrid (label + editing-control row).
 // Ported from Sedulous.UI.Toolkit/src/PropertyGrid/PropertyEditor.bf. Supports transactional editing for

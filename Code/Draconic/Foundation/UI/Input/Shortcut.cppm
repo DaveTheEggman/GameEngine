@@ -1,4 +1,4 @@
-// Draconic UI - :shortcut partition
+// UI - :shortcut partition
 //
 // A keyboard shortcut binding: key + modifiers -> action. Ported from Sedulous.UI/src/Input/Shortcut.bf.
 // Object (RefCounted) so ShortcutManager can own them via RefPtr and hand back stable pointers.

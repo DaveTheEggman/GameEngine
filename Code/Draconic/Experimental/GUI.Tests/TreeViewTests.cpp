@@ -1,4 +1,4 @@
-// Draconic GUI - TreeModel + TreeView tests: hierarchical navigation (RowCount(parent)/Index/
+// GUI - TreeModel + TreeView tests: hierarchical navigation (RowCount(parent)/Index/
 // ParentIndex/HasChildren), and a TreeView that flattens visible nodes, expands/collapses (arrow
 // click + keyboard), and remaps selection by node id across re-flattening.
 #include <doctest/doctest.h>

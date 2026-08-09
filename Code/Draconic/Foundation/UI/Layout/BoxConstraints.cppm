@@ -1,4 +1,4 @@
-// Draconic UI - :box_constraints partition
+// UI - :box_constraints partition
 //
 // Immutable layout constraints carrying min/max on both axes (clamping math; no modes).
 // Ported from Sedulous.UI/src/Layout/BoxConstraints.bf.

@@ -1,4 +1,4 @@
-// Draconic UI - :progress_bar partition
+// UI - :progress_bar partition
 //
 // Progress indicator showing a filled bar from 0 to 1. Ported from Sedulous.UI/src/Controls/ProgressBar.bf.
 

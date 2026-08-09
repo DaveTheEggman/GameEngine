@@ -1,4 +1,4 @@
-// Draconic UI - :focus_manager partition
+// UI - :focus_manager partition
 //
 // Manages keyboard focus and mouse capture (tracked by ViewId for deletion safety), tab navigation,
 // and directional/spatial focus. Ported from Sedulous.UI/src/Input/FocusManager.bf. All View-touching

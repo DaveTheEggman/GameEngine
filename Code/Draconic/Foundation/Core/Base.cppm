@@ -1,4 +1,4 @@
-// Draconic Core - :base partition
+// Core - :base partition
 //
 // The foundation: fundamental exported types, widely-used utilities, and the
 // project-wide error vocabulary (Status / Result). Lives at the Core root.

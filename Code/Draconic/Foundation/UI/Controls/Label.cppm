@@ -1,4 +1,4 @@
-// Draconic UI - :label partition
+// UI - :label partition
 //
 // Text display view with alignment, word wrap, and ellipsis. Ported from Sedulous.UI/src/Controls/
 // Label.bf. Now that the Fonts service is wired into UIContext (Context->FontService()) and VG has

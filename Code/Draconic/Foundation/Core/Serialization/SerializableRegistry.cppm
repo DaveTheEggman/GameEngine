@@ -1,4 +1,4 @@
-// Draconic Core - :serializable_registry partition
+// Core - :serializable_registry partition
 //
 // SerializableRegistry: maps a reflected TypeId to a factory that default-builds
 // the concrete ISerializable. The polymorphic load path (content database) reads

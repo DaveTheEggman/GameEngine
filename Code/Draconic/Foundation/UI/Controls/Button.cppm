@@ -1,4 +1,4 @@
-// Draconic UI - :button partition
+// UI - :button partition
 //
 // Text button (the most common button type). Ported from Sedulous.UI/src/Controls/Button.bf. Text
 // measuring/drawing is LIVE now that the Fonts service is wired (font-size height fallback for the

@@ -1,4 +1,4 @@
-// Draconic GUI - Rect tests. Derived from eepp Rectf behavior (Left/Top/Right/Bottom,
+// GUI - Rect tests. Derived from eepp Rectf behavior (Left/Top/Right/Bottom,
 // contains/intersect), adapted to the x/y/w/h storage.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

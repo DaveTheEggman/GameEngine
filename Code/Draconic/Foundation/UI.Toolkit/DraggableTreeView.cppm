@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :draggable_tree_view partition
+// UI Toolkit - :draggable_tree_view partition
 //
 // A TreeView with drag-to-reorder support. Ported from Sedulous.UI.Toolkit/src/DraggableTreeView.bf.
 // Three public types in one partition (mirroring the Beef file): IReorderableTreeAdapter (extends

@@ -1,4 +1,4 @@
-// Draconic UI - :iclipboard partition
+// UI - :iclipboard partition
 //
 // IClipboard: clipboard operations, defined in the UI layer to avoid a shell dependency
 // (the core stays platform-agnostic). The app / ui.shell bridge supplies an adapter that

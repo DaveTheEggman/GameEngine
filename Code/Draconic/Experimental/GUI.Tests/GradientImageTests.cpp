@@ -1,4 +1,4 @@
-// Draconic GUI - gradient + image/nine-slice drawable tests. Metadata + GPU-free geometry
+// GUI - gradient + image/nine-slice drawable tests. Metadata + GPU-free geometry
 // checks (VGContext tessellates into a CPU vertex batch).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

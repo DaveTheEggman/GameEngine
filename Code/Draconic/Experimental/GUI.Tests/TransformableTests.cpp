@@ -1,4 +1,4 @@
-// Draconic GUI - Transformable tests. Derived from eepp Transformable behavior
+// GUI - Transformable tests. Derived from eepp Transformable behavior
 // (position/rotation/scale composed into a lazily-cached transform).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

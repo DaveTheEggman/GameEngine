@@ -1,4 +1,4 @@
-// Draconic UI - :grid_view partition
+// UI - :grid_view partition
 //
 // Virtualized flowing grid with fixed cell size: items flow left-to-right, wrapping to new rows; only
 // creates/binds views for visible rows. Ported from Sedulous.UI/src/Controls/GridView.bf. Same ownership

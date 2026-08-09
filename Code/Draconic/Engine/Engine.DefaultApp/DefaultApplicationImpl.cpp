@@ -1,4 +1,4 @@
-// Draconic Runtime - engine.defaultapp implementation unit.
+// Runtime - engine.defaultapp implementation unit.
 //
 // Out-of-line definitions for DefaultApplication's member functions (sec 3.2 / sec 10.6).
 // The class declaration + trivial inline accessors stay in DefaultApplication.cppm.

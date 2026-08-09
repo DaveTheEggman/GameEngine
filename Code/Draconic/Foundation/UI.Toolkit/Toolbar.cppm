@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :toolbar partition
+// UI Toolkit - :toolbar partition
 //
 // Horizontal toolbar container + its item family (ToolbarItem / ToolbarSeparator / ToolbarButton /
 // ToolbarToggle). Ported from Sedulous.UI.Toolkit/src/Toolbar.bf. All five classes live in one partition

@@ -1,4 +1,4 @@
-// Draconic Core - :serializer partition
+// Core - :serializer partition
 //
 // Serializer: the concrete base over ISerializer that holds the mode, version,
 // and a sticky error Status. Backends (e.g. BinarySerializer) extend this.

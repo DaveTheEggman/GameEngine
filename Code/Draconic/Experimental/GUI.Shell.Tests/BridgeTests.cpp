@@ -1,4 +1,4 @@
-// Draconic GUI - GuiInputBridge tests: translate synthetic platform InputEvents into
+// GUI - GuiInputBridge tests: translate synthetic platform InputEvents into
 // EventDispatcher injections (hover/click/key/text), map enums, and apply a ContentFit.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

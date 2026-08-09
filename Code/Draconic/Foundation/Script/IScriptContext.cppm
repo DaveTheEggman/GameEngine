@@ -1,4 +1,4 @@
-// Draconic Script - :script_context partition
+// Script - :script_context partition
 //
 // IScriptContext: an isolated script execution environment. Everything crossing
 // the boundary uses Core's reflection currency - Variant for values/objects,

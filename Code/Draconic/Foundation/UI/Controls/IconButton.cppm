@@ -1,4 +1,4 @@
-// Draconic UI - :icon_button partition
+// UI - :icon_button partition
 //
 // A small clickable button that draws an SVG icon centered over the themed button background, at a
 // fixed square size. For toolbars, list-row actions (add / remove / reorder), and any icon-only

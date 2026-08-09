@@ -1,4 +1,4 @@
-// Draconic UI - :theme_atlas partition
+// UI - :theme_atlas partition
 //
 // Builds a packed image atlas for theme drawables. Wraps ImageAtlasBuilder and creates
 // AtlasImageDrawable/AtlasNineSliceDrawable from packed regions. Single atlas texture = zero

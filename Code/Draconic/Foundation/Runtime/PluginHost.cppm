@@ -1,4 +1,4 @@
-// Draconic Runtime - :pluginhost partition
+// Runtime - :pluginhost partition
 //
 // PluginHost: owns the set of loaded plugins and their backing shared libraries
 // and drives the load/unload contract against a Context. Statically-created

@@ -1,6 +1,6 @@
-// Draconic GUI - :progress_bar partition
+// GUI - :progress_bar partition
 //
-// ProgressBar: a display-only [0,1] fill bar (track + fill). A lean Draconic-native control
+// ProgressBar: a display-only [0,1] fill bar (track + fill). A lean native control
 // modeled on eepp's UIProgressBar (role only). No interaction; drive it with SetProgress.
 
 module;

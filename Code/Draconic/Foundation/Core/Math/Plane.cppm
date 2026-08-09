@@ -1,4 +1,4 @@
-// Draconic Core - :plane partition
+// Core - :plane partition
 //
 // Plane: normal·p + d = 0, with signed-distance and normalization.
 

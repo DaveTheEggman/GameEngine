@@ -1,4 +1,4 @@
-// Draconic GUI - :rectangle_drawable partition
+// GUI - :rectangle_drawable partition
 //
 // RectangleDrawable: solid-color fill, sharp or rounded. The widget background primitive.
 // Derived from eepp's RectangleDrawable / UIBackgroundDrawable (which hand-tessellate a

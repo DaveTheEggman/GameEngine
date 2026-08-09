@@ -1,4 +1,4 @@
-// Draconic Scene - foundation.scene:scene implementation unit.
+// Scene - foundation.scene:scene implementation unit.
 //
 // Out-of-line definitions for Scene's non-trivial member functions (sec 3.2 / sec 10.6).
 // The class declaration + trivial inline accessors stay in Scene.cppm; the substantial

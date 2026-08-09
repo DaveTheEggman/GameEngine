@@ -96,7 +96,7 @@ export namespace editor::app
                 header->Direction = ui::Orientation::Horizontal;
                 header->Spacing = 12;
                 auto title = MakeRef<ui::Label>(DefaultAllocator());
-                title->SetText(u8"Draconic Editor");
+                title->SetText(u8"Editor");
                 title->FontSize.SetValue(24.0f);
                 header->AddView(title.Get());
                 auto version = MakeRef<ui::Label>(DefaultAllocator());

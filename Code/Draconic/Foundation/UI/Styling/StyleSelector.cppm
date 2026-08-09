@@ -1,4 +1,4 @@
-// Draconic UI - :style_selector partition
+// UI - :style_selector partition
 //
 // Matches views by type, style class(es), control state, and optional pseudo-element name.
 // Specificity: class=10, type=1, state=1, pseudo=1. Ported from Sedulous.UI/src/Styling/StyleSelector.bf.

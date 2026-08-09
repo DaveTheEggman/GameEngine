@@ -1,4 +1,4 @@
-// Draconic UI - :itree_adapter partition
+// UI - :itree_adapter partition
 //
 // Tree-shaped data source contract (+ its observer). Ported from Sedulous.UI/src/Data/ITreeAdapter.bf.
 // FlattenedTreeAdapter wraps an ITreeAdapter to present it as an IListAdapter for ListView-based

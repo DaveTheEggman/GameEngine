@@ -1,9 +1,9 @@
-// Draconic UI - :svg_drawable partition
+// UI - :svg_drawable partition
 //
 // Renders SVG content via VGContext path operations (resolution-independent; ideal for icons).
 // Thin wrapper around SVGRenderer. Ported from Sedulous.UI/src/Drawing/SVGDrawable.bf.
 //
-// Divergence (language): Draconic SVGLoader::Load returns Result<SVGDocument> (by value), so the
+// Divergence (language): Our SVGLoader::Load returns Result<SVGDocument> (by value), so the
 // document is held BY VALUE (m_document), not a heap pointer + ~delete. FromString returns a
 // RefPtr<SVGDrawable> (empty on parse failure) instead of a raw pointer/null.
 

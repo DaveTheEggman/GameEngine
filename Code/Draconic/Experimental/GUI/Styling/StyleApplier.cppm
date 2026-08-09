@@ -1,4 +1,4 @@
-// Draconic GUI - :style_applier partition
+// GUI - :style_applier partition
 //
 // ApplyStyle: writes a ResolvedStyle's known declarations onto a node's properties - the
 // bridge from CSS strings to the widget setters built in earlier phases. This is the small,

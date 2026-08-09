@@ -1,4 +1,4 @@
-// Draconic UI - :animation_manager partition
+// UI - :animation_manager partition
 //
 // Manages active animations. Owned by UIContext (a by-value member) and ticked each frame. Owns its
 // animations (Beef `List<Animation> ~ DeleteContainerAndItems` -> Array<UniquePtr<Animation>>; RAII, no

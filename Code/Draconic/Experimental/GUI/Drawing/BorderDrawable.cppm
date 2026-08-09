@@ -1,4 +1,4 @@
-// Draconic GUI - :border_drawable partition
+// GUI - :border_drawable partition
 //
 // BorderDrawable: a stroked (optionally rounded) rectangle border. Derived from eepp's
 // UIBorderDrawable, which supports per-side colors/widths + per-corner radii via a

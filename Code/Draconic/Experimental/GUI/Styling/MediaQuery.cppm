@@ -1,4 +1,4 @@
-// Draconic GUI - :media_query partition
+// GUI - :media_query partition
 //
 // MediaQuery + MediaContext: `@media` condition evaluation. Ported from eepp's css/MediaQuery
 // (common subset): width/height feature tests (min-/max-/exact) combined with `and`. A rule

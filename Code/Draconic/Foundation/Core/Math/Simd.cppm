@@ -1,4 +1,4 @@
-// Draconic Core - :simd partition
+// Core - :simd partition
 //
 // f32x4: a 4-lane float SIMD register abstraction, the substrate for the aligned Vector*/Matrix4
 // compute types (:simd_vector, :simd_matrix). SSE2 backend on x86/x64, scalar fallback elsewhere

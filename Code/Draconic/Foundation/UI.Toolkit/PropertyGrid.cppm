@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :property_grid partition
+// UI Toolkit - :property_grid partition
 //
 // Property inspector grid: a ScrollView of PropertyEditors grouped by category into Expanders, each shown
 // as a label + editor row (an EditableLabel when the editor has OnLabelRenamed set). Ported from

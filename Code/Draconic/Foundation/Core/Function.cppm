@@ -1,4 +1,4 @@
-// Draconic Core - :function partition
+// Core - :function partition
 //
 // Function<R(Args...)>: a move-only, type-erased callable (the engine's delegate
 // type). Holds a function pointer, a lambda (with captures), or any callable.

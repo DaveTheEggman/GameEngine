@@ -1,4 +1,4 @@
-// Draconic GUI - :list_box partition
+// GUI - :list_box partition
 //
 // ListBox: a scrollable, single-selection list of text items. Modeled on eepp's UIListBox
 // (role only). Built by composition on the existing pieces: it hosts a ScrollView whose

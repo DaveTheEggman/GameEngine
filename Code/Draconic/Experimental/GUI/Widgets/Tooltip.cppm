@@ -1,4 +1,4 @@
-// Draconic GUI - :tooltip partition
+// GUI - :tooltip partition
 //
 // Tooltip: a small text panel shown after the pointer rests on a widget for a delay. Modeled
 // on eepp's tooltip behavior (role only). The Tooltip is the visual (a bordered label panel);

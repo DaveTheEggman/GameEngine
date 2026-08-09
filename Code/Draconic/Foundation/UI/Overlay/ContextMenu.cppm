@@ -1,4 +1,4 @@
-// Draconic UI - :context_menu partition
+// UI - :context_menu partition
 //
 // Popup context menu with themed items, submenus, separators, and full keyboard navigation. Shown via
 // PopupLayer. Ported from Sedulous.UI/src/Overlay/ContextMenu.bf + MenuItem.bf. MenuItem + ContextMenu

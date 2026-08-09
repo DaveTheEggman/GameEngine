@@ -1,4 +1,4 @@
-// Draconic UI - module implementation unit for the Input managers.
+// UI - module implementation unit for the Input managers.
 //
 // Holds the View-touching bodies of FocusManager / InputManager / ShortcutManager and View's
 // manager-querying methods (IsHovered/IsFocused/IsFocusWithin). These call across the whole View

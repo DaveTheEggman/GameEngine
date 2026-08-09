@@ -1,4 +1,4 @@
-// Draconic UI - :itooltip_provider partition
+// UI - :itooltip_provider partition
 //
 // Implement on a View to provide custom tooltip content instead of plain text. TooltipManager checks
 // for this interface first (via View::AsTooltipProvider()); if absent, falls back to View.TooltipText.

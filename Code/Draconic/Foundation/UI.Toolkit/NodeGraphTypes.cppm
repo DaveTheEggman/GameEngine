@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :node_graph_types partition
+// UI Toolkit - :node_graph_types partition
 //
 // Plain data types describing a node graph: ports (typed, colored), nodes (title / position / ports),
 // and connections between ports. Model-agnostic - the NodeGraphCanvas renders these and callers push

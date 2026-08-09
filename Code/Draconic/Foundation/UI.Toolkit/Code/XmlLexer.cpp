@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - XmlLexer implementation (declared in :code_lexer).
+// UI Toolkit - XmlLexer implementation (declared in :code_lexer).
 //
 // Stateful markup lexer: tags, attributes, quoted values, comments, CDATA, and <?...?>
 // declarations, all spanning lines via the mode carried in the line state. Text content

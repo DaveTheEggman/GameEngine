@@ -1,4 +1,4 @@
-// Draconic Core - :variant partition
+// Core - :variant partition
 //
 // Variant  - an owned, type-erased value (small-buffer optimized) used for
 //            property values, method args/returns. Two modes:

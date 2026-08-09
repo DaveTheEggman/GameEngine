@@ -1,4 +1,4 @@
-// Draconic GUI - EventDispatcher tests: hover enter/leave, click, focus (click + program-
+// GUI - EventDispatcher tests: hover enter/leave, click, focus (click + program-
 // matic), key/text routing to the focus node, and interaction-ref cleanup. Input is
 // injected as abstract events (the shell bridge's job), hit-tested via the tree's OverFind.
 #include <doctest/doctest.h>

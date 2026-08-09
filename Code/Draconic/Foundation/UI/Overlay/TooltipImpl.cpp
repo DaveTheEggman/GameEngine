@@ -1,4 +1,4 @@
-// Draconic UI - module implementation unit for TooltipManager.
+// UI - module implementation unit for TooltipManager.
 //
 // Holds the View-touching bodies of TooltipManager (it reaches across the whole View cluster: UIContext,
 // RootView, PopupLayer, TooltipView, ITooltipProvider, Label). Like InputImpl.cpp / UIClusterImpl.cpp it

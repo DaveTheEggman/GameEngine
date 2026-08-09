@@ -1,4 +1,4 @@
-// Draconic UI - module implementation unit for UIDebugOverlay::DrawOverlays.
+// UI - module implementation unit for UIDebugOverlay::DrawOverlays.
 //
 // Holds the body (it reaches into the full View/ViewGroup cluster: Cast<ViewGroup>, view.Width()/
 // IsHovered()/IsFocused()/LayoutParams), so :ui_debug_overlay stays a thin declaration :view can call.

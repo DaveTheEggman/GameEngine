@@ -1,4 +1,4 @@
-// Draconic GUI - module implementation unit for experimental.gui.
+// GUI - module implementation unit for experimental.gui.
 //
 // Holds Node method bodies that call into the EventDispatcher. They cannot be inline in
 // the :node interface partition without making it import :event_dispatcher, which imports

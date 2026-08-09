@@ -1,4 +1,4 @@
-// Draconic UI - :textured_theme partition
+// UI - :textured_theme partition
 //
 // Creates a fully image-skinned StyleSheet from a ThemeImageSet. All provided images are packed into a
 // single atlas for optimal GPU batching (zero texture switches during UI rendering). Ported from

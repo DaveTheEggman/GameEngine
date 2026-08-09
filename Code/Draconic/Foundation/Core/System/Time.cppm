@@ -1,4 +1,4 @@
-// Draconic Core - :time partition
+// Core - :time partition
 //
 // Unit-safe time types built on the platform tick counter (:system). Callers work
 // with Duration / TimePoint / Stopwatch instead of juggling raw ticks + frequency:

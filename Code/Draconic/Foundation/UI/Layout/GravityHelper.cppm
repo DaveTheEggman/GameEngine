@@ -1,4 +1,4 @@
-// Draconic UI - :gravity_helper partition
+// UI - :gravity_helper partition
 //
 // Applies Gravity flags to position a child within a container. Ported from
 // Sedulous.UI/src/Layout/GravityHelper.bf (Beef static class -> struct with a static method).

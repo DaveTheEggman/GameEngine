@@ -1,4 +1,4 @@
-// Draconic UI - :popup_positioner partition
+// UI - :popup_positioner partition
 //
 // Static positioning helpers for popups, tooltips, and menus - pure calculations, no state. Ported from
 // Sedulous.UI/src/Overlay/PopupPositioner.bf. Beef `static class` -> a struct of static methods; the

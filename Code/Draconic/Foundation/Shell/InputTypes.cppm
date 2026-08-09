@@ -2,8 +2,7 @@
 //
 // Input-related enums and POD structs: keyboard codes/modifiers, mouse buttons
 // and cursor types, gamepad buttons/axes, and touch points. Backend-neutral;
-// the SDL3 backend maps native codes onto these. Ported from Draconic (itself a
-// Sedulous port).
+// the SDL3 backend maps native codes onto these.
 
 module;
 #include "Core/Prelude.h"

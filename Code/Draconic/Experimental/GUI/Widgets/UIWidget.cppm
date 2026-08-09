@@ -1,4 +1,4 @@
-// Draconic GUI - :ui_widget partition
+// GUI - :ui_widget partition
 //
 // UIWidget: a UINode with the CSS identity + layout inputs the styling engine matches on.
 // Ported from eepp's UI::UIWidget - element tag, id, and style classes (the selector

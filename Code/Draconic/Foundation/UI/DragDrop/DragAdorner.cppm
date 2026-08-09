@@ -1,4 +1,4 @@
-// Draconic UI - :drag_adorner partition
+// UI - :drag_adorner partition
 //
 // Visual overlay shown during a drag operation. Wraps a user-provided visual or shows a default
 // indicator. Shown via PopupLayer; the entire subtree is invisible to hit testing (IsInteractionEnabled
@@ -59,7 +59,7 @@ export namespace foundation::ui
         {
             if (ChildCount() > 0)
             {
-                // Equivalent of Sedulous ViewGroup.OnMeasure (max-of-children): the Draconic ViewGroup
+                // Equivalent of Sedulous ViewGroup.OnMeasure (max-of-children): our ViewGroup
                 // does not port that default (all concrete containers override), so replicate it here.
                 const BoxConstraints inner = constraints.Deflate(Padding);
                 f32 maxW = 0, maxH = 0;

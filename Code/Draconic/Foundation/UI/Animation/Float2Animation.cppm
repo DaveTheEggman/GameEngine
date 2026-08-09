@@ -1,7 +1,7 @@
-// Draconic UI - :float2_animation partition
+// UI - :float2_animation partition
 //
 // Animates a Float2 value from a start to an end via a setter delegate. Ported from
-// Sedulous.UI/src/Animation/Vector2Animation.bf (Sedulous Vector2 -> Draconic Float2, matching the
+// Sedulous.UI/src/Animation/Vector2Animation.bf (Sedulous Vector2 -> Our Float2, matching the
 // port-wide UI math point). Owned delegate -> Function<void(Float2)>.
 
 module;

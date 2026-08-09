@@ -1,4 +1,4 @@
-// Draconic UI - :animation partition
+// UI - :animation partition
 //
 // Abstract base class for all property animations: manages elapsed time, easing, delay, repeat, and
 // auto-reverse. Ported from Sedulous.UI/src/Animation/Animation.bf. Animations are single-owner (Beef

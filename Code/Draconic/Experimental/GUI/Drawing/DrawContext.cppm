@@ -1,4 +1,4 @@
-// Draconic GUI - :draw_context partition
+// GUI - :draw_context partition
 //
 // DrawContext: the renderer seam eepp's UI lacked. eepp widgets/drawables draw straight
 // through global Primitives / GlobalBatchRenderer / GLi; here every draw call routes

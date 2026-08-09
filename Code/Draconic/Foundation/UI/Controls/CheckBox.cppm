@@ -1,4 +1,4 @@
-// Draconic UI - :checkbox partition
+// UI - :checkbox partition
 //
 // Toggle checkbox with a text label. Ported from Sedulous.UI/src/Controls/CheckBox.bf (a View, not a
 // ToggleButton). Box chrome (part drawable or fallback rounded rect + checkmark) and the text label are

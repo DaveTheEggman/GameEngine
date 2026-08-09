@@ -1,4 +1,4 @@
-// Draconic UI - :sss_token partition
+// UI - :sss_token partition
 //
 // Token kinds and the Token record produced by the .sss Tokenizer. Ported from
 // Sedulous.UI/src/Styling/Parser/Token.bf.

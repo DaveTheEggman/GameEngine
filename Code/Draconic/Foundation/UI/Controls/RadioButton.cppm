@@ -1,4 +1,4 @@
-// Draconic UI - :radio_button partition
+// UI - :radio_button partition
 //
 // Radio button (cannot be unchecked by click; use RadioGroup for mutual exclusion). Ported from
 // Sedulous.UI/src/Controls/RadioButton.bf (a View). Circle chrome (part drawable or fallback) + text

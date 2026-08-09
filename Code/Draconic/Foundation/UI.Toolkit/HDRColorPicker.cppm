@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :hdr_color_picker partition
+// UI Toolkit - :hdr_color_picker partition
 //
 // Interactive HDR-allowed color picker. Mirrors ColorPicker's SV square + hue strip + alpha strip, but the
 // widgets drive a normalized [0,1] LDR color while a separate intensity multiplier scales RGB into HDR.

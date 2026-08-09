@@ -1,4 +1,4 @@
-// Draconic Core - :float2 partition
+// Core - :float2 partition
 //
 // Float2: 2D f32 vector - arithmetic, Dot/Length/Normalized, component
 // constants. Built on the :math scalar functions.

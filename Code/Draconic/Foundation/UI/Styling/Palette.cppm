@@ -1,4 +1,4 @@
-// Draconic UI - :palette partition
+// UI - :palette partition
 //
 // Generates derived colors (hover/pressed/disabled/focused) from seed colors, and builds
 // StateListDrawables from them. Ported from Sedulous.UI/src/Styling/Palette.bf. Static class ->

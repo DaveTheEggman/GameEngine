@@ -2822,7 +2822,7 @@ namespace editor::app
                           [this]()
                           {
                               m_context.SetStatus(
-                                  u8"Draconic Editor - phase 1 shell (docs/design/editor.md)");
+                                  u8"Editor - phase 1 shell (docs/design/editor.md)");
                           });
         }
     }

@@ -1,4 +1,4 @@
-// Draconic UI - :spacer partition
+// UI - :spacer partition
 //
 // Empty view for explicit spacing. Ported from Sedulous.UI/src/Controls/Spacer.bf.
 module;

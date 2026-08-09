@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :vector_fields partition
+// UI Toolkit - :vector_fields partition
 //
 // Standalone multi-component numeric fields for editing Float2/Float3/Float4/Quaternion outside the
 // PropertyGrid framework. Each is a horizontal FlexLayout of one NumericField per component with the same

@@ -1,4 +1,4 @@
-// Draconic UI - :dark_theme partition
+// UI - :dark_theme partition
 //
 // Factory building the default dark theme as a StyleSheet (all visual regions use Drawable properties;
 // ColorDrawable for the flat theme). Ported from Sedulous.UI/src/Styling/DarkTheme.bf. Beef `static class`

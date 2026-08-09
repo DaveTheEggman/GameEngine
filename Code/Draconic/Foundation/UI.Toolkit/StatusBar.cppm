@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :status_bar partition
+// UI Toolkit - :status_bar partition
 //
 // Bottom status strip with text sections. Ported from Sedulous.UI.Toolkit/src/StatusBar.bf (a FlexLayout
 // subclass). Beef raw-owned `mDefaultLabel` (new Label) -> a borrowed raw Label* (the flex child tree owns

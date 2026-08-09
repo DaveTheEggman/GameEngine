@@ -1,4 +1,4 @@
-// Draconic GUI - `experimental.gui.vfs`: an IResourceProvider backed by a VFS filesystem.
+// GUI - `experimental.gui.vfs`: an IResourceProvider backed by a VFS filesystem.
 //
 // The concrete image loader for the GUI's CSS resource seam: background-image: url(path) resolves
 // through this. Kept in a SEPARATE module (like experimental.gui.shell, and mirroring

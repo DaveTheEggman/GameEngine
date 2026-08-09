@@ -1,4 +1,4 @@
-// Draconic UI - :color_view partition
+// UI - :color_view partition
 //
 // Solid color swatch view. Ported from Sedulous.UI/src/Controls/ColorView.bf.
 // (The `Color` property shadows the Color type, so the type is fully qualified.)

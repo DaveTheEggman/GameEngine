@@ -1,4 +1,4 @@
-// Draconic GUI - :action partition
+// GUI - :action partition
 //
 // Action + ActionInterpolation: the animation/tween base. Ported from eepp's Scene::Action
 // (include/eepp/scene/action.hpp) - abstract lifecycle (Start/Stop/Update/IsDone) driven by

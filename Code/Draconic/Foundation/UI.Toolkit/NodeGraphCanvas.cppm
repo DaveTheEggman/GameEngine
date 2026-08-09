@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :node_graph_canvas partition
+// UI Toolkit - :node_graph_canvas partition
 //
 // Model-agnostic interactive node graph canvas. Renders nodes with typed ports and bezier connections.
 // Supports pan/zoom, selection, node dragging, drag-to-connect (with detach-and-reroute), box-select,

@@ -1,4 +1,4 @@
-// Draconic GUI - :grid_layout partition
+// GUI - :grid_layout partition
 //
 // GridLayout: flows its children into a fixed number of columns, wrapping to a new row when
 // a row fills. Columns are evenly spaced across the padding-inset content width; each row is

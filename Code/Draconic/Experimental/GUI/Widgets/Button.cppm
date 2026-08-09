@@ -1,4 +1,4 @@
-// Draconic GUI - :button partition
+// GUI - :button partition
 //
 // Button: a clickable Label. A lean Draconic-native control modeled on eepp's UIPushButton
 // (role only, NOT a line-for-line port: eepp's is ~900 LOC composing a child UIImage icon +

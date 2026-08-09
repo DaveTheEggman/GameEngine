@@ -1,4 +1,4 @@
-// Draconic GUI - :event_dispatcher partition
+// GUI - :event_dispatcher partition
 //
 // EventDispatcher: routes abstract input into the node tree. Ported from eepp's
 // Scene::EventDispatcher, but the core is platform-agnostic: instead of hooking a window's

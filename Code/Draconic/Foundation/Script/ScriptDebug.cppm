@@ -1,4 +1,4 @@
-// Draconic Script - :script_debug partition
+// Script - :script_debug partition
 //
 // COMMITTED SEAMS (not yet implemented on any backend): the neutral interfaces for a
 // step debugger, a VM profiler, and a cook-to-bytecode blob. Each backend declares the

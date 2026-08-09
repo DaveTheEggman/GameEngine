@@ -556,7 +556,7 @@ namespace
             m_scene->SetLocalTransform(e, t);
         }
 
-        // Import the Draconic logo PNG through the asset pipeline (TextureImporter -> cook into the content
+        // Import the logo PNG through the asset pipeline (TextureImporter -> cook into the content
         // DB -> Bind the runtime Texture) and return its GPU view. The Proxy is stored to keep it alive.
         [[nodiscard]] rhi::TextureView* LoadLogoTexture()
         {

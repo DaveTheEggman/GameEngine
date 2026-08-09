@@ -1,6 +1,6 @@
-// Draconic UI - primary module interface unit for `foundation.ui`.
+// UI - primary module interface unit for `foundation.ui`.
 //
-// The retained-mode UI framework, a faithful port of Sedulous.UI onto the Draconic
+// The retained-mode UI framework, a faithful port of Sedulous.UI onto the our
 // VG/Fonts stack. Platform-agnostic: the core knows nothing about the shell/input -
 // a separate foundation.ui.shell bridge feeds its abstract input/clipboard seams.
 //

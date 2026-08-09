@@ -1,4 +1,4 @@
-// Draconic GUI - CheckBox tests: toggle on click, programmatic set, change callback, and
+// GUI - CheckBox tests: toggle on click, programmatic set, change callback, and
 // tag for CSS.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

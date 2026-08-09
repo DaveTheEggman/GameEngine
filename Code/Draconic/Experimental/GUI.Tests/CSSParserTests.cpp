@@ -1,4 +1,4 @@
-// Draconic GUI - CSSParser tests: parse .css text into a StyleSheet (comments, selector
+// GUI - CSSParser tests: parse .css text into a StyleSheet (comments, selector
 // lists, declaration blocks), then resolve end-to-end against a UIWidget.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

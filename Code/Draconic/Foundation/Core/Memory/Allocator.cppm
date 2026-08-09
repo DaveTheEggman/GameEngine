@@ -1,4 +1,4 @@
-// Draconic Core - :allocator partition (foundation)
+// Core - :allocator partition (foundation)
 //
 // The allocator vocabulary every consumer needs: alignment / raw-memory
 // helpers, Construct/Destruct, the IAllocator interface, the default

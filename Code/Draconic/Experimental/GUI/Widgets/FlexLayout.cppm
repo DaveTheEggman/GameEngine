@@ -1,4 +1,4 @@
-// Draconic GUI - :flex_layout partition
+// GUI - :flex_layout partition
 //
 // FlexLayout: a CSS-flexbox-style layout. Modeled on the CSS flex model (role, not a port). It
 // lays its children along a main axis (row or column) with:

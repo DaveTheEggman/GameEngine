@@ -1,4 +1,4 @@
-// Draconic GUI - :css_values partition
+// GUI - :css_values partition
 //
 // CSS value parsers: turn declaration value strings into typed values (color / length /
 // bool / thickness). Ported from eepp's css value parsing (common subset). Number parsing

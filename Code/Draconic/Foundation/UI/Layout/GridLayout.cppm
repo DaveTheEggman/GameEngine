@@ -1,4 +1,4 @@
-// Draconic UI - :grid_layout partition
+// UI - :grid_layout partition
 //
 // Row/column grid with Auto/Fixed/Flex track sizing and auto-flow placement. Ported from
 // Sedulous.UI/src/Layout/GridLayout.bf. (Beef nested LayoutParams -> GridLayoutParams; scope float[]

@@ -1,4 +1,4 @@
-// Draconic GUI - :table_model partition
+// GUI - :table_model partition
 //
 // TableModel: a concrete multi-column Model - named columns and a grid of Variant cells.
 // Modeled on eepp's item/table models (role only). Backs a TableView; each cell can be any

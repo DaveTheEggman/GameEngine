@@ -1,4 +1,4 @@
-// Draconic GUI - :slider partition
+// GUI - :slider partition
 //
 // Slider: a draggable value in [0,1]. A lean Draconic-native control modeled on eepp's
 // UISlider (role only). Pressing/dragging sets the value from the cursor x; because the

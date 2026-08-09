@@ -1,4 +1,4 @@
-// Draconic UI - :dock_layout partition
+// UI - :dock_layout partition
 //
 // Docks children to edges (Left/Top/Right/Bottom/Fill); each docked child claims space from its edge,
 // shrinking the remaining area for subsequent children. Ported from Sedulous.UI/src/Layout/DockLayout.bf.

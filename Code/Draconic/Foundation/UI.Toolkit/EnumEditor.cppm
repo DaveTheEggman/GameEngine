@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :enum_editor partition
+// UI Toolkit - :enum_editor partition
 //
 // Property editor for enumeration values - a ComboBox with string items. Instant edit (BeginEdit + change +
 // EndEdit per selection). Ported from Sedulous.UI.Toolkit/src/PropertyGrid/EnumEditor.bf. Beef `int32` ->

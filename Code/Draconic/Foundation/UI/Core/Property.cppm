@@ -1,4 +1,4 @@
-// Draconic UI - :property partition
+// UI - :property partition
 //
 // Property<T>: observable value wrapper with change notification + owner invalidation.
 // Ported from Sedulous.UI/src/Core/Property.bf.

@@ -1,4 +1,4 @@
-// Draconic Core - :string partition
+// Core - :string partition
 //
 // String types. `String` is the primary type (UTF-8 / char8_t);
 // `WideString` is the secondary UTF-16 type (Win32 edge). Both are aliases of one
@@ -643,7 +643,7 @@ export namespace foundation::core
         return result;
     }
     // =======================================================================
-    // UTF-8 codepoint iteration & encoding. Draconic String is UTF-8, and text
+    // UTF-8 codepoint iteration & encoding. String is UTF-8, and text
     // editing / shaping walks Unicode codepoints (char32_t). Mirrors Beef's
     // `StringView.DecodedChars` iteration. Invalid/truncated sequences decode to
     // U+FFFD (consuming one byte).

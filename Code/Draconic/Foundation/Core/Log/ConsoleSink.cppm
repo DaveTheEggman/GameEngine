@@ -1,4 +1,4 @@
-// Draconic Core - :console_sink partition
+// Core - :console_sink partition
 //
 // ConsoleSink: writes formatted lines to stdout (stderr for Error/Fatal).
 

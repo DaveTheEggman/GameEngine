@@ -1,4 +1,4 @@
-// Draconic Core - :type_registry partition
+// Core - :type_registry partition
 //
 // Explicit type registration; lookup by id or qualified name.
 

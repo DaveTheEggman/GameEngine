@@ -1,4 +1,4 @@
-// Draconic UI - :light_theme partition
+// UI - :light_theme partition
 //
 // Factory building a light theme as a StyleSheet (flat ColorDrawable regions + tinted SVG icons). Ported
 // from Sedulous.UI/src/Styling/LightTheme.bf - structurally identical to DarkTheme.cppm with different

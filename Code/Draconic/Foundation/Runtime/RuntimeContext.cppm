@@ -1,8 +1,8 @@
-// Draconic Runtime - :context partition
+// Runtime - :context partition
 //
 // Context: owns the engine's subsystems, looks them up by type, and drives
 // their lifecycle and per-frame phases in UpdateOrder. Type identity uses the
-// reflection TypeOf<T>() (Draconic has -fno-rtti, so no std::type_index).
+// reflection TypeOf<T>() (We have -fno-rtti, so no std::type_index).
 
 module;
 #include "Core/Prelude.h"

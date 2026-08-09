@@ -1,4 +1,4 @@
-// Draconic Core - :content_fit partition
+// Core - :content_fit partition
 //
 // ContentFit: how a content box (of `contentSize`) is placed inside an outer `region`
 // through a FitMode, and the maps between REGION-space and content-space. Pure geometry

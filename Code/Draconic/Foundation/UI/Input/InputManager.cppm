@@ -1,4 +1,4 @@
-// Draconic UI - :input_manager partition
+// UI - :input_manager partition
 //
 // Routes input events to views (hover/pressed/capture tracked by ViewId), with three-phase
 // capture->target->bubble dispatch and pooled event args. Ported from Sedulous.UI/src/Input/InputManager.bf.

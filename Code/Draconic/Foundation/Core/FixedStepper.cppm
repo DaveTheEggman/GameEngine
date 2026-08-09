@@ -1,4 +1,4 @@
-// Draconic Core - :fixed_stepper partition.
+// Core - :fixed_stepper partition.
 //
 // FixedStepper: the fixed-timestep accumulator (pure, no clock - callers feed dt).
 // Advance() drains whole steps from the accumulator, clamped to maxSteps per call

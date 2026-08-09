@@ -1,4 +1,4 @@
-// Draconic GUI - :resource_provider partition
+// GUI - :resource_provider partition
 //
 // IResourceProvider: the seam the CSS engine uses to load image assets referenced by
 // background-image: url(path). Aligned with Sedulous.UI / foundation.ui's IResourceProvider - it

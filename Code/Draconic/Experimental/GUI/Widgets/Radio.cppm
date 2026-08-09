@@ -1,4 +1,4 @@
-// Draconic GUI - :radio partition
+// GUI - :radio partition
 //
 // RadioButton + RadioGroup: a mutually-exclusive selection. Modeled on eepp's UIRadioButton
 // (role only). A RadioButton is like a CheckBox but circular and one-way: clicking selects it,

@@ -1,4 +1,4 @@
-// Draconic GUI - FlexLayout tests: main-axis distribution (justify-content + flex-grow), cross-
+// GUI - FlexLayout tests: main-axis distribution (justify-content + flex-grow), cross-
 // axis alignment (align-items), gap, and row/column direction.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

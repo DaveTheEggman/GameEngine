@@ -1,4 +1,4 @@
-// Draconic UI Toolkit - :int_editor partition
+// UI Toolkit - :int_editor partition
 //
 // Integer property editor - a NumericField with 0 decimal places and focus-based edit transactions. Ported
 // from Sedulous.UI.Toolkit/src/PropertyGrid/IntEditor.bf. Beef `int64` -> i64; `delegate void(int64)

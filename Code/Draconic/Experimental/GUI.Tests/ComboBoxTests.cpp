@@ -1,4 +1,4 @@
-// Draconic GUI - ComboBox tests: item management, opening/closing the dropdown popup, picking
+// GUI - ComboBox tests: item management, opening/closing the dropdown popup, picking
 // an item through the dropdown, and dismissal (outside click / Escape) via the dispatcher's
 // popup support.
 #include <doctest/doctest.h>
