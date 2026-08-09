@@ -52,7 +52,7 @@ export namespace foundation::ui
     /// LayoutParams for a GridLayout child (row/column placement + spans).
     class GridLayoutParams : public LayoutParams
     {
-        DRACONIC_OBJECT(GridLayoutParams, LayoutParams)
+        RTTI_OBJECT(GridLayoutParams, LayoutParams)
     public:
         i32 Row = -1;    ///< -1 = auto-flow.
         i32 Column = -1; ///< -1 = auto-flow.
@@ -63,7 +63,7 @@ export namespace foundation::ui
 
     class GridLayout : public ViewGroup
     {
-        DRACONIC_OBJECT(GridLayout, ViewGroup)
+        RTTI_OBJECT(GridLayout, ViewGroup)
     public:
         Array<TrackSize> Columns;
         Array<TrackSize> Rows;
@@ -339,6 +339,6 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(GridLayoutParams, "rtti::ui")
-    DRACONIC_DEFINE_OBJECT(GridLayout, "rtti::ui")
+    RTTI_DEFINE_OBJECT(GridLayoutParams, "rtti::ui")
+    RTTI_DEFINE_OBJECT(GridLayout, "rtti::ui")
 }

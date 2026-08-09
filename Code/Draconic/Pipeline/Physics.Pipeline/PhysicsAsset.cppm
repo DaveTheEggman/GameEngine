@@ -39,7 +39,7 @@ export namespace pipeline{
     // Source asset: which mesh to cook + how.
     class CollisionShapeAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(CollisionShapeAsset, pipeline::Asset)
+        RTTI_OBJECT(CollisionShapeAsset, pipeline::Asset)
     public:
         Guid sourceMesh; // StaticMeshAsset guid
         CollisionCookKind cook = CollisionCookKind::ConvexHull;
@@ -92,7 +92,7 @@ export namespace pipeline{
             foundation::content::Instance* meshInstance = ctx.db->GetInstance(ca.sourceMesh);
             if (meshInstance == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"Physics", u8"collision shape: source mesh not found in db");
+                LOG_ERROR(u8"Physics", u8"collision shape: source mesh not found in db");
                 return Status{ErrorCode::NotFound};
             }
             RefPtr<ISerializable> object = meshInstance->ReadObject();
@@ -120,7 +120,7 @@ export namespace pipeline{
                     // itself did not deserialize (stale on-disk schema is the usual cause - the same
                     // "failed to deserialize" the cook logs for other assets). The collision is a
                     // downstream victim, not the source of the break.
-                    DRACONIC_LOG_ERROR(
+                    LOG_ERROR(
                         u8"Physics",
                         u8"collision cook: source mesh '{}' [{}] ({}) did not deserialize - stale "
                         u8"schema? delete + re-import the model, then it recooks fresh",
@@ -132,7 +132,7 @@ export namespace pipeline{
                     // Resolved to a real object that is neither a mesh product nor a mesh asset: the
                     // sourceMesh guid points at the wrong instance (e.g. a skinned mesh, which has
                     // no collision) or an import-wiring bug.
-                    DRACONIC_LOG_ERROR(
+                    LOG_ERROR(
                         u8"Physics",
                         u8"collision cook: source '{}' [{}] ({}) is neither a mesh product nor a "
                         u8"mesh asset - skinned meshes have no collision; re-import to regenerate",
@@ -160,7 +160,7 @@ export namespace pipeline{
             const usize vertexCount = mesh.vertexBlob.Size() / stride;
             if (vertexCount == 0)
             {
-                DRACONIC_LOG_ERROR(
+                LOG_ERROR(
                     u8"Physics",
                     u8"collision cook: source mesh has no vertices (nothing to cook a shape from)");
                 return Status{ErrorCode::InvalidArgument};
@@ -215,7 +215,7 @@ export namespace pipeline{
             }
             if (!ok)
             {
-                DRACONIC_LOG_ERROR(u8"Physics", u8"collision cook failed ({} vertices)",
+                LOG_ERROR(u8"Physics", u8"collision cook failed ({} vertices)",
                                    vertexCount);
                 return Status{ErrorCode::InvalidArgument};
             }
@@ -244,7 +244,7 @@ export namespace pipeline{
     // Authored surface properties -> cooked PhysicalMaterialSource (a straight copy).
     class PhysicalMaterialAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(PhysicalMaterialAsset, pipeline::Asset)
+        RTTI_OBJECT(PhysicalMaterialAsset, pipeline::Asset)
     public:
         f32 friction = 0.5f;
         f32 restitution = 0.0f;

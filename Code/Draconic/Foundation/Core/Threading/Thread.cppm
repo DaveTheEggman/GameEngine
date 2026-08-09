@@ -41,7 +41,7 @@ export namespace foundation::core
         {
             if (this != &other)
             {
-                DRACONIC_ASSERT_MSG(!m_joinable, "Thread overwritten while still joinable");
+                DIAGNOSTIC_ASSERT_MSG(!m_joinable, "Thread overwritten while still joinable");
                 m_handle = other.m_handle;
                 m_joinable = other.m_joinable;
                 other.m_handle = sys::kInvalidThread;
@@ -57,7 +57,7 @@ export namespace foundation::core
         {
             if (m_joinable)
             {
-                DRACONIC_ASSERT_MSG(false,
+                DIAGNOSTIC_ASSERT_MSG(false,
                                     "Thread destroyed while still joinable; call Join or Detach");
                 sys::ThreadDetach(m_handle);
             }

@@ -990,7 +990,7 @@ export namespace foundation::rendergraph
             // reused from the transient pool. Sustained firing indicates a GPU-memory leak somewhere.
             if (allocFails > 0)
             {
-                DRACONIC_LOG_WARNING(
+                LOG_WARNING(
                     u8"RenderGraph",
                     u8"transient alloc FAILED {}/{} (poolHit={}); first fail '{}' {}x{}",
                     allocFails, freshAllocs, poolHits, firstFailName, firstFailW, firstFailH);

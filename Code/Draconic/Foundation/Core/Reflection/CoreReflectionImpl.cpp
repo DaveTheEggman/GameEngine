@@ -1,12 +1,12 @@
 // Draconic Core - :core_reflection implementation unit
 //
 // The reflection bodies for Core's value types. Kept OUT of the :core_reflection
-// interface partition: DRACONIC_REFLECT_* bodies in a partition interface make GCC
+// interface partition: REFLECT_* bodies in a partition interface make GCC
 // emit an unreadable gcm cluster for consumers (see gcc-module-interface-hygiene).
 // The interface (CoreReflection.cppm) only declares RegisterCoreTypes(); this unit
 // defines it plus every DraconicRegisterValue_/DraconicRegisterEnum_ body.
 //
-// Plain value types are reflected non-intrusively via DRACONIC_REFLECT_VALUE, which
+// Plain value types are reflected non-intrusively via REFLECT_VALUE, which
 // patches each type's TypeOf<T>() in place. Matrices (Float3x3/Float4x4) expose their
 // f32[N][N] storage through the container facility (flat, row-major) since a C array
 // can't be a property; their ops are reflected as methods.
@@ -69,7 +69,7 @@ namespace foundation::core
         const_cast<TypeInfo&>(TypeOf<MatT>()).container = &info;
     }
 
-    DRACONIC_REFLECT_VALUE(Float2, "rtti::core")
+    REFLECT_VALUE(Float2, "rtti::core")
     {
         builder.Property<&Float2::x>("x")
             .Property<&Float2::y>("y")
@@ -81,7 +81,7 @@ namespace foundation::core
             .Constructor<f32, f32>();
     }
 
-    DRACONIC_REFLECT_VALUE(Float3, "rtti::core")
+    REFLECT_VALUE(Float3, "rtti::core")
     {
         builder.Property<&Float3::x>("x")
             .Property<&Float3::y>("y")
@@ -102,7 +102,7 @@ namespace foundation::core
             .Constructor<f32, f32, f32>();
     }
 
-    DRACONIC_REFLECT_VALUE(Float4, "rtti::core")
+    REFLECT_VALUE(Float4, "rtti::core")
     {
         builder.Property<&Float4::x>("x")
             .Property<&Float4::y>("y")
@@ -115,7 +115,7 @@ namespace foundation::core
             .Constructor<f32, f32, f32, f32>();
     }
 
-    DRACONIC_REFLECT_VALUE(Color, "rtti::core")
+    REFLECT_VALUE(Color, "rtti::core")
     {
         builder.Property<&Color::r>("r")
             .Property<&Color::g>("g")
@@ -133,7 +133,7 @@ namespace foundation::core
             .Constructor<f32, f32, f32, f32>();
     }
 
-    DRACONIC_REFLECT_VALUE(Quaternion, "rtti::core")
+    REFLECT_VALUE(Quaternion, "rtti::core")
     {
         builder.Property<&Quaternion::x>("x")
             .Property<&Quaternion::y>("y")
@@ -144,7 +144,7 @@ namespace foundation::core
             .Constructor<f32, f32, f32, f32>();
     }
 
-    DRACONIC_REFLECT_VALUE(Transform, "rtti::core")
+    REFLECT_VALUE(Transform, "rtti::core")
     {
         builder.Property<&Transform::position>("position")
             .Property<&Transform::rotation>("rotation")
@@ -155,7 +155,7 @@ namespace foundation::core
 
     // Matrices: no properties (element access is via the container facility,
     // registered separately); reflect the key static/free operations.
-    DRACONIC_REFLECT_VALUE(Float4x4, "rtti::core")
+    REFLECT_VALUE(Float4x4, "rtti::core")
     {
         builder.Method<&Float4x4::Identity>("Identity")
             .Method<static_cast<Float4x4 (*)(const Float4x4&, const Float4x4&)>(&operator*)>("Mul")
@@ -164,7 +164,7 @@ namespace foundation::core
             .Method<static_cast<Float4x4 (*)(const Float4x4&)>(&Inverse)>("Inverse");
     }
 
-    DRACONIC_REFLECT_VALUE(Float3x3, "rtti::core")
+    REFLECT_VALUE(Float3x3, "rtti::core")
     {
         builder.Method<&Float3x3::Identity>("Identity")
             .Method<static_cast<Float3x3 (*)(const Float3x3&, const Float3x3&)>(&operator*)>("Mul")
@@ -173,7 +173,7 @@ namespace foundation::core
             .Method<static_cast<Float3x3 (*)(const Float3x3&)>(&Inverse)>("Inverse");
     }
 
-    DRACONIC_REFLECT_VALUE(AABB, "rtti::core")
+    REFLECT_VALUE(AABB, "rtti::core")
     {
         builder.Property<&AABB::min>("min")
             .Property<&AABB::max>("max")
@@ -183,7 +183,7 @@ namespace foundation::core
             .Constructor<Float3, Float3>();
     }
 
-    DRACONIC_REFLECT_VALUE(Plane, "rtti::core")
+    REFLECT_VALUE(Plane, "rtti::core")
     {
         builder.Property<&Plane::normal>("normal")
             .Property<&Plane::d>("d")
@@ -192,7 +192,7 @@ namespace foundation::core
             .Constructor<Float3, f32>();
     }
 
-    DRACONIC_REFLECT_VALUE(Rectangle, "rtti::core")
+    REFLECT_VALUE(Rectangle, "rtti::core")
     {
         builder.Property<&Rectangle::x>("x")
             .Property<&Rectangle::y>("y")
@@ -202,7 +202,7 @@ namespace foundation::core
             .Constructor<f32, f32, f32, f32>();
     }
 
-    DRACONIC_REFLECT_VALUE(Guid, "rtti::core")
+    REFLECT_VALUE(Guid, "rtti::core")
     {
         builder.Property<&Guid::high>("high")
             .Property<&Guid::low>("low")
@@ -214,7 +214,7 @@ namespace foundation::core
 
     // Public Core enums (scripting-relevant). Internal enums (PropertyFlags,
     // HashMap::State, BufferedStream::Mode) are deliberately not reflected.
-    DRACONIC_REFLECT_ENUM(LogLevel, "rtti::core")
+    REFLECT_ENUM(LogLevel, "rtti::core")
     {
         builder.Value("Trace", LogLevel::Trace)
             .Value("Debug", LogLevel::Debug)
@@ -225,7 +225,7 @@ namespace foundation::core
             .Value("Off", LogLevel::Off);
     }
 
-    DRACONIC_REFLECT_ENUM(ErrorCode, "rtti::core")
+    REFLECT_ENUM(ErrorCode, "rtti::core")
     {
         builder.Value("Ok", ErrorCode::Ok)
             .Value("Unknown", ErrorCode::Unknown)
@@ -238,12 +238,12 @@ namespace foundation::core
             .Value("Internal", ErrorCode::Internal);
     }
 
-    DRACONIC_REFLECT_ENUM(SerializeMode, "rtti::core")
+    REFLECT_ENUM(SerializeMode, "rtti::core")
     {
         builder.Value("Read", SerializeMode::Read).Value("Write", SerializeMode::Write);
     }
 
-    DRACONIC_REFLECT_ENUM(FileMode, "rtti::core")
+    REFLECT_ENUM(FileMode, "rtti::core")
     {
         builder.Value("Read", FileMode::Read)
             .Value("Write", FileMode::Write)
@@ -251,7 +251,7 @@ namespace foundation::core
             .Value("Append", FileMode::Append);
     }
 
-    DRACONIC_REFLECT_ENUM(SeekOrigin, "rtti::core")
+    REFLECT_ENUM(SeekOrigin, "rtti::core")
     {
         builder.Value("Begin", SeekOrigin::Begin)
             .Value("Current", SeekOrigin::Current)

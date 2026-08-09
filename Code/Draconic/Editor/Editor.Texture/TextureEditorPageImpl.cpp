@@ -91,7 +91,7 @@ namespace editor
         m_asset = RefPtr<pipeline::TextureAsset>(Cast<pipeline::TextureAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"Editor", u8"texture '{}' failed to read - page opens empty",
+            LOG_ERROR(u8"Editor", u8"texture '{}' failed to read - page opens empty",
                                m_title);
         }
         else
@@ -191,7 +191,7 @@ namespace editor
         const Status loaded = image::io::LoadImage(path.AsView(), image);
         if (!loaded.IsOk())
         {
-            DRACONIC_LOG_WARNING(u8"Editor", u8"texture source missing or undecodable: {}", path);
+            LOG_WARNING(u8"Editor", u8"texture source missing or undecodable: {}", path);
             return;
         }
         m_sourceFormat = image.Format();
@@ -473,7 +473,7 @@ namespace editor
             ClearDirty();
             // Refresh the cooked product so every bound proxy hot-swaps to the new settings.
             m_context->RequestCook(false);
-            DRACONIC_LOG_INFO(u8"Editor", u8"saved texture '{}'", m_title);
+            LOG_INFO(u8"Editor", u8"saved texture '{}'", m_title);
         }
         return saved;
     }

@@ -26,7 +26,7 @@ export namespace foundation::ui
 {
     class SVGDrawable : public Drawable
     {
-        DRACONIC_OBJECT(SVGDrawable, Drawable)
+        RTTI_OBJECT(SVGDrawable, Drawable)
     public:
         /// Optional tint; when set, overrides all stroke/fill colors in the SVG. Empty = original colors.
         Optional<Color> TintColor;
@@ -79,7 +79,7 @@ export namespace foundation::ui
         vg::svg::SVGDocument m_document;
     };
 
-    DRACONIC_DEFINE_OBJECT(SVGDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(SVGDrawable, "rtti::ui")
 
     /// SVGDrawable that PREFERS pre-baked bitmap variants: the Godot-verified crispness
     /// recipe (raster once at integer size with the AA baked into texels, draw as a
@@ -90,7 +90,7 @@ export namespace foundation::ui
     /// atlas image - the baker owns it and must outlive the drawables' use.
     class BakedSVGDrawable : public SVGDrawable
     {
-        DRACONIC_OBJECT(BakedSVGDrawable, SVGDrawable)
+        RTTI_OBJECT(BakedSVGDrawable, SVGDrawable)
     public:
         struct BakedVariant
         {
@@ -148,5 +148,5 @@ export namespace foundation::ui
         Array<BakedVariant> m_variants;
     };
 
-    DRACONIC_DEFINE_OBJECT(BakedSVGDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(BakedSVGDrawable, "rtti::ui")
 }

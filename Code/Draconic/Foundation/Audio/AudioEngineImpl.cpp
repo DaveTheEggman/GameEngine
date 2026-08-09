@@ -402,7 +402,7 @@ namespace foundation::audio
             headless = settings.headless;
             if (!InitializeEngine(headless) && !headless)
             {
-                DRACONIC_LOG_WARNING(
+                LOG_WARNING(
                     u8"Audio",
                     u8"no playback device available - running headless (Null mode: voices "
                     u8"advance silently, handles stay valid)");
@@ -411,7 +411,7 @@ namespace foundation::audio
             }
             if (!engineInitialized)
             {
-                DRACONIC_LOG_ERROR(u8"Audio",
+                LOG_ERROR(u8"Audio",
                                    u8"audio engine failed to initialize - audio disabled");
                 return;
             }
@@ -735,14 +735,14 @@ namespace foundation::audio
                 }
                 if (duplicate)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Audio", u8"bus layout: duplicate custom bus '{}' ignored", named.name);
                     continue;
                 }
                 AudioBus fixedAlias{};
                 if (AudioBusFromName(named.name.AsView(), fixedAlias))
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Audio", u8"bus layout: custom bus '{}' shadows a fixed bus - ignored",
                         named.name);
                     continue;
@@ -810,7 +810,7 @@ namespace foundation::audio
                     }
                     else
                     {
-                        DRACONIC_LOG_WARNING(
+                        LOG_WARNING(
                             u8"Audio",
                             u8"bus layout: custom bus '{}' has unknown parent '{}' - "
                             u8"parented to Master",
@@ -828,7 +828,7 @@ namespace foundation::audio
                 {
                     if (cursor == static_cast<i32>(i))
                     {
-                        DRACONIC_LOG_WARNING(
+                        LOG_WARNING(
                             u8"Audio",
                             u8"bus layout: custom bus '{}' is part of a parent CYCLE - "
                             u8"parented to Master",
@@ -961,7 +961,7 @@ namespace foundation::audio
                 entry->registered = result == MA_SUCCESS;
                 if (!entry->registered)
                 {
-                    DRACONIC_LOG_WARNING(u8"Audio",
+                    LOG_WARNING(u8"Audio",
                                          u8"clip failed to decode/register - not playable");
                     return nullptr;
                 }
@@ -1437,7 +1437,7 @@ namespace foundation::audio
                 if (!impl.warnedStreamStereoSpatial)
                 {
                     impl.warnedStreamStereoSpatial = true;
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Audio", u8"spatializing a STREAMED multi-channel clip - reimport with "
                                    u8"force-mono for correct 3D imaging (warned once)");
                 }
@@ -1445,7 +1445,7 @@ namespace foundation::audio
             else if (!impl.warnedMonoDownmix)
             {
                 impl.warnedMonoDownmix = true;
-                DRACONIC_LOG_WARNING(
+                LOG_WARNING(
                     u8"Audio",
                     u8"spatializing a multi-channel clip - downmixing to mono at play; "
                     u8"reimport with force-mono to avoid the runtime cost (warned once)");
@@ -1500,7 +1500,7 @@ namespace foundation::audio
                 if (!impl.warnedUnknownBusName)
                 {
                     impl.warnedUnknownBusName = true;
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Audio",
                         u8"play addressed unknown custom bus '{}' - using the fixed bus "
                         u8"(warned once)",
@@ -1515,7 +1515,7 @@ namespace foundation::audio
             impl.ReleaseSound(slot.sound);
             slot.sound = nullptr;
             ++slot.generation;
-            DRACONIC_LOG_WARNING(u8"Audio", u8"voice init failed for clip");
+            LOG_WARNING(u8"Audio", u8"voice init failed for clip");
             return {};
         }
         slot.soundInitialized = true;

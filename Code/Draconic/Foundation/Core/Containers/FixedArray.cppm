@@ -22,7 +22,7 @@ export namespace foundation::core
 
         void Add(const T& item)
         {
-            DRACONIC_ASSERT(count < Capacity);
+            DIAGNOSTIC_ASSERT(count < Capacity);
             items[count++] = item;
         }
 

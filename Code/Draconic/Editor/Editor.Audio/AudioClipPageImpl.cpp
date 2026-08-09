@@ -85,7 +85,7 @@ namespace editor
         Result<Array<byte>> bytes = ReadFile(path.AsView());
         if (!bytes.HasValue())
         {
-            DRACONIC_LOG_WARNING(u8"Editor", u8"audio source missing: {}", path);
+            LOG_WARNING(u8"Editor", u8"audio source missing: {}", path);
             return;
         }
         audio::AudioClipMetadata metadata;

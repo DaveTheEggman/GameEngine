@@ -50,7 +50,7 @@ export namespace experimental::gui
 
     class FlexLayout : public UIWidget
     {
-        DRACONIC_OBJECT(FlexLayout, UIWidget)
+        RTTI_OBJECT(FlexLayout, UIWidget)
     public:
         FlexLayout() { SetTag(core::StringView(u8"flexlayout")); }
 
@@ -305,5 +305,5 @@ export namespace experimental::gui
         HashMap<Node*, f32> m_basis; // per-child flex-basis (main-axis size, captured once)
     };
 
-    DRACONIC_DEFINE_OBJECT(FlexLayout, "rtti::gui")
+    RTTI_DEFINE_OBJECT(FlexLayout, "rtti::gui")
 }

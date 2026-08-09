@@ -373,7 +373,7 @@ export namespace editor::app
         UIEditorPage* m_gamePage = nullptr; // the PRIMARY game tab (focus target); extras untracked
         u32 m_gamePageCounter = 0;          // unique persistence id for "Play New Instance" tabs
         f32 m_elapsed = 0.0f;               // autoExit/autoRebuild accumulator
-        f32 m_testOpenElapsed = 0.0f;       // DRACONIC_TEST_OPEN hook
+        f32 m_testOpenElapsed = 0.0f;       // ENV_TEST_OPEN hook
         u32 m_testOpenStage = 0;
         bool m_autoRebuilt = false;
         Array<foundation::shell::DroppedFile> m_droppedFiles; // per-frame drain buffer

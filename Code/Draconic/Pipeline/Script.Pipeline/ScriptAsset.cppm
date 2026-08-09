@@ -44,7 +44,7 @@ export namespace pipeline{
     // Source asset: the script file + the backend that compiles it.
     class ScriptClassAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(ScriptClassAsset, pipeline::Asset)
+        RTTI_OBJECT(ScriptClassAsset, pipeline::Asset)
     public:
         String language; // backend id ("wren"), defaulted from the file extension
 
@@ -342,13 +342,13 @@ export namespace pipeline{
     {
         if (sink.errors.IsEmpty())
         {
-            DRACONIC_LOG_ERROR(u8"Script", u8"'{}': compile failed - cook failed", fileName);
+            LOG_ERROR(u8"Script", u8"'{}': compile failed - cook failed", fileName);
             return;
         }
         for (const CookScriptErrorSink::Entry& e : sink.errors)
         {
             const i32 line = e.line > preludeLines ? e.line - preludeLines : e.line;
-            DRACONIC_LOG_ERROR(u8"Script", u8"{}:{}: {} - cook failed",
+            LOG_ERROR(u8"Script", u8"{}:{}: {} - cook failed",
                                e.module.IsEmpty() ? fileName : e.module.AsView(), line, e.message);
         }
     }
@@ -465,7 +465,7 @@ export namespace pipeline{
             const Status read = ReadSourceText(ctx, scriptAsset.fileName.View(), source);
             if (!read.IsOk())
             {
-                DRACONIC_LOG_ERROR(u8"Script", u8"'{}': source file missing - cook failed",
+                LOG_ERROR(u8"Script", u8"'{}': source file missing - cook failed",
                                    scriptAsset.fileName.View());
                 return read;
             }
@@ -479,7 +479,7 @@ export namespace pipeline{
             IScriptLanguageCook* cook = ScriptLanguageCookRegistry::Get().FindByLanguage(language);
             if (cook == nullptr)
             {
-                DRACONIC_LOG_ERROR(
+                LOG_ERROR(
                     u8"Script", u8"'{}': no script cook registered for language '{}' - cook failed",
                     scriptAsset.fileName.View(), language);
                 return Status{ErrorCode::NotSupported};

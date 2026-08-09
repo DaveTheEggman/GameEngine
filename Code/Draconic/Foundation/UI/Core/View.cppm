@@ -117,7 +117,7 @@ export namespace foundation::ui
     // ===================================================================================
     class View : public Object, public IPropertyOwner
     {
-        DRACONIC_OBJECT(View, Object)
+        RTTI_OBJECT(View, Object)
     public:
         // === Identity ===
         const ViewId Id = ViewId::Create();
@@ -655,7 +655,7 @@ export namespace foundation::ui
     // ===================================================================================
     class ViewGroup : public View
     {
-        DRACONIC_OBJECT(ViewGroup, View)
+        RTTI_OBJECT(ViewGroup, View)
     public:
         Thickness Padding{};
 
@@ -931,7 +931,7 @@ export namespace foundation::ui
     // ===================================================================================
     class RootView : public ViewGroup
     {
-        DRACONIC_OBJECT(RootView, ViewGroup)
+        RTTI_OBJECT(RootView, ViewGroup)
     public:
         Float2 ViewportSize{};
         f32 DpiScale = 1.0f;
@@ -1285,9 +1285,9 @@ export namespace foundation::ui
         f32 m_totalTime = 0.0f;
     };
 
-    DRACONIC_DEFINE_OBJECT(View, "rtti::ui")
-    DRACONIC_DEFINE_OBJECT(ViewGroup, "rtti::ui")
-    DRACONIC_DEFINE_OBJECT(RootView, "rtti::ui")
+    RTTI_DEFINE_OBJECT(View, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ViewGroup, "rtti::ui")
+    RTTI_DEFINE_OBJECT(RootView, "rtti::ui")
 
     // Out-of-line method definitions for the cluster (View::Invalidate/Root/ResolveStyle/...,
     // ViewGroup::AddView/RemoveView/..., MutationQueue::QueueDelete) live in the module implementation

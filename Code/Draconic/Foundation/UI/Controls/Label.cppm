@@ -29,7 +29,7 @@ export namespace foundation::ui
 {
     class Label : public View
     {
-        DRACONIC_OBJECT(Label, View)
+        RTTI_OBJECT(Label, View)
     public:
         Property<String> Text;
         Property<fonts::TextAlignment> HAlign{fonts::TextAlignment::Left};
@@ -254,5 +254,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(Label, "rtti::ui")
+    RTTI_DEFINE_OBJECT(Label, "rtti::ui")
 }

@@ -62,7 +62,7 @@ export namespace pipeline
     // through). Guids inside are source guids == product guids.
     class ModelManifestAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(ModelManifestAsset, pipeline::Asset)
+        RTTI_OBJECT(ModelManifestAsset, pipeline::Asset)
     public:
         ModelManifestSource manifest;
 
@@ -131,7 +131,7 @@ export namespace pipeline
     /// Options for one model import (the import dialog renders the toggles).
     class ModelImportOptions final : public editor::ImportOptions
     {
-        DRACONIC_OBJECT(ModelImportOptions, editor::ImportOptions)
+        RTTI_OBJECT(ModelImportOptions, editor::ImportOptions)
     public:
         bool importTextures = true;     // embedded/sidecar images -> TextureAssets
         bool importMaterials = true;    // PBR materials (texture slots wired when textures import)
@@ -192,7 +192,7 @@ export namespace pipeline
     /// 95% of a model import, safely off the UI thread).
     class LoadedModel final : public Object
     {
-        DRACONIC_OBJECT(LoadedModel, Object)
+        RTTI_OBJECT(LoadedModel, Object)
     public:
         foundation::model::Model model;
     };
@@ -279,7 +279,7 @@ export namespace pipeline
             {
                 if (LoadModelFrom(sourcePath, inlineModel) != foundation::model::ModelLoadResult::Ok)
                 {
-                    DRACONIC_LOG_ERROR(u8"Import", u8"model load failed: {}", fileName.Value());
+                    LOG_ERROR(u8"Import", u8"model load failed: {}", fileName.Value());
                     return Err(ErrorCode::InvalidArgument);
                 }
                 modelPtr = &inlineModel;
@@ -466,14 +466,14 @@ export namespace pipeline
                 Result<Array<byte>> payload = ReadFile(from.AsView());
                 if (!payload.HasValue())
                 {
-                    DRACONIC_LOG_WARNING(u8"Import", u8"gltf sidecar missing: {}", uri);
+                    LOG_WARNING(u8"Import", u8"gltf sidecar missing: {}", uri);
                     continue;
                 }
                 const Status saved = sources.AsWritable()->Save(
                     uri, Span<const byte>(payload.Value().Data(), payload.Value().Size()));
                 if (!saved.IsOk())
                 {
-                    DRACONIC_LOG_WARNING(u8"Import", u8"gltf sidecar copy failed: {}", uri);
+                    LOG_WARNING(u8"Import", u8"gltf sidecar copy failed: {}", uri);
                 }
             }
         }
@@ -921,7 +921,7 @@ export namespace pipeline
         RegisterSerializable<ModelManifestAsset>();
     }
 
-    DRACONIC_DEFINE_OBJECT(ModelManifestAsset, "rtti::pipeline::modelimporter")
-    DRACONIC_DEFINE_OBJECT(ModelImportOptions, "rtti::pipeline::modelimporter")
-    DRACONIC_DEFINE_OBJECT(LoadedModel, "rtti::pipeline::modelimporter")
+    RTTI_DEFINE_OBJECT(ModelManifestAsset, "rtti::pipeline::modelimporter")
+    RTTI_DEFINE_OBJECT(ModelImportOptions, "rtti::pipeline::modelimporter")
+    RTTI_DEFINE_OBJECT(LoadedModel, "rtti::pipeline::modelimporter")
 }

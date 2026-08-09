@@ -672,7 +672,7 @@ namespace editor
             Cast<pipeline::ParticleEffectAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"Editor",
+            LOG_ERROR(u8"Editor",
                                u8"particle effect '{}' failed to read - page opens empty", m_title);
         }
 
@@ -1973,7 +1973,7 @@ namespace editor
         {
             ClearDirty();
             m_context->RequestCook(false);
-            DRACONIC_LOG_INFO(u8"Editor", u8"saved particle effect '{}'", m_title);
+            LOG_INFO(u8"Editor", u8"saved particle effect '{}'", m_title);
         }
         return saved;
     }
@@ -2095,7 +2095,7 @@ namespace editor
         {
             return nullptr;
         }
-        DRACONIC_LOG_INFO(u8"Editor", u8"created particle effect '{}'", instance->Path());
+        LOG_INFO(u8"Editor", u8"created particle effect '{}'", instance->Path());
         context.RequestCook(false);
         return instance;
     }

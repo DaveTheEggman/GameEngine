@@ -40,7 +40,7 @@ export namespace editor
     // membership only (guids + group paths); the closure expansion lives in the export driver.
     class ExportRootsSet final : public ISerializable
     {
-        DRACONIC_OBJECT(ExportRootsSet, ISerializable)
+        RTTI_OBJECT(ExportRootsSet, ISerializable)
     public:
         Array<Guid> instances; // flagged asset instances, by guid (rename/move-proof)
         Array<String> groups;  // flagged group subtrees, by mount-relative path
@@ -248,5 +248,5 @@ export namespace editor
         return writable.Save(fileName, buffer.Bytes());
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ExportRootsSet, "rtti::editor::editor", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(ExportRootsSet, "rtti::editor::editor", 1)
 }

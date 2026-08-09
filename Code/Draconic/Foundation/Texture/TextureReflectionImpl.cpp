@@ -1,6 +1,6 @@
 // Foundation::Texture - reflection implementation unit: enum reflection bodies.
 //
-// Kept OUT of the :types interface partition (DRACONIC_REFLECT_* bodies make GCC emit a gcm
+// Kept OUT of the :types interface partition (REFLECT_* bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). Types.cppm declares RegisterTextureReflection();
 // this unit defines it + the DraconicRegisterEnum_* bodies. Reflection track P1.
 
@@ -16,7 +16,7 @@ using namespace foundation::core;
 
 namespace foundation::texture
 {
-    DRACONIC_REFLECT_ENUM(TextureShape, "rtti::texture")
+    REFLECT_ENUM(TextureShape, "rtti::texture")
     {
         builder.Value("Texture2D", TextureShape::Texture2D);
         builder.Value("Texture2DArray", TextureShape::Texture2DArray);
@@ -25,7 +25,7 @@ namespace foundation::texture
         builder.Value("CubemapArray", TextureShape::CubemapArray);
     }
 
-    DRACONIC_REFLECT_ENUM(TextureFilter, "rtti::texture")
+    REFLECT_ENUM(TextureFilter, "rtti::texture")
     {
         builder.Value("Nearest", TextureFilter::Nearest);
         builder.Value("Linear", TextureFilter::Linear);
@@ -33,7 +33,7 @@ namespace foundation::texture
         builder.Value("MipmapLinear", TextureFilter::MipmapLinear);
     }
 
-    DRACONIC_REFLECT_ENUM(TextureWrap, "rtti::texture")
+    REFLECT_ENUM(TextureWrap, "rtti::texture")
     {
         builder.Value("Repeat", TextureWrap::Repeat);
         builder.Value("ClampToEdge", TextureWrap::ClampToEdge);

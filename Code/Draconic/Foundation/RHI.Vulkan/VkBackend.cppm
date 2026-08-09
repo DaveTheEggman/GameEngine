@@ -95,7 +95,7 @@ export namespace foundation::rhi::vk
         Status
         CreateSurface(void* windowHandle,
                       void*
-#if DRACONIC_PLATFORM_LINUX
+#if PLATFORM_LINUX
                           displayHandle
 #else
         /*displayHandle*/

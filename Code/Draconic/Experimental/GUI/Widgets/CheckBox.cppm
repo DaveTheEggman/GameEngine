@@ -27,7 +27,7 @@ export namespace experimental::gui
 {
     class CheckBox : public UIWidget
     {
-        DRACONIC_OBJECT(CheckBox, UIWidget)
+        RTTI_OBJECT(CheckBox, UIWidget)
     public:
         CheckBox()
         {
@@ -105,5 +105,5 @@ export namespace experimental::gui
         core::Function<void(bool)> m_onChanged;
     };
 
-    DRACONIC_DEFINE_OBJECT(CheckBox, "rtti::gui")
+    RTTI_DEFINE_OBJECT(CheckBox, "rtti::gui")
 }

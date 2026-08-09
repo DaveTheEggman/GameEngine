@@ -48,7 +48,7 @@ export namespace experimental::gui
     // and activation consider.
     class MenuRow : public UIWidget
     {
-        DRACONIC_OBJECT(MenuRow, UIWidget)
+        RTTI_OBJECT(MenuRow, UIWidget)
     public:
         [[nodiscard]] virtual f32 RowHeight() const = 0;
         [[nodiscard]] virtual bool IsSelectable() const { return false; }
@@ -71,7 +71,7 @@ export namespace experimental::gui
     // === Separator =============================================================
     class MenuSeparator : public MenuRow
     {
-        DRACONIC_OBJECT(MenuSeparator, MenuRow)
+        RTTI_OBJECT(MenuSeparator, MenuRow)
     public:
         MenuSeparator() { SetTag(core::StringView(u8"menuseparator")); }
 
@@ -111,7 +111,7 @@ export namespace experimental::gui
     // === Activatable item ======================================================
     class MenuItem : public MenuRow
     {
-        DRACONIC_OBJECT(MenuItem, MenuRow)
+        RTTI_OBJECT(MenuItem, MenuRow)
     public:
         MenuItem()
         {
@@ -291,7 +291,7 @@ export namespace experimental::gui
     // menu when the item is added).
     class MenuSubItem : public MenuItem
     {
-        DRACONIC_OBJECT(MenuSubItem, MenuItem)
+        RTTI_OBJECT(MenuSubItem, MenuItem)
     public:
         MenuSubItem() { SetTag(core::StringView(u8"menusubmenu")); }
 
@@ -335,7 +335,7 @@ export namespace experimental::gui
     // === Menu ==================================================================
     class Menu : public UIWidget
     {
-        DRACONIC_OBJECT(Menu, UIWidget)
+        RTTI_OBJECT(Menu, UIWidget)
     public:
         Menu()
         {
@@ -649,9 +649,9 @@ export namespace experimental::gui
         core::Function<void()> m_onClosed;
     };
 
-    DRACONIC_DEFINE_OBJECT(MenuRow, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(MenuSeparator, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(MenuItem, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(MenuSubItem, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(Menu, "rtti::gui")
+    RTTI_DEFINE_OBJECT(MenuRow, "rtti::gui")
+    RTTI_DEFINE_OBJECT(MenuSeparator, "rtti::gui")
+    RTTI_DEFINE_OBJECT(MenuItem, "rtti::gui")
+    RTTI_DEFINE_OBJECT(MenuSubItem, "rtti::gui")
+    RTTI_DEFINE_OBJECT(Menu, "rtti::gui")
 }

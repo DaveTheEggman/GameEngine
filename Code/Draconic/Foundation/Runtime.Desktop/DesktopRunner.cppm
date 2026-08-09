@@ -25,7 +25,7 @@ using namespace foundation::graphics; // GraphicsDevice (moved from foundation::
 export namespace foundation::runtime
 {
     // Desktop runner: block-loop the app against the shell until either stops, clamped to
-    // maxFrameTime. DRACONIC_APP_MAIN calls it on desktop; returns the app's exit code.
+    // maxFrameTime. APP_MAIN calls it on desktop; returns the app's exit code.
     inline int RunApplication(IApplication& app, shell::IShell& shell,
                               GraphicsDevice* graphics = nullptr)
     {

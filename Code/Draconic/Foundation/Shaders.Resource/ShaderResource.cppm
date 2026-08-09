@@ -32,7 +32,7 @@ export namespace foundation::shaders
     // cooked-bytecode variant can replace the strings later.)
     class ShaderSource final : public ISerializable
     {
-        DRACONIC_OBJECT(ShaderSource, ISerializable)
+        RTTI_OBJECT(ShaderSource, ISerializable)
     public:
         String name;
         String vertexSource;
@@ -50,7 +50,7 @@ export namespace foundation::shaders
     // is the reload signal (bumped each rebuild); GetVariant compiles-on-demand.
     class ShaderResource final : public Object
     {
-        DRACONIC_OBJECT(ShaderResource, Object)
+        RTTI_OBJECT(ShaderResource, Object)
     public:
         void Init(ShaderSystem* system, StringView name)
         {
@@ -113,7 +113,7 @@ export namespace foundation::shaders
         ShaderSystem* m_system; // borrowed
     };
 
-    DRACONIC_DEFINE_OBJECT(ShaderSource, "rtti::shaders")
-    DRACONIC_DEFINE_OBJECT(ShaderResource, "rtti::shaders")
+    RTTI_DEFINE_OBJECT(ShaderSource, "rtti::shaders")
+    RTTI_DEFINE_OBJECT(ShaderResource, "rtti::shaders")
 
 } // namespace foundation::shaders

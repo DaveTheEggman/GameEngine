@@ -47,7 +47,7 @@ export namespace experimental::gui
     // a tree row) is added as hit-transparent children so clicks fall through to the row.
     class ItemRow : public UIWidget
     {
-        DRACONIC_OBJECT(ItemRow, UIWidget)
+        RTTI_OBJECT(ItemRow, UIWidget)
     public:
         ItemRow() { SetTag(core::StringView(u8"itemrow")); }
 
@@ -93,7 +93,7 @@ export namespace experimental::gui
 
     class AbstractItemView : public UIWidget, public IModelClient
     {
-        DRACONIC_OBJECT(AbstractItemView, UIWidget)
+        RTTI_OBJECT(AbstractItemView, UIWidget)
     public:
         AbstractItemView()
         {
@@ -493,6 +493,6 @@ export namespace experimental::gui
         Color m_selectionColor{0.18f, 0.37f, 0.62f, 1.0f};
     };
 
-    DRACONIC_DEFINE_OBJECT(ItemRow, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(AbstractItemView, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ItemRow, "rtti::gui")
+    RTTI_DEFINE_OBJECT(AbstractItemView, "rtti::gui")
 }

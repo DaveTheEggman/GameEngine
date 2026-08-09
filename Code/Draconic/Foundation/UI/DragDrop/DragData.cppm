@@ -2,7 +2,7 @@
 //
 // Base class for drag-and-drop payload data. Subclass to carry typed data; the Format string enables
 // type matching between drag sources and drop targets. Ported from Sedulous.UI/src/DragDrop/DragData.bf.
-// Per the locked decision, DragData derives Object + DRACONIC_OBJECT so subtype recovery uses our RTTI
+// Per the locked decision, DragData derives Object + RTTI_OBJECT so subtype recovery uses our RTTI
 // (Cast<T>) and the manager can own it via RefPtr (Beef `~delete _` -> RAII).
 
 module;
@@ -20,7 +20,7 @@ export namespace foundation::ui
     /// Base class for drag-and-drop payload data.
     class DragData : public Object
     {
-        DRACONIC_OBJECT(DragData, Object)
+        RTTI_OBJECT(DragData, Object)
     public:
         explicit DragData(StringView format) : m_format(format) {}
 
@@ -31,5 +31,5 @@ export namespace foundation::ui
         String m_format;
     };
 
-    DRACONIC_DEFINE_OBJECT(DragData, "rtti::ui")
+    RTTI_DEFINE_OBJECT(DragData, "rtti::ui")
 }

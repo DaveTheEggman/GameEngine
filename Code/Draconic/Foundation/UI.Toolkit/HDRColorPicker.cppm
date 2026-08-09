@@ -28,7 +28,7 @@ export namespace foundation::ui::toolkit
     /// Interactive HDR color picker driving a normalized color + separate intensity multiplier.
     class HDRColorPicker : public ViewGroup
     {
-        DRACONIC_OBJECT(HDRColorPicker, ViewGroup)
+        RTTI_OBJECT(HDRColorPicker, ViewGroup)
     public:
         Event<void(HDRColorPicker*, Float4)> OnColorChanged;
 
@@ -183,7 +183,7 @@ export namespace foundation::ui::toolkit
 
         class SVSquare : public View
         {
-            DRACONIC_OBJECT(SVSquare, View)
+            RTTI_OBJECT(SVSquare, View)
         public:
             explicit SVSquare(HDRColorPicker* picker) : m_picker(picker) {}
 
@@ -230,7 +230,7 @@ export namespace foundation::ui::toolkit
 
         class HueStripView : public View
         {
-            DRACONIC_OBJECT(HueStripView, View)
+            RTTI_OBJECT(HueStripView, View)
         public:
             explicit HueStripView(HDRColorPicker* picker) : m_picker(picker) {}
 
@@ -277,7 +277,7 @@ export namespace foundation::ui::toolkit
 
         class AlphaStripView : public View
         {
-            DRACONIC_OBJECT(AlphaStripView, View)
+            RTTI_OBJECT(AlphaStripView, View)
         public:
             explicit AlphaStripView(HDRColorPicker* picker) : m_picker(picker) {}
 
@@ -684,8 +684,8 @@ export namespace foundation::ui::toolkit
         m_picker->SyncFromHSV();
     }
 
-    DRACONIC_DEFINE_OBJECT(HDRColorPicker, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(HDRColorPicker::SVSquare, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(HDRColorPicker::HueStripView, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(HDRColorPicker::AlphaStripView, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(HDRColorPicker, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(HDRColorPicker::SVSquare, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(HDRColorPicker::HueStripView, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(HDRColorPicker::AlphaStripView, "rtti::ui::toolkit")
 }

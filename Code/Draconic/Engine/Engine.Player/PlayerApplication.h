@@ -4,7 +4,7 @@
 // scripted IApplication counterpart - resolved by the script's LANGUAGE, so Wren or AngelScript
 // both work). See Main.cpp's header comment for the two layouts (PROJECT vs DIST).
 //
-// Classic header (the DRACONIC_APP_MAIN pattern): it carries no `import` of its own and uses names
+// Classic header (the APP_MAIN pattern): it carries no `import` of its own and uses names
 // the INCLUDING TU must bring in first. Include it AFTER these imports:
 //   foundation.core, foundation.vfs, foundation.vfs.pak, foundation.content, foundation.resource,
 //   foundation.runtime, foundation.runtime.client, engine.defaultapp,
@@ -14,8 +14,8 @@
 //   engine.ui, foundation.settings, foundation.project, foundation.xml.serialization
 // The two entry points add only the PLATFORM trio (shell + runner + graphics) on top.
 
-#ifndef DRACONIC_TOOLS_PLAYER_PLAYERAPPLICATION_H
-#define DRACONIC_TOOLS_PLAYER_PLAYERAPPLICATION_H
+#ifndef ENGINE_PLAYER_PLAYERAPPLICATION_H
+#define ENGINE_PLAYER_PLAYERAPPLICATION_H
 
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
@@ -55,7 +55,7 @@ namespace engine::player
                     !project::LoadProjectSettings(*m_root, m_settings, project::kDistManifestFile)
                          .IsOk())
                 {
-                    DRACONIC_LOG_ERROR(u8"Player", u8"dist at '{}' is unreadable",
+                    LOG_ERROR(u8"Player", u8"dist at '{}' is unreadable",
                                        m_options.projectDir);
                     host.RequestExit(1);
                     return;
@@ -64,13 +64,13 @@ namespace engine::player
                     DefaultAllocator(), *m_pak, BinarySerializerFactory(),
                     project::kCookedAssetExtension);
                 m_sceneDb = m_contentDb.Get(); // scenes live IN the pak, binary like products
-                DRACONIC_LOG_INFO(u8"Player", u8"dist mode ({} pak entries)", m_pak->EntryCount());
+                LOG_INFO(u8"Player", u8"dist mode ({} pak entries)", m_pak->EntryCount());
             }
             else if (m_root->Exists(project::kProjectManifestFile))
             {
                 if (!project::LoadProjectSettings(*m_root, m_settings).IsOk())
                 {
-                    DRACONIC_LOG_ERROR(u8"Player", u8"project manifest at '{}' is unreadable",
+                    LOG_ERROR(u8"Player", u8"project manifest at '{}' is unreadable",
                                        m_options.projectDir);
                     host.RequestExit(1);
                     return;
@@ -91,7 +91,7 @@ namespace engine::player
             }
             else
             {
-                DRACONIC_LOG_ERROR(
+                LOG_ERROR(
                     u8"Player",
                     u8"'{}' is neither a project (Project.xml) nor a dist (Content.pak)",
                     m_options.projectDir);
@@ -148,7 +148,7 @@ namespace engine::player
             // entirely. EXCEPTION: an EXPLICIT --scene that did not resolve is still a user error.
             if (instance == nullptr && !m_options.sceneOverride.IsEmpty())
             {
-                DRACONIC_LOG_ERROR(u8"Player", u8"--scene '{}' did not resolve",
+                LOG_ERROR(u8"Player", u8"--scene '{}' did not resolve",
                                    m_options.sceneOverride.AsView());
                 host.RequestExit(1);
                 return;
@@ -163,12 +163,12 @@ namespace engine::player
                 if (mapProxy)
                 {
                     Instance().SetInputMap(mapProxy->Map());
-                    DRACONIC_LOG_INFO(u8"Player", u8"input map bound ({} set(s))",
+                    LOG_INFO(u8"Player", u8"input map bound ({} set(s))",
                                       mapProxy->Map().sets.Size());
                 }
                 else
                 {
-                    DRACONIC_LOG_WARNING(u8"Player", u8"default input map did not resolve");
+                    LOG_WARNING(u8"Player", u8"default input map did not resolve");
                 }
             }
 
@@ -182,11 +182,11 @@ namespace engine::player
                 if (layoutProxy)
                 {
                     Audio()->Engine()->ApplyBusLayout(layoutProxy->layout);
-                    DRACONIC_LOG_INFO(u8"Player", u8"audio bus layout applied");
+                    LOG_INFO(u8"Player", u8"audio bus layout applied");
                 }
                 else
                 {
-                    DRACONIC_LOG_WARNING(u8"Player", u8"default bus layout did not resolve");
+                    LOG_WARNING(u8"Player", u8"default bus layout did not resolve");
                 }
             }
 
@@ -209,7 +209,7 @@ namespace engine::player
                         if (const auto* audio = store.Find<engine::audio::AudioUserSettings>())
                         {
                             engine::audio::ApplyAudioUserSettings(*Audio()->Engine(), *audio);
-                            DRACONIC_LOG_INFO(u8"Player", u8"user audio settings applied");
+                            LOG_INFO(u8"Player", u8"user audio settings applied");
                         }
                     }
                 }
@@ -225,17 +225,17 @@ namespace engine::player
                 if (fontProxy)
                 {
                     UI()->SetDefaultFont(fontProxy.Get());
-                    DRACONIC_LOG_INFO(u8"Player", u8"default UI font bound");
+                    LOG_INFO(u8"Player", u8"default UI font bound");
                 }
                 else
                 {
-                    DRACONIC_LOG_WARNING(u8"Player", u8"default UI font did not resolve");
+                    LOG_WARNING(u8"Player", u8"default UI font did not resolve");
                 }
             }
             else if (UI() != nullptr)
             {
                 // A shipped game with no default font renders no text (the dev fallback is gone).
-                DRACONIC_LOG_WARNING(u8"Player",
+                LOG_WARNING(u8"Player",
                                      u8"no default UI font set in project settings - game UI text "
                                      u8"will not render (set Project Settings > Default UI font)");
             }
@@ -249,11 +249,11 @@ namespace engine::player
                 if (themeProxy)
                 {
                     UI()->SetDefaultTheme(themeProxy.Get());
-                    DRACONIC_LOG_INFO(u8"Player", u8"default UI theme bound");
+                    LOG_INFO(u8"Player", u8"default UI theme bound");
                 }
                 else
                 {
-                    DRACONIC_LOG_WARNING(u8"Player", u8"default UI theme did not resolve");
+                    LOG_WARNING(u8"Player", u8"default UI theme did not resolve");
                 }
             }
 
@@ -284,7 +284,7 @@ namespace engine::player
                 if (m_bootLoad.Failed())
                 {
                     PopSplash();
-                    DRACONIC_LOG_ERROR(u8"Player", u8"scene '{}' failed to load", m_bootScenePath);
+                    LOG_ERROR(u8"Player", u8"scene '{}' failed to load", m_bootScenePath);
                     host.RequestExit(1);
                     return;
                 }
@@ -293,7 +293,7 @@ namespace engine::player
             }
             else
             {
-                DRACONIC_LOG_INFO(u8"Player", u8"no startup scene - the game script owns boot");
+                LOG_INFO(u8"Player", u8"no startup scene - the game script owns boot");
             }
         }
 
@@ -381,7 +381,7 @@ namespace engine::player
                 return;
             }
 
-            DRACONIC_LOG_WARNING(u8"Player", u8"scene has no camera - adding a default one");
+            LOG_WARNING(u8"Player", u8"scene has no camera - adding a default one");
             const scene::EntityHandle e = scene->CreateEntity(u8"PlayerCamera");
             Transform t;
             t.position = Float3{8.0f, 6.0f, 10.0f};
@@ -413,7 +413,7 @@ namespace engine::player
             auto proxy = Resources()->Bind<foundation::script::ScriptClass>(scriptId);
             if (!proxy || proxy->source.IsEmpty())
             {
-                DRACONIC_LOG_ERROR(u8"Player", u8"startup script asset not found");
+                LOG_ERROR(u8"Player", u8"startup script asset not found");
                 return;
             }
             (void)StartGameScript(proxy->source.AsView(), proxy->sourceName.AsView());
@@ -435,7 +435,7 @@ namespace engine::player
             PopSplash();
             if (activated == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"Player", u8"scene '{}' failed to activate", m_bootScenePath);
+                LOG_ERROR(u8"Player", u8"scene '{}' failed to activate", m_bootScenePath);
                 host.RequestExit(1);
                 return;
             }
@@ -444,7 +444,7 @@ namespace engine::player
             m_scene->Start();
             m_scene->SetSimulationEnabled(true);
             SetPrimaryScene(m_scene);
-            DRACONIC_LOG_INFO(u8"Player", u8"running scene '{}'", m_bootScenePath);
+            LOG_INFO(u8"Player", u8"running scene '{}'", m_bootScenePath);
         }
 
         [[nodiscard]] RefPtr<foundation::ui::View> PushSplash()
@@ -526,4 +526,4 @@ namespace engine::player
     };
 }
 
-#endif // DRACONIC_TOOLS_PLAYER_PLAYERAPPLICATION_H
+#endif // ENGINE_PLAYER_PLAYERAPPLICATION_H

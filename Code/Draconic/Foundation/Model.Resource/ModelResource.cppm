@@ -58,7 +58,7 @@ export namespace foundation::model
     // Authored/cooked manifest: the leaf resource Guids + the node hierarchy.
     class ModelManifestSource final : public ISerializable
     {
-        DRACONIC_OBJECT(ModelManifestSource, ISerializable)
+        RTTI_OBJECT(ModelManifestSource, ISerializable)
     public:
         Array<Guid> meshGuids;   // cooked mesh resources
         Array<u8> meshSkinned;   // 1 if the mesh is skinned (parallel to meshGuids)
@@ -95,7 +95,7 @@ export namespace foundation::model
     // dependency edges; the proxies see reloads transparently.
     class ModelResource final : public Object
     {
-        DRACONIC_OBJECT(ModelResource, Object)
+        RTTI_OBJECT(ModelResource, Object)
     public:
         Array<ModelNode> nodes;
         Array<RefPtr<geometry::StaticMesh>>
@@ -190,12 +190,12 @@ export namespace foundation::model
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(ModelManifestSource, "rtti::modelimporter")
-    DRACONIC_DEFINE_OBJECT(ModelResource, "rtti::modelimporter")
+    RTTI_DEFINE_OBJECT(ModelManifestSource, "rtti::modelimporter")
+    RTTI_DEFINE_OBJECT(ModelResource, "rtti::modelimporter")
 
     // Registers the importer's serializable types (+ the geometry source types it cooks and
     // reads back) with the global type + serializable registries. Registration is explicit in
-    // Draconic (DRACONIC_DEFINE_OBJECT only defines StaticType); call this once before binding cooked
+    // Draconic (RTTI_DEFINE_OBJECT only defines StaticType); call this once before binding cooked
     // models so the content DB can polymorphically deserialize them. Idempotent.
     // Registers the whole cooked-model family's product/source types (model manifest +
     // mesh/material/texture/animation) for by-type-name construction at runtime.

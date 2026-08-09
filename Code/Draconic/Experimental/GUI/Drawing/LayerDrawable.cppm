@@ -25,7 +25,7 @@ export namespace experimental::gui
 {
     class LayerDrawable : public Drawable
     {
-        DRACONIC_OBJECT(LayerDrawable, Drawable)
+        RTTI_OBJECT(LayerDrawable, Drawable)
     public:
         struct Layer
         {
@@ -69,5 +69,5 @@ export namespace experimental::gui
         Array<Layer> m_layers;
     };
 
-    DRACONIC_DEFINE_OBJECT(LayerDrawable, "rtti::gui")
+    RTTI_DEFINE_OBJECT(LayerDrawable, "rtti::gui")
 }

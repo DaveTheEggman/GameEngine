@@ -91,7 +91,7 @@ export namespace foundation::core
     }
     [[nodiscard]] inline const EnumValue& EnumeratorAt(const TypeInfo& type, usize index) noexcept
     {
-        DRACONIC_ASSERT(index < type.enumeratorCount);
+        DIAGNOSTIC_ASSERT(index < type.enumeratorCount);
         return type.enumerators[index];
     }
 

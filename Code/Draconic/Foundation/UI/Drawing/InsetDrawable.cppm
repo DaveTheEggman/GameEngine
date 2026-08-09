@@ -22,7 +22,7 @@ export namespace foundation::ui
 {
     class InsetDrawable : public Drawable
     {
-        DRACONIC_OBJECT(InsetDrawable, Drawable)
+        RTTI_OBJECT(InsetDrawable, Drawable)
     public:
         Thickness Inset{};
 
@@ -60,5 +60,5 @@ export namespace foundation::ui
         RefPtr<Drawable> m_inner;
     };
 
-    DRACONIC_DEFINE_OBJECT(InsetDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(InsetDrawable, "rtti::ui")
 }

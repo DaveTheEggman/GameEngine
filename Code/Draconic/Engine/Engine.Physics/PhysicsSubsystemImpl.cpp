@@ -1,7 +1,7 @@
 // Engine::Physics - implementation unit: the render-frame drive (interpolation
 // + debug wireframes) and the component reflection bodies. Both live OUTSIDE the interface
 // for GCC: heavy render imports stay out of the interface's module graph, and the
-// DRACONIC_REFLECT_* macros in the :components partition made GCC emit a gcm with an
+// REFLECT_* macros in the :components partition made GCC emit a gcm with an
 // unreadable cluster (every -fno-module-lazy consumer then failed to import the module).
 
 module;
@@ -171,14 +171,14 @@ namespace engine::physics
 // ---- reflection (see :components for why this lives here) ----
 namespace engine::physics
 {
-    DRACONIC_REFLECT_ENUM(MotionKind, "rtti::engine::physics")
+    REFLECT_ENUM(MotionKind, "rtti::engine::physics")
     {
         builder.Value("Static", MotionKind::Static);
         builder.Value("Kinematic", MotionKind::Kinematic);
         builder.Value("Dynamic", MotionKind::Dynamic);
     }
 
-    DRACONIC_REFLECT_ENUM(PhysicsLayer, "rtti::engine::physics")
+    REFLECT_ENUM(PhysicsLayer, "rtti::engine::physics")
     {
         builder.Value("Static", PhysicsLayer::Static);
         builder.Value("Dynamic", PhysicsLayer::Dynamic);
@@ -186,7 +186,7 @@ namespace engine::physics
         builder.Value("Trigger", PhysicsLayer::Trigger);
     }
 
-    DRACONIC_REFLECT_ENUM(JointKind, "rtti::engine::physics")
+    REFLECT_ENUM(JointKind, "rtti::engine::physics")
     {
         builder.Value("Fixed", JointKind::Fixed);
         builder.Value("Point", JointKind::Point);
@@ -195,7 +195,7 @@ namespace engine::physics
         builder.Value("Distance", JointKind::Distance);
     }
 
-    DRACONIC_REFLECT_ENUM(ShapeKind, "rtti::engine::physics")
+    REFLECT_ENUM(ShapeKind, "rtti::engine::physics")
     {
         builder.Value("Box", ShapeKind::Box);
         builder.Value("Sphere", ShapeKind::Sphere);
@@ -204,7 +204,7 @@ namespace engine::physics
         builder.Value("Plane", ShapeKind::Plane);
     }
 
-    DRACONIC_REFLECT_VALUE(RigidBodyComponent, "rtti::engine::physics")
+    REFLECT_VALUE(RigidBodyComponent, "rtti::engine::physics")
     {
         builder.Attribute("displayName", String(u8"Rigid Body"))
             .Attribute("category", String(u8"Physics")).DataVersion(1);
@@ -234,7 +234,7 @@ namespace engine::physics
         builder.Method<&foundation::script::ComponentOf<RigidBodyComponent>, RigidBodyComponent>("of");
     }
 
-    DRACONIC_REFLECT_VALUE(ColliderComponent, "rtti::engine::physics")
+    REFLECT_VALUE(ColliderComponent, "rtti::engine::physics")
     {
         builder.Attribute("displayName", String(u8"Collider"))
             .Attribute("category", String(u8"Physics")).DataVersion(1);
@@ -251,7 +251,7 @@ namespace engine::physics
             .PropAttribute("visibleWhen", String(u8"shape=3"));
     }
 
-    DRACONIC_REFLECT_VALUE(CharacterComponent, "rtti::engine::physics")
+    REFLECT_VALUE(CharacterComponent, "rtti::engine::physics")
     {
         builder.Attribute("displayName", String(u8"Character"))
             .Attribute("category", String(u8"Physics")).DataVersion(1);
@@ -275,7 +275,7 @@ namespace engine::physics
         builder.Method<&CharacterComponent::positionZ>("positionZ");
     }
 
-    DRACONIC_REFLECT_VALUE(JointComponent, "rtti::engine::physics")
+    REFLECT_VALUE(JointComponent, "rtti::engine::physics")
     {
         builder.Attribute("displayName", String(u8"Joint"))
             .Attribute("category", String(u8"Physics")).DataVersion(1);
@@ -292,7 +292,7 @@ namespace engine::physics
         builder.Property<&JointComponent::motorLimit>("motorLimit");
     }
 
-    DRACONIC_REFLECT_VALUE(PhysicsSceneSettings, "rtti::engine::physics")
+    REFLECT_VALUE(PhysicsSceneSettings, "rtti::engine::physics")
     {
         builder.DataVersion(1);
         builder.Property<&PhysicsSceneSettings::gravity>("gravity");
@@ -304,7 +304,7 @@ namespace engine::physics
     // THAT scene's world (the explicit-scene replacement for the retired static Physics facade).
     // Reflected with authored parameter names (A6). The `of` factory returns ScenePhysics by value
     // (concrete return type - cross-backend, no ReturnType-override needed).
-    DRACONIC_REFLECT_VALUE(ScenePhysics, "rtti::engine::physics")
+    REFLECT_VALUE(ScenePhysics, "rtti::engine::physics")
     {
         builder.Method<&ScenePhysics::rayCast>(
             "rayCast", {"fromX", "fromY", "fromZ", "dirX", "dirY", "dirZ", "maxDistance"});

@@ -32,7 +32,7 @@ export namespace foundation::script
     /// faults or the owning context is gone.
     class IScriptDelegate : public core::Object
     {
-        DRACONIC_OBJECT(IScriptDelegate, core::Object)
+        RTTI_OBJECT(IScriptDelegate, core::Object)
     public:
         [[nodiscard]] virtual core::Result<core::Variant>
         Invoke(core::Span<core::Variant> args) = 0;
@@ -44,5 +44,5 @@ namespace foundation::script
     // StaticType() defined here (not a reflected registry type - scripts never construct
     // an IScriptDelegate; the type identity only needs to exist so reflected method
     // parameters can be spelled RefPtr<IScriptDelegate> and the backends can recognize it).
-    DRACONIC_DEFINE_OBJECT(IScriptDelegate, "rtti::script")
+    RTTI_DEFINE_OBJECT(IScriptDelegate, "rtti::script")
 }

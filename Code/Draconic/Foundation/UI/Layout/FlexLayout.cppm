@@ -48,7 +48,7 @@ export namespace foundation::ui
     /// LayoutParams for a FlexLayout child.
     class FlexLayoutParams : public LayoutParams
     {
-        DRACONIC_OBJECT(FlexLayoutParams, LayoutParams)
+        RTTI_OBJECT(FlexLayoutParams, LayoutParams)
     public:
         f32 Grow = 0.0f;           ///< Extra main-axis space this child absorbs.
         f32 Shrink = 0.0f;         ///< How much this child shrinks when space is insufficient.
@@ -59,7 +59,7 @@ export namespace foundation::ui
 
     class FlexLayout : public ViewGroup
     {
-        DRACONIC_OBJECT(FlexLayout, ViewGroup)
+        RTTI_OBJECT(FlexLayout, ViewGroup)
     public:
         Orientation Direction = Orientation::Horizontal;
         Justify JustifyContent = Justify::Start;
@@ -575,6 +575,6 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(FlexLayoutParams, "rtti::ui")
-    DRACONIC_DEFINE_OBJECT(FlexLayout, "rtti::ui")
+    RTTI_DEFINE_OBJECT(FlexLayoutParams, "rtti::ui")
+    RTTI_DEFINE_OBJECT(FlexLayout, "rtti::ui")
 }

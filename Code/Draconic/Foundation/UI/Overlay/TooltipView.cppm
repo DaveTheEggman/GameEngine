@@ -27,7 +27,7 @@ export namespace foundation::ui
 {
     class TooltipView : public ViewGroup
     {
-        DRACONIC_OBJECT(TooltipView, ViewGroup)
+        RTTI_OBJECT(TooltipView, ViewGroup)
     public:
         TooltipView() { Padding = Thickness{8, 4}; }
 
@@ -109,5 +109,5 @@ export namespace foundation::ui
         View* m_content = nullptr;
     };
 
-    DRACONIC_DEFINE_OBJECT(TooltipView, "rtti::ui")
+    RTTI_DEFINE_OBJECT(TooltipView, "rtti::ui")
 }

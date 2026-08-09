@@ -1,7 +1,7 @@
 // Pipeline::Fonts - reflection implementation unit: FontAsset's reflected surface.
 //
-// Kept OUT of the FontAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster;
-// see gcc-module-interface-hygiene). The class declares identity via DRACONIC_OBJECT in the
+// Kept OUT of the FontAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;
+// see gcc-module-interface-hygiene). The class declares identity via RTTI_OBJECT in the
 // interface; this unit defines FontAsset::StaticType() WITH properties + tooling attributes, plus
 // the FontBakeMode enum reflection. The `sizes` ramp (Array<f32>) is left unreflected for now -
 // array container properties need editor support beyond P1's flat-field pass. Reflection track P1.
@@ -19,13 +19,13 @@ using namespace foundation::core;
 using namespace foundation::fonts;
 
 namespace pipeline{
-    DRACONIC_REFLECT_ENUM(FontBakeMode, "rtti::pipeline::fonts")
+    REFLECT_ENUM(FontBakeMode, "rtti::pipeline::fonts")
     {
         builder.Value("RasterRamp", FontBakeMode::RasterRamp);
         builder.Value("DistanceField", FontBakeMode::DistanceField);
     }
 
-    DRACONIC_REFLECT(FontAsset, "rtti::pipeline::fonts")
+    REFLECT_MEMBERS(FontAsset, "rtti::pipeline::fonts")
     {
         builder.Attribute("displayName", String(u8"Font"))
             .Attribute("category", String(u8"Fonts"))

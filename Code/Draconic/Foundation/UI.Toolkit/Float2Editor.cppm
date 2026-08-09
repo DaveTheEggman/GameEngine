@@ -5,7 +5,7 @@
 // (.x/.y); `delegate void(Vector2) Setter` -> Function<void(Float2)>. The Beef private inner `AxisLabel`
 // is identical to the already-ported toolkit::AxisLabel (and its axis colors to AxisColors), so this
 // partition reuses those from :vector_fields instead of duplicating them. The private inner
-// `VectorNumericField : NumericField` becomes a PUBLIC nested class (own DRACONIC_OBJECT identity) whose
+// `VectorNumericField : NumericField` becomes a PUBLIC nested class (own RTTI_OBJECT identity) whose
 // focus overrides are defined out-of-line after Float2Editor is complete.
 
 module;
@@ -27,7 +27,7 @@ export namespace foundation::ui::toolkit
     /// Property editor for Float2 values. Two NumericFields (X, Y) side by side with axis labels.
     class Float2Editor : public PropertyEditor
     {
-        DRACONIC_OBJECT(Float2Editor, PropertyEditor)
+        RTTI_OBJECT(Float2Editor, PropertyEditor)
     public:
         Function<void(Float2)> Setter;
 
@@ -62,7 +62,7 @@ export namespace foundation::ui::toolkit
         /// NumericField subclass that tracks edit transactions via focus.
         class VectorNumericField : public NumericField
         {
-            DRACONIC_OBJECT(VectorNumericField, NumericField)
+            RTTI_OBJECT(VectorNumericField, NumericField)
         public:
             VectorNumericField(Float2Editor* editor, i32 axis) : m_editor(editor), m_axis(axis) {}
 
@@ -180,6 +180,6 @@ export namespace foundation::ui::toolkit
         }
     }
 
-    DRACONIC_DEFINE_OBJECT(Float2Editor, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(Float2Editor::VectorNumericField, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(Float2Editor, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(Float2Editor::VectorNumericField, "rtti::ui::toolkit")
 }

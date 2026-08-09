@@ -31,7 +31,7 @@ export namespace foundation::ui::toolkit
     /// Overlay that shows dock drop zones during drag operations.
     class DockZoneIndicator : public View
     {
-        DRACONIC_OBJECT(DockZoneIndicator, View)
+        RTTI_OBJECT(DockZoneIndicator, View)
     public:
         /// Accent color for the drop zones. Set by the owning DockManager from its resolved theme
         /// AccentColor (the indicator is drawn manually and never in the styled tree, so it can't
@@ -153,5 +153,5 @@ export namespace foundation::ui::toolkit
         i32 m_hoveredIndex = -1;
     };
 
-    DRACONIC_DEFINE_OBJECT(DockZoneIndicator, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(DockZoneIndicator, "rtti::ui::toolkit")
 }

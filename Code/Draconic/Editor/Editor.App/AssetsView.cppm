@@ -46,7 +46,7 @@ export namespace editor::app
 
     class AssetsView final : public ui::ViewGroup
     {
-        DRACONIC_OBJECT(AssetsView, ui::ViewGroup)
+        RTTI_OBJECT(AssetsView, ui::ViewGroup)
     public:
         /// Open an instance's editor page (wired by the application).
         Function<void(content::Instance&)> OnOpenInstance;
@@ -690,5 +690,5 @@ export namespace editor::app
         u64 m_cookRevision = ~0ull;
     };
 
-    DRACONIC_DEFINE_OBJECT(AssetsView, "rtti::editor::editor::app")
+    RTTI_DEFINE_OBJECT(AssetsView, "rtti::editor::editor::app")
 }

@@ -353,7 +353,7 @@ namespace editor
         {
             m_gameInstance->SetScene(m_scene);
         }
-        DRACONIC_LOG_INFO(u8"Editor", u8"Game: running scene '{}'", m_sceneTitle);
+        LOG_INFO(u8"Editor", u8"Game: running scene '{}'", m_sceneTitle);
         RefreshToolbar();
     }
 
@@ -601,7 +601,7 @@ namespace editor
             return;
         }
 
-        DRACONIC_LOG_WARNING(u8"Editor", u8"Game: scene has no camera - adding a default one");
+        LOG_WARNING(u8"Editor", u8"Game: scene has no camera - adding a default one");
         const scene::EntityHandle e = m_scene->CreateEntity(u8"PlayerCamera");
         Transform t;
         t.position = Float3{8.0f, 6.0f, 10.0f};
@@ -644,7 +644,7 @@ namespace editor
             {
                 m_gameInstance->SetInputMap(proxy->Map());
             }
-            DRACONIC_LOG_INFO(u8"Editor", u8"Game: input map bound ({} set(s))",
+            LOG_INFO(u8"Editor", u8"Game: input map bound ({} set(s))",
                               proxy->Map().sets.Size());
         }
         else
@@ -670,7 +670,7 @@ namespace editor
         if (proxy)
         {
             audio->Engine()->ApplyBusLayout(proxy->layout);
-            DRACONIC_LOG_INFO(u8"Editor", u8"Game: audio bus layout applied");
+            LOG_INFO(u8"Editor", u8"Game: audio bus layout applied");
         }
         else
         {

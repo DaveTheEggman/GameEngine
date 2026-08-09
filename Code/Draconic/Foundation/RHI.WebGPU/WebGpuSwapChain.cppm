@@ -98,7 +98,7 @@ export namespace foundation::rhi::webgpu
             }
             m_haveImage = true;
             ++m_frameIndex;
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
             m_api->NoteFrameOpen(); // mid-frame-yield diagnostic (see WebGpuApi)
 #endif
             return ErrorCode::Ok;
@@ -116,7 +116,7 @@ export namespace foundation::rhi::webgpu
             {
                 return ErrorCode::InvalidArgument;
             }
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
             // The browser presents the canvas automatically once the requestAnimationFrame
             // callback (the web runner's frame) returns; emdawnwebgpu ABORTS on an explicit
             // wgpuSurfacePresent.
@@ -192,7 +192,7 @@ export namespace foundation::rhi::webgpu
             }
         }
 
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
         // The browser's preferred canvas base format (formats[0] of the surface caps). Configuring
         // the canvas with anything else forces an extra copy at present. Falls back to the engine
         // default if caps are unavailable / not an 8-bit unorm format we understand.
@@ -247,7 +247,7 @@ export namespace foundation::rhi::webgpu
             config.height = height;
             config.presentMode = SupportedPresentMode(ToWgpuPresentMode(m_presentMode));
 
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
             // A WebGPU canvas context does not accept an sRGB config format, so configure with the
             // base format and expose the sRGB format as a viewFormat. AcquireNextImage then creates
             // the per-frame view in m_format (the sRGB format), so the engine's default sRGB
@@ -272,12 +272,12 @@ export namespace foundation::rhi::webgpu
             config.format = ToWgpuTextureFormat(m_format);
 #endif
 
-#if !DRACONIC_PLATFORM_WEB
+#if !PLATFORM_WEB
             // Refuse CLEANLY when this adapter cannot present to the surface - wgpu-native
             // PANICS inside configure otherwise ("Surface does not support the adapter's
             // queue family", seen on Windows hybrid/multi-adapter machines). Zero supported
             // formats = no present support for this (surface, adapter) pair; the backend logs
-            // the adapter list at startup and DRACONIC_WEBGPU_ADAPTER=<index> overrides the pick.
+            // the adapter list at startup and ENV_WEBGPU_ADAPTER=<index> overrides the pick.
             {
                 WGPUSurfaceCapabilities caps = WGPU_SURFACE_CAPABILITIES_INIT;
                 if (m_api->wgpuSurfaceGetCapabilities(m_surface->Handle(), m_adapter, &caps) ==
@@ -288,7 +288,7 @@ export namespace foundation::rhi::webgpu
                     if (!presentable)
                     {
                         LogError("[webgpu] this adapter cannot present to the window surface - "
-                                 "set DRACONIC_WEBGPU_ADAPTER=<index> (adapter list logged at "
+                                 "set ENV_WEBGPU_ADAPTER=<index> (adapter list logged at "
                                  "startup)");
                         return ErrorCode::NotSupported;
                     }

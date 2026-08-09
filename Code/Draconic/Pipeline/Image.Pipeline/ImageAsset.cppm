@@ -24,7 +24,7 @@ export namespace pipeline{
     // Source asset: references an image file; colorSpace says how to interpret it.
     class ImageAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(ImageAsset, pipeline::Asset)
+        RTTI_OBJECT(ImageAsset, pipeline::Asset)
     public:
         ImageColorSpace colorSpace = ImageColorSpace::Srgb;
 

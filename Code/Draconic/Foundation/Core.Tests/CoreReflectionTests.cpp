@@ -370,7 +370,7 @@ namespace
     };
 }
 
-DRACONIC_REFLECT_VALUE(AttrWidget, "rtti::tests")
+REFLECT_VALUE(AttrWidget, "rtti::tests")
 {
     builder.Property<&AttrWidget::speed>("speed")
         .PropAttribute("range", Float4{0.0f, 10.0f, 0.5f, 0.0f})

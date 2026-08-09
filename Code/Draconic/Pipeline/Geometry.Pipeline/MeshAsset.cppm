@@ -31,7 +31,7 @@ export namespace pipeline{
 
     class StaticMeshAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(StaticMeshAsset, pipeline::Asset)
+        RTTI_OBJECT(StaticMeshAsset, pipeline::Asset)
     public:
         StaticMeshSource source;
 
@@ -44,7 +44,7 @@ export namespace pipeline{
 
     class SkinnedMeshAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(SkinnedMeshAsset, pipeline::Asset)
+        RTTI_OBJECT(SkinnedMeshAsset, pipeline::Asset)
     public:
         SkinnedMeshSource source;
 
@@ -126,9 +126,9 @@ export namespace pipeline{
         RegisterSerializable<SkinnedMeshAsset>();
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "rtti::pipeline::geometry",
+    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "rtti::pipeline::geometry",
                                      2) // v2 = Float4 tangent vertex blobs
-    DRACONIC_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "rtti::pipeline::geometry",
+    RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "rtti::pipeline::geometry",
                                      2) // v2 = Float4 tangent vertex blobs
 
 } // namespace foundation::geometry

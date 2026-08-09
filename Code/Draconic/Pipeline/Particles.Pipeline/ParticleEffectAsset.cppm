@@ -31,7 +31,7 @@ export namespace pipeline{
     // the other.
     class ParticleEffectAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(ParticleEffectAsset, pipeline::Asset)
+        RTTI_OBJECT(ParticleEffectAsset, pipeline::Asset)
     public:
         [[nodiscard]] ParticleEffect& Effect() noexcept { return m_effect; }
         [[nodiscard]] const ParticleEffect& Effect() const noexcept { return m_effect; }
@@ -121,5 +121,5 @@ export namespace pipeline{
         RegisterSerializable<ParticleEffectAsset>();
     }
 
-    DRACONIC_DEFINE_OBJECT(ParticleEffectAsset, "rtti::pipeline::particles")
+    RTTI_DEFINE_OBJECT(ParticleEffectAsset, "rtti::pipeline::particles")
 }

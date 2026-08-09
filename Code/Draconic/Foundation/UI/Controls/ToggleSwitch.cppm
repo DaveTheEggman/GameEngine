@@ -31,7 +31,7 @@ export namespace foundation::ui
 {
     class ToggleSwitch : public View
     {
-        DRACONIC_OBJECT(ToggleSwitch, View)
+        RTTI_OBJECT(ToggleSwitch, View)
     public:
         Property<bool> IsChecked{false};
         Property<String> Text;
@@ -179,5 +179,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(ToggleSwitch, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ToggleSwitch, "rtti::ui")
 }

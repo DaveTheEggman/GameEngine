@@ -23,7 +23,7 @@ using namespace foundation::input;
 export namespace pipeline{
     class InputMapAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(InputMapAsset, pipeline::Asset)
+        RTTI_OBJECT(InputMapAsset, pipeline::Asset)
     public:
         [[nodiscard]] InputMap& Map() noexcept { return m_map; }
         [[nodiscard]] const InputMap& Map() const noexcept { return m_map; }
@@ -80,7 +80,7 @@ export namespace pipeline{
             String error;
             if (!ValidateInputMap(source.Map(), &error))
             {
-                DRACONIC_LOG_ERROR(u8"Cook", u8"input map invalid: {}", error);
+                LOG_ERROR(u8"Cook", u8"input map invalid: {}", error);
                 return Status{ErrorCode::InvalidArgument};
             }
             InputMapResource cooked;
@@ -99,5 +99,5 @@ export namespace pipeline{
     }
 
     // InputMapAsset::StaticType() is defined WITH its reflected surface (a Nested `map` property)
-    // in InputMapAssetImpl.cpp - GCC module hygiene: DRACONIC_REFLECT out of interfaces.
+    // in InputMapAssetImpl.cpp - GCC module hygiene: REFLECT_MEMBERS out of interfaces.
 }

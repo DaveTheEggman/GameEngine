@@ -36,7 +36,7 @@ export namespace foundation::core
         {
             return true; // POSIX root, and UNC "\\..." on Windows
         }
-#if DRACONIC_PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS
         // "X:\..." / "X:/..." - a drive-qualified root.
         if (path.Size() >= 3 && path[1] == utf8char(':') && PathIsSeparator(path[2]))
         {

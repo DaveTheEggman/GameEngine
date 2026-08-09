@@ -495,24 +495,24 @@ export namespace foundation::shell
             {
                 if (capturedBefore == nullptr)
                 {
-                    DRACONIC_LOG_DEBUG(u8"Input",
+                    LOG_DEBUG(u8"Input",
                                        u8"viewport capture acquired (window {}) - button pressed "
                                        u8"over the hovered surface",
                                        m_captured->Window());
                 }
                 else if (m_captured == nullptr && m_extMouseCapture)
                 {
-                    DRACONIC_LOG_DEBUG(u8"Input",
+                    LOG_DEBUG(u8"Input",
                                        u8"viewport capture released - external overlay took the mouse");
                 }
                 else if (m_captured == nullptr)
                 {
-                    DRACONIC_LOG_DEBUG(u8"Input",
+                    LOG_DEBUG(u8"Input",
                                        u8"viewport capture released - no mouse button held");
                 }
                 else
                 {
-                    DRACONIC_LOG_DEBUG(u8"Input", u8"viewport capture moved to window {}",
+                    LOG_DEBUG(u8"Input", u8"viewport capture moved to window {}",
                                        m_captured->Window());
                 }
                 m_captureNoButtonFrames = 0;
@@ -524,7 +524,7 @@ export namespace foundation::shell
                 // Should have released above; if capture persists here some path is pinning it.
                 if (++m_captureNoButtonFrames >= kCaptureLeakFrames && !m_captureLeakLogged)
                 {
-                    DRACONIC_LOG_ERROR(u8"Input",
+                    LOG_ERROR(u8"Input",
                                        u8"viewport capture STUCK: held {} frames with no mouse "
                                        u8"button down (leak - a button-up was likely missed)",
                                        m_captureNoButtonFrames);

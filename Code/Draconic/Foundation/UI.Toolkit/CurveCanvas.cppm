@@ -83,7 +83,7 @@ export namespace foundation::ui::toolkit
     /// Multi-channel interactive curve editor canvas.
     class CurveCanvas : public View
     {
-        DRACONIC_OBJECT(CurveCanvas, View)
+        RTTI_OBJECT(CurveCanvas, View)
     public:
         /// One keypoint. Times in [0, 1]; Values in user space. Tangents are slope (dy/dt) at the key.
         struct Key
@@ -1260,5 +1260,5 @@ export namespace foundation::ui::toolkit
         DraggingHandle m_draggingHandle = DraggingHandle::None;
     };
 
-    DRACONIC_DEFINE_OBJECT(CurveCanvas, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(CurveCanvas, "rtti::ui::toolkit")
 }

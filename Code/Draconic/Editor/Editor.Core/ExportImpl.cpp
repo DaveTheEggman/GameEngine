@@ -111,7 +111,7 @@ namespace editor
             if (!shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk() ||
                 compiler == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"Export",
+                LOG_ERROR(u8"Export",
                                    u8"cannot cook shaders: the DXC compiler is unavailable");
                 return Status{ErrorCode::Internal};
             }
@@ -129,7 +129,7 @@ namespace editor
 
             for (usize i = 0; i < report.errors.Size(); ++i)
             {
-                DRACONIC_LOG_ERROR(u8"Export", u8"shader cook: {}", report.errors[i]);
+                LOG_ERROR(u8"Export", u8"shader cook: {}", report.errors[i]);
             }
             if (!report.success)
             {
@@ -140,7 +140,7 @@ namespace editor
             FileStream out(packPath.AsView(), FileMode::Write);
             if (!out.IsValid() || !pack.Write(out).IsOk())
             {
-                DRACONIC_LOG_ERROR(u8"Export", u8"could not write shaders.dpak to '{}'", outputDir);
+                LOG_ERROR(u8"Export", u8"could not write shaders.dpak to '{}'", outputDir);
                 return Status{ErrorCode::Internal};
             }
             outVariants = static_cast<u32>(pack.Count());
@@ -306,7 +306,7 @@ namespace editor
             stats.cookFailed = cookStats.failed;
             if (cookStats.failed > 0)
             {
-                DRACONIC_LOG_ERROR(u8"Export", u8"aborting - the cook has {} failure(s)",
+                LOG_ERROR(u8"Export", u8"aborting - the cook has {} failure(s)",
                                    cookStats.failed);
                 return Status{ErrorCode::Internal};
             }
@@ -373,7 +373,7 @@ namespace editor
                 }
                 if (!detail::StageScene(*scene, staging, sceneStreams))
                 {
-                    DRACONIC_LOG_ERROR(u8"Export", u8"failed to stage scene '{}'", scene->Path());
+                    LOG_ERROR(u8"Export", u8"failed to stage scene '{}'", scene->Path());
                     return Status{ErrorCode::Internal};
                 }
                 ++staged;
@@ -429,7 +429,7 @@ namespace editor
             !detail::PackTree(stagingMount, *stagingMount.AsEnumerable(), u8"", pak,
                               stats.filesPacked))
         {
-            DRACONIC_LOG_ERROR(u8"Export", u8"packing failed");
+            LOG_ERROR(u8"Export", u8"packing failed");
             return Status{ErrorCode::Internal};
         }
         // The startup game script needs no special staging - it is a cooked ScriptClass asset in the
@@ -438,7 +438,7 @@ namespace editor
         const String pakPath = PathJoin(outDir, engine::project::kDistContentPak);
         if (!pak.Write(pakPath.AsView()).IsOk())
         {
-            DRACONIC_LOG_ERROR(u8"Export", u8"failed to write Content.pak");
+            LOG_ERROR(u8"Export", u8"failed to write Content.pak");
             return Status{ErrorCode::Internal};
         }
 
@@ -467,7 +467,7 @@ namespace editor
                                                         engine::project::kDistManifestFile)
                      .IsOk())
             {
-                DRACONIC_LOG_ERROR(u8"Export", u8"failed to write the dist manifest");
+                LOG_ERROR(u8"Export", u8"failed to write the dist manifest");
                 return Status{ErrorCode::Internal};
             }
         }
@@ -492,7 +492,7 @@ namespace editor
             }
 
             const String text = FormatPruningReport(report);
-            DRACONIC_LOG_INFO(u8"Export", u8"pruned dist: {} kept, {} dropped ({} root(s))",
+            LOG_INFO(u8"Export", u8"pruned dist: {} kept, {} dropped ({} root(s))",
                               report.keptCount, report.dropped.Size(), report.roots.Size());
             {
                 foundation::vfs::NativeFileSystem outMount(outDir);
@@ -546,7 +546,7 @@ namespace editor
         stats.cookFailed = cookStats.failed;
         if (cookStats.failed > 0)
         {
-            DRACONIC_LOG_ERROR(u8"Export", u8"aborting - the cook has {} failure(s)",
+            LOG_ERROR(u8"Export", u8"aborting - the cook has {} failure(s)",
                                cookStats.failed);
             if (outStats != nullptr)
             {
@@ -575,7 +575,7 @@ namespace editor
         const ExportTemplate* tmpl = templates.Resolve(preset);
         if (tmpl == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"Export",
+            LOG_ERROR(u8"Export",
                                u8"no export template for preset '{}' (platform '{}') - import one",
                                preset.name, preset.platform);
             return Status{ErrorCode::NotFound};
@@ -590,7 +590,7 @@ namespace editor
         if (!tmpl->engineVersion.IsEmpty() &&
             tmpl->engineVersion != engine::project::kEngineVersionString)
         {
-            DRACONIC_LOG_WARNING(u8"Export",
+            LOG_WARNING(u8"Export",
                                  u8"template '{}' was built against engine {} but this build is {} "
                                  u8"- exporting anyway",
                                  tmpl->id, tmpl->engineVersion,
@@ -622,7 +622,7 @@ namespace editor
         bool prune = preset.pruneToReachable;
         if (prune && !haveScanner && !havePrecomputed)
         {
-            DRACONIC_LOG_WARNING(
+            LOG_WARNING(
                 u8"Export",
                 u8"preset '{}' requests pruning but no scene-reference scanner or precomputed root "
                 u8"set was supplied - exporting everything",
@@ -683,7 +683,7 @@ namespace editor
         if (!detail::CopyFilePreserving(tmpl->directory.AsView(), tmpl->playerBinary.AsView(),
                                         result.outputDir.AsView(), outName.AsView()))
         {
-            DRACONIC_LOG_ERROR(u8"Export", u8"failed to stage player '{}' from template '{}'",
+            LOG_ERROR(u8"Export", u8"failed to stage player '{}' from template '{}'",
                                tmpl->playerBinary, tmpl->id);
             if (outResult != nullptr)
             {
@@ -712,7 +712,7 @@ namespace editor
                 return Status{ErrorCode::Internal};
             }
             ++result.filesStaged;
-            DRACONIC_LOG_INFO(u8"Export", u8"staged shaders.dpak ({} variants)", shaderVariants);
+            LOG_INFO(u8"Export", u8"staged shaders.dpak ({} variants)", shaderVariants);
         }
 
         if (onProgress && !tmpl->sidecars.IsEmpty())
@@ -726,7 +726,7 @@ namespace editor
         {
             if (IsDxcRuntimeLib(sidecar.AsView()))
             {
-                DRACONIC_LOG_INFO(u8"Export", u8"omitting DXC sidecar '{}' (dist renders from the "
+                LOG_INFO(u8"Export", u8"omitting DXC sidecar '{}' (dist renders from the "
                                               u8"cooked shader pack)",
                                   sidecar);
                 continue;
@@ -738,7 +738,7 @@ namespace editor
             }
             else
             {
-                DRACONIC_LOG_WARNING(u8"Export", u8"sidecar '{}' not found in template '{}'",
+                LOG_WARNING(u8"Export", u8"sidecar '{}' not found in template '{}'",
                                      sidecar, tmpl->id);
             }
         }
@@ -756,7 +756,7 @@ namespace editor
                 }
                 else
                 {
-                    DRACONIC_LOG_WARNING(u8"Export",
+                    LOG_WARNING(u8"Export",
                                          u8"symbol file '{}' not found in template '{}'", symbol,
                                          tmpl->id);
                 }
@@ -774,7 +774,7 @@ namespace editor
             }
             else
             {
-                DRACONIC_LOG_WARNING(u8"Export", u8"additional file '{}' not found", extra);
+                LOG_WARNING(u8"Export", u8"additional file '{}' not found", extra);
             }
         }
 
@@ -821,12 +821,12 @@ namespace editor
                     .IsOk())
             {
                 ++ok;
-                DRACONIC_LOG_INFO(u8"Export", u8"exported '{}' -> {} ({} files staged)",
+                LOG_INFO(u8"Export", u8"exported '{}' -> {} ({} files staged)",
                                   preset.name, result.outputDir, result.filesStaged);
             }
             else
             {
-                DRACONIC_LOG_ERROR(u8"Export", u8"preset '{}' failed", preset.name);
+                LOG_ERROR(u8"Export", u8"preset '{}' failed", preset.name);
             }
         }
         return (ok == n) ? Status{} : Status{ErrorCode::Internal};

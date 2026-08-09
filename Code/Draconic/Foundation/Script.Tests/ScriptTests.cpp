@@ -14,7 +14,7 @@ namespace
 {
     class Widget : public Object
     {
-        DRACONIC_OBJECT(Widget, Object)
+        RTTI_OBJECT(Widget, Object)
     public:
         int id = 0;
     };
@@ -73,7 +73,7 @@ namespace
     };
 }
 
-DRACONIC_DEFINE_OBJECT(Widget, "rtti::script::test")
+RTTI_DEFINE_OBJECT(Widget, "rtti::script::test")
 
 TEST_CASE("script: reflected types register with a manager")
 {

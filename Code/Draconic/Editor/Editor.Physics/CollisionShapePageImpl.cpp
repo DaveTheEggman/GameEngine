@@ -63,7 +63,7 @@ namespace editor
             RefPtr<pipeline::CollisionShapeAsset>(Cast<pipeline::CollisionShapeAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"Editor", u8"collision shape '{}' failed to read - page opens empty",
+            LOG_ERROR(u8"Editor", u8"collision shape '{}' failed to read - page opens empty",
                                m_title);
         }
 
@@ -193,7 +193,7 @@ namespace editor
             ClearDirty();
             m_context->RequestCook(false); // re-cook so a shape=Cooked body gets the collider
             RefreshStatus();
-            DRACONIC_LOG_INFO(u8"Editor", u8"saved collision shape '{}'", m_title);
+            LOG_INFO(u8"Editor", u8"saved collision shape '{}'", m_title);
         }
         return saved;
     }

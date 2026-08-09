@@ -90,12 +90,12 @@ export namespace foundation::graphics
     {
         BackendType backend = BackendType::Vulkan;
         // Validation (our RHI-layer wrapper AND the backend's own layers, e.g. Vulkan validation)
-        // defaults ON for dev builds and OFF for optimized/shipping builds (DRACONIC_RELEASE - set for
+        // defaults ON for dev builds and OFF for optimized/shipping builds (BUILD_RELEASE - set for
         // Release/RelWithDebInfo/MinSizeRel). A profiling run (RelWithDebInfo) therefore measures the
         // real cost, not the validation overhead. Override explicitly to force either way.
-        // NB: DRACONIC_RELEASE is ALWAYS defined (0 in dev, 1 in optimized builds - see Core/Prelude.h),
+        // NB: BUILD_RELEASE is ALWAYS defined (0 in dev, 1 in optimized builds - see Core/Prelude.h),
         // so this must be `#if`, not `#ifdef` (which would always take the release branch).
-#if DRACONIC_RELEASE
+#if BUILD_RELEASE
         bool enableValidation = false;
 #else
         bool enableValidation = true;
@@ -285,7 +285,7 @@ export namespace foundation::graphics
                 return core::Err(core::ErrorCode::Unknown);
             }
 
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
             // Web (Emscripten/Dawn) surfaces hand out a SINGLE current texture, reused every frame,
             // and wgpuQueueSubmit validates ASYNCHRONOUSLY. With more than one frame in flight, the
             // next frame's AcquireNextImage releases that shared surface texture while the prior

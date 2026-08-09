@@ -19,10 +19,10 @@ int main()
     net::UdpSocket clientSock(0);
     if (!serverSock.IsOpen() || !clientSock.IsOpen())
     {
-        DRACONIC_LOG_ERROR(u8"NetEcho", u8"failed to open UDP sockets");
+        LOG_ERROR(u8"NetEcho", u8"failed to open UDP sockets");
         return 1;
     }
-    DRACONIC_LOG_INFO(u8"NetEcho", u8"server on :{}, client on :{}", serverSock.BoundPort(),
+    LOG_INFO(u8"NetEcho", u8"server on :{}, client on :{}", serverSock.BoundPort(),
                       clientSock.BoundPort());
 
     net::ReliableTransport server(serverSock);
@@ -48,13 +48,13 @@ int main()
         {
             if (ev.kind == net::NetEventKind::Connected)
             {
-                DRACONIC_LOG_INFO(u8"NetEcho", u8"server: peer {} connected", ev.peer);
+                LOG_INFO(u8"NetEcho", u8"server: peer {} connected", ev.peer);
             }
             else if (ev.kind == net::NetEventKind::Received)
             {
                 const StringView text(reinterpret_cast<const utf8char*>(ev.payload.Data()),
                                       ev.payload.Size());
-                DRACONIC_LOG_INFO(u8"NetEcho", u8"server: recv '{}' -> echo", text);
+                LOG_INFO(u8"NetEcho", u8"server: recv '{}' -> echo", text);
                 server.Send(ev.peer, 0, ev.payload.AsSpan(), net::Reliability::ReliableOrdered);
             }
         }
@@ -65,13 +65,13 @@ int main()
             if (ev.kind == net::NetEventKind::Connected)
             {
                 clientConnected = true;
-                DRACONIC_LOG_INFO(u8"NetEcho", u8"client: connected to server");
+                LOG_INFO(u8"NetEcho", u8"client: connected to server");
             }
             else if (ev.kind == net::NetEventKind::Received)
             {
                 const StringView text(reinterpret_cast<const utf8char*>(ev.payload.Data()),
                                       ev.payload.Size());
-                DRACONIC_LOG_INFO(u8"NetEcho", u8"client: echo <- '{}'", text);
+                LOG_INFO(u8"NetEcho", u8"client: echo <- '{}'", text);
                 ++echoed;
             }
         }
@@ -87,9 +87,9 @@ int main()
 
     if (echoed == kLineCount)
     {
-        DRACONIC_LOG_INFO(u8"NetEcho", u8"all {} lines round-tripped - OK", kLineCount);
+        LOG_INFO(u8"NetEcho", u8"all {} lines round-tripped - OK", kLineCount);
         return 0;
     }
-    DRACONIC_LOG_ERROR(u8"NetEcho", u8"only {}/{} lines echoed", echoed, kLineCount);
+    LOG_ERROR(u8"NetEcho", u8"only {}/{} lines echoed", echoed, kLineCount);
     return 1;
 }

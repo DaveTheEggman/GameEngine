@@ -158,7 +158,7 @@ export namespace foundation::rhi::webgpu
             // feature ENUM is wgpu-native-only; Dawn/emdawnwebgpu has no immediates path,
             // so web routes SetPushConstants through the UNIFORM-BUFFER emulation (the
             // push_constant_emulator partition) - fully functional, just not Immediates.
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
             const bool immediatesSupported = false;
 #else
             const auto immediates = static_cast<WGPUFeatureName>(WGPUNativeFeature_Immediates);
@@ -182,7 +182,7 @@ export namespace foundation::rhi::webgpu
             // Encoder-level WriteTimestamp (the RHI's CommandEncoder::WriteTimestamp,
             // used by the GPU GraphProfiler) is a separate wgpu feature from
             // pass-boundary timestamps. The enum is wgpu-native-only - unavailable on web.
-#if !DRACONIC_PLATFORM_WEB
+#if !PLATFORM_WEB
             const auto encoderTimestamps =
                 static_cast<WGPUFeatureName>(WGPUNativeFeature_TimestampQueryInsideEncoders);
             if (info.supportedFeatures.timestampQueries &&

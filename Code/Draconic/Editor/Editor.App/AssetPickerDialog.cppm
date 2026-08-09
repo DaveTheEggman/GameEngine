@@ -36,7 +36,7 @@ export namespace editor::app
 
     class AssetPickerDialog final : public ui::Dialog
     {
-        DRACONIC_OBJECT(AssetPickerDialog, ui::Dialog)
+        RTTI_OBJECT(AssetPickerDialog, ui::Dialog)
     public:
         /// The pick result: an instance id, or nil for [Clear]. Fired once, before close.
         Function<void(const Guid&)> OnPicked;
@@ -328,5 +328,5 @@ export namespace editor::app
         String m_filter;
     };
 
-    DRACONIC_DEFINE_OBJECT(AssetPickerDialog, "rtti::editor::editor::app")
+    RTTI_DEFINE_OBJECT(AssetPickerDialog, "rtti::editor::editor::app")
 }

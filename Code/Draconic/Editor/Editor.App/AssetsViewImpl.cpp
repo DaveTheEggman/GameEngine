@@ -947,7 +947,7 @@ namespace editor::app
         content::Group* created = parent->CreateGroup(name.AsView());
         if (created != nullptr)
         {
-            DRACONIC_LOG_INFO(u8"Assets", u8"created group '{}'", created->Path());
+            LOG_INFO(u8"Assets", u8"created group '{}'", created->Path());
             m_selectedGroup = created;
             Rebuild();
         }
@@ -971,7 +971,7 @@ namespace editor::app
                               u8"Duplicate FAILED (see console).");
             return;
         }
-        DRACONIC_LOG_INFO(u8"Assets", u8"duplicated '{}' -> '{}'", src->Path(), copy->Path());
+        LOG_INFO(u8"Assets", u8"duplicated '{}' -> '{}'", src->Path(), copy->Path());
         String message(u8"Duplicated as '");
         message += copy->Name();
         message += u8"'.";
@@ -1038,7 +1038,7 @@ namespace editor::app
             project->Settings().defaultScene = inst->Path();
             (void)project->SaveSettings();
         }
-        DRACONIC_LOG_INFO(u8"Assets", u8"renamed '{}' -> '{}'", oldPath, inst->Path());
+        LOG_INFO(u8"Assets", u8"renamed '{}' -> '{}'", oldPath, inst->Path());
         Rebuild();
     }
 
@@ -1116,7 +1116,7 @@ namespace editor::app
                 (void)project->SaveSettings();
             }
         }
-        DRACONIC_LOG_INFO(u8"Assets", u8"renamed group '{}' -> '{}'", oldPath, group->Path());
+        LOG_INFO(u8"Assets", u8"renamed group '{}' -> '{}'", oldPath, group->Path());
         Rebuild();
     }
 
@@ -1289,11 +1289,11 @@ namespace editor::app
             if (db.DeleteInstance(id).IsOk())
             {
                 ++deleted;
-                DRACONIC_LOG_INFO(u8"Assets", u8"deleted '{}'", path);
+                LOG_INFO(u8"Assets", u8"deleted '{}'", path);
             }
             else
             {
-                DRACONIC_LOG_WARNING(u8"Assets", u8"delete FAILED for '{}'", path);
+                LOG_WARNING(u8"Assets", u8"delete FAILED for '{}'", path);
             }
         }
         String message(u8"Deleted ");
@@ -1402,7 +1402,7 @@ namespace editor::app
         const String path = group->Path();
         if (m_context->Project()->SourceDb().DeleteGroup(*group).IsOk())
         {
-            DRACONIC_LOG_INFO(u8"Assets", u8"deleted group '{}' ({} asset(s))", path, ids.Size());
+            LOG_INFO(u8"Assets", u8"deleted group '{}' ({} asset(s))", path, ids.Size());
             String message(u8"Deleted group '");
             message += path;
             message += u8"'.";
@@ -1410,7 +1410,7 @@ namespace editor::app
         }
         else
         {
-            DRACONIC_LOG_WARNING(u8"Assets", u8"delete FAILED for group '{}'", path);
+            LOG_WARNING(u8"Assets", u8"delete FAILED for group '{}'", path);
             m_context->Notify(editor::NoticeKind::Error,
                               u8"Delete group FAILED (see console).");
         }
@@ -1463,7 +1463,7 @@ namespace editor::app
         project->Settings().defaultSceneId = Guid{};
         project->Settings().defaultScene = String();
         (void)project->SaveSettings();
-        DRACONIC_LOG_INFO(u8"Assets", u8"default scene was deleted - cleared it in the manifest");
+        LOG_INFO(u8"Assets", u8"default scene was deleted - cleared it in the manifest");
     }
 
     void AssetsView::AppendCount(String& out, usize value)

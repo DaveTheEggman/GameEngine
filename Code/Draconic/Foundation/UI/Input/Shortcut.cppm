@@ -20,7 +20,7 @@ export namespace foundation::ui
 
     class Shortcut : public Object
     {
-        DRACONIC_OBJECT(Shortcut, Object)
+        RTTI_OBJECT(Shortcut, Object)
     public:
         KeyCode Key = KeyCode::Unknown;
         KeyModifiers Modifiers = KeyModifiers::None;
@@ -72,5 +72,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(Shortcut, "rtti::ui")
+    RTTI_DEFINE_OBJECT(Shortcut, "rtti::ui")
 }

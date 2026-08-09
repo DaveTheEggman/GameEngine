@@ -50,7 +50,7 @@ export namespace foundation::ui
 {
     class EditText : public View, public ITextEditHost
     {
-        DRACONIC_OBJECT(EditText, View)
+        RTTI_OBJECT(EditText, View)
     public:
         // === Text state (faithful public Property<> fields; tests drive these) ===
         Property<String> Placeholder;
@@ -1089,5 +1089,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(EditText, "rtti::ui")
+    RTTI_DEFINE_OBJECT(EditText, "rtti::ui")
 }

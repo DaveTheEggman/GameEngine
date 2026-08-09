@@ -29,7 +29,7 @@ export namespace experimental::gui
 {
     class UINode : public Node
     {
-        DRACONIC_OBJECT(UINode, Node)
+        RTTI_OBJECT(UINode, Node)
     public:
         UINode() = default;
 
@@ -125,5 +125,5 @@ export namespace experimental::gui
         bool m_pressed = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(UINode, "rtti::gui")
+    RTTI_DEFINE_OBJECT(UINode, "rtti::gui")
 }

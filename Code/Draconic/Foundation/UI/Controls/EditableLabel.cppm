@@ -40,7 +40,7 @@ export namespace foundation::ui
 {
     class EditableLabel : public EditText
     {
-        DRACONIC_OBJECT(EditableLabel, EditText)
+        RTTI_OBJECT(EditableLabel, EditText)
     public:
         Property<f32> TextOffsetX{0.0f};
         Property<fonts::TextAlignment> HAlign{fonts::TextAlignment::Left};
@@ -121,19 +121,19 @@ export namespace foundation::ui
             // happened" from the outside.
             if (Trimmed(newText).IsEmpty())
             {
-                DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: empty");
+                LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: empty");
                 CancelEdit();
                 return;
             }
             if (newText == m_preEditText.AsView())
             {
-                DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: unchanged");
+                LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: unchanged");
                 CancelEdit();
                 return;
             }
             if (ValidateRename && !ValidateRename(newText))
             {
-                DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: validator");
+                LOG_DEBUG(u8"UI", u8"EditableLabel commit rejected: validator");
                 CancelEdit();
                 return;
             }
@@ -168,7 +168,7 @@ export namespace foundation::ui
             if (m_isEditing && Context != nullptr &&
                 Context->GetFocusManager()->FocusStackDepth() == 0)
             {
-                DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit via focus-lost");
+                LOG_DEBUG(u8"UI", u8"EditableLabel commit via focus-lost");
                 CommitEdit();
             }
             EditText::OnFocusLost();
@@ -180,7 +180,7 @@ export namespace foundation::ui
         {
             if (m_isEditing)
             {
-                DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit via OnActivate");
+                LOG_DEBUG(u8"UI", u8"EditableLabel commit via OnActivate");
                 CommitEdit();
                 return;
             }
@@ -193,7 +193,7 @@ export namespace foundation::ui
             {
                 if (e.Key == KeyCode::Return)
                 {
-                    DRACONIC_LOG_DEBUG(u8"UI", u8"EditableLabel commit via Return key");
+                    LOG_DEBUG(u8"UI", u8"EditableLabel commit via Return key");
                     CommitEdit();
                     e.Handled = true;
                     return;
@@ -324,5 +324,5 @@ export namespace foundation::ui
         bool m_wasClickedOnce = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(EditableLabel, "rtti::ui")
+    RTTI_DEFINE_OBJECT(EditableLabel, "rtti::ui")
 }

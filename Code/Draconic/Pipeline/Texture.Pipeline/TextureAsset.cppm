@@ -40,7 +40,7 @@ export namespace pipeline{
     // Source asset: an image file + how it should become a GPU texture.
     class TextureAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(TextureAsset, pipeline::Asset)
+        RTTI_OBJECT(TextureAsset, pipeline::Asset)
     public:
         image::ImageColorSpace colorSpace = image::ImageColorSpace::Srgb;
         // Embedded mode (model imports): fileName empty + width/height set; the RGBA8 pixels

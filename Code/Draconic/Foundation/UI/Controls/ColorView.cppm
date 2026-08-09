@@ -23,7 +23,7 @@ export namespace foundation::ui
 {
     class ColorView : public View
     {
-        DRACONIC_OBJECT(ColorView, View)
+        RTTI_OBJECT(ColorView, View)
     public:
         Property<core::Color> Color{core::Color::White};
         Property<f32> PreferredWidth{0.0f};
@@ -56,5 +56,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(ColorView, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ColorView, "rtti::ui")
 }

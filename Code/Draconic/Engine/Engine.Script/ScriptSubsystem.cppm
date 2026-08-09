@@ -194,12 +194,12 @@ export namespace engine::script
         {
             if (error.kind == ScriptErrorKind::Compile)
             {
-                DRACONIC_LOG_ERROR(u8"Script", u8"{}:{}: {}", error.module, error.line,
+                LOG_ERROR(u8"Script", u8"{}:{}: {}", error.module, error.line,
                                    error.message);
             }
             else
             {
-                DRACONIC_LOG_ERROR(u8"Script", u8"{} (line {}): {}", error.module, error.line,
+                LOG_ERROR(u8"Script", u8"{} (line {}): {}", error.module, error.line,
                                    error.message);
             }
             if (external != nullptr)
@@ -309,7 +309,7 @@ export namespace engine::script
             m_manager = CreateScriptManagerForLanguage(languageId);
             if (m_manager.Get() == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"Script", u8"no script backend for language '{}'", languageId);
+                LOG_ERROR(u8"Script", u8"no script backend for language '{}'", languageId);
                 return nullptr;
             }
             RegisterReflectedTypes(*m_manager);
@@ -331,7 +331,7 @@ export namespace engine::script
             }
             m_moduleCurrent = false;
             EnsureDebugger(); // a debugger requested before the context existed attaches now
-            DRACONIC_LOG_DEBUG(u8"Script", u8"run script context created ({})", languageId);
+            LOG_DEBUG(u8"Script", u8"run script context created ({})", languageId);
             return m_context.Get();
         }
 
@@ -360,7 +360,7 @@ export namespace engine::script
             }
             if (backend == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"Script", u8"no script backend matches '{}'", path);
+                LOG_ERROR(u8"Script", u8"no script backend matches '{}'", path);
                 return nullptr;
             }
             return EnsureContext(backend->languageId.AsView());
@@ -382,7 +382,7 @@ export namespace engine::script
                 m_context->CreateInstance(scriptClass.className.AsView(), args);
             if (instance.Get() == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"Script", u8"class '{}' failed to instantiate",
+                LOG_ERROR(u8"Script", u8"class '{}' failed to instantiate",
                                    scriptClass.className);
             }
             return instance;
@@ -450,7 +450,7 @@ export namespace engine::script
                          moduleName.AsView())
                      .IsOk())
             {
-                DRACONIC_LOG_ERROR(u8"Script",
+                LOG_ERROR(u8"Script",
                                    u8"behaviors module failed to compile (class '{}' newly added)",
                                    scriptClass.className);
                 return false;
@@ -486,7 +486,7 @@ export namespace engine::script
             m_loadedClasses.Clear();
             m_moduleCurrent = false;
             m_warnedLanguageMismatch = false;
-            DRACONIC_LOG_DEBUG(u8"Script", u8"run script context torn down");
+            LOG_DEBUG(u8"Script", u8"run script context torn down");
         }
 
         [[nodiscard]] bool IsActive() const noexcept { return m_context.Get() != nullptr; }
@@ -524,7 +524,7 @@ export namespace engine::script
                 return;
             }
             m_warnedLanguageMismatch = true;
-            DRACONIC_LOG_ERROR(u8"Script",
+            LOG_ERROR(u8"Script",
                                u8"behavior language '{}' differs from the run context's '{}' - one "
                                u8"gameplay context per run; these behaviors stay disabled",
                                languageId, m_language);
@@ -708,7 +708,7 @@ export namespace engine::script
             {
                 if (++delivered > kMaxMessagesPerDrain)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Script",
                         u8"message drain hit the {} cap - dropping the rest (send loop?)",
                         kMaxMessagesPerDrain);
@@ -966,7 +966,7 @@ export namespace engine::script
                 behavior.boundClass = &scriptClass;
                 return;
             }
-            DRACONIC_PROFILE_SCOPE(scriptClass.ProfileName());
+            PROFILE_SCOPE(scriptClass.ProfileName());
             Entity handle;
             handle.scene = m_scene;
             handle.entityIndex = entity.index;
@@ -980,7 +980,7 @@ export namespace engine::script
             if (behavior.instance.Get() == nullptr)
             {
                 behavior.faulted = true;
-                DRACONIC_LOG_ERROR(
+                LOG_ERROR(
                     u8"Script", u8"'{}': behavior '{}' failed to instantiate - behavior disabled",
                     m_scene->GetEntityName(entity), scriptClass.className);
                 return;
@@ -1010,7 +1010,7 @@ export namespace engine::script
                         behavior.instance->Invoke(setter.AsView(), Span<Variant>{args, 1});
                     !result.HasValue())
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Script",
                         u8"'{}': class '{}' has no setter '{}=' for its declared property",
                         m_scene->GetEntityName(entity), scriptClass.className, property.name);
@@ -1075,7 +1075,7 @@ export namespace engine::script
             {
                 return HandlerOutcome::Ok;
             }
-            DRACONIC_PROFILE_SCOPE(scriptClass.ProfileName());
+            PROFILE_SCOPE(scriptClass.ProfileName());
             auto result = behavior.instance->Invoke(method, args);
             if (result.HasValue())
             {
@@ -1086,7 +1086,7 @@ export namespace engine::script
                 return HandlerOutcome::Suspended;
             }
             behavior.faulted = true;
-            DRACONIC_LOG_ERROR(
+            LOG_ERROR(
                 u8"Script", u8"'{}': behavior '{}' faulted in {} - behavior disabled",
                 m_scene != nullptr ? m_scene->GetEntityName(entity) : StringView(u8"?"),
                 scriptClass.className, method);
@@ -1308,7 +1308,7 @@ export namespace engine::script
             {
                 return;
             }
-            DRACONIC_PROFILE_SCOPE(m_boundClass->ProfileName());
+            PROFILE_SCOPE(m_boundClass->ProfileName());
             auto result = m_level->Invoke(method, args);
             if (result.HasValue())
             {
@@ -1319,7 +1319,7 @@ export namespace engine::script
                 return; // suspended at a breakpoint, not a fault
             }
             m_faulted = true;
-            DRACONIC_LOG_ERROR(u8"Script",
+            LOG_ERROR(u8"Script",
                                u8"scene '{}': level script '{}' faulted in {} - level disabled",
                                m_scene != nullptr ? m_scene->Name() : StringView(u8"?"),
                                m_boundClass->className, method);

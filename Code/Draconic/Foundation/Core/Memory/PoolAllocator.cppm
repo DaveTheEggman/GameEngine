@@ -33,7 +33,7 @@ export namespace foundation::core
         void Init(void* buffer, usize bufferSize, usize blockSize,
                   usize blockAlign = kDefaultAlignment) noexcept
         {
-            DRACONIC_ASSERT(IsPowerOfTwo(blockAlign));
+            DIAGNOSTIC_ASSERT(IsPowerOfTwo(blockAlign));
 
             // Each free block stores a next-pointer, so blocks are at least pointer-sized.
             usize actualBlock = (blockSize < sizeof(void*)) ? sizeof(void*) : blockSize;
@@ -59,7 +59,7 @@ export namespace foundation::core
 
         [[nodiscard]] void* Allocate(usize size, usize alignment = kDefaultAlignment) override
         {
-            DRACONIC_ASSERT_MSG(size <= m_blockSize, "PoolAllocator allocation exceeds block size");
+            DIAGNOSTIC_ASSERT_MSG(size <= m_blockSize, "PoolAllocator allocation exceeds block size");
             (void)alignment;
             if (m_freeList == nullptr)
             {

@@ -54,7 +54,7 @@ export namespace foundation::ui::toolkit
     // ============================================================================================
     class TreeDragData : public DragData
     {
-        DRACONIC_OBJECT(TreeDragData, DragData)
+        RTTI_OBJECT(TreeDragData, DragData)
     public:
         explicit TreeDragData(i32 sourcePosition)
             : DragData(u8"tree/reorder"), SourcePosition(sourcePosition)
@@ -69,7 +69,7 @@ export namespace foundation::ui::toolkit
     // ============================================================================================
     class DraggableTreeView : public ViewGroup, public IDragSource, public IDropTarget
     {
-        DRACONIC_OBJECT(DraggableTreeView, ViewGroup)
+        RTTI_OBJECT(DraggableTreeView, ViewGroup)
     public:
         Event<void(DraggableTreeView*, i32, i32)> OnItemReordered;
         /// Fired when an item is dropped INTO another (the adapter's DropInto ran).
@@ -349,6 +349,6 @@ export namespace foundation::ui::toolkit
         i32 m_dropIntoPos = -1; // row highlighted as a drop-INTO target
     };
 
-    DRACONIC_DEFINE_OBJECT(TreeDragData, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(DraggableTreeView, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(TreeDragData, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(DraggableTreeView, "rtti::ui::toolkit")
 }

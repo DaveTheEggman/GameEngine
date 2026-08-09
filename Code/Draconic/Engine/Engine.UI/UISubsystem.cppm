@@ -10,7 +10,7 @@
 // actions (raw facades stay unfiltered). UI ticks on UNSCALED time (menus animate
 // while the game is paused), which is why the work runs in the BeginFrame lane.
 //
-// GCC modules hygiene: render/VG/shader contact + the DRACONIC_REFLECT_* bodies live in
+// GCC modules hygiene: render/VG/shader contact + the REFLECT_* bodies live in
 // UISubsystemImpl.cpp (implementation unit), same split as physics.
 
 module;
@@ -100,7 +100,7 @@ export namespace engine::ui
     /// -> 0). Mutations from an onClick handler follow the UI mutation-queue rule (the host defers).
     class Ui final : public Object
     {
-        DRACONIC_OBJECT(Ui, Object)
+        RTTI_OBJECT(Ui, Object)
     public:
         [[nodiscard]] static UiScriptBinding* Resolve()
         {

@@ -80,11 +80,11 @@ TEST_CASE("editor-log: messages are not truncated")
     CHECK(out[0].message.Size() == longMessage.Size()); // core RingLogSink would cap at 192
 }
 
-TEST_CASE("editor-log: registered on the global logger it captures DRACONIC_LOG output")
+TEST_CASE("editor-log: registered on the global logger it captures LOG output")
 {
     EditorLogBuffer buffer(16);
     GlobalLogger().AddSink(&buffer);
-    DRACONIC_LOG_WARNING(u8"EditorTest", u8"hello {}", 42);
+    LOG_WARNING(u8"EditorTest", u8"hello {}", 42);
     GlobalLogger().RemoveSink(&buffer);
 
     Array<EditorLogEntry> out;

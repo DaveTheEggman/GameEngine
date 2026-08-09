@@ -40,7 +40,7 @@ export namespace experimental::gui
 
     class RelativeLayout : public UIWidget
     {
-        DRACONIC_OBJECT(RelativeLayout, UIWidget)
+        RTTI_OBJECT(RelativeLayout, UIWidget)
     public:
         RelativeLayout() = default;
 
@@ -96,5 +96,5 @@ export namespace experimental::gui
         HashMap<Node*, u32> m_anchors; // per-child anchor flags (non-owning keys)
     };
 
-    DRACONIC_DEFINE_OBJECT(RelativeLayout, "rtti::gui")
+    RTTI_DEFINE_OBJECT(RelativeLayout, "rtti::gui")
 }

@@ -8,15 +8,15 @@
 //
 // Usage: `#include "Core/Debug/Assert.h"` in a global module fragment.
 //
-//   DRACONIC_ASSERT(cond)        debug-only; report + break on failure
-//   DRACONIC_ASSERT_MSG(c, msg)  ditto, with a message
-//   DRACONIC_VERIFY(cond)        condition always evaluated; checked unless shipping
-//   DRACONIC_CHECK(cond)         always-on assert (all build configs)
-//   DRACONIC_ENSURE(cond)        non-fatal; reports once on failure, returns the bool
-//   DRACONIC_UNREACHABLE()       fatal; marks unreachable code
+//   DIAGNOSTIC_ASSERT(cond)        debug-only; report + break on failure
+//   DIAGNOSTIC_ASSERT_MSG(c, msg)  ditto, with a message
+//   DIAGNOSTIC_VERIFY(cond)        condition always evaluated; checked unless shipping
+//   DIAGNOSTIC_CHECK(cond)         always-on assert (all build configs)
+//   DIAGNOSTIC_ENSURE(cond)        non-fatal; reports once on failure, returns the bool
+//   DIAGNOSTIC_UNREACHABLE()       fatal; marks unreachable code
 
-#ifndef DRACONIC_CORE_DEBUG_ASSERT_H
-#define DRACONIC_CORE_DEBUG_ASSERT_H
+#ifndef FOUNDATION_CORE_DEBUG_ASSERT_H
+#define FOUNDATION_CORE_DEBUG_ASSERT_H
 
 #include "Core/Prelude.h"
 
@@ -45,43 +45,43 @@ namespace foundation::core
     void DebugBreak() noexcept;
 }
 
-#define DRACONIC_DEBUGBREAK() ::foundation::core::DebugBreak()
+#define DIAGNOSTIC_DEBUGBREAK() ::foundation::core::DebugBreak()
 
 // Core check expression: evaluates `cond`; on failure reports and, if the
 // handler requests it, breaks. Yields void.
-#define DRACONIC_ASSERT_IMPL(cond, msg)                                                            \
-    (DRACONIC_LIKELY(!!(cond))                                                                     \
+#define DIAGNOSTIC_ASSERT_IMPL(cond, msg)                                                            \
+    (COMPILER_ATTR_LIKELY(!!(cond))                                                                     \
          ? (void)0                                                                                 \
          : (::foundation::core::ReportAssertFailure(#cond, (msg), __FILE__, __LINE__, __func__)      \
-                ? DRACONIC_DEBUGBREAK()                                                            \
+                ? DIAGNOSTIC_DEBUGBREAK()                                                            \
                 : (void)0))
 
-#if DRACONIC_SHIPPING
+#if BUILD_SHIPPING
 // Disabled asserts still REFERENCE the expression, unevaluated (sizeof of a ternary):
 // zero codegen, but parameters/locals used only in asserts stay "used" - otherwise every
 // assert-only parameter breaks the shipping build under -Werror=unused-parameter.
-#define DRACONIC_ASSERT(cond) ((void)sizeof((cond) ? 1 : 0))
-#define DRACONIC_ASSERT_MSG(cond, msg) ((void)sizeof((cond) ? 1 : 0))
-#define DRACONIC_VERIFY(cond) ((void)(cond))
+#define DIAGNOSTIC_ASSERT(cond) ((void)sizeof((cond) ? 1 : 0))
+#define DIAGNOSTIC_ASSERT_MSG(cond, msg) ((void)sizeof((cond) ? 1 : 0))
+#define DIAGNOSTIC_VERIFY(cond) ((void)(cond))
 #else
-#define DRACONIC_ASSERT(cond) DRACONIC_ASSERT_IMPL(cond, nullptr)
-#define DRACONIC_ASSERT_MSG(cond, msg) DRACONIC_ASSERT_IMPL(cond, msg)
-#define DRACONIC_VERIFY(cond) DRACONIC_ASSERT_IMPL(cond, nullptr)
+#define DIAGNOSTIC_ASSERT(cond) DIAGNOSTIC_ASSERT_IMPL(cond, nullptr)
+#define DIAGNOSTIC_ASSERT_MSG(cond, msg) DIAGNOSTIC_ASSERT_IMPL(cond, msg)
+#define DIAGNOSTIC_VERIFY(cond) DIAGNOSTIC_ASSERT_IMPL(cond, nullptr)
 #endif
 
 // Always-on, every build configuration.
-#define DRACONIC_CHECK(cond) DRACONIC_ASSERT_IMPL(cond, nullptr)
-#define DRACONIC_CHECK_MSG(cond, msg) DRACONIC_ASSERT_IMPL(cond, msg)
+#define DIAGNOSTIC_CHECK(cond) DIAGNOSTIC_ASSERT_IMPL(cond, nullptr)
+#define DIAGNOSTIC_CHECK_MSG(cond, msg) DIAGNOSTIC_ASSERT_IMPL(cond, msg)
 
 // Non-fatal: reports on failure but does not break; evaluates to the condition,
-// so it composes:  if (!DRACONIC_ENSURE(ptr != nullptr)) { return; }
-#define DRACONIC_ENSURE(cond)                                                                      \
-    (DRACONIC_LIKELY(!!(cond))                                                                     \
+// so it composes:  if (!DIAGNOSTIC_ENSURE(ptr != nullptr)) { return; }
+#define DIAGNOSTIC_ENSURE(cond)                                                                      \
+    (COMPILER_ATTR_LIKELY(!!(cond))                                                                     \
          ? true                                                                                    \
          : (::foundation::core::ReportAssertFailure(#cond, nullptr, __FILE__, __LINE__, __func__),   \
             false))
 
-#define DRACONIC_UNREACHABLE()                                                                     \
+#define DIAGNOSTIC_UNREACHABLE()                                                                     \
     (::foundation::core::ReportFatal("reached unreachable code", __FILE__, __LINE__, __func__))
 
-#endif // DRACONIC_CORE_DEBUG_ASSERT_H
+#endif // FOUNDATION_CORE_DEBUG_ASSERT_H

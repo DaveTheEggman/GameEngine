@@ -175,7 +175,7 @@ export namespace foundation::fonts
     // Cooked font record (output DB). Atlas pixels are the "data" stream.
     class FontResource final : public ISerializable
     {
-        DRACONIC_OBJECT(FontResource, ISerializable)
+        RTTI_OBJECT(FontResource, ISerializable)
     public:
         String family;
         FontResourcePixels pixels = FontResourcePixels::Alpha8;
@@ -194,7 +194,7 @@ export namespace foundation::fonts
     // Runtime product: rasterizer-free font + atlas + uploadable atlas image, per entry.
     class Font final : public Object
     {
-        DRACONIC_OBJECT(Font, Object)
+        RTTI_OBJECT(Font, Object)
     public:
         struct Entry
         {
@@ -586,6 +586,6 @@ export namespace foundation::fonts
         RegisterSerializable<FontResource>();
     }
 
-    DRACONIC_DEFINE_OBJECT(FontResource, "rtti::fonts")
-    DRACONIC_DEFINE_OBJECT(Font, "rtti::fonts")
+    RTTI_DEFINE_OBJECT(FontResource, "rtti::fonts")
+    RTTI_DEFINE_OBJECT(Font, "rtti::fonts")
 }

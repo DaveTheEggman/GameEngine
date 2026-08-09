@@ -22,7 +22,7 @@ export namespace editor::app
 {
     class AssetPickerSlot : public ui::Button
     {
-        DRACONIC_OBJECT(AssetPickerSlot, ui::Button)
+        RTTI_OBJECT(AssetPickerSlot, ui::Button)
     public:
         explicit AssetPickerSlot(StringView text) : ui::Button(text) {}
 
@@ -33,5 +33,5 @@ export namespace editor::app
         [[maybe_unused]] ui::SVGDrawable* m_preview = nullptr; // future: thumbnail preview
     };
 
-    DRACONIC_DEFINE_OBJECT(AssetPickerSlot, "rtti::editor::editor::app")
+    RTTI_DEFINE_OBJECT(AssetPickerSlot, "rtti::editor::editor::app")
 }

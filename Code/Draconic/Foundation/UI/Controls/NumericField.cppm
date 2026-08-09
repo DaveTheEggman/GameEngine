@@ -45,7 +45,7 @@ export namespace foundation::ui
 {
     class NumericField : public View, public ITextEditHost
     {
-        DRACONIC_OBJECT(NumericField, View)
+        RTTI_OBJECT(NumericField, View)
     public:
         Property<f32> ButtonWidth{20.0f};
         Property<bool> ShowSpinButtons{true};
@@ -922,5 +922,5 @@ export namespace foundation::ui
         f32 m_repeatInterval = 0.05f;
     };
 
-    DRACONIC_DEFINE_OBJECT(NumericField, "rtti::ui")
+    RTTI_DEFINE_OBJECT(NumericField, "rtti::ui")
 }

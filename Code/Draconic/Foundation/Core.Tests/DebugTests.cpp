@@ -30,28 +30,28 @@ TEST_CASE("debug: assert handler hook")
     SetAssertHandler(&RecordingHandler);
     g_assertCount = 0;
 
-    DRACONIC_ASSERT(true); // passes -> no report
+    DIAGNOSTIC_ASSERT(true); // passes -> no report
     CHECK(g_assertCount == 0);
 
-    DRACONIC_ASSERT(1 + 1 == 3); // fails -> one report (no trap)
+    DIAGNOSTIC_ASSERT(1 + 1 == 3); // fails -> one report (no trap)
     CHECK(g_assertCount == 1);
 
-    DRACONIC_ASSERT_MSG(false, "explanatory message");
+    DIAGNOSTIC_ASSERT_MSG(false, "explanatory message");
     CHECK(g_assertCount == 2);
 
     SetAssertHandler(previous);
 }
 
-TEST_CASE("debug: DRACONIC_ENSURE returns the condition and reports on failure")
+TEST_CASE("debug: DIAGNOSTIC_ENSURE returns the condition and reports on failure")
 {
     AssertHandler previous = GetAssertHandler();
     SetAssertHandler(&RecordingHandler);
     g_assertCount = 0;
 
-    CHECK(DRACONIC_ENSURE(true)); // true, no report
+    CHECK(DIAGNOSTIC_ENSURE(true)); // true, no report
     CHECK(g_assertCount == 0);
 
-    CHECK_FALSE(DRACONIC_ENSURE(false)); // false, one report
+    CHECK_FALSE(DIAGNOSTIC_ENSURE(false)); // false, one report
     CHECK(g_assertCount == 1);
 
     SetAssertHandler(previous);

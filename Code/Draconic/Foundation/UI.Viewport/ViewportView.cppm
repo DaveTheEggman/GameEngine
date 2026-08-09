@@ -54,7 +54,7 @@ export namespace foundation::ui::viewport
 
     class ViewportView : public View
     {
-        DRACONIC_OBJECT(ViewportView, View)
+        RTTI_OBJECT(ViewportView, View)
     public:
         /// Render callback (set by the app). Fired by RenderContent while the color/depth targets are
         /// in their render states.
@@ -510,5 +510,5 @@ export namespace foundation::ui::viewport
         UniquePtr<shell::InputSurface> m_surface;
     };
 
-    DRACONIC_DEFINE_OBJECT(ViewportView, "rtti::ui::viewport")
+    RTTI_DEFINE_OBJECT(ViewportView, "rtti::ui::viewport")
 }

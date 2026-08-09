@@ -21,7 +21,7 @@ export namespace foundation::ui
 {
     class LayerDrawable : public Drawable
     {
-        DRACONIC_OBJECT(LayerDrawable, Drawable)
+        RTTI_OBJECT(LayerDrawable, Drawable)
     public:
         struct Layer
         {
@@ -70,5 +70,5 @@ export namespace foundation::ui
         Array<Layer> m_layers;
     };
 
-    DRACONIC_DEFINE_OBJECT(LayerDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(LayerDrawable, "rtti::ui")
 }

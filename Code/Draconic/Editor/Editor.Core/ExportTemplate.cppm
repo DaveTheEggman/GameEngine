@@ -32,7 +32,7 @@ export namespace editor
     // template.xml round-trips as a versioned payload; the registry owns instances via UniquePtr.
     class ExportTemplate final : public ISerializable
     {
-        DRACONIC_OBJECT(ExportTemplate, ISerializable)
+        RTTI_OBJECT(ExportTemplate, ISerializable)
     public:
         String id;       // "draconic-win64-release-0.1.0" (unique within the templates root)
         String name;     // "Windows Desktop Release 0.1.0"
@@ -532,5 +532,5 @@ export namespace editor
         Array<UniquePtr<ExportTemplate>> m_templates;
     };
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ExportTemplate, "rtti::editor::editor", 2)
+    RTTI_DEFINE_OBJECT_VERSIONED(ExportTemplate, "rtti::editor::editor", 2)
 }

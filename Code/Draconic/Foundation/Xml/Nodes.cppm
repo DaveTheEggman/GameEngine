@@ -81,7 +81,7 @@ export namespace foundation::xml
         // --- tree manipulation ---
         virtual void AppendChild(XmlNode* child)
         {
-            DRACONIC_ASSERT_MSG(child->m_parent == nullptr, "Node already has a parent");
+            DIAGNOSTIC_ASSERT_MSG(child->m_parent == nullptr, "Node already has a parent");
             child->m_parent = this;
             child->m_prevSibling = m_lastChild;
             child->m_nextSibling = nullptr;
@@ -98,7 +98,7 @@ export namespace foundation::xml
 
         void PrependChild(XmlNode* child)
         {
-            DRACONIC_ASSERT_MSG(child->m_parent == nullptr, "Node already has a parent");
+            DIAGNOSTIC_ASSERT_MSG(child->m_parent == nullptr, "Node already has a parent");
             child->m_parent = this;
             child->m_prevSibling = nullptr;
             child->m_nextSibling = m_firstChild;
@@ -120,9 +120,9 @@ export namespace foundation::xml
                 AppendChild(newChild);
                 return;
             }
-            DRACONIC_ASSERT_MSG(refChild->m_parent == this,
+            DIAGNOSTIC_ASSERT_MSG(refChild->m_parent == this,
                                 "Reference child is not a child of this node");
-            DRACONIC_ASSERT_MSG(newChild->m_parent == nullptr, "New node already has a parent");
+            DIAGNOSTIC_ASSERT_MSG(newChild->m_parent == nullptr, "New node already has a parent");
             newChild->m_parent = this;
             newChild->m_prevSibling = refChild->m_prevSibling;
             newChild->m_nextSibling = refChild;
@@ -144,9 +144,9 @@ export namespace foundation::xml
                 PrependChild(newChild);
                 return;
             }
-            DRACONIC_ASSERT_MSG(refChild->m_parent == this,
+            DIAGNOSTIC_ASSERT_MSG(refChild->m_parent == this,
                                 "Reference child is not a child of this node");
-            DRACONIC_ASSERT_MSG(newChild->m_parent == nullptr, "New node already has a parent");
+            DIAGNOSTIC_ASSERT_MSG(newChild->m_parent == nullptr, "New node already has a parent");
             newChild->m_parent = this;
             newChild->m_prevSibling = refChild;
             newChild->m_nextSibling = refChild->m_nextSibling;
@@ -164,7 +164,7 @@ export namespace foundation::xml
         // Detaches a child (does NOT delete it).
         void RemoveChild(XmlNode* child)
         {
-            DRACONIC_ASSERT_MSG(child->m_parent == this, "Node is not a child of this node");
+            DIAGNOSTIC_ASSERT_MSG(child->m_parent == this, "Node is not a child of this node");
             if (child->m_prevSibling != nullptr)
             {
                 child->m_prevSibling->m_nextSibling = child->m_nextSibling;

@@ -140,7 +140,7 @@ export namespace foundation::ui::toolkit
 
         [[nodiscard]] StringView Line(i32 line) const
         {
-            DRACONIC_ASSERT(line >= 0 && line < LineCount());
+            DIAGNOSTIC_ASSERT(line >= 0 && line < LineCount());
             return m_lines[static_cast<usize>(line)].AsView();
         }
 

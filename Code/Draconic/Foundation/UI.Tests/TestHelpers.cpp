@@ -29,6 +29,6 @@ namespace foundation::ui::tests
         }
     }
 
-    DRACONIC_DEFINE_OBJECT(TestView, "rtti::ui::tests")
-    DRACONIC_DEFINE_OBJECT(TestGroup, "rtti::ui::tests")
+    RTTI_DEFINE_OBJECT(TestView, "rtti::ui::tests")
+    RTTI_DEFINE_OBJECT(TestGroup, "rtti::ui::tests")
 }

@@ -55,7 +55,7 @@ namespace editor
         m_asset = RefPtr<pipeline::ImageAsset>(Cast<pipeline::ImageAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"Editor", u8"image '{}' failed to read - page opens empty",
+            LOG_ERROR(u8"Editor", u8"image '{}' failed to read - page opens empty",
                                m_title);
         }
         else
@@ -121,7 +121,7 @@ namespace editor
         const Status loaded = image::io::LoadImage(path.AsView(), source);
         if (!loaded.IsOk())
         {
-            DRACONIC_LOG_WARNING(u8"Editor", u8"image source missing or undecodable: {}", path);
+            LOG_WARNING(u8"Editor", u8"image source missing or undecodable: {}", path);
             return;
         }
         m_sourceFormat = source.Format();
@@ -278,7 +278,7 @@ namespace editor
         {
             ClearDirty();
             m_context->RequestCook(false);
-            DRACONIC_LOG_INFO(u8"Editor", u8"saved image '{}'", m_title);
+            LOG_INFO(u8"Editor", u8"saved image '{}'", m_title);
         }
         return saved;
     }

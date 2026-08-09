@@ -416,8 +416,8 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         return MakeRoundedRectImage(w, h, fill, border, radius, radius, radius, radius);
     }
 
-    // A tree row view: draws depth-indented text (TreeView overlays the expand arrows). No DRACONIC_
-    // OBJECT (this sample TU imports modules only, not the reflection header) - the adapter recovers it
+    // A tree row view: draws depth-indented text (TreeView overlays the expand arrows). No
+    // RTTI_OBJECT (this sample TU imports modules only, not the reflection header) - the adapter recovers it
     // via static_cast since it created the view.
     class TreeItemView final : public foundation::ui::View
     {
@@ -539,7 +539,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
 
     class DragChip; // fwd
 
-    // Custom drag payload carrying the source chip. No DRACONIC_OBJECT (sample TU) - the drop targets
+    // Custom drag payload carrying the source chip. No RTTI_OBJECT (sample TU) - the drop targets
     // guard on Format() == "demo/chip" and static_cast, since only chips produce that format.
     class ChipDragData final : public foundation::ui::DragData
     {

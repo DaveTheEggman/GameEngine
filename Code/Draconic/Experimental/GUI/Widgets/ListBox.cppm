@@ -32,7 +32,7 @@ export namespace experimental::gui
     // One selectable row. Internal to the ListBox, exposed as a Label for styling.
     class ListBoxItem : public Label
     {
-        DRACONIC_OBJECT(ListBoxItem, Label)
+        RTTI_OBJECT(ListBoxItem, Label)
     public:
         ListBoxItem() { SetTextAlignment(TextHAlign::Left, TextVAlign::Middle); }
 
@@ -74,7 +74,7 @@ export namespace experimental::gui
 
     class ListBox : public UIWidget
     {
-        DRACONIC_OBJECT(ListBox, UIWidget)
+        RTTI_OBJECT(ListBox, UIWidget)
     public:
         ListBox()
         {
@@ -246,6 +246,6 @@ export namespace experimental::gui
         core::Function<void(i32)> m_onChanged;
     };
 
-    DRACONIC_DEFINE_OBJECT(ListBoxItem, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(ListBox, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ListBoxItem, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ListBox, "rtti::gui")
 }

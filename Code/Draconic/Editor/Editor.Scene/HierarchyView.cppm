@@ -37,7 +37,7 @@ export namespace editor
 
     class SceneHierarchyView : public ui::ViewGroup
     {
-        DRACONIC_OBJECT(SceneHierarchyView, ui::ViewGroup)
+        RTTI_OBJECT(SceneHierarchyView, ui::ViewGroup)
     public:
         /// Cross-page clipboard home (optional - Copy/Paste menu items appear when set).
         void SetEditorContext(EditorContext* context) noexcept { m_editor = context; }
@@ -325,5 +325,5 @@ export namespace editor
         bool m_syncing = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(SceneHierarchyView, "rtti::editor::editor")
+    RTTI_DEFINE_OBJECT(SceneHierarchyView, "rtti::editor::editor")
 }

@@ -4,7 +4,7 @@
 // bindings). It is exposed as a NESTED property (TypeBuilder::Nested) so tooling/scripting can
 // traverse the whole tree in place via container reflection, without marshalling it by value. The
 // input EDITOR page stays bespoke - this reflection is for scriptability, not a generated inspector.
-// DRACONIC_REFLECT out of the interface (GCC module hygiene). Reflection track P2.
+// REFLECT_MEMBERS out of the interface (GCC module hygiene). Reflection track P2.
 
 module;
 #include "Core/Prelude.h"
@@ -20,7 +20,7 @@ using namespace foundation::core;
 using namespace foundation::input;
 
 namespace pipeline{
-    DRACONIC_REFLECT(InputMapAsset, "rtti::pipeline::input")
+    REFLECT_MEMBERS(InputMapAsset, "rtti::pipeline::input")
     {
         builder.Attribute("displayName", String(u8"Input Map"))
             .Attribute("category", String(u8"Input"))

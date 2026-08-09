@@ -25,7 +25,7 @@ export namespace foundation::core
             if (capacity > 0)
             {
                 m_data = static_cast<T*>(m_allocator->Allocate(capacity * sizeof(T), alignof(T)));
-                DRACONIC_ASSERT_MSG(m_data != nullptr, "RingBuffer allocation failed");
+                DIAGNOSTIC_ASSERT_MSG(m_data != nullptr, "RingBuffer allocation failed");
                 m_capacity = capacity;
             }
         }
@@ -106,24 +106,24 @@ export namespace foundation::core
 
         [[nodiscard]] T& Front() noexcept
         {
-            DRACONIC_ASSERT(m_count > 0);
+            DIAGNOSTIC_ASSERT(m_count > 0);
             return m_data[m_head];
         }
         [[nodiscard]] T& Back() noexcept
         {
-            DRACONIC_ASSERT(m_count > 0);
+            DIAGNOSTIC_ASSERT(m_count > 0);
             return m_data[(m_head + m_count - 1) % m_capacity];
         }
 
         // Indexed from the front (0 == oldest).
         [[nodiscard]] T& operator[](usize index) noexcept
         {
-            DRACONIC_ASSERT(index < m_count);
+            DIAGNOSTIC_ASSERT(index < m_count);
             return m_data[(m_head + index) % m_capacity];
         }
         [[nodiscard]] const T& operator[](usize index) const noexcept
         {
-            DRACONIC_ASSERT(index < m_count);
+            DIAGNOSTIC_ASSERT(index < m_count);
             return m_data[(m_head + index) % m_capacity];
         }
 

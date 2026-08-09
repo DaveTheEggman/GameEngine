@@ -78,7 +78,7 @@ export namespace foundation::core
         const u32 index = registry.registered.fetch_add(1, std::memory_order_acq_rel);
         if (index >= detail::kMaxMemoryTags)
         {
-            DRACONIC_ASSERT_MSG(false, "Memory tag registry full");
+            DIAGNOSTIC_ASSERT_MSG(false, "Memory tag registry full");
             return kDefaultMemoryTag;
         }
         registry.names[index] = name;

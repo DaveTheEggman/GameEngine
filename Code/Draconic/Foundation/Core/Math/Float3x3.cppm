@@ -28,12 +28,12 @@ export namespace foundation::core
 
         [[nodiscard]] constexpr f32 operator()(usize row, usize col) const noexcept
         {
-            DRACONIC_ASSERT(row < 3 && col < 3);
+            DIAGNOSTIC_ASSERT(row < 3 && col < 3);
             return m[row][col];
         }
         [[nodiscard]] constexpr f32& operator()(usize row, usize col) noexcept
         {
-            DRACONIC_ASSERT(row < 3 && col < 3);
+            DIAGNOSTIC_ASSERT(row < 3 && col < 3);
             return m[row][col];
         }
 

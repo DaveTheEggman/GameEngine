@@ -302,7 +302,7 @@ export namespace foundation::rhi::webgpu
         void WriteTimestamp(QuerySet* querySet, u32 index) override
         {
             EnsureOpen();
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
             // Encoder-level timestamps are a wgpu-native extension; the browser (emdawnwebgpu) has
             // no timestamp-query feature and ABORTS on wgpuCommandEncoderWriteTimestamp. The GPU
             // profiler's timings are simply unavailable on web (a no-op, not a crash).

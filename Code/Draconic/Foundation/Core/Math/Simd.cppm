@@ -26,7 +26,7 @@ export namespace foundation::core::simd
 {
     struct alignas(16) f32x4
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         __m128 v;
 #else
         f32 e[4];
@@ -36,7 +36,7 @@ export namespace foundation::core::simd
     // --- construction ------------------------------------------------------
     [[nodiscard]] inline f32x4 Set(f32 x, f32 y, f32 z, f32 w) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         return f32x4{_mm_set_ps(w, z, y, x)}; // note: _mm_set_ps takes high->low
 #else
         return f32x4{{x, y, z, w}};
@@ -44,7 +44,7 @@ export namespace foundation::core::simd
     }
     [[nodiscard]] inline f32x4 Splat(f32 s) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         return f32x4{_mm_set1_ps(s)};
 #else
         return f32x4{{s, s, s, s}};
@@ -52,7 +52,7 @@ export namespace foundation::core::simd
     }
     [[nodiscard]] inline f32x4 Zero() noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         return f32x4{_mm_setzero_ps()};
 #else
         return f32x4{{0.0f, 0.0f, 0.0f, 0.0f}};
@@ -63,7 +63,7 @@ export namespace foundation::core::simd
     // packed<->simd boundary; never point it straight at a Float3's 12 bytes).
     inline void Store(f32x4 a, f32 out[4]) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         _mm_storeu_ps(out, a.v);
 #else
         out[0] = a.e[0];
@@ -76,7 +76,7 @@ export namespace foundation::core::simd
     // --- arithmetic --------------------------------------------------------
     [[nodiscard]] inline f32x4 Add(f32x4 a, f32x4 b) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         return f32x4{_mm_add_ps(a.v, b.v)};
 #else
         return f32x4{{a.e[0] + b.e[0], a.e[1] + b.e[1], a.e[2] + b.e[2], a.e[3] + b.e[3]}};
@@ -84,7 +84,7 @@ export namespace foundation::core::simd
     }
     [[nodiscard]] inline f32x4 Sub(f32x4 a, f32x4 b) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         return f32x4{_mm_sub_ps(a.v, b.v)};
 #else
         return f32x4{{a.e[0] - b.e[0], a.e[1] - b.e[1], a.e[2] - b.e[2], a.e[3] - b.e[3]}};
@@ -92,7 +92,7 @@ export namespace foundation::core::simd
     }
     [[nodiscard]] inline f32x4 Mul(f32x4 a, f32x4 b) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         return f32x4{_mm_mul_ps(a.v, b.v)};
 #else
         return f32x4{{a.e[0] * b.e[0], a.e[1] * b.e[1], a.e[2] * b.e[2], a.e[3] * b.e[3]}};
@@ -100,7 +100,7 @@ export namespace foundation::core::simd
     }
     [[nodiscard]] inline f32x4 Div(f32x4 a, f32x4 b) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         return f32x4{_mm_div_ps(a.v, b.v)};
 #else
         return f32x4{{a.e[0] / b.e[0], a.e[1] / b.e[1], a.e[2] / b.e[2], a.e[3] / b.e[3]}};
@@ -111,7 +111,7 @@ export namespace foundation::core::simd
 
     [[nodiscard]] inline f32x4 Min(f32x4 a, f32x4 b) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         return f32x4{_mm_min_ps(a.v, b.v)};
 #else
         return f32x4{{a.e[0] < b.e[0] ? a.e[0] : b.e[0], a.e[1] < b.e[1] ? a.e[1] : b.e[1],
@@ -120,7 +120,7 @@ export namespace foundation::core::simd
     }
     [[nodiscard]] inline f32x4 Max(f32x4 a, f32x4 b) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         return f32x4{_mm_max_ps(a.v, b.v)};
 #else
         return f32x4{{a.e[0] > b.e[0] ? a.e[0] : b.e[0], a.e[1] > b.e[1] ? a.e[1] : b.e[1],
@@ -131,7 +131,7 @@ export namespace foundation::core::simd
     // Sum of the four lanes (SSE2-only horizontal add).
     [[nodiscard]] inline f32 HSum4(f32x4 a) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         __m128 v = a.v;
         __m128 shuf = _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 3, 0, 1)); // (y, x, w, z)
         __m128 sums = _mm_add_ps(v, shuf);                           // (x+y, y+x, z+w, w+z)
@@ -146,7 +146,7 @@ export namespace foundation::core::simd
     // Zero the w lane (keeps the Float3-in-a-register invariant after ops that touch w).
     [[nodiscard]] inline f32x4 ZeroW(f32x4 a) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         const __m128 mask = _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1));
         return f32x4{_mm_and_ps(a.v, mask)};
 #else
@@ -158,7 +158,7 @@ export namespace foundation::core::simd
     template <int i0, int i1, int i2, int i3>
     [[nodiscard]] inline f32x4 Shuffle(f32x4 a) noexcept
     {
-#if DRACONIC_MATH_SSE
+#if OPTION_ENABLE_MATH_SSE
         return f32x4{_mm_shuffle_ps(a.v, a.v, _MM_SHUFFLE(i3, i2, i1, i0))};
 #else
         return f32x4{{a.e[i0], a.e[i1], a.e[i2], a.e[i3]}};

@@ -33,7 +33,7 @@ export namespace experimental::gui
     // A clickable column header cell (reports its column index on click).
     class TableHeaderCell : public Label
     {
-        DRACONIC_OBJECT(TableHeaderCell, Label)
+        RTTI_OBJECT(TableHeaderCell, Label)
     public:
         TableHeaderCell()
         {
@@ -62,7 +62,7 @@ export namespace experimental::gui
     // A table row: an ItemRow with one hit-transparent cell Label per column.
     class TableRow : public ItemRow
     {
-        DRACONIC_OBJECT(TableRow, ItemRow)
+        RTTI_OBJECT(TableRow, ItemRow)
     public:
         TableRow() { SetTag(core::StringView(u8"tablerow")); }
 
@@ -94,7 +94,7 @@ export namespace experimental::gui
 
     class TableView : public AbstractItemView
     {
-        DRACONIC_OBJECT(TableView, AbstractItemView)
+        RTTI_OBJECT(TableView, AbstractItemView)
     public:
         TableView()
         {
@@ -275,7 +275,7 @@ export namespace experimental::gui
         Color m_textColor{0.86f, 0.89f, 0.94f, 1.0f};
     };
 
-    DRACONIC_DEFINE_OBJECT(TableHeaderCell, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(TableRow, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(TableView, "rtti::gui")
+    RTTI_DEFINE_OBJECT(TableHeaderCell, "rtti::gui")
+    RTTI_DEFINE_OBJECT(TableRow, "rtti::gui")
+    RTTI_DEFINE_OBJECT(TableView, "rtti::gui")
 }

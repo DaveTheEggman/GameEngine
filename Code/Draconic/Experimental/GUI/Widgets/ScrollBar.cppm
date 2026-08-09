@@ -30,7 +30,7 @@ export namespace experimental::gui
 {
     class ScrollBar : public UIWidget
     {
-        DRACONIC_OBJECT(ScrollBar, UIWidget)
+        RTTI_OBJECT(ScrollBar, UIWidget)
     public:
         ScrollBar()
         {
@@ -190,5 +190,5 @@ export namespace experimental::gui
         static constexpr f32 kMinThumb = 16.0f;
     };
 
-    DRACONIC_DEFINE_OBJECT(ScrollBar, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ScrollBar, "rtti::gui")
 }

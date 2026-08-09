@@ -231,7 +231,7 @@ namespace engine::render
 
     void RenderSubsystem::BeginRendering(rhi::CommandEncoder& encoder, u32 frameIndex)
     {
-        DRACONIC_PROFILE_SCOPE("Render.Begin");
+        PROFILE_SCOPE("Render.Begin");
         if (m_frame.Get() == nullptr)
         {
             return;
@@ -254,7 +254,7 @@ namespace engine::render
         m_frame->SetBloom(m_bloomEnabled ? m_bloomIntensity : 0.0f, m_bloomThreshold, m_bloomKnee);
         m_frame->SetTaa(m_taaEnabled, m_taaBlend, m_taaGamma, m_taaMotionScale);
         m_frame->SetShadowParams(m_shadowDistance, m_shadowFarFade);
-        // DEBUG harness: DRACONIC_AO_DEBUG forces the AO debug channel to screen (0=off, 1=AO,
+        // DEBUG harness: ENV_AO_DEBUG forces the AO debug channel to screen (0=off, 1=AO,
         // 2/3/4=N.xyz, 5=viewZ, 6=depth) so SSAO reconstruction can be compared across backends.
         {
             static bool s_aoDbgRead = false;
@@ -262,7 +262,7 @@ namespace engine::render
             if (!s_aoDbgRead)
             {
                 s_aoDbgRead = true;
-                if (auto v = GetEnvironmentVariable(u8"DRACONIC_AO_DEBUG");
+                if (auto v = GetEnvironmentVariable(u8"ENV_AO_DEBUG");
                     v.HasValue() && !v.Value().IsEmpty())
                 {
                     const char8_t c = v.Value()[0];
@@ -330,7 +330,7 @@ namespace engine::render
         }
         if (firstSight)
         {
-            DRACONIC_PROFILE_SCOPE("Render.Extract");
+            PROFILE_SCOPE("Render.Extract");
             ExtractSceneInto(scene, *snapshot,
                              m_renderCtx); // parallel when the job system is up (resets snapshot)
             ExtractInstancedMeshesInto(
@@ -421,7 +421,7 @@ namespace engine::render
         settings.post.needsMotion =
             settings.post.taaEnabled || (settings.post.ssrEnabled && m_ssrParams.temporal);
         {
-            DRACONIC_PROFILE_SCOPE("Render.AddView"); // binds the view + builds/sorts its draw list
+            PROFILE_SCOPE("Render.AddView"); // binds the view + builds/sorts its draw list
             // A keyed view draws its OWN gizmo list (DebugView) so an editor viewport's grid/gizmos
             // stay out of a second view of the same scene (the camera preview). Unkeyed views fall
             // back to the per-scene list (drawn in every view of the scene). Either may be null when
@@ -437,7 +437,7 @@ namespace engine::render
 
     void RenderSubsystem::EndRendering()
     {
-        DRACONIC_PROFILE_SCOPE("Render.Compose");
+        PROFILE_SCOPE("Render.Compose");
         if (m_frame.Get() != nullptr)
         {
             m_frame->End();
@@ -580,7 +580,7 @@ namespace engine::render
             {
                 // The runtime compiler (DXC) cannot emit WGSL - that is a cook-time path (naga).
                 // Every shader lookup will miss and the scene renders BLACK. The usual cause is
-                // DRACONIC_WEBGPU_WGSL=1 without DRACONIC_USE_SHADER_PACK=1 (or no cooked
+                // ENV_WEBGPU_WGSL=1 without DRACONIC_USE_SHADER_PACK=1 (or no cooked
                 // shaders.dpak beside the executable).
                 rhi::LogErrorf("RenderSubsystem: the device wants WGSL but there is no cooked "
                                "shader pack - the runtime compiler cannot produce WGSL, so "

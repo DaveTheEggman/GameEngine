@@ -28,7 +28,7 @@ export namespace experimental::gui
     // A list row: an ItemRow containing a single (hit-transparent) Label.
     class ListRow : public ItemRow
     {
-        DRACONIC_OBJECT(ListRow, ItemRow)
+        RTTI_OBJECT(ListRow, ItemRow)
     public:
         ListRow()
         {
@@ -48,7 +48,7 @@ export namespace experimental::gui
 
     class ListView : public AbstractItemView
     {
-        DRACONIC_OBJECT(ListView, AbstractItemView)
+        RTTI_OBJECT(ListView, AbstractItemView)
     public:
         ListView() { SetTag(core::StringView(u8"listview")); }
 
@@ -94,6 +94,6 @@ export namespace experimental::gui
         Color m_textColor{0.88f, 0.90f, 0.94f, 1.0f};
     };
 
-    DRACONIC_DEFINE_OBJECT(ListRow, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(ListView, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ListRow, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ListView, "rtti::gui")
 }

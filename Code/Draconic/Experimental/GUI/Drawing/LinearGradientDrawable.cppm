@@ -25,7 +25,7 @@ export namespace experimental::gui
 {
     class LinearGradientDrawable : public Drawable
     {
-        DRACONIC_OBJECT(LinearGradientDrawable, Drawable)
+        RTTI_OBJECT(LinearGradientDrawable, Drawable)
     public:
         f32 Angle = 0.0f; ///< Gradient direction in radians (0 = left-to-right).
 
@@ -70,5 +70,5 @@ export namespace experimental::gui
         Array<vg::GradientStop> m_stops;
     };
 
-    DRACONIC_DEFINE_OBJECT(LinearGradientDrawable, "rtti::gui")
+    RTTI_DEFINE_OBJECT(LinearGradientDrawable, "rtti::gui")
 }

@@ -28,7 +28,7 @@ export namespace foundation::physics
     // triangle). Both produced by the CollisionShapeAssetBuilder.
     class CollisionShapeSource : public ISerializable
     {
-        DRACONIC_OBJECT(CollisionShapeSource, ISerializable)
+        RTTI_OBJECT(CollisionShapeSource, ISerializable)
     public:
         bool convex = false; // informational (the blob self-describes)
         Array<u8> shapeBlob; // Jolt binary shape state
@@ -45,7 +45,7 @@ export namespace foundation::physics
     // Runtime product: what RigidBody/Collider components bind via Ref<CollisionShape>.
     class CollisionShape : public Object
     {
-        DRACONIC_OBJECT(CollisionShape, Object)
+        RTTI_OBJECT(CollisionShape, Object)
     public:
         bool convex = false;
         Array<byte> blob;
@@ -95,7 +95,7 @@ export namespace foundation::physics
     // Surface properties; referenced by RigidBodyComponents (overrides the inline fields).
     class PhysicalMaterialSource : public ISerializable
     {
-        DRACONIC_OBJECT(PhysicalMaterialSource, ISerializable)
+        RTTI_OBJECT(PhysicalMaterialSource, ISerializable)
     public:
         f32 friction = 0.5f;
         f32 restitution = 0.0f;
@@ -111,7 +111,7 @@ export namespace foundation::physics
 
     class PhysicalMaterial : public Object
     {
-        DRACONIC_OBJECT(PhysicalMaterial, Object)
+        RTTI_OBJECT(PhysicalMaterial, Object)
     public:
         f32 friction = 0.5f;
         f32 restitution = 0.0f;
@@ -153,8 +153,8 @@ export namespace foundation::physics
         GlobalTypeRegistry().Register(PhysicalMaterial::StaticType());
     }
 
-    DRACONIC_DEFINE_OBJECT(CollisionShapeSource, "rtti::physics")
-    DRACONIC_DEFINE_OBJECT(CollisionShape, "rtti::physics")
-    DRACONIC_DEFINE_OBJECT(PhysicalMaterialSource, "rtti::physics")
-    DRACONIC_DEFINE_OBJECT(PhysicalMaterial, "rtti::physics")
+    RTTI_DEFINE_OBJECT(CollisionShapeSource, "rtti::physics")
+    RTTI_DEFINE_OBJECT(CollisionShape, "rtti::physics")
+    RTTI_DEFINE_OBJECT(PhysicalMaterialSource, "rtti::physics")
+    RTTI_DEFINE_OBJECT(PhysicalMaterial, "rtti::physics")
 }

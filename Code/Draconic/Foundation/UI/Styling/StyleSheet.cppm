@@ -48,7 +48,7 @@ export namespace foundation::ui
 
     class StyleSheet : public Object
     {
-        DRACONIC_OBJECT(StyleSheet, Object)
+        RTTI_OBJECT(StyleSheet, Object)
     public:
         StyleSheet() = default;
 
@@ -318,5 +318,5 @@ export namespace foundation::ui
         Array<RefPtr<Object>> m_ownedResources;
     };
 
-    DRACONIC_DEFINE_OBJECT(StyleSheet, "rtti::ui")
+    RTTI_DEFINE_OBJECT(StyleSheet, "rtti::ui")
 }

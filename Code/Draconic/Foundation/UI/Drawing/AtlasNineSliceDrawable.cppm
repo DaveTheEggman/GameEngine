@@ -22,7 +22,7 @@ export namespace foundation::ui
 {
     class AtlasNineSliceDrawable : public Drawable
     {
-        DRACONIC_OBJECT(AtlasNineSliceDrawable, Drawable)
+        RTTI_OBJECT(AtlasNineSliceDrawable, Drawable)
     public:
         const image::ImageData* AtlasImage = nullptr;
         Rectangle SourceRect{};
@@ -64,5 +64,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(AtlasNineSliceDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(AtlasNineSliceDrawable, "rtti::ui")
 }

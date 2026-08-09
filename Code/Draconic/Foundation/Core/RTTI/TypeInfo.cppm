@@ -53,7 +53,7 @@ export namespace foundation::core
         u32 constructorCount = 0;
         // DATA version for serialization migration (Traktor-style): bump when the type's
         // serialized layout changes; Serialize bodies branch on ar.Version() for old data.
-        // 0 = never versioned. Set via DRACONIC_DEFINE_OBJECT_VERSIONED or
+        // 0 = never versioned. Set via RTTI_DEFINE_OBJECT_VERSIONED or
         // TypeBuilder::DataVersion.
         u32 dataVersion = 0;
     };

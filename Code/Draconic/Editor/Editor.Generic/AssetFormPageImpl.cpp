@@ -383,7 +383,7 @@ namespace editor
         m_object = instance.ReadObject();
         if (m_object.Get() == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"Editor", u8"asset '{}' failed to read - page opens empty",
+            LOG_ERROR(u8"Editor", u8"asset '{}' failed to read - page opens empty",
                                m_title);
         }
         else
@@ -681,7 +681,7 @@ namespace editor
         {
             ClearDirty();
             m_context->RequestCook(false);
-            DRACONIC_LOG_INFO(u8"Editor", u8"saved asset '{}'", m_title);
+            LOG_INFO(u8"Editor", u8"saved asset '{}'", m_title);
         }
         return saved;
     }

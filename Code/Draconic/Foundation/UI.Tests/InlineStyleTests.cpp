@@ -84,7 +84,7 @@ namespace
     }
 
     /// A Drawable that tracks its live count via a static counter, so tests can assert ownership
-    /// transfer / cleanup. Draw is a no-op. (Sedulous TrackingDrawable.) No DRACONIC_OBJECT needed:
+    /// transfer / cleanup. Draw is a no-op. (Sedulous TrackingDrawable.) No RTTI_OBJECT needed:
     /// it never queries its own type - Drawable's GetType() override already makes it concrete.
     class TrackingDrawable final : public Drawable
     {

@@ -25,7 +25,7 @@ export namespace foundation::image
     // Cooked CPU image: dims/format/colorspace + owned pixels. The runtime product.
     class ImageResource final : public ISerializable
     {
-        DRACONIC_OBJECT(ImageResource, ISerializable)
+        RTTI_OBJECT(ImageResource, ISerializable)
     public:
         u32 width = 0;
         u32 height = 0;
@@ -103,5 +103,5 @@ export namespace foundation::image
         RegisterSerializable<ImageResource>();
     }
 
-    DRACONIC_DEFINE_OBJECT(ImageResource, "rtti::image")
+    RTTI_DEFINE_OBJECT(ImageResource, "rtti::image")
 }

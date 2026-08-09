@@ -223,17 +223,17 @@ export namespace foundation::script
     /// Log.info/warn/error -> the engine log, Script category (§6).
     class Log final : public Object
     {
-        DRACONIC_OBJECT(Log, Object)
+        RTTI_OBJECT(Log, Object)
     public:
-        static void info(String message) { DRACONIC_LOG_INFO(u8"Script", u8"{}", message); }
-        static void warn(String message) { DRACONIC_LOG_WARNING(u8"Script", u8"{}", message); }
-        static void error(String message) { DRACONIC_LOG_ERROR(u8"Script", u8"{}", message); }
+        static void info(String message) { LOG_INFO(u8"Script", u8"{}", message); }
+        static void warn(String message) { LOG_WARNING(u8"Script", u8"{}", message); }
+        static void error(String message) { LOG_ERROR(u8"Script", u8"{}", message); }
     };
 
     /// Time.now() (seconds since the run started) / Time.delta() (last frame dt).
     class Time final : public Object
     {
-        DRACONIC_OBJECT(Time, Object)
+        RTTI_OBJECT(Time, Object)
     public:
         [[nodiscard]] static ScriptRuntimeBinding* Resolve()
         {
@@ -257,7 +257,7 @@ export namespace foundation::script
     /// Random.value() in [0,1) / Random.range(min,max) / Random.intRange(min,max).
     class Random final : public Object
     {
-        DRACONIC_OBJECT(Random, Object)
+        RTTI_OBJECT(Random, Object)
     public:
         [[nodiscard]] static f32 value()
         {

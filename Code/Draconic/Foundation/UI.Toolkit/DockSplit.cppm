@@ -23,7 +23,7 @@ export namespace foundation::ui::toolkit
     /// Binary split node for the dock tree.
     class DockSplit : public ViewGroup
     {
-        DRACONIC_OBJECT(DockSplit, ViewGroup)
+        RTTI_OBJECT(DockSplit, ViewGroup)
     public:
         explicit DockSplit(
             ::foundation::ui::Orientation orientation = ::foundation::ui::Orientation::Horizontal)
@@ -336,5 +336,5 @@ export namespace foundation::ui::toolkit
         bool m_isDividerHovered = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(DockSplit, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(DockSplit, "rtti::ui::toolkit")
 }

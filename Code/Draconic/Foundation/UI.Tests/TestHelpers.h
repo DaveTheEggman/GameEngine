@@ -1,5 +1,5 @@
 // Shared test doubles for the View cluster (faithful port of Sedulous.UI.Tests/src/TestHelpers.bf).
-// Declared here, defined once in TestHelpers.cpp (DRACONIC_OBJECT type-info must be single-definition).
+// Declared here, defined once in TestHelpers.cpp (RTTI_OBJECT type-info must be single-definition).
 // The including TU must `import foundation.ui;` before including this header.
 #pragma once
 #include "Core/Reflection/Reflect.h"
@@ -9,7 +9,7 @@ namespace foundation::ui::tests
     /// Minimal concrete View with a fixed desired size.
     class TestView : public foundation::ui::View
     {
-        DRACONIC_OBJECT(TestView, foundation::ui::View)
+        RTTI_OBJECT(TestView, foundation::ui::View)
     public:
         foundation::core::f32 DesiredWidth = 50.0f;
         foundation::core::f32 DesiredHeight = 30.0f;
@@ -26,14 +26,14 @@ namespace foundation::ui::tests
     /// Minimal concrete ViewGroup that lays out each child to fill its bounds.
     class TestGroup : public foundation::ui::ViewGroup
     {
-        DRACONIC_OBJECT(TestGroup, foundation::ui::ViewGroup)
+        RTTI_OBJECT(TestGroup, foundation::ui::ViewGroup)
     protected:
         void OnLayout(foundation::core::f32 left, foundation::core::f32 top, foundation::core::f32 width,
                       foundation::core::f32 height) override;
     };
 
     /// Simple IListAdapter test double (Sedulous.UI.Tests SimpleListAdapter): a mutable Count and
-    /// 100x30 TestView items. Not an Object, so it's header-inline (no DRACONIC_OBJECT needed).
+    /// 100x30 TestView items. Not an Object, so it's header-inline (no RTTI_OBJECT needed).
     class SimpleListAdapter : public foundation::ui::ListAdapterBase
     {
     public:

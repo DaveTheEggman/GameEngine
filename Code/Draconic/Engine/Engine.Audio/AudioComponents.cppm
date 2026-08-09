@@ -170,7 +170,7 @@ export namespace engine::audio
         }
     };
 
-    // Defined in SubsystemImpl.cpp: the DRACONIC_REFLECT_* bodies live there because
+    // Defined in SubsystemImpl.cpp: the REFLECT_* bodies live there because
     // GCC's module serializer emits an unreadable gcm cluster when they sit in a
     // partition interface (the -fno-module-lazy eager load then fails for consumers).
     void RegisterAudioComponentReflection();

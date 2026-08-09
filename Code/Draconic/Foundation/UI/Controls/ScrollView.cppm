@@ -51,7 +51,7 @@ export namespace foundation::ui
 
     class ScrollView : public ViewGroup
     {
-        DRACONIC_OBJECT(ScrollView, ViewGroup)
+        RTTI_OBJECT(ScrollView, ViewGroup)
     public:
         Property<ScrollBarPolicy> VScrollBarPolicy{ScrollBarPolicy::Auto};
         Property<ScrollBarPolicy> HScrollBarPolicy{ScrollBarPolicy::Auto};
@@ -551,5 +551,5 @@ export namespace foundation::ui
         RefPtr<ScrollBar> m_hBar;
     };
 
-    DRACONIC_DEFINE_OBJECT(ScrollView, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ScrollView, "rtti::ui")
 }

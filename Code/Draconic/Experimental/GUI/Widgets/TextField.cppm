@@ -38,7 +38,7 @@ export namespace experimental::gui
 {
     class TextField : public UIWidget
     {
-        DRACONIC_OBJECT(TextField, UIWidget)
+        RTTI_OBJECT(TextField, UIWidget)
     public:
         TextField()
         {
@@ -624,5 +624,5 @@ export namespace experimental::gui
         static constexpr f32 kCaretWidth = 1.5f;
     };
 
-    DRACONIC_DEFINE_OBJECT(TextField, "rtti::gui")
+    RTTI_DEFINE_OBJECT(TextField, "rtti::gui")
 }

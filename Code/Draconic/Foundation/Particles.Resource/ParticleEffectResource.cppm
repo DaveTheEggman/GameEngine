@@ -203,7 +203,7 @@ export namespace foundation::particles
     // ParticleEffect. A component instantiates its own ParticleEffectInstance over this effect.
     class ParticleEffectResource final : public ISerializable
     {
-        DRACONIC_OBJECT(ParticleEffectResource, ISerializable)
+        RTTI_OBJECT(ParticleEffectResource, ISerializable)
     public:
         [[nodiscard]] ParticleEffect& Effect() noexcept { return m_effect; }
         [[nodiscard]] const ParticleEffect& Effect() const noexcept { return m_effect; }
@@ -270,5 +270,5 @@ export namespace foundation::particles
         RegisterSerializable<ParticleEffectResource>();
     }
 
-    DRACONIC_DEFINE_OBJECT(ParticleEffectResource, "rtti::particles")
+    RTTI_DEFINE_OBJECT(ParticleEffectResource, "rtti::particles")
 }

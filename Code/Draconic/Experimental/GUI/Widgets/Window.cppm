@@ -35,7 +35,7 @@ export namespace experimental::gui
     // Window (title bar + resize grip), but generally reusable.
     class DragHandle : public UIWidget
     {
-        DRACONIC_OBJECT(DragHandle, UIWidget)
+        RTTI_OBJECT(DragHandle, UIWidget)
     public:
         core::Function<void(core::Float2)> OnDrag; // incremental cursor delta
         core::Function<void()> OnPressed;
@@ -73,7 +73,7 @@ export namespace experimental::gui
 
     class Window : public UIWidget
     {
-        DRACONIC_OBJECT(Window, UIWidget)
+        RTTI_OBJECT(Window, UIWidget)
     public:
         Window()
         {
@@ -261,6 +261,6 @@ export namespace experimental::gui
         Color m_gripColor{0.40f, 0.44f, 0.52f, 1.0f};
     };
 
-    DRACONIC_DEFINE_OBJECT(DragHandle, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(Window, "rtti::gui")
+    RTTI_DEFINE_OBJECT(DragHandle, "rtti::gui")
+    RTTI_DEFINE_OBJECT(Window, "rtti::gui")
 }

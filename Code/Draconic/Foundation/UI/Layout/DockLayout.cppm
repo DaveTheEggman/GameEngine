@@ -33,7 +33,7 @@ export namespace foundation::ui
     /// LayoutParams for a DockLayout child.
     class DockLayoutParams : public LayoutParams
     {
-        DRACONIC_OBJECT(DockLayoutParams, LayoutParams)
+        RTTI_OBJECT(DockLayoutParams, LayoutParams)
     public:
         ::foundation::ui::Dock Dock = ::foundation::ui::Dock::Left;
         DockLayoutParams() = default;
@@ -42,7 +42,7 @@ export namespace foundation::ui
 
     class DockLayout : public ViewGroup
     {
-        DRACONIC_OBJECT(DockLayout, ViewGroup)
+        RTTI_OBJECT(DockLayout, ViewGroup)
     public:
         /// When true, the last child fills all remaining space regardless of its Dock.
         bool LastChildFill = false;
@@ -179,6 +179,6 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(DockLayoutParams, "rtti::ui")
-    DRACONIC_DEFINE_OBJECT(DockLayout, "rtti::ui")
+    RTTI_DEFINE_OBJECT(DockLayoutParams, "rtti::ui")
+    RTTI_DEFINE_OBJECT(DockLayout, "rtti::ui")
 }

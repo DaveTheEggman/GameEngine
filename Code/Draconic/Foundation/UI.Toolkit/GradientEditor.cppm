@@ -27,7 +27,7 @@ export namespace foundation::ui::toolkit
     /// Interactive color-ramp editor with direct-manipulation stops.
     class GradientEditor : public View
     {
-        DRACONIC_OBJECT(GradientEditor, View)
+        RTTI_OBJECT(GradientEditor, View)
     public:
         /// One stop in the gradient. Time in [0,1]; Color in HDR-allowed Float4 (R,G,B,A).
         struct Stop
@@ -376,5 +376,5 @@ export namespace foundation::ui::toolkit
         bool m_inGesture = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(GradientEditor, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(GradientEditor, "rtti::ui::toolkit")
 }

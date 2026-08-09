@@ -29,7 +29,7 @@ namespace
     // View that records which phases it received events in.
     class PhaseTrackingView : public View
     {
-        DRACONIC_OBJECT(PhaseTrackingView, View)
+        RTTI_OBJECT(PhaseTrackingView, View)
     public:
         f32 DesiredWidth = 50, DesiredHeight = 30;
         bool CaptureReceived = false, TargetReceived = false, BubbleReceived = false,
@@ -80,12 +80,12 @@ namespace
             MeasuredSize = Float2{c.ConstrainWidth(DesiredWidth), c.ConstrainHeight(DesiredHeight)};
         }
     };
-    DRACONIC_DEFINE_OBJECT(PhaseTrackingView, "rtti::ui::tests")
+    RTTI_DEFINE_OBJECT(PhaseTrackingView, "rtti::ui::tests")
 
     // ViewGroup that tracks capture phase.
     class PhaseTrackingGroup : public ViewGroup
     {
-        DRACONIC_OBJECT(PhaseTrackingGroup, ViewGroup)
+        RTTI_OBJECT(PhaseTrackingGroup, ViewGroup)
     public:
         bool CaptureReceived = false, BubbleReceived = false, BlockInCapture = false;
 
@@ -133,11 +133,11 @@ namespace
             }
         }
     };
-    DRACONIC_DEFINE_OBJECT(PhaseTrackingGroup, "rtti::ui::tests")
+    RTTI_DEFINE_OBJECT(PhaseTrackingGroup, "rtti::ui::tests")
 
     class CancelTrackingGroup : public ViewGroup
     {
-        DRACONIC_OBJECT(CancelTrackingGroup, ViewGroup)
+        RTTI_OBJECT(CancelTrackingGroup, ViewGroup)
     public:
         core::Function<void()> OnCancelCalled;
         void OnCancel() override
@@ -151,7 +151,7 @@ namespace
     protected:
         void OnLayout(f32, f32, f32, f32) override {}
     };
-    DRACONIC_DEFINE_OBJECT(CancelTrackingGroup, "rtti::ui::tests")
+    RTTI_DEFINE_OBJECT(CancelTrackingGroup, "rtti::ui::tests")
 }
 
 // ============================ FocusManager ============================

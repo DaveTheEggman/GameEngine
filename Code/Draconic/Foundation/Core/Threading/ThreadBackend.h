@@ -5,8 +5,8 @@
 // module never sees pthread.h / windows.h. Sizes are conservative and checked
 // with a static_assert in the platform .cpp.
 
-#ifndef DRACONIC_CORE_THREADING_BACKEND_H
-#define DRACONIC_CORE_THREADING_BACKEND_H
+#ifndef FOUNDATION_CORE_THREADING_BACKEND_H
+#define FOUNDATION_CORE_THREADING_BACKEND_H
 
 #include <cstddef>
 #include <cstdint>
@@ -48,4 +48,4 @@ namespace foundation::core::sys
     void CondBroadcast(void* storage) noexcept;
 }
 
-#endif // DRACONIC_CORE_THREADING_BACKEND_H
+#endif // FOUNDATION_CORE_THREADING_BACKEND_H

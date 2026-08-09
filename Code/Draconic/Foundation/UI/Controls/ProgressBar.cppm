@@ -25,7 +25,7 @@ export namespace foundation::ui
 {
     class ProgressBar : public View
     {
-        DRACONIC_OBJECT(ProgressBar, View)
+        RTTI_OBJECT(ProgressBar, View)
     public:
         Property<f32> Value{0.0f}; ///< Progress value (0..1).
         Property<bool> IsIndeterminate{false};
@@ -86,5 +86,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(ProgressBar, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ProgressBar, "rtti::ui")
 }

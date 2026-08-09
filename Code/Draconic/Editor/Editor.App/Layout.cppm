@@ -77,7 +77,7 @@ export namespace editor::app
     // The dock-tree section: owns a DockLayoutNode snapshot (absent root = never captured).
     class EditorDockLayoutSettings final : public ISerializable
     {
-        DRACONIC_OBJECT(EditorDockLayoutSettings, ISerializable)
+        RTTI_OBJECT(EditorDockLayoutSettings, ISerializable)
     public:
         UniquePtr<ui::toolkit::DockLayoutNode> root;
 
@@ -99,7 +99,7 @@ export namespace editor::app
 
     class EditorFavoritesSettings final : public ISerializable
     {
-        DRACONIC_OBJECT(EditorFavoritesSettings, ISerializable)
+        RTTI_OBJECT(EditorFavoritesSettings, ISerializable)
     public:
         Array<Guid> favorites;
 
@@ -111,7 +111,7 @@ export namespace editor::app
 
     class EditorOpenPagesSettings final : public ISerializable
     {
-        DRACONIC_OBJECT(EditorOpenPagesSettings, ISerializable)
+        RTTI_OBJECT(EditorOpenPagesSettings, ISerializable)
     public:
         Array<Guid> pages;
         Guid active;
@@ -260,7 +260,7 @@ export namespace editor::app
         return saved;
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(EditorDockLayoutSettings, "rtti::editor::editor::app", 1)
-    DRACONIC_DEFINE_OBJECT_VERSIONED(EditorFavoritesSettings, "rtti::editor::editor::app", 1)
-    DRACONIC_DEFINE_OBJECT_VERSIONED(EditorOpenPagesSettings, "rtti::editor::editor::app", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(EditorDockLayoutSettings, "rtti::editor::editor::app", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(EditorFavoritesSettings, "rtti::editor::editor::app", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(EditorOpenPagesSettings, "rtti::editor::editor::app", 1)
 }

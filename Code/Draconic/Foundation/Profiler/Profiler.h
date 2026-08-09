@@ -1,31 +1,31 @@
 // Foundation::Profiler - instrumentation macros.
 //
 // Include this header (it's just macros) AND `import foundation.profiler` in a TU that instruments.
-// DRACONIC_PROFILE_SCOPE("Name") profiles the enclosing block; the frame macros bracket a frame.
-// When DRACONIC_PROFILING is off (shipping builds), every macro compiles to nothing.
+// PROFILE_SCOPE("Name") profiles the enclosing block; the frame macros bracket a frame.
+// When BUILD_PROFILING is off (shipping builds), every macro compiles to nothing.
 #pragma once
 
-#ifndef DRACONIC_PROFILING
-#define DRACONIC_PROFILING 0
+#ifndef BUILD_PROFILING
+#define BUILD_PROFILING 0
 #endif
 
-#define DRACONIC_PROFILE_CONCAT_(a, b) a##b
-#define DRACONIC_PROFILE_CONCAT(a, b) DRACONIC_PROFILE_CONCAT_(a, b)
+#define PROFILE_CONCAT_(a, b) a##b
+#define PROFILE_CONCAT(a, b) PROFILE_CONCAT_(a, b)
 
-#if DRACONIC_PROFILING
+#if BUILD_PROFILING
 
-#define DRACONIC_PROFILE_SCOPE(name)                                                               \
-    ::foundation::profiler::ScopedProfile DRACONIC_PROFILE_CONCAT(draconicProfScope_, __LINE__)      \
+#define PROFILE_SCOPE(name)                                                               \
+    ::foundation::profiler::ScopedProfile PROFILE_CONCAT(draconicProfScope_, __LINE__)      \
     {                                                                                              \
         (name)                                                                                     \
     }
-#define DRACONIC_PROFILE_FRAME_BEGIN() ::foundation::profiler::Profiler::Get().BeginFrame()
-#define DRACONIC_PROFILE_FRAME_END() ::foundation::profiler::Profiler::Get().EndFrame()
+#define PROFILE_FRAME_BEGIN() ::foundation::profiler::Profiler::Get().BeginFrame()
+#define PROFILE_FRAME_END() ::foundation::profiler::Profiler::Get().EndFrame()
 
 #else
 
-#define DRACONIC_PROFILE_SCOPE(name) ((void)0)
-#define DRACONIC_PROFILE_FRAME_BEGIN() ((void)0)
-#define DRACONIC_PROFILE_FRAME_END() ((void)0)
+#define PROFILE_SCOPE(name) ((void)0)
+#define PROFILE_FRAME_BEGIN() ((void)0)
+#define PROFILE_FRAME_END() ((void)0)
 
 #endif

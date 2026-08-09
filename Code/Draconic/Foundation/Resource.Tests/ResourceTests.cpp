@@ -18,7 +18,7 @@ namespace
     // data (editorNote) that the runtime product must NOT inherit.
     class MaterialResource final : public ISerializable
     {
-        DRACONIC_OBJECT(MaterialResource, ISerializable)
+        RTTI_OBJECT(MaterialResource, ISerializable)
     public:
         i32 shininess = 0;
         String shader;
@@ -35,7 +35,7 @@ namespace
     // Product: lean runtime object built from the source. No editorNote.
     class Material final : public Object
     {
-        DRACONIC_OBJECT(Material, Object)
+        RTTI_OBJECT(Material, Object)
     public:
         f32 specular = 0.0f;
         String shader;
@@ -96,8 +96,8 @@ namespace
     }
 }
 
-DRACONIC_DEFINE_OBJECT(MaterialResource, "rtti::resource::test")
-DRACONIC_DEFINE_OBJECT(Material, "rtti::resource::test")
+RTTI_DEFINE_OBJECT(MaterialResource, "rtti::resource::test")
+RTTI_DEFINE_OBJECT(Material, "rtti::resource::test")
 
 TEST_CASE("resource: bind builds a product from a source, with caching")
 {
@@ -418,7 +418,7 @@ namespace
     // that pushes a fresh grave) - the graveyard-collection re-entrancy scenario.
     class Reentrant final : public Object
     {
-        DRACONIC_OBJECT(Reentrant, Object)
+        RTTI_OBJECT(Reentrant, Object)
     public:
         static inline bool reenterOnDestroy = false; // off during manager teardown
         ResourceManager* manager = nullptr;
@@ -436,12 +436,12 @@ namespace
 
     class ReentrantSource final : public ISerializable
     {
-        DRACONIC_OBJECT(ReentrantSource, ISerializable)
+        RTTI_OBJECT(ReentrantSource, ISerializable)
     public:
         Guid other;
         void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, other); }
     };
-    DRACONIC_DEFINE_OBJECT(ReentrantSource, "test")
+    RTTI_DEFINE_OBJECT(ReentrantSource, "test")
 
     class ReentrantFactory final : public IResourceFactory
     {
@@ -466,7 +466,7 @@ namespace
     };
 }
 
-DRACONIC_DEFINE_OBJECT(Reentrant, "test")
+RTTI_DEFINE_OBJECT(Reentrant, "test")
 
 TEST_CASE("resource: garbage collection survives destructor re-entry into the manager")
 {
@@ -519,14 +519,14 @@ namespace
     // to grow (rehash) in the middle of a Reload cascade.
     class Burst final : public Object
     {
-        DRACONIC_OBJECT(Burst, Object)
+        RTTI_OBJECT(Burst, Object)
     public:
         i32 generation = 0;
     };
 
     class BurstSource final : public ISerializable
     {
-        DRACONIC_OBJECT(BurstSource, ISerializable)
+        RTTI_OBJECT(BurstSource, ISerializable)
     public:
         Array<Guid> children;
         void Serialize(ISerializer& ar) override
@@ -534,7 +534,7 @@ namespace
             foundation::core::Serialize(ar, "children", children);
         }
     };
-    DRACONIC_DEFINE_OBJECT(BurstSource, "test")
+    RTTI_DEFINE_OBJECT(BurstSource, "test")
 
     class BurstFactory final : public IResourceFactory
     {
@@ -562,7 +562,7 @@ namespace
     };
 }
 
-DRACONIC_DEFINE_OBJECT(Burst, "test")
+RTTI_DEFINE_OBJECT(Burst, "test")
 
 TEST_CASE("resource: reload survives the handle map rehashing mid-cascade")
 {

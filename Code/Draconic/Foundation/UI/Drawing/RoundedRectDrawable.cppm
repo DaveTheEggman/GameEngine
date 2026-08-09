@@ -22,7 +22,7 @@ export namespace foundation::ui
 {
     class RoundedRectDrawable : public Drawable
     {
-        DRACONIC_OBJECT(RoundedRectDrawable, Drawable)
+        RTTI_OBJECT(RoundedRectDrawable, Drawable)
     public:
         core::Color FillColor{};
         core::Color BorderColor = core::Color::Transparent;
@@ -73,5 +73,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(RoundedRectDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(RoundedRectDrawable, "rtti::ui")
 }

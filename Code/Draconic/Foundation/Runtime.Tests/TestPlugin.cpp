@@ -11,9 +11,9 @@ using namespace foundation::core;
 using namespace foundation::runtime;
 
 #if defined(_WIN32)
-#define DRACONIC_PLUGIN_EXPORT __declspec(dllexport)
+#define PLUGIN_EXPORT __declspec(dllexport)
 #else
-#define DRACONIC_PLUGIN_EXPORT __attribute__((visibility("default")))
+#define PLUGIN_EXPORT __attribute__((visibility("default")))
 #endif
 
 namespace
@@ -45,11 +45,11 @@ namespace
 }
 
 // Factory resolved by PluginHost::Load. The instance is owned by this library.
-extern "C" DRACONIC_PLUGIN_EXPORT IRuntimePlugin* DraconicCreatePlugin()
+extern "C" PLUGIN_EXPORT IRuntimePlugin* DraconicCreatePlugin()
 {
     static TestPlugin plugin;
     return &plugin;
 }
 
 // Lets the test observe the plugin subsystem's activity across the library boundary.
-extern "C" DRACONIC_PLUGIN_EXPORT int DraconicTestPluginTicks() { return g_ticks; }
+extern "C" PLUGIN_EXPORT int DraconicTestPluginTicks() { return g_ticks; }

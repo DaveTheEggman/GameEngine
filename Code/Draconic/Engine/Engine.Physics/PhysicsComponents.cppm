@@ -277,7 +277,7 @@ export namespace engine::physics
         foundation::core::Serialize(ar, "groupCollides", settings.groupCollides);
     }
 
-    // Defined in SubsystemImpl.cpp: the DRACONIC_REFLECT_* bodies live there because
+    // Defined in SubsystemImpl.cpp: the REFLECT_* bodies live there because
     // GCC's module serializer emits an unreadable gcm cluster when they sit in this
     // partition (the -fno-module-lazy eager load then fails for every consumer).
     void RegisterPhysicsComponentReflection();

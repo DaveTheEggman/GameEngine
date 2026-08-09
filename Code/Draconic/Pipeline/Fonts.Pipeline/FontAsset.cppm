@@ -50,7 +50,7 @@ export namespace pipeline{
     // Source asset: a font file + how it should become a cooked FontResource.
     class FontAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(FontAsset, pipeline::Asset)
+        RTTI_OBJECT(FontAsset, pipeline::Asset)
     public:
         String family;      // runtime family name ("" = the file's own family at cook)
         FontBakeMode mode = FontBakeMode::RasterRamp;

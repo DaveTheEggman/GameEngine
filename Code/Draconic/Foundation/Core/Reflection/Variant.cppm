@@ -430,14 +430,14 @@ export namespace foundation::core
         template <typename T>
         [[nodiscard]] T& Get() noexcept
         {
-            DRACONIC_ASSERT_MSG(Is<T>(), "Variant::Get<T>() type mismatch");
+            DIAGNOSTIC_ASSERT_MSG(Is<T>(), "Variant::Get<T>() type mismatch");
             return *static_cast<T*>(Data());
         }
 
         template <typename T>
         [[nodiscard]] const T& Get() const noexcept
         {
-            DRACONIC_ASSERT_MSG(Is<T>(), "Variant::Get<T>() type mismatch");
+            DIAGNOSTIC_ASSERT_MSG(Is<T>(), "Variant::Get<T>() type mismatch");
             return *static_cast<const T*>(Data());
         }
 

@@ -34,7 +34,7 @@ export namespace foundation::ui
 {
     class ToggleButton : public ButtonBase
     {
-        DRACONIC_OBJECT(ToggleButton, ButtonBase)
+        RTTI_OBJECT(ToggleButton, ButtonBase)
     public:
         Property<bool> IsChecked{false};
         Event<void(ToggleButton*, bool)> OnCheckedChanged;
@@ -222,5 +222,5 @@ export namespace foundation::ui
         RefPtr<View> m_content;
     };
 
-    DRACONIC_DEFINE_OBJECT(ToggleButton, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ToggleButton, "rtti::ui")
 }

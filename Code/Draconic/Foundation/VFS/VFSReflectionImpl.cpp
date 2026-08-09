@@ -1,6 +1,6 @@
 // Foundation::VFS - reflection implementation unit: SourcePath's reflected surface.
 //
-// Kept OUT of the :source_path interface partition (DRACONIC_REFLECT_* bodies make GCC emit a gcm
+// Kept OUT of the :source_path interface partition (REFLECT_* bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). SourcePath's value is private, so it reflects as
 // read accessors + a StringView constructor (the accessor-gated-state convention) rather than
 // member properties. Reflection track P1.
@@ -17,7 +17,7 @@ using namespace foundation::core;
 
 namespace foundation::vfs
 {
-    DRACONIC_REFLECT_VALUE(SourcePath, "rtti::vfs")
+    REFLECT_VALUE(SourcePath, "rtti::vfs")
     {
         builder.Constructor<StringView>()
             .Method<&SourcePath::View>("View")

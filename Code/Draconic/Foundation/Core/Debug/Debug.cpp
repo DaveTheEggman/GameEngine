@@ -28,7 +28,7 @@ namespace foundation::core
 
     void DebugBreak() noexcept
     {
-#if DRACONIC_COMPILER_MSVC && !DRACONIC_COMPILER_CLANG
+#if COMPILER_MSVC && !COMPILER_CLANG
         __debugbreak();
 #else
         __builtin_trap();

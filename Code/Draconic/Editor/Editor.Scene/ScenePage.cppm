@@ -109,16 +109,16 @@ export namespace editor
                             scene::ResolveSceneResources(*m_scene, *context.Resources());
                         }
                     }
-                    DRACONIC_LOG_INFO(u8"Editor", u8"opened scene '{}'", m_title);
+                    LOG_INFO(u8"Editor", u8"opened scene '{}'", m_title);
                 }
                 else if (loaded.Code() == ErrorCode::NotFound)
                 {
-                    DRACONIC_LOG_INFO(u8"Editor", u8"new scene '{}' (no scene stream yet)",
+                    LOG_INFO(u8"Editor", u8"new scene '{}' (no scene stream yet)",
                                       m_title);
                 }
                 else
                 {
-                    DRACONIC_LOG_ERROR(u8"Editor", u8"scene '{}' failed to load", m_title);
+                    LOG_ERROR(u8"Editor", u8"scene '{}' failed to load", m_title);
                 }
             }
 

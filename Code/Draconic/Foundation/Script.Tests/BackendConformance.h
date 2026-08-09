@@ -27,7 +27,7 @@ namespace foundation::script::conformance
     // Certified below on every backend that declares ScriptCapabilities::Delegates.
     class DelegateSignal : public Object
     {
-        DRACONIC_OBJECT(DelegateSignal, Object)
+        RTTI_OBJECT(DelegateSignal, Object)
     public:
         // A script function subscribes; holding the RefPtr keeps it alive across GC.
         void Connect(RefPtr<IScriptDelegate> handler) { m_handler = Move(handler); }
@@ -99,7 +99,7 @@ namespace foundation::script::conformance
     // Reflected so a script can construct/subscribe it; StaticType() lives in this header
     // (single TU per test executable). It is registered with the manager on demand, never a
     // global-registry type - so the introspection diff never demands a backend bind it.
-    DRACONIC_REFLECT(DelegateSignal, "rtti::script::conformance")
+    REFLECT_MEMBERS(DelegateSignal, "rtti::script::conformance")
     {
         builder.Constructor();
         builder.Method<&DelegateSignal::Connect>("Connect");

@@ -24,7 +24,7 @@ export namespace foundation::ui::toolkit
     /// Resizable two-pane container with a draggable divider.
     class SplitView : public ViewGroup
     {
-        DRACONIC_OBJECT(SplitView, ViewGroup)
+        RTTI_OBJECT(SplitView, ViewGroup)
     public:
         ::foundation::ui::Orientation Orientation = ::foundation::ui::Orientation::Horizontal;
         f32 MinPaneSize = 50.0f;
@@ -327,5 +327,5 @@ export namespace foundation::ui::toolkit
         bool m_dividerHovered = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(SplitView, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(SplitView, "rtti::ui::toolkit")
 }

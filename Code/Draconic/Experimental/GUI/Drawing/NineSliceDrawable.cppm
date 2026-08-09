@@ -24,7 +24,7 @@ export namespace experimental::gui
 {
     class NineSliceDrawable : public Drawable
     {
-        DRACONIC_OBJECT(NineSliceDrawable, Drawable)
+        RTTI_OBJECT(NineSliceDrawable, Drawable)
     public:
         const image::ImageData* Image = nullptr;
         image::NineSlice Slices{};
@@ -56,5 +56,5 @@ export namespace experimental::gui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(NineSliceDrawable, "rtti::gui")
+    RTTI_DEFINE_OBJECT(NineSliceDrawable, "rtti::gui")
 }

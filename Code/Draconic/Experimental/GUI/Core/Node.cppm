@@ -33,7 +33,7 @@ export namespace experimental::gui
 
     class Node : public Object, public Transformable
     {
-        DRACONIC_OBJECT(Node, Object)
+        RTTI_OBJECT(Node, Object)
     public:
         static constexpr usize kInvalidIndex = static_cast<usize>(-1);
 
@@ -660,5 +660,5 @@ export namespace experimental::gui
         u32 m_nextListenerId = 0;
     };
 
-    DRACONIC_DEFINE_OBJECT(Node, "rtti::gui")
+    RTTI_DEFINE_OBJECT(Node, "rtti::gui")
 }

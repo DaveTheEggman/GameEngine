@@ -94,7 +94,7 @@ export namespace foundation::script
         const ScriptBackendDesc* backend = ScriptBackendRegistry::Get().FindByLanguage(languageId);
         if (backend == nullptr || !backend->create)
         {
-            DRACONIC_LOG_WARNING(u8"Script", u8"no script backend registered for language '{}'",
+            LOG_WARNING(u8"Script", u8"no script backend registered for language '{}'",
                                  languageId);
             return {};
         }
@@ -132,7 +132,7 @@ export namespace foundation::script
             const ScriptBackendDesc& sole = registry.All()[0];
             return sole.create ? sole.create() : RefPtr<IScriptManager>{};
         }
-        DRACONIC_LOG_WARNING(u8"Script",
+        LOG_WARNING(u8"Script",
                              u8"no script backend matches '{}' ({} backend(s) registered)", path,
                              registry.All().Size());
         return {};

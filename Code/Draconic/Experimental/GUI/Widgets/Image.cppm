@@ -33,7 +33,7 @@ export namespace experimental::gui
 
     class Image : public UIWidget
     {
-        DRACONIC_OBJECT(Image, UIWidget)
+        RTTI_OBJECT(Image, UIWidget)
     public:
         Image() { SetTag(core::StringView(u8"image")); }
 
@@ -101,5 +101,5 @@ export namespace experimental::gui
         ImageScaleMode m_mode = ImageScaleMode::Stretch;
     };
 
-    DRACONIC_DEFINE_OBJECT(Image, "rtti::gui")
+    RTTI_DEFINE_OBJECT(Image, "rtti::gui")
 }

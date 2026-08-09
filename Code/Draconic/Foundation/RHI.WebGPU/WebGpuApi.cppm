@@ -16,10 +16,10 @@ module;
 #include "Core/Prelude.h"
 #include "WebGpuIncludes.h"
 
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
 #include <emscripten/emscripten.h> // emscripten_sleep - yield to the browser event loop
 #include <cstdio>                  // mid-frame-yield diagnostic (fprintf carries a JS stack)
-#elif DRACONIC_PLATFORM_WINDOWS
+#elif PLATFORM_WINDOWS
 #include <windows.h>
 #else
 #include <dlfcn.h>
@@ -31,7 +31,7 @@ import foundation.core;
 
 using namespace foundation::core;
 
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
 // Dawn's webgpu.h (the emdawnwebgpu web port) declares none of the wgpu-native extensions,
 // nor the three helper types they need, so decltype(&::fn) on the NATIVE_EXT list below would
 // not compile. Forward-declare just enough - at GLOBAL scope, matching where wgpu-native's
@@ -61,7 +61,7 @@ namespace foundation::rhi::webgpu
     // works because webgpu.h DECLARES the functions; nothing references them directly, so
     // no link-time dependency exists. The wgpu-native-only extensions live in the separate
     // NATIVE_EXT list below (absent from Dawn - compiled out on web).
-#define DRACONIC_WEBGPU_FUNCTIONS(X)                                                               \
+#define WEBGPU_FUNCTIONS(X)                                                               \
     X(wgpuCreateInstance)                                                                          \
     X(wgpuInstanceRelease)                                                                         \
     X(wgpuInstanceProcessEvents)                                                                   \
@@ -170,7 +170,7 @@ namespace foundation::rhi::webgpu
     // wgpu-native-only entry points. Present in wgpu-native's wgpu.h (desktop), ABSENT from
     // Dawn's webgpu.h (the emdawnwebgpu web port). On desktop they resolve like any other; on
     // web they stay null and every call site null-guards (SetImmediates falls back below).
-#define DRACONIC_WEBGPU_NATIVE_EXT_FUNCTIONS(X)                                                    \
+#define WEBGPU_NATIVE_EXT_FUNCTIONS(X)                                                    \
     X(wgpuInstanceEnumerateAdapters)                                                               \
     X(wgpuDevicePoll)                                                                              \
     X(wgpuQueueSubmitForIndex)                                                                     \
@@ -182,10 +182,10 @@ namespace foundation::rhi::webgpu
 
     export struct WebGpuApi
     {
-#define DRACONIC_WEBGPU_DECLARE_MEMBER(fn) decltype(&::fn) fn = nullptr;
-        DRACONIC_WEBGPU_FUNCTIONS(DRACONIC_WEBGPU_DECLARE_MEMBER)
-        DRACONIC_WEBGPU_NATIVE_EXT_FUNCTIONS(DRACONIC_WEBGPU_DECLARE_MEMBER)
-#undef DRACONIC_WEBGPU_DECLARE_MEMBER
+#define WEBGPU_DECLARE_MEMBER(fn) decltype(&::fn) fn = nullptr;
+        WEBGPU_FUNCTIONS(WEBGPU_DECLARE_MEMBER)
+        WEBGPU_NATIVE_EXT_FUNCTIONS(WEBGPU_DECLARE_MEMBER)
+#undef WEBGPU_DECLARE_MEMBER
 
         void* libraryHandle = nullptr; // desktop sidecar handle; null on web
         // Whether the instance was created with ShaderSourceSPIRV (the standard
@@ -203,7 +203,7 @@ namespace foundation::rhi::webgpu
         /// that spelling breaks the declaration and silently erases every call site.
         void YieldToEventLoop() const
         {
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
             // The canvas texture the swapchain acquired EXPIRES when the requestAnimationFrame
             // callback returns (the browser destroys it at composite time). Yielding between
             // AcquireNextImage and Present hands control back to the browser MID-FRAME, so this
@@ -280,15 +280,15 @@ namespace foundation::rhi::webgpu
     /// Releases the sidecar handle (no-op on web / when never loaded).
     export void UnloadWebGpuApi(WebGpuApi& api);
 
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
 
     Status LoadWebGpuApi(WebGpuApi& api, StringView)
     {
         // The browser (via emscripten's library_webgpu) IS the implementation; the
         // wgpu-native-extension entries stay null and must not be reached on web.
-#define DRACONIC_WEBGPU_BIND_DIRECT(fn) api.fn = &::fn;
-        DRACONIC_WEBGPU_FUNCTIONS(DRACONIC_WEBGPU_BIND_DIRECT)
-#undef DRACONIC_WEBGPU_BIND_DIRECT
+#define WEBGPU_BIND_DIRECT(fn) api.fn = &::fn;
+        WEBGPU_FUNCTIONS(WEBGPU_BIND_DIRECT)
+#undef WEBGPU_BIND_DIRECT
         return ErrorCode::Ok;
     }
 
@@ -298,7 +298,7 @@ namespace foundation::rhi::webgpu
 
     Status LoadWebGpuApi(WebGpuApi& api, StringView libraryPathOverride)
     {
-#if DRACONIC_PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS
         HMODULE lib = nullptr;
         if (!libraryPathOverride.IsEmpty())
         {
@@ -348,12 +348,12 @@ namespace foundation::rhi::webgpu
 #endif
 
         bool allResolved = true;
-#define DRACONIC_WEBGPU_RESOLVE(fn)                                                                \
+#define WEBGPU_RESOLVE(fn)                                                                \
     api.fn = reinterpret_cast<decltype(&::fn)>(resolve(#fn));                                      \
     allResolved = allResolved && api.fn != nullptr;
-        DRACONIC_WEBGPU_FUNCTIONS(DRACONIC_WEBGPU_RESOLVE)
-        DRACONIC_WEBGPU_NATIVE_EXT_FUNCTIONS(DRACONIC_WEBGPU_RESOLVE)
-#undef DRACONIC_WEBGPU_RESOLVE
+        WEBGPU_FUNCTIONS(WEBGPU_RESOLVE)
+        WEBGPU_NATIVE_EXT_FUNCTIONS(WEBGPU_RESOLVE)
+#undef WEBGPU_RESOLVE
 
         if (!allResolved)
         {
@@ -371,7 +371,7 @@ namespace foundation::rhi::webgpu
         {
             return;
         }
-#if DRACONIC_PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS
         FreeLibrary(static_cast<HMODULE>(api.libraryHandle));
 #else
         dlclose(api.libraryHandle);
@@ -379,5 +379,5 @@ namespace foundation::rhi::webgpu
         api.libraryHandle = nullptr;
     }
 
-#endif // DRACONIC_PLATFORM_WEB
+#endif // PLATFORM_WEB
 }

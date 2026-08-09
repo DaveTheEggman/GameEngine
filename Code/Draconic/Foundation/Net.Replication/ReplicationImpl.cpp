@@ -159,7 +159,7 @@ namespace foundation::net
             }
             if (!IsFieldTypeSupported(property.type))
             {
-                DRACONIC_LOG_WARNING(u8"Net",
+                LOG_WARNING(u8"Net",
                                      u8"replicated field '{}' on '{}' has an unsupported type - "
                                      u8"excluded from replication",
                                      Ascii(property.name), Ascii(type.name));
@@ -407,13 +407,13 @@ namespace foundation::net
 
     // ---- NetworkComponent reflection (versioned records need the patched TypeInfo) ---------------
 
-    DRACONIC_REFLECT_ENUM(NetworkAuthority, "rtti::net")
+    REFLECT_ENUM(NetworkAuthority, "rtti::net")
     {
         builder.Value("Server", NetworkAuthority::Server);
         builder.Value("Client", NetworkAuthority::Client);
     }
 
-    DRACONIC_REFLECT_VALUE(NetworkComponent, "rtti::net")
+    REFLECT_VALUE(NetworkComponent, "rtti::net")
     {
         builder.Attribute("displayName", String(u8"Network Identity"))
             .Attribute("category", String(u8"Networking"))
@@ -428,7 +428,7 @@ namespace foundation::net
 
     // NetworkedTransform: unlike NetworkComponent, its fields ARE replicated (kReplicatedAttribute), so
     // the field codec captures/applies them and interpolation smooths them.
-    DRACONIC_REFLECT_VALUE(NetworkedTransform, "rtti::net")
+    REFLECT_VALUE(NetworkedTransform, "rtti::net")
     {
         builder.Attribute("displayName", String(u8"Networked Transform"))
             .Attribute("category", String(u8"Networking"))

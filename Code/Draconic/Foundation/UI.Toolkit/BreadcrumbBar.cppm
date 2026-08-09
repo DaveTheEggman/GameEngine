@@ -26,7 +26,7 @@ export namespace foundation::ui::toolkit
     /// Used for file path navigation, hierarchy display, etc.
     class BreadcrumbBar : public ViewGroup
     {
-        DRACONIC_OBJECT(BreadcrumbBar, ViewGroup)
+        RTTI_OBJECT(BreadcrumbBar, ViewGroup)
     public:
         /// Fired when a segment is clicked. Parameter: segment index.
         Event<void(BreadcrumbBar*, i32)> OnSegmentClicked;
@@ -323,5 +323,5 @@ export namespace foundation::ui::toolkit
         f32 m_separatorWidth = 16.0f;
     };
 
-    DRACONIC_DEFINE_OBJECT(BreadcrumbBar, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(BreadcrumbBar, "rtti::ui::toolkit")
 }

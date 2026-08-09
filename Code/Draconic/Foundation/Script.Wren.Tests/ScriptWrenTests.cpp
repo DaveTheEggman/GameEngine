@@ -15,7 +15,7 @@ namespace
 {
     class Widget : public Object
     {
-        DRACONIC_OBJECT(Widget, Object)
+        RTTI_OBJECT(Widget, Object)
     public:
         int id = 0;
         int doubled() const { return id * 2; }
@@ -23,7 +23,7 @@ namespace
     };
 }
 
-DRACONIC_REFLECT(Widget, "rtti::script::test")
+REFLECT_MEMBERS(Widget, "rtti::script::test")
 {
     builder.Property<&Widget::id>("id");
     builder.Method<&Widget::doubled>("doubled");
@@ -38,24 +38,24 @@ namespace
 {
     class Leaf : public Object
     {
-        DRACONIC_OBJECT(Leaf, Object)
+        RTTI_OBJECT(Leaf, Object)
     public:
         int value = 0;
     };
 
     class LeafFactory : public Object
     {
-        DRACONIC_OBJECT(LeafFactory, Object)
+        RTTI_OBJECT(LeafFactory, Object)
     public:
         RefPtr<Leaf> make() const { return MakeRef<Leaf>(DefaultAllocator()); }
     };
 }
 
-DRACONIC_REFLECT(Leaf, "rtti::script::test")
+REFLECT_MEMBERS(Leaf, "rtti::script::test")
 {
     builder.Property<&Leaf::value>("value"); // deliberately no Constructor()
 }
-DRACONIC_REFLECT(LeafFactory, "rtti::script::test")
+REFLECT_MEMBERS(LeafFactory, "rtti::script::test")
 {
     builder.Method<&LeafFactory::make>("make");
     builder.Constructor();
@@ -68,19 +68,19 @@ namespace
 {
     class Animal : public Object
     {
-        DRACONIC_OBJECT(Animal, Object)
+        RTTI_OBJECT(Animal, Object)
     public:
         int legs = 4;
     };
     class Dog : public Animal
     {
-        DRACONIC_OBJECT(Dog, Animal)
+        RTTI_OBJECT(Dog, Animal)
     public:
         int barks = 1;
     };
     class Cat : public Animal
     {
-        DRACONIC_OBJECT(Cat, Animal)
+        RTTI_OBJECT(Cat, Animal)
     public:
         int meows = 1;
     };
@@ -102,25 +102,25 @@ namespace
     }
     class Zoo : public Object
     {
-        DRACONIC_OBJECT(Zoo, Object)
+        RTTI_OBJECT(Zoo, Object)
     public:
         Array<RefPtr<Animal>> animals;
     };
 }
 
-DRACONIC_REFLECT(Animal, "rtti::script::test")
+REFLECT_MEMBERS(Animal, "rtti::script::test")
 {
     builder.Property<&Animal::legs>("legs");
 }
-DRACONIC_REFLECT(Dog, "rtti::script::test")
+REFLECT_MEMBERS(Dog, "rtti::script::test")
 {
     builder.Property<&Dog::barks>("barks");
 }
-DRACONIC_REFLECT(Cat, "rtti::script::test")
+REFLECT_MEMBERS(Cat, "rtti::script::test")
 {
     builder.Property<&Cat::meows>("meows");
 }
-DRACONIC_REFLECT(Zoo, "rtti::script::test")
+REFLECT_MEMBERS(Zoo, "rtti::script::test")
 {
     builder.Nested<&Zoo::animals>("animals"); // a polymorphic container member
     builder.Constructor();
@@ -384,27 +384,27 @@ namespace
     };
     class House : public Object
     {
-        DRACONIC_OBJECT(House, Object)
+        RTTI_OBJECT(House, Object)
     public:
         Room room; // nested value member
     };
     class Shelf : public Object
     {
-        DRACONIC_OBJECT(Shelf, Object)
+        RTTI_OBJECT(Shelf, Object)
     public:
         Array<UniquePtr<Room>> rooms;
     };
 }
-DRACONIC_REFLECT_VALUE(Room, "rtti::script::test")
+REFLECT_VALUE(Room, "rtti::script::test")
 {
     builder.Property<&Room::size>("size");
 }
-DRACONIC_REFLECT(House, "rtti::script::test")
+REFLECT_MEMBERS(House, "rtti::script::test")
 {
     builder.Nested<&House::room>("room");
     builder.Constructor();
 }
-DRACONIC_REFLECT(Shelf, "rtti::script::test")
+REFLECT_MEMBERS(Shelf, "rtti::script::test")
 {
     builder.Nested<&Shelf::rooms>("rooms");
     builder.Constructor();

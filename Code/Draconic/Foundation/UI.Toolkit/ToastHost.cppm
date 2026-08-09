@@ -51,7 +51,7 @@ export namespace foundation::ui::toolkit
     /// A single toast card: severity accent bar + message + optional action + close button.
     class ToastCard : public FlexLayout
     {
-        DRACONIC_OBJECT(ToastCard, FlexLayout)
+        RTTI_OBJECT(ToastCard, FlexLayout)
     public:
         Color Accent{0.35f, 0.55f, 0.95f, 1.0f};
 
@@ -90,7 +90,7 @@ export namespace foundation::ui::toolkit
     /// passes input through outside the cards); call Update(dt) once per frame.
     class ToastHost : public ViewGroup
     {
-        DRACONIC_OBJECT(ToastHost, ViewGroup)
+        RTTI_OBJECT(ToastHost, ViewGroup)
     public:
         f32 ToastWidth = 340.0f;
         f32 CornerMargin = 12.0f;
@@ -282,6 +282,6 @@ export namespace foundation::ui::toolkit
         u64 m_nextId = 1;
     };
 
-    DRACONIC_DEFINE_OBJECT(ToastCard, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(ToastHost, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ToastCard, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ToastHost, "rtti::ui::toolkit")
 }

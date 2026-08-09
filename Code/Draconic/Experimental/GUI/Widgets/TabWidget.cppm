@@ -27,7 +27,7 @@ export namespace experimental::gui
 {
     class TabWidget : public UIWidget
     {
-        DRACONIC_OBJECT(TabWidget, UIWidget)
+        RTTI_OBJECT(TabWidget, UIWidget)
     public:
         TabWidget()
         {
@@ -161,5 +161,5 @@ export namespace experimental::gui
         core::Function<void(i32)> m_onChanged;
     };
 
-    DRACONIC_DEFINE_OBJECT(TabWidget, "rtti::gui")
+    RTTI_DEFINE_OBJECT(TabWidget, "rtti::gui")
 }

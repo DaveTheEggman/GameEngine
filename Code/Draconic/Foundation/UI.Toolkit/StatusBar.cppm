@@ -23,7 +23,7 @@ export namespace foundation::ui::toolkit
     /// Bottom status strip with text sections.
     class StatusBar : public FlexLayout
     {
-        DRACONIC_OBJECT(StatusBar, FlexLayout)
+        RTTI_OBJECT(StatusBar, FlexLayout)
     public:
         StatusBar()
         {
@@ -99,5 +99,5 @@ export namespace foundation::ui::toolkit
         Label* m_defaultLabel = nullptr; // borrowed; the flex child tree owns the RefPtr
     };
 
-    DRACONIC_DEFINE_OBJECT(StatusBar, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(StatusBar, "rtti::ui::toolkit")
 }

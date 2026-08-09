@@ -29,7 +29,7 @@ export namespace foundation::geometry
 
     class StaticMesh : public Object
     {
-        DRACONIC_OBJECT(StaticMesh, Object)
+        RTTI_OBJECT(StaticMesh, Object)
     public:
         // Unique per-OBJECT id: renderer caches key by THIS, never by pointer (a reloaded or
         // page-local mesh can reallocate at a freed address - the bind-group versioning rule;
@@ -236,7 +236,7 @@ export namespace foundation::geometry
     // A skinned mesh: the static stream + a parallel skinning stream + a skeleton ref.
     class SkinnedMesh final : public StaticMesh
     {
-        DRACONIC_OBJECT(SkinnedMesh, StaticMesh)
+        RTTI_OBJECT(SkinnedMesh, StaticMesh)
     public:
         Array<VertexSkinning> skinning; // parallel to StaticMesh::vertices
         i32 skeletonIndex = -1;         // index into the import skeleton list (-1 = none)
@@ -268,7 +268,7 @@ export namespace foundation::geometry
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(StaticMesh, "rtti::geometry")
-    DRACONIC_DEFINE_OBJECT(SkinnedMesh, "rtti::geometry")
+    RTTI_DEFINE_OBJECT(StaticMesh, "rtti::geometry")
+    RTTI_DEFINE_OBJECT(SkinnedMesh, "rtti::geometry")
 
 } // namespace foundation::geometry

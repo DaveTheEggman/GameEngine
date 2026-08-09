@@ -38,7 +38,7 @@ export namespace foundation::ui
 {
     class GridView : public ViewGroup, public IListAdapterObserver
     {
-        DRACONIC_OBJECT(GridView, ViewGroup)
+        RTTI_OBJECT(GridView, ViewGroup)
     public:
         SelectionModel Selection;
         Property<f32> CellWidth{60.0f};
@@ -526,5 +526,5 @@ export namespace foundation::ui
         f32 m_totalContentHeight = 0.0f;
     };
 
-    DRACONIC_DEFINE_OBJECT(GridView, "rtti::ui")
+    RTTI_DEFINE_OBJECT(GridView, "rtti::ui")
 }

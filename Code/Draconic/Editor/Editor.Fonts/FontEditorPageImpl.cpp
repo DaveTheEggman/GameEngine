@@ -115,7 +115,7 @@ namespace editor
         m_asset = RefPtr<pipeline::FontAsset>(Cast<pipeline::FontAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"Editor", u8"font '{}' failed to read - page opens empty",
+            LOG_ERROR(u8"Editor", u8"font '{}' failed to read - page opens empty",
                                m_title);
         }
         m_undoBaseline = Snapshot();
@@ -696,7 +696,7 @@ namespace editor
         {
             ClearDirty();
             m_context->RequestCook(false);
-            DRACONIC_LOG_INFO(u8"Editor", u8"saved font '{}'", m_title);
+            LOG_INFO(u8"Editor", u8"saved font '{}'", m_title);
         }
         return saved;
     }

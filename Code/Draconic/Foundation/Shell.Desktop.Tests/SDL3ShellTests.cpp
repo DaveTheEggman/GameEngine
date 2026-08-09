@@ -72,7 +72,7 @@ TEST_CASE("shell.desktop: SDL3 shell creates a window and reports state")
     // Linux reports Unknown (no real display), Windows still reports Win32.
     // Native() must be callable and self-consistent either way.
     const NativeWindow native = shell.MainWindow()->Native();
-#if DRACONIC_PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS
     CHECK(native.system == WindowSystem::Win32);
 #else
     CHECK(native.system == WindowSystem::Unknown);

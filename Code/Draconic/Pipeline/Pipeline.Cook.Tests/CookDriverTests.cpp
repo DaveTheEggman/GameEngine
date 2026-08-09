@@ -25,7 +25,7 @@ namespace
 
     class CookWidgetAsset final : public Asset
     {
-        DRACONIC_OBJECT(CookWidgetAsset, Asset)
+        RTTI_OBJECT(CookWidgetAsset, Asset)
     public:
         i32 quality = 1;
         void Serialize(ISerializer& ar) override
@@ -37,7 +37,7 @@ namespace
 
     class CookWidgetProduct final : public ISerializable
     {
-        DRACONIC_OBJECT(CookWidgetProduct, ISerializable)
+        RTTI_OBJECT(CookWidgetProduct, ISerializable)
     public:
         i32 cookedValue = 0;
         void Serialize(ISerializer& ar) override
@@ -87,7 +87,7 @@ namespace
     // An asset that READS one instance and REFERENCES another (design §3 dependency kinds).
     class ChainAsset final : public Asset
     {
-        DRACONIC_OBJECT(ChainAsset, Asset)
+        RTTI_OBJECT(ChainAsset, Asset)
     public:
         Guid readDep;
         Guid refDep;
@@ -264,9 +264,9 @@ namespace
     }
 }
 
-DRACONIC_DEFINE_OBJECT(CookWidgetAsset, "rtti::pipeline::editor::test")
-DRACONIC_DEFINE_OBJECT(CookWidgetProduct, "rtti::pipeline::editor::test")
-DRACONIC_DEFINE_OBJECT(ChainAsset, "rtti::pipeline::editor::test")
+RTTI_DEFINE_OBJECT(CookWidgetAsset, "rtti::pipeline::editor::test")
+RTTI_DEFINE_OBJECT(CookWidgetProduct, "rtti::pipeline::editor::test")
+RTTI_DEFINE_OBJECT(ChainAsset, "rtti::pipeline::editor::test")
 
 TEST_CASE("cook: full cook then clean; products carry the source guid + product type")
 {

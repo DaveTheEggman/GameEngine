@@ -20,19 +20,19 @@ namespace
 {
     class BaseAsset : public ISerializable
     {
-        DRACONIC_OBJECT(BaseAsset, ISerializable)
+        RTTI_OBJECT(BaseAsset, ISerializable)
     public:
         void Serialize(ISerializer& ar) override { (void)ar; }
     };
 
     class DerivedAsset : public BaseAsset
     {
-        DRACONIC_OBJECT(DerivedAsset, BaseAsset)
+        RTTI_OBJECT(DerivedAsset, BaseAsset)
     };
 
     class UnrelatedAsset : public ISerializable
     {
-        DRACONIC_OBJECT(UnrelatedAsset, ISerializable)
+        RTTI_OBJECT(UnrelatedAsset, ISerializable)
     public:
         void Serialize(ISerializer& ar) override { (void)ar; }
     };
@@ -94,9 +94,9 @@ namespace
     }
 }
 
-DRACONIC_DEFINE_OBJECT(BaseAsset, "rtti::editor::editor::test")
-DRACONIC_DEFINE_OBJECT(DerivedAsset, "rtti::editor::editor::test")
-DRACONIC_DEFINE_OBJECT(UnrelatedAsset, "rtti::editor::editor::test")
+RTTI_DEFINE_OBJECT(BaseAsset, "rtti::editor::editor::test")
+RTTI_DEFINE_OBJECT(DerivedAsset, "rtti::editor::editor::test")
+RTTI_DEFINE_OBJECT(UnrelatedAsset, "rtti::editor::editor::test")
 
 TEST_CASE("editor-pages: registry nearest-type dispatch")
 {

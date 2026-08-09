@@ -21,7 +21,7 @@ export namespace foundation::ui
 {
     class PasswordBox : public EditText
     {
-        DRACONIC_OBJECT(PasswordBox, EditText)
+        RTTI_OBJECT(PasswordBox, EditText)
     public:
         /// The character used to mask each real character.
         Property<char32_t> PasswordChar{U'*'};
@@ -58,5 +58,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(PasswordBox, "rtti::ui")
+    RTTI_DEFINE_OBJECT(PasswordBox, "rtti::ui")
 }

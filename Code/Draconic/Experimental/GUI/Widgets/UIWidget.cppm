@@ -22,7 +22,7 @@ export namespace experimental::gui
 {
     class UIWidget : public UINode
     {
-        DRACONIC_OBJECT(UIWidget, UINode)
+        RTTI_OBJECT(UIWidget, UINode)
     public:
         UIWidget() = default;
 
@@ -99,5 +99,5 @@ export namespace experimental::gui
         core::String m_tooltip;
     };
 
-    DRACONIC_DEFINE_OBJECT(UIWidget, "rtti::gui")
+    RTTI_DEFINE_OBJECT(UIWidget, "rtti::gui")
 }

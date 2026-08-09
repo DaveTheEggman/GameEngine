@@ -10,7 +10,7 @@
 
 module;
 #include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h" // DRACONIC_OBJECT / DRACONIC_DEFINE_OBJECT
+#include "Core/Reflection/Reflect.h" // RTTI_OBJECT / RTTI_DEFINE_OBJECT
 
 export module foundation.particles:modules;
 
@@ -30,7 +30,7 @@ export namespace foundation::particles
     // machinery cooked resources use. The cook writes each module's reflected type tag + Serialize.
     class ParticleInitializer : public ISerializable
     {
-        DRACONIC_OBJECT(ParticleInitializer, ISerializable)
+        RTTI_OBJECT(ParticleInitializer, ISerializable)
     public:
         [[nodiscard]] virtual BehaviorSupport Support() const noexcept = 0;
         virtual void DeclareStreams(ParticleStreamContainer& streams) = 0;
@@ -50,7 +50,7 @@ export namespace foundation::particles
 
     class ParticleBehavior : public ISerializable
     {
-        DRACONIC_OBJECT(ParticleBehavior, ISerializable)
+        RTTI_OBJECT(ParticleBehavior, ISerializable)
     public:
         [[nodiscard]] virtual BehaviorSupport Support() const noexcept = 0;
         virtual void DeclareStreams(ParticleStreamContainer& streams) = 0;
@@ -72,7 +72,7 @@ export namespace foundation::particles
 
     class PositionInitializer final : public ParticleInitializer
     {
-        DRACONIC_OBJECT(PositionInitializer, ParticleInitializer)
+        RTTI_OBJECT(PositionInitializer, ParticleInitializer)
     public:
         EmissionShape shape = EmissionShape::Point();
         Float3 emitterPosition{0.0f, 0.0f, 0.0f}; // set by the system each spawn (hidden)
@@ -102,7 +102,7 @@ export namespace foundation::particles
 
     class VelocityInitializer final : public ParticleInitializer
     {
-        DRACONIC_OBJECT(VelocityInitializer, ParticleInitializer)
+        RTTI_OBJECT(VelocityInitializer, ParticleInitializer)
     public:
         Float3 baseVelocity{0.0f, 1.0f, 0.0f};
         Float3 randomness{0.0f, 0.0f, 0.0f};
@@ -148,7 +148,7 @@ export namespace foundation::particles
 
     class LifetimeInitializer final : public ParticleInitializer
     {
-        DRACONIC_OBJECT(LifetimeInitializer, ParticleInitializer)
+        RTTI_OBJECT(LifetimeInitializer, ParticleInitializer)
     public:
         RangeFloat lifetime{1.0f, 1.0f};
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "lifetime", lifetime); }
@@ -166,7 +166,7 @@ export namespace foundation::particles
 
     class ColorInitializer final : public ParticleInitializer
     {
-        DRACONIC_OBJECT(ColorInitializer, ParticleInitializer)
+        RTTI_OBJECT(ColorInitializer, ParticleInitializer)
     public:
         RangeColor color = RangeColor::Constant(Float4{1.0f, 1.0f, 1.0f, 1.0f});
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "color", color); }
@@ -186,7 +186,7 @@ export namespace foundation::particles
 
     class SizeInitializer final : public ParticleInitializer
     {
-        DRACONIC_OBJECT(SizeInitializer, ParticleInitializer)
+        RTTI_OBJECT(SizeInitializer, ParticleInitializer)
     public:
         RangeFloat2 size = RangeFloat2::Constant(Float2{0.1f, 0.1f});
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "size", size); }
@@ -206,7 +206,7 @@ export namespace foundation::particles
 
     class RotationInitializer final : public ParticleInitializer
     {
-        DRACONIC_OBJECT(RotationInitializer, ParticleInitializer)
+        RTTI_OBJECT(RotationInitializer, ParticleInitializer)
     public:
         RangeFloat rotation{0.0f, 6.2831853f};
         RangeFloat rotationSpeed{-2.0f, 2.0f};
@@ -233,7 +233,7 @@ export namespace foundation::particles
 
     class MeshOrientationInitializer final : public ParticleInitializer
     {
-        DRACONIC_OBJECT(MeshOrientationInitializer, ParticleInitializer)
+        RTTI_OBJECT(MeshOrientationInitializer, ParticleInitializer)
     public:
         bool randomAxis = true;
         Float3 fixedAxis{0.0f, 1.0f, 0.0f};
@@ -272,7 +272,7 @@ export namespace foundation::particles
 
     class GravityBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(GravityBehavior, ParticleBehavior)
+        RTTI_OBJECT(GravityBehavior, ParticleBehavior)
     public:
         f32 multiplier = 1.0f;
         Float3 direction{0.0f, -1.0f, 0.0f};
@@ -306,7 +306,7 @@ export namespace foundation::particles
 
     class DragBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(DragBehavior, ParticleBehavior)
+        RTTI_OBJECT(DragBehavior, ParticleBehavior)
     public:
         f32 drag = 1.0f;
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "drag", drag); }
@@ -335,7 +335,7 @@ export namespace foundation::particles
 
     class WindBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(WindBehavior, ParticleBehavior)
+        RTTI_OBJECT(WindBehavior, ParticleBehavior)
     public:
         Float3 force{1.0f, 0.0f, 0.0f};
         f32 turbulence = 0.0f;
@@ -372,7 +372,7 @@ export namespace foundation::particles
 
     class TurbulenceBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(TurbulenceBehavior, ParticleBehavior)
+        RTTI_OBJECT(TurbulenceBehavior, ParticleBehavior)
     public:
         f32 strength = 1.0f;
         f32 frequency = 1.0f;
@@ -412,7 +412,7 @@ export namespace foundation::particles
 
     class VortexBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(VortexBehavior, ParticleBehavior)
+        RTTI_OBJECT(VortexBehavior, ParticleBehavior)
     public:
         f32 strength = 1.0f;
         Float3 center{0.0f, 0.0f, 0.0f};
@@ -452,7 +452,7 @@ export namespace foundation::particles
 
     class AttractorBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(AttractorBehavior, ParticleBehavior)
+        RTTI_OBJECT(AttractorBehavior, ParticleBehavior)
     public:
         f32 strength = 1.0f;
         Float3 position{0.0f, 0.0f, 0.0f};
@@ -499,7 +499,7 @@ export namespace foundation::particles
 
     class RadialForceBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(RadialForceBehavior, ParticleBehavior)
+        RTTI_OBJECT(RadialForceBehavior, ParticleBehavior)
     public:
         f32 strength = 1.0f;
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "strength", strength); }
@@ -575,7 +575,7 @@ export namespace foundation::particles
     // frame's penetration.
     class CollisionBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(CollisionBehavior, ParticleBehavior)
+        RTTI_OBJECT(CollisionBehavior, ParticleBehavior)
     public:
         static constexpr i32 kMaxPlanes = 4;
         static constexpr i32 kMaxSpheres = 4;
@@ -725,7 +725,7 @@ export namespace foundation::particles
 
     class ColorOverLifetimeBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(ColorOverLifetimeBehavior, ParticleBehavior)
+        RTTI_OBJECT(ColorOverLifetimeBehavior, ParticleBehavior)
     public:
         ParticleCurveColor curve;
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "curve", curve); }
@@ -757,7 +757,7 @@ export namespace foundation::particles
 
     class AlphaOverLifetimeBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(AlphaOverLifetimeBehavior, ParticleBehavior)
+        RTTI_OBJECT(AlphaOverLifetimeBehavior, ParticleBehavior)
     public:
         ParticleCurveFloat curve;
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "curve", curve); }
@@ -793,7 +793,7 @@ export namespace foundation::particles
 
     class SizeOverLifetimeBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(SizeOverLifetimeBehavior, ParticleBehavior)
+        RTTI_OBJECT(SizeOverLifetimeBehavior, ParticleBehavior)
     public:
         ParticleCurveFloat2 curve;
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "curve", curve); }
@@ -825,7 +825,7 @@ export namespace foundation::particles
 
     class RotationOverLifetimeBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(RotationOverLifetimeBehavior, ParticleBehavior)
+        RTTI_OBJECT(RotationOverLifetimeBehavior, ParticleBehavior)
     public:
         ParticleCurveFloat curve;
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "curve", curve); }
@@ -857,7 +857,7 @@ export namespace foundation::particles
 
     class SpeedOverLifetimeBehavior final : public ParticleBehavior
     {
-        DRACONIC_OBJECT(SpeedOverLifetimeBehavior, ParticleBehavior)
+        RTTI_OBJECT(SpeedOverLifetimeBehavior, ParticleBehavior)
     public:
         ParticleCurveFloat curve;
         void Serialize(ISerializer& ar) override { core::Serialize(ar, "curve", curve); }
@@ -918,15 +918,15 @@ export namespace foundation::particles
     // type tag and reconstructs it via Serializables().Create(typeId) + ISerializable::Serialize -
     // the same machinery cooked resources (e.g. TextureResource) use; no hand-rolled string registry.
 
-    DRACONIC_DEFINE_OBJECT(ParticleInitializer, "rtti::particles")
-    DRACONIC_DEFINE_OBJECT(ParticleBehavior, "rtti::particles")
+    RTTI_DEFINE_OBJECT(ParticleInitializer, "rtti::particles")
+    RTTI_DEFINE_OBJECT(ParticleBehavior, "rtti::particles")
     // Every concrete module's StaticType() is defined WITH its reflected properties in
-    // ParticleModulesImpl.cpp (GCC module hygiene: DRACONIC_REFLECT out of interfaces). The
+    // ParticleModulesImpl.cpp (GCC module hygiene: REFLECT_MEMBERS out of interfaces). The
     // curve-driven OverLifetime behaviors reflect their curves via the BoundedArray container
     // primitive (count-bound key arrays). All 20 concrete module types are reflected.
 
     // Registers the reflected range leaf value types (module reflection bodies self-build via
-    // DRACONIC_REFLECT). Defined in ParticleModulesImpl.cpp; idempotent.
+    // REFLECT_MEMBERS). Defined in ParticleModulesImpl.cpp; idempotent.
     void RegisterParticleModuleReflection();
 
     // Reflects the effect graph value types (ParticleEmitter / ParticleSystem / ParticleEffect + the
@@ -943,33 +943,33 @@ export namespace foundation::particles
         RegisterParticleModuleReflection(); // the range value types the module properties reference
         GlobalTypeRegistry().Register(ParticleInitializer::StaticType());
         GlobalTypeRegistry().Register(ParticleBehavior::StaticType());
-#define DRACONIC_PARTICLE_REG(T)                                                                   \
+#define PARTICLE_REG(T)                                                                   \
     do                                                                                             \
     {                                                                                              \
         GlobalTypeRegistry().Register(T::StaticType());                                            \
         RegisterSerializable<T>();                                                                 \
     } while (0)
-        DRACONIC_PARTICLE_REG(PositionInitializer);
-        DRACONIC_PARTICLE_REG(VelocityInitializer);
-        DRACONIC_PARTICLE_REG(LifetimeInitializer);
-        DRACONIC_PARTICLE_REG(ColorInitializer);
-        DRACONIC_PARTICLE_REG(SizeInitializer);
-        DRACONIC_PARTICLE_REG(RotationInitializer);
-        DRACONIC_PARTICLE_REG(MeshOrientationInitializer);
-        DRACONIC_PARTICLE_REG(GravityBehavior);
-        DRACONIC_PARTICLE_REG(DragBehavior);
-        DRACONIC_PARTICLE_REG(WindBehavior);
-        DRACONIC_PARTICLE_REG(TurbulenceBehavior);
-        DRACONIC_PARTICLE_REG(VortexBehavior);
-        DRACONIC_PARTICLE_REG(AttractorBehavior);
-        DRACONIC_PARTICLE_REG(RadialForceBehavior);
-        DRACONIC_PARTICLE_REG(CollisionBehavior);
-        DRACONIC_PARTICLE_REG(ColorOverLifetimeBehavior);
-        DRACONIC_PARTICLE_REG(AlphaOverLifetimeBehavior);
-        DRACONIC_PARTICLE_REG(SizeOverLifetimeBehavior);
-        DRACONIC_PARTICLE_REG(RotationOverLifetimeBehavior);
-        DRACONIC_PARTICLE_REG(SpeedOverLifetimeBehavior);
-#undef DRACONIC_PARTICLE_REG
+        PARTICLE_REG(PositionInitializer);
+        PARTICLE_REG(VelocityInitializer);
+        PARTICLE_REG(LifetimeInitializer);
+        PARTICLE_REG(ColorInitializer);
+        PARTICLE_REG(SizeInitializer);
+        PARTICLE_REG(RotationInitializer);
+        PARTICLE_REG(MeshOrientationInitializer);
+        PARTICLE_REG(GravityBehavior);
+        PARTICLE_REG(DragBehavior);
+        PARTICLE_REG(WindBehavior);
+        PARTICLE_REG(TurbulenceBehavior);
+        PARTICLE_REG(VortexBehavior);
+        PARTICLE_REG(AttractorBehavior);
+        PARTICLE_REG(RadialForceBehavior);
+        PARTICLE_REG(CollisionBehavior);
+        PARTICLE_REG(ColorOverLifetimeBehavior);
+        PARTICLE_REG(AlphaOverLifetimeBehavior);
+        PARTICLE_REG(SizeOverLifetimeBehavior);
+        PARTICLE_REG(RotationOverLifetimeBehavior);
+        PARTICLE_REG(SpeedOverLifetimeBehavior);
+#undef PARTICLE_REG
         RegisterParticleEffectReflection(); // effect/system/emitter value types + systems container
     }
 }

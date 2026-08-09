@@ -96,11 +96,11 @@ export namespace foundation::runtime
         // passes wall-clock time; call directly for deterministic stepping.
         void Tick(core::f32 deltaTime)
         {
-            DRACONIC_PROFILE_FRAME_BEGIN();
+            PROFILE_FRAME_BEGIN();
             m_context.BeginFrame(deltaTime);
 
             {
-                DRACONIC_PROFILE_SCOPE("Update");
+                PROFILE_SCOPE("Update");
                 // Simulation lanes run on SCALED time (slow-mo/pause); the app hook and
                 // frame bookkeeping keep the raw dt.
                 const core::f32 scaledDelta = deltaTime * m_context.TimeScale();
@@ -124,7 +124,7 @@ export namespace foundation::runtime
             // Render every window uniformly (main == windows[0]).
             if (m_graphics != nullptr)
             {
-                DRACONIC_PROFILE_SCOPE("Render");
+                PROFILE_SCOPE("Render");
                 for (auto& rw : m_windows)
                 {
                     rw->SyncSize();
@@ -133,7 +133,7 @@ export namespace foundation::runtime
                     // separately to tell a healthy present-wait from a real stall.
                     FrameContext frame{};
                     {
-                        DRACONIC_PROFILE_SCOPE("Render.Acquire");
+                        PROFILE_SCOPE("Render.Acquire");
                         frame = rw->BeginFrame();
                     }
                     if (!frame.valid)
@@ -142,12 +142,12 @@ export namespace foundation::runtime
                     }
                     m_app->OnRenderWindow(*this, frame);
                     {
-                        DRACONIC_PROFILE_SCOPE("Render.Present"); // record submit + queue present
+                        PROFILE_SCOPE("Render.Present"); // record submit + queue present
                         rw->EndFrame(frame);
                     }
                 }
                 {
-                    DRACONIC_PROFILE_SCOPE(
+                    PROFILE_SCOPE(
                         "Render.Advance"); // ring step; may wait on the frame fence
                     m_graphics->AdvanceFrame();
                 }
@@ -155,7 +155,7 @@ export namespace foundation::runtime
 
             m_context.EndFrame();
             FlushPendingCloses();
-            DRACONIC_PROFILE_FRAME_END();
+            PROFILE_FRAME_END();
         }
 
         // Tear the application down: leave play, stop the Context, destroy windows.

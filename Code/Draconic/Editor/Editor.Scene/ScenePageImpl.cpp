@@ -154,7 +154,7 @@ namespace editor
         if (!m_renderedOnce)
         {
             m_renderedOnce = true;
-            DRACONIC_LOG_DEBUG(u8"Editor", u8"scene page '{}' first frame ({}x{})", m_title, w, h);
+            LOG_DEBUG(u8"Editor", u8"scene page '{}' first frame ({}x{})", m_title, w, h);
         }
 
         // RenderTexture canvases stay LIVE in editing viewports too (WYSIWYG - an
@@ -612,7 +612,7 @@ namespace editor
         if (saved.IsOk())
         {
             ClearDirty();
-            DRACONIC_LOG_INFO(u8"Editor", u8"saved {} '{}'",
+            LOG_INFO(u8"Editor", u8"saved {} '{}'",
                               isPrefab ? StringView(u8"prefab") : StringView(u8"scene"), m_title);
             // Template changed: rebuild this prefab's instances in every OTHER open
             // scene, preserving their deltas (capture -> respawn -> reapply).
@@ -917,7 +917,7 @@ namespace editor
         m_simSnapshot = scene::SceneSnapshot::Capture(*m_scene);
         if (!m_simSnapshot)
         {
-            DRACONIC_LOG_ERROR(u8"Editor", u8"Simulate: scene snapshot capture failed");
+            LOG_ERROR(u8"Editor", u8"Simulate: scene snapshot capture failed");
             return;
         }
         m_scene->Start();
@@ -952,7 +952,7 @@ namespace editor
                 (m_context != nullptr) ? m_context->Resources() : nullptr;
             if (!m_simSnapshot->Restore(*m_scene, resources).IsOk())
             {
-                DRACONIC_LOG_ERROR(u8"Editor", u8"Simulate: snapshot restore failed");
+                LOG_ERROR(u8"Editor", u8"Simulate: snapshot restore failed");
             }
             m_simSnapshot = nullptr;
         }

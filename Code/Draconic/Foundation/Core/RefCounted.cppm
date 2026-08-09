@@ -75,13 +75,13 @@ export namespace foundation::core
     public:
         void AddRef() const noexcept
         {
-            DRACONIC_ASSERT(m_control != nullptr);
+            DIAGNOSTIC_ASSERT(m_control != nullptr);
             m_control->strong.fetch_add(1, std::memory_order_relaxed);
         }
 
         void Release() const noexcept
         {
-            DRACONIC_ASSERT(m_control != nullptr);
+            DIAGNOSTIC_ASSERT(m_control != nullptr);
             detail::RefControl* control = m_control;
             if (control->strong.fetch_sub(1, std::memory_order_acq_rel) == 1)
             {
@@ -95,7 +95,7 @@ export namespace foundation::core
 
         [[nodiscard]] u32 RefCount() const noexcept
         {
-            DRACONIC_ASSERT(m_control != nullptr);
+            DIAGNOSTIC_ASSERT(m_control != nullptr);
             return m_control->strong.load(std::memory_order_relaxed);
         }
 

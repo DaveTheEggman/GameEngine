@@ -280,7 +280,7 @@ namespace pipeline{
             if (const String* probeError = errorVariant.TryGet<String>();
                 probeError != nullptr && !probeError->IsEmpty())
             {
-                DRACONIC_LOG_ERROR(
+                LOG_ERROR(
                     u8"Script",
                     u8"'{}': `static properties` of class '{}' faulted: {} - cook failed", fileName,
                     className, *probeError);
@@ -311,7 +311,7 @@ namespace pipeline{
                 String error;
                 if (!ParseHarvestRecord(record, desc, error))
                 {
-                    DRACONIC_LOG_ERROR(u8"Script", u8"'{}': {} - cook failed", fileName, error);
+                    LOG_ERROR(u8"Script", u8"'{}': {} - cook failed", fileName, error);
                     return Status{ErrorCode::InvalidArgument};
                 }
                 outProperties.PushBack(Move(desc));
@@ -371,7 +371,7 @@ namespace pipeline{
                 RefPtr<IScriptManager> manager = CreateScriptManagerForLanguage(u8"wren");
                 if (manager.Get() == nullptr)
                 {
-                    DRACONIC_LOG_ERROR(
+                    LOG_ERROR(
                         u8"Script", u8"'{}': no Wren backend registered - cook failed", assetName);
                     return false;
                 }

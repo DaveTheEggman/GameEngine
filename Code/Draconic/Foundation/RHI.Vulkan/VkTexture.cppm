@@ -82,7 +82,7 @@ export namespace foundation::rhi::vk
                 static u32 s_failN = 0;
                 if ((s_failN++ % 90u) == 0u)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"VkTexture",
                         u8"vkAllocateMemory FAILED VkResult={} size={}B liveTexAllocs={} (fail#{})",
                         static_cast<i32>(memRes), static_cast<u64>(memReqs.size), g_liveTexAllocs,

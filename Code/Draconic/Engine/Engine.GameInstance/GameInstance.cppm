@@ -13,7 +13,7 @@
 
 module;
 #include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h" // the SceneLoader facade (DRACONIC_OBJECT)
+#include "Core/Reflection/Reflect.h" // the SceneLoader facade (RTTI_OBJECT)
 
 export module engine.gameinstance;
 
@@ -97,7 +97,7 @@ export namespace engine::runtime
     /// safe no-ops, with loadComplete returning true so a poll never hangs.
     class SceneLoader final : public Object
     {
-        DRACONIC_OBJECT(SceneLoader, Object)
+        RTTI_OBJECT(SceneLoader, Object)
     public:
         [[nodiscard]] static SceneLoaderScriptBinding* Resolve()
         {

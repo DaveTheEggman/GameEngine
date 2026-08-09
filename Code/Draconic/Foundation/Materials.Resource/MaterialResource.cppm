@@ -40,7 +40,7 @@ export namespace foundation::materials
     // runtime (white/normal fallbacks), so they are not stored.
     class MaterialSource final : public ISerializable
     {
-        DRACONIC_OBJECT(MaterialSource, ISerializable)
+        RTTI_OBJECT(MaterialSource, ISerializable)
     public:
         String name;
         Guid shaderId;     // a cooked ShaderResource; nil -> use shaderName (a builtin)
@@ -291,7 +291,7 @@ export namespace foundation::materials
                 Proxy<texture::Texture> tex = manager.Bind<texture::Texture>(src->textureIds[i]);
                 if (!tex)
                 {
-                    DRACONIC_LOG_WARNING(u8"Materials",
+                    LOG_WARNING(u8"Materials",
                                          u8"material '{}': texture for slot '{}' failed to bind "
                                          u8"(no product / no texture factory?)",
                                          src->name, src->textureSlots[i]);
@@ -299,21 +299,21 @@ export namespace foundation::materials
                 }
                 if (tex->View() == nullptr)
                 {
-                    DRACONIC_LOG_WARNING(u8"Materials",
+                    LOG_WARNING(u8"Materials",
                                          u8"material '{}': texture for slot '{}' has no GPU view",
                                          src->name, src->textureSlots[i]);
                     continue;
                 }
                 if (material->FindProperty(src->textureSlots[i].AsView()) == nullptr)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Materials",
                         u8"material '{}': no texture property named '{}' in its layout", src->name,
                         src->textureSlots[i]);
                     continue;
                 }
                 material->SetDefaultTexture(src->textureSlots[i].AsView(), tex->View());
-                DRACONIC_LOG_DEBUG(u8"Materials", u8"material '{}': slot '{}' bound", src->name,
+                LOG_DEBUG(u8"Materials", u8"material '{}': slot '{}' bound", src->name,
                                    src->textureSlots[i]);
             }
             return material;
@@ -321,6 +321,6 @@ export namespace foundation::materials
     };
 
     // MaterialSource::StaticType() is defined WITH its reflected properties + data version (2)
-    // in MaterialResourceImpl.cpp (GCC module hygiene: DRACONIC_REFLECT bodies out of interfaces).
+    // in MaterialResourceImpl.cpp (GCC module hygiene: REFLECT_MEMBERS bodies out of interfaces).
 
 } // namespace foundation::materials

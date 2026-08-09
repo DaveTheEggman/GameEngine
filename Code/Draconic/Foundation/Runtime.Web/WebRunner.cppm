@@ -78,7 +78,7 @@ export namespace foundation::runtime
     // desktop runner this does NOT block - the loop runs after main() returns (fps=0 =>
     // requestAnimationFrame; simulate_infinite_loop=0 => control returns here, and the Emscripten
     // runtime is kept alive to keep calling WebFrame). Returns 0; the real exit is when WebFrame
-    // cancels the loop. DRACONIC_APP_MAIN calls this on Emscripten instead of the desktop runner.
+    // cancels the loop. APP_MAIN calls this on Emscripten instead of the desktop runner.
     inline int RunApplication(IApplication& app, shell::IShell& shell,
                               GraphicsDevice* graphics = nullptr)
     {

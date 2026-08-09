@@ -32,7 +32,7 @@ export namespace editor::app
 
     class ProjectSettingsDialog final : public ui::Dialog
     {
-        DRACONIC_OBJECT(ProjectSettingsDialog, ui::Dialog)
+        RTTI_OBJECT(ProjectSettingsDialog, ui::Dialog)
     public:
         explicit ProjectSettingsDialog(editor::EditorContext& context)
             : ui::Dialog(u8"Project Settings"), m_context(&context)
@@ -400,5 +400,5 @@ export namespace editor::app
         Guid m_sceneId;
     };
 
-    DRACONIC_DEFINE_OBJECT(ProjectSettingsDialog, "rtti::editor::editor::app")
+    RTTI_DEFINE_OBJECT(ProjectSettingsDialog, "rtti::editor::editor::app")
 }

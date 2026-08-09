@@ -43,7 +43,7 @@ export namespace foundation::ui
 {
     class ListView : public ViewGroup, public IListAdapterObserver
     {
-        DRACONIC_OBJECT(ListView, ViewGroup)
+        RTTI_OBJECT(ListView, ViewGroup)
     public:
         SelectionModel Selection;
         Property<f32> ItemHeight{30.0f};
@@ -742,5 +742,5 @@ export namespace foundation::ui
         bool m_longPressFired = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(ListView, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ListView, "rtti::ui")
 }

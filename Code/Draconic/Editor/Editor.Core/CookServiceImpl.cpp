@@ -233,7 +233,7 @@ namespace editor
         }
         for (const String& line : drained)
         {
-            DRACONIC_LOG_INFO(u8"Cook", u8"{}", line);
+            LOG_INFO(u8"Cook", u8"{}", line);
             if (status)
             {
                 status(line.AsView());
@@ -298,7 +298,7 @@ namespace editor
                 m_watchChanged.Clear();
                 if (m_watcher->Poll(m_watchChanged))
                 {
-                    DRACONIC_LOG_INFO(u8"Cook", u8"{} source file(s) changed - recooking",
+                    LOG_INFO(u8"Cook", u8"{} source file(s) changed - recooking",
                                       m_watchChanged.Size());
                     RequestCook(false);
                 }

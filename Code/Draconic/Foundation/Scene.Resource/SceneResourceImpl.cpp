@@ -2,7 +2,7 @@
 //
 // Out-of-line definitions for SceneResource's public serialization API (sec 3.2 / sec 10.6):
 // the free-function bodies (SerializeScene, CapturePrefab, SpawnPrefab, LoadScene, ...) and the
-// DRACONIC_DEFINE_OBJECT reflection bodies. SceneResource.cppm keeps the declarations, the
+// RTTI_DEFINE_OBJECT reflection bodies. SceneResource.cppm keeps the declarations, the
 // detail-namespace helpers, and the document classes.
 
 module;
@@ -166,7 +166,7 @@ namespace foundation::scene
                 EntityHandle h;
                 if (scene.FindEntity(id).IsAssigned())
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Scene",
                         u8"duplicate entity guid in save for '{}' - assigning a fresh id", ename);
                     h = scene.CreateEntity(ename.AsView());
@@ -264,7 +264,7 @@ namespace foundation::scene
                     else if (manager == nullptr && warned.Find(typeId) == nullptr)
                     {
                         warned.InsertOrAssign(typeId, 1u);
-                        DRACONIC_LOG_WARNING(
+                        LOG_WARNING(
                             u8"Scene", u8"skipping records of unknown component type '{}'", typeId);
                     }
                     ar.EndObject();
@@ -288,7 +288,7 @@ namespace foundation::scene
                     else if (manager == nullptr && warned.Find(typeId) == nullptr)
                     {
                         warned.InsertOrAssign(typeId, 1u);
-                        DRACONIC_LOG_WARNING(
+                        LOG_WARNING(
                             u8"Scene", u8"skipping records of unknown component type '{}'", typeId);
                     }
                 }
@@ -403,7 +403,7 @@ namespace foundation::scene
                     }
                     else
                     {
-                        DRACONIC_LOG_WARNING(u8"Scene",
+                        LOG_WARNING(u8"Scene",
                                              u8"skipping settings of unknown system '{}'", id);
                     }
                     ar.EndObject();
@@ -427,7 +427,7 @@ namespace foundation::scene
                     foundation::core::Serialize(ar, "data", blob);
                     if (target == nullptr)
                     {
-                        DRACONIC_LOG_WARNING(u8"Scene",
+                        LOG_WARNING(u8"Scene",
                                              u8"skipping settings of unknown system '{}'", id);
                         continue;
                     }
@@ -446,7 +446,7 @@ namespace foundation::scene
                 {
                     if (target == nullptr)
                     {
-                        DRACONIC_LOG_WARNING(u8"Scene",
+                        LOG_WARNING(u8"Scene",
                                              u8"scene save carries settings for unknown system "
                                              u8"'{}' - rest of the section skipped",
                                              id);
@@ -474,7 +474,7 @@ namespace foundation::scene
         foundation::core::Serialize(ar, "prefabMode", sectionMode);
         if (!writing && sectionMode == detail::kPrefabWireReferenced2)
         {
-            DRACONIC_LOG_WARNING(u8"Scene",
+            LOG_WARNING(u8"Scene",
                                  u8"prefab section uses the retired nested layout - instances "
                                  u8"skipped (re-save the scene's prefabs and re-place them)");
             return; // the prefab section is the stream's tail: bailing loses only instances
@@ -815,7 +815,7 @@ namespace foundation::scene
                 }
                 else
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Scene", u8"prefab component record '{}' skipped (no owner/manager)",
                         typeId);
                 }
@@ -836,7 +836,7 @@ namespace foundation::scene
                 foundation::core::Serialize(ar, "data", blob);
                 if (!owner.IsAssigned() || manager == nullptr)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Scene", u8"prefab component record '{}' skipped (no owner/manager)",
                         typeId);
                     continue;
@@ -857,7 +857,7 @@ namespace foundation::scene
             {
                 if (!owner.IsAssigned() || manager == nullptr)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Scene",
                         u8"prefab component record '{}' has no owner/manager - payload out of sync",
                         typeId);
@@ -911,7 +911,7 @@ namespace foundation::scene
         foundation::core::Serialize(ar, "prefabMode", sectionMode);
         if (sectionMode == detail::kPrefabWireReferenced2)
         {
-            DRACONIC_LOG_WARNING(u8"Scene", u8"prefab payload uses the retired nested layout - "
+            LOG_WARNING(u8"Scene", u8"prefab payload uses the retired nested layout - "
                                             u8"nested instances skipped (re-save the prefab)");
             return firstRoot;
         }
@@ -954,7 +954,7 @@ namespace foundation::scene
                 (resolver != nullptr && *resolver) ? (*resolver)(r.prefabId) : UniquePtr<IStream>{};
             if (childPayload.Get() == nullptr)
             {
-                DRACONIC_LOG_WARNING(u8"Scene", u8"nested prefab record skipped - payload did not "
+                LOG_WARNING(u8"Scene", u8"nested prefab record skipped - payload did not "
                                                 u8"resolve (no resolver or missing asset)");
                 continue;
             }
@@ -1129,7 +1129,7 @@ namespace foundation::scene
             streamVersion = detail::ReadSceneStreamVersion(templatePayload);
             if (streamVersion < 2)
             {
-                DRACONIC_LOG_WARNING(u8"Scene", u8"apply-to-prefab: legacy nested template - owner "
+                LOG_WARNING(u8"Scene", u8"apply-to-prefab: legacy nested template - owner "
                                                 u8"customization may fold into the record");
                 return detail::ComputeInstanceDeltas(scene, state);
             }
@@ -1465,7 +1465,7 @@ namespace foundation::scene
             UniquePtr<IStream> payload = resolver ? resolver(p->prefabId) : UniquePtr<IStream>{};
             if (payload.Get() == nullptr)
             {
-                DRACONIC_LOG_WARNING(
+                LOG_WARNING(
                     u8"Scene",
                     u8"prefab instance skipped - payload for its prefab did not resolve");
                 continue;
@@ -1517,7 +1517,7 @@ namespace foundation::scene
             {
                 continue;
             }
-            DRACONIC_LOG_WARNING(u8"Scene",
+            LOG_WARNING(u8"Scene",
                                  u8"nested prefab record lost its owner - spawning standalone");
             HashMap<Guid, Guid> preassigned;
             for (usize i = 0; i < p->sourceIds.Size() && i < p->liveIds.Size(); ++i)
@@ -1693,7 +1693,7 @@ namespace foundation::scene
                                              : UniquePtr<IStream>{};
                 if (own.Get() == nullptr)
                 {
-                    DRACONIC_LOG_WARNING(u8"Scene",
+                    LOG_WARNING(u8"Scene",
                                          u8"instance referencing the changed prefab could not "
                                          u8"rebuild - its own template did not resolve");
                     continue;
@@ -1851,7 +1851,7 @@ namespace foundation::scene
         return Status{};
     }
 
-    DRACONIC_DEFINE_OBJECT(SceneDocument, "rtti::scene")
+    RTTI_DEFINE_OBJECT(SceneDocument, "rtti::scene")
 
-    DRACONIC_DEFINE_OBJECT(PrefabDocument, "rtti::scene")
+    RTTI_DEFINE_OBJECT(PrefabDocument, "rtti::scene")
 }

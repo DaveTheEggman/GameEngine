@@ -190,7 +190,7 @@ namespace editor::app
             }
             if (!anyLoaded)
             {
-                DRACONIC_LOG_ERROR(u8"Editor",
+                LOG_ERROR(u8"Editor",
                                    u8"font family '{}' failed to load (path '{}', embedded "
                                    u8"fallback {}) - its text will not render",
                                    family, path, embedded.IsEmpty() ? u8"absent" : u8"failed");
@@ -346,7 +346,7 @@ namespace editor::app
                 // "Exit" from embedded game code = stop the play session. DEFERRED to
                 // after the page-update loop: the request usually fires from inside the
                 // game script's update(), and Stop tears the script down.
-                DRACONIC_LOG_INFO(u8"Editor", u8"embedded app requested exit({})", code);
+                LOG_INFO(u8"Editor", u8"embedded app requested exit({})", code);
                 m_stopGameRequested = true;
             }});
         m_embeddedApp = MakeUnique<engine::runtime::DefaultApplication>(DefaultAllocator());
@@ -678,10 +678,10 @@ namespace editor::app
                 m_cookService.RequestCook(true);
             }
         }
-        // Headless-debug hook: DRACONIC_TEST_OPEN=<guid> opens that instance's page ~2s in
+        // Headless-debug hook: ENV_TEST_OPEN=<guid> opens that instance's page ~2s in
         // and opens it AGAIN ~4s in (the focus-existing branch) - reproduces the asset
         // browser's double-click paths in unattended (ASAN/gdb) runs.
-        if (const char* testOpen = std::getenv("DRACONIC_TEST_OPEN");
+        if (const char* testOpen = std::getenv("ENV_TEST_OPEN");
             testOpen != nullptr && m_project)
         {
             m_testOpenElapsed += dt;
@@ -702,13 +702,13 @@ namespace editor::app
             }
         }
 
-        // Headless-debug hook: DRACONIC_TEST_REIMPORT="<group>;<file>" deletes the named
+        // Headless-debug hook: ENV_TEST_REIMPORT="<group>;<file>" deletes the named
         // source group ~2s in and reimports <file> ~4s in (the watcher recook follows) -
         // scripts the delete->reimport crash repro for unattended ASAN runs.
-        if (const char* reimport = std::getenv("DRACONIC_TEST_REIMPORT");
+        if (const char* reimport = std::getenv("ENV_TEST_REIMPORT");
             reimport != nullptr && m_project)
         {
-            m_testOpenElapsed += dt; // shared timer with DRACONIC_TEST_OPEN (use one hook per run)
+            m_testOpenElapsed += dt; // shared timer with ENV_TEST_OPEN (use one hook per run)
             const StringView spec(reinterpret_cast<const utf8char*>(reimport));
             usize semi = spec.Size();
             for (usize i = 0; i < spec.Size(); ++i)
@@ -1073,7 +1073,7 @@ namespace editor::app
             // later save would rewrite the file from that gutted store, permanently
             // losing the dropped sections (the project registry, most painfully). Say so
             // loudly instead of quietly showing an empty manager.
-            DRACONIC_LOG_ERROR(u8"Editor",
+            LOG_ERROR(u8"Editor",
                                u8"editor.settings.xml load FAILED (partial store) - check for "
                                u8"unregistered section types; later saves may drop sections");
         }
@@ -1225,7 +1225,7 @@ namespace editor::app
                     request.actionLabel = String(u8"Open Folder");
                     request.onAction = [this, outRoot]()
                     {
-                        DRACONIC_LOG_DEBUG(u8"Editor", u8"Open Folder clicked -> reveal '{}'",
+                        LOG_DEBUG(u8"Editor", u8"Open Folder clicked -> reveal '{}'",
                                            outRoot.AsView());
                         if (m_host != nullptr && m_host->Shell() != nullptr &&
                             m_host->Shell()->Dialogs() != nullptr)
@@ -1234,7 +1234,7 @@ namespace editor::app
                         }
                         else
                         {
-                            DRACONIC_LOG_WARNING(
+                            LOG_WARNING(
                                 u8"Editor", u8"Open Folder: no shell dialog service available");
                         }
                     };
@@ -2168,7 +2168,7 @@ namespace editor::app
             {
                 // Migration kindness: a real project with fonts but no default set renders no game-UI
                 // text (the dev-tree probe resolves nothing outside this source tree). Name the fix.
-                DRACONIC_LOG_WARNING(u8"UI",
+                LOG_WARNING(u8"UI",
                                      u8"game UI has no default font - set Project Settings > Default "
                                      u8"UI font (the project has fonts, but none is the default, so "
                                      u8"game-UI text will not render)");

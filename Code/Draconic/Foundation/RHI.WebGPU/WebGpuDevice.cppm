@@ -60,7 +60,7 @@ export namespace foundation::rhi::webgpu
             // PreferredShaderFormat) - WGSL text AND push-constant emulation. The WGSL cook always
             // emulates push constants (browsers reject var<push_constant>), so the layout must emulate
             // too or the emulated @group(N) @binding(0) block mismatches a native-immediate layout.
-            m_forceWgsl = GetEnvironmentVariable(u8"DRACONIC_WEBGPU_WGSL").HasValue();
+            m_forceWgsl = GetEnvironmentVariable(u8"ENV_WEBGPU_WGSL").HasValue();
             if (m_forceWgsl)
             {
                 m_forceUniformPushConstants = true;
@@ -94,7 +94,7 @@ export namespace foundation::rhi::webgpu
 
         // SPIR-V ingestion is a native wgpu-native feature (ShaderSourceSPIRV instance feature); a
         // browser never exposes it, so there the cook must feed WGSL text instead.
-        // DEBUG override: DRACONIC_WEBGPU_WGSL forces the WGSL path on desktop wgpu-native, so the
+        // DEBUG override: ENV_WEBGPU_WGSL forces the WGSL path on desktop wgpu-native, so the
         // desktop --webgpu run exercises the EXACT browser shaders (WGSL/naga-frontend) instead of
         // SPIR-V ingestion - a faithful, fast repro for web-render bugs. Requires a WGSL shaders.dpak.
         [[nodiscard]] ShaderFormat PreferredShaderFormat() const noexcept override
@@ -471,6 +471,6 @@ export namespace foundation::rhi::webgpu
         bool m_lost = false;
         bool m_immediatesSupported = false;
         bool m_forceUniformPushConstants = false;
-        bool m_forceWgsl = false; // DRACONIC_WEBGPU_WGSL: use the browser's WGSL path on desktop
+        bool m_forceWgsl = false; // ENV_WEBGPU_WGSL: use the browser's WGSL path on desktop
     };
 }

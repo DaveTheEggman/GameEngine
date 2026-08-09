@@ -24,7 +24,7 @@ export namespace experimental::gui
     // Interpolates the target's position from `from` to `to`.
     class MoveAction : public ActionInterpolation
     {
-        DRACONIC_OBJECT(MoveAction, ActionInterpolation)
+        RTTI_OBJECT(MoveAction, ActionInterpolation)
     public:
         MoveAction(core::Float2 from, core::Float2 to, core::Duration duration) noexcept
             : ActionInterpolation(duration), m_from(from), m_to(to)
@@ -41,12 +41,12 @@ export namespace experimental::gui
     private:
         core::Float2 m_from, m_to;
     };
-    DRACONIC_DEFINE_OBJECT(MoveAction, "rtti::gui")
+    RTTI_DEFINE_OBJECT(MoveAction, "rtti::gui")
 
     // Interpolates the target's alpha from `from` to `to`.
     class FadeAction : public ActionInterpolation
     {
-        DRACONIC_OBJECT(FadeAction, ActionInterpolation)
+        RTTI_OBJECT(FadeAction, ActionInterpolation)
     public:
         FadeAction(f32 from, f32 to, core::Duration duration) noexcept
             : ActionInterpolation(duration), m_from(from), m_to(to)
@@ -63,12 +63,12 @@ export namespace experimental::gui
     private:
         f32 m_from, m_to;
     };
-    DRACONIC_DEFINE_OBJECT(FadeAction, "rtti::gui")
+    RTTI_DEFINE_OBJECT(FadeAction, "rtti::gui")
 
     // Interpolates the target's scale from `from` to `to`.
     class ScaleAction : public ActionInterpolation
     {
-        DRACONIC_OBJECT(ScaleAction, ActionInterpolation)
+        RTTI_OBJECT(ScaleAction, ActionInterpolation)
     public:
         ScaleAction(core::Float2 from, core::Float2 to, core::Duration duration) noexcept
             : ActionInterpolation(duration), m_from(from), m_to(to)
@@ -85,24 +85,24 @@ export namespace experimental::gui
     private:
         core::Float2 m_from, m_to;
     };
-    DRACONIC_DEFINE_OBJECT(ScaleAction, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ScaleAction, "rtti::gui")
 
     // Waits a duration, then completes (no visible effect).
     class DelayAction : public ActionInterpolation
     {
-        DRACONIC_OBJECT(DelayAction, ActionInterpolation)
+        RTTI_OBJECT(DelayAction, ActionInterpolation)
     public:
         explicit DelayAction(core::Duration duration) noexcept : ActionInterpolation(duration) {}
 
     protected:
         void OnStep(f32) override {}
     };
-    DRACONIC_DEFINE_OBJECT(DelayAction, "rtti::gui")
+    RTTI_DEFINE_OBJECT(DelayAction, "rtti::gui")
 
     // Runs a callback once, after an optional delay.
     class RunnableAction : public ActionInterpolation
     {
-        DRACONIC_OBJECT(RunnableAction, ActionInterpolation)
+        RTTI_OBJECT(RunnableAction, ActionInterpolation)
     public:
         explicit RunnableAction(core::Function<void()> fn,
                                 core::Duration delay = core::Duration{}) noexcept
@@ -124,7 +124,7 @@ export namespace experimental::gui
         core::Function<void()> m_fn;
         bool m_ran = false;
     };
-    DRACONIC_DEFINE_OBJECT(RunnableAction, "rtti::gui")
+    RTTI_DEFINE_OBJECT(RunnableAction, "rtti::gui")
 
     // One color keyframe stop (offset in [0,1] + a color), for animating background-color.
     struct ColorKey
@@ -139,7 +139,7 @@ export namespace experimental::gui
     // Empty tracks are skipped. Transform/size follow the same shape once they are wired.
     class KeyframeAction : public Action
     {
-        DRACONIC_OBJECT(KeyframeAction, Action)
+        RTTI_OBJECT(KeyframeAction, Action)
     public:
         KeyframeAction(Array<core::Float2> opacityTrack, Array<ColorKey> colorTrack,
                        core::Duration duration, bool loop) noexcept
@@ -244,12 +244,12 @@ export namespace experimental::gui
         bool m_loop = false;
         bool m_done = false;
     };
-    DRACONIC_DEFINE_OBJECT(KeyframeAction, "rtti::gui")
+    RTTI_DEFINE_OBJECT(KeyframeAction, "rtti::gui")
 
     // Runs child actions one after another; done when the last finishes.
     class SequenceAction : public Action
     {
-        DRACONIC_OBJECT(SequenceAction, Action)
+        RTTI_OBJECT(SequenceAction, Action)
     public:
         void Add(RefPtr<Action> action) { m_children.PushBack(core::Move(action)); }
 
@@ -317,5 +317,5 @@ export namespace experimental::gui
         usize m_index = 0;
         bool m_done = false;
     };
-    DRACONIC_DEFINE_OBJECT(SequenceAction, "rtti::gui")
+    RTTI_DEFINE_OBJECT(SequenceAction, "rtti::gui")
 }

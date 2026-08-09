@@ -5,7 +5,7 @@
 // Sedulous.UI.Toolkit/src/PropertyGrid/StringEditor.bf.
 //
 // The Beef private inner `StringEditorEditText : EditText` becomes a PUBLIC nested class so it carries its
-// own DRACONIC_OBJECT identity. Its overrides dereference the enclosing StringEditor (incomplete inside the
+// own RTTI_OBJECT identity. Its overrides dereference the enclosing StringEditor (incomplete inside the
 // class body), so those bodies are defined out-of-line after StringEditor is complete - the same idiom
 // ColorPicker/Toolbar use. Beef `delegate void(StringView) Setter` -> Function<void(StringView)>.
 
@@ -27,7 +27,7 @@ export namespace foundation::ui::toolkit
     /// String property editor - EditText with focus-based edit transactions.
     class StringEditor : public PropertyEditor
     {
-        DRACONIC_OBJECT(StringEditor, PropertyEditor)
+        RTTI_OBJECT(StringEditor, PropertyEditor)
     public:
         Function<void(StringView)> Setter;
 
@@ -60,7 +60,7 @@ export namespace foundation::ui::toolkit
         /// EditText subclass that notifies the StringEditor on focus changes.
         class StringEditorEditText : public EditText
         {
-            DRACONIC_OBJECT(StringEditorEditText, EditText)
+            RTTI_OBJECT(StringEditorEditText, EditText)
         public:
             explicit StringEditorEditText(StringEditor* editor) : m_editor(editor) {}
 
@@ -149,6 +149,6 @@ export namespace foundation::ui::toolkit
         EditText::OnKeyDown(e);
     }
 
-    DRACONIC_DEFINE_OBJECT(StringEditor, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(StringEditor::StringEditorEditText, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(StringEditor, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(StringEditor::StringEditorEditText, "rtti::ui::toolkit")
 }

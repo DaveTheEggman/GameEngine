@@ -208,7 +208,7 @@ export namespace foundation::script
 
     class ScriptClassSource : public ISerializable
     {
-        DRACONIC_OBJECT(ScriptClassSource, ISerializable)
+        RTTI_OBJECT(ScriptClassSource, ISerializable)
     public:
         String language;   // backend id ("wren"); resolved via the ScriptBackendRegistry
         String className;  // empty = a ScriptClass-less utility module
@@ -236,7 +236,7 @@ export namespace foundation::script
 
     class ScriptClass final : public Object
     {
-        DRACONIC_OBJECT(ScriptClass, Object)
+        RTTI_OBJECT(ScriptClass, Object)
     public:
         String language;
         String className;
@@ -325,6 +325,6 @@ export namespace foundation::script
         GlobalTypeRegistry().Register(ScriptClass::StaticType());
     }
 
-    DRACONIC_DEFINE_OBJECT(ScriptClassSource, "rtti::script")
-    DRACONIC_DEFINE_OBJECT(ScriptClass, "rtti::script")
+    RTTI_DEFINE_OBJECT(ScriptClassSource, "rtti::script")
+    RTTI_DEFINE_OBJECT(ScriptClass, "rtti::script")
 }

@@ -1,6 +1,6 @@
 // Draconic Render - render.subsystem implementation unit: component reflection bodies.
 //
-// Kept OUT of the :components interface partition (DRACONIC_REFLECT_* bodies make GCC emit a
+// Kept OUT of the :components interface partition (REFLECT_* bodies make GCC emit a
 // gcm cluster; see gcc-module-interface-hygiene). RenderComponents.cppm declares
 // RegisterRenderComponentReflection(); this unit defines it + the DraconicRegister* bodies.
 
@@ -31,27 +31,27 @@ namespace core = foundation::core;
 namespace engine::render
 {
 
-    DRACONIC_REFLECT_ENUM(LightType, "rtti::engine::render")
+    REFLECT_ENUM(LightType, "rtti::engine::render")
     {
         builder.Value("Directional", LightType::Directional);
         builder.Value("Point", LightType::Point);
         builder.Value("Spot", LightType::Spot);
     }
 
-    DRACONIC_REFLECT_ENUM(ShadowUpdateMode, "rtti::engine::render")
+    REFLECT_ENUM(ShadowUpdateMode, "rtti::engine::render")
     {
         builder.Value("Realtime", ShadowUpdateMode::Realtime);
         builder.Value("Static", ShadowUpdateMode::Static);
     }
 
-    DRACONIC_REFLECT_ENUM(ProbeUpdateMode, "rtti::engine::render")
+    REFLECT_ENUM(ProbeUpdateMode, "rtti::engine::render")
     {
         builder.Value("Static", ProbeUpdateMode::Static);
         builder.Value("Realtime", ProbeUpdateMode::Realtime);
         builder.Value("Manual", ProbeUpdateMode::Manual);
     }
 
-    DRACONIC_REFLECT_VALUE(MeshComponent, "rtti::engine::render")
+    REFLECT_VALUE(MeshComponent, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Mesh"))
             .Attribute("category", String(u8"Rendering"))
@@ -72,7 +72,7 @@ namespace engine::render
                                   u8"index has no slot."));
     }
 
-    DRACONIC_REFLECT_VALUE(InstancedMeshComponent, "rtti::engine::render")
+    REFLECT_VALUE(InstancedMeshComponent, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Instanced Mesh"))
             .Attribute("category", String(u8"Rendering"))
@@ -84,7 +84,7 @@ namespace engine::render
             .Property<&InstancedMeshComponent::visible>("visible");
     }
 
-    DRACONIC_REFLECT_VALUE(CameraComponent, "rtti::engine::render")
+    REFLECT_VALUE(CameraComponent, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Camera"))
             .Attribute("category", String(u8"Rendering"))
@@ -100,7 +100,7 @@ namespace engine::render
             .Property<&CameraComponent::primary>("primary");
     }
 
-    DRACONIC_REFLECT_VALUE(LightComponent, "rtti::engine::render")
+    REFLECT_VALUE(LightComponent, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Light"))
             .Attribute("category", String(u8"Rendering"))
@@ -131,7 +131,7 @@ namespace engine::render
     // The scene-bound render handle: SceneRender.of(scene).setMesh(entity, id) / setMaterial(...).
     // `of` returns SceneRender by value (concrete cross-backend return, no ReturnType-override), like
     // ScenePhysics. setMesh/setMaterial are world ops keyed by entity that swap a resource::Ref by id.
-    DRACONIC_REFLECT_VALUE(SceneRender, "rtti::engine::render")
+    REFLECT_VALUE(SceneRender, "rtti::engine::render")
     {
         builder.Method<&SceneRender::setMesh>("setMesh", {"entity", "resourceId"});
         builder.Method<&SceneRender::setMaterial>("setMaterial", {"entity", "resourceId"});
@@ -139,14 +139,14 @@ namespace engine::render
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
-    DRACONIC_REFLECT_ENUM(SpriteOrientation, "rtti::engine::render")
+    REFLECT_ENUM(SpriteOrientation, "rtti::engine::render")
     {
         builder.Value("CameraFacing", SpriteOrientation::CameraFacing);
         builder.Value("CameraFacingY", SpriteOrientation::CameraFacingY);
         builder.Value("WorldAligned", SpriteOrientation::WorldAligned);
     }
 
-    DRACONIC_REFLECT_VALUE(SpriteComponent, "rtti::engine::render")
+    REFLECT_VALUE(SpriteComponent, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Sprite"))
             .Attribute("category", String(u8"Rendering"))
@@ -160,7 +160,7 @@ namespace engine::render
             .Property<&SpriteComponent::visible>("visible");
     }
 
-    DRACONIC_REFLECT_VALUE(DecalComponent, "rtti::engine::render")
+    REFLECT_VALUE(DecalComponent, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Decal"))
             .Attribute("category", String(u8"Rendering"))
@@ -173,7 +173,7 @@ namespace engine::render
             .Property<&DecalComponent::visible>("visible");
     }
 
-    DRACONIC_REFLECT_ENUM(SkyMode, "rtti::engine::render")
+    REFLECT_ENUM(SkyMode, "rtti::engine::render")
     {
         builder.Value("Procedural", SkyMode::Procedural);
         builder.Value("Analytic", SkyMode::Analytic);
@@ -182,7 +182,7 @@ namespace engine::render
         builder.Value("Cubemap", SkyMode::Cubemap);
     }
 
-    DRACONIC_REFLECT_VALUE(EnvironmentSettings, "rtti::engine::render")
+    REFLECT_VALUE(EnvironmentSettings, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Environment"))
             .Attribute("category", String(u8"Rendering"))
@@ -239,7 +239,7 @@ namespace engine::render
             .PropAttribute("description", String(u8"Preetham haze (2 = clear, 10 = hazy)"));
     }
 
-    DRACONIC_REFLECT_VALUE(ReflectionProbeComponent, "rtti::engine::render")
+    REFLECT_VALUE(ReflectionProbeComponent, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Reflection Probe"))
             .Attribute("category", String(u8"Rendering"))
@@ -258,27 +258,27 @@ namespace engine::render
             .Property<&ReflectionProbeComponent::enabled>("enabled");
     }
 
-    DRACONIC_REFLECT_ENUM(TonemapOperator, "rtti::engine::render")
+    REFLECT_ENUM(TonemapOperator, "rtti::engine::render")
     {
         builder.Value("Clamp", TonemapOperator::Clamp);
         builder.Value("AgX", TonemapOperator::AgX);
     }
 
-    DRACONIC_REFLECT_ENUM(AaMode, "rtti::engine::render")
+    REFLECT_ENUM(AaMode, "rtti::engine::render")
     {
         builder.Value("Off", AaMode::Off);
         builder.Value("FXAA", AaMode::FXAA);
         builder.Value("TAA", AaMode::TAA);
     }
 
-    DRACONIC_REFLECT_ENUM(AoMode, "rtti::engine::render")
+    REFLECT_ENUM(AoMode, "rtti::engine::render")
     {
         builder.Value("Off", AoMode::Off);
         builder.Value("GTAO", AoMode::GTAO);
         builder.Value("SSAO", AoMode::SSAO);
     }
 
-    DRACONIC_REFLECT_VALUE(PostProcessSettings, "rtti::engine::render")
+    REFLECT_VALUE(PostProcessSettings, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Post Processing"))
             .Attribute("category", String(u8"Rendering")).DataVersion(1)

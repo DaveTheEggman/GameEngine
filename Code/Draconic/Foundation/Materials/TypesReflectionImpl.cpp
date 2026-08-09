@@ -3,7 +3,7 @@
 // Reflected in their OWNING module (foundation.materials) so any consumer of a reflected
 // MaterialSource property whose type is one of these (blendMode/depthMode/cullMode/vertexLayout,
 // retyped from u8) sees a proper enum - IsEnum + named values, so tooling can render a name
-// dropdown instead of a raw integer. DRACONIC_REFLECT_ENUM bodies live out of the interface
+// dropdown instead of a raw integer. REFLECT_ENUM bodies live out of the interface
 // (GCC module hygiene). RegisterMaterialsTypeReflection() is idempotent; wire it from a startup
 // registrar (RegisterMaterialAsset does). Reflection track P1 (the enum-retype payoff).
 
@@ -19,7 +19,7 @@ using namespace foundation::core;
 
 namespace foundation::materials
 {
-    DRACONIC_REFLECT_ENUM(BlendMode, "rtti::materials")
+    REFLECT_ENUM(BlendMode, "rtti::materials")
     {
         builder.Value("Opaque", BlendMode::Opaque);
         builder.Value("Masked", BlendMode::Masked);
@@ -29,7 +29,7 @@ namespace foundation::materials
         builder.Value("PremultipliedAlpha", BlendMode::PremultipliedAlpha);
     }
 
-    DRACONIC_REFLECT_ENUM(DepthMode, "rtti::materials")
+    REFLECT_ENUM(DepthMode, "rtti::materials")
     {
         builder.Value("Disabled", DepthMode::Disabled);
         builder.Value("ReadWrite", DepthMode::ReadWrite);
@@ -37,14 +37,14 @@ namespace foundation::materials
         builder.Value("WriteOnly", DepthMode::WriteOnly);
     }
 
-    DRACONIC_REFLECT_ENUM(CullModeConfig, "rtti::materials")
+    REFLECT_ENUM(CullModeConfig, "rtti::materials")
     {
         builder.Value("None", CullModeConfig::None);
         builder.Value("Back", CullModeConfig::Back);
         builder.Value("Front", CullModeConfig::Front);
     }
 
-    DRACONIC_REFLECT_ENUM(VertexLayoutType, "rtti::materials")
+    REFLECT_ENUM(VertexLayoutType, "rtti::materials")
     {
         builder.Value("None", VertexLayoutType::None);
         builder.Value("PositionOnly", VertexLayoutType::PositionOnly);

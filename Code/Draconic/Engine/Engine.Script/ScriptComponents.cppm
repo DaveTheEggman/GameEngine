@@ -138,7 +138,7 @@ export namespace engine::script
         ScriptSceneSystem* m_scriptSystem = nullptr;
     };
 
-    // Defined in SubsystemImpl.cpp (DRACONIC_REFLECT_* bodies never sit in a module
+    // Defined in SubsystemImpl.cpp (REFLECT_* bodies never sit in a module
     // interface unit - the GCC gcm-cluster rule).
     void RegisterScriptComponentReflection();
 }

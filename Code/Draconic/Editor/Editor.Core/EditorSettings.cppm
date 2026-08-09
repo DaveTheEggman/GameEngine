@@ -33,7 +33,7 @@ export namespace editor
     // compile define, then the exe-embedded fallback face).
     class EditorFontSettings final : public ISerializable
     {
-        DRACONIC_OBJECT(EditorFontSettings, ISerializable)
+        RTTI_OBJECT(EditorFontSettings, ISerializable)
     public:
         String fontPath;     // UI family override ("" = built-in chain)
         String monoFontPath; // mono family override ("" = built-in chain)
@@ -50,7 +50,7 @@ export namespace editor
     // accessibility knob and the way to exercise the DPI path without a scaled monitor.
     class EditorUiSettings final : public ISerializable
     {
-        DRACONIC_OBJECT(EditorUiSettings, ISerializable)
+        RTTI_OBJECT(EditorUiSettings, ISerializable)
     public:
         f32 uiScale = 1.0f; // clamped to [1, 2] on use
 
@@ -121,6 +121,6 @@ export namespace editor
         return SaveEditorSettings(*fs.AsWritable(), in);
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(EditorFontSettings, "rtti::editor::editor", 1)
-    DRACONIC_DEFINE_OBJECT_VERSIONED(EditorUiSettings, "rtti::editor::editor", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(EditorFontSettings, "rtti::editor::editor", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(EditorUiSettings, "rtti::editor::editor", 1)
 }

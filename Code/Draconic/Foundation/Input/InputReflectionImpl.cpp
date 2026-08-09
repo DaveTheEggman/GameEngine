@@ -5,7 +5,7 @@
 // Interaction, ActionProcessors - and the enums (BindingSource/ActionKind/InteractionKind).
 // The CONTAINER structs above them (Action/ActionSet/InputMap, nested Array<> lists) reach these
 // leaves via container reflection + a Nested member on the asset; that tree + its list-editor
-// rendering is a later step (see docs/design/reflection-track.md). DRACONIC_REFLECT_* bodies live
+// rendering is a later step (see docs/design/reflection-track.md). REFLECT_* bodies live
 // out of the interface (GCC module hygiene). RegisterInputTypeReflection() is idempotent.
 
 module;
@@ -20,7 +20,7 @@ using namespace foundation::core;
 
 namespace foundation::input
 {
-    DRACONIC_REFLECT_ENUM(BindingSource, "rtti::input")
+    REFLECT_ENUM(BindingSource, "rtti::input")
     {
         builder.Value("Key", BindingSource::Key);
         builder.Value("MouseButton", BindingSource::MouseButton);
@@ -34,14 +34,14 @@ namespace foundation::input
         builder.Value("TouchStick", BindingSource::TouchStick);
     }
 
-    DRACONIC_REFLECT_ENUM(ActionKind, "rtti::input")
+    REFLECT_ENUM(ActionKind, "rtti::input")
     {
         builder.Value("Button", ActionKind::Button);
         builder.Value("Axis1D", ActionKind::Axis1D);
         builder.Value("Axis2D", ActionKind::Axis2D);
     }
 
-    DRACONIC_REFLECT_ENUM(InteractionKind, "rtti::input")
+    REFLECT_ENUM(InteractionKind, "rtti::input")
     {
         builder.Value("None", InteractionKind::None);
         builder.Value("Hold", InteractionKind::Hold);
@@ -49,7 +49,7 @@ namespace foundation::input
         builder.Value("DoubleTap", InteractionKind::DoubleTap);
     }
 
-    DRACONIC_REFLECT_VALUE(Binding, "rtti::input")
+    REFLECT_VALUE(Binding, "rtti::input")
     {
         builder.Property<&Binding::source>("source")
             .PropAttribute("displayName", String(u8"Source"))
@@ -74,7 +74,7 @@ namespace foundation::input
             .Property<&Binding::stickRadius>("stickRadius");
     }
 
-    DRACONIC_REFLECT_VALUE(Interaction, "rtti::input")
+    REFLECT_VALUE(Interaction, "rtti::input")
     {
         builder.Property<&Interaction::kind>("kind")
             .PropAttribute("displayName", String(u8"Interaction"))
@@ -82,7 +82,7 @@ namespace foundation::input
             .PropAttribute("displayName", String(u8"Seconds"));
     }
 
-    DRACONIC_REFLECT_VALUE(ActionProcessors, "rtti::input")
+    REFLECT_VALUE(ActionProcessors, "rtti::input")
     {
         builder.Property<&ActionProcessors::sensitivity>("sensitivity")
             .PropAttribute("displayName", String(u8"Sensitivity"))
@@ -98,7 +98,7 @@ namespace foundation::input
     // (address-based: the tree is TRAVERSED in place via container reflection, not marshalled by
     // value), so the whole InputMap is reflection-visible for scripting/tooling. The input editor
     // page stays bespoke - this is for scriptability, not a reflection-driven inspector.
-    DRACONIC_REFLECT_VALUE(Action, "rtti::input")
+    REFLECT_VALUE(Action, "rtti::input")
     {
         builder.Property<&Action::name>("name")
             .PropAttribute("displayName", String(u8"Name"))
@@ -109,7 +109,7 @@ namespace foundation::input
             .Nested<&Action::interaction>("interaction");
     }
 
-    DRACONIC_REFLECT_VALUE(ActionSet, "rtti::input")
+    REFLECT_VALUE(ActionSet, "rtti::input")
     {
         builder.Property<&ActionSet::name>("name")
             .PropAttribute("displayName", String(u8"Name"))
@@ -118,7 +118,7 @@ namespace foundation::input
             .Nested<&ActionSet::actions>("actions"); // Array<Action> (container)
     }
 
-    DRACONIC_REFLECT_VALUE(InputMap, "rtti::input")
+    REFLECT_VALUE(InputMap, "rtti::input")
     {
         builder.Nested<&InputMap::sets>("sets"); // Array<ActionSet> (container)
     }

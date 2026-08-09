@@ -24,7 +24,7 @@ export namespace experimental::gui
 {
     class GridLayout : public UIWidget
     {
-        DRACONIC_OBJECT(GridLayout, UIWidget)
+        RTTI_OBJECT(GridLayout, UIWidget)
     public:
         GridLayout() = default;
 
@@ -89,5 +89,5 @@ export namespace experimental::gui
         f32 m_vSpacing = 0.0f;
     };
 
-    DRACONIC_DEFINE_OBJECT(GridLayout, "rtti::gui")
+    RTTI_DEFINE_OBJECT(GridLayout, "rtti::gui")
 }

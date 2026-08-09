@@ -30,7 +30,7 @@ export namespace foundation::ui
 {
     class ScrollBar : public View
     {
-        DRACONIC_OBJECT(ScrollBar, View)
+        RTTI_OBJECT(ScrollBar, View)
     public:
         /// Scrollbar thickness in pixels.
         f32 BarThickness = 10.0f;
@@ -231,5 +231,5 @@ export namespace foundation::ui
         f32 m_dragStartMouse = 0.0f;
     };
 
-    DRACONIC_DEFINE_OBJECT(ScrollBar, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ScrollBar, "rtti::ui")
 }

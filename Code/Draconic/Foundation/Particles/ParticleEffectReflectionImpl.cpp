@@ -1,5 +1,5 @@
 // Draconic.Particles - effect-graph reflection (out of the interface: GCC module hygiene keeps
-// DRACONIC_REFLECT bodies in an impl unit). Reflects the value types that make up an authored effect
+// REFLECT_MEMBERS bodies in an impl unit). Reflects the value types that make up an authored effect
 // so tooling and scripting can traverse it end to end:
 //
 //     ParticleEffectAsset --Nested--> ParticleEffect
@@ -28,14 +28,14 @@ using namespace foundation::core;
 
 namespace foundation::particles
 {
-    DRACONIC_REFLECT_ENUM(EmissionMode, "rtti::particles")
+    REFLECT_ENUM(EmissionMode, "rtti::particles")
     {
         builder.Value("Continuous", EmissionMode::Continuous);
         builder.Value("Burst", EmissionMode::Burst);
         builder.Value("ContinuousAndBurst", EmissionMode::ContinuousAndBurst);
     }
 
-    DRACONIC_REFLECT_VALUE(ParticleEmitter, "rtti::particles")
+    REFLECT_VALUE(ParticleEmitter, "rtti::particles")
     {
         builder.Property<&ParticleEmitter::mode>("mode")
             .Property<&ParticleEmitter::spawnRate>("spawnRate")
@@ -66,7 +66,7 @@ namespace foundation::particles
             .Nested<&ParticleSystem::m_initializers>("initializers") // polymorphic container
             .Nested<&ParticleSystem::m_behaviors>("behaviors");      // polymorphic container
     }
-    DRACONIC_REFLECT_VALUE(ParticleSystem, "rtti::particles")
+    REFLECT_VALUE(ParticleSystem, "rtti::particles")
     {
         ParticleSystem::BuildReflection(builder);
     }
@@ -77,7 +77,7 @@ namespace foundation::particles
         builder.Property<&ParticleEffect::name>("name")
             .Nested<&ParticleEffect::m_systems>("systems"); // Array<UniquePtr<ParticleSystem>>
     }
-    DRACONIC_REFLECT_VALUE(ParticleEffect, "rtti::particles")
+    REFLECT_VALUE(ParticleEffect, "rtti::particles")
     {
         ParticleEffect::BuildReflection(builder);
     }

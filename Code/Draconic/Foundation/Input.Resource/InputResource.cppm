@@ -24,7 +24,7 @@ export namespace foundation::input
     // Cooked record AND runtime product (data-only, no GPU transform - the particles model).
     class InputMapResource final : public ISerializable
     {
-        DRACONIC_OBJECT(InputMapResource, ISerializable)
+        RTTI_OBJECT(InputMapResource, ISerializable)
     public:
         [[nodiscard]] InputMap& Map() noexcept { return m_map; }
         [[nodiscard]] const InputMap& Map() const noexcept { return m_map; }
@@ -55,5 +55,5 @@ export namespace foundation::input
         RegisterSerializable<InputMapResource>();
     }
 
-    DRACONIC_DEFINE_OBJECT(InputMapResource, "rtti::input")
+    RTTI_DEFINE_OBJECT(InputMapResource, "rtti::input")
 }

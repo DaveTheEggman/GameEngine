@@ -97,7 +97,7 @@ export namespace editor
                 // shell only reflects failure in the status bar); absent = the scaffold path.
                 if (root.Exists(kProjectManifestFile))
                 {
-                    DRACONIC_LOG_ERROR(u8"Project",
+                    LOG_ERROR(u8"Project",
                                        u8"'{}/{}' exists but failed to parse (old or corrupt "
                                        u8"format?) - project not opened",
                                        directory, kProjectManifestFile);
@@ -122,7 +122,7 @@ export namespace editor
             {
                 // Today: informational. The launcher/project-manager (planned) routes projects
                 // to their engine version and drives migration on upgrade.
-                DRACONIC_LOG_WARNING(
+                LOG_WARNING(
                     u8"Project", u8"project was last saved by engine {} (this editor is {})",
                     settings.engineVersion, engine::project::kEngineVersionString);
             }

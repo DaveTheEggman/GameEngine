@@ -10,7 +10,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
-#include "Profiler/Profiler.h" // DRACONIC_PROFILE_SCOPE (compiles to nothing when disabled)
+#include "Profiler/Profiler.h" // PROFILE_SCOPE (compiles to nothing when disabled)
 #include <algorithm>           // std::sort (per-particle back-to-front ordering)
 
 export module engine.particles:components;
@@ -148,7 +148,7 @@ export namespace engine::particles
             {
                 return;
             }
-            DRACONIC_PROFILE_SCOPE("Particles.Simulate");
+            PROFILE_SCOPE("Particles.Simulate");
             ForEach(
                 [&](ParticleEffectComponent& c, scene::EntityHandle owner)
                 {
@@ -173,7 +173,7 @@ export namespace engine::particles
         // (this scene's turn). Mesh-mode systems are handled elsewhere (instanced-mesh, later).
         void ExtractRenderData(render::ExtractedScene& snapshot) override
         {
-            DRACONIC_PROFILE_SCOPE("Particles.Extract");
+            PROFILE_SCOPE("Particles.Extract");
             const u16 billboardRendererId = m_billboardRendererId;
             m_scratchUsed = 0;
             m_xformUsed = 0;
@@ -316,7 +316,7 @@ export namespace engine::particles
         // so an alpha-blended system composites correctly. Local-space positions are transformed first.
         const i32* BuildBackToFrontOrder(ParticleSystem& sys)
         {
-            DRACONIC_PROFILE_SCOPE("Particles.Sort");
+            PROFILE_SCOPE("Particles.Sort");
             const i32 alive = sys.AliveCount();
             CPUStream<Float3>* pos = sys.Streams().Positions();
             if (pos == nullptr)
@@ -762,7 +762,7 @@ export namespace engine::particles
 
 } // exported namespace
 
-// Reflection (tooling). The DRACONIC_REFLECT_VALUE body + RegisterParticleComponentReflection()
+// Reflection (tooling). The REFLECT_VALUE body + RegisterParticleComponentReflection()
 // live in ParticleSubsystemImpl.cpp (kept out of this interface; see gcc-module-interface-hygiene).
 export namespace engine::particles
 {

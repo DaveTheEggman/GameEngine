@@ -59,7 +59,7 @@ export namespace foundation::core
         [[nodiscard]] usize Count() const noexcept { return m_constants.Size(); }
         [[nodiscard]] const NamedConstant& At(usize index) const noexcept
         {
-            DRACONIC_ASSERT(index < m_constants.Size());
+            DIAGNOSTIC_ASSERT(index < m_constants.Size());
             return m_constants[index];
         }
         [[nodiscard]] Span<const NamedConstant> All() const noexcept

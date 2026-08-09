@@ -1,7 +1,7 @@
 // HelloWindow - the minimal Draconic app: opens a window and runs the frame loop
 // until the window is closed. Demonstrates the full path Core -> Runtime
 // (Context/Subsystem) -> Shell (SDL3) -> ApplicationHost driving an
-// IApplication, wired by DRACONIC_APP_MAIN. Run it directly; close the window to exit.
+// IApplication, wired by APP_MAIN. Run it directly; close the window to exit.
 
 #include "Core/Prelude.h"
 #include "Runtime.Client/AppMain.h"
@@ -12,7 +12,7 @@ import foundation.runtime.client;
 import foundation.shell;
 import foundation.runtime.desktop;
 import foundation.shell.desktop;
-import foundation.graphics; // GraphicsDevice + FrameContext (DRACONIC_APP_MAIN sets up the device)
+import foundation.graphics; // GraphicsDevice + FrameContext (APP_MAIN sets up the device)
 import foundation.graphics.gpu; // CreateGraphicsDevice
 
 namespace core = foundation::core;
@@ -51,4 +51,4 @@ namespace
     };
 }
 
-DRACONIC_APP_MAIN(HelloApp)
+APP_MAIN(HelloApp)

@@ -1,6 +1,6 @@
 // Draconic Input - InputSubsystem implementation unit: the Input facade reflection body.
 //
-// Kept OUT of the interface: DRACONIC_REFLECT_* bodies in an interface unit make GCC emit
+// Kept OUT of the interface: REFLECT_* bodies in an interface unit make GCC emit
 // an unreadable gcm cluster for consumers (see gcc-module-interface-hygiene). The interface
 // declares RegisterInputScriptFacade(); this unit defines it and Input::StaticType().
 
@@ -18,7 +18,7 @@ using namespace foundation::input;
 
 namespace engine::input
 {
-    DRACONIC_REFLECT(Input, "rtti::engine::input")
+    REFLECT_MEMBERS(Input, "rtti::engine::input")
     {
         builder.Method<&Input::isDown>("isDown");
         builder.Method<&Input::wasPressed>("wasPressed");

@@ -48,7 +48,7 @@ export namespace foundation::ui
     /// Modal dialog with title, content, and button row. Shown via PopupLayer as a centered modal popup.
     class Dialog : public ViewGroup
     {
-        DRACONIC_OBJECT(Dialog, ViewGroup)
+        RTTI_OBJECT(Dialog, ViewGroup)
     public:
         String Title;
         DialogResult Result = DialogResult::None;
@@ -312,5 +312,5 @@ export namespace foundation::ui
         View* m_content = nullptr;
     };
 
-    DRACONIC_DEFINE_OBJECT(Dialog, "rtti::ui")
+    RTTI_DEFINE_OBJECT(Dialog, "rtti::ui")
 }

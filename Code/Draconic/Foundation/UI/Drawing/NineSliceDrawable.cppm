@@ -23,7 +23,7 @@ export namespace foundation::ui
 {
     class NineSliceDrawable : public Drawable
     {
-        DRACONIC_OBJECT(NineSliceDrawable, Drawable)
+        RTTI_OBJECT(NineSliceDrawable, Drawable)
     public:
         const image::ImageData* Image = nullptr;
         image::NineSlice Slices{};
@@ -69,5 +69,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(NineSliceDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(NineSliceDrawable, "rtti::ui")
 }

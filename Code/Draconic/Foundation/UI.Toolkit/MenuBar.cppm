@@ -26,7 +26,7 @@ export namespace foundation::ui::toolkit
     /// hover other titles to switch. Escape or click-outside closes.
     class MenuBar : public ViewGroup, public IPopupOwner
     {
-        DRACONIC_OBJECT(MenuBar, ViewGroup)
+        RTTI_OBJECT(MenuBar, ViewGroup)
     public:
         MenuBar() { IsFocusable = true; }
 
@@ -316,5 +316,5 @@ export namespace foundation::ui::toolkit
         f32 m_fontSize = 13.0f;
     };
 
-    DRACONIC_DEFINE_OBJECT(MenuBar, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(MenuBar, "rtti::ui::toolkit")
 }

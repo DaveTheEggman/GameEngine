@@ -41,7 +41,7 @@ export namespace foundation::animation
     // A resource product (Object), so a cooked SkeletonSource can build into it via the resource system.
     class Skeleton : public Object
     {
-        DRACONIC_OBJECT(Skeleton, Object)
+        RTTI_OBJECT(Skeleton, Object)
     public:
         Skeleton() = default;
         // Creates `boneCount` default bones with sequential indices (the loader fills the rest).
@@ -298,6 +298,6 @@ export namespace foundation::animation
         Array<Float4x4> m_worldScratch; // reused world-pose scratch (skinning hot path)
     };
 
-    DRACONIC_DEFINE_OBJECT(Skeleton, "rtti::animation")
+    RTTI_DEFINE_OBJECT(Skeleton, "rtti::animation")
 
 } // namespace foundation::animation

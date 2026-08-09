@@ -33,7 +33,7 @@ export namespace foundation::ui
 {
     class RadioButton : public View
     {
-        DRACONIC_OBJECT(RadioButton, View)
+        RTTI_OBJECT(RadioButton, View)
     public:
         Property<bool> IsChecked{false};
         Property<String> Text;
@@ -198,5 +198,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(RadioButton, "rtti::ui")
+    RTTI_DEFINE_OBJECT(RadioButton, "rtti::ui")
 }

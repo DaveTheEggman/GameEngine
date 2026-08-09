@@ -48,7 +48,7 @@ export namespace foundation::audio
     // memory and decode on the fly while playing (large-but-latency-tolerant sounds).
     class AudioClip : public Object
     {
-        DRACONIC_OBJECT(AudioClip, Object)
+        RTTI_OBJECT(AudioClip, Object)
     public:
         u32 channels = 0;
         u32 sampleRate = 0;
@@ -87,5 +87,5 @@ export namespace foundation::audio
     [[nodiscard]] bool EncodeWavFromPcm16(Span<const i16> interleavedSamples, u32 channels,
                                           u32 sampleRate, Array<byte>& outWavBytes);
 
-    DRACONIC_DEFINE_OBJECT(AudioClip, "rtti::audio")
+    RTTI_DEFINE_OBJECT(AudioClip, "rtti::audio")
 }

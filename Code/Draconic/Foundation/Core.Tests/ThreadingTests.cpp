@@ -15,7 +15,7 @@ using namespace foundation::core;
 // Web v1 is single-threaded (no wasm-pthreads yet): every case here SPAWNS real
 // threads, so the suite sits out the web build. The P3 "JobSystem inline mode"
 // work item (web-platform.md) brings a web-runnable subset back.
-#if !DRACONIC_PLATFORM_WEB
+#if !PLATFORM_WEB
 
 TEST_CASE("threading: a thread runs and joins")
 {
@@ -353,4 +353,4 @@ TEST_CASE("threading: nested ParallelFor does not deadlock (caller participation
     CHECK(total.load() == 64);
 }
 
-#endif // !DRACONIC_PLATFORM_WEB
+#endif // !PLATFORM_WEB

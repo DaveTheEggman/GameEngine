@@ -30,7 +30,7 @@ export namespace experimental::gui
 {
     class MessageBox : public Window
     {
-        DRACONIC_OBJECT(MessageBox, Window)
+        RTTI_OBJECT(MessageBox, Window)
     public:
         enum class Buttons
         {
@@ -180,5 +180,5 @@ export namespace experimental::gui
         static constexpr f32 kButtonGap = 10.0f;
     };
 
-    DRACONIC_DEFINE_OBJECT(MessageBox, "rtti::gui")
+    RTTI_DEFINE_OBJECT(MessageBox, "rtti::gui")
 }

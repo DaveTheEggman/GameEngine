@@ -21,7 +21,7 @@ export namespace foundation::ui
 {
     class StateListDrawable : public Drawable
     {
-        DRACONIC_OBJECT(StateListDrawable, Drawable)
+        RTTI_OBJECT(StateListDrawable, Drawable)
     public:
         StateListDrawable() = default;
 
@@ -95,5 +95,5 @@ export namespace foundation::ui
         HashMap<u32, RefPtr<Drawable>> m_drawables;
     };
 
-    DRACONIC_DEFINE_OBJECT(StateListDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(StateListDrawable, "rtti::ui")
 }

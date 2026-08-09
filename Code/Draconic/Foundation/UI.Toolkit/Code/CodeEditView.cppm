@@ -263,7 +263,7 @@ export namespace foundation::ui::toolkit
 
     class CodeEditView : public ViewGroup, public ITooltipProvider
     {
-        DRACONIC_OBJECT(CodeEditView, ViewGroup)
+        RTTI_OBJECT(CodeEditView, ViewGroup)
 
     public:
         // Appearance/behavior knobs (plain fields, read each frame like other toolkit widgets).
@@ -2506,5 +2506,5 @@ export namespace foundation::ui::toolkit
         AfterEdit();
     }
 
-    DRACONIC_DEFINE_OBJECT(CodeEditView, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(CodeEditView, "rtti::ui::toolkit")
 }

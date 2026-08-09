@@ -100,7 +100,7 @@ export namespace foundation::core
 
             T* newData =
                 static_cast<T*>(m_allocator->Allocate(newCapacity * sizeof(T), alignof(T)));
-            DRACONIC_ASSERT_MSG(newData != nullptr, "Array allocation failed");
+            DIAGNOSTIC_ASSERT_MSG(newData != nullptr, "Array allocation failed");
 
             for (usize i = 0; i < m_size; ++i)
             {
@@ -170,33 +170,33 @@ export namespace foundation::core
         // --- element access ------------------------------------------------
         [[nodiscard]] T& operator[](usize index) noexcept
         {
-            DRACONIC_ASSERT(index < m_size);
+            DIAGNOSTIC_ASSERT(index < m_size);
             return m_data[index];
         }
         [[nodiscard]] const T& operator[](usize index) const noexcept
         {
-            DRACONIC_ASSERT(index < m_size);
+            DIAGNOSTIC_ASSERT(index < m_size);
             return m_data[index];
         }
 
         [[nodiscard]] T& Front() noexcept
         {
-            DRACONIC_ASSERT(m_size > 0);
+            DIAGNOSTIC_ASSERT(m_size > 0);
             return m_data[0];
         }
         [[nodiscard]] const T& Front() const noexcept
         {
-            DRACONIC_ASSERT(m_size > 0);
+            DIAGNOSTIC_ASSERT(m_size > 0);
             return m_data[0];
         }
         [[nodiscard]] T& Back() noexcept
         {
-            DRACONIC_ASSERT(m_size > 0);
+            DIAGNOSTIC_ASSERT(m_size > 0);
             return m_data[m_size - 1];
         }
         [[nodiscard]] const T& Back() const noexcept
         {
-            DRACONIC_ASSERT(m_size > 0);
+            DIAGNOSTIC_ASSERT(m_size > 0);
             return m_data[m_size - 1];
         }
 
@@ -228,14 +228,14 @@ export namespace foundation::core
 
         void PopBack() noexcept
         {
-            DRACONIC_ASSERT(m_size > 0);
+            DIAGNOSTIC_ASSERT(m_size > 0);
             Destruct(&m_data[--m_size]);
         }
 
         // Removes element `index`, shifting the tail down (order preserved).
         void RemoveAt(usize index)
         {
-            DRACONIC_ASSERT(index < m_size);
+            DIAGNOSTIC_ASSERT(index < m_size);
             for (usize i = index; i + 1 < m_size; ++i)
             {
                 m_data[i] = Move(m_data[i + 1]);
@@ -246,7 +246,7 @@ export namespace foundation::core
         // Removes element `index` by swapping in the last element (O(1), order not preserved).
         void RemoveAtSwap(usize index)
         {
-            DRACONIC_ASSERT(index < m_size);
+            DIAGNOSTIC_ASSERT(index < m_size);
             if (index != m_size - 1)
             {
                 m_data[index] = Move(m_data[m_size - 1]);
@@ -257,7 +257,7 @@ export namespace foundation::core
         // Inserts `value` before `index` (index == Size appends), shifting the tail up. Order preserved.
         T& Insert(usize index, const T& value)
         {
-            DRACONIC_ASSERT(index <= m_size);
+            DIAGNOSTIC_ASSERT(index <= m_size);
             EnsureCapacityForOne();
             if (index == m_size)
             {
@@ -276,7 +276,7 @@ export namespace foundation::core
 
         T& Insert(usize index, T&& value)
         {
-            DRACONIC_ASSERT(index <= m_size);
+            DIAGNOSTIC_ASSERT(index <= m_size);
             EnsureCapacityForOne();
             if (index == m_size)
             {

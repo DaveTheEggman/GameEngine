@@ -5,7 +5,7 @@
 // -> Function<void(f32)>; Slider Min/Max/Step/Value `.Value =` -> `.SetValue(...)`; `new
 // FlexLayout.LayoutParams()` -> RefPtr<FlexLayoutParams>; `.Fixed(.Px(w))` -> SizeSpec::Fixed(Unit::Px(w));
 // `Math.Log10` -> std::log10. The private inner `RangeNumericField : NumericField` becomes a PUBLIC nested
-// class (own DRACONIC_OBJECT identity) whose focus overrides are defined out-of-line after RangeEditor is
+// class (own RTTI_OBJECT identity) whose focus overrides are defined out-of-line after RangeEditor is
 // complete.
 
 module;
@@ -28,7 +28,7 @@ export namespace foundation::ui::toolkit
     /// Range/slider property editor - Slider + NumericField side by side. Both synced.
     class RangeEditor : public PropertyEditor
     {
-        DRACONIC_OBJECT(RangeEditor, PropertyEditor)
+        RTTI_OBJECT(RangeEditor, PropertyEditor)
     public:
         Function<void(f32)> Setter;
 
@@ -69,7 +69,7 @@ export namespace foundation::ui::toolkit
         /// NumericField subclass that tracks edit transactions via focus.
         class RangeNumericField : public NumericField
         {
-            DRACONIC_OBJECT(RangeNumericField, NumericField)
+            RTTI_OBJECT(RangeNumericField, NumericField)
         public:
             explicit RangeNumericField(RangeEditor* editor) : m_editor(editor) {}
 
@@ -207,6 +207,6 @@ export namespace foundation::ui::toolkit
         }
     }
 
-    DRACONIC_DEFINE_OBJECT(RangeEditor, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(RangeEditor::RangeNumericField, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(RangeEditor, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(RangeEditor::RangeNumericField, "rtti::ui::toolkit")
 }

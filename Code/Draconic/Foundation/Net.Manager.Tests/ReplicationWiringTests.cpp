@@ -35,7 +35,7 @@ namespace
     };
 }
 
-DRACONIC_REFLECT_VALUE(RepMover, "rtti::net::test")
+REFLECT_VALUE(RepMover, "rtti::net::test")
 {
     builder.Property<&RepMover::position>("position")
         .PropAttribute(net::kReplicatedAttribute, true);

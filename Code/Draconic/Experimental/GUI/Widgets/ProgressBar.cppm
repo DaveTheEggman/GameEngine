@@ -23,7 +23,7 @@ export namespace experimental::gui
 {
     class ProgressBar : public UIWidget
     {
-        DRACONIC_OBJECT(ProgressBar, UIWidget)
+        RTTI_OBJECT(ProgressBar, UIWidget)
     public:
         ProgressBar() { SetTag(core::StringView(u8"progressbar")); }
 
@@ -81,5 +81,5 @@ export namespace experimental::gui
         Color m_fillColor{0.31f, 0.63f, 0.85f, 1.0f};
     };
 
-    DRACONIC_DEFINE_OBJECT(ProgressBar, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ProgressBar, "rtti::gui")
 }

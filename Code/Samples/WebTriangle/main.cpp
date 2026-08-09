@@ -1,6 +1,6 @@
 // WebTriangle - the first Draconic app that runs in a browser.
 //
-// It uses the RUNTIME framework (DRACONIC_APP_MAIN -> IApplication driven by an ApplicationHost),
+// It uses the RUNTIME framework (APP_MAIN -> IApplication driven by an ApplicationHost),
 // NOT the Vulkan/SDL3 SampleApp framework: a WebShell hands the host an HTML <canvas>, the WebGPU
 // graphics factory brings a device up on that canvas, and the web runner drives frames through
 // requestAnimationFrame. The app records a single WGSL triangle each frame. Shaders are WGSL
@@ -15,8 +15,8 @@ import foundation.core;
 import foundation.runtime;
 import foundation.runtime.client;
 import foundation.shell;
-import foundation.runtime.web;  // RunApplication (browser runner) - required by DRACONIC_APP_MAIN
-import foundation.shell.web;    // WebShell - required by DRACONIC_APP_MAIN
+import foundation.runtime.web;  // RunApplication (browser runner) - required by APP_MAIN
+import foundation.shell.web;    // WebShell - required by APP_MAIN
 import foundation.graphics;     // GraphicsDevice + FrameContext
 import foundation.graphics.gpu; // CreateGraphicsDevice
 import foundation.rhi;
@@ -165,4 +165,4 @@ namespace
     };
 }
 
-DRACONIC_APP_MAIN(TriangleApp)
+APP_MAIN(TriangleApp)

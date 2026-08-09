@@ -21,7 +21,7 @@ namespace
 {
     class TestMaterial final : public ISerializable
     {
-        DRACONIC_OBJECT(TestMaterial, ISerializable)
+        RTTI_OBJECT(TestMaterial, ISerializable)
     public:
         i32 shininess = 0;
 
@@ -47,7 +47,7 @@ namespace
     }
 }
 
-DRACONIC_DEFINE_OBJECT(TestMaterial, "rtti::editor::editor::test")
+RTTI_DEFINE_OBJECT(TestMaterial, "rtti::editor::editor::test")
 
 TEST_CASE("editor-project: create scaffolds the layout and open round-trips the manifest")
 {

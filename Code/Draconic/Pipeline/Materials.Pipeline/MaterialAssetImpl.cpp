@@ -1,6 +1,6 @@
 // Pipeline::Materials - reflection implementation unit: MaterialAsset's reflected surface.
 //
-// Kept OUT of the MaterialAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm
+// Kept OUT of the MaterialAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). MaterialAsset wraps a MaterialSource BY VALUE, and
 // MaterialSource derives Object (RefCounted deletes its copy ctor) so it cannot marshal through a
 // Variant - it is exposed as a NESTED property (TypeBuilder::Nested): tooling reaches the member
@@ -21,7 +21,7 @@ using namespace foundation::core;
 using namespace foundation::materials;
 
 namespace pipeline{
-    DRACONIC_REFLECT(MaterialAsset, "rtti::pipeline::materials")
+    REFLECT_MEMBERS(MaterialAsset, "rtti::pipeline::materials")
     {
         builder.Attribute("displayName", String(u8"Material"))
             .Attribute("category", String(u8"Materials"))

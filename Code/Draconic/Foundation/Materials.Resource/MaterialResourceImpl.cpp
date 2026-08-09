@@ -1,7 +1,7 @@
 // Foundation::Materials.Resource - reflection implementation unit: MaterialSource's reflected surface.
 //
-// Kept OUT of the MaterialResource.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm
-// cluster; see gcc-module-interface-hygiene). The class declares its identity via DRACONIC_OBJECT
+// Kept OUT of the MaterialResource.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm
+// cluster; see gcc-module-interface-hygiene). The class declares its identity via RTTI_OBJECT
 // in the interface; this unit defines MaterialSource::StaticType() WITH properties + the data
 // version, so tooling that recurses into it (a MaterialAsset's nested `source`) sees the authored
 // scalar surface. The render-state fields stay u8 for now (their enum-name retype is a later step);
@@ -20,9 +20,9 @@ using namespace foundation::core;
 
 namespace foundation::materials
 {
-    DRACONIC_REFLECT(MaterialSource, "rtti::materials")
+    REFLECT_MEMBERS(MaterialSource, "rtti::materials")
     {
-        builder.DataVersion(2) // matches the prior DRACONIC_DEFINE_OBJECT_VERSIONED(2)
+        builder.DataVersion(2) // matches the prior RTTI_DEFINE_OBJECT_VERSIONED(2)
             .Property<&MaterialSource::name>("name")
             .PropAttribute("displayName", String(u8"Name"))
             .Property<&MaterialSource::shaderId>("shaderId")

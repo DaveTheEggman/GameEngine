@@ -554,7 +554,7 @@ export namespace engine::animation
 
 } // exported namespace
 
-// Reflection (tooling: the editor inspector). The DRACONIC_REFLECT_VALUE bodies +
+// Reflection (tooling: the editor inspector). The REFLECT_VALUE bodies +
 // RegisterAnimationComponentReflection() live in AnimationSubsystemImpl.cpp, kept out of this
 // interface partition (see gcc-module-interface-hygiene).
 export namespace engine::animation

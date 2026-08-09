@@ -30,7 +30,7 @@ export namespace foundation::ui
     // from its fluent builders.
     class StyleRule : public Object
     {
-        DRACONIC_OBJECT(StyleRule, Object)
+        RTTI_OBJECT(StyleRule, Object)
     public:
         struct Entry
         {
@@ -120,5 +120,5 @@ export namespace foundation::ui
         Array<Entry> m_properties;
     };
 
-    DRACONIC_DEFINE_OBJECT(StyleRule, "rtti::ui")
+    RTTI_DEFINE_OBJECT(StyleRule, "rtti::ui")
 }

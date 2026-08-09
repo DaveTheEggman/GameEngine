@@ -40,13 +40,13 @@ export namespace foundation::ui::toolkit
     /// Base class for items in a Toolbar. Any View can be a toolbar item.
     class ToolbarItem : public View
     {
-        DRACONIC_OBJECT(ToolbarItem, View)
+        RTTI_OBJECT(ToolbarItem, View)
     };
 
     /// Toolbar separator - vertical divider line.
     class ToolbarSeparator : public ToolbarItem
     {
-        DRACONIC_OBJECT(ToolbarSeparator, ToolbarItem)
+        RTTI_OBJECT(ToolbarSeparator, ToolbarItem)
     public:
         void OnDraw(UIDrawContext& ctx) override
         {
@@ -68,7 +68,7 @@ export namespace foundation::ui::toolkit
     /// Toolbar button - supports text, icon (via custom draw delegate), or both.
     class ToolbarButton : public ToolbarItem
     {
-        DRACONIC_OBJECT(ToolbarButton, ToolbarItem)
+        RTTI_OBJECT(ToolbarButton, ToolbarItem)
     public:
         Event<void(ToolbarButton*)> OnClick;
 
@@ -156,7 +156,7 @@ export namespace foundation::ui::toolkit
     /// Toolbar toggle button - on/off state with accent background when active.
     class ToolbarToggle : public ToolbarButton
     {
-        DRACONIC_OBJECT(ToolbarToggle, ToolbarButton)
+        RTTI_OBJECT(ToolbarToggle, ToolbarButton)
     public:
         Event<void(ToolbarToggle*, bool)> OnCheckedChanged;
 
@@ -205,7 +205,7 @@ export namespace foundation::ui::toolkit
     /// Add items via AddItem(), AddButton(), AddSeparator(), AddToggle().
     class Toolbar : public FlexLayout
     {
-        DRACONIC_OBJECT(Toolbar, FlexLayout)
+        RTTI_OBJECT(Toolbar, FlexLayout)
     public:
         Toolbar()
         {
@@ -363,9 +363,9 @@ export namespace foundation::ui::toolkit
         ToolbarButton::OnDraw(ctx);
     }
 
-    DRACONIC_DEFINE_OBJECT(ToolbarItem, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(ToolbarSeparator, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(ToolbarButton, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(ToolbarToggle, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(Toolbar, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ToolbarItem, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ToolbarSeparator, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ToolbarButton, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ToolbarToggle, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(Toolbar, "rtti::ui::toolkit")
 }

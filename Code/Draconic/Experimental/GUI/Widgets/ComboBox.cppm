@@ -34,7 +34,7 @@ export namespace experimental::gui
 {
     class ComboBox : public UIWidget
     {
-        DRACONIC_OBJECT(ComboBox, UIWidget)
+        RTTI_OBJECT(ComboBox, UIWidget)
     public:
         ComboBox()
         {
@@ -193,5 +193,5 @@ export namespace experimental::gui
         core::Function<void(i32)> m_onChanged;
     };
 
-    DRACONIC_DEFINE_OBJECT(ComboBox, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ComboBox, "rtti::gui")
 }

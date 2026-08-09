@@ -394,7 +394,7 @@ export namespace editor
             DefaultAllocator().New<ScriptClassPageFactory>(), DefaultAllocator()));
 
         const auto backends = foundation::script::ScriptBackendRegistry::Get().All();
-        DRACONIC_LOG_INFO(u8"Editor",
+        LOG_INFO(u8"Editor",
                           u8"RegisterScriptEditor: {} script backend(s) in the registry",
                           backends.Size());
         core::u32 registeredCreators = 0;
@@ -404,7 +404,7 @@ export namespace editor
             if (pipeline::ScriptLanguageCookRegistry::Get().FindByLanguage(
                     backend.languageId.AsView()) == nullptr)
             {
-                DRACONIC_LOG_WARNING(
+                LOG_WARNING(
                     u8"Editor",
                     u8"  script backend '{}' has NO registered cook - no New-Asset creator",
                     backend.languageId);
@@ -453,7 +453,7 @@ export namespace editor
                 ++registeredCreators;
             }
         }
-        DRACONIC_LOG_INFO(u8"Editor",
+        LOG_INFO(u8"Editor",
                           u8"RegisterScriptEditor: {} script New-Asset creator(s) registered",
                           registeredCreators);
     }

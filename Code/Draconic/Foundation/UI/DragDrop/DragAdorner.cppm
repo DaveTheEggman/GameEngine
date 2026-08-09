@@ -23,7 +23,7 @@ export namespace foundation::ui
 {
     class DragAdorner : public ViewGroup
     {
-        DRACONIC_OBJECT(DragAdorner, ViewGroup)
+        RTTI_OBJECT(DragAdorner, ViewGroup)
     public:
         DragAdorner(View* visual, f32 offsetX, f32 offsetY) : m_offsetX(offsetX), m_offsetY(offsetY)
         {
@@ -105,5 +105,5 @@ export namespace foundation::ui
         f32 m_offsetY;
     };
 
-    DRACONIC_DEFINE_OBJECT(DragAdorner, "rtti::ui")
+    RTTI_DEFINE_OBJECT(DragAdorner, "rtti::ui")
 }

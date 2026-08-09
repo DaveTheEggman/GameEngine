@@ -23,7 +23,7 @@ export namespace foundation::ui::toolkit
     /// Property editor for Float4 values. Four NumericFields (X, Y, Z, W) side by side with axis labels.
     class Float4Editor : public PropertyEditor
     {
-        DRACONIC_OBJECT(Float4Editor, PropertyEditor)
+        RTTI_OBJECT(Float4Editor, PropertyEditor)
     public:
         Function<void(Float4)> Setter;
 
@@ -60,7 +60,7 @@ export namespace foundation::ui::toolkit
         /// NumericField subclass that tracks edit transactions via focus.
         class VectorNumericField : public NumericField
         {
-            DRACONIC_OBJECT(VectorNumericField, NumericField)
+            RTTI_OBJECT(VectorNumericField, NumericField)
         public:
             VectorNumericField(Float4Editor* editor, i32 axis) : m_editor(editor), m_axis(axis) {}
 
@@ -220,6 +220,6 @@ export namespace foundation::ui::toolkit
         }
     }
 
-    DRACONIC_DEFINE_OBJECT(Float4Editor, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(Float4Editor::VectorNumericField, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(Float4Editor, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(Float4Editor::VectorNumericField, "rtti::ui::toolkit")
 }

@@ -80,7 +80,7 @@ export namespace foundation::scene
         // InitializePendingComponents (so sibling components can be set up first).
         T& Add(EntityHandle entity)
         {
-            DRACONIC_ASSERT(!HasComponent(entity));
+            DIAGNOSTIC_ASSERT(!HasComponent(entity));
             const u32 dense = static_cast<u32>(m_dense.Size());
             m_dense.PushBack(T{});
             m_owners.PushBack(entity);
@@ -255,7 +255,7 @@ export namespace foundation::scene
             if (T* c = this->Get(entity))
             {
                 // Records carry the component type's data version (TypeOf<T> - the reflected
-                // TypeInfo, patched by DRACONIC_REFLECT_VALUE's builder.DataVersion), so
+                // TypeInfo, patched by REFLECT_VALUE's builder.DataVersion), so
                 // component Serialize bodies can migrate old scenes/blobs.
                 BeginVersionedPayload(ar, TypeOf<T>());
                 SerializeOne(ar, *c);

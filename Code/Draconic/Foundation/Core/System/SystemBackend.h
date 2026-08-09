@@ -6,8 +6,8 @@
 // headers out of the module BMI. Uses <cstdint>/<cstddef> types so it needs no
 // module import; foundation::core's u64/usize are aliases of these exact types.
 
-#ifndef DRACONIC_CORE_SYSTEM_BACKEND_H
-#define DRACONIC_CORE_SYSTEM_BACKEND_H
+#ifndef FOUNDATION_CORE_SYSTEM_BACKEND_H
+#define FOUNDATION_CORE_SYSTEM_BACKEND_H
 
 #include <cstddef>
 #include <cstdint>
@@ -193,4 +193,4 @@ namespace foundation::core::sys
     std::int64_t TcpRecv(SocketHandle socket, void* out, std::size_t outCap) noexcept;
 }
 
-#endif // DRACONIC_CORE_SYSTEM_BACKEND_H
+#endif // FOUNDATION_CORE_SYSTEM_BACKEND_H

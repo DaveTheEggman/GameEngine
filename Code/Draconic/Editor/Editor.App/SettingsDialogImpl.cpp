@@ -291,7 +291,7 @@ namespace editor::app
         if (project->SaveSettings().IsOk())
         {
             m_context->SetStatus(u8"Project settings saved.");
-            DRACONIC_LOG_INFO(u8"Project", u8"settings saved (default scene: {})",
+            LOG_INFO(u8"Project", u8"settings saved (default scene: {})",
                               project->Settings().defaultScene.IsEmpty()
                                   ? StringView(u8"(none)")
                                   : project->Settings().defaultScene.AsView());

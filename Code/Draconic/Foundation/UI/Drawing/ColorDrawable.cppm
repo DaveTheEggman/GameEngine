@@ -19,7 +19,7 @@ export namespace foundation::ui
 {
     class ColorDrawable : public Drawable
     {
-        DRACONIC_OBJECT(ColorDrawable, Drawable)
+        RTTI_OBJECT(ColorDrawable, Drawable)
     public:
         core::Color Color{};
 
@@ -35,5 +35,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(ColorDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ColorDrawable, "rtti::ui")
 }

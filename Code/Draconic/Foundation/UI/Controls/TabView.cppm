@@ -46,7 +46,7 @@ export namespace foundation::ui
 
     class TabView : public ViewGroup
     {
-        DRACONIC_OBJECT(TabView, ViewGroup)
+        RTTI_OBJECT(TabView, ViewGroup)
     public:
         Property<f32> TabHeight{28.0f};
         Property<TabPlacement> Placement{TabPlacement::Top};
@@ -781,5 +781,5 @@ export namespace foundation::ui
             false; ///< Selection changed; bring the new tab into view on the next rebuild.
     };
 
-    DRACONIC_DEFINE_OBJECT(TabView, "rtti::ui")
+    RTTI_DEFINE_OBJECT(TabView, "rtti::ui")
 }

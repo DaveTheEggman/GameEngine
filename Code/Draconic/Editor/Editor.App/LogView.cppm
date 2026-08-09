@@ -23,7 +23,7 @@ export namespace editor::app
 
     class LogView : public ui::ViewGroup
     {
-        DRACONIC_OBJECT(LogView, ui::ViewGroup)
+        RTTI_OBJECT(LogView, ui::ViewGroup)
     public:
         /// Display buckets (core Trace+Debug fold into Debug; Error+Fatal into Error).
         enum class Bucket : u8
@@ -269,5 +269,5 @@ export namespace editor::app
         ui::CheckBox* m_filterBoxes[kBucketCount] = {}; // borrowed (toolbar owns them)
     };
 
-    DRACONIC_DEFINE_OBJECT(LogView, "rtti::editor::editor::app")
+    RTTI_DEFINE_OBJECT(LogView, "rtti::editor::editor::app")
 }

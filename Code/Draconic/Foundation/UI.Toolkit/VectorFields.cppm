@@ -29,7 +29,7 @@ export namespace foundation::ui::toolkit
     /// Colored single-character axis label used as a NumericField prefix.
     class AxisLabel : public View
     {
-        DRACONIC_OBJECT(AxisLabel, View)
+        RTTI_OBJECT(AxisLabel, View)
     public:
         AxisLabel(StringView text, Color color) : m_text(text), m_color(color) {}
 
@@ -81,7 +81,7 @@ export namespace foundation::ui::toolkit
     /// single edit transaction.
     class AggregatingVectorField : public FlexLayout
     {
-        DRACONIC_OBJECT(AggregatingVectorField, FlexLayout)
+        RTTI_OBJECT(AggregatingVectorField, FlexLayout)
     public:
         Event<void(AggregatingVectorField*)> OnEditBegan;
         Event<void(AggregatingVectorField*)> OnEditEnded;
@@ -157,7 +157,7 @@ export namespace foundation::ui::toolkit
     /// Standalone Float2 input. Two NumericFields with colored X/Y labels.
     class Vector2Field : public AggregatingVectorField
     {
-        DRACONIC_OBJECT(Vector2Field, AggregatingVectorField)
+        RTTI_OBJECT(Vector2Field, AggregatingVectorField)
     public:
         Event<void(Float2)> OnValueChanged;
 
@@ -253,7 +253,7 @@ export namespace foundation::ui::toolkit
     /// Standalone Float3 input. Three NumericFields with colored X/Y/Z labels.
     class Vector3Field : public AggregatingVectorField
     {
-        DRACONIC_OBJECT(Vector3Field, AggregatingVectorField)
+        RTTI_OBJECT(Vector3Field, AggregatingVectorField)
     public:
         Event<void(Float3)> OnValueChanged;
 
@@ -369,7 +369,7 @@ export namespace foundation::ui::toolkit
     /// Standalone Float4 input. Four NumericFields with colored X/Y/Z/W labels.
     class Vector4Field : public AggregatingVectorField
     {
-        DRACONIC_OBJECT(Vector4Field, AggregatingVectorField)
+        RTTI_OBJECT(Vector4Field, AggregatingVectorField)
     public:
         Event<void(Float4)> OnValueChanged;
 
@@ -507,7 +507,7 @@ export namespace foundation::ui::toolkit
     /// Z=roll). The last typed Eulers are cached so displayed angles stay stable during editing.
     class QuaternionField : public AggregatingVectorField
     {
-        DRACONIC_OBJECT(QuaternionField, AggregatingVectorField)
+        RTTI_OBJECT(QuaternionField, AggregatingVectorField)
     public:
         Event<void(Quaternion)> OnValueChanged;
 
@@ -686,10 +686,10 @@ export namespace foundation::ui::toolkit
         bool m_syncing = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(AxisLabel, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(AggregatingVectorField, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(Vector2Field, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(Vector3Field, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(Vector4Field, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(QuaternionField, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(AxisLabel, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(AggregatingVectorField, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(Vector2Field, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(Vector3Field, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(Vector4Field, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(QuaternionField, "rtti::ui::toolkit")
 }

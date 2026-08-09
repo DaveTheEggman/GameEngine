@@ -32,7 +32,7 @@ export namespace pipeline{
     // Source asset wrapping the authored material data.
     class MaterialAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(MaterialAsset, pipeline::Asset)
+        RTTI_OBJECT(MaterialAsset, pipeline::Asset)
     public:
         MaterialSource source;
 
@@ -106,6 +106,6 @@ export namespace pipeline{
     }
 
     // MaterialAsset::StaticType() is defined WITH its reflected surface (a Nested `source`
-    // property) in MaterialAssetImpl.cpp - GCC module hygiene: DRACONIC_REFLECT out of interfaces.
+    // property) in MaterialAssetImpl.cpp - GCC module hygiene: REFLECT_MEMBERS out of interfaces.
 
 } // namespace foundation::materials

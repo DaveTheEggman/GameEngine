@@ -4,7 +4,7 @@
 // As the renderer grows, this is where we exercise it.
 
 #include "Core/Prelude.h"
-#include "Profiler/Profiler.h" // DRACONIC_PROFILE_SCOPE (isolate animation-drive cost)
+#include "Profiler/Profiler.h" // PROFILE_SCOPE (isolate animation-drive cost)
 #include "imgui.h"             // Dear ImGui (HUD) - used directly; integration is extensions.imgui
 
 import foundation.core;

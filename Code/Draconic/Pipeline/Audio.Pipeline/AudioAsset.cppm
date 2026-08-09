@@ -39,7 +39,7 @@ export namespace pipeline{
     // Source asset: the audio file + how it should cook.
     class AudioClipAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(AudioClipAsset, pipeline::Asset)
+        RTTI_OBJECT(AudioClipAsset, pipeline::Asset)
     public:
         bool stream = false;         // decode on the fly at runtime (music/ambience)
         bool keepCompressed = false; // in-memory clips: decode on play, not on load
@@ -156,7 +156,7 @@ export namespace pipeline{
             if (!ProbeAudioClipMetadata(Span<const byte>(container.Data(), container.Size()),
                                         metadata))
             {
-                DRACONIC_LOG_ERROR(u8"Audio", u8"'{}' is not decodable audio - cook failed",
+                LOG_ERROR(u8"Audio", u8"'{}' is not decodable audio - cook failed",
                                    audioAsset.fileName.View());
                 return Status{ErrorCode::InvalidArgument};
             }
@@ -298,7 +298,7 @@ export namespace pipeline{
     // probed file at import, so the checkbox here is a FORCE, not the whole story).
     class AudioImportOptions final : public editor::ImportOptions
     {
-        DRACONIC_OBJECT(AudioImportOptions, editor::ImportOptions)
+        RTTI_OBJECT(AudioImportOptions, editor::ImportOptions)
     public:
         bool stream = false;
         bool forceMono = false;
@@ -368,7 +368,7 @@ export namespace pipeline{
             if (!ProbeAudioClipMetadata(
                     Span<const byte>(bytes.Value().Data(), bytes.Value().Size()), metadata))
             {
-                DRACONIC_LOG_ERROR(u8"Audio", u8"'{}' is not decodable audio - import refused",
+                LOG_ERROR(u8"Audio", u8"'{}' is not decodable audio - import refused",
                                    sourcePath);
                 return Err(ErrorCode::InvalidArgument);
             }
@@ -434,7 +434,7 @@ export namespace pipeline{
 
     class AudioBusLayoutAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(AudioBusLayoutAsset, pipeline::Asset)
+        RTTI_OBJECT(AudioBusLayoutAsset, pipeline::Asset)
     public:
         struct Bus
         {
@@ -543,7 +543,7 @@ export namespace pipeline{
                 AudioBus fixedAlias{};
                 if (AudioBusFromName(slot.name.AsView(), fixedAlias))
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Audio",
                         u8"bus layout '{}': custom bus '{}' shadows a fixed bus - skipped",
                         asset.fileName.View(), slot.name);
@@ -560,7 +560,7 @@ export namespace pipeline{
                 }
                 if (duplicate)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Audio", u8"bus layout '{}': duplicate custom bus '{}' - slot skipped",
                         asset.fileName.View(), slot.name);
                     continue;
@@ -601,7 +601,7 @@ export namespace pipeline{
                     } // unknown parent: warned at apply, not a cycle
                     if (cursor == i || ++steps > source.layout.customBuses.Size())
                     {
-                        DRACONIC_LOG_ERROR(u8"Audio",
+                        LOG_ERROR(u8"Audio",
                                            u8"bus layout '{}': custom bus '{}' is part of a parent "
                                            u8"CYCLE - cook failed",
                                            asset.fileName.View(), source.layout.customBuses[i].name);
@@ -644,7 +644,7 @@ export namespace pipeline{
                 effect.delayDecay = Clamp(bus.delayDecay, 0.0f, 0.99f);
                 if (bus.delayDecay >= 1.0f)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Audio",
                         u8"bus layout '{}': delayDecay >= 1 self-oscillates - clamped to 0.99",
                         assetName);
@@ -669,7 +669,7 @@ export namespace pipeline{
 
     class SoundCueAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(SoundCueAsset, pipeline::Asset)
+        RTTI_OBJECT(SoundCueAsset, pipeline::Asset)
     public:
         Guid clipIds[kSoundCueSlotCount]{};
         f32 weights[kSoundCueSlotCount] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
@@ -730,7 +730,7 @@ export namespace pipeline{
                 }
                 if (cueAsset.weights[i] <= 0.0f)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Audio", u8"sound cue slot {} has a clip but weight <= 0 - slot disabled",
                         i);
                     continue;
@@ -743,7 +743,7 @@ export namespace pipeline{
             // Validate: a cue with no playable variant is a broken trigger - fail the cook.
             if (source.variants.IsEmpty())
             {
-                DRACONIC_LOG_ERROR(
+                LOG_ERROR(
                     u8"Audio",
                     u8"sound cue has no playable variant (assign at least one clip) - cook failed");
                 return Status{ErrorCode::InvalidArgument};
@@ -771,8 +771,8 @@ export namespace pipeline{
     // AudioClipAsset's StaticType() is defined WITH reflected properties in AudioAssetImpl.cpp
     // (reflection track P1). The remaining audio assets stay identity-only for now (bus layout /
     // sound cue carry nested structure that a flat property pass doesn't cover).
-    DRACONIC_DEFINE_OBJECT(AudioImportOptions, "rtti::pipeline::audio")
+    RTTI_DEFINE_OBJECT(AudioImportOptions, "rtti::pipeline::audio")
     // v2: the custom-bus slot bank (see Serialize) - v0/v1 sources read cleanly.
-    DRACONIC_DEFINE_OBJECT_VERSIONED(AudioBusLayoutAsset, "rtti::pipeline::audio", 2)
-    DRACONIC_DEFINE_OBJECT(SoundCueAsset, "rtti::pipeline::audio")
+    RTTI_DEFINE_OBJECT_VERSIONED(AudioBusLayoutAsset, "rtti::pipeline::audio", 2)
+    RTTI_DEFINE_OBJECT(SoundCueAsset, "rtti::pipeline::audio")
 }

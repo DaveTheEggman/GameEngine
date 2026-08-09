@@ -245,7 +245,7 @@ export namespace foundation::input
 
     class InputBindingOverrides final : public ISerializable
     {
-        DRACONIC_OBJECT(InputBindingOverrides, ISerializable)
+        RTTI_OBJECT(InputBindingOverrides, ISerializable)
     public:
         Array<InputBindingOverride> overrides;
 
@@ -410,5 +410,5 @@ export namespace foundation::input
         RegisterSerializable<InputBindingOverrides>();
     }
 
-    DRACONIC_DEFINE_OBJECT(InputBindingOverrides, "rtti::input")
+    RTTI_DEFINE_OBJECT(InputBindingOverrides, "rtti::input")
 }

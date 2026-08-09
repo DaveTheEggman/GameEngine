@@ -34,7 +34,7 @@ export namespace foundation::texture
     // Cooked texture record (output DB). Pixels are the "data" stream.
     class TextureResource final : public ISerializable
     {
-        DRACONIC_OBJECT(TextureResource, ISerializable)
+        RTTI_OBJECT(TextureResource, ISerializable)
     public:
         u32 width = 0;
         u32 height = 0;
@@ -71,7 +71,7 @@ export namespace foundation::texture
     // Runtime product: owns the live GPU texture + sampler.
     class Texture final : public Object
     {
-        DRACONIC_OBJECT(Texture, Object)
+        RTTI_OBJECT(Texture, Object)
     public:
         Texture() = default;
         ~Texture() override
@@ -149,7 +149,7 @@ export namespace foundation::texture
     // FinalizeStage turns it into the live GPU Texture on the main thread.
     class DecodedTexture final : public Object
     {
-        DRACONIC_OBJECT(DecodedTexture, Object)
+        RTTI_OBJECT(DecodedTexture, Object)
     public:
         RefPtr<ISerializable> record; // the cooked TextureResource record
         Array<u8> pixels;             // cooked "data" stream bytes
@@ -362,7 +362,7 @@ export namespace foundation::texture
         (void)DecodedTexture::StaticType();
     }
 
-    DRACONIC_DEFINE_OBJECT(TextureResource, "rtti::texture")
-    DRACONIC_DEFINE_OBJECT(Texture, "rtti::texture")
-    DRACONIC_DEFINE_OBJECT(DecodedTexture, "rtti::texture")
+    RTTI_DEFINE_OBJECT(TextureResource, "rtti::texture")
+    RTTI_DEFINE_OBJECT(Texture, "rtti::texture")
+    RTTI_DEFINE_OBJECT(DecodedTexture, "rtti::texture")
 }

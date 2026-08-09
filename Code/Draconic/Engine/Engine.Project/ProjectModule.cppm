@@ -46,7 +46,7 @@ export namespace engine::project
     // (player.xml), which is the same shape minus editor-only concerns.
     class ProjectSettings final : public ISerializable
     {
-        DRACONIC_OBJECT(ProjectSettings, ISerializable)
+        RTTI_OBJECT(ProjectSettings, ISerializable)
     public:
         String name;
         String engineVersion; // engine that last saved this project (launcher/migration routing)
@@ -69,7 +69,7 @@ export namespace engine::project
                                 // scene loads (nil = the built-in default splash; v8, task #123)
 
         // Migration branches on ar.Version() - the type's data version is written/read by
-        // the manifest helpers below (DRACONIC_DEFINE_OBJECT_VERSIONED sets the current one).
+        // the manifest helpers below (RTTI_DEFINE_OBJECT_VERSIONED sets the current one).
         void Serialize(ISerializer& ar) override
         {
             foundation::core::Serialize(ar, "name", name);
@@ -161,5 +161,5 @@ export namespace engine::project
         return writable.Save(fileName, buffer.Bytes());
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ProjectSettings, "rtti::engine::project", 8)
+    RTTI_DEFINE_OBJECT_VERSIONED(ProjectSettings, "rtti::engine::project", 8)
 }

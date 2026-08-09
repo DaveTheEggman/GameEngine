@@ -275,7 +275,7 @@ namespace
             }
             else
             {
-                DRACONIC_LOG_WARNING(u8"Editor",
+                LOG_WARNING(u8"Editor",
                                      u8"starter font missing ({}) - new project has no "
                                      u8"default UI font",
                                      source);
@@ -312,7 +312,7 @@ namespace
         (void)CreatePrimitiveMeshInstance(ctx, u8"Plane", foundation::geometry::Primitives::Plane(),
                                           nullptr);
 
-        DRACONIC_LOG_INFO(u8"Editor", u8"starter content seeded (font/sky/primitives)");
+        LOG_INFO(u8"Editor", u8"starter content seeded (font/sky/primitives)");
     }
 }
 namespace graphics = foundation::graphics;
@@ -332,7 +332,7 @@ int main(int argc, char** argv)
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&logBuffer);
     GlobalLogger().AddSink(&consoleSink);
-    DRACONIC_LOG_INFO(u8"Build", u8"Draconic build {}",
+    LOG_INFO(u8"Build", u8"Draconic build {}",
                       reinterpret_cast<const char8_t*>(DraconicBuildStamp()));
     GlobalLogger().SetMinLevel(LogLevel::Debug); // the Console panel has a Debug filter toggle
 
@@ -641,7 +641,7 @@ int main(int argc, char** argv)
         // the editor's preset ResourceManager at its OnStartup) - none registered here.
     };
 
-    DRACONIC_LOG_INFO(u8"Editor", u8"starting (project: {})", config.projectDirectory);
+    LOG_INFO(u8"Editor", u8"starting (project: {})", config.projectDirectory);
 
     shell::WindowSettings ws;
     ws.title = u8"Draconic Editor";

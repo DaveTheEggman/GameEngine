@@ -23,7 +23,7 @@ export namespace experimental::gui
 {
     class StateListDrawable : public Drawable
     {
-        DRACONIC_OBJECT(StateListDrawable, Drawable)
+        RTTI_OBJECT(StateListDrawable, Drawable)
     public:
         [[nodiscard]] bool IsStateful() const override { return true; }
 
@@ -59,5 +59,5 @@ export namespace experimental::gui
         HashMap<u32, RefPtr<Drawable>> m_states;
     };
 
-    DRACONIC_DEFINE_OBJECT(StateListDrawable, "rtti::gui")
+    RTTI_DEFINE_OBJECT(StateListDrawable, "rtti::gui")
 }

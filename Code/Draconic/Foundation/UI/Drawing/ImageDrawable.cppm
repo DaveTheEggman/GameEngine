@@ -22,7 +22,7 @@ export namespace foundation::ui
 {
     class ImageDrawable : public Drawable
     {
-        DRACONIC_OBJECT(ImageDrawable, Drawable)
+        RTTI_OBJECT(ImageDrawable, Drawable)
     public:
         const image::ImageData* Image = nullptr;
         Color Tint = Color::White;
@@ -54,5 +54,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(ImageDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ImageDrawable, "rtti::ui")
 }

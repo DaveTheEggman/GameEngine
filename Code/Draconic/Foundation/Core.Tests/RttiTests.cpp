@@ -15,7 +15,7 @@ namespace
 {
     class Animal : public Object
     {
-        DRACONIC_OBJECT(Animal, Object)
+        RTTI_OBJECT(Animal, Object)
     public:
         int legs = 4;
 
@@ -41,28 +41,28 @@ namespace
 
     class Dog : public Animal
     {
-        DRACONIC_OBJECT(Dog, Animal)
+        RTTI_OBJECT(Dog, Animal)
     public:
         const char* Speak() const { return "woof"; }
     };
 
     class Cat : public Animal
     {
-        DRACONIC_OBJECT(Cat, Animal)
+        RTTI_OBJECT(Cat, Animal)
     };
 
     // A nested reflected structure (Object-derived, so non-copyable via RefCounted - exactly the
     // MaterialSource-inside-MaterialAsset case that Property<> cannot handle).
     class NestedLeaf : public Object
     {
-        DRACONIC_OBJECT(NestedLeaf, Object)
+        RTTI_OBJECT(NestedLeaf, Object)
     public:
         int value = 7;
     };
 
     class NestedOwner : public Object
     {
-        DRACONIC_OBJECT(NestedOwner, Object)
+        RTTI_OBJECT(NestedOwner, Object)
     public:
         NestedLeaf leaf;               // value member (non-copyable)
         NestedLeaf* leafPtr = nullptr; // pointer member (nested-by-pointer)
@@ -74,7 +74,7 @@ namespace
     Variant MakeWrongVariant() { return Variant::From<int>(7); }
 }
 
-DRACONIC_REFLECT(Animal, "rtti::test")
+REFLECT_MEMBERS(Animal, "rtti::test")
 {
     builder.Property<&Animal::legs>("legs");
     builder.Method<&Animal::AddLegs>("AddLegs", {"count"}); // A6: one authored parameter name
@@ -92,8 +92,8 @@ DRACONIC_REFLECT(Animal, "rtti::test")
     builder.Method<&MakeAnimalVariant, Animal>("makeAnimal");
     builder.Method<&MakeWrongVariant, Animal>("makeWrong"); // body returns int -> validated to empty
 }
-DRACONIC_DEFINE_OBJECT(Dog, "rtti::test")
-DRACONIC_DEFINE_OBJECT(Cat, "rtti::test")
+RTTI_DEFINE_OBJECT(Dog, "rtti::test")
+RTTI_DEFINE_OBJECT(Cat, "rtti::test")
 
 enum class TestColor : int
 {
@@ -102,14 +102,14 @@ enum class TestColor : int
     Blue = 4
 };
 
-DRACONIC_REFLECT_ENUM(TestColor, "rtti::test")
+REFLECT_ENUM(TestColor, "rtti::test")
 {
     builder.Value("Red", TestColor::Red);
     builder.Value("Green", TestColor::Green);
     builder.Value("Blue", TestColor::Blue);
 }
 
-DRACONIC_REFLECT(NestedLeaf, "rtti::test")
+REFLECT_MEMBERS(NestedLeaf, "rtti::test")
 {
     builder.Property<&NestedLeaf::value>("value");
 }
@@ -123,11 +123,11 @@ namespace
         int count = 0;
     };
 }
-DRACONIC_REFLECT_VALUE(BoundedThing, "rtti::test")
+REFLECT_VALUE(BoundedThing, "rtti::test")
 {
     builder.BoundedArray<&BoundedThing::values, &BoundedThing::count>("values");
 }
-DRACONIC_REFLECT(NestedOwner, "rtti::test")
+REFLECT_MEMBERS(NestedOwner, "rtti::test")
 {
     builder.Nested<&NestedOwner::leaf>("leaf");        // value member
     builder.Nested<&NestedOwner::leafPtr>("leafPtr");  // pointer member (pointee via address)
@@ -144,7 +144,7 @@ namespace
         UniquePtr<int> tag; // makes UniqueLeaf move-only
     };
 }
-DRACONIC_REFLECT_VALUE(UniqueLeaf, "rtti::test")
+REFLECT_VALUE(UniqueLeaf, "rtti::test")
 {
     builder.Property<&UniqueLeaf::value>("value");
 }
@@ -489,7 +489,7 @@ TEST_CASE("rtti: a Nested property recurses into a non-copyable member via addre
     CHECK(GetProperty(*valueProp, ptrInst).Get<int>() == 99);
 }
 
-void DraconicRegisterValue_BoundedThing(); // emitted by DRACONIC_REFLECT_VALUE above
+void DraconicRegisterValue_BoundedThing(); // emitted by REFLECT_VALUE above
 
 TEST_CASE("rtti: a BoundedArray reflects a count-bound C-array as a clamped container")
 {

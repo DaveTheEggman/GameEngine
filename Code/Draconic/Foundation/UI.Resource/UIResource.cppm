@@ -28,7 +28,7 @@ export namespace foundation::ui
     /// Cooked UI document: a validated `.sml` view-tree payload.
     class UIDocumentSource : public ISerializable
     {
-        DRACONIC_OBJECT(UIDocumentSource, ISerializable)
+        RTTI_OBJECT(UIDocumentSource, ISerializable)
     public:
         String markup;
 
@@ -42,7 +42,7 @@ export namespace foundation::ui
     /// tree per canvas from `markup` (documents are templates, never shared live trees).
     class UIDocument : public Object
     {
-        DRACONIC_OBJECT(UIDocument, Object)
+        RTTI_OBJECT(UIDocument, Object)
     public:
         String markup;
     };
@@ -72,7 +72,7 @@ export namespace foundation::ui
     /// Cooked UI theme: a validated `.sss` stylesheet payload.
     class UIThemeSource : public ISerializable
     {
-        DRACONIC_OBJECT(UIThemeSource, ISerializable)
+        RTTI_OBJECT(UIThemeSource, ISerializable)
     public:
         String stylesheet;
 
@@ -84,7 +84,7 @@ export namespace foundation::ui
 
     class UITheme : public Object
     {
-        DRACONIC_OBJECT(UITheme, Object)
+        RTTI_OBJECT(UITheme, Object)
     public:
         String stylesheet;
     };
@@ -121,8 +121,8 @@ export namespace foundation::ui
         GlobalTypeRegistry().Register(UITheme::StaticType());
     }
 
-    DRACONIC_DEFINE_OBJECT(UIDocumentSource, "rtti::ui")
-    DRACONIC_DEFINE_OBJECT(UIDocument, "rtti::ui")
-    DRACONIC_DEFINE_OBJECT(UIThemeSource, "rtti::ui")
-    DRACONIC_DEFINE_OBJECT(UITheme, "rtti::ui")
+    RTTI_DEFINE_OBJECT(UIDocumentSource, "rtti::ui")
+    RTTI_DEFINE_OBJECT(UIDocument, "rtti::ui")
+    RTTI_DEFINE_OBJECT(UIThemeSource, "rtti::ui")
+    RTTI_DEFINE_OBJECT(UITheme, "rtti::ui")
 }

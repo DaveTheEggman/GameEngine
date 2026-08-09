@@ -24,7 +24,7 @@ export namespace foundation::ui
 {
     class Separator : public View
     {
-        DRACONIC_OBJECT(Separator, View)
+        RTTI_OBJECT(Separator, View)
     public:
         Property<::foundation::ui::Orientation> Orientation{::foundation::ui::Orientation::Horizontal};
         Property<f32> SeparatorThickness{1.0f};
@@ -58,5 +58,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(Separator, "rtti::ui")
+    RTTI_DEFINE_OBJECT(Separator, "rtti::ui")
 }

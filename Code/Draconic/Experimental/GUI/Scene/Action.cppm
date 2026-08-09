@@ -33,7 +33,7 @@ export namespace experimental::gui
 
     class Action : public Object
     {
-        DRACONIC_OBJECT(Action, Object)
+        RTTI_OBJECT(Action, Object)
     public:
         using Callback = core::Function<void(Action&)>;
 
@@ -72,13 +72,13 @@ export namespace experimental::gui
         u64 m_tag = 0;
     };
 
-    DRACONIC_DEFINE_OBJECT(Action, "rtti::gui")
+    RTTI_DEFINE_OBJECT(Action, "rtti::gui")
 
     // Time-based action interpolating a [0,1] progress over a duration. Subclasses implement
     // OnStep(t) to apply the interpolated value to the target.
     class ActionInterpolation : public Action
     {
-        DRACONIC_OBJECT(ActionInterpolation, Action)
+        RTTI_OBJECT(ActionInterpolation, Action)
     public:
         explicit ActionInterpolation(core::Duration duration) noexcept : m_duration(duration) {}
 
@@ -127,5 +127,5 @@ export namespace experimental::gui
         bool m_done = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(ActionInterpolation, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ActionInterpolation, "rtti::gui")
 }

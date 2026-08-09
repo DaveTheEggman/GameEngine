@@ -33,7 +33,7 @@ export namespace foundation::ui
 {
     class Expander : public ViewGroup
     {
-        DRACONIC_OBJECT(Expander, ViewGroup)
+        RTTI_OBJECT(Expander, ViewGroup)
     public:
         Property<f32> HeaderHeight{28.0f};
         Property<f32> ContentSpacing{4.0f};
@@ -274,5 +274,5 @@ export namespace foundation::ui
         bool m_isExpanded = true;
     };
 
-    DRACONIC_DEFINE_OBJECT(Expander, "rtti::ui")
+    RTTI_DEFINE_OBJECT(Expander, "rtti::ui")
 }

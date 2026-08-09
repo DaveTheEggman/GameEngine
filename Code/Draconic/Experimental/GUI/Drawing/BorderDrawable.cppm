@@ -24,7 +24,7 @@ export namespace experimental::gui
 {
     class BorderDrawable : public Drawable
     {
-        DRACONIC_OBJECT(BorderDrawable, Drawable)
+        RTTI_OBJECT(BorderDrawable, Drawable)
     public:
         BorderDrawable() noexcept { m_color = Color{0.0f, 0.0f, 0.0f, 1.0f}; }
         explicit BorderDrawable(Color color, f32 width = 1.0f) noexcept : m_width(width)
@@ -50,5 +50,5 @@ export namespace experimental::gui
         vg::CornerRadii m_radii{};
     };
 
-    DRACONIC_DEFINE_OBJECT(BorderDrawable, "rtti::gui")
+    RTTI_DEFINE_OBJECT(BorderDrawable, "rtti::gui")
 }

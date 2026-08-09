@@ -427,4 +427,4 @@ namespace
     };
 }
 
-DRACONIC_APP_MAIN(InputActionsApp)
+APP_MAIN(InputActionsApp)

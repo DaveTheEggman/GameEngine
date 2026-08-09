@@ -1,7 +1,7 @@
 // Pipeline::Physics - reflection implementation unit: physics asset reflected surface.
 //
-// Kept OUT of the PhysicsAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm
-// cluster; see gcc-module-interface-hygiene). The classes declare identity via DRACONIC_OBJECT in
+// Kept OUT of the PhysicsAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm
+// cluster; see gcc-module-interface-hygiene). The classes declare identity via RTTI_OBJECT in
 // the interface; this unit defines their StaticType() WITH properties + tooling attributes, plus
 // the CollisionCookKind enum reflection. Reflection track P1.
 
@@ -18,13 +18,13 @@ using namespace foundation::core;
 using namespace foundation::physics;
 
 namespace pipeline{
-    DRACONIC_REFLECT_ENUM(CollisionCookKind, "rtti::pipeline::physics")
+    REFLECT_ENUM(CollisionCookKind, "rtti::pipeline::physics")
     {
         builder.Value("ConvexHull", CollisionCookKind::ConvexHull);
         builder.Value("TriangleMesh", CollisionCookKind::TriangleMesh);
     }
 
-    DRACONIC_REFLECT(CollisionShapeAsset, "rtti::pipeline::physics")
+    REFLECT_MEMBERS(CollisionShapeAsset, "rtti::pipeline::physics")
     {
         builder.Attribute("displayName", String(u8"Collision Shape"))
             .Attribute("category", String(u8"Physics"))
@@ -38,7 +38,7 @@ namespace pipeline{
             .PropAttribute("visibleWhen", String(u8"cook=0")); // convex hull only
     }
 
-    DRACONIC_REFLECT(PhysicalMaterialAsset, "rtti::pipeline::physics")
+    REFLECT_MEMBERS(PhysicalMaterialAsset, "rtti::pipeline::physics")
     {
         builder.Attribute("displayName", String(u8"Physical Material"))
             .Attribute("category", String(u8"Physics"))

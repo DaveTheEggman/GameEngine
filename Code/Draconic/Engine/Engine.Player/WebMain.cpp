@@ -1,6 +1,6 @@
 // WebMain.cpp - the BROWSER entry point for Draconic.Engine.Player. Shares PlayerApplication.h with the
 // desktop Main.cpp and runs the exact same generic game runner; it differs only in the platform
-// trio (web shell + WebGPU + the requestAnimationFrame runner, via DRACONIC_APP_MAIN's web body)
+// trio (web shell + WebGPU + the requestAnimationFrame runner, via APP_MAIN's web body)
 // and in how the game reaches it: the browser has no argv, so the player FETCHES the dist from
 // the SERVING FOLDER at startup - player.xml + Content.pak (the export output) and shaders.dpak
 // (the export-cooked WGSL engine pack; browsers have no shader compiler) - into the MEMFS root,
@@ -21,12 +21,12 @@ import foundation.resource;
 import foundation.fonts;
 import foundation.fonts.resource;
 import foundation.shell;
-import foundation.shell.web; // WebShell (the browser shell) - required by DRACONIC_APP_MAIN's web body
+import foundation.shell.web; // WebShell (the browser shell) - required by APP_MAIN's web body
 import foundation.graphics;
 import foundation.graphics.gpu;
 import foundation.runtime;
 import foundation.runtime.client;
-import foundation.runtime.web; // RunApplication (the rAF runner) - required by DRACONIC_APP_MAIN
+import foundation.runtime.web; // RunApplication (the rAF runner) - required by APP_MAIN
 import engine.defaultapp;
 import foundation.scene;
 import engine.scene;
@@ -68,7 +68,7 @@ import engine.project;
 import foundation.vfs.pak;
 
 #include "PlayerApplication.h"      // the shared runner (uses the imports above)
-#include "Runtime.Client/AppMain.h" // DRACONIC_APP_MAIN (web body: WebShell + WebGPU + rAF runner)
+#include "Runtime.Client/AppMain.h" // APP_MAIN (web body: WebShell + WebGPU + rAF runner)
 
 using namespace foundation::core;
 
@@ -87,13 +87,13 @@ namespace
         emscripten_wget(name, name);
         if (!FileExists(path))
         {
-            DRACONIC_LOG_ERROR(u8"Player", u8"could not fetch '{}' from the serving folder - "
+            LOG_ERROR(u8"Player", u8"could not fetch '{}' from the serving folder - "
                                            u8"is it next to the player page?",
                                path);
         }
     }
 
-    // Default-constructible so DRACONIC_APP_MAIN can own it in static storage: the dist is
+    // Default-constructible so APP_MAIN can own it in static storage: the dist is
     // fetched from the serving folder into the MEMFS root, so the project dir is ".".
     class WebPlayerApplication final : public engine::player::PlayerApplication
     {
@@ -115,4 +115,4 @@ namespace
     };
 }
 
-DRACONIC_APP_MAIN(WebPlayerApplication)
+APP_MAIN(WebPlayerApplication)

@@ -32,7 +32,7 @@ export namespace foundation::audio
     // Cooked clip record. The container bytes live in the "data" stream beside it.
     class AudioClipSource : public ISerializable
     {
-        DRACONIC_OBJECT(AudioClipSource, ISerializable)
+        RTTI_OBJECT(AudioClipSource, ISerializable)
     public:
         u32 channels = 0;
         u32 sampleRate = 0;
@@ -172,7 +172,7 @@ export namespace foundation::audio
     // the ar.Version() gate keeps old cooks loading.
     class AudioBusLayoutSource : public ISerializable
     {
-        DRACONIC_OBJECT(AudioBusLayoutSource, ISerializable)
+        RTTI_OBJECT(AudioBusLayoutSource, ISerializable)
     public:
         AudioBusLayout layout;
 
@@ -233,7 +233,7 @@ export namespace foundation::audio
     // Runtime product a project's defaultBusLayoutId resolves to.
     class AudioBusLayoutResource final : public Object
     {
-        DRACONIC_OBJECT(AudioBusLayoutResource, Object)
+        RTTI_OBJECT(AudioBusLayoutResource, Object)
     public:
         AudioBusLayout layout;
     };
@@ -266,7 +266,7 @@ export namespace foundation::audio
 
     class SoundCueSource : public ISerializable
     {
-        DRACONIC_OBJECT(SoundCueSource, ISerializable)
+        RTTI_OBJECT(SoundCueSource, ISerializable)
     public:
         struct Variant
         {
@@ -353,9 +353,9 @@ export namespace foundation::audio
         GlobalTypeRegistry().Register(SoundCue::StaticType());
     }
 
-    DRACONIC_DEFINE_OBJECT(AudioClipSource, "rtti::audio")
+    RTTI_DEFINE_OBJECT(AudioClipSource, "rtti::audio")
     // v2: the named custom-bus section (see Serialize) - old cooks read as version 0.
-    DRACONIC_DEFINE_OBJECT_VERSIONED(AudioBusLayoutSource, "rtti::audio", 2)
-    DRACONIC_DEFINE_OBJECT(AudioBusLayoutResource, "rtti::audio")
-    DRACONIC_DEFINE_OBJECT(SoundCueSource, "rtti::audio")
+    RTTI_DEFINE_OBJECT_VERSIONED(AudioBusLayoutSource, "rtti::audio", 2)
+    RTTI_DEFINE_OBJECT(AudioBusLayoutResource, "rtti::audio")
+    RTTI_DEFINE_OBJECT(SoundCueSource, "rtti::audio")
 }

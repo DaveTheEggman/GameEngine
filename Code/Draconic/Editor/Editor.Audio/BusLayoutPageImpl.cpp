@@ -246,7 +246,7 @@ namespace editor
             RefPtr<pipeline::AudioBusLayoutAsset>(Cast<pipeline::AudioBusLayoutAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"Editor", u8"bus layout '{}' failed to read - page opens empty",
+            LOG_ERROR(u8"Editor", u8"bus layout '{}' failed to read - page opens empty",
                                m_title);
         }
         m_undoBaseline = SnapshotAsset();
@@ -300,7 +300,7 @@ namespace editor
                                         return;
                                     }
                                 }
-                                DRACONIC_LOG_WARNING(u8"Editor",
+                                LOG_WARNING(u8"Editor",
                                                      u8"bus layout: all {} custom slots in use",
                                                      pipeline::kAudioCustomBusSlotCount);
                             }});
@@ -779,7 +779,7 @@ namespace editor
         {
             ClearDirty();
             m_context->RequestCook(false);
-            DRACONIC_LOG_INFO(u8"Editor", u8"saved bus layout '{}'", m_title);
+            LOG_INFO(u8"Editor", u8"saved bus layout '{}'", m_title);
         }
         return saved;
     }

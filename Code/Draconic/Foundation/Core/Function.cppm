@@ -52,7 +52,7 @@ export namespace foundation::core
             else
             {
                 void* memory = allocator.Allocate(sizeof(Target), alignof(Target));
-                DRACONIC_ASSERT_MSG(memory != nullptr, "Function allocation failed");
+                DIAGNOSTIC_ASSERT_MSG(memory != nullptr, "Function allocation failed");
                 m_object = ::new (memory) Target(Forward<F>(callable));
                 m_allocator = &allocator;
             }
@@ -89,7 +89,7 @@ export namespace foundation::core
 
         R operator()(Args... args) const
         {
-            DRACONIC_ASSERT_MSG(m_invoke != nullptr, "Called an empty Function");
+            DIAGNOSTIC_ASSERT_MSG(m_invoke != nullptr, "Called an empty Function");
             return m_invoke(m_object, static_cast<Args&&>(args)...);
         }
 

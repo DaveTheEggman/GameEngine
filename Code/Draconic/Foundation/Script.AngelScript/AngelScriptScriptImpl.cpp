@@ -1560,7 +1560,7 @@ namespace foundation::script::angelscript
             const int typeId = m_engine->RegisterObjectType(type.name, 0, asOBJ_REF);
             if (typeId < 0)
             {
-                DRACONIC_LOG_DEBUG(u8"Script",
+                LOG_DEBUG(u8"Script",
                                    u8"AngelScript: could not declare reflected type '{}' ({})",
                                    ViewOfAscii(type.name), typeId);
                 return;
@@ -1581,7 +1581,7 @@ namespace foundation::script::angelscript
             const int enumTypeId = m_engine->RegisterEnum(type.name);
             if (enumTypeId < 0)
             {
-                DRACONIC_LOG_DEBUG(u8"Script", u8"AngelScript: could not declare enum '{}' ({})",
+                LOG_DEBUG(u8"Script", u8"AngelScript: could not declare enum '{}' ({})",
                                    ViewOfAscii(type.name), enumTypeId);
                 return;
             }
@@ -2712,7 +2712,7 @@ namespace foundation::script::angelscript
                 // reference type - which DOES take the value.
                 if ((typeId & asTYPEID_MASK_OBJECT) != 0 && (typeId & asTYPEID_OBJHANDLE) == 0)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Script",
                         u8"AngelScript property '{}' is a value member; declare it as a handle "
                         u8"('Type@ {}') to receive a reflected/resource value",

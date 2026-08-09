@@ -323,4 +323,4 @@ namespace
     };
 }
 
-DRACONIC_APP_MAIN(ScriptApp)
+APP_MAIN(ScriptApp)

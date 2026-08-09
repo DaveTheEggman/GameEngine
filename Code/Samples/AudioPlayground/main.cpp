@@ -50,7 +50,7 @@ namespace
         core::Result<core::Array<core::byte>> bytes = core::ReadFile(path);
         if (!bytes.HasValue())
         {
-            DRACONIC_LOG_ERROR(u8"AudioPlayground", u8"missing sample data: {}", path);
+            LOG_ERROR(u8"AudioPlayground", u8"missing sample data: {}", path);
             return {};
         }
         audio::AudioClipMetadata metadata;
@@ -349,4 +349,4 @@ namespace
     };
 }
 
-DRACONIC_APP_MAIN(PlaygroundApp)
+APP_MAIN(PlaygroundApp)

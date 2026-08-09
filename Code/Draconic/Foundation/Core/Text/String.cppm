@@ -62,7 +62,7 @@ export namespace foundation::core
 
         [[nodiscard]] constexpr CharT operator[](usize index) const noexcept
         {
-            DRACONIC_ASSERT(index < m_size);
+            DIAGNOSTIC_ASSERT(index < m_size);
             return m_data[index];
         }
 
@@ -71,7 +71,7 @@ export namespace foundation::core
 
         [[nodiscard]] constexpr BasicStringView SubStr(usize offset, usize count) const noexcept
         {
-            DRACONIC_ASSERT(offset + count <= m_size);
+            DIAGNOSTIC_ASSERT(offset + count <= m_size);
             return BasicStringView{m_data + offset, count};
         }
 
@@ -178,7 +178,7 @@ export namespace foundation::core
             // +1 for the null terminator.
             CharT* newData = static_cast<CharT*>(
                 m_allocator->Allocate((newCapacity + 1) * sizeof(CharT), alignof(CharT)));
-            DRACONIC_ASSERT_MSG(newData != nullptr, "WideString allocation failed");
+            DIAGNOSTIC_ASSERT_MSG(newData != nullptr, "WideString allocation failed");
 
             MemCopy(newData, Data(), (m_size + 1) * sizeof(CharT)); // copy incl. terminator
             FreeHeap();
@@ -296,12 +296,12 @@ export namespace foundation::core
         // --- access --------------------------------------------------------
         [[nodiscard]] CharT& operator[](usize index) noexcept
         {
-            DRACONIC_ASSERT(index < m_size);
+            DIAGNOSTIC_ASSERT(index < m_size);
             return Data()[index];
         }
         [[nodiscard]] const CharT& operator[](usize index) const noexcept
         {
-            DRACONIC_ASSERT(index < m_size);
+            DIAGNOSTIC_ASSERT(index < m_size);
             return Data()[index];
         }
 

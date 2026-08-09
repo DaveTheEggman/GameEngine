@@ -36,7 +36,7 @@ export namespace foundation::audio
     /// The runtime cue product (resource-factory built; also hand-buildable in tests).
     class SoundCue final : public Object
     {
-        DRACONIC_OBJECT(SoundCue, Object)
+        RTTI_OBJECT(SoundCue, Object)
     public:
         Array<SoundCueVariant> variants;
         SoundCueMode mode = SoundCueMode::RandomNoRepeat;
@@ -131,5 +131,5 @@ export namespace foundation::audio
         return pick;
     }
 
-    DRACONIC_DEFINE_OBJECT(SoundCue, "rtti::audio")
+    RTTI_DEFINE_OBJECT(SoundCue, "rtti::audio")
 }

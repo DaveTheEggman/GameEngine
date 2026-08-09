@@ -24,7 +24,7 @@ export namespace pipeline{
 
     class SkeletonAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(SkeletonAsset, pipeline::Asset)
+        RTTI_OBJECT(SkeletonAsset, pipeline::Asset)
     public:
         SkeletonSource source;
         void Serialize(ISerializer& ar) override
@@ -36,7 +36,7 @@ export namespace pipeline{
 
     class AnimationClipAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(AnimationClipAsset, pipeline::Asset)
+        RTTI_OBJECT(AnimationClipAsset, pipeline::Asset)
     public:
         AnimationClipSource source;
         void Serialize(ISerializer& ar) override
@@ -52,7 +52,7 @@ export namespace pipeline{
     // parallel to source.layers[i].states (the page keeps them in sync on add/remove).
     class AnimationGraphAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(AnimationGraphAsset, pipeline::Asset)
+        RTTI_OBJECT(AnimationGraphAsset, pipeline::Asset)
     public:
         AnimationGraphSource source;
         Array<Array<Float2>> layerStatePositions;
@@ -134,8 +134,8 @@ export namespace pipeline{
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(SkeletonAsset, "rtti::pipeline::animation")
-    DRACONIC_DEFINE_OBJECT(AnimationClipAsset, "rtti::pipeline::animation")
-    DRACONIC_DEFINE_OBJECT(AnimationGraphAsset, "rtti::pipeline::animation")
+    RTTI_DEFINE_OBJECT(SkeletonAsset, "rtti::pipeline::animation")
+    RTTI_DEFINE_OBJECT(AnimationClipAsset, "rtti::pipeline::animation")
+    RTTI_DEFINE_OBJECT(AnimationGraphAsset, "rtti::pipeline::animation")
 
 } // namespace foundation::animation

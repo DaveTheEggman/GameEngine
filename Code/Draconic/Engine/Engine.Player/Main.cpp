@@ -97,7 +97,7 @@ int main(int argc, char** argv)
 {
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&consoleSink);
-    DRACONIC_LOG_INFO(u8"Build", u8"Draconic build {}",
+    LOG_INFO(u8"Build", u8"Draconic build {}",
                       reinterpret_cast<const char8_t*>(DraconicBuildStamp()));
     GlobalLogger().SetMinLevel(LogLevel::Info);
 

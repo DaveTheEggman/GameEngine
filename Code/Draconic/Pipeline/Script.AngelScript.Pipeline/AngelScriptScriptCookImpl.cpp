@@ -391,7 +391,7 @@ namespace pipeline{
                 desc.hash = ScriptPropertyNameHash(desc.name.AsView());
                 if (!ResolvePropertyType(typeName, firstToken, desc.type, desc.assetType))
                 {
-                    DRACONIC_LOG_ERROR(u8"Script",
+                    LOG_ERROR(u8"Script",
                                        u8"'{}': property '{}' has unsupported type '{}' "
                                        u8"(valid: float, int, bool, string, Color, Float3, Entity, "
                                        u8"or Guid tagged \"asset:<TypeName>\") - cook failed",
@@ -411,7 +411,7 @@ namespace pipeline{
                                           desc.type == ScriptPropertyType::Asset;
                 if (reflectedRef && (fieldTypeId & asTYPEID_OBJHANDLE) == 0)
                 {
-                    DRACONIC_LOG_ERROR(
+                    LOG_ERROR(
                         u8"Script",
                         u8"'{}': property '{}' must be a handle - declare it '{}@ {}' (a reflected or "
                         u8"resource property is a reference type; a value member silently drops its "
@@ -457,7 +457,7 @@ namespace pipeline{
                 RefPtr<IScriptManager> manager = CreateScriptManagerForLanguage(u8"angelscript");
                 if (manager.Get() == nullptr)
                 {
-                    DRACONIC_LOG_ERROR(u8"Script",
+                    LOG_ERROR(u8"Script",
                                        u8"'{}': no AngelScript backend registered - cook failed",
                                        assetName);
                     return false;

@@ -1,5 +1,5 @@
-#ifndef DRACONIC_SHADERS_DXC_INCLUDES_H_
-#define DRACONIC_SHADERS_DXC_INCLUDES_H_
+#ifndef FOUNDATION_SHADERS_DXC_INCLUDES_H_
+#define FOUNDATION_SHADERS_DXC_INCLUDES_H_
 
 // DXC uses __uuidof (MSVC extension) and has non-standard enum values.
 // Suppress these diagnostics for all TUs that include this header.
@@ -22,4 +22,4 @@
 
 #include <dxc/dxcapi.h>
 
-#endif // DRACONIC_SHADERS_DXC_INCLUDES_H_
+#endif // FOUNDATION_SHADERS_DXC_INCLUDES_H_

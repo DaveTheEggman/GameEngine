@@ -3,8 +3,8 @@
 /// A lightweight hierarchical CPU scope profiler (the design ported from Sedulous.Profiler, made
 /// C++-idiomatic). Scopes nest into a per-thread tree; at frame end every thread's samples merge
 /// into the completed-frame snapshot. Timing uses core::GetTicks (the high-res monotonic counter).
-/// Instrument with the DRACONIC_PROFILE_SCOPE macro (Profiler.h) - it compiles to nothing when
-/// DRACONIC_PROFILING is off. Thread-safe: scopes touch only thread-local state; the registry +
+/// Instrument with the PROFILE_SCOPE macro (Profiler.h) - it compiles to nothing when
+/// BUILD_PROFILING is off. Thread-safe: scopes touch only thread-local state; the registry +
 /// frame swap are mutex-guarded, and the merge runs at frame end when workers are idle.
 
 module;
@@ -248,7 +248,7 @@ export namespace foundation::profiler
         inline static thread_local ThreadData* s_local = nullptr;
     };
 
-    // RAII scope: brackets a profiled region. Use via DRACONIC_PROFILE_SCOPE (Profiler.h).
+    // RAII scope: brackets a profiled region. Use via PROFILE_SCOPE (Profiler.h).
     class ScopedProfile
     {
     public:

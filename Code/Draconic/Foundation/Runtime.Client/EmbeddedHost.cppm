@@ -49,7 +49,7 @@ export namespace foundation::runtime
         [[nodiscard]] RenderWindow* MainRenderWindow() noexcept override { return nullptr; }
         RenderWindow* OpenWindow(const WindowSettings&, const RenderWindowDesc&) override
         {
-            DRACONIC_LOG_WARNING(u8"Runtime", u8"embedded app requested an OS window - refused");
+            LOG_WARNING(u8"Runtime", u8"embedded app requested an OS window - refused");
             return nullptr;
         }
         void CloseWindow(RenderWindow*) override {}
@@ -64,7 +64,7 @@ export namespace foundation::runtime
                 m_onExit(code);
                 return;
             }
-            DRACONIC_LOG_WARNING(u8"Runtime", u8"embedded app requested exit({}) - no handler",
+            LOG_WARNING(u8"Runtime", u8"embedded app requested exit({}) - no handler",
                                  code);
         }
 

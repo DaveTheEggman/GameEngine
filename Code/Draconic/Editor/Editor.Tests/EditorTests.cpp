@@ -14,7 +14,7 @@ namespace
     // A concrete asset: source file + one setting.
     class WidgetAsset final : public Asset
     {
-        DRACONIC_OBJECT(WidgetAsset, Asset)
+        RTTI_OBJECT(WidgetAsset, Asset)
     public:
         i32 quality = 0;
         void Serialize(ISerializer& ar) override
@@ -24,7 +24,7 @@ namespace
         }
     };
 }
-DRACONIC_DEFINE_OBJECT(WidgetAsset, "rtti::editor::editor::test")
+RTTI_DEFINE_OBJECT(WidgetAsset, "rtti::editor::editor::test")
 
 TEST_CASE("editor: Asset carries a source file path + settings (round-trips)")
 {

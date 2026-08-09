@@ -23,7 +23,7 @@ export namespace experimental::gui
 {
     class RectangleDrawable : public Drawable
     {
-        DRACONIC_OBJECT(RectangleDrawable, Drawable)
+        RTTI_OBJECT(RectangleDrawable, Drawable)
     public:
         RectangleDrawable() = default;
         explicit RectangleDrawable(Color color) noexcept { m_color = color; }
@@ -49,5 +49,5 @@ export namespace experimental::gui
         vg::CornerRadii m_radii{};
     };
 
-    DRACONIC_DEFINE_OBJECT(RectangleDrawable, "rtti::gui")
+    RTTI_DEFINE_OBJECT(RectangleDrawable, "rtti::gui")
 }

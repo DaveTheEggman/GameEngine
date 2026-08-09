@@ -71,7 +71,7 @@ export namespace foundation::ui
     /// navigation. Shown via PopupLayer.
     class ContextMenu : public View, public IPopupOwner
     {
-        DRACONIC_OBJECT(ContextMenu, View)
+        RTTI_OBJECT(ContextMenu, View)
     public:
         ContextMenu()
         {
@@ -590,5 +590,5 @@ export namespace foundation::ui
         f32 m_minWidth = 150;
     };
 
-    DRACONIC_DEFINE_OBJECT(ContextMenu, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ContextMenu, "rtti::ui")
 }

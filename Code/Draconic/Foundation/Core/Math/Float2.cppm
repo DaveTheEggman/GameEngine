@@ -28,12 +28,12 @@ export namespace foundation::core
 
         [[nodiscard]] constexpr f32& operator[](usize i) noexcept
         {
-            DRACONIC_ASSERT(i < 2);
+            DIAGNOSTIC_ASSERT(i < 2);
             return (&x)[i];
         }
         [[nodiscard]] constexpr f32 operator[](usize i) const noexcept
         {
-            DRACONIC_ASSERT(i < 2);
+            DIAGNOSTIC_ASSERT(i < 2);
             return (&x)[i];
         }
 

@@ -89,7 +89,7 @@ export namespace editor
             }
             if (m_asset.Get() == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"Editor", u8"material '{}' failed to read - page opens empty",
+                LOG_ERROR(u8"Editor", u8"material '{}' failed to read - page opens empty",
                                    m_title);
             }
 
@@ -329,7 +329,7 @@ export namespace editor
         {
             return nullptr;
         }
-        DRACONIC_LOG_INFO(u8"Editor", u8"created {} material '{}'", unlit ? u8"unlit" : u8"PBR",
+        LOG_INFO(u8"Editor", u8"created {} material '{}'", unlit ? u8"unlit" : u8"PBR",
                           instance->Path());
         context.RequestCook(false); // pickable as soon as the product lands
         return instance;
@@ -362,7 +362,7 @@ export namespace editor
 
     class MaterialPreviewSettings final : public ISerializable
     {
-        DRACONIC_OBJECT(MaterialPreviewSettings, ISerializable)
+        RTTI_OBJECT(MaterialPreviewSettings, ISerializable)
     public:
         Array<MaterialPreviewPref> prefs;
 
@@ -399,5 +399,5 @@ export namespace editor
         context.RegisterCreator(Move(unlit));
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(MaterialPreviewSettings, "rtti::editor::editor", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(MaterialPreviewSettings, "rtti::editor::editor", 1)
 }

@@ -299,14 +299,14 @@ namespace
     };
 }
 
-DRACONIC_REFLECT_ENUM(TestMode, "rtti::editor::editor::test")
+REFLECT_ENUM(TestMode, "rtti::editor::editor::test")
 {
     builder.Value("Off", TestMode::Off);
     builder.Value("Slow", TestMode::Slow);
     builder.Value("Fast", TestMode::Fast);
 }
 
-DRACONIC_REFLECT_VALUE(WidgetComponent, "rtti::editor::editor::test")
+REFLECT_VALUE(WidgetComponent, "rtti::editor::editor::test")
 {
     builder.Property<&WidgetComponent::speed>("speed")
         .Property<&WidgetComponent::spin>("spin")
@@ -656,7 +656,7 @@ namespace
 
 }
 
-DRACONIC_REFLECT_VALUE(WindSettings, "rtti::editor::editor::test")
+REFLECT_VALUE(WindSettings, "rtti::editor::editor::test")
 {
     builder.DataVersion(1).Property<&WindSettings::speed>("speed");
 }

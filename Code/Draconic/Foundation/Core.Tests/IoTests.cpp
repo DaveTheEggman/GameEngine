@@ -407,7 +407,7 @@ namespace
     // A serializable object: implements Serialize() once for both directions.
     class Widget final : public ISerializable
     {
-        DRACONIC_OBJECT(Widget, ISerializable)
+        RTTI_OBJECT(Widget, ISerializable)
     public:
         i32 id = 0;
         String label;
@@ -422,7 +422,7 @@ namespace
     };
 }
 
-DRACONIC_DEFINE_OBJECT(Widget, "rtti::test")
+RTTI_DEFINE_OBJECT(Widget, "rtti::test")
 
 TEST_CASE("serialization: ISerializable round-trips through BinarySerializer")
 {

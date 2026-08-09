@@ -1,5 +1,5 @@
 // Engine::Script - implementation unit: the reflection bodies + the
-// component-destroy hook. They live OUTSIDE the interface for GCC: DRACONIC_REFLECT_*
+// component-destroy hook. They live OUTSIDE the interface for GCC: REFLECT_*
 // bodies in a module interface make GCC emit an unreadable gcm cluster for
 // -fno-module-lazy consumers (and a cross-partition inline virtual is not reliably
 // emitted by either compiler).
@@ -43,7 +43,7 @@ namespace engine::script
     // behavior array renders through the bespoke inspector section), but it MUST be
     // reflected so the Add Component menu lists it and versioned payloads carry a
     // data version.
-    DRACONIC_REFLECT_VALUE(ScriptComponent, "rtti::engine::script")
+    REFLECT_VALUE(ScriptComponent, "rtti::engine::script")
     {
         builder.Attribute("displayName", String(u8"Script"))
             .Attribute("category", String(u8"Scripting"))
@@ -52,7 +52,7 @@ namespace engine::script
 
     // The scene-root script block (one per scene). Reflected so the scene-settings inspector renders
     // its Level-script Ref picker + enable toggle, and so versioned payloads carry a data version.
-    DRACONIC_REFLECT_VALUE(SceneScriptSettings, "rtti::engine::script")
+    REFLECT_VALUE(SceneScriptSettings, "rtti::engine::script")
     {
         builder.Attribute("displayName", String(u8"Scene Script"))
             .Attribute("category", String(u8"Scripting"))

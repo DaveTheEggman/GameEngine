@@ -1,6 +1,6 @@
 // Draconic Particles - particles.subsystem implementation unit: the component reflection body.
 //
-// Kept OUT of the :components interface partition: DRACONIC_REFLECT_* bodies in an interface
+// Kept OUT of the :components interface partition: REFLECT_* bodies in an interface
 // unit make GCC emit an unreadable gcm cluster for consumers (see gcc-module-interface-hygiene).
 // ParticleComponents.cppm declares RegisterParticleComponentReflection(); this unit defines it.
 
@@ -18,7 +18,7 @@ namespace core = foundation::core;
 
 namespace engine::particles
 {
-    DRACONIC_REFLECT_VALUE(ParticleEffectComponent, "rtti::engine::particles")
+    REFLECT_VALUE(ParticleEffectComponent, "rtti::engine::particles")
     {
         builder.Attribute("displayName", String(u8"Particle Effect"))
             .Attribute("category", String(u8"Effects"))
@@ -37,7 +37,7 @@ namespace engine::particles
 
     // The scene-bound particles handle: SceneParticles.of(scene).play/stop/restart/pause/isPlaying/
     // setEffect. `of` returns SceneParticles by value (concrete cross-backend return), like ScenePhysics.
-    DRACONIC_REFLECT_VALUE(SceneParticles, "rtti::engine::particles")
+    REFLECT_VALUE(SceneParticles, "rtti::engine::particles")
     {
         builder.Method<&SceneParticles::play>("play", {"entity"});
         builder.Method<&SceneParticles::stop>("stop", {"entity"});

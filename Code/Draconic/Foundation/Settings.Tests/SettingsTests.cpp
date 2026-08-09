@@ -18,7 +18,7 @@ namespace
     // A test settings section (v1): plain String fields so it round-trips on any backend.
     class GameSettings : public ISerializable
     {
-        DRACONIC_OBJECT(GameSettings, ISerializable)
+        RTTI_OBJECT(GameSettings, ISerializable)
     public:
         String profile = String(u8"default");
         String locale = String(u8"en");
@@ -29,7 +29,7 @@ namespace
             foundation::core::Serialize(ar, "locale", locale);
         }
     };
-    DRACONIC_DEFINE_OBJECT_VERSIONED(GameSettings, "rtti::test", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(GameSettings, "rtti::test", 1)
 
     // Load needs the type resolvable by name + constructible by id (idempotent to call repeatedly).
     void EnsureRegistered()
@@ -91,7 +91,7 @@ TEST_CASE("core/system: GetEnvironmentVariable + UserDataDir")
 {
     // PATH is defined on every platform we target; a bogus name is absent.
     CHECK(GetEnvironmentVariable(u8"PATH").HasValue());
-    CHECK_FALSE(GetEnvironmentVariable(u8"DRACONIC_DEFINITELY_NOT_SET_XYZ_123").HasValue());
+    CHECK_FALSE(GetEnvironmentVariable(u8"ENV_DEFINITELY_NOT_SET_XYZ_123").HasValue());
     CHECK(GetUserDataDirectory(u8"draconic").Size() > 0u);
 
     // The running test executable resolves, and its directory is a prefix of the full path.
@@ -109,16 +109,16 @@ namespace
 {
     class SecA : public ISerializable
     {
-        DRACONIC_OBJECT(SecA, ISerializable)
+        RTTI_OBJECT(SecA, ISerializable)
     public:
         i32 a = 0;
         void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, "a", a); }
     };
-    DRACONIC_DEFINE_OBJECT_VERSIONED(SecA, "rtti::test", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(SecA, "rtti::test", 1)
 
     class SecX : public ISerializable // the "unknown" one (registered only in the final registry)
     {
-        DRACONIC_OBJECT(SecX, ISerializable)
+        RTTI_OBJECT(SecX, ISerializable)
     public:
         i32 x = 0;
         String tag = String(u8"");
@@ -128,16 +128,16 @@ namespace
             foundation::core::Serialize(ar, "tag", tag);
         }
     };
-    DRACONIC_DEFINE_OBJECT_VERSIONED(SecX, "rtti::test", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(SecX, "rtti::test", 1)
 
     class SecB : public ISerializable
     {
-        DRACONIC_OBJECT(SecB, ISerializable)
+        RTTI_OBJECT(SecB, ISerializable)
     public:
         i32 b = 0;
         void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, "b", b); }
     };
-    DRACONIC_DEFINE_OBJECT_VERSIONED(SecB, "rtti::test", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(SecB, "rtti::test", 1)
 
     void RegisterAB(TypeRegistry& types, SerializableRegistry& ser)
     {

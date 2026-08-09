@@ -1,4 +1,4 @@
-// Foundation::Net.Manager - implementation unit: the DRACONIC_REFLECT_* body for the Net facade +
+// Foundation::Net.Manager - implementation unit: the REFLECT_* body for the Net facade +
 // the registration (kept out of the interface unit per the GCC gcm-cluster rule).
 
 module;
@@ -18,7 +18,7 @@ namespace core = foundation::core;
 
 namespace foundation::net
 {
-    DRACONIC_REFLECT(Net, "rtti::net")
+    REFLECT_MEMBERS(Net, "rtti::net")
     {
         builder.Method<&Net::isServer>("isServer");
         builder.Method<&Net::isClient>("isClient");

@@ -27,7 +27,7 @@ export namespace experimental::gui
 
     class RadioButton : public UIWidget
     {
-        DRACONIC_OBJECT(RadioButton, UIWidget)
+        RTTI_OBJECT(RadioButton, UIWidget)
         friend class RadioGroup;
 
     public:
@@ -177,5 +177,5 @@ export namespace experimental::gui
             SetSelectedState(true);
     }
 
-    DRACONIC_DEFINE_OBJECT(RadioButton, "rtti::gui")
+    RTTI_DEFINE_OBJECT(RadioButton, "rtti::gui")
 }

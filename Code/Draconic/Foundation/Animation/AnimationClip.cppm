@@ -151,7 +151,7 @@ export namespace foundation::animation
     // can build into it via the resource system.
     class AnimationClip : public Object
     {
-        DRACONIC_OBJECT(AnimationClip, Object)
+        RTTI_OBJECT(AnimationClip, Object)
     public:
         AnimationClip() = default;
         explicit AnimationClip(StringView name, f32 duration = 0.0f, bool isLooping = false)
@@ -362,6 +362,6 @@ export namespace foundation::animation
         Array<AnimationEvent> m_events;
     };
 
-    DRACONIC_DEFINE_OBJECT(AnimationClip, "rtti::animation")
+    RTTI_DEFINE_OBJECT(AnimationClip, "rtti::animation")
 
 } // namespace foundation::animation

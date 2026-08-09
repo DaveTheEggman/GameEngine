@@ -29,7 +29,7 @@ export namespace foundation::geometry
     // arrays, so they serialize via the primitive Array<T> path).
     class StaticMeshSource : public ISerializable
     {
-        DRACONIC_OBJECT(StaticMeshSource, ISerializable)
+        RTTI_OBJECT(StaticMeshSource, ISerializable)
     public:
         String name;
         Array<u8> vertexBlob; // raw StaticMeshVertex bytes (48B each)
@@ -137,7 +137,7 @@ export namespace foundation::geometry
     // Cooked skinned mesh: the static cooked data + the parallel skinning stream + skeleton.
     class SkinnedMeshSource final : public StaticMeshSource
     {
-        DRACONIC_OBJECT(SkinnedMeshSource, StaticMeshSource)
+        RTTI_OBJECT(SkinnedMeshSource, StaticMeshSource)
     public:
         Array<u8> skinningBlob; // raw VertexSkinning bytes (24B each)
         i32 skeletonIndex = -1;
@@ -266,7 +266,7 @@ export namespace foundation::geometry
         }
     };
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(StaticMeshSource, "rtti::geometry", 2)
-    DRACONIC_DEFINE_OBJECT_VERSIONED(SkinnedMeshSource, "rtti::geometry", 2)
+    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshSource, "rtti::geometry", 2)
+    RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshSource, "rtti::geometry", 2)
 
 } // namespace foundation::geometry

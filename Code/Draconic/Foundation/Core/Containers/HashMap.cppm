@@ -321,7 +321,7 @@ export namespace foundation::core
                 m_allocator->Allocate(newCapacity * sizeof(Entry), alignof(Entry)));
             m_states = static_cast<State*>(
                 m_allocator->Allocate(newCapacity * sizeof(State), alignof(State)));
-            DRACONIC_ASSERT_MSG(m_entries != nullptr && m_states != nullptr,
+            DIAGNOSTIC_ASSERT_MSG(m_entries != nullptr && m_states != nullptr,
                                 "HashMap allocation failed");
 
             for (usize i = 0; i < newCapacity; ++i)

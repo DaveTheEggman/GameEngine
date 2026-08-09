@@ -9,7 +9,7 @@
 #include <doctest/doctest.h>
 
 #include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h" // DRACONIC_REFLECT_VALUE (the OPTION 1 test component)
+#include "Core/Reflection/Reflect.h" // REFLECT_VALUE (the OPTION 1 test component)
 #include <initializer_list>
 
 import foundation.core;
@@ -67,7 +67,7 @@ namespace
     {
     };
 }
-DRACONIC_REFLECT_VALUE(Gadget, "rtti::engine::script::test")
+REFLECT_VALUE(Gadget, "rtti::engine::script::test")
 {
     builder.Property<&Gadget::power>("power");
     // The generic OPTION 1 factory: Gadget.of(entity) -> a RESOLVE handle of type Gadget.

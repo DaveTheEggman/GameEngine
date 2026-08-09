@@ -695,7 +695,7 @@ export namespace foundation::animation
     // A resource product (Object) so a cooked AnimationGraphSource can build into it.
     class AnimationGraph : public Object
     {
-        DRACONIC_OBJECT(AnimationGraph, Object)
+        RTTI_OBJECT(AnimationGraph, Object)
     public:
         [[nodiscard]] Array<AnimationGraphParameter>& Parameters() noexcept { return m_parameters; }
         [[nodiscard]] const Array<AnimationGraphParameter>& Parameters() const noexcept
@@ -1242,6 +1242,6 @@ export namespace foundation::animation
         Array<Link2D> m_links2D;
     };
 
-    DRACONIC_DEFINE_OBJECT(AnimationGraph, "rtti::animation")
+    RTTI_DEFINE_OBJECT(AnimationGraph, "rtti::animation")
 
 } // namespace foundation::animation

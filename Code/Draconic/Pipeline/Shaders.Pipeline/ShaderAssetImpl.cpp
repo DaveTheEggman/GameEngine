@@ -1,6 +1,6 @@
 // Pipeline::Shaders - reflection implementation unit: ShaderAsset's reflected surface.
 //
-// Kept OUT of the ShaderAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster;
+// Kept OUT of the ShaderAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). ShaderAsset::StaticType() gains its authored string
 // properties here. No enums, so the type reflection rides StaticType() with no registrar change.
 // Reflection track P1.
@@ -18,7 +18,7 @@ using namespace foundation::core;
 using namespace foundation::shaders;
 
 namespace pipeline{
-    DRACONIC_REFLECT(ShaderAsset, "rtti::pipeline::shaders")
+    REFLECT_MEMBERS(ShaderAsset, "rtti::pipeline::shaders")
     {
         builder.Attribute("displayName", String(u8"Shader"))
             .Attribute("category", String(u8"Rendering"))

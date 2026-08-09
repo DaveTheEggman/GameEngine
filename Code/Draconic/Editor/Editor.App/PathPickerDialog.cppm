@@ -32,7 +32,7 @@ export namespace editor::app
 
     class PathPickerDialog final : public ui::Dialog
     {
-        DRACONIC_OBJECT(PathPickerDialog, ui::Dialog)
+        RTTI_OBJECT(PathPickerDialog, ui::Dialog)
     public:
         /// The pick result: a root-relative path. Fired once, before close.
         Function<void(StringView)> OnPicked;
@@ -280,5 +280,5 @@ export namespace editor::app
         String m_filter;
     };
 
-    DRACONIC_DEFINE_OBJECT(PathPickerDialog, "rtti::editor::editor::app")
+    RTTI_DEFINE_OBJECT(PathPickerDialog, "rtti::editor::editor::app")
 }

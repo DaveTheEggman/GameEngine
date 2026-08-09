@@ -31,7 +31,7 @@ export namespace foundation::ui
 {
     class Slider : public View
     {
-        DRACONIC_OBJECT(Slider, View)
+        RTTI_OBJECT(Slider, View)
     public:
         Property<f32> Value{0.0f};
         Property<f32> Min{0.0f};
@@ -310,5 +310,5 @@ export namespace foundation::ui
         bool m_dragging = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(Slider, "rtti::ui")
+    RTTI_DEFINE_OBJECT(Slider, "rtti::ui")
 }

@@ -29,7 +29,7 @@ export namespace foundation::ui
 {
     class Button : public ButtonBase
     {
-        DRACONIC_OBJECT(Button, ButtonBase)
+        RTTI_OBJECT(Button, ButtonBase)
     public:
         Property<String> Text;
         Property<Optional<f32>> FontSize;
@@ -116,5 +116,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(Button, "rtti::ui")
+    RTTI_DEFINE_OBJECT(Button, "rtti::ui")
 }

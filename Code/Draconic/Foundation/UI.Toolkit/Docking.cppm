@@ -52,7 +52,7 @@ export namespace foundation::ui::toolkit
     // ============================================================================================
     class DockDragPreview : public View
     {
-        DRACONIC_OBJECT(DockDragPreview, View)
+        RTTI_OBJECT(DockDragPreview, View)
     public:
         void SetTitle(StringView title) { m_title = String(title); }
 
@@ -109,7 +109,7 @@ export namespace foundation::ui::toolkit
     // ============================================================================================
     class DockPanelDragData : public DragData
     {
-        DRACONIC_OBJECT(DockPanelDragData, DragData)
+        RTTI_OBJECT(DockPanelDragData, DragData)
     public:
         explicit DockPanelDragData(DockablePanel* panel) : DragData(u8"dock/panel"), Panel(panel) {}
 
@@ -126,7 +126,7 @@ export namespace foundation::ui::toolkit
     // ============================================================================================
     class DockablePanel : public ViewGroup, public IDragSource
     {
-        DRACONIC_OBJECT(DockablePanel, ViewGroup)
+        RTTI_OBJECT(DockablePanel, ViewGroup)
     public:
         DockablePanel() = default;
         explicit DockablePanel(StringView title) { m_title = String(title); }
@@ -422,7 +422,7 @@ export namespace foundation::ui::toolkit
 
     class DockableWindow : public ViewGroup
     {
-        DRACONIC_OBJECT(DockableWindow, ViewGroup)
+        RTTI_OBJECT(DockableWindow, ViewGroup)
     public:
         bool IsOSWindow = false;
         IDockableWindowHost* WindowHost = nullptr;
@@ -888,7 +888,7 @@ export namespace foundation::ui::toolkit
     // ============================================================================================
     class DockTabGroup : public ViewGroup, public IDragSource
     {
-        DRACONIC_OBJECT(DockTabGroup, ViewGroup)
+        RTTI_OBJECT(DockTabGroup, ViewGroup)
     public:
         DockTabGroup() = default;
 
@@ -1459,7 +1459,7 @@ export namespace foundation::ui::toolkit
     // ============================================================================================
     class DockManager : public ViewGroup, public IDropTarget, public IPopupOwner, public IDockHost
     {
-        DRACONIC_OBJECT(DockManager, ViewGroup)
+        RTTI_OBJECT(DockManager, ViewGroup)
     public:
         /// Optional host for OS-level dockable windows.
         IDockableWindowHost* DockableWindowHost = nullptr;
@@ -2733,10 +2733,10 @@ export namespace foundation::ui::toolkit
         m_dragTabIndex = -1;
     }
 
-    DRACONIC_DEFINE_OBJECT(DockDragPreview, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(DockPanelDragData, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(DockablePanel, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(DockableWindow, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(DockTabGroup, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(DockManager, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(DockDragPreview, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(DockPanelDragData, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(DockablePanel, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(DockableWindow, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(DockTabGroup, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(DockManager, "rtti::ui::toolkit")
 }

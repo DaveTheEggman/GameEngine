@@ -183,7 +183,7 @@ export namespace editor
         if (!prefab->WriteObject(doc).IsOk() ||
             !prefab->WriteData(u8"scene", payload.Bytes()).IsOk())
         {
-            DRACONIC_LOG_ERROR(u8"Editor", u8"model prefab write failed for '{}'",
+            LOG_ERROR(u8"Editor", u8"model prefab write failed for '{}'",
                                manifestInstance.Name());
             result.regenerated = false;
             return result;

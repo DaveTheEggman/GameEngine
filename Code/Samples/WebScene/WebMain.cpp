@@ -1,6 +1,6 @@
 // WebMain.cpp - the BROWSER entry for WebScene (see WebSceneApp.h - the shared full-renderer
 // exercise scene). Web platform trio: WebShell + WebGPU + the requestAnimationFrame runner via
-// DRACONIC_APP_MAIN's web body. The cooked WGSL shaders.dpak + this sample's preload wiring live
+// APP_MAIN's web body. The cooked WGSL shaders.dpak + this sample's preload wiring live
 // in CMakeLists (unlike the Player, the sample still BUNDLES its shader pack - it has no export
 // step in front of it).
 
@@ -17,8 +17,8 @@ import foundation.rhi;
 import foundation.runtime;
 import foundation.runtime.client;
 import foundation.shell;
-import foundation.runtime.web;  // RunApplication (browser runner) - required by DRACONIC_APP_MAIN
-import foundation.shell.web;    // WebShell - required by DRACONIC_APP_MAIN
+import foundation.runtime.web;  // RunApplication (browser runner) - required by APP_MAIN
+import foundation.shell.web;    // WebShell - required by APP_MAIN
 import foundation.graphics;
 import foundation.graphics.gpu;
 import engine.defaultapp;
@@ -40,4 +40,4 @@ import extensions.imgui;
 #include "Runtime.Client/AppMain.h"
 #include "WebSceneApp.h"
 
-DRACONIC_APP_MAIN(samples::WebSceneApp)
+APP_MAIN(samples::WebSceneApp)

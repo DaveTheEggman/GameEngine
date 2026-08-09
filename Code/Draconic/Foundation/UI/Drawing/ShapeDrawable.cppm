@@ -19,7 +19,7 @@ export namespace foundation::ui
 {
     class ShapeDrawable : public Drawable
     {
-        DRACONIC_OBJECT(ShapeDrawable, Drawable)
+        RTTI_OBJECT(ShapeDrawable, Drawable)
     public:
         using DrawFn = Function<void(UIDrawContext&, const Rectangle&)>;
 
@@ -37,5 +37,5 @@ export namespace foundation::ui
         DrawFn m_drawFn;
     };
 
-    DRACONIC_DEFINE_OBJECT(ShapeDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ShapeDrawable, "rtti::ui")
 }

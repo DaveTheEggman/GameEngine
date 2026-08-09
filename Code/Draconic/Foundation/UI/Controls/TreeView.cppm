@@ -36,7 +36,7 @@ export namespace foundation::ui
 {
     class TreeView : public ViewGroup
     {
-        DRACONIC_OBJECT(TreeView, ViewGroup)
+        RTTI_OBJECT(TreeView, ViewGroup)
     public:
         struct ItemClickInfo
         {
@@ -308,5 +308,5 @@ export namespace foundation::ui
         UniquePtr<FlattenedTreeAdapter> m_flatAdapter;
     };
 
-    DRACONIC_DEFINE_OBJECT(TreeView, "rtti::ui")
+    RTTI_DEFINE_OBJECT(TreeView, "rtti::ui")
 }

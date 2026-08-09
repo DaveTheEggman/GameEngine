@@ -26,7 +26,7 @@ export namespace experimental::gui
 {
     class Button : public Label
     {
-        DRACONIC_OBJECT(Button, Label)
+        RTTI_OBJECT(Button, Label)
     public:
         Button()
         {
@@ -50,5 +50,5 @@ export namespace experimental::gui
         core::Function<void()> m_onClick;
     };
 
-    DRACONIC_DEFINE_OBJECT(Button, "rtti::gui")
+    RTTI_DEFINE_OBJECT(Button, "rtti::gui")
 }

@@ -22,7 +22,7 @@ export namespace foundation::ui
 
     class FlowLayout : public ViewGroup
     {
-        DRACONIC_OBJECT(FlowLayout, ViewGroup)
+        RTTI_OBJECT(FlowLayout, ViewGroup)
     public:
         OrientationValue Orientation = OrientationValue::Horizontal;
         f32 HSpacing = 0.0f;
@@ -217,5 +217,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(FlowLayout, "rtti::ui")
+    RTTI_DEFINE_OBJECT(FlowLayout, "rtti::ui")
 }

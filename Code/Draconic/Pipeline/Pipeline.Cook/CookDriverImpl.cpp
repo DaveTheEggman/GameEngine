@@ -261,7 +261,7 @@ namespace pipeline
         {
             // Deserialization failed - usually a source written by an OLDER schema
             // (no asset compatibility by policy): delete + re-import it.
-            DRACONIC_LOG_WARNING(u8"Cook",
+            LOG_WARNING(u8"Cook",
                                  u8"'{}' failed to deserialize (stale schema? delete + re-import)",
                                  item.path);
             ++plan.unbuildable;
@@ -270,7 +270,7 @@ namespace pipeline
         Asset* asset = Cast<Asset>(item.asset.Get());
         if (asset == nullptr)
         {
-            DRACONIC_LOG_WARNING(u8"Cook", u8"'{}' has a builder but is not an Asset", item.path);
+            LOG_WARNING(u8"Cook", u8"'{}' has a builder but is not an Asset", item.path);
             ++plan.unbuildable;
             return;
         }
@@ -379,7 +379,7 @@ namespace pipeline
             const Status saved = m_db.Save(*m_cache);
             if (!saved.IsOk())
             {
-                DRACONIC_LOG_WARNING(u8"Cook", u8"pipeline db save failed");
+                LOG_WARNING(u8"Cook", u8"pipeline db save failed");
             }
         }
         return stats;
@@ -452,7 +452,7 @@ namespace pipeline
         }
         if (depth > 64)
         {
-            DRACONIC_LOG_WARNING(u8"Cook", u8"read-dependency cycle at '{}'", instance.Path());
+            LOG_WARNING(u8"Cook", u8"read-dependency cycle at '{}'", instance.Path());
             return 0;
         }
 
@@ -674,7 +674,7 @@ namespace pipeline
         record.references = item.deps.references;
         if (!built.IsOk())
         {
-            DRACONIC_LOG_ERROR(u8"Cook", u8"'{}' failed to cook", item.path);
+            LOG_ERROR(u8"Cook", u8"'{}' failed to cook", item.path);
         }
         // Release the deserialized source NOW: plans previously kept every item's object
         // (full mesh vertex blobs, texture tables) alive until the whole cook finished -

@@ -218,7 +218,7 @@ namespace editor
             Cast<pipeline::AnimationGraphAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"Editor",
+            LOG_ERROR(u8"Editor",
                                u8"animation graph '{}' failed to read - page opens empty", m_title);
         }
         else
@@ -2055,7 +2055,7 @@ namespace editor
         {
             ClearDirty();
             m_context->RequestCook(false);
-            DRACONIC_LOG_INFO(u8"Editor", u8"saved animation graph '{}'", m_title);
+            LOG_INFO(u8"Editor", u8"saved animation graph '{}'", m_title);
         }
         return saved;
     }
@@ -2155,7 +2155,7 @@ namespace editor
         {
             return nullptr;
         }
-        DRACONIC_LOG_INFO(u8"Editor", u8"created animation graph '{}'", instance->Path());
+        LOG_INFO(u8"Editor", u8"created animation graph '{}'", instance->Path());
         context.RequestCook(false);
         return instance;
     }

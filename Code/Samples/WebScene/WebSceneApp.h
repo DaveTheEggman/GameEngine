@@ -20,8 +20,8 @@
 //
 // Not exercised yet: skinning (needs a skinned asset - procedural skinned content is its own task)
 // and multi-view split-screen (Sandbox covers it; this scene stays single-view light).
-#ifndef DRACONIC_SAMPLES_WEBSCENE_APP_H
-#define DRACONIC_SAMPLES_WEBSCENE_APP_H
+#ifndef SAMPLES_WEBSCENE_APP_H
+#define SAMPLES_WEBSCENE_APP_H
 
 #include "../Common/FlyCamera.h" // shared free-fly camera (WASD/QE + RMB-look)
 
@@ -863,4 +863,4 @@ namespace samples
     };
 }
 
-#endif // DRACONIC_SAMPLES_WEBSCENE_APP_H
+#endif // SAMPLES_WEBSCENE_APP_H

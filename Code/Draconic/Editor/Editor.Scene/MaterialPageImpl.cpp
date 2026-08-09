@@ -158,7 +158,7 @@ namespace editor
             ClearDirty();
             // Refresh the cooked product so every scene's proxy hot-swaps to the new look.
             m_context->RequestCook(false);
-            DRACONIC_LOG_INFO(u8"Editor", u8"saved material '{}'", m_title);
+            LOG_INFO(u8"Editor", u8"saved material '{}'", m_title);
         }
         return saved;
     }

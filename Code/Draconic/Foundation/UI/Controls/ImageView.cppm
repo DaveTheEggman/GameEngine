@@ -35,7 +35,7 @@ export namespace foundation::ui
 
     class ImageView : public View
     {
-        DRACONIC_OBJECT(ImageView, View)
+        RTTI_OBJECT(ImageView, View)
     public:
         Property<::foundation::ui::ScaleType> ScaleType{::foundation::ui::ScaleType::FitCenter};
         Property<core::Color> Tint{core::Color::White};
@@ -116,5 +116,5 @@ export namespace foundation::ui
         const image::ImageData* m_image = nullptr;
     };
 
-    DRACONIC_DEFINE_OBJECT(ImageView, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ImageView, "rtti::ui")
 }

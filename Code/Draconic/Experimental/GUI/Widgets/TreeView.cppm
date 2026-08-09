@@ -35,7 +35,7 @@ export namespace experimental::gui
     // A clickable expand/collapse arrow: points right when collapsed, down when expanded.
     class TreeArrow : public UIWidget
     {
-        DRACONIC_OBJECT(TreeArrow, UIWidget)
+        RTTI_OBJECT(TreeArrow, UIWidget)
     public:
         TreeArrow() { SetTag(core::StringView(u8"treearrow")); }
         void SetExpanded(bool expanded)
@@ -91,7 +91,7 @@ export namespace experimental::gui
     // A tree row: an ItemRow with an arrow (clickable) + a hit-transparent label.
     class TreeRow : public ItemRow
     {
-        DRACONIC_OBJECT(TreeRow, ItemRow)
+        RTTI_OBJECT(TreeRow, ItemRow)
     public:
         TreeRow()
         {
@@ -126,7 +126,7 @@ export namespace experimental::gui
 
     class TreeView : public AbstractItemView
     {
-        DRACONIC_OBJECT(TreeView, AbstractItemView)
+        RTTI_OBJECT(TreeView, AbstractItemView)
     public:
         TreeView() { SetTag(core::StringView(u8"treeview")); }
 
@@ -302,7 +302,7 @@ export namespace experimental::gui
         Color m_textColor{0.88f, 0.90f, 0.94f, 1.0f};
     };
 
-    DRACONIC_DEFINE_OBJECT(TreeArrow, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(TreeRow, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(TreeView, "rtti::gui")
+    RTTI_DEFINE_OBJECT(TreeArrow, "rtti::gui")
+    RTTI_DEFINE_OBJECT(TreeRow, "rtti::gui")
+    RTTI_DEFINE_OBJECT(TreeView, "rtti::gui")
 }

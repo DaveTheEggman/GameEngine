@@ -16,7 +16,7 @@ namespace
 {
     class MaterialResource final : public ISerializable
     {
-        DRACONIC_OBJECT(MaterialResource, ISerializable)
+        RTTI_OBJECT(MaterialResource, ISerializable)
     public:
         i32 shininess = 0;
         String shader;
@@ -108,7 +108,7 @@ namespace
     SerializerFactory MakeXmlFactory() { return foundation::xml::XmlSerializerFactory(); }
 }
 
-DRACONIC_DEFINE_OBJECT(MaterialResource, "rtti::content::test")
+RTTI_DEFINE_OBJECT(MaterialResource, "rtti::content::test")
 
 TEST_CASE("content: binary round-trip")
 {

@@ -30,7 +30,7 @@ export namespace foundation::ui
 
     class GradientDrawable : public Drawable
     {
-        DRACONIC_OBJECT(GradientDrawable, Drawable)
+        RTTI_OBJECT(GradientDrawable, Drawable)
     public:
         core::Color StartColor{};
         core::Color EndColor{};
@@ -81,5 +81,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(GradientDrawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(GradientDrawable, "rtti::ui")
 }

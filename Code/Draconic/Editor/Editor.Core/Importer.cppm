@@ -31,7 +31,7 @@ export namespace editor
     /// return the toggle list; the base is intentionally empty (no options = no dialog).
     class ImportOptions : public ISerializable
     {
-        DRACONIC_OBJECT(ImportOptions, ISerializable)
+        RTTI_OBJECT(ImportOptions, ISerializable)
     public:
         struct Toggle
         {
@@ -158,7 +158,7 @@ export namespace editor
                Array<DeferredImportWrite>* deferredWrites = nullptr) = 0;
     };
 
-    DRACONIC_DEFINE_OBJECT(ImportOptions, "rtti::editor::editor")
+    RTTI_DEFINE_OBJECT(ImportOptions, "rtti::editor::editor")
 
     class ImporterRegistry
     {

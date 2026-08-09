@@ -34,7 +34,7 @@ export namespace foundation::ui
 {
     class CheckBox : public View
     {
-        DRACONIC_OBJECT(CheckBox, View)
+        RTTI_OBJECT(CheckBox, View)
     public:
         Property<bool> IsChecked{false};
         Property<String> Text;
@@ -214,5 +214,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(CheckBox, "rtti::ui")
+    RTTI_DEFINE_OBJECT(CheckBox, "rtti::ui")
 }

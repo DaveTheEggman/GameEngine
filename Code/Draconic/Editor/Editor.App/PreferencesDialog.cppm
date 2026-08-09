@@ -27,7 +27,7 @@ export namespace editor::app
 
     class EditorPreferencesDialog final : public ui::Dialog
     {
-        DRACONIC_OBJECT(EditorPreferencesDialog, ui::Dialog)
+        RTTI_OBJECT(EditorPreferencesDialog, ui::Dialog)
     public:
         EditorPreferencesDialog(editor::EditorContext& context, settings::Settings& store)
             : ui::Dialog(u8"Preferences"), m_context(&context), m_settings(&store)
@@ -212,5 +212,5 @@ export namespace editor::app
         ui::Label* m_uiScaleLabel = nullptr;
     };
 
-    DRACONIC_DEFINE_OBJECT(EditorPreferencesDialog, "rtti::editor::editor::app")
+    RTTI_DEFINE_OBJECT(EditorPreferencesDialog, "rtti::editor::editor::app")
 }

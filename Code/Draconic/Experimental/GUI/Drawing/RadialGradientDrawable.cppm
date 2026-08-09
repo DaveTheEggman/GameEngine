@@ -25,7 +25,7 @@ export namespace experimental::gui
 {
     class RadialGradientDrawable : public Drawable
     {
-        DRACONIC_OBJECT(RadialGradientDrawable, Drawable)
+        RTTI_OBJECT(RadialGradientDrawable, Drawable)
     public:
         core::Float2 Center{0.5f, 0.5f}; ///< Center as a fraction of the bounds.
         f32 RadiusScale = 1.0f;          ///< Radius = RadiusScale * farthest-corner distance.
@@ -76,5 +76,5 @@ export namespace experimental::gui
         Array<vg::GradientStop> m_stops;
     };
 
-    DRACONIC_DEFINE_OBJECT(RadialGradientDrawable, "rtti::gui")
+    RTTI_DEFINE_OBJECT(RadialGradientDrawable, "rtti::gui")
 }

@@ -36,7 +36,7 @@ export namespace pipeline
     // add their import settings; call Asset::Serialize for the file name.
     class Asset : public ISerializable
     {
-        DRACONIC_OBJECT(Asset, ISerializable)
+        RTTI_OBJECT(Asset, ISerializable)
     public:
         // Source file, relative to the sources mount (empty = embedded data). Typed:
         // normalization guarantees forward-slash relative form in cooked data - a

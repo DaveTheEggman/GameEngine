@@ -4,7 +4,7 @@
 // current/original preview swatches. Ported from Sedulous.UI.Toolkit/src/ColorPicker.bf (a ViewGroup).
 //
 // The Beef private inner classes (SVSquare / HueStripView / AlphaStripView) become PUBLIC nested View
-// subclasses so each can carry its own DRACONIC_OBJECT identity (defined out-of-line at namespace scope).
+// subclasses so each can carry its own RTTI_OBJECT identity (defined out-of-line at namespace scope).
 // Their OnDraw / UpdateFromMouse dereference the enclosing ColorPicker (incomplete inside the class body),
 // so those bodies are defined out-of-line after ColorPicker is complete - the same idiom Toolbar uses.
 // Beef `new`/owned children -> borrowed raw T* (the ViewGroup child tree owns the RefPtr). Beef byte
@@ -31,7 +31,7 @@ export namespace foundation::ui::toolkit
     /// and current/original preview swatches.
     class ColorPicker : public ViewGroup
     {
-        DRACONIC_OBJECT(ColorPicker, ViewGroup)
+        RTTI_OBJECT(ColorPicker, ViewGroup)
     public:
         Event<void(ColorPicker*, Color)> OnColorChanged;
 
@@ -153,12 +153,12 @@ export namespace foundation::ui::toolkit
             }
         }
 
-        // === Inner views (public nested so each carries a DRACONIC_OBJECT identity) ===
+        // === Inner views (public nested so each carries a RTTI_OBJECT identity) ===
 
         /// Saturation/Value square: S on X-axis, V on Y-axis (inverted).
         class SVSquare : public View
         {
-            DRACONIC_OBJECT(SVSquare, View)
+            RTTI_OBJECT(SVSquare, View)
         public:
             explicit SVSquare(ColorPicker* picker) : m_picker(picker) {}
 
@@ -206,7 +206,7 @@ export namespace foundation::ui::toolkit
         /// Vertical hue rainbow strip.
         class HueStripView : public View
         {
-            DRACONIC_OBJECT(HueStripView, View)
+            RTTI_OBJECT(HueStripView, View)
         public:
             explicit HueStripView(ColorPicker* picker) : m_picker(picker) {}
 
@@ -254,7 +254,7 @@ export namespace foundation::ui::toolkit
         /// Vertical alpha strip with checkerboard background.
         class AlphaStripView : public View
         {
-            DRACONIC_OBJECT(AlphaStripView, View)
+            RTTI_OBJECT(AlphaStripView, View)
         public:
             explicit AlphaStripView(ColorPicker* picker) : m_picker(picker) {}
 
@@ -676,8 +676,8 @@ export namespace foundation::ui::toolkit
         m_picker->SyncFromHSV();
     }
 
-    DRACONIC_DEFINE_OBJECT(ColorPicker, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(ColorPicker::SVSquare, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(ColorPicker::HueStripView, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(ColorPicker::AlphaStripView, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ColorPicker, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ColorPicker::SVSquare, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ColorPicker::HueStripView, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ColorPicker::AlphaStripView, "rtti::ui::toolkit")
 }

@@ -32,7 +32,7 @@ namespace engine::runtime
 {
     // The SceneLoader.* facade reflection body + registration (kept out of the interface unit per the
     // GCC gcm-cluster rule). Owned by the game-instance project (the out-of-tree facade pattern).
-    DRACONIC_REFLECT(SceneLoader, "rtti::engine::runtime")
+    REFLECT_MEMBERS(SceneLoader, "rtti::engine::runtime")
     {
         builder.Method<&SceneLoader::loadSceneAsync>("loadSceneAsync");
         builder.Method<&SceneLoader::loadProgress>("loadProgress");
@@ -65,7 +65,7 @@ namespace engine::runtime
         script::IScriptContext* context = m_runHost.EnsureContextForFile(name);
         if (context == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
+            LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
             return false;
         }
         m_scriptContext = core::RefPtr<script::IScriptContext>(context);
@@ -82,20 +82,20 @@ namespace engine::runtime
             .NoteExternalLoad(); // the game script loaded its own module (behaviors reload target)
         if (!loaded)
         {
-            DRACONIC_LOG_ERROR(u8"App", u8"game script '{}' failed to compile", name);
+            LOG_ERROR(u8"App", u8"game script '{}' failed to compile", name);
             StopScript();
             return false;
         }
         m_game = m_scriptContext->CreateInstance(u8"Game", core::Span<core::Variant>{});
         if (m_game.Get() == nullptr)
         {
-            DRACONIC_LOG_ERROR(u8"App", u8"game script '{}' has no `Game` class (construct new())",
+            LOG_ERROR(u8"App", u8"game script '{}' has no `Game` class (construct new())",
                                name);
             StopScript();
             return false;
         }
         (void)m_game->Invoke(u8"launch", core::Span<core::Variant>{});
-        DRACONIC_LOG_INFO(u8"App", u8"game script '{}' launched", name);
+        LOG_INFO(u8"App", u8"game script '{}' launched", name);
         return true;
     }
 
@@ -128,7 +128,7 @@ namespace engine::runtime
         m_net = net::NetworkManager::HostServer(port, dedicated);
         if (!m_net)
         {
-            DRACONIC_LOG_ERROR(u8"App", u8"failed to open a server socket on port {}", port);
+            LOG_ERROR(u8"App", u8"failed to open a server socket on port {}", port);
             return false;
         }
         m_net->SetReplicatedScene(m_scene);
@@ -136,7 +136,7 @@ namespace engine::runtime
         {
             m_onEndpointOnline(*m_net);
         } // app wires per-endpoint setup (spawn resolver)
-        DRACONIC_LOG_INFO(u8"App", u8"server listening on port {}", m_net->BoundPort());
+        LOG_INFO(u8"App", u8"server listening on port {}", m_net->BoundPort());
         return true;
     }
 
@@ -145,7 +145,7 @@ namespace engine::runtime
         m_net = net::NetworkManager::JoinServer(host, port);
         if (!m_net)
         {
-            DRACONIC_LOG_ERROR(u8"App", u8"failed to open a client socket");
+            LOG_ERROR(u8"App", u8"failed to open a client socket");
             return false;
         }
         m_net->SetReplicatedScene(m_scene);
@@ -153,7 +153,7 @@ namespace engine::runtime
         {
             m_onEndpointOnline(*m_net);
         }
-        DRACONIC_LOG_INFO(u8"App", u8"connecting to {}:{}", host, port);
+        LOG_INFO(u8"App", u8"connecting to {}:{}", host, port);
         return true;
     }
 
@@ -161,7 +161,7 @@ namespace engine::runtime
     {
         if (m_net)
         {
-            DRACONIC_LOG_INFO(u8"App", u8"networking stopped");
+            LOG_INFO(u8"App", u8"networking stopped");
         }
         m_net = nullptr; // closes the session (drops peers) + the owned socket
     }
@@ -383,7 +383,7 @@ namespace engine::runtime
             {
                 return;
             }
-            DRACONIC_LOG_ERROR(u8"App", u8"game script update() faulted - stopping script");
+            LOG_ERROR(u8"App", u8"game script update() faulted - stopping script");
             m_game = nullptr;
         }
     }

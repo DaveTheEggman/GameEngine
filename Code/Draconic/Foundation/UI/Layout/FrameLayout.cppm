@@ -31,7 +31,7 @@ export namespace foundation::ui
     /// LayoutParams for a FrameLayout child: a Gravity anchor.
     class FrameLayoutParams : public LayoutParams
     {
-        DRACONIC_OBJECT(FrameLayoutParams, LayoutParams)
+        RTTI_OBJECT(FrameLayoutParams, LayoutParams)
     public:
         GravityValue Gravity = GravityValue::None;
         FrameLayoutParams() = default;
@@ -39,7 +39,7 @@ export namespace foundation::ui
 
     class FrameLayout : public ViewGroup
     {
-        DRACONIC_OBJECT(FrameLayout, ViewGroup)
+        RTTI_OBJECT(FrameLayout, ViewGroup)
     public:
         FrameLayout() = default;
 
@@ -103,6 +103,6 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(FrameLayoutParams, "rtti::ui")
-    DRACONIC_DEFINE_OBJECT(FrameLayout, "rtti::ui")
+    RTTI_DEFINE_OBJECT(FrameLayoutParams, "rtti::ui")
+    RTTI_DEFINE_OBJECT(FrameLayout, "rtti::ui")
 }

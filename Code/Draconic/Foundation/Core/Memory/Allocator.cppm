@@ -142,7 +142,7 @@ export namespace foundation::core
                 return nullptr;
             }
 
-            DRACONIC_ASSERT(IsPowerOfTwo(alignment));
+            DIAGNOSTIC_ASSERT(IsPowerOfTwo(alignment));
 
             // POSIX only promises alignments that are multiples of sizeof(void*): glibc's
             // aligned_alloc happens to accept less, emscripten's REJECTS it (alignment 1
@@ -155,7 +155,7 @@ export namespace foundation::core
 
             // aligned_alloc requires the size to be a multiple of the alignment.
             const usize alignedSize = AlignUp(size, alignment);
-#if DRACONIC_PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS
             return _aligned_malloc(alignedSize, alignment);
 #else
             return std::aligned_alloc(alignment, alignedSize);
@@ -164,7 +164,7 @@ export namespace foundation::core
 
         void Free(void* pointer) override
         {
-#if DRACONIC_PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS
             _aligned_free(pointer);
 #else
             std::free(pointer);

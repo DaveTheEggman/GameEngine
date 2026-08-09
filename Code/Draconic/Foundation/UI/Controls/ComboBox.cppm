@@ -38,7 +38,7 @@ export namespace foundation::ui
 {
     class ComboBox : public View, public IPopupOwner
     {
-        DRACONIC_OBJECT(ComboBox, View)
+        RTTI_OBJECT(ComboBox, View)
     public:
         Event<void(ComboBox*, i32)> OnSelectionChanged;
 
@@ -298,7 +298,7 @@ export namespace foundation::ui
     /// Dedicated dropdown panel for ComboBox - matches the parent width, highlights selected/hovered items.
     class ComboBoxDropdown : public View
     {
-        DRACONIC_OBJECT(ComboBoxDropdown, View)
+        RTTI_OBJECT(ComboBoxDropdown, View)
     public:
         explicit ComboBoxDropdown(ComboBox* owner) : m_owner(owner)
         {
@@ -500,8 +500,8 @@ export namespace foundation::ui
         f32 m_itemHeight = 28.0f;
     };
 
-    DRACONIC_DEFINE_OBJECT(ComboBox, "rtti::ui")
-    DRACONIC_DEFINE_OBJECT(ComboBoxDropdown, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ComboBox, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ComboBoxDropdown, "rtti::ui")
 
     // Defined out-of-line: OpenDropdown needs ComboBoxDropdown complete.
     inline void ComboBox::OpenDropdown()

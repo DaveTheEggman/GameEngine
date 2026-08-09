@@ -4,7 +4,7 @@
 // inside a core Dialog on click. BeginEdit when the picker opens, EndEdit on OK, CancelEdit on Cancel.
 // Ported from Sedulous.UI.Toolkit/src/PropertyGrid/ColorEditor.bf. Beef `delegate void(Color) Setter` ->
 // Function<void(Color)>; `mSwatch.Color.Value = v` -> Color.SetValue(v). The private inner
-// `ClickableColorSwatch : ColorView` becomes a PUBLIC nested class (own DRACONIC_OBJECT identity) whose
+// `ClickableColorSwatch : ColorView` becomes a PUBLIC nested class (own RTTI_OBJECT identity) whose
 // OnMouseDown (references the enclosing editor + ColorPicker + Dialog) is defined out-of-line after
 // ColorEditor is complete. Beef `new Dialog`/`new ColorPicker` -> RefPtr; the popup layer takes ownership
 // of the shown dialog (ownsView), so the local RefPtrs may drop.
@@ -29,7 +29,7 @@ export namespace foundation::ui::toolkit
     /// Color property editor - ColorView swatch that opens a ColorPicker dialog on click.
     class ColorEditor : public PropertyEditor
     {
-        DRACONIC_OBJECT(ColorEditor, PropertyEditor)
+        RTTI_OBJECT(ColorEditor, PropertyEditor)
     public:
         Function<void(Color)> Setter;
 
@@ -60,7 +60,7 @@ export namespace foundation::ui::toolkit
         /// ColorView that opens a ColorPicker dialog on click.
         class ClickableColorSwatch : public ColorView
         {
-            DRACONIC_OBJECT(ClickableColorSwatch, ColorView)
+            RTTI_OBJECT(ClickableColorSwatch, ColorView)
         public:
             explicit ClickableColorSwatch(ColorEditor* editor) : m_editor(editor) {}
 
@@ -141,6 +141,6 @@ export namespace foundation::ui::toolkit
         e.Handled = true;
     }
 
-    DRACONIC_DEFINE_OBJECT(ColorEditor, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(ColorEditor::ClickableColorSwatch, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ColorEditor, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ColorEditor::ClickableColorSwatch, "rtti::ui::toolkit")
 }

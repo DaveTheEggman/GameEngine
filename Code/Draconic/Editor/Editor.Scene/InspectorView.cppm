@@ -59,7 +59,7 @@ export namespace editor
     // click = picker menu]. The value text refreshes from the ref's Guid each frame.
     class ResourceRefEditor final : public ui::toolkit::PropertyEditor
     {
-        DRACONIC_OBJECT(ResourceRefEditor, ui::toolkit::PropertyEditor)
+        RTTI_OBJECT(ResourceRefEditor, ui::toolkit::PropertyEditor)
     public:
         Function<void()> OnPick; // opens the picker (wired by the inspector)
 
@@ -205,7 +205,7 @@ export namespace editor
     // whole-block undoable command, and the inspector's structural rebuild re-reads.
     class CollisionMatrixEditor final : public ui::toolkit::PropertyEditor
     {
-        DRACONIC_OBJECT(CollisionMatrixEditor, ui::toolkit::PropertyEditor)
+        RTTI_OBJECT(CollisionMatrixEditor, ui::toolkit::PropertyEditor)
     public:
         Array<String> names; // display names (index = group)
         Array<u32> matrix;   // parallel collide masks
@@ -237,7 +237,7 @@ export namespace editor
     // editing). Used for conditional hints like "RigidBody shape=Cooked but no collision shape set".
     class NoticeEditor final : public ui::toolkit::PropertyEditor
     {
-        DRACONIC_OBJECT(NoticeEditor, ui::toolkit::PropertyEditor)
+        RTTI_OBJECT(NoticeEditor, ui::toolkit::PropertyEditor)
     public:
         String message;
         NoticeEditor(StringView name, StringView category)
@@ -259,7 +259,7 @@ export namespace editor
     // inspector wires the callbacks to the reflection MutateComponent + the type-filtered asset picker.
     class ContainerListEditor final : public ui::toolkit::PropertyEditor
     {
-        DRACONIC_OBJECT(ContainerListEditor, ui::toolkit::PropertyEditor)
+        RTTI_OBJECT(ContainerListEditor, ui::toolkit::PropertyEditor)
     public:
         Function<void(usize)> OnPickSlot;
         Function<void(usize)> OnRemoveSlot;
@@ -280,7 +280,7 @@ export namespace editor
 
     class SceneInspectorView : public ui::ViewGroup
     {
-        DRACONIC_OBJECT(SceneInspectorView, ui::ViewGroup)
+        RTTI_OBJECT(SceneInspectorView, ui::ViewGroup)
     public:
         SceneInspectorView(EditorContext& editor, SceneEditContext& edit)
             : m_editor(&editor), m_edit(&edit)
@@ -638,9 +638,9 @@ export namespace editor
         bool m_forceRebuild = false; // set when a data-only mutation changed a section's SHAPE
     };
 
-    DRACONIC_DEFINE_OBJECT(ResourceRefEditor, "rtti::editor::editor")
-    DRACONIC_DEFINE_OBJECT(NoticeEditor, "rtti::editor::editor")
-    DRACONIC_DEFINE_OBJECT(CollisionMatrixEditor, "rtti::editor::editor")
-    DRACONIC_DEFINE_OBJECT(ContainerListEditor, "rtti::editor::editor")
-    DRACONIC_DEFINE_OBJECT(SceneInspectorView, "rtti::editor::editor")
+    RTTI_DEFINE_OBJECT(ResourceRefEditor, "rtti::editor::editor")
+    RTTI_DEFINE_OBJECT(NoticeEditor, "rtti::editor::editor")
+    RTTI_DEFINE_OBJECT(CollisionMatrixEditor, "rtti::editor::editor")
+    RTTI_DEFINE_OBJECT(ContainerListEditor, "rtti::editor::editor")
+    RTTI_DEFINE_OBJECT(SceneInspectorView, "rtti::editor::editor")
 }

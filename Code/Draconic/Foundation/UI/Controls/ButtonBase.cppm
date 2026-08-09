@@ -31,7 +31,7 @@ export namespace foundation::ui
 {
     class ButtonBase : public View
     {
-        DRACONIC_OBJECT(ButtonBase, View)
+        RTTI_OBJECT(ButtonBase, View)
     public:
         ICommand* Command = nullptr; ///< Optional command binding.
         Event<void(ButtonBase*)> OnClick;
@@ -157,5 +157,5 @@ export namespace foundation::ui
         bool m_isPressed = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(ButtonBase, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ButtonBase, "rtti::ui")
 }

@@ -2,7 +2,7 @@
 //
 // EditorLogBuffer: the editor's log capture (docs/design/editor.md §3.10). ONE thread-safe
 // bounded ILogSink on core's GlobalLogger replaces Sedulous's logger+listener+buffer trio -
-// the editor never swaps the logger, it just adds a sink, so every DRACONIC_LOG_* call across
+// the editor never swaps the logger, it just adds a sink, so every LOG_* call across
 // the engine is captured for free. Register it FIRST THING in main (before shell/device
 // creation) so early startup logs land in the console panel.
 //

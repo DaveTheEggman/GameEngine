@@ -6,14 +6,14 @@
 // On web the standard webgpu.h comes from the emdawnwebgpu Emscripten port (Dawn's
 // header, same spec); wgpu-native's wgpu.h does not exist there, so the extensions it
 // declares are compiled out (see WebGpuApi's NATIVE_EXT split).
-#ifndef DRACONIC_RHI_WEBGPU_INCLUDES_H
-#define DRACONIC_RHI_WEBGPU_INCLUDES_H
+#ifndef FOUNDATION_RHI_WEBGPU_INCLUDES_H
+#define FOUNDATION_RHI_WEBGPU_INCLUDES_H
 
 #include "Core/Prelude.h"
 
 #include <webgpu/webgpu.h>
-#if !DRACONIC_PLATFORM_WEB
+#if !PLATFORM_WEB
 #include <webgpu/wgpu.h>
 #endif
 
-#endif // DRACONIC_RHI_WEBGPU_INCLUDES_H
+#endif // FOUNDATION_RHI_WEBGPU_INCLUDES_H

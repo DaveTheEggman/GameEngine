@@ -26,7 +26,7 @@ export namespace experimental::gui
 {
     class Label : public UIWidget
     {
-        DRACONIC_OBJECT(Label, UIWidget)
+        RTTI_OBJECT(Label, UIWidget)
     public:
         Label()
         {
@@ -117,5 +117,5 @@ export namespace experimental::gui
         Text m_text;
     };
 
-    DRACONIC_DEFINE_OBJECT(Label, "rtti::gui")
+    RTTI_DEFINE_OBJECT(Label, "rtti::gui")
 }

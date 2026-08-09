@@ -67,7 +67,7 @@ export namespace foundation::scene
             {
                 if (++pass > kMaxDrainPasses)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Scene",
                         u8"event bus drain hit the {} pass cap - dropping the rest (runaway emit?)",
                         kMaxDrainPasses);

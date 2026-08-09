@@ -34,7 +34,7 @@ export namespace pipeline{
     // fragment alongside). Paths are relative to the sources mount at cook time.
     class ShaderAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(ShaderAsset, pipeline::Asset)
+        RTTI_OBJECT(ShaderAsset, pipeline::Asset)
     public:
         String name;         // logical shader name (how materials reference it)
         String fragmentFile; // fragment-stage HLSL file (vertex = fileName)

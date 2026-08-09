@@ -166,7 +166,7 @@ TEST_CASE("system: FileCopyPreserving copies bytes and keeps the mode")
 // --- RunProcess (blocking spawn + capture) ---------------------------------
 // Subprocess spawning is a desktop-only capability (RunProcess drives the cook-time naga/tint
 // shell-outs). Web has no fork/exec, so these do not apply there.
-#if !DRACONIC_PLATFORM_WEB
+#if !PLATFORM_WEB
 
 TEST_CASE("system: RunProcess captures stdout and reports exit 0")
 {
@@ -211,7 +211,7 @@ TEST_CASE("system: RunProcess reports failure to spawn a missing binary")
     CHECK(r.exitCode < 0);
 }
 
-#endif // !DRACONIC_PLATFORM_WEB (subprocess spawning is desktop-only)
+#endif // !PLATFORM_WEB (subprocess spawning is desktop-only)
 
 // NormalizePathSeparators is fanned out to the platform backends; the Win32 OpenPathInFileManager
 // relies on it (Explorer refuses '/'). This exercises the LINUX backend on the dev box - POSIX-native

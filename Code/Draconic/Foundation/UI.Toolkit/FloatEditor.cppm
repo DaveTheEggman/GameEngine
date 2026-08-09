@@ -3,7 +3,7 @@
 // Float property editor - a NumericField with focus-based edit transactions (Escape restores the pre-edit
 // value). Ported from Sedulous.UI.Toolkit/src/PropertyGrid/FloatEditor.bf. Beef `double` -> f64; `delegate
 // void(double) Setter` -> Function<void(f64)>. The private inner `FloatEditorField : NumericField` becomes
-// a PUBLIC nested class (own DRACONIC_OBJECT identity) whose focus/key overrides are defined out-of-line
+// a PUBLIC nested class (own RTTI_OBJECT identity) whose focus/key overrides are defined out-of-line
 // after FloatEditor is complete.
 
 module;
@@ -24,7 +24,7 @@ export namespace foundation::ui::toolkit
     /// Float property editor - NumericField with focus-based edit transactions.
     class FloatEditor : public PropertyEditor
     {
-        DRACONIC_OBJECT(FloatEditor, PropertyEditor)
+        RTTI_OBJECT(FloatEditor, PropertyEditor)
     public:
         Function<void(f64)> Setter;
 
@@ -59,7 +59,7 @@ export namespace foundation::ui::toolkit
         /// NumericField subclass that tracks edit transactions via focus.
         class FloatEditorField : public NumericField
         {
-            DRACONIC_OBJECT(FloatEditorField, NumericField)
+            RTTI_OBJECT(FloatEditorField, NumericField)
         public:
             explicit FloatEditorField(FloatEditor* editor) : m_editor(editor) {}
 
@@ -147,6 +147,6 @@ export namespace foundation::ui::toolkit
         NumericField::OnKeyDown(e);
     }
 
-    DRACONIC_DEFINE_OBJECT(FloatEditor, "rtti::ui::toolkit")
-    DRACONIC_DEFINE_OBJECT(FloatEditor::FloatEditorField, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(FloatEditor, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(FloatEditor::FloatEditorField, "rtti::ui::toolkit")
 }

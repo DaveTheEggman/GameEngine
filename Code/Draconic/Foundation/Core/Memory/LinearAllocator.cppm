@@ -34,7 +34,7 @@ export namespace foundation::core
 
         [[nodiscard]] void* Allocate(usize size, usize alignment = kDefaultAlignment) override
         {
-            DRACONIC_ASSERT(IsPowerOfTwo(alignment));
+            DIAGNOSTIC_ASSERT(IsPowerOfTwo(alignment));
 
             const usize current = reinterpret_cast<usize>(m_current);
             const usize aligned = AlignUp(current, alignment);

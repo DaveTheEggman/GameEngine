@@ -1,7 +1,7 @@
 // Draconic Core - :reflection partition (RTTI phases c-f)
 //
 // Reflection runtime built on Variant/Instance: properties, methods, enums'
-// attributes, container reflection, and the TypeBuilder used by DRACONIC_REFLECT.
+// attributes, container reflection, and the TypeBuilder used by REFLECT_MEMBERS.
 
 module;
 #include "Core/Prelude.h"
@@ -147,7 +147,7 @@ namespace foundation::core::detail
     };
 
     // The canonical reflected TypeInfo for a nested type: an intrusive Object exposes it as
-    // StaticType() (the patched, property-carrying one); a value type (DRACONIC_REFLECT_VALUE)
+    // StaticType() (the patched, property-carrying one); a value type (REFLECT_VALUE)
     // has no StaticType() and uses TypeOf<P>(). TypeOf<Object-type>() is a DIFFERENT, unpatched
     // TypeInfo, so the nested member's `type` must resolve through here.
     template <typename P>
@@ -258,7 +258,7 @@ export namespace foundation::core
     }
     [[nodiscard]] inline const PropertyInfo& PropertyAt(const TypeInfo& type, usize index) noexcept
     {
-        DRACONIC_ASSERT(index < type.propertyCount);
+        DIAGNOSTIC_ASSERT(index < type.propertyCount);
         return type.properties[index];
     }
 
@@ -324,7 +324,7 @@ export namespace foundation::core
     }
     [[nodiscard]] inline const MethodInfo& MethodAt(const TypeInfo& type, usize index) noexcept
     {
-        DRACONIC_ASSERT(index < type.methodCount);
+        DIAGNOSTIC_ASSERT(index < type.methodCount);
         return type.methods[index];
     }
 
@@ -335,7 +335,7 @@ export namespace foundation::core
     }
     [[nodiscard]] inline const ParamInfo& ParamAt(const MethodInfo& method, usize index) noexcept
     {
-        DRACONIC_ASSERT(index < method.paramCount);
+        DIAGNOSTIC_ASSERT(index < method.paramCount);
         return method.params[index];
     }
 
@@ -363,7 +363,7 @@ export namespace foundation::core
     [[nodiscard]] inline const ConstructorInfo& ConstructorAt(const TypeInfo& type,
                                                               usize index) noexcept
     {
-        DRACONIC_ASSERT(index < type.constructorCount);
+        DIAGNOSTIC_ASSERT(index < type.constructorCount);
         return type.constructors[index];
     }
 
@@ -505,7 +505,7 @@ export namespace foundation::core
     }
     [[nodiscard]] inline const Attribute& AttributeAt(const TypeInfo& type, usize index) noexcept
     {
-        DRACONIC_ASSERT(index < type.attributeCount);
+        DIAGNOSTIC_ASSERT(index < type.attributeCount);
         return type.attributes[index];
     }
 
@@ -544,7 +544,7 @@ export namespace foundation::core
     }
     [[nodiscard]] inline const ConstantInfo& ConstantAt(const TypeInfo& type, usize index) noexcept
     {
-        DRACONIC_ASSERT(index < type.constantCount);
+        DIAGNOSTIC_ASSERT(index < type.constantCount);
         return type.constants[index];
     }
 
@@ -1467,7 +1467,7 @@ namespace foundation::core::detail
 export namespace foundation::core
 {
     // Holds a type's TypeInfo together with the property/method arrays it points
-    // into. Stored as a single static (see DRACONIC_REFLECT); Array's move
+    // into. Stored as a single static (see REFLECT_MEMBERS); Array's move
     // preserves the buffer address, so the TypeInfo pointers stay valid.
     struct TypeData
     {

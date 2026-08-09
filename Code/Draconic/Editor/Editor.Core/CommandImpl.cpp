@@ -36,7 +36,7 @@ namespace editor
             if (top.TypeId() == command->TypeId() && command->MergeInto(top))
             {
                 const bool ok = top.Execute();
-                DRACONIC_ASSERT(ok); // re-executing a merged command must not fail
+                DIAGNOSTIC_ASSERT(ok); // re-executing a merged command must not fail
                 (void)ok;
                 Notify();
                 return true;
@@ -77,7 +77,7 @@ namespace editor
                 m_stack[static_cast<usize>(i)]->Undo();
                 --i;
             }
-            DRACONIC_ASSERT(i >= 0); // unbalanced group markers
+            DIAGNOSTIC_ASSERT(i >= 0); // unbalanced group markers
             m_undoIndex = i - 1;     // step past the begin marker
         }
         else
@@ -104,17 +104,17 @@ namespace editor
                    m_stack[static_cast<usize>(i)]->TypeId() != detail::kEndGroupTypeId)
             {
                 const bool ok = m_stack[static_cast<usize>(i)]->Execute();
-                DRACONIC_ASSERT(ok); // replaying a previously-successful command must not fail
+                DIAGNOSTIC_ASSERT(ok); // replaying a previously-successful command must not fail
                 (void)ok;
                 ++i;
             }
-            DRACONIC_ASSERT(i < static_cast<i64>(m_stack.Size())); // unbalanced group markers
+            DIAGNOSTIC_ASSERT(i < static_cast<i64>(m_stack.Size())); // unbalanced group markers
             m_undoIndex = i;                                       // lands on the end marker
         }
         else
         {
             const bool ok = m_stack[static_cast<usize>(i)]->Execute();
-            DRACONIC_ASSERT(ok);
+            DIAGNOSTIC_ASSERT(ok);
             (void)ok;
             m_undoIndex = i;
         }
@@ -123,7 +123,7 @@ namespace editor
 
     void EditorCommandStack::BeginGroup(StringView groupType)
     {
-        DRACONIC_ASSERT(!m_inGroup); // no nested groups
+        DIAGNOSTIC_ASSERT(!m_inGroup); // no nested groups
         TruncateRedo();
 
         // Coalesce: if the undo top is an unlocked end marker of the same group type, pop it
@@ -154,7 +154,7 @@ namespace editor
 
     void EditorCommandStack::EndGroup()
     {
-        DRACONIC_ASSERT(m_inGroup);
+        DIAGNOSTIC_ASSERT(m_inGroup);
         m_stack.PushBack(UniquePtr<IEditorCommand>(
             DefaultAllocator().New<detail::EndGroupCommand>(m_groupType.AsView()),
             DefaultAllocator()));
@@ -178,7 +178,7 @@ namespace editor
 
     void EditorCommandStack::Clear()
     {
-        DRACONIC_ASSERT(!m_inGroup);
+        DIAGNOSTIC_ASSERT(!m_inGroup);
         m_stack.Clear();
         m_undoIndex = -1;
         Notify();

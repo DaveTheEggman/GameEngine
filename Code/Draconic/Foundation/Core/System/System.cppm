@@ -288,22 +288,22 @@ export namespace foundation::core
     // Build config the running tool was compiled with ("Debug" / "Release" / "RelWithDebInfo"),
     // matching the Bin/<Config>/... layout - the export host template stamps itself with this so a
     // Debug editor synthesizes a Debug template (export-templates.md, the config axis).
-#ifndef DRACONIC_BUILD_CONFIG
-#define DRACONIC_BUILD_CONFIG "Release"
+#ifndef BUILD_CONFIG
+#define BUILD_CONFIG "Release"
 #endif
-#ifndef DRACONIC_BUILD_COMPILER
-#define DRACONIC_BUILD_COMPILER ""
+#ifndef BUILD_COMPILER
+#define BUILD_COMPILER ""
 #endif
     [[nodiscard]] inline StringView GetBuildConfigName() noexcept
     {
-        return StringView(reinterpret_cast<const utf8char*>(DRACONIC_BUILD_CONFIG));
+        return StringView(reinterpret_cast<const utf8char*>(BUILD_CONFIG));
     }
 
     // Compiler that built the running tool ("Clang" / "GCC" / "MSVC"; empty if unknown). Metadata
     // only - recorded in the host template for traceability, never a selector.
     [[nodiscard]] inline StringView GetBuildCompilerName() noexcept
     {
-        return StringView(reinterpret_cast<const utf8char*>(DRACONIC_BUILD_COMPILER));
+        return StringView(reinterpret_cast<const utf8char*>(BUILD_COMPILER));
     }
 
     // Platform executable filename for `baseName`: appends this platform's exe extension

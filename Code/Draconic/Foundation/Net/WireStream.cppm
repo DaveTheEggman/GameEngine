@@ -30,7 +30,7 @@ export namespace foundation::net
         // Write the low `bits` (0..32) bits of `value`.
         void WriteBits(u32 value, u32 bits)
         {
-            DRACONIC_ASSERT(bits <= 32);
+            DIAGNOSTIC_ASSERT(bits <= 32);
             if (bits == 0)
             {
                 return;
@@ -78,7 +78,7 @@ export namespace foundation::net
         // trick for positions/rotations. Symmetric with ReadFloatRanged(min,max,bits).
         void WriteFloatRanged(f32 v, f32 min, f32 max, u32 bits)
         {
-            DRACONIC_ASSERT(bits >= 1 && bits <= 32);
+            DIAGNOSTIC_ASSERT(bits >= 1 && bits <= 32);
             const f32 span = max - min;
             const f32 t = (span > 0.0f) ? Clamp((v - min) / span, 0.0f, 1.0f) : 0.0f;
             const u32 maxq = (bits >= 32) ? 0xFFFFFFFFu : ((1u << bits) - 1u);
@@ -142,7 +142,7 @@ export namespace foundation::net
 
         u32 ReadBits(u32 bits)
         {
-            DRACONIC_ASSERT(bits <= 32);
+            DIAGNOSTIC_ASSERT(bits <= 32);
             if (bits == 0)
             {
                 return 0;
@@ -206,7 +206,7 @@ export namespace foundation::net
 
         f32 ReadFloatRanged(f32 min, f32 max, u32 bits)
         {
-            DRACONIC_ASSERT(bits >= 1 && bits <= 32);
+            DIAGNOSTIC_ASSERT(bits >= 1 && bits <= 32);
             const u32 maxq = (bits >= 32) ? 0xFFFFFFFFu : ((1u << bits) - 1u);
             const u32 q = ReadBits(bits);
             const f32 t = (maxq > 0) ? static_cast<f32>(q) / static_cast<f32>(maxq) : 0.0f;

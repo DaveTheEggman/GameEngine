@@ -385,7 +385,7 @@ export namespace foundation::shell
         core::Array<DroppedFile> m_droppedFiles; // queued during ProcessEvents, drained per frame
     };
 
-    // Factory the DRACONIC_APP_MAIN entry point calls to create the shell.
+    // Factory the APP_MAIN entry point calls to create the shell.
     [[nodiscard]] core::UniquePtr<IShell> CreateShell(const WindowSettings& settings = {})
     {
         IShell* shell = core::DefaultAllocator().New<SDL3Shell>(settings);

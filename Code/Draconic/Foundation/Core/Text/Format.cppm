@@ -101,7 +101,7 @@ export namespace foundation::core
 
             utf8char* newData = static_cast<utf8char*>(
                 m_allocator->Allocate(newCapacity * sizeof(utf8char), alignof(utf8char)));
-            DRACONIC_ASSERT_MSG(newData != nullptr, "FormatBuffer allocation failed");
+            DIAGNOSTIC_ASSERT_MSG(newData != nullptr, "FormatBuffer allocation failed");
 
             if (m_data != nullptr)
             {

@@ -32,7 +32,7 @@ export namespace experimental::gui
 
     class LinearLayout : public UIWidget
     {
-        DRACONIC_OBJECT(LinearLayout, UIWidget)
+        RTTI_OBJECT(LinearLayout, UIWidget)
     public:
         LinearLayout() = default;
 
@@ -137,5 +137,5 @@ export namespace experimental::gui
         bool m_layingOut = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(LinearLayout, "rtti::gui")
+    RTTI_DEFINE_OBJECT(LinearLayout, "rtti::gui")
 }

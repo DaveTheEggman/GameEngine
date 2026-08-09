@@ -51,7 +51,7 @@ namespace engine::ui
 
     // The Ui.* facade reflection body + registration (kept out of the interface unit per the GCC
     // gcm-cluster rule). Owned by the UISubsystem (the out-of-tree facade pattern, like Net).
-    DRACONIC_REFLECT(Ui, "rtti::engine::ui")
+    REFLECT_MEMBERS(Ui, "rtti::engine::ui")
     {
         builder.Method<&Ui::pushOverlay>("pushOverlay");
         builder.Method<&Ui::popOverlay>("popOverlay");
@@ -239,7 +239,7 @@ namespace engine::ui
     // transform is undone by the standard ViewGroup inverse-transform hit test.
     class CanvasHostView final : public ViewGroup
     {
-        DRACONIC_OBJECT(CanvasHostView, ViewGroup)
+        RTTI_OBJECT(CanvasHostView, ViewGroup)
     public:
         i32 Order = 0;
         bool Seen = false; // swept by SyncCanvases when the component vanished
@@ -306,7 +306,7 @@ namespace engine::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(CanvasHostView, "rtti::engine::ui")
+    RTTI_DEFINE_OBJECT(CanvasHostView, "rtti::engine::ui")
 
     // Keep a scene root's canvas hosts sorted by Order, STABLE for ties (the child
     // sequence is component/insertion order between re-sorts). MoveView is a pure
@@ -666,7 +666,7 @@ namespace engine::ui
         }
         else
         {
-            DRACONIC_LOG_WARNING(
+            LOG_WARNING(
                 u8"UI", u8"default font '{}' not loaded - game UI text will not render", fontPath);
         }
         m_context.SetFontService(m_fonts.Get());
@@ -827,7 +827,7 @@ namespace engine::ui
                                 MarkupLoader::LoadFromString(document->markup.AsView(), &m_context);
                             if (c.root.Get() == nullptr)
                             {
-                                DRACONIC_LOG_WARNING(u8"UI",
+                                LOG_WARNING(u8"UI",
                                                      u8"canvas document failed to instantiate");
                             }
                             else if (wantsTexture)
@@ -1012,7 +1012,7 @@ namespace engine::ui
                                 }
                                 else
                                 {
-                                    DRACONIC_LOG_WARNING(
+                                    LOG_WARNING(
                                         u8"UI", u8"world panel document failed to instantiate");
                                 }
                             }
@@ -1161,7 +1161,7 @@ namespace engine::ui
                 if (target == nullptr)
                 {
                     const bool centerAim = mouse->RelativeMode();
-                    const bool rayDebug = std::getenv("DRACONIC_UI_RAY_DEBUG") != nullptr;
+                    const bool rayDebug = std::getenv("ENV_UI_RAY_DEBUG") != nullptr;
                     f32 bestDistance = 0.0f;
                     for (SceneUI& sceneUI : m_sceneUIs)
                     {
@@ -1263,7 +1263,7 @@ namespace engine::ui
                     }
                 }
             }
-            if (std::getenv("DRACONIC_UI_RAY_DEBUG") != nullptr)
+            if (std::getenv("ENV_UI_RAY_DEBUG") != nullptr)
             {
                 const char* kind = "none";
                 if (target == m_screenRoot.Get())
@@ -2019,7 +2019,7 @@ namespace engine::ui
         m_resourceFonts = MakeUnique<foundation::fonts::ResourceFontService>(DefaultAllocator());
         m_resourceFonts->AddFont(font);
         m_context.SetFontService(m_resourceFonts.Get());
-        DRACONIC_LOG_INFO(u8"UI", u8"default font bound: '{}' ({} baked size(s))",
+        LOG_INFO(u8"UI", u8"default font bound: '{}' ({} baked size(s))",
                           font->Family(), static_cast<u64>(font->EntryCount()));
     }
 
@@ -2033,7 +2033,7 @@ namespace engine::ui
             sheet = loader.Load(theme->stylesheet.AsView());
             if (sheet.Get() == nullptr)
             {
-                DRACONIC_LOG_WARNING(
+                LOG_WARNING(
                     u8"UI", u8"default UI theme failed to parse - keeping the built-in GameTheme");
             }
         }
@@ -2065,7 +2065,7 @@ namespace engine::ui
 #endif
         if (!m_render->shaderHost.Initialize(device, kShaderRoot))
         {
-            DRACONIC_LOG_ERROR(u8"UI",
+            LOG_ERROR(u8"UI",
                                u8"no shader compiler and no shader pack - game UI will not render");
             return;
         }
@@ -2100,31 +2100,31 @@ namespace engine::ui
 // ---- reflection (impl unit per the GCC rule) ----
 namespace engine::ui
 {
-    DRACONIC_REFLECT_ENUM(CanvasScalerMode, "rtti::engine::ui")
+    REFLECT_ENUM(CanvasScalerMode, "rtti::engine::ui")
     {
         builder.Value("ConstantPixel", CanvasScalerMode::ConstantPixel);
         builder.Value("ReferenceResolution", CanvasScalerMode::ReferenceResolution);
     }
 
-    DRACONIC_REFLECT_ENUM(CanvasRenderMode, "rtti::engine::ui")
+    REFLECT_ENUM(CanvasRenderMode, "rtti::engine::ui")
     {
         builder.Value("ScreenOverlay", CanvasRenderMode::ScreenOverlay);
         builder.Value("RenderTexture", CanvasRenderMode::RenderTexture);
     }
 
-    DRACONIC_REFLECT_ENUM(BillboardOrientation, "rtti::engine::ui")
+    REFLECT_ENUM(BillboardOrientation, "rtti::engine::ui")
     {
         builder.Value("Screen", BillboardOrientation::Screen);
         builder.Value("Cylindrical", BillboardOrientation::Cylindrical);
     }
 
-    DRACONIC_REFLECT_ENUM(BillboardScale, "rtti::engine::ui")
+    REFLECT_ENUM(BillboardScale, "rtti::engine::ui")
     {
         builder.Value("Fixed", BillboardScale::Fixed);
         builder.Value("Distance", BillboardScale::Distance);
     }
 
-    DRACONIC_REFLECT_VALUE(UIBillboardComponent, "rtti::engine::ui")
+    REFLECT_VALUE(UIBillboardComponent, "rtti::engine::ui")
     {
         builder.Attribute("displayName", String(u8"UI Billboard"))
             .Attribute("category", String(u8"UI")).DataVersion(1);
@@ -2142,7 +2142,7 @@ namespace engine::ui
         builder.Property<&UIBillboardComponent::visible>("visible");
     }
 
-    DRACONIC_REFLECT_VALUE(UICanvasComponent, "rtti::engine::ui")
+    REFLECT_VALUE(UICanvasComponent, "rtti::engine::ui")
     {
         builder.Attribute("displayName", String(u8"UI Canvas"))
             .Attribute("category", String(u8"UI")).DataVersion(2); // v2 added the RenderTexture canvas mode
@@ -2159,7 +2159,7 @@ namespace engine::ui
         builder.Property<&UICanvasComponent::renderTextureHeight>("renderTextureHeight");
     }
 
-    DRACONIC_REFLECT_VALUE(UIWorldPanelComponent, "rtti::engine::ui")
+    REFLECT_VALUE(UIWorldPanelComponent, "rtti::engine::ui")
     {
         builder.Attribute("displayName", String(u8"UI World Panel"))
             .Attribute("category", String(u8"UI")).DataVersion(1);

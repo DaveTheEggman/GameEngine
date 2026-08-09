@@ -1,7 +1,7 @@
 // Engine::Audio - implementation unit: the per-frame engine drive (listener
 // push with active-camera fallback + engine tick) and the component reflection bodies.
 // Both live OUTSIDE the interface for GCC: the render import stays out of the
-// interface's module graph, and DRACONIC_REFLECT_* bodies in a partition interface
+// interface's module graph, and REFLECT_* bodies in a partition interface
 // make GCC emit an unreadable gcm cluster for -fno-module-lazy consumers.
 
 module;
@@ -118,7 +118,7 @@ namespace engine::audio
 // ---- reflection (see :components for why this lives here) ----
 namespace engine::audio
 {
-    DRACONIC_REFLECT_ENUM(AudioBus, "rtti::engine::audio")
+    REFLECT_ENUM(AudioBus, "rtti::engine::audio")
     {
         builder.Value("Master", AudioBus::Master);
         builder.Value("Effects", AudioBus::Effects);
@@ -126,7 +126,7 @@ namespace engine::audio
         builder.Value("UI", AudioBus::UI);
     }
 
-    DRACONIC_REFLECT_ENUM(AudioAttenuationModel, "rtti::engine::audio")
+    REFLECT_ENUM(AudioAttenuationModel, "rtti::engine::audio")
     {
         builder.Value("None", AudioAttenuationModel::None);
         builder.Value("Inverse", AudioAttenuationModel::Inverse);
@@ -134,7 +134,7 @@ namespace engine::audio
         builder.Value("Exponential", AudioAttenuationModel::Exponential);
     }
 
-    DRACONIC_REFLECT_VALUE(AudioSourceComponent, "rtti::engine::audio")
+    REFLECT_VALUE(AudioSourceComponent, "rtti::engine::audio")
     {
         builder.Attribute("displayName", String(u8"Audio Source"))
             .Attribute("category", String(u8"Audio")).DataVersion(3); // v2: busName (custom buses); v3: reverbSend
@@ -164,16 +164,16 @@ namespace engine::audio
         builder.Property<&AudioSourceComponent::coneOuterGain>("coneOuterGain");
     }
 
-    DRACONIC_REFLECT_VALUE(AudioListenerComponent, "rtti::engine::audio")
+    REFLECT_VALUE(AudioListenerComponent, "rtti::engine::audio")
     {
         builder.Attribute("displayName", String(u8"Audio Listener"))
             .Attribute("category", String(u8"Audio")).DataVersion(1);
         builder.Property<&AudioListenerComponent::isActive>("isActive");
     }
 
-    DRACONIC_DEFINE_OBJECT(AudioUserSettings, "rtti::engine::audio")
+    RTTI_DEFINE_OBJECT(AudioUserSettings, "rtti::engine::audio")
 
-    DRACONIC_REFLECT(Audio, "rtti::engine::audio")
+    REFLECT_MEMBERS(Audio, "rtti::engine::audio")
     {
         builder.Method<&Audio::setBusVolume>("setBusVolume");
         builder.Method<&Audio::busVolume>("busVolume");
@@ -191,7 +191,7 @@ namespace engine::audio
     // The scene-bound audio handle: SceneAudio.of(scene).play(entity) / stop / pause / isPlaying /
     // setClip(entity, id). `of` returns SceneAudio by value (concrete cross-backend return), like
     // ScenePhysics. All world ops keyed by entity - they reach the scene's AudioEngine.
-    DRACONIC_REFLECT_VALUE(SceneAudio, "rtti::engine::audio")
+    REFLECT_VALUE(SceneAudio, "rtti::engine::audio")
     {
         builder.Method<&SceneAudio::play>("play", {"entity"});
         builder.Method<&SceneAudio::stop>("stop", {"entity"});
@@ -223,7 +223,7 @@ namespace engine::audio
         foundation::script::RegisterExtraFacadeName(u8"SceneAudio");
     }
 
-    DRACONIC_REFLECT_VALUE(AudioReverbZoneComponent, "rtti::engine::audio")
+    REFLECT_VALUE(AudioReverbZoneComponent, "rtti::engine::audio")
     {
         builder.Attribute("displayName", String(u8"Reverb Zone"))
             .Attribute("category", String(u8"Audio")).DataVersion(1);

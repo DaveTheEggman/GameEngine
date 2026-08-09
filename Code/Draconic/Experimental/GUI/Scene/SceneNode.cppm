@@ -27,7 +27,7 @@ export namespace experimental::gui
 {
     class SceneNode : public Node
     {
-        DRACONIC_OBJECT(SceneNode, Node)
+        RTTI_OBJECT(SceneNode, Node)
     public:
         SceneNode() = default;
 
@@ -53,5 +53,5 @@ export namespace experimental::gui
         EventDispatcher m_eventDispatcher{this}; // root = this SceneNode
     };
 
-    DRACONIC_DEFINE_OBJECT(SceneNode, "rtti::gui")
+    RTTI_DEFINE_OBJECT(SceneNode, "rtti::gui")
 }

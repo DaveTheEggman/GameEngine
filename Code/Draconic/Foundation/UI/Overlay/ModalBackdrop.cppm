@@ -23,7 +23,7 @@ export namespace foundation::ui
 
     class ModalBackdrop : public View
     {
-        DRACONIC_OBJECT(ModalBackdrop, View)
+        RTTI_OBJECT(ModalBackdrop, View)
     public:
         ColorValue Color{0.0f, 0.0f, 0.0f, 120.0f / 255.0f}; ///< Semi-transparent black.
 
@@ -38,5 +38,5 @@ export namespace foundation::ui
         void OnMouseMove(MouseEventArgs& e) override { e.Handled = true; }
     };
 
-    DRACONIC_DEFINE_OBJECT(ModalBackdrop, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ModalBackdrop, "rtti::ui")
 }

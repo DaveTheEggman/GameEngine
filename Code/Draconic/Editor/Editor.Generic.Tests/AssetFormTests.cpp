@@ -19,7 +19,7 @@ namespace
 {
     class FormProbeAsset final : public ISerializable
     {
-        DRACONIC_OBJECT(FormProbeAsset, ISerializable)
+        RTTI_OBJECT(FormProbeAsset, ISerializable)
     public:
         f32 friction = 0.5f;
         i32 group = 3;
@@ -53,7 +53,7 @@ namespace
             }
         }
     };
-    DRACONIC_DEFINE_OBJECT_VERSIONED(FormProbeAsset, "rtti::editor::editor::tests", 2)
+    RTTI_DEFINE_OBJECT_VERSIONED(FormProbeAsset, "rtti::editor::editor::tests", 2)
 
     [[nodiscard]] i32 IndexOf(const Array<AssetFormField>& fields, StringView label)
     {

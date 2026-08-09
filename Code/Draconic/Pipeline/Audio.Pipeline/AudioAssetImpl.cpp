@@ -1,7 +1,7 @@
 // Pipeline::Audio - reflection implementation unit: AudioClipAsset's reflected surface.
 //
-// Kept OUT of the AudioAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster;
-// see gcc-module-interface-hygiene). The class declares identity via DRACONIC_OBJECT in the
+// Kept OUT of the AudioAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;
+// see gcc-module-interface-hygiene). The class declares identity via RTTI_OBJECT in the
 // interface; this unit defines AudioClipAsset::StaticType() WITH properties + tooling attributes.
 // No enums here, so no registrar is needed - the type reflection rides StaticType(), registered by
 // the existing RegisterAudioAssets(). Reflection track P1.
@@ -19,7 +19,7 @@ using namespace foundation::core;
 using namespace foundation::audio;
 
 namespace pipeline{
-    DRACONIC_REFLECT(AudioClipAsset, "rtti::pipeline::audio")
+    REFLECT_MEMBERS(AudioClipAsset, "rtti::pipeline::audio")
     {
         builder.Attribute("displayName", String(u8"Audio Clip"))
             .Attribute("category", String(u8"Audio"))

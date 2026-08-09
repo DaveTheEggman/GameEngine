@@ -49,7 +49,7 @@ export namespace foundation::rhi::webgpu
             // browser build never requests it (no dlopen'd sidecar sets the flag).
             const WGPUInstanceFeatureName spirv = WGPUInstanceFeatureName_ShaderSourceSPIRV;
             WGPUInstanceDescriptor instanceDesc = WGPU_INSTANCE_DESCRIPTOR_INIT;
-#if !DRACONIC_PLATFORM_WEB
+#if !PLATFORM_WEB
             // Restrict the sidecar instance to the PRIMARY backends (Vulkan/Metal/DX12). Left
             // unset, wgpu-native enables every backend including GL, whose WGL instance thread
             // on Windows dies with a fatal callback exception when an instance is created and
@@ -70,7 +70,7 @@ export namespace foundation::rhi::webgpu
             if (m_instance == nullptr)
             {
                 instanceDesc = WGPU_INSTANCE_DESCRIPTOR_INIT;
-#if !DRACONIC_PLATFORM_WEB
+#if !PLATFORM_WEB
                 instanceDesc.nextInChain = &instanceExtras.chain; // keep GL out of the fallback too
 #endif
                 m_instance = m_api.wgpuCreateInstance(&instanceDesc);
@@ -101,7 +101,7 @@ export namespace foundation::rhi::webgpu
             out = nullptr;
             WGPUSurfaceDescriptor surfaceDesc = WGPU_SURFACE_DESCRIPTOR_INIT;
 
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
             // Web has one surface source: an HTML <canvas>, addressed by CSS selector. The
             // desktop WSI descriptors (Xlib/Wayland/HWND) do not exist in Dawn's webgpu.h.
             // windowHandle carries the selector string when the shell supplies one; otherwise
@@ -205,7 +205,7 @@ export namespace foundation::rhi::webgpu
                 // software / non-display-GPU entry) - the swapchain then dies at configure
                 // ("Surface does not support the adapter's queue family"). Order real GPUs
                 // first (discrete, then integrated, then the rest, stable within a class), and
-                // honor DRACONIC_WEBGPU_ADAPTER=<index into the logged list> as the escape
+                // honor ENV_WEBGPU_ADAPTER=<index into the logged list> as the escape
                 // hatch for hybrid-GPU machines where the heuristic still picks wrong.
                 // Rank = (backend, device class). One physical GPU appears once per wgpu
                 // backend; on WINDOWS prefer D3D12 entries - DXGI present works on every
@@ -215,7 +215,7 @@ export namespace foundation::rhi::webgpu
                 {
                     const WGPUBackendType type =
                         static_cast<WebGpuAdapter*>(adapter)->WgpuBackendType();
-#if DRACONIC_PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS
                     return type == WGPUBackendType_D3D12    ? 0u
                            : type == WGPUBackendType_Vulkan ? 1u
                                                             : 2u;
@@ -270,7 +270,7 @@ export namespace foundation::rhi::webgpu
                                                                        : "unknown",
                              backendName(m_adapters[i]));
                 }
-                if (Optional<String> pick = GetEnvironmentVariable(u8"DRACONIC_WEBGPU_ADAPTER");
+                if (Optional<String> pick = GetEnvironmentVariable(u8"ENV_WEBGPU_ADAPTER");
                     pick.HasValue() && !pick.Value().IsEmpty())
                 {
                     usize index = 0;
@@ -289,12 +289,12 @@ export namespace foundation::rhi::webgpu
                         Adapter* chosen = m_adapters[index];
                         m_adapters.RemoveAt(index);
                         m_adapters.Insert(0, chosen);
-                        LogInfof("[webgpu] DRACONIC_WEBGPU_ADAPTER=%u",
+                        LogInfof("[webgpu] ENV_WEBGPU_ADAPTER=%u",
                                  static_cast<unsigned>(index));
                     }
                     else
                     {
-                        LogError("[webgpu] DRACONIC_WEBGPU_ADAPTER is not a valid index into "
+                        LogError("[webgpu] ENV_WEBGPU_ADAPTER is not a valid index into "
                                  "the list above - using the default order");
                     }
                 }
@@ -339,7 +339,7 @@ export namespace foundation::rhi::webgpu
                 result->allocator = &m_allocator;
                 result->api = &m_api;
                 WGPURequestAdapterOptions options = WGPU_REQUEST_ADAPTER_OPTIONS_INIT;
-#if DRACONIC_PLATFORM_WEB
+#if PLATFORM_WEB
                 // Dawn (emdawnwebgpu) returns NO adapter when featureLevel is left Undefined - it
                 // must be an explicit level. wgpu-native (desktop) does not use this field, so the
                 // request is web-gated. Core = the full (non-compatibility) WebGPU feature set.

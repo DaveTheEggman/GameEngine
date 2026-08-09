@@ -4,7 +4,7 @@
 // Ported from Sedulous.UI.Toolkit/src/PropertyGrid/PropertyEditor.bf. Supports transactional editing for
 // undo/redo integration: OnEditBegin / OnValueChanged (may fire many times) / OnEditEnd / OnEditCancelled.
 //
-// Beef `abstract class PropertyEditor` (implicitly Object-derived) -> `Object` + DRACONIC_OBJECT (abstract:
+// Beef `abstract class PropertyEditor` (implicitly Object-derived) -> `Object` + RTTI_OBJECT (abstract:
 // pure-virtual CreateEditorView/RefreshView, but still carries a type identity like the core abstract
 // Drawable). Beef owned `View mEditorView` (owned by the view tree once added) -> a RefPtr<View> the editor
 // holds so its borrowed child pointers stay valid across PropertyGrid rebuilds. `Event<delegate
@@ -30,7 +30,7 @@ export namespace foundation::ui::toolkit
     /// CreateEditorView() to return the editing control and RefreshView() to update it from external state.
     class PropertyEditor : public Object
     {
-        DRACONIC_OBJECT(PropertyEditor, Object)
+        RTTI_OBJECT(PropertyEditor, Object)
     public:
         /// Fired each time the value changes (may fire multiple times per edit gesture).
         Event<void(PropertyEditor*)> OnValueChanged;
@@ -189,5 +189,5 @@ export namespace foundation::ui::toolkit
         bool m_rowVisible = true;
     };
 
-    DRACONIC_DEFINE_OBJECT(PropertyEditor, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(PropertyEditor, "rtti::ui::toolkit")
 }

@@ -109,7 +109,7 @@ export namespace foundation::core
     // =======================================================================
     // Byte order
     // =======================================================================
-    inline constexpr bool kIsLittleEndian = DRACONIC_LITTLE_ENDIAN != 0;
+    inline constexpr bool kIsLittleEndian = ARCH_LITTLE_ENDIAN != 0;
 
     template <typename T>
         requires std::is_integral_v<T>
@@ -321,28 +321,28 @@ export namespace foundation::core
 
         [[nodiscard]] T& Value() &
         {
-            DRACONIC_ASSERT_MSG(m_hasValue, "Result::Value() called on an error Result");
+            DIAGNOSTIC_ASSERT_MSG(m_hasValue, "Result::Value() called on an error Result");
             return m_value;
         }
         [[nodiscard]] const T& Value() const&
         {
-            DRACONIC_ASSERT_MSG(m_hasValue, "Result::Value() called on an error Result");
+            DIAGNOSTIC_ASSERT_MSG(m_hasValue, "Result::Value() called on an error Result");
             return m_value;
         }
         [[nodiscard]] T&& Value() &&
         {
-            DRACONIC_ASSERT_MSG(m_hasValue, "Result::Value() called on an error Result");
+            DIAGNOSTIC_ASSERT_MSG(m_hasValue, "Result::Value() called on an error Result");
             return Move(m_value);
         }
 
         [[nodiscard]] E& Error() &
         {
-            DRACONIC_ASSERT_MSG(!m_hasValue, "Result::Error() called on a value Result");
+            DIAGNOSTIC_ASSERT_MSG(!m_hasValue, "Result::Error() called on a value Result");
             return m_error;
         }
         [[nodiscard]] const E& Error() const&
         {
-            DRACONIC_ASSERT_MSG(!m_hasValue, "Result::Error() called on a value Result");
+            DIAGNOSTIC_ASSERT_MSG(!m_hasValue, "Result::Error() called on a value Result");
             return m_error;
         }
 

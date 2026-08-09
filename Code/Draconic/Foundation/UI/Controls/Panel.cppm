@@ -24,7 +24,7 @@ export namespace foundation::ui
 {
     class Panel : public ViewGroup
     {
-        DRACONIC_OBJECT(Panel, ViewGroup)
+        RTTI_OBJECT(Panel, ViewGroup)
     public:
         Panel() = default;
 
@@ -97,5 +97,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(Panel, "rtti::ui")
+    RTTI_DEFINE_OBJECT(Panel, "rtti::ui")
 }

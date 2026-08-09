@@ -1,6 +1,6 @@
 // Pipeline::Script - reflection implementation unit: ScriptClassAsset's reflected surface.
 //
-// Kept OUT of the ScriptAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster;
+// Kept OUT of the ScriptAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). ScriptClassAsset::StaticType() gains its `language` property
 // here. No enums, so the reflection rides StaticType() with no registrar change. Reflection
 // track P1.
@@ -18,7 +18,7 @@ using namespace foundation::core;
 using namespace foundation::script;
 
 namespace pipeline{
-    DRACONIC_REFLECT(ScriptClassAsset, "rtti::pipeline::script")
+    REFLECT_MEMBERS(ScriptClassAsset, "rtti::pipeline::script")
     {
         builder.Attribute("displayName", String(u8"Script"))
             .Attribute("category", String(u8"Scripting"))

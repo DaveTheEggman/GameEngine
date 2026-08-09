@@ -58,7 +58,7 @@ export namespace editor
     // The registry section (user-level settings store). Most recent FIRST.
     class RecentProjectsSettings final : public ISerializable
     {
-        DRACONIC_OBJECT(RecentProjectsSettings, ISerializable)
+        RTTI_OBJECT(RecentProjectsSettings, ISerializable)
     public:
         static constexpr usize kMaxEntries = 20;
 
@@ -229,5 +229,5 @@ export namespace editor
         return backup;
     }
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(RecentProjectsSettings, "rtti::editor::editor", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(RecentProjectsSettings, "rtti::editor::editor", 1)
 }

@@ -1,4 +1,4 @@
-// Foundation::Script.Facades - implementation unit: the DRACONIC_REFLECT_* bodies (they
+// Foundation::Script.Facades - implementation unit: the REFLECT_* bodies (they
 // never sit in a module interface unit - the GCC gcm-cluster rule).
 
 module;
@@ -17,7 +17,7 @@ namespace core = foundation::core;
 
 namespace foundation::script
 {
-    DRACONIC_REFLECT_VALUE(Entity, "rtti::script")
+    REFLECT_VALUE(Entity, "rtti::script")
     {
         builder.Method<&Entity::isValid>("isValid");
         builder.Method<&Entity::name>("name");
@@ -39,7 +39,7 @@ namespace foundation::script
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
-    DRACONIC_REFLECT(Log, "rtti::script")
+    REFLECT_MEMBERS(Log, "rtti::script")
     {
         builder.Method<&Log::info>("info");
         builder.Method<&Log::warn>("warn");
@@ -47,14 +47,14 @@ namespace foundation::script
         builder.Constructor();
     }
 
-    DRACONIC_REFLECT(Time, "rtti::script")
+    REFLECT_MEMBERS(Time, "rtti::script")
     {
         builder.Method<&Time::now>("now");
         builder.Method<&Time::delta>("delta");
         builder.Constructor();
     }
 
-    DRACONIC_REFLECT(Random, "rtti::script")
+    REFLECT_MEMBERS(Random, "rtti::script")
     {
         builder.Method<&Random::value>("value");
         builder.Method<&Random::range>("range");
@@ -62,7 +62,7 @@ namespace foundation::script
         builder.Constructor();
     }
 
-    DRACONIC_REFLECT_VALUE(Scene, "rtti::script")
+    REFLECT_VALUE(Scene, "rtti::script")
     {
         builder.Method<&Scene::spawn>("spawn");
         builder.Method<&Scene::find>("find");
@@ -72,7 +72,7 @@ namespace foundation::script
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
-    DRACONIC_REFLECT_VALUE(SceneEvents, "rtti::script")
+    REFLECT_VALUE(SceneEvents, "rtti::script")
     {
         // emit overloads - one reflected name, resolved by payload arg type (mirrors Entity::send).
         builder.Method<static_cast<void (SceneEvents::*)(String) const>(&SceneEvents::emit)>("emit");
@@ -151,7 +151,7 @@ namespace foundation::script
         {
             if (name == reserved)
             {
-                DRACONIC_LOG_ERROR(
+                LOG_ERROR(
                     u8"Script",
                     u8"facade name '{}' is reserved for a user contract class - registration refused",
                     name);

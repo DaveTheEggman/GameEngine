@@ -40,24 +40,24 @@ export namespace foundation::core
 
         [[nodiscard]] T& operator[](usize index) const noexcept
         {
-            DRACONIC_ASSERT(index < m_size);
+            DIAGNOSTIC_ASSERT(index < m_size);
             return m_data[index];
         }
 
         [[nodiscard]] T& Front() const noexcept
         {
-            DRACONIC_ASSERT(m_size > 0);
+            DIAGNOSTIC_ASSERT(m_size > 0);
             return m_data[0];
         }
         [[nodiscard]] T& Back() const noexcept
         {
-            DRACONIC_ASSERT(m_size > 0);
+            DIAGNOSTIC_ASSERT(m_size > 0);
             return m_data[m_size - 1];
         }
 
         [[nodiscard]] Span SubSpan(usize offset, usize count) const noexcept
         {
-            DRACONIC_ASSERT(offset + count <= m_size);
+            DIAGNOSTIC_ASSERT(offset + count <= m_size);
             return Span{m_data + offset, count};
         }
 

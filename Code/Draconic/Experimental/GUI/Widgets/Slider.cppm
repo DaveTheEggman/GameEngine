@@ -27,7 +27,7 @@ export namespace experimental::gui
 {
     class Slider : public UIWidget
     {
-        DRACONIC_OBJECT(Slider, UIWidget)
+        RTTI_OBJECT(Slider, UIWidget)
     public:
         Slider()
         {
@@ -148,5 +148,5 @@ export namespace experimental::gui
         core::Function<void(f32)> m_onChanged;
     };
 
-    DRACONIC_DEFINE_OBJECT(Slider, "rtti::gui")
+    RTTI_DEFINE_OBJECT(Slider, "rtti::gui")
 }

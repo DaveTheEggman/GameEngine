@@ -27,7 +27,7 @@ export namespace foundation::animation
     // Cooked skeleton: per-bone parallel arrays (name, parent, bind TRS, inverse bind matrix).
     class SkeletonSource : public ISerializable
     {
-        DRACONIC_OBJECT(SkeletonSource, ISerializable)
+        RTTI_OBJECT(SkeletonSource, ISerializable)
     public:
         String name;
         Array<String> boneNames;
@@ -128,7 +128,7 @@ export namespace foundation::animation
     // position/scale, xyzw for rotation), plus events.
     class AnimationClipSource : public ISerializable
     {
-        DRACONIC_OBJECT(AnimationClipSource, ISerializable)
+        RTTI_OBJECT(AnimationClipSource, ISerializable)
     public:
         enum class TrackKind : u8
         {
@@ -400,7 +400,7 @@ export namespace foundation::animation
     // Cooked graph: parameters (name/type + default values) + layers (states/transitions/mask).
     class AnimationGraphSource : public ISerializable
     {
-        DRACONIC_OBJECT(AnimationGraphSource, ISerializable)
+        RTTI_OBJECT(AnimationGraphSource, ISerializable)
     public:
         Array<String> paramNames;
         Array<u8> paramTypes;   // AnimationParameterType
@@ -549,8 +549,8 @@ export namespace foundation::animation
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(SkeletonSource, "rtti::animation")
-    DRACONIC_DEFINE_OBJECT(AnimationClipSource, "rtti::animation")
-    DRACONIC_DEFINE_OBJECT(AnimationGraphSource, "rtti::animation")
+    RTTI_DEFINE_OBJECT(SkeletonSource, "rtti::animation")
+    RTTI_DEFINE_OBJECT(AnimationClipSource, "rtti::animation")
+    RTTI_DEFINE_OBJECT(AnimationGraphSource, "rtti::animation")
 
 } // namespace foundation::animation

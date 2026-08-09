@@ -701,7 +701,7 @@ namespace foundation::render
         Span<const DrawItem> items = casters;
         if (frustumCull)
         {
-            DRACONIC_PROFILE_SCOPE("shadow.cull"); // per-cascade frustum scan
+            PROFILE_SCOPE("shadow.cull"); // per-cascade frustum scan
             const BoundingFrustum frustum{lightViewProj};
             m_shadowCullScratch.Clear();
             // Prefer the compact bounds SoA (linear, cache-friendly) over chasing it.data->worldCenter.
@@ -763,7 +763,7 @@ namespace foundation::render
         // whole category run to the first item's renderer would hand sprite data to the mesh renderer
         // (read as MeshRenderData -> garbage/UAF). Same-renderer runs route correctly; sprites' depth-only
         // resolve is a no-op (they don't cast shadows).
-        DRACONIC_PROFILE_SCOPE("shadow.resolve"); // per-survivor instance resolve + emit
+        PROFILE_SCOPE("shadow.resolve"); // per-survivor instance resolve + emit
         m_shadowResolved.Clear();
         usize i = 0;
         while (i < items.Size())
@@ -1091,7 +1091,7 @@ namespace foundation::render
             static_cast<u32>(m_rtAtlasDraws.Size()) + static_cast<u32>(m_staticRenderDraws.Size());
 
         {
-            DRACONIC_PROFILE_SCOPE("Compose.Prepare"); // per-frame GPU buffer sizing + pool resets
+            PROFILE_SCOPE("Compose.Prepare"); // per-frame GPU buffer sizing + pool resets
             for (Renderer* r : m_registry->Unique())
             {
                 r->SetShadowMap(shadowMap, shadowGen);
@@ -1166,7 +1166,7 @@ namespace foundation::render
         // Declare every view's forward pass into the one frame graph, then let the graph compile
         // (barriers + transient depth allocation/aliasing) + execute. (§9: one graph, all views.)
         {
-            DRACONIC_PROFILE_SCOPE(
+            PROFILE_SCOPE(
                 "Compose.Declare"); // build the frame graph (pass/resource declarations)
             if (m_views.ActiveCount() > 0)
             {
@@ -1923,7 +1923,7 @@ namespace foundation::render
             m_decalPass->EndFrame();
         } // unmap the decal ring before execute
         {
-            DRACONIC_PROFILE_SCOPE(
+            PROFILE_SCOPE(
                 "Compose.Execute"); // graph compile (barriers/transients) + record all passes
             (void)m_graph.Execute(m_encoder);
             // Age out the transient texture pool. Execute() only RETURNS transients to the pool; EndFrame()

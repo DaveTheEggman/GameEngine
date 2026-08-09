@@ -791,11 +791,11 @@ namespace foundation::shell
         // launches detached and returns immediately.
         if (core::OpenPathInFileManager(path))
         {
-            DRACONIC_LOG_DEBUG(u8"Shell", u8"OpenPath: revealed '{}'", path);
+            LOG_DEBUG(u8"Shell", u8"OpenPath: revealed '{}'", path);
         }
         else
         {
-            DRACONIC_LOG_WARNING(u8"Shell", u8"OpenPath: could not reveal '{}'", path);
+            LOG_WARNING(u8"Shell", u8"OpenPath: could not reveal '{}'", path);
         }
     }
 
@@ -965,7 +965,7 @@ namespace foundation::shell
                 {
                     const core::String scName(reinterpret_cast<const core::utf8char*>(
                         SDL_GetScancodeName(event.key.scancode)));
-                    DRACONIC_LOG_DEBUG(u8"Shell", u8"unmapped key scancode {} ('{}')",
+                    LOG_DEBUG(u8"Shell", u8"unmapped key scancode {} ('{}')",
                                        static_cast<core::u32>(event.key.scancode), scName);
                 }
                 m_input.EmitEvent(e);

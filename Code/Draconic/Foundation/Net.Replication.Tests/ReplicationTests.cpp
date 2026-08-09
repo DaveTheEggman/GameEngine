@@ -49,7 +49,7 @@ namespace
     };
 }
 
-DRACONIC_REFLECT_VALUE(Mover, "rtti::net::test")
+REFLECT_VALUE(Mover, "rtti::net::test")
 {
     builder.Property<&Mover::position>("position").PropAttribute(net::kReplicatedAttribute, true);
     builder.Property<&Mover::rotation>("rotation").PropAttribute(net::kReplicatedAttribute, true);

@@ -50,7 +50,7 @@ export namespace foundation::ui::toolkit
     /// Model-agnostic interactive node graph canvas.
     class NodeGraphCanvas : public View
     {
-        DRACONIC_OBJECT(NodeGraphCanvas, View)
+        RTTI_OBJECT(NodeGraphCanvas, View)
     private:
         // ========== Nested types (declared first: used as return types below) ==========
 
@@ -1681,5 +1681,5 @@ export namespace foundation::ui::toolkit
         bool m_inGesture = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(NodeGraphCanvas, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(NodeGraphCanvas, "rtti::ui::toolkit")
 }

@@ -1,6 +1,6 @@
 // Foundation::Image - reflection implementation unit: enum reflection bodies.
 //
-// Kept OUT of the :image_data interface partition (DRACONIC_REFLECT_* bodies make GCC emit a gcm
+// Kept OUT of the :image_data interface partition (REFLECT_* bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). ImageData.cppm declares RegisterImageReflection();
 // this unit defines it + the DraconicRegisterEnum_ImageColorSpace body. Reflection track P1.
 
@@ -16,7 +16,7 @@ using namespace foundation::core;
 
 namespace foundation::image
 {
-    DRACONIC_REFLECT_ENUM(ImageColorSpace, "rtti::image")
+    REFLECT_ENUM(ImageColorSpace, "rtti::image")
     {
         builder.Value("Srgb", ImageColorSpace::Srgb);
         builder.Value("Linear", ImageColorSpace::Linear);

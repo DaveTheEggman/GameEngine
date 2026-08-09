@@ -75,7 +75,7 @@ export namespace engine::audio
     // + save it at shutdown; scripts change volumes through the Audio facade.
     class AudioUserSettings final : public ISerializable
     {
-        DRACONIC_OBJECT(AudioUserSettings, ISerializable)
+        RTTI_OBJECT(AudioUserSettings, ISerializable)
     public:
         f32 volumes[static_cast<usize>(AudioBus::Count)] = {1.0f, 1.0f, 1.0f, 1.0f};
         bool muted[static_cast<usize>(AudioBus::Count)] = {};
@@ -338,7 +338,7 @@ export namespace engine::audio
             }
             if (clip == nullptr)
             {
-                DRACONIC_LOG_WARNING(u8"Audio", u8"'{}': audio source has no clip or cue",
+                LOG_WARNING(u8"Audio", u8"'{}': audio source has no clip or cue",
                                      m_scene->GetEntityName(e));
                 return {};
             }
@@ -876,7 +876,7 @@ export namespace engine::audio
                 return;
             }
             m_warnedScriptPaths.InsertOrAssign(Move(key), true);
-            DRACONIC_LOG_WARNING(u8"Audio",
+            LOG_WARNING(u8"Audio",
                                  u8"script audio play '{}': {} - call ignored "
                                  u8"(warned once per path)",
                                  path, reason);
@@ -929,7 +929,7 @@ export namespace engine::audio
     // needed; missing content warns once per path and no-ops.
     class Audio final : public Object
     {
-        DRACONIC_OBJECT(Audio, Object)
+        RTTI_OBJECT(Audio, Object)
     public:
         [[nodiscard]] static AudioScriptBinding* ResolveBinding()
         {

@@ -28,7 +28,7 @@ export namespace foundation::ui
 
     class DrawableView : public View
     {
-        DRACONIC_OBJECT(DrawableView, View)
+        RTTI_OBJECT(DrawableView, View)
     public:
         /// The drawable to render (RefPtr-owned; shared).
         DrawablePtr Drawable;
@@ -70,5 +70,5 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(DrawableView, "rtti::ui")
+    RTTI_DEFINE_OBJECT(DrawableView, "rtti::ui")
 }

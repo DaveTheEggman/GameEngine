@@ -285,7 +285,7 @@ namespace
     };
 }
 
-DRACONIC_REFLECT_VALUE(Turret, "demo")
+REFLECT_VALUE(Turret, "demo")
 {
     builder.DataVersion(3);
     builder.Property<&Turret::range>("range");

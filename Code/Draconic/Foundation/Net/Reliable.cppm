@@ -81,7 +81,7 @@ export namespace foundation::net
             }
             if (data.Size() > m_cfg.maxMessageBytes)
             {
-                DRACONIC_LOG_WARNING(u8"Net", u8"message {} B exceeds maxMessageBytes {} - dropped",
+                LOG_WARNING(u8"Net", u8"message {} B exceeds maxMessageBytes {} - dropped",
                                      data.Size(), m_cfg.maxMessageBytes);
                 return;
             }
@@ -92,7 +92,7 @@ export namespace foundation::net
                 // sense - a lost fragment orphans the rest). Too-big unreliable is dropped.
                 if (data.Size() > limit)
                 {
-                    DRACONIC_LOG_WARNING(
+                    LOG_WARNING(
                         u8"Net", u8"unreliable message {} B exceeds one datagram ({} B) - dropped",
                         data.Size(), limit);
                     return;

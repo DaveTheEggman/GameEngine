@@ -25,12 +25,12 @@ export namespace foundation::core
 {
     class ISerializable : public Object
     {
-        DRACONIC_OBJECT(ISerializable, Object)
+        RTTI_OBJECT(ISerializable, Object)
     public:
         // Describe this object's data once; runs in whichever direction `ar`
         // is configured for (read or write).
         virtual void Serialize(ISerializer& ar) = 0;
     };
 
-    DRACONIC_DEFINE_OBJECT(ISerializable, "rtti::core")
+    RTTI_DEFINE_OBJECT(ISerializable, "rtti::core")
 }

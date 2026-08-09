@@ -37,7 +37,7 @@ export namespace foundation::scene
     // name for discovery; the heavy world data lives in the "scene" data stream).
     class SceneDocument final : public ISerializable
     {
-        DRACONIC_OBJECT(SceneDocument, ISerializable)
+        RTTI_OBJECT(SceneDocument, ISerializable)
     public:
         String name;
         void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, "name", name); }
@@ -720,7 +720,7 @@ export namespace foundation::scene
                             {
                                 // Inline fields need the manager to decode - the op drops,
                                 // like any unknown-type record.
-                                DRACONIC_LOG_WARNING(
+                                LOG_WARNING(
                                     u8"Scene", u8"dropping override of unknown component type '{}'",
                                     op.typeId);
                                 keep = false;
@@ -890,7 +890,7 @@ export namespace foundation::scene
 
     class PrefabDocument final : public ISerializable
     {
-        DRACONIC_OBJECT(PrefabDocument, ISerializable)
+        RTTI_OBJECT(PrefabDocument, ISerializable)
     public:
         String name;
         void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, "name", name); }
@@ -1248,7 +1248,7 @@ export namespace foundation::scene
                 }
                 else
                 {
-                    DRACONIC_LOG_WARNING(u8"Scene", u8"apply-to-prefab: nested template unresolved "
+                    LOG_WARNING(u8"Scene", u8"apply-to-prefab: nested template unresolved "
                                                     u8"- owner customization may be lost");
                     d = detail::ComputeInstanceDeltas(scene, *nested);
                 }

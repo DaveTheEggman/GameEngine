@@ -27,7 +27,7 @@ namespace
     // the worker produces and the main thread finalizes into a product.
     class AsyncSource final : public ISerializable
     {
-        DRACONIC_OBJECT(AsyncSource, ISerializable)
+        RTTI_OBJECT(AsyncSource, ISerializable)
     public:
         i32 value = 0;
         void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, "value", value); }
@@ -35,14 +35,14 @@ namespace
 
     class AsyncProduct final : public Object
     {
-        DRACONIC_OBJECT(AsyncProduct, Object)
+        RTTI_OBJECT(AsyncProduct, Object)
     public:
         i32 value = 0;
     };
 
     class DecodedBlob final : public Object
     {
-        DRACONIC_OBJECT(DecodedBlob, Object)
+        RTTI_OBJECT(DecodedBlob, Object)
     public:
         i32 value = 0;
         Guid id; // so FinalizeStage (which only gets the blob) can record completion order
@@ -184,9 +184,9 @@ namespace
     void CleanDir(StringView dir) { (void)RemoveDirectoryRecursive(dir); }
 }
 
-DRACONIC_DEFINE_OBJECT(AsyncSource, "rtti::resource::test")
-DRACONIC_DEFINE_OBJECT(AsyncProduct, "rtti::resource::test")
-DRACONIC_DEFINE_OBJECT(DecodedBlob, "rtti::resource::test")
+RTTI_DEFINE_OBJECT(AsyncSource, "rtti::resource::test")
+RTTI_DEFINE_OBJECT(AsyncProduct, "rtti::resource::test")
+RTTI_DEFINE_OBJECT(DecodedBlob, "rtti::resource::test")
 
 TEST_CASE("resource.async: BindAsync is pending until Pump finalizes it on the main thread")
 {

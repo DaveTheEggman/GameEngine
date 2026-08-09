@@ -24,7 +24,7 @@ export namespace foundation::ui
     /// LayoutParams for an AbsoluteLayout child: explicit X/Y.
     class AbsoluteLayoutParams : public LayoutParams
     {
-        DRACONIC_OBJECT(AbsoluteLayoutParams, LayoutParams)
+        RTTI_OBJECT(AbsoluteLayoutParams, LayoutParams)
     public:
         f32 X = 0.0f;
         f32 Y = 0.0f;
@@ -33,7 +33,7 @@ export namespace foundation::ui
 
     class AbsoluteLayout : public ViewGroup
     {
-        DRACONIC_OBJECT(AbsoluteLayout, ViewGroup)
+        RTTI_OBJECT(AbsoluteLayout, ViewGroup)
     public:
         AbsoluteLayout() = default;
 
@@ -151,6 +151,6 @@ export namespace foundation::ui
         }
     };
 
-    DRACONIC_DEFINE_OBJECT(AbsoluteLayoutParams, "rtti::ui")
-    DRACONIC_DEFINE_OBJECT(AbsoluteLayout, "rtti::ui")
+    RTTI_DEFINE_OBJECT(AbsoluteLayoutParams, "rtti::ui")
+    RTTI_DEFINE_OBJECT(AbsoluteLayout, "rtti::ui")
 }

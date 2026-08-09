@@ -2,7 +2,7 @@
 //
 // Base layout parameters for a view within a container. Container-specific subclasses add fields
 // (e.g. FlexLayoutParams adds Grow/Shrink). Ported from Sedulous.UI/src/Layout/LayoutParams.bf.
-// Object + DRACONIC_OBJECT so the layout algorithms can Cast<T> down to their param subclasses.
+// Object + RTTI_OBJECT so the layout algorithms can Cast<T> down to their param subclasses.
 
 module;
 #include "Core/Prelude.h"
@@ -20,7 +20,7 @@ export namespace foundation::ui
 {
     class LayoutParams : public Object
     {
-        DRACONIC_OBJECT(LayoutParams, Object)
+        RTTI_OBJECT(LayoutParams, Object)
     public:
         /// Desired width. Default: Wrap (fit to content).
         SizeSpec Width = SizeSpec::Wrap();
@@ -32,5 +32,5 @@ export namespace foundation::ui
         LayoutParams() = default;
     };
 
-    DRACONIC_DEFINE_OBJECT(LayoutParams, "rtti::ui")
+    RTTI_DEFINE_OBJECT(LayoutParams, "rtti::ui")
 }

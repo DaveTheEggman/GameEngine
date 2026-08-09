@@ -23,7 +23,7 @@ export namespace experimental::gui
 {
     class Drawable : public Object
     {
-        DRACONIC_OBJECT(Drawable, Object)
+        RTTI_OBJECT(Drawable, Object)
     public:
         // State-unaware draw into a destination rect.
         virtual void Draw(DrawContext& ctx, const Rect& dest) = 0;
@@ -51,5 +51,5 @@ export namespace experimental::gui
         Color m_color = Color::White;
     };
 
-    DRACONIC_DEFINE_OBJECT(Drawable, "rtti::gui")
+    RTTI_DEFINE_OBJECT(Drawable, "rtti::gui")
 }

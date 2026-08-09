@@ -30,7 +30,7 @@ export namespace foundation::ui
 {
     class IconButton : public ButtonBase
     {
-        DRACONIC_OBJECT(IconButton, ButtonBase)
+        RTTI_OBJECT(IconButton, ButtonBase)
     public:
         explicit IconButton(SVGDrawable* icon, f32 size = 20.0f) : m_icon(icon), m_size(size) {}
 
@@ -82,5 +82,5 @@ export namespace foundation::ui
         f32 m_size = 20.0f;
     };
 
-    DRACONIC_DEFINE_OBJECT(IconButton, "rtti::ui")
+    RTTI_DEFINE_OBJECT(IconButton, "rtti::ui")
 }

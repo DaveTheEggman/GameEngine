@@ -27,7 +27,7 @@ export namespace editor::app
 
     class ImportOptionsDialog final : public ui::Dialog
     {
-        DRACONIC_OBJECT(ImportOptionsDialog, ui::Dialog)
+        RTTI_OBJECT(ImportOptionsDialog, ui::Dialog)
     public:
         /// Fired when the user confirms; the options object carries their checkbox edits.
         Function<void()> OnImport;
@@ -125,5 +125,5 @@ export namespace editor::app
         RefPtr<editor::ImportOptions> m_options;
     };
 
-    DRACONIC_DEFINE_OBJECT(ImportOptionsDialog, "rtti::editor::editor::app")
+    RTTI_DEFINE_OBJECT(ImportOptionsDialog, "rtti::editor::editor::app")
 }

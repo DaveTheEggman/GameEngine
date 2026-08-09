@@ -31,7 +31,7 @@ export namespace foundation::settings
         Settings& operator=(const Settings&) = delete;
 
         // The section of type T, lazily created (struct defaults) on first access. Stable reference
-        // for the store's lifetime. T must be an ISerializable with a default ctor (DRACONIC_OBJECT).
+        // for the store's lifetime. T must be an ISerializable with a default ctor (RTTI_OBJECT).
         template <typename T>
         [[nodiscard]] T& Section()
         {
@@ -234,13 +234,13 @@ export namespace foundation::settings
                         section.typeName = name;
                         section.payload = static_cast<Array<u8>&&>(payload);
                         m_unknownSections.PushBack(static_cast<UnknownSection&&>(section));
-                        DRACONIC_LOG_WARNING(u8"Settings",
+                        LOG_WARNING(u8"Settings",
                                              u8"preserving unknown settings section '{}::{}'",
                                              ns.AsView(), name.AsView());
                     }
                     else
                     {
-                        DRACONIC_LOG_WARNING(
+                        LOG_WARNING(
                             u8"Settings",
                             u8"dropping unknown settings section '{}::{}' (backend cannot preserve it)",
                             ns.AsView(), name.AsView());

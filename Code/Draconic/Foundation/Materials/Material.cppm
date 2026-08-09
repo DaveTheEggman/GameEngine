@@ -29,7 +29,7 @@ export namespace foundation::materials
     // instance. Name strings are owned in a stable backing so property views stay valid.
     class Material final : public Object
     {
-        DRACONIC_OBJECT(Material, Object)
+        RTTI_OBJECT(Material, Object)
     public:
         // Unique per-OBJECT id: renderer caches key by THIS, never by pointer (a reloaded
         // material can reallocate at the freed address - the bind-group versioning rule).
@@ -203,6 +203,6 @@ export namespace foundation::materials
         HashMap<usize, rhi::Sampler*> m_defaultSamplers;
     };
 
-    DRACONIC_DEFINE_OBJECT(Material, "rtti::materials")
+    RTTI_DEFINE_OBJECT(Material, "rtti::materials")
 
 } // namespace foundation::materials

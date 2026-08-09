@@ -166,7 +166,7 @@ export namespace foundation::script
     class IScriptBlob : public core::Object
     {
         // Object-derived only for RefPtr lifetime; it is never a registry type, so it
-        // keeps Object's default type identity (no DRACONIC_OBJECT needed).
+        // keeps Object's default type identity (no RTTI_OBJECT needed).
     public:
         /// Move the blob's opaque bytes in whichever direction `ar` runs.
         virtual void Serialize(core::ISerializer& ar) = 0;

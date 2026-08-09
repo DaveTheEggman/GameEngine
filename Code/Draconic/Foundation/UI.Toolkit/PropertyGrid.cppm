@@ -29,7 +29,7 @@ export namespace foundation::ui::toolkit
     /// Property inspector grid. Displays PropertyEditors grouped by category into Expanders.
     class PropertyGrid : public ViewGroup
     {
-        DRACONIC_OBJECT(PropertyGrid, ViewGroup)
+        RTTI_OBJECT(PropertyGrid, ViewGroup)
     public:
         /// Ratio of label width to total width (0.1 - 0.9).
         f32 LabelWidthRatio = 0.4f;
@@ -328,5 +328,5 @@ export namespace foundation::ui::toolkit
         bool m_needsRebuild = true;
     };
 
-    DRACONIC_DEFINE_OBJECT(PropertyGrid, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(PropertyGrid, "rtti::ui::toolkit")
 }

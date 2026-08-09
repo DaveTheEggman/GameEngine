@@ -147,7 +147,7 @@ export namespace engine::input
     // set), which is why the API is statics-on-a-foreign-class rather than a passed object.
     class Input final : public Object
     {
-        DRACONIC_OBJECT(Input, Object)
+        RTTI_OBJECT(Input, Object)
     public:
         [[nodiscard]] static ActionRuntime* Resolve()
         {

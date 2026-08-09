@@ -27,7 +27,7 @@ export namespace foundation::ui
 {
     class ContentButton : public ButtonBase
     {
-        DRACONIC_OBJECT(ContentButton, ButtonBase)
+        RTTI_OBJECT(ContentButton, ButtonBase)
     public:
         ContentButton() = default;
         explicit ContentButton(RefPtr<View> content) : m_content(Move(content)) {}
@@ -95,5 +95,5 @@ export namespace foundation::ui
         RefPtr<View> m_content;
     };
 
-    DRACONIC_DEFINE_OBJECT(ContentButton, "rtti::ui")
+    RTTI_DEFINE_OBJECT(ContentButton, "rtti::ui")
 }

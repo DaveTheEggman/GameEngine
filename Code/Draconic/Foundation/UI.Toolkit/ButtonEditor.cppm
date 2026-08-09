@@ -22,7 +22,7 @@ export namespace foundation::ui::toolkit
     /// Property editor that displays a clickable button.
     class ButtonEditor : public PropertyEditor
     {
-        DRACONIC_OBJECT(ButtonEditor, PropertyEditor)
+        RTTI_OBJECT(ButtonEditor, PropertyEditor)
     public:
         Function<void()> Action;
 
@@ -69,5 +69,5 @@ export namespace foundation::ui::toolkit
         bool m_buttonEnabled = true;
     };
 
-    DRACONIC_DEFINE_OBJECT(ButtonEditor, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ButtonEditor, "rtti::ui::toolkit")
 }

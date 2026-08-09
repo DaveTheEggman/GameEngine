@@ -23,7 +23,7 @@ export namespace foundation::ui::toolkit
     /// Boolean property editor - CheckBox.
     class BoolEditor : public PropertyEditor
     {
-        DRACONIC_OBJECT(BoolEditor, PropertyEditor)
+        RTTI_OBJECT(BoolEditor, PropertyEditor)
     public:
         Function<void(bool)> Setter;
 
@@ -78,5 +78,5 @@ export namespace foundation::ui::toolkit
         CheckBox* m_checkBox = nullptr; // borrowed; the editor view RefPtr owns it
     };
 
-    DRACONIC_DEFINE_OBJECT(BoolEditor, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(BoolEditor, "rtti::ui::toolkit")
 }

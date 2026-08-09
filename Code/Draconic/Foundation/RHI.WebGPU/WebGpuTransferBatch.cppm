@@ -65,7 +65,7 @@ export namespace foundation::rhi::webgpu
         Status Submit() override
         {
             Replay();
-#if !DRACONIC_PLATFORM_WEB
+#if !PLATFORM_WEB
             // The Vulkan batch drains the queue before returning; match it on desktop.
             //
             // On WEB the drain is SKIPPED - and it must be: wgpuQueueWriteBuffer/WriteTexture

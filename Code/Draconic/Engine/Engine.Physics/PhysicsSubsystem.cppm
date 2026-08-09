@@ -13,7 +13,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
-#include "Core/Reflection/Reflect.h" // DRACONIC_OBJECT (the Physics facade)
+#include "Core/Reflection/Reflect.h" // RTTI_OBJECT (the Physics facade)
 #include <cmath>
 
 export module engine.physics;
@@ -390,7 +390,7 @@ export namespace engine::physics
                     RigidBodyComponent* own = bodies->Get(e);
                     if (own == nullptr || !own->body.IsValid())
                     {
-                        DRACONIC_LOG_WARNING(u8"Physics",
+                        LOG_WARNING(u8"Physics",
                                              u8"'{}': joint needs a rigid body on its entity",
                                              scene.GetEntityName(e));
                         return;
@@ -402,7 +402,7 @@ export namespace engine::physics
                         RigidBodyComponent* targetBody = t.IsAssigned() ? bodies->Get(t) : nullptr;
                         if (targetBody == nullptr || !targetBody->body.IsValid())
                         {
-                            DRACONIC_LOG_WARNING(
+                            LOG_WARNING(
                                 u8"Physics",
                                 u8"'{}': joint target entity has no rigid body - joint skipped",
                                 scene.GetEntityName(e));
@@ -445,7 +445,7 @@ export namespace engine::physics
                     c.joint = m_world->CreateJoint(desc);
                     if (!c.joint.IsValid())
                     {
-                        DRACONIC_LOG_WARNING(u8"Physics", u8"'{}': joint creation failed",
+                        LOG_WARNING(u8"Physics", u8"'{}': joint creation failed",
                                              scene.GetEntityName(e));
                     }
                 });
@@ -532,7 +532,7 @@ export namespace engine::physics
                         CollisionShape* cooked = c.collisionShape.Get();
                         if (cooked == nullptr)
                         {
-                            DRACONIC_LOG_WARNING(u8"Physics",
+                            LOG_WARNING(u8"Physics",
                                                  u8"'{}': cooked shape has no collision-shape "
                                                  u8"resource - body skipped",
                                                  scene.GetEntityName(e));
@@ -600,7 +600,7 @@ export namespace engine::physics
                     c.prevRotation = c.currRotation = rotation;
                     if (!c.body.IsValid())
                     {
-                        DRACONIC_LOG_WARNING(u8"Physics", u8"body creation failed for '{}'",
+                        LOG_WARNING(u8"Physics", u8"body creation failed for '{}'",
                                              scene.GetEntityName(e));
                     }
                 });

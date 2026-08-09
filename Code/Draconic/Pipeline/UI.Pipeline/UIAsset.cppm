@@ -50,7 +50,7 @@ export namespace pipeline{
 
     class UIDocumentAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(UIDocumentAsset, pipeline::Asset)
+        RTTI_OBJECT(UIDocumentAsset, pipeline::Asset)
     public:
         String markup;
 
@@ -63,7 +63,7 @@ export namespace pipeline{
 
     class UIThemeAsset final : public pipeline::Asset
     {
-        DRACONIC_OBJECT(UIThemeAsset, pipeline::Asset)
+        RTTI_OBJECT(UIThemeAsset, pipeline::Asset)
     public:
         String stylesheet;
 
@@ -96,7 +96,7 @@ export namespace pipeline{
             }
             if (da.markup.IsEmpty())
             {
-                DRACONIC_LOG_ERROR(u8"UI", u8"UI document is empty - nothing to cook");
+                LOG_ERROR(u8"UI", u8"UI document is empty - nothing to cook");
                 return Status{ErrorCode::InvalidArgument};
             }
             // Validation IS the cook: parse against the registered control set. Silent
@@ -107,13 +107,13 @@ export namespace pipeline{
                 MarkupLoader::LoadFromString(da.markup.AsView(), nullptr, &warnings);
             if (tree.Get() == nullptr)
             {
-                DRACONIC_LOG_ERROR(
+                LOG_ERROR(
                     u8"UI", u8"UI document failed to parse (malformed XML or unknown control)");
                 return Status{ErrorCode::InvalidArgument};
             }
             for (const String& warning : warnings)
             {
-                DRACONIC_LOG_WARNING(u8"UI", u8"UI document: {}", warning);
+                LOG_WARNING(u8"UI", u8"UI document: {}", warning);
             }
             UIDocumentSource cooked;
             cooked.markup = String(da.markup.AsView());
@@ -143,7 +143,7 @@ export namespace pipeline{
             }
             if (ta.stylesheet.IsEmpty())
             {
-                DRACONIC_LOG_ERROR(u8"UI", u8"UI theme is empty - nothing to cook");
+                LOG_ERROR(u8"UI", u8"UI theme is empty - nothing to cook");
                 return Status{ErrorCode::InvalidArgument};
             }
             StyleSheetLoader loader;
@@ -151,7 +151,7 @@ export namespace pipeline{
             RefPtr<StyleSheet> sheet = loader.Load(ta.stylesheet.AsView());
             if (sheet.Get() == nullptr)
             {
-                DRACONIC_LOG_ERROR(u8"UI", u8"UI theme failed to parse (malformed SSS)");
+                LOG_ERROR(u8"UI", u8"UI theme failed to parse (malformed SSS)");
                 return Status{ErrorCode::InvalidArgument};
             }
             UIThemeSource cooked;

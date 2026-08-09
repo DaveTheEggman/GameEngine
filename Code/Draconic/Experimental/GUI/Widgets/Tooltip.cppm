@@ -31,7 +31,7 @@ export namespace experimental::gui
 {
     class Tooltip : public UIWidget
     {
-        DRACONIC_OBJECT(Tooltip, UIWidget)
+        RTTI_OBJECT(Tooltip, UIWidget)
     public:
         Tooltip()
         {
@@ -143,5 +143,5 @@ export namespace experimental::gui
         bool m_shown = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(Tooltip, "rtti::gui")
+    RTTI_DEFINE_OBJECT(Tooltip, "rtti::gui")
 }

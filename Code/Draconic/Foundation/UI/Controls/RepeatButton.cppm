@@ -20,7 +20,7 @@ export namespace foundation::ui
 {
     class RepeatButton : public Button
     {
-        DRACONIC_OBJECT(RepeatButton, Button)
+        RTTI_OBJECT(RepeatButton, Button)
     public:
         f32 RepeatDelay = 0.4f;     ///< Delay before repeating starts (s).
         f32 RepeatInterval = 0.05f; ///< Interval between repeats (s).
@@ -63,5 +63,5 @@ export namespace foundation::ui
         f32 m_holdTime = 0.0f;
     };
 
-    DRACONIC_DEFINE_OBJECT(RepeatButton, "rtti::ui")
+    RTTI_DEFINE_OBJECT(RepeatButton, "rtti::ui")
 }

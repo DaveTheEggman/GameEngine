@@ -1,6 +1,6 @@
 // Draconic Animation - animation.subsystem implementation unit: the component reflection bodies.
 //
-// Kept OUT of the :components interface partition: DRACONIC_REFLECT_* bodies in an interface
+// Kept OUT of the :components interface partition: REFLECT_* bodies in an interface
 // unit make GCC emit an unreadable gcm cluster for consumers (see gcc-module-interface-hygiene).
 // Components.cppm declares RegisterAnimationComponentReflection(); this unit defines it and the
 // DraconicRegisterValue_* bodies.
@@ -22,7 +22,7 @@ namespace core = foundation::core;
 namespace engine::animation
 {
 
-    DRACONIC_REFLECT_VALUE(SkeletalAnimationComponent, "rtti::engine::animation")
+    REFLECT_VALUE(SkeletalAnimationComponent, "rtti::engine::animation")
     {
         builder.Attribute("displayName", String(u8"Skeletal Animation"))
             .Attribute("category", String(u8"Animation"))
@@ -37,7 +37,7 @@ namespace engine::animation
             .Property<&SkeletalAnimationComponent::autoPlay>("autoPlay");
     }
 
-    DRACONIC_REFLECT_VALUE(AnimationGraphComponent, "rtti::engine::animation")
+    REFLECT_VALUE(AnimationGraphComponent, "rtti::engine::animation")
     {
         builder.Attribute("displayName", String(u8"Animation Graph"))
             .Attribute("category", String(u8"Animation"))
@@ -54,7 +54,7 @@ namespace engine::animation
     // setFloat/setBool/setTrigger (graph params). `of` returns SceneAnimation by value (concrete
     // cross-backend return), like ScenePhysics. All world ops keyed by entity - they reach the
     // manager-owned runtime player.
-    DRACONIC_REFLECT_VALUE(SceneAnimation, "rtti::engine::animation")
+    REFLECT_VALUE(SceneAnimation, "rtti::engine::animation")
     {
         builder.Method<&SceneAnimation::play>("play", {"entity"});
         builder.Method<&SceneAnimation::stop>("stop", {"entity"});
@@ -71,7 +71,7 @@ namespace engine::animation
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
-    DRACONIC_REFLECT_VALUE(InstancedSkinningComponent, "rtti::engine::animation")
+    REFLECT_VALUE(InstancedSkinningComponent, "rtti::engine::animation")
     {
         // Script (Track A): InstancedSkinningComponent.of(entity) -> live poseCount/speed (the crowd
         // skinning tunables). Pure data; the manager reads them each frame.

@@ -88,7 +88,7 @@ export namespace editor
     // A project's set of export presets - the root, versioned payload of export_presets.xml.
     class ExportPresetSet final : public ISerializable
     {
-        DRACONIC_OBJECT(ExportPresetSet, ISerializable)
+        RTTI_OBJECT(ExportPresetSet, ISerializable)
     public:
         Array<ExportPreset> presets;
 
@@ -175,7 +175,7 @@ export namespace editor
     // checked-out templates directory. Empty (the default) preserves the env-then-default behaviour.
     class EditorExportSettings final : public ISerializable
     {
-        DRACONIC_OBJECT(EditorExportSettings, ISerializable)
+        RTTI_OBJECT(EditorExportSettings, ISerializable)
     public:
         String templatesRoot; // "" => $DRACONIC_TEMPLATES_DIR, else <user-data>/templates
 
@@ -187,6 +187,6 @@ export namespace editor
 
     namespace settings = foundation::settings;
 
-    DRACONIC_DEFINE_OBJECT_VERSIONED(ExportPresetSet, "rtti::editor::editor", 3)
-    DRACONIC_DEFINE_OBJECT_VERSIONED(EditorExportSettings, "rtti::editor::editor", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(ExportPresetSet, "rtti::editor::editor", 3)
+    RTTI_DEFINE_OBJECT_VERSIONED(EditorExportSettings, "rtti::editor::editor", 1)
 }

@@ -620,4 +620,4 @@ namespace
     };
 }
 
-DRACONIC_APP_MAIN(PlaygroundApp)
+APP_MAIN(PlaygroundApp)

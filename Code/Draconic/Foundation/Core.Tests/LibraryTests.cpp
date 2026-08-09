@@ -13,7 +13,7 @@ using namespace foundation::core;
 // Web has no dynamic linking (dlopen'd sidecars are a DESKTOP concept - web ships
 // everything linked in), so the plugin-loading cases sit out; the missing-file
 // error path still runs everywhere.
-#if !DRACONIC_PLATFORM_WEB
+#if !PLATFORM_WEB
 
 // The plugin path is injected as a narrow build-system literal; the library API
 // is now UTF-8, so wrap in a StringView directly.
@@ -48,7 +48,7 @@ TEST_CASE("library: load a real plugin, resolve and call symbols, unload")
     CHECK_FALSE(lib.IsLoaded());
 }
 
-#endif // !DRACONIC_PLATFORM_WEB
+#endif // !PLATFORM_WEB
 
 TEST_CASE("library: loading a missing file fails cleanly")
 {
@@ -59,7 +59,7 @@ TEST_CASE("library: loading a missing file fails cleanly")
     CHECK_FALSE(lib.IsLoaded());
 }
 
-#if !DRACONIC_PLATFORM_WEB // loads the real plugin
+#if !PLATFORM_WEB // loads the real plugin
 TEST_CASE("library: move transfers ownership")
 {
     DynamicLibrary a;
@@ -74,4 +74,4 @@ TEST_CASE("library: move transfers ownership")
     REQUIRE(answer != nullptr);
     CHECK(answer() == 42);
 }
-#endif // !DRACONIC_PLATFORM_WEB
+#endif // !PLATFORM_WEB

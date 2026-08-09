@@ -21,7 +21,7 @@ export namespace foundation::ui
 {
     class RadioGroup : public FlexLayout
     {
-        DRACONIC_OBJECT(RadioGroup, FlexLayout)
+        RTTI_OBJECT(RadioGroup, FlexLayout)
     public:
         Event<void(RadioGroup*, RadioButton*)> OnSelectionChanged;
 
@@ -104,5 +104,5 @@ export namespace foundation::ui
         bool m_updating = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(RadioGroup, "rtti::ui")
+    RTTI_DEFINE_OBJECT(RadioGroup, "rtti::ui")
 }

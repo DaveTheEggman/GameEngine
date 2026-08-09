@@ -23,7 +23,7 @@ export namespace foundation::ui::toolkit
     /// Property editor for enumeration values. Uses a ComboBox with string items.
     class EnumEditor : public PropertyEditor
     {
-        DRACONIC_OBJECT(EnumEditor, PropertyEditor)
+        RTTI_OBJECT(EnumEditor, PropertyEditor)
     public:
         Function<void(i32)> Setter;
 
@@ -95,5 +95,5 @@ export namespace foundation::ui::toolkit
         bool m_syncing = false;
     };
 
-    DRACONIC_DEFINE_OBJECT(EnumEditor, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(EnumEditor, "rtti::ui::toolkit")
 }

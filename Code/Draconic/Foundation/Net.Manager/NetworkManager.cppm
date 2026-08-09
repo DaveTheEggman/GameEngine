@@ -231,7 +231,7 @@ export namespace foundation::net
     // bind it via reflection. Defined after NetworkManager so the read paths see the full type.
     class Net final : public Object
     {
-        DRACONIC_OBJECT(Net, Object)
+        RTTI_OBJECT(Net, Object)
     public:
         [[nodiscard]] static NetScriptBinding* Resolve()
         {

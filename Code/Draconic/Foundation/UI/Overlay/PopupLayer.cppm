@@ -30,7 +30,7 @@ export namespace foundation::ui
 {
     class PopupLayer : public ViewGroup
     {
-        DRACONIC_OBJECT(PopupLayer, ViewGroup)
+        RTTI_OBJECT(PopupLayer, ViewGroup)
     public:
         [[nodiscard]] bool HasModalPopup() const
         {
@@ -386,5 +386,5 @@ export namespace foundation::ui
         RefPtr<ModalBackdrop> m_backdrop;
     };
 
-    DRACONIC_DEFINE_OBJECT(PopupLayer, "rtti::ui")
+    RTTI_DEFINE_OBJECT(PopupLayer, "rtti::ui")
 }

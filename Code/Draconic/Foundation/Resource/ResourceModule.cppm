@@ -748,7 +748,7 @@ export namespace foundation::resource
 
         void AssertMainThread() const noexcept
         {
-            DRACONIC_ASSERT_MSG(Thread::CurrentId() == m_mainThreadId,
+            DIAGNOSTIC_ASSERT_MSG(Thread::CurrentId() == m_mainThreadId,
                                 "ResourceManager async finalize/pump must run on the main thread");
         }
 

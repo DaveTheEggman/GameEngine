@@ -14,7 +14,7 @@ export namespace foundation::ui
 {
     class Spacer : public View
     {
-        DRACONIC_OBJECT(Spacer, View)
+        RTTI_OBJECT(Spacer, View)
     public:
         Property<f32> SpacerWidth{0.0f};
         Property<f32> SpacerHeight{0.0f};
@@ -34,5 +34,5 @@ export namespace foundation::ui
                                   constraints.ConstrainHeight(SpacerHeight.Value())};
         }
     };
-    DRACONIC_DEFINE_OBJECT(Spacer, "rtti::ui")
+    RTTI_DEFINE_OBJECT(Spacer, "rtti::ui")
 }

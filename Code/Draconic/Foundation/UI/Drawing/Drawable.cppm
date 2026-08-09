@@ -24,7 +24,7 @@ export namespace foundation::ui
 {
     class Drawable : public Object
     {
-        DRACONIC_OBJECT(Drawable, Object)
+        RTTI_OBJECT(Drawable, Object)
     public:
         /// State-unaware draw.
         virtual void Draw(UIDrawContext& ctx, const Rectangle& bounds) = 0;
@@ -44,5 +44,5 @@ export namespace foundation::ui
         [[nodiscard]] virtual Thickness DrawablePadding() const { return Thickness{}; }
     };
 
-    DRACONIC_DEFINE_OBJECT(Drawable, "rtti::ui")
+    RTTI_DEFINE_OBJECT(Drawable, "rtti::ui")
 }

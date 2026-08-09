@@ -32,7 +32,7 @@ export namespace experimental::gui
 {
     class MenuBar : public UIWidget
     {
-        DRACONIC_OBJECT(MenuBar, UIWidget)
+        RTTI_OBJECT(MenuBar, UIWidget)
     public:
         MenuBar()
         {
@@ -172,5 +172,5 @@ export namespace experimental::gui
         Color m_barColor{0.13f, 0.15f, 0.18f, 1.0f};
     };
 
-    DRACONIC_DEFINE_OBJECT(MenuBar, "rtti::gui")
+    RTTI_DEFINE_OBJECT(MenuBar, "rtti::gui")
 }

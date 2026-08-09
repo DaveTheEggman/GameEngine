@@ -40,7 +40,7 @@ export namespace experimental::gui
     // can re-run). Internal helper; users reach it as a Node* via ScrollView::GetContent().
     class ScrollContent : public UIWidget
     {
-        DRACONIC_OBJECT(ScrollContent, UIWidget)
+        RTTI_OBJECT(ScrollContent, UIWidget)
     public:
         core::Function<void()> OnContentChanged;
 
@@ -54,7 +54,7 @@ export namespace experimental::gui
 
     class ScrollView : public UIWidget
     {
-        DRACONIC_OBJECT(ScrollView, UIWidget)
+        RTTI_OBJECT(ScrollView, UIWidget)
     public:
         ScrollView()
         {
@@ -309,6 +309,6 @@ export namespace experimental::gui
         core::Function<void(core::Float2)> m_onScroll;
     };
 
-    DRACONIC_DEFINE_OBJECT(ScrollContent, "rtti::gui")
-    DRACONIC_DEFINE_OBJECT(ScrollView, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ScrollContent, "rtti::gui")
+    RTTI_DEFINE_OBJECT(ScrollView, "rtti::gui")
 }
