@@ -1,6 +1,6 @@
 // Ported from Sedulous.UI.Tests/src/ThemeAtlasTests.bf (faithful; Beef `scope`/`new`/`defer
 // ReleaseRef` -> stack values / RefPtr, tuple state span -> StateImageEntry[]).
-// NOTE: Sedulous NineSlice exposes PascalCase `.Left`; draconic image::NineSlice uses lowercase
+// NOTE: Sedulous NineSlice exposes PascalCase `.Left`; the engine image::NineSlice uses lowercase
 // `.left` (the image module's field convention), so `Slices.left` here is the faithful equivalent.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

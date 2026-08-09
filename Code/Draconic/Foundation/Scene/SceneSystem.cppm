@@ -35,7 +35,7 @@ export namespace foundation::scene
     public:
         virtual ~SceneSystem() = default;
 
-        // Capability query (the As*() idiom, since Draconic is -fno-rtti): a system that is a
+        // Capability query (the As*() idiom, since the engine is -fno-rtti): a system that is a
         // component manager returns itself, so the Scene can drive component-init / lookup
         // without a dynamic cast. Plain systems return null.
         [[nodiscard]] virtual ComponentManagerBase* AsComponentManager() noexcept

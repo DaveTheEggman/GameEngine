@@ -250,7 +250,7 @@ export namespace editor
         RefPtr<ui::View> CreateEditorView() override;
     };
 
-    // ui::IconButton + ui::AssetPickerSlot are the shared UI controls (Draconic.UI/Controls); the
+    // ui::IconButton + ui::AssetPickerSlot are the shared UI controls (ui::Controls); the
     // list editor below composes them.
 
     // The GENERIC reflected list editor: ONE grid row whose editor view is a header (add icon, top

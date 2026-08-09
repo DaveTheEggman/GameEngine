@@ -4,7 +4,7 @@
 // "mutually-recursive types share one partition" rule). Ported from Sedulous.UI.Toolkit/src/Docking/
 // {DockPanelDragData, DockablePanel, DockableWindow, DockTabGroup, DockManager}.bf.
 //
-// Ownership adaptation (Beef raw `new`/`delete` tree -> draconic RefPtr tree):
+// Ownership adaptation (Beef raw `new`/`delete` tree -> RefPtr tree):
 //   * The view tree is the strong owner of its children (AddView adds a RefPtr, RemoveView drops it -
 //     which can DESTROY the child if it was the last ref). So any node that is detached and re-attached
 //     must be pinned with a local RefPtr<View> across the operation.

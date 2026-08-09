@@ -1,6 +1,6 @@
 # Foundation::Shaders - `foundation.shaders` (HLSL compilation via DXC). The Compiler is
 # a third-party edge (DXC's wide-char API), so it uses std strings/containers;
-# the public Types use Draconic types.
+# the public Types use engine types.
 
 if(NOT TARGET ThirdParty::DXCHeaders)
     message(STATUS "Skipping Foundation::Shaders - DXC headers not available")

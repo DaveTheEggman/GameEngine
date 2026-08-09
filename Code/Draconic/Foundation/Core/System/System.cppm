@@ -261,7 +261,7 @@ export namespace foundation::core
 
     // --- User data directory ----------------------------------------------
 
-    // User-data directory for `appName` (default "draconic"): the platform base directory (resolved
+    // User-data directory for `appName` (name baked from CMake, USER_DATA_DIR_NAME): the platform base directory (resolved
     // per-platform in the backend - $XDG_DATA_HOME/~/.local/share on Linux, %LOCALAPPDATA% on Windows,
     // ~/Library/Application Support on macOS) with `appName` appended. Falls back to the bare app name
     // when the base can't be resolved. Where global editor settings live - and the default export
