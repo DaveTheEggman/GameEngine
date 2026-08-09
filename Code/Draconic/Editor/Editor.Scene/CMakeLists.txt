@@ -10,13 +10,13 @@ target_link_libraries(Draconic.Editor.Scene
         Draconic::Runtime Draconic::Runtime.Client Draconic::Engine.DefaultApp
         Draconic::Scene Draconic::Engine.Scene Draconic::Scene.Resource
         Draconic::Render Draconic::Engine.Render Draconic::Animation Draconic::Engine.Animation
-        Draconic::Animation.Resource Draconic::Animation.Editor
+        Draconic::Animation.Resource Draconic::Animation.Pipeline
         Draconic::ModelImporter Draconic::Texture.Resource
-        Draconic::Particles Draconic::Particles.Resource Draconic::Particles.Editor Draconic::Engine.Particles
+        Draconic::Particles Draconic::Particles.Resource Draconic::Particles.Pipeline Draconic::Engine.Particles
         Draconic::Physics Draconic::Physics.Resource Draconic::Engine.Physics
         Draconic::UI.Resource Draconic::Engine.UI Draconic::Audio Draconic::Audio.Resource Draconic::Engine.Audio
-        Draconic::Geometry Draconic::Geometry.Resource Draconic::Geometry.Editor
-        Draconic::Materials Draconic::Materials.Resource Draconic::Materials.Editor
+        Draconic::Geometry Draconic::Geometry.Resource Draconic::Geometry.Pipeline
+        Draconic::Materials Draconic::Materials.Resource Draconic::Materials.Pipeline
         Draconic::UI Draconic::UI.Runtime Draconic::UI.Viewport Draconic::VG.Renderer
         Draconic::Script Draconic::Script.Wren Draconic::Script.Resource Draconic::Script.Facades Draconic::Engine.Script
         Draconic::Input Draconic::Input.Resource Draconic::Engine.Input

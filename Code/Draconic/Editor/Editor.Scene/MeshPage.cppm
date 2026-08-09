@@ -140,7 +140,7 @@ export namespace draconic::editor
     // per submesh) - the viewer's readout. Free + pure so it is unit-tested without a live host.
     [[nodiscard]] Array<String> MeshStatLines(const geometry::StaticMesh& mesh);
 
-    // Registers the viewer for BOTH mesh asset types (they are sibling editor::Asset subclasses,
+    // Registers the viewer for BOTH mesh asset types (they are sibling draconic::pipeline::Asset subclasses,
     // so a factory each - not one via nearest-type dispatch).
     void RegisterMeshEditor(EditorContext& context, runtime::IApplicationHost& host,
                             ui::runtime::UIHost& uiHost);

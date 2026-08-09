@@ -15,7 +15,7 @@ import draconic.core;
 import draconic.content;
 import draconic.runtime.client;
 import draconic.audio;
-import draconic.audio.editor;
+import draconic.audio.pipeline;
 import draconic.engine.audio;
 import draconic.ui;
 import draconic.editor.core;
@@ -40,11 +40,11 @@ export namespace draconic::editor
             m_audio = host.Ctx().GetSubsystem<draconic::engine::audio::AudioSubsystem>();
             if (RefPtr<ISerializable> object = instance.ReadObject())
             {
-                if (auto* asset = Cast<audio::SoundCueAsset>(object.Get()))
+                if (auto* asset = Cast<draconic::pipeline::SoundCueAsset>(object.Get()))
                 {
                     // Field-wise copy (the Asset base is non-copyable).
                     m_asset.fileName = asset->fileName; // SourcePath copies
-                    for (usize i = 0; i < audio::kSoundCueSlotCount; ++i)
+                    for (usize i = 0; i < draconic::pipeline::kSoundCueSlotCount; ++i)
                     {
                         m_asset.clipIds[i] = asset->clipIds[i];
                         m_asset.weights[i] = asset->weights[i];
@@ -62,7 +62,7 @@ export namespace draconic::editor
             column->Spacing = 6.0f;
 
             // Slot rows: "<clip name>" [Pick...] [Clear] weight [field]
-            for (usize i = 0; i < audio::kSoundCueSlotCount; ++i)
+            for (usize i = 0; i < draconic::pipeline::kSoundCueSlotCount; ++i)
             {
                 auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
                 row->Direction = ui::Orientation::Horizontal;
@@ -167,7 +167,7 @@ export namespace draconic::editor
             }
 
             m_content = column;
-            for (usize i = 0; i < audio::kSoundCueSlotCount; ++i)
+            for (usize i = 0; i < draconic::pipeline::kSoundCueSlotCount; ++i)
             {
                 RefreshSlot(i);
             }
@@ -201,7 +201,7 @@ export namespace draconic::editor
         EditorContext* m_context = nullptr;
         draconic::engine::audio::AudioSubsystem* m_audio = nullptr;
         String m_title;
-        audio::SoundCueAsset m_asset;
+        draconic::pipeline::SoundCueAsset m_asset;
         Random m_rng;
         i32 m_lastVariant = -1;
         u32 m_sequentialCursor = 0;
@@ -209,8 +209,8 @@ export namespace draconic::editor
         String m_pickText;
         HashMap<Guid, RefPtr<audio::AudioClip>> m_clipCache;
         RefPtr<ui::View> m_content;
-        RefPtr<ui::Label> m_slotLabels[audio::kSoundCueSlotCount];
-        RefPtr<ui::NumericField> m_weightFields[audio::kSoundCueSlotCount];
+        RefPtr<ui::Label> m_slotLabels[draconic::pipeline::kSoundCueSlotCount];
+        RefPtr<ui::NumericField> m_weightFields[draconic::pipeline::kSoundCueSlotCount];
         Array<RefPtr<ui::NumericField>> m_jitterFields;
         RefPtr<ui::Button> m_modeButton;
         RefPtr<ui::Label> m_status;

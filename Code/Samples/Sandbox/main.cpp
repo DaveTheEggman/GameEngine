@@ -31,8 +31,8 @@ import draconic.geometry.resource; // StaticMeshFactory + StaticMesh product
 import draconic.materials;
 import draconic.materials.resource; // MaterialFactory (cooked materials)
 import draconic.texture.resource;   // TextureFactory (cooked textures)
-import draconic.texture.editor;     // TextureImporter / TextureAssetBuilder
-import draconic.editor.asset;             // AssetBuildContext (cook an asset into a content instance)
+import draconic.texture.pipeline;     // TextureImporter / TextureAssetBuilder
+import draconic.pipeline.core;             // AssetBuildContext (cook an asset into a content instance)
 import draconic.animation.resource; // Skeleton/AnimationClip factories
 import draconic.vfs;                // NativeFileSystem mount for the content DB
 import draconic.content;            // ContentDatabase (cooked-resource output)
@@ -65,7 +65,6 @@ namespace vfs = draconic::vfs;
 namespace content = draconic::content;
 namespace resource = draconic::resource;
 namespace model = draconic::model;
-namespace modelimporter = draconic::modelimporter;
 namespace animation = draconic::animation;
 namespace imgui = draconic::imgui;
 namespace particles = draconic::particles;
@@ -153,7 +152,7 @@ namespace
                                  core::StringView(reinterpret_cast<const core::utf8char*>(
                                      DRACONIC_SANDBOX_ENV_DIR)));
                 core::Array<core::String> facePaths;
-                if (texture::TextureImporter::DetectCubemapFaces(oneFace.AsView(), facePaths)
+                if (draconic::pipeline::TextureImporter::DetectCubemapFaces(oneFace.AsView(), facePaths)
                         .IsOk() &&
                     facePaths.Size() == 6)
                 {
@@ -164,7 +163,7 @@ namespace
                     }
                     core::Array<core::u8> cube;
                     core::u32 cubeFace = 0;
-                    if (texture::TextureImporter::LoadCubemap(
+                    if (draconic::pipeline::TextureImporter::LoadCubemap(
                             core::Span<const core::StringView>{faceViews, 6}, cube, cubeFace)
                             .IsOk())
                     {
@@ -569,8 +568,8 @@ namespace
             const core::StringView imageDir(
                 reinterpret_cast<const core::utf8char*>(DRACONIC_SANDBOX_IMAGE_DIR));
 
-            texture::TextureAsset asset;
-            texture::TextureImporter::Import2D(u8"draconic_logo_no_text.png",
+            draconic::pipeline::TextureAsset asset;
+            draconic::pipeline::TextureImporter::Import2D(u8"draconic_logo_no_text.png",
                                                draconic::image::ImageColorSpace::Srgb,
                                                asset); // sRGB albedo
 
@@ -582,9 +581,9 @@ namespace
             {
                 return nullptr;
             }
-            texture::TextureAssetBuilder builder;
+            draconic::pipeline::TextureAssetBuilder builder;
             draconic::vfs::NativeFileSystem imageMount(imageDir);
-            draconic::editor::AssetBuildContext ctx;
+            draconic::pipeline::AssetBuildContext ctx;
             ctx.sources = &imageMount; // the mount resolves the PNG
             ctx.output = inst;
             if (!builder.Build(asset, ctx).IsOk())
@@ -674,7 +673,7 @@ namespace
 
             core::Guid modelGuid;
             const model::ModelLoadResult r =
-                modelimporter::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
+                draconic::pipeline::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
             if (r != model::ModelLoadResult::Ok)
             {
                 core::ConsoleWrite(core::Format(u8"Sandbox: model import failed ({}) for {}\n",
@@ -713,7 +712,7 @@ namespace
             core::Array<scene::EntityHandle> entities;
             core::Array<scene::EntityHandle> skinnedEntities;
             entities.Reserve(model->nodes.Size());
-            for (const modelimporter::ModelNode& node : model->nodes)
+            for (const draconic::pipeline::ModelNode& node : model->nodes)
             {
                 scene::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
                 m_scene->SetLocalTransform(e, node.localTransform);
@@ -721,7 +720,7 @@ namespace
             }
             for (core::usize i = 0; i < model->nodes.Size(); ++i)
             {
-                const modelimporter::ModelNode& node = model->nodes[i];
+                const draconic::pipeline::ModelNode& node = model->nodes[i];
                 if (node.parentIndex >= 0 &&
                     static_cast<core::usize>(node.parentIndex) < entities.Size())
                 {

@@ -38,7 +38,6 @@ export namespace draconic::editor
 {
     namespace scene = draconic::scene;
     namespace render = draconic::render;
-    namespace modelimporter = draconic::modelimporter;
 
     struct ModelPrefabResult
     {
@@ -54,7 +53,7 @@ export namespace draconic::editor
     {
         ModelPrefabResult result;
         RefPtr<ISerializable> object = manifestInstance.ReadObject();
-        auto* asset = Cast<modelimporter::ModelManifestAsset>(object.Get());
+        auto* asset = Cast<draconic::pipeline::ModelManifestAsset>(object.Get());
         if (asset == nullptr)
         {
             return result;

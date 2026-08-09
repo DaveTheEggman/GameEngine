@@ -20,7 +20,7 @@ import draconic.core;
 import draconic.content;
 import draconic.runtime.client;
 import draconic.audio;
-import draconic.audio.editor;
+import draconic.audio.pipeline;
 import draconic.engine.audio;
 import draconic.ui;
 import draconic.editor.core;

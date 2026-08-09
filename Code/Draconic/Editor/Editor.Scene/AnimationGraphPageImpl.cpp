@@ -19,7 +19,7 @@ import draconic.scene;
 import draconic.engine.scene;
 import draconic.animation;
 import draconic.animation.resource;
-import draconic.animation.editor;
+import draconic.animation.pipeline;
 import draconic.render;
 import draconic.engine.render;
 import draconic.ui;
@@ -206,8 +206,8 @@ namespace draconic::editor
         SetInstanceId(instance.Id());
 
         RefPtr<ISerializable> object = instance.ReadObject();
-        m_asset = RefPtr<animation::AnimationGraphAsset>(
-            Cast<animation::AnimationGraphAsset>(object.Get()));
+        m_asset = RefPtr<draconic::pipeline::AnimationGraphAsset>(
+            Cast<draconic::pipeline::AnimationGraphAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor",
@@ -2075,7 +2075,7 @@ namespace draconic::editor
 
     const TypeInfo* AnimationGraphPageFactory::PrimaryType() const
     {
-        return &animation::AnimationGraphAsset::StaticType();
+        return &draconic::pipeline::AnimationGraphAsset::StaticType();
     }
 
     UniquePtr<EditorPage>
@@ -2087,7 +2087,7 @@ namespace draconic::editor
         return UniquePtr<EditorPage>(page, DefaultAllocator());
     }
 
-    void SeedDefaultAnimationGraph(animation::AnimationGraphAsset& asset)
+    void SeedDefaultAnimationGraph(draconic::pipeline::AnimationGraphAsset& asset)
     {
         animation::AnimationGraphSource& source = asset.source;
         source.paramNames.PushBack(String(u8"Speed"));
@@ -2136,12 +2136,12 @@ namespace draconic::editor
         const String name = target->UniqueInstanceName(u8"AnimationGraph");
 
         draconic::content::Instance* instance =
-            target->CreateInstance(name.AsView(), animation::AnimationGraphAsset::StaticType());
+            target->CreateInstance(name.AsView(), draconic::pipeline::AnimationGraphAsset::StaticType());
         if (instance == nullptr)
         {
             return nullptr;
         }
-        animation::AnimationGraphAsset asset;
+        draconic::pipeline::AnimationGraphAsset asset;
         SeedDefaultAnimationGraph(asset);
         if (!instance->WriteObject(asset).IsOk())
         {

@@ -704,7 +704,7 @@ export namespace draconic::editor
                 }
                 if (options != nullptr)
                 {
-                    auto* modelOptions = Cast<draconic::modelimporter::ModelImportOptions>(
+                    auto* modelOptions = Cast<draconic::pipeline::ModelImportOptions>(
                         const_cast<ImportOptions*>(options));
                     if (modelOptions != nullptr && !modelOptions->generatePrefab)
                     {

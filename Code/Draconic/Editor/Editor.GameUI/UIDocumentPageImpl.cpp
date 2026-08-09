@@ -25,7 +25,7 @@ import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.xml;
 import draconic.ui.resource;
-import draconic.ui.editor;
+import draconic.ui.pipeline;
 import draconic.ui.runtime;
 import draconic.engine.ui;
 import draconic.ui.viewport;
@@ -46,7 +46,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        ui::UIDocumentAsset asset;
+        draconic::pipeline::UIDocumentAsset asset;
         asset.markup = String(m_markup.AsView());
         const Status written = instance->WriteObject(asset);
         if (written.IsOk())
@@ -208,7 +208,7 @@ namespace draconic::editor
     }
     const TypeInfo* UIDocumentPageFactory::PrimaryType() const
     {
-        return &ui::UIDocumentAsset::StaticType();
+        return &draconic::pipeline::UIDocumentAsset::StaticType();
     }
 
     UniquePtr<EditorPage> UIDocumentPageFactory::CreatePage(EditorContext& context,

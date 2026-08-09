@@ -8,18 +8,19 @@ import draconic.core;
 import draconic.content;
 import draconic.animation;
 import draconic.animation.resource;
-import draconic.animation.editor;
-import draconic.editor.asset;
+import draconic.animation.pipeline;
+import draconic.pipeline.core;
 import draconic.editor.core;
 import draconic.editor.scene;
 
 using namespace draconic::core;
+using namespace draconic::pipeline;
 using namespace draconic::editor;
 namespace anim = draconic::animation;
 
 TEST_CASE("animation graph: creator path round-trips through a real project")
 {
-    anim::RegisterAnimationAssets();
+    draconic::pipeline::RegisterAnimationAssets();
 
     const StringView dir = u8"graph_crash_repro_project";
     FileDelete(PathJoin(dir, u8"Project.xml"));
@@ -42,16 +43,16 @@ TEST_CASE("animation graph: creator path round-trips through a real project")
     REQUIRE(group != nullptr);
 
     draconic::content::Instance* instance =
-        group->CreateInstance(u8"AnimationGraph", anim::AnimationGraphAsset::StaticType());
+        group->CreateInstance(u8"AnimationGraph", draconic::pipeline::AnimationGraphAsset::StaticType());
     REQUIRE(instance != nullptr);
-    anim::AnimationGraphAsset asset;
+    draconic::pipeline::AnimationGraphAsset asset;
     SeedDefaultAnimationGraph(asset);
     REQUIRE(instance->WriteObject(asset).IsOk());
 
     // The page-open read path.
     RefPtr<ISerializable> obj = instance->ReadObject();
     REQUIRE(obj.Get() != nullptr);
-    auto* readBack = Cast<anim::AnimationGraphAsset>(obj.Get());
+    auto* readBack = Cast<draconic::pipeline::AnimationGraphAsset>(obj.Get());
     REQUIRE(readBack != nullptr);
     CHECK(readBack->source.layers.Size() == 1u);
     CHECK(readBack->layerStatePositions.Size() == 1u);

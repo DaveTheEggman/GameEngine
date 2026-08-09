@@ -19,7 +19,7 @@ import draconic.core;
 import draconic.content;
 import draconic.runtime.client;
 import draconic.audio;
-import draconic.audio.editor;
+import draconic.audio.pipeline;
 import draconic.engine.audio;
 import draconic.ui;
 import draconic.editor.core;
@@ -71,7 +71,7 @@ namespace draconic::editor
     void AudioClipEditorPage::LoadClip(draconic::content::Instance& instance)
     {
         RefPtr<ISerializable> object = instance.ReadObject();
-        auto* asset = Cast<audio::AudioClipAsset>(object.Get());
+        auto* asset = Cast<draconic::pipeline::AudioClipAsset>(object.Get());
         if (asset == nullptr || m_context->Project() == nullptr)
         {
             return;
@@ -181,7 +181,7 @@ namespace draconic::editor
     }
     const TypeInfo* AudioClipPageFactory::PrimaryType() const
     {
-        return &audio::AudioClipAsset::StaticType();
+        return &draconic::pipeline::AudioClipAsset::StaticType();
     }
 
     UniquePtr<EditorPage> AudioClipPageFactory::CreatePage(EditorContext& context,

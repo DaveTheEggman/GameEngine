@@ -17,7 +17,7 @@ import draconic.core;
 import draconic.content;
 import draconic.runtime.client;
 import draconic.audio;
-import draconic.audio.editor;
+import draconic.audio.pipeline;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
@@ -34,7 +34,7 @@ export namespace draconic::editor
     // True when re-parenting custom slot `slotIndex` under `newParent` would create a cycle
     // among the custom slots (fixed-bus parents can never cycle). Pure - the page's parent
     // dropdown filters with it and the tests pin it.
-    [[nodiscard]] bool AudioBusWouldCycle(const audio::AudioBusLayoutAsset& asset, i32 slotIndex,
+    [[nodiscard]] bool AudioBusWouldCycle(const draconic::pipeline::AudioBusLayoutAsset& asset, i32 slotIndex,
                                           StringView newParent);
 
     class BusLayoutTreeAdapter; // defined below
@@ -104,7 +104,7 @@ export namespace draconic::editor
         void RebuildTree();
         void RebuildInspector();
         void QueueStructural(StringView undoKey, Function<void()> mutate);
-        [[nodiscard]] audio::AudioBusLayoutAsset::Bus* SelectedBus();
+        [[nodiscard]] draconic::pipeline::AudioBusLayoutAsset::Bus* SelectedBus();
 
         [[nodiscard]] Array<byte> SnapshotAsset() const;
         void ApplyAssetBlob(const Array<byte>& blob);
@@ -114,7 +114,7 @@ export namespace draconic::editor
         EditorContext* m_context = nullptr;
         String m_title;
 
-        RefPtr<audio::AudioBusLayoutAsset> m_asset;
+        RefPtr<draconic::pipeline::AudioBusLayoutAsset> m_asset;
 
         RefPtr<ui::toolkit::DraggableTreeView> m_tree;
         UniquePtr<BusLayoutTreeAdapter> m_adapter;

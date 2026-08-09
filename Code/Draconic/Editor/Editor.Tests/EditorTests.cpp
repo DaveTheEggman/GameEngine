@@ -4,10 +4,10 @@
 #include "Core/Reflection/Reflect.h"
 import draconic.core;
 import draconic.content;
-import draconic.editor.asset;
+import draconic.pipeline.core;
 import draconic.vfs;
 using namespace draconic::core;
-using namespace draconic::editor;
+    using namespace draconic::pipeline;
 
 namespace
 {

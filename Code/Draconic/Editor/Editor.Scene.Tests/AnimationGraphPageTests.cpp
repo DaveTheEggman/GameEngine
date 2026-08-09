@@ -10,15 +10,16 @@
 import draconic.core;
 import draconic.animation;
 import draconic.animation.resource;
-import draconic.animation.editor;
+import draconic.animation.pipeline;
 import draconic.editor.scene;
 
 using namespace draconic::core;
+using namespace draconic::pipeline;
 namespace anim = draconic::animation;
 
 TEST_CASE("animation graph page: default seed = one layer, Idle default state, Speed param")
 {
-    anim::AnimationGraphAsset asset;
+    draconic::pipeline::AnimationGraphAsset asset;
     draconic::editor::SeedDefaultAnimationGraph(asset);
 
     REQUIRE(asset.source.paramNames.Size() == 1u);
@@ -42,7 +43,7 @@ TEST_CASE("animation graph page: default seed = one layer, Idle default state, S
 
 TEST_CASE("animation graph page: asset round-trips source + canvas layout (undo blob path)")
 {
-    anim::AnimationGraphAsset a;
+    draconic::pipeline::AnimationGraphAsset a;
     draconic::editor::SeedDefaultAnimationGraph(a);
     // Author a bit beyond the seed: a second state, a transition with a condition, a moved node.
     anim::GraphStateData run;
@@ -72,7 +73,7 @@ TEST_CASE("animation graph page: asset round-trips source + canvas layout (undo 
         REQUIRE(ar.IsOk());
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
-    anim::AnimationGraphAsset b;
+    draconic::pipeline::AnimationGraphAsset b;
     {
         BinarySerializer ar(stream, SerializeMode::Read);
         b.Serialize(ar);
@@ -105,7 +106,7 @@ TEST_CASE("animation graph page: asset round-trips source + canvas layout (undo 
 
 TEST_CASE("animation clip page: asset round-trips loop flag + events (undo blob path)")
 {
-    anim::AnimationClipAsset a;
+    draconic::pipeline::AnimationClipAsset a;
     a.source.name = String(u8"Walk");
     a.source.duration = 1.25f;
     a.source.isLooping = true;
@@ -121,7 +122,7 @@ TEST_CASE("animation clip page: asset round-trips loop flag + events (undo blob 
         REQUIRE(ar.IsOk());
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
-    anim::AnimationClipAsset b;
+    draconic::pipeline::AnimationClipAsset b;
     {
         BinarySerializer ar(stream, SerializeMode::Read);
         b.Serialize(ar);

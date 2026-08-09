@@ -17,18 +17,18 @@ import draconic.content;
 import draconic.resource;
 import draconic.engine.project;
 import draconic.geometry;
-import draconic.geometry.editor;
+import draconic.geometry.pipeline;
 import draconic.geometry.resource;
 import draconic.engine.render;
 import draconic.scene;
 import draconic.scene.resource;
-import draconic.editor.asset;
+import draconic.pipeline.core;
 import draconic.editor.core;
 import draconic.settings;
 import draconic.shaders; // CookedShaderPack (the web export test reads the staged pack)
 import draconic.script.wren;        // the Wren backend (the cook compile-checks against it)
-import draconic.script.wren.editor; // RegisterWrenScriptCook
-import draconic.script.editor;      // ScriptClassAsset + ScriptClassAssetBuilder
+import draconic.script.wren.pipeline; // RegisterWrenScriptCook
+import draconic.script.pipeline;      // ScriptClassAsset + ScriptClassAssetBuilder
 import draconic.script.resource;    // RegisterScriptResource + ScriptClass + ScriptClassFactory
 
 using namespace draconic::core;
@@ -50,10 +50,10 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
 {
     namespace script = draconic::script;
     script::wren::RegisterWrenScriptBackend();
-    script::RegisterWrenScriptCook();
+    draconic::pipeline::RegisterWrenScriptCook();
     script::RegisterScriptResource();
-    GlobalTypeRegistry().Register(script::ScriptClassAsset::StaticType());
-    RegisterSerializable<script::ScriptClassAsset>();
+    GlobalTypeRegistry().Register(draconic::pipeline::ScriptClassAsset::StaticType());
+    RegisterSerializable<draconic::pipeline::ScriptClassAsset>();
 
     const StringView projectDir = u8"draconic_export_script_project";
     const StringView distDir = u8"draconic_export_script_dist";
@@ -77,9 +77,9 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
 
         // The ScriptClassAsset instance recording file + language (the picker's target).
         draconic::content::Instance* scriptAsset = project->SourceDb().RootGroup()->CreateInstance(
-            u8"NetGame", script::ScriptClassAsset::StaticType());
+            u8"NetGame", draconic::pipeline::ScriptClassAsset::StaticType());
         REQUIRE(scriptAsset != nullptr);
-        script::ScriptClassAsset asset;
+        draconic::pipeline::ScriptClassAsset asset;
         asset.fileName = draconic::vfs::SourcePath(u8"game.wren");
         asset.language = String(u8"wren");
         REQUIRE(scriptAsset->WriteObject(asset).IsOk());
@@ -90,9 +90,9 @@ TEST_CASE("export: a startup script asset cooks into the dist pak and binds like
     }
 
     // Export (cooks the reachable closure - here the startup script) with the script builder.
-    editor::BuilderRegistry registry;
-    registry.Register(UniquePtr<editor::IAssetBuilder>(
-        DefaultAllocator().New<script::ScriptClassAssetBuilder>(), DefaultAllocator()));
+    draconic::pipeline::BuilderRegistry registry;
+    registry.Register(UniquePtr<draconic::pipeline::IAssetBuilder>(
+        DefaultAllocator().New<draconic::pipeline::ScriptClassAssetBuilder>(), DefaultAllocator()));
     editor::ExportStats stats;
     {
         UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
@@ -129,7 +129,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
 {
     GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
     RegisterSerializable<scene::SceneDocument>();
-    geometry::RegisterMeshAssets();
+    draconic::pipeline::RegisterMeshAssets();
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
@@ -150,10 +150,10 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         // A cooked-pipeline asset: a cube mesh (what the primitive creators produce).
         draconic::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
         draconic::content::Instance* meshAsset =
-            meshes->CreateInstance(u8"Cube", geometry::StaticMeshAsset::StaticType());
+            meshes->CreateInstance(u8"Cube", draconic::pipeline::StaticMeshAsset::StaticType());
         REQUIRE(meshAsset != nullptr);
-        geometry::StaticMeshAsset asset;
-        geometry::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
+        draconic::pipeline::StaticMeshAsset asset;
+        draconic::pipeline::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
         REQUIRE(meshAsset->WriteObject(asset).IsOk());
         meshId = meshAsset->Id();
 
@@ -185,9 +185,9 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         REQUIRE(project->SaveSettings().IsOk());
 
         // --- export ---
-        editor::BuilderRegistry registry;
-        registry.Register(UniquePtr<editor::IAssetBuilder>(
-            DefaultAllocator().New<geometry::StaticMeshAssetBuilder>(), DefaultAllocator()));
+        draconic::pipeline::BuilderRegistry registry;
+        registry.Register(UniquePtr<draconic::pipeline::IAssetBuilder>(
+            DefaultAllocator().New<draconic::pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
         // Pre-transcode the scene stream like the editor/CLI do: the staged pak carries
         // the BINARY wire even though the source (SaveScene) is XML now.
         HashMap<Guid, Array<byte>> sceneStreams;
@@ -371,10 +371,10 @@ namespace
     Guid AuthorMesh(draconic::content::Group& group, StringView name)
     {
         draconic::content::Instance* inst =
-            group.CreateInstance(name, geometry::StaticMeshAsset::StaticType());
+            group.CreateInstance(name, draconic::pipeline::StaticMeshAsset::StaticType());
         REQUIRE(inst != nullptr);
-        geometry::StaticMeshAsset asset;
-        geometry::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
+        draconic::pipeline::StaticMeshAsset asset;
+        draconic::pipeline::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
         REQUIRE(inst->WriteObject(asset).IsOk());
         return inst->Id();
     }
@@ -622,7 +622,7 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
     preset.platform = String(GetHostPlatformName()); // -> the host template
     preset.outputSubdir = String(u8"host");
 
-    editor::BuilderRegistry builders; // no assets -> no builders needed
+    draconic::pipeline::BuilderRegistry builders; // no assets -> no builders needed
     editor::ExportResult result;
     REQUIRE(
         editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result)
@@ -684,7 +684,7 @@ TEST_CASE("export: a template built against a different engine version warns but
     preset.templateId = String(u8"draconic-old-engine"); // resolve to the mismatched template
     preset.outputSubdir = String(u8"old");
 
-    editor::BuilderRegistry builders;
+    draconic::pipeline::BuilderRegistry builders;
     editor::ExportResult result;
     // Export still SUCCEEDS (soft match) ...
     REQUIRE(
@@ -951,7 +951,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     editor::TemplateRegistry registry;
     registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
 
-    editor::BuilderRegistry builders;
+    draconic::pipeline::BuilderRegistry builders;
 
     // Default preset: symbols stripped from the dist (sidecar staged, symbol not).
     {
@@ -1079,7 +1079,7 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
 {
     GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
     RegisterSerializable<scene::SceneDocument>();
-    geometry::RegisterMeshAssets();
+    draconic::pipeline::RegisterMeshAssets();
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
@@ -1120,9 +1120,9 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    editor::BuilderRegistry builders;
-    builders.Register(UniquePtr<editor::IAssetBuilder>(
-        DefaultAllocator().New<geometry::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    draconic::pipeline::BuilderRegistry builders;
+    builders.Register(UniquePtr<draconic::pipeline::IAssetBuilder>(
+        DefaultAllocator().New<draconic::pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
     editor::TemplateRegistry registry;
     SetupHostTemplate(toolDir.AsView(), registry);
     const editor::SceneReferenceScanner scanner = MakePruningScanner();
@@ -1194,7 +1194,7 @@ TEST_CASE(
 {
     GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
     RegisterSerializable<scene::SceneDocument>();
-    geometry::RegisterMeshAssets();
+    draconic::pipeline::RegisterMeshAssets();
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
@@ -1234,9 +1234,9 @@ TEST_CASE(
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    editor::BuilderRegistry builders;
-    builders.Register(UniquePtr<editor::IAssetBuilder>(
-        DefaultAllocator().New<geometry::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    draconic::pipeline::BuilderRegistry builders;
+    builders.Register(UniquePtr<draconic::pipeline::IAssetBuilder>(
+        DefaultAllocator().New<draconic::pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
     editor::TemplateRegistry registry;
     SetupHostTemplate(toolDir.AsView(), registry);
 
@@ -1298,7 +1298,7 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     RegisterSerializable<scene::SceneDocument>();
     GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType());
     RegisterSerializable<scene::PrefabDocument>();
-    geometry::RegisterMeshAssets();
+    draconic::pipeline::RegisterMeshAssets();
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
 
@@ -1367,9 +1367,9 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    editor::BuilderRegistry builders;
-    builders.Register(UniquePtr<editor::IAssetBuilder>(
-        DefaultAllocator().New<geometry::StaticMeshAssetBuilder>(), DefaultAllocator()));
+    draconic::pipeline::BuilderRegistry builders;
+    builders.Register(UniquePtr<draconic::pipeline::IAssetBuilder>(
+        DefaultAllocator().New<draconic::pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
     editor::TemplateRegistry registry;
     SetupHostTemplate(toolDir.AsView(), registry);
     const editor::SceneReferenceScanner scanner = MakePruningScanner();
@@ -1791,7 +1791,7 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     preset.platform = String(u8"Web"); // -> the Web template by platform
     preset.outputSubdir = String(u8"web");
 
-    editor::BuilderRegistry builders;
+    draconic::pipeline::BuilderRegistry builders;
     editor::ExportResult result;
     REQUIRE(
         editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result)

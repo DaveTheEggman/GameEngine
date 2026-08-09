@@ -14,7 +14,7 @@ export module draconic.editor.physics;
 
 import draconic.core;
 import draconic.content;
-import draconic.physics.editor; // CollisionShapeAsset + CollisionCookKind
+import draconic.physics.pipeline; // CollisionShapeAsset + CollisionCookKind
 import draconic.ui;
 import draconic.editor.core;
 import draconic.editor.app;
@@ -24,7 +24,6 @@ using namespace draconic::core;
 export namespace draconic::editor
 {
     namespace ui = draconic::ui;
-    namespace physics = draconic::physics;
 
     // Authoring page for a CollisionShapeAsset (pick a mesh, choose the cook, cook it).
     class CollisionShapeEditorPage final : public app::UIEditorPage
@@ -40,11 +39,11 @@ export namespace draconic::editor
         void PickMesh();
         void RefreshStatus();
         [[nodiscard]] String MeshName(const Guid& id) const;
-        [[nodiscard]] static StringView CookLabel(physics::CollisionCookKind kind);
+        [[nodiscard]] static StringView CookLabel(draconic::pipeline::CollisionCookKind kind);
 
         EditorContext* m_context = nullptr;
         String m_title;
-        RefPtr<physics::CollisionShapeAsset> m_asset;
+        RefPtr<draconic::pipeline::CollisionShapeAsset> m_asset;
         RefPtr<ui::View> m_content;
         RefPtr<ui::Label> m_meshLabel;
         RefPtr<ui::Button> m_cookButton;
@@ -56,7 +55,7 @@ export namespace draconic::editor
     public:
         [[nodiscard]] const TypeInfo* PrimaryType() const override
         {
-            return &physics::CollisionShapeAsset::StaticType();
+            return &draconic::pipeline::CollisionShapeAsset::StaticType();
         }
         [[nodiscard]] UniquePtr<EditorPage>
         CreatePage(EditorContext& context, draconic::content::Instance& instance) override

@@ -34,7 +34,7 @@ import draconic.scene;
 import draconic.engine.scene;
 import draconic.animation;
 import draconic.animation.resource;
-import draconic.animation.editor;
+import draconic.animation.pipeline;
 import draconic.resource;
 import draconic.render;
 import draconic.engine.render;
@@ -191,7 +191,7 @@ export namespace draconic::editor
         ui::runtime::UIHost* m_uiHost = nullptr;
         String m_title;
 
-        RefPtr<animation::AnimationGraphAsset> m_asset;
+        RefPtr<draconic::pipeline::AnimationGraphAsset> m_asset;
 
         // views
         RefPtr<ui::toolkit::NodeGraphCanvas> m_canvas;
@@ -255,7 +255,7 @@ export namespace draconic::editor
 
     // Seed a fresh graph: one layer with an "Idle" clip state (default) + a float "Speed"
     // parameter. Free + pure so the New-Asset seed is unit-tested without a live host.
-    void SeedDefaultAnimationGraph(animation::AnimationGraphAsset& asset);
+    void SeedDefaultAnimationGraph(draconic::pipeline::AnimationGraphAsset& asset);
 
     // Registers the AnimationGraph page factory + an "Animation Graph" New-Asset creator.
     void RegisterAnimationGraphEditor(EditorContext& context, runtime::IApplicationHost& host,

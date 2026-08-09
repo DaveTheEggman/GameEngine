@@ -62,7 +62,6 @@ namespace vfs = draconic::vfs;
 namespace content = draconic::content;
 namespace resource = draconic::resource;
 namespace model = draconic::model;
-namespace modelimporter = draconic::modelimporter;
 namespace animation = draconic::animation;
 
 namespace
@@ -247,7 +246,7 @@ namespace
             }
             core::Guid modelGuid;
             const model::ModelLoadResult r =
-                modelimporter::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
+                draconic::pipeline::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
             if (r != model::ModelLoadResult::Ok)
             {
                 core::ConsoleWrite(core::Format(u8"AnimatedCrowd: model import failed ({})\n",

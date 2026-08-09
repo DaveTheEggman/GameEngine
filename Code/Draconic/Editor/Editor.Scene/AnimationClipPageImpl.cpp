@@ -18,7 +18,7 @@ import draconic.scene;
 import draconic.engine.scene;
 import draconic.animation;
 import draconic.animation.resource;
-import draconic.animation.editor;
+import draconic.animation.pipeline;
 import draconic.resource;
 import draconic.render;
 import draconic.engine.render;
@@ -53,8 +53,8 @@ namespace draconic::editor
         SetInstanceId(instance.Id());
 
         RefPtr<ISerializable> object = instance.ReadObject();
-        m_asset = RefPtr<animation::AnimationClipAsset>(
-            Cast<animation::AnimationClipAsset>(object.Get()));
+        m_asset = RefPtr<draconic::pipeline::AnimationClipAsset>(
+            Cast<draconic::pipeline::AnimationClipAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor",
@@ -622,7 +622,7 @@ namespace draconic::editor
 
     const TypeInfo* AnimationClipPageFactory::PrimaryType() const
     {
-        return &animation::AnimationClipAsset::StaticType();
+        return &draconic::pipeline::AnimationClipAsset::StaticType();
     }
 
     UniquePtr<EditorPage>

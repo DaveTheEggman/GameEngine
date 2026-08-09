@@ -7,7 +7,7 @@ target_link_libraries(Draconic.Editor.Texture
     PUBLIC
         Draconic::Core Draconic::Content
         Draconic::Image Draconic::Image.IO
-        Draconic::Texture Draconic::Texture.Editor
+        Draconic::Texture Draconic::Texture.Pipeline
         Draconic::UI Draconic::UI.Toolkit
         Draconic::Editor.Core Draconic::Editor.App Draconic::Policy)
 

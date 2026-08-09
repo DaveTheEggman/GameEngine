@@ -34,7 +34,7 @@ import draconic.engine.scene;
 import draconic.geometry;
 import draconic.materials;
 import draconic.materials.resource;
-import draconic.materials.editor;
+import draconic.materials.pipeline;
 import draconic.texture.resource;
 import draconic.resource;
 import draconic.shaders;
@@ -811,7 +811,7 @@ namespace draconic::editor
     }
     const TypeInfo* MaterialEditorPageFactory::PrimaryType() const
     {
-        return &materials::MaterialAsset::StaticType();
+        return &draconic::pipeline::MaterialAsset::StaticType();
     }
 
     UniquePtr<EditorPage>

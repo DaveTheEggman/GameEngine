@@ -34,7 +34,7 @@ import draconic.ui.application;
 import draconic.content;
 import draconic.vfs;
 import draconic.resource;
-import draconic.editor.asset;
+import draconic.pipeline.core;
 import draconic.editor.core;
 import draconic.settings;
 import :assets_view;
@@ -46,6 +46,7 @@ import :shell;
 import :ui_page;
 
 using namespace draconic::core;
+using namespace draconic::pipeline;
 
 export namespace draconic::editor::app
 {
@@ -112,7 +113,7 @@ export namespace draconic::editor::app
         [[nodiscard]] EditorShell& Shell() noexcept { return m_shell; }
         /// The exe registers every engine builder here (from registerEditors), mirroring the
         /// Draconic.Tools.Cook CLI's set - the cook service routes through it.
-        [[nodiscard]] draconic::editor::BuilderRegistry& Builders() noexcept { return m_builders; }
+        [[nodiscard]] draconic::pipeline::BuilderRegistry& Builders() noexcept { return m_builders; }
         [[nodiscard]] draconic::editor::EditorCookService& CookService() noexcept;
 
         /// The exe registers runtime resource factories here (from registerEditors); the app
@@ -345,7 +346,7 @@ export namespace draconic::editor::app
         };
         draconic::editor::EditorContext m_context;
         UniquePtr<draconic::editor::EditorProject> m_project;
-        draconic::editor::BuilderRegistry m_builders; // exe-assembled (registerEditors)
+        draconic::pipeline::BuilderRegistry m_builders; // exe-assembled (registerEditors)
         draconic::editor::EditorCookService m_cookService;
         draconic::editor::EditorJobService m_jobService; // generic background jobs (export, ...)
         draconic::settings::Settings

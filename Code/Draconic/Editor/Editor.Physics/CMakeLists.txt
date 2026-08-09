@@ -5,7 +5,7 @@ add_library(Draconic.Editor.Physics STATIC)
 add_library(Draconic::Editor.Physics ALIAS Draconic.Editor.Physics)
 
 target_link_libraries(Draconic.Editor.Physics
-    PUBLIC Draconic::Core Draconic::Content Draconic::Physics.Editor
+    PUBLIC Draconic::Core Draconic::Content Draconic::Physics.Pipeline
            Draconic::UI Draconic::Editor.Core Draconic::Editor.App
            Draconic::Policy)
 

@@ -21,7 +21,7 @@ import draconic.shell;
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.input;
-import draconic.input.editor;
+import draconic.input.pipeline;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.runtime;
@@ -50,7 +50,7 @@ namespace draconic::editor
         {
             return Status{ErrorCode::NotFound};
         }
-        input::InputMapAsset asset;
+        draconic::pipeline::InputMapAsset asset;
         asset.Map() = m_map;
         const Status written = instance->WriteObject(asset);
         if (written.IsOk())
@@ -684,7 +684,7 @@ namespace draconic::editor
     }
     const TypeInfo* InputMapPageFactory::PrimaryType() const
     {
-        return &input::InputMapAsset::StaticType();
+        return &draconic::pipeline::InputMapAsset::StaticType();
     }
 
     UniquePtr<EditorPage> InputMapPageFactory::CreatePage(EditorContext& context,

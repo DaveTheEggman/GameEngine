@@ -15,7 +15,7 @@ import draconic.core;
 import draconic.content;
 import draconic.runtime.client;
 import draconic.audio;
-import draconic.audio.editor;
+import draconic.audio.pipeline;
 import draconic.engine.audio;
 import draconic.ui;
 import draconic.editor.core;
@@ -155,7 +155,7 @@ namespace draconic::editor
         cue.pitchMax = m_asset.pitchMax;
         cue.volumeMin = m_asset.volumeMin;
         cue.volumeMax = m_asset.volumeMax;
-        for (usize i = 0; i < audio::kSoundCueSlotCount; ++i)
+        for (usize i = 0; i < draconic::pipeline::kSoundCueSlotCount; ++i)
         {
             audio::SoundCueVariant variant;
             variant.clip = LoadSlotClip(i);
@@ -195,7 +195,7 @@ namespace draconic::editor
         draconic::content::Instance* instance = m_context->Project()->SourceDb().GetInstance(id);
         RefPtr<ISerializable> object =
             instance != nullptr ? instance->ReadObject() : RefPtr<ISerializable>{};
-        auto* asset = Cast<audio::AudioClipAsset>(object.Get());
+        auto* asset = Cast<draconic::pipeline::AudioClipAsset>(object.Get());
         if (asset == nullptr)
         {
             return {};
@@ -225,7 +225,7 @@ namespace draconic::editor
     }
     const TypeInfo* SoundCuePageFactory::PrimaryType() const
     {
-        return &audio::SoundCueAsset::StaticType();
+        return &draconic::pipeline::SoundCueAsset::StaticType();
     }
 
     UniquePtr<EditorPage> SoundCuePageFactory::CreatePage(EditorContext& context,

@@ -17,7 +17,7 @@ import draconic.scene;
 import draconic.engine.scene;
 import draconic.animation;
 import draconic.animation.resource;
-import draconic.animation.editor;
+import draconic.animation.pipeline;
 import draconic.resource;
 import draconic.render;
 import draconic.engine.render;
@@ -452,7 +452,7 @@ namespace draconic::editor
 
     const TypeInfo* SkeletonPageFactory::PrimaryType() const
     {
-        return &animation::SkeletonAsset::StaticType();
+        return &draconic::pipeline::SkeletonAsset::StaticType();
     }
 
     UniquePtr<EditorPage> SkeletonPageFactory::CreatePage(EditorContext& context,

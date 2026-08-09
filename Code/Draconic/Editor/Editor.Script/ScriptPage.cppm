@@ -25,7 +25,7 @@ import draconic.runtime.client;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.script;
-import draconic.script.editor;
+import draconic.script.pipeline;
 import draconic.editor.core;
 import draconic.editor.app;
 
@@ -152,7 +152,7 @@ export namespace draconic::editor
             }
             String language;
             RefPtr<ISerializable> object = instance.ReadObject();
-            if (auto* asset = Cast<draconic::script::ScriptClassAsset>(object.Get()))
+            if (auto* asset = Cast<draconic::pipeline::ScriptClassAsset>(object.Get()))
             {
                 m_doc.Bind(sourcesRoot.AsView(), asset->fileName.View(),
                            asset->language.AsView());
@@ -305,7 +305,7 @@ export namespace draconic::editor
         static void AppendCount(String& out, usize value);
 
         EditorContext* m_context = nullptr;
-        draconic::script::ScriptSourceDocument m_doc;
+        draconic::pipeline::ScriptSourceDocument m_doc;
         String m_title;
         f32 m_validateDelay = 0.0f;
         u64 m_executionVersionSeen = static_cast<u64>(-1); // poll stamp (ExecutionLine sync)
@@ -332,7 +332,7 @@ export namespace draconic::editor
     // registry, so this works for whichever language the New Asset item is for.
     inline content::Instance* CreateScriptInstance(EditorContext& context, content::Group* group,
                                                    StringView languageId, StringView extension,
-                                                   draconic::script::ScriptTier tier,
+                                                   draconic::pipeline::ScriptTier tier,
                                                    StringView baseName)
     {
         if (context.Project() == nullptr)
@@ -348,8 +348,8 @@ export namespace draconic::editor
         fileName.PushBack(utf8char('.'));
         fileName.Append(extension);
 
-        draconic::script::IScriptLanguageCook* cook =
-            draconic::script::ScriptLanguageCookRegistry::Get().FindByLanguage(languageId);
+        draconic::pipeline::IScriptLanguageCook* cook =
+            draconic::pipeline::ScriptLanguageCookRegistry::Get().FindByLanguage(languageId);
         if (cook == nullptr)
         {
             return nullptr;
@@ -366,12 +366,12 @@ export namespace draconic::editor
         }
 
         content::Instance* instance =
-            target->CreateInstance(name.AsView(), draconic::script::ScriptClassAsset::StaticType());
+            target->CreateInstance(name.AsView(), draconic::pipeline::ScriptClassAsset::StaticType());
         if (instance == nullptr)
         {
             return nullptr;
         }
-        draconic::script::ScriptClassAsset asset;
+        draconic::pipeline::ScriptClassAsset asset;
         asset.fileName = draconic::vfs::SourcePath(fileName.AsView());
         asset.language = String(languageId);
         if (!instance->WriteObject(asset).IsOk())
@@ -400,7 +400,7 @@ export namespace draconic::editor
         for (const draconic::script::ScriptBackendDesc& backend : backends)
         {
             // A backend with no cook (compile/harvest) cannot seed a starter - skip it.
-            if (draconic::script::ScriptLanguageCookRegistry::Get().FindByLanguage(
+            if (draconic::pipeline::ScriptLanguageCookRegistry::Get().FindByLanguage(
                     backend.languageId.AsView()) == nullptr)
             {
                 DRACONIC_LOG_WARNING(
@@ -420,14 +420,14 @@ export namespace draconic::editor
             // cook's tier starter. Labels read "<Language> <Tier>" under the Scripts category.
             struct TierDesc
             {
-                draconic::script::ScriptTier tier;
+                draconic::pipeline::ScriptTier tier;
                 StringView suffix;   // label suffix
                 StringView baseName; // unique-name stem
             };
             const TierDesc kTiers[] = {
-                {draconic::script::ScriptTier::Behavior, u8"Behavior", u8"NewBehavior"},
-                {draconic::script::ScriptTier::Level, u8"Level", u8"NewLevel"},
-                {draconic::script::ScriptTier::Game, u8"Game", u8"NewGame"},
+                {draconic::pipeline::ScriptTier::Behavior, u8"Behavior", u8"NewBehavior"},
+                {draconic::pipeline::ScriptTier::Level, u8"Level", u8"NewLevel"},
+                {draconic::pipeline::ScriptTier::Game, u8"Game", u8"NewGame"},
             };
             for (const TierDesc& t : kTiers)
             {

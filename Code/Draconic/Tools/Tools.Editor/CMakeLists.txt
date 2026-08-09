@@ -21,12 +21,12 @@ target_link_libraries(Draconic.Tools.Editor PRIVATE
     Draconic::Shell Draconic::Graphics Draconic::Graphics.Gpu
     Draconic::Engine.Scene Draconic::Engine.Render Draconic::Engine.Animation Draconic::Engine.Particles
     Draconic::Editor.Core Draconic::Editor.App Draconic::Editor.Scene
-    Draconic::Editor.Asset Draconic::Editor.Cook
+    Draconic::Pipeline.Core Draconic::Pipeline.Cook
     Draconic::Resource Draconic::Geometry.Resource Draconic::Materials.Resource Draconic::Texture.Resource
-    Draconic::Texture.Editor Draconic::Fonts.Editor Draconic::Image.Editor Draconic::Geometry.Editor
-    Draconic::Animation.Editor Draconic::Materials.Editor Draconic::Shaders.Editor
-    Draconic::Particles.Editor Draconic::Input Draconic::Input.Resource Draconic::Input.Editor Draconic::Editor.Input Draconic::Engine.Input Draconic::Physics Draconic::Physics.Resource Draconic::Physics.Editor Draconic::Engine.Physics Draconic::Audio Draconic::Audio.Resource Draconic::Audio.Editor Draconic::Engine.Audio
-    Draconic::Script Draconic::Script.Wren Draconic::Script.AngelScript Draconic::Script.Resource Draconic::Script.Facades Draconic::Script.Editor Draconic::Script.Wren.Editor Draconic::Script.Wren.Editor.UI Draconic::Script.AngelScript.Editor Draconic::Script.AngelScript.Editor.UI Draconic::Engine.Script Draconic::Editor.Script Draconic::UI.Resource Draconic::UI.Editor Draconic::Editor.GameUI Draconic::Editor.Audio Draconic::Editor.Texture Draconic::Editor.Image Draconic::Editor.Fonts Draconic::Editor.Physics Draconic::Editor.Generic Draconic::ModelImporter Draconic::Image.Resource
+    Draconic::Texture.Pipeline Draconic::Fonts.Pipeline Draconic::Image.Pipeline Draconic::Geometry.Pipeline
+    Draconic::Animation.Pipeline Draconic::Materials.Pipeline Draconic::Shaders.Pipeline
+    Draconic::Particles.Pipeline Draconic::Input Draconic::Input.Resource Draconic::Input.Pipeline Draconic::Editor.Input Draconic::Engine.Input Draconic::Physics Draconic::Physics.Resource Draconic::Physics.Pipeline Draconic::Engine.Physics Draconic::Audio Draconic::Audio.Resource Draconic::Audio.Pipeline Draconic::Engine.Audio
+    Draconic::Script Draconic::Script.Wren Draconic::Script.AngelScript Draconic::Script.Resource Draconic::Script.Facades Draconic::Script.Pipeline Draconic::Script.Wren.Pipeline Draconic::Editor.Script.Wren Draconic::Script.AngelScript.Pipeline Draconic::Editor.Script.AngelScript Draconic::Engine.Script Draconic::Editor.Script Draconic::UI.Resource Draconic::UI.Pipeline Draconic::Editor.GameUI Draconic::Editor.Audio Draconic::Editor.Texture Draconic::Editor.Image Draconic::Editor.Fonts Draconic::Editor.Physics Draconic::Editor.Generic Draconic::ModelImporter Draconic::Image.Resource
     Draconic::Animation.Resource)
 target_compile_definitions(Draconic.Tools.Editor PRIVATE
     DRACONIC_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"

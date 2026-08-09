@@ -23,7 +23,7 @@ import draconic.content;
 import draconic.image;
 import draconic.image.io;
 import draconic.texture;
-import draconic.texture.editor;
+import draconic.texture.pipeline;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
@@ -61,7 +61,7 @@ export namespace draconic::editor
         // === undo: whole-asset blob snapshots ===
 
         // Run one edit as an undoable command: snapshot -> mutate -> snapshot -> push.
-        void ApplyEdit(StringView mergeKey, Function<void(texture::TextureAsset&)> mutate);
+        void ApplyEdit(StringView mergeKey, Function<void(draconic::pipeline::TextureAsset&)> mutate);
         [[nodiscard]] Array<byte> Snapshot() const;
         void ApplyBlob(const Array<byte>& blob);
 
@@ -107,7 +107,7 @@ export namespace draconic::editor
 
         EditorContext* m_context = nullptr;
         String m_title;
-        RefPtr<texture::TextureAsset> m_asset;
+        RefPtr<draconic::pipeline::TextureAsset> m_asset;
         UniquePtr<image::OwnedImageData> m_preview; // kept alive for the ImageView (borrowed ptr)
         image::PixelFormat m_sourceFormat = image::PixelFormat::RGBA8; // pre-preview source format
 

@@ -31,7 +31,7 @@ target_link_libraries(Sandbox PRIVATE
     Draconic::Geometry.Resource
     Draconic::Materials.Resource
     Draconic::Texture.Resource
-    Draconic::Texture.Editor
+    Draconic::Texture.Pipeline
     Draconic::Animation
     Draconic::Policy)
 

@@ -1,0 +1,31 @@
+// Reflection track P1: ImageAsset's reflected surface (its colorSpace enum property).
+#include <doctest/doctest.h>
+#include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
+import draconic.core;
+import draconic.image;
+import draconic.image.pipeline;
+
+using namespace draconic::core;
+using namespace draconic::pipeline;
+
+TEST_CASE("reflection-p1: ImageAsset exposes colorSpace as a reflected enum")
+{
+    draconic::pipeline::RegisterImageAsset();
+    const TypeInfo& type = draconic::pipeline::ImageAsset::StaticType();
+
+    CHECK(PropertyCount(type) == 1u);
+    const PropertyInfo* cs = FindProperty(type, "colorSpace");
+    REQUIRE(cs != nullptr);
+    REQUIRE(cs->type != nullptr);
+    CHECK(IsEnum(*cs->type));
+
+    // Round-trip through the address escape-hatch (enum Variants aren't constructible at runtime).
+    draconic::pipeline::ImageAsset asset;
+    Instance inst = Instance::From(&asset);
+    REQUIRE(cs->address != nullptr);
+    auto* field = static_cast<draconic::image::ImageColorSpace*>(cs->address(inst));
+    REQUIRE(field != nullptr);
+    *field = draconic::image::ImageColorSpace::Linear;
+    CHECK(asset.colorSpace == draconic::image::ImageColorSpace::Linear);
+}

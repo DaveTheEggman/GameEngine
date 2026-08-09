@@ -36,7 +36,7 @@ import draconic.ui.application;
 import draconic.content;
 import draconic.vfs;
 import draconic.resource;
-import draconic.editor.asset;
+import draconic.pipeline.core;
 import draconic.editor.core;
 import draconic.settings;
 import :assets_view;
@@ -47,6 +47,7 @@ import :shell;
 import :ui_page;
 
 using namespace draconic::core;
+using namespace draconic::pipeline;
 
 namespace draconic::editor::app
 {
@@ -1114,7 +1115,7 @@ namespace draconic::editor::app
     void EditorApplication::SubmitExportJob(String presetName, bool all)
     {
         draconic::editor::EditorProject* project = m_project.Get();
-        draconic::editor::BuilderRegistry* builders = &m_builders;
+        draconic::pipeline::BuilderRegistry* builders = &m_builders;
 
         // MAIN-THREAD pre-pass: transcode scene/prefab TEXT sources to the binary wire
         // (the stager needs the SceneSubsystem). One export at a time (IsBusy-guarded),

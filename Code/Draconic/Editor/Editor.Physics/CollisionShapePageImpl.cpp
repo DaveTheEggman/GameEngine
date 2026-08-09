@@ -8,7 +8,7 @@ module draconic.editor.physics;
 
 import draconic.core;
 import draconic.content;
-import draconic.physics.editor;
+import draconic.physics.pipeline;
 import draconic.ui;
 import draconic.editor.core;
 import draconic.editor.app;
@@ -18,11 +18,10 @@ using namespace draconic::core;
 namespace draconic::editor
 {
     namespace ui = draconic::ui;
-    namespace physics = draconic::physics;
 
-    StringView CollisionShapeEditorPage::CookLabel(physics::CollisionCookKind kind)
+    StringView CollisionShapeEditorPage::CookLabel(draconic::pipeline::CollisionCookKind kind)
     {
-        return kind == physics::CollisionCookKind::ConvexHull ? StringView(u8"Convex hull (dynamic)")
+        return kind == draconic::pipeline::CollisionCookKind::ConvexHull ? StringView(u8"Convex hull (dynamic)")
                                                               : StringView(u8"Triangle mesh (static)");
     }
 
@@ -60,7 +59,7 @@ namespace draconic::editor
         SetInstanceId(instance.Id());
         RefPtr<ISerializable> object = instance.ReadObject();
         m_asset =
-            RefPtr<physics::CollisionShapeAsset>(Cast<physics::CollisionShapeAsset>(object.Get()));
+            RefPtr<draconic::pipeline::CollisionShapeAsset>(Cast<draconic::pipeline::CollisionShapeAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor", u8"collision shape '{}' failed to read - page opens empty",
@@ -101,9 +100,9 @@ namespace draconic::editor
                         return;
                     }
                     self->m_asset->cook =
-                        self->m_asset->cook == physics::CollisionCookKind::ConvexHull
-                            ? physics::CollisionCookKind::TriangleMesh
-                            : physics::CollisionCookKind::ConvexHull;
+                        self->m_asset->cook == draconic::pipeline::CollisionCookKind::ConvexHull
+                            ? draconic::pipeline::CollisionCookKind::TriangleMesh
+                            : draconic::pipeline::CollisionCookKind::ConvexHull;
                     self->m_cookButton->SetText(CookLabel(self->m_asset->cook));
                     self->MarkDirty();
                 });

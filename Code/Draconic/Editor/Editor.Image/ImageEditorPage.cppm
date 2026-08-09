@@ -18,7 +18,7 @@ import draconic.core;
 import draconic.content;
 import draconic.image;
 import draconic.image.io;
-import draconic.image.editor;
+import draconic.image.pipeline;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
@@ -86,7 +86,7 @@ export namespace draconic::editor
 
         EditorContext* m_context = nullptr;
         String m_title;
-        RefPtr<image::ImageAsset> m_asset;
+        RefPtr<draconic::pipeline::ImageAsset> m_asset;
         UniquePtr<image::OwnedImageData> m_preview; // kept alive for the ImageView (borrowed ptr)
         image::PixelFormat m_sourceFormat = image::PixelFormat::RGBA8;
         usize m_sourceBytes = 0;

@@ -12,7 +12,7 @@ import draconic.core;
 import draconic.vfs;
 import draconic.image;
 import draconic.texture;
-import draconic.texture.editor;
+import draconic.texture.pipeline;
 import draconic.editor.core;
 import draconic.editor.texture;
 
@@ -23,7 +23,7 @@ namespace image = draconic::image;
 TEST_CASE("TextureEditorPageFactory reports the TextureAsset primary type")
 {
     draconic::editor::TextureEditorPageFactory factory;
-    CHECK(factory.PrimaryType() == &texture::TextureAsset::StaticType());
+    CHECK(factory.PrimaryType() == &draconic::pipeline::TextureAsset::StaticType());
 }
 
 TEST_CASE("TextureEditor registers a factory that the registry routes for TextureAsset")
@@ -32,15 +32,15 @@ TEST_CASE("TextureEditor registers a factory that the registry routes for Textur
     draconic::editor::RegisterTextureEditor(context);
 
     draconic::editor::IEditorPageFactory* found =
-        context.Pages().FindFactory(texture::TextureAsset::StaticType());
+        context.Pages().FindFactory(draconic::pipeline::TextureAsset::StaticType());
     REQUIRE(found != nullptr);
-    CHECK(found->PrimaryType() == &texture::TextureAsset::StaticType());
+    CHECK(found->PrimaryType() == &draconic::pipeline::TextureAsset::StaticType());
 }
 
 TEST_CASE("TextureAsset blob snapshot round-trips every import setting")
 {
     // The exact path TextureEditorPage::Snapshot/ApplyBlob use for undo.
-    texture::TextureAsset original;
+    draconic::pipeline::TextureAsset original;
     original.fileName = draconic::vfs::SourcePath(u8"Textures/brick.png");
     original.colorSpace = image::ImageColorSpace::Linear;
     original.shape = texture::TextureShape::Cubemap;
@@ -59,7 +59,7 @@ TEST_CASE("TextureAsset blob snapshot round-trips every import setting")
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    texture::TextureAsset restored;
+    draconic::pipeline::TextureAsset restored;
     BinarySerializer reader(stream, SerializeMode::Read);
     restored.Serialize(reader);
 
@@ -77,7 +77,7 @@ TEST_CASE("TextureAsset blob snapshot round-trips every import setting")
 
 TEST_CASE("TextureAsset presets move the sampler settings a page preset row would apply")
 {
-    texture::TextureAsset asset;
+    draconic::pipeline::TextureAsset asset;
     asset.SetupFor3D();
     CHECK(asset.generateMipmaps == true);
     CHECK(asset.anisotropy == doctest::Approx(16.0f));

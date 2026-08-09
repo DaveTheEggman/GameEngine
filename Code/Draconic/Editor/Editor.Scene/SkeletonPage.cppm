@@ -24,7 +24,7 @@ import draconic.scene;
 import draconic.engine.scene;
 import draconic.animation;
 import draconic.animation.resource;
-import draconic.animation.editor;
+import draconic.animation.pipeline;
 import draconic.resource;
 import draconic.render;
 import draconic.engine.render;

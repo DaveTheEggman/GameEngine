@@ -1,0 +1,18 @@
+# Draconic::Shaders.Pipeline unit tests (doctest; VFS + content DB; no GPU/DXC).
+
+add_executable(Draconic.Shaders.Pipeline.Tests
+    TestsMain.cpp
+    ShaderEditorTests.cpp
+    ShaderReflectionTests.cpp)
+
+target_link_libraries(Draconic.Shaders.Pipeline.Tests PRIVATE
+    Draconic::Shaders.Pipeline doctest::doctest)
+
+target_compile_definitions(Draconic.Shaders.Pipeline.Tests PRIVATE
+    DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
+
+target_compile_options(Draconic.Shaders.Pipeline.Tests PRIVATE
+    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"
+    "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
+
+add_test(NAME Draconic.Shaders.Pipeline.Tests COMMAND Draconic.Shaders.Pipeline.Tests)

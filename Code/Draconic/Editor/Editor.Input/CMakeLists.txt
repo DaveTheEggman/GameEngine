@@ -7,7 +7,7 @@ target_link_libraries(Draconic.Editor.Input
     PUBLIC
         Draconic::Core Draconic::Content Draconic::Shell
         Draconic::Runtime Draconic::Runtime.Client
-        Draconic::Input Draconic::Input.Resource Draconic::Input.Editor
+        Draconic::Input Draconic::Input.Resource Draconic::Input.Pipeline
         Draconic::UI Draconic::UI.Runtime Draconic::UI.Toolkit
         Draconic::Editor.Core Draconic::Editor.App Draconic::Policy)
 

@@ -16,7 +16,7 @@ import draconic.runtime.client;
 import draconic.scene;
 import draconic.engine.scene;
 import draconic.geometry;
-import draconic.geometry.editor; // StaticMeshAsset / SkinnedMeshAsset (factory PrimaryType)
+import draconic.geometry.pipeline; // StaticMeshAsset / SkinnedMeshAsset (factory PrimaryType)
 import draconic.materials;
 import draconic.resource;
 import draconic.render;
@@ -348,11 +348,11 @@ namespace draconic::editor
                             ui::runtime::UIHost& uiHost)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<MeshEditorPageFactory>(geometry::StaticMeshAsset::StaticType(),
+            DefaultAllocator().New<MeshEditorPageFactory>(draconic::pipeline::StaticMeshAsset::StaticType(),
                                                           host, uiHost),
             DefaultAllocator()));
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<MeshEditorPageFactory>(geometry::SkinnedMeshAsset::StaticType(),
+            DefaultAllocator().New<MeshEditorPageFactory>(draconic::pipeline::SkinnedMeshAsset::StaticType(),
                                                           host, uiHost),
             DefaultAllocator()));
     }

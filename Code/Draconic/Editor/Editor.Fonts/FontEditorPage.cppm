@@ -18,7 +18,7 @@ import draconic.core;
 import draconic.content;
 import draconic.image;
 import draconic.fonts;
-import draconic.fonts.editor;
+import draconic.fonts.pipeline;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
@@ -132,7 +132,7 @@ export namespace draconic::editor
 
         EditorContext* m_context = nullptr;
         String m_title;
-        RefPtr<fonts::FontAsset> m_asset;
+        RefPtr<draconic::pipeline::FontAsset> m_asset;
         UniquePtr<image::OwnedImageData> m_preview; // kept alive for the ImageView (borrowed ptr)
         usize m_previewGlyphs = 0;
         f32 m_previewSize = 0.0f;
@@ -158,7 +158,7 @@ export namespace draconic::editor
         ui::toolkit::IntEditor* m_atlasWidthRow = nullptr;
         ui::toolkit::IntEditor* m_atlasHeightRow = nullptr;
         ui::toolkit::StringEditor* m_fileRow = nullptr;
-        fonts::FontBakeMode m_gridMode = fonts::FontBakeMode::RasterRamp; // mode the grid was built for
+        draconic::pipeline::FontBakeMode m_gridMode = draconic::pipeline::FontBakeMode::RasterRamp; // mode the grid was built for
         Array<byte> m_undoBaseline;
     };
 

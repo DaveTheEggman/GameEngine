@@ -17,7 +17,7 @@ import draconic.editor.core;
 import draconic.editor.scene;
 import draconic.content;
 import draconic.materials;
-import draconic.materials.editor;
+import draconic.materials.pipeline;
 
 using namespace draconic::core;
 using namespace draconic::editor;
@@ -690,7 +690,7 @@ TEST_CASE("edit-context: scene-setting edits are undoable commands and merge lik
 
 TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right shader")
 {
-    draconic::materials::RegisterMaterialAsset();
+    draconic::pipeline::RegisterMaterialAsset();
     const StringView dir = u8"draconic_editor_mat_creator_test";
     auto scrub = [&]()
     {
@@ -717,7 +717,7 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
     CHECK(pbr->Path() == u8"Materials/Material");
     {
         RefPtr<ISerializable> object = pbr->ReadObject();
-        auto* asset = Cast<draconic::materials::MaterialAsset>(object.Get());
+        auto* asset = Cast<draconic::pipeline::MaterialAsset>(object.Get());
         REQUIRE(asset != nullptr);
         CHECK(asset->source.shaderName == u8"forward");
         bool hasMetallic = false;
@@ -737,7 +737,7 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
     CHECK(unlit->Path() == u8"Materials/Material.2");
     {
         RefPtr<ISerializable> object = unlit->ReadObject();
-        auto* asset = Cast<draconic::materials::MaterialAsset>(object.Get());
+        auto* asset = Cast<draconic::pipeline::MaterialAsset>(object.Get());
         REQUIRE(asset != nullptr);
         CHECK(asset->source.shaderName == u8"unlit");
         bool hasMetallic = false, hasBase = false;

@@ -21,7 +21,7 @@ import draconic.shell;
 import draconic.runtime;
 import draconic.runtime.client;
 import draconic.input;
-import draconic.input.editor;
+import draconic.input.pipeline;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.runtime;
@@ -309,7 +309,7 @@ export namespace draconic::editor
             : m_context(&context), m_title(instance.Name())
         {
             RefPtr<ISerializable> object = instance.ReadObject();
-            if (auto* asset = Cast<input::InputMapAsset>(object.Get()))
+            if (auto* asset = Cast<draconic::pipeline::InputMapAsset>(object.Get()))
             {
                 m_map = asset->Map();
             }

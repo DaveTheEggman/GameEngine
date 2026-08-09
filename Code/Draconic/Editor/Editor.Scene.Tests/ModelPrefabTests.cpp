@@ -20,7 +20,6 @@ import draconic.editor.scene;
 using namespace draconic::core;
 namespace scene = draconic::scene;
 namespace render = draconic::render;
-namespace modelimporter = draconic::modelimporter;
 
 namespace
 {
@@ -57,7 +56,7 @@ namespace
 
 TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the instance")
 {
-    modelimporter::RegisterModelManifestAsset();
+    draconic::pipeline::RegisterModelManifestAsset();
     GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType());
     RegisterSerializable<scene::PrefabDocument>();
 
@@ -75,7 +74,7 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     const Guid skeleton{0x71, 0x1};
     const Guid clip{0x72, 0x1};
 
-    modelimporter::ModelManifestAsset asset;
+    draconic::pipeline::ModelManifestAsset asset;
     asset.manifest.meshGuids.PushBack(meshStatic);
     asset.manifest.meshGuids.PushBack(meshSkinned);
     asset.manifest.meshSkinned.PushBack(0);
@@ -107,7 +106,7 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     draconic::content::Group* group = db.RootGroup()->CreateGroup(u8"Fox");
     REQUIRE(group != nullptr);
     draconic::content::Instance* manifestInst =
-        group->CreateInstance(u8"Fox", modelimporter::ModelManifestAsset::StaticType());
+        group->CreateInstance(u8"Fox", draconic::pipeline::ModelManifestAsset::StaticType());
     REQUIRE(manifestInst != nullptr);
     REQUIRE(manifestInst->WriteObject(asset).IsOk());
 

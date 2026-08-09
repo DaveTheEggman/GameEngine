@@ -36,7 +36,7 @@ import draconic.engine.scene;
 import draconic.geometry;
 import draconic.materials;
 import draconic.materials.resource;
-import draconic.materials.editor;
+import draconic.materials.pipeline;
 import draconic.texture.resource;
 import draconic.resource;
 import draconic.shaders;
@@ -79,7 +79,7 @@ export namespace draconic::editor
             // The edited object: the instance's MaterialAsset (kept live; Save writes it back).
             RefPtr<ISerializable> object = instance.ReadObject();
             m_asset =
-                RefPtr<materials::MaterialAsset>(Cast<materials::MaterialAsset>(object.Get()));
+                RefPtr<draconic::pipeline::MaterialAsset>(Cast<draconic::pipeline::MaterialAsset>(object.Get()));
             if (m_asset.Get() != nullptr)
             {
                 // Pre-emissive assets gain the factor in memory (black default); saving the
@@ -246,7 +246,7 @@ export namespace draconic::editor
         ui::runtime::UIHost* m_uiHost;
         String m_title;
 
-        RefPtr<materials::MaterialAsset> m_asset;
+        RefPtr<draconic::pipeline::MaterialAsset> m_asset;
 
         draconic::engine::scene::SceneSubsystem* m_scenes = nullptr;
         scene::SceneManager
@@ -314,7 +314,7 @@ export namespace draconic::editor
         const String name = target->UniqueInstanceName(u8"Material");
 
         draconic::content::Instance* instance =
-            target->CreateInstance(name.AsView(), materials::MaterialAsset::StaticType());
+            target->CreateInstance(name.AsView(), draconic::pipeline::MaterialAsset::StaticType());
         if (instance == nullptr)
         {
             return nullptr;
@@ -322,8 +322,8 @@ export namespace draconic::editor
 
         RefPtr<materials::Material> built =
             unlit ? materials::CreateUnlit(name.AsView()) : materials::CreatePBR(name.AsView());
-        materials::MaterialAsset asset;
-        materials::MaterialImporter::Import(*built, Guid{}, asset);
+        draconic::pipeline::MaterialAsset asset;
+        draconic::pipeline::MaterialImporter::Import(*built, Guid{}, asset);
         if (!instance->WriteObject(asset).IsOk())
         {
             return nullptr;
@@ -374,8 +374,8 @@ export namespace draconic::editor
     inline void RegisterMaterialEditor(EditorContext& context, runtime::IApplicationHost& host,
                                        ui::runtime::UIHost& uiHost)
     {
-        GlobalTypeRegistry().Register(materials::MaterialAsset::StaticType(), TypeDomain(u8"Editor"));
-        RegisterSerializable<materials::MaterialAsset>();
+        GlobalTypeRegistry().Register(draconic::pipeline::MaterialAsset::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<draconic::pipeline::MaterialAsset>();
         // The preview-prefs section (registered before the app loads the per-project store).
         GlobalTypeRegistry().Register(MaterialPreviewSettings::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<MaterialPreviewSettings>();

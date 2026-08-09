@@ -25,7 +25,7 @@ import draconic.vg.renderer;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.ui.resource;
-import draconic.ui.editor;
+import draconic.ui.pipeline;
 import draconic.ui.runtime;
 import draconic.engine.ui;
 import draconic.ui.viewport;
@@ -51,7 +51,7 @@ export namespace draconic::editor
             m_ui = host.Ctx().GetSubsystem<draconic::engine::ui::UISubsystem>();
             SetInstanceId(instance.Id());
             RefPtr<ISerializable> object = instance.ReadObject();
-            if (auto* asset = Cast<ui::UIDocumentAsset>(object.Get()))
+            if (auto* asset = Cast<draconic::pipeline::UIDocumentAsset>(object.Get()))
             {
                 m_markup = String(asset->markup.AsView());
             }

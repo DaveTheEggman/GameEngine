@@ -7,7 +7,7 @@ add_library(Draconic::Editor.Core ALIAS Draconic.Editor.Core)
 target_link_libraries(Draconic.Editor.Core
     PUBLIC Draconic::Core Draconic::VFS Draconic::VFS.Pak Draconic::Content Draconic::Xml.Serialization Draconic::Engine.Project
            Draconic::Settings Draconic::Scene.Resource
-           Draconic::Editor.Cook Draconic::Resource Draconic::Policy
+           Draconic::Pipeline.Cook Draconic::Resource Draconic::Policy
            Draconic::Shaders) # export cooks the engine shader pack (shaders.dpak)
 
 # Export cooks the built-in shaders from the source tree (same root the renderer bakes); a

@@ -62,7 +62,6 @@ namespace vfs = draconic::vfs;
 namespace content = draconic::content;
 namespace resource = draconic::resource;
 namespace model = draconic::model;
-namespace modelimporter = draconic::modelimporter;
 namespace animation = draconic::animation;
 
 namespace
@@ -235,7 +234,7 @@ namespace
             }
             core::Guid modelGuid;
             const model::ModelLoadResult r =
-                modelimporter::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
+                draconic::pipeline::LoadAndCook(path, *m_contentDb, prefix, modelGuid);
             if (r != model::ModelLoadResult::Ok)
             {
                 core::ConsoleWrite(core::Format(u8"AnimStressTest: model import failed ({})\n",
@@ -295,7 +294,7 @@ namespace
             core::Array<scene::EntityHandle> entities;
             core::Array<scene::EntityHandle> skinnedEntities;
             entities.Reserve(m_model->nodes.Size());
-            for (const modelimporter::ModelNode& node : m_model->nodes)
+            for (const draconic::pipeline::ModelNode& node : m_model->nodes)
             {
                 scene::EntityHandle e = m_scene->CreateEntity(node.name.AsView());
                 m_scene->SetLocalTransform(e, node.localTransform);
@@ -303,7 +302,7 @@ namespace
             }
             for (core::usize i = 0; i < m_model->nodes.Size(); ++i)
             {
-                const modelimporter::ModelNode& node = m_model->nodes[i];
+                const draconic::pipeline::ModelNode& node = m_model->nodes[i];
                 if (node.parentIndex >= 0 &&
                     static_cast<core::usize>(node.parentIndex) < entities.Size())
                 {

@@ -30,11 +30,12 @@ module draconic.editor.core;
 import draconic.core;
 import draconic.content;
 import draconic.vfs;
-import draconic.editor.asset;
-import draconic.editor.cook;
+import draconic.pipeline.core;
+import draconic.pipeline.cook;
 import :project;
 
 using namespace draconic::core;
+using namespace draconic::pipeline;
 
 namespace draconic::editor
 {

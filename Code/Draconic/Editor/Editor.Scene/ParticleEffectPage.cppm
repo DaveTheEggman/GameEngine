@@ -37,7 +37,7 @@ import draconic.runtime.client;
 import draconic.scene;
 import draconic.engine.scene;
 import draconic.particles;
-import draconic.particles.editor;
+import draconic.particles.pipeline;
 import draconic.engine.particles;
 import draconic.render;
 import draconic.engine.render;
@@ -203,7 +203,7 @@ export namespace draconic::editor
         ui::runtime::UIHost* m_uiHost = nullptr;
         String m_title;
 
-        RefPtr<particles::ParticleEffectAsset> m_asset;
+        RefPtr<draconic::pipeline::ParticleEffectAsset> m_asset;
 
         // preview world
         draconic::engine::scene::SceneSubsystem* m_scenes = nullptr;

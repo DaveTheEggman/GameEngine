@@ -10,7 +10,7 @@ import draconic.core;
 import draconic.content;
 import draconic.runtime.client;
 import draconic.audio;
-import draconic.audio.editor;
+import draconic.audio.pipeline;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.editor.core;
@@ -65,13 +65,13 @@ namespace draconic::editor
         }
 
         // The custom-slot index whose name matches, or -1 (fixed names / unknown).
-        [[nodiscard]] i32 FindSlotByName(const audio::AudioBusLayoutAsset& asset, StringView name)
+        [[nodiscard]] i32 FindSlotByName(const draconic::pipeline::AudioBusLayoutAsset& asset, StringView name)
         {
             if (name.IsEmpty() || IsFixedBusName(name))
             {
                 return -1;
             }
-            for (usize i = 0; i < audio::kAudioCustomBusSlotCount; ++i)
+            for (usize i = 0; i < draconic::pipeline::kAudioCustomBusSlotCount; ++i)
             {
                 if (!asset.custom[i].name.IsEmpty() && asset.custom[i].name.AsView() == name)
                 {
@@ -120,7 +120,7 @@ namespace draconic::editor
         }
 
         // Every editable field of one Bus, grouped: Mix, then the effect blocks (0 = off).
-        void BusRows(ui::toolkit::PropertyGrid& g, audio::AudioBusLayoutAsset::Bus& bus, Page page)
+        void BusRows(ui::toolkit::PropertyGrid& g, draconic::pipeline::AudioBusLayoutAsset::Bus& bus, Page page)
         {
             RowFloat(g, u8"Volume", &bus.volume, u8"Mix", page, 0.0, 2.0, 0.01);
             RowBool(g, u8"Muted", &bus.muted, u8"Mix", page);
@@ -137,16 +137,16 @@ namespace draconic::editor
         }
     } // namespace
 
-    bool AudioBusWouldCycle(const audio::AudioBusLayoutAsset& asset, i32 slotIndex,
+    bool AudioBusWouldCycle(const draconic::pipeline::AudioBusLayoutAsset& asset, i32 slotIndex,
                             StringView newParent)
     {
-        if (slotIndex < 0 || static_cast<usize>(slotIndex) >= audio::kAudioCustomBusSlotCount)
+        if (slotIndex < 0 || static_cast<usize>(slotIndex) >= draconic::pipeline::kAudioCustomBusSlotCount)
         {
             return false;
         }
         // Walk the proposed parent chain through the custom slots; hitting `slotIndex` = cycle.
         i32 walk = FindSlotByName(asset, newParent);
-        for (usize guard = 0; walk >= 0 && guard < audio::kAudioCustomBusSlotCount + 1; ++guard)
+        for (usize guard = 0; walk >= 0 && guard < draconic::pipeline::kAudioCustomBusSlotCount + 1; ++guard)
         {
             if (walk == slotIndex)
             {
@@ -241,7 +241,7 @@ namespace draconic::editor
         SetInstanceId(instance.Id());
         RefPtr<ISerializable> object = instance.ReadObject();
         m_asset =
-            RefPtr<audio::AudioBusLayoutAsset>(Cast<audio::AudioBusLayoutAsset>(object.Get()));
+            RefPtr<draconic::pipeline::AudioBusLayoutAsset>(Cast<draconic::pipeline::AudioBusLayoutAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor", u8"bus layout '{}' failed to read - page opens empty",
@@ -287,20 +287,20 @@ namespace draconic::editor
                         Function<void()>{
                             [self]()
                             {
-                                for (usize i = 0; i < audio::kAudioCustomBusSlotCount; ++i)
+                                for (usize i = 0; i < draconic::pipeline::kAudioCustomBusSlotCount; ++i)
                                 {
                                     if (self->m_asset->custom[i].name.IsEmpty())
                                     {
                                         self->m_asset->custom[i].name = Format(u8"Bus{}", i + 1);
                                         self->m_asset->custom[i].parent = String(u8"Master");
                                         self->m_asset->custom[i].bus =
-                                            audio::AudioBusLayoutAsset::Bus{};
+                                            draconic::pipeline::AudioBusLayoutAsset::Bus{};
                                         return;
                                     }
                                 }
                                 DRACONIC_LOG_WARNING(u8"Editor",
                                                      u8"bus layout: all {} custom slots in use",
-                                                     audio::kAudioCustomBusSlotCount);
+                                                     draconic::pipeline::kAudioCustomBusSlotCount);
                             }});
                 });
         }
@@ -374,8 +374,8 @@ namespace draconic::editor
 
         // Used custom slots. First materialize nodes, then link parents (name references may
         // point at slots that appear later in the bank).
-        i32 slotNode[audio::kAudioCustomBusSlotCount];
-        for (usize i = 0; i < audio::kAudioCustomBusSlotCount; ++i)
+        i32 slotNode[draconic::pipeline::kAudioCustomBusSlotCount];
+        for (usize i = 0; i < draconic::pipeline::kAudioCustomBusSlotCount; ++i)
         {
             slotNode[i] = -1;
             if (m_asset->custom[i].name.IsEmpty())
@@ -388,7 +388,7 @@ namespace draconic::editor
             slotNode[i] = static_cast<i32>(m_nodes.Size());
             m_nodes.PushBack(Move(node));
         }
-        for (usize i = 0; i < audio::kAudioCustomBusSlotCount; ++i)
+        for (usize i = 0; i < draconic::pipeline::kAudioCustomBusSlotCount; ++i)
         {
             if (slotNode[i] < 0)
             {
@@ -452,7 +452,7 @@ namespace draconic::editor
         m_tree->InternalTreeView()->InternalListView()->NotifyDataChanged();
     }
 
-    audio::AudioBusLayoutAsset::Bus* AudioBusLayoutEditorPage::SelectedBus()
+    draconic::pipeline::AudioBusLayoutAsset::Bus* AudioBusLayoutEditorPage::SelectedBus()
     {
         if (m_asset.Get() == nullptr || m_selectedNode < 0 ||
             m_selectedNode >= static_cast<i32>(m_nodes.Size()))
@@ -480,7 +480,7 @@ namespace draconic::editor
     void AudioBusLayoutEditorPage::RebuildInspector()
     {
         m_grid->Clear();
-        audio::AudioBusLayoutAsset::Bus* bus = SelectedBus();
+        draconic::pipeline::AudioBusLayoutAsset::Bus* bus = SelectedBus();
         if (bus == nullptr)
         {
             m_inspectorTitle->SetText(u8"");
@@ -497,7 +497,7 @@ namespace draconic::editor
         else
         {
             const i32 slotIndex = node.slotIndex;
-            audio::AudioBusLayoutAsset::CustomBusSlot& slot =
+            draconic::pipeline::AudioBusLayoutAsset::CustomBusSlot& slot =
                 m_asset->custom[static_cast<usize>(slotIndex)];
             m_inspectorTitle->SetText(slot.name.AsView());
 
@@ -520,14 +520,14 @@ namespace draconic::editor
                                        Function<void()>{
                                            [self, slotIndex, name]()
                                            {
-                                               audio::AudioBusLayoutAsset::CustomBusSlot& s =
+                                               draconic::pipeline::AudioBusLayoutAsset::CustomBusSlot& s =
                                                    self->m_asset
                                                        ->custom[static_cast<usize>(slotIndex)];
                                                // Children referencing the old name follow it.
                                                const String oldName(s.name.AsView());
                                                s.name = String(name.AsView());
                                                for (usize i = 0;
-                                                    i < audio::kAudioCustomBusSlotCount; ++i)
+                                                    i < draconic::pipeline::kAudioCustomBusSlotCount; ++i)
                                                {
                                                    if (self->m_asset->custom[i].parent.AsView() ==
                                                        oldName.AsView())
@@ -547,7 +547,7 @@ namespace draconic::editor
             {
                 owned.PushBack(String(fixed));
             }
-            for (usize i = 0; i < audio::kAudioCustomBusSlotCount; ++i)
+            for (usize i = 0; i < draconic::pipeline::kAudioCustomBusSlotCount; ++i)
             {
                 if (static_cast<i32>(i) == slotIndex || m_asset->custom[i].name.IsEmpty())
                 {
@@ -615,13 +615,13 @@ namespace draconic::editor
                                        Function<void()>{
                                            [self, slotIndex]()
                                            {
-                                               audio::AudioBusLayoutAsset::CustomBusSlot& s =
+                                               draconic::pipeline::AudioBusLayoutAsset::CustomBusSlot& s =
                                                    self->m_asset
                                                        ->custom[static_cast<usize>(slotIndex)];
                                                // Orphans re-parent to Master (the cook fallback,
                                                // made explicit).
                                                for (usize i = 0;
-                                                    i < audio::kAudioCustomBusSlotCount; ++i)
+                                                    i < draconic::pipeline::kAudioCustomBusSlotCount; ++i)
                                                {
                                                    if (self->m_asset->custom[i].parent.AsView() ==
                                                        s.name.AsView())
@@ -632,7 +632,7 @@ namespace draconic::editor
                                                }
                                                s.name = String{};
                                                s.parent = String{};
-                                               s.bus = audio::AudioBusLayoutAsset::Bus{};
+                                               s.bus = draconic::pipeline::AudioBusLayoutAsset::Bus{};
                                                self->m_selectedNode = 0;
                                            }});
                                }},
@@ -683,7 +683,7 @@ namespace draconic::editor
         BinarySerializer ar(stream, SerializeMode::Write);
         // The asset gates its custom-slot bank on ar.Version() >= 2, so the snapshot MUST ride
         // a versioned payload (a raw serializer reports version 0 and silently drops the bank).
-        draconic::core::BeginVersionedPayload(ar, audio::AudioBusLayoutAsset::StaticType());
+        draconic::core::BeginVersionedPayload(ar, draconic::pipeline::AudioBusLayoutAsset::StaticType());
         m_asset->Serialize(ar);
         draconic::core::EndVersionedPayload(ar);
         const Span<const byte> bytes = stream.Bytes();
@@ -722,7 +722,7 @@ namespace draconic::editor
         (void)stream.Write(blob.Data(), blob.Size());
         (void)stream.Seek(0, SeekOrigin::Begin);
         BinarySerializer ar(stream, SerializeMode::Read);
-        draconic::core::BeginVersionedPayload(ar, audio::AudioBusLayoutAsset::StaticType());
+        draconic::core::BeginVersionedPayload(ar, draconic::pipeline::AudioBusLayoutAsset::StaticType());
         m_asset->Serialize(ar);
         draconic::core::EndVersionedPayload(ar);
         m_undoBaseline = blob;
@@ -786,7 +786,7 @@ namespace draconic::editor
 
     const TypeInfo* AudioBusLayoutPageFactory::PrimaryType() const
     {
-        return &audio::AudioBusLayoutAsset::StaticType();
+        return &draconic::pipeline::AudioBusLayoutAsset::StaticType();
     }
 
     UniquePtr<EditorPage>

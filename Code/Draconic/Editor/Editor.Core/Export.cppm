@@ -24,14 +24,15 @@ import draconic.vfs.pak;
 import draconic.content;
 import draconic.engine.project;
 import draconic.scene.resource;
-import draconic.editor.asset;
-import draconic.editor.cook;
+import draconic.pipeline.core;
+import draconic.pipeline.cook;
 import :project;
 import :export_preset;
 import :export_roots;
 import :export_template;
 
 using namespace draconic::core;
+using namespace draconic::pipeline;
 
 export namespace draconic::editor
 {

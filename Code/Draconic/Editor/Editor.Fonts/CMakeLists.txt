@@ -7,7 +7,7 @@ add_library(Draconic::Editor.Fonts ALIAS Draconic.Editor.Fonts)
 target_link_libraries(Draconic.Editor.Fonts
     PUBLIC Draconic::Core Draconic::Content Draconic::VFS Draconic::Image
            Draconic::Fonts Draconic::Fonts.TTF Draconic::Fonts.IO Draconic::Fonts.Importer
-           Draconic::Fonts.DistanceField.Baker Draconic::Fonts.Editor
+           Draconic::Fonts.DistanceField.Baker Draconic::Fonts.Pipeline
            Draconic::UI Draconic::UI.Toolkit Draconic::Editor.Core Draconic::Editor.App
            Draconic::Policy)
 

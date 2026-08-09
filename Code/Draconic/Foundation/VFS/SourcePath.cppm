@@ -1,7 +1,7 @@
 // Draconic::VFS - :source_path partition.
 //
 // SourcePath: a typed MOUNT-RELATIVE logical path - the currency for source-file
-// references in serialized asset data (editor::Asset::fileName and friends). One honest
+// references in serialized asset data (draconic::pipeline::Asset::fileName and friends). One honest
 // guarantee: whatever string it is constructed from, the stored form is forward-slash,
 // relative, and dot-segment-free - so Windows-authored "Fonts\Roboto.ttf" heals into
 // "Fonts/Roboto.ttf" instead of breaking every non-Windows VFS lookup.

@@ -18,7 +18,7 @@ import draconic.runtime.client;
 import draconic.scene;
 import draconic.engine.scene;
 import draconic.particles;
-import draconic.particles.editor;
+import draconic.particles.pipeline;
 import draconic.engine.particles;
 import draconic.render;
 import draconic.engine.render;
@@ -660,8 +660,8 @@ namespace draconic::editor
         SetInstanceId(instance.Id());
 
         RefPtr<ISerializable> object = instance.ReadObject();
-        m_asset = RefPtr<particles::ParticleEffectAsset>(
-            Cast<particles::ParticleEffectAsset>(object.Get()));
+        m_asset = RefPtr<draconic::pipeline::ParticleEffectAsset>(
+            Cast<draconic::pipeline::ParticleEffectAsset>(object.Get()));
         if (m_asset.Get() == nullptr)
         {
             DRACONIC_LOG_ERROR(u8"Editor",
@@ -2025,7 +2025,7 @@ namespace draconic::editor
 
     const TypeInfo* ParticleEffectPageFactory::PrimaryType() const
     {
-        return &particles::ParticleEffectAsset::StaticType();
+        return &draconic::pipeline::ParticleEffectAsset::StaticType();
     }
 
     UniquePtr<EditorPage>
@@ -2076,12 +2076,12 @@ namespace draconic::editor
         const String name = target->UniqueInstanceName(u8"ParticleEffect");
 
         draconic::content::Instance* instance =
-            target->CreateInstance(name.AsView(), particles::ParticleEffectAsset::StaticType());
+            target->CreateInstance(name.AsView(), draconic::pipeline::ParticleEffectAsset::StaticType());
         if (instance == nullptr)
         {
             return nullptr;
         }
-        particles::ParticleEffectAsset asset;
+        draconic::pipeline::ParticleEffectAsset asset;
         SeedDefaultParticleEffect(asset.Effect());
         if (!instance->WriteObject(asset).IsOk())
         {

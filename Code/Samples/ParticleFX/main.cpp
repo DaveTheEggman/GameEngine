@@ -27,8 +27,8 @@ import draconic.materials;
 import draconic.particles;           // the CPU sim (effect/system/modules)
 import draconic.engine.particles; // the ECS component + ParticleSubsystem
 import draconic.particles.resource;  // cooked ParticleEffectResource + factory
-import draconic.particles.editor;    // ParticleEffectAsset + bake (the authoring demo)
-import draconic.editor.asset;              // AssetBuildContext
+import draconic.particles.pipeline;    // ParticleEffectAsset + bake (the authoring demo)
+import draconic.pipeline.core;              // AssetBuildContext
 import draconic.vfs;                 // NativeFileSystem mount for the content DB
 import draconic.content;             // ContentDatabase (cooked-output DB)
 import draconic.resource;            // ResourceManager + Proxy
@@ -50,7 +50,6 @@ namespace particles = draconic::particles;
 namespace vfs = draconic::vfs;
 namespace content = draconic::content;
 namespace resource = draconic::resource;
-namespace editor = draconic::editor;
 
 namespace
 {
@@ -1107,7 +1106,7 @@ namespace
             {
                 return;
             }
-            particles::
+            draconic::pipeline::
                 RegisterParticleEffectAsset(); // register cooked/asset/module types + serializable factories
 
             m_contentFs =
@@ -1119,10 +1118,10 @@ namespace
             // AUTHOR -> BAKE: cook the authored asset into a content-DB ParticleEffectResource.
             content::Instance* inst = m_contentDb->RootGroup()->CreateInstance(
                 u8"cooked_demo", particles::ParticleEffectResource::StaticType());
-            particles::ParticleEffectAsset asset;
+            draconic::pipeline::ParticleEffectAsset asset;
             BuildCookedEffect(asset.Effect());
-            particles::ParticleEffectAssetBuilder builder;
-            editor::AssetBuildContext ctx;
+            draconic::pipeline::ParticleEffectAssetBuilder builder;
+            draconic::pipeline::AssetBuildContext ctx;
             ctx.output = inst;
             ctx.db = m_contentDb.Get();
             if (!builder.Build(asset, ctx).IsOk())

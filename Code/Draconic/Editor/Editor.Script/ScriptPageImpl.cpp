@@ -16,7 +16,7 @@ import draconic.runtime.client;
 import draconic.ui;
 import draconic.ui.toolkit;
 import draconic.script;
-import draconic.script.editor;
+import draconic.script.pipeline;
 import draconic.editor.core;
 import draconic.editor.app;
 
@@ -26,7 +26,7 @@ namespace draconic::editor
 {
     const TypeInfo* ScriptClassPageFactory::PrimaryType() const
     {
-        return &draconic::script::ScriptClassAsset::StaticType();
+        return &draconic::pipeline::ScriptClassAsset::StaticType();
     }
 
     UniquePtr<EditorPage> ScriptClassPageFactory::CreatePage(EditorContext& context,
@@ -96,12 +96,12 @@ namespace draconic::editor
     void ScriptEditorPage::RefreshCompileStatus()
     {
         const bool ok = m_doc.Validate();
-        Span<const draconic::script::ScriptSourceDocument::CompileError> errors = m_doc.Errors();
+        Span<const draconic::pipeline::ScriptSourceDocument::CompileError> errors = m_doc.Errors();
 
         // Project errors onto the buffer: one Error marker (with the message as the row's
         // diagnostic) per line. Wholesale replace per validation run.
         Array<ui::toolkit::CodeDiagnostic> diagnostics;
-        for (const draconic::script::ScriptSourceDocument::CompileError& e : errors)
+        for (const draconic::pipeline::ScriptSourceDocument::CompileError& e : errors)
         {
             ui::toolkit::CodeDiagnostic diagnostic;
             diagnostic.isError = true; // the compile-check path only reports compile errors
@@ -130,7 +130,7 @@ namespace draconic::editor
         m_status->SetText(summary.AsView());
 
         String detail;
-        for (const draconic::script::ScriptSourceDocument::CompileError& e : errors)
+        for (const draconic::pipeline::ScriptSourceDocument::CompileError& e : errors)
         {
             if (!detail.IsEmpty())
             {

@@ -24,7 +24,7 @@ import draconic.scene;
 import draconic.engine.scene;
 import draconic.animation;
 import draconic.animation.resource;
-import draconic.animation.editor;
+import draconic.animation.pipeline;
 import draconic.resource;
 import draconic.render;
 import draconic.engine.render;
@@ -118,7 +118,7 @@ export namespace draconic::editor
         ui::runtime::UIHost* m_uiHost = nullptr;
         String m_title;
 
-        RefPtr<animation::AnimationClipAsset> m_asset;
+        RefPtr<draconic::pipeline::AnimationClipAsset> m_asset;
         draconic::resource::Proxy<animation::AnimationClip> m_clip; // cooked product (hot-swaps)
 
         // preview world (debug-draw only)
