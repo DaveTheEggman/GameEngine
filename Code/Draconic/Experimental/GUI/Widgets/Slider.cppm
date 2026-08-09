@@ -1,6 +1,6 @@
 // GUI - :slider partition
 //
-// Slider: a draggable value in [0,1]. A lean Draconic-native control modeled on eepp's
+// Slider: a draggable value in [0,1]. A lean native control modeled on eepp's
 // UISlider (role only). Pressing/dragging sets the value from the cursor x; because the
 // EventDispatcher captures the pointer to the pressed node, the drag keeps tracking even
 // when the cursor leaves the slider. OnDraw renders a track, a fill up to the handle, and a

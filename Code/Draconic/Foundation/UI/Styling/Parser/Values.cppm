@@ -4,7 +4,7 @@
 // markup loader). Ported from Sedulous.UI/src/Styling/Parser/Values.bf (StyleValueParser).
 //
 // Divergences (language): Beef Result<Color> -> Optional<Color>; the Beef Color int ctor (0..255)
-// is expressed as float components divided by 255 (draconic Color is float 0..1). Named colors
+// is expressed as float components divided by 255 (our Color is float 0..1). Named colors
 // missing from core::Color (yellow/cyan/magenta/gray, and the CSS dark "green") are built as float
 // literals to match Sedulous exactly.
 

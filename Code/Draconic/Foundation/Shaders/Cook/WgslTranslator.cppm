@@ -136,7 +136,7 @@ export namespace foundation::shaders
             // 2. naga: SPIR-V -> WGSL (writes wgslPath). --keep-coordinate-space is LOAD-BEARING:
             // without it naga bakes a clip-space Y adjustment into the WGSL that wgpu's RUNTIME
             // SPIR-V frontend does NOT apply, so the cooked-WGSL path rendered MIRRORED relative
-            // to both the SPIR-V path and Vulkan (probe-proven in Draconic.Render.Backend.Tests).
+            // to both the SPIR-V path and Vulkan (probe-proven in Render.Backend.Tests).
             // With the flag, every WebGPU shader path shares Vulkan's raster orientation and the
             // renderer needs no Y-flip compensations at all (NeedsClipSpaceYFlip == false).
             const StringView nagaArgs[] = {u8"--keep-coordinate-space", spvPath.AsView(),

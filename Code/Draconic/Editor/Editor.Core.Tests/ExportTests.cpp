@@ -294,7 +294,7 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
     b.config = String(u8"RelWithDebInfo");
     b.stageSymbols = true;
     b.pruneToReachable = true;
-    b.templateId = String(u8"draconic-win64-0.1.0");
+    b.templateId = String(TEMPLATE_ID_PREFIX u8"-win64-0.1.0");
     b.playerName = String(u8"MyGame.exe");
     b.outputSubdir = String(u8"Win64");
     b.additionalFiles.PushBack(String(u8"icon.ico"));
@@ -319,7 +319,7 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
     CHECK(win->config == u8"RelWithDebInfo"); // config axis round-trips
     CHECK(win->stageSymbols);                 // symbols opt-in round-trips
     CHECK(win->pruneToReachable);             // pruning opt-in round-trips
-    CHECK(win->templateId == u8"draconic-win64-0.1.0");
+    CHECK(win->templateId == TEMPLATE_ID_PREFIX u8"-win64-0.1.0");
     CHECK(win->playerName == u8"MyGame.exe");
     REQUIRE(win->additionalFiles.Size() == 2u);
     CHECK(win->additionalFiles[0] == u8"icon.ico");
@@ -398,7 +398,7 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
 
     // template.xml round-trip, including the v2 (platform, config) axis: config + compiler + symbols[].
     editor::ExportTemplate t;
-    t.id = String(u8"draconic-win64-release-0.1.0");
+    t.id = String(TEMPLATE_ID_PREFIX u8"-win64-release-0.1.0");
     t.name = String(u8"Windows Desktop Release 0.1.0");
     t.platform = String(u8"Win64");
     t.config = String(u8"Release");
@@ -412,7 +412,7 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
 
     editor::ExportTemplate loaded;
     REQUIRE(editor::LoadTemplateManifest(root, loaded).IsOk());
-    CHECK(loaded.id == u8"draconic-win64-release-0.1.0");
+    CHECK(loaded.id == TEMPLATE_ID_PREFIX u8"-win64-release-0.1.0");
     CHECK(loaded.platform == u8"Win64");
     CHECK(loaded.config == u8"Release");
     CHECK(loaded.compiler == u8"MSVC");
@@ -458,7 +458,7 @@ TEST_CASE("export: a v1 template.xml without a config field reads as Release (ba
                           u8"<array name=\"dataVersions\" count=\"1\">"
                           u8"<u64 name=\"type\">0</u64><u32 name=\"version\">1</u32>"
                           u8"</array>"
-                          u8"<string name=\"id\">draconic-legacy</string>"
+                          u8"<string name=\"id\">sample-legacy</string>"
                           u8"<string name=\"name\">Legacy</string>"
                           u8"<string name=\"platform\">Win64</string>"
                           u8"<string name=\"engineVersion\">0.1.0</string>"
@@ -470,7 +470,7 @@ TEST_CASE("export: a v1 template.xml without a config field reads as Release (ba
 
     editor::ExportTemplate loaded;
     REQUIRE(editor::LoadTemplateManifest(root, loaded).IsOk());
-    CHECK(loaded.id == u8"draconic-legacy");
+    CHECK(loaded.id == u8"sample-legacy");
     CHECK(loaded.platform == u8"Win64");
     CHECK(loaded.config == u8"Release"); // absent config normalizes to Release
     CHECK(loaded.EffectiveConfig() == u8"Release");
@@ -503,7 +503,7 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
         (hostPlatform == StringView(u8"Win64")) ? String(u8"Linux64") : String(u8"Win64");
 
     editor::ExportTemplate foreign;
-    foreign.id = String(u8"draconic-foreign-0.1.0");
+    foreign.id = String(TEMPLATE_ID_PREFIX u8"-foreign-0.1.0");
     foreign.platform = foreignPlatform;
     foreign.playerBinary = String(u8"Engine.Player");
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), foreign,
@@ -515,7 +515,7 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
     CHECK(reg.Count() == 2u); // imported foreign + synthesized host
 
     // Explicit id.
-    const editor::ExportTemplate* byId = reg.FindById(u8"draconic-foreign-0.1.0");
+    const editor::ExportTemplate* byId = reg.FindById(TEMPLATE_ID_PREFIX u8"-foreign-0.1.0");
     REQUIRE(byId != nullptr);
     CHECK(byId->directory == PathJoin(rootDir.AsView(), u8"foreign-template"));
 
@@ -531,7 +531,7 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
     editor::ExportPreset p;
     p.platform = foreignPlatform; // blank config -> Release, which the imported foreign template is
     CHECK(reg.Resolve(p) == byId); // blank templateId -> by (platform, config)
-    p.templateId = String(u8"draconic-foreign-0.1.0");
+    p.templateId = String(TEMPLATE_ID_PREFIX u8"-foreign-0.1.0");
     CHECK(reg.Resolve(p) == byId); // explicit id
     editor::ExportPreset none;
     none.platform = String(u8"Nonexistent64");
@@ -557,7 +557,7 @@ TEST_CASE("export: an imported template out-ranks the synthesized host for the h
     // An imported template for the SAME platform AND config as this host build - so the exact-match
     // pass returns both, and the imported (non-host) bundle must win the tiebreak.
     editor::ExportTemplate imported;
-    imported.id = String(u8"draconic-host-import");
+    imported.id = String(TEMPLATE_ID_PREFIX u8"-host-import");
     imported.platform = String(GetHostPlatformName());
     imported.config = String(GetBuildConfigName());
     imported.playerBinary = String(u8"Engine.Player");
@@ -575,7 +575,7 @@ TEST_CASE("export: an imported template out-ranks the synthesized host for the h
         reg.FindBy(GetHostPlatformName(), GetBuildConfigName());
     REQUIRE(byPlatform != nullptr);
     CHECK_FALSE(byPlatform->isHost);
-    CHECK(byPlatform->id == u8"draconic-host-import");
+    CHECK(byPlatform->id == TEMPLATE_ID_PREFIX u8"-host-import");
 
     // The synthesized host template is still present, reachable by its "host-<platform>-<config>" id.
     String hostId(u8"host-");
@@ -663,7 +663,7 @@ TEST_CASE("export: a template built against a different engine version warns but
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"old-template").AsView()));
     foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
     editor::ExportTemplate old;
-    old.id = String(u8"draconic-old-engine");
+    old.id = String(TEMPLATE_ID_PREFIX u8"-old-engine");
     old.platform = String(GetHostPlatformName());
     old.engineVersion = String(u8"0.0.0-ancient");
     old.playerBinary = GetExecutableName(u8"Engine.Player");
@@ -680,7 +680,7 @@ TEST_CASE("export: a template built against a different engine version warns but
 
     editor::ExportPreset preset;
     preset.name = String(u8"Old Engine Build");
-    preset.templateId = String(u8"draconic-old-engine"); // resolve to the mismatched template
+    preset.templateId = String(TEMPLATE_ID_PREFIX u8"-old-engine"); // resolve to the mismatched template
     preset.outputSubdir = String(u8"old");
 
     pipeline::BuilderRegistry builders;
@@ -709,7 +709,7 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
     // A source bundle: template.xml + a fake player + a sidecar.
     foundation::vfs::NativeFileSystem srcFs(src.AsView());
     editor::ExportTemplate t;
-    t.id = String(u8"draconic-win64-import");
+    t.id = String(TEMPLATE_ID_PREFIX u8"-win64-import");
     t.platform = String(u8"Win64");
     t.playerBinary = String(u8"Engine.Player.exe");
     t.sidecars.PushBack(String(u8"SDL3.dll"));
@@ -719,19 +719,19 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
 
     String importedId;
     REQUIRE(editor::ImportTemplate(src.AsView(), root.AsView(), &importedId).IsOk());
-    CHECK(importedId == u8"draconic-win64-import");
+    CHECK(importedId == TEMPLATE_ID_PREFIX u8"-win64-import");
 
     // The registry over the root now resolves it (alongside the synthesized host template).
     foundation::vfs::NativeFileSystem rootFs(root.AsView());
     foundation::vfs::NativeFileSystem toolFs(src.AsView()); // any dir for the host template
     editor::TemplateRegistry reg;
     reg.Refresh(root.AsView(), &rootFs, src.AsView(), &toolFs);
-    const editor::ExportTemplate* found = reg.FindById(u8"draconic-win64-import");
+    const editor::ExportTemplate* found = reg.FindById(TEMPLATE_ID_PREFIX u8"-win64-import");
     REQUIRE(found != nullptr);
     CHECK(found->platform == u8"Win64");
     REQUIRE(found->sidecars.Size() == 1u);
     CHECK(found->sidecars[0] == u8"SDL3.dll");
-    CHECK(found->directory == PathJoin(root.AsView(), u8"draconic-win64-import"));
+    CHECK(found->directory == PathJoin(root.AsView(), TEMPLATE_ID_PREFIX u8"-win64-import"));
 
     // A source with no template.xml fails.
     const String empty = TempDir(u8"scratch_tmpl_empty");
@@ -768,8 +768,8 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     REQUIRE(editor::CreateTemplate(binDir.AsView(), root.AsView(), editor::TemplateOutput::Install,
                                    &createdId, &createdDir)
                 .IsOk());
-    // id = draconic-<platform>-<config>-<engineVersion> (lowercased platform/config).
-    String expectedId(u8"draconic-");
+    // id = <prefix>-<platform>-<config>-<engineVersion> (lowercased platform/config).
+    String expectedId(TEMPLATE_ID_PREFIX u8"-");
     expectedId += editor::AsciiLower(GetHostPlatformName());
     expectedId += u8"-release-";
     expectedId += engine::project::kEngineVersionString;
@@ -876,8 +876,8 @@ TEST_CASE("export: FindBy resolves exact (platform,config) and falls back prefer
         REQUIRE(
             editor::SaveTemplateManifest(*rootFs.AsWritable(), t, manifestPath.AsView()).IsOk());
     };
-    writeTemplate(u8"draconic-dbg", u8"Debug", u8"dbg");
-    writeTemplate(u8"draconic-rel", u8"Release", u8"rel");
+    writeTemplate(TEMPLATE_ID_PREFIX u8"-dbg", u8"Debug", u8"dbg");
+    writeTemplate(TEMPLATE_ID_PREFIX u8"-rel", u8"Release", u8"rel");
 
     foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
     foundation::vfs::NativeFileSystem hostFs(hostDir.AsView());
@@ -885,8 +885,8 @@ TEST_CASE("export: FindBy resolves exact (platform,config) and falls back prefer
     reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
 
     // Exact match by config.
-    const editor::ExportTemplate* dbg = reg.FindById(u8"draconic-dbg");
-    const editor::ExportTemplate* rel = reg.FindById(u8"draconic-rel");
+    const editor::ExportTemplate* dbg = reg.FindById(TEMPLATE_ID_PREFIX u8"-dbg");
+    const editor::ExportTemplate* rel = reg.FindById(TEMPLATE_ID_PREFIX u8"-rel");
     REQUIRE(dbg != nullptr);
     REQUIRE(rel != nullptr);
     CHECK(reg.FindBy(plat.AsView(), u8"Debug") == dbg);
@@ -932,7 +932,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"sym-template").AsView()));
     foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
     editor::ExportTemplate t;
-    t.id = String(u8"draconic-sym");
+    t.id = String(TEMPLATE_ID_PREFIX u8"-sym");
     t.platform = String(GetHostPlatformName());
     t.playerBinary = GetExecutableName(u8"Engine.Player");
     t.sidecars.PushBack(String(u8"libfoo.so"));
@@ -956,7 +956,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     {
         editor::ExportPreset preset;
         preset.name = String(u8"Stripped");
-        preset.templateId = String(u8"draconic-sym");
+        preset.templateId = String(TEMPLATE_ID_PREFIX u8"-sym");
         preset.outputSubdir = String(u8"stripped");
         editor::ExportResult result;
         REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false,
@@ -973,7 +973,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     {
         editor::ExportPreset preset;
         preset.name = String(u8"WithSymbols");
-        preset.templateId = String(u8"draconic-sym");
+        preset.templateId = String(TEMPLATE_ID_PREFIX u8"-sym");
         preset.outputSubdir = String(u8"symbols");
         preset.stageSymbols = true;
         editor::ExportResult result;
@@ -1483,36 +1483,36 @@ TEST_CASE("export: RemoveTemplate deletes an installed bundle the registry then 
     NukeTree(hostDir.AsView());
     REQUIRE(CreateDirectory(rootDir.AsView()));
     REQUIRE(CreateDirectory(hostDir.AsView()));
-    REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"draconic-remove-me").AsView()));
+    REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), TEMPLATE_ID_PREFIX u8"-remove-me").AsView()));
 
     foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
     foundation::vfs::NativeFileSystem hostFs(hostDir.AsView());
     editor::ExportTemplate t;
-    t.id = String(u8"draconic-remove-me");
+    t.id = String(TEMPLATE_ID_PREFIX u8"-remove-me");
     t.platform = String(u8"Win64");
     t.playerBinary = String(u8"Engine.Player.exe");
-    REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), t, u8"draconic-remove-me/template.xml")
+    REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), t, TEMPLATE_ID_PREFIX u8"-remove-me/template.xml")
                 .IsOk());
 
     // Present before removal.
     {
         editor::TemplateRegistry reg;
         reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
-        REQUIRE(reg.FindById(u8"draconic-remove-me") != nullptr);
+        REQUIRE(reg.FindById(TEMPLATE_ID_PREFIX u8"-remove-me") != nullptr);
     }
 
     // Remove the bundle dir; a fresh registry no longer sees it (host template remains).
-    REQUIRE(editor::RemoveTemplate(rootDir.AsView(), u8"draconic-remove-me").IsOk());
+    REQUIRE(editor::RemoveTemplate(rootDir.AsView(), TEMPLATE_ID_PREFIX u8"-remove-me").IsOk());
     {
         foundation::vfs::NativeFileSystem rootFs2(rootDir.AsView());
         editor::TemplateRegistry reg;
         reg.Refresh(rootDir.AsView(), &rootFs2, hostDir.AsView(), &hostFs);
-        CHECK(reg.FindById(u8"draconic-remove-me") == nullptr);
+        CHECK(reg.FindById(TEMPLATE_ID_PREFIX u8"-remove-me") == nullptr);
         CHECK(reg.Count() == 1u); // just the synthesized host template
     }
 
     // Removing a non-existent id fails softly (NotFound), never crashes; empty id is rejected.
-    CHECK_FALSE(editor::RemoveTemplate(rootDir.AsView(), u8"draconic-remove-me").IsOk());
+    CHECK_FALSE(editor::RemoveTemplate(rootDir.AsView(), TEMPLATE_ID_PREFIX u8"-remove-me").IsOk());
     CHECK_FALSE(editor::RemoveTemplate(rootDir.AsView(), u8"").IsOk());
 
     NukeTree(rootDir.AsView());
@@ -1765,7 +1765,7 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"web-template").AsView()));
     foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
     editor::ExportTemplate web;
-    web.id = String(u8"draconic-web-debug-test");
+    web.id = String(TEMPLATE_ID_PREFIX u8"-web-debug-test");
     web.platform = String(u8"Web");
     web.compiler = String(u8"Emscripten");
     web.playerBinary = String(u8"Engine.Player.html");

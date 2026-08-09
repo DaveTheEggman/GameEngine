@@ -64,7 +64,7 @@ export namespace foundation::shaders
             m_entries.PushBack(Move(e));
         }
 
-        // Record a stage's declared variant mask (from its `// draconic:variants` directive) so the
+        // Record a stage's declared variant mask (from its `// variants:` directive) so the
         // dist runtime can canonicalize a request (flags & mask) onto a variant that was cooked. The
         // cook calls this once per stage; absent => None (single-variant).
         void AddDeclaredMask(StringView name, ShaderStage stage, ShaderFlags mask)

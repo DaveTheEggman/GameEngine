@@ -44,19 +44,19 @@ extern "C" const char* BuildStamp();
 #define APP_MAIN(AppType)                                                                 \
     int main()                                                                                     \
     {                                                                                              \
-        static ::foundation::core::ConsoleSink draconicConsoleSink;                                  \
-        ::foundation::core::GlobalLogger().AddSink(&draconicConsoleSink);                            \
+        static ::foundation::core::ConsoleSink appConsoleSink;                                  \
+        ::foundation::core::GlobalLogger().AddSink(&appConsoleSink);                            \
         ::foundation::core::GlobalLogger().SetMinLevel(::foundation::core::LogLevel::Info);            \
-        LOG_INFO(u8"Build", u8"Draconic build {}",                                        \
+        LOG_INFO(u8"Build", u8"Client build {}",                                        \
                           reinterpret_cast<const char8_t*>(BuildStamp()));                 \
-        static ::foundation::shell::WebShell draconicShell;                                          \
-        ::foundation::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
-        draconicGpuDesc.backend = ::foundation::graphics::BackendType::WebGPU;                       \
-        static auto draconicGpu = ::foundation::graphics::CreateGraphicsDevice(draconicGpuDesc);     \
-        ::foundation::graphics::GraphicsDevice* draconicDevice =                                     \
-            draconicGpu.HasValue() ? draconicGpu.Value().Get() : nullptr;                          \
-        static AppType draconicApp;                                                                \
-        return ::foundation::runtime::RunApplication(draconicApp, draconicShell, draconicDevice);    \
+        static ::foundation::shell::WebShell appShell;                                          \
+        ::foundation::graphics::GraphicsDeviceDesc appGpuDesc{};                                \
+        appGpuDesc.backend = ::foundation::graphics::BackendType::WebGPU;                       \
+        static auto appGpu = ::foundation::graphics::CreateGraphicsDevice(appGpuDesc);     \
+        ::foundation::graphics::GraphicsDevice* appDevice =                                     \
+            appGpu.HasValue() ? appGpu.Value().Get() : nullptr;                          \
+        static AppType appInstance;                                                                \
+        return ::foundation::runtime::RunApplication(appInstance, appShell, appDevice);    \
     }
 
 #else
@@ -68,19 +68,19 @@ extern "C" const char* BuildStamp();
 #define APP_MAIN(AppType)                                                                 \
     int main(int argc, char** argv)                                                                \
     {                                                                                              \
-        static ::foundation::core::ConsoleSink draconicConsoleSink;                                  \
-        ::foundation::core::GlobalLogger().AddSink(&draconicConsoleSink);                            \
-        LOG_INFO(u8"Build", u8"Draconic build {}",                                        \
+        static ::foundation::core::ConsoleSink appConsoleSink;                                  \
+        ::foundation::core::GlobalLogger().AddSink(&appConsoleSink);                            \
+        LOG_INFO(u8"Build", u8"Client build {}",                                        \
                           reinterpret_cast<const char8_t*>(BuildStamp()));                 \
         auto shell = ::foundation::shell::CreateShell();                                             \
-        ::foundation::graphics::GraphicsDeviceDesc draconicGpuDesc{};                                \
-        draconicGpuDesc.backend =                                                                  \
+        ::foundation::graphics::GraphicsDeviceDesc appGpuDesc{};                                \
+        appGpuDesc.backend =                                                                  \
             ::foundation::graphics::SelectBackendFromArguments(argc, argv);                          \
-        auto draconicGpu = ::foundation::graphics::CreateGraphicsDevice(draconicGpuDesc);            \
-        ::foundation::graphics::GraphicsDevice* draconicDevice =                                     \
-            draconicGpu.HasValue() ? draconicGpu.Value().Get() : nullptr;                          \
+        auto appGpu = ::foundation::graphics::CreateGraphicsDevice(appGpuDesc);            \
+        ::foundation::graphics::GraphicsDevice* appDevice =                                     \
+            appGpu.HasValue() ? appGpu.Value().Get() : nullptr;                          \
         AppType app;                                                                               \
-        return ::foundation::runtime::RunApplication(app, *shell, draconicDevice);                   \
+        return ::foundation::runtime::RunApplication(app, *shell, appDevice);                   \
     }
 
 #endif // PLATFORM_WEB

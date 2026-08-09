@@ -161,7 +161,7 @@ TEST_CASE("wren: a context runs valid source")
                                     u8"  construct new(name) { _name = name }\n"
                                     u8"  greet() { System.print(\"hi %(_name)\") }\n"
                                     u8"}\n"
-                                    u8"Greeter.new(\"draconic\").greet()\n",
+                                    u8"Greeter.new(\"engine\").greet()\n",
                                     u8"main");
     CHECK(status.IsOk());
 }
@@ -242,13 +242,13 @@ TEST_CASE("wren: read module globals as Variant")
 {
     RefPtr<IScriptContext> ctx = wren::CreateScriptManager()->CreateContext();
     REQUIRE(ctx->Load(u8"var Answer = 42\n"
-                      u8"var Name = \"draconic\"\n"
+                      u8"var Name = \"engine\"\n"
                       u8"var Flag = true\n",
                       u8"main")
                 .IsOk());
 
     CHECK(ctx->GetGlobal(u8"Answer").Get<f64>() == 42.0); // Wren numbers are doubles
-    CHECK(ctx->GetGlobal(u8"Name").Get<String>() == u8"draconic");
+    CHECK(ctx->GetGlobal(u8"Name").Get<String>() == u8"engine");
     CHECK(ctx->GetGlobal(u8"Flag").Get<bool>() == true);
 
     CHECK(ctx->GetGlobal(u8"Missing").IsEmpty()); // absent -> empty Variant

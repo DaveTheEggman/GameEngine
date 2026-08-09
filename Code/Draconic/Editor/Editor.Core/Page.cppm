@@ -2,8 +2,7 @@
 //
 // The document model (docs/design/editor.md §3.4): each open asset is an EditorPage - a dock
 // tab with its OWN command stack (Sedulous/Traktor per-page undo), dirty tracking, and Save.
-// This is the HEADLESS half: concrete pages live in UI-side modules (editor.app /
-// draconic.<sys>.editor) and add their widget tree on top.
+// This is the HEADLESS half: concrete pages live in UI-side modules and add their widget tree on top.
 //
 // Pages are created by IEditorPageFactory, dispatched by the instance's primary-object type
 // with nearest-type matching along the base chain (Traktor's type_difference contest), via

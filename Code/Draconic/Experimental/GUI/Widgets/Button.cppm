@@ -1,6 +1,6 @@
 // GUI - :button partition
 //
-// Button: a clickable Label. A lean Draconic-native control modeled on eepp's UIPushButton
+// Button: a clickable Label. A lean native control modeled on eepp's UIPushButton
 // (role only, NOT a line-for-line port: eepp's is ~900 LOC composing a child UIImage icon +
 // UITextView with an internal layout). Everything visual is already in place from the base
 // layers - the background/skin reacts to the input-driven control state (UINode) and CSS can

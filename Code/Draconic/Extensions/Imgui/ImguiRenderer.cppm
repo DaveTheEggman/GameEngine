@@ -1,6 +1,6 @@
 /// Extensions::Imgui - the `:renderer` partition.
 ///
-/// A Dear ImGui renderer built on Draconic's RHI (no stock imgui backend) - ported from the Sedulous
+/// A Dear ImGui renderer built on our RHI (no stock imgui backend) - ported from the Sedulous
 /// ImGui sample, which uses the same RHI shape. Owns the GPU pipeline + font atlas + per-frame dynamic
 /// vertex/index/uniform buffers, and records ImDrawData into a render pass on a target each frame.
 /// The font atlas upload is deferred to the first Render (we get a command encoder there, not at init).

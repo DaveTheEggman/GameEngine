@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Serve a Draconic web export from THIS folder. Python 3 stdlib only.
+# Serve a web export from THIS folder. Python 3 stdlib only.
 #
 #   python3 serve.py [port]        (default 8000)  ->  http://localhost:8000/Engine.Player.html
 #

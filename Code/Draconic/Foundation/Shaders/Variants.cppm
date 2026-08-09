@@ -3,7 +3,7 @@
 // A shipped dist has NO compiler, so every variant the runtime can request must exist in the cooked
 // pack BY CONSTRUCTION. The mechanism:
 //
-//   - Authoring: one directive line per stage file, `// draconic:variants SKINNED INSTANCED`, names
+//   - Authoring: one directive line per stage file, `// variants: SKINNED INSTANCED`, names
 //     the flags this stage actually branches on. Absent => single-variant (mask None) - most shaders.
 //   - Canonicalization: GetVariant intersects every request with the declared mask, dev AND dist
 //     identically, so a request for a flag the stage ignores collapses onto a variant that exists.
@@ -30,7 +30,7 @@ export namespace foundation::shaders
     struct VariantDirective
     {
         ShaderFlags mask = ShaderFlags::None; // OR of the declared flags
-        bool present = false;                 // was a `draconic:variants` line found at all
+        bool present = false;                 // was a `variants:` line found at all
     };
 
     // Map a flag #define name (case-sensitive) to its bit; None if unknown.
@@ -46,13 +46,13 @@ export namespace foundation::shaders
         return ShaderFlags::None;
     }
 
-    // Parse the `// draconic:variants A B C` directive from a stage's HLSL source. The tag may sit
+    // Parse the `// variants: A B C` directive from a stage's HLSL source. The tag may sit
     // anywhere on a line (after `//`); tokens are whitespace-separated flag #define names. Unknown
     // tokens are ignored (a shader may name a not-yet-defined flag without breaking the cook). Absent
     // directive => {None, present=false} = single-variant.
     [[nodiscard]] inline VariantDirective ParseVariantDirective(StringView source)
     {
-        constexpr StringView kTag = u8"draconic:variants";
+        constexpr StringView kTag = u8"variants:";
         VariantDirective out;
 
         const usize n = source.Size();

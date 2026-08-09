@@ -104,7 +104,7 @@ TEST_CASE("system: opening a missing file fails cleanly")
 
 TEST_CASE("system: console write does not crash")
 {
-    ConsoleWrite(u8"[draconic-test] console output check\n");
+    ConsoleWrite(u8"[console-test] console output check\n");
     CHECK(true);
 }
 

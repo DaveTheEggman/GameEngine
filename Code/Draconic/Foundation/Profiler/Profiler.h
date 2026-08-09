@@ -15,7 +15,7 @@
 #if BUILD_PROFILING
 
 #define PROFILE_SCOPE(name)                                                               \
-    ::foundation::profiler::ScopedProfile PROFILE_CONCAT(draconicProfScope_, __LINE__)      \
+    ::foundation::profiler::ScopedProfile PROFILE_CONCAT(profScope_, __LINE__)      \
     {                                                                                              \
         (name)                                                                                     \
     }

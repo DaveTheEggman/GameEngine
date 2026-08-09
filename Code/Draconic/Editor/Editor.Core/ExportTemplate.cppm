@@ -11,6 +11,13 @@ module;
 #include "Core/Reflection/Reflect.h"
 // NO <filesystem> here - see ImportTemplate below. It lives in ExportTemplateImpl.cpp.
 
+// Export-template id prefix; CMake bakes TEMPLATE_ID_PREFIX_VALUE on the policy target. Required -
+// no in-source default (keeps the prefix value out of the source). Tests build expected ids from the
+// same macro so they always agree.
+#ifndef TEMPLATE_ID_PREFIX
+#error "TEMPLATE_ID_PREFIX is not defined - set TEMPLATE_ID_PREFIX_VALUE in the root CMakeLists (policy target)"
+#endif
+
 export module editor.core:export_template;
 
 import foundation.core;
@@ -34,7 +41,7 @@ export namespace editor
     {
         RTTI_OBJECT(ExportTemplate, ISerializable)
     public:
-        String id;       // "draconic-win64-release-0.1.0" (unique within the templates root)
+        String id;       // "<prefix>-win64-release-0.1.0" (unique within the templates root)
         String name;     // "Windows Desktop Release 0.1.0"
         String platform; // "Win64" / "Linux64"
         String config; // "Debug" / "Release" / "RelWithDebInfo" (identity); empty read => "Release"
@@ -302,7 +309,7 @@ export namespace editor
     // fail to re-materialize it from the .ifc - here as
     //   type_traits(2410): error C2678: binary '&': no operator found which takes a left-hand
     //   operand of type '_Bitmask'
-    // from std::_Bitmask_includes_all<__std_fs_stats_flags>, which broke Draconic.Editor.App.
+    // from std::_Bitmask_includes_all<__std_fs_stats_flags>, which broke Editor.App.
     // (Same shape as <stop_token> via <thread> in Core's JobSystem.) The impl unit already
     // included <filesystem> for exactly this - only the bodies were in the wrong place.
     [[nodiscard]] Status ImportTemplate(StringView srcDir, StringView templatesRoot,
@@ -334,7 +341,7 @@ export namespace editor
     // Synthesize + materialize a template from a "Bin/<Config>/<Platform>-<Compiler>" build dir
     // (export-templates.md "Create"). Reuses SynthesizeHostTemplate to read the platform + the
     // build-emitted "<player>.runtime-libs", then stamps config + compiler (parsed from the dir path)
-    // and engineVersion, and gives it a canonical id "draconic-<platform>-<config>-<engineVersion>".
+    // and engineVersion, and gives it a canonical id "<prefix>-<platform>-<config>-<engineVersion>".
     // Copies the player binary + each sidecar (FileCopyPreserving, keeping +x) and writes template.xml.
     //
     // Two output modes (TemplateOutput): Install writes to <destRoot>/<id> (the templates root, so the
@@ -390,7 +397,8 @@ export namespace editor
         }
 
         // Canonical id + name (lowercased platform/config for a stable, case-insensitive id).
-        tmpl.id = String(u8"draconic-");
+        tmpl.id = String(TEMPLATE_ID_PREFIX);
+        tmpl.id += u8"-";
         tmpl.id += AsciiLower(tmpl.platform.AsView());
         tmpl.id += u8"-";
         tmpl.id += AsciiLower(tmpl.config.AsView());

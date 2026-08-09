@@ -50,13 +50,13 @@ public:                                                                         
     static void RttiReflect_##Type(::foundation::core::TypeBuilder<Type>& builder);              \
     const ::foundation::core::TypeInfo& Type::StaticType() noexcept                                  \
     {                                                                                              \
-        static ::foundation::core::TypeData draconicTypeData = []()                                  \
+        static ::foundation::core::TypeData rttiTypeData = []()                                  \
         {                                                                                          \
             ::foundation::core::TypeBuilder<Type> builder(#Type, Namespace, &Super::StaticType());   \
             RttiReflect_##Type(builder);                                                       \
             return builder.Build();                                                                \
         }();                                                                                       \
-        return draconicTypeData.info;                                                              \
+        return rttiTypeData.info;                                                              \
     }                                                                                              \
     static void RttiReflect_##Type(                                                            \
         [[maybe_unused]] ::foundation::core::TypeBuilder<Type>& builder)
@@ -94,14 +94,14 @@ public:                                                                         
     static void RttiReflectValue_##Type(::foundation::core::TypeBuilder<Type>& builder);         \
     void RttiRegisterValue_##Type()                                                            \
     {                                                                                              \
-        static ::foundation::core::TypeData draconicTypeData = []()                                  \
+        static ::foundation::core::TypeData rttiTypeData = []()                                  \
         {                                                                                          \
             ::foundation::core::TypeBuilder<Type> builder(#Type, Namespace, nullptr);                \
             RttiReflectValue_##Type(builder);                                                  \
             return builder.Build();                                                                \
         }();                                                                                       \
         const_cast<::foundation::core::TypeInfo&>(::foundation::core::TypeOf<Type>()) =                \
-            draconicTypeData.info;                                                                 \
+            rttiTypeData.info;                                                                 \
     }                                                                                              \
     static void RttiReflectValue_##Type(                                                       \
         [[maybe_unused]] ::foundation::core::TypeBuilder<Type>& builder)

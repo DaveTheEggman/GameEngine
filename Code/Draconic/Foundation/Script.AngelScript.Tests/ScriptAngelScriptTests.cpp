@@ -392,10 +392,10 @@ TEST_CASE("angelscript: a context runs valid source")
                                     u8"  string greet() { return \"hi \" + name; }\n"
                                     u8"}\n"
                                     u8"string G;\n"
-                                    u8"void main() { Greeter g(\"draconic\"); G = g.greet(); }\n",
+                                    u8"void main() { Greeter g(\"engine\"); G = g.greet(); }\n",
                                     u8"main");
     CHECK(status.IsOk());
-    CHECK(ctx->GetGlobal(u8"G").Get<String>() == u8"hi draconic");
+    CHECK(ctx->GetGlobal(u8"G").Get<String>() == u8"hi engine");
 }
 
 TEST_CASE("angelscript: a compile error is reported")
@@ -495,14 +495,14 @@ TEST_CASE("angelscript: read module globals as Variant")
 {
     RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
     REQUIRE(ctx->Load(u8"int Answer = 42;\n"
-                      u8"string Name = \"draconic\";\n"
+                      u8"string Name = \"engine\";\n"
                       u8"bool Flag = true;\n"
                       u8"double Pi = 3.5;\n",
                       u8"main")
                 .IsOk());
 
     CHECK(ctx->GetGlobal(u8"Answer").Get<f64>() == 42.0); // numbers surface as f64
-    CHECK(ctx->GetGlobal(u8"Name").Get<String>() == u8"draconic");
+    CHECK(ctx->GetGlobal(u8"Name").Get<String>() == u8"engine");
     CHECK(ctx->GetGlobal(u8"Flag").Get<bool>() == true);
     CHECK(ctx->GetGlobal(u8"Pi").Get<f64>() == 3.5);
 
@@ -684,9 +684,9 @@ TEST_CASE("angelscript: call a script function with marshalled args")
     CHECK(ctx->Call(u8"greeting", Span<Variant>{}).Value().Get<String>() == u8"hi");
 
     // String argument in, string out.
-    Variant greetArgs[] = {Variant::From(String(u8"draconic"))};
+    Variant greetArgs[] = {Variant::From(String(u8"engine"))};
     CHECK(ctx->Call(u8"greet", Span<Variant>{greetArgs, 1}).Value().Get<String>() ==
-          u8"hi draconic");
+          u8"hi engine");
 
     // missing callable -> NotFound.
     CHECK(ctx->Call(u8"nope", Span<Variant>{}).Error() == ErrorCode::NotFound);

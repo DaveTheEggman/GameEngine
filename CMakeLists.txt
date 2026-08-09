@@ -119,6 +119,7 @@ endif()
 set(BUILTIN_PLAYER_BASENAME         "Engine.Player")
 set(BUILDSYSTEM_SHADERPACKCOOK_BASENAME "Tools.ShaderPack")
 set(USER_DATA_DIR_NAME_VALUE        "draconic")  # OS user-data folder (settings/projects/templates)
+set(TEMPLATE_ID_PREFIX_VALUE        "draconic")  # export-template id prefix (<prefix>-<platform>-<config>-<ver>)
 
 # Where the DESKTOP build put its executables, as seen from a CROSS build (wasm). The web
 # build shells out to native cook tools by path - it cannot use $<TARGET_FILE:> because those
@@ -175,7 +176,8 @@ target_compile_definitions(policy INTERFACE
     # `#if OPTION_HAS_EXTENSION_IMGUI` / `#if OPTION_HAS_EXPERIMENTAL_GUI`.
     OPTION_HAS_EXPERIMENTAL_GUI=$<BOOL:${OPTION_EXPERIMENTAL_GUI}>
     OPTION_HAS_EXTENSION_IMGUI=$<BOOL:${OPTION_EXTENSION_IMGUI}>
-    USER_DATA_DIR_NAME=u8\"${USER_DATA_DIR_NAME_VALUE}\")
+    USER_DATA_DIR_NAME=u8\"${USER_DATA_DIR_NAME_VALUE}\"
+    TEMPLATE_ID_PREFIX=u8\"${TEMPLATE_ID_PREFIX_VALUE}\")
 
 target_link_options(policy INTERFACE
     # Shipping: strip symbol tables at link (what a dist ships; the honest size number).

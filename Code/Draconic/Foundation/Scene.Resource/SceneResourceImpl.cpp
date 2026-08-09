@@ -1,4 +1,4 @@
-// Draconic Scene - foundation.scene.resource implementation unit.
+// Scene - foundation.scene.resource implementation unit.
 //
 // Out-of-line definitions for SceneResource's public serialization API (sec 3.2 / sec 10.6):
 // the free-function bodies (SerializeScene, CapturePrefab, SpawnPrefab, LoadScene, ...) and the

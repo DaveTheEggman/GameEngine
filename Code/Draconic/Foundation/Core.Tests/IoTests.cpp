@@ -173,7 +173,7 @@ TEST_CASE("serialization: String and Array round-trip")
     MemoryStream stream;
     {
         BinarySerializer saver(stream, SerializeMode::Write);
-        String name = u8"draconic";
+        String name = u8"engine";
         Array<i32> values;
         for (i32 i = 0; i < 5; ++i)
         {
@@ -193,7 +193,7 @@ TEST_CASE("serialization: String and Array round-trip")
         Serialize(loader, values);
         CHECK(loader.IsOk());
 
-        CHECK(name == u8"draconic");
+        CHECK(name == u8"engine");
         REQUIRE(values.Size() == 5u);
         CHECK(values[0] == 0);
         CHECK(values[4] == 44);
@@ -398,7 +398,7 @@ TEST_CASE("io: directory create / exists / remove")
 // --- IO: Virtual file system -----------------------------------------------
 
 // VFS (NativeFileSystem / VirtualFileSystem) moved to foundation.vfs - see
-// Code/Draconic/VFS/Tests/VfsTests.cpp.
+// VFS/Tests/VfsTests.cpp.
 
 // --- Serialization: ISerializable ------------------------------------------
 

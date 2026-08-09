@@ -1,6 +1,6 @@
 // GUI - :check_box partition
 //
-// CheckBox: a toggleable box. A lean Draconic-native control modeled on eepp's UICheckBox
+// CheckBox: a toggleable box. A lean native control modeled on eepp's UICheckBox
 // (role only). Clicking toggles the checked state and fires OnCheckedChanged; OnDraw renders
 // a rounded box outline with a filled inner mark when checked. Hover/press reaction comes for
 // free from UINode's control state (so a CSS background can highlight it). Pair it with a

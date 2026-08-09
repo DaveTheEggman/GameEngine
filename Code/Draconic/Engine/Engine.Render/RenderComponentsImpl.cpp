@@ -1,4 +1,4 @@
-// Draconic Render - render.subsystem implementation unit: component reflection bodies.
+// Render - render.subsystem implementation unit: component reflection bodies.
 //
 // Kept OUT of the :components interface partition (REFLECT_* bodies make GCC emit a
 // gcm cluster; see gcc-module-interface-hygiene). RenderComponents.cppm declares

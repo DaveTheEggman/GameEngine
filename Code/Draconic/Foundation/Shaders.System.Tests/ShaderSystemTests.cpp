@@ -236,7 +236,7 @@ TEST_CASE("shader system: dev mode canonicalizes corpus requests like the cooked
     std::filesystem::create_directories(root);
     {
         std::ofstream a(root / "declared.vs.hlsl", std::ios::binary);
-        a << "// draconic:variants SKINNED\n"
+        a << "// variants: SKINNED\n"
           << "float4 main(uint id : SV_VertexID) : SV_Position { return float4(0,0,0,1); }\n";
         std::ofstream b(root / "plain.vs.hlsl", std::ios::binary);
         b << "float4 main(uint id : SV_VertexID) : SV_Position { return float4(0,0,0,1); }\n";

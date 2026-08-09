@@ -6,7 +6,7 @@
 // halves (or culls the plane), so it fails loudly here instead of in someone's eyes.
 //
 // Run it on the cooked-pack WGSL path too (the browser's shaders, on wgpu-native):
-//   OPTION_USE_SHADER_PACK=1 ENV_WEBGPU_WGSL=1 ./Draconic.Render.Backend.Tests
+//   OPTION_USE_SHADER_PACK=1 ENV_WEBGPU_WGSL=1 ./Render.Backend.Tests
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 

@@ -184,7 +184,7 @@ TEST_CASE("cook: drift-lint fails a shader that #ifdefs an undeclared flag")
     // Point the cook at a scratch dir holding one bad shader (declares nothing, #ifdef's GBUFFER).
     (void)CreateDirectory(u8".test-scratch");
     (void)CreateDirectory(u8".test-scratch/badshaders");
-    const char* bad = "// draconic:variants\n"
+    const char* bad = "// variants:\n"
                       "#ifdef GBUFFER\n"
                       "#endif\n"
                       "float4 main() : SV_Target0 { return 0; }\n";
@@ -265,7 +265,7 @@ TEST_CASE("pack: add, serialize, reload, and look up cooked blobs")
 TEST_CASE("variants: directive parse maps flag names to a mask")
 {
     const VariantDirective d =
-        ParseVariantDirective(Hlsl("// draconic:variants SKINNED INSTANCED\nfloat4 main(){}\n"));
+        ParseVariantDirective(Hlsl("// variants: SKINNED INSTANCED\nfloat4 main(){}\n"));
     CHECK(d.present);
     CHECK(HasFlag(d.mask, ShaderFlags::Skinned));
     CHECK(HasFlag(d.mask, ShaderFlags::Instanced));
@@ -444,7 +444,7 @@ TEST_CASE("cook: drift-lint sees through #include - the .hlsli holds the #ifdef"
     // text would pass this cook and the dist would silently strip the flag.
     (void)CreateDirectory(u8".test-scratch");
     (void)CreateDirectory(u8".test-scratch/inclint");
-    const char* stage = "// draconic:variants\n"
+    const char* stage = "// variants:\n"
                         "#include \"inclint_common.hlsli\"\n";
     const char* inc = "#ifdef GBUFFER\n"
                       "#endif\n"

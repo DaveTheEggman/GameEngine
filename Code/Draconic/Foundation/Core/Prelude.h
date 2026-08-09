@@ -30,7 +30,7 @@
 #elif defined(_MSC_VER)
 #define COMPILER_MSVC 1
 #else
-#error "Draconic: unsupported compiler."
+#error "Unsupported compiler."
 #endif
 
 #if !defined(COMPILER_CLANG)
@@ -53,7 +53,7 @@
 #elif defined(__linux__)
 #define PLATFORM_LINUX 1
 #else
-#error "Draconic: unsupported platform."
+#error "Unsupported platform."
 #endif
 
 #if !defined(PLATFORM_WINDOWS)
@@ -76,7 +76,7 @@
 #elif defined(__wasm32__) || defined(__wasm64__)
 #define ARCH_WASM 1
 #else
-#error "Draconic: unsupported architecture."
+#error "Unsupported architecture."
 #endif
 
 #if !defined(ARCH_X64)

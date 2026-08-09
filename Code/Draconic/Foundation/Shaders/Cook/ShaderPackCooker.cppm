@@ -242,7 +242,7 @@ export namespace foundation::shaders
                     msg += u8" ";
                     msg += undeclared[i];
                 }
-                msg += u8" (add them to the // draconic:variants directive)";
+                msg += u8" (add them to the // variants: directive)";
                 report.errors.PushBack(FormatError(fileName.AsView(), msg.AsView()));
                 continue;
             }

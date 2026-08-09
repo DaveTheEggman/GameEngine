@@ -1,4 +1,4 @@
-// draconic:variants GBUFFER
+// variants: GBUFFER
 cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     row_major float4x4 ViewProj;
     row_major float4x4 View;

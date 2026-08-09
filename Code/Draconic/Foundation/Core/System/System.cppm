@@ -266,10 +266,10 @@ export namespace foundation::core
     // ~/Library/Application Support on macOS) with `appName` appended. Falls back to the bare app name
     // when the base can't be resolved. Where global editor settings live - and the default export
     // templates root (docs/design/export.md §5).
-    // The user-data folder name defaults to the value CMake bakes in (USER_DATA_DIR_NAME_VALUE on
-    // the policy target); the fallback keeps standalone TUs building.
+    // The user-data folder name is baked in by CMake (USER_DATA_DIR_NAME_VALUE on the policy target).
+    // Required - no in-source default, so the name value lives only in the build system.
 #ifndef USER_DATA_DIR_NAME
-#define USER_DATA_DIR_NAME u8"draconic"
+#error "USER_DATA_DIR_NAME is not defined - set USER_DATA_DIR_NAME_VALUE in the root CMakeLists (policy target)"
 #endif
     [[nodiscard]] inline String GetUserDataDirectory(StringView appName = USER_DATA_DIR_NAME)
     {

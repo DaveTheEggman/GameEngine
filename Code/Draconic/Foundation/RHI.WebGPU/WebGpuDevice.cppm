@@ -107,7 +107,7 @@ export namespace foundation::rhi::webgpu
         }
 
         // False: WebGPU raster orientation matches Vulkan's for BOTH shader paths, probe-proven in
-        // Draconic.Render.Backend.Tests. wgpu's runtime SPIR-V frontend applies no clip-space
+        // Render.Backend.Tests. wgpu's runtime SPIR-V frontend applies no clip-space
         // adjustment, and the WGSL cook passes naga --keep-coordinate-space so the cooked WGSL
         // carries the same convention. No renderer pass needs a Y compensation on this backend.
         [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return false; }

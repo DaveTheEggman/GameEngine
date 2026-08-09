@@ -653,10 +653,10 @@ void GUISandbox::BuildUI()
     m_treeModel = MakeUnique<gui::TreeModel>(DefaultAllocator());
     {
         const i32 src = m_treeModel->AddNode(gui::TreeModel::kRoot, u8"src");
-        const i32 draconic = m_treeModel->AddNode(src, u8"Engine");
-        m_treeModel->AddNode(draconic, u8"GUI");
-        m_treeModel->AddNode(draconic, u8"Core");
-        m_treeModel->AddNode(draconic, u8"Shell");
+        const i32 engine = m_treeModel->AddNode(src, u8"Engine");
+        m_treeModel->AddNode(engine, u8"GUI");
+        m_treeModel->AddNode(engine, u8"Core");
+        m_treeModel->AddNode(engine, u8"Shell");
         const i32 samples = m_treeModel->AddNode(src, u8"Samples");
         m_treeModel->AddNode(samples, u8"GUISandbox");
         const i32 docs = m_treeModel->AddNode(gui::TreeModel::kRoot, u8"docs");

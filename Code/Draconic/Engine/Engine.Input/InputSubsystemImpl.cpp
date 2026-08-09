@@ -1,4 +1,4 @@
-// Draconic Input - InputSubsystem implementation unit: the Input facade reflection body.
+// Input - InputSubsystem implementation unit: the Input facade reflection body.
 //
 // Kept OUT of the interface: REFLECT_* bodies in an interface unit make GCC emit
 // an unreadable gcm cluster for consumers (see gcc-module-interface-hygiene). The interface

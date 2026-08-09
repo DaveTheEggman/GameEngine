@@ -4,7 +4,7 @@
 // IInputManager (the aggregate the shell exposes). State is double-buffered
 // per frame so callers can ask Down (held), Pressed (this frame), and Released
 // (this frame). Backends implement these; IInputManager::Update() rolls the
-// frame. Ported from Draconic (itself a Sedulous port).
+// frame.
 
 module;
 #include "Core/Prelude.h"
