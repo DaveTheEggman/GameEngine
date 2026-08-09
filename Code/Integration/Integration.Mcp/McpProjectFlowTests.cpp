@@ -13,6 +13,7 @@
 
 import foundation.core;
 import foundation.json;
+import foundation.content;
 import foundation.mcp;
 import foundation.mcp.reflection;
 import editor.mcp;
@@ -97,6 +98,51 @@ TEST_CASE("integration.mcp: an agent creates, opens, and inspects a project via 
     JsonValue bad =
         CallResponse(server, u8"project_open", With(Obj(), u8"directory", u8"nope_not_a_project"));
     CHECK(bad.Get(u8"result").Get(u8"isError").AsBool() == true);
+}
+
+TEST_CASE("integration.mcp: asset_list / asset_info read the open project's content DB")
+{
+    std::error_code ec;
+    std::filesystem::remove_all("mcp_asset_project", ec);
+
+    McpServer server;
+    editor::mcp::ProjectSession session;
+    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::RegisterAssetTools(server, session);
+
+    CallOk(server, u8"project_create",
+           With(With(Obj(), u8"directory", u8"mcp_asset_project"), u8"name", u8"Assets"));
+    CallOk(server, u8"project_open", With(Obj(), u8"directory", u8"mcp_asset_project"));
+
+    // A fresh project's source DB has no assets yet.
+    CHECK(CallOk(server, u8"asset_list", Obj()).Get(u8"count").AsInt() == 0);
+
+    // Seed one instance directly in the source DB, then read it back through the tools.
+    Guid id;
+    REQUIRE(Guid::TryParse(u8"12345678-1234-1234-1234-1234567890ab", id));
+    session.project->SourceDb().RootGroup()->AddInstance(id, u8"hero", u8"rtti::test",
+                                                         u8"TextureAsset");
+
+    JsonValue list = CallOk(server, u8"asset_list", Obj());
+    CHECK(list.Get(u8"count").AsInt() == 1);
+    JsonValue first = list.Get(u8"assets").At(0);
+    CHECK(first.Get(u8"name").AsString() == StringView(u8"hero"));
+    CHECK(first.Get(u8"type").AsString() == StringView(u8"TextureAsset"));
+
+    JsonValue seen = CallOk(server, u8"asset_info",
+                            With(Obj(), u8"guid", u8"12345678-1234-1234-1234-1234567890ab"));
+    CHECK(seen.Get(u8"name").AsString() == StringView(u8"hero"));
+    CHECK(seen.Get(u8"typeNamespace").AsString() == StringView(u8"rtti::test"));
+
+    // A well-formed but absent guid is a tool error (real text), not a protocol fault.
+    JsonValue missing = CallResponse(server, u8"asset_info",
+                                     With(Obj(), u8"guid", u8"00000000-0000-0000-0000-000000000000"));
+    CHECK(missing.Get(u8"result").Get(u8"isError").AsBool() == true);
+
+    // A malformed guid is likewise a tool error.
+    JsonValue malformed =
+        CallResponse(server, u8"asset_info", With(Obj(), u8"guid", u8"not-a-guid"));
+    CHECK(malformed.Get(u8"result").Get(u8"isError").AsBool() == true);
 }
 
 TEST_CASE("integration.mcp: project_info before any project is open is a tool error")

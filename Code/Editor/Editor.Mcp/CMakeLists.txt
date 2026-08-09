@@ -5,7 +5,7 @@ add_library(Editor.Mcp STATIC)
 add_library(Editor::Mcp ALIAS Editor.Mcp)
 
 target_link_libraries(Editor.Mcp PUBLIC
-    Editor::Core Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)
+    Editor::Core Foundation::Content Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)
 
 target_sources(Editor.Mcp
     PUBLIC

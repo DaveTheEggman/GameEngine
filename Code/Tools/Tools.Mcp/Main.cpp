@@ -59,6 +59,7 @@ int main(int /*argc*/, char** /*argv*/)
     // The host's current project (project_open/create populate it); outlives the server.
     editor::mcp::ProjectSession session;
     editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::RegisterAssetTools(server, session);
 
     StdioTransport transport;
     Serve(server, transport);
