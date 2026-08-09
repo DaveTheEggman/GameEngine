@@ -1,12 +1,12 @@
-# Draconic::Texture - `draconic.texture` (texture descriptors + image->RHI format map).
+# Foundation::Texture - `draconic.texture` (texture descriptors + image->RHI format map).
 # Ported from Sedulous.Textures (deps: RHI, Images).
 
-add_library(Draconic.Texture STATIC)
-add_library(Draconic::Texture ALIAS Draconic.Texture)
+add_library(Texture STATIC)
+add_library(Foundation::Texture ALIAS Texture)
 
-target_link_libraries(Draconic.Texture PUBLIC Draconic::Core Draconic::RHI Draconic::Image Draconic::Policy)
+target_link_libraries(Texture PUBLIC Foundation::Core Foundation::RHI Foundation::Image Foundation::Policy)
 
-target_sources(Draconic.Texture
+target_sources(Texture
     PRIVATE
         TextureReflectionImpl.cpp
     PUBLIC

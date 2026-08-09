@@ -1,12 +1,12 @@
-# Draconic::Content - `draconic.content` (content database: Groups + Instances of
+# Foundation::Content - `draconic.content` (content database: Groups + Instances of
 # serializable objects, addressed by Guid/path, stored over a VFS mount).
 
-add_library(Draconic.Content STATIC)
-add_library(Draconic::Content ALIAS Draconic.Content)
+add_library(Content STATIC)
+add_library(Foundation::Content ALIAS Content)
 
-target_link_libraries(Draconic.Content PUBLIC Draconic::Core Draconic::VFS Draconic::Policy)
+target_link_libraries(Content PUBLIC Foundation::Core Foundation::VFS Foundation::Policy)
 
-target_sources(Draconic.Content
+target_sources(Content
     PRIVATE
         ContentModuleImpl.cpp   # out-of-line defs (see ContentModule.cppm)
     PUBLIC

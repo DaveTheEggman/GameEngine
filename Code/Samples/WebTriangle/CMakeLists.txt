@@ -2,7 +2,7 @@
 # stack (WebShell + the web runner + the WebGPU graphics factory) and emits an HTML shell + .js +
 # .wasm. ASYNCIFY is required because device bring-up blocks-and-yields to the browser event loop
 # (see the WebGPU backend's pump). The emdawnwebgpu port flag rides in transitively from
-# Draconic::RHI.WebGPU (PUBLIC), so it does not need repeating here.
+# Foundation::RHI.WebGPU (PUBLIC), so it does not need repeating here.
 if(NOT EMSCRIPTEN)
     return()
 endif()
@@ -10,15 +10,15 @@ endif()
 add_executable(WebTriangle main.cpp)
 
 target_link_libraries(WebTriangle PRIVATE
-    Draconic::Core
-    Draconic::RHI
-    Draconic::Runtime
-    Draconic::Runtime.Client
-    Draconic::Shell.Web
-    Draconic::Runtime.Web
-    Draconic::Graphics
-    Draconic::Graphics.Gpu
-    Draconic::Policy)
+    Foundation::Core
+    Foundation::RHI
+    Foundation::Runtime
+    Foundation::Runtime.Client
+    Foundation::Shell.Web
+    Foundation::Runtime.Web
+    Foundation::Graphics
+    Foundation::Graphics.Gpu
+    Foundation::Policy)
 
 target_link_options(WebTriangle PRIVATE
     "-sASYNCIFY"              # synchronous device init yields to the browser (emscripten_sleep)

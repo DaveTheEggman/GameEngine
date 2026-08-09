@@ -1,12 +1,12 @@
-# Draconic::Input.Pipeline - `draconic.input.editor`: authored input-map asset + builder (tooling).
-add_library(Draconic.Input.Pipeline STATIC)
-add_library(Draconic::Input.Pipeline ALIAS Draconic.Input.Pipeline)
+# Pipeline::Input - `draconic.input.editor`: authored input-map asset + builder (tooling).
+add_library(Input.Pipeline STATIC)
+add_library(Pipeline::Input ALIAS Input.Pipeline)
 
-target_link_libraries(Draconic.Input.Pipeline
-    PUBLIC Draconic::Core Draconic::Content Draconic::Pipeline.Core Draconic::Input
-           Draconic::Input.Resource Draconic::Policy)
+target_link_libraries(Input.Pipeline
+    PUBLIC Foundation::Core Foundation::Content Pipeline::Core Foundation::Input
+           Foundation::Input.Resource Foundation::Policy)
 
-target_sources(Draconic.Input.Pipeline
+target_sources(Input.Pipeline
     PRIVATE
         InputMapAssetImpl.cpp   # InputMapAsset reflection body (Nested map; GCC hygiene)
     PUBLIC

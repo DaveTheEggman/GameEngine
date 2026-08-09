@@ -13,12 +13,12 @@ add_subdirectory(NetEcho)
 
 # HelloWindow and MultiWindow both present through a GraphicsDevice, so both need
 # the desktop shell + the Vulkan GPU factory.
-if(TARGET Draconic::Shell.Desktop AND TARGET Draconic::Runtime.Desktop AND TARGET Draconic::Graphics.Gpu)
+if(TARGET Foundation::Shell.Desktop AND TARGET Foundation::Runtime.Desktop AND TARGET Foundation::Graphics.Gpu)
     add_subdirectory(HelloWindow)
     add_subdirectory(ScriptPlayground)   # script P1 consumer proof (Wren Mover/Spinner behaviors on the ScriptSubsystem)
     add_subdirectory(MultiWindow)
     # Samples with an ImGui debug UI - honor the extension option, or an
-    # -DDRACONIC_EXTENSION_IMGUI=OFF configure dies on a missing Draconic::Imgui target.
+    # -DDRACONIC_EXTENSION_IMGUI=OFF configure dies on a missing Extensions::Imgui target.
     if(DRACONIC_EXTENSION_IMGUI)
         add_subdirectory(InputActions)       # draconic.input consumer proof (named actions end-to-end)
         add_subdirectory(PhysicsPlayground)  # physics P1 consumer proof (crates/trigger/raycast on Jolt)
@@ -39,7 +39,7 @@ endif()
 
 # RHI sample framework + RHI samples (need Vulkan + Shaders too).
 add_subdirectory(Framework)
-if(TARGET Draconic::SamplesFramework)
+if(TARGET Samples::Framework)
     add_subdirectory(RHI)
     add_subdirectory(WebScene) # full-renderer exercise scene (desktop build; also the web sample)
     add_subdirectory(VG)  # VG sandbox - end-to-end VG stack demo

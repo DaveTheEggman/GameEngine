@@ -1,11 +1,11 @@
-# Draconic::Engine.Input - `draconic.engine.input`: runtime tick + device provider seam.
-add_library(Draconic.Engine.Input STATIC)
-add_library(Draconic::Engine.Input ALIAS Draconic.Engine.Input)
+# Engine::Input - `draconic.engine.input`: runtime tick + device provider seam.
+add_library(Engine.Input STATIC)
+add_library(Engine::Input ALIAS Engine.Input)
 
-target_link_libraries(Draconic.Engine.Input
-    PUBLIC Draconic::Core Draconic::Shell Draconic::Runtime Draconic::Script Draconic::Script.Facades Draconic::Input Draconic::Policy)
+target_link_libraries(Engine.Input
+    PUBLIC Foundation::Core Foundation::Shell Foundation::Runtime Foundation::Script Foundation::Script.Facades Foundation::Input Foundation::Policy)
 
-target_sources(Draconic.Engine.Input
+target_sources(Engine.Input
     PRIVATE
         InputSubsystemImpl.cpp   # DRACONIC_REFLECT body (see InputSubsystem.cppm)
     PUBLIC

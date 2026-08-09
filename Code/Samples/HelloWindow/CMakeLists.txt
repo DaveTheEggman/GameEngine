@@ -5,11 +5,11 @@
 add_executable(HelloWindow main.cpp)
 
 target_link_libraries(HelloWindow PRIVATE
-    Draconic::Core
-    Draconic::Runtime
-    Draconic::Runtime.Client
-    Draconic::Shell.Desktop Draconic::Runtime.Desktop
-    Draconic::Graphics
-    Draconic::Graphics.Gpu
-    Draconic::Policy)
+    Foundation::Core
+    Foundation::Runtime
+    Foundation::Runtime.Client
+    Foundation::Shell.Desktop Foundation::Runtime.Desktop
+    Foundation::Graphics
+    Foundation::Graphics.Gpu
+    Foundation::Policy)
 draconic_copy_sdl3_dll(HelloWindow)

@@ -1,19 +1,19 @@
-# Draconic::RHI.DX12 - `draconic.rhi.dx12` (the DX12 RHI backend). Links the DX12
+# Foundation::RHI.DX12 - `draconic.rhi.dx12` (the DX12 RHI backend). Links the DX12
 # system libraries; built only on Windows.
 
-add_library(Draconic.RHI.DX12 STATIC)
-add_library(Draconic::RHI.DX12 ALIAS Draconic.RHI.DX12)
+add_library(RHI.DX12 STATIC)
+add_library(Foundation::RHI.DX12 ALIAS RHI.DX12)
 
-target_link_libraries(Draconic.RHI.DX12
-    PUBLIC Draconic::RHI Draconic::Core Draconic::Policy
+target_link_libraries(RHI.DX12
+    PUBLIC Foundation::RHI Foundation::Core Foundation::Policy
     PRIVATE d3d12 dxgi dxguid d3dcompiler)
 
 # DX12 headers use __uuidof (MSVC extension) via IID_PPV_ARGS. Clang supports
 # it but warns under -Wlanguage-extension-token; suppress for this target.
-target_compile_options(Draconic.RHI.DX12 PRIVATE
+target_compile_options(RHI.DX12 PRIVATE
     $<$<CXX_COMPILER_ID:Clang>:-Wno-language-extension-token>)
 
-target_sources(Draconic.RHI.DX12
+target_sources(RHI.DX12
     PUBLIC
         FILE_SET rhi_dx12_modules TYPE CXX_MODULES FILES
             DxConversions.cppm

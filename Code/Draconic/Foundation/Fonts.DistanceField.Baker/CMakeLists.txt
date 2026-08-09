@@ -1,16 +1,16 @@
-# Draconic::Fonts.DistanceField.Baker - `draconic.fonts.distancefield.baker` (import-time MSDF atlas generation).
+# Foundation::Fonts.DistanceField.Baker - `draconic.fonts.distancefield.baker` (import-time MSDF atlas generation).
 # Links msdfgen; not needed at runtime.
 
-add_library(Draconic.Fonts.DistanceField.Baker STATIC)
-add_library(Draconic::Fonts.DistanceField.Baker ALIAS Draconic.Fonts.DistanceField.Baker)
+add_library(Fonts.DistanceField.Baker STATIC)
+add_library(Foundation::Fonts.DistanceField.Baker ALIAS Fonts.DistanceField.Baker)
 
-target_link_libraries(Draconic.Fonts.DistanceField.Baker
-    PUBLIC  Draconic::Core Draconic::Fonts Draconic::Fonts.DistanceField Draconic::Fonts.IO Draconic::Fonts.TTF Draconic::Policy
-    PRIVATE Draconic::MsdfgenCore Draconic::Stb)
+target_link_libraries(Fonts.DistanceField.Baker
+    PUBLIC  Foundation::Core Foundation::Fonts Foundation::Fonts.DistanceField Foundation::Fonts.IO Foundation::Fonts.TTF Foundation::Policy
+    PRIVATE ThirdParty::MsdfgenCore ThirdParty::Stb)
 
 # msdfgen_impl.cpp includes msdfgen headers which may use exceptions.
 # Suppress -Werror for this TU so msdfgen warnings don't break the build.
-target_sources(Draconic.Fonts.DistanceField.Baker
+target_sources(Fonts.DistanceField.Baker
     PUBLIC
         FILE_SET fonts_df_baker_modules TYPE CXX_MODULES FILES
             DFFontAtlasBaker.cppm

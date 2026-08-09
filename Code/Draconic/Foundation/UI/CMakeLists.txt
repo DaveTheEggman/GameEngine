@@ -1,13 +1,13 @@
-# Draconic::UI - `draconic.ui`, the retained-mode UI framework (faithful port of
+# Foundation::UI - `draconic.ui`, the retained-mode UI framework (faithful port of
 # Sedulous.UI). Platform-agnostic core; VG/Fonts are added as those phases land, and
 # the ui.shell bridge is a separate library. Built bottom-up (Core first).
-add_library(Draconic.UI STATIC)
-add_library(Draconic::UI ALIAS Draconic.UI)
+add_library(UI STATIC)
+add_library(Foundation::UI ALIAS UI)
 
-target_link_libraries(Draconic.UI
-    PUBLIC Draconic::Core Draconic::VG Draconic::VG.SVG Draconic::Fonts Draconic::Image Draconic::Policy Draconic::Xml)
+target_link_libraries(UI
+    PUBLIC Foundation::Core Foundation::VG Foundation::VG.SVG Foundation::Fonts Foundation::Image Foundation::Policy Foundation::Xml)
 
-target_sources(Draconic.UI
+target_sources(UI
     PUBLIC
         FILE_SET ui_modules TYPE CXX_MODULES FILES
             Core/Enums.cppm

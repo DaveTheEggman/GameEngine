@@ -24,7 +24,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Position-independent code so the static engine libraries can be linked into
-# dynamically-loaded plugin shared objects (Draconic::Runtime plugin host).
+# dynamically-loaded plugin shared objects (Foundation::Runtime plugin host).
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Single-config generators default to Debug.
@@ -116,8 +116,8 @@ endif()
 #     into the desktop Bin dir, so it cannot use $<TARGET_FILE:>) - Player/WebScene read this name
 # Change a name here and every reference (OUTPUT_NAME, the C++ constant, the sidecar, the cook path)
 # follows. Dotted, matching the target names.
-set(DRACONIC_PLAYER_BASENAME         "Draconic.Engine.Player")
-set(DRACONIC_SHADERPACKCOOK_BASENAME "Draconic.Tools.ShaderPack")
+set(DRACONIC_PLAYER_BASENAME         "Engine.Player")
+set(DRACONIC_SHADERPACKCOOK_BASENAME "Tools.ShaderPack")
 
 # Where the DESKTOP build put its executables, as seen from a CROSS build (wasm). The web
 # build shells out to native cook tools by path - it cannot use $<TARGET_FILE:> because those
@@ -149,10 +149,10 @@ endif()
 
 # --- Engine-wide compile policy ----------------------------------------------
 # Exceptions and C++ RTTI are disabled engine-wide (see Documentation/Planning/Core.md §1).
-add_library(draconic_policy INTERFACE)
-add_library(Draconic::Policy ALIAS draconic_policy)
+add_library(policy INTERFACE)
+add_library(Foundation::Policy ALIAS policy)
 
-target_compile_features(draconic_policy INTERFACE cxx_std_23)
+target_compile_features(policy INTERFACE cxx_std_23)
 
 # Shipping flavor (Prelude: "define exactly one" of DEBUG/RELEASE/SHIPPING): an optimized
 # build with asserts compiled out + stripped binaries - the dist/size-measurement config.
@@ -160,7 +160,7 @@ target_compile_features(draconic_policy INTERFACE cxx_std_23)
 # never clobbers a plain Release Bin dir).
 option(DRACONIC_SHIPPING_BUILD "Shipping config: asserts compiled out, binaries stripped" OFF)
 
-target_compile_definitions(draconic_policy INTERFACE
+target_compile_definitions(policy INTERFACE
     $<$<CONFIG:Debug>:DRACONIC_DEBUG=1>
     $<$<AND:$<CONFIG:Release,RelWithDebInfo,MinSizeRel>,$<NOT:$<BOOL:${DRACONIC_SHIPPING_BUILD}>>>:DRACONIC_RELEASE=1>
     $<$<BOOL:${DRACONIC_SHIPPING_BUILD}>:DRACONIC_SHIPPING=1>
@@ -175,7 +175,7 @@ target_compile_definitions(draconic_policy INTERFACE
     DRACONIC_HAS_EXPERIMENTAL_GUI=$<BOOL:${DRACONIC_EXPERIMENTAL_GUI}>
     DRACONIC_HAS_EXTENSION_IMGUI=$<BOOL:${DRACONIC_EXTENSION_IMGUI}>)
 
-target_link_options(draconic_policy INTERFACE
+target_link_options(policy INTERFACE
     # Shipping: strip symbol tables at link (what a dist ships; the honest size number).
     $<$<AND:$<BOOL:${DRACONIC_SHIPPING_BUILD}>,$<CXX_COMPILER_ID:Clang,GNU>>:-s>)
 
@@ -188,7 +188,7 @@ if(MSVC)
     string(STRIP "${CMAKE_CXX_FLAGS}" CMAKE_CXX_FLAGS)
 endif()
 
-target_compile_options(draconic_policy INTERFACE
+target_compile_options(policy INTERFACE
     $<$<CXX_COMPILER_ID:Clang,GNU>:-fno-exceptions;-fno-rtti>
     # Every static lib shares CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY and none sets a PDB name, so
     # parallel cl.exe jobs all target one vc140.pdb and lose the race ("C1041: cannot open
@@ -208,12 +208,12 @@ target_compile_options(draconic_policy INTERFACE
     $<$<CXX_COMPILER_ID:MSVC>:/EHs-c-;/GR->)
 
 # Warnings
-target_compile_options(draconic_policy INTERFACE
+target_compile_options(policy INTERFACE
     $<$<CXX_COMPILER_ID:Clang,GNU>:-Wall;-Wextra;-Wpedantic>
     $<$<CXX_COMPILER_ID:MSVC>:/W4>)
 
 if(DRACONIC_WARNINGS_AS_ERRORS)
-    target_compile_options(draconic_policy INTERFACE
+    target_compile_options(policy INTERFACE
         $<$<CXX_COMPILER_ID:Clang,GNU>:-Werror>
         # /wd4530: "C++ exception handler used, but unwind semantics are not enabled". We disable
         # exceptions on purpose (/EHs-c- above) while still using the STL, so cl emits this from
@@ -225,14 +225,14 @@ if(DRACONIC_WARNINGS_AS_ERRORS)
     # so -Werror doesn't kill the build.
     # Clang 22+ warns that __COUNTER__ is a "C2y extension" when used in C++ mode;
     # doctest (and other widely-used macros) rely on it, so suppress the diagnostic.
-    target_compile_options(draconic_policy INTERFACE
+    target_compile_options(policy INTERFACE
         $<$<CXX_COMPILER_ID:Clang>:-Wno-error=unused-command-line-argument;-Wno-c2y-extensions>)
     # em++ re-invokes clang++ for the module precompile and does NOT forward
     # -Wno-error=unused-command-line-argument to that inner driver, so the same spurious
     # "'-c' unused" diagnostic is fatal again on the wasm build. Suppress it outright here
     # (it is never actionable: CMake, not us, passes both --precompile and -c).
     if(EMSCRIPTEN)
-        target_compile_options(draconic_policy INTERFACE -Wno-unused-command-line-argument)
+        target_compile_options(policy INTERFACE -Wno-unused-command-line-argument)
     endif()
 endif()
 
@@ -284,15 +284,15 @@ find_package(Vulkan QUIET GLOBAL)
 if(Vulkan_FOUND)
     add_subdirectory(Code/Draconic/Foundation/RHI.Vulkan)
 else()
-    message(STATUS "Vulkan not found - skipping Draconic::RHI.Vulkan")
+    message(STATUS "Vulkan not found - skipping Foundation::RHI.Vulkan")
 endif()
 if(WIN32)
     add_subdirectory(Code/Draconic/Foundation/RHI.DX12)
 endif()
-if(EMSCRIPTEN OR TARGET Draconic::WgpuHeaders)
+if(EMSCRIPTEN OR TARGET ThirdParty::WgpuHeaders)
     add_subdirectory(Code/Draconic/Foundation/RHI.WebGPU)
 else()
-    message(STATUS "Skipping Draconic::RHI.WebGPU (no wgpu headers)")
+    message(STATUS "Skipping Foundation::RHI.WebGPU (no wgpu headers)")
 endif()
 add_subdirectory(Code/Draconic/Foundation/RenderGraph)  # render graph over RHI
 add_subdirectory(Code/Draconic/Foundation/Shaders)
@@ -332,7 +332,7 @@ add_subdirectory(Code/Draconic/Foundation/Fonts.TTF)
 add_subdirectory(Code/Draconic/Foundation/Fonts.Importer)
 add_subdirectory(Code/Draconic/Foundation/Fonts.DistanceField)
 add_subdirectory(Code/Draconic/Foundation/Fonts.Resource)
-if(TARGET Draconic::MsdfgenCore)  # DF baker (editor-time TTF -> baked); needs the vendored msdfgen
+if(TARGET ThirdParty::MsdfgenCore)  # DF baker (editor-time TTF -> baked); needs the vendored msdfgen
     add_subdirectory(Code/Draconic/Foundation/Fonts.DistanceField.Baker)
 endif()
 add_subdirectory(Code/Draconic/Foundation/Texture)   # texture descriptors + cooked resource/GPU factory + editor
@@ -362,7 +362,7 @@ endif()
 add_subdirectory(Code/Draconic/Foundation/Script)
 # --- Script backends (Wren always; AngelScript where the vendored lib built) ---
 add_subdirectory(Code/Draconic/Foundation/Script.Wren)
-if(TARGET Draconic::AngelScript)
+if(TARGET ThirdParty::AngelScript)
     add_subdirectory(Code/Draconic/Foundation/Script.AngelScript)
 endif()
 add_subdirectory(Code/Draconic/Foundation/Script.Resource)   # cooked script classes + factory (source + harvested metadata)
@@ -379,7 +379,7 @@ else()
     if(SDL3_FOUND)
         add_subdirectory(Code/Draconic/Foundation/Shell.Desktop)
     else()
-        message(STATUS "SDL3 not found - skipping Draconic::Shell.Desktop")
+        message(STATUS "SDL3 not found - skipping Foundation::Shell.Desktop")
     endif()
 endif()
 add_subdirectory(Code/Draconic/Foundation/Input)     # action-mapping layer (InputMap + ActionRuntime + asset/cooked) over Core + Shell
@@ -443,7 +443,7 @@ if(DRACONIC_BUILD_TOOLS)
     add_subdirectory(Code/Draconic/Pipeline/Particles.Pipeline)
     add_subdirectory(Code/Draconic/Pipeline/Shaders.Pipeline)
     add_subdirectory(Code/Draconic/Pipeline/Texture.Pipeline)
-    if(TARGET Draconic::Fonts.DistanceField.Baker)
+    if(TARGET Foundation::Fonts.DistanceField.Baker)
         add_subdirectory(Code/Draconic/Pipeline/Fonts.Pipeline)
         add_subdirectory(Code/Draconic/Editor/Editor.Fonts) # font asset page: bake intent + live atlas preview
         add_subdirectory(Code/Draconic/Editor/Editor.Physics) # collision-shape asset page: mesh picker + cook
@@ -458,117 +458,117 @@ endif()
 # --- Tests: every module's flat-sibling doctest suite (guarded by its module target so the
 # web subset + platform-gated backends skip when the module was not built) ---
 if(DRACONIC_BUILD_TESTS)
-    draconic_test_suite(Code/Draconic/Pipeline/Animation.Pipeline.Tests              Draconic::Animation.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/Audio.Pipeline.Tests                  Draconic::Audio.Pipeline)
-    draconic_test_suite(Code/Draconic/Editor/Editor.App.Tests                    Draconic::Editor.App)
-    draconic_test_suite(Code/Draconic/Editor/Editor.Audio.Tests                  Draconic::Editor.Audio)
-    draconic_test_suite(Code/Draconic/Pipeline/Pipeline.Cook.Tests                   Draconic::Pipeline.Cook)
-    draconic_test_suite(Code/Draconic/Editor/Editor.Core.Tests                   Draconic::Editor.Core)
-    draconic_test_suite(Code/Draconic/Editor/Editor.Generic.Tests                Draconic::Editor.Generic)
-    draconic_test_suite(Code/Draconic/Editor/Editor.Image.Tests                  Draconic::Editor.Image)
-    draconic_test_suite(Code/Draconic/Editor/Editor.Scene.Tests                  Draconic::Editor.Scene)
-    draconic_test_suite(Code/Draconic/Editor/Editor.Script.Tests                 Draconic::Editor.Script)
-    draconic_test_suite(Code/Draconic/Editor/Editor.Tests                        Draconic::Pipeline.Core)
-    draconic_test_suite(Code/Draconic/Editor/Editor.Texture.Tests                Draconic::Editor.Texture)
-    draconic_test_suite(Code/Draconic/Pipeline/Geometry.Pipeline.Tests               Draconic::Geometry.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/Image.Pipeline.Tests                  Draconic::Image.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/Input.Pipeline.Tests                  Draconic::Input.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/Materials.Pipeline.Tests              Draconic::Materials.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/ModelImporter.Tests                 Draconic::ModelImporter)
-    draconic_test_suite(Code/Draconic/Pipeline/Particles.Pipeline.Tests              Draconic::Particles.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/Physics.Pipeline.Tests                Draconic::Physics.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/Script.AngelScript.Pipeline.Tests     Draconic::Script.AngelScript.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/Script.Pipeline.Tests                 Draconic::Script.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/Script.Wren.Pipeline.Tests            Draconic::Script.Wren.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/Shaders.Pipeline.Tests                Draconic::Shaders.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/Texture.Pipeline.Tests                Draconic::Texture.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/Fonts.Pipeline.Tests                  Draconic::Fonts.Pipeline)
-    draconic_test_suite(Code/Draconic/Pipeline/UI.Pipeline.Tests                     Draconic::UI.Pipeline)
-    draconic_test_suite(Code/Draconic/Engine/Engine.Animation.Tests              Draconic::Engine.Animation)
-    draconic_test_suite(Code/Draconic/Engine/Engine.Audio.Tests                  Draconic::Engine.Audio)
-    draconic_test_suite(Code/Draconic/Engine/Engine.GameInstance.Tests Draconic::Script.AngelScript)  # links the AngelScript backend; builds wherever it exists (incl. web now)
-    draconic_test_suite(Code/Draconic/Engine/Engine.Integration.Tests            Draconic::Engine.Integration)
-    draconic_test_suite(Code/Draconic/Engine/Engine.Net.Tests                    Draconic::Engine.Net)
-    draconic_test_suite(Code/Draconic/Engine/Engine.Physics.Tests                Draconic::Engine.Physics)
-    draconic_test_suite(Code/Draconic/Engine/Engine.Particles.Tests              Draconic::Engine.Particles)
-    draconic_test_suite(Code/Draconic/Engine/Engine.Input.Tests                  Draconic::Engine.Input)
-    draconic_test_suite(Code/Draconic/Engine/Engine.Render.Tests                 Draconic::Engine.Render)
-    draconic_test_suite(Code/Draconic/Engine/Engine.Scene.Tests                  Draconic::Engine.Scene)
-    draconic_test_suite(Code/Draconic/Engine/Engine.Script.Tests Draconic::Script.AngelScript)  # links the AngelScript backend; builds wherever it exists (incl. web now)
-    draconic_test_suite(Code/Draconic/Engine/Engine.UI.Tests                     Draconic::Engine.UI)
-    draconic_test_suite(Code/Draconic/Experimental/GUI.Shell.Tests               Draconic::GUI.Shell)
-    draconic_test_suite(Code/Draconic/Experimental/GUI.Tests                     Draconic::GUI)
-    draconic_test_suite(Code/Draconic/Experimental/GUI.VFS.Tests                 Draconic::GUI.VFS)
-    draconic_test_suite(Code/Draconic/Foundation/Animation.Resource.Tests        Draconic::Animation.Resource)
-    draconic_test_suite(Code/Draconic/Foundation/Animation.Tests                 Draconic::Animation)
-    draconic_test_suite(Code/Draconic/Foundation/Audio.Tests                     Draconic::Audio)
-    draconic_test_suite(Code/Draconic/Foundation/Content.Tests                   Draconic::Content)
-    draconic_test_suite(Code/Draconic/Foundation/Core.Tests                      Draconic::Core)
-    draconic_test_suite(Code/Draconic/Foundation/Fonts.Baked.Tests               Draconic::Fonts.Baked)
-    draconic_test_suite(Code/Draconic/Foundation/Fonts.DistanceField.Baker.Tests Draconic::Fonts.DistanceField.Baker)
-    draconic_test_suite(Code/Draconic/Foundation/Fonts.DistanceField.Tests       Draconic::Fonts.DistanceField)
-    draconic_test_suite(Code/Draconic/Foundation/Fonts.IO.Tests                  Draconic::Fonts.IO)
-    draconic_test_suite(Code/Draconic/Foundation/Fonts.Importer.Tests            Draconic::Fonts.Importer)
-    draconic_test_suite(Code/Draconic/Foundation/Fonts.TTF.Tests                 Draconic::Fonts.TTF)
-    draconic_test_suite(Code/Draconic/Foundation/Fonts.Tests                     Draconic::Fonts)
-    draconic_test_suite(Code/Draconic/Foundation/Geometry.Resource.Tests         Draconic::Geometry.Resource)
-    draconic_test_suite(Code/Draconic/Foundation/Geometry.Tests                  Draconic::Geometry)
-    draconic_test_suite(Code/Draconic/Foundation/Graphics.Tests                  Draconic::Graphics)
-    draconic_test_suite(Code/Draconic/Foundation/Image.Tests                     Draconic::Image)
-    draconic_test_suite(Code/Draconic/Foundation/Input.Tests                     Draconic::Input)
-    draconic_test_suite(Code/Draconic/Foundation/Materials.PipelineCache.Tests   Draconic::Materials.PipelineCache)
-    draconic_test_suite(Code/Draconic/Foundation/Materials.Resource.Tests        Draconic::Materials.Resource)
-    draconic_test_suite(Code/Draconic/Foundation/Materials.Tests                 Draconic::Materials)
-    draconic_test_suite(Code/Draconic/Foundation/Model.Tests                     Draconic::Model)
-    draconic_test_suite(Code/Draconic/Foundation/Net.Manager.Tests Draconic::Script.AngelScript)  # links the AngelScript backend; builds wherever it exists (incl. web now)
-    draconic_test_suite(Code/Draconic/Foundation/Net.Replication.Tests           Draconic::Net.Replication)
-    draconic_test_suite(Code/Draconic/Foundation/Net.Tests                       Draconic::Net)
-    draconic_test_suite(Code/Draconic/Foundation/Particles.Resource.Tests        Draconic::Particles.Resource)
-    draconic_test_suite(Code/Draconic/Foundation/Particles.Tests                 Draconic::Particles)
-    draconic_test_suite(Code/Draconic/Foundation/Physics.Tests                   Draconic::Physics)
-    draconic_test_suite(Code/Draconic/Foundation/Profiler.Tests                  Draconic::Profiler)
-    draconic_test_suite(Code/Draconic/Foundation/RHI.Null.Tests                  Draconic::RHI.Null)
-    draconic_test_suite(Code/Draconic/Foundation/RHI.Validation.Tests            Draconic::RHI.Validation)
+    draconic_test_suite(Code/Draconic/Pipeline/Animation.Pipeline.Tests              Pipeline::Animation)
+    draconic_test_suite(Code/Draconic/Pipeline/Audio.Pipeline.Tests                  Pipeline::Audio)
+    draconic_test_suite(Code/Draconic/Editor/Editor.App.Tests                    Editor::App)
+    draconic_test_suite(Code/Draconic/Editor/Editor.Audio.Tests                  Editor::Audio)
+    draconic_test_suite(Code/Draconic/Pipeline/Pipeline.Cook.Tests                   Pipeline::Cook)
+    draconic_test_suite(Code/Draconic/Editor/Editor.Core.Tests                   Editor::Core)
+    draconic_test_suite(Code/Draconic/Editor/Editor.Generic.Tests                Editor::Generic)
+    draconic_test_suite(Code/Draconic/Editor/Editor.Image.Tests                  Editor::Image)
+    draconic_test_suite(Code/Draconic/Editor/Editor.Scene.Tests                  Editor::Scene)
+    draconic_test_suite(Code/Draconic/Editor/Editor.Script.Tests                 Editor::Script)
+    draconic_test_suite(Code/Draconic/Editor/Editor.Tests                        Pipeline::Core)
+    draconic_test_suite(Code/Draconic/Editor/Editor.Texture.Tests                Editor::Texture)
+    draconic_test_suite(Code/Draconic/Pipeline/Geometry.Pipeline.Tests               Pipeline::Geometry)
+    draconic_test_suite(Code/Draconic/Pipeline/Image.Pipeline.Tests                  Pipeline::Image)
+    draconic_test_suite(Code/Draconic/Pipeline/Input.Pipeline.Tests                  Pipeline::Input)
+    draconic_test_suite(Code/Draconic/Pipeline/Materials.Pipeline.Tests              Pipeline::Materials)
+    draconic_test_suite(Code/Draconic/Pipeline/ModelImporter.Tests                 Pipeline::ModelImporter)
+    draconic_test_suite(Code/Draconic/Pipeline/Particles.Pipeline.Tests              Pipeline::Particles)
+    draconic_test_suite(Code/Draconic/Pipeline/Physics.Pipeline.Tests                Pipeline::Physics)
+    draconic_test_suite(Code/Draconic/Pipeline/Script.AngelScript.Pipeline.Tests     Pipeline::Script.AngelScript)
+    draconic_test_suite(Code/Draconic/Pipeline/Script.Pipeline.Tests                 Pipeline::Script)
+    draconic_test_suite(Code/Draconic/Pipeline/Script.Wren.Pipeline.Tests            Pipeline::Script.Wren)
+    draconic_test_suite(Code/Draconic/Pipeline/Shaders.Pipeline.Tests                Pipeline::Shaders)
+    draconic_test_suite(Code/Draconic/Pipeline/Texture.Pipeline.Tests                Pipeline::Texture)
+    draconic_test_suite(Code/Draconic/Pipeline/Fonts.Pipeline.Tests                  Pipeline::Fonts)
+    draconic_test_suite(Code/Draconic/Pipeline/UI.Pipeline.Tests                     Pipeline::UI)
+    draconic_test_suite(Code/Draconic/Engine/Engine.Animation.Tests              Engine::Animation)
+    draconic_test_suite(Code/Draconic/Engine/Engine.Audio.Tests                  Engine::Audio)
+    draconic_test_suite(Code/Draconic/Engine/Engine.GameInstance.Tests Foundation::Script.AngelScript)  # links the AngelScript backend; builds wherever it exists (incl. web now)
+    draconic_test_suite(Code/Draconic/Engine/Engine.Integration.Tests            Engine::Integration)
+    draconic_test_suite(Code/Draconic/Engine/Engine.Net.Tests                    Engine::Net)
+    draconic_test_suite(Code/Draconic/Engine/Engine.Physics.Tests                Engine::Physics)
+    draconic_test_suite(Code/Draconic/Engine/Engine.Particles.Tests              Engine::Particles)
+    draconic_test_suite(Code/Draconic/Engine/Engine.Input.Tests                  Engine::Input)
+    draconic_test_suite(Code/Draconic/Engine/Engine.Render.Tests                 Engine::Render)
+    draconic_test_suite(Code/Draconic/Engine/Engine.Scene.Tests                  Engine::Scene)
+    draconic_test_suite(Code/Draconic/Engine/Engine.Script.Tests Foundation::Script.AngelScript)  # links the AngelScript backend; builds wherever it exists (incl. web now)
+    draconic_test_suite(Code/Draconic/Engine/Engine.UI.Tests                     Engine::UI)
+    draconic_test_suite(Code/Draconic/Experimental/GUI.Shell.Tests               Experimental::GUI.Shell)
+    draconic_test_suite(Code/Draconic/Experimental/GUI.Tests                     Experimental::GUI)
+    draconic_test_suite(Code/Draconic/Experimental/GUI.VFS.Tests                 Experimental::GUI.VFS)
+    draconic_test_suite(Code/Draconic/Foundation/Animation.Resource.Tests        Foundation::Animation.Resource)
+    draconic_test_suite(Code/Draconic/Foundation/Animation.Tests                 Foundation::Animation)
+    draconic_test_suite(Code/Draconic/Foundation/Audio.Tests                     Foundation::Audio)
+    draconic_test_suite(Code/Draconic/Foundation/Content.Tests                   Foundation::Content)
+    draconic_test_suite(Code/Draconic/Foundation/Core.Tests                      Foundation::Core)
+    draconic_test_suite(Code/Draconic/Foundation/Fonts.Baked.Tests               Foundation::Fonts.Baked)
+    draconic_test_suite(Code/Draconic/Foundation/Fonts.DistanceField.Baker.Tests Foundation::Fonts.DistanceField.Baker)
+    draconic_test_suite(Code/Draconic/Foundation/Fonts.DistanceField.Tests       Foundation::Fonts.DistanceField)
+    draconic_test_suite(Code/Draconic/Foundation/Fonts.IO.Tests                  Foundation::Fonts.IO)
+    draconic_test_suite(Code/Draconic/Foundation/Fonts.Importer.Tests            Foundation::Fonts.Importer)
+    draconic_test_suite(Code/Draconic/Foundation/Fonts.TTF.Tests                 Foundation::Fonts.TTF)
+    draconic_test_suite(Code/Draconic/Foundation/Fonts.Tests                     Foundation::Fonts)
+    draconic_test_suite(Code/Draconic/Foundation/Geometry.Resource.Tests         Foundation::Geometry.Resource)
+    draconic_test_suite(Code/Draconic/Foundation/Geometry.Tests                  Foundation::Geometry)
+    draconic_test_suite(Code/Draconic/Foundation/Graphics.Tests                  Foundation::Graphics)
+    draconic_test_suite(Code/Draconic/Foundation/Image.Tests                     Foundation::Image)
+    draconic_test_suite(Code/Draconic/Foundation/Input.Tests                     Foundation::Input)
+    draconic_test_suite(Code/Draconic/Foundation/Materials.PipelineCache.Tests   Foundation::Materials.PipelineCache)
+    draconic_test_suite(Code/Draconic/Foundation/Materials.Resource.Tests        Foundation::Materials.Resource)
+    draconic_test_suite(Code/Draconic/Foundation/Materials.Tests                 Foundation::Materials)
+    draconic_test_suite(Code/Draconic/Foundation/Model.Tests                     Foundation::Model)
+    draconic_test_suite(Code/Draconic/Foundation/Net.Manager.Tests Foundation::Script.AngelScript)  # links the AngelScript backend; builds wherever it exists (incl. web now)
+    draconic_test_suite(Code/Draconic/Foundation/Net.Replication.Tests           Foundation::Net.Replication)
+    draconic_test_suite(Code/Draconic/Foundation/Net.Tests                       Foundation::Net)
+    draconic_test_suite(Code/Draconic/Foundation/Particles.Resource.Tests        Foundation::Particles.Resource)
+    draconic_test_suite(Code/Draconic/Foundation/Particles.Tests                 Foundation::Particles)
+    draconic_test_suite(Code/Draconic/Foundation/Physics.Tests                   Foundation::Physics)
+    draconic_test_suite(Code/Draconic/Foundation/Profiler.Tests                  Foundation::Profiler)
+    draconic_test_suite(Code/Draconic/Foundation/RHI.Null.Tests                  Foundation::RHI.Null)
+    draconic_test_suite(Code/Draconic/Foundation/RHI.Validation.Tests            Foundation::RHI.Validation)
     if(NOT EMSCRIPTEN)  # spins up a real device; no headless web path yet
-        draconic_test_suite(Code/Draconic/Foundation/RHI.WebGPU.Tests Draconic::RHI.WebGPU)
-        if(TARGET Draconic::RHI.Vulkan AND TARGET Draconic::RHI.WebGPU)
+        draconic_test_suite(Code/Draconic/Foundation/RHI.WebGPU.Tests Foundation::RHI.WebGPU)
+        if(TARGET Foundation::RHI.Vulkan AND TARGET Foundation::RHI.WebGPU)
             # Cross-backend pixel probe (needs BOTH backends compiled; GPUs checked at runtime).
             add_subdirectory(Code/Draconic/Foundation/Render.Backend.Tests)
             add_subdirectory(Code/Draconic/Foundation/VG.Backend.Tests)
         endif()
     endif()
-    draconic_test_suite(Code/Draconic/Foundation/Render.Tests                    Draconic::Render)
-    draconic_test_suite(Code/Draconic/Foundation/RenderGraph.Tests               Draconic::RenderGraph)
-    draconic_test_suite(Code/Draconic/Foundation/Resource.Tests                  Draconic::Resource)
-    draconic_test_suite(Code/Draconic/Foundation/Runtime.Client.Tests            Draconic::Runtime.Client)
-    draconic_test_suite(Code/Draconic/Foundation/Runtime.Tests                   Draconic::Runtime)
-    draconic_test_suite(Code/Draconic/Foundation/Scene.Resource.Tests            Draconic::Scene.Resource)
-    draconic_test_suite(Code/Draconic/Foundation/Scene.Tests                     Draconic::Scene)
-    draconic_test_suite(Code/Draconic/Foundation/Script.AngelScript.Tests        Draconic::Script.AngelScript)
-    draconic_test_suite(Code/Draconic/Foundation/Script.Resource.Tests           Draconic::Script.Resource)
-    draconic_test_suite(Code/Draconic/Foundation/Script.Tests                    Draconic::Script)
-    draconic_test_suite(Code/Draconic/Foundation/Script.Wren.Tests               Draconic::Script.Wren)
-    draconic_test_suite(Code/Draconic/Foundation/Settings.Tests                  Draconic::Settings)
-    draconic_test_suite(Code/Draconic/Foundation/Shaders.Resource.Tests          Draconic::Shaders.Resource)
-    draconic_test_suite(Code/Draconic/Foundation/Shaders.System.Tests            Draconic::Shaders.System)
-    draconic_test_suite(Code/Draconic/Foundation/Shaders.Tests                   Draconic::Shaders)
-    draconic_test_suite(Code/Draconic/Foundation/Shell.Desktop.Tests             Draconic::Shell.Desktop)
-    draconic_test_suite(Code/Draconic/Foundation/Shell.Null.Tests                Draconic::Shell.Null)
-    draconic_test_suite(Code/Draconic/Foundation/Texture.Resource.Tests          Draconic::Texture.Resource)
-    draconic_test_suite(Code/Draconic/Foundation/Fonts.Resource.Tests            Draconic::Fonts.Resource)
-    draconic_test_suite(Code/Draconic/Foundation/Texture.Tests                   Draconic::Texture)
-    draconic_test_suite(Code/Draconic/Foundation/UI.Shell.Tests                  Draconic::UI.Shell)
-    draconic_test_suite(Code/Draconic/Foundation/UI.Tests                        Draconic::UI)
-    draconic_test_suite(Code/Draconic/Foundation/UI.Toolkit.Tests                Draconic::UI.Toolkit)
-    draconic_test_suite(Code/Draconic/Foundation/UI.VFS.Tests                    Draconic::UI.VFS)
-    draconic_test_suite(Code/Draconic/Foundation/UI.Viewport.Tests               Draconic::UI.Viewport)
-    draconic_test_suite(Code/Draconic/Foundation/VFS.Pak.Tests                   Draconic::VFS.Pak)
-    draconic_test_suite(Code/Draconic/Foundation/VFS.Tests                       Draconic::VFS)
-    draconic_test_suite(Code/Draconic/Foundation/VG.Renderer.Tests               Draconic::VG.Renderer)
-    draconic_test_suite(Code/Draconic/Foundation/VG.SVG.Tests                    Draconic::VG.SVG)
-    draconic_test_suite(Code/Draconic/Foundation/VG.Tests                        Draconic::VG)
-    draconic_test_suite(Code/Draconic/Foundation/Xml.Serialization.Tests         Draconic::Xml.Serialization)
-    draconic_test_suite(Code/Draconic/Foundation/Xml.Tests                       Draconic::Xml)
+    draconic_test_suite(Code/Draconic/Foundation/Render.Tests                    Foundation::Render)
+    draconic_test_suite(Code/Draconic/Foundation/RenderGraph.Tests               Foundation::RenderGraph)
+    draconic_test_suite(Code/Draconic/Foundation/Resource.Tests                  Foundation::Resource)
+    draconic_test_suite(Code/Draconic/Foundation/Runtime.Client.Tests            Foundation::Runtime.Client)
+    draconic_test_suite(Code/Draconic/Foundation/Runtime.Tests                   Foundation::Runtime)
+    draconic_test_suite(Code/Draconic/Foundation/Scene.Resource.Tests            Foundation::Scene.Resource)
+    draconic_test_suite(Code/Draconic/Foundation/Scene.Tests                     Foundation::Scene)
+    draconic_test_suite(Code/Draconic/Foundation/Script.AngelScript.Tests        Foundation::Script.AngelScript)
+    draconic_test_suite(Code/Draconic/Foundation/Script.Resource.Tests           Foundation::Script.Resource)
+    draconic_test_suite(Code/Draconic/Foundation/Script.Tests                    Foundation::Script)
+    draconic_test_suite(Code/Draconic/Foundation/Script.Wren.Tests               Foundation::Script.Wren)
+    draconic_test_suite(Code/Draconic/Foundation/Settings.Tests                  Foundation::Settings)
+    draconic_test_suite(Code/Draconic/Foundation/Shaders.Resource.Tests          Foundation::Shaders.Resource)
+    draconic_test_suite(Code/Draconic/Foundation/Shaders.System.Tests            Foundation::Shaders.System)
+    draconic_test_suite(Code/Draconic/Foundation/Shaders.Tests                   Foundation::Shaders)
+    draconic_test_suite(Code/Draconic/Foundation/Shell.Desktop.Tests             Foundation::Shell.Desktop)
+    draconic_test_suite(Code/Draconic/Foundation/Shell.Null.Tests                Foundation::Shell.Null)
+    draconic_test_suite(Code/Draconic/Foundation/Texture.Resource.Tests          Foundation::Texture.Resource)
+    draconic_test_suite(Code/Draconic/Foundation/Fonts.Resource.Tests            Foundation::Fonts.Resource)
+    draconic_test_suite(Code/Draconic/Foundation/Texture.Tests                   Foundation::Texture)
+    draconic_test_suite(Code/Draconic/Foundation/UI.Shell.Tests                  Foundation::UI.Shell)
+    draconic_test_suite(Code/Draconic/Foundation/UI.Tests                        Foundation::UI)
+    draconic_test_suite(Code/Draconic/Foundation/UI.Toolkit.Tests                Foundation::UI.Toolkit)
+    draconic_test_suite(Code/Draconic/Foundation/UI.VFS.Tests                    Foundation::UI.VFS)
+    draconic_test_suite(Code/Draconic/Foundation/UI.Viewport.Tests               Foundation::UI.Viewport)
+    draconic_test_suite(Code/Draconic/Foundation/VFS.Pak.Tests                   Foundation::VFS.Pak)
+    draconic_test_suite(Code/Draconic/Foundation/VFS.Tests                       Foundation::VFS)
+    draconic_test_suite(Code/Draconic/Foundation/VG.Renderer.Tests               Foundation::VG.Renderer)
+    draconic_test_suite(Code/Draconic/Foundation/VG.SVG.Tests                    Foundation::VG.SVG)
+    draconic_test_suite(Code/Draconic/Foundation/VG.Tests                        Foundation::VG)
+    draconic_test_suite(Code/Draconic/Foundation/Xml.Serialization.Tests         Foundation::Xml.Serialization)
+    draconic_test_suite(Code/Draconic/Foundation/Xml.Tests                       Foundation::Xml)
 endif()
 
 # Web-only samples, then stop - the rest of Code/Samples is desktop-only. Honor

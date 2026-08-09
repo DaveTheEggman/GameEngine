@@ -1,19 +1,19 @@
 add_executable(DraconicSmoketest Main.cpp)
 target_link_libraries(DraconicSmoketest PRIVATE
-    Draconic::RHI.Vulkan Draconic::RHI.Null Draconic::RHI.Validation Draconic::Shaders
-    Draconic::Shell.Desktop Draconic::Runtime.Desktop Draconic::Core Draconic::Policy)
+    Foundation::RHI.Vulkan Foundation::RHI.Null Foundation::RHI.Validation Foundation::Shaders
+    Foundation::Shell.Desktop Foundation::Runtime.Desktop Foundation::Core Foundation::Policy)
 target_compile_definitions(DraconicSmoketest PRIVATE DRACONIC_HAS_SHADERS)
 
 # DX12 backend - Windows only.
-if(TARGET Draconic::RHI.DX12)
-    target_link_libraries(DraconicSmoketest PRIVATE Draconic::RHI.DX12)
+if(TARGET Foundation::RHI.DX12)
+    target_link_libraries(DraconicSmoketest PRIVATE Foundation::RHI.DX12)
     target_compile_definitions(DraconicSmoketest PRIVATE DRACONIC_HAS_DX12)
 endif()
 
 # WebGPU backend - present when the wgpu headers are vendored; the sidecar itself
 # is probed at run time (section prints "skipped" when unavailable).
-if(TARGET Draconic::RHI.WebGPU)
-    target_link_libraries(DraconicSmoketest PRIVATE Draconic::RHI.WebGPU)
+if(TARGET Foundation::RHI.WebGPU)
+    target_link_libraries(DraconicSmoketest PRIVATE Foundation::RHI.WebGPU)
     target_compile_definitions(DraconicSmoketest PRIVATE DRACONIC_HAS_WEBGPU)
 endif()
 

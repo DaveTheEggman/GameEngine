@@ -1,12 +1,12 @@
-# Draconic::VG.SVG - `draconic.vg.svg` (SVG -> VG: parsers, loader, renderer).
+# Foundation::VG.SVG - `draconic.vg.svg` (SVG -> VG: parsers, loader, renderer).
 # Ported from Sedulous.VG.SVG. Standalone parsers (no XML lib); deps VG + Fonts.
 
-add_library(Draconic.VG.SVG STATIC)
-add_library(Draconic::VG.SVG ALIAS Draconic.VG.SVG)
+add_library(VG.SVG STATIC)
+add_library(Foundation::VG.SVG ALIAS VG.SVG)
 
-target_link_libraries(Draconic.VG.SVG PUBLIC Draconic::Core Draconic::VG Draconic::Fonts Draconic::Policy)
+target_link_libraries(VG.SVG PUBLIC Foundation::Core Foundation::VG Foundation::Fonts Foundation::Policy)
 
-target_sources(Draconic.VG.SVG
+target_sources(VG.SVG
     PUBLIC
         FILE_SET vgsvg_modules TYPE CXX_MODULES FILES
             Types.cppm

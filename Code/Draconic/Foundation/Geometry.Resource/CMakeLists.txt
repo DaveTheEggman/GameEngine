@@ -1,12 +1,12 @@
-# Draconic::Geometry.Resource - `draconic.geometry.resource` (meshes as resources:
+# Foundation::Geometry.Resource - `draconic.geometry.resource` (meshes as resources:
 # Static/SkinnedMeshSource -> Static/SkinnedMesh via factories).
-add_library(Draconic.Geometry.Resource STATIC)
-add_library(Draconic::Geometry.Resource ALIAS Draconic.Geometry.Resource)
+add_library(Geometry.Resource STATIC)
+add_library(Foundation::Geometry.Resource ALIAS Geometry.Resource)
 
-target_link_libraries(Draconic.Geometry.Resource
-    PUBLIC Draconic::Core Draconic::Resource Draconic::Content Draconic::Geometry Draconic::Policy)
+target_link_libraries(Geometry.Resource
+    PUBLIC Foundation::Core Foundation::Resource Foundation::Content Foundation::Geometry Foundation::Policy)
 
-target_sources(Draconic.Geometry.Resource
+target_sources(Geometry.Resource
     PUBLIC
         FILE_SET mesh_resource_modules TYPE CXX_MODULES FILES
             MeshResource.cppm)

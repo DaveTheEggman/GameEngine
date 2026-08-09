@@ -1,13 +1,13 @@
-# Draconic::Audio - `draconic.audio`: the miniaudio-backed audio engine core.
+# Foundation::Audio - `draconic.audio`: the miniaudio-backed audio engine core.
 # miniaudio is PRIVATE: ma_* types never cross the module surface.
-add_library(Draconic.Audio STATIC)
-add_library(Draconic::Audio ALIAS Draconic.Audio)
+add_library(Audio STATIC)
+add_library(Foundation::Audio ALIAS Audio)
 
-target_link_libraries(Draconic.Audio
-    PUBLIC Draconic::Core Draconic::VFS Draconic::Policy
-    PRIVATE Draconic::Miniaudio)
+target_link_libraries(Audio
+    PUBLIC Foundation::Core Foundation::VFS Foundation::Policy
+    PRIVATE ThirdParty::Miniaudio)
 
-target_sources(Draconic.Audio
+target_sources(Audio
     PRIVATE
         AudioEngineImpl.cpp      # module IMPLEMENTATION unit: all miniaudio contact (see AudioEngine.cppm)
         MiniaudioImpl.cpp   # plain TU: MINIAUDIO_IMPLEMENTATION + stb_vorbis (exactly once)
@@ -21,7 +21,7 @@ target_sources(Draconic.Audio
 
 # stb_vorbis.c is included from ThirdParty/stb (no INTERFACE target carries that dir for
 # sources; add it directly for the implementation TU).
-target_include_directories(Draconic.Audio PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty/stb)
+target_include_directories(Audio PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty/stb)
 
 # Vendored implementation code builds without our -Werror strictness. Spelled per compiler:
 # passing the GNU-style flag to cl gets it read as /Wno-error and rejected outright

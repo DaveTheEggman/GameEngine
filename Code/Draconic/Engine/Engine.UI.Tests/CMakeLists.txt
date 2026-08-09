@@ -1,13 +1,13 @@
 
-add_executable(Draconic.Engine.UI.Tests TestsMain.cpp UISubsystemTests.cpp UiFacadeScriptTests.cpp)
-target_link_libraries(Draconic.Engine.UI.Tests PRIVATE
-    Draconic::Engine.UI Draconic::UI.Resource Draconic::UI Draconic::Scene
-    Draconic::Engine.Scene Draconic::Runtime Draconic::Input Draconic::Engine.Input
-    Draconic::Resource Draconic::Render Draconic::Engine.Render Draconic::Shell
-    Draconic::Shell.Null Draconic::RHI Draconic::RHI.Null
-    Draconic::Script Draconic::Script.Facades Draconic::Script.Wren Draconic::Script.AngelScript
+add_executable(Engine.UI.Tests TestsMain.cpp UISubsystemTests.cpp UiFacadeScriptTests.cpp)
+target_link_libraries(Engine.UI.Tests PRIVATE
+    Engine::UI Foundation::UI.Resource Foundation::UI Foundation::Scene
+    Engine::Scene Foundation::Runtime Foundation::Input Engine::Input
+    Foundation::Resource Foundation::Render Engine::Render Foundation::Shell
+    Foundation::Shell.Null Foundation::RHI Foundation::RHI.Null
+    Foundation::Script Foundation::Script.Facades Foundation::Script.Wren Foundation::Script.AngelScript
     doctest::doctest)
-target_compile_definitions(Draconic.Engine.UI.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
-target_compile_options(Draconic.Engine.UI.Tests PRIVATE
+target_compile_definitions(Engine.UI.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
+target_compile_options(Engine.UI.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
-add_test(NAME Draconic.Engine.UI.Tests COMMAND Draconic.Engine.UI.Tests)
+add_test(NAME Engine.UI.Tests COMMAND Engine.UI.Tests)

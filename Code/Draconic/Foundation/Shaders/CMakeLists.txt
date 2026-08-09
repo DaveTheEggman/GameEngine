@@ -1,20 +1,20 @@
-# Draconic::Shaders - `draconic.shaders` (HLSL compilation via DXC). The Compiler is
+# Foundation::Shaders - `draconic.shaders` (HLSL compilation via DXC). The Compiler is
 # a third-party edge (DXC's wide-char API), so it uses std strings/containers;
 # the public Types use Draconic types.
 
-if(NOT TARGET Draconic::DXCHeaders)
-    message(STATUS "Skipping Draconic::Shaders - DXC headers not available")
+if(NOT TARGET ThirdParty::DXCHeaders)
+    message(STATUS "Skipping Foundation::Shaders - DXC headers not available")
     return()
 endif()
 
-add_library(Draconic.Shaders STATIC)
-add_library(Draconic::Shaders ALIAS Draconic.Shaders)
+add_library(Shaders STATIC)
+add_library(Foundation::Shaders ALIAS Shaders)
 
-target_link_libraries(Draconic.Shaders
-    PUBLIC Draconic::Core Draconic::DXCHeaders Draconic::Policy Draconic::ShaderCookTools
+target_link_libraries(Shaders
+    PUBLIC Foundation::Core ThirdParty::DXCHeaders Foundation::Policy ThirdParty::ShaderCookTools
     PRIVATE ${CMAKE_DL_LIBS})
 
-target_sources(Draconic.Shaders
+target_sources(Shaders
     PUBLIC
         FILE_SET shaders_modules TYPE CXX_MODULES FILES
             Types.cppm

@@ -1,14 +1,14 @@
-# Draconic::RHI.Vulkan - `draconic.rhi.vulkan` (the Vulkan RHI backend). Links the Vulkan
+# Foundation::RHI.Vulkan - `draconic.rhi.vulkan` (the Vulkan RHI backend). Links the Vulkan
 # loader; built only when the Vulkan SDK/headers are available.
 
-add_library(Draconic.RHI.Vulkan STATIC)
-add_library(Draconic::RHI.Vulkan ALIAS Draconic.RHI.Vulkan)
+add_library(RHI.Vulkan STATIC)
+add_library(Foundation::RHI.Vulkan ALIAS RHI.Vulkan)
 
-target_link_libraries(Draconic.RHI.Vulkan
-    PUBLIC Draconic::RHI Draconic::Core Draconic::Policy
+target_link_libraries(RHI.Vulkan
+    PUBLIC Foundation::RHI Foundation::Core Foundation::Policy
     PRIVATE Vulkan::Vulkan)
 
-target_sources(Draconic.RHI.Vulkan
+target_sources(RHI.Vulkan
     PUBLIC
         FILE_SET rhi_vk_modules TYPE CXX_MODULES FILES
             VkConversions.cppm

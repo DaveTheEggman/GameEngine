@@ -1,17 +1,17 @@
-# Draconic::Editor.Input - `draconic.editor.input`: the InputMapAsset editing page + factory.
+# Editor::Input - `draconic.editor.input`: the InputMapAsset editing page + factory.
 # Linked by the editor EXECUTABLE only.
-add_library(Draconic.Editor.Input STATIC)
-add_library(Draconic::Editor.Input ALIAS Draconic.Editor.Input)
+add_library(Editor.Input STATIC)
+add_library(Editor::Input ALIAS Editor.Input)
 
-target_link_libraries(Draconic.Editor.Input
+target_link_libraries(Editor.Input
     PUBLIC
-        Draconic::Core Draconic::Content Draconic::Shell
-        Draconic::Runtime Draconic::Runtime.Client
-        Draconic::Input Draconic::Input.Resource Draconic::Input.Pipeline
-        Draconic::UI Draconic::UI.Runtime Draconic::UI.Toolkit
-        Draconic::Editor.Core Draconic::Editor.App Draconic::Policy)
+        Foundation::Core Foundation::Content Foundation::Shell
+        Foundation::Runtime Foundation::Runtime.Client
+        Foundation::Input Foundation::Input.Resource Pipeline::Input
+        Foundation::UI Foundation::UI.Runtime Foundation::UI.Toolkit
+        Editor::Core Editor::App Foundation::Policy)
 
-target_sources(Draconic.Editor.Input
+target_sources(Editor.Input
     PRIVATE
         InputMapPageImpl.cpp
     PUBLIC

@@ -1,12 +1,12 @@
-# Draconic::VFS - `draconic.vfs` (virtual filesystem: byte access by logical path,
+# Foundation::VFS - `draconic.vfs` (virtual filesystem: byte access by logical path,
 # decoupled from the backing store). Depends only on Core (stream primitives).
 
-add_library(Draconic.VFS STATIC)
-add_library(Draconic::VFS ALIAS Draconic.VFS)
+add_library(VFS STATIC)
+add_library(Foundation::VFS ALIAS VFS)
 
-target_link_libraries(Draconic.VFS PUBLIC Draconic::Core Draconic::Policy)
+target_link_libraries(VFS PUBLIC Foundation::Core Foundation::Policy)
 
-target_sources(Draconic.VFS
+target_sources(VFS
     PRIVATE
         VFSReflectionImpl.cpp
     PUBLIC

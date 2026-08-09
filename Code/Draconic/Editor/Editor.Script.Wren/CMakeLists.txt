@@ -1,11 +1,11 @@
-# Draconic::Editor.Script.Wren - `draconic.editor.script.wren`: Wren's EDITOR-UI services
+# Editor::Script.Wren - `draconic.editor.script.wren`: Wren's EDITOR-UI services
 # (CodeEditView lexer tables). Only the editor app links this; kept out of the Pipeline cook
 # collection so Tools.Cook / Tools.Export stay UI-free.
-add_library(Draconic.Editor.Script.Wren STATIC)
-add_library(Draconic::Editor.Script.Wren ALIAS Draconic.Editor.Script.Wren)
-target_link_libraries(Draconic.Editor.Script.Wren PUBLIC
-    Draconic::Core Draconic::UI.Toolkit Draconic::Policy)
-target_sources(Draconic.Editor.Script.Wren
+add_library(Editor.Script.Wren STATIC)
+add_library(Editor::Script.Wren ALIAS Editor.Script.Wren)
+target_link_libraries(Editor.Script.Wren PUBLIC
+    Foundation::Core Foundation::UI.Toolkit Foundation::Policy)
+target_sources(Editor.Script.Wren
     PRIVATE
         WrenEditorUIImpl.cpp
     PUBLIC

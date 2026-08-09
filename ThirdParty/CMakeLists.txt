@@ -13,21 +13,21 @@ endif()
 # Headers are an INTERFACE target; the runtime library is loaded at run time
 # (dlopen / LoadLibrary), so we only publish its path + an rpath for dev builds.
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
-    add_library(draconic_dxc_headers INTERFACE)
-    add_library(Draconic::DXCHeaders ALIAS draconic_dxc_headers)
+    add_library(dxc_headers INTERFACE)
+    add_library(ThirdParty::DXCHeaders ALIAS dxc_headers)
     # SYSTEM so the vendored headers (DXC's WinAdapter shim has unused-parameter
     # paths under NDEBUG) are exempt from our -Wall -Wextra -Werror.
-    target_include_directories(draconic_dxc_headers
+    target_include_directories(dxc_headers
         SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include)
 
     # DRACONIC_DXC_LIB (cache): the absolute path to the DXC runtime library, so apps that ship
-    # (Draconic.Engine.Player) can STAGE it beside the executable as a sidecar - DXC is loaded at runtime
+    # (Engine.Player) can STAGE it beside the executable as a sidecar - DXC is loaded at runtime
     # (renderer compiles HLSL on demand), so a dist that lacks it renders nothing on any machine
     # but this one (where the compiled-in DRACONIC_DXC_PATH rpath still resolves into the tree).
     if(WIN32)
         set(_dxc_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/DXC/lib/win-x64")
         if(EXISTS "${_dxc_lib_dir}/dxcompiler.dll")
-            target_compile_definitions(draconic_dxc_headers
+            target_compile_definitions(dxc_headers
                 INTERFACE DRACONIC_DXC_PATH="${_dxc_lib_dir}/dxcompiler.dll")
             set(DRACONIC_DXC_LIB "${_dxc_lib_dir}/dxcompiler.dll" CACHE INTERNAL
                 "DXC runtime library to stage beside shipping apps")
@@ -36,7 +36,7 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
     elseif(UNIX AND NOT APPLE)
         set(_dxc_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/DXC/lib/linux-x86_64")
         if(EXISTS "${_dxc_lib_dir}/libdxcompiler.so")
-            target_compile_definitions(draconic_dxc_headers
+            target_compile_definitions(dxc_headers
                 INTERFACE DRACONIC_DXC_PATH="${_dxc_lib_dir}/libdxcompiler.so")
             set(DRACONIC_DXC_LIB "${_dxc_lib_dir}/libdxcompiler.so" CACHE INTERNAL
                 "DXC runtime library to stage beside shipping apps")
@@ -56,15 +56,15 @@ endif()
 # library's path (+ a dev-build rpath) is published. Browser builds link the
 # emscripten-provided implementation instead - no sidecar there.
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/include/webgpu/webgpu.h)
-    add_library(draconic_wgpu_headers INTERFACE)
-    add_library(Draconic::WgpuHeaders ALIAS draconic_wgpu_headers)
-    target_include_directories(draconic_wgpu_headers
+    add_library(wgpu_headers INTERFACE)
+    add_library(ThirdParty::WgpuHeaders ALIAS wgpu_headers)
+    target_include_directories(wgpu_headers
         SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/include)
 
     if(WIN32)
         set(_wgpu_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/lib/win-x64")
         if(EXISTS "${_wgpu_lib_dir}/wgpu_native.dll")
-            target_compile_definitions(draconic_wgpu_headers
+            target_compile_definitions(wgpu_headers
                 INTERFACE DRACONIC_WGPU_PATH="${_wgpu_lib_dir}/wgpu_native.dll")
             set(DRACONIC_WGPU_LIB "${_wgpu_lib_dir}/wgpu_native.dll" CACHE INTERNAL
                 "wgpu-native runtime library to stage beside shipping apps")
@@ -73,7 +73,7 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/include/webgpu/webgpu.h)
     elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
         set(_wgpu_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/lib/linux-x86_64")
         if(EXISTS "${_wgpu_lib_dir}/libwgpu_native.so")
-            target_compile_definitions(draconic_wgpu_headers
+            target_compile_definitions(wgpu_headers
                 INTERFACE DRACONIC_WGPU_PATH="${_wgpu_lib_dir}/libwgpu_native.so")
             set(DRACONIC_WGPU_LIB "${_wgpu_lib_dir}/libwgpu_native.so" CACHE INTERNAL
                 "wgpu-native runtime library to stage beside shipping apps")
@@ -92,8 +92,8 @@ endif()
 # at run time - the cook shells out to them (core::RunProcess). An INTERFACE target
 # carries the binary paths as compile defs so the WgslTranslator can find them; a
 # missing per-platform binary just leaves the define empty (translator reports it).
-add_library(draconic_shader_cook_tools INTERFACE)
-add_library(Draconic::ShaderCookTools ALIAS draconic_shader_cook_tools)
+add_library(shader_cook_tools INTERFACE)
+add_library(ThirdParty::ShaderCookTools ALIAS shader_cook_tools)
 # Keyed on the HOST, not the target: these run on the cook machine, so a cross build
 # (wasm) still needs the host's binaries - plain WIN32/APPLE are false under Emscripten
 # and would select the Linux ones on a Windows host.
@@ -108,13 +108,13 @@ else()
     set(_tint_exe "${CMAKE_CURRENT_SOURCE_DIR}/Tint/bin/linux-x86_64/tint")
 endif()
 if(EXISTS "${_naga_exe}")
-    target_compile_definitions(draconic_shader_cook_tools INTERFACE DRACONIC_NAGA_PATH="${_naga_exe}")
+    target_compile_definitions(shader_cook_tools INTERFACE DRACONIC_NAGA_PATH="${_naga_exe}")
     message(STATUS "naga-cli (WGSL cook): ${_naga_exe}")
 else()
     message(STATUS "naga-cli not present for this host - WGSL cook will report it missing.")
 endif()
 if(EXISTS "${_tint_exe}")
-    target_compile_definitions(draconic_shader_cook_tools INTERFACE DRACONIC_TINT_PATH="${_tint_exe}")
+    target_compile_definitions(shader_cook_tools INTERFACE DRACONIC_TINT_PATH="${_tint_exe}")
     message(STATUS "tint (WGSL conformance): ${_tint_exe}")
 else()
     message(STATUS "tint not present for this host - WGSL cook will FAIL unless validateWgsl=false is passed explicitly.")
@@ -123,46 +123,46 @@ endif()
 # stb / cgltf / ufbx - vendored header(+source) libraries (copied, not submodules).
 # Header include-dir INTERFACE targets; the *_impl translation units that define
 # the implementations live in the engine libraries that use them.
-add_library(draconic_stb INTERFACE)
-add_library(Draconic::Stb ALIAS draconic_stb)
-target_include_directories(draconic_stb SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/stb)
+add_library(stb INTERFACE)
+add_library(ThirdParty::Stb ALIAS stb)
+target_include_directories(stb SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/stb)
 
-add_library(draconic_cgltf INTERFACE)
-add_library(Draconic::Cgltf ALIAS draconic_cgltf)
-target_include_directories(draconic_cgltf SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/cgltf)
+add_library(cgltf INTERFACE)
+add_library(ThirdParty::Cgltf ALIAS cgltf)
+target_include_directories(cgltf SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/cgltf)
 
-add_library(draconic_ufbx INTERFACE)
-add_library(Draconic::Ufbx ALIAS draconic_ufbx)
-target_include_directories(draconic_ufbx SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ufbx)
+add_library(ufbx INTERFACE)
+add_library(ThirdParty::Ufbx ALIAS ufbx)
+target_include_directories(ufbx SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ufbx)
 
 # miniaudio - vendored single-header audio library (github.com/mackron/miniaudio v0.11.25,
 # public domain / MIT-0). Header include-dir INTERFACE target; the MINIAUDIO_IMPLEMENTATION
 # translation unit lives in draconic.audio. Ogg Vorbis decoding is provided by
 # ThirdParty/stb/stb_vorbis.c (public domain), compiled inside the same implementation TU.
-add_library(draconic_miniaudio INTERFACE)
-add_library(Draconic::Miniaudio ALIAS draconic_miniaudio)
-target_include_directories(draconic_miniaudio SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/miniaudio)
+add_library(miniaudio INTERFACE)
+add_library(ThirdParty::Miniaudio ALIAS miniaudio)
+target_include_directories(miniaudio SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/miniaudio)
 
 # doctest - vendored single-header test framework (github.com/doctest/doctest v2.4.11, MIT).
 # A copy of the source (not a submodule / not FetchContent); tests link doctest::doctest.
-add_library(draconic_doctest INTERFACE)
-add_library(doctest::doctest ALIAS draconic_doctest)
-target_include_directories(draconic_doctest SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/doctest)
+add_library(doctest INTERFACE)
+add_library(doctest::doctest ALIAS doctest)
+target_include_directories(doctest SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/doctest)
 
 # Dear ImGui - vendored (copied from upstream, not a submodule). Compiled as a static library;
 # the include dir is PUBLIC + SYSTEM so consumers (the draconic.imgui lib + apps) can
-# #include "imgui.h" and call ImGui:: directly. Does NOT link draconic_policy, so the vendored
+# #include "imgui.h" and call ImGui:: directly. Does NOT link policy, so the vendored
 # sources build without our -Werror. No stock backends - Draconic has its own RHI-based renderer.
 # Builds for Emscripten too (portable C++; the debug panel works in the browser).
-add_library(draconic_imgui STATIC
+add_library(imgui STATIC
     imgui/imgui.cpp
     imgui/imgui_draw.cpp
     imgui/imgui_tables.cpp
     imgui/imgui_widgets.cpp
     imgui/imgui_demo.cpp)
-add_library(Draconic::ImGui ALIAS draconic_imgui)
-target_include_directories(draconic_imgui SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
-set_target_properties(draconic_imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
+add_library(ThirdParty::ImGui ALIAS imgui)
+target_include_directories(imgui SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
+set_target_properties(imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Compiled third-party whose Draconic consumers have not yet climbed to web: msdfgen only
 # (import-time font tooling; the web build ships no authoring). Jolt/AngelScript/imgui all
@@ -182,7 +182,7 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/msdfgen/CMakeLists.txt)
     set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
     add_subdirectory(msdfgen)
     unset(CMAKE_POLICY_VERSION_MINIMUM)
-    add_library(Draconic::MsdfgenCore ALIAS msdfgen-core)
+    add_library(ThirdParty::MsdfgenCore ALIAS msdfgen-core)
 endif()
 
 endif() # NOT EMSCRIPTEN (msdfgen gated until a web consumer needs it)
@@ -193,15 +193,15 @@ endif() # NOT EMSCRIPTEN (msdfgen gated until a web consumer needs it)
 # (deterministic-enough defaults; no Jolt CMake options surface). Include dir is
 # PUBLIC + SYSTEM so draconic.physics can #include <Jolt/...>; consumers MUST define
 # the same JPH_* macros, so they are PUBLIC compile definitions here. Does not link
-# draconic_policy (vendored code builds without our -Werror).
+# policy (vendored code builds without our -Werror).
 file(GLOB_RECURSE draconic_jolt_sources ${CMAKE_CURRENT_SOURCE_DIR}/JoltPhysics/Jolt/*.cpp)
-add_library(draconic_jolt STATIC ${draconic_jolt_sources})
-add_library(Draconic::Jolt ALIAS draconic_jolt)
-target_include_directories(draconic_jolt SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/JoltPhysics)
-target_compile_features(draconic_jolt PUBLIC cxx_std_17)
-target_compile_definitions(draconic_jolt PUBLIC
+add_library(jolt STATIC ${draconic_jolt_sources})
+add_library(ThirdParty::Jolt ALIAS jolt)
+target_include_directories(jolt SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/JoltPhysics)
+target_compile_features(jolt PUBLIC cxx_std_17)
+target_compile_definitions(jolt PUBLIC
     $<$<CONFIG:Debug>:JPH_ENABLE_ASSERTS>)
-set_target_properties(draconic_jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # AngelScript 2.39.0 WIP - vendored BY COPY (github.com/anjo76/angelscript, sdk library
 # + the scriptstdstring and scriptbuilder add-ons; no submodule). Compiled from source as
@@ -209,7 +209,7 @@ set_target_properties(draconic_jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # so globbing every .cpp is safe. Include dirs are PUBLIC + SYSTEM so draconic.script.angelscript
 # can #include <angelscript.h> / <scriptstdstring/scriptstdstring.h> /
 # <scriptbuilder/scriptbuilder.h> from its module IMPLEMENTATION unit. Does not link
-# draconic_policy (vendored code builds without our -Werror). scriptstdstring_utils.cpp is
+# policy (vendored code builds without our -Werror). scriptstdstring_utils.cpp is
 # deliberately not vendored (needs scriptarray). scriptbuilder parses [metadata] ahead of
 # declarations (the AngelScript editor cook harvests behavior properties through it).
 file(GLOB draconic_angelscript_sources ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/*.cpp)
@@ -224,19 +224,19 @@ elseif(MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     list(APPEND draconic_angelscript_sources
         ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/as_callfunc_x64_msvc_asm.asm)
 endif()
-add_library(draconic_angelscript STATIC
+add_library(angelscript STATIC
     ${draconic_angelscript_sources}
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptstdstring/scriptstdstring.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptbuilder/scriptbuilder.cpp)
-add_library(Draconic::AngelScript ALIAS draconic_angelscript)
-target_include_directories(draconic_angelscript SYSTEM PUBLIC
+add_library(ThirdParty::AngelScript ALIAS angelscript)
+target_include_directories(angelscript SYSTEM PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/include
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on)
-target_compile_features(draconic_angelscript PRIVATE cxx_std_17)
-set_target_properties(draconic_angelscript PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(angelscript PRIVATE cxx_std_17)
+set_target_properties(angelscript PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(NOT EMSCRIPTEN)
     find_package(Threads REQUIRED)
-    target_link_libraries(draconic_angelscript PUBLIC Threads::Threads)
+    target_link_libraries(angelscript PUBLIC Threads::Threads)
 endif()
 # On Emscripten as_config.h auto-enables AS_MAX_PORTABILITY (native-call trampolines compile out; the
 # backend is all-generic) AND AS_NO_THREADS, so the web build needs no pthread / SharedArrayBuffer and

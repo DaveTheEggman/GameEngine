@@ -1,10 +1,10 @@
 # GUI Sandbox - first on-screen test of draconic.gui (widgets + CSS on the VG renderer).
 add_executable(GUISandbox Main.cpp)
 target_link_libraries(GUISandbox PRIVATE
-    Draconic::Core Draconic::RHI Draconic::RHI.Vulkan Draconic::Shaders Draconic::Shaders.System
-    Draconic::SamplesFramework
-    Draconic::Shell Draconic::Image Draconic::Fonts Draconic::Fonts.TTF
-    Draconic::VG Draconic::VG.Renderer Draconic::GUI Draconic::GUI.Shell)
+    Foundation::Core Foundation::RHI Foundation::RHI.Vulkan Foundation::Shaders Foundation::Shaders.System
+    Samples::Framework
+    Foundation::Shell Foundation::Image Foundation::Fonts Foundation::Fonts.TTF
+    Foundation::VG Foundation::VG.Renderer Experimental::GUI Experimental::GUI.Shell)
 target_compile_definitions(GUISandbox PRIVATE
     DRACONIC_GUI_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
     DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")

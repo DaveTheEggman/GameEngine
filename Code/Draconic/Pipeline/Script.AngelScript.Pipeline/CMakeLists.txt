@@ -1,18 +1,18 @@
-# Draconic::Script.AngelScript.Pipeline - `draconic.script.angelscript.pipeline` (the AngelScript
+# Pipeline::Script.AngelScript - `draconic.script.angelscript.pipeline` (the AngelScript
 # cook service): compile-check + shared handler scan + [metadata] PROPERTY HARVEST + starter.
-# Cook-only; the SDK (Draconic::AngelScript) is a PRIVATE dep (impl unit #includes angelscript.h
+# Cook-only; the SDK (ThirdParty::AngelScript) is a PRIVATE dep (impl unit #includes angelscript.h
 # + scriptbuilder for metadata harvest - GCC module hygiene). The editor-UI half lives in
 # Editor/Editor.Script.AngelScript.
-add_library(Draconic.Script.AngelScript.Pipeline STATIC)
-add_library(Draconic::Script.AngelScript.Pipeline ALIAS Draconic.Script.AngelScript.Pipeline)
-target_link_libraries(Draconic.Script.AngelScript.Pipeline
+add_library(Script.AngelScript.Pipeline STATIC)
+add_library(Pipeline::Script.AngelScript ALIAS Script.AngelScript.Pipeline)
+target_link_libraries(Script.AngelScript.Pipeline
     PUBLIC
-        Draconic::Core Draconic::Pipeline.Core Draconic::Content
-        Draconic::Script Draconic::Script.Resource Draconic::Script.Facades
-        Draconic::Script.Pipeline Draconic::Script.AngelScript Draconic::Policy
+        Foundation::Core Pipeline::Core Foundation::Content
+        Foundation::Script Foundation::Script.Resource Foundation::Script.Facades
+        Pipeline::Script Foundation::Script.AngelScript Foundation::Policy
     PRIVATE
-        Draconic::AngelScript)
-target_sources(Draconic.Script.AngelScript.Pipeline
+        ThirdParty::AngelScript)
+target_sources(Script.AngelScript.Pipeline
     PRIVATE
         AngelScriptScriptCookImpl.cpp
     PUBLIC

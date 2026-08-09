@@ -4,13 +4,13 @@
 add_executable(MultiWindow main.cpp)
 
 target_link_libraries(MultiWindow PRIVATE
-    Draconic::Core
-    Draconic::RHI
-    Draconic::Runtime
-    Draconic::Runtime.Client
-    Draconic::Shell
-    Draconic::Shell.Desktop Draconic::Runtime.Desktop
-    Draconic::Graphics
-    Draconic::Graphics.Gpu
-    Draconic::Policy)
+    Foundation::Core
+    Foundation::RHI
+    Foundation::Runtime
+    Foundation::Runtime.Client
+    Foundation::Shell
+    Foundation::Shell.Desktop Foundation::Runtime.Desktop
+    Foundation::Graphics
+    Foundation::Graphics.Gpu
+    Foundation::Policy)
 draconic_copy_sdl3_dll(MultiWindow)

@@ -1,28 +1,28 @@
-# Draconic::Editor.Scene - `draconic.editor.scene`: the scene editor plugin (SceneEditorPage +
+# Editor::Scene - `draconic.editor.scene`: the scene editor plugin (SceneEditorPage +
 # factory + RegisterSceneEditor). Linked by the editor EXECUTABLE only (never by editor core/app).
 
-add_library(Draconic.Editor.Scene STATIC)
-add_library(Draconic::Editor.Scene ALIAS Draconic.Editor.Scene)
+add_library(Editor.Scene STATIC)
+add_library(Editor::Scene ALIAS Editor.Scene)
 
-target_link_libraries(Draconic.Editor.Scene
+target_link_libraries(Editor.Scene
     PUBLIC
-        Draconic::Core Draconic::Content Draconic::RHI Draconic::Shell Draconic::Graphics
-        Draconic::Runtime Draconic::Runtime.Client Draconic::Engine.DefaultApp
-        Draconic::Scene Draconic::Engine.Scene Draconic::Scene.Resource
-        Draconic::Render Draconic::Engine.Render Draconic::Animation Draconic::Engine.Animation
-        Draconic::Animation.Resource Draconic::Animation.Pipeline
-        Draconic::ModelImporter Draconic::Texture.Resource
-        Draconic::Particles Draconic::Particles.Resource Draconic::Particles.Pipeline Draconic::Engine.Particles
-        Draconic::Physics Draconic::Physics.Resource Draconic::Engine.Physics
-        Draconic::UI.Resource Draconic::Engine.UI Draconic::Audio Draconic::Audio.Resource Draconic::Engine.Audio
-        Draconic::Geometry Draconic::Geometry.Resource Draconic::Geometry.Pipeline
-        Draconic::Materials Draconic::Materials.Resource Draconic::Materials.Pipeline
-        Draconic::UI Draconic::UI.Runtime Draconic::UI.Viewport Draconic::VG.Renderer
-        Draconic::Script Draconic::Script.Wren Draconic::Script.Resource Draconic::Script.Facades Draconic::Engine.Script
-        Draconic::Input Draconic::Input.Resource Draconic::Engine.Input
-        Draconic::Editor.Core Draconic::Editor.App Draconic::Policy)
+        Foundation::Core Foundation::Content Foundation::RHI Foundation::Shell Foundation::Graphics
+        Foundation::Runtime Foundation::Runtime.Client Engine::DefaultApp
+        Foundation::Scene Engine::Scene Foundation::Scene.Resource
+        Foundation::Render Engine::Render Foundation::Animation Engine::Animation
+        Foundation::Animation.Resource Pipeline::Animation
+        Pipeline::ModelImporter Foundation::Texture.Resource
+        Foundation::Particles Foundation::Particles.Resource Pipeline::Particles Engine::Particles
+        Foundation::Physics Foundation::Physics.Resource Engine::Physics
+        Foundation::UI.Resource Engine::UI Foundation::Audio Foundation::Audio.Resource Engine::Audio
+        Foundation::Geometry Foundation::Geometry.Resource Pipeline::Geometry
+        Foundation::Materials Foundation::Materials.Resource Pipeline::Materials
+        Foundation::UI Foundation::UI.Runtime Foundation::UI.Viewport Foundation::VG.Renderer
+        Foundation::Script Foundation::Script.Wren Foundation::Script.Resource Foundation::Script.Facades Engine::Script
+        Foundation::Input Foundation::Input.Resource Engine::Input
+        Editor::Core Editor::App Foundation::Policy)
 
-target_sources(Draconic.Editor.Scene
+target_sources(Editor.Scene
     PRIVATE
         EditContextImpl.cpp
         GizmoImpl.cpp

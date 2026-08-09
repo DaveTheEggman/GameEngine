@@ -1,11 +1,11 @@
-# Draconic::Runtime - the `draconic.runtime` module (Context + Subsystems).
+# Foundation::Runtime - the `draconic.runtime` module (Context + Subsystems).
 
-add_library(Draconic.Runtime STATIC)
-add_library(Draconic::Runtime ALIAS Draconic.Runtime)
+add_library(Runtime STATIC)
+add_library(Foundation::Runtime ALIAS Runtime)
 
-target_link_libraries(Draconic.Runtime PUBLIC Draconic::Core Draconic::Policy)
+target_link_libraries(Runtime PUBLIC Foundation::Core Foundation::Policy)
 
-target_sources(Draconic.Runtime
+target_sources(Runtime
     PUBLIC
         FILE_SET runtime_modules TYPE CXX_MODULES FILES
             RuntimeModule.cppm

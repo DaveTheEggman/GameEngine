@@ -8,38 +8,38 @@
 # climbed the extension too).
 
 set(_webscene_common_libs
-    Draconic::Core
-    Draconic::RHI
-    Draconic::Runtime
-    Draconic::Runtime.Client
-    Draconic::Graphics
-    Draconic::Graphics.Gpu
-    Draconic::Engine.DefaultApp
-    Draconic::Scene
-    Draconic::Engine.Scene
-    Draconic::Engine.Render
-    Draconic::Geometry
-    Draconic::Materials
-    Draconic::Particles
-    Draconic::Engine.Particles
-    Draconic::UI
-    Draconic::UI.Resource
-    Draconic::Engine.UI
-    Draconic::Policy)
+    Foundation::Core
+    Foundation::RHI
+    Foundation::Runtime
+    Foundation::Runtime.Client
+    Foundation::Graphics
+    Foundation::Graphics.Gpu
+    Engine::DefaultApp
+    Foundation::Scene
+    Engine::Scene
+    Engine::Render
+    Foundation::Geometry
+    Foundation::Materials
+    Foundation::Particles
+    Engine::Particles
+    Foundation::UI
+    Foundation::UI.Resource
+    Engine::UI
+    Foundation::Policy)
 
 if(EMSCRIPTEN)
 
     add_executable(WebScene WebMain.cpp)
     target_link_libraries(WebScene PRIVATE
         ${_webscene_common_libs}
-        Draconic::Shell.Web
-        Draconic::Runtime.Web)
+        Foundation::Shell.Web
+        Foundation::Runtime.Web)
     if(DRACONIC_EXTENSION_IMGUI)
-        target_link_libraries(WebScene PRIVATE Draconic::Imgui)
+        target_link_libraries(WebScene PRIVATE Extensions::Imgui)
     endif()
 
     # Cook the WGSL shader pack with the NATIVE tool (the browser has no compiler) and bundle it
-    # into the virtual FS at /shaders.dpak, where the shader host finds it. Draconic.Tools.ShaderPack
+    # into the virtual FS at /shaders.dpak, where the shader host finds it. Tools.ShaderPack
     # must be built first by any desktop preset (a native authoring tool, never built for wasm).
     set(_web_shader_pack "${CMAKE_CURRENT_BINARY_DIR}/shaders.dpak")
     set(_cook_tool
@@ -50,7 +50,7 @@ if(EMSCRIPTEN)
         OUTPUT "${_web_shader_pack}"
         COMMAND "${_cook_tool}" "${CMAKE_SOURCE_DIR}/Data/Shaders" "${_web_shader_pack}" wgsl
         DEPENDS ${_engine_shader_sources} "${_cook_tool}"
-        COMMENT "WebScene: cooking WGSL shaders.dpak (native Draconic.Tools.ShaderPack)"
+        COMMENT "WebScene: cooking WGSL shaders.dpak (native Tools.ShaderPack)"
         VERBATIM)
     add_custom_target(WebSceneShaderPack DEPENDS "${_web_shader_pack}")
     add_dependencies(WebScene WebSceneShaderPack)
@@ -82,10 +82,10 @@ else()
     add_executable(WebScene Main.cpp)
     target_link_libraries(WebScene PRIVATE
         ${_webscene_common_libs}
-        Draconic::Shell.Desktop
-        Draconic::Runtime.Desktop)
+        Foundation::Shell.Desktop
+        Foundation::Runtime.Desktop)
     if(DRACONIC_EXTENSION_IMGUI)
-        target_link_libraries(WebScene PRIVATE Draconic::Imgui)
+        target_link_libraries(WebScene PRIVATE Extensions::Imgui)
     endif()
     draconic_copy_runtime_deps(WebScene EXTRA ${DRACONIC_SDL3_DLL})
 

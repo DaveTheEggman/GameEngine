@@ -1,11 +1,11 @@
-# Draconic::RHI.Null - `draconic.rhi.null` (headless no-op RHI backend, for tests/tools).
+# Foundation::RHI.Null - `draconic.rhi.null` (headless no-op RHI backend, for tests/tools).
 
-add_library(Draconic.RHI.Null STATIC)
-add_library(Draconic::RHI.Null ALIAS Draconic.RHI.Null)
+add_library(RHI.Null STATIC)
+add_library(Foundation::RHI.Null ALIAS RHI.Null)
 
-target_link_libraries(Draconic.RHI.Null PUBLIC Draconic::RHI Draconic::Core Draconic::Policy)
+target_link_libraries(RHI.Null PUBLIC Foundation::RHI Foundation::Core Foundation::Policy)
 
-target_sources(Draconic.RHI.Null
+target_sources(RHI.Null
     PUBLIC
         FILE_SET rhi_null_modules TYPE CXX_MODULES FILES
             NullModule.cppm)

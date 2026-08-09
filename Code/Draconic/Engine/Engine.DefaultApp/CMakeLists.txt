@@ -1,25 +1,25 @@
-# Draconic::Engine.DefaultApp - `draconic.engine.defaultapp` (DefaultApplication: the
+# Engine::DefaultApp - `draconic.engine.defaultapp` (DefaultApplication: the
 # opinionated IApplication that registers the standard engine subsystems). Kept in
-# its own library so the base client (Draconic::Runtime.Client) never pulls in the
+# its own library so the base client (Foundation::Runtime.Client) never pulls in the
 # engine subsystem libraries - only apps that opt into the defaults link this.
 # As engine subsystems land, add them as link dependencies HERE.
 
-add_library(Draconic.Engine.DefaultApp STATIC)
-add_library(Draconic::Engine.DefaultApp ALIAS Draconic.Engine.DefaultApp)
+add_library(Engine.DefaultApp STATIC)
+add_library(Engine::DefaultApp ALIAS Engine.DefaultApp)
 
-target_link_libraries(Draconic.Engine.DefaultApp
-    PUBLIC Draconic::Core Draconic::RHI Draconic::Runtime.Client Draconic::Engine.GameInstance Draconic::Shell Draconic::Graphics
-           Draconic::Scene Draconic::Engine.Scene Draconic::Engine.Render Draconic::Engine.Animation
-           Draconic::Engine.Particles Draconic::Physics Draconic::Engine.Physics
-           Draconic::Audio Draconic::Audio.Resource Draconic::Engine.Audio
-           Draconic::Input Draconic::Engine.Input Draconic::Script
-           Draconic::Script.Resource Draconic::Engine.Script Draconic::Engine.Integration
-           Draconic::Resource Draconic::Content Draconic::Scene.Resource
-           Draconic::Geometry.Resource Draconic::Materials.Resource Draconic::Animation.Resource
-           Draconic::Particles.Resource Draconic::Input.Resource Draconic::Physics.Resource
-           Draconic::Texture.Resource Draconic::Image.Resource Draconic::Model.Resource Draconic::UI.Resource Draconic::Engine.UI
-           Draconic::Net Draconic::Net.Manager Draconic::Engine.Net
-           Draconic::Profiler Draconic::Policy)
+target_link_libraries(Engine.DefaultApp
+    PUBLIC Foundation::Core Foundation::RHI Foundation::Runtime.Client Engine::GameInstance Foundation::Shell Foundation::Graphics
+           Foundation::Scene Engine::Scene Engine::Render Engine::Animation
+           Engine::Particles Foundation::Physics Engine::Physics
+           Foundation::Audio Foundation::Audio.Resource Engine::Audio
+           Foundation::Input Engine::Input Foundation::Script
+           Foundation::Script.Resource Engine::Script Engine::Integration
+           Foundation::Resource Foundation::Content Foundation::Scene.Resource
+           Foundation::Geometry.Resource Foundation::Materials.Resource Foundation::Animation.Resource
+           Foundation::Particles.Resource Foundation::Input.Resource Foundation::Physics.Resource
+           Foundation::Texture.Resource Foundation::Image.Resource Foundation::Model.Resource Foundation::UI.Resource Engine::UI
+           Foundation::Net Foundation::Net.Manager Engine::Net
+           Foundation::Profiler Foundation::Policy)
 
 # Script VM backends - Wren (primary) and AngelScript (second). Each is independently toggleable via
 # its option; a run resolves the backend by the game script's LANGUAGE, so with both ON a project can
@@ -30,15 +30,15 @@ target_link_libraries(Draconic.Engine.DefaultApp
 option(DRACONIC_ENABLE_WREN "Build the Wren script backend into DefaultApplication" ON)
 option(DRACONIC_ENABLE_ANGELSCRIPT "Build the AngelScript script backend into DefaultApplication" ON)
 if(DRACONIC_ENABLE_WREN)
-    target_link_libraries(Draconic.Engine.DefaultApp PUBLIC Draconic::Script.Wren)
-    target_compile_definitions(Draconic.Engine.DefaultApp PUBLIC DRACONIC_HAS_WREN)
+    target_link_libraries(Engine.DefaultApp PUBLIC Foundation::Script.Wren)
+    target_compile_definitions(Engine.DefaultApp PUBLIC DRACONIC_HAS_WREN)
 endif()
 if(DRACONIC_ENABLE_ANGELSCRIPT)
-    target_link_libraries(Draconic.Engine.DefaultApp PUBLIC Draconic::Script.AngelScript)
-    target_compile_definitions(Draconic.Engine.DefaultApp PUBLIC DRACONIC_HAS_ANGELSCRIPT)
+    target_link_libraries(Engine.DefaultApp PUBLIC Foundation::Script.AngelScript)
+    target_compile_definitions(Engine.DefaultApp PUBLIC DRACONIC_HAS_ANGELSCRIPT)
 endif()
 
-target_sources(Draconic.Engine.DefaultApp
+target_sources(Engine.DefaultApp
     PRIVATE
         DefaultApplicationImpl.cpp   # out-of-line defs (see DefaultApplication.cppm)
     PUBLIC

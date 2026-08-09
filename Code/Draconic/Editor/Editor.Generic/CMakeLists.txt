@@ -1,15 +1,15 @@
-# Draconic::Editor.Generic - `draconic.editor.generic`: the serialize-driven FALLBACK asset
+# Editor::Generic - `draconic.editor.generic`: the serialize-driven FALLBACK asset
 # page (every asset without a bespoke page). Linked by the editor EXECUTABLE only.
-add_library(Draconic.Editor.Generic STATIC)
-add_library(Draconic::Editor.Generic ALIAS Draconic.Editor.Generic)
+add_library(Editor.Generic STATIC)
+add_library(Editor::Generic ALIAS Editor.Generic)
 
-target_link_libraries(Draconic.Editor.Generic
+target_link_libraries(Editor.Generic
     PUBLIC
-        Draconic::Core Draconic::Content
-        Draconic::UI Draconic::UI.Toolkit
-        Draconic::Editor.Core Draconic::Editor.App Draconic::Policy)
+        Foundation::Core Foundation::Content
+        Foundation::UI Foundation::UI.Toolkit
+        Editor::Core Editor::App Foundation::Policy)
 
-target_sources(Draconic.Editor.Generic
+target_sources(Editor.Generic
     PRIVATE
         AssetFormPageImpl.cpp
     PUBLIC

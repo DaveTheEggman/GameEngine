@@ -1,12 +1,12 @@
-# Draconic::Xml - `draconic.xml` (DOM XML parser + writer, UTF-8).
+# Foundation::Xml - `draconic.xml` (DOM XML parser + writer, UTF-8).
 # Faithful port of the hand-written Sedulous.Xml library. Depends only on Core.
 
-add_library(Draconic.Xml STATIC)
-add_library(Draconic::Xml ALIAS Draconic.Xml)
+add_library(Xml STATIC)
+add_library(Foundation::Xml ALIAS Xml)
 
-target_link_libraries(Draconic.Xml PUBLIC Draconic::Core Draconic::Policy)
+target_link_libraries(Xml PUBLIC Foundation::Core Foundation::Policy)
 
-target_sources(Draconic.Xml
+target_sources(Xml
     PUBLIC
         FILE_SET xml_modules TYPE CXX_MODULES FILES
             Result.cppm

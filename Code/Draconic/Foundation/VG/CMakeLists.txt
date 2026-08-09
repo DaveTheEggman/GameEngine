@@ -1,13 +1,13 @@
-# Draconic::VG - `draconic.vg` (2D vector-graphics core: paths, tessellation, context).
+# Foundation::VG - `draconic.vg` (2D vector-graphics core: paths, tessellation, context).
 # Ported from Sedulous.VG. Pure CPU - emits a VGBatch of vertices/commands that
 # draconic.vg.renderer uploads to the GPU. Deps: Core (math/containers) + Image.
 
-add_library(Draconic.VG STATIC)
-add_library(Draconic::VG ALIAS Draconic.VG)
+add_library(VG STATIC)
+add_library(Foundation::VG ALIAS VG)
 
-target_link_libraries(Draconic.VG PUBLIC Draconic::Core Draconic::Image Draconic::Fonts Draconic::Policy)
+target_link_libraries(VG PUBLIC Foundation::Core Foundation::Image Foundation::Fonts Foundation::Policy)
 
-target_sources(Draconic.VG
+target_sources(VG
     PUBLIC
         FILE_SET vg_modules TYPE CXX_MODULES FILES
             Enums.cppm

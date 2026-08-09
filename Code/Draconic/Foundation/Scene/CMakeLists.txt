@@ -1,13 +1,13 @@
-# Draconic::Scene - `draconic.scene`, the scene / ECS foundation (entities, transform
+# Foundation::Scene - `draconic.scene`, the scene / ECS foundation (entities, transform
 # hierarchy, components + per-scene systems, SceneSubsystem). Pure data + logic on
 # top of Core; renderer-agnostic.
-add_library(Draconic.Scene STATIC)
-add_library(Draconic::Scene ALIAS Draconic.Scene)
+add_library(Scene STATIC)
+add_library(Foundation::Scene ALIAS Scene)
 
-target_link_libraries(Draconic.Scene
-    PUBLIC Draconic::Core Draconic::Resource Draconic::Policy)
+target_link_libraries(Scene
+    PUBLIC Foundation::Core Foundation::Resource Foundation::Policy)
 
-target_sources(Draconic.Scene
+target_sources(Scene
     PRIVATE
         SceneImpl.cpp   # out-of-line Scene member definitions (see Scene.cppm)
     PUBLIC

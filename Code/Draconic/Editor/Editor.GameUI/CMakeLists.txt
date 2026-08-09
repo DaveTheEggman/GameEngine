@@ -1,9 +1,9 @@
-# Draconic::Editor.GameUI - `draconic.editor.gameui`: UI document page (text + live preview).
-add_library(Draconic.Editor.GameUI STATIC)
-add_library(Draconic::Editor.GameUI ALIAS Draconic.Editor.GameUI)
-target_link_libraries(Draconic.Editor.GameUI PUBLIC
-    Draconic::Core Draconic::Content Draconic::Runtime.Client Draconic::UI Draconic::UI.Toolkit Draconic::Xml
-    Draconic::UI.Resource Draconic::UI.Pipeline Draconic::Engine.UI Draconic::UI.Runtime Draconic::UI.Viewport
-    Draconic::Graphics Draconic::RHI Draconic::VG.Renderer
-    Draconic::Editor.Core Draconic::Editor.App Draconic::Policy)
-target_sources(Draconic.Editor.GameUI PRIVATE UIDocumentPageImpl.cpp PUBLIC FILE_SET editor_gameui_modules TYPE CXX_MODULES FILES UIDocumentPage.cppm)
+# Editor::GameUI - `draconic.editor.gameui`: UI document page (text + live preview).
+add_library(Editor.GameUI STATIC)
+add_library(Editor::GameUI ALIAS Editor.GameUI)
+target_link_libraries(Editor.GameUI PUBLIC
+    Foundation::Core Foundation::Content Foundation::Runtime.Client Foundation::UI Foundation::UI.Toolkit Foundation::Xml
+    Foundation::UI.Resource Pipeline::UI Engine::UI Foundation::UI.Runtime Foundation::UI.Viewport
+    Foundation::Graphics Foundation::RHI Foundation::VG.Renderer
+    Editor::Core Editor::App Foundation::Policy)
+target_sources(Editor.GameUI PRIVATE UIDocumentPageImpl.cpp PUBLIC FILE_SET editor_gameui_modules TYPE CXX_MODULES FILES UIDocumentPage.cppm)

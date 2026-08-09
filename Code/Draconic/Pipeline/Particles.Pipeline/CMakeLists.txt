@@ -1,14 +1,14 @@
-# Draconic::Particles.Pipeline - `draconic.particles.editor`: the edit-time ParticleEffectAsset + its
+# Pipeline::Particles - `draconic.particles.editor`: the edit-time ParticleEffectAsset + its
 # builder (the bake). Tooling only - the runtime/app never links this. See
 # docs/design/particles-authoring.md.
-add_library(Draconic.Particles.Pipeline STATIC)
-add_library(Draconic::Particles.Pipeline ALIAS Draconic.Particles.Pipeline)
+add_library(Particles.Pipeline STATIC)
+add_library(Pipeline::Particles ALIAS Particles.Pipeline)
 
-target_link_libraries(Draconic.Particles.Pipeline
-    PUBLIC Draconic::Core Draconic::Pipeline.Core Draconic::Particles Draconic::Particles.Resource
-           Draconic::Content Draconic::Policy)
+target_link_libraries(Particles.Pipeline
+    PUBLIC Foundation::Core Pipeline::Core Foundation::Particles Foundation::Particles.Resource
+           Foundation::Content Foundation::Policy)
 
-target_sources(Draconic.Particles.Pipeline
+target_sources(Particles.Pipeline
     PUBLIC
         FILE_SET particles_editor_modules TYPE CXX_MODULES FILES
             ParticleEffectAsset.cppm)

@@ -1,15 +1,15 @@
-# Draconic::Particles - `draconic.particles`, the CPU particle runtime (a port of
+# Foundation::Particles - `draconic.particles`, the CPU particle runtime (a port of
 # SedulousEngine's Sedulous.Particles): SoA stream container + initializer/behavior
 # modules + effect/system/emitter/instance + CPU simulator. Pure logic over Core; the
 # cooked resource (.resource), the GPU-compute sim, the ECS/render integration, and the
 # authoring editor all layer on top. See docs/design/particles.md.
-add_library(Draconic.Particles STATIC)
-add_library(Draconic::Particles ALIAS Draconic.Particles)
+add_library(Particles STATIC)
+add_library(Foundation::Particles ALIAS Particles)
 
-target_link_libraries(Draconic.Particles
-    PUBLIC Draconic::Core Draconic::Policy)
+target_link_libraries(Particles
+    PUBLIC Foundation::Core Foundation::Policy)
 
-target_sources(Draconic.Particles
+target_sources(Particles
     PRIVATE
         ParticleModulesImpl.cpp   # module + range-type reflection bodies (GCC hygiene)
         ParticleEffectReflectionImpl.cpp # effect/system/emitter reflection bodies (GCC hygiene)

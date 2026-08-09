@@ -1,5 +1,5 @@
-# Draconic::Image.Resource - `draconic.image.resource` (runtime CPU-image resource).
-add_library(Draconic.Image.Resource STATIC)
-add_library(Draconic::Image.Resource ALIAS Draconic.Image.Resource)
-target_link_libraries(Draconic.Image.Resource PUBLIC Draconic::Core Draconic::Image Draconic::Content Draconic::Resource Draconic::Policy)
-target_sources(Draconic.Image.Resource PUBLIC FILE_SET image_resource_modules TYPE CXX_MODULES FILES ImageResource.cppm)
+# Foundation::Image.Resource - `draconic.image.resource` (runtime CPU-image resource).
+add_library(Image.Resource STATIC)
+add_library(Foundation::Image.Resource ALIAS Image.Resource)
+target_link_libraries(Image.Resource PUBLIC Foundation::Core Foundation::Image Foundation::Content Foundation::Resource Foundation::Policy)
+target_sources(Image.Resource PUBLIC FILE_SET image_resource_modules TYPE CXX_MODULES FILES ImageResource.cppm)

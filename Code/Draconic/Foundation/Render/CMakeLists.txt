@@ -1,15 +1,15 @@
-# Draconic::Render - `draconic.render`, the renderer (scene-agnostic). Consumes extracted
+# Foundation::Render - `draconic.render`, the renderer (scene-agnostic). Consumes extracted
 # render data (ExtractedView) and draws it; knows nothing about the scene. This phase
 # is the render-data contract; the GPU forward path lands later (adds the RHI dep).
 # Scene integration lives in the Subsystem sub-library (one-way dependency -> here).
-add_library(Draconic.Render STATIC)
-add_library(Draconic::Render ALIAS Draconic.Render)
+add_library(Render STATIC)
+add_library(Foundation::Render ALIAS Render)
 
-target_link_libraries(Draconic.Render
-    PUBLIC Draconic::Core Draconic::RHI Draconic::Render.Api Draconic::RenderGraph Draconic::Geometry Draconic::Materials
-           Draconic::Shaders Draconic::Shaders.System Draconic::Materials.PipelineCache Draconic::Profiler Draconic::Policy)
+target_link_libraries(Render
+    PUBLIC Foundation::Core Foundation::RHI Foundation::Render.Api Foundation::RenderGraph Foundation::Geometry Foundation::Materials
+           Foundation::Shaders Foundation::Shaders.System Foundation::Materials.PipelineCache Foundation::Profiler Foundation::Policy)
 
-target_sources(Draconic.Render
+target_sources(Render
     PRIVATE
         MeshRendererImpl.cpp   # out-of-line MeshRenderer defs (see MeshRenderer.cppm)
         PipelineImpl.cpp        # out-of-line Pipeline defs (see Pipeline.cppm)

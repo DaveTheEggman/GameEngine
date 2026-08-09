@@ -1,28 +1,28 @@
-# Draconic::Editor.Core - `draconic.editor.core` (headless editor domain: context, registries,
+# Editor::Core - `draconic.editor.core` (headless editor domain: context, registries,
 # command stack, pages, selection, project). Tooling only - the runtime never links this.
 
-add_library(Draconic.Editor.Core STATIC)
-add_library(Draconic::Editor.Core ALIAS Draconic.Editor.Core)
+add_library(Editor.Core STATIC)
+add_library(Editor::Core ALIAS Editor.Core)
 
-target_link_libraries(Draconic.Editor.Core
-    PUBLIC Draconic::Core Draconic::VFS Draconic::VFS.Pak Draconic::Content Draconic::Xml.Serialization Draconic::Engine.Project
-           Draconic::Settings Draconic::Scene.Resource
-           Draconic::Pipeline.Cook Draconic::Resource Draconic::Policy
-           Draconic::Shaders) # export cooks the engine shader pack (shaders.dpak)
+target_link_libraries(Editor.Core
+    PUBLIC Foundation::Core Foundation::VFS Foundation::VFS.Pak Foundation::Content Foundation::Xml.Serialization Engine::Project
+           Foundation::Settings Foundation::Scene.Resource
+           Pipeline::Cook Foundation::Resource Foundation::Policy
+           Foundation::Shaders) # export cooks the engine shader pack (shaders.dpak)
 
 # Export cooks the built-in shaders from the source tree (same root the renderer bakes); a
 # relocated editor falls back to a "Shaders" dir beside it.
-if(TARGET Draconic::Shaders)
-    target_compile_definitions(Draconic.Editor.Core PRIVATE
+if(TARGET Foundation::Shaders)
+    target_compile_definitions(Editor.Core PRIVATE
         DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
 endif()
 
 # The player executable basename, from the build's single source of truth (root CMakeLists). The
 # export host-template stages "<base>[.exe]" and reads "<base>.runtime-libs" beside the running tool.
-target_compile_definitions(Draconic.Editor.Core PRIVATE
+target_compile_definitions(Editor.Core PRIVATE
     DRACONIC_PLAYER_BASENAME=u8"${DRACONIC_PLAYER_BASENAME}")
 
-target_sources(Draconic.Editor.Core
+target_sources(Editor.Core
     PRIVATE
         CookServiceImpl.cpp
         ContextImpl.cpp

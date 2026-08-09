@@ -1,14 +1,14 @@
-# Draconic::Net - `draconic.net` (real-time game networking: wire format + INetTransport with
+# Foundation::Net - `draconic.net` (real-time game networking: wire format + INetTransport with
 # swappable backends - reliable-UDP (ours), loopback/sim, later websocket/webrtc - + session,
 # reliability, RPC, replication). Over Core (+ Core/System sockets, later). See
 # docs/design/networking.md.
 
-add_library(Draconic.Net STATIC)
-add_library(Draconic::Net ALIAS Draconic.Net)
+add_library(Net STATIC)
+add_library(Foundation::Net ALIAS Net)
 
-target_link_libraries(Draconic.Net PUBLIC Draconic::Core Draconic::Policy)
+target_link_libraries(Net PUBLIC Foundation::Core Foundation::Policy)
 
-target_sources(Draconic.Net
+target_sources(Net
     PUBLIC
         FILE_SET net_modules TYPE CXX_MODULES FILES
             WireStream.cppm

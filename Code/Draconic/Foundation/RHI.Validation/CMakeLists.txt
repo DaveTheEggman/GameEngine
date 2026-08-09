@@ -1,12 +1,12 @@
-# Draconic::RHI.Validation - `draconic.rhi.validation` (a wrapping layer that checks
+# Foundation::RHI.Validation - `draconic.rhi.validation` (a wrapping layer that checks
 # RHI API usage and forwards to an inner backend).
 
-add_library(Draconic.RHI.Validation STATIC)
-add_library(Draconic::RHI.Validation ALIAS Draconic.RHI.Validation)
+add_library(RHI.Validation STATIC)
+add_library(Foundation::RHI.Validation ALIAS RHI.Validation)
 
-target_link_libraries(Draconic.RHI.Validation PUBLIC Draconic::RHI Draconic::Core Draconic::Policy)
+target_link_libraries(RHI.Validation PUBLIC Foundation::RHI Foundation::Core Foundation::Policy)
 
-target_sources(Draconic.RHI.Validation
+target_sources(RHI.Validation
     PUBLIC
         FILE_SET rhi_validation_modules TYPE CXX_MODULES FILES
             ValidatedAdapter.cppm

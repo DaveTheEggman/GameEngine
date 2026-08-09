@@ -1,10 +1,10 @@
 # VG Sandbox - end-to-end VG stack demo (window + VGRenderer).
 add_executable(VGSandbox Main.cpp)
 target_link_libraries(VGSandbox PRIVATE
-    Draconic::Core Draconic::RHI Draconic::RHI.Vulkan Draconic::Shaders Draconic::Shaders.System
-    Draconic::SamplesFramework
-    Draconic::Image Draconic::Fonts Draconic::Fonts.TTF Draconic::Fonts.DistanceField Draconic::Fonts.DistanceField.Baker
-    Draconic::VG Draconic::VG.Renderer Draconic::VG.SVG)
+    Foundation::Core Foundation::RHI Foundation::RHI.Vulkan Foundation::Shaders Foundation::Shaders.System
+    Samples::Framework
+    Foundation::Image Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.DistanceField Foundation::Fonts.DistanceField.Baker
+    Foundation::VG Foundation::VG.Renderer Foundation::VG.SVG)
 target_compile_definitions(VGSandbox PRIVATE
     DRACONIC_VG_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
     DRACONIC_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")

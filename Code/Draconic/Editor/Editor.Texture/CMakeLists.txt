@@ -1,17 +1,17 @@
-# Draconic::Editor.Texture - `draconic.editor.texture`: the TextureAsset import-settings +
+# Editor::Texture - `draconic.editor.texture`: the TextureAsset import-settings +
 # preview page + factory. Linked by the editor EXECUTABLE only.
-add_library(Draconic.Editor.Texture STATIC)
-add_library(Draconic::Editor.Texture ALIAS Draconic.Editor.Texture)
+add_library(Editor.Texture STATIC)
+add_library(Editor::Texture ALIAS Editor.Texture)
 
-target_link_libraries(Draconic.Editor.Texture
+target_link_libraries(Editor.Texture
     PUBLIC
-        Draconic::Core Draconic::Content
-        Draconic::Image Draconic::Image.IO
-        Draconic::Texture Draconic::Texture.Pipeline
-        Draconic::UI Draconic::UI.Toolkit
-        Draconic::Editor.Core Draconic::Editor.App Draconic::Policy)
+        Foundation::Core Foundation::Content
+        Foundation::Image Foundation::Image.IO
+        Foundation::Texture Pipeline::Texture
+        Foundation::UI Foundation::UI.Toolkit
+        Editor::Core Editor::App Foundation::Policy)
 
-target_sources(Draconic.Editor.Texture
+target_sources(Editor.Texture
     PRIVATE
         TextureEditorPageImpl.cpp
     PUBLIC

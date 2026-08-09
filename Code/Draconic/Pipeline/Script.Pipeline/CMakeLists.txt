@@ -1,12 +1,12 @@
-# Draconic::Script.Pipeline - `draconic.script.editor` (script class asset/builder/importer, tooling).
-# Backend-neutral by construction (B3): links Draconic::Script for the REGISTRY only -
+# Pipeline::Script - `draconic.script.editor` (script class asset/builder/importer, tooling).
+# Backend-neutral by construction (B3): links Foundation::Script for the REGISTRY only -
 # never a concrete backend library (entry points register backends).
-add_library(Draconic.Script.Pipeline STATIC)
-add_library(Draconic::Script.Pipeline ALIAS Draconic.Script.Pipeline)
-target_link_libraries(Draconic.Script.Pipeline PUBLIC
-    Draconic::Core Draconic::Pipeline.Core Draconic::Editor.Core Draconic::Content
-    Draconic::Script Draconic::Script.Resource Draconic::Policy)
-target_sources(Draconic.Script.Pipeline
+add_library(Script.Pipeline STATIC)
+add_library(Pipeline::Script ALIAS Script.Pipeline)
+target_link_libraries(Script.Pipeline PUBLIC
+    Foundation::Core Pipeline::Core Editor::Core Foundation::Content
+    Foundation::Script Foundation::Script.Resource Foundation::Policy)
+target_sources(Script.Pipeline
     PRIVATE
         ScriptAssetImpl.cpp
     PUBLIC FILE_SET script_editor_modules TYPE CXX_MODULES FILES ScriptAsset.cppm)

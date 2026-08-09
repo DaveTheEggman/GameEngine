@@ -1,14 +1,14 @@
-# Draconic::Engine.Audio - `draconic.engine.audio`: scene integration
+# Engine::Audio - `draconic.engine.audio`: scene integration
 # (components + per-scene voice group + transform/listener sync + one-shot API).
-add_library(Draconic.Engine.Audio STATIC)
-add_library(Draconic::Engine.Audio ALIAS Draconic.Engine.Audio)
+add_library(Engine.Audio STATIC)
+add_library(Engine::Audio ALIAS Engine.Audio)
 
-target_link_libraries(Draconic.Engine.Audio
-    PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::Engine.Scene
-           Draconic::Audio Draconic::Resource Draconic::Content Draconic::Script
-           Draconic::Script.Facades Draconic::Settings Draconic::Engine.Render Draconic::Policy)
+target_link_libraries(Engine.Audio
+    PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene
+           Foundation::Audio Foundation::Resource Foundation::Content Foundation::Script
+           Foundation::Script.Facades Foundation::Settings Engine::Render Foundation::Policy)
 
-target_sources(Draconic.Engine.Audio
+target_sources(Engine.Audio
     PRIVATE
         AudioSubsystemImpl.cpp   # implementation unit: listener push + reflection (render dep stays out of the interface)
     PUBLIC

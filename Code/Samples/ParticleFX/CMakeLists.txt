@@ -4,25 +4,25 @@
 add_executable(ParticleFX main.cpp)
 
 target_link_libraries(ParticleFX PRIVATE
-    Draconic::Core
-    Draconic::Runtime
-    Draconic::Runtime.Client
-    Draconic::Shell.Desktop Draconic::Runtime.Desktop
-    Draconic::Graphics
-    Draconic::Graphics.Gpu
-    Draconic::Engine.DefaultApp
-    Draconic::Scene
-    Draconic::Engine.Scene
-    Draconic::Engine.Render
-    Draconic::Imgui
-    Draconic::Geometry
-    Draconic::Materials
-    Draconic::Particles
-    Draconic::Engine.Particles
-    Draconic::Particles.Resource       # cooked ParticleEffectResource + factory
-    Draconic::Particles.Pipeline         # ParticleEffectAsset + bake (sample references editor for the demo)
-    Draconic::Pipeline.Core Draconic::Content Draconic::Resource Draconic::VFS
-    Draconic::Policy)
+    Foundation::Core
+    Foundation::Runtime
+    Foundation::Runtime.Client
+    Foundation::Shell.Desktop Foundation::Runtime.Desktop
+    Foundation::Graphics
+    Foundation::Graphics.Gpu
+    Engine::DefaultApp
+    Foundation::Scene
+    Engine::Scene
+    Engine::Render
+    Extensions::Imgui
+    Foundation::Geometry
+    Foundation::Materials
+    Foundation::Particles
+    Engine::Particles
+    Foundation::Particles.Resource       # cooked ParticleEffectResource + factory
+    Pipeline::Particles         # ParticleEffectAsset + bake (sample references editor for the demo)
+    Pipeline::Core Foundation::Content Foundation::Resource Foundation::VFS
+    Foundation::Policy)
 
 # Per-sample cooked-output DB (isolated), matching the other samples' pattern.
 target_compile_definitions(ParticleFX PRIVATE

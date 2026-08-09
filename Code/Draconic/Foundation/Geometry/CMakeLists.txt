@@ -1,13 +1,13 @@
-# Draconic::Geometry - `draconic.geometry`, the engine's runtime mesh format
+# Foundation::Geometry - `draconic.geometry`, the engine's runtime mesh format
 # (StaticMesh/SkinnedMesh + index buffer + procedural primitives). Pure data on
 # top of Core; the renderer uploads the raw vertex/index streams.
-add_library(Draconic.Geometry STATIC)
-add_library(Draconic::Geometry ALIAS Draconic.Geometry)
+add_library(Geometry STATIC)
+add_library(Foundation::Geometry ALIAS Geometry)
 
-target_link_libraries(Draconic.Geometry
-    PUBLIC Draconic::Core Draconic::Policy)
+target_link_libraries(Geometry
+    PUBLIC Foundation::Core Foundation::Policy)
 
-target_sources(Draconic.Geometry
+target_sources(Geometry
     PUBLIC
         FILE_SET geometry_modules TYPE CXX_MODULES FILES
             Types.cppm

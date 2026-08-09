@@ -1,4 +1,4 @@
-add_executable(Draconic.UI.Toolkit.Tests
+add_executable(UI.Toolkit.Tests
     StyleProbeTests.cpp
     StatusBarTests.cpp
     ToolbarTests.cpp
@@ -32,14 +32,14 @@ add_executable(Draconic.UI.Toolkit.Tests
     ToolkitTests.cpp
     TestsMain.cpp)
 
-target_link_libraries(Draconic.UI.Toolkit.Tests PRIVATE
-    Draconic::UI.Toolkit Draconic::UI Draconic::Core doctest::doctest)
+target_link_libraries(UI.Toolkit.Tests PRIVATE
+    Foundation::UI.Toolkit Foundation::UI Foundation::Core doctest::doctest)
 
-target_compile_definitions(Draconic.UI.Toolkit.Tests PRIVATE
+target_compile_definitions(UI.Toolkit.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 
-target_compile_options(Draconic.UI.Toolkit.Tests PRIVATE
+target_compile_options(UI.Toolkit.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"
     "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 
-add_test(NAME Draconic.UI.Toolkit.Tests COMMAND Draconic.UI.Toolkit.Tests)
+add_test(NAME UI.Toolkit.Tests COMMAND UI.Toolkit.Tests)

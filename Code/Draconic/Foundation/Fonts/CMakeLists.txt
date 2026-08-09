@@ -1,12 +1,12 @@
-# Draconic::Fonts - `draconic.fonts` (font/glyph/text-layout types + interfaces).
+# Foundation::Fonts - `draconic.fonts` (font/glyph/text-layout types + interfaces).
 # Ported from Sedulous.Fonts (excluding Fonts.Resources).
 
-add_library(Draconic.Fonts STATIC)
-add_library(Draconic::Fonts ALIAS Draconic.Fonts)
+add_library(Fonts STATIC)
+add_library(Foundation::Fonts ALIAS Fonts)
 
-target_link_libraries(Draconic.Fonts PUBLIC Draconic::Core Draconic::Image Draconic::Policy)
+target_link_libraries(Fonts PUBLIC Foundation::Core Foundation::Image Foundation::Policy)
 
-target_sources(Draconic.Fonts
+target_sources(Fonts
     PUBLIC
         FILE_SET fonts_modules TYPE CXX_MODULES FILES
             Types.cppm

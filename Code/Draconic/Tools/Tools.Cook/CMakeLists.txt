@@ -1,14 +1,14 @@
-# Draconic.Tools.Cook - the command-line cooker (headless: no shell/GPU).
-add_executable(Draconic.Tools.Cook Main.cpp)
-target_link_libraries(Draconic.Tools.Cook PRIVATE
-    Draconic::Core Draconic::Content Draconic::VFS
-    Draconic::Pipeline.Core Draconic::Editor.Core Draconic::Pipeline.Cook
-    Draconic::Texture.Pipeline Draconic::Fonts.Pipeline Draconic::Image.Pipeline Draconic::Geometry.Pipeline
-    Draconic::Animation.Pipeline Draconic::Materials.Pipeline Draconic::Shaders.Pipeline
-    Draconic::Particles.Pipeline Draconic::Input Draconic::Input.Resource Draconic::Input.Pipeline Draconic::ModelImporter Draconic::Image.Resource
-    Draconic::Physics Draconic::Physics.Resource Draconic::Physics.Pipeline
-    Draconic::Audio Draconic::Audio.Resource Draconic::Audio.Pipeline
-    Draconic::Script Draconic::Script.Wren Draconic::Script.AngelScript Draconic::Script.Resource Draconic::Script.Facades
-    Draconic::Script.Pipeline Draconic::Script.Wren.Pipeline Draconic::Script.AngelScript.Pipeline
-    Draconic::UI.Resource Draconic::UI.Pipeline)
+# Tools.Cook - the command-line cooker (headless: no shell/GPU).
+add_executable(Tools.Cook Main.cpp)
+target_link_libraries(Tools.Cook PRIVATE
+    Foundation::Core Foundation::Content Foundation::VFS
+    Pipeline::Core Editor::Core Pipeline::Cook
+    Pipeline::Texture Pipeline::Fonts Pipeline::Image Pipeline::Geometry
+    Pipeline::Animation Pipeline::Materials Pipeline::Shaders
+    Pipeline::Particles Foundation::Input Foundation::Input.Resource Pipeline::Input Pipeline::ModelImporter Foundation::Image.Resource
+    Foundation::Physics Foundation::Physics.Resource Pipeline::Physics
+    Foundation::Audio Foundation::Audio.Resource Pipeline::Audio
+    Foundation::Script Foundation::Script.Wren Foundation::Script.AngelScript Foundation::Script.Resource Foundation::Script.Facades
+    Pipeline::Script Pipeline::Script.Wren Pipeline::Script.AngelScript
+    Foundation::UI.Resource Pipeline::UI)
 

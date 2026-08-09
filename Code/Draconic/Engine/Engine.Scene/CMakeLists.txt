@@ -1,13 +1,13 @@
-# Draconic::Engine.Scene - `draconic.engine.scene` (the Context-level scene driver +
+# Engine::Scene - `draconic.engine.scene` (the Context-level scene driver +
 # ISceneAware broker). Bridges draconic.scene and draconic.runtime; keeps scene core
 # runtime-free.
-add_library(Draconic.Engine.Scene STATIC)
-add_library(Draconic::Engine.Scene ALIAS Draconic.Engine.Scene)
+add_library(Engine.Scene STATIC)
+add_library(Engine::Scene ALIAS Engine.Scene)
 
-target_link_libraries(Draconic.Engine.Scene
-    PUBLIC Draconic::Core Draconic::Runtime Draconic::Scene Draconic::Policy)
+target_link_libraries(Engine.Scene
+    PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Foundation::Policy)
 
-target_sources(Draconic.Engine.Scene
+target_sources(Engine.Scene
     PUBLIC
         FILE_SET scene_subsystem_modules TYPE CXX_MODULES FILES
             SceneSubsystem.cppm)

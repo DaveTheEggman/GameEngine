@@ -1,14 +1,14 @@
-# Draconic::GUI - `draconic.gui`, a fresh eepp-derived retained-mode UI framework,
+# Experimental::GUI - `draconic.gui`, a fresh eepp-derived retained-mode UI framework,
 # progressively sliced onto the Draconic VG/Fonts stack (docs/design/gui-port.md).
 # Platform- and renderer-agnostic core; VG/Fonts/Image/Xml are linked as those phases
 # land, and the gui.shell input bridge is a separate library. Built bottom-up.
-add_library(Draconic.GUI STATIC)
-add_library(Draconic::GUI ALIAS Draconic.GUI)
+add_library(GUI STATIC)
+add_library(Experimental::GUI ALIAS GUI)
 
-target_link_libraries(Draconic.GUI
-    PUBLIC Draconic::Core Draconic::VG Draconic::Image Draconic::Fonts Draconic::Xml Draconic::Policy)
+target_link_libraries(GUI
+    PUBLIC Foundation::Core Foundation::VG Foundation::Image Foundation::Fonts Foundation::Xml Foundation::Policy)
 
-target_sources(Draconic.GUI
+target_sources(GUI
     PUBLIC
         FILE_SET gui_modules TYPE CXX_MODULES FILES
             Core/Rect.cppm

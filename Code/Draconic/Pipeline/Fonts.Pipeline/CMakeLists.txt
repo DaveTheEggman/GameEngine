@@ -1,17 +1,17 @@
-# Draconic::Fonts.Pipeline - `draconic.fonts.editor` (FontAsset + importer + FontAssetBuilder:
+# Pipeline::Fonts - `draconic.fonts.editor` (FontAsset + importer + FontAssetBuilder:
 # the source/cook tier of the fonts triad). Tooling only; requires the msdfgen DF baker.
 
-add_library(Draconic.Fonts.Pipeline STATIC)
-add_library(Draconic::Fonts.Pipeline ALIAS Draconic.Fonts.Pipeline)
+add_library(Fonts.Pipeline STATIC)
+add_library(Pipeline::Fonts ALIAS Fonts.Pipeline)
 
-target_link_libraries(Draconic.Fonts.Pipeline
-    PUBLIC Draconic::Core Draconic::Pipeline.Core Draconic::Editor.Core
-           Draconic::Fonts Draconic::Fonts.TTF Draconic::Fonts.IO Draconic::Fonts.Baked
-           Draconic::Fonts.Importer Draconic::Fonts.DistanceField
-           Draconic::Fonts.DistanceField.Baker Draconic::Fonts.Resource
-           Draconic::Content Draconic::Policy)
+target_link_libraries(Fonts.Pipeline
+    PUBLIC Foundation::Core Pipeline::Core Editor::Core
+           Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.IO Foundation::Fonts.Baked
+           Foundation::Fonts.Importer Foundation::Fonts.DistanceField
+           Foundation::Fonts.DistanceField.Baker Foundation::Fonts.Resource
+           Foundation::Content Foundation::Policy)
 
-target_sources(Draconic.Fonts.Pipeline
+target_sources(Fonts.Pipeline
     PRIVATE
         FontAssetImpl.cpp
     PUBLIC

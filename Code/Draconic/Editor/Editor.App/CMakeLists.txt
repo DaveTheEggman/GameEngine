@@ -1,21 +1,21 @@
-# Draconic::Editor.App - `draconic.editor.app`: the editor UI shell (chrome + layout persistence +
+# Editor::App - `draconic.editor.app`: the editor UI shell (chrome + layout persistence +
 # EditorApplication) on draconic.ui / toolkit / the runtime docking host. Tooling only.
 
-add_library(Draconic.Editor.App STATIC)
-add_library(Draconic::Editor.App ALIAS Draconic.Editor.App)
+add_library(Editor.App STATIC)
+add_library(Editor::App ALIAS Editor.App)
 
-target_link_libraries(Draconic.Editor.App
+target_link_libraries(Editor.App
     PUBLIC
-        Draconic::Core Draconic::VFS Draconic::Xml.Serialization Draconic::Pipeline.Core Draconic::Resource
-        Draconic::Shell Draconic::Graphics Draconic::Runtime Draconic::Runtime.Client Draconic::Engine.DefaultApp
-        Draconic::Render.Api
-        Draconic::Fonts Draconic::Fonts.TTF Draconic::Fonts.Resource Draconic::Fonts.DistanceField.Baker
-        Draconic::UI Draconic::UI.Toolkit Draconic::UI.Runtime Draconic::UI.Application
-        Draconic::UI.Resource Draconic::Engine.UI
-        Draconic::Input Draconic::Engine.Input
-        Draconic::Editor.Core Draconic::Settings Draconic::Policy)
+        Foundation::Core Foundation::VFS Foundation::Xml.Serialization Pipeline::Core Foundation::Resource
+        Foundation::Shell Foundation::Graphics Foundation::Runtime Foundation::Runtime.Client Engine::DefaultApp
+        Foundation::Render.Api
+        Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.Resource Foundation::Fonts.DistanceField.Baker
+        Foundation::UI Foundation::UI.Toolkit Foundation::UI.Runtime Foundation::UI.Application
+        Foundation::UI.Resource Engine::UI
+        Foundation::Input Engine::Input
+        Editor::Core Foundation::Settings Foundation::Policy)
 
-target_sources(Draconic.Editor.App
+target_sources(Editor.App
     PRIVATE
         ApplicationImpl.cpp
         AssetsViewImpl.cpp

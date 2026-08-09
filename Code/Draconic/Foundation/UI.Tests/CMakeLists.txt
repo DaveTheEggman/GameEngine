@@ -1,5 +1,5 @@
-# Draconic::UI unit tests (doctest) - faithful ports of Sedulous.UI.Tests, added as each subsystem lands.
-add_executable(Draconic.UI.Tests
+# Foundation::UI unit tests (doctest) - faithful ports of Sedulous.UI.Tests, added as each subsystem lands.
+add_executable(UI.Tests
     TestsMain.cpp
     ThicknessTests.cpp
     ViewTransformTests.cpp
@@ -47,14 +47,14 @@ add_executable(Draconic.UI.Tests
     WantsTextInputTests.cpp
     ControlTests.cpp)
 
-target_link_libraries(Draconic.UI.Tests PRIVATE
-    Draconic::UI doctest::doctest)
+target_link_libraries(UI.Tests PRIVATE
+    Foundation::UI doctest::doctest)
 
-target_compile_definitions(Draconic.UI.Tests PRIVATE
+target_compile_definitions(UI.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 
-target_compile_options(Draconic.UI.Tests PRIVATE
+target_compile_options(UI.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"
     "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 
-add_test(NAME Draconic.UI.Tests COMMAND Draconic.UI.Tests)
+add_test(NAME UI.Tests COMMAND UI.Tests)

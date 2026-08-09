@@ -2,15 +2,15 @@
 # stays backend-neutral), a real Scene, NO device/window dependencies.
 add_executable(DraconicScriptSceneTests TestsMain.cpp ScriptSceneTests.cpp)
 target_link_libraries(DraconicScriptSceneTests PRIVATE
-    Draconic::Engine.Script Draconic::Script.Resource Draconic::Scene Draconic::Scene.Resource
-    Draconic::Content Draconic::Resource Draconic::VFS
-    Draconic::Physics Draconic::Engine.Physics Draconic::Engine.Integration
-    Draconic::Engine.Render Draconic::Audio Draconic::Engine.Audio
-    Draconic::Animation Draconic::Engine.Animation
-    Draconic::Particles Draconic::Engine.Particles
-    Draconic::Net Draconic::Net.Replication
-    Draconic::UI Draconic::Engine.UI
-    Draconic::Script Draconic::Script.Wren Draconic::Script.AngelScript doctest::doctest)
+    Engine::Script Foundation::Script.Resource Foundation::Scene Foundation::Scene.Resource
+    Foundation::Content Foundation::Resource Foundation::VFS
+    Foundation::Physics Engine::Physics Engine::Integration
+    Engine::Render Foundation::Audio Engine::Audio
+    Foundation::Animation Engine::Animation
+    Foundation::Particles Engine::Particles
+    Foundation::Net Foundation::Net.Replication
+    Foundation::UI Engine::UI
+    Foundation::Script Foundation::Script.Wren Foundation::Script.AngelScript doctest::doctest)
 target_compile_definitions(DraconicScriptSceneTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(DraconicScriptSceneTests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"

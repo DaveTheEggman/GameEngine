@@ -1,12 +1,12 @@
-# Draconic::Input - `draconic.input`: the action-mapping layer (data model + ActionRuntime)
+# Foundation::Input - `draconic.input`: the action-mapping layer (data model + ActionRuntime)
 # over Core + Shell. Engine-global (per player, not per scene).
-add_library(Draconic.Input STATIC)
-add_library(Draconic::Input ALIAS Draconic.Input)
+add_library(Input STATIC)
+add_library(Foundation::Input ALIAS Input)
 
-target_link_libraries(Draconic.Input
-    PUBLIC Draconic::Core Draconic::Shell Draconic::Policy)
+target_link_libraries(Input
+    PUBLIC Foundation::Core Foundation::Shell Foundation::Policy)
 
-target_sources(Draconic.Input
+target_sources(Input
     PRIVATE
         InputReflectionImpl.cpp   # input leaf-type + enum reflection (GCC hygiene: out of interfaces)
     PUBLIC

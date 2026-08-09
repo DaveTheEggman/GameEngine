@@ -1,13 +1,13 @@
-# Draconic::Net.Manager - `draconic.net.manager`: a networked endpoint owned per running game
+# Foundation::Net.Manager - `draconic.net.manager`: a networked endpoint owned per running game
 # (NetworkManager owns a live NetSession + RpcTable, driven each fixed step) + the `Net` script
 # facade (Wren + AngelScript). Over draconic.net + draconic.script. See docs/design/networking.md §6.
 
-add_library(Draconic.Net.Manager STATIC)
-add_library(Draconic::Net.Manager ALIAS Draconic.Net.Manager)
+add_library(Net.Manager STATIC)
+add_library(Foundation::Net.Manager ALIAS Net.Manager)
 
-target_link_libraries(Draconic.Net.Manager PUBLIC Draconic::Core Draconic::Net Draconic::Net.Replication Draconic::Scene Draconic::Script Draconic::Script.Facades Draconic::Policy)
+target_link_libraries(Net.Manager PUBLIC Foundation::Core Foundation::Net Foundation::Net.Replication Foundation::Scene Foundation::Script Foundation::Script.Facades Foundation::Policy)
 
-target_sources(Draconic.Net.Manager
+target_sources(Net.Manager
     PUBLIC
         FILE_SET net_manager_modules TYPE CXX_MODULES FILES
             NetworkManager.cppm

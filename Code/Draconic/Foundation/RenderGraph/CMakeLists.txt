@@ -1,13 +1,13 @@
-# Draconic::RenderGraph - `draconic.rendergraph` (render graph over the RHI:
+# Foundation::RenderGraph - `draconic.rendergraph` (render graph over the RHI:
 # pass dependency resolution, transient resource aliasing, automatic barriers).
 # Ported from Sedulous.RenderGraph.
 
-add_library(Draconic.RenderGraph STATIC)
-add_library(Draconic::RenderGraph ALIAS Draconic.RenderGraph)
+add_library(RenderGraph STATIC)
+add_library(Foundation::RenderGraph ALIAS RenderGraph)
 
-target_link_libraries(Draconic.RenderGraph PUBLIC Draconic::Core Draconic::RHI Draconic::Policy)
+target_link_libraries(RenderGraph PUBLIC Foundation::Core Foundation::RHI Foundation::Policy)
 
-target_sources(Draconic.RenderGraph
+target_sources(RenderGraph
     PUBLIC
         FILE_SET render_graph_modules TYPE CXX_MODULES FILES
             Types.cppm

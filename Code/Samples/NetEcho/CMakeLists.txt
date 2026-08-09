@@ -2,4 +2,4 @@
 # just Core + Net, so it builds anywhere and runs headless (returns 0 when all lines round-trip).
 
 add_executable(NetEcho main.cpp)
-target_link_libraries(NetEcho PRIVATE Draconic::Core Draconic::Net Draconic::Policy)
+target_link_libraries(NetEcho PRIVATE Foundation::Core Foundation::Net Foundation::Policy)

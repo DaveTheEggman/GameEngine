@@ -1,13 +1,13 @@
-# Draconic::Animation - `draconic.animation`, the skeletal-animation foundation
+# Foundation::Animation - `draconic.animation`, the skeletal-animation foundation
 # (skeleton/pose/clip/sampler/player + animation graph). A faithful port of
 # Sedulous.Animation; pure logic over Core math + containers, no renderer dep.
-add_library(Draconic.Animation STATIC)
-add_library(Draconic::Animation ALIAS Draconic.Animation)
+add_library(Animation STATIC)
+add_library(Foundation::Animation ALIAS Animation)
 
-target_link_libraries(Draconic.Animation
-    PUBLIC Draconic::Core Draconic::Policy)
+target_link_libraries(Animation
+    PUBLIC Foundation::Core Foundation::Policy)
 
-target_sources(Draconic.Animation
+target_sources(Animation
     PUBLIC
         FILE_SET animation_modules TYPE CXX_MODULES FILES
             Easing.cppm
@@ -20,4 +20,4 @@ target_sources(Draconic.Animation
             AnimationModule.cppm)
 
 # NB: the scene-integration lib (Animation/Subsystem) is added from the ROOT CMakeLists AFTER
-# Render, because it links Draconic::Engine.Render (which doesn't exist this early in config).
+# Render, because it links Engine::Render (which doesn't exist this early in config).

@@ -1,13 +1,13 @@
-# Draconic::Geometry.Pipeline - `draconic.geometry.editor` (tooling: Static/SkinnedMeshAsset ->
+# Pipeline::Geometry - `draconic.geometry.editor` (tooling: Static/SkinnedMeshAsset ->
 # Static/SkinnedMeshSource cook). Never linked by the runtime.
-add_library(Draconic.Geometry.Pipeline STATIC)
-add_library(Draconic::Geometry.Pipeline ALIAS Draconic.Geometry.Pipeline)
+add_library(Geometry.Pipeline STATIC)
+add_library(Pipeline::Geometry ALIAS Geometry.Pipeline)
 
-target_link_libraries(Draconic.Geometry.Pipeline
-    PUBLIC Draconic::Core Draconic::Pipeline.Core Draconic::Content
-           Draconic::Geometry Draconic::Geometry.Resource Draconic::Policy)
+target_link_libraries(Geometry.Pipeline
+    PUBLIC Foundation::Core Pipeline::Core Foundation::Content
+           Foundation::Geometry Foundation::Geometry.Resource Foundation::Policy)
 
-target_sources(Draconic.Geometry.Pipeline
+target_sources(Geometry.Pipeline
     PUBLIC
         FILE_SET mesh_editor_modules TYPE CXX_MODULES FILES
             MeshAsset.cppm)

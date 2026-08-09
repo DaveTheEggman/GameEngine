@@ -5,31 +5,31 @@
 add_executable(AnimatedCrowd main.cpp)
 
 target_link_libraries(AnimatedCrowd PRIVATE
-    Draconic::Core
-    Draconic::Runtime
-    Draconic::Runtime.Client
-    Draconic::Shell.Desktop Draconic::Runtime.Desktop
-    Draconic::Graphics
-    Draconic::Graphics.Gpu
-    Draconic::Engine.DefaultApp
-    Draconic::Scene
-    Draconic::Engine.Scene
-    Draconic::Engine.Render
-    Draconic::Imgui
-    Draconic::Geometry
-    Draconic::Materials
-    Draconic::ModelImporter
-    Draconic::Model
-    Draconic::Content
-    Draconic::Resource
-    Draconic::VFS
-    Draconic::Geometry.Resource
-    Draconic::Materials.Resource
-    Draconic::Texture.Resource
-    Draconic::Animation
-    Draconic::Engine.Animation
-    Draconic::Profiler
-    Draconic::Policy)
+    Foundation::Core
+    Foundation::Runtime
+    Foundation::Runtime.Client
+    Foundation::Shell.Desktop Foundation::Runtime.Desktop
+    Foundation::Graphics
+    Foundation::Graphics.Gpu
+    Engine::DefaultApp
+    Foundation::Scene
+    Engine::Scene
+    Engine::Render
+    Extensions::Imgui
+    Foundation::Geometry
+    Foundation::Materials
+    Pipeline::ModelImporter
+    Foundation::Model
+    Foundation::Content
+    Foundation::Resource
+    Foundation::VFS
+    Foundation::Geometry.Resource
+    Foundation::Materials.Resource
+    Foundation::Texture.Resource
+    Foundation::Animation
+    Engine::Animation
+    Foundation::Profiler
+    Foundation::Policy)
 
 # Absolute asset paths (cwd-independent), mirroring the VGSandbox font-path pattern:
 # the raw model files (read by the loaders) + the cooked-resource output database.

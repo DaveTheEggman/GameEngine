@@ -1,5 +1,5 @@
-# Draconic::GUI unit tests (doctest), added per subsystem as the port lands.
-add_executable(Draconic.GUI.Tests
+# Experimental::GUI unit tests (doctest), added per subsystem as the port lands.
+add_executable(GUI.Tests
     TestsMain.cpp
     RectTests.cpp
     Transform2DTests.cpp
@@ -51,14 +51,14 @@ add_executable(Draconic.GUI.Tests
     KeyframesTests.cpp
     MarkupTests.cpp)
 
-target_link_libraries(Draconic.GUI.Tests PRIVATE
-    Draconic::GUI doctest::doctest)
+target_link_libraries(GUI.Tests PRIVATE
+    Experimental::GUI doctest::doctest)
 
-target_compile_definitions(Draconic.GUI.Tests PRIVATE
+target_compile_definitions(GUI.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 
-target_compile_options(Draconic.GUI.Tests PRIVATE
+target_compile_options(GUI.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"
     "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 
-add_test(NAME Draconic.GUI.Tests COMMAND Draconic.GUI.Tests)
+add_test(NAME GUI.Tests COMMAND GUI.Tests)
