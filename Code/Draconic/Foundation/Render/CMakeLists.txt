@@ -1,4 +1,4 @@
-# Foundation::Render - `draconic.render`, the renderer (scene-agnostic). Consumes extracted
+# Foundation::Render - `foundation.render`, the renderer (scene-agnostic). Consumes extracted
 # render data (ExtractedView) and draws it; knows nothing about the scene. This phase
 # is the render-data contract; the GPU forward path lands later (adds the RHI dep).
 # Scene integration lives in the Subsystem sub-library (one-way dependency -> here).
@@ -55,5 +55,5 @@ target_sources(Render
             Debug/DebugDrawPass.cppm
             RenderModule.cppm)
 
-# Scene integration (draconic.engine.render): the resource- + scene-aware bridge. Links the base
+# Scene integration (engine.render): the resource- + scene-aware bridge. Links the base
 # Runtime + SceneSubsystem + the cook/material stack, all of which climb, so it climbs too - the

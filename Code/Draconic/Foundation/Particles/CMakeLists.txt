@@ -1,4 +1,4 @@
-# Foundation::Particles - `draconic.particles`, the CPU particle runtime (a port of
+# Foundation::Particles - `foundation.particles`, the CPU particle runtime (a port of
 # SedulousEngine's Sedulous.Particles): SoA stream container + initializer/behavior
 # modules + effect/system/emitter/instance + CPU simulator. Pure logic over Core; the
 # cooked resource (.resource), the GPU-compute sim, the ECS/render integration, and the

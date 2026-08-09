@@ -1,6 +1,6 @@
-# Foundation::Net.Manager - `draconic.net.manager`: a networked endpoint owned per running game
+# Foundation::Net.Manager - `foundation.net.manager`: a networked endpoint owned per running game
 # (NetworkManager owns a live NetSession + RpcTable, driven each fixed step) + the `Net` script
-# facade (Wren + AngelScript). Over draconic.net + draconic.script. See docs/design/networking.md §6.
+# facade (Wren + AngelScript). Over foundation.net + foundation.script. See docs/design/networking.md §6.
 
 add_library(Net.Manager STATIC)
 add_library(Foundation::Net.Manager ALIAS Net.Manager)

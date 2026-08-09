@@ -1,6 +1,6 @@
-# Foundation::VG - `draconic.vg` (2D vector-graphics core: paths, tessellation, context).
+# Foundation::VG - `foundation.vg` (2D vector-graphics core: paths, tessellation, context).
 # Ported from Sedulous.VG. Pure CPU - emits a VGBatch of vertices/commands that
-# draconic.vg.renderer uploads to the GPU. Deps: Core (math/containers) + Image.
+# foundation.vg.renderer uploads to the GPU. Deps: Core (math/containers) + Image.
 
 add_library(VG STATIC)
 add_library(Foundation::VG ALIAS VG)

@@ -1,4 +1,4 @@
-# Pipeline::Script.Wren - `draconic.script.wren.pipeline` (the Wren cook service).
+# Pipeline::Script.Wren - `script.wren.pipeline` (the Wren cook service).
 # The Wren-specific cook (compile-check + `static properties` Fiber probe + starter) that the
 # neutral ScriptClassAssetBuilder resolves by language. Cook-only (UI-free) so Tools.Cook /
 # Tools.Export can link it; the editor-UI half lives in Editor/Editor.Script.Wren.

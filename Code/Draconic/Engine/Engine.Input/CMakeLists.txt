@@ -1,4 +1,4 @@
-# Engine::Input - `draconic.engine.input`: runtime tick + device provider seam.
+# Engine::Input - `engine.input`: runtime tick + device provider seam.
 add_library(Engine.Input STATIC)
 add_library(Engine::Input ALIAS Engine.Input)
 

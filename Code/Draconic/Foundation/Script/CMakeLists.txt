@@ -1,4 +1,4 @@
-# Foundation::Script - the `draconic.script` module.
+# Foundation::Script - the `foundation.script` module.
 #
 # A thin, VM-agnostic scripting abstraction over Core's reflection. Concrete VM
 # backends (Lua, ...) are separate plugins implementing these interfaces.

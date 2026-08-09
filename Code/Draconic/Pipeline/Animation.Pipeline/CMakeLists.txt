@@ -1,4 +1,4 @@
-# Pipeline::Animation - `draconic.animation.editor`: authoring assets + builders
+# Pipeline::Animation - `animation.pipeline`: authoring assets + builders
 # that cook skeletons/clips into the content DB. Tooling only (runtime loads cooked).
 add_library(Animation.Pipeline STATIC)
 add_library(Pipeline::Animation ALIAS Animation.Pipeline)

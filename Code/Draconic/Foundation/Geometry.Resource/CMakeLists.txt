@@ -1,4 +1,4 @@
-# Foundation::Geometry.Resource - `draconic.geometry.resource` (meshes as resources:
+# Foundation::Geometry.Resource - `foundation.geometry.resource` (meshes as resources:
 # Static/SkinnedMeshSource -> Static/SkinnedMesh via factories).
 add_library(Geometry.Resource STATIC)
 add_library(Foundation::Geometry.Resource ALIAS Geometry.Resource)

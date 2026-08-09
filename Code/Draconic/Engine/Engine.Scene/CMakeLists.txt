@@ -1,5 +1,5 @@
-# Engine::Scene - `draconic.engine.scene` (the Context-level scene driver +
-# ISceneAware broker). Bridges draconic.scene and draconic.runtime; keeps scene core
+# Engine::Scene - `engine.scene` (the Context-level scene driver +
+# ISceneAware broker). Bridges foundation.scene and foundation.runtime; keeps scene core
 # runtime-free.
 add_library(Engine.Scene STATIC)
 add_library(Engine::Scene ALIAS Engine.Scene)

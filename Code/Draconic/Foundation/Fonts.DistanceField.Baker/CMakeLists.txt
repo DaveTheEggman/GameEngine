@@ -1,4 +1,4 @@
-# Foundation::Fonts.DistanceField.Baker - `draconic.fonts.distancefield.baker` (import-time MSDF atlas generation).
+# Foundation::Fonts.DistanceField.Baker - `foundation.fonts.distancefield.baker` (import-time MSDF atlas generation).
 # Links msdfgen; not needed at runtime.
 
 add_library(Fonts.DistanceField.Baker STATIC)

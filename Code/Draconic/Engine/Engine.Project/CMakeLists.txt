@@ -1,4 +1,4 @@
-# Engine::Project - `draconic.project`, the runtime-side project definition (manifest +
+# Engine::Project - `engine.project`, the runtime-side project definition (manifest +
 # layout constants). Editor-free by design: shipping binaries link this, never the editor.
 add_library(Engine.Project STATIC)
 add_library(Engine::Project ALIAS Engine.Project)

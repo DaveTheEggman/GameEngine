@@ -1,4 +1,4 @@
-# Editor::Generic - `draconic.editor.generic`: the serialize-driven FALLBACK asset
+# Editor::Generic - `editor.generic`: the serialize-driven FALLBACK asset
 # page (every asset without a bespoke page). Linked by the editor EXECUTABLE only.
 add_library(Editor.Generic STATIC)
 add_library(Editor::Generic ALIAS Editor.Generic)

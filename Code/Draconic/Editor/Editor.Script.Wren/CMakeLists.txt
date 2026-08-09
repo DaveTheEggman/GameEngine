@@ -1,4 +1,4 @@
-# Editor::Script.Wren - `draconic.editor.script.wren`: Wren's EDITOR-UI services
+# Editor::Script.Wren - `editor.script.wren`: Wren's EDITOR-UI services
 # (CodeEditView lexer tables). Only the editor app links this; kept out of the Pipeline cook
 # collection so Tools.Cook / Tools.Export stay UI-free.
 add_library(Editor.Script.Wren STATIC)

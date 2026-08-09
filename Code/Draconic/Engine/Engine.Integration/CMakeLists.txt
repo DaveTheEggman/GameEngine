@@ -1,4 +1,4 @@
-# Engine::Integration - `draconic.engine.integration`: cross-subsystem composition
+# Engine::Integration - `engine.integration`: cross-subsystem composition
 # helpers owned by the app. Depends on BOTH sides of each bridge so neither subsystem gains a
 # dependency on the other. First tenant: the physics-contact -> script bridge.
 add_library(Engine.Integration STATIC)

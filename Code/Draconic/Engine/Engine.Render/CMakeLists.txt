@@ -1,4 +1,4 @@
-# Engine::Render - `draconic.engine.render`, the scene side of rendering
+# Engine::Render - `engine.render`, the scene side of rendering
 # (render components + extraction + later the RenderSubsystem). Depends on Scene AND
 # Render (one-way: the renderer never depends back on this or on Scene).
 add_library(Engine.Render STATIC)

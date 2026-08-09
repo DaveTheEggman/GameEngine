@@ -1,7 +1,7 @@
-# Foundation::UI.Toolkit - `draconic.ui.toolkit`: the editor-grade widget set (docking, property grid,
-# node graph, color pickers, curve editor, menu/tool/status bars) layered on draconic.ui. Faithful port
-# of Sedulous.UI.Toolkit. A separate library/module so the core draconic.ui stays lean; consumers write
-# `import draconic.ui.toolkit;`.
+# Foundation::UI.Toolkit - `foundation.ui.toolkit`: the editor-grade widget set (docking, property grid,
+# node graph, color pickers, curve editor, menu/tool/status bars) layered on foundation.ui. Faithful port
+# of Sedulous.UI.Toolkit. A separate library/module so the core foundation.ui stays lean; consumers write
+# `import foundation.ui.toolkit;`.
 add_library(UI.Toolkit STATIC)
 add_library(Foundation::UI.Toolkit ALIAS UI.Toolkit)
 

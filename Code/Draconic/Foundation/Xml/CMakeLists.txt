@@ -1,4 +1,4 @@
-# Foundation::Xml - `draconic.xml` (DOM XML parser + writer, UTF-8).
+# Foundation::Xml - `foundation.xml` (DOM XML parser + writer, UTF-8).
 # Faithful port of the hand-written Sedulous.Xml library. Depends only on Core.
 
 add_library(Xml STATIC)

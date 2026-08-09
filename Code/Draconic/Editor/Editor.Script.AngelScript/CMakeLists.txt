@@ -1,4 +1,4 @@
-# Editor::Script.AngelScript - `draconic.editor.script.angelscript`: the EDITOR-UI
+# Editor::Script.AngelScript - `editor.script.angelscript`: the EDITOR-UI
 # services (CodeEditView lexer tables). Only the editor app links this; kept out of the Pipeline
 # cook collection so Tools.Cook / Tools.Export stay UI-free.
 add_library(Editor.Script.AngelScript STATIC)

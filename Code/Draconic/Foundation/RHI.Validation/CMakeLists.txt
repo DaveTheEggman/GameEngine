@@ -1,4 +1,4 @@
-# Foundation::RHI.Validation - `draconic.rhi.validation` (a wrapping layer that checks
+# Foundation::RHI.Validation - `foundation.rhi.validation` (a wrapping layer that checks
 # RHI API usage and forwards to an inner backend).
 
 add_library(RHI.Validation STATIC)

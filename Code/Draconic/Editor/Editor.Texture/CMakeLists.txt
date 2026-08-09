@@ -1,4 +1,4 @@
-# Editor::Texture - `draconic.editor.texture`: the TextureAsset import-settings +
+# Editor::Texture - `editor.texture`: the TextureAsset import-settings +
 # preview page + factory. Linked by the editor EXECUTABLE only.
 add_library(Editor.Texture STATIC)
 add_library(Editor::Texture ALIAS Editor.Texture)

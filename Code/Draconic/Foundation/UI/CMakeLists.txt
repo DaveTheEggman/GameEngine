@@ -1,4 +1,4 @@
-# Foundation::UI - `draconic.ui`, the retained-mode UI framework (faithful port of
+# Foundation::UI - `foundation.ui`, the retained-mode UI framework (faithful port of
 # Sedulous.UI). Platform-agnostic core; VG/Fonts are added as those phases land, and
 # the ui.shell bridge is a separate library. Built bottom-up (Core first).
 add_library(UI STATIC)

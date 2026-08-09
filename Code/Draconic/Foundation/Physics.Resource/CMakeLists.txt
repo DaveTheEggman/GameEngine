@@ -1,4 +1,4 @@
-# Foundation::Physics.Resource - `draconic.physics.resource` (cooked collision shapes + physical materials).
+# Foundation::Physics.Resource - `foundation.physics.resource` (cooked collision shapes + physical materials).
 add_library(Physics.Resource STATIC)
 add_library(Foundation::Physics.Resource ALIAS Physics.Resource)
 target_link_libraries(Physics.Resource PUBLIC

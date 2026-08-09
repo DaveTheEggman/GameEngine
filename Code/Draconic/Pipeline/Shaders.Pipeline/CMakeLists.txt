@@ -1,4 +1,4 @@
-# Pipeline::Shaders - `draconic.shaders.editor` (tooling: ShaderAsset -> ShaderSource
+# Pipeline::Shaders - `shaders.pipeline` (tooling: ShaderAsset -> ShaderSource
 # cook). Reads .hlsl text through the VFS; never linked by the runtime.
 add_library(Shaders.Pipeline STATIC)
 add_library(Pipeline::Shaders ALIAS Shaders.Pipeline)

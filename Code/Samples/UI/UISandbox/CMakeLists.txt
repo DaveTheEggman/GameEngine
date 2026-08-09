@@ -1,4 +1,4 @@
-# UI Sandbox - on-screen test of draconic.ui (the Sedulous.UI port) on the VG renderer.
+# UI Sandbox - on-screen test of foundation.ui (the Sedulous.UI port) on the VG renderer.
 # Ports Sedulous's UISandbox demo (sans the Toolkit tabs) to prove the port end-to-end.
 add_executable(UISandbox Main.cpp)
 target_link_libraries(UISandbox PRIVATE

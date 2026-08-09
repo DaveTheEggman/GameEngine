@@ -1,4 +1,4 @@
-# Foundation::Shaders - `draconic.shaders` (HLSL compilation via DXC). The Compiler is
+# Foundation::Shaders - `foundation.shaders` (HLSL compilation via DXC). The Compiler is
 # a third-party edge (DXC's wide-char API), so it uses std strings/containers;
 # the public Types use Draconic types.
 

@@ -1,4 +1,4 @@
-# Foundation::Input - `draconic.input`: the action-mapping layer (data model + ActionRuntime)
+# Foundation::Input - `foundation.input`: the action-mapping layer (data model + ActionRuntime)
 # over Core + Shell. Engine-global (per player, not per scene).
 add_library(Input STATIC)
 add_library(Foundation::Input ALIAS Input)

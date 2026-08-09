@@ -1,4 +1,4 @@
-# Engine::Net - `draconic.engine.net`: the once-per-context NetworkSubsystem that
+# Engine::Net - `engine.net`: the once-per-context NetworkSubsystem that
 # injects the NetworkComponentManager into scenes (ISceneAware) + registers replicated-component
 # reflection. The scene-integration half of networking; the per-instance endpoint is NetManager.
 add_library(Engine.Net STATIC)

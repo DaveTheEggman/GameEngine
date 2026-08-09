@@ -1,4 +1,4 @@
-# Samples::Framework - `draconic.samples.framework` (RHI sample base + helpers).
+# Samples::Framework - `samples.framework` (RHI sample base + helpers).
 # Needs the Vulkan backend, the desktop shell, and the shader compiler.
 
 if(NOT (TARGET Foundation::RHI.Vulkan AND TARGET Foundation::Shell.Desktop AND TARGET Foundation::Runtime.Desktop AND TARGET Foundation::Shaders))

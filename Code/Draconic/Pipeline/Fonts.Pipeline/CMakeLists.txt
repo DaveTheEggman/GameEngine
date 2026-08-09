@@ -1,4 +1,4 @@
-# Pipeline::Fonts - `draconic.fonts.editor` (FontAsset + importer + FontAssetBuilder:
+# Pipeline::Fonts - `fonts.pipeline` (FontAsset + importer + FontAssetBuilder:
 # the source/cook tier of the fonts triad). Tooling only; requires the msdfgen DF baker.
 
 add_library(Fonts.Pipeline STATIC)

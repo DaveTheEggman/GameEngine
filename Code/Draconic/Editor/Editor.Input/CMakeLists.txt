@@ -1,4 +1,4 @@
-# Editor::Input - `draconic.editor.input`: the InputMapAsset editing page + factory.
+# Editor::Input - `editor.input`: the InputMapAsset editing page + factory.
 # Linked by the editor EXECUTABLE only.
 add_library(Editor.Input STATIC)
 add_library(Editor::Input ALIAS Editor.Input)

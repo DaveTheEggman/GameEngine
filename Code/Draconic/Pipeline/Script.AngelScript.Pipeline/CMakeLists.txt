@@ -1,4 +1,4 @@
-# Pipeline::Script.AngelScript - `draconic.script.angelscript.pipeline` (the AngelScript
+# Pipeline::Script.AngelScript - `script.angelscript.pipeline` (the AngelScript
 # cook service): compile-check + shared handler scan + [metadata] PROPERTY HARVEST + starter.
 # Cook-only; the SDK (ThirdParty::AngelScript) is a PRIVATE dep (impl unit #includes angelscript.h
 # + scriptbuilder for metadata harvest - GCC module hygiene). The editor-UI half lives in

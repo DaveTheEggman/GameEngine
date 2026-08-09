@@ -1,4 +1,4 @@
-# Pipeline::Geometry - `draconic.geometry.editor` (tooling: Static/SkinnedMeshAsset ->
+# Pipeline::Geometry - `geometry.pipeline` (tooling: Static/SkinnedMeshAsset ->
 # Static/SkinnedMeshSource cook). Never linked by the runtime.
 add_library(Geometry.Pipeline STATIC)
 add_library(Pipeline::Geometry ALIAS Geometry.Pipeline)

@@ -1,4 +1,4 @@
-# Engine::GameInstance - `draconic.engine.gameinstance`: a running game as a first-class
+# Engine::GameInstance - `engine.gameinstance`: a running game as a first-class
 # object (scene pairing + script run context + `Game` + instance time scale). Over scene + script.
 # See docs/design/game-instance.md.
 

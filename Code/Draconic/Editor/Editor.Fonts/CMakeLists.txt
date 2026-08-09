@@ -1,4 +1,4 @@
-# Editor::Fonts - `draconic.editor.fonts` (the FontAsset authoring page:
+# Editor::Fonts - `editor.fonts` (the FontAsset authoring page:
 # live atlas bake preview + bake-intent property grid). Tooling only.
 
 add_library(Editor.Fonts STATIC)

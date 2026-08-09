@@ -1,4 +1,4 @@
-# Foundation::Materials - `draconic.materials`, the data-driven material model
+# Foundation::Materials - `foundation.materials`, the data-driven material model
 # (PipelineConfig, Material/Builder/Instance, and the bind-group-inferring
 # MaterialSystem). Needs the RHI (GPU resources) and Shaders (ShaderFlags).
 add_library(Materials STATIC)

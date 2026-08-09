@@ -1,4 +1,4 @@
-# Pipeline::Script - `draconic.script.editor` (script class asset/builder/importer, tooling).
+# Pipeline::Script - `script.pipeline` (script class asset/builder/importer, tooling).
 # Backend-neutral by construction (B3): links Foundation::Script for the REGISTRY only -
 # never a concrete backend library (entry points register backends).
 add_library(Script.Pipeline STATIC)

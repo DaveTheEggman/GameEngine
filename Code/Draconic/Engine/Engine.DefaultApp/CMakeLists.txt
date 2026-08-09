@@ -1,4 +1,4 @@
-# Engine::DefaultApp - `draconic.engine.defaultapp` (DefaultApplication: the
+# Engine::DefaultApp - `engine.defaultapp` (DefaultApplication: the
 # opinionated IApplication that registers the standard engine subsystems). Kept in
 # its own library so the base client (Foundation::Runtime.Client) never pulls in the
 # engine subsystem libraries - only apps that opt into the defaults link this.

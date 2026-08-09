@@ -1,4 +1,4 @@
-# ScriptPlayground - the draconic.script entity-behaviors P1 consumer proof: cubes driven
+# ScriptPlayground - the foundation.script entity-behaviors P1 consumer proof: cubes driven
 # by Wren Mover/Spinner behaviors ticked by the ScriptSubsystem under simulation.
 add_executable(ScriptPlayground main.cpp)
 

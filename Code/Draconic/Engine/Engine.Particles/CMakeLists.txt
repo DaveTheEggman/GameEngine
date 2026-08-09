@@ -1,4 +1,4 @@
-# Engine::Particles - `draconic.engine.particles`: scene/render integration for the
+# Engine::Particles - `engine.particles`: scene/render integration for the
 # particle system (ECS component + manager + dedicated ParticleRenderer + ParticleSubsystem). Links
 # render.subsystem (the register-renderer/register-provider seam), scene, and the CPU particle core.
 add_library(Engine.Particles STATIC)

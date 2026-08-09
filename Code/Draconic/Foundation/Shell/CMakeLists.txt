@@ -1,4 +1,4 @@
-# Foundation::Shell - `draconic.shell` (IShell/IWindow, the raw OS/windowing service - what
+# Foundation::Shell - `foundation.shell` (IShell/IWindow, the raw OS/windowing service - what
 # Sedulous calls the "shell"). Interfaces only; native + null backends implement them.
 
 add_library(Shell STATIC)

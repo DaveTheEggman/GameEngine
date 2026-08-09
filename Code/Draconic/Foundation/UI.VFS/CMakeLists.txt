@@ -1,4 +1,4 @@
-# Foundation::UI.VFS - `draconic.ui.vfs`: a VFS-backed IResourceProvider for the UI.
+# Foundation::UI.VFS - `foundation.ui.vfs`: a VFS-backed IResourceProvider for the UI.
 # Kept separate from the core Foundation::UI so the UI stays free of a VFS dependency
 # (the app links this and wires the provider into StyleSheetLoader). Mirrors
 # Sedulous.UI.IO.

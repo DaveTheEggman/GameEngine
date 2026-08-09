@@ -1,4 +1,4 @@
-# Foundation::Core - the foundation module (`draconic.core`).
+# Foundation::Core - the foundation module (`foundation.core`).
 #
 # One named module composed of partitions (one per subsystem), re-exported by
 # CoreModule.cppm. Built as a static library for now.
@@ -14,7 +14,7 @@ target_link_libraries(Core PUBLIC Foundation::Policy)
 target_sources(Core PRIVATE
     Debug/Debug.cpp)
 
-# Module IMPLEMENTATION units (`module draconic.core;`): definitions kept out of the
+# Module IMPLEMENTATION units (`module foundation.core;`): definitions kept out of the
 # interface partitions. Listed as regular sources, NOT in the CXX_MODULES file set.
 target_sources(Core PRIVATE
     Reflection/CoreReflectionImpl.cpp)   # REFLECT_* bodies (see CoreReflection.cppm)

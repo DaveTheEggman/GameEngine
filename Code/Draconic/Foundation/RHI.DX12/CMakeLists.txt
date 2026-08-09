@@ -1,4 +1,4 @@
-# Foundation::RHI.DX12 - `draconic.rhi.dx12` (the DX12 RHI backend). Links the DX12
+# Foundation::RHI.DX12 - `foundation.rhi.dx12` (the DX12 RHI backend). Links the DX12
 # system libraries; built only on Windows.
 
 add_library(RHI.DX12 STATIC)

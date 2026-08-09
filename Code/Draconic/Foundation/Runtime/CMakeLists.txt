@@ -1,4 +1,4 @@
-# Foundation::Runtime - the `draconic.runtime` module (Context + Subsystems).
+# Foundation::Runtime - the `foundation.runtime` module (Context + Subsystems).
 
 add_library(Runtime STATIC)
 add_library(Foundation::Runtime ALIAS Runtime)

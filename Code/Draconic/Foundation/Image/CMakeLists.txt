@@ -1,4 +1,4 @@
-# Foundation::Image - `draconic.image` (CPU-side image data + manipulation).
+# Foundation::Image - `foundation.image` (CPU-side image data + manipulation).
 add_library(Image STATIC)
 add_library(Foundation::Image ALIAS Image)
 target_link_libraries(Image PUBLIC Foundation::Core Foundation::Policy)

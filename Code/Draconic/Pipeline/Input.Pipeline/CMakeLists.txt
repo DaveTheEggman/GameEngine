@@ -1,4 +1,4 @@
-# Pipeline::Input - `draconic.input.editor`: authored input-map asset + builder (tooling).
+# Pipeline::Input - `input.pipeline`: authored input-map asset + builder (tooling).
 add_library(Input.Pipeline STATIC)
 add_library(Pipeline::Input ALIAS Input.Pipeline)
 

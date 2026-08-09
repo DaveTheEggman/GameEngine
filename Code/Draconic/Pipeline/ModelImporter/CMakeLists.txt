@@ -1,8 +1,8 @@
-# Pipeline::ModelImporter - `draconic.modelimporter`, the top-level model import pipeline.
-# Bridges the model loaders (draconic.model IR) to the engine's cooked resources: it
+# Pipeline::ModelImporter - `modelimporter`, the top-level model import pipeline.
+# Bridges the model loaders (foundation.model IR) to the engine's cooked resources: it
 # converts a loaded Model into the geometry/material/texture/animation *Source types
 # and cooks them through the editor stack into a content database. This is the only
-# library that depends on BOTH draconic.model (the loader IR) and the engine resource
+# library that depends on BOTH foundation.model (the loader IR) and the engine resource
 # stack, keeping that dependency out of the lower libraries.
 add_library(ModelImporter STATIC)
 add_library(Pipeline::ModelImporter ALIAS ModelImporter)

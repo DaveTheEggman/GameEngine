@@ -1,4 +1,4 @@
-# Engine::Physics - `draconic.engine.physics`: scene integration
+# Engine::Physics - `engine.physics`: scene integration
 # (components + per-scene world + sync + interpolation + debug draw).
 add_library(Engine.Physics STATIC)
 add_library(Engine::Physics ALIAS Engine.Physics)

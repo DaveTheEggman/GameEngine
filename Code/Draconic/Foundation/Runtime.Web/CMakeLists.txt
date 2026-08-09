@@ -1,6 +1,6 @@
-# Foundation::Runtime.Web - `draconic.runtime.web` (the browser application runner: a per-frame
+# Foundation::Runtime.Web - `foundation.runtime.web` (the browser application runner: a per-frame
 # emscripten_set_main_loop callback driving an IApplication against an IShell, yielding to the
-# browser between frames). The Emscripten sibling of draconic.runtime.desktop - same interface
+# browser between frames). The Emscripten sibling of foundation.runtime.desktop - same interface
 # dependencies (Shell interface + client + graphics), different execution model. Emscripten-only.
 add_library(Runtime.Web STATIC)
 add_library(Foundation::Runtime.Web ALIAS Runtime.Web)

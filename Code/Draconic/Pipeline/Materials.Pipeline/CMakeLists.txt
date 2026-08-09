@@ -1,4 +1,4 @@
-# Pipeline::Materials - `draconic.materials.editor` (tooling: MaterialAsset ->
+# Pipeline::Materials - `materials.pipeline` (tooling: MaterialAsset ->
 # MaterialSource cook). Never linked by the runtime.
 add_library(Materials.Pipeline STATIC)
 add_library(Pipeline::Materials ALIAS Materials.Pipeline)

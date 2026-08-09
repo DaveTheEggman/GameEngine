@@ -1,4 +1,4 @@
-# Foundation::Materials.PipelineCache - `draconic.materials.pipelinecache` (render-side PSO cache with shader
+# Foundation::Materials.PipelineCache - `foundation.materials.pipelinecache` (render-side PSO cache with shader
 # version polling). Bridges the ShaderSystem (variants) and Materials (PipelineConfig).
 add_library(Materials.PipelineCache STATIC)
 add_library(Foundation::Materials.PipelineCache ALIAS Materials.PipelineCache)

@@ -1,4 +1,4 @@
-# Foundation::Fonts.Baked - `draconic.fonts.baked` (rasterizer-free IFont/IFontAtlas).
+# Foundation::Fonts.Baked - `foundation.fonts.baked` (rasterizer-free IFont/IFontAtlas).
 # Ported from Sedulous.Fonts.Baked (deps: Sedulous.Fonts).
 
 add_library(Fonts.Baked STATIC)

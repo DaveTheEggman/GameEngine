@@ -1,4 +1,4 @@
-# Foundation::Physics - `draconic.physics`: the Jolt-backed rigid-body core.
+# Foundation::Physics - `foundation.physics`: the Jolt-backed rigid-body core.
 # Jolt is PRIVATE: JPH types never cross the module surface.
 add_library(Physics STATIC)
 add_library(Foundation::Physics ALIAS Physics)

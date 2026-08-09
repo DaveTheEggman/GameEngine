@@ -1,4 +1,4 @@
-# Foundation::UI.Resource - `draconic.ui.resource` (cooked UI documents + themes; UI-framework-free).
+# Foundation::UI.Resource - `foundation.ui.resource` (cooked UI documents + themes; UI-framework-free).
 add_library(UI.Resource STATIC)
 add_library(Foundation::UI.Resource ALIAS UI.Resource)
 target_link_libraries(UI.Resource PUBLIC

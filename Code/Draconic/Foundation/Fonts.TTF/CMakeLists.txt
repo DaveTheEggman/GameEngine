@@ -1,4 +1,4 @@
-# Foundation::Fonts.TTF - `draconic.fonts.ttf` (stb_truetype backend + VFS service).
+# Foundation::Fonts.TTF - `foundation.fonts.ttf` (stb_truetype backend + VFS service).
 # Ported from Sedulous.Fonts.TTF (deps: Fonts, Fonts.IO, Images, VFS, stb_truetype).
 
 add_library(Fonts.TTF STATIC)

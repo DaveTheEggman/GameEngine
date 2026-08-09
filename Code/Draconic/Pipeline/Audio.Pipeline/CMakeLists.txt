@@ -1,4 +1,4 @@
-# Pipeline::Audio - `draconic.audio.editor` (tooling: audio clip asset/builder/importer).
+# Pipeline::Audio - `audio.pipeline` (tooling: audio clip asset/builder/importer).
 add_library(Audio.Pipeline STATIC)
 add_library(Pipeline::Audio ALIAS Audio.Pipeline)
 target_link_libraries(Audio.Pipeline PUBLIC

@@ -1,4 +1,4 @@
-# Foundation::RHI.Null - `draconic.rhi.null` (headless no-op RHI backend, for tests/tools).
+# Foundation::RHI.Null - `foundation.rhi.null` (headless no-op RHI backend, for tests/tools).
 
 add_library(RHI.Null STATIC)
 add_library(Foundation::RHI.Null ALIAS RHI.Null)

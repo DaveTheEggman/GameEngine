@@ -1,4 +1,4 @@
-# Pipeline::UI - `draconic.ui.editor` (tooling: UI document/theme assets + validating builders + importer).
+# Pipeline::UI - `ui.pipeline` (tooling: UI document/theme assets + validating builders + importer).
 add_library(UI.Pipeline STATIC)
 add_library(Pipeline::UI ALIAS UI.Pipeline)
 target_link_libraries(UI.Pipeline PUBLIC

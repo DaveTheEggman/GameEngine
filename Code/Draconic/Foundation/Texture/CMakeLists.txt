@@ -1,4 +1,4 @@
-# Foundation::Texture - `draconic.texture` (texture descriptors + image->RHI format map).
+# Foundation::Texture - `foundation.texture` (texture descriptors + image->RHI format map).
 # Ported from Sedulous.Textures (deps: RHI, Images).
 
 add_library(Texture STATIC)

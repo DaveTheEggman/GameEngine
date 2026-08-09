@@ -1,6 +1,6 @@
-# Foundation::Render.Api - `draconic.render.api`: the scene-rendering interface (ISceneRenderer +
+# Foundation::Render.Api - `foundation.render.api`: the scene-rendering interface (ISceneRenderer +
 # ViewCamera/ViewportRect/CameraOverride/TargetState) in a LIGHT module (core + rhi + scene only),
-# so tools drive rendering through the interface without linking the renderer. draconic.render
+# so tools drive rendering through the interface without linking the renderer. foundation.render
 # re-exports it; RenderSubsystem implements it.
 
 add_library(Render.Api STATIC)

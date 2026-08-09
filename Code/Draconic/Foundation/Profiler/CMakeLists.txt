@@ -1,4 +1,4 @@
-# Foundation::Profiler - `draconic.profiler` (lightweight hierarchical CPU scope profiler over Core).
+# Foundation::Profiler - `foundation.profiler` (lightweight hierarchical CPU scope profiler over Core).
 # Instrumented across the engine via the PROFILE_SCOPE macro (Profiler.h); compiles to
 # nothing when BUILD_PROFILING is off.
 

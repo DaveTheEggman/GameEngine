@@ -1,4 +1,4 @@
-# Editor::GameUI - `draconic.editor.gameui`: UI document page (text + live preview).
+# Editor::GameUI - `editor.gameui`: UI document page (text + live preview).
 add_library(Editor.GameUI STATIC)
 add_library(Editor::GameUI ALIAS Editor.GameUI)
 target_link_libraries(Editor.GameUI PUBLIC

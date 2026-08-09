@@ -1,4 +1,4 @@
-# Foundation::Graphics - `draconic.graphics` (GraphicsDevice + RenderWindow
+# Foundation::Graphics - `foundation.graphics` (GraphicsDevice + RenderWindow
 # + FrameContext: the shared RHI render host). Backend-agnostic - imports only the
 # base RHI, so it builds everywhere (incl. headless, no Vulkan). Backend factories
 # (Null / Vulkan) are sibling modules so heavy backend modules never enter this
@@ -18,7 +18,7 @@ target_sources(Graphics
         FILE_SET graphics_modules TYPE CXX_MODULES FILES
             Graphics.cppm)
 
-# Foundation::Graphics.Null - `draconic.graphics.null` (headless device
+# Foundation::Graphics.Null - `foundation.graphics.null` (headless device
 # factory over the Null RHI backend). No GPU/Vulkan required.
 add_library(Graphics.Null STATIC)
 add_library(Foundation::Graphics.Null ALIAS Graphics.Null)
@@ -36,7 +36,7 @@ target_sources(Graphics.Null
         FILE_SET graphics_null_modules TYPE CXX_MODULES FILES
             GraphicsNull.cppm)
 
-# Foundation::Graphics.Gpu - `draconic.graphics.gpu` (the GPU backend factory). Built when at least
+# Foundation::Graphics.Gpu - `foundation.graphics.gpu` (the GPU backend factory). Built when at least
 # one GPU RHI backend is available - Vulkan/DX12 on desktop, WebGPU on web - and links + flags each
 # present backend (OPTION_HAS_*). The backend imports live in the implementation unit, off every
 # consumer's module closure.

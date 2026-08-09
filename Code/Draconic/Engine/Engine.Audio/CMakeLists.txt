@@ -1,4 +1,4 @@
-# Engine::Audio - `draconic.engine.audio`: scene integration
+# Engine::Audio - `engine.audio`: scene integration
 # (components + per-scene voice group + transform/listener sync + one-shot API).
 add_library(Engine.Audio STATIC)
 add_library(Engine::Audio ALIAS Engine.Audio)

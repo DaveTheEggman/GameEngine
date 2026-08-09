@@ -1,7 +1,7 @@
-# Foundation::UI.Runtime - `draconic.ui.runtime`: the reusable UIHost that draws draconic.ui on the runtime's
+# Foundation::UI.Runtime - `foundation.ui.runtime`: the reusable UIHost that draws foundation.ui on the runtime's
 # multi-window graphics host (one UIContext / N RootViews / per-window VGContext+VGRenderer+InputSurface).
 # Toolkit-free - renders any RootView, shared by games and the editor. The docking/workbench layer lives
-# above in draconic.ui.application.
+# above in foundation.ui.application.
 add_library(UI.Runtime STATIC)
 add_library(Foundation::UI.Runtime ALIAS UI.Runtime)
 

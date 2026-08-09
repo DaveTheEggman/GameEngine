@@ -1,4 +1,4 @@
-# Foundation::Image.Resource - `draconic.image.resource` (runtime CPU-image resource).
+# Foundation::Image.Resource - `foundation.image.resource` (runtime CPU-image resource).
 add_library(Image.Resource STATIC)
 add_library(Foundation::Image.Resource ALIAS Image.Resource)
 target_link_libraries(Image.Resource PUBLIC Foundation::Core Foundation::Image Foundation::Content Foundation::Resource Foundation::Policy)

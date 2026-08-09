@@ -1,7 +1,7 @@
 # Foundation::Script.AngelScript - the AngelScript backend for Foundation::Script.
 #
 # Builds on the vendored ThirdParty/angelscript (ThirdParty::AngelScript). The SDK
-# is PRIVATE: consumers see only the draconic.script.angelscript module (the
+# is PRIVATE: consumers see only the foundation.script.angelscript module (the
 # factory + registry registration), never the AngelScript C++ API.
 
 add_library(Script.AngelScript STATIC)

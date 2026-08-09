@@ -1,6 +1,6 @@
-# Foundation::Shaders.System - `draconic.shaders.system` (variant compile-on-demand + cache,
+# Foundation::Shaders.System - `foundation.shaders.system` (variant compile-on-demand + cache,
 # plus the dev file-backed source provider). Needs the RHI (to create GPU modules) on
-# top of the RHI-free draconic.shaders; the VFS for the file provider.
+# top of the RHI-free foundation.shaders; the VFS for the file provider.
 
 add_library(Shaders.System STATIC)
 add_library(Foundation::Shaders.System ALIAS Shaders.System)

@@ -1,4 +1,4 @@
-# Foundation::Audio.Resource - `draconic.audio.resource` (cooked audio clips + factory).
+# Foundation::Audio.Resource - `foundation.audio.resource` (cooked audio clips + factory).
 add_library(Audio.Resource STATIC)
 add_library(Foundation::Audio.Resource ALIAS Audio.Resource)
 target_link_libraries(Audio.Resource PUBLIC

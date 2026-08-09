@@ -1,4 +1,4 @@
-# Pipeline::Core - `draconic.pipeline.core` (asset-pipeline authoring base: Asset +
+# Pipeline::Core - `pipeline.core` (asset-pipeline authoring base: Asset +
 # builders + the builder registry). Tooling only - the runtime never links this.
 
 add_library(Pipeline.Core STATIC)

@@ -1,4 +1,4 @@
-# Engine::Animation - `draconic.engine.animation`, the scene side of skeletal
+# Engine::Animation - `engine.animation`, the scene side of skeletal
 # animation (SkeletalAnimationComponent + manager + AnimationSubsystem). Sits at the
 # animation<->render seam: depends on Animation + Scene + RenderSubsystem (one-way).
 add_library(Engine.Animation STATIC)

@@ -1,4 +1,4 @@
-# Foundation::Image.IO - `draconic.image.io` (load/save via stb).
+# Foundation::Image.IO - `foundation.image.io` (load/save via stb).
 add_library(Image.IO STATIC)
 add_library(Foundation::Image.IO ALIAS Image.IO)
 target_link_libraries(Image.IO PUBLIC Foundation::Image Foundation::Core Foundation::Policy PRIVATE ThirdParty::Stb)

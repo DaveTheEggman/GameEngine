@@ -1,4 +1,4 @@
-# Editor::Physics - `draconic.editor.physics` (the CollisionShapeAsset authoring page:
+# Editor::Physics - `editor.physics` (the CollisionShapeAsset authoring page:
 # typed mesh picker + cook-kind toggle + Cook now + status). Tooling only.
 
 add_library(Editor.Physics STATIC)

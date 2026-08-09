@@ -1,6 +1,6 @@
-# Foundation::VG.Renderer - `draconic.vg.renderer` (VGBatch -> RHI).
+# Foundation::VG.Renderer - `foundation.vg.renderer` (VGBatch -> RHI).
 # Ported from Sedulous.VG.Renderer. Shader source: shaders/vg.{vert,frag}.hlsl
-# (compile via draconic.shaders and pass the modules to VGRenderer::Initialize).
+# (compile via foundation.shaders and pass the modules to VGRenderer::Initialize).
 
 add_library(VG.Renderer STATIC)
 add_library(Foundation::VG.Renderer ALIAS VG.Renderer)

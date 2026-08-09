@@ -1,4 +1,4 @@
-# Foundation::Animation.Resource - `draconic.animation.resource`: skeletons + clips as
+# Foundation::Animation.Resource - `foundation.animation.resource`: skeletons + clips as
 # cooked resources (Source -> Factory -> runtime Skeleton/AnimationClip).
 add_library(Animation.Resource STATIC)
 add_library(Foundation::Animation.Resource ALIAS Animation.Resource)

@@ -1,4 +1,4 @@
-# draconic.engine.integration tests: the physics-contact -> script bridge (kind mapping + install
+# engine.integration tests: the physics-contact -> script bridge (kind mapping + install
 # semantics). End-to-end contact->behavior delivery through the same bridge is in the script scene tests.
 add_executable(DraconicIntegrationTests TestsMain.cpp ContactBridgeTests.cpp)
 target_link_libraries(DraconicIntegrationTests PRIVATE

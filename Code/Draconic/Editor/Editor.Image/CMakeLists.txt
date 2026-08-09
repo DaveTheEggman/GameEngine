@@ -1,4 +1,4 @@
-# Editor::Image - `draconic.editor.image`: the ImageAsset inspect + color-space
+# Editor::Image - `editor.image`: the ImageAsset inspect + color-space
 # page + factory (the Texture page's source-side sibling). Linked by the editor EXECUTABLE only.
 add_library(Editor.Image STATIC)
 add_library(Editor::Image ALIAS Editor.Image)

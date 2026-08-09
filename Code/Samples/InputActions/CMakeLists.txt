@@ -1,4 +1,4 @@
-# InputActions - the draconic.input consumer proof: named actions (WASD/stick move, Jump,
+# InputActions - the foundation.input consumer proof: named actions (WASD/stick move, Jump,
 # an exclusive Menu set) driving visible state. No renderer - clear-color = position.
 add_executable(InputActions main.cpp)
 

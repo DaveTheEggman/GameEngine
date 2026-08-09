@@ -1,4 +1,4 @@
-# Foundation::VG.SVG - `draconic.vg.svg` (SVG -> VG: parsers, loader, renderer).
+# Foundation::VG.SVG - `foundation.vg.svg` (SVG -> VG: parsers, loader, renderer).
 # Ported from Sedulous.VG.SVG. Standalone parsers (no XML lib); deps VG + Fonts.
 
 add_library(VG.SVG STATIC)

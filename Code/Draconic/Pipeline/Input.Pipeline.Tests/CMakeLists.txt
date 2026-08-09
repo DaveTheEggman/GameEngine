@@ -1,4 +1,4 @@
-# draconic.input.editor tests: InputMapAsset reflection (Nested map + traversable InputMap tree).
+# input.pipeline tests: InputMapAsset reflection (Nested map + traversable InputMap tree).
 add_executable(DraconicInputEditorTests TestsMain.cpp InputMapAssetTests.cpp)
 target_link_libraries(DraconicInputEditorTests PRIVATE
     Pipeline::Input Foundation::Input Pipeline::Core doctest::doctest)

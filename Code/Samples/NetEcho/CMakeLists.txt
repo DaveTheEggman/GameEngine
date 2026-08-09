@@ -1,4 +1,4 @@
-# NetEcho - a console proof of draconic.net (reliable-UDP client/server over localhost). No graphics;
+# NetEcho - a console proof of foundation.net (reliable-UDP client/server over localhost). No graphics;
 # just Core + Net, so it builds anywhere and runs headless (returns 0 when all lines round-trip).
 
 add_executable(NetEcho main.cpp)

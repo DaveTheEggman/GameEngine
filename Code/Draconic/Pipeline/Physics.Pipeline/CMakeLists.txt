@@ -1,4 +1,4 @@
-# Pipeline::Physics - `draconic.physics.editor` (tooling: collision shape + physical material assets/builders).
+# Pipeline::Physics - `physics.pipeline` (tooling: collision shape + physical material assets/builders).
 add_library(Physics.Pipeline STATIC)
 add_library(Pipeline::Physics ALIAS Physics.Pipeline)
 target_link_libraries(Physics.Pipeline PUBLIC

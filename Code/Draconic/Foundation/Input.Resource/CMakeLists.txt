@@ -1,4 +1,4 @@
-# Foundation::Input.Resource - `draconic.input.resource`: cooked input map + factory.
+# Foundation::Input.Resource - `foundation.input.resource`: cooked input map + factory.
 add_library(Input.Resource STATIC)
 add_library(Foundation::Input.Resource ALIAS Input.Resource)
 

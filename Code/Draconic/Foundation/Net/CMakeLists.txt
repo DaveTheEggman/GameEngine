@@ -1,4 +1,4 @@
-# Foundation::Net - `draconic.net` (real-time game networking: wire format + INetTransport with
+# Foundation::Net - `foundation.net` (real-time game networking: wire format + INetTransport with
 # swappable backends - reliable-UDP (ours), loopback/sim, later websocket/webrtc - + session,
 # reliability, RPC, replication). Over Core (+ Core/System sockets, later). See
 # docs/design/networking.md.

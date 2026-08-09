@@ -1,4 +1,4 @@
-# Editor::Scene - `draconic.editor.scene`: the scene editor plugin (SceneEditorPage +
+# Editor::Scene - `editor.scene`: the scene editor plugin (SceneEditorPage +
 # factory + RegisterSceneEditor). Linked by the editor EXECUTABLE only (never by editor core/app).
 
 add_library(Editor.Scene STATIC)

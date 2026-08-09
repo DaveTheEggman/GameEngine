@@ -1,6 +1,6 @@
-# Foundation::UI.Viewport - `draconic.ui.viewport`: ViewportView, a ui::View that hosts 3D-rendered
+# Foundation::UI.Viewport - `foundation.ui.viewport`: ViewportView, a ui::View that hosts 3D-rendered
 # content (offscreen color+depth RT, an OnRender callback, displayed via the UI's VGContext as an
-# external texture; gated input through a shell::InputSurface). Layered on draconic.ui; toolkit-free.
+# external texture; gated input through a shell::InputSurface). Layered on foundation.ui; toolkit-free.
 add_library(UI.Viewport STATIC)
 add_library(Foundation::UI.Viewport ALIAS UI.Viewport)
 

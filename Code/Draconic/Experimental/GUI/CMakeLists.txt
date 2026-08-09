@@ -1,4 +1,4 @@
-# Experimental::GUI - `draconic.gui`, a fresh eepp-derived retained-mode UI framework,
+# Experimental::GUI - `experimental.gui`, a fresh eepp-derived retained-mode UI framework,
 # progressively sliced onto the Draconic VG/Fonts stack (docs/design/gui-port.md).
 # Platform- and renderer-agnostic core; VG/Fonts/Image/Xml are linked as those phases
 # land, and the gui.shell input bridge is a separate library. Built bottom-up.

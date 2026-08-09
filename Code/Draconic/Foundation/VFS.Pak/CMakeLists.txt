@@ -1,4 +1,4 @@
-# Foundation::VFS.Pak - `draconic.vfs.pak` (packed read-only archive backend + builder).
+# Foundation::VFS.Pak - `foundation.vfs.pak` (packed read-only archive backend + builder).
 # Separate from the core VFS so future compression codecs stay out of it.
 
 add_library(VFS.Pak STATIC)

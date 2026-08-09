@@ -1,4 +1,4 @@
-# Foundation::Shell.Null - `draconic.shell.null` (headless IShell).
+# Foundation::Shell.Null - `foundation.shell.null` (headless IShell).
 
 add_library(Shell.Null STATIC)
 add_library(Foundation::Shell.Null ALIAS Shell.Null)

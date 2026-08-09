@@ -1,4 +1,4 @@
-# Foundation::Content - `draconic.content` (content database: Groups + Instances of
+# Foundation::Content - `foundation.content` (content database: Groups + Instances of
 # serializable objects, addressed by Guid/path, stored over a VFS mount).
 
 add_library(Content STATIC)

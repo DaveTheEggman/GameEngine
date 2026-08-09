@@ -1,6 +1,6 @@
-# Foundation::UI.Application - `draconic.ui.application`: the docking / workbench layer.
+# Foundation::UI.Application - `foundation.ui.application`: the docking / workbench layer.
 # RuntimeDockableWindowHost implements the toolkit IDockableWindowHost on the runtime multi-window host
-# (IApplicationHost + UIHost + shell geometry). The ONLY UI module that links draconic.ui.toolkit, so
+# (IApplicationHost + UIHost + shell geometry). The ONLY UI module that links foundation.ui.toolkit, so
 # docking cannot bleed into games or the toolkit-free ui.shell / ui.runtime layers.
 add_library(UI.Application STATIC)
 add_library(Foundation::UI.Application ALIAS UI.Application)

@@ -1,7 +1,7 @@
-# Foundation::UI.Shell - `draconic.ui.shell`: the platform input bridge for draconic.ui.
-# Reimplemented (not ported from Sedulous.UI.Shell): translates draconic.shell input
+# Foundation::UI.Shell - `foundation.ui.shell`: the platform input bridge for foundation.ui.
+# Reimplemented (not ported from Sedulous.UI.Shell): translates foundation.shell input
 # events / an InputSurface into UIContext InputManager calls and drives window text
-# input (IME) from UI focus. Kept separate so the core draconic.ui stays platform-free.
+# input (IME) from UI focus. Kept separate so the core foundation.ui stays platform-free.
 add_library(UI.Shell STATIC)
 add_library(Foundation::UI.Shell ALIAS UI.Shell)
 

@@ -1,4 +1,4 @@
-# GUI Sandbox - first on-screen test of draconic.gui (widgets + CSS on the VG renderer).
+# GUI Sandbox - first on-screen test of experimental.gui (widgets + CSS on the VG renderer).
 add_executable(GUISandbox Main.cpp)
 target_link_libraries(GUISandbox PRIVATE
     Foundation::Core Foundation::RHI Foundation::RHI.Vulkan Foundation::Shaders Foundation::Shaders.System

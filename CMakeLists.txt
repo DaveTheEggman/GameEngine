@@ -93,8 +93,8 @@ option(OPTION_BUILD_SAMPLES "Build Draconic sample applications" ON)
 option(OPTION_BUILD_TOOLS "Build editor/authoring tooling (the editor libraries + CLI exes)" ON)
 # Experimental modules and optional extensions are independently switchable; each exposes a
 # OPTION_HAS_* compile define (see the policy block) so C++ can guard usage with #if.
-option(OPTION_EXPERIMENTAL_GUI "Build the experimental GUI framework (draconic.gui + shell/vfs)" ON)
-option(OPTION_EXTENSION_IMGUI  "Build the Dear ImGui debug-UI extension (draconic.imgui)" ON)
+option(OPTION_EXPERIMENTAL_GUI "Build the experimental GUI framework (experimental.gui + shell/vfs)" ON)
+option(OPTION_EXTENSION_IMGUI  "Build the Dear ImGui debug-UI extension (extensions.imgui)" ON)
 option(OPTION_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 
 # A web (Emscripten) build ships a game, not the authoring/side toolchain: force the tooling,
@@ -102,7 +102,7 @@ option(OPTION_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 if(EMSCRIPTEN)
     set(OPTION_BUILD_TOOLS OFF)
     set(OPTION_EXPERIMENTAL_GUI OFF)
-    # OPTION_EXTENSION_IMGUI stays available on web: Dear ImGui + draconic.imgui compile for
+    # OPTION_EXTENSION_IMGUI stays available on web: Dear ImGui + extensions.imgui compile for
     # wasm (the renderer is pure RHI, the subsystem consumes the shell's input), so the debug
     # panel works in the browser too (WebScene's tweak UI).
 endif()
@@ -203,7 +203,7 @@ target_compile_options(policy INTERFACE
     $<$<CXX_COMPILER_ID:MSVC>:/utf-8>
     # GCC modules: eager gcm loading. The default lazy loader intermittently fails to merge
     # template pendings across module imports ("failed to read compiled module cluster" /
-    # "failed to load pendings for ...") - deterministic in DraconicCook's import mix on GCC 15.2.
+    # "failed to load pendings for ...") - deterministic in Tools.Cook's import mix on GCC 15.2.
     $<$<CXX_COMPILER_ID:GNU>:-fno-module-lazy>
     $<$<CXX_COMPILER_ID:MSVC>:/EHs-c-;/GR->)
 
@@ -450,7 +450,7 @@ if(OPTION_BUILD_TOOLS)
     endif()
 
     add_subdirectory(Code/Draconic/Tools/Tools.Editor)        # DraconicEditor executable (editor assembly)
-    add_subdirectory(Code/Draconic/Tools/Tools.Cook)          # DraconicCook CLI cooker (headless)
+    add_subdirectory(Code/Draconic/Tools/Tools.Cook)          # Tools.Cook CLI cooker (headless)
     add_subdirectory(Code/Draconic/Tools/Tools.Export)        # DraconicExport dist packager
     add_subdirectory(Code/Draconic/Tools/Tools.ShaderPack) # DraconicShaderPackCook: cook shaders.dpak (WGSL for web)
 endif()

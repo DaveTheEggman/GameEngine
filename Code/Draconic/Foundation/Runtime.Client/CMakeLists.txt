@@ -1,5 +1,5 @@
-# Foundation::Runtime.Client - `draconic.runtime.client` (the Application base class).
-# Loop-agnostic: the desktop runner (draconic.runtime.desktop) drives Start/Tick/Stop against the shell.
+# Foundation::Runtime.Client - `foundation.runtime.client` (the Application base class).
+# Loop-agnostic: the desktop runner (foundation.runtime.desktop) drives Start/Tick/Stop against the shell.
 
 add_library(Runtime.Client STATIC)
 add_library(Foundation::Runtime.Client ALIAS Runtime.Client)

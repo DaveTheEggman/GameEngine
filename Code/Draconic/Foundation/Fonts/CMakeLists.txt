@@ -1,4 +1,4 @@
-# Foundation::Fonts - `draconic.fonts` (font/glyph/text-layout types + interfaces).
+# Foundation::Fonts - `foundation.fonts` (font/glyph/text-layout types + interfaces).
 # Ported from Sedulous.Fonts (excluding Fonts.Resources).
 
 add_library(Fonts STATIC)

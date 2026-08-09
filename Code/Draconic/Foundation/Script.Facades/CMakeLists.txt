@@ -1,4 +1,4 @@
-# Foundation::Script.Facades - `draconic.script.facades` (the curated behavior facades:
+# Foundation::Script.Facades - `foundation.script.facades` (the curated behavior facades:
 # Entity/Log/Time/Random + the run-service binding). Shared by the runtime SUBSYSTEM
 # and the editor's COOK so both VMs register the same "main"-module surface.
 add_library(Script.Facades STATIC)

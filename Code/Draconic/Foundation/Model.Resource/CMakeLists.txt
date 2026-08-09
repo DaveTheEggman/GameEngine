@@ -1,4 +1,4 @@
-# Foundation::Model.Resource - `draconic.model.resource` (cooked model manifest + runtime composite + factory).
+# Foundation::Model.Resource - `foundation.model.resource` (cooked model manifest + runtime composite + factory).
 add_library(Model.Resource STATIC)
 add_library(Foundation::Model.Resource ALIAS Model.Resource)
 target_link_libraries(Model.Resource PUBLIC

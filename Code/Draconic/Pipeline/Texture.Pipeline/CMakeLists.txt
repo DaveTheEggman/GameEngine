@@ -1,4 +1,4 @@
-# Pipeline::Texture - `draconic.texture.editor` (tooling: TextureAsset + builder + importer).
+# Pipeline::Texture - `texture.pipeline` (tooling: TextureAsset + builder + importer).
 add_library(Texture.Pipeline STATIC)
 add_library(Pipeline::Texture ALIAS Texture.Pipeline)
 target_link_libraries(Texture.Pipeline PUBLIC

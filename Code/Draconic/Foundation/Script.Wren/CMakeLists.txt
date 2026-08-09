@@ -32,7 +32,7 @@ target_include_directories(wren_vm SYSTEM
 add_library(Script.Wren STATIC)
 add_library(Foundation::Script.Wren ALIAS Script.Wren)
 
-# wren_vm is PRIVATE: consumers see only the draconic.script.wren module (the
+# wren_vm is PRIVATE: consumers see only the foundation.script.wren module (the
 # factory), never the Wren C API. (CMake still links wren_vm into final exes.)
 # Foundation::Script.Facades PUBLIC: WrenScript.cppm imports it for BehaviorFacadeNames()
 # (the neutral facade-name list its behavior-module prelude is built from).

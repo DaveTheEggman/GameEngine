@@ -1,4 +1,4 @@
-# Engine::Script - `draconic.engine.script`: entity behaviors
+# Engine::Script - `engine.script`: entity behaviors
 # (ScriptComponent + per-scene dispatch + the run's ONE gameplay script context).
 # Backend-neutral: links Foundation::Script for the REGISTRY only - entry points
 # register concrete backends.

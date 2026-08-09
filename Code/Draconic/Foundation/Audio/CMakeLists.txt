@@ -1,4 +1,4 @@
-# Foundation::Audio - `draconic.audio`: the miniaudio-backed audio engine core.
+# Foundation::Audio - `foundation.audio`: the miniaudio-backed audio engine core.
 # miniaudio is PRIVATE: ma_* types never cross the module surface.
 add_library(Audio STATIC)
 add_library(Foundation::Audio ALIAS Audio)

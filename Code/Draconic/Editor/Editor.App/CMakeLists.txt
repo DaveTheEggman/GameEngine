@@ -1,5 +1,5 @@
-# Editor::App - `draconic.editor.app`: the editor UI shell (chrome + layout persistence +
-# EditorApplication) on draconic.ui / toolkit / the runtime docking host. Tooling only.
+# Editor::App - `editor.app`: the editor UI shell (chrome + layout persistence +
+# EditorApplication) on foundation.ui / toolkit / the runtime docking host. Tooling only.
 
 add_library(Editor.App STATIC)
 add_library(Editor::App ALIAS Editor.App)

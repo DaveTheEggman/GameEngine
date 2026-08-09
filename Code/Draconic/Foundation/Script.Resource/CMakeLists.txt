@@ -1,4 +1,4 @@
-# Foundation::Script.Resource - `draconic.script.resource` (cooked script classes + factory).
+# Foundation::Script.Resource - `foundation.script.resource` (cooked script classes + factory).
 add_library(Script.Resource STATIC)
 add_library(Foundation::Script.Resource ALIAS Script.Resource)
 target_link_libraries(Script.Resource PUBLIC

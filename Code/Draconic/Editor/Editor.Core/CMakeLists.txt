@@ -1,4 +1,4 @@
-# Editor::Core - `draconic.editor.core` (headless editor domain: context, registries,
+# Editor::Core - `editor.core` (headless editor domain: context, registries,
 # command stack, pages, selection, project). Tooling only - the runtime never links this.
 
 add_library(Editor.Core STATIC)

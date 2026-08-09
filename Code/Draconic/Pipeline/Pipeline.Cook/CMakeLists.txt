@@ -1,4 +1,4 @@
-# Pipeline::Cook - `draconic.editor.cook` (the incremental cook driver + pipeline DB).
+# Pipeline::Cook - `pipeline.cook` (the incremental cook driver + pipeline DB).
 # Tooling only; headless (no shell/GPU) so the CLI cooker can link it.
 
 add_library(Pipeline.Cook STATIC)

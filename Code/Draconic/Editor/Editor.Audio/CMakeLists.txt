@@ -1,4 +1,4 @@
-# Editor::Audio - `draconic.editor.audio`: audio clip audition page (waveform + play).
+# Editor::Audio - `editor.audio`: audio clip audition page (waveform + play).
 add_library(Editor.Audio STATIC)
 add_library(Editor::Audio ALIAS Editor.Audio)
 target_link_libraries(Editor.Audio PUBLIC

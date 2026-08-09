@@ -1,4 +1,4 @@
-# Pipeline::Particles - `draconic.particles.editor`: the edit-time ParticleEffectAsset + its
+# Pipeline::Particles - `particles.pipeline`: the edit-time ParticleEffectAsset + its
 # builder (the bake). Tooling only - the runtime/app never links this. See
 # docs/design/particles-authoring.md.
 add_library(Particles.Pipeline STATIC)

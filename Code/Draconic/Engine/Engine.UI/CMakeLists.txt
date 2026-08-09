@@ -1,4 +1,4 @@
-# Engine::UI - `draconic.engine.ui`: the game screen tier (canvases + overlay render + consumption).
+# Engine::UI - `engine.ui`: the game screen tier (canvases + overlay render + consumption).
 add_library(Engine.UI STATIC)
 add_library(Engine::UI ALIAS Engine.UI)
 target_link_libraries(Engine.UI

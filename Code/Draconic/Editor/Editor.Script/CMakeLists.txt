@@ -1,4 +1,4 @@
-# Editor::Script - `draconic.editor.script`: the ScriptPage (behavior source text
+# Editor::Script - `editor.script`: the ScriptPage (behavior source text
 # editor + save->recook->hot-reload + inline compile errors). Editor exe only.
 add_library(Editor.Script STATIC)
 add_library(Editor::Script ALIAS Editor.Script)
@@ -8,6 +8,6 @@ target_link_libraries(Editor.Script PUBLIC
     Editor::Core Editor::App Foundation::Policy)
 target_sources(Editor.Script PRIVATE ScriptPageImpl.cpp ScriptCompletionImpl.cpp ScriptApiSurfaceImpl.cpp ScriptApiBrowserImpl.cpp PUBLIC FILE_SET editor_script_modules TYPE CXX_MODULES FILES ScriptPage.cppm)
 
-# The headless editing seam (ScriptSourceDocument, in draconic.script.editor) is covered by the
+# The headless editing seam (ScriptSourceDocument, in script.pipeline) is covered by the
 # script pipeline tests; the UI page itself is exercised by the editor smoke.
 
