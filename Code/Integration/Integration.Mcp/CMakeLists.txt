@@ -1,0 +1,10 @@
+# Integration.Mcp - the golden agent-shaped MCP tool-call flow (create -> open -> inspect a project),
+# crossing foundation.mcp x editor.mcp x editor.core x VFS/content. The collection's first MCP resident.
+
+add_executable(Integration.Mcp TestsMain.cpp McpProjectFlowTests.cpp)
+target_link_libraries(Integration.Mcp PRIVATE
+    Editor::Mcp Foundation::Mcp.Reflection Foundation::Mcp Foundation::Json Foundation::Core doctest::doctest)
+target_compile_definitions(Integration.Mcp PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
+target_compile_options(Integration.Mcp PRIVATE
+    "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
+add_test(NAME Integration.Mcp COMMAND Integration.Mcp)

@@ -3,4 +3,5 @@
 
 add_executable(Tools.Mcp Main.cpp)
 target_link_libraries(Tools.Mcp PRIVATE
-    Foundation::Mcp.Reflection Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)
+    Foundation::Mcp.Reflection Editor::Mcp
+    Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)

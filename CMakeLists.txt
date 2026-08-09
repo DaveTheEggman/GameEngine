@@ -423,6 +423,7 @@ if(OPTION_BUILD_TOOLS)
     add_subdirectory(Code/Pipeline/Pipeline.Importer) # file-import framework (IFileImporter + registry, headless)
     add_subdirectory(Code/Pipeline/Pipeline.Cook)  # incremental cook driver + pipeline DB (tooling, headless)
     add_subdirectory(Code/Editor/Editor.Core) # headless editor domain: context/registries/commands/pages/project (tooling)
+    add_subdirectory(Code/Editor/Editor.Mcp) # MCP project tools (project_create/open/info); headless
     add_subdirectory(Code/Pipeline/Physics.Pipeline)    # collision/material assets + builders (tooling)
     add_subdirectory(Code/Pipeline/Audio.Pipeline)      # audio clip asset/builder/importer (tooling)
     add_subdirectory(Code/Pipeline/UI.Pipeline)     # UI document/theme assets + validating builders (tooling)
@@ -585,6 +586,7 @@ if(OPTION_BUILD_TESTS)
     # Integration - cross-collection flow suites (Code/Integration/README.md). Tiered behind the
     # Integration. prefix: the fast dev loop runs module suites only; review/pre-push include these.
     util_test_suite(Code/Integration/Integration.Script            Foundation::Script.Wren)  # JSON x scripting
+    util_test_suite(Code/Integration/Integration.Mcp                Editor::Mcp)  # golden: create->open->inspect a project
 endif()
 
 # Web-only samples, then stop - the rest of Code/Samples is desktop-only. Honor

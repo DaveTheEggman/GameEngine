@@ -15,6 +15,7 @@ import foundation.core;
 import foundation.json;
 import foundation.mcp;
 import foundation.mcp.reflection;
+import editor.mcp;
 
 using namespace foundation::core;
 using namespace foundation::mcp;
@@ -54,6 +55,10 @@ int main(int /*argc*/, char** /*argv*/)
     McpServer server;
     server.SetServerInfo(u8"draconic-mcp", u8"0.1.0");
     RegisterReflectionTools(server);
+
+    // The host's current project (project_open/create populate it); outlives the server.
+    editor::mcp::ProjectSession session;
+    editor::mcp::RegisterProjectTools(server, session);
 
     StdioTransport transport;
     Serve(server, transport);
