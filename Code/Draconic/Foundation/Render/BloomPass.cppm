@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:bloom` partition.
+/// Foundation::Render - the `:bloom` partition.
 ///
 /// HDR bloom via a downsample/upsample pyramid (Jimenez "Next Generation Post Processing in Call of
 /// Duty" - 13-tap downsample + 9-tap tent upsample, additive). The first downsample soft-knee-

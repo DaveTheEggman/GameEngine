@@ -1,4 +1,4 @@
-// Draconic::AudioResource - the `foundation.audio.resource` module.
+// Foundation::Audio.Resource - the `foundation.audio.resource` module.
 //
 // Cooked audio content (docs/design/audio.md §4):
 //   * AudioClipSource - the cooked record: probed metadata + import intent, with the

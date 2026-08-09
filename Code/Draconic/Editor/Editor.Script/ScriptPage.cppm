@@ -1,4 +1,4 @@
-// Draconic::EditorScript - the `editor.script` module.
+// Editor::Script - the `editor.script` module.
 //
 // ScriptEditorPage (scripting.md §5, "ScriptPage - phase 2"): an in-editor code editor for a
 // ScriptClassAsset's behavior source, built on ui::toolkit::CodeEditView (code-editor.md P1):

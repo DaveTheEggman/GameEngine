@@ -1,4 +1,4 @@
-// Draconic::AudioSubsystem - :components partition.
+// Engine::Audio - :components partition.
 //
 // The authoring components (docs/design/audio.md §6): AudioSourceComponent carries the
 // clip reference + playback/3D intent; AudioListenerComponent selects the listener

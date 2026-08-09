@@ -1,4 +1,4 @@
-// Draconic::Shell - `:surface` partition.
+// Foundation::Shell - `:surface` partition.
 //
 // InputSurface + InputRouter: the viewport-input layer that sits above the raw
 // shell devices (see docs/design/viewport-input.md §4).

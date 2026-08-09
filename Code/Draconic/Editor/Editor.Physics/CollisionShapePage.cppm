@@ -1,4 +1,4 @@
-// Draconic::EditorPhysics - the `editor.physics` module (tooling).
+// Editor::Physics - the `editor.physics` module (tooling).
 //
 // CollisionShapeEditorPage: the bespoke authoring page for a CollisionShapeAsset. It replaces the
 // generic asset form (a raw guid row) with a TYPED mesh picker (no guid string), a cook-kind toggle

@@ -1,4 +1,4 @@
-// Draconic::Shell - `:input` partition.
+// Foundation::Shell - `:input` partition.
 //
 // Abstract input device interfaces: IKeyboard, IMouse, IGamepad, ITouch, and
 // IInputManager (the aggregate the shell exposes). State is double-buffered

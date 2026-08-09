@@ -1,4 +1,4 @@
-/// Draconic::Scene - the `:scene` partition.
+/// Foundation::Scene - the `:scene` partition.
 ///
 /// Scene: an isolated world of entities with a transform hierarchy (and, in later
 /// phases, per-scene systems). Two parallel pools indexed by entity slot:

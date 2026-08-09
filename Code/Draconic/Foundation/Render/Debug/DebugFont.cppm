@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:debug_font` partition (Debug layer).
+/// Foundation::Render - the `:debug_font` partition (Debug layer).
 ///
 /// Embedded 8x8 bitmap font for debug text rendering, ported faithfully from SedulousEngine's
 /// Sedulous.DebugFont. Covers printable ASCII (32..126). Data is 8 bytes per glyph (one byte per

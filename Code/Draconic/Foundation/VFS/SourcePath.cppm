@@ -1,4 +1,4 @@
-// Draconic::VFS - :source_path partition.
+// Foundation::VFS - :source_path partition.
 //
 // SourcePath: a typed MOUNT-RELATIVE logical path - the currency for source-file
 // references in serialized asset data (pipeline::Asset::fileName and friends). One honest

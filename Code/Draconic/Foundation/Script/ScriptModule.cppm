@@ -1,4 +1,4 @@
-// Draconic::Script - the `foundation.script` module.
+// Foundation::Script - the `foundation.script` module.
 //
 // A thin, VM-agnostic scripting abstraction built on Core's reflection: an
 // IScriptManager (the VM) creates IScriptContexts, reflected types are

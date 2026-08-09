@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :skeleton_page partition.
+// Editor::Scene - :skeleton_page partition.
 //
 // SkeletonEditorPage (editor-pages-gap.md, bespoke pass #5): a VIEWER for a SkeletonAsset - a bone
 // TREE (hierarchy by parent index) beside a bind-pose wireframe viewport (the pass-4

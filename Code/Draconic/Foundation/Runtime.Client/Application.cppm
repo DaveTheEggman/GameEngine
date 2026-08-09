@@ -1,4 +1,4 @@
-// Draconic::RuntimeClient - `:app` partition.
+// Foundation::Runtime.Client - `:app` partition.
 //
 // The application contract. There is exactly ONE application per host (not a list
 // of modules): the application IS the game/tool. It owns subsystem registration,

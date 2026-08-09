@@ -1,4 +1,4 @@
-/// Draconic::Imgui - the `:renderer` partition.
+/// Extensions::Imgui - the `:renderer` partition.
 ///
 /// A Dear ImGui renderer built on Draconic's RHI (no stock imgui backend) - ported from the Sedulous
 /// ImGui sample, which uses the same RHI shape. Owns the GPU pipeline + font atlas + per-frame dynamic

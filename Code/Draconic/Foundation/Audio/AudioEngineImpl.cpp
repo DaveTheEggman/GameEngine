@@ -1,4 +1,4 @@
-// Draconic::Audio - AudioEngine implementation (module IMPLEMENTATION unit).
+// Foundation::Audio - AudioEngine implementation (module IMPLEMENTATION unit).
 //
 // ALL miniaudio contact lives here: the interface stays ma_*-free (API hygiene + GCC's
 // module serializer must never see the 4 MB header in an interface unit's global

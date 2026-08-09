@@ -1,4 +1,4 @@
-// Draconic::MaterialEditor - reflection implementation unit: MaterialAsset's reflected surface.
+// Pipeline::Materials - reflection implementation unit: MaterialAsset's reflected surface.
 //
 // Kept OUT of the MaterialAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). MaterialAsset wraps a MaterialSource BY VALUE, and

@@ -1,4 +1,4 @@
-// Draconic::VG - :tessellation partition.
+// Foundation::VG - :tessellation partition.
 //
 // Converts paths/polylines into triangle meshes:
 //   * Triangulator    - ear-clipping fill triangulation (+ holes), winding helpers

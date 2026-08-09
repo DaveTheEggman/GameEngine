@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :inspector partition.
+// Editor::Scene - :inspector partition.
 //
 // SceneInspectorView: the reflection-driven property inspector INSIDE a scene page (per-page,
 // like everything scene-scoped; §3.5). A toolkit PropertyGrid rebuilt from the primary

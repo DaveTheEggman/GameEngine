@@ -1,4 +1,4 @@
-// Draconic::XmlSerialization - the `foundation.xml.serialization` module.
+// Foundation::Xml.Serialization - the `foundation.xml.serialization` module.
 //
 // An XML backend for Core's format-agnostic ISerializer/Serializer contract:
 // the first text-based serialization backend. One Serialize() path runs either

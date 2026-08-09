@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:mesh_renderer` partition.
+/// Foundation::Render - the `:mesh_renderer` partition.
 ///
 /// `MeshRenderer` is the `Renderer` for the mesh categories (Opaque/Masked/Transparent). It
 /// owns the built-in forward shader (two permutations), the GPU rings, and the mesh cache,

@@ -1,4 +1,4 @@
-// Draconic::RenderGraph - :debug partition
+// Foundation::RenderGraph - :debug partition
 //
 // Debug visualization/reporting: Graphviz DOT export and a text summary. Ported
 // from Sedulous.RenderGraph (GraphDebug.bf).

@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:decal_pass` partition.
+/// Foundation::Render - the `:decal_pass` partition.
 ///
 /// Screen-space projected decals, ported from SedulousEngine's DecalPass/decal.frag: reconstruct the
 /// world position under each pixel from the scene depth, transform it into a decal's oriented unit box,

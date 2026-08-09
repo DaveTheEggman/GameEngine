@@ -1,4 +1,4 @@
-// Draconic::NetReplication - implementation unit: client-side snapshot interpolation (LerpFieldValue
+// Foundation::Net.Replication - implementation unit: client-side snapshot interpolation (LerpFieldValue
 // + InterpolationBuffer). Separate from ReplicationImpl.cpp - a distinct concern (playback smoothing),
 // same module. Depends only on Core reflection (no wire).
 

@@ -1,4 +1,4 @@
-// Draconic::VG - :shapes partition.
+// Foundation::VG - :shapes partition.
 //
 // ShapeBuilder (common shapes as paths: rounded rect, circle/ellipse, regular
 // polygon, star) and DashGenerator (dashed polylines from a pattern). Ported

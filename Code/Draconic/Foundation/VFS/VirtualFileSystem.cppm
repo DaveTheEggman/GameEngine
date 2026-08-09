@@ -1,4 +1,4 @@
-// Draconic::VFS - :vfs partition
+// Foundation::VFS - :vfs partition
 //
 // VirtualFileSystem: a scheme mount table. Paths are `scheme://locator`; the
 // scheme selects a mounted backend and the locator (mount-relative, no scheme)

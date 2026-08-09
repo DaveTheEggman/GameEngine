@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:sky` partition.
+/// Foundation::Render - the `:sky` partition.
 ///
 /// Draws the environment as the visible background: a fullscreen triangle at the far plane, depth-
 /// tested (LessEqual, no write) against the forward depth so it only fills pixels no geometry covered,

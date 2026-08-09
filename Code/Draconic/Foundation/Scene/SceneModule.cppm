@@ -1,4 +1,4 @@
-/// Draconic::Scene - `foundation.scene`, the scene / ECS foundation.
+/// Foundation::Scene - `foundation.scene`, the scene / ECS foundation.
 ///
 /// The engine's world model: scenes of entities with a transform hierarchy and
 /// per-scene systems (component managers), driven by a SceneSubsystem. This phase

@@ -1,4 +1,4 @@
-// Draconic::EditorAudio - the `editor.audio` module.
+// Editor::Audio - the `editor.audio` module.
 //
 // AudioClipPage (audio.md P2): the audition page. Opens an AudioClipAsset with a peak
 // waveform (decoded from the copied source file - the same container bytes the cook

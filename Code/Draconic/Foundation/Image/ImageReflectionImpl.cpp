@@ -1,4 +1,4 @@
-// Draconic::Image - reflection implementation unit: enum reflection bodies.
+// Foundation::Image - reflection implementation unit: enum reflection bodies.
 //
 // Kept OUT of the :image_data interface partition (DRACONIC_REFLECT_* bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). ImageData.cppm declares RegisterImageReflection();

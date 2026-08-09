@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :selection partition.
+// Editor::Core - :selection partition.
 //
 // Generic editor selection set: ordered, deduplicated, with a primary element (Items()[0] - the
 // gizmo pivot / transform anchor, per Lumix) and a change event that panels (inspector, hierarchy,

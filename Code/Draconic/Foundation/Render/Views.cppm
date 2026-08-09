@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:views` partition.
+/// Foundation::Render - the `:views` partition.
 ///
 /// `RenderView` is the renderer's unit of work *and* its isolation boundary: render one
 /// scene's extracted data, from one camera, into one target. A frame renders a SET of

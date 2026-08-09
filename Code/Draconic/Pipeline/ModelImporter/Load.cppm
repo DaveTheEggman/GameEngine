@@ -1,4 +1,4 @@
-/// Draconic::ModelImporter:load - load a model file + cook it in one call.
+/// Pipeline::ModelImporter:load - load a model file + cook it in one call.
 ///
 /// Convenience over the model loaders + the cook step: registers the glTF/FBX
 /// loaders, loads `path` into a Model IR, then cooks it into `db`, yielding the

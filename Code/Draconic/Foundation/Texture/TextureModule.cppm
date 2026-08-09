@@ -1,4 +1,4 @@
-// Draconic::Texture - the `foundation.texture` module.
+// Foundation::Texture - the `foundation.texture` module.
 //
 // Logical texture types + a CPU-side upload descriptor (TextureData) and
 // image->RHI format conversion. The descriptor layer between foundation.image (CPU)

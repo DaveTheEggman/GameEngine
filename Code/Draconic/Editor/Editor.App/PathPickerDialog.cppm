@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :path_picker_dialog partition.
+// Editor::App - :path_picker_dialog partition.
 //
 // PathPickerDialog: the AssetPickerDialog's sibling for SOURCE FILES - a modal picker over
 // the files under a project directory (typically the Sources root), constrained to a set of

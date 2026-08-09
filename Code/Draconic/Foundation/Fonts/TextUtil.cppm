@@ -1,4 +1,4 @@
-// Draconic::Fonts - :text_util partition
+// Foundation::Fonts - :text_util partition
 //
 // Codepoint iteration over a UTF-8 StringView. Mirrors how Sedulous walked text
 // with Beef's `StringView.DecodedChars` (Beef strings are UTF-8); Draconic's

@@ -1,4 +1,4 @@
-// Draconic::UIResource - the `foundation.ui.resource` module.
+// Foundation::UI.Resource - the `foundation.ui.resource` module.
 //
 // Cooked game-UI content (docs/design/game-ui.md §4). v1 payloads are VALIDATED TEXT:
 // the cook parses (markup / SSS) and FAILS on errors, but ships the source text - the

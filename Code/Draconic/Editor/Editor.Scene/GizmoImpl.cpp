@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :gizmo partition.
+// Editor::Scene - :gizmo partition.
 //
 // TransformGizmo + GizmoController: viewport transform manipulation (design doc §8). The
 // Sedulous gizmo skeleton (debug-draw ribbons/rings, plane-projected drag math, atan2 rotation

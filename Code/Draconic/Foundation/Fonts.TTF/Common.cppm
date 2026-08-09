@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - foundation.fonts.ttf:common partition
+// Foundation::Fonts.TTF - foundation.fonts.ttf:common partition
 //
 // Small helpers shared by the TTF parser + atlas baker: the supported
 // extension list and a case-insensitive extension compare. Sedulous duplicated

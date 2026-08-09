@@ -1,4 +1,4 @@
-// Draconic::ShellWeb - `foundation.shell.web:window`.
+// Foundation::Shell.Web - `foundation.shell.web:window`.
 //
 // The web shell's window IS an HTML <canvas>. Its size comes from the live canvas
 // (emscripten_get_canvas_element_size), and Native() hands back the canvas CSS selector, which the

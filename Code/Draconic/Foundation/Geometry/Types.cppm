@@ -1,4 +1,4 @@
-/// Draconic::Geometry - the `:types` partition.
+/// Foundation::Geometry - the `:types` partition.
 ///
 /// Value-type vocabulary for the engine's runtime mesh format (distinct from
 /// foundation.model, which is the importer's representation of a loaded file): the

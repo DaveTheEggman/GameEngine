@@ -1,4 +1,4 @@
-// Draconic::ShaderEditor - the `foundation.shaders.editor` module (tooling).
+// Pipeline::Shaders - the `foundation.shaders.editor` module (tooling).
 //
 // Source-side shader authoring + cook:
 //   * ShaderAsset (pipeline::Asset): a shader name + the two HLSL source files

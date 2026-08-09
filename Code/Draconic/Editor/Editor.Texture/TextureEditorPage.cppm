@@ -1,4 +1,4 @@
-// Draconic::EditorTexture - the `editor.texture` module.
+// Editor::Texture - the `editor.texture` module.
 //
 // TextureEditorPage (editor-pages-gap.md, bespoke pass #1): the import-settings surface over
 // TextureAsset. A CPU preview of the source image on the left (decoded through the same

@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :project partition.
+// Editor::Core - :project partition.
 //
 // The project model (docs/design/editor.md §3.9, decided 2026-07-11): a project is a
 // self-contained directory with a fixed layout + an XML manifest:

@@ -1,4 +1,4 @@
-// Draconic::VG - :path partition.
+// Foundation::VG - :path partition.
 //
 // The path data model: commands/points, segment iteration, the immutable Path
 // (with bounds/contains/length/point-at-distance queries), the mutable

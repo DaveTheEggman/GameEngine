@@ -1,4 +1,4 @@
-// Draconic::VG - :batch partition.
+// Foundation::VG - :batch partition.
 //
 // The batched output an external renderer consumes: VGCommand (a run of indices
 // sharing state), VGBatch (vertices/indices/commands/textures), and the

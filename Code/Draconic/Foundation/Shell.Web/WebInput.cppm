@@ -1,4 +1,4 @@
-// Draconic::ShellWeb - `foundation.shell.web:input`.
+// Foundation::Shell.Web - `foundation.shell.web:input`.
 //
 // The web shell's input devices, wired to the browser via Emscripten's HTML5 API. Keyboard (window),
 // mouse move/button/wheel (canvas) and touch start/move/end (canvas) are EVENT-DRIVEN: the callbacks

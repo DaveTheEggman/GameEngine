@@ -1,4 +1,4 @@
-// Draconic::UIEditor - reflection implementation unit: UI asset reflected surfaces.
+// Pipeline::UI - reflection implementation unit: UI asset reflected surfaces.
 //
 // Kept OUT of the UIAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). UIDocumentAsset (markup) and UIThemeAsset (stylesheet) gain

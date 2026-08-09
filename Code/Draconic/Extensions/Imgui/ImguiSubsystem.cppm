@@ -1,4 +1,4 @@
-/// Draconic::Imgui - the `:subsystem` partition.
+/// Extensions::Imgui - the `:subsystem` partition.
 ///
 /// ImguiSubsystem: a Context-level subsystem that owns the Dear ImGui context + the RHI renderer and
 /// exposes the per-frame hooks an app drives - NewFrame (feed input + display size, begin the UI frame)

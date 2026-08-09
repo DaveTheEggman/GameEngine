@@ -1,4 +1,4 @@
-// Draconic::EditorGameUI - the `editor.gameui` module.
+// Editor::GameUI - the `editor.gameui` module.
 //
 // UIDocumentPage (game-ui.md P2): text editing + LIVE PREVIEW for UIDocumentAssets.
 // The preview renders through the RUNTIME CONTEXT's UISubsystem - the GAME's context,

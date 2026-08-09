@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :material_page partition.
+// Editor::Scene - :material_page partition.
 //
 // MaterialEditorPage (Sedulous MaterialEditorPage shape): edits a MaterialAsset - a preview
 // sphere lit by a default sun + procedural sky on the left, the material's parameters on the

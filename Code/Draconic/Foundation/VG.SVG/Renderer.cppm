@@ -1,4 +1,4 @@
-// Draconic::VG::SVG - :renderer partition.
+// Foundation::VG.SVG::SVG - :renderer partition.
 //
 // SVGRenderer: draws an SVGDocument to a VGContext (standalone, no UI framework).
 // Scales the document to fit a bounds rect; an optional tint overrides all

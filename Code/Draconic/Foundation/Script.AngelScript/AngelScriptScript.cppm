@@ -1,6 +1,6 @@
-// Draconic::ScriptAngelScript - AngelScript backend (foundation.script.angelscript).
+// Foundation::Script.AngelScript - AngelScript backend (foundation.script.angelscript).
 //
-// Implements Draconic::Script on AngelScript (the second certified backend - the
+// Implements Foundation::Script.AngelScript on AngelScript (the second certified backend - the
 // proof that the contract is backend-agnostic). Reflected types are emitted with
 // the TWO-PHASE flow the contract exists for (IScriptManager::FinalizeTypes):
 // phase 1 declares every collected type via RegisterObjectType, THEN phase 2

@@ -1,4 +1,4 @@
-// Draconic::RenderGraph - :transient_pool partition
+// Foundation::RenderGraph - :transient_pool partition
 //
 // Pools GPU textures for reuse across frames by transient resources, avoiding
 // per-frame allocation thrashing. Matches by exact descriptor; ages out unused

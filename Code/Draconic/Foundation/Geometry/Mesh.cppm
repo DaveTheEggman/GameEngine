@@ -1,4 +1,4 @@
-/// Draconic::Geometry - the `:mesh` partition.
+/// Foundation::Geometry - the `:mesh` partition.
 ///
 /// StaticMesh is the engine's runtime mesh: a static vertex stream (48B), an index
 /// buffer, submeshes, bounds, and the geometry ops (normals/tangents/bounds) that

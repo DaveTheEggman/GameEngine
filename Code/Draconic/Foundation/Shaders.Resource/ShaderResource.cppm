@@ -1,4 +1,4 @@
-/// Draconic::ShaderResource - the `foundation.shaders.resource` module.
+/// Foundation::Shaders.Resource - the `foundation.shaders.resource` module.
 ///
 /// Shaders as resources: a `ShaderSource` (authored content: name + per-stage HLSL)
 /// is built by `ShaderFactory` into a runtime `ShaderResource`. The factory

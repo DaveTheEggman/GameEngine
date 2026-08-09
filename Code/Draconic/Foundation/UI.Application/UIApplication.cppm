@@ -1,4 +1,4 @@
-// Draconic::UIApplication - the `foundation.ui.application` module.
+// Foundation::UI.Application - the `foundation.ui.application` module.
 //
 // The docking / workbench layer: RuntimeDockableWindowHost implements the toolkit's IDockableWindowHost in
 // terms of the runtime host (IApplicationHost::OpenWindow/CloseWindow) + the reusable UIHost + the shell's

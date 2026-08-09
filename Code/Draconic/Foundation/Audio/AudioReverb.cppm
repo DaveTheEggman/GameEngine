@@ -1,4 +1,4 @@
-// Draconic::Audio - the `:reverb` partition.
+// Foundation::Audio - the `:reverb` partition.
 //
 // A Freeverb-style Schroeder reverberator (public-domain topology: 8 parallel damped
 // combs + 4 series allpasses per channel, stereo-spread on the right) as PURE DSP -

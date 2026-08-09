@@ -1,4 +1,4 @@
-// Draconic::ScriptAngelScript tests: the Wren backend's reflected-type EMISSION
+// Foundation::Script.AngelScript tests: the Wren backend's reflected-type EMISSION
 // suite ported to AngelScript syntax (the battery certifies the context contract;
 // emission is certified per backend), the shared conformance battery, and the
 // backend-registry integration (both languages resolving side by side).

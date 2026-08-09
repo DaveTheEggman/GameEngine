@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :layout partition.
+// Editor::App - :layout partition.
 //
 // PER-PROJECT editor-state persistence, UNIFIED on the structured settings store
 // (foundation.settings): ONE file - <project>/Editor/editor.project.settings.xml - holding

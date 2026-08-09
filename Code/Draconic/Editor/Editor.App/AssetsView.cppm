@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :assets_view partition.
+// Editor::App - :assets_view partition.
 //
 // AssetsView: the Assets panel (asset-pipeline design §7) - source-DB-backed, the typed DB is
 // the truth (Traktor's DatabaseView model, not a directory scan). Left = group tree; right =

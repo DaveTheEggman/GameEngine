@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :command partition.
+// Editor::Core - :command partition.
 //
 // The editor undo/redo spine: IEditorCommand + EditorCommandStack. Lumix WorldEditor
 // semantics (the best-engineered of the surveyed editors), per docs/design/editor.md §3.4:

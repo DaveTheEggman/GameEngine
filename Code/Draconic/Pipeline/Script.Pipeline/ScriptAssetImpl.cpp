@@ -1,4 +1,4 @@
-// Draconic::ScriptEditor - reflection implementation unit: ScriptClassAsset's reflected surface.
+// Pipeline::Script - reflection implementation unit: ScriptClassAsset's reflected surface.
 //
 // Kept OUT of the ScriptAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). ScriptClassAsset::StaticType() gains its `language` property

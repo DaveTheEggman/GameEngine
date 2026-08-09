@@ -1,4 +1,4 @@
-// Draconic::AudioSubsystem - the `engine.audio` module.
+// Engine::Audio - the `engine.audio` module.
 //
 // Scene integration (docs/design/audio.md §6): an AudioSceneSystem per scene owns a
 // per-scene voice group (open question 1: YES - pause/stop-all per scene falls out of

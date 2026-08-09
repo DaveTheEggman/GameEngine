@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :export_controller partition.
+// Editor::Core - :export_controller partition.
 //
 // ExportPresetsController: the non-UI logic behind the editor's "Export presets" panel - a
 // load -> mutate (add / edit / duplicate / delete) -> save round-trip over a project's

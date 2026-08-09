@@ -1,4 +1,4 @@
-/// Draconic::Net - `foundation.net:rpc` partition.
+/// Foundation::Net - `foundation.net:rpc` partition.
 ///
 /// Remote procedure calls (docs/design/networking.md §3 `foundation.net.rpc`, P1). An RpcTable maps
 /// RPC names to handlers; Call serializes (rpc-id + args) and sends it over a NetSession on a

@@ -1,4 +1,4 @@
-// Draconic::PhysicsEditor - the `foundation.physics.editor` module (tooling).
+// Pipeline::Physics - the `foundation.physics.editor` module (tooling).
 //
 // Source-side physics authoring + cook (docs/design/physics.md §5):
 //   * CollisionShapeAsset (pipeline::Asset): references a source MESH asset by guid +

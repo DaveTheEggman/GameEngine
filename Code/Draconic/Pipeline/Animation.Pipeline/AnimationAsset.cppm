@@ -1,4 +1,4 @@
-/// Draconic::AnimationEditor - the `foundation.animation.editor` module.
+/// Pipeline::Animation - the `foundation.animation.editor` module.
 ///
 /// Authoring/cook side: a SkeletonAsset / AnimationClipAsset wraps the cooked source + the source
 /// file reference; the builders cook them into the content DB (Source -> product at load). Mirrors

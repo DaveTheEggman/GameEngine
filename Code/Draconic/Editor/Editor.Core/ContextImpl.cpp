@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :context partition.
+// Editor::Core - :context partition.
 //
 // EditorContext: the central service object handed to every page/panel/plugin (Sedulous's
 // EditorContext, Traktor's IEditor). Holds the open project, the registries, the open pages +

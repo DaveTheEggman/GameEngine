@@ -1,4 +1,4 @@
-// Draconic::TextureEditor - the `foundation.texture.editor` module (tooling).
+// Pipeline::Texture - the `foundation.texture.editor` module (tooling).
 //
 // Source-side texture authoring + cook:
 //   * TextureAsset (pipeline::Asset): references an image file + the GPU-texture

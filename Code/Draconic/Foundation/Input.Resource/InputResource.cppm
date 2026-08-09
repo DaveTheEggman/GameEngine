@@ -1,4 +1,4 @@
-// Draconic::InputResource - the `foundation.input.resource` module.
+// Foundation::Input.Resource - the `foundation.input.resource` module.
 //
 // The cooked form of an input map: pure data (no processing beyond validation at cook),
 // deserialized straight into the runtime's InputMap. The subsystem/app binds the project's

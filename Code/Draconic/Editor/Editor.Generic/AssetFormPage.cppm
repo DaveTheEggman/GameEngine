@@ -1,4 +1,4 @@
-// Draconic::EditorGeneric - the `editor.generic` module.
+// Editor::Generic - the `editor.generic` module.
 //
 // GenericAssetEditorPage (editor-pages-gap.md, the LAST page of the bespoke track): the fallback
 // property-form editor for EVERY asset without a dedicated page. Registered against

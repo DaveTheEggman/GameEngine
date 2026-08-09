@@ -1,4 +1,4 @@
-// Draconic::Xml - the `foundation.xml` module.
+// Foundation::Xml - the `foundation.xml` module.
 //
 // A DOM XML parser + writer (UTF-8), faithfully ported from the hand-written
 // Sedulous.Xml library so future Sedulous ports (UI markup, SVG) and an XML

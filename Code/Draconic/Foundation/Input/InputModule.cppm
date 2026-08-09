@@ -1,4 +1,4 @@
-// Draconic::Input - the `foundation.input` module.
+// Foundation::Input - the `foundation.input` module.
 //
 // The engine-level ACTION layer (docs/design/input.md): named actions over data-driven
 // bindings, evaluated against the shell's device facades. Engine-global, not per-scene -

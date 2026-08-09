@@ -1,4 +1,4 @@
-/// Draconic::Scene - the `:system` partition.
+/// Foundation::Scene - the `:system` partition.
 ///
 /// SceneSystem: the base for a per-scene system - the unit a Scene owns, ticks per
 /// phase, and notifies of entity lifecycle. A ComponentManager is the most common

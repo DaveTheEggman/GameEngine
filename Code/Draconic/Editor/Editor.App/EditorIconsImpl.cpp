@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :editor_icons partition.
+// Editor::App - :editor_icons partition.
 //
 // Hand-authored editor icon set: inline SVG strings materialized ONCE into shared
 // ui::SVGDrawable instances (the VG/SVG stack renders them crisp at any size). Ported from

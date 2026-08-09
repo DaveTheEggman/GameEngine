@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:shadows` partition.
+/// Foundation::Render - the `:shadows` partition.
 ///
 /// Shadow mapping (phase 5). 5.1 is the directional vertical slice: a single shadow map rendered
 /// from the scene's directional shadow caster's point of view, sampled with PCF in the forward

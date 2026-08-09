@@ -1,4 +1,4 @@
-// Draconic::Particles - reflection implementation unit (batch 1): the range leaf value types +
+// Foundation::Particles - reflection implementation unit (batch 1): the range leaf value types +
 // the flat/range particle module classes, so the module types stop being tooling-invisible
 // (reflection track P2). The particle editor page stays bespoke - this reflection is for
 // scriptability/tooling visibility, not a generated inspector.

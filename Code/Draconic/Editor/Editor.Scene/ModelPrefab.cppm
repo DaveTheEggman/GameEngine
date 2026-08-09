@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :model_prefab partition.
+// Editor::Scene - :model_prefab partition.
 //
 // Model->prefab generation (prefabs P3): a model import's manifest (node hierarchy + cooked
 // leaf guids) becomes a spawnable PrefabDocument named "Prefab" inside the model's group. The

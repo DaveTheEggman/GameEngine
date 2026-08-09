@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:fxaa` partition.
+/// Foundation::Render - the `:fxaa` partition.
 ///
 /// FXAA (Fast Approximate Anti-Aliasing), the TAA-OFF fallback AA. A single fullscreen LDR pass after
 /// tonemap: perceptual-luma edge detect + directional edge search + sub-pixel blend (ported from the

@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - the `foundation.fonts.ttf` module.
+// Foundation::Fonts.TTF - the `foundation.fonts.ttf` module.
 //
 // TrueType/OpenType backend over stb_truetype: a TrueTypeFont (IFont), a
 // stb-packed TrueTypeFontAtlas (IFontAtlas), the matching parser + atlas baker,

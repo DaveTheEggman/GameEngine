@@ -1,4 +1,4 @@
-// Draconic::GraphicsGpu - the `foundation.graphics.gpu` module (interface unit).
+// Foundation::Graphics - the `foundation.graphics.gpu` module (interface unit).
 //
 // The GPU-backend factory for GraphicsDevice: turns a GraphicsDeviceDesc into a
 // live device on Vulkan or DX12 (validation-wrapped on request), then delegates

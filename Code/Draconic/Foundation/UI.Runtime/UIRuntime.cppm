@@ -1,4 +1,4 @@
-// Draconic::UIRuntime - the `foundation.ui.runtime` module.
+// Foundation::UI.Runtime - the `foundation.ui.runtime` module.
 //
 // UIHost: the reusable bridge that draws foundation.ui on the runtime's multi-window graphics host
 // (foundation.graphics). It owns ONE UIContext with N RootViews (one per window), compiles the shared VG

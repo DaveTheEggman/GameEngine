@@ -1,4 +1,4 @@
-// Draconic::Shell - the `foundation.shell` module.
+// Foundation::Shell - the `foundation.shell` module.
 //
 // IShell is the raw OS/window service - the "shell" (Sedulous's term for it):
 // windowing, the OS event pump, run state, and raw input devices (keyboard,

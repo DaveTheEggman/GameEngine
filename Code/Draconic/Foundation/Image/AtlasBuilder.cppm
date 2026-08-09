@@ -1,4 +1,4 @@
-// Draconic::Image - :atlas_builder partition.
+// Foundation::Image - :atlas_builder partition.
 //
 // RectI (integer rectangle for atlas regions) and ImageAtlasBuilder - a
 // general-purpose shelf-packing atlas packer that combines multiple RGBA8

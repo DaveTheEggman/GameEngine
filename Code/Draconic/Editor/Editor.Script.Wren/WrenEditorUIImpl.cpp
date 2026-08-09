@@ -1,4 +1,4 @@
-// Draconic::Editor.Script.Wren - the `editor.script.wren` module.
+// Editor::Script.Wren - the `editor.script.wren` module.
 //
 // The Wren syntax tables + lexer registration. Wren quirks encoded in the spec: block
 // comments NEST, and """ delimits raw (multi-line) strings; no preprocessor, no char

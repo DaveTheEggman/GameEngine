@@ -1,4 +1,4 @@
-// Draconic::MeshEditor - the `foundation.geometry.editor` module (tooling).
+// Pipeline::Geometry - the `foundation.geometry.editor` module (tooling).
 //
 // Source-side mesh authoring + cook:
 //   * StaticMeshAsset / SkinnedMeshAsset (pipeline::Asset): wrap a cooked

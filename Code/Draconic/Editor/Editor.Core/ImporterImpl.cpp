@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :importer partition.
+// Editor::Core - :importer partition.
 //
 // The file-import seam (asset-pipeline design §7): an OS file (drag-dropped onto the editor)
 // becomes a SOURCE - the raw bytes copied into the project's Sources/ tree - plus a typed Asset

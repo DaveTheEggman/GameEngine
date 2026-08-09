@@ -1,4 +1,4 @@
-// Draconic::EditorAudio - the `:bus_layout_page` partition (implementation).
+// Editor::Audio - the `:bus_layout_page` partition (implementation).
 
 module;
 #include "Core/Prelude.h"

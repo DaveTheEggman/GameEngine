@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:sprite_renderer` partition.
+/// Foundation::Render - the `:sprite_renderer` partition.
 ///
 /// A Renderer that draws textured billboard quads (sprites). Ported from SedulousEngine's
 /// SpriteRenderer/sprite.hlsl: a 6-vertex quad is generated in the vertex shader from SV_VertexID and

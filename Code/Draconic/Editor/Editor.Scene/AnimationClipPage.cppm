@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :animation_clip_page partition.
+// Editor::Scene - :animation_clip_page partition.
 //
 // AnimationClipEditorPage (editor-pages-gap.md, bespoke pass #4's lighter half): preview + light
 // authoring for an AnimationClipAsset. A skeleton-wireframe viewport plays the COOKED clip product

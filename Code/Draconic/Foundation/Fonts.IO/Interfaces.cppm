@@ -1,4 +1,4 @@
-// Draconic::FontsIO - foundation.fonts.io:interfaces partition
+// Foundation::Fonts.IO - foundation.fonts.io:interfaces partition
 //
 // The source-format load pipeline contracts: IFontParser (source bytes -> a
 // queryable IFont) and IFontAtlasBaker (a parsed IFont -> a renderable

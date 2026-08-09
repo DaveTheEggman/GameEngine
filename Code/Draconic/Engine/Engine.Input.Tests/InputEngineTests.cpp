@@ -1,4 +1,4 @@
-// Draconic::Engine.Input tests - the ENGINE-level input surface: the InputSubsystem
+// Engine::Input tests - the ENGINE-level input surface: the InputSubsystem
 // (per-surface scene binding / source overrides) and the per-context Wren Input facade.
 //
 // Split out of Foundation/Input.Tests: these exercise engine.input (+ the script

@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:debug_draw` partition (Debug layer).
+/// Foundation::Render - the `:debug_draw` partition (Debug layer).
 ///
 /// Instance-based immediate-mode debug drawing, ported from SedulousEngine's Sedulous.Renderer.Debug
 /// DebugDraw. Game code accumulates world-space lines/triangles/wireframes + screen/3D text over a

@@ -1,4 +1,4 @@
-/// Draconic::Animation - the `:skeleton` partition.
+/// Foundation::Animation - the `:skeleton` partition.
 ///
 /// The skeletal hierarchy (ported faithfully from Sedulous.Animation.Skeleton/Bone). A `Bone` is a
 /// node with a local bind pose + inverse bind matrix; the `Skeleton` owns the bones and computes

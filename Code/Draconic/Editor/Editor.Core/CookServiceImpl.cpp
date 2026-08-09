@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :cook_service partition.
+// Editor::Core - :cook_service partition.
 //
 // EditorCookService: the in-editor face of the cook driver (asset-pipeline design §6). Owns the
 // project's sources/.cache mounts + a CookDriver over the project DBs, and runs cooks on a

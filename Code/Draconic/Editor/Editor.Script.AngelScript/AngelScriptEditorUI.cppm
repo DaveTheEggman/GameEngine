@@ -1,4 +1,4 @@
-// Draconic::Editor.Script.AngelScript - the `editor.script.angelscript` module.
+// Editor::Script.AngelScript - the `editor.script.angelscript` module.
 //
 // AngelScript-specific EDITOR-UI services: everything the in-editor experience needs that
 // depends on ui.toolkit and therefore cannot live in the cook target (the cook links into

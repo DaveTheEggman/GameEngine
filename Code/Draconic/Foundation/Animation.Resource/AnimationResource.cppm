@@ -1,4 +1,4 @@
-/// Draconic::AnimationResource - the `foundation.animation.resource` module.
+/// Foundation::Animation.Resource - the `foundation.animation.resource` module.
 ///
 /// Skeletons + animation clips as resources: a cooked SkeletonSource / AnimationClipSource
 /// (ISerializable - flat parallel arrays) is built by a factory into the runtime

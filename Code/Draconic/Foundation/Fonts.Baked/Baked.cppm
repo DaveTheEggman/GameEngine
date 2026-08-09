@@ -1,4 +1,4 @@
-// Draconic::FontsBaked - the `foundation.fonts.baked` module.
+// Foundation::Fonts.Baked - the `foundation.fonts.baked` module.
 //
 // Pre-baked IFont / IFontAtlas implementations with no rasterizer dependency:
 // shipped games get every glyph + region from disk (resource deserialization)

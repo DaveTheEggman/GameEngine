@@ -1,4 +1,4 @@
-/// Draconic::SceneResource - the `foundation.scene.resource` module.
+/// Foundation::Scene.Resource - the `foundation.scene.resource` module.
 ///
 /// Whole-scene serialization - both LoadScene and its SaveScene mirror. A scene is
 /// stored as one content-DB Instance: a small

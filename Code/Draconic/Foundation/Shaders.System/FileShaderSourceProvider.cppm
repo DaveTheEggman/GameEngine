@@ -1,4 +1,4 @@
-/// Draconic::ShaderSystem - the `:file_provider` partition.
+/// Foundation::Shaders.System - the `:file_provider` partition.
 ///
 /// The DEV IShaderSourceProvider: engine built-in shaders as real files under the
 /// engine shader root (shaders.md P1). Naming convention: the shader NAME is the

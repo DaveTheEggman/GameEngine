@@ -1,4 +1,4 @@
-/// Draconic::SceneSubsystem - `engine.scene`.
+/// Engine::Scene - `engine.scene`.
 ///
 /// The Context-level scene driver, a PURE REGISTRY (game-instance.md §11 final): it owns the app-wide
 /// ISceneAware registry and a list of registered SceneManagers, and drives every registered manager's

@@ -1,4 +1,4 @@
-// Draconic::FontsEditor - reflection implementation unit: FontAsset's reflected surface.
+// Pipeline::Fonts - reflection implementation unit: FontAsset's reflected surface.
 //
 // Kept OUT of the FontAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). The class declares identity via DRACONIC_OBJECT in the

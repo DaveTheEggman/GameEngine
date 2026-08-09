@@ -6,7 +6,7 @@
 //
 // COOK-TIME ONLY (export path), never a runtime path: it shells out to the vendored naga + tint
 // executables via core::RunProcess (paths baked in as DRACONIC_NAGA_PATH / DRACONIC_TINT_PATH by
-// ThirdParty/CMakeLists.txt -> Draconic::ShaderCookTools). naga is the version-matched translator
+// ThirdParty/CMakeLists.txt -> ThirdParty::ShaderCookTools). naga is the version-matched translator
 // (its naga == wgpu-native's WGSL validator); tint errors on WGSL uniformity violations naga only
 // warns on, so it is the second gate that catches browser-incompatible shaders at cook time.
 //

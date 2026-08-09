@@ -1,4 +1,4 @@
-// Draconic::FontsDF - foundation.fonts.distancefield:atlas partition
+// Foundation::Fonts.DistanceField - foundation.fonts.distancefield:atlas partition
 //
 // IFontAtlas for distance-field (MSDF) atlases: stores RGBA8 linear pixel data
 // plus per-glyph AtlasRegion entries. Pure data type with no msdfgen dependency;

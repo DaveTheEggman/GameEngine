@@ -1,4 +1,4 @@
-// Draconic::FontsDFBaker - the `foundation.fonts.distancefield.baker` module.
+// Foundation::Fonts.DistanceField.Baker - the `foundation.fonts.distancefield.baker` module.
 //
 // Import-time distance-field atlas baker (links msdfgen core).
 

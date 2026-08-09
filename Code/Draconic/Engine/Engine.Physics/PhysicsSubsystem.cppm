@@ -1,4 +1,4 @@
-// Draconic::PhysicsSubsystem - the `engine.physics` module.
+// Engine::Physics - the `engine.physics` module.
 //
 // Scene integration (docs/design/physics.md §3.2): a PhysicsSceneSystem per scene owns its
 // PhysicsWorld; bodies build from RigidBodyComponents (+ descendant ColliderComponents

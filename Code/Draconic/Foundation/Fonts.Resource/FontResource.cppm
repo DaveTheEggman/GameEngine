@@ -1,4 +1,4 @@
-// Draconic::FontsResource - the `foundation.fonts.resource` module (runtime).
+// Foundation::Fonts.Resource - the `foundation.fonts.resource` module (runtime).
 //
 // The FONT as a runtime resource - the triad tier the original port skipped
 // ("Ported from Sedulous.Fonts (excluding Fonts.Resources)"; roadmap: "Fonts -> proper

@@ -1,4 +1,4 @@
-// Draconic::Xml - :result partition
+// Foundation::Xml - :result partition
 //
 // XmlResult: the parse/lex outcome. Success is Ok; every other value is a
 // specific (FourCC-coded) error. No exceptions - all XML operations return

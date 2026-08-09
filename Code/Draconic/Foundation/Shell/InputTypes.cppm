@@ -1,4 +1,4 @@
-// Draconic::Shell - `:input_types` partition.
+// Foundation::Shell - `:input_types` partition.
 //
 // Input-related enums and POD structs: keyboard codes/modifiers, mouse buttons
 // and cursor types, gamepad buttons/axes, and touch points. Backend-neutral;

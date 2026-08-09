@@ -1,4 +1,4 @@
-/// Draconic::Animation - the `:easing` partition.
+/// Foundation::Animation - the `:easing` partition.
 ///
 /// EasingType: a serializable enum mapping 1:1 to the core easing functions (foundation.core :easings).
 /// Ported faithfully from Sedulous.Animation.EasingType. The functions themselves live in core math;

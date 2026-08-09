@@ -1,4 +1,4 @@
-// Draconic::VG::SVG - :loader partition.
+// Foundation::VG.SVG::SVG - :loader partition.
 //
 // SVGLoader: parses a subset of SVG (path/rect/circle/ellipse/line/polygon/
 // polyline/g/text) from a string into an SVGDocument. Has its own minimal XML

@@ -1,4 +1,4 @@
-// Draconic::Physics - the `foundation.physics` module.
+// Foundation::Physics - the `foundation.physics` module.
 //
 // The rigid-body physics core over the vendored Jolt (docs/design/physics.md): world,
 // bodies, primitive/compound shapes, the fixed layer matrix, queries, and buffered

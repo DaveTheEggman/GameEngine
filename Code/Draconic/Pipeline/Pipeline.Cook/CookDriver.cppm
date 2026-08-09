@@ -1,4 +1,4 @@
-// Draconic::EditorCook - the `editor.cook` module.
+// Pipeline::Cook - the `editor.cook` module.
 //
 // The incremental cook driver (docs/design/asset-pipeline.md §3/§5). One rule decides
 // everything: an asset's RECIPE HASH = H(source envelope bytes, each source file's content,

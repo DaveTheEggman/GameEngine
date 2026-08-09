@@ -1,4 +1,4 @@
-// Draconic::FontsDFBaker - foundation.fonts.distancefield.baker:baker partition
+// Foundation::Fonts.DistanceField.Baker - foundation.fonts.distancefield.baker:baker partition
 //
 // IFontAtlasBaker that generates MSDF atlases via msdfgen (core-only).
 // Extracts glyph outlines from TrueTypeFont raw data via stb_truetype,

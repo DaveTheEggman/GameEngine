@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :animation_graph_page partition (implementation).
+// Editor::Scene - :animation_graph_page partition (implementation).
 //
 // The state-machine / blend-tree authoring tool (see AnimationGraphPage.cppm for the overview).
 

@@ -1,4 +1,4 @@
-/// Draconic::RenderSubsystem - the `:subsystem` partition.
+/// Engine::Render - the `:subsystem` partition.
 ///
 /// RenderSubsystem: the Context-level driver that connects scenes to the (scene-agnostic)
 /// renderer. It owns the GPU systems - the DXC compiler, ShaderSystem, PipelineStateCache,

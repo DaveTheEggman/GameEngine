@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :particle_effect_page partition (implementation).
+// Editor::Scene - :particle_effect_page partition (implementation).
 //
 // The three-pane ParticleEffect authoring tool (see ParticleEffectPage.cppm for the overview).
 

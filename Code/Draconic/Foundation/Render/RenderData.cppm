@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:data` partition.
+/// Foundation::Render - the `:data` partition.
 ///
 /// The render-data contract - and the boundary that keeps the renderer scene-agnostic.
 /// Render data is *extracted and pushed to* the renderer; the renderer never reaches back

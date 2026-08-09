@@ -1,4 +1,4 @@
-// Draconic::ImageResource - the `foundation.image.resource` module.
+// Foundation::Image.Resource - the `foundation.image.resource` module.
 //
 // Runtime CPU-image resource (model B): the cooked, device-free pixel data a
 // runtime consumer (e.g. the VG renderer) loads through the resource manager and

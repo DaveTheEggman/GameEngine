@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :log_view partition.
+// Editor::App - :log_view partition.
 //
 // LogView: the Console panel content (docs/design/editor.md §3.10) - Sedulous's LogView shape
 // on foundation.ui, plus category display (core logs carry categories; Sedulous had none). A

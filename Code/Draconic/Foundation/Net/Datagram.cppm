@@ -1,4 +1,4 @@
-/// Draconic::Net - `foundation.net:datagram` partition.
+/// Foundation::Net - `foundation.net:datagram` partition.
 ///
 /// The UNRELIABLE datagram substrate the reliability layer is built on (docs/design/networking.md
 /// §4). `IDatagramSocket` is a connectionless send/recv over an opaque `DatagramEndpoint`; its

@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :application partition.
+// Editor::App - :application partition.
 //
 // EditorApplication: the editor as a runtime IApplication (docs/design/editor.md §3.2) - the
 // UISandbox wiring, assembled for real: TrueType font service + UIHost + RuntimeDockableWindowHost

@@ -1,4 +1,4 @@
-/// Draconic::Geometry - the `:primitives` partition.
+/// Foundation::Geometry - the `:primitives` partition.
 ///
 /// Procedural primitive meshes (debug shapes / placeholders / tests). Each returns a
 /// fully-formed StaticMesh - static vertex stream + 32-bit indices + one submesh +

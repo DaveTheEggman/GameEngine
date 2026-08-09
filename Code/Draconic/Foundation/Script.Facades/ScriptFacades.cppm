@@ -1,4 +1,4 @@
-// Draconic::ScriptFacades - the `foundation.script.facades` module.
+// Foundation::Script.Facades - the `foundation.script.facades` module.
 //
 // The curated behavior facades (docs/design/scripting.md §3.5): the per-entity
 // `Entity` handle behaviors receive as their constructor argument, plus Log/Time/

@@ -1,4 +1,4 @@
-// Draconic::VG - :style partition.
+// Foundation::VG - :style partition.
 //
 // Geometry/stroke style descriptors: CornerRadii (rounded rects) and
 // StrokeStyle (width/cap/join/miter/dash). Ported from Sedulous.VG.

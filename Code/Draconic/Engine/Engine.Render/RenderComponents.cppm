@@ -1,4 +1,4 @@
-/// Draconic::RenderSubsystem - the `:components` partition.
+/// Engine::Render - the `:components` partition.
 ///
 /// The render-facing scene components + their managers - the scene-coupled side of the
 /// renderer (foundation.render itself stays scene-agnostic). A MeshComponent references a

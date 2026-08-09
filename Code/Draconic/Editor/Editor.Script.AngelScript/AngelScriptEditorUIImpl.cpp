@@ -1,4 +1,4 @@
-// Draconic::Editor.Script.AngelScript - the `editor.script.angelscript` module.
+// Editor::Script.AngelScript - the `editor.script.angelscript` module.
 //
 // The AngelScript syntax tables + lexer registration. Spec quirks: """ heredoc strings and
 // char literals; block comments do not nest, no preprocessor lines.

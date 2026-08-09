@@ -1,4 +1,4 @@
-// Draconic::EditorScript - the `editor.script` module.
+// Editor::Script - the `editor.script` module.
 //
 // ScriptApiBrowserView implementation: the openable API panel on a script page. A filter
 // box over a TreeView of the language's bound API (namespace/class > members), built by

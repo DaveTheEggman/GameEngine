@@ -1,4 +1,4 @@
-/// Draconic::RenderSubsystem - the `:extract` partition.
+/// Engine::Render - the `:extract` partition.
 ///
 /// Extraction: read a Scene's render components into a render::ExtractedScene (world-space
 /// RenderData) + a render::ViewCamera, both pushed to the (scene-agnostic) renderer. This is

@@ -1,4 +1,4 @@
-// Draconic::NetReplication - implementation unit: the field codec + the cached replicated-property
+// Foundation::Net.Replication - implementation unit: the field codec + the cached replicated-property
 // layout harvest. Free functions (no reflect bodies), but kept out of the interface unit so the
 // static layout cache + the type-dispatch table live in one TU.
 

@@ -1,4 +1,4 @@
-// Draconic::ShellWeb - the `foundation.shell.web` module (primary interface unit).
+// Foundation::Shell.Web - the `foundation.shell.web` module (primary interface unit).
 //
 // A self-contained IShell backed by a single HTML <canvas> under Emscripten - the web counterpart
 // of the SDL3 desktop backend. The pieces live in partitions: :window (the canvas window),

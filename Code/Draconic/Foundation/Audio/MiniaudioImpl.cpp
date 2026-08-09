@@ -1,4 +1,4 @@
-// Draconic::Audio - the ONE translation unit that compiles the miniaudio implementation
+// Foundation::Audio - the ONE translation unit that compiles the miniaudio implementation
 // (plus stb_vorbis for Ogg Vorbis, which miniaudio picks up automatically when its
 // header-only part is visible before the implementation). A plain TU, not a module unit:
 // vendored code stays out of the module graph entirely (GCC module hygiene) and builds

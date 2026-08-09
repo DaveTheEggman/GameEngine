@@ -1,4 +1,4 @@
-// Draconic::EditorScript - the `editor.script` module.
+// Editor::Script - the `editor.script` module.
 //
 // ScriptApiCompletionProvider implementation: serves candidates from the page's SHARED
 // ScriptApiSurface (the same data the API browser shows) - type/namespace names at top

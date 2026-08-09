@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:taa` partition.
+/// Foundation::Render - the `:taa` partition.
 ///
 /// Temporal anti-aliasing resolve (ported from Sedulous taa.frag.hlsl). Blends the current jittered
 /// HDR frame with the reprojected history: closest-depth motion selection, a YCoCg variance clip, a

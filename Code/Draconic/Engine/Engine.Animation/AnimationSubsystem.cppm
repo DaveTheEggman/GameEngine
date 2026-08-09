@@ -1,4 +1,4 @@
-/// Draconic::AnimationSubsystem - the `:subsystem` partition.
+/// Engine::Animation - the `:subsystem` partition.
 ///
 /// AnimationSubsystem: a Context-level subsystem that injects the animation component managers
 /// (skeletal single-clip + animation-graph) into every scene (via ISceneAware), so attaching a

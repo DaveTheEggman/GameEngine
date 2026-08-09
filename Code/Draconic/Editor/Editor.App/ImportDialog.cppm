@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :import_dialog partition.
+// Editor::App - :import_dialog partition.
 //
 // The pre-import options dialog (Sedulous ImportDialog lineage, lean v1): dropping a file on
 // the asset browser pops this up when the routed importer has options. Shows the source file,

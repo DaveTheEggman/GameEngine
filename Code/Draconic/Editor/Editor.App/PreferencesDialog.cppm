@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :preferences_dialog partition.
+// Editor::App - :preferences_dialog partition.
 //
 // EditorPreferencesDialog: a modal editor for PER-USER editor preferences (the foundation.settings
 // store persisted at <user-data>/editor.settings.xml) - distinct from ProjectSettingsDialog, which

@@ -1,4 +1,4 @@
-/// Draconic::Animation - the `:player` partition.
+/// Foundation::Animation - the `:player` partition.
 ///
 /// AnimationPlayer: single-clip playback for one skeleton instance - time advance, looping/clamping,
 /// event firing, and evaluation into skinning matrices (+ previous frame for motion vectors). Ported

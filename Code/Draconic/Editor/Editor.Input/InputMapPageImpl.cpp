@@ -1,4 +1,4 @@
-// Draconic::EditorInput - the `editor.input` module.
+// Editor::Input - the `editor.input` module.
 //
 // InputMapPage (input P2): the editing surface for InputMapAsset - a scrollable
 // sets > actions > bindings outline with add/remove, in-place renames, kind/interaction

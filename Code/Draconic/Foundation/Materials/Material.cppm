@@ -1,4 +1,4 @@
-/// Draconic::Materials - the `:material` partition.
+/// Foundation::Materials - the `:material` partition.
 ///
 /// Material: the shared, immutable template - a shader name + variant flags, a list
 /// of declared properties, a PipelineConfig, and default values. It is *data*: the

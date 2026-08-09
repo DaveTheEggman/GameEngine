@@ -1,4 +1,4 @@
-// Draconic::EditorGeneric - the `editor.generic` module (implementation).
+// Editor::Generic - the `editor.generic` module (implementation).
 
 module;
 #include "Core/Prelude.h"

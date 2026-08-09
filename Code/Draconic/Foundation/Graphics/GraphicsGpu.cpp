@@ -1,4 +1,4 @@
-// Draconic::GraphicsGpu - implementation unit for `foundation.graphics.gpu`.
+// Foundation::Graphics - implementation unit for `foundation.graphics.gpu`.
 //
 // All the backend-coupled code (Vulkan / DX12 / validation) lives here rather than
 // in the interface unit. Because these imports sit in the implementation unit,

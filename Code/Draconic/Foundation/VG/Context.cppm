@@ -1,4 +1,4 @@
-// Draconic::VG - :context partition.
+// Foundation::VG - :context partition.
 //
 // VGState (the per-state-stack snapshot) and VGContext - the main user-facing
 // vector-graphics API. Immediate-mode drawing of paths, shapes, images, 9-slice,

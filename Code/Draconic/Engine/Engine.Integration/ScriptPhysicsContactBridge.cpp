@@ -1,4 +1,4 @@
-// Draconic::EngineIntegration - implementation unit: the bridge bodies. The virtual
+// Engine::Integration - implementation unit: the bridge bodies. The virtual
 // IContactListener override + the subsystem calls live OUTSIDE the interface (GCC module
 // hygiene: cross-partition inline virtuals are not reliably emitted).
 

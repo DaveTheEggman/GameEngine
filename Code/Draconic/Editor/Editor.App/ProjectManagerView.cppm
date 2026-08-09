@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :project_manager_view partition.
+// Editor::App - :project_manager_view partition.
 //
 // The PROJECT MANAGER screen (built into the single editor exe): shown at startup when no
 // project was given on the command line, and returned to by File > Close Project.

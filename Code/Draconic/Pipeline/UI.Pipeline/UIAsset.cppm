@@ -1,4 +1,4 @@
-// Draconic::UIEditor - the `foundation.ui.editor` module (tooling).
+// Pipeline::UI - the `foundation.ui.editor` module (tooling).
 //
 // Source-side game-UI authoring + cook (docs/design/game-ui.md §5):
 //   * UIDocumentAsset / UIThemeAsset: text payloads (.sml view-tree / .sss stylesheet),

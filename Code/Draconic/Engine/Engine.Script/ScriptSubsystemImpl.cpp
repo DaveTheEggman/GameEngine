@@ -1,4 +1,4 @@
-// Draconic::ScriptSubsystem - implementation unit: the reflection bodies + the
+// Engine::Script - implementation unit: the reflection bodies + the
 // component-destroy hook. They live OUTSIDE the interface for GCC: DRACONIC_REFLECT_*
 // bodies in a module interface make GCC emit an unreadable gcm cluster for
 // -fno-module-lazy consumers (and a cross-partition inline virtual is not reliably

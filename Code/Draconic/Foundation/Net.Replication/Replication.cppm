@@ -1,4 +1,4 @@
-/// Draconic::NetReplication - the `foundation.net.replication` module (docs/design/networking.md §5, §7 P2).
+/// Foundation::Net.Replication - the `foundation.net.replication` module (docs/design/networking.md §5, §7 P2).
 ///
 /// The foundation of StateReplication: a stable per-entity NetworkId + authority, and - the central
 /// bet of the design - a REFLECTION-DRIVEN field codec. A component marks properties `Replicated`

@@ -1,4 +1,4 @@
-// Draconic::VG pixel probes - the VG "golden" tests. Deterministic VG scenes rendered on
+// Foundation::VG pixel probes - the VG "golden" tests. Deterministic VG scenes rendered on
 // REAL devices (Vulkan + WebGPU), single-sampled with a stencil attachment, pixels read
 // back and asserted STRUCTURALLY: fill-rule correctness, stencil path clipping, the
 // solid-vs-gradient color-pipeline agreement, gradient spreads, and blend modes. Semantic

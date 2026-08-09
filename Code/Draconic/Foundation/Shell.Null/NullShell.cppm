@@ -1,4 +1,4 @@
-// Draconic::ShellNull - the `foundation.shell.null` module.
+// Foundation::Shell.Null - the `foundation.shell.null` module.
 //
 // A headless IShell implementation: no real window or OS events. Useful for
 // tests, tools, and headless servers, and as the reference for what a real

@@ -1,4 +1,4 @@
-/// Draconic::PipelineCache - the `foundation.materials.pipelinecache` module.
+/// Foundation::Materials.PipelineCache - the `foundation.materials.pipelinecache` module.
 ///
 /// The render-side PSO cache: the one piece of the shader/material stack that lives
 /// outside the resource system (the "lone exception" from the hot-reload design). It

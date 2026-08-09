@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - foundation.fonts.ttf:font partition
+// Foundation::Fonts.TTF - foundation.fonts.ttf:font partition
 //
 // TrueType/OpenType IFont backed by stb_truetype. Owns the raw font bytes and
 // an stbtt_fontinfo, caches per-codepoint GlyphInfo, and extracts the family

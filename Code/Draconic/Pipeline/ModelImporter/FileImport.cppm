@@ -1,4 +1,4 @@
-// Draconic::ModelImporter - :file_import partition.
+// Pipeline::ModelImporter - :file_import partition.
 //
 // The SOURCE-side model importer for the editor pipeline (asset-pipeline design §4/§7): a
 // dropped model file fans out into REAL source instances in the content DB - textures

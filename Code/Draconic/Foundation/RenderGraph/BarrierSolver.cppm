@@ -1,4 +1,4 @@
-// Draconic::RenderGraph - :barrier_solver partition
+// Foundation::RenderGraph - :barrier_solver partition
 //
 // Computes and emits resource barriers between passes. State is tracked at two
 // levels: per-resource-handle (buffers; convenience for textures) and per-

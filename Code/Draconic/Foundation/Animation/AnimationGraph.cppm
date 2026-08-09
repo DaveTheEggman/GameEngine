@@ -1,4 +1,4 @@
-/// Draconic::Animation - the `:graph` partition.
+/// Foundation::Animation - the `:graph` partition.
 ///
 /// The animation graph stack, ported faithfully from Sedulous.Animation: state nodes (clip + 1D/2D
 /// blend trees), per-bone masks, parameters + conditions + transitions, states, layers, the graph

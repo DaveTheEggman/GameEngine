@@ -1,4 +1,4 @@
-// Draconic::InputSubsystem - the `engine.input` module.
+// Engine::Input - the `engine.input` module.
 //
 // The runtime hookup: owns the ActionRuntime + the device provider and evaluates once per
 // frame in Update (before scenes tick - Subsystem registration order puts input ahead of

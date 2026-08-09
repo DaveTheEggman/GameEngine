@@ -1,6 +1,6 @@
-// Draconic::ScriptWren - Wren VM backend (foundation.script.wren).
+// Foundation::Script.Wren - Wren VM backend (foundation.script.wren).
 //
-// Implements Draconic::Script on Wren and binds reflected types into the VM:
+// Implements Foundation::Script.Wren on Wren and binds reflected types into the VM:
 // each registered type with a constructor becomes a Wren `foreign class` whose
 // allocate/getters/setters route through reflection (Construct / GetProperty /
 // SetProperty), with values held in a Variant as the foreign instance data.

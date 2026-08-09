@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :game_page partition.
+// Editor::Scene - :game_page partition.
 //
 // GameEditorPage (play-in-editor phase 8b, docs/design/roadmap.md MVP item 4): a singleton
 // "Game" dock tab hosting the PLAYER behavior - a FRESH run of the project's default scene,

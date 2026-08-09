@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :ui_page partition.
+// Editor::App - :ui_page partition.
 //
 // UIEditorPage: the UI-side extension of the headless editor::EditorPage - a page that owns a
 // foundation.ui content view (docked as a closable center tab by EditorApplication) and receives

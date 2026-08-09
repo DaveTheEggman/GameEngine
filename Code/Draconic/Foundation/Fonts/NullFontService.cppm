@@ -1,4 +1,4 @@
-// Draconic::Fonts - :null_service partition
+// Foundation::Fonts - :null_service partition
 //
 // A no-op IFontService (returns null for everything) for tests/headless use.
 // Ported from Sedulous.Fonts (NullFontService.bf).

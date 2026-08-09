@@ -1,4 +1,4 @@
-/// Draconic::Render - `foundation.render`, the renderer (scene-agnostic).
+/// Foundation::Render - `foundation.render`, the renderer (scene-agnostic).
 ///
 /// The renderer consumes a per-scene `ExtractedScene` (world-space `RenderData`) and draws
 /// the views over it; it knows nothing about the scene/ECS world. The scene-integration

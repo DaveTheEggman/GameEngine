@@ -1,4 +1,4 @@
-// Draconic::Fonts - :types partition
+// Foundation::Fonts - :types partition
 //
 // Value types for font/glyph/text-layout data. Ported from Sedulous.Fonts
 // (Rectangle/GlyphInfo/GlyphQuad/GlyphPosition/AtlasRegion/FontMetrics/

@@ -1,4 +1,4 @@
-/// Draconic::Profiler - `foundation.profiler`.
+/// Foundation::Profiler - `foundation.profiler`.
 ///
 /// A lightweight hierarchical CPU scope profiler (the design ported from Sedulous.Profiler, made
 /// C++-idiomatic). Scopes nest into a per-thread tree; at frame end every thread's samples merge

@@ -1,4 +1,4 @@
-/// Draconic::Net - `foundation.net:udp_socket` partition.
+/// Foundation::Net - `foundation.net:udp_socket` partition.
 ///
 /// The REAL UDP IDatagramSocket backend: wraps the Core/System UDP primitives (docs/design/
 /// networking.md §3.1 - sockets live in Core/System) so ReliableTransport, proven against the

@@ -1,4 +1,4 @@
-/// Draconic::Materials - the `:system` partition.
+/// Foundation::Materials - the `:system` partition.
 ///
 /// MaterialSystem: owns material instances' GPU resources and - the key idea -
 /// INFERS the bind-group layout from a material's declared property list (uniforms

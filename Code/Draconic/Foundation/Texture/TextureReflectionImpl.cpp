@@ -1,4 +1,4 @@
-// Draconic::Texture - reflection implementation unit: enum reflection bodies.
+// Foundation::Texture - reflection implementation unit: enum reflection bodies.
 //
 // Kept OUT of the :types interface partition (DRACONIC_REFLECT_* bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). Types.cppm declares RegisterTextureReflection();

@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :component_gizmos partition.
+// Editor::Scene - :component_gizmos partition.
 //
 // IGizmoRenderer + registry: per-component-type viewport gizmos drawn through debug-draw
 // (design doc §8). Ported from Sedulous.Editor (IGizmoRenderer/GizmoContext + the light and

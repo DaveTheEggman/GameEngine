@@ -1,4 +1,4 @@
-/// Draconic::UIToolkit - the `:code_document` partition.
+/// Foundation::UI.Toolkit - the `:code_document` partition.
 ///
 /// The UI-free core of CodeEditView (docs/design/code-editor.md): a line-array text buffer with
 /// (line, column) addressing, delta-based undo with typing coalescing, per-line markers

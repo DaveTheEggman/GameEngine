@@ -1,4 +1,4 @@
-// Draconic::ScriptAngelScriptEditor - implementation unit for the AngelScript cook.
+// Pipeline::Script.AngelScript - implementation unit for the AngelScript cook.
 //
 // Compile-check + the shared handler scan + PROPERTY HARVEST. The behavior class is
 // built through the vendored CScriptBuilder add-on, which pre-processes `[metadata]`

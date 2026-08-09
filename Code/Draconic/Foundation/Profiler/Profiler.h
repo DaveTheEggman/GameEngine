@@ -1,4 +1,4 @@
-// Draconic::Profiler - instrumentation macros.
+// Foundation::Profiler - instrumentation macros.
 //
 // Include this header (it's just macros) AND `import foundation.profiler` in a TU that instruments.
 // DRACONIC_PROFILE_SCOPE("Name") profiles the enclosing block; the frame macros bracket a frame.

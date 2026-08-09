@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :edit partition.
+// Editor::Scene - :edit partition.
 //
 // SceneEditContext: the per-page scene mutation mediator (design doc §3.4/§3.6 - the Lumix
 // WorldEditor role, but PER PAGE, never global: multi-scene). Every mutation is an

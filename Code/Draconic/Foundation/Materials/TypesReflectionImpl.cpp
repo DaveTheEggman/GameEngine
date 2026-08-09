@@ -1,4 +1,4 @@
-// Draconic::Materials - reflection implementation unit: the material render-state enums.
+// Foundation::Materials - reflection implementation unit: the material render-state enums.
 //
 // Reflected in their OWNING module (foundation.materials) so any consumer of a reflected
 // MaterialSource property whose type is one of these (blendMode/depthMode/cullMode/vertexLayout,

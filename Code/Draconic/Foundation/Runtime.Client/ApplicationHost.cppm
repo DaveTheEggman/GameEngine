@@ -1,4 +1,4 @@
-// Draconic::RuntimeClient - the `foundation.runtime.client` module.
+// Foundation::Runtime.Client - the `foundation.runtime.client` module.
 //
 // ApplicationHost: the concrete, generic host that drives exactly ONE IApplication.
 // Owns a Context, an optional (borrowed) GraphicsDevice, and the LIST of

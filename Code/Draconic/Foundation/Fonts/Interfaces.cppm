@@ -1,4 +1,4 @@
-// Draconic::Fonts - :interfaces partition
+// Foundation::Fonts - :interfaces partition
 //
 // Abstract font interfaces (IFont, IFontAtlas, ITextShaper, IFontService) and
 // the CachedFont aggregate. Ported from Sedulous.Fonts. Backends (TTF, baked)

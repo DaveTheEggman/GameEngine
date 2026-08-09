@@ -1,4 +1,4 @@
-// Draconic::UISubsystem - the `engine.ui` module (game-ui.md P1).
+// Engine::UI - the `engine.ui` module (game-ui.md P1).
 //
 // The game screen tier: UICanvasComponents reference cooked UIDocuments; the subsystem
 // owns ONE UIContext (GameTheme default stylesheet; core controls only - never the

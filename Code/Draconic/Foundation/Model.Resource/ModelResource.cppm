@@ -1,4 +1,4 @@
-// Draconic::ModelResource - the `foundation.model.resource` module.
+// Foundation::Model.Resource - the `foundation.model.resource` module.
 //
 // The RUNTIME side of the cooked model family: ModelNode + ModelManifestSource (the
 // cooked manifest tying mesh/material/skeleton/animation guids + node hierarchy

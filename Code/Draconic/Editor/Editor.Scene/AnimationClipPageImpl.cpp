@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :animation_clip_page partition (implementation).
+// Editor::Scene - :animation_clip_page partition (implementation).
 
 module;
 #include <cmath> // std::fmod (looping playhead wrap)

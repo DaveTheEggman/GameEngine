@@ -1,4 +1,4 @@
-// Draconic::GraphicsNull - the `foundation.graphics.null` module.
+// Foundation::Graphics - the `foundation.graphics.null` module.
 //
 // Headless GraphicsDevice factory over the Null RHI backend (no GPU). For CI,
 // servers, and tests, and the reference for what a real backend provides. Kept in

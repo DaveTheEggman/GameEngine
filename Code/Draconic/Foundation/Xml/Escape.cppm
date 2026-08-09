@@ -1,4 +1,4 @@
-// Draconic::Xml - :escape partition
+// Foundation::Xml - :escape partition
 //
 // XML text/attribute escaping. Shared by node GetOuterXml and the XmlWriter
 // (which re-exposes these as static methods) - kept here so neither has to

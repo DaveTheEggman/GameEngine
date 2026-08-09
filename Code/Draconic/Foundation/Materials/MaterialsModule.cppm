@@ -1,4 +1,4 @@
-/// Draconic::Materials - `foundation.materials`, the data-driven material model.
+/// Foundation::Materials - `foundation.materials`, the data-driven material model.
 ///
 /// Aggregates the partitions: value types (:types), render-state + vertex layouts
 /// (:pipeline), the shared Material template (:material), the fluent MaterialBuilder

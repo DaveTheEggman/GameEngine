@@ -1,4 +1,4 @@
-// Draconic::EditorImage - the `editor.image` module (implementation).
+// Editor::Image - the `editor.image` module (implementation).
 
 module;
 #include "Core/Prelude.h"

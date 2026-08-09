@@ -1,4 +1,4 @@
-// Draconic::VFS - :native_filesystem partition
+// Foundation::VFS - :native_filesystem partition
 //
 // NativeFileSystem: backs logical paths with a real directory prefix. Supports
 // read, enumerate, write, stat, and watch.

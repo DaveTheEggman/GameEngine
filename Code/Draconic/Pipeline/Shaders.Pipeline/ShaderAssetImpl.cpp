@@ -1,4 +1,4 @@
-// Draconic::ShadersEditor - reflection implementation unit: ShaderAsset's reflected surface.
+// Pipeline::Shaders - reflection implementation unit: ShaderAsset's reflected surface.
 //
 // Kept OUT of the ShaderAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). ShaderAsset::StaticType() gains its authored string

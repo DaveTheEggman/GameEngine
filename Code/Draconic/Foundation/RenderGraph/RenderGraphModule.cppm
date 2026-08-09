@@ -1,4 +1,4 @@
-// Draconic::RenderGraph - the `foundation.rendergraph` module.
+// Foundation::RenderGraph - the `foundation.rendergraph` module.
 //
 // A render graph over the RHI: passes declare resource accesses, the graph
 // resolves dependencies, allocates/aliases transient resources, and inserts the

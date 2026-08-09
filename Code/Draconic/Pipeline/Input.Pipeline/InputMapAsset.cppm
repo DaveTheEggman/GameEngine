@@ -1,4 +1,4 @@
-// Draconic::InputEditor - the `foundation.input.editor` module.
+// Pipeline::Input - the `foundation.input.editor` module.
 //
 // The authored input-map asset (source, XML envelope like every authored asset) + its
 // builder. Cook = VALIDATE + write-through: the model is pure data, so the bake's whole

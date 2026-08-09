@@ -1,4 +1,4 @@
-// Draconic::Audio - the `:cue` partition.
+// Foundation::Audio - the `:cue` partition.
 //
 // SoundCue (audio.md P3): the container primitive - ONE trigger, one of N clip variants,
 // weighted, with cue-level pitch/volume randomization (Godot's AudioStreamRandomizer

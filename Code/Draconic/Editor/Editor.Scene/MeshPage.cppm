@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :mesh_page partition.
+// Editor::Scene - :mesh_page partition.
 //
 // MeshEditorPage (editor-pages-gap.md, bespoke pass #2): the mesh viewer. Opens a
 // StaticMeshAsset or SkinnedMeshAsset with a GPU orbit preview of the COOKED mesh product on

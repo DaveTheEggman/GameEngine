@@ -1,4 +1,4 @@
-// Draconic::RuntimeGameInstance - the script-bracket bodies (moved verbatim from DefaultApplication's
+// Engine::GameInstance - the script-bracket bodies (moved verbatim from DefaultApplication's
 // former StartGameScript/StopGameScript/TickGameScript, now per-instance).
 
 module;

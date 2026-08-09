@@ -1,4 +1,4 @@
-/// Draconic::MeshResource - the `foundation.geometry.resource` module.
+/// Foundation::Geometry.Resource - the `foundation.geometry.resource` module.
 ///
 /// Meshes as resources: a StaticMeshSource / SkinnedMeshSource (cooked content - the
 /// raw vertex stream, indices, submeshes, and for skinned the parallel skinning

@@ -1,4 +1,4 @@
-// Draconic::Editor.Asset - reflection implementation unit: the Asset base's reflected surface.
+// Pipeline::Core - reflection implementation unit: the Asset base's reflected surface.
 //
 // Kept OUT of the Asset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster; see
 // gcc-module-interface-hygiene). Asset::StaticType() gains its fileName property here, so every

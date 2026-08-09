@@ -1,4 +1,4 @@
-/// Draconic::Materials - the `:pipeline` partition.
+/// Foundation::Materials - the `:pipeline` partition.
 ///
 /// PipelineConfig: the full render-state description for a material (shader name +
 /// variant flags, vertex layout, primitive/blend/depth state, render-target

@@ -1,4 +1,4 @@
-/// Draconic::RenderApi - the `foundation.render.api` module.
+/// Foundation::Render.Api - the `foundation.render.api` module.
 ///
 /// The renderer's SCENE-RENDERING INTERFACE, extracted into a light module (core + rhi + scene
 /// only) so tools can drive scene rendering through `ISceneRenderer` without linking the

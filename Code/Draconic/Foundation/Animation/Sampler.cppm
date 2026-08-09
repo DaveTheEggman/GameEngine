@@ -1,4 +1,4 @@
-/// Draconic::Animation - the `:sampler` partition.
+/// Foundation::Animation - the `:sampler` partition.
 ///
 /// Stateless sampling of clips/tracks into bone poses + pose blending (lerp + additive). Ported
 /// faithfully from Sedulous.Animation.AnimationSampler.

@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :settings_dialog partition.
+// Editor::App - :settings_dialog partition.
 //
 // ProjectSettingsDialog: a modal editor for the project manifest (Project.xml) - the fields a
 // user meaningfully changes from inside the editor: project name, the default scene (picked

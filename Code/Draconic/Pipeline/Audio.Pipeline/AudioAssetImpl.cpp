@@ -1,4 +1,4 @@
-// Draconic::AudioEditor - reflection implementation unit: AudioClipAsset's reflected surface.
+// Pipeline::Audio - reflection implementation unit: AudioClipAsset's reflected surface.
 //
 // Kept OUT of the AudioAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). The class declares identity via DRACONIC_OBJECT in the

@@ -1,4 +1,4 @@
-// Draconic::VG - :cache partition.
+// Foundation::VG - :cache partition.
 //
 // Pre-tessellated path reuse across frames: CachedPath (cached fill/stroke
 // meshes + the style they were tessellated for) and PathCache (an LRU map from

@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :mesh_page partition (implementation).
+// Editor::Scene - :mesh_page partition (implementation).
 
 module;
 #include "Core/Prelude.h"

@@ -1,4 +1,4 @@
-// Draconic::TextureResource - the `foundation.texture.resource` module (runtime).
+// Foundation::Texture.Resource - the `foundation.texture.resource` module (runtime).
 //
 // The GPU texture as a runtime resource (model A, Traktor-style):
 //   * TextureResource (ISerializable): the cooked *record* loaded from the output

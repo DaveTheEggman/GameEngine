@@ -1,4 +1,4 @@
-// Draconic::ScriptEditor - the `foundation.script.editor` module (tooling).
+// Pipeline::Script - the `foundation.script.editor` module (tooling).
 //
 // Source-side script authoring + cook (docs/design/scripting.md §5 + §7.5 B3), fully
 // BACKEND-NEUTRAL - no language syntax lives here:

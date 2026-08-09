@@ -1,4 +1,4 @@
-// Draconic::Script - the `:backend_registry` partition.
+// Foundation::Script - the `:backend_registry` partition.
 //
 // The backend registry (scripting.md B1): a language backend is a LIBRARY that
 // registers itself here - {languageId, extensions, factory} - and every consumer

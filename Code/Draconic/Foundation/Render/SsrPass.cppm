@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:ssr` partition.
+/// Foundation::Render - the `:ssr` partition.
 ///
 /// Screen-space reflections. A single fullscreen pass that reflects the lit HDR scene into itself:
 /// reconstruct view-space position + normal from the G-buffer, reflect the view ray, march it against

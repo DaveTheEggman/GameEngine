@@ -1,4 +1,4 @@
-// Draconic::Audio - :clip partition.
+// Foundation::Audio - :clip partition.
 //
 // AudioClip: the RUNTIME clip object (docs/design/audio.md §4) - metadata plus the
 // ORIGINAL compressed container bytes (wav/ogg/mp3/flac; Traktor's compressed-in-memory

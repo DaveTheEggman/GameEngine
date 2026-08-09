@@ -1,4 +1,4 @@
-// Draconic::Fonts - foundation.fonts:scaled_views partition.
+// Foundation::Fonts - foundation.fonts:scaled_views partition.
 //
 // SIZE VIEWS over a base font/atlas: everything screen-space (metrics, advances, kerning,
 // glyph-quad geometry) scales by requestedPx / bakedPx while the atlas texels and UVs stay

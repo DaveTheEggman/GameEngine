@@ -1,4 +1,4 @@
-// Draconic::RenderGraph - :resource partition
+// Foundation::RenderGraph - :resource partition
 //
 // A resource managed by the graph (texture or buffer): its descriptor, the
 // allocated GPU object, reference/lifetime tracking computed during compile, and

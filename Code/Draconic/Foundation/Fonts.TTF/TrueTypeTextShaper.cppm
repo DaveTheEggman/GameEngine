@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - foundation.fonts.ttf:text_shaper partition
+// Foundation::Fonts.TTF - foundation.fonts.ttf:text_shaper partition
 //
 // Basic left-to-right text shaper + UI helpers (hit testing, cursor/selection
 // geometry, word wrapping) over any IFont. Ported faithfully from

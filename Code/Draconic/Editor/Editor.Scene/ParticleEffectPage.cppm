@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :particle_effect_page partition.
+// Editor::Scene - :particle_effect_page partition.
 //
 // ParticleEffectEditorPage (editor-pages-gap.md, bespoke pass #3): a full authoring tool for a
 // ParticleEffectAsset, modelled on (and exceeding) Sedulous's three-pane particle editor.

@@ -1,4 +1,4 @@
-// Draconic::RenderGraph - :graph partition
+// Foundation::RenderGraph - :graph partition
 //
 // The orchestrator. GPU work is declared as passes with resource accesses; the
 // graph builds dependencies, culls unused work, topologically sorts, allocates/

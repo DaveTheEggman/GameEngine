@@ -1,4 +1,4 @@
-// Draconic::ScriptWrenEditor - the `foundation.script.wren.editor` module (tooling).
+// Pipeline::Script.Wren - the `foundation.script.wren.editor` module (tooling).
 //
 // The Wren cook service (scripting.md §5 + §7.5): compile-checks a Wren behavior in a
 // cooker-owned Wren VM (resolved through the backend registry by language), harvests the

@@ -1,4 +1,4 @@
-/// Draconic::Net - `foundation.net:tcp_socket` partition.
+/// Foundation::Net - `foundation.net:tcp_socket` partition.
 ///
 /// RAII TCP stream sockets over the Core/System TCP primitive (docs/design/networking.md §3.1), for
 /// the future foundation.http / WebSocket / script-debugger transports - NOT the UDP game transport.

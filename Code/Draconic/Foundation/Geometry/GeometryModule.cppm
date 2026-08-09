@@ -1,4 +1,4 @@
-/// Draconic::Geometry - `foundation.geometry`, the engine's runtime mesh format.
+/// Foundation::Geometry - `foundation.geometry`, the engine's runtime mesh format.
 ///
 /// Distinct from foundation.model (the importer's representation of a loaded file): this
 /// is the canonical, GPU-upload-ready mesh the renderer and scene components consume.

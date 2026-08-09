@@ -1,4 +1,4 @@
-// Draconic::MaterialResource - reflection implementation unit: MaterialSource's reflected surface.
+// Foundation::Materials.Resource - reflection implementation unit: MaterialSource's reflected surface.
 //
 // Kept OUT of the MaterialResource.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). The class declares its identity via DRACONIC_OBJECT

@@ -1,4 +1,4 @@
-// Draconic::Input - reflection implementation unit: the input-map LEAF value types + enums.
+// Foundation::Input - reflection implementation unit: the input-map LEAF value types + enums.
 //
 // Reflected in their owning module (foundation.input) so the input types stop being tooling-
 // invisible (reflection track P2). This unit covers the FLAT-SCALAR leaves - Binding,

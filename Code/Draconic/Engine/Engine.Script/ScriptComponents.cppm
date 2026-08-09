@@ -1,4 +1,4 @@
-// Draconic::ScriptSubsystem - :components partition.
+// Engine::Script - :components partition.
 //
 // The attachment model (docs/design/scripting.md §3.1): ONE ScriptComponent per entity
 // holding an ORDERED array of behaviors - each a cooked ScriptClass reference, an

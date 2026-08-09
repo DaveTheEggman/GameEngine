@@ -1,4 +1,4 @@
-// Draconic::AudioEditor - the `foundation.audio.editor` module (tooling).
+// Pipeline::Audio - the `foundation.audio.editor` module (tooling).
 //
 // Source-side audio authoring + cook (docs/design/audio.md §5):
 //   * AudioClipAsset (pipeline::Asset): references the copied source file + import

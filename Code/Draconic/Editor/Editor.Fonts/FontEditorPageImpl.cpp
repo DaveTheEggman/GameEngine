@@ -1,4 +1,4 @@
-// Draconic::EditorFonts - the `editor.fonts` module (implementation).
+// Editor::Fonts - the `editor.fonts` module (implementation).
 
 module;
 #include "Core/Prelude.h"

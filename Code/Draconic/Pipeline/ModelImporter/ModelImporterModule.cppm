@@ -1,4 +1,4 @@
-/// Draconic::ModelImporter - the `modelimporter` umbrella module.
+/// Pipeline::ModelImporter - the `modelimporter` umbrella module.
 ///
 /// The top-level model import pipeline: it converts a loaded `foundation.model` Model
 /// (the loader IR) into the engine's cooked *Source types and cooks them through the

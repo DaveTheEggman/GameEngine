@@ -1,4 +1,4 @@
-// Draconic::EditorCore - the `editor.core` module.
+// Editor::Core - the `editor.core` module.
 //
 // The HEADLESS editor domain layer (docs/design/editor.md §3.1): EditorContext + registries,
 // the IEditorCommand/EditorCommandStack undo spine, the EditorPage document model, the

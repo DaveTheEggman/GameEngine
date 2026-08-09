@@ -1,4 +1,4 @@
-// Draconic::Project - the `engine.project` module.
+// Engine::Project - the `engine.project` module.
 //
 // The RUNTIME-side project definition: the manifest payload (ProjectSettings), the fixed
 // directory layout, and manifest load/save over a VFS root. Split out of the editor so

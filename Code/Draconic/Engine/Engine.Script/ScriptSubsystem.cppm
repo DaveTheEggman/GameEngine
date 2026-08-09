@@ -1,4 +1,4 @@
-// Draconic::ScriptSubsystem - the `engine.script` module.
+// Engine::Script - the `engine.script` module.
 //
 // Entity behaviors (docs/design/scripting.md §3 + §7 P1): a ScriptSceneSystem per scene
 // instantiates each behavior's cooked ScriptClass in the run's ONE gameplay script

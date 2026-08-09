@@ -1,4 +1,4 @@
-// Draconic::RenderGraph - :pass partition
+// Foundation::RenderGraph - :pass partition
 //
 // A single pass: its declared resource accesses, attachments, dependencies, and
 // typed execute callback. GetInputs/GetOutputs fold attachment load/store ops

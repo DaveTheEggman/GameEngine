@@ -1,4 +1,4 @@
-// Draconic::ShellWeb - `foundation.shell.web:window_manager`.
+// Foundation::Shell.Web - `foundation.shell.web:window_manager`.
 //
 // One canvas => one window. The main window is created at construction; additional CreateWindow
 // calls fail (a browser page has a single WebGPU canvas here - multi-canvas is a later concern).

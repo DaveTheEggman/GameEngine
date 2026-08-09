@@ -1,4 +1,4 @@
-/// Draconic::NetworkSubsystem - the `engine.net` module.
+/// Engine::Net - the `engine.net` module.
 ///
 /// A Context-level subsystem (once-per-context BY CONTRACT) that integrates networking into scenes:
 /// it injects the NetworkComponentManager into every scene (via ISceneAware), so authoring a

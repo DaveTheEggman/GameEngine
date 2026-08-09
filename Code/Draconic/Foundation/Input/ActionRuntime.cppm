@@ -1,4 +1,4 @@
-// Draconic::Input - :runtime partition.
+// Foundation::Input - :runtime partition.
 //
 // ActionRuntime (docs/design/input.md §3.2): per-frame evaluation of an InputMap against
 // polled shell device facades. Godot's value model (per-device OR/MAX folding, [0,1]

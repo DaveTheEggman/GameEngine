@@ -1,4 +1,4 @@
-// Draconic::PhysicsSubsystem - implementation unit: the render-frame drive (interpolation
+// Engine::Physics - implementation unit: the render-frame drive (interpolation
 // + debug wireframes) and the component reflection bodies. Both live OUTSIDE the interface
 // for GCC: heavy render imports stay out of the interface's module graph, and the
 // DRACONIC_REFLECT_* macros in the :components partition made GCC emit a gcm with an

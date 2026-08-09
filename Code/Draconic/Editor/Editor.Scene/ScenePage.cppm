@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :page partition.
+// Editor::Scene - :page partition.
 //
 // SceneEditorPage: the scene document editor (design doc §3.6, phase 2). Each page owns its OWN
 // live Scene (multi-scene rule - several pages open at once; everything scene-scoped is

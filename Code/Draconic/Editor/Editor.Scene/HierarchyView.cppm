@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :hierarchy partition.
+// Editor::Scene - :hierarchy partition.
 //
 // SceneHierarchyView: the entity tree INSIDE a scene page (multi-scene rule - one per page,
 // never a global panel; §3.6). A DraggableTreeView over a rebuilt snapshot of the live scene

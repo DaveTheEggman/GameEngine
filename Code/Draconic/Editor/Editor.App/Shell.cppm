@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :shell partition.
+// Editor::App - :shell partition.
 //
 // EditorShell: the editor chrome (docs/design/editor.md §3.2) - a RootView holding
 // [MenuBar / DockManager (grow) / StatusBar]. GLOBAL panels are Assets + Console only

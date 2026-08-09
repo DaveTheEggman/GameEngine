@@ -1,4 +1,4 @@
-// Draconic::EditorScript - the `editor.script` module.
+// Editor::Script - the `editor.script` module.
 //
 // ScriptApiSurface implementation: the ONE bound-API build for a page. Replays the
 // runtime's exact registration sequence (ScriptSubsystem) against a throwaway manager -

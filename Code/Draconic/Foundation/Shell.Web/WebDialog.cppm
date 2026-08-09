@@ -1,4 +1,4 @@
-// Draconic::ShellWeb - `foundation.shell.web:dialogs`.
+// Foundation::Shell.Web - `foundation.shell.web:dialogs`.
 //
 // The web shell's file-dialog service. Stubbed to cancel immediately; the browser equivalents are a
 // hidden <input type=file> (open) and an anchor-download (save), wired here later. Kept as the web

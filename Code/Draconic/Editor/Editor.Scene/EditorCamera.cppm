@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :camera partition.
+// Editor::Scene - :camera partition.
 //
 // EditorCamera: the scene page's free-fly viewport camera - the samples' FlyCamera
 // (Code/Samples/Common/FlyCamera.h) adopted into the editor with editor-scale defaults.

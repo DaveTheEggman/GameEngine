@@ -1,4 +1,4 @@
-/// Draconic::MaterialResource - the `foundation.materials.resource` module.
+/// Foundation::Materials.Resource - the `foundation.materials.resource` module.
 ///
 /// Materials as resources: a `MaterialSource` (authored content - references a shader
 /// by Guid, plus declared properties + render-state presets + the default-uniform

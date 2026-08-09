@@ -1,4 +1,4 @@
-// Draconic::Editor.Core - the `editor.core` module.
+// Pipeline::Core - the `editor.core` module.
 //
 // The tooling/authoring base for the asset pipeline (docs/design/asset-pipeline.md): an `Asset`
 // is the editor/source object (references an external source file + import settings) and an

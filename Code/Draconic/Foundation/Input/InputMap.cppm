@@ -1,4 +1,4 @@
-// Draconic::Input - :model partition.
+// Foundation::Input - :model partition.
 //
 // The action-mapping DATA MODEL (docs/design/input.md §3.1): one InputMap = a whole game's
 // bindings - ActionSets (contexts with priority) of Actions (declared kinds, never inferred)

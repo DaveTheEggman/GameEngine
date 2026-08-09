@@ -1,4 +1,4 @@
-// Draconic::Texture - :data partition
+// Foundation::Texture - :data partition
 //
 // TextureData: a CPU-side descriptor of pixel data staged for GPU upload (it
 // owns no GPU handle - the consumer creates the rhi::Texture from this). Ported

@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :export_roots partition.
+// Editor::Core - :export_roots partition.
 //
 // The project's explicit "Always Export" set (docs/design/export-reachability.md, Phase 2): the
 // entry points a user declares as export roots ON TOP of the automatic default-scene + startup-

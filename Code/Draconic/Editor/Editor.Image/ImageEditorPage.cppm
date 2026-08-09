@@ -1,4 +1,4 @@
-// Draconic::EditorImage - the `editor.image` module.
+// Editor::Image - the `editor.image` module.
 //
 // ImageEditorPage (editor-pages-gap.md, the Texture page's source-side sibling): the inspect +
 // intent surface over an ImageAsset - the raw source image that Texture assets (and future

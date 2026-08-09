@@ -1,4 +1,4 @@
-// Draconic::MaterialEditor - the `foundation.materials.editor` module (tooling).
+// Pipeline::Materials - the `foundation.materials.editor` module (tooling).
 //
 // Source-side material authoring + cook:
 //   * MaterialAsset (pipeline::Asset): wraps a MaterialSource (the authored material -

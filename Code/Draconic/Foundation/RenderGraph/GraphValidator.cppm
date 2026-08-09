@@ -1,4 +1,4 @@
-// Draconic::RenderGraph - :validator partition
+// Foundation::RenderGraph - :validator partition
 //
 // Validates a graph for common authoring errors: reads of never-written
 // resources (error), passes with no execute callback (warning), and redundant

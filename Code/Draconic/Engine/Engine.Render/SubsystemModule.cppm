@@ -1,4 +1,4 @@
-/// Draconic::RenderSubsystem - `engine.render`, the scene side of rendering.
+/// Engine::Render - `engine.render`, the scene side of rendering.
 ///
 /// Render components (mesh / camera) + their managers, and the extraction that pushes a
 /// engine::render::ExtractedView to the renderer. This is where scene and renderer meet - it

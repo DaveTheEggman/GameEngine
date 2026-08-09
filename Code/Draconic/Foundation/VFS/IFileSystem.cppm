@@ -1,4 +1,4 @@
-// Draconic::VFS - :ifilesystem partition
+// Foundation::VFS - :ifilesystem partition
 //
 // The filesystem contract: a minimal read interface (IFileSystem) plus optional
 // capability interfaces a backend implements only if it can (enumerate, write,

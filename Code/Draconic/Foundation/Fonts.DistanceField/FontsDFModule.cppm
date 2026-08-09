@@ -1,4 +1,4 @@
-// Draconic::FontsDF - the `foundation.fonts.distancefield` module.
+// Foundation::Fonts.DistanceField - the `foundation.fonts.distancefield` module.
 //
 // Runtime distance-field font atlas type: pure data, no msdfgen dependency.
 // The import-time baker lives in a separate library (foundation.fonts.distancefield.baker).

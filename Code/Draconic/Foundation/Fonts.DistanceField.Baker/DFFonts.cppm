@@ -1,4 +1,4 @@
-// Draconic::FontsDFBaker - foundation.fonts.distancefield.baker:init partition
+// Foundation::Fonts.DistanceField.Baker - foundation.fonts.distancefield.baker:init partition
 //
 // Registration helper for the distance-field atlas baker.
 

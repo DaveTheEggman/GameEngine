@@ -1,4 +1,4 @@
-// Draconic::Audio - :engine partition.
+// Foundation::Audio - :engine partition.
 //
 // AudioEngine: the engine wrapper over miniaudio (docs/design/audio.md §3). miniaudio is
 // the COMMITTED backend - no abstraction layer - but ma_* types never appear here AT ALL:

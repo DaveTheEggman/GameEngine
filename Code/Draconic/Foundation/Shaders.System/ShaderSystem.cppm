@@ -1,4 +1,4 @@
-/// Draconic::ShaderSystem - the `:shader_system` partition.
+/// Foundation::Shaders.System - the `:shader_system` partition.
 ///
 /// Compile-on-demand + cache for shader VARIANTS. A shader is registered by name
 /// per stage (its HLSL source); GetVariant(name, stage, flags) compiles the

@@ -1,4 +1,4 @@
-// Draconic::FontsTTF - foundation.fonts.ttf:service partition
+// Foundation::Fonts.TTF - foundation.fonts.ttf:service partition
 //
 // IFontService that loads TrueType/OpenType fonts through the source-format
 // pipeline (parse -> bake -> expand-to-RGBA8). With a VFS file system set, the

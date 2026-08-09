@@ -1,4 +1,4 @@
-// Draconic::EditorApp - :asset_picker_dialog partition.
+// Editor::App - :asset_picker_dialog partition.
 //
 // AssetPickerDialog: a modal, READ-ONLY mirror of the asset browser for resource-ref picking -
 // group tree on the left, matching instances on the right, filter across all groups. Replaces

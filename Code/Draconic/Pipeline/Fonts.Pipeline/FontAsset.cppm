@@ -1,4 +1,4 @@
-// Draconic::FontsEditor - the `foundation.fonts.editor` module (tooling).
+// Pipeline::Fonts - the `foundation.fonts.editor` module (tooling).
 //
 // Source-side font authoring + cook (the editor tier of the fonts triad):
 //   * FontAsset (pipeline::Asset): references a TTF/OTF/TTC file in Sources/ + the bake

@@ -1,4 +1,4 @@
-// Draconic::Resource - the `foundation.resource` module.
+// Foundation::Resource - the `foundation.resource` module.
 //
 // The resource manager: turns content-database *source* objects (ISerializable,
 // full editor fidelity) into runtime *products* (lean Objects) via factories,

@@ -1,4 +1,4 @@
-// Draconic::ImageEditor - reflection implementation unit: ImageAsset's reflected surface.
+// Pipeline::Image - reflection implementation unit: ImageAsset's reflected surface.
 //
 // Kept OUT of the ImageAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). ImageAsset::StaticType() gains its colorSpace property here;

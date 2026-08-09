@@ -1,4 +1,4 @@
-// Draconic::EditorScene - the `editor.scene` module.
+// Editor::Scene - the `editor.scene` module.
 //
 // The scene subsystem's editor plugin (design doc §3.1): SceneEditorPage (per-page live Scene +
 // ViewportView through the real renderer + EditorCamera), its page factory, and the

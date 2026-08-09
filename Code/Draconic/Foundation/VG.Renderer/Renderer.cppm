@@ -1,4 +1,4 @@
-// Draconic::VG::Renderer - :renderer partition.
+// Foundation::VG.Renderer::Renderer - :renderer partition.
 //
 // VGRenderer: draws VGContext/VGBatch content through the RHI. Owns per-frame
 // vertex/index/uniform ring buffers (byte-offset sub-allocated across slices),

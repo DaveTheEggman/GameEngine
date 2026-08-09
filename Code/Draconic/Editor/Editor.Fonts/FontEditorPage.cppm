@@ -1,4 +1,4 @@
-// Draconic::EditorFonts - the `editor.fonts` module.
+// Editor::Fonts - the `editor.fonts` module.
 //
 // FontEditorPage: the bespoke authoring page for FontAsset (the fonts-triad source asset).
 // Left: a live CPU bake preview - the atlas the cook would produce at the preview size

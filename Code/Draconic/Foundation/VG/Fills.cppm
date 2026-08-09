@@ -1,4 +1,4 @@
-// Draconic::VG - :fills partition.
+// Foundation::VG - :fills partition.
 //
 // Fill styles for vector-graphics shapes: the IVGFill interface, solid + linear/
 // radial/conic gradient fills, gradient stops, and color interpolation helpers.

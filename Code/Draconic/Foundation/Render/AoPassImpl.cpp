@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:ao` partition.
+/// Foundation::Render - the `:ao` partition.
 ///
 /// Ambient occlusion. Two interchangeable generators feed one shared pipeline:
 ///   - GTAO: Ground-Truth AO (Jimenez horizon integration over screen-space slices).

@@ -1,4 +1,4 @@
-/// Draconic::Scene - the `:entity` partition.
+/// Foundation::Scene - the `:entity` partition.
 ///
 /// EntityHandle: a lightweight, copyable reference to an entity in a Scene - a pool
 /// index plus a generation counter. The generation makes a stale handle (one whose

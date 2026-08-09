@@ -1,4 +1,4 @@
-/// Draconic::Net - the `foundation.net` module.
+/// Foundation::Net - the `foundation.net` module.
 ///
 /// Real-time game networking (docs/design/networking.md): the wire format, a transport abstraction
 /// (INetTransport) with swappable backends - reliable-UDP (ours), an in-memory loopback/sim for

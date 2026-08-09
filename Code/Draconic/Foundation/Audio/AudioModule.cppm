@@ -1,4 +1,4 @@
-// Draconic::Audio - the `foundation.audio` module.
+// Foundation::Audio - the `foundation.audio` module.
 //
 // The engine wrapper over the vendored miniaudio (docs/design/audio.md): AudioEngine
 // (device + node graph + resource manager), the default Master<-{Effects,Music,UI} bus

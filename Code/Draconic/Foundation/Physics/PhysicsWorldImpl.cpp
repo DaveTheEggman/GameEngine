@@ -1,4 +1,4 @@
-// Draconic::Physics - PhysicsWorld implementation (module IMPLEMENTATION unit).
+// Foundation::Physics - PhysicsWorld implementation (module IMPLEMENTATION unit).
 //
 // ALL Jolt contact lives here: the interface stays JPH-free (API hygiene + GCC's module
 // serializer cannot digest Jolt's headers inside an interface unit's global fragment).

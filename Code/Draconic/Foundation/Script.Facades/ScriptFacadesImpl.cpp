@@ -1,4 +1,4 @@
-// Draconic::ScriptFacades - implementation unit: the DRACONIC_REFLECT_* bodies (they
+// Foundation::Script.Facades - implementation unit: the DRACONIC_REFLECT_* bodies (they
 // never sit in a module interface unit - the GCC gcm-cluster rule).
 
 module;

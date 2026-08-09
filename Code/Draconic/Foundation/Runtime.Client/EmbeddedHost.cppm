@@ -1,4 +1,4 @@
-// Draconic::RuntimeClient - :embedded_host partition.
+// Foundation::Runtime.Client - :embedded_host partition.
 //
 // EmbeddedApplicationHost: the editor-embedding adapter (runtime-host.md v3, Sedulous
 // EditorApplicationHost lineage). An IApplication programs against IApplicationHost and

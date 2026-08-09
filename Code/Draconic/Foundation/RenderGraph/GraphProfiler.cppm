@@ -1,4 +1,4 @@
-// Draconic::RenderGraph - :profiler partition
+// Foundation::RenderGraph - :profiler partition
 //
 // Optional GPU profiler: per-pass timing via timestamp queries. BeginPass/EndPass
 // write timestamps around each pass; Resolve copies the query results to a

@@ -1,4 +1,4 @@
-/// Draconic::AnimationSubsystem - the `:components` partition.
+/// Engine::Animation - the `:components` partition.
 ///
 /// The scene-facing side of skeletal animation. Two components, each with a manager that ticks its
 /// players every frame and feeds the resulting skinning matrices into the target MeshComponent(s)

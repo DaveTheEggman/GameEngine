@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:gpu_mesh` partition.
+/// Foundation::Render - the `:gpu_mesh` partition.
 ///
 /// GpuMeshCache: uploads a StaticMesh's vertex + index streams to the GPU on first use and
 /// caches them by mesh pointer (so repeated draws reuse the buffers). The streams are

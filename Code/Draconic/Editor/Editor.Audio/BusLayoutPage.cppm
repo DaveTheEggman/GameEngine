@@ -1,4 +1,4 @@
-// Draconic::EditorAudio - the `:bus_layout_page` partition.
+// Editor::Audio - the `:bus_layout_page` partition.
 //
 // AudioBusLayoutPage (editor-pages-gap.md, bespoke pass #6): the mixer editor. A bus TREE on the
 // left (the four fixed buses - Master with Effects/Music/UI under it - plus the used custom-bus

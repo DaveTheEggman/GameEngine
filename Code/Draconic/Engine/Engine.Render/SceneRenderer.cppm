@@ -1,4 +1,4 @@
-/// Draconic::RenderSubsystem - the `:scene_renderer` partition.
+/// Engine::Render - the `:scene_renderer` partition.
 ///
 /// `ISceneRenderer` (+ CameraOverride/TargetState) MOVED to the light `foundation.render.api`
 /// module so tools can drive scene rendering through the interface without linking the

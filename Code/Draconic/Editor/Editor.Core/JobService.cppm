@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :job_service partition.
+// Editor::Core - :job_service partition.
 //
 // A GENERIC editor background-job runner with progress + step reporting (the pattern EditorCookService
 // hand-rolls, generalized): submit a unit of work, it runs on a worker thread so the UI stays live

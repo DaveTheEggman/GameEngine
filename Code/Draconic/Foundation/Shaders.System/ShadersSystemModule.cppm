@@ -1,4 +1,4 @@
-/// Draconic::ShaderSystem - the `foundation.shaders.system` module.
+/// Foundation::Shaders.System - the `foundation.shaders.system` module.
 ///
 /// The variant compile-on-demand cache (:shader_system) + the dev file-backed
 /// source provider (:file_provider) that serves engine built-in shaders from the

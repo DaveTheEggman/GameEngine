@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:debug_pass` partition (Debug layer).
+/// Foundation::Render - the `:debug_pass` partition (Debug layer).
 ///
 /// The GPU side of debug draw (SedulousEngine's DebugDrawSystem + DebugGeometryPass + DebugScreenPass,
 /// folded into one owner adapted to the render graph). Owns the font atlas + per-(view,frame) dynamic

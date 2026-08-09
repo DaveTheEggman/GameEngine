@@ -1,4 +1,4 @@
-/// Draconic::ModelImporter:cook - cook a loaded Model into a content database.
+/// Pipeline::ModelImporter:cook - cook a loaded Model into a content database.
 ///
 /// Cooks a model's textures, materials, and meshes through the editor stack (Asset ->
 /// builder -> content Instance) into the output DB, then writes a manifest

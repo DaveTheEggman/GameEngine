@@ -1,4 +1,4 @@
-/// Draconic::Animation - `foundation.animation`, the engine's skeletal-animation foundation.
+/// Foundation::Animation - `foundation.animation`, the engine's skeletal-animation foundation.
 ///
 /// A faithful port of Sedulous.Animation (foundation only - no rendering dependency; the renderer
 /// consumes evaluated skinning matrices). Depends solely on Core (math + containers). Aggregates the

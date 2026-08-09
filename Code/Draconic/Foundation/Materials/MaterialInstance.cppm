@@ -1,4 +1,4 @@
-/// Draconic::Materials - the `:instance` partition.
+/// Foundation::Materials - the `:instance` partition.
 ///
 /// MaterialInstance: a per-use copy of a Material's properties with overridable
 /// values and dirty tracking. Setters write into an override uniform buffer / texture

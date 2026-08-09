@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :export_preset partition.
+// Editor::Core - :export_preset partition.
 //
 // Export presets: named, per-platform descriptions of how to produce a shippable dist - which
 // export template (player + runtime sidecars) to use, plus game-specific extra files and output

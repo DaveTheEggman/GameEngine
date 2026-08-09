@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:resources` partition.
+/// Foundation::Render - the `:resources` partition.
 ///
 /// GPU resource primitives shared by the renderers. `DynamicUniformRing` is a
 /// frames-in-flight ring of fixed-stride slots over one buffer (the §8 replacement for the

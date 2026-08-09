@@ -1,4 +1,4 @@
-// Draconic::Texture - :types partition
+// Foundation::Texture - :types partition
 //
 // Logical texture descriptors: shape, filter, wrap. Used by TextureResource to
 // say how pixel data should be interpreted and sampled. Ported from

@@ -1,4 +1,4 @@
-// Draconic::Shell - :dialog partition.
+// Foundation::Shell - :dialog partition.
 //
 // Native OS file/folder dialogs. Async by nature - the Show* call returns immediately and the
 // callback fires later (during the shell's event pump), exactly once, on the main thread - so unlike

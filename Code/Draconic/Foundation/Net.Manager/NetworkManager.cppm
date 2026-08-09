@@ -1,4 +1,4 @@
-/// Draconic::NetworkManager - the `foundation.net.manager` module (docs/design/networking.md §6).
+/// Foundation::Net.Manager - the `foundation.net.manager` module (docs/design/networking.md §6).
 ///
 /// A NETWORKED ENDPOINT, owned per running game (a GameInstance): NetworkManager owns a live
 /// NetSession + RpcTable over an IDatagramSocket (real UDP or the sim), is driven each fixed step,

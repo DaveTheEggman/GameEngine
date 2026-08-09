@@ -1,4 +1,4 @@
-// Draconic::EditorScript - the `editor.script` module.
+// Editor::Script - the `editor.script` module.
 //
 // ScriptEditorPage implementation: Save (write source + recook + notify), the debounced
 // compile-check, and the error surface - status line, error list, and CodeEditView Error

@@ -1,4 +1,4 @@
-/// Draconic::Net - `foundation.net:session` partition.
+/// Foundation::Net - `foundation.net:session` partition.
 ///
 /// The session layer (docs/design/networking.md §3 `foundation.net.session`, P1): roles, a peer
 /// registry, and the connect/disconnect lifecycle over the reliable-UDP transport. A NetSession is

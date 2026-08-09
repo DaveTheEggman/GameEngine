@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :page partition.
+// Editor::Core - :page partition.
 //
 // The document model (docs/design/editor.md §3.4): each open asset is an EditorPage - a dock
 // tab with its OWN command stack (Sedulous/Traktor per-page undo), dirty tracking, and Save.

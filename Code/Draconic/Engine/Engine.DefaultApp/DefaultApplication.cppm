@@ -1,4 +1,4 @@
-// Draconic::RuntimeDefaultApp - the `engine.defaultapp` module.
+// Engine::DefaultApp - the `engine.defaultapp` module.
 //
 // DefaultApplication: an opinionated IApplication base that registers the standard
 // engine subsystems. A game that wants the batteries-included engine writes

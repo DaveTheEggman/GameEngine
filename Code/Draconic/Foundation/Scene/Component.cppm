@@ -1,4 +1,4 @@
-/// Draconic::Scene - the `:component` partition.
+/// Foundation::Scene - the `:component` partition.
 ///
 /// The value-pool component contract. A component is plain value data; the typed
 /// ComponentManager<T> owns its storage, lifecycle, iteration, and serialization, and

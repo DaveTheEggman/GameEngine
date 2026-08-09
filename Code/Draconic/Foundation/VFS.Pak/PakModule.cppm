@@ -1,4 +1,4 @@
-// Draconic::VFS::Pak - the `foundation.vfs.pak` module.
+// Foundation::VFS.Pak::Pak - the `foundation.vfs.pak` module.
 //
 // A packed, read-only archive backend for the VFS (the shipping counterpart to
 // the disk backend). PakFileSystem implements read + enumerate over a single

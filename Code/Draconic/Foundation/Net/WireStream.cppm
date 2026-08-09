@@ -1,4 +1,4 @@
-/// Draconic::Net - `foundation.net:wire` partition.
+/// Foundation::Net - `foundation.net:wire` partition.
 ///
 /// Bit-level wire serialization (docs/design/networking.md §3, `foundation.net.wire`): a BitWriter /
 /// BitReader pair that packs values to the BIT rather than the byte, plus varints and ranged-float

@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :export_template partition.
+// Editor::Core - :export_template partition.
 //
 // Export templates: portable, per-platform prebuilt bundles (a player binary + its runtime sidecars +
 // a template.xml manifest) that presets reference by id/platform (docs/design/export.md §2). They live

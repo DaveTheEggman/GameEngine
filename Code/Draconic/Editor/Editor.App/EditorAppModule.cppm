@@ -1,4 +1,4 @@
-// Draconic::EditorApp - the `editor.app` module.
+// Editor::App - the `editor.app` module.
 //
 // The editor UI shell on foundation.ui (docs/design/editor.md §3.1/§3.2): the EditorShell chrome
 // (MenuBar / DockManager / StatusBar + the five standard panels), per-user dock-layout

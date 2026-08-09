@@ -1,4 +1,4 @@
-// Draconic::Physics - :world partition.
+// Foundation::Physics - :world partition.
 //
 // PhysicsWorld: the Jolt-backed rigid-body world (docs/design/physics.md). Jolt is the
 // COMMITTED backend - no abstraction layer - but JPH types never appear here AT ALL:

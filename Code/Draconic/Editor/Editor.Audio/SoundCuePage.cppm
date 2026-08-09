@@ -1,4 +1,4 @@
-// Draconic::EditorAudio - the `:sound_cue_page` partition.
+// Editor::Audio - the `:sound_cue_page` partition.
 //
 // SoundCuePage (audio.md P3): the cue editor - eight variant slot rows (clip picker +
 // weight), cue-level mode/jitter fields, and AUDITION that resolves through the REAL

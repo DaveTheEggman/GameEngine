@@ -1,4 +1,4 @@
-// Draconic::EditorScene - :animation_graph_page partition.
+// Editor::Scene - :animation_graph_page partition.
 //
 // AnimationGraphEditorPage (editor-pages-gap.md, bespoke pass #4): the blend-tree / state-machine
 // authoring tool for an AnimationGraphAsset.

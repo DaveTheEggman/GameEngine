@@ -1,4 +1,4 @@
-/// Draconic::Scene - the `:manager` partition.
+/// Foundation::Scene - the `:manager` partition.
 ///
 /// SceneManager: a GROUP of scenes as a first-class scene-lib object (docs/design/game-instance.md
 /// §11). It owns its scenes + a current scene + the group's time scale, ticks its own group's variable

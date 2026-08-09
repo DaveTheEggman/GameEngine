@@ -1,4 +1,4 @@
-/// Draconic::Scene - the `:phase` partition.
+/// Foundation::Scene - the `:phase` partition.
 ///
 /// ScenePhase: the ordered slots a scene runs each update. Order is the contract -
 /// systems that depend on each other rely on it (input/physics readback before

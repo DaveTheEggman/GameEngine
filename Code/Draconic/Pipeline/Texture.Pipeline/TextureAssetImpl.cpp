@@ -1,4 +1,4 @@
-// Draconic::TextureEditor - reflection implementation unit: TextureAsset's reflected surface.
+// Pipeline::Texture - reflection implementation unit: TextureAsset's reflected surface.
 //
 // Kept OUT of the TextureAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). The class declares its identity via DRACONIC_OBJECT

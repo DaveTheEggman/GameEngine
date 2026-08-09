@@ -1,4 +1,4 @@
-// Draconic::AudioSubsystem - implementation unit: the per-frame engine drive (listener
+// Engine::Audio - implementation unit: the per-frame engine drive (listener
 // push with active-camera fallback + engine tick) and the component reflection bodies.
 // Both live OUTSIDE the interface for GCC: the render import stays out of the
 // interface's module graph, and DRACONIC_REFLECT_* bodies in a partition interface

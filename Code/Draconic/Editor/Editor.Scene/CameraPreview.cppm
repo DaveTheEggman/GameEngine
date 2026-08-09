@@ -1,4 +1,4 @@
-// Draconic::Editor.Scene - :camera_preview partition (task #118).
+// Editor::Scene - :camera_preview partition (task #118).
 //
 // The testable, UI-FREE core of the scene-editor camera preview: the CameraOverride a selected /
 // pinned CameraComponent renders through, and the visibility/pin DECISION. The preview view class

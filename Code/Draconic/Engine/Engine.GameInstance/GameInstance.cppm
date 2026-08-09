@@ -1,4 +1,4 @@
-// Draconic::RuntimeGameInstance - the `engine.gameinstance` module.
+// Engine::GameInstance - the `engine.gameinstance` module.
 //
 // A single RUNNING GAME as a first-class object (docs/design/game-instance.md): its scene pairing,
 // its script run context + `Game` object + error sink, and its instance time scale. The player owns

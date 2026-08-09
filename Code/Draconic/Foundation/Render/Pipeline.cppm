@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:pipeline` partition.
+/// Foundation::Render - the `:pipeline` partition.
 ///
 /// The frame driver + extension seam. A `Renderer` is a per-category drawer; subsystems
 /// (meshes here, particles/sprites/world-UI later) register one with the `RendererRegistry`

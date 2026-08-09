@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :log_buffer partition.
+// Editor::Core - :log_buffer partition.
 //
 // EditorLogBuffer: the editor's log capture (docs/design/editor.md §3.10). ONE thread-safe
 // bounded ILogSink on core's GlobalLogger replaces Sedulous's logger+listener+buffer trio -

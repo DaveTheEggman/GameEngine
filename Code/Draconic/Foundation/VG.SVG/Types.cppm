@@ -1,4 +1,4 @@
-// Draconic::VG::SVG - :types partition.
+// Foundation::VG.SVG::SVG - :types partition.
 //
 // SVG element/document model: SVGElementType, SVGTextAnchor, SVGElement (a parsed
 // shape/group/text node with a tessellated Path + style), SVGDocument. Ported

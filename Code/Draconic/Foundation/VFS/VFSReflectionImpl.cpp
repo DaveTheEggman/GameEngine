@@ -1,4 +1,4 @@
-// Draconic::VFS - reflection implementation unit: SourcePath's reflected surface.
+// Foundation::VFS - reflection implementation unit: SourcePath's reflected surface.
 //
 // Kept OUT of the :source_path interface partition (DRACONIC_REFLECT_* bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). SourcePath's value is private, so it reflects as

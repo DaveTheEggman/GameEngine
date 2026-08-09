@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:ibl` partition.
+/// Foundation::Render - the `:ibl` partition.
 ///
 /// Image-Based Lighting: the split-sum environment pipeline (ported from Sedulous.Renderer/IBL with
 /// improvements), PER SCENE. A frame can render several scenes side-by-side (editor pages), each

@@ -1,4 +1,4 @@
-// Draconic::Content - the `foundation.content` module.
+// Foundation::Content - the `foundation.content` module.
 //
 // A content database: a hierarchical store of serializable objects, addressed by
 // Guid (stable) or by path. A Group is a folder; an Instance is one stored unit

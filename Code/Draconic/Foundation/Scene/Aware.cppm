@@ -1,4 +1,4 @@
-/// Draconic::Scene - the `:aware` partition.
+/// Foundation::Scene - the `:aware` partition.
 ///
 /// ISceneAware: implemented by a Context-level Subsystem that needs to react to scene
 /// lifecycle - chiefly to inject its per-scene systems (component managers) into a new

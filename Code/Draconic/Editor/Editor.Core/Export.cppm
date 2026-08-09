@@ -1,4 +1,4 @@
-// Draconic::EditorCore - :export partition.
+// Editor::Core - :export partition.
 //
 // The export pipeline as a LIBRARY (the Draconic.Tools.Export CLI and the editor's Export menu are
 // thin callers; tests drive it headlessly): cook -> stage scenes as binary envelopes ->

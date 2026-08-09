@@ -1,4 +1,4 @@
-/// Draconic::Net - `foundation.net:transport` partition.
+/// Foundation::Net - `foundation.net:transport` partition.
 ///
 /// The transport seam (docs/design/networking.md §4). `INetTransport` is the swappable-backend
 /// abstraction the rest of the stack (session, reliability, RPC, replication) rides on - because

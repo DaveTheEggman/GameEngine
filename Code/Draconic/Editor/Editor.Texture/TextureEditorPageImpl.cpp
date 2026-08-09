@@ -1,4 +1,4 @@
-// Draconic::EditorTexture - the `editor.texture` module (implementation).
+// Editor::Texture - the `editor.texture` module (implementation).
 
 module;
 #include "Core/Prelude.h"

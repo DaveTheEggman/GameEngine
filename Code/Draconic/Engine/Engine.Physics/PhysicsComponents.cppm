@@ -1,4 +1,4 @@
-// Draconic::PhysicsSubsystem - :components partition.
+// Engine::Physics - :components partition.
 //
 // The authoring components (docs/design/physics.md §3.2): RigidBodyComponent carries the
 // body's motion/layer/material properties plus its OWN primitive shape; ColliderComponent

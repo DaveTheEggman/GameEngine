@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:tonemap` partition.
+/// Foundation::Render - the `:tonemap` partition.
 ///
 /// The HDR resolve: the forward pass renders linear HDR into a transient (RGBA16F); this fullscreen
 /// pass reads it, applies exposure + a tonemap operator + the display OETF, and writes the LDR

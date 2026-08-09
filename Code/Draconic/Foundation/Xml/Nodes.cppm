@@ -1,4 +1,4 @@
-// Draconic::Xml - :nodes partition
+// Foundation::Xml - :nodes partition
 //
 // The DOM node hierarchy: XmlNode (intrusive tree) and its concrete kinds
 // (Element, Attribute, Text, CData, Comment, Declaration, ProcessingInstruction).

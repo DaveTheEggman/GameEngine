@@ -1,4 +1,4 @@
-// Draconic::Scene - the `:events` partition.
+// Foundation::Scene - the `:events` partition.
 //
 // A native, name-keyed event bus. It is a SCENE facility (and a run-scoped one later), with NO
 // scripting dependency: C++ systems Publish/Subscribe directly with native callbacks, so a

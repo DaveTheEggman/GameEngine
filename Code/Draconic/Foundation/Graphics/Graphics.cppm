@@ -1,4 +1,4 @@
-// Draconic::Graphics - the `foundation.graphics` module.
+// Foundation::Graphics - the `foundation.graphics` module.
 //
 // The RHI render host, promoted out of the per-sample bring-up code so samples,
 // the UI, and the renderer share one tested path. Two pieces:

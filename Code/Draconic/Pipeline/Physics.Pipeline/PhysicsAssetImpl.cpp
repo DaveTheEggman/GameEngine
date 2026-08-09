@@ -1,4 +1,4 @@
-// Draconic::PhysicsEditor - reflection implementation unit: physics asset reflected surface.
+// Pipeline::Physics - reflection implementation unit: physics asset reflected surface.
 //
 // Kept OUT of the PhysicsAsset.cppm interface (DRACONIC_REFLECT bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). The classes declare identity via DRACONIC_OBJECT in

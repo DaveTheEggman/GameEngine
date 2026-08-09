@@ -1,4 +1,4 @@
-// Draconic::ScriptAngelScript - implementation (module IMPLEMENTATION unit).
+// Foundation::Script.AngelScript - implementation (module IMPLEMENTATION unit).
 //
 // ALL AngelScript SDK contact lives here: the interface unit stays engine-types-only
 // (GCC module hygiene - the SDK header never sits in an interface unit's global

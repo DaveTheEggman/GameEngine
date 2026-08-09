@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:probes` partition.
+/// Foundation::Render - the `:probes` partition.
 ///
 /// Reflection probes: local, parallax-corrected, cluster-assigned cubemap reflections
 /// (docs/design/reflection-probes.md). This system owns the per-probe GPU resources and (in later

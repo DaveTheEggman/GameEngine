@@ -1,4 +1,4 @@
-// Draconic::InputEditor - reflection implementation unit: InputMapAsset's reflected surface.
+// Pipeline::Input - reflection implementation unit: InputMapAsset's reflected surface.
 //
 // InputMapAsset wraps an InputMap by value; InputMap is a nested list-of-lists (sets -> actions ->
 // bindings). It is exposed as a NESTED property (TypeBuilder::Nested) so tooling/scripting can

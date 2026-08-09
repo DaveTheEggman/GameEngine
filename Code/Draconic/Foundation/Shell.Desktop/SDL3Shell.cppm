@@ -1,4 +1,4 @@
-// Draconic::ShellDesktop - the `foundation.shell.desktop` module.
+// Foundation::Shell.Desktop - the `foundation.shell.desktop` module.
 //
 // The desktop shell target (Windows/Linux/macOS), implemented on SDL3:
 // SDL3Shell covers Wayland, X11, Win32, and Cocoa in one backend, plus input,

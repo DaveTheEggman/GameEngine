@@ -1,4 +1,4 @@
-// Draconic::FontsIO - the `foundation.fonts.io` module.
+// Foundation::Fonts.IO - the `foundation.fonts.io` module.
 //
 // The source-format font load pipeline: IFontParser/IFontAtlasBaker contracts,
 // the extension-routed factories that dispatch over them, and a thread-safe

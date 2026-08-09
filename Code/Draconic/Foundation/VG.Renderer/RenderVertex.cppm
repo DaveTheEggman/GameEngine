@@ -1,4 +1,4 @@
-// Draconic::VG::Renderer - :vertex partition.
+// Foundation::VG.Renderer::Renderer - :vertex partition.
 //
 // VGRenderVertex: the GPU vertex layout (float2 pos, float2 uv, float4 color,
 // float coverage) the vg shader expects. Built from the CPU VGVertex; the color

@@ -1,4 +1,4 @@
-/// Draconic::Materials - the `:types` partition.
+/// Foundation::Materials - the `:types` partition.
 ///
 /// Value-type vocabulary for the data-driven material model: property kinds (the
 /// declared shape a material exposes to shaders), pipeline-state presets (blend /

@@ -1,4 +1,4 @@
-/// Draconic::Render - the `:extract_ctx` partition.
+/// Foundation::Render - the `:extract_ctx` partition.
 ///
 /// `RenderContext` provisions the per-worker scratch that parallel extraction writes into: one
 /// `FrameArena` + one item list per job-system slot (worker threads + the caller, == the job

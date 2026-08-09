@@ -1,4 +1,4 @@
-/// Draconic::ShaderSystem - the `:host` partition.
+/// Foundation::Shaders.System - the `:host` partition.
 ///
 /// ShaderSystemHost builds and owns a ready-to-use ShaderSystem for a device, encapsulating the
 /// pack-vs-dev decision ONCE so every consumer (renderer, VG/UI, ImGui) resolves shaders the same

@@ -1,4 +1,4 @@
-// Draconic::ScriptWrenEditor - implementation unit for the Wren cook service.
+// Pipeline::Script.Wren - implementation unit for the Wren cook service.
 //
 // The Wren-specific cook: the `static properties` Fiber probe, the harvest-record parse,
 // the compile check (framed with the SAME behavior-module prelude the runtime uses, so

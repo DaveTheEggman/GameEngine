@@ -1,4 +1,4 @@
-/// Draconic::Net - `foundation.net:reliable` partition.
+/// Foundation::Net - `foundation.net:reliable` partition.
 ///
 /// Reliable-UDP over the unreliable datagram substrate (docs/design/networking.md §4). A
 /// `ReliableTransport` (an INetTransport) manages per-remote connections over an IDatagramSocket and

@@ -1,4 +1,4 @@
-// Draconic::Settings - the `foundation.settings` module.
+// Foundation::Settings - the `foundation.settings` module.
 //
 // A typed, versioned, backend-agnostic settings store (see docs/design/settings.md). A "section" is
 // a reflected ISerializable struct; the store holds one instance per type, lazily created (so an

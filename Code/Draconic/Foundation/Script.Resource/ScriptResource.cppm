@@ -1,4 +1,4 @@
-// Draconic::ScriptResource - the `foundation.script.resource` module.
+// Foundation::Script.Resource - the `foundation.script.resource` module.
 //
 // Cooked script classes (docs/design/scripting.md §4): a ScriptClass is SOURCE TEXT +
 // harvested metadata - never bytecode (Wren has no stable serialized form; compilation
