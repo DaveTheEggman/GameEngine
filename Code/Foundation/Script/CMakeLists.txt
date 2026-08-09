@@ -6,7 +6,7 @@
 add_library(Script STATIC)
 add_library(Foundation::Script ALIAS Script)
 
-# PUBLIC Foundation::Core: propagates the reflection ABI + the Code/Draconic include
+# PUBLIC Foundation::Core: propagates the reflection ABI + the Code include
 # root (so module GMFs can #include "Core/Prelude.h").
 target_link_libraries(Script PUBLIC Foundation::Core Foundation::Policy)
 

@@ -127,11 +127,11 @@ target_link_libraries(Core PUBLIC Threads::Threads)
 target_link_libraries(Core PUBLIC ${CMAKE_DL_LIBS})
 
 # Classic headers that cross the module boundary (macros only). Consumers
-# include them as "Core/<Header>.h"; the engine include root is Code/Draconic.
+# include them as "Core/<Header>.h"; the engine include root is Code.
 target_sources(Core
     PUBLIC
         FILE_SET core_headers TYPE HEADERS
-            BASE_DIRS ${CMAKE_SOURCE_DIR}/Code/Draconic
+            BASE_DIRS ${CMAKE_SOURCE_DIR}/Code
             FILES
                 Prelude.h
                 Debug/Assert.h
@@ -142,5 +142,5 @@ target_sources(Core
                 Threading/ThreadBackend.h)
 
 # So `#include "Core/Prelude.h"` resolves from module global-module-fragments.
-target_include_directories(Core PUBLIC ${CMAKE_SOURCE_DIR}/Code/Draconic)
+target_include_directories(Core PUBLIC ${CMAKE_SOURCE_DIR}/Code)
 

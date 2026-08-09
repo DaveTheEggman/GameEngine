@@ -143,7 +143,7 @@ cd Bin/Debug/Emscripten-Clang && python3 -m http.server 8080
 # open http://localhost:8080/WebScene.html
 ```
 
-If the plain server causes MIME/caching trouble, `Code/Draconic/Engine/Engine.Player/serve.py`
+If the plain server causes MIME/caching trouble, `Code/Engine/Engine.Player/serve.py`
 serves a folder with the correct wasm MIME and no-store headers.
 
 ## Samples

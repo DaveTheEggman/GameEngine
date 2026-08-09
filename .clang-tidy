@@ -11,5 +11,5 @@ Checks: >
   -bugprone-easily-swappable-parameters
 
 WarningsAsErrors: ''
-HeaderFilterRegex: 'Code/Draconic/.*'
+HeaderFilterRegex: 'Code/.*'
 FormatStyle: file

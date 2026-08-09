@@ -12,7 +12,7 @@ target_link_libraries(Engine.Input.Tests PRIVATE
     Foundation::Script Foundation::Script.Wren doctest::doctest)
 
 target_include_directories(Engine.Input.Tests PRIVATE
-    ${CMAKE_SOURCE_DIR}/Code/Draconic/Foundation/Input.Tests)  # InputTestSupport.h
+    ${CMAKE_SOURCE_DIR}/Code/Foundation/Input.Tests)  # InputTestSupport.h
 
 target_compile_definitions(Engine.Input.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
