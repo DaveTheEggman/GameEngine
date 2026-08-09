@@ -56,7 +56,7 @@ export namespace foundation::core
             else
             {
                 static_assert(std::is_trivially_copyable_v<T>,
-                              "No Hash for this type; specialize draconic::core::Hash.");
+                              "No Hash for this type; specialize foundation::core::Hash.");
                 return HashBytes(&value, sizeof(T));
             }
         }
