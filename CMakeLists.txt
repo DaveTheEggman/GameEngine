@@ -469,6 +469,11 @@ if(OPTION_BUILD_TOOLS)
         add_subdirectory(Code/Editor/Editor.Physics) # collision-shape asset page: mesh picker + cook
     endif()
 
+    # The pipeline's composition root: links every pipeline module above and exposes the single
+    # RegisterAllBuilders/RegisterAllImporters/RegisterPipelineTypes set every host consumes. Must
+    # come AFTER all pipeline modules (incl. the fonts block) since it links them.
+    add_subdirectory(Code/Pipeline/Pipeline.Registration)
+
     add_subdirectory(Code/Tools/Tools.Editor)        # DraconicEditor executable (editor assembly)
     add_subdirectory(Code/Tools/Tools.Cook)          # Tools.Cook CLI cooker (headless)
     add_subdirectory(Code/Tools/Tools.Mcp)          # headless MCP stdio server (agent access)
@@ -485,6 +490,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Editor/Editor.Audio.Tests                  Editor::Audio)
     util_test_suite(Code/Pipeline/Pipeline.Cook.Tests                   Pipeline::Cook)
     util_test_suite(Code/Pipeline/Pipeline.Importer.Tests               Pipeline::Importer)
+    util_test_suite(Code/Pipeline/Pipeline.Registration.Tests           Pipeline::Registration)
     util_test_suite(Code/Editor/Editor.Core.Tests                   Editor::Core)
     util_test_suite(Code/Editor/Editor.Generic.Tests                Editor::Generic)
     util_test_suite(Code/Editor/Editor.Image.Tests                  Editor::Image)

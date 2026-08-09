@@ -38,6 +38,7 @@ import foundation.geometry.resource;
 import foundation.materials.resource;
 import foundation.texture.resource;
 import pipeline.core;
+import pipeline.registration;
 import editor.core;
 import editor.app;
 import editor.scene;
@@ -88,71 +89,17 @@ namespace shell = foundation::shell;
 
 namespace
 {
-    template <typename T>
-    void AddBuilder(pipeline::BuilderRegistry& registry)
+    // The builder + type registration set lives in Pipeline::Registration (the composition root):
+    // RegisterPipelineTypes() + RegisterAllBuilders() below assemble the same set the CLI cooker
+    // and export packager use. The editor ADDS its per-language editor-UI services (CodeEditView
+    // lexers) on top - those are editor-only and stay host-side.
+    void RegisterEditorBuilders(pipeline::BuilderRegistry& registry)
     {
-        registry.Register(
-            UniquePtr<pipeline::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
-    }
-
-    // Every engine builder (kept in lockstep with the Tools.Cook CLI's set).
-    void RegisterAllBuilders(pipeline::BuilderRegistry& registry)
-    {
-        pipeline::RegisterAssetReflection(); // base Asset::fileName + SourcePath
-        pipeline::RegisterTextureAsset();
-        pipeline::RegisterFontAsset(); // asset + FontResource product
-        pipeline::RegisterImageAsset();
-        pipeline::RegisterMeshAssets();
-        pipeline::RegisterAnimationAssets();
-        pipeline::RegisterMaterialAsset();
-        pipeline::RegisterShaderAsset();
-        pipeline::RegisterParticleEffectAsset();
-        pipeline::RegisterInputMapAsset();
-        pipeline::RegisterModelManifestAsset();
-        // Product/resource types: ReadObject constructs cooked products BY TYPE NAME, so the
-        // runtime-facing types must be registered too (meshes/materials/textures/animation/
-        // manifest via the model-importer helper, plus the image resource).
-        foundation::model::RegisterModelResourceTypes();
-        foundation::image::RegisterImageResource();
-        pipeline::RegisterPhysicsAssets();
-        foundation::physics::RegisterPhysicsResource();
-        pipeline::RegisterUIAssets();
-        foundation::ui::RegisterUIResource();
-        pipeline::RegisterAudioAssets();
-        foundation::audio::RegisterAudioResource();
-        pipeline::RegisterScriptAssets();
-        foundation::script::RegisterScriptResource();
-        // The builder resolves a per-language COOK through the registry (B3);
-        // registering backends + cooks is the entry point's job - both languages.
-        foundation::script::wren::RegisterWrenScriptBackend();
-        foundation::script::angelscript::RegisterAngelScriptBackend();
-        pipeline::RegisterWrenScriptCook();
-        pipeline::RegisterAngelScriptScriptCook();
+        pipeline::RegisterPipelineTypes();
+        pipeline::RegisterAllBuilders(registry);
         // Per-language EDITOR-UI services (CodeEditView lexers; completion providers later).
         editor::RegisterWrenEditorUI();
         editor::RegisterAngelScriptEditorUI();
-
-        AddBuilder<pipeline::TextureAssetBuilder>(registry);
-        AddBuilder<pipeline::FontAssetBuilder>(registry);
-        AddBuilder<pipeline::ImageAssetBuilder>(registry);
-        AddBuilder<pipeline::StaticMeshAssetBuilder>(registry);
-        AddBuilder<pipeline::SkinnedMeshAssetBuilder>(registry);
-        AddBuilder<pipeline::SkeletonAssetBuilder>(registry);
-        AddBuilder<pipeline::AnimationClipAssetBuilder>(registry);
-        AddBuilder<pipeline::AnimationGraphAssetBuilder>(registry);
-        AddBuilder<pipeline::MaterialAssetBuilder>(registry);
-        AddBuilder<pipeline::ShaderAssetBuilder>(registry);
-        AddBuilder<pipeline::ParticleEffectAssetBuilder>(registry);
-        AddBuilder<pipeline::InputMapAssetBuilder>(registry);
-        AddBuilder<pipeline::ModelManifestAssetBuilder>(registry);
-        AddBuilder<pipeline::CollisionShapeAssetBuilder>(registry);
-        AddBuilder<pipeline::PhysicalMaterialAssetBuilder>(registry);
-        AddBuilder<pipeline::UIDocumentAssetBuilder>(registry);
-        AddBuilder<pipeline::UIThemeAssetBuilder>(registry);
-        AddBuilder<pipeline::AudioClipAssetBuilder>(registry);
-        AddBuilder<pipeline::AudioBusLayoutAssetBuilder>(registry);
-        AddBuilder<pipeline::SoundCueAssetBuilder>(registry);
-        AddBuilder<pipeline::ScriptClassAssetBuilder>(registry);
     }
 
     // Create a StaticMeshAsset in the project's Meshes/ group from a procedural primitive,
@@ -620,22 +567,11 @@ int main(int argc, char** argv)
             app.Context().RegisterCreator(
                 static_cast<editor::EditorContext::AssetCreator&&>(shapeCreator));
         }
-        RegisterAllBuilders(app.Builders()); // the cook service routes through this set
+        RegisterEditorBuilders(app.Builders()); // the cook service routes through this set
 
-        // OS-file importers (drag-drop onto the editor).
-        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
-            DefaultAllocator().New<pipeline::TextureFileImporter>(), DefaultAllocator()));
-        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
-            DefaultAllocator().New<pipeline::ModelFileImporter>(),
-            DefaultAllocator()));
-        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
-            DefaultAllocator().New<pipeline::UIFileImporter>(), DefaultAllocator()));
-        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
-            DefaultAllocator().New<pipeline::AudioFileImporter>(), DefaultAllocator()));
-        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
-            DefaultAllocator().New<pipeline::ScriptFileImporter>(), DefaultAllocator()));
-        app.Context().Importers().Register(UniquePtr<pipeline::IFileImporter>(
-            DefaultAllocator().New<pipeline::FontAssetImporter>(), DefaultAllocator()));
+        // OS-file importers (drag-drop onto the editor) - the same set the MCP asset_import tool
+        // uses, from the composition root.
+        pipeline::RegisterAllImporters(app.Context().Importers());
 
         // Resource factories come from the embedded DefaultApplication (registered into
         // the editor's preset ResourceManager at its OnStartup) - none registered here.

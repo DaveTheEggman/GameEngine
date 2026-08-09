@@ -30,6 +30,7 @@ import foundation.resource;
 import foundation.scene;
 import foundation.scene.resource;
 import pipeline.core;
+import pipeline.registration;
 import editor.core;
 import texture.pipeline;
 import fonts.pipeline;
@@ -81,13 +82,6 @@ namespace
     [[nodiscard]] const char* Cs(const String& s)
     {
         return reinterpret_cast<const char*>(s.CStr());
-    }
-
-    template <typename T>
-    void Add(pipeline::BuilderRegistry& registry)
-    {
-        registry.Register(
-            UniquePtr<pipeline::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
     }
 
     // Same manager set the subsystems inject into every scene (kept in lockstep, like the
@@ -177,61 +171,8 @@ namespace
         };
     }
 
-    // Same builder set as Tools.Cook/Tools.Editor (kept in lockstep).
-    void RegisterAllBuilders(pipeline::BuilderRegistry& registry)
-    {
-        pipeline::RegisterAssetReflection(); // base Asset::fileName + SourcePath
-        pipeline::RegisterTextureAsset();
-        pipeline::RegisterFontAsset(); // asset + FontResource product
-        pipeline::RegisterImageAsset();
-        pipeline::RegisterMeshAssets();
-        pipeline::RegisterAnimationAssets();
-        pipeline::RegisterMaterialAsset();
-        pipeline::RegisterShaderAsset();
-        pipeline::RegisterParticleEffectAsset();
-        pipeline::RegisterInputMapAsset();
-        pipeline::RegisterModelManifestAsset();
-        foundation::model::RegisterModelResourceTypes();
-        foundation::image::RegisterImageResource();
-        pipeline::RegisterPhysicsAssets();
-        foundation::physics::RegisterPhysicsResource();
-        pipeline::RegisterUIAssets();
-        foundation::ui::RegisterUIResource();
-        pipeline::RegisterAudioAssets();
-        foundation::audio::RegisterAudioResource();
-        pipeline::RegisterScriptAssets();
-        foundation::script::RegisterScriptResource();
-        // The builder resolves a per-language COOK through the registry (B3);
-        // registering backends + cooks is the entry point's job - both languages.
-        foundation::script::wren::RegisterWrenScriptBackend();
-        foundation::script::angelscript::RegisterAngelScriptBackend();
-        pipeline::RegisterWrenScriptCook();
-        pipeline::RegisterAngelScriptScriptCook();
-        GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
-        RegisterSerializable<scene::SceneDocument>();
-
-        Add<pipeline::TextureAssetBuilder>(registry);
-        Add<pipeline::FontAssetBuilder>(registry);
-        Add<pipeline::ImageAssetBuilder>(registry);
-        Add<pipeline::StaticMeshAssetBuilder>(registry);
-        Add<pipeline::SkinnedMeshAssetBuilder>(registry);
-        Add<pipeline::SkeletonAssetBuilder>(registry);
-        Add<pipeline::AnimationClipAssetBuilder>(registry);
-        Add<pipeline::AnimationGraphAssetBuilder>(registry);
-        Add<pipeline::MaterialAssetBuilder>(registry);
-        Add<pipeline::ShaderAssetBuilder>(registry);
-        Add<pipeline::ParticleEffectAssetBuilder>(registry);
-        Add<pipeline::InputMapAssetBuilder>(registry);
-        Add<pipeline::ModelManifestAssetBuilder>(registry);
-        Add<pipeline::CollisionShapeAssetBuilder>(registry);
-        Add<pipeline::PhysicalMaterialAssetBuilder>(registry);
-        Add<pipeline::UIDocumentAssetBuilder>(registry);
-        Add<pipeline::UIThemeAssetBuilder>(registry);
-        Add<pipeline::AudioClipAssetBuilder>(registry);
-        Add<pipeline::AudioBusLayoutAssetBuilder>(registry);
-        Add<pipeline::SoundCueAssetBuilder>(registry);
-        Add<pipeline::ScriptClassAssetBuilder>(registry);
-    }
+    // The builder + type registration set now lives in Pipeline::Registration (the composition
+    // root) - see RegisterPipelineTypes / RegisterAllBuilders. main() calls them directly.
 
     // Directory containing this executable (Bin/... - where Engine.Player + its .runtime-libs live,
     // i.e. the host template's source). argv[0] can be bare/relative, so canonicalize it.
@@ -436,7 +377,8 @@ int main(int argc, char** argv)
     }
 
     pipeline::BuilderRegistry builders;
-    RegisterAllBuilders(builders);
+    pipeline::RegisterPipelineTypes(); // every asset/product/resource type + script cooks
+    pipeline::RegisterAllBuilders(builders);
 
     // Component reflection (data-version gates) before any scene stream deserializes.
     engine::render::RegisterRenderComponentReflection();

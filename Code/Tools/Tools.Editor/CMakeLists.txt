@@ -22,6 +22,7 @@ target_link_libraries(Tools.Editor PRIVATE
     Engine::Scene Engine::Render Engine::Animation Engine::Particles
     Editor::Core Editor::App Editor::Scene
     Pipeline::Core Pipeline::Cook
+    Pipeline::Registration # the composition root: every builder/importer/type registration
     Foundation::Resource Foundation::Geometry.Resource Foundation::Materials.Resource Foundation::Texture.Resource
     Pipeline::Texture Pipeline::Fonts Pipeline::Image Pipeline::Geometry
     Pipeline::Animation Pipeline::Materials Pipeline::Shaders

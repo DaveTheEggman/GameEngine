@@ -11,111 +11,15 @@
 #include "Core/Log/Log.h"
 
 import foundation.core;
-import foundation.animation;
-import foundation.particles;
 import foundation.content;
 import foundation.vfs;
 import pipeline.core;
+import pipeline.registration;
 import editor.core;
 import pipeline.cook;
-import texture.pipeline;
-import fonts.pipeline;
-import image.pipeline;
-import foundation.image.resource;
-import geometry.pipeline;
-import animation.pipeline;
-import materials.pipeline;
-import shaders.pipeline;
-import particles.pipeline;
-import foundation.input;
-import foundation.input.resource;
-import input.pipeline;
-import modelimporter;
-import foundation.physics;
-import foundation.physics.resource;
-import physics.pipeline;
-import foundation.ui.resource;
-import ui.pipeline;
-import foundation.audio;
-import foundation.audio.resource;
-import audio.pipeline;
-import foundation.script;
-import foundation.script.wren;
-import foundation.script.angelscript;
-import script.wren.pipeline;
-import script.angelscript.pipeline;
-import foundation.script.resource;
-import script.pipeline;
 
 using namespace foundation::core;
 namespace vfs = foundation::vfs;
-
-namespace
-{
-    template <typename T>
-    void Add(pipeline::BuilderRegistry& registry)
-    {
-        registry.Register(
-            UniquePtr<pipeline::IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
-    }
-
-    // Every builder the engine ships (the editor executable assembles the same set).
-    void RegisterAllBuilders(pipeline::BuilderRegistry& registry)
-    {
-        pipeline::RegisterAssetReflection(); // base Asset::fileName + SourcePath
-        pipeline::RegisterTextureAsset();
-        pipeline::RegisterFontAsset(); // asset + FontResource product
-        pipeline::RegisterImageAsset();
-        pipeline::RegisterMeshAssets();
-        pipeline::RegisterAnimationAssets();
-        pipeline::RegisterMaterialAsset();
-        pipeline::RegisterShaderAsset();
-        pipeline::RegisterParticleEffectAsset();
-        pipeline::RegisterInputMapAsset();
-        pipeline::RegisterModelManifestAsset();
-        // Product/resource types: ReadObject constructs cooked products BY TYPE NAME, so the
-        // runtime-facing types must be registered too (meshes/materials/textures/animation/
-        // manifest via the model-importer helper, plus the image resource).
-        foundation::model::RegisterModelResourceTypes();
-        foundation::image::RegisterImageResource();
-        pipeline::RegisterPhysicsAssets();
-        foundation::physics::RegisterPhysicsResource();
-        pipeline::RegisterUIAssets();
-        foundation::ui::RegisterUIResource();
-        pipeline::RegisterAudioAssets();
-        foundation::audio::RegisterAudioResource();
-        pipeline::RegisterScriptAssets();
-        foundation::script::RegisterScriptResource();
-        // The builder resolves a per-language COOK through the registry (B3);
-        // registering backends + cooks is the entry point's job - both languages.
-        foundation::script::wren::RegisterWrenScriptBackend();
-        foundation::script::angelscript::RegisterAngelScriptBackend();
-        pipeline::RegisterWrenScriptCook();
-        pipeline::RegisterAngelScriptScriptCook();
-
-        Add<pipeline::TextureAssetBuilder>(registry);
-        Add<pipeline::FontAssetBuilder>(registry);
-        Add<pipeline::ImageAssetBuilder>(registry);
-        Add<pipeline::StaticMeshAssetBuilder>(registry);
-        Add<pipeline::SkinnedMeshAssetBuilder>(registry);
-        Add<pipeline::SkeletonAssetBuilder>(registry);
-        Add<pipeline::AnimationClipAssetBuilder>(registry);
-        Add<pipeline::AnimationGraphAssetBuilder>(registry);
-        Add<pipeline::MaterialAssetBuilder>(registry);
-        Add<pipeline::ShaderAssetBuilder>(registry);
-        Add<pipeline::ParticleEffectAssetBuilder>(registry);
-        Add<pipeline::InputMapAssetBuilder>(registry);
-        Add<pipeline::ModelManifestAssetBuilder>(registry);
-        Add<pipeline::CollisionShapeAssetBuilder>(registry);
-        Add<pipeline::PhysicalMaterialAssetBuilder>(registry);
-        Add<pipeline::UIDocumentAssetBuilder>(registry);
-        Add<pipeline::UIThemeAssetBuilder>(registry);
-        Add<pipeline::AudioClipAssetBuilder>(registry);
-        Add<pipeline::AudioBusLayoutAssetBuilder>(registry);
-        Add<pipeline::SoundCueAssetBuilder>(registry);
-        Add<pipeline::ScriptClassAssetBuilder>(registry);
-    }
-}
 
 int main(int argc, char** argv)
 {
@@ -156,7 +60,8 @@ int main(int argc, char** argv)
     }
 
     pipeline::BuilderRegistry registry;
-    RegisterAllBuilders(registry);
+    pipeline::RegisterPipelineTypes(); // every asset/product/resource type + script cooks
+    pipeline::RegisterAllBuilders(registry);
 
     vfs::NativeFileSystem sourcesMount(project->SourcesRoot().AsView());
     vfs::NativeFileSystem cacheMount(project->CacheRoot().AsView());

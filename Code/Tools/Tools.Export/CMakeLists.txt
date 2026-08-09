@@ -4,6 +4,7 @@ add_executable(Tools.Export Main.cpp)
 add_dependencies(Tools.Export Engine.Player)   # stages the player exe when present
 target_link_libraries(Tools.Export PRIVATE
     Foundation::Core Foundation::Scene.Resource
+    Pipeline::Registration # the composition root: every builder/type registration
     Pipeline::Core Pipeline::Cook Editor::Core
     Pipeline::Texture Pipeline::Fonts Pipeline::Image Foundation::Image.Resource Pipeline::Geometry
     Pipeline::Animation Pipeline::Materials Pipeline::Shaders
