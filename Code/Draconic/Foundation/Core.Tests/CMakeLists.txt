@@ -33,15 +33,15 @@ add_executable(Core.Tests
 target_link_libraries(Core.Tests PRIVATE Foundation::Core doctest::doctest)
 
 # A real shared library for the DynamicLibrary tests to load at runtime.
-add_library(DraconicTestPlugin MODULE TestPlugin.cpp)
-set_target_properties(DraconicTestPlugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
-add_dependencies(Core.Tests DraconicTestPlugin)
+add_library(TestPlugin MODULE TestPlugin.cpp)
+set_target_properties(TestPlugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+add_dependencies(Core.Tests TestPlugin)
 
 # DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN is set in TestsMain.cpp only (not here),
 # so the other TUs don't each emit a main.
 target_compile_definitions(Core.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
-    TEST_PLUGIN_PATH="$<TARGET_FILE:DraconicTestPlugin>")
+    TEST_PLUGIN_PATH="$<TARGET_FILE:TestPlugin>")
 
 # doctest 2.4.11 includes <ciso646>, which emits a deprecation #warning under
 # C++23. It's third-party noise - de-promote just that warning for this target;

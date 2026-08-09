@@ -1,9 +1,9 @@
 
-add_executable(DraconicUIPipelineTests TestsMain.cpp UIPipelineTests.cpp UIReflectionTests.cpp)
-target_link_libraries(DraconicUIPipelineTests PRIVATE
+add_executable(UI.Pipeline.Tests TestsMain.cpp UIPipelineTests.cpp UIReflectionTests.cpp)
+target_link_libraries(UI.Pipeline.Tests PRIVATE
     Pipeline::UI Foundation::UI.Resource Foundation::UI Pipeline::Core
     Foundation::Content Foundation::Resource Foundation::VFS doctest::doctest)
-target_compile_definitions(DraconicUIPipelineTests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
-target_compile_options(DraconicUIPipelineTests PRIVATE
+target_compile_definitions(UI.Pipeline.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
+target_compile_options(UI.Pipeline.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
-add_test(NAME DraconicUIPipelineTests COMMAND DraconicUIPipelineTests)
+add_test(NAME UI.Pipeline.Tests COMMAND UI.Pipeline.Tests)
