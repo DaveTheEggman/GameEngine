@@ -568,7 +568,7 @@ namespace
                 reinterpret_cast<const core::utf8char*>(SAMPLE_SANDBOX_IMAGE_DIR));
 
             pipeline::TextureAsset asset;
-            pipeline::TextureImporter::Import2D(u8"draconic_logo_no_text.png",
+            pipeline::TextureImporter::Import2D(u8"logo.png",
                                                foundation::image::ImageColorSpace::Srgb,
                                                asset); // sRGB albedo
 

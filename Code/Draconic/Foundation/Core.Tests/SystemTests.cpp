@@ -60,7 +60,7 @@ TEST_CASE("system: page allocation is usable and page-aligned")
 TEST_CASE("system: file write / read / seek / size round-trip")
 {
     const StringView path = u8"scratch_system_test.tmp";
-    const char payload[] = "Draconic file IO";
+    const char payload[] = "engine file IO";
     const u64 length = sizeof(payload) - 1; // exclude null terminator
 
     // Write
@@ -81,13 +81,13 @@ TEST_CASE("system: file write / read / seek / size round-trip")
 
         char buffer[32] = {};
         CHECK(FileRead(f, buffer, length) == static_cast<i64>(length));
-        CHECK(buffer[0] == 'D');
+        CHECK(buffer[0] == 'e');
 
         // Seek back to a known offset and re-read.
         CHECK(FileSeek(f, 7, SeekOrigin::Begin) == 7);
         char c = 0;
         CHECK(FileRead(f, &c, 1) == 1);
-        CHECK(c == 'c'); // "Draconic file IO"[7]
+        CHECK(c == 'f'); // "engine file IO"[7]
 
         FileClose(f);
     }

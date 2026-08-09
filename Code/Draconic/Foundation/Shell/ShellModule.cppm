@@ -52,7 +52,7 @@ export namespace foundation::shell
 
     struct WindowSettings
     {
-        core::StringView title = u8"Draconic";
+        core::StringView title = u8"Shell";
         core::u32 width = 1280;
         core::u32 height = 720;
 

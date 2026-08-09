@@ -1,7 +1,7 @@
 // UI - :markup_loader partition
 //
 // Loads a View tree from an XML (.sml) string using MarkupRegistry for element/property resolution.
-// Ported from Sedulous.UI/src/Markup/MarkupLoader.bf, on foundation.xml (Code/Draconic/Xml). Ownership:
+// Ported from Sedulous.UI/src/Markup/MarkupLoader.bf, on foundation.xml (Code/Foundation/Xml). Ownership:
 // Beef raw `View` returns + AddView -> RefPtr<View> (RAII); the returned root owns the whole subtree.
 // XML downcasts use XmlNode::NodeType() + static_cast (foundation.xml nodes are not RTTI_OBJECTs).
 
