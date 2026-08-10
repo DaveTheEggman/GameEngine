@@ -41,8 +41,10 @@ import audio.pipeline;
 import foundation.script;
 import foundation.script.wren;
 import foundation.script.angelscript;
+import foundation.script.luau;
 import script.wren.pipeline;
 import script.angelscript.pipeline;
+import script.luau.pipeline;
 import foundation.script.resource;
 import script.pipeline;
 
@@ -97,8 +99,10 @@ namespace pipeline
         // backends + cooks is the composition root's job - both languages.
         foundation::script::wren::RegisterWrenScriptBackend();
         foundation::script::angelscript::RegisterAngelScriptBackend();
+        foundation::script::RegisterLuauScriptBackend();
         RegisterWrenScriptCook();
         RegisterAngelScriptScriptCook();
+        RegisterLuauScriptCook();
         // Scenes are packed/read as SceneDocument (export staging + a headless scene cook path):
         // register the type + its serializer so ReadObject/WriteObject round-trip them.
         GlobalTypeRegistry().Register(foundation::scene::SceneDocument::StaticType());

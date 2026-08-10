@@ -16,9 +16,9 @@ target_link_libraries(Pipeline.Registration PUBLIC
     Pipeline::ModelImporter Foundation::Image.Resource
     Foundation::Physics Foundation::Physics.Resource Pipeline::Physics
     Foundation::Audio Foundation::Audio.Resource Pipeline::Audio
-    Foundation::Script Foundation::Script.Wren Foundation::Script.AngelScript
+    Foundation::Script Foundation::Script.Wren Foundation::Script.AngelScript Foundation::Script.Luau
     Foundation::Script.Resource Foundation::Script.Facades
-    Pipeline::Script Pipeline::Script.Wren Pipeline::Script.AngelScript
+    Pipeline::Script Pipeline::Script.Wren Pipeline::Script.AngelScript Pipeline::Script.Luau
     Foundation::UI.Resource Pipeline::UI
     Foundation::Policy)
 

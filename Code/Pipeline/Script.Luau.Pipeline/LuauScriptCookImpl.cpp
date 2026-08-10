@@ -1,0 +1,288 @@
+// Pipeline::Script.Luau - implementation unit for the Luau cook service.
+//
+// The Luau-specific cook: the compile check (Load the raw source - Luau classes are plain
+// global tables and facades are globals, so no behavior-module framing is needed), the
+// construct-and-walk property harvest (CONSTRUCT the class with a nil owner and read the
+// instance's scalar fields - the Luau harvest model), and the cook registration. No Luau C
+// header here - the cook VM is reached through the neutral IScriptContext surface.
+
+module;
+#include "Core/Prelude.h"
+#include "Core/Log/Log.h"
+
+module script.luau.pipeline;
+
+import foundation.core;
+import pipeline.importer; // FileStemOf
+import foundation.script;
+import foundation.script.resource;
+import foundation.script.facades;
+import script.pipeline;
+import foundation.script.luau;
+
+using namespace foundation::core;
+using namespace foundation::script;
+
+namespace pipeline{
+    namespace
+    {
+        // The Luau property probe, Loaded INTO the same context as the class (globals persist
+        // across chunks in one lua_State, so `<Class>` resolves). It constructs the class with
+        // a nil owner and serializes each SCALAR instance field into the SHARED harvest-record
+        // format (name \031 type \031 payload, records joined by \030) that ParseHarvestRecord
+        // reads. Handles/tables/functions (the entity, the scene, methods) are not scalars, so
+        // they are skipped. Uses \031 / \030 DECIMAL escapes (universal Lua) for the delimiters.
+        [[nodiscard]] String BuildLuauPropertyProbe(StringView className)
+        {
+            String cls(className);
+            String p;
+            p += u8"drHarvestResult = \"\"\n";
+            p += u8"drHarvestError = \"\"\n";
+            p += u8"do\n";
+            p += u8"    local ok, inst = pcall(function() return ";
+            p += cls.AsView();
+            p += u8".new(nil) end)\n";
+            p += u8"    if not ok then\n";
+            p += u8"        drHarvestError = tostring(inst)\n";
+            p += u8"    elseif type(inst) ~= \"table\" then\n";
+            p += u8"        drHarvestError = \"new() did not return a table\"\n";
+            p += u8"    else\n";
+            p += u8"        local out = \"\"\n";
+            p += u8"        for k, v in pairs(inst) do\n";
+            p += u8"            if type(k) == \"string\" then\n";
+            p += u8"                local vt = type(v)\n";
+            p += u8"                local rec = nil\n";
+            p += u8"                if vt == \"number\" then\n";
+            p += u8"                    rec = \"float\\031n:\" .. tostring(v)\n";
+            p += u8"                elseif vt == \"boolean\" then\n";
+            p += u8"                    rec = \"bool\\031b:\" .. tostring(v)\n";
+            p += u8"                elseif vt == \"string\" then\n";
+            p += u8"                    rec = \"string\\031s:\" .. v\n";
+            p += u8"                elseif vt == \"vector\" then\n";
+            p += u8"                    rec = \"vec3\\031l:\" .. tostring(v.x) .. \",\" .. tostring(v.y) "
+                 u8".. \",\" .. tostring(v.z)\n";
+            p += u8"                end\n";
+            p += u8"                if rec ~= nil then\n";
+            p += u8"                    out = out .. k .. \"\\031\" .. rec .. \"\\030\"\n";
+            p += u8"                end\n";
+            p += u8"            end\n";
+            p += u8"        end\n";
+            p += u8"        drHarvestResult = out\n";
+            p += u8"    end\n";
+            p += u8"end\n";
+            return p;
+        }
+
+        // Luau has no `class` keyword (so the shared FindScriptClassName does not apply): the
+        // class is a GLOBAL table with a `function <Name>.new(...)` constructor - the exact table
+        // the runtime instantiates. Find that name; prefer the one matching the file stem, else
+        // the first constructor declared. Comments are stripped first.
+        [[nodiscard]] String FindLuauClassName(StringView source, StringView preferredName)
+        {
+            const String stripped = StripScriptComments(source);
+            const StringView text = stripped.AsView();
+            const StringView keyword = u8"function ";
+            const StringView dotNew = u8".new";
+            String first;
+            for (usize i = 0; i + keyword.Size() < text.Size(); ++i)
+            {
+                if (text.SubStr(i, keyword.Size()) != keyword)
+                {
+                    continue;
+                }
+                usize begin = i + keyword.Size();
+                while (begin < text.Size() && (text[begin] == u8' ' || text[begin] == u8'\t'))
+                {
+                    ++begin;
+                }
+                usize end = begin;
+                while (end < text.Size() && detail::IsIdentChar(text[end]))
+                {
+                    ++end;
+                }
+                if (end == begin)
+                {
+                    continue;
+                }
+                // The constructor is `<Name>.new` (static, dot); instance methods use a colon.
+                if (end + dotNew.Size() > text.Size() || text.SubStr(end, dotNew.Size()) != dotNew)
+                {
+                    continue;
+                }
+                const StringView name = text.SubStr(begin, end - begin);
+                if (name == preferredName)
+                {
+                    return String(name);
+                }
+                if (first.IsEmpty())
+                {
+                    first = String(name);
+                }
+            }
+            return first;
+        }
+
+        // Sort harvested props by name (pairs() order is unspecified) for deterministic bytes.
+        void SortPropertiesByName(Array<ScriptPropertyDesc>& properties)
+        {
+            auto lessThan = [](StringView a, StringView b)
+            {
+                const usize n = a.Size() < b.Size() ? a.Size() : b.Size();
+                for (usize k = 0; k < n; ++k)
+                {
+                    if (a[k] != b[k])
+                    {
+                        return a[k] < b[k];
+                    }
+                }
+                return a.Size() < b.Size();
+            };
+            for (usize i = 1; i < properties.Size(); ++i)
+            {
+                for (usize j = i; j > 0 && lessThan(properties[j].name.AsView(),
+                                                    properties[j - 1].name.AsView());
+                     --j)
+                {
+                    ScriptPropertyDesc tmp = Move(properties[j]);
+                    properties[j] = Move(properties[j - 1]);
+                    properties[j - 1] = Move(tmp);
+                }
+            }
+        }
+
+        // Constructs the class in the cook VM and harvests its scalar fields. A probe fault or a
+        // constructor that faults on the nil owner is NOT a cook error (the class is valid at
+        // runtime with a real owner) - it just yields no editor properties, with a note.
+        void HarvestLuauProperties(IScriptContext& context, StringView fileName,
+                                   StringView className, Array<ScriptPropertyDesc>& outProperties)
+        {
+            const String probe = BuildLuauPropertyProbe(className);
+            if (!context.Load(probe.AsView(), fileName).IsOk())
+            {
+                LOG_WARNING(u8"Script",
+                                    u8"'{}': Luau property-harvest probe failed to run - no editor "
+                                    u8"properties",
+                                    fileName);
+                return;
+            }
+            const Variant errorVariant = context.GetGlobal(u8"drHarvestError");
+            if (const String* probeError = errorVariant.TryGet<String>();
+                probeError != nullptr && !probeError->IsEmpty())
+            {
+                LOG_WARNING(u8"Script",
+                                    u8"'{}': constructing '{}' for property harvest faulted ({}) - "
+                                    u8"no editor properties (keep the constructor pure field init)",
+                                    fileName, className, *probeError);
+                return;
+            }
+            const Variant resultVariant = context.GetGlobal(u8"drHarvestResult");
+            const String* harvest = resultVariant.TryGet<String>();
+            if (harvest == nullptr)
+            {
+                return;
+            }
+            const StringView text = harvest->AsView();
+            usize begin = 0;
+            for (usize i = 0; i < text.Size(); ++i)
+            {
+                if (text[i] != utf8char(0x1E))
+                {
+                    continue;
+                }
+                const StringView record = text.SubStr(begin, i - begin);
+                begin = i + 1;
+                if (record.IsEmpty())
+                {
+                    continue;
+                }
+                ScriptPropertyDesc desc;
+                String error;
+                if (!ParseHarvestRecord(record, desc, error))
+                {
+                    LOG_WARNING(u8"Script", u8"'{}': {} - property skipped", fileName, error);
+                    continue;
+                }
+                outProperties.PushBack(Move(desc));
+            }
+            SortPropertiesByName(outProperties);
+        }
+
+        class LuauScriptCook final : public IScriptLanguageCook
+        {
+        public:
+            [[nodiscard]] StringView NewAssetTemplate(ScriptTier tier) const override
+            {
+                switch (tier)
+                {
+                case ScriptTier::Level:
+                    return kLuauLevelStarter;
+                case ScriptTier::Game:
+                    return kLuauGameStarter;
+                case ScriptTier::Behavior:
+                default:
+                    return kLuauBehaviorStarter;
+                }
+            }
+
+            [[nodiscard]] bool Cook(StringView source, StringView assetName,
+                                    CookScriptErrorSink& sink, ScriptClassSource& out) override
+            {
+                out.language = String(u8"luau");
+                out.sourceName = String(assetName); // the source file identity (breakpoint key)
+                out.source = String(source);
+
+                // B3: the harvest VM comes from the registry, by LANGUAGE.
+                RefPtr<IScriptManager> manager = CreateScriptManagerForLanguage(u8"luau");
+                if (manager.Get() == nullptr)
+                {
+                    LOG_ERROR(u8"Script", u8"'{}': no Luau backend registered - cook failed",
+                                       assetName);
+                    return false;
+                }
+                // The cook VM registers the SAME global surface the runtime does (core math + the
+                // behavior facades) so top-level facade references compile identically. Idempotent.
+                RegisterCoreTypes();
+                RegisterScriptFacadeReflection();
+                RegisterReflectedTypes(*manager);
+                RefPtr<IScriptContext> context = manager->CreateContext();
+                if (context.Get() == nullptr)
+                {
+                    return false;
+                }
+                context->SetErrorHandler(&sink);
+
+                // Compile check: Load the raw source. Luau classes are plain global tables and
+                // facades are globals, so no behavior-module framing is needed (unlike Wren's
+                // `is Behavior`); unknown globals compile fine. Running it defines `<Class>`.
+                if (!context->Load(source, assetName).IsOk())
+                {
+                    ReportScriptCookErrors(assetName, sink);
+                    return false;
+                }
+
+                out.className = FindLuauClassName(source, pipeline::FileStemOf(assetName));
+                out.handlers = ScanScriptHandlers(source);
+                out.usesCoroutines = ScriptReferencesCoroutineStart(source);
+
+                // Editor properties: construct the class and walk its scalar fields (the Luau
+                // harvest model). Only when the source declares a class.
+                if (!out.className.IsEmpty())
+                {
+                    HarvestLuauProperties(*context, assetName, out.className.AsView(),
+                                          out.properties);
+                }
+                return true;
+            }
+        };
+    }
+
+    void RegisterLuauScriptCook()
+    {
+        // The cook needs the Luau backend in the registry; register it idempotently so a cook is
+        // never resolvable without its VM.
+        foundation::script::RegisterLuauScriptBackend();
+        ScriptLanguageCookRegistry::Get().Register(
+            String(u8"luau"), UniquePtr<IScriptLanguageCook>(
+                                  DefaultAllocator().New<LuauScriptCook>(), DefaultAllocator()));
+    }
+}

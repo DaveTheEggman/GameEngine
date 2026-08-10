@@ -1,0 +1,183 @@
+// script.luau.pipeline tests: the Luau cook service in isolation - the tier starters, the
+// construct-and-walk property harvest (number/bool/string/Float3, non-scalars skipped, sorted),
+// the compile-check, and the shared startCoroutine coroutine opt-in - driven straight through
+// IScriptLanguageCook (no project/VFS needed since Cook takes source bytes directly). The full
+// source->builder->factory round-trip is covered by the neutral pipeline suite.
+
+#include <doctest/doctest.h>
+
+#include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
+
+import foundation.core;
+import foundation.script;
+import foundation.script.resource;
+import script.pipeline;
+import script.luau.pipeline;
+
+using namespace foundation::core;
+using namespace pipeline;
+using namespace foundation::script;
+
+namespace
+{
+    [[nodiscard]] IScriptLanguageCook* LuauCook()
+    {
+        RegisterLuauScriptCook(); // registers the Luau backend + cook (idempotent)
+        return ScriptLanguageCookRegistry::Get().FindByLanguage(u8"luau");
+    }
+
+    // A class whose constructor sets one field of each harvestable kind plus two that must be
+    // skipped (a table, and the nil owner - which Lua drops from the instance entirely).
+    constexpr StringView kMultiProp = u8R"lua(
+Multi = {}
+Multi.__index = Multi
+function Multi.new(entity)
+    local self = setmetatable({}, Multi)
+    self.speed = 2.5
+    self.enabled = true
+    self.label = "hello"
+    self.offset = Float3.new(1, 2, 3)
+    self.data = {}
+    self.owner = entity
+    return self
+end
+function Multi:onStart() end
+)lua";
+
+    // A class whose constructor dereferences the entity - harvest constructs with a nil owner,
+    // so this FAULTS; the cook must still succeed (valid at runtime) with no properties.
+    constexpr StringView kFaultyCtor = u8R"lua(
+Risky = {}
+Risky.__index = Risky
+function Risky.new(entity)
+    local self = setmetatable({}, Risky)
+    self.name = entity:name()
+    return self
+end
+function Risky:onStart() end
+)lua";
+
+    constexpr StringView kCoroutineUser = u8R"lua(
+Waiter = {}
+Waiter.__index = Waiter
+function Waiter.new(entity)
+    return setmetatable({ entity = entity }, Waiter)
+end
+function Waiter:onStart()
+    startCoroutine(function() waitSeconds(1.0) end, self)
+end
+)lua";
+
+    constexpr StringView kBroken = u8"function (\n";
+}
+
+TEST_CASE("luau.cook: registered + resolvable by language; the Behavior starter cooks with its "
+          "harvested property + handlers")
+{
+    IScriptLanguageCook* cook = LuauCook();
+    REQUIRE(cook != nullptr);
+    CHECK_FALSE(cook->NewAssetTemplate(ScriptTier::Behavior).IsEmpty());
+
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    REQUIRE(
+        cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior), u8"NewBehavior.luau", sink, out));
+    CHECK(out.language == u8"luau");
+    CHECK(out.className == u8"NewBehavior");
+    CHECK(out.sourceName == u8"NewBehavior.luau");
+    // `speed` is the one scalar field; `entity` is nil at harvest so Lua drops it.
+    REQUIRE(out.properties.Size() == 1u);
+    CHECK(out.properties[0].name == u8"speed");
+    CHECK(out.properties[0].type == ScriptPropertyType::Float);
+    CHECK(out.properties[0].defaultValue.number == doctest::Approx(1.0));
+    CHECK(out.handlers.Size() == 3u); // onStart, onUpdate, onDestroy
+    CHECK_FALSE(out.usesCoroutines);
+}
+
+TEST_CASE("luau.cook: the Level + Game tier starters cook to their contract classes")
+{
+    IScriptLanguageCook* cook = LuauCook();
+    REQUIRE(cook != nullptr);
+
+    const StringView behavior = cook->NewAssetTemplate(ScriptTier::Behavior);
+    const StringView level = cook->NewAssetTemplate(ScriptTier::Level);
+    const StringView game = cook->NewAssetTemplate(ScriptTier::Game);
+    CHECK_FALSE(level.IsEmpty());
+    CHECK_FALSE(game.IsEmpty());
+    CHECK(level != behavior);
+    CHECK(game != behavior);
+
+    CookScriptErrorSink levelSink;
+    ScriptClassSource levelOut;
+    REQUIRE(cook->Cook(level, u8"NewLevel.luau", levelSink, levelOut));
+    CHECK(levelOut.className == u8"Level");
+
+    CookScriptErrorSink gameSink;
+    ScriptClassSource gameOut;
+    REQUIRE(cook->Cook(game, u8"NewGame.luau", gameSink, gameOut));
+    CHECK(gameOut.className == u8"Game");
+}
+
+TEST_CASE("luau.cook: construct-and-walk harvest - each scalar kind, non-scalars skipped, sorted")
+{
+    IScriptLanguageCook* cook = LuauCook();
+    REQUIRE(cook != nullptr);
+
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    REQUIRE(cook->Cook(kMultiProp, u8"Multi.luau", sink, out));
+    CHECK(out.className == u8"Multi");
+
+    // Four scalars harvested (speed/enabled/label/offset); `data` (table) + `owner` (nil) skipped.
+    // pairs() order is unspecified, so the cook sorts by name: enabled, label, offset, speed.
+    REQUIRE(out.properties.Size() == 4u);
+    CHECK(out.properties[0].name == u8"enabled");
+    CHECK(out.properties[0].type == ScriptPropertyType::Bool);
+    CHECK(out.properties[0].defaultValue.boolean == true);
+    CHECK(out.properties[1].name == u8"label");
+    CHECK(out.properties[1].type == ScriptPropertyType::String);
+    CHECK(out.properties[1].defaultValue.text == u8"hello");
+    CHECK(out.properties[2].name == u8"offset");
+    CHECK(out.properties[2].type == ScriptPropertyType::Vec3);
+    CHECK(out.properties[2].defaultValue.vector.x == doctest::Approx(1.0f));
+    CHECK(out.properties[2].defaultValue.vector.z == doctest::Approx(3.0f));
+    CHECK(out.properties[3].name == u8"speed");
+    CHECK(out.properties[3].type == ScriptPropertyType::Float);
+    CHECK(out.properties[3].defaultValue.number == doctest::Approx(2.5));
+}
+
+TEST_CASE("luau.cook: a constructor that faults on the nil owner cooks with no properties")
+{
+    IScriptLanguageCook* cook = LuauCook();
+    REQUIRE(cook != nullptr);
+
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    // The class compiles + loads fine; only the harvest construction faults - the cook succeeds.
+    REQUIRE(cook->Cook(kFaultyCtor, u8"Risky.luau", sink, out));
+    CHECK(out.className == u8"Risky");
+    CHECK(out.properties.IsEmpty());
+}
+
+TEST_CASE("luau.cook: the shared startCoroutine opt-in is harvested")
+{
+    IScriptLanguageCook* cook = LuauCook();
+    REQUIRE(cook != nullptr);
+
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    REQUIRE(cook->Cook(kCoroutineUser, u8"Waiter.luau", sink, out));
+    CHECK(out.usesCoroutines);
+}
+
+TEST_CASE("luau.cook: a broken source fails the cook with a reported error")
+{
+    IScriptLanguageCook* cook = LuauCook();
+    REQUIRE(cook != nullptr);
+
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    CHECK_FALSE(cook->Cook(kBroken, u8"Broken.luau", sink, out));
+    CHECK_FALSE(sink.errors.IsEmpty());
+}

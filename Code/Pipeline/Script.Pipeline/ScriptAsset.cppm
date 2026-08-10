@@ -310,6 +310,172 @@ export namespace pipeline{
         return detail::Contains(stripped.AsView(), u8"startCoroutine(");
     }
 
+    // ---- shared property-harvest record parsing (NOT language syntax) ----
+    //
+    // Every cook that harvests inspector properties (Wren's `static properties` Fiber probe,
+    // Luau's construct-and-walk probe) emits the SAME record string so the parse is shared:
+    //   name \x1F typeString \x1F default \x1F description   (records joined by \x1E)
+    // where default is "~" (none), "n:<num>", "b:true|false", "s:<text>" or "l:<a,b,c[,d]>".
+    // The language-specific part is only the PROBE that produces this string; the parse below
+    // is a shared cook convention, like ScanScriptHandlers.
+
+    /// Parses "a,b,c[,d]" into up to 4 floats; returns the count parsed. Harvest payloads are
+    /// exponent-free, so this is a minimal sign/digits/dot parse.
+    [[nodiscard]] inline u32 ParseFloatList(StringView text, f32 (&out)[4])
+    {
+        u32 count = 0;
+        usize begin = 0;
+        for (usize i = 0; i <= text.Size() && count < 4; ++i)
+        {
+            if (i == text.Size() || text[i] == u8',')
+            {
+                const StringView piece = text.SubStr(begin, i - begin);
+                begin = i + 1;
+                if (piece.IsEmpty())
+                {
+                    continue;
+                }
+                f64 value = 0.0;
+                f64 scale = 1.0;
+                bool negative = false;
+                bool afterDot = false;
+                for (usize j = 0; j < piece.Size(); ++j)
+                {
+                    const utf8char c = piece[j];
+                    if (j == 0 && c == u8'-')
+                    {
+                        negative = true;
+                        continue;
+                    }
+                    if (c == u8'.')
+                    {
+                        afterDot = true;
+                        continue;
+                    }
+                    if (c < u8'0' || c > u8'9')
+                    {
+                        continue;
+                    }
+                    if (afterDot)
+                    {
+                        scale *= 0.1;
+                        value += (c - u8'0') * scale;
+                    }
+                    else
+                    {
+                        value = value * 10.0 + (c - u8'0');
+                    }
+                }
+                out[count++] = static_cast<f32>(negative ? -value : value);
+            }
+        }
+        return count;
+    }
+
+    /// One harvest record -> a property desc. Record layout: name \x1F typeString \x1F default
+    /// \x1F description. Returns false (with outError set) on a malformed record or unknown type.
+    [[nodiscard]] inline bool ParseHarvestRecord(StringView record, ScriptPropertyDesc& out,
+                                                 String& outError)
+    {
+        StringView fields[4];
+        u32 fieldCount = 0;
+        usize begin = 0;
+        for (usize i = 0; i <= record.Size() && fieldCount < 4; ++i)
+        {
+            if (i == record.Size() || record[i] == utf8char(0x1F))
+            {
+                fields[fieldCount++] = record.SubStr(begin, i - begin);
+                begin = i + 1;
+            }
+        }
+        if (fieldCount < 2 || fields[0].IsEmpty())
+        {
+            outError = String(u8"malformed property record");
+            return false;
+        }
+        out.name = String(fields[0]);
+        out.hash = ScriptPropertyNameHash(fields[0]);
+        out.description = fieldCount > 3 ? String(fields[3]) : String{};
+        if (!ParseScriptPropertyType(fields[1], out.type, out.assetType))
+        {
+            outError = String(u8"property '");
+            outError += fields[0];
+            outError += u8"' has unknown type '";
+            outError += fields[1];
+            outError +=
+                u8"' (valid: float, int, bool, string, color, vec3, entity, asset:<TypeName>)";
+            return false;
+        }
+
+        // Default value: typed from the serialized payload; "~" = the type's default.
+        ScriptPropertyValue& value = out.defaultValue;
+        value.kind = out.type;
+        const StringView payload = fieldCount > 2 ? fields[2] : StringView(u8"~");
+        if (payload == u8"~" || payload.Size() < 2)
+        {
+            return true;
+        }
+        const utf8char tag = payload[0];
+        const StringView body = payload.SubStr(2, payload.Size() - 2);
+        switch (out.type)
+        {
+        case ScriptPropertyType::Float:
+        case ScriptPropertyType::Int:
+            if (tag == u8'n')
+            {
+                f32 numbers[4] = {};
+                if (ParseFloatList(body, numbers) > 0)
+                {
+                    value.number = static_cast<f64>(numbers[0]);
+                    if (out.type == ScriptPropertyType::Int)
+                    {
+                        value.number = static_cast<f64>(static_cast<i64>(value.number));
+                    }
+                }
+            }
+            break;
+        case ScriptPropertyType::Bool:
+            value.boolean = (tag == u8'b' && body == u8"true");
+            break;
+        case ScriptPropertyType::String:
+            if (tag == u8's')
+            {
+                value.text = String(body);
+            }
+            break;
+        case ScriptPropertyType::Color:
+            if (tag == u8'l')
+            {
+                f32 numbers[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+                const u32 parsed = ParseFloatList(body, numbers);
+                if (parsed >= 3)
+                {
+                    value.color =
+                        Color{numbers[0], numbers[1], numbers[2], parsed >= 4 ? numbers[3] : 1.0f};
+                }
+            }
+            break;
+        case ScriptPropertyType::Vec3:
+            if (tag == u8'l')
+            {
+                f32 numbers[4] = {};
+                if (ParseFloatList(body, numbers) >= 3)
+                {
+                    value.vector = Float3{numbers[0], numbers[1], numbers[2]};
+                }
+            }
+            break;
+        case ScriptPropertyType::Entity:
+        case ScriptPropertyType::Asset:
+            // Only null defaults are expressible in script; guids come from overrides.
+            break;
+        case ScriptPropertyType::None:
+        default:
+            break;
+        }
+        return true;
+    }
+
     // ---- cook error plumbing (shared by every cook service) ----
 
     // Captures compile/runtime errors during a cook's compile/harvest (file/line for the
