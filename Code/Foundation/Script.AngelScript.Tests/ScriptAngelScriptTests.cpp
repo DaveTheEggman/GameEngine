@@ -891,17 +891,55 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.m
         []() { return foundation::script::angelscript::CreateScriptManager(); }, dialect);
 }
 
-TEST_CASE("angelscript: declares Coroutines + Delegates + Debugger; profiler/bytecode absent (B4)")
+TEST_CASE("angelscript: declares Coroutines + Delegates + Debugger + Bytecode; profiler absent (B4)")
 {
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines));
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Delegates));
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger));
+    CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Bytecode));
     CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Profiler));
-    CHECK_FALSE(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Bytecode));
     CHECK(manager->CreateDebugger().Get() != nullptr); // Debugger declared -> real factory
     CHECK(manager->CreateProfiler().Get() == nullptr);
-    CHECK(manager->CompileToBlob(u8"", u8"blob").Error() == ErrorCode::NotSupported);
+}
+
+TEST_CASE("angelscript: bytecode capability - compile to blob, serialize, load in the player")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+
+    // COOK side: compile source (module-level functions) to an opaque bytecode blob.
+    constexpr StringView kSource = u8"double add(double a, double b) { return a + b; }\n"
+                                   u8"double answer() { return 42.0; }\n";
+    Result<RefPtr<IScriptBlob>> compiled = manager->CompileToBlob(kSource, u8"as.blob");
+    REQUIRE(compiled.HasValue());
+    REQUIRE(compiled.Value().Get() != nullptr);
+
+    // STORE + reconstruct: the blob serializes to bytes; a fresh blob deserializes them.
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        compiled.Value()->Serialize(writer);
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    RefPtr<IScriptBlob> reloaded = manager->CreateBlob();
+    REQUIRE(reloaded.Get() != nullptr);
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        reloaded->Serialize(reader);
+    }
+
+    // PLAYER side: LoadByteCode into a context (no Build) and call the restored functions.
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->LoadBlob(*reloaded).IsOk());
+    Variant args[] = {Variant::From<f64>(2.0), Variant::From<f64>(3.0)};
+    CHECK(context->Call(u8"add", Span<Variant>{args, 2}).Value().Get<f64>() == doctest::Approx(5.0));
+    CHECK(context->Call(u8"answer", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(42.0));
+}
+
+TEST_CASE("angelscript: CompileToBlob rejects a broken source at cook")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    CHECK_FALSE(manager->CompileToBlob(u8"int broken( {", u8"as.broken").HasValue());
 }
 
 TEST_CASE("angelscript: a script function is a native callback via IScriptDelegate (the real use)")

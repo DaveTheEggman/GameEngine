@@ -58,4 +58,18 @@ export namespace foundation::script::angelscript
     /// the behavior through CScriptBuilder, compiles it with the SAME surface the
     /// runtime does (a coroutine-using behavior harvests exactly as it runs).
     [[nodiscard]] core::StringView AngelScriptCoroutineModulePrelude() noexcept;
+
+    /// The AngelScript bytecode-format version (ANGELSCRIPT_VERSION). Bytecode is tied to the
+    /// library version, so the cook folds this into its fingerprint: an AngelScript vendor bump
+    /// changes the number and every AngelScript script pack recooks (mirrors LuauBytecodeVersion).
+    /// Kept out-of-line so the SDK header stays in the impl unit (GCC module hygiene).
+    [[nodiscard]] core::u32 AngelScriptBytecodeVersion() noexcept;
+
+    /// Wrap an already-built module's bytecode into a serializable IScriptBlob (SaveByteCode +
+    /// the same blob type CompileToBlob/LoadBlob use). The AngelScript cook builds through
+    /// CScriptBuilder (to strip `[metadata]`), so it must SaveByteCode the module it ALREADY
+    /// built rather than recompile the raw source; this exposes that on the neutral blob seam so
+    /// the cook stores + the runtime reconstructs bytecode identically to Luau. `module` is an
+    /// `asIScriptModule*` as `void*` (SDK header stays out of the cook). Null on failure.
+    [[nodiscard]] core::RefPtr<IScriptBlob> AngelScriptBlobFromModule(void* module);
 }

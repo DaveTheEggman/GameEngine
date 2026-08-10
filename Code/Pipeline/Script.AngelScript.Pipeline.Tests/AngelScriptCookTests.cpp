@@ -9,6 +9,8 @@
 import foundation.core;
 import foundation.script;
 import foundation.script.resource;
+import foundation.script.angelscript; // CreateScriptManager + AngelScriptBytecodeVersion (player path)
+import foundation.script.facades;      // RegisterScriptFacadeReflection (match the cook's surface)
 import script.pipeline;
 import script.angelscript.pipeline;
 
@@ -257,4 +259,48 @@ TEST_CASE("as.cook: the New-Asset starter template compiles clean (its example c
     const bool ok = cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior), u8"NewBehavior.as", sink, out);
     REQUIRE(ok); // the starter MUST compile - it teaches the API by example
     CHECK(out.className == u8"NewBehavior");
+}
+
+TEST_CASE("as.cook: the cook stores loadable bytecode in the pack (the player path)")
+{
+    IScriptLanguageCook* cook = AngelScriptCook();
+    REQUIRE(cook != nullptr);
+
+    // A module-level function so the reloaded module is callable without instantiating a class.
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    REQUIRE(cook->Cook(u8"double twice(double v) { return v * 2.0; }\n", u8"Twice.as", sink, out));
+    REQUIRE_FALSE(out.bytecode.IsEmpty());
+    CHECK_FALSE(out.source.IsEmpty());
+
+    // Player path: a fresh AngelScript VM (SAME reflected registration - the shared registry)
+    // reconstructs the blob from the stored bytes and LoadByteCodes it, no recompile.
+    RefPtr<IScriptManager> manager = foundation::script::angelscript::CreateScriptManager();
+    RegisterCoreTypes();
+    RegisterScriptFacadeReflection();
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptBlob> blob = manager->CreateBlob();
+    REQUIRE(blob.Get() != nullptr);
+    {
+        MemoryStream stream;
+        (void)stream.Write(out.bytecode.Data(), out.bytecode.Size());
+        (void)stream.Seek(0, SeekOrigin::Begin);
+        BinarySerializer reader(stream, SerializeMode::Read);
+        blob->Serialize(reader);
+    }
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->LoadBlob(*blob).IsOk());
+    Variant args[] = {Variant::From<f64>(21.0)};
+    CHECK(context->Call(u8"twice", Span<Variant>{args, 1}).Value().Get<f64>() ==
+          doctest::Approx(42.0));
+}
+
+TEST_CASE("as.cook: the fingerprint carries the AngelScript library version")
+{
+    IScriptLanguageCook* cook = AngelScriptCook();
+    REQUIRE(cook != nullptr);
+    CHECK(foundation::script::angelscript::AngelScriptBytecodeVersion() != 0u);
+    CHECK(cook->CookVersion() == foundation::script::angelscript::AngelScriptBytecodeVersion());
+    CHECK(ScriptLanguageCookRegistry::Get().CombinedCookVersion() >=
+          foundation::script::angelscript::AngelScriptBytecodeVersion());
 }

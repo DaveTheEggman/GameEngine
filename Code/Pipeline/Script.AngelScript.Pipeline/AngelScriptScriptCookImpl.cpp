@@ -447,6 +447,13 @@ namespace pipeline{
                 }
             }
 
+            // AngelScript bytecode is tied to the library version: fold it into the cook
+            // fingerprint so a vendor bump recooks every AngelScript pack (mirrors the Luau cook).
+            [[nodiscard]] u32 CookVersion() const override
+            {
+                return foundation::script::angelscript::AngelScriptBytecodeVersion();
+            }
+
             [[nodiscard]] bool Cook(StringView source, StringView assetName,
                                     CookScriptErrorSink& sink, ScriptClassSource& out) override
             {
@@ -519,6 +526,29 @@ namespace pipeline{
                     ok = HarvestProperties(builder, engine, out.className.AsView(), assetName,
                                            out.properties);
                 }
+
+                // Bytecode into the pack: SaveByteCode the module CScriptBuilder just built (the
+                // `[metadata]`-STRIPPED, compiled module the runtime would run) into a blob, then
+                // store the SERIALIZED blob - identical format to the Luau cook, so the runtime
+                // reconstructs it via CreateBlob + Serialize(read) + LoadBlob (no compiler, no
+                // metadata re-parse). Source stays on the record for dev-mode hot reload.
+                RefPtr<IScriptBlob> blob =
+                    foundation::script::angelscript::AngelScriptBlobFromModule(builder.GetModule());
+                if (blob.Get() != nullptr)
+                {
+                    MemoryStream stream;
+                    {
+                        BinarySerializer writer(stream, SerializeMode::Write);
+                        blob->Serialize(writer);
+                    }
+                    const Span<const byte> bytes = stream.Bytes();
+                    out.bytecode.Reserve(bytes.Size());
+                    for (usize i = 0; i < bytes.Size(); ++i)
+                    {
+                        out.bytecode.PushBack(bytes[i]);
+                    }
+                }
+
                 engine->ClearMessageCallback();
                 return ok;
             }

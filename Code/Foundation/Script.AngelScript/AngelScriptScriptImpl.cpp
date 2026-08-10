@@ -74,6 +74,65 @@ namespace foundation::script::angelscript
         AppendAscii(s, buf);
     }
 
+    // A compiled AngelScript bytecode unit (the Bytecode capability). CompileToBlob produces one
+    // at COOK via asIScriptModule::SaveByteCode; LoadBlob feeds it to LoadByteCode in the PLAYER.
+    // AngelScript bytecode is tied to the engine's TYPE REGISTRATION and library version, so the
+    // runtime must register the same reflected surface (it does - the shared global registry) and
+    // the cook fingerprint carries ANGELSCRIPT_VERSION. Opaque per IScriptBlob (no RTTI node) -
+    // only this backend produces/consumes it, so LoadBlob downcasts by static_cast.
+    class AngelScriptScriptBlob final : public IScriptBlob
+    {
+    public:
+        [[nodiscard]] core::Array<core::byte>& Bytes() noexcept { return m_bytecode; }
+        [[nodiscard]] const core::Array<core::byte>& Bytes() const noexcept { return m_bytecode; }
+
+        void Serialize(core::ISerializer& ar) override
+        {
+            core::Serialize(ar, "bytecode", m_bytecode);
+        }
+
+    private:
+        core::Array<core::byte> m_bytecode;
+    };
+
+    // asIBinaryStream over a byte buffer: WRITE appends (SaveByteCode), READ advances a cursor
+    // (LoadByteCode). AngelScript's Read/Write return 0 on success, negative on error.
+    class ByteBufferStream final : public asIBinaryStream
+    {
+    public:
+        explicit ByteBufferStream(core::Array<core::byte>& buffer) noexcept : m_buffer(buffer) {}
+
+        int Write(const void* ptr, asUINT size) override
+        {
+            if (size == 0)
+            {
+                return 0;
+            }
+            const core::usize begin = m_buffer.Size();
+            m_buffer.Resize(begin + size);
+            core::MemCopy(m_buffer.Data() + begin, ptr, size);
+            return 0;
+        }
+        int Read(void* ptr, asUINT size) override
+        {
+            if (size == 0)
+            {
+                return 0;
+            }
+            if (m_read + size > m_buffer.Size())
+            {
+                return -1;
+            }
+            core::MemCopy(ptr, m_buffer.Data() + m_read, size);
+            m_read += size;
+            return 0;
+        }
+
+    private:
+        core::Array<core::byte>& m_buffer;
+        core::usize m_read = 0;
+    };
+
     inline bool NameEq(const char* a, const char* b) noexcept
     {
         core::usize i = 0;
@@ -583,7 +642,55 @@ namespace foundation::script::angelscript
             // host-side asIScriptContext scheduler + funcdef-handle-backed delegate seam +
             // suspension-based step debugger (context Suspend + AS introspection).
             return ScriptCapabilities::Coroutines | ScriptCapabilities::Delegates |
-                   ScriptCapabilities::Debugger;
+                   ScriptCapabilities::Debugger | ScriptCapabilities::Bytecode;
+        }
+
+        // Compile source to an AngelScript bytecode blob (the cook side of the Bytecode seam):
+        // build a throwaway module on the shared engine, SaveByteCode it (debug info kept so the
+        // player reports source lines), and discard the module. The engine already carries the
+        // reflected surface (FinalizeTypes), which the bytecode references.
+        [[nodiscard]] core::Result<core::RefPtr<IScriptBlob>>
+        CompileToBlob(core::StringView source, core::StringView chunkName) override
+        {
+            if (m_engine == nullptr)
+            {
+                return core::Err(core::ErrorCode::Internal);
+            }
+            asIScriptModule* module = m_engine->GetModule("__blobcompile", asGM_ALWAYS_CREATE);
+            if (module == nullptr)
+            {
+                return core::Err(core::ErrorCode::Internal);
+            }
+            const core::String section(chunkName);
+            (void)module->AddScriptSection(CStr(section),
+                                           reinterpret_cast<const char*>(source.Data()),
+                                           source.Size());
+            (void)module->AddScriptSection("__coroutine_support", kCoroutinePreludeSection);
+            BeginMessageCapture();
+            const int built = module->Build();
+            EndMessageCapture(nullptr, ScriptErrorKind::Compile); // cook validates + reports itself
+            if (built < 0)
+            {
+                module->Discard();
+                return core::Err(core::ErrorCode::InvalidArgument);
+            }
+            core::RefPtr<AngelScriptScriptBlob> blob =
+                core::MakeRef<AngelScriptScriptBlob>(core::DefaultAllocator());
+            ByteBufferStream stream(blob->Bytes());
+            const int saved = module->SaveByteCode(&stream, /*stripDebugInfo=*/false);
+            module->Discard();
+            if (saved < 0)
+            {
+                return core::Err(core::ErrorCode::Internal);
+            }
+            return core::RefPtr<IScriptBlob>(blob.Get());
+        }
+
+        // Create an empty blob to deserialize a stored one into (see IScriptManager::CreateBlob).
+        [[nodiscard]] core::RefPtr<IScriptBlob> CreateBlob() override
+        {
+            return core::RefPtr<IScriptBlob>(
+                core::MakeRef<AngelScriptScriptBlob>(core::DefaultAllocator()).Get());
         }
 
         // A step debugger over this engine's contexts (suspension breakpoints + AS
@@ -2308,6 +2415,57 @@ namespace foundation::script::angelscript
             return core::Status{};
         }
 
+        // Load a precompiled bytecode blob (the player path - LoadByteCode, never Build). Same
+        // module lifecycle + main() entry convention as Load; AngelScript restores global vars
+        // during LoadByteCode. The engine must carry the SAME reflected registration the blob was
+        // saved against (the shared global registry guarantees it) or LoadByteCode rejects it.
+        core::Status LoadBlob(IScriptBlob& blob) override
+        {
+            // IScriptBlob is opaque (no RTTI node); only this backend produces AngelScript blobs
+            // and the run host pairs the AS context with the AS manager, so this downcast is the
+            // committed pattern.
+            AngelScriptScriptBlob& asBlob = static_cast<AngelScriptScriptBlob&>(blob);
+            if (asBlob.Bytes().IsEmpty())
+            {
+                return core::Status{core::ErrorCode::InvalidArgument};
+            }
+            asIScriptEngine* engine = m_manager->Engine();
+            core::String moduleName = m_namePrefix;
+            AppendAscii(moduleName, ":");
+            AppendUint(moduleName, m_loadCounter++);
+            asIScriptModule* module = engine->GetModule(CStr(moduleName), asGM_ALWAYS_CREATE);
+            if (module == nullptr)
+            {
+                return core::Status{core::ErrorCode::Internal};
+            }
+            ByteBufferStream stream(asBlob.Bytes());
+            m_manager->BeginMessageCapture();
+            int result;
+            {
+                ScriptCallScope scope(this);
+                result = module->LoadByteCode(&stream);
+            }
+            m_manager->EndMessageCapture(m_errorHandler, ScriptErrorKind::Compile);
+            if (result < 0)
+            {
+                module->Discard();
+                return core::Status{core::ErrorCode::InvalidArgument};
+            }
+            m_ownedModules.PushBack(module);
+            m_module = module;
+            // Same top-level entry convention as Load: a module-level `void main()` runs at load.
+            if (asIScriptFunction* entry = module->GetFunctionByName("main"))
+            {
+                core::Result<core::Variant> ran =
+                    ExecuteCall(entry, nullptr, core::Span<core::Variant>{});
+                if (!ran.HasValue())
+                {
+                    return core::Status{core::ErrorCode::Internal};
+                }
+            }
+            return core::Status{};
+        }
+
         // The behaviors module, loaded with each class in its OWN script section named by
         // its sourceName - so GetLineNumber reports (sourceFile, sourceLine) and an editor
         // breakpoint keyed on the file lines up (script-debugger.md P1.5). Same framing +
@@ -3319,6 +3477,28 @@ namespace foundation::script::angelscript
     core::StringView AngelScriptCoroutineModulePrelude() noexcept
     {
         return ViewOfAscii(kCoroutinePreludeSection);
+    }
+
+    core::u32 AngelScriptBytecodeVersion() noexcept
+    {
+        return static_cast<core::u32>(ANGELSCRIPT_VERSION);
+    }
+
+    core::RefPtr<IScriptBlob> AngelScriptBlobFromModule(void* modulePtr)
+    {
+        asIScriptModule* module = static_cast<asIScriptModule*>(modulePtr);
+        if (module == nullptr)
+        {
+            return core::RefPtr<IScriptBlob>{};
+        }
+        core::RefPtr<AngelScriptScriptBlob> blob =
+            core::MakeRef<AngelScriptScriptBlob>(core::DefaultAllocator());
+        ByteBufferStream stream(blob->Bytes());
+        if (module->SaveByteCode(&stream, /*stripDebugInfo=*/false) < 0)
+        {
+            return core::RefPtr<IScriptBlob>{};
+        }
+        return core::RefPtr<IScriptBlob>(blob.Get());
     }
 
     void* AngelScriptEngineHandle(IScriptManager& manager) noexcept
