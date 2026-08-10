@@ -1178,4 +1178,16 @@ export namespace foundation::script
         return core::RefPtr<IScriptManager>(
             core::MakeRef<LuauScriptManager>(core::DefaultAllocator()).Get());
     }
+
+    /// Registers Luau with the backend registry (scripting.md B1) - the ONE line that makes the
+    /// language available; consumers resolve by extension/language, never by type.
+    inline void RegisterLuauScriptBackend()
+    {
+        ScriptBackendDesc desc;
+        desc.languageId = core::String(u8"luau");
+        desc.displayName = core::String(u8"Luau");
+        desc.fileExtensions.PushBack(core::String(u8"luau"));
+        desc.create = []() { return CreateLuauScriptManager(); };
+        ScriptBackendRegistry::Get().Register(core::Move(desc));
+    }
 }

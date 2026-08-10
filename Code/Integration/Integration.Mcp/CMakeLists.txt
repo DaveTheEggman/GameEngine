@@ -5,6 +5,7 @@ add_executable(Integration.Mcp TestsMain.cpp McpProjectFlowTests.cpp)
 target_link_libraries(Integration.Mcp PRIVATE
     Editor::Mcp Foundation::Mcp.Reflection Foundation::Mcp Foundation::Json Foundation::Content
     Pipeline::Registration Pipeline::Core Pipeline::Importer
+    Engine::ScriptSurface Foundation::Mcp.Script Foundation::Script.Wren
     Foundation::Core doctest::doctest)
 target_compile_definitions(Integration.Mcp PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Integration.Mcp PRIVATE

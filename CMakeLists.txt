@@ -411,6 +411,10 @@ add_subdirectory(Code/Foundation/Graphics)  # GraphicsDevice/RenderWindow render
 add_subdirectory(Code/Foundation/Runtime)
 add_subdirectory(Code/Foundation/Runtime.Client)
 add_subdirectory(Code/Engine/Engine.GameInstance)
+# The script-surface composition root: links every subsystem facade above and exposes
+# RegisterAllScriptFacades() for surface-describing hosts (MCP). Must come after all the subsystem
+# libs + Net.Manager/Replication it aggregates.
+add_subdirectory(Code/Engine/Engine.ScriptSurface)
 add_subdirectory(Code/Engine/Engine.DefaultApp)
 # --- Runtime runner backend (browser rAF loop vs blocking desktop loop) ---
 if(EMSCRIPTEN)
@@ -516,6 +520,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Engine/Engine.Animation.Tests              Engine::Animation)
     util_test_suite(Code/Engine/Engine.Audio.Tests                  Engine::Audio)
     util_test_suite(Code/Engine/Engine.GameInstance.Tests Foundation::Script.AngelScript)  # links the AngelScript backend; builds wherever it exists (incl. web now)
+    util_test_suite(Code/Engine/Engine.ScriptSurface.Tests Engine::ScriptSurface)
     util_test_suite(Code/Engine/Engine.Integration.Tests            Engine::Integration)
     util_test_suite(Code/Engine/Engine.Net.Tests                    Engine::Net)
     util_test_suite(Code/Engine/Engine.Physics.Tests                Engine::Physics)

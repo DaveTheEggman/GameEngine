@@ -19,6 +19,8 @@ import foundation.mcp.script;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
+import engine.scriptsurface;
+import foundation.script.luau;
 import editor.mcp;
 
 using namespace foundation::core;
@@ -57,6 +59,11 @@ int main(int /*argc*/, char** /*argv*/)
     RegisterCoreTypes();
     foundation::json::RegisterJsonTypes();
     pipeline::RegisterPipelineTypes();
+    // The COMPLETE engine script surface (every subsystem facade), so script_api reports the whole
+    // bound API, not just core - metadata only, no subsystem instantiated (headless). Plus Luau, so
+    // script_api spans wren | angelscript | luau (the pipeline types already registered wren + as).
+    engine::RegisterAllScriptFacades();
+    foundation::script::RegisterLuauScriptBackend();
 
     // The host's builder + importer registries (from the pipeline composition root); populated
     // once, they outlive the server and back asset_cook / asset_import.

@@ -20,6 +20,9 @@ import foundation.mcp.reflection;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
+import engine.scriptsurface;
+import foundation.mcp.script;
+import foundation.script.wren;
 import editor.mcp;
 
 using namespace foundation::core;
@@ -215,6 +218,51 @@ TEST_CASE("integration.mcp: an agent imports a source file then cooks it via MCP
     JsonValue again = CallOk(server, u8"asset_cook", Obj());
     CHECK(again.Get(u8"planned").AsInt() == 0);
     CHECK(again.Get(u8"upToDate").AsInt() == 1);
+}
+
+TEST_CASE("integration.mcp: script_api reports the COMPLETE engine surface, headless, no device")
+{
+    // The surface-describing composition root: every subsystem facade, metadata only - no device,
+    // no subsystem instantiated. This is the whole point of Fable's ruling A: the headless MCP host
+    // reports the true engine script surface (RigidBody/Audio/Ui/SceneLoader/...), not just core.
+    engine::RegisterAllScriptFacades();
+    foundation::script::wren::RegisterWrenScriptBackend();
+
+    McpServer server;
+    RegisterScriptTools(server);
+
+    JsonValue api = CallOk(server, u8"script_api", With(Obj(), u8"language", u8"wren"));
+    JsonValue wren = api.Get(u8"languages").At(0);
+    CHECK(wren.Get(u8"language").AsString() == StringView(u8"wren"));
+
+    // Collect the bound script names.
+    JsonValue types = wren.Get(u8"types");
+    Array<String> names;
+    for (i64 i = 0; i < types.Count(); ++i)
+    {
+        names.PushBack(types.At(i).Get(u8"scriptName").AsString());
+    }
+    const auto has = [&names](StringView n)
+    {
+        for (const String& s : names)
+        {
+            if (s.AsView() == n)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Core facades AND the gameplay-subsystem facades must all be present.
+    CHECK(has(u8"Entity"));
+    CHECK(has(u8"RigidBodyComponent")); // physics
+    CHECK(has(u8"Audio"));              // audio
+    CHECK(has(u8"Ui"));                 // game UI
+    CHECK(has(u8"SceneLoader"));        // scene loader (GameInstance)
+    CHECK(has(u8"Net"));                // networking
+    // The full surface is much larger than the core-only 17 (physics/audio/input/ui/... added).
+    CHECK(wren.Get(u8"typeCount").AsInt() > 30);
 }
 
 TEST_CASE("integration.mcp: project_info before any project is open is a tool error")
