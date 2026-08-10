@@ -254,8 +254,14 @@ Pre-debrand files stopped resolving - the editor read its own settings as
 "unknown sections" and could not match assets to editor pages.
 
 **Fix:** `FindByName` falls back on a miss of a `draconic::`-prefixed namespace to
-the two current spellings (Core RTTI, regression-tested). Data converges to the
-new names when saved. **Removal condition:** delete `FindByLegacyName` (and its
+the current spellings (Core RTTI, regression-tested). Data converges to the
+new names when saved. THREE mappings (the third landed 2026-08-11 after a live
+miss - the editor settings' `draconic::editor` RecentProjectsSettings section
+loaded as "unknown"): Foundation/Engine renames, the editor->pipeline MOVE for
+cook types, and the STILL-EDITOR respelling `draconic::editor[::rest]` ->
+`rtti::editor::editor[::rest]` (the one place the debrand doubled a prefix;
+pipeline identities kept their lib suffix through every generation and never
+needed this). **Removal condition:** delete `FindByLegacyName` (and its
 test) once no pre-debrand project/content matters - grep serialized stores for
 `draconic::` before pulling it.
 
