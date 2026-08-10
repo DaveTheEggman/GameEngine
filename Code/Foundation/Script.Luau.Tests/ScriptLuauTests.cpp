@@ -244,6 +244,25 @@ TEST_CASE("script.luau: native-vector construct+access throughput (perf case)")
                                                   << " ms");
 }
 
+TEST_CASE("script.luau: a compile error reports its source line (not -1)")
+{
+    struct LineCapture final : IScriptErrorHandler
+    {
+        i32 line = 0;
+        void OnError(const ScriptError& error) override { line = error.line; }
+    } capture;
+
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    context->SetErrorHandler(&capture);
+
+    // A syntax error on line 3 (the "= = =").
+    const Status status =
+        context->Load(u8"local a = 1\nlocal b = 2\nlocal c = = =\n", u8"linetest");
+    CHECK_FALSE(status.IsOk());
+    CHECK(capture.line == 3);
+}
+
 REFLECT_ENUM(Facing, "rtti::luau::test")
 {
     builder.Value("North", Facing::North);

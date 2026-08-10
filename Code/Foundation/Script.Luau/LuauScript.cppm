@@ -47,6 +47,33 @@ namespace foundation::script
                                      : StringView{};
         }
 
+        // Luau prefixes compile/runtime error messages with "<chunk>:<line>: <text>". Extract the
+        // line number (the first ":<digits>:" run), or -1 when the message has no such prefix.
+        [[nodiscard]] i32 ParseLuauErrorLine(StringView message)
+        {
+            for (usize i = 0; i + 1 < message.Size(); ++i)
+            {
+                if (message[i] != utf8char(':') || message[i + 1] < utf8char('0') ||
+                    message[i + 1] > utf8char('9'))
+                {
+                    continue;
+                }
+                i32 line = 0;
+                usize j = i + 1;
+                while (j < message.Size() && message[j] >= utf8char('0') &&
+                       message[j] <= utf8char('9'))
+                {
+                    line = line * 10 + static_cast<i32>(message[j] - utf8char('0'));
+                    ++j;
+                }
+                if (j < message.Size() && message[j] == utf8char(':'))
+                {
+                    return line;
+                }
+            }
+            return -1;
+        }
+
     }
 
     // =====================================================================
@@ -1133,7 +1160,7 @@ namespace foundation::script
         ScriptError error;
         error.kind = kind;
         error.module = module;
-        error.line = -1;
+        error.line = ParseLuauErrorLine(message); // Luau puts "<chunk>:<line>:" in the message
         error.message = message;
         m_errors->OnError(error);
     }
