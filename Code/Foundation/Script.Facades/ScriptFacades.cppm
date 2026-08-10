@@ -181,25 +181,16 @@ export namespace foundation::script
         /// name is `scene`. Defined out-of-line (Scene is completed below).
         [[nodiscard]] Scene sceneHandle() const;
 
-        // ---- behavior messaging (P2 §3.4): entity.send(name[, arg]) invokes
-        // `on<Name>(arg)` on EVERY behavior of this entity that declares it (the target
-        // is this handle's entity - typically self or a resolved sibling). One typed arg
-        // (number/string/entity) covers the common case; multi-arg/list is a follow-up.
+        // ---- behavior messaging (P2 §3.4): entity.send(name[, payload]) invokes
+        // `on<Name>(payload)` on EVERY behavior of this entity that declares it (the target
+        // is this handle's entity - typically self or a resolved sibling). ONE conceptual method,
+        // an ARITY FAMILY on the script surface: the event bus is StringHash + Variant underneath,
+        // so the payload is a single Variant that carries any script value (number/string/entity/
+        // ...) - the honest type, not the three the old typed overloads spelled out.
         void send(String message) const { Dispatch(message.AsView(), {}); }
-        void send(String message, f64 number) const
+        void send(String message, Variant payload) const
         {
-            Variant arg = Variant::From<f64>(number);
-            Dispatch(message.AsView(), Span<const Variant>{&arg, 1});
-        }
-        void send(String message, String text) const
-        {
-            Variant arg = Variant::From<String>(Move(text));
-            Dispatch(message.AsView(), Span<const Variant>{&arg, 1});
-        }
-        void send(String message, Entity target) const
-        {
-            Variant arg = Variant::From<Entity>(target);
-            Dispatch(message.AsView(), Span<const Variant>{&arg, 1});
+            Dispatch(message.AsView(), Span<const Variant>{&payload, 1});
         }
 
         void Dispatch(StringView message, Span<const Variant> args) const
@@ -313,14 +304,9 @@ export namespace foundation::script
     {
         scene::Scene* scene = nullptr;
 
+        // ONE conceptual method, an ARITY FAMILY on the script surface: the bus is StringHash +
+        // Variant underneath, so the payload is a single Variant carrying any script value.
         void emit(String name) const;
-        void emit(String name, f64 number) const;
-        void emit(String name, String text) const;
-        void emit(String name, bool flag) const;
-        void emit(String name, Entity payload) const;
-        // The generic sink: any reflected value (a component handle, a struct, a math value) rides
-        // through as a Variant. Reflected LAST so the typed overloads win when one matches exactly;
-        // a payload that is none of them (a reflected object) lands here.
         void emit(String name, Variant payload) const;
     };
 
@@ -391,34 +377,6 @@ export namespace foundation::script
         if (scene != nullptr && !name.IsEmpty())
         {
             scene->Events().Publish(StringHash(name.AsView()), Variant{});
-        }
-    }
-    inline void SceneEvents::emit(String name, f64 number) const
-    {
-        if (scene != nullptr && !name.IsEmpty())
-        {
-            scene->Events().Publish(StringHash(name.AsView()), Variant::From<f64>(number));
-        }
-    }
-    inline void SceneEvents::emit(String name, String text) const
-    {
-        if (scene != nullptr && !name.IsEmpty())
-        {
-            scene->Events().Publish(StringHash(name.AsView()), Variant::From<String>(Move(text)));
-        }
-    }
-    inline void SceneEvents::emit(String name, bool flag) const
-    {
-        if (scene != nullptr && !name.IsEmpty())
-        {
-            scene->Events().Publish(StringHash(name.AsView()), Variant::From<bool>(flag));
-        }
-    }
-    inline void SceneEvents::emit(String name, Entity payload) const
-    {
-        if (scene != nullptr && !name.IsEmpty())
-        {
-            scene->Events().Publish(StringHash(name.AsView()), Variant::From<Entity>(payload));
         }
     }
     inline void SceneEvents::emit(String name, Variant payload) const

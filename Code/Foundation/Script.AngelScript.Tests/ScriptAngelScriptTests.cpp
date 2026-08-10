@@ -594,22 +594,22 @@ TEST_CASE("angelscript: call reflected methods (static, instance, struct return,
     CHECK(ctx->GetGlobal(u8"outside").Get<bool>() == false);
 }
 
-TEST_CASE("angelscript: same-name overloads register per exact signature")
+TEST_CASE("angelscript: same-arity type overloads carry distinct script names (overloadedName)")
 {
     RegisterCoreTypes();
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
-    // Float3::Mul has two overloads: (Float3, Float3) componentwise and
-    // (Float3, float) scale - AngelScript resolves them statically by signature.
+    // Same-arity type overloads carry distinct script names (the overloadedName contract): Mul
+    // (Float3, Float3) componentwise and MulScalar (Float3, float) scale, both bound.
     REQUIRE(ctx->Load(u8"Float3@ p = Float3(2, 3, 4);\n"
                       u8"double CX = 0;\n"
                       u8"double CZ = 0;\n"
                       u8"double SX = 0;\n"
                       u8"void main() {\n"
                       u8"  Float3@ comp = Float3::Mul(p, Float3(1, 2, 3));\n" // -> (2, 6, 12)
-                      u8"  Float3@ scaled = Float3::Mul(p, 2.0f);\n"          // -> (4, 6, 8)
+                      u8"  Float3@ scaled = Float3::MulScalar(p, 2.0f);\n"     // -> (4, 6, 8)
                       u8"  CX = comp.x;\n"
                       u8"  CZ = comp.z;\n"
                       u8"  SX = scaled.x;\n"

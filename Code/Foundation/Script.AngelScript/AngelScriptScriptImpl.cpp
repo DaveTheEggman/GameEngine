@@ -544,6 +544,10 @@ namespace foundation::script::angelscript
                 return;
             }
             m_finalized = true;
+            // The overload contract: fail loudly if any type binds two methods to the same script
+            // name at the same arity (see foundation.script ValidateScriptMethodNames).
+            ValidateScriptMethodNames(
+                core::Span<const core::TypeInfo* const>{m_types.Data(), m_types.Size()});
             // Phase 1: DECLARE every collected type - after this, any declaration
             // string may reference any reflected type.
             for (const core::TypeInfo* type : m_types)
@@ -637,7 +641,7 @@ namespace foundation::script::angelscript
                         continue;
                     } // not bound
                     ScriptApiMember member;
-                    member.name = core::String(ViewOfAscii(method.name));
+                    member.name = core::String(ViewOfAscii(ScriptMethodName(method)));
                     member.signature = core::Move(signature);
                     member.isStatic = method.isStatic;
                     member.kind = ScriptApiMemberKind::Method;
@@ -1357,7 +1361,7 @@ namespace foundation::script::angelscript
                 AppendAscii(out, type.name);
                 AppendAscii(out, "::");
             }
-            AppendAscii(out, method.name);
+            AppendAscii(out, ScriptMethodName(method)); // overload identity, not the C++ name
             AppendAscii(out, "(");
             if (!AppendParams(out, method.params, method.paramCount))
             {
@@ -1851,7 +1855,7 @@ namespace foundation::script::angelscript
                     continue;
                 }
                 AppendAscii(decl, " ");
-                AppendAscii(decl, method.name);
+                AppendAscii(decl, ScriptMethodName(method)); // overload identity, not the C++ name
                 AppendAscii(decl, "(");
                 if (!AppendParams(decl, method.params, method.paramCount))
                 {

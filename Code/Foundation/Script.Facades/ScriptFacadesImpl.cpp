@@ -31,11 +31,12 @@ namespace foundation::script
         // A computed property (parens-less): `entity.scene` reads its bound Scene. Not a
         // method, so scripts write `entity.scene.find(...)` without call parens.
         builder.ComputedProperty<&Entity::sceneHandle>("scene");
-        // send overloads (P2 messaging) - one reflected name, resolved by arg type.
+        // send (P2 messaging) - ONE conceptual method as an ARITY FAMILY: send(name) and
+        // send(name, payload:Variant), dispatched by argument count. The Variant carries any script
+        // value onto the StringHash+Variant bus (the honest payload type).
         builder.Method<static_cast<void (Entity::*)(String) const>(&Entity::send)>("send");
-        builder.Method<static_cast<void (Entity::*)(String, f64) const>(&Entity::send)>("send");
-        builder.Method<static_cast<void (Entity::*)(String, String) const>(&Entity::send)>("send");
-        builder.Method<static_cast<void (Entity::*)(String, Entity) const>(&Entity::send)>("send");
+        builder.Method<static_cast<void (Entity::*)(String, Variant) const>(&Entity::send)>(
+            "send", {"name", "payload"});
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 
@@ -74,19 +75,11 @@ namespace foundation::script
 
     REFLECT_VALUE(SceneEvents, "rtti::script")
     {
-        // emit overloads - one reflected name, resolved by payload arg type (mirrors Entity::send).
+        // emit - ONE conceptual method as an ARITY FAMILY (mirrors Entity::send): emit(name) and
+        // emit(name, payload:Variant), dispatched by argument count; the Variant carries any value.
         builder.Method<static_cast<void (SceneEvents::*)(String) const>(&SceneEvents::emit)>("emit");
-        builder.Method<static_cast<void (SceneEvents::*)(String, f64) const>(&SceneEvents::emit)>(
-            "emit");
-        builder.Method<static_cast<void (SceneEvents::*)(String, String) const>(&SceneEvents::emit)>(
-            "emit");
-        builder.Method<static_cast<void (SceneEvents::*)(String, bool) const>(&SceneEvents::emit)>(
-            "emit");
-        builder.Method<static_cast<void (SceneEvents::*)(String, Entity) const>(&SceneEvents::emit)>(
-            "emit");
-        // The generic sink, reflected LAST (a reflected-value payload that matches no typed overload).
         builder.Method<static_cast<void (SceneEvents::*)(String, Variant) const>(&SceneEvents::emit)>(
-            "emit");
+            "emit", {"name", "payload"});
         builder.Constructor(); // Wren only materializes constructible foreign classes
     }
 

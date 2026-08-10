@@ -135,6 +135,83 @@ end
 )lua";
 }
 
+namespace
+{
+    // Overload fixtures: an ARITY FAMILY (ping / ping(x)) + a same-arity TYPE overload split by a
+    // distinct overloadedName (combine / combineText).
+    class Overloads : public Object
+    {
+        RTTI_OBJECT(Overloads, Object)
+    public:
+        [[nodiscard]] f64 ping() const { return 1.0; }
+        [[nodiscard]] f64 ping(f64 x) const { return x + 100.0; }
+        [[nodiscard]] f64 combine(f64 a, f64 b) const { return a + b; }
+        [[nodiscard]] f64 combine(String, f64 b) const { return b; }
+    };
+
+    // A type that VIOLATES the contract: two methods on the same (name, arity, static) with no
+    // distinct overloadedName. Registered nowhere (only the pure collision check runs on it).
+    class Colliding : public Object
+    {
+        RTTI_OBJECT(Colliding, Object)
+    public:
+        [[nodiscard]] f64 clash(f64 a) const { return a; }
+        [[nodiscard]] f64 clash(String) const { return 0.0; }
+    };
+
+    constexpr StringView kOverloadProbe = u8R"lua(
+Probe2 = {}
+Probe2.__index = Probe2
+function Probe2.new() return setmetatable({ o = Overloads.new() }, Probe2) end
+function Probe2:ping0() return self.o:ping() end
+function Probe2:ping1() return self.o:ping(5) end
+function Probe2:comb() return self.o:combine(2, 3) end
+function Probe2:combText() return self.o:combineText("x", 7) end
+)lua";
+}
+
+REFLECT_MEMBERS(Overloads, "rtti::luau::test")
+{
+    builder.Constructor();
+    builder.Method<static_cast<f64 (Overloads::*)() const>(&Overloads::ping)>("ping");
+    builder.Method<static_cast<f64 (Overloads::*)(f64) const>(&Overloads::ping)>("ping");
+    builder.Method<static_cast<f64 (Overloads::*)(f64, f64) const>(&Overloads::combine)>("combine");
+    builder.Method<static_cast<f64 (Overloads::*)(String, f64) const>(&Overloads::combine)>("combine")
+        .OverloadedName("combineText");
+}
+
+REFLECT_MEMBERS(Colliding, "rtti::luau::test")
+{
+    builder.Constructor();
+    builder.Method<static_cast<f64 (Colliding::*)(f64) const>(&Colliding::clash)>("clash");
+    builder.Method<static_cast<f64 (Colliding::*)(String) const>(&Colliding::clash)>("clash");
+}
+
+TEST_CASE("script.luau: arity-family dispatch + same-arity distinct overloadedName")
+{
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    manager->RegisterType(Overloads::StaticType());
+    manager->FinalizeTypes(); // must NOT trip - ping is an arity family, combine/combineText distinct
+
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->Load(kOverloadProbe, u8"luau.overload").IsOk());
+    RefPtr<ScriptObject> probe = context->CreateInstance(u8"Probe2", Span<Variant>{});
+    REQUIRE(probe.Get() != nullptr);
+
+    CHECK(probe->Invoke(u8"ping0", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(1.0));
+    CHECK(probe->Invoke(u8"ping1", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(105.0));
+    CHECK(probe->Invoke(u8"comb", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(5.0));
+    CHECK(probe->Invoke(u8"combText", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(7.0));
+}
+
+TEST_CASE("script.luau: the overload validator - arity family legal, same-arity dup a collision")
+{
+    // A clean type (arity family + distinct names) reports NO collision.
+    CHECK(FindScriptMethodNameCollision(Overloads::StaticType()) == nullptr);
+    // A same-(name, arity, static) pair without distinct overloadedNames IS a collision.
+    CHECK(FindScriptMethodNameCollision(Colliding::StaticType()) != nullptr);
+}
+
 REFLECT_ENUM(Facing, "rtti::luau::test")
 {
     builder.Value("North", Facing::North);

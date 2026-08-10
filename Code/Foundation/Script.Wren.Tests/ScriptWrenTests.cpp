@@ -311,25 +311,27 @@ TEST_CASE("wren: call reflected methods (static, instance, struct return, foreig
     CHECK(ctx->GetGlobal(u8"outside").Get<bool>() == false);
 }
 
-TEST_CASE("wren: same-name overloads resolve by argument type")
+TEST_CASE("wren: same-arity type overloads carry distinct script names (the overloadedName contract)")
 {
     RegisterCoreTypes();
     RefPtr<IScriptManager> manager = wren::CreateScriptManager();
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
-    // Float3.Mul has two overloads: (Float3, Float3) componentwise and (Float3, f32) scale.
+    // Float3.Mul (Float3, Float3) componentwise and (Float3, f32) scale are the SAME arity, so they
+    // cannot be resolved on a dynamically-typed surface - the contract splits them by name:
+    // `Mul` (componentwise) and `MulScalar` (scale), both bound and callable.
     REQUIRE(ctx->Load(u8"var p = Float3.new(2, 3, 4)\n"
                       u8"var comp = Float3.Mul(p, Float3.new(1, 2, 3))\n" // -> (2, 6, 12)
-                      u8"var scaled = Float3.Mul(p, 2)\n"                 // -> (4, 6, 8)
+                      u8"var scaled = Float3.MulScalar(p, 2)\n"           // -> (4, 6, 8)
                       u8"var CX = comp.x\n"
                       u8"var CZ = comp.z\n"
                       u8"var SX = scaled.x\n",
                       u8"main")
                 .IsOk());
-    CHECK(ctx->GetGlobal(u8"CX").Get<f64>() == 2.0); // chose (Float3, Float3)
+    CHECK(ctx->GetGlobal(u8"CX").Get<f64>() == 2.0);
     CHECK(ctx->GetGlobal(u8"CZ").Get<f64>() == 12.0);
-    CHECK(ctx->GetGlobal(u8"SX").Get<f64>() == 4.0); // chose (Float3, f32)
+    CHECK(ctx->GetGlobal(u8"SX").Get<f64>() == 4.0);
 }
 
 TEST_CASE("wren: Object-derived type as a foreign class")

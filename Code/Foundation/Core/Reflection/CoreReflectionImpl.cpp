@@ -97,7 +97,9 @@ namespace foundation::core
             .Method<static_cast<Float3 (*)(Float3)>(&Normalized)>("Normalized")
             // Two same-named overloads, resolved by parameter type at lookup.
             .Method<static_cast<Float3 (*)(Float3, Float3)>(&operator*)>("Mul")
-            .Method<static_cast<Float3 (*)(Float3, f32)>(&operator*)>("Mul")
+            // Same arity as Mul, genuinely type-overloaded (vec*vec vs vec*scalar) - a distinct
+            // script name, since a dynamically-typed surface cannot pick between them by value.
+            .Method<static_cast<Float3 (*)(Float3, f32)>(&operator*)>("Mul").OverloadedName("MulScalar")
             .Constructor()
             .Constructor<f32, f32, f32>();
     }

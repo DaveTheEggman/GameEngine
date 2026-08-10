@@ -190,6 +190,13 @@ namespace foundation::script
             m_types.PushBack(&type);
         }
 
+        void FinalizeTypes() override
+        {
+            // The overload contract: fail loudly if any registered type binds two methods to the
+            // same script name (see foundation.script ValidateScriptMethodNames).
+            ValidateScriptMethodNames(RegisteredTypes());
+        }
+
         [[nodiscard]] RefPtr<IScriptContext> CreateContext() override;
 
         void CollectGarbage() override
@@ -436,6 +443,25 @@ namespace foundation::script
             static constexpr int kMethods = 3;
         };
 
+        // Null-safe C-string equality (method/script names are null-terminated ASCII).
+        [[nodiscard]] bool NameEquals(const char* a, const char* b)
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            if (a == nullptr || b == nullptr)
+            {
+                return false;
+            }
+            while (*a != '\0' && *a == *b)
+            {
+                ++a;
+                ++b;
+            }
+            return *a == *b;
+        }
+
         [[nodiscard]] const PropertyInfo* FindPropertyInChain(const TypeInfo* type,
                                                               const char* name)
         {
@@ -449,18 +475,16 @@ namespace foundation::script
             return nullptr;
         }
 
-        int MethodThunk(lua_State* state)
+        // Marshal self (for instance methods) + args off the Lua stack and invoke `method`, pushing
+        // its result. Shared by MethodThunk (one captured method) and ArityMethodThunk (resolved by
+        // argc). Returns the Lua result count.
+        int InvokeReflected(lua_State* state, LuauScriptContext* context, const MethodInfo& method)
         {
-            auto* method = static_cast<const MethodInfo*>(
-                lua_tolightuserdata(state, lua_upvalueindex(1)));
-            auto* context = static_cast<LuauScriptContext*>(
-                lua_tolightuserdata(state, lua_upvalueindex(2)));
-
             const int argCount = lua_gettop(state);
             Variant self;
             Array<Variant> args;
             int firstArg = 1;
-            if (!method->isStatic)
+            if (!method.isStatic)
             {
                 Variant* boxed = VariantAt(state, 1);
                 if (boxed == nullptr)
@@ -477,17 +501,17 @@ namespace foundation::script
                 // extra args beyond the signature fall back to plain conversion.
                 const u32 paramIndex = static_cast<u32>(i - firstArg);
                 const TypeInfo* expected =
-                    (paramIndex < method->paramCount && method->params[paramIndex].type != nullptr)
-                        ? method->params[paramIndex].type()
+                    (paramIndex < method.paramCount && method.params[paramIndex].type != nullptr)
+                        ? method.params[paramIndex].type()
                         : nullptr;
                 args.PushBack(context->ToVariantForParam(state, i, expected));
             }
 
             ScriptCallScope scope(context);
             Result<Variant> result =
-                method->isStatic
-                    ? InvokeStatic(*method, Span<Variant>{args.Data(), args.Size()})
-                    : InvokeMethod(*method, ToInstance(self),
+                method.isStatic
+                    ? InvokeStatic(method, Span<Variant>{args.Data(), args.Size()})
+                    : InvokeMethod(method, ToInstance(self),
                                    Span<Variant>{args.Data(), args.Size()});
             if (!result.HasValue())
             {
@@ -500,6 +524,76 @@ namespace foundation::script
             }
             context->PushVariant(state, result.Value());
             return 1;
+        }
+
+        // How many methods on `type`'s chain bind to (script name, static-ness) - the ARITY FAMILY
+        // size. 1 = a plain method; >1 = an arity family dispatched by argument count.
+        int ScriptNameFamilySize(const TypeInfo* type, const char* scriptName, bool isStatic)
+        {
+            int count = 0;
+            for (const TypeInfo* t = type; t != nullptr; t = t->base)
+            {
+                for (const MethodInfo& m : Methods(*t))
+                {
+                    if (m.name != nullptr && m.isStatic == isStatic &&
+                        NameEquals(ScriptMethodName(m), scriptName))
+                    {
+                        ++count;
+                    }
+                }
+            }
+            return count;
+        }
+
+        // The family member matching a given argument count (paramCount == argc), or null.
+        const MethodInfo* ResolveArityMethod(const TypeInfo* type, const char* scriptName,
+                                             bool isStatic, int argc)
+        {
+            for (const TypeInfo* t = type; t != nullptr; t = t->base)
+            {
+                for (const MethodInfo& m : Methods(*t))
+                {
+                    if (m.name != nullptr && m.isStatic == isStatic &&
+                        m.paramCount == static_cast<u32>(argc) &&
+                        NameEquals(ScriptMethodName(m), scriptName))
+                    {
+                        return &m;
+                    }
+                }
+            }
+            return nullptr;
+        }
+
+        int MethodThunk(lua_State* state)
+        {
+            auto* method = static_cast<const MethodInfo*>(
+                lua_tolightuserdata(state, lua_upvalueindex(1)));
+            auto* context = static_cast<LuauScriptContext*>(
+                lua_tolightuserdata(state, lua_upvalueindex(2)));
+            return InvokeReflected(state, context, *method);
+        }
+
+        // Arity-family dispatch: resolve the family member whose paramCount matches the call's
+        // argument count (SOUND - argc is exact, no type guessing), then invoke it.
+        // Upvalues: type* (light), context* (light), script name (string), isStatic (boolean).
+        int ArityMethodThunk(lua_State* state)
+        {
+            auto* type =
+                static_cast<const TypeInfo*>(lua_tolightuserdata(state, lua_upvalueindex(1)));
+            auto* context = static_cast<LuauScriptContext*>(
+                lua_tolightuserdata(state, lua_upvalueindex(2)));
+            const char* scriptName = lua_tostring(state, lua_upvalueindex(3));
+            const bool isStatic = lua_toboolean(state, lua_upvalueindex(4)) != 0;
+
+            const int total = lua_gettop(state);
+            const int argc = isStatic ? total : total - 1; // instance calls carry self in slot 1
+            const MethodInfo* method = ResolveArityMethod(type, scriptName, isStatic, argc < 0 ? 0 : argc);
+            if (method == nullptr)
+            {
+                lua_pushstring(state, "no overload of this method takes that many arguments");
+                lua_error(state);
+            }
+            return InvokeReflected(state, context, *method);
         }
 
         int IndexThunk(lua_State* state)
@@ -607,7 +701,7 @@ namespace foundation::script
                 {
                     continue;
                 }
-                lua_pushstring(state, method.name);
+                lua_pushstring(state, ScriptMethodName(method)); // overload identity, not the C++ name
                 // Skip if a derived type already bound this name (first wins).
                 lua_pushvalue(state, -1);
                 lua_rawget(state, -3);
@@ -618,9 +712,22 @@ namespace foundation::script
                     lua_pop(state, 1);
                     continue;
                 }
-                lua_pushlightuserdata(state, const_cast<MethodInfo*>(&method));
-                lua_pushlightuserdata(state, this);
-                lua_pushcclosure(state, MethodThunk, "reflected_method", 2);
+                // An arity family (same script name, >1 arity) dispatches by argc at call; a plain
+                // method captures its single MethodInfo* directly.
+                if (ScriptNameFamilySize(&type, ScriptMethodName(method), method.isStatic) > 1)
+                {
+                    lua_pushlightuserdata(state, const_cast<TypeInfo*>(&type));
+                    lua_pushlightuserdata(state, this);
+                    lua_pushstring(state, ScriptMethodName(method));
+                    lua_pushboolean(state, method.isStatic ? 1 : 0);
+                    lua_pushcclosure(state, ArityMethodThunk, "reflected_method_family", 4);
+                }
+                else
+                {
+                    lua_pushlightuserdata(state, const_cast<MethodInfo*>(&method));
+                    lua_pushlightuserdata(state, this);
+                    lua_pushcclosure(state, MethodThunk, "reflected_method", 2);
+                }
                 lua_rawset(state, -3);
             }
         }
@@ -661,10 +768,32 @@ namespace foundation::script
                 {
                     continue;
                 }
-                lua_pushstring(state, method.name);
-                lua_pushlightuserdata(state, const_cast<MethodInfo*>(&method));
-                lua_pushlightuserdata(state, this);
-                lua_pushcclosure(state, MethodThunk, "reflected_static", 2);
+                lua_pushstring(state, ScriptMethodName(method));
+                // First wins: skip a name already emitted (an arity family binds once, dispatching
+                // by argc; a re-seen name up the chain is a duplicate).
+                lua_pushvalue(state, -1);
+                lua_rawget(state, -3);
+                const bool taken = !lua_isnil(state, -1);
+                lua_pop(state, 1);
+                if (taken)
+                {
+                    lua_pop(state, 1);
+                    continue;
+                }
+                if (ScriptNameFamilySize(&type, ScriptMethodName(method), true) > 1)
+                {
+                    lua_pushlightuserdata(state, const_cast<TypeInfo*>(&type));
+                    lua_pushlightuserdata(state, this);
+                    lua_pushstring(state, ScriptMethodName(method));
+                    lua_pushboolean(state, 1);
+                    lua_pushcclosure(state, ArityMethodThunk, "reflected_static_family", 4);
+                }
+                else
+                {
+                    lua_pushlightuserdata(state, const_cast<MethodInfo*>(&method));
+                    lua_pushlightuserdata(state, this);
+                    lua_pushcclosure(state, MethodThunk, "reflected_static", 2);
+                }
                 lua_rawset(state, -3);
             }
         }
@@ -1193,7 +1322,7 @@ namespace foundation::script
                         continue;
                     }
                     ScriptApiMember member;
-                    member.name = String(ViewOf(method.name));
+                    member.name = String(ViewOf(ScriptMethodName(method)));
                     member.kind = ScriptApiMemberKind::Method;
                     member.isStatic = method.isStatic;
                     member.signature = member.name;

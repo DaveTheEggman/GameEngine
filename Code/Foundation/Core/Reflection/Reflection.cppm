@@ -299,6 +299,12 @@ export namespace foundation::core
         bool isStatic;
         bool isConst;
         Result<Variant> (*invoke)(const Instance&, Span<Variant>);
+        // An OPTIONAL distinct name for a member of an overload set. C++ overloading (same name,
+        // different signatures) cannot be disambiguated by a consumer that binds one entry per name
+        // (the scripting backends), so an overload set gives each member a distinct name here.
+        // Opaque authored metadata - Core stores it and does not interpret it (like param names);
+        // the scripting layer decides how it is spelled and enforces uniqueness. Empty/null = none.
+        const char* overloadedName = nullptr;
     };
 
     [[nodiscard]] inline Result<Variant> InvokeMethod(const MethodInfo& method,
@@ -1619,6 +1625,21 @@ export namespace foundation::core
             m_data.methods.PushBack(MethodInfo{name, &Reflect::ReturnType, params.Data(),
                                                static_cast<u32>(params.Size()), Reflect::isStatic,
                                                Reflect::isConst, &Reflect::Invoke});
+            return *this;
+        }
+
+        /// Give the LAST-added method a distinct alternate name for consumers that bind one entry
+        /// per name (scripting). Call fluently after Method():
+        /// `.Method<&T::SetPositionXyz>("setPosition").OverloadedName("setPositionXyz")`.
+        /// The contract is DISTINCTNESS, not annotate-everything: an N-member overload set needs
+        /// only enough names that no two collide, so the primary overload keeps the clean name
+        /// (`setPosition` + `setPositionXyz`). A non-overloaded method never needs it.
+        TypeBuilder& OverloadedName(const char* scriptName)
+        {
+            // A misplaced fluent call (before any Method()) is an authoring bug, not a silent no-op.
+            DIAGNOSTIC_ASSERT(m_data.methods.Size() > 0 &&
+                              "OverloadedName() must follow a Method()");
+            m_data.methods[m_data.methods.Size() - 1].overloadedName = scriptName;
             return *this;
         }
 

@@ -420,8 +420,10 @@ namespace foundation::script::wren
         for (core::usize i = 0; i < core::MethodCount(type); ++i)
         {
             const core::MethodInfo& m = core::MethodAt(type, i);
+            // Match by SCRIPT name: distinct overloadedNames make each script name resolve to one
+            // method, so this only revisits a genuine same-script-name set (post-contract: none).
             if (m.isStatic != bound.isStatic || m.paramCount != static_cast<core::u32>(argc) ||
-                !NameEq(m.name, bound.name))
+                !NameEq(ScriptMethodName(m), ScriptMethodName(bound)))
             {
                 continue;
             }
@@ -1328,14 +1330,17 @@ namespace foundation::script::wren
             for (core::usize i = 0; i < core::MethodCount(type); ++i)
             {
                 const core::MethodInfo& method = core::MethodAt(type, i);
-                // Wren overloads only by name+arity, so a same-(name,arity,static)
-                // overload is emitted once; the binding picks the first match.
+                // Emit by SCRIPT name. A repeated (script name, arity, static) is emitted once (an
+                // inherited method re-seen up the chain); distinct overloadedNames give each
+                // overload its own stub. The FinalizeTypes contract guarantees no two DIFFERENT
+                // methods share a script name, so this only collapses genuine repeats.
                 bool duplicate = false;
                 for (core::usize j = 0; j < i; ++j)
                 {
                     const core::MethodInfo& earlier = core::MethodAt(type, j);
                     if (earlier.paramCount == method.paramCount &&
-                        earlier.isStatic == method.isStatic && NameEq(earlier.name, method.name))
+                        earlier.isStatic == method.isStatic &&
+                        NameEq(ScriptMethodName(earlier), ScriptMethodName(method)))
                     {
                         duplicate = true;
                         break;
@@ -1351,7 +1356,7 @@ namespace foundation::script::wren
                 {
                     AppendAscii(src, "static ");
                 }
-                AppendAscii(src, method.name);
+                AppendAscii(src, ScriptMethodName(method));
                 AppendAscii(src, "(");
                 for (core::u32 p = 0; p < method.paramCount; ++p)
                 {
@@ -1439,14 +1444,17 @@ namespace foundation::script::wren
         return methods;
     }
 
-    // First method on `type` matching name + static-ness (Wren tells us which).
+    // First method on `type` matching name + static-ness. `name` is the member name Wren parsed
+    // from the call signature - i.e. the SCRIPT name we emitted - so match by ScriptMethodName, NOT
+    // the C++ name. (Matching the C++ name here would re-resolve an overload set by name and pick
+    // the wrong member - the bug the overloadedName contract exists to prevent.)
     inline const core::MethodInfo* FindMethodMatching(const core::TypeInfo& type, const char* name,
                                                       bool isStatic)
     {
         for (core::usize i = 0; i < core::MethodCount(type); ++i)
         {
             const core::MethodInfo& m = core::MethodAt(type, i);
-            if (m.isStatic == isStatic && NameEq(m.name, name))
+            if (m.isStatic == isStatic && NameEq(ScriptMethodName(m), name))
             {
                 return &m;
             }
@@ -1526,6 +1534,14 @@ namespace foundation::script::wren
 
         void RegisterType(const core::TypeInfo& type) override { m_types.PushBack(&type); }
 
+        void FinalizeTypes() override
+        {
+            // The overload contract: fail loudly if any registered type binds two methods to the
+            // same script name (see foundation.script ValidateScriptMethodNames).
+            ValidateScriptMethodNames(
+                core::Span<const core::TypeInfo* const>{m_types.Data(), m_types.Size()});
+        }
+
         [[nodiscard]] core::RefPtr<IScriptContext> CreateContext() override
         {
             const core::Span<const core::TypeInfo* const> types{m_types.Data(), m_types.Size()};
@@ -1571,8 +1587,8 @@ namespace foundation::script::wren
                 {
                     const core::MethodInfo& m = core::MethodAt(*t, i);
                     ScriptApiMember member;
-                    member.name = core::String(AsciiView(m.name));
-                    member.signature = WrenCallSignatureOf(m.name, m.paramCount);
+                    member.name = core::String(AsciiView(ScriptMethodName(m)));
+                    member.signature = WrenCallSignatureOf(ScriptMethodName(m), m.paramCount);
                     member.isStatic = m.isStatic;
                     member.kind = ScriptApiMemberKind::Method;
                     api.members.PushBack(core::Move(member));
