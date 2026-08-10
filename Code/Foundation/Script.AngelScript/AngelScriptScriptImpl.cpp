@@ -963,6 +963,58 @@ namespace foundation::script::angelscript
                                                  const core::TypeInfo* expected) const
         {
             const int typeId = gen->GetArgTypeId(index);
+
+            // A `?&in` variable-type arg (the emit/send Variant-payload sink, and any `&in`
+            // primitive) arrives BY REFERENCE: the arg slot holds a POINTER to the caller's
+            // value, so the by-value accessors below (GetArgDouble/GetArgDWord/...) would read
+            // the pointer bits as the value. Read a primitive through its address instead. Object
+            // handles + strings keep the by-value paths below (GetArgObject/GetArgAddress already
+            // return the referenced value for a reference arg); funcdef handles are handled there.
+            if (ArgIsInReference(gen, index))
+            {
+                // GetArgAddress returns the VALUE pointer for a reference arg (like the string
+                // case below), unlike GetAddressOfArg which returns the slot (a T** here).
+                if (const void* addr = gen->GetArgAddress(index))
+                {
+                    switch (typeId)
+                    {
+                    case asTYPEID_BOOL:
+                    {
+                        const bool b = *static_cast<const bool*>(addr);
+                        return (expected == nullptr || expected == &core::TypeOf<bool>())
+                                   ? core::Variant::From<bool>(b)
+                                   : CoerceNumber(b ? 1.0 : 0.0, expected);
+                    }
+                    case asTYPEID_INT8:
+                        return CoerceNumber(*static_cast<const core::i8*>(addr), expected);
+                    case asTYPEID_UINT8:
+                        return CoerceNumber(*static_cast<const core::u8*>(addr), expected);
+                    case asTYPEID_INT16:
+                        return CoerceNumber(*static_cast<const core::i16*>(addr), expected);
+                    case asTYPEID_UINT16:
+                        return CoerceNumber(*static_cast<const core::u16*>(addr), expected);
+                    case asTYPEID_INT32:
+                        return CoerceNumber(*static_cast<const core::i32*>(addr), expected);
+                    case asTYPEID_UINT32:
+                        return CoerceNumber(*static_cast<const core::u32*>(addr), expected);
+                    case asTYPEID_INT64:
+                        return CoerceInteger(
+                            core::Variant::From<core::i64>(*static_cast<const core::i64*>(addr)),
+                            expected);
+                    case asTYPEID_UINT64:
+                        return CoerceInteger(
+                            core::Variant::From<core::u64>(*static_cast<const core::u64*>(addr)),
+                            expected);
+                    case asTYPEID_FLOAT:
+                        return CoerceNumber(*static_cast<const float*>(addr), expected);
+                    case asTYPEID_DOUBLE:
+                        return CoerceNumber(*static_cast<const double*>(addr), expected);
+                    default:
+                        break; // string / enum / handle: fall through to the by-value paths
+                    }
+                }
+            }
+
             switch (typeId)
             {
             case asTYPEID_BOOL:
