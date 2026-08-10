@@ -1064,6 +1064,81 @@ TEST_CASE("script.scene: the Roll Call sample game - orbs EMIT OrbCollected, the
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.y, 1.0f)); // win branch ran
 }
 
+TEST_CASE("script.scene: the Roll Call sample game runs on a LUAU Level (P4 acceptance)")
+{
+    ScriptedScene bed;
+    SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
+    level->SetRunHost(&bed.host);
+
+    RefPtr<ScriptClass> levelClass = MakeClassLang(
+        u8"luau", u8"Level",
+        u8"Level = {}\n"
+        u8"Level.__index = Level\n"
+        u8"function Level.new(scene)\n"
+        u8"    return setmetatable({ scene = scene, total = 2, collected = 0, won = false }, Level)\n"
+        u8"end\n"
+        u8"function Level:onStart() self.collected = 0; self.won = false end\n"
+        u8"function Level:onOrbCollected()\n"
+        u8"    if self.won then return end\n"
+        u8"    self.collected = self.collected + 1\n"
+        u8"    local won = 0\n"
+        u8"    if self.collected >= self.total then self.won = true; won = 1 end\n"
+        u8"    self.scene:find(\"Scoreboard\"):setPosition(self.collected, won, 0)\n"
+        u8"end\n"
+        u8"function Level:onPlayerFell() self.won = true end\n",
+        {u8"onStart", u8"onOrbCollected", u8"onPlayerFell"});
+    level->Settings().script = levelClass;
+
+    RefPtr<ScriptClass> pickup = MakeClassLang(
+        u8"luau", u8"Pickup",
+        u8"Pickup = {}\n"
+        u8"Pickup.__index = Pickup\n"
+        u8"function Pickup.new(entity)\n"
+        u8"    return setmetatable({ entity = entity, r = 1.2, taken = false }, Pickup)\n"
+        u8"end\n"
+        u8"function Pickup:onUpdate(dt)\n"
+        u8"    if self.taken then return end\n"
+        u8"    local player = self.entity.scene:find(\"Player\")\n"
+        u8"    if not player:isValid() then return end\n"
+        u8"    local p = player:position()\n"
+        u8"    local me = self.entity:position()\n"
+        u8"    local dx = p.x - me.x\n"
+        u8"    local dy = p.y - me.y\n"
+        u8"    local dz = p.z - me.z\n"
+        u8"    if dx*dx + dy*dy + dz*dz > self.r*self.r then return end\n"
+        u8"    self.taken = true\n"
+        u8"    self.entity.scene.events:emit(\"OrbCollected\")\n"
+        u8"    self.entity:destroy()\n"
+        u8"end\n",
+        {u8"onUpdate"});
+
+    const scene::EntityHandle scoreboard = bed.scene.CreateEntity(u8"Scoreboard");
+    const scene::EntityHandle player = bed.scene.CreateEntity(u8"Player");
+    bed.scene.SetLocalPosition(player, Float3{100.0f, 0.0f, 100.0f});
+    const scene::EntityHandle orb1 = bed.AddScripted(pickup, u8"Orb1");
+    const scene::EntityHandle orb2 = bed.AddScripted(pickup, u8"Orb2");
+    bed.scene.SetLocalPosition(orb1, Float3{0.0f, 0.0f, 0.0f});
+    bed.scene.SetLocalPosition(orb2, Float3{5.0f, 0.0f, 0.0f});
+
+    bed.Start();
+    bed.Frame(); // instantiate + onStart; player far -> nothing collected
+    CHECK(bed.scripts->InstanceCount() == 2u);
+    CHECK(level->LevelActive());
+    CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 0.0f));
+
+    bed.scene.SetLocalPosition(player, Float3{0.0f, 0.0f, 0.0f});
+    bed.Frame(); // orb1 collected -> emit -> Level scores this frame
+    CHECK_FALSE(bed.scene.IsValid(orb1));
+    CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 1.0f));
+    CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.y, 0.0f)); // not won yet
+
+    bed.scene.SetLocalPosition(player, Float3{5.0f, 0.0f, 0.0f});
+    bed.Frame(); // last orb wins
+    CHECK_FALSE(bed.scene.IsValid(orb2));
+    CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 2.0f));
+    CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.y, 1.0f)); // win branch ran
+}
+
 TEST_CASE("script.scene: updateInterval throttles onUpdate and delivers the accumulated "
           "dt (P3)")
 {
