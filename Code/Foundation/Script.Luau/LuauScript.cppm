@@ -335,6 +335,14 @@ namespace foundation::script
             lua_pushlstring(state, reinterpret_cast<const char*>(s->CStr()), s->Size());
             return;
         }
+        // Float3 maps to Luau's NATIVE vector type (LUA_VECTOR_SIZE == 3, exact match): scripts get
+        // v.x/.y/.z and vector arithmetic with NO per-value userdata allocation - the Luau-specific
+        // fast path that replaces the boxed reflected handle the other backends use.
+        if (const Float3* v = value.TryGet<Float3>())
+        {
+            lua_pushvector(state, v->x, v->y, v->z);
+            return;
+        }
         // An enum crosses as its underlying number: Lua has no enum type, the emitter excludes
         // enums from binding, and an enum parameter converts the number back (mirrors Wren +
         // AngelScript). Must come before the boxed-Variant fallthrough (an enum Variant is not a
@@ -377,6 +385,12 @@ namespace foundation::script
             return Variant::From<bool>(lua_toboolean(state, index) != 0);
         case LUA_TNUMBER:
             return Variant::From<f64>(lua_tonumber(state, index));
+        case LUA_TVECTOR:
+        {
+            // A native Luau vector crosses back as a Float3 (exact 3x f32).
+            const float* v = lua_tovector(state, index);
+            return (v != nullptr) ? Variant::From<Float3>(Float3(v[0], v[1], v[2])) : Variant{};
+        }
         case LUA_TSTRING:
         {
             size_t length = 0;
@@ -413,13 +427,38 @@ namespace foundation::script
     Variant LuauScriptContext::ToVariantForParam(lua_State* state, int index,
                                                  const TypeInfo* expected)
     {
-        // An enum parameter/setter takes a Lua number; carry it as an i64 - the neutral property
-        // setter / enum-arg path casts it to the enum (enums cross as their underlying int, with
-        // no Lua enum type to marshal through). Anything else uses the ordinary conversion.
-        if (expected != nullptr && expected->enumeratorCount > 0 &&
-            lua_type(state, index) == LUA_TNUMBER)
+        // A Lua number narrows to the reflected param's EXACT numeric/enum type. Lua numbers are all
+        // f64, but the neutral dispatch matches the declared param type, so an f32/i32/enum param
+        // must receive that typed Variant - not a bare f64 (which it would reject). Mirrors Wren +
+        // AngelScript's expected-type marshalling.
+        if (expected != nullptr && lua_type(state, index) == LUA_TNUMBER)
         {
-            return Variant::From<i64>(static_cast<i64>(lua_tonumber(state, index)));
+            const f64 n = lua_tonumber(state, index);
+            if (expected->enumeratorCount > 0)
+            {
+                return Variant::From<i64>(static_cast<i64>(n)); // enum: its underlying int
+            }
+            if (expected == &TypeOf<f32>())
+            {
+                return Variant::From<f32>(static_cast<f32>(n));
+            }
+            if (expected == &TypeOf<i32>())
+            {
+                return Variant::From<i32>(static_cast<i32>(n));
+            }
+            if (expected == &TypeOf<i64>())
+            {
+                return Variant::From<i64>(static_cast<i64>(n));
+            }
+            if (expected == &TypeOf<u32>())
+            {
+                return Variant::From<u32>(static_cast<u32>(n));
+            }
+            if (expected == &TypeOf<u64>())
+            {
+                return Variant::From<u64>(static_cast<u64>(n));
+            }
+            // f64 (or an unrecognised numeric) falls through to the ordinary conversion.
         }
         return ToVariant(state, index);
     }
@@ -670,10 +709,27 @@ namespace foundation::script
                 lua_tolightuserdata(state, lua_upvalueindex(2)));
 
             const int argCount = lua_gettop(state);
+            // Marshal each arg against the matching constructor's param type (number narrowing to
+            // f32/i32/enum), so Float3.new(2, 3, 4) hands three f32s to the (f32,f32,f32) ctor.
+            const ConstructorInfo* ctor = nullptr;
+            for (const ConstructorInfo& candidate : Constructors(*type))
+            {
+                if (candidate.paramCount == static_cast<u32>(argCount))
+                {
+                    ctor = &candidate;
+                    break;
+                }
+            }
             Array<Variant> args;
             for (int i = 1; i <= argCount; ++i)
             {
-                args.PushBack(context->ToVariant(state, i));
+                const u32 paramIndex = static_cast<u32>(i - 1);
+                const TypeInfo* expected =
+                    (ctor != nullptr && paramIndex < ctor->paramCount &&
+                     ctor->params[paramIndex].type != nullptr)
+                        ? ctor->params[paramIndex].type()
+                        : nullptr;
+                args.PushBack(context->ToVariantForParam(state, i, expected));
             }
             ScriptCallScope scope(context);
             Result<Variant> constructed = Construct(*type, Span<Variant>{args.Data(), args.Size()});
