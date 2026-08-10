@@ -74,6 +74,80 @@ namespace foundation::script
             return -1;
         }
 
+        // A reflected type -> its Luau TYPE annotation for a .d.luau declaration. Primitives map
+        // to Luau's built-ins; Float3 is the native `vector`; enums surface as numbers; a Variant
+        // payload is `any`; a reflected CLASS resolves to its own declared name ONLY when we also
+        // declare it (else `any`, so a declaration never references an undeclared type). nullptr =
+        // a void return, spelled `()`.
+        [[nodiscard]] String LuauTypeName(const TypeInfo* type, Span<const TypeInfo* const> declared)
+        {
+            if (type == nullptr)
+            {
+                return String(u8"()");
+            }
+            if (type == &TypeOf<Float3>())
+            {
+                return String(u8"vector");
+            }
+            if (type == &TypeOf<String>())
+            {
+                return String(u8"string");
+            }
+            if (type == &TypeOf<bool>())
+            {
+                return String(u8"boolean");
+            }
+            if (type == &TypeOf<f32>() || type == &TypeOf<f64>() || type == &TypeOf<i8>() ||
+                type == &TypeOf<i16>() || type == &TypeOf<i32>() || type == &TypeOf<i64>() ||
+                type == &TypeOf<u8>() || type == &TypeOf<u16>() || type == &TypeOf<u32>() ||
+                type == &TypeOf<u64>())
+            {
+                return String(u8"number");
+            }
+            if (type == &TypeOf<Variant>() || type->enumeratorCount > 0)
+            {
+                // A Variant sink is `any`; an enum surfaces as its underlying number (the enum's
+                // named table is declared separately as a value, not a type).
+                return type->enumeratorCount > 0 ? String(u8"number") : String(u8"any");
+            }
+            for (const TypeInfo* known : declared)
+            {
+                if (known == type)
+                {
+                    return String(ViewOf(type->name));
+                }
+            }
+            return String(u8"any");
+        }
+
+        // Appends a Luau parameter list `(p0: T0, p1: T1, ...)` from a method/constructor's params,
+        // using the A6 param names (or `arg<N>` when a name is absent). `skipSelf` drops nothing
+        // here - instance methods get an explicit `self` prepended by the caller.
+        void AppendLuauParamList(String& out, const ParamInfo* params, u32 paramCount,
+                                 Span<const TypeInfo* const> declared)
+        {
+            out += u8"(";
+            for (u32 p = 0; p < paramCount; ++p)
+            {
+                if (p > 0)
+                {
+                    out += u8", ";
+                }
+                const ParamInfo& param = params[p];
+                if (param.name != nullptr && param.name[0] != '\0')
+                {
+                    out += ViewOf(param.name);
+                }
+                else
+                {
+                    out += Format(u8"arg{}", p);
+                }
+                out += u8": ";
+                out += LuauTypeName(param.type != nullptr ? param.type() : nullptr, declared);
+            }
+            out += u8")";
+        }
+
     }
 
     // =====================================================================
@@ -1599,6 +1673,17 @@ export namespace foundation::script
         return static_cast<core::u32>(LBC_VERSION_TARGET);
     }
 
+    /// Emits `.d.luau` TYPE DECLARATIONS for the bound engine surface (P5, the agent payoff):
+    /// reflection -> Luau declarations (classes with typed instance methods + properties, static
+    /// tables with `new` + statics, enums as number tables) so luau-analyze / an editor / an agent
+    /// type-checks a script against the REAL API. The object set is the same bounded reachability
+    /// closure the emitter binds, so declarations match the runtime surface exactly. A cook-time
+    /// artifact - regenerate when reflection changes; never committed. Arity families (one script
+    /// name, several arities) collapse to their first overload (a first-pass limit; luau-analyze
+    /// overload types are a later refinement).
+    [[nodiscard]] core::String
+    EmitLuauDeclarations(core::Span<const core::TypeInfo* const> registeredTypes);
+
     /// Registers Luau with the backend registry (scripting.md B1) - the ONE line that makes the
     /// language available; consumers resolve by extension/language, never by type.
     inline void RegisterLuauScriptBackend()
@@ -1609,5 +1694,181 @@ export namespace foundation::script
         desc.fileExtensions.PushBack(core::String(u8"luau"));
         desc.create = []() { return CreateLuauScriptManager(); };
         ScriptBackendRegistry::Get().Register(core::Move(desc));
+    }
+
+    core::String EmitLuauDeclarations(core::Span<const core::TypeInfo* const> registeredTypes)
+    {
+        using namespace foundation::core;
+
+        // The bounded reachability closure: the exact object types scripts can use (the one policy
+        // shared with the emitter + DescribeBoundApi), so declarations mirror the runtime surface.
+        Array<const TypeInfo*> declared;
+        CollectEmittableTypes(registeredTypes, declared);
+        const Span<const TypeInfo* const> declaredSpan{declared.Data(), declared.Size()};
+
+        String out;
+        out += u8"--!strict\n";
+        out += u8"-- Engine API declarations (.d.luau), generated from reflection. Do not edit.\n\n";
+
+        // Enums: a named number table (EnumName.ValueName), matching the runtime's EmitEnum.
+        for (const TypeInfo* type : registeredTypes)
+        {
+            if (type == nullptr || type->enumeratorCount == 0)
+            {
+                continue;
+            }
+            out += u8"declare ";
+            out += ViewOf(type->name);
+            out += u8": {\n";
+            for (const EnumValue& value : Enumerators(*type))
+            {
+                out += u8"    ";
+                out += ViewOf(value.name);
+                out += u8": number,\n";
+            }
+            out += u8"}\n\n";
+        }
+
+        // Object types: the instance TYPE (`declare class`) + the VALUE table (`new` + statics).
+        for (const TypeInfo* type : declared)
+        {
+            const StringView name = ViewOf(type->name);
+
+            // --- instance type: properties + colon methods (self-first) ---
+            out += u8"declare class ";
+            out += name;
+            out += u8"\n";
+            for (const TypeInfo* t = type; t != nullptr; t = t->base)
+            {
+                for (u32 p = 0; p < t->propertyCount; ++p)
+                {
+                    const PropertyInfo& prop = t->properties[p];
+                    if (prop.name == nullptr)
+                    {
+                        continue;
+                    }
+                    out += u8"    ";
+                    out += ViewOf(prop.name);
+                    out += u8": ";
+                    out += LuauTypeName(prop.type, declaredSpan);
+                    out += u8"\n";
+                }
+            }
+            Array<StringView> seenInstance; // dedup arity families (first overload wins)
+            for (const TypeInfo* t = type; t != nullptr; t = t->base)
+            {
+                for (const MethodInfo& method : Methods(*t))
+                {
+                    if (method.name == nullptr || method.isStatic)
+                    {
+                        continue;
+                    }
+                    const StringView methodName = ViewOf(ScriptMethodName(method));
+                    bool seen = false;
+                    for (const StringView existing : seenInstance)
+                    {
+                        if (existing == methodName)
+                        {
+                            seen = true;
+                            break;
+                        }
+                    }
+                    if (seen)
+                    {
+                        continue;
+                    }
+                    seenInstance.PushBack(methodName);
+                    out += u8"    function ";
+                    out += methodName;
+                    out += u8"(self";
+                    for (u32 p = 0; p < method.paramCount; ++p)
+                    {
+                        out += u8", ";
+                        const ParamInfo& param = method.params[p];
+                        if (param.name != nullptr && param.name[0] != '\0')
+                        {
+                            out += ViewOf(param.name);
+                        }
+                        else
+                        {
+                            out += Format(u8"arg{}", p);
+                        }
+                        out += u8": ";
+                        out += LuauTypeName(param.type != nullptr ? param.type() : nullptr,
+                                            declaredSpan);
+                    }
+                    out += u8"): ";
+                    out += LuauTypeName(method.returnType(), declaredSpan);
+                    out += u8"\n";
+                }
+            }
+            out += u8"end\n";
+
+            // --- value table: `new` (first constructor) + static methods, on the global name ---
+            out += u8"declare ";
+            out += name;
+            out += u8": {\n";
+            if (type->constructorCount > 0)
+            {
+                // Every constructor is an overload of `new` - a Luau intersection of function
+                // types (`((a) -> T) & ((b) -> T)`), so a type-checker accepts each real arity
+                // (e.g. Float3.new() AND Float3.new(x, y, z)). A single constructor needs no `&`.
+                out += u8"    new: ";
+                const bool overloaded = type->constructorCount > 1;
+                for (u32 c = 0; c < type->constructorCount; ++c)
+                {
+                    if (c > 0)
+                    {
+                        out += u8" & ";
+                    }
+                    if (overloaded)
+                    {
+                        out += u8"(";
+                    }
+                    const ConstructorInfo& ctor = type->constructors[c];
+                    AppendLuauParamList(out, ctor.params, ctor.paramCount, declaredSpan);
+                    out += u8" -> ";
+                    out += name;
+                    if (overloaded)
+                    {
+                        out += u8")";
+                    }
+                }
+                out += u8",\n";
+            }
+            Array<StringView> seenStatic;
+            for (const MethodInfo& method : Methods(*type))
+            {
+                if (method.name == nullptr || !method.isStatic)
+                {
+                    continue;
+                }
+                const StringView methodName = ViewOf(ScriptMethodName(method));
+                bool seen = false;
+                for (const StringView existing : seenStatic)
+                {
+                    if (existing == methodName)
+                    {
+                        seen = true;
+                        break;
+                    }
+                }
+                if (seen)
+                {
+                    continue;
+                }
+                seenStatic.PushBack(methodName);
+                out += u8"    ";
+                out += methodName;
+                out += u8": ";
+                AppendLuauParamList(out, method.params, method.paramCount, declaredSpan);
+                out += u8" -> ";
+                out += LuauTypeName(method.returnType(), declaredSpan);
+                out += u8",\n";
+            }
+            out += u8"}\n\n";
+        }
+
+        return out;
     }
 }

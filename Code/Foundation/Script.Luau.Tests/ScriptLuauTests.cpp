@@ -365,3 +365,44 @@ TEST_CASE("script.luau: backend conformance battery")
     conformance::RunScriptBackendConformance([]() { return CreateLuauScriptManager(); },
                                              dialect);
 }
+
+TEST_CASE("script.luau: .d.luau declaration emitter - typed surface for luau-analyze (P5)")
+{
+    RegisterCoreTypes();       // Float3 (-> native vector)
+    RttiRegisterEnum_Facing(); // the Facing enum
+
+    const TypeInfo* types[] = {&TypeOf<Float3>(), &VecHolder::StaticType(), &TypeOf<Facing>()};
+    const String decls = EmitLuauDeclarations(Span<const TypeInfo* const>{types, 3});
+
+    const StringView text = decls.AsView();
+    auto has = [text](StringView needle)
+    {
+        if (needle.Size() > text.Size())
+        {
+            return false;
+        }
+        for (usize i = 0; i + needle.Size() <= text.Size(); ++i)
+        {
+            if (text.SubStr(i, needle.Size()) == needle)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Float3: an instance class + a value table; its constructors emit as an overload intersection
+    // so both Float3.new() and Float3.new(x, y, z) type-check; a static reads the native vector.
+    CHECK(has(u8"declare class Float3"));
+    CHECK(has(u8"declare Float3: {"));
+    CHECK(has(u8"new: (() -> Float3) & ("));    // >1 constructor -> intersection of overloads
+    CHECK(has(u8"Dot: (arg0: vector, arg1: vector) -> number")); // static over native vectors
+    // VecHolder: a Float3 property maps to `vector`; scaledBy(f32)->Float3 typed self+param+ret.
+    CHECK(has(u8"declare class VecHolder"));
+    CHECK(has(u8"pos: vector"));
+    CHECK(has(u8"function scaledBy(self, arg0: number): vector")); // param name unreflected -> arg0
+    CHECK(has(u8"new: () -> VecHolder"));
+    // The enum surfaces as a named number table (non-contiguous West present by name).
+    CHECK(has(u8"declare Facing: {"));
+    CHECK(has(u8"West: number"));
+}
