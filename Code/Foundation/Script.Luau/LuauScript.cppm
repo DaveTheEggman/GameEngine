@@ -1076,6 +1076,18 @@ namespace foundation::script
             {
                 entry.started = true;
                 drop = ResumeCoroutine(entry);
+                // Luau defers the FIRST resume to here (never re-entering the VM mid-begin), but
+                // the other backends run it inline during onStart, so their first AdvanceCoroutines
+                // already counts this frame's dt against the wait. Count it here too so a Luau
+                // coroutine's timer starts on the SAME frame it began - identical wait timing.
+                if (!drop && entry.predicateRef == LUA_NOREF)
+                {
+                    entry.remainingSeconds -= deltaSeconds;
+                    if (entry.remainingSeconds <= 0.0)
+                    {
+                        drop = ResumeCoroutine(entry);
+                    }
+                }
             }
             else if (entry.predicateRef != LUA_NOREF)
             {

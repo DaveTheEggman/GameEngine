@@ -327,6 +327,94 @@ TEST_CASE("script.scene: LUAU hash-keyed property override wins over the harvest
     CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 5.0f));
 }
 
+TEST_CASE("script.scene: LUAU entity.send invokes on<Message>(arg) on the target behavior")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> receiver = MakeClassLang(
+        u8"luau", u8"Receiver",
+        u8"Receiver = {}\n"
+        u8"Receiver.__index = Receiver\n"
+        u8"function Receiver.new(entity) return setmetatable({ entity = entity }, Receiver) end\n"
+        u8"function Receiver:onPing(amount) self.entity:setName(\"pinged:\" .. tostring(amount)) end\n",
+        {u8"onPing"});
+    RefPtr<ScriptClass> sender = MakeClassLang(
+        u8"luau", u8"Sender",
+        u8"Sender = {}\n"
+        u8"Sender.__index = Sender\n"
+        u8"function Sender.new(entity) return setmetatable({ entity = entity }, Sender) end\n"
+        u8"function Sender:onStart() self.entity:send(\"ping\", 7) end\n",
+        {u8"onStart"});
+
+    scene::EntityHandle target = bed.scene.CreateEntity(u8"target");
+    ScriptComponent& component = bed.components->Add(target);
+    {
+        ScriptBehavior b;
+        b.script = receiver;
+        component.behaviors.PushBack(Move(b));
+    }
+    {
+        ScriptBehavior b;
+        b.script = sender;
+        component.behaviors.PushBack(Move(b));
+    }
+
+    bed.Start();
+    bed.Frame(); // both instantiate; sender.onStart -> send "ping" 7 -> receiver.onPing(7)
+    CHECK(bed.scene.GetEntityName(target) == StringView(u8"pinged:7"));
+}
+
+TEST_CASE("script.scene: LUAU updateInterval throttles onUpdate and delivers accumulated dt")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> ticker = MakeClassLang(
+        u8"luau", u8"Ticker",
+        u8"Ticker = {}\n"
+        u8"Ticker.__index = Ticker\n"
+        u8"function Ticker.new(entity) return setmetatable({ entity = entity }, Ticker) end\n"
+        u8"function Ticker:onUpdate(dt)\n"
+        u8"    local p = self.entity:position()\n"
+        u8"    self.entity:setPosition(p.x + 1.0, dt, p.z)\n" // x counts calls; y = last dt
+        u8"end\n",
+        {u8"onUpdate"});
+    const scene::EntityHandle e = bed.AddScripted(ticker, u8"ticker");
+    bed.components->Get(e)->behaviors[0].updateInterval = 1.0f;
+
+    bed.Start();
+    bed.Frame(0.5f); // acc 0.5 < 1.0 -> no update
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 0.0f));
+    bed.Frame(0.5f); // acc 1.0 -> ONE update, dt = accumulated 1.0
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.y, 1.0f)); // accumulated dt, not 0.5
+}
+
+TEST_CASE("script.scene: LUAU coroutine waitSeconds(1.0) runs its body only after ~1s of ticks")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> waiter = MakeClassLang(
+        u8"luau", u8"Waiter",
+        u8"Waiter = {}\n"
+        u8"Waiter.__index = Waiter\n"
+        u8"function Waiter.new(entity) return setmetatable({ entity = entity }, Waiter) end\n"
+        u8"function Waiter:onStart()\n"
+        u8"    local this = self\n"
+        u8"    startCoroutine(function()\n"
+        u8"        waitSeconds(1.0)\n"
+        u8"        this.entity:setPosition(5, 0, 0)\n"
+        u8"    end, self)\n"
+        u8"end\n",
+        {u8"onStart"});
+    waiter->usesCoroutines = true;
+
+    const scene::EntityHandle e = bed.AddScripted(waiter, u8"w");
+    bed.Start();
+    bed.Frame(0.5f); // onStart starts waitSeconds 1.0; +0.5s -> still pending
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 0.0f));
+    bed.Frame(0.5f); // +0.5s -> 1.0s reached -> resume sets position
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 5.0f));
+    bed.Frame(0.5f); // completed coroutine does not run again
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 5.0f));
+}
+
 TEST_CASE("script.scene: harvested defaults apply; hash-keyed overrides win")
 {
     ScriptedScene bed;
@@ -1572,6 +1660,35 @@ TEST_CASE("script.scene: a physics trigger dispatches onTriggerEnter(other) to a
     world.Play(240);
 
     CHECK(world.scene->GetEntityName(volume) == StringView(u8"sensed:faller"));
+}
+
+TEST_CASE("script.scene: LUAU physics onContactBegin(other, point, normal, speed) - all four "
+          "args cross to a Luau behavior")
+{
+    ContactWorld world;
+    const scene::EntityHandle floor = world.AddBody(
+        u8"floor", Float3{0, -0.5f, 0}, physics::MotionKind::Static, Float3{50, 0.5f, 50});
+    (void)floor;
+    const scene::EntityHandle box = world.AddBody(
+        u8"box", Float3{0, 1.4f, 0}, physics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
+
+    // The `normal` + `point` are Float3 native vectors; `other` is an Entity handle; `speed` an
+    // f64 - proving the whole 4-arg contact payload marshals through the Luau metatable dispatch.
+    RefPtr<ScriptClass> bumper = MakeClassLang(
+        u8"luau", u8"Bumper",
+        u8"Bumper = {}\n"
+        u8"Bumper.__index = Bumper\n"
+        u8"function Bumper.new(entity) return setmetatable({ entity = entity }, Bumper) end\n"
+        u8"function Bumper:onContactBegin(other, point, normal, speed)\n"
+        u8"    local len = normal.x*normal.x + normal.y*normal.y + normal.z*normal.z\n"
+        u8"    if speed >= 0 and len > 0.5 then self.entity:setName(\"hit:\" .. other:name()) end\n"
+        u8"end\n",
+        {u8"onContactBegin"});
+    world.Attach(box, bumper);
+
+    world.Play(180);
+
+    CHECK(world.scene->GetEntityName(box) == StringView(u8"hit:floor"));
 }
 
 TEST_CASE("script.scene: behaviors tick without error when no physics subsystem is present "
