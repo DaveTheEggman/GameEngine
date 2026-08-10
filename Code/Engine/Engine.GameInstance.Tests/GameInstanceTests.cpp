@@ -15,6 +15,7 @@ import foundation.script;
 import foundation.script.facades; // RegisterScriptFacadeReflection (the Scene facade)
 import foundation.script.wren;
 import foundation.script.angelscript;
+import foundation.script.luau;
 import foundation.net;         // NetSession queries (IsServer/PeerCount)
 import foundation.net.manager; // NetworkManager (the endpoint the instance owns)
 import foundation.input;       // ActionRuntime / IInputSourceProvider (per-instance input)
@@ -207,6 +208,32 @@ TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
 
     gi.DriveRunHost(0.016f);     // advance the run host clock/GC (must not fault)
     gi.TickScript(0.016f, 1.0f); // must not fault
+    CHECK(gi.ScriptRunning());
+
+    gi.StopScript();
+    CHECK_FALSE(gi.ScriptRunning());
+}
+
+TEST_CASE("game-instance: starts, ticks, and stops a LUAU Game orchestrator (the Game tier)")
+{
+    RegisterCoreTypes();
+    foundation::script::RegisterLuauScriptBackend();
+
+    engine::runtime::GameInstance gi;
+    const bool ok = gi.StartScript(u8"Game = {}\n"
+                                   u8"Game.__index = Game\n"
+                                   u8"function Game.new() return setmetatable({}, Game) end\n"
+                                   u8"function Game:launch() end\n"
+                                   u8"function Game:update(dt) end\n"
+                                   u8"function Game:exit() end\n",
+                                   u8"game.luau"); // the .luau extension resolves the Luau backend
+    REQUIRE(ok);
+    CHECK(gi.ScriptRunning());
+    CHECK(gi.ScriptContext() != nullptr);
+    CHECK(gi.RunHost().IsActive());
+
+    gi.DriveRunHost(0.016f);     // advance the run host clock/GC (must not fault)
+    gi.TickScript(0.016f, 1.0f); // update() (must not fault)
     CHECK(gi.ScriptRunning());
 
     gi.StopScript();

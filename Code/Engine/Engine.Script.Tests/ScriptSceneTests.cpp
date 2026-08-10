@@ -1201,6 +1201,224 @@ TEST_CASE("script.scene: updateInterval survives the SerializeScene wire (P3 sym
     CHECK(Near(lc->behaviors[0].updateInterval, 0.25f));
 }
 
+TEST_CASE("script.scene: LUAU enable/disable edges dispatch onEnable/onDisable; disabled skips tick")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> toggler = MakeClassLang(
+        u8"luau", u8"Toggler",
+        u8"Toggler = {}\n"
+        u8"Toggler.__index = Toggler\n"
+        u8"function Toggler.new(entity) return setmetatable({ entity = entity }, Toggler) end\n"
+        u8"function Toggler:onEnable() self.entity:setName(self.entity:name() .. \"+on\") end\n"
+        u8"function Toggler:onDisable() self.entity:setName(self.entity:name() .. \"+off\") end\n"
+        u8"function Toggler:onUpdate(dt)\n"
+        u8"    local p = self.entity:position()\n"
+        u8"    self.entity:setPosition(p.x + 1, p.y, p.z)\n"
+        u8"end\n",
+        {u8"onEnable", u8"onDisable", u8"onUpdate"});
+
+    const scene::EntityHandle e = bed.AddScripted(toggler, u8"t");
+    bed.Start();
+    bed.Frame();
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"t+on"));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+
+    bed.components->Get(e)->behaviors[0].enabled = false;
+    bed.Frame(); // onDisable, no tick
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"t+on+off"));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+
+    bed.components->Get(e)->behaviors[0].enabled = true;
+    bed.Frame(); // onEnable again + ticks
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"t+on+off+on"));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));
+}
+
+TEST_CASE("script.scene: LUAU onDestroy fires on entity destroy AND on scene stop")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> counter = MakeClassLang(
+        u8"luau", u8"Counter",
+        u8"DestroyCount = 0\n"
+        u8"Counter = {}\n"
+        u8"Counter.__index = Counter\n"
+        u8"function Counter.new(entity) return setmetatable({ entity = entity }, Counter) end\n"
+        u8"function Counter:onUpdate(dt) end\n"
+        u8"function Counter:onDestroy() DestroyCount = DestroyCount + 1 end\n",
+        {u8"onUpdate", u8"onDestroy"});
+
+    const scene::EntityHandle a = bed.AddScripted(counter, u8"a");
+    (void)bed.AddScripted(counter, u8"b");
+    bed.Start();
+    bed.Frame();
+    CHECK(bed.scripts->InstanceCount() == 2u);
+
+    bed.scene.DestroyEntity(a);
+    bed.Frame();
+    CHECK(bed.scripts->InstanceCount() == 1u);
+    {
+        const Variant count = bed.host.Context()->GetGlobal(u8"DestroyCount");
+        REQUIRE(count.TryGet<f64>() != nullptr);
+        CHECK(*count.TryGet<f64>() == 1.0);
+    }
+
+    bed.scene.Stop();
+    CHECK(bed.scripts->InstanceCount() == 0u);
+    {
+        const Variant count = bed.host.Context()->GetGlobal(u8"DestroyCount");
+        REQUIRE(count.TryGet<f64>() != nullptr);
+        CHECK(*count.TryGet<f64>() == 2.0);
+    }
+}
+
+TEST_CASE("script.scene: LUAU a faulting behavior is disabled; siblings keep running")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> faulty = MakeClassLang(
+        u8"luau", u8"Faulty",
+        u8"Faulty = {}\n"
+        u8"Faulty.__index = Faulty\n"
+        u8"function Faulty.new(entity) return setmetatable({ entity = entity }, Faulty) end\n"
+        u8"function Faulty:onUpdate(dt) error(\"boom\") end\n",
+        {u8"onUpdate"});
+    RefPtr<ScriptClass> steady = MakeClassLang(
+        u8"luau", u8"Steady",
+        u8"Steady = {}\n"
+        u8"Steady.__index = Steady\n"
+        u8"function Steady.new(entity) return setmetatable({ entity = entity }, Steady) end\n"
+        u8"function Steady:onUpdate(dt)\n"
+        u8"    local p = self.entity:position()\n"
+        u8"    self.entity:setPosition(p.x + 1, p.y, p.z)\n"
+        u8"end\n",
+        {u8"onUpdate"});
+
+    const scene::EntityHandle e = bed.scene.CreateEntity(u8"both");
+    ScriptComponent& c = bed.components->Add(e);
+    {
+        ScriptBehavior first;
+        first.script = faulty;
+        c.behaviors.PushBack(Move(first));
+        ScriptBehavior second;
+        second.script = steady;
+        c.behaviors.PushBack(Move(second));
+    }
+
+    bed.Start();
+    bed.Frame();
+    bed.Frame();
+    ScriptComponent* live = bed.components->Get(e);
+    CHECK(live->behaviors[0].faulted);                           // disabled after the fault
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f)); // sibling unaffected
+}
+
+TEST_CASE("script.scene: LUAU hot reload - product swap re-instantiates + re-applies overrides")
+{
+    ScriptedScene bed;
+    const char8_t* moverV1 =
+        u8"Mover = {}\n"
+        u8"Mover.__index = Mover\n"
+        u8"function Mover.new(entity) return setmetatable({ entity = entity, speed = 0.0 }, Mover) end\n"
+        u8"function Mover:onStart() self.entity:setName(self.entity:name() .. \"+start\") end\n"
+        u8"function Mover:onUpdate(dt)\n"
+        u8"    local p = self.entity:position()\n"
+        u8"    self.entity:setPosition(p.x + self.speed * dt, p.y, p.z)\n"
+        u8"end\n";
+    // v2: DOUBLE the speed effect - an observable difference after reload.
+    const char8_t* moverV2 =
+        u8"Mover = {}\n"
+        u8"Mover.__index = Mover\n"
+        u8"function Mover.new(entity) return setmetatable({ entity = entity, speed = 0.0 }, Mover) end\n"
+        u8"function Mover:onStart() self.entity:setName(self.entity:name() .. \"+restart\") end\n"
+        u8"function Mover:onUpdate(dt)\n"
+        u8"    local p = self.entity:position()\n"
+        u8"    self.entity:setPosition(p.x + 2 * self.speed * dt, p.y, p.z)\n"
+        u8"end\n";
+
+    RefPtr<ScriptClass> v1 =
+        MakeClassLang(u8"luau", u8"Mover", moverV1, {u8"onStart", u8"onUpdate"},
+                      {FloatProperty(u8"speed", 1.0)});
+    const scene::EntityHandle e = bed.AddScripted(v1, u8"m");
+    {
+        ScriptPropertyValue three;
+        three.kind = ScriptPropertyType::Float;
+        three.number = 3.0;
+        bed.components->Get(e)->behaviors[0].SetOverride(ScriptPropertyNameHash(u8"speed"), three);
+    }
+    bed.Start();
+    bed.Frame(); // dt 0.5: x = 1.5 (override 3)
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"m+start"));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.5f));
+
+    RefPtr<ScriptClass> v2 =
+        MakeClassLang(u8"luau", u8"Mover", moverV2, {u8"onStart", u8"onUpdate"},
+                      {FloatProperty(u8"speed", 1.0)});
+    bed.components->Get(e)->behaviors[0].script = v2;
+
+    bed.Frame(); // re-instantiate (fresh state, onStart again), override RE-APPLIED
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"m+start+restart"));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 4.5f)); // +2*3*0.5
+    CHECK(bed.components->Get(e)->behaviors[0].boundClass == v2.Get());
+}
+
+TEST_CASE("script.scene: LUAU entity-typed property resolves a guid to a live entity handle")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> chaser = MakeClassLang(
+        u8"luau", u8"Chaser",
+        u8"Chaser = {}\n"
+        u8"Chaser.__index = Chaser\n"
+        u8"function Chaser.new(entity) return setmetatable({ entity = entity, target = nil }, Chaser) end\n"
+        u8"function Chaser:onUpdate(dt)\n"
+        u8"    if self.target ~= nil then\n"
+        u8"        local t = self.target:position()\n"
+        u8"        self.entity:setPosition(t.x, t.y, t.z)\n"
+        u8"    end\n"
+        u8"end\n",
+        {u8"onUpdate"}, {EntityProperty(u8"target")});
+
+    const scene::EntityHandle goal = bed.scene.CreateEntity(u8"goal");
+    bed.scene.SetLocalPosition(goal, Float3{7.0f, 8.0f, 9.0f});
+    const scene::EntityHandle e = bed.AddScripted(chaser, u8"chaser");
+    {
+        ScriptPropertyValue target;
+        target.kind = ScriptPropertyType::Entity;
+        target.guid = bed.scene.GetEntityId(goal);
+        bed.components->Get(e)->behaviors[0].SetOverride(ScriptPropertyNameHash(u8"target"), target);
+    }
+    bed.Start();
+    bed.Frame();
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 7.0f));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.z, 9.0f));
+}
+
+TEST_CASE("script.scene: LUAU Log/Time/Random facades are callable (service-bound per run)")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> user = MakeClassLang(
+        u8"luau", u8"FacadeUser",
+        u8"FacadeUser = {}\n"
+        u8"FacadeUser.__index = FacadeUser\n"
+        u8"function FacadeUser.new(entity) return setmetatable({ entity = entity, ticks = 0 }, FacadeUser) end\n"
+        u8"function FacadeUser:onUpdate(dt)\n"
+        u8"    self.ticks = self.ticks + 1\n"
+        u8"    Log.info(\"tick at \" .. tostring(Time.now()) .. \" delta \" .. tostring(Time.delta()))\n"
+        u8"    local r = Random.range(1.0, 2.0)\n"
+        u8"    if r < 1.0 or r >= 2.0 then error(\"range broken\") end\n"
+        u8"    if self.ticks > 1 and Time.delta() <= 0 then error(\"delta broken\") end\n"
+        u8"    if self.ticks > 1 and Time.now() <= 0 then error(\"clock broken\") end\n"
+        u8"    self.entity:setPosition(Random.intRange(4, 4), 0, 0)\n"
+        u8"end\n",
+        {u8"onUpdate"});
+
+    const scene::EntityHandle e = bed.AddScripted(user, u8"f");
+    bed.Start();
+    bed.Frame();
+    bed.Frame();
+    ScriptComponent* c = bed.components->Get(e);
+    CHECK_FALSE(c->behaviors[0].faulted);
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 4.0f));
+}
+
 TEST_CASE("script.scene: Scene.spawn routes through the run spawner to the current scene "
           "and returns a live Entity (P2)")
 {
@@ -1254,6 +1472,58 @@ TEST_CASE("script.scene: Scene.spawn routes through the run spawner to the curre
     CHECK(lastPrefab == Guid{0xABC, 0xDEF});
     // Scene.spawn returned the live Entity: the script renamed it and it sits at the
     // requested world position.
+    REQUIRE(spawnedHandle.IsAssigned());
+    CHECK(bed.scene.GetEntityName(spawnedHandle) == StringView(u8"child"));
+    CHECK(Near(bed.scene.GetLocalTransform(spawnedHandle).position.x, 3.0f));
+    CHECK(Near(bed.scene.GetLocalTransform(spawnedHandle).position.z, 5.0f));
+}
+
+TEST_CASE("script.scene: LUAU Scene.spawn routes through the run spawner + returns a live Entity")
+{
+    ScriptedScene bed;
+
+    int spawnCalls = 0;
+    Guid lastPrefab;
+    scene::EntityHandle spawnedHandle;
+    bed.host.Binding().spawnPrefab =
+        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
+            [&](scene::Scene* scene, const Guid& prefabId,
+                const Float3& position) -> scene::EntityHandle
+            {
+                ++spawnCalls;
+                lastPrefab = prefabId;
+                spawnedHandle = scene->CreateEntity(u8"spawned");
+                scene->SetLocalPosition(spawnedHandle, position);
+                return spawnedHandle;
+            }};
+
+    // The prefab id crosses as an Asset property (a Guid), is stored on the instance field, then
+    // read back and passed to spawn - exercising Guid marshalling both ways through the Luau VM.
+    RefPtr<ScriptClass> spawner = MakeClassLang(
+        u8"luau", u8"Spawner",
+        u8"Spawner = {}\n"
+        u8"Spawner.__index = Spawner\n"
+        u8"function Spawner.new(entity) return setmetatable({ entity = entity }, Spawner) end\n"
+        u8"function Spawner:onStart()\n"
+        u8"    local e = self.entity.scene:spawn(self.prefab, 3.0, 4.0, 5.0)\n"
+        u8"    e:setName(\"child\")\n"
+        u8"end\n",
+        {u8"onStart"});
+    ScriptPropertyDesc prefabProp;
+    prefabProp.name = String(u8"prefab");
+    prefabProp.hash = ScriptPropertyNameHash(u8"prefab");
+    prefabProp.type = ScriptPropertyType::Asset;
+    prefabProp.assetType = String(u8"Prefab");
+    prefabProp.defaultValue.kind = ScriptPropertyType::Asset;
+    prefabProp.defaultValue.guid = Guid{0xABC, 0xDEF};
+    spawner->properties.PushBack(prefabProp);
+
+    (void)bed.AddScripted(spawner, u8"spawner");
+    bed.Start();
+    bed.Frame();
+
+    CHECK(spawnCalls == 1);
+    CHECK(lastPrefab == Guid{0xABC, 0xDEF});
     REQUIRE(spawnedHandle.IsAssigned());
     CHECK(bed.scene.GetEntityName(spawnedHandle) == StringView(u8"child"));
     CHECK(Near(bed.scene.GetLocalTransform(spawnedHandle).position.x, 3.0f));
