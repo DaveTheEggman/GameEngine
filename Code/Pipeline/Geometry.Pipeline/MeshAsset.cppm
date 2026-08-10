@@ -120,9 +120,9 @@ export namespace pipeline{
 
     inline void RegisterMeshAssets()
     {
-        GlobalTypeRegistry().Register(StaticMeshAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(StaticMeshAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<StaticMeshAsset>();
-        GlobalTypeRegistry().Register(SkinnedMeshAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(SkinnedMeshAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<SkinnedMeshAsset>();
     }
 

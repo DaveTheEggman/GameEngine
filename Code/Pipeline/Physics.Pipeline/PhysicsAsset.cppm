@@ -295,9 +295,9 @@ export namespace pipeline{
     inline void RegisterPhysicsAssets()
     {
         RegisterPhysicsAssetReflection(); // CollisionCookKind names for the property grid
-        GlobalTypeRegistry().Register(CollisionShapeAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(CollisionShapeAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<CollisionShapeAsset>();
-        GlobalTypeRegistry().Register(PhysicalMaterialAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(PhysicalMaterialAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<PhysicalMaterialAsset>();
     }
 }

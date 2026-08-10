@@ -681,7 +681,7 @@ export namespace pipeline{
     // Registers the asset type for content-DB construction + deserialization.
     inline void RegisterScriptAssets()
     {
-        GlobalTypeRegistry().Register(ScriptClassAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(ScriptClassAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<ScriptClassAsset>();
     }
 

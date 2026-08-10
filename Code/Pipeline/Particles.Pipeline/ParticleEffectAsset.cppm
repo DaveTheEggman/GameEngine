@@ -117,7 +117,7 @@ export namespace pipeline{
     inline void RegisterParticleEffectAsset()
     {
         RegisterParticleEffectResource();
-        GlobalTypeRegistry().Register(ParticleEffectAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(ParticleEffectAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<ParticleEffectAsset>();
     }
 

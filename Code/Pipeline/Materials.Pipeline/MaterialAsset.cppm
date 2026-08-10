@@ -101,7 +101,7 @@ export namespace pipeline{
     inline void RegisterMaterialAsset()
     {
         RegisterMaterialsTypeReflection(); // the render-state enums the source's fields resolve to
-        GlobalTypeRegistry().Register(MaterialAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(MaterialAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<MaterialAsset>();
     }
 

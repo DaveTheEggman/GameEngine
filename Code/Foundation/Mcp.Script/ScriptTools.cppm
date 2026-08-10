@@ -28,6 +28,25 @@ using foundation::json::JsonValue;
 
 namespace foundation::mcp::script_detail
 {
+    // A domain's readable name from the small KNOWN set (hashes the literals - no Pipeline/Editor
+    // module dependency). Empty for a custom domain; the in-player bit stays robust for any domain.
+    inline StringView DomainName(TypeDomain domain)
+    {
+        if (domain == kRuntimeTypeDomain)
+        {
+            return u8"Runtime";
+        }
+        if (domain == TypeDomain(u8"Pipeline"))
+        {
+            return u8"Pipeline";
+        }
+        if (domain == TypeDomain(u8"Editor"))
+        {
+            return u8"Editor";
+        }
+        return u8"";
+    }
+
     inline StringView KindName(foundation::script::ScriptApiMemberKind kind)
     {
         switch (kind)
@@ -61,6 +80,19 @@ namespace foundation::mcp::script_detail
                 JsonValue typeObj = JsonValue::MakeObject();
                 typeObj.Set(u8"scriptName", JsonValue::MakeString(t.scriptName));
                 typeObj.Set(u8"isNamespace", JsonValue::MakeBool(t.isNamespace));
+                // Availability domain (reflected identity -> registry): agents need to know a type
+                // exists for authoring (e.g. an asset) but NOT in a shipped player. inPlayer is the
+                // robust bit (Runtime domain); domain is the readable name when known.
+                if (t.typeId != 0)
+                {
+                    const TypeDomain domain = GlobalTypeRegistry().DomainOf(t.typeId);
+                    const StringView domainName = DomainName(domain);
+                    if (!domainName.IsEmpty())
+                    {
+                        typeObj.Set(u8"domain", JsonValue::MakeString(String(domainName)));
+                    }
+                    typeObj.Set(u8"inPlayer", JsonValue::MakeBool(domain == kRuntimeTypeDomain));
+                }
                 JsonValue members = JsonValue::MakeArray();
                 for (const foundation::script::ScriptApiMember& m : t.members)
                 {

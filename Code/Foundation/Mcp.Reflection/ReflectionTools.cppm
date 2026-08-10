@@ -62,12 +62,47 @@ namespace foundation::mcp::detail
         return a[i] == '\0'; // exact match: a is fully consumed
     }
 
+    // A domain's readable name from the small KNOWN set (just hashes the literals - no dependency
+    // on the Pipeline/Editor modules). Empty for a custom domain the tool does not know by name;
+    // the robust in-player bit (below) still works for any domain.
+    inline StringView DomainName(TypeDomain domain)
+    {
+        if (domain == kRuntimeTypeDomain)
+        {
+            return u8"Runtime";
+        }
+        if (domain == TypeDomain(u8"Pipeline"))
+        {
+            return u8"Pipeline";
+        }
+        if (domain == TypeDomain(u8"Editor"))
+        {
+            return u8"Editor";
+        }
+        return u8"";
+    }
+
+    // Emit {domain, inPlayer} for a type: `domain` is the availability domain's readable name;
+    // `inPlayer` is true iff it ships in a runtime player (Runtime domain) - the agent-facing point
+    // (a TextureAsset exists for authoring but NOT in a shipped player). Non-Runtime = authoring-only.
+    inline void SetDomain(JsonValue& out, const TypeRegistry& reg, TypeId id)
+    {
+        const TypeDomain domain = reg.DomainOf(id);
+        const StringView name = DomainName(domain);
+        if (!name.IsEmpty())
+        {
+            out.Set(u8"domain", JsonValue::MakeString(String(name)));
+        }
+        out.Set(u8"inPlayer", JsonValue::MakeBool(domain == kRuntimeTypeDomain));
+    }
+
     // The full reflected surface of one type as a JSON object.
-    inline JsonValue DescribeType(const TypeInfo& type)
+    inline JsonValue DescribeType(const TypeInfo& type, const TypeRegistry& reg)
     {
         JsonValue out = JsonValue::MakeObject();
         out.Set(u8"name", Name(type.name));
         out.Set(u8"namespace", Name(type.namespaceName));
+        SetDomain(out, reg, type.id);
         if (type.base != nullptr)
         {
             out.Set(u8"base", Name(type.base->name));
@@ -156,6 +191,7 @@ export namespace foundation::mcp
                     JsonValue e = JsonValue::MakeObject();
                     e.Set(u8"name", detail::Name(t->name));
                     e.Set(u8"namespace", detail::Name(t->namespaceName));
+                    detail::SetDomain(e, *reg, t->id);
                     types.Add(Move(e));
                 }
                 const i64 count = types.Count();
@@ -199,7 +235,7 @@ export namespace foundation::mcp
                 {
                     return Err(Format(u8"unknown type '{}'", typeName.AsView()));
                 }
-                return detail::DescribeType(*type);
+                return detail::DescribeType(*type, *reg);
             });
     }
 }

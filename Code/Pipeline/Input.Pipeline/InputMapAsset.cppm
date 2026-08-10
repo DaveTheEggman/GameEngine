@@ -94,7 +94,7 @@ export namespace pipeline{
     {
         RegisterInputMapResource();
         RegisterInputTypeReflection(); // the InputMap tree the asset's Nested `map` recurses into
-        GlobalTypeRegistry().Register(InputMapAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(InputMapAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<InputMapAsset>();
     }
 

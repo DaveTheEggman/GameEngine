@@ -31,6 +31,14 @@ using namespace foundation::core;
 
 export namespace pipeline
 {
+    // The availability domain for the Pipeline collection's authoring types (asset classes +
+    // import settings). Answers "which processes have this type": the player has them NOT (it
+    // loads cooked products, never authoring assets), so Runtime would be wrong; the headless
+    // cook/CLI/MCP hosts DO have them without the editor, so Editor is wrong too. The truth table:
+    // player = Runtime only; pipeline/CLI/MCP = Runtime + Pipeline; editor = all three. Adding a
+    // domain is free - the set is open (foundation.core owns only the default Runtime domain).
+    inline constexpr TypeDomain kPipelineTypeDomain{StringView(u8"Pipeline")};
+
     // Source/authoring asset: a serializable that references an external source
     // file (relative to the sources mount). Concrete assets derive this and
     // add their import settings; call Asset::Serialize for the file name.

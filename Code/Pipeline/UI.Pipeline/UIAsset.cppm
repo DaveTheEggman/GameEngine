@@ -220,9 +220,9 @@ export namespace pipeline{
 
     inline void RegisterUIAssets()
     {
-        GlobalTypeRegistry().Register(UIDocumentAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(UIDocumentAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<UIDocumentAsset>();
-        GlobalTypeRegistry().Register(UIThemeAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(UIThemeAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<UIThemeAsset>();
     }
 

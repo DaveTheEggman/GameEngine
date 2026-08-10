@@ -31,7 +31,7 @@ namespace pipeline
         static const bool once = []()
         {
             foundation::vfs::RegisterVFSReflection(); // SourcePath (fileName's type)
-            GlobalTypeRegistry().Register(Asset::StaticType(), TypeDomain(u8"Editor"));
+            GlobalTypeRegistry().Register(Asset::StaticType(), TypeDomain(u8"Pipeline"));
             return true;
         }();
         (void)once;

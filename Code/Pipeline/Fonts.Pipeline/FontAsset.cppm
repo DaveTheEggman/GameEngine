@@ -384,7 +384,7 @@ export namespace pipeline{
     inline void RegisterFontAsset()
     {
         RegisterFontAssetReflection(); // FontBakeMode names for the property grid
-        GlobalTypeRegistry().Register(FontAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(FontAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<FontAsset>();
         RegisterFontResource(); // the product type, for the cook's output DB
     }

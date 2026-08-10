@@ -96,7 +96,7 @@ export namespace pipeline{
     inline void RegisterImageAsset()
     {
         RegisterImageReflection(); // ImageColorSpace names for the property grid
-        GlobalTypeRegistry().Register(ImageAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(ImageAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<ImageAsset>();
     }
 }

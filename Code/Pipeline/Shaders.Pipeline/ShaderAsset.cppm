@@ -117,7 +117,7 @@ export namespace pipeline{
     // Registers ShaderAsset for content-DB construction + deserialization.
     inline void RegisterShaderAsset()
     {
-        GlobalTypeRegistry().Register(ShaderAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(ShaderAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<ShaderAsset>();
     }
 

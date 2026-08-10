@@ -674,7 +674,7 @@ export namespace pipeline{
     {
         RegisterTextureReflection();      // TextureShape / TextureFilter / TextureWrap names
         image::RegisterImageReflection(); // ImageColorSpace names
-        GlobalTypeRegistry().Register(TextureAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(TextureAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<TextureAsset>();
     }
 }

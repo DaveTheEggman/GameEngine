@@ -107,9 +107,9 @@ export namespace pipeline{
     // Registers the animation asset types for content-DB construction + deserialization.
     inline void RegisterAnimationAssets()
     {
-        GlobalTypeRegistry().Register(SkeletonAsset::StaticType(), TypeDomain(u8"Editor"));
-        GlobalTypeRegistry().Register(AnimationClipAsset::StaticType(), TypeDomain(u8"Editor"));
-        GlobalTypeRegistry().Register(AnimationGraphAsset::StaticType(), TypeDomain(u8"Editor"));
+        GlobalTypeRegistry().Register(SkeletonAsset::StaticType(), TypeDomain(u8"Pipeline"));
+        GlobalTypeRegistry().Register(AnimationClipAsset::StaticType(), TypeDomain(u8"Pipeline"));
+        GlobalTypeRegistry().Register(AnimationGraphAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<SkeletonAsset>();
         RegisterSerializable<AnimationClipAsset>();
         RegisterSerializable<AnimationGraphAsset>();
