@@ -2303,6 +2303,61 @@ TEST_CASE("script.scene: scene.events.emit reaches a sibling behavior AND the Le
     CHECK(bed.scene.GetEntityName(levelmark) == StringView(u8"level5")); // Level received it too
 }
 
+TEST_CASE("script.scene: LUAU scene.events.emit reaches a sibling behavior AND the Level's "
+          "on<Event>(payload) - both tiers, one bus")
+{
+    ScriptedScene bed;
+    SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
+    level->SetRunHost(&bed.host);
+
+    // The emitter reaches the bus through the facade chain: self.entity.scene (Entity computed
+    // property) .events (Scene computed property) :emit(name, payload) (method, colon call).
+    RefPtr<ScriptClass> emitter = MakeClassLang(
+        u8"luau", u8"Emitter",
+        u8"Emitter = {}\n"
+        u8"Emitter.__index = Emitter\n"
+        u8"function Emitter.new(entity)\n"
+        u8"    return setmetatable({ entity = entity, done = false }, Emitter)\n"
+        u8"end\n"
+        u8"function Emitter:onUpdate(dt)\n"
+        u8"    if not self.done then\n"
+        u8"        self.entity.scene.events:emit(\"OrbCollected\", 5)\n"
+        u8"        self.done = true\n"
+        u8"    end\n"
+        u8"end\n",
+        {u8"onUpdate"});
+    RefPtr<ScriptClass> receiver = MakeClassLang(
+        u8"luau", u8"Receiver",
+        u8"Receiver = {}\n"
+        u8"Receiver.__index = Receiver\n"
+        u8"function Receiver.new(entity) return setmetatable({ entity = entity }, Receiver) end\n"
+        u8"function Receiver:onOrbCollected(n)\n"
+        u8"    if n > 4.5 then self.entity:setName(\"got5\") end\n"
+        u8"end\n",
+        {u8"onOrbCollected"});
+    RefPtr<ScriptClass> levelClass = MakeClassLang(
+        u8"luau", u8"Level",
+        u8"Level = {}\n"
+        u8"Level.__index = Level\n"
+        u8"function Level.new(scene) return setmetatable({ scene = scene }, Level) end\n"
+        u8"function Level:onOrbCollected(n)\n"
+        u8"    if n > 4.5 then self.scene:find(\"levelmark\"):setName(\"level5\") end\n"
+        u8"end\n",
+        {u8"onOrbCollected"});
+    level->Settings().script = levelClass;
+
+    const scene::EntityHandle listener = bed.AddScripted(receiver, u8"listener");
+    (void)bed.AddScripted(emitter, u8"emitter");
+    const scene::EntityHandle levelmark = bed.scene.CreateEntity(u8"levelmark");
+
+    bed.Start();
+    bed.Frame(); // instantiate all; emitter emits; bus drains same frame -> both receive
+    bed.Frame(); // slack for subscription ordering
+
+    CHECK(bed.scene.GetEntityName(listener) == StringView(u8"got5"));   // sibling behavior
+    CHECK(bed.scene.GetEntityName(levelmark) == StringView(u8"level5")); // the Level, same bus
+}
+
 TEST_CASE("script.scene: a destroyed subscriber stops receiving bus events; the emitter "
           "keeps running fault-free (teardown)")
 {
