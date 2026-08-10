@@ -77,6 +77,40 @@ namespace foundation::script
     }
 
     // =====================================================================
+    // Bytecode blob: a compiled Luau chunk (the Bytecode capability).
+    // IScriptManager::CompileToBlob produces one at COOK; IScriptContext::LoadBlob
+    // feeds it back to luau_load in the PLAYER, so the shipped pack carries bytecode
+    // and no compiler runs at load (the sandbox win). Bytecode is version-locked: the
+    // cook fingerprint carries the vendored Luau version so a vendor bump recooks
+    // (luau-backend.md "Vendoring"). Opaque per IScriptBlob's contract - only this
+    // backend produces/consumes it, so LoadBlob downcasts by static_cast.
+    // =====================================================================
+    class LuauScriptBlob final : public IScriptBlob
+    {
+    public:
+        [[nodiscard]] Span<const byte> Bytecode() const noexcept
+        {
+            return Span<const byte>{m_bytecode.Data(), m_bytecode.Size()};
+        }
+        void SetBytecode(const byte* data, usize size)
+        {
+            m_bytecode.Resize(size);
+            if (size > 0)
+            {
+                std::memcpy(m_bytecode.Data(), data, size);
+            }
+        }
+
+        void Serialize(ISerializer& ar) override
+        {
+            foundation::core::Serialize(ar, "bytecode", m_bytecode);
+        }
+
+    private:
+        Array<byte> m_bytecode;
+    };
+
+    // =====================================================================
     // Delegate: a registry-ref'd Lua function. Holding the RefPtr keeps the
     // function GC-alive (lua_ref pins it); Detach() is called by the owning
     // context when the lua_State closes, after which Invoke fails cleanly -
@@ -140,6 +174,7 @@ namespace foundation::script
 
         void SetErrorHandler(IScriptErrorHandler* handler) override { m_errors = handler; }
         Status Load(StringView source, StringView chunkName) override;
+        Status LoadBlob(IScriptBlob& blob) override;
         void SetGlobal(StringView name, const Variant& value) override;
         [[nodiscard]] Variant GetGlobal(StringView name) override;
         [[nodiscard]] bool HasFunction(StringView name) const override;
@@ -230,7 +265,20 @@ namespace foundation::script
 
         [[nodiscard]] ScriptCapabilities Capabilities() const override
         {
-            return ScriptCapabilities::Coroutines | ScriptCapabilities::Delegates;
+            return ScriptCapabilities::Coroutines | ScriptCapabilities::Delegates |
+                   ScriptCapabilities::Bytecode;
+        }
+
+        // Compile source to a Luau bytecode blob (the cook side of the Bytecode seam). The
+        // Luau compiler embeds compile errors in the bytecode - they surface at luau_load -
+        // so this validates the result in a throwaway state and fails the COOK rather than
+        // shipping a chunk that faults on the player's LoadBlob.
+        [[nodiscard]] Result<RefPtr<IScriptBlob>> CompileToBlob(StringView source,
+                                                               StringView chunkName) override;
+
+        [[nodiscard]] RefPtr<IScriptBlob> CreateBlob() override
+        {
+            return RefPtr<IScriptBlob>(MakeRef<LuauScriptBlob>(DefaultAllocator()).Get());
         }
 
         [[nodiscard]] Array<ScriptApiType> DescribeBoundApi() const override;
@@ -1198,6 +1246,37 @@ namespace foundation::script
         return Status{};
     }
 
+    Status LuauScriptContext::LoadBlob(IScriptBlob& blob)
+    {
+        // Only this backend produces Luau blobs, and the run host pairs a Luau context with a
+        // Luau manager, so the blob is always a LuauScriptBlob (IScriptBlob is opaque - it has
+        // no RTTI node - so this is a static downcast by construction, the committed pattern).
+        const LuauScriptBlob& luauBlob = static_cast<LuauScriptBlob&>(blob);
+        const Span<const byte> bytecode = luauBlob.Bytecode();
+        if (bytecode.IsEmpty())
+        {
+            return Status{ErrorCode::InvalidArgument};
+        }
+
+        // luau_load (NOT luau_compile): the player ships bytecode only, no compiler.
+        const int loadStatus =
+            luau_load(m_state, "=blob", reinterpret_cast<const char*>(bytecode.Data()),
+                      bytecode.Size(), 0);
+        if (loadStatus != LUA_OK)
+        {
+            ReportTopOfStack(ScriptErrorKind::Compile, u8"blob");
+            return Status{ErrorCode::InvalidArgument};
+        }
+
+        ScriptCallScope scope(this);
+        if (lua_pcall(m_state, 0, 0, 0) != LUA_OK)
+        {
+            ReportTopOfStack(ScriptErrorKind::Runtime, u8"blob");
+            return Status{ErrorCode::Unknown};
+        }
+        return Status{};
+    }
+
     void LuauScriptContext::SetGlobal(StringView name, const Variant& value)
     {
         String storage;
@@ -1371,6 +1450,37 @@ namespace foundation::script
     {
         return RefPtr<IScriptContext>(
             MakeRef<LuauScriptContext>(DefaultAllocator(), RefPtr<LuauScriptManager>(this)).Get());
+    }
+
+    Result<RefPtr<IScriptBlob>> LuauScriptManager::CompileToBlob(StringView source,
+                                                               StringView chunkName)
+    {
+        size_t bytecodeSize = 0;
+        char* bytecode = luau_compile(reinterpret_cast<const char*>(source.Data()), source.Size(),
+                                      nullptr, &bytecodeSize);
+        if (bytecode == nullptr)
+        {
+            return Err(ErrorCode::InvalidArgument);
+        }
+
+        // luau_compile never fails outright: a syntax error is ENCODED in the bytecode and only
+        // surfaces when luau_load runs it. Load it into a throwaway state so a broken source
+        // fails the cook here rather than reaching the player as an un-loadable blob.
+        String chunkStorage;
+        const char* chunk = CStr(chunkName, chunkStorage);
+        lua_State* probe = luaL_newstate();
+        const int loadStatus = luau_load(probe, chunk, bytecode, bytecodeSize, 0);
+        lua_close(probe);
+        if (loadStatus != LUA_OK)
+        {
+            free(bytecode);
+            return Err(ErrorCode::InvalidArgument);
+        }
+
+        RefPtr<LuauScriptBlob> blob = MakeRef<LuauScriptBlob>(DefaultAllocator());
+        blob->SetBytecode(reinterpret_cast<const byte*>(bytecode), bytecodeSize);
+        free(bytecode);
+        return RefPtr<IScriptBlob>(blob.Get());
     }
 
     Array<ScriptApiType> LuauScriptManager::DescribeBoundApi() const

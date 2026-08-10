@@ -123,6 +123,16 @@ export namespace foundation::script
             return core::Err(core::ErrorCode::NotSupported);
         }
 
+        /// Create an EMPTY bytecode blob to deserialize a stored one into (the load side of
+        /// the Bytecode seam - IScriptBlob is opaque and never a registry type, so the runtime
+        /// cannot construct it by type name; the backend that produced it makes the empty shell
+        /// to Serialize(read) into, then hands it to IScriptContext::LoadBlob). Default null
+        /// (ScriptCapabilities::Bytecode absent). Symmetric with CompileToBlob.
+        [[nodiscard]] virtual core::RefPtr<IScriptBlob> CreateBlob()
+        {
+            return core::RefPtr<IScriptBlob>{};
+        }
+
         /// Assemble the ONE behavior module's source from the loaded class SOURCES. The
         /// run host owns the neutral generation/state bookkeeping and compiles the result;
         /// the LANGUAGE-SPECIFIC framing lives HERE, per backend, so no language syntax

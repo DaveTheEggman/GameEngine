@@ -263,6 +263,50 @@ TEST_CASE("script.luau: a compile error reports its source line (not -1)")
     CHECK(capture.line == 3);
 }
 
+TEST_CASE("script.luau: bytecode capability - compile at cook, serialize, load in the player")
+{
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    // Luau ships bytecode (the cook path): the Bytecode capability is declared.
+    CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Bytecode));
+
+    // COOK side: compile source to an opaque blob (luau_compile + a validating load).
+    Result<RefPtr<IScriptBlob>> compiled = manager->CompileToBlob(kFunctions, u8"luau.blob");
+    REQUIRE(compiled.HasValue());
+    REQUIRE(compiled.Value().Get() != nullptr);
+
+    // STORE: the blob serializes to the bytes a cook writes into the pack.
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        compiled.Value()->Serialize(writer);
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+
+    // PLAYER side: reconstruct a blob from the stored bytes with NO compiler present ...
+    RefPtr<IScriptBlob> reloaded = manager->CreateBlob();
+    REQUIRE(reloaded.Get() != nullptr);
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        reloaded->Serialize(reader);
+    }
+
+    // ... and load it into a fresh context (luau_load only, never luau_compile).
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->LoadBlob(*reloaded).IsOk());
+    Variant args[] = {Variant::From<f64>(2.0), Variant::From<f64>(3.0)};
+    CHECK(context->Call(u8"add", Span<Variant>{args, 2}).Value().Get<f64>() ==
+          doctest::Approx(5.0));
+    CHECK(context->GetGlobal(u8"answer").Get<f64>() == doctest::Approx(42.0));
+}
+
+TEST_CASE("script.luau: CompileToBlob rejects a broken source at cook (never reaches the player)")
+{
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    // luau_compile embeds the syntax error in the bytecode; CompileToBlob's validating load
+    // catches it so the cook fails here rather than shipping an un-loadable chunk.
+    CHECK_FALSE(manager->CompileToBlob(kCompileBroken, u8"luau.broken").HasValue());
+}
+
 REFLECT_ENUM(Facing, "rtti::luau::test")
 {
     builder.Value("North", Facing::North);
