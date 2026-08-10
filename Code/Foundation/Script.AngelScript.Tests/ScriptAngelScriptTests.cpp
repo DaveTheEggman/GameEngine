@@ -845,6 +845,16 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.m
     dialect.delegateModule = u8"double dbl(double x) { return x * 2; }\n"
                              u8"DelegateSignal@ signal = DelegateSignal();\n"
                              u8"void main() { signal.Connect(ScriptDelegate(dbl)); }\n";
+    // Overload contract: arity family (ping / ping(x), AS overloads natively) + distinct-name
+    // overload (combineText). Set the globals in main() (run at load, like the delegate module).
+    dialect.overloadModule = u8"Overloads@ over = Overloads();\n"
+                             u8"double OP0 = 0; double OP1 = 0; double OC = 0; double OCT = 0;\n"
+                             u8"void main() {\n"
+                             u8"  OP0 = over.ping();\n"
+                             u8"  OP1 = over.ping(5);\n"
+                             u8"  OC = over.combine(2, 3);\n"
+                             u8"  OCT = over.combineText(\"x\", 7);\n"
+                             u8"}\n";
     // AngelScript's natural coroutine surface: a delegate to a method (`this.RunWait`)
     // wrapped in the ScriptCoroutine funcdef, started with startCoroutine; `wait` is a
     // host function, `waitUntil` a script helper (injected per module). Same concept as

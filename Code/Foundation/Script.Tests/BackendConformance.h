@@ -57,6 +57,50 @@ namespace foundation::script::conformance
         RefPtr<IScriptDelegate> m_handler;
     };
 
+    // Overloaded methods for the overloadedName contract. `ping` is an ARITY FAMILY (0-arg and
+    // 1-arg share the script name, dispatched by argument count); `combine` is a same-arity TYPE
+    // overload split by a distinct overloadedName (`combine` + `combineText`). Registered on demand
+    // (never a global-registry type), like DelegateSignal.
+    class Overloads : public Object
+    {
+        RTTI_OBJECT(Overloads, Object)
+    public:
+        [[nodiscard]] f64 ping() const { return 1.0; }
+        [[nodiscard]] f64 ping(f64 x) const { return x + 100.0; }
+        [[nodiscard]] f64 combine(f64 a, f64 b) const { return a + b; }
+        [[nodiscard]] f64 combine(String, f64 b) const { return b; }
+    };
+
+    REFLECT_MEMBERS(Overloads, "rtti::script::conformance")
+    {
+        builder.Constructor();
+        builder.Method<static_cast<f64 (Overloads::*)() const>(&Overloads::ping)>("ping");
+        builder.Method<static_cast<f64 (Overloads::*)(f64) const>(&Overloads::ping)>("ping");
+        builder.Method<static_cast<f64 (Overloads::*)(f64, f64) const>(&Overloads::combine)>(
+            "combine");
+        builder.Method<static_cast<f64 (Overloads::*)(String, f64) const>(&Overloads::combine)>(
+                   "combine")
+            .OverloadedName("combineText");
+    }
+
+    // Violates the contract: two methods on the same (name, arity, static) with no distinct
+    // overloadedName. Only the pure collision check runs on it - never registered with a manager
+    // (that would trap FinalizeTypes, which is exactly the contract).
+    class Colliding : public Object
+    {
+        RTTI_OBJECT(Colliding, Object)
+    public:
+        [[nodiscard]] f64 clash(f64 a) const { return a; }
+        [[nodiscard]] f64 clash(String) const { return 0.0; }
+    };
+
+    REFLECT_MEMBERS(Colliding, "rtti::script::conformance")
+    {
+        builder.Constructor();
+        builder.Method<static_cast<f64 (Colliding::*)(f64) const>(&Colliding::clash)>("clash");
+        builder.Method<static_cast<f64 (Colliding::*)(String) const>(&Colliding::clash)>("clash");
+    }
+
     /// The language-specific sources. Every snippet implements a FIXED contract:
     ///  - functionsModule: function `add(a, b)` returning a + b, function `greeting()`
     ///    returning the string "hi", a module global `answer` readable as 42.
@@ -83,6 +127,11 @@ namespace foundation::script::conformance
         // subscribes a function computing value * 2 (via the backend's own callable syntax -
         // a Wren fn/closure, an AngelScript funcdef handle).
         StringView delegateModule;
+        // Optional overload-contract module: constructs a global `over` of the native Overloads
+        // type and computes module globals `OP0 = over.ping()` (-> 1), `OP1 = over.ping(5)` (-> 105,
+        // the arity family), `OC = over.combine(2, 3)` (-> 5), `OCT = over.combineText("x", 7)`
+        // (-> 7, the distinct-name overload). Via the backend's own construct + method-call syntax.
+        StringView overloadModule;
         // Optional (certified only when the backend declares the Debugger capability): a module
         // with a zero-arg entry function `debugFunction`. Execution reaching `debugBreakLine`
         // (1-based, in the section named `debugSection`) must have a local named `debugLocalName`
@@ -373,6 +422,28 @@ namespace foundation::script::conformance
             // (3) the held delegate survives garbage collection.
             manager->CollectGarbage();
             CHECK(signal->Emit(50.0) == doctest::Approx(100.0));
+        }
+
+        // --- Overloaded methods (the overloadedName contract): arity families dispatch by
+        // argument COUNT, and same-arity type overloads carry distinct script names. Certified on
+        // EVERY backend - one script surface, no per-backend overload resolution. ---
+        if (!dialect.overloadModule.IsEmpty())
+        {
+            // The validator: a clean type (arity family + distinct name) has no collision; a
+            // same-(name, arity, static) pair without distinct names does. Backend-independent, but
+            // asserted here so every backend's suite exercises the contract.
+            CHECK(FindScriptMethodNameCollision(Overloads::StaticType()) == nullptr);
+            CHECK(FindScriptMethodNameCollision(Colliding::StaticType()) != nullptr);
+
+            manager->RegisterType(Overloads::StaticType()); // late registration, like DelegateSignal
+            RefPtr<IScriptContext> octx = manager->CreateContext();
+            REQUIRE(octx.Get() != nullptr);
+            REQUIRE(octx->Load(dialect.overloadModule, u8"main").IsOk());
+
+            CHECK(octx->GetGlobal(u8"OP0").Get<f64>() == doctest::Approx(1.0));   // ping()  - arity 0
+            CHECK(octx->GetGlobal(u8"OP1").Get<f64>() == doctest::Approx(105.0)); // ping(5) - arity 1
+            CHECK(octx->GetGlobal(u8"OC").Get<f64>() == doctest::Approx(5.0));    // combine
+            CHECK(octx->GetGlobal(u8"OCT").Get<f64>() == doctest::Approx(7.0));   // combineText
         }
 
         // --- Committed seams (skipped when the capability is absent - the default). Turning

@@ -600,6 +600,12 @@ TEST_CASE("wren: CERTIFIED - the backend conformance battery (scripting.md B2)")
     // Delegate: subscribe a Wren fn/closure (value * 2) to the native DelegateSignal.
     dialect.delegateModule = u8"var signal = DelegateSignal.new()\n"
                              u8"signal.Connect(Fn.new {|x| x * 2 })\n";
+    // Overload contract: an arity family (ping / ping(_)) + a distinct-name overload (combineText).
+    dialect.overloadModule = u8"var over = Overloads.new()\n"
+                             u8"var OP0 = over.ping()\n"
+                             u8"var OP1 = over.ping(5)\n"
+                             u8"var OC = over.combine(2, 3)\n"
+                             u8"var OCT = over.combineText(\"x\", 7)\n";
     // Self-contained coroutine class: the `Behavior` base inlined (the subsystem injects
     // it at runtime; the raw battery does not), then a `Coro` that opts in. Coroutine
     // bodies use an explicit receiver (`me`) + getter/setter methods so no field is
