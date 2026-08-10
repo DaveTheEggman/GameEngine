@@ -149,10 +149,16 @@ namespace foundation::script
         // ---- marshalling (public: the emitter's C closures use these) ----
         void PushVariant(lua_State* state, const Variant& value);
         [[nodiscard]] Variant ToVariant(lua_State* state, int index);
+        // Like ToVariant, but honours the reflected parameter/property TYPE the value is bound to:
+        // an enum-typed target takes a Lua number carried as i64 (the neutral dispatch casts it to
+        // the enum). Use at every native call/setter site where the expected type is known.
+        [[nodiscard]] Variant ToVariantForParam(lua_State* state, int index, const TypeInfo* expected);
 
     private:
         void EmitRegisteredTypes();
         void EmitType(const TypeInfo& type);
+        // A reflected enum as a named constant table: _G[EnumName] = { ValueName = <int>, ... }.
+        void EmitEnum(const TypeInfo& type);
         void InstallCoroutineApi();
 
         RefPtr<LuauScriptManager> m_manager;
@@ -322,6 +328,16 @@ namespace foundation::script
             lua_pushlstring(state, reinterpret_cast<const char*>(s->CStr()), s->Size());
             return;
         }
+        // An enum crosses as its underlying number: Lua has no enum type, the emitter excludes
+        // enums from binding, and an enum parameter converts the number back (mirrors Wren +
+        // AngelScript). Must come before the boxed-Variant fallthrough (an enum Variant is not a
+        // primitive TryGet match).
+        if (const TypeInfo* enumType = value.Type();
+            enumType != nullptr && enumType->enumeratorCount > 0)
+        {
+            lua_pushnumber(state, static_cast<f64>(value.AsEnumInt()));
+            return;
+        }
         // Everything else (objects, reflected values) travels as a boxed Variant with the
         // dynamic type's dispatch metatable, so script sees properties/methods directly.
         void* payload = lua_newuserdatadtor(state, sizeof(Variant), DestroyVariantUserdata);
@@ -387,6 +403,20 @@ namespace foundation::script
         }
     }
 
+    Variant LuauScriptContext::ToVariantForParam(lua_State* state, int index,
+                                                 const TypeInfo* expected)
+    {
+        // An enum parameter/setter takes a Lua number; carry it as an i64 - the neutral property
+        // setter / enum-arg path casts it to the enum (enums cross as their underlying int, with
+        // no Lua enum type to marshal through). Anything else uses the ordinary conversion.
+        if (expected != nullptr && expected->enumeratorCount > 0 &&
+            lua_type(state, index) == LUA_TNUMBER)
+        {
+            return Variant::From<i64>(static_cast<i64>(lua_tonumber(state, index)));
+        }
+        return ToVariant(state, index);
+    }
+
     // =====================================================================
     // Reflected-type emission: one metatable per TypeInfo per state.
     //
@@ -443,7 +473,14 @@ namespace foundation::script
             }
             for (int i = firstArg; i <= argCount; ++i)
             {
-                args.PushBack(context->ToVariant(state, i));
+                // Honour the reflected param type for this arg (enum -> number carried as i64);
+                // extra args beyond the signature fall back to plain conversion.
+                const u32 paramIndex = static_cast<u32>(i - firstArg);
+                const TypeInfo* expected =
+                    (paramIndex < method->paramCount && method->params[paramIndex].type != nullptr)
+                        ? method->params[paramIndex].type()
+                        : nullptr;
+                args.PushBack(context->ToVariantForParam(state, i, expected));
             }
 
             ScriptCallScope scope(context);
@@ -525,7 +562,8 @@ namespace foundation::script
             Instance instance = ToInstance(*boxed);
             if (instance.Pointer() != nullptr)
             {
-                Variant value = context->ToVariant(state, 3);
+                // Honour the property type (enum -> number carried as i64).
+                Variant value = context->ToVariantForParam(state, 3, property->type);
                 (void)SetProperty(*property, instance, value);
             }
             return 0;
@@ -635,11 +673,36 @@ namespace foundation::script
         lua_pop(state, 1); // methods table
     }
 
+    void LuauScriptContext::EmitEnum(const TypeInfo& type)
+    {
+        lua_State* state = m_state;
+        // Scripts spell an enum value as EnumName.ValueName (matching AngelScript's native enums;
+        // Wren has none). Values are numbers - an enum parameter converts the number back
+        // (ToVariantForParam), so the round-trip is exact.
+        lua_newtable(state);
+        for (const EnumValue& value : Enumerators(type))
+        {
+            lua_pushstring(state, value.name);
+            lua_pushnumber(state, static_cast<f64>(value.value));
+            lua_rawset(state, -3);
+        }
+        lua_setglobal(state, type.name);
+    }
+
     void LuauScriptContext::EmitRegisteredTypes()
     {
         for (const TypeInfo* type : m_manager->RegisteredTypes())
         {
-            if (type != nullptr && IsBindable(*type))
+            if (type == nullptr)
+            {
+                continue;
+            }
+            // Enums emit as named constant tables; everything bindable emits its class + metatable.
+            if (type->enumeratorCount > 0)
+            {
+                EmitEnum(*type);
+            }
+            else if (IsBindable(*type))
             {
                 EmitType(*type);
             }

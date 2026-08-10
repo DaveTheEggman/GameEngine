@@ -1193,6 +1193,13 @@ namespace foundation::core::detail
         {
             return v.IsObject() && v.AsObject<Bare>() != nullptr; // reference: must be non-null
         }
+        else if constexpr (std::is_enum_v<Bare>)
+        {
+            // An enum arg is its underlying int (i64/f64) or a properly-typed enum Variant - see
+            // ConvertArg. Accept all three so an overload check does not reject a script enum.
+            return v.TryGet<Bare>() != nullptr || v.TryGet<i64>() != nullptr ||
+                   v.TryGet<f64>() != nullptr;
+        }
         else
         {
             return v.TryGet<Bare>() != nullptr;
@@ -1221,6 +1228,27 @@ namespace foundation::core::detail
         else if constexpr (std::is_class_v<Bare> && std::is_base_of_v<Object, Bare>)
         {
             return *v.AsObject<Bare>();
+        }
+        else if constexpr (std::is_enum_v<Bare>)
+        {
+            // An enum argument crosses from script as its underlying INT (no enum type in
+            // Wren/Lua; AngelScript enums are int-backed), so accept an i64/f64 and cast - as
+            // well as a properly-typed enum Variant. Bare is known here, so the cast is well-
+            // defined. Mirrors the property-setter coercion (PropertySet). Returns BY VALUE, so
+            // decltype(auto) stays consistent across this branch.
+            if (const i64* i = v.template TryGet<i64>())
+            {
+                return static_cast<Bare>(*i);
+            }
+            if (const f64* d = v.template TryGet<f64>())
+            {
+                return static_cast<Bare>(static_cast<i64>(*d));
+            }
+            if (const Bare* typed = v.template TryGet<Bare>())
+            {
+                return static_cast<Bare>(*typed);
+            }
+            return Bare{};
         }
         else
         {
