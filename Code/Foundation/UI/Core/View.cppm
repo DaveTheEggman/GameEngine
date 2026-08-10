@@ -1094,15 +1094,18 @@ export namespace foundation::ui
         }
 
         /// Draw a root view's tree into `vg`. Builds a UIDrawContext over the (caller-supplied) VG and
-        /// the font service, then walks the tree via ViewGroup::OnDraw. The caller constructs the VG with
-        /// the same font service (VGContext takes it at construction; there is no setter). Ported faithfully
-        /// from Sedulous UIContext.DrawRootView.
+        /// the font service, then walks the tree via ViewGroup::OnDraw. The context's CURRENT font
+        /// service is pushed into the VG here, every draw - construction-time agreement is not
+        /// trusted, because a service swap after the VG was built (SetDefaultFont binding a cooked
+        /// font) would leave the VG resolving atlases against the stale service: silently invisible
+        /// text (the 2026-08-12 dist incident). Ported from Sedulous UIContext.DrawRootView.
         void DrawRootView(RootView* root, vg::VGContext& vg)
         {
             if (root == nullptr)
             {
                 return;
             }
+            vg.SetFontService(m_fontService); // the one source of truth, re-asserted per draw
             m_phase = Phase::Drawing;
             UIDrawContext ctx{vg, root->DpiScale, m_fontService};
             if (root->DpiScale != 1.0f)

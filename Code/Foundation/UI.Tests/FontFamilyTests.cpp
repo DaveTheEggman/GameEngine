@@ -12,6 +12,7 @@ import foundation.core;
 import foundation.ui;
 import foundation.fonts;
 import foundation.image; // ImageData (StubFontService::GetAtlasTexture return type)
+import foundation.vg;    // VGContext (the DrawRootView font-service push test)
 #include "TestHelpers.h"
 
 using namespace foundation::ui;
@@ -131,4 +132,26 @@ TEST_CASE("font-family: Resolution_InlineFontFamilyBeatsContextSheet")
     const StyleValue resolved = view->ResolveStyle(StyleProperty::FontFamily);
     CHECK(resolved.AsString().HasValue());
     CHECK(resolved.AsString().Value() == u8"JungleAdventurer");
+}
+
+TEST_CASE("font-service: DrawRootView pushes the context's CURRENT service into the VG")
+{
+    // The 2026-08-12 dist incident, pinned: the VG resolves CachedFont atlases through ITS OWN
+    // service pointer (set at construction), and the game swaps the UI context's service AFTER
+    // the VG exists (SetDefaultFont binding the cooked font once the project loads). If
+    // DrawRootView does not re-assert the context's service, the VG asks the STALE service for
+    // atlases of CachedFonts it never created - null, silent skip, invisible text in the
+    // shipped game (masked in the source tree, where the stale service is the working one).
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+
+    StubFontService constructionService;
+    StubFontService swappedService;
+    foundation::vg::VGContext vgContext(&constructionService);
+    ctx.SetFontService(&swappedService); // the swap happens after the VG was built
+
+    ctx.DrawRootView(root.Get(), vgContext);
+
+    CHECK(vgContext.FontService() == &swappedService); // the draw re-asserted the truth
 }

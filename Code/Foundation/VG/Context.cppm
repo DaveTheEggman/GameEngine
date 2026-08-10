@@ -64,6 +64,13 @@ export namespace foundation::vg
         /// The font service used by the convenience CachedFont text overloads.
         [[nodiscard]] fonts::IFontService* FontService() const { return m_fontService; }
 
+        /// The service the CachedFont convenience DrawText overloads resolve atlases through.
+        /// UIContext::DrawRootView PUSHES its current service here every draw - a VG whose
+        /// construction-time service went stale (the UI swapped to a cooked default font after
+        /// this context was built) would otherwise GetAtlasTexture a CachedFont the old service
+        /// never made: null, silent skip, invisible text (the 2026-08-12 dist incident).
+        void SetFontService(fonts::IFontService* fontService) { m_fontService = fontService; }
+
         // === Output ===
 
         /// Get the current batch for rendering.

@@ -2051,7 +2051,7 @@ namespace engine::ui
     {
         if (m_render.Get() == nullptr)
         {
-            m_render = MakeUnique<RenderState>(DefaultAllocator(), m_fonts.Get());
+            m_render = MakeUnique<RenderState>(DefaultAllocator(), m_context.FontService());
         }
         if (m_render->device != nullptr)
         {
