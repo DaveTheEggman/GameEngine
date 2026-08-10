@@ -7,7 +7,7 @@
 JPH_NAMESPACE_BEGIN
 
 /// The constant \f$\pi\f$
-// DRACONIC VENDORED PATCH: `inline` (external linkage) instead of `static` - GCC's
+// VENDORED PATCH: `inline` (external linkage) instead of `static` - GCC's
 // C++20-modules checker rejects module-attached code referencing a TU-local entity
 // from a global-module-fragment header. Semantics identical.
 inline constexpr float JPH_PI = 3.14159265358979323846f;

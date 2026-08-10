@@ -448,7 +448,7 @@ JPH_SUPPRESS_WARNINGS_STD_BEGIN
 #include <functional>
 #include <algorithm>
 #include <cstdint>
-#include <type_traits> // Draconic patch: emscripten libc++ needs this explicitly for std::is_trivial (Float4.h etc.)
+#include <type_traits> // Patch: emscripten libc++ needs this explicitly for std::is_trivial (Float4.h etc.)
 #ifdef JPH_COMPILER_MSVC
 	#include <malloc.h> // for alloca
 #endif

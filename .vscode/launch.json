@@ -12,289 +12,289 @@
             "name": "HelloWindow",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/HelloWindow",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/HelloWindow/HelloWindow" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/HelloWindow/HelloWindow.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/HelloWindow" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/HelloWindow.exe" }
         },
         {
             "name": "MultiWindow",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/MultiWindow",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/MultiWindow/MultiWindow" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/MultiWindow/MultiWindow.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/MultiWindow" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/MultiWindow.exe" }
         },
         {
             "name": "Sandbox",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/Sandbox",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/Sandbox/Sandbox" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/Sandbox/Sandbox.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sandbox" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sandbox.exe" }
         },
         {
             "name": "VGSandbox",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/VG/VGSandbox",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/VG/VGSandbox/VGSandbox" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/VG/VGSandbox/VGSandbox.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/VGSandbox" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/VGSandbox.exe" }
         },
         {
             "name": "Sample001 Triangle",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample001_Triangle",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample001_Triangle/DraconicSample001_Triangle" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample001_Triangle/DraconicSample001_Triangle.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample001_Triangle" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample001_Triangle.exe" }
         },
         {
             "name": "Sample002 Textures",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample002_Textures",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample002_Textures/DraconicSample002_Textures" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample002_Textures/DraconicSample002_Textures.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample002_Textures" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample002_Textures.exe" }
         },
         {
             "name": "Sample003 UniformBuffers",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample003_UniformBuffers",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample003_UniformBuffers/DraconicSample003_UniformBuffers" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample003_UniformBuffers/DraconicSample003_UniformBuffers.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample003_UniformBuffers" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample003_UniformBuffers.exe" }
         },
         {
             "name": "Sample004 Compute",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample004_Compute",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample004_Compute/DraconicSample004_Compute" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample004_Compute/DraconicSample004_Compute.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample004_Compute" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample004_Compute.exe" }
         },
         {
             "name": "Sample005 BindGroups",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample005_BindGroups",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample005_BindGroups/DraconicSample005_BindGroups" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample005_BindGroups/DraconicSample005_BindGroups.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample005_BindGroups" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample005_BindGroups.exe" }
         },
         {
             "name": "Sample006 Blending",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample006_Blending",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample006_Blending/DraconicSample006_Blending" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample006_Blending/DraconicSample006_Blending.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample006_Blending" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample006_Blending.exe" }
         },
         {
             "name": "Sample007 Instancing",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample007_Instancing",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample007_Instancing/DraconicSample007_Instancing" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample007_Instancing/DraconicSample007_Instancing.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample007_Instancing" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample007_Instancing.exe" }
         },
         {
             "name": "Sample008 DepthBuffer",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample008_DepthBuffer",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample008_DepthBuffer/DraconicSample008_DepthBuffer" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample008_DepthBuffer/DraconicSample008_DepthBuffer.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample008_DepthBuffer" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample008_DepthBuffer.exe" }
         },
         {
             "name": "Sample009 Mipmaps",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample009_Mipmaps",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample009_Mipmaps/DraconicSample009_Mipmaps" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample009_Mipmaps/DraconicSample009_Mipmaps.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample009_Mipmaps" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample009_Mipmaps.exe" }
         },
         {
             "name": "Sample010 MSAA",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample010_MSAA",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample010_MSAA/DraconicSample010_MSAA" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample010_MSAA/DraconicSample010_MSAA.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample010_MSAA" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample010_MSAA.exe" }
         },
         {
             "name": "Sample011 MRT",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample011_MRT",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample011_MRT/DraconicSample011_MRT" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample011_MRT/DraconicSample011_MRT.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample011_MRT" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample011_MRT.exe" }
         },
         {
             "name": "Sample012 Wireframe",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample012_Wireframe",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample012_Wireframe/DraconicSample012_Wireframe" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample012_Wireframe/DraconicSample012_Wireframe.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample012_Wireframe" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample012_Wireframe.exe" }
         },
         {
             "name": "Sample013 BorderSampler",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample013_BorderSampler",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample013_BorderSampler/DraconicSample013_BorderSampler" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample013_BorderSampler/DraconicSample013_BorderSampler.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample013_BorderSampler" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample013_BorderSampler.exe" }
         },
         {
             "name": "Sample014 Blit",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample014_Blit",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample014_Blit/DraconicSample014_Blit" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample014_Blit/DraconicSample014_Blit.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample014_Blit" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample014_Blit.exe" }
         },
         {
             "name": "Sample015 Queries",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample015_Queries",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample015_Queries/DraconicSample015_Queries" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample015_Queries/DraconicSample015_Queries.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample015_Queries" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample015_Queries.exe" }
         },
         {
             "name": "Sample016 Readback",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample016_Readback",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample016_Readback/DraconicSample016_Readback" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample016_Readback/DraconicSample016_Readback.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample016_Readback" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample016_Readback.exe" }
         },
         {
             "name": "Sample017 MultiQueue",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample017_MultiQueue",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample017_MultiQueue/DraconicSample017_MultiQueue" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample017_MultiQueue/DraconicSample017_MultiQueue.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample017_MultiQueue" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample017_MultiQueue.exe" }
         },
         {
             "name": "Sample018 Bindless",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample018_Bindless",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample018_Bindless/DraconicSample018_Bindless" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample018_Bindless/DraconicSample018_Bindless.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample018_Bindless" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample018_Bindless.exe" }
         },
         {
             "name": "Sample019 BatchUpload",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample019_BatchUpload",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample019_BatchUpload/DraconicSample019_BatchUpload" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample019_BatchUpload/DraconicSample019_BatchUpload.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample019_BatchUpload" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample019_BatchUpload.exe" }
         },
         {
             "name": "Sample020 MeshShaders",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample020_MeshShaders",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample020_MeshShaders/DraconicSample020_MeshShaders" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample020_MeshShaders/DraconicSample020_MeshShaders.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample020_MeshShaders" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample020_MeshShaders.exe" }
         },
         {
             "name": "Sample021 RayTracing",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample021_RayTracing",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample021_RayTracing/DraconicSample021_RayTracing" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample021_RayTracing/DraconicSample021_RayTracing.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample021_RayTracing" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample021_RayTracing.exe" }
         },
         {
             "name": "Sample022 StencilOutline",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample022_StencilOutline",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample022_StencilOutline/DraconicSample022_StencilOutline" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample022_StencilOutline/DraconicSample022_StencilOutline.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample022_StencilOutline" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample022_StencilOutline.exe" }
         },
         {
             "name": "Sample023 CubeMap",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample023_CubeMap",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample023_CubeMap/DraconicSample023_CubeMap" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample023_CubeMap/DraconicSample023_CubeMap.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample023_CubeMap" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample023_CubeMap.exe" }
         },
         {
             "name": "Sample024 OcclusionQuery",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample024_OcclusionQuery",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample024_OcclusionQuery/DraconicSample024_OcclusionQuery" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample024_OcclusionQuery/DraconicSample024_OcclusionQuery.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample024_OcclusionQuery" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample024_OcclusionQuery.exe" }
         },
         {
             "name": "Sample025 MultiDrawIndirect",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample025_MultiDrawIndirect",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample025_MultiDrawIndirect/DraconicSample025_MultiDrawIndirect" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample025_MultiDrawIndirect/DraconicSample025_MultiDrawIndirect.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample025_MultiDrawIndirect" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample025_MultiDrawIndirect.exe" }
         },
         {
             "name": "Sample026 DynamicOffsets",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample026_DynamicOffsets",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample026_DynamicOffsets/DraconicSample026_DynamicOffsets" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample026_DynamicOffsets/DraconicSample026_DynamicOffsets.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample026_DynamicOffsets" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample026_DynamicOffsets.exe" }
         },
         {
             "name": "Sample027 3DTexture",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample027_3DTexture",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample027_3DTexture/DraconicSample027_3DTexture" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample027_3DTexture/DraconicSample027_3DTexture.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample027_3DTexture" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample027_3DTexture.exe" }
         },
         {
             "name": "Sample028 ProceduralRT",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample028_ProceduralRT",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample028_ProceduralRT/DraconicSample028_ProceduralRT" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample028_ProceduralRT/DraconicSample028_ProceduralRT.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample028_ProceduralRT" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample028_ProceduralRT.exe" }
         },
         {
             "name": "Sample029 ResolveTexture",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample029_ResolveTexture",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample029_ResolveTexture/DraconicSample029_ResolveTexture" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample029_ResolveTexture/DraconicSample029_ResolveTexture.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample029_ResolveTexture" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample029_ResolveTexture.exe" }
         },
         {
             "name": "Sample030 RenderBundles",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample030_RenderBundles",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample030_RenderBundles/DraconicSample030_RenderBundles" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Sample030_RenderBundles/DraconicSample030_RenderBundles.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample030_RenderBundles" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Sample030_RenderBundles.exe" }
         },
         {
             "name": "UISandbox",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/UI/UISandbox",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/UI/UISandbox/UISandbox" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/UI/UISandbox/UISandbox.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/UISandbox" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/UISandbox.exe" }
         },
         {
             "name": "Smoketest",
             "type": "lldb",
             "request": "launch",
-            "cwd": "${workspaceFolder}/build/clang/Code/Samples/RHI/Smoketest",
-            "linux":   { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Smoketest/DraconicSmoketest" },
-            "windows": { "program": "${workspaceFolder}/build/clang/Code/Samples/RHI/Smoketest/DraconicSmoketest.exe" }
+            "cwd": "${workspaceFolder}/Bin/Debug/Linux64-Clang",
+            "linux":   { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Smoketest" },
+            "windows": { "program": "${workspaceFolder}/Bin/Debug/Linux64-Clang/Smoketest.exe" }
         }
     ]
 }

@@ -56,7 +56,7 @@ This is an upstream gap, not a project quirk; the patch is written to be upstrea
 C++20 named modules. CMake passes each TU a `@...modmap` response file listing one
 `-fmodule-file=<name>=<path>` entry per transitively reachable BMI. Draconic's leaf targets
 reach ~470 modules, and each entry is ~137 characters, so the expanded line is ~65 KB - twice
-the limit. `Draconic.Engine.DefaultApp` is the worst.
+the limit. `Engine.DefaultApp` is the worst.
 
 Two mitigations were measured and are **not** sufficient on their own, which is why the patch
 is required rather than optional:
@@ -65,7 +65,7 @@ is required rather than optional:
 |---|---|
 | baseline | 64,376 bytes |
 | short binary dirs for every target | 53,290 bytes (-17%) |
-| removing Draconic.UI's contribution entirely | -15,015 bytes |
+| removing UI's contribution entirely | -15,015 bytes |
 
 Even both together land around 38 KB, still over the limit, and the number grows with every
 module added. Only the response-file fix is durable.

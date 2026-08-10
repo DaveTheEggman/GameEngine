@@ -64,8 +64,8 @@
       "cacheVariables": {
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_BUILD_TYPE": "Release",
-        "DRACONIC_SHIPPING_BUILD": "ON",
-        "DRACONIC_OUTPUT_SUFFIX": "-Shipping"
+        "OPTION_SHIPPING_BUILD": "ON",
+        "BUILDSYSTEM_OUTPUT_SUFFIX": "-Shipping"
       }
     },
     {
@@ -76,8 +76,8 @@
       "cacheVariables": {
         "CMAKE_CXX_COMPILER": "g++",
         "CMAKE_BUILD_TYPE": "Release",
-        "DRACONIC_SHIPPING_BUILD": "ON",
-        "DRACONIC_OUTPUT_SUFFIX": "-Shipping"
+        "OPTION_SHIPPING_BUILD": "ON",
+        "BUILDSYSTEM_OUTPUT_SUFFIX": "-Shipping"
       }
     },
     {
@@ -99,7 +99,7 @@
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "DRACONIC_BUILD_SAMPLES": "ON"
+        "OPTION_BUILD_SAMPLES": "ON"
       }
     },
     {
@@ -110,9 +110,9 @@
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "DRACONIC_SHIPPING_BUILD": "ON",
-        "DRACONIC_OUTPUT_SUFFIX": "-Shipping",
-        "DRACONIC_BUILD_SAMPLES": "OFF"
+        "OPTION_SHIPPING_BUILD": "ON",
+        "BUILDSYSTEM_OUTPUT_SUFFIX": "-Shipping",
+        "OPTION_BUILD_SAMPLES": "OFF"
       }
     }
   ],

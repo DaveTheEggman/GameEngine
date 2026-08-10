@@ -1,13 +1,13 @@
-# Draconic - game engine root build
+# Game engine root build
 #
 # C++23, C++ modules. Requires CMake >= 3.28 and a modules-capable toolchain
 # (Clang 17+, GCC 14+, or MSVC 19.36+) with the Ninja generator.
 
 cmake_minimum_required(VERSION 3.28)
 
-project(Draconic
+project(GameEngine
     VERSION 0.1.0
-    DESCRIPTION "Draconic game engine"
+    DESCRIPTION "Game engine"
     LANGUAGES CXX ASM)
 
 # MSVC assembles with ml64, not cl, so the plain ASM language above does not apply to it
@@ -59,17 +59,6 @@ endif()
 # project that lived beside the binaries). Set BUILDSYSTEM_OUTPUT_SUFFIX (e.g. "-ASAN") in
 # sanitizer configure runs.
 set(BUILDSYSTEM_OUTPUT_SUFFIX "" CACHE STRING "Suffix for the Bin output dir (e.g. -ASAN)")
-# TRIPWIRE (debrand migration): the suffix variable was renamed from DRACONIC_OUTPUT_SUFFIX.
-# A pre-rename sanitizer build dir still carries the OLD cache entry while the new one is
-# empty - and then writes UNSUFFIXED output, clobbering the regular Bin with sanitized
-# binaries (this happened). Fail loudly instead; the fix is a one-line reconfigure.
-if(DEFINED CACHE{DRACONIC_OUTPUT_SUFFIX} AND NOT "$CACHE{DRACONIC_OUTPUT_SUFFIX}" STREQUAL ""
-   AND "${BUILDSYSTEM_OUTPUT_SUFFIX}" STREQUAL "")
-    message(FATAL_ERROR "Stale DRACONIC_OUTPUT_SUFFIX='$CACHE{DRACONIC_OUTPUT_SUFFIX}' in this "
-        "build dir but BUILDSYSTEM_OUTPUT_SUFFIX is empty (the variable was renamed). "
-        "Reconfigure with -DBUILDSYSTEM_OUTPUT_SUFFIX=$CACHE{DRACONIC_OUTPUT_SUFFIX} "
-        "or this build would clobber the unsuffixed Bin outputs.")
-endif()
 set(BUILDSYSTEM_BIN_DIR "${CMAKE_SOURCE_DIR}/Bin/$<CONFIG>/${_dr_plat}-${_dr_comp}${BUILDSYSTEM_OUTPUT_SUFFIX}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY     "${BUILDSYSTEM_BIN_DIR}")       # exes + Windows DLLs
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY     "${BUILDSYSTEM_BIN_DIR}")       # .so plugins/modules (beside the exe)
@@ -99,8 +88,8 @@ macro(util_test_suite dir target)
 endmacro()
 
 # --- Options -----------------------------------------------------------------
-option(OPTION_BUILD_TESTS "Build Draconic unit tests" ON)
-option(OPTION_BUILD_SAMPLES "Build Draconic sample applications" ON)
+option(OPTION_BUILD_TESTS "Build unit tests" ON)
+option(OPTION_BUILD_SAMPLES "Build sample applications" ON)
 option(OPTION_BUILD_TOOLS "Build editor/authoring tooling (the editor libraries + CLI exes)" ON)
 # Experimental modules and optional extensions are independently switchable; each exposes a
 # OPTION_HAS_* compile define (see the policy block) so C++ can guard usage with #if.
@@ -129,8 +118,8 @@ endif()
 # follows. Dotted, matching the target names.
 set(BUILTIN_PLAYER_BASENAME         "Engine.Player")
 set(BUILDSYSTEM_SHADERPACKCOOK_BASENAME "Tools.ShaderPack")
-set(USER_DATA_DIR_NAME_VALUE        "draconic")  # OS user-data folder (settings/projects/templates)
-set(TEMPLATE_ID_PREFIX_VALUE        "draconic")  # export-template id prefix (<prefix>-<platform>-<config>-<ver>)
+set(USER_DATA_DIR_NAME_VALUE        "gameengine")  # OS user-data folder (settings/projects/templates)
+set(TEMPLATE_ID_PREFIX_VALUE        "gameengine")  # export-template id prefix (<prefix>-<platform>-<config>-<ver>)
 
 # Where the DESKTOP build put its executables, as seen from a CROSS build (wasm). The web
 # build shells out to native cook tools by path - it cannot use $<TARGET_FILE:> because those
@@ -428,7 +417,7 @@ add_subdirectory(Code/Engine/Engine.Integration) # cross-subsystem composition h
 if(OPTION_EXTENSION_IMGUI)
     add_subdirectory(Code/Extensions/Imgui) # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
 endif()
-add_subdirectory(Code/Engine/Engine.Player)        # DraconicPlayer generic game runner
+add_subdirectory(Code/Engine/Engine.Player)        # Generic game runner
 
 
 # --- Authoring tooling: the editor libraries + the CLI executables that assemble them.
@@ -481,11 +470,11 @@ if(OPTION_BUILD_TOOLS)
     # come AFTER all pipeline modules (incl. the fonts block) since it links them.
     add_subdirectory(Code/Pipeline/Pipeline.Registration)
 
-    add_subdirectory(Code/Tools/Tools.Editor)        # DraconicEditor executable (editor assembly)
+    add_subdirectory(Code/Tools/Tools.Editor)        # Editor executable (editor assembly)
     add_subdirectory(Code/Tools/Tools.Cook)          # Tools.Cook CLI cooker (headless)
     add_subdirectory(Code/Tools/Tools.Mcp)          # headless MCP stdio server (agent access)
-    add_subdirectory(Code/Tools/Tools.Export)        # DraconicExport dist packager
-    add_subdirectory(Code/Tools/Tools.ShaderPack) # DraconicShaderPackCook: cook shaders.dpak (WGSL for web)
+    add_subdirectory(Code/Tools/Tools.Export)        # Export dist packager
+    add_subdirectory(Code/Tools/Tools.ShaderPack) # ShaderPack: cook shaders.dpak (WGSL for web)
 endif()
 
 # --- Tests: every module's flat-sibling doctest suite (guarded by its module target so the

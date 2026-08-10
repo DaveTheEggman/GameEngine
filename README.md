@@ -1,4 +1,4 @@
-# Draconic
+# Game Engine
 
 C++23 game engine (ported from the Sedulous engine and grown well past it). Built on C++
 modules throughout. The GPU layer is an abstract RHI with Vulkan 1.3 as the primary desktop
@@ -84,13 +84,13 @@ tools (DXC, naga, tint) are vendored for both Linux and Windows hosts.
 One executable, Godot-style project management:
 
 ```bash
-Bin/Debug/Linux64-Clang/Draconic.Tools.Editor                    # PROJECT MANAGER screen
-Bin/Debug/Linux64-Clang/Draconic.Tools.Editor --project <dir>    # open a project directly
-Bin/Debug/Linux64-Clang/Draconic.Tools.Editor <dir>              # same, positional form
+Bin/Debug/Linux64-Clang/Tools.Editor                    # PROJECT MANAGER screen
+Bin/Debug/Linux64-Clang/Tools.Editor --project <dir>    # open a project directly
+Bin/Debug/Linux64-Clang/Tools.Editor <dir>              # same, positional form
 ```
 
 With no project argument the editor starts on the project manager: recent projects (stored
-per-user in `<user-data>/draconic/editor.settings.xml`, shared by every engine version on
+per-user in `<user-data>/gameengine/editor.settings.xml`, shared by every engine version on
 the machine), open/create/remove, and an engine-version gate on open (backup-then-upgrade
 prompt for older projects, a hard warning for projects saved by a newer engine).
 File > Close Project returns to the manager. A CLI-opened editor keeps the single-project
@@ -108,7 +108,7 @@ instanced ring, decal, sprites, particles, debug draw, and an ImGui tweak panel.
 ### Desktop
 
 ```bash
-cmake --build --preset clang --target WebScene Draconic.Tools.ShaderPack
+cmake --build --preset clang --target WebScene Tools.ShaderPack
 
 Bin/Debug/Linux64-Clang/WebScene --vulkan     # Vulkan reference
 Bin/Debug/Linux64-Clang/WebScene --webgpu     # WebGPU via wgpu-native (SPIR-V ingestion)
@@ -119,21 +119,21 @@ web-render bugs - cook a WGSL pack beside the exe and force the WGSL path:
 
 ```bash
 # Linux
-Bin/Debug/Linux64-Clang/Draconic.Tools.ShaderPack Data/Shaders Bin/Debug/Linux64-Clang/shaders.dpak wgsl spirv
-DRACONIC_USE_SHADER_PACK=1 DRACONIC_WEBGPU_WGSL=1 Bin/Debug/Linux64-Clang/WebScene --webgpu
+Bin/Debug/Linux64-Clang/Tools.ShaderPack Data/Shaders Bin/Debug/Linux64-Clang/shaders.dpak wgsl spirv
+OPTION_USE_SHADER_PACK=1 ENV_WEBGPU_WGSL=1 Bin/Debug/Linux64-Clang/WebScene --webgpu
 ```
 
 ```powershell
 # Windows (PowerShell env syntax - `set X=1` is cmd-only and silently does nothing here)
-Bin\Debug\Win64-Clang\Draconic.Tools.ShaderPack.exe Data\Shaders Bin\Debug\Win64-Clang\shaders.dpak wgsl spirv
-$env:DRACONIC_USE_SHADER_PACK="1"
-$env:DRACONIC_WEBGPU_WGSL="1"
+Bin\Debug\Win64-Clang\Tools.ShaderPack.exe Data\Shaders Bin\Debug\Win64-Clang\shaders.dpak wgsl spirv
+$env:OPTION_USE_SHADER_PACK="1"
+$env:ENV_WEBGPU_WGSL="1"
 Bin\Debug\Win64-Clang\WebScene.exe --webgpu
 ```
 
 On `--webgpu` the backend logs every GPU adapter at startup and prefers a discrete GPU; on
 multi-adapter machines where the pick is wrong, override it with
-`DRACONIC_WEBGPU_ADAPTER=<index from the logged list>`.
+`ENV_WEBGPU_ADAPTER=<index from the logged list>`.
 
 ### Browser
 
@@ -149,7 +149,7 @@ serves a folder with the correct wasm MIME and no-store headers.
 ## Samples
 
 Sample executables build into the same `Bin/` directory as everything else
-(`DRACONIC_BUILD_SAMPLES=ON` by default). Highlights: `Sandbox` (the heavy desktop dev
+(`OPTION_BUILD_SAMPLES=ON` by default). Highlights: `Sandbox` (the heavy desktop dev
 harness), `WebScene` (above), `RHI/` (numbered RHI bring-up samples), `VG/VGSandbox`
 (2D vector graphics), `UI` (widget toolkit), `PhysicsPlayground`, `AudioPlayground`,
 `ParticleFX`, `ScriptPlayground`, `InputActions`, `NetEcho`, `RenderStressTest`,
@@ -160,21 +160,23 @@ harness), `WebScene` (above), `RHI/` (numbered RHI bring-up samples), `VG/VGSand
 
 ```
 Code/
-  Draconic/
-    Foundation/     Engine-agnostic libraries: Core (types/containers/math/RTTI),
-                    RHI (+ Vulkan/WebGPU/Null backends, validation layer), Graphics,
-                    Render + RenderGraph, Materials, Shaders (DXC + WGSL cook),
-                    Scene (ECS), Geometry, Model, Image, Texture, Fonts, VG (2D vector
-                    graphics), UI (+ toolkit/runtime/viewport), Audio, Input, Physics,
-                    Particles, Net, Script (Wren + AngelScript), Content, Resource,
-                    VFS, Xml, Settings, Profiler, Shell (OS integration), Runtime
-    Engine/         The assembled game runtime: DefaultApp, GameInstance, Player,
-                    Project, per-subsystem engine bindings (Render/Scene/Audio/...)
-    Editor/         Editor libraries: Core (headless domain: project, registry, cook,
-                    export), App (UI shell + project manager), per-subsystem editors
-    Tools/          Executables: Draconic.Tools.Editor, .Cook, .Export, .ShaderPack
-    Extensions/     Draconic.Imgui (Dear ImGui debug-UI extension)
-    Experimental/   Parked experiments (Draconic.GUI)
+  Foundation/     Engine-agnostic libraries: Core (types/containers/math/RTTI),
+                  RHI (+ Vulkan/WebGPU/Null backends, validation layer), Graphics,
+                  Render + RenderGraph, Materials, Shaders (DXC + WGSL cook),
+                  Scene (ECS), Geometry, Model, Image, Texture, Fonts, VG (2D vector
+                  graphics), UI (+ toolkit/runtime/viewport), Audio, Input, Physics,
+                  Particles, Net, Script (Wren + AngelScript + Luau), Content, Resource,
+                  VFS, Xml, Settings, Profiler, Shell (OS integration), Runtime
+  Engine/         The assembled game runtime: DefaultApp, GameInstance, Player,
+                  Project, per-subsystem engine bindings (Render/Scene/Audio/...)
+  Pipeline/       Asset cook/build pipeline: importers, builders, and the per-language
+                  script cooks (Wren/AngelScript/Luau) behind one neutral registration root
+  Integration/    Cross-subsystem composition (MCP agent host, physics<->script bridge, ...)
+  Editor/         Editor libraries: Core (headless domain: project, registry, cook,
+                  export), App (UI shell + project manager), per-subsystem editors
+  Tools/          Executables: Tools.Editor, .Cook, .Export, .ShaderPack
+  Extensions/     Extensions.Imgui (Dear ImGui debug-UI extension)
+  Experimental/   Parked experiments (Experimental.GUI)
   Samples/
 Data/
   Shaders/          Engine HLSL shader corpus (dev-compiled or cooked into packs)
@@ -191,7 +193,7 @@ docs/               Design docs + platform guides
 - **DXC** - HLSL -> SPIR-V (runtime sidecar); **naga** + **tint** - the WGSL cook + validation toolchain
 - **JoltPhysics** - physics
 - **miniaudio** - audio
-- **Wren** + **AngelScript** - scripting backends
+- **Wren** + **AngelScript** + **Luau** - scripting backends
 - **Dear ImGui** - debug-UI extension
 - **stb / cgltf / ufbx / msdfgen** - fonts, images, glTF, FBX, MSDF font baking
 - **doctest** - unit tests

@@ -1,4 +1,4 @@
-# Draconic third-party dependencies.
+# Third-party dependencies.
 
 # SDL3 - pre-built development libraries (Windows). Point find_package(SDL3)
 # to the vendored copy and store the DLL path for post-build copies.
@@ -46,7 +46,7 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/DXC/include/dxc/dxcapi.h)
         endif()
     endif()
 else()
-    message(STATUS "ThirdParty/DXC not present - draconic.shaders will be skipped.")
+    message(STATUS "ThirdParty/DXC not present - foundation.shaders will be skipped.")
 endif()
 
 # wgpu-native - vendored standard webgpu.h header + pre-built runtime binaries
@@ -83,7 +83,7 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/WgpuNative/include/webgpu/webgpu.h)
         endif()
     endif()
 else()
-    message(STATUS "ThirdParty/WgpuNative not present - draconic.rhi.webgpu will be skipped.")
+    message(STATUS "ThirdParty/WgpuNative not present - foundation.rhi.webgpu will be skipped.")
 endif()
 
 # Naga + Tint - vendored COOK-TIME executables for the WGSL shader cook. naga-cli
@@ -137,7 +137,7 @@ target_include_directories(ufbx SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/ufb
 
 # miniaudio - vendored single-header audio library (github.com/mackron/miniaudio v0.11.25,
 # public domain / MIT-0). Header include-dir INTERFACE target; the MINIAUDIO_IMPLEMENTATION
-# translation unit lives in draconic.audio. Ogg Vorbis decoding is provided by
+# translation unit lives in foundation.audio. Ogg Vorbis decoding is provided by
 # ThirdParty/stb/stb_vorbis.c (public domain), compiled inside the same implementation TU.
 add_library(miniaudio INTERFACE)
 add_library(ThirdParty::Miniaudio ALIAS miniaudio)
@@ -150,9 +150,9 @@ add_library(doctest::doctest ALIAS doctest)
 target_include_directories(doctest SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/doctest)
 
 # Dear ImGui - vendored (copied from upstream, not a submodule). Compiled as a static library;
-# the include dir is PUBLIC + SYSTEM so consumers (the draconic.imgui lib + apps) can
+# the include dir is PUBLIC + SYSTEM so consumers (the extensions.imgui lib + apps) can
 # #include "imgui.h" and call ImGui:: directly. Does NOT link policy, so the vendored
-# sources build without our -Werror. No stock backends - Draconic has its own RHI-based renderer.
+# sources build without our -Werror. No stock backends - The engine has its own RHI-based renderer.
 # Builds for Emscripten too (portable C++; the debug panel works in the browser).
 add_library(imgui STATIC
     imgui/imgui.cpp
@@ -164,7 +164,7 @@ add_library(ThirdParty::ImGui ALIAS imgui)
 target_include_directories(imgui SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
 set_target_properties(imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-# Compiled third-party whose Draconic consumers have not yet climbed to web: msdfgen only
+# Compiled third-party whose consumers have not yet climbed to web: msdfgen only
 # (import-time font tooling; the web build ships no authoring). Jolt/AngelScript/imgui all
 # build for wasm and live outside this gate.
 if(NOT EMSCRIPTEN)
@@ -191,7 +191,7 @@ endif() # NOT EMSCRIPTEN (msdfgen gated until a web consumer needs it)
 # Built for Emscripten too (JoltPhysics.js is this same C++ compiled to wasm).
 # Compiled from source as one static lib with a fixed, engine-chosen configuration
 # (deterministic-enough defaults; no Jolt CMake options surface). Include dir is
-# PUBLIC + SYSTEM so draconic.physics can #include <Jolt/...>; consumers MUST define
+# PUBLIC + SYSTEM so foundation.physics can #include <Jolt/...>; consumers MUST define
 # the same JPH_* macros, so they are PUBLIC compile definitions here. Does not link
 # policy (vendored code builds without our -Werror).
 file(GLOB_RECURSE util_jolt_sources ${CMAKE_CURRENT_SOURCE_DIR}/JoltPhysics/Jolt/*.cpp)
@@ -206,7 +206,7 @@ set_target_properties(jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # AngelScript 2.39.0 WIP - vendored BY COPY (github.com/anjo76/angelscript, sdk library
 # + the scriptstdstring and scriptbuilder add-ons; no submodule). Compiled from source as
 # one static lib; per-architecture native-call sources self-select via as_config.h #ifdefs,
-# so globbing every .cpp is safe. Include dirs are PUBLIC + SYSTEM so draconic.script.angelscript
+# so globbing every .cpp is safe. Include dirs are PUBLIC + SYSTEM so foundation.script.angelscript
 # can #include <angelscript.h> / <scriptstdstring/scriptstdstring.h> /
 # <scriptbuilder/scriptbuilder.h> from its module IMPLEMENTATION unit. Does not link
 # policy (vendored code builds without our -Werror). scriptstdstring_utils.cpp is

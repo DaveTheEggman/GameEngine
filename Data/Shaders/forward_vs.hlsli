@@ -1,6 +1,6 @@
 #define CASCADE_COUNT 4
 cbuffer View : register(b0, space0) {
-    row_major float4x4 ViewProj;   // Draconic matrices are row-major; annotate so HLSL reads them right.
+    row_major float4x4 ViewProj;   // Matrices are row-major; annotate so HLSL reads them right.
     row_major float4x4 View;       // for view-space depth (cluster lookup + CSM cascade select, PS only)
     row_major float4x4 CascadeViewProj[CASCADE_COUNT];   // CSM: world -> each cascade's light clip
     float3 CameraPos; float LightCount;

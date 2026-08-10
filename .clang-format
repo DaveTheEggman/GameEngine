@@ -1,4 +1,4 @@
-# Draconic C++ style - Allman braces, 4-space indent, 100-col.
+# C++ style - Allman braces, 4-space indent, 100-col.
 # Decided 2026-07-22 (docs/design/code-standard.md sec 7/8). Enforced per-module.
 # clang-format owns the FORMATTING layer only; namespace aliases, file renames,
 # splits, naming and TODO/comment content are hand-done (semantic - see sec 10).

@@ -7,11 +7,11 @@ rem on PATH, and a CMake preset cannot establish that - hence this wrapper. Run 
 rem shell; it finds Visual Studio itself.
 rem
 rem   build-msvc.cmd                       configure + build everything
-rem   build-msvc.cmd --target Draconic.UI  build just that target
+rem   build-msvc.cmd --target UI           build just that target
 rem   build-msvc.cmd -- -k 0               keep going after failures (args after -- go to ninja)
 rem
-rem Set DRACONIC_VS_PATH to an installation root to override the search entirely, e.g.
-rem   set "DRACONIC_VS_PATH=C:\Program Files\Microsoft Visual Studio\18\Community"
+rem Set BUILD_VS_PATH to an installation root to override the search entirely, e.g.
+rem   set "BUILD_VS_PATH=C:\Program Files\Microsoft Visual Studio\18\Community"
 rem
 rem Any arguments are forwarded to the build step; configure always runs (a no-op when nothing
 rem changed).
@@ -28,8 +28,8 @@ rem observed here NOT to report a side-by-side VS 2026 (18.x) install that is pr
 rem working, while a bare directory scan cannot tell which of several installs is newest.
 rem Collect from both, then pick by MSVC TOOLSET version (14.51 > 14.44) rather than by
 rem edition/year - the directory names use different schemes ("18" vs "2022") and do not sort.
-if defined DRACONIC_VS_PATH (
-    call :consider "%DRACONIC_VS_PATH%"
+if defined BUILD_VS_PATH (
+    call :consider "%BUILD_VS_PATH%"
 ) else (
     set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
     if exist "!VSWHERE!" (
@@ -47,7 +47,7 @@ if defined DRACONIC_VS_PATH (
 if not defined BEST_PATH (
     echo [build-msvc] No Visual Studio install with the C++ x64 toolset was found.
     echo [build-msvc] Install the "Desktop development with C++" workload, or set
-    echo [build-msvc]   DRACONIC_VS_PATH=^<installation root^>
+    echo [build-msvc]   BUILD_VS_PATH=^<installation root^>
     exit /b 1
 )
 

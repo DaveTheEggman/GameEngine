@@ -1,4 +1,4 @@
-# Draconic static analysis. Starter set - tighten as the codebase grows.
+# Static analysis. Starter set - tighten as the codebase grows.
 Checks: >
   -*,
   bugprone-*,
