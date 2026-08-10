@@ -666,8 +666,13 @@ namespace engine::ui
         }
         else
         {
-            LOG_WARNING(
-                u8"UI", u8"default font '{}' not loaded - game UI text will not render", fontPath);
+            // Not fatal by itself: a cooked default font bound later (Project Settings >
+            // Default UI font - the player/editor do this after init) replaces this probe.
+            // Only when NEITHER resolves does game-UI text fail to render.
+            LOG_INFO(u8"UI",
+                     u8"dev fallback font '{}' not present (normal outside the source tree) - "
+                     u8"game UI text needs the project's cooked default font to bind",
+                     fontPath);
         }
         m_context.SetFontService(m_fonts.Get());
         m_theme = GameTheme::Create();

@@ -41,6 +41,7 @@ import foundation.materials.resource;  // material factory
 import foundation.animation.resource;  // skeleton/clip/graph factories
 import foundation.particles.resource;  // particle-effect factory
 import foundation.input.resource;      // input-map factory
+import foundation.fonts.resource;      // FontResource + FontFactory (default UI font)
 import foundation.physics.resource;    // collision-shape/physical-material factories
 import foundation.texture.resource;    // texture factory (device-backed)
 import foundation.image.resource;      // image resource registration
@@ -471,6 +472,7 @@ namespace engine::runtime
         foundation::audio::RegisterAudioResource();
         foundation::script::RegisterScriptResource();
         foundation::ui::RegisterUIResource();
+        foundation::fonts::RegisterFontResource();
         core::GlobalTypeRegistry().Register(foundation::scene::SceneDocument::StaticType());
         core::RegisterSerializable<foundation::scene::SceneDocument>();
         engine::ui::RegisterUIComponentReflection();
@@ -516,6 +518,7 @@ namespace engine::runtime
         resources.AddFactory(&m_modelFactory);
         resources.AddFactory(&m_uiDocumentFactory);
         resources.AddFactory(&m_uiThemeFactory);
+        resources.AddFactory(&m_fontFactory);
         if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
         {
             if (!m_textureFactory)

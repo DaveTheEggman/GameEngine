@@ -12,6 +12,7 @@ target_link_libraries(Engine.DefaultApp
            Foundation::Scene Engine::Scene Engine::Render Engine::Animation
            Engine::Particles Foundation::Physics Engine::Physics
            Foundation::Audio Foundation::Audio.Resource Engine::Audio
+           Foundation::Fonts.Resource
            Foundation::Input Engine::Input Foundation::Script
            Foundation::Script.Resource Engine::Script Engine::Integration
            Foundation::Resource Foundation::Content Foundation::Scene.Resource

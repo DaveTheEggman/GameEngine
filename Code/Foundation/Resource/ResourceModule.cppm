@@ -12,6 +12,7 @@
 
 module;
 #include "Core/Debug/Assert.h"
+#include "Core/Log/Log.h"
 #include "Core/Prelude.h"
 
 export module foundation.resource;
@@ -282,6 +283,15 @@ export namespace foundation::resource
         {
             return *m_database;
         }
+
+        /// Diagnostics/tripwires: is a factory registered for this product type? (The silent
+        /// missing-factory class - the 2026-08-12 font incident - is what these guard.)
+        [[nodiscard]] bool HasFactory(TypeId productTypeId) const noexcept
+        {
+            return m_factories.Find(productTypeId) != nullptr;
+        }
+
+        [[nodiscard]] usize FactoryCount() const noexcept { return m_factories.Size(); }
 
         void AddFactory(IResourceFactory* factory)
         {
@@ -590,12 +600,22 @@ export namespace foundation::resource
             foundation::content::Instance* instance = m_database->GetInstance(id);
             if (instance == nullptr)
             {
+                // A broken reference (the id is not in the content DB) - name it; a silent
+                // null handle cost a live-repro session to diagnose (2026-08-12).
+                LOG_WARNING(u8"Resource", u8"bind failed: no content instance for id {}", id);
                 return;
             }
 
             IResourceFactory* const* factory = m_factories.Find(productTypeId);
             if (factory == nullptr)
             {
+                // A HOST WIRING error, not a data error: the product type has no registered
+                // IResourceFactory (RegisterStandardFactories or the host forgot AddFactory).
+                LOG_WARNING(u8"Resource",
+                                     u8"bind failed: no resource factory registered for the product "
+                                     u8"type of '{}' ('{}'::'{}') - host is missing an AddFactory",
+                                     instance->Name(), instance->TypeNamespace(),
+                                     instance->TypeName());
                 return;
             }
 

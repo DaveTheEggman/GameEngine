@@ -57,6 +57,7 @@ import foundation.texture.resource;    // texture factory (device-backed)
 import foundation.image.resource;      // image resource registration
 import foundation.model.resource;      // cooked-model family types + registration
 import foundation.ui.resource;         // cooked UI documents/themes (game-ui)
+import foundation.fonts.resource; // FontFactory (cooked default-UI font)
 import engine.ui;        // the game screen tier (canvases + overlay + consumption)
 import foundation.audio;               // AudioEngine (owned by the audio subsystem)
 import foundation.audio.resource;      // cooked audio clips + factory
@@ -239,6 +240,7 @@ export namespace engine::runtime
         foundation::model::ModelFactory m_modelFactory;
         foundation::ui::UIDocumentFactory m_uiDocumentFactory;
         foundation::ui::UIThemeFactory m_uiThemeFactory;
+        foundation::fonts::FontFactory m_fontFactory; // cooked default-UI font (fonts triad)
         core::UniquePtr<foundation::texture::TextureFactory> m_textureFactory;
         foundation::resource::ResourceManager* m_borrowedResources = nullptr;
         foundation::content::IContentDatabase* m_contentDatabase = nullptr;
