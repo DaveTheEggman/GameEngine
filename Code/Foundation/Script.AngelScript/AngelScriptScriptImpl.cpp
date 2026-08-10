@@ -2203,10 +2203,18 @@ namespace foundation::script::angelscript
     void CoroutineStartDispatch(asIScriptGeneric* gen)
     {
         AngelScriptManager* manager = static_cast<AngelScriptManager*>(gen->GetAuxiliary());
+        // `ScriptCoroutine@ fn` is a by-value handle argument: the generic callee OWNS this
+        // reference. StartCoroutine copies what it needs (the delegate's function via Prepare's
+        // AddRef, the owner via an explicit AddRef), so release our reference here or the delegate
+        // (and, through it, the coroutine's owner + module) leaks.
         asIScriptFunction* fn = static_cast<asIScriptFunction*>(gen->GetArgObject(0));
         if (manager != nullptr)
         {
             manager->StartCoroutine(fn);
+        }
+        if (fn != nullptr)
+        {
+            fn->Release();
         }
     }
 
