@@ -214,7 +214,12 @@ export namespace foundation::script
         String className;  // empty = a ScriptClass-less utility module
         String sourceName; // the source file identity ("Mover.as"): the AngelScript section
                            // name + the editor's breakpoint key - cook-stamped = asset fileName
-        String source;     // full script source text (no bytecode - see the header note)
+        String source;     // full script source text (kept for dev-mode hot reload)
+        // Compiled bytecode for the pack (the player loads this, no compiler shipped), when the
+        // language has a stable bytecode (ScriptCapabilities::Bytecode - Luau) and it cooked;
+        // EMPTY for source-only backends (Wren) or a cook that produced none. Version-locked:
+        // the cook fingerprint carries the compiler version so a vendor bump recooks.
+        Array<byte> bytecode;
         Array<ScriptPropertyDesc> properties;
         Array<String> handlers; // declared lifecycle/event handlers (dispatch gate)
         bool usesCoroutines =
@@ -226,6 +231,7 @@ export namespace foundation::script
             foundation::core::Serialize(ar, "className", className);
             foundation::core::Serialize(ar, "sourceName", sourceName);
             foundation::core::Serialize(ar, "source", source);
+            foundation::core::Serialize(ar, "bytecode", bytecode);
             foundation::core::Serialize(ar, "properties", properties);
             foundation::core::Serialize(ar, "handlers", handlers);
             foundation::core::Serialize(ar, "usesCoroutines", usesCoroutines);
@@ -243,6 +249,7 @@ export namespace foundation::script
         String sourceName; // the source file identity: the AngelScript section name a
                            // breakpoint keys on (== EditorContext::ScriptBreakpoint.file)
         String source;
+        Array<byte> bytecode;        // compiled bytecode (empty = source-only); see ScriptClassSource
         Array<ScriptPropertyDesc> properties;
         Array<String> handlers;
         bool usesCoroutines = false; // the class starts coroutines (cancel on disable/destroy)
@@ -309,6 +316,7 @@ export namespace foundation::script
             product->className = source->className;
             product->sourceName = source->sourceName;
             product->source = source->source;
+            product->bytecode = source->bytecode;
             product->properties = source->properties;
             product->handlers = source->handlers;
             product->usesCoroutines = source->usesCoroutines;

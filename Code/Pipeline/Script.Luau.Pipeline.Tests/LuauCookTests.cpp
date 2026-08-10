@@ -12,6 +12,7 @@
 import foundation.core;
 import foundation.script;
 import foundation.script.resource;
+import foundation.script.luau; // CreateLuauScriptManager + LuauBytecodeVersion (the player path)
 import script.pipeline;
 import script.luau.pipeline;
 
@@ -180,4 +181,48 @@ TEST_CASE("luau.cook: a broken source fails the cook with a reported error")
     ScriptClassSource out;
     CHECK_FALSE(cook->Cook(kBroken, u8"Broken.luau", sink, out));
     CHECK_FALSE(sink.errors.IsEmpty());
+}
+
+TEST_CASE("luau.cook: the cook stores loadable bytecode in the pack (the player path)")
+{
+    IScriptLanguageCook* cook = LuauCook();
+    REQUIRE(cook != nullptr);
+
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    REQUIRE(
+        cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior), u8"NewBehavior.luau", sink, out));
+    // Luau ships bytecode into the pack (source stays for dev-mode hot reload).
+    REQUIRE_FALSE(out.bytecode.IsEmpty());
+    CHECK_FALSE(out.source.IsEmpty());
+
+    // Player path: a fresh Luau VM reconstructs the blob from the STORED bytes with no compiler
+    // (CreateBlob + Serialize(read)), loads it, and instantiates the class - proving the pack
+    // carries runnable bytecode, not just source.
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptBlob> blob = manager->CreateBlob();
+    REQUIRE(blob.Get() != nullptr);
+    {
+        MemoryStream stream;
+        (void)stream.Write(out.bytecode.Data(), out.bytecode.Size());
+        (void)stream.Seek(0, SeekOrigin::Begin);
+        BinarySerializer reader(stream, SerializeMode::Read);
+        blob->Serialize(reader);
+    }
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->LoadBlob(*blob).IsOk());
+    RefPtr<ScriptObject> instance = context->CreateInstance(u8"NewBehavior", Span<Variant>{});
+    CHECK(instance.Get() != nullptr);
+}
+
+TEST_CASE("luau.cook: the fingerprint carries the vendored Luau bytecode version")
+{
+    IScriptLanguageCook* cook = LuauCook();
+    REQUIRE(cook != nullptr);
+    // A vendor bump changes LuauBytecodeVersion(), which flows through the cook's CookVersion()
+    // into the registry's combined version and the ScriptClassAssetBuilder fingerprint, recooking
+    // every Luau pack. Non-zero (a real bytecode version) and equal to the vendored constant.
+    CHECK(LuauBytecodeVersion() != 0u);
+    CHECK(cook->CookVersion() == LuauBytecodeVersion());
+    CHECK(ScriptLanguageCookRegistry::Get().CombinedCookVersion() >= LuauBytecodeVersion());
 }

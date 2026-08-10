@@ -544,6 +544,11 @@ export namespace pipeline{
         /// The New-Asset starter source for `tier` (the tier's convention pre-filled).
         [[nodiscard]] virtual StringView NewAssetTemplate(ScriptTier tier) const = 0;
 
+        /// A cook-fingerprint contribution beyond the shared builder Version: a bytecode-emitting
+        /// cook returns its COMPILER version here so a vendor bump recooks (bytecode is
+        /// version-locked). Default 0 - a source-only cook (Wren) contributes nothing.
+        [[nodiscard]] virtual u32 CookVersion() const { return 0; }
+
         /// Compile-check `source` (named `assetName` for error reporting) and harvest its
         /// metadata into `out` (language, className, handlers, usesCoroutines, and any
         /// property metadata the language supports); report cook errors through `sink`;
@@ -593,6 +598,22 @@ export namespace pipeline{
             return nullptr;
         }
 
+        /// Sum of every registered cook's CookVersion() - folded into the ScriptClassAssetBuilder
+        /// fingerprint so a compiler/vendor bump in ANY bytecode language recooks the script
+        /// packs. Order-independent (a sum), and 0 when every cook is source-only.
+        [[nodiscard]] u32 CombinedCookVersion() const
+        {
+            u32 total = 0;
+            for (const Entry& entry : m_cooks)
+            {
+                if (entry.cook.Get() != nullptr)
+                {
+                    total += entry.cook->CookVersion();
+                }
+            }
+            return total;
+        }
+
     private:
         struct Entry
         {
@@ -616,7 +637,13 @@ export namespace pipeline{
         {
             return &ScriptClassSource::StaticType();
         }
-        [[nodiscard]] u32 Version() const override { return 1; }
+        [[nodiscard]] u32 Version() const override
+        {
+            // Base cook-logic version (2: the cooked record gained a bytecode field) + every
+            // language cook's compiler version, so a Luau (or other bytecode) vendor bump recooks
+            // every script pack automatically (luau-backend.md "Vendoring").
+            return 2 + ScriptLanguageCookRegistry::Get().CombinedCookVersion();
+        }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override

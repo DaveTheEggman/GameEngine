@@ -8,5 +8,7 @@
 #include <lualib.h>
 #include <luacode.h>
 
+#include <Luau/Bytecode.h> // LBC_VERSION_TARGET - the vendored bytecode version (cook fingerprint)
+
 #include <cstdlib> // free() - luau_compile returns a malloc'd buffer
 #include <cstring> // strlen for chunk names

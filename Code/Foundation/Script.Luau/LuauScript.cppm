@@ -1562,6 +1562,14 @@ export namespace foundation::script
             core::MakeRef<LuauScriptManager>(core::DefaultAllocator()).Get());
     }
 
+    /// The vendored Luau bytecode-format version (LBC_VERSION_TARGET). Bytecode is NOT stable
+    /// across Luau versions, so the cook folds this into its fingerprint: a vendor bump changes
+    /// the number and every Luau script pack recooks automatically (luau-backend.md "Vendoring").
+    [[nodiscard]] inline core::u32 LuauBytecodeVersion() noexcept
+    {
+        return static_cast<core::u32>(LBC_VERSION_TARGET);
+    }
+
     /// Registers Luau with the backend registry (scripting.md B1) - the ONE line that makes the
     /// language available; consumers resolve by extension/language, never by type.
     inline void RegisterLuauScriptBackend()

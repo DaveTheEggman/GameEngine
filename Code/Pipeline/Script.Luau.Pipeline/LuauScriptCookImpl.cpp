@@ -224,6 +224,10 @@ namespace pipeline{
                 }
             }
 
+            // Luau bytecode is version-locked: fold the vendored bytecode version into the cook
+            // fingerprint so a vendor bump recooks every Luau script pack (luau-backend.md).
+            [[nodiscard]] u32 CookVersion() const override { return LuauBytecodeVersion(); }
+
             [[nodiscard]] bool Cook(StringView source, StringView assetName,
                                     CookScriptErrorSink& sink, ScriptClassSource& out) override
             {
@@ -263,6 +267,26 @@ namespace pipeline{
                 out.className = FindLuauClassName(source, pipeline::FileStemOf(assetName));
                 out.handlers = ScanScriptHandlers(source);
                 out.usesCoroutines = ScriptReferencesCoroutineStart(source);
+
+                // Bytecode into the pack: the player loads bytecode only (no compiler shipped).
+                // The source already compiled (Load above), so this succeeds; store the serialized
+                // blob so the runtime reconstructs it via IScriptManager::CreateBlob + LoadBlob.
+                // (The source stays on the record for dev-mode hot reload.)
+                Result<RefPtr<IScriptBlob>> blob = manager->CompileToBlob(source, assetName);
+                if (blob.HasValue() && blob.Value().Get() != nullptr)
+                {
+                    MemoryStream stream;
+                    {
+                        BinarySerializer writer(stream, SerializeMode::Write);
+                        blob.Value()->Serialize(writer);
+                    }
+                    const Span<const byte> bytes = stream.Bytes();
+                    out.bytecode.Reserve(bytes.Size());
+                    for (usize i = 0; i < bytes.Size(); ++i)
+                    {
+                        out.bytecode.PushBack(bytes[i]);
+                    }
+                }
 
                 // Editor properties: construct the class and walk its scalar fields (the Luau
                 // harvest model). Only when the source declares a class.
