@@ -23,6 +23,7 @@ export module foundation.script.luau;
 
 import foundation.core;
 import foundation.script;
+import foundation.script.facades; // CollectEmittableTypes - the shared reachability closure
 
 namespace core = foundation::core;
 using namespace foundation::core;
@@ -46,13 +47,6 @@ namespace foundation::script
                                      : StringView{};
         }
 
-        // Is this reflected type one the backend binds? Mirrors the conformance battery's
-        // own "bindable" predicate: script-constructible, not an enum, not a container.
-        [[nodiscard]] bool IsBindable(const TypeInfo& type)
-        {
-            return type.constructorCount > 0 && type.enumeratorCount == 0 &&
-                   type.container == nullptr && type.name != nullptr;
-        }
     }
 
     // =====================================================================
@@ -876,21 +870,25 @@ namespace foundation::script
 
     void LuauScriptContext::EmitRegisteredTypes()
     {
-        for (const TypeInfo* type : m_manager->RegisteredTypes())
+        const Span<const TypeInfo* const> registered = m_manager->RegisteredTypes();
+        // Enums emit as named constant tables (not part of the object reachability closure).
+        for (const TypeInfo* type : registered)
         {
-            if (type == nullptr)
-            {
-                continue;
-            }
-            // Enums emit as named constant tables; everything bindable emits its class + metatable.
-            if (type->enumeratorCount > 0)
+            if (type != nullptr && type->enumeratorCount > 0)
             {
                 EmitEnum(*type);
             }
-            else if (IsBindable(*type))
-            {
-                EmitType(*type);
-            }
+        }
+        // Object types emit as the bounded REACHABILITY CLOSURE (the one policy shared with Wren):
+        // constructor-having seeds + factory-return roots (e.g. RigidBody.of), closed over the
+        // reflected graph - NOT every constructible registered type. Keeps the Luau surface (and
+        // script_api) identical to the other backends, and includes constructor-less handles the
+        // old simple filter missed.
+        Array<const TypeInfo*> emit;
+        CollectEmittableTypes(registered, emit);
+        for (const TypeInfo* type : emit)
+        {
+            EmitType(*type);
         }
     }
 
@@ -1351,12 +1349,12 @@ namespace foundation::script
     Array<ScriptApiType> LuauScriptManager::DescribeBoundApi() const
     {
         Array<ScriptApiType> surface;
-        for (const TypeInfo* type : m_types)
+        // The same reachability closure the emitter binds - so script_api reports exactly the set
+        // scripts can actually use, identical to the other backends.
+        Array<const TypeInfo*> emittable;
+        CollectEmittableTypes(Span<const TypeInfo* const>{m_types.Data(), m_types.Size()}, emittable);
+        for (const TypeInfo* type : emittable)
         {
-            if (type == nullptr || !IsBindable(*type))
-            {
-                continue;
-            }
             ScriptApiType api;
             api.scriptName = String(ViewOf(type->name));
             api.typeId = type->id;

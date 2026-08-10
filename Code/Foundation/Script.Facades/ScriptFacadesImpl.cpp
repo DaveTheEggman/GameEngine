@@ -188,4 +188,102 @@ namespace foundation::script
         }();
         (void)once;
     }
+
+    bool HasBindableSurface(const TypeInfo& type) noexcept
+    {
+        return ConstructorCount(type) > 0 || PropertyCount(type) > 0 || MethodCount(type) > 0;
+    }
+
+    void CollectEmittableTypes(Span<const TypeInfo* const> allTypes, Array<const TypeInfo*>& out)
+    {
+        const auto managed = [&](const TypeInfo* t) -> bool
+        {
+            if (t == nullptr || t->name == nullptr || t->enumeratorCount > 0 ||
+                t->container != nullptr || !HasBindableSurface(*t))
+            {
+                return false;
+            }
+            for (const TypeInfo* e : allTypes)
+            {
+                if (e == t)
+                {
+                    return true;
+                }
+            }
+            return false; // only types the caller actually registered
+        };
+        const auto has = [&](const TypeInfo* t) -> bool
+        {
+            for (const TypeInfo* e : out)
+            {
+                if (e == t)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        Array<const TypeInfo*> work;
+        const auto push = [&](const TypeInfo* t)
+        {
+            if (managed(t) && !has(t))
+            {
+                out.PushBack(t);
+                work.PushBack(t);
+            }
+        };
+        // Seeds: script-constructable types + the registered factory-return roots.
+        for (const TypeInfo* t : allTypes)
+        {
+            if (t != nullptr && ConstructorCount(*t) > 0)
+            {
+                push(t);
+            }
+        }
+        for (const TypeInfo* t : ExtraScriptRootTypes())
+        {
+            push(t);
+        }
+        const auto edge = [&](const TypeInfo* u)
+        {
+            if (u == nullptr)
+            {
+                return;
+            }
+            if (u->container != nullptr) // a container-typed member reaches its element type(s)
+            {
+                const TypeInfo* el = u->container->elementType;
+                push(el);
+                if (el != nullptr)
+                {
+                    Array<const TypeInfo*> derived;
+                    EnumerateDerived(*el, derived);
+                    for (const TypeInfo* d : derived)
+                    {
+                        push(d);
+                    }
+                }
+                return;
+            }
+            push(u);
+        };
+        while (!work.IsEmpty())
+        {
+            const TypeInfo* t = work[work.Size() - 1];
+            work.RemoveAt(work.Size() - 1);
+            for (usize i = 0; i < MethodCount(*t); ++i)
+            {
+                const MethodInfo& m = MethodAt(*t, i);
+                edge(m.returnType != nullptr ? m.returnType() : nullptr);
+                for (u32 p = 0; p < m.paramCount; ++p)
+                {
+                    edge(m.params[p].type());
+                }
+            }
+            for (usize i = 0; i < PropertyCount(*t); ++i)
+            {
+                edge(PropertyAt(*t, i).type);
+            }
+        }
+    }
 }

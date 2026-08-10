@@ -548,116 +548,6 @@ namespace foundation::script::wren
         return g_table[slot];
     }
 
-    // A reflected type has a "bindable surface" (worth an emitted foreign class) if it carries any
-    // constructor, property, or method. Scalars/strings that slipped into the registry have none.
-    [[nodiscard]] inline bool HasBindableSurface(const core::TypeInfo& t) noexcept
-    {
-        return core::ConstructorCount(t) > 0 || core::PropertyCount(t) > 0 ||
-               core::MethodCount(t) > 0;
-    }
-
-    // The object types worth emitting as Wren foreign classes: those a script can actually receive a
-    // handle to. Seed with constructor-having types (script-constructable), then close over the
-    // reflected object graph - a bound method's return / param types, a property's type, and a
-    // container element's base type PLUS every concrete type deriving it (a polymorphic container can
-    // hold any of them). This bounds the emitted set - and the binding pool - to the reachable
-    // surface instead of the whole registry (enums / containers / primitives never qualify). `out`
-    // is the emit order (seeds first). Used by both the source emitter and the API-describe mirror.
-    inline void CollectEmittableTypes(core::Span<const core::TypeInfo* const> allTypes,
-                                      core::Array<const core::TypeInfo*>& out)
-    {
-        auto managed = [&](const core::TypeInfo* t) -> bool
-        {
-            if (t == nullptr || t->name == nullptr || t->enumeratorCount > 0 ||
-                t->container != nullptr || !HasBindableSurface(*t))
-            {
-                return false;
-            }
-            for (const core::TypeInfo* e : allTypes)
-            {
-                if (e == t)
-                {
-                    return true;
-                }
-            }
-            return false;
-        };
-        auto has = [&](const core::TypeInfo* t) -> bool
-        {
-            for (const core::TypeInfo* e : out)
-            {
-                if (e == t)
-                {
-                    return true;
-                }
-            }
-            return false;
-        };
-        core::Array<const core::TypeInfo*> work;
-        auto push = [&](const core::TypeInfo* t)
-        {
-            if (managed(t) && !has(t))
-            {
-                out.PushBack(t);
-                work.PushBack(t);
-            }
-        };
-        for (const core::TypeInfo* t : allTypes)
-        {
-            if (t != nullptr && core::ConstructorCount(*t) > 0)
-            {
-                push(t);
-            }
-        }
-        // Additional emission roots registered by other modules: types reached only via a factory
-        // whose DECLARED return is that type (e.g. component types via RigidBody.of(entity)), which
-        // no static signature names. Seed them exactly like constructor-seeded types.
-        for (const core::TypeInfo* t : foundation::script::ExtraScriptRootTypes())
-        {
-            push(t);
-        }
-        auto edge = [&](const core::TypeInfo* u)
-        {
-            if (u == nullptr)
-            {
-                return;
-            }
-            if (u->container != nullptr) // a container-typed member: reach its element type(s)
-            {
-                const core::TypeInfo* el = u->container->elementType;
-                push(el);
-                if (el != nullptr)
-                {
-                    core::Array<const core::TypeInfo*> derived;
-                    core::EnumerateDerived(*el, derived);
-                    for (const core::TypeInfo* d : derived)
-                    {
-                        push(d);
-                    }
-                }
-                return;
-            }
-            push(u);
-        };
-        while (!work.IsEmpty())
-        {
-            const core::TypeInfo* t = work[work.Size() - 1];
-            work.RemoveAt(work.Size() - 1);
-            for (core::usize i = 0; i < core::MethodCount(*t); ++i)
-            {
-                const core::MethodInfo& m = core::MethodAt(*t, i);
-                edge(m.returnType != nullptr ? m.returnType() : nullptr);
-                for (core::u32 p = 0; p < m.paramCount; ++p)
-                {
-                    edge(m.params[p].type());
-                }
-            }
-            for (core::usize i = 0; i < core::PropertyCount(*t); ++i)
-            {
-                edge(core::PropertyAt(*t, i).type);
-            }
-        }
-    }
 
     // Defined after WrenContext (the user data holds a WrenContext*).
     [[nodiscard]] IScriptContext* OwningContext(WrenVM* vm);
@@ -1079,9 +969,10 @@ namespace foundation::script::wren
         [[nodiscard]] WrenVM* Vm() const noexcept { return m_vm; }
 
         // A live WrenScriptDelegate tracks itself here so that, when this context's VM is
-        // freed, we can detach each delegate (null its handle) BEFORE wrenFreeVM releases
-        // the fn handles - releasing a handle after wrenFreeVM would be a use-after-free.
-        // A delegate held only by native code is a safe no-op once detached.
+        // freed, we detach each delegate BEFORE wrenFreeVM - Detach RELEASES its fn handle
+        // while the VM is still alive (wrenFreeVM does not free outstanding handles, it only
+        // asserts they were released), then nulls it so the destructor is a no-op. A delegate
+        // held only by native code that outlives the context is a safe no-op once detached.
         void RegisterDelegate(WrenScriptDelegate* delegate) { m_delegates.PushBack(delegate); }
         void UnregisterDelegate(WrenScriptDelegate* delegate)
         {
@@ -1806,10 +1697,17 @@ namespace foundation::script::wren
         WrenScriptDelegate(const WrenScriptDelegate&) = delete;
         WrenScriptDelegate& operator=(const WrenScriptDelegate&) = delete;
 
-        // The VM is being freed (wrenFreeVM releases the fn handle itself): drop our
-        // references without touching them, so the destructor becomes a no-op.
+        // The owning context is tearing down (before wrenFreeVM): RELEASE the fn handle now,
+        // while the VM is still alive, then drop our references so the destructor is a no-op.
+        // wrenFreeVM does NOT free outstanding handles (it only asserts they were released), so
+        // skipping the release here leaks the handle. Detach runs from ~WrenContext, before
+        // wrenFreeVM, so m_context->Vm() is valid.
         void Detach() noexcept
         {
+            if (m_context != nullptr && m_fn != nullptr)
+            {
+                wrenReleaseHandle(m_context->Vm(), m_fn);
+            }
             m_context = nullptr;
             m_fn = nullptr;
         }
@@ -1890,8 +1788,9 @@ namespace foundation::script::wren
     {
         if (m_vm != nullptr)
         {
-            // Detach delegates and drop this VM's coroutines BEFORE freeing it (the manager
-            // outlives us - we hold a strong ref); wrenFreeVM then frees the fn/fiber handles.
+            // Detach delegates (each releases its fn handle) and drop this VM's coroutines
+            // (each releases its fiber handle) BEFORE freeing the VM - wrenFreeVM does NOT free
+            // outstanding handles. The manager outlives us (we hold a strong ref).
             DetachAllDelegates();
             Manager().ForgetCoroutinesForVm(m_vm);
             wrenFreeVM(m_vm);

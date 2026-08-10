@@ -60,6 +60,20 @@ export namespace foundation::script
     /// The additional emission roots registered by other modules (extra seeds for the Wren closure).
     [[nodiscard]] core::Span<const core::TypeInfo* const> ExtraScriptRootTypes();
 
+    /// A reflected type worth binding to script: it has a constructor, property, or method (enums,
+    /// containers, and pure-primitive types never qualify).
+    [[nodiscard]] bool HasBindableSurface(const core::TypeInfo& type) noexcept;
+
+    /// The REACHABILITY CLOSURE: the object types a script can actually receive a handle to, in
+    /// emit order (seeds first). Seeds = every constructor-having type in `allTypes` + the registered
+    /// ExtraScriptRootTypes (constructor-less factory returns like `RigidBody.of(entity)`), then
+    /// closes over the reflected graph - each bound method's return/param types, each property's
+    /// type, and each container element's base type plus its derived types. This bounds the emitted
+    /// surface to what is reachable from the facades, NOT the whole registry. The ONE policy every
+    /// binding backend uses, so their surfaces (and script_api) match.
+    void CollectEmittableTypes(core::Span<const core::TypeInfo* const> allTypes,
+                               core::Array<const core::TypeInfo*>& out);
+
     struct ScriptRuntimeBinding
     {
         f64 timeSeconds = 0.0;   // seconds since the run context was created

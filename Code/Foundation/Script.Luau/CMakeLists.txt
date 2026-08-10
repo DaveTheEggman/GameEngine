@@ -9,7 +9,7 @@ add_library(Script.Luau STATIC)
 add_library(Foundation::Script.Luau ALIAS Script.Luau)
 
 target_link_libraries(Script.Luau
-    PUBLIC Foundation::Script Foundation::Policy
+    PUBLIC Foundation::Script Foundation::Script.Facades Foundation::Policy
     PRIVATE ThirdParty::Luau)
 
 target_sources(Script.Luau
