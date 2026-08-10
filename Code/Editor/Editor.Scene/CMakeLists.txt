@@ -20,12 +20,13 @@ target_link_libraries(Editor.Scene
         Foundation::UI Foundation::UI.Runtime Foundation::UI.Viewport Foundation::VG.Renderer
         Foundation::Script Foundation::Script.Wren Foundation::Script.Resource Foundation::Script.Facades Engine::Script
         Foundation::Input Foundation::Input.Resource Engine::Input
-        Editor::Core Editor::App Foundation::Policy)
+        Editor::Core Editor::App Editor::ViewportTools Foundation::Policy)
 
 target_sources(Editor.Scene
     PRIVATE
         EditContextImpl.cpp
         GizmoImpl.cpp
+        ToolsImpl.cpp
         ComponentGizmosImpl.cpp
         HierarchyViewImpl.cpp
         InspectorViewImpl.cpp
@@ -43,6 +44,7 @@ target_sources(Editor.Scene
             CameraPreview.cppm
             EditContext.cppm
             Gizmo.cppm
+            Tools.cppm
             ComponentGizmos.cppm
             HierarchyView.cppm
             InspectorView.cppm

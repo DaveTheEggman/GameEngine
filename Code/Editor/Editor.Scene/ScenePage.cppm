@@ -45,6 +45,8 @@ import :edit;
 import :model_prefab;
 import :game_page;
 import :gizmo;
+import :tools;
+import editor.viewporttools;
 import :component_gizmos;
 import :hierarchy;
 import :inspector;
@@ -163,7 +165,17 @@ export namespace editor
                 }
                 m_inspector =
                     MakeRef<SceneInspectorView>(DefaultAllocator(), context, *m_editContext);
-                m_gizmos = MakeUnique<GizmoController>(DefaultAllocator(), *m_editContext);
+                {
+                    auto selectTool =
+                        MakeUnique<SelectTransformTool>(DefaultAllocator(), *m_editContext);
+                    m_selectTool = selectTool.Get();
+                    m_viewportTools.Add(Move(selectTool)); // first added = the default tool
+                    ViewportToolHostContext toolHost;
+                    toolHost.scene = &m_editContext->Scene();
+                    toolHost.commands = &m_editContext->Commands();
+                    toolHost.entitySelection = &m_editContext->EntitySelection();
+                    ViewportToolProviderRegistry::Get().CreateAll(m_viewportTools, toolHost);
+                }
                 RegisterBuiltinGizmoRenderers(m_componentGizmos);
             }
 
@@ -277,13 +289,13 @@ export namespace editor
         // Camera ray through the mouse position, built from the camera basis (no matrix inverse).
         [[nodiscard]] bool MakeMouseRay(GizmoRay& out) const;
 
-        // Feed the gizmo controller a frame of viewport input. Runs EVERY frame so the gizmo
-        // pose tracks tree selections and undo/redo even while the mouse is elsewhere; when the
-        // viewport isn't hovered/focused the pointer is flagged invalid (pose-sync only). The
-        // camera owns the mouse while Alt (orbit) or RMB (fly) is down, so gizmo buttons are
-        // masked then. Returns true when the gizmo consumed the mouse (hot handle or active
-        // drag) - click-picking must skip.
-        [[nodiscard]] bool UpdateGizmos(bool viewportActive);
+        // Feed the viewport tool manager a frame of input (editor.viewporttools). Runs EVERY
+        // frame so the active tool's visuals track tree selections and undo/redo even while the
+        // mouse is elsewhere (pointer flagged invalid then - pose-sync only). The page keeps
+        // CAMERA POLICY: buttons are masked and the keyboard nulled while the camera owns the
+        // mouse (Alt orbit / RMB fly / Tab-captured). Selection picking lives INSIDE the default
+        // SelectTransformTool now; Simulate maps to input.editingLocked.
+        [[nodiscard]] bool UpdateViewportTools(bool viewportActive);
 
         void DrawGizmos(render::debug::DebugDraw& dd);
 
@@ -336,11 +348,6 @@ export namespace editor
         // fixed cube remains the meshless fallback.
         void DrawEntityMarkers(render::debug::DebugDraw& dd);
 
-        // Click-to-select in the viewport: a camera ray through the clicked pixel against small
-        // pick spheres at entity positions (CPU picking v1; component bounds and marquee later).
-        // Left click only, and not while Alt-orbiting; Ctrl toggles; empty space clears.
-        void PickOnClick();
-
         // Bind (and re-bind after dock/float moves) the viewport to the window that hosts it -
         // the UISandbox UpdateViewportHostWindow dance: RendererFor is only valid once the
         // window is attached, and a floated panel lives in a different OS window.
@@ -377,7 +384,8 @@ export namespace editor
         ui::toolkit::ToolbarToggle* m_gridToggle = nullptr;
         bool m_showGrid = true;
         RefPtr<SceneInspectorView> m_inspector;
-        UniquePtr<GizmoController> m_gizmos;
+        ViewportToolManager m_viewportTools;             // declared after m_editContext (tools borrow it)
+        SelectTransformTool* m_selectTool = nullptr;     // borrowed (manager-owned default tool)
         GizmoRendererRegistry m_componentGizmos;
         RefPtr<ui::viewport::ViewportView> m_viewport;
 

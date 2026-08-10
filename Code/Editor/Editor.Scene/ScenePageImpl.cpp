@@ -96,11 +96,7 @@ namespace editor
         {
             m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt);
         }
-        const bool gizmoConsumedMouse = UpdateGizmos(viewportActive);
-        if (m_viewport->IsHovered() && !gizmoConsumedMouse)
-        {
-            PickOnClick();
-        }
+        (void)UpdateViewportTools(viewportActive); // picking lives inside the select tool now
 
         // Per-scene debug draw (shows only where THIS scene renders; lists clear in
         // EndRendering, so re-accumulate every frame): ground grid + origin axes + entity
@@ -682,34 +678,28 @@ namespace editor
         return true;
     }
 
-    bool SceneEditorPage::UpdateGizmos(bool viewportActive)
+    bool SceneEditorPage::UpdateViewportTools(bool viewportActive)
     {
-        if (!m_gizmos)
+        if (m_selectTool == nullptr)
         {
             return false;
         }
-        // Simulate mode: transforms belong to the running systems, so the gizmo goes
-        // READ-ONLY - a pointer-less update refreshes its anchor from the live world
-        // matrix every frame (it follows what physics/animation move) but can never
-        // start a drag (and drag commands are refused by the locked stack anyway).
-        if (m_isSimulating)
-        {
-            GizmoFrameInput in;
-            in.cameraPosition = m_camera.position;
-            in.cameraForward = m_camera.Forward();
-            in.fovY = kFovY;
-            in.pointerValid = false;
-            (void)m_gizmos->Update(in);
-            return false;
-        }
-        GizmoFrameInput in;
+        ViewportToolInput in;
         in.cameraPosition = m_camera.position;
         in.cameraForward = m_camera.Forward();
         in.fovY = kFovY;
-        in.pointerValid = viewportActive && MakeMouseRay(in.ray);
+        // Simulate: edits are refused (the select tool maps this to its read-only gizmo path -
+        // pose sync, no drags; drag commands are refused by the locked stack anyway). Selection
+        // picking still works: selecting is not an edit.
+        in.editingLocked = m_isSimulating;
+        GizmoRay ray;
+        in.pointerValid = viewportActive && MakeMouseRay(ray);
+        in.ray.origin = ray.origin;
+        in.ray.direction = ray.direction;
+        in.pointerOver = m_viewport->IsHovered();
         if (!in.pointerValid)
         {
-            return m_gizmos->Update(in);
+            return m_viewportTools.Update(in);
         }
 
         foundation::shell::IMouse* mouse = m_viewport->Mouse();
@@ -725,34 +715,32 @@ namespace editor
             in.leftPressed = mouse->IsButtonPressed(foundation::shell::MouseButton::Left);
             in.leftDown = mouse->IsButtonDown(foundation::shell::MouseButton::Left);
         }
-        // Release always reaches the controller so an in-flight drag can finish even if a
+        // Release always reaches the tool so an in-flight gesture can finish even if a
         // modifier goes down mid-drag.
         in.leftReleased = mouse->IsButtonReleased(foundation::shell::MouseButton::Left) ||
                           !mouse->IsButtonDown(foundation::shell::MouseButton::Left);
         if (kb != nullptr)
         {
-            in.snap = kb->IsKeyDown(foundation::shell::KeyCode::LeftCtrl) ||
+            in.ctrl = kb->IsKeyDown(foundation::shell::KeyCode::LeftCtrl) ||
                       kb->IsKeyDown(foundation::shell::KeyCode::RightCtrl);
-            if (!cameraOwnsMouse) // W/E/R fly keys belong to the camera while flying
-            {
-                in.keyTranslate = kb->IsKeyPressed(foundation::shell::KeyCode::W);
-                in.keyRotate = kb->IsKeyPressed(foundation::shell::KeyCode::E);
-                in.keyScale = kb->IsKeyPressed(foundation::shell::KeyCode::R);
-                in.keyToggleSpace = kb->IsKeyPressed(foundation::shell::KeyCode::X);
-            }
+            in.shift = kb->IsKeyDown(foundation::shell::KeyCode::LeftShift) ||
+                       kb->IsKeyDown(foundation::shell::KeyCode::RightShift);
         }
-        return m_gizmos->Update(in);
+        in.wheelDelta = mouse->ScrollY();
+        // Tool hotkeys (the select tool's W/E/R/X) belong to the camera while it owns input.
+        in.keyboard = cameraOwnsMouse ? nullptr : kb;
+        return m_viewportTools.Update(in);
     }
 
     void SceneEditorPage::DrawGizmos(render::debug::DebugDraw& dd)
     {
-        if (m_gizmos)
+        m_viewportTools.Draw(dd);
+        if (IViewportTool* active = m_viewportTools.ActiveTool(); active != nullptr)
         {
-            m_gizmos->Draw(dd);
-            if (m_gizmos->IsActive())
+            const StringView status = active->StatusText();
+            if (!status.IsEmpty())
             {
-                dd.DrawScreenText(12.0f, 12.0f, m_gizmos->StatusText(),
-                                  Color{0.85f, 0.85f, 0.85f, 1.0f});
+                dd.DrawScreenText(12.0f, 12.0f, status, Color{0.85f, 0.85f, 0.85f, 1.0f});
             }
         }
 
@@ -801,7 +789,7 @@ namespace editor
     {
         m_toolbar = MakeRef<ui::toolkit::Toolbar>(DefaultAllocator());
         editor::app::EditorIcons& icons = editor::app::EditorIcons::Get();
-        GizmoController* gizmos = m_gizmos.Get();
+        GizmoController* gizmos = m_selectTool != nullptr ? &m_selectTool->Gizmos() : nullptr;
         auto icon = [](foundation::ui::SVGDrawable* drawable)
         {
             return Function<void(foundation::ui::UIDrawContext&, Rectangle)>{
@@ -1013,15 +1001,15 @@ namespace editor
 
     void SceneEditorPage::SyncToolbar()
     {
-        if (m_toolbar.Get() == nullptr || !m_gizmos)
+        if (m_toolbar.Get() == nullptr || m_selectTool == nullptr)
         {
             return;
         }
-        const GizmoMode mode = m_gizmos->Mode();
+        const GizmoMode mode = m_selectTool->Gizmos().Mode();
         m_translateToggle->SetIsChecked(mode == GizmoMode::Translate);
         m_rotateToggle->SetIsChecked(mode == GizmoMode::Rotate);
         m_scaleToggle->SetIsChecked(mode == GizmoMode::Scale);
-        const bool world = (m_gizmos->Space() == GizmoSpace::World);
+        const bool world = (m_selectTool->Gizmos().Space() == GizmoSpace::World);
         m_spaceToggle->SetIsChecked(world);
         m_gridToggle->SetIsChecked(m_showGrid);
     }
@@ -1229,78 +1217,6 @@ namespace editor
                               render::ViewportRect{0, 0, w, h}, &camOverride, targetState,
                               /*postOverride*/ nullptr, /*viewportKey*/ m_previewViewport.Get());
         m_previewViewport->SetColorState(rhi::ResourceState::ShaderRead);
-    }
-
-    void SceneEditorPage::PickOnClick()
-    {
-        if (!m_editContext)
-        {
-            return;
-        }
-        foundation::shell::IMouse* mouse = m_viewport->Mouse();
-        foundation::shell::IKeyboard* kb = m_viewport->Keyboard();
-        if (mouse == nullptr || !mouse->IsButtonPressed(foundation::shell::MouseButton::Left))
-        {
-            return;
-        }
-        const bool alt = kb != nullptr && (kb->IsKeyDown(foundation::shell::KeyCode::LeftAlt) ||
-                                           kb->IsKeyDown(foundation::shell::KeyCode::RightAlt));
-        if (alt)
-        {
-            return;
-        } // Alt+LMB = camera orbit
-
-        GizmoRay pickRay;
-        if (!MakeMouseRay(pickRay))
-        {
-            return;
-        }
-        const Float3 origin = pickRay.origin;
-        const Float3 dir = pickRay.direction;
-
-        scene::Scene& scene = *m_scene;
-        Guid best;
-        f32 bestT = kFloatMax;
-        scene.ForEachEntity(
-            [&](scene::EntityHandle e)
-            {
-                const Float4x4 world = scene.GetWorldMatrix(e);
-                const Float3 p{world.m[3][0], world.m[3][1], world.m[3][2]};
-                const Float3 toCenter = p - origin;
-                const f32 t = Dot(toCenter, dir);
-                if (t <= 0.0f || t >= bestT)
-                {
-                    return;
-                }
-                const Float3 closest = origin + dir * t;
-                const Float3 d = p - closest;
-                // Screen-constant-ish pick radius: grows with distance, floors for close-ups.
-                const f32 radius = Max(0.15f, t * 0.02f);
-                if (Dot(d, d) <= radius * radius)
-                {
-                    bestT = t;
-                    best = scene.GetEntityId(e);
-                }
-            });
-
-        Selection<Guid>& selection = m_editContext->EntitySelection();
-        const bool ctrl = kb != nullptr && (kb->IsKeyDown(foundation::shell::KeyCode::LeftCtrl) ||
-                                            kb->IsKeyDown(foundation::shell::KeyCode::RightCtrl));
-        if (best != Guid{})
-        {
-            if (ctrl)
-            {
-                selection.Toggle(best);
-            }
-            else
-            {
-                selection.Set(best);
-            }
-        }
-        else if (!ctrl)
-        {
-            selection.Clear();
-        }
     }
 
     void SceneEditorPage::EnsureViewportBound()
