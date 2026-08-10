@@ -124,6 +124,16 @@ export namespace foundation::core
                 {
                     return found;
                 }
+                // "draconic::<lib>" asset/cook type -> "rtti::pipeline::<lib>". LIVE evidence
+                // (2026-08-12, user project envelopes): pre-debrand asset identities were the
+                // SUBSYSTEM-flavored spelling - 'draconic::physics'::CollisionShapeAsset,
+                // 'draconic::script'::ScriptClassAsset - not the editor-collection spelling the
+                // first compat pass assumed. They now live under the Pipeline collection.
+                if (const TypeInfo* found = FindById(
+                        ComputeTypeId(ComposeNamespace(remapped, "rtti::pipeline", rest), name)))
+                {
+                    return found;
+                }
                 if (StartsWith(rest, "::editor"))
                 {
                     // "draconic::editor::<lib>" asset-cook type that MOVED -> "rtti::pipeline::<lib>".

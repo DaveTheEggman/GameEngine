@@ -259,11 +259,16 @@ namespace pipeline
         item.asset = instance->ReadObject();
         if (item.asset.Get() == nullptr)
         {
-            // Deserialization failed - usually a source written by an OLDER schema
-            // (no asset compatibility by policy): delete + re-import it.
+            // Deserialization failed - an unresolvable type identity (legacy name with no
+            // fallback mapping) or a source written by an older schema (no asset compatibility
+            // by policy). Print the STORED identity + guid so the failure is debuggable from
+            // the log alone (user ask 2026-08-12).
             LOG_WARNING(u8"Cook",
-                                 u8"'{}' failed to deserialize (stale schema? delete + re-import)",
-                                 item.path);
+                                 u8"'{}' failed to deserialize - stored type '{}'::'{}', guid {} "
+                                 u8"(unmapped legacy type name or stale schema; delete + re-import "
+                                 u8"if re-cooking does not recover it)",
+                                 item.path, instance->TypeNamespace(), instance->TypeName(),
+                                 instance->Id());
             ++plan.unbuildable;
             return;
         }

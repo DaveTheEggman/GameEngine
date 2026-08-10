@@ -255,13 +255,17 @@ Pre-debrand files stopped resolving - the editor read its own settings as
 
 **Fix:** `FindByName` falls back on a miss of a `draconic::`-prefixed namespace to
 the current spellings (Core RTTI, regression-tested). Data converges to the
-new names when saved. THREE mappings (the third landed 2026-08-11 after a live
-miss - the editor settings' `draconic::editor` RecentProjectsSettings section
-loaded as "unknown"): Foundation/Engine renames, the editor->pipeline MOVE for
-cook types, and the STILL-EDITOR respelling `draconic::editor[::rest]` ->
-`rtti::editor::editor[::rest]` (the one place the debrand doubled a prefix;
-pipeline identities kept their lib suffix through every generation and never
-needed this). **Removal condition:** delete `FindByLegacyName` (and its
+new names when saved. FOUR mappings (third + fourth landed 2026-08-11/12 after
+LIVE misses): Foundation/Engine renames; the editor->pipeline MOVE for cook
+types; the STILL-EDITOR respelling `draconic::editor[::rest]` ->
+`rtti::editor::editor[::rest]` (the editor settings' RecentProjectsSettings
+section loaded as "unknown"); and the SUBSYSTEM-FLAVORED asset spelling
+`draconic::<lib>` -> `rtti::pipeline::<lib>` (real pre-debrand envelopes store
+'draconic::physics'::CollisionShapeAsset - NOT the editor-collection spelling
+the first pass modeled; without it the cook said "stale schema" and pages said
+"no editor registered"). LESSON: the compat surface is only proven against
+REAL FILES - each of the last two mappings was found by reading a live
+envelope, not by reasoning about the rename. **Removal condition:** delete `FindByLegacyName` (and its
 test) once no pre-debrand project/content matters - grep serialized stores for
 `draconic::` before pulling it.
 

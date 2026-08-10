@@ -1196,3 +1196,49 @@ TEST_CASE("rtti: legacy flat 'draconic::editor' resolves to the per-collection "
     // editor respelling) - and a miss on both stays a miss.
     CHECK(registry.FindByName("draconic::editor", "NoSuchType") == nullptr);
 }
+
+TEST_CASE("rtti: legacy subsystem-flavored 'draconic::<lib>' asset identities resolve to "
+          "'rtti::pipeline::<lib>'")
+{
+    // LIVE evidence (2026-08-12, user project envelopes): pre-debrand ASSET identities used
+    // the subsystem-flavored spelling - 'draconic::physics'::CollisionShapeAsset,
+    // 'draconic::script'::ScriptClassAsset - not the editor-collection spelling the first
+    // compat pass modeled. They now live under the Pipeline collection; without this mapping
+    // the cook reported "failed to deserialize (stale schema?)" and the editor showed
+    // "no editor registered for this asset type" for every pre-debrand source asset.
+    TypeRegistry registry;
+    static const TypeInfo collisionShaped{ComputeTypeId("rtti::pipeline::physics",
+                                                        "CollisionShapeAsset"),
+                                          "CollisionShapeAsset",
+                                          "rtti::pipeline::physics",
+                                          0,
+                                          0,
+                                          nullptr};
+    registry.Register(collisionShaped);
+    static const TypeInfo scriptShaped{ComputeTypeId("rtti::pipeline::script",
+                                                     "ScriptClassAsset"),
+                                       "ScriptClassAsset",
+                                       "rtti::pipeline::script",
+                                       0,
+                                       0,
+                                       nullptr};
+    registry.Register(scriptShaped);
+
+    // The two exact identities from the live envelopes.
+    CHECK(registry.FindByName("draconic::physics", "CollisionShapeAsset") == &collisionShaped);
+    CHECK(registry.FindByName("draconic::script", "ScriptClassAsset") == &scriptShaped);
+
+    // A FOUNDATION type at the same legacy spelling still wins the earlier retry (order:
+    // rtti::<lib> before rtti::pipeline::<lib>) - the pipeline retry only fires on a miss.
+    static const TypeInfo foundationShaped{ComputeTypeId("rtti::physics", "RigidBodySettings"),
+                                           "RigidBodySettings",
+                                           "rtti::physics",
+                                           0,
+                                           0,
+                                           nullptr};
+    registry.Register(foundationShaped);
+    CHECK(registry.FindByName("draconic::physics", "RigidBodySettings") == &foundationShaped);
+
+    // Misses stay misses.
+    CHECK(registry.FindByName("draconic::physics", "NoSuchAsset") == nullptr);
+}
