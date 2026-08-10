@@ -1158,3 +1158,41 @@ TEST_CASE("rtti: legacy 'editor::' asset-cook namespaces resolve to the current 
     // A non-cook "editor::" that never moved stays a miss (no false positives).
     CHECK(registry.FindByName("rtti::editor::somethingelse", "CookWidget") == nullptr);
 }
+
+TEST_CASE("rtti: legacy flat 'draconic::editor' resolves to the per-collection "
+          "'rtti::editor::editor' registration (still-editor types)")
+{
+    // Types that STAYED in the Editor collection gained the per-collection prefix in the
+    // debrand: "draconic::editor[::rest]" -> "rtti::editor::editor[::rest]". Found live
+    // (2026-08-11): ~/.local/share/draconic/editor.settings.xml carries
+    // 'draconic::editor'::RecentProjectsSettings, which the settings loader could not
+    // resolve - the section was preserved-as-unknown instead of loading.
+    TypeRegistry registry;
+    static const TypeInfo editorShaped{ComputeTypeId("rtti::editor::editor",
+                                                     "RecentProjectsSettings"),
+                                       "RecentProjectsSettings",
+                                       "rtti::editor::editor",
+                                       0,
+                                       0,
+                                       nullptr};
+    registry.Register(editorShaped);
+    static const TypeInfo appShaped{ComputeTypeId("rtti::editor::editor::app", "LayoutSettings"),
+                                    "LayoutSettings",
+                                    "rtti::editor::editor::app",
+                                    0,
+                                    0,
+                                    nullptr};
+    registry.Register(appShaped);
+
+    // Current names resolve (fast path untouched).
+    CHECK(registry.FindByName("rtti::editor::editor", "RecentProjectsSettings") == &editorShaped);
+    // The pre-debrand flat spelling - the live settings file's exact identity.
+    CHECK(registry.FindByName("draconic::editor", "RecentProjectsSettings") == &editorShaped);
+    // Nested editor lib: "draconic::editor::app" -> "rtti::editor::editor::app".
+    CHECK(registry.FindByName("draconic::editor::app", "LayoutSettings") == &appShaped);
+    // The pre-per-collection-prefix window spelling ("rtti::editor" flat) also resolves.
+    CHECK(registry.FindByName("rtti::editor", "RecentProjectsSettings") == &editorShaped);
+    // The MOVED-to-pipeline retry still wins first for cook types (order: pipeline, then
+    // editor respelling) - and a miss on both stays a miss.
+    CHECK(registry.FindByName("draconic::editor", "NoSuchType") == nullptr);
+}

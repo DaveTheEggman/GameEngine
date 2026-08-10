@@ -124,21 +124,37 @@ export namespace foundation::core
                 {
                     return found;
                 }
-                // "draconic::editor::<lib>" asset-cook type -> "rtti::pipeline::<lib>".
                 if (StartsWith(rest, "::editor"))
                 {
+                    // "draconic::editor::<lib>" asset-cook type that MOVED -> "rtti::pipeline::<lib>".
+                    if (const TypeInfo* found = FindById(ComputeTypeId(
+                            ComposeNamespace(remapped, "rtti::pipeline", rest + 8 /*"::editor"*/),
+                            name)))
+                    {
+                        return found;
+                    }
+                    // Still-editor type: the debrand inserted the per-collection prefix, so
+                    // "draconic::editor[::rest]" -> "rtti::editor::editor[::rest]" (e.g. the
+                    // RecentProjectsSettings settings section - found live 2026-08-11).
                     return FindById(ComputeTypeId(
-                        ComposeNamespace(remapped, "rtti::pipeline", rest + 8 /*"::editor"*/), name));
+                        ComposeNamespace(remapped, "rtti::editor::editor", rest + 8), name));
                 }
                 return nullptr;
             }
             // "rtti::editor::<lib>": post-debrand asset-cook type, before it moved to the
-            // Pipeline collection. -> "rtti::pipeline::<lib>".
+            // Pipeline collection. -> "rtti::pipeline::<lib>". Then the still-editor respelling
+            // ("rtti::editor[::rest]" -> "rtti::editor::editor[::rest]") for files written in
+            // the pre-per-collection-prefix window.
             if (StartsWith(namespaceName, "rtti::editor"))
             {
+                const char* rest = namespaceName + 12; /*"rtti::editor"*/
+                if (const TypeInfo* found = FindById(
+                        ComputeTypeId(ComposeNamespace(remapped, "rtti::pipeline", rest), name)))
+                {
+                    return found;
+                }
                 return FindById(ComputeTypeId(
-                    ComposeNamespace(remapped, "rtti::pipeline", namespaceName + 12 /*"rtti::editor"*/),
-                    name));
+                    ComposeNamespace(remapped, "rtti::editor::editor", rest), name));
             }
             return nullptr;
         }
