@@ -1387,6 +1387,23 @@ namespace foundation::script
     {
         lua_State* state = m_context->State();
         String storage;
+
+        // The neutral property-apply path Invokes the setter as `<name>=` with one argument
+        // (the Wren `name=(v)` convention). Luau editor properties are plain instance FIELDS
+        // (harvested by walking the constructed table), so a trailing `=` with exactly one arg
+        // writes the same-named field directly - the Luau equivalent of AngelScript's settable
+        // member. The field always exists once the constructor set it; this applies its default
+        // or the hash-keyed override.
+        if (args.Size() == 1 && !method.IsEmpty() && method[method.Size() - 1] == u8'=')
+        {
+            const StringView fieldName = method.SubStr(0, method.Size() - 1);
+            lua_getref(state, m_tableRef);
+            m_context->PushVariant(state, args[0]);
+            lua_setfield(state, -2, CStr(fieldName, storage)); // instance[field] = value
+            lua_pop(state, 1);                                 // pop the instance table
+            return Variant{};
+        }
+
         lua_getref(state, m_tableRef);
         lua_getfield(state, -1, CStr(method, storage)); // honors the class metatable chain
         if (!lua_isfunction(state, -1))

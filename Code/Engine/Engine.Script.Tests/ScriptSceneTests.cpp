@@ -22,6 +22,7 @@ import foundation.script;
 import foundation.script.facades; // script::Entity + RegisterExtraScriptRootType/FacadeName (OPTION 1)
 import foundation.script.wren;
 import foundation.script.angelscript;
+import foundation.script.luau;
 import foundation.script.resource;
 import engine.script;
 import foundation.physics;
@@ -178,6 +179,7 @@ namespace
             }();
             (void)logReady;
             foundation::script::wren::RegisterWrenScriptBackend();
+            foundation::script::RegisterLuauScriptBackend();
             RegisterCoreTypes();
             RegisterScriptComponentReflection();
             RegisterScriptFacadeReflection();
@@ -260,6 +262,69 @@ TEST_CASE("script.scene: lifecycle - onStart once (deferred to the first simulat
     CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));
     CHECK(bed.host.IsActive());
     CHECK(bed.scripts->InstanceCount() == 1u);
+}
+
+TEST_CASE("script.scene: LUAU behavior lifecycle + property field-apply through the run host")
+{
+    ScriptedScene bed;
+    // The Luau idiom: a global class table, colon methods, plain instance fields for properties.
+    // The run host resolves the Luau backend from the class's language and dispatches the same
+    // onStart/onUpdate; ApplyProperties writes the `speed` field via the new setter special-case.
+    RefPtr<ScriptClass> mover = MakeClassLang(
+        u8"luau", u8"Mover",
+        u8"Mover = {}\n"
+        u8"Mover.__index = Mover\n"
+        u8"function Mover.new(entity)\n"
+        u8"    local self = setmetatable({ entity = entity, speed = 2.0 }, Mover)\n"
+        u8"    entity:setName(\"constructed\")\n"
+        u8"    return self\n"
+        u8"end\n"
+        u8"function Mover:onStart() self.entity:setName(\"started\") end\n"
+        u8"function Mover:onUpdate(dt)\n"
+        u8"    local p = self.entity:position()\n"
+        u8"    self.entity:setPosition(p.x + self.speed * dt, p.y, p.z)\n"
+        u8"end\n",
+        {u8"onStart", u8"onUpdate"}, {FloatProperty(u8"speed", 2.0)});
+
+    const scene::EntityHandle e = bed.AddScripted(mover, u8"walker");
+    bed.Start();
+    bed.Frame(); // instantiate + apply speed=2.0 + onStart + first onUpdate
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"started"));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f)); // 2.0 * 0.5
+    bed.Frame();
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));
+    CHECK(bed.scripts->InstanceCount() == 1u);
+}
+
+TEST_CASE("script.scene: LUAU hash-keyed property override wins over the harvested default")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> mover = MakeClassLang(
+        u8"luau", u8"Mover",
+        u8"Mover = {}\n"
+        u8"Mover.__index = Mover\n"
+        u8"function Mover.new(entity)\n"
+        u8"    return setmetatable({ entity = entity, speed = 0.0 }, Mover)\n"
+        u8"end\n"
+        u8"function Mover:onUpdate(dt)\n"
+        u8"    local p = self.entity:position()\n"
+        u8"    self.entity:setPosition(p.x + self.speed * dt, p.y, p.z)\n"
+        u8"end\n",
+        {u8"onUpdate"}, {FloatProperty(u8"speed", 2.0)});
+
+    // Override speed -> 10.0 (the field-setter applies it AFTER construction, over the default).
+    const scene::EntityHandle e = bed.AddScripted(mover, u8"fast");
+    {
+        ScriptComponent* c = bed.components->Get(e);
+        ScriptPropertyValue ten;
+        ten.kind = ScriptPropertyType::Float;
+        ten.number = 10.0;
+        c->behaviors[0].SetOverride(ScriptPropertyNameHash(u8"speed"), ten);
+    }
+
+    bed.Start();
+    bed.Frame(); // speed = 10 (override), moved 10 * 0.5 = 5
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 5.0f));
 }
 
 TEST_CASE("script.scene: harvested defaults apply; hash-keyed overrides win")
@@ -1395,6 +1460,7 @@ namespace
         ContactWorld()
         {
             foundation::script::wren::RegisterWrenScriptBackend();
+            foundation::script::RegisterLuauScriptBackend();
             RegisterCoreTypes();
             engine::physics::RegisterPhysicsComponentReflection();
             RegisterScriptComponentReflection();
