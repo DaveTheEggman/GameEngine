@@ -108,6 +108,12 @@ export namespace pipeline{
             }
             else if (auto* meshAsset = Cast<pipeline::StaticMeshAsset>(object.Get()))
             {
+                // v3 sidecar envelopes carry no inline geometry - pull the stream first.
+                const Status loaded = pipeline::EnsureMeshSourceLoaded(*meshInstance, *meshAsset);
+                if (!loaded.IsOk())
+                {
+                    return loaded;
+                }
                 meshSource = &meshAsset->source;
             }
             if (meshSource == nullptr)

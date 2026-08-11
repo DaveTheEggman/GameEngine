@@ -322,6 +322,11 @@ export namespace editor::app
 
         void BuildMenus();
 
+        // I4 instrumentation: log the ResourceManager's live-product report (counts by type;
+        // unreferenced = cache-only purge candidates). Project > Report Resource Memory.
+        void ReportResourceMemory();
+        f32 m_resourceReportTimer = 0.0f; // periodic I4 report cadence
+
         EditorAppConfig m_config;
         runtime::IApplicationHost* m_host = nullptr; // borrowed
         foundation::render::ISceneRenderer* m_sceneRenderer = nullptr;

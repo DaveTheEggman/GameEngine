@@ -284,6 +284,70 @@ export namespace foundation::resource
             return *m_database;
         }
 
+        // === Diagnostics ===================================================================
+
+        /// One row of the live-product report: everything the cache currently holds for one
+        /// product type. `unreferenced` = handles whose product exists but has NO outside
+        /// Proxy refs (cache-only - what a "purge unused" would release). Sizes arrive with
+        /// the I5 allocator tagging; counts already answer "what is holding memory".
+        struct LiveProductRow
+        {
+            const TypeInfo* type = nullptr; // null = handles whose type never resolved
+            usize live = 0;                 // product present
+            usize pending = 0;              // async decode in flight
+            usize failed = 0;               // failed/empty handles still cached
+            usize unreferenced = 0;         // live AND cache-only (evictable candidates)
+        };
+
+        /// Snapshot the cache into per-type rows (unsorted). The I4 instrumentation step:
+        /// run it before designing eviction so "what is resident" is measured, not guessed.
+        void ReportLiveProducts(Array<LiveProductRow>& outRows) const
+        {
+            outRows.Clear();
+            for (const auto& pair : m_handles)
+            {
+                const RefPtr<ResourceHandle>& handle = pair.value;
+                if (handle.Get() == nullptr)
+                {
+                    continue;
+                }
+                const TypeInfo* type = GlobalTypeRegistry().FindById(handle->ProductTypeId());
+                LiveProductRow* row = nullptr;
+                for (LiveProductRow& existing : outRows)
+                {
+                    if (existing.type == type)
+                    {
+                        row = &existing;
+                        break;
+                    }
+                }
+                if (row == nullptr)
+                {
+                    outRows.PushBack(LiveProductRow{});
+                    row = &outRows[outRows.Size() - 1];
+                    row->type = type;
+                }
+                if (handle->State() == ResourceState::Pending)
+                {
+                    ++row->pending;
+                }
+                else if (handle->Get() != nullptr)
+                {
+                    ++row->live;
+                    // RefCount 2 = the cache map's ref + the report's iteration copy... the map
+                    // stores RefPtr directly, so cache-only means EXACTLY one strong ref.
+                    if (handle->RefCount() == 1)
+                    {
+                        ++row->unreferenced;
+                    }
+                }
+                else
+                {
+                    ++row->failed;
+                }
+            }
+        }
+
         /// Diagnostics/tripwires: is a factory registered for this product type? (The silent
         /// missing-factory class - the 2026-08-12 font incident - is what these guard.)
         [[nodiscard]] bool HasFactory(TypeId productTypeId) const noexcept

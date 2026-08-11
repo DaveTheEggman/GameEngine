@@ -439,3 +439,39 @@ TEST_CASE("content: UniqueInstanceName / UniqueGroupName - the one general dedup
 
     RemoveTree(dir);
 }
+
+TEST_CASE("content: the open scan reports envelope count + bytes opened (I4b instrumentation)")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    const StringView dir = u8"scratch_content_scanstats";
+    // The suite's RemoveTree only knows the round-trip test's fixed paths; this test writes
+    // its own instances, so clean recursively or the previous run's envelopes pollute the
+    // construction scan (found live: envelopes==3 on the authoring db).
+    (void)RemoveDirectoryRecursive(dir);
+    NativeFileSystem mount(dir);
+    {
+        ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
+        Group* group = db.RootGroup()->CreateGroup(u8"assets");
+        for (i32 i = 0; i < 3; ++i)
+        {
+            String name = Format(u8"m{}", i);
+            foundation::content::Instance* inst =
+                group->CreateInstance(name.AsView(), MaterialResource::StaticType());
+            REQUIRE(inst != nullptr);
+            MaterialResource mat;
+            mat.shininess = i;
+            CHECK(inst->WriteObject(mat).IsOk());
+        }
+        // The authoring db never scanned (built in memory): zero envelopes opened.
+        CHECK(db.LastScanStats().envelopes == 0);
+    }
+    {
+        ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
+        // The reopen scan touched all three envelopes and counted their full file sizes -
+        // the number that prices the open-time header scan (XML DOM-parses whole files).
+        CHECK(db.LastScanStats().envelopes == 3);
+        CHECK(db.LastScanStats().bytesOpened > 0);
+    }
+}

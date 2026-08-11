@@ -5,7 +5,7 @@ add_executable(Geometry.Pipeline.Tests
     MeshEditorTests.cpp)
 
 target_link_libraries(Geometry.Pipeline.Tests PRIVATE
-    Pipeline::Geometry Foundation::VFS doctest::doctest)
+    Pipeline::Geometry Foundation::VFS Foundation::Xml.Serialization doctest::doctest)
 
 target_compile_definitions(Geometry.Pipeline.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

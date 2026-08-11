@@ -806,14 +806,26 @@ export namespace pipeline
                     }
                     if (deferredWrites != nullptr)
                     {
-                        pipeline::DeferredImportWrite write;
-                        write.instance = inst;
-                        write.object = RefPtr<ISerializable>(asset.Get());
-                        deferredWrites->PushBack(static_cast<pipeline::DeferredImportWrite&&>(write));
+                        // Sidecar split (v3): tiny envelope + binary geometry stream, both
+                        // deferred. The binary serialize is cheap (the XML rendering was the
+                        // cost this defers); bytes are owned by the deferred write.
+                        asset->geometryInSidecar = true;
+                        pipeline::DeferredImportWrite envelope;
+                        envelope.instance = inst;
+                        envelope.object = RefPtr<ISerializable>(asset.Get());
+                        deferredWrites->PushBack(
+                            static_cast<pipeline::DeferredImportWrite&&>(envelope));
+                        pipeline::DeferredImportWrite geometry;
+                        geometry.instance = inst;
+                        geometry.streamName = String(pipeline::kMeshGeometryStreamName);
+                        pipeline::detail::MeshSourceToBytes(
+                            asset->source, *asset->GetType(), geometry.owned);
+                        deferredWrites->PushBack(
+                            static_cast<pipeline::DeferredImportWrite&&>(geometry));
                     }
                     else
                     {
-                        written = inst->WriteObject(*asset);
+                        written = pipeline::WriteMeshAsset(*inst, *asset);
                     }
                 }
                 else
@@ -828,14 +840,23 @@ export namespace pipeline
                     }
                     if (deferredWrites != nullptr)
                     {
-                        pipeline::DeferredImportWrite write;
-                        write.instance = inst;
-                        write.object = RefPtr<ISerializable>(asset.Get());
-                        deferredWrites->PushBack(static_cast<pipeline::DeferredImportWrite&&>(write));
+                        asset->geometryInSidecar = true; // sidecar split (v3) - see skinned branch
+                        pipeline::DeferredImportWrite envelope;
+                        envelope.instance = inst;
+                        envelope.object = RefPtr<ISerializable>(asset.Get());
+                        deferredWrites->PushBack(
+                            static_cast<pipeline::DeferredImportWrite&&>(envelope));
+                        pipeline::DeferredImportWrite geometry;
+                        geometry.instance = inst;
+                        geometry.streamName = String(pipeline::kMeshGeometryStreamName);
+                        pipeline::detail::MeshSourceToBytes(
+                            asset->source, *asset->GetType(), geometry.owned);
+                        deferredWrites->PushBack(
+                            static_cast<pipeline::DeferredImportWrite&&>(geometry));
                     }
                     else
                     {
-                        written = inst->WriteObject(*asset);
+                        written = pipeline::WriteMeshAsset(*inst, *asset);
                     }
                 }
                 if (!written.IsOk())

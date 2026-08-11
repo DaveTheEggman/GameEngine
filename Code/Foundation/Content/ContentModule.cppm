@@ -190,6 +190,18 @@ export namespace foundation::content
 
         [[nodiscard]] Group* RootGroup() override { return m_root; }
 
+        /// What the open-time header scan actually cost (the I4b instrumentation): envelope
+        /// count + BYTES the serializer had to consume to reach the three header fields. For
+        /// the XML factory that is the WHOLE file (DOM parse before first read) - these
+        /// numbers are the evidence for/against a true partial header parse.
+        struct ScanStats
+        {
+            usize envelopes = 0;
+            u64 bytesOpened = 0; // sum of envelope file sizes the scan opened
+        };
+
+        [[nodiscard]] const ScanStats& LastScanStats() const noexcept { return m_scanStats; }
+
         // Delete an instance: its envelope + every data-stream sidecar are removed from the
         // mount, and it is unregistered from the group tree and the GUID index. (Cook orphan
         // sweep + browser Delete.) NotFound when the id is unknown.
@@ -336,6 +348,9 @@ export namespace foundation::content
             {
                 return;
             }
+            ++m_scanStats.envelopes;
+            const i64 streamSize = stream->Size();
+            m_scanStats.bytesOpened += streamSize > 0 ? static_cast<u64>(streamSize) : 0;
 
             UniquePtr<SerializerContext> ctx = m_factory(*stream, SerializeMode::Read);
             if (!ctx || ctx->serializer == nullptr)
@@ -364,6 +379,7 @@ export namespace foundation::content
         IFileSystem* m_mount;
         SerializerFactory m_factory;
         String m_extension;
+        ScanStats m_scanStats;
         SerializableRegistry* m_serializables;
         TypeRegistry* m_types;
         Random m_rng;

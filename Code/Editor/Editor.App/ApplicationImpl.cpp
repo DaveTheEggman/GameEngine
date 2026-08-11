@@ -629,6 +629,19 @@ namespace editor::app
 
     void EditorApplication::OnUpdate(runtime::IApplicationHost& host, f32 dt)
     {
+        // I4 instrumentation: periodic resident-product report while a project is open -
+        // the 5-GB-with-no-pages repro accumulates over ~30s of background work AFTER open,
+        // so a single post-open snapshot misses it. 15s cadence, INFO; remove or demote
+        // once the eviction work lands.
+        if (m_project)
+        {
+            m_resourceReportTimer += dt;
+            if (m_resourceReportTimer >= 15.0f)
+            {
+                m_resourceReportTimer = 0.0f;
+                ReportResourceMemory();
+            }
+        }
         // DPI drift: the window moved to a monitor with a different content scale (or the
         // OS scale changed) - re-bake the icon set at the new device sizes so icons stay
         // 1:1-texel crisp instead of bilinear-scaled from the old bake.
@@ -2098,6 +2111,20 @@ namespace editor::app
 
         m_context.SetProject(m_project.Get());
 
+        // I4b instrumentation: what the open-time header scans actually cost. The XML
+        // factory DOM-parses each whole envelope to read three fields, so bytesOpened is
+        // the real parse volume - the evidence that decides the partial-header-parse work.
+        {
+            const auto& src = m_project->SourceDb().LastScanStats();
+            const auto& cooked = m_project->CookedDb().LastScanStats();
+            LOG_INFO(u8"Editor",
+                     u8"project open scan: sources {} envelopes / {} KB parsed, cooked {} "
+                     u8"envelopes / {} KB parsed",
+                     static_cast<u64>(src.envelopes), src.bytesOpened / 1024,
+                     static_cast<u64>(cooked.envelopes), cooked.bytesOpened / 1024);
+        }
+
+
         // Showing the manager? Swap the window over to the editor shell first, so the
         // status bar narrates the rest of the open.
         if (m_inManagerMode)
@@ -2653,6 +2680,36 @@ namespace editor::app
         m_iconBakeScale = scale;
     }
 
+    void EditorApplication::ReportResourceMemory()
+    {
+        foundation::resource::ResourceManager* resources = Resources();
+        if (resources == nullptr)
+        {
+            LOG_INFO(u8"Editor", u8"resource report: no resource manager (no project open)");
+            return;
+        }
+        Array<foundation::resource::ResourceManager::LiveProductRow> rows;
+        resources->ReportLiveProducts(rows);
+        usize totalLive = 0;
+        usize totalUnreferenced = 0;
+        for (const auto& row : rows)
+        {
+            const char* name = row.type != nullptr ? row.type->name : "<unresolved>";
+            LOG_INFO(u8"Editor",
+                     u8"resource report: {} - live {}, pending {}, failed {}, "
+                     u8"unreferenced {}",
+                     StringView(reinterpret_cast<const char8_t*>(name)),
+                     static_cast<u64>(row.live), static_cast<u64>(row.pending),
+                     static_cast<u64>(row.failed), static_cast<u64>(row.unreferenced));
+            totalLive += row.live;
+            totalUnreferenced += row.unreferenced;
+        }
+        LOG_INFO(u8"Editor",
+                 u8"resource report: {} live products total, {} unreferenced (cache-only - "
+                 u8"what a purge would release); sizes arrive with allocator tagging (I5)",
+                 static_cast<u64>(totalLive), static_cast<u64>(totalUnreferenced));
+    }
+
     void EditorApplication::BuildMenus()
     {
         ui::toolkit::MenuBar* bar = m_shell.Menus();
@@ -2662,6 +2719,13 @@ namespace editor::app
         foundation::ui::ContextMenu* file = bar->AddMenu(u8"File");
         foundation::ui::ContextMenu* editMenu = bar->AddMenu(u8"Edit");
         foundation::ui::ContextMenu* project = bar->AddMenu(u8"Project");
+        if (project != nullptr)
+        {
+            // I4 instrumentation: answer "what is resident" from the log, before designing
+            // eviction. Counts by product type; unreferenced = cache-only (purge candidates).
+            project->AddItem(u8"Report Resource Memory",
+                             [this]() { ReportResourceMemory(); });
+        }
         if (foundation::ui::ContextMenu* build = bar->AddMenu(u8"Build"))
         {
             build->AddItem(u8"Cook All", [this]() { m_cookService.RequestCook(false); });

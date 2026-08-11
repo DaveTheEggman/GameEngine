@@ -29,16 +29,38 @@ using namespace foundation::geometry;
 
 export namespace pipeline{
 
+    // The mesh bulk sidecar (v3): geometry lives in a BINARY data stream beside the envelope,
+    // not inline in the XML. Incident 2026-08-11: a Sponza import produced a 170 MB XML
+    // envelope (vertex arrays as text), and every project open DOM-parsed it to read three
+    // header fields - a 25-second freeze and ~5 GB of DOM peak that the allocator never
+    // returns. Sources-are-text is for AUTHORED data; machine-generated bulk follows the
+    // texture-pixels precedent (binary sidecar), through the BinarySerializer with the
+    // asset's version scope so source.Serialize migration branches keep working.
+    inline constexpr StringView kMeshGeometryStreamName = u8"geometry";
+
     class StaticMeshAsset final : public pipeline::Asset
     {
         RTTI_OBJECT(StaticMeshAsset, pipeline::Asset)
     public:
         StaticMeshSource source;
 
+        // v3: true = `source` travels in the kMeshGeometryStreamName sidecar; the envelope
+        // holds only fileName + this flag. False (and every v<3 file) = legacy inline.
+        bool geometryInSidecar = false;
+
         void Serialize(ISerializer& ar) override
         {
             pipeline::Asset::Serialize(ar); // fileName (source model note)
-            source.Serialize(ar);
+            if (ar.Version() >= 3)
+            {
+                u8 sidecar = geometryInSidecar ? u8{1} : u8{0};
+                foundation::core::Serialize(ar, "geometryInSidecar", sidecar);
+                geometryInSidecar = sidecar != 0;
+            }
+            if (!geometryInSidecar)
+            {
+                source.Serialize(ar);
+            }
         }
     };
 
@@ -48,17 +70,109 @@ export namespace pipeline{
     public:
         SkinnedMeshSource source;
 
+        bool geometryInSidecar = false; // see StaticMeshAsset
+
         void Serialize(ISerializer& ar) override
         {
             pipeline::Asset::Serialize(ar);
-            source.Serialize(ar);
+            if (ar.Version() >= 3)
+            {
+                u8 sidecar = geometryInSidecar ? u8{1} : u8{0};
+                foundation::core::Serialize(ar, "geometryInSidecar", sidecar);
+                geometryInSidecar = sidecar != 0;
+            }
+            if (!geometryInSidecar)
+            {
+                source.Serialize(ar);
+            }
         }
     };
+
+    // === Sidecar plumbing (shared by the importer, the builders, and every source reader) ===
+
+    namespace detail
+    {
+        // Serialize `source` into sidecar BYTES under the asset type's version scope (so the
+        // same migration branches source.Serialize uses for envelopes apply on read).
+        template <typename Source>
+        inline void MeshSourceToBytes(Source& source, const TypeInfo& assetType, Array<byte>& out)
+        {
+            MemoryStream buffer;
+            BinarySerializer ar(buffer, SerializeMode::Write);
+            BeginVersionedPayload(ar, assetType);
+            source.Serialize(ar);
+            EndVersionedPayload(ar);
+            const Span<const byte> bytes = buffer.Bytes();
+            out.Resize(bytes.Size());
+            if (bytes.Size() != 0)
+            {
+                MemCopy(out.Data(), bytes.Data(), bytes.Size());
+            }
+        }
+
+        template <typename Source>
+        [[nodiscard]] inline Status MeshSourceFromStream(IStream& stream, Source& source)
+        {
+            BinarySerializer ar(stream, SerializeMode::Read);
+            BeginVersionedPayload(ar, Source::StaticType()); // read mode: pushes the STORED chain
+            source.Serialize(ar);
+            EndVersionedPayload(ar);
+            return ar.IsOk() ? Status{} : Status{ErrorCode::InvalidArgument};
+        }
+    }
+
+    /// Write `asset` sidecar-style: tiny envelope + binary geometry stream. The one writer
+    /// every save path uses (importer, primitive capture, page save).
+    template <typename Asset>
+    [[nodiscard]] inline Status WriteMeshAsset(foundation::content::Instance& instance,
+                                               Asset& asset)
+    {
+        asset.geometryInSidecar = true;
+        const Status envelope = instance.WriteObject(asset);
+        if (!envelope.IsOk())
+        {
+            return envelope;
+        }
+        Array<byte> bytes;
+        detail::MeshSourceToBytes(asset.source, *asset.GetType(), bytes);
+        return instance.WriteData(kMeshGeometryStreamName,
+                                  Span<const byte>(bytes.Data(), bytes.Size()));
+    }
+
+    /// After ReadObject: pull the sidecar into `asset.source` when the envelope says so.
+    /// Legacy inline envelopes (v<3 or flag false) are already populated - this no-ops.
+    template <typename Asset>
+    [[nodiscard]] inline Status EnsureMeshSourceLoaded(const foundation::content::Instance& instance,
+                                                       Asset& asset)
+    {
+        if (!asset.geometryInSidecar)
+        {
+            return Status{};
+        }
+        UniquePtr<IStream> stream = instance.ReadData(kMeshGeometryStreamName);
+        if (!stream)
+        {
+            return Status{ErrorCode::NotFound}; // sidecar missing = a broken asset, say so
+        }
+        return detail::MeshSourceFromStream(*stream, asset.source);
+    }
 
     // Cooks a StaticMeshAsset -> StaticMeshSource in the output DB.
     class StaticMeshAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
+        void ScanDependencies(const pipeline::Asset& asset,
+                              pipeline::AssetBuildContext&,
+                              pipeline::AssetDependencies& out) override
+        {
+            // The geometry sidecar is a build input: declare it so the recipe hash covers it
+            // (a geometry-only change must dirty the cook - the envelope no longer carries it).
+            if (static_cast<const StaticMeshAsset&>(asset).geometryInSidecar)
+            {
+                out.sourceStreams.PushBack(String(kMeshGeometryStreamName));
+            }
+        }
+
         [[nodiscard]] const TypeInfo* AssetType() const override
         {
             return &StaticMeshAsset::StaticType();
@@ -70,13 +184,21 @@ export namespace pipeline{
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override
         {
-            const StaticMeshAsset& ma = static_cast<const StaticMeshAsset&>(asset);
+            StaticMeshAsset& ma = const_cast<StaticMeshAsset&>(
+                static_cast<const StaticMeshAsset&>(asset)); // sidecar load fills `source`
             if (ctx.output == nullptr)
             {
                 return Status{ErrorCode::InvalidArgument};
             }
-            return ctx.output->WriteObject(
-                const_cast<StaticMeshSource&>(ma.source)); // write pass doesn't mutate
+            if (ctx.source != nullptr)
+            {
+                const Status loaded = EnsureMeshSourceLoaded(*ctx.source, ma);
+                if (!loaded.IsOk())
+                {
+                    return loaded;
+                }
+            }
+            return ctx.output->WriteObject(ma.source);
         }
     };
 
@@ -84,6 +206,16 @@ export namespace pipeline{
     class SkinnedMeshAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
+        void ScanDependencies(const pipeline::Asset& asset,
+                              pipeline::AssetBuildContext&,
+                              pipeline::AssetDependencies& out) override
+        {
+            if (static_cast<const SkinnedMeshAsset&>(asset).geometryInSidecar)
+            {
+                out.sourceStreams.PushBack(String(kMeshGeometryStreamName));
+            }
+        }
+
         [[nodiscard]] const TypeInfo* AssetType() const override
         {
             return &SkinnedMeshAsset::StaticType();
@@ -95,12 +227,21 @@ export namespace pipeline{
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override
         {
-            const SkinnedMeshAsset& ma = static_cast<const SkinnedMeshAsset&>(asset);
+            SkinnedMeshAsset& ma = const_cast<SkinnedMeshAsset&>(
+                static_cast<const SkinnedMeshAsset&>(asset));
             if (ctx.output == nullptr)
             {
                 return Status{ErrorCode::InvalidArgument};
             }
-            return ctx.output->WriteObject(const_cast<SkinnedMeshSource&>(ma.source));
+            if (ctx.source != nullptr)
+            {
+                const Status loaded = EnsureMeshSourceLoaded(*ctx.source, ma);
+                if (!loaded.IsOk())
+                {
+                    return loaded;
+                }
+            }
+            return ctx.output->WriteObject(ma.source);
         }
     };
 
@@ -127,8 +268,8 @@ export namespace pipeline{
     }
 
     RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "rtti::pipeline::geometry",
-                                     2) // v2 = Float4 tangent vertex blobs
+                                     3) // v3 = geometry sidecar; v2 = Float4 tangent blobs
     RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "rtti::pipeline::geometry",
-                                     2) // v2 = Float4 tangent vertex blobs
+                                     3) // v3 = geometry sidecar; v2 = Float4 tangent blobs
 
 } // namespace foundation::geometry

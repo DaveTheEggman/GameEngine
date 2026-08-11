@@ -610,3 +610,48 @@ TEST_CASE("resource: reload survives the handle map rehashing mid-cascade")
     REQUIRE(proxy.Get() != nullptr);
     CHECK(proxy->generation == 2);
 }
+
+TEST_CASE("resource: the live-product report counts by type and flags cache-only handles")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    GlobalTypeRegistry().Register(Material::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    RemoveTree();
+    NativeFileSystem mount(u8"scratch_resource_test_db");
+    Guid id;
+    {
+        foundation::content::ContentDatabase db(
+            mount, foundation::core::BinarySerializerFactory(), u8".rasset");
+        auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
+        id = steel->Id();
+        WriteSource(db, id, 64, u8"pbr");
+    }
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+                                          u8".rasset");
+    MaterialFactory factory;
+    ResourceManager manager(db);
+    manager.AddFactory(&factory);
+
+    Array<ResourceManager::LiveProductRow> rows;
+    manager.ReportLiveProducts(rows);
+    CHECK(rows.IsEmpty()); // nothing bound yet
+
+    {
+        Proxy<Material> proxy = manager.Bind<Material>(id);
+        REQUIRE(proxy);
+        manager.ReportLiveProducts(rows);
+        REQUIRE(rows.Size() == 1);
+        CHECK(rows[0].live == 1);
+        // An outside Proxy holds the handle: NOT cache-only.
+        CHECK(rows[0].unreferenced == 0);
+    }
+    // Proxy dropped: the cache is the only owner - the purge-candidate signal the
+    // I4 eviction work keys on.
+    manager.ReportLiveProducts(rows);
+    REQUIRE(rows.Size() == 1);
+    CHECK(rows[0].live == 1);
+    CHECK(rows[0].unreferenced == 1);
+
+    RemoveTree();
+}

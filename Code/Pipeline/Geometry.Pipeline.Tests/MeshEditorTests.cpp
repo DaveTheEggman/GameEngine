@@ -11,6 +11,7 @@ import foundation.content;
 import pipeline.core;
 import foundation.geometry;
 import foundation.geometry.resource;
+import foundation.xml.serialization; // XmlSerializerFactory (sidecar tests use text envelopes)
 import geometry.pipeline;
 
 using namespace foundation::core;
@@ -116,4 +117,109 @@ TEST_CASE("mesh editor: cooks a SkinnedMeshAsset -> SkinnedMeshSource")
     }
 
     RemoveTree();
+}
+
+TEST_CASE("mesh editor: sidecar round-trip - tiny XML envelope, binary geometry stream")
+{
+    // The Sponza incident (2026-08-11): inline mesh geometry produced a 170 MB XML envelope
+    // that every project open DOM-parsed for three header fields. v3 splits: envelope =
+    // metadata + flag, geometry = a BinarySerializer sidecar stream. This pins BOTH halves:
+    // the envelope stays tiny, and the sidecar loads back byte-faithful.
+    GlobalTypeRegistry().Register(StaticMeshSource::StaticType());
+    RegisterSerializable<StaticMeshSource>();
+    RegisterMeshAssets();
+
+    (void)RemoveDirectoryRecursive(u8"scratch_mesh_sidecar_db");
+    NativeFileSystem mount(u8"scratch_mesh_sidecar_db");
+    Guid id;
+    usize originalVertexCount = 0;
+
+    {
+        foundation::content::ContentDatabase db(
+            mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
+        auto* inst =
+            db.RootGroup()->CreateInstance(u8"sphere", StaticMeshAsset::StaticType());
+        id = inst->Id();
+
+        RefPtr<StaticMesh> sphere = Primitives::Sphere(1.0f, 32, 32); // real bulk
+        StaticMeshAsset asset;
+        MeshImporter::Import(*sphere, asset);
+        originalVertexCount = asset.source.vertexBlob.Size();
+        REQUIRE(originalVertexCount > 0);
+        REQUIRE(WriteMeshAsset(*inst, asset).IsOk());
+    }
+
+    // The whole point, asserted: the envelope no longer scales with geometry.
+    {
+        UniquePtr<IStream> envelope =
+            mount.Open(u8"sphere.xasset", FileMode::Read);
+        REQUIRE(envelope);
+        CHECK(envelope->Size() < 4 * 1024); // a 32x32 sphere inline was ~500 KB
+    }
+
+    {
+        foundation::content::ContentDatabase db(
+            mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
+        foundation::content::Instance* inst = db.GetInstance(id);
+        REQUIRE(inst != nullptr);
+        RefPtr<ISerializable> object = inst->ReadObject();
+        auto* asset = Cast<StaticMeshAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(asset->geometryInSidecar);
+        CHECK(asset->source.vertexBlob.IsEmpty()); // envelope carries NO bulk
+        REQUIRE(EnsureMeshSourceLoaded(*inst, *asset).IsOk());
+        CHECK(asset->source.vertexBlob.Size() == originalVertexCount);
+
+        // The builder path: cook from the sidecar-backed source instance.
+        auto* out = db.RootGroup()->CreateInstance(u8"sphere_cooked",
+                                                   StaticMeshSource::StaticType());
+        StaticMeshAssetBuilder builder;
+        pipeline::AssetBuildContext ctx;
+        ctx.source = inst;
+        ctx.output = out;
+        RefPtr<ISerializable> fresh = inst->ReadObject(); // unloaded copy - Build must load
+        auto* freshAsset = Cast<StaticMeshAsset>(fresh.Get());
+        REQUIRE(freshAsset != nullptr);
+        REQUIRE(builder.Build(*freshAsset, ctx).IsOk());
+    }
+
+    (void)RemoveDirectoryRecursive(u8"scratch_mesh_sidecar_db");
+}
+
+TEST_CASE("mesh editor: legacy inline envelopes (v<3) still load")
+{
+    GlobalTypeRegistry().Register(StaticMeshSource::StaticType());
+    RegisterSerializable<StaticMeshSource>();
+    RegisterMeshAssets();
+
+    (void)RemoveDirectoryRecursive(u8"scratch_mesh_inline_db");
+    NativeFileSystem mount(u8"scratch_mesh_inline_db");
+    Guid id;
+
+    {
+        foundation::content::ContentDatabase db(
+            mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
+        auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshAsset::StaticType());
+        id = inst->Id();
+        RefPtr<StaticMesh> cube = Primitives::Cube(1.0f);
+        StaticMeshAsset asset;
+        MeshImporter::Import(*cube, asset);
+        // The LEGACY write path: flag false -> geometry inline in the envelope (what every
+        // pre-v3 project on disk contains).
+        REQUIRE(inst->WriteObject(asset).IsOk());
+    }
+    {
+        foundation::content::ContentDatabase db(
+            mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
+        foundation::content::Instance* inst = db.GetInstance(id);
+        REQUIRE(inst != nullptr);
+        RefPtr<ISerializable> object = inst->ReadObject();
+        auto* asset = Cast<StaticMeshAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(!asset->geometryInSidecar);
+        CHECK(!asset->source.vertexBlob.IsEmpty()); // inline read populated it
+        REQUIRE(EnsureMeshSourceLoaded(*inst, *asset).IsOk()); // no-op on legacy
+        CHECK(!asset->source.vertexBlob.IsEmpty());
+    }
+    (void)RemoveDirectoryRecursive(u8"scratch_mesh_inline_db");
 }

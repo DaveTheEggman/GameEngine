@@ -92,6 +92,42 @@ resolution separates PERSISTENCE from VISIBILITY:
   thumbnails and auto-cook checks are the likely legitimate consumers. Fix
   anything found decoding full products at open; document the rest as
   expected.
+  - CODE FINDING (Fable 2026-08-11): the scan reads only 3 header fields
+    (ContentModule ScanInstance) - but the XML serializer factory
+    DOM-PARSES THE WHOLE envelope before the first field read, so the
+    scan's true cost is full-file parse per envelope (TRANSIENT, freed
+    after scan - startup time + peak spikes, not residency). Residency is
+    (a)'s never-evicting cache. Candidate fix for (b): streaming partial
+    XML parse that stops after the header (preferred - no staleness
+    class), vs bounded-prefix parse, vs a generated header index file.
+
+- **ROOT CAUSE FOUND + FIXED (Fable 2026-08-11, via the HeavyProject repro):**
+  neither (a) nor (b) was the 5-GB driver. The model importer wrote mesh
+  GEOMETRY INLINE in the XML envelope - Sponza produced a 170 MB
+  mesh.0.xasset, and every project open DOM-parsed it to read 3 header
+  fields (25 s freeze; ~5 GB of DOM small-allocs the allocator never
+  returns; resource cache held ONE product the whole time). FIX: mesh
+  asset v3 - geometry moves to a BINARY sidecar stream ("geometry", via
+  BinarySerializer under the asset's version scope), envelope = metadata +
+  flag; legacy inline (v<3) still loads; builders declare the stream in
+  sourceStreams so geometry edits still dirty the cook. MEASURED on the
+  repro: envelope 170,518,290 B -> 422 B (+13 MB binary sidecar - the XML
+  text encoding was also 13x fatter than binary); open scan 163 MB -> 655
+  KB; editor RSS 5,081 MB -> 327 MB. Existing projects convert on
+  re-import (delete the imported group + import again); until then the
+  legacy path loads correctly but slowly. RULE: bulk machine-generated
+  data NEVER goes inline in text envelopes - sidecar streams (the
+  texture-pixels precedent, now the mesh precedent too).
+  (a) eviction and (b) partial header parse remain OPEN as real-but-
+  smaller items - the instrumentation below prices them now.
+
+- **INSTRUMENTATION SHIPPED (step 1, Fable 2026-08-11):**
+  ResourceManager::ReportLiveProducts (counts by product type; the
+  `unreferenced` column = cache-only handles = exactly what a purge would
+  release - RefCount()==1 on the cached handle) surfaced as
+  Project > Report Resource Memory; ContentDatabase::LastScanStats
+  (envelopes + bytesOpened) logged at every project open. Next: run both
+  against the user's repro project; the numbers pick (a)-vs-(b) priority.
 
 ## I5. Allocator plumbing: everything uses DefaultAllocator at call site - ARCHITECTURAL TRACK (own pace)
 
