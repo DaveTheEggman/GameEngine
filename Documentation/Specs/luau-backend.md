@@ -788,6 +788,13 @@ conformance debug dialect binds its captured local two lines up. Immediate-break
 on the reported line is correct; do NOT re-introduce the "defer one step"
 overshoot (it ran the breakpoint line).
 
+One more documented limit (Fable review, pass 6): MODULE-SCOPE breakpoints
+(a line at chunk top level) do not suspend - chunk BODIES execute via pcall at
+Load time (source and blob paths both), so a break there defers via the Q3
+pending guard to the next resumable line. Bodies run at load, not gameplay;
+acceptable, now written down. Same applies inside waitUntil PREDICATES (the
+scheduler evaluates them via pcall per frame).
+
 The C-boundary pending-break path (Q3, m_pending) is implemented + defensive;
 the nested entity.send test exercises the C-boundary CROSSING (the inner handler
 breaks correctly on a fresh pooled thread, which is yieldable). A dedicated

@@ -157,3 +157,31 @@ methods (B / dedicated overloadedName field / one surface across ALL
 backends / registration-time validation mandate). Opus unblocked.
 
 Baseline: 0a45edce.
+
+---
+
+## Review pass 6 (2026-08-11, Fable): Luau P6 debugger + bytecode consumption + gating - PASS
+
+Range 0140010b..e7d617f5 (10 commits). Full battery: 117 targets, clang +
+gcc, ZERO failures; ASAN clean on Script.Luau.Tests + Engine.Script.Tests
+(the executor changed - sanitizer mandatory).
+
+- Q1-Q6 debugger rulings all traced to implementation: pooled lua_resume
+  executor with NO dual path (the remaining pcalls are chunk BODIES at Load
+  + waitUntil predicates - module-scope breakpoints defer via the Q3 guard;
+  now documented in the spec's nuance ledger), per-class chunks, held-thread
+  discipline (reset only on pool return), shared resume router
+  (ClassifyResume/ProcessCoroutineResume - both consumers verified).
+- ACCEPTED DEVIATION from Q2: breakpoints are a linear array scan, not a
+  hash - at realistic counts while attached this is noise; revisit only
+  with debug-session profiling evidence.
+- Bytecode consumption both backends (blob-preferred, debuggable: Luau
+  debugLevel 2, AS keeps debug info + sourceName section); editor Luau
+  lexer + the found-and-fixed missing Luau cook-creator registration;
+  gating matrix (all-on verified here by the battery), Wren vendored by
+  copy.
+- DEFERRED by user: P7 Wren retirement (gating settled first - removal
+  stays surgical), P5b external luau-analyze.
+
+Baseline: e7d617f5. (Note: the Documentation/ P0 migration landed between
+review request and this record - paths in older passes refer to docs/.)
