@@ -249,6 +249,8 @@ namespace foundation::script
         void SetErrorHandler(IScriptErrorHandler* handler) override { m_errors = handler; }
         Status Load(StringView source, StringView chunkName) override;
         Status LoadBlob(IScriptBlob& blob) override;
+        Status LoadBehaviorModule(Span<const BehaviorModuleClass> classes,
+                                  StringView moduleName) override;
         void SetGlobal(StringView name, const Variant& value) override;
         [[nodiscard]] Variant GetGlobal(StringView name) override;
         [[nodiscard]] bool HasFunction(StringView name) const override;
@@ -1343,6 +1345,27 @@ namespace foundation::script
         {
             ReportTopOfStack(ScriptErrorKind::Runtime, chunkName);
             return Status{ErrorCode::Unknown};
+        }
+        return Status{};
+    }
+
+    Status LuauScriptContext::LoadBehaviorModule(Span<const BehaviorModuleClass> classes,
+                                                 StringView moduleName)
+    {
+        // Each Luau class is a GLOBAL table, so loading each source as its OWN chunk (chunkName =
+        // the class sourceName) is both valid AND better than the default concatenation: a
+        // compile/runtime error and a debugger breakpoint key on the authored (file, line),
+        // matching AngelScript/Wren per-class section identity (Fable P6 Q4), and it is the same
+        // per-class load path the bytecode blobs use. A reload redefines the class global in
+        // place - the natural Luau hot-reload.
+        (void)moduleName;
+        for (const BehaviorModuleClass& entry : classes)
+        {
+            const Status status = Load(entry.source, entry.name);
+            if (!status.IsOk())
+            {
+                return status; // Load already reported against `entry.name`
+            }
         }
         return Status{};
     }

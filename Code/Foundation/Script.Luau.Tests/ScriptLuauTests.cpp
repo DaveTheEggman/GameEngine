@@ -289,6 +289,37 @@ TEST_CASE("script.luau: a compile error reports its source line (not -1)")
     CHECK(capture.line == 3);
 }
 
+TEST_CASE("script.luau: LoadBehaviorModule loads each class as its OWN chunk (per-class identity, P6.2)")
+{
+    struct Capture final : IScriptErrorHandler
+    {
+        String module;
+        i32 line = 0;
+        void OnError(const ScriptError& error) override
+        {
+            module = String(error.module);
+            line = error.line;
+        }
+    } capture;
+
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    context->SetErrorHandler(&capture);
+
+    // Two classes; the SECOND has a syntax error on its OWN line 2. Loaded as separate chunks
+    // (not concatenated), the error keys on "Bad.luau" (that class's sourceName) at its own line -
+    // the (file, line) identity an editor breakpoint needs (Fable P6 Q4), not a merged module.
+    const BehaviorModuleClass classes[] = {
+        {u8"Good.luau", u8"Good = {}\nfunction Good.new() return setmetatable({}, Good) end\n"},
+        {u8"Bad.luau", u8"Bad = {}\nlocal c = = =\n"},
+    };
+    const Status status =
+        context->LoadBehaviorModule(Span<const BehaviorModuleClass>{classes, 2}, u8"behaviors#1");
+    CHECK_FALSE(status.IsOk());
+    CHECK(capture.module == StringView(u8"Bad.luau")); // the class file, NOT "behaviors#1"
+    CHECK(capture.line == 2);                          // its OWN line, not an offset in a merge
+}
+
 TEST_CASE("script.luau: bytecode capability - compile at cook, serialize, load in the player")
 {
     RefPtr<IScriptManager> manager = CreateLuauScriptManager();
