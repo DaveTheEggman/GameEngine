@@ -162,7 +162,15 @@ add_library(imgui STATIC
     imgui/imgui_demo.cpp)
 add_library(ThirdParty::ImGui ALIAS imgui)
 target_include_directories(imgui SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
-set_target_properties(imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# OUTPUT_NAME, not just the target name: the engine extension target is `Imgui`, and every
+# static lib lands in the same Bin/<cfg>/<plat>/lib. On Windows that directory is
+# case-INSENSITIVE, so `imgui.lib` and `Imgui.lib` are one file and whichever archived last
+# silently replaced the other - the executable then linked an Imgui.lib holding only the
+# extension's objects and every ImGui:: symbol came up undefined. Case-sensitive filesystems
+# hide this entirely, so it does not reproduce on Linux. Renaming the VENDORED side costs
+# nothing: consumers refer to ThirdParty::ImGui, never to the file.
+set_target_properties(imgui PROPERTIES POSITION_INDEPENDENT_CODE ON
+                                       OUTPUT_NAME thirdparty_imgui)
 
 # Compiled third-party whose consumers have not yet climbed to web: msdfgen only
 # (import-time font tooling; the web build ships no authoring). Jolt/AngelScript/imgui all
