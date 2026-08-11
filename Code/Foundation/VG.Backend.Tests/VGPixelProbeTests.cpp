@@ -6,7 +6,6 @@
 // names the property it guards. Skips cleanly when a backend/GPU is unavailable.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-#include <cstdio> // the baked-font probe reads the test TTF directly
 
 import foundation.core;
 import foundation.rhi;
@@ -478,28 +477,6 @@ namespace
     constexpr const char8_t* kProbeText = u8"AVWaji 42";
     constexpr f32 kProbeSize = 20.0f;
 
-    Array<u8> ReadFileBytes(const char* path)
-    {
-        Array<u8> bytes;
-        if (FILE* f = fopen(path, "rb"))
-        {
-            fseek(f, 0, SEEK_END);
-            const long size = ftell(f);
-            fseek(f, 0, SEEK_SET);
-            if (size > 0)
-            {
-                bytes.Resize(static_cast<usize>(size));
-                if (fread(bytes.Data(), 1, static_cast<usize>(size), f) !=
-                    static_cast<usize>(size))
-                {
-                    bytes.Clear();
-                }
-            }
-            fclose(f);
-        }
-        return bytes;
-    }
-
     void SaveProbePng(const Pixels& pixels, const char8_t* name)
     {
         if (!pixels.valid)
@@ -594,7 +571,10 @@ TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad
         return;
     }
 
-    Array<u8> ttf = ReadFileBytes(BUILTIN_TEST_FONT_PATH);
+    Result<Array<byte>> ttfFile =
+        ReadFile(StringView(reinterpret_cast<const char8_t*>(BUILTIN_TEST_FONT_PATH)));
+    REQUIRE(ttfFile.HasValue());
+    const Array<byte>& ttf = ttfFile.Value();
     REQUIRE(!ttf.IsEmpty());
 
     // Path A: the TTF service (rasterize-on-demand; the dev-tree path - ground truth).
@@ -622,7 +602,7 @@ TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad
     fonts::FontLoadOptions options = fonts::FontLoadOptions::Default();
     options.pixelHeight = servedSize;
     auto bakedResult = fonts::FontImporter::Bake(
-        Span<const u8>(ttf.Data(), ttf.Size()), options);
+        Span<const u8>(reinterpret_cast<const u8*>(ttf.Data()), ttf.Size()), options);
     REQUIRE(bakedResult.HasValue());
     fonts::BakedFont* bakedFont = nullptr;
     fonts::BakedFontAtlas* bakedAtlas = nullptr;
