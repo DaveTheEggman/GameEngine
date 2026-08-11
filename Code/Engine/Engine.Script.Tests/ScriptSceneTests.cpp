@@ -1858,6 +1858,119 @@ TEST_CASE("script.scene: LUAU a behavior runs from cooked bytecode with no sourc
     CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
 }
 
+// AngelScript bytecode consumption through the run host: the cook produces a single-class module
+// blob (SaveByteCode); the run host LoadByteCode's it into its own module, and CreateInstance/
+// FindFunction find the class across owned modules. A behavior with source stripped, bytecode
+// only, instantiates + ticks (the player path - no Build()).
+TEST_CASE("script.scene: ANGELSCRIPT a behavior runs from cooked bytecode with no source (player path)")
+{
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    ScriptedScene bed;
+
+    // Bring up the AngelScript run context first (EnsureContext registers the reflected surface +
+    // facades on its engine) so we can cook an Entity-using behavior on the SAME engine that will
+    // LoadByteCode it - AngelScript bytecode is bound to the engine's type registration.
+    REQUIRE(bed.host.EnsureContext(u8"angelscript") != nullptr);
+    IScriptManager* manager = bed.host.Manager();
+    REQUIRE(manager != nullptr);
+
+    const StringView moverSource =
+        u8"class Mover {\n"
+        u8"    private Entity@ self;\n"
+        u8"    private float x;\n"
+        u8"    Mover(Entity@ entity) { @self = entity; x = 0.0f; }\n"
+        u8"    void onUpdate(double dt) {\n"
+        u8"        x = x + 1.0f;\n"
+        u8"        self.setPosition(x, 0.0f, 0.0f);\n"
+        u8"    }\n"
+        u8"}\n";
+    Result<RefPtr<IScriptBlob>> blob = manager->CompileToBlob(moverSource, u8"Mover.as");
+    REQUIRE(blob.HasValue());
+    MemoryStream cooked;
+    {
+        BinarySerializer w(cooked, SerializeMode::Write);
+        blob.Value()->Serialize(w);
+    }
+    const Span<const byte> bytes = cooked.Bytes();
+
+    RefPtr<ScriptClass> mover = MakeClassLang(u8"angelscript", u8"Mover", u8"", {u8"onUpdate"});
+    mover->sourceName = String(u8"Mover.as");
+    mover->bytecode.Reserve(bytes.Size());
+    for (usize i = 0; i < bytes.Size(); ++i)
+    {
+        mover->bytecode.PushBack(bytes[i]);
+    }
+    // source stays empty -> only the bytecode can drive it.
+
+    const scene::EntityHandle e = bed.AddScripted(mover, u8"walker");
+    bed.Start();
+    bed.Frame(); // instantiate + onUpdate, all from bytecode (LoadByteCode, never Build)
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+    bed.Frame();
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));
+    CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
+}
+
+// The cook keeps debug info + the sourceName section in the AngelScript blob, so a breakpoint
+// still lines up on a behavior loaded from BYTECODE (not source). Locks the stripDebugInfo=false
+// + section=sourceName decisions that make consumed bytecode debuggable.
+TEST_CASE("script.scene: ANGELSCRIPT a breakpoint works on a behavior loaded from bytecode (debug info survives)")
+{
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    ScriptedScene bed;
+    REQUIRE(bed.host.EnsureContext(u8"angelscript") != nullptr);
+    IScriptManager* manager = bed.host.Manager();
+    REQUIRE(manager != nullptr);
+
+    const StringView breakerSource =
+        u8"class Breaker {\n"                                           // 1
+        u8"    private Entity@ self;\n"                                 // 2
+        u8"    private float x;\n"                                      // 3
+        u8"    Breaker(Entity@ entity) { @self = entity; x = 0.0f; }\n" // 4
+        u8"    void onUpdate(double dt) {\n"                            // 5
+        u8"        x = x + 1.0f;\n"                    // 6  <- breakpoint
+        u8"        self.setPosition(x, 0.0f, 0.0f);\n" // 7
+        u8"    }\n"                                    // 8
+        u8"}\n";                                       // 9
+    Result<RefPtr<IScriptBlob>> blob = manager->CompileToBlob(breakerSource, u8"Breaker.as");
+    REQUIRE(blob.HasValue());
+    MemoryStream cooked;
+    {
+        BinarySerializer w(cooked, SerializeMode::Write);
+        blob.Value()->Serialize(w);
+    }
+    const Span<const byte> bytes = cooked.Bytes();
+
+    RefPtr<ScriptClass> breaker = MakeClassLang(u8"angelscript", u8"Breaker", u8"", {u8"onUpdate"});
+    breaker->sourceName = String(u8"Breaker.as");
+    breaker->bytecode.Reserve(bytes.Size());
+    for (usize i = 0; i < bytes.Size(); ++i)
+    {
+        breaker->bytecode.PushBack(bytes[i]);
+    }
+
+    bed.host.RequestDebugger(Function<void(IScriptDebugger&)>{});
+    const scene::EntityHandle e = bed.AddScripted(breaker, u8"walker");
+    bed.Start();
+    bed.Frame(); // x = 1 (no breakpoint yet)
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+
+    IScriptDebugger* debugger = bed.host.Debugger();
+    REQUIRE(debugger != nullptr);
+    debugger->SetBreakpoint(u8"Breaker.as", 6);
+    bed.Frame(); // onUpdate hits the breakpoint -> paused; the section IS the sourceName
+    CHECK(bed.host.IsDebugPaused());
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f)); // frozen before the increment
+    Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+    REQUIRE_FALSE(frames.IsEmpty());
+    CHECK(frames[0].line == 6);
+    CHECK(StringView(frames[0].file) == u8"Breaker.as"); // debug info + section survived the cook
+
+    debugger->Continue();
+    CHECK_FALSE(bed.host.IsDebugPaused());
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));
+}
+
 // A harvested AngelScript editor property (a member field) reaches the instance through the
 // neutral setter-Invoke path: the subsystem Invokes `<name>=`, which the AngelScript backend
 // writes to the same-named member field. Both the default and a hash-keyed override drive it.

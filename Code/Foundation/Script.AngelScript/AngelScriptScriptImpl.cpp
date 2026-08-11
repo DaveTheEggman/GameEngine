@@ -2518,13 +2518,37 @@ namespace foundation::script::angelscript
             return core::Status{};
         }
 
-        // The behaviors module, loaded with each class in its OWN script section named by
-        // its sourceName - so GetLineNumber reports (sourceFile, sourceLine) and an editor
-        // breakpoint keyed on the file lines up (script-debugger.md P1.5). Same framing +
-        // build/classify path as Load; only the section split differs (Load uses one section).
+        // The behaviors module. A class carrying cooked BYTECODE loads as its OWN module via
+        // LoadByteCode (the player path - no compiler; the cooked blob is a single-class module
+        // that kept its debug info + sourceName section, so breakpoints still line up). Classes
+        // WITHOUT bytecode (freshly authored, not yet cooked) build together into one combined
+        // module, each in its own section named by its sourceName - GetLineNumber then reports
+        // (sourceFile, sourceLine) (script-debugger.md P1.5). CreateInstance/FindFunction search
+        // ALL owned modules newest-first, so the bytecode/source split is transparent to callers.
         core::Status LoadBehaviorModule(core::Span<const BehaviorModuleClass> classes,
                                         core::StringView moduleName) override
         {
+            core::Array<BehaviorModuleClass> sourceOnly;
+            for (const BehaviorModuleClass& entry : classes)
+            {
+                if (!entry.bytecode.IsEmpty())
+                {
+                    const core::Status status = LoadClassBytecode(entry.bytecode);
+                    if (!status.IsOk())
+                    {
+                        return status;
+                    }
+                }
+                else
+                {
+                    sourceOnly.PushBack(entry);
+                }
+            }
+            if (sourceOnly.IsEmpty())
+            {
+                return core::Status{};
+            }
+
             asIScriptEngine* engine = m_manager->Engine();
             const core::String moduleNameStr(moduleName);
             asIScriptModule* module = engine->GetModule(CStr(moduleNameStr), asGM_ALWAYS_CREATE);
@@ -2536,7 +2560,7 @@ namespace foundation::script::angelscript
             // One section PER CLASS, named by its sourceName (the editor's breakpoint key).
             // A class with no sourceName falls back to the module name (still compiles; only
             // its breakpoints won't line up - the cook always stamps sourceName).
-            for (const BehaviorModuleClass& entry : classes)
+            for (const BehaviorModuleClass& entry : sourceOnly)
             {
                 const core::String section(entry.name.IsEmpty() ? moduleName : entry.name);
                 (void)module->AddScriptSection(CStr(section),
@@ -2575,6 +2599,21 @@ namespace foundation::script::angelscript
                 }
             }
             return core::Status{};
+        }
+
+        // Reconstruct a cooked AngelScript blob from its SERIALIZED bytes (ScriptClass::bytecode -
+        // AngelScriptBlobFromModule -> Serialize) and LoadByteCode it into its own module, exactly
+        // as LoadBlob does (unique module name -> hot reload keeps old generations alive; main()
+        // runs). The player path for a single behavior class.
+        core::Status LoadClassBytecode(core::Span<const core::byte> serialized)
+        {
+            AngelScriptScriptBlob blob;
+            core::MemoryStream stream;
+            (void)stream.Write(serialized.Data(), serialized.Size());
+            (void)stream.Seek(0, core::SeekOrigin::Begin);
+            core::BinarySerializer reader(stream, core::SerializeMode::Read);
+            blob.Serialize(reader);
+            return LoadBlob(blob);
         }
 
         void SetGlobal(core::StringView name, const core::Variant& value) override
@@ -2720,27 +2759,30 @@ namespace foundation::script::angelscript
     private:
         [[nodiscard]] asIScriptFunction* FindFunction(core::StringView name, int argc) const
         {
-            if (m_module == nullptr)
-            {
-                return nullptr;
-            }
             const core::String functionName(name);
+            // Search owned modules NEWEST-first: hot reload appends a fresh generation (so the
+            // newest wins, the "resolves against the last loaded module" contract), and per-class
+            // bytecode modules mean a function can live in any owned module, not just m_module.
             asIScriptFunction* byName = nullptr;
-            for (asUINT i = 0; i < m_module->GetFunctionCount(); ++i)
+            for (core::usize m = m_ownedModules.Size(); m-- > 0;)
             {
-                asIScriptFunction* candidate = m_module->GetFunctionByIndex(i);
-                const char* candidateName = candidate->GetName();
-                if (candidateName == nullptr || !NameEq(candidateName, CStr(functionName)))
+                asIScriptModule* module = m_ownedModules[m];
+                for (asUINT i = 0; i < module->GetFunctionCount(); ++i)
                 {
-                    continue;
-                }
-                if (argc < 0 || static_cast<int>(candidate->GetParamCount()) == argc)
-                {
-                    return candidate;
-                }
-                if (byName == nullptr)
-                {
-                    byName = candidate;
+                    asIScriptFunction* candidate = module->GetFunctionByIndex(i);
+                    const char* candidateName = candidate->GetName();
+                    if (candidateName == nullptr || !NameEq(candidateName, CStr(functionName)))
+                    {
+                        continue;
+                    }
+                    if (argc < 0 || static_cast<int>(candidate->GetParamCount()) == argc)
+                    {
+                        return candidate;
+                    }
+                    if (byName == nullptr)
+                    {
+                        byName = candidate;
+                    }
                 }
             }
             return byName;
@@ -3438,12 +3480,19 @@ namespace foundation::script::angelscript
     core::RefPtr<ScriptObject> AngelScriptContext::CreateInstance(core::StringView className,
                                                                   core::Span<core::Variant> args)
     {
-        if (m_module == nullptr)
-        {
-            return nullptr;
-        }
         const core::String name(className);
-        asITypeInfo* type = m_module->GetTypeInfoByDecl(CStr(name));
+        // Search owned modules NEWEST-first (hot reload's fresh generation wins; a class can live
+        // in its own per-class bytecode module, not just m_module - the same generalization as
+        // FindFunction).
+        asITypeInfo* type = nullptr;
+        for (core::usize m = m_ownedModules.Size(); m-- > 0;)
+        {
+            type = m_ownedModules[m]->GetTypeInfoByDecl(CStr(name));
+            if (type != nullptr)
+            {
+                break;
+            }
+        }
         if (type == nullptr)
         {
             return nullptr;
