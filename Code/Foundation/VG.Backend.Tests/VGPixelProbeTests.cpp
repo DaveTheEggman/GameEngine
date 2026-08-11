@@ -6,6 +6,7 @@
 // names the property it guards. Skips cleanly when a backend/GPU is unavailable.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
+#include <cstdio> // the baked-font probe reads the test TTF directly
 
 import foundation.core;
 import foundation.rhi;
@@ -449,4 +450,276 @@ TEST_CASE("vg.pixels: fills, clip, colors, spreads and blends on real backends")
     {
         MESSAGE("no GPU backend available - VG pixel probes skipped entirely");
     }
+}
+
+// ============================================================================================
+// Baked-font consistency probe (fonts triad regression net, added during the 2026-08-12
+// jumbled-text incident): the SAME text at the SAME size through the TTF service (rasterize-
+// on-demand - the dev path) and through the BAKED wrappers (BakedFont + BakedFontAtlas, the
+// exact objects the cooked FontResource loads into) must produce near-identical pixels - the
+// bake IS a snapshot of the same rasterizer. Divergence = the baked draw path lies (wrong
+// regions/UVs/metrics), which shipped as jumbled game-UI text. PNGs of both strips are
+// written to the test scratch dir for eyes-on diagnosis on failure.
+// ============================================================================================
+
+import foundation.fonts;
+import foundation.fonts.ttf;
+import foundation.fonts.importer;
+import foundation.fonts.baked;
+import foundation.fonts.resource;
+import foundation.image;
+import foundation.image.io;
+
+namespace
+{
+    namespace fonts = foundation::fonts;
+    namespace image = foundation::image;
+
+    constexpr const char8_t* kProbeText = u8"AVWaji 42";
+    constexpr f32 kProbeSize = 20.0f;
+
+    Array<u8> ReadFileBytes(const char* path)
+    {
+        Array<u8> bytes;
+        if (FILE* f = fopen(path, "rb"))
+        {
+            fseek(f, 0, SEEK_END);
+            const long size = ftell(f);
+            fseek(f, 0, SEEK_SET);
+            if (size > 0)
+            {
+                bytes.Resize(static_cast<usize>(size));
+                if (fread(bytes.Data(), 1, static_cast<usize>(size), f) !=
+                    static_cast<usize>(size))
+                {
+                    bytes.Clear();
+                }
+            }
+            fclose(f);
+        }
+        return bytes;
+    }
+
+    void SaveProbePng(const Pixels& pixels, const char8_t* name)
+    {
+        if (!pixels.valid)
+        {
+            return;
+        }
+        image::Image img(kSize, kSize, image::PixelFormat::RGBA8,
+                         Span<const u8>(pixels.data.Data(), pixels.data.Size()));
+        (void)image::io::SaveImage(img, StringView(name), image::io::ImageFileFormat::PNG);
+    }
+
+    // Fraction of pixels with no acceptable match within a 1px neighborhood - tolerant of the
+    // sub-pixel placement difference between stb's float-precision packed quads (TTF path) and
+    // the baked integer regions, while still catching the jumble class (overlaps / scaled
+    // glyphs mismatch regardless of a 1px shift).
+    f64 MismatchFraction(const Pixels& a, const Pixels& b)
+    {
+        if (!a.valid || !b.valid)
+        {
+            return 1.0;
+        }
+        const auto channelDelta = [](const u8* pa, const u8* pb)
+        {
+            i32 delta = 0;
+            for (i32 c = 0; c < 3; ++c)
+            {
+                const i32 d = static_cast<i32>(pa[c]) - static_cast<i32>(pb[c]);
+                delta = Max(delta, d < 0 ? -d : d);
+            }
+            return delta;
+        };
+        usize mismatched = 0;
+        for (u32 y = 0; y < kSize; ++y)
+        {
+            for (u32 x = 0; x < kSize; ++x)
+            {
+                const u8* pa = a.At(x, y);
+                i32 best = 255;
+                for (i32 dy = -1; dy <= 1; ++dy)
+                {
+                    for (i32 dx = -1; dx <= 1; ++dx)
+                    {
+                        const i32 nx = static_cast<i32>(x) + dx;
+                        const i32 ny = static_cast<i32>(y) + dy;
+                        if (nx < 0 || ny < 0 || nx >= static_cast<i32>(kSize) ||
+                            ny >= static_cast<i32>(kSize))
+                        {
+                            continue;
+                        }
+                        best = Min(best, channelDelta(pa, b.At(static_cast<u32>(nx),
+                                                               static_cast<u32>(ny))));
+                    }
+                }
+                if (best > 32)
+                {
+                    ++mismatched;
+                }
+            }
+        }
+        return static_cast<f64>(mismatched) / (static_cast<f64>(kSize) * kSize);
+    }
+
+    usize InkedPixels(const Pixels& p)
+    {
+        if (!p.valid)
+        {
+            return 0;
+        }
+        usize inked = 0;
+        for (u32 y = 0; y < kSize; ++y)
+        {
+            for (u32 x = 0; x < kSize; ++x)
+            {
+                if (p.At(x, y)[0] > 40)
+                {
+                    ++inked;
+                }
+            }
+        }
+        return inked;
+    }
+}
+
+TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad net)")
+{
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+    rhi::Device* device = MakeDevice(vulkan);
+    if (device == nullptr)
+    {
+        MESSAGE("Vulkan unavailable - baked-font probe skipped");
+        return;
+    }
+
+    Array<u8> ttf = ReadFileBytes(BUILTIN_TEST_FONT_PATH);
+    REQUIRE(!ttf.IsEmpty());
+
+    // Path A: the TTF service (rasterize-on-demand; the dev-tree path - ground truth).
+    fonts::TrueTypeFontService ttfService;
+    REQUIRE(ttfService.LoadFont(u8"Roboto",
+                                StringView(reinterpret_cast<const char8_t*>(
+                                    BUILTIN_TEST_FONT_PATH))) == fonts::FontLoadResult::Success);
+    fonts::CachedFont* ttfFont = ttfService.GetFont(u8"Roboto", kProbeSize);
+    REQUIRE(ttfFont != nullptr);
+    // The TTF service serves its CLOSEST loaded size, not necessarily the request - bake strip
+    // B at the size strip A actually renders, or the probe compares two different sizes.
+    const f32 servedSize = ttfFont->font->PixelHeight();
+
+    Pixels ttfPixels = RenderScene(*device,
+                                   [&](vg::VGContext& ctx)
+                                   {
+                                       ctx.SetFontService(&ttfService);
+                                       ctx.DrawText(StringView(kProbeText), ttfFont,
+                                                    Float2{4.0f, 60.0f},
+                                                    Color{1.0f, 1.0f, 1.0f, 1.0f});
+                                   });
+
+    // Path B: the BAKED wrappers - the exact objects a cooked FontResource loads into
+    // (FontImporter::Bake is the same bake the cook runs; the wrap mirrors FontFactory).
+    fonts::FontLoadOptions options = fonts::FontLoadOptions::Default();
+    options.pixelHeight = servedSize;
+    auto bakedResult = fonts::FontImporter::Bake(
+        Span<const u8>(ttf.Data(), ttf.Size()), options);
+    REQUIRE(bakedResult.HasValue());
+    fonts::BakedFont* bakedFont = nullptr;
+    fonts::BakedFontAtlas* bakedAtlas = nullptr;
+    bakedResult.Value()->TakeOwnership(bakedFont, bakedAtlas);
+    DefaultAllocator().Delete(bakedResult.Value());
+
+    // Heap + refcounted like a real resource product: ResourceFontService takes a STRONG ref
+    // on registered fonts (the mid-session re-cook UAF guard), so a stack Font would die at
+    // the service's release.
+    RefPtr<fonts::Font> product = MakeRef<fonts::Font>(DefaultAllocator());
+    product->SetFamily(u8"Roboto");
+    {
+        fonts::Font::Entry entry;
+        entry.pixelHeight = servedSize;
+        entry.font = UniquePtr<fonts::BakedFont>(bakedFont, DefaultAllocator());
+        entry.atlasImage = UniquePtr<image::OwnedImageData>(
+            fonts::FontAtlasTexture::ExpandR8ToRGBA8(bakedAtlas), DefaultAllocator());
+        entry.atlas = UniquePtr<fonts::IFontAtlas>(bakedAtlas, DefaultAllocator());
+        REQUIRE(entry.atlasImage);
+        product->AddEntry(Move(entry));
+    }
+    fonts::ResourceFontService bakedService;
+    bakedService.AddFont(product.Get());
+    fonts::CachedFont* cookedFont = bakedService.GetFont(u8"Roboto", servedSize);
+    REQUIRE(cookedFont != nullptr);
+
+    Pixels bakedPixels = RenderScene(*device,
+                                     [&](vg::VGContext& ctx)
+                                     {
+                                         ctx.SetFontService(&bakedService);
+                                         ctx.DrawText(StringView(kProbeText), cookedFont,
+                                                      Float2{4.0f, 60.0f},
+                                                      Color{1.0f, 1.0f, 1.0f, 1.0f});
+                                     });
+
+    // Numeric probe: the same glyph at the same pen through both atlases.
+    {
+        fonts::AtlasRegion ttfRegion;
+        fonts::AtlasRegion bakedRegion;
+        (void)ttfFont->atlas->TryGetRegion('A', ttfRegion);
+        (void)cookedFont->atlas->TryGetRegion('A', bakedRegion);
+        fonts::GlyphQuad ttfQuad;
+        fonts::GlyphQuad bakedQuad;
+        f32 cx = 4.0f;
+        (void)ttfFont->atlas->GetGlyphQuad('A', cx, 60.0f, ttfQuad);
+        cx = 4.0f;
+        (void)cookedFont->atlas->GetGlyphQuad('A', cx, 60.0f, bakedQuad);
+        MESSAGE("ttf   region 'A': xy=" << ttfRegion.x << "," << ttfRegion.y
+                << " wh=" << ttfRegion.width << "x" << ttfRegion.height
+                << " off=" << ttfRegion.offsetX << "," << ttfRegion.offsetY
+                << " adv=" << ttfRegion.advanceX);
+        MESSAGE("baked region 'A': xy=" << bakedRegion.x << "," << bakedRegion.y
+                << " wh=" << bakedRegion.width << "x" << bakedRegion.height
+                << " off=" << bakedRegion.offsetX << "," << bakedRegion.offsetY
+                << " adv=" << bakedRegion.advanceX);
+        MESSAGE("ttf   quad 'A': x=" << ttfQuad.x0 << ".." << ttfQuad.x1
+                << " y=" << ttfQuad.y0 << ".." << ttfQuad.y1);
+        MESSAGE("baked quad 'A': x=" << bakedQuad.x0 << ".." << bakedQuad.x1
+                << " y=" << bakedQuad.y0 << ".." << bakedQuad.y1);
+        MESSAGE("ttf metrics: ascent=" << ttfFont->font->Metrics().ascent
+                << " descent=" << ttfFont->font->Metrics().descent
+                << " scale=" << ttfFont->font->Metrics().scale);
+        MESSAGE("baked metrics: ascent=" << cookedFont->font->Metrics().ascent
+                << " descent=" << cookedFont->font->Metrics().descent
+                << " scale=" << cookedFont->font->Metrics().scale);
+    }
+
+    SaveProbePng(ttfPixels, u8"font-probe-ttf.png");
+    SaveProbePng(bakedPixels, u8"font-probe-baked.png");
+    // Diff visualization for failures: red = TTF-only ink, green = baked-only ink.
+    if (ttfPixels.valid && bakedPixels.valid)
+    {
+        Pixels diff = ttfPixels;
+        for (u32 y = 0; y < kSize; ++y)
+        {
+            for (u32 x = 0; x < kSize; ++x)
+            {
+                u8* d = diff.data.Data() + (static_cast<usize>(y) * kSize + x) * 4;
+                const u8 ta = ttfPixels.At(x, y)[0];
+                const u8 ba = bakedPixels.At(x, y)[0];
+                d[0] = ta;
+                d[1] = ba;
+                d[2] = 0;
+                d[3] = 255;
+            }
+        }
+        SaveProbePng(diff, u8"font-probe-diff.png");
+    }
+
+    // Both strips drew SOMETHING...
+    REQUIRE(ttfPixels.valid);
+    REQUIRE(bakedPixels.valid);
+    CHECK(InkedPixels(ttfPixels) > 100);
+    CHECK(InkedPixels(bakedPixels) > 100);
+    // ...and the same something: the bake is a snapshot of the same rasterizer, so beyond
+    // AA noise the images must agree. Jumbled = regions/UVs/metrics lie in the baked path.
+    CHECK(MismatchFraction(ttfPixels, bakedPixels) < 0.02);
+
+    device->Destroy();
 }

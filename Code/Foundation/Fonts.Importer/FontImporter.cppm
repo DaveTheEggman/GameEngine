@@ -105,6 +105,8 @@ export namespace foundation::fonts
 
             const Float2 white = ttAtlas->WhitePixelUV();
             bakedAtlas->SetWhitePixelUV(white.x, white.y);
+            bakedAtlas->SetOversample(static_cast<f32>(options.oversampleX),
+                                      static_cast<f32>(options.oversampleY));
 
             // Copy GlyphInfo + AtlasRegion for every codepoint that packed.
             for (i32 cp = options.firstCodepoint; cp <= options.lastCodepoint; ++cp)

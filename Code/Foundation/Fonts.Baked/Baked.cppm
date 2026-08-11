@@ -135,6 +135,18 @@ export namespace foundation::fonts
     public:
         BakedFontAtlas() = default;
 
+        /// The pack-time oversampling factors (stb packs glyph BITMAPS at oversample times the
+        /// logical size for better filtering; packedchar offsets/advances stay LOGICAL). Screen
+        /// quads must divide the raw region span back down - losing this factor was the
+        /// 2026-08-12 jumbled-text bug (glyphs drawn at 2x, overlapping). 1 = no oversampling.
+        void SetOversample(f32 x, f32 y)
+        {
+            m_oversampleX = x > 0.0f ? x : 1.0f;
+            m_oversampleY = y > 0.0f ? y : 1.0f;
+        }
+        [[nodiscard]] f32 OversampleX() const { return m_oversampleX; }
+        [[nodiscard]] f32 OversampleY() const { return m_oversampleY; }
+
         // Clears all glyph regions + pixel buffer in place for hot-reload.
         void ClearForReload()
         {
@@ -234,11 +246,13 @@ export namespace foundation::fonts
             const f32 invW = 1.0f / static_cast<f32>(m_width);
             const f32 invH = 1.0f / static_cast<f32>(m_height);
 
-            // Screen-space quad: position + offsets + dimensions.
+            // Screen-space quad: position + offsets + dimensions. Region width/height are RAW
+            // atlas pixels (oversampled); offsets/advance are logical - divide the span only
+            // (exactly stbtt_GetPackedQuad's correction).
             const f32 qx0 = x + region.offsetX;
             const f32 qy0 = y + region.offsetY;
-            const f32 qx1 = qx0 + static_cast<f32>(region.width);
-            const f32 qy1 = qy0 + static_cast<f32>(region.height);
+            const f32 qx1 = qx0 + static_cast<f32>(region.width) / m_oversampleX;
+            const f32 qy1 = qy0 + static_cast<f32>(region.height) / m_oversampleY;
 
             // Texture-space quad: region bounds normalized into the atlas.
             const f32 u0 = static_cast<f32>(region.x) * invW;
@@ -255,6 +269,8 @@ export namespace foundation::fonts
 
         u32 m_width = 0;
         u32 m_height = 0;
+        f32 m_oversampleX = 1.0f;
+        f32 m_oversampleY = 1.0f;
         Array<u8> m_pixels;
         HashMap<i32, AtlasRegion> m_regions;
         f32 m_whitePixelU = 0;

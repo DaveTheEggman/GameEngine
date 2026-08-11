@@ -143,6 +143,13 @@ export namespace foundation::fonts
         f32 whitePixelV = 0.0f;
         f32 dfPixelRange = 4.0f; // DistanceField mode only
 
+        // Pack-time oversampling (v1+): region spans are RAW atlas pixels at oversample times
+        // the logical glyph size; the runtime atlas divides screen quads back down. v0 cooked
+        // fonts lack the field and default to 1 - they draw oversized until re-cooked (the
+        // builder version bump forces that re-cook).
+        f32 oversampleX = 1.0f;
+        f32 oversampleY = 1.0f;
+
         u64 pixelOffset = 0;
         u64 pixelBytes = 0;
 
@@ -161,6 +168,11 @@ export namespace foundation::fonts
             foundation::core::Serialize(ar, "whitePixelU", whitePixelU);
             foundation::core::Serialize(ar, "whitePixelV", whitePixelV);
             foundation::core::Serialize(ar, "dfPixelRange", dfPixelRange);
+            if (ar.Version() >= 1) // v1 added oversample (binary is positional - guard reads)
+            {
+                foundation::core::Serialize(ar, "oversampleX", oversampleX);
+                foundation::core::Serialize(ar, "oversampleY", oversampleY);
+            }
             foundation::core::Serialize(ar, "pixelOffset", pixelOffset);
             foundation::core::Serialize(ar, "pixelBytes", pixelBytes);
         }
@@ -351,6 +363,7 @@ export namespace foundation::fonts
                 {
                     auto atlas = MakeUnique<BakedFontAtlas>(DefaultAllocator());
                     atlas->SetWhitePixelUV(e.whitePixelU, e.whitePixelV);
+                    atlas->SetOversample(e.oversampleX, e.oversampleY);
                     for (const FontResourceRegion& r : e.regions)
                     {
                         atlas->SetRegion(r.codepoint, r.region);
@@ -413,15 +426,20 @@ export namespace foundation::fonts
             m_defaultFamily.Clear();
         }
 
-        // Register a bound product (BORROWED: the caller keeps the product alive - the
-        // ResourceManager's cache does, for as long as the manager lives). The first
-        // registered font becomes the default family.
+        // Register a bound product (must be HEAP-allocated/refcounted - a resource product;
+        // never a stack Font). The service takes a STRONG ref: a mid-session re-cook
+        // replaces the manager's product (the old one is parked briefly, then freed), and a
+        // borrowed pointer here kept serving freed glyph tables - the one-shot editor segfault
+        // right after "cook finished" (2026-08-12). The ref keeps the OLD product alive (and
+        // stale) until a new default font is bound; live REBIND on resource reload is the
+        // follow-up that makes it also fresh.
         void AddFont(const Font* font)
         {
             if (font == nullptr)
             {
                 return;
             }
+            m_keepAlive.PushBack(RefPtr<Object>(const_cast<Font*>(font))); // ownership only
             for (usize i = 0; i < font->EntryCount(); ++i)
             {
                 const Font::Entry& productEntry = font->EntryAt(i);
@@ -577,6 +595,7 @@ export namespace foundation::fonts
         }
 
         Array<Entry> m_entries;
+        Array<RefPtr<Object>> m_keepAlive; // strong refs on registered products (see AddFont)
         String m_defaultFamily;
     };
 
@@ -586,6 +605,6 @@ export namespace foundation::fonts
         RegisterSerializable<FontResource>();
     }
 
-    RTTI_DEFINE_OBJECT(FontResource, "rtti::fonts")
+    RTTI_DEFINE_OBJECT_VERSIONED(FontResource, "rtti::fonts", 1) // v1: entry oversample fields
     RTTI_DEFINE_OBJECT(Font, "rtti::fonts")
 }

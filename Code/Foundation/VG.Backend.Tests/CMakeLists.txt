@@ -10,11 +10,14 @@ add_executable(VG.Backend.Tests
 
 target_link_libraries(VG.Backend.Tests PRIVATE
     Foundation::VG Foundation::VG.Renderer Foundation::Shaders.System
+    Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.Importer Foundation::Fonts.Baked
+    Foundation::Fonts.Resource Foundation::Image Foundation::Image.IO
     Foundation::RHI.Vulkan Foundation::RHI.WebGPU doctest::doctest)
 
 target_compile_definitions(VG.Backend.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
-    BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
+    BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders"
+    BUILTIN_TEST_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf")
 
 target_compile_options(VG.Backend.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"

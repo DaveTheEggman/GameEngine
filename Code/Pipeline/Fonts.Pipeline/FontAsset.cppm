@@ -104,6 +104,12 @@ export namespace pipeline{
             return &FontResource::StaticType();
         }
 
+        // v2 (2026-08-12): FontResourceEntry gained the oversample fields (the jumbled-text
+        // fix - baked screen quads must divide the pack-time oversampling back out). RULE: a
+        // product schema change bumps the builder Version() in the SAME commit - the bump IS
+        // the migration; it forces every stale cooked font to re-cook.
+        [[nodiscard]] u32 Version() const override { return 2; }
+
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override
         {
@@ -234,6 +240,8 @@ export namespace pipeline{
             const Float2 white = data->atlas->WhitePixelUV();
             entry.whitePixelU = white.x;
             entry.whitePixelV = white.y;
+            entry.oversampleX = data->atlas->OversampleX();
+            entry.oversampleY = data->atlas->OversampleY();
 
             AppendPixels(data->atlas->PixelData(), entry, pixels);
             resource.entries.PushBack(Move(entry));
