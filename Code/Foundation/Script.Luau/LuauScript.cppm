@@ -443,11 +443,41 @@ namespace foundation::script
             return nullptr;
         }
 
+        // The debugger's Continue on a broken COROUTINE thread routes through the same
+        // ProcessCoroutineResume as the scheduler, then drops the entry if it finished (Fable Q6).
+        void ContinueCoroutine(Coroutine& entry, int status);
+
     private:
         void DropCoroutinesOf(LuauScriptContext* context);
         void DropCoroutineAt(usize index);
         // Resume one entry; true when it should be REMOVED (finished or faulted).
         [[nodiscard]] bool ResumeCoroutine(Coroutine& entry);
+
+        // The ONE post-resume router shared by the coroutine scheduler and the debugger's Continue
+        // (Fable Q6) so they never disagree: BREAK -> the debugger holds the thread (false, kept),
+        // YIELD -> stays scheduled (false), OK/error -> drop (true). ClassifyResume is its lone map.
+        enum class ResumeDisposition
+        {
+            Completed,
+            Rescheduled,
+            Broke,
+            Faulted
+        };
+        [[nodiscard]] static ResumeDisposition ClassifyResume(int status) noexcept
+        {
+            switch (status)
+            {
+            case LUA_OK:
+                return ResumeDisposition::Completed;
+            case LUA_YIELD:
+                return ResumeDisposition::Rescheduled;
+            case LUA_BREAK:
+                return ResumeDisposition::Broke;
+            default:
+                return ResumeDisposition::Faulted;
+            }
+        }
+        [[nodiscard]] bool ProcessCoroutineResume(Coroutine& entry, int status);
 
         Array<const TypeInfo*> m_types;
         Array<LuauScriptContext*> m_contexts; // borrowed; contexts retain us
@@ -623,9 +653,12 @@ namespace foundation::script
             }
             const int line = ar->currentline; // the pause point (the line about to execute)
             const int depth = lua_stackdepth(thread);
-            // Re-arm the breakpoint on the line we resumed from once execution leaves it (so a loop
-            // back re-breaks); until then skip it, so Continue does not re-break where it paused.
-            if (m_resumeLine >= 0 && (line != m_resumeLine || depth != m_resumeDepth))
+            // Re-arm the breakpoint on the line we resumed from once execution genuinely LEAVES it
+            // (so a loop back re-breaks); until then skip it, so Continue/Step does not re-break
+            // where it paused. A call on that line (which dips DEEPER and returns to the same line
+            // for the store, e.g. `x = f()`) must NOT count as leaving - only a move to a different
+            // line at the resume depth or shallower does.
+            if (m_resumeLine >= 0 && depth <= m_resumeDepth && line != m_resumeLine)
             {
                 m_resumeLine = -1;
             }
@@ -756,14 +789,21 @@ namespace foundation::script
             {
                 m_stepMode = mode;
                 m_stepFromDepth = lua_stackdepth(thread);
-                lua_Debug info;
-                m_stepFromLine = (lua_getinfo(thread, 0, "l", &info) != 0) ? info.currentline : -1;
+                // Right after a break lua_getinfo reports the restored pc's line (off by one, same
+                // reason CaptureStackFrames uses m_brokenLine for frame 0); the pause point IS the
+                // line we resume from, so step from there or a StepOver would break on it again.
+                m_stepFromLine = m_brokenLine;
                 m_stepArmed = true;
             }
             // Skip the breakpoint on the line/frame we resume from until execution leaves it, so
             // Continue/Step does not immediately re-break where it was already paused.
             m_resumeLine = m_brokenLine;
             m_resumeDepth = lua_stackdepth(thread);
+            // A broken thread is either a scheduled coroutine or a pooled executor thread; they
+            // route differently after the resume (a coroutine may YIELD back to the scheduler or,
+            // when done, be dropped from the schedule; a pooled thread returns to its pool). Decide
+            // before the resume for the `from` argument, then route on the result.
+            const bool isCoroutine = (m_manager->FindCoroutine(thread) != nullptr);
             m_heldThread = nullptr;
             m_heldContext = nullptr;
             m_objects.Clear(); // captured object refs are valid only for the current break
@@ -772,7 +812,18 @@ namespace foundation::script
             int status;
             {
                 ScriptCallScope scope(context);
-                status = lua_resume(thread, context->State(), 0);
+                status = lua_resume(thread, isCoroutine ? nullptr : context->State(), 0);
+            }
+            if (isCoroutine)
+            {
+                // Re-find (a resumed body may have spawned coroutines and reallocated the array);
+                // then route through the SAME ProcessCoroutineResume the scheduler uses (Fable Q6):
+                // BREAK re-holds, YIELD stays scheduled, OK/error drops.
+                if (LuauScriptManager::Coroutine* entry = m_manager->FindCoroutine(thread))
+                {
+                    m_manager->ContinueCoroutine(*entry, status);
+                }
+                return;
             }
             if (status == LUA_BREAK)
             {
@@ -783,7 +834,7 @@ namespace foundation::script
             {
                 context->ReportTopOfStack(ScriptErrorKind::Runtime, u8"debug");
             }
-            context->ReleaseThread(thread); // completed (coroutine YIELD re-scheduling is P6.3b)
+            context->ReleaseThread(thread); // completed pooled executor thread -> back to the pool
         }
 
         // ---- value description ----
@@ -1634,20 +1685,64 @@ namespace foundation::script
         lua_setglobal(m_state, "waitUntil");
     }
 
-    bool LuauScriptManager::ResumeCoroutine(Coroutine& entry)
+    bool LuauScriptManager::ProcessCoroutineResume(Coroutine& entry, int status)
     {
-        ScriptCallScope scope(entry.context);
-        const int status = lua_resume(entry.thread, nullptr, 0);
-        if (status == LUA_YIELD)
+        switch (ClassifyResume(status))
         {
+        case ResumeDisposition::Broke:
+            // A breakpoint/step landed inside the coroutine body: the debugger holds THIS coroutine
+            // thread (AdvanceCoroutines skips LUA_BREAK threads, Fable Q5); Continue re-resumes it.
+            // A break can only occur with a debugger attached (it alone arms singlestep); guard so a
+            // stray status never leaks a scheduled-but-never-resumed thread.
+            if (m_debugger != nullptr)
+            {
+                m_debugger->OnBroke(entry.context, entry.thread);
+                return false; // held, not dropped
+            }
+            return true;
+        case ResumeDisposition::Rescheduled:
             return false; // recorded a new wait; stays scheduled
-        }
-        if (status != LUA_OK)
+        case ResumeDisposition::Faulted:
         {
             const char* message = lua_tostring(entry.thread, -1);
             entry.context->ReportError(ScriptErrorKind::Runtime, u8"coroutine", ViewOf(message));
+            return true;
         }
-        return true; // finished or faulted -> drop
+        case ResumeDisposition::Completed:
+        default:
+            return true; // finished -> drop
+        }
+    }
+
+    bool LuauScriptManager::ResumeCoroutine(Coroutine& entry)
+    {
+        if (m_debugger != nullptr)
+        {
+            lua_singlestep(entry.thread, 1); // arm stepping so a breakpoint in the body can break
+        }
+        int status;
+        {
+            ScriptCallScope scope(entry.context);
+            status = lua_resume(entry.thread, nullptr, 0);
+        }
+        return ProcessCoroutineResume(entry, status);
+    }
+
+    void LuauScriptManager::ContinueCoroutine(Coroutine& entry, int status)
+    {
+        // Same disposition as the scheduler; drop the entry here if it finished (the debugger owns
+        // the Continue path, off the AdvanceCoroutines iteration, so mutating the array is safe).
+        if (ProcessCoroutineResume(entry, status))
+        {
+            for (usize i = 0; i < coroutines.Size(); ++i)
+            {
+                if (&coroutines[i] == &entry)
+                {
+                    DropCoroutineAt(i);
+                    return;
+                }
+            }
+        }
     }
 
     void LuauScriptManager::AdvanceCoroutines(f64 deltaSeconds)
@@ -1672,7 +1767,9 @@ namespace foundation::script
                 // the other backends run it inline during onStart, so their first AdvanceCoroutines
                 // already counts this frame's dt against the wait. Count it here too so a Luau
                 // coroutine's timer starts on the SAME frame it began - identical wait timing.
-                if (!drop && entry.predicateRef == LUA_NOREF)
+                // (If the first resume BROKE, the thread is held - never resume it again here.)
+                if (!drop && lua_status(entry.thread) != LUA_BREAK &&
+                    entry.predicateRef == LUA_NOREF)
                 {
                     entry.remainingSeconds -= deltaSeconds;
                     if (entry.remainingSeconds <= 0.0)

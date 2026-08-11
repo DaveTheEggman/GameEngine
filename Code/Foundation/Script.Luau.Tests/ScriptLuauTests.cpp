@@ -403,6 +403,195 @@ TEST_CASE("script.luau: step debugger breaks on a breakpoint, captures, and cont
     debugger->SetListener(nullptr);
 }
 
+// A minimal listener that just counts paused/running transitions (shared shape across the P6.3b
+// step + coroutine tests).
+namespace
+{
+    struct DebuggerStateCounter final : IScriptDebuggerListener
+    {
+        int paused = 0;
+        int running = 0;
+        ScriptDebuggerState last = ScriptDebuggerState::Running;
+        void OnDebuggerStateChanged(ScriptDebuggerState s) override
+        {
+            last = s;
+            if (s == ScriptDebuggerState::Breakpoint || s == ScriptDebuggerState::Stepped)
+            {
+                ++paused;
+            }
+            else if (s == ScriptDebuggerState::Running)
+            {
+                ++running;
+            }
+        }
+    };
+}
+
+TEST_CASE("script.luau: step debugger StepOver stays at the caller depth over a call (P6.3b)")
+{
+    DebuggerStateCounter listener;
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
+    REQUIRE(debugger.Get() != nullptr);
+    debugger->SetListener(&listener);
+    debugger->SetBreakpoint(u8"step.luau", 6);
+
+    REQUIRE(context
+                ->Load(u8"function helper()\n"     // 1
+                       u8"    return 7\n"          // 2
+                       u8"end\n"                   // 3
+                       u8"function run()\n"        // 4
+                       u8"    local a = 1\n"       // 5
+                       u8"    marker = helper()\n" // 6  <- breakpoint (a call site)
+                       u8"    tail = a\n"          // 7
+                       u8"end\n",                  // 8
+                       u8"step.luau")
+                .IsOk());
+
+    Span<Variant> noArgs{};
+    REQUIRE(context->Call(u8"run", noArgs).HasValue());
+    REQUIRE(listener.paused == 1);
+    {
+        Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+        REQUIRE(frames.Size() == 1); // only run() on the stack
+        CHECK(frames[0].line == 6);
+    }
+
+    // Step OVER the helper() call: it must NOT descend into helper, and lands on the next line of
+    // run at the SAME depth. The call still executes (marker gets helper()'s result).
+    debugger->StepOver();
+    REQUIRE(listener.paused == 2);
+    CHECK(listener.last == ScriptDebuggerState::Stepped);
+    {
+        Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+        REQUIRE(frames.Size() == 1); // stayed at the caller depth - helper never held
+        CHECK(frames[0].line == 7);  // advanced past the call
+    }
+    CHECK(context->GetGlobal(u8"marker").Get<f64>() == doctest::Approx(7.0)); // the call ran
+
+    debugger->Continue();
+    CHECK(listener.paused == 2); // no further break
+    CHECK(context->GetGlobal(u8"tail").Get<f64>() == doctest::Approx(1.0));
+    debugger->SetListener(nullptr);
+}
+
+TEST_CASE("script.luau: step debugger StepInto descends into the callee (P6.3b)")
+{
+    DebuggerStateCounter listener;
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
+    REQUIRE(debugger.Get() != nullptr);
+    debugger->SetListener(&listener);
+    debugger->SetBreakpoint(u8"into.luau", 6);
+
+    REQUIRE(context
+                ->Load(u8"function helper()\n"     // 1
+                       u8"    local h = 7\n"       // 2
+                       u8"    return h\n"          // 3
+                       u8"end\n"                   // 4
+                       u8"function run()\n"        // 5
+                       u8"    local a = 1\n"       // 6  <- breakpoint (a simple line)
+                       u8"    marker = helper()\n" // 7  a call site
+                       u8"end\n",                  // 8
+                       u8"into.luau")
+                .IsOk());
+
+    Span<Variant> noArgs{};
+    REQUIRE(context->Call(u8"run", noArgs).HasValue());
+    REQUIRE(listener.paused == 1);
+    {
+        Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+        REQUIRE(frames.Size() == 1); // only run() on the stack
+        CHECK(frames[0].line == 6);
+    }
+
+    // StepInto from a NON-call line advances to the next line at the same depth (line 7, the call).
+    debugger->StepInto();
+    REQUIRE(listener.paused == 2);
+    CHECK(listener.last == ScriptDebuggerState::Stepped);
+    {
+        Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+        REQUIRE(frames.Size() == 1); // still just run()
+        CHECK(frames[0].line == 7);
+    }
+
+    // StepInto AT the call descends a frame; the pause lands on helper's first line.
+    debugger->StepInto();
+    REQUIRE(listener.paused == 3);
+    {
+        Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+        REQUIRE(frames.Size() == 2); // descended: helper + run
+        CHECK(frames[0].file == StringView(u8"into.luau"));
+        CHECK(frames[0].line == 2); // first line inside helper
+    }
+
+    debugger->Continue();
+    CHECK(listener.paused == 3); // helper returns to line 7 (no breakpoint there) - runs to the end
+    CHECK(context->GetGlobal(u8"marker").Get<f64>() == doctest::Approx(7.0));
+    debugger->SetListener(nullptr);
+}
+
+TEST_CASE("script.luau: step debugger breaks inside a coroutine body, then Continue finishes it (P6.3b)")
+{
+    DebuggerStateCounter listener;
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
+    REQUIRE(debugger.Get() != nullptr);
+    debugger->SetListener(&listener);
+    debugger->SetBreakpoint(u8"co.luau", 6);
+
+    REQUIRE(context
+                ->Load(u8"started = 0\n"                  // 1
+                       u8"finished = 0\n"                 // 2
+                       u8"function run()\n"               // 3
+                       u8"    startCoroutine(function()\n" // 4
+                       u8"        started = 1\n"          // 5
+                       u8"        marker = 42\n"          // 6  <- breakpoint (in the body)
+                       u8"        finished = 1\n"         // 7
+                       u8"    end)\n"                     // 8
+                       u8"end\n",                         // 9
+                       u8"co.luau")
+                .IsOk());
+
+    // run() only SCHEDULES the coroutine - it does not run the body, so no break yet.
+    Span<Variant> noArgs{};
+    REQUIRE(context->Call(u8"run", noArgs).HasValue());
+    CHECK(listener.paused == 0);
+
+    // The first advance resumes the coroutine body and hits the breakpoint on its own thread.
+    manager->AdvanceCoroutines(0.016);
+    REQUIRE(listener.paused == 1);
+    CHECK(listener.last == ScriptDebuggerState::Breakpoint);
+    CHECK(context->GetGlobal(u8"started").Get<f64>() == doctest::Approx(1.0)); // line 5 ran
+    CHECK(context->GetGlobal(u8"finished").Get<f64>() == doctest::Approx(0.0)); // not past line 6
+    CHECK(context->GetGlobal(u8"marker").TryGet<f64>() == nullptr);
+    {
+        Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+        REQUIRE(frames.Size() >= 1);
+        CHECK(frames[0].file == StringView(u8"co.luau"));
+        CHECK(frames[0].line == 6);
+    }
+
+    // The scheduler MUST NOT resume the debugger-held coroutine thread (Fable Q5).
+    manager->AdvanceCoroutines(0.016);
+    CHECK(listener.paused == 1);
+    CHECK(context->GetGlobal(u8"finished").Get<f64>() == doctest::Approx(0.0));
+
+    // Continue finishes the body (lines 6-7) and drops the coroutine from the schedule.
+    debugger->Continue();
+    CHECK(listener.paused == 1); // no re-break on the resumed line
+    CHECK(context->GetGlobal(u8"marker").Get<f64>() == doctest::Approx(42.0));
+    CHECK(context->GetGlobal(u8"finished").Get<f64>() == doctest::Approx(1.0));
+
+    // The coroutine is gone; further advances are no-ops.
+    manager->AdvanceCoroutines(0.016);
+    CHECK(listener.paused == 1);
+    debugger->SetListener(nullptr);
+}
+
 TEST_CASE("script.luau: bytecode capability - compile at cook, serialize, load in the player")
 {
     RefPtr<IScriptManager> manager = CreateLuauScriptManager();
