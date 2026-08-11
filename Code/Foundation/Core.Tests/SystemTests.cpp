@@ -214,13 +214,26 @@ TEST_CASE("system: RunProcess reports failure to spawn a missing binary")
 #endif // !PLATFORM_WEB (subprocess spawning is desktop-only)
 
 // NormalizePathSeparators is fanned out to the platform backends; the Win32 OpenPathInFileManager
-// relies on it (Explorer refuses '/'). This exercises the LINUX backend on the dev box - POSIX-native
-// is '/', so it flips backslashes the other way; the empty/exact/overlong contract is shared, and the
-// Windows '/'->'\' direction is the mirror image validated on Windows.
-TEST_CASE("system: NormalizePathSeparators yields OS-native separators (POSIX on this host)")
+// relies on it (Explorer refuses '/'). The direction is OS-NATIVE and therefore host-dependent:
+// '\' on Windows, '/' on POSIX - so the separator expectations are compiled per platform. Writing
+// only the POSIX ones (the dev box) made this fail on Windows, where the function is correct and
+// the test was wrong. The empty / exact-fit / overlong contract is shared and asserted once.
+TEST_CASE("system: NormalizePathSeparators yields OS-native separators")
 {
     char out[64];
 
+#if PLATFORM_WINDOWS
+    SUBCASE("forward slashes become backslashes on Windows")
+    {
+        CHECK(NormalizePathSeparators(u8"a/b/My Dir", out, sizeof(out)));
+        CHECK(std::strcmp(out, "a\\b\\My Dir") == 0);
+    }
+    SUBCASE("already-native path is unchanged")
+    {
+        CHECK(NormalizePathSeparators(u8"C:\\home\\foo", out, sizeof(out)));
+        CHECK(std::strcmp(out, "C:\\home\\foo") == 0);
+    }
+#else
     SUBCASE("backslashes become forward slashes on POSIX")
     {
         CHECK(NormalizePathSeparators(u8"a\\b\\My Dir", out, sizeof(out)));
@@ -231,6 +244,7 @@ TEST_CASE("system: NormalizePathSeparators yields OS-native separators (POSIX on
         CHECK(NormalizePathSeparators(u8"/home/foo/bar", out, sizeof(out)));
         CHECK(std::strcmp(out, "/home/foo/bar") == 0);
     }
+#endif
     SUBCASE("empty path is rejected")
     {
         CHECK_FALSE(NormalizePathSeparators(u8"", out, sizeof(out)));
@@ -245,6 +259,10 @@ TEST_CASE("system: NormalizePathSeparators yields OS-native separators (POSIX on
     {
         char exact[8];
         CHECK(NormalizePathSeparators(u8"a\\bcdef", exact, sizeof(exact))); // 7 + NUL == 8
+#if PLATFORM_WINDOWS
+        CHECK(std::strcmp(exact, "a\\bcdef") == 0);
+#else
         CHECK(std::strcmp(exact, "a/bcdef") == 0);
+#endif
     }
 }
