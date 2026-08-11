@@ -1811,6 +1811,53 @@ TEST_CASE("script.scene: LUAU a breakpoint in a nested entity.send handler pause
     CHECK(bed.scene.GetEntityName(target) == StringView(u8"pinged:8"));
 }
 
+// Bytecode consumption end-to-end through the run host: a behavior ScriptClass carrying only
+// cooked bytecode (source stripped, the player case) instantiates + ticks. Proves the run host
+// threads ScriptClass::bytecode into LoadBehaviorModule and the backend loads it (no compiler).
+TEST_CASE("script.scene: LUAU a behavior runs from cooked bytecode with no source (player path)")
+{
+    foundation::script::RegisterLuauScriptBackend();
+    ScriptedScene bed;
+
+    RefPtr<ScriptClass> mover = MakeClassLang(
+        u8"luau", u8"Mover",
+        u8"Mover = {}\n"
+        u8"Mover.__index = Mover\n"
+        u8"function Mover.new(entity) return setmetatable({ entity = entity, x = 0 }, Mover) end\n"
+        u8"function Mover:onUpdate(dt)\n"
+        u8"    self.x = self.x + 1\n"
+        u8"    self.entity:setPosition(self.x, 0, 0)\n"
+        u8"end\n",
+        {u8"onUpdate"});
+    mover->sourceName = String(u8"Mover.luau");
+
+    // COOK the source to bytecode (a standalone Luau manager, as the cook does), store it on the
+    // class, then STRIP the source - only the bytecode can drive the behavior now (the player).
+    RefPtr<IScriptManager> cooker = foundation::script::CreateLuauScriptManager();
+    Result<RefPtr<IScriptBlob>> blob = cooker->CompileToBlob(mover->source.AsView(), u8"Mover.luau");
+    REQUIRE(blob.HasValue());
+    MemoryStream cooked;
+    {
+        BinarySerializer w(cooked, SerializeMode::Write);
+        blob.Value()->Serialize(w);
+    }
+    const Span<const byte> bytes = cooked.Bytes();
+    mover->bytecode.Reserve(bytes.Size());
+    for (usize i = 0; i < bytes.Size(); ++i)
+    {
+        mover->bytecode.PushBack(bytes[i]);
+    }
+    mover->source = String{}; // the player ships no source
+
+    const scene::EntityHandle e = bed.AddScripted(mover, u8"walker");
+    bed.Start();
+    bed.Frame(); // instantiate + onUpdate, all from bytecode
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+    bed.Frame();
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));
+    CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
+}
+
 // A harvested AngelScript editor property (a member field) reaches the instance through the
 // neutral setter-Invoke path: the subsystem Invokes `<name>=`, which the AngelScript backend
 // writes to the same-named member field. Both the default and a hash-keyed override drive it.

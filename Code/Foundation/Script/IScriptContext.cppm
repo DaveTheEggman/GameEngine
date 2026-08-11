@@ -65,6 +65,11 @@ export namespace foundation::script
     {
         core::StringView name;   // the source-file section identity (may be empty)
         core::StringView source; // the class source text
+        // Optional precompiled bytecode for this class (ScriptClass::bytecode). When present and
+        // the backend has a stable per-class bytecode (ScriptCapabilities::Bytecode), the backend
+        // loads THIS instead of compiling `source` - the player path (no compiler needed). Empty
+        // means source-only. The default source-concatenating LoadBehaviorModule ignores it.
+        core::Span<const core::byte> bytecode;
     };
 
     class IScriptContext : public core::Object

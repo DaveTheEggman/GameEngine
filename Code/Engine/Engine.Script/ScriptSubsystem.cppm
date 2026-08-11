@@ -438,8 +438,12 @@ export namespace engine::script
             m_classSourceScratch.Reserve(m_loadedClasses.Size());
             for (const RefPtr<ScriptClass>& loaded : m_loadedClasses)
             {
-                m_classSourceScratch.PushBack(
-                    BehaviorModuleClass{loaded->sourceName.AsView(), loaded->source.AsView()});
+                // Carry the cooked bytecode too: a backend with a stable per-class bytecode (Luau)
+                // loads it instead of compiling the source (the player path, no compiler). Empty
+                // for source-only classes and backends without bytecode (Wren) - they compile.
+                m_classSourceScratch.PushBack(BehaviorModuleClass{
+                    loaded->sourceName.AsView(), loaded->source.AsView(),
+                    Span<const byte>{loaded->bytecode.Data(), loaded->bytecode.Size()}});
             }
             ++m_generation;
             const String moduleName = Format(u8"behaviors#{}", m_generation);

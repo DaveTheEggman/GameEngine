@@ -794,7 +794,7 @@ TEST_CASE("angelscript: LoadBehaviorModule reports each class's sourceName as it
         u8"    x = x + 1;\n"       // 5  <- breakpoint (keyed on the source file)
         u8"  }\n"                  // 6
         u8"}\n";                   // 7
-    const BehaviorModuleClass classes[] = {{u8"Mover.as", moverSource}};
+    const BehaviorModuleClass classes[] = {{u8"Mover.as", moverSource, {}}};
     REQUIRE(ctx->LoadBehaviorModule(Span<const BehaviorModuleClass>{classes, 1}, u8"behaviors#1")
                 .IsOk());
 

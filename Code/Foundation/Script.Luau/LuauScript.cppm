@@ -272,6 +272,16 @@ namespace foundation::script
         // The message a failed pcall/load left on top of the stack; pops it.
         void ReportTopOfStack(ScriptErrorKind kind, StringView module);
 
+        // luau_load already-compiled bytecode as chunk `=chunkName`, then run its top level.
+        // Shared by source Load (after luau_compile), the per-class bytecode path in
+        // LoadBehaviorModule, and LoadBlob - one place owns the chunkname + error identity.
+        Status LoadCompiledChunk(const byte* bytecode, usize size, StringView chunkName);
+
+        // Reconstruct a cooked blob from its SERIALIZED bytes (the pack's ScriptClass::bytecode -
+        // CompileToBlob -> Serialize) and load its bytecode as chunk `=chunkName`. The per-class
+        // bytecode path in LoadBehaviorModule (the player: no luau_compile, per-class identity).
+        Status LoadSerializedBlobChunk(Span<const byte> serialized, StringView chunkName);
+
         void TrackDelegate(LuauScriptDelegate* delegate) { m_delegates.PushBack(delegate); }
         void UntrackDelegate(LuauScriptDelegate* delegate)
         {
@@ -1932,7 +1942,8 @@ namespace foundation::script
         lua_pop(m_state, 1);
     }
 
-    Status LuauScriptContext::Load(StringView source, StringView chunkName)
+    Status LuauScriptContext::LoadCompiledChunk(const byte* bytecode, usize size,
+                                                StringView chunkName)
     {
         // Prefix the chunkname with "=" so Luau uses it VERBATIM as short_src (no `[string
         // "..."]` wrapper): short_src == the sourceName, which is what a debugger breakpoint
@@ -1941,16 +1952,8 @@ namespace foundation::script
         chunkStorage.Append(chunkName);
         const char* chunk = reinterpret_cast<const char*>(chunkStorage.CStr());
 
-        // debugLevel 2 = local + upvalue names, which the step debugger needs to inspect locals;
-        // optimizationLevel 1 keeps the bytecode debuggable (no inlining). The cost is dev-side.
-        lua_CompileOptions options{};
-        options.optimizationLevel = 1;
-        options.debugLevel = 2;
-        size_t bytecodeSize = 0;
-        char* bytecode = luau_compile(reinterpret_cast<const char*>(source.Data()), source.Size(),
-                                      &options, &bytecodeSize);
-        const int loadStatus = luau_load(m_state, chunk, bytecode, bytecodeSize, 0);
-        free(bytecode);
+        const int loadStatus = luau_load(m_state, chunk, reinterpret_cast<const char*>(bytecode),
+                                         size, 0);
         if (loadStatus != LUA_OK)
         {
             // Luau encodes compile errors in the bytecode; they surface here.
@@ -1967,6 +1970,40 @@ namespace foundation::script
         return Status{};
     }
 
+    Status LuauScriptContext::LoadSerializedBlobChunk(Span<const byte> serialized,
+                                                      StringView chunkName)
+    {
+        // The pack stores the SERIALIZED LuauScriptBlob (Array<byte> length + raw bytecode), so the
+        // runtime is backend-neutral (CreateBlob + Serialize(read) + load). Reconstruct the raw
+        // bytecode here, then load it as this class's own chunk for per-class (file,line) identity.
+        LuauScriptBlob blob;
+        MemoryStream stream;
+        (void)stream.Write(serialized.Data(), serialized.Size());
+        (void)stream.Seek(0, SeekOrigin::Begin);
+        BinarySerializer reader(stream, SerializeMode::Read);
+        blob.Serialize(reader);
+        const Span<const byte> raw = blob.Bytecode();
+        return LoadCompiledChunk(raw.Data(), raw.Size(), chunkName);
+    }
+
+    Status LuauScriptContext::Load(StringView source, StringView chunkName)
+    {
+        // debugLevel 2 = local + upvalue names, which the step debugger needs to inspect locals;
+        // optimizationLevel 1 keeps the bytecode debuggable (no inlining). The cook compiles with
+        // the SAME options (LuauScriptManager::CompileToBlob), so a stored blob is byte-equivalent
+        // to compiling here - the run host can prefer bytecode with no loss of debuggability.
+        lua_CompileOptions options{};
+        options.optimizationLevel = 1;
+        options.debugLevel = 2;
+        size_t bytecodeSize = 0;
+        char* bytecode = luau_compile(reinterpret_cast<const char*>(source.Data()), source.Size(),
+                                      &options, &bytecodeSize);
+        const Status status =
+            LoadCompiledChunk(reinterpret_cast<const byte*>(bytecode), bytecodeSize, chunkName);
+        free(bytecode);
+        return status;
+    }
+
     Status LuauScriptContext::LoadBehaviorModule(Span<const BehaviorModuleClass> classes,
                                                  StringView moduleName)
     {
@@ -1979,10 +2016,16 @@ namespace foundation::script
         (void)moduleName;
         for (const BehaviorModuleClass& entry : classes)
         {
-            const Status status = Load(entry.source, entry.name);
+            // Prefer the cooked bytecode when present (the player path - no luau_compile): load the
+            // blob as this class's own chunk (chunkName = sourceName), the SAME per-class identity
+            // the source path uses, so breakpoints + errors still key on (file, line). Fall back to
+            // compiling the source (editor authored a class the cook has not stamped yet).
+            const Status status = entry.bytecode.IsEmpty()
+                                      ? Load(entry.source, entry.name)
+                                      : LoadSerializedBlobChunk(entry.bytecode, entry.name);
             if (!status.IsOk())
             {
-                return status; // Load already reported against `entry.name`
+                return status; // the callee already reported against `entry.name`
             }
         }
         return Status{};
@@ -2330,9 +2373,15 @@ namespace foundation::script
     Result<RefPtr<IScriptBlob>> LuauScriptManager::CompileToBlob(StringView source,
                                                                StringView chunkName)
     {
+        // Cook with the SAME options the runtime Load uses (optimizationLevel 1, debugLevel 2) so
+        // the stored blob is byte-equivalent to compiling in the player - and stays debuggable
+        // (local names), so consuming bytecode never degrades the editor's step debugger.
+        lua_CompileOptions options{};
+        options.optimizationLevel = 1;
+        options.debugLevel = 2;
         size_t bytecodeSize = 0;
         char* bytecode = luau_compile(reinterpret_cast<const char*>(source.Data()), source.Size(),
-                                      nullptr, &bytecodeSize);
+                                      &options, &bytecodeSize);
         if (bytecode == nullptr)
         {
             return Err(ErrorCode::InvalidArgument);

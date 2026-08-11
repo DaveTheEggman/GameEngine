@@ -324,8 +324,8 @@ TEST_CASE("script.luau: LoadBehaviorModule loads each class as its OWN chunk (pe
     // (not concatenated), the error keys on "Bad.luau" (that class's sourceName) at its own line -
     // the (file, line) identity an editor breakpoint needs (Fable P6 Q4), not a merged module.
     const BehaviorModuleClass classes[] = {
-        {u8"Good.luau", u8"Good = {}\nfunction Good.new() return setmetatable({}, Good) end\n"},
-        {u8"Bad.luau", u8"Bad = {}\nlocal c = = =\n"},
+        {u8"Good.luau", u8"Good = {}\nfunction Good.new() return setmetatable({}, Good) end\n", {}},
+        {u8"Bad.luau", u8"Bad = {}\nlocal c = = =\n", {}},
     };
     const Status status =
         context->LoadBehaviorModule(Span<const BehaviorModuleClass>{classes, 2}, u8"behaviors#1");
@@ -689,6 +689,106 @@ TEST_CASE("script.luau: break in a coroutine, Continue to a wait, the wait still
     }
     CHECK(context->GetGlobal(u8"done").Get<f64>() == doctest::Approx(1.0));
     CHECK(listener.paused == 1); // no further break
+    debugger->SetListener(nullptr);
+}
+
+TEST_CASE("script.luau: LoadBehaviorModule consumes cooked bytecode with NO source (the player path)")
+{
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+
+    // COOK: compile the class to a blob and serialize it exactly as the cook stores
+    // ScriptClass::bytecode (CompileToBlob -> Serialize -> the pack bytes).
+    Result<RefPtr<IScriptBlob>> blob = manager->CompileToBlob(
+        u8"Widget = {}\n"
+        u8"Widget.__index = Widget\n"
+        u8"function Widget.new() return setmetatable({ v = 41 }, Widget) end\n"
+        u8"loaded = Widget.new().v + 1\n", // top-level runs at load -> 42
+        u8"Widget.luau");
+    REQUIRE(blob.HasValue());
+    MemoryStream cooked;
+    {
+        BinarySerializer writer(cooked, SerializeMode::Write);
+        blob.Value()->Serialize(writer);
+    }
+    const Span<const byte> cookedBytes = cooked.Bytes();
+    Array<byte> bytecode;
+    bytecode.Reserve(cookedBytes.Size());
+    for (usize i = 0; i < cookedBytes.Size(); ++i)
+    {
+        bytecode.PushBack(cookedBytes[i]);
+    }
+
+    // PLAYER: no source at all - the class must load + run from bytecode alone (no luau_compile).
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    const BehaviorModuleClass classes[] = {
+        {u8"Widget.luau", StringView{}, Span<const byte>{bytecode.Data(), bytecode.Size()}},
+    };
+    REQUIRE(
+        context->LoadBehaviorModule(Span<const BehaviorModuleClass>{classes, 1}, u8"behaviors#1")
+            .IsOk());
+    CHECK(context->GetGlobal(u8"loaded").Get<f64>() == doctest::Approx(42.0));
+}
+
+TEST_CASE("script.luau: cooked bytecode stays debuggable - breakpoint + local capture via a consumed blob")
+{
+    DebuggerStateCounter listener;
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+
+    // COOK the debug class to bytecode. CompileToBlob uses debugLevel 2 (matching the runtime
+    // source path), so local NAMES survive the cook - consuming bytecode never degrades debugging.
+    Result<RefPtr<IScriptBlob>> blob = manager->CompileToBlob(u8"function widgetRun()\n"    // 1
+                                                              u8"    local tag = \"hit\"\n" // 2
+                                                              u8"    local pad = 1\n"       // 3
+                                                              u8"    marker = pad\n" // 4  <- break
+                                                              u8"end\n",             // 5
+                                                              u8"Widget.luau");
+    REQUIRE(blob.HasValue());
+    MemoryStream cooked;
+    {
+        BinarySerializer writer(cooked, SerializeMode::Write);
+        blob.Value()->Serialize(writer);
+    }
+    const Span<const byte> cookedBytes = cooked.Bytes();
+    Array<byte> bytecode;
+    bytecode.Reserve(cookedBytes.Size());
+    for (usize i = 0; i < cookedBytes.Size(); ++i)
+    {
+        bytecode.PushBack(cookedBytes[i]);
+    }
+
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
+    REQUIRE(debugger.Get() != nullptr);
+    debugger->SetListener(&listener);
+    debugger->SetBreakpoint(u8"Widget.luau", 4);
+
+    const BehaviorModuleClass classes[] = {
+        {u8"Widget.luau", StringView{}, Span<const byte>{bytecode.Data(), bytecode.Size()}},
+    };
+    REQUIRE(
+        context->LoadBehaviorModule(Span<const BehaviorModuleClass>{classes, 1}, u8"behaviors#1")
+            .IsOk());
+
+    Span<Variant> noArgs{};
+    REQUIRE(context->Call(u8"widgetRun", noArgs).HasValue());
+    REQUIRE(listener.paused == 1);
+    Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+    REQUIRE_FALSE(frames.IsEmpty());
+    CHECK(frames[0].file == StringView(u8"Widget.luau")); // per-class chunk identity, via bytecode
+    CHECK(frames[0].line == 4);
+    Array<ScriptVariable> locals = debugger->CaptureLocals(0);
+    bool sawTag = false;
+    for (const ScriptVariable& v : locals)
+    {
+        if (v.name == StringView(u8"tag"))
+        {
+            sawTag = true;
+            CHECK(v.value == StringView(u8"hit"));
+        }
+    }
+    CHECK(sawTag); // local names survived the cook -> the consumed bytecode is debuggable
+    debugger->Continue();
+    CHECK(context->GetGlobal(u8"marker").Get<f64>() == doctest::Approx(1.0));
     debugger->SetListener(nullptr);
 }
 
