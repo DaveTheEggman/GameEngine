@@ -12,7 +12,13 @@ import foundation.core;
 import foundation.json;
 import foundation.mcp;
 import foundation.mcp.script;
+#if defined(OPTION_HAS_WREN)
 import foundation.script.wren;
+#elif defined(OPTION_HAS_ANGELSCRIPT)
+import foundation.script.angelscript;
+#elif defined(OPTION_HAS_LUAU)
+import foundation.script.luau;
+#endif
 
 using namespace foundation::core;
 using namespace foundation::mcp;
@@ -21,6 +27,22 @@ namespace json = foundation::json;
 
 namespace
 {
+    // Register the first available backend and return its language id, so these script_api tests
+    // run against whichever single backend the build enabled (the tool is backend-neutral).
+    [[nodiscard]] StringView RegisterSomeBackend()
+    {
+#if defined(OPTION_HAS_WREN)
+        foundation::script::wren::RegisterWrenScriptBackend();
+        return StringView(u8"wren");
+#elif defined(OPTION_HAS_ANGELSCRIPT)
+        foundation::script::angelscript::RegisterAngelScriptBackend();
+        return StringView(u8"angelscript");
+#else
+        foundation::script::RegisterLuauScriptBackend();
+        return StringView(u8"luau");
+#endif
+    }
+
     // Drive one tools/call and return the parsed tool-result payload (asserts isError == false).
     JsonValue CallOk(McpServer& s, StringView tool, JsonValue arguments)
     {
@@ -54,9 +76,9 @@ namespace
     }
 }
 
-TEST_CASE("mcp.script: script_api reports the registered Wren backend's bound API")
+TEST_CASE("mcp.script: script_api reports the registered backend's bound API")
 {
-    foundation::script::wren::RegisterWrenScriptBackend();
+    const StringView backend = RegisterSomeBackend();
 
     McpServer server;
     RegisterScriptTools(server);
@@ -65,14 +87,14 @@ TEST_CASE("mcp.script: script_api reports the registered Wren backend's bound AP
     JsonValue languages = api.Get(u8"languages");
     REQUIRE(languages.Count() >= 1);
 
-    // Find wren among the reported backends and assert it bound a non-empty API.
-    bool sawWren = false;
+    // Find the registered backend among the reported languages and assert it bound a non-empty API.
+    bool sawBackend = false;
     for (i64 i = 0; i < languages.Count(); ++i)
     {
         JsonValue lang = languages.At(i);
-        if (lang.Get(u8"language").AsString() == StringView(u8"wren"))
+        if (lang.Get(u8"language").AsString() == backend)
         {
-            sawWren = true;
+            sawBackend = true;
             CHECK(lang.Get(u8"typeCount").AsInt() > 0);
             CHECK(lang.Get(u8"types").Count() == lang.Get(u8"typeCount").AsInt());
             // Each type carries a script name and a (possibly empty) member list.
@@ -80,24 +102,24 @@ TEST_CASE("mcp.script: script_api reports the registered Wren backend's bound AP
             CHECK(first.Get(u8"scriptName").AsString().Size() > 0u);
         }
     }
-    CHECK(sawWren);
+    CHECK(sawBackend);
 }
 
 TEST_CASE("mcp.script: script_api narrows by language, and an unknown language is a tool error")
 {
-    foundation::script::wren::RegisterWrenScriptBackend();
+    const StringView backend = RegisterSomeBackend();
 
     McpServer server;
     RegisterScriptTools(server);
 
-    JsonValue wrenOnly = CallOk(server, u8"script_api",
-                                [] {
+    JsonValue narrowed = CallOk(server, u8"script_api",
+                                [backend] {
                                     JsonValue a = JsonValue::MakeObject();
-                                    a.Set(u8"language", JsonValue::MakeString(u8"wren"));
+                                    a.Set(u8"language", JsonValue::MakeString(String(backend)));
                                     return a;
                                 }());
-    CHECK(wrenOnly.Get(u8"languages").Count() == 1);
-    CHECK(wrenOnly.Get(u8"languages").At(0).Get(u8"language").AsString() == StringView(u8"wren"));
+    CHECK(narrowed.Get(u8"languages").Count() == 1);
+    CHECK(narrowed.Get(u8"languages").At(0).Get(u8"language").AsString() == backend);
 
     JsonValue bogus = CallResponse(server, u8"script_api",
                                    [] {

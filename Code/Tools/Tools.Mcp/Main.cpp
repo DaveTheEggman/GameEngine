@@ -20,7 +20,9 @@ import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
 import engine.scriptsurface;
+#ifdef OPTION_HAS_LUAU
 import foundation.script.luau;
+#endif
 import editor.mcp;
 
 using namespace foundation::core;
@@ -63,7 +65,9 @@ int main(int /*argc*/, char** /*argv*/)
     // bound API, not just core - metadata only, no subsystem instantiated (headless). Plus Luau, so
     // script_api spans wren | angelscript | luau (the pipeline types already registered wren + as).
     engine::RegisterAllScriptFacades();
-    foundation::script::RegisterLuauScriptBackend();
+#ifdef OPTION_HAS_LUAU
+    foundation::script::RegisterLuauScriptBackend(); // wren + angelscript come from pipeline.registration
+#endif
 
     // The host's builder + importer registries (from the pipeline composition root); populated
     // once, they outlive the server and back asset_cook / asset_import.

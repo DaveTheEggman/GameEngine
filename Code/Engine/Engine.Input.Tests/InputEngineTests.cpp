@@ -14,7 +14,9 @@ import foundation.shell;
 import foundation.input;
 import foundation.settings;
 import foundation.script;
+#ifdef OPTION_HAS_WREN
 import foundation.script.wren;
+#endif
 import engine.input;
 
 using namespace foundation::core;
@@ -24,6 +26,7 @@ namespace shell = foundation::shell;
 
 #include "InputTestSupport.h"
 
+#ifdef OPTION_HAS_WREN
 TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
 {
     engine::input::RegisterInputScriptFacade();
@@ -75,6 +78,7 @@ TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
     CHECK(runtimeA.ExclusiveDepth() == 1);
     CHECK(runtimeB.ExclusiveDepth() == 0);
 }
+#endif // OPTION_HAS_WREN
 
 TEST_CASE("input.subsystem: the per-surface scene binding rides the source override")
 {

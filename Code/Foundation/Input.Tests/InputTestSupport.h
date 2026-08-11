@@ -145,7 +145,9 @@ namespace
     };
 
     // ---- a representative map ----------------------------------------------------------
-    [[nodiscard]] InputMap MakeGameplayMap()
+    // [[maybe_unused]]: a TU may include this support header for FakeDevices but not the map (e.g.
+    // Engine.Input.Tests once its Wren-facade case is #ifdef'd out in a Wren-less build).
+    [[nodiscard, maybe_unused]] InputMap MakeGameplayMap()
     {
         InputMap map;
         ActionSet gameplay;

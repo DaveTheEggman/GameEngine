@@ -5,7 +5,7 @@ add_executable(Engine.Audio.Tests
 target_link_libraries(Engine.Audio.Tests PRIVATE
     Engine::Audio Foundation::Audio.Resource Foundation::Scene Foundation::Scene.Resource
     Foundation::Content Foundation::Resource Foundation::VFS
-    Foundation::Script ${SCRIPTLIB_WREN} doctest::doctest)
+    doctest::doctest)
 
 target_compile_definitions(Engine.Audio.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

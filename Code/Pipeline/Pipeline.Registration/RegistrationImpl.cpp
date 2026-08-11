@@ -39,12 +39,18 @@ import foundation.audio;
 import foundation.audio.resource;
 import audio.pipeline;
 import foundation.script;
+#ifdef OPTION_HAS_WREN
 import foundation.script.wren;
-import foundation.script.angelscript;
-import foundation.script.luau;
 import script.wren.pipeline;
+#endif
+#ifdef OPTION_HAS_ANGELSCRIPT
+import foundation.script.angelscript;
 import script.angelscript.pipeline;
+#endif
+#ifdef OPTION_HAS_LUAU
+import foundation.script.luau;
 import script.luau.pipeline;
+#endif
 import foundation.script.resource;
 import script.pipeline;
 
@@ -97,12 +103,18 @@ namespace pipeline
         foundation::script::RegisterScriptResource();
         // The builder resolves a per-language COOK through the registry (B3); registering
         // backends + cooks is the composition root's job - both languages.
+#ifdef OPTION_HAS_WREN
         foundation::script::wren::RegisterWrenScriptBackend();
-        foundation::script::angelscript::RegisterAngelScriptBackend();
-        foundation::script::RegisterLuauScriptBackend();
         RegisterWrenScriptCook();
+#endif
+#ifdef OPTION_HAS_ANGELSCRIPT
+        foundation::script::angelscript::RegisterAngelScriptBackend();
         RegisterAngelScriptScriptCook();
+#endif
+#ifdef OPTION_HAS_LUAU
+        foundation::script::RegisterLuauScriptBackend();
         RegisterLuauScriptCook();
+#endif
         // Scenes are packed/read as SceneDocument (export staging + a headless scene cook path):
         // register the type + its serializer so ReadObject/WriteObject round-trip them.
         GlobalTypeRegistry().Register(foundation::scene::SceneDocument::StaticType());

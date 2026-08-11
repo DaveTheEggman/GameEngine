@@ -6,7 +6,7 @@ add_executable(Script.AngelScript.Tests
     ScriptAngelScriptTests.cpp)
 
 target_link_libraries(Script.AngelScript.Tests PRIVATE
-    Foundation::Script.AngelScript Foundation::Script.Wren doctest::doctest)
+    Foundation::Script.AngelScript ${SCRIPTLIB_WREN} doctest::doctest)
 
 target_compile_definitions(Script.AngelScript.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

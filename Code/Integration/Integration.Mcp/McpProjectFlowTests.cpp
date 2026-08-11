@@ -22,7 +22,13 @@ import pipeline.importer;
 import pipeline.registration;
 import engine.scriptsurface;
 import foundation.mcp.script;
+#if defined(OPTION_HAS_WREN)
 import foundation.script.wren;
+#elif defined(OPTION_HAS_ANGELSCRIPT)
+import foundation.script.angelscript;
+#elif defined(OPTION_HAS_LUAU)
+import foundation.script.luau;
+#endif
 import editor.mcp;
 
 using namespace foundation::core;
@@ -32,6 +38,22 @@ namespace json = foundation::json;
 
 namespace
 {
+    // Register the first available backend + its language id (pipeline.registration also registers
+    // the enabled backends; this makes the language the script_api assertion expects explicit).
+    [[nodiscard]] StringView RegisterSomeBackend()
+    {
+#if defined(OPTION_HAS_WREN)
+        foundation::script::wren::RegisterWrenScriptBackend();
+        return StringView(u8"wren");
+#elif defined(OPTION_HAS_ANGELSCRIPT)
+        foundation::script::angelscript::RegisterAngelScriptBackend();
+        return StringView(u8"angelscript");
+#else
+        foundation::script::RegisterLuauScriptBackend();
+        return StringView(u8"luau");
+#endif
+    }
+
     JsonValue CallResponse(McpServer& s, StringView tool, JsonValue arguments)
     {
         JsonValue params = JsonValue::MakeObject();
@@ -152,6 +174,7 @@ TEST_CASE("integration.mcp: asset_list / asset_info read the open project's cont
     CHECK(malformed.Get(u8"result").Get(u8"isError").AsBool() == true);
 }
 
+#ifdef OPTION_HAS_WREN // imports + cooks a .wren sample source; the cook flow itself is generic
 TEST_CASE("integration.mcp: an agent imports a source file then cooks it via MCP tools")
 {
     std::error_code ec;
@@ -219,6 +242,7 @@ TEST_CASE("integration.mcp: an agent imports a source file then cooks it via MCP
     CHECK(again.Get(u8"planned").AsInt() == 0);
     CHECK(again.Get(u8"upToDate").AsInt() == 1);
 }
+#endif // OPTION_HAS_WREN
 
 TEST_CASE("integration.mcp: script_api reports the COMPLETE engine surface, headless, no device")
 {
@@ -226,17 +250,17 @@ TEST_CASE("integration.mcp: script_api reports the COMPLETE engine surface, head
     // no subsystem instantiated. This is the whole point of Fable's ruling A: the headless MCP host
     // reports the true engine script surface (RigidBody/Audio/Ui/SceneLoader/...), not just core.
     engine::RegisterAllScriptFacades();
-    foundation::script::wren::RegisterWrenScriptBackend();
+    const StringView backend = RegisterSomeBackend();
 
     McpServer server;
     RegisterScriptTools(server);
 
-    JsonValue api = CallOk(server, u8"script_api", With(Obj(), u8"language", u8"wren"));
-    JsonValue wren = api.Get(u8"languages").At(0);
-    CHECK(wren.Get(u8"language").AsString() == StringView(u8"wren"));
+    JsonValue api = CallOk(server, u8"script_api", With(Obj(), u8"language", String(backend)));
+    JsonValue reported = api.Get(u8"languages").At(0);
+    CHECK(reported.Get(u8"language").AsString() == backend);
 
     // Collect the bound script names.
-    JsonValue types = wren.Get(u8"types");
+    JsonValue types = reported.Get(u8"types");
     Array<String> names;
     for (i64 i = 0; i < types.Count(); ++i)
     {
@@ -262,7 +286,7 @@ TEST_CASE("integration.mcp: script_api reports the COMPLETE engine surface, head
     CHECK(has(u8"SceneLoader"));        // scene loader (GameInstance)
     CHECK(has(u8"Net"));                // networking
     // The full surface is much larger than the core-only 17 (physics/audio/input/ui/... added).
-    CHECK(wren.Get(u8"typeCount").AsInt() > 30);
+    CHECK(reported.Get(u8"typeCount").AsInt() > 30);
 }
 
 TEST_CASE("integration.mcp: project_info before any project is open is a tool error")

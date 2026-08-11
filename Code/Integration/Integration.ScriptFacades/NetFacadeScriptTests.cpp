@@ -11,8 +11,12 @@ import foundation.core;
 import foundation.net;
 import foundation.net.manager;
 import foundation.script;
+#ifdef OPTION_HAS_WREN
 import foundation.script.wren;
+#endif
+#ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript;
+#endif
 
 using namespace foundation::core;
 using namespace foundation::script;
@@ -44,6 +48,7 @@ namespace
     };
 }
 
+#ifdef OPTION_HAS_WREN
 TEST_CASE("net-facade: Wren reads the live session through the Net facade")
 {
     RegisterCoreTypes();
@@ -68,7 +73,9 @@ TEST_CASE("net-facade: Wren reads the live session through the Net facade")
     CHECK(ctx->GetGlobal(u8"IsClient").Get<bool>() == false);
     CHECK(ctx->GetGlobal(u8"Peers").Get<f64>() == 0.0); // Wren numbers are doubles
 }
+#endif // OPTION_HAS_WREN
 
+#ifdef OPTION_HAS_ANGELSCRIPT
 TEST_CASE("net-facade: AngelScript reads the live session through the Net facade")
 {
     RegisterCoreTypes();
@@ -98,3 +105,4 @@ TEST_CASE("net-facade: AngelScript reads the live session through the Net facade
     CHECK(ctx->GetGlobal(u8"Peers").Get<f64>() ==
           0.0); // the AS backend unifies integer globals to f64
 }
+#endif // OPTION_HAS_ANGELSCRIPT

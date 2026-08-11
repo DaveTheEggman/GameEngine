@@ -578,7 +578,11 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Pipeline/UI.Pipeline.Tests                     Pipeline::UI)
     util_test_suite(Code/Engine/Engine.Animation.Tests              Engine::Animation)
     util_test_suite(Code/Engine/Engine.Audio.Tests                  Engine::Audio)
-    util_test_suite(Code/Engine/Engine.GameInstance.Tests Foundation::Script.AngelScript)  # links the AngelScript backend; builds wherever it exists (incl. web now)
+    # Monolithic: its one test file exercises all three backends, so it builds only when all three
+    # are on (a subset config drops it; the default all-on CI config runs it).
+    if(OPTION_ENABLE_WREN AND OPTION_ENABLE_ANGELSCRIPT AND OPTION_ENABLE_LUAU)
+        util_test_suite(Code/Engine/Engine.GameInstance.Tests Engine::GameInstance)
+    endif()
     util_test_suite(Code/Engine/Engine.ScriptSurface.Tests Engine::ScriptSurface)
     util_test_suite(Code/Engine/Engine.Integration.Tests            Engine::Integration)
     util_test_suite(Code/Engine/Engine.Net.Tests                    Engine::Net)
@@ -587,7 +591,10 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Engine/Engine.Input.Tests                  Engine::Input)
     util_test_suite(Code/Engine/Engine.Render.Tests                 Engine::Render)
     util_test_suite(Code/Engine/Engine.Scene.Tests                  Engine::Scene)
-    util_test_suite(Code/Engine/Engine.Script.Tests Foundation::Script.AngelScript)  # links the AngelScript backend; builds wherever it exists (incl. web now)
+    # Monolithic: one test file exercises all three backends -> build only when all three are on.
+    if(OPTION_ENABLE_WREN AND OPTION_ENABLE_ANGELSCRIPT AND OPTION_ENABLE_LUAU)
+        util_test_suite(Code/Engine/Engine.Script.Tests Engine::Script)
+    endif()
     util_test_suite(Code/Engine/Engine.UI.Tests                     Engine::UI)
     util_test_suite(Code/Experimental/GUI.Shell.Tests               Experimental::GUI.Shell)
     util_test_suite(Code/Experimental/GUI.Tests                     Experimental::GUI)
@@ -613,7 +620,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Materials.Resource.Tests        Foundation::Materials.Resource)
     util_test_suite(Code/Foundation/Materials.Tests                 Foundation::Materials)
     util_test_suite(Code/Foundation/Model.Tests                     Foundation::Model)
-    util_test_suite(Code/Foundation/Net.Manager.Tests Foundation::Script.AngelScript)  # links the AngelScript backend; builds wherever it exists (incl. web now)
+    util_test_suite(Code/Foundation/Net.Manager.Tests Foundation::Net.Manager)  # its script facade test (wren+as) is file-gated in the suite CMake
     util_test_suite(Code/Foundation/Net.Replication.Tests           Foundation::Net.Replication)
     util_test_suite(Code/Foundation/Net.Tests                       Foundation::Net)
     util_test_suite(Code/Foundation/Particles.Resource.Tests        Foundation::Particles.Resource)
@@ -670,7 +677,15 @@ if(OPTION_BUILD_TESTS)
 
     # Integration - cross-collection flow suites (Code/Integration/README.md). Tiered behind the
     # Integration. prefix: the fast dev loop runs module suites only; review/pre-push include these.
-    util_test_suite(Code/Integration/Integration.Script            Foundation::Script.Wren)  # JSON x scripting
+    # JSON x scripting: the one test file uses wren + angelscript, so build it only when both are on.
+    if(OPTION_ENABLE_WREN AND OPTION_ENABLE_ANGELSCRIPT)
+        util_test_suite(Code/Integration/Integration.Script            Foundation::Script)
+    endif()
+    # Subsystem script FACADES (Net.*/Ui.* on wren + angelscript) - relocated here so the subsystem
+    # unit suites stay backend-neutral. Each backend leg is #ifdef-guarded; build if either is on.
+    if(OPTION_ENABLE_WREN OR OPTION_ENABLE_ANGELSCRIPT)
+        util_test_suite(Code/Integration/Integration.ScriptFacades     Engine::UI)
+    endif()
     util_test_suite(Code/Integration/Integration.Mcp                Editor::Mcp)  # golden: create->open->inspect a project
 endif()
 

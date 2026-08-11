@@ -14,7 +14,9 @@ import foundation.physics.resource;
 import engine.physics;
 import foundation.script;
 import foundation.script.facades; // ExtraFacadeNames (the behavior-prelude facade list)
+#ifdef OPTION_HAS_WREN
 import foundation.script.wren;
+#endif
 
 using namespace foundation::core;
 using namespace engine::physics;
@@ -383,6 +385,7 @@ TEST_CASE("physics.scene: ScenePhysics.of(scene) raycast + hit accessors + impul
     CHECK(ScenePhysics{nullptr}.rayCast(0, 5, 0, 0, -1, 0, 20) == doctest::Approx(-1.0f));
 }
 
+#ifdef OPTION_HAS_WREN
 TEST_CASE("physics.scene: ScenePhysics is in the Wren BEHAVIOR prelude (not just main)")
 {
     RegisterPhysicsScriptFacade(); // registers the type AND its behavior-prelude facade name
@@ -397,6 +400,7 @@ TEST_CASE("physics.scene: ScenePhysics is in the Wren BEHAVIOR prelude (not just
     }
     CHECK(inPrelude);
 }
+#endif // OPTION_HAS_WREN
 
 TEST_CASE(
     "physics.scene: bodies build from authored positions even without a prior UpdateTransforms")

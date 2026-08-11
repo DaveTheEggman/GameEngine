@@ -4,7 +4,7 @@ add_executable(Engine.Physics.Tests
 
 target_link_libraries(Engine.Physics.Tests PRIVATE
     Engine::Physics Foundation::Scene Engine::Scene Foundation::Scene.Resource
-    Foundation::Script Foundation::Script.Wren doctest::doctest)
+    Foundation::Script ${SCRIPTLIB_WREN} doctest::doctest)
 
 target_compile_definitions(Engine.Physics.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

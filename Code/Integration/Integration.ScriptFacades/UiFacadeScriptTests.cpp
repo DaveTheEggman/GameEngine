@@ -11,8 +11,12 @@
 import foundation.core;
 import engine.ui; // Ui / UiScriptBinding / InstallUiScriptService / RegisterUiScriptFacade
 import foundation.script;
+#ifdef OPTION_HAS_WREN
 import foundation.script.wren;
+#endif
+#ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript;
+#endif
 
 using namespace foundation::core;
 using namespace foundation::script;
@@ -106,6 +110,7 @@ namespace
     };
 }
 
+#ifdef OPTION_HAS_WREN
 TEST_CASE("ui-facade: Wren pushes an overlay, drives controls by id, binds + fires a click handler")
 {
     RegisterCoreTypes();
@@ -135,7 +140,9 @@ TEST_CASE("ui-facade: Wren pushes an overlay, drives controls by id, binds + fir
     fake.FireClick();
     CHECK(ctx->GetGlobal(u8"clicked").Get<bool>() == true); // the click handler ran
 }
+#endif // OPTION_HAS_WREN
 
+#ifdef OPTION_HAS_ANGELSCRIPT
 TEST_CASE("ui-facade: AngelScript pushes an overlay, drives controls by id, binds + fires a click")
 {
     RegisterCoreTypes();
@@ -170,3 +177,4 @@ TEST_CASE("ui-facade: AngelScript pushes an overlay, drives controls by id, bind
     fake.FireClick();
     CHECK(ctx->GetGlobal(u8"clicked").Get<bool>() == true);
 }
+#endif // OPTION_HAS_ANGELSCRIPT

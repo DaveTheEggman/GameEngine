@@ -57,10 +57,14 @@ import foundation.audio;
 import foundation.audio.resource;
 import audio.pipeline;
 import foundation.script;
+#ifdef OPTION_HAS_WREN
 import foundation.script.wren;
-import foundation.script.angelscript;
 import script.wren.pipeline;
+#endif
+#ifdef OPTION_HAS_ANGELSCRIPT
+import foundation.script.angelscript;
 import script.angelscript.pipeline;
+#endif
 import foundation.script.resource;
 import script.pipeline;
 import engine.physics;
