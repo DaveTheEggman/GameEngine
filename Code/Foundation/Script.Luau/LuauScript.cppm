@@ -284,6 +284,20 @@ namespace foundation::script
         // the enum). Use at every native call/setter site where the expected type is known.
         [[nodiscard]] Variant ToVariantForParam(lua_State* state, int index, const TypeInfo* expected);
 
+        // ---- the resumable-thread executor (Fable P6 Q1) ----
+        // Every script CALL (Call / CreateInstance / ScriptObject::Invoke) runs on a POOLED lua
+        // thread via lua_resume, NOT lua_pcall on the main state - one executor for the shipped
+        // AND the debugged program (no divergence), and the only shape lua_break (the debugger's
+        // suspend) can suspend + resume. AcquireThread reuses a recycled thread or makes one
+        // (registry-pinned for GC); a nested call (a facade that dispatches script) takes a
+        // second thread, so pool depth = nesting depth. RunCallable moves the callable+args from
+        // m_state to a thread, resumes, and (on success) brings the single result back to m_state.
+        [[nodiscard]] lua_State* AcquireThread();
+        void ReleaseThread(lua_State* thread);
+        // `total` = the callable + its args currently on top of m_state. Returns the lua_resume
+        // status: LUA_OK leaves the result on m_state; an error leaves the message on m_state.
+        [[nodiscard]] int RunCallable(int total);
+
     private:
         void EmitRegisteredTypes();
         void EmitType(const TypeInfo& type);
@@ -295,6 +309,7 @@ namespace foundation::script
         lua_State* m_state = nullptr;
         IScriptErrorHandler* m_errors = nullptr;
         Array<LuauScriptDelegate*> m_delegates; // borrowed; Detach()ed at close
+        Array<lua_State*> m_freeThreads; // recyclable resumable threads (all registry-pinned)
     };
 
     // =====================================================================
@@ -1389,6 +1404,70 @@ namespace foundation::script
         return isFunction;
     }
 
+    lua_State* LuauScriptContext::AcquireThread()
+    {
+        if (!m_freeThreads.IsEmpty())
+        {
+            lua_State* thread = m_freeThreads.Back();
+            m_freeThreads.PopBack();
+            return thread;
+        }
+        lua_State* thread = lua_newthread(m_state);
+        (void)lua_ref(m_state, -1); // pin against GC for the context's lifetime (freed by lua_close)
+        lua_pop(m_state, 1);
+        return thread;
+    }
+
+    void LuauScriptContext::ReleaseThread(lua_State* thread)
+    {
+        lua_resetthread(thread); // clear stack + status for reuse (Fable Q5: reset only on return)
+        m_freeThreads.PushBack(thread);
+    }
+
+    int LuauScriptContext::RunCallable(int total)
+    {
+        // `total` = the callable + its args on top of m_state; move them to a pooled thread and
+        // RESUME (never pcall). One result comes back to m_state on success; an error message on
+        // failure. A yield from a handler (waitSeconds already guards it) surfaces as an error.
+        lua_State* thread = AcquireThread();
+        lua_xmove(m_state, thread, total);
+        int status;
+        {
+            ScriptCallScope scope(this);
+            status = lua_resume(thread, m_state, total - 1);
+        }
+        if (status == LUA_OK)
+        {
+            if (lua_gettop(thread) >= 1)
+            {
+                lua_pushvalue(thread, 1); // first return value
+                lua_xmove(thread, m_state, 1);
+            }
+            else
+            {
+                lua_pushnil(m_state);
+            }
+        }
+        else if (status == LUA_YIELD)
+        {
+            lua_pushstring(m_state, "script call yielded outside a coroutine");
+            status = LUA_ERRRUN;
+        }
+        else
+        {
+            if (lua_gettop(thread) >= 1)
+            {
+                lua_xmove(thread, m_state, 1); // the error message, for ReportTopOfStack(m_state)
+            }
+            else
+            {
+                lua_pushnil(m_state);
+            }
+        }
+        ReleaseThread(thread);
+        return status;
+    }
+
     Result<Variant> LuauScriptContext::Call(StringView function, Span<Variant> args)
     {
         String storage;
@@ -1402,8 +1481,7 @@ namespace foundation::script
         {
             PushVariant(m_state, arg);
         }
-        ScriptCallScope scope(this);
-        if (lua_pcall(m_state, static_cast<int>(args.Size()), 1, 0) != LUA_OK)
+        if (RunCallable(static_cast<int>(args.Size()) + 1) != LUA_OK)
         {
             ReportTopOfStack(ScriptErrorKind::Runtime, function);
             return Err(ErrorCode::Unknown);
@@ -1434,8 +1512,7 @@ namespace foundation::script
         {
             PushVariant(m_state, arg);
         }
-        ScriptCallScope scope(this);
-        if (lua_pcall(m_state, static_cast<int>(args.Size()), 1, 0) != LUA_OK)
+        if (RunCallable(static_cast<int>(args.Size()) + 1) != LUA_OK)
         {
             ReportTopOfStack(ScriptErrorKind::Runtime, className);
             return {};
@@ -1503,8 +1580,8 @@ namespace foundation::script
         {
             m_context->PushVariant(state, arg);
         }
-        ScriptCallScope scope(m_context.Get());
-        if (lua_pcall(state, static_cast<int>(args.Size()) + 1, 1, 0) != LUA_OK)
+        // method fn + self + N args = N + 2 items to run on a pooled resumable thread.
+        if (m_context->RunCallable(static_cast<int>(args.Size()) + 2) != LUA_OK)
         {
             m_context->ReportTopOfStack(ScriptErrorKind::Runtime, method);
             return Err(ErrorCode::Unknown);

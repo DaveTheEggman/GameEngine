@@ -241,7 +241,33 @@ TEST_CASE("script.luau: native-vector construct+access throughput (perf case)")
     CHECK(result.Value().Get<f64>() == doctest::Approx(6.0 * kIterations)); // (1+2+3) per iteration
     const double ms = std::chrono::duration<double, std::milli>(finish - start).count();
     MESSAGE("Float3 construct + 3 field reads x " << static_cast<long>(kIterations) << ": " << ms
-                                                  << " ms");
+            << " ms");
+}
+
+TEST_CASE("script.luau: resumable-thread call throughput (perf case - the executor cost, Fable P6)")
+{
+    // Every script CALL now runs on a POOLED lua thread via lua_resume (never lua_pcall on the
+    // main state) so the debugger's lua_break can suspend it and the shipped + debugged programs
+    // share ONE executor (Fable P6 Q1). This records the per-CALL cost of that executor - each
+    // Call is a full thread acquire (pooled, no alloc after warmup) + xmove + resume + xmove-back.
+    // The claim ("resume-vs-pcall entry, no allocation") is now a number, not a hope.
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->Load(u8"function noop(x) return x + 1 end\n", u8"luau.callperf").IsOk());
+
+    constexpr long kCalls = 200000;
+    Variant args[] = {Variant::From<f64>(1.0)};
+    const auto start = std::chrono::steady_clock::now();
+    f64 last = 0.0;
+    for (long i = 0; i < kCalls; ++i)
+    {
+        last = context->Call(u8"noop", Span<Variant>{args, 1}).Value().Get<f64>();
+    }
+    const auto finish = std::chrono::steady_clock::now();
+    CHECK(last == doctest::Approx(2.0)); // the pooled thread really ran the body each time
+    const double ms = std::chrono::duration<double, std::milli>(finish - start).count();
+    MESSAGE("resumable-thread Call x " << kCalls << ": " << ms << " ms ("
+                                       << (ms * 1e6 / static_cast<double>(kCalls)) << " ns/call)");
 }
 
 TEST_CASE("script.luau: a compile error reports its source line (not -1)")
