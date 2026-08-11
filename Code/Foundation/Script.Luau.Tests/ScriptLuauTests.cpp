@@ -320,6 +320,89 @@ TEST_CASE("script.luau: LoadBehaviorModule loads each class as its OWN chunk (pe
     CHECK(capture.line == 2);                          // its OWN line, not an offset in a merge
 }
 
+TEST_CASE("script.luau: step debugger breaks on a breakpoint, captures, and continues (P6.3)")
+{
+    struct StateCapture final : IScriptDebuggerListener
+    {
+        ScriptDebuggerState last = ScriptDebuggerState::Running;
+        int paused = 0;
+        int running = 0;
+        void OnDebuggerStateChanged(ScriptDebuggerState s) override
+        {
+            last = s;
+            if (s == ScriptDebuggerState::Breakpoint || s == ScriptDebuggerState::Stepped)
+            {
+                ++paused;
+            }
+            else if (s == ScriptDebuggerState::Running)
+            {
+                ++running;
+            }
+        }
+    } listener;
+
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger));
+    RefPtr<IScriptContext> context = manager->CreateContext();
+
+    UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
+    REQUIRE(debugger.Get() != nullptr);
+    debugger->SetListener(&listener);
+    debugger->SetBreakpoint(u8"dbg.luau", 5); // the marker assignment
+
+    REQUIRE(context
+                ->Load(u8"function run(n)\n"           // 1
+                       u8"    local doubled = n * 2\n" // 2
+                       u8"    local extra = 100\n"     // 3
+                       u8"    local sum = doubled + extra\n" // 4
+                       u8"    marker = sum\n"          // 5  <- breakpoint
+                       u8"    marker = sum + 1\n"      // 6
+                       u8"end\n",                      // 7
+                       u8"dbg.luau")
+                .IsOk());
+
+    Variant args[] = {Variant::From<f64>(21.0)};
+    Result<Variant> ran = context->Call(u8"run", Span<Variant>{args, 1});
+    REQUIRE(ran.HasValue()); // the break is a void-complete return, never a fault
+
+    // Paused at the breakpoint, BEFORE the marker assignment ran.
+    CHECK(listener.paused == 1);
+    CHECK(listener.last == ScriptDebuggerState::Breakpoint);
+    CHECK(context->GetGlobal(u8"marker").TryGet<f64>() == nullptr);
+
+    // Stack frame keys on (file, line); locals bound earlier are visible with their values.
+    Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+    REQUIRE(frames.Size() >= 1);
+    CHECK(frames[0].file == StringView(u8"dbg.luau"));
+    CHECK(frames[0].line == 5);
+    Array<ScriptVariable> locals = debugger->CaptureLocals(0);
+    bool sawDoubled = false;
+    bool sawExtra = false;
+    for (const ScriptVariable& v : locals)
+    {
+        if (v.name == StringView(u8"doubled"))
+        {
+            sawDoubled = true;
+            CHECK(v.value == StringView(u8"42"));
+        }
+        else if (v.name == StringView(u8"extra"))
+        {
+            sawExtra = true;
+            CHECK(v.value == StringView(u8"100"));
+        }
+    }
+    CHECK(sawDoubled); // local bound on line 2, live at the pause
+    CHECK(sawExtra);   // local bound on line 3, live at the pause
+
+    // Continue runs to completion; lines 5-6 execute, so marker == 143. Exactly ONE break total.
+    debugger->Continue();
+    CHECK(listener.running >= 1);
+    CHECK(listener.paused == 1); // did NOT re-break on the same line while resuming
+    CHECK(context->GetGlobal(u8"marker").Get<f64>() == doctest::Approx(143.0));
+
+    debugger->SetListener(nullptr);
+}
+
 TEST_CASE("script.luau: bytecode capability - compile at cook, serialize, load in the player")
 {
     RefPtr<IScriptManager> manager = CreateLuauScriptManager();

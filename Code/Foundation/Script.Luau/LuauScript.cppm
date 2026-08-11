@@ -32,6 +32,7 @@ namespace foundation::script
 {
     class LuauScriptManager;
     class LuauScriptContext;
+    class LuauDebugger;
 
     namespace
     {
@@ -261,6 +262,12 @@ namespace foundation::script
         [[nodiscard]] lua_State* State() noexcept { return m_state; }
         [[nodiscard]] LuauScriptManager* Manager() noexcept { return m_manager.Get(); }
 
+        // The debugger installs the VM-global debugstep callback here (Fable P6): it fires per
+        // Lua line while a thread has singlestep armed. Singlestep itself is armed per-thread at
+        // resume time (RunCallable / ResumeCoroutine) only while a debugger is attached.
+        void InstallDebugHooks(LuauDebugger* debugger);
+        void RemoveDebugHooks();
+
         void ReportError(ScriptErrorKind kind, StringView module, StringView message);
         // The message a failed pcall/load left on top of the stack; pops it.
         void ReportTopOfStack(ScriptErrorKind kind, StringView module);
@@ -357,7 +364,20 @@ namespace foundation::script
         [[nodiscard]] ScriptCapabilities Capabilities() const override
         {
             return ScriptCapabilities::Coroutines | ScriptCapabilities::Delegates |
-                   ScriptCapabilities::Bytecode;
+                   ScriptCapabilities::Bytecode | ScriptCapabilities::Debugger;
+        }
+
+        // A step debugger over this VM's contexts (Fable P6): singlestep + (short_src,line) break
+        // on the pooled resumable threads, held via lua_break. One at a time; it registers as the
+        // active debugger on construction (RunCallable/AdvanceCoroutines consult it) and
+        // unregisters on destruction. Defined after the context class.
+        [[nodiscard]] UniquePtr<IScriptDebugger> CreateDebugger() override;
+
+        void SetActiveDebugger(LuauDebugger* debugger) noexcept { m_debugger = debugger; }
+        [[nodiscard]] LuauDebugger* ActiveDebugger() const noexcept { return m_debugger; }
+        [[nodiscard]] Span<LuauScriptContext* const> Contexts() const noexcept
+        {
+            return Span<LuauScriptContext* const>{m_contexts.Data(), m_contexts.Size()};
         }
 
         // Compile source to a Luau bytecode blob (the cook side of the Bytecode seam). The
@@ -431,6 +451,479 @@ namespace foundation::script
 
         Array<const TypeInfo*> m_types;
         Array<LuauScriptContext*> m_contexts; // borrowed; contexts retain us
+        LuauDebugger* m_debugger = nullptr;   // borrowed; the active step debugger (self-registers)
+    };
+
+    // =====================================================================
+    // Step debugger (Fable P6): singlestep + (short_src, line) breakpoints on the pooled
+    // resumable threads. The debugstep callback lua_break()s the running thread on a hit; the
+    // resume returns LUA_BREAK, the debugger HOLDS that thread, fires the paused state (the run
+    // host freezes the game), and Continue/Step re-resume it. lua_break cannot cross a C-call
+    // boundary (lua_isyieldable == 0 there), so a break wanted mid-facade is DEFERRED to the next
+    // safe line. Script frames only - stepping never enters engine C.
+    // =====================================================================
+    class LuauDebugger final : public IScriptDebugger
+    {
+    public:
+        explicit LuauDebugger(LuauScriptManager* manager) : m_manager(manager)
+        {
+            if (m_manager != nullptr)
+            {
+                m_manager->SetActiveDebugger(this);
+                for (LuauScriptContext* context : m_manager->Contexts())
+                {
+                    context->InstallDebugHooks(this);
+                }
+            }
+        }
+
+        ~LuauDebugger() override
+        {
+            if (m_manager != nullptr)
+            {
+                for (LuauScriptContext* context : m_manager->Contexts())
+                {
+                    context->RemoveDebugHooks();
+                }
+                if (m_heldThread != nullptr && m_heldContext != nullptr)
+                {
+                    m_heldContext->ReleaseThread(m_heldThread); // no Abort; just stop holding it
+                }
+                m_manager->SetActiveDebugger(nullptr);
+            }
+        }
+
+        LuauDebugger(const LuauDebugger&) = delete;
+        LuauDebugger& operator=(const LuauDebugger&) = delete;
+
+        // ---- IScriptDebugger ----
+        void SetBreakpoint(StringView file, i32 line) override
+        {
+            for (const Breakpoint& bp : m_breakpoints)
+            {
+                if (bp.line == line && bp.file.AsView() == file)
+                {
+                    return;
+                }
+            }
+            m_breakpoints.PushBack(Breakpoint{String(file), line});
+        }
+        void RemoveBreakpoint(StringView file, i32 line) override
+        {
+            for (usize i = 0; i < m_breakpoints.Size(); ++i)
+            {
+                if (m_breakpoints[i].line == line && m_breakpoints[i].file.AsView() == file)
+                {
+                    m_breakpoints.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+        void Break() override { m_breakNext = true; }
+        void Continue() override { Resume(StepMode::None); }
+        void StepInto() override { Resume(StepMode::Into); }
+        void StepOver() override { Resume(StepMode::Over); }
+
+        [[nodiscard]] Array<ScriptStackFrame> CaptureStackFrames() override
+        {
+            Array<ScriptStackFrame> frames;
+            if (m_heldThread == nullptr)
+            {
+                return frames;
+            }
+            const int depth = lua_stackdepth(m_heldThread);
+            for (int level = 0; level < depth; ++level) // 0 = innermost
+            {
+                lua_Debug info;
+                if (lua_getinfo(m_heldThread, level, "sln", &info) == 0)
+                {
+                    continue;
+                }
+                ScriptStackFrame frame;
+                // Frame 0 is the pause point (the line ABOUT to run); lua_getinfo after the break
+                // reports the restored pc's line, off by one, so use the stored broken line there.
+                frame.line = (level == 0) ? m_brokenLine : info.currentline;
+                frame.file = String(ViewOf(info.short_src));
+                frame.function =
+                    String((info.name != nullptr) ? ViewOf(info.name) : StringView(u8"?"));
+                frames.PushBack(Move(frame));
+            }
+            return frames;
+        }
+
+        [[nodiscard]] Array<ScriptVariable> CaptureLocals(u32 depth) override
+        {
+            Array<ScriptVariable> locals;
+            if (m_heldThread == nullptr)
+            {
+                return locals;
+            }
+            for (int n = 1;; ++n)
+            {
+                const char* name = lua_getlocal(m_heldThread, static_cast<int>(depth), n);
+                if (name == nullptr)
+                {
+                    break; // no more locals visible at this frame
+                }
+                // lua_getlocal pushed the value on the held thread; describe + pop it.
+                ScriptVariable variable;
+                variable.name = String(ViewOf(name));
+                DescribeLuaValue(variable, m_heldThread, -1);
+                lua_pop(m_heldThread, 1);
+                if (name[0] != '(') // skip "(temporary)" internal slots
+                {
+                    locals.PushBack(Move(variable));
+                }
+            }
+            return locals;
+        }
+
+        [[nodiscard]] Array<ScriptVariable> CaptureObject(u64 objectRef) override
+        {
+            Array<ScriptVariable> members;
+            Variant* stored = FindObject(objectRef);
+            if (stored == nullptr)
+            {
+                return members;
+            }
+            const TypeInfo* type = stored->Type();
+            if (type == nullptr)
+            {
+                return members;
+            }
+            Instance instance = ToInstance(*stored);
+            for (usize i = 0; i < PropertyCount(*type); ++i)
+            {
+                const PropertyInfo& property = PropertyAt(*type, i);
+                if (IsNested(property))
+                {
+                    continue;
+                }
+                ScriptVariable variable;
+                variable.name = String(ViewOf(property.name));
+                variable.typeName = String(
+                    (property.type != nullptr) ? ViewOf(property.type->name) : StringView(u8"?"));
+                DescribeVariant(variable, GetProperty(property, instance));
+                members.PushBack(Move(variable));
+            }
+            return members;
+        }
+
+        void SetListener(IScriptDebuggerListener* listener) override { m_listener = listener; }
+
+        // ---- called by the executor + the debugstep callback ----
+
+        // The debugstep callback (control is INSIDE the resumed thread). Decide whether THIS line
+        // breaks; lua_break here when safe, else DEFER to the next safe line (C-call boundary).
+        void OnStep(lua_State* thread, lua_Debug* ar)
+        {
+            if (m_heldThread != nullptr)
+            {
+                return; // one break at a time; a re-entrant call during a pause runs through
+            }
+            const int line = ar->currentline; // the pause point (the line about to execute)
+            const int depth = lua_stackdepth(thread);
+            // Re-arm the breakpoint on the line we resumed from once execution leaves it (so a loop
+            // back re-breaks); until then skip it, so Continue does not re-break where it paused.
+            if (m_resumeLine >= 0 && (line != m_resumeLine || depth != m_resumeDepth))
+            {
+                m_resumeLine = -1;
+            }
+            const bool atResumePoint =
+                (m_resumeLine >= 0 && line == m_resumeLine && depth == m_resumeDepth);
+
+            lua_Debug info;
+            const StringView src = (lua_getinfo(thread, 0, "s", &info) != 0) ? ViewOf(info.short_src)
+                                                                            : StringView{};
+            Cause cause = Cause::Breakpoint;
+            bool want = false;
+            if (m_breakNext)
+            {
+                want = true;
+                cause = Cause::Step;
+                m_breakNext = false;
+            }
+            else if (m_stepArmed)
+            {
+                const bool depthOk = (m_stepMode == StepMode::Into) || (depth <= m_stepFromDepth);
+                const bool moved = (line != m_stepFromLine) || (depth != m_stepFromDepth);
+                if (depthOk && moved)
+                {
+                    want = true;
+                    cause = Cause::Step;
+                }
+            }
+            if (!want && !atResumePoint && IsBreakpoint(src, line))
+            {
+                want = true;
+                cause = Cause::Breakpoint;
+            }
+            if (!want && m_pending)
+            {
+                want = true;
+                cause = m_pendingCause;
+            }
+            if (!want)
+            {
+                return;
+            }
+            if (lua_isyieldable(thread) == 0)
+            {
+                // Across a C-call boundary lua_break would runtime-error (Fable Q3): remember the
+                // wanted break and take it at the next safe line (back on the resumable frame).
+                m_pending = true;
+                m_pendingCause = cause;
+                return;
+            }
+            m_pending = false;
+            m_stepArmed = false;
+            m_resumeLine = -1;
+            m_cause = cause;
+            m_brokenLine = line;
+            lua_break(thread);
+        }
+
+        // The executor calls this after a resume returned LUA_BREAK: OWN the broken thread + fire.
+        void OnBroke(LuauScriptContext* context, lua_State* thread)
+        {
+            m_heldThread = thread;
+            m_heldContext = context;
+            FireState(m_cause == Cause::Step ? ScriptDebuggerState::Stepped
+                                             : ScriptDebuggerState::Breakpoint);
+        }
+
+        [[nodiscard]] bool HasHeldThread() const noexcept { return m_heldThread != nullptr; }
+
+    private:
+        enum class StepMode
+        {
+            None,
+            Into,
+            Over
+        };
+        enum class Cause
+        {
+            Breakpoint,
+            Step
+        };
+        struct Breakpoint
+        {
+            String file;
+            i32 line = -1;
+        };
+        struct CapturedObject
+        {
+            u64 ref = 0;
+            Variant value;
+        };
+
+        [[nodiscard]] bool IsBreakpoint(StringView src, int line) const
+        {
+            for (const Breakpoint& bp : m_breakpoints)
+            {
+                if (bp.line == line && bp.file.AsView() == src)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void FireState(ScriptDebuggerState state)
+        {
+            if (m_listener != nullptr)
+            {
+                m_listener->OnDebuggerStateChanged(state);
+            }
+        }
+
+        // Re-resume the held thread. None = run to next break/completion; Into/Over arm a one-line
+        // step from the current (line, depth). Completion returns the thread to its pool; another
+        // break re-holds it.
+        void Resume(StepMode mode)
+        {
+            if (m_heldThread == nullptr || m_heldContext == nullptr)
+            {
+                return;
+            }
+            lua_State* thread = m_heldThread;
+            LuauScriptContext* context = m_heldContext;
+            if (mode == StepMode::None)
+            {
+                m_stepArmed = false;
+            }
+            else
+            {
+                m_stepMode = mode;
+                m_stepFromDepth = lua_stackdepth(thread);
+                lua_Debug info;
+                m_stepFromLine = (lua_getinfo(thread, 0, "l", &info) != 0) ? info.currentline : -1;
+                m_stepArmed = true;
+            }
+            // Skip the breakpoint on the line/frame we resume from until execution leaves it, so
+            // Continue/Step does not immediately re-break where it was already paused.
+            m_resumeLine = m_brokenLine;
+            m_resumeDepth = lua_stackdepth(thread);
+            m_heldThread = nullptr;
+            m_heldContext = nullptr;
+            m_objects.Clear(); // captured object refs are valid only for the current break
+            FireState(ScriptDebuggerState::Running);
+
+            int status;
+            {
+                ScriptCallScope scope(context);
+                status = lua_resume(thread, context->State(), 0);
+            }
+            if (status == LUA_BREAK)
+            {
+                OnBroke(context, thread); // hit the next break/step - hold + fire again
+                return;
+            }
+            if (status != LUA_OK && status != LUA_YIELD)
+            {
+                context->ReportTopOfStack(ScriptErrorKind::Runtime, u8"debug");
+            }
+            context->ReleaseThread(thread); // completed (coroutine YIELD re-scheduling is P6.3b)
+        }
+
+        // ---- value description ----
+        [[nodiscard]] u64 StoreObject(const Variant& value)
+        {
+            const u64 ref = m_nextObjectRef++;
+            m_objects.PushBack(CapturedObject{ref, value});
+            return ref;
+        }
+        [[nodiscard]] Variant* FindObject(u64 ref)
+        {
+            for (CapturedObject& object : m_objects)
+            {
+                if (object.ref == ref)
+                {
+                    return &object.value;
+                }
+            }
+            return nullptr;
+        }
+
+        // A reflected Variant -> display text + (if a reflected object with properties) an
+        // expandable objectRef.
+        void DescribeVariant(ScriptVariable& variable, const Variant& value)
+        {
+            const TypeInfo* type = value.Type();
+            if (const f64* n = value.TryGet<f64>())
+            {
+                variable.value = Format(u8"{}", *n);
+            }
+            else if (const bool* b = value.TryGet<bool>())
+            {
+                variable.value = String(*b ? u8"true" : u8"false");
+            }
+            else if (const String* s = value.TryGet<String>())
+            {
+                variable.value = *s;
+            }
+            else if (const Float3* v = value.TryGet<Float3>())
+            {
+                variable.value = Format(u8"({}, {}, {})", v->x, v->y, v->z);
+            }
+            else if (type != nullptr && PropertyCount(*type) > 0)
+            {
+                variable.value = String(ViewOf(type->name));
+                variable.objectRef = StoreObject(value);
+            }
+            else if (type != nullptr)
+            {
+                variable.value = String(ViewOf(type->name));
+            }
+            else
+            {
+                variable.value = String(u8"nil");
+            }
+        }
+
+        // A raw Lua stack value -> ScriptVariable (avoids ToVariant's function->delegate side
+        // effect; a userdata box is the reflected object, made expandable).
+        void DescribeLuaValue(ScriptVariable& variable, lua_State* thread, int index)
+        {
+            switch (lua_type(thread, index))
+            {
+            case LUA_TNIL:
+                variable.typeName = String(u8"nil");
+                variable.value = String(u8"nil");
+                break;
+            case LUA_TBOOLEAN:
+                variable.typeName = String(u8"boolean");
+                variable.value = String(lua_toboolean(thread, index) != 0 ? u8"true" : u8"false");
+                break;
+            case LUA_TNUMBER:
+                variable.typeName = String(u8"number");
+                variable.value = Format(u8"{}", lua_tonumber(thread, index));
+                break;
+            case LUA_TVECTOR:
+            {
+                const float* v = lua_tovector(thread, index);
+                variable.typeName = String(u8"vector");
+                variable.value = (v != nullptr) ? Format(u8"({}, {}, {})", v[0], v[1], v[2])
+                                                : String(u8"?");
+                break;
+            }
+            case LUA_TSTRING:
+            {
+                size_t length = 0;
+                const char* s = lua_tolstring(thread, index, &length);
+                variable.typeName = String(u8"string");
+                variable.value = String(StringView(reinterpret_cast<const utf8char*>(s), length));
+                break;
+            }
+            case LUA_TFUNCTION:
+                variable.typeName = String(u8"function");
+                variable.value = String(u8"<function>");
+                break;
+            case LUA_TTABLE:
+                variable.typeName = String(u8"table");
+                variable.value = String(u8"<table>");
+                break;
+            case LUA_TUSERDATA:
+            {
+                // Every userdata in this backend is a Variant box (lua_newuserdatadtor + ~Variant).
+                Variant* boxed = static_cast<Variant*>(lua_touserdata(thread, index));
+                if (boxed != nullptr && boxed->Type() != nullptr)
+                {
+                    DescribeVariant(variable, *boxed);
+                    variable.typeName = String(ViewOf(boxed->Type()->name));
+                }
+                else
+                {
+                    variable.typeName = String(u8"userdata");
+                    variable.value = String(u8"<userdata>");
+                }
+                break;
+            }
+            default:
+                variable.typeName = String(u8"value");
+                variable.value = String(u8"?");
+                break;
+            }
+        }
+
+        LuauScriptManager* m_manager = nullptr;
+        IScriptDebuggerListener* m_listener = nullptr;
+        Array<Breakpoint> m_breakpoints;
+        lua_State* m_heldThread = nullptr;
+        LuauScriptContext* m_heldContext = nullptr;
+        bool m_breakNext = false;
+        bool m_stepArmed = false;
+        StepMode m_stepMode = StepMode::None;
+        int m_stepFromLine = -1;
+        int m_stepFromDepth = 0;
+        int m_brokenLine = -1; // the pause point line (frame-0 line; the callhook off-by-one target)
+        int m_resumeLine = -1; // the line Continue/Step resumed from - skip its breakpoint until we leave it
+        int m_resumeDepth = 0;
+        bool m_pending = false; // a break deferred past a C-call boundary (Fable Q3)
+        Cause m_pendingCause = Cause::Breakpoint;
+        Cause m_cause = Cause::Breakpoint;
+        Array<CapturedObject> m_objects;
+        u64 m_nextObjectRef = 1;
     };
 
     // =====================================================================
@@ -1162,6 +1655,14 @@ namespace foundation::script
         for (usize i = 0; i < coroutines.Size();)
         {
             Coroutine& entry = coroutines[i];
+            // A coroutine thread the debugger broke has status LUA_BREAK; the scheduler MUST NOT
+            // resume it (that would steal the debugger's held thread mid-break, Fable Q5). The
+            // debugger's Continue owns resuming it.
+            if (lua_status(entry.thread) == LUA_BREAK)
+            {
+                ++i;
+                continue;
+            }
             bool drop = false;
             if (!entry.started)
             {
@@ -1325,12 +1826,21 @@ namespace foundation::script
 
     Status LuauScriptContext::Load(StringView source, StringView chunkName)
     {
-        String chunkStorage;
-        const char* chunk = CStr(chunkName, chunkStorage);
+        // Prefix the chunkname with "=" so Luau uses it VERBATIM as short_src (no `[string
+        // "..."]` wrapper): short_src == the sourceName, which is what a debugger breakpoint
+        // (file, line) and the error report key on. The reported module below stays the raw name.
+        String chunkStorage(u8"=");
+        chunkStorage.Append(chunkName);
+        const char* chunk = reinterpret_cast<const char*>(chunkStorage.CStr());
 
+        // debugLevel 2 = local + upvalue names, which the step debugger needs to inspect locals;
+        // optimizationLevel 1 keeps the bytecode debuggable (no inlining). The cost is dev-side.
+        lua_CompileOptions options{};
+        options.optimizationLevel = 1;
+        options.debugLevel = 2;
         size_t bytecodeSize = 0;
-        char* bytecode = luau_compile(reinterpret_cast<const char*>(source.Data()),
-                                      source.Size(), nullptr, &bytecodeSize);
+        char* bytecode = luau_compile(reinterpret_cast<const char*>(source.Data()), source.Size(),
+                                      &options, &bytecodeSize);
         const int loadStatus = luau_load(m_state, chunk, bytecode, bytecodeSize, 0);
         free(bytecode);
         if (loadStatus != LUA_OK)
@@ -1427,6 +1937,35 @@ namespace foundation::script
         return isFunction;
     }
 
+    // The VM-global debugstep callback: routes to the active debugger stashed in the callbacks'
+    // userdata. Fires per Lua line while the running thread has singlestep armed.
+    static void DebugStepThunk(lua_State* thread, lua_Debug* ar)
+    {
+        if (auto* debugger = static_cast<LuauDebugger*>(lua_callbacks(thread)->userdata))
+        {
+            debugger->OnStep(thread, ar);
+        }
+    }
+
+    void LuauScriptContext::InstallDebugHooks(LuauDebugger* debugger)
+    {
+        lua_Callbacks* cb = lua_callbacks(m_state); // per global_State, shared across all threads
+        cb->userdata = debugger;
+        cb->debugstep = &DebugStepThunk;
+    }
+
+    void LuauScriptContext::RemoveDebugHooks()
+    {
+        lua_Callbacks* cb = lua_callbacks(m_state);
+        cb->debugstep = nullptr;
+        cb->userdata = nullptr;
+    }
+
+    UniquePtr<IScriptDebugger> LuauScriptManager::CreateDebugger()
+    {
+        return MakeUnique<LuauDebugger>(DefaultAllocator(), this);
+    }
+
     lua_State* LuauScriptContext::AcquireThread()
     {
         if (!m_freeThreads.IsEmpty())
@@ -1454,10 +1993,25 @@ namespace foundation::script
         // failure. A yield from a handler (waitSeconds already guards it) surfaces as an error.
         lua_State* thread = AcquireThread();
         lua_xmove(m_state, thread, total);
+        LuauDebugger* debugger = m_manager->ActiveDebugger();
+        if (debugger != nullptr)
+        {
+            lua_singlestep(thread, 1); // arm per-thread stepping only while a debugger is attached
+        }
         int status;
         {
             ScriptCallScope scope(this);
             status = lua_resume(thread, m_state, total - 1);
+        }
+        if (status == LUA_BREAK && debugger != nullptr)
+        {
+            // A handler hit a breakpoint/step: the debugger OWNS the thread now (holds it for
+            // inspect + Continue) and the game pauses via the listener. The dispatcher sees a
+            // void-complete return; the handler's remaining body runs from Continue (the
+            // AngelScript adopted-context precedent). Do NOT release the held thread.
+            debugger->OnBroke(this, thread);
+            lua_pushnil(m_state);
+            return LUA_OK;
         }
         if (status == LUA_OK)
         {
