@@ -21,15 +21,13 @@ namespace foundation::ui::toolkit
     {
         using lexer_scan::Cursor;
         using lexer_scan::Emit;
+        using lexer_scan::IsPunctuationChar;
+        using lexer_scan::ScanNumber;
+        using lexer_scan::ScanQuoted;
+        using lexer_scan::ScanWord;
 
         constexpr u32 kModeBlockComment = 1;
         constexpr u32 kModeTripleString = 2;
-
-        [[nodiscard]] constexpr bool IsPunctuationChar(char8_t character) noexcept
-        {
-            return character == u8'(' || character == u8')' || character == u8'[' || character == u8']' || character == u8'{' ||
-                   character == u8'}' || character == u8',' || character == u8';' || character == u8'.';
-        }
 
         /// Scans from inside a block comment (depth >= 1). Returns 0 when it closed on this
         /// line, else the carry state. tokenBegin/Column describe where the token starts
@@ -81,75 +79,6 @@ namespace foundation::ui::toolkit
             return kModeTripleString;
         }
 
-        /// Single-line quoted literal with backslash escapes; unterminated = rest of line.
-        void ScanQuoted(Cursor& cursor, Array<CodeToken>& out, char8_t quote)
-        {
-            const usize begin = cursor.i;
-            const i32 column = cursor.column;
-            cursor.Advance(); // the opening quote
-            while (!cursor.AtEnd())
-            {
-                const char8_t character = cursor.Peek();
-                if (character == u8'\\')
-                {
-                    cursor.Advance();
-                    cursor.Advance();
-                    continue;
-                }
-                if (character == quote)
-                {
-                    cursor.Advance();
-                    break;
-                }
-                cursor.Advance();
-            }
-            Emit(out, begin, cursor.i, column, CodeTokenKind::String);
-        }
-
-        /// Loose number scan (ints, floats, hex, exponents, suffixes) - built for coloring,
-        /// not validation.
-        void ScanNumber(Cursor& cursor, Array<CodeToken>& out)
-        {
-            const usize begin = cursor.i;
-            const i32 column = cursor.column;
-            char8_t previous = 0;
-            while (!cursor.AtEnd())
-            {
-                const char8_t character = cursor.Peek();
-                const bool exponentSign =
-                    (character == u8'+' || character == u8'-') && (previous == u8'e' || previous == u8'E');
-                if (!(lexer_scan::IsIdentChar(character) || character == u8'.' || exponentSign))
-                {
-                    break;
-                }
-                previous = character;
-                cursor.Advance();
-            }
-            Emit(out, begin, cursor.i, column, CodeTokenKind::Number);
-        }
-
-        void ScanWord(Cursor& cursor, Array<CodeToken>& out, const HashSet<u64>& keywords,
-                      const HashSet<u64>& types)
-        {
-            const usize begin = cursor.i;
-            const i32 column = cursor.column;
-            while (!cursor.AtEnd() && lexer_scan::IsIdentChar(cursor.Peek()))
-            {
-                cursor.Advance();
-            }
-            const StringView word = cursor.text.SubStr(begin, cursor.i - begin);
-            const u64 hash = HashBytes(word.Data(), word.Size());
-            CodeTokenKind kind = CodeTokenKind::Default;
-            if (keywords.Contains(hash))
-            {
-                kind = CodeTokenKind::Keyword;
-            }
-            else if (types.Contains(hash))
-            {
-                kind = CodeTokenKind::Type;
-            }
-            Emit(out, begin, cursor.i, column, kind);
-        }
     }
 
     CLikeLexer::CLikeLexer(const CLikeLexerSpec& spec) : m_spec(spec)

@@ -27,7 +27,7 @@ target_link_libraries(Tools.Editor PRIVATE
     Pipeline::Texture Pipeline::Fonts Pipeline::Image Pipeline::Geometry
     Pipeline::Animation Pipeline::Materials Pipeline::Shaders
     Pipeline::Particles Foundation::Input Foundation::Input.Resource Pipeline::Input Editor::Input Engine::Input Foundation::Physics Foundation::Physics.Resource Pipeline::Physics Engine::Physics Foundation::Audio Foundation::Audio.Resource Pipeline::Audio Engine::Audio
-    Foundation::Script Foundation::Script.Wren Foundation::Script.AngelScript Foundation::Script.Resource Foundation::Script.Facades Pipeline::Script Pipeline::Script.Wren Editor::Script.Wren Pipeline::Script.AngelScript Editor::Script.AngelScript Engine::Script Editor::Script Foundation::UI.Resource Pipeline::UI Editor::GameUI Editor::Audio Editor::Texture Editor::Image Editor::Fonts Editor::Physics Editor::Generic Pipeline::ModelImporter Foundation::Image.Resource
+    Foundation::Script Foundation::Script.Wren Foundation::Script.AngelScript Foundation::Script.Resource Foundation::Script.Facades Pipeline::Script Pipeline::Script.Wren Editor::Script.Wren Pipeline::Script.AngelScript Editor::Script.AngelScript Editor::Script.Luau Engine::Script Editor::Script Foundation::UI.Resource Pipeline::UI Editor::GameUI Editor::Audio Editor::Texture Editor::Image Editor::Fonts Editor::Physics Editor::Generic Pipeline::ModelImporter Foundation::Image.Resource
     Foundation::Animation.Resource)
 target_compile_definitions(Tools.Editor PRIVATE
     BUILTIN_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"

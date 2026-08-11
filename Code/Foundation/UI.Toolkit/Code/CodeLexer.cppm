@@ -134,6 +134,30 @@ export namespace foundation::ui::toolkit
         HashSet<u64> m_types;
     };
 
+    // ---- the configurable Lua-like lexer (Luau) ---------------------------------------------
+
+    // Lua-family syntax the C-like scanner cannot express: `--` line comments, `--[[ ]]` /
+    // `--[=[ ]=]` long (level-bracketed) block comments, `[[ ]]` / `[=[ ]=]` long strings, and
+    // backtick interpolated strings. Keyword/type tables come from the OWNER, like CLikeLexer -
+    // the toolkit ships no language tables. Comment-toggle (Ctrl+/) uses `--`.
+    struct LuaLikeLexerSpec
+    {
+        Span<const StringView> keywords;
+        Span<const StringView> types;
+    };
+
+    class LuaLikeLexer final : public ICodeLexer
+    {
+    public:
+        explicit LuaLikeLexer(const LuaLikeLexerSpec& spec);
+        u32 LexLine(StringView line, u32 entryState, Array<CodeToken>& out) override;
+        [[nodiscard]] StringView LineCommentPrefix() const override { return u8"--"; }
+
+    private:
+        HashSet<u64> m_keywords;
+        HashSet<u64> m_types;
+    };
+
     // ---- XML lexer (UI documents, scene XML) ------------------------------------------------
 
     class XmlLexer final : public ICodeLexer

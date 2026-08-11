@@ -440,6 +440,7 @@ if(OPTION_BUILD_TOOLS)
     add_subdirectory(Code/Pipeline/Script.AngelScript.Pipeline)  # AngelScript cook service
     add_subdirectory(Code/Editor/Editor.Script.AngelScript)  # AngelScript editor-UI (lexers)
     add_subdirectory(Code/Pipeline/Script.Luau.Pipeline)  # Luau cook service
+    add_subdirectory(Code/Editor/Editor.Script.Luau)  # Luau editor-UI (CodeEditView lexer)
     add_subdirectory(Code/Editor/Editor.App) # editor UI shell (chrome + layout persistence + EditorApplication)
     add_subdirectory(Code/Editor/Editor.Input) # input-map editing page (editor exe only)
     add_subdirectory(Code/Editor/Editor.GameUI) # UI document page: text + live preview (editor exe only)

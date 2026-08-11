@@ -57,6 +57,7 @@ target_sources(UI.Toolkit
 target_sources(UI.Toolkit PRIVATE
     Code/CodeHighlighter.cpp
     Code/CLikeLexer.cpp
+    Code/LuaLikeLexer.cpp
     Code/XmlLexer.cpp
     Code/CodeLexerRegistry.cpp)
 

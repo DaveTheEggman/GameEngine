@@ -80,4 +80,84 @@ namespace foundation::ui::toolkit::lexer_scan
                 CodeToken{static_cast<u32>(byteBegin), static_cast<u32>(byteEnd), column, kind});
         }
     }
+
+    // ---- token scanners shared by the concrete lexers (CLikeLexer, LuaLikeLexer) --------------
+
+    [[nodiscard]] constexpr bool IsPunctuationChar(char8_t character) noexcept
+    {
+        return character == u8'(' || character == u8')' || character == u8'[' ||
+               character == u8']' || character == u8'{' || character == u8'}' ||
+               character == u8',' || character == u8';' || character == u8'.';
+    }
+
+    /// Single-line quoted literal with backslash escapes; unterminated = rest of line.
+    inline void ScanQuoted(Cursor& cursor, Array<CodeToken>& out, char8_t quote)
+    {
+        const usize begin = cursor.i;
+        const i32 column = cursor.column;
+        cursor.Advance(); // the opening quote
+        while (!cursor.AtEnd())
+        {
+            const char8_t character = cursor.Peek();
+            if (character == u8'\\')
+            {
+                cursor.Advance();
+                cursor.Advance();
+                continue;
+            }
+            if (character == quote)
+            {
+                cursor.Advance();
+                break;
+            }
+            cursor.Advance();
+        }
+        Emit(out, begin, cursor.i, column, CodeTokenKind::String);
+    }
+
+    /// Loose number scan (ints, floats, hex, exponents, suffixes) - built for coloring,
+    /// not validation.
+    inline void ScanNumber(Cursor& cursor, Array<CodeToken>& out)
+    {
+        const usize begin = cursor.i;
+        const i32 column = cursor.column;
+        char8_t previous = 0;
+        while (!cursor.AtEnd())
+        {
+            const char8_t character = cursor.Peek();
+            const bool exponentSign = (character == u8'+' || character == u8'-') &&
+                                      (previous == u8'e' || previous == u8'E');
+            if (!(IsIdentChar(character) || character == u8'.' || exponentSign))
+            {
+                break;
+            }
+            previous = character;
+            cursor.Advance();
+        }
+        Emit(out, begin, cursor.i, column, CodeTokenKind::Number);
+    }
+
+    /// Identifier run, classified against the owner's keyword/type tables (else Default).
+    inline void ScanWord(Cursor& cursor, Array<CodeToken>& out, const HashSet<u64>& keywords,
+                         const HashSet<u64>& types)
+    {
+        const usize begin = cursor.i;
+        const i32 column = cursor.column;
+        while (!cursor.AtEnd() && IsIdentChar(cursor.Peek()))
+        {
+            cursor.Advance();
+        }
+        const StringView word = cursor.text.SubStr(begin, cursor.i - begin);
+        const u64 hash = HashBytes(word.Data(), word.Size());
+        CodeTokenKind kind = CodeTokenKind::Default;
+        if (keywords.Contains(hash))
+        {
+            kind = CodeTokenKind::Keyword;
+        }
+        else if (types.Contains(hash))
+        {
+            kind = CodeTokenKind::Type;
+        }
+        Emit(out, begin, cursor.i, column, kind);
+    }
 }

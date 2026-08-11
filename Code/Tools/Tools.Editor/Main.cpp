@@ -81,6 +81,7 @@ import script.wren.pipeline;
 import editor.script.wren;
 import script.angelscript.pipeline;
 import editor.script.angelscript;
+import editor.script.luau;
 import foundation.script.resource;
 import script.pipeline;
 
@@ -100,6 +101,7 @@ namespace
         // Per-language EDITOR-UI services (CodeEditView lexers; completion providers later).
         editor::RegisterWrenEditorUI();
         editor::RegisterAngelScriptEditorUI();
+        editor::RegisterLuauEditorUI();
     }
 
     // Create a StaticMeshAsset in the project's Meshes/ group from a procedural primitive,

@@ -1,12 +1,10 @@
 # The tests REGISTER the AngelScript cook (an entry point's job) - the library under test
 # stays backend-neutral and resolves through the registry (B3).
-add_executable(Script.AngelScript.Pipeline.Tests TestsMain.cpp AngelScriptCookTests.cpp
-    AngelScriptEditorUITests.cpp)
+add_executable(Script.AngelScript.Pipeline.Tests TestsMain.cpp AngelScriptCookTests.cpp)
 target_link_libraries(Script.AngelScript.Pipeline.Tests PRIVATE
-    Pipeline::Script.AngelScript Editor::Script.AngelScript
+    Pipeline::Script.AngelScript
     Foundation::Script.AngelScript Pipeline::Script
     Foundation::Script.Resource Foundation::Script Foundation::Script.Facades
-    Foundation::UI.Toolkit Foundation::UI
     doctest::doctest)
 target_compile_definitions(Script.AngelScript.Pipeline.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Script.AngelScript.Pipeline.Tests PRIVATE

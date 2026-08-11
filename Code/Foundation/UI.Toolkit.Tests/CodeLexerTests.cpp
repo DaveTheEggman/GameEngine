@@ -85,6 +85,81 @@ TEST_CASE("toolkit-codelexer: CLikeClassification")
     CHECK(FindToken(lexed2, typed, u8"\"hi \\\" there\"")->kind == CodeTokenKind::String);
 }
 
+TEST_CASE("toolkit-codelexer: LuaLikeClassificationAndComments")
+{
+    constexpr StringView kLuaKeywords[] = {u8"local", u8"function", u8"end", u8"return"};
+    constexpr StringView kLuaTypes[] = {u8"number", u8"string"};
+    LuaLikeLexerSpec spec;
+    spec.keywords = Span<const StringView>(kLuaKeywords, ArrayCount(kLuaKeywords));
+    spec.types = Span<const StringView>(kLuaTypes, ArrayCount(kLuaTypes));
+    LuaLikeLexer lexer(spec);
+
+    // Comment-toggle (Ctrl+/) marker is Lua's `--`, not `//`.
+    CHECK(lexer.LineCommentPrefix() == StringView(u8"--"));
+
+    const char8_t* line = u8"local x = 0xFF -- a tail comment";
+    const Lexed lexed = Lex(lexer, line);
+    CHECK(FindToken(lexed, line, u8"local")->kind == CodeTokenKind::Keyword);
+    CHECK(FindToken(lexed, line, u8"x")->kind == CodeTokenKind::Default);
+    CHECK(FindToken(lexed, line, u8"0xFF")->kind == CodeTokenKind::Number);
+    CHECK(FindToken(lexed, line, u8"-- a tail comment")->kind == CodeTokenKind::Comment);
+    CHECK(lexed.exitState == 0);
+
+    // `//` is NOT a comment in Lua - two operators, and the rest of the line lexes normally.
+    const char8_t* notComment = u8"local y = a // b";
+    const Lexed lexed2 = Lex(lexer, notComment);
+    CHECK(FindToken(lexed2, notComment, u8"b")->kind == CodeTokenKind::Default); // still classified
+    CHECK(lexed2.exitState == 0);
+
+    // Single, double, and backtick (interpolated) strings.
+    const char8_t* strings = u8"local s = `hi {x}` .. \"z\" .. 'q'";
+    const Lexed lexed3 = Lex(lexer, strings);
+    CHECK(FindToken(lexed3, strings, u8"`hi {x}`")->kind == CodeTokenKind::String);
+    CHECK(FindToken(lexed3, strings, u8"\"z\"")->kind == CodeTokenKind::String);
+    CHECK(FindToken(lexed3, strings, u8"'q'")->kind == CodeTokenKind::String);
+}
+
+TEST_CASE("toolkit-codelexer: LuaLikeLongBracketsSpanLines")
+{
+    constexpr StringView kLuaKeywords[] = {u8"local"};
+    LuaLikeLexerSpec spec;
+    spec.keywords = Span<const StringView>(kLuaKeywords, ArrayCount(kLuaKeywords));
+    LuaLikeLexer lexer(spec);
+
+    SUBCASE("long string [==[ ... ]==] carries level across lines")
+    {
+        const char8_t* open = u8"local s = [==[ start";
+        const Lexed a = Lex(lexer, open);
+        CHECK(FindToken(a, open, u8"[==[ start")->kind == CodeTokenKind::String);
+        CHECK(a.exitState != 0); // still open
+
+        // A close at the WRONG level does not terminate it.
+        const char8_t* wrong = u8"middle ]=] still going";
+        const Lexed b = Lex(lexer, wrong, a.exitState);
+        CHECK(b.exitState == a.exitState);
+
+        const char8_t* close = u8"end ]==] after";
+        const Lexed c = Lex(lexer, close, b.exitState);
+        CHECK(c.exitState == 0);
+        CHECK(FindToken(c, close, u8"end ]==]")->kind == CodeTokenKind::String);
+        CHECK(FindToken(c, close, u8"after")->kind == CodeTokenKind::Default);
+    }
+
+    SUBCASE("long comment --[[ ... ]] carries across lines")
+    {
+        const char8_t* open = u8"--[[ block";
+        const Lexed a = Lex(lexer, open);
+        CHECK(FindToken(a, open, u8"--[[ block")->kind == CodeTokenKind::Comment);
+        CHECK(a.exitState != 0);
+
+        const char8_t* close = u8"done ]] code";
+        const Lexed b = Lex(lexer, close, a.exitState);
+        CHECK(b.exitState == 0);
+        CHECK(FindToken(b, close, u8"done ]]")->kind == CodeTokenKind::Comment);
+        CHECK(FindToken(b, close, u8"code")->kind == CodeTokenKind::Default);
+    }
+}
+
 TEST_CASE("toolkit-codelexer: BlockCommentsAcrossLines")
 {
     SUBCASE("non-nesting closes on the first terminator")
