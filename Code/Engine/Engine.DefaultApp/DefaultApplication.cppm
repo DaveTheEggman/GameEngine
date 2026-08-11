@@ -41,6 +41,9 @@ import foundation.script.wren;         // the Wren backend (primary; toggle via 
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript; // the AngelScript backend (second backend; OPTION_ENABLE_ANGELSCRIPT)
 #endif
+#ifdef OPTION_HAS_LUAU
+import foundation.script.luau;         // the Luau backend (OPTION_ENABLE_LUAU)
+#endif
 import foundation.script.resource;     // cooked script classes + factory (entity behaviors)
 import engine.script;    // ScriptSubsystem (behaviors + the run's shared context)
 import engine.integration; // ScriptPhysicsContactBridge (physics contacts -> script ingress)

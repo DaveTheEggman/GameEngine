@@ -4,11 +4,11 @@
 
 add_executable(Integration.Script TestsMain.cpp JsonScriptTests.cpp)
 target_link_libraries(Integration.Script PRIVATE
-    Foundation::Json Foundation::Script Foundation::Script.Wren doctest::doctest)
+    Foundation::Json Foundation::Script ${SCRIPTLIB_WREN} doctest::doctest)
 
 # AngelScript is independently switchable; include its leg only when the backend is built.
-if(TARGET Foundation::Script.AngelScript)
-    target_link_libraries(Integration.Script PRIVATE Foundation::Script.AngelScript)
+if(TARGET ${SCRIPTLIB_ANGELSCRIPT})
+    target_link_libraries(Integration.Script PRIVATE ${SCRIPTLIB_ANGELSCRIPT})
     target_compile_definitions(Integration.Script PRIVATE INTEGRATION_HAS_ANGELSCRIPT=1)
 endif()
 

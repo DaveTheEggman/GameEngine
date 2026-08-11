@@ -31,6 +31,9 @@ import foundation.script.wren;         // the Wren backend (primary; toggle via 
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript; // the AngelScript backend (second backend; OPTION_ENABLE_ANGELSCRIPT)
 #endif
+#ifdef OPTION_HAS_LUAU
+import foundation.script.luau;         // the Luau backend (OPTION_ENABLE_LUAU)
+#endif
 import foundation.script.resource;     // cooked script classes + factory (entity behaviors)
 import engine.script;    // ScriptSubsystem (behaviors + the run's shared context)
 import foundation.resource;            // ResourceManager (owned or borrowed - see the preset seam)
@@ -165,12 +168,15 @@ namespace engine::runtime
         engine::ui::RegisterUiScriptFacade(); // Ui.* (owned by the UISubsystem)
         // Every built backend registers (batteries-included); a run resolves by the game script's
         // LANGUAGE - one gameplay context per run stays the locked rule. Each backend is independently
-        // toggleable (OPTION_ENABLE_WREN / _ANGELSCRIPT); both build on every platform, web included.
+        // toggleable (OPTION_ENABLE_WREN / _ANGELSCRIPT / _LUAU); all build on every platform, web included.
 #ifdef OPTION_HAS_WREN
         foundation::script::wren::RegisterWrenScriptBackend();
 #endif
 #ifdef OPTION_HAS_ANGELSCRIPT
         foundation::script::angelscript::RegisterAngelScriptBackend();
+#endif
+#ifdef OPTION_HAS_LUAU
+        foundation::script::RegisterLuauScriptBackend();
 #endif
         // Networking (net.md §6): the Net facade type is registered here; each GameInstance owns
         // its OWN endpoint and goes online at RUNTIME via the facade (Net.startServer/connect from

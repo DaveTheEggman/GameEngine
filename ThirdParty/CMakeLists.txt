@@ -212,6 +212,8 @@ set_target_properties(jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # policy (vendored code builds without our -Werror). scriptstdstring_utils.cpp is
 # deliberately not vendored (needs scriptarray). scriptbuilder parses [metadata] ahead of
 # declarations (the AngelScript editor cook harvests behavior properties through it).
+# Gated on OPTION_ENABLE_ANGELSCRIPT: a disabled backend never compiles its VM.
+if(OPTION_ENABLE_ANGELSCRIPT)
 file(GLOB util_angelscript_sources ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/source/*.cpp)
 # x64 Windows needs a hand-written native-call trampoline; the glob above only picks up .cpp,
 # and AngelScript ships the same routines twice, once per assembler dialect. Clang takes the
@@ -238,6 +240,7 @@ if(NOT EMSCRIPTEN)
     find_package(Threads REQUIRED)
     target_link_libraries(angelscript PUBLIC Threads::Threads)
 endif()
+endif() # OPTION_ENABLE_ANGELSCRIPT
 # On Emscripten as_config.h auto-enables AS_MAX_PORTABILITY (native-call trampolines compile out; the
 # backend is all-generic) AND AS_NO_THREADS, so the web build needs no pthread / SharedArrayBuffer and
 # no manual define here - matching the single-threaded web v1 (JobSystem inline) model.
@@ -256,6 +259,8 @@ endif()
 # as an exception is a hard abort. PUBLIC so every consumer sees the same luaconf shape.
 # BYTECODE COMPAT NOTE: Luau bytecode is NOT stable across versions - the script cook
 # fingerprint must include this vendored version (see docs/specs/luau-backend.md).
+# Gated on OPTION_ENABLE_LUAU: a disabled backend never compiles its VM.
+if(OPTION_ENABLE_LUAU)
 file(GLOB util_luau_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/luau/VM/src/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/luau/Compiler/src/*.cpp
@@ -277,3 +282,23 @@ target_include_directories(luau PRIVATE
 target_compile_definitions(luau PUBLIC LUA_USE_LONGJMP=1)
 target_compile_features(luau PRIVATE cxx_std_17)
 set_target_properties(luau PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif() # OPTION_ENABLE_LUAU
+
+# Wren 0.4.0 - the third script backend's VM, vendored BY COPY (github.com/wren-lang/wren tag
+# 0.4.0, MIT) like luau/angelscript: ThirdParty/wren/src (the VM + optional modules + public
+# header) + LICENSE/AUTHORS. Gated on OPTION_ENABLE_WREN so a disabled backend never compiles it.
+# Wren is C99 (the engine enables only CXX by default), so turn C on here. Wren ships no CMakeLists;
+# compile its sources directly. ThirdParty::Wren is consumed PRIVATE-ly by Foundation::Script.Wren.
+if(OPTION_ENABLE_WREN)
+    enable_language(C)
+    file(GLOB util_wren_sources CONFIGURE_DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/vm/*.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/optional/*.c)
+    add_library(wren_vm STATIC ${util_wren_sources})
+    add_library(ThirdParty::Wren ALIAS wren_vm)
+    set_target_properties(wren_vm PROPERTIES C_STANDARD 99 POSITION_INDEPENDENT_CODE ON)
+    # SYSTEM: third-party - keep our -Wall/-Werror off Wren's headers and sources.
+    target_include_directories(wren_vm SYSTEM
+        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/include
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/vm ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/optional)
+endif()

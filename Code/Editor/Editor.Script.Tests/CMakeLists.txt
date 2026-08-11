@@ -5,8 +5,8 @@
 add_executable(Editor.Script.Tests TestsMain.cpp ScriptCompletionTests.cpp ScriptApiBrowserTests.cpp
     WrenEditorUITests.cpp AngelScriptEditorUITests.cpp LuauEditorUITests.cpp)
 target_link_libraries(Editor.Script.Tests PRIVATE
-    Editor::Script Editor::Script.Wren Editor::Script.AngelScript Editor::Script.Luau
-    Foundation::Script.Wren Foundation::Script Foundation::Script.Facades
+    Editor::Script ${SCRIPTLIB_WREN_EDITOR} ${SCRIPTLIB_ANGELSCRIPT_EDITOR} ${SCRIPTLIB_LUAU_EDITOR}
+    ${SCRIPTLIB_WREN} Foundation::Script Foundation::Script.Facades
     Foundation::UI.Toolkit Foundation::UI Foundation::Core
     doctest::doctest)
 target_compile_definitions(Editor.Script.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

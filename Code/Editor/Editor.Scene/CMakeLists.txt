@@ -18,7 +18,7 @@ target_link_libraries(Editor.Scene
         Foundation::Geometry Foundation::Geometry.Resource Pipeline::Geometry
         Foundation::Materials Foundation::Materials.Resource Pipeline::Materials
         Foundation::UI Foundation::UI.Runtime Foundation::UI.Viewport Foundation::VG.Renderer
-        Foundation::Script Foundation::Script.Wren Foundation::Script.Resource Foundation::Script.Facades Engine::Script
+        Foundation::Script ${SCRIPTLIB_WREN} Foundation::Script.Resource Foundation::Script.Facades Engine::Script
         Foundation::Input Foundation::Input.Resource Engine::Input
         Editor::Core Editor::App Editor::ViewportTools Foundation::Policy)
 

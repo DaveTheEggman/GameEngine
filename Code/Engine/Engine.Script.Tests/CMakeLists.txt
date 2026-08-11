@@ -10,7 +10,7 @@ target_link_libraries(Engine.Script.Tests PRIVATE
     Foundation::Particles Engine::Particles
     Foundation::Net Foundation::Net.Replication
     Foundation::UI Engine::UI
-    Foundation::Script Foundation::Script.Wren Foundation::Script.AngelScript Foundation::Script.Luau doctest::doctest)
+    Foundation::Script ${SCRIPTLIB_WREN} ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU} doctest::doctest)
 target_compile_definitions(Engine.Script.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Engine.Script.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings;-Wno-error=c2y-extensions>"

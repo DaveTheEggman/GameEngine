@@ -12,7 +12,7 @@ target_link_libraries(Tools.Export PRIVATE
     Engine::Render Engine::Animation Engine::Particles
     Foundation::Physics Foundation::Physics.Resource Pipeline::Physics Engine::Physics
     Foundation::Audio Foundation::Audio.Resource Pipeline::Audio
-    Foundation::Script Foundation::Script.Wren Foundation::Script.AngelScript Foundation::Script.Resource Foundation::Script.Facades
-    Pipeline::Script Pipeline::Script.Wren Pipeline::Script.AngelScript
+    Foundation::Script ${SCRIPTLIB_WREN} ${SCRIPTLIB_ANGELSCRIPT} Foundation::Script.Resource Foundation::Script.Facades
+    Pipeline::Script ${SCRIPTLIB_WREN_PIPELINE} ${SCRIPTLIB_ANGELSCRIPT_PIPELINE}
     Foundation::UI.Resource Pipeline::UI)
 

@@ -5,7 +5,7 @@ target_link_libraries(Engine.UI.Tests PRIVATE
     Engine::Scene Foundation::Runtime Foundation::Input Engine::Input
     Foundation::Resource Foundation::Render Engine::Render Foundation::Shell
     Foundation::Shell.Null Foundation::RHI Foundation::RHI.Null
-    Foundation::Script Foundation::Script.Facades Foundation::Script.Wren Foundation::Script.AngelScript
+    Foundation::Script Foundation::Script.Facades ${SCRIPTLIB_WREN} ${SCRIPTLIB_ANGELSCRIPT}
     doctest::doctest)
 target_compile_definitions(Engine.UI.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Engine.UI.Tests PRIVATE

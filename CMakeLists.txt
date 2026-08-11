@@ -95,6 +95,12 @@ option(OPTION_BUILD_TOOLS "Build editor/authoring tooling (the editor libraries 
 # OPTION_HAS_* compile define (see the policy block) so C++ can guard usage with #if.
 option(OPTION_EXPERIMENTAL_GUI "Build the experimental GUI framework (experimental.gui + shell/vfs)" ON)
 option(OPTION_EXTENSION_IMGUI  "Build the Dear ImGui debug-UI extension (extensions.imgui)" ON)
+# Script backends are independently switchable; each defines OPTION_HAS_<backend> (presence macro,
+# guard C++ with `#ifdef`) when enabled. At least one must stay on. AngelScript additionally needs
+# its vendored lib to have built (reconciled after ThirdParty is added, before the backend subdirs).
+option(OPTION_ENABLE_WREN        "Build the Wren script backend" ON)
+option(OPTION_ENABLE_ANGELSCRIPT "Build the AngelScript script backend" ON)
+option(OPTION_ENABLE_LUAU        "Build the Luau script backend" ON)
 option(OPTION_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 
 # A web (Emscripten) build ships a game, not the authoring/side toolchain: force the tooling,
@@ -366,10 +372,61 @@ if(OPTION_EXPERIMENTAL_GUI)
     add_subdirectory(Code/Experimental/GUI)   # fresh eepp-derived UI framework (docs/design/gui-port.md)
 endif()
 add_subdirectory(Code/Foundation/Script)
-# --- Script backends (Wren always; AngelScript where the vendored lib built) ---
-add_subdirectory(Code/Foundation/Script.Wren)
-add_subdirectory(Code/Foundation/Script.Luau)
-if(TARGET ThirdParty::AngelScript)
+# --- Script backends: independently switchable via OPTION_ENABLE_* (declared up top) -----------
+# All three OPTION_ENABLE_WREN/ANGELSCRIPT/LUAU flags are defined in the option block above. Only
+# AngelScript needs reconciling here: its vendored lib is conditional (may not build on a target),
+# so a requested-but-absent AngelScript flips OFF. Wren + Luau vendor unconditionally - nothing to
+# reconcile. Then enforce at-least-one and publish the OPTION_HAS_<backend> presence defines (C++
+# guards usage with #ifdef).
+if(OPTION_ENABLE_ANGELSCRIPT AND NOT TARGET ThirdParty::AngelScript)
+    message(STATUS "AngelScript backend requested but its vendored lib did not build - disabling OPTION_ENABLE_ANGELSCRIPT.")
+    set(OPTION_ENABLE_ANGELSCRIPT OFF)
+endif()
+if(NOT OPTION_ENABLE_WREN AND NOT OPTION_ENABLE_ANGELSCRIPT AND NOT OPTION_ENABLE_LUAU)
+    message(FATAL_ERROR "All script backends are disabled; enable at least one of OPTION_ENABLE_WREN / OPTION_ENABLE_ANGELSCRIPT / OPTION_ENABLE_LUAU.")
+endif()
+# Presence macros (defined ONLY when enabled), so C++ guards read `#ifdef OPTION_HAS_WREN`.
+target_compile_definitions(policy INTERFACE
+    $<$<BOOL:${OPTION_ENABLE_WREN}>:OPTION_HAS_WREN>
+    $<$<BOOL:${OPTION_ENABLE_ANGELSCRIPT}>:OPTION_HAS_ANGELSCRIPT>
+    $<$<BOOL:${OPTION_ENABLE_LUAU}>:OPTION_HAS_LUAU>)
+
+# Target-or-empty aliases for the OPTIONAL backend libs, so a SHARED consumer (composition roots,
+# multi-backend test suites) lists ${SCRIPTLIB_*} in target_link_libraries and it resolves to the
+# real target when the backend is on, or to nothing when it is off - no per-site if() needed.
+# (The per-backend subdirs are gated whole, so they keep their explicit names.)
+set(SCRIPTLIB_WREN "")
+set(SCRIPTLIB_ANGELSCRIPT "")
+set(SCRIPTLIB_LUAU "")
+set(SCRIPTLIB_WREN_PIPELINE "")
+set(SCRIPTLIB_ANGELSCRIPT_PIPELINE "")
+set(SCRIPTLIB_LUAU_PIPELINE "")
+set(SCRIPTLIB_WREN_EDITOR "")
+set(SCRIPTLIB_ANGELSCRIPT_EDITOR "")
+set(SCRIPTLIB_LUAU_EDITOR "")
+if(OPTION_ENABLE_WREN)
+    set(SCRIPTLIB_WREN Foundation::Script.Wren)
+    set(SCRIPTLIB_WREN_PIPELINE Pipeline::Script.Wren)
+    set(SCRIPTLIB_WREN_EDITOR Editor::Script.Wren)
+endif()
+if(OPTION_ENABLE_ANGELSCRIPT)
+    set(SCRIPTLIB_ANGELSCRIPT Foundation::Script.AngelScript)
+    set(SCRIPTLIB_ANGELSCRIPT_PIPELINE Pipeline::Script.AngelScript)
+    set(SCRIPTLIB_ANGELSCRIPT_EDITOR Editor::Script.AngelScript)
+endif()
+if(OPTION_ENABLE_LUAU)
+    set(SCRIPTLIB_LUAU Foundation::Script.Luau)
+    set(SCRIPTLIB_LUAU_PIPELINE Pipeline::Script.Luau)
+    set(SCRIPTLIB_LUAU_EDITOR Editor::Script.Luau)
+endif()
+
+if(OPTION_ENABLE_WREN)
+    add_subdirectory(Code/Foundation/Script.Wren)
+endif()
+if(OPTION_ENABLE_LUAU)
+    add_subdirectory(Code/Foundation/Script.Luau)
+endif()
+if(OPTION_ENABLE_ANGELSCRIPT)
     add_subdirectory(Code/Foundation/Script.AngelScript)
 endif()
 add_subdirectory(Code/Foundation/Script.Resource)   # cooked script classes + factory (source + harvested metadata)
@@ -435,12 +492,19 @@ if(OPTION_BUILD_TOOLS)
     add_subdirectory(Code/Pipeline/UI.Pipeline)     # UI document/theme assets + validating builders (tooling)
     add_subdirectory(Code/Pipeline/ModelImporter) # top-level model import: model IR -> cooked geometry/material/texture/animation resources
     add_subdirectory(Code/Pipeline/Script.Pipeline)  # script class asset/builder/importer (cook; neutral)
-    add_subdirectory(Code/Pipeline/Script.Wren.Pipeline)  # Wren cook service
-    add_subdirectory(Code/Editor/Editor.Script.Wren)  # Wren editor-UI (CodeEditView lexers)
-    add_subdirectory(Code/Pipeline/Script.AngelScript.Pipeline)  # AngelScript cook service
-    add_subdirectory(Code/Editor/Editor.Script.AngelScript)  # AngelScript editor-UI (lexers)
-    add_subdirectory(Code/Pipeline/Script.Luau.Pipeline)  # Luau cook service
-    add_subdirectory(Code/Editor/Editor.Script.Luau)  # Luau editor-UI (CodeEditView lexer)
+    # Per-backend cook + editor-UI (lexer) - each gated on its OPTION_ENABLE_* flag.
+    if(OPTION_ENABLE_WREN)
+        add_subdirectory(Code/Pipeline/Script.Wren.Pipeline)  # Wren cook service
+        add_subdirectory(Code/Editor/Editor.Script.Wren)  # Wren editor-UI (CodeEditView lexers)
+    endif()
+    if(OPTION_ENABLE_ANGELSCRIPT)
+        add_subdirectory(Code/Pipeline/Script.AngelScript.Pipeline)  # AngelScript cook service
+        add_subdirectory(Code/Editor/Editor.Script.AngelScript)  # AngelScript editor-UI (lexers)
+    endif()
+    if(OPTION_ENABLE_LUAU)
+        add_subdirectory(Code/Pipeline/Script.Luau.Pipeline)  # Luau cook service
+        add_subdirectory(Code/Editor/Editor.Script.Luau)  # Luau editor-UI (CodeEditView lexer)
+    endif()
     add_subdirectory(Code/Editor/Editor.App) # editor UI shell (chrome + layout persistence + EditorApplication)
     add_subdirectory(Code/Editor/Editor.Input) # input-map editing page (editor exe only)
     add_subdirectory(Code/Editor/Editor.GameUI) # UI document page: text + live preview (editor exe only)
