@@ -95,6 +95,20 @@ OC = over:combine(2, 3)
 OCT = over:combineText("x", 7)
 )lua";
 
+    // Debugger dialect: a zero-arg entry. `tag` binds on line 3, two lines before the breakpoint
+    // (line 5) so it is reliably live at the pause - the Luau pause lands one bytecode instruction
+    // early (luau_callhook advances savedpc), so a local bound on the line JUST above the break may
+    // not be live yet. Luau prints a string local's raw content (no quotes); step lands on line 6,
+    // continue completes.
+    constexpr StringView kDebug = u8R"lua(gLast = 0
+function debugRun()
+    local tag = "hit"
+    local pad = 1
+    local a = 7
+    gLast = a + pad
+end
+)lua";
+
     // --- enum fixture: a reflected type with an enum property + an enum-arg/return method ------
     enum class Facing : i32
     {
@@ -592,6 +606,92 @@ TEST_CASE("script.luau: step debugger breaks inside a coroutine body, then Conti
     debugger->SetListener(nullptr);
 }
 
+TEST_CASE("script.luau: a breakpoint keyed on (file, line) survives a module reload (P6.4)")
+{
+    DebuggerStateCounter listener;
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
+    REQUIRE(debugger.Get() != nullptr);
+    debugger->SetListener(&listener);
+    debugger->SetBreakpoint(u8"reload.luau", 3);
+
+    REQUIRE(context
+                ->Load(u8"function run()\n"   // 1
+                       u8"    local a = 1\n"  // 2
+                       u8"    marker = a\n"   // 3  <- breakpoint
+                       u8"end\n",             // 4
+                       u8"reload.luau")
+                .IsOk());
+
+    Span<Variant> noArgs{};
+    REQUIRE(context->Call(u8"run", noArgs).HasValue());
+    REQUIRE(listener.paused == 1);
+    debugger->Continue();
+    CHECK(context->GetGlobal(u8"marker").Get<f64>() == doctest::Approx(1.0));
+
+    // Hot-reload the SAME source file (a changed body, same chunk name). The breakpoint is stored
+    // on (file, line) in the debugger, not tied to the module, so it fires again after the reload.
+    REQUIRE(context
+                ->Load(u8"function run()\n"   // 1
+                       u8"    local a = 9\n"  // 2 (changed)
+                       u8"    marker = a\n"   // 3  <- breakpoint still here
+                       u8"end\n",             // 4
+                       u8"reload.luau")
+                .IsOk());
+    REQUIRE(context->Call(u8"run", noArgs).HasValue());
+    CHECK(listener.paused == 2); // broke again against the reloaded module
+    debugger->Continue();
+    CHECK(context->GetGlobal(u8"marker").Get<f64>() == doctest::Approx(9.0));
+    debugger->SetListener(nullptr);
+}
+
+TEST_CASE("script.luau: break in a coroutine, Continue to a wait, the wait still fires on schedule (P6.4)")
+{
+    DebuggerStateCounter listener;
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
+    REQUIRE(debugger.Get() != nullptr);
+    debugger->SetListener(&listener);
+    debugger->SetBreakpoint(u8"cowait.luau", 5);
+
+    REQUIRE(context
+                ->Load(u8"done = 0\n"                      // 1
+                       u8"function run()\n"                // 2
+                       u8"    startCoroutine(function()\n" // 3
+                       u8"        local step = 1\n"        // 4
+                       u8"        marker = step\n"         // 5  <- breakpoint (before the wait)
+                       u8"        waitSeconds(1.0)\n"      // 6
+                       u8"        done = 1\n"              // 7
+                       u8"    end)\n"                      // 8
+                       u8"end\n",                          // 9
+                       u8"cowait.luau")
+                .IsOk());
+
+    Span<Variant> noArgs{};
+    REQUIRE(context->Call(u8"run", noArgs).HasValue());
+    manager->AdvanceCoroutines(0.1); // resumes the body -> breaks at line 5, before the wait
+    REQUIRE(listener.paused == 1);
+    CHECK(context->GetGlobal(u8"marker").TryGet<f64>() == nullptr);
+
+    // Continue runs marker=step and then waitSeconds(1.0), which yields back to the scheduler -
+    // the coroutine is NOT done, it is now waiting.
+    debugger->Continue();
+    CHECK(context->GetGlobal(u8"marker").Get<f64>() == doctest::Approx(1.0));
+    CHECK(context->GetGlobal(u8"done").Get<f64>() == doctest::Approx(0.0));
+
+    // The 1.0s wait still elapses on schedule (the break did not perturb the timer): ~1.1s of
+    // advancing completes it and the coroutine finishes on its own.
+    for (int i = 0; i < 11; ++i)
+    {
+        manager->AdvanceCoroutines(0.1);
+    }
+    CHECK(context->GetGlobal(u8"done").Get<f64>() == doctest::Approx(1.0));
+    CHECK(listener.paused == 1); // no further break
+    debugger->SetListener(nullptr);
+}
+
 TEST_CASE("script.luau: bytecode capability - compile at cook, serialize, load in the player")
 {
     RefPtr<IScriptManager> manager = CreateLuauScriptManager();
@@ -690,6 +790,12 @@ TEST_CASE("script.luau: backend conformance battery")
     dialect.coroutineClass = kCoroutine;
     dialect.delegateModule = kDelegate;
     dialect.overloadModule = kOverload;
+    dialect.debugModule = kDebug;
+    dialect.debugSection = u8"debug.luau";
+    dialect.debugFunction = u8"debugRun";
+    dialect.debugBreakLine = 5;
+    dialect.debugLocalName = u8"tag";
+    dialect.debugLocalValue = u8"hit"; // Luau prints a string local's raw content (no quotes)
 
     conformance::RunScriptBackendConformance([]() { return CreateLuauScriptManager(); },
                                              dialect);

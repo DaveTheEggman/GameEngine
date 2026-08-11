@@ -402,7 +402,10 @@ namespace foundation::script
         {
             return Span<const TypeInfo* const>{m_types.Data(), m_types.Size()};
         }
-        void TrackContext(LuauScriptContext* context) { m_contexts.PushBack(context); }
+        // A context created WHILE a debugger is attached must get its debug hooks too (the
+        // debugger only hooked the contexts that existed at CreateDebugger time). Out-of-line so it
+        // can reach into the context type.
+        void TrackContext(LuauScriptContext* context);
         void UntrackContext(LuauScriptContext* context)
         {
             DropCoroutinesOf(context);
@@ -818,10 +821,17 @@ namespace foundation::script
             {
                 // Re-find (a resumed body may have spawned coroutines and reallocated the array);
                 // then route through the SAME ProcessCoroutineResume the scheduler uses (Fable Q6):
-                // BREAK re-holds, YIELD stays scheduled, OK/error drops.
+                // BREAK re-holds (OnBroke re-fires paused), YIELD stays scheduled (game runs on),
+                // OK/error drops.
                 if (LuauScriptManager::Coroutine* entry = m_manager->FindCoroutine(thread))
                 {
                     m_manager->ContinueCoroutine(*entry, status);
+                }
+                // A finished coroutine ends this debugged run (Terminated); a yield leaves it
+                // scheduled (stay Running); a break already re-fired Breakpoint/Stepped.
+                if (status != LUA_BREAK && status != LUA_YIELD)
+                {
+                    FireState(ScriptDebuggerState::Terminated);
                 }
                 return;
             }
@@ -835,6 +845,7 @@ namespace foundation::script
                 context->ReportTopOfStack(ScriptErrorKind::Runtime, u8"debug");
             }
             context->ReleaseThread(thread); // completed pooled executor thread -> back to the pool
+            FireState(ScriptDebuggerState::Terminated); // the debugged call ran to completion
         }
 
         // ---- value description ----
@@ -2056,6 +2067,16 @@ namespace foundation::script
         lua_Callbacks* cb = lua_callbacks(m_state);
         cb->debugstep = nullptr;
         cb->userdata = nullptr;
+    }
+
+    void LuauScriptManager::TrackContext(LuauScriptContext* context)
+    {
+        m_contexts.PushBack(context);
+        if (m_debugger != nullptr)
+        {
+            // Born while a debugger is attached: hook it now, or its scripts would never break.
+            context->InstallDebugHooks(m_debugger);
+        }
     }
 
     UniquePtr<IScriptDebugger> LuauScriptManager::CreateDebugger()

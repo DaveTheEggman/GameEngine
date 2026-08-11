@@ -1684,6 +1684,133 @@ TEST_CASE("script.scene: a breakpoint in a behavior handler pauses the game and 
     CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
 }
 
+// The SAME run-host debugger wiring, backend-neutral, on Luau (P6.4): a breakpoint in a Luau
+// behavior handler pauses the game, the world holds still, Continue resumes clean, no fault.
+TEST_CASE("script.scene: LUAU a breakpoint in a behavior handler pauses the game and resumes clean (P6.4)")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> breaker = MakeClassLang(
+        u8"luau", u8"Breaker",
+        u8"Breaker = {}\n"                                                            // 1
+        u8"Breaker.__index = Breaker\n"                                               // 2
+        u8"function Breaker.new(entity)\n"                                            // 3
+        u8"    return setmetatable({ entity = entity, x = 0 }, Breaker)\n"            // 4
+        u8"end\n"                                                                     // 5
+        u8"function Breaker:onUpdate(dt)\n"                                           // 6
+        u8"    self.x = self.x + 1\n"                    // 7  <- breakpoint
+        u8"    self.entity:setPosition(self.x, 0, 0)\n"  // 8
+        u8"end\n",                                       // 9
+        {u8"onUpdate"});
+    breaker->sourceName = String(u8"Breaker.luau");
+
+    bed.host.RequestDebugger(Function<void(IScriptDebugger&)>{});
+    const scene::EntityHandle e = bed.AddScripted(breaker, u8"walker");
+    bed.Start();
+    bed.Frame(); // instantiate + onUpdate (no breakpoint yet): x = 1
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+
+    IScriptDebugger* debugger = bed.host.Debugger();
+    REQUIRE(debugger != nullptr);
+    CHECK_FALSE(bed.host.IsDebugPaused());
+    debugger->SetBreakpoint(u8"Breaker.luau", 7);
+
+    // Next tick: onUpdate hits the breakpoint and suspends -> paused, world frozen, not faulted.
+    bed.Frame();
+    CHECK(bed.host.IsDebugPaused());
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+    CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
+
+    Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+    REQUIRE_FALSE(frames.IsEmpty());
+    CHECK(frames[0].line == 7);
+    CHECK(StringView(frames[0].file) == u8"Breaker.luau"); // the per-class chunk IS the source file
+
+    // Frozen while paused.
+    bed.Frame();
+    CHECK(bed.host.IsDebugPaused());
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+
+    // Continue runs the handler to completion: setPosition uses the incremented x -> position 2.
+    debugger->Continue();
+    CHECK_FALSE(bed.host.IsDebugPaused());
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));
+
+    debugger->RemoveBreakpoint(u8"Breaker.luau", 7);
+    bed.Frame();
+    CHECK_FALSE(bed.host.IsDebugPaused());
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 3.0f));
+    CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
+}
+
+// A breakpoint in a handler reached through a NESTED entity.send (P6.4): the sender's onUpdate is
+// mid-send (a C facade boundary) on its pooled thread when the receiver's onPing breaks on a
+// SECOND pooled thread (pool depth = nesting depth). The game pauses; Continue completes the
+// nested handler. Proves the executor + debugger survive re-entrant dispatch across the C boundary.
+TEST_CASE("script.scene: LUAU a breakpoint in a nested entity.send handler pauses on a second thread (P6.4)")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> receiver = MakeClassLang(
+        u8"luau", u8"Receiver",
+        u8"Receiver = {}\n"                                                              // 1
+        u8"Receiver.__index = Receiver\n"                                                // 2
+        u8"function Receiver.new(entity)\n"                                              // 3
+        u8"    return setmetatable({ entity = entity }, Receiver)\n"                     // 4
+        u8"end\n"                                                                        // 5
+        u8"function Receiver:onPing(amount)\n"                                           // 6
+        u8"    self.entity:setName(\"pinged:\" .. tostring(amount))\n" // 7  <- breakpoint
+        u8"end\n",                                                     // 8
+        {u8"onPing"});
+    receiver->sourceName = String(u8"Receiver.luau");
+    RefPtr<ScriptClass> sender = MakeClassLang(
+        u8"luau", u8"Sender",
+        u8"Sender = {}\n"
+        u8"Sender.__index = Sender\n"
+        u8"function Sender.new(entity) return setmetatable({ entity = entity, n = 6 }, Sender) end\n"
+        u8"function Sender:onUpdate(dt)\n"
+        u8"    self.n = self.n + 1\n"
+        u8"    self.entity:send(\"ping\", self.n)\n"
+        u8"end\n",
+        {u8"onUpdate"});
+    sender->sourceName = String(u8"Sender.luau");
+
+    scene::EntityHandle target = bed.scene.CreateEntity(u8"target");
+    ScriptComponent& component = bed.components->Add(target);
+    {
+        ScriptBehavior b;
+        b.script = receiver;
+        component.behaviors.PushBack(Move(b));
+    }
+    {
+        ScriptBehavior b;
+        b.script = sender;
+        component.behaviors.PushBack(Move(b));
+    }
+
+    bed.host.RequestDebugger(Function<void(IScriptDebugger&)>{});
+    bed.Start();
+    bed.Frame(); // n=7: send ping 7 -> onPing(7) sets the name (no breakpoint yet)
+    CHECK(bed.scene.GetEntityName(target) == StringView(u8"pinged:7"));
+
+    IScriptDebugger* debugger = bed.host.Debugger();
+    REQUIRE(debugger != nullptr);
+    debugger->SetBreakpoint(u8"Receiver.luau", 7);
+
+    // Next tick: sender.onUpdate sends ping 8; the nested onPing breaks BEFORE setName -> the game
+    // pauses, the name still reads the previous frame's value, and the innermost frame is onPing.
+    bed.Frame();
+    CHECK(bed.host.IsDebugPaused());
+    CHECK(bed.scene.GetEntityName(target) == StringView(u8"pinged:7"));
+    Array<ScriptStackFrame> frames = debugger->CaptureStackFrames();
+    REQUIRE_FALSE(frames.IsEmpty());
+    CHECK(frames[0].line == 7);
+    CHECK(StringView(frames[0].file) == u8"Receiver.luau");
+
+    // Continue completes the nested handler: setName runs with amount 8.
+    debugger->Continue();
+    CHECK_FALSE(bed.host.IsDebugPaused());
+    CHECK(bed.scene.GetEntityName(target) == StringView(u8"pinged:8"));
+}
+
 // A harvested AngelScript editor property (a member field) reaches the instance through the
 // neutral setter-Invoke path: the subsystem Invokes `<name>=`, which the AngelScript backend
 // writes to the same-named member field. Both the default and a hash-keyed override drive it.
