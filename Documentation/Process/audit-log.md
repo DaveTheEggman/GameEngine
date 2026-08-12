@@ -621,3 +621,21 @@ Verified against code @ fd25f6de.
 - SPLIT (spec rule): shaders P3 spike (tint vs naga) + phasing + rulings -> **Archive/shaders-design-
   history.md**; the version-poll-vs-dirty-flag decision + Traktor precedent + reload flows + the
   watcher-shipped-differently note -> **Archive/shaders-materials-design-history.md** (both ARCHIVED).
+
+## P1 - batch 20: post-processing-config + reflection-probes (2026-08-12)
+
+Verified against code @ b07dab67 (both-shipped-and-deferred method).
+
+- **Systems/post-processing-config.md** REWRITTEN present-tense (was "Phase 1 SHIPPED; phases 2-5
+  pending" but Phases 1+2a+2b+3 all shipped). Verified: PostProcessSystem + PostProcessSettings
+  (engine.render RenderSubsystem/RenderComponents), ViewPostConfig, ViewPostOverride, ResolveScenePost,
+  AoMode. Phase 4/5 (LUT/DoF/vignette/motion-blur/auto-exposure/post-volumes) VERIFIED ABSENT in the
+  render code -> deferred. State: unknown -> current.
+- **Systems/reflection-probes.md** REWRITTEN present-tense (STALE top header said "DESIGN, not yet
+  implemented, do not commit" while a bottom section already recorded the core DONE). Verified:
+  ReflectionProbeComponent + ReflectionProbeSystem (engine.render), parallax (RenderComponentsImpl),
+  per-probe IBL prefilter. Cluster/froxel probe selection VERIFIED ABSENT (forward loops the buffer) ->
+  deferred; SH9-per-probe / OBB / budget deferred. State: unknown -> current.
+- SPLIT (spec rule): reflection-probes locked decisions + froxel-selection design + the shipped
+  divergence -> **Archive/reflection-probes-design-history.md** (ARCHIVED). post-processing deferrals
+  kept inline (no survey to archive).
