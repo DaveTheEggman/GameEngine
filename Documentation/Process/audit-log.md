@@ -549,3 +549,22 @@ Verified against code @ b5d0418b (both-shipped-and-deferred method).
   unknown -> current.
 - SPLIT (spec rule): the problem framing + the templates-vs-presets rationale + the QUEUED-then-shipped
   history + precursors + config-driven-sidecars ruling -> **Archive/export-design-history.md** (ARCHIVED).
+
+## P1 - batch 17: editor-jobs + viewport-input (2026-08-12)
+
+Verified against code @ 7e4ebae7 (both-shipped-and-deferred method).
+
+- **Systems/editor-jobs.md** REFRESHED present-tense (was accurate but old path). Path
+  Code/Draconic/Editor/Draconic.Editor.Core -> Code/Editor/Editor.Core/JobService.cppm (module
+  editor.core); FontEditorPage path -> Code/Editor/Editor.Fonts; added header. Verified: EditorJobService
+  + Submit (build lane, folds into cook MutationLock) + SubmitLight (light lane, own worker, outside
+  IsBusy). State: unknown -> current.
+- **Systems/viewport-input.md** REWRITTEN present-tense (was `DESIGN (2026-07-03) - not implemented` -
+  STALE; SHIPPED). Now a CURRENT reference: the unified problem, the layer (per-window tagging + focus,
+  event-first + poll snapshot, InputSurface gated facades, InputRouter), one-fit-function/one-enum.
+  Verified against code: foundation.shell InputSurface.cppm (InputSurface = ContentFit slice; Mouse()/
+  Keyboard() gated facades; ContentMouse() normalized [0,1]; SetFit/SetFitMode; HoverWindow), InputTypes
+  (InputEvent stream), single FitMode enum; foundation.ui.viewport ViewportView consumes InputRouter.
+  State: unknown -> current.
+- SPLIT (spec rule): the Sedulous reference read (the gem kept + the smells not ported + the four locked
+  decisions) -> **Archive/viewport-input-design-history.md** (ARCHIVED). editor-jobs needed no split.
