@@ -275,3 +275,113 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
 
     scrub();
 }
+
+TEST_CASE("texture.pipeline: mip chain cook - counts, sizes, and sRGB-correct averaging")
+{
+    // The missing middle found 2026-08-12: generateMipmaps/mipLevels/per-level upload all
+    // existed, nothing BUILT a chain, everything rendered at mip 0 (Sponza's shimmer). Pins:
+    // (1) chain shape: a 4x4 cooks 3 levels, payload = (16+4+1)*4 bytes;
+    // (2) sRGB correctness: a black/white checker's mip must average in LINEAR space -
+    //     sRGB ~188 - not the naive byte average 127;
+    // (3) Linear images average bytes directly (a data map's mip stays 127/128);
+    // (4) odd dims clamp (5x3 -> 2x1 -> 1x1).
+    RegisterTextureResource();
+    RegisterTextureAsset();
+
+    const auto cookEmbedded = [](u32 w, u32 h, image::ImageColorSpace cs,
+                                 Function<u8(u32, u32, i32)> pixelAt, StringView dbDir,
+                                 u32& outMipLevels, Array<u8>& outPayload) {
+        (void)RemoveDirectoryRecursive(dbDir);
+        NativeFileSystem srcMount(dbDir);
+        foundation::content::ContentDatabase db(
+            srcMount, foundation::core::BinarySerializerFactory(), u8".rasset");
+        auto* srcInst = db.RootGroup()->CreateInstance(u8"src", TextureAsset::StaticType());
+        auto* outInst = db.RootGroup()->CreateInstance(u8"out", TextureResource::StaticType());
+
+        Array<byte> pixels;
+        pixels.Resize(static_cast<usize>(w) * h * 4);
+        for (u32 y = 0; y < h; ++y)
+        {
+            for (u32 x = 0; x < w; ++x)
+            {
+                for (i32 c = 0; c < 4; ++c)
+                {
+                    pixels[(static_cast<usize>(y) * w + x) * 4 + static_cast<usize>(c)] =
+                        static_cast<byte>(pixelAt(x, y, c));
+                }
+            }
+        }
+        TextureAsset asset;
+        asset.embeddedWidth = w;
+        asset.embeddedHeight = h;
+        asset.colorSpace = cs;
+        asset.generateMipmaps = true;
+        REQUIRE(srcInst->WriteObject(asset).IsOk());
+        REQUIRE(srcInst->WriteData(u8"pixels", Span<const byte>(pixels.Data(), pixels.Size()))
+                    .IsOk());
+
+        TextureAssetBuilder builder;
+        pipeline::AssetBuildContext ctx;
+        ctx.source = srcInst;
+        ctx.output = outInst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+
+        RefPtr<ISerializable> object = outInst->ReadObject();
+        auto* res = Cast<TextureResource>(object.Get());
+        REQUIRE(res != nullptr);
+        outMipLevels = res->mipLevels;
+        UniquePtr<IStream> data = outInst->ReadData(u8"data");
+        REQUIRE(data);
+        outPayload.Resize(static_cast<usize>(data->Size()));
+        REQUIRE(data->Read(outPayload.Data(), static_cast<u64>(outPayload.Size())) ==
+                static_cast<u64>(outPayload.Size()));
+        (void)RemoveDirectoryRecursive(dbDir);
+    };
+
+    // (1)+(2): 4x4 sRGB checkerboard (0 / 255 alternating).
+    {
+        u32 mipLevels = 0;
+        Array<u8> payload;
+        cookEmbedded(4, 4, image::ImageColorSpace::Srgb,
+                     Function<u8(u32, u32, i32)>{[](u32 x, u32 y, i32 c)
+                                                 { return c == 3 ? u8{255}
+                                                                 : (((x + y) & 1) ? u8{255}
+                                                                                  : u8{0}); }},
+                     u8"scratch_texpipe_mips_srgb", mipLevels, payload);
+        CHECK(mipLevels == 3u);
+        CHECK(payload.Size() == (16u + 4u + 1u) * 4u);
+        // mip1 first texel: 2x2 checker averages to linear 0.5 -> sRGB ~188 (NOT 127).
+        const u8 mip1 = payload[16u * 4u];
+        CHECK(mip1 >= 186);
+        CHECK(mip1 <= 190);
+        // Alpha averages directly (all 255).
+        CHECK(payload[16u * 4u + 3u] == 255);
+    }
+
+    // (3): the SAME checker as a Linear data map keeps the straight byte average.
+    {
+        u32 mipLevels = 0;
+        Array<u8> payload;
+        cookEmbedded(4, 4, image::ImageColorSpace::Linear,
+                     Function<u8(u32, u32, i32)>{[](u32 x, u32 y, i32 c)
+                                                 { return c == 3 ? u8{255}
+                                                                 : (((x + y) & 1) ? u8{255}
+                                                                                  : u8{0}); }},
+                     u8"scratch_texpipe_mips_linear", mipLevels, payload);
+        CHECK(mipLevels == 3u);
+        const u8 mip1 = payload[16u * 4u];
+        CHECK(mip1 >= 127);
+        CHECK(mip1 <= 128);
+    }
+
+    // (4): odd dims clamp down the chain: 5x3 -> 2x1 -> 1x1.
+    {
+        u32 mipLevels = 0;
+        Array<u8> payload;
+        cookEmbedded(5, 3, image::ImageColorSpace::Linear,
+                     Function<u8(u32, u32, i32)>{[](u32, u32, i32) { return u8{200}; }},
+                     u8"scratch_texpipe_mips_npot", mipLevels, payload);
+        CHECK(mipLevels == 3u);
+        CHECK(payload.Size() == (15u + 2u + 1u) * 4u);
+    }
+}

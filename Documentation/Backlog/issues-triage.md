@@ -221,3 +221,18 @@ smoketest-fixes #4 together (one physics-debug story) -> I3 (design, small)
 eviction, I6 compression (after dependency approval), I5 allocators
 (paced, loud-breakage sweeps). (MSVC setup removed from this doc - the user
 runs that separately on Windows.)
+
+
+## I11. Scene-pass MSAA (quality gap vs Godot's default) - RENDERER BACKLOG
+
+Surfaced by the Sponza side-by-side (2026-08-12): Godot looks better by
+DEFAULT partly because its 3D pass is MSAA'd; ours is single-sampled with
+post AA only (TAA/FXAA). Geometry-edge quality without TAA's temporal
+artifacts needs real MSAA: multisampled color+depth targets through the
+frame graph, resolves feeding the post stack, sample-state across the
+forward + depth-prepass + debug-draw pipelines, and a quality setting
+(off/2x/4x). Note the interaction: MSAA + HDR + the prepass/motion-vector
+consumers all resolve-aware. The OTHER half of the same comparison (no
+mips) was the dominant term and is FIXED (texture cook v2 generates full
+chains; model imports default mips ON + trilinear); MSAA is the remaining
+polish. Belongs to the renderer track alongside the post-stack work.

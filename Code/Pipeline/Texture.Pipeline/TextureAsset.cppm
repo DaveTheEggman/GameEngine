@@ -282,6 +282,11 @@ export namespace pipeline{
     class TextureAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
+        // v2 (2026-08-12): the "data" payload may carry a FULL MIP CHAIN (levels
+        // concatenated, mipLevels in the record) instead of always level 0 only. Same-input
+        // output changed -> bump forces the re-cook (the rule: the bump IS the migration).
+        [[nodiscard]] u32 Version() const override { return 2; }
+
         [[nodiscard]] const TypeInfo* AssetType() const override
         {
             return &TextureAsset::StaticType();
@@ -364,6 +369,22 @@ export namespace pipeline{
             resource.depthOrArrayLayers = 1;
             resource.mipLevels = 1;
             resource.format = TextureFormatUtils::Convert(image.Format(), ta.colorSpace);
+            Array<byte> mipPixels; // level 0 (+ generated chain when asked) - RGBA8 2D only
+            {
+                const Span<const u8> px0 = image.PixelData();
+                mipPixels.Resize(px0.Size());
+                if (px0.Size() != 0)
+                {
+                    MemCopy(mipPixels.Data(), px0.Data(), px0.Size());
+                }
+                if (ta.generateMipmaps && ta.shape == TextureShape::Texture2D &&
+                    image.Format() == image::PixelFormat::RGBA8)
+                {
+                    resource.mipLevels = AppendMipChain(
+                        mipPixels, image.Width(), image.Height(),
+                        ta.colorSpace == image::ImageColorSpace::Srgb);
+                }
+            }
             resource.shape = ta.shape;
             resource.minFilter = ta.minFilter;
             resource.magFilter = ta.magFilter;
@@ -379,12 +400,87 @@ export namespace pipeline{
                 return wrote;
             }
 
-            const Span<const u8> px = image.PixelData();
             return ctx.output->WriteData(
-                u8"data", Span<const byte>(reinterpret_cast<const byte*>(px.Data()), px.Size()));
+                u8"data", Span<const byte>(mipPixels.Data(), mipPixels.Size()));
         }
 
     private:
+        // === Mip generation (2026-08-12: the missing middle of the mip plumbing - the flag,
+        // the record field, and the per-level upload all existed; nothing ever BUILT a chain,
+        // so every texture rendered at mip 0: Sponza's shimmer) =========================
+
+        // sRGB <-> linear for the downsample: averaging must happen in LINEAR space or mips
+        // darken (a 50% black/white checker must average to linear 0.5 = sRGB ~188, not 128).
+        [[nodiscard]] static f32 SrgbToLinear(u8 v)
+        {
+            const f32 c = static_cast<f32>(v) / 255.0f;
+            return c <= 0.04045f ? c / 12.92f : Pow((c + 0.055f) / 1.055f, 2.4f);
+        }
+        [[nodiscard]] static u8 LinearToSrgb(f32 c)
+        {
+            c = c < 0.0f ? 0.0f : (c > 1.0f ? 1.0f : c);
+            const f32 encoded =
+                c <= 0.0031308f ? c * 12.92f : 1.055f * Pow(c, 1.0f / 2.4f) - 0.055f;
+            return static_cast<u8>(encoded * 255.0f + 0.5f);
+        }
+
+        /// Appends the full mip chain (levels 1..N, 2x2 box, clamped for odd dims) to
+        /// `pixels`, which holds level 0 as tight RGBA8. Color channels of sRGB images
+        /// filter in linear space; alpha (and everything in Linear images) averages
+        /// directly. Returns the TOTAL level count including level 0.
+        [[nodiscard]] static u32 AppendMipChain(Array<byte>& pixels, u32 width, u32 height,
+                                                bool srgb)
+        {
+            u32 levels = 1;
+            usize srcOffset = 0;
+            u32 srcW = width;
+            u32 srcH = height;
+            while (srcW > 1 || srcH > 1)
+            {
+                const u32 dstW = srcW > 1 ? srcW / 2 : 1;
+                const u32 dstH = srcH > 1 ? srcH / 2 : 1;
+                const usize dstOffset = pixels.Size();
+                pixels.Resize(dstOffset + static_cast<usize>(dstW) * dstH * 4);
+                const u8* src = reinterpret_cast<const u8*>(pixels.Data() + srcOffset);
+                u8* dst = reinterpret_cast<u8*>(pixels.Data() + dstOffset);
+                for (u32 y = 0; y < dstH; ++y)
+                {
+                    const u32 y0 = y * 2;
+                    const u32 y1 = y0 + 1 < srcH ? y0 + 1 : y0; // clamp odd edges
+                    for (u32 x = 0; x < dstW; ++x)
+                    {
+                        const u32 x0 = x * 2;
+                        const u32 x1 = x0 + 1 < srcW ? x0 + 1 : x0;
+                        const u8* p00 = src + (static_cast<usize>(y0) * srcW + x0) * 4;
+                        const u8* p01 = src + (static_cast<usize>(y0) * srcW + x1) * 4;
+                        const u8* p10 = src + (static_cast<usize>(y1) * srcW + x0) * 4;
+                        const u8* p11 = src + (static_cast<usize>(y1) * srcW + x1) * 4;
+                        u8* out = dst + (static_cast<usize>(y) * dstW + x) * 4;
+                        for (i32 c = 0; c < 4; ++c)
+                        {
+                            if (srgb && c < 3) // color channels filter in linear space
+                            {
+                                const f32 avg = (SrgbToLinear(p00[c]) + SrgbToLinear(p01[c]) +
+                                                 SrgbToLinear(p10[c]) + SrgbToLinear(p11[c])) *
+                                                0.25f;
+                                out[c] = LinearToSrgb(avg);
+                            }
+                            else
+                            {
+                                out[c] = static_cast<u8>(
+                                    (static_cast<u32>(p00[c]) + p01[c] + p10[c] + p11[c] + 2) / 4);
+                            }
+                        }
+                    }
+                }
+                srcOffset = dstOffset;
+                srcW = dstW;
+                srcH = dstH;
+                ++levels;
+            }
+            return levels;
+        }
+
         // Cook a 6-face cubemap: derive the face paths from the +X face's naming convention,
         // load each through the VFS, validate (square, matching size/format), concatenate.
         [[nodiscard]] static Status BuildCubemap(const TextureAsset& ta,
@@ -498,6 +594,12 @@ export namespace pipeline{
             resource.format = (ta.colorSpace == image::ImageColorSpace::Srgb)
                                   ? rhi::TextureFormat::RGBA8UnormSrgb
                                   : rhi::TextureFormat::RGBA8Unorm;
+            if (ta.generateMipmaps && ta.shape == TextureShape::Texture2D)
+            {
+                resource.mipLevels =
+                    AppendMipChain(pixels, ta.embeddedWidth, ta.embeddedHeight,
+                                   ta.colorSpace == image::ImageColorSpace::Srgb);
+            }
             resource.shape = ta.shape;
             resource.minFilter = ta.minFilter;
             resource.magFilter = ta.magFilter;

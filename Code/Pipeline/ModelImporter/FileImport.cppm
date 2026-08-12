@@ -549,7 +549,7 @@ export namespace pipeline
                     (i < linear.Size() && linear[i])
                         ? foundation::image::ImageColorSpace::Linear // data maps (normal/MR/AO)
                         : foundation::image::ImageColorSpace::Srgb;  // color maps (albedo/emissive)
-                asset.generateMipmaps = false;
+                asset.generateMipmaps = true; // mips at cook (2026-08-12) - shimmer was the no-mips gap
 
                 // Real names when the source has them (rules out slot mix-ups at a glance).
                 content::Instance* inst =
@@ -606,7 +606,7 @@ export namespace pipeline
             asset.embeddedWidth = w;
             asset.embeddedHeight = h;
             asset.colorSpace = foundation::image::ImageColorSpace::Linear; // data map
-            asset.generateMipmaps = false;
+            asset.generateMipmaps = true; // mips at cook (2026-08-12) - shimmer was the no-mips gap
             const String name = Format(u8"mr.packed.{}.{}", roughIdx, metalIdx);
             content::Instance* inst = ClaimInstance(
                 group, name.AsView(), pipeline::TextureAsset::StaticType(), claimed);

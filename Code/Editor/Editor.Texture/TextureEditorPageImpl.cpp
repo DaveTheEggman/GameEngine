@@ -221,11 +221,24 @@ namespace editor
         {
             derived = srgb ? StringView(u8"RGBA8 sRGB") : StringView(u8"RGBA8 Linear");
         }
-        String text = Format(u8"{} x {}  |  source {}  |  cooks to {}", m_preview->Width(),
-                             m_preview->Height(),
+        // Mip chain the cook will produce (full chain to 1x1 when enabled - 2026-08-12).
+        u32 mipLevels = 1;
+        if (m_asset->generateMipmaps)
+        {
+            u32 w = m_preview->Width();
+            u32 h = m_preview->Height();
+            while (w > 1 || h > 1)
+            {
+                w = w > 1 ? w / 2 : 1;
+                h = h > 1 ? h / 2 : 1;
+                ++mipLevels;
+            }
+        }
+        String text = Format(u8"{} x {}  |  source {}  |  cooks to {}  |  {} mip level(s)",
+                             m_preview->Width(), m_preview->Height(),
                              m_sourceFormat == image::PixelFormat::RGBA32F ? StringView(u8"HDR")
                                                                            : StringView(u8"LDR"),
-                             derived);
+                             derived, static_cast<u64>(mipLevels));
         m_info->SetText(text.AsView());
     }
 

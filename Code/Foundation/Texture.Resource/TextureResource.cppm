@@ -300,8 +300,30 @@ export namespace foundation::texture
                     }
                     else
                     {
-                        batch->WriteTexture(texture, Span<const u8>(pixels.Data(), pixels.Size()),
-                                            layout, rhi::Extent3D{res->width, res->height, 1});
+                        // Walk the concatenated chain (cook v2): level sizes derive from the
+                        // dims progression; a payload holding only level 0 uploads only it.
+                        const u32 bpp = TextureData::GetBytesPerPixel(res->format);
+                        usize offset = 0;
+                        u32 levelW = res->width;
+                        u32 levelH = res->height;
+                        for (u32 level = 0; level < res->mipLevels; ++level)
+                        {
+                            const usize levelBytes = static_cast<usize>(levelW) * levelH * bpp;
+                            if (offset + levelBytes > pixels.Size())
+                            {
+                                break; // truncated payload: upload what exists, never overread
+                            }
+                            rhi::TextureDataLayout levelLayout{};
+                            levelLayout.bytesPerRow = levelW * bpp;
+                            levelLayout.rowsPerImage = levelH;
+                            batch->WriteTexture(
+                                texture, Span<const u8>(pixels.Data() + offset, levelBytes),
+                                levelLayout, rhi::Extent3D{levelW, levelH, 1},
+                                /*mipLevel*/ level, /*arrayLayer*/ 0);
+                            offset += levelBytes;
+                            levelW = levelW > 1 ? levelW / 2 : 1;
+                            levelH = levelH > 1 ? levelH / 2 : 1;
+                        }
                     }
                     (void)batch->Submit();
                     queue->DestroyTransferBatch(batch);
@@ -311,7 +333,9 @@ export namespace foundation::texture
             rhi::SamplerDesc sd{};
             sd.minFilter = ToFilterMode(res->minFilter);
             sd.magFilter = ToFilterMode(res->magFilter);
-            sd.mipmapFilter = (res->minFilter == TextureFilter::MipmapLinear)
+            // Trilinear whenever a chain exists: model imports say minFilter=Linear, and
+            // nearest-mip banding on a real chain is never what anyone wants.
+            sd.mipmapFilter = (res->mipLevels > 1 || res->minFilter == TextureFilter::MipmapLinear)
                                   ? rhi::MipmapFilterMode::Linear
                                   : rhi::MipmapFilterMode::Nearest;
             sd.addressU = ToAddressMode(res->wrapU);
