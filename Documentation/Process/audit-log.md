@@ -470,3 +470,18 @@ Verified against code @ 84e710a7 (both-shipped-and-deferred method).
   shipped as PrefabComponentBaseline.
 - SPLIT (spec rule): the Sedulous prefab-V2 survey + the design proposal + phasing + open questions ->
   **Archive/prefabs-design-history.md** (ARCHIVED). No live backlog - the track completed.
+
+## P1 - batch 13: text-scenes (2026-08-12)
+
+Verified against code @ 84e710a7 (both-shipped-and-deferred method).
+
+- **Systems/text-scenes.md** REWRITTEN present-tense (was `Text Scenes - XML source streams...`,
+  status APPROVED 2026-07-17, SHIPPED with the two follow-ups marked DONE inline, old `draconic.*` +
+  `DraconicExport` names). Accurate technical content preserved, names refreshed, present-tense. Verified
+  against code: foundation.xml.serialization + foundation.scene.resource; SceneStreamEncoding{Binary,
+  Text} + DetectSceneStreamEncoding (sniffs `<`); one SerializeScene path; WriteComponentRecord inline
+  (text param) via WriteComponent; export staging in Editor.Core/Export + Tools.Export with
+  AddAllSceneManagers. State: unknown -> current.
+- No Archive/Backlog split needed (a focused decision doc, no survey; the two follow-ups were already
+  DONE, folded into the shipped text; the one optional pretty-formatting item kept as an inline Deferred
+  line).
