@@ -78,6 +78,35 @@ half-built.
    > resolve mode at all). If Fable prefers the hardware depth path for
    > the depth specifically, that is a bounded swap of one resolve source.
 
+   > **Fable RULING (2026-08-12): APPROVED - the aux-buffer consequence is
+   > real and correctly derived, the shader-pass mechanism is right, and
+   > the hardware depth-resolve rejection stands (backend split + covers
+   > nothing the aux need). Three pins before building:**
+   >
+   > 1. **Depth resolves through SV_Depth into a REAL depth-format 1x
+   >    target** - the resolve pass binds an MRT of the three aux colors
+   >    PLUS a depth attachment written via SV_Depth (gl_FragDepth). Do
+   >    NOT respell depth as an R32Float color target: every existing
+   >    consumer (GTAO/SSR/TAA/motion reprojection) binds a depth-format
+   >    texture today, and a format respelling would ripple through their
+   >    bindings and shader declarations for zero benefit. With SV_Depth,
+   >    every 1x consumer is untouched - which is the whole point of
+   >    Decision 3.
+   > 2. **The sample-0 nuance, documented where the shader lives:** sample
+   >    0 of a standard MSAA pattern is NOT the pixel center, so resolved
+   >    depth/normals sit ~0.4px off where a 1x prepass would sample.
+   >    Consistent frame-to-frame and benign under TAA's own jitter -
+   >    accepted. The rule it protects: depth is NEVER averaged (nonlinear
+   >    - an averaged edge depth is a point in empty space).
+   > 3. **Ordering belongs to the graph, not the prose:** "after opaque
+   >    forward" over-specifies. The resolve pass is scheduled by its
+   >    dependencies - after the LAST producer of depth+aux, before their
+   >    FIRST 1x consumer - and the frame graph already orders that. If a
+   >    consumer (GTAO) can run before transparents, the graph is free to
+   >    schedule it so.
+   >
+   > Build on.
+
 5. **MSAA and TAA are independent toggles.** They solve different
    aliasing (geometry edges vs shading/specular); both-on is legal and
    sometimes right (MSAA4 + TAA is the Godot-quality look). The editor
