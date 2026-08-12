@@ -189,3 +189,23 @@ Verified against code @ 9c9046f8.
 - SPLIT: the unbuilt profiler + remote-transport design (the A/B transport decision, P2-P4
   phasing, open questions) -> **Plans/script-debugger-remote.md** (DRAFT - approved design,
   not started). New: Plans/script-debugger-remote.md.
+
+## P1 - batch 3: asset pipeline (2026-08-12)
+
+Verified against code @ 9c9046f8.
+
+- **Systems/asset-pipeline.md** REWRITTEN present-tense (was "editor phase 6", `Status: LOCKED
+  ... Remaining: UX pass, ...`, old `draconic.editor` module names). Now a CURRENT reference:
+  content DBs (foundation.content), the recipe-hash/content-hash staleness model + read-vs-
+  reference deps, builders (pipeline.core, IAssetBuilder/BuilderRegistry), CookDriver
+  (pipeline.cook, DAG-on-JobSystem + orphan sweep), VFS integration (foundation.vfs,
+  IStatFileSystem + watchable NativeFileSystem), the resource::Ref<T> reference layer
+  (foundation.resource, ResourceManager + ResolveSceneResources), and the surfaces (CLI +
+  EditorCookService + AssetsView + drop-file import). Verified: CookDriver, ContentDatabase,
+  BuilderRegistry, IAssetBuilder, Instance/Group, EditorCookService, AssetsView,
+  ResourceManager, resource::Ref, ResolveSceneResources, ImporterRegistry, IWatchableFileSystem/
+  IChangeSource; recipeHash/AssetDependencies/ScanDependencies/orphan in the cook code. State:
+  unknown -> current.
+- SPLIT: the Lumix/Traktor/Sedulous reference synthesis + the 6a-6d build-order record ->
+  **Archive/asset-pipeline-design-history.md** (ARCHIVED). Deferred (thumbnails, platform
+  variants) kept as a short section in the Systems doc pointing to Backlog.
