@@ -639,3 +639,22 @@ Verified against code @ b07dab67 (both-shipped-and-deferred method).
 - SPLIT (spec rule): reflection-probes locked decisions + froxel-selection design + the shipped
   divergence -> **Archive/reflection-probes-design-history.md** (ARCHIVED). post-processing deferrals
   kept inline (no survey to archive).
+
+## P1 - batch 21: particles + particles-authoring (2026-08-12)
+
+Verified against code @ 9812521b (both-shipped-and-deferred method).
+
+- **Systems/particles.md** REWRITTEN present-tense (was "design (pre-implementation)" - STALE; the CPU
+  runtime + render + seam SHIPPED). Verified: foundation.particles (ParticleEffect, ParticleModules/
+  ParticleEmitter, ParticleStreams SoA, ParticleTypes), foundation.particles.resource, particles.pipeline
+  (ParticleEffectAsset), engine.particles (ParticleEffectComponent, ParticleSystem); SimulationMode
+  {CPU,GPU,Auto} + BehaviorSupport + ResolveSimulationMode seam. GPU sim VERIFIED DEFERRED: no particle
+  numthreads compute shaders, no GPUSimulator dispatch - only the mode-resolution seam exists. State:
+  unknown -> current.
+- **Systems/particles-authoring.md** REWRITTEN present-tense (was "implementation-ready design" but §0
+  already said IMPLEMENTED). Verified: foundation.particles.resource (ParticleEffectResource + factory +
+  hot-reload Proxy), particles.pipeline (ParticleEffectAsset + Build), ParticleFX sample. Deferred
+  VERIFIED: the bespoke ParticleEffectPage (edited via generic reflected inspector today) + LUT curve
+  baking. State: unknown -> current.
+- SPLIT (spec rule): the 8-engine survey + the GPU-compute-first recommended plan ->
+  **Archive/particles-design-history.md** (ARCHIVED). Deferrals kept inline.
