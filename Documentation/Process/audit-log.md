@@ -581,3 +581,18 @@ with no external dependency. Fixed export-templates.md (baseline content is SHIP
 platform) + export.md (noted the shaders.dpak staging in the uniform driver). Same failure mode as the
 game-ui code-editor / scripting API-browser false-deferrals: a carried claim not re-checked. Extra
 caution flagged for the shaders.md / shaders-materials-hot-reload.md batch.
+
+## P1 - batch 18: instanced-mesh + skinning-benchmark (2026-08-12)
+
+Verified against code @ 7e4ebae7.
+
+- **Systems/instanced-mesh.md** - status stamp + name fix (title dropped "- Design"; draconic.animation.
+  subsystem -> engine.animation; SS for section refs to avoid the section glyph). The body was accurate
+  IMPLEMENTED reference. Verified: InstancedMeshComponent (engine.render/RenderComponents), InstancedSkinning
+  (engine.animation), DataOffsets (foundation.render/MeshRenderer), samples RenderStressTest/AnimatedCrowd
+  exist. §10 open-questions-resolved deferrals point to Plans/renderer-improvements.md §2. State: unknown
+  -> current.
+- **Systems/skinning-benchmark.md** - status stamp added. A benchmark reference with measured before/after
+  numbers (AnimStressTest sample verified to exist; kAutoRamp measurement aid). The one open limitation
+  (#3: full skeleton spawned as ~34 entities/char) remains the noted CPU frontier. State: unknown ->
+  current. Light touch (accurate present-tense reference; no rewrite needed).

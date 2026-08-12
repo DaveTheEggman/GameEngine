@@ -1,5 +1,9 @@
 # Skinning Benchmark & Baseline
 
+> Status: CURRENT
+> Verified: 2026-08-12 @ 7e4ebae7
+> Track: [[skinning-baseline]] / [[instanced-mesh]]
+
 `Code/Samples/AnimStressTest` is the skeletal-animation throughput benchmark - a port of
 Sedulous's `EngineAnimationSandbox`. It spawns a grid of the Quaternius `Char` humanoid; every
 instance gets its own `AnimationPlayer` (random clip + small speed jitter + desynced start) while

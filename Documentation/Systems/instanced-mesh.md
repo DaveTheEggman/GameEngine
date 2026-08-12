@@ -1,11 +1,15 @@
-# Instanced Mesh (MultiMesh) Primitive - Design
+# Instanced Mesh (MultiMesh) Primitive
 
-Status: **IMPLEMENTED — static (§1–6) AND skinned crowds (§7) shipped.**
-Static: `InstancedMeshComponent` + a persistent per-set instance buffer + a shared DataOffsets ramp;
-the whole grid draws as one instanced set across depth/forward/all CSM cascades with no per-frame
-fill. A/B in RenderStressTest with **M** — 120k spheres shadows-off went 47→60 fps (CPU-bound →
-GPU-bound), render CPU 20ms→1.3ms.
-Skinned (§7): `InstancedSkinning` companion (draconic.animation.subsystem) computes M SHARED pose
+> Status: CURRENT
+> Verified: 2026-08-12 @ 7e4ebae7
+> Track: [[instanced-mesh]] / [[renderer-instancing]]
+
+IMPLEMENTED - static (SS1-6) AND skinned crowds (SS7) shipped.
+Static: `InstancedMeshComponent` (`engine.render`) + a persistent per-set instance buffer + a shared
+DataOffsets ramp; the whole grid draws as one instanced set across depth/forward/all CSM cascades with
+no per-frame fill. A/B in RenderStressTest with **M** - 120k spheres shadows-off went 47->60 fps
+(CPU-bound -> GPU-bound), render CPU 20ms->1.3ms.
+Skinned (SS7): `InstancedSkinning` companion (`engine.animation`) computes M SHARED pose
 palettes/frame (phase-bucketed, instance i uses pose i%M) → shared bone pool → per-set DataOffsets
 (bone bases) → skinned MultiMesh draw. Per-bone motion blur (ping-pong prev pool → `DataOffsets.z`).
 AnimatedCrowd sample: **2350 chars @60fps shadows-on / ~5000 shadows-off**, GPU-bound, CPU ~2ms
