@@ -695,3 +695,19 @@ Verified against code @ f090a071.
 - SPLIT (spec rule): the measured-gap census + the nested-member blocker + Fable's Q3 decision + the
   container-primitives blocker + the unit-by-unit collections-in-scripts log ->
   **Archive/reflection-track-history.md** (ARCHIVED).
+
+## P1 - batch 24: renderer (2026-08-12)
+
+Verified against code @ f3be260f.
+
+- **Systems/renderer.md** header REWRITTEN present-tense (was `Raptor Renderer - Design`, already marked
+  "IMPLEMENTED / done" and explicitly a design record) + a real Module map added, and the pervasive old
+  library names swept (raptor.* / draconic.* -> foundation.* / engine.*; draconic.render.subsystem ->
+  engine.render) across the whole file + em-dashes stripped. Verified: foundation.render (scene-agnostic
+  core, :data/MeshRenderer), foundation.render.api, engine.render (RenderSubsystem = ISceneRenderer
+  driver); deps foundation.rhi/rendergraph/materials/shaders/geometry/scene. The detailed body (goal,
+  principles, keep-vs-rebuild boundary, extraction, extensibility, frame loop, GPU resource layer, views/
+  frame-graph, materials, lighting/shadows, IBL/probes/post/skinning, phasing) is the accurate delivered-
+  system design record, preserved. Future work points to Plans/renderer-improvements.md. State: unknown
+  -> current. (Light touch: the doc was already accurate + IMPLEMENTED; audit = stamp + name refresh, not
+  a rewrite that would risk the technical record.)
