@@ -405,3 +405,29 @@ claims against code with the corrected method.
 
 Tally across both correction sweeps: 2 false-deferrals fixed (game-ui code-editor, scripting API
 browser), 1 under-claim fixed (net send-RPC); everything else verified still-deferred against code.
+
+## P1 - batch 10: runtime-host (2026-08-12)
+
+Verified against code @ 42273d13.
+
+- **Systems/runtime-host.md** REWRITTEN present-tense (was `Runtime Host Hardening - Design (v2)`, 533
+  lines: IMPLEMENTED but a layered design log - v1 module-list, v2 inversion, v3 embedded host, all
+  with full API sketches + a Sedulous wart table + multi-window frame-flow pseudocode, old
+  `raptor.runtime.*`/`Raptor/Runtime/` names). Now a CURRENT reference: the inversion (IApplication IS
+  the app; DefaultApplication; no IApplicationModule), ApplicationHost + uniform multi-window + the
+  three graphics modules, subsystem phases + per-window render, the embedded host (two-context editor),
+  time + run ownership pointing to game-instance. Verified against code: foundation.runtime.client
+  (Application.cppm IApplication hooks Settings/Configure/OnStartup/OnLaunch/OnUpdate/OnFixedUpdate/
+  OnRenderWindow/OnExit/OnShutdown; ApplicationHost.cppm loop-agnostic generic host + uniform
+  multi-window; EmbeddedHost.cppm routes Ctx to embedded runtime context + shares real GraphicsDevice +
+  MainRenderWindow null); foundation.graphics{,.gpu,.null} (GraphicsDevice/RenderWindow/FrameContext);
+  foundation.runtime.desktop RunApplication; engine.defaultapp DefaultApplication. State: unknown ->
+  current.
+- CORRECTED drift (both-shipped-and-deferred method): IApplicationModule is DEAD (only a stale comment
+  in Graphics.cppm) - the inversion replaced it. The proposed `Subsystem::Render(FrameContext&)` phase
+  was NEVER added (Subsystem phases are BeginFrame/FixedUpdate/Update/PostUpdate/EndFrame); per-window
+  render goes through IApplication::OnRenderWindow. The doc's per-scene-time framing is superseded by
+  the SceneManager model (game-instance).
+- SPLIT (spec rule): the v1/v2/v3 evolution + the Sedulous wart table + the API sketches + the deferred-
+  then-obsoleted Subsystem::Render item + deviations -> **Archive/runtime-host-design-history.md**
+  (ARCHIVED). No live backlog: the deferred design was superseded, not left pending.
