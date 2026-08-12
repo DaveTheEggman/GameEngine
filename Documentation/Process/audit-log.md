@@ -568,3 +568,16 @@ Verified against code @ 7e4ebae7 (both-shipped-and-deferred method).
   State: unknown -> current.
 - SPLIT (spec rule): the Sedulous reference read (the gem kept + the smells not ported + the four locked
   decisions) -> **Archive/viewport-input-design-history.md** (ARCHIVED). editor-jobs needed no split.
+
+## P1 - correction: export baseline-content (shaders) was stale (2026-08-12)
+
+User caught a stale claim in batch 16's export-templates.md: "baseline engine content ~none - core
+render-pass shaders are inline HLSL baked into the player binary, so passes need no external shader
+pak." OUTDATED - I carried the old doc's open-question bullet without verifying against the
+shaders-out-of-C++ track, which SHIPPED. Reality (verified): engine shaders are .hlsl source cooked by
+foundation.shaders/ShaderPackCooker; export stages a shaders.dpak beside the player for the target
+platform (StageShaderPack, ExportImpl.cpp:104/705 - Vulkan/DXIL desktop, WGSL web) so every dist renders
+with no external dependency. Fixed export-templates.md (baseline content is SHIPPED, export-produced per
+platform) + export.md (noted the shaders.dpak staging in the uniform driver). Same failure mode as the
+game-ui code-editor / scripting API-browser false-deferrals: a carried claim not re-checked. Extra
+caution flagged for the shaders.md / shaders-materials-hot-reload.md batch.

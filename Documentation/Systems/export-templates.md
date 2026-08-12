@@ -57,13 +57,21 @@ required runtime-lib.
 - **Import** - `ImportTemplate` (validate `template.xml` -> recursive copy under `<id>`).
 - **Resolve** - as above.
 
+## Baseline engine content (shipped)
+
+The shaders-out-of-C++ track shipped, so the player boots against a COOKED shader pack, not baked-in
+HLSL: engine shaders are `.hlsl` source cooked by `foundation.shaders`' `ShaderPackCooker`, and export
+stages a `shaders.dpak` beside the player for the preset's platform (`StageShaderPack`) so the dist
+renders with no external dependency (Web stages the WGSL variant). This baseline runtime content is
+produced by EXPORT per platform rather than carried inside the template bundle - so the template stays
+just the player + sidecars, and the render-pass shaders are dist content. Fonts/fallback textures the
+player needs to boot are similarly minimal today.
+
 ## Deferred
 
-- **Baseline engine content** (open question). Does the player need default assets (fonts, fallback
-  textures, later shaders) to boot? Today ~none: the core render-pass shaders are inline HLSL baked into
-  the player binary, so passes need no external shader pak. If shaders leave C++ (the shaders-out-of-C++
-  sub-track), a baseline shader pak would ride in the template as runtime content. The biggest
-  structural open item.
 - **`capabilities`** manifest field (compiled-in RHI backends so a preset can require one) - forward-
   looking, not built.
 - **Downloadable templates** (fetch a versioned archive; same install path as import) - future.
+- **Baseline content INSIDE the template** vs produced by export. Today the shader pack is export-
+  produced per platform; folding a prebuilt baseline pak into the template bundle is an option only if
+  a real need appears (open, low priority).

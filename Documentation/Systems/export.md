@@ -49,7 +49,10 @@ dist ships only the CLOSURE of its entry points instead of the whole cooked dir.
 filesStaged, outputDir, engineVersionWarning }`. A resolved template whose `engineVersion` differs
 warns and still exports (soft-match). Scene/prefab source streams pre-transcode to binary before packing
 (`CollectSceneStreams` / `TranscodeSceneStreamToBinary`); file ops use native
-`core::FileCopyPreserving` / `CreateDirectories`.
+`core::FileCopyPreserving` / `CreateDirectories`. Every export also cooks the engine shaders for the
+target platform and stages a `shaders.dpak` beside the player (`StageShaderPack` - Vulkan/DXIL for
+desktop, WGSL for Web), so a dist renders with no external dependency (engine shaders are cooked `.hlsl`,
+not baked into the binary).
 
 - **CLI** (`Tools.Export`): `<project> [--out --preset | --all --rebuild]`, `--template list|import|
   create`; host-preset fallback when no `export_presets.xml`.
