@@ -326,3 +326,30 @@ Verified against code @ 3364be29.
   **Archive/game-ui-design-history.md** (ARCHIVED); the remaining follow-ups (option-A direct-draw,
   dirty-gating, atlas/MIP, declarative bindings, theme variations, code-editor control, the two-scene
   edge, the toolkit test tail) -> **Backlog/game-ui-followups.md**.
+
+## P1 - batch 9: game-instance (2026-08-12)
+
+Verified against code @ 33b89288.
+
+- **Systems/game-instance.md** REWRITTEN present-tense (was `Draconic - GameInstance (design)`, 470
+  lines: Phase-1-SHIPPED but overwhelmingly a design + phasing + investigation LOG - the retrofit
+  framing (§1-10), the target model (§11), the run-host-ownership investigation (§11.10), and the
+  SceneSubsystem-pure-registry step (§11.11), all inline). The whole track shipped, so it is now a
+  CURRENT reference: the two layers (engine host owns Array<GameInstance>; GameInstance owns its
+  ScriptRunHost + SceneManager + per-instance NetworkManager + ActionRuntime + headless + time scale),
+  SceneManager (scene lib, ticks its group, ISceneAware fan-out via the registry), SceneSubsystem as a
+  pure registry, the time model, per-instance run-host binding, the SceneLoader scene-management facade,
+  standalone/editor/headless, deferred. Verified against code: engine.gameinstance (GameInstance.cppm)
+  owning m_runHost/m_sceneManager/m_net(NetworkManager)/m_inputRuntime(ActionRuntime)/m_headless;
+  SceneManager (scene lib); ScriptSubsystem keeps only m_ownedRunHost + ConfigureRunHost +
+  MaybeTeardownRunHost (per-host); SceneSubsystem AwareRegistry + RegisterManager + ForEachManager;
+  DefaultApplication PrimaryScenes(); SceneLoaderScriptBinding loadScene/loadSceneAsync/loadComplete/
+  sceneReady + starter snippets in all three cooks. State: unknown -> current.
+- CORRECTED drift: the whole §11 target model SHIPPED (old header said "Phase 1 SHIPPED, Phases 2-5
+  designed") - per-instance run hosts, SceneManager, pure-registry SceneSubsystem, the SceneLoader
+  facade, per-instance net + input, headless are all present in code.
+- SPLIT (spec rule): the retrofit diagnosis (the duplicated bracket, the ownership audit, the blockers,
+  the two framings, the run-host-ownership investigation, the Zero GameSession precedent, the per-page
+  scene-manager decision) -> **Archive/game-instance-design-history.md** (ARCHIVED); the two open items
+  (player multi-scene compositing, the one-shared-editor-manager alternative) ->
+  **Backlog/game-instance-followups.md**.
