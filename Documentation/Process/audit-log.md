@@ -277,3 +277,26 @@ Verified against code @ 51b22d7f.
   Null-mode + backend rationale + resolved open questions -> **Archive/audio-design-history.md**
   (ARCHIVED); the grain-banks north star + its incremental growth path (in-loop-out / parameter
   system / blend cues / composite cues) -> **Backlog/audio-followups.md**.
+
+## P1 - batch 7: input (2026-08-12)
+
+Verified against code @ 9e80f286.
+
+- **Systems/input.md** REWRITTEN present-tense (was `Draconic Input - Action Mapping (design)`,
+  SHIPPED-but-design-framed, 210 lines, old `draconic.input.*`/`draconic.shell` names). Now a CURRENT
+  reference: the raw device layer (foundation.shell) vs the action layer (foundation.input), the
+  modules (foundation.input.resource / input.pipeline / engine.input / editor.input), the InputMap
+  data model, ActionRuntime evaluation + interactions, UI-vs-game arbitration, play-in-editor,
+  resources + rebind overlay, editor + scripting, touch + portability. Verified against code:
+  foundation.shell (InputEvent + device facades + InputSurface/InputRouter); foundation.input
+  ActionRuntime.cppm + InputMap.cppm + ConsumptionMask(SetConsumptionMask) + interactions
+  Hold/Tap/DoubleTap; InputMapResource (foundation.input.resource); InputMapAsset (input.pipeline);
+  InputSubsystem + IInputSourceProvider (engine.input); InputMapPage + Listen capture (editor.input);
+  Input facade (per-context, Wren); InputBindingOverrides settings overlay. State: unknown -> current.
+- CORRECTED drift vs the design/header: the ConsumptionMask UI-vs-game arbitration is SHIPPED and
+  WIRED (Engine.UI/UISubsystemImpl.cpp calls SetConsumptionMask) - the old status header still listed
+  it as "REMAINING: awaits the game-ui subsystem". ActionRuntime lives in foundation.input (not a
+  separate engine eval lib). PlayerInput is genuinely absent (deferred).
+- SPLIT (spec rule): the reference survey (Sedulous/ez/Godot/Flax) + design calls + resolved open
+  questions -> **Archive/input-design-history.md** (ARCHIVED); the remaining P3 (PlayerInput pairing,
+  action haptics, per-scene/split-screen) -> **Backlog/input-followups.md**.
