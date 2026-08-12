@@ -240,8 +240,12 @@ as a standing rule in memory `webgpu-stricter-than-vulkan`.
   readback (Sample016_Readback pattern), asserting intermediate-coverage pixels appear on the 4x edge;
   confirm GTAO/SSR/TAA/FXAA still pass their existing probes with MSAA on; both backends. This is the
   last unautomated piece of P1's acceptance.
-- Follow-up noted: DX12 `MaxColorDepthSampleCount`/`SupportsSampleCount` still return the default 1
-  (no MSAA on the DX path yet) - fine for now (WebGPU-first), revisit if DX12 becomes a target.
+- **DX12 capability overrides** - `DxDevice` does not yet override `MaxColorDepthSampleCount` /
+  `SupportsSampleCount`, so on the shipping Windows DX12 target they fall to the base defaults (1 /
+  `count<=1`): MSAA silently reports unavailable there and every view degrades to 1x. D3D12 fully
+  supports MSAA - wire the two overrides via `CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS)`
+  for the color + depth formats (mirroring the Vulkan bitmask override). Real P1 follow-up on Windows;
+  the mechanism itself is backend-neutral, so no engine changes - just the capability query.
 
 ## Phases
 
