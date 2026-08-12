@@ -254,3 +254,26 @@ Verified against code @ 33f64a02.
   + layer-model choice + deviations-and-why -> **Archive/physics-design-history.md** (ARCHIVED); the
   §10 parked items (convex decomposition, gravity volumes, JPH_DEBUG_RENDERER, per-world job-pool
   consolidation) + the now-resolved per-entity-scripting note -> **Backlog/physics-followups.md**.
+
+## P1 - batch 6: audio (2026-08-12)
+
+Verified against code @ 51b22d7f.
+
+- **Systems/audio.md** REWRITTEN present-tense (was `Draconic Audio - miniaudio-backed subsystem
+  (design)`, SHIPPED-but-design-framed, 233 lines with the full reference survey + phasing + open
+  questions + a giant status-header changelog inline, old `draconic.audio.*` names). Now a CURRENT
+  reference: the real modules (foundation.audio / foundation.audio.resource / audio.pipeline /
+  engine.audio / editor.audio), the fixed four-bus AudioBus topology + BusLayout data + effect kinds,
+  voices + stealing + faded steal, 3D + reverb zones + multi-listener, cooked resources (AudioClip /
+  SoundCue / BusLayout), scene integration + the Audio facade. Verified against code: modules above;
+  AudioEngine + VoiceStatus.cursorSeconds + AudioBus{Master,Effects,Music,UI} +
+  AudioBusEffectKind{None,Lowpass,Highpass,Delay,Reverb} + Freeverb/AudioReverbParams (foundation.
+  audio); AudioClip + BusLayout (foundation.audio.resource); AudioClipAsset + SoundCue asset
+  (audio.pipeline); AudioSubsystem + AudioSourceComponent + AudioListenerComponent +
+  AudioReverbZoneComponent + AudioUserSettings (engine.audio); AudioClipPage/SoundCuePage/BusLayoutPage
+  (editor.audio); facade methods playOneShot/playOneShot3D/playCue/playMusic/stopMusic/busVolume/
+  setBusVolume; listenerCount 1..4. State: unknown -> current.
+- SPLIT (spec rule): the reference survey (Sedulous/Godot/Traktor/Lumix) + no-abstraction-theater +
+  Null-mode + backend rationale + resolved open questions -> **Archive/audio-design-history.md**
+  (ARCHIVED); the grain-banks north star + its incremental growth path (in-loop-out / parameter
+  system / blend cues / composite cues) -> **Backlog/audio-followups.md**.
