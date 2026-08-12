@@ -20,8 +20,10 @@ doc). Reference: `Documentation/Systems/scripting.md`. None are blocking.
 - **luau-analyze (P5b)** - external `luau-analyze` binary for `script_validate` + optional cook
   typecheck. Luau's Analysis lib uses exceptions (engine is -fno-exceptions), so it runs as a
   vendored CLI subprocess (the DXC/naga pattern), fed the P5a `.d.luau` declarations. DEFERRED.
-- **ScriptClassesView** - the API-browser / autocomplete in ScriptPage driven off
-  `DescribeBoundApi()`. Data source exists; UI unbuilt.
+- ~~ScriptClassesView (API-browser / autocomplete)~~ **DONE** - built as `ScriptApiBrowserView` +
+  `ScriptApiSurface` (the one bound-API source driving both the browser and completion, off
+  `DescribeBoundApi()`) + `ScriptCompletionImpl`, all wired into `ScriptPage` (own impl files,
+  click-to-insert). Kept here only to correct the old "UI unbuilt" claim.
 - **Delegate richer AngelScript signatures** - currently one general `double(double)` funcdef;
   per-signature funcdefs are an additive extension.
 - **rayHitEntity / Entity placement** - `physics.subsystem` depends on `ScriptFacades` only for

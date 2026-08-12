@@ -378,3 +378,30 @@ to have been quietly completed. Re-verified every deferred/backlog claim from ba
   comment); game-instance player multi-scene compositing. These stand.
 
 Method fix going forward: verify DEFERRED items against code too, not just shipped claims.
+
+## P1 - correction sweep 2: batches 1-3 deferred claims re-verified (2026-08-12)
+
+Per the user, re-verified batches 1-3 (scripting, script-debugger, asset-pipeline) deferred/backlog
+claims against code with the corrected method.
+
+- **FALSE DEFERRAL (fixed): scripting "ScriptClassesView - API browser / autocomplete - UI unbuilt".**
+  It IS built: `ScriptApiBrowserView` + `ScriptApiSurface` (one bound-API source for browser +
+  completion, off `DescribeBoundApi()`) + `ScriptCompletionImpl`, wired into `ScriptPage`
+  (own impl files, added to the layout, click-to-insert). Corrected Backlog/scripting-followups.md
+  (struck through, marked DONE) and enriched Systems/scripting.md's ScriptPage line.
+- **CONFIRMED still deferred (checked against code):**
+  - scripting: profiler (`IScriptProfiler` seam exists but `ScriptDebug.cppm` explicitly states "no
+    backend implements it yet, CreateProfiler returns null"); luau-analyze (LuauScript.cppm comments
+    only, no subprocess); Entity-in-facades (physics.subsystem STILL `import foundation.script.facades`
+    for the `rayHitEntity` return type - the contract-lib move is not done); behaviors live-state
+    reload (fields are transient, no getter convention); behaviors script-defined editor hooks (absent);
+    AngelScript delegate richer signatures (one general funcdef accepting any signature - the
+    per-signature split is genuinely additive); Wren retirement (user-deferred).
+  - script-debugger: remote transport (no RemoteScriptDebugger/DebugServer), Wren debugger, step-out /
+    conditional breakpoints / watch expressions - none in the backends.
+  - asset-pipeline: GPU thumbnails (all `thumb` refs in AssetsView/AssetPickerSlot/Project are
+    explicitly "future/reserved/not yet drawn"; no render-to-thumb cache) and cooked per-target
+    platform variants (absent). Both hold.
+
+Tally across both correction sweeps: 2 false-deferrals fixed (game-ui code-editor, scripting API
+browser), 1 under-claim fixed (net send-RPC); everything else verified still-deferred against code.

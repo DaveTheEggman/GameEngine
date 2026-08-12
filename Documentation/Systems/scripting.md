@@ -128,7 +128,8 @@ Suspension-based, non-blocking. Wren has no debugger. Full detail: [[Systems/scr
 
 ## Editor
 
-- **ScriptPage**: edit source -> recook -> hot reload, with inline error surfacing.
+- **ScriptPage**: edit source -> recook -> hot reload, with inline error surfacing, a bound-API
+  browser (`ScriptApiBrowserView`) + autocomplete driven off `DescribeBoundApi()` (`ScriptApiSurface`).
 - **Per-language editor UI** (`Editor.Script.{Wren,AngelScript,Luau}`): a CodeEditView lexer
   registered by language id; kept OUT of the UI-free Pipeline layer ([[pipeline-ui-free]]).
 - **New-Asset starters**: one creator per registered backend per tier (Behavior/Level/Game),
