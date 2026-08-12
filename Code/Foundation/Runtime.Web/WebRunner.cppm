@@ -15,12 +15,12 @@ module;
 export module foundation.runtime.web;
 
 import foundation.core;
-namespace shell = foundation::shell;
 import foundation.shell;          // IShell (interface only - the concrete shell is handed in)
 import foundation.graphics;       // GraphicsDevice (handed to the app)
 import foundation.runtime.client; // IApplication + ApplicationHost (the runner drives these)
 
 namespace core = foundation::core;
+namespace shell = foundation::shell; // after the import (a module namespace alias must follow it)
 using namespace foundation::graphics; // GraphicsDevice (moved from foundation::runtime)
 
 namespace foundation::runtime
