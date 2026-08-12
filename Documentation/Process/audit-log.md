@@ -596,3 +596,28 @@ Verified against code @ 7e4ebae7.
   numbers (AnimStressTest sample verified to exist; kAutoRamp measurement aid). The one open limitation
   (#3: full skeleton spawned as ~34 entities/char) remains the noted CPU frontier. State: unknown ->
   current. Light touch (accurate present-tense reference; no rewrite needed).
+
+## P1 - batch 19: shaders + shaders-materials-hot-reload (2026-08-12, EXTRA RIGOR after the shader-baseline catch)
+
+Verified against code @ fd25f6de.
+
+- **Systems/shaders.md** REWRITTEN present-tense (was "decided 2026-07-28" track doc, old raptor/draconic
+  names). P1 (banks->.hlsl) + P2 (cook-time bytecode ShaderPack SPIR-V/DXIL) + P3 (WGSL via naga) SHIPPED;
+  P4 (Shader editor page) genuinely DEFERRED. Verified: foundation.shaders (+Cook: ShaderPackCooker,
+  WgslTranslator HLSL->DXC->SPIR-V->naga->WGSL, --keep-coordinate-space), foundation.shaders.resource
+  (ShaderResource/ShaderFactory/ShaderSource/ShaderSystem), foundation.shaders.system (ShaderSystemHost +
+  FileShaderSourceProvider), shaders.pipeline, Tools.ShaderPack; NO C++ shader string-banks remain in
+  Render; Pack.cppm "a shipped dist carries no DXC/naga"; NO Editor.Shaders/ShaderPage (P4 unbuilt).
+  State: unknown -> current.
+- **Systems/shaders-materials-hot-reload.md** REWRITTEN present-tense (was "mostly built 2026-06-26", old
+  raptor.* names). The full stack SHIPPED. Verified: foundation.resource dependency tracking (Dependents,
+  build-stack auto-edge, transitive Reload); foundation.shaders.resource ShaderResource variants;
+  foundation.materials (PipelineConfig/MaterialBuilder/MaterialInstance/MaterialSystem);
+  foundation.materials.pipelinecache (the PSO cache); foundation.materials.resource (MaterialResource/
+  MaterialFactory); materials.pipeline. Hot reload WIRED (RenderSubsystem PumpReloads + GPU idle).
+- CORRECTED (both-shipped-and-deferred + extra rigor): the file-watch mechanism shipped DIFFERENTLY -
+  NOT inotify/RDCW (the doc's §6) but a portable POLLED stat-sweep (NativeFileSystem::AsWatchable +
+  FileShaderSourceProvider::PollChanges, throttled ~1s). Noted in both the Systems doc + archive.
+- SPLIT (spec rule): shaders P3 spike (tint vs naga) + phasing + rulings -> **Archive/shaders-design-
+  history.md**; the version-poll-vs-dirty-flag decision + Traktor precedent + reload flows + the
+  watcher-shipped-differently note -> **Archive/shaders-materials-design-history.md** (both ARCHIVED).
