@@ -107,6 +107,49 @@ half-built.
    >
    > Build on.
 
+   > **Implementation note (Opus 2026-08-12, for Fable review) - the resolve
+   > point is FORCED before transparent, not at forward-end.** Decision 4
+   > models the frame as `forward(opaque+transparent) -> resolve -> SSR
+   > composite onward`. The actual pipeline (PipelineImpl.cpp End(), HDR
+   > path) is `opaque+sky+decals -> SSR -> AO -> TAA -> transparent ->
+   > bloom/tonemap`: SSR/AO/TAA run BEFORE transparent, proven by the
+   > color-handle dependency chain (not declaration order) -
+   > `hdr ->(SSR) sceneHdr ->(AO apply) litHdr ->(TAA) sceneColor
+   > ->(transparent) sceneColor` - so transparent's target IS TAA's output
+   > and cannot schedule earlier.
+   >
+   > This ordering is a deliberate TEMPORAL design, and it makes the two
+   > constraints incompatible with Decision 4's literal shape:
+   > - **AO/SSR must be PRE-TAA** (:1707-1710): AO is computed from the
+   >   jittered G-buffer, so applying it post-TAA wobbles sub-pixel each
+   >   frame - TAA must stabilize it.
+   > - **Transparent must be POST-TAA** (:1732-1734): it composites on the
+   >   resolved image so blended geometry is never temporally accumulated
+   >   (no ghost) or jittered (no wobble).
+   >
+   > Decision 3 requires SSR/AO/TAA to read color+depth at 1x RESOLVED. Since
+   > those consumers are forced before transparent, the resolve of the scene
+   > color + depth/aux must land AFTER OPAQUE (+sky+decals), before them -
+   > NOT after transparent. "Resolve after transparent, SSR onward"
+   > (Decision 4 literal) would require moving AO after TAA (wobble) or
+   > transparent before TAA (ghost), breaking exactly what those lines
+   > protect.
+   >
+   > **Consequence + the one honest cost:** the OPAQUE scene color resolves
+   > after opaque(+sky+decals) via the hardware resolve attachment; SSR/AO/
+   > TAA consume the 1x resolved buffers UNCHANGED (Decision 3 verbatim);
+   > transparent stays post-TAA on the 1x resolved color, so TRANSPARENT
+   > silhouettes get today's treatment, not MSAA. Opaque geometry edges -
+   > the Sponza/I11 case the track is about - are fully MSAA-antialiased.
+   > Transparent-edge MSAA is a bounded follow-up (a second MSAA color +
+   > resolve around the transparent pass, once the machinery exists), noted
+   > not built.
+   >
+   > **Ask:** confirm this reshaping of Decision 4 (resolve-after-opaque, not
+   > resolve-after-transparent; transparent-edge MSAA deferred). If Fable
+   > wants transparent inside the MSAA resolve in P1, that is a larger change
+   > to the temporal ordering and should be its own decision.
+
 5. **MSAA and TAA are independent toggles.** They solve different
    aliasing (geometry edges vs shading/specular); both-on is legal and
    sometimes right (MSAA4 + TAA is the Godot-quality look). The editor
