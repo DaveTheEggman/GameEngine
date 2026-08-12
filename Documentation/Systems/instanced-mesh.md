@@ -18,7 +18,7 @@ hazard-free, static OR per-frame-dynamic). Validated clean under the Vulkan vali
 
 Relationship to Flax's "batch skinned meshes into one draw" (global bone buffer + per-instance bone
 range): that = the EXISTING per-entity skinned instancing (m_boneDevice + DataOffsets.y + ResolveInstanced
-batching), O(N) unique poses. §7 goes further for crowds — O(M) SHARED poses + O(1) ECS. Per-clip variety
+batching), O(N) unique poses. §7 goes further for crowds - O(M) SHARED poses + O(1) ECS. Per-clip variety
 = app-level bucketing (one InstancedSkinning per clip); cost stays O(clips×M).
 
 Motivated by a direct benchmark against
@@ -49,12 +49,12 @@ Draconic is ~40% slower per sphere with shadows on. The profile shows **why**, a
 the GPU:
 
 - Draconic is **CPU-bound**: render-thread 40ms vs GPU 29.6ms. The GPU is competitive -
-  extrapolating Godot's per-node path to 144k gives ~27ms vs Draconic's 29.6ms GPU.
+ extrapolating Godot's per-node path to 144k gives ~27ms vs Draconic's 29.6ms GPU.
 - Godot's MultiMesh (O(1) CPU) and per-node (O(N) CPU) run at basically the same speed
-  → Godot is **GPU-bound in both** - its per-frame CPU is cheap enough to hide behind the GPU.
+ → Godot is **GPU-bound in both** - its per-frame CPU is cheap enough to hide behind the GPU.
 - Draconic's per-frame CPU cost at 144k: Extract 4.4ms + AddView/sort 6.47ms +
-  `shadow.resolve` 8.96ms (per-cascade instance fill) + depth-prepass record 6.14ms +
-  forward record 2.15ms. All O(N), some done up to 5× per frame (camera + 4 cascades).
+ `shadow.resolve` 8.96ms (per-cascade instance fill) + depth-prepass record 6.14ms +
+ forward record 2.15ms. All O(N), some done up to 5× per frame (camera + 4 cascades).
 
 **Key finding:** Draconic's GPU is fine; the gap is per-frame CPU exceeding GPU time. Two
 ways to close it: (a) make the per-frame CPU pipeline cheaper (parallelize sort, stop
@@ -86,7 +86,7 @@ shadowed crowds, while the existing per-entity path stays for genuinely dynamic 
 
 **Non-goals (v1).** Per-instance frustum culling (the set culls as one AABB - GPU clips the
 rest, same as Godot); GPU-driven culling/compaction; skinned crowds (designed for, built
-later - §7 — now shipped); LOD selection per instance. The ones that remain deferred are now
+later - §7 - now shipped); LOD selection per instance. The ones that remain deferred are now
 tracked in **[renderer-improvements.md](renderer-improvements.md) §2** ("Remaining MultiMesh
 optimizations") and §3/§4 (GPU-driven, spatial accel).
 
@@ -114,14 +114,14 @@ pattern ([[scene-ecs-port]]):
 
 ```
 InstancedMeshComponent {
-    RefPtr<StaticMesh>  mesh          // shared by every instance
-    RefPtr<Material>    material
-    Array<Mat4>         instances     // CPU source of truth (or compact TRS to halve size)
-    Array<Color>        tints         // optional per-instance tint (else one shared)
-    DirtyRegions        dirty         // block bitset (à la Godot MULTIMESH_DIRTY_REGION_SIZE)
-    u32                 count, capacity
-    AABB                localBounds   // merged bounds of all instances; recomputed only on change
-    u32                 gpuSetId = 0  // opaque handle into the renderer's persistent buffer pool
+ RefPtr<StaticMesh> mesh // shared by every instance
+ RefPtr<Material> material
+ Array<Mat4> instances // CPU source of truth (or compact TRS to halve size)
+ Array<Color> tints // optional per-instance tint (else one shared)
+ DirtyRegions dirty // block bitset (à la Godot MULTIMESH_DIRTY_REGION_SIZE)
+ u32 count, capacity
+ AABB localBounds // merged bounds of all instances; recomputed only on change
+ u32 gpuSetId = 0 // opaque handle into the renderer's persistent buffer pool
 }
 ```
 
@@ -147,17 +147,17 @@ allocation from a shared arena), owned by the `MeshRenderer`, keyed by `gpuSetId
 - **Allocate/grow** on first extract or a `SetCount` resize; upload all `InstanceData`.
 - **Per frame**, apply only the dirty regions (a small `WriteBuffer`), or nothing if static.
 - A persistent **`DataOffsets` ramp** `[0,1,…,N-1]` built once (still needed - we avoid
-  `SV_InstanceID` - but static now).
+ `SV_InstanceID` - but static now).
 
 ### Frames-in-flight (the one real hazard)
 
 The GPU may read last frame's buffer while this frame writes dirty regions. Options:
 
 - **Static sets** (never dirty after init) → a single **immutable** buffer, no per-frame
-  copy, no hazard. This is the common case and the whole point - handle it first.
+ copy, no hazard. This is the common case and the whole point - handle it first.
 - **Dynamic sets** (dirty regions each frame) → either N-buffer it (one copy per frame-in-
-  flight, upload dirty to the current copy) or single buffer + upload-before-passes with a
-  barrier. Memory: 150k × 144B ≈ 21MB per set (× frames-in-flight if dynamic) - acceptable.
+ flight, upload dirty to the current copy) or single buffer + upload-before-passes with a
+ barrier. Memory: 150k × 144B ≈ 21MB per set (× frames-in-flight if dynamic) - acceptable.
 
 Version the bind group by the buffer's generation, not its pointer (a reallocation on
 resize must invalidate cached bind groups - see [[bind-group-cache-versioning]]).
@@ -173,9 +173,9 @@ no per-instance copy:
 
 ```
 MultiMeshRenderData : MeshRenderData {
-    u32 gpuSetId
-    u32 instanceCount
-    // worldCenter/worldRadius (base fields) = the MERGED AABB as a sphere -> single-AABB cull
+ u32 gpuSetId
+ u32 instanceCount
+ // worldCenter/worldRadius (base fields) = the MERGED AABB as a sphere -> single-AABB cull
 }
 ```
 
@@ -219,9 +219,9 @@ case. **But the ECS/cost model differs enough to keep them separate:**
 
 - **Static instanced** → O(1)/frame (persistent buffer). The v1 win.
 - **Skinned instanced** → O(unique poses)/frame - every animated instance needs bone
-  matrices computed + uploaded each frame. It is NOT O(1). Affordable only with a **shared
-  pose pool**: M unique poses among N instances → compute M, each instance's `DataOffsets.y`
-  points to its pose.
+ matrices computed + uploaded each frame. It is NOT O(1). Affordable only with a **shared
+ pose pool**: M unique poses among N instances → compute M, each instance's `DataOffsets.y`
+ points to its pose.
 
 Because `MeshComponent` unifies static+skinned (one component, mesh flag) only *works* since
 a single mesh is cheap either way - and instancing breaks that symmetry (static = O(1),
@@ -229,10 +229,10 @@ skinned = O(poses)) - the recommendation is:
 
 1. Ship `InstancedMeshComponent` (static) first - lean, O(1), closes the Godot gap.
 2. Add skinning as a **companion component** - `InstancedSkinning` on the same entity
-   (composition, not a parallel `InstancedSkinnedMeshComponent`) - holding the pose pool +
-   per-instance animation state (clip/time/phase), driven by the existing animation stack
-   ([[skinning-animation-plan]]). The renderer emits the skinned variant when both are
-   present. This keeps the static path pristine and makes the differing cost model explicit.
+ (composition, not a parallel `InstancedSkinnedMeshComponent`) - holding the pose pool +
+ per-instance animation state (clip/time/phase), driven by the existing animation stack
+ ([[skinning-animation-plan]]). The renderer emits the skinned variant when both are
+ present. This keeps the static path pristine and makes the differing cost model explicit.
 
 Do not build either skinned option until the static primitive is proven.
 
@@ -257,15 +257,15 @@ Do not build either skinned option until the static primitive is proven.
 1. ✅ **Persistent buffer pool** (renderer): allocate/grow, bind-group versioning by generation.
 2. ✅ **`InstancedMeshComponent` + manager** (ECS): CPU cache, version bump, API.
 3. ✅ **Extraction + `MultiMeshRenderData`**: one RenderData per set, merged AABB recomputed
-   only on version change.
+ only on version change.
 4. ✅ **Resolve branch**: bind-persistent + one draw, no fill; wired into depth/forward/shadow.
 5. ✅ **Dynamic path**: frames-in-flight sync. Shipped N-buffered from the start (per-region
-   InstanceData bind groups **and** byte-offset `DataOffsets` regions), dirty-for-FiF-frames
-   upload - not the static-only shortcut the plan allowed.
+ InstanceData bind groups **and** byte-offset `DataOffsets` regions), dirty-for-FiF-frames
+ upload - not the static-only shortcut the plan allowed.
 6. ✅ **Sample**: RenderStressTest **M**-toggle (per-entity ↔ one MultiMesh); re-measured -
-   120k spheres shadows-off 47→60 fps, render CPU 20→1.3ms (CPU-bound → GPU-bound).
+ 120k spheres shadows-off 47→60 fps, render CPU 20→1.3ms (CPU-bound → GPU-bound).
 7. ✅ **`InstancedSkinning` companion + shared pose pool** (§7): per-clip bucketing, per-
-   instance tint, per-bone motion blur, optional runtime mesh-merge. AnimatedCrowd sample.
+ instance tint, per-bone motion blur, optional runtime mesh-merge. AnimatedCrowd sample.
 
 Decisions taken vs §10's open questions: **per-set buffer** (not a shared arena) and **full
 `Mat4` InstanceData** (`World + PrevWorld + Tint`, 144B - not the 3×4 compaction the doc leaned
@@ -279,11 +279,11 @@ The v1 open questions have been decided by the shipped implementation; the ones 
 are optimizations, now tracked in **[renderer-improvements.md](renderer-improvements.md) §2**.
 
 - **Compact per-instance data?** → **Shipped full `Mat4`** (`World + PrevWorld + Tint`, 144B),
-  *not* the 3×4 the doc leaned toward. The ~3× smaller 3×4/TRS packing is a real future
-  bandwidth/memory win → **deferred** (renderer-improvements.md §2).
+ *not* the 3×4 the doc leaned toward. The ~3× smaller 3×4/TRS packing is a real future
+ bandwidth/memory win → **deferred** (renderer-improvements.md §2).
 - **Per-set buffer vs shared arena?** → **Per-set** (one bind per MultiMesh; few sets in
-  practice). Shared-arena sub-allocation stays a future option, not needed yet.
+ practice). Shared-arena sub-allocation stays a future option, not needed yet.
 - **Culling granularity?** → **One merged AABB** (Godot-parity). Coarse per-cell sub-AABB
-  splitting for open-world-scale sets → **deferred** (renderer-improvements.md §2 / §4 spatial).
+ splitting for open-world-scale sets → **deferred** (renderer-improvements.md §2 / §4 spatial).
 - **Motion vectors?** → Static sets carry `prevWorld = world` (zero motion). Skinned crowds
-  ship real per-bone motion blur via the ping-pong prev pose pool (`DataOffsets.z`). Done.
+ ship real per-bone motion blur via the ping-pong prev pose pool (`DataOffsets.z`). Done.
