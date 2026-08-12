@@ -431,3 +431,23 @@ Verified against code @ 42273d13.
 - SPLIT (spec rule): the v1/v2/v3 evolution + the Sedulous wart table + the API sketches + the deferred-
   then-obsoleted Subsystem::Render item + deviations -> **Archive/runtime-host-design-history.md**
   (ARCHIVED). No live backlog: the deferred design was superseded, not left pending.
+
+## P1 - batch 11: code-editor (2026-08-12)
+
+Verified against code @ b97b3952 (both-shipped-and-deferred method).
+
+- **Systems/code-editor.md** REWRITTEN present-tense (was `Code editor - CodeEditView (ui.toolkit)`,
+  TRACK COMPLETE but a phase-history + decisions log, old `draconic.*`/`Draconic::` names). Now a CURRENT
+  reference: the widget (CodeEditView/CodeDocument, buffer/render/editing/markers), lexing + languages,
+  completion, diagnostics + debugger seam, consumers, deferred. Verified against code (foundation.ui.
+  toolkit): CodeEditView, CodeDocument, ICodeLexer, CLikeLexer, XmlLexer, LuaLikeLexer, CodeHighlighter,
+  CodeLexerRegistry, ICompletionProvider, MarkupCompletionProvider; per-language editor targets
+  editor.script{,.wren,.angelscript,.luau}; ScriptApiCompletionProvider + EditorContext ScriptExecution
+  Point + ScriptValueProbe. State: unknown -> current.
+- UPDATED since the doc was written: LuaLikeLexer + editor.script.luau now exist (the doc predated the
+  Luau backend) - added Luau to the lexers + consumers.
+- RESIDUALS re-verified still-deferred vs code: HLSL lexer (no HlslLexer), regex search (none in the
+  find bar), structured markup-warning line info (none), IME preedit, folder naming. All hold.
+- SPLIT (spec rule): the decisions (purpose-built widget, completion-from-start, layering) + the
+  P1-P4 phase history -> **Archive/code-editor-design-history.md** (ARCHIVED); the residuals ->
+  **Backlog/code-editor-followups.md**.
