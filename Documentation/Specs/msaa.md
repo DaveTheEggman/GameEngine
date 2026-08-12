@@ -47,6 +47,37 @@ half-built.
    runs on resolved 1x color. HDR RGBA16F resolve is supported on both
    backends; assert the capability at init rather than assuming.
 
+   > **Implementation note (Opus 2026-08-12, for Fable review) - the 1x
+   > consumers need resolved AUX buffers, not just depth.** Decision 3
+   > says the prepass produces a resolved DEPTH for the 1x consumers. In
+   > the code those consumers read more than depth: AO reads `normal`;
+   > SSR reads `normal` + `material` + `velocity`; TAA reads `velocity`.
+   > An MRT render pass forces every attachment to one sample count, so
+   > the forward pass's aux G-buffers (`normal`/`velocity`/`material`)
+   > become MSAA too and each needs a first-sample resolve alongside
+   > depth - otherwise AO/SSR/TAA cannot sample them at 1x. This is the
+   > forced consequence of "post stays 1x and reads those buffers," not a
+   > scope change.
+   >
+   > **Mechanism chosen:** depth + the three aux resolve via a single
+   > fullscreen SHADER pass that does `textureLoad(msaaTex, coord, 0)`
+   > (sample 0) and writes the 1x outputs (a render pass, not a blit;
+   > identical on Vulkan + WebGPU). Sample-0 (not an averaged resolve) is
+   > what keeps AO/SSR/TAA "identical to today's quality" per Decision 3.
+   > This is DISTINCT from the scene-COLOR resolve above, which correctly
+   > uses the hardware resolve attachment (averaged - the real edge AA).
+   > So under MSAA-on: 5 resolves total - color (hardware, averaged,
+   > forward-end) + depth/normal/velocity/material (shader, sample-0,
+   > after opaque forward).
+   >
+   > Rejected alternative for depth: a hardware depth/stencil resolve
+   > attachment with `VK_RESOLVE_MODE_SAMPLE_ZERO_BIT`. Viable on Vulkan
+   > but adds backend-specific depth-resolve plumbing and WebGPU expresses
+   > it differently; the uniform shader pass avoids the split and also
+   > covers the color-format aux (which have no sample-zero hardware
+   > resolve mode at all). If Fable prefers the hardware depth path for
+   > the depth specifically, that is a bounded swap of one resolve source.
+
 5. **MSAA and TAA are independent toggles.** They solve different
    aliasing (geometry edges vs shading/specular); both-on is legal and
    sometimes right (MSAA4 + TAA is the Godot-quality look). The editor
