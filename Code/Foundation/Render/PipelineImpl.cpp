@@ -1710,19 +1710,8 @@ namespace foundation::render
                         hdr, velocityT,
                         m_tonemap
                             ->HdrFormat()); // sky into HDR (+ camera-motion velocity), before TAA
-                    // Screen-space decals: project onto the opaque depth + blend into the lit HDR, AFTER sky
-                    // and BEFORE AO/TAA (so decals get TAA-resolved). Uses the jittered view-proj (matches the
-                    // depth). Per-scene decal list rides on the view's snapshot.
-                    if (m_decalPass != nullptr && v->Scene() != nullptr)
-                    {
-                        m_decalPass->DeclareDecals(m_graph, hdr, depth, v->Scene()->Decals(),
-                                                   curViewProj, v->Width(), v->Height(),
-                                                   v->ViewportX(), v->ViewportY(),
-                                                   v->ViewportWidth(), v->ViewportHeight(),
-                                                   msaaSamples);
-                    }
                     // Scene-pass MSAA resolve (msaa.md Decision 4 corrected + the aux-resolve note):
-                    // opaque + sky + decals wrote the MSAA G-buffer; resolve the scene COLOR (hardware
+                    // opaque + sky wrote the MSAA G-buffer; resolve the scene COLOR (hardware
                     // averaged resolve attachment) and the DEPTH + AUX (first-sample shader resolve) to
                     // 1x here, so the whole post stack (SSR/AO/TAA) and transparent run on 1x exactly as
                     // the single-sample path. The graph schedules the resolves by dependency, after the
@@ -1757,6 +1746,21 @@ namespace foundation::render
                         postVelocity = r.velocity;
                         postMaterial = r.material;
                         overlayDepth = postDepth; // 1x overlays (debug draw) test the resolved depth
+                    }
+                    // Screen-space decals: reconstruct world position from the scene depth and blend the decal
+                    // texture into the lit HDR. Placed AFTER the resolve so - like AO/SSR - decals SAMPLE the
+                    // 1x resolved depth, never the MSAA attachment (WebGPU forbids sampling a multisampled
+                    // texture through a Texture2D + sampler; sample 0 of the MSAA depth == the resolved depth,
+                    // so reconstruction is identical). Still BEFORE SSR/AO/TAA, so decals feed SSR and get
+                    // TAA-resolved. Under MSAA-off postHdr/postDepth alias hdr/depth, so this is byte-identical
+                    // to the pre-MSAA placement. Uses the jittered view-proj (matches the depth).
+                    if (m_decalPass != nullptr && v->Scene() != nullptr)
+                    {
+                        m_decalPass->DeclareDecals(m_graph, postHdr, postDepth, v->Scene()->Decals(),
+                                                   curViewProj, v->Width(), v->Height(),
+                                                   v->ViewportX(), v->ViewportY(),
+                                                   v->ViewportWidth(), v->ViewportHeight(),
+                                                   /*samples*/ 1u);
                     }
                     // Screen-space reflections: reflect the lit HDR (sky + opaque + decals) into itself, AFTER
                     // decals and BEFORE AO/TAA (pre-TAA so the resolve stabilizes the march). Reads the roughness
