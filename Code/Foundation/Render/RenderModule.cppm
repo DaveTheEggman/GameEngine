@@ -29,6 +29,7 @@ export import :sky;
 export import :bloom;
 export import :taa;
 export import :ao;
+export import :msaa_resolve;
 export import :ssr;
 export import :fxaa;
 export import :decal_pass;

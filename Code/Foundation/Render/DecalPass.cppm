@@ -79,7 +79,7 @@ export namespace foundation::render
         void DeclareDecals(rendergraph::RenderGraph& graph, rendergraph::RGHandle hdr,
                            rendergraph::RGHandle depth, Span<const DecalInstance> decals,
                            const Float4x4& viewProj, u32 w, u32 h, i32 vpX, i32 vpY, u32 vpW,
-                           u32 vpH);
+                           u32 vpH, u32 samples = 1);
 
         /// Wire the frames-in-flight retire queue (web-safe ring grows). Null = drain.
         void SetRetireQueue(GpuRetireQueue* retire) noexcept
@@ -98,7 +98,7 @@ export namespace foundation::render
         static constexpr u32 kMaxDecalsPerFrame =
             256; // ring capacity (across all views) - reserved once
 
-        rhi::RenderPipeline* MakePipeline();
+        rhi::RenderPipeline* MakePipeline(u32 samples);
 
         // One bind group over the decal-uniform ring (dynamic offset per decal). Rebuilt only on ring
         // realloc (generation), which drains the GPU first - never freeing an in-flight set.
@@ -116,7 +116,8 @@ export namespace foundation::render
 
         struct Retired
         {
-            rhi::BindGroup* bg = nullptr;
+            rhi::BindGroup* bg = nullptr;       // a superseded bind group, or...
+            rhi::RenderPipeline* pipeline = nullptr; // ...a superseded pipeline (MSAA-count rebuild)
             u32 left = 0;
         };
 
@@ -128,6 +129,7 @@ export namespace foundation::render
         rhi::BindGroupLayout* m_texLayout = nullptr;
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::RenderPipeline* m_pipeline = nullptr;
+        u32 m_pipelineSampleCount = 1;   // scene-pass MSAA count the cached pipeline was built for
         u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
         rhi::Sampler* m_depthSampler = nullptr;
         rhi::Sampler* m_texSampler = nullptr;

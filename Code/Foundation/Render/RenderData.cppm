@@ -578,6 +578,10 @@ export namespace foundation::render
         // pass). Read at forward-pass EXECUTE via the bound view, so it must be pre-resolved here rather
         // than recomputed from frame-global state.
         bool needsMotion = false;
+        // Scene-pass MSAA sample count for THIS view (1 = off, 2 or 4). Capability-clamped by the
+        // subsystem before it lands here, so this is the count the pipeline actually renders at.
+        // 1 leaves the whole single-sample path byte-identical (msaa.md Decision 1/2).
+        u8 msaaSamples = 1;
     };
 
     // The per-frame environment snapshot driving IBL + sky. Plain types (colors as Float3) so the

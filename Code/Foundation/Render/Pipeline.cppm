@@ -35,6 +35,7 @@ import :bloom;
 import :taa;
 import :ao;
 import :ssr;
+import :msaa_resolve;
 import :fxaa;
 import :debug_draw;
 import :debug_pass;
@@ -119,6 +120,12 @@ export namespace foundation::render
         u32 viewIndex = 0; // this view's index in the frame (per-view buffer slots)
         rhi::TextureFormat colorFormat = rhi::TextureFormat::BGRA8Unorm;
         rhi::TextureFormat depthFormat = rhi::TextureFormat::Depth32Float;
+        // Scene-pass MSAA sample count for the pass being recorded (msaa.md). The OPAQUE MSAA passes
+        // (prepass + forward opaque, and the mesh/sprite/particle renderers dispatched inside them)
+        // set the view's count so their PSO + render-bundle sample state matches the MSAA attachments;
+        // the TRANSPARENT pass and all post effects stay 1 (they run on the resolved 1x color). Every
+        // renderer's PipelineConfig takes this so the count flows to whichever pass records it.
+        u8 sampleCount = 1;
         // The opaque scene-depth as a sampleable view (transparent pass only; null otherwise). Already in
         // DepthStencilRead from the read-only depth target, so renderers can sample it (e.g. soft particles).
         rhi::TextureView* sceneDepthView = nullptr;
@@ -580,6 +587,9 @@ export namespace foundation::render
         // Screen-space reflections (borrowed pass); null = no SSR. Declared per view after sky+decals, before
         // AO/TAA (so TAA stabilizes the march). Set once per frame before End.
         void SetSsr(SsrPass* pass) noexcept { m_ssr = pass; }
+        // Scene-pass MSAA first-sample resolve (borrowed pass); null = no MSAA support. Used only when
+        // a view's post.msaaSamples > 1, to resolve the MSAA depth+aux to 1x for the post consumers.
+        void SetMsaaResolve(MsaaResolvePass* pass) noexcept { m_msaaResolve = pass; }
         // SSR enable + tunables (enabled=false leaves the scene HDR untouched).
         void SetSsrParams(bool enabled, const SsrPass::Params& params) noexcept;
 
@@ -676,6 +686,8 @@ export namespace foundation::render
         FxaaPass* m_fxaa = nullptr;       // borrowed; TAA-off fallback AA (after tonemap)
         DecalPass* m_decalPass = nullptr; // borrowed; per-view screen-space decal pass
         SsrPass* m_ssr = nullptr; // borrowed; screen-space reflections (after sky/decals, pre-TAA)
+        MsaaResolvePass* m_msaaResolve =
+            nullptr; // borrowed; MSAA depth+aux -> 1x resolve (only when a view is MSAA)
         bool m_ssrEnabled = false;
         SsrPass::Params m_ssrParams{};
         ReflectionProbeSystem* m_probeSystem =

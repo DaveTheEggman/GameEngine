@@ -341,6 +341,16 @@ namespace foundation::render
         ctx.viewIndex = viewIndex;
         ctx.colorFormat = colorFormat;
         ctx.depthFormat = m_depthFormat;
+        // Scene-pass MSAA (msaa.md): only the OPAQUE pass renders into the MSAA scene target - it and
+        // the mesh/sprite/particle renderers it dispatches build MSAA PSOs + bundle. Transparent
+        // (Blended) and world UI (PostTonemap) run on the resolved 1x color, so they stay single-sample.
+        // Derived from the view (already capability-clamped upstream), so MSAA-off leaves this 1 =
+        // byte-identical.
+        const u8 passSamples =
+            (passAffinity == PassAffinity::Opaque && view.Settings().post.msaaSamples > 1)
+                ? view.Settings().post.msaaSamples
+                : static_cast<u8>(1);
+        ctx.sampleCount = passSamples;
         ctx.sceneDepthView =
             sceneDepthView; // opaque depth (transparent pass only) for soft particles
         ctx.probesEnabled = probesEnabled;
@@ -409,7 +419,7 @@ namespace foundation::render
         // tripped Dawn's execute-bundle validation on WebScene).
         bd.depthReadOnly = passAffinity != PassAffinity::Opaque;
         bd.stencilReadOnly = false;
-        bd.sampleCount = 1;
+        bd.sampleCount = passSamples; // MSAA: opaque bundle matches the MSAA attachments; 1 otherwise
         bd.viewportX = view.ViewportX();
         bd.viewportY = view.ViewportY();
         bd.width = view.ViewportWidth();
@@ -642,6 +652,10 @@ namespace foundation::render
         ctx.viewProj = view.Camera().ViewProjection();
         ctx.depthFormat = m_pass.DepthFormat();
         ctx.depthPrepass = true;
+        // Scene-pass MSAA (msaa.md Decision 3): the depth prepass runs at the view's sample count so
+        // early-Z matches the MSAA forward exactly. 1 (off) = today's single-sample prepass.
+        ctx.sampleCount = (view.Settings().post.msaaSamples > 1) ? view.Settings().post.msaaSamples
+                                                                 : static_cast<u8>(1);
         ctx.frameIndex = m_frameIndex;
         ctx.viewIndex = viewIndex;
         // Build the FULL per-instance data here (once) and cache each opaque group's range so the forward
@@ -1454,7 +1468,8 @@ namespace foundation::render
                                           capCtx->SkyBackgroundIntensity(), capCtx->SunDir(),
                                           capCtx->SunAngularSize(), Float3{1.0f, 0.98f, 0.92f},
                                           sunInt, 0, 0, res, res, m_frameIndex,
-                                          /*viewIndex*/ 10u + face, capCtx->Uid(), sub);
+                                          /*viewIndex*/ 10u + face, capCtx->Uid(),
+                                          /*samples*/ 1u, sub); // probe capture is single-sample
                     }
                     // Bridge captured -> prefiltered mip 0 (flip blit - corrects the RH-LookAt mirror) so the forward
                     // samples a SEPARATE texture, never the captured cube it just wrote; then GGX-convolve mip 0 into
@@ -1563,22 +1578,39 @@ namespace foundation::render
                     ibl.valid = true;
                 }
 
+                // Scene-pass MSAA (msaa.md): the opaque G-buffer (depth + aux + hdr) renders
+                // multisampled at the view's count, then resolves to 1x after opaque/sky/decals for the
+                // 1x post stack. msaaSamples == 1 (off, or no resolve pass) leaves every desc single-
+                // sample = byte-identical to today.
+                // MSAA engages only in the HDR (tonemap) path: it resolves into a 1x HDR the post stack
+                // consumes. The no-tonemap fallback renders forward straight into the 1x target, where an
+                // MSAA depth/aux would mismatch - so it stays single-sample.
+                const u8 msaaSamples = (m_msaaResolve != nullptr && m_tonemap != nullptr &&
+                                        v->Settings().post.msaaSamples > 1)
+                                           ? v->Settings().post.msaaSamples
+                                           : static_cast<u8>(1);
+                const auto msaaDesc = [msaaSamples](rhi::TextureFormat fmt, u32 w, u32 h)
+                {
+                    rendergraph::RGTextureDesc d(fmt, w, h);
+                    d.sampleCount = msaaSamples;
+                    return d;
+                };
                 // Per-view depth, shared by the forward pass + the sky pass (sky depth-tests against it).
                 const rendergraph::RGHandle depth = m_graph.CreateTransient(
-                    u8"forward.depth",
-                    rendergraph::RGTextureDesc(m_pass.DepthFormat(), v->Width(), v->Height()));
+                    u8"forward.depth", msaaDesc(m_pass.DepthFormat(), v->Width(), v->Height()));
                 // Per-view MRT G-buffer aux targets (view-space normal + motion vector) - written by the
                 // forward pass, consumed by the post stack (TAA/GTAO). Unused this phase; transients free after.
                 const rendergraph::RGHandle normalT = m_graph.CreateTransient(
-                    u8"forward.normal",
-                    rendergraph::RGTextureDesc(kGNormalFormat, v->Width(), v->Height()));
+                    u8"forward.normal", msaaDesc(kGNormalFormat, v->Width(), v->Height()));
                 const rendergraph::RGHandle velocityT = m_graph.CreateTransient(
-                    u8"forward.velocity",
-                    rendergraph::RGTextureDesc(kGVelocityFormat, v->Width(), v->Height()));
+                    u8"forward.velocity", msaaDesc(kGVelocityFormat, v->Width(), v->Height()));
                 // Roughness/metallic G-buffer - consumed by the SSR pass (roughness gates/fades reflections).
                 const rendergraph::RGHandle materialT = m_graph.CreateTransient(
-                    u8"forward.material",
-                    rendergraph::RGTextureDesc(kGMaterialFormat, v->Width(), v->Height()));
+                    u8"forward.material", msaaDesc(kGMaterialFormat, v->Width(), v->Height()));
+                // Depth for 1x OVERLAY passes that render into the final LDR after post (debug draw): the
+                // scene `depth` when off, but the RESOLVED 1x depth under MSAA (a 1x overlay can't depth-
+                // test a 4x attachment). Set to postDepth inside the HDR MSAA block below.
+                rendergraph::RGHandle overlayDepth = depth;
 
                 // Per-view authored post (exposure/tonemap/bloom/AO/AA/SSR), resolved by the RenderSubsystem
                 // from the scene's PostProcessSettings (or the legacy global override). Read per view here.
@@ -1659,7 +1691,7 @@ namespace foundation::render
                                       viewIblCtx->SunDir(), viewIblCtx->SunAngularSize(),
                                       Float3{1.0f, 0.98f, 0.92f}, sunInt, v->ViewportX(),
                                       v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
-                                      m_frameIndex, viewIndex, viewIblCtx->Uid());
+                                      m_frameIndex, viewIndex, viewIblCtx->Uid(), msaaSamples);
                 };
 
                 if (m_tonemap != nullptr)
@@ -1667,8 +1699,7 @@ namespace foundation::render
                     // HDR path: forward renders linear HDR into a transient, then the tonemap pass
                     // resolves it (exposure + tonemap + OETF) into the LDR target.
                     const rendergraph::RGHandle hdr = m_graph.CreateTransient(
-                        u8"forward.hdr", rendergraph::RGTextureDesc(m_tonemap->HdrFormat(),
-                                                                    v->Width(), v->Height()));
+                        u8"forward.hdr", msaaDesc(m_tonemap->HdrFormat(), v->Width(), v->Height()));
                     m_pass.DeclarePass(*v, *m_registry, m_graph, m_frameIndex, viewIndex, hdr,
                                        depth, /*clear*/ true, m_tonemap->HdrFormat(), normalT,
                                        velocityT, materialT, prevViewProj, jitter, prevJitter,
@@ -1687,20 +1718,58 @@ namespace foundation::render
                         m_decalPass->DeclareDecals(m_graph, hdr, depth, v->Scene()->Decals(),
                                                    curViewProj, v->Width(), v->Height(),
                                                    v->ViewportX(), v->ViewportY(),
-                                                   v->ViewportWidth(), v->ViewportHeight());
+                                                   v->ViewportWidth(), v->ViewportHeight(),
+                                                   msaaSamples);
+                    }
+                    // Scene-pass MSAA resolve (msaa.md Decision 4 corrected + the aux-resolve note):
+                    // opaque + sky + decals wrote the MSAA G-buffer; resolve the scene COLOR (hardware
+                    // averaged resolve attachment) and the DEPTH + AUX (first-sample shader resolve) to
+                    // 1x here, so the whole post stack (SSR/AO/TAA) and transparent run on 1x exactly as
+                    // the single-sample path. The graph schedules the resolves by dependency, after the
+                    // last G-buffer writer and before the first 1x consumer (Fable pin 3). When
+                    // msaaSamples == 1 the post* handles alias the originals - no resolve passes emitted.
+                    rendergraph::RGHandle postHdr = hdr, postDepth = depth, postNormal = normalT,
+                                          postVelocity = velocityT, postMaterial = materialT;
+                    if (msaaSamples > 1)
+                    {
+                        postHdr = m_graph.CreateTransient(
+                            u8"forward.hdr.resolved",
+                            rendergraph::RGTextureDesc(m_tonemap->HdrFormat(), v->Width(),
+                                                       v->Height()));
+                        const rendergraph::RGHandle msaaHdr = hdr;
+                        const rendergraph::RGHandle resolvedHdr = postHdr;
+                        // Empty pass: the MSAA color loads and resolves to 1x at pass end (fixed-function
+                        // resolve attachment on both backends - no draws, never a blit).
+                        m_graph.AddRenderPass(u8"msaa.colorResolve",
+                                              [msaaHdr, resolvedHdr](rendergraph::PassBuilder& b)
+                                              {
+                                                  b.SetColorTarget(0, msaaHdr, rhi::LoadOp::Load,
+                                                                   rhi::StoreOp::Store);
+                                                  b.SetResolveTarget(0, resolvedHdr);
+                                                  b.NeverCull();
+                                                  b.SetExecute([](rhi::RenderPassEncoder&) {});
+                                              });
+                        const MsaaResolveOutputs r = m_msaaResolve->DeclareResolve(
+                            m_graph, depth, normalT, velocityT, materialT, m_pass.DepthFormat(),
+                            v->Width(), v->Height());
+                        postDepth = r.depth;
+                        postNormal = r.normal;
+                        postVelocity = r.velocity;
+                        postMaterial = r.material;
+                        overlayDepth = postDepth; // 1x overlays (debug draw) test the resolved depth
                     }
                     // Screen-space reflections: reflect the lit HDR (sky + opaque + decals) into itself, AFTER
                     // decals and BEFORE AO/TAA (pre-TAA so the resolve stabilizes the march). Reads the roughness
                     // G-buffer to gate/fade; LERP-replaces the IBL specular where it hits. Produces a fresh HDR.
-                    rendergraph::RGHandle sceneHdr = hdr;
+                    rendergraph::RGHandle sceneHdr = postHdr;
                     if (m_ssr != nullptr && post.ssrEnabled)
                     {
                         // Per-view enable + intensity over the frame-global SSR config.
                         SsrPass::Params ssrParams = m_ssrParams;
                         ssrParams.intensity = post.ssrIntensity;
                         sceneHdr = m_ssr->DeclareSsr(
-                            m_graph, hdr, depth, normalT, materialT, velocityT, v->Width(),
-                            v->Height(), v->ViewportX(), v->ViewportY(), v->ViewportWidth(),
+                            m_graph, postHdr, postDepth, postNormal, postMaterial, postVelocity,
+                            v->Width(), v->Height(), v->ViewportX(), v->ViewportY(), v->ViewportWidth(),
                             v->ViewportHeight(), Inverse(v->Camera().projection),
                             v->Camera().projection, ssrParams, viewIndex, m_frameIndex);
                     }
@@ -1716,7 +1785,7 @@ namespace foundation::render
                     rendergraph::RGHandle aoH{};
                     if (m_ao != nullptr && aoActive)
                     {
-                        aoH = m_ao->DeclareAo(m_graph, depth, normalT, v->Width(), v->Height(),
+                        aoH = m_ao->DeclareAo(m_graph, postDepth, postNormal, v->Width(), v->Height(),
                                               Inverse(v->Camera().projection),
                                               v->Camera().projection, post.aoRadius,
                                               post.aoIntensity, m_frameIndex, aoMode, m_aoDebug);
@@ -1737,13 +1806,18 @@ namespace foundation::render
                     {
                         const f32 taaFar = (v->Camera().farZ > 0.0f) ? v->Camera().farZ : 1000.0f;
                         sceneColor = m_taa->DeclareTaa(
-                            m_graph, litHdr, velocityT, depth, viewIndex, v->Width(), v->Height(),
-                            post.taaBlend, post.taaGamma, m_taaMotionScale, /*near*/ 0.1f, taaFar);
+                            m_graph, litHdr, postVelocity, postDepth, viewIndex, v->Width(),
+                            v->Height(), post.taaBlend, post.taaGamma, m_taaMotionScale, /*near*/ 0.1f,
+                            taaFar);
                     }
                     // Transparent (blended) AFTER TAA, into the resolved image, with the UNJITTERED projection:
-                    // color-only, depth read-only against the opaque depth, back-to-front.
+                    // color-only, depth read-only against the opaque depth, back-to-front. Under MSAA it
+                    // tests against the SAMPLE-0-resolved 1x depth (msaa.md ordering ruling, Fable pin 1):
+                    // along an opaque silhouette the averaged color says "edge" where sample-0 depth may
+                    // say "empty", so a transparent crossing an opaque edge can show <=1px acne/halo -
+                    // accepted for P1; the transparent-MSAA follow-up fixes edge AA + this together.
                     m_pass.DeclareTransparent(
-                        *v, *m_registry, m_graph, m_frameIndex, viewIndex, sceneColor, depth,
+                        *v, *m_registry, m_graph, m_frameIndex, viewIndex, sceneColor, postDepth,
                         m_tonemap->HdrFormat(), unjitteredVP, prevViewProj, jitter, prevJitter,
                         cluster, shadow, ibl, probeRange.base, probeRange.count);
                     // Bloom pyramid over the resolved scene, composited by the tonemap.
@@ -1787,8 +1861,10 @@ namespace foundation::render
                     // (FXAA doesn't grade) and the quad silhouettes get antialiased. With
                     // FXAA off the pass lands directly on the final LDR (TAA never touched
                     // transparents, so edge AA there matches the old transparent-pass look).
+                    // World UI renders into the 1x LDR, so it depth-tests the RESOLVED 1x depth (postDepth)
+                    // - the MSAA depth would mismatch the single-sample color target.
                     m_pass.DeclarePostTonemapUI(*v, *m_registry, m_graph, m_frameIndex, viewIndex,
-                                                fxaa ? tonemapOut : colorH, depth,
+                                                fxaa ? tonemapOut : colorH, postDepth,
                                                 v->TargetFormat(), unjitteredVP, prevViewProj);
                     if (fxaa)
                     {
@@ -1891,7 +1967,7 @@ namespace foundation::render
                     if (m_debugGlobal != nullptr || sceneDbg != nullptr)
                     {
                         m_debugPass->DeclareGeometry(
-                            m_graph, colorH, depth, unjitteredVP, m_debugGlobal, sceneDbg,
+                            m_graph, colorH, overlayDepth, unjitteredVP, m_debugGlobal, sceneDbg,
                             v->TargetFormat(), m_pass.DepthFormat(), v->ViewportX(), v->ViewportY(),
                             v->ViewportWidth(), v->ViewportHeight(), m_frameIndex, viewIndex);
                         m_debugPass->DeclareScreen(m_graph, colorH, unjitteredVP, m_debugGlobal,

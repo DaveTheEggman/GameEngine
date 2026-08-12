@@ -71,10 +71,29 @@ namespace foundation::render
                              Float2 jitter, Float2 prevJitter, const Float3& camPos,
                              f32 backgroundIntensity, const Float3& sunDir, f32 sunSize,
                              const Float3& sunColor, f32 sunIntensity, i32 vpX, i32 vpY, u32 vpW,
-                             u32 vpH, u32 frameIndex, u32 viewIndex, u64 envUid,
+                             u32 vpH, u32 frameIndex, u32 viewIndex, u64 envUid, u32 samples,
                              rendergraph::RGSubresourceRange colorSub)
     {
-        rhi::RenderPipeline* pipeline = EnsurePipeline(colorFormat, depthFormat);
+        // Drain retired pipelines once per frame (idle after kRetireFrames) - see RetiredPipe.
+        if (frameIndex != m_lastRetireFrame)
+        {
+            m_lastRetireFrame = frameIndex;
+            usize w = 0;
+            for (usize i = 0; i < m_retiredPipes.Size(); ++i)
+            {
+                if (m_retiredPipes[i].left <= 1)
+                {
+                    m_device->DestroyRenderPipeline(m_retiredPipes[i].p);
+                }
+                else
+                {
+                    m_retiredPipes[i].left -= 1;
+                    m_retiredPipes[w++] = m_retiredPipes[i];
+                }
+            }
+            m_retiredPipes.Resize(w);
+        }
+        rhi::RenderPipeline* pipeline = EnsurePipeline(colorFormat, depthFormat, samples);
         if (pipeline == nullptr || envView == nullptr)
         {
             return;
@@ -122,11 +141,15 @@ namespace foundation::render
     }
 
     rhi::RenderPipeline* SkyPass::EnsurePipeline(rhi::TextureFormat colorFmt,
-                                                 rhi::TextureFormat depthFmt)
+                                                 rhi::TextureFormat depthFmt, u32 samples)
     {
+        if (samples == 0)
+        {
+            samples = 1;
+        }
         const u64 shaderVersion = m_shaders->Version(u8"sky"); // hot reload rebuilds
         if (m_pipeline != nullptr && m_colorFormat == colorFmt && m_depthFormat == depthFmt &&
-            m_pipelineShaderVersion == shaderVersion)
+            m_pipelineSampleCount == samples && m_pipelineShaderVersion == shaderVersion)
         {
             return m_pipeline;
         }
@@ -140,7 +163,10 @@ namespace foundation::render
         }
         if (m_pipeline != nullptr)
         {
-            m_device->DestroyRenderPipeline(m_pipeline);
+            // A rebuild (shader reload or MSAA sample-count toggle) may retire a pipeline still
+            // referenced by in-flight command buffers, so DEFER its free by kRetireFrames (drained per
+            // frame in DeclareSky) rather than a render-path WaitIdle (web-hostile).
+            m_retiredPipes.PushBack(RetiredPipe{m_pipeline, kRetireFrames});
             m_pipeline = nullptr;
         }
 
@@ -165,6 +191,7 @@ namespace foundation::render
         pd.depthStencil = ds;
         pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         pd.primitive.cullMode = rhi::CullMode::None;
+        pd.multisample.count = samples; // scene-pass MSAA: sky draws into the MSAA hdr+velocity
         pd.label = u8"sky";
         if (!m_device->CreateRenderPipeline(pd, m_pipeline).IsOk())
         {
@@ -173,6 +200,7 @@ namespace foundation::render
         }
         m_colorFormat = colorFmt;
         m_depthFormat = depthFmt;
+        m_pipelineSampleCount = samples;
         m_pipelineShaderVersion = shaderVersion;
         return m_pipeline;
     }
@@ -249,6 +277,14 @@ namespace foundation::render
             m_device->DestroyRenderPipeline(m_pipeline);
             m_pipeline = nullptr;
         }
+        for (RetiredPipe& r : m_retiredPipes)
+        {
+            if (r.p != nullptr)
+            {
+                m_device->DestroyRenderPipeline(r.p);
+            }
+        }
+        m_retiredPipes.Clear();
         if (m_sampler)
         {
             m_device->DestroySampler(m_sampler);

@@ -50,7 +50,8 @@ export namespace foundation::render
                         Float2 prevJitter, const Float3& camPos, f32 backgroundIntensity,
                         const Float3& sunDir, f32 sunSize, const Float3& sunColor, f32 sunIntensity,
                         i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex,
-                        u64 envUid, rendergraph::RGSubresourceRange colorSub = {});
+                        u64 envUid, u32 samples = 1,
+                        rendergraph::RGSubresourceRange colorSub = {});
 
     private:
         static constexpr u32 kMaxFIF = 4;
@@ -68,7 +69,7 @@ export namespace foundation::render
         };
 
         rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFmt,
-                                            rhi::TextureFormat depthFmt);
+                                            rhi::TextureFormat depthFmt, u32 samples);
 
         // Env identity = (view pointer, context uid): the uid catches pointer REUSE after an IBL
         // context eviction, per the versioned-cache rule.
@@ -93,7 +94,18 @@ export namespace foundation::render
         rhi::RenderPipeline* m_pipeline = nullptr;
         rhi::TextureFormat m_colorFormat = rhi::TextureFormat::Undefined;
         rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Undefined;
+        u32 m_pipelineSampleCount = 1; // scene-pass MSAA count the cached pipeline was built for
         u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
+        // Deferred pipeline free: a rebuild (shader reload / MSAA-count toggle) retires the old pipeline
+        // here and DeclareSky drains it after kRetireFrames, never freeing one still in-flight.
+        struct RetiredPipe
+        {
+            rhi::RenderPipeline* p = nullptr;
+            u32 left = 0;
+        };
+        static constexpr u32 kRetireFrames = 3;
+        Array<RetiredPipe> m_retiredPipes;
+        u32 m_lastRetireFrame = 0xFFFFFFFFu;
         rhi::Sampler* m_sampler = nullptr;
         Slot m_slots[kMaxSlots] = {};
     };

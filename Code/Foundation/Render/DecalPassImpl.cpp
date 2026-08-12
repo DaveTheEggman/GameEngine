@@ -101,7 +101,7 @@ namespace foundation::render
             return Status{ErrorCode::Unknown};
         }
 
-        m_pipeline = MakePipeline();
+        m_pipeline = MakePipeline(1); // single-sample by default; rebuilt to MSAA on demand
         if (m_pipeline == nullptr)
         {
             return Status{ErrorCode::Unknown};
@@ -122,22 +122,31 @@ namespace foundation::render
     void DecalPass::DeclareDecals(rendergraph::RenderGraph& graph, rendergraph::RGHandle hdr,
                                   rendergraph::RGHandle depth, Span<const DecalInstance> decals,
                                   const Float4x4& viewProj, u32 w, u32 h, i32 vpX, i32 vpY, u32 vpW,
-                                  u32 vpH)
+                                  u32 vpH, u32 samples)
     {
         if (decals.IsEmpty() || w == 0 || h == 0 || m_decalRing.Buffer() == nullptr)
         {
             return;
         }
-        // Hot reload: rebuild the pipeline when the shader changed (GPU idled on reload).
+        if (samples == 0)
+        {
+            samples = 1;
+        }
+        // Hot reload / MSAA: rebuild the pipeline when the shader OR the sample count changed (decals
+        // draw into the MSAA hdr, so the PSO must match). GPU idled on shader reload.
         const u64 shaderVersion = m_shaders->Version(u8"decal");
-        if (shaderVersion != m_pipelineShaderVersion)
+        if (shaderVersion != m_pipelineShaderVersion || samples != m_pipelineSampleCount)
         {
             if (m_pipeline != nullptr)
             {
-                m_device->DestroyRenderPipeline(m_pipeline);
+                // Rare rebuild (shader reload / MSAA toggle): the old pipeline may be referenced by
+                // in-flight command buffers, so DEFER its free by kRetireFrames (drained in Tick) rather
+                // than a render-path WaitIdle (web-hostile).
+                m_retired.PushBack(Retired{nullptr, m_pipeline, kRetireFrames});
             }
-            m_pipeline = MakePipeline();
+            m_pipeline = MakePipeline(samples);
             m_pipelineShaderVersion = shaderVersion;
+            m_pipelineSampleCount = samples;
         }
         if (m_pipeline == nullptr)
         {
@@ -218,7 +227,7 @@ namespace foundation::render
             });
     }
 
-    rhi::RenderPipeline* DecalPass::MakePipeline()
+    rhi::RenderPipeline* DecalPass::MakePipeline(u32 samples)
     {
         rhi::ShaderModule* vs = m_shaders->GetVariant(u8"decal", shaders::ShaderStage::Vertex,
                                                       shaders::ShaderFlags::None);
@@ -240,6 +249,7 @@ namespace foundation::render
         pd.fragment = frag;
         pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         pd.primitive.cullMode = rhi::CullMode::None; // fullscreen tri, no depth attachment
+        pd.multisample.count = samples; // scene-pass MSAA: decals draw into the MSAA hdr
         pd.label = u8"decal";
         rhi::RenderPipeline* p = nullptr;
         if (!m_device->CreateRenderPipeline(pd, p).IsOk())
@@ -291,7 +301,7 @@ namespace foundation::render
         }
         if (m_depthBg != nullptr)
         {
-            m_retired.PushBack(Retired{m_depthBg, kRetireFrames});
+            m_retired.PushBack(Retired{m_depthBg, nullptr, kRetireFrames});
             m_depthBg = nullptr;
         }
         rhi::BindGroupEntry ent[] = {
@@ -358,7 +368,14 @@ namespace foundation::render
         {
             if (m_retired[i].left <= 1)
             {
-                m_device->DestroyBindGroup(m_retired[i].bg);
+                if (m_retired[i].bg != nullptr)
+                {
+                    m_device->DestroyBindGroup(m_retired[i].bg);
+                }
+                if (m_retired[i].pipeline != nullptr)
+                {
+                    m_device->DestroyRenderPipeline(m_retired[i].pipeline);
+                }
             }
             else
             {
@@ -384,6 +401,10 @@ namespace foundation::render
             if (r.bg != nullptr)
             {
                 m_device->DestroyBindGroup(r.bg);
+            }
+            if (r.pipeline != nullptr)
+            {
+                m_device->DestroyRenderPipeline(r.pipeline);
             }
         }
         m_retired.Clear();

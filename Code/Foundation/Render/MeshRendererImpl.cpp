@@ -1639,6 +1639,10 @@ namespace foundation::render
             c.shaderFlags |= shaders::ShaderFlags::AlphaTest;
         }
         c.depthFormat = ctx.depthFormat;
+        // Scene-pass MSAA (msaa.md): ONLY the camera depth prepass is multisampled (its depth must
+        // match the MSAA forward for early-Z). Shadow-map passes (ctx.depthPrepass == false) stay
+        // single-sample - the track does not touch shadows.
+        c.sampleCount = ctx.depthPrepass ? ctx.sampleCount : static_cast<u8>(1);
         c.depthMode = materials::DepthMode::ReadWrite;
         c.depthCompare = rhi::CompareFunction::Less;
         // Render FRONT faces into the shadow map (cull back) - matches Sedulous (ShadowPipeline: .Back)
@@ -1668,6 +1672,10 @@ namespace foundation::render
             (md.material != nullptr) ? md.material->pipeline
                                      : materials::PipelineConfig::ForOpaqueMesh(u8"forward");
         config.depthFormat = ctx.depthFormat;
+        // Scene-pass MSAA (msaa.md): the opaque pass records at the view's count (ctx set it), the
+        // transparent pass at 1 - so the forward mesh PSO matches its pass's MSAA attachments. Shadow
+        // PSOs use ShadowConfigFor (unaffected - shadows stay single-sample).
+        config.sampleCount = ctx.sampleCount;
         config.instanced = instanced;
         if (instanced)
         {

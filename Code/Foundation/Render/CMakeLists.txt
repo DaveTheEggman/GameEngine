@@ -18,6 +18,7 @@ target_sources(Render
         Debug/DebugDrawPassImpl.cpp
         SsrPassImpl.cpp
         AoPassImpl.cpp
+        MsaaResolvePassImpl.cpp
         RenderDataImpl.cpp
         ShadowSystemImpl.cpp
         ClusterSystemImpl.cpp
@@ -47,6 +48,7 @@ target_sources(Render
             BloomPass.cppm
             TaaPass.cppm
             AoPass.cppm
+            MsaaResolvePass.cppm
             SsrPass.cppm
             FxaaPass.cppm
             DecalPass.cppm
