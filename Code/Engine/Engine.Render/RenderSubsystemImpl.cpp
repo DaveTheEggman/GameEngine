@@ -13,6 +13,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 #include "Profiler/Profiler.h"
 
 module engine.render;
@@ -286,6 +287,7 @@ namespace engine::render
         m_frame->SetDecal(m_decalPass.Get());
         m_frame->SetSsr(m_ssrPass.Get());
         m_frame->SetSsrParams(m_ssrEnabled, m_ssrParams);
+        m_frame->SetMsaaResolve(m_msaaResolvePass.Get());
         m_frame->SetProbes(m_probeSystem.Get());
         if (m_probeSystem.Get() != nullptr)
         {
@@ -420,6 +422,17 @@ namespace engine::render
         // SSR's `temporal` stays frame-global, so the OR lands here, not in ResolveScenePost.
         settings.post.needsMotion =
             settings.post.taaEnabled || (settings.post.ssrEnabled && m_ssrParams.temporal);
+        // Scene-pass MSAA (msaa.md Decision 1): clamp the AUTHORED intent to what the device supports
+        // (queried once at init) so a 4x request on a 2x-only device degrades to 2x rather than failing.
+        // The setting/override records intent; this is the clamped result the pipeline renders at.
+        if (settings.post.msaaSamples > m_maxMsaaSamples)
+        {
+            settings.post.msaaSamples = m_maxMsaaSamples;
+        }
+        if (settings.post.msaaSamples < 1)
+        {
+            settings.post.msaaSamples = 1;
+        }
         {
             PROFILE_SCOPE("Render.AddView"); // binds the view + builds/sorts its draw list
             // A keyed view draws its OWN gizmo list (DebugView) so an editor viewport's grid/gizmos
@@ -721,6 +734,21 @@ namespace engine::render
         {
             m_ssrPass.Reset();
         }
+
+        // Scene-pass MSAA first-sample resolve (msaa.md). Optional - null leaves MSAA unavailable
+        // (views clamp to 1x), so the engine still renders without it.
+        m_msaaResolvePass = MakeUnique<MsaaResolvePass>(DefaultAllocator(), *m_device, *m_shaders);
+        if (!m_msaaResolvePass->Initialize().IsOk())
+        {
+            m_msaaResolvePass.Reset();
+        }
+        // Scene-pass MSAA device ceiling (msaa.md Decision 1): the max sample count the device supports
+        // for color+depth, capped at 4 by the query. Views clamp their authored intent to this. If the
+        // resolve pass failed to init, MSAA is unavailable regardless, so force 1x.
+        m_maxMsaaSamples =
+            (m_msaaResolvePass.Get() != nullptr) ? m_device->MaxColorDepthSampleCount() : 1u;
+        LOG_INFO(u8"Render", u8"scene-pass MSAA: resolve-pass={} device-ceiling={}x",
+                 (m_msaaResolvePass.Get() != nullptr) ? u8"ok" : u8"FAILED", m_maxMsaaSamples);
 
         // FXAA (TAA-off fallback AA). Optional.
         m_fxaaPass =

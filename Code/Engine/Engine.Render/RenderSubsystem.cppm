@@ -219,6 +219,7 @@ export namespace engine::render
 
         rhi::Device* m_device;
         u32 m_framesInFlight = 2;
+        u32 m_maxMsaaSamples = 1; // device-supported scene-pass MSAA ceiling (queried at init; msaa.md)
         // Owns the pack-vs-dev ShaderSystem (cooked blobs in a dist/web build, DXC + file provider
         // with hot reload otherwise). m_shaders caches its ShaderSystem for the passes to borrow.
         shaders::ShaderSystemHost m_shaderHost;
@@ -246,6 +247,7 @@ export namespace engine::render
         UniquePtr<TaaPass> m_taaPass;
         UniquePtr<AoPass> m_aoPass;
         UniquePtr<SsrPass> m_ssrPass;
+        UniquePtr<MsaaResolvePass> m_msaaResolvePass; // scene-pass MSAA depth+aux resolve (msaa.md)
         UniquePtr<FxaaPass> m_fxaaPass;
         UniquePtr<DecalPass> m_decalPass;
         UniquePtr<DebugDrawPass> m_debugPass;

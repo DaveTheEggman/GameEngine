@@ -793,6 +793,22 @@ namespace editor
         add(u8"No AO", &render::ViewPostOverride::disableAo);
         add(u8"No SSR", &render::ViewPostOverride::disableSsr);
         add(u8"No AA (crisp)", &render::ViewPostOverride::disableAa);
+        // Scene-pass MSAA (msaa.md): an INDEPENDENT off/2x/4x tri-state (not a bool - it forces the
+        // view's sample count). The count is capability-clamped by the render subsystem, so a 4x pick
+        // on a 2x device renders 2x. MSAA and TAA are independent (Decision 5); both can be on.
+        menu->AddSeparator();
+        const auto msaaItem = [&](StringView label, u8 count)
+        {
+            const bool on = (count <= 1) ? (self->m_postOverride.msaaOverride <= 1)
+                                         : (self->m_postOverride.msaaOverride == count);
+            String text(mark(on));
+            text += label;
+            menu->AddItem(text.AsView(),
+                          [self, count]() { self->m_postOverride.msaaOverride = count; });
+        };
+        msaaItem(u8"MSAA Off", 1);
+        msaaItem(u8"MSAA 2x", 2);
+        msaaItem(u8"MSAA 4x", 4);
         const Float2 pos = anchor->LocalToScreen(Float2{0.0f, anchor->Height()});
         menu->Show(anchor->Context, pos.x, pos.y);
     }

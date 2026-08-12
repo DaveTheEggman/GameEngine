@@ -722,6 +722,12 @@ export namespace engine::render
             vp.taaEnabled = false;
             vp.fxaaEnabled = false;
         }
+        // MSAA is an INDEPENDENT toggle (msaa.md Decision 5): disablePost/disableAa do NOT touch it.
+        // The editor viewport forces its own off/2x/4x count here (0 = leave the resolved count).
+        if (o.msaaOverride != 0)
+        {
+            vp.msaaSamples = o.msaaOverride;
+        }
     }
 
     // Live re-resolving handles over the render scene-SYSTEMS' one-per-scene settings:

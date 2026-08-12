@@ -74,6 +74,11 @@ export namespace foundation::render
         bool disableAo = false;
         bool disableSsr = false;
         bool disableAa = false; // TAA + FXAA off (crisp + unjittered)
+        // Scene-pass MSAA for this view (the editor viewport's off/2x/4x toggle). 0 = no override
+        // (leave the resolved count as-is); 1/2/4 = force that sample count. The editor viewport is
+        // the source of its own MSAA count (the scene authors none until the P2 project setting), so
+        // it forces the count here. Capability-clamped downstream (msaa.md Decision 1/2).
+        u8 msaaOverride = 0;
     };
 
     // How the render target's resource state is handled. Default = the host-managed backbuffer (present).
