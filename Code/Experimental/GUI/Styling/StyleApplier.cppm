@@ -30,6 +30,14 @@ import :resource_provider;
 
 using namespace foundation::core;
 namespace core = foundation::core;
+// Declared here, not inherited: a namespace alias is not an exported entity, so one written in
+// a sibling partition is not visible in this one. This file uses fonts::, image:: and vg:: but
+// declared none of them; clang happened to resolve them anyway, while MSVC (correctly) reported
+// "C2653: '<name>': is not a class or namespace name". Every other partition using these
+// declares its own aliases the same way. One per module imported above and referenced qualified.
+namespace fonts = foundation::fonts;
+namespace image = foundation::image;
+namespace vg = foundation::vg;
 
 export namespace experimental::gui
 {

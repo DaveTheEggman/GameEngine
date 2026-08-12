@@ -64,9 +64,13 @@ rem --- Configure --------------------------------------------------------------
 rem The preset asks for "cl", which CMake resolves from PATH and then PINS in the cache. If the
 rem selected toolchain differs from the cached one the build tree must be regenerated, or the
 rem old compiler keeps being used - so detect that and wipe the cache.
+rem Compare with FORWARD slashes: CMake stores CMAKE_CXX_COMPILER with '/', while BEST_PATH came
+rem from the filesystem with '\'. Matching the raw path never hits, which silently wiped the cache
+rem and forced a full rebuild on every single run.
+set "BEST_FWD=%BEST_PATH:\=/%"
 set "CACHE=%REPO%\build\msvc\CMakeCache.txt"
 if exist "%CACHE%" (
-    findstr /c:"CMAKE_CXX_COMPILER:STRING=" "%CACHE%" | findstr /i /c:"%BEST_PATH%" >nul
+    findstr /c:"CMAKE_CXX_COMPILER:STRING=" "%CACHE%" | findstr /i /c:"%BEST_FWD%" >nul
     if errorlevel 1 (
         echo [build-msvc] Cached compiler differs from the selected toolchain - reconfiguring.
         del /q "%CACHE%"
