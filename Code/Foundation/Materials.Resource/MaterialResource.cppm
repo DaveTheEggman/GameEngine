@@ -288,9 +288,22 @@ export namespace foundation::materials
                 {
                     continue;
                 }
-                Proxy<texture::Texture> tex = manager.Bind<texture::Texture>(src->textureIds[i]);
+                // Route by the async flag (the scope the scene resolve sets): a direct
+                // manager.Bind never consults it, and THIS loop was the serial-load stall -
+                // 69 Sponza textures decoded on the UI thread inside material builds.
+                Proxy<texture::Texture> tex =
+                    manager.AsyncBindsEnabled()
+                        ? manager.BindAsync<texture::Texture>(src->textureIds[i])
+                        : manager.Bind<texture::Texture>(src->textureIds[i]);
                 if (!tex)
                 {
+                    if (tex.Handle() != nullptr &&
+                        tex.Handle()->State() == ResourceState::Pending)
+                    {
+                        // Decoding on a worker: the slot stays unbound QUIETLY - the settle
+                        // reloads this material through the recorded edge and fills it.
+                        continue;
+                    }
                     LOG_WARNING(u8"Materials",
                                          u8"material '{}': texture for slot '{}' failed to bind "
                                          u8"(no product / no texture factory?)",

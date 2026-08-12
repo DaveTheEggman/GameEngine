@@ -543,3 +543,81 @@ TEST_CASE("resource.async: AsyncLoadBatch reports progress as loads finalize")
     CHECK(batch.Remaining() == 0u);
     CHECK(batch.Progress() == doctest::Approx(1.0f));
 }
+
+namespace
+{
+    // The material pattern, distilled: a SYNC parent factory whose Create binds a child by the
+    // async flag. The 2026-08-12 Sponza-prefab stall: the material factory's direct Bind never
+    // consulted the flag, so 69 texture decodes ran serially on the UI thread inside material
+    // builds - and a pending child left the slot empty FOREVER (no rebuild on settle).
+    class ParentProduct final : public Object
+    {
+        RTTI_OBJECT(ParentProduct, Object)
+    public:
+        i32 childValue = -1; // -1 = child was pending/absent at build time
+    };
+
+    class ParentFactory final : public IResourceFactory
+    {
+    public:
+        Guid childId;
+
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &ParentProduct::StaticType();
+        }
+
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
+                                            foundation::content::Instance&) override
+        {
+            RefPtr<ParentProduct> product = MakeRef<ParentProduct>(DefaultAllocator());
+            Proxy<AsyncProduct> child = manager.AsyncBindsEnabled()
+                                            ? manager.BindAsync<AsyncProduct>(childId)
+                                            : manager.Bind<AsyncProduct>(childId);
+            if (child)
+            {
+                product->childValue = child->value;
+            }
+            return product; // pending child = the slot stays -1 until the settle-reload
+        }
+    };
+}
+
+RTTI_DEFINE_OBJECT(ParentProduct, "rtti::resource::test")
+
+TEST_CASE("resource.async: a settling child RELOADS its dependents (the material pop-in "
+          "composition)")
+{
+    RegisterAsyncTypes();
+    GlobalTypeRegistry().Register(ParentProduct::StaticType());
+    CleanDir(u8"scratch_async_cascade_db");
+    NativeFileSystem mount(u8"scratch_async_cascade_db");
+    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+                                          u8".rasset");
+    AsyncFactory factory;
+    factory.gates[0].store(false, std::memory_order_relaxed); // child decode held closed
+    JobSystem jobs;
+    ResourceManager manager(db, &jobs);
+    manager.AddFactory(&factory);
+    ParentFactory parentFactory;
+    parentFactory.childId = MakeInstance(db, factory, u8"child", 7, 0);
+    manager.AddFactory(&parentFactory);
+    auto* parentInst = db.RootGroup()->CreateInstance(u8"parent", ParentProduct::StaticType());
+
+    Proxy<ParentProduct> parent;
+    {
+        AsyncBindScope scope(manager);
+        parent = manager.BindAsync<ParentProduct>(parentInst->Id());
+    }
+    // The parent (unmigrated factory) built synchronously - WITHOUT waiting for the child.
+    REQUIRE(parent);
+    CHECK(parent->childValue == -1); // child was pending: slot skipped, quietly
+
+    factory.gates[0].store(true, std::memory_order_release); // let the child decode finish
+    manager.WaitAll();
+
+    // The child's settle reloaded the parent through the recorded dependency edge: the SAME
+    // proxy now sees the rebuilt product with the slot filled - pop-in composes transitively.
+    REQUIRE(parent);
+    CHECK(parent->childValue == 7);
+}

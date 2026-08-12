@@ -764,6 +764,24 @@ export namespace foundation::resource
             if (ready)
             {
                 entry.handle->FireOnReady();
+                // A settling child revives its dependents through the SAME edge a hot reload
+                // uses (recorded when their factory bound this id mid-build): a material built
+                // while its textures were still Pending skipped those slots - the reload
+                // rebuilds it now that the child is live, and pop-in composes transitively.
+                // COPY the list: Reload binds children, growing maps (the rehash lesson).
+                const Span<const Guid> dependentsView = Dependents(entry.id);
+                if (!dependentsView.IsEmpty())
+                {
+                    Array<Guid> dependents;
+                    for (const Guid& d : dependentsView)
+                    {
+                        dependents.PushBack(d);
+                    }
+                    for (const Guid& d : dependents)
+                    {
+                        (void)Reload(d);
+                    }
+                }
             }
         }
 
