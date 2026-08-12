@@ -147,3 +147,27 @@ State: `current` (believed true/active) | `stale` (likely outdated / track compl
 | Archive/review-14f16a84-HEAD.md | review-14f16a84-HEAD.md (root) | archived |
 
 Total: 79 files (72 former docs/ + 6 root handoffs/review + Core.md).
+
+---
+
+## P1 - batch 1: scripting subsystem (2026-08-11)
+
+Verified against code @ 9c9046f8.
+
+- **Systems/scripting.md** REWRITTEN present-tense (was `Status: PLANNED / "Wren = first
+  backend"` design+survey doc, heavily drifted - claimed PLANNED while most shipped, used
+  the old `draconic.*` module names). Now a CURRENT subsystem reference: the neutral
+  contract, THREE backends (Wren/AngelScript/Luau) + gating, the three tiers + run host,
+  behaviors/properties/events/coroutines, facades, cook + BYTECODE CONSUMPTION, the AS+Luau
+  debuggers, editor. Verified: module names (foundation.script.*), PROFILE_SCOPE,
+  ScriptRunHost/ScriptComponent/ScriptSceneSystem, 3 registered backends. State: current.
+- SPLIT the mixed doc (spec rule): the reference survey + resolved open-questions + addendum
+  + Traktor findings -> **Archive/scripting-design-history.md** (ARCHIVED header, names the
+  Systems doc as superseding; full original preserved in git @ 3b92560d). The deferred
+  follow-ups (§9) -> **Backlog/scripting-followups.md** (current).
+- State updates: Systems/scripting.md unknown -> current (verified). New: Archive/
+  scripting-design-history.md (archived), Backlog/scripting-followups.md (current).
+
+NEXT P1 batches (Systems for active subsystems): script-debugger.md, then pipeline/MCP
+(mcp-agent-access is a Spec, but the MCP Systems reference needs writing), fonts, renderer,
+editor.
