@@ -300,3 +300,29 @@ Verified against code @ 9e80f286.
 - SPLIT (spec rule): the reference survey (Sedulous/ez/Godot/Flax) + design calls + resolved open
   questions -> **Archive/input-design-history.md** (ARCHIVED); the remaining P3 (PlayerInput pairing,
   action haptics, per-scene/split-screen) -> **Backlog/input-followups.md**.
+
+## P1 - batch 8: game-ui (2026-08-12)
+
+Verified against code @ 3364be29.
+
+- **Systems/game-ui.md** REWRITTEN present-tense (was `Draconic Game UI - draconic.ui as a runtime
+  subsystem (design)`, 400 lines: SHIPPED-but-design-framed with a huge inline changelog + the
+  reference survey + the Sedulous deep-read tier table + locked decisions + a live backlog, old
+  `draconic.ui.*` names). Now a CURRENT reference: the framework vs the new modules (foundation.ui.
+  resource / ui.pipeline / engine.ui / editor.gameui), the three tiers (screen UICanvasComponent /
+  billboards UIBillboardComponent / world UIWorldPanelComponent), overlay roles + rendering + split-
+  screen + RT canvas mode, input (consumption mask + per-surface scene binding + gamepad/text),
+  resources + the UI facade, locked decisions, deferred. Verified against code: modules above;
+  UISubsystem + UICanvasComponent (CanvasRenderMode) + UIBillboardComponent + UIWorldPanelComponent +
+  SpriteOrientation::EntityOriented + ISceneOverlay/IScreenOverlay + ConsumptionMask + GameTheme +
+  defaultUiThemeId (engine.ui); UIDocument/UITheme (foundation.ui.resource); UIDocumentAsset/UIThemeAsset
+  (ui.pipeline); UIDocumentPage (editor.gameui); the id-addressed UI facade (setText/setProgress/
+  setVisible + onClick delegate). State: unknown -> current.
+- CORRECTED drift: the world tier SHIPPED (UIWorldPanelComponent - the old doc had it DEFERRED/OUT of
+  phasing) and script wiring SHIPPED as id-addressed control access (locked-decision 6 had it PARKED on
+  entity handles).
+- SPLIT (spec rule): the reference survey (Sedulous/Flax/Godot/Traktor Spark) + the Sedulous.Engine.UI
+  deep-read tier table + the locked-decision rationale + the world-tier A-vs-B decision ->
+  **Archive/game-ui-design-history.md** (ARCHIVED); the remaining follow-ups (option-A direct-draw,
+  dirty-gating, atlas/MIP, declarative bindings, theme variations, code-editor control, the two-scene
+  edge, the toolkit test tail) -> **Backlog/game-ui-followups.md**.
