@@ -57,6 +57,10 @@ export namespace foundation::rhi::validation
             return vq;
         }
         u32 GetQueueCount(QueueType t) override { return m_inner->GetQueueCount(t); }
+        u32 MaxColorDepthSampleCount() const noexcept override
+        {
+            return m_inner->MaxColorDepthSampleCount();
+        }
         FormatSupport GetFormatSupport(TextureFormat f) override
         {
             return m_inner->GetFormatSupport(f);

@@ -133,6 +133,13 @@ export namespace foundation::rhi::webgpu
 
         u32 GetQueueCount(QueueType) override { return 1; }
 
+        u32 MaxColorDepthSampleCount() const noexcept override
+        {
+            // WebGPU guarantees 4x for the color + depth formats the renderer uses (msaa.md Decision 1);
+            // 8x is not a WebGPU capability. So the engine ceiling (4) is always available on web.
+            return 4;
+        }
+
         FormatSupport GetFormatSupport(TextureFormat format) override
         {
             // WebGPU's per-format capabilities are SPEC tables, not driver queries -

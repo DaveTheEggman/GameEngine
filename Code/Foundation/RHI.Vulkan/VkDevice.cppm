@@ -361,6 +361,21 @@ export namespace foundation::rhi::vk
             return s;
         }
 
+        u32 MaxColorDepthSampleCount() const noexcept override
+        {
+            // Scene-pass MSAA needs BOTH color and depth attachments at the same count (msaa.md).
+            VkPhysicalDeviceProperties props{};
+            vkGetPhysicalDeviceProperties(m_adapter->physicalDevice(), &props);
+            const VkSampleCountFlags both = props.limits.framebufferColorSampleCounts &
+                                            props.limits.framebufferDepthSampleCounts;
+            // Engine ceiling is 4x (8x is out of scope, and web guarantees 4x).
+            if (both & VK_SAMPLE_COUNT_4_BIT)
+                return 4;
+            if (both & VK_SAMPLE_COUNT_2_BIT)
+                return 2;
+            return 1;
+        }
+
         // ---- Resource creation ----
         Status CreateBuffer(const BufferDesc& d, Buffer*& out) override
         {
