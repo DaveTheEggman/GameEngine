@@ -65,6 +65,25 @@ export namespace editor
             focusDistance = length;
         }
 
+        /// Force-exit Tab-capture, restoring the OS cursor. The I2 stuck-mouse bug: Update()
+        /// (the only place Tab toggles capture OFF) runs only while the viewport is
+        /// hovered/focused - but relative mode makes LOSING that state easy, wedging the OS
+        /// grab forever. The page calls this whenever the viewport is inactive or closing, so
+        /// capture structurally cannot outlive the ability to release it.
+        void ReleaseCapture(foundation::shell::IMouse* mouse)
+        {
+            if (!mouseCaptured)
+            {
+                return;
+            }
+            mouseCaptured = false;
+            if (mouse != nullptr)
+            {
+                mouse->SetRelativeMode(false);
+                mouse->SetCursorVisible(true);
+            }
+        }
+
         // Apply this frame's input from explicit (gated) devices.
         void Update(foundation::shell::IKeyboard* kb, foundation::shell::IMouse* mouse, f32 dt)
         {
@@ -81,6 +100,10 @@ export namespace editor
                     mouseCaptured = !mouseCaptured;
                     mouse->SetRelativeMode(mouseCaptured);
                     mouse->SetCursorVisible(!mouseCaptured);
+                }
+                if (mouseCaptured && kb->IsKeyPressed(shell::KeyCode::Escape))
+                {
+                    ReleaseCapture(mouse); // in-flight escape hatch (I2)
                 }
                 const bool alt = kb->IsKeyDown(shell::KeyCode::LeftAlt) ||
                                  kb->IsKeyDown(shell::KeyCode::RightAlt);

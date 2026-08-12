@@ -36,6 +36,18 @@ distinct fixes:
 
 ## I2. Scene view mouse capture never released - WATCH (one occurrence, hard repro)
 
+**ROOT CAUSE FOUND + FIXED (Fable 2026-08-12, via the capture-transition
+instrumentation this entry added):** the leak signature never fired at the
+InputSurface level - the stuck grab was the EDITOR CAMERA's Tab-capture
+(OS relative mouse mode). Its only off-switch (camera Update) ran inside
+`if (viewportActive)`, and relative mode makes losing hover/focus easy:
+once inactive while captured, the release path could never run again. Fixed
+three ways: the page force-releases the moment the viewport goes inactive,
+OnClose releases, and Escape releases in flight. SECONDARY observation from
+the same log: capture-transition lines print DOUBLED - two open pages each
+run an InputRouter over the shared surfaces; benign per the watchdog, but
+worth a single-router pass when input work next opens.
+
 Not diagnosable from one occurrence. Action now: add capture/release
 instrumentation - the viewport input surface logs (debug level) every
 capture acquire/release with the reason, and an ASSERT-level log if a

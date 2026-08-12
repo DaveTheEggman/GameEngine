@@ -97,6 +97,13 @@ namespace editor
         {
             m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt);
         }
+        else
+        {
+            // The I2 stuck-mouse fix: Tab-capture's ONLY off-switch lived inside the active
+            // branch, and relative mode makes losing activity easy - release the OS grab the
+            // moment the viewport stops being the input owner.
+            m_camera.ReleaseCapture(m_viewport->Mouse());
+        }
         (void)UpdateViewportTools(viewportActive); // picking lives inside the select tool now
 
         // Per-scene debug draw (shows only where THIS scene renders; lists clear in
@@ -649,6 +656,8 @@ namespace editor
 
     void SceneEditorPage::OnClose()
     {
+        m_camera.ReleaseCapture(m_viewport ? m_viewport->Mouse() : nullptr); // never close captured
+
         // GPU targets + external-texture registration go while device + VGRenderer live.
         m_viewport->Shutdown();
         if (m_scene != nullptr)
