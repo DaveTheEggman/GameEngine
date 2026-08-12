@@ -1191,6 +1191,16 @@ export namespace foundation::rendergraph
                 attachment.loadOp = ct.loadOp;
                 attachment.storeOp = ct.storeOp;
                 attachment.clearValue = ct.clearValue;
+                // MSAA hardware resolve: the multisampled `view` resolves into the resolve
+                // target's view at pass end. Full-subresource only (resolve of a mip/slice
+                // subrange is not needed by the scene pass).
+                if (ct.resolveHandle.IsValid())
+                {
+                    if (rhi::TextureView* resolveView = GetTextureView(ct.resolveHandle))
+                    {
+                        attachment.resolveTarget = resolveView;
+                    }
+                }
                 rpDesc.colorAttachments.Add(attachment);
             }
 

@@ -98,6 +98,26 @@ export namespace foundation::rendergraph
             return *this;
         }
 
+        // MSAA hardware resolve for a color slot: the slot's multisampled target resolves into
+        // `resolveHandle` (single-sample) at pass end, and the MSAA target's storeOp becomes
+        // DontCare (its samples are not needed once resolved). Must be called AFTER SetColorTarget
+        // for the same slot. The resolve target is registered as a write so the graph allocates +
+        // transitions it. No-op for the single-sample path (callers only call this when MSAA).
+        PassBuilder& SetResolveTarget(i32 slot, RGHandle resolveHandle,
+                                      RGSubresourceRange subresource = {})
+        {
+            while (static_cast<i32>(m_pass->colorTargets.Size()) <= slot)
+            {
+                m_pass->colorTargets.PushBack(RGColorTarget{});
+            }
+            RGColorTarget& target = m_pass->colorTargets[static_cast<usize>(slot)];
+            target.resolveHandle = resolveHandle;
+            target.storeOp = rhi::StoreOp::DontCare; // MSAA samples discarded after resolve
+            m_pass->accesses.PushBack(
+                RGResourceAccess{resolveHandle, RGAccessType::WriteColorTarget, subresource});
+            return *this;
+        }
+
         PassBuilder& SetDepthTarget(RGHandle handle, rhi::LoadOp loadOp = rhi::LoadOp::Clear,
                                     rhi::StoreOp storeOp = rhi::StoreOp::Store,
                                     f32 clearDepth = 1.0f, RGSubresourceRange subresource = {},

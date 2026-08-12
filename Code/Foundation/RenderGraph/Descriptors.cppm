@@ -95,6 +95,11 @@ export namespace foundation::rendergraph
         rhi::StoreOp storeOp = rhi::StoreOp::Store;
         rhi::ClearColor clearValue = rhi::ClearColor::Black();
         RGSubresourceRange subresource;
+        // MSAA resolve: when valid, the multisampled `handle` resolves into `resolveHandle`
+        // at pass end (hardware resolve attachment; averaged - the correct scene-color resolve).
+        // The MSAA attachment's storeOp is set DontCare by the setter (samples not needed after
+        // resolve). Invalid = no resolve (single-sample path, unchanged).
+        RGHandle resolveHandle = RGHandle::Invalid();
     };
 
     // Depth/stencil target attachment for a render pass.
