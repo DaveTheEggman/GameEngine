@@ -227,3 +227,30 @@ Verified against code @ 9c9046f8.
 - SPLIT (spec rule): the P3 commands/orders SKETCH -> **Plans/networking-commands.md** (DRAFT, the
   4 slices); the §9 refinements/backlog + validation debt -> **Backlog/networking-followups.md**; the
   transport/genre/sockets rationale + references -> **Archive/networking-design-history.md**.
+
+## P1 - batch 5: physics (2026-08-12)
+
+Verified against code @ 33f64a02.
+
+- **Systems/physics.md** REWRITTEN present-tense (was `Draconic Physics - Jolt-backed subsystem
+  (design)`, SHIPPED-but-design-framed, 279 lines with the full reference survey + open questions +
+  parked list inline, old `draconic.physics.*` names). Now a CURRENT reference: the real modules
+  (foundation.physics / foundation.physics.resource / physics.pipeline / engine.physics /
+  editor.physics), the value-pool components as SHIPPED, per-scene settings + collision-group matrix,
+  fixed-step + interpolation, queries/events, cooked resources, editor, the ScenePhysics facade.
+  Verified against code: modules above; PhysicsWorld + ShapeKind{Box,Sphere,Capsule,Cooked,Plane} +
+  ShapeDesc (foundation.physics); RigidBodyComponent/ColliderComponent/CharacterComponent/
+  JointComponent + JointKind{Fixed,Point,Hinge,Slider,Distance} + motorEnabled/motorTargetVelocity/
+  motorLimit; PhysicsSettings scene component (gravity + groupNames/groupCollides matrix + debugDraw);
+  collisionGroup u8; OnFixedUpdate + MoveKinematic + ApplyInterpolation(lerp/Slerp); CollisionShape
+  (foundation.physics.resource) + PhysicalMaterial (physics.pipeline) cook kinds ConvexHull/
+  TriangleMesh; ScenePhysics.of(scene) facade (rayCast/hitX../gravityY/setGravity/applyImpulse);
+  CharacterComponent.move/jump; collision matrix editor in Editor.Scene InspectorView
+  (CollisionMatrixTests). State: unknown -> current.
+- CORRECTED drift vs the design doc: single ColliderComponent (not per-primitive shape components),
+  single JointComponent+kind (not five), groups in scene settings (not project settings), character
+  control now scriptable (old doc marked it BLOCKED). No cylinder shape; no convex decomposition.
+- SPLIT (spec rule): the reference survey (Sedulous/ez/Godot/Flax) + no-abstraction-theater rationale
+  + layer-model choice + deviations-and-why -> **Archive/physics-design-history.md** (ARCHIVED); the
+  §10 parked items (convex decomposition, gravity volumes, JPH_DEBUG_RENDERER, per-world job-pool
+  consolidation) + the now-resolved per-entity-scripting note -> **Backlog/physics-followups.md**.
