@@ -140,6 +140,14 @@ export namespace foundation::rhi::webgpu
             return 4;
         }
 
+        bool SupportsSampleCount(u32 count) const noexcept override
+        {
+            // WebGPU guarantees ONLY {1, 4} for the renderer's color + depth formats. 2x is NOT
+            // guaranteed (it needs TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES, which we do not enable), so
+            // creating a 2-sample texture/pipeline aborts the device - callers must snap 2x to 1x here.
+            return count == 1 || count == 4;
+        }
+
         FormatSupport GetFormatSupport(TextureFormat format) override
         {
             // WebGPU's per-format capabilities are SPEC tables, not driver queries -

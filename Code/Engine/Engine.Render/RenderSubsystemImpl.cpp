@@ -164,6 +164,21 @@ namespace engine::render
         m_globalPostActive = true;
     }
 
+    bool RenderSubsystem::SupportsMsaaSamples(u32 count) const noexcept
+    {
+        if (count <= 1)
+        {
+            return true; // 1x (off) is always available
+        }
+        // MSAA needs the resolve pass; without it (or a device) only 1x is usable. Otherwise defer to
+        // the device's exact-count support AND the queried ceiling.
+        if (m_msaaResolvePass.Get() == nullptr || m_device == nullptr)
+        {
+            return false;
+        }
+        return count <= m_maxMsaaSamples && m_device->SupportsSampleCount(count);
+    }
+
     void RenderSubsystem::ViewCullStats(u32& culled, u32& total) const noexcept
     {
         if (m_frame.Get() != nullptr)
@@ -428,16 +443,26 @@ namespace engine::render
         // SSR's `temporal` stays frame-global, so the OR lands here, not in ResolveScenePost.
         settings.post.needsMotion =
             settings.post.taaEnabled || (settings.post.ssrEnabled && m_ssrParams.temporal);
-        // Scene-pass MSAA (msaa.md Decision 1): clamp the AUTHORED intent to what the device supports
-        // (queried once at init) so a 4x request on a 2x-only device degrades to 2x rather than failing.
-        // The setting/override records intent; this is the clamped result the pipeline renders at.
-        if (settings.post.msaaSamples > m_maxMsaaSamples)
+        // Scene-pass MSAA (msaa.md Decision 1): snap the AUTHORED intent to what the device supports.
+        // The valid set is NOT [1 .. ceiling]: WebGPU supports only {1, 4}, never 2. So clamp to the
+        // ceiling, then snap DOWN to the nearest device-supported count (2x on WebGPU degrades to 1x;
+        // 4x stays 4x). An unsupported count reaching texture/pipeline creation aborts the device, so
+        // this snap - not just a ceiling clamp - is what keeps a 2x request from crashing on web.
         {
-            settings.post.msaaSamples = m_maxMsaaSamples;
-        }
-        if (settings.post.msaaSamples < 1)
-        {
-            settings.post.msaaSamples = 1;
+            u32 s = settings.post.msaaSamples;
+            if (s < 1)
+            {
+                s = 1;
+            }
+            if (s > m_maxMsaaSamples)
+            {
+                s = m_maxMsaaSamples;
+            }
+            while (s > 1 && !m_device->SupportsSampleCount(s))
+            {
+                s >>= 1;
+            }
+            settings.post.msaaSamples = static_cast<u8>(s);
         }
         {
             PROFILE_SCOPE("Render.AddView"); // binds the view + builds/sorts its draw list

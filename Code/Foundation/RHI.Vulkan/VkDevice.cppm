@@ -376,6 +376,20 @@ export namespace foundation::rhi::vk
             return 1;
         }
 
+        bool SupportsSampleCount(u32 count) const noexcept override
+        {
+            if (count <= 1)
+                return true;
+            if (count != 2 && count != 4) // engine ceiling is 4x; only powers of two are valid
+                return false;
+            VkPhysicalDeviceProperties props{};
+            vkGetPhysicalDeviceProperties(m_adapter->physicalDevice(), &props);
+            const VkSampleCountFlags both = props.limits.framebufferColorSampleCounts &
+                                            props.limits.framebufferDepthSampleCounts;
+            // count (2 or 4) equals its VK_SAMPLE_COUNT_*_BIT value, so a direct mask test works.
+            return (both & count) != 0;
+        }
+
         // ---- Resource creation ----
         Status CreateBuffer(const BufferDesc& d, Buffer*& out) override
         {

@@ -759,13 +759,30 @@ namespace samples
                     renderSub->SetSsrEnabled(ssr);
                 }
                 // Scene-pass MSAA (independent of TAA - both can be on). Off/2x/4x map to sample
-                // counts 1/2/4; the subsystem clamps to the device ceiling per view.
-                const core::u32 msaaCounts[] = {1u, 2u, 4u};
-                int msaaIdx = (renderSub->MsaaSamples() >= 4u)   ? 2
-                              : (renderSub->MsaaSamples() >= 2u) ? 1
-                                                                 : 0;
-                const char* msaaItems[] = {"Off", "2x", "4x"};
-                if (ImGui::Combo("MSAA", &msaaIdx, msaaItems, 3))
+                // counts 1/2/4. Offer ONLY device-supported counts: the valid set is not contiguous -
+                // WebGPU has no 2x - so on web this shows just "Off" and "4x" (picking an unsupported
+                // count would silently render at a lower one).
+                const core::u32 allCounts[] = {1u, 2u, 4u};
+                const char* allItems[] = {"Off", "2x", "4x"};
+                core::u32 msaaCounts[3] = {};
+                const char* msaaItems[3] = {};
+                int msaaN = 0;
+                int msaaIdx = 0;
+                for (int i = 0; i < 3; ++i)
+                {
+                    if (!renderSub->SupportsMsaaSamples(allCounts[i]))
+                    {
+                        continue;
+                    }
+                    if (renderSub->MsaaSamples() >= allCounts[i])
+                    {
+                        msaaIdx = msaaN; // select the highest supported count <= the current setting
+                    }
+                    msaaCounts[msaaN] = allCounts[i];
+                    msaaItems[msaaN] = allItems[i];
+                    ++msaaN;
+                }
+                if (msaaN > 0 && ImGui::Combo("MSAA", &msaaIdx, msaaItems, msaaN))
                 {
                     renderSub->SetMsaaSamples(msaaCounts[msaaIdx]);
                 }

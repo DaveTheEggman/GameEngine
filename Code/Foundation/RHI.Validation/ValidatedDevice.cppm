@@ -61,6 +61,10 @@ export namespace foundation::rhi::validation
         {
             return m_inner->MaxColorDepthSampleCount();
         }
+        bool SupportsSampleCount(u32 count) const noexcept override
+        {
+            return m_inner->SupportsSampleCount(count);
+        }
         FormatSupport GetFormatSupport(TextureFormat f) override
         {
             return m_inner->GetFormatSupport(f);

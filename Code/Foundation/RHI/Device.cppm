@@ -169,6 +169,12 @@ export namespace foundation::rhi
         /// Default 1 = a backend that has not implemented the query reports "no MSAA" (safe: views
         /// clamp to single-sample). Overridden by backends that support it.
         [[nodiscard]] virtual u32 MaxColorDepthSampleCount() const noexcept { return 1; }
+        /// Whether this EXACT sample count is usable for BOTH color and depth render targets. The set
+        /// of valid counts is not simply [1 .. MaxColorDepthSampleCount()]: WebGPU, for instance,
+        /// guarantees only {1, 4} - never 2 - so a caller must snap an unsupported count rather than
+        /// assume every count up to the ceiling works (an unsupported count aborts texture/pipeline
+        /// creation). Default: only 1 (no MSAA). Overridden by backends that support it.
+        [[nodiscard]] virtual bool SupportsSampleCount(u32 count) const noexcept { return count <= 1; }
 
         // ---- Resource creation ----
         virtual Status CreateBuffer(const BufferDesc& desc, Buffer*& out) = 0;

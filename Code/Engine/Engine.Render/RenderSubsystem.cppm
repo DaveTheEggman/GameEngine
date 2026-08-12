@@ -125,6 +125,9 @@ export namespace engine::render
         // (msaa.md). Samples/tools drive it directly (the editor uses the per-view override instead).
         void SetMsaaSamples(u32 count) noexcept;
         [[nodiscard]] u32 MsaaSamples() const noexcept { return m_globalMsaaSamples; }
+        // Whether this exact scene-pass MSAA count is usable on the active device (the valid set is not
+        // contiguous - WebGPU supports only {1, 4}). UIs should offer only counts that return true.
+        [[nodiscard]] bool SupportsMsaaSamples(u32 count) const noexcept;
         [[nodiscard]] SsrPass::Params& SsrParams() noexcept { return m_ssrParams; }
 
         // Share instance data between the camera depth-prepass and the forward (build once). A/B toggle.
