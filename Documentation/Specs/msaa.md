@@ -1,8 +1,10 @@
 # Scene-pass MSAA
 
-> Status: DRAFT (spec, ready to build)
+> Status: P1 IN PROGRESS - render mechanism + editor toggle + web (Vulkan + WebGPU) shipped
+> and on-screen verified; P1g pixel-probe acceptance test still open. See "Build state" below.
 > Track: backlog I11 / renderer
 > Author: Fable, 2026-08-12. Opus executes; Fable reviews per phase.
+> Resume at P1g (the pixel-probe acceptance test).
 
 **Motivation:** the Sponza-vs-Godot comparison (I11). Mips closed the
 dominant gap; geometry-edge quality without TAA's temporal artifacts is the
@@ -205,6 +207,42 @@ half-built.
   plumb; not in this track.
 - 8x, sample shading, per-sample post: out.
 
+## Build state (2026-08-12)
+
+P1 render mechanism is BUILT, committed, and verified on screen (Vulkan + WebGPU). What
+remains for P1 is the automated pixel-probe acceptance test (P1g). Detail:
+
+**Done (shipped + on branch `game-ready-scripting`):**
+- Frame-graph multisampled color+depth transients + a resolve attachment (`RGColorTarget.resolveHandle`,
+  `PassBuilder::SetResolveTarget`, executor mapping).
+- `MsaaResolvePass` - first-sample shader resolve of depth + aux G-buffer (normal/velocity/material)
+  into 1x, feeding the existing 1x consumers. Color resolves via a hardware resolve attachment.
+- PSO sample-count threading (prepass + forward opaque + sky + decals via the config/PSO key);
+  MSAA-off is byte-identical by construction (all counts default 1, post* handles alias, no resolve
+  passes emitted).
+- Device capability + clamp: `Device::MaxColorDepthSampleCount` (ceiling) AND
+  `Device::SupportsSampleCount` (exact-count set - Vulkan bitmask; WebGPU `{1,4}`, no 2x); per-view
+  snap-down to a supported count; `ValidatedDevice` forwards both.
+- Editor viewport toggle (off/2x/4x post-flags menu) + WebScene sample toggle (offers only
+  device-supported counts).
+- Web (Emscripten/WebGPU): WGSL cook of the resolve shader + full scene runs 4x in the browser.
+- Both compilers (clang + gcc) + wasm green; on-screen verified on Sponza (RTX 2060: 4x engages,
+  resolves, toggles clean, no validation errors) and on WebGPU (browser + desktop `--webgpu`/WGSL).
+
+**WebGPU-strictness fixes made during the web bring-up (Vulkan tolerated all three):** resolve-pass
+multisampled aux must be `UnfilterableFloat`; decals must SAMPLE the resolved 1x depth, not the MSAA
+attachment (moved decals just after the resolve - now consistent with AO/SSR; **Fable to note this
+ordering refinement in review**); sample counts are `{1,4}` only on WebGPU (snap 2x -> 1x). Captured
+as a standing rule in memory `webgpu-stricter-than-vulkan`.
+
+**Open (resume here):**
+- **P1g** - the pixel-probe acceptance test: a high-contrast opaque edge rendered at 1x vs 4x, offscreen
+  readback (Sample016_Readback pattern), asserting intermediate-coverage pixels appear on the 4x edge;
+  confirm GTAO/SSR/TAA/FXAA still pass their existing probes with MSAA on; both backends. This is the
+  last unautomated piece of P1's acceptance.
+- Follow-up noted: DX12 `MaxColorDepthSampleCount`/`SupportsSampleCount` still return the default 1
+  (no MSAA on the DX path yet) - fine for now (WebGPU-first), revisit if DX12 becomes a target.
+
 ## Phases
 
 **P1 - the multisampled view (the whole mechanism, editor-first).**
@@ -235,3 +273,12 @@ Both compilers + wasm green; the new scene-pass probe + full battery;
 zero behavior change with MSAA off (the default) - single-sample paths
 byte-identical in the probe; editor toggle user-verified on Sponza
 against the Godot reference that motivated I11.
+
+Checklist (2026-08-12):
+- [x] Both compilers (clang + gcc) + wasm green.
+- [x] Zero behavior change with MSAA off - byte-identical by construction (all counts default 1,
+      post* handles alias the originals, no resolve passes emitted). To be re-asserted mechanically by
+      the P1g probe.
+- [x] Editor toggle user-verified on Sponza (RTX 2060); WebGPU verified in-browser + desktop `--webgpu`.
+- [ ] New scene-pass pixel probe (1x vs 4x opaque edge) - **P1g, open**.
+- [ ] Full existing probe battery (GTAO/SSR/TAA/FXAA) re-run green with MSAA on - **P1g, open**.
