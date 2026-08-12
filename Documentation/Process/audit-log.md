@@ -485,3 +485,20 @@ Verified against code @ 84e710a7 (both-shipped-and-deferred method).
 - No Archive/Backlog split needed (a focused decision doc, no survey; the two follow-ups were already
   DONE, folded into the shipped text; the one optional pretty-formatting item kept as an inline Deferred
   line).
+
+## P1 - batch 14: path-type (2026-08-12)
+
+Verified against code @ 89516efc (both-shipped-and-deferred method).
+
+- **Systems/path-type.md** REWRITTEN present-tense (was `A typed Path for source references`, status
+  PLANNED / not implemented - STALE; P1+P2 SHIPPED). Now a CURRENT reference: SourcePath (foundation.vfs),
+  adoption (Asset::fileName), non-goals, deferred. Verified against code: foundation.vfs/SourcePath.cppm;
+  Pipeline.Core/Asset.cppm (`Asset::fileName is vfs::SourcePath`) inherited by all asset types
+  (confirmed across font/texture/audio/script/image editor pages + tests); Editor.App/PathPickerDialog.
+  State: unknown -> current.
+- CORRECTED drift + verified deferred: P1 (type) + P2 (root adoption) SHIPPED; P3 (GENERIC inspector
+  auto-picker) is NOT built - the reflected inspector has no SourcePath dispatch; editor pages hand-wire
+  PathPickerDialog (confirmed: no SourcePath in InspectorView/AssetForm/Reflect). P4 (Check-Assets lint)
+  NOT built (no CheckAssets action). Both kept as Deferred.
+- SPLIT (spec rule): the Traktor traktor::Path survey + sharp-edges-not-copied + design calls ->
+  **Archive/path-type-design-history.md** (ARCHIVED); P3/P4 kept as an inline Deferred section.
