@@ -677,3 +677,21 @@ Verified against code @ 12114827 (both-shipped-and-deferred method).
   NOT the engine UI (foundation.ui is). State: unknown (experimental/parked) -> current.
 - SPLIT (spec rule): the eepp dependency-cone census + wholesale-lift-trap analysis ->
   **Archive/gui-port-design-history.md** (ARCHIVED). web-platform deferrals kept inline.
+
+## P1 - batch 23: reflection-track (2026-08-12)
+
+Verified against code @ f090a071.
+
+- **Systems/reflection-track.md** REWRITTEN present-tense (was "planned 2026-07-28", a 577-line working
+  log; the mechanisms + P1/P2 SHIPPED). Now a CURRENT reference: the facilities (macros REFLECT_MEMBERS/
+  REFLECT_VALUE/REFLECT_ENUM/RTTI_DEFINE_OBJECT + attributes displayName/range/description/visibleWhen +
+  ContainerInfo containers + Variant borrow/generation guard), the consumers, the coverage phases (P1
+  CLOSED, P2 DONE, P3/P4 ongoing), the mechanism additions (Nested, ComputedProperty, the 2 container
+  primitives, collections-in-scripts, generic list editor). Verified against code: foundation.core
+  :reflection (Reflection.cppm - TypeBuilder, attributes, container reflection; CoreReflectionImpl - the
+  C-array flat matrix view + RegisterUniquePtrArrayType poly container; Variant.cppm - borrow +
+  structural-mutation generation); TypeInfo.container ContainerInfo; macros REFLECT_* / RTTI_DEFINE_OBJECT;
+  collections-in-scripts in both backends + InspectorView list editing. State: unknown -> current.
+- SPLIT (spec rule): the measured-gap census + the nested-member blocker + Fable's Q3 decision + the
+  container-primitives blocker + the unit-by-unit collections-in-scripts log ->
+  **Archive/reflection-track-history.md** (ARCHIVED).
