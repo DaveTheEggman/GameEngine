@@ -1,116 +1,110 @@
-# Draconic — Editor Infrastructure (design)
+# Editor Infrastructure
 
-**Status:** ARCHITECTURE LOCKED (2026-07-11) after the three-editor survey (condensed findings in §6).
-All decisions made (§5). Build underway per §7: **phases 1–3 DONE** (+ editor logging §3.10) —
-shell, scene pages rendering live scenes through the real renderer, and now per-page hierarchy
-(SplitView left pane, in-place rename, drag-reparent via drop-into zones), Guid-based entity
-commands (create/rename/reparent/destroy with full-subtree destroy-undo incl. components),
-per-page selection, CPU-ray viewport picking, and entity debug markers. Post-testing round:
-sibling reorder DONE end-to-end (Scene::MoveBefore + ordered serialization + boundary drop zones
-+ header [+]/filter), plus input-pipeline fixes (Return dispatch-first, key-map gaps, list
-click-to-focus, scroll-corrected drops). World-preserving reparent DONE (TRS decompose ported
-from Sedulous per-need; Scene keep-world overloads; exact-local undo). Phase 4 (reflection
-inspector) DONE and committed: per-page SceneInspectorView (Entity name/active, Transform with
-euler-degree rotation, one category per component from reflected properties — f32/ints/bool/
-String/Float2/3/4/Color/enums), all edits through merging SceneEditContext commands, signature-
-driven rebuild vs per-frame value pull (skipped mid-gesture), Add Component menu from the scene's
-reflected managers + Remove rows. Enablers: PropertyInfo::address (enum raw path), generic
-ComponentManagerBase access (GetComponentInstance/AddDefaultComponent), component reflection
-registered in every subsystem's OnInit (render/animation/particles), toolkit Float2/Float4
-editors (VectorNEditor family renamed FloatN — packed math currency, not the SIMD Vector types).
-The collapse-state gap is FIXED (Guid-keyed capture across rebuilds). Phase 5 (gizmos) DONE and
-committed, built to the §8 design (Sedulous skeleton + PlayCanvas interaction, user-verified):
-TransformGizmo + GizmoController + component gizmos (light/probe/camera), one-undo-per-drag via
-group bracketing, parent-aware deltas, W/E/R/X keys with camera-fly gating (WASD now only flies
-while RMB/Tab-captured). Next: phase 6 (asset browser + cooker).
+> Status: CURRENT
+> Verified: 2026-08-12 @ e9c4f8d6
+> Track: [[editor-track]]
 
-**Inspiration:** **Traktor** (gold standard — source-db + pipeline + per-type editors), **Lumix**
-(fast iteration — StudioApp + plugins, command-mediated live-world editing), **Sedulous** (our
-lineage — keep the skeleton, fix the two known weaknesses: dead plugin layer, shallow undo coverage).
+The editor is built out well past the phased plan below. Shipped: the shell (`editor.app`) +
+`editor.core` (headless logic), scene pages rendering live scenes through the real renderer, per-page
+hierarchy (rename, drag-reparent, sibling reorder, world-preserving reparent), Guid-based entity
+commands with full-subtree undo, CPU-ray viewport picking, the reflection inspector (`SceneInspectorView`
++ `SceneEditContext` merging commands, Add/Remove component from reflected managers), gizmos
+(`TransformGizmo` + `GizmoController` + component gizmos, one-undo-per-drag, W/E/R/X with camera-fly
+gating), and phase 6 - the asset browser (`AssetsView`) + the cooker (`EditorCookService`). On top of
+that: the project manager (`project-and-settings.md`), a broad set of bespoke per-asset editor pages
+(scene, mesh, skeleton, animation-clip, animation-graph, material, texture, image, particle-effect,
+collision-shape, audio-clip/sound-cue/bus-layout, input-map, UI-document, script, game), the generic
+`AssetFormPage` fallback (`editor.generic`), and background jobs (`editor-jobs.md`).
 
-**North star:** a modular, data-driven editor that leans on Draconic's existing strengths (full
-runtime reflection, the Asset→cook→Resource triad, content DB, debug-draw, draconic.ui) —
-**Sedulous's skeleton + Lumix's mutation discipline + Traktor's asset pipeline** (which Draconic
-already owns).
+The design record below (the architecture, the three-editor survey, the phased plan) describes the
+system that was delivered; it is preserved for the "why".
+
+**Inspiration:** Traktor (gold standard - source-db + pipeline + per-type editors), Lumix (fast
+iteration - StudioApp + plugins, command-mediated live-world editing), Sedulous (our lineage - keep the
+skeleton, fix the two known weaknesses: dead plugin layer, shallow undo coverage).
+
+**North star:** a modular, data-driven editor leaning on the engine's strengths (full runtime
+reflection, the Asset->cook->Resource triad, content DB, debug-draw, `foundation.ui`) - Sedulous's
+skeleton + Lumix's mutation discipline + Traktor's asset pipeline.
 
 ---
 
 ## 1. What Draconic already has (build on, don't rebuild)
 
-- **`draconic.editor`** — the asset-cook *authoring base*: `Asset` (source object referencing an
-  external file + import settings) / `IAssetBuilder` / `DefaultAssetBuilder`, `AssetBuildContext`
-  (assetRoot + output `Instance` + db for cross-refs). The source→product cook seam.
-- **Content DB** (`draconic.content`) — GUID identity, Group tree, `Instance` =
-  `ReadObject/WriteObject` (primary `ISerializable`) + named data streams. **Pluggable
-  `SerializerFactory`** (2026-07-11): `XmlSerializerFactory` (readable/diffable **source** DB) vs
-  `BinarySerializerFactory` (**cooked** DB) — the Traktor source-db/output-db split, already built.
-- **Scene serialization — DONE** (memory said "pending"; it isn't): `draconic.scene.resource` has
-  bidirectional `SerializeScene` (entities by GUID, parent links + component owners relinked on
-  load, components serialized by their typed managers, routed by stable string type id) +
-  `SceneDocument` primary; `draconic.scene.editor` has `SaveScene(scene, instance)`. The design
-  comment is explicit: *"for scenes the cooked file IS the authored form"* — scenes serialize the
-  **live world**. Big input to §5a.
-- **Full runtime reflection** — `PropertyInfo` (name/type/flags + Variant `get`/`set`),
-  base-chain `FindProperty`, methods, enum reflection, `Variant`/`Instance`. Flags today:
-  `ReadOnly` only — an attribute channel (range/color/resource-ref/category) is a small add (§3.5).
-- **UI framework + workbench layer — proven in UISandbox:** `draconic.ui` + toolkit
-  `DockManager`/`DockablePanel` (persistence IDs + dock-layout save/restore tests),
-  `draconic.ui.application::RuntimeDockableWindowHost` (floating panels = real borderless OS windows,
-  drag-follow Tick), `draconic.ui.viewport::ViewportView` (offscreen color+depth RT, `OnRender`
-  delegate with barriers handled, ContentFit shared draw/input math, gated `InputSurface` facades).
-- **Debug-draw** (per-scene + global gizmos + text) — gizmo rendering foundation.
-- **Renderer + scene/ECS + animation + particles** — viewport content done. Resource manager with
-  dependency tracking + transitive reload (hot-reload seam).
-- **Runtime** — `IApplication`/`IApplicationHost`, multi-window, input routing (`InputRouter`/
-  `InputSurface`), UIHost.
+- **`foundation.editor`** - the asset-cook *authoring base*: `Asset` (source object referencing an
+ external file + import settings) / `IAssetBuilder` / `DefaultAssetBuilder`, `AssetBuildContext`
+ (assetRoot + output `Instance` + db for cross-refs). The source→product cook seam.
+- **Content DB** (`foundation.content`) - GUID identity, Group tree, `Instance` =
+ `ReadObject/WriteObject` (primary `ISerializable`) + named data streams. **Pluggable
+ `SerializerFactory`** (2026-07-11): `XmlSerializerFactory` (readable/diffable **source** DB) vs
+ `BinarySerializerFactory` (**cooked** DB) - the Traktor source-db/output-db split, already built.
+- **Scene serialization - DONE** (memory said "pending"; it isn't): `foundation.scene.resource` has
+ bidirectional `SerializeScene` (entities by GUID, parent links + component owners relinked on
+ load, components serialized by their typed managers, routed by stable string type id) +
+ `SceneDocument` primary; `foundation.scene.editor` has `SaveScene(scene, instance)`. The design
+ comment is explicit: *"for scenes the cooked file IS the authored form"* - scenes serialize the
+ **live world**. Big input to §5a.
+- **Full runtime reflection** - `PropertyInfo` (name/type/flags + Variant `get`/`set`),
+ base-chain `FindProperty`, methods, enum reflection, `Variant`/`Instance`. Flags today:
+ `ReadOnly` only - an attribute channel (range/color/resource-ref/category) is a small add (§3.5).
+- **UI framework + workbench layer - proven in UISandbox:** `foundation.ui` + toolkit
+ `DockManager`/`DockablePanel` (persistence IDs + dock-layout save/restore tests),
+ `foundation.ui.application::RuntimeDockableWindowHost` (floating panels = real borderless OS windows,
+ drag-follow Tick), `foundation.ui.viewport::ViewportView` (offscreen color+depth RT, `OnRender`
+ delegate with barriers handled, ContentFit shared draw/input math, gated `InputSurface` facades).
+- **Debug-draw** (per-scene + global gizmos + text) - gizmo rendering foundation.
+- **Renderer + scene/ECS + animation + particles** - viewport content done. Resource manager with
+ dependency tracking + transitive reload (hot-reload seam).
+- **Runtime** - `IApplication`/`IApplicationHost`, multi-window, input routing (`InputRouter`/
+ `InputSurface`), UIHost.
 
 ## 2. Scope (from the roadmap → Track: Editor)
 
 - **Reflection-driven inspector** with per-type custom editors.
-- **Scene hierarchy** panel — entity tree, selection, reparent, add/remove.
-- **Gizmos** — translate/rotate/scale on debug-draw, snapping.
-- **Viewport** — renderer output + editor camera + picking/selection + gizmo interaction.
-- **Asset browser** — over the content DB; import + cook (needs the offline cooker), thumbnails.
+- **Scene hierarchy** panel - entity tree, selection, reparent, add/remove.
+- **Gizmos** - translate/rotate/scale on debug-draw, snapping.
+- **Viewport** - renderer output + editor camera + picking/selection + gizmo interaction.
+- **Asset browser** - over the content DB; import + cook (needs the offline cooker), thumbnails.
 - **Model-import → prefab** workflow.
-- **Play-in-editor** — run the sim, restore edit state.
+- **Play-in-editor** - run the sim, restore edit state.
 
 ## 3. Architecture (LOCKED 2026-07-11)
 
 One-line formula: **Sedulous's EditorContext + registries + per-type pages, Lumix's
 everything-is-a-command mutation discipline, Traktor's source/cooked-db asset cook (already
-built), on draconic.ui docking with ViewportView-hosted scenes.**
+built), on foundation.ui docking with ViewportView-hosted scenes.**
 
 ### 3.1 Module layout (fixes Sedulous's god-class + dead-plugin weaknesses structurally)
 
-- **`draconic.editor`** (exists) — Asset/IAssetBuilder cook base. Unchanged.
-- **`draconic.editor.core`** (new) — **headless** editor domain, no UI imports, fully
-  doctest-able: `EditorContext` (service locator), all registries, `EditorCommandStack` +
-  `IEditorCommand`, selection model, project model, page abstraction (`IEditorPage` sans widgets).
-  This is Sedulous's `Editor.Core` split, kept because it made their editor testable and ours has
-  a tests-required rule.
-- **`draconic.editor.app`** (new) — the UI shell on draconic.ui: EditorApplication (runtime
-  `IApplication`), MenuBar/StatusBar/DockManager chrome, concrete panels (hierarchy, inspector,
-  asset browser, console) and page hosting, layout persistence.
-- **`draconic.<sys>.editor`** (per-subsystem, some exist: `draconic.scene.editor`) — each engine
-  module's editor support: pages, inspectors, gizmo renderers, importers/builders. Exposes one
-  `RegisterEditor(EditorContext&)` entry point.
-- **Editor executable** (new app target) — the *assembly*: links the `draconic.<sys>.editor`
-  modules it ships and calls each `RegisterEditor`. **The editor core/app never link engine
-  subsystem editor modules OR engine subsystems** — this is the fix for Sedulous's "editor
-  statically depends on every engine module" problem. (Traktor's `findAllOf` RTTI auto-discovery
-  is elegant but needs enumerable RTTI + DLL plugins; the statically-assembled app is Lumix's
-  `LUMIX_STUDIO_ENTRY` pattern and costs one file.)
+- **`foundation.editor`** (exists) - Asset/IAssetBuilder cook base. Unchanged.
+- **`editor.core`** (new) - **headless** editor domain, no UI imports, fully
+ doctest-able: `EditorContext` (service locator), all registries, `EditorCommandStack` +
+ `IEditorCommand`, selection model, project model, page abstraction (`IEditorPage` sans widgets).
+ This is Sedulous's `Editor.Core` split, kept because it made their editor testable and ours has
+ a tests-required rule.
+- **`editor.app`** (new) - the UI shell on foundation.ui: EditorApplication (runtime
+ `IApplication`), MenuBar/StatusBar/DockManager chrome, concrete panels (hierarchy, inspector,
+ asset browser, console) and page hosting, layout persistence.
+- **`foundation.<sys>.editor`** (per-subsystem, some exist: `foundation.scene.editor`) - each engine
+ module's editor support: pages, inspectors, gizmo renderers, importers/builders. Exposes one
+ `RegisterEditor(EditorContext&)` entry point.
+- **Editor executable** (new app target) - the *assembly*: links the `foundation.<sys>.editor`
+ modules it ships and calls each `RegisterEditor`. **The editor core/app never link engine
+ subsystem editor modules OR engine subsystems** - this is the fix for Sedulous's "editor
+ statically depends on every engine module" problem. (Traktor's `findAllOf` RTTI auto-discovery
+ is elegant but needs enumerable RTTI + DLL plugins; the statically-assembled app is Lumix's
+ `LUMIX_STUDIO_ENTRY` pattern and costs one file.)
 - **Engine access from the shell is INTERFACE-only** (decided 2026-07-11, after the multi-scene
-  render fix): the app drives scene rendering through `render::ISceneRenderer`, extracted into
-  the light **`draconic.render.api`** module (core+rhi+scene deps only; `draconic.render`
-  re-exports it, `RenderSubsystem` implements it — Sedulous's Abstractions-assembly split). The
-  exe injects the pointer (`app.SetSceneRenderer(...)`) from `registerEditors` (which receives
-  the `EditorApplication&`), and registers engine subsystems via the `configureEngine` hook. The
-  frame shape is Sedulous's: ONE `BeginRendering`/`EndRendering` per frame around ALL pages'
-  viewport renders, on the MAIN window's encoder — offscreen targets are window-agnostic, so
-  floated panels' windows just sample them (their frames are UI-only). Per-view brackets corrupt
-  descriptor sets (per-frame transient pools reset mid-frame) and erase other scenes' debug
-  lists — never bracket per view.
+ render fix): the app drives scene rendering through `render::ISceneRenderer`, extracted into
+ the light **`foundation.render.api`** module (core+rhi+scene deps only; `foundation.render`
+ re-exports it, `RenderSubsystem` implements it - Sedulous's Abstractions-assembly split). The
+ exe injects the pointer (`app.SetSceneRenderer(...)`) from `registerEditors` (which receives
+ the `EditorApplication&`), and registers engine subsystems via the `configureEngine` hook. The
+ frame shape is Sedulous's: ONE `BeginRendering`/`EndRendering` per frame around ALL pages'
+ viewport renders, on the MAIN window's encoder - offscreen targets are window-agnostic, so
+ floated panels' windows just sample them (their frames are UI-only). Per-view brackets corrupt
+ descriptor sets (per-frame transient pools reset mid-frame) and erase other scenes' debug
+ lists - never bracket per view.
 
 ### 3.2 Shell
 
@@ -119,12 +113,12 @@ RootView holding a vertical stack of **MenuBar / DockManager (center) / StatusBa
 `RuntimeDockableWindowHost` assigned so panels float as real OS windows; `Tick()` per frame for
 drag-follow. Panels are `DockablePanel`s with persistence IDs; layout + open-pages persistence to
 the project's editor settings (dock persistence already tested in the toolkit). The editor embeds
-the engine like any game app (scene/render subsystems on the runtime context) — one live engine
+the engine like any game app (scene/render subsystems on the runtime context) - one live engine
 instance serves scene pages and preview.
 
 **Global panels are Assets + Console ONLY** (Sedulous's split, and forced by multi-scene §3.6):
 the dock CENTER is the document area where each open page docks as a closable tab; everything
-scene-scoped — viewport, hierarchy, inspector — lives INSIDE the scene page, built from
+scene-scoped - viewport, hierarchy, inspector - lives INSIDE the scene page, built from
 standalone reusable views (fixing Sedulous's hierarchy/inspector-hardwired-in-the-page-builder
 weakness without breaking its per-page model).
 
@@ -139,7 +133,7 @@ service, status sink, and the registries:
 | `IEditorPageFactory` | asset type (nearest-type match) | document page (dock tab) |
 | `IEditorPanelFactory` | id | global tool panel |
 | `IAssetImporter` | source extension | source `Asset` instance(s) from external files |
-| `IAssetCreator` | — (menu) | new source instances (File→New / context Create) |
+| `IAssetCreator` | - (menu) | new source instances (File→New / context Create) |
 | `IAssetBuilder` (exists) | asset type | cooked product (shared with offline cooker) |
 | `IThumbnailGenerator` | extension/type | asset-browser tiles |
 | `IGizmoRenderer` | component type | per-component viewport gizmos |
@@ -148,76 +142,76 @@ service, status sink, and the registries:
 ### 3.4 Documents: pages + per-page command stacks
 
 - `IEditorPage` per open asset, hosted as a dock tab: id, title, dirty, **own
-  `EditorCommandStack`**, Save, revert-on-close. Factory dispatch by primary-object type.
+ `EditorCommandStack`**, Save, revert-on-close. Factory dispatch by primary-object type.
 - `IEditorCommand { Execute() -> bool; Undo(); TypeId(); Merge(prev) -> bool }` + command
-  **groups** (Begin/End, unwound atomically) + **merge** (same-type top-of-stack, so a slider
-  drag is one entry; failed `Execute` → command dropped, not pushed) — Lumix semantics verbatim,
-  they're the best-engineered of the three.
+ **groups** (Begin/End, unwound atomically) + **merge** (same-type top-of-stack, so a slider
+ drag is one entry; failed `Execute` → command dropped, not pushed) - Lumix semantics verbatim,
+ they're the best-engineered of the three.
 - **RULE (the fix for Sedulous's shallow coverage): every mutation is a command.** Property sets,
-  rename, reparent, add/remove component, entity create/destroy, asset edits. Inspector and gizmos
-  call typed methods on the edit context which construct commands; nothing mutates directly.
-  Undo/redo disabled across the play-in-editor boundary (play-mode commands popped on stop).
-- **Generic snapshot fallback:** `SnapshotCommand` for `ISerializable` asset objects — serialize
-  roundtrip = Traktor's `DeepClone` history state — so simple asset editors get correct undo for
-  free without hand-written commands.
+ rename, reparent, add/remove component, entity create/destroy, asset edits. Inspector and gizmos
+ call typed methods on the edit context which construct commands; nothing mutates directly.
+ Undo/redo disabled across the play-in-editor boundary (play-mode commands popped on stop).
+- **Generic snapshot fallback:** `SnapshotCommand` for `ISerializable` asset objects - serialize
+ roundtrip = Traktor's `DeepClone` history state - so simple asset editors get correct undo for
+ free without hand-written commands.
 
 ### 3.5 Inspector
 
 - **Reflection-first property grid:** enumerate `PropertyInfo` over the base chain; Variant
-  editors per type (numbers/bool/String/vectors/quaternion-as-euler/Color/enums via
-  EnumReflection); multi-select writes to all targets. Edits go through `SetPropertyCommand`
-  (merge on same property+targets).
+ editors per type (numbers/bool/String/vectors/quaternion-as-euler/Color/enums via
+ EnumReflection); multi-select writes to all targets. Edits go through `SetPropertyCommand`
+ (merge on same property+targets).
 - **Attribute channel (small reflection add):** range/slider, color, resource-ref (+ expected
-  resource type), category, hidden, read-only (exists). Lumix's `IAttribute` list per property is
-  the model; ours hangs off `PropertyInfo`.
+ resource type), category, hidden, read-only (exists). Lumix's `IAttribute` list per property is
+ the model; ours hangs off `PropertyInfo`.
 - **Serializer-driven fallback (Traktor's trick):** for `ISerializable` types without reflected
-  properties, an `InspectSerializer : ISerializer` builds the grid from the object's own
-  `Serialize()` traversal (our uniform `Serialize(ar, "name", v)` API makes this cheap), and an
-  `ApplySerializer` writes edits back. One `Serialize()` impl ⇒ save + inspector + snapshot-undo.
+ properties, an `InspectSerializer : ISerializer` builds the grid from the object's own
+ `Serialize()` traversal (our uniform `Serialize(ar, "name", v)` API makes this cheap), and an
+ `ApplySerializer` writes edits back. One `Serialize()` impl ⇒ save + inspector + snapshot-undo.
 - **Overrides:** `IPropertyEditor` per property type; per-component custom sections after the
-  reflected pass (how terrain tools / bake buttons appear, per Lumix).
+ reflected pass (how terrain tools / bake buttons appear, per Lumix).
 
 ### 3.6 Scene editing, selection, picking, gizmos
 
 - **MULTI-SCENE editing (user requirement, 2026-07-11): like Sedulous, unlike Lumix.** Several
-  scene pages can be open at once, EACH owning its own live `Scene` (Scene-is-data makes scenes
-  cheap to instantiate side by side on the engine's subsystems). Everything scene-scoped is
-  therefore PER-PAGE, never global: entity selection, EditorCamera, viewport, command stack,
-  play-in-editor state. Lumix's single-`World` assumptions (one global WorldEditor/selection/
-  gizmo state) must NOT creep in — we take its command semantics, not its singletons.
+ scene pages can be open at once, EACH owning its own live `Scene` (Scene-is-data makes scenes
+ cheap to instantiate side by side on the engine's subsystems). Everything scene-scoped is
+ therefore PER-PAGE, never global: entity selection, EditorCamera, viewport, command stack,
+ play-in-editor state. Lumix's single-`World` assumptions (one global WorldEditor/selection/
+ gizmo state) must NOT creep in - we take its command semantics, not its singletons.
 - **Scene pages edit the LIVE Scene** (§5a decided): a `SceneEditContext` (one per page) mediates
-  all mutations via commands (Lumix `WorldEditor` role); save = existing `SaveScene`;
-  **play-in-editor** = serialize snapshot to memory → engine runs the same live scene → destroy +
-  reload snapshot on stop, selection preserved, play-mode commands discarded (Lumix mechanism,
-  Sedulous `SceneSnapshot` agrees).
-- **Selection**: editor-level sets — per-scene-page entity selection (element 0 = gizmo pivot) +
-  global asset selection; change events drive inspector/hierarchy/gizmos.
+ all mutations via commands (Lumix `WorldEditor` role); save = existing `SaveScene`;
+ **play-in-editor** = serialize snapshot to memory → engine runs the same live scene → destroy +
+ reload snapshot on stop, selection preserved, play-mode commands discarded (Lumix mechanism,
+ Sedulous `SceneSnapshot` agrees).
+- **Selection**: editor-level sets - per-scene-page entity selection (element 0 = gizmo pivot) +
+ global asset selection; change events drive inspector/hierarchy/gizmos.
 - **Picking**: CPU ray vs entity bounds first (bounds math suite exists; nearest-hit walk,
-  Traktor `queryRay` shape); GPU pick pass later if scenes outgrow it (Sedulous `PickPass`
-  precedent). Marquee via frustum test later.
+ Traktor `queryRay` shape); GPU pick pass later if scenes outgrow it (Sedulous `PickPass`
+ precedent). Marquee via frustum test later.
 - **Gizmos**: `TransformGizmo` (translate/rotate/scale, world/local, screen-constant sizing, grid
-  snap) drawn through the scene's debug-draw; drag = command group bracketing merged
-  `SetTransformCommand`s; topmost-only selection filter so parents don't double-move children
-  (Lumix lesson). Per-component gizmos via the `IGizmoRenderer` registry.
+ snap) drawn through the scene's debug-draw; drag = command group bracketing merged
+ `SetTransformCommand`s; topmost-only selection filter so parents don't double-move children
+ (Lumix lesson). Per-component gizmos via the `IGizmoRenderer` registry.
 - **Viewport**: `ViewportView` per scene page + `EditorCamera` (fly controller on the gated
-  `InputSurface`, hover-gated); the page's `OnRender` renders the scene via `draconic.render` into
-  the viewport RT (the thin-slice/UISandbox wiring, with the real renderer).
+ `InputSurface`, hover-gated); the page's `OnRender` renders the scene via `foundation.render` into
+ the viewport RT (the thin-slice/UISandbox wiring, with the real renderer).
 
 ### 3.7 Asset pipeline + browser
 
 - **Source DB (XML factory)** = Traktor's source database; **cooked DB (binary factory)** =
-  output database. Source `Asset` instances (external file + import settings) → `IAssetBuilder` →
-  cooked instance. All exists; what's missing is the **cooker driver**: builder registry +
-  asset-type routing + **incremental** (hash of source object + source file + builder version,
-  Traktor's pipeline-db pattern simplified) + dependency-ordered build. Built as a library used by
-  BOTH the CLI cooker tool and the editor's background build (Sedulous has no cooker — import IS
-  the bake — but Draconic already committed to the cook seam; keep it).
+ output database. Source `Asset` instances (external file + import settings) → `IAssetBuilder` →
+ cooked instance. All exists; what's missing is the **cooker driver**: builder registry +
+ asset-type routing + **incremental** (hash of source object + source file + builder version,
+ Traktor's pipeline-db pattern simplified) + dependency-ordered build. Built as a library used by
+ BOTH the CLI cooker tool and the editor's background build (Sedulous has no cooker - import IS
+ the bake - but Draconic already committed to the cook seam; keep it).
 - **Asset browser panel** over the source DB group tree: left mount/group tree + right content
-  grid with thumbnails; import (file drop / dialog → `IAssetImporter` creates `Asset` instances),
-  create (`IAssetCreator`), open (page-factory dispatch), build, show-in-explorer.
+ grid with thumbnails; import (file drop / dialog → `IAssetImporter` creates `Asset` instances),
+ create (`IAssetCreator`), open (page-factory dispatch), build, show-in-explorer.
 - **Hot reload**: after a cook, poke the resource manager (dependency tracking + transitive reload
-  exist). Guard rapid recompiles with a per-path generation counter (Lumix lesson); GPU-side
-  safety already covered by the bind-group version rule.
+ exist). Guard rapid recompiles with a per-path generation counter (Lumix lesson); GPU-side
+ safety already covered by the bind-group version rule.
 
 ### 3.9 Project model (✅ DECIDED, user 2026-07-11)
 
@@ -225,18 +219,18 @@ service, status sink, and the registries:
 `.sedproj` shape on our VFS/ContentDatabase; can grow Traktor-style extra mounts later):
 
 ```
-MyGame/                  ← project root = what you "open"
-  Project.xml            ← shared manifest, committed: name, format version, default
-                            scene, extra mounts, cook settings. Serialized with the
-                            existing XML serializer (ISerializable; no bespoke format).
-  Content/               ← SOURCE content DB (XmlSerializerFactory) — authored, committed
-  Sources/               ← raw import sources (.fbx/.png/.wav) referenced relatively by
-                            Asset::fileName (= AssetBuildContext.assetRoot) — committed
-  Cooked/                ← cooked DB (BinarySerializerFactory) — generated, GITIGNORED;
-                            delete = clean rebuild; play-in-editor/runtime load from here
-  Editor/                ← per-user editor state (dock layout, open pages, camera) —
-                            GITIGNORED (Traktor shared-vs-user settings split)
-  .cache/                ← thumbnails + incremental-cook hash db — GITIGNORED
+MyGame/ ← project root = what you "open"
+ Project.xml ← shared manifest, committed: name, format version, default
+ scene, extra mounts, cook settings. Serialized with the
+ existing XML serializer (ISerializable; no bespoke format).
+ Content/ ← SOURCE content DB (XmlSerializerFactory) - authored, committed
+ Sources/ ← raw import sources (.fbx/.png/.wav) referenced relatively by
+ Asset::fileName (= AssetBuildContext.assetRoot) - committed
+ Cooked/ ← cooked DB (BinarySerializerFactory) - generated, GITIGNORED;
+ delete = clean rebuild; play-in-editor/runtime load from here
+ Editor/ ← per-user editor state (dock layout, open pages, camera) - 
+ GITIGNORED (Traktor shared-vs-user settings split)
+ .cache/ ← thumbnails + incremental-cook hash db - GITIGNORED
 ```
 
 Opening a project: load `Project.xml` → mount the subdirs (+ read-only `engine://` for
@@ -246,13 +240,13 @@ Packaging/ship cooks can target an external output dir via a cooker flag later.
 
 **TAGGED FOR LATER (user, 2026-07-11): optional native game module.** A project may carry a
 native code part that builds to a DLL the editor loads (game components/subsystems/editor plugins
-live at edit time — Sedulous's `editor.App = TowerDefenseApp()` embedded-game-module path,
+live at edit time - Sedulous's `editor.App = TowerDefenseApp()` embedded-game-module path,
 Traktor's module DLLs), AND a static-link build must remain possible (Traktor supports both;
 Lumix's `STATIC_PLUGINS` vs `setStudioApp` DLL entry is the same dual). Design later (see §5
 deferred); the manifest reserves a `nativeModule` field, and §3.1's `RegisterEditor(EditorContext&)`
 entry-point convention is deliberately DLL-compatible (one C-linkage export resolving to it).
 
-### 3.10 Editor logging (✅ DECIDED 2026-07-11 — improved over Sedulous; lands EARLY, with phase 2)
+### 3.10 Editor logging (✅ DECIDED 2026-07-11 - improved over Sedulous; lands EARLY, with phase 2)
 
 Sedulous's design (surveyed): a custom `EditorLogger : BaseLogger` replacing the app-wide logger
 (console color output + listener notification ON THE LOGGING THREAD) + an `EditorLogBuffer`
@@ -262,54 +256,54 @@ filter toggles, 1000-entry cap, auto-scroll, level colors).
 
 **Draconic does it with ONE object instead of three**, because core already has a global `Logger`
 with pluggable `ILogSink`s that the whole engine logs through (`DRACONIC_LOG_*`):
-- **`EditorLogBuffer : ILogSink`** (`draconic.editor.core`, headless) — thread-safe BOUNDED ring
-  of full-fidelity entries `{level, category, message, sequence}` (heap strings — core's
-  `RingLogSink` truncates messages to 192 chars, useless for build errors/paths). Registered on
-  `GlobalLogger()` first thing in `main`, so early startup logs are captured (Sedulous's goal,
-  without its unbounded growth — the cap + monotonic sequences let the UI report "N dropped").
-  Consumers poll `CollectSince(sequence, out)` per frame on the main thread.
-- **`LogView`** (`draconic.editor.app`) — Sedulous's LogView shape on draconic.ui: level-colored
-  rows, per-level filter toggles + Clear, entry cap, auto-scroll, plus CATEGORY display (core
-  logs carry categories; Sedulous had none). Lives in the Console panel;
-  `EditorApplication::OnUpdate` drains buffer → view once per frame.
-- Console/stdout output stays the core console sink's job (added alongside in `main`) — the
-  editor never replaces the logger, it just adds sinks. Engine-wide capture is free.
+- **`EditorLogBuffer : ILogSink`** (`editor.core`, headless) - thread-safe BOUNDED ring
+ of full-fidelity entries `{level, category, message, sequence}` (heap strings - core's
+ `RingLogSink` truncates messages to 192 chars, useless for build errors/paths). Registered on
+ `GlobalLogger()` first thing in `main`, so early startup logs are captured (Sedulous's goal,
+ without its unbounded growth - the cap + monotonic sequences let the UI report "N dropped").
+ Consumers poll `CollectSince(sequence, out)` per frame on the main thread.
+- **`LogView`** (`editor.app`) - Sedulous's LogView shape on foundation.ui: level-colored
+ rows, per-level filter toggles + Clear, entry cap, auto-scroll, plus CATEGORY display (core
+ logs carry categories; Sedulous had none). Lives in the Console panel;
+ `EditorApplication::OnUpdate` drains buffer → view once per frame.
+- Console/stdout output stays the core console sink's job (added alongside in `main`) - the
+ editor never replaces the logger, it just adds sinks. Engine-wide capture is free.
 
 ## 4. Dependencies / sequencing
 
 - ~~Content-DB text format~~ ✅ DONE (XmlSerializerFactory).
-- ~~Scene serialization~~ ✅ DONE (SerializeScene / SaveScene — found during this survey).
-- **Offline cooker driver** (registry, routing, incremental) — needed by the asset browser's
-  import/build; phase 6 (§7).
-- **Prefabs** (+ model→prefab) — needed by the spawn workflow; sequencing = §5b.
+- ~~Scene serialization~~ ✅ DONE (SerializeScene / SaveScene - found during this survey).
+- **Offline cooker driver** (registry, routing, incremental) - needed by the asset browser's
+ import/build; phase 6 (§7).
+- **Prefabs** (+ model→prefab) - needed by the spawn workflow; sequencing = §5b.
 
 ## 5. Decisions
 
 **Already decided:**
-- UI toolkit = **draconic.ui** (user, 2026-07-10) — docking via toolkit DockManager/DockablePanel.
+- UI toolkit = **foundation.ui** (user, 2026-07-10) - docking via toolkit DockManager/DockablePanel.
 - Editor architecture = §3 (context + registries + pages; statically-assembled plugin modules).
 - Undo = **per-page IEditorCommand stack with merge + groups** + serialize-snapshot fallback for
-  asset objects. (UI `UndoStack` stays a text-editing detail inside controls, not the editor stack.)
+ asset objects. (UI `UndoStack` stays a text-editing detail inside controls, not the editor stack.)
 - Inspector = **reflection-first grid + attribute channel + InspectSerializer fallback +
-  per-type overrides**.
+ per-type overrides**.
 
-**(a) Scene edit-time data model — ✅ DECIDED (user, 2026-07-11) = live-scene editing** (Lumix/Sedulous):
+**(a) Scene edit-time data model - ✅ DECIDED (user, 2026-07-11) = live-scene editing** (Lumix/Sedulous):
 edit the live ECS through commands, snapshot/restore for play-in-editor.
-*Why:* Draconic scenes already serialize the live world — `SaveScene` exists and "the cooked file
+*Why:* Draconic scenes already serialize the live world - `SaveScene` exists and "the cooked file
 IS the authored form"; there is no `EntityData`-style source object model to project from.
 Traktor's cook-from-source alternative (authoritative serialized `EntityData`, runtime entities a
 disposable projection rebuilt per edit) is architecturally cleaner for undo (snapshot the data,
 rebuild) but would mean inventing a parallel scene source format + adapter/rebuild machinery and
 abandoning the working SerializeScene path. Assets (textures/models/materials) keep the
-Traktor-style source→cook they already have — this hybrid is exactly what Sedulous ships.
+Traktor-style source→cook they already have - this hybrid is exactly what Sedulous ships.
 *Cost of the live model:* undo correctness depends on ALL mutations routing through commands
 (§3.4 rule), and destroy-undo must restore full serialized entity state (Sedulous left this a
-lossy TODO — we won't).
+lossy TODO - we won't).
 
-**(b) Prefabs: build-first vs bootstrap-and-backfill — ✅ DECIDED (user, 2026-07-11) =
+**(b) Prefabs: build-first vs bootstrap-and-backfill - ✅ DECIDED (user, 2026-07-11) =
 bootstrap the editor, backfill prefabs at the spawn milestone** (phase 7, after asset browser +
 cooker).
-*Why:* phases 1–5 (shell, viewport, hierarchy, selection, inspector, gizmos) don't touch prefabs;
+*Why:* phases 1-5 (shell, viewport, hierarchy, selection, inspector, gizmos) don't touch prefabs;
 designing the prefab system after the editor's spawn/override workflows are concrete avoids
 building it blind (Lumix `PrefabSystem` + Sedulous `LocalModifications`/`PrefabRebuilder` both
 show prefab design is dominated by editor use-cases: instance tracking, per-instance overrides,
@@ -317,144 +311,144 @@ apply/revert). The cooker driver lands with the asset browser (phase 6) for the 
 
 **DEFERRED (tagged 2026-07-11, plan/discuss later):**
 - **Project native module**: optional per-project native DLL (game code + its editor plugins)
-  loaded by the editor, with a static-link build option like Traktor. Touches: manifest field,
-  module ABI/entry point (`RegisterEditor` C-linkage export), engine DLL-boundary story (currently
-  all-static), hot-reload ambitions, play-in-editor with game subsystems. See §3.9 note.
+ loaded by the editor, with a static-link build option like Traktor. Touches: manifest field,
+ module ABI/entry point (`RegisterEditor` C-linkage export), engine DLL-boundary story (currently
+ all-static), hot-reload ambitions, play-in-editor with game subsystems. See §3.9 note.
 
-## 6. Survey — condensed findings (2026-07-11, three parallel agents; full reports in session)
+## 6. Survey - condensed findings (2026-07-11, three parallel agents; full reports in session)
 
-### Traktor (gold standard) — `/home/robert/Dev/CPP/traktor/code/Editor`
-- `EditorForm : ui::Form, IEditor` — the shell window IS the service object pages receive.
-  Own retained UI lib; `ui::Dock` pane tree (west/east/south tool panes + center `MultiSplitter`
-  of `ui::Tab` groups for documents; side-by-side via tab-group split).
-- **All extensibility via RTTI discovery**: `type_of<I>().findAllOf()` + `createInstance()` —
-  subclass + link = registered. Interfaces: `IEditorPageFactory`/`IEditorPage` (document tabs),
-  `IObjectEditorFactory`/`IObjectEditor` (modal-less dialog editors), `IEditorPlugin` (windowless,
-  ordinal-sorted), `IEditorTool` (Tools menu), `IWizardTool` (db context menu; import lives here).
-  Dispatch = nearest-type match (`type_difference` min) across page + object-editor factories.
+### Traktor (gold standard) - `/home/robert/Dev/CPP/traktor/code/Editor`
+- `EditorForm : ui::Form, IEditor` - the shell window IS the service object pages receive.
+ Own retained UI lib; `ui::Dock` pane tree (west/east/south tool panes + center `MultiSplitter`
+ of `ui::Tab` groups for documents; side-by-side via tab-group split).
+- **All extensibility via RTTI discovery**: `type_of<I>().findAllOf()` + `createInstance()` - 
+ subclass + link = registered. Interfaces: `IEditorPageFactory`/`IEditorPage` (document tabs),
+ `IObjectEditorFactory`/`IObjectEditor` (modal-less dialog editors), `IEditorPlugin` (windowless,
+ ordinal-sorted), `IEditorTool` (Tools menu), `IWizardTool` (db context menu; import lives here).
+ Dispatch = nearest-type match (`type_difference` min) across page + object-editor factories.
 - **Two dbs** (source authored / output cooked), both open; editing = instance checkout →
-  getObject → mutate → setObject → commit. Editor runs a remote-db server; the game connects as a
-  client of the output db → content delivery + hot reload = output-db commit events.
+ getObject → mutate → setObject → commit. Editor runs a remote-db server; the game connects as a
+ client of the output db → content delivery + hot reload = output-db commit events.
 - **Pipeline**: per-type `IPipeline`, 2-phase (parallel dependency walk → build), incremental via
-  global inclusive hash vs pipeline-db, background build thread; auto-build on file change
-  (asset monitor) and on source commit; `needOutputResources` forces build-before-open.
+ global inclusive hash vs pipeline-db, background build thread; auto-build on file change
+ (asset monitor) and on source commit; `needOutputResources` forces build-before-open.
 - **Inspector = the serializer**: `InspectReflector : Serializer` builds the property grid from
-  the object's own `serialize()`; `ApplyReflector` writes back. Attributes on members refine
-  widgets. `AutoPropertyList::bind(object)`.
+ the object's own `serialize()`; `ApplyReflector` writes back. Attributes on members refine
+ widgets. `AutoPropertyList::bind(object)`.
 - **Undo = whole-document `DeepClone` snapshots** (`Document::push()` before mutation, e.g. at
-  gizmo `PreModifyEvent`); modified-detection via `DeepHash`.
+ gizmo `PreModifyEvent`); modified-detection via `DeepHash`.
 - **Scene editing = cook-from-source**: `EntityAdapter` maps source `EntityData` ↔ built runtime
-  `Entity`; `buildEntities()` rebuilds the runtime graph from data on essentially every edit
-  (guid-keyed adapter cache + component-product hashes make it incremental; `trivialChange` path
-  for scrubbing). Runtime entities are a disposable projection.
+ `Entity`; `buildEntities()` rebuilds the runtime graph from data on essentially every edit
+ (guid-keyed adapter cache + component-product hashes make it incremental; `trivialChange` path
+ for scrubbing). Runtime entities are a disposable projection.
 - Picking = per-adapter `IEntityEditor::queryRay`, nearest hit; modifiers (`IModifier`) =
-  translate/rotate/scale with hover/begin/apply/end protocol + `TransformChain`.
+ translate/rotate/scale with hover/begin/apply/end protocol + `TransformChain`.
 
-### Lumix — `/home/robert/Dev/CPP/LumixEngine/src/editor`
+### Lumix - `/home/robert/Dev/CPP/LumixEngine/src/editor`
 - `StudioApp` shell on ImGui dockspace; plugin interfaces: `IPlugin` (subsystem editor, dependency-
-  sorted `init()`), `GUIPlugin` (dockable window/frame hook), `MousePlugin` (viewport interaction),
-  `IAddComponentPlugin` (Add Component menu tree), + `AssetBrowser::IPlugin`,
-  `AssetCompiler::IPlugin`, `PropertyGrid::IPlugin`. Subsystem entry = `LUMIX_STUDIO_ENTRY`;
-  its `init()` registers everything imperatively.
-- **Edits the LIVE World**; `WorldEditor` mediates — every mutating method constructs an
-  `IEditorCommand` (`execute/undo/getType/merge`); linear stack + index; same-type top merge
-  (slider drag = one entry); `begin/endCommandGroup` transactions with same-type coalescing +
-  explicit lock; failed execute → dropped. Selection/camera not undoable.
+ sorted `init()`), `GUIPlugin` (dockable window/frame hook), `MousePlugin` (viewport interaction),
+ `IAddComponentPlugin` (Add Component menu tree), + `AssetBrowser::IPlugin`,
+ `AssetCompiler::IPlugin`, `PropertyGrid::IPlugin`. Subsystem entry = `LUMIX_STUDIO_ENTRY`;
+ its `init()` registers everything imperatively.
+- **Edits the LIVE World**; `WorldEditor` mediates - every mutating method constructs an
+ `IEditorCommand` (`execute/undo/getType/merge`); linear stack + index; same-type top merge
+ (slider drag = one entry); `begin/endCommandGroup` transactions with same-type coalescing +
+ explicit lock; failed execute → dropped. Selection/camera not undoable.
 - **PropertyGrid** = reflection visitor (`IPropertyVisitor` per-type `visit`), attributes
-  (radians/min/clamp/resource/color/enum/no-ui), multi-entity edit, per-component plugin UI after
-  the reflected pass; all writes via `editor.setProperty` (commands).
+ (radians/min/clamp/resource/color/enum/no-ui), multi-entity edit, per-component plugin UI after
+ the reflected pass; all writes via `editor.setProperty` (commands).
 - **Gizmo** = immediate-mode, global state, `manipulate(id, view, transform&)`; commits via
-  WorldEditor calls over a topmost-only selection filter. Picking = CPU raycast (renderer
-  ray-vs-mesh) + icon raycast; rect-select GPU-assisted.
+ WorldEditor calls over a topmost-only selection filter. Picking = CPU raycast (renderer
+ ray-vs-mesh) + icon raycast; rect-select GPU-assisted.
 - **AssetCompiler** = load-hook lazy compile: engine load → stale check (timestamps vs `.meta` +
-  source) → background job queue (fiber) → content-addressed `.res` output (LZ4) → hook continue +
-  live `reload()`; FileSystemWatcher feeds change queue; non-resource deps (shader includes)
-  tracked + dependents recompiled; per-path generation counter kills stale jobs.
+ source) → background job queue (fiber) → content-addressed `.res` output (LZ4) → hook continue +
+ live `reload()`; FileSystemWatcher feeds change queue; non-resource deps (shader includes)
+ tracked + dependents recompiled; per-path generation counter kills stale jobs.
 - **Play-in-editor** = serialize world to memory → run same live world (`startGame`) → on stop pop
-  play-mode commands, destroy world, recreate, deserialize snapshot; undo disabled across the
-  boundary; deferred exit at frame top.
+ play-mode commands, destroy world, recreate, deserialize snapshot; undo disabled across the
+ boundary; deferred exit at frame top.
 
-### Sedulous — `/home/robert/Dev/Beef/SedulousEngine/Code/Editor`
+### Sedulous - `/home/robert/Dev/Beef/SedulousEngine/Code/Editor`
 - **Full mature editor** (~90 files): `Sedulous.Editor.Core` (headless domain) + `Sedulous.Editor`
-  (UI) + thin `.App`. Shell = MenuBar + toolkit DockManager + StatusBar; `EditorDockHost :
-  IDockableWindowHost` (floating OS windows — we already ported this pattern);
-  layout persistence to `editor_layout.oddl`; project manager (`.sedproj`).
+ (UI) + thin `.App`. Shell = MenuBar + toolkit DockManager + StatusBar; `EditorDockHost :
+ IDockableWindowHost` (floating OS windows - we already ported this pattern);
+ layout persistence to `editor_layout.oddl`; project manager (`.sedproj`).
 - **`EditorContext` service locator** + registries: `IEditorPageFactory` (~14 asset-type pages,
-  each page owns id/title/dirty/**own CommandStack**), `IEditorPanelFactory`, `IAssetImporter`
-  (CreatePreview → configure dialog → Import; **import IS the bake**, no cooker),
-  `IAssetCreator`, `IThumbnailGenerator`, `IGizmoRenderer`.
+ each page owns id/title/dirty/**own CommandStack**), `IEditorPanelFactory`, `IAssetImporter`
+ (CreatePreview → configure dialog → Import; **import IS the bake**, no cooker),
+ `IAssetCreator`, `IThumbnailGenerator`, `IGizmoRenderer`.
 - **Embedded runtime context** (full engine subsystems at edit time; game module's hooks run
-  against it; fallback subsystems for asset-only editing). Live scene editing; prefabs first-class
-  (`PrefabSpawner/PrefabRebuilder/LocalModifications` per-instance overrides).
+ against it; fallback subsystems for asset-only editing). Live scene editing; prefabs first-class
+ (`PrefabSpawner/PrefabRebuilder/LocalModifications` per-instance overrides).
 - Inspector = comptime-generated `DescribeProperties` from `[Property]` attrs
-  (two-layer: headless describe / widget building); viewport = `ViewportView` + `ISceneRenderer`
-  into offscreen + priority input handlers (gizmo first, then fly-cam); **GPU picking**
-  (`PickPass.RequestPick`) with CPU ray fallback; `TransformGizmo` drag-end pushes
-  `SetTransformCommand`; play-in-editor via `SceneSnapshot.Capture/Restore`.
-- **Weaknesses (our fixes in §3):** `[EditorPlugin]` discovery fully built but **zero users** —
-  everything hard-registered in `EditorApplication.OnStartup` (1424-line god-class) so the editor
-  links every engine module → fixed by §3.1 assembly model. **Undo coverage shallow** — only
-  create/destroy/transform are commands; inspector edits/rename/reparent/Add-Component mutate
-  directly; `DestroyEntityCommand.Undo` is lossy (TODO) → fixed by §3.4 rule. Dead scaffolding
-  (`EditorSceneManager` stubs); hierarchy+inspector hardwired in an 870-line static builder →
-  ours are standalone reusable panels.
+ (two-layer: headless describe / widget building); viewport = `ViewportView` + `ISceneRenderer`
+ into offscreen + priority input handlers (gizmo first, then fly-cam); **GPU picking**
+ (`PickPass.RequestPick`) with CPU ray fallback; `TransformGizmo` drag-end pushes
+ `SetTransformCommand`; play-in-editor via `SceneSnapshot.Capture/Restore`.
+- **Weaknesses (our fixes in §3):** `[EditorPlugin]` discovery fully built but **zero users** - 
+ everything hard-registered in `EditorApplication.OnStartup` (1424-line god-class) so the editor
+ links every engine module → fixed by §3.1 assembly model. **Undo coverage shallow** - only
+ create/destroy/transform are commands; inspector edits/rename/reparent/Add-Component mutate
+ directly; `DestroyEntityCommand.Undo` is lossy (TODO) → fixed by §3.4 rule. Dead scaffolding
+ (`EditorSceneManager` stubs); hierarchy+inspector hardwired in an 870-line static builder →
+ ours are standalone reusable panels.
 
-## 7. Phased build plan (§5a=live, §5b=bootstrap — both confirmed 2026-07-11)
+## 7. Phased build plan (§5a=live, §5b=bootstrap - both confirmed 2026-07-11)
 
-1. **Shell** — `draconic.editor.core` (EditorContext, registries, `EditorCommandStack` +
-   `IEditorCommand` + merge/groups, selection model, `EditorPage` abstraction; doctests for all
-   of it) + `draconic.editor.app` + editor executable: main window, MenuBar/StatusBar,
-   DockManager with the GLOBAL panels only (center document area w/ Welcome placeholder, Console
-   bottom, Assets tabbed with Console), floating via RuntimeDockableWindowHost, dock-layout
-   persistence, project = open source DB (XML factory).
-2. **Scene page + viewport** — scene-page factory; page docks center as a closable tab; each page
-   owns its OWN live Scene (multi-scene) rendered via draconic.render into its `ViewportView`;
-   per-page `EditorCamera` fly on the gated InputSurface; open/save scene through the content DB
-   (`SaveScene`).
-3. **Hierarchy + selection** — entity tree as a standalone reusable view INSTANTIATED INSIDE the
-   scene page (per-page selection set + events), create/delete/rename/reparent as commands
-   (destroy-undo restores full serialized state), viewport CPU-ray picking.
-4. **Inspector** — DONE. reflection grid as a standalone reusable view inside the scene page
-   (asset pages reuse it too) + `SetComponentProperty`/`Raw` commands w/ merge + Add/Remove
-   Component (from the scene's component-manager registry, full-state undo). Deferred from the
-   original sketch: attribute channel, `InspectSerializer` fallback, `IPropertyEditor` overrides
-   (revisit when asset pages need the grid); resource-ref pickers land with phase 6.
-5. **Gizmos** — DONE (design in §8). TransformGizmo on debug-draw (translate/rotate/scale,
-   world/local, snap), command-group bracketing (one undo entry per drag), per-component
-   `IGizmoRenderer` (light/probe/camera built-ins, selected-only by default).
-6. **Asset browser + cooker** — cooker driver library (builder registry + routing + incremental
-   hash + dep order; CLI tool + in-editor background build), browser panel (tree + grid +
-   thumbnails), import via `IAssetImporter` (model/texture first), open-in-page dispatch, cooked
-   hot reload.
-7. **Prefabs** — prefab resource + spawn + model→prefab import workflow (+ per-instance overrides
-   as a follow-on).
-8. **Play-in-editor** — snapshot → run → restore; input capture handoff; undo fence.
+1. **Shell** - `editor.core` (EditorContext, registries, `EditorCommandStack` +
+ `IEditorCommand` + merge/groups, selection model, `EditorPage` abstraction; doctests for all
+ of it) + `editor.app` + editor executable: main window, MenuBar/StatusBar,
+ DockManager with the GLOBAL panels only (center document area w/ Welcome placeholder, Console
+ bottom, Assets tabbed with Console), floating via RuntimeDockableWindowHost, dock-layout
+ persistence, project = open source DB (XML factory).
+2. **Scene page + viewport** - scene-page factory; page docks center as a closable tab; each page
+ owns its OWN live Scene (multi-scene) rendered via foundation.render into its `ViewportView`;
+ per-page `EditorCamera` fly on the gated InputSurface; open/save scene through the content DB
+ (`SaveScene`).
+3. **Hierarchy + selection** - entity tree as a standalone reusable view INSTANTIATED INSIDE the
+ scene page (per-page selection set + events), create/delete/rename/reparent as commands
+ (destroy-undo restores full serialized state), viewport CPU-ray picking.
+4. **Inspector** - DONE. reflection grid as a standalone reusable view inside the scene page
+ (asset pages reuse it too) + `SetComponentProperty`/`Raw` commands w/ merge + Add/Remove
+ Component (from the scene's component-manager registry, full-state undo). Deferred from the
+ original sketch: attribute channel, `InspectSerializer` fallback, `IPropertyEditor` overrides
+ (revisit when asset pages need the grid); resource-ref pickers land with phase 6.
+5. **Gizmos** - DONE (design in §8). TransformGizmo on debug-draw (translate/rotate/scale,
+ world/local, snap), command-group bracketing (one undo entry per drag), per-component
+ `IGizmoRenderer` (light/probe/camera built-ins, selected-only by default).
+6. **Asset browser + cooker** - cooker driver library (builder registry + routing + incremental
+ hash + dep order; CLI tool + in-editor background build), browser panel (tree + grid +
+ thumbnails), import via `IAssetImporter` (model/texture first), open-in-page dispatch, cooked
+ hot reload.
+7. **Prefabs** - prefab resource + spawn + model→prefab import workflow (+ per-instance overrides
+ as a follow-on).
+8. **Play-in-editor** - snapshot → run → restore; input capture handoff; undo fence.
 
-Each phase lands with doctests (core logic headless in `draconic.editor.core` / `draconic.<sys>.editor`),
+Each phase lands with doctests (core logic headless in `editor.core` / `foundation.<sys>.editor`),
 verified on DEBUG clang + gcc.
 
 ## 8. Gizmos design (phase 5, LOCKED 2026-07-11)
 
-**Sources:** Sedulous TransformGizmo/GizmoInputHandler (skeleton — fits our debug-draw +
+**Sources:** Sedulous TransformGizmo/GizmoInputHandler (skeleton - fits our debug-draw +
 command-stack + InputSurface architecture) **improved with PlayCanvas** (src/extras/gizmo survey,
 2026-07-11). Not a blind port; the deltas below are deliberate.
 
 **Handle set** (all proportions × screen-constant Size):
 - Translate: 3 axis arrows + 3 camera-facing-quadrant plane quads + center free-move (camera
-  plane). PlayCanvas addition: planes + center; Sedulous had axes only.
-- Rotate: 3 axis rings (back half culled — only the camera-facing half drawn/pickable; full ring
-  for the active axis while dragging) + outer screen-space ring (normal = camera forward).
+ plane). PlayCanvas addition: planes + center; Sedulous had axes only.
+- Rotate: 3 axis rings (back half culled - only the camera-facing half drawn/pickable; full ring
+ for the active axis while dragging) + outer screen-space ring (normal = camera forward).
 - Scale: 3 box-tipped axes + center uniform-scale handle. **Scale always operates in Local space**
-  (PlayCanvas rule — world-space non-uniform scale on a rotated entity is skew).
+ (PlayCanvas rule - world-space non-uniform scale on a rotated entity is skew).
 
-**Picking:** analytic (ray-vs-segment / ray-vs-ring-band / ray-plane-quad — we render debug-draw
+**Picking:** analytic (ray-vs-segment / ray-vs-ring-band / ray-plane-quad - we render debug-draw
 ribbons, not meshes, so no tri-mesh pick) with the PlayCanvas **priority system**: center (2) >
 planes / screen ring (1) > axes / rings (0); priority beats distance. Pick zones are inflated vs
 the rendered thickness. **Grazing-angle handling** (PlayCanvas): axis handles disable (unpickable
 + drawn faded) when the axis points at the camera (1-|dot| < 0.01); plane quads disable when
 edge-on; quads flip into the camera-facing quadrant.
 
-**Drag math:** Sedulous core — drag plane contains the axis and is most perpendicular to the
+**Drag math:** Sedulous core - drag plane contains the axis and is most perpendicular to the
 view; delta projected on the axis. Rotate = atan2 on a basis captured at BeginDrag (plane can't
 drift as the entity rotates) + seam unwrap into (-pi, pi], + PlayCanvas guards: behind-camera hit
 retries the reversed ray, screen ring uses a camera-plane basis. Uniform scale projects the
@@ -462,7 +456,7 @@ camera-plane delta onto the screen diagonal. **Parent-aware** (improvement over 
 ignored parents): world-space deltas convert into the entity's parent space (translate via
 inverse parent world; rotate conjugated: local' = inv(pQ) * dq * pQ * localStart).
 
-**Snap** (held Ctrl): PlayCanvas relative-delta quantization — round(delta/inc)*inc measured from
+**Snap** (held Ctrl): PlayCanvas relative-delta quantization - round(delta/inc)*inc measured from
 the drag start (not an absolute world grid). Defaults: translate 1.0, rotate 15 deg, scale 0.25;
 public fields.
 
@@ -482,12 +476,12 @@ merge with a prior inspector scrub) and the lock stops consecutive drags coalesc
 undo entry per drag, restoring the exact start transform. The gizmo consumes LMB when a handle is
 hot; PickOnClick runs otherwise.
 
-**Structure:** `draconic.editor.scene:gizmo` — TransformGizmo (pure math + debug-draw rendering;
+**Structure:** `editor.scene:gizmo` - TransformGizmo (pure math + debug-draw rendering;
 headless-testable) + GizmoController (drag session; driven by a plain GizmoFrameInput struct so
 tests can script full drag sessions without a shell). Component gizmos: IGizmoRenderer +
 GizmoContext + registry in the same module (the scene-editor plugin already links the render
 subsystem; editor core stays engine-free). Ports-with-fixes: LightGizmoRenderer (directional sun
 cross+arrow / point range sphere / spot cone from range+outerAngle), ReflectionProbeGizmoRenderer
-(wire BOX from halfExtents — our probes are boxes, Sedulous drew a sphere). Default
-DrawWhenUnselected=false (Sedulous drew every light's range sphere always — noisy; markers
+(wire BOX from halfExtents - our probes are boxes, Sedulous drew a sphere). Default
+DrawWhenUnselected=false (Sedulous drew every light's range sphere always - noisy; markers
 already anchor unselected entities).

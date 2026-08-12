@@ -711,3 +711,34 @@ Verified against code @ f3be260f.
   system design record, preserved. Future work points to Plans/renderer-improvements.md. State: unknown
   -> current. (Light touch: the doc was already accurate + IMPLEMENTED; audit = stamp + name refresh, not
   a rewrite that would risk the technical record.)
+
+## P1 - batch 25: editor + particle-page correction (2026-08-12) - FINAL Systems doc
+
+Verified against code @ e9c4f8d6.
+
+- **Systems/editor.md** header REWRITTEN present-tense (was "ARCHITECTURE LOCKED, phases 1-3 DONE...
+  Next: phase 6" - STALE; the editor is built out past phase 6) + names swept (draconic.editor.* ->
+  editor.*, draconic.* -> foundation.*) + em-dashes stripped; the design-record body preserved. Verified
+  against code: editor.app + editor.core + editor.scene + editor.generic modules; AssetsView + Editor
+  CookService (phase 6 asset browser + cooker SHIPPED); ~20 bespoke *Page.cppm editor pages
+  (scene/mesh/skeleton/animation-clip/animation-graph/material/texture/image/particle-effect/collision-
+  shape/audio*/input-map/UI-document/script/game) + AssetFormPage generic fallback. State: unknown ->
+  current.
+- **FALSE-DEFERRAL CORRECTED (found while auditing editor pages): particles-authoring.md** claimed "the
+  bespoke ParticleEffectPage ... deferred; effects edited through the generic reflected inspector." WRONG
+  - ParticleEffectEditorPage (Editor.Scene, 2398 lines + ParticleEffectPageTests) is a FULL three-pane
+  authoring tool (tree / live preview + transport / node inspector) with CurveCanvas-backed curve editors
+  (CurveFieldEditor over ParticleCurveFloat/Float2), undo, stats overlay, emission gizmo - SHIPPED. This
+  was the same carried-stale-claim failure as game-ui code-editor / scripting API-browser (batch 21, done
+  earlier today; I trusted the old particles-authoring line). Fixed: added the "Editor authoring page
+  (shipped)" section; only LUT curve baking remains deferred.
+
+## P1 COMPLETE: all 34 Systems docs audited
+
+Every Documentation/Systems/*.md is now stamped CURRENT with a Verified: date@commit header, rewritten
+present-tense, verified against code (both shipped AND deferred claims), and mixed content split to
+Archive/Plans/Backlog per the spec. Corrections across the pass: 3 false-deferrals fixed (game-ui
+code-editor, scripting API-browser, particle authoring page), 1 stale open-question fixed (export
+shader-baseline), 1 under-claim fixed (networking send-RPC), plus the file-watch-mechanism (poll vs
+inotify) and layering (per-file-store vs in-store-stack) corrections. Recurring root cause: carrying an
+old doc's DEFERRED/open claim without re-checking - method fixed mid-pass to verify deferred items too.

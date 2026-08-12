@@ -23,10 +23,20 @@ editor::AssetBuildContext&)`) that cooks the source effect to `ParticleEffectRes
 the pipeline registration composition root. The `ParticleFX` sample exercises the full authored ->
 cooked -> loaded -> rendered path.
 
+## Editor authoring page (shipped)
+
+`ParticleEffectEditorPage` (`Editor.Scene`) is a full three-pane authoring tool: an authoring TREE
+(Effect -> System -> Emitter -> init/behavior modules) driving selection, a LIVE PREVIEW with transport
+(Play/Stop/Restart + speed slider + pause) where the effect plays and picks up edits immediately, and a
+node INSPECTOR showing the selected node's reflected fields - including CurveCanvas-backed curve editors
+(`CurveFieldEditor` over `ParticleCurveFloat`/`Float2`, Hermite tangents). Edits mutate the authored
+effect in place with blob-snapshot undo; structural edits (add/remove/reorder a module or system) defer
+the tree/inspector rebuild through the UI mutation queue and reselect by identity; Save writes the asset
++ requests a re-cook. Beyond Sedulous: real undo/redo, a live particle-count stats overlay, an
+emission-shape gizmo. Covered by `ParticleEffectPageTests`.
+
 ## Deferred
 
-- **The bespoke ParticleEffectPage** (a tree + reflection-driven inspector + curve/gradient controls +
-  live preview) - deferred; effects are edited through the generic reflected inspector until it lands.
 - **LUT curve baking.** Over-lifetime behaviors evaluate their curves directly today; baking curves to
   LUTs would mean changing those shipped behaviors, so it is deferred until a measured need (it is
   independent of authoring).
