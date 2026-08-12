@@ -451,3 +451,22 @@ Verified against code @ b97b3952 (both-shipped-and-deferred method).
 - SPLIT (spec rule): the decisions (purpose-built widget, completion-from-start, layering) + the
   P1-P4 phase history -> **Archive/code-editor-design-history.md** (ARCHIVED); the residuals ->
   **Backlog/code-editor-followups.md**.
+
+## P1 - batch 12: prefabs (2026-08-12)
+
+Verified against code @ 84e710a7 (both-shipped-and-deferred method).
+
+- **Systems/prefabs.md** REWRITTEN present-tense (was `Prefabs - survey + design`, status "surveyed +
+  design proposed, NOT started (2026-07-14)" - badly STALE; the track SHIPPED P1-P4 + user-confirmed).
+  Now a CURRENT reference: asset + payload (PrefabDocument, scene-format), spawn + per-scene instance
+  tracking, derived (not tracked) overrides, nesting + wire, editor + propagation. Verified against
+  code (foundation.scene / foundation.scene.resource): PrefabDocument, ScenePrefabMode,
+  PrefabInstanceState (tracked by root, componentBaselines + baselineTransforms), SpawnPrefab /
+  SpawnPrefabInstance, PrefabComponentBaseline / PrefabMemberInfo, nested-instance records + prefabId +
+  prefabProvider resolver, kPrefabWireReferenced3 / kPrefabWireExpanded2; Editor.Scene/ModelPrefab.cppm
+  (model->prefab). State: unknown -> current.
+- CORRECTED drift: the header said NOT started; the design's "nesting deferred (P4)" actually SHIPPED
+  (nested records + resolver + Referenced-v3 wire); the "overrides derived, not tracked" design call
+  shipped as PrefabComponentBaseline.
+- SPLIT (spec rule): the Sedulous prefab-V2 survey + the design proposal + phasing + open questions ->
+  **Archive/prefabs-design-history.md** (ARCHIVED). No live backlog - the track completed.
