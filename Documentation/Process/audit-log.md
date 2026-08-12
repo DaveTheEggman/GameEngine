@@ -658,3 +658,22 @@ Verified against code @ 9812521b (both-shipped-and-deferred method).
   baking. State: unknown -> current.
 - SPLIT (spec rule): the 8-engine survey + the GPU-compute-first recommended plan ->
   **Archive/particles-design-history.md** (ARCHIVED). Deferrals kept inline.
+
+## P1 - batch 22: web-platform + gui-port (2026-08-12)
+
+Verified against code @ 12114827 (both-shipped-and-deferred method).
+
+- **Systems/web-platform.md** REWRITTEN present-tense (was "decided 2026-07-28"; the web platform
+  SHIPPED). Verified: foundation.rhi.webgpu (RHI.WebGPU backend), foundation.runtime.web (web runner),
+  foundation.shell.web, Engine.Player/WebMain.cpp; Web export template (export.md). Deferred (from the
+  doc's own list, none block a playing game): wasm pthreads/SharedArrayBuffer, web networking (WebSocket/
+  WebRTC behind INetTransport - no browser UDP), script-debugger remote, native file dialogs, Memory64,
+  GenerateMipmaps/ResolveTexture. State: unknown -> current.
+- **Systems/gui-port.md** REWRITTEN present-tense (was "planning"; it is a PARKED Experimental track with
+  a working CSS-driven on-screen framework). Verified: experimental.gui + experimental.gui.shell +
+  experimental.gui.vfs modules under Code/Experimental/GUI (the Experimental role = parked); DrawContext/
+  drawables, SceneNode/coordinator/ActionManager/EventDispatcher/GuiInputBridge, Text over
+  foundation.fonts, UINode/UIWidget, the CSS StyleManager + transitions, GUISandbox. Clearly labeled
+  NOT the engine UI (foundation.ui is). State: unknown (experimental/parked) -> current.
+- SPLIT (spec rule): the eepp dependency-cone census + wholesale-lift-trap analysis ->
+  **Archive/gui-port-design-history.md** (ARCHIVED). web-platform deferrals kept inline.
