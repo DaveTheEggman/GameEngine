@@ -209,3 +209,21 @@ Verified against code @ 9c9046f8.
 - SPLIT: the Lumix/Traktor/Sedulous reference synthesis + the 6a-6d build-order record ->
   **Archive/asset-pipeline-design-history.md** (ARCHIVED). Deferred (thumbnails, platform
   variants) kept as a short section in the Systems doc pointing to Backlog.
+
+## P1 - batch 4: networking (2026-08-12)
+
+Verified against code @ 9c9046f8.
+
+- **Systems/networking.md** REWRITTEN present-tense (was `Draconic - Networking (design)`,
+  IMPLEMENTED-but-design-framed, old `draconic.net.*` names, 542 lines with a not-started P3
+  sketch + backlog inline). Now a CURRENT reference: the modules (foundation.net transport /
+  foundation.net.manager per-instance NetworkManager / foundation.net.replication /
+  engine.net NetworkSubsystem), roles + startup, StateReplication (Replicated fields, snapshot/
+  per-peer delta, prefab net-spawn + late-join, interpolation, relevancy/fog-of-war), the
+  IReplicationModel seam + determinism caveat, the Net script facade, deferred. Verified:
+  foundation.net{,.manager,.replication} + engine.net modules; StateReplication, IReplicationModel,
+  NetworkStartup, NetworkRole, Replicated, NetworkManager, NetworkSubsystem, NetworkComponentManager,
+  SimDatagramNetwork, INetworkController, RegisterNetScriptFacade. State: unknown -> current.
+- SPLIT (spec rule): the P3 commands/orders SKETCH -> **Plans/networking-commands.md** (DRAFT, the
+  4 slices); the §9 refinements/backlog + validation debt -> **Backlog/networking-followups.md**; the
+  transport/genre/sockets rationale + references -> **Archive/networking-design-history.md**.
