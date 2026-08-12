@@ -86,7 +86,8 @@ animate while the game is paused).
 
 World-tier direct-draw mode (option A, VG-consult-gated), dirty-gated panel redraws, atlas packing +
 panel MIP chains, declarative markup bindings (`onClick="game.resume"`), theme variations beyond the
-built-ins, the UIDocumentPage code-editor control, the two-interactive-scenes routing edge, and the
+built-ins, UIDocumentPage per-line diagnostics (the page already uses `CodeEditView`), the
+two-interactive-scenes routing edge, and the
 toolkit test tail: `Documentation/Backlog/game-ui-followups.md`.
 
 ---

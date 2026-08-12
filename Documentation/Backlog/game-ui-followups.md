@@ -23,8 +23,11 @@ What remains after P1 + P2 + the overlay-roles refactor + split-screen + the wor
   designer-visible wiring without a dialog), beyond today's imperative `onClick` delegate.
 - **Theme variations** - cooked UITheme assets + per-canvas overrides work; remaining = built-in
   variants beyond `GameTheme`/`GameLightTheme`.
-- **UIDocumentPage code-editor control** - the page eventually wants a real code editor (line numbers,
-  highlighting) instead of the multi-line EditText (honest-v1 per locked decision 7).
+- **UIDocumentPage per-line diagnostics** - the page ALREADY uses `ui::toolkit::CodeEditView` (gutter,
+  monospace, virtualized, XML lexer, `<`-triggered markup completion, native undo) with a debounced
+  live preview; parse failures show as INLINE STATUS over the preview. What remains is structured
+  per-line gutter diagnostics (error markers on the offending line), which the page does not yet feed
+  to the editor.
 
 ## Known edges (fix when the workflow becomes real)
 

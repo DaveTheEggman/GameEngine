@@ -324,7 +324,7 @@ Verified against code @ 3364be29.
 - SPLIT (spec rule): the reference survey (Sedulous/Flax/Godot/Traktor Spark) + the Sedulous.Engine.UI
   deep-read tier table + the locked-decision rationale + the world-tier A-vs-B decision ->
   **Archive/game-ui-design-history.md** (ARCHIVED); the remaining follow-ups (option-A direct-draw,
-  dirty-gating, atlas/MIP, declarative bindings, theme variations, code-editor control, the two-scene
+  dirty-gating, atlas/MIP, declarative bindings, theme variations, per-line diagnostics, the two-scene
   edge, the toolkit test tail) -> **Backlog/game-ui-followups.md**.
 
 ## P1 - batch 9: game-instance (2026-08-12)
@@ -353,3 +353,28 @@ Verified against code @ 33b89288.
   scene-manager decision) -> **Archive/game-instance-design-history.md** (ARCHIVED); the two open items
   (player multi-scene compositing, the one-shared-editor-manager alternative) ->
   **Backlog/game-instance-followups.md**.
+
+## P1 - correction sweep: deferred/backlog claims re-verified (2026-08-12)
+
+Prompted by the user catching a FALSE deferral. The batch method verified SHIPPED claims against code
+but had trusted the old docs' DEFERRED items without re-checking - and those are the items most likely
+to have been quietly completed. Re-verified every deferred/backlog claim from batches 4-9 against code:
+
+- **FALSE DEFERRAL (fixed): game-ui "UIDocumentPage code-editor control".** The page
+  (`Editor.GameUI/UIDocumentPage.cppm`) ALREADY uses `ui::toolkit::CodeEditView` (gutter, monospace,
+  virtualized, XML lexer, `<`-triggered markup completion, native undo) + a debounced live preview. I
+  had lifted a STALE "multi-line EditText / honest v1" comment from the `.cpp` verbatim. Corrected in
+  Systems/game-ui.md + Backlog/game-ui-followups.md to the real remaining sliver (per-line gutter
+  diagnostics; parse errors currently show as inline status over the preview).
+- **UNDER-CLAIM (fixed): networking facade.** Systems/networking.md listed only isServer/isClient/
+  peerCount/startServer/connect but the `Net` facade also registers SEND-side RPC (rpc/rpcNumber/
+  rpcText). Added them; noted the RECEIVE side (Net.on) is the genuinely-unbuilt P3 slice 1.
+- **CONFIRMED still deferred (checked against code):** networking receive-RPC-into-script (no `on`
+  binding), networking web WebSocket client (comment-only in NetTransport/NetModule, no emscripten
+  websocket backend), networking Net.spawn (test-hash only, no facade); physics convex decomposition
+  (cook kinds ConvexHull/TriangleMesh only), gravity volumes, JPH_DEBUG_RENDERER, per-world job pool;
+  audio grain banks + in-loop-out + setParameter (SoundCue comment only); input PlayerInput (absent) +
+  haptics (no rumble/Haptic in code); game-ui declarative markup bindings (only a material-binding
+  comment); game-instance player multi-scene compositing. These stand.
+
+Method fix going forward: verify DEFERRED items against code too, not just shipped claims.

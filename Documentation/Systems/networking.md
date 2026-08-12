@@ -56,8 +56,10 @@ determinism caveat (lockstep needs bit-exact simulation - not promised by state 
 
 The `Net` facade (registered by `RegisterNetScriptFacade`, resolved per script context through
 the instance's `NetworkManager`): `Net.isServer()` / `isClient()` / `peerCount()` /
-`startServer(...)` / `connect(...)`. `NetworkComponent.of(entity).authority` exposes ownership to
-script. Certified on Wren + AngelScript (see `Integration.ScriptFacades`).
+`startServer(...)` / `connect(...)`, plus SEND-side RPC (`Net.rpc(...)` / `rpcNumber(...)` /
+`rpcText(...)`). `NetworkComponent.of(entity).authority` exposes ownership to script. Certified on
+Wren + AngelScript (see `Integration.ScriptFacades`). The RECEIVE side (`Net.on(name, fn)`) is not
+built - it is P3 slice 1 (see the commands plan).
 
 ## Deferred
 
