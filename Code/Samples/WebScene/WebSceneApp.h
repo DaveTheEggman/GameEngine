@@ -11,8 +11,8 @@
 //   - an instanced-mesh ring (per-instance addressing path)
 //   - a projected decal + three sprites (alpha / additive / post-tonemap) off one procedural texture
 //   - a particle fountain (additive billboards) + spark trails (ribbon path)
-//   - an ImGui panel (when the extension is available - desktop and, once climbed, web) tweaking
-//     exposure/sky/post (TAA/FXAA/bloom/AO/SSR) and the feature toggles
+//   - an ImGui panel (when the extension is available - desktop and web alike) tweaking
+//     exposure/sky/post (TAA/FXAA/bloom/AO/SSR/MSAA) and the feature toggles
 //   - debug draw (grid/axes/wire volumes/3D text via DebugScene + FPS overlay via DebugScreen)
 //   - game UI: a scene-tier HUD canvas (click-counter button = pointer consumption), a billboard
 //     nameplate riding the spinning cube, and a screen-tier badge (PushScreenOverlay) - together
