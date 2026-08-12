@@ -30,6 +30,7 @@ import engine.gameinstance; // GameInstance (the Game tab's run; multi-instance 
 import foundation.scene;
 import engine.scene;
 import foundation.scene.resource;
+import foundation.resource; // AsyncBindScope
 import foundation.render;
 import engine.render;
 import foundation.ui;
@@ -350,6 +351,7 @@ namespace editor
                         m_editContext->PrefabResolver());
                     if (rebuilt > 0 && context->Resources() != nullptr)
                     {
+                        foundation::resource::AsyncBindScope asyncScope(*context->Resources());
                         scene::ResolveSceneResources(scene, *context->Resources());
                     }
                 });
@@ -439,6 +441,7 @@ namespace editor
         {
             if (m_context->Resources() != nullptr)
             {
+                foundation::resource::AsyncBindScope asyncScope(*m_context->Resources());
                 scene::ResolveSceneResources(*m_scene, *m_context->Resources());
             }
             m_context->Notify(editor::NoticeKind::Info,

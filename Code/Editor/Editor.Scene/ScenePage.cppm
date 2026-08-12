@@ -30,6 +30,7 @@ import engine.gameinstance; // GameInstance (the Game tab's run; multi-instance 
 import foundation.scene;
 import engine.scene;
 import foundation.scene.resource;
+import foundation.resource; // AsyncBindScope (pop-in page loads)
 import foundation.render;
 import engine.render;
 import foundation.ui;
@@ -88,6 +89,11 @@ export namespace editor
                     // a later cook + reopen picks them up - live hot reload is the 6d pass).
                     if (context.Resources() != nullptr)
                     {
+                        // Async binds: decodes go to workers, proxies settle over the next
+                        // frames (the app pumps) and content POPS IN - a Sponza-sized page
+                        // must never stall the UI thread (the player's LoadSceneAsync model,
+                        // adopted editor-side).
+                        foundation::resource::AsyncBindScope asyncScope(*context.Resources());
                         scene::ResolveSceneResources(*m_scene, *context.Resources());
                     }
                     // Prefab instances load as ref+deltas - respawn them from the SOURCE DB
@@ -108,6 +114,7 @@ export namespace editor
                                 }});
                         if (context.Resources() != nullptr)
                         {
+                            foundation::resource::AsyncBindScope asyncScope(*context.Resources());
                             scene::ResolveSceneResources(*m_scene, *context.Resources());
                         }
                     }
