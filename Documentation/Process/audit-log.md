@@ -171,3 +171,21 @@ Verified against code @ 9c9046f8.
 NEXT P1 batches (Systems for active subsystems): script-debugger.md, then pipeline/MCP
 (mcp-agent-access is a Spec, but the MCP Systems reference needs writing), fonts, renderer,
 editor.
+
+## P1 - batch 2: script-debugger (2026-08-11)
+
+Verified against code @ 9c9046f8.
+
+- **Systems/script-debugger.md** REWRITTEN present-tense (was `Status: DESIGN, for review` -
+  a plan that predated the shipped debuggers and never mentioned Luau). Now a CURRENT
+  reference for the SHIPPED step debugger: the neutral contract (IScriptDebugger / states /
+  snapshot types / battery section), run-host game-pause, both backends (AngelScript context
+  suspension + Luau pooled-thread lua_break, with the off-by-one + C-boundary nuances), Wren
+  = none, bytecode-loaded classes stay debuggable, capture, and the editor UI
+  (gutter/DebuggerPanel/execution-line/hover). Verified: AngelScriptDebugger + LuauDebugger
+  exist; IScriptDebugger/ScriptDebuggerState/ScriptStackFrame/ScriptVariable; ScriptEditorPage/
+  DebuggerPanel/DebugPauseTracker/IsDebugPaused/RequestDebugger/ScriptExecutionPoint/
+  HoverValueProvider; NO CreateProfiler impl (profiler unbuilt). State: unknown -> current.
+- SPLIT: the unbuilt profiler + remote-transport design (the A/B transport decision, P2-P4
+  phasing, open questions) -> **Plans/script-debugger-remote.md** (DRAFT - approved design,
+  not started). New: Plans/script-debugger-remote.md.

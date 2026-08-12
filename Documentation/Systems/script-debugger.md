@@ -1,134 +1,90 @@
-# Script debugger + profiler + remote transport (design)
+# Script debugger
 
-Status: DESIGN, for review. The neutral seams already exist (committed in the
-capabilities slice): `IScriptDebugger`, `IScriptProfiler`, `IScriptBlob` +
-`ScriptCapabilities::{Debugger,Profiler}` (declared absent) + wire-symmetric snapshot
-types (`ScriptStackFrame`/`ScriptVariable`/`ScriptValueObject`) with round-trip tests, and
-skip-when-absent battery skeletons. This doc is the plan to fill them in. Reference:
-Traktor's `code/Script` debug stack (studied) — we adapt, not copy.
+> Status: CURRENT
+> Verified: 2026-08-11 @ 9c9046f8
+> Track: [[script-debugger-track]] / [[luau-backend-track]]
 
-## 1. Why
+Source-level step debuggers for gameplay scripts: breakpoints, step into/over, call stack,
+locals, and lazy object expansion, driven from the editor with the game paused. Shipped +
+battery-certified for **AngelScript** and **Luau**. Wren has none (no VM debug API). Part of
+the [[Systems/scripting]] subsystem.
 
-Behaviors are print-debugged today (`Log.info`). A real debugger — breakpoints, stepping,
-call stack, locals, lazy object expansion — is the biggest scripting DX gap, and the one
-place Traktor is clearly ahead. It fits our capability model (a backend declares
-`Debugger`/`Profiler`; the battery certifies it). And the **remote** angle is
-forward-looking: web/WASM and Android targets can't attach a local debugger — you debug
-them over a connection. Designing for remote from the start is the point.
+## The constraint (and the mechanism it forces)
 
-## 2. The load-bearing constraint (and the design it forces)
+The editor runs the embedded game (PIE) on the MAIN thread - the same thread as the editor
+UI. A classic blocking-halt debugger (break -> block the game thread -> inspect) would freeze
+the editor too. Instead the debugger is **suspension-based and non-blocking**: hitting a
+breakpoint SUSPENDS the running script (unwinding back to the editor loop), the run host
+raises a pause flag, and the editor pumps normally while inspecting the held execution.
+Continue resumes it. No worker thread, no transport needed in-process.
 
-**The editor runs the embedded game (PIE) on the main thread** — the same thread as the
-editor UI. So a classic *blocking-halt* debugger (breakpoint → block the game thread →
-inspect from the UI, Traktor's model) is impossible in-process: blocking the game thread
-freezes the editor too. Traktor sidesteps this by debugging a **separate process** (the
-player) over a socket; the editor never blocks because the game is elsewhere.
+## The neutral contract (`foundation.script`)
 
-We have a cleaner option that fits our single-threaded model AND machinery we already own:
-**suspension-based breakpoints via AngelScript context suspension** — the exact mechanism
-our AngelScript coroutine scheduler already uses (`ctx->Suspend()` / re-`Execute()`).
+- `IScriptDebugger`: `SetBreakpoint(file,line)` / `RemoveBreakpoint`, `Break` / `Continue` /
+  `StepInto` / `StepOver`, `CaptureStackFrames()` / `CaptureLocals(depth)` /
+  `CaptureObject(ref)`, `SetListener`. `IScriptManager::CreateDebugger()` returns one when the
+  backend declares `ScriptCapabilities::Debugger`.
+- `IScriptDebuggerListener::OnDebuggerStateChanged(ScriptDebuggerState)` -
+  `Running` / `Breakpoint` / `Stepped` / `Terminated`.
+- Snapshot types `ScriptStackFrame{file,line,function}` and `ScriptVariable{name,typeName,
+  value,objectRef}` are wire-symmetric (they serialize) - so the editor UI is written once
+  against the contract and would drive a remote debugger unchanged.
+- The **conformance battery** (`Script.Tests/BackendConformance.h`) has a live debugger
+  section: set a breakpoint, drive execution, assert it stops (state Breakpoint), capture the
+  stack + a known local, step (Stepped), continue to completion (Terminated). Both AngelScript
+  and Luau pass it - a backend only advertises `Debugger` if it certifies.
 
-- A breakpoint is a line-callback that, when a breakpoint line is hit, calls
-  `ctx->Suspend()`. Execution returns to *our* caller (the behavior subsystem / editor
-  loop) with `asEXECUTION_SUSPENDED` — **non-blocking**, no separate thread.
-- While suspended, the context is fully inspectable: `GetCallstackSize` / `GetFunction` /
-  `GetLineNumber` for the stack, `GetVarCount` / `GetAddressOfVar` / `GetVarDeclaration`
-  for locals. The editor pumps normally and reads this state.
-- `Continue` re-`Execute()`s the suspended context; `StepOver`/`StepInto` re-arm the line
-  callback to suspend on the next appropriate line.
+## Run-host integration (`engine.script`)
 
-This gives **in-process PIE debugging with no blocking, no worker thread, and no transport
-required** — and the *same* `IScriptDebugger` is driven over a transport for remote
-targets later. AngelScript is therefore the first backend; **Wren is deferred** (no
-official debug API — it would need VM-internal hooks; revisit if there's demand).
+`ScriptRunHost::RequestDebugger(configurator)` creates the backend debugger (backend-neutral -
+resolved from the run's language) and installs a `DebugPauseTracker` as its listener.
+`IsDebugPaused()` gates the tick: on a break the game FREEZES (the world holds still, behaviors
+stop advancing) and the break is NOT a fault; Continue clears the pause and ticking resumes.
+One gameplay context per run (the [[Systems/scripting]] rule).
 
-## 3. Architecture — four layers, one contract
+## Per-backend
 
-The contract is `IScriptDebugger`/`IScriptProfiler` + the serializable snapshot types. The
-principle (Traktor's, and the reason the snapshots already serialize): **the editor UI is
-written once against the contract, and works identically whether the debugger is in-process
-or across a socket.**
+- **AngelScript** (`AngelScriptDebugger`): a line callback calls `ctx->Suspend()` on a
+  breakpoint/step line; execution unwinds as `asEXECUTION_SUSPENDED`; the debugger ADOPTS the
+  suspended context (distinguished structurally from a coroutine suspend - coroutines suspend
+  their own contexts, only the pooled executor is the debugger's), and Continue re-`Execute`s
+  it. Introspection via `GetCallstack`/`GetVar*` + reflected-property expand.
+- **Luau** (`LuauDebugger`, Fable P6): handlers run on POOLED resumable lua threads (always
+  `lua_resume`, never `lua_pcall`); `lua_singlestep` is armed only while a debugger is
+  attached; a debugstep callback `lua_break`s the thread on a (short_src,line) breakpoint or
+  step; the run host holds the broken thread and re-resumes on Continue. One shared resume
+  router keeps the coroutine scheduler and the debugger's Continue in agreement. Two nuances:
+  the pause lands one bytecode instruction early (luau_callhook advances savedpc, so a local
+  bound on the line JUST above a break may not be live yet), and a break cannot cross a C-call
+  boundary (deferred to the next safe line).
+- **Wren**: no debugger (Wren exposes no debug API).
 
-1. **Backend debugger** (`draconic.script.angelscript`): implements `IScriptDebugger` over
-   context suspension + AS introspection. `AngelScriptManager::CreateDebugger()` returns it;
-   the manager declares `ScriptCapabilities::Debugger`. Breakpoints live on the manager
-   (all contexts share the engine); the line callback is installed on the contexts the
-   subsystem executes.
-2. **Backend profiler** (`draconic.script.angelscript`): implements `IScriptProfiler` via
-   line/call hooks + a timer, computing inclusive/exclusive per-function time (a stack of
-   `{enter, childTime}` — Traktor's method). `CreateProfiler()` + `Capabilities::Profiler`.
-3. **Transport** (new, `draconic.script.debug.transport` or a small `draconic.net`): a
-   bidirectional serialized-message channel. Two implementations behind one interface:
-   **loopback** (in-process, editor ↔ embedded runtime — trivial, no sockets) and
-   **socket** (editor ↔ a deployed/remote player). A `RemoteScriptDebugger` *implements*
-   `IScriptDebugger` on the editor side and forwards every call as a message to the game's
-   real debugger; a `DebugServer` on the game side services them. The message set mirrors
-   Traktor's `Remote/*`: `SetBreakpoint{file,line,add}`, `Control{Break|Continue|StepInto|
-   StepOver}`, `StackFrames{Array<ScriptStackFrame>}`, `Locals{depth, Array<ScriptVariable>}`,
-   `ObjectMembers{ref, Array<ScriptVariable>}`, `StateChanged{ScriptDebuggerState}`,
-   `CallMeasured{ScriptCallMeasurement}` — all built from the snapshot types that already
-   serialize.
-4. **Editor UI** (`draconic.editor.script.debug`): a debugger panel (breakpoint gutter in
-   ScriptPage, call-stack list, locals tree with lazy `CaptureObject` expansion, break/
-   continue/step toolbar) and a profiler panel (per-function inclusive/exclusive/count
-   grid). Both consume the contract, so they don't know or care if they're driving a
-   loopback or a socket debugger.
+**Bytecode-loaded classes stay debuggable**: the cook keeps debug info + the sourceName
+section, so breakpoints line up whether a class runs from source or from consumed bytecode.
 
-## 4. The uniform-transport question (a real decision)
+## Capture
 
-Two ways to wire layer 3:
-- **(A) In-process direct, transport added later.** The editor drives the in-process
-  `IScriptDebugger` directly for PIE; the transport + `RemoteScriptDebugger` come in a later
-  phase for remote targets. Fastest to first value; the editor UI is already contract-based
-  so adding the remote driver later is not a refactor of the UI, only a new
-  `IScriptDebugger` impl.
-- **(B) Loopback-always.** Even in-process goes through a loopback transport, so there is
-  exactly one code path (editor always talks to a `RemoteScriptDebugger`, backed by loopback
-  or socket). Traktor-uniform; more upfront plumbing.
+Stack frames key on (file, line) - the section IS the source file (per-class chunks/sections),
+so an editor breakpoint keyed on the file matches. Locals report name + display value; reflected
+value types (e.g. Float3) render field-wise; a reflected object exposes an `objectRef` the UI
+expands lazily via `CaptureObject`.
 
-**Recommendation: (A).** The snapshots already serialize and the UI is contract-based, so
-(A) does not paint us into a corner — the remote phase adds a transport + a forwarding
-`IScriptDebugger`, not a rewrite. (B)'s uniformity is nice but front-loads the transport for
-no in-process benefit. We get PIE debugging sooner and build the transport when we build the
-thing that needs it (remote/device).
+## Editor UI
 
-## 5. Phasing
+- **Breakpoint gutter** in the script page (`EditorContext` owns the breakpoint store).
+- **DebuggerPanel** (call-stack list + locals tree + break/continue/step toolbar), consuming
+  the contract only (remote-ready).
+- **Execution line**: the current break line is marked + scrolled to (`ScriptExecutionPoint`
+  plumbed EditorContext <- GamePage -> ScriptPage).
+- **Hover values**: hovering a local while paused shows "value : Type"
+  (`HoverValueProvider`, resolved via `CaptureLocals(0)`).
+- The game page freezes simulation on break and clears it on Continue.
 
-- **P1 — AngelScript in-process debugger + editor UI.** Suspension breakpoints,
-  Break/Continue/StepInto/StepOver, `CaptureStackFrames`/`CaptureLocals`/`CaptureObject`,
-  the async state listener. Breakpoint gutter in ScriptPage; call-stack + locals panels;
-  step toolbar. `Capabilities::Debugger` on AngelScript; **the battery's skeleton debugger
-  section becomes a live certification** (set a breakpoint, hit it, capture a known local,
-  step, continue). Definition of done includes: driving a scripted PIE scene, hitting a
-  behavior breakpoint, reading a harvested-property local, stepping, continuing.
-- **P2 — AngelScript profiler + editor UI.** Inclusive/exclusive per-function timing;
-  profiler grid; `Capabilities::Profiler`; battery profiler section live.
-- **P3 — remote transport.** The message protocol + loopback + socket transports +
-  `RemoteScriptDebugger`/`DebugServer`; the editor debugs a *player* process, then a
-  deployed target. This is the phase that serves web/Android. (Needs a minimal
-  `draconic.net` socket layer — we have none today; scope it to the transport's needs, not a
-  general networking stack.)
-- **P4 — breadth.** Multi-session breakpoint multiplexing (one editor, N targets — Traktor's
-  `ScriptDebuggerSessions`); Wren debugger if we invest in VM hooks; step-out; conditional
-  breakpoints; watch expressions.
+## Deferred
 
-## 6. Capability gating + conformance
-
-`Debugger` and `Profiler` stay per-backend capability flags. AngelScript flips them on in
-P1/P2 and must pass the battery's (currently skeleton) debugger/profiler sections — a
-backend only advertises what it certifies, same rule as everything else. Wren stays absent
-and the sections stay skipped for it, cleanly.
-
-## 7. Open questions / decisions for review
-
-1. **First backend = AngelScript, Wren deferred** — agree? (AS has real debug support + the
-   suspend mechanism; Wren has no debug API.)
-2. **Suspension-based in-process debugging** (§2) rather than blocking-halt or a PIE worker
-   thread — agree? It's the one that fits our single-threaded editor without a threading
-   overhaul.
-3. **Transport wiring (A) vs (B)** (§4) — recommend (A): in-process first, transport as the
-   P3 phase that needs it.
-4. **P3 socket layer**: build a minimal `draconic.net` scoped to the debug transport, or is
-   there an intended general networking layer this should align with? (We have none today.)
-5. Scope of P1's locals: scalars + one level of lazy object expansion is the MVP; how deep
-   do we want value rendering (e.g. our reflected value types like Float3 shown field-wise)?
+Profiler (inclusive/exclusive per-function), remote transport (debug a player/device over a
+connection - serves web + Android; needs a minimal net layer), and breadth (multi-session
+multiplexing, step-out, conditional breakpoints, watch expressions, a Wren debugger) are NOT
+built. The approved design for the profiler + remote transport is in
+`Documentation/Plans/script-debugger-remote.md`; the deferred list is in
+`Documentation/Backlog/scripting-followups.md`.
