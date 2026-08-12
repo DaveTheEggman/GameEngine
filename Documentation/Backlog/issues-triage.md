@@ -247,4 +247,4 @@ forward + depth-prepass + debug-draw pipelines, and a quality setting
 consumers all resolve-aware. The OTHER half of the same comparison (no
 mips) was the dominant term and is FIXED (texture cook v2 generates full
 chains; model imports default mips ON + trilinear); MSAA is the remaining
-polish. Belongs to the renderer track alongside the post-stack work.
+polish. Belongs to the renderer track alongside the post-stack work. SPEC WRITTEN (2026-08-12): Documentation/Specs/msaa.md - decisions settled (per-view, 4x web ceiling, MSAA prepass + first-sample depth resolve for the 1x post consumers, single end-of-forward resolve, MSAA/TAA independent); ready for Opus.
