@@ -40,12 +40,17 @@ half-built.
    edges are computed from one sample per pixel (identical to today's
    quality); full per-sample post is out of scope permanently.
 
-4. **Resolve points.** Scene color resolves ONCE, at the end of the
-   forward pass (transparents included), via the render-pass resolve
+4. **Resolve points (CORRECTED 2026-08-12 - see the ordering note + ruling
+   below).** Scene color resolves ONCE, after the OPAQUE portion of the
+   forward pass (opaque + sky + decals), via the render-pass resolve
    attachment (native on WebGPU; pResolveAttachments on Vulkan) - never a
-   blit. Everything after (SSR composite onward through the post stack)
-   runs on resolved 1x color. HDR RGBA16F resolve is supported on both
-   backends; assert the capability at init rather than assuming.
+   blit. Everything after - SSR, AO, TAA, then TRANSPARENT, then the post
+   stack - runs on resolved 1x color, preserving the deliberate temporal
+   ordering (AO/SSR pre-TAA for stabilization; transparent post-TAA
+   against ghosting). Opaque geometry edges - the I11 case - get full
+   MSAA; transparent silhouettes keep today's treatment (follow-up noted
+   below). HDR RGBA16F resolve is supported on both backends; assert the
+   capability at init rather than assuming.
 
    > **Implementation note (Opus 2026-08-12, for Fable review) - the 1x
    > consumers need resolved AUX buffers, not just depth.** Decision 3
@@ -150,6 +155,34 @@ half-built.
    > wants transparent inside the MSAA resolve in P1, that is a larger change
    > to the temporal ordering and should be its own decision.
 
+   > **Fable RULING (2026-08-12): CONFIRMED - Decision 4's text is corrected
+   > above to match.** The dependency-chain reading is concrete and the
+   > temporal design it protects is exactly right to protect: AO computed
+   > from the jittered G-buffer NEEDS TAA behind it, and transparents must
+   > never be temporally accumulated - MSAA bends around that design, never
+   > the reverse. Decision 4 as I wrote it modeled an idealized frame; the
+   > real one wins. Transparent-edge MSAA stays a noted follow-up (the
+   > second MSAA target + resolve wrap), not P1.
+   >
+   > Two pins the reshape adds:
+   > 1. **The transparent depth-test nuance, documented where the pass
+   >    lives:** transparents depth-test against the SAMPLE-0 resolved 1x
+   >    depth of MSAA opaque geometry - along opaque silhouettes the
+   >    averaged color says "edge" where sample-0 depth may say "empty",
+   >    so transparents crossing opaque edges can show <=1px acne/halo.
+   >    Accepted for P1; the transparent-MSAA follow-up fixes this and
+   >    edge AA together.
+   > 2. **Decision 6's PSO matrix SHRINKS:** with transparent and
+   >    everything post-TAA at 1x, only the passes rendering into the
+   >    MSAA target carry the sample key - prepass, forward OPAQUE, sky,
+   >    decals (and particles/sprites/debug draw ONLY if they render in
+   >    the opaque MSAA pass - verify against the graph, do not assume).
+   >    Less work than the original list; adjust it to the graph's truth.
+   >
+   > P1 acceptance adjusts accordingly: the edge-coverage probe targets an
+   > OPAQUE edge, and a transparent-over-opaque case asserts no REGRESSION
+   > (today's quality, not MSAA). Build on.
+
 5. **MSAA and TAA are independent toggles.** They solve different
    aliasing (geometry edges vs shading/specular); both-on is legal and
    sometimes right (MSAA4 + TAA is the Godot-quality look). The editor
@@ -176,9 +209,9 @@ half-built.
 
 **P1 - the multisampled view (the whole mechanism, editor-first).**
 Frame-graph support for multisampled color+depth transient targets with a
-resolve attachment; prepass + forward + in-pass consumers (sky/decals/
-particles/sprites/debug draw) take the view's sample state via the PSO
-key; first-sample depth resolve feeding the existing 1x consumers; the
+resolve attachment; prepass + forward OPAQUE + the passes that share its
+MSAA target (sky/decals - others per the graph's truth) take the view's
+sample state via the PSO key; first-sample depth resolve feeding the existing 1x consumers; the
 editor viewport toggle (off/2x/4x) in the post-flags menu. Acceptance:
 the pixel-probe harness grows a scene-pass case - a high-contrast edge
 rendered at 1x vs 4x, asserting intermediate-coverage pixels appear on
