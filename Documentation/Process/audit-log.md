@@ -525,3 +525,27 @@ Verified against code @ 1abdb98d (both-shipped-and-deferred method).
   ProjectManagerView, EditorExportSettings, EditorDockLayoutSettings. State: unknown -> current.
 - SPLIT (spec rule): the Traktor survey + the original single-store-layer-stack design (superseded) +
   the phased plan -> **Archive/settings-design-history.md** (ARCHIVED). Dynamic-bag deferral kept inline.
+
+## P1 - batch 16: export cluster (export + export-templates + export-reachability) (2026-08-12)
+
+Verified against code @ b5d0418b (both-shipped-and-deferred method).
+
+- **Systems/export.md** REWRITTEN present-tense (was `Draconic - Export & Export Templates (design)`,
+  "mostly SHIPPED" with a "QUEUED - handed to fable" section + historical §4/§10/§11). The two QUEUED
+  items + the "remaining" UI ALL SHIPPED, so now a CURRENT reference. Verified: editor.core
+  (:export_pipeline/:export_preset/:export_template/:export_roots); ExportPreset/ExportTemplate/
+  TemplateRegistry/ExportContent/ExportProject/ExportResult/ResolveTemplatesRoot; CreateTemplate + CLI
+  Tools.Export --template create; ExportPreset::pruneToReachable (v3); Manage-Templates + OpenPresetEditor
+  UI. State: unknown -> current.
+- **Systems/export-templates.md** REWRITTEN present-tense (was "design, extends the shipped system").
+  The config axis SHIPPED: ExportTemplate.config/compiler, EffectiveConfig(), FindBy(platform,config),
+  host-<platform>-<config>, CreateTemplate stamps config; categorized sidecars SHIPPED (sidecars=required
+  + symbols=opt-in); Web template synthesis. Deferred verified: baseline engine content (shaders baked
+  in today), capabilities field, downloadable templates. State: unknown -> current.
+- **Systems/export-reachability.md** REFRESHED present-tense (was "Phases 1+2 SHIPPED" - accurate).
+  Verified: pruneToReachable + ExportRoots (:export_roots) + CollectExportRoots + SceneRefScanner
+  main-thread pre-scan + export-report. Deferred verified: Phase 3 AssetRef<T> (no AssetRef type), Phase
+  4 script-load lint (absent, stretch goal), Phase 5 runtime capture, minor UI follow-ups. State:
+  unknown -> current.
+- SPLIT (spec rule): the problem framing + the templates-vs-presets rationale + the QUEUED-then-shipped
+  history + precursors + config-driven-sidecars ruling -> **Archive/export-design-history.md** (ARCHIVED).
