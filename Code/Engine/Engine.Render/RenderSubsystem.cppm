@@ -121,6 +121,10 @@ export namespace engine::render
         // screen-edge fade, roughness cutoff, march steps). Reflects the lit HDR before AO/TAA.
         void SetSsrEnabled(bool on) noexcept;
         [[nodiscard]] bool SsrEnabled() const noexcept { return m_ssrEnabled; }
+        // Scene-pass MSAA sample count (1/2/4) for the global post path - capability-clamped per view
+        // (msaa.md). Samples/tools drive it directly (the editor uses the per-view override instead).
+        void SetMsaaSamples(u32 count) noexcept;
+        [[nodiscard]] u32 MsaaSamples() const noexcept { return m_globalMsaaSamples; }
         [[nodiscard]] SsrPass::Params& SsrParams() noexcept { return m_ssrParams; }
 
         // Share instance data between the camera depth-prepass and the forward (build once). A/B toggle.
@@ -263,7 +267,8 @@ export namespace engine::render
         f32 m_aoStrength = 0.6f;       // partial by default (full darkens curved surfaces too much)
         f32 m_aoRadius = 0.5f;
         f32 m_aoIntensity = 1.0f;
-        bool m_ssrEnabled = false; // SSR off by default (UI toggle)
+        bool m_ssrEnabled = false;  // SSR off by default (UI toggle)
+        u32 m_globalMsaaSamples = 1; // scene-pass MSAA count for the global post path (off by default)
         SsrPass::Params m_ssrParams{};
         bool m_instanceSharing = true; // prepass->forward instance-data sharing (A/B toggle)
         bool m_viewCulling = false;    // view-frustum cull camera draw lists (default off)

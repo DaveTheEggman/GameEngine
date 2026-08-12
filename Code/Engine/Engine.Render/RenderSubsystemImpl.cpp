@@ -158,6 +158,11 @@ namespace engine::render
         m_ssrEnabled = on;
         m_globalPostActive = true;
     }
+    void RenderSubsystem::SetMsaaSamples(u32 count) noexcept
+    {
+        m_globalMsaaSamples = (count < 1) ? 1u : count; // clamped to the device ceiling per view
+        m_globalPostActive = true;
+    }
 
     void RenderSubsystem::ViewCullStats(u32& culled, u32& total) const noexcept
     {
@@ -407,6 +412,7 @@ namespace engine::render
             settings.post.fxaaSubpixel = m_fxaaSubpixel;
             settings.post.ssrEnabled = m_ssrEnabled;
             settings.post.ssrIntensity = m_ssrParams.intensity;
+            settings.post.msaaSamples = static_cast<u8>(m_globalMsaaSamples);
         }
         else if (const PostProcessSystem* pp = scene.GetSystem<PostProcessSystem>())
         {

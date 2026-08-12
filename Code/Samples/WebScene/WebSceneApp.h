@@ -758,6 +758,17 @@ namespace samples
                 {
                     renderSub->SetSsrEnabled(ssr);
                 }
+                // Scene-pass MSAA (independent of TAA - both can be on). Off/2x/4x map to sample
+                // counts 1/2/4; the subsystem clamps to the device ceiling per view.
+                const core::u32 msaaCounts[] = {1u, 2u, 4u};
+                int msaaIdx = (renderSub->MsaaSamples() >= 4u)   ? 2
+                              : (renderSub->MsaaSamples() >= 2u) ? 1
+                                                                 : 0;
+                const char* msaaItems[] = {"Off", "2x", "4x"};
+                if (ImGui::Combo("MSAA", &msaaIdx, msaaItems, 3))
+                {
+                    renderSub->SetMsaaSamples(msaaCounts[msaaIdx]);
+                }
                 // The SSR eye test wants a tunable reflector (roughness feeds the SSR
                 // cutoff/cone-gather; metallic drives reflectivity).
                 bool floorChanged = false;
