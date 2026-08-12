@@ -33,8 +33,11 @@ namespace foundation::render
         for (u32 i = 0; i < 4; ++i)
         {
             e[i].textureMultisampled = true; // Texture2DMS<...> inputs
+            // WebGPU forbids a filterable (Float) sample type on a multisampled texture binding; all
+            // four are read via .Load(coord, 0) (no sampler), so UnfilterableFloat is both required
+            // and correct. (Vulkan tolerated Float here; WebGPU strictly rejects it.)
+            e[i].textureSampleType = rhi::TextureSampleType::UnfilterableFloat;
         }
-        e[3].textureSampleType = rhi::TextureSampleType::UnfilterableFloat; // depth read as data
         rhi::BindGroupLayoutDesc ld{};
         ld.entries = Span<const rhi::BindGroupLayoutEntry>{e, 4};
         if (!m_device->CreateBindGroupLayout(ld, m_layout).IsOk())
