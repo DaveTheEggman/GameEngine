@@ -502,3 +502,26 @@ Verified against code @ 89516efc (both-shipped-and-deferred method).
   NOT built (no CheckAssets action). Both kept as Deferred.
 - SPLIT (spec rule): the Traktor traktor::Path survey + sharp-edges-not-copied + design calls ->
   **Archive/path-type-design-history.md** (ARCHIVED); P3/P4 kept as an inline Deferred section.
+
+## P1 - batch 15: settings + project-and-settings (2026-08-12)
+
+Verified against code @ 1abdb98d (both-shipped-and-deferred method).
+
+- **Systems/settings.md** REWRITTEN present-tense (was `Draconic - Settings system (design)`, status
+  "design 2026-07-15" - SHIPPED). Now a CURRENT reference for the foundation.settings primitive. Verified
+  against code: foundation.settings module (Settings.cppm) - Settings::Section<T>/MarkChanged<T>/OnChanged
+  + Load/Save(IStream, SerializerFactory, TypeRegistry); unknown-section passthrough SHIPPED
+  (m_unknownSections + UnknownSectionCount + verbatim re-emit + binary-abort); user-data-dir helper in
+  foundation.core/System.cppm. State: unknown -> current.
+- CORRECTED drift: the designed single-store Default/User/Project LAYER STACK did NOT ship (no
+  SettingsLayer enum, no LoadLayer/SaveLayer); layering is separate store INSTANCES per file. The dynamic
+  PropertyBag + SettingsKey<T> (P3) was NOT built (deferred). Module home is foundation.settings, not
+  draconic.core.
+- **Systems/project-and-settings.md** REFRESHED (was already a good 2026-08-01 present-tense reference):
+  names draconic.* -> engine.project / editor.core / editor.app / foundation.settings; ProjectSettings
+  data version v6 -> v8 (verified RTTI_DEFINE_OBJECT_VERSIONED(ProjectSettings,...,8)); Draconic.Tools.
+  Editor -> Tools.Editor; added the status header + the settings.md cross-link. Verified: engine.project
+  (ProjectSettings), ProjectManagerController, RecentProjectsSettings (editor.core/ProjectRegistry),
+  ProjectManagerView, EditorExportSettings, EditorDockLayoutSettings. State: unknown -> current.
+- SPLIT (spec rule): the Traktor survey + the original single-store-layer-stack design (superseded) +
+  the phased plan -> **Archive/settings-design-history.md** (ARCHIVED). Dynamic-bag deferral kept inline.
