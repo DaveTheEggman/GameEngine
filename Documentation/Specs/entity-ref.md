@@ -100,9 +100,18 @@ the remapper can discover fields by type.
 - Tests (scene-serialize): intra-prefab `EntityRef` remaps to each instance's own copy; external
   `EntityRef` preserved verbatim. Both compilers green; 35 tests pass.
 
-**Open:**
-- **P2 UI polish** - the picker works but wants a visual/UX fixup (deferred to the weekend; specifics
-  TBD). The only remaining item on this track.
+**Done (P2 UI polish) - built, compile/link verified, VISUAL CONFIRM PENDING:**
+- `EntityPickerDialog` (`editor.scene:entity_picker_dialog`) - a modal, filterable entity TREE (the
+  entity twin of `AssetPickerDialog`), replacing the flat context menu (which was mispositioned -
+  anchored to the Add-Component button - and unusable in large scenes). Reuses `ui::TreeView` +
+  `FlattenedTreeAdapter` for expand/collapse and mirrors the hierarchy view's `Node` snapshot +
+  ancestor-keeping filter (`SubtreeMatches`); single/double-click + Select/Clear/Cancel; pre-selects
+  the current target. Both compilers green; Editor.Scene + full editor link; 59 scene tests pass.
+- **On resume: visually confirm in the editor** - open the joint's target picker, check the tree
+  renders + expands, the filter prunes to matches (keeping ancestors), and Select/Clear/double-click
+  set the reference. Then this track is fully closed.
+
+**Open:** nothing beyond the P2 UI visual confirm above.
 
 ## Acceptance (track)
 
