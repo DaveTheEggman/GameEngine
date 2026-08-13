@@ -1,8 +1,8 @@
 # EntityRef - a typed, inspectable entity reference
 
-> Status: P1 + P2 + P3 landed. P1/P2 visually confirmed in the editor (2026-08-13); P3 (reflection-
-> driven prefab remap) landed with tests, both compilers green. Only open item: a deferred UI polish
-> fixup on the picker (weekend). See "Build state" below.
+> Status: COMPLETE (2026-08-13). P1 (type + migration), P2 (inspector picker + modal entity-tree
+> picker), P3 (reflection-driven prefab remap) all landed, tested, and visually confirmed in the
+> editor. Both compilers green. See "Build state" below.
 > Track: editor / scene / reflection
 > Author: Opus, 2026-08-13 (from a design exchange). Land in pieces; verify the editor picker on screen.
 
@@ -107,11 +107,12 @@ the remapper can discover fields by type.
   `FlattenedTreeAdapter` for expand/collapse and mirrors the hierarchy view's `Node` snapshot +
   ancestor-keeping filter (`SubtreeMatches`); single/double-click + Select/Clear/Cancel; pre-selects
   the current target. Both compilers green; Editor.Scene + full editor link; 59 scene tests pass.
-- **On resume: visually confirm in the editor** - open the joint's target picker, check the tree
-  renders + expands, the filter prunes to matches (keeping ancestors), and Select/Clear/double-click
-  set the reference. Then this track is fully closed.
+- Visually confirmed working in the editor (2026-08-13): the tree renders/expands and the picker
+  sets the joint's target. (Fixed one bug found on screen: an empty tree because the flat adapter's
+  visible list was built before the nodes existed and `Expand()` no-ops on leaves - resolved with an
+  explicit `RebuildVisibleList()` after the snapshot build.)
 
-**Open:** nothing beyond the P2 UI visual confirm above.
+**Open:** nothing - track complete.
 
 ## Acceptance (track)
 
