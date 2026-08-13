@@ -1,7 +1,7 @@
 # EntityRef - a typed, inspectable entity reference
 
-> Status: P1 landed; P2 (inspector picker) code-complete + both compilers green, awaiting an
-> in-editor VISUAL confirm; P3 (prefab remap) open. See "Build state" below.
+> Status: P1 + P2 landed and VISUALLY CONFIRMED working in the editor (2026-08-13). A UI polish
+> fixup on the picker is deferred (weekend). P3 (prefab remap) open. See "Build state" below.
 > Track: editor / scene / reflection
 > Author: Opus, 2026-08-13 (from a design exchange). Land in pieces; verify the editor picker on screen.
 
@@ -76,16 +76,16 @@ the remapper can discover fields by type.
   (subsystem resolve, hand-written `Serialize` via `.id`, test assignment via implicit ctor) updated;
   wire format unchanged. Both compilers green; the 20 physics tests pass.
 
-**Done (P2) - code-complete + committed, VISUAL CONFIRM PENDING:**
+**Done (P2) - landed, committed, and VISUALLY CONFIRMED working (2026-08-13):**
 - `SetEntityRefCommand` + `SceneEditContext::SetComponentEntityRef` (undoable address-write).
 - `BuildEntityRefRow` + the `TypeOf<EntityRef>` dispatch branch in `BuildPropertyRow` (the
   `ResourceRefEditor` widget + a scene-entity menu, `(none)` clears).
-- Both compilers green. NOT yet visually verified - **on resume, open the editor, select a jointed
-  entity, and confirm: the target row shows a picker, picking an entity displays its name, `(none)`
-  clears it, and undo/redo works.** Only then is P2 done.
+- Both compilers green; user-verified in the editor - `JointComponent::targetEntity` picks an
+  entity, shows its name, and clears.
 
 **Open (resume here):**
-- **Visual-confirm P2** (above) - the one remaining P2 step.
+- **P2 UI polish** - the picker works but wants a visual/UX fixup (deferred to the weekend; specifics
+  TBD).
 - **P3** - reflection-driven prefab-remap of `EntityRef` fields; then retire the joint's forced
   nil/hierarchy workaround.
 
