@@ -302,14 +302,17 @@ export namespace editor
                 }
             }
             // Default everything expanded (like the hierarchy view) so the structure is visible; the
-            // FlattenedTreeAdapter under the tree owns the actual expand/collapse state.
+            // FlattenedTreeAdapter under the tree owns the actual expand/collapse state. Expand() only
+            // marks parents (it no-ops on leaves), so a final RebuildVisibleList() is required to walk
+            // the now-populated source into the flat list - without it a flat (all-leaf) scene, and
+            // the initial build (adapter was set while the node list was still empty), show nothing.
             if (ui::FlattenedTreeAdapter* flat = m_tree->FlatAdapter())
             {
                 for (usize i = 0; i < m_nodes.Size(); ++i)
                 {
-                    flat->Expand(static_cast<i32>(i));
+                    flat->Expand(static_cast<i32>(i)); // parents only
                 }
-                m_tree->InternalListView()->NotifyDataChanged();
+                flat->RebuildVisibleList(); // repopulate from the source + notify the list
             }
         }
 
