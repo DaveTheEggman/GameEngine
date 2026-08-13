@@ -1,7 +1,8 @@
 # EntityRef - a typed, inspectable entity reference
 
-> Status: P1 + P2 landed and VISUALLY CONFIRMED working in the editor (2026-08-13). A UI polish
-> fixup on the picker is deferred (weekend). P3 (prefab remap) open. See "Build state" below.
+> Status: P1 + P2 + P3 landed. P1/P2 visually confirmed in the editor (2026-08-13); P3 (reflection-
+> driven prefab remap) landed with tests, both compilers green. Only open item: a deferred UI polish
+> fixup on the picker (weekend). See "Build state" below.
 > Track: editor / scene / reflection
 > Author: Opus, 2026-08-13 (from a design exchange). Land in pieces; verify the editor picker on screen.
 
@@ -83,11 +84,25 @@ the remapper can discover fields by type.
 - Both compilers green; user-verified in the editor - `JointComponent::targetEntity` picks an
   entity, shows its name, and clears.
 
-**Open (resume here):**
+**Done (P3) - landed + committed, tested:**
+- `RemapPrefabEntityRefs` in `SpawnPrefab`: after each component read (all three read paths -
+  text-blob, binary-blob, binary-legacy) and before the baseline blob is captured, walk the
+  component's reflected `EntityRef` properties and route any guid in the instance's source->live map
+  to the instance's copy. External references (not in the map) pass through untouched. Reflection-
+  driven, so every component with an `EntityRef` field is covered with no per-type code.
+- **Dependency:** the component's reflection must be registered for `Properties()` to see the field.
+  Subsystems register at `OnInit()` (e.g. `PhysicsSubsystem::OnInit` -> `RttiRegisterValue_JointComponent`),
+  which runs before scenes/prefabs load - the same registration guarantee the inspector relies on. If
+  a component's reflection is unregistered the remap silently no-ops (acceptable: no reflection means
+  no inspector/scripting either).
+- `JointComponent`'s `nil = nearest ancestor` behavior is KEPT - it's a genuine convenience (auto-
+  attach to the ancestor body), no longer a prefab-safety necessity now that explicit targets remap.
+- Tests (scene-serialize): intra-prefab `EntityRef` remaps to each instance's own copy; external
+  `EntityRef` preserved verbatim. Both compilers green; 35 tests pass.
+
+**Open:**
 - **P2 UI polish** - the picker works but wants a visual/UX fixup (deferred to the weekend; specifics
-  TBD).
-- **P3** - reflection-driven prefab-remap of `EntityRef` fields; then retire the joint's forced
-  nil/hierarchy workaround.
+  TBD). The only remaining item on this track.
 
 ## Acceptance (track)
 
