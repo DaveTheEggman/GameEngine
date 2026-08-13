@@ -551,21 +551,21 @@ brute-force warmup). Fixes: surface texture now released from an OnSubmittedWork
 callback (never mid-flight), FrameContext reports the backbuffer size, ImGui scissors
 clamped to the target.
 
-- [ ] Browser WebScene (rebuilt; re-export/re-serve): "Destroyed texture used in a
+- [x] Browser WebScene (rebuilt; re-export/re-serve): "Destroyed texture used in a
       submit" should be GONE from the console entirely - including at startup. If any
       remain, count them and note when (startup/resize).
-- [ ] Browser: ImGui panel APPEARS and survives window resizes / devtools dock-undock.
-- [ ] Browser: chrome sphere's probe reflection shows the SKY (was black - bake was
+- [x] Browser: ImGui panel APPEARS and survives window resizes / devtools dock-undock.
+- [x] Browser: chrome sphere's probe reflection shows the SKY (was black - bake was
       riding a dropped submit). If still black, report - next suspect is probe bake
       ordering, not submits.
-- [ ] Desktop (vulkan + webgpu): no behavior change expected - quick sanity pass.
+- [x] Desktop (vulkan + webgpu): no behavior change expected - quick sanity pass.
 - Note: the "UI: default font ... Roboto-Regular.ttf not loaded" warning is unrelated
   (game-UI subsystem font not packed for WebScene; WebScene draws no game-UI text).
 
 ## 2026-08-01 - built-in project manager (b5db25ec..97c7b757)
 
-- [ ] Open Folder... on your real EditorProject -> opens; appears in recents.
-- [ ] File > Close Project -> dirty-prompt if pages dirty, then back to the manager (list
+- [x] Open Folder... on your real EditorProject -> opens; appears in recents.
+- [x] File > Close Project -> dirty-prompt if pages dirty, then back to the manager (list
       re-probed). NOT shown when launched `Draconic.Tools.Editor EditorProject` (CLI mode).
 - [ ] Version prompt: hand-edit a scratch project's Project.xml engineVersion to 0.0.1 ->
       Open shows Back Up & Open / Open Without Backup / Cancel; backup creates
@@ -599,6 +599,8 @@ Polish P1+P2 (056f90e6):
       -> #1 SHIPPED 7127fa88: NetworkComponent / NetworkedTransform gained displayName
       ("Network Identity" / "Networked Transform") + category "Networking" - they no longer
       land in "Other". Retest that the new "Networking" submenu appears with both entries.
+
+      -Instanced Skinning in Other category.
 
 Cross-platform (after pulling):
 - [ ] Web export still renders game-UI text (cooked font travels in the pak).
@@ -647,3 +649,31 @@ Cross-platform (after pulling):
       (any visible seam = a decode regression). Added in dfce215e.
 - [ ] Blend demo re-check: additive still clips toward white over the light strip.
 - [ ] Web after recook: same appearance as desktop.
+
+
+
+
+
+
+
+Created Sound cueue, immediately fails to cook. Not a good UX.
+[Info] Cook: cooking 1 asset(s)
+[Error] Audio: sound cue has no playable variant (assign at least one clip) - cook failed
+[Error] Cook: 'Audio/SoundCue' failed to cook
+[Info] Cook: FAILED Audio/SoundCue (1/1)
+[Info] Cook: cook finished: 0 cooked, 1 failed
+[Info] Cook: cooking 1 asset(s)
+[Debug] Input: viewport capture released - no mouse button held
+[Error] Audio: sound cue has no playable variant (assign at least one clip) - cook failed
+[Error] Cook: 'Audio/SoundCue' failed to cook
+[Debug] Input: viewport capture released - no mouse button held
+[Info] Cook: FAILED Audio/SoundCue (1/1)
+[Info] Cook: cook finished: 0 cooked, 1 failed
+
+Audition Sound cueue UX is bad. Can't pause/stop.
+CLicking audition multiple times plays the cue multiple times over each other.
+
+Audio source component has so many fields, not all fields are relevant to all setup.
+This should be clean up for a better ux. Use visible when, and probably a mode/type between clip and cue.
+
+marking entity as inactive in a scene should prevent it from being rendered or participate in any simulation.
