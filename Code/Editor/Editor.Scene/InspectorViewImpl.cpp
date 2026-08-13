@@ -1159,6 +1159,13 @@ namespace editor
                                                        {u8"UIThemeAsset"});
             return;
         }
+        // Entity reference: a picker over the CURRENT scene's entities (the typed EntityRef field -
+        // e.g. JointComponent::targetEntity). A bare Guid would have no editor here.
+        if (prop.type == &TypeOf<foundation::scene::EntityRef>())
+        {
+            BuildEntityRefRow(id, type, prop, category);
+            return;
+        }
 
         // Pulls the current Variant (empty component -> default Variant guards below).
         auto getVariant = [edit, id, type, propName]() -> Variant
@@ -2150,6 +2157,71 @@ namespace editor
                       (void)self;
                       raw->SetValueText(nameOf(currentTarget()));
                   });
+    }
+
+    // Reflected-component EntityRef picker: the twin of BuildScriptEntityPropertyRow (which serves
+    // SCRIPT entity properties), but reading/writing a reflected component field via its property
+    // address + an undoable SetComponentEntityRef.
+    void SceneInspectorView::BuildEntityRefRow(const Guid& id, const TypeInfo* type,
+                                               const PropertyInfo& prop, StringView category)
+    {
+        SceneInspectorView* self = this;
+        SceneEditContext* edit = m_edit;
+        const char* propName = prop.name;
+        const StringView name(reinterpret_cast<const utf8char*>(prop.name));
+
+        // Current EntityRef.id via the re-derived property address (component pools move).
+        auto currentTarget = [edit, id, type, propName]() -> Guid
+        {
+            scene::ComponentManagerBase* mgr = edit->FindManager(type);
+            const scene::EntityHandle e = edit->Resolve(id);
+            if (mgr == nullptr || !e.IsAssigned())
+            {
+                return Guid{};
+            }
+            const Instance component = mgr->GetComponentInstance(e);
+            const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
+            void* address =
+                (p != nullptr && p->address != nullptr) ? p->address(component) : nullptr;
+            return (address != nullptr) ? static_cast<foundation::scene::EntityRef*>(address)->id
+                                        : Guid{};
+        };
+        // Display name of a target guid (scene-owned strings / literals - safe to hold as a view).
+        auto nameOf = [edit](const Guid& target) -> StringView
+        {
+            if (target.IsNil())
+            {
+                return u8"(none)";
+            }
+            const scene::EntityHandle h = edit->Scene().FindEntity(target);
+            return h.IsAssigned() ? edit->Scene().GetEntityName(h) : StringView(u8"(missing)");
+        };
+
+        auto editor =
+            MakeRef<ResourceRefEditor>(DefaultAllocator(), name, nameOf(currentTarget()), category);
+        ResourceRefEditor* raw = editor.Get();
+        raw->OnPick = [self, edit, id, type, propName]()
+        {
+            if (self->Context == nullptr)
+            {
+                return;
+            }
+            auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+            menu->AddItem(StringView(u8"(none)"), [edit, id, type, propName]()
+                          { edit->SetComponentEntityRef(id, type, propName, Guid{}); });
+            menu->AddSeparator();
+            edit->Scene().ForEachEntity(
+                [edit, id, type, propName, &menu](scene::EntityHandle handle)
+                {
+                    const Guid target = edit->Scene().GetEntityId(handle);
+                    String label(edit->Scene().GetEntityName(handle));
+                    menu->AddItem(label.AsView(), [edit, id, type, propName, target]()
+                                  { edit->SetComponentEntityRef(id, type, propName, target); });
+                });
+            const Float2 pos = self->m_addButton->LocalToScreen(Float2{0.0f, 0.0f});
+            menu->Show(self->Context, pos.x, pos.y);
+        };
+        AddEditor(raw, [currentTarget, nameOf, raw]() { raw->SetValueText(nameOf(currentTarget())); });
     }
 
     void SceneInspectorView::BuildScriptAssetPropertyRow(

@@ -146,6 +146,17 @@ export namespace editor
                 DefaultAllocator()));
         }
 
+        /// Point a component's EntityRef property at a new entity (the inspector's entity picker) -
+        /// the entity-reference twin of SetComponentResourceRef. Undoable; `target` nil = cleared.
+        void SetComponentEntityRef(const Guid& entity, const TypeInfo* componentType,
+                                   const char* property, const Guid& target)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                DefaultAllocator().New<SetEntityRefCommand>(*this, entity, componentType, property,
+                                                            target),
+                DefaultAllocator()));
+        }
+
         /// Set a reflected component property whose type a Variant cannot construct at runtime
         /// (enums known only by TypeInfo): writes the underlying integer through
         /// PropertyInfo::address. Merges like SetComponentProperty.
@@ -1146,6 +1157,69 @@ export namespace editor
             Guid m_old;
             bool m_hasOld = false;
             foundation::resource::ResourceManager* m_resources;
+        };
+
+        // The entity-reference twin of SetResourceRefCommand: writes a component's EntityRef.id
+        // through the re-derived property address (pools move, so re-derive each apply), with undo.
+        // No resource rebind - an EntityRef is a dumb guid holder resolved at use.
+        class SetEntityRefCommand final : public IEditorCommand
+        {
+        public:
+            SetEntityRefCommand(SceneEditContext& ctx, const Guid& entity, const TypeInfo* type,
+                                const char* property, const Guid& value)
+                : m_ctx(&ctx), m_entity(entity), m_type(type), m_property(property), m_new(value)
+            {
+            }
+
+            [[nodiscard]] bool Execute() override
+            {
+                foundation::scene::EntityRef* ref = ResolveRef();
+                if (ref == nullptr)
+                {
+                    return false;
+                }
+                if (!m_hasOld)
+                {
+                    m_old = ref->id;
+                    m_hasOld = true;
+                }
+                ref->id = m_new;
+                return true;
+            }
+            void Undo() override
+            {
+                if (foundation::scene::EntityRef* ref = ResolveRef())
+                {
+                    ref->id = m_old;
+                }
+            }
+            [[nodiscard]] StringView TypeId() const override { return u8"set_entity_ref"; }
+
+        private:
+            [[nodiscard]] foundation::scene::EntityRef* ResolveRef()
+            {
+                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
+                scene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
+                if (!e.IsAssigned() || mgr == nullptr)
+                {
+                    return nullptr;
+                }
+                const Instance component = mgr->GetComponentInstance(e);
+                const PropertyInfo* prop =
+                    component.IsEmpty() ? nullptr : FindProperty(*m_type, m_property);
+                void* address = (prop != nullptr && prop->address != nullptr)
+                                    ? prop->address(component)
+                                    : nullptr;
+                return static_cast<foundation::scene::EntityRef*>(address);
+            }
+
+            SceneEditContext* m_ctx;
+            Guid m_entity;
+            const TypeInfo* m_type;
+            const char* m_property;
+            Guid m_new;
+            Guid m_old;
+            bool m_hasOld = false;
         };
 
         class SetTransformCommand final : public IEditorCommand

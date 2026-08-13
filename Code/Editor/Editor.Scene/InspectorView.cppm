@@ -614,6 +614,12 @@ export namespace editor
                 { raw->SetValueText(self->AssetNameFor(self->RefTarget<T>(id, type, propName))); });
         }
 
+        // Entity-reference row: the entity-picker twin of BuildResourceRefRow. Same ResourceRefEditor
+        // widget, but the pick menu lists the CURRENT scene's entities (names; "(none)" clears) and
+        // the choice writes the component's EntityRef via SetComponentEntityRef. Defined in the impl.
+        void BuildEntityRefRow(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
+                               StringView category);
+
         // The "range" attribute's {min, max, step} payload, or null when absent/mistyped.
         [[nodiscard]] static const Float4* RangeOf(const PropertyInfo& prop);
 
