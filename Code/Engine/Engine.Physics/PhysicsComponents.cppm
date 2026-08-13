@@ -212,7 +212,7 @@ export namespace engine::physics
     struct JointComponent
     {
         JointKind kind = JointKind::Fixed;
-        Guid targetEntity;                    // nil = nearest ancestor body / world
+        foundation::scene::EntityRef targetEntity; // nil = nearest ancestor body / world
         Float3 localAnchor{0.0f, 0.0f, 0.0f}; // pivot in THIS entity's space
         Float3 localAxis{0.0f, 1.0f, 0.0f};   // hinge/slider axis in THIS entity's space
         f32 limitMin = 1.0f;                  // min > max = unlimited
@@ -232,7 +232,8 @@ export namespace engine::physics
         u8 kind = static_cast<u8>(c.kind);
         foundation::core::Serialize(ar, "kind", kind);
         c.kind = static_cast<JointKind>(kind);
-        foundation::core::Serialize(ar, "targetEntity", c.targetEntity);
+        // Serialize the inner guid directly (byte-identical to the pre-EntityRef Guid field).
+        foundation::core::Serialize(ar, "targetEntity", c.targetEntity.id);
         foundation::core::Serialize(ar, "localAnchor", c.localAnchor);
         foundation::core::Serialize(ar, "localAxis", c.localAxis);
         foundation::core::Serialize(ar, "limitMin", c.limitMin);

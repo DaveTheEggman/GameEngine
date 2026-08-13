@@ -398,7 +398,7 @@ export namespace engine::physics
                     BodyId target; // invalid = world attachment
                     if (!c.targetEntity.IsNil())
                     {
-                        scene::EntityHandle t = scene.FindEntity(c.targetEntity);
+                        scene::EntityHandle t = scene.FindEntity(c.targetEntity.id);
                         RigidBodyComponent* targetBody = t.IsAssigned() ? bodies->Get(t) : nullptr;
                         if (targetBody == nullptr || !targetBody->body.IsValid())
                         {
