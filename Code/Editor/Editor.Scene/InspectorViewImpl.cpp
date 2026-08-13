@@ -2200,26 +2200,19 @@ namespace editor
         auto editor =
             MakeRef<ResourceRefEditor>(DefaultAllocator(), name, nameOf(currentTarget()), category);
         ResourceRefEditor* raw = editor.Get();
-        raw->OnPick = [self, edit, id, type, propName]()
+        raw->OnPick = [self, edit, id, type, propName, currentTarget]()
         {
             if (self->Context == nullptr)
             {
                 return;
             }
-            auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
-            menu->AddItem(StringView(u8"(none)"), [edit, id, type, propName]()
-                          { edit->SetComponentEntityRef(id, type, propName, Guid{}); });
-            menu->AddSeparator();
-            edit->Scene().ForEachEntity(
-                [edit, id, type, propName, &menu](scene::EntityHandle handle)
-                {
-                    const Guid target = edit->Scene().GetEntityId(handle);
-                    String label(edit->Scene().GetEntityName(handle));
-                    menu->AddItem(label.AsView(), [edit, id, type, propName, target]()
-                                  { edit->SetComponentEntityRef(id, type, propName, target); });
-                });
-            const Float2 pos = self->m_addButton->LocalToScreen(Float2{0.0f, 0.0f});
-            menu->Show(self->Context, pos.x, pos.y);
+            // Modal, filterable entity TREE (mirrors the asset picker + hierarchy view), replacing
+            // the flat menu that was unusable in large scenes. Pre-selects the current target.
+            auto dialog = MakeRef<editor::EntityPickerDialog>(DefaultAllocator(), edit->Scene(),
+                                                             currentTarget());
+            dialog->OnPicked = [edit, id, type, propName](const Guid& target)
+            { edit->SetComponentEntityRef(id, type, propName, target); };
+            dialog->Show(self->Context);
         };
         AddEditor(raw, [currentTarget, nameOf, raw]() { raw->SetValueText(nameOf(currentTarget())); });
     }

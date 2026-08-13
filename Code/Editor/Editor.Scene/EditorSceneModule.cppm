@@ -15,6 +15,7 @@ export import :tools;
 export import :component_gizmos;
 export import :hierarchy;
 export import :inspector;
+export import :entity_picker_dialog;
 export import :page;
 export import :game_page;
 export import :material_page;
