@@ -283,12 +283,32 @@ namespace
     public:
         TurretManager() : SerializableComponentManager<Turret>(u8"demo.Turret") {}
     };
+
+    // A component that REFERENCES another entity (via EntityRef) - the prefab-remap subject.
+    struct Link
+    {
+        foundation::scene::EntityRef target;
+    };
+    void Serialize(ISerializer& ar, Link& l)
+    {
+        foundation::core::Serialize(ar, "target", l.target.id);
+    }
+    class LinkManager : public SerializableComponentManager<Link>
+    {
+    public:
+        LinkManager() : SerializableComponentManager<Link>(u8"demo.Link") {}
+    };
 }
 
 REFLECT_VALUE(Turret, "demo")
 {
     builder.DataVersion(3);
     builder.Property<&Turret::range>("range");
+}
+
+REFLECT_VALUE(Link, "demo")
+{
+    builder.Property<&Link::target>("target"); // reflected so the prefab remap finds the EntityRef
 }
 
 TEST_CASE("scene-serialize: component records carry the reflected type's data version")
@@ -483,6 +503,67 @@ TEST_CASE("prefab: capture -> spawn twice (fresh guids, hierarchy, components, b
     CHECK(state->prefabId == prefabId);
     CHECK(state->sourceIds.Size() == 2u);
     CHECK(state->componentBaselines.Size() == 2u);
+}
+
+TEST_CASE("prefab: an intra-prefab EntityRef remaps to the instance's own copy")
+{
+    Scene author(u8"author");
+    RttiRegisterValue_Link(); // build Link's reflection (Properties) so the prefab remap sees `target`
+    LinkManager* authorLinks = author.AddSystem<LinkManager>();
+    EntityHandle root = author.CreateEntity(u8"Root");
+    EntityHandle other = author.CreateEntity(u8"Other");
+    author.SetParent(other, root);
+    authorLinks->Add(root).target = author.GetEntityId(other); // Root links to Other (both in-prefab)
+
+    MemoryStream payload;
+    REQUIRE(CapturePrefab(author, root, payload).IsOk());
+
+    Scene target(u8"level");
+    LinkManager* links = target.AddSystem<LinkManager>();
+    (void)payload.Seek(0, SeekOrigin::Begin);
+    EntityHandle inst1 = SpawnPrefab(target, payload, Guid{0xAA, 0xBB});
+    (void)payload.Seek(0, SeekOrigin::Begin);
+    EntityHandle inst2 = SpawnPrefab(target, payload, Guid{0xCC, 0xDD});
+    REQUIRE(inst1.IsAssigned());
+    REQUIRE(inst2.IsAssigned());
+
+    EntityHandle other1 = target.GetFirstChild(inst1);
+    EntityHandle other2 = target.GetFirstChild(inst2);
+    REQUIRE(other1.IsAssigned());
+    REQUIRE(other2.IsAssigned());
+    REQUIRE(links->Has(inst1));
+    REQUIRE(links->Has(inst2));
+
+    // Each instance's link points at THAT instance's Other - remapped, not the author's source guid
+    // and not the sibling instance's copy.
+    CHECK(links->Get(inst1)->target.id == target.GetEntityId(other1));
+    CHECK(links->Get(inst2)->target.id == target.GetEntityId(other2));
+    CHECK(links->Get(inst1)->target.id != links->Get(inst2)->target.id);
+    // (Deliberately no "!= author's guid" check: two fresh scenes mint guids from the same
+    // deterministic sequence, so inst1's copy can share a guid VALUE with the author's - harmless,
+    // since it still resolves to inst1's own child. Pointing at the OWN copy is the real invariant.)
+}
+
+TEST_CASE("prefab: an EntityRef pointing OUTSIDE the prefab is left unchanged")
+{
+    const Guid external{0x1234, 0x5678}; // an entity that is NOT part of the prefab
+
+    Scene author(u8"author");
+    RttiRegisterValue_Link(); // build Link's reflection (Properties) so the prefab remap sees `target`
+    LinkManager* authorLinks = author.AddSystem<LinkManager>();
+    EntityHandle root = author.CreateEntity(u8"Root");
+    authorLinks->Add(root).target = external;
+
+    MemoryStream payload;
+    REQUIRE(CapturePrefab(author, root, payload).IsOk());
+
+    Scene target(u8"level");
+    LinkManager* links = target.AddSystem<LinkManager>();
+    (void)payload.Seek(0, SeekOrigin::Begin);
+    EntityHandle inst = SpawnPrefab(target, payload, Guid{0xAA, 0xBB});
+    REQUIRE(inst.IsAssigned());
+    REQUIRE(links->Has(inst));
+    CHECK(links->Get(inst)->target.id == external); // external reference preserved verbatim
 }
 
 TEST_CASE("prefab: scenes save instances as ref+deltas and restore them (overrides survive)")

@@ -668,6 +668,44 @@ namespace foundation::scene
                    : Status{ErrorCode::Unknown};
     }
 
+    // Prefab instancing remaps entity OWNERS through `liveBySource` (source guid -> this instance's
+    // fresh guid). A component may ALSO reference entities INSIDE its fields via scene::EntityRef -
+    // walk the freshly-read component's reflected EntityRef properties and remap any that point INTO
+    // the prefab to the instance's copy. References resolving OUTSIDE the prefab (not in the map) are
+    // left untouched: they point at the wider scene, not the template. Reflection-driven, so every
+    // component with an EntityRef field is covered without per-type code. Called after each component
+    // read and BEFORE the baseline blob is captured, so the baseline reflects the remapped value.
+    static void RemapPrefabEntityRefs(ComponentManagerBase& manager, EntityHandle owner,
+                                      const HashMap<Guid, Guid>& liveBySource)
+    {
+        const TypeInfo* type = manager.ComponentType();
+        if (type == nullptr)
+        {
+            return;
+        }
+        const Instance inst = manager.GetComponentInstance(owner);
+        if (inst.IsEmpty())
+        {
+            return;
+        }
+        for (const PropertyInfo& p : Properties(*type))
+        {
+            if (p.type != &TypeOf<EntityRef>() || p.address == nullptr)
+            {
+                continue;
+            }
+            auto* ref = static_cast<EntityRef*>(p.address(inst));
+            if (ref == nullptr || ref->id.IsNil())
+            {
+                continue;
+            }
+            if (const Guid* live = liveBySource.Find(ref->id))
+            {
+                ref->id = *live;
+            }
+        }
+    }
+
     EntityHandle SpawnPrefab(Scene& scene, IStream& payload, const Guid& prefabId,
                              EntityHandle parent, const HashMap<Guid, Guid>* preassigned,
                              const PrefabPayloadResolver* resolver,
@@ -806,6 +844,7 @@ namespace foundation::scene
                     ar.BeginObject();
                     manager->ReadComponent(ar, owner);
                     ar.EndObject();
+                    RemapPrefabEntityRefs(*manager, owner, liveBySource);
                     Scene::PrefabComponentBaseline baseline;
                     baseline.sourceEntity = sourceOwner;
                     baseline.typeId = typeId;
@@ -843,6 +882,7 @@ namespace foundation::scene
                 }
                 detail::ComponentFromBlob(*manager, owner,
                                           Span<const u8>{blob.Data(), blob.Size()});
+                RemapPrefabEntityRefs(*manager, owner, liveBySource);
                 // Baseline = RE-serialized from the live component, NOT the payload bytes: a
                 // component data-version bump would otherwise read as a phantom override on
                 // every instance (old-version blob != current-version blob for equal state).
@@ -864,6 +904,7 @@ namespace foundation::scene
                     return EntityHandle::Invalid(); // legacy records are not skippable
                 }
                 manager->ReadComponent(ar, owner);
+                RemapPrefabEntityRefs(*manager, owner, liveBySource);
                 Scene::PrefabComponentBaseline baseline;
                 baseline.sourceEntity = sourceOwner;
                 baseline.typeId = typeId;
