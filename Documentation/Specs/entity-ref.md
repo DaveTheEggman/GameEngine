@@ -1,7 +1,7 @@
 # EntityRef - a typed, inspectable entity reference
 
-> Status: P1 IN PROGRESS - the type + JointComponent migration landed; inspector picker + prefab
-> remap open. See "Build state" below.
+> Status: P1 landed; P2 (inspector picker) code-complete + both compilers green, awaiting an
+> in-editor VISUAL confirm; P3 (prefab remap) open. See "Build state" below.
 > Track: editor / scene / reflection
 > Author: Opus, 2026-08-13 (from a design exchange). Land in pieces; verify the editor picker on screen.
 
@@ -69,18 +69,23 @@ the remapper can discover fields by type.
 
 ## Build state (2026-08-13)
 
-**Done (P1):**
+**Done (P1) - landed + committed:**
 - `foundation::scene::EntityRef` (value type + implicit-from-`Guid` + `IsNil`/`Id`/`==`) and its
   identity-only `Serialize`.
 - `JointComponent::targetEntity` migrated `Guid` -> `EntityRef`; the three use sites
   (subsystem resolve, hand-written `Serialize` via `.id`, test assignment via implicit ctor) updated;
-  wire format unchanged.
-- Both compilers green.
+  wire format unchanged. Both compilers green; the 20 physics tests pass.
+
+**Done (P2) - code-complete + committed, VISUAL CONFIRM PENDING:**
+- `SetEntityRefCommand` + `SceneEditContext::SetComponentEntityRef` (undoable address-write).
+- `BuildEntityRefRow` + the `TypeOf<EntityRef>` dispatch branch in `BuildPropertyRow` (the
+  `ResourceRefEditor` widget + a scene-entity menu, `(none)` clears).
+- Both compilers green. NOT yet visually verified - **on resume, open the editor, select a jointed
+  entity, and confirm: the target row shows a picker, picking an entity displays its name, `(none)`
+  clears it, and undo/redo works.** Only then is P2 done.
 
 **Open (resume here):**
-- **P2** - the inspector `EntityRef` picker (`SetEntityRefCommand` + `SetComponentEntityRef` +
-  `BuildEntityRefRow` + the `TypeOf<EntityRef>` dispatch branch). Then visual-verify in the editor:
-  select a jointed entity, pick its target, confirm the row shows the target's name and undo works.
+- **Visual-confirm P2** (above) - the one remaining P2 step.
 - **P3** - reflection-driven prefab-remap of `EntityRef` fields; then retire the joint's forced
   nil/hierarchy workaround.
 
