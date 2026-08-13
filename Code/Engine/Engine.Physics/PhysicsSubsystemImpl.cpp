@@ -277,19 +277,32 @@ namespace engine::physics
 
     REFLECT_VALUE(JointComponent, "rtti::engine::physics")
     {
+        // Kind-conditional rows (visibleWhen, evaluated live by InspectorView): JointKind is
+        // Fixed=0, Point=1, Hinge=2, Slider=3, Distance=4. The axis + limits + motor are hinge/slider
+        // (2,3) concepts; min/max separation is Distance (4); the motor drive params nest under the
+        // motor checkbox. kind/targetEntity/localAnchor apply to every kind, so stay unconditional.
         builder.Attribute("displayName", String(u8"Joint"))
-            .Attribute("category", String(u8"Physics")).DataVersion(1);
-        builder.Property<&JointComponent::kind>("kind");
-        builder.Property<&JointComponent::targetEntity>("targetEntity");
-        builder.Property<&JointComponent::localAnchor>("localAnchor");
-        builder.Property<&JointComponent::localAxis>("localAxis");
-        builder.Property<&JointComponent::limitMin>("limitMin");
-        builder.Property<&JointComponent::limitMax>("limitMax");
-        builder.Property<&JointComponent::minDistance>("minDistance");
-        builder.Property<&JointComponent::maxDistance>("maxDistance");
-        builder.Property<&JointComponent::motorEnabled>("motorEnabled");
-        builder.Property<&JointComponent::motorTargetVelocity>("motorTargetVelocity");
-        builder.Property<&JointComponent::motorLimit>("motorLimit");
+            .Attribute("category", String(u8"Physics"))
+            .DataVersion(1)
+            .Property<&JointComponent::kind>("kind")
+            .Property<&JointComponent::targetEntity>("targetEntity")
+            .Property<&JointComponent::localAnchor>("localAnchor")
+            .Property<&JointComponent::localAxis>("localAxis")
+            .PropAttribute("visibleWhen", String(u8"kind=2,3"))
+            .Property<&JointComponent::limitMin>("limitMin")
+            .PropAttribute("visibleWhen", String(u8"kind=2,3"))
+            .Property<&JointComponent::limitMax>("limitMax")
+            .PropAttribute("visibleWhen", String(u8"kind=2,3"))
+            .Property<&JointComponent::minDistance>("minDistance")
+            .PropAttribute("visibleWhen", String(u8"kind=4"))
+            .Property<&JointComponent::maxDistance>("maxDistance")
+            .PropAttribute("visibleWhen", String(u8"kind=4"))
+            .Property<&JointComponent::motorEnabled>("motorEnabled")
+            .PropAttribute("visibleWhen", String(u8"kind=2,3"))
+            .Property<&JointComponent::motorTargetVelocity>("motorTargetVelocity")
+            .PropAttribute("visibleWhen", String(u8"motorEnabled"))
+            .Property<&JointComponent::motorLimit>("motorLimit")
+            .PropAttribute("visibleWhen", String(u8"motorEnabled"));
     }
 
     REFLECT_VALUE(PhysicsSceneSettings, "rtti::engine::physics")
