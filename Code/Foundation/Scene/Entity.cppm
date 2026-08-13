@@ -45,4 +45,33 @@ export namespace foundation::scene
         }
     };
 
+    // A PERSISTENT reference to another entity by its stable Guid - the serialized, prefab-remappable
+    // counterpart to EntityHandle (a transient live index+generation). A dedicated type, not a bare
+    // Guid, so tooling can dispatch on it: the inspector renders an entity picker for EntityRef
+    // fields (a bare Guid is ambiguous and renders nothing), and prefab instancing can find and remap
+    // EntityRef fields by type. Resolve to a live handle at the point of use via
+    // Scene::FindEntity(ref.id); EntityRef itself stays a dumb guid holder (no cached handle),
+    // matching the "entity access re-resolves, never borrows" rule.
+    struct EntityRef
+    {
+        Guid id; // stable id of the referenced entity (nil = unset)
+
+        EntityRef() = default;
+        // Implicit from Guid (like resource::Ref<T>): `ref = scene.GetEntityId(handle)`.
+        EntityRef(const Guid& guid) noexcept : id(guid) {}
+
+        [[nodiscard]] bool IsNil() const noexcept { return id.IsNil(); }
+        [[nodiscard]] const Guid& Id() const noexcept { return id; }
+
+        [[nodiscard]] bool operator==(const EntityRef& o) const noexcept { return id == o.id; }
+        [[nodiscard]] bool operator!=(const EntityRef& o) const noexcept { return !(*this == o); }
+    };
+
+    // Identity-only serialization (found by ADL from component Serialize bodies), byte-identical to a
+    // bare Guid - so migrating a field from Guid to EntityRef leaves the wire/disk format unchanged.
+    inline void Serialize(ISerializer& ar, EntityRef& ref)
+    {
+        foundation::core::Serialize(ar, ref.id);
+    }
+
 } // namespace foundation::scene
