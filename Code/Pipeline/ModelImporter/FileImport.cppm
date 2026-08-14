@@ -224,7 +224,7 @@ export namespace pipeline
 
         [[nodiscard]] bool Accepts(StringView extension) const override
         {
-            for (StringView ext : {u8"glb", u8"gltf", u8"fbx"})
+            for (StringView ext : {u8"glb", u8"gltf", u8"fbx", u8"obj"})
             {
                 if (extension == ext)
                 {
