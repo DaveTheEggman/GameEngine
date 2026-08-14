@@ -677,6 +677,9 @@ This should be clean up for a better ux. Use visible when, and probably a mode/t
 
 marking entity as inactive in a scene should prevent it from being rendered or participate in any simulation.
 
+
+We need an easier way to select the scene, so we see the scene inspector than clicking in empty space in the viewport.
+
 --- 
 
 Using arrow key in hierarchy does not trigger inspector update.
