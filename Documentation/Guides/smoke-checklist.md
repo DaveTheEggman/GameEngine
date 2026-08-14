@@ -655,7 +655,6 @@ Cross-platform (after pulling):
 
 
 
-
 Created Sound cueue, immediately fails to cook. Not a good UX.
 [Info] Cook: cooking 1 asset(s)
 [Error] Audio: sound cue has no playable variant (assign at least one clip) - cook failed
@@ -677,3 +676,11 @@ Audio source component has so many fields, not all fields are relevant to all se
 This should be clean up for a better ux. Use visible when, and probably a mode/type between clip and cue.
 
 marking entity as inactive in a scene should prevent it from being rendered or participate in any simulation.
+
+--- 
+
+Using arrow key in hierarchy does not trigger inspector update.
+Animation clip page doesn't have preview mesh
+mesh pages do not have material options
+collision mesh page does not have any preview
+Model manifest page blanks whole view.
