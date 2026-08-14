@@ -690,3 +690,6 @@ Model manifest page blanks whole view.
 
 
 Script backend should be a project setting. It can be chosen at creation time, and changed in project settings. This decides in editor which script options are available and which vm runs. We may have to reload project when backend changes?
+
+Allow importing model as a scene instead of just resources and prefab.
+Think of a way to unify scenes and prefabs -- well do we really want to do this? weigh pros and cons. The only real difference scene systems.
