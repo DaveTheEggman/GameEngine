@@ -697,3 +697,14 @@ Think of a way to unify scenes and prefabs -- well do we really want to do this?
 Editor pages need a "Discard Changes" button so I can discard all unwanted changes without having to close and reopen the page.
 
 Time to improve the model import UX. Dropping a model creates a folder. The import dialog should allow choosing where the files go. it should default to the active group. Sedulous offered something like this.
+
+Animation graph:
+No preview mesh. Nodes don't have any ports to connect.
+
+Parameter type should determine field value type. E.g.: bool should be a true/false dropdown or a checkbox on/off.
+
+Skeleton preview should be drawn in animation graph, with on/off toggle. mesh can have on/off toggle too so preview could show just skeleton if we want to.
+
+Content:
+Are empty groups pruned?
+I add a group, don't add any instances to it. Close and re-open editor. Group is gone.
