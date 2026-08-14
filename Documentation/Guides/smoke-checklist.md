@@ -687,3 +687,6 @@ Animation clip page doesn't have preview mesh
 mesh pages do not have material options
 collision mesh page does not have any preview
 Model manifest page blanks whole view.
+
+
+Script backend should be a project setting. It can be chosen at creation time, and changed in project settings. This decides in editor which script options are available and which vm runs. We may have to reload project when backend changes?
