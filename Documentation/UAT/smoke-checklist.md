@@ -693,3 +693,7 @@ Script backend should be a project setting. It can be chosen at creation time, a
 
 Allow importing model as a scene instead of just resources and prefab.
 Think of a way to unify scenes and prefabs -- well do we really want to do this? weigh pros and cons. The only real difference scene systems.
+
+Editor pages need a "Discard Changes" button so I can discard all unwanted changes without having to close and reopen the page.
+
+Time to improve the model import UX. Dropping a model creates a folder. The import dialog should allow choosing where the files go. it should default to the active group. Sedulous offered something like this.
