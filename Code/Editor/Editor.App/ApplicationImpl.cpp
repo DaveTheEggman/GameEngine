@@ -53,6 +53,10 @@ namespace graphics = foundation::graphics;
 namespace runtime = foundation::runtime;
 namespace ui = foundation::ui;
 
+// The build identity compiled into Runtime.Client (git short hash + generation time; the same string
+// logged at startup). Shown as the version in the About dialog; resolved at final link.
+extern "C" const char* BuildStamp();
+
 namespace editor::app
 {
     // Recursively: does the source DB hold any FontAsset? (Answers "the project HAS fonts but none is
@@ -2893,8 +2897,28 @@ namespace editor::app
             help->AddItem(u8"About",
                           [this]()
                           {
-                              m_context.SetStatus(
-                                  u8"Editor - phase 1 shell (docs/design/editor.md)");
+                              RefPtr<ui::Dialog> dialog = MakeRef<ui::Dialog>(
+                                  DefaultAllocator(), StringView(u8"About Editor"));
+                              auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                              column->Direction = ui::Orientation::Vertical;
+                              column->Spacing = 8;
+
+                              auto title =
+                                  MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Editor"));
+                              title->FontSize.SetValue(Optional<f32>{18.0f});
+                              column->AddView(title.Get());
+
+                              String version;
+                              version += StringView(u8"Version ");
+                              version += StringView(reinterpret_cast<const char8_t*>(BuildStamp()));
+                              auto versionLabel =
+                                  MakeRef<ui::Label>(DefaultAllocator(), version.AsView());
+                              versionLabel->WordWrap.SetValue(true);
+                              column->AddView(versionLabel.Get());
+
+                              dialog->SetContent(column.Get());
+                              dialog->AddButton(u8"OK", ui::DialogResult::OK);
+                              dialog->Show(&m_uiHost->Context());
                           });
         }
     }
