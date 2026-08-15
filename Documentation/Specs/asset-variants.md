@@ -172,26 +172,36 @@ exact expected size in the cook test.
 - **Deferred (do NOT build now):** ETC2, RDO/rate-distortion knobs,
   GPU-compute encoding, per-asset per-platform overrides in the UI.
 
-### P1 status (2026-08-15)
+### P1 status (2026-08-15) - COMPLETE
 
-Functional spine DONE + proven on real hardware:
+The whole desktop-BCn AND mobile-web-ASTC encode/format path is landed and
+proven. Web support was DEVELOPED, not deferred (user directive): the ASTC
+encoder + format plumbing are real, not test-only. What still sequences after
+P2 is only the two-pak PRODUCTION + boot selection, which needs the variant
+axis - not the encoder.
 
-- bc7enc/rgbcx vendored (`ThirdParty::Bc7enc`); Texture.Compression lib =
-  the ONLY encoder-header includer. Policy table (Decision 5) +
-  EncodeBlockCompressed (BC1/3/4/5/7). PSNR round-trip tests.
+- bc7enc/rgbcx + astcenc vendored (`ThirdParty::Bc7enc` / `::Astcenc`);
+  Texture.Compression = the ONLY encoder-header includer. Policy table
+  (Decision 5) + EncodeBlockCompressed: BC1/3/4/5/7 (block loop) AND ASTC4x4
+  (astcenc whole-image, scalar/portable). PSNR round-trip tests for both.
 - Authored `usage` + `compression` knobs on TextureAsset (editor-data,
-  reflected). TextureAssetBuilder encodes the RGBA8 mip chain (2D file +
-  embedded paths), Version 2 -> 3.
+  reflected + a "Compression" group in the texture page). Normal-map import
+  heuristic (_normal/... -> Normal + linear). Builder encodes the RGBA8 mip
+  chain (2D file + embedded), Version 2 -> 3.
 - RHI block helpers (BlockWidth/Height/Bytes, CompressedRowPitch/LevelBytes);
   block-aware per-level upload in the TextureResource factory; Vulkan
-  compressed copy fixed (tightly-packed 0/0).
+  compressed copy fixed (tightly-packed 0/0). ASTC added to the WebGPU format
+  map + GetFormatSupport + requested at device creation (Vulkan already had
+  it); the profile prefers BC when a target supports both (desktop-first).
 - Cook test: format policy + exact per-level block-byte sizes + real size
   drop (128x128 sRGB color = 10936 B BC1 vs 87380 B raw, 8x).
 - Real-GPU probe (Integration.TextureCompression): BC1/BC7/BC5 upload +
-  sample correct hue on Vulkan AND WebGPU (covers the 256-align path).
+  sample correct hue on Vulkan AND WebGPU (covers the 256-align path); the
+  ASTC-blue leg is capability-gated (self-skips on desktop, runs on mobile HW).
 
-Remaining P1: astcenc vendor (test-only, sets up P3); editor import dialog
-+ texture-page usage/compression UI (Editor.Texture). Neither blocks P2.
+Next: P2 - the per-target variant axis (Variance() + lazy per-target DBs +
+invariant copy-forward). That is the prerequisite for the web export to
+PRODUCE the BC + ASTC paks and for boot-time selection (Decision 4).
 
 ## Test notes
 
