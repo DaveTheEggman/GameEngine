@@ -5,10 +5,12 @@
 
 add_executable(Render.Backend.Tests
     TestsMain.cpp
-    BackendOrientationTests.cpp)
+    BackendOrientationTests.cpp
+    MsaaProbeTests.cpp)
 
 target_link_libraries(Render.Backend.Tests PRIVATE
-    Foundation::Render Foundation::Materials.PipelineCache Foundation::RHI.Vulkan Foundation::RHI.WebGPU doctest::doctest)
+    Foundation::Render Foundation::Materials.PipelineCache Foundation::RHI.TestSupport
+    Foundation::RHI.Vulkan Foundation::RHI.WebGPU doctest::doctest)
 
 target_compile_definitions(Render.Backend.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
