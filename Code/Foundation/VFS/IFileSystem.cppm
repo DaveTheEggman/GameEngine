@@ -70,6 +70,14 @@ export namespace foundation::vfs
 
         [[nodiscard]] virtual Status Save(StringView path, Span<const byte> data) = 0;
         [[nodiscard]] virtual Status Delete(StringView path) = 0;
+        /// Create a directory and any missing ancestors (idempotent). For persisting an EMPTY
+        /// directory - writing a file makes its parents implicitly, but an empty folder (e.g. a
+        /// freshly-created, still-empty content group) needs this. Default: unsupported.
+        [[nodiscard]] virtual Status CreateDirectory(StringView path)
+        {
+            (void)path;
+            return Status{ErrorCode::NotSupported};
+        }
         /// Rename/move a file OR directory within the mount. Default: unsupported (archive
         /// and read-only backends).
         [[nodiscard]] virtual Status Move(StringView from, StringView to)

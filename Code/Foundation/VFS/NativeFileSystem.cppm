@@ -269,6 +269,15 @@ export namespace foundation::vfs
             return RemoveDirectory(full.AsView()) ? Status{} : Status{ErrorCode::NotFound};
         }
 
+        [[nodiscard]] Status CreateDirectory(StringView path) override
+        {
+            const String full = PathJoin(m_root.AsView(), path, *m_allocator);
+            EnsureParentDirectories(full.AsView()); // the ancestors
+            // ...then the leaf itself (foundation::core:: - the member CreateDirectory shadows it here).
+            return foundation::core::CreateDirectory(full.AsView()) ? Status{}
+                                                                    : Status{ErrorCode::Unknown};
+        }
+
     private:
         // Creates every ancestor directory of `full` (idempotent). The final
         // component is the file itself and is left to the caller.
@@ -278,7 +287,7 @@ export namespace foundation::vfs
             {
                 if (full[i] == utf8char('/') || full[i] == utf8char('\\'))
                 {
-                    (void)CreateDirectory(full.SubStr(0, i));
+                    (void)foundation::core::CreateDirectory(full.SubStr(0, i));
                 }
             }
         }

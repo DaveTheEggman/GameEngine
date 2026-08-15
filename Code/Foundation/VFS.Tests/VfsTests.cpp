@@ -116,6 +116,43 @@ TEST_CASE("vfs: writable + enumerable round-trip")
     CHECK(RemoveDirectory(u8"scratch_vfs_dir"));
 }
 
+TEST_CASE("vfs: CreateDirectory persists an EMPTY directory (empty content group survives a rescan)")
+{
+    NativeFileSystem native(u8".");
+    IWritableFileSystem* w = native.AsWritable();
+    IEnumerableFileSystem* e = native.AsEnumerable();
+    REQUIRE(w != nullptr);
+    REQUIRE(e != nullptr);
+
+    // An empty directory with a missing ancestor - and NO file under it (the empty-group case, which
+    // Save-driven parent creation never reaches).
+    REQUIRE(w->CreateDirectory(u8"scratch_vfs_empty/group").IsOk());
+
+    // The parent lists "group" as a directory, so the content scanner would rebuild the group on
+    // reopen even though it holds no instances.
+    Array<DirEntry> parent;
+    REQUIRE(e->Enumerate(u8"scratch_vfs_empty", parent).IsOk());
+    bool foundGroup = false;
+    for (const DirEntry& entry : parent)
+    {
+        if (entry.name == u8"group")
+        {
+            foundGroup = true;
+            CHECK(entry.isDirectory);
+        }
+    }
+    CHECK(foundGroup);
+
+    // The empty directory itself enumerates successfully, with no entries.
+    Array<DirEntry> inside;
+    CHECK(e->Enumerate(u8"scratch_vfs_empty/group", inside).IsOk());
+    CHECK(inside.IsEmpty());
+
+    // Cleanup (innermost first).
+    CHECK(RemoveDirectory(u8"scratch_vfs_empty/group"));
+    CHECK(RemoveDirectory(u8"scratch_vfs_empty"));
+}
+
 TEST_CASE("vfs: NativeFileSystem stat reports size + modified time")
 {
     NativeFileSystem native(u8".");
