@@ -172,6 +172,20 @@ namespace engine::player
                 }
             }
 
+            // The project's scene-pass MSAA sample count (msaa.md P2): drive the render subsystem's
+            // global path. The subsystem capability-clamps per view (an unsupported count degrades,
+            // e.g. 2x -> 1x on WebGPU), so we pass the authored value straight through. Only when > 1
+            // (1 = off = the default, which also avoids forcing the global-post path on).
+            if (m_settings.renderMsaaSamples > 1)
+            {
+                if (auto* render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>())
+                {
+                    render->SetMsaaSamples(m_settings.renderMsaaSamples);
+                    LOG_INFO(u8"Player", u8"scene-pass MSAA requested: {}x",
+                                      m_settings.renderMsaaSamples);
+                }
+            }
+
             // The project's default audio bus layout: cooked mixer data -> the engine.
             // Nil/unresolved = the built-in neutral four-bus layout.
             if (Audio() != nullptr && Audio()->Engine() != nullptr &&

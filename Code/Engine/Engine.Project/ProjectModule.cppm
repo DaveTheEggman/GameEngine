@@ -67,6 +67,9 @@ export namespace engine::project
                               // TTF fallback path; v7 - the fonts-triad manifest hook)
         Guid loadingDocumentId; // the cooked UIDocument shown as the boot splash while the default
                                 // scene loads (nil = the built-in default splash; v8, task #123)
+        u32 renderMsaaSamples = 1; // scene-pass MSAA sample count (1 = off, 2, 4); the player and
+                                   // play-in-editor apply it, capability-clamped at runtime (v9,
+                                   // msaa.md P2). Default 1 keeps existing projects byte-identical.
 
         // Migration branches on ar.Version() - the type's data version is written/read by
         // the manifest helpers below (RTTI_DEFINE_OBJECT_VERSIONED sets the current one).
@@ -112,6 +115,10 @@ export namespace engine::project
             {
                 ar.Key("loadingDocumentId");
                 ar.GuidValue(loadingDocumentId);
+            }
+            if (ar.Version() >= 9) // v9 added the scene-pass MSAA sample count (msaa.md P2)
+            {
+                foundation::core::Serialize(ar, "renderMsaaSamples", renderMsaaSamples);
             }
         }
     };
@@ -161,5 +168,5 @@ export namespace engine::project
         return writable.Save(fileName, buffer.Bytes());
     }
 
-    RTTI_DEFINE_OBJECT_VERSIONED(ProjectSettings, "rtti::engine::project", 8)
+    RTTI_DEFINE_OBJECT_VERSIONED(ProjectSettings, "rtti::engine::project", 9)
 }

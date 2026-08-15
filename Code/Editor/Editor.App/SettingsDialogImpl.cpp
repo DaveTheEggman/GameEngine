@@ -20,6 +20,7 @@ module editor.app;
 import foundation.core;
 import foundation.content;
 import foundation.ui;
+import engine.render; // MsaaSamplesForIndex (the canonical MSAA level mapping)
 import editor.core;
 import :asset_picker_dialog;
 
@@ -282,6 +283,8 @@ namespace editor::app
         project->Settings().defaultUiThemeId = m_uiThemeId;
         project->Settings().loadingDocumentId = m_loadingDocId;
         project->Settings().defaultUiFontId = m_uiFontId;
+        const i32 msaaIdx = (m_msaaCombo.Get() != nullptr) ? m_msaaCombo->SelectedIndex() : 0;
+        project->Settings().renderMsaaSamples = engine::render::MsaaSamplesForIndex(msaaIdx);
         project->Settings().defaultScene = String();
         if (content::Instance* scene =
                 !m_sceneId.IsNil() ? project->SourceDb().GetInstance(m_sceneId) : nullptr)

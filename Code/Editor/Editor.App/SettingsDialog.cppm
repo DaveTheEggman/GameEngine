@@ -20,6 +20,7 @@ export module editor.app:settings_dialog;
 import foundation.core;
 import foundation.content;
 import foundation.ui;
+import engine.render; // the canonical MSAA level table (kMsaaLevels + index<->samples helpers)
 import editor.core;
 import :asset_picker_dialog;
 
@@ -328,6 +329,23 @@ export namespace editor::app
                 }
             }
 
+            // Scene-pass MSAA (msaa.md P2): Off / 2x / 4x maps to renderMsaaSamples 1 / 2 / 4. The
+            // player and play-in-editor apply it; the render subsystem capability-clamps at runtime
+            // (2x degrades to 1x on WebGPU).
+            {
+                ui::FlexLayout* row = AddRow(*column, u8"MSAA");
+                m_msaaCombo = MakeRef<ui::ComboBox>(DefaultAllocator());
+                for (u32 i = 0; i < engine::render::MsaaLevelCount(); ++i)
+                {
+                    (void)m_msaaCombo->AddItem(engine::render::kMsaaLevels[i].label);
+                }
+                const u32 samples = (project != nullptr) ? project->Settings().renderMsaaSamples : 1u;
+                m_msaaCombo->SetSelectedIndex(engine::render::MsaaIndexForSamples(samples));
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Grow = 1.0f;
+                row->AddView(m_msaaCombo.Get(), lp);
+            }
+
             // Engine stamp - informational; re-stamped by every save.
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Engine version");
@@ -398,6 +416,7 @@ export namespace editor::app
         RefPtr<ui::Label> m_sceneLabel;
         RefPtr<ui::Button> m_pickButton;
         Guid m_sceneId;
+        RefPtr<ui::ComboBox> m_msaaCombo; // scene-pass MSAA: Off/2x/4x -> renderMsaaSamples 1/2/4
     };
 
     RTTI_DEFINE_OBJECT(ProjectSettingsDialog, "rtti::editor::editor::app")
