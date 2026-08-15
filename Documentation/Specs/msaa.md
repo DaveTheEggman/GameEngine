@@ -262,8 +262,20 @@ as a standing rule in memory `webgpu-stricter-than-vulkan`.
   three consumers, and all still pass (VG 232, Render.Backend 544 assertions, both compilers). Proves
   the extracted substrate is genuinely general.
 
-**P1g is fully closed.** Remaining MSAA work is P2/P3 (the `renderMsaaSamples` project setting + perf
-numbers, then polish) and the DX12 capability overrides noted below.
+**P1g is fully closed.** P2 is IN PROGRESS:
+- DONE: `ProjectSettings.renderMsaaSamples` (v9; default 1 = off, existing projects byte-identical);
+  the PLAYER applies it on startup (global path, capability-clamped per view); the project settings
+  dialog has an MSAA combo that reads/writes it.
+- DONE (from a review note): the Off/2x/4x list + index<->sample mapping are centralized in
+  `engine::render::kMsaaLevels` (+ `MsaaLevelCount`/`MsaaIndexForSamples`/`MsaaSamplesForIndex`); every
+  MSAA UI builds from it, so adding 8x is one line there (plus the device ceiling + `SupportsSampleCount`).
+- OPEN: **play-in-editor apply** - deferred because the global `SetMsaaSamples` path would bleed into
+  editor viewports and persist after Stop; PIE needs a PER-VIEW application (a view post override with
+  `msaaOverride` on the game tab's views) + restore on Stop.
+- OPEN: **measured perf numbers** (frame ms + memory at 1x/2x/4x on the render-stress scene, desktop +
+  web) recorded in the systems doc; then the default-on/off decision goes to the user with numbers.
+
+Then P3 (polish) and the DX12 capability overrides noted below.
 - **DX12 capability overrides** - `DxDevice` does not yet override `MaxColorDepthSampleCount` /
   `SupportsSampleCount`, so on the shipping Windows DX12 target they fall to the base defaults (1 /
   `count<=1`): MSAA silently reports unavailable there and every view degrades to 1x. D3D12 fully
