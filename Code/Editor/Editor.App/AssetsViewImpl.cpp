@@ -949,7 +949,15 @@ namespace editor::app
         content::Group* created = parent->CreateGroup(name.AsView());
         if (created != nullptr)
         {
-            LOG_INFO(u8"Assets", u8"created group '{}'", created->Path());
+            // CreateGroup is in-memory only (no disk write until an instance is committed), and the
+            // DB is rebuilt by SCANNING folders on reopen - so an empty group would vanish. Materialize
+            // it as a real directory now, so a user-created group persists even while still empty.
+            const String groupPath = created->Path();
+            if (auto* writable = m_context->Project()->SourceDb().Mount().AsWritable())
+            {
+                (void)writable->CreateDirectory(groupPath.AsView());
+            }
+            LOG_INFO(u8"Assets", u8"created group '{}'", groupPath);
             m_selectedGroup = created;
             Rebuild();
         }
