@@ -13,6 +13,7 @@ import foundation.vfs;
 import foundation.image;
 import foundation.texture;
 import texture.pipeline;
+import texture.compression;
 import editor.core;
 import editor.texture;
 
@@ -51,6 +52,8 @@ TEST_CASE("TextureAsset blob snapshot round-trips every import setting")
     original.wrapW = texture::TextureWrap::ClampToEdge;
     original.generateMipmaps = false;
     original.anisotropy = 8.0f;
+    original.usage = texcomp::TextureUsage::Normal;
+    original.compression = texcomp::CompressionChoice::Quality;
 
     MemoryStream stream;
     {
@@ -73,6 +76,8 @@ TEST_CASE("TextureAsset blob snapshot round-trips every import setting")
     CHECK(restored.wrapW == texture::TextureWrap::ClampToEdge);
     CHECK(restored.generateMipmaps == false);
     CHECK(restored.anisotropy == doctest::Approx(8.0f));
+    CHECK(restored.usage == texcomp::TextureUsage::Normal);
+    CHECK(restored.compression == texcomp::CompressionChoice::Quality);
 }
 
 TEST_CASE("TextureAsset presets move the sampler settings a page preset row would apply")

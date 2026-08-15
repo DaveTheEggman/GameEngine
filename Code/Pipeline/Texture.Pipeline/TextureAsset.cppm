@@ -773,6 +773,14 @@ export namespace pipeline{
             else
             {
                 asset.SetupFor3D();
+                // Normal-map heuristic: a tangent normal MUST cook linear + BC5, and importing one as
+                // sRGB color is doubly wrong (wrong decode + wrong compression). Only the least
+                // ambiguous, widely-used suffixes; the user can still override in the texture page.
+                if (LooksLikeNormalMap(stem))
+                {
+                    asset.usage = texcomp::TextureUsage::Normal;
+                    asset.colorSpace = image::ImageColorSpace::Linear;
+                }
             }
             const Status written = instance->WriteObject(asset);
             if (!written.IsOk())
@@ -783,6 +791,38 @@ export namespace pipeline{
         }
 
     private:
+        // A conservative tangent-normal-map name test: the common, unambiguous suffixes only.
+        [[nodiscard]] static bool LooksLikeNormalMap(StringView stem)
+        {
+            for (StringView s : {u8"_normal", u8"_norm", u8"_nrm", u8"_ddn", u8"normalmap"})
+            {
+                if (stem.Size() >= s.Size())
+                {
+                    // Case-insensitive suffix match.
+                    const usize off = stem.Size() - s.Size();
+                    bool match = true;
+                    for (usize i = 0; i < s.Size(); ++i)
+                    {
+                        utf8char a = stem[off + i];
+                        if (a >= u8'A' && a <= u8'Z')
+                        {
+                            a = static_cast<utf8char>(a + 32);
+                        }
+                        if (a != s[i])
+                        {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         // Copy all 6 faces into Sources/ and create ONE cube TextureAsset. fileName = the
         // +X face; the builder re-derives the face set from its naming convention at cook.
         [[nodiscard]] static Result<content::Instance*>

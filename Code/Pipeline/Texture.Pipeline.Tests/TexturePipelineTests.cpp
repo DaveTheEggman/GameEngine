@@ -186,8 +186,48 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
     REQUIRE(asset != nullptr);
     CHECK(asset->fileName == StringView(u8"brick.png"));
     CHECK(asset->generateMipmaps); // the 3D preset
+    CHECK(asset->usage == texcomp::TextureUsage::Color); // plain name = Color default
 
     FileDelete(u8"brick.png");
+    cleanTree();
+}
+
+TEST_CASE("texture-import: a normal-map suffix imports as Normal usage + linear color space")
+{
+    RegisterTextureAsset();
+
+    const StringView dir = u8"scratch_tex_import_nrm_project";
+    auto cleanTree = [&]()
+    {
+        FileDelete(PathJoin(dir, u8"Project.xml"));
+        FileDelete(PathJoin(dir, u8"Sources/wall_normal.png"));
+        for (StringView sub : {u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache"})
+        {
+            RemoveDirectory(PathJoin(dir, sub));
+        }
+        RemoveDirectory(dir);
+    };
+    cleanTree();
+    REQUIRE(editor::EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(dir);
+    REQUIRE(static_cast<bool>(project));
+
+    const byte fakePng[6] = {byte{'P'}, byte{'N'}, byte{'G'}, byte{1}, byte{2}, byte{3}};
+    REQUIRE(WriteFile(u8"wall_normal.png", Span<const byte>(fakePng, 6)).IsOk());
+
+    TextureFileImporter importer;
+    Result<foundation::content::Instance*> imported = importer.Import(
+        u8"wall_normal.png", pipeline::ImportContext{project->SourcesRoot()},
+        *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+    REQUIRE(imported.HasValue());
+    RefPtr<ISerializable> object = imported.Value()->ReadObject();
+    auto* asset = Cast<TextureAsset>(object.Get());
+    REQUIRE(asset != nullptr);
+    // The heuristic fired: a tangent normal cooks linear + BC5, never sRGB color.
+    CHECK(asset->usage == texcomp::TextureUsage::Normal);
+    CHECK(asset->colorSpace == image::ImageColorSpace::Linear);
+
+    FileDelete(u8"wall_normal.png");
     cleanTree();
 }
 

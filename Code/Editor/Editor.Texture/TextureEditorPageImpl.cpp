@@ -12,6 +12,7 @@ import foundation.image;
 import foundation.image.io;
 import foundation.texture;
 import texture.pipeline;
+import texture.compression;
 import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
@@ -34,6 +35,9 @@ namespace editor
                                                u8"Mipmap Linear"};
         constexpr StringView kWrapItems[] = {u8"Repeat", u8"Clamp To Edge", u8"Clamp To Border",
                                              u8"Mirrored Repeat"};
+        // Block-compression authoring (asset-variants). Index == the texcomp enum's value.
+        constexpr StringView kUsageItems[] = {u8"Color", u8"Normal", u8"Mask", u8"HDR"};
+        constexpr StringView kCompressionItems[] = {u8"Default", u8"None", u8"Quality"};
 
         // Presets mirror TextureAsset's Sedulous-derived setups; index 0 is a no-op sentinel.
         constexpr StringView kPresetItems[] = {u8"(apply preset)",  u8"UI",
@@ -322,6 +326,41 @@ namespace editor
                 StringView(u8"Texture"));
             AddEditor(editor.Get(), [self, raw = editor.Get()]()
                       { raw->SetValue(static_cast<i32>(self->m_asset->shape)); });
+        }
+
+        // --- Compression: authored usage + choice (drives the cook's BC/ASTC format policy) ---
+        {
+            auto editor = MakeRef<ui::toolkit::EnumEditor>(
+                DefaultAllocator(), StringView(u8"Usage"), static_cast<i32>(m_asset->usage),
+                Span<const StringView>{kUsageItems, 4},
+                Function<void(i32)>{
+                    [self](i32 v)
+                    {
+                        self->ApplyEdit(u8"usage",
+                                        Function<void(pipeline::TextureAsset&)>{
+                                            [v](pipeline::TextureAsset& a)
+                                            { a.usage = static_cast<texcomp::TextureUsage>(v); }});
+                    }},
+                StringView(u8"Compression"));
+            AddEditor(editor.Get(), [self, raw = editor.Get()]()
+                      { raw->SetValue(static_cast<i32>(self->m_asset->usage)); });
+        }
+        {
+            auto editor = MakeRef<ui::toolkit::EnumEditor>(
+                DefaultAllocator(), StringView(u8"Compression"),
+                static_cast<i32>(m_asset->compression), Span<const StringView>{kCompressionItems, 3},
+                Function<void(i32)>{
+                    [self](i32 v)
+                    {
+                        self->ApplyEdit(
+                            u8"compression",
+                            Function<void(pipeline::TextureAsset&)>{
+                                [v](pipeline::TextureAsset& a)
+                                { a.compression = static_cast<texcomp::CompressionChoice>(v); }});
+                    }},
+                StringView(u8"Compression"));
+            AddEditor(editor.Get(), [self, raw = editor.Get()]()
+                      { raw->SetValue(static_cast<i32>(self->m_asset->compression)); });
         }
 
         // --- Sampling: filters, wraps, mipmaps, anisotropy ---
