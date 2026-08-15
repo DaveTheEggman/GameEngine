@@ -1,0 +1,75 @@
+// Pipeline::Texture.Compression - `texture.compression`.
+//
+// The ONLY code that includes the block-compression encoder headers (bc7enc/rgbcx). Two jobs
+// (asset-variants.md Decisions 3 + 5):
+//   - ResolveCompressedFormat: the format POLICY TABLE - given a source's authored semantics and the
+//     export target's capabilities, pick the cooked rhi::TextureFormat (or an uncompressed fallback).
+//   - EncodeBlockCompressed: encode one mip level of RGBA8 to a BC format's block bytes.
+// Cook/import-time only, UI-free (the Pipeline rule); the heavy encoder headers stay in the impl unit
+// (GCC module hygiene). BC only in P1; ASTC (P3) and BC6H/HDR are follow-ups.
+
+module;
+#include "Core/Prelude.h"
+
+export module texture.compression;
+
+import foundation.core;
+import foundation.rhi;
+
+using namespace foundation::core;
+
+export namespace texcomp
+{
+    namespace rhi = foundation::rhi;
+
+    // What a source texture is FOR - the SEMANTIC hint the policy table keys on. Authored on the asset
+    // (never the runtime struct); model import sets it from the material slot, standalone defaults Color.
+    enum class TextureUsage : u8
+    {
+        Color,  // albedo / UI - sRGB (or linear) color
+        Normal, // tangent-space normal map (linear RG)
+        Mask,   // single-channel mask / height / roughness
+        HDR,    // RGBE / half-float (uncompressed until BC6H lands)
+    };
+
+    // Authored compression choice on the asset.
+    enum class CompressionChoice : u8
+    {
+        Default, // the policy table below
+        None,    // force uncompressed (today's raw path - the escape hatch)
+        Quality, // force the high-quality format (BC7) + high encoder effort
+    };
+
+    // The compressed-texture FAMILIES the export target's devices support - a capability, not a
+    // platform (asset-variants.md: "what families does this target support", never "which platform").
+    struct TargetProfile
+    {
+        bool bc = false;   // BC1-BC7 (desktop + desktop browsers)
+        bool astc = false; // ASTC (mobile browsers) - P3
+        bool etc2 = false; // deferred
+    };
+
+    // The always-warm host desktop profile (BC-capable).
+    [[nodiscard]] inline TargetProfile DesktopProfile() noexcept
+    {
+        return TargetProfile{true, false, false};
+    }
+
+    // Decision 5 policy table. Returns `uncompressed` when policy says do not compress (authored None,
+    // small/UI textures <= 64px, HDR until BC6H, or a target with no supported family). `sRGB` selects
+    // the *Srgb color formats; `hasAlpha` splits color into BC1 (opaque) vs BC7 (alpha).
+    [[nodiscard]] rhi::TextureFormat ResolveCompressedFormat(TextureUsage usage, bool sRGB, bool hasAlpha,
+                                                             CompressionChoice choice, u32 width,
+                                                             u32 height, const TargetProfile& profile,
+                                                             rhi::TextureFormat uncompressed) noexcept;
+
+    // Encode one mip level of tightly-packed RGBA8 pixels (`width*height*4` bytes) to `format`'s
+    // block-compressed bytes. `format` MUST be a BC format this build supports (BC1/3/4/5/7); returns
+    // empty otherwise. Edge blocks on NPOT/small levels are clamp-padded. `quality` 0..255 maps to the
+    // encoder effort (Default ~ mid, Quality ~ max).
+    [[nodiscard]] Array<byte> EncodeBlockCompressed(const u8* rgba, u32 width, u32 height,
+                                                    rhi::TextureFormat format, u8 quality);
+
+    // Bytes one mip level of a BC `format` occupies (4x4 block-ceil), for the exact-size cook assertion.
+    [[nodiscard]] usize BlockCompressedSize(rhi::TextureFormat format, u32 width, u32 height) noexcept;
+}
