@@ -59,10 +59,10 @@ TEST_CASE("reflection-p1: TextureAsset exposes its authored properties with tool
     CHECK(CEq(type.name, "TextureAsset"));
 
     // The reflected set matches the authored/serialized surface (own properties, not inherited).
-    CHECK(PropertyCount(type) == 11u);
-    for (const char* name : {"colorSpace", "shape", "minFilter", "magFilter", "wrapU", "wrapV",
-                             "wrapW", "generateMipmaps", "anisotropy", "embeddedWidth",
-                             "embeddedHeight"})
+    CHECK(PropertyCount(type) == 13u);
+    for (const char* name : {"colorSpace", "usage", "compression", "shape", "minFilter", "magFilter",
+                             "wrapU", "wrapV", "wrapW", "generateMipmaps", "anisotropy",
+                             "embeddedWidth", "embeddedHeight"})
     {
         CHECK_MESSAGE(FindProperty(type, name) != nullptr, name);
     }

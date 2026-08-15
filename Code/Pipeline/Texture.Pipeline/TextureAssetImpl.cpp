@@ -28,6 +28,14 @@ namespace pipeline{
             .Attribute("category", String(u8"Textures"))
             .Property<&TextureAsset::colorSpace>("colorSpace")
             .PropAttribute("displayName", String(u8"Color Space"))
+            .Property<&TextureAsset::usage>("usage")
+            .PropAttribute("displayName", String(u8"Usage"))
+            .PropAttribute("description",
+                           String(u8"What the texture is for - selects the block-compression format"))
+            .Property<&TextureAsset::compression>("compression")
+            .PropAttribute("displayName", String(u8"Compression"))
+            .PropAttribute("description",
+                           String(u8"Default (policy), None (raw), or Quality (BC7 + max effort)"))
             .Property<&TextureAsset::shape>("shape")
             .PropAttribute("displayName", String(u8"Shape"))
             .Property<&TextureAsset::minFilter>("minFilter")

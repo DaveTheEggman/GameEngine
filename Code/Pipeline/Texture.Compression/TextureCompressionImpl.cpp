@@ -29,21 +29,6 @@ namespace texcomp
         (void)once;
     }
 
-    // Bytes per 4x4 block: 8 for BC1/BC4, 16 for BC3/BC5/BC7.
-    static u32 BlockBytes(rhi::TextureFormat f) noexcept
-    {
-        switch (f)
-        {
-        case rhi::TextureFormat::BC1RGBAUnorm:
-        case rhi::TextureFormat::BC1RGBAUnormSrgb:
-        case rhi::TextureFormat::BC4RUnorm:
-        case rhi::TextureFormat::BC4RSnorm:
-            return 8;
-        default:
-            return 16;
-        }
-    }
-
     // Gather the 4x4 RGBA block at block coord (bx, by), clamping source coords so edge/NPOT/small
     // levels pad with their border texels (the encoder handles sub-block levels this way).
     static void GatherBlock(const u8* rgba, u32 w, u32 h, u32 bx, u32 by, u8 out[64]) noexcept
@@ -66,9 +51,7 @@ namespace texcomp
 
     usize BlockCompressedSize(rhi::TextureFormat format, u32 width, u32 height) noexcept
     {
-        const u32 bx = (width + 3) / 4;
-        const u32 by = (height + 3) / 4;
-        return static_cast<usize>(bx) * by * BlockBytes(format);
+        return rhi::CompressedLevelBytes(format, width, height);
     }
 
     rhi::TextureFormat ResolveCompressedFormat(TextureUsage usage, bool sRGB, bool hasAlpha,

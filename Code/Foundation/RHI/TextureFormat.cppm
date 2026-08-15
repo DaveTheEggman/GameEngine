@@ -213,4 +213,67 @@ export namespace foundation::rhi
         }
     }
 
+    /// Block footprint (texels) of a compressed format; {1,1} for uncompressed. BC is always 4x4;
+    /// ASTC block dimensions vary with the format (4x4 .. 8x8).
+    [[nodiscard]] constexpr u32 BlockWidth(TextureFormat f)
+    {
+        switch (f)
+        {
+        case TextureFormat::ASTC5x5Unorm:
+        case TextureFormat::ASTC5x5UnormSrgb:
+            return 5;
+        case TextureFormat::ASTC6x6Unorm:
+        case TextureFormat::ASTC6x6UnormSrgb:
+            return 6;
+        case TextureFormat::ASTC8x8Unorm:
+        case TextureFormat::ASTC8x8UnormSrgb:
+            return 8;
+        default:
+            return IsCompressed(f) ? 4u : 1u; // BC + ASTC4x4
+        }
+    }
+    [[nodiscard]] constexpr u32 BlockHeight(TextureFormat f)
+    {
+        return BlockWidth(f); // all supported blocks are square
+    }
+
+    /// Bytes one compressed block occupies; 0 for uncompressed. BC1/BC4 = 8 bytes, all other BC and
+    /// every ASTC block = 16 bytes.
+    [[nodiscard]] constexpr u32 BlockBytes(TextureFormat f)
+    {
+        switch (f)
+        {
+        case TextureFormat::BC1RGBAUnorm:
+        case TextureFormat::BC1RGBAUnormSrgb:
+        case TextureFormat::BC4RUnorm:
+        case TextureFormat::BC4RSnorm:
+            return 8;
+        default:
+            return IsCompressed(f) ? 16u : 0u;
+        }
+    }
+
+    /// Bytes between the start of consecutive block-rows (the upload `bytesPerRow`) for a compressed
+    /// level of the given width; 0 for uncompressed.
+    [[nodiscard]] constexpr u32 CompressedRowPitch(TextureFormat f, u32 width)
+    {
+        if (!IsCompressed(f))
+        {
+            return 0;
+        }
+        const u32 bw = BlockWidth(f);
+        return ((width + bw - 1) / bw) * BlockBytes(f);
+    }
+
+    /// Total bytes a compressed 2D level of width x height occupies; 0 for uncompressed.
+    [[nodiscard]] constexpr usize CompressedLevelBytes(TextureFormat f, u32 width, u32 height)
+    {
+        if (!IsCompressed(f))
+        {
+            return 0;
+        }
+        const u32 bh = BlockHeight(f);
+        return static_cast<usize>(CompressedRowPitch(f, width)) * ((height + bh - 1) / bh);
+    }
+
 } // namespace foundation::rhi

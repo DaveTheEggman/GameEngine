@@ -301,21 +301,30 @@ export namespace foundation::texture
                     else
                     {
                         // Walk the concatenated chain (cook v2): level sizes derive from the
-                        // dims progression; a payload holding only level 0 uploads only it.
+                        // dims progression; a payload holding only level 0 uploads only it. Block-
+                        // compressed formats (cook v3) measure by 4x4 block footprint, not per-pixel:
+                        // bytesPerRow = one block-row, rowsPerImage = block rows.
+                        const bool compressed = rhi::IsCompressed(res->format);
                         const u32 bpp = TextureData::GetBytesPerPixel(res->format);
+                        const u32 blockH = rhi::BlockHeight(res->format);
                         usize offset = 0;
                         u32 levelW = res->width;
                         u32 levelH = res->height;
                         for (u32 level = 0; level < res->mipLevels; ++level)
                         {
-                            const usize levelBytes = static_cast<usize>(levelW) * levelH * bpp;
+                            const usize levelBytes =
+                                compressed ? rhi::CompressedLevelBytes(res->format, levelW, levelH)
+                                            : static_cast<usize>(levelW) * levelH * bpp;
                             if (offset + levelBytes > pixels.Size())
                             {
                                 break; // truncated payload: upload what exists, never overread
                             }
                             rhi::TextureDataLayout levelLayout{};
-                            levelLayout.bytesPerRow = levelW * bpp;
-                            levelLayout.rowsPerImage = levelH;
+                            levelLayout.bytesPerRow =
+                                compressed ? rhi::CompressedRowPitch(res->format, levelW)
+                                           : levelW * bpp;
+                            levelLayout.rowsPerImage =
+                                compressed ? (levelH + blockH - 1) / blockH : levelH;
                             batch->WriteTexture(
                                 texture, Span<const u8>(pixels.Data() + offset, levelBytes),
                                 levelLayout, rhi::Extent3D{levelW, levelH, 1},

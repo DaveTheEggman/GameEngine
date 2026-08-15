@@ -28,6 +28,7 @@ import foundation.texture.resource;
 import foundation.image;
 import foundation.image.io;
 import foundation.content;
+import texture.compression;
 
 using namespace foundation::core;
 using namespace foundation::texture;
@@ -55,11 +56,17 @@ export namespace pipeline{
         TextureWrap wrapW = TextureWrap::Repeat;
         bool generateMipmaps = true;
         f32 anisotropy = 1.0f;
+        // Block-compression authoring (asset-variants P1). Editor-data only: the builder feeds these
+        // to the policy table to pick the cooked rhi::TextureFormat; the runtime never sees them.
+        texcomp::TextureUsage usage = texcomp::TextureUsage::Color;
+        texcomp::CompressionChoice compression = texcomp::CompressionChoice::Default;
 
         void Serialize(ISerializer& ar) override
         {
             pipeline::Asset::Serialize(ar); // fileName
             foundation::core::Serialize(ar, "colorSpace", colorSpace);
+            foundation::core::Serialize(ar, "usage", usage);
+            foundation::core::Serialize(ar, "compression", compression);
             foundation::core::Serialize(ar, "embeddedWidth", embeddedWidth);
             foundation::core::Serialize(ar, "embeddedHeight", embeddedHeight);
             foundation::core::Serialize(ar, "shape", shape);
@@ -283,9 +290,11 @@ export namespace pipeline{
     {
     public:
         // v2 (2026-08-12): the "data" payload may carry a FULL MIP CHAIN (levels
-        // concatenated, mipLevels in the record) instead of always level 0 only. Same-input
-        // output changed -> bump forces the re-cook (the rule: the bump IS the migration).
-        [[nodiscard]] u32 Version() const override { return 2; }
+        // concatenated, mipLevels in the record) instead of always level 0 only.
+        // v3 (2026-08-15): the "data" payload may now be BLOCK-COMPRESSED (BCn) when the asset's
+        // usage/compression + target profile select it (asset-variants P1); resource.format then
+        // carries a BC format. Same-input output changed -> bump forces the re-cook.
+        [[nodiscard]] u32 Version() const override { return 3; }
 
         [[nodiscard]] const TypeInfo* AssetType() const override
         {
@@ -384,6 +393,13 @@ export namespace pipeline{
                         mipPixels, image.Width(), image.Height(),
                         ta.colorSpace == image::ImageColorSpace::Srgb);
                 }
+                // Block-compress the RGBA8 chain when the policy table says to (2D RGBA8 only).
+                if (ta.shape == TextureShape::Texture2D && image.Format() == image::PixelFormat::RGBA8)
+                {
+                    MaybeCompress(mipPixels, image.Width(), image.Height(), resource.mipLevels,
+                                  ta.colorSpace == image::ImageColorSpace::Srgb, ta.usage,
+                                  ta.compression, resource.format);
+                }
             }
             resource.shape = ta.shape;
             resource.minFilter = ta.minFilter;
@@ -405,6 +421,66 @@ export namespace pipeline{
         }
 
     private:
+        // === Block compression (asset-variants P1) ==============================================
+        // Resolve the cooked format from the asset's authored usage/compression + this cook's target
+        // profile (P1 = the always-BC desktop host), then, when the policy picks a BC format, encode
+        // every RGBA8 mip level in `pixels` to block bytes IN PLACE. `format` is updated to the chosen
+        // format (unchanged when policy declines - small/None/HDR/no-BC-family). `pixels` holds the
+        // level-0..N-1 RGBA8 chain tightly concatenated; the compressed chain replaces it 1:1.
+        static void MaybeCompress(Array<byte>& pixels, u32 width, u32 height, u32 mipLevels, bool srgb,
+                                  texcomp::TextureUsage usage, texcomp::CompressionChoice choice,
+                                  rhi::TextureFormat& format)
+        {
+            if (choice == texcomp::CompressionChoice::None)
+            {
+                return;
+            }
+            // hasAlpha drives Color -> BC1(opaque) vs BC7(alpha): scan level 0 for any non-opaque texel.
+            bool hasAlpha = false;
+            {
+                const u8* p = reinterpret_cast<const u8*>(pixels.Data());
+                const usize texels = static_cast<usize>(width) * height;
+                for (usize i = 0; i < texels; ++i)
+                {
+                    if (p[i * 4 + 3] != 255)
+                    {
+                        hasAlpha = true;
+                        break;
+                    }
+                }
+            }
+            const rhi::TextureFormat chosen = texcomp::ResolveCompressedFormat(
+                usage, srgb, hasAlpha, choice, width, height, texcomp::DesktopProfile(), format);
+            if (!rhi::IsCompressed(chosen))
+            {
+                return; // policy declined - leave the RGBA8 chain + format as-is
+            }
+            const u8 quality = (choice == texcomp::CompressionChoice::Quality) ? 255u : 128u;
+
+            Array<byte> out;
+            usize srcOffset = 0;
+            u32 w = width;
+            u32 h = height;
+            for (u32 level = 0; level < mipLevels; ++level)
+            {
+                const usize levelBytes = static_cast<usize>(w) * h * 4;
+                const Array<byte> block = texcomp::EncodeBlockCompressed(
+                    reinterpret_cast<const u8*>(pixels.Data() + srcOffset), w, h, chosen, quality);
+                if (block.Size() == 0)
+                {
+                    return; // encode failed - keep the uncompressed chain (safe fallback)
+                }
+                const usize at = out.Size();
+                out.Resize(at + block.Size());
+                MemCopy(out.Data() + at, block.Data(), block.Size());
+                srcOffset += levelBytes;
+                w = w > 1 ? w / 2 : 1;
+                h = h > 1 ? h / 2 : 1;
+            }
+            pixels = Move(out);
+            format = chosen;
+        }
+
         // === Mip generation (2026-08-12: the missing middle of the mip plumbing - the flag,
         // the record field, and the per-level upload all existed; nothing ever BUILT a chain,
         // so every texture rendered at mip 0: Sponza's shimmer) =========================
@@ -600,6 +676,12 @@ export namespace pipeline{
                     AppendMipChain(pixels, ta.embeddedWidth, ta.embeddedHeight,
                                    ta.colorSpace == image::ImageColorSpace::Srgb);
             }
+            if (ta.shape == TextureShape::Texture2D)
+            {
+                MaybeCompress(pixels, ta.embeddedWidth, ta.embeddedHeight, resource.mipLevels,
+                              ta.colorSpace == image::ImageColorSpace::Srgb, ta.usage, ta.compression,
+                              resource.format);
+            }
             resource.shape = ta.shape;
             resource.minFilter = ta.minFilter;
             resource.magFilter = ta.magFilter;
@@ -774,8 +856,9 @@ export namespace pipeline{
     // attributes) is TextureAsset::StaticType(), defined in TextureAssetImpl.cpp.
     inline void RegisterTextureAsset()
     {
-        RegisterTextureReflection();      // TextureShape / TextureFilter / TextureWrap names
-        image::RegisterImageReflection(); // ImageColorSpace names
+        RegisterTextureReflection();          // TextureShape / TextureFilter / TextureWrap names
+        image::RegisterImageReflection();     // ImageColorSpace names
+        texcomp::RegisterCompressionReflection(); // TextureUsage / CompressionChoice names
         GlobalTypeRegistry().Register(TextureAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<TextureAsset>();
     }

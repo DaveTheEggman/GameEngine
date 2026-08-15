@@ -11,5 +11,6 @@ target_link_libraries(Texture.Compression
 target_sources(Texture.Compression
     PRIVATE
         TextureCompressionImpl.cpp
+        TextureCompressionReflectionImpl.cpp
     PUBLIC
         FILE_SET texcomp_modules TYPE CXX_MODULES FILES TextureCompression.cppm)

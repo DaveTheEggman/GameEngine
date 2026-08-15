@@ -72,4 +72,9 @@ export namespace texcomp
 
     // Bytes one mip level of a BC `format` occupies (4x4 block-ceil), for the exact-size cook assertion.
     [[nodiscard]] usize BlockCompressedSize(rhi::TextureFormat format, u32 width, u32 height) noexcept;
+
+    // Register TextureUsage + CompressionChoice enum reflection (by-name), so the generic asset page
+    // renders them as dropdowns. Idempotent; call from the asset's registration. (Bodies live in the
+    // reflection impl unit - REFLECT_* bodies stay out of this interface, GCC module hygiene.)
+    void RegisterCompressionReflection();
 }

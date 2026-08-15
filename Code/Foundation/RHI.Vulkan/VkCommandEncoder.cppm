@@ -281,10 +281,13 @@ export namespace foundation::rhi::vk
                 return;
             VkBufferImageCopy c{};
             c.bufferOffset = region.bufferOffset;
+            // Vulkan bufferRowLength/bufferImageHeight are in TEXELS. Compressed data (bpp==0) is
+            // uploaded tightly packed per-level, so 0/0 = "tightly packed" is both simplest and
+            // correct; the block-row pitch from the layout would otherwise need texel conversion.
             u32 bpp2 = BytesPerPixel(d->desc.format);
             c.bufferRowLength =
                 (bpp2 > 0 && region.bytesPerRow > 0) ? region.bytesPerRow / bpp2 : 0;
-            c.bufferImageHeight = region.rowsPerImage;
+            c.bufferImageHeight = bpp2 > 0 ? region.rowsPerImage : 0;
             c.imageSubresource.aspectMask = getAspectMask(d->desc.format);
             c.imageSubresource.mipLevel = region.textureMipLevel;
             c.imageSubresource.baseArrayLayer = region.textureArrayLayer;

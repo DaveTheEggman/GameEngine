@@ -20,6 +20,7 @@ import foundation.image.io;
 import foundation.texture;
 import foundation.texture.resource;
 import texture.pipeline;
+import texture.compression;
 
 using namespace foundation::core;
 using namespace pipeline;
@@ -384,4 +385,119 @@ TEST_CASE("texture.pipeline: mip chain cook - counts, sizes, and sRGB-correct av
         CHECK(mipLevels == 3u);
         CHECK(payload.Size() == (15u + 2u + 1u) * 4u);
     }
+}
+
+TEST_CASE("texture.pipeline: block compression cook - format policy + exact cooked-DB size drop")
+{
+    // asset-variants P1: the cook now block-compresses the RGBA8 mip chain when the asset's authored
+    // usage/compression + the desktop (BC) profile select a BC format (Decision 5 policy). Pins:
+    // (1) usage/compression -> the cooked resource.format; (2) the "data" payload is EXACTLY the sum
+    // of per-level block bytes; (3) the size drop vs uncompressed is real (BC1 ~8x, BC7 ~4x).
+    RegisterTextureResource();
+    RegisterTextureAsset();
+
+    // Cook a 128x128 embedded image (>64px so it clears the small-texture escape hatch) with the
+    // given authoring, returning the cooked format + "data" payload size.
+    const auto cook = [](texcomp::TextureUsage usage, texcomp::CompressionChoice choice,
+                         image::ImageColorSpace cs, bool alpha, StringView dbDir,
+                         rhi::TextureFormat& outFormat, u32& outMips, usize& outPayload) {
+        const u32 w = 128, h = 128;
+        (void)RemoveDirectoryRecursive(dbDir);
+        NativeFileSystem srcMount(dbDir);
+        foundation::content::ContentDatabase db(
+            srcMount, foundation::core::BinarySerializerFactory(), u8".rasset");
+        auto* srcInst = db.RootGroup()->CreateInstance(u8"src", TextureAsset::StaticType());
+        auto* outInst = db.RootGroup()->CreateInstance(u8"out", TextureResource::StaticType());
+
+        Array<byte> pixels;
+        pixels.Resize(static_cast<usize>(w) * h * 4);
+        for (u32 y = 0; y < h; ++y)
+        {
+            for (u32 x = 0; x < w; ++x)
+            {
+                byte* p = pixels.Data() + (static_cast<usize>(y) * w + x) * 4;
+                p[0] = static_cast<byte>((x * 255) / (w - 1));
+                p[1] = static_cast<byte>((y * 255) / (h - 1));
+                p[2] = static_cast<byte>(((x + y) * 255) / (w + h - 2));
+                p[3] = alpha ? static_cast<byte>((x * 255) / (w - 1)) : static_cast<byte>(255);
+            }
+        }
+        TextureAsset asset;
+        asset.embeddedWidth = w;
+        asset.embeddedHeight = h;
+        asset.colorSpace = cs;
+        asset.generateMipmaps = true;
+        asset.usage = usage;
+        asset.compression = choice;
+        REQUIRE(srcInst->WriteObject(asset).IsOk());
+        REQUIRE(srcInst->WriteData(u8"pixels", Span<const byte>(pixels.Data(), pixels.Size())).IsOk());
+
+        TextureAssetBuilder builder;
+        pipeline::AssetBuildContext ctx;
+        ctx.source = srcInst;
+        ctx.output = outInst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+
+        RefPtr<ISerializable> object = outInst->ReadObject();
+        auto* res = Cast<TextureResource>(object.Get());
+        REQUIRE(res != nullptr);
+        outFormat = res->format;
+        outMips = res->mipLevels;
+        UniquePtr<IStream> data = outInst->ReadData(u8"data");
+        REQUIRE(data);
+        outPayload = static_cast<usize>(data->Size());
+        (void)RemoveDirectoryRecursive(dbDir);
+    };
+
+    // Sum of per-level block bytes for a full 128x128 chain of `format` (the exact cooked size).
+    const auto expectedCompressed = [](rhi::TextureFormat format, u32 levels) {
+        usize total = 0;
+        u32 w = 128, h = 128;
+        for (u32 i = 0; i < levels; ++i)
+        {
+            total += rhi::CompressedLevelBytes(format, w, h);
+            w = w > 1 ? w / 2 : 1;
+            h = h > 1 ? h / 2 : 1;
+        }
+        return total;
+    };
+
+    rhi::TextureFormat fmt{};
+    u32 mips = 0;
+    usize payload = 0;
+
+    // (1) Color, opaque, sRGB, Default -> BC1 sRGB; payload = exact BC1 block bytes.
+    cook(texcomp::TextureUsage::Color, texcomp::CompressionChoice::Default,
+         image::ImageColorSpace::Srgb, /*alpha*/ false, u8"scratch_texpipe_bc1", fmt, mips, payload);
+    CHECK(fmt == rhi::TextureFormat::BC1RGBAUnormSrgb);
+    CHECK(payload == expectedCompressed(rhi::TextureFormat::BC1RGBAUnormSrgb, mips));
+
+    // The uncompressed RGBA8 chain, for the size-drop comparison.
+    usize rawPayload = 0;
+    cook(texcomp::TextureUsage::Color, texcomp::CompressionChoice::None, image::ImageColorSpace::Srgb,
+         false, u8"scratch_texpipe_raw", fmt, mips, rawPayload);
+    CHECK(fmt == rhi::TextureFormat::RGBA8UnormSrgb);
+    // BC1 is 4 bits/texel vs 32 -> the cooked payload is ~8x smaller. Guard a real, large drop.
+    CHECK(payload * 6u < rawPayload);
+
+    // (2) Color, alpha -> BC7; Quality on an opaque image also forces BC7.
+    cook(texcomp::TextureUsage::Color, texcomp::CompressionChoice::Default,
+         image::ImageColorSpace::Srgb, /*alpha*/ true, u8"scratch_texpipe_bc7a", fmt, mips, payload);
+    CHECK(fmt == rhi::TextureFormat::BC7RGBAUnormSrgb);
+    CHECK(payload == expectedCompressed(rhi::TextureFormat::BC7RGBAUnormSrgb, mips));
+
+    cook(texcomp::TextureUsage::Color, texcomp::CompressionChoice::Quality,
+         image::ImageColorSpace::Linear, false, u8"scratch_texpipe_bc7q", fmt, mips, payload);
+    CHECK(fmt == rhi::TextureFormat::BC7RGBAUnorm);
+
+    // (3) Normal -> BC5, Mask -> BC4 (linear, ignore color space).
+    cook(texcomp::TextureUsage::Normal, texcomp::CompressionChoice::Default,
+         image::ImageColorSpace::Linear, false, u8"scratch_texpipe_bc5", fmt, mips, payload);
+    CHECK(fmt == rhi::TextureFormat::BC5RGUnorm);
+    CHECK(payload == expectedCompressed(rhi::TextureFormat::BC5RGUnorm, mips));
+
+    cook(texcomp::TextureUsage::Mask, texcomp::CompressionChoice::Default,
+         image::ImageColorSpace::Linear, false, u8"scratch_texpipe_bc4", fmt, mips, payload);
+    CHECK(fmt == rhi::TextureFormat::BC4RUnorm);
+    CHECK(payload == expectedCompressed(rhi::TextureFormat::BC4RUnorm, mips));
 }
