@@ -185,3 +185,56 @@ gcc, ZERO failures; ASAN clean on Script.Luau.Tests + Engine.Script.Tests
 
 Baseline: e7d617f5. (Note: the Documentation/ P0 migration landed between
 review request and this record - paths in older passes refer to docs/.)
+
+## Review pass 7 (2026-08-15, Fable): MSAA P1 + EntityRef + coverage-gap closure - PASS
+
+Range 0a45edce..44827741 (121 commits). This pass also formally closes two
+stretches never inside a recorded pass range:
+
+- 0a45edce..0140010b (27): Luau P2-P5 (native Float3 vector, reflected
+  enums, Level tier + scene event bus, Roll Call acceptance, .d.luau
+  emitter), the overloadedName contract + shared conformance battery, the
+  debrand rename, and two AngelScript fixes. Much of this was reviewed
+  interactively as it landed (the overload contract and Luau doc rulings
+  were Fable's); what had never been verified was sanitizer coverage of
+  the AngelScript/Wren delegate work - now done (below).
+- e7d617f5..a4546c77 (45): mostly Fable's own session work (mesh sidecar
+  v3, async binds + settle cascade, mip generation, I2 capture fix, MSAA
+  spec) + the Opus Docs P0/P1 audit + 4 Windows-support commits
+  (01f8aa3a, 427fe986, 3bb34756, 05a1764a - inspected, benign).
+
+Verification: full battery at HEAD, 117 targets, clang + gcc, ZERO
+failures. ASAN: Script.AngelScript.Tests (30/30) + Script.Wren.Tests
+(22/22) clean - covers a73ce62d (AS coroutine delegate release), e0c09ab0
+(`?&in` reference-arg read), and 4f4604d0 (Wren delegate teardown +
+reachability closure). Luau + Engine.Script were sanitized in pass 6.
+
+MSAA P1 (e956774d..a0213f1c) - every spec ruling traced to implementation:
+
+- SV_Depth into a real depth-format target; sample-0 depth/aux resolve
+  ("NEVER averaged" honored); scene color via the fixed-function resolve
+  attachment (empty pass, no blit, both backends).
+- Resolve lands after opaque+sky, before SSR/AO/TAA; transparent + world
+  UI run 1x on resolved color. PSO matrix scoped to Opaque-affinity
+  passes only. msaaSamples==1 aliases the handles - byte-identical to the
+  old path, no resolve passes emitted.
+- ACCEPTED DEVIATION: decals moved AFTER the resolve, sampling the 1x
+  resolved depth - WebGPU forbids sampling a multisampled texture, and
+  sample 0 of the MSAA depth IS the resolved depth, so reconstruction is
+  identical; still before SSR/AO/TAA. Rationale documented in-place.
+- WebGPU's non-contiguous {1,4} sample set: exact-count
+  SupportsMsaaSamples (device query + ceiling + resolve-pass presence)
+  with snap; multisampled aux bound UnfilterableFloat (.Load, no sampler
+  - required by WebGPU, correct everywhere).
+- OPEN: P1g pixel-probe acceptance (1x vs 4x edge coverage + transparent
+  no-regression). Opus resumes there.
+
+EntityRef (a8e39cb9..8bdcc691): wire-identical to a bare Guid by
+construction (ADL Serialize writes only the inner guid) - the
+JointComponent migration needed no version bump, verified. Dumb guid
+holder (no cached handle) honoring the re-resolve-never-borrow rule.
+Prefab remap is reflection-driven with both semantics tested
+(intra-prefab remaps to the instance copy; external refs preserved).
+Modal entity-tree picker replaces the flat menu.
+
+Baseline: 44827741.
