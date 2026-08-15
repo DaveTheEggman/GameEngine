@@ -715,67 +715,15 @@ Cross-platform (after pulling):
 - [ ] Blend demo re-check: additive still clips toward white over the light strip.
 - [ ] Web after recook: same appearance as desktop.
 
+## 2026-08-15 - UAT-session fixes (regression checks)
 
+The raw findings from this session moved to Documentation/Plans/week-2026-08-15.md ("UAT findings").
+The items FIXED in-session, as regression checks to re-run:
 
-
-
-
-Created Sound cueue, immediately fails to cook. Not a good UX.
-[Info] Cook: cooking 1 asset(s)
-[Error] Audio: sound cue has no playable variant (assign at least one clip) - cook failed
-[Error] Cook: 'Audio/SoundCue' failed to cook
-[Info] Cook: FAILED Audio/SoundCue (1/1)
-[Info] Cook: cook finished: 0 cooked, 1 failed
-[Info] Cook: cooking 1 asset(s)
-[Debug] Input: viewport capture released - no mouse button held
-[Error] Audio: sound cue has no playable variant (assign at least one clip) - cook failed
-[Error] Cook: 'Audio/SoundCue' failed to cook
-[Debug] Input: viewport capture released - no mouse button held
-[Info] Cook: FAILED Audio/SoundCue (1/1)
-[Info] Cook: cook finished: 0 cooked, 1 failed
-
-Audition Sound cueue UX is bad. Can't pause/stop.
-CLicking audition multiple times plays the cue multiple times over each other.
-
-Audio source component has so many fields, not all fields are relevant to all setup.
-This should be clean up for a better ux. Use visible when, and probably a mode/type between clip and cue.
-
-marking entity as inactive in a scene should prevent it from being rendered or participate in any simulation.
-
-
-We need an easier way to select the scene, so we see the scene inspector than clicking in empty space in the viewport.
-
---- 
-
-Using arrow key in hierarchy does not trigger inspector update.
-Animation clip page doesn't have preview mesh
-mesh pages do not have material options
-collision mesh page does not have any preview
-Model manifest page blanks whole view.
-
-
-Script backend should be a project setting. It can be chosen at creation time, and changed in project settings. This decides in editor which script options are available and which vm runs. We may have to reload project when backend changes?
-
-Allow importing model as a scene instead of just resources and prefab.
-Think of a way to unify scenes and prefabs -- well do we really want to do this? weigh pros and cons. The only real difference scene systems.
-
-Editor pages need a "Discard Changes" button so I can discard all unwanted changes without having to close and reopen the page.
-
-Time to improve the model import UX. Dropping a model creates a folder. The import dialog should allow choosing where the files go. it should default to the active group. Sedulous offered something like this.
-
-Animation graph:
-No preview mesh. Nodes don't have any ports to connect.
-
-Parameter type should determine field value type. E.g.: bool should be a true/false dropdown or a checkbox on/off.
-
-Skeleton preview should be drawn in animation graph, with on/off toggle. mesh can have on/off toggle too so preview could show just skeleton if we want to.
-
-Content:
-Are empty groups pruned?
-I add a group, don't add any instances to it. Close and re-open editor. Group is gone.
-
-Export:
-play name needs os executable extension. Else Windows player named "Player" exports as "Player" instead of "Player.exe".
-
-Need a template build script to quickly build templates for supported platforms.
-Dragging many fbx onto the asset browser for drag/drop, the whole view blanks out.
+- [ ] Bulk-drop many `.fbx` onto the asset browser: the view keeps rendering (it may flicker for one
+      frame as the UI vertex buffer grows) - it never stays blank. (VG on-demand buffer growth, 9e35fb51.)
+- [ ] Open the model-manifest page for a large model (e.g. Sponza): it renders fully, not blank. Same
+      fix; if it STILL blanks it is a different cause (the 64-uniform-slot cap, not vertices).
+- [ ] Create a content group, add NO instances, close + reopen the editor: the group is still present.
+      Then delete it: the now-empty folder is removed too. (Empty-group directory materialization,
+      b375b849 + 178c4626.)
