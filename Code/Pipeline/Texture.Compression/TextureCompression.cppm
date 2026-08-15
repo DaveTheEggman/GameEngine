@@ -55,6 +55,13 @@ export namespace texcomp
         return TargetProfile{true, false, false};
     }
 
+    // The mobile-web profile (ASTC-capable, no BC) - mobile browsers expose texture-compression-astc,
+    // not -bc (asset-variants Decision 4). The web export cooks both this and the desktop BC variant.
+    [[nodiscard]] inline TargetProfile MobileProfile() noexcept
+    {
+        return TargetProfile{false, true, false};
+    }
+
     // Decision 5 policy table. Returns `uncompressed` when policy says do not compress (authored None,
     // small/UI textures <= 64px, HDR until BC6H, or a target with no supported family). `sRGB` selects
     // the *Srgb color formats; `hasAlpha` splits color into BC1 (opaque) vs BC7 (alpha).

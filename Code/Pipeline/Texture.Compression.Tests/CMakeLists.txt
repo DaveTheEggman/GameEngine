@@ -4,7 +4,7 @@
 add_executable(Texture.Compression.Tests TestsMain.cpp CompressionTests.cpp)
 target_link_libraries(Texture.Compression.Tests PRIVATE
     Pipeline::Texture.Compression Foundation::Core Foundation::RHI
-    ThirdParty::Bc7enc doctest::doctest)
+    ThirdParty::Bc7enc ThirdParty::Astcenc doctest::doctest)
 target_compile_definitions(Texture.Compression.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 # The vendored bc7enc/rgbcx decode headers pull in the deprecated <ciso646> (a #warning under C++20).
 target_compile_options(Texture.Compression.Tests PRIVATE

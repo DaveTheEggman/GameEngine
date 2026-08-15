@@ -185,6 +185,19 @@ export namespace foundation::rhi::webgpu
                            ? FormatSupport::Texture | FormatSupport::LinearFilter
                            : FormatSupport::Unsupported;
 
+            // ASTC block formats (mobile browsers): sampled-only, feature-gated.
+            case TextureFormat::ASTC4x4Unorm:
+            case TextureFormat::ASTC4x4UnormSrgb:
+            case TextureFormat::ASTC5x5Unorm:
+            case TextureFormat::ASTC5x5UnormSrgb:
+            case TextureFormat::ASTC6x6Unorm:
+            case TextureFormat::ASTC6x6UnormSrgb:
+            case TextureFormat::ASTC8x8Unorm:
+            case TextureFormat::ASTC8x8UnormSrgb:
+                return features.textureCompressionASTC
+                           ? FormatSupport::Texture | FormatSupport::LinearFilter
+                           : FormatSupport::Unsupported;
+
             // 16-bit norm formats have no core WebGPU equivalent at all.
             case TextureFormat::RGBA16Unorm:
             case TextureFormat::RGBA16Snorm:

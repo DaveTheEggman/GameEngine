@@ -149,6 +149,12 @@ export namespace foundation::rhi::webgpu
             {
                 required.PushBack(WGPUFeatureName_TextureCompressionBC);
             }
+            // ASTC = the mobile-web compressed family (asset-variants Decision 4). Desktop browsers
+            // usually expose only -bc; mobile browsers expose -astc. Request whichever the adapter has.
+            if (info.supportedFeatures.textureCompressionASTC)
+            {
+                required.PushBack(WGPUFeatureName_TextureCompressionASTC);
+            }
             if (info.supportedFeatures.depthClamp)
             {
                 required.PushBack(WGPUFeatureName_DepthClipControl);

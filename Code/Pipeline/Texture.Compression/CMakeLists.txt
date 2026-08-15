@@ -6,7 +6,7 @@ add_library(Pipeline::Texture.Compression ALIAS Texture.Compression)
 
 target_link_libraries(Texture.Compression
     PUBLIC Foundation::Core Foundation::RHI
-    PRIVATE ThirdParty::Bc7enc)
+    PRIVATE ThirdParty::Bc7enc ThirdParty::Astcenc)
 
 target_sources(Texture.Compression
     PRIVATE

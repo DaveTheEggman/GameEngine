@@ -6,6 +6,7 @@
 #include "Core/Prelude.h"
 #include "rgbcx.h"
 #include "bc7decomp.h"
+#include "astcenc.h"
 #include <cmath>
 
 import foundation.core;
@@ -99,6 +100,40 @@ namespace
         }
         return out;
     }
+
+    // Decode ASTC 4x4 back to RGBA8 via astcenc (test-only; the module only encodes).
+    Array<u8> DecodeAstc(const Array<byte>& blocks, u32 w, u32 h, bool srgb)
+    {
+        Array<u8> out;
+        astcenc_config config{};
+        const astcenc_profile profile = srgb ? ASTCENC_PRF_LDR_SRGB : ASTCENC_PRF_LDR;
+        if (astcenc_config_init(profile, 4, 4, 1, ASTCENC_PRE_MEDIUM, 0, &config) != ASTCENC_SUCCESS)
+        {
+            return out;
+        }
+        astcenc_context* ctx = nullptr;
+        if (astcenc_context_alloc(&config, 1, &ctx, nullptr) != ASTCENC_SUCCESS)
+        {
+            return out;
+        }
+        out.Resize(static_cast<usize>(w) * h * 4);
+        void* slice = out.Data();
+        astcenc_image image{};
+        image.dim_x = w;
+        image.dim_y = h;
+        image.dim_z = 1;
+        image.data_type = ASTCENC_TYPE_U8;
+        image.data = &slice;
+        const astcenc_swizzle swizzle{ASTCENC_SWZ_R, ASTCENC_SWZ_G, ASTCENC_SWZ_B, ASTCENC_SWZ_A};
+        const astcenc_error err = astcenc_decompress_image(
+            ctx, reinterpret_cast<const uint8_t*>(blocks.Data()), blocks.Size(), &image, &swizzle, 0);
+        astcenc_context_free(ctx);
+        if (err != ASTCENC_SUCCESS)
+        {
+            out.Clear();
+        }
+        return out;
+    }
 }
 
 TEST_CASE("ResolveCompressedFormat - Decision 5 policy table (BC profile)")
@@ -162,6 +197,45 @@ TEST_CASE("EncodeBlockCompressed - BC7 round-trip PSNR (RGBA) beats BC1")
     const double psnr7 = Psnr(img.Data(), dec7.Data(), static_cast<usize>(w) * h, 4);
     // BC7 is near-lossless on a smooth gradient; high floor guards the full 4-channel path.
     CHECK(psnr7 > 40.0);
+}
+
+TEST_CASE("ResolveCompressedFormat - ASTC (mobile) profile")
+{
+    const TargetProfile astc = MobileProfile();
+    const auto uncompressed = rhi::TextureFormat::RGBA8Unorm;
+
+    // One 4x4 format covers every LDR usage; sRGB only applies to color.
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, true, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4UnormSrgb);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4Unorm);
+    CHECK(ResolveCompressedFormat(TextureUsage::Normal, false, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4Unorm);
+    CHECK(ResolveCompressedFormat(TextureUsage::Mask, true, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4Unorm); // linear map ignores sRGB
+
+    // Same escape hatches as BC: None, small, HDR.
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, false, CompressionChoice::None, 256, 256, astc, uncompressed) == uncompressed);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, false, CompressionChoice::Default, 64, 64, astc, uncompressed) == uncompressed);
+    CHECK(ResolveCompressedFormat(TextureUsage::HDR, false, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == uncompressed);
+
+    // A profile that supports BOTH families prefers BC (desktop-first).
+    const TargetProfile both{true, true, false};
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, false, CompressionChoice::Default, 256, 256, both, uncompressed) == rhi::TextureFormat::BC1RGBAUnorm);
+}
+
+TEST_CASE("EncodeBlockCompressed - ASTC 4x4 round-trip PSNR + exact size")
+{
+    const u32 w = 128, h = 128;
+    const Array<u8> img = MakeImage(w, h, /*alpha*/ true);
+
+    const Array<byte> enc =
+        EncodeBlockCompressed(img.Data(), w, h, rhi::TextureFormat::ASTC4x4Unorm, 200);
+    REQUIRE(enc.Size() == BlockCompressedSize(rhi::TextureFormat::ASTC4x4Unorm, w, h));
+    // ASTC 4x4 = 16 bytes per 4x4 block = 8 bpp, same footprint as BC7.
+    CHECK(enc.Size() == static_cast<usize>((w / 4) * (h / 4)) * 16u);
+
+    const Array<u8> dec = DecodeAstc(enc, w, h, /*srgb*/ false);
+    REQUIRE(dec.Size() == static_cast<usize>(w) * h * 4);
+    const double psnr = Psnr(img.Data(), dec.Data(), static_cast<usize>(w) * h, 4);
+    // ASTC 4x4 is near-lossless on a smooth gradient; a broken encode scores far lower.
+    CHECK(psnr > 40.0);
 }
 
 TEST_CASE("EncodeBlockCompressed - rejects non-BC formats + null input")

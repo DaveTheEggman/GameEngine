@@ -5,6 +5,7 @@ module;
 #include "Core/Prelude.h"
 #include "bc7enc.h"
 #include "rgbcx.h"
+#include "astcenc.h"
 
 module texture.compression;
 
@@ -74,7 +75,7 @@ namespace texcomp
             return uncompressed; // BC6H not vendored in P1
         }
 
-        if (profile.bc)
+        if (profile.bc) // desktop + desktop browsers - prefer BC (checked first if a profile had both)
         {
             switch (usage)
             {
@@ -92,8 +93,57 @@ namespace texcomp
                 return uncompressed; // handled above
             }
         }
-        // ASTC/ETC2 profiles land in P3; for now anything unsupported stays uncompressed.
+        if (profile.astc) // mobile browsers - one 4x4 format covers every LDR usage (alpha built in)
+        {
+            // ASTC has no per-usage format split like BC: the 4x4 block encodes RGBA at ~8 bpp, and
+            // the encoder is told the semantic (normal/perceptual) via flags at encode time. sRGB
+            // only meaningfully applies to color; Normal/Mask stay linear.
+            return (sRGB && usage == TextureUsage::Color) ? F::ASTC4x4UnormSrgb : F::ASTC4x4Unorm;
+        }
+        // ETC2 + any other family stay uncompressed for now.
         return uncompressed;
+    }
+
+    // ASTC is a whole-image codec (not block-by-block like BC): astcenc takes the full RGBA8 level
+    // and writes the packed 4x4 blocks. Single-threaded (cook-time, not a hot path). Returns empty
+    // on any astcenc error. `srgb` selects the LDR_SRGB profile so error is weighted in sRGB space.
+    static Array<byte> EncodeAstc(const u8* rgba, u32 width, u32 height, bool srgb, u8 quality)
+    {
+        Array<byte> out;
+        const astcenc_profile profile = srgb ? ASTCENC_PRF_LDR_SRGB : ASTCENC_PRF_LDR;
+        const float effort = ASTCENC_PRE_FASTEST +
+                             (static_cast<float>(quality) / 255.0f) *
+                                 (ASTCENC_PRE_THOROUGH - ASTCENC_PRE_FASTEST);
+        astcenc_config config{};
+        if (astcenc_config_init(profile, 4, 4, 1, effort, 0, &config) != ASTCENC_SUCCESS)
+        {
+            return out;
+        }
+        astcenc_context* context = nullptr;
+        if (astcenc_context_alloc(&config, 1, &context, nullptr) != ASTCENC_SUCCESS)
+        {
+            return out;
+        }
+
+        // astcenc wants a non-const slice-pointer array; the codec only READS it when compressing.
+        void* slice = const_cast<u8*>(rgba);
+        astcenc_image image{};
+        image.dim_x = width;
+        image.dim_y = height;
+        image.dim_z = 1;
+        image.data_type = ASTCENC_TYPE_U8;
+        image.data = &slice;
+        const astcenc_swizzle swizzle{ASTCENC_SWZ_R, ASTCENC_SWZ_G, ASTCENC_SWZ_B, ASTCENC_SWZ_A};
+
+        out.Resize(BlockCompressedSize(rhi::TextureFormat::ASTC4x4Unorm, width, height));
+        const astcenc_error err = astcenc_compress_image(
+            context, &image, &swizzle, reinterpret_cast<u8*>(out.Data()), out.Size(), 0);
+        astcenc_context_free(context);
+        if (err != ASTCENC_SUCCESS)
+        {
+            return Array<byte>{};
+        }
+        return out;
     }
 
     Array<byte> EncodeBlockCompressed(const u8* rgba, u32 width, u32 height, rhi::TextureFormat format,
@@ -103,6 +153,13 @@ namespace texcomp
         if (rgba == nullptr || width == 0 || height == 0 || !rhi::IsCompressed(format))
         {
             return out;
+        }
+        // ASTC has its own whole-image codec path.
+        if (format == rhi::TextureFormat::ASTC4x4Unorm ||
+            format == rhi::TextureFormat::ASTC4x4UnormSrgb)
+        {
+            return EncodeAstc(rgba, width, height, format == rhi::TextureFormat::ASTC4x4UnormSrgb,
+                              quality);
         }
         EnsureInit();
 

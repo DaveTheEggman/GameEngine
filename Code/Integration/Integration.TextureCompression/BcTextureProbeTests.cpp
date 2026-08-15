@@ -223,6 +223,14 @@ namespace
         }
     }
 
+    // A format the device can actually sample (spec/driver capability). BC is desktop; ASTC is
+    // mobile - desktop GPUs usually lack it, so the ASTC leg self-skips here rather than failing.
+    bool SupportsSampled(rhi::Device& device, rhi::TextureFormat format)
+    {
+        return (device.GetFormatSupport(format) & rhi::FormatSupport::Texture) ==
+               rhi::FormatSupport::Texture;
+    }
+
     void ProbeBcSampling(rhi::Device& device, const char* backendName)
     {
         struct Case
@@ -236,9 +244,16 @@ namespace
             {"BC1-red", rhi::TextureFormat::BC1RGBAUnorm, 230, 20, 20, 0},
             {"BC7-green", rhi::TextureFormat::BC7RGBAUnorm, 20, 220, 20, 1},
             {"BC5-normalRG", rhi::TextureFormat::BC5RGUnorm, 200, 40, 0, 0}, // BC5 keeps R,G; B=0
+            {"ASTC-blue", rhi::TextureFormat::ASTC4x4Unorm, 20, 20, 225, 2}, // mobile-web family
         };
         for (const Case& c : cases)
         {
+            if (!SupportsSampled(device, c.format))
+            {
+                // Expected for ASTC on desktop GPUs (a mobile family); the leg runs on capable HW.
+                std::printf("[bc] %-8s %-12s format unsupported - skipped\n", backendName, c.name);
+                continue;
+            }
             rhi::Texture* tex = nullptr;
             rhi::TextureView* view = MakeSolidBcTexture(device, c.format, c.r, c.g, c.b, tex);
             REQUIRE(view != nullptr);

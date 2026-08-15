@@ -83,6 +83,14 @@ export namespace foundation::rhi::webgpu
         case TextureFormat::BC6HRGBFloat:         return WGPUTextureFormat_BC6HRGBFloat;
         case TextureFormat::BC7RGBAUnorm:         return WGPUTextureFormat_BC7RGBAUnorm;
         case TextureFormat::BC7RGBAUnormSrgb:     return WGPUTextureFormat_BC7RGBAUnormSrgb;
+        case TextureFormat::ASTC4x4Unorm:         return WGPUTextureFormat_ASTC4x4Unorm;
+        case TextureFormat::ASTC4x4UnormSrgb:     return WGPUTextureFormat_ASTC4x4UnormSrgb;
+        case TextureFormat::ASTC5x5Unorm:         return WGPUTextureFormat_ASTC5x5Unorm;
+        case TextureFormat::ASTC5x5UnormSrgb:     return WGPUTextureFormat_ASTC5x5UnormSrgb;
+        case TextureFormat::ASTC6x6Unorm:         return WGPUTextureFormat_ASTC6x6Unorm;
+        case TextureFormat::ASTC6x6UnormSrgb:     return WGPUTextureFormat_ASTC6x6UnormSrgb;
+        case TextureFormat::ASTC8x8Unorm:         return WGPUTextureFormat_ASTC8x8Unorm;
+        case TextureFormat::ASTC8x8UnormSrgb:     return WGPUTextureFormat_ASTC8x8UnormSrgb;
         default:                                  return WGPUTextureFormat_Undefined;
         }
     }
