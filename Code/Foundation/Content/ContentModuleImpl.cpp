@@ -398,6 +398,75 @@ namespace foundation::content
         return copy;
     }
 
+    Status ContentDatabase::CopyContentForward(Instance& dest, ContentDatabase& src,
+                                               const Guid& srcId)
+    {
+        Instance* source = src.GetInstance(srcId);
+        if (source == nullptr)
+        {
+            return Status{ErrorCode::NotFound};
+        }
+
+        // Primary object: round-trips under dest's identity. dest.guid == src.guid (the variant cook
+        // keeps product-guid == source-guid in every DB), so the re-serialized bytes are identical.
+        RefPtr<ISerializable> object = source->ReadObject();
+        if (object.Get() == nullptr)
+        {
+            return Status{ErrorCode::Unknown};
+        }
+        const Status wrote = dest.WriteObject(*object);
+        if (!wrote.IsOk())
+        {
+            return wrote;
+        }
+
+        // Every "<srcName>.<stream>.bin" sidecar (streams keep no directory) -> byte-copy into dest
+        // under the same stream name. Same prefix scan CloneInstance uses, but across DBs/mounts.
+        if (IEnumerableFileSystem* enumerable = src.m_mount->AsEnumerable())
+        {
+            const String folder = source->OwningGroup().Path();
+            String prefix(source->Name());
+            prefix.PushBack(utf8char('.'));
+            Array<DirEntry> entries;
+            if (enumerable->Enumerate(folder.AsView(), entries).IsOk())
+            {
+                for (const DirEntry& entry : entries)
+                {
+                    if (entry.isDirectory || entry.name.Size() <= prefix.Size())
+                    {
+                        continue;
+                    }
+                    if (entry.name.AsView().SubStr(0, prefix.Size()) != prefix.AsView())
+                    {
+                        continue;
+                    }
+                    if (!EndsWith(entry.name.AsView(), u8".bin"))
+                    {
+                        continue;
+                    }
+                    const StringView fileName = entry.name.AsView();
+                    const StringView stream =
+                        fileName.SubStr(prefix.Size(), fileName.Size() - prefix.Size() - 4);
+                    if (stream.IsEmpty())
+                    {
+                        continue;
+                    }
+                    if (UniquePtr<IStream> data = source->ReadData(stream))
+                    {
+                        Array<byte> bytes;
+                        bytes.Resize(static_cast<usize>(data->Size()));
+                        if (data->Read(bytes.Data(), bytes.Size()) == bytes.Size())
+                        {
+                            (void)dest.WriteData(stream,
+                                                 Span<const byte>{bytes.Data(), bytes.Size()});
+                        }
+                    }
+                }
+            }
+        }
+        return Status{};
+    }
+
     Status ContentDatabase::RenameInstance(const Guid& id, StringView newName)
     {
         Instance* instance = GetInstance(id);

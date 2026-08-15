@@ -328,7 +328,47 @@ namespace pipeline
         {
             item.product = EnsureProduct(item);
             item.sourceInstance = m_sourceDb->GetInstance(item.source);
+            // Platform-invariant copy-forward (P2): carry the product from the host DB when its
+            // recipe matches, so only genuinely variant bytes (textures) cook per target.
+            item.copiedForward = TryCopyForward(item);
         }
+    }
+
+    bool CookDriver::TryCopyForward(CookItem& item)
+    {
+        if (m_hostCookedDb == nullptr || item.product == nullptr || item.builder == nullptr)
+        {
+            return false;
+        }
+        if (item.builder->Variance() != BuildVariance::PlatformInvariant)
+        {
+            return false; // variant products (textures) must cook per target
+        }
+        // The host must hold a current, non-failed product with the SAME recipe. Because invariant
+        // builders are unsalted, matching recipes mean identical inputs - so the host bytes are
+        // exactly what we would cook. (An invariant product that READS variant content gets a
+        // salted read-dep recipe, so its hashes differ here and it correctly recooks.)
+        const CookRecord* hostRec = (m_hostRecords != nullptr) ? m_hostRecords->Find(item.source)
+                                                               : nullptr;
+        if (hostRec == nullptr || hostRec->failed || hostRec->recipeHash != item.recipeHash)
+        {
+            return false;
+        }
+        if (m_cookedDb->CopyContentForward(*item.product, *m_hostCookedDb, item.source).IsOk())
+        {
+            // Stamp the target record now (main thread) so the next target cook sees it clean.
+            CookRecord& record = m_db.Upsert(item.source);
+            record.recipeHash = item.recipeHash;
+            record.failed = false;
+            if (Array<CookFileMemo>* memos = m_pendingMemos.Find(item.source))
+            {
+                record.files = Move(*memos);
+            }
+            record.reads = item.deps.reads;
+            record.references = item.deps.references;
+            return true;
+        }
+        return false;
     }
 
     CookStats CookDriver::ExecuteBuilds(CookPlan& plan, const CookProgress* progress)
@@ -349,22 +389,39 @@ namespace pipeline
                 ++end;
             }
 
+            // Copy-forward items were already filled in PrepareProducts (main thread) - they skip
+            // the worker build entirely and count as succeeded.
             if (m_jobs != nullptr && end - begin > 1)
             {
                 m_jobs->ParallelFor(static_cast<u32>(end - begin), [&, begin](u32 i)
-                                    { results[begin + i] = CookItem_(plan.dirty[begin + i]); });
+                                    {
+                                        CookItem& it = plan.dirty[begin + i];
+                                        results[begin + i] = it.copiedForward ? true : CookItem_(it);
+                                    });
             }
             else
             {
                 for (usize i = begin; i < end; ++i)
                 {
-                    results[i] = CookItem_(plan.dirty[i]);
+                    results[i] =
+                        plan.dirty[i].copiedForward ? true : CookItem_(plan.dirty[i]);
                 }
             }
 
             for (usize i = begin; i < end; ++i)
             {
-                results[i] ? ++stats.cooked : ++stats.failed;
+                if (!results[i])
+                {
+                    ++stats.failed;
+                }
+                else if (plan.dirty[i].copiedForward)
+                {
+                    ++stats.copiedForward;
+                }
+                else
+                {
+                    ++stats.cooked;
+                }
                 if (results[i])
                 {
                     stats.cookedProducts.PushBack(plan.dirty[i].source);
@@ -494,6 +551,15 @@ namespace pipeline
 
         // 3. Builder version.
         h = detail::FoldHash(h, 'V', builder.Version());
+
+        // 3b. Platform salt (asset-variants P2): ONLY variant builders are salted by the target, so
+        // the SAME source produces a distinct product per target (BC vs ASTC) while invariant
+        // products keep a target-independent recipe and copy forward unchanged.
+        if (builder.Variance() == BuildVariance::PlatformVariant)
+        {
+            h = detail::FoldHash(
+                h, 'T', HashBytes(m_target.id.Data(), m_target.id.Size(), HashBytes(nullptr, 0)));
+        }
 
         // 4. Read deps (sorted by Guid for determinism), chained recursively.
         Array<Guid> reads(deps.reads);
@@ -663,6 +729,7 @@ namespace pipeline
         ctx.source = source;
         ctx.output = product;
         ctx.db = m_cookedDb; // cross-refs resolve against already-cooked products
+        ctx.target = &m_target; // the export target being produced (P2)
         const Status built = item.builder->Build(*asset, ctx);
 
         // Record: recipe + memoized file hashes + deps; failures keep the last good

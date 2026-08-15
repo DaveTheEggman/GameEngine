@@ -131,6 +131,46 @@ namespace
         }
     };
 
+    // A PLATFORM-VARIANT asset (asset-variants P2): its product depends on the export target, so it
+    // cooks per target and is salted in the recipe - never copied forward. The product's cookedValue
+    // encodes the target (astc -> 999, else 100) + a data sidecar, so a test can see it recooked.
+    class VariantAsset final : public Asset
+    {
+        RTTI_OBJECT(VariantAsset, Asset)
+    public:
+        void Serialize(ISerializer& ar) override { Asset::Serialize(ar); }
+    };
+
+    class VariantBuilder final : public DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &VariantAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &CookWidgetProduct::StaticType();
+        }
+        [[nodiscard]] BuildVariance Variance() const override
+        {
+            return BuildVariance::PlatformVariant;
+        }
+        [[nodiscard]] Status Build(const Asset&, AssetBuildContext& ctx) override
+        {
+            CookWidgetProduct product;
+            product.cookedValue = (ctx.target != nullptr && ctx.target->astc) ? 999 : 100;
+            const Status wrote = ctx.output->WriteObject(product);
+            if (!wrote.IsOk())
+            {
+                return wrote;
+            }
+            // A data sidecar too, so copy-forward's stream copy is exercised for the invariant case.
+            const byte payload[1] = {static_cast<byte>(product.cookedValue)};
+            return ctx.output->WriteData(u8"data", Span<const byte>(payload, 1));
+        }
+    };
+
     void EnsureRegistered()
     {
         static bool done = false;
@@ -142,9 +182,11 @@ namespace
         GlobalTypeRegistry().Register(CookWidgetAsset::StaticType());
         GlobalTypeRegistry().Register(CookWidgetProduct::StaticType());
         GlobalTypeRegistry().Register(ChainAsset::StaticType());
+        GlobalTypeRegistry().Register(VariantAsset::StaticType());
         RegisterSerializable<CookWidgetAsset>();
         RegisterSerializable<CookWidgetProduct>();
         RegisterSerializable<ChainAsset>();
+        RegisterSerializable<VariantAsset>();
     }
 
     // === Fixture: a temp project tree with the four mounts ===
@@ -179,6 +221,8 @@ namespace
             builders.Register(UniquePtr<IAssetBuilder>(DefaultAllocator().New<CookWidgetBuilder>(),
                                                        DefaultAllocator()));
             builders.Register(UniquePtr<IAssetBuilder>(DefaultAllocator().New<ChainBuilder>(),
+                                                       DefaultAllocator()));
+            builders.Register(UniquePtr<IAssetBuilder>(DefaultAllocator().New<VariantBuilder>(),
                                                        DefaultAllocator()));
             CookWidgetBuilder::version = 1;
             CookWidgetBuilder::fail = false;
@@ -215,6 +259,28 @@ namespace
             CookWidgetAsset asset;
             asset.quality = quality;
             asset.fileName = foundation::vfs::SourcePath(file);
+            REQUIRE(inst->WriteObject(asset).IsOk());
+            return inst->Id();
+        }
+
+        Guid AddVariant(StringView name)
+        {
+            content::Instance* inst =
+                sourceDb->RootGroup()->CreateInstance(name, VariantAsset::StaticType());
+            REQUIRE(inst != nullptr);
+            VariantAsset asset;
+            REQUIRE(inst->WriteObject(asset).IsOk());
+            return inst->Id();
+        }
+
+        Guid AddChain(StringView name, const Guid& readDep, const Guid& refDep = {})
+        {
+            content::Instance* inst =
+                sourceDb->RootGroup()->CreateInstance(name, ChainAsset::StaticType());
+            REQUIRE(inst != nullptr);
+            ChainAsset asset;
+            asset.readDep = readDep;
+            asset.refDep = refDep;
             REQUIRE(inst->WriteObject(asset).IsOk());
             return inst->Id();
         }
@@ -267,6 +333,7 @@ namespace
 RTTI_DEFINE_OBJECT(CookWidgetAsset, "rtti::pipeline::editor::test")
 RTTI_DEFINE_OBJECT(CookWidgetProduct, "rtti::pipeline::editor::test")
 RTTI_DEFINE_OBJECT(ChainAsset, "rtti::pipeline::editor::test")
+RTTI_DEFINE_OBJECT(VariantAsset, "rtti::pipeline::editor::test")
 
 TEST_CASE("cook: full cook then clean; products carry the source guid + product type")
 {
@@ -501,4 +568,109 @@ TEST_CASE("cook: a wide dependency level cooks in parallel on the JobSystem")
         CHECK(fx.CookedValue(ids[static_cast<usize>(i)]) == i);
     }
     CHECK(driver.Plan().dirty.IsEmpty());
+}
+
+TEST_CASE("cook variant axis: target cook recooks variant products + copies invariant ones forward")
+{
+    // asset-variants P2. Host cook (BC desktop) then a "web-astc" target cook into a SEPARATE DB:
+    // the platform-VARIANT product recooks with the target profile (100 -> 999); the INVARIANT
+    // products are carried forward from the host DB, never rebuilt (the cook-stats assertion).
+    Fixture fx(u8"scratch_cook_variant");
+    fx.WriteSourceFile(u8"a.txt", u8"12345");
+    const Guid inv1 = fx.AddWidget(u8"Inv1", 10, u8"a.txt"); // invariant (file-backed)
+    const Guid inv2 = fx.AddWidget(u8"Inv2", 20);            // invariant
+    const Guid var = fx.AddVariant(u8"Var");                 // platform-variant
+
+    // --- host cook (the always-warm desktop DB) ---
+    CookDriver host = fx.MakeDriver();
+    CookPlan hostPlan = host.Plan();
+    REQUIRE(hostPlan.dirty.Size() == 3u);
+    CookStats hostStats = host.Execute(hostPlan);
+    CHECK(hostStats.cooked == 3u);
+    CHECK(hostStats.copiedForward == 0u);
+    CHECK(fx.CookedValue(var) == 100); // host = BC profile (astc=false)
+
+    // --- a per-target cooked DB + its own cook cache ---
+    (void)CreateDirectory(PathJoin(fx.root.AsView(), u8"Cooked-astc").AsView());
+    (void)CreateDirectory(PathJoin(fx.root.AsView(), u8"Cache-astc").AsView());
+    vfs::NativeFileSystem targetCookedFs(PathJoin(fx.root.AsView(), u8"Cooked-astc").AsView());
+    vfs::NativeFileSystem targetCacheFs(PathJoin(fx.root.AsView(), u8"Cache-astc").AsView());
+    content::ContentDatabase targetDb(targetCookedFs, BinarySerializerFactory(), u8".rasset");
+
+    CookTarget astc{String(u8"web-astc"), /*bc*/ false, /*astc*/ true, /*etc2*/ false};
+    CookDriver target(*fx.sourceDb, targetDb, fx.builders, fx.sourcesFs.Get(), &targetCacheFs);
+    target.SetTarget(astc);
+    target.SetCopyForwardSource(*fx.cookedDb, host.Db());
+
+    CookPlan targetPlan = target.Plan();
+    REQUIRE(targetPlan.dirty.Size() == 3u); // fresh DB: everything is "dirty"
+    CookStats targetStats = target.Execute(targetPlan);
+
+    // The ACCEPTANCE property: exactly the one variant product cooked; the two invariant ones were
+    // copied forward, not rebuilt.
+    CHECK(targetStats.cooked == 1u);
+    CHECK(targetStats.copiedForward == 2u);
+    CHECK(targetStats.failed == 0u);
+
+    // The variant product differs per target (ASTC branch); invariants match the host byte-for-byte.
+    auto targetValue = [&](const Guid& id)
+    {
+        RefPtr<ISerializable> obj = targetDb.ReadObject(id);
+        auto* p = Cast<CookWidgetProduct>(obj.Get());
+        return (p != nullptr) ? p->cookedValue : -1;
+    };
+    CHECK(targetValue(var) == 999);          // recooked with the ASTC profile
+    CHECK(targetValue(inv1) == fx.CookedValue(inv1)); // copied forward unchanged
+    CHECK(targetValue(inv2) == fx.CookedValue(inv2));
+
+    // The copied-forward invariant sidecar came across too (Var's "data" stream).
+    UniquePtr<IStream> vdata = targetDb.GetInstance(var)->ReadData(u8"data");
+    REQUIRE(vdata);
+    CHECK(vdata->Size() == 1);
+
+    // A second target cook is fully clean: nothing recooks, nothing re-copies.
+    CHECK(target.Plan().dirty.IsEmpty());
+}
+
+TEST_CASE("cook variant axis: an invariant product that READS variant content recooks per target")
+{
+    // The salt must propagate through read-deps (CookDriverImpl folds each read's recipe). An
+    // INVARIANT builder whose product reads a VARIANT product's content is effectively variant: its
+    // recipe differs per target, so copy-forward must DECLINE and it recooks - otherwise the target
+    // DB would inherit host-BC-derived bytes.
+    Fixture fx(u8"scratch_cook_variant_readchain");
+    const Guid var = fx.AddVariant(u8"Var");         // platform-variant
+    (void)fx.AddChain(u8"Reader", var);              // invariant builder, READS the variant
+    const Guid plain = fx.AddWidget(u8"Plain", 7);   // invariant, reads nothing -> copies forward
+
+    CookDriver host = fx.MakeDriver();
+    CookPlan hostPlan = host.Plan();
+    CookStats hostStats = host.Execute(hostPlan);
+    REQUIRE(hostStats.failed == 0u);
+    REQUIRE(hostStats.cooked == 3u);
+
+    (void)CreateDirectory(PathJoin(fx.root.AsView(), u8"Cooked-astc").AsView());
+    (void)CreateDirectory(PathJoin(fx.root.AsView(), u8"Cache-astc").AsView());
+    vfs::NativeFileSystem targetCookedFs(PathJoin(fx.root.AsView(), u8"Cooked-astc").AsView());
+    vfs::NativeFileSystem targetCacheFs(PathJoin(fx.root.AsView(), u8"Cache-astc").AsView());
+    content::ContentDatabase targetDb(targetCookedFs, BinarySerializerFactory(), u8".rasset");
+
+    CookTarget astc{String(u8"web-astc"), false, true, false};
+    CookDriver target(*fx.sourceDb, targetDb, fx.builders, fx.sourcesFs.Get(), &targetCacheFs);
+    target.SetTarget(astc);
+    target.SetCopyForwardSource(*fx.cookedDb, host.Db());
+
+    CookPlan targetPlan = target.Plan();
+    CookStats targetStats = target.Execute(targetPlan);
+
+    // Var (variant) + Reader (reads var, salted recipe mismatch) both recook; only Plain copies.
+    CHECK(targetStats.cooked == 2u);
+    CHECK(targetStats.copiedForward == 1u);
+    CHECK(targetStats.failed == 0u);
+
+    // Plain (no variant input) came across unchanged.
+    RefPtr<ISerializable> plainObj = targetDb.ReadObject(plain);
+    auto* plainProduct = Cast<CookWidgetProduct>(plainObj.Get());
+    REQUIRE(plainProduct != nullptr);
+    CHECK(plainProduct->cookedValue == fx.CookedValue(plain));
 }

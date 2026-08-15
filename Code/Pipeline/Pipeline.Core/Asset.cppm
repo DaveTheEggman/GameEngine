@@ -57,6 +57,26 @@ export namespace pipeline
         }
     };
 
+    // The export target a cook is producing for (asset-variants P2). `id` names the target - it is
+    // BOTH the per-target cooked-DB directory name AND the recipe platform salt (so a variant
+    // product recooks when the target changes). The capability booleans describe the compressed-
+    // texture families the target's devices support; a variant builder maps them to its encoder
+    // profile (never keys on the id/platform directly - the capability-not-platform rule). The
+    // HostTarget() is the always-warm desktop view the editor cooks against.
+    struct CookTarget
+    {
+        String id;         // "host", "web-bc", "web-astc", ... (DB dir + recipe salt)
+        bool bc = true;    // BC1-BC7 (desktop + desktop browsers)
+        bool astc = false; // ASTC (mobile browsers)
+        bool etc2 = false; // deferred
+    };
+
+    // The default always-warm target the editor dev loop cooks against (BC-capable desktop).
+    [[nodiscard]] inline CookTarget HostTarget()
+    {
+        return CookTarget{String(u8"host"), true, false, false};
+    }
+
     // Inputs a builder cooks against: the sources mount (all file access through the VFS), the
     // output instance to write the cooked resource into, and the content DB (so a builder can
     // resolve cross-asset references during the bake).
@@ -67,6 +87,9 @@ export namespace pipeline
             nullptr; // the SOURCE instance being cooked (embedded data streams)
         foundation::content::Instance* output = nullptr;     // cooked resource is written here
         foundation::content::IContentDatabase* db = nullptr; // for resolving referenced assets
+        // The export target being produced (asset-variants P2). Null = the host target (a variant
+        // builder falls back to the desktop/BC profile - today's behavior).
+        const CookTarget* target = nullptr;
     };
 
     // What one build consumes beyond the implicit Asset::fileName. The cook driver hashes files
@@ -79,6 +102,18 @@ export namespace pipeline
                                      // hash doesn't cover - declaring them chains their bytes)
         Array<Guid> reads;           // instances whose CONTENT this build consumes (hash-chained)
         Array<Guid> references;      // instances the product refers to at runtime (existence only)
+    };
+
+    // Whether a builder's output can differ per export target (asset-variants Decision 3). The cook
+    // treats INVARIANT products as platform-agnostic: they are cooked ONCE into the host DB and
+    // copied forward into every target DB (never recooked), and their recipe carries no platform
+    // salt. VARIANT builders (textures: BC vs ASTC) cook per target and their recipe is salted by the
+    // target, so the same source produces a distinct product per target. Default INVARIANT so every
+    // existing builder keeps today's behavior.
+    enum class BuildVariance : u8
+    {
+        PlatformInvariant,
+        PlatformVariant,
     };
 
     // Cooks one source asset type into a runtime resource (source -> product).
@@ -97,6 +132,9 @@ export namespace pipeline
 
         // Cook-logic version: BUMP whenever Build()'s output changes for the same inputs.
         [[nodiscard]] virtual u32 Version() const { return 1; }
+
+        // Does this builder's product vary per export target? Default INVARIANT (see BuildVariance).
+        [[nodiscard]] virtual BuildVariance Variance() const { return BuildVariance::PlatformInvariant; }
 
         // Declare extra dependencies (Asset::fileName is implicit). Default: none.
         virtual void ScanDependencies(const Asset& asset, AssetBuildContext& ctx,

@@ -296,6 +296,13 @@ export namespace pipeline{
         // carries a BC format. Same-input output changed -> bump forces the re-cook.
         [[nodiscard]] u32 Version() const override { return 3; }
 
+        // Textures are THE platform-variant producer: BC on desktop, ASTC on mobile-web from the same
+        // source (asset-variants P2). The cook salts this builder's recipe by target + cooks per DB.
+        [[nodiscard]] pipeline::BuildVariance Variance() const override
+        {
+            return pipeline::BuildVariance::PlatformVariant;
+        }
+
         [[nodiscard]] const TypeInfo* AssetType() const override
         {
             return &TextureAsset::StaticType();
@@ -398,7 +405,7 @@ export namespace pipeline{
                 {
                     MaybeCompress(mipPixels, image.Width(), image.Height(), resource.mipLevels,
                                   ta.colorSpace == image::ImageColorSpace::Srgb, ta.usage,
-                                  ta.compression, resource.format);
+                                  ta.compression, ProfileFor(ctx), resource.format);
                 }
             }
             resource.shape = ta.shape;
@@ -427,9 +434,20 @@ export namespace pipeline{
         // every RGBA8 mip level in `pixels` to block bytes IN PLACE. `format` is updated to the chosen
         // format (unchanged when policy declines - small/None/HDR/no-BC-family). `pixels` holds the
         // level-0..N-1 RGBA8 chain tightly concatenated; the compressed chain replaces it 1:1.
+        // The compressed-family profile for a cook: the target's capabilities (asset-variants P2), or
+        // the always-BC desktop host when no target is set (the editor dev loop + today's behavior).
+        [[nodiscard]] static texcomp::TargetProfile ProfileFor(const pipeline::AssetBuildContext& ctx)
+        {
+            if (ctx.target == nullptr)
+            {
+                return texcomp::DesktopProfile();
+            }
+            return texcomp::TargetProfile{ctx.target->bc, ctx.target->astc, ctx.target->etc2};
+        }
+
         static void MaybeCompress(Array<byte>& pixels, u32 width, u32 height, u32 mipLevels, bool srgb,
                                   texcomp::TextureUsage usage, texcomp::CompressionChoice choice,
-                                  rhi::TextureFormat& format)
+                                  const texcomp::TargetProfile& profile, rhi::TextureFormat& format)
         {
             if (choice == texcomp::CompressionChoice::None)
             {
@@ -450,7 +468,7 @@ export namespace pipeline{
                 }
             }
             const rhi::TextureFormat chosen = texcomp::ResolveCompressedFormat(
-                usage, srgb, hasAlpha, choice, width, height, texcomp::DesktopProfile(), format);
+                usage, srgb, hasAlpha, choice, width, height, profile, format);
             if (!rhi::IsCompressed(chosen))
             {
                 return; // policy declined - leave the RGBA8 chain + format as-is
@@ -680,7 +698,7 @@ export namespace pipeline{
             {
                 MaybeCompress(pixels, ta.embeddedWidth, ta.embeddedHeight, resource.mipLevels,
                               ta.colorSpace == image::ImageColorSpace::Srgb, ta.usage, ta.compression,
-                              resource.format);
+                              ProfileFor(ctx), resource.format);
             }
             resource.shape = ta.shape;
             resource.minFilter = ta.minFilter;

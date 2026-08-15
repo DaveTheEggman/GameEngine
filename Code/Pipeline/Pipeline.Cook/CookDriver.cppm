@@ -138,6 +138,7 @@ export namespace pipeline
         i32 level = 0; // dependency depth (items cook level-by-level, parallel within)
         foundation::content::Instance* product = nullptr; // pre-created SERIALLY before workers run
         foundation::content::Instance* sourceInstance = nullptr; // snapshotted in PrepareProducts
+        bool copiedForward = false; // filled in PrepareProducts: invariant product carried from host
     };
 
     struct CookPlan
@@ -162,8 +163,9 @@ export namespace pipeline
     {
         usize cooked = 0;
         usize failed = 0;
+        usize copiedForward = 0;    // invariant products carried from the host DB (variant cook, P2)
         usize orphansSwept = 0;     // (CookPlan carries the swept count from PrepareProducts)
-        Array<Guid> cookedProducts; // successfully (re)built products - hot-reload input
+        Array<Guid> cookedProducts; // successfully (re)built OR copied products - hot-reload input
     };
 
     class CookDriver
@@ -182,6 +184,22 @@ export namespace pipeline
         }
 
         [[nodiscard]] CookDb& Db() noexcept { return m_db; }
+
+        /// The export target this driver cooks for (asset-variants P2). Default = HostTarget().
+        /// Salts the recipe of VARIANT builders (so a texture recooks per target) and is handed to
+        /// every Build() via AssetBuildContext::target. Set before Plan()/Execute().
+        void SetTarget(const CookTarget& target) { m_target = target; }
+        [[nodiscard]] const CookTarget& Target() const noexcept { return m_target; }
+
+        /// Enable platform-invariant copy-forward (asset-variants P2): when cooking a per-target DB,
+        /// an INVARIANT product whose recipe matches the host DB's record is copied from `hostCookedDb`
+        /// instead of being recooked. `hostRecords` is the host DB's already-loaded cook.db (its
+        /// recipe hashes gate the copy). Leave unset (the default) for a normal single-DB cook.
+        void SetCopyForwardSource(content::ContentDatabase& hostCookedDb, CookDb& hostRecords)
+        {
+            m_hostCookedDb = &hostCookedDb;
+            m_hostRecords = &hostRecords;
+        }
 
         /// Scoped plan: the requested roots plus their dependency CLOSURE (reads +
         /// references, transitively - a material's textures cook with it). `force` re-cooks
@@ -249,6 +267,11 @@ export namespace pipeline
         // threads: no DB mutation here - only reads + the product's own file writes.
         [[nodiscard]] bool CookItem_(CookItem& item);
 
+        // Copy-forward (main thread, in PrepareProducts): if `item` is an INVARIANT product whose
+        // host record recipe matches, copy the host product into item.product and stamp the target
+        // record. Returns true when carried forward (the item then skips the build). P2.
+        [[nodiscard]] bool TryCopyForward(CookItem& item);
+
         // The cooked-DB group mirroring the source instance's group path.
         [[nodiscard]] content::Group* MirrorGroup(content::Group& sourceGroup);
 
@@ -258,6 +281,10 @@ export namespace pipeline
         vfs::IFileSystem* m_sources; // nullable: embedded-data projects have no source files
         vfs::IFileSystem* m_cache;   // nullable: no persistence (tests / one-shot cooks)
         JobSystem* m_jobs;           // nullable: serial execution
+
+        CookTarget m_target = HostTarget(); // the export target this driver cooks for (P2)
+        content::ContentDatabase* m_hostCookedDb = nullptr; // copy-forward source (P2); null = off
+        CookDb* m_hostRecords = nullptr;                    // host cook.db - gates the copy by recipe
 
         CookDb m_db;
         HashMap<Guid, u64> m_recipeMemo;                   // per-Plan recipe cache

@@ -213,6 +213,14 @@ export namespace foundation::content
         // taken, or the primary type isn't registered. (Browser Duplicate.)
         Instance* CloneInstance(const Guid& id, StringView newName);
 
+        // Copy-forward: fill an EXISTING instance `dest` (in this DB) with the primary object + every
+        // data-stream sidecar of the instance `srcId` in `src`, byte-for-byte. `dest` and the source
+        // are expected to share a guid (the variant cook keeps product-guid == source-guid in both
+        // DBs), so the re-serialized object is identical. Used to carry platform-INVARIANT cooked
+        // products from the host DB into a per-target DB without re-cooking (asset-variants P2).
+        // NotFound when `srcId` is unknown in `src`; other failures propagate from write.
+        Status CopyContentForward(Instance& dest, ContentDatabase& src, const Guid& srcId);
+
         // Rename an instance IN PLACE (same group, same guid): moves the envelope and every
         // data-stream sidecar on disk (the name IS the filename - envelopes don't store it).
         // Guid-based references (scene refs, cook records) are untouched by design.
