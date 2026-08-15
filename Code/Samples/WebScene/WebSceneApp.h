@@ -758,28 +758,29 @@ namespace samples
                 {
                     renderSub->SetSsrEnabled(ssr);
                 }
-                // Scene-pass MSAA (independent of TAA - both can be on). Off/2x/4x map to sample
-                // counts 1/2/4. Offer ONLY device-supported counts: the valid set is not contiguous -
-                // WebGPU has no 2x - so on web this shows just "Off" and "4x" (picking an unsupported
-                // count would silently render at a lower one).
-                const core::u32 allCounts[] = {1u, 2u, 4u};
-                const char* allItems[] = {"Off", "2x", "4x"};
-                core::u32 msaaCounts[3] = {};
-                const char* msaaItems[3] = {};
+                // Scene-pass MSAA (independent of TAA - both can be on). Levels + labels come from
+                // engine::render::kMsaaLevels (the single source of truth; add 8x there and it shows
+                // here). Offer ONLY device-supported counts: the valid set is not contiguous - WebGPU
+                // has no 2x - so on web this shows just "Off" and "4x".
+                core::u32 msaaCounts[engine::render::MsaaLevelCount()] = {};
+                const char* msaaItems[engine::render::MsaaLevelCount()] = {};
                 int msaaN = 0;
                 int msaaIdx = 0;
-                for (int i = 0; i < 3; ++i)
+                for (core::u32 i = 0; i < engine::render::MsaaLevelCount(); ++i)
                 {
-                    if (!renderSub->SupportsMsaaSamples(allCounts[i]))
+                    const core::u32 count = engine::render::kMsaaLevels[i].samples;
+                    if (!renderSub->SupportsMsaaSamples(count))
                     {
                         continue;
                     }
-                    if (renderSub->MsaaSamples() >= allCounts[i])
+                    if (renderSub->MsaaSamples() >= count)
                     {
                         msaaIdx = msaaN; // select the highest supported count <= the current setting
                     }
-                    msaaCounts[msaaN] = allCounts[i];
-                    msaaItems[msaaN] = allItems[i];
+                    msaaCounts[msaaN] = count;
+                    // The labels are compile-time literals (null-terminated), safe as ImGui C strings.
+                    msaaItems[msaaN] =
+                        reinterpret_cast<const char*>(engine::render::kMsaaLevels[i].label.Data());
                     ++msaaN;
                 }
                 if (msaaN > 0 && ImGui::Combo("MSAA", &msaaIdx, msaaItems, msaaN))

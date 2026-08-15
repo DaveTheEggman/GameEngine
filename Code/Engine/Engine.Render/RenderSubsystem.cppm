@@ -44,6 +44,45 @@ export namespace engine::render
     // spelled engine::scene::SceneSubsystem where needed.)
     namespace scene = foundation::scene;
 
+    // The canonical, ordered scene-pass MSAA levels - the SINGLE source of truth for the UI list and
+    // the index<->sample-count mapping. Add a level HERE (e.g. {8u, "8x"}, plus raising the device
+    // ceiling + SupportsSampleCount) and every combo/menu + mapping picks it up; nothing else hardcodes
+    // the list. The device still capability-clamps at runtime (SupportsMsaaSamples), so an unsupported
+    // level is simply not offered / degrades.
+    struct MsaaLevel
+    {
+        u32 samples;
+        StringView label;
+    };
+    inline constexpr MsaaLevel kMsaaLevels[] = {
+        {1u, StringView(u8"Off")},
+        {2u, StringView(u8"2x")},
+        {4u, StringView(u8"4x")},
+    };
+    [[nodiscard]] constexpr u32 MsaaLevelCount() noexcept
+    {
+        return static_cast<u32>(sizeof(kMsaaLevels) / sizeof(kMsaaLevels[0]));
+    }
+    // The highest level whose sample count is <= `samples` (a stored 4 selects "4x", 3 selects "2x").
+    [[nodiscard]] constexpr i32 MsaaIndexForSamples(u32 samples) noexcept
+    {
+        i32 index = 0;
+        for (u32 i = 0; i < MsaaLevelCount(); ++i)
+        {
+            if (samples >= kMsaaLevels[i].samples)
+            {
+                index = static_cast<i32>(i);
+            }
+        }
+        return index;
+    }
+    [[nodiscard]] constexpr u32 MsaaSamplesForIndex(i32 index) noexcept
+    {
+        return (index >= 0 && index < static_cast<i32>(MsaaLevelCount()))
+                   ? kMsaaLevels[static_cast<u32>(index)].samples
+                   : 1u;
+    }
+
     class RenderSubsystem final : public foundation::runtime::Subsystem,
                                   public ISceneRenderer,
                                   public IScreenRenderer,

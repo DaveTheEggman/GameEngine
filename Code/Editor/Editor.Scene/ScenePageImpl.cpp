@@ -806,9 +806,13 @@ namespace editor
             menu->AddItem(text.AsView(),
                           [self, count]() { self->m_postOverride.msaaOverride = count; });
         };
-        msaaItem(u8"MSAA Off", 1);
-        msaaItem(u8"MSAA 2x", 2);
-        msaaItem(u8"MSAA 4x", 4);
+        // Levels from engine::render::kMsaaLevels (the single source of truth; add 8x there once).
+        for (u32 i = 0; i < engine::render::MsaaLevelCount(); ++i)
+        {
+            String label(u8"MSAA ");
+            label += engine::render::kMsaaLevels[i].label;
+            msaaItem(label.AsView(), static_cast<u8>(engine::render::kMsaaLevels[i].samples));
+        }
         const Float2 pos = anchor->LocalToScreen(Float2{0.0f, anchor->Height()});
         menu->Show(anchor->Context, pos.x, pos.y);
     }
