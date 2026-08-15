@@ -51,10 +51,10 @@ target_sources(GUI
             Widgets/Radio.cppm
             Widgets/Slider.cppm
             Widgets/ProgressBar.cppm
-            Widgets/LinearLayout.cppm
-            Widgets/GridLayout.cppm
-            Widgets/RelativeLayout.cppm
-            Widgets/FlexLayout.cppm
+            Layout/LinearLayout.cppm
+            Layout/GridLayout.cppm
+            Layout/RelativeLayout.cppm
+            Layout/FlexLayout.cppm
             Widgets/TextField.cppm
             Widgets/ScrollBar.cppm
             Widgets/ScrollView.cppm
