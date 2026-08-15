@@ -608,6 +608,25 @@ clamped to the target.
 - Note: the "UI: default font ... Roboto-Regular.ttf not loaded" warning is unrelated
   (game-UI subsystem font not packed for WebScene; WebScene draws no game-UI text).
 
+## 2026-08-15 - mobile-web smoke (precursor for Specs/asset-variants.md P3)
+
+Mobile-web is now IN SCOPE. Today's web build uses uncompressed RGBA textures,
+which every WebGPU device accepts - so this smoke isolates input/surface/memory
+from the format work that follows. Serve the existing web export and open it on
+a phone (same LAN or tunnel):
+
+- [ ] Chrome on Android: WebScene loads, renders the 3D scene (sky, meshes,
+      probe reflection), no console format/feature errors (chrome://inspect
+      remote devtools). Note the reported adapter + which texture-compression
+      feature it exposes (expect ASTC and/or ETC2, no BC).
+- [ ] iOS Safari (WebGPU is on by default in recent iOS): same load + render
+      check; note adapter + compression features.
+- [ ] Touch: does anything respond? (No touch bindings are expected to be
+      wired for WebScene - record what happens, don't fix here.)
+- [ ] Memory/perf note: does the tab survive the full scene, and roughly what
+      frame rate? (Uncompressed textures are the known memory hog - this
+      number is the "before" for the ASTC variant pak.)
+
 ## 2026-08-01 - built-in project manager (b5db25ec..97c7b757)
 
 - [x] Open Folder... on your real EditorProject -> opens; appears in recents.

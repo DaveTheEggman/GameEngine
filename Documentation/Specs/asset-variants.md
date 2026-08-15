@@ -50,9 +50,9 @@ size objection:
 
 User picked both-now (2026-08-15). BCn (bc7enc/rgbcx: BC1/3/4/5/7 + BC6H
 via bc7enc's companion or rgbcx HDR path - confirm exact repo coverage at
-vendor time) serves every current target. astcenc (ARM's reference encoder)
-lands now so the mobile path exists from day one, even though no shipped
-target consumes it yet (see Decision 4 for exactly when web-mobile does).
+vendor time) serves desktop and desktop-web. astcenc (ARM's reference
+encoder) has a REAL consumer from day one: mobile-web, in scope now
+(Decision 4) - the web export's ASTC variant pak.
 Both vendored under ThirdParty/ per the SDL precedent, MSVC-native, no
 toolchain additions (NO ispc).
 
@@ -64,8 +64,13 @@ toolchain additions (NO ispc).
   ONLY code that includes encoder headers. Exposes:
   - `EncodeBlockCompressed(image, TextureCompressionFormat, quality) -> bytes`
     per mip level (caller iterates the existing mip chain);
-  - `ResolveCompressedFormat(usage, colorSpace, alpha, TargetPlatform) ->
+  - `ResolveCompressedFormat(usage, colorSpace, alpha, TargetProfile) ->
     rhi::TextureFormat` - THE POLICY TABLE (Decision 5) in one place.
+    `TargetProfile` is a CAPABILITY struct ({bc, astc, etc2} + quality
+    default), derived from the export target - the resolver asks "what
+    format families does this target support", never "which platform is
+    this" (adopted from the 2026-08-15 external review). Consoles/new
+    targets later = a new profile, not new resolver branches.
   Pipeline-side and UI-free (the Pipeline rule); heavy third-party headers
   stay in implementation units (GCC module hygiene rule).
 - `Code/Pipeline/Pipeline.Core` - `AssetBuilder` gains
@@ -84,10 +89,17 @@ toolchain additions (NO ispc).
   bytesPerRow is per BLOCK row, 256-byte aligned - the strict path, per
   the WebGPU-stricter rule; validate on the WGSL path too).
 - Editor: import dialog + texture page gain the authored compression choice
-  (`Editor.Texture`); asset field `compression = Default | None | Quality`
-  (Default = policy table; None = today's raw path, the escape hatch;
-  Quality = force BC7/ASTC-4x4). Authored data lives on the ASSET (never
-  the runtime struct - the no-editor-data-in-runtime rule).
+  (`Editor.Texture`). TWO asset fields (adopted from the external review -
+  inference alone cannot classify a standalone PNG):
+  - `usage = Color | Normal | Mask | HDR` - the SEMANTIC hint the policy
+    table keys on. Model import sets it automatically from the material
+    slot (normal/mask slots known); standalone imports default to Color
+    with a dropdown.
+  - `compression = Default | None | Quality` (Default = policy table;
+    None = today's raw path, the escape hatch; Quality = force
+    BC7/ASTC-4x4).
+  Authored data lives on the ASSET (never the runtime struct - the
+  no-editor-data-in-runtime rule).
 
 ## Decision 4 - the web answer (user asked 2026-08-15)
 
@@ -96,22 +108,27 @@ WebGPU guarantees exactly one compressed-texture family per device:
 ASTC and/or ETC2 on MOBILE browsers. One exported web bundle may be opened
 by either - the cook cannot know the client at cook time.
 
-RESOLUTION, in order:
+RESOLUTION (mobile-web is IN SCOPE NOW - user directive 2026-08-15; we
+already ship web, so the web export must serve whatever browser opens it):
 
-- NOW: the web target cooks **BC** - our web track's reality is desktop
-  browsers (Chrome/Dawn verified, Firefox pending). Desktop-web and native
-  desktop share the BC policy row.
-- WHEN MOBILE-WEB MATTERS: the web export gains a SECOND variant pak (ASTC)
-  produced by the same axis, and the wasm boot selects the pak by the
-  adapter feature flag we already detect. Variant-selection-at-load, NOT
-  runtime transcoding - no Basis Universal dependency, no wasm transcoder
-  cost, and it reuses this spec's machinery verbatim.
+- The web export produces TWO variant paks from the same axis: **BC**
+  (desktop browsers) and **ASTC** (mobile browsers). The wasm boot selects
+  the pak by the adapter feature flag we already detect
+  (`textureCompressionBC` / `ASTC` in WebGpuAdapter). Variant-selection-
+  at-load, NOT runtime transcoding - no Basis Universal dependency, no
+  wasm transcoder cost.
+- PRECURSOR (before any compression work makes this urgent): smoke-test
+  the CURRENT web build on a mobile browser (Chrome Android; iOS Safari
+  where WebGPU is enabled). Today's textures are uncompressed RGBA, which
+  every WebGPU device accepts - so if the current build fails on mobile,
+  the failure is input/surface/memory, not formats, and it blocks this
+  spec's web acceptance. Added to the UAT web session.
 - ETC2: only if an ASTC-less mobile budget device ever matters; noted as
   the escape hatch (etc2comp-class encoder), deliberately NOT vendored.
 
 ## Decision 5 - the format policy table (Default mapping)
 
-| Source | Desktop / desktop-web | Mobile / mobile-web (dormant) |
+| Source (by authored `usage`) | BC-capable profile | ASTC-capable profile |
 |---|---|---|
 | sRGB color, no alpha | BC1 sRGB (fast) or BC7 sRGB (Quality) | ASTC 6x6 / 4x4 |
 | sRGB color + alpha | BC7 sRGB (BC3 only under a size knob) | ASTC 4x4 |
@@ -144,12 +161,16 @@ exact expected size in the cook test.
   web-target DB whose textures are BC and whose invariant products were
   copied not recooked (cook-stats assertion); desktop export byte-identical
   to pre-P2; editor dev loop untouched (host DB only).
-- **P3 - ASTC dormant path.** Policy-table mobile column live behind a
-  target that no preset ships yet; PSNR + format assertions keep it honest.
-  No boot-time pak selection until a mobile/web-mobile target exists.
-- **Deferred (do NOT build now):** boot-time variant-pak selection for
-  mixed web audiences, ETC2, RDO/rate-distortion knobs, GPU-compute
-  encoding, per-asset per-platform overrides in the UI.
+- **P3 - mobile-web: ASTC variant + boot-time pak selection.** The web
+  export preset produces the BC pak AND the ASTC pak; the wasm boot picks
+  by adapter capability before resource binding starts. Acceptance: PSNR +
+  format assertions for ASTC; desktop browser loads the BC pak, a mobile
+  browser (or a forced-capability test hook) loads the ASTC pak and
+  renders the probe scene. Precondition: the mobile-web smoke of the
+  CURRENT build (Decision 4) has run, so format work isn't debugging
+  input/surface issues at the same time.
+- **Deferred (do NOT build now):** ETC2, RDO/rate-distortion knobs,
+  GPU-compute encoding, per-asset per-platform overrides in the UI.
 
 ## Test notes
 
