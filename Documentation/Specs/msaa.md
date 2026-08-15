@@ -236,10 +236,24 @@ ordering refinement in review**); sample counts are `{1,4}` only on WebGPU (snap
 as a standing rule in memory `webgpu-stricter-than-vulkan`.
 
 **Open (resume here):**
-- **P1g** - the pixel-probe acceptance test: a high-contrast opaque edge rendered at 1x vs 4x, offscreen
-  readback (Sample016_Readback pattern), asserting intermediate-coverage pixels appear on the 4x edge;
-  confirm GTAO/SSR/TAA/FXAA still pass their existing probes with MSAA on; both backends. This is the
-  last unautomated piece of P1's acceptance.
+- **P1g - the pixel-probe acceptance test, on a generic capture/probe harness.** DECISION (2026-08-13):
+  build the readback substrate GENERIC, not MSAA-specific, because it is already needed in three
+  places - `VG.Backend.Tests/VGPixelProbeTests` and `Render.Backend.Tests/BackendOrientationTests`
+  each carry an inline copy of "make device -> render offscreen -> CopyTextureToBuffer -> Map -> probe
+  pixels", and the MSAA test is the third. Extract a small `foundation.rhi.testsupport` module:
+  `MakeTestDevice(Backend&)`; a `CapturedImage` (tightly-packed RGBA + `At`/`Luma`/`CountWhere(pred)`);
+  and a decoupled `Readback(device, colorTargetInCopySrc, w, h)` that owns the aligned readback buffer
+  + copy + map + unpack. Each consumer keeps its OWN render setup (VG builds a pass; the 3D tests drive
+  `RenderFrame`). Deliberately STRUCTURAL probes only - assert properties, never stored golden images
+  (the VG suite's rule: no cross-driver drift). Per-feature assertions stay in the feature's test.
+  - **The MSAA test (first consumer)** lives in `Render.Backend.Tests` beside the orientation probe:
+    render a high-contrast opaque scene (e.g. the white-cube-on-black from the orientation probe)
+    through `RenderFrame` WITH the `MsaaResolvePass` wired, at `post.msaaSamples` 1 then 4; `Readback`
+    both; assert the 4x capture has intermediate-luma pixels along the silhouette edge that the 1x
+    capture (hard black/white edges) does not. Tests the REAL pipeline path, both backends.
+  - Then confirm GTAO/SSR/TAA/FXAA still pass their existing probes with MSAA on.
+  - Follow-up (proves generality + dedupes): refactor the VG probe and the orientation probe onto the
+    shared `Readback`/`CapturedImage`.
 - **DX12 capability overrides** - `DxDevice` does not yet override `MaxColorDepthSampleCount` /
   `SupportsSampleCount`, so on the shipping Windows DX12 target they fall to the base defaults (1 /
   `count<=1`): MSAA silently reports unavailable there and every view degrades to 1x. D3D12 fully

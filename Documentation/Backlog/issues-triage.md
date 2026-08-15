@@ -161,7 +161,10 @@ code-standard-cleanup-scale track, not a bug fix:
 - Each module phase: behavior-identical, both compilers, ASAN green; the
   tag report grows a row per converted system.
 
-## I6. Texture compression missing - FEATURE TRACK (import + cook)
+## I6. Texture compression missing - SPECCED 2026-08-15, see Documentation/Specs/asset-variants.md
+
+> The sketch below is SUPERSEDED by the full spec (per-target variant axis +
+> BCn/ASTC encoders, both dependencies user-approved). Kept for history.
 
 Real gap: imported textures stay raw RGBA; cooking does no platform
 processing. Track shape:

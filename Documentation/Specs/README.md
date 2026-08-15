@@ -28,6 +28,14 @@ implementing agent's work).
 | [editor-polish.md](editor-polish.md) | - | M |
 | [source-path-p3-p4.md](source-path-p3-p4.md) | - | S |
 | [vg-quality-leftovers.md](vg-quality-leftovers.md) | #121 leftovers | M |
+| [msaa.md](msaa.md) | I11 | M (P1 built; P1g open) |
+| [entity-ref.md](entity-ref.md) | - | S (COMPLETE) |
+| [property-animation.md](property-animation.md) | #129 | L |
+| [asset-variants.md](asset-variants.md) | #133 | L (variants axis + texture compression) |
+| [mesh-lod.md](mesh-lod.md) | - | M (spec prepared, not scheduled) |
+| [paperboy.md](paperboy.md) | - | game plan |
+| [scene-scripting.md](scene-scripting.md) | - | M |
+| [documentation-system.md](documentation-system.md) | - | process |
 | [deferred-by-design.md](deferred-by-design.md) | - | note only |
 
 Sizes: S = a session or less, M = a few sessions, L = a multi-session track
