@@ -292,6 +292,7 @@ add_subdirectory(Code/Foundation/RHI)   # depends only on Core (foundational sib
 # --- RHI backends (Null/Validation always; GPU backends by platform + availability) ---
 add_subdirectory(Code/Foundation/RHI.Null)
 add_subdirectory(Code/Foundation/RHI.Validation)
+add_subdirectory(Code/Foundation/RHI.TestSupport) # offscreen-render test substrate (RHI + Core only)
 find_package(Vulkan QUIET GLOBAL)
 if(Vulkan_FOUND)
     add_subdirectory(Code/Foundation/RHI.Vulkan)
