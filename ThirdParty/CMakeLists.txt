@@ -172,6 +172,21 @@ target_include_directories(imgui SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/imgui
 set_target_properties(imgui PROPERTIES POSITION_INDEPENDENT_CODE ON
                                        OUTPUT_NAME thirdparty_imgui)
 
+# bc7enc - vendored BCn texture encoder (github.com/richgel999/bc7enc_rdo; permissive license,
+# attribution requested). BC1/3/4/5 via rgbcx, BC7 via bc7enc, BC7 decode via bc7decomp (round-trip
+# PSNR tests). Only the encoder/decoder core is vendored - no ISPC path, RDO, CLI, lodepng, or the
+# committed ispc.exe. Cook/import-time only (Texture.Compression); never linked at runtime. Does NOT
+# link policy (vendored code builds without our -Werror; SYSTEM include suppresses header warnings).
+add_library(bc7enc STATIC
+    bc7enc/bc7enc.cpp
+    bc7enc/rgbcx.cpp
+    bc7enc/bc7decomp.cpp)
+add_library(ThirdParty::Bc7enc ALIAS bc7enc)
+target_include_directories(bc7enc SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/bc7enc)
+# Distinct archive name (case-insensitive-FS collision lesson, per imgui above).
+set_target_properties(bc7enc PROPERTIES POSITION_INDEPENDENT_CODE ON
+                                        OUTPUT_NAME thirdparty_bc7enc)
+
 # Compiled third-party whose consumers have not yet climbed to web: msdfgen only
 # (import-time font tooling; the web build ships no authoring). Jolt/AngelScript/imgui all
 # build for wasm and live outside this gate.
