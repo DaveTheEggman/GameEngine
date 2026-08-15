@@ -1,9 +1,8 @@
-// Scene-pass MSAA acceptance probe (msaa.md P1g). Render a high-contrast opaque silhouette (a
-// bright, rotated cube on a black background) through the FULL RenderFrame chain - forward + the
-// MsaaResolvePass + tonemap - on real Vulkan and WebGPU, once at 1x and once at 4x, read the final
-// LDR pixels back, and assert the 4x image has a fringe of INTERMEDIATE-luma pixels along the
-// silhouette (partial coverage from the resolve) that the hard-edged 1x image does not. Structural
-// probe (no golden image); shares the readback substrate with the other backend tests.
+// Scene-pass MSAA acceptance probes (msaa.md P1g). All on real Vulkan + WebGPU via the shared
+// RHI.TestSupport readback substrate; STRUCTURAL assertions (no golden images).
+//   1) 4x resolve produces silhouette edge coverage that 1x does not (the core acceptance property).
+//   2) MSAA composes with the post-effect stack (TAA/FXAA/AO/SSR) at 4x - each still renders a sane
+//      lit image, guarding the resolve-rebind (those effects read the RESOLVED 1x buffers under MSAA).
 //
 // Cooked-pack WGSL path too (the browser's shaders, on wgpu-native):
 //   OPTION_USE_SHADER_PACK=1 ENV_WEBGPU_WGSL=1 ./Render.Backend.Tests
@@ -37,8 +36,18 @@ namespace
 {
     constexpr u32 kSize = 128;
 
-    // Render the silhouette scene at `sampleCount` and read the final LDR image back.
-    testsupport::CapturedImage RenderMsaa(rhi::Device& device, u32 sampleCount)
+    struct MsaaConfig
+    {
+        u32 samples = 1;
+        bool taa = false;
+        bool fxaa = false;
+        bool ssr = false;
+        u32 aoMode = 0; // 0 = off, 1 = GTAO
+    };
+
+    // Render a flat-lit rotated cube on black through the full RenderFrame chain (forward +
+    // MsaaResolvePass + tonemap, plus any effects the config enables) and read the LDR back.
+    testsupport::CapturedImage RenderMsaa(rhi::Device& device, const MsaaConfig& cfg)
     {
         testsupport::CapturedImage out;
         shaders::ShaderSystemHost host;
@@ -61,11 +70,25 @@ namespace
             REQUIRE(tonemap.Initialize().IsOk());
             MsaaResolvePass msaaResolve(device, shaderSystem);
             REQUIRE(msaaResolve.Initialize().IsOk());
+            TaaPass taa(device, shaderSystem);
+            REQUIRE(taa.Initialize().IsOk());
+            FxaaPass fxaa(device, shaderSystem, 2);
+            REQUIRE(fxaa.Initialize().IsOk());
+            AoPass ao(device, shaderSystem);
+            REQUIRE(ao.Initialize().IsOk());
+            SsrPass ssr(device, shaderSystem);
+            REQUIRE(ssr.Initialize().IsOk());
 
             RenderFrame frame(device, registry, 2, /*clusters*/ nullptr, &tonemap, /*shadows*/ nullptr,
-                              /*ibl*/ nullptr, /*sky*/ nullptr, /*bloom*/ nullptr, /*taa*/ nullptr,
-                              /*ao*/ nullptr, /*fxaa*/ nullptr);
+                              /*ibl*/ nullptr, /*sky*/ nullptr, /*bloom*/ nullptr,
+                              cfg.taa ? &taa : nullptr, cfg.aoMode != 0 ? &ao : nullptr,
+                              cfg.fxaa ? &fxaa : nullptr);
             frame.SetMsaaResolve(&msaaResolve);
+            if (cfg.ssr)
+            {
+                frame.SetSsr(&ssr);
+                frame.SetSsrParams(true, SsrPass::Params{});
+            }
 
             // A bright white cube, ROTATED so its silhouette is diagonal (long edges = a clear
             // coverage signal), on a black clear. Flat bright ambient - no lights needed.
@@ -109,11 +132,17 @@ namespace
             settings.clear = rhi::ClearColor::Black();
             settings.targetTexture = target;
             settings.targetFinalState = rhi::ResourceState::CopySrc;
-            settings.post.taaEnabled = false;
             settings.post.bloomEnabled = false;
-            settings.post.msaaSamples = static_cast<u8>(sampleCount);
+            settings.post.taaEnabled = cfg.taa;
+            settings.post.fxaaEnabled = cfg.fxaa;
+            settings.post.ssrEnabled = cfg.ssr;
+            settings.post.aoMode = cfg.aoMode;
+            settings.post.needsMotion = cfg.taa || cfg.ssr; // TAA + (temporal) SSR read motion vectors
+            settings.post.msaaSamples = static_cast<u8>(cfg.samples);
 
-            for (u32 i = 0; i < 2; ++i)
+            // TAA warms its history over a few frames on a static camera; others need only one.
+            const u32 frames = cfg.taa ? 8u : 2u;
+            for (u32 i = 0; i < frames; ++i)
             {
                 rhi::CommandEncoder* encoder = nullptr;
                 REQUIRE(pool->CreateEncoder(encoder).IsOk());
@@ -172,16 +201,24 @@ namespace
             });
     }
 
-    void ProbeDevice(rhi::Device& device, const char* backendName)
+    [[nodiscard]] bool Has4xMsaa(rhi::Device& device, const char* backendName)
     {
-        const u32 ceiling = device.MaxColorDepthSampleCount();
-        if (ceiling < 4 || !device.SupportsSampleCount(4))
+        if (device.MaxColorDepthSampleCount() < 4 || !device.SupportsSampleCount(4))
         {
             MESSAGE("device has no 4x MSAA - scene-pass probe skipped on ", backendName);
+            return false;
+        }
+        return true;
+    }
+
+    void ProbeEdgeCoverage(rhi::Device& device, const char* backendName)
+    {
+        if (!Has4xMsaa(device, backendName))
+        {
             return;
         }
-        const testsupport::CapturedImage at1x = RenderMsaa(device, 1);
-        const testsupport::CapturedImage at4x = RenderMsaa(device, 4);
+        const testsupport::CapturedImage at1x = RenderMsaa(device, MsaaConfig{.samples = 1});
+        const testsupport::CapturedImage at4x = RenderMsaa(device, MsaaConfig{.samples = 4});
         REQUIRE(at1x.valid);
         REQUIRE(at4x.valid);
 
@@ -203,38 +240,81 @@ namespace
         CHECK(fringe4x > fringe1x * 3);
         CHECK(fringe4x > 40);
     }
+
+    void ProbeEffectStack(rhi::Device& device, const char* backendName)
+    {
+        if (!Has4xMsaa(device, backendName))
+        {
+            return;
+        }
+        const struct
+        {
+            const char* name;
+            MsaaConfig cfg;
+        } runs[] = {
+            {"taa", {.samples = 4, .taa = true}},
+            {"fxaa", {.samples = 4, .fxaa = true}},
+            {"ao", {.samples = 4, .aoMode = 1}},
+            {"ssr", {.samples = 4, .ssr = true}},
+        };
+        for (const auto& run : runs)
+        {
+            const testsupport::CapturedImage img = RenderMsaa(device, run.cfg);
+            REQUIRE(img.valid);
+            const u32 maxL = MaxLuma(img);
+            const u32 lit =
+                img.CountWhere([](const u8* p) { return static_cast<u32>(p[0]) + p[1] + p[2] > 100; });
+            std::printf("[msaa+fx] %-8s %-4s maxLuma=%u lit=%u\n", backendName, run.name, maxL, lit);
+            INFO(backendName, " 4x + ", run.name, ": maxLuma=", maxL, " lit=", lit);
+            // The effect composed with the MSAA resolve without breaking: the cube is still a
+            // clearly-lit solid covering a real area, and the values are sane (not garbage/overflow).
+            CHECK(maxL > 300);
+            CHECK(maxL <= 765);
+            CHECK(lit > 200);
+        }
+    }
+
+    void ForEachBackend(void (*probe)(rhi::Device&, const char*))
+    {
+        rhi::Backend* vulkan = nullptr;
+        (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+        rhi::Backend* webgpu = nullptr;
+        (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+
+        bool any = false;
+        if (rhi::Device* device = testsupport::MakeTestDevice(vulkan))
+        {
+            probe(*device, "vulkan");
+            device->Destroy();
+            any = true;
+        }
+        else
+        {
+            MESSAGE("Vulkan unavailable - skipped");
+        }
+        if (rhi::Device* device = testsupport::MakeTestDevice(webgpu))
+        {
+            probe(*device, "webgpu");
+            device->Destroy();
+            any = true;
+        }
+        else
+        {
+            MESSAGE("WebGPU unavailable - skipped");
+        }
+        if (!any)
+        {
+            MESSAGE("no GPU backend available - MSAA probe skipped entirely");
+        }
+    }
 }
 
 TEST_CASE("msaa: 4x scene-pass resolve produces silhouette edge coverage that 1x does not")
 {
-    rhi::Backend* vulkan = nullptr;
-    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
-    rhi::Backend* webgpu = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    ForEachBackend(&ProbeEdgeCoverage);
+}
 
-    bool any = false;
-    if (rhi::Device* device = testsupport::MakeTestDevice(vulkan))
-    {
-        ProbeDevice(*device, "vulkan");
-        device->Destroy();
-        any = true;
-    }
-    else
-    {
-        MESSAGE("Vulkan unavailable - vulkan MSAA probe skipped");
-    }
-    if (rhi::Device* device = testsupport::MakeTestDevice(webgpu))
-    {
-        ProbeDevice(*device, "webgpu");
-        device->Destroy();
-        any = true;
-    }
-    else
-    {
-        MESSAGE("WebGPU unavailable - webgpu MSAA probe skipped");
-    }
-    if (!any)
-    {
-        MESSAGE("no GPU backend available - MSAA probe skipped entirely");
-    }
+TEST_CASE("msaa: composes with the post-effect stack (TAA/FXAA/AO/SSR) at 4x")
+{
+    ForEachBackend(&ProbeEffectStack);
 }

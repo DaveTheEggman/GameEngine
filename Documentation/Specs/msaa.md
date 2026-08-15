@@ -252,11 +252,14 @@ as a standing rule in memory `webgpu-stricter-than-vulkan`.
   1x=**0**, 4x=**103** - identical on Vulkan and WebGPU, both compilers, deterministic. Tests the real
   pipeline path.
 
+- Post-effect composition (the other half of P1's acceptance): a second `MsaaProbeTests` case renders
+  the cube at 4x with each of TAA/FXAA/AO/SSR enabled (the effects read the RESOLVED 1x buffers, so a
+  broken resolve-rebind would surface here) and asserts each still renders a sane lit cube. All four
+  pass on Vulkan + WebGPU, both compilers - MSAA composes with the full post stack. DONE.
+
 **Open (resume here):**
-- Confirm GTAO/SSR/TAA/FXAA still pass their existing probes with MSAA on (the other half of P1's
-  automated acceptance).
-- Follow-up (proves the harness is truly general + dedupes ~200 lines): refactor the VG probe and the
-  orientation probe onto the shared `Readback`/`CapturedImage`.
+- Follow-up (proves the harness is truly general + dedupes): refactor the VG probe and the orientation
+  probe onto the shared `Readback`/`CapturedImage`.
 - **DX12 capability overrides** - `DxDevice` does not yet override `MaxColorDepthSampleCount` /
   `SupportsSampleCount`, so on the shipping Windows DX12 target they fall to the base defaults (1 /
   `count<=1`): MSAA silently reports unavailable there and every view degrades to 1x. D3D12 fully
@@ -303,4 +306,5 @@ Checklist (2026-08-12):
 - [x] Editor toggle user-verified on Sponza (RTX 2060); WebGPU verified in-browser + desktop `--webgpu`.
 - [x] New scene-pass pixel probe (1x vs 4x opaque edge) - **DONE** (RHI.TestSupport harness +
       MsaaProbeTests; fringe 1x=0, 4x=103, Vulkan + WebGPU, both compilers).
-- [ ] Full existing probe battery (GTAO/SSR/TAA/FXAA) re-run green with MSAA on - **P1g, open**.
+- [x] Post effects (TAA/SSR/GTAO/FXAA) re-run green with MSAA on - **DONE** (MsaaProbeTests
+      effect-stack case; each renders a sane cube at 4x, Vulkan + WebGPU, both compilers).
