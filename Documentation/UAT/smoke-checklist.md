@@ -713,3 +713,4 @@ Export:
 play name needs os executable extension. Else Windows player named "Player" exports as "Player" instead of "Player.exe".
 
 Need a template build script to quickly build templates for supported platforms.
+Dragging many fbx onto the asset browser for drag/drop, the whole view blanks out.
