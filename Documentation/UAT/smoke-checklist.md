@@ -19,10 +19,37 @@ music isolation), game-UI P1 HUD click consumption, post-fx no-regression + insp
 tonemap, scene XML round-trip basics + small-diff saves, and the LMB crate shove
 (root-press consumption fix + cursor pick-ray, verified on screen). 2026-07-28: the ENTIRE CodeEditView P1 section (script + UI-document panes on the new code editor incl. the two first-run fixes: caret auto-scroll vs stale scrollbar max, gutter clip) verified and pruned. P2 syntax highlighting fully verified same day (+ the per-region cursor fix). 2026-07-29: P3+P4 fully verified (incl. the retest fixes: two-row find bar, punctuation key bridge, pointer tooltips without focus steal, completion ranking tiers + overflow indicator, ToggleButtons). CodeEditView track COMPLETE.
 
+## Name changes since these items were written (debrand) - substitute when running commands
+
+Older items reference pre-debrand names. The features are unchanged; the binaries,
+targets, and env vars are not. Substitute:
+
+| Item says | Run instead |
+|---|---|
+| `DraconicExport` / `Draconic.Tools.Export` | `Tools.Export` |
+| `DraconicPlayer` / `Draconic.Engine.Player` | `Engine.Player` |
+| `Draconic.Tools.Editor` | `Tools.Editor` |
+| `Draconic.Tools.ShaderPack` | `Tools.ShaderPack` |
+| `DraconicSample001_Triangle` | `Sample001_Triangle` |
+| `DraconicSmoketest` | `Smoketest` |
+| `DRACONIC_USE_SHADER_PACK` | `OPTION_USE_SHADER_PACK` |
+| `DRACONIC_WEBGPU_WGSL` | `ENV_WEBGPU_WGSL` |
+
+Also: web export template ids were debranded (77ada6c3) - an installed
+`draconic-web-debug-*` template on this machine is stale and needs re-creating
+before the web session.
+
+2026-08-15 audit pass: 14 functional items below are checked off against automated
+test evidence (cited inline as TEST-COVERED); 2 items struck as superseded. Visual/
+audible/interactive items were never auto-checked - those remain for user sessions.
+
 ## Text scenes (0ba08e9) — scenes/prefabs are now XML sources
-- [ ] Export from the editor: staged pak carries BINARY scene streams (transcoded on the
+- [x] Export from the editor: staged pak carries BINARY scene streams (transcoded on the
       main thread before the pack job); the exported player runs as before. DraconicExport
       (CLI) produces the same binary-staged pak (full parity since 815b165).
+      (TEST-COVERED: Editor.Core.Tests/ExportTests.cpp "export: project -> dist pak ->
+      player-style load-back (versioned formats)" + Scene.Resource.Tests/SceneSerializeTests.cpp
+      "text scenes: transcode to binary preserves parked prefab pendings")
 - [ ] A prefab OVERRIDE (e.g. a changed material or health-style field on an instance
       member) appears in the scene XML as readable fields inside its componentOps record
       — not a hex blob.
@@ -197,47 +224,61 @@ tonemap, scene XML round-trip basics + small-diff saves, and the LMB crate shove
       spam — stolen voices fade ~30 ms, no clicks.
 - [ ] Playhead: clip page playhead tracks the TRUE cursor (looping clip visibly wraps;
       pitch changes no longer drift it); cue page shows seconds while auditioning.
-- [ ] Wren: Audio.playOneShot("<content path>") / playMusic / playCue from game.wren;
-      a typo'd path warns once and stays silent.
+- [x] Wren: Audio.playOneShot("<content path>") / playMusic / playCue from game.wren;
+      a typo'd path warns once and stays silent. (TEST-COVERED:
+      Integration.ScriptFacades/AudioFacadeScriptTests.cpp "audio-facade: the Wren Audio
+      facade plays clips/cues/music by CONTENT PATH through the resource seam")
 - [ ] Reverb send: reverbSend 0.6 on one source — it carries a tail while a dry source
       beside it doesn't; zones still wet the whole scene on top.
 
 ## Scripting behaviors P2/P3 (merge) — messaging, throttle, spawn/find, coroutines
-- [ ] **entity.send (deferred dispatch):** two behaviors where A calls `entity.send(b, "ping",
+- [x] **entity.send (deferred dispatch):** two behaviors where A calls `entity.send(b, "ping",
       ...)` inside onUpdate and B has an `onMessage`/handler — B receives it (next drain at the
       tick top), NO re-entrancy crash. Sending during a physics contact callback likewise
-      delivers safely (queued, not synchronous). Works on BOTH backends.
-- [ ] **updateInterval throttle:** a behavior that sets `updateInterval` (e.g. 0.5s) ticks at
-      that cadence, not every frame; interval 0 = every frame.
-- [ ] **Scene.spawn / find:** a behavior calls `Scene.spawn(<prefab>)` — the instance appears
+      delivers safely (queued, not synchronous). Works on BOTH backends. (TEST-COVERED:
+      Engine.Script.Tests/ScriptSceneTests.cpp entity.send cases incl. safe no-op + LUAU variant)
+- [x] **updateInterval throttle:** a behavior that sets `updateInterval` (e.g. 0.5s) ticks at
+      that cadence, not every frame; interval 0 = every frame. (TEST-COVERED:
+      ScriptSceneTests.cpp throttle + wire-symmetry cases, both backends)
+- [x] **Scene.spawn / find:** a behavior calls `Scene.spawn(<prefab>)` — the instance appears
       live and runs its own behaviors; `Scene.find(name)` / `findByPath(...)` resolve an
       existing entity. Spawn mid-tick is deferred-safe (no iterator invalidation). Both backends.
-- [ ] **Coroutines:** a behavior starts a coroutine that yields across frames (Wren fiber /
+      (TEST-COVERED: ScriptSceneTests.cpp spawn/find + the two spawn-mid-tick footgun cases)
+- [x] **Coroutines:** a behavior starts a coroutine that yields across frames (Wren fiber /
       AngelScript scheduler) — it resumes over successive updates; destroying the entity
-      cancels its coroutines (CancelCoroutinesFor, no leak/crash). Both backends.
-- [ ] **Physics contact events → script:** a behavior on a RigidBody entity gets onContact
+      cancels its coroutines (CancelCoroutinesFor, no leak/crash). Both backends. (TEST-COVERED:
+      ScriptSceneTests.cpp wait/waitUntil/cancel-on-destroy/disable + LUAU waitSeconds)
+- [x] **Physics contact events → script:** a behavior on a RigidBody entity gets onContact
       (enter/stay/exit) when it collides — the OTHER entity is correctly identified (body
       userword packs entity index|generation, unique by construction — NOT the lossy GUID-low).
       Two colliding scripted crates each see the other. The bridge lives in the composition
-      root (DefaultApplication), not a script→physics dependency.
-- [ ] **Delegates + introspection:** a `DelegateSignal`-style delegate can be subscribed from
+      root (DefaultApplication), not a script→physics dependency. (TEST-COVERED:
+      ScriptSceneTests.cpp onContactBegin(other, point, normal) identity case + LUAU variant)
+- [x] **Delegates + introspection:** a `DelegateSignal`-style delegate can be subscribed from
       script and fires its handlers; the ScriptClassesView-style introspection reports the
       backend's ACTUAL bound API surface (per-backend, not raw reflection) — names/types match
-      what the chosen backend actually exposes.
+      what the chosen backend actually exposes. (TEST-COVERED: Script.Tests/BackendConformance.h
+      DelegateSignal certification, every declaring backend + Mcp.Script.Tests script_api case)
 
 ## AngelScript step debugger P1 + P1.5 (merge) — suspension breakpoints
-- [ ] While paused: the CALL STACK and LOCAL variables are inspectable; Step (over/into) and
+- [x] While paused: the CALL STACK and LOCAL variables are inspectable; Step (over/into) and
       Continue advance execution; removing the breakpoint + Continue runs freely again. No
-      crash on stop-while-paused (clean teardown).
+      crash on stop-while-paused (clean teardown). (TEST-COVERED: Script.Tests/
+      BackendConformance.h debugger certification (breakpoint stop, CaptureLocals, StepOver,
+      Continue, clean terminate) run by the AS + Luau batteries. The on-screen editor
+      debugger section near the end of this file remains a user item.)
 
 ## Export: templates + (platform, config) axis (8f0fafd + merge 9b94341)
-- [ ] **CreateTemplate / config axis:** create export templates that differ by (platform,
+- [x] **CreateTemplate / config axis:** create export templates that differ by (platform,
       config) — e.g. Linux64/Debug and Linux64/Release — with distinct ids
       (`host-<platform>-<config>`). `FindBy(platform, config)` resolves the right one; the
-      exported host carries the matching build config/compiler identity.
-- [ ] **Symbols staging:** a template with symbols enabled stages the debug symbols sidecar
+      exported host carries the matching build config/compiler identity. (TEST-COVERED:
+      ExportTests.cpp FindBy exact + Release-preferring fallback, CreateTemplate packaging,
+      registry resolve by id/platform/host-fallback)
+- [x] **Symbols staging:** a template with symbols enabled stages the debug symbols sidecar
       alongside the player; disabled omits them. Categorized runtime-lib sidecars
-      (`<player>.runtime-libs`) still stage per config.
+      (`<player>.runtime-libs`) still stage per config. (TEST-COVERED: ExportTests.cpp
+      symbols-only-when-opted-in + player-and-sidecars staging cases)
 - [ ] **DraconicExport CLI parity:** `DraconicExport <project> --template list` shows the templates;
       `--template import <file>` imports one; `--preset <name>` / `--all` export using the
       (platform, config) template — same staged output as the editor path.
@@ -262,9 +303,10 @@ tonemap, scene XML round-trip basics + small-diff saves, and the LMB crate shove
 - [ ] Right-click a GROUP (row or left tree) > **Always export contents** — the group gets the
       green dot; the flag stores the group PATH (open export_roots.xml). Drop a new asset into that
       group, export via CLI with `pruneToReachable`: the new asset is included (dynamic membership).
-- [ ] CLI prune honors flags: flag an otherwise-unreferenced asset Always Export, `DraconicExport`
+- [x] CLI prune honors flags: flag an otherwise-unreferenced asset Always Export, `DraconicExport`
       with a pruning preset — export-report.txt lists it as an `always-export` (or
-      `always-export-group`) root and it ships; unflag it and it drops.
+      `always-export-group`) root and it ships; unflag it and it drops. (TEST-COVERED:
+      ExportTests.cpp CollectExportRoots flag/group seeding + pruned-dist keeps-and-reports case)
 - [ ] **Editor pruning (cee4a13):** in the editor, set a preset's "Prune to reachable content
       only", flag an otherwise-unreferenced asset Always Export, File > Export — the exported
       player is pruned (unflagged/unreferenced assets absent, flagged + referenced present),
@@ -273,23 +315,25 @@ tonemap, scene XML round-trip basics + small-diff saves, and the LMB crate shove
       main thread before the background job — brief pre-scan pause on huge projects is expected.)
 
 ## Export: reachability pruning — CLI (Phase 1, merge)
-- [ ] **pruneToReachable (CLI):** export a project with a preset that has `pruneToReachable`
+- [x] **pruneToReachable (CLI):** export a project with a preset that has `pruneToReachable`
       on — `export-report.txt` lists the reachable closure and the pruned size is dramatically
       smaller than pack-everything (the proof case was ~139MB vs ~719MB). The exported player
       still runs (nothing reachable was dropped): scenes load, referenced meshes/textures/
-      materials/prefabs/scripts/audio all present.
+      materials/prefabs/scripts/audio all present. (TEST-COVERED: ExportTests.cpp pruned-dist
+      closure-kept/rest-dropped, scene->prefab->asset chain, player-style load-back)
 - [ ] **Scene-edge scanning:** a resource referenced ONLY through a scene component (e.g. a
       RigidBody's collision shape, an AudioSource clip, a ui.Canvas document) survives the
       prune — SceneReferenceScanner bridges scene→asset edges. Nothing referenced goes missing.
-- [ ] (KNOWN, deferred) EDITOR export still packs everything (safe) — the scanner needs
-      main-thread scene loading and editor export runs as a background job; the main-thread
-      pre-scan fix is queued. Verify the editor export at least still produces a runnable player.
+- [x] ~~(KNOWN, deferred) EDITOR export still packs everything (safe)~~ SUPERSEDED: editor
+      pruning shipped (cee4a13, main-thread pre-scan) - verify via the "Editor pruning" item
+      in the Always-Export section above instead; this deferred-state note is stale bookkeeping.
 
 ## Editor stability fix (21a1a66) — JobService no longer drops a job's last logs
-- [ ] Run a fast cook/import/export repeatedly — its final log lines always appear in the
+- [x] Run a fast cook/import/export repeatedly — its final log lines always appear in the
       console (no silently-dropped "done" line). (Fixed a real EditorJobService race where a
       log appended between the last drain and completion was discarded; also the source of the
-      intermittent `DraconicEditorCoreTests` ctest flake, now green.)
+      intermittent `DraconicEditorCoreTests` ctest flake, now green.) (TEST-COVERED:
+      Editor.Core.Tests/JobServiceTests.cpp - the in-job log survives to completion)
 
 ## Post-processing config (edde64c..0f852fb) — authored per scene, applied per view
 - [ ] **AA per-view:** set Anti-Aliasing = TAA — edges stabilize (temporal); = FXAA — edges smooth
@@ -370,9 +414,11 @@ tonemap, scene XML round-trip basics + small-diff saves, and the LMB crate shove
       ([cooked] badge refreshes) and a Texture built from the image follows the change.
 
 ## Generic fallback asset page (bespoke pass 8) — NEW, needs first on-screen run
-- [ ] Guid pick undo: pick a mesh into sourceMesh via the button, Ctrl+Z restores the previous
-      guid (one undo step); a hand-typed INVALID guid string is refused (row keeps the old
-      value); a hand-typed valid canonical guid applies.
+- [x] ~~Guid pick undo: pick a mesh into sourceMesh via the button, Ctrl+Z restores the
+      previous guid~~ SUPERSEDED as written: CollisionShapeAsset now opens a bespoke page
+      (891b3647), not the generic form - this exact repro no longer exists. If the generic
+      page's guid-undo still wants a check, re-author against an asset type that still falls
+      through to the generic form.
 
 ## AngelScript debugger end-to-end (code-editor capstone) — NEW, needs first on-screen run
 The AS backend debugger (suspension-based, battery-certified) was ALREADY live - only the
