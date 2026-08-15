@@ -708,3 +708,8 @@ Skeleton preview should be drawn in animation graph, with on/off toggle. mesh ca
 Content:
 Are empty groups pruned?
 I add a group, don't add any instances to it. Close and re-open editor. Group is gone.
+
+Export:
+play name needs os executable extension. Else Windows player named "Player" exports as "Player" instead of "Player.exe".
+
+Need a template build script to quickly build templates for supported platforms.
