@@ -187,6 +187,21 @@ target_include_directories(bc7enc SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/bc7e
 set_target_properties(bc7enc PROPERTIES POSITION_INDEPENDENT_CODE ON
                                         OUTPUT_NAME thirdparty_bc7enc)
 
+# astcenc - vendored ASTC encoder/decoder (github.com/ARM-software/astc-encoder; Apache-2.0). The
+# mobile-web compressed family (asset-variants Decision 4). Only the astcenc_*.cpp core is vendored -
+# no astcenccli_* front end, no test/bench harness (see astcenc/README.draconic.md). Forced onto the
+# scalar "none" ISA path so ONE static lib builds on desktop x86 AND wasm with no per-arch source
+# selection - a cook-time encoder is never on a runtime hot path. Cook/import-time only
+# (Texture.Compression); never linked at runtime. SYSTEM include suppresses its header warnings.
+file(GLOB ASTCENC_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/astcenc/astcenc_*.cpp)
+add_library(astcenc STATIC ${ASTCENC_SOURCES})
+add_library(ThirdParty::Astcenc ALIAS astcenc)
+target_include_directories(astcenc SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/astcenc)
+target_compile_definitions(astcenc PUBLIC
+    ASTCENC_SSE=0 ASTCENC_AVX=0 ASTCENC_POPCNT=0 ASTCENC_F16C=0 ASTCENC_NEON=0 ASTCENC_SVE=0)
+set_target_properties(astcenc PROPERTIES POSITION_INDEPENDENT_CODE ON
+                                         OUTPUT_NAME thirdparty_astcenc)
+
 # Compiled third-party whose consumers have not yet climbed to web: msdfgen only
 # (import-time font tooling; the web build ships no authoring). Jolt/AngelScript/imgui all
 # build for wasm and live outside this gate.
