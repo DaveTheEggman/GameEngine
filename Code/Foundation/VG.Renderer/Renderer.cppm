@@ -18,6 +18,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 
 export module foundation.vg.renderer:renderer;
 
@@ -226,6 +227,8 @@ export namespace foundation::vg::renderer
             m_frameVertexOffsets[static_cast<usize>(frameIndex)] = 0;
             m_frameIndexOffsets[static_cast<usize>(frameIndex)] = 0;
             m_frameUniformSlotCount[static_cast<usize>(frameIndex)] = 0;
+            // Apply any pending capacity growth to this slot now that it is free for reuse.
+            GrowFrameBuffers(frameIndex);
             m_drawCommands.Clear();
             m_batchTextures.Clear();
         }
@@ -251,12 +254,40 @@ export namespace foundation::vg::renderer
             const u32 sliceIdxOffset = m_frameIndexOffsets[static_cast<usize>(frameIndex)];
             const u32 sliceUniformSlot = m_frameUniformSlotCount[static_cast<usize>(frameIndex)];
 
-            const u32 maxVertBytes = static_cast<u32>(MaxVertices * sizeof(VGRenderVertex));
-            const u32 maxIdxBytes = static_cast<u32>(MaxIndices * sizeof(u32));
+            // Uniform slots stay a hard cap (one per SURFACE/slice; exceeding 64 surfaces is rare).
+            if (sliceUniformSlot >= static_cast<u32>(MaxUniformSlots))
+                return VGRenderSlice{};
+            const u32 curVertCap =
+                static_cast<u32>(m_frameVertexCapacity[static_cast<usize>(frameIndex)]);
+            const u32 maxVertBytes = curVertCap * static_cast<u32>(sizeof(VGRenderVertex));
+            const u32 maxIdxBytes = curVertCap * 3u * static_cast<u32>(sizeof(u32));
             if (sliceVertOffset + vertByteSize > maxVertBytes ||
-                sliceIdxOffset + idxByteSize > maxIdxBytes ||
-                sliceUniformSlot >= static_cast<u32>(MaxUniformSlots))
-                return VGRenderSlice{}; // capacity exceeded
+                sliceIdxOffset + idxByteSize > maxIdxBytes)
+            {
+                // The per-frame buffers are too small for this frame's accumulated geometry. Bump the
+                // target (grown at the next BeginFrame, when the slot is free) and skip this slice.
+                // One frame may blank during a growth step, then it renders - vs the old behavior of
+                // blanking the whole surface for as long as the large draw list persists.
+                const u32 neededVerts =
+                    (sliceVertOffset + vertByteSize) / static_cast<u32>(sizeof(VGRenderVertex)) + 1u;
+                if (neededVerts > static_cast<u32>(MaxVertexCapacity))
+                {
+                    if (!m_capacityWarned)
+                    {
+                        m_capacityWarned = true;
+                        LOG_WARNING(u8"VG", u8"UI draw list needs {} vertices, past the {} ceiling - "
+                                            u8"the surface will not fully render this frame",
+                                    neededVerts, static_cast<u32>(MaxVertexCapacity));
+                    }
+                    return VGRenderSlice{};
+                }
+                i32 want = m_targetVertexCapacity;
+                while (static_cast<u32>(want) < neededVerts && want < MaxVertexCapacity)
+                    want *= 2;
+                if (want > m_targetVertexCapacity)
+                    m_targetVertexCapacity = want;
+                return VGRenderSlice{};
+            }
 
             const u32 sliceUniformOffset = sliceUniformSlot * static_cast<u32>(UniformSlotSize);
             const i32 sliceCmdStart = static_cast<i32>(m_drawCommands.Size());
@@ -660,8 +691,12 @@ export namespace foundation::vg::renderer
         static constexpr u8 kClipBit = 0x80;
         static constexpr u8 kWindingMask = 0x7F;
 
-        static constexpr i32 MaxVertices = 131072;
+        static constexpr i32 MaxVertices = 131072; // INITIAL per-frame vertex capacity (grows)
         static constexpr i32 MaxIndices = 131072 * 3;
+        // Vertex/index buffers grow on demand up to this ceiling, so a large UI draw list (e.g. a big
+        // asset grid after a bulk drop) renders instead of blanking the whole surface. Index capacity
+        // always tracks vertexCapacity * 3.
+        static constexpr i32 MaxVertexCapacity = 131072 * 16; // ~2.1M verts (~64 MB/frame at 32 B/vert)
         static constexpr i32 MaxUniformSlots = 64;
         static constexpr i32 UniformSlotSize =
             256; // dynamic-offset alignment (>= sizeof(VGUniforms)=64)
@@ -1113,22 +1148,24 @@ export namespace foundation::vg::renderer
             m_vertexBuffers.Resize(static_cast<usize>(m_frameCount));
             m_indexBuffers.Resize(static_cast<usize>(m_frameCount));
             m_uniformBuffers.Resize(static_cast<usize>(m_frameCount));
+            m_frameVertexCapacity.Resize(static_cast<usize>(m_frameCount));
 
             for (i32 i = 0; i < m_frameCount; ++i)
             {
                 rhi::BufferDesc vd{};
-                vd.size = static_cast<u64>(MaxVertices) * sizeof(VGRenderVertex);
+                vd.size = static_cast<u64>(m_targetVertexCapacity) * sizeof(VGRenderVertex);
                 vd.usage = rhi::BufferUsage::Vertex;
                 vd.memory = rhi::MemoryLocation::CpuToGpu;
                 if (!m_device->CreateBuffer(vd, m_vertexBuffers[static_cast<usize>(i)]).IsOk())
                     return ErrorCode::Unknown;
 
                 rhi::BufferDesc id{};
-                id.size = static_cast<u64>(MaxIndices) * sizeof(u32);
+                id.size = static_cast<u64>(m_targetVertexCapacity) * 3u * sizeof(u32);
                 id.usage = rhi::BufferUsage::Index;
                 id.memory = rhi::MemoryLocation::CpuToGpu;
                 if (!m_device->CreateBuffer(id, m_indexBuffers[static_cast<usize>(i)]).IsOk())
                     return ErrorCode::Unknown;
+                m_frameVertexCapacity[static_cast<usize>(i)] = m_targetVertexCapacity;
 
                 rhi::BufferDesc ud{};
                 ud.size = static_cast<u64>(MaxUniformSlots) * UniformSlotSize;
@@ -1138,6 +1175,40 @@ export namespace foundation::vg::renderer
                     return ErrorCode::Unknown;
             }
             return ErrorCode::Ok;
+        }
+
+        // Recreate one frame slot's vertex + index buffers at m_targetVertexCapacity. Called from
+        // BeginFrame(frameIndex), where the slot's prior submission has been awaited (buffers are
+        // direct-bound, no bind group, so no descriptor fixups). No-op if already at capacity.
+        void GrowFrameBuffers(i32 frameIndex)
+        {
+            const usize fi = static_cast<usize>(frameIndex);
+            if (m_frameVertexCapacity[fi] >= m_targetVertexCapacity)
+                return;
+            rhi::BufferDesc vd{};
+            vd.size = static_cast<u64>(m_targetVertexCapacity) * sizeof(VGRenderVertex);
+            vd.usage = rhi::BufferUsage::Vertex;
+            vd.memory = rhi::MemoryLocation::CpuToGpu;
+            rhi::Buffer* newVert = nullptr;
+            if (!m_device->CreateBuffer(vd, newVert).IsOk())
+                return;
+            rhi::BufferDesc id{};
+            id.size = static_cast<u64>(m_targetVertexCapacity) * 3u * sizeof(u32);
+            id.usage = rhi::BufferUsage::Index;
+            id.memory = rhi::MemoryLocation::CpuToGpu;
+            rhi::Buffer* newIdx = nullptr;
+            if (!m_device->CreateBuffer(id, newIdx).IsOk())
+            {
+                m_device->DestroyBuffer(newVert);
+                return;
+            }
+            if (m_vertexBuffers[fi] != nullptr)
+                m_device->DestroyBuffer(m_vertexBuffers[fi]);
+            if (m_indexBuffers[fi] != nullptr)
+                m_device->DestroyBuffer(m_indexBuffers[fi]);
+            m_vertexBuffers[fi] = newVert;
+            m_indexBuffers[fi] = newIdx;
+            m_frameVertexCapacity[fi] = m_targetVertexCapacity;
         }
 
         CachedTexture* GetOrCreateCachedTexture(const image::ImageData* texture)
@@ -1333,6 +1404,15 @@ export namespace foundation::vg::renderer
         Array<rhi::Buffer*> m_vertexBuffers;
         Array<rhi::Buffer*> m_indexBuffers;
         Array<rhi::Buffer*> m_uniformBuffers;
+
+        // On-demand growth of the vertex/index buffers: an overflowing Prepare bumps the TARGET and
+        // skips that frame's slice; each frame's buffers are (re)sized up to the target at BeginFrame,
+        // where the slot's prior GPU submission has already been awaited (offsets reset -> reuse). A
+        // large draw list then costs at most one blank frame per growth step instead of blanking while
+        // it persists.
+        i32 m_targetVertexCapacity = MaxVertices; // desired vertex capacity (verts); only grows
+        Array<i32> m_frameVertexCapacity;         // each frame's ACTUAL vertex-buffer capacity
+        bool m_capacityWarned = false;            // one-shot warn when a batch exceeds the hard ceiling
 
         // Evicted entries wait here until every in-flight frame has aged past them.
         struct RetiredTexture
