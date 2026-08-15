@@ -423,11 +423,11 @@ audible/interactive items were never auto-checked - those remain for user sessio
 ## AngelScript debugger end-to-end (code-editor capstone) — NEW, needs first on-screen run
 The AS backend debugger (suspension-based, battery-certified) was ALREADY live - only the
 editor story pieces were new. AngelScript behaviors only (Wren has no debug API).
-- [ ] Open an AngelScript behavior's ScriptPage, click a breakpoint on a line inside
+- [x] Open an AngelScript behavior's ScriptPage, click a breakpoint on a line inside
       update, Game > Play: when the line executes, the run pauses (sim freezes), the
       debugger panel shows the stack + locals, and the ScriptPage shows the YELLOW ARROW
       + row highlight on that exact line (view scrolls to it).
-- [ ] Step Into / Step Over from the debugger panel: the arrow follows each step; Continue
+- [x] Step Into / Step Over from the debugger panel: the arrow follows each step; Continue
       clears the arrow and the sim resumes; hitting the breakpoint again re-arrows.
 - [ ] While paused, HOVER a local variable's name in the ScriptPage: a tooltip shows
       "value : Type" from the live innermost frame; unknown identifiers and hovering
@@ -466,10 +466,10 @@ cook-only -> documented exclusion list). Test fails on an UNTRIAGED delta.
 
 ## WebGPU backend triangle (2026-07-29)
 The fourth RHI backend's first pixels. Same DXC HLSL -> SPIR-V path as Vulkan.
-- [ ] Run DraconicSample001_Triangle --webgpu : a colored triangle renders,
+- [x] Run DraconicSample001_Triangle --webgpu : a colored triangle renders,
       identical to the --vulkan run of the same sample. Resize the window; no
       validation errors print to the console.
-- [ ] DraconicSmoketest prints a WebGPU section listing all adapters with the
+- [x] DraconicSmoketest prints a WebGPU section listing all adapters with the
       RTX 2060 FIRST (DiscreteGpu), all OK lines, "device lost: no".
 
 ## Stragglers
