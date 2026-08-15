@@ -11,6 +11,7 @@ import foundation.core;
 import foundation.rhi;
 import foundation.rhi.vulkan;
 import foundation.rhi.webgpu;
+import foundation.rhi.testsupport;
 import foundation.shaders;
 import foundation.shaders.system;
 import foundation.vg;
@@ -20,21 +21,15 @@ using namespace foundation::core;
 namespace rhi = foundation::rhi;
 namespace vg = foundation::vg;
 namespace shaders = foundation::shaders;
+namespace testsupport = foundation::rhi::testsupport;
 
 namespace
 {
     constexpr u32 kSize = 128; // bytesPerRow 512 (256-aligned)
 
-    struct Pixels
-    {
-        bool valid = false;
-        Array<u8> data; // kSize*kSize*4, RGBA (sRGB-encoded bytes)
-
-        [[nodiscard]] const u8* At(u32 x, u32 y) const
-        {
-            return data.Data() + (static_cast<usize>(y) * kSize + x) * 4;
-        }
-    };
+    // The readback image is the shared CapturedImage (valid + At/Luma/CountWhere) from
+    // Foundation::RHI.TestSupport - same probe surface, no per-test copy of the readback plumbing.
+    using Pixels = testsupport::CapturedImage;
 
     // Render one VG scene (recorded by `record`) and read the target back. sampleCount > 1
     // renders into an MSAA target resolved into the readback texture - the same
@@ -105,13 +100,6 @@ namespace
             rhi::TextureView* dsView = nullptr;
             REQUIRE(device.CreateTextureView(depthStencil, rhi::TextureViewDesc{}, dsView).IsOk());
 
-            rhi::BufferDesc rb{};
-            rb.size = 512ull * kSize;
-            rb.usage = rhi::BufferUsage::CopyDst;
-            rb.memory = rhi::MemoryLocation::GpuToCpu;
-            rhi::Buffer* readback = nullptr;
-            REQUIRE(device.CreateBuffer(rb, readback).IsOk());
-
             rhi::CommandPool* pool = nullptr;
             REQUIRE(device.CreateCommandPool(rhi::QueueType::Graphics, pool).IsOk());
             rhi::Fence* fence = nullptr;
@@ -161,37 +149,17 @@ namespace
             pass->End();
             encoder->TransitionTexture(target, rhi::ResourceState::RenderTarget,
                                        rhi::ResourceState::CopySrc);
-            rhi::BufferTextureCopyRegion region;
-            region.bytesPerRow = 512;
-            region.rowsPerImage = kSize;
-            region.textureExtent = rhi::Extent3D{kSize, kSize, 1};
-            encoder->CopyTextureToBuffer(target, readback, region);
             rhi::CommandBuffer* commands = encoder->Finish();
             REQUIRE(commands != nullptr);
             rhi::CommandBuffer* list[] = {commands};
             queue->Submit(Span<rhi::CommandBuffer* const>(list, 1), fence, 1);
             REQUIRE(fence->Wait(1, ~0ull));
 
-            const u8* mapped = static_cast<const u8*>(readback->Map());
-            REQUIRE(mapped != nullptr);
-            out.data.Resize(static_cast<usize>(kSize) * kSize * 4);
-            for (u32 y = 0; y < kSize; ++y)
-            {
-                for (u32 x = 0; x < kSize; ++x)
-                {
-                    const u8* src = mapped + static_cast<usize>(y) * 512 + x * 4;
-                    u8* dst = out.data.Data() + (static_cast<usize>(y) * kSize + x) * 4;
-                    dst[0] = src[0];
-                    dst[1] = src[1];
-                    dst[2] = src[2];
-                    dst[3] = src[3];
-                }
-            }
-            out.valid = true;
+            // Target is left in CopySrc; the shared substrate owns the copy + map + unpack.
+            out = testsupport::Readback(device, target, kSize, kSize);
 
             device.WaitIdle();
             renderer.Dispose();
-            device.DestroyBuffer(readback);
             device.DestroyFence(fence);
             device.DestroyCommandPool(pool);
             device.DestroyTextureView(dsView);
@@ -211,19 +179,7 @@ namespace
         return out;
     }
 
-    rhi::Device* MakeDevice(rhi::Backend* backend)
-    {
-        if (backend == nullptr || backend->EnumerateAdapters().IsEmpty())
-        {
-            return nullptr;
-        }
-        rhi::Device* device = nullptr;
-        if (!backend->EnumerateAdapters()[0]->CreateDevice(rhi::DeviceDesc{}, device).IsOk())
-        {
-            return nullptr;
-        }
-        return device;
-    }
+    rhi::Device* MakeDevice(rhi::Backend* backend) { return testsupport::MakeTestDevice(backend); }
 
     Color ByteColor(u8 r, u8 g, u8 b) { return ToColor(Color32{r, g, b, 255}); }
 
@@ -484,7 +440,7 @@ namespace
             return;
         }
         image::Image img(kSize, kSize, image::PixelFormat::RGBA8,
-                         Span<const u8>(pixels.data.Data(), pixels.data.Size()));
+                         Span<const u8>(pixels.rgba.Data(), pixels.rgba.Size()));
         (void)image::io::SaveImage(img, StringView(name), image::io::ImageFileFormat::PNG);
     }
 
@@ -680,7 +636,7 @@ TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad
         {
             for (u32 x = 0; x < kSize; ++x)
             {
-                u8* d = diff.data.Data() + (static_cast<usize>(y) * kSize + x) * 4;
+                u8* d = diff.rgba.Data() + (static_cast<usize>(y) * kSize + x) * 4;
                 const u8 ta = ttfPixels.At(x, y)[0];
                 const u8 ba = bakedPixels.At(x, y)[0];
                 d[0] = ta;
