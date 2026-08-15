@@ -11,6 +11,7 @@ export module editor.app;
 export import :layout;
 export import :log_view;
 export import :ui_page;
+export import :page_toolbar;
 export import :assets_view;
 export import :asset_picker_dialog;
 export import :path_picker_dialog;

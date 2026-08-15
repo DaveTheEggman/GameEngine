@@ -46,6 +46,20 @@ export namespace editor
         void MarkDirty() noexcept { m_dirty = true; }
         void ClearDirty() noexcept { m_dirty = false; }
 
+        /// Revert all unsaved edits to the last-saved state (the toolbar's "Discard Changes").
+        /// Default: undo the whole command stack, then clear it and the dirty flag - correct for
+        /// pages that route every edit through commands. Pages that mutate state directly (or cache
+        /// loaded content) override to reload from the last-saved snapshot / the source DB.
+        virtual void DiscardChanges()
+        {
+            while (m_commands.CanUndo())
+            {
+                m_commands.Undo();
+            }
+            m_commands.Clear();
+            ClearDirty();
+        }
+
         [[nodiscard]] EditorCommandStack& Commands() noexcept { return m_commands; }
 
         /// The asset this page edits changed OUTSIDE the page (apply-to-prefab, re-import).

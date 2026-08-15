@@ -27,6 +27,7 @@ target_sources(Editor.App
             Layout.cppm
             LogView.cppm
             UIPage.cppm
+            PageToolbar.cppm
             AssetsView.cppm
             AssetPickerDialog.cppm
             PathPickerDialog.cppm
