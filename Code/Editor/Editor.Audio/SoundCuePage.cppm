@@ -61,6 +61,15 @@ export namespace editor
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6.0f;
 
+            // Page action bar (Save / Undo / Redo / Discard) at the top - the reusable page toolbar
+            // (editor.md; first page to adopt it).
+            m_toolbar = MakeRef<app::PageToolbar>(DefaultAllocator(), *this);
+            {
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                column->AddView(m_toolbar.Get(), lp);
+            }
+
             // Slot rows: "<clip name>" [Pick...] [Clear] weight [field]
             for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
             {
@@ -172,6 +181,7 @@ export namespace editor
                 RefreshSlot(i);
             }
             RefreshModeButton();
+            m_savedBlob = SnapshotAsset(); // the on-load state Discard reverts to
         }
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
@@ -180,6 +190,10 @@ export namespace editor
         void OnUpdate(runtime::IApplicationHost&, f32) override;
 
         [[nodiscard]] Status Save() override;
+
+        // Revert to the last-saved state (the toolbar's Discard Changes) - reload the snapshot into
+        // every widget without closing the page.
+        void DiscardChanges() override;
 
         void OnClose() override;
 
@@ -198,6 +212,11 @@ export namespace editor
 
         [[nodiscard]] RefPtr<audio::AudioClip> LoadSlotClip(usize slot);
 
+        // Serialize the edited asset to a blob / restore it into the widgets. The last-saved snapshot
+        // backs Discard Changes.
+        [[nodiscard]] Array<byte> SnapshotAsset();
+        void ApplyAssetBlob(const Array<byte>& blob);
+
         EditorContext* m_context = nullptr;
         engine::audio::AudioSubsystem* m_audio = nullptr;
         String m_title;
@@ -209,6 +228,8 @@ export namespace editor
         String m_pickText;
         HashMap<Guid, RefPtr<audio::AudioClip>> m_clipCache;
         RefPtr<ui::View> m_content;
+        RefPtr<app::PageToolbar> m_toolbar;
+        Array<byte> m_savedBlob; // last-saved asset state; Discard Changes reverts to this
         RefPtr<ui::Label> m_slotLabels[pipeline::kSoundCueSlotCount];
         RefPtr<ui::NumericField> m_weightFields[pipeline::kSoundCueSlotCount];
         Array<RefPtr<ui::NumericField>> m_jitterFields;

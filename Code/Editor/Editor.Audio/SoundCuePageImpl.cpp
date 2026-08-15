@@ -30,6 +30,10 @@ namespace editor
 {
     void SoundCueEditorPage::OnUpdate(runtime::IApplicationHost&, f32)
     {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // sync Save/Discard/Undo/Redo enabled state to the page each frame
+        }
         // Status line: append the auditioning voice's TRUE cursor (item: voice-
         // cursor playhead) while it plays; restore the plain pick line after.
         if (m_audio == nullptr || m_audio->Engine() == nullptr || !m_voice.IsValid())
@@ -63,12 +67,64 @@ namespace editor
         if (written.IsOk())
         {
             ClearDirty();
+            m_savedBlob = SnapshotAsset(); // Discard now reverts to THIS saved state
             if (m_context->OnCookRequested)
             {
                 m_context->OnCookRequested(false);
             }
         }
         return written;
+    }
+
+    Array<byte> SoundCueEditorPage::SnapshotAsset()
+    {
+        MemoryStream stream;
+        BinarySerializer ar(stream, SerializeMode::Write);
+        BeginVersionedPayload(ar, pipeline::SoundCueAsset::StaticType());
+        m_asset.Serialize(ar);
+        EndVersionedPayload(ar);
+        Array<byte> blob;
+        const Span<const byte> bytes = stream.Bytes();
+        blob.Reserve(bytes.Size());
+        for (byte b : bytes)
+        {
+            blob.PushBack(b);
+        }
+        return blob;
+    }
+
+    void SoundCueEditorPage::ApplyAssetBlob(const Array<byte>& blob)
+    {
+        if (blob.IsEmpty())
+        {
+            return;
+        }
+        MemoryStream stream;
+        (void)stream.Write(blob.Data(), blob.Size());
+        (void)stream.Seek(0, SeekOrigin::Begin);
+        BinarySerializer ar(stream, SerializeMode::Read);
+        BeginVersionedPayload(ar, pipeline::SoundCueAsset::StaticType());
+        m_asset.Serialize(ar);
+        EndVersionedPayload(ar);
+        // Reflect the restored asset in every widget.
+        for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
+        {
+            m_weightFields[i]->SetValue(m_asset.weights[i]);
+            RefreshSlot(i);
+        }
+        RefreshModeButton();
+        const f32 jitter[] = {m_asset.pitchMin, m_asset.pitchMax, m_asset.volumeMin, m_asset.volumeMax};
+        for (usize i = 0; i < m_jitterFields.Size() && i < 4; ++i)
+        {
+            m_jitterFields[i]->SetValue(jitter[i]);
+        }
+    }
+
+    void SoundCueEditorPage::DiscardChanges()
+    {
+        ApplyAssetBlob(m_savedBlob); // restore the last-saved state into the widgets
+        Commands().Clear();          // and drop the (currently unused) undo history
+        ClearDirty();                // overwrites any spurious dirty from the SetValue refresh above
     }
 
     void SoundCueEditorPage::OnClose()
