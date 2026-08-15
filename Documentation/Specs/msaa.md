@@ -1,7 +1,8 @@
 # Scene-pass MSAA
 
 > Status: P1 IN PROGRESS - render mechanism + editor toggle + web (Vulkan + WebGPU) shipped
-> and on-screen verified; P1g pixel-probe acceptance test still open. See "Build state" below.
+> and on-screen verified; P1g pixel-probe DONE (generic RHI.TestSupport harness + MSAA probe, both
+> backends). Remaining: re-run the existing GTAO/SSR/TAA/FXAA probes with MSAA on. See "Build state".
 > Track: backlog I11 / renderer
 > Author: Fable, 2026-08-12. Opus executes; Fable reviews per phase.
 > Resume at P1g (the pixel-probe acceptance test).
@@ -235,25 +236,27 @@ attachment (moved decals just after the resolve - now consistent with AO/SSR; **
 ordering refinement in review**); sample counts are `{1,4}` only on WebGPU (snap 2x -> 1x). Captured
 as a standing rule in memory `webgpu-stricter-than-vulkan`.
 
+**Done (P1g) - the pixel-probe acceptance test, on a generic capture/probe harness:**
+- DECISION (2026-08-13): the readback substrate is GENERIC, not MSAA-specific - it was already needed
+  in three places (`VG.Backend.Tests/VGPixelProbeTests`, `Render.Backend.Tests/BackendOrientationTests`,
+  and now the MSAA probe each rolled the same "make device -> render offscreen -> CopyTextureToBuffer
+  -> Map -> probe pixels"). Landed `foundation.rhi.testsupport` (new `Foundation::RHI.TestSupport`
+  lib, RHI + Core only): `MakeTestDevice(Backend&)`; `CapturedImage` (tightly-packed RGBA +
+  `At`/`Luma`/`CountWhere(pred)`); and a decoupled `Readback(device, colorTargetInCopySrc, w, h)`
+  owning the 256-aligned staging buffer + copy + map + unpack. Each consumer keeps its OWN render
+  setup; STRUCTURAL assertions only (no golden images).
+- MSAA probe (first consumer) in `Render.Backend.Tests/MsaaProbeTests.cpp`: a flat-lit rotated cube
+  on black through the full `RenderFrame` chain (forward + `MsaaResolvePass` + tonemap) at
+  `post.msaaSamples` 1 then 4; assert the 4x image has partial-coverage silhouette pixels (luma banded
+  relative to each image's own max) that the hard-edged 1x lacks. MEASURED: maxLuma 533, fringe
+  1x=**0**, 4x=**103** - identical on Vulkan and WebGPU, both compilers, deterministic. Tests the real
+  pipeline path.
+
 **Open (resume here):**
-- **P1g - the pixel-probe acceptance test, on a generic capture/probe harness.** DECISION (2026-08-13):
-  build the readback substrate GENERIC, not MSAA-specific, because it is already needed in three
-  places - `VG.Backend.Tests/VGPixelProbeTests` and `Render.Backend.Tests/BackendOrientationTests`
-  each carry an inline copy of "make device -> render offscreen -> CopyTextureToBuffer -> Map -> probe
-  pixels", and the MSAA test is the third. Extract a small `foundation.rhi.testsupport` module:
-  `MakeTestDevice(Backend&)`; a `CapturedImage` (tightly-packed RGBA + `At`/`Luma`/`CountWhere(pred)`);
-  and a decoupled `Readback(device, colorTargetInCopySrc, w, h)` that owns the aligned readback buffer
-  + copy + map + unpack. Each consumer keeps its OWN render setup (VG builds a pass; the 3D tests drive
-  `RenderFrame`). Deliberately STRUCTURAL probes only - assert properties, never stored golden images
-  (the VG suite's rule: no cross-driver drift). Per-feature assertions stay in the feature's test.
-  - **The MSAA test (first consumer)** lives in `Render.Backend.Tests` beside the orientation probe:
-    render a high-contrast opaque scene (e.g. the white-cube-on-black from the orientation probe)
-    through `RenderFrame` WITH the `MsaaResolvePass` wired, at `post.msaaSamples` 1 then 4; `Readback`
-    both; assert the 4x capture has intermediate-luma pixels along the silhouette edge that the 1x
-    capture (hard black/white edges) does not. Tests the REAL pipeline path, both backends.
-  - Then confirm GTAO/SSR/TAA/FXAA still pass their existing probes with MSAA on.
-  - Follow-up (proves generality + dedupes): refactor the VG probe and the orientation probe onto the
-    shared `Readback`/`CapturedImage`.
+- Confirm GTAO/SSR/TAA/FXAA still pass their existing probes with MSAA on (the other half of P1's
+  automated acceptance).
+- Follow-up (proves the harness is truly general + dedupes ~200 lines): refactor the VG probe and the
+  orientation probe onto the shared `Readback`/`CapturedImage`.
 - **DX12 capability overrides** - `DxDevice` does not yet override `MaxColorDepthSampleCount` /
   `SupportsSampleCount`, so on the shipping Windows DX12 target they fall to the base defaults (1 /
   `count<=1`): MSAA silently reports unavailable there and every view degrades to 1x. D3D12 fully
@@ -298,5 +301,6 @@ Checklist (2026-08-12):
       post* handles alias the originals, no resolve passes emitted). To be re-asserted mechanically by
       the P1g probe.
 - [x] Editor toggle user-verified on Sponza (RTX 2060); WebGPU verified in-browser + desktop `--webgpu`.
-- [ ] New scene-pass pixel probe (1x vs 4x opaque edge) - **P1g, open**.
+- [x] New scene-pass pixel probe (1x vs 4x opaque edge) - **DONE** (RHI.TestSupport harness +
+      MsaaProbeTests; fringe 1x=0, 4x=103, Vulkan + WebGPU, both compilers).
 - [ ] Full existing probe battery (GTAO/SSR/TAA/FXAA) re-run green with MSAA on - **P1g, open**.
