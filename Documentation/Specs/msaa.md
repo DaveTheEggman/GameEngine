@@ -257,9 +257,13 @@ as a standing rule in memory `webgpu-stricter-than-vulkan`.
   broken resolve-rebind would surface here) and asserts each still renders a sane lit cube. All four
   pass on Vulkan + WebGPU, both compilers - MSAA composes with the full post stack. DONE.
 
-**Open (resume here):**
-- Follow-up (proves the harness is truly general + dedupes): refactor the VG probe and the orientation
-  probe onto the shared `Readback`/`CapturedImage`.
+- Harness generality (DONE): the VG probe and the orientation probe were refactored onto the shared
+  `MakeTestDevice`/`Readback`/`CapturedImage` - the inline readback + device-creation are gone from all
+  three consumers, and all still pass (VG 232, Render.Backend 544 assertions, both compilers). Proves
+  the extracted substrate is genuinely general.
+
+**P1g is fully closed.** Remaining MSAA work is P2/P3 (the `renderMsaaSamples` project setting + perf
+numbers, then polish) and the DX12 capability overrides noted below.
 - **DX12 capability overrides** - `DxDevice` does not yet override `MaxColorDepthSampleCount` /
   `SupportsSampleCount`, so on the shipping Windows DX12 target they fall to the base defaults (1 /
   `count<=1`): MSAA silently reports unavailable there and every view degrades to 1x. D3D12 fully

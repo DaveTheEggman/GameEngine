@@ -17,6 +17,7 @@ import foundation.core;
 import foundation.rhi;
 import foundation.rhi.vulkan;
 import foundation.rhi.webgpu;
+import foundation.rhi.testsupport;
 import foundation.geometry;
 import foundation.materials;
 import foundation.materials.pipelinecache;
@@ -28,6 +29,7 @@ import foundation.rendergraph;
 using namespace foundation::core;
 using namespace foundation::render;
 namespace rhi = foundation::rhi;
+namespace testsupport = foundation::rhi::testsupport;
 namespace geometry = foundation::geometry;
 namespace materials = foundation::materials;
 namespace shaders = foundation::shaders;
@@ -138,13 +140,6 @@ namespace
             rhi::TextureView* targetView = nullptr;
             REQUIRE(device.CreateTextureView(target, vd, targetView).IsOk());
 
-            rhi::BufferDesc rbd{};
-            rbd.size = 512ull * kSize;
-            rbd.usage = rhi::BufferUsage::CopyDst;
-            rbd.memory = rhi::MemoryLocation::GpuToCpu;
-            rhi::Buffer* readback = nullptr;
-            REQUIRE(device.CreateBuffer(rbd, readback).IsOk());
-
             rhi::CommandPool* pool = nullptr;
             REQUIRE(device.CreateCommandPool(rhi::QueueType::Graphics, pool).IsOk());
             rhi::Fence* fence = nullptr;
@@ -172,14 +167,6 @@ namespace
                 frame.AddView(scene, camera, settings, targetView,
                               rhi::TextureFormat::RGBA8Unorm, kSize, kSize);
                 frame.End();
-                if (i == frames - 1)
-                {
-                    rhi::BufferTextureCopyRegion region;
-                    region.bytesPerRow = 512;
-                    region.rowsPerImage = kSize;
-                    region.textureExtent = rhi::Extent3D{kSize, kSize, 1};
-                    encoder->CopyTextureToBuffer(target, readback, region);
-                }
                 rhi::CommandBuffer* commandBuffer = encoder->Finish();
                 REQUIRE(commandBuffer != nullptr);
                 rhi::CommandBuffer* commandBuffers[] = {commandBuffer};
@@ -187,25 +174,24 @@ namespace
                 REQUIRE(fence->Wait(i + 1, ~0ull));
             }
 
-            const u8* pixels = static_cast<const u8*>(readback->Map());
-            REQUIRE(pixels != nullptr);
+            // Target is left in CopySrc; the shared substrate does the copy + map + unpack.
+            const testsupport::CapturedImage img = testsupport::Readback(device, target, kSize, kSize);
+            REQUIRE(img.valid);
             for (u32 y = 0; y < kSize; ++y)
             {
                 f64 row = 0.0;
-                const u8* p = pixels + static_cast<usize>(y) * 512;
                 for (u32 x = 0; x < kSize; ++x)
                 {
-                    row += p[x * 4 + 0] + p[x * 4 + 1] + p[x * 4 + 2];
+                    const u8* p = img.At(x, y);
+                    row += p[0] + p[1] + p[2];
                 }
                 (y < kSize / 2 ? probe.topLuma : probe.bottomLuma) += row;
             }
-            readback->Unmap();
             probe.valid = true;
 
             device.WaitIdle();
             device.DestroyFence(fence);
             device.DestroyCommandPool(pool);
-            device.DestroyBuffer(readback);
             device.DestroyTextureView(targetView);
             device.DestroyTexture(target);
         }
@@ -213,19 +199,7 @@ namespace
         return probe;
     }
 
-    rhi::Device* MakeDevice(rhi::Backend* backend)
-    {
-        if (backend == nullptr || backend->EnumerateAdapters().IsEmpty())
-        {
-            return nullptr;
-        }
-        rhi::Device* device = nullptr;
-        if (!backend->EnumerateAdapters()[0]->CreateDevice(rhi::DeviceDesc{}, device).IsOk())
-        {
-            return nullptr;
-        }
-        return device;
-    }
+    rhi::Device* MakeDevice(rhi::Backend* backend) { return testsupport::MakeTestDevice(backend); }
 }
 
 TEST_CASE("orientation: WebGPU matches Vulkan at every stage, cube on top, plane visible")
