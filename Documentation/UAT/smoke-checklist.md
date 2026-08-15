@@ -165,7 +165,7 @@ audible/interactive items were never auto-checked - those remain for user sessio
 ## Audio P1 (merge 8b8b334 + fixes ..047d12e) — VERIFIED by user 2026-07-18
 - [ ] T (scene pause): bed + emitters fade out together; LMB one-shots still play
       (one-shots bypass the scene group).
-- [ ] Editor: import a .wav/.ogg via drop — AudioImportOptions dialog appears (stream/
+- [x] Editor: import a .wav/.ogg via drop — AudioImportOptions dialog appears (stream/
       force-mono/loop/trim/normalize); the clip cooks; a broken file FAILS the cook.
 - [ ] Pitch check: the four emitters are the SAME clip at 0.75/1.0/1.5/2.0 — four
       different notes proves real resampling (Sedulous played everything at one speed).
@@ -284,14 +284,14 @@ audible/interactive items were never auto-checked - those remain for user sessio
       (platform, config) template — same staged output as the editor path.
 
 ## Export: editor UI (15c695a) — presets panel + templates manager
-- [ ] **File > Export…** opens a presets panel listing the project's presets, each row with
+- [x] **File > Export…** opens a presets panel listing the project's presets, each row with
       Export / Edit / Duplicate / Delete; footer Add… / Export All / Manage Templates… / Close.
       Export and Export All run NON-BLOCKING (status-bar progress, Open-Folder toast on done).
-- [ ] **Preset editor** (Add… or Edit): name; a template dropdown ((platform,config) registry
+- [x] **Preset editor** (Add… or Edit): name; a template dropdown ((platform,config) registry
       entries or "(resolve by platform+config)"); platform; config; playerName; outputSubdir;
       additionalFiles via a multi-select file picker (appends `;`-joined); stageSymbols and
       pruneToReachable checkboxes. Save writes `export_presets.xml`; reopen shows the edits.
-- [ ] **Duplicate** makes a "<name> Copy" (then "Copy 2"…) that carries all fields; **Delete**
+- [x] **Duplicate** makes a "<name> Copy" (then "Copy 2"…) that carries all fields; **Delete**
       drops the row; both survive save→reopen.
 - [ ] **File > Manage Templates…** lists every template (imported + synthesized host) with
       name/platform/config/engineVersion and a "(!) engine mismatch" note on a stamped version
@@ -336,19 +336,19 @@ audible/interactive items were never auto-checked - those remain for user sessio
       Editor.Core.Tests/JobServiceTests.cpp - the in-job log survives to completion)
 
 ## Post-processing config (edde64c..0f852fb) — authored per scene, applied per view
-- [ ] **AA per-view:** set Anti-Aliasing = TAA — edges stabilize (temporal); = FXAA — edges smooth
+- [x] **AA per-view:** set Anti-Aliasing = TAA — edges stabilize (temporal); = FXAA — edges smooth
       (single-frame); = Off — aliased/crisp. Split-screen (two views of one scene) can differ.
-- [ ] **SSR:** enable SSR + set intensity on a glossy scene — reflections appear/scale.
-- [ ] **Samples unaffected:** run Sandbox/RenderStressTest — their ImGui Exposure/Bloom/AO/AA/SSR
+- [x] **SSR:** enable SSR + set intensity on a glossy scene — reflections appear/scale.
+- [x] **Samples unaffected:** run Sandbox/RenderStressTest — their ImGui Exposure/Bloom/AO/AA/SSR
       debug controls all still drive the image (they use the global-override path).
-- [ ] **Viewport "Post" show-flags (phase 3):** the scene page's viewport toolbar has a **Post**
+- [x] **Viewport "Post" show-flags (phase 3):** the scene page's viewport toolbar has a **Post**
       button — a checkable menu (No Post / No Bloom / No AO / No SSR / No AA). Toggling strips that
       effect from THIS viewport only (editing clarity); the scene asset + the shipped look are
       untouched; a second scene page of the same scene is unaffected. "No Post" keeps exposure +
       tonemap (image still displays), drops bloom/AO/SSR/AA.
 
 ## ParticleEffect editor page (e1fe2311) — three-pane authoring tool
-- [ ] Asset Browser: New Asset > Particle Effect creates a seeded fountain that cooks
+- [x] Asset Browser: New Asset > Particle Effect creates a seeded fountain that cooks
       ([cooked] badge). Double-click opens the page: LEFT tree (Effect > System >
       Emitter / Initializers / Behaviors), CENTER live preview playing the fountain,
       RIGHT inspector for the selected node.
@@ -720,10 +720,10 @@ Cross-platform (after pulling):
 The raw findings from this session moved to Documentation/Plans/week-2026-08-15.md ("UAT findings").
 The items FIXED in-session, as regression checks to re-run:
 
-- [ ] Bulk-drop many `.fbx` onto the asset browser: the view keeps rendering (it may flicker for one
+- [x] Bulk-drop many `.fbx` onto the asset browser: the view keeps rendering (it may flicker for one
       frame as the UI vertex buffer grows) - it never stays blank. (VG on-demand buffer growth, 9e35fb51.)
-- [ ] Open the model-manifest page for a large model (e.g. Sponza): it renders fully, not blank. Same
+- [x] Open the model-manifest page for a large model (e.g. Sponza): it renders fully, not blank. Same
       fix; if it STILL blanks it is a different cause (the 64-uniform-slot cap, not vertices).
-- [ ] Create a content group, add NO instances, close + reopen the editor: the group is still present.
+- [x] Create a content group, add NO instances, close + reopen the editor: the group is still present.
       Then delete it: the now-empty folder is removed too. (Empty-group directory materialization,
       b375b849 + 178c4626.)
