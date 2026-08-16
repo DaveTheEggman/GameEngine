@@ -161,6 +161,18 @@ exact expected size in the cook test.
   web-target DB whose textures are BC and whose invariant products were
   copied not recooked (cook-stats assertion); desktop export byte-identical
   to pre-P2; editor dev loop untouched (host DB only).
+  STATUS 2026-08-15: the CORE is DONE + tested (a-e). IAssetBuilder::Variance
+  (TextureAssetBuilder = Variant), CookTarget{id,bc,astc,etc2} +
+  AssetBuildContext::target, recipe platform-salt for variant builders (folds
+  through read-deps), ContentDatabase::CopyContentForward, CookDriver
+  SetTarget/SetCopyForwardSource + TryCopyForward (CookStats.copiedForward),
+  CookForTarget + CookTargetFor helpers, `Tools.Cook --target <id>`
+  materializing Cooked/<id>/ + .cache/<id>/. Cook tests: a web-astc target
+  recooks the one variant product + copies the invariants forward; an
+  invariant product reading variant content recooks per target. REMAINING:
+  the export + dist + web-boot integration (pack the target DB; two-pak web;
+  boot selection) - out to Fable for a design decision (chicken-and-egg: the
+  content pak is fetched before the WebGPU adapter's bc/astc support is known).
 - **P3 - mobile-web: ASTC variant + boot-time pak selection.** The web
   export preset produces the BC pak AND the ASTC pak; the wasm boot picks
   by adapter capability before resource binding starts. Acceptance: PSNR +
