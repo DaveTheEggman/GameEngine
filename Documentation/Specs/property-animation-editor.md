@@ -1,10 +1,12 @@
 # Property Animation Editor (design)
 
-> STATUS: DESIGN FOR FABLE REVIEW 2026-08-16. Nothing here is built yet. This
-> supersedes the "IN-SCENE EDITOR REDESIGN" note in property-animation.md and is
-> the authoritative design for the in-scene property-animation editor. The runtime
-> + data model (property-animation.md phases A-G) are DONE; this is purely the
-> EDITOR. Reference sources farmed locally: Godot
+> STATUS: APPROVED WITH AMENDMENTS (Fable review 2026-08-16) - build in the
+> proposed phase order; the rulings on the five open questions and the
+> amendment list are at the bottom and are BINDING. Nothing here is built yet.
+> This supersedes the "IN-SCENE EDITOR REDESIGN" note in property-animation.md
+> and is the authoritative design for the in-scene property-animation editor.
+> The runtime + data model (property-animation.md phases A-G) are DONE; this is
+> purely the EDITOR. Reference sources farmed locally: Godot
 > (`/home/robert/Dev/CPP/godot/editor/animation/animation_track_editor.cpp` +
 > `animation_bezier_editor.cpp` + `animation_player_editor_plugin.cpp`), Traktor
 > (`/home/robert/Dev/CPP/traktor/code/Ui/Sequencer/*` +
@@ -252,18 +254,120 @@ selecting an entity that has a PropertyAnimator.
   scale/ease ops, bezier handle modes, viewport path preview, the property picker.
 - P4 - asset slot + activation (its own track; can proceed in parallel).
 
-## Open questions for Fable
+## Open questions - Fable rulings (2026-08-16, binding)
 
-1. D3: add a stable `id` to CurveKey/QuatKey (recommended), or reselect-by-time only?
-   If we add an id: serialize it (cross-session stable) or runtime-only (editor
-   session stable, wire-neutral)?
-2. Dopesheet vs curve view: one toggled mode (Dopesheet | Curves), or
-   expand-a-track-inline to its curves (Godot), or both?
-3. Numeric key editing: an in-panel edit strip, or push selected keys to the
-   Inspector (Godot's throwaway-object pattern) to reuse the existing property grid?
-4. Scope of the reusable Timeline widget: build it engine-generic now (foundation
-   ui.toolkit, reusable for a later sequencer/cutscene tier per the Traktor Theater
-   shape) or editor-local first and generalize later?
-5. Capture-based keying: worth P3, or defer? It reuses the gizmos and is very
-   ergonomic but couples the editor to the scene manipulators.
-```
+1. **D3 key identity: NEITHER option as written - the COMMIT RETURNS THE REMAP.**
+   Do NOT add an id field to `CurveKey`/`QuatKey`: `Curve` is a foundation.core
+   MATH type and editor-selection identity does not belong in it; and
+   reselect-by-time alone is ambiguous because coincident key times are legal in
+   our `Curve`. The clean third option: D4 already funnels every mutation
+   through one commit, and the commit site is the only place a re-sort happens -
+   so the commit applies the move with a STABLE sort and returns the index
+   permutation; the host maps the selection set through it. No new data, no
+   ambiguity, foundation stays clean. For undo/redo (before/after snapshot
+   restores where no permutation exists), re-derive selection by
+   time-with-epsilon and accept approximation there - it is the rare path.
+   If this gets genuinely messy in P2, the fallback is a RUNTIME-ONLY id
+   side-table owned by the editor (never a field on the math type, never
+   serialized).
+2. **Dopesheet vs curves: the MODE TOGGLE ships in P2; inline-expand is P3
+   polish if still wanted.** Hard requirement either way: the curve view MUST
+   share the D1 time transform (same zoom/pan/playhead/label-column width) so
+   toggling keeps visual context - Godot's bezier editor sharing the time axis
+   is the part that matters, not which affordance switches views. This also
+   means `CurveCanvas` migrates off its internal normalized 0..1 time domain
+   for this use: the widget consumes the shared seconds<->pixels transform
+   directly. That kills the re-domain drift class (pass-10: `(x/d)*d` per
+   gesture) at the root instead of tolerating it.
+3. **Numeric key editing: the in-panel edit strip.** Our inspector is
+   entity-bound; Godot's throwaway-object pattern would drag reflection shims
+   in for little gain. The strip (NumericFields for time + per-channel value +
+   an interpolation dropdown) lives in the panel, works identically whether or
+   not an entity is selected, and reuses existing controls.
+4. **The Timeline widget goes in `foundation.ui.toolkit` from day one** -
+   sibling of `CurveCanvas`, rows + keys + ruler + playhead + selection +
+   events ONLY, zero clip knowledge (D5 as written). We already know the next
+   consumers (sequencer/cutscene tier, skeletal-animation event tracks), the
+   incremental cost is small, and the placement FORCES the domain-agnostic
+   seam instead of promising it. It also makes the widget headlessly testable
+   in UI.Toolkit.Tests.
+5. **Capture-based keying: yes in P3, but decoupled by construction.** Do not
+   couple to the gizmos: "capture" = read the entity's current property values
+   through the EXISTING binding resolver (`ReadBinding`) at commit time -
+   however those values got there (gizmo drag, inspector edit, script). The
+   gizmo needs zero knowledge of the animation editor and vice versa; the
+   spec's own coupling worry dissolves.
+
+## Fable amendments (binding, additive to the design above)
+
+- **A1 - the standalone clip page is RETIRED.** The spec is silent on the
+  two-host story; ruling: the panel is THE editing surface.
+  `PropertyAnimationClipEditorPage` + its factory go away in P1 (asset-browser
+  "Edit" focuses the panel with the clip loaded, per the asset-slot section);
+  entity-unbound editing works in the panel with preview simply disabled.
+  KEEP a thin host seam (the IClipEditorHost shape: clip + commands + dirty)
+  between panel chrome and editing view so a standalone page can return
+  cheaply if ever wanted - but do not build or keep one now.
+- **A2 - persistent but COLLAPSIBLE.** The panel view is persistent (that is
+  what fixes pass-10 #5/#6 - never destroyed while its commands live), but
+  scene editing wants its vertical space back: the pane collapses to the
+  transport strip (or a thin restore handle) via a header toggle. Collapse
+  hides, never destroys. SplitView's 50px minimum is an implementation detail,
+  not the reason for persistence - state the lifetime rule, not the widget
+  constraint.
+- **A3 - seconds are the only time currency.** Widget events, the D1
+  transform, and key storage all speak clip-domain SECONDS; there is no
+  normalized layer anywhere in the new surface (see ruling 2). The
+  Seconds/Frames toggle is a display/snap format only.
+- **A4 - transport loop is an editor-local toggle**, DEFAULTED from the
+  selected animator component's loopMode when bound. Preview looping must not
+  depend on which entity happens to be selected once the user has set it, and
+  unbound clip editing needs a loop control too. (clip.loop stays dead.)
+- **A5 - theming + design system.** All new chrome resolves from the theme:
+  the widget follows the CurveCanvas precedent (background/border/dim-text via
+  background-color/border-color/text-dim-color + registered type names for
+  both the Timeline widget and the panel); the playhead + selection colors
+  resolve AccentColor (playhead may prefer error-red - resolve ErrorColor,
+  fall back red); transport/toolbar text is 12px compact chrome per the ramp.
+  No hand-picked hex constants in draw code - fallbacks only.
+- **A6 - damage-gate producers.** Scrub and playback self-chain damage
+  (MarkNeedsRedraw per frame while active); an idle panel contributes ZERO
+  redraws. Playhead-only updates must not repaint lanes (D2 is the mechanism -
+  state the gate contract explicitly so it is tested, not hoped).
+- **A7 - undo inventory.** One command per user gesture, including multi-key
+  box drags, paste, scale-selection, ease ops, and whole-vector inspector
+  keying (the spec has this); discrete repeatable actions (add-track,
+  add-key-at-playhead) take BeginGroup+LockGroup so consecutive invocations
+  never coalesce (pass-10 #7 lesson). Commands hold clip snapshots + the host
+  seam, NEVER view pointers (pass-10 #5).
+- **A8 - test inventory (the seam checks for THIS surface, written with each
+  phase, not after).** Widget (UI.Toolkit.Tests, headless): time<->pixel
+  transform round-trip incl. zoom-anchor math, ruler tick algorithm
+  ({1,2,5}x10^n never collides), hit-test topmost-wins, box-select set math,
+  snap math (both toggles, relative phase), event emission per gesture, and
+  drag-is-visual (no model mutation before commit - the widget has no model to
+  mutate, assert the events carry deltas only). Host (Editor tests): one
+  undo step per gesture incl. box drag; commit remap preserves selection
+  across re-sort; per-key interpolation survives edit round-trips (the
+  flattening regression); add-key seeds from the channel value at playhead,
+  never 0; preview snapshot lifecycle across track-set changes; transport
+  state machine (Editing|Playing ownership, scrub ignored while playing).
+  Keep the four original canvas checks green (Constant staircase, no-edit
+  byte-identity - now exact per A3, one-undo-per-gesture, MaxKeys).
+- **A9 - track lanes scale.** Label column + lane area share ONE vertical
+  scroll; rows are cheap (no per-row allocations per frame) and the structural
+  rebuild path diffs rows incrementally (the spec's own "not copying" list) -
+  virtualize only if a real clip shows the need, but keep the row model
+  virtualization-shaped (flat array of row records, not a nest of ad hoc
+  children).
+- **A10 - keyboard map (P2 minimum).** Space = play/pause, Home/End = clip
+  start/end, Left/Right = step by snap (Shift = 0.25x), Ctrl+Left/Right =
+  prev/next key, K (or Insert) = key-at-playhead for selected tracks, Delete =
+  delete selected keys, Ctrl+C/X/V = clipboard, Ctrl+A = select all keys in
+  visible tracks. Document deviations in the spec when implementation forces
+  them.
+
+Review pass cadence: each phase lands green on both compilers with its A8
+slice; Fable reviews per phase against this spec (the pass-10 required fixes
+1-3 and 7-8 on the RUNTIME side proceed independently and are not blocked on
+this editor).
