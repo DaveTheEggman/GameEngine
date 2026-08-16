@@ -55,6 +55,7 @@ import foundation.input;
 import foundation.input.resource;
 import input.pipeline;
 import editor.input;
+import editor.propertyanimation;
 import engine.input;
 import foundation.physics;
 import foundation.physics.resource;
@@ -352,6 +353,7 @@ int main(int argc, char** argv)
         editor::RegisterAnimationClipEditor(app.Context(), host, uiHost);
         editor::RegisterSkeletonEditor(app.Context(), host, uiHost);
         editor::RegisterInputEditor(app.Context(), host);
+        editor::RegisterPropertyAnimationEditor(app.Context(), host);
         editor::RegisterGameUIEditor(app.Context(), host, uiHost);
         editor::RegisterAudioClipEditor(app.Context(), host);
         editor::RegisterBusLayoutEditor(app.Context(), host);
