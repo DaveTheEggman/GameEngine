@@ -95,26 +95,32 @@ export namespace editor
         class ClipEditCommand final : public IEditorCommand
         {
         public:
+            // `liveApplied` = the `after` state is ALREADY applied to the clip AND visible on screen
+            // (a curve-canvas drag mutates live). For those, the first Execute must NOT rebuild - a
+            // rebuild recreates the canvas and drops the selected key + its tangent handles. Discrete
+            // edits (add/remove track, field edits) leave it false so the first Execute rebuilds.
             ClipEditCommand(ClipEditorView& view, propanim::PropertyAnimationClip before,
-                            propanim::PropertyAnimationClip after)
-                : m_view(&view), m_before(Move(before)), m_after(Move(after))
+                            propanim::PropertyAnimationClip after, bool liveApplied = false)
+                : m_view(&view), m_before(Move(before)), m_after(Move(after)), m_liveApplied(liveApplied)
             {
             }
             [[nodiscard]] bool Execute() override
             {
-                m_view->ApplyState(m_after);
+                m_view->ApplyState(m_after, /*rebuild=*/!m_liveApplied);
+                m_liveApplied = false; // a later redo DOES rebuild (the canvas is stale by then)
                 return true;
             }
-            void Undo() override { m_view->ApplyState(m_before); }
+            void Undo() override { m_view->ApplyState(m_before, /*rebuild=*/true); }
             [[nodiscard]] StringView TypeId() const override { return u8"propanim-clip-edit"; }
 
         private:
             ClipEditorView* m_view;
             propanim::PropertyAnimationClip m_before;
             propanim::PropertyAnimationClip m_after;
+            bool m_liveApplied;
         };
 
-        void ApplyState(const propanim::PropertyAnimationClip& state);
+        void ApplyState(const propanim::PropertyAnimationClip& state, bool rebuild = true);
 
         // Snapshot -> mutate -> push. `fn` edits a COPY that becomes the new clip (one undo step).
         template <typename Fn>
@@ -160,5 +166,6 @@ export namespace editor
         f32 m_scrubTime = 0.0f;
         f32 m_editDuration = 1.0f;   // the canvas time-axis scale (clip length); keys normalize by it
         propanim::PropertyAnimationClip m_gestureBefore; // undo snapshot captured on OnEditBegin
+        bool m_gestureDirty = false; // a canvas gesture actually changed a key (vs a bare select-click)
     };
 }

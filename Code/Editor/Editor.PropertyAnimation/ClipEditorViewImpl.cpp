@@ -106,10 +106,13 @@ namespace editor
         Rebuild();
     }
 
-    void ClipEditorView::ApplyState(const propanim::PropertyAnimationClip& state)
+    void ClipEditorView::ApplyState(const propanim::PropertyAnimationClip& state, bool rebuild)
     {
         m_host->Clip() = state;
-        RequestRebuild();
+        if (rebuild)
+        {
+            RequestRebuild();
+        }
     }
 
     RefPtr<ui::FlexLayout> ClipEditorView::MakeRow(f32 indent, f32 height)
@@ -469,7 +472,12 @@ namespace editor
         PushTrackToCanvas(trackIndex, *canvas);
 
         ui::toolkit::CurveCanvas* raw = canvas.Get();
-        canvas->OnEditBegin.Add([self]() { self->m_gestureBefore = self->Clip(); });
+        canvas->OnEditBegin.Add(
+            [self]()
+            {
+                self->m_gestureBefore = self->Clip();
+                self->m_gestureDirty = false;
+            });
         canvas->OnKeyChanged.Add(
             [self, trackIndex, raw](i32, i32) { self->WriteBackTrack(trackIndex, *raw); });
         canvas->OnKeyAdded.Add(
@@ -479,13 +487,20 @@ namespace editor
         canvas->OnEditEnd.Add(
             [self]()
             {
-                // One undo step per gesture: the live edits already mutated the clip; record
-                // before/after.
+                // A bare select-click fires begin/end with no key change: push nothing (no undo
+                // step) so the selection - and its tangent handles - survive the mouse-up.
+                if (!self->m_gestureDirty)
+                {
+                    return;
+                }
+                // One undo step per gesture. The live edits already mutated the clip AND the canvas
+                // shows them, so the command applies `after` WITHOUT a rebuild (liveApplied) - a
+                // rebuild would recreate the canvas and drop the selected key's tangent handles.
                 propanim::PropertyAnimationClip after = self->Clip();
                 after.duration = after.ComputeDuration();
                 (void)self->m_host->Commands().Execute(UniquePtr<IEditorCommand>(
                     DefaultAllocator().New<ClipEditCommand>(*self, Move(self->m_gestureBefore),
-                                                            Move(after)),
+                                                            Move(after), /*liveApplied=*/true),
                     DefaultAllocator()));
             });
 
@@ -552,6 +567,7 @@ namespace editor
             }
         }
         clip.duration = clip.ComputeDuration();
+        m_gestureDirty = true; // a key actually moved/added/removed this gesture
         m_host->MarkClipDirty();
         RefreshPreview();
     }
