@@ -538,6 +538,36 @@ export namespace foundation::vg
 
         void StrokeRoundedRect(Rectangle rect, CornerRadii radii, Color color, f32 width = 1.0f)
         {
+            // Crisp path (ui-box-model.md P2d): under an axis-aligned transform, snap the rect
+            // so each edge's stroke centerline lands where StrokeRect's pixel-snapped bars
+            // would - a 1px themed rounded border renders as a crisp 1-device-pixel line
+            // instead of a 2px blur. Corners keep the analytic path stroke; only placement and
+            // the (device-rounded) thickness snap. Flipped transforms fall through unsnapped.
+            if (m_pixelSnap && TransformIsAxisAligned())
+            {
+                const Float2 p0 = TransformPoint(Float2{rect.x, rect.y});
+                const Float2 p1 = TransformPoint(Float2{rect.x + rect.width, rect.y + rect.height});
+                if (p1.x > p0.x && p1.y > p0.y)
+                {
+                    const Float2 s = DeviceScale();
+                    const f32 tx = Max(1.0f, Round(width * s.x));
+                    const f32 ty = Max(1.0f, Round(width * s.y));
+                    const auto snapEdge = [](f32 center, f32 t)
+                    { return Round(center - t * 0.5f) + t * 0.5f; };
+                    const f32 dx0 = snapEdge(p0.x, tx);
+                    const f32 dx1 = snapEdge(p1.x, tx);
+                    const f32 dy0 = snapEdge(p0.y, ty);
+                    const f32 dy1 = snapEdge(p1.y, ty);
+                    const Rectangle snapped{
+                        rect.x + (dx0 - p0.x) / s.x, rect.y + (dy0 - p0.y) / s.y,
+                        rect.width + ((dx1 - p1.x) - (dx0 - p0.x)) / s.x,
+                        rect.height + ((dy1 - p1.y) - (dy0 - p0.y)) / s.y};
+                    PathBuilder pb;
+                    ShapeBuilder::BuildRoundedRect(snapped, radii, pb);
+                    StrokePath(pb.ToPath(), color, StrokeStyle(tx / s.x));
+                    return;
+                }
+            }
             PathBuilder pb;
             ShapeBuilder::BuildRoundedRect(rect, radii, pb);
             StrokePath(pb.ToPath(), color, StrokeStyle(width));

@@ -239,13 +239,18 @@ TEST_CASE("ui.viewport: SyncInputRegion emits a PHYSICAL surface region at DpiSc
     // must be physical (logical x DpiScale) - otherwise hover/pick/gizmo drift by the scale factor.
     // The content resolution stays the RT's own size (MakeMouseRay divides by RenderWidth).
     const ContentFit& fit = view->Surface()->Fit();
-    CHECK(fit.region.width == doctest::Approx(200.0f * 1.25f));
-    CHECK(fit.region.height == doctest::Approx(150.0f * 1.25f));
+    CHECK(fit.region.width == doctest::Approx(200.0f * 1.25f)); // 250 - already integral
+    // P2d golden change (ui-box-model.md): Layout rounds the border box to the DEVICE grid, so
+    // 150 logical x 1.25 = 187.5 snaps to 188 integral device pixels (a render target cannot be
+    // half a pixel tall; picking aligns to real pixels). The logical bounds become 150.4.
+    CHECK(fit.region.height == doctest::Approx(188.0f));
     CHECK(fit.contentSize.x == doctest::Approx(200.0f)); // RT resolution, unscaled
-    CHECK(fit.contentSize.y == doctest::Approx(150.0f));
+    CHECK(fit.contentSize.y == doctest::Approx(150.0f)); // RT resolution - NOT the rounded bounds
 
-    // Regression guard: at 100% the region equals the logical rect (behavior unchanged).
+    // Regression guard: at 100% the region equals the logical rect (behavior unchanged). A DPI
+    // change re-lays-out in reality (UpdateRootView) - mirror that before re-syncing.
     root->DpiScale = 1.0f;
+    view->Layout(0.0f, 0.0f, 200.0f, 150.0f);
     view->SyncInputRegion();
     CHECK(view->Surface()->Fit().region.width == doctest::Approx(200.0f));
     CHECK(view->Surface()->Fit().region.height == doctest::Approx(150.0f));

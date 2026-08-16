@@ -299,17 +299,10 @@ export namespace foundation::ui
         /// Arrange this view. `(x, y, width, height)` is the MARGIN BOX (ui-box-model.md P2b):
         /// the base insets by margin once, so every container honors margins identically -
         /// containers deleted their per-site margin arithmetic. Views without margins are
-        /// byte-identical to the old border-box call.
-        void Layout(f32 x, f32 y, f32 width, f32 height)
-        {
-            const Thickness margin = LayoutParams ? LayoutParams->Margin : Thickness{};
-            const f32 bx = x + margin.Left;
-            const f32 by = y + margin.Top;
-            const f32 bw = Max(0.0f, width - margin.TotalHorizontal());
-            const f32 bh = Max(0.0f, height - margin.TotalVertical());
-            Bounds = Rectangle{bx, by, bw, bh};
-            OnLayout(bx, by, bw, bh);
-        }
+        /// byte-identical to the old border-box call. The final border box is ROUNDED to the
+        /// device grid (P2d) - fractional centering no longer lands content on half-pixels
+        /// (the blurry-1px-border/soft-text class). Body in the impl unit (dpi query).
+        void Layout(f32 x, f32 y, f32 width, f32 height);
 
         // === Virtual methods ===
         [[nodiscard]] virtual f32 GetBaseline() const { return -1.0f; }

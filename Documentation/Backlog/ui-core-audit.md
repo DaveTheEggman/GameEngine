@@ -225,6 +225,11 @@ churn across consumers - fold into P4's connection-token work).
   shared ShapedTextBlock (P4), which subsumes these per-control caches.
 
 **P2 - the box model** - SPEC LOCKED (Documentation/Specs/ui-box-model.md)
++ **P2d SHIPPED 2026-08-16 - P2 (BOX MODEL) COMPLETE** (device-grid rounding
+in base Layout, edges independently; VG StrokeRoundedRect crisp-snap; the
+viewport DPI golden updated deliberately - integral RT regions at 1.25x.
+Measure dirty flags + wrap-remeasure RE-SCOPED to the P1b/P4 damage unit -
+ListView virtualization depends on per-frame relayout, one producer sweep).
 + **P2c batch 2 SHIPPED 2026-08-16** (BoxConstraints::IsBounded/BoundedMax* -
 the ONE unbounded test; all 7 fill-style leaves on bounded defaults
 (Separator/ProgressBar/Slider/ScrollBar/ListView/GridView/Expander);

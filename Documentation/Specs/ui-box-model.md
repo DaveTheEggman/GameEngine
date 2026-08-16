@@ -93,13 +93,25 @@ PLACEMENT: base `Layout` offsets by margin once, uniformly.
   to bounded defaults + Match specs - kills the kFloatMax explosions under
   Flow/Grid/ScrollView; one `IsBounded(f32)` helper replaces the three
   competing unbounded tests.
-- **P2d - wrap re-measure + rounding + measure dirty flags.** Label/text
-  arrange-width re-wrap resolved (draw wraps at arranged width via the P1a
-  draw cache; measured height must follow - re-measure on arrange-width
-  mismatch); base Layout device-grid rounding lands here (after P2c so
-  golden churn happens once); m_needsMeasure/m_needsArrange +
-  InvalidateLayout bubbling + UpdateRootView early-out (the layout half of
-  the P4 damage pipeline - the draw half stays P4).
+- **P2d - rounding (SHIPPED 2026-08-16).** Base Layout rounds the final
+  border box to the device grid, EDGES independently so adjacent boxes stay
+  gapless (composes globally - every ancestor rounds, sums stay on grid);
+  VG StrokeRoundedRect snaps under axis-aligned transforms the way
+  StrokeRect's bars do (centerline on the grid, device-rounded thickness,
+  corners keep the analytic stroke; flips fall through). Zero golden churn
+  - existing layout goldens were integral; VG probes green on GPU.
+  RE-SCOPED OUT (recorded 2026-08-16, both moved to the P1b/P4
+  damage-pipeline unit where they always belonged):
+  (a) measure dirty flags + UpdateRootView early-out - implementing them
+  exposed that ListView VIRTUALIZATION depends on per-frame relayout (rows
+  realize in OnLayout; scrolling requires a layout pass), so the early-out
+  needs the same producer sweep as the redraw gate - one unit, done
+  together, with instrumentation + an escape hatch;
+  (b) the wrap-text measured-height staleness - P1a's draw cache already
+  fixed the v-align half (draw wraps at the ARRANGED width); the measure
+  half needs a targeted re-layout loop, i.e. the damage pipeline. Until
+  then it remains the pre-existing clip-at-cell-bottom behavior, no worse.
+  **P2 - THE BOX-MODEL TRACK - IS OTHERWISE COMPLETE.**
 
 ## Acceptance
 

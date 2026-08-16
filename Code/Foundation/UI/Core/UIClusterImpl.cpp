@@ -246,6 +246,32 @@ namespace foundation::ui
         OnMeasure(box); // legacy seam - the control handles its own chrome
     }
 
+    // The base arrange (ui-box-model.md P2b margin inset + P2d device-grid rounding). Rounds
+    // EDGES independently (x and x+w each snap, width = snapped difference) so adjacent
+    // rounded boxes stay gapless; local-grid rounding composes to the global grid because
+    // every ancestor rounds too (integer sums stay integers, at fractional scales multiples
+    // of 1/dpi stay multiples).
+    void View::Layout(f32 x, f32 y, f32 width, f32 height)
+    {
+        const Thickness margin = LayoutParams ? LayoutParams->Margin : Thickness{};
+        f32 bx = x + margin.Left;
+        f32 by = y + margin.Top;
+        f32 bw = Max(0.0f, width - margin.TotalHorizontal());
+        f32 bh = Max(0.0f, height - margin.TotalVertical());
+
+        RootView* root = Root();
+        const f32 dpi = (root != nullptr) ? Max(root->DpiScale, 0.01f) : 1.0f;
+        const f32 x1 = Round((bx + bw) * dpi) / dpi;
+        const f32 y1 = Round((by + bh) * dpi) / dpi;
+        bx = Round(bx * dpi) / dpi;
+        by = Round(by * dpi) / dpi;
+        bw = Max(0.0f, x1 - bx);
+        bh = Max(0.0f, y1 - by);
+
+        Bounds = Rectangle{bx, by, bw, bh};
+        OnLayout(bx, by, bw, bh);
+    }
+
     // Lazily create the RootView's PopupLayer (kept as the last child). Defined here because the
     // :popup_layer type is incomplete in the :view partition (module cycle) but complete in this impl unit.
     PopupLayer* RootView::GetPopupLayer()
