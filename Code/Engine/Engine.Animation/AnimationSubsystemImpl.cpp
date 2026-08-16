@@ -82,6 +82,32 @@ namespace engine::animation
             .Property<&InstancedSkinningComponent::speed>("speed");
     }
 
+    REFLECT_ENUM(PropertyLoopMode, "rtti::engine::animation")
+    {
+        builder.Value("Once", PropertyLoopMode::Once);
+        builder.Value("Loop", PropertyLoopMode::Loop);
+        builder.Value("PingPong", PropertyLoopMode::PingPong);
+    }
+
+    REFLECT_VALUE(PropertyAnimatorComponent, "rtti::engine::animation")
+    {
+        // Reflected property-curve animation: the clip Ref needs its InspectorView ref-picker dispatch
+        // entry or no picker renders (known trap). Script (Track A): .of(entity) -> live tunables +
+        // (Phase G) play/stop methods.
+        builder.Attribute("displayName", String(u8"Property Animator"))
+            .Attribute("category", String(u8"Animation"))
+            .Method<&foundation::script::ComponentOf<PropertyAnimatorComponent>,
+                    PropertyAnimatorComponent>("of")
+            .Property<&PropertyAnimatorComponent::clip>("clip")
+            .PropAttribute("displayName", String(u8"Clip"))
+            .Property<&PropertyAnimatorComponent::autoplay>("autoplay")
+            .PropAttribute("displayName", String(u8"Autoplay"))
+            .Property<&PropertyAnimatorComponent::speed>("speed")
+            .PropAttribute("displayName", String(u8"Speed"))
+            .Property<&PropertyAnimatorComponent::loopMode>("loopMode")
+            .PropAttribute("displayName", String(u8"Loop Mode"));
+    }
+
     void RegisterAnimationComponentReflection()
     {
         static const bool once = []()
@@ -89,6 +115,8 @@ namespace engine::animation
             RttiRegisterValue_SkeletalAnimationComponent();
             RttiRegisterValue_AnimationGraphComponent();
             RttiRegisterValue_InstancedSkinningComponent();
+            RttiRegisterEnum_PropertyLoopMode();
+            RttiRegisterValue_PropertyAnimatorComponent();
             return true;
         }();
         (void)once;

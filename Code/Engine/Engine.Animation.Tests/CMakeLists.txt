@@ -2,10 +2,12 @@
 
 add_executable(Engine.Animation.Tests
     ResourceRefTests.cpp
+    PropertyAnimatorTests.cpp
     TestsMain.cpp)
 
 target_link_libraries(Engine.Animation.Tests PRIVATE
     Engine::Animation Foundation::Animation.Resource Foundation::Scene.Resource
+    Foundation::PropertyAnimation Foundation::PropertyAnimation.Resource
     Foundation::Resource Foundation::VFS Foundation::Content doctest::doctest)
 
 target_compile_definitions(Engine.Animation.Tests PRIVATE

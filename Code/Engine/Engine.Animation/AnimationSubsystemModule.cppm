@@ -8,4 +8,5 @@
 export module engine.animation;
 
 export import :components;
+export import :propertyanimator;
 export import :subsystem;

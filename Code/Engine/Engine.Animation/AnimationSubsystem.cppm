@@ -17,6 +17,7 @@ import foundation.runtime;         // Subsystem, Context
 import foundation.scene;           // Scene, ISceneAware
 import engine.scene; // SceneSubsystem (to register as scene-aware)
 import :components;
+import :propertyanimator;
 
 export namespace engine::animation
 {
@@ -32,6 +33,7 @@ export namespace engine::animation
             scene.AddSystem<AnimationGraphComponentManager>();
             scene.AddSystem<SkeletalAnimationComponentManager>();
             scene.AddSystem<InstancedSkinningComponentManager>(); // crowd skinning (shared pose pool)
+            scene.AddSystem<PropertyAnimatorComponentManager>();  // reflected property-curve animation
         }
 
     protected:
