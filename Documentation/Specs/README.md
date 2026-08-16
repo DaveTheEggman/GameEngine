@@ -34,6 +34,7 @@ implementing agent's work).
 | [asset-variants.md](asset-variants.md) | #133 | L (variants axis + texture compression) |
 | [mesh-lod.md](mesh-lod.md) | - | M (spec prepared, not scheduled) |
 | [ui-box-model.md](ui-box-model.md) | #134 P2 | L (P2a shipped; P2b-d phased) |
+| [ui-theme-migration.md](ui-theme-migration.md) | #135 | L (P0 shipped; P1-P4 phased) |
 | [paperboy.md](paperboy.md) | - | game plan |
 | [scene-scripting.md](scene-scripting.md) | - | M |
 | [documentation-system.md](documentation-system.md) | - | process |

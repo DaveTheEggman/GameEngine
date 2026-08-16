@@ -41,6 +41,37 @@ export namespace foundation::ui
         RadioMarkRound,
     };
 
+    /// The builtin glyph's kebab-case stylesheet name -> enum (the `svg(name)` factory's
+    /// fallback vocabulary; also used by the UI cook to validate names). None = not builtin.
+    [[nodiscard]] inline Optional<ThemeIcon> ThemeIconFromName(StringView name)
+    {
+        struct Entry
+        {
+            StringView name;
+            ThemeIcon icon;
+        };
+        static constexpr Entry kNames[] = {
+            {u8"checkmark", ThemeIcon::Checkmark},
+            {u8"arrow-down", ThemeIcon::ArrowDown},
+            {u8"arrow-up", ThemeIcon::ArrowUp},
+            {u8"chevron-right", ThemeIcon::ChevronRight},
+            {u8"chevron-down", ThemeIcon::ChevronDown},
+            {u8"close", ThemeIcon::Close},
+            {u8"plus", ThemeIcon::Plus},
+            {u8"minus", ThemeIcon::Minus},
+            {u8"radio-mark-square", ThemeIcon::RadioMarkSquare},
+            {u8"radio-mark-round", ThemeIcon::RadioMarkRound},
+        };
+        for (const Entry& entry : kNames)
+        {
+            if (entry.name == name)
+            {
+                return Optional<ThemeIcon>(entry.icon);
+            }
+        }
+        return {};
+    }
+
     class ThemeIconSet
     {
     public:

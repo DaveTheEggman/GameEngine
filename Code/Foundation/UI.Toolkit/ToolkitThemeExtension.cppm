@@ -36,11 +36,45 @@ namespace core = foundation::core;
 
 export namespace foundation::ui::toolkit
 {
+    /// Number of toolkit types registered for stylesheet selectors - tripwire: bump when
+    /// RegisterToolkitTypes gains a control (a .sss selector for an unregistered type silently
+    /// matches nothing).
+    inline constexpr core::usize kToolkitStyleTypeCount = 13;
+
+    /// Make the toolkit controls selectable from .sss (ui-theme-migration.md P0d) - the
+    /// prerequisite for expressing this extension's rules as a toolkit.sss fragment. Idempotent;
+    /// called by ToolkitThemeExtension construction, and callable directly by hosts that parse
+    /// toolkit-styling sheets without the extension.
+    inline void RegisterToolkitTypes()
+    {
+        static bool registered = false;
+        if (registered)
+        {
+            return;
+        }
+        registered = true;
+        UITypeRegistry::Register(u8"DockManager", &DockManager::StaticType());
+        UITypeRegistry::Register(u8"DockablePanel", &DockablePanel::StaticType());
+        UITypeRegistry::Register(u8"DockTabGroup", &DockTabGroup::StaticType());
+        UITypeRegistry::Register(u8"DockSplit", &DockSplit::StaticType());
+        UITypeRegistry::Register(u8"DockableWindow", &DockableWindow::StaticType());
+        UITypeRegistry::Register(u8"MenuBar", &MenuBar::StaticType());
+        UITypeRegistry::Register(u8"Toolbar", &Toolbar::StaticType());
+        UITypeRegistry::Register(u8"StatusBar", &StatusBar::StaticType());
+        UITypeRegistry::Register(u8"SplitView", &SplitView::StaticType());
+        UITypeRegistry::Register(u8"BreadcrumbBar", &BreadcrumbBar::StaticType());
+        UITypeRegistry::Register(u8"ColorPicker", &ColorPicker::StaticType());
+        UITypeRegistry::Register(u8"PropertyGrid", &PropertyGrid::StaticType());
+        UITypeRegistry::Register(u8"ToastCard", &ToastCard::StaticType());
+    }
+
     /// Registers default theme styles for all foundation.ui.toolkit controls (Pattern-B injected
     /// IThemeExtension - hand it to ThemeRegistry before building a theme).
     class ToolkitThemeExtension : public IThemeExtension
     {
     public:
+        ToolkitThemeExtension() { RegisterToolkitTypes(); }
+
         void Apply(StyleSheet& sheet, ThemePalette p) override
         {
             const bool isDark = p.Background.r < 0.5f;

@@ -43,6 +43,7 @@ import :inset_drawable;
 import :image_drawable;
 import :nine_slice_drawable;
 import :svg_drawable;
+import :theme_icon_set;
 import :palette;
 import :sss_token;
 import :sss_tokenizer;
@@ -152,7 +153,9 @@ export namespace foundation::ui
                     return ParseRgbFunction();
                 }
                 if (name == StringView(u8"lighten") || name == StringView(u8"darken") ||
-                    name == StringView(u8"alpha") || name == StringView(u8"mix"))
+                    name == StringView(u8"alpha") || name == StringView(u8"mix") ||
+                    name == StringView(u8"hover") || name == StringView(u8"pressed") ||
+                    name == StringView(u8"disabled") || name == StringView(u8"focused"))
                 {
                     return ParseColorFunction();
                 }
@@ -162,6 +165,20 @@ export namespace foundation::ui
 
         /// Parse a color argument inside a function call (for drawable factories).
         Color ParseColorArg() { return ParseColorValue(); }
+
+        /// Parse 1-4 numbers into per-corner radii (ui-theme-migration.md P0b): one value =
+        /// uniform; four = top-left, top-right, bottom-right, bottom-left (CSS order).
+        vg::CornerRadii ParseCornerRadiiValue()
+        {
+            f32 values[4] = {};
+            i32 count = 0;
+            while (count < 4 && Peek().Kind == TokenKind::Number)
+                values[count++] = ParseFloatValue();
+            if (count >= 4)
+                return vg::CornerRadii(values[0], values[1], values[2], values[3]);
+            return vg::CornerRadii(count > 0 ? values[0] : 0.0f);
+        }
+
 
         /// Parse a float value (number, possibly followed by %).
         f32 ParseFloatValue()
@@ -583,6 +600,27 @@ export namespace foundation::ui
                 MatchComma();
                 result = ColorFunctions::Mix(a, b, ParseFloatValue());
             }
+            // State derivations (ui-theme-migration.md P0c): the SAME Palette::Compute* math
+            // the C++ themes used, so migrated sheets keep identical state colors - including
+            // disabled()'s luminance desaturation, which lighten/darken cannot express.
+            else if (name == StringView(u8"hover"))
+            {
+                result = Palette::ComputeHover(ParseColorValue());
+            }
+            else if (name == StringView(u8"pressed"))
+            {
+                result = Palette::ComputePressed(ParseColorValue());
+            }
+            else if (name == StringView(u8"disabled"))
+            {
+                result = Palette::ComputeDisabled(ParseColorValue());
+            }
+            else if (name == StringView(u8"focused"))
+            {
+                const Color base = ParseColorValue();
+                MatchComma();
+                result = Palette::ComputeFocused(base, ParseColorValue());
+            }
 
             Expect(TokenKind::RParen);
             return result;
@@ -874,7 +912,7 @@ export namespace foundation::ui
                  [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
                  {
                      const Color fillColor = parser.ParseColorArg();
-                     f32 radius = 0.0f;
+                     vg::CornerRadii radii{};
                      Color borderColor = Color::Transparent;
                      f32 borderWidth = 0.0f;
 
@@ -884,7 +922,7 @@ export namespace foundation::ui
                          if (kw == StringView(u8"radius"))
                          {
                              parser.ConsumeKeywordArg();
-                             radius = parser.ParseFloatValue();
+                             radii = parser.ParseCornerRadiiValue(); // 1 or 4 values (P0b)
                          }
                          else if (kw == StringView(u8"border-width"))
                          {
@@ -897,11 +935,11 @@ export namespace foundation::ui
                              borderColor = parser.ParseColorArg();
                          }
                          else
-                             radius = parser.ParseFloatValue();
+                             radii = parser.ParseCornerRadiiValue();
                      }
 
                      RefPtr<RoundedRectDrawable> d = MakeRef<RoundedRectDrawable>(
-                         DefaultAllocator(), fillColor, radius, borderColor, borderWidth);
+                         DefaultAllocator(), fillColor, radii, borderColor, borderWidth);
                      sheet.OwnDrawable(d);
                      return d;
                  });
@@ -985,20 +1023,20 @@ export namespace foundation::ui
                  [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
                  {
                      const Color baseColor = parser.ParseColorArg();
-                     f32 radius = 0.0f;
+                     vg::CornerRadii radii{};
                      if (parser.MatchComma())
                      {
                          const StringView kw = parser.PeekKeywordArg();
                          if (kw == StringView(u8"radius"))
                          {
                              parser.ConsumeKeywordArg();
-                             radius = parser.ParseFloatValue();
+                             radii = parser.ParseCornerRadiiValue(); // 1 or 4 values (P0b)
                          }
                          else
-                             radius = parser.ParseFloatValue();
+                             radii = parser.ParseCornerRadiiValue();
                      }
                      RefPtr<StateListDrawable> sl =
-                         Palette::CreateStateRounded(baseColor, vg::CornerRadii(radius));
+                         Palette::CreateStateRounded(baseColor, radii);
                      sheet.OwnDrawable(sl);
                      return sl;
                  });
@@ -1063,7 +1101,25 @@ export namespace foundation::ui
 
                      const Optional<StringView> svgText = parser.ResolveSvg(name);
                      if (!svgText.HasValue())
+                     {
+                         // Builtin fallback (ui-theme-migration.md P0a): the 10 chrome glyph
+                         // names resolve through ThemeIconSet - so cooked/runtime themes work
+                         // WITHOUT a host-side name registration (they used to silently null
+                         // here), and sheets share the pixel-snapped BAKED instances instead
+                         // of fresh live-vector parses.
+                         if (Optional<ThemeIcon> builtin = ThemeIconFromName(name);
+                             builtin.HasValue())
+                         {
+                             RefPtr<Drawable> shared =
+                                 tint.HasValue()
+                                     ? ThemeIconSet::Acquire(builtin.Value(), tint.Value())
+                                     : ThemeIconSet::Acquire(builtin.Value());
+                             if (shared)
+                                 sheet.OwnDrawable(shared);
+                             return shared;
+                         }
                          return nullptr;
+                     }
 
                      RefPtr<SVGDrawable> d;
                      if (tint.HasValue())

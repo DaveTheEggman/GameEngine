@@ -881,3 +881,63 @@ TEST_CASE("sss: Image_WithTint")
     CHECK(id->Tint.r == 1.0f);
     CHECK(id->Tint.g == 0);
 }
+
+// === P0 theme-migration capabilities (ui-theme-migration.md) ===
+
+TEST_CASE("sss: svg builtin glyph resolves via ThemeIconSet WITHOUT any registration")
+{
+    // The live-bug fix: cooked/runtime themes used to get a silent null here because only
+    // hosts that pre-registered names could resolve svg(close).
+    Fixture f(LoadSSS(u8"View { background: svg(close); }"));
+    core::RefPtr<TestView> view = f.AddView();
+    Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    CHECK(core::Cast<SVGDrawable>(bg) != nullptr);
+}
+
+TEST_CASE("sss: svg builtin glyph shares the BAKED instance when ThemeIconSet is live")
+{
+    ThemeIconSet::Get().Initialize();
+    Fixture f(LoadSSS(u8"View { background: svg(close); }"));
+    core::RefPtr<TestView> view = f.AddView();
+    Drawable* bg = view->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(bg != nullptr);
+    // The SHARED instance - not a fresh parse (identity proves the crispness path).
+    RefPtr<Drawable> shared = ThemeIconSet::Acquire(ThemeIcon::Close);
+    CHECK(bg == shared.Get());
+    ThemeIconSet::Get().Shutdown(); // test hygiene
+}
+
+TEST_CASE("sss: rounded-rect accepts per-corner radius=a b c d")
+{
+    Fixture f(LoadSSS(u8"View { background: rounded-rect(#336699, radius=1 2 3 4); }"));
+    core::RefPtr<TestView> view = f.AddView();
+    RoundedRectDrawable* rrd =
+        core::Cast<RoundedRectDrawable>(view->ResolveStyleDrawable(StyleProperty::Background));
+    REQUIRE(rrd != nullptr);
+    CHECK(rrd->Radii.topLeft == 1.0f);
+    CHECK(rrd->Radii.topRight == 2.0f);
+    CHECK(rrd->Radii.bottomRight == 3.0f);
+    CHECK(rrd->Radii.bottomLeft == 4.0f);
+}
+
+TEST_CASE("sss: state color functions match Palette derivations")
+{
+    // disabled()'s luminance desaturation is the one lighten/darken cannot express - the
+    // sheet-declared color must equal the C++ themes' Palette math exactly (migration parity).
+    Fixture f(LoadSSS(u8"View { text-color: disabled(#6496c8); }"));
+    core::RefPtr<TestView> view = f.AddView();
+    const Color expected =
+        Palette::ComputeDisabled(Color{0x64 / 255.0f, 0x96 / 255.0f, 0xc8 / 255.0f, 1.0f});
+    const Color got = view->ResolveStyleColor(StyleProperty::TextColor, Color::White);
+    CHECK(got.r == doctest::Approx(expected.r));
+    CHECK(got.g == doctest::Approx(expected.g));
+    CHECK(got.b == doctest::Approx(expected.b));
+
+    Fixture f2(LoadSSS(u8"View { text-color: hover(#404040); }"));
+    core::RefPtr<TestView> view2 = f2.AddView();
+    const Color expectedHover =
+        Palette::ComputeHover(Color{0x40 / 255.0f, 0x40 / 255.0f, 0x40 / 255.0f, 1.0f});
+    const Color gotHover = view2->ResolveStyleColor(StyleProperty::TextColor, Color::White);
+    CHECK(gotHover.r == doctest::Approx(expectedHover.r));
+}
