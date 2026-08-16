@@ -493,40 +493,55 @@ export namespace foundation::rhi::dx12
 
             DXGI_FORMAT dxgiFormat = toDxgiFormat(d.format);
 
-            // Texture enters in CopySrc+CopyDst state (DX12: all subresources in COPY_SOURCE).
-            // For each mip: transition src->SRV, dst->RTV, blit, restore both->COPY_SOURCE.
+            constexpr D3D12_RESOURCE_STATES kSrvState =
+                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+                D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+            // Barrier from whatever the tracker says a subresource is ACTUALLY in, and record
+            // every transition. This used to hardcode COPY_SOURCE for both the before-state and
+            // the per-mip restore, and never told the tracker anything - so after a
+            // GenerateMipmaps the resource really sat in COPY_SOURCE while the tracker still
+            // believed COMMON (what the upload path leaves it in). The next barrier then declared
+            // StateBefore=COMMON and the debug layer rejected it, once per mip:
+            //   "Before state (0x0: COMMON|PRESENT) ... does not match with the state
+            //    (0x800: COPY_SOURCE) specified in the previous call to ResourceBarrier"
+            //
+            // NOTE: like the original, this walks layer 0 only - blitSubresource addresses a
+            // single mip, so array textures still get only their first slice's chain built.
+            auto transition = [&](u32 mip, D3D12_RESOURCE_STATES after)
+            {
+                const D3D12_RESOURCE_STATES before = dxTex->getSubresourceState(mip, 0);
+                if (before == after)
+                    return;
+                D3D12_RESOURCE_BARRIER b{};
+                b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                b.Transition.pResource = dxTex->handle();
+                b.Transition.Subresource = mip;
+                b.Transition.StateBefore = before;
+                b.Transition.StateAfter = after;
+                m_cmdList->ResourceBarrier(1, &b);
+                dxTex->setSubresourceState(mip, 1, 0, 1, after);
+            };
+
             for (u32 mip = 1; mip < d.mipLevelCount; ++mip)
             {
-                u32 dstWidth = std::max(1u, d.width >> mip);
-                u32 dstHeight = std::max(1u, d.height >> mip);
+                const u32 dstWidth = std::max(1u, d.width >> mip);
+                const u32 dstHeight = std::max(1u, d.height >> mip);
 
-                D3D12_RESOURCE_BARRIER barriers[2]{};
-
-                barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-                barriers[0].Transition.pResource = dxTex->handle();
-                barriers[0].Transition.Subresource = mip - 1;
-                barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-                barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
-                                                    D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-
-                barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-                barriers[1].Transition.pResource = dxTex->handle();
-                barriers[1].Transition.Subresource = mip;
-                barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-                barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-
-                m_cmdList->ResourceBarrier(2, barriers);
+                // No per-mip restore: mip N stays in SRV and is read again as the source for
+                // N+1, so the only transitions left are the ones that actually change state.
+                transition(mip - 1, kSrvState);
+                transition(mip, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
                 blitSubresource(dxTex, mip - 1, dxTex, mip, dstWidth, dstHeight, dxgiFormat);
+            }
 
-                // Post-blit: restore both to COPY_SOURCE.
-                barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
-                                                     D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-                barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-                barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-                barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-
-                m_cmdList->ResourceBarrier(2, barriers);
+            // Leave the whole chain in the resting state the rest of the backend assumes for a
+            // sampled texture (what the upload path also settles on), so the tracker collapses
+            // back to one uniform state instead of a per-subresource patchwork.
+            for (u32 mip = 0; mip < d.mipLevelCount; ++mip)
+            {
+                transition(mip, D3D12_RESOURCE_STATE_COMMON);
             }
         }
 
@@ -541,32 +556,33 @@ export namespace foundation::rhi::dx12
 
             DXGI_FORMAT dxgiFormat = toDxgiFormat(dxDst->desc.format);
 
-            // Transition src -> RESOLVE_SOURCE, dst -> RESOLVE_DEST.
-            D3D12_RESOURCE_BARRIER barriers[2]{};
+            // Same rule as GenerateMipmaps above: barrier from the TRACKED state and record the
+            // result. Hardcoding COPY_SOURCE/COPY_DEST here desynced the tracker the moment a
+            // resolve target was used any other way (an MSAA colour target rests in
+            // RENDER_TARGET, not COPY_SOURCE), which the debug layer reports as a before-state
+            // mismatch on the next barrier.
+            auto transitionAll = [&](DxTextureImpl* tex, D3D12_RESOURCE_STATES after)
+            {
+                const D3D12_RESOURCE_STATES before = tex->currentState();
+                if (before == after)
+                    return;
+                D3D12_RESOURCE_BARRIER b{};
+                b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                b.Transition.pResource = tex->handle();
+                b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                b.Transition.StateBefore = before;
+                b.Transition.StateAfter = after;
+                m_cmdList->ResourceBarrier(1, &b);
+                tex->setState(after);
+            };
 
-            barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barriers[0].Transition.pResource = dxSrc->handle();
-            barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-            barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_RESOLVE_SOURCE;
-
-            barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barriers[1].Transition.pResource = dxDst->handle();
-            barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-            barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_RESOLVE_DEST;
-
-            m_cmdList->ResourceBarrier(2, barriers);
+            transitionAll(dxSrc, D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
+            transitionAll(dxDst, D3D12_RESOURCE_STATE_RESOLVE_DEST);
 
             m_cmdList->ResolveSubresource(dxDst->handle(), 0, dxSrc->handle(), 0, dxgiFormat);
 
-            // Transition back.
-            barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_RESOLVE_SOURCE;
-            barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-            barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_RESOLVE_DEST;
-            barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
-
-            m_cmdList->ResourceBarrier(2, barriers);
+            transitionAll(dxSrc, D3D12_RESOURCE_STATE_COMMON);
+            transitionAll(dxDst, D3D12_RESOURCE_STATE_COMMON);
         }
 
         // ---- Queries ----
