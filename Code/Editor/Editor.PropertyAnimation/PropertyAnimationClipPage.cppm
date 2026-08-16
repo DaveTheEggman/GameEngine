@@ -105,8 +105,17 @@ export namespace editor
         void BuildTrackRows(usize trackIndex);
         void RefreshPreview(); // update the sampled-values readout at the current scrub time
 
+        // CurveCanvas host for a scalar track (Float/Float3/Color): push the track's channels into the
+        // canvas (times normalized by m_editDuration), and read them back on edit (live + one undo per
+        // gesture). Quat tracks keep the numeric key table (no per-component curve).
+        void AddCurveCanvas(usize trackIndex);
+        void PushTrackToCanvas(usize trackIndex, ui::toolkit::CurveCanvas& canvas);
+        void WriteBackTrack(usize trackIndex, ui::toolkit::CurveCanvas& canvas);
+
         [[nodiscard]] static StringView KindName(propanim::TrackValueKind kind);
         [[nodiscard]] static StringView InterpName(CurveInterpolation interp);
+        [[nodiscard]] static ui::toolkit::CurveInterpolation ClipToCanvasInterp(CurveInterpolation i);
+        [[nodiscard]] static CurveInterpolation CanvasToClipInterp(ui::toolkit::CurveInterpolation i);
 
         EditorContext* m_context = nullptr;
         String m_title;
@@ -119,6 +128,8 @@ export namespace editor
         RefPtr<ui::FlexLayout> m_rows;
         RefPtr<ui::Label> m_preview; // sampled values at the scrub time
         f32 m_scrubTime = 0.0f;
+        f32 m_editDuration = 1.0f;   // the canvas time-axis scale (clip length); keys normalize by it
+        propanim::PropertyAnimationClip m_gestureBefore; // undo snapshot captured on OnEditBegin
     };
 
     class PropertyAnimationClipPageFactory final : public IEditorPageFactory

@@ -24,8 +24,6 @@ namespace editor
         constexpr propanim::TrackValueKind kKinds[] = {
             propanim::TrackValueKind::Float, propanim::TrackValueKind::Float3,
             propanim::TrackValueKind::Color, propanim::TrackValueKind::Quat};
-        constexpr CurveInterpolation kInterps[] = {
-            CurveInterpolation::Constant, CurveInterpolation::Linear, CurveInterpolation::Cubic};
 
         // The per-channel labels for a kind (x/y/z, r/g/b/a); empty (Quat) uses its own row.
         StringView ChannelLabel(propanim::TrackValueKind kind, u32 channel)
@@ -70,6 +68,36 @@ namespace editor
         return u8"?";
     }
 
+    ui::toolkit::CurveInterpolation
+    PropertyAnimationClipEditorPage::ClipToCanvasInterp(CurveInterpolation i)
+    {
+        switch (i)
+        {
+        case CurveInterpolation::Constant:
+            return ui::toolkit::CurveInterpolation::Step;
+        case CurveInterpolation::Linear:
+            return ui::toolkit::CurveInterpolation::Linear;
+        case CurveInterpolation::Cubic:
+            return ui::toolkit::CurveInterpolation::Hermite;
+        }
+        return ui::toolkit::CurveInterpolation::Linear;
+    }
+
+    CurveInterpolation
+    PropertyAnimationClipEditorPage::CanvasToClipInterp(ui::toolkit::CurveInterpolation i)
+    {
+        switch (i)
+        {
+        case ui::toolkit::CurveInterpolation::Step:
+            return CurveInterpolation::Constant;
+        case ui::toolkit::CurveInterpolation::Linear:
+            return CurveInterpolation::Linear;
+        case ui::toolkit::CurveInterpolation::Hermite:
+            return CurveInterpolation::Cubic;
+        }
+        return CurveInterpolation::Linear;
+    }
+
     PropertyAnimationClipEditorPage::PropertyAnimationClipEditorPage(
         EditorContext& context, runtime::IApplicationHost&, foundation::content::Instance& instance)
         : m_context(&context), m_title(instance.Name())
@@ -80,6 +108,7 @@ namespace editor
             m_fileName = asset->fileName;      // preserved verbatim on save
             asset->source.FillClip(m_clip);    // flatten the cooked wire into the editing model
         }
+        m_editDuration = Max(m_clip.ComputeDuration(), 1.0f); // canvas time-axis scale
 
         auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
         column->Direction = ui::Orientation::Vertical;
@@ -220,10 +249,14 @@ namespace editor
                           self->RefreshPreview();
                       },
                       64.0f);
-        String dur(u8"/ ");
-        AppendValue(dur, m_clip.duration);
-        dur += u8"s";
-        AddLabel(*row, dur.AsView(), 0.0f, 80.0f);
+        AddLabel(*row, u8"Length", 0.0f, 52.0f);
+        AddFloatField(*row, m_editDuration,
+                      [self](f32 d)
+                      {
+                          self->m_editDuration = (d > 1e-3f) ? d : 1.0f;
+                          self->RequestRebuild(); // the canvas time axis rescales
+                      },
+                      56.0f);
 
         m_preview = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
         m_preview->FontSize.SetValue(11.0f);
@@ -337,7 +370,6 @@ namespace editor
                                   { c.tracks.RemoveAt(trackIndex); }); });
 
         // --- keyframe rows ---
-        const u32 channels = propanim::ChannelCount(track.kind);
         if (track.kind == propanim::TrackValueKind::Quat)
         {
             for (usize ki = 0; ki < track.quatKeys.Size(); ++ki)
@@ -385,120 +417,168 @@ namespace editor
         }
         else
         {
-            // Scalar-channel tracks: channel[0] is the master timeline; each row edits every channel's
-            // value at that key index (P1 keeps channel key times aligned).
-            const usize keyCount = (channels > 0) ? track.channels[0].KeyCount() : 0;
-            for (usize ki = 0; ki < keyCount; ++ki)
-            {
-                auto krow = MakeRow(18.0f);
-                const CurveKey& k0 = track.channels[0].Keys()[ki];
-                AddFloatField(*krow, k0.time,
-                              [self, trackIndex, ki, channels](f32 t)
-                              {
-                                  self->Mutate(
-                                      [&](propanim::PropertyAnimationClip& c)
-                                      {
-                                          propanim::PropertyTrack& tr = c.tracks[trackIndex];
-                                          for (u32 ch = 0; ch < channels; ++ch)
-                                          {
-                                              if (ki < tr.channels[ch].KeyCount())
-                                              {
-                                                  tr.channels[ch].Keys()[ki].time = t;
-                                              }
-                                          }
-                                      });
-                              },
-                              50.0f);
-                for (u32 ch = 0; ch < channels; ++ch)
-                {
-                    const f32 val =
-                        (ki < track.channels[ch].KeyCount()) ? track.channels[ch].Keys()[ki].value : 0.0f;
-                    AddLabel(*krow, ChannelLabel(track.kind, ch), 0.0f, 12.0f);
-                    AddFloatField(*krow, val,
-                                  [self, trackIndex, ki, ch](f32 v)
-                                  {
-                                      self->Mutate(
-                                          [&](propanim::PropertyAnimationClip& c)
-                                          {
-                                              Curve& cur = c.tracks[trackIndex].channels[ch];
-                                              if (ki < cur.KeyCount())
-                                              {
-                                                  cur.Keys()[ki].value = v;
-                                              }
-                                          });
-                                  },
-                                  52.0f);
-                }
-                MakeButton(*krow, InterpName(k0.interpolation), 56.0f,
-                           [self, trackIndex, ki, channels]()
-                           {
-                               self->Mutate(
-                                   [&](propanim::PropertyAnimationClip& c)
-                                   {
-                                       propanim::PropertyTrack& tr = c.tracks[trackIndex];
-                                       CurveInterpolation next = CurveInterpolation::Linear;
-                                       if (ki < tr.channels[0].KeyCount())
-                                       {
-                                           const CurveInterpolation cur =
-                                               tr.channels[0].Keys()[ki].interpolation;
-                                           usize idx = 0;
-                                           for (usize j = 0; j < 3; ++j)
-                                           {
-                                               if (kInterps[j] == cur)
-                                               {
-                                                   idx = j;
-                                                   break;
-                                               }
-                                           }
-                                           next = kInterps[(idx + 1) % 3];
-                                       }
-                                       for (u32 ch = 0; ch < channels; ++ch)
-                                       {
-                                           if (ki < tr.channels[ch].KeyCount())
-                                           {
-                                               tr.channels[ch].Keys()[ki].interpolation = next;
-                                           }
-                                       }
-                                   });
-                           });
-                MakeButton(*krow, u8"x", 22.0f,
-                           [self, trackIndex, ki, channels]()
-                           {
-                               self->Mutate(
-                                   [&](propanim::PropertyAnimationClip& c)
-                                   {
-                                       propanim::PropertyTrack& tr = c.tracks[trackIndex];
-                                       for (u32 ch = 0; ch < channels; ++ch)
-                                       {
-                                           if (ki < tr.channels[ch].KeyCount())
-                                           {
-                                               tr.channels[ch].Keys().RemoveAt(ki);
-                                           }
-                                       }
-                                   });
-                           });
-            }
-            MakeButton(*MakeRow(18.0f), u8"+ Key", 60.0f,
-                       [self, trackIndex, channels]()
+            // Scalar-channel tracks (Float/Float3/Color): an interactive CurveCanvas (times shown
+            // normalized by the clip length; add via click, drag to edit, right-click to delete).
+            AddCurveCanvas(trackIndex);
+        }
+    }
+
+    void PropertyAnimationClipEditorPage::AddCurveCanvas(usize trackIndex)
+    {
+        PropertyAnimationClipEditorPage* self = this;
+        const propanim::PropertyTrack& track = m_clip.tracks[trackIndex];
+        const u32 channels = propanim::ChannelCount(track.kind);
+        if (channels == 0)
+        {
+            return;
+        }
+
+        // Per-track interpolation cycle (the canvas interpolates PER CHANNEL, not per key - a P1
+        // simplification): applies to every channel of this track.
+        {
+            auto irow = MakeRow(18.0f, 22.0f);
+            const CurveInterpolation cur =
+                (track.channels[0].KeyCount() > 0) ? track.channels[0].Keys()[0].interpolation
+                                                   : CurveInterpolation::Linear;
+            MakeButton(*irow, InterpName(cur), 64.0f,
+                       [self, trackIndex]()
                        {
                            self->Mutate(
                                [&](propanim::PropertyAnimationClip& c)
                                {
                                    propanim::PropertyTrack& tr = c.tracks[trackIndex];
-                                   f32 at = 0.0f;
-                                   if (channels > 0 && tr.channels[0].KeyCount() > 0)
+                                   const u32 chn = propanim::ChannelCount(tr.kind);
+                                   CurveInterpolation next = CurveInterpolation::Linear;
+                                   if (chn > 0 && tr.channels[0].KeyCount() > 0)
                                    {
-                                       at = tr.channels[0].Duration() + 1.0f;
+                                       const CurveInterpolation prev =
+                                           tr.channels[0].Keys()[0].interpolation;
+                                       next = (prev == CurveInterpolation::Constant)
+                                                  ? CurveInterpolation::Linear
+                                              : (prev == CurveInterpolation::Linear)
+                                                  ? CurveInterpolation::Cubic
+                                                  : CurveInterpolation::Constant;
                                    }
-                                   for (u32 ch = 0; ch < channels; ++ch)
+                                   for (u32 ch = 0; ch < chn; ++ch)
                                    {
-                                       CurveKey k;
-                                       k.time = at;
-                                       tr.channels[ch].AddKey(k);
+                                       for (usize k = 0; k < tr.channels[ch].KeyCount(); ++k)
+                                       {
+                                           tr.channels[ch].Keys()[k].interpolation = next;
+                                       }
                                    }
                                });
                        });
+            AddLabel(*irow, u8"(click canvas to add a key; drag to edit; right-click to delete)", 1.0f);
         }
+
+        auto canvas = MakeRef<ui::toolkit::CurveCanvas>(DefaultAllocator());
+        canvas->MaxKeys = 64;
+        canvas->AutoFitValueRange = true;
+        canvas->LinkedTime = channels > 1;
+
+        const CurveInterpolation trackInterp =
+            (track.channels[0].KeyCount() > 0) ? track.channels[0].Keys()[0].interpolation
+                                               : CurveInterpolation::Linear;
+        const Color stroke[4] = {Color{0.9f, 0.4f, 0.4f, 1.0f}, Color{0.4f, 0.9f, 0.5f, 1.0f},
+                                 Color{0.45f, 0.65f, 1.0f, 1.0f}, Color{0.85f, 0.85f, 0.4f, 1.0f}};
+        Array<ui::toolkit::ChannelDescriptor> descs;
+        for (u32 ch = 0; ch < channels; ++ch)
+        {
+            ui::toolkit::ChannelDescriptor d;
+            d.Name = String(ChannelLabel(track.kind, ch));
+            d.StrokeColor = stroke[ch < 4 ? ch : 0];
+            d.Interpolation = ClipToCanvasInterp(trackInterp);
+            descs.PushBack(Move(d));
+        }
+        canvas->SetChannels(Span<const ui::toolkit::ChannelDescriptor>{descs.Data(), descs.Size()});
+        PushTrackToCanvas(trackIndex, *canvas);
+
+        ui::toolkit::CurveCanvas* raw = canvas.Get();
+        canvas->OnEditBegin.Add([self]() { self->m_gestureBefore = self->m_clip; });
+        canvas->OnKeyChanged.Add(
+            [self, trackIndex, raw](i32, i32) { self->WriteBackTrack(trackIndex, *raw); });
+        canvas->OnKeyAdded.Add(
+            [self, trackIndex, raw](i32, i32) { self->WriteBackTrack(trackIndex, *raw); });
+        canvas->OnKeyRemoved.Add(
+            [self, trackIndex, raw](i32, i32) { self->WriteBackTrack(trackIndex, *raw); });
+        canvas->OnEditEnd.Add(
+            [self]()
+            {
+                // One undo step per gesture: the live edits already mutated m_clip; record before/after.
+                propanim::PropertyAnimationClip after = self->m_clip;
+                after.duration = after.ComputeDuration();
+                (void)self->Commands().Execute(UniquePtr<IEditorCommand>(
+                    DefaultAllocator().New<ClipEditCommand>(*self, Move(self->m_gestureBefore),
+                                                            Move(after)),
+                    DefaultAllocator()));
+            });
+
+        auto wrap = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        wrap->Direction = ui::Orientation::Vertical;
+        wrap->Padding = ui::Thickness{18, 0};
+        auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        lp->Width = ui::SizeSpec::Match();
+        lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(120.0f));
+        wrap->AddView(canvas.Get(), lp);
+        auto wlp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        wlp->Width = ui::SizeSpec::Match();
+        wlp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(122.0f));
+        m_rows->AddView(wrap.Get(), wlp);
+    }
+
+    void PropertyAnimationClipEditorPage::PushTrackToCanvas(usize trackIndex,
+                                                           ui::toolkit::CurveCanvas& canvas)
+    {
+        const propanim::PropertyTrack& track = m_clip.tracks[trackIndex];
+        const u32 channels = propanim::ChannelCount(track.kind);
+        const f32 dur = (m_editDuration > 1e-3f) ? m_editDuration : 1.0f;
+        for (u32 ch = 0; ch < channels; ++ch)
+        {
+            Array<ui::toolkit::CurveCanvas::Key> keys;
+            const Curve& cur = track.channels[ch];
+            for (usize i = 0; i < cur.KeyCount(); ++i)
+            {
+                const CurveKey& k = cur.Keys()[i];
+                // Normalize time to [0,1]; tangents are slope dy/dt, so rescale by the duration.
+                keys.PushBack(ui::toolkit::CurveCanvas::Key{k.time / dur, k.value,
+                                                            k.tangentIn * dur, k.tangentOut * dur});
+            }
+            canvas.SetKeys(static_cast<i32>(ch),
+                           Span<const ui::toolkit::CurveCanvas::Key>{keys.Data(), keys.Size()});
+        }
+    }
+
+    void PropertyAnimationClipEditorPage::WriteBackTrack(usize trackIndex,
+                                                        ui::toolkit::CurveCanvas& canvas)
+    {
+        if (trackIndex >= m_clip.tracks.Size())
+        {
+            return;
+        }
+        propanim::PropertyTrack& track = m_clip.tracks[trackIndex];
+        const u32 channels = propanim::ChannelCount(track.kind);
+        const f32 dur = (m_editDuration > 1e-3f) ? m_editDuration : 1.0f;
+        for (u32 ch = 0; ch < channels; ++ch)
+        {
+            const CurveInterpolation interp =
+                CanvasToClipInterp(canvas.GetChannelDescriptor(static_cast<i32>(ch)).Interpolation);
+            const i32 n = canvas.GetKeyCount(static_cast<i32>(ch));
+            track.channels[ch].Clear();
+            for (i32 i = 0; i < n; ++i)
+            {
+                const ui::toolkit::CurveCanvas::Key k = canvas.GetKey(static_cast<i32>(ch), i);
+                CurveKey ck;
+                ck.time = k.Time * dur;
+                ck.value = k.Value;
+                ck.tangentIn = k.TangentIn / dur;
+                ck.tangentOut = k.TangentOut / dur;
+                ck.interpolation = interp;
+                track.channels[ch].AddKey(ck);
+            }
+        }
+        m_clip.duration = m_clip.ComputeDuration();
+        MarkDirty();
+        RefreshPreview();
     }
 
     void PropertyAnimationClipEditorPage::Rebuild()
