@@ -1,6 +1,6 @@
-add_executable(Editor.PropertyAnimation.Tests TestsMain.cpp ClipEditorViewTests.cpp)
+add_executable(Editor.PropertyAnimation.Tests TestsMain.cpp ClipEditorViewTests.cpp PropertyAnimationToolTests.cpp)
 target_link_libraries(Editor.PropertyAnimation.Tests PRIVATE
-    Editor::PropertyAnimation Editor::Core
+    Editor::PropertyAnimation Editor::Core Editor::ViewportTools
     Foundation::PropertyAnimation Foundation::UI Foundation::UI.Toolkit
     doctest::doctest)
 target_compile_definitions(Editor.PropertyAnimation.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

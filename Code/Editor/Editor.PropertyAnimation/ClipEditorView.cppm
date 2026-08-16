@@ -76,6 +76,11 @@ export namespace editor
         /// Defer a Rebuild through the UI mutation queue (mid-event-dispatch safe).
         void RequestRebuild();
 
+        /// Resync to the host's CURRENT clip after it is replaced wholesale (a new/loaded document,
+        /// not an edit): recompute the canvas time axis from the clip length, reset the scrub, and
+        /// rebuild. (An in-place edit uses RequestRebuild; this also rescales the axis.)
+        void ResetForClip();
+
         /// Append a track (component + property + value kind) as ONE undoable edit. Drives the
         /// "+ Track" button and the in-scene tool's "add track from selection" (H3).
         void AddTrack(StringView componentType, StringView propertyPath, propanim::TrackValueKind kind);

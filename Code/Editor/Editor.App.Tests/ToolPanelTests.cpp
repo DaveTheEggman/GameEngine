@@ -43,7 +43,8 @@ namespace
     public:
         FakeProvider(StringView toolId, bool yieldNull = false) : m_id(toolId), m_null(yieldNull) {}
         [[nodiscard]] StringView ToolId() const override { return m_id.AsView(); }
-        [[nodiscard]] RefPtr<ui::View> CreatePanel(const ViewportToolHostContext&) override
+        [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool&,
+                                                   const ViewportToolHostContext&) override
         {
             ++CreateCount;
             if (m_null)

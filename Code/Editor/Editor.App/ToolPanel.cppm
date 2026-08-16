@@ -39,10 +39,12 @@ export namespace editor
         /// The tool this panel belongs to - matches IViewportTool::Id(). Stable, never localized.
         [[nodiscard]] virtual StringView ToolId() const = 0;
 
-        /// Build the panel view for one host activation. Receives the same context the tool got.
+        /// Build the panel view for one host activation. Receives the ACTIVE tool this panel is for
+        /// (a provider downcasts it to its concrete tool - the id matched, so the type is known - to
+        /// reach state the UI-free IViewportTool cannot expose) plus the same context the tool got.
         /// May return null (this context has nothing to show) - the host then docks no panel.
         [[nodiscard]] virtual RefPtr<foundation::ui::View>
-        CreatePanel(const ViewportToolHostContext& context) = 0;
+        CreatePanel(IViewportTool& tool, const ViewportToolHostContext& context) = 0;
     };
 
     /// Registry of tool-panel providers, keyed by tool id. A process-wide singleton like the tool

@@ -85,7 +85,7 @@ namespace editor
         {
             if (IViewportToolPanelProvider* provider = m_registry->FindByToolId(activeId))
             {
-                RefPtr<foundation::ui::View> panel = provider->CreatePanel(m_context);
+                RefPtr<foundation::ui::View> panel = provider->CreatePanel(*active, m_context);
                 if (panel.Get() != nullptr)
                 {
                     m_current = panel;

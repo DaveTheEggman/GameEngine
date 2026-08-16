@@ -25,8 +25,10 @@ import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
 import editor.app;
+import editor.viewporttools;
 
 export import :clip_editor_view;
+export import :tool;
 
 using namespace foundation::core;
 
@@ -131,5 +133,14 @@ export namespace editor
         creator.category = String(u8"Animation");
         creator.create = &CreatePropertyAnimationClip;
         context.RegisterCreator(Move(creator));
+
+        // In-scene authoring mode (Phase H3): the property-animation viewport tool + its docked
+        // panel. Static lifetime (the registries borrow them); registered exactly once at startup.
+        // Count tripwire: THIS registrar contributes exactly one tool provider and one panel
+        // provider - Editor.PropertyAnimation.Tests asserts both are present and keyed correctly.
+        static PropertyAnimationToolProvider s_toolProvider(context);
+        editor::ViewportToolProviderRegistry::Get().Register(&s_toolProvider);
+        static PropertyAnimationPanelProvider s_panelProvider(context);
+        editor::ViewportToolPanelRegistry::Get().Register(&s_panelProvider);
     }
 }

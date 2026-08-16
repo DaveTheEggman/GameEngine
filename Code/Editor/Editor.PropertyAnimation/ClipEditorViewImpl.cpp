@@ -585,6 +585,13 @@ namespace editor
             });
     }
 
+    void ClipEditorView::ResetForClip()
+    {
+        m_editDuration = Max(Clip().ComputeDuration(), 1.0f);
+        m_scrubTime = 0.0f;
+        Rebuild();
+    }
+
     void ClipEditorView::RequestRebuild()
     {
         ui::UIContext* ctx = (m_rows.Get() != nullptr) ? m_rows->Context : nullptr;
