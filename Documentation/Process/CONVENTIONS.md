@@ -61,11 +61,23 @@ violating them fails review even if the feature works.
 - sRGB decode lives in the SHADER (vg.vs), never CPU-side; `ToColor` is a plain
   /255. Never decode twice.
 
+## Specs
+
+- Before a spec commissions NEW UI or infrastructure, grep the tree for an
+  existing implementation and CITE what was checked in the spec. Two trips
+  in one week earned this rule: camera-preview sat "pending" for two weeks
+  because its spec was never stamped BUILT, and property-animation
+  commissioned a curve-editor widget while UI.Toolkit's CurveCanvas (1263
+  lines, tested, in use by the particle page) already existed.
+- When a spec's work ships, stamp the spec (STATUS header) in the same
+  commit - an unstamped spec reads as unbuilt work forever.
+
 ## Git
 
 - NO Co-Authored-By trailer on commits.
-- `docs/` (including this folder) is intentionally untracked - never `git add`
-  it.
+- Documentation/ IS tracked (policy reversed 2026-08-11): commit doc updates
+  with the change; Systems docs update in the SAME commit as behavior. Only
+  the user's root-level scratch files stay untracked.
 - Commit messages: imperative summary line prefixed with the module/track
   (e.g. `VG: ...`, `Editor: ...`), body explains the why.
 - Do not commit or push without the phase being green on both compilers and its
