@@ -106,7 +106,10 @@ export namespace foundation::ui::toolkit
                 // Draw directional arrow.
                 const f32 cx = target.Rect.x + target.Rect.width * 0.5f;
                 const f32 cy = target.Rect.y + target.Rect.height * 0.5f;
-                const Color arrowColor = Rgb(255, 255, 255, isHovered ? 220 : 150);
+                const Color arrowBase =
+                    ResolveStyleColor(StyleProperty::TextColor, Rgb(255, 255, 255, 255));
+                const Color arrowColor{arrowBase.r, arrowBase.g, arrowBase.b,
+                                       (isHovered ? 220 : 150) / 255.0f};
                 const f32 sz = 6.0f;
 
                 ctx.VG().BeginPath();

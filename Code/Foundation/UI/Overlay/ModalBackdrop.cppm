@@ -11,6 +11,7 @@ export module foundation.ui:modal_backdrop;
 
 import foundation.core;
 import :view;
+import :style_property;
 import :draw_context;
 import :event_args;
 
@@ -29,7 +30,9 @@ export namespace foundation::ui
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Color);
+            // Themeable scrim: background-color rule wins over the field default.
+            ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()},
+                              ResolveStyleColor(StyleProperty::Background, Color));
         }
 
         // Block all mouse input so nothing reaches content behind the modal.

@@ -98,8 +98,10 @@ export namespace foundation::ui
                     textH = font->font->Metrics().lineHeight;
                 }
             }
-            const f32 totalW = kCircleSize + ((textW > 0) ? kCircleTextSpacing + textW : 0);
-            const f32 totalH = Max(kCircleSize, textH);
+            const f32 circleSize = ResolvePartFloat(u8"box", StyleProperty::Width,
+                                                    GetControlState(), kCircleSize);
+            const f32 totalW = circleSize + ((textW > 0) ? kCircleTextSpacing + textW : 0);
+            const f32 totalH = Max(circleSize, textH);
             MeasuredSize =
                 Float2{constraints.ConstrainWidth(totalW), constraints.ConstrainHeight(totalH)};
         }
@@ -108,9 +110,11 @@ export namespace foundation::ui
             const f32 fontSize = FontSize.Value().HasValue()
                                      ? FontSize.Value().Value()
                                      : ResolveStyleFloat(StyleProperty::FontSize, 16.0f);
-            const f32 r = kCircleSize * 0.5f;
+            const f32 circleSize = ResolvePartFloat(u8"box", StyleProperty::Width,
+                                                    GetControlState(), kCircleSize);
+            const f32 r = circleSize * 0.5f;
             const f32 cy = Height() * 0.5f;
-            const Rectangle boxRect{0, cy - r, kCircleSize, kCircleSize};
+            const Rectangle boxRect{0, cy - r, circleSize, circleSize};
 
             ControlState state = GetControlState();
             if (IsChecked.Value())
@@ -155,7 +159,7 @@ export namespace foundation::ui
                     {
                         textColor = Palette::ComputeDisabled(textColor);
                     }
-                    const f32 textX = kCircleSize + kCircleTextSpacing;
+                    const f32 textX = circleSize + kCircleTextSpacing;
                     ctx.VG().DrawText(text, font, Rectangle{textX, 0, Width() - textX, Height()},
                                       fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle,
                                       textColor);
@@ -177,8 +181,8 @@ export namespace foundation::ui
         {
             ctx.VG().FillRect(boxRect,
                               Color{80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f});
-            const f32 dotSize = kCircleSize * 0.4f;
-            const f32 dotX = (kCircleSize - dotSize) * 0.5f;
+            const f32 dotSize = boxRect.width * 0.4f;
+            const f32 dotX = boxRect.x + (boxRect.width - dotSize) * 0.5f;
             ctx.VG().FillRect(Rectangle{dotX, cy - dotSize * 0.5f, dotSize, dotSize}, Color::White);
         }
 

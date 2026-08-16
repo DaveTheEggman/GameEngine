@@ -354,15 +354,21 @@ pinned by explicit 12s on DockablePanel/Toolbar/BreadcrumbBar + gates.
 Semantic constants stay by design: key/tangent handle colors, VectorFields
 axis colors (red X / green Y / blue Z), selection-yellow markers.
 
-**Remainder - theme cannot influence these today (P4-adjacent):**
-- DockZoneIndicator arrow + fixed alphas over the injected accent;
-  DragAdorner default ghost; ModalBackdrop scrim (property, no style).
-- CodeEditView: syntax token palette + FontSize/FontFamily fields +
-  gutter marker colors bypass (its chrome colors DO resolve).
+**ALSO FIXED (second fixup batch):** DockZoneIndicator arrow resolves
+TextColor (alpha ramp preserved); DragAdorner ghost + ModalBackdrop scrim
+resolve Background (background-color rules; field/code defaults remain
+the fallback); RadioButton gained the ::box width part hook (CheckBox
+parity); CodeEditView gutter markers + error-line tint resolve the
+semantic ErrorColor/WarningColor properties (resolved once, outside the
+line loop).
+
+**Remainder - accepted / needs framework features:**
+- CodeEditView FontSize/FontFamily plain fields + syntax token palette:
+  BY DESIGN for now (field API is page-owned; a .sss syntax-palette
+  needs a property family of its own).
 - Child-view text is unreachable by container rules (no descendant
   selectors / style inheritance): StatusBar section labels,
-  PropertyGrid row labels (12); Toolbar buttons now resolve via their
+  PropertyGrid row labels (12); Toolbar buttons resolve via their
   Toolbar ancestor instead.
-- RadioButton lacks the part-width hook CheckBox has (kCircleSize 18).
 - NodeGraphCanvas title/subtitle/port font sizes + geometry constants;
   NodeGraphTypes per-node colors are caller-owned by design.

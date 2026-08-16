@@ -14,6 +14,7 @@ export module foundation.ui:drag_adorner;
 import foundation.core;
 import foundation.vg;
 import :view;
+import :style_property;
 import :box_constraints;
 import :draw_context;
 
@@ -47,10 +48,12 @@ export namespace foundation::ui
             }
             else
             {
-                // Default: semi-transparent rounded rect.
+                // Default ghost: themeable via a background-color rule.
                 ctx.VG().FillRoundedRect(
                     Rectangle{0, 0, Width(), Height()}, 4.0f,
-                    Color{128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f});
+                    ResolveStyleColor(StyleProperty::Background,
+                                      Color{128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f,
+                                            128.0f / 255.0f}));
             }
         }
 

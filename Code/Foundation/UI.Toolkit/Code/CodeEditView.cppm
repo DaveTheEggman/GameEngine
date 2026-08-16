@@ -1025,6 +1025,12 @@ export namespace foundation::ui::toolkit
             const Color cursorColor =
                 ResolveStyleColor(StyleProperty::CursorColor, Rgb(220, 225, 235));
             const Color accent = ResolveStyleColor(StyleProperty::AccentColor, Rgb(230, 140, 60));
+            // Semantic severity colors (gutter markers, error-line tint) - themed since the
+            // consistency pass; the old literals stay as unthemed fallbacks.
+            const Color errorColor =
+                ResolveStyleColor(StyleProperty::ErrorColor, Rgb(214, 80, 80));
+            const Color warningColor =
+                ResolveStyleColor(StyleProperty::WarningColor, Rgb(240, 200, 90));
 
             ctx.VG().FillRect(Rectangle{0, 0, width, height}, background);
 
@@ -1060,8 +1066,9 @@ export namespace foundation::ui::toolkit
                 }
                 if (HasMarker(markers, CodeMarkers::Error))
                 {
-                    ctx.VG().FillRect(Rectangle{gutterW, lineTop, width - gutterW, lineH},
-                                      Rgb(200, 70, 70, 26));
+                    ctx.VG().FillRect(
+                        Rectangle{gutterW, lineTop, width - gutterW, lineH},
+                        Color{errorColor.r, errorColor.g, errorColor.b, 26.0f / 255.0f});
                 }
 
                 // Search matches (under the selection band; the current one pops).
@@ -1176,7 +1183,7 @@ export namespace foundation::ui::toolkit
                     if (HasMarker(markers, CodeMarkers::Breakpoint))
                     {
                         ctx.VG().FillCircle(Float2{kMarkerMargin * 0.5f, centerY}, 4.5f,
-                                            Rgb(214, 80, 80));
+                                            errorColor);
                     }
                     if (HasMarker(markers, CodeMarkers::ExecutionLine))
                     {
@@ -1185,14 +1192,14 @@ export namespace foundation::ui::toolkit
                         ctx.VG().MoveTo(kMarkerMargin * 0.5f - 4.0f, centerY - 4.5f);
                         ctx.VG().LineTo(kMarkerMargin * 0.5f + 4.0f, centerY);
                         ctx.VG().LineTo(kMarkerMargin * 0.5f - 4.0f, centerY + 4.5f);
-                        ctx.VG().Stroke(Rgb(240, 200, 90), 2.0f);
+                        ctx.VG().Stroke(warningColor, 2.0f);
                     }
                     else if (HasMarker(markers, CodeMarkers::Error) ||
                              HasMarker(markers, CodeMarkers::Warning))
                     {
                         const Color c = HasMarker(markers, CodeMarkers::Error)
-                                            ? Rgb(214, 80, 80)
-                                            : Rgb(240, 200, 90);
+                                            ? errorColor
+                                            : warningColor;
                         ctx.VG().FillRect(
                             Rectangle{kMarkerMargin - 5.0f, centerY - 3.5f, 7.0f, 7.0f}, c);
                     }
