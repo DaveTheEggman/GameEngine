@@ -51,6 +51,11 @@ export namespace foundation::ui
 
         void OnMeasure(BoxConstraints constraints) override
         {
+            // Margin + Fixed live in the base Measure now (ui-box-model.md P2b); the parent's
+            // remaining spec decision is loose-vs-fill (AvailForChild). Chrome is the merged
+            // metrics, so stylesheet padding/borders count.
+            const Thickness chrome = ResolveBoxMetrics().Chrome();
+            const BoxConstraints inner = constraints.Deflate(chrome);
             f32 maxW = 0, maxH = 0;
             for (usize i = 0; i < ChildCount(); ++i)
             {
@@ -59,26 +64,22 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-
-                const Thickness margin =
-                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
-                const BoxConstraints inner =
-                    MakeChildConstraints(constraints.Deflate(Padding), child);
-                child->Measure(inner);
-
-                maxW = Max(maxW, child->MeasuredSize.x + margin.TotalHorizontal());
-                maxH = Max(maxH, child->MeasuredSize.y + margin.TotalVertical());
+                child->Measure(AvailForChild(inner.MaxWidth, inner.MaxHeight, child));
+                const Float2 mb = child->MarginBoxSize();
+                maxW = Max(maxW, mb.x);
+                maxH = Max(maxH, mb.y);
             }
-            MeasuredSize = Float2{constraints.ConstrainWidth(maxW + Padding.TotalHorizontal()),
-                                  constraints.ConstrainHeight(maxH + Padding.TotalVertical())};
+            MeasuredSize = Float2{constraints.ConstrainWidth(maxW + chrome.TotalHorizontal()),
+                                  constraints.ConstrainHeight(maxH + chrome.TotalVertical())};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
             (void)left;
             (void)top;
-            const f32 contentW = width - Padding.TotalHorizontal();
-            const f32 contentH = height - Padding.TotalVertical();
+            const Thickness chrome = ResolveBoxMetrics().Chrome();
+            const f32 contentW = width - chrome.TotalHorizontal();
+            const f32 contentH = height - chrome.TotalVertical();
 
             for (usize i = 0; i < ChildCount(); ++i)
             {
@@ -90,14 +91,12 @@ export namespace foundation::ui
 
                 FrameLayoutParams* flp = Cast<FrameLayoutParams>(child->LayoutParams.Get());
                 const GravityValue gravity = flp != nullptr ? flp->Gravity : GravityValue::None;
-                const Thickness margin =
-                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
 
-                Rectangle rect =
-                    GravityHelper::Apply(gravity, contentW, contentH, child->MeasuredSize.x,
-                                         child->MeasuredSize.y, margin);
-                rect.x += Padding.Left;
-                rect.y += Padding.Top;
+                // Gravity positions the MARGIN box; the base Layout insets to the border box.
+                const Float2 mb = child->MarginBoxSize();
+                Rectangle rect = GravityHelper::Apply(gravity, contentW, contentH, mb.x, mb.y);
+                rect.x += chrome.Left;
+                rect.y += chrome.Top;
                 child->Layout(rect.x, rect.y, rect.width, rect.height);
             }
         }

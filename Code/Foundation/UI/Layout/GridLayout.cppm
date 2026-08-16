@@ -105,7 +105,13 @@ export namespace foundation::ui
                 GridLayoutParams* glp = Cast<GridLayoutParams>(child->LayoutParams.Get());
                 const i32 col = detail::ClampI(glp != nullptr ? glp->Column : 0, 0, cols - 1);
                 const i32 row = detail::ClampI(glp != nullptr ? glp->Row : 0, 0, rows - 1);
-                child->Measure(BoxConstraints::Expand());
+                // BOUNDED loose constraints (was Expand() - fill-style leaves measured to
+                // kFloatMax and exploded auto tracks); tracks aggregate MARGIN boxes so cell
+                // placement + the base margin inset compose (ui-box-model.md P2b).
+                child->Measure(BoxConstraints{
+                    0, Max(0.0f, constraints.MaxWidth - Padding.TotalHorizontal()), 0,
+                    Max(0.0f, constraints.MaxHeight - Padding.TotalVertical())});
+                const Float2 mb = child->MarginBoxSize();
 
                 const TrackSize colDef = static_cast<usize>(col) < Columns.Size()
                                              ? Columns[static_cast<usize>(col)]
@@ -116,12 +122,12 @@ export namespace foundation::ui
                 if (colDef.Mode == TrackSizeMode::Auto)
                 {
                     colWidths[static_cast<usize>(col)] =
-                        Max(colWidths[static_cast<usize>(col)], child->MeasuredSize.x);
+                        Max(colWidths[static_cast<usize>(col)], mb.x);
                 }
                 if (rowDef.Mode == TrackSizeMode::Auto)
                 {
                     rowHeights[static_cast<usize>(row)] =
-                        Max(rowHeights[static_cast<usize>(row)], child->MeasuredSize.y);
+                        Max(rowHeights[static_cast<usize>(row)], mb.y);
                 }
             }
 
@@ -178,15 +184,16 @@ export namespace foundation::ui
                 const TrackSize rowDef = static_cast<usize>(row) < Rows.Size()
                                              ? Rows[static_cast<usize>(row)]
                                              : TrackSize::Auto();
+                const Float2 mb = child->MarginBoxSize();
                 if (colDef.Mode == TrackSizeMode::Auto)
                 {
                     colWidths[static_cast<usize>(col)] =
-                        Max(colWidths[static_cast<usize>(col)], child->MeasuredSize.x);
+                        Max(colWidths[static_cast<usize>(col)], mb.x);
                 }
                 if (rowDef.Mode == TrackSizeMode::Auto)
                 {
                     rowHeights[static_cast<usize>(row)] =
-                        Max(rowHeights[static_cast<usize>(row)], child->MeasuredSize.y);
+                        Max(rowHeights[static_cast<usize>(row)], mb.y);
                 }
             }
 

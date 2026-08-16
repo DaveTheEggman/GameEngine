@@ -63,6 +63,12 @@ export namespace foundation::ui
             const f32 maxWidth = (constraints.MaxWidth < kFloatMax)
                                      ? constraints.MaxWidth - Padding.TotalHorizontal()
                                      : 100000.0f;
+            // Children get BOUNDED loose constraints (was Expand() - a fill-style leaf measured
+            // to kFloatMax and exploded the flow); margins are base-handled, rows use margin
+            // boxes (ui-box-model.md P2b).
+            const f32 crossMax = (constraints.MaxHeight < kFloatMax)
+                                     ? Max(0.0f, constraints.MaxHeight - Padding.TotalVertical())
+                                     : 100000.0f;
             f32 lineW = 0, lineH = 0, totalW = 0, totalH = 0;
             bool firstInLine = true;
 
@@ -73,9 +79,10 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                child->Measure(BoxConstraints::Expand());
-                const f32 cw = child->MeasuredSize.x;
-                const f32 ch = child->MeasuredSize.y;
+                child->Measure(BoxConstraints{0, maxWidth, 0, crossMax});
+                const Float2 mb = child->MarginBoxSize();
+                const f32 cw = mb.x;
+                const f32 ch = mb.y;
 
                 if (!firstInLine && lineW + HSpacing + cw > maxWidth)
                 {
@@ -105,6 +112,9 @@ export namespace foundation::ui
             const f32 maxHeight = (constraints.MaxHeight < kFloatMax)
                                       ? constraints.MaxHeight - Padding.TotalVertical()
                                       : 100000.0f;
+            const f32 crossMax = (constraints.MaxWidth < kFloatMax)
+                                     ? Max(0.0f, constraints.MaxWidth - Padding.TotalHorizontal())
+                                     : 100000.0f;
             f32 colW = 0, colH = 0, totalW = 0, totalH = 0;
             bool firstInCol = true;
 
@@ -115,9 +125,10 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                child->Measure(BoxConstraints::Expand());
-                const f32 cw = child->MeasuredSize.x;
-                const f32 ch = child->MeasuredSize.y;
+                child->Measure(BoxConstraints{0, crossMax, 0, maxHeight});
+                const Float2 mb = child->MarginBoxSize();
+                const f32 cw = mb.x;
+                const f32 ch = mb.y;
 
                 if (!firstInCol && colH + VSpacing + ch > maxHeight)
                 {
@@ -158,8 +169,9 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                const f32 cw = child->MeasuredSize.x;
-                const f32 ch = child->MeasuredSize.y;
+                const Float2 mb = child->MarginBoxSize(); // placed as margin boxes (P2b)
+                const f32 cw = mb.x;
+                const f32 ch = mb.y;
 
                 if (!firstInLine && xPos - Padding.Left + HSpacing + cw > maxWidth)
                 {
@@ -195,8 +207,9 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                const f32 cw = child->MeasuredSize.x;
-                const f32 ch = child->MeasuredSize.y;
+                const Float2 mb = child->MarginBoxSize(); // placed as margin boxes (P2b)
+                const f32 cw = mb.x;
+                const f32 ch = mb.y;
 
                 if (!firstInCol && yPos - Padding.Top + VSpacing + ch > maxHeight)
                 {

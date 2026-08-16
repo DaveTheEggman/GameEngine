@@ -120,67 +120,22 @@ export namespace foundation::ui
             return flp != nullptr ? flp->Grow : 0.0f;
         }
 
-        /// Like MakeChildConstraints but treats .Match on the cross-axis as .Wrap (loose) so .Match
-        /// children don't blow up to infinity during the first measurement pass.
+        /// The SEMANTIC part of Flex's first measurement pass, kept parent-side by design
+        /// (ui-box-model.md P2b): Match fills the axis, but Match on the CROSS axis is demoted
+        /// to loose so it wraps naturally first (a base-side Match would defeat this). Fixed,
+        /// margin, and DPI are base-handled now - the old 60-line spec-interpreter clone died.
         static BoxConstraints MakeChildConstraintsLooseCross(BoxConstraints parent, View* child,
                                                              bool isHorizontal)
         {
-            const Thickness margin = ChildMargin(child);
-            RootView* root = child->Root();
-            const f32 dpiScale = root != nullptr ? root->DpiScale : 1.0f;
-
-            const f32 availW = Max(0.0f, parent.MaxWidth - margin.TotalHorizontal());
-            const f32 availH = Max(0.0f, parent.MaxHeight - margin.TotalVertical());
-
-            SizeSpec widthSpec = ChildWidth(child);
-            SizeSpec heightSpec = ChildHeight(child);
-            if (isHorizontal && heightSpec.kind == SizeSpec::Kind::Match)
-            {
-                heightSpec = SizeSpec::Wrap();
-            }
-            else if (!isHorizontal && widthSpec.kind == SizeSpec::Kind::Match)
-            {
-                widthSpec = SizeSpec::Wrap();
-            }
-
-            f32 minW = 0, maxW = 0, minH = 0, maxH = 0;
-            switch (widthSpec.kind)
-            {
-            case SizeSpec::Kind::Fixed:
-            {
-                const f32 w = widthSpec.ResolveFixed(dpiScale);
-                minW = w;
-                maxW = w;
-                break;
-            }
-            case SizeSpec::Kind::Match:
-                minW = availW;
-                maxW = availW;
-                break;
-            case SizeSpec::Kind::Wrap:
-                minW = 0;
-                maxW = availW;
-                break;
-            }
-            switch (heightSpec.kind)
-            {
-            case SizeSpec::Kind::Fixed:
-            {
-                const f32 h = heightSpec.ResolveFixed(dpiScale);
-                minH = h;
-                maxH = h;
-                break;
-            }
-            case SizeSpec::Kind::Match:
-                minH = availH;
-                maxH = availH;
-                break;
-            case SizeSpec::Kind::Wrap:
-                minH = 0;
-                maxH = availH;
-                break;
-            }
-            return BoxConstraints{minW, maxW, minH, maxH};
+            const bool fillW = ChildWidth(child).kind == SizeSpec::Kind::Match && !isHorizontal
+                                   ? false // cross-axis Match demoted to loose
+                                   : ChildWidth(child).kind == SizeSpec::Kind::Match;
+            const bool fillH = ChildHeight(child).kind == SizeSpec::Kind::Match && isHorizontal
+                                   ? false
+                                   : ChildHeight(child).kind == SizeSpec::Kind::Match;
+            const f32 availW = Max(0.0f, parent.MaxWidth);
+            const f32 availH = Max(0.0f, parent.MaxHeight);
+            return BoxConstraints{fillW ? availW : 0.0f, availW, fillH ? availH : 0.0f, availH};
         }
 
         void MeasureHorizontal(BoxConstraints inner, BoxConstraints outer)
@@ -206,9 +161,9 @@ export namespace foundation::ui
                 }
 
                 child->Measure(MakeChildConstraintsLooseCross(looseInner, child, true));
-                const Thickness margin = ChildMargin(child);
-                totalFixed += child->MeasuredSize.x + margin.TotalHorizontal();
-                maxCross = Max(maxCross, child->MeasuredSize.y + margin.TotalVertical());
+                const Float2 mb = child->MarginBoxSize();
+                totalFixed += mb.x;
+                maxCross = Max(maxCross, mb.y);
                 if (ChildHeight(child).kind == SizeSpec::Kind::Match)
                 {
                     hasMatchCross = true;
@@ -236,23 +191,21 @@ export namespace foundation::ui
                     {
                         continue;
                     }
-                    const Thickness margin = ChildMargin(child);
-
                     if (isMainAxisDefinite)
                     {
+                        // The grow share is the child's MARGIN-BOX main length; the base
+                        // deflates its own margin from it.
                         const f32 childMain = remaining * grow / totalGrow;
-                        child->Measure(
-                            BoxConstraints{childMain - margin.TotalHorizontal(),
-                                           Max(0.0f, childMain - margin.TotalHorizontal()), 0,
-                                           Max(0.0f, inner.MaxHeight - margin.TotalVertical())});
+                        child->Measure(BoxConstraints{childMain, Max(0.0f, childMain), 0,
+                                                      Max(0.0f, inner.MaxHeight)});
                         totalFixed += childMain;
                     }
                     else
                     {
                         child->Measure(MakeChildConstraintsLooseCross(looseInner, child, true));
-                        totalFixed += child->MeasuredSize.x + margin.TotalHorizontal();
+                        totalFixed += child->MarginBoxSize().x;
                     }
-                    maxCross = Max(maxCross, child->MeasuredSize.y + margin.TotalVertical());
+                    maxCross = Max(maxCross, child->MarginBoxSize().y);
                     if (ChildHeight(child).kind == SizeSpec::Kind::Match)
                     {
                         hasMatchCross = true;
@@ -271,10 +224,10 @@ export namespace foundation::ui
                     }
                     if (ChildHeight(child).kind == SizeSpec::Kind::Match)
                     {
-                        const Thickness margin = ChildMargin(child);
-                        const f32 crossH = Max(0.0f, maxCross - margin.TotalVertical());
-                        child->Measure(BoxConstraints{child->MeasuredSize.x, child->MeasuredSize.x,
-                                                      crossH, crossH});
+                        // Re-measure at the settled line cross size: tight MARGIN-BOX targets
+                        // (the base insets to the border box).
+                        const Float2 mb = child->MarginBoxSize();
+                        child->Measure(BoxConstraints{mb.x, mb.x, maxCross, maxCross});
                     }
                 }
             }
@@ -306,9 +259,9 @@ export namespace foundation::ui
                 }
 
                 child->Measure(MakeChildConstraintsLooseCross(looseInner, child, false));
-                const Thickness margin = ChildMargin(child);
-                totalFixed += child->MeasuredSize.y + margin.TotalVertical();
-                maxCross = Max(maxCross, child->MeasuredSize.x + margin.TotalHorizontal());
+                const Float2 mb = child->MarginBoxSize();
+                totalFixed += mb.y;
+                maxCross = Max(maxCross, mb.x);
                 if (ChildWidth(child).kind == SizeSpec::Kind::Match)
                 {
                     hasMatchCross = true;
@@ -336,23 +289,19 @@ export namespace foundation::ui
                     {
                         continue;
                     }
-                    const Thickness margin = ChildMargin(child);
-
                     if (isMainAxisDefinite)
                     {
                         const f32 childMain = remaining * grow / totalGrow;
-                        child->Measure(
-                            BoxConstraints{0, Max(0.0f, inner.MaxWidth - margin.TotalHorizontal()),
-                                           childMain - margin.TotalVertical(),
-                                           Max(0.0f, childMain - margin.TotalVertical())});
+                        child->Measure(BoxConstraints{0, Max(0.0f, inner.MaxWidth), childMain,
+                                                      Max(0.0f, childMain)});
                         totalFixed += childMain;
                     }
                     else
                     {
                         child->Measure(MakeChildConstraintsLooseCross(looseInner, child, false));
-                        totalFixed += child->MeasuredSize.y + margin.TotalVertical();
+                        totalFixed += child->MarginBoxSize().y;
                     }
-                    maxCross = Max(maxCross, child->MeasuredSize.x + margin.TotalHorizontal());
+                    maxCross = Max(maxCross, child->MarginBoxSize().x);
                     if (ChildWidth(child).kind == SizeSpec::Kind::Match)
                     {
                         hasMatchCross = true;
@@ -371,10 +320,8 @@ export namespace foundation::ui
                     }
                     if (ChildWidth(child).kind == SizeSpec::Kind::Match)
                     {
-                        const Thickness margin = ChildMargin(child);
-                        const f32 crossW = Max(0.0f, maxCross - margin.TotalHorizontal());
-                        child->Measure(BoxConstraints{crossW, crossW, child->MeasuredSize.y,
-                                                      child->MeasuredSize.y});
+                        const Float2 mb = child->MarginBoxSize();
+                        child->Measure(BoxConstraints{maxCross, maxCross, mb.y, mb.y});
                     }
                 }
             }
@@ -398,7 +345,7 @@ export namespace foundation::ui
                     continue;
                 }
                 ++visibleCount;
-                totalMain += child->MeasuredSize.x + ChildMargin(child).TotalHorizontal();
+                totalMain += child->MarginBoxSize().x;
             }
             if (visibleCount > 1)
             {
@@ -423,39 +370,37 @@ export namespace foundation::ui
                 }
                 first = false;
 
-                const Thickness margin = ChildMargin(child);
                 FlexLayoutParams* flp = Cast<FlexLayoutParams>(child->LayoutParams.Get());
                 const Align align = (flp != nullptr && flp->AlignSelf.HasValue())
                                         ? flp->AlignSelf.Value()
                                         : AlignItems;
 
-                const f32 childW = child->MeasuredSize.x;
-                const f32 childH = child->MeasuredSize.y;
-                const f32 availCross = contentH - margin.TotalVertical();
+                // MARGIN-box placement (base insets by margin once).
+                const Float2 mb = child->MarginBoxSize();
 
-                f32 yPos = Padding.Top + margin.Top;
-                f32 finalH = childH;
+                f32 yPos = Padding.Top;
+                f32 finalH = mb.y;
                 switch (align)
                 {
                 case Align::Start:
-                    yPos = Padding.Top + margin.Top;
+                    yPos = Padding.Top;
                     break;
                 case Align::End:
-                    yPos = Padding.Top + contentH - margin.Bottom - childH;
+                    yPos = Padding.Top + contentH - mb.y;
                     break;
                 case Align::Center:
-                    yPos = Padding.Top + margin.Top + (availCross - childH) * 0.5f;
+                    yPos = Padding.Top + (contentH - mb.y) * 0.5f;
                     break;
                 case Align::Stretch:
-                    yPos = Padding.Top + margin.Top;
-                    finalH = availCross;
+                    yPos = Padding.Top;
+                    finalH = contentH;
                     break;
                 case Align::Baseline:
-                    yPos = Padding.Top + margin.Top;
+                    yPos = Padding.Top;
                     break;
                 }
-                child->Layout(xPos + margin.Left, yPos, childW, Max(0.0f, finalH));
-                xPos += childW + margin.TotalHorizontal();
+                child->Layout(xPos, yPos, mb.x, Max(0.0f, finalH));
+                xPos += mb.x;
             }
         }
 
@@ -474,7 +419,7 @@ export namespace foundation::ui
                     continue;
                 }
                 ++visibleCount;
-                totalMain += child->MeasuredSize.y + ChildMargin(child).TotalVertical();
+                totalMain += child->MarginBoxSize().y;
             }
             if (visibleCount > 1)
             {
@@ -499,39 +444,36 @@ export namespace foundation::ui
                 }
                 first = false;
 
-                const Thickness margin = ChildMargin(child);
                 FlexLayoutParams* flp = Cast<FlexLayoutParams>(child->LayoutParams.Get());
                 const Align align = (flp != nullptr && flp->AlignSelf.HasValue())
                                         ? flp->AlignSelf.Value()
                                         : AlignItems;
 
-                const f32 childW = child->MeasuredSize.x;
-                const f32 childH = child->MeasuredSize.y;
-                const f32 availCross = contentW - margin.TotalHorizontal();
+                const Float2 mb = child->MarginBoxSize(); // margin-box placement (P2b)
 
-                f32 xPos = Padding.Left + margin.Left;
-                f32 finalW = childW;
+                f32 xPos = Padding.Left;
+                f32 finalW = mb.x;
                 switch (align)
                 {
                 case Align::Start:
-                    xPos = Padding.Left + margin.Left;
+                    xPos = Padding.Left;
                     break;
                 case Align::End:
-                    xPos = Padding.Left + contentW - margin.Right - childW;
+                    xPos = Padding.Left + contentW - mb.x;
                     break;
                 case Align::Center:
-                    xPos = Padding.Left + margin.Left + (availCross - childW) * 0.5f;
+                    xPos = Padding.Left + (contentW - mb.x) * 0.5f;
                     break;
                 case Align::Stretch:
-                    xPos = Padding.Left + margin.Left;
-                    finalW = availCross;
+                    xPos = Padding.Left;
+                    finalW = contentW;
                     break;
                 case Align::Baseline:
-                    xPos = Padding.Left + margin.Left;
+                    xPos = Padding.Left;
                     break;
                 }
-                child->Layout(xPos, yPos + margin.Top, Max(0.0f, finalW), childH);
-                yPos += childH + margin.TotalVertical();
+                child->Layout(xPos, yPos, Max(0.0f, finalW), mb.y);
+                yPos += mb.y;
             }
         }
 

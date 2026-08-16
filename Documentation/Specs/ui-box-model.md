@@ -24,12 +24,19 @@
   borderWidth/2 inside the rect), so a bordered control measures larger by
   its border and never paints outside `Bounds` - clipping and siblings stop
   amputating/overlapping borders.
-- **SizeSpec is SELF-side and logical**: the base `Measure` applies the
-  view's own Fixed/Match/Wrap spec, resolved with **dpi = 1** (layout runs
-  in logical units; draw applies DpiScale once at the root). Parents stop
-  interpreting child specs entirely - `MakeChildConstraints` + the
-  FlexLayout/AbsoluteLayout clones are DELETED. This fixes both "Fixed
-  works in 3 of 8 containers" and the Dp double-scale in one stroke.
+- **Fixed + margin are SELF-side and logical; Match stays parent-side**
+  (AMENDED at P2b implementation): the base `Measure` deflates margin and
+  applies the view's own **Fixed** spec, resolved in logical units (the
+  only place Unit::Resolve is called for sizes - the Dp double-scale dies
+  here). `Match` remains a parent-negotiated fill: base-side Match would
+  tighten loose constraints and DEFEAT FlexLayout's deliberate cross-axis
+  Match->Wrap demotion (a semantic pre-pass, not duplication) - and Match
+  in a container with no fill concept (Flow/Grid) is meaningless anyway.
+  `MakeChildConstraints` and the AbsoluteLayout clone are DELETED; the
+  Match-supporting containers keep a tiny fill-vs-loose choice; FlexLayout
+  keeps its demotion pre-pass minus Fixed/margin/dpi handling. Net: Fixed
+  and margin work in EVERY container, DPI resolves once, and the three
+  full spec-interpreter clones are gone.
 - **Unit semantics (honest)**: `Dp(v)` resolves to `v` logical units.
   `Pt(v)` = `v * 96/72` logical. `Px(v)` = `v / dpiScale` logical - i.e.
   Px now truly means PHYSICAL pixels after the root draw scale (it was

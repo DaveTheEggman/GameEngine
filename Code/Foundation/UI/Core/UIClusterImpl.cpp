@@ -208,6 +208,44 @@ namespace foundation::ui
 
     f32 ViewGroup::RootDpiScale(RootView* root) { return root != nullptr ? root->DpiScale : 1.0f; }
 
+    // The base measure template method (ui-box-model.md P2b). Lives here because the dpi query
+    // needs RootView complete. See the declaration comment in View.cppm for the contract.
+    void View::Measure(BoxConstraints c)
+    {
+        const BoxMetrics metrics = ResolveBoxMetrics();
+        BoxConstraints box = c.Deflate(metrics.Margin);
+
+        const SizeSpec widthSpec = LayoutParams ? LayoutParams->Width : SizeSpec::Wrap();
+        const SizeSpec heightSpec = LayoutParams ? LayoutParams->Height : SizeSpec::Wrap();
+        if (widthSpec.kind == SizeSpec::Kind::Fixed || heightSpec.kind == SizeSpec::Kind::Fixed)
+        {
+            RootView* root = Root();
+            const f32 dpiScale = (root != nullptr) ? Max(root->DpiScale, 0.01f) : 1.0f;
+            if (widthSpec.kind == SizeSpec::Kind::Fixed)
+            {
+                const f32 w = widthSpec.ResolveFixed(dpiScale);
+                box.MinWidth = w;
+                box.MaxWidth = w;
+            }
+            if (heightSpec.kind == SizeSpec::Kind::Fixed)
+            {
+                const f32 h = heightSpec.ResolveFixed(dpiScale);
+                box.MinHeight = h;
+                box.MaxHeight = h;
+            }
+        }
+
+        const Thickness chrome = metrics.Chrome();
+        const Float2 content = OnMeasureContent(box.Deflate(chrome));
+        if (content.x >= 0.0f)
+        {
+            MeasuredSize = Float2{box.ConstrainWidth(content.x + chrome.TotalHorizontal()),
+                                  box.ConstrainHeight(content.y + chrome.TotalVertical())};
+            return;
+        }
+        OnMeasure(box); // legacy seam - the control handles its own chrome
+    }
+
     // Lazily create the RootView's PopupLayer (kept as the last child). Defined here because the
     // :popup_layer type is incomplete in the :view partition (module cycle) but complete in this impl unit.
     PopupLayer* RootView::GetPopupLayer()

@@ -99,3 +99,86 @@ TEST_CASE("box-metrics: a bordered background reserves content space in a Panel 
     CHECK(bordered->MeasuredSize.x == plain->MeasuredSize.x + 4.0f);
     CHECK(bordered->MeasuredSize.y == plain->MeasuredSize.y + 4.0f);
 }
+
+// === P2b acceptance (ui-box-model.md): Fixed + margin work in EVERY container ===
+
+TEST_CASE("box-model: Fixed(100) child is 100 in Dock, Flow, Grid, and Panel (was Frame-only)")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+
+    auto makeFixedChild = []
+    {
+        auto v = core::MakeRef<TestView>(core::DefaultAllocator(), 10.0f, 10.0f);
+        auto lp = core::MakeRef<LayoutParams>(core::DefaultAllocator());
+        lp->Width = SizeSpec::Fixed(Unit::Dp(100.0f));
+        lp->Height = SizeSpec::Fixed(Unit::Dp(40.0f));
+        v->LayoutParams = LayoutParamsPtr(lp.Get());
+        return v;
+    };
+
+    auto dock = core::MakeRef<DockLayout>(core::DefaultAllocator());
+    auto flow = core::MakeRef<FlowLayout>(core::DefaultAllocator());
+    auto grid = core::MakeRef<GridLayout>(core::DefaultAllocator());
+    auto panel = core::MakeRef<Panel>(core::DefaultAllocator());
+    root->AddView(dock.Get());
+    root->AddView(flow.Get());
+    root->AddView(grid.Get());
+    root->AddView(panel.Get());
+
+    auto a = makeFixedChild();
+    auto b = makeFixedChild();
+    auto c = makeFixedChild();
+    auto d = makeFixedChild();
+    dock->AddView(a.Get());
+    flow->AddView(b.Get());
+    grid->AddView(c.Get());
+    panel->AddView(d.Get());
+    LayoutPass(ctx, root.Get());
+
+    CHECK(a->MeasuredSize.x == 100.0f);
+    CHECK(b->MeasuredSize.x == 100.0f);
+    CHECK(c->MeasuredSize.x == 100.0f);
+    CHECK(d->MeasuredSize.x == 100.0f);
+    CHECK(a->MeasuredSize.y == 40.0f);
+}
+
+TEST_CASE("box-model: margins are honored in FlowLayout (rows advance by the margin box)")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto flow = core::MakeRef<FlowLayout>(core::DefaultAllocator());
+    root->AddView(flow.Get());
+
+    auto a = core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 20.0f);
+    auto lpA = core::MakeRef<LayoutParams>(core::DefaultAllocator());
+    lpA->Margin = Thickness{5, 5, 5, 5};
+    a->LayoutParams = LayoutParamsPtr(lpA.Get());
+    auto b = core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 20.0f);
+    flow->AddView(a.Get());
+    flow->AddView(b.Get());
+    LayoutPass(ctx, root.Get());
+
+    // a's border box is inset by its margin; b starts after a's MARGIN box (no overlap).
+    CHECK(a->Bounds.x == 5.0f);
+    CHECK(a->Bounds.y == 5.0f);
+    CHECK(b->Bounds.x >= 60.0f); // 5 + 50 + 5 (+ spacing)
+}
+
+TEST_CASE("box-model: a fill-style leaf in a GridLayout cell does not explode to kFloatMax")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto grid = core::MakeRef<GridLayout>(core::DefaultAllocator());
+    root->AddView(grid.Get());
+    auto sep = core::MakeRef<Separator>(core::DefaultAllocator());
+    grid->AddView(sep.Get());
+    LayoutPass(ctx, root.Get());
+
+    // Grid children get BOUNDED loose constraints now (was Expand()).
+    CHECK(sep->MeasuredSize.x <= 400.0f);
+    CHECK(grid->MeasuredSize.x <= 400.0f);
+}

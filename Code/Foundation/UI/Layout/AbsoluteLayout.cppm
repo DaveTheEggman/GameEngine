@@ -54,13 +54,23 @@ export namespace foundation::ui
                     continue;
                 }
 
-                child->Measure(MakeAbsoluteChildConstraints(constraints, child));
+                // Fixed + margin are base-handled (ui-box-model.md P2b); the clone that
+                // re-interpreted them here is gone. Wrap children measure unbounded (absolute
+                // placement has no natural box), Match fills the content area.
+                const f32 availW = Max(0.0f, constraints.MaxWidth - Padding.TotalHorizontal());
+                const f32 availH = Max(0.0f, constraints.MaxHeight - Padding.TotalVertical());
+                const LayoutParamsPtr& lp = child->LayoutParams;
+                const bool fillW = lp && lp->Width.kind == SizeSpec::Kind::Match;
+                const bool fillH = lp && lp->Height.kind == SizeSpec::Kind::Match;
+                child->Measure(BoxConstraints{fillW ? availW : 0.0f, fillW ? availW : kFloatMax,
+                                              fillH ? availH : 0.0f, fillH ? availH : kFloatMax});
 
                 AbsoluteLayoutParams* alp = Cast<AbsoluteLayoutParams>(child->LayoutParams.Get());
                 const f32 x = alp != nullptr ? alp->X : 0.0f;
                 const f32 y = alp != nullptr ? alp->Y : 0.0f;
-                maxR = Max(maxR, x + child->MeasuredSize.x);
-                maxB = Max(maxB, y + child->MeasuredSize.y);
+                const Float2 mb = child->MarginBoxSize();
+                maxR = Max(maxR, x + mb.x);
+                maxB = Max(maxB, y + mb.y);
             }
             MeasuredSize = Float2{constraints.ConstrainWidth(maxR + Padding.TotalHorizontal()),
                                   constraints.ConstrainHeight(maxB + Padding.TotalVertical())};
@@ -85,8 +95,10 @@ export namespace foundation::ui
                 const f32 x = Padding.Left + ax;
                 const f32 y = Padding.Top + ay;
 
-                f32 w = child->MeasuredSize.x;
-                f32 h = child->MeasuredSize.y;
+                // Margin-box rects (base insets by margin).
+                const Float2 mb = child->MarginBoxSize();
+                f32 w = mb.x;
+                f32 h = mb.y;
                 if (lp)
                 {
                     if (lp->Width.kind == SizeSpec::Kind::Match)
@@ -98,57 +110,6 @@ export namespace foundation::ui
             }
         }
 
-    private:
-        BoxConstraints MakeAbsoluteChildConstraints(BoxConstraints parentConstraints,
-                                                    View* child) const
-        {
-            const LayoutParamsPtr& lp = child->LayoutParams;
-            f32 minW = 0, maxW = kFloatMax, minH = 0, maxH = kFloatMax;
-            if (lp)
-            {
-                switch (lp->Width.kind)
-                {
-                case SizeSpec::Kind::Fixed:
-                {
-                    const f32 v = lp->Width.ResolveFixed(1.0f);
-                    minW = v;
-                    maxW = v;
-                    break;
-                }
-                case SizeSpec::Kind::Match:
-                {
-                    const f32 avail =
-                        Max(0.0f, parentConstraints.MaxWidth - Padding.TotalHorizontal());
-                    minW = avail;
-                    maxW = avail;
-                    break;
-                }
-                case SizeSpec::Kind::Wrap:
-                    break;
-                }
-                switch (lp->Height.kind)
-                {
-                case SizeSpec::Kind::Fixed:
-                {
-                    const f32 v = lp->Height.ResolveFixed(1.0f);
-                    minH = v;
-                    maxH = v;
-                    break;
-                }
-                case SizeSpec::Kind::Match:
-                {
-                    const f32 avail =
-                        Max(0.0f, parentConstraints.MaxHeight - Padding.TotalVertical());
-                    minH = avail;
-                    maxH = avail;
-                    break;
-                }
-                case SizeSpec::Kind::Wrap:
-                    break;
-                }
-            }
-            return BoxConstraints{minW, maxW, minH, maxH};
-        }
     };
 
     RTTI_DEFINE_OBJECT(AbsoluteLayoutParams, "rtti::ui")

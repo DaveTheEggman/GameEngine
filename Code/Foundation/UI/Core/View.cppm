@@ -278,11 +278,37 @@ export namespace foundation::ui
         }
 
         // === Layout ===
-        void Measure(BoxConstraints constraints) { OnMeasure(constraints); }
+        /// Measure this view (ui-box-model.md P2b). The BASE owns two things uniformly:
+        /// MARGIN (deflated from the incoming constraints - parents stopped doing it) and the
+        /// FIXED size spec (resolved HERE ONCE, in logical units - the Dp double-scale died in
+        /// this consolidation; Px means physical pixels). Match/Wrap remain parent-negotiated
+        /// looseness: a base-side Match would defeat FlexLayout's deliberate cross-axis
+        /// demotion. Migrated controls implement OnMeasureContent (content-box in, content
+        /// size out); legacy OnMeasure overrides receive the post-margin post-spec box.
+        void Measure(BoxConstraints c); // impl unit (needs RootView complete for the dpi query)
+
+        /// MeasuredSize plus this view's margins - what parents aggregate and place (parents
+        /// hand Layout the MARGIN box; the base insets to the border box).
+        [[nodiscard]] Float2 MarginBoxSize() const
+        {
+            const Thickness m = LayoutParams ? LayoutParams->Margin : Thickness{};
+            return Float2{MeasuredSize.x + m.TotalHorizontal(),
+                          MeasuredSize.y + m.TotalVertical()};
+        }
+
+        /// Arrange this view. `(x, y, width, height)` is the MARGIN BOX (ui-box-model.md P2b):
+        /// the base insets by margin once, so every container honors margins identically -
+        /// containers deleted their per-site margin arithmetic. Views without margins are
+        /// byte-identical to the old border-box call.
         void Layout(f32 x, f32 y, f32 width, f32 height)
         {
-            Bounds = Rectangle{x, y, width, height};
-            OnLayout(x, y, width, height);
+            const Thickness margin = LayoutParams ? LayoutParams->Margin : Thickness{};
+            const f32 bx = x + margin.Left;
+            const f32 by = y + margin.Top;
+            const f32 bw = Max(0.0f, width - margin.TotalHorizontal());
+            const f32 bh = Max(0.0f, height - margin.TotalVertical());
+            Bounds = Rectangle{bx, by, bw, bh};
+            OnLayout(bx, by, bw, bh);
         }
 
         // === Virtual methods ===
@@ -679,6 +705,19 @@ export namespace foundation::ui
         /// with its Padding field; leaf views have none).
         [[nodiscard]] virtual Thickness OwnPaddingField() const { return Thickness{}; }
 
+        /// NEW measure seam (ui-box-model.md P2b): receives CONTENT-box constraints (margin,
+        /// spec, padding, and border already deflated by the base Measure) and returns the
+        /// content size; the base re-inflates by chrome and clamps. Return the {-1,-1} sentinel
+        /// (the default) to fall back to the legacy OnMeasure seam. Controls migrate here by
+        /// DELETING their hand-rolled padding math (P2c).
+        [[nodiscard]] virtual Float2 OnMeasureContent(BoxConstraints contentConstraints)
+        {
+            (void)contentConstraints;
+            return Float2{-1.0f, -1.0f};
+        }
+
+        /// LEGACY measure seam - the control handles its own chrome. Receives the post-margin,
+        /// post-Fixed-spec box. Deleted when the last override migrates to OnMeasureContent.
         virtual void OnMeasure(BoxConstraints constraints)
         {
             MeasuredSize =
@@ -847,63 +886,25 @@ export namespace foundation::ui
         }
 
         /// Build child constraints from parent constraints and the child's LayoutParams SizeSpec.
-        static BoxConstraints MakeChildConstraints(BoxConstraints parent, View* child,
-                                                   f32 usedW = 0.0f, f32 usedH = 0.0f)
+        /// Loose-vs-fill child availability (ui-box-model.md P2b): Fixed and margin are handled
+        /// by the base Measure now; the parent's only spec decision left is whether a Match
+        /// child fills the available box. This 8-line helper replaced the three full
+        /// spec-interpreter clones (MakeChildConstraints + FlexLayout/AbsoluteLayout copies).
+        [[nodiscard]] static BoxConstraints AvailForChild(f32 availW, f32 availH, View* child)
         {
             const LayoutParamsPtr& lp = child->LayoutParams;
-            const Thickness margin = lp ? lp->Margin : Thickness{};
-            RootView* root = child->Root();
-            const f32 dpiScale = RootDpiScale(root);
-
-            const f32 availW = Max(0.0f, parent.MaxWidth - usedW - margin.TotalHorizontal());
-            const f32 availH = Max(0.0f, parent.MaxHeight - usedH - margin.TotalVertical());
-
-            const SizeSpec widthSpec = lp ? lp->Width : SizeSpec::Wrap();
-            const SizeSpec heightSpec = lp ? lp->Height : SizeSpec::Wrap();
-
-            f32 minW = 0, maxW = 0, minH = 0, maxH = 0;
-            switch (widthSpec.kind)
-            {
-            case SizeSpec::Kind::Fixed:
-            {
-                const f32 w = widthSpec.ResolveFixed(dpiScale);
-                minW = w;
-                maxW = w;
-                break;
-            }
-            case SizeSpec::Kind::Match:
-                minW = availW;
-                maxW = availW;
-                break;
-            case SizeSpec::Kind::Wrap:
-                minW = 0;
-                maxW = availW;
-                break;
-            }
-            switch (heightSpec.kind)
-            {
-            case SizeSpec::Kind::Fixed:
-            {
-                const f32 h = heightSpec.ResolveFixed(dpiScale);
-                minH = h;
-                maxH = h;
-                break;
-            }
-            case SizeSpec::Kind::Match:
-                minH = availH;
-                maxH = availH;
-                break;
-            case SizeSpec::Kind::Wrap:
-                minH = 0;
-                maxH = availH;
-                break;
-            }
-            return BoxConstraints{minW, maxW, minH, maxH};
+            const bool fillW = lp && lp->Width.kind == SizeSpec::Kind::Match;
+            const bool fillH = lp && lp->Height.kind == SizeSpec::Kind::Match;
+            return BoxConstraints{fillW ? availW : 0.0f, availW, fillH ? availH : 0.0f, availH};
         }
 
         void OnMeasure(BoxConstraints constraints) override
         {
-            const BoxConstraints inner = constraints.Deflate(Padding);
+            // Default container measure (FrameLayout-shaped): children measured loose within
+            // the content box, aggregated by margin-box max. Chrome comes from the merged
+            // metrics, so stylesheet padding/borders count on plain ViewGroups too.
+            const Thickness chrome = ResolveBoxMetrics().Chrome();
+            const BoxConstraints inner = constraints.Deflate(chrome);
             f32 maxW = 0, maxH = 0;
             for (const RefPtr<View>& child : m_children)
             {
@@ -911,12 +912,35 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                child->Measure(inner);
-                maxW = Max(maxW, child->MeasuredSize.x);
-                maxH = Max(maxH, child->MeasuredSize.y);
+                child->Measure(AvailForChild(inner.MaxWidth, inner.MaxHeight, child.Get()));
+                const Float2 mb = child->MarginBoxSize();
+                maxW = Max(maxW, mb.x);
+                maxH = Max(maxH, mb.y);
             }
-            MeasuredSize = Float2{constraints.ConstrainWidth(maxW + Padding.Left + Padding.Right),
-                                  constraints.ConstrainHeight(maxH + Padding.Top + Padding.Bottom)};
+            MeasuredSize =
+                Float2{constraints.ConstrainWidth(maxW + chrome.TotalHorizontal()),
+                       constraints.ConstrainHeight(maxH + chrome.TotalVertical())};
+        }
+
+        void OnLayout(f32 left, f32 top, f32 width, f32 height) override
+        {
+            // Default container arrange: each child's margin box at the content origin (the
+            // base ViewGroup used to measure children and then never position them - the
+            // measure/arrange asymmetry from the audit).
+            (void)left;
+            (void)top;
+            (void)width;
+            (void)height;
+            const Thickness chrome = ResolveBoxMetrics().Chrome();
+            for (const RefPtr<View>& child : m_children)
+            {
+                if (child->Visibility == VisibilityValue::Gone)
+                {
+                    continue;
+                }
+                const Float2 mb = child->MarginBoxSize();
+                child->Layout(chrome.Left, chrome.Top, mb.x, mb.y);
+            }
         }
 
         void DrawChildren(UIDrawContext& ctx)

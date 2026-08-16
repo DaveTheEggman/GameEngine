@@ -57,6 +57,7 @@ export namespace foundation::ui
 
         void OnMeasure(BoxConstraints constraints) override
         {
+            const Thickness chrome = ResolveBoxMetrics().Chrome();
             f32 usedLeft = 0, usedTop = 0, usedRight = 0, usedBottom = 0, maxW = 0, maxH = 0;
             const usize count = ChildCount();
 
@@ -70,36 +71,33 @@ export namespace foundation::ui
 
                 DockLayoutParams* lp = Cast<DockLayoutParams>(child->LayoutParams.Get());
                 const foundation::ui::Dock dock = lp != nullptr ? lp->Dock : foundation::ui::Dock::Left;
-                const Thickness margin =
-                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
 
-                const f32 remainW = Max(0.0f, constraints.MaxWidth - Padding.TotalHorizontal() -
+                // Margin is base-handled (ui-box-model.md P2b): pass the remaining space as the
+                // child's margin-box availability; aggregate margin-box sizes.
+                const f32 remainW = Max(0.0f, constraints.MaxWidth - chrome.TotalHorizontal() -
                                                   usedLeft - usedRight);
-                const f32 remainH = Max(0.0f, constraints.MaxHeight - Padding.TotalVertical() -
+                const f32 remainH = Max(0.0f, constraints.MaxHeight - chrome.TotalVertical() -
                                                   usedTop - usedBottom);
 
                 const bool isFill =
                     (LastChildFill && i == count - 1) || dock == foundation::ui::Dock::Fill;
-                BoxConstraints childConstraints =
-                    isFill ? BoxConstraints::Tight(Max(0.0f, remainW - margin.TotalHorizontal()),
-                                                   Max(0.0f, remainH - margin.TotalVertical()))
-                           : BoxConstraints{0, Max(0.0f, remainW - margin.TotalHorizontal()), 0,
-                                            Max(0.0f, remainH - margin.TotalVertical())};
-                child->Measure(childConstraints);
+                child->Measure(isFill ? BoxConstraints::Tight(remainW, remainH)
+                                      : BoxConstraints{0, remainW, 0, remainH});
+                const Float2 mb = child->MarginBoxSize();
 
                 switch (dock)
                 {
                 case foundation::ui::Dock::Left:
-                    usedLeft += child->MeasuredSize.x + margin.TotalHorizontal();
+                    usedLeft += mb.x;
                     break;
                 case foundation::ui::Dock::Right:
-                    usedRight += child->MeasuredSize.x + margin.TotalHorizontal();
+                    usedRight += mb.x;
                     break;
                 case foundation::ui::Dock::Top:
-                    usedTop += child->MeasuredSize.y + margin.TotalVertical();
+                    usedTop += mb.y;
                     break;
                 case foundation::ui::Dock::Bottom:
-                    usedBottom += child->MeasuredSize.y + margin.TotalVertical();
+                    usedBottom += mb.y;
                     break;
                 case foundation::ui::Dock::Fill:
                     break;
@@ -116,10 +114,11 @@ export namespace foundation::ui
         {
             (void)left;
             (void)top;
-            f32 dockLeft = Padding.Left;
-            f32 dockTop = Padding.Top;
-            f32 dockRight = width - Padding.Right;
-            f32 dockBottom = height - Padding.Bottom;
+            const Thickness chrome = ResolveBoxMetrics().Chrome();
+            f32 dockLeft = chrome.Left;
+            f32 dockTop = chrome.Top;
+            f32 dockRight = width - chrome.Right;
+            f32 dockBottom = height - chrome.Bottom;
             const usize count = ChildCount();
 
             for (usize i = 0; i < count; ++i)
@@ -132,45 +131,37 @@ export namespace foundation::ui
 
                 DockLayoutParams* lp = Cast<DockLayoutParams>(child->LayoutParams.Get());
                 const foundation::ui::Dock dock = lp != nullptr ? lp->Dock : foundation::ui::Dock::Left;
-                const Thickness margin =
-                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
                 const bool isFill =
                     (LastChildFill && i == count - 1) || dock == foundation::ui::Dock::Fill;
 
+                // Rects below are MARGIN boxes - the base Layout insets by margin once.
+                const Float2 mb = child->MarginBoxSize();
                 if (isFill)
                 {
-                    child->Layout(dockLeft + margin.Left, dockTop + margin.Top,
-                                  Max(0.0f, dockRight - dockLeft - margin.TotalHorizontal()),
-                                  Max(0.0f, dockBottom - dockTop - margin.TotalVertical()));
+                    child->Layout(dockLeft, dockTop, Max(0.0f, dockRight - dockLeft),
+                                  Max(0.0f, dockBottom - dockTop));
                     continue;
                 }
 
                 switch (dock)
                 {
                 case foundation::ui::Dock::Left:
-                    child->Layout(dockLeft + margin.Left, dockTop + margin.Top,
-                                  child->MeasuredSize.x,
-                                  Max(0.0f, dockBottom - dockTop - margin.TotalVertical()));
-                    dockLeft += child->MeasuredSize.x + margin.TotalHorizontal();
+                    child->Layout(dockLeft, dockTop, mb.x, Max(0.0f, dockBottom - dockTop));
+                    dockLeft += mb.x;
                     break;
                 case foundation::ui::Dock::Right:
-                    child->Layout(dockRight - child->MeasuredSize.x - margin.Right,
-                                  dockTop + margin.Top, child->MeasuredSize.x,
-                                  Max(0.0f, dockBottom - dockTop - margin.TotalVertical()));
-                    dockRight -= child->MeasuredSize.x + margin.TotalHorizontal();
+                    child->Layout(dockRight - mb.x, dockTop, mb.x,
+                                  Max(0.0f, dockBottom - dockTop));
+                    dockRight -= mb.x;
                     break;
                 case foundation::ui::Dock::Top:
-                    child->Layout(dockLeft + margin.Left, dockTop + margin.Top,
-                                  Max(0.0f, dockRight - dockLeft - margin.TotalHorizontal()),
-                                  child->MeasuredSize.y);
-                    dockTop += child->MeasuredSize.y + margin.TotalVertical();
+                    child->Layout(dockLeft, dockTop, Max(0.0f, dockRight - dockLeft), mb.y);
+                    dockTop += mb.y;
                     break;
                 case foundation::ui::Dock::Bottom:
-                    child->Layout(dockLeft + margin.Left,
-                                  dockBottom - child->MeasuredSize.y - margin.Bottom,
-                                  Max(0.0f, dockRight - dockLeft - margin.TotalHorizontal()),
-                                  child->MeasuredSize.y);
-                    dockBottom -= child->MeasuredSize.y + margin.TotalVertical();
+                    child->Layout(dockLeft, dockBottom - mb.y,
+                                  Max(0.0f, dockRight - dockLeft), mb.y);
+                    dockBottom -= mb.y;
                     break;
                 case foundation::ui::Dock::Fill:
                     break;

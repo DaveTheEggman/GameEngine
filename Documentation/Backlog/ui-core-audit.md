@@ -225,6 +225,11 @@ churn across consumers - fold into P4's connection-token work).
   shared ShapedTextBlock (P4), which subsumes these per-control caches.
 
 **P2 - the box model** - SPEC LOCKED (Documentation/Specs/ui-box-model.md)
++ **P2b SHIPPED 2026-08-16** (the contract cut: base Measure template method
+owns margin + Fixed at logical dpi; Px = physical px; margin-box Layout;
+AvailForChild replaces the three spec-interpreter clones; all 8 containers
+migrated; ViewGroup measure/arrange asymmetry fixed; acceptance tests green -
+Fixed works in EVERY container, Flow honors margins, Grid leaves bounded).
 + **P2a SHIPPED 2026-08-15** (BoxMetrics + three-channel padding merge + inset
 border strokes + DrawablePadding on RoundedRectDrawable + Panel delegation;
 style padding now works on containers; 4 new BoxMetricsTests). P2b-P2d

@@ -1,5 +1,7 @@
-// Ported from Sedulous.UI.Tests/src/GravityHelperTests.bf (faithful; RectangleF -> core::Rectangle,
-// .X/.Y/.Width/.Height -> .x/.y/.width/.height).
+// Ported from Sedulous.UI.Tests/src/GravityHelperTests.bf, updated for the P2b margin-box
+// contract (ui-box-model.md): Apply positions the MARGIN BOX (no margin parameter); View::Layout
+// insets to the border box. The margin cases below assert the margin-box rect and note the final
+// border box, which equals the pre-P2b values exactly.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import foundation.core;
@@ -10,8 +12,7 @@ namespace core = foundation::core;
 
 TEST_CASE("gravity-helper: None_TopLeft")
 {
-    core::Rectangle r =
-        GravityHelper::Apply(Gravity::None, 400.0f, 300.0f, 100.0f, 50.0f, Thickness{});
+    core::Rectangle r = GravityHelper::Apply(Gravity::None, 400.0f, 300.0f, 100.0f, 50.0f);
     CHECK(r.x == doctest::Approx(0.0f));
     CHECK(r.y == doctest::Approx(0.0f));
     CHECK(r.width == doctest::Approx(100.0f));
@@ -20,44 +21,44 @@ TEST_CASE("gravity-helper: None_TopLeft")
 
 TEST_CASE("gravity-helper: Center")
 {
-    core::Rectangle r =
-        GravityHelper::Apply(Gravity::Center, 400.0f, 300.0f, 100.0f, 50.0f, Thickness{});
+    core::Rectangle r = GravityHelper::Apply(Gravity::Center, 400.0f, 300.0f, 100.0f, 50.0f);
     CHECK(r.x == doctest::Approx(150.0f));
     CHECK(r.y == doctest::Approx(125.0f));
 }
 
 TEST_CASE("gravity-helper: BottomRight")
 {
-    core::Rectangle r = GravityHelper::Apply(Gravity::Bottom | Gravity::Right, 400.0f, 300.0f,
-                                             100.0f, 50.0f, Thickness{});
+    core::Rectangle r =
+        GravityHelper::Apply(Gravity::Bottom | Gravity::Right, 400.0f, 300.0f, 100.0f, 50.0f);
     CHECK(r.x == doctest::Approx(300.0f));
     CHECK(r.y == doctest::Approx(250.0f));
 }
 
 TEST_CASE("gravity-helper: Fill")
 {
-    core::Rectangle r =
-        GravityHelper::Apply(Gravity::Fill, 400.0f, 300.0f, 100.0f, 50.0f, Thickness{});
+    core::Rectangle r = GravityHelper::Apply(Gravity::Fill, 400.0f, 300.0f, 100.0f, 50.0f);
     CHECK(r.x == doctest::Approx(0.0f));
     CHECK(r.y == doctest::Approx(0.0f));
     CHECK(r.width == doctest::Approx(400.0f));
     CHECK(r.height == doctest::Approx(300.0f));
 }
 
-TEST_CASE("gravity-helper: WithMargin")
+TEST_CASE("gravity-helper: WithMargin_MarginBoxCentered")
 {
-    core::Rectangle r = GravityHelper::Apply(Gravity::Center, 400.0f, 300.0f, 100.0f, 50.0f,
-                                             Thickness{10.0f, 20.0f, 10.0f, 20.0f});
-    CHECK(r.x == doctest::Approx(150.0f)); // 10 + (380-100)/2
-    CHECK(r.y == doctest::Approx(125.0f)); // 20 + (260-50)/2
+    // Child 100x50 with margins {10,20,10,20} = margin box 120x90, centered in 400x300.
+    core::Rectangle r = GravityHelper::Apply(Gravity::Center, 400.0f, 300.0f, 120.0f, 90.0f);
+    CHECK(r.x == doctest::Approx(140.0f)); // (400-120)/2
+    CHECK(r.y == doctest::Approx(105.0f)); // (300-90)/2
+    // View::Layout insets by margin -> border box at (150,125) 100x50: identical to pre-P2b.
 }
 
-TEST_CASE("gravity-helper: FillWithMargin")
+TEST_CASE("gravity-helper: FillWithMargin_MarginBoxFills")
 {
-    core::Rectangle r = GravityHelper::Apply(Gravity::Fill, 400.0f, 300.0f, 100.0f, 50.0f,
-                                             Thickness{10.0f, 20.0f, 30.0f, 40.0f});
-    CHECK(r.x == doctest::Approx(10.0f));
-    CHECK(r.y == doctest::Approx(20.0f));
-    CHECK(r.width == doctest::Approx(360.0f));  // 400-10-30
-    CHECK(r.height == doctest::Approx(240.0f)); // 300-20-40
+    // Fill hands the whole container to the MARGIN box; View::Layout insets by
+    // {10,20,30,40} -> border box (10,20) 360x240: identical to pre-P2b.
+    core::Rectangle r = GravityHelper::Apply(Gravity::Fill, 400.0f, 300.0f, 120.0f, 90.0f);
+    CHECK(r.x == doctest::Approx(0.0f));
+    CHECK(r.y == doctest::Approx(0.0f));
+    CHECK(r.width == doctest::Approx(400.0f));
+    CHECK(r.height == doctest::Approx(300.0f));
 }

@@ -18,57 +18,57 @@ export namespace foundation::ui
 {
     struct GravityHelper
     {
-        /// Positions a child of (childW, childH) inside a container of (containerW, containerH) with the
-        /// given margin. Returns the child's (x, y, w, h).
+        /// Positions a child's MARGIN BOX of (boxW, boxH) inside a container of (containerW,
+        /// containerH). Returns the margin-box (x, y, w, h) - View::Layout insets to the border
+        /// box, so gravity math no longer needs the margin itself (ui-box-model.md P2b; the old
+        /// margin-aware form produced identical border-box results, derivation in the spec).
         [[nodiscard]] static Rectangle Apply(Gravity gravity, f32 containerW, f32 containerH,
-                                             f32 childW, f32 childH, Thickness margin) noexcept
+                                             f32 boxW, f32 boxH) noexcept
         {
-            const f32 availW = containerW - margin.Left - margin.Right;
-            const f32 availH = containerH - margin.Top - margin.Bottom;
             f32 x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
 
             // Horizontal
             if (HasFlag(gravity, Gravity::FillH))
             {
-                x = margin.Left;
-                w = availW;
+                x = 0.0f;
+                w = containerW;
             }
             else if (HasFlag(gravity, Gravity::Right))
             {
-                x = containerW - margin.Right - childW;
-                w = childW;
+                x = containerW - boxW;
+                w = boxW;
             }
             else if (HasFlag(gravity, Gravity::CenterH))
             {
-                x = margin.Left + (availW - childW) * 0.5f;
-                w = childW;
+                x = (containerW - boxW) * 0.5f;
+                w = boxW;
             }
             else
             {
-                x = margin.Left;
-                w = childW;
+                x = 0.0f;
+                w = boxW;
             } // Left or None
 
             // Vertical
             if (HasFlag(gravity, Gravity::FillV))
             {
-                y = margin.Top;
-                h = availH;
+                y = 0.0f;
+                h = containerH;
             }
             else if (HasFlag(gravity, Gravity::Bottom))
             {
-                y = containerH - margin.Bottom - childH;
-                h = childH;
+                y = containerH - boxH;
+                h = boxH;
             }
             else if (HasFlag(gravity, Gravity::CenterV))
             {
-                y = margin.Top + (availH - childH) * 0.5f;
-                h = childH;
+                y = (containerH - boxH) * 0.5f;
+                h = boxH;
             }
             else
             {
-                y = margin.Top;
-                h = childH;
+                y = 0.0f;
+                h = boxH;
             } // Top or None
 
             return Rectangle{x, y, Max(0.0f, w), Max(0.0f, h)};

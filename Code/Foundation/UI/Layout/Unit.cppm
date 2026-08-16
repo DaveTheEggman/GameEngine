@@ -30,24 +30,27 @@ export namespace foundation::ui
         constexpr Unit() noexcept = default;
         constexpr Unit(Kind k, f32 v) noexcept : kind(k), value(v) {}
 
-        /// Density-independent pixels (1dp = 1px at 96dpi).
+        /// Density-independent pixels - the LOGICAL layout unit (1dp = 1 device px at 96dpi).
         [[nodiscard]] static constexpr Unit Dp(f32 v) noexcept { return {Kind::Dp, v}; }
         /// Points (1/72 inch); used for font sizes.
         [[nodiscard]] static constexpr Unit Pt(f32 v) noexcept { return {Kind::Pt, v}; }
-        /// Raw pixels (no DPI scaling).
+        /// PHYSICAL device pixels (divided out of the root draw scale).
         [[nodiscard]] static constexpr Unit Px(f32 v) noexcept { return {Kind::Px, v}; }
 
-        /// Resolves to pixels given the DPI scale (1.0 at 96dpi, 2.0 at 192dpi).
+        /// Resolves to LOGICAL units (ui-box-model.md P2b). Layout runs entirely in logical
+        /// space and the root applies DpiScale once at draw - so Dp is identity here (the old
+        /// `value * dpiScale` double-scaled: once at resolve, again at draw), and Px divides by
+        /// the scale so it lands on exact device pixels after the draw scale.
         [[nodiscard]] constexpr f32 Resolve(f32 dpiScale) const noexcept
         {
             switch (kind)
             {
             case Kind::Dp:
-                return value * dpiScale;
-            case Kind::Pt:
-                return value * dpiScale * (96.0f / 72.0f);
-            case Kind::Px:
                 return value;
+            case Kind::Pt:
+                return value * (96.0f / 72.0f);
+            case Kind::Px:
+                return dpiScale > 0.0f ? value / dpiScale : value;
             }
             return value;
         }

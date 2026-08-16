@@ -454,13 +454,11 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                const Thickness margin =
-                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
-                const f32 childW =
-                    core::Max(child->MeasuredSize.x, ViewportWidth() - margin.TotalHorizontal());
-                const f32 childH = child->MeasuredSize.y;
-                child->Layout(Padding.Left + margin.Left - m_scrollX,
-                              Padding.Top + margin.Top - m_scrollY, childW, childH);
+                // MARGIN-box rect (base insets by margin): at least the viewport wide, the
+                // measured margin-box tall, offset by scroll.
+                const Float2 mb = child->MarginBoxSize();
+                const f32 childW = core::Max(mb.x, ViewportWidth());
+                child->Layout(Padding.Left - m_scrollX, Padding.Top - m_scrollY, childW, mb.y);
             }
 
             if (NeedsVBar())
@@ -519,11 +517,11 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                const Thickness margin =
-                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
-                child->Measure(childConstraints.Deflate(margin));
-                maxW = core::Max(maxW, child->MeasuredSize.x + margin.TotalHorizontal());
-                maxH = core::Max(maxH, child->MeasuredSize.y + margin.TotalVertical());
+                // Margin is base-handled (ui-box-model.md P2b); aggregate margin boxes.
+                child->Measure(childConstraints);
+                const Float2 mb = child->MarginBoxSize();
+                maxW = core::Max(maxW, mb.x);
+                maxH = core::Max(maxH, mb.y);
             }
         }
 

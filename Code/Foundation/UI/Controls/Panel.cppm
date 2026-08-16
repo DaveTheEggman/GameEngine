@@ -41,6 +41,8 @@ export namespace foundation::ui
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
+            // Margin is base-handled now (ui-box-model.md P2b) - children get the loose content
+            // box and aggregate by margin-box size.
             const Thickness pad = EffectivePadding();
             const BoxConstraints inner = constraints.Deflate(pad).Loosen();
             f32 maxW = 0, maxH = 0;
@@ -51,11 +53,10 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                const Thickness margin =
-                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
-                child->Measure(inner.Deflate(margin));
-                maxW = Max(maxW, child->MeasuredSize.x + margin.TotalHorizontal());
-                maxH = Max(maxH, child->MeasuredSize.y + margin.TotalVertical());
+                child->Measure(inner);
+                const Float2 mb = child->MarginBoxSize();
+                maxW = Max(maxW, mb.x);
+                maxH = Max(maxH, mb.y);
             }
             MeasuredSize = Float2{constraints.ConstrainWidth(maxW + pad.TotalHorizontal()),
                                   constraints.ConstrainHeight(maxH + pad.TotalVertical())};
@@ -75,11 +76,9 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                const Thickness margin =
-                    child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
-                child->Layout(pad.Left + margin.Left, pad.Top + margin.Top,
-                              Max(0.0f, contentW - margin.TotalHorizontal()),
-                              Max(0.0f, contentH - margin.TotalVertical()));
+                // Panel stretches every child across the content box: pass the whole content
+                // box as the child's MARGIN box - the base insets by margin once.
+                child->Layout(pad.Left, pad.Top, Max(0.0f, contentW), Max(0.0f, contentH));
             }
         }
 
