@@ -77,6 +77,19 @@ export namespace pipeline
         return CookTarget{String(u8"host"), true, false, false};
     }
 
+    // Resolve a target id to its capability profile (asset-variants P2/P3). The web export splits into
+    // two variant targets: "web-bc" (desktop browsers) and "web-astc" (mobile browsers). Everything
+    // else - "host", desktop platforms, unknown ids - is BC-capable desktop. Extend as new targets
+    // (consoles, ETC2 budget mobiles) land; the resolver keys on capability, never on platform.
+    [[nodiscard]] inline CookTarget CookTargetFor(StringView id)
+    {
+        if (id == StringView(u8"web-astc"))
+        {
+            return CookTarget{String(id), /*bc*/ false, /*astc*/ true, /*etc2*/ false};
+        }
+        return CookTarget{String(id), /*bc*/ true, /*astc*/ false, /*etc2*/ false};
+    }
+
     // Inputs a builder cooks against: the sources mount (all file access through the VFS), the
     // output instance to write the cooked resource into, and the content DB (so a builder can
     // resolve cross-asset references during the bake).

@@ -291,4 +291,21 @@ export namespace pipeline
         HashMap<Guid, Array<CookFileMemo>> m_pendingMemos; // file memos gathered during Plan
         Mutex m_recordMutex;                               // record updates from worker threads
     };
+
+    // The reusable per-target cook step (asset-variants P2): cook `sourceDb` for `target` into
+    // `targetCookedDb`, carrying platform-invariant products forward from an already-cooked
+    // `hostCookedDb` (gated by `hostRecords`) instead of recooking them. `targetCache` is the target's
+    // own cook.db mount. Both Tools.Cook --target and the web export drive this. `force` re-cooks all.
+    [[nodiscard]] inline CookStats CookForTarget(
+        content::ContentDatabase& sourceDb, content::ContentDatabase& targetCookedDb,
+        content::ContentDatabase& hostCookedDb, CookDb& hostRecords, BuilderRegistry& builders,
+        vfs::IFileSystem* sources, vfs::IFileSystem* targetCache, const CookTarget& target,
+        JobSystem* jobs = nullptr, bool force = false)
+    {
+        CookDriver driver(sourceDb, targetCookedDb, builders, sources, targetCache, jobs);
+        driver.SetTarget(target);
+        driver.SetCopyForwardSource(hostCookedDb, hostRecords);
+        CookPlan plan = driver.Plan(force);
+        return driver.Execute(plan);
+    }
 }
