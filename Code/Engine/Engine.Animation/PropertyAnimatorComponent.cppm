@@ -169,15 +169,17 @@ export namespace engine::animation
                         {
                             continue;
                         }
-                        const Variant value = clip.tracks[i].Sample(evalTime);
+                        const propanim::PropertyTrack& track = clip.tracks[i];
                         if (tb.isTransform)
                         {
                             // Read-modify-write the scene transform: SetLocalTransform flags the
-                            // world matrix dirty (a raw field write would not).
+                            // world matrix dirty (a raw field write would not). SampleMerged keeps
+                            // the live value for empty channels (no teleport-to-origin).
                             Transform local = m_scene->GetLocalTransform(owner);
-                            if (propanim::WriteBinding(tb.binding, Instance{&local, &TypeOf<Transform>()},
-                                                       value)
-                                    .IsOk())
+                            const Instance inst{&local, &TypeOf<Transform>()};
+                            const Variant value =
+                                track.SampleMerged(evalTime, propanim::ReadBinding(tb.binding, inst));
+                            if (propanim::WriteBinding(tb.binding, inst, value).IsOk())
                             {
                                 m_scene->SetLocalTransform(owner, local);
                             }
@@ -193,6 +195,8 @@ export namespace engine::animation
                         {
                             continue; // component removed this frame - skip, keep the binding
                         }
+                        const Variant value =
+                            track.SampleMerged(evalTime, propanim::ReadBinding(tb.binding, inst));
                         (void)propanim::WriteBinding(tb.binding, inst, value);
                     }
                 });

@@ -212,6 +212,36 @@ TEST_CASE("propanim: ReadBinding is the symmetric inverse of WriteBinding (snaps
     CHECK(ReadBinding(ResolveBinding(AnimComp::StaticType(), u8"nope"), inst).IsEmpty());
 }
 
+TEST_CASE("propanim: SampleMerged keeps the current value for empty channels (no teleport)")
+{
+    EnsureRegistered();
+    PropertyTrack t;
+    t.kind = TrackValueKind::Float3;
+    // Only channel 0 (x) is keyed (0 -> 10 over 1s); y and z have no keys.
+    t.channels[0].AddKey(K(0.0f, 0.0f));
+    t.channels[0].AddKey(K(1.0f, 10.0f));
+
+    // x is driven; y/z keep the live value instead of zeroing.
+    const Float3 v = t.SampleMerged(0.5f, Variant::From(Float3{5.0f, 6.0f, 7.0f})).Get<Float3>();
+    CHECK(v.x == doctest::Approx(5.0f));
+    CHECK(v.y == doctest::Approx(6.0f));
+    CHECK(v.z == doctest::Approx(7.0f));
+
+    // A track with ALL channels empty returns `current` unchanged (a no-op write - no teleport).
+    PropertyTrack empty;
+    empty.kind = TrackValueKind::Float3;
+    const Float3 same =
+        empty.SampleMerged(0.5f, Variant::From(Float3{1.0f, 2.0f, 3.0f})).Get<Float3>();
+    CHECK(same.x == doctest::Approx(1.0f));
+    CHECK(same.y == doctest::Approx(2.0f));
+    CHECK(same.z == doctest::Approx(3.0f));
+
+    // Empty current (unreadable target) falls back to 0 for the empty channels.
+    const Float3 fallback = t.SampleMerged(1.0f, Variant{}).Get<Float3>();
+    CHECK(fallback.x == doctest::Approx(10.0f));
+    CHECK(fallback.y == doctest::Approx(0.0f));
+}
+
 TEST_CASE("propanim: clip duration = the longest track")
 {
     EnsureRegistered();

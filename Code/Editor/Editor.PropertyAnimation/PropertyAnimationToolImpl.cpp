@@ -391,8 +391,11 @@ namespace editor
         m_previewTime = time;
         for (const propanim::PropertyTrack& track : m_clip.tracks)
         {
+            // SampleMerged keeps the live value for empty channels (no teleport-to-origin).
+            const Variant current =
+                ReadTrackTarget(entity, track.componentType.AsView(), track.propertyPath.AsView());
             WriteTrackTarget(entity, track.componentType.AsView(), track.propertyPath.AsView(),
-                             track.Sample(time));
+                             track.SampleMerged(time, current));
         }
     }
 

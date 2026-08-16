@@ -108,6 +108,40 @@ export namespace foundation::propertyanimation
             return Variant{};
         }
 
+        // Sample, but keep `current`'s value for any channel that has NO keys (an empty channel does
+        // not drive its component - otherwise it would sample 0 and, say, teleport an entity that
+        // only animates X to y=z=0). `current` is the target property's live value; if it is empty
+        // (unreadable) an empty channel falls back to 0. A track with all channels empty returns
+        // `current` unchanged (a no-op write). Quat: empty quatKeys keeps `current`.
+        [[nodiscard]] Variant SampleMerged(f32 time, const Variant& current) const
+        {
+            switch (kind)
+            {
+            case TrackValueKind::Float:
+                return channels[0].KeyCount() > 0 ? Variant::From(channels[0].Evaluate(time)) : current;
+            case TrackValueKind::Float3:
+            {
+                const Float3 base = current.Is<Float3>() ? current.Get<Float3>() : Float3{};
+                return Variant::From(Float3{
+                    channels[0].KeyCount() > 0 ? channels[0].Evaluate(time) : base.x,
+                    channels[1].KeyCount() > 0 ? channels[1].Evaluate(time) : base.y,
+                    channels[2].KeyCount() > 0 ? channels[2].Evaluate(time) : base.z});
+            }
+            case TrackValueKind::Color:
+            {
+                const Color base = current.Is<Color>() ? current.Get<Color>() : Color{};
+                return Variant::From(Color{
+                    channels[0].KeyCount() > 0 ? channels[0].Evaluate(time) : base.r,
+                    channels[1].KeyCount() > 0 ? channels[1].Evaluate(time) : base.g,
+                    channels[2].KeyCount() > 0 ? channels[2].Evaluate(time) : base.b,
+                    channels[3].KeyCount() > 0 ? channels[3].Evaluate(time) : base.a});
+            }
+            case TrackValueKind::Quat:
+                return quatKeys.IsEmpty() ? current : Variant::From(SampleQuat(time));
+            }
+            return current;
+        }
+
         // Slerp the quaternion keys at `time` (clamped to the ends; shortest-arc via Slerp).
         [[nodiscard]] Quaternion SampleQuat(f32 time) const noexcept
         {
