@@ -64,6 +64,45 @@ export namespace foundation::ui
             }
         }
 
+        /// Drop selected indices that no longer exist (>= count, or negative). Called by list
+        /// views when the data set changes - a stale index would silently highlight whatever row
+        /// now occupies that position.
+        void PruneFrom(i32 count)
+        {
+            Array<i32> stale;
+            for (i32 index : m_selected)
+            {
+                if (index < 0 || index >= count)
+                {
+                    stale.PushBack(index);
+                }
+            }
+            if (stale.IsEmpty())
+            {
+                return;
+            }
+            for (i32 index : stale)
+            {
+                m_selected.Remove(index);
+            }
+            OnSelectionChanged.Invoke();
+        }
+
+        /// Replace the whole selection in one step (one change event). Used to remap positional
+        /// selection after the data set shifts (tree expand/collapse).
+        void ReplaceAll(Span<const i32> indices)
+        {
+            m_selected.Clear();
+            for (i32 index : indices)
+            {
+                if (index >= 0)
+                {
+                    m_selected.Insert(index);
+                }
+            }
+            OnSelectionChanged.Invoke();
+        }
+
         /// Toggle selection of an index (Ctrl+click).
         void Toggle(i32 index)
         {

@@ -56,6 +56,22 @@ export namespace foundation::ui
             return nullptr;
         }
 
+        /// The topmost popup that took focus on open (menus, dialogs - not tooltips). While one is
+        /// open it IS the keyboard focus scope: FocusManager confines Tab/arrow traversal to it,
+        /// which both traps the keyboard inside modals and makes popup content Tab-reachable
+        /// (popups are attached but not ViewGroup children, so the root walk never finds them).
+        [[nodiscard]] View* TopmostFocusScopePopup() const
+        {
+            for (usize i = m_entries.Size(); i-- > 0;)
+            {
+                if (m_entries[i].PushedFocus)
+                {
+                    return m_entries[i].Popup.Get();
+                }
+            }
+            return nullptr;
+        }
+
         // === Show / Close ===
         void ShowPopup(View* popup, IPopupOwner* owner, f32 x, f32 y,
                        bool closeOnClickOutside = true, bool isModal = false, bool ownsView = true,
@@ -145,7 +161,10 @@ export namespace foundation::ui
 
                     if (entry.PushedFocus && Context != nullptr)
                     {
-                        Context->GetFocusManager()->PopFocus();
+                        // Restore what THIS popup displaced (validated: no-op if the target died,
+                        // was disabled, or hidden meanwhile). Restores with the original
+                        // FocusSource - a pointer-focused button comes back ringless.
+                        Context->GetFocusManager()->RestoreFocus(entry.SavedFocusEntry);
                     }
                     if (!HasModalPopup() && m_backdrop && m_backdrop->Parent != nullptr)
                     {
@@ -313,6 +332,13 @@ export namespace foundation::ui
             entry.X = x;
             entry.Y = y;
 
+            // Tooltips (takesFocus=false) must never disturb focus - a tooltip appearing
+            // mid-typing used to clear the editor's focus and kill its completion popup.
+            if (takesFocus && Context != nullptr)
+            {
+                entry.SavedFocusEntry = Context->GetFocusManager()->SaveAndClearFocus();
+            }
+
             const bool hadModal = HasModalPopup();
             m_entries.PushBack(Move(entry));
 
@@ -326,13 +352,6 @@ export namespace foundation::ui
                 {
                     AddView(m_backdrop.Get());
                 }
-            }
-
-            // Tooltips (takesFocus=false) must never disturb focus - a tooltip appearing
-            // mid-typing used to clear the editor's focus and kill its completion popup.
-            if (takesFocus && Context != nullptr)
-            {
-                Context->GetFocusManager()->PushFocus();
             }
 
             popup->Parent = this;

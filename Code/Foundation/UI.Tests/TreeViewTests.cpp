@@ -86,6 +86,43 @@ TEST_CASE("tree-view: Selection")
     CHECK(tv->Selection().FirstSelected() == 0);
 }
 
+TEST_CASE("tree-view: collapse ABOVE the selection keeps the same NODE selected (remap)")
+{
+    SimpleTreeAdapter adapter;
+    auto tv = MakeTree();
+    tv->SetAdapter(&adapter);
+
+    tv->ToggleExpand(0); // expand root 0: flat = [root0, c, c, root1, root2]
+    REQUIRE(tv->FlatAdapter()->ItemCount() == 5);
+    const i32 root1Node = tv->FlatAdapter()->GetNodeId(3);
+    tv->Selection().Select(3); // select root 1 by its CURRENT flat position
+
+    tv->ToggleExpand(0); // collapse root 0 - every flat index above shifts by 2
+
+    // The same NODE stays selected at its new position; the highlight must not jump to
+    // whichever row inherited flat index 3.
+    REQUIRE(tv->FlatAdapter()->ItemCount() == 3);
+    const i32 newPosition = tv->FlatAdapter()->PositionOfNode(root1Node);
+    CHECK(newPosition == 1);
+    CHECK(tv->Selection().IsSelected(newPosition));
+    CHECK_FALSE(tv->Selection().IsSelected(3));
+}
+
+TEST_CASE("tree-view: collapsing the selected node's parent DROPS the hidden selection")
+{
+    SimpleTreeAdapter adapter;
+    auto tv = MakeTree();
+    tv->SetAdapter(&adapter);
+
+    tv->ToggleExpand(0); // expand root 0
+    REQUIRE(tv->FlatAdapter()->ItemCount() == 5);
+    tv->Selection().Select(1); // a CHILD of root 0
+
+    tv->ToggleExpand(0); // collapse hides the selected node
+
+    CHECK(tv->Selection().SelectedCount() == 0u); // gone, not remapped onto a wrong row
+}
+
 TEST_CASE("tree-view: HierarchicalState_CaptureRestore")
 {
     SimpleTreeAdapter adapter;

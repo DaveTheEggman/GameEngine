@@ -99,6 +99,20 @@ export namespace foundation::ui
             }
             return m_visibleNodes[static_cast<usize>(position)];
         }
+
+        /// Flat position of a node in the CURRENT visible list; -1 if hidden (collapsed ancestor).
+        /// The inverse of GetNodeId - used to remap positional selection across expand/collapse.
+        [[nodiscard]] i32 PositionOfNode(i32 nodeId) const
+        {
+            for (usize i = 0; i < m_visibleNodes.Size(); ++i)
+            {
+                if (m_visibleNodes[i] == nodeId)
+                {
+                    return static_cast<i32>(i);
+                }
+            }
+            return -1;
+        }
         [[nodiscard]] i32 GetDepth(i32 position) const
         {
             if (position < 0 || position >= static_cast<i32>(m_depths.Size()))

@@ -137,9 +137,7 @@ export namespace foundation::ui
             const i32 nodeId = m_flatAdapter->GetNodeId(flatPosition);
             if (nodeId >= 0)
             {
-                m_flatAdapter->ToggleExpand(nodeId);
-                m_listView->NotifyDataChanged();
-                OnItemToggled.Invoke(nodeId);
+                ToggleNodePreservingSelection(nodeId);
             }
         }
 
@@ -171,18 +169,14 @@ export namespace foundation::ui
             case KeyCode::Right:
                 if (TreeAdapter->HasChildren(nodeId) && !m_flatAdapter->IsExpanded(nodeId))
                 {
-                    m_flatAdapter->ToggleExpand(nodeId);
-                    m_listView->NotifyDataChanged();
-                    OnItemToggled.Invoke(nodeId);
+                    ToggleNodePreservingSelection(nodeId);
                     e.Handled = true;
                 }
                 break;
             case KeyCode::Left:
                 if (TreeAdapter->HasChildren(nodeId) && m_flatAdapter->IsExpanded(nodeId))
                 {
-                    m_flatAdapter->ToggleExpand(nodeId);
-                    m_listView->NotifyDataChanged();
-                    OnItemToggled.Invoke(nodeId);
+                    ToggleNodePreservingSelection(nodeId);
                     e.Handled = true;
                 }
                 break;
@@ -218,6 +212,42 @@ export namespace foundation::ui
         }
 
     private:
+        /// Toggle a node's expansion, remapping the POSITIONAL selection by nodeId across the
+        /// visible-list rebuild - without this, collapsing a node above the selection shifts every
+        /// flat index and the highlight jumps to whichever row inherits the old index. Selected
+        /// nodes hidden by the collapse drop out of the selection.
+        void ToggleNodePreservingSelection(i32 nodeId)
+        {
+            // Capture the selection as NODE ids (stable across rebuilds).
+            Array<i32> selectedNodes;
+            SelectionModel& selection = m_listView->Selection;
+            const i32 countBefore = m_flatAdapter->ItemCount();
+            for (i32 position = 0; position < countBefore; ++position)
+            {
+                if (selection.IsSelected(position))
+                {
+                    selectedNodes.PushBack(m_flatAdapter->GetNodeId(position));
+                }
+            }
+
+            m_flatAdapter->ToggleExpand(nodeId);
+            m_listView->NotifyDataChanged();
+
+            // Re-derive flat positions; nodes hidden by the collapse resolve to -1 and drop.
+            Array<i32> remapped;
+            for (i32 selectedNode : selectedNodes)
+            {
+                const i32 position = m_flatAdapter->PositionOfNode(selectedNode);
+                if (position >= 0)
+                {
+                    remapped.PushBack(position);
+                }
+            }
+            selection.ReplaceAll(Span<const i32>(remapped.Data(), remapped.Size()));
+
+            OnItemToggled.Invoke(nodeId);
+        }
+
         [[nodiscard]] bool IsArrowHit(i32 position, f32 localX)
         {
             if (!m_flatAdapter || TreeAdapter == nullptr)

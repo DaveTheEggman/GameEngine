@@ -12,6 +12,7 @@ export module foundation.ui:popup_entry;
 import foundation.core; // RefPtr
 import :view;
 import :ipopup_owner;
+import :focus_manager; // FocusManager::SavedFocus
 
 using namespace foundation::core;
 
@@ -24,7 +25,11 @@ export namespace foundation::ui
         bool CloseOnClickOutside = false; ///< Clicking outside dismisses it.
         bool IsModal = false;             ///< Blocks input to underlying content.
         bool OwnsView = true;   ///< PopupLayer is the primary owner (delete-on-close semantics).
-        bool PushedFocus = false; ///< This popup pushed the focus stack (popped on close).
+        bool PushedFocus = false; ///< This popup took focus on open (restored on close).
+        /// The focus this popup displaced, restored on close. Owned HERE (not a manager-global
+        /// stack) so each popup restores only what IT saved - out-of-LIFO-order closes can never
+        /// cross-restore another popup's focus.
+        FocusManager::SavedFocus SavedFocusEntry{};
         f32 X = 0.0f, Y = 0.0f; ///< Position in PopupLayer coordinates.
     };
 }

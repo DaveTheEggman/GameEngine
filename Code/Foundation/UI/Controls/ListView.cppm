@@ -121,6 +121,9 @@ export namespace foundation::ui
         {
             RebuildOffsets();
             RecycleAllActive();
+            // Selection is positional: drop indices past the new count so a shrunken data set
+            // never leaves a stale index silently highlighting whichever row inherits it.
+            Selection.PruneFrom(m_adapter != nullptr ? m_adapter->ItemCount() : 0);
             Invalidate();
         }
 

@@ -66,6 +66,9 @@ export namespace foundation::ui
         explicit Dialog(StringView title)
         {
             ClipsContent = true;
+            // Focusable (not a tab stop) so a dialog with no focusable content can still hold
+            // keyboard focus - Escape-to-close works the moment it opens (see Show).
+            IsFocusable = true;
             MinWidth.SetOwner(this);
             MinHeight.SetOwner(this);
             MaxWidth.SetOwner(this);
@@ -173,6 +176,15 @@ export namespace foundation::ui
 
             Layout(x, y, finalW, finalH);
             root->GetPopupLayer()->UpdatePopupPosition(this, x, y);
+
+            // Initial keyboard focus: the first focusable child (usually the first button), else
+            // the dialog itself - so Escape/Return work immediately without a click, and Tab
+            // starts inside the dialog (the focus root is scoped to it while it is open).
+            FocusManager* fm = ctx->GetFocusManager();
+            if (!fm->FocusFirstIn(this))
+            {
+                fm->SetFocus(this); // Programmatic - holds focus, draws no ring
+            }
         }
 
         /// Close the dialog with a result. Deferred via MutationQueue.

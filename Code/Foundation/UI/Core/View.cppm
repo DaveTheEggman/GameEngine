@@ -277,7 +277,10 @@ export namespace foundation::ui
             {
                 state |= ControlState::Disabled;
             }
-            if (IsFocused())
+            // Focused STATE (and thus the themed focus visual) only for focus that should be
+            // visible - keyboard-acquired, or a text-input view. Pointer-clicked controls hold
+            // focus without lighting up (:focus-visible semantics; see FocusSource).
+            if (IsFocusVisible())
             {
                 state |= ControlState::Focused;
             }
@@ -356,6 +359,10 @@ export namespace foundation::ui
         // Input-manager backed (defined in the impl unit; query Context's Input/Focus managers).
         [[nodiscard]] bool IsHovered() const;
         [[nodiscard]] bool IsFocused() const;
+        /// Whether this view's FOCUS VISUAL should draw: focused via keyboard, or a text-input
+        /// view (which always shows its border + caret). Pointer/programmatic focus is held but
+        /// not drawn. Draw sites use this; logic (typing, nav) keeps using IsFocused().
+        [[nodiscard]] bool IsFocusVisible() const;
         /// True if this view or any descendant has keyboard focus.
         [[nodiscard]] bool IsFocusWithin() const;
 
@@ -947,6 +954,10 @@ export namespace foundation::ui
         /// The per-window popup/overlay layer (created on first access).
         [[nodiscard]] PopupLayer*
         GetPopupLayer(); // defined in the impl unit (needs the complete type)
+
+        /// The popup layer if it exists, WITHOUT creating it (base-typed - this partition cannot
+        /// name PopupLayer; callers in impl units Cast). Used by focus-root scoping.
+        [[nodiscard]] ViewGroup* PeekPopupLayer() const noexcept { return m_popupLayer.Get(); }
 
         /// Adds a child, keeping the PopupLayer as the last child for z-order.
         ViewGroup* AddView(View* child, LayoutParamsPtr lp = {}) override

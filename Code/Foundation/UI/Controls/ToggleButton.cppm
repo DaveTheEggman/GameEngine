@@ -64,7 +64,7 @@ export namespace foundation::ui
             {
                 state |= ControlState::Pressed;
             }
-            if (IsFocused())
+            if (IsFocusVisible()) // keyboard-acquired only - a clicked toggle holds focus ringless
             {
                 state |= ControlState::Focused;
             }

@@ -2,8 +2,8 @@
 //
 // Manages keyboard focus and mouse capture (tracked by ViewId for deletion safety), tab navigation,
 // and directional/spatial focus. Ported from Sedulous.UI/src/Input/FocusManager.bf. All View-touching
-// bodies live in the module impl unit. (PopupLayer-constrained focus root is deferred - GetFocusRoot
-// returns the full root until the Overlay subsystem lands.)
+// bodies live in the module impl unit. GetFocusRoot is scoped to the topmost focus-taking popup when
+// one is open, so modals trap Tab/arrows and their content is keyboard-reachable.
 
 module;
 #include "Core/Prelude.h"
@@ -21,6 +21,17 @@ export namespace foundation::ui
     class View;
     class UIContext;
 
+    /// How the current focus was acquired. Focus is RETAINED regardless of source (typing, list
+    /// arrow-nav, and tab continuity all key off the focused view) - but controls only DRAW their
+    /// focus indicator for Keyboard-acquired focus (View::IsFocusVisible, the :focus-visible
+    /// split). Pointer and Programmatic focus hold focus without a ring.
+    enum class FocusSource : u8
+    {
+        Programmatic,
+        Pointer,
+        Keyboard,
+    };
+
     class FocusManager
     {
     public:
@@ -29,13 +40,33 @@ export namespace foundation::ui
         // === Focus ===
         [[nodiscard]] View* FocusedView() const; // impl unit
         [[nodiscard]] ViewId FocusedId() const noexcept { return m_focusedId; }
-        void SetFocus(View* view); // impl unit
-        void ClearFocus();         // impl unit
+        [[nodiscard]] FocusSource Source() const noexcept { return m_focusSource; }
+        void SetFocus(View* view, FocusSource source = FocusSource::Programmatic); // impl unit
+        void ClearFocus();                                                         // impl unit
 
-        // === Focus stack (for popups) ===
-        void PushFocus(); // impl unit
-        void PopFocus();  // impl unit
-        [[nodiscard]] usize FocusStackDepth() const noexcept { return m_focusStack.Size(); }
+        /// Focus the first focusable view (tab order) inside `scope`; false if none. Used for
+        /// initial focus in dialogs (Programmatic - holds focus, draws no ring).
+        bool FocusFirstIn(View* scope); // impl unit
+
+        // === Focus save/restore (each focus-taking popup owns its saved entry) ===
+        /// What a focus-taking popup remembers to give focus back on close.
+        struct SavedFocus
+        {
+            ViewId id{};
+            FocusSource source = FocusSource::Programmatic;
+        };
+        /// Save the current focus + how it was acquired, then clear it (a focus-taking popup is
+        /// opening). The POPUP stores the returned entry - each popup restores only what IT saved,
+        /// so out-of-LIFO-order closes can never cross-restore another popup's focus.
+        SavedFocus SaveAndClearFocus(); // impl unit
+        /// Restore a saved entry. No-op unless the view still resolves AND is still focusable,
+        /// effectively enabled, and not Gone (it may have been disabled/hidden/destroyed while the
+        /// popup was open). Restores with the ORIGINAL source: a pointer-focused button comes back
+        /// from a modal holding focus but ringless.
+        void RestoreFocus(SavedFocus saved); // impl unit
+        /// Outstanding saved entries (popups currently holding a saved focus). Consumers use
+        /// "depth == 0" to distinguish a real blur from focus moving into a popup.
+        [[nodiscard]] usize FocusStackDepth() const noexcept { return m_savedCount; }
 
         // === Mouse capture ===
         [[nodiscard]] View* CapturedView() const; // impl unit
@@ -62,6 +93,7 @@ export namespace foundation::ui
         UIContext* m_context = nullptr;
         ViewId m_focusedId{};
         ViewId m_capturedId{};
-        Array<ViewId> m_focusStack;
+        FocusSource m_focusSource = FocusSource::Programmatic;
+        usize m_savedCount = 0; // outstanding SaveAndClearFocus entries (held by popups)
     };
 }

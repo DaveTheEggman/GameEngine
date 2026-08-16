@@ -217,3 +217,68 @@ TEST_CASE("popup-layer: ClosePopup_PopsFocus")
 
     CHECK(ctx.GetFocusManager()->FocusedView() == view.Get());
 }
+
+TEST_CASE("popup-layer: focus scope - Tab is TRAPPED inside an open focus-taking popup")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    root->ViewportSize = Float2{800, 600};
+    auto background = MakeView();
+    background->IsFocusable = true;
+    background->IsTabStop = true;
+    root->AddView(background.Get());
+
+    // A popup whose content holds two focusable buttons.
+    auto popup = core::MakeRef<ViewGroup>(core::DefaultAllocator());
+    auto inner1 = MakeView();
+    inner1->IsFocusable = true;
+    inner1->IsTabStop = true;
+    auto inner2 = MakeView();
+    inner2->IsFocusable = true;
+    inner2->IsTabStop = true;
+    popup->AddView(inner1.Get());
+    popup->AddView(inner2.Get());
+    root->GetPopupLayer()->ShowPopup(popup.Get(), nullptr, 10, 10, true, true, false);
+    LayoutPass(ctx, root.Get());
+
+    auto* fm = ctx.GetFocusManager();
+    fm->FocusNext(); // Tab with a focus-taking popup open: lands INSIDE the popup...
+    View* first = fm->FocusedView();
+    CHECK((first == inner1.Get() || first == inner2.Get()));
+    fm->FocusNext();
+    fm->FocusNext(); // ...and CYCLES within it - never onto the background view.
+    View* cycled = fm->FocusedView();
+    CHECK((cycled == inner1.Get() || cycled == inner2.Get()));
+    CHECK(fm->FocusedView() != background.Get());
+
+    root->GetPopupLayer()->ClosePopup(popup.Get());
+    fm->FocusNext(); // scope is gone - background is reachable again
+    CHECK(fm->FocusedView() == background.Get());
+}
+
+TEST_CASE("popup-layer: out-of-LIFO-order close never cross-restores another popup's focus")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    root->ViewportSize = Float2{800, 600};
+    auto baseView = MakeView();
+    baseView->IsFocusable = true;
+    root->AddView(baseView.Get());
+    auto* fm = ctx.GetFocusManager();
+    fm->SetFocus(baseView.Get()); // the focus popup A displaces
+
+    auto popupA = MakeView(100, 50);
+    root->GetPopupLayer()->ShowPopup(popupA.Get(), nullptr, 10, 10, true, false, true);
+    auto popupB = MakeView(100, 50);
+    root->GetPopupLayer()->ShowPopup(popupB.Get(), nullptr, 30, 30, true, false, true);
+
+    // Close A FIRST (out of order): A restores what IT saved (baseView) - B's entry is untouched.
+    root->GetPopupLayer()->ClosePopup(popupA.Get());
+    CHECK(fm->FocusedView() == baseView.Get());
+    // Closing B restores what B saved (nothing was focused when B opened) - not A's entry twice.
+    root->GetPopupLayer()->ClosePopup(popupB.Get());
+    CHECK(fm->FocusedView() == baseView.Get());
+    CHECK(fm->FocusStackDepth() == 0u);
+}

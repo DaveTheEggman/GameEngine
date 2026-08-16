@@ -180,13 +180,28 @@ focus (ContextMenu already does); tie focus-stack entries to their popup
 
 ## The plan - priority order
 
-**P0 - correctness batch (small, ships together):**
-modal keyboard trap + dialog initial focus + FocusSource/IsFocusVisible
-(Q3 above); debug-assert phase in AddView/RemoveView/InsertView (the
-mutation-queue rule becomes self-enforcing); QueueDelete flag reset +
-collapse the three Queue* spellings; Selection clear-or-remap on
-NotifyDataChanged + nodeId-keyed TreeView selection; validate focus
-restore targets.
+**P0 - correctness batch - SHIPPED 2026-08-15 (Fable):**
+FocusSource (Pointer/Keyboard/Programmatic) + View::IsFocusVisible; the
+three ControlState producers gate the ring on it (text-input views always
+show); focus save/restore moved INTO PopupEntry (SaveAndClearFocus/
+RestoreFocus - out-of-order closes cannot cross-restore; restore validated
+against destroyed/disabled/hidden targets and carries the original source,
+so a clicked button returns from a modal ringless); GetFocusRoot scopes to
+the topmost focus-taking popup (modals trap Tab AND popup content became
+keyboard-reachable); Dialog::Show sets initial Programmatic focus (dialogs
+open keyboard-alive - Escape works immediately) + Dialog IsFocusable;
+SetFocus/ClearFocus Invalidate (redraw-gating-proof); draw-phase tree
+mutations DIAGNOSTIC_ASSERT (layout-phase stays legal - virtualization);
+the three Queue* lambdas capture RefPtr (dangling-capture class killed) +
+QueueDestroy/QueueDelete reset IsPendingDeletion; SelectionModel::
+PruneFrom on NotifyDataChanged + TreeView expand/collapse remaps selection
+by nodeId (ToggleNodePreservingSelection + FlattenedTreeAdapter::
+PositionOfNode). ~10 new UI.Tests cases; 714 green; full battery 242 runs
+x 0 fails. NOTE: gamepad MoveFocus routes as Keyboard - pad nav draws
+rings, as it must. GAP LOGGED: no Systems doc covers foundation.ui core -
+write one when this track completes.
+DEFERRED from P0: collapsing the three Queue* spellings into one (API
+churn across consumers - fold into P4's connection-token work).
 
 **P1 - quick perf wins (each one-file-ish):**
 consume NeedsRedraw in UIRuntime::RenderWindow (route animator writes

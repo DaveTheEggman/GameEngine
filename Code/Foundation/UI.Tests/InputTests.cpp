@@ -197,21 +197,23 @@ TEST_CASE("focus: ClearFocus_NoViewFocused")
     CHECK(ctx.GetFocusManager()->FocusedView() == nullptr);
 }
 
-TEST_CASE("focus: PushPop_RestoresFocus")
+TEST_CASE("focus: SaveRestore_RestoresFocusWithSource")
 {
     UIContext ctx;
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto view = Focusable();
     root->AddView(view.Get());
-    ctx.GetFocusManager()->SetFocus(view.Get());
-    ctx.GetFocusManager()->PushFocus();
-    CHECK(ctx.GetFocusManager()->FocusedView() == nullptr);
-    ctx.GetFocusManager()->PopFocus();
-    CHECK(ctx.GetFocusManager()->FocusedView() == view.Get());
+    auto* fm = ctx.GetFocusManager();
+    fm->SetFocus(view.Get(), FocusSource::Keyboard);
+    const FocusManager::SavedFocus saved = fm->SaveAndClearFocus();
+    CHECK(fm->FocusedView() == nullptr);
+    fm->RestoreFocus(saved);
+    CHECK(fm->FocusedView() == view.Get());
+    CHECK(fm->Source() == FocusSource::Keyboard); // the ORIGINAL modality comes back
 }
 
-TEST_CASE("focus: PushPop_StackDepth")
+TEST_CASE("focus: SaveRestore_EachEntryIndependent_OutOfOrderCloseCannotCrossRestore")
 {
     UIContext ctx;
     auto root = MakeRoot();
@@ -223,21 +225,22 @@ TEST_CASE("focus: PushPop_StackDepth")
     auto* fm = ctx.GetFocusManager();
     CHECK(fm->FocusStackDepth() == 0u);
     fm->SetFocus(a.Get());
-    fm->PushFocus();
+    const FocusManager::SavedFocus first = fm->SaveAndClearFocus(); // popup 1 saved {a}
     CHECK(fm->FocusStackDepth() == 1u);
     CHECK(fm->FocusedView() == nullptr);
     fm->SetFocus(b.Get());
-    fm->PushFocus();
+    const FocusManager::SavedFocus second = fm->SaveAndClearFocus(); // popup 2 saved {b}
     CHECK(fm->FocusStackDepth() == 2u);
-    fm->PopFocus();
+    // Popup 1 closes FIRST (out of LIFO order): it restores only what IT saved.
+    fm->RestoreFocus(first);
     CHECK(fm->FocusStackDepth() == 1u);
-    CHECK(fm->FocusedView() == b.Get());
-    fm->PopFocus();
-    CHECK(fm->FocusStackDepth() == 0u);
     CHECK(fm->FocusedView() == a.Get());
+    fm->RestoreFocus(second);
+    CHECK(fm->FocusStackDepth() == 0u);
+    CHECK(fm->FocusedView() == b.Get());
 }
 
-TEST_CASE("focus: PushPop_SkipsDeletedView")
+TEST_CASE("focus: SaveRestore_SkipsDeletedView")
 {
     UIContext ctx;
     auto root = MakeRoot();
@@ -245,11 +248,60 @@ TEST_CASE("focus: PushPop_SkipsDeletedView")
     auto view = Focusable();
     root->AddView(view.Get());
     ctx.GetFocusManager()->SetFocus(view.Get());
-    ctx.GetFocusManager()->PushFocus();
+    const FocusManager::SavedFocus saved = ctx.GetFocusManager()->SaveAndClearFocus();
     root->RemoveView(view.Get(), true);
     view = nullptr; // drop the test's ref so the view is actually gone
-    ctx.GetFocusManager()->PopFocus();
+    ctx.GetFocusManager()->RestoreFocus(saved);
     CHECK(ctx.GetFocusManager()->FocusedView() == nullptr);
+}
+
+TEST_CASE("focus: SaveRestore_SkipsViewDisabledWhilePopupWasOpen")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto view = Focusable();
+    root->AddView(view.Get());
+    auto* fm = ctx.GetFocusManager();
+    fm->SetFocus(view.Get());
+    const FocusManager::SavedFocus saved = fm->SaveAndClearFocus();
+    view->IsEnabled = false; // disabled while the popup was open
+    fm->RestoreFocus(saved);
+    CHECK(fm->FocusedView() == nullptr); // never strand focus on a disabled view
+}
+
+TEST_CASE("focus-visible: pointer focus is HELD but not DRAWN; keyboard focus draws")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto view = Focusable();
+    root->AddView(view.Get());
+    auto* fm = ctx.GetFocusManager();
+
+    fm->SetFocus(view.Get(), FocusSource::Pointer);
+    CHECK(view->IsFocused());                // logic keeps working (typing, nav, tab continuity)
+    CHECK_FALSE(view->IsFocusVisible());     // but no focus ring
+    CHECK((view->GetControlState() & ControlState::Focused) == ControlState::Normal);
+
+    fm->SetFocus(view.Get(), FocusSource::Keyboard); // same view, new modality
+    CHECK(view->IsFocusVisible());
+    CHECK((view->GetControlState() & ControlState::Focused) == ControlState::Focused);
+}
+
+TEST_CASE("focus-visible: modal restore brings a pointer-focused view back RINGLESS")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto view = Focusable();
+    root->AddView(view.Get());
+    auto* fm = ctx.GetFocusManager();
+    fm->SetFocus(view.Get(), FocusSource::Pointer); // clicked before the modal opened
+    const FocusManager::SavedFocus saved = fm->SaveAndClearFocus();
+    fm->RestoreFocus(saved);
+    CHECK(view->IsFocused());            // focus is retained across the modal
+    CHECK_FALSE(view->IsFocusVisible()); // the ring does NOT relight - the original complaint
 }
 
 TEST_CASE("focus: Capture_SetAndRelease")

@@ -8,6 +8,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Debug/Assert.h"
 
 module foundation.ui;
 
@@ -163,7 +164,10 @@ namespace foundation::ui
             return;
         }
         IsPendingDeletion = true;
-        View* self = this;
+        // Strong capture: the queue co-owns the view until the action drains, so a synchronous
+        // RemoveView between queue and drain can never leave the lambda holding a freed pointer,
+        // and the flag reset below is always safe (the ref drops at lambda end).
+        RefPtr<View> self(this);
         Context->MutationQueueRef().QueueAction(
             [self]()
             {
@@ -171,7 +175,7 @@ namespace foundation::ui
                 {
                     if (ViewGroup* pg = Cast<ViewGroup>(self->Parent))
                     {
-                        pg->RemoveView(self, false);
+                        pg->RemoveView(self.Get(), false);
                     }
                 }
                 self->IsPendingDeletion = false;
@@ -185,7 +189,7 @@ namespace foundation::ui
             return;
         }
         IsPendingDeletion = true;
-        View* self = this;
+        RefPtr<View> self(this); // strong capture (see QueueRemove) - also makes the reset safe
         Context->MutationQueueRef().QueueAction(
             [self]()
             {
@@ -193,9 +197,12 @@ namespace foundation::ui
                 {
                     if (ViewGroup* pg = Cast<ViewGroup>(self->Parent))
                     {
-                        pg->RemoveView(self, true);
+                        pg->RemoveView(self.Get(), true);
                     }
                 }
+                // Reset so a view kept alive by an outside ref (destroy is advisory under RefPtr
+                // ownership) is not permanently immune to future queued removals.
+                self->IsPendingDeletion = false;
             });
     }
 
@@ -216,6 +223,10 @@ namespace foundation::ui
 
     ViewGroup* ViewGroup::AddView(View* child, LayoutParamsPtr lp)
     {
+        // Mutating the tree while it is being DRAWN corrupts the in-progress child walk (layout-
+        // phase mutation is legitimate - virtualization realizes rows there). Defer draw-phase
+        // mutations via UIContext::MutationQueueRef().QueueAction.
+        DIAGNOSTIC_ASSERT(Context == nullptr || Context->CurrentPhase() != UIContext::Phase::Drawing);
         if (child == nullptr || child == this)
         {
             return this;
@@ -262,6 +273,8 @@ namespace foundation::ui
     void ViewGroup::RemoveView(View* child, bool deleteChild)
     {
         (void)deleteChild; // RefPtr ownership makes this advisory: dropping the tree ref frees it.
+        DIAGNOSTIC_ASSERT(Context == nullptr ||
+                          Context->CurrentPhase() != UIContext::Phase::Drawing); // defer via MutationQueue
         if (child == nullptr)
         {
             return;
@@ -287,6 +300,8 @@ namespace foundation::ui
     void ViewGroup::RemoveAllViews(bool deleteChildren)
     {
         (void)deleteChildren;
+        DIAGNOSTIC_ASSERT(Context == nullptr ||
+                          Context->CurrentPhase() != UIContext::Phase::Drawing); // defer via MutationQueue
         for (const RefPtr<View>& child : m_children)
         {
             if (child->Context != nullptr)
@@ -301,6 +316,8 @@ namespace foundation::ui
 
     void ViewGroup::InsertView(View* child, usize index, LayoutParamsPtr lp)
     {
+        DIAGNOSTIC_ASSERT(Context == nullptr ||
+                          Context->CurrentPhase() != UIContext::Phase::Drawing); // defer via MutationQueue
         if (child == nullptr || child == this)
         {
             return;
@@ -384,16 +401,18 @@ namespace foundation::ui
             return;
         }
         view->IsPendingDeletion = true;
+        RefPtr<View> keep(view); // strong capture (see View::QueueRemove) - reset is then safe
         QueueAction(
-            [view]()
+            [keep]()
             {
-                if (view->Parent != nullptr)
+                if (keep->Parent != nullptr)
                 {
-                    if (ViewGroup* pg = Cast<ViewGroup>(view->Parent))
+                    if (ViewGroup* pg = Cast<ViewGroup>(keep->Parent))
                     {
-                        pg->RemoveView(view, false);
+                        pg->RemoveView(keep.Get(), false);
                     }
                 }
+                keep->IsPendingDeletion = false;
             });
     }
 

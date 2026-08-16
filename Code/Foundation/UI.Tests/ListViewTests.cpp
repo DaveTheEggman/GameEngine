@@ -108,6 +108,25 @@ TEST_CASE("list-view: Selection_SingleMode")
     CHECK(lv->Selection.IsSelected(5));
 }
 
+TEST_CASE("list-view: NotifyDataChanged_PrunesOutOfRangeSelection")
+{
+    SimpleListAdapter big(10);
+    SimpleListAdapter small(4);
+    auto lv = MakeList();
+    lv->SetAdapter(&big);
+    lv->Selection.Select(2);
+    lv->Selection.Toggle(8); // Single mode replaces; use two steps to end selected on 8
+    CHECK(lv->Selection.IsSelected(8));
+
+    lv->SetAdapter(&small); // data set shrank under the selection
+    lv->NotifyDataChanged();
+
+    // Index 8 no longer exists - it must be dropped, never left to silently highlight
+    // whichever row a future grow puts at position 8.
+    CHECK_FALSE(lv->Selection.IsSelected(8));
+    CHECK(lv->Selection.SelectedCount() == 0u);
+}
+
 TEST_CASE("list-view: AdapterObserver_OnDataSetChanged")
 {
     UIContext ctx;

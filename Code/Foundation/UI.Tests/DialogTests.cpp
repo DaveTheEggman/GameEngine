@@ -44,6 +44,29 @@ TEST_CASE("dialog: Confirm_Factory")
     CHECK(dlg->Title == u8"Confirm");
 }
 
+TEST_CASE("dialog: Show_SetsInitialKeyboardFocus_InsideTheDialog")
+{
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
+
+    auto dlg = MakeDialog(u8"Test");
+    dlg->AddButton(u8"OK", DialogResult::OK);
+
+    dlg->Show(&ctx, false);
+
+    // The dialog opens keyboard-ALIVE: focus lands on its first focusable IN TAB ORDER inside the
+    // dialog subtree (title-bar close button or a row button - the exact child is layout policy),
+    // so Escape/Return work immediately without a click. Programmatic focus - no ring draws.
+    View* focused = ctx.GetFocusManager()->FocusedView();
+    REQUIRE(focused != nullptr);
+    CHECK(dlg->IsFocusWithin());
+    CHECK_FALSE(focused->IsFocusVisible());
+
+    dlg->Close(DialogResult::Cancel);
+    ctx.MutationQueueRef().Drain();
+}
+
 TEST_CASE("dialog: Close_FiresOnClosed")
 {
     UIContext ctx;

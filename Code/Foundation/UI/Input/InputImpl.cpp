@@ -29,6 +29,22 @@ namespace foundation::ui
         return Context != nullptr && Context->GetFocusManager()->FocusedId() == Id;
     }
 
+    bool View::IsFocusVisible() const
+    {
+        if (!IsFocused())
+        {
+            return false;
+        }
+        // Text-editing views always show their focus visual (border + caret) - you need to see
+        // where typing goes regardless of how focus arrived. Everything else draws the ring only
+        // for keyboard-acquired focus (the :focus-visible split; see FocusSource).
+        if (WantsTextInput())
+        {
+            return true;
+        }
+        return Context->GetFocusManager()->Source() == FocusSource::Keyboard;
+    }
+
     bool View::IsFocusWithin() const
     {
         if (Context == nullptr)
@@ -57,7 +73,7 @@ namespace foundation::ui
 
     View* FocusManager::FocusedView() const { return m_context->GetViewById(m_focusedId); }
 
-    void FocusManager::SetFocus(View* view)
+    void FocusManager::SetFocus(View* view, FocusSource source)
     {
         if (view == nullptr)
         {
@@ -66,15 +82,25 @@ namespace foundation::ui
         }
         if (view->Id == m_focusedId)
         {
+            // Same view, possibly a new acquisition mode (Tab back onto a clicked control): the
+            // focus-visible state may change even though focus does not move.
+            if (m_focusSource != source)
+            {
+                m_focusSource = source;
+                view->Invalidate();
+            }
             return;
         }
         View* oldFocused = FocusedView();
         if (oldFocused != nullptr)
         {
             oldFocused->OnFocusLost();
+            oldFocused->Invalidate();
         }
         m_focusedId = view->Id;
+        m_focusSource = source;
         view->OnFocusGained();
+        view->Invalidate();
     }
 
     void FocusManager::ClearFocus()
@@ -83,32 +109,56 @@ namespace foundation::ui
         if (oldFocused != nullptr)
         {
             oldFocused->OnFocusLost();
+            oldFocused->Invalidate();
         }
         m_focusedId = ViewId::Invalid;
+        m_focusSource = FocusSource::Programmatic;
     }
 
-    void FocusManager::PushFocus()
+    bool FocusManager::FocusFirstIn(View* scope)
     {
-        m_focusStack.PushBack(m_focusedId);
-        ClearFocus();
-    }
-
-    void FocusManager::PopFocus()
-    {
-        while (m_focusStack.Size() > 0)
+        Array<View*> focusables;
+        CollectFocusable(scope, focusables);
+        if (focusables.Size() == 0)
         {
-            const ViewId savedId = m_focusStack.Back();
-            m_focusStack.PopBack();
-            if (!savedId.IsValid())
-            {
-                continue;
-            }
-            if (View* view = m_context->GetViewById(savedId))
-            {
-                SetFocus(view);
-                return;
-            }
+            return false;
         }
+        SortByTabIndex(focusables);
+        SetFocus(focusables[0], FocusSource::Programmatic);
+        return true;
+    }
+
+    FocusManager::SavedFocus FocusManager::SaveAndClearFocus()
+    {
+        const SavedFocus saved{m_focusedId, m_focusSource};
+        ++m_savedCount;
+        ClearFocus();
+        return saved;
+    }
+
+    void FocusManager::RestoreFocus(SavedFocus saved)
+    {
+        if (m_savedCount > 0)
+        {
+            --m_savedCount;
+        }
+        if (!saved.id.IsValid())
+        {
+            return;
+        }
+        View* view = m_context->GetViewById(saved.id);
+        if (view == nullptr)
+        {
+            return; // destroyed while the popup was open (ids never recycle - resolve is safe)
+        }
+        // The view may have been disabled, hidden, or made non-focusable while the popup was open;
+        // restoring focus onto it would strand the keyboard. Leave focus cleared instead.
+        if (!view->IsFocusable || !view->IsEffectivelyEnabled() ||
+            view->Visibility == Visibility::Gone)
+        {
+            return;
+        }
+        SetFocus(view, saved.source);
     }
 
     View* FocusManager::CapturedView() const
@@ -136,7 +186,7 @@ namespace foundation::ui
         const isize currentIdx = FindCurrentIndex(focusables);
         const usize nextIdx =
             static_cast<usize>((currentIdx + 1) % static_cast<isize>(focusables.Size()));
-        SetFocus(focusables[nextIdx]);
+        SetFocus(focusables[nextIdx], FocusSource::Keyboard);
     }
 
     void FocusManager::FocusPrev()
@@ -151,7 +201,7 @@ namespace foundation::ui
         const isize count = static_cast<isize>(focusables.Size());
         const isize currentIdx = FindCurrentIndex(focusables);
         const usize prevIdx = static_cast<usize>((currentIdx - 1 + count) % count);
-        SetFocus(focusables[prevIdx]);
+        SetFocus(focusables[prevIdx], FocusSource::Keyboard);
     }
 
     bool FocusManager::MoveFocus(FocusDirection direction)
@@ -184,7 +234,7 @@ namespace foundation::ui
             View* target = m_context->GetViewById(explicitId.Value());
             if (target != nullptr && target->IsFocusable && target->IsEffectivelyEnabled())
             {
-                SetFocus(target);
+                SetFocus(target, FocusSource::Keyboard);
                 return true;
             }
         }
@@ -208,11 +258,11 @@ namespace foundation::ui
                 {
                 case FocusDirection::Down:
                 case FocusDirection::Right:
-                    SetFocus(childFocusables[0]);
+                    SetFocus(childFocusables[0], FocusSource::Keyboard);
                     return true;
                 case FocusDirection::Up:
                 case FocusDirection::Left:
-                    SetFocus(childFocusables[childFocusables.Size() - 1]);
+                    SetFocus(childFocusables[childFocusables.Size() - 1], FocusSource::Keyboard);
                     return true;
                 }
             }
@@ -282,7 +332,7 @@ namespace foundation::ui
 
         if (bestCandidate != nullptr)
         {
-            SetFocus(bestCandidate);
+            SetFocus(bestCandidate, FocusSource::Keyboard);
             return true;
         }
         return false;
@@ -384,8 +434,22 @@ namespace foundation::ui
 
     View* FocusManager::GetFocusRoot() const
     {
-        // PopupLayer-constrained focus root deferred (Overlay subsystem); use the full root.
-        return m_context->ActiveInputRoot();
+        // Scope keyboard traversal to the topmost focus-taking popup when one is open: modals trap
+        // Tab/arrows (no activating background buttons through a backdrop), and popup content is
+        // keyboard-reachable at all (popups are NOT ViewGroup children of the PopupLayer, so the
+        // full-root walk never finds them). Falls back to the window root otherwise.
+        RootView* root = m_context->ActiveInputRoot();
+        if (root != nullptr)
+        {
+            if (PopupLayer* layer = Cast<PopupLayer>(root->PeekPopupLayer()))
+            {
+                if (View* scope = layer->TopmostFocusScopePopup())
+                {
+                    return scope;
+                }
+            }
+        }
+        return root;
     }
 
     // ============================ ShortcutManager ============================
@@ -816,7 +880,9 @@ namespace foundation::ui
         {
             if (v->IsFocusable)
             {
-                m_context->GetFocusManager()->SetFocus(v);
+                // Pointer-acquired: focus is retained (typing/arrow-nav/tab continuity) but the
+                // control draws no focus ring (View::IsFocusVisible).
+                m_context->GetFocusManager()->SetFocus(v, FocusSource::Pointer);
                 return;
             }
             v = v->Parent;
