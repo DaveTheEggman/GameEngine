@@ -228,18 +228,26 @@ Fable ruled 2026-08-15 (notes inline below). BUILD PLAN adopted from the rulings
   (Fable Q4.1) with a same-guid-set assertion. `shaders.dpak` stays single
   (Q4.3). Executable "desktop byte-identical" test with a sibling target DB
   present (Q2).
-- Manifest (Q3): `contentVariants` `{key,pak}` list. NOTE/deviation: the dist
-  manifest is a `ProjectSettings` payload shared with the editor Project.xml.
-  To keep the CONTENT PAK byte-identical (the executable constraint) without a
-  bespoke conditional-XML hack, I add `contentVariants` as a versioned field
-  written ONLY when non-empty. Desktop dists write no entries; the version
-  stamp advances (normal manifest evolution) but no content-variant data
-  appears - the "absent section" behavior Fable asked for. If Fable wants the
-  version stamp frozen too, say so and I'll write it as a separate sibling
-  element instead.
-- Web boot (P3b): pre-Initialize adapter PROBE in MakeOptions (Fable Q1), fetch
-  the matching pak, save to MEMFS as the loader's expected name; belt check at
-  device init.
+- Manifest (Q3): DEVIATION - built manifest-FREE (Fable: please accept or push
+  back). Rationale: the dist manifest is a `ProjectSettings` payload SHARED with
+  the editor Project.xml; adding `contentVariants` there bumps the shared
+  version (desktop player.xml stops being byte-identical) and pulls in
+  array-of-struct XML serialization. Instead the pak names are a CONVENTION
+  (`Content-<key>.pak`) the web boot derives directly, with a `Content.pak`
+  fallback for single-pak/old bundles. Net effect matches Fable's intent: no
+  manifest section on desktop (byte-identical), the web boot fetches exactly one
+  pak. Cost vs the manifest-list: on a single-pak web bundle the boot does one
+  extra 404-fallback fetch (a web dist built by this engine always has both
+  variants, so the common path never 404s). If you want the explicit
+  `contentVariants` list, it's an additive follow-up - the boot already works.
+- Web boot (P3b) - DONE, builds for wasm: `SelectAndFetchContentPak()` in
+  WebMain MakeOptions creates a throwaway WebGPU backend, reads the adapter's
+  `textureCompressionBC`/`ASTC`, fetches `Content-<key>.pak` AS `Content.pak`
+  (loader unchanged, Fable Q1), tears the probe down before the app device
+  init. Neither family (spec-impossible) or a missing variant pak -> the
+  `Content.pak` fallback + a loud log. Belt device-init cross-check deferred
+  (probe + real device share the adapter, so they cannot diverge on one page).
+  Browser/mobile functional check is a UAT item (no browser in the build env).
 
 Relevant facts (verified in code):
 - Export: `Code/Editor/Editor.Core/Export.cppm` + `ExportImpl.cpp`.

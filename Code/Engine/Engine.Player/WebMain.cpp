@@ -24,6 +24,8 @@ import foundation.shell;
 import foundation.shell.web; // WebShell (the browser shell) - required by APP_MAIN's web body
 import foundation.graphics;
 import foundation.graphics.gpu;
+import foundation.rhi;        // adapter probe: pick the content pak by compressed-family (P3b)
+import foundation.rhi.webgpu; // the browser's WebGPU backend (for the pre-boot adapter probe)
 import foundation.runtime;
 import foundation.runtime.client;
 import foundation.runtime.web; // RunApplication (the rAF runner) - required by APP_MAIN
@@ -93,6 +95,61 @@ namespace
         }
     }
 
+    // Fetch `src` from the serving folder, saving it to MEMFS under `dst`. Synchronous under ASYNCIFY.
+    // Returns whether the destination file exists afterwards (a 404 leaves it absent).
+    bool FetchDistFileAs(const char* src, const char* dst)
+    {
+        emscripten_wget(src, dst);
+        return FileExists(StringView(reinterpret_cast<const utf8char*>(dst)));
+    }
+
+    // Pick the content variant pak by the browser's compressed-texture family and fetch it AS
+    // Content.pak, so the project loader (which reads Content.pak) needs no change (asset-variants
+    // P3b, Fable ruling Q1). A web dist built by this engine ships Content-bc.pak (desktop browsers)
+    // + Content-astc.pak (mobile browsers); a single-pak/old bundle falls back to Content.pak.
+    //
+    // The probe creates a throwaway WebGPU backend to read the adapter's textureCompressionBC/ASTC
+    // flags (Asyncify makes requestAdapter synchronous here, the same yield the fetches use), then
+    // tears it down before the app boots and creates its own device (two adapter requests/page is
+    // fine). If neither family is reported (spec-impossible for a WebGPU device), we log and fall
+    // back to the single pak rather than render nothing.
+    void SelectAndFetchContentPak()
+    {
+        if (FileExists(u8"Content.pak"))
+        {
+            return; // preloaded/bundled single pak - nothing to select
+        }
+
+        bool bc = false;
+        bool astc = false;
+        foundation::rhi::Backend* probe = nullptr;
+        if (foundation::rhi::webgpu::CreateBackend(foundation::rhi::webgpu::WebGpuBackendDesc{}, probe)
+                .IsOk() &&
+            probe != nullptr)
+        {
+            const Span<foundation::rhi::Adapter* const> adapters = probe->EnumerateAdapters();
+            if (!adapters.IsEmpty())
+            {
+                const foundation::rhi::AdapterInfo info = adapters[0]->Info();
+                bc = info.supportedFeatures.textureCompressionBC;
+                astc = info.supportedFeatures.textureCompressionASTC;
+            }
+            probe->Destroy();
+        }
+
+        // Prefer BC (desktop browsers); ASTC is the mobile family. A device won't usually have both.
+        const char* variant = bc ? "Content-bc.pak" : (astc ? "Content-astc.pak" : nullptr);
+        LOG_INFO(u8"Player", u8"content-variant probe: bc={} astc={} -> {}", bc, astc,
+                 StringView(reinterpret_cast<const utf8char*>(variant ? variant : "Content.pak")));
+
+        if (variant != nullptr && FetchDistFileAs(variant, "Content.pak"))
+        {
+            return; // the matching variant pak is now mounted as Content.pak
+        }
+        // No variant pak on the server (single-pak / old bundle), or neither family: the single pak.
+        FetchDistFile("Content.pak");
+    }
+
     // Default-constructible so APP_MAIN can own it in static storage: the dist is
     // fetched from the serving folder into the MEMFS root, so the project dir is ".".
     class WebPlayerApplication final : public engine::player::PlayerApplication
@@ -106,7 +163,9 @@ namespace
             // Fetch BEFORE the app boots: the project loader reads player.xml/Content.pak
             // during Initialize, and the render subsystem loads shaders.dpak on device init.
             FetchDistFile("player.xml");
-            FetchDistFile("Content.pak");
+            // Content: pick the variant pak by the browser's compressed-texture family (BC vs ASTC)
+            // and mount it AS Content.pak, so the loader is unchanged (asset-variants P3b).
+            SelectAndFetchContentPak();
             FetchDistFile("shaders.dpak");
             engine::player::PlayerOptions options;
             options.projectDir = String(u8".");
