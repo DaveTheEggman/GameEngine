@@ -595,3 +595,35 @@ Cross-platform (after pulling):
 
 The raw findings from this session moved to Documentation/Plans/week-2026-08-15.md ("UAT findings").
 The items FIXED in-session, as regression checks to re-run:
+
+## 2026-08-16 - Property animation (task #129) — NEW, needs first on-screen run
+
+Animate any reflected property on any component with keyframe curves (foundation.core:curve ->
+foundation.propertyanimation -> resource/pipeline -> PropertyAnimatorComponent -> editor page). The
+runtime path is unit-tested (222 assertions); these verify the editor page + in-scene playback.
+
+- [ ] Asset Browser: New Asset > Animation > "Property Animation Clip" creates an empty clip that
+      cooks; double-click opens the page (toolbar Save/Undo/Redo/Discard on top, a transport row,
+      then the track list).
+- [ ] Tracks: "+ Track" adds a Transform.position Float3 track; edit the component-type + property
+      fields (click-to-edit); the kind button cycles Float/Float3/Color/Quat; "x" removes the track.
+- [ ] Curve canvas (scalar Float/Float3/Color tracks): click the canvas adds a key, drag moves it,
+      right-click deletes; Cubic shows draggable tangent handles; the per-track interp button cycles
+      Step/Linear/Cubic; the transport "Length" field rescales the time axis; each drag = one Ctrl+Z.
+      Float3/Color draw N colored channels on one canvas (shared time). Quat tracks instead show a
+      numeric xyzw key table (+ Key / x).
+- [ ] Transport scrub: typing a Scrub time updates the "path=value" readout per track (P1 preview;
+      driving a selected scene entity is a known follow-up - see below).
+- [ ] Save cooks the clip; a bound proxy hot-swaps. Reopen shows the same tracks/keys (round-trip).
+- [ ] ACCEPTANCE (demo scene): add a PropertyAnimatorComponent (Add Component > Animation > Property
+      Animator) to an entity, pick the clip, set Loop; author one track animating the entity's
+      position and one animating a Light's color. In play-in-editor the entity moves + the light
+      pulses, looping. Once/PingPong loop modes behave. A track to a MISSING component/property is
+      disabled with one log warning (no crash); the other tracks keep playing.
+- [ ] Export: the clip asset ships; the EXPORTED player plays the same animation.
+
+Known follow-ups (NOT expected to work yet - do not file as bugs):
+- Live preview writing to a SELECTED scene entity from the clip page (the scrub only shows values
+  today; the cross-page selection seam is unbuilt).
+- Animating a DYNAMIC rigid body's transform: physics wins (documented rule - animate KINEMATIC
+  bodies; a dynamic body's non-transform properties animate fine).
