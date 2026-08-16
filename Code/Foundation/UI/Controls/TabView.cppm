@@ -107,6 +107,7 @@ export namespace foundation::ui
             item.Content = content;
             item.IsClosable = closable || TabsClosable.Value();
             m_tabs.PushBack(Move(item));
+            ++m_tabsGeneration;
 
             const i32 index = static_cast<i32>(m_tabs.Size() - 1);
             content->Visibility = VisibilityValue::Gone;
@@ -127,6 +128,7 @@ export namespace foundation::ui
             View* content = m_tabs[static_cast<usize>(index)].Content;
             RemoveView(content, true);
             m_tabs.RemoveAt(static_cast<usize>(index));
+            ++m_tabsGeneration;
             if (m_selectedIndex >= static_cast<i32>(m_tabs.Size()))
             {
                 m_selectedIndex = static_cast<i32>(m_tabs.Size()) - 1;
@@ -569,10 +571,12 @@ export namespace foundation::ui
         {
             m_tabRects.Clear();
             const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
+            const String family = ResolveStyleFontFamily();
             fonts::CachedFont* font =
                 (Context != nullptr && Context->FontService() != nullptr)
-                    ? Context->FontService()->GetFont(ResolveStyleFontFamily(), fontSize)
+                    ? Context->FontService()->GetFont(family, fontSize)
                     : nullptr;
+            EnsureTitleWidths(font, family, fontSize);
             const TabPlacement place = Placement.Value();
             const bool horizontal = (place == TabPlacement::Top || place == TabPlacement::Bottom);
             const f32 th = TabHeight.Value();
@@ -583,14 +587,12 @@ export namespace foundation::ui
             f32 total = 0.0f;
             if (horizontal)
             {
-                for (const TabItem& tab : m_tabs)
+                for (usize i = 0; i < m_tabs.Size(); ++i)
                 {
-                    f32 tabW = 80;
-                    if (font != nullptr)
-                    {
-                        tabW = font->font->MeasureString(tab.Title) + 24;
-                    }
-                    if (tab.IsClosable)
+                    // Title widths come from the value-keyed cache (RebuildTabRects runs in
+                    // BOTH OnLayout and OnDraw - shaping every title twice per frame added up).
+                    f32 tabW = (font != nullptr) ? m_titleWidths[i] + 24 : 80.0f;
+                    if (m_tabs[i].IsClosable)
                     {
                         tabW += CloseButtonSize.Value() + 4;
                     }
@@ -677,9 +679,11 @@ export namespace foundation::ui
                 return 100;
             }
             f32 maxW = 0;
-            for (const TabItem& tab : m_tabs)
+            EnsureTitleWidths(font, ResolveStyleFontFamily(),
+                              ResolveStyleFloat(StyleProperty::FontSize, 14.0f));
+            for (const f32 w : m_titleWidths)
             {
-                maxW = core::Max(maxW, font->font->MeasureString(tab.Title));
+                maxW = core::Max(maxW, w);
             }
             return maxW + 24 + (TabsClosable.Value() ? CloseButtonSize.Value() + 4 : 0);
         }
@@ -773,6 +777,36 @@ export namespace foundation::ui
         i32 m_selectedIndex = -1;
         i32 m_hoveredTabIndex = -1;
         Array<Rectangle> m_tabRects;
+        // Title-width measure cache: value-keyed (tabs generation + font family/size, never a
+        // font pointer). RebuildTabRects runs per layout AND per draw; titles change rarely.
+        Array<f32> m_titleWidths;
+        u32 m_tabsGeneration = 0;
+        u32 m_titleWidthsGeneration = ~0u;
+        f32 m_titleWidthsFontSize = -1.0f;
+        String m_titleWidthsFamily;
+
+        void EnsureTitleWidths(fonts::CachedFont* font, const String& family, f32 fontSize)
+        {
+            if (font == nullptr)
+            {
+                m_titleWidths.Clear();
+                m_titleWidthsGeneration = ~0u; // recompute when a font appears
+                return;
+            }
+            if (m_titleWidthsGeneration == m_tabsGeneration && m_titleWidthsFontSize == fontSize &&
+                m_titleWidthsFamily == family && m_titleWidths.Size() == m_tabs.Size())
+            {
+                return;
+            }
+            m_titleWidths.Clear();
+            for (const TabItem& tab : m_tabs)
+            {
+                m_titleWidths.PushBack(font->font->MeasureString(tab.Title));
+            }
+            m_titleWidthsGeneration = m_tabsGeneration;
+            m_titleWidthsFontSize = fontSize;
+            m_titleWidthsFamily = family;
+        }
         f32 m_tabScroll =
             0.0f; ///< Strip scroll along the main axis (0 = start); clamped in RebuildTabRects.
         bool m_tabOverflow =

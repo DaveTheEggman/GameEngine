@@ -78,6 +78,7 @@ export namespace foundation::ui
         {
             const i32 index = static_cast<i32>(m_items.Size());
             m_items.PushBack(String(text));
+            ++m_itemsGeneration;
             Invalidate();
             return index;
         }
@@ -88,6 +89,7 @@ export namespace foundation::ui
                 return;
             }
             m_items.RemoveAt(static_cast<usize>(index));
+            ++m_itemsGeneration;
             if (m_selectedIndex >= static_cast<i32>(m_items.Size()))
             {
                 m_selectedIndex = static_cast<i32>(m_items.Size()) - 1;
@@ -97,6 +99,7 @@ export namespace foundation::ui
         void ClearItems()
         {
             m_items.Clear();
+            ++m_itemsGeneration;
             m_selectedIndex = -1;
             Invalidate();
         }
@@ -183,14 +186,28 @@ export namespace foundation::ui
             f32 maxTextW = 0, textH = fontSize;
             if (Context != nullptr && Context->FontService() != nullptr)
             {
-                if (fonts::CachedFont* font =
-                        Context->FontService()->GetFont(ResolveStyleFontFamily(), fontSize))
+                const String family = ResolveStyleFontFamily();
+                if (fonts::CachedFont* font = Context->FontService()->GetFont(family, fontSize))
                 {
                     textH = font->font->Metrics().lineHeight;
-                    for (const String& item : m_items)
+                    // Measuring EVERY item per measure pass is O(items) text shaping per frame
+                    // (measure runs every frame today) - cache the max width, keyed on the items
+                    // generation + font family/size (value keys, never the font pointer - the
+                    // freed-then-reused-address cache rule).
+                    if (m_measuredGeneration != m_itemsGeneration ||
+                        m_measuredFontSize != fontSize || m_measuredFamily != family)
                     {
-                        maxTextW = Max(maxTextW, font->font->MeasureString(item));
+                        f32 widest = 0;
+                        for (const String& item : m_items)
+                        {
+                            widest = Max(widest, font->font->MeasureString(item));
+                        }
+                        m_cachedMaxItemWidth = widest;
+                        m_measuredGeneration = m_itemsGeneration;
+                        m_measuredFontSize = fontSize;
+                        m_measuredFamily = family;
                     }
+                    maxTextW = m_cachedMaxItemWidth;
                 }
             }
             const Thickness padding{8, 6};
@@ -290,6 +307,12 @@ export namespace foundation::ui
 
     private:
         Array<String> m_items;
+        // Max-item-width measure cache (see OnMeasure). Value-keyed, never the font pointer.
+        u32 m_itemsGeneration = 0;
+        u32 m_measuredGeneration = ~0u; // != 0 so the first measure always computes
+        f32 m_measuredFontSize = -1.0f;
+        String m_measuredFamily;
+        f32 m_cachedMaxItemWidth = 0.0f;
         i32 m_selectedIndex = -1;
         bool m_isOpen = false;
         f32 m_arrowAreaWidth = 24.0f;

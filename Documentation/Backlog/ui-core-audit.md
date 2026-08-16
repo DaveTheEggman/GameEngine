@@ -203,12 +203,26 @@ write one when this track completes.
 DEFERRED from P0: collapsing the three Queue* spellings into one (API
 churn across consumers - fold into P4's connection-token work).
 
-**P1 - quick perf wins (each one-file-ish):**
-consume NeedsRedraw in UIRuntime::RenderWindow (route animator writes
-through Invalidate; idle editor -> ~0 draw cost); delete ListView's
-rebind-every-frame branch; give Label (then Button/CheckBox/TabView) the
-EditText glyph-cache treatment; cache ComboBox max-item-width + TabView
-extents; drop the advisory deleteChild params.
+**P1 - quick perf wins:**
+- SHIPPED 2026-08-15 (P1a, Fable): ListView rebind-every-frame branch
+  deleted (GetOrCreate binds on acquire; OnItemRangeChanged/OnDataSetChanged
+  cover data changes); Label gets the EditText treatment - two value-keyed
+  ShapedCache entries (measure-side + draw-side so differing widths never
+  ping-pong), lines borrow the cache's own text copy, ellipsis string
+  cached; ComboBox max-item-width cached (items generation + family/size
+  value keys - never font pointers); TabView title widths cached
+  (EnsureTitleWidths; RebuildTabRects runs per layout AND per draw).
+  Shaping paths execute only with a real font service, so coverage is the
+  render-level suites; unit tests hold the null-service paths.
+- REMAINING (P1b): consume NeedsRedraw in UIRuntime::RenderWindow. NOT the
+  one-file change it looks like - needs the producer sweep first: animator
+  field writes, hover-change invalidation, EditText caret blink, ListView
+  OnDraw momentum/long-press timers (move to BeginFrame), scrollbar fades.
+  Do it WITH instrumentation + an escape-hatch toggle for dogfooding.
+- DEFERRED: dropping the advisory deleteChild params (signature churn
+  across all consumers - bundle into P4).
+- NOTE: Button/CheckBox per-draw truncation still uncached - fold into the
+  shared ShapedTextBlock (P4), which subsumes these per-control caches.
 
 **P2 - the box model (the big one; own spec, phased like a track):**
 border-box + BoxMetrics + template-method Measure/Layout per Q1. Verify

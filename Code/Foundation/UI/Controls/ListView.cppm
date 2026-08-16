@@ -519,10 +519,10 @@ export namespace foundation::ui
                     }
                     m_activeViews.InsertOrAssign(pos, Move(view));
                 }
-                else
-                {
-                    m_adapter->BindView(m_activeViews.Find(pos)->Get(), pos);
-                }
+                // Already-active rows are NOT rebound here: GetOrCreate bound them on acquire and
+                // every data-change path rebinds (OnItemRangeChanged in-place; OnDataSetChanged
+                // recycles all actives). Rebinding per layout pass meant every visible row was
+                // rebound every frame.
 
                 View* v = m_activeViews.Find(pos)->Get();
                 const f32 itemY = Padding.Top + GetItemOffset(pos) - m_scrollY;
