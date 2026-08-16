@@ -12,6 +12,7 @@ export module foundation.ui:rounded_rect_drawable;
 import foundation.core; // Color, Rectangle
 import foundation.vg;   // CornerRadii
 import :drawable;
+import :thickness; // DrawablePadding
 import :draw_context;
 
 using namespace foundation::core;
@@ -48,6 +49,14 @@ export namespace foundation::ui
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
+            // Border strokes are INSET (stroke center pulled in by half the width) so the whole
+            // border lies INSIDE bounds - border-box painting (ui-box-model.md). VG strokes are
+            // centered on the path, so an un-inset stroke used to hang half outside the view,
+            // where ClipsContent amputated it and adjacent siblings' borders overlapped.
+            const f32 inset = BorderWidth * 0.5f;
+            const Rectangle borderRect{bounds.x + inset, bounds.y + inset,
+                                       Max(0.0f, bounds.width - BorderWidth),
+                                       Max(0.0f, bounds.height - BorderWidth)};
             if (!Radii.IsZero())
             {
                 if (FillColor.a > 0.0f)
@@ -56,7 +65,13 @@ export namespace foundation::ui
                 }
                 if (BorderColor.a > 0.0f && BorderWidth > 0.0f)
                 {
-                    ctx.VG().StrokeRoundedRect(bounds, Radii, BorderColor, BorderWidth);
+                    // Shrink radii with the inset so the stroke stays concentric.
+                    vg::CornerRadii r = Radii;
+                    r.topLeft = Max(0.0f, r.topLeft - inset);
+                    r.topRight = Max(0.0f, r.topRight - inset);
+                    r.bottomRight = Max(0.0f, r.bottomRight - inset);
+                    r.bottomLeft = Max(0.0f, r.bottomLeft - inset);
+                    ctx.VG().StrokeRoundedRect(borderRect, r, BorderColor, BorderWidth);
                 }
             }
             else
@@ -67,9 +82,16 @@ export namespace foundation::ui
                 }
                 if (BorderColor.a > 0.0f && BorderWidth > 0.0f)
                 {
-                    ctx.VG().StrokeRect(bounds, BorderColor, BorderWidth);
+                    ctx.VG().StrokeRect(borderRect, BorderColor, BorderWidth);
                 }
             }
+        }
+
+        /// Border-box: the border is chrome that content must clear (ui-box-model.md). Merged
+        /// into padding by View::ResolveBoxMetrics / Panel::EffectivePadding.
+        [[nodiscard]] Thickness DrawablePadding() const override
+        {
+            return Thickness{BorderWidth, BorderWidth, BorderWidth, BorderWidth};
         }
     };
 

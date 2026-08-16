@@ -224,7 +224,11 @@ churn across consumers - fold into P4's connection-token work).
 - NOTE: Button/CheckBox per-draw truncation still uncached - fold into the
   shared ShapedTextBlock (P4), which subsumes these per-control caches.
 
-**P2 - the box model (the big one; own spec, phased like a track):**
+**P2 - the box model** - SPEC LOCKED (Documentation/Specs/ui-box-model.md)
++ **P2a SHIPPED 2026-08-15** (BoxMetrics + three-channel padding merge + inset
+border strokes + DrawablePadding on RoundedRectDrawable + Panel delegation;
+style padding now works on containers; 4 new BoxMetricsTests). P2b-P2d
+phased per the spec. Original sketch:
 border-box + BoxMetrics + template-method Measure/Layout per Q1. Verify
 the HiDPI double-scale on a 2x monitor first (it decides how loud the
 release note must be). Golden-test churn reviewed deliberately.

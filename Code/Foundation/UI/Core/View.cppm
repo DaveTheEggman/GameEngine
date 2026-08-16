@@ -113,6 +113,27 @@ export namespace foundation::ui
     };
 
     // ===================================================================================
+    // BoxMetrics - the ONE resolved chrome of a view (ui-box-model.md). Padding is the
+    // component-wise max of the three historical channels (ViewGroup field, style property,
+    // background DrawablePadding) so a padding declared through ANY of them takes effect.
+    // Border is layout-participating chrome (border-box): MeasuredSize = content + padding +
+    // border; margin stays the parent's aggregation concern.
+    // ===================================================================================
+    struct BoxMetrics
+    {
+        Thickness Margin{};
+        Thickness Padding{};
+        Thickness Border{};
+
+        /// Padding + border - what deflates content constraints under border-box.
+        [[nodiscard]] Thickness Chrome() const noexcept
+        {
+            return Thickness{Padding.Left + Border.Left, Padding.Top + Border.Top,
+                             Padding.Right + Border.Right, Padding.Bottom + Border.Bottom};
+        }
+    };
+
+    // ===================================================================================
     // View - base of the retained-mode view hierarchy.
     // ===================================================================================
     class View : public Object, public IPropertyOwner
@@ -571,6 +592,31 @@ export namespace foundation::ui
         {
             return ResolveStyle(prop).AsDrawable();
         }
+
+        /// Resolve this view's chrome ONCE (ui-box-model.md): margin from LayoutParams; padding
+        /// = max of the ViewGroup Padding field (via OwnPaddingField), StyleProperty::Padding,
+        /// and the background drawable's DrawablePadding; border from StyleProperty::BorderWidth.
+        /// The single source every measure/arrange/content-bounds consumer converges on.
+        [[nodiscard]] BoxMetrics ResolveBoxMetrics()
+        {
+            BoxMetrics m;
+            m.Margin = LayoutParams ? LayoutParams->Margin : Thickness{};
+            const Thickness stylePad = ResolveStyleThickness(StyleProperty::Padding);
+            Thickness drawablePad{};
+            if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background))
+            {
+                drawablePad = bg->DrawablePadding();
+            }
+            const Thickness fieldPad = OwnPaddingField();
+            m.Padding = Thickness{
+                Max(Max(stylePad.Left, drawablePad.Left), fieldPad.Left),
+                Max(Max(stylePad.Top, drawablePad.Top), fieldPad.Top),
+                Max(Max(stylePad.Right, drawablePad.Right), fieldPad.Right),
+                Max(Max(stylePad.Bottom, drawablePad.Bottom), fieldPad.Bottom)};
+            const f32 borderWidth = ResolveStyleFloat(StyleProperty::BorderWidth, 0.0f);
+            m.Border = Thickness{borderWidth, borderWidth, borderWidth, borderWidth};
+            return m;
+        }
         [[nodiscard]] StringView ResolveStyleString(StyleProperty prop, StringView defaultVal = {})
         {
             if (Optional<StringView> s = ResolveStyle(prop).AsString(); s.HasValue())
@@ -629,6 +675,10 @@ export namespace foundation::ui
         void QueueDestroy();
 
     protected:
+        /// The container-field padding channel merged by ResolveBoxMetrics (ViewGroup overrides
+        /// with its Padding field; leaf views have none).
+        [[nodiscard]] virtual Thickness OwnPaddingField() const { return Thickness{}; }
+
         virtual void OnMeasure(BoxConstraints constraints)
         {
             MeasuredSize =
@@ -667,6 +717,11 @@ export namespace foundation::ui
         Thickness Padding{};
 
         ViewGroup() = default;
+
+    protected:
+        [[nodiscard]] Thickness OwnPaddingField() const override { return Padding; }
+
+    public:
 
         [[nodiscard]] usize ChildCount() const noexcept { return m_children.Size(); }
         [[nodiscard]] View* GetChildAt(usize index) const { return m_children[index].Get(); }

@@ -84,17 +84,10 @@ export namespace foundation::ui
         }
 
     private:
-        /// Max of explicit Padding and the background drawable's DrawablePadding.
-        [[nodiscard]] Thickness EffectivePadding()
-        {
-            Thickness dp{};
-            if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background))
-            {
-                dp = bg->DrawablePadding();
-            }
-            return Thickness{Max(Padding.Left, dp.Left), Max(Padding.Top, dp.Top),
-                             Max(Padding.Right, dp.Right), Max(Padding.Bottom, dp.Bottom)};
-        }
+        /// The resolved chrome (padding channels max-merged + border) - Panel's original
+        /// field+drawable max-merge, hoisted into View::ResolveBoxMetrics and now also honoring
+        /// stylesheet `padding:` on containers and reserving space for the border (border-box).
+        [[nodiscard]] Thickness EffectivePadding() { return ResolveBoxMetrics().Chrome(); }
     };
 
     RTTI_DEFINE_OBJECT(Panel, "rtti::ui")

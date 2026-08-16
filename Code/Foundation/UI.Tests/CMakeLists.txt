@@ -38,6 +38,7 @@ add_executable(UI.Tests
     ComboBoxTests.cpp
     PopupPositionerTests.cpp
     PopupLayerTests.cpp
+    BoxMetricsTests.cpp
     ContextMenuTests.cpp
     DialogTests.cpp
     AnimationTests.cpp
