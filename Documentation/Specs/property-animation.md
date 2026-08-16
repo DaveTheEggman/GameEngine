@@ -266,22 +266,83 @@ Questions:
    is the existing IViewportTool + per-page panels enough, wired case by case? What is
    the right SHAPE of the panel-contribution seam - does IViewportTool grow an
    optional panel view, or does the host page own a dock area the tool drives?
+
+   > **FABLE (2026-08-16): no grand abstraction - ONE small seam, and it must
+   > not live on IViewportTool.** The framework's deliberate constraint is that
+   > Editor.ViewportTools has NO ui.toolkit dependency (input as plain structs,
+   > overlay via debug-draw) so domain libs and headless hosts implement tools
+   > without linking UI. A `CreatePanelView()` on the tool would break that.
+   > The seam is a SECOND registry one layer up, in the editor-UI tier:
+   > `IViewportToolPanelProvider` keyed by TOOL ID - UI-capable libs register a
+   > panel factory for their tool's id; the scene page owns a reserved tool-
+   > panel dock slot and, on tool activation, looks up panel-by-tool-id and
+   > docks it (host owns placement, tool drives content, mirroring how
+   > ViewportToolHostContext already flows context in). A "mode" is then just
+   > a tool that happens to have a panel - no new plugin concept, no gizmo
+   > machinery (overlay + input already cover gizmos), count tripwire like the
+   > tool registry.
+
 2. For property animation specifically: is an in-scene authoring/preview MODE worth
    adding ALONGSIDE the standalone page (which stays)? If yes, how do the two share
    the editing UI so they never diverge - does the in-scene mode HOST the same clip-
    page widgets in a scene-docked panel, or is there a shared editing core both call?
-3. Track-source picking + live preview from the live scene: the mode would add tracks
-   from the current entity/component selection and preview by driving a clip against
-   the selected entity in the real viewport. Any correctness concern doing that while
-   the scene may be in a preview/sim state (the UI mutation-queue rule; reflected-
-   component access under the generation guard; the animator writing props while a
-   sim also runs)?
-4. Do terrain + nav mesh genuinely share this system, and if so should the seam be
-   designed with all three in mind NOW, or validated incrementally (build the seam
-   for one, generalize once a second consumer exists)? Which consumer should prove it?
-5. Where does the reusable-asset-vs-scene-local tension land - is it fine for property
-   animation to have BOTH an asset page and an in-scene mode while terrain/nav mesh
-   have only the in-scene mode, or does that inconsistency argue for one model?
-6. Scope check: is this a near-term track, or does it sit behind the current queue
-   (navigation, terrain) since the standalone page already ships a working authoring
-   path?
+
+   > **FABLE: yes eventually (see Q6 for when), and the divergence answer is a
+   > SHARED EDITING VIEW, not shared widgets ad hoc.** Extract the clip page's
+   > track list + CurveCanvas/key-table + transport into a reusable composite
+   > (`ClipEditorView`) over a small host seam (supplies the clip, the undo
+   > Mutate, and preview callbacks). The standalone page hosts it full-page;
+   > the in-scene panel docks the SAME view. One widget, two hosts -
+   > divergence is impossible by construction, and the user's firm constraint
+   > (page stays) costs nothing to honor. Do the extraction WHEN the in-scene
+   > mode is built - no speculative refactor now.
+
+3. Track-source picking + live preview from the live scene: [...]
+
+   > **FABLE: all three concerns are real and all have house answers.**
+   > (a) Preview only in EDIT state - the transport disables during
+   > Simulate/Play. An animator fighting physics/scripts is exactly the
+   > divergence the kinematic rule exists for; in edit state nothing else
+   > writes, so it cannot fight.
+   > (b) Preview writes are TRANSIENT: snapshot affected properties on
+   > preview start, restore on stop/scrub-end (the gizmo drag-preview
+   > pattern), NEVER through undo, never dirtying the document. Track ADDS
+   > from the selection are normal document mutations through undo.
+   > (c) Drive the REAL runtime evaluation (the component manager's sample +
+   > apply path) against the selected entity rather than reimplementing
+   > sampling in the editor - the generation guard and binding re-resolve
+   > come free and preview-vs-runtime divergence is structurally impossible.
+   > Mutation-queue: preview writes VALUES only (no view/entity lifetime) -
+   > out of scope for the queue rule by design; keep it that way.
+
+4. Do terrain + nav mesh genuinely share this system [...]
+
+   > **FABLE: they share exactly the tool + panel seam, nothing more.**
+   > Terrain = brush tool + settings panel (the framework's own comments
+   > anticipated it). Nav = bake panel + debug overlay (barely a "tool" -
+   > maybe a test-path probe). Prop-anim = panel + selection-driven tracks +
+   > preview. Design the Q1 seam's SHAPE now (it is one interface + registry,
+   > cheap to hold in mind), but BUILD it with its first real consumer -
+   > whichever of navigation/terrain ships first per the parity queue - then
+   > the other two adopt. Do not retrofit three times, and do not build it
+   > bare with zero consumers.
+
+5. Where does the reusable-asset-vs-scene-local tension land [...]
+
+   > **FABLE: the "inconsistency" is the data model showing through, and it
+   > is correct.** Terrain lives on a component (scene-local editing only);
+   > nav is baked scene output; a clip is a reusable cooked asset that also
+   > wants in-context authoring. Tools follow their data. Godot/Unity make
+   > the same split (in-scene animation editing over a reusable asset).
+   > Forcing one model would flatten a real difference - explicitly rejected.
+
+6. Scope check: is this a near-term track, or does it sit behind the current queue [...]
+
+   > **FABLE: behind the queue.** The standalone page ships a working
+   > authoring path; nothing blocks on in-scene authoring. Order: navigation
+   > + terrain proceed as planned; the Q1 panel seam lands with the first of
+   > those needing a panel; the prop-anim in-scene mode follows AFTER the
+   > seam exists (at that point it is small: dock the extracted
+   > ClipEditorView + the Q3 preview rules). This also honors
+   > validate-incrementally: the seam gets a real consumer before it
+   > generalizes.
