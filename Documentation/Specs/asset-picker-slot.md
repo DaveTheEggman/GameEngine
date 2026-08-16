@@ -1,6 +1,7 @@
 # Asset picker slot
 
-> STATUS: DESIGN FOR FABLE REVIEW 2026-08-16 (user-requested). The inspector's
+> STATUS: APPROVED WITH CORRECTIONS (Fable review 2026-08-16); Fable is
+> BUILDING this track. Rulings + corrections at the bottom are binding. The inspector's
 > resource-reference control, upgraded from a bare button to a 3-control slot with
 > drag-drop. Cross-cutting: it is the widget EVERY `resource::Ref<T>` inspector
 > field uses, so it lands on the reflected-inspector track
@@ -143,13 +144,43 @@ Sequencing note: this can land alongside the property-animation editor (its Edit
 routing needs the panel from that track's P1) and folds into the reflected-inspector
 generic ref path when that lands (one slot builder instead of the per-type table).
 
-## Open questions for Fable
+## Open questions - Fable rulings (2026-08-16, binding)
 
-1. Reveal seam: a new `AssetsView::Reveal(Guid)` reached via the editor context, or
-   an event the browser subscribes to? (Keeping the slot decoupled from the browser
-   instance either way.)
-2. Edit routing: a generic "open asset for editing" service in the editor context
-   (asset-type -> page/panel), or per-asset-type wiring at the config call site?
-   A generic service also cleans up the browser's double-click path.
-3. Drag payload: extend the existing asset-browser drag data with the asset-type
-   name, or add a dedicated typed asset-ref payload struct?
+1. **Reveal seam: an EditorContext hook.** `Function<void(const Guid&)>
+   RevealAsset` on `editor::EditorContext` (the established OnNotice-style
+   idiom); the app wires it to `AssetsView::Reveal(Guid)`, the slot's consumer
+   calls through the context. No event plumbing; the slot stays decoupled.
+2. **Edit routing: a generic EditorContext hook, minimal now.**
+   `Function<void(const Guid&)> OpenAsset` on the context; the app implements
+   it as Guid -> `IContentDatabase::GetInstance(id)` -> the SAME
+   `OpenInstancePage` path the browser double-click takes. When the
+   property-animation panel lands (its spec A1), the app's implementation
+   grows a type branch for clips - one place, no per-call-site wiring.
+3. **Drag payload: a dedicated typed struct.** `AssetDragData : ui::DragData`
+   (format `"asset/instance"`; Guid + asset-type name + display name) in
+   editor.app. There is NO existing browser drag payload to extend - see
+   correction C2.
+
+## Fable corrections (what the draft got wrong about the substrate)
+
+- **C1 - the inspector's ref rows do NOT use AssetPickerSlot today.** They use
+  `ResourceRefEditor` (Editor.Scene, a PropertyEditor whose editor view is a
+  bare `ui::Button` with OnPick). `AssetPickerSlot` is only used by the
+  material LIST-slot rows. The upgrade therefore lands in BOTH places: the
+  new composite AssetPickerSlot replaces `ResourceRefEditor`'s bare button
+  (Edit/Clear/Reveal appear on every Ref<T> row) AND the list-slot rows keep
+  using the same widget (pick-only affordance there). The entity-ref twin
+  keeps using the widget with only OnPick wired - which drives a design rule:
+  **buttons render only when their callback is wired**, so non-asset
+  consumers degrade to a plain name button automatically.
+- **C2 - the asset browser does not drag anything today.** No DragData exists
+  anywhere in Editor.App; "the browser already drags items" was wrong. P2
+  ADDS the drag source (grid tiles + list rows begin a drag with
+  AssetDragData via the pattern-A View::AsDragSource seam) - it does not
+  extend one.
+- **C3 - config shape.** The AssetSlotConfig struct collapses into plain
+  Function members + setters on the widget (OnPick/OnEdit/OnClear/OnReveal/
+  OnAssignDropped + SetAcceptedTypes + SetValue) - the row builders wire them
+  directly; a config struct adds a layer nothing needs. The widget raises
+  LOG_WARNING itself on a rejected drop and exposes OnRejectedDrop for the
+  consumer's toast (Context::Notify).
