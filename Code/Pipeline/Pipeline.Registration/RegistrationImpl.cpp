@@ -23,6 +23,7 @@ import image.pipeline;
 import foundation.image.resource;
 import geometry.pipeline;
 import animation.pipeline;
+import propertyanimation.pipeline;
 import materials.pipeline;
 import shaders.pipeline;
 import particles.pipeline;
@@ -83,6 +84,7 @@ namespace pipeline
         RegisterImageAsset();
         RegisterMeshAssets();
         RegisterAnimationAssets();
+        RegisterPropertyAnimationAssets();
         RegisterMaterialAsset();
         RegisterShaderAsset();
         RegisterParticleEffectAsset();
@@ -131,6 +133,7 @@ namespace pipeline
         AddBuilder<SkeletonAssetBuilder>(registry);
         AddBuilder<AnimationClipAssetBuilder>(registry);
         AddBuilder<AnimationGraphAssetBuilder>(registry);
+        AddBuilder<PropertyAnimationClipAssetBuilder>(registry);
         AddBuilder<MaterialAssetBuilder>(registry);
         AddBuilder<ShaderAssetBuilder>(registry);
         AddBuilder<ParticleEffectAssetBuilder>(registry);

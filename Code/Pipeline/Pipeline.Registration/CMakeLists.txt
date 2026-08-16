@@ -11,7 +11,7 @@ target_link_libraries(Pipeline.Registration PUBLIC
     Foundation::Scene Foundation::Scene.Resource
     Pipeline::Core Pipeline::Importer
     Pipeline::Texture Pipeline::Fonts Pipeline::Image Pipeline::Geometry
-    Pipeline::Animation Pipeline::Materials Pipeline::Shaders Pipeline::Particles
+    Pipeline::Animation Pipeline::PropertyAnimation Pipeline::Materials Pipeline::Shaders Pipeline::Particles
     Foundation::Input Foundation::Input.Resource Pipeline::Input
     Pipeline::ModelImporter Foundation::Image.Resource
     Foundation::Physics Foundation::Physics.Resource Pipeline::Physics
