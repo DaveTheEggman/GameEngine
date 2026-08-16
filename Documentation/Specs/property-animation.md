@@ -37,16 +37,17 @@ REMAINING (follow-ups, not blocking the feature):
 - Acceptance UAT: the demo scene (animated position + light color, looping) in
   play-in-editor AND the exported player + a user visual pass.
 
-CORRECTION 2026-08-16: the "P2 = BUILD the curve-editor widget" framing below is
-STALE. The widget ALREADY EXISTS - `Foundation::UI.Toolkit CurveCanvas`
-(CurveCanvas.cppm, ported from Sedulous, tested, already used by the particle
-page). So the clip page did not need to avoid a canvas in P1; adopting it is
-ADAPTATION not building. The seam: CurveCanvas has its OWN CurveInterpolation
-(Hermite-first) + a Key with Time normalized [0,1], vs foundation.core:curve
-{Constant,Linear,Cubic} with absolute times - a small per-track mapping layer
-(SetChannels by channel count, push keys, OnKey* -> write back through the page's
-undo Mutate) + bump the MaxKeys=8 default (the particle cap). QUEUED as a page
-upgrade, not a from-scratch widget build.
+CORRECTION 2026-08-16: the "P2 = BUILD the curve-editor widget" framing below was
+STALE - the widget ALREADY EXISTED (`Foundation::UI.Toolkit CurveCanvas`, ported
+from Sedulous, tested, used by the particle page). DONE 2026-08-16: the clip page
+now hosts a CurveCanvas per scalar track (Float/Float3/Color); Quat keeps the xyzw
+key table. The mapping seam (canvas Time is [0,1], interpolation is per-channel
+Hermite/Linear/Step) resolved via: keys normalize by an editable clip Length
+(tangents rescale with it), a per-track interp cycle maps {Cubic/Linear/Constant}
+<-> {Hermite/Linear/Step} and applies to all channels/keys, edits write back live
+with one undo per gesture, MaxKeys 8 -> 64. So P1 shipped WITH a curve canvas.
+Remaining canvas niceties (true per-KEY interp modes, box-select multi-key ops)
+are optional polish, not blocking.
 
 GOAL: animate ANY reflected property on ANY component with keyframe curves,
 as data (a clip asset) driven by a component - no code per animated thing.
