@@ -225,6 +225,11 @@ churn across consumers - fold into P4's connection-token work).
   shared ShapedTextBlock (P4), which subsumes these per-control caches.
 
 **P2 - the box model** - SPEC LOCKED (Documentation/Specs/ui-box-model.md)
++ **P2c batch 2 SHIPPED 2026-08-16** (BoxConstraints::IsBounded/BoundedMax* -
+the ONE unbounded test; all 7 fill-style leaves on bounded defaults
+(Separator/ProgressBar/Slider/ScrollBar/ListView/GridView/Expander);
+FlexLayout's two `< 100000` tests unified; FlowLayout's 100000 sentinel
+becomes honest kFloatMax. P2c is COMPLETE except stragglers found in P2d.)
 + **P2c batch 1 SHIPPED 2026-08-16** (DefaultStylePadding fallback seam - the
 per-call-site inline defaults stated once per control; Button/ToggleButton/
 ContentButton/IconButton/EditText on OnMeasureContent; EditText's SEVEN

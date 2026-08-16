@@ -456,7 +456,9 @@ export namespace foundation::ui
                     ? m_totalContentHeight
                     : ((m_adapter != nullptr) ? m_adapter->ItemCount() * ItemHeight.Value() : 0.0f);
             const f32 desiredH = contentH + Padding.TotalVertical();
-            MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
+            // Bounded fill (P2c): a list under an unbounded parent gets a default width
+            // instead of kFloatMax (it scrolls its own content - it never needs infinity).
+            MeasuredSize = Float2{constraints.ConstrainWidth(constraints.BoundedMaxWidth(300.0f)),
                                   constraints.ConstrainHeight(desiredH)};
 
             m_scrollBarVisible = MaxScrollY() > 0;

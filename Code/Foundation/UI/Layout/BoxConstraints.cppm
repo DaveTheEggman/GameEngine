@@ -63,6 +63,25 @@ export namespace foundation::ui
             return Max(MinHeight, Min(height, MaxHeight));
         }
 
+        /// THE unbounded test (ui-box-model.md P2c) - replaces the competing `< kFloatMax` /
+        /// `< 100000` checks scattered through layouts and controls.
+        [[nodiscard]] static constexpr bool IsBounded(f32 extent) noexcept
+        {
+            return extent < kFloatMax;
+        }
+        /// The available extent on an axis, or `fallback` when the parent gave no bound. What
+        /// fill-style leaves (Separator/ProgressBar/Slider/ScrollBar/list views) use instead of
+        /// grabbing MaxWidth/MaxHeight raw - which measured to kFloatMax and exploded layouts
+        /// under unbounded parents (a scroll axis, an old Expand() container).
+        [[nodiscard]] f32 BoundedMaxWidth(f32 fallback) const noexcept
+        {
+            return IsBounded(MaxWidth) ? MaxWidth : fallback;
+        }
+        [[nodiscard]] f32 BoundedMaxHeight(f32 fallback) const noexcept
+        {
+            return IsBounded(MaxHeight) ? MaxHeight : fallback;
+        }
+
         /// Whether both axes are tight (min == max).
         [[nodiscard]] constexpr bool IsTight() const noexcept
         {

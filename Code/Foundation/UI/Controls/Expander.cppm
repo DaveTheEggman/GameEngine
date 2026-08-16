@@ -240,7 +240,8 @@ export namespace foundation::ui
             {
                 m_headerActions->Measure(constraints.Loosen());
             }
-            MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
+            // Bounded fill (P2c): default width under an unbounded parent.
+            MeasuredSize = Float2{constraints.ConstrainWidth(constraints.BoundedMaxWidth(200.0f)),
                                   constraints.ConstrainHeight(HeaderHeight.Value() + contentH)};
         }
 

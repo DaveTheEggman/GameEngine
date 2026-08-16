@@ -42,12 +42,14 @@ export namespace foundation::ui
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
+            // Fill the axis when the parent bounded it; a sane default length otherwise
+            // (raw Max grabs measured kFloatMax under unbounded parents - P2c).
             if (Orientation.Value() == ::foundation::ui::Orientation::Horizontal)
-                MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
+                MeasuredSize = Float2{constraints.ConstrainWidth(constraints.BoundedMaxWidth(100.0f)),
                                       constraints.ConstrainHeight(SeparatorThickness.Value())};
             else
                 MeasuredSize = Float2{constraints.ConstrainWidth(SeparatorThickness.Value()),
-                                      constraints.ConstrainHeight(constraints.MaxHeight)};
+                                      constraints.ConstrainHeight(constraints.BoundedMaxHeight(100.0f))};
         }
         void OnDraw(UIDrawContext& ctx) override
         {

@@ -386,8 +386,10 @@ export namespace foundation::ui
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
-                                  constraints.ConstrainHeight(constraints.MaxHeight)};
+            // Bounded fill (P2c): defaults under an unbounded parent (it scrolls its own
+            // content - it never needs infinity).
+            MeasuredSize = Float2{constraints.ConstrainWidth(constraints.BoundedMaxWidth(300.0f)),
+                                  constraints.ConstrainHeight(constraints.BoundedMaxHeight(300.0f))};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override

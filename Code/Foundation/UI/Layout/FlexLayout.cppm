@@ -176,7 +176,7 @@ export namespace foundation::ui
 
             if (totalGrow > 0)
             {
-                const bool isMainAxisDefinite = inner.MaxWidth < 100000;
+                const bool isMainAxisDefinite = BoxConstraints::IsBounded(inner.MaxWidth);
                 const f32 remaining =
                     isMainAxisDefinite ? Max(0.0f, inner.MaxWidth - totalFixed) : 0.0f;
                 for (usize i = 0; i < ChildCount(); ++i)
@@ -274,7 +274,7 @@ export namespace foundation::ui
 
             if (totalGrow > 0)
             {
-                const bool isMainAxisDefinite = inner.MaxHeight < 100000;
+                const bool isMainAxisDefinite = BoxConstraints::IsBounded(inner.MaxHeight);
                 const f32 remaining =
                     isMainAxisDefinite ? Max(0.0f, inner.MaxHeight - totalFixed) : 0.0f;
                 for (usize i = 0; i < ChildCount(); ++i)

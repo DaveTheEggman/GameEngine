@@ -49,7 +49,8 @@ export namespace foundation::ui
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
+            // Bounded fill (P2c): default length under an unbounded parent.
+            MeasuredSize = Float2{constraints.ConstrainWidth(constraints.BoundedMaxWidth(200.0f)),
                                   constraints.ConstrainHeight(16.0f)};
         }
         void OnDraw(UIDrawContext& ctx) override

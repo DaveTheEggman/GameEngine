@@ -62,13 +62,13 @@ export namespace foundation::ui
         {
             const f32 maxWidth = (constraints.MaxWidth < kFloatMax)
                                      ? constraints.MaxWidth - Padding.TotalHorizontal()
-                                     : 100000.0f;
+                                     : kFloatMax;
             // Children get BOUNDED loose constraints (was Expand() - a fill-style leaf measured
             // to kFloatMax and exploded the flow); margins are base-handled, rows use margin
             // boxes (ui-box-model.md P2b).
             const f32 crossMax = (constraints.MaxHeight < kFloatMax)
                                      ? Max(0.0f, constraints.MaxHeight - Padding.TotalVertical())
-                                     : 100000.0f;
+                                     : kFloatMax;
             f32 lineW = 0, lineH = 0, totalW = 0, totalH = 0;
             bool firstInLine = true;
 
@@ -111,10 +111,10 @@ export namespace foundation::ui
         {
             const f32 maxHeight = (constraints.MaxHeight < kFloatMax)
                                       ? constraints.MaxHeight - Padding.TotalVertical()
-                                      : 100000.0f;
+                                      : kFloatMax;
             const f32 crossMax = (constraints.MaxWidth < kFloatMax)
                                      ? Max(0.0f, constraints.MaxWidth - Padding.TotalHorizontal())
-                                     : 100000.0f;
+                                     : kFloatMax;
             f32 colW = 0, colH = 0, totalW = 0, totalH = 0;
             bool firstInCol = true;
 

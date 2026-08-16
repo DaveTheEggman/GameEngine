@@ -127,12 +127,13 @@ export namespace foundation::ui
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
+            // Bounded fill (P2c): default length under an unbounded parent.
             if (Orientation.Value() == ::foundation::ui::Orientation::Horizontal)
-                MeasuredSize = Float2{constraints.ConstrainWidth(constraints.MaxWidth),
+                MeasuredSize = Float2{constraints.ConstrainWidth(constraints.BoundedMaxWidth(160.0f)),
                                       constraints.ConstrainHeight(20.0f)};
             else
                 MeasuredSize = Float2{constraints.ConstrainWidth(20.0f),
-                                      constraints.ConstrainHeight(constraints.MaxHeight)};
+                                      constraints.ConstrainHeight(constraints.BoundedMaxHeight(160.0f))};
         }
 
         void OnDraw(UIDrawContext& ctx) override
