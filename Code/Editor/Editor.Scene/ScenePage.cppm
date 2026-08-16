@@ -222,26 +222,12 @@ export namespace editor
                 viewportPane->AddView(viewportFrame.Get(), lp);
             }
 
-            // Reserve the tool-panel rail to the LEFT of the viewport (Phase H1). It is Gone (zero
-            // layout space) until the active tool has a registered panel; the controller mounts the
-            // panel view here and flips it Visible on activation.
+            // Reserve the tool/animation panel region at the BOTTOM of the page - FULL WIDTH, so a
+            // timeline has the horizontal room it needs (a left rail was far too narrow). Gone (zero
+            // layout height) until a tool docks a panel; the controller mounts it here + flips Visible.
             m_toolPanelHost = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
             m_toolPanelHost->Direction = foundation::ui::Orientation::Vertical;
             m_toolPanelHost->Visibility = foundation::ui::Visibility::Gone;
-            auto viewportArea = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
-            viewportArea->Direction = foundation::ui::Orientation::Horizontal;
-            {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Px(300));
-                lp->Height = foundation::ui::SizeSpec::Match();
-                viewportArea->AddView(m_toolPanelHost.Get(), lp);
-            }
-            {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Height = foundation::ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
-                viewportArea->AddView(viewportPane.Get(), lp);
-            }
 
             // The mount controller: on each tool change it docks the matching panel into the rail
             // (view built fresh from the registry) or clears the rail. Frame-driven Sync (OnUpdate)
@@ -271,13 +257,30 @@ export namespace editor
                     });
             }
 
-            // Page layout: hierarchy | ((tool-panel | viewport) | inspector).
+            // Page layout: [ hierarchy | (viewport | inspector) ] with the tool/animation panel docked
+            // FULL WIDTH below it (Gone until a tool activates).
             auto inner = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
             inner->SetSplitRatio(0.72f);
-            inner->SetPanes(viewportArea.Get(), m_inspector.Get());
-            m_content = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
-            m_content->SetSplitRatio(0.2f);
-            m_content->SetPanes(m_hierarchy.Get(), inner.Get());
+            inner->SetPanes(viewportPane.Get(), m_inspector.Get());
+            auto topContent = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
+            topContent->SetSplitRatio(0.2f);
+            topContent->SetPanes(m_hierarchy.Get(), inner.Get());
+
+            auto outer = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+            outer->Direction = foundation::ui::Orientation::Vertical;
+            {
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = foundation::ui::SizeSpec::Match();
+                lp->Grow = 1.0f;
+                outer->AddView(topContent.Get(), lp);
+            }
+            {
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = foundation::ui::SizeSpec::Match();
+                lp->Height = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Px(320));
+                outer->AddView(m_toolPanelHost.Get(), lp);
+            }
+            m_content = outer;
 
             m_router =
                 MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
@@ -421,7 +424,7 @@ export namespace editor
         String m_title;
         scene::Scene* m_scene = nullptr;           // owned by the SceneSubsystem
         UniquePtr<SceneEditContext> m_editContext; // per-page mutation mediator + selection
-        RefPtr<foundation::ui::toolkit::SplitView> m_content; // hierarchy | viewport
+        RefPtr<foundation::ui::View> m_content; // [hierarchy | viewport | inspector] over bottom panel
         RefPtr<SceneHierarchyView> m_hierarchy;
         RefPtr<ui::toolkit::Toolbar> m_toolbar;
         render::ViewPostOverride
