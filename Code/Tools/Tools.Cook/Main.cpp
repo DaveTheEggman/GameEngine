@@ -114,13 +114,16 @@ int main(int argc, char** argv)
 
     if (!hostOnly)
     {
-        // Materialize the per-target DB lazily under Cooked/<id>/ with its own .cache/<id>/ cook.db,
-        // then carry invariant products forward from the host and recook only variant ones.
-        const String cookedDir = PathJoin(PathJoin(project->Directory(), u8"Cooked"), targetId);
+        // Materialize the per-target DB lazily. It roots at a SIBLING Cooked-<id>/ (NOT Cooked/<id>/):
+        // the desktop pack walks Cooked/ recursively, so a nested target subtree would leak into the
+        // desktop Content.pak (Fable ruling Q2 - "desktop byte-identical" must be structural). Its
+        // cook.db lives under .cache/<id>/.
+        String cookedDir(project->Directory());
+        cookedDir.Append(u8"/Cooked-");
+        cookedDir.Append(targetId);
         const String cacheDir = PathJoin(PathJoin(project->Directory(), u8".cache"), targetId);
-        (void)CreateDirectory(PathJoin(project->Directory(), u8"Cooked").AsView());
-        (void)CreateDirectory(PathJoin(project->Directory(), u8".cache").AsView());
         (void)CreateDirectory(cookedDir.AsView());
+        (void)CreateDirectory(PathJoin(project->Directory(), u8".cache").AsView());
         (void)CreateDirectory(cacheDir.AsView());
 
         vfs::NativeFileSystem targetCookedMount(cookedDir.AsView());

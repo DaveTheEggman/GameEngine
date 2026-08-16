@@ -215,11 +215,31 @@ Next: P2 - the per-target variant axis (Variance() + lazy per-target DBs +
 invariant copy-forward). That is the prerequisite for the web export to
 PRODUCE the BC + ASTC paks and for boot-time selection (Decision 4).
 
-## Open design questions for Fable - P2f + P3 (export + dist + web boot)
+## Design questions for Fable - P2f + P3 (export + dist + web boot) - RESOLVED
 
-The variant-axis CORE (P2 a-e) is built + tested. The remaining work is the
-EXPORT + DIST + WEB-BOOT integration, and it has real design forks I want a
-ruling on before building. Fable: please add notes inline under each question.
+Fable ruled 2026-08-15 (notes inline below). BUILD PLAN adopted from the rulings:
+- Q2 fix DONE: `Tools.Cook --target` now roots the per-target DB at a sibling
+  `Cooked-<id>/` (not `Cooked/<id>/`); host stays `Cooked/`, cache stays
+  `.cache/<id>/`.
+- Export (P2f/P3a): `ExportContent` packs a LIST of content variants (default =
+  one `{key:"", Content.pak, Cooked/}`); the Web preset cooks web-bc + web-astc
+  via `CookForTarget` (Fable Q4.4 - reuse, no forked cook) and packs two
+  COMPLETE paks. Reachability scanned ONCE from the host DB, applied to both
+  (Fable Q4.1) with a same-guid-set assertion. `shaders.dpak` stays single
+  (Q4.3). Executable "desktop byte-identical" test with a sibling target DB
+  present (Q2).
+- Manifest (Q3): `contentVariants` `{key,pak}` list. NOTE/deviation: the dist
+  manifest is a `ProjectSettings` payload shared with the editor Project.xml.
+  To keep the CONTENT PAK byte-identical (the executable constraint) without a
+  bespoke conditional-XML hack, I add `contentVariants` as a versioned field
+  written ONLY when non-empty. Desktop dists write no entries; the version
+  stamp advances (normal manifest evolution) but no content-variant data
+  appears - the "absent section" behavior Fable asked for. If Fable wants the
+  version stamp frozen too, say so and I'll write it as a separate sibling
+  element instead.
+- Web boot (P3b): pre-Initialize adapter PROBE in MakeOptions (Fable Q1), fetch
+  the matching pak, save to MEMFS as the loader's expected name; belt check at
+  device init.
 
 Relevant facts (verified in code):
 - Export: `Code/Editor/Editor.Core/Export.cppm` + `ExportImpl.cpp`.
