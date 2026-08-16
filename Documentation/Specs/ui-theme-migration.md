@@ -52,7 +52,19 @@
   (per-corner radii; the EDITOR's live theme - user visual verify gate).**
 - **P3 - toolkit.sss** merged via the @import/MergeFrom mechanism;
   IThemeExtension stays as the hook (editor's post-parse code overrides
-  keep working on the parsed sheet).
+  keep working on the parsed sheet). BUILT 2026-08-16: TWO fragments
+  (`UI.Toolkit/Themes/toolkit-dark.sss` + `toolkit-light.sss`) because the
+  legacy `isDark` branch derives in DIFFERENT directions per control (dark
+  darkens harder or lightens where light darkens gently - not expressible
+  as a variable swap); the extension keeps the one-line predicate
+  (`p.Background.r < 0.5f`), parses the matching fragment, MergeFrom into
+  the theme sheet. Legacy body = `ApplyLegacyForParity` (oracle + parse-
+  failure belt). NEW parser property `background-color:` stores Background
+  as a raw COLOR for ResolveStyleColor consumers (ToastCard) - plain
+  `background:` stays the drawable path. Parity comparator extracted to
+  UI.Tests/ThemeParityHelpers.h (shared); 3 toolkit gates (Dark / Light /
+  GraphiteOrange) with an anti-vacuousness guard (fragment must parse
+  non-empty so a belt fallback can't fake parity).
 - **P4 - the UA default sheet + control fallback cleanup** (state ladders
   -> StateListDrawable; Palette::Compute calls leave control draw code).
 

@@ -8,7 +8,21 @@ add_library(Foundation::UI.Toolkit ALIAS UI.Toolkit)
 target_link_libraries(UI.Toolkit
     PUBLIC Foundation::Core Foundation::VG Foundation::VG.SVG Foundation::Fonts Foundation::Image Foundation::UI Foundation::Policy)
 
+# Embed the toolkit .sss styling fragments as a generated module partition (same pattern as
+# the core themes in Foundation/UI: edit the .sss, configure re-embeds).
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/Themes/toolkit-dark.sss UITOOLKIT_DARK_SSS)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/Themes/toolkit-light.sss UITOOLKIT_LIGHT_SSS)
+configure_file(Themes/EmbeddedToolkitThemes.cppm.in
+               ${CMAKE_CURRENT_BINARY_DIR}/Generated/EmbeddedToolkitThemes.cppm @ONLY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+             ${CMAKE_CURRENT_SOURCE_DIR}/Themes/toolkit-dark.sss
+             ${CMAKE_CURRENT_SOURCE_DIR}/Themes/toolkit-light.sss)
+
 target_sources(UI.Toolkit
+    PUBLIC
+        FILE_SET uitoolkit_generated_modules TYPE CXX_MODULES
+            BASE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/Generated
+            FILES ${CMAKE_CURRENT_BINARY_DIR}/Generated/EmbeddedToolkitThemes.cppm
     PUBLIC
         FILE_SET uitoolkit_modules TYPE CXX_MODULES FILES
             StatusBar.cppm

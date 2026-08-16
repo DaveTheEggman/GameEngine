@@ -21,6 +21,7 @@ import foundation.core;
 import foundation.vg;
 import foundation.ui;
 
+import :embedded_toolkit_themes;
 import :docking; // DockManager / DockablePanel / DockTabGroup / DockSplit / DockableWindow
 import :menu_bar;
 import :toolbar;
@@ -76,6 +77,29 @@ export namespace foundation::ui::toolkit
         ToolkitThemeExtension() { RegisterToolkitTypes(); }
 
         void Apply(StyleSheet& sheet, ThemePalette p) override
+        {
+            // The toolkit styling is authored as .sss (ui-theme-migration.md P3): two fragments
+            // because dark and light chrome derive in DIFFERENT directions per control (a variable
+            // swap cannot express "darken here on dark, lighten here on light").
+            const bool isDark = p.Background.r < 0.5f;
+            StyleSheetLoader loader;
+            loader.SetPalette(p);
+            RefPtr<StyleSheet> parsed = loader.Load(isDark ? EmbeddedToolkitThemes::Dark()
+                                                           : EmbeddedToolkitThemes::Light());
+            if (!parsed || parsed->IsEmpty())
+            {
+                // A parse failure of the EMBEDDED fragment is a build defect; never ship unstyled
+                // toolkit chrome - the legacy builder is the belt while it still exists.
+                ApplyLegacyForParity(sheet, p);
+                return;
+            }
+            sheet.MergeFrom(*parsed);
+        }
+
+        /// The former C++ rule builder - parity-test oracle ONLY (ToolkitThemeParityTests proves
+        /// the embedded fragments declare the same styling rule-for-rule), plus the parse-failure
+        /// belt above. Dies after the consistency pass is visually signed off.
+        static void ApplyLegacyForParity(StyleSheet& sheet, ThemePalette p)
         {
             const bool isDark = p.Background.r < 0.5f;
 

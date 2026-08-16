@@ -29,8 +29,12 @@ add_executable(UI.Toolkit.Tests
     CodeLexerTests.cpp
     CodeEditViewTests.cpp
     ToolkitThemeExtensionTests.cpp
+    ToolkitThemeParityTests.cpp
     ToolkitTests.cpp
     TestsMain.cpp)
+
+# The theme-parity comparator is shared with UI.Tests (test-only include, not a library seam).
+target_include_directories(UI.Toolkit.Tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../UI.Tests)
 
 target_link_libraries(UI.Toolkit.Tests PRIVATE
     Foundation::UI.Toolkit Foundation::UI Foundation::Core doctest::doctest)

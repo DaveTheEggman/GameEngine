@@ -479,6 +479,15 @@ export namespace foundation::ui
             const StringView propName = ConsumeIdent();
             Expect(TokenKind::Colon);
 
+            // `background-color` stores Background as a raw COLOR (CSS-style), for controls that
+            // resolve it via ResolveStyleColor (ToastCard) - `background:` always builds a drawable.
+            if (propName == StringView(u8"background-color"))
+            {
+                rule.Set(StyleProperty::Background, ParseColorValue());
+                MatchSemicolon();
+                return;
+            }
+
             const Optional<StyleProperty> prop = ResolvePropertyName(propName);
             if (!prop.HasValue())
             {

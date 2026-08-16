@@ -921,6 +921,19 @@ TEST_CASE("sss: rounded-rect accepts per-corner radius=a b c d")
     CHECK(rrd->Radii.bottomLeft == 4.0f);
 }
 
+TEST_CASE("sss: background-color stores Background as a raw COLOR, not a drawable")
+{
+    // Controls that resolve Background via ResolveStyleColor (ToastCard) need the Color kind;
+    // plain `background:` always builds a drawable and would be ignored by that path.
+    Fixture f(LoadSSS(u8"View { background-color: #6496c8; }"));
+    core::RefPtr<TestView> view = f.AddView();
+    CHECK(view->ResolveStyleDrawable(StyleProperty::Background) == nullptr);
+    const Color got = view->ResolveStyleColor(StyleProperty::Background, Color::White);
+    CHECK(got.r == doctest::Approx(0x64 / 255.0f));
+    CHECK(got.g == doctest::Approx(0x96 / 255.0f));
+    CHECK(got.b == doctest::Approx(0xc8 / 255.0f));
+}
+
 TEST_CASE("sss: state color functions match Palette derivations")
 {
     // disabled()'s luminance desaturation is the one lighten/darken cannot express - the

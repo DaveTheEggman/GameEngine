@@ -1,0 +1,28 @@
+// GENERATED at configure time from Themes/*.sss - DO NOT EDIT (edit the .sss files; CMake
+// re-embeds them). The toolkit styling fragment is authored as a real stylesheet per palette
+// branch (dark/light chrome derive in DIFFERENT directions, so two sheets, not variables) and
+// merged into the theme sheet by ToolkitThemeExtension. Same embed rationale as the core
+// EmbeddedThemes: pre-project editor theming cannot depend on cooked assets or loose files.
+
+module;
+#include "Core/Prelude.h"
+
+export module foundation.ui.toolkit:embedded_toolkit_themes;
+
+import foundation.core;
+
+export namespace foundation::ui::toolkit
+{
+    struct EmbeddedToolkitThemes
+    {
+        [[nodiscard]] static core::StringView Dark()
+        {
+            return u8R"__sss__(@UITOOLKIT_DARK_SSS@)__sss__";
+        }
+
+        [[nodiscard]] static core::StringView Light()
+        {
+            return u8R"__sss__(@UITOOLKIT_LIGHT_SSS@)__sss__";
+        }
+    };
+}
