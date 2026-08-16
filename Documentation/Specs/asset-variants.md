@@ -262,19 +262,83 @@ Questions:
   lifecycle forbid it? If risky, is a pre-Initialize adapter PROBE
   (`requestAdapter` only, read features, then fetch) safer despite
   `requestAdapter` being async while `FetchDistFile` is sync `emscripten_wget`?
+
+  > **FABLE RULING (2026-08-15): the pre-boot adapter PROBE, inside
+  > MakeOptions - do NOT reorder the app lifecycle.** The build already runs
+  > ASYNCIFY and WebMain's own comment notes device bring-up uses the same
+  > yield mechanism as the fetches - so a `requestAdapter` + Asyncify-wait in
+  > MakeOptions is the established idiom, not a new trick. Sequence: fetch
+  > `player.xml`; if it lists variants, probe the adapter (instance-level
+  > requestAdapter, NO surface needed), read `textureCompressionBC/ASTC`,
+  > fetch the matching pak under its variant name but SAVE it to MEMFS as
+  > the name the loader expects; else fetch `Content.pak` exactly as today.
+  > Two adapter requests per page (probe + real device init) are fine.
+  > Belt: at device init, if the created device lacks the family the mounted
+  > pak was chosen for (should be impossible - same adapter), fail loudly
+  > with a log naming both, never render garbage.
+
 - **Q2 (pak layout + dir roots).** Two separate paks vs one pak with both
   variant sub-trees selected by path prefix? And where do per-target cooked DBs
   live so the desktop pack stays byte-identical - `Cooked/<id>/` (needs a
   scoped pack walk) or a sibling `Cooked.<id>/` outside the desktop tree?
+
+  > **FABLE RULING: two complete paks; per-target DBs move OUTSIDE
+  > `Cooked/`.**
+  > - Paks: `Content-bc.pak` + `Content-astc.pak`, each COMPLETE (invariant
+  >   products duplicated across the two). One combined pak would make every
+  >   mobile client download the desktop BC bytes - defeats the point. The
+  >   dist-side duplication of scenes/scripts is server disk, which is cheap;
+  >   each client downloads exactly one pak. A common+overlay 3-pak split is
+  >   a NOTED size optimization, deliberately not v1 (mount-order
+  >   complexity).
+  > - DB roots: your recursive-pack-walk concern is real and the fix must be
+  >   structural, not a scoped-walk blocklist (the next PackTree caller
+  >   would re-trip it). Per-target DBs root at a SIBLING `Cooked-<id>/`
+  >   (e.g. `Cooked-web-astc/`); host stays `Cooked/` untouched;
+  >   `.cache/<id>/` can stay as shipped. Adjust P2e + its tests.
+  > - LOCK IT WITH A TEST: desktop export of a project WITH materialized
+  >   target DBs present is byte-identical to one without them. That test IS
+  >   the "desktop byte-identical" constraint, executable.
+
 - **Q3 (manifest schema).** Extend `player.xml` (ProjectSettings shape) with the
   variants list, or a sidecar? Keep it minimal.
+
+  > **FABLE RULING: extend `player.xml`, no sidecar** - one fewer fetch, and
+  > the manifest is already the first thing the boot reads. A minimal
+  > `contentVariants` list of `{key, pak}` where key is the CAPABILITY
+  > FAMILY ("bc"/"astc" - profile keys, not platform names, per Decision 3).
+  > The section is ABSENT (not empty) on desktop dists - desktop `player.xml`
+  > stays byte-identical. Absent/unknown section = single-`Content.pak`
+  > fallback; the settings unknown-section passthrough precedent covers old
+  > readers.
+
 - **Q4 (correctness traps).** Anything in the copy-forward-per-target + two-pak
   flow I'm missing - scenes/scripts staged once vs per-pak, reachability
   pruning per target, the shader pack (already platform-keyed via
   `StageShaderPack(preset.platform)`)?
 
+  > **FABLE NOTES:**
+  > 1. **Reachability: scan ONCE, apply to both paks.** The closure is a
+  >    guid-set walk - identical across variants by construction. Run it on
+  >    one DB (host or web-bc), reuse the root/closure set for both packs.
+  >    Assert both paks carry the SAME guid set (set equality, not just
+  >    count) - that assertion catches any variant-divergence bug forever.
+  > 2. Scenes/scripts stage per-pak (each complete) - yes, by design (Q2).
+  > 3. `shaders.dpak` stays SINGLE per web dist - already platform-keyed,
+  >    compression-orthogonal. Do not duplicate it per variant.
+  > 4. **Export must reuse the `CookForTarget` path** (the Tools.Cook
+  >    --target codepath) for the web preset's two targets - no forked
+  >    cook-for-export logic, or the two paths drift.
+  > 5. Target-DB staleness between exports is handled by the normal dirty
+  >    checks inside CookForTarget - no special-casing; just make sure the
+  >    export runs it (never packs a stale target DB silently).
+  > 6. Boot fallback order in WebMain: manifest variants -> matching pak;
+  >    no variants -> `Content.pak` (old bundles + desktop). If the adapter
+  >    reports NEITHER family (spec-impossible), fail with a clear log.
+
 Constraints to hold: "variant-selection-at-load, no transcoder" (Decision 4);
-"desktop byte-identical"; "editor dev loop untouched (host DB only)".
+"desktop byte-identical" (now executable via the Q2 test);
+"editor dev loop untouched (host DB only)".
 
 ## Test notes
 
