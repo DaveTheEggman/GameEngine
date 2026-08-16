@@ -368,7 +368,15 @@ and never regresses):
   docks/undocks the panel on tool activation/deactivation; explicit
   registration + count tripwire + tests (panel appears/disappears with the
   tool; unknown tool id = no panel, no crash; gesture-safe tool switching
-  keeps working).
+  keeps working). DESIGN WITH NAVIGATION IN MIND (user, 2026-08-16: nav
+  builds right after this track, so accounting for it is not wasted): nav's
+  consumer shape is a BAKE/settings panel + debug overlay + a test-path
+  probe tool - which fits this seam as long as (a) the panel factory gets
+  the same ViewportToolHostContext the tool gets (scene + selection +
+  command stack - the bake panel needs the Scene*), and (b) panel lifetime
+  is activation-scoped but the panel VIEW may be recreated cheaply (no
+  state hoarding in the view - state lives in the tool/domain lib). Note
+  both properties in the H1 interface comments and hold them in review.
 - **H2 - ClipEditorView extraction.** Lift the clip page's track list +
   CurveCanvas/key-table + transport into the shared composite over a small
   host seam (clip access + undo Mutate + preview callbacks). The standalone
