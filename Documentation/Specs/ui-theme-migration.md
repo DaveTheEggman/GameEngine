@@ -68,6 +68,50 @@
 - **P4 - the UA default sheet + control fallback cleanup** (state ladders
   -> StateListDrawable; Palette::Compute calls leave control draw code).
 
+## Consistency pass - proposal (2026-08-16, covers ALL five sheets)
+
+Survey findings across dark / light / rounded-dark / toolkit-dark /
+toolkit-light, and the unified targets. Executed as TWO batches so the
+parity gates die deliberately, not incidentally.
+
+**Batch A - palette derivation.** dark.sss and light.sss are full of
+hand-picked hexes (EditText #1e202a, spin #323744, checkbox border
+#646978, slider track #32343e, ComboBox #282a34, scrollbar/context/
+dialog/tooltip hexes, selection #3c78c850, ButtonBase text #f0f0f5 /
+#1e1e28...) while rounded-dark derives EVERYTHING from the palette -
+which is why only the rounded look survives a palette swap
+(GraphiteOrange). VERIFIED 2026-08-16: NONE of the flat-theme hexes are
+exact palette derivations (checked EditText bg, selection, context bg
+against Darken/Lighten/Mix math - all hand-picked by eye in the original
+Beef port, a few RGB points off any derivation). So there is NO
+look-preserving refactor batch: replacing each hex with the nearest
+honest derivation (selection/hovers -> alpha($primary-accent, x), sunken
+inputs -> darken($surface, x), chrome fills -> lighten/darken($surface))
+shifts colors subtly and retires the dark/light parity gates - it is
+part of Batch B's deliberate review. Rounded-dark needs no color edits.
+
+**Batch B - deliberate look changes (parity gates retire HERE; user
+screenshot verify before the C++ oracles die). Includes ALL of Batch A's
+color unification per the finding above.**
+- ONE type ramp: 16 base / 14 inputs+expander headers / 12 compact
+  chrome. Today ButtonBase and ComboBox are 12 ONLY in rounded-dark -
+  dark/light render chunky 16px buttons; adopt 12 everywhere. Toolkit:
+  DockTabGroup already 12; give MenuBar 14 and StatusBar 12 (both
+  currently inherit 16, oversized for bar chrome).
+- ONE spacing scale {2,4,6,8,12,16}: button padding 8 12, input padding
+  4 6, CheckBox spacing 6 already fit - document at the top of each
+  sheet and hold new rules to it.
+- Dim-text convention: toolkit fragments use alpha($text, 0.6) and
+  friends where core sheets use $text-dim - unify on $text-dim for
+  "dim text", keep explicit alpha() only where it layers over a derived
+  background (tab strips).
+- Corner-radius stays per-theme identity (0 flat, 6 rounded) - NOT
+  normalized.
+
+Final state per acceptance: ramps + scale documented at the top of each
+.sss; parity tests replaced by parse + non-empty + key-invariant checks;
+C++ theme bodies and ApplyLegacyForParity deleted after user sign-off.
+
 ## Stays C++ (from the investigation - accepted)
 
 ThemeIcons SVG strings + ThemeIconSet bake machinery (the backing store the
