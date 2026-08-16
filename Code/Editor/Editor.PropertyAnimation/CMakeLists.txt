@@ -13,7 +13,9 @@ target_link_libraries(Editor.PropertyAnimation
 
 target_sources(Editor.PropertyAnimation
     PRIVATE
+        ClipEditorViewImpl.cpp
         PropertyAnimationClipPageImpl.cpp
     PUBLIC
         FILE_SET editorpropanim_modules TYPE CXX_MODULES FILES
+            ClipEditorView.cppm
             PropertyAnimationClipPage.cppm)
