@@ -2681,6 +2681,9 @@ namespace editor::app
             foundation::core::Span<foundation::ui::BakedSVGDrawable* const>(bakeable.Data(),
                                                                         bakeable.Size()),
             foundation::core::Span<const foundation::core::u32>(sizes.Data(), sizes.Size()));
+        // The SHARED theme chrome glyphs (dock/tab close, chevrons, checkmark) bake at the
+        // same scale - they are framework-owned now (ThemeIconSet), not editor-only.
+        (void)m_uiHost->BakeThemeIcons(scale);
         m_iconBakeScale = scale;
     }
 

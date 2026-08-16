@@ -245,3 +245,38 @@ TEST_CASE("theme: ThemeRegistry_ExtensionAppliedToBothThemes")
 
     ThemeRegistry::UnregisterExtension(&ext);
 }
+
+// === ThemeIconSet (P3-adjacent, shipped with the crisp-chrome fix) ===
+
+TEST_CASE("theme-icon-set: initialized set shares ONE instance per glyph; tints dedupe")
+{
+    ThemeIconSet& set = ThemeIconSet::Get();
+    set.Initialize();
+
+    RefPtr<Drawable> a = ThemeIconSet::Acquire(ThemeIcon::Close);
+    RefPtr<Drawable> b = ThemeIconSet::Acquire(ThemeIcon::Close);
+    CHECK(a.Get() == b.Get()); // shared - the host bakes ONE instance, every theme gets it
+
+    const Color tint{0.2f, 0.3f, 0.4f, 1.0f};
+    RefPtr<Drawable> t1 = ThemeIconSet::Acquire(ThemeIcon::Close, tint);
+    RefPtr<Drawable> t2 = ThemeIconSet::Acquire(ThemeIcon::Close, tint);
+    CHECK(t1.Get() == t2.Get());  // same (glyph, tint) dedupes
+    CHECK(t1.Get() != a.Get());   // tinted variant is its own instance
+
+    Array<BakedSVGDrawable*> bakeable;
+    set.CollectBakeable(bakeable);
+    CHECK(bakeable.Size() == ThemeIconSet::kGlyphCount + 1); // 10 base + 1 tinted
+
+    set.Shutdown(); // test hygiene - later tests see the uninitialized (fallback) behavior
+}
+
+TEST_CASE("theme-icon-set: uninitialized set hands out fresh unbaked fallbacks")
+{
+    ThemeIconSet& set = ThemeIconSet::Get();
+    set.Shutdown(); // ensure uninitialized regardless of test order
+
+    RefPtr<Drawable> a = ThemeIconSet::Acquire(ThemeIcon::Close);
+    RefPtr<Drawable> b = ThemeIconSet::Acquire(ThemeIcon::Close);
+    REQUIRE(a.Get() != nullptr);
+    CHECK(a.Get() != b.Get()); // distinct instances - the old (headless/tests) behavior
+}

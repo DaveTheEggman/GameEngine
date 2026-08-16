@@ -72,6 +72,7 @@ target_sources(UI
             Styling/IThemeExtension.cppm
             Styling/ThemeRegistry.cppm
             Styling/ThemeIcons.cppm
+            Styling/ThemeIconSet.cppm
             Styling/DarkTheme.cppm
             Styling/GameTheme.cppm
             Styling/LightTheme.cppm

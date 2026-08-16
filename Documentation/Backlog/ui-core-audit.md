@@ -225,6 +225,12 @@ churn across consumers - fold into P4's connection-token work).
   shared ShapedTextBlock (P4), which subsumes these per-control caches.
 
 **P2 - the box model** - SPEC LOCKED (Documentation/Specs/ui-box-model.md)
++ **CRISP CHROME FRAMEWORK-WIDE 2026-08-16** (user-spotted: baked icons were
+editor-only WIRING - ThemeIconSet in foundation.ui shares one bakeable
+BakedSVGDrawable per chrome glyph (+ tinted variants); all 4 themes acquire
+from it; UIHost initializes the set, lazily bakes at first window attach,
+BakeThemeIcons(scale) for DPI rebakes; editor rebakes both sets together.
+Headless/tests keep unbaked fallbacks - no lifetime games.)
 + **P2d SHIPPED 2026-08-16 - P2 (BOX MODEL) COMPLETE** (device-grid rounding
 in base Layout, edges independently; VG StrokeRoundedRect crisp-snap; the
 viewport DPI golden updated deliberately - integral RT regions at 1.25x.

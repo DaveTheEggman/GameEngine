@@ -172,6 +172,10 @@ export namespace foundation::ui::runtime
             m_bridge = core::MakeUnique<UiInputBridge>(core::DefaultAllocator(), &m_ctx);
             m_clipboard = core::MakeUnique<ShellClipboard>(core::DefaultAllocator(), &shellRef);
             m_ctx.SetClipboard(m_clipboard.Get());
+            // Materialize the SHARED theme chrome glyphs before the app builds its theme, so
+            // every theme references bakeable instances (crisp icons stop being editor-only -
+            // ui-core-audit). Baked lazily at first window attach / BakeThemeIcons.
+            ThemeIconSet::Get().Initialize();
         }
 
         ~UIHost()
@@ -179,6 +183,10 @@ export namespace foundation::ui::runtime
             // Per-window VGRenderers are disposed with their RenderWindow's payload (freed by the host
             // after a GPU idle), not here. The VG shader modules (m_vs/m_fs) are BORROWED from the
             // shader host's ShaderSystem, which owns and frees them when it shuts down below.
+            // Theme glyphs' baked variants BORROW our atlases - detach them before the atlases
+            // die (any sheet-held glyph falls back to live vector), then drop the shared refs.
+            ThemeIconSet::Get().ClearBakedVariants();
+            ThemeIconSet::Get().Shutdown();
         }
 
         UIHost(const UIHost&) = delete;
@@ -206,6 +214,33 @@ export namespace foundation::ui::runtime
                                       core::SrgbToLinear(b), a);
         }
 
+        /// Bake the SHARED theme chrome glyphs (close/chevrons/checkmark...) at the given UI
+        /// scale - the same pixel-snapped atlas recipe the editor uses for its own icons, now
+        /// for EVERY UIHost app. Call again after a UI-scale/DPI change (old variants are
+        /// detached first; drawables fall back to live vector until the re-bake lands).
+        bool BakeThemeIcons(f32 scale = 1.0f)
+        {
+            ThemeIconSet& set = ThemeIconSet::Get();
+            set.Initialize();
+            set.ClearBakedVariants();
+            core::Array<BakedSVGDrawable*> bakeable;
+            set.CollectBakeable(bakeable);
+            static constexpr u32 kChromeSizes[] = {10, 12, 14, 16, 20, 24, 32};
+            core::Array<u32> sizes;
+            for (const u32 base : kChromeSizes)
+            {
+                const u32 scaled = static_cast<u32>(static_cast<f32>(base) * scale + 0.5f);
+                if (sizes.IsEmpty() || sizes[sizes.Size() - 1] != scaled)
+                {
+                    sizes.PushBack(scaled);
+                }
+            }
+            m_themeIconsBaked = BakeSvgDrawables(
+                core::Span<BakedSVGDrawable* const>(bakeable.Data(), bakeable.Size()),
+                core::Span<const u32>(sizes.Data(), sizes.Size()));
+            return m_themeIconsBaked;
+        }
+
         /// Give a RenderWindow a RootView: builds its VGContext + VGRenderer (against the window's swap
         /// format + the device frame-ring) + InputSurface, and stashes the payload on the RenderWindow.
         void AttachWindow(graphics::RenderWindow* window, core::RefPtr<RootView> root)
@@ -213,6 +248,13 @@ export namespace foundation::ui::runtime
             if (window == nullptr || !root)
             {
                 return;
+            }
+            // First window = the device is live: bake the shared theme glyphs so every UIHost
+            // app (not just the editor) gets crisp pixel-snapped chrome icons. Scale-aware
+            // hosts re-bake via BakeThemeIcons on DPI/UI-scale changes.
+            if (!m_themeIconsBaked)
+            {
+                (void)BakeThemeIcons(m_uiScale);
             }
 
             auto data = core::MakeUnique<UIWindowData>(core::DefaultAllocator());
@@ -935,6 +977,7 @@ export namespace foundation::ui::runtime
         // Default near-black, stored LINEAR (matches an sRGB backbuffer's clear semantics).
         // Baked icon atlases (BakeSvgDrawables): drawables' variants borrow these.
         core::Array<core::UniquePtr<image::OwnedImageData>> m_bakedIconAtlases;
+        bool m_themeIconsBaked = false; // first AttachWindow bakes lazily; rebake via BakeThemeIcons
         f32 m_uiScale = 1.0f; // user preference multiplier on the OS content scale
         rhi::ClearColor m_clear = rhi::ClearColor(0.006f, 0.006f, 0.009f, 1.0f);
     };

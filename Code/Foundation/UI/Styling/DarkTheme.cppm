@@ -22,6 +22,7 @@ import :palette;
 import :theme_palette;
 import :theme_registry;
 import :theme_icons;
+import :theme_icon_set;
 import :rounded_rect_drawable;
 import :state_list_drawable;
 import :color_drawable;
@@ -291,25 +292,25 @@ export namespace foundation::ui
 
         static void RegisterIcons(StyleSheet& sheet)
         {
-            if (RefPtr<Drawable> checkmark = SVGDrawable::FromString(ThemeIcons::Checkmark()))
+            if (RefPtr<Drawable> checkmark = ThemeIconSet::Acquire(ThemeIcon::Checkmark))
             {
                 sheet.OwnDrawable(checkmark);
                 sheet.ForTypePseudo(&CheckBox::StaticType(), u8"checkmark")
                     .Set(StyleProperty::Background, checkmark);
             }
-            if (RefPtr<Drawable> radioMark = SVGDrawable::FromString(ThemeIcons::RadioMarkSquare()))
+            if (RefPtr<Drawable> radioMark = ThemeIconSet::Acquire(ThemeIcon::RadioMarkSquare))
             {
                 sheet.OwnDrawable(radioMark);
                 sheet.ForTypePseudo(&RadioButton::StaticType(), u8"mark")
                     .Set(StyleProperty::Background, radioMark);
             }
-            if (RefPtr<Drawable> closeIcon = SVGDrawable::FromString(ThemeIcons::Close()))
+            if (RefPtr<Drawable> closeIcon = ThemeIconSet::Acquire(ThemeIcon::Close))
             {
                 sheet.OwnDrawable(closeIcon);
                 sheet.ForTypePseudo(&TabView::StaticType(), u8"close-button")
                     .Set(StyleProperty::Background, closeIcon);
             }
-            if (RefPtr<Drawable> chevExpanded = SVGDrawable::FromString(ThemeIcons::ChevronDown()))
+            if (RefPtr<Drawable> chevExpanded = ThemeIconSet::Acquire(ThemeIcon::ChevronDown))
             {
                 sheet.OwnDrawable(chevExpanded);
                 sheet
@@ -317,14 +318,14 @@ export namespace foundation::ui
                     .Set(StyleProperty::Background, chevExpanded);
             }
             if (RefPtr<Drawable> chevCollapsed =
-                    SVGDrawable::FromString(ThemeIcons::ChevronRight()))
+                    ThemeIconSet::Acquire(ThemeIcon::ChevronRight))
             {
                 sheet.OwnDrawable(chevCollapsed);
                 sheet.ForTypePseudo(&Expander::StaticType(), u8"chevron")
                     .Set(StyleProperty::Background, chevCollapsed);
             }
             if (RefPtr<Drawable> tvChevExpanded =
-                    SVGDrawable::FromString(ThemeIcons::ChevronDown()))
+                    ThemeIconSet::Acquire(ThemeIcon::ChevronDown))
             {
                 sheet.OwnDrawable(tvChevExpanded);
                 sheet
@@ -332,13 +333,13 @@ export namespace foundation::ui
                     .Set(StyleProperty::Background, tvChevExpanded);
             }
             if (RefPtr<Drawable> tvChevCollapsed =
-                    SVGDrawable::FromString(ThemeIcons::ChevronRight()))
+                    ThemeIconSet::Acquire(ThemeIcon::ChevronRight))
             {
                 sheet.OwnDrawable(tvChevCollapsed);
                 sheet.ForTypePseudo(&TreeView::StaticType(), u8"chevron")
                     .Set(StyleProperty::Background, tvChevCollapsed);
             }
-            if (RefPtr<Drawable> subArrow = SVGDrawable::FromString(ThemeIcons::ChevronRight()))
+            if (RefPtr<Drawable> subArrow = ThemeIconSet::Acquire(ThemeIcon::ChevronRight))
             {
                 sheet.OwnDrawable(subArrow);
                 RefPtr<StyleRule> rule = MakeRef<StyleRule>(DefaultAllocator());
@@ -347,19 +348,19 @@ export namespace foundation::ui
                 rule->Set(StyleProperty::Background, subArrow);
                 sheet.AddRule(Move(rule));
             }
-            if (RefPtr<Drawable> arrowDown = SVGDrawable::FromString(ThemeIcons::ArrowDown()))
+            if (RefPtr<Drawable> arrowDown = ThemeIconSet::Acquire(ThemeIcon::ArrowDown))
             {
                 sheet.OwnDrawable(arrowDown);
                 sheet.ForTypePseudo(&ComboBox::StaticType(), u8"arrow")
                     .Set(StyleProperty::Background, arrowDown);
             }
-            if (RefPtr<Drawable> arrowUp = SVGDrawable::FromString(ThemeIcons::ArrowUp()))
+            if (RefPtr<Drawable> arrowUp = ThemeIconSet::Acquire(ThemeIcon::ArrowUp))
             {
                 sheet.OwnDrawable(arrowUp);
                 sheet.ForTypePseudo(&NumericField::StaticType(), u8"arrow-up")
                     .Set(StyleProperty::Background, arrowUp);
             }
-            if (RefPtr<Drawable> arrowDn2 = SVGDrawable::FromString(ThemeIcons::ArrowDown()))
+            if (RefPtr<Drawable> arrowDn2 = ThemeIconSet::Acquire(ThemeIcon::ArrowDown))
             {
                 sheet.OwnDrawable(arrowDn2);
                 sheet.ForTypePseudo(&NumericField::StaticType(), u8"arrow-down")

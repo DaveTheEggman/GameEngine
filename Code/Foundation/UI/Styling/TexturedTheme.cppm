@@ -24,6 +24,7 @@ import :palette;
 import :theme_palette;
 import :theme_registry;
 import :theme_icons;
+import :theme_icon_set;
 import :theme_image_set;
 import :theme_atlas;
 import :rounded_rect_drawable;
