@@ -226,6 +226,7 @@ export namespace engine::animation
                                     track.propertyPath);
                         tb.disabled = true;
                     }
+                    CheckKind(tb, track);
                     a.bindings.PushBack(Move(tb));
                     continue;
                 }
@@ -250,7 +251,43 @@ export namespace engine::animation
                                 track.propertyPath, track.componentType);
                     tb.disabled = true;
                 }
+                CheckKind(tb, track);
                 a.bindings.PushBack(Move(tb));
+            }
+        }
+
+        // The kind a TrackValueKind writes as, as a reflected leaf type. A track whose kind does not
+        // match its resolved leaf property is a silent every-frame WriteBinding failure - disable it
+        // (once, with a warning) instead, matching the resolve-failure policy.
+        [[nodiscard]] static const TypeInfo* ExpectedLeafType(propanim::TrackValueKind kind) noexcept
+        {
+            switch (kind)
+            {
+            case propanim::TrackValueKind::Float:
+                return &TypeOf<f32>();
+            case propanim::TrackValueKind::Float3:
+                return &TypeOf<Float3>();
+            case propanim::TrackValueKind::Color:
+                return &TypeOf<Color>();
+            case propanim::TrackValueKind::Quat:
+                return &TypeOf<Quaternion>();
+            }
+            return nullptr;
+        }
+
+        void CheckKind(PropertyTrackBinding& tb, const propanim::PropertyTrack& track)
+        {
+            if (tb.disabled || !tb.binding.IsResolved() || tb.binding.chain.IsEmpty())
+            {
+                return;
+            }
+            const TypeInfo* leaf = tb.binding.chain[tb.binding.chain.Size() - 1]->type;
+            if (leaf != ExpectedLeafType(track.kind))
+            {
+                LOG_WARNING(u8"PropertyAnimation",
+                            u8"track '{}.{}' kind does not match the property type - disabled",
+                            track.componentType, track.propertyPath);
+                tb.disabled = true;
             }
         }
 

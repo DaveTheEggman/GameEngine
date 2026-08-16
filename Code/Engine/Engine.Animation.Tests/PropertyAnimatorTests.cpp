@@ -84,6 +84,66 @@ REFLECT_VALUE(AnimTarget, "rtti::engine::animation::test")
     builder.Property<&AnimTarget::position>("position").Property<&AnimTarget::value>("value");
 }
 
+TEST_CASE("property animator: the script surface is REFLECTED (methods on the type table)")
+{
+    EnsureReflected(); // RegisterAnimationComponentReflection built the method table
+
+    // These are the Phase G script surface (animator.of(entity).play()/stop()/...). Asserting the
+    // REFLECTED methods (not calling C++ directly) is what fails if a `.Method<>` line is dropped or
+    // the type is never registered - the gap review pass 10 caught.
+    const TypeInfo& type = TypeOf<PropertyAnimatorComponent>();
+    const char* expected[] = {"of",     "play", "stop",      "pause",
+                              "resume", "time", "isPlaying", "setTime"};
+    for (const char* method : expected)
+    {
+        CHECK_MESSAGE(FindMethod(type, method) != nullptr, "missing reflected method: ", method);
+    }
+}
+
+TEST_CASE("property animator: a kind/type mismatch disables the track (not a silent per-frame fail)")
+{
+    EnsureReflected();
+
+    scene::Scene sceneObj;
+    sceneObj.AddSystem<AnimTargetManager>();
+    sceneObj.AddSystem<PropertyAnimatorComponentManager>();
+    auto* targets = sceneObj.GetSystem<AnimTargetManager>();
+    auto* animators = sceneObj.GetSystem<PropertyAnimatorComponentManager>();
+    const scene::EntityHandle e = sceneObj.CreateEntity(u8"Mover");
+    AnimTarget& target = targets->Add(e);
+    target.value = 42.0f; // AnimTarget::value is an f32
+
+    // A Float3 track pointing at the scalar "value" (f32) - the kind mismatches the leaf type.
+    RefPtr<PropertyAnimationClipResource> res =
+        MakeRef<PropertyAnimationClipResource>(DefaultAllocator());
+    {
+        PropertyTrack t;
+        t.componentType = String(u8"AnimTarget");
+        t.propertyPath = String(u8"value");
+        t.kind = TrackValueKind::Float3; // WRONG: value is f32
+        CurveKey k0;
+        k0.time = 0.0f;
+        k0.value = 0.0f;
+        CurveKey k1;
+        k1.time = 1.0f;
+        k1.value = 10.0f;
+        t.channels[0].AddKey(k0);
+        t.channels[0].AddKey(k1);
+        res->clip.tracks.PushBack(Move(t));
+        res->clip.duration = res->clip.ComputeDuration();
+    }
+    PropertyAnimatorComponent& anim = animators->Add(e);
+    anim.clip = res.Get();
+    anim.autoplay = true;
+
+    sceneObj.Update(0.0f); // binds - the mismatch is caught here
+    REQUIRE(anim.bindings.Size() == 1);
+    CHECK(anim.bindings[0].disabled); // disabled once, not retried every frame
+
+    sceneObj.Update(0.5f);
+    CHECK(target.value == doctest::Approx(42.0f)); // never written
+}
+
 TEST_CASE("property animator: a Transform track drives the entity's baked scene transform")
 {
     EnsureReflected(); // includes RegisterCoreTypes -> reflects core::Transform

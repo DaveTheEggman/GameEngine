@@ -143,7 +143,8 @@ namespace engine::animation
         const Entry components[] = {
             {&core::TypeOf<SkeletalAnimationComponent>(), u8"SkeletalAnimationComponent"},
             {&core::TypeOf<AnimationGraphComponent>(), u8"AnimationGraphComponent"},
-            {&core::TypeOf<InstancedSkinningComponent>(), u8"InstancedSkinningComponent"}};
+            {&core::TypeOf<InstancedSkinningComponent>(), u8"InstancedSkinningComponent"},
+            {&core::TypeOf<PropertyAnimatorComponent>(), u8"PropertyAnimatorComponent"}};
         for (const Entry& component : components)
         {
             GlobalTypeRegistry().Register(*component.type);
