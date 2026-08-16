@@ -19,5 +19,15 @@ export namespace foundation::ui
         {
             return u8R"__sss__(@UI_DARK_THEME_SSS@)__sss__";
         }
+
+        [[nodiscard]] static core::StringView Light()
+        {
+            return u8R"__sss__(@UI_LIGHT_THEME_SSS@)__sss__";
+        }
+
+        [[nodiscard]] static core::StringView RoundedDark()
+        {
+            return u8R"__sss__(@UI_ROUNDED_DARK_THEME_SSS@)__sss__";
+        }
     };
 }

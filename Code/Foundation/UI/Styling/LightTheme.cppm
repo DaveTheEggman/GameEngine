@@ -18,6 +18,8 @@ import :thickness;
 import :palette;
 import :theme_palette;
 import :theme_registry;
+import :style_sheet_loader;
+import :embedded_themes;
 import :theme_icons;
 import :theme_icon_set;
 import :rounded_rect_drawable;
@@ -54,9 +56,24 @@ export namespace foundation::ui
     {
         [[nodiscard]] static RefPtr<StyleSheet> Create()
         {
-            return BuildTheme(ThemePalette::Light());
+            return Create(ThemePalette::Light());
         }
         [[nodiscard]] static RefPtr<StyleSheet> Create(ThemePalette palette)
+        {
+            // Authored as Styling/Themes/light.sss (embedded at build; ui-theme-migration.md P2).
+            StyleSheetLoader loader;
+            loader.SetPalette(palette);
+            RefPtr<StyleSheet> sheet = loader.Load(EmbeddedThemes::Light());
+            if (!sheet)
+            {
+                return CreateLegacyForParity(palette); // never ship unstyled (build defect)
+            }
+            ThemeRegistry::ApplyExtensions(*sheet, palette);
+            return sheet;
+        }
+
+        /// The former C++ rule builder - parity-test oracle ONLY.
+        [[nodiscard]] static RefPtr<StyleSheet> CreateLegacyForParity(ThemePalette palette)
         {
             return BuildTheme(palette);
         }

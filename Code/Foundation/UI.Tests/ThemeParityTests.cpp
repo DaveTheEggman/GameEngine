@@ -194,16 +194,41 @@ namespace
     }
 }
 
-TEST_CASE("theme-parity: dark.sss (parsed) matches the legacy C++ DarkTheme rule-for-rule")
+void CheckThemeParity(StringView sss, RefPtr<StyleSheet> legacy, ThemePalette palette);
+
+TEST_CASE("theme-parity: dark.sss matches the legacy C++ DarkTheme rule-for-rule")
 {
-    const ThemePalette palette = ThemePalette::Dark();
+    CheckThemeParity(EmbeddedThemes::Dark(),
+                     DarkTheme::CreateLegacyForParity(ThemePalette::Dark()), ThemePalette::Dark());
+}
+
+TEST_CASE("theme-parity: light.sss matches the legacy C++ LightTheme (tinted shared glyphs)")
+{
+    // Initialize the shared set so the tinted-variant path is exercised BY IDENTITY (the C++
+    // theme and the sheet must acquire the SAME tinted instances).
+    ThemeIconSet::Get().Initialize();
+    CheckThemeParity(EmbeddedThemes::Light(),
+                     LightTheme::CreateLegacyForParity(ThemePalette::Light()),
+                     ThemePalette::Light());
+    ThemeIconSet::Get().Shutdown();
+}
+
+TEST_CASE("theme-parity: rounded-dark.sss matches the legacy C++ RoundedDarkTheme (editor)")
+{
+    // The editor's live palette - per-corner spin radii + derived colors all covered.
+    CheckThemeParity(EmbeddedThemes::RoundedDark(),
+                     RoundedDarkTheme::CreateLegacyForParity(ThemePalette::GraphiteOrange()),
+                     ThemePalette::GraphiteOrange());
+}
+
+void CheckThemeParity(StringView sss, RefPtr<StyleSheet> legacy, ThemePalette palette)
+{
     RefPtr<StyleSheet> parsed;
     {
         StyleSheetLoader loader;
         loader.SetPalette(palette);
-        parsed = loader.Load(EmbeddedThemes::Dark());
+        parsed = loader.Load(sss);
     }
-    RefPtr<StyleSheet> legacy = DarkTheme::CreateLegacyForParity(palette);
     REQUIRE(parsed.Get() != nullptr);
     REQUIRE(legacy.Get() != nullptr);
 
