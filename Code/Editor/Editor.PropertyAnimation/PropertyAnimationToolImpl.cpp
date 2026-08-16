@@ -225,6 +225,7 @@ namespace editor
             view.AddTrack(seed.componentType.AsView(), seed.propertyPath.AsView(), seed.kind);
         }
         m_commands->EndGroup();
+        m_commands->LockGroup(); // a second "+ From Selection" is its OWN undo entry, not merged
         return seeds.Size();
     }
 

@@ -59,7 +59,6 @@ namespace
         t.channels[0].AddKey(a);
         t.channels[0].AddKey(b);
         res->clip.tracks.PushBack(Move(t));
-        res->clip.loop = true;
         res->clip.duration = res->clip.ComputeDuration();
         return res;
     }
@@ -240,7 +239,6 @@ TEST_CASE("property animator: Once mode stops at the end; Loop keeps going")
     const scene::EntityHandle e = sceneObj.CreateEntity(u8"Once");
     targets->Add(e);
     RefPtr<PropertyAnimationClipResource> clip = MakePositionClip();
-    clip->clip.loop = false;
     PropertyAnimatorComponent& anim = animators->Add(e);
     anim.clip = clip.Get();
     anim.loopMode = PropertyLoopMode::Once;

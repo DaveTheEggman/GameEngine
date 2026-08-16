@@ -44,7 +44,6 @@ export namespace foundation::propertyanimation
         RTTI_OBJECT(PropertyAnimationClipSource, ISerializable)
     public:
         f32 duration = 0.0f;
-        bool loop = false;
 
         // Per track (N entries).
         Array<String> trackComponent;
@@ -71,7 +70,6 @@ export namespace foundation::propertyanimation
         void Serialize(ISerializer& ar) override
         {
             foundation::core::Serialize(ar, "duration", duration);
-            foundation::core::Serialize(ar, "loop", loop);
             foundation::core::Serialize(ar, "trackComponent", trackComponent);
             foundation::core::Serialize(ar, "trackPath", trackPath);
             foundation::core::Serialize(ar, "trackKind", trackKind);
@@ -93,7 +91,6 @@ export namespace foundation::propertyanimation
         static void FromClip(const PropertyAnimationClip& clip, PropertyAnimationClipSource& out)
         {
             out.duration = clip.duration;
-            out.loop = clip.loop;
             out.trackComponent.Clear();
             out.trackPath.Clear();
             out.trackKind.Clear();
@@ -146,7 +143,6 @@ export namespace foundation::propertyanimation
         void FillClip(PropertyAnimationClip& out) const
         {
             out.duration = duration;
-            out.loop = loop;
             out.tracks.Clear();
 
             const usize trackCount = trackKind.Size();
@@ -157,7 +153,12 @@ export namespace foundation::propertyanimation
                 t.componentType =
                     (i < trackComponent.Size()) ? String(trackComponent[i].AsView()) : String();
                 t.propertyPath = (i < trackPath.Size()) ? String(trackPath[i].AsView()) : String();
-                t.kind = static_cast<TrackValueKind>(trackKind[i]);
+                // Range-guard the kind: an out-of-range byte would make ChannelCount desync every
+                // LATER track's channel cursor. Corrupt -> Float (a deterministic 1-channel walk).
+                const u8 rawKind = trackKind[i];
+                t.kind = (rawKind <= static_cast<u8>(TrackValueKind::Color))
+                             ? static_cast<TrackValueKind>(rawKind)
+                             : TrackValueKind::Float;
 
                 const u32 channelCount = ChannelCount(t.kind);
                 for (u32 c = 0; c < channelCount && channelCursor < channelKeyStart.Size(); ++c)
@@ -177,8 +178,13 @@ export namespace foundation::propertyanimation
                         k.value = (idx < keyValue.Size()) ? keyValue[idx] : 0.0f;
                         k.tangentIn = (idx < keyTangentIn.Size()) ? keyTangentIn[idx] : 0.0f;
                         k.tangentOut = (idx < keyTangentOut.Size()) ? keyTangentOut[idx] : 0.0f;
-                        k.interpolation = static_cast<CurveKeyInterpolation>(
-                            (idx < keyInterp.Size()) ? keyInterp[idx] : 0);
+                        // Truncated/out-of-range interp keeps the CurveKey default (Linear), never
+                        // silently Constant (0).
+                        if (idx < keyInterp.Size() &&
+                            keyInterp[idx] <= static_cast<u8>(CurveKeyInterpolation::Cubic))
+                        {
+                            k.interpolation = static_cast<CurveKeyInterpolation>(keyInterp[idx]);
+                        }
                         if (c < kMaxChannels)
                         {
                             t.channels[c].AddKey(k);

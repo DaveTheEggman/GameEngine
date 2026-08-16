@@ -38,7 +38,6 @@ TEST_CASE("propanim.pipeline: asset cooks to the content DB, factory loads + sam
 
         // Author a clip: a Float3 position track 0..(10,0,0) over 1s.
         PropertyAnimationClip clip;
-        clip.loop = true;
         PropertyTrack t;
         t.componentType = String(u8"Transform");
         t.propertyPath = String(u8"position");
@@ -73,7 +72,6 @@ TEST_CASE("propanim.pipeline: asset cooks to the content DB, factory loads + sam
 
     Proxy<PropertyAnimationClipResource> res = manager.Bind<PropertyAnimationClipResource>(id);
     REQUIRE(res);
-    CHECK(res->clip.loop == true);
     CHECK(res->clip.duration == doctest::Approx(1.0f));
     REQUIRE(res->clip.tracks.Size() == 1u);
     CHECK(res->clip.tracks[0].propertyPath.AsView() == StringView(u8"position"));
@@ -91,7 +89,6 @@ TEST_CASE("propanim.pipeline: asset embeds + serializes its source (undo/save ro
     PropertyAnimationClipAsset asset;
     asset.fileName = foundation::vfs::SourcePath(u8"Clips/pulse.rasset");
     asset.source.duration = 2.5f;
-    asset.source.loop = true;
     asset.source.trackKind.PushBack(static_cast<u8>(TrackValueKind::Float));
     asset.source.trackComponent.PushBack(String(u8"Light"));
     asset.source.trackPath.PushBack(String(u8"intensity"));
@@ -110,7 +107,6 @@ TEST_CASE("propanim.pipeline: asset embeds + serializes its source (undo/save ro
     }
     CHECK(restored.fileName.View() == StringView(u8"Clips/pulse.rasset"));
     CHECK(restored.source.duration == doctest::Approx(2.5f));
-    CHECK(restored.source.loop == true);
     REQUIRE(restored.source.trackPath.Size() == 1u);
     CHECK(restored.source.trackPath[0].AsView() == StringView(u8"intensity"));
 }

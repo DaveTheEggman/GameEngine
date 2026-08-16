@@ -550,6 +550,9 @@ namespace editor
         const f32 dur = (m_editDuration > 1e-3f) ? m_editDuration : 1.0f;
         for (u32 ch = 0; ch < channels; ++ch)
         {
+            // The canvas carries ONE interpolation per channel (a P1 simplification), so write-back
+            // FLATTENS it onto every key of the channel - authored per-KEY interpolation is not
+            // preserved through an edit. (Per-key interp is deferred canvas polish.)
             const CurveKeyInterpolation interp =
                 CanvasToClipInterp(canvas.GetChannelDescriptor(static_cast<i32>(ch)).Interpolation);
             const i32 n = canvas.GetKeyCount(static_cast<i32>(ch));

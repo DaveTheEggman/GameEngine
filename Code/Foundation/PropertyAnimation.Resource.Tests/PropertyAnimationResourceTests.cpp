@@ -32,7 +32,6 @@ namespace
     PropertyAnimationClip MakeClip()
     {
         PropertyAnimationClip clip;
-        clip.loop = true;
 
         PropertyTrack pos;
         pos.componentType = String(u8"Transform");
@@ -107,7 +106,6 @@ TEST_CASE("propanim.resource: cooked-clip wire round-trips (counts + sample iden
     restoredSrc.FillClip(rebuilt);
 
     REQUIRE(rebuilt.tracks.Size() == original.tracks.Size());
-    CHECK(rebuilt.loop == original.loop);
     CHECK(rebuilt.duration == doctest::Approx(original.duration));
 
     // Track metadata + kinds survived.

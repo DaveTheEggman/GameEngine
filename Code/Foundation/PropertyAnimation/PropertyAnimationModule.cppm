@@ -174,12 +174,12 @@ export namespace foundation::propertyanimation
         }
     };
 
-    // A cooked/authored clip: a duration, a loop hint, and the tracks. Immutable SHARED data at
-    // runtime (each playing component owns only {time, state, binding cache}).
+    // A cooked/authored clip: a duration and the tracks. Immutable SHARED data at runtime (each
+    // playing component owns only {time, state, binding cache}). Loop behavior is the animator
+    // COMPONENT's loopMode, not a clip field.
     struct PropertyAnimationClip
     {
         f32 duration = 0.0f;
-        bool loop = false;
         Array<PropertyTrack> tracks;
 
         // The clip's duration = the longest track (call after editing to refresh `duration`).
