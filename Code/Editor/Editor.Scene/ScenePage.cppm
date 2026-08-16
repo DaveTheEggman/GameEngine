@@ -222,10 +222,59 @@ export namespace editor
                 viewportPane->AddView(viewportFrame.Get(), lp);
             }
 
-            // Page layout: hierarchy | (viewport | inspector).
+            // Reserve the tool-panel rail to the LEFT of the viewport (Phase H1). It is Gone (zero
+            // layout space) until the active tool has a registered panel; the controller mounts the
+            // panel view here and flips it Visible on activation.
+            m_toolPanelHost = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+            m_toolPanelHost->Direction = foundation::ui::Orientation::Vertical;
+            m_toolPanelHost->Visibility = foundation::ui::Visibility::Gone;
+            auto viewportArea = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+            viewportArea->Direction = foundation::ui::Orientation::Horizontal;
+            {
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Px(300));
+                lp->Height = foundation::ui::SizeSpec::Match();
+                viewportArea->AddView(m_toolPanelHost.Get(), lp);
+            }
+            {
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Height = foundation::ui::SizeSpec::Match();
+                lp->Grow = 1.0f;
+                viewportArea->AddView(viewportPane.Get(), lp);
+            }
+
+            // The mount controller: on each tool change it docks the matching panel into the rail
+            // (view built fresh from the registry) or clears the rail. Frame-driven Sync (OnUpdate)
+            // keeps the mount out of event dispatch (the never-free-a-view-mid-dispatch rule).
+            {
+                ViewportToolHostContext panelCtx;
+                panelCtx.scene = &m_editContext->Scene();
+                panelCtx.commands = &m_editContext->Commands();
+                panelCtx.entitySelection = &m_editContext->EntitySelection();
+                m_toolPanel = MakeUnique<ViewportToolPanelHost>(
+                    DefaultAllocator(), m_viewportTools, ViewportToolPanelRegistry::Get(), panelCtx,
+                    [this](foundation::ui::View* view)
+                    {
+                        m_toolPanelHost->RemoveAllViews();
+                        auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                        lp->Width = foundation::ui::SizeSpec::Match();
+                        lp->Grow = 1.0f;
+                        m_toolPanelHost->AddView(view, lp);
+                        m_toolPanelHost->Visibility = foundation::ui::Visibility::Visible;
+                        m_toolPanelHost->Invalidate();
+                    },
+                    [this]()
+                    {
+                        m_toolPanelHost->RemoveAllViews();
+                        m_toolPanelHost->Visibility = foundation::ui::Visibility::Gone;
+                        m_toolPanelHost->Invalidate();
+                    });
+            }
+
+            // Page layout: hierarchy | ((tool-panel | viewport) | inspector).
             auto inner = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
             inner->SetSplitRatio(0.72f);
-            inner->SetPanes(viewportPane.Get(), m_inspector.Get());
+            inner->SetPanes(viewportArea.Get(), m_inspector.Get());
             m_content = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
             m_content->SetSplitRatio(0.2f);
             m_content->SetPanes(m_hierarchy.Get(), inner.Get());
@@ -394,6 +443,13 @@ export namespace editor
         ViewportToolManager m_viewportTools;             // declared after m_editContext (tools borrow it)
         SelectTransformTool* m_selectTool = nullptr;     // borrowed (manager-owned default tool)
         GizmoRendererRegistry m_componentGizmos;
+
+        // Tool-panel dock slot (property-animation.md Phase H1): a left rail beside the viewport that
+        // hosts the ACTIVE tool's settings panel (property-animation authoring, future brush panels).
+        // Gone when the active tool has no panel; the controller mounts/unmounts on tool changes.
+        RefPtr<foundation::ui::FlexLayout> m_toolPanelHost;
+        UniquePtr<ViewportToolPanelHost> m_toolPanel;
+        void SyncToolPanel(); // called each frame from OnUpdate (never mid-event-dispatch)
         RefPtr<ui::viewport::ViewportView> m_viewport;
 
         // Camera preview (task #118): a small bottom-right overlay showing a selected/pinned camera's

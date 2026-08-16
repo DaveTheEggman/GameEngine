@@ -128,6 +128,15 @@ namespace editor
         }
         UpdateCameraPreview(); // task #118: selection/pin -> preview visibility + target
         SyncToolbar();
+        SyncToolPanel(); // Phase H1: dock/undock the active tool's panel (frame-driven, not mid-dispatch)
+    }
+
+    void SceneEditorPage::SyncToolPanel()
+    {
+        if (m_toolPanel)
+        {
+            m_toolPanel->Sync();
+        }
     }
 
     void SceneEditorPage::OnRenderWindow(runtime::IApplicationHost&,
