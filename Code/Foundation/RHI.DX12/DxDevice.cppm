@@ -206,6 +206,64 @@ export namespace foundation::rhi::dx12
             return 0;
         }
 
+        // ---- MSAA capability ----
+        //
+        // DX12 has no format-agnostic "framebuffer sample counts" limit the way Vulkan does; the
+        // only query is per-format via CheckFeatureSupport(MULTISAMPLE_QUALITY_LEVELS), where
+        // NumQualityLevels == 0 means the count is unsupported. The engine's MSAA scene pass
+        // binds a whole MRT set at ONE count (msaa.md), so a count only counts as supported when
+        // every attachment format the pass uses supports it - the same "colour AND depth agree"
+        // rule VkDevice applies to its two bitmasks.
+        //
+        // Without these overrides the base Device returned 1 / count<=1, so DX12 silently never
+        // offered MSAA at all while Vulkan and WebGPU did.
+        [[nodiscard]] bool sampleCountSupported(u32 count) const noexcept
+        {
+            if (count <= 1)
+                return true;
+            if (count != 2 && count != 4) // engine ceiling is 4x; only powers of two are valid
+                return false;
+
+            // The formats PipelineImpl allocates at the pass sample count: depth, the HDR colour
+            // target, and the G-buffer aux targets (RenderData.cppm).
+            static constexpr DXGI_FORMAT kPassFormats[] = {
+                DXGI_FORMAT_D32_FLOAT,          // Pipeline::DepthFormat default
+                DXGI_FORMAT_R16G16B16A16_FLOAT, // kHdrFormat
+                DXGI_FORMAT_R16G16_FLOAT,       // kGNormalFormat / kGVelocityFormat
+                DXGI_FORMAT_R8G8_UNORM,         // kGMaterialFormat
+                DXGI_FORMAT_B8G8R8A8_UNORM,     // Pipeline::colorFormat default (non-HDR path)
+            };
+
+            for (const DXGI_FORMAT fmt : kPassFormats)
+            {
+                D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS q{};
+                q.Format = fmt;
+                q.SampleCount = count;
+                q.Flags = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
+                if (FAILED(m_device->CheckFeatureSupport(
+                        D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &q, sizeof(q))) ||
+                    q.NumQualityLevels == 0)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        u32 MaxColorDepthSampleCount() const noexcept override
+        {
+            if (sampleCountSupported(4))
+                return 4; // engine ceiling (msaa.md Decision 1); 8x is out of scope
+            if (sampleCountSupported(2))
+                return 2;
+            return 1;
+        }
+
+        bool SupportsSampleCount(u32 count) const noexcept override
+        {
+            return sampleCountSupported(count);
+        }
+
         FormatSupport GetFormatSupport(TextureFormat /*format*/) override
         {
             // DX12 supports D24_S8 on all hardware and most formats broadly.

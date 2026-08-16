@@ -15,6 +15,9 @@ import foundation.core;
 import foundation.rhi;
 import foundation.rhi.vulkan;
 import foundation.rhi.webgpu;
+#ifdef OPTION_HAS_DX12
+import foundation.rhi.dx12;
+#endif
 import foundation.rhi.testsupport;
 import foundation.geometry;
 import foundation.materials;
@@ -280,6 +283,10 @@ namespace
         (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
         rhi::Backend* webgpu = nullptr;
         (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+#ifdef OPTION_HAS_DX12
+        rhi::Backend* dx12 = nullptr;
+        (void)rhi::dx12::CreateDxBackend(rhi::dx12::DxBackendDesc{}, dx12);
+#endif
 
         bool any = false;
         if (rhi::Device* device = testsupport::MakeTestDevice(vulkan))
@@ -302,6 +309,18 @@ namespace
         {
             MESSAGE("WebGPU unavailable - skipped");
         }
+#ifdef OPTION_HAS_DX12
+        if (rhi::Device* device = testsupport::MakeTestDevice(dx12))
+        {
+            probe(*device, "dx12");
+            device->Destroy();
+            any = true;
+        }
+        else
+        {
+            MESSAGE("DX12 unavailable - skipped");
+        }
+#endif
         if (!any)
         {
             MESSAGE("no GPU backend available - MSAA probe skipped entirely");
