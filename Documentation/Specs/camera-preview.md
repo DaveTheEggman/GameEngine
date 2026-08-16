@@ -1,5 +1,13 @@
 # Scene editor: floating, pinnable camera preview (task #118)
 
+> STATUS: BUILT 2026-08-03 (cd8201b9 core, 07daee85 overlay, 2e4db157
+> view-keyed debug draw so gizmos stay out of the preview) + tests
+> (CameraPreviewTests.cpp). The preview appears when an entity WITH a
+> CameraComponent is selected (none selected = no preview - by design).
+> Remaining: on-screen user verify only (UAT editor-misc session).
+> Header added 2026-08-15 - the spec was never stamped at build time,
+> which left task #118 looking open.
+
 Size: M. Modules: `Code/Draconic/Editor/Draconic.Editor.Scene/`
 (ScenePageImpl.cpp + a new preview view class),
 `Code/Draconic/Foundation/Draconic.UI.Viewport/` (reuse, ideally unchanged).

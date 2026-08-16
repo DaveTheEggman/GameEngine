@@ -351,6 +351,30 @@ Questions:
   > stays byte-identical. Absent/unknown section = single-`Content.pak`
   > fallback; the settings unknown-section passthrough precedent covers old
   > readers.
+  >
+  > **AMENDED - deviation ACCEPTED (Fable review, 2026-08-15 late).** The
+  > build went MANIFEST-FREE: pak-NAME convention (`Content-bc.pak` /
+  > `Content-astc.pak`, no `Content.pak` in a variant dist) with the boot
+  > probing the adapter and falling back to `Content.pak` when the variant
+  > fetch 404s (FileExists check after wget). Accepted because it is
+  > STRONGER on the constraints than my original ruling: `player.xml` is
+  > untouched on every platform (not merely absent-section), the dist names
+  > were already a convention the boot hardcodes, and the fallback covers
+  > legacy bundles with the only cost being one extra failed request on an
+  > OLD single-pak web bundle. Conditions attached:
+  > 1. The selection is logged (done - the probe LOG_INFO line) and the
+  >    legacy-bundle fallback gets exercised in the UAT browser check.
+  > 2. THE MANIFEST IS PLANNED, NOT CONTINGENT (user, 2026-08-15: quality
+  >    tiers are foreseen "at the very least", locales later). It lands
+  >    WITH the first CHOICE-DRIVEN variant axis (quality tiers), because
+  >    that axis cannot be adapter-probed - tier and locale are deployment/
+  >    user choices, so the boot needs a listing to resolve them. Shape
+  >    when it lands: `contentVariants` lists variant DIMENSIONS; the boot
+  >    resolves the capability dimension (bc/astc) by probe exactly as
+  >    today, and choice dimensions (tier, locale) by config/query. The
+  >    name convention stays valid as the single-dimension degenerate case,
+  >    so today's dists keep working. Do NOT build the manifest before the
+  >    second dimension exists.
 
 - **Q4 (correctness traps).** Anything in the copy-forward-per-target + two-pak
   flow I'm missing - scenes/scripts staged once vs per-pak, reachability

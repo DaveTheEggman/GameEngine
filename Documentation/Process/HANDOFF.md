@@ -281,3 +281,37 @@ ZERO failures. No script/executor changes - no ASAN pass required.
   a logged follow-up - edits bypass the command stack).
 
 Baseline: fd8b04e0 (+ Fable doc commits 4031a0fa and this record).
+
+## Review pass 9 (2026-08-15 late, Fable): asset-variants P2f + P3 - PASS
+
+Range 03e313c7..456907b6 (4 commits). Full battery: 118 targets x 2 = 236
+runs, ZERO failures. Wasm verified: Engine.Player.html links clean with the
+new boot probe (built here, not just claimed).
+
+- Q2 executed: per-target DBs at sibling Cooked-<id>/; the byte-identical
+  desktop-pack guard is a real test (junk-filled sibling present ->
+  identical Content.pak). Export reuses CookForTarget via CookVariantTargets
+  (Q4.4); shaders.dpak stays single (asserted); closure scanned once and
+  applied to both variant paks.
+- Web boot (65db811c): SelectAndFetchContentPak - preloaded-pak
+  short-circuit, throwaway-backend adapter probe torn down before app boot,
+  BC preferred, LOG_INFO naming the choice, 404-fallback to Content.pak via
+  FileExists-after-wget. Sound.
+- Q3 DEVIATION ACCEPTED (amended in the spec): manifest-FREE pak-name
+  convention (Content-bc/-astc, no Content.pak in a variant dist). Stronger
+  than the original ruling on the byte-identity constraint; conditions:
+  fallback exercised in the UAT browser check, and - per the user's
+  declared roadmap (quality tiers at least, locales later) - the MANIFEST
+  IS PLANNED, landing with the first choice-driven variant dimension
+  (probe can't resolve tier/locale). Do not build it before then.
+- NOTE for next batch: add the bc-vs-astc pak GUID-SET EQUALITY assertion
+  (Q4.1's forever-tripwire) to the two-pak export test - the closure is
+  applied once so divergence is structurally unlikely, but the assertion
+  is cheap and permanent.
+- REMAINING on the track: the browser functional check (desktop loads BC,
+  mobile/forced-capability loads ASTC) = UAT, gated on the mobile-web
+  smoke precursor.
+- Also this pass: camera-preview spec stamped BUILT-2026-08-03 (was never
+  stamped; task #118 closed - only on-screen verify remains, UAT).
+
+Baseline: 456907b6 (+ Fable doc commits after it).
