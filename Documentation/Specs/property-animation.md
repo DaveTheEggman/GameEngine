@@ -511,3 +511,45 @@ STATUS 2026-08-16: H1-H4 all BUILT + battery-green on clang and gcc (see the
 BUILD STATUS block at the top for the per-step summary + assertion counts). The
 editor executable links on both compilers. Remaining: the user's on-screen visual
 pass (smoke-checklist.md 2026-08-16 in-scene-authoring section).
+
+## IN-SCENE EDITOR REDESIGN (user direction 2026-08-16, post-UAT)
+
+The Phase-H tool-mode/left-rail in-scene editor was wrong. New shape (user-decided):
+
+1. **Persistent bottom panel, NOT a viewport tool-mode.** The animation editor is a
+   view the scene page OWNS for its lifetime (not activation-scoped) - which also
+   kills review-pass-10 #5 (undo command pointed at a recreatable view -> UAF) and
+   #6 (stale preview snapshot) by construction. Retire PropertyAnimationTool +
+   IViewportTool + the two providers; the H1 tool-panel seam stays PARKED for future
+   modal tools (terrain), unused here.
+2. **Docked below the VIEWPORT only, with a RESIZABLE SPLITTER** - a vertical
+   SplitView between the viewport and the panel. It must NOT extend under the
+   hierarchy or inspector (correction to the transitional full-page bottom dock in
+   commit 45cafbb0). Layout: hierarchy | ( [viewport / panel]-vsplit | inspector ).
+   SplitView min-pane is 50px, so the panel is always present (persistent) - a resize
+   splitter and a "Gone until active" panel are incompatible.
+3. **A ported DOPESHEET timeline scrubber** (Sedulous TimelineView, Code/Editor/
+   Sedulous.Editor/src/Pages/TimelineView.bf - reference at /home/robert/Dev/Beef/
+   SedulousEngine): left track-label column, top time RULER (ticks/labels), keyframe
+   DIAMONDS per row, a draggable red PLAYHEAD (click/drag the grid or ruler to scrub
+   -> fires a time-changed event that drives the live preview), + a Play/Pause/Stop
+   TRANSPORT that auto-advances the playhead (DCC conventions: Stop->0, Play-from-end
+   replays, loop-wrap). Replaces the numeric "Scrub" field. The per-track CurveCanvas
+   becomes a curve editor for the SELECTED track (shaping), the dopesheet is the
+   timing/scrub surface.
+   - **Do NOT port blindly - Sedulous had interaction glitches.** Improve: robust
+     keyframe drag (sort on release, keep "their" keyframe by time not index - Sedulous
+     did this, keep it; but avoid mid-drag index thrash), clear playhead-vs-keyframe
+     hit priority, keyboard scrub (arrows), optional snapping, empty-state that is not
+     a "Phase 3 picker" stub. Audit the .bf on-screen behavior before copying.
+4. **Asset picker slot upgrade** (separate track, user-requested): the inspector
+   AssetPickerSlot gets 3 controls - preview icon / Edit button / Clear button - plus
+   drag-drop FROM the asset browser (type-filtered; wrong type = warning log/toast),
+   and click-preview reveals the asset in the browser. Edit on a property-anim clip
+   opens this in-scene panel focused on that clip; Edit on other assets opens their
+   page. This becomes an activation path for the panel (with a View toggle + auto on
+   selecting an entity that has a PropertyAnimator).
+
+Sequencing: (a) persistent panel + splitter-below-viewport placement (fixes #5/#6,
+honors the placement correction), (b) the dopesheet widget, (c) the asset slot +
+activation. Each lands green on both compilers with tests.
