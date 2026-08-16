@@ -6,6 +6,10 @@
 > Track: backlog I11 / renderer
 > Author: Fable, 2026-08-12. Opus executes; Fable reviews per phase.
 > Resume at P1g (the pixel-probe acceptance test).
+>
+> VERIFICATION GAP (user, 2026-08-16): DX12/Windows has NOT run any of the
+> MSAA verification (probes or on-screen) - Vulkan + WebGPU only. Tracked in
+> KNOWN_ISSUES.md; next Windows session runs the probe suites on DX12.
 
 **Motivation:** the Sponza-vs-Godot comparison (I11). Mips closed the
 dominant gap; geometry-edge quality without TAA's temporal artifacts is the

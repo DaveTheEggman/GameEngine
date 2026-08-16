@@ -5,6 +5,11 @@
 > Encoder dependencies (bc7enc/rgbcx + astcenc, vendored) and meshoptimizer
 > (for the sibling mesh-lod spec) are USER-APPROVED 2026-08-15.
 > Supersedes the sketch in Documentation/Backlog/issues-triage.md I6.
+>
+> VERIFICATION GAP (user, 2026-08-16): DX12/Windows has NOT run the BC upload
+> path or the compressed-texture GPU probes - Vulkan + WebGPU only. Tracked in
+> KNOWN_ISSUES.md; next Windows session runs them on DX12 (block row-pitch is
+> the risk spot).
 
 ## Why this is one spec, not two
 
