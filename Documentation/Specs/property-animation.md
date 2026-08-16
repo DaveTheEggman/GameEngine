@@ -1,11 +1,42 @@
 # Property animation
 
-**Status:** SPEC, ready to build (2026-08-10). First of the three parity P0
+**Status:** BUILT 2026-08-16 (all 7 phases). First of the three parity P0
 tracks (this, then navigation.md, then terrain.md - see
 docs/design/parity-2026-08.md). Prior art: Lumix `property_animator`
 (reflected float curves); ours is multi-type from day one (user decision)
 because Variant + reflection make it nearly free and transform animation
 (Float3/Quat) is the number one use case.
+
+## BUILD STATUS (2026-08-16)
+
+All phases shipped, green on clang + gcc:
+- **A** foundation.core:curve - scalar keyframe curve (Constant/Linear/Cubic
+  Hermite). 36 assertions.
+- **B** foundation.propertyanimation - TrackValueKind{Float,Float3,Quat,Color},
+  PropertyTrack (per-component Curves + slerped QuatKeys), Sample->Variant, the
+  reflection binding resolver (nested paths, live-re-walk write). 37 assertions.
+- **C** foundation.propertyanimation.resource - cooked clip (flat SoA source +
+  FromClip/FillClip, bounds-guarded) + factory (model-A). 54 assertions.
+- **D** propertyanimation.pipeline - PropertyAnimationClipAsset embeds the source
+  + builder; registered in Pipeline::Registration (kBuilderCount 21->22). Cook
+  round-trip + tripwire tests.
+- **E** engine.animation:propertyanimator - PropertyAnimatorComponent + per-scene
+  manager (injected by AnimationSubsystem, ticks PostUpdate): Once/Loop/PingPong
+  clock, per-track binding built once (component-by-type-NAME + property chain),
+  live re-resolve write, failed-track disable-with-one-warning. 43 assertions.
+- **G** scripting - reflected play/stop/pause/resume/isPlaying/time/setTime via
+  the existing `.of(entity)` surface (no facade lib). 52 assertions.
+- **F** editor.propertyanimation - the P1 clip page (track list + keyframe table +
+  transport scrub + toolbar undo) + New Asset creator, wired into the editor exe.
+
+REMAINING (follow-ups, not blocking the feature):
+- Live preview writing to a SELECTED scene entity (needs the cross-page selection
+  seam; the page's scrub shows sampled values today).
+- The physics-kinematic-rule TEST (documented in the component; the cross-subsystem
+  test rides the physics manager).
+- Acceptance UAT: the demo scene (animated position + light color, looping) in
+  play-in-editor AND the exported player + a user visual pass.
+- P2 (separate): the curve-editor widget in ui.toolkit.
 
 GOAL: animate ANY reflected property on ANY component with keyframe curves,
 as data (a clip asset) driven by a component - no code per animated thing.
