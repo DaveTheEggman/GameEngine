@@ -36,7 +36,17 @@ REMAINING (follow-ups, not blocking the feature):
   test rides the physics manager).
 - Acceptance UAT: the demo scene (animated position + light color, looping) in
   play-in-editor AND the exported player + a user visual pass.
-- P2 (separate): the curve-editor widget in ui.toolkit.
+
+CORRECTION 2026-08-16: the "P2 = BUILD the curve-editor widget" framing below is
+STALE. The widget ALREADY EXISTS - `Foundation::UI.Toolkit CurveCanvas`
+(CurveCanvas.cppm, ported from Sedulous, tested, already used by the particle
+page). So the clip page did not need to avoid a canvas in P1; adopting it is
+ADAPTATION not building. The seam: CurveCanvas has its OWN CurveInterpolation
+(Hermite-first) + a Key with Time normalized [0,1], vs foundation.core:curve
+{Constant,Linear,Cubic} with absolute times - a small per-track mapping layer
+(SetChannels by channel count, push keys, OnKey* -> write back through the page's
+undo Mutate) + bump the MaxKeys=8 default (the particle cap). QUEUED as a page
+upgrade, not a from-scratch widget build.
 
 GOAL: animate ANY reflected property on ANY component with keyframe curves,
 as data (a clip asset) driven by a component - no code per animated thing.
@@ -155,6 +165,9 @@ special-casing.
 - P2 (separate, after P1 proves the data model): the curve editor widget
   in ui.toolkit (multi-curve canvas, tangent handles, box select). It is
   real toolkit work - do not let it block the runtime shipping.
+  ^^^ STALE (see CORRECTION 2026-08-16 in BUILD STATUS): the widget ALREADY
+  EXISTS (UI.Toolkit CurveCanvas). "P2" is now ADOPTING it in the clip page
+  (a mapping layer), not building it.
 - Preview must respect the UI mutation-queue rule and write through the
   undo path when editing keys (one undo step per key operation).
 
