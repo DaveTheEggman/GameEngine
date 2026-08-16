@@ -338,11 +338,101 @@ namespace editor
         return out;
     }
 
+    // Is this a web/wasm target (the only one that splits into BC + ASTC variants today)?
+    static bool IsWebPlatform(StringView platform)
+    {
+        return platform.StartsWith(u8"Web") || platform.StartsWith(u8"Wasm");
+    }
+
+    Array<ContentVariant> VariantsForPlatform(EditorProject& project, StringView platform)
+    {
+        Array<ContentVariant> out;
+        if (IsWebPlatform(platform))
+        {
+            // Two COMPLETE paks - one per compressed-family the browser might support (Decision 4).
+            // Cooked dirs are SIBLINGS of the host Cooked/ (Fable Q2), matching Tools.Cook --target.
+            const StringView keys[] = {StringView(u8"bc"), StringView(u8"astc")};
+            for (const StringView key : keys)
+            {
+                ContentVariant v;
+                v.key = String(key);
+                v.pakName = String(u8"Content-");
+                v.pakName.Append(key);
+                v.pakName.Append(u8".pak");
+                v.cookedDir = String(project.Directory());
+                v.cookedDir.Append(u8"/Cooked-web-");
+                v.cookedDir.Append(key); // Cooked-web-bc / Cooked-web-astc
+                out.PushBack(Move(v));
+            }
+        }
+        else
+        {
+            // Desktop: the single host pak from Cooked/ - byte-identical to pre-P2.
+            ContentVariant v;
+            v.pakName = String(engine::project::kDistContentPak);
+            v.cookedDir = PathJoin(project.Directory(), engine::project::kProjectCookedDir);
+            out.PushBack(Move(v));
+        }
+        return out;
+    }
+
+    Status CookVariantTargets(EditorProject& project, BuilderRegistry& builders,
+                              Span<const ContentVariant> variants, bool rebuild,
+                              const ExportProgress& onProgress)
+    {
+        // The host cook already ran (ExportProject/CookReachable) and persisted its records to
+        // .cache/cook.db - load them once to gate copy-forward for every target.
+        foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
+        CookDb hostRecords;
+        hostRecords.Load(cacheMount);
+
+        foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
+        JobSystem jobs;
+        usize failed = 0;
+        for (const ContentVariant& v : variants)
+        {
+            if (v.key.IsEmpty())
+            {
+                continue; // desktop: the host DB already IS this variant
+            }
+            if (onProgress)
+            {
+                String step(u8"Cooking variant ");
+                step += v.key.AsView();
+                onProgress(step.AsView(), 0.6f);
+            }
+            // Target id "web-<key>" resolves to the capability profile (web-astc -> ASTC, else BC).
+            String targetId(u8"web-");
+            targetId += v.key.AsView();
+
+            // Materialize Cooked-web-<key>/ + .cache/web-<key>/ ; carry invariants forward from host.
+            const String cacheDir = PathJoin(
+                PathJoin(project.Directory(), engine::project::kProjectCacheDir), targetId.AsView());
+            (void)CreateDirectory(v.cookedDir.AsView());
+            (void)CreateDirectory(PathJoin(project.Directory(),
+                                           engine::project::kProjectCacheDir).AsView());
+            (void)CreateDirectory(cacheDir.AsView());
+
+            foundation::vfs::NativeFileSystem targetCookedMount(v.cookedDir.AsView());
+            foundation::vfs::NativeFileSystem targetCacheMount(cacheDir.AsView());
+            foundation::content::ContentDatabase targetDb(targetCookedMount, BinarySerializerFactory(),
+                                                        engine::project::kCookedAssetExtension);
+
+            const CookStats s = CookForTarget(project.SourceDb(), targetDb, project.CookedDb(),
+                                              hostRecords, builders, &sourcesMount, &targetCacheMount,
+                                              CookTargetFor(targetId.AsView()), &jobs, rebuild);
+            failed += s.failed;
+            LOG_INFO(u8"Export", u8"variant '{}' cooked {}, copied-forward {}, failed {}", v.key,
+                     s.cooked, s.copiedForward, s.failed);
+        }
+        return (failed == 0) ? Status{} : Status{ErrorCode::Internal};
+    }
+
     Status ExportContent(EditorProject& project, StringView outDir, ExportStats& stats,
                          const ExportProgress& onProgress,
                          const HashMap<Guid, Array<byte>>* sceneStreams,
                          const HashMap<Guid, u8>* reachable, const Array<ExportRoot>* roots,
-                         PruningReport* outReport)
+                         PruningReport* outReport, Span<const ContentVariant> variants)
     {
 
         // --- stage scenes ---
@@ -419,27 +509,51 @@ namespace editor
 
         if (onProgress)
         {
-            onProgress(u8"Packing Content.pak...", 0.78f);
+            onProgress(u8"Packing content...", 0.78f);
         }
-        foundation::vfs::PakBuilder pak;
-        foundation::vfs::NativeFileSystem cookedMount(
-            PathJoin(project.Directory(), engine::project::kProjectCookedDir).AsView());
-        if (!detail::PackTree(cookedMount, *cookedMount.AsEnumerable(), u8"", pak,
-                              stats.filesPacked, reachablePaths.Get()) ||
-            !detail::PackTree(stagingMount, *stagingMount.AsEnumerable(), u8"", pak,
-                              stats.filesPacked))
+        // The variants to pack: the caller's list, or - by default - the single host Content.pak
+        // (byte-identical to pre-P2). Each variant is a COMPLETE pak: its own cooked DB + the SAME
+        // staged scenes + the SAME reachable set (the closure guid-set is variant-invariant).
+        Array<ContentVariant> effectiveVariants;
+        if (variants.IsEmpty())
         {
-            LOG_ERROR(u8"Export", u8"packing failed");
-            return Status{ErrorCode::Internal};
+            ContentVariant desktop;
+            desktop.pakName = String(engine::project::kDistContentPak);
+            desktop.cookedDir = PathJoin(project.Directory(), engine::project::kProjectCookedDir);
+            effectiveVariants.PushBack(Move(desktop));
+        }
+        else
+        {
+            for (const ContentVariant& v : variants)
+            {
+                ContentVariant copy;
+                copy.key = String(v.key.AsView());
+                copy.pakName = String(v.pakName.AsView());
+                copy.cookedDir = String(v.cookedDir.AsView());
+                effectiveVariants.PushBack(Move(copy));
+            }
         }
         // The startup game script needs no special staging - it is a cooked ScriptClass asset in the
         // reachability closure, so it already rides in the content DB pak like every other asset. The
         // dist manifest carries its guid (below); the player binds it from the content DB.
-        const String pakPath = PathJoin(outDir, engine::project::kDistContentPak);
-        if (!pak.Write(pakPath.AsView()).IsOk())
+        for (const ContentVariant& v : effectiveVariants)
         {
-            LOG_ERROR(u8"Export", u8"failed to write Content.pak");
-            return Status{ErrorCode::Internal};
+            foundation::vfs::PakBuilder pak;
+            foundation::vfs::NativeFileSystem cookedMount(v.cookedDir.AsView());
+            if (!detail::PackTree(cookedMount, *cookedMount.AsEnumerable(), u8"", pak,
+                                  stats.filesPacked, reachablePaths.Get()) ||
+                !detail::PackTree(stagingMount, *stagingMount.AsEnumerable(), u8"", pak,
+                                  stats.filesPacked))
+            {
+                LOG_ERROR(u8"Export", u8"packing failed for variant '{}'", v.pakName);
+                return Status{ErrorCode::Internal};
+            }
+            const String pakPath = PathJoin(outDir, v.pakName.AsView());
+            if (!pak.Write(pakPath.AsView()).IsOk())
+            {
+                LOG_ERROR(u8"Export", u8"failed to write '{}'", v.pakName);
+                return Status{ErrorCode::Internal};
+            }
         }
 
         // --- 4. dist manifest ---
@@ -512,7 +626,8 @@ namespace editor
 
     Status ExportProject(EditorProject& project, StringView outDir, BuilderRegistry& builders,
                          bool rebuild, ExportStats* outStats, const ExportProgress& onProgress,
-                         const HashMap<Guid, Array<byte>>* sceneStreams)
+                         const HashMap<Guid, Array<byte>>* sceneStreams,
+                         Span<const ContentVariant> variants)
     {
         ExportStats stats;
 
@@ -555,8 +670,25 @@ namespace editor
             return Status{ErrorCode::Internal};
         }
 
+        // --- variant target cooks (web: BC + ASTC) - after the host cook, before the pack ---
+        if (!variants.IsEmpty())
+        {
+            const Status vs = CookVariantTargets(project, builders, variants, rebuild, onProgress);
+            if (!vs.IsOk())
+            {
+                LOG_ERROR(u8"Export", u8"aborting - a variant cook failed");
+                if (outStats != nullptr)
+                {
+                    *outStats = stats;
+                }
+                return Status{ErrorCode::Internal};
+            }
+        }
+
         // --- content ---
-        const Status s = ExportContent(project, outDir, stats, onProgress, sceneStreams);
+        const Status s =
+            ExportContent(project, outDir, stats, onProgress, sceneStreams, nullptr, nullptr,
+                          nullptr, variants);
         if (outStats != nullptr)
         {
             *outStats = stats;
@@ -630,6 +762,12 @@ namespace editor
             prune = false;
         }
 
+        // The content variants this preset ships (asset-variants P3): desktop = the single host pak;
+        // Web = BC + ASTC. Threaded into every content path so the pack produces one pak per variant.
+        const Array<ContentVariant> variants =
+            VariantsForPlatform(project, preset.platform.AsView());
+        const Span<const ContentVariant> variantSpan(variants.Data(), variants.Size());
+
         Status contentStatus;
         if (prune)
         {
@@ -645,6 +783,12 @@ namespace editor
             contentStatus = CookReachable(project, builders,
                                           Span<const Guid>(planRoots.Data(), planRoots.Size()),
                                           cook, rebuild, result.content, reachableList, onProgress);
+            // Variant target cooks (web) after the host closure cook; no-op for desktop.
+            if (contentStatus.IsOk())
+            {
+                contentStatus =
+                    CookVariantTargets(project, builders, variantSpan, rebuild, onProgress);
+            }
             if (contentStatus.IsOk())
             {
                 HashMap<Guid, u8> reachable;
@@ -654,15 +798,24 @@ namespace editor
                 }
                 contentStatus =
                     ExportContent(project, result.outputDir.AsView(), result.content, onProgress,
-                                  sceneStreams, &reachable, &seeds, &result.pruning);
+                                  sceneStreams, &reachable, &seeds, &result.pruning, variantSpan);
             }
+        }
+        else if (cook)
+        {
+            contentStatus = ExportProject(project, result.outputDir.AsView(), builders, rebuild,
+                                          &result.content, onProgress, sceneStreams, variantSpan);
         }
         else
         {
-            contentStatus = cook ? ExportProject(project, result.outputDir.AsView(), builders,
-                                                 rebuild, &result.content, onProgress)
-                                 : ExportContent(project, result.outputDir.AsView(), result.content,
-                                                 onProgress, sceneStreams);
+            // The editor already cooked the HOST via CookService; still cook the variant targets.
+            contentStatus = CookVariantTargets(project, builders, variantSpan, rebuild, onProgress);
+            if (contentStatus.IsOk())
+            {
+                contentStatus =
+                    ExportContent(project, result.outputDir.AsView(), result.content, onProgress,
+                                  sceneStreams, nullptr, nullptr, nullptr, variantSpan);
+            }
         }
         if (!contentStatus.IsOk())
         {

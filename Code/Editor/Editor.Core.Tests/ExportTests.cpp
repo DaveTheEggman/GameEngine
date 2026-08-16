@@ -1802,9 +1802,13 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     CHECK(distFs.Exists(u8"Engine.Player.js"));
     CHECK(distFs.Exists(u8"Engine.Player.wasm"));
     CHECK(distFs.Exists(u8"serve.py"));
-    CHECK(distFs.Exists(u8"Content.pak"));
+    // Web dist ships TWO variant content paks (BC for desktop browsers, ASTC for mobile), selected
+    // by the wasm boot from the adapter's compressed-family - NOT a single Content.pak (P3, Dec 4).
+    CHECK(distFs.Exists(u8"Content-bc.pak"));
+    CHECK(distFs.Exists(u8"Content-astc.pak"));
+    CHECK_FALSE(distFs.Exists(u8"Content.pak"));
     CHECK(distFs.Exists(u8"player.xml"));
-    CHECK(distFs.Exists(u8"shaders.dpak"));
+    CHECK(distFs.Exists(u8"shaders.dpak")); // single shader pack (platform-keyed, compression-orthogonal)
 
     // The pack is WGSL-format (the Web platform's runtime format), not SPIR-V/DXIL.
     {
@@ -1824,4 +1828,124 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     NukeTree(rootDir.AsView());
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());
+}
+
+TEST_CASE("export: VariantsForPlatform - desktop single pak, web BC + ASTC siblings")
+{
+    const String projectDir = TempDir(u8"scratch_variants_proj");
+    NukeTree(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"V").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+
+    // Desktop: exactly one variant, empty key, the host Content.pak from Cooked/.
+    const Array<editor::ContentVariant> desk =
+        editor::VariantsForPlatform(*project, u8"Win64");
+    REQUIRE(desk.Size() == 1u);
+    CHECK(desk[0].key.IsEmpty());
+    CHECK(desk[0].pakName == u8"Content.pak");
+    CHECK(desk[0].cookedDir.AsView().EndsWith(u8"Cooked"));
+
+    // Web: two complete variants, BC + ASTC, packed from SIBLING Cooked-web-*/ dirs (not under Cooked/).
+    const Array<editor::ContentVariant> web = editor::VariantsForPlatform(*project, u8"Web");
+    REQUIRE(web.Size() == 2u);
+    CHECK(web[0].key == u8"bc");
+    CHECK(web[0].pakName == u8"Content-bc.pak");
+    CHECK(web[0].cookedDir.AsView().EndsWith(u8"Cooked-web-bc"));
+    CHECK(web[1].key == u8"astc");
+    CHECK(web[1].pakName == u8"Content-astc.pak");
+    CHECK(web[1].cookedDir.AsView().EndsWith(u8"Cooked-web-astc"));
+
+    NukeTree(projectDir.AsView());
+}
+
+TEST_CASE("export: desktop Content.pak is byte-identical with a sibling target DB present (Q2)")
+{
+    // Fable ruling Q2, made executable: a materialized per-target DB (Cooked-web-astc/) is a SIBLING
+    // of Cooked/, so the desktop pack (which walks Cooked/ recursively) can never sweep it in. Export
+    // the same project twice - once clean, once with a junk-filled sibling target DB present - and
+    // assert the desktop Content.pak is byte-for-byte identical.
+    namespace script = foundation::script;
+    script::wren::RegisterWrenScriptBackend();
+    pipeline::RegisterWrenScriptCook();
+    script::RegisterScriptResource();
+    GlobalTypeRegistry().Register(pipeline::ScriptClassAsset::StaticType());
+    RegisterSerializable<pipeline::ScriptClassAsset>();
+
+    const String projectDir = TempDir(u8"scratch_byteident_proj");
+    const String distA = TempDir(u8"scratch_byteident_distA");
+    const String distB = TempDir(u8"scratch_byteident_distB");
+    NukeTree(projectDir.AsView());
+    NukeTree(distA.AsView());
+    NukeTree(distB.AsView());
+
+    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"B").IsOk());
+    {
+        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+        REQUIRE(static_cast<bool>(project));
+        String srcPath(project->SourcesRoot());
+        srcPath.Append(u8"/game.wren");
+        const StringView src = u8"class Game {\n  construct new() {}\n  launch() {}\n  update(dt) "
+                               u8"{}\n  exit() {}\n}\n";
+        REQUIRE(WriteFile(srcPath.AsView(),
+                          Span<const byte>(reinterpret_cast<const byte*>(src.Data()), src.Size()))
+                    .IsOk());
+        foundation::content::Instance* s = project->SourceDb().RootGroup()->CreateInstance(
+            u8"Game", pipeline::ScriptClassAsset::StaticType());
+        REQUIRE(s != nullptr);
+        pipeline::ScriptClassAsset asset;
+        asset.fileName = foundation::vfs::SourcePath(u8"game.wren");
+        asset.language = String(u8"wren");
+        REQUIRE(s->WriteObject(asset).IsOk());
+        project->Settings().startupScriptId = s->Id();
+        REQUIRE(project->SaveSettings().IsOk());
+    }
+
+    pipeline::BuilderRegistry registry;
+    registry.Register(UniquePtr<pipeline::IAssetBuilder>(
+        DefaultAllocator().New<pipeline::ScriptClassAssetBuilder>(), DefaultAllocator()));
+
+    const auto readPak = [](StringView dir) {
+        foundation::vfs::NativeFileSystem fs(dir);
+        UniquePtr<IStream> s = fs.Open(project::kDistContentPak, FileMode::Read);
+        REQUIRE(static_cast<bool>(s));
+        Array<byte> bytes;
+        bytes.Resize(static_cast<usize>(s->Size()));
+        REQUIRE(s->Read(bytes.Data(), bytes.Size()) == bytes.Size());
+        return bytes;
+    };
+
+    // Export 1: clean project.
+    {
+        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+        editor::ExportStats stats;
+        REQUIRE(editor::ExportProject(*project, distA.AsView(), registry, false, &stats).IsOk());
+    }
+    const Array<byte> pakA = readPak(distA.AsView());
+
+    // Plant a junk-filled sibling target DB, then export again.
+    {
+        String siblingDir(projectDir);
+        siblingDir.Append(u8"/Cooked-web-astc");
+        REQUIRE(CreateDirectory(siblingDir.AsView()));
+        String junk(siblingDir);
+        junk.Append(u8"/junk.rasset");
+        const StringView j = u8"NOT DESKTOP CONTENT";
+        REQUIRE(WriteFile(junk.AsView(),
+                          Span<const byte>(reinterpret_cast<const byte*>(j.Data()), j.Size()))
+                    .IsOk());
+
+        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+        editor::ExportStats stats;
+        REQUIRE(editor::ExportProject(*project, distB.AsView(), registry, false, &stats).IsOk());
+    }
+    const Array<byte> pakB = readPak(distB.AsView());
+
+    // Byte-for-byte identical: the sibling target DB never leaked into the desktop pak.
+    REQUIRE(pakA.Size() == pakB.Size());
+    CHECK(MemCompare(pakA.Data(), pakB.Data(), pakA.Size()) == 0);
+
+    NukeTree(projectDir.AsView());
+    NukeTree(distA.AsView());
+    NukeTree(distB.AsView());
 }
