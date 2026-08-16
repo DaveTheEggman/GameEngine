@@ -30,6 +30,7 @@ import foundation.animation;
 import foundation.materials;
 import foundation.texture.resource;
 import foundation.particles.resource;
+import foundation.propertyanimation.resource;
 import foundation.scene;
 import engine.render;
 import foundation.physics;
@@ -1108,6 +1109,14 @@ namespace editor
         {
             BuildResourceRefRow<foundation::animation::AnimationGraph>(id, type, prop, category,
                                                                      {u8"AnimationGraphAsset"});
+            return;
+        }
+        if (prop.type ==
+            &TypeOf<foundation::resource::Ref<
+                foundation::propertyanimation::PropertyAnimationClipResource>>())
+        {
+            BuildResourceRefRow<foundation::propertyanimation::PropertyAnimationClipResource>(
+                id, type, prop, category, {u8"PropertyAnimationClipAsset"});
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::texture::Texture>>())
