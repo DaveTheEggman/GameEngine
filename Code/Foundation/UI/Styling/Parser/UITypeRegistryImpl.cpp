@@ -46,6 +46,7 @@ namespace foundation::ui
         Register(u8"Panel", &Panel::StaticType());
         Register(u8"Label", &Label::StaticType());
         Register(u8"Button", &Button::StaticType());
+        Register(u8"IconButton", &IconButton::StaticType());
         Register(u8"ButtonBase", &ButtonBase::StaticType());
         Register(u8"ContentButton", &ContentButton::StaticType());
         Register(u8"RepeatButton", &RepeatButton::StaticType());

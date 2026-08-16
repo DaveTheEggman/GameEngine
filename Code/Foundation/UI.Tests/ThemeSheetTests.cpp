@@ -120,6 +120,17 @@ namespace
             CHECK(t.Left == 6.0f);
             CHECK(t.Top == 4.0f);
         }
+        {
+            // Icon chrome pads 2 - REGRESSION GATE: without an explicit rule IconButton
+            // inherits ButtonBase's button-bar padding (8 12) via subclass matching and
+            // overflows tight header bands (the inspector section-header finding).
+            const StyleValue* v =
+                FindValue(sheet, &IconButton::StaticType(), {}, StyleProperty::Padding);
+            REQUIRE(v != nullptr);
+            REQUIRE(v->AsThickness().HasValue());
+            CHECK(v->AsThickness().Value().Left == 2.0f);
+            CHECK(v->AsThickness().Value().Top == 2.0f);
+        }
 
         // Icon vocabulary: 11 icon rules (check/radio marks, close, 4 chevrons, submenu
         // arrow, combo arrow, 2 spin arrows) - each must have resolved to a real SVGDrawable.

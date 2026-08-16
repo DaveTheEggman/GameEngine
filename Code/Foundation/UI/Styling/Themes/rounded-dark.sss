@@ -34,6 +34,13 @@ ButtonBase {
     padding: 8 12;  /* CSS order: vertical horizontal (= C++ Thickness{12,8}) */
 }
 
+
+/* === IconButton (icon chrome - compact) ===
+ * Without this, IconButton inherits ButtonBase's button-bar padding (8 12) via subclass
+ * matching; since the box model made styled padding effective in measure, that inflated
+ * 18px icons to 42x34 chrome and overflowed tight bands (inspector section headers). */
+IconButton { padding: 2; }
+
 /* === Panel === */
 .panel {
     background: rounded-rect($surface, radius=6, border=$border, border-width=1);
