@@ -215,6 +215,67 @@ Next: P2 - the per-target variant axis (Variance() + lazy per-target DBs +
 invariant copy-forward). That is the prerequisite for the web export to
 PRODUCE the BC + ASTC paks and for boot-time selection (Decision 4).
 
+## Open design questions for Fable - P2f + P3 (export + dist + web boot)
+
+The variant-axis CORE (P2 a-e) is built + tested. The remaining work is the
+EXPORT + DIST + WEB-BOOT integration, and it has real design forks I want a
+ruling on before building. Fable: please add notes inline under each question.
+
+Relevant facts (verified in code):
+- Export: `Code/Editor/Editor.Core/Export.cppm` + `ExportImpl.cpp`.
+  `ExportContent()` packs `Content.pak` from the project's hardcoded `Cooked/`
+  dir (ExportImpl.cpp ~425) and reads `project.CookedDb()` for reachability
+  pruning (~394). `ExportProject()` cooks (CookDriver over `project.CookedDb()`)
+  then calls `ExportContent()`.
+- Dist layout: `<out>/Content.pak` (products + scenes + script, one binary DB),
+  `<out>/player.xml` (dist manifest, ProjectSettings shape), `<out>/shaders.dpak`.
+- Export preset carries a platform STRING ("Win64"/"Linux64"/"Web") - no enum.
+- Web boot: `Code/Engine/Engine.Player/WebMain.cpp` - `MakeOptions()` calls
+  `FetchDistFile("player.xml"/"Content.pak"/"shaders.dpak")` synchronously
+  BEFORE the app boots, so the content pak is fetched before the WebGPU device
+  exists. The adapter's `textureCompressionBC`/`ASTC` flags are only known
+  after device creation (inside Initialize).
+- `Tools.Cook --target <id>` roots the per-target DB at `Cooked/<id>/` with
+  `.cache/<id>/`. NOTE (my own concern): the desktop pack walks `Cooked/`
+  RECURSIVELY (`PackTree(cookedMount, "")`), so a `Cooked/web-astc/` subtree
+  would be swept into the DESKTOP `Content.pak` unless the per-target DBs live
+  OUTSIDE `Cooked/` (e.g. `Cooked.web-astc/` sibling) or the pack walk is
+  scoped. This affects "desktop byte-identical". Flagging for the ruling in Q2.
+
+My proposed shape (react / redirect):
+1. Desktop target (Win64/Linux64): unchanged - cook host, pack the single
+   `Content.pak` from the host DB. Byte-identical to pre-P2.
+2. Web target: cook TWO variant targets (web-bc, web-astc) via `CookForTarget`
+   (invariant products copy-forward from host, only textures recook per
+   target). Pack TWO paks (`Content-bc.pak`, `Content-astc.pak`). `player.xml`
+   gains a small content-variants list `[{key:"bc",pak:...},{key:"astc",pak:...}]`;
+   desktop dists keep the single pak + empty list.
+3. Web boot: resolve the fetch-before-adapter order by fetching only
+   `player.xml` (+ `shaders.dpak`) up front, creating the WebGPU device early
+   in Initialize, reading the adapter bc/astc flags, then fetching + mounting
+   the matching variant pak before the content loader runs. Fallback to
+   `Content.pak` when the manifest has no variants (desktop / old bundle).
+
+Questions:
+- **Q1 (boot ordering).** Is moving the content-pak fetch to AFTER device-init
+  in the web boot sound, or does the PlayerApplication / MEMFS / project-loader
+  lifecycle forbid it? If risky, is a pre-Initialize adapter PROBE
+  (`requestAdapter` only, read features, then fetch) safer despite
+  `requestAdapter` being async while `FetchDistFile` is sync `emscripten_wget`?
+- **Q2 (pak layout + dir roots).** Two separate paks vs one pak with both
+  variant sub-trees selected by path prefix? And where do per-target cooked DBs
+  live so the desktop pack stays byte-identical - `Cooked/<id>/` (needs a
+  scoped pack walk) or a sibling `Cooked.<id>/` outside the desktop tree?
+- **Q3 (manifest schema).** Extend `player.xml` (ProjectSettings shape) with the
+  variants list, or a sidecar? Keep it minimal.
+- **Q4 (correctness traps).** Anything in the copy-forward-per-target + two-pak
+  flow I'm missing - scenes/scripts staged once vs per-pak, reachability
+  pruning per target, the shader pack (already platform-keyed via
+  `StageShaderPack(preset.platform)`)?
+
+Constraints to hold: "variant-selection-at-load, no transcoder" (Decision 4);
+"desktop byte-identical"; "editor dev loop untouched (host DB only)".
+
 ## Test notes
 
 Doctest in Texture.Pipeline.Tests + Pipeline.Cook.Tests (variance/copy-
