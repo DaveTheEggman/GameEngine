@@ -330,3 +330,34 @@ UndoStack/EditText glyph cache), Markup loader+registry (diagnostics-
 friendly, tested), Animation manager (reentrancy-safe), DragDrop design,
 RefPtr tree ownership + MoveView + popup-layer-last invariant,
 BoxConstraints, the DrawChildren transform stack, VG device-space snapping.
+
+## Styling-bypass audit (2026-08-16, consistency pass)
+
+Full sweep of UI + UI.Toolkit for styling the theme system cannot reach
+("all styling goes through themes"). Tier B (ResolvePart*/ResolveStyle*
+fallback constants that fire only when no sheet rule exists) is FINE while
+the shipped sheets cover every such path - the P4 UA sheet centralizes
+them later. FIXED in the pass: MenuBar / BreadcrumbBar / ContextMenu /
+Toolbar-button / DockablePanel-header font sizes now resolve
+StyleProperty::FontSize (rules were dead before); .contextmenu sheets set
+font-size 14. Verified false alarms: Dialog / TooltipView / ComboBox-
+dropdown "hardcoded borders" only draw on the no-theme fallback path.
+
+**Remainder - theme cannot influence these today (P4-adjacent):**
+- Zero-hook canvases: CurveCanvas (bg/grid/key+tangent colors, 9px
+  labels), GradientEditor (bg/strip/markers), VectorFields (axis label
+  colors, 11px), DockZoneIndicator (arrow + fixed alphas over injected
+  accent), DockDragPreview (fully unthemed), DragAdorner ghost,
+  ModalBackdrop scrim.
+- CodeEditView: syntax token palette + FontSize/FontFamily fields +
+  gutter marker colors bypass (its chrome colors DO resolve).
+- ToastHost: Success/Warning/Error severity accents hardcoded even
+  though the palette carries $success/$warning/$error - needs severity
+  style properties (only Info resolves AccentColor).
+- Child-view text is unreachable by container rules (no descendant
+  selectors / style inheritance): StatusBar section labels, Toolbar
+  button labels (resolve wired, rules can't target ToolbarButton),
+  PropertyGrid row labels (12).
+- RadioButton lacks the part-width hook CheckBox has (kCircleSize 18).
+- NodeGraphCanvas title/subtitle/port font sizes + geometry constants;
+  NodeGraphTypes per-node colors are caller-owned by design.

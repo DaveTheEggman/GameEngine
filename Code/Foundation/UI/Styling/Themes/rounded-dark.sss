@@ -1,8 +1,15 @@
-/* rounded-dark.sss - the rounded dark theme, the EDITOR's live look (ui-theme-migration.md
- * P2). FAITHFUL transcription of the former RoundedDarkTheme.cppm, parity-gated before the
- * C++ body dies. Everything derives from the palette (a warm palette like GraphiteOrange
- * applies end-to-end); alpha fractions are byte values over 255 (90 -> 0.352941...).
- */
+/* rounded-dark.sss - the rounded dark theme, the EDITOR's live look. THE REFERENCE for the
+ * dark-family color logic (dark.sss is this sheet with flat geometry). Everything derives
+ * from the palette - a warm palette like GraphiteOrange applies end-to-end.
+ *
+ * ==================== DESIGN SYSTEM ====================
+ * Type ramp:  16 default | 14 text inputs + expander headers | 12 compact chrome
+ *             (buttons, combos, tabs, dock tabs, status bar)
+ * Spacing:    2 4 6 8 12 16 - button pad 8 12, input pad 4 6, gaps 6
+ * Geometry:   radius 6 main | 3 check | 9 radio | 12 pill | 8 thumb | 2-5 tracks;
+ *             ROUND radio marks. Geometry is this theme's identity - color logic is shared.
+ * Color logic (dark family) - see dark.sss for the derivation table.
+ * ======================================================= */
 
 /* === Global defaults ===
  * AccentColor + CornerRadius as GLOBAL defaults: accent-resolving controls (tree drop
@@ -41,7 +48,7 @@ EditText {
     font-size: 14;
     padding: 4 6;   /* CSS order: vertical horizontal (= C++ Thickness{6,4}) */
     cursor-color: $primary-accent;
-    selection-color: alpha($primary-accent, 0.3529412);
+    selection-color: alpha($primary-accent, 0.35);
 }
 
 /* === NumericField - rounded OUTER spin corners (per-corner radii, P0b) === */
@@ -52,7 +59,7 @@ NumericField {
     font-size: 14;
     padding: 4 6;   /* CSS order: vertical horizontal (= C++ Thickness{6,4}) */
     cursor-color: $primary-accent;
-    selection-color: alpha($primary-accent, 0.3529412);
+    selection-color: alpha($primary-accent, 0.35);
 }
 NumericField::spin-up { background: state-rounded($surface-bright, radius=0 6 0 0); }
 NumericField::spin-down { background: state-rounded($surface-bright, radius=0 0 6 0); }
@@ -102,8 +109,8 @@ ComboBox {
 ComboBox::arrow { text-color: lighten($text-dim, 15%); }
 
 /* === ScrollBar - rounded === */
-ScrollBar::track { background: rounded-rect(alpha(darken($surface, 15%), 0.5882353), radius=5); }
-ScrollBar::thumb { background: rounded-rect(alpha(lighten($border, 50%), 0.7843137), radius=5); }
+ScrollBar::track { background: rounded-rect(alpha(darken($surface, 15%), 0.6), radius=5); }
+ScrollBar::thumb { background: rounded-rect(alpha(lighten($border, 50%), 0.78), radius=5); }
 
 /* === Separator === */
 Separator { border-color: $border; }
@@ -136,10 +143,11 @@ TabView {
 /* === ContextMenu === */
 .contextmenu {
     background: rounded-rect($surface-bright, radius=6, border=lighten($border, 20%), border-width=1);
-    menu-item-hover-drawable: rounded-rect(alpha($primary-accent, 0.3921569), radius=3);
+    menu-item-hover-drawable: rounded-rect(alpha($primary-accent, 0.39), radius=3);
     text-color: $text;
+    font-size: 14;
     border-color: lighten($border, 20%);
-    accent-color: alpha($primary-accent, 0.3921569);
+    accent-color: alpha($primary-accent, 0.39);
 }
 
 /* === Dialog (surface BELOW the button surface so buttons stand out) === */
@@ -149,19 +157,19 @@ Dialog {
 
 /* === Tooltip === */
 TooltipView {
-    background: rounded-rect(alpha($surface-bright, 0.9215686), radius=6, border=$border, border-width=1);
+    background: rounded-rect(alpha($surface-bright, 0.92), radius=6, border=$border, border-width=1);
     text-color: $text;
 }
 
 /* === ListView / TreeView / GridView === */
 ListView {
     background: color($background);
-    selection-color: alpha($primary-accent, 0.3529412);
+    selection-color: alpha($primary-accent, 0.35);
 }
 TreeView { background: color($background); }
 GridView {
     background: color($background);
-    selection-color: alpha($primary-accent, 0.3529412);
+    selection-color: alpha($primary-accent, 0.35);
 }
 
 /* === Icons (shared baked ThemeIconSet glyphs; ROUND radio mark here) === */

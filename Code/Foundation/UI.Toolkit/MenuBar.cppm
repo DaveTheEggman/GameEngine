@@ -87,7 +87,7 @@ export namespace foundation::ui::toolkit
 
             if (ctx.FontService() != nullptr)
             {
-                fonts::CachedFont* font = ctx.FontService()->GetFont(m_fontSize);
+                fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFloat(StyleProperty::FontSize, m_fontSize));
                 if (font != nullptr)
                 {
                     for (usize i = 0; i < m_menus.Size() && i < m_itemRects.Size(); ++i)
@@ -217,7 +217,7 @@ export namespace foundation::ui::toolkit
 
             if (ctx.FontService() != nullptr)
             {
-                fonts::CachedFont* font = ctx.FontService()->GetFont(m_fontSize);
+                fonts::CachedFont* font = ctx.FontService()->GetFont(ResolveStyleFloat(StyleProperty::FontSize, m_fontSize));
                 if (font != nullptr)
                 {
                     for (const MenuEntry& entry : m_menus)

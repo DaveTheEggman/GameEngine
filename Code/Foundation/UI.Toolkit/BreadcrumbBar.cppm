@@ -119,7 +119,7 @@ export namespace foundation::ui::toolkit
             }
 
             fonts::CachedFont* font =
-                (ctx.FontService() != nullptr) ? ctx.FontService()->GetFont(m_fontSize) : nullptr;
+                (ctx.FontService() != nullptr) ? ctx.FontService()->GetFont(ResolveStyleFloat(StyleProperty::FontSize, m_fontSize)) : nullptr;
             if (font == nullptr)
             {
                 return;
@@ -231,11 +231,11 @@ export namespace foundation::ui::toolkit
         void OnMeasure(BoxConstraints constraints) override
         {
             f32 totalW = 0.0f;
-            f32 textH = m_fontSize;
+            f32 textH = ResolveStyleFloat(StyleProperty::FontSize, m_fontSize);
 
             if (Context != nullptr && Context->FontService() != nullptr)
             {
-                fonts::CachedFont* font = Context->FontService()->GetFont(m_fontSize);
+                fonts::CachedFont* font = Context->FontService()->GetFont(ResolveStyleFloat(StyleProperty::FontSize, m_fontSize));
                 if (font != nullptr)
                 {
                     textH = font->font->Metrics().lineHeight;
@@ -281,7 +281,7 @@ export namespace foundation::ui::toolkit
         {
             m_segmentRects.Clear();
             fonts::CachedFont* font = (Context != nullptr && Context->FontService() != nullptr)
-                                          ? Context->FontService()->GetFont(m_fontSize)
+                                          ? Context->FontService()->GetFont(ResolveStyleFloat(StyleProperty::FontSize, m_fontSize))
                                           : nullptr;
             if (font == nullptr)
             {

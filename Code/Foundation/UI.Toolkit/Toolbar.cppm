@@ -324,7 +324,8 @@ export namespace foundation::ui::toolkit
             {
                 x += 4.0f;
             }
-            fonts::CachedFont* font = ctx.FontService()->GetFont(13.0f);
+            fonts::CachedFont* font =
+                ctx.FontService()->GetFont(ResolveStyleFloat(StyleProperty::FontSize, 13.0f));
             if (font != nullptr)
             {
                 const Color textColor =

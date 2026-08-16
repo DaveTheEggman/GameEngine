@@ -39,7 +39,7 @@ add_executable(UI.Tests
     PopupPositionerTests.cpp
     PopupLayerTests.cpp
     BoxMetricsTests.cpp
-    ThemeParityTests.cpp
+    ThemeSheetTests.cpp
     ContextMenuTests.cpp
     DialogTests.cpp
     AnimationTests.cpp

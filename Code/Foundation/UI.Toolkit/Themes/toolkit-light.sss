@@ -1,9 +1,11 @@
-/* toolkit-light.sss - toolkit-control styling, LIGHT branch (ui-theme-migration.md P3).
- * FAITHFUL transcription of ToolkitThemeExtension::Apply's !isDark rules, parity-gated
- * (ToolkitThemeParityTests) against the legacy C++ body. The extension picks this fragment
- * when the palette reads light (background luminance at or above half). Light chrome darkens
- * the surface where dark chrome darkens harder or lightens - the derived directions differ
- * per control, which is why this is a separate sheet and not a variable swap.
+/* toolkit-light.sss - toolkit-control styling, LIGHT branch, authored to the shared design
+ * system (ui-theme-migration.md consistency pass). Merged by ToolkitThemeExtension when the
+ * palette reads light (background luminance at or above half).
+ *
+ * Follows the light-family DESIGN SYSTEM in light.sss: ramp 16/14/12 (menu bar 14, dock tabs
+ * + status bar 12), dim text = $text-dim, selection/hover accents = alpha($primary-accent).
+ * Light chrome recedes AND separates by darkening gently off the white surface - the derived
+ * directions differ from the dark branch per control, hence two fragments.
  */
 
 /* === DockManager === */
@@ -16,7 +18,7 @@ DockablePanel {
 }
 DockablePanel::header { background: rounded-rect(darken($surface, 5%), radius=0); }
 DockablePanel::content { background: color($surface); }
-DockablePanel::close-button { text-color: alpha($text, 0.5882353); }
+DockablePanel::close-button { text-color: $text-dim; }
 DockablePanel::close-button:hover { text-color: $error; }
 
 /* === DockTabGroup === */
@@ -29,7 +31,7 @@ DockTabGroup {
 }
 DockTabGroup::strip { background: color(darken($surface, 8%)); }
 DockTabGroup::content { background: color($surface); }
-DockTabGroup::tab { text-color: alpha($text, 0.6); }
+DockTabGroup::tab { text-color: $text-dim; }
 /* rounded-rect (radius 0) so DockTabGroup can mask tab top corners to the theme's resolved
  * CornerRadius. */
 DockTabGroup::tab:checked {
@@ -38,9 +40,9 @@ DockTabGroup::tab:checked {
 }
 DockTabGroup::tab:hover {
     background: rounded-rect(darken($surface, 4%), radius=0);
-    text-color: lighten(alpha($text, 0.6), 30%);
+    text-color: darken($text-dim, 20%);
 }
-DockTabGroup::close-button { text-color: alpha($text, 0.6); }
+DockTabGroup::close-button { text-color: $text-dim; }
 DockTabGroup::close-button:hover { text-color: $error; }
 
 /* === DockSplit === */
@@ -57,8 +59,9 @@ MenuBar {
     background: color($surface);
     text-color: $text;
     border-color: $border;
-    /* Muted translucent accent for whole-item hover fills (see toolkit-dark.sss). 55/255. */
-    accent-color: alpha($primary-accent, 0.2156863);
+    font-size: 14;
+    /* Muted translucent accent for whole-item hover fills (see toolkit-dark.sss). */
+    accent-color: alpha($primary-accent, 0.22);
 }
 
 /* === Toolbar === */
@@ -73,13 +76,15 @@ StatusBar {
     background: color(darken($surface, 5%));
     border-color: $border;
     text-color: $text;
+    /* Section text is child Labels (default 12) - a StatusBar font-size rule cannot reach
+     * them (no descendant selectors / style inheritance yet; audit remainder). */
 }
 
 /* === SplitView === */
 SplitView {
     border-color: darken($surface, 10%);
     accent-color: darken($surface, 20%);
-    text-dim-color: alpha($text-dim, 0.7058824);
+    text-dim-color: alpha($text-dim, 0.7);
 }
 
 /* === BreadcrumbBar === (rounded-rect so it can round to the theme CornerRadius) */

@@ -228,7 +228,7 @@ export namespace foundation::ui
                 StyleProperty::AccentColor,
                 Color{60.0f / 255.0f, 120.0f / 255.0f, 200.0f / 255.0f, 100.0f / 255.0f});
 
-            const f32 fontSize = 14.0f;
+            const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
             fonts::CachedFont* font =
                 ctx.FontService() != nullptr
                     ? ctx.FontService()->GetFont(ResolveStyleFontFamily(), fontSize)
@@ -450,7 +450,8 @@ export namespace foundation::ui
                     Context->FontService() != nullptr)
                 {
                     if (fonts::CachedFont* font =
-                            Context->FontService()->GetFont(ResolveStyleFontFamily(), 14.0f))
+                            Context->FontService()->GetFont(ResolveStyleFontFamily(),
+                                            ResolveStyleFloat(StyleProperty::FontSize, 14.0f)))
                     {
                         const f32 textW = font->font->MeasureString(item->Label) + 40;
                         maxW = Max(maxW, textW);

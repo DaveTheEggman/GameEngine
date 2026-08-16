@@ -237,7 +237,8 @@ export namespace foundation::ui::toolkit
                 // Header text.
                 if (ctx.FontService() != nullptr)
                 {
-                    fonts::CachedFont* font = ctx.FontService()->GetFont(12.0f);
+                    fonts::CachedFont* font =
+                        ctx.FontService()->GetFont(ResolveStyleFloat(StyleProperty::FontSize, 12.0f));
                     if (font != nullptr)
                     {
                         const Color textColor =
