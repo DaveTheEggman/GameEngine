@@ -195,3 +195,48 @@ TEST_CASE("property animator: a track to a missing component/property is disable
     sceneObj.Update(0.5f); // must not crash despite the two bad tracks
     CHECK(target.value == doctest::Approx(4.0f)); // the good track still animates
 }
+
+TEST_CASE("property animator: reflected play/pause/stop/setTime drive the clock")
+{
+    EnsureReflected();
+    scene::Scene sceneObj;
+    sceneObj.AddSystem<AnimTargetManager>();
+    sceneObj.AddSystem<PropertyAnimatorComponentManager>();
+    auto* targets = sceneObj.GetSystem<AnimTargetManager>();
+    auto* animators = sceneObj.GetSystem<PropertyAnimatorComponentManager>();
+
+    const scene::EntityHandle e = sceneObj.CreateEntity(u8"Scripted");
+    AnimTarget& target = targets->Add(e);
+    RefPtr<PropertyAnimationClipResource> clip = MakePositionClip();
+    PropertyAnimatorComponent& anim = animators->Add(e);
+    anim.clip = clip.Get();
+    anim.autoplay = false; // driven by script-style method calls, not autoplay
+
+    // No autoplay: the first tick binds but stays stopped.
+    sceneObj.Update(0.0f);
+    CHECK_FALSE(anim.isPlaying());
+    CHECK(target.position.x == doctest::Approx(0.0f));
+
+    // play() -> starts from 0; a half-second tick reaches the midpoint.
+    anim.play();
+    CHECK(anim.isPlaying());
+    sceneObj.Update(0.5f);
+    CHECK(target.position.x == doctest::Approx(5.0f));
+
+    // pause() freezes the clock: the value holds across ticks.
+    anim.pause();
+    CHECK_FALSE(anim.isPlaying());
+    sceneObj.Update(0.5f);
+    CHECK(target.position.x == doctest::Approx(5.0f));
+
+    // setTime + resume jump the clock.
+    anim.setTime(0.8f);
+    anim.resume();
+    sceneObj.Update(0.0f);
+    CHECK(target.position.x == doctest::Approx(8.0f));
+
+    // stop() resets to 0.
+    anim.stop();
+    CHECK_FALSE(anim.isPlaying());
+    CHECK(anim.currentTime() == doctest::Approx(0.0f));
+}

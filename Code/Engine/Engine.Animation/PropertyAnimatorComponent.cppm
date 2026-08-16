@@ -67,6 +67,26 @@ export namespace engine::animation
         i8 pingPongDir = 1;
         propanim::PropertyAnimationClipResource* boundClip = nullptr; // bindings built for this clip
         Array<PropertyTrackBinding> bindings;
+
+        // Reflected playback ops for scripting (property-animation.md: NO new facade lib - these reach
+        // scripts through the existing reflected-component `.of(entity)` surface, natural types per the
+        // facade-numerics rule). They mutate only the runtime clock/state; the manager tick applies it.
+        void play()
+        {
+            playing = true;
+            time = 0.0f;
+            pingPongDir = 1;
+        }
+        void stop()
+        {
+            playing = false;
+            time = 0.0f;
+        }
+        void pause() { playing = false; }
+        void resume() { playing = true; }
+        [[nodiscard]] bool isPlaying() const { return playing; }
+        [[nodiscard]] f32 currentTime() const { return time; }
+        void setTime(f32 seconds) { time = seconds; }
     };
 
     inline void Serialize(ISerializer& ar, PropertyAnimatorComponent& c)

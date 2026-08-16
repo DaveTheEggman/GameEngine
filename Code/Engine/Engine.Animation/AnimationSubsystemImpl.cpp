@@ -98,6 +98,14 @@ namespace engine::animation
             .Attribute("category", String(u8"Animation"))
             .Method<&foundation::script::ComponentOf<PropertyAnimatorComponent>,
                     PropertyAnimatorComponent>("of")
+            // Playback ops for scripts: animator.of(entity).play()/stop()/pause()/... (no facade lib).
+            .Method<&PropertyAnimatorComponent::play>("play")
+            .Method<&PropertyAnimatorComponent::stop>("stop")
+            .Method<&PropertyAnimatorComponent::pause>("pause")
+            .Method<&PropertyAnimatorComponent::resume>("resume")
+            .Method<&PropertyAnimatorComponent::isPlaying>("isPlaying")
+            .Method<&PropertyAnimatorComponent::currentTime>("time")
+            .Method<&PropertyAnimatorComponent::setTime>("setTime", {"seconds"})
             .Property<&PropertyAnimatorComponent::clip>("clip")
             .PropAttribute("displayName", String(u8"Clip"))
             .Property<&PropertyAnimatorComponent::autoplay>("autoplay")
