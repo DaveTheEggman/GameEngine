@@ -874,6 +874,40 @@ namespace editor
                 }
             });
 
+        // Viewport tool palette: a toggle per non-default registered tool (index 0 is the default
+        // Select/gizmo tool, driven by the gizmo toggles above). Checking one activates that tool -
+        // which is what docks its panel (Property Animation, future terrain/nav-mesh); unchecking (or
+        // checking another) returns to the default. This is the entry point to the in-scene modes.
+        if (m_viewportTools.Count() > 1)
+        {
+            m_toolbar->AddSeparator();
+            for (usize i = 1; i < m_viewportTools.Count(); ++i)
+            {
+                IViewportTool* tool = m_viewportTools.ToolAt(i);
+                if (tool == nullptr)
+                {
+                    continue;
+                }
+                String id(tool->Id());
+                ui::toolkit::ToolbarToggle* toggle = m_toolbar->AddToggle(tool->DisplayName());
+                toggle->OnCheckedChanged.Add(
+                    [this, id](ui::toolkit::ToolbarToggle*, bool value)
+                    {
+                        if (value)
+                        {
+                            m_viewportTools.ActivateById(id.AsView());
+                        }
+                        else if (m_viewportTools.ActiveTool() != nullptr &&
+                                 m_viewportTools.ActiveTool()->Id() == id.AsView())
+                        {
+                            m_viewportTools.ActivateDefault();
+                        }
+                        SyncToolbar();
+                    });
+                m_toolToggles.PushBack(ToolToggle{toggle, Move(id)});
+            }
+        }
+
         m_toolbar->AddSeparator();
 
         // One toggle whose icon + label read the LIVE space (checked = world).
@@ -1053,6 +1087,16 @@ namespace editor
         const bool world = (m_selectTool->Gizmos().Space() == GizmoSpace::World);
         m_spaceToggle->SetIsChecked(world);
         m_gridToggle->SetIsChecked(m_showGrid);
+
+        IViewportTool* activeTool = m_viewportTools.ActiveTool();
+        const StringView activeId = activeTool != nullptr ? activeTool->Id() : StringView{};
+        for (const ToolToggle& tt : m_toolToggles)
+        {
+            if (tt.toggle != nullptr)
+            {
+                tt.toggle->SetIsChecked(tt.id.AsView() == activeId);
+            }
+        }
     }
 
     void SceneEditorPage::DrawEntityMarkers(render::debug::DebugDraw& dd)

@@ -623,9 +623,11 @@ runtime path is unit-tested (222 assertions); these verify the editor page + in-
 - [ ] Export: the clip asset ships; the EXPORTED player plays the same animation.
 
 In-scene authoring mode (Phase H, 2026-08-16) - the same editing view, docked in the scene viewport:
-- [ ] Scene page: a "Property Animation" viewport tool. Activating it docks a panel (left rail beside
-      the viewport) with clip chrome (New / Pick... / + From Selection / Save) above the SAME track +
-      curve + transport view the standalone clip page uses. Deactivating the tool undocks the panel.
+- [ ] Scene page: the viewport toolbar has a "Property Animation" toggle (after the gizmo mode
+      buttons). Toggling it ON activates the tool and docks a panel (left rail beside the viewport)
+      with clip chrome (New / Pick... / + From Selection / Save) above the SAME track + curve +
+      transport view the standalone clip page uses. Toggling it OFF (or another tool) undocks the
+      panel and returns to the Select/gizmo tool.
 - [ ] New creates + loads a clip; Pick... opens the clip asset picker and loads the chosen clip.
 - [ ] Select an entity, "+ From Selection" seeds one track per animatable property of its components
       (Transform.position/rotation, a Light's color, ...); it is ONE Ctrl+Z. Non-animatable

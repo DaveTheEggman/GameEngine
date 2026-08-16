@@ -439,6 +439,15 @@ export namespace editor
         ui::toolkit::ToolbarToggle* m_spaceToggle = nullptr;
         ui::toolkit::ToolbarToggle* m_gridToggle = nullptr;
         bool m_showGrid = true;
+
+        // Viewport tool palette: one toggle per non-default registered tool (Property Animation, and
+        // future terrain/nav-mesh) that activates it - the affordance that docks the tool's panel.
+        struct ToolToggle
+        {
+            ui::toolkit::ToolbarToggle* toggle = nullptr;
+            String id;
+        };
+        Array<ToolToggle> m_toolToggles;
         RefPtr<SceneInspectorView> m_inspector;
         ViewportToolManager m_viewportTools;             // declared after m_editContext (tools borrow it)
         SelectTransformTool* m_selectTool = nullptr;     // borrowed (manager-owned default tool)
