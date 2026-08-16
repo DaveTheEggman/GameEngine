@@ -196,6 +196,68 @@ exact expected size in the cook test.
 - **Deferred (do NOT build now):** ETC2, RDO/rate-distortion knobs,
   GPU-compute encoding, per-asset per-platform overrides in the UI.
 
+## Prior art survey (Lumix / ezEngine / Traktor, 2026-08-15)
+
+Surveyed the three engines' real sources after P2/P3 shipped (we had never
+compared). Verdict: our approach is SHARPER on the two things this spec targets
+(capability-keyed format + boot-time BC/ASTC selection); two of their cook-dedup
+mechanics are more mature than ours and are the refinements to make IF a second/
+third variant producer lands (today textures are the only one).
+
+- **Lumix** - `rgbcx` (BC1/3/5 only) or Basis behind a compile-time `#ifdef`; no
+  BC7/BC6H/ASTC; format auto from two booleans (normalmap, has-alpha). NO
+  per-target axis (one content-hashed .res, one main.pak, backend frozen by
+  compile flag); even its Basis path bakes the target BCn at cook time. Simplest,
+  least capable. Good perceptual defaults worth noting: sRGB-correct mip
+  downsample, alpha-COVERAGE preservation for cutouts, a stochastic normal-map
+  downsampler.
+- **ezEngine** - DirectXTex (BC1/4/5/6H) + bc7enc (BC7). Has
+  `ezTexConvUsage{Color/Linear/Hdr/NormalMap/BumpMap}` + `CompressionMode{None/
+  Medium/High}` - essentially OUR usage+compression knobs (independent
+  validation), plus an Auto-usage that samples image CONTENT ("proper hue of
+  blue" -> normal). BUT the format function only implements the PC/BC branch
+  (Android commented out) - ASTC unreachable; keyed on platform NAME not
+  capability. Variants via a platform-PROFILE system: invariant assets cooked
+  ONCE into a shared `AssetCache/Common/`, REFERENCED by each profile's GUID->
+  path table (`.ezAidlt`); only texture/cubemap/decal/etc. classes get a
+  per-profile folder. Runtime picks a profile by OS name at boot.
+- **Traktor** - closest prior art. squish + bc6h_enc + astcenc + etc1 + PVRTC
+  (full range). Per-target output DB + per-target pipeline config; the platform
+  salt is EMERGENT - a product is variant only if a platform-varying setting is
+  reachable in its recursive dependency hash (`getPropertyIncludeHash`), so
+  invariant products dedupe across targets via a shared content-addressed cache
+  (even a networked team cache) with NO explicit copy-forward list. BUT no usage
+  taxonomy (format = a global policy STRING "DXTn"/"ASTC"), the normal-map
+  compress path is literally disabled (falls back to RGBA16F), ASTC hardwired to
+  4x4, one format per target (no boot-time selection).
+
+### Where we are ahead of all three
+1. **Capability-profile policy table** (usage x profile -> BC/ASTC). ez keys on a
+   platform name (BC-only in practice); Traktor on a global string with the
+   normal path disabled + ASTC stuck at 4x4. Our per-usage correctness
+   (mask->BC4, normal->BC5, HDR->BC6H, capability-not-platform) is more principled.
+2. **Boot-time BC/ASTC pak selection from the actual adapter feature** - NONE of
+   them do this (ez picks by OS name, Traktor one-format-per-target, Lumix
+   single-target). The right model for the heterogeneous-GPU web case.
+
+### Refinements worth making (their ideas > ours) - FUTURE, not now
+1. **ez's shared `Common/` store + per-target REFERENCE tables > our physical
+   copy-forward.** Cook invariant products once, store once, reference per target -
+   vs duplicating into each target DB. Less disk / cook-IO, no drift risk. Our
+   copy-forward is simpler and export staging duplicates anyway; revisit if a
+   second variant producer or large invariant sets make duplication hurt.
+2. **Traktor's EMERGENT include-hash salting > our explicit `Variance()` label.**
+   Variance falls out of data-flow reachability, so there is no variant-builder
+   list to mislabel. Ours is more auditable + predictable-cost (honest tradeoff);
+   emergent is more automatic. If the variant set grows, move toward deriving
+   variance from which salted settings a recipe actually reaches.
+3. **Per-setting include/exclude-hash CONTRACT + a "why did this recook" hash
+   log** (Traktor). Every knob declares whether it affects output bytes; the log
+   makes rebuilds debuggable. Cheap discipline to adopt on our recipe hash.
+4. Nice-to-haves: ez's image-CONTENT auto-usage (beyond our filename-suffix
+   heuristic); Traktor's NETWORKED content-addressed cache (cook-once per-org).
+   Lumix's alpha-coverage-preserving + stochastic-normal mip downsamplers.
+
 ### P1 status (2026-08-15) - COMPLETE
 
 The whole desktop-BCn AND mobile-web-ASTC encode/format path is landed and
