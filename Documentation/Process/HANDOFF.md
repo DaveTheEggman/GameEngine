@@ -241,3 +241,43 @@ Baseline: 44827741. Post-record Fable doc commits e835c561 (this record) +
 48fdb80d (UAT audit pass) are also reviewed-by-construction, so the NEXT
 review pass starts at 48fdb80d. Opus resumes from here (MSAA P1g first,
 then property animation per Documentation/Specs/property-animation.md).
+
+## Review pass 8 (2026-08-15, Fable): MSAA P1g/P2 + asset-variants P1+P2core + UAT fixes - PASS
+
+Range 8ceb3a1e..fd8b04e0 (33 commits; a handful are the user's UAT notes and
+Fable's roadmap). Full battery at HEAD: 118 targets x clang + gcc = 236 runs,
+ZERO failures. No script/executor changes - no ASAN pass required.
+
+- **MSAA P1g DONE + P2 progress:** RHI.TestSupport (backend-agnostic offscreen
+  probe substrate, adopted by Render.Backend + VG.Backend suites - good
+  consolidation), the 4x-vs-1x silhouette coverage probe + post-stack
+  composition probe, kMsaaLevels single source of truth, renderMsaaSamples
+  project setting -> player + settings UI. MSAA P1 acceptance is now CLOSED.
+- **asset-variants P1 COMPLETE:** bc7enc + astcenc vendored with distinct
+  archive names (thirdparty_*, the imgui lesson honored), SYSTEM includes,
+  cook-time-only linkage; astcenc forced scalar-ISA so one lib builds x86 +
+  wasm. Texture.Compression module + Decision-5 policy table; builder v3
+  encodes post-mip-chain; block-aware upload (bytesPerRow = block rows);
+  BC1/BC7/BC5 GPU sample probe green on Vulkan + WebGPU, ASTC probe
+  self-skips on BC-only desktop GPUs. Texture-page Usage/Compression knobs +
+  the _normal-suffix import heuristic (round-trip tested).
+- **asset-variants P2 core (a-e) verified:** Variance() + CookTarget (a
+  CAPABILITY struct - matches the Decision-3 ruling), platform salt that
+  propagates through READ-DEPS (reader-of-variant recooks; tested),
+  ContentDatabase::CopyContentForward, Tools.Cook --target. NOTE: per the
+  Q2 ruling the per-target DB root moves from Cooked/<id>/ to a sibling
+  Cooked-<id>/ (recursive-pack-walk hazard Opus itself flagged) - P2e
+  adjustment expected in the next batch, with the byte-identical desktop
+  pack test.
+- **P2f/P3 rulings delivered** (4031a0fa, inline in the spec): adapter probe
+  inside MakeOptions under ASYNCIFY (no lifecycle reorder); two complete
+  paks (Content-bc/-astc); player.xml contentVariants ABSENT on desktop;
+  scan-once reachability with a pak guid-set equality assertion; shaders.dpak
+  stays single; export reuses CookForTarget.
+- **UAT-session fixes verified:** VG per-frame-slot buffer growth (grows only
+  when the slot is free; direct-bound so no descriptor fixups - documented),
+  VFS CreateDirectory + persistent empty groups, reusable PageToolbar +
+  EditorPage::DiscardChanges (Sound Cue first adopter; its Undo/Redo gap is
+  a logged follow-up - edits bypass the command stack).
+
+Baseline: fd8b04e0 (+ Fable doc commits 4031a0fa and this record).
