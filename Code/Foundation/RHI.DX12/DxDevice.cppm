@@ -264,14 +264,52 @@ export namespace foundation::rhi::dx12
             return sampleCountSupported(count);
         }
 
-        FormatSupport GetFormatSupport(TextureFormat /*format*/) override
+        FormatSupport GetFormatSupport(TextureFormat format) override
         {
-            // DX12 supports D24_S8 on all hardware and most formats broadly.
-            // A full implementation would call CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT).
-            return FormatSupport::Texture | FormatSupport::ColorAttachment |
-                   FormatSupport::DepthStencil | FormatSupport::Buffer |
-                   FormatSupport::VertexBuffer | FormatSupport::BlendableColor |
-                   FormatSupport::LinearFilter;
+            // This used to ignore `format` and claim the same broad capability set for
+            // everything, which is not merely imprecise - it reports support for formats D3D12
+            // cannot represent at all. ASTC is the concrete case: it has no DXGI equivalent, so
+            // callers were told "supported", uploaded, and sampled garbage, where Vulkan and
+            // WebGPU correctly skip. Ask the driver instead.
+            const DXGI_FORMAT dxgi = toDxgiFormat(format);
+            if (dxgi == DXGI_FORMAT_UNKNOWN)
+                return FormatSupport::Unsupported; // no DXGI spelling (ASTC, ETC, ...)
+
+            D3D12_FEATURE_DATA_FORMAT_SUPPORT fs{};
+            fs.Format = dxgi;
+            if (FAILED(m_device->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT, &fs,
+                                                     sizeof(fs))))
+            {
+                return FormatSupport::Unsupported;
+            }
+
+            FormatSupport out = FormatSupport::Unsupported;
+            const D3D12_FORMAT_SUPPORT1 s1 = fs.Support1;
+            const D3D12_FORMAT_SUPPORT2 s2 = fs.Support2;
+            if (s1 & D3D12_FORMAT_SUPPORT1_TEXTURE2D)
+                out = out | FormatSupport::Texture;
+            if (s1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET)
+                out = out | FormatSupport::ColorAttachment;
+            if (s1 & D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL)
+                out = out | FormatSupport::DepthStencil;
+            if (s1 & D3D12_FORMAT_SUPPORT1_BUFFER)
+                out = out | FormatSupport::Buffer;
+            if (s1 & D3D12_FORMAT_SUPPORT1_IA_VERTEX_BUFFER)
+                out = out | FormatSupport::VertexBuffer;
+            if (s1 & D3D12_FORMAT_SUPPORT1_BLENDABLE)
+                out = out | FormatSupport::BlendableColor;
+            // SHADER_SAMPLE is the "can be sampled with a normal (filtering) sampler" bit;
+            // point-only formats expose SHADER_LOAD without it.
+            if (s1 & D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE)
+                out = out | FormatSupport::LinearFilter;
+            if (s1 & D3D12_FORMAT_SUPPORT1_TYPED_UNORDERED_ACCESS_VIEW)
+            {
+                out = out | FormatSupport::StorageTexture;
+                if (s1 & D3D12_FORMAT_SUPPORT1_BUFFER)
+                    out = out | FormatSupport::StorageBuffer;
+            }
+            (void)s2;
+            return out;
         }
 
         // ==================================================================

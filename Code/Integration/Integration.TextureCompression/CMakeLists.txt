@@ -9,6 +9,13 @@ target_link_libraries(Integration.TextureCompression PRIVATE
     Foundation::Render Foundation::Materials.PipelineCache Foundation::RHI.TestSupport
     Foundation::RHI.Vulkan Foundation::RHI.WebGPU Pipeline::Texture.Compression doctest::doctest)
 
+# DX12 backend - Windows only. The BC probe covered Vulkan + WebGPU only, so the compressed-
+# texture upload/sample path had no DX12 coverage.
+if(TARGET Foundation::RHI.DX12)
+    target_link_libraries(Integration.TextureCompression PRIVATE Foundation::RHI.DX12)
+    target_compile_definitions(Integration.TextureCompression PRIVATE OPTION_HAS_DX12)
+endif()
+
 target_compile_definitions(Integration.TextureCompression PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
     BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
