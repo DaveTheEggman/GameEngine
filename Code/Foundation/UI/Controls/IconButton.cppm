@@ -47,10 +47,14 @@ export namespace foundation::ui
         [[nodiscard]] f32 Size() const noexcept { return m_size; }
 
     protected:
-        void OnMeasure(BoxConstraints constraints) override
+        [[nodiscard]] Thickness DefaultStylePadding() const override { return Thickness{3, 3}; }
+
+        // m_size is the ICON (content) size; chrome is base-handled - fixing the audit's
+        // "padding shrinks the icon" bug (measure ignored padding while draw inset by it).
+        [[nodiscard]] Float2 OnMeasureContent(BoxConstraints contentConstraints) override
         {
-            MeasuredSize =
-                Float2{constraints.ConstrainWidth(m_size), constraints.ConstrainHeight(m_size)};
+            return Float2{contentConstraints.ConstrainWidth(m_size),
+                          contentConstraints.ConstrainHeight(m_size)};
         }
 
         void OnDraw(UIDrawContext& ctx) override
@@ -62,7 +66,7 @@ export namespace foundation::ui
             {
                 return;
             }
-            const Thickness pad = ResolveStyleThickness(StyleProperty::Padding, Thickness{3, 3});
+            const Thickness pad = ResolveBoxMetrics().Chrome(); // same chrome measure reserved
             Color tint = ResolveStyleColor(
                 StyleProperty::TextColor,
                 Color{220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f});

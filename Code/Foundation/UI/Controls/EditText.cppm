@@ -181,8 +181,7 @@ export namespace foundation::ui
                 return FallbackHitTest(localX);
             }
 
-            const Thickness padding =
-                ResolveStyleThickness(StyleProperty::Padding, Thickness{6, 4});
+            const Thickness padding = ContentInset();
             const f32 prefixW = GetPrefixWidth();
             const f32 hitX = localX - padding.Left - prefixW + m_scrollOffsetX;
             const f32 hitY = localY - padding.Top + m_scrollOffsetY;
@@ -341,8 +340,7 @@ export namespace foundation::ui
             {
                 return;
             }
-            const Thickness padding =
-                ResolveStyleThickness(StyleProperty::Padding, Thickness{6, 4});
+            const Thickness padding = ContentInset();
             const f32 contentHeight = Height() - padding.TotalVertical();
             const f32 maxScrollY = Max(0.0f, m_textHeight - contentHeight);
             if (maxScrollY <= 0)
@@ -362,14 +360,20 @@ export namespace foundation::ui
         // (Beef exercised it via [Friend]); it is the PasswordBox masking extension point.
         virtual void GetDisplayText(String& outText) const { outText = m_text; }
 
+        /// The content offset from the view origin - the SAME chrome the base measure reserved
+        /// (padding + any themed border). Draw, caret, hit-test, and scroll math all use this.
+        [[nodiscard]] Thickness ContentInset() { return ResolveBoxMetrics().Chrome(); }
+
     protected:
-        void OnMeasure(BoxConstraints constraints) override
+        [[nodiscard]] Thickness DefaultStylePadding() const override { return Thickness{6, 4}; }
+
+        // Content-only measure (ui-box-model.md P2c) - the padding default that used to be
+        // repeated at SEVEN call sites is stated once in DefaultStylePadding; chrome is
+        // base-handled and every other site reads ContentInset().
+        [[nodiscard]] Float2 OnMeasureContent(BoxConstraints contentConstraints) override
         {
             const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
-            const Thickness padding =
-                ResolveStyleThickness(StyleProperty::Padding, Thickness{6, 4});
             f32 textH = fontSize;
-
             if (fonts::CachedFont* font = ResolveFont())
             {
                 textH = font->font->Metrics().lineHeight;
@@ -378,21 +382,16 @@ export namespace foundation::ui
                     textH *= 3.0f;
                 }
             }
-
-            const f32 prefixW = GetPrefixWidth();
-            const f32 suffixW = GetSuffixWidth();
-            const f32 minWidth = 100.0f + prefixW + suffixW + padding.TotalHorizontal();
-            const f32 totalH = textH + padding.TotalVertical();
-            MeasuredSize =
-                Float2{constraints.ConstrainWidth(minWidth), constraints.ConstrainHeight(totalH)};
+            const f32 minWidth = 100.0f + GetPrefixWidth() + GetSuffixWidth();
+            return Float2{contentConstraints.ConstrainWidth(minWidth),
+                          contentConstraints.ConstrainHeight(textH)};
         }
 
         void OnDraw(UIDrawContext& ctx) override
         {
             const Rectangle bounds{0, 0, Width(), Height()};
             const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 14.0f);
-            const Thickness padding =
-                ResolveStyleThickness(StyleProperty::Padding, Thickness{6, 4});
+            const Thickness padding = ContentInset();
 
             Drawable* bgDrawable = ResolveStyleDrawable(StyleProperty::Background);
             if (bgDrawable != nullptr)
@@ -600,8 +599,7 @@ export namespace foundation::ui
 
             if (Multiline.Value() && font->shaper != nullptr)
             {
-                const Thickness padding =
-                    ResolveStyleThickness(StyleProperty::Padding, Thickness{6, 4});
+                const Thickness padding = ContentInset();
                 const f32 contentWidth =
                     Width() - padding.TotalHorizontal() - GetPrefixWidth() - GetSuffixWidth();
                 f32 totalH = 0;
@@ -761,8 +759,7 @@ export namespace foundation::ui
                                     ? GetMultilineCursorX(m_behavior.CursorPosition())
                                     : font->shaper->GetCursorPosition(*font->font, GlyphSpan(),
                                                                       m_behavior.CursorPosition());
-            const Thickness padding =
-                ResolveStyleThickness(StyleProperty::Padding, Thickness{6, 4});
+            const Thickness padding = ContentInset();
             const f32 contentWidth =
                 Width() - padding.TotalHorizontal() - GetPrefixWidth() - GetSuffixWidth();
 
@@ -972,8 +969,7 @@ export namespace foundation::ui
 
         [[nodiscard]] i32 FallbackHitTest(f32 localX)
         {
-            const Thickness padding =
-                ResolveStyleThickness(StyleProperty::Padding, Thickness{6, 4});
+            const Thickness padding = ContentInset();
             const f32 hitX = localX - padding.Left + m_scrollOffsetX;
             const i32 charCount = TextCharCount();
             if (charCount == 0 || m_textWidth <= 0)

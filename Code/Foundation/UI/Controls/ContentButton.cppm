@@ -40,11 +40,11 @@ export namespace foundation::ui
         }
 
     protected:
-        void OnMeasure(BoxConstraints constraints) override
-        {
-            const Thickness pad = ResolveStyleThickness(StyleProperty::Padding, Thickness{12, 8});
-            const BoxConstraints inner = constraints.Deflate(pad).Loosen();
+        [[nodiscard]] Thickness DefaultStylePadding() const override { return Thickness{12, 8}; }
 
+        // Content-only measure (ui-box-model.md P2c) - chrome is base-handled.
+        [[nodiscard]] Float2 OnMeasureContent(BoxConstraints contentConstraints) override
+        {
             f32 contentW = 0, contentH = 0;
             if (m_content)
             {
@@ -53,12 +53,11 @@ export namespace foundation::ui
                 {
                     Context->AttachView(m_content.Get());
                 }
-                m_content->Measure(inner);
+                m_content->Measure(contentConstraints.Loosen());
                 contentW = m_content->MeasuredSize.x;
                 contentH = m_content->MeasuredSize.y;
             }
-            MeasuredSize = Float2{constraints.ConstrainWidth(contentW + pad.TotalHorizontal()),
-                                  constraints.ConstrainHeight(contentH + pad.TotalVertical())};
+            return Float2{contentW, contentH};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
@@ -69,7 +68,7 @@ export namespace foundation::ui
             {
                 return;
             }
-            const Thickness pad = ResolveStyleThickness(StyleProperty::Padding, Thickness{12, 8});
+            const Thickness pad = ResolveBoxMetrics().Chrome(); // same chrome measure used
             const f32 contentW = width - pad.TotalHorizontal();
             const f32 contentH = height - pad.TotalVertical();
             const f32 cw = m_content->MeasuredSize.x;

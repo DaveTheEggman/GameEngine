@@ -225,6 +225,12 @@ churn across consumers - fold into P4's connection-token work).
   shared ShapedTextBlock (P4), which subsumes these per-control caches.
 
 **P2 - the box model** - SPEC LOCKED (Documentation/Specs/ui-box-model.md)
++ **P2c batch 1 SHIPPED 2026-08-16** (DefaultStylePadding fallback seam - the
+per-call-site inline defaults stated once per control; Button/ToggleButton/
+ContentButton/IconButton/EditText on OnMeasureContent; EditText's SEVEN
+inline {6,4} sites -> one override + ContentInset(); IconButton padding bug
+fixed - measure reserves what draw insets. Remaining P2c batch 2: fill-leaf
+bounded defaults + the rest of the leaves).
 + **P2b SHIPPED 2026-08-16** (the contract cut: base Measure template method
 owns margin + Fixed at logical dpi; Px = physical px; margin-box Layout;
 AvailForChild replaces the three spec-interpreter clones; all 8 containers

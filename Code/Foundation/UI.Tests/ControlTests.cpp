@@ -112,12 +112,15 @@ TEST_CASE("control: Button_OnActivate_FiresClick")
 
 // === IconButton ===
 
-TEST_CASE("control: IconButton_MeasuresToFixedSize")
+TEST_CASE("control: IconButton_MeasuresIconPlusChrome")
 {
+    // P2c golden change (ui-box-model.md): the size is the ICON (content); measure now adds
+    // the default {3,3} padding - the old flat-size measure was the audit's "padding shrinks
+    // the icon" bug (draw inset by padding that measure never reserved).
     auto btn = core::MakeRef<IconButton>(core::DefaultAllocator(), nullptr, 24.0f);
     btn->Measure(BoxConstraints(0, 100, 0, 100));
-    CHECK(btn->MeasuredSize.x == doctest::Approx(24.0f));
-    CHECK(btn->MeasuredSize.y == doctest::Approx(24.0f));
+    CHECK(btn->MeasuredSize.x == doctest::Approx(30.0f)); // 24 + 3 + 3
+    CHECK(btn->MeasuredSize.y == doctest::Approx(30.0f));
 }
 
 TEST_CASE("control: IconButton_Clicks")

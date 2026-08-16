@@ -51,11 +51,15 @@ export namespace foundation::ui
         }
 
     protected:
-        void OnMeasure(BoxConstraints constraints) override
+        [[nodiscard]] Thickness DefaultStylePadding() const override
         {
-            const Thickness pad =
-                ResolveStyleThickness(StyleProperty::Padding, Thickness{12.0f, 8.0f});
-            const BoxConstraints inner = constraints.Deflate(pad).Loosen();
+            return Thickness{12.0f, 8.0f};
+        }
+
+        // Content-only measure (ui-box-model.md P2c): the base handles chrome - the hand-rolled
+        // Deflate/re-inflate padding math is gone.
+        [[nodiscard]] Float2 OnMeasureContent(BoxConstraints contentConstraints) override
+        {
             const f32 fontSize = FontSize.Value().HasValue()
                                      ? FontSize.Value().Value()
                                      : ResolveStyleFloat(StyleProperty::FontSize, 16.0f);
@@ -75,10 +79,8 @@ export namespace foundation::ui
             {
                 textH = fontSize;
             }
-
-            MeasuredSize = Float2{
-                constraints.ConstrainWidth(Min(textW, inner.MaxWidth) + pad.TotalHorizontal()),
-                constraints.ConstrainHeight(Min(textH, inner.MaxHeight) + pad.TotalVertical())};
+            return Float2{Min(textW, contentConstraints.MaxWidth),
+                          Min(textH, contentConstraints.MaxHeight)};
         }
 
         void OnDraw(UIDrawContext& ctx) override
@@ -96,8 +98,9 @@ export namespace foundation::ui
                 if (fonts::CachedFont* font = ctx.FontService()->GetFont(
                         ResolveStyleFontFamily(FontFamily.Value()), fontSize))
                 {
-                    const Thickness pad =
-                        ResolveStyleThickness(StyleProperty::Padding, Thickness{12.0f, 8.0f});
+                    // Content offset = the SAME chrome the base deflated at measure (padding +
+                    // border) - text stays clear of a themed border.
+                    const Thickness pad = ResolveBoxMetrics().Chrome();
                     Color textColor = ResolveStyleColor(
                         StyleProperty::TextColor,
                         Color{220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f});

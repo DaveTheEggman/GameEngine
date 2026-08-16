@@ -620,14 +620,16 @@ export namespace foundation::ui
         }
 
         /// Resolve this view's chrome ONCE (ui-box-model.md): margin from LayoutParams; padding
-        /// = max of the ViewGroup Padding field (via OwnPaddingField), StyleProperty::Padding,
-        /// and the background drawable's DrawablePadding; border from StyleProperty::BorderWidth.
-        /// The single source every measure/arrange/content-bounds consumer converges on.
+        /// = max of the ViewGroup Padding field (via OwnPaddingField), the styled padding (or
+        /// the control's DefaultStylePadding when no style sets one), and the background
+        /// drawable's DrawablePadding; border from StyleProperty::BorderWidth. The single
+        /// source every measure/arrange/content-bounds consumer converges on.
         [[nodiscard]] BoxMetrics ResolveBoxMetrics()
         {
             BoxMetrics m;
             m.Margin = LayoutParams ? LayoutParams->Margin : Thickness{};
-            const Thickness stylePad = ResolveStyleThickness(StyleProperty::Padding);
+            const Optional<Thickness> styled = ResolveStyle(StyleProperty::Padding).AsThickness();
+            const Thickness stylePad = styled.HasValue() ? styled.Value() : DefaultStylePadding();
             Thickness drawablePad{};
             if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background))
             {
@@ -704,6 +706,12 @@ export namespace foundation::ui
         /// The container-field padding channel merged by ResolveBoxMetrics (ViewGroup overrides
         /// with its Padding field; leaf views have none).
         [[nodiscard]] virtual Thickness OwnPaddingField() const { return Thickness{}; }
+
+        /// The control's FALLBACK padding when no style sets StyleProperty::Padding - the old
+        /// per-call-site inline defaults, stated once per control (P2c). A themed padding wins
+        /// outright (fallback, not max-merge). Subsumed by the P3 user-agent sheet when that
+        /// lands.
+        [[nodiscard]] virtual Thickness DefaultStylePadding() const { return Thickness{}; }
 
         /// NEW measure seam (ui-box-model.md P2b): receives CONTENT-box constraints (margin,
         /// spec, padding, and border already deflated by the base Measure) and returns the
