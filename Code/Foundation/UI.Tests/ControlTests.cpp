@@ -602,6 +602,42 @@ TEST_CASE("control: Expander_CollapsedMeasure")
     CHECK(collapsedH == doctest::Approx(expander->HeaderHeight.Value()).epsilon(0.02));
 }
 
+TEST_CASE("control: Expander_HeaderBandGrowsForOversizedActions")
+{
+    // The inspector section-header finding: actions taller than HeaderHeight used to overflow
+    // the fixed band (and clip when collapsed). The structured band grows to fit them instead.
+    auto expander = core::MakeRef<Expander>(core::DefaultAllocator(), StringView(u8"Header"));
+    auto actions = core::MakeRef<TestView>(core::DefaultAllocator(), 44.0f, 40.0f);
+    expander->SetHeaderActions(actions.Get());
+    expander->SetIsExpanded(false);
+
+    expander->Measure(BoxConstraints::Loose(400, 300));
+    CHECK(expander->HeaderBandHeight() > expander->HeaderHeight.Value());
+    CHECK(expander->MeasuredSize.y == doctest::Approx(expander->HeaderBandHeight()));
+
+    // Small actions leave the band at its HeaderHeight minimum.
+    auto small = core::MakeRef<TestView>(core::DefaultAllocator(), 30.0f, 18.0f);
+    expander->SetHeaderActions(small.Get());
+    expander->Measure(BoxConstraints::Loose(400, 300));
+    CHECK(expander->HeaderBandHeight() ==
+          doctest::Approx(expander->HeaderHeight.Value()).epsilon(0.02));
+}
+
+TEST_CASE("control: Expander_HeaderActionsRightAlignedAndCentered")
+{
+    auto expander = core::MakeRef<Expander>(core::DefaultAllocator(), StringView(u8"Header"));
+    auto actions = core::MakeRef<TestView>(core::DefaultAllocator(), 44.0f, 18.0f);
+    expander->SetHeaderActions(actions.Get());
+
+    expander->Measure(BoxConstraints::Tight(400, 200));
+    expander->Layout(0, 0, 400, 200);
+
+    // Right-aligned with the 4px inset, vertically centered in the band.
+    CHECK(actions->Bounds.x == doctest::Approx(400.0f - 44.0f - 4.0f));
+    const f32 band = expander->HeaderBandHeight();
+    CHECK(actions->Bounds.y == doctest::Approx((band - 18.0f) * 0.5f));
+}
+
 // === WantsArrowKeys (from DirectionalFocusTests: arrow keys go to the focused control, not focus-nav) ===
 
 TEST_CASE("control: WantsArrowKeys_ButtonFalse")
