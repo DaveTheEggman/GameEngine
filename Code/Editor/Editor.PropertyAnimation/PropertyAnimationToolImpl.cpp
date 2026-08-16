@@ -25,6 +25,10 @@ namespace editor
 {
     namespace
     {
+        // The entity's local transform is animated by naming it with this reserved component type
+        // (it is baked into the scene, not a reflected component - see the engine manager).
+        constexpr StringView kTransformName = u8"Transform";
+
         // A component type is usable only if it is reflected: TypeOf<T>() for an unreflected type
         // yields a null name or the "<value>" fallback (the inspector's IsRegisteredType rule).
         bool IsReflectedType(const TypeInfo* type)
@@ -189,6 +193,13 @@ namespace editor
             return 0;
         }
         Array<AnimatablePropertyInfo> seeds;
+        // Every entity has a scene transform (not a reflected component), so always offer its TRS.
+        seeds.PushBack(AnimatablePropertyInfo{String(kTransformName), String(u8"position"),
+                                              propanim::TrackValueKind::Float3});
+        seeds.PushBack(AnimatablePropertyInfo{String(kTransformName), String(u8"rotation"),
+                                              propanim::TrackValueKind::Quat});
+        seeds.PushBack(AnimatablePropertyInfo{String(kTransformName), String(u8"scale"),
+                                              propanim::TrackValueKind::Float3});
         m_scene->ForEachManager(
             [&](scene::ComponentManagerBase& mgr)
             {
@@ -281,24 +292,78 @@ namespace editor
         PreviewAt(entity, time);
     }
 
+    Variant PropertyAnimationTool::ReadTrackTarget(scene::EntityHandle entity, StringView componentType,
+                                                   StringView propertyPath)
+    {
+        if (m_scene == nullptr)
+        {
+            return {};
+        }
+        if (componentType == kTransformName)
+        {
+            const propanim::PropertyBinding binding =
+                propanim::ResolveBinding(TypeOf<Transform>(), propertyPath);
+            if (!binding.IsResolved())
+            {
+                return {};
+            }
+            Transform local = m_scene->GetLocalTransform(entity);
+            return propanim::ReadBinding(binding, Instance{&local, &TypeOf<Transform>()});
+        }
+        scene::ComponentManagerBase* mgr = FindManagerByComponentTypeName(componentType);
+        if (mgr == nullptr || mgr->ComponentType() == nullptr || !mgr->HasComponent(entity))
+        {
+            return {};
+        }
+        const propanim::PropertyBinding binding =
+            propanim::ResolveBinding(*mgr->ComponentType(), propertyPath);
+        return binding.IsResolved() ? propanim::ReadBinding(binding, mgr->GetComponentInstance(entity))
+                                    : Variant{};
+    }
+
+    void PropertyAnimationTool::WriteTrackTarget(scene::EntityHandle entity, StringView componentType,
+                                                 StringView propertyPath, const Variant& value)
+    {
+        if (m_scene == nullptr)
+        {
+            return;
+        }
+        if (componentType == kTransformName)
+        {
+            const propanim::PropertyBinding binding =
+                propanim::ResolveBinding(TypeOf<Transform>(), propertyPath);
+            if (!binding.IsResolved())
+            {
+                return;
+            }
+            // Read-modify-write through SetLocalTransform so the world matrix is flagged dirty.
+            Transform local = m_scene->GetLocalTransform(entity);
+            if (propanim::WriteBinding(binding, Instance{&local, &TypeOf<Transform>()}, value).IsOk())
+            {
+                m_scene->SetLocalTransform(entity, local);
+            }
+            return;
+        }
+        scene::ComponentManagerBase* mgr = FindManagerByComponentTypeName(componentType);
+        if (mgr == nullptr || mgr->ComponentType() == nullptr || !mgr->HasComponent(entity))
+        {
+            return;
+        }
+        const propanim::PropertyBinding binding =
+            propanim::ResolveBinding(*mgr->ComponentType(), propertyPath);
+        if (binding.IsResolved())
+        {
+            (void)propanim::WriteBinding(binding, mgr->GetComponentInstance(entity), value);
+        }
+    }
+
     void PropertyAnimationTool::SnapshotEntity(scene::EntityHandle entity)
     {
         m_snapshot.Clear();
         for (const propanim::PropertyTrack& track : m_clip.tracks)
         {
-            scene::ComponentManagerBase* mgr =
-                FindManagerByComponentTypeName(track.componentType.AsView());
-            if (mgr == nullptr || mgr->ComponentType() == nullptr || !mgr->HasComponent(entity))
-            {
-                continue;
-            }
-            const propanim::PropertyBinding binding =
-                propanim::ResolveBinding(*mgr->ComponentType(), track.propertyPath.AsView());
-            if (!binding.IsResolved())
-            {
-                continue;
-            }
-            Variant current = propanim::ReadBinding(binding, mgr->GetComponentInstance(entity));
+            Variant current =
+                ReadTrackTarget(entity, track.componentType.AsView(), track.propertyPath.AsView());
             if (current.IsEmpty())
             {
                 continue;
@@ -326,20 +391,8 @@ namespace editor
         m_previewTime = time;
         for (const propanim::PropertyTrack& track : m_clip.tracks)
         {
-            scene::ComponentManagerBase* mgr =
-                FindManagerByComponentTypeName(track.componentType.AsView());
-            if (mgr == nullptr || mgr->ComponentType() == nullptr || !mgr->HasComponent(entity))
-            {
-                continue;
-            }
-            const propanim::PropertyBinding binding =
-                propanim::ResolveBinding(*mgr->ComponentType(), track.propertyPath.AsView());
-            if (!binding.IsResolved())
-            {
-                continue;
-            }
-            // GetComponentInstance re-resolves live every write (structural-change safe).
-            (void)propanim::WriteBinding(binding, mgr->GetComponentInstance(entity), track.Sample(time));
+            WriteTrackTarget(entity, track.componentType.AsView(), track.propertyPath.AsView(),
+                             track.Sample(time));
         }
     }
 
@@ -353,21 +406,8 @@ namespace editor
         {
             for (const PreviewSnapshotEntry& entry : m_snapshot)
             {
-                scene::ComponentManagerBase* mgr =
-                    FindManagerByComponentTypeName(entry.componentType.AsView());
-                if (mgr == nullptr || mgr->ComponentType() == nullptr ||
-                    !mgr->HasComponent(m_previewEntity))
-                {
-                    continue;
-                }
-                const propanim::PropertyBinding binding =
-                    propanim::ResolveBinding(*mgr->ComponentType(), entry.propertyPath.AsView());
-                if (!binding.IsResolved())
-                {
-                    continue;
-                }
-                (void)propanim::WriteBinding(binding, mgr->GetComponentInstance(m_previewEntity),
-                                             entry.value);
+                WriteTrackTarget(m_previewEntity, entry.componentType.AsView(),
+                                 entry.propertyPath.AsView(), entry.value);
             }
         }
         m_snapshot.Clear();
@@ -381,25 +421,9 @@ namespace editor
         {
             return;
         }
-        // Best-effort marker at the previewed entity's Transform position (overlay so it reads over
-        // geometry). Absent/foreign transform component: no marker, but the preview still applies.
-        scene::ComponentManagerBase* mgr = FindManagerByComponentTypeName(u8"Transform");
-        if (mgr == nullptr || mgr->ComponentType() == nullptr || !mgr->HasComponent(m_previewEntity))
-        {
-            return;
-        }
-        const propanim::PropertyBinding binding =
-            propanim::ResolveBinding(*mgr->ComponentType(), u8"position");
-        if (!binding.IsResolved())
-        {
-            return;
-        }
-        const Variant pos = propanim::ReadBinding(binding, mgr->GetComponentInstance(m_previewEntity));
-        if (pos.IsEmpty() || !pos.Is<Float3>())
-        {
-            return;
-        }
-        const Float3 p = pos.Get<Float3>();
+        // Marker at the previewed entity's WORLD position (overlay so it reads over geometry).
+        const Float4x4 world = m_scene->GetWorldMatrix(m_previewEntity);
+        const Float3 p{world.m[3][0], world.m[3][1], world.m[3][2]};
         const Color marker{1.0f, 0.85f, 0.2f, 1.0f};
         drawList.DrawWireSphereOverlay(p, 0.35f, marker);
         drawList.DrawText3D(p, u8"preview", marker);

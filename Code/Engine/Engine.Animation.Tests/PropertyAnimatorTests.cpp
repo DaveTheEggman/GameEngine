@@ -84,6 +84,52 @@ REFLECT_VALUE(AnimTarget, "rtti::engine::animation::test")
     builder.Property<&AnimTarget::position>("position").Property<&AnimTarget::value>("value");
 }
 
+TEST_CASE("property animator: a Transform track drives the entity's baked scene transform")
+{
+    EnsureReflected(); // includes RegisterCoreTypes -> reflects core::Transform
+
+    scene::Scene sceneObj;
+    sceneObj.AddSystem<PropertyAnimatorComponentManager>(); // Transform is built-in - no target manager
+
+    auto* animators = sceneObj.GetSystem<PropertyAnimatorComponentManager>();
+    REQUIRE(animators != nullptr);
+    const scene::EntityHandle e = sceneObj.CreateEntity(u8"Mover");
+
+    // A clip animating Transform.position.x from 0 -> 10 over 1s.
+    RefPtr<PropertyAnimationClipResource> res =
+        MakeRef<PropertyAnimationClipResource>(DefaultAllocator());
+    {
+        PropertyTrack t;
+        t.componentType = String(u8"Transform");
+        t.propertyPath = String(u8"position");
+        t.kind = TrackValueKind::Float3;
+        CurveKey a;
+        a.time = 0.0f;
+        a.value = 0.0f;
+        CurveKey b;
+        b.time = 1.0f;
+        b.value = 10.0f;
+        t.channels[0].AddKey(a);
+        t.channels[0].AddKey(b);
+        res->clip.tracks.PushBack(Move(t));
+        res->clip.duration = res->clip.ComputeDuration();
+    }
+    PropertyAnimatorComponent& anim = animators->Add(e);
+    anim.clip = res.Get();
+    anim.autoplay = true;
+    anim.loopMode = PropertyLoopMode::Loop;
+
+    sceneObj.Update(0.0f);
+    CHECK(sceneObj.GetLocalTransform(e).position.x == doctest::Approx(0.0f));
+    sceneObj.Update(0.5f);
+    CHECK(sceneObj.GetLocalTransform(e).position.x == doctest::Approx(5.0f));
+    sceneObj.Update(0.4f);
+    CHECK(sceneObj.GetLocalTransform(e).position.x == doctest::Approx(9.0f));
+    // The write went through SetLocalTransform, so the world matrix reflects it after the
+    // scene's TransformUpdate phase (which Update runs).
+    CHECK(sceneObj.GetWorldMatrix(e).m[3][0] == doctest::Approx(9.0f));
+}
+
 TEST_CASE("property animator: a Float3 clip drives the owning component's position over ticks")
 {
     EnsureReflected();

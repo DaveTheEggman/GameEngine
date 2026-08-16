@@ -218,17 +218,22 @@ namespace
         return k;
     }
 
-    // A constant Float3 track for PreviewComp.position (single key per channel -> Sample is constant).
-    propanim::PropertyTrack MakePositionTrack(f32 x, f32 y, f32 z)
+    // A constant Float3 position track (single key per channel -> Sample is constant) on `comp`.
+    propanim::PropertyTrack MakePositionTrackOn(StringView comp, f32 x, f32 y, f32 z)
     {
         propanim::PropertyTrack track;
-        track.componentType = String(u8"PreviewComp");
+        track.componentType = String(comp);
         track.propertyPath = String(u8"position");
         track.kind = propanim::TrackValueKind::Float3;
         track.channels[0].AddKey(Kv(0.0f, x));
         track.channels[1].AddKey(Kv(0.0f, y));
         track.channels[2].AddKey(Kv(0.0f, z));
         return track;
+    }
+
+    propanim::PropertyTrack MakePositionTrack(f32 x, f32 y, f32 z)
+    {
+        return MakePositionTrackOn(u8"PreviewComp", x, y, z);
     }
 }
 
@@ -348,4 +353,82 @@ TEST_CASE("propanim-tool: changing the selected entity restores the old one and 
 
     tool.StopPreview();
     CHECK(mgr->Get(b)->position.x == doctest::Approx(2.0f)); // restored
+}
+
+TEST_CASE("propanim-tool: add-from-selection seeds the entity Transform (position/rotation/scale)")
+{
+    EnsurePreviewCompRegistered(); // RegisterCoreTypes reflects Transform
+
+    scene::Scene sc(u8"seed");
+    const scene::EntityHandle e = sc.CreateEntity(u8"e0");
+    Selection<Guid> selection;
+    selection.Set(sc.GetEntityId(e));
+    EditorContext editorCtx;
+    EditorCommandStack stack;
+    ViewportToolHostContext ctx;
+    ctx.scene = &sc;
+    ctx.commands = &stack;
+    ctx.entitySelection = &selection;
+
+    PropertyAnimationTool tool(ctx, editorCtx);
+    ClipEditorView view(tool);
+    const usize added = tool.AddTracksFromSelection(view);
+    CHECK(added >= 3); // an entity with no reflected components still animates its Transform
+
+    int pos = 0, rot = 0, scl = 0;
+    for (const propanim::PropertyTrack& t : tool.Clip().tracks)
+    {
+        if (t.componentType.AsView() != StringView(u8"Transform"))
+        {
+            continue;
+        }
+        if (t.propertyPath.AsView() == StringView(u8"position"))
+        {
+            ++pos;
+            CHECK(t.kind == propanim::TrackValueKind::Float3);
+        }
+        else if (t.propertyPath.AsView() == StringView(u8"rotation"))
+        {
+            ++rot;
+            CHECK(t.kind == propanim::TrackValueKind::Quat);
+        }
+        else if (t.propertyPath.AsView() == StringView(u8"scale"))
+        {
+            ++scl;
+            CHECK(t.kind == propanim::TrackValueKind::Float3);
+        }
+    }
+    CHECK(pos == 1);
+    CHECK(rot == 1);
+    CHECK(scl == 1);
+}
+
+TEST_CASE("propanim-tool: preview drives the entity's built-in Transform and restores it")
+{
+    EnsurePreviewCompRegistered();
+
+    scene::Scene sc(u8"tprev");
+    const scene::EntityHandle e = sc.CreateEntity(u8"e0");
+    sc.SetLocalPosition(e, Float3{5.0f, 6.0f, 7.0f}); // original
+    Selection<Guid> selection;
+    selection.Set(sc.GetEntityId(e));
+    EditorContext editorCtx;
+    EditorCommandStack stack;
+    ViewportToolHostContext ctx;
+    ctx.scene = &sc;
+    ctx.commands = &stack;
+    ctx.entitySelection = &selection;
+
+    PropertyAnimationTool tool(ctx, editorCtx);
+    tool.Clip().tracks.PushBack(MakePositionTrackOn(u8"Transform", 100.0f, 200.0f, 300.0f));
+
+    tool.OnScrubTimeChanged(0.5f);
+    CHECK(tool.IsPreviewing());
+    CHECK(sc.GetLocalTransform(e).position.x == doctest::Approx(100.0f));
+    CHECK(sc.GetLocalTransform(e).position.y == doctest::Approx(200.0f));
+    CHECK_FALSE(stack.CanUndo()); // preview never dirties the document
+
+    tool.StopPreview();
+    CHECK(sc.GetLocalTransform(e).position.x == doctest::Approx(5.0f)); // restored
+    CHECK(sc.GetLocalTransform(e).position.z == doctest::Approx(7.0f));
 }

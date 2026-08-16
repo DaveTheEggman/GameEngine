@@ -112,6 +112,14 @@ export namespace editor
         void SnapshotEntity(scene::EntityHandle entity);
         [[nodiscard]] scene::ComponentManagerBase* FindManagerByComponentTypeName(StringView name);
 
+        // Read / write a track target on an entity, handling the built-in "Transform" component
+        // (the scene transform, written through Set/GetLocalTransform) as well as reflected
+        // components. Empty Variant = unresolved. Shared by preview, snapshot and restore.
+        [[nodiscard]] Variant ReadTrackTarget(scene::EntityHandle entity, StringView componentType,
+                                              StringView propertyPath);
+        void WriteTrackTarget(scene::EntityHandle entity, StringView componentType,
+                              StringView propertyPath, const Variant& value);
+
         EditorContext* m_editorCtx;
         scene::Scene* m_scene;         // borrowed from the host context (the edited scene)
         EditorCommandStack* m_commands; // borrowed (the scene page's stack)

@@ -40,10 +40,17 @@ export namespace engine::animation
     // (warned once); the track is skipped, the rest of the clip plays on.
     struct PropertyTrackBinding
     {
-        scene::ComponentManagerBase* manager = nullptr;
+        scene::ComponentManagerBase* manager = nullptr; // null for the built-in Transform target
         propanim::PropertyBinding binding;
         bool disabled = false;
+        bool isTransform = false; // targets the entity's scene transform (no component manager)
     };
+
+    // The entity's local transform (position/rotation/scale) is not a reflected COMPONENT - it is
+    // baked into the scene - so tracks name it with this reserved component type and the manager
+    // binds it to core::Transform, writing through Set/GetLocalTransform (which flags the world
+    // matrix dirty). Reserved: a real component may not take this name.
+    inline constexpr StringView kTransformComponentName = u8"Transform";
 
     // PHYSICS RULE (property-animation.md): the animator writes the transform like any other property.
     // On an entity with a DYNAMIC rigid body, physics is authoritative - its per-frame pose sync
@@ -158,7 +165,25 @@ export namespace engine::animation
                     for (usize i = 0; i < trackCount; ++i)
                     {
                         PropertyTrackBinding& tb = a.bindings[i];
-                        if (tb.disabled || tb.manager == nullptr || !tb.binding.IsResolved())
+                        if (tb.disabled || !tb.binding.IsResolved())
+                        {
+                            continue;
+                        }
+                        const Variant value = clip.tracks[i].Sample(evalTime);
+                        if (tb.isTransform)
+                        {
+                            // Read-modify-write the scene transform: SetLocalTransform flags the
+                            // world matrix dirty (a raw field write would not).
+                            Transform local = m_scene->GetLocalTransform(owner);
+                            if (propanim::WriteBinding(tb.binding, Instance{&local, &TypeOf<Transform>()},
+                                                       value)
+                                    .IsOk())
+                            {
+                                m_scene->SetLocalTransform(owner, local);
+                            }
+                            continue;
+                        }
+                        if (tb.manager == nullptr)
                         {
                             continue;
                         }
@@ -168,7 +193,6 @@ export namespace engine::animation
                         {
                             continue; // component removed this frame - skip, keep the binding
                         }
-                        const Variant value = clip.tracks[i].Sample(evalTime);
                         (void)propanim::WriteBinding(tb.binding, inst, value);
                     }
                 });
@@ -185,6 +209,22 @@ export namespace engine::animation
             for (const propanim::PropertyTrack& track : clip.tracks)
             {
                 PropertyTrackBinding tb;
+                // Built-in Transform target: bind against core::Transform (no component manager).
+                if (track.componentType.AsView() == kTransformComponentName)
+                {
+                    tb.isTransform = true;
+                    tb.binding = propanim::ResolveBinding(TypeOf<Transform>(),
+                                                          track.propertyPath.AsView());
+                    if (!tb.binding.IsResolved())
+                    {
+                        LOG_WARNING(u8"PropertyAnimation",
+                                    u8"track property 'Transform.{}' not found - disabled",
+                                    track.propertyPath);
+                        tb.disabled = true;
+                    }
+                    a.bindings.PushBack(Move(tb));
+                    continue;
+                }
                 scene::ComponentManagerBase* manager =
                     FindManagerByComponentTypeName(track.componentType.AsView());
                 if (manager == nullptr || manager->ComponentType() == nullptr)
