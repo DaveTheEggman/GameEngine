@@ -113,9 +113,9 @@ export namespace editor
         void WriteBackTrack(usize trackIndex, ui::toolkit::CurveCanvas& canvas);
 
         [[nodiscard]] static StringView KindName(propanim::TrackValueKind kind);
-        [[nodiscard]] static StringView InterpName(CurveInterpolation interp);
-        [[nodiscard]] static ui::toolkit::CurveInterpolation ClipToCanvasInterp(CurveInterpolation i);
-        [[nodiscard]] static CurveInterpolation CanvasToClipInterp(ui::toolkit::CurveInterpolation i);
+        [[nodiscard]] static StringView InterpName(CurveKeyInterpolation interp);
+        [[nodiscard]] static ui::toolkit::CurveInterpolation ClipToCanvasInterp(CurveKeyInterpolation i);
+        [[nodiscard]] static CurveKeyInterpolation CanvasToClipInterp(ui::toolkit::CurveInterpolation i);
 
         EditorContext* m_context = nullptr;
         String m_title;

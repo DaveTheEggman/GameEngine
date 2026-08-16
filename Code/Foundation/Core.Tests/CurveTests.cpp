@@ -9,7 +9,7 @@ using namespace foundation::core;
 
 namespace
 {
-    CurveKey Key(f32 t, f32 v, CurveInterpolation interp = CurveInterpolation::Linear, f32 tin = 0.0f,
+    CurveKey Key(f32 t, f32 v, CurveKeyInterpolation interp = CurveKeyInterpolation::Linear, f32 tin = 0.0f,
                  f32 tout = 0.0f)
     {
         CurveKey k;
@@ -61,8 +61,8 @@ TEST_CASE("curve: linear interpolation + exact key hits + end clamp")
 TEST_CASE("curve: constant (step) interpolation holds the left value")
 {
     Curve c;
-    c.AddKey(Key(0.0f, 1.0f, CurveInterpolation::Constant));
-    c.AddKey(Key(1.0f, 9.0f, CurveInterpolation::Constant));
+    c.AddKey(Key(0.0f, 1.0f, CurveKeyInterpolation::Constant));
+    c.AddKey(Key(1.0f, 9.0f, CurveKeyInterpolation::Constant));
     // The left key's mode drives the segment: hold 1.0 across [0,1), jump at the key.
     CHECK(c.Evaluate(0.0f) == doctest::Approx(1.0f));
     CHECK(c.Evaluate(0.5f) == doctest::Approx(1.0f));
@@ -75,8 +75,8 @@ TEST_CASE("curve: cubic Hermite - endpoints exact, flat tangents ease (smoothste
     // Zero tangents on both ends over [0,1] with values 0..1 reduce Hermite to smoothstep
     // (3t^2 - 2t^3): endpoints exact, midpoint 0.5, symmetric.
     Curve c;
-    c.AddKey(Key(0.0f, 0.0f, CurveInterpolation::Cubic, 0.0f, 0.0f));
-    c.AddKey(Key(1.0f, 1.0f, CurveInterpolation::Cubic, 0.0f, 0.0f));
+    c.AddKey(Key(0.0f, 0.0f, CurveKeyInterpolation::Cubic, 0.0f, 0.0f));
+    c.AddKey(Key(1.0f, 1.0f, CurveKeyInterpolation::Cubic, 0.0f, 0.0f));
     CHECK(c.Evaluate(0.0f) == doctest::Approx(0.0f));
     CHECK(c.Evaluate(1.0f) == doctest::Approx(1.0f));
     CHECK(c.Evaluate(0.5f) == doctest::Approx(0.5f));               // smoothstep(0.5) = 0.5
@@ -91,8 +91,8 @@ TEST_CASE("curve: cubic with matched linear tangents equals the straight line")
     // collapses to the linear line through the endpoints.
     Curve c;
     const f32 slope = 5.0f; // (10-0)/(2-0)
-    c.AddKey(Key(0.0f, 0.0f, CurveInterpolation::Cubic, slope, slope));
-    c.AddKey(Key(2.0f, 10.0f, CurveInterpolation::Cubic, slope, slope));
+    c.AddKey(Key(0.0f, 0.0f, CurveKeyInterpolation::Cubic, slope, slope));
+    c.AddKey(Key(2.0f, 10.0f, CurveKeyInterpolation::Cubic, slope, slope));
     CHECK(c.Evaluate(0.5f) == doctest::Approx(2.5f));
     CHECK(c.Evaluate(1.0f) == doctest::Approx(5.0f));
     CHECK(c.Evaluate(1.5f) == doctest::Approx(7.5f));

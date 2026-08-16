@@ -54,48 +54,48 @@ namespace editor
         return u8"?";
     }
 
-    StringView PropertyAnimationClipEditorPage::InterpName(CurveInterpolation interp)
+    StringView PropertyAnimationClipEditorPage::InterpName(CurveKeyInterpolation interp)
     {
         switch (interp)
         {
-        case CurveInterpolation::Constant:
+        case CurveKeyInterpolation::Constant:
             return u8"Step";
-        case CurveInterpolation::Linear:
+        case CurveKeyInterpolation::Linear:
             return u8"Linear";
-        case CurveInterpolation::Cubic:
+        case CurveKeyInterpolation::Cubic:
             return u8"Cubic";
         }
         return u8"?";
     }
 
     ui::toolkit::CurveInterpolation
-    PropertyAnimationClipEditorPage::ClipToCanvasInterp(CurveInterpolation i)
+    PropertyAnimationClipEditorPage::ClipToCanvasInterp(CurveKeyInterpolation i)
     {
         switch (i)
         {
-        case CurveInterpolation::Constant:
+        case CurveKeyInterpolation::Constant:
             return ui::toolkit::CurveInterpolation::Step;
-        case CurveInterpolation::Linear:
+        case CurveKeyInterpolation::Linear:
             return ui::toolkit::CurveInterpolation::Linear;
-        case CurveInterpolation::Cubic:
+        case CurveKeyInterpolation::Cubic:
             return ui::toolkit::CurveInterpolation::Hermite;
         }
         return ui::toolkit::CurveInterpolation::Linear;
     }
 
-    CurveInterpolation
+    CurveKeyInterpolation
     PropertyAnimationClipEditorPage::CanvasToClipInterp(ui::toolkit::CurveInterpolation i)
     {
         switch (i)
         {
         case ui::toolkit::CurveInterpolation::Step:
-            return CurveInterpolation::Constant;
+            return CurveKeyInterpolation::Constant;
         case ui::toolkit::CurveInterpolation::Linear:
-            return CurveInterpolation::Linear;
+            return CurveKeyInterpolation::Linear;
         case ui::toolkit::CurveInterpolation::Hermite:
-            return CurveInterpolation::Cubic;
+            return CurveKeyInterpolation::Cubic;
         }
-        return CurveInterpolation::Linear;
+        return CurveKeyInterpolation::Linear;
     }
 
     PropertyAnimationClipEditorPage::PropertyAnimationClipEditorPage(
@@ -437,9 +437,9 @@ namespace editor
         // simplification): applies to every channel of this track.
         {
             auto irow = MakeRow(18.0f, 22.0f);
-            const CurveInterpolation cur =
+            const CurveKeyInterpolation cur =
                 (track.channels[0].KeyCount() > 0) ? track.channels[0].Keys()[0].interpolation
-                                                   : CurveInterpolation::Linear;
+                                                   : CurveKeyInterpolation::Linear;
             MakeButton(*irow, InterpName(cur), 64.0f,
                        [self, trackIndex]()
                        {
@@ -448,16 +448,16 @@ namespace editor
                                {
                                    propanim::PropertyTrack& tr = c.tracks[trackIndex];
                                    const u32 chn = propanim::ChannelCount(tr.kind);
-                                   CurveInterpolation next = CurveInterpolation::Linear;
+                                   CurveKeyInterpolation next = CurveKeyInterpolation::Linear;
                                    if (chn > 0 && tr.channels[0].KeyCount() > 0)
                                    {
-                                       const CurveInterpolation prev =
+                                       const CurveKeyInterpolation prev =
                                            tr.channels[0].Keys()[0].interpolation;
-                                       next = (prev == CurveInterpolation::Constant)
-                                                  ? CurveInterpolation::Linear
-                                              : (prev == CurveInterpolation::Linear)
-                                                  ? CurveInterpolation::Cubic
-                                                  : CurveInterpolation::Constant;
+                                       next = (prev == CurveKeyInterpolation::Constant)
+                                                  ? CurveKeyInterpolation::Linear
+                                              : (prev == CurveKeyInterpolation::Linear)
+                                                  ? CurveKeyInterpolation::Cubic
+                                                  : CurveKeyInterpolation::Constant;
                                    }
                                    for (u32 ch = 0; ch < chn; ++ch)
                                    {
@@ -476,9 +476,9 @@ namespace editor
         canvas->AutoFitValueRange = true;
         canvas->LinkedTime = channels > 1;
 
-        const CurveInterpolation trackInterp =
+        const CurveKeyInterpolation trackInterp =
             (track.channels[0].KeyCount() > 0) ? track.channels[0].Keys()[0].interpolation
-                                               : CurveInterpolation::Linear;
+                                               : CurveKeyInterpolation::Linear;
         const Color stroke[4] = {Color{0.9f, 0.4f, 0.4f, 1.0f}, Color{0.4f, 0.9f, 0.5f, 1.0f},
                                  Color{0.45f, 0.65f, 1.0f, 1.0f}, Color{0.85f, 0.85f, 0.4f, 1.0f}};
         Array<ui::toolkit::ChannelDescriptor> descs;
@@ -560,7 +560,7 @@ namespace editor
         const f32 dur = (m_editDuration > 1e-3f) ? m_editDuration : 1.0f;
         for (u32 ch = 0; ch < channels; ++ch)
         {
-            const CurveInterpolation interp =
+            const CurveKeyInterpolation interp =
                 CanvasToClipInterp(canvas.GetChannelDescriptor(static_cast<i32>(ch)).Interpolation);
             const i32 n = canvas.GetKeyCount(static_cast<i32>(ch));
             track.channels[ch].Clear();

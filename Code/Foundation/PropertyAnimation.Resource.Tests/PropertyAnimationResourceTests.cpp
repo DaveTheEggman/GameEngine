@@ -15,7 +15,7 @@ using namespace foundation::propertyanimation;
 
 namespace
 {
-    CurveKey K(f32 t, f32 v, CurveInterpolation interp = CurveInterpolation::Linear, f32 tin = 0.0f,
+    CurveKey K(f32 t, f32 v, CurveKeyInterpolation interp = CurveKeyInterpolation::Linear, f32 tin = 0.0f,
                f32 tout = 0.0f)
     {
         CurveKey k;
@@ -38,10 +38,10 @@ namespace
         pos.componentType = String(u8"Transform");
         pos.propertyPath = String(u8"position");
         pos.kind = TrackValueKind::Float3;
-        pos.channels[0].AddKey(K(0.0f, 0.0f, CurveInterpolation::Cubic, 1.0f, 2.0f));
+        pos.channels[0].AddKey(K(0.0f, 0.0f, CurveKeyInterpolation::Cubic, 1.0f, 2.0f));
         pos.channels[0].AddKey(K(2.0f, 20.0f));
         pos.channels[1].AddKey(K(0.0f, 5.0f));
-        pos.channels[2].AddKey(K(0.0f, -1.0f, CurveInterpolation::Constant));
+        pos.channels[2].AddKey(K(0.0f, -1.0f, CurveKeyInterpolation::Constant));
         pos.channels[2].AddKey(K(2.0f, 1.0f));
         clip.tracks.PushBack(Move(pos));
 
@@ -139,7 +139,7 @@ TEST_CASE("propanim.resource: cooked-clip wire round-trips (counts + sample iden
 
     // The interpolation mode on the first key survived (Cubic), not silently reset to Linear.
     REQUIRE(rebuilt.tracks[0].channels[0].KeyCount() == 2u);
-    CHECK(rebuilt.tracks[0].channels[0].Keys()[0].interpolation == CurveInterpolation::Cubic);
+    CHECK(rebuilt.tracks[0].channels[0].Keys()[0].interpolation == CurveKeyInterpolation::Cubic);
     CHECK(rebuilt.tracks[0].channels[0].Keys()[0].tangentOut == doctest::Approx(2.0f));
 }
 

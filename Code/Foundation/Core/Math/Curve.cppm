@@ -19,7 +19,7 @@ import :array;
 export namespace foundation::core
 {
     // How the segment LEAVING a key is interpolated toward the next key.
-    enum class CurveInterpolation : u8
+    enum class CurveKeyInterpolation : u8
     {
         Constant, // hold this key's value until the next key (step)
         Linear,   // straight lerp to the next key
@@ -35,7 +35,7 @@ export namespace foundation::core
         f32 value = 0.0f;
         f32 tangentIn = 0.0f;
         f32 tangentOut = 0.0f;
-        CurveInterpolation interpolation = CurveInterpolation::Linear;
+        CurveKeyInterpolation interpolation = CurveKeyInterpolation::Linear;
     };
 
     // An ordered scalar curve. Keys are kept sorted by time (AddKey inserts in order); Evaluate
@@ -107,11 +107,11 @@ export namespace foundation::core
 
             switch (a.interpolation)
             {
-            case CurveInterpolation::Constant:
+            case CurveKeyInterpolation::Constant:
                 return a.value;
-            case CurveInterpolation::Linear:
+            case CurveKeyInterpolation::Linear:
                 return a.value + (b.value - a.value) * localT;
-            case CurveInterpolation::Cubic:
+            case CurveKeyInterpolation::Cubic:
                 // Cubic Hermite; tangents are slopes, scaled by the segment length to the [0,1] basis.
                 return Hermite(a.value, a.tangentOut * segment, b.value, b.tangentIn * segment, localT);
             }

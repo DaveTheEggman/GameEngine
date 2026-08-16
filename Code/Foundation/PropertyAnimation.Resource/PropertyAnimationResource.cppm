@@ -60,7 +60,7 @@ export namespace foundation::propertyanimation
         Array<f32> keyValue;
         Array<f32> keyTangentIn;
         Array<f32> keyTangentOut;
-        Array<u8> keyInterp; // CurveInterpolation
+        Array<u8> keyInterp; // CurveKeyInterpolation
 
         // Per track: quat key run (0 count for non-Quat tracks).
         Array<u32> trackQuatStart;
@@ -177,7 +177,7 @@ export namespace foundation::propertyanimation
                         k.value = (idx < keyValue.Size()) ? keyValue[idx] : 0.0f;
                         k.tangentIn = (idx < keyTangentIn.Size()) ? keyTangentIn[idx] : 0.0f;
                         k.tangentOut = (idx < keyTangentOut.Size()) ? keyTangentOut[idx] : 0.0f;
-                        k.interpolation = static_cast<CurveInterpolation>(
+                        k.interpolation = static_cast<CurveKeyInterpolation>(
                             (idx < keyInterp.Size()) ? keyInterp[idx] : 0);
                         if (c < kMaxChannels)
                         {
