@@ -70,6 +70,7 @@ target_sources(Core
             Math/Quaternion.cppm
             Math/Transform.cppm
             Math/Easings.cppm
+            Math/Curve.cppm
             Math/AABB.cppm
             Math/Plane.cppm
             Math/BoundingVolumes.cppm
