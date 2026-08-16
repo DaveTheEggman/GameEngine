@@ -201,6 +201,13 @@ export namespace foundation::ui::runtime
         void SetUiScale(f32 scale) noexcept { m_uiScale = core::Clamp(scale, 0.5f, 3.0f); }
         [[nodiscard]] f32 UiScale() const noexcept { return m_uiScale; }
 
+        /// The damage gate's escape hatch (dogfooding): OFF = the old
+        /// relayout-and-redraw-every-frame behavior. Counters expose the win/health.
+        void SetDamageGatingEnabled(bool enabled) noexcept { m_damageGateEnabled = enabled; }
+        [[nodiscard]] bool DamageGatingEnabled() const noexcept { return m_damageGateEnabled; }
+        [[nodiscard]] u64 FramesDrawn() const noexcept { return m_framesDrawn; }
+        [[nodiscard]] u64 FramesSkipped() const noexcept { return m_framesSkipped; }
+
         /// Background clear color behind the UI (the theme usually paints an opaque root over it).
         /// Takes the theme's color as authored (sRGB, like every UI color). The swapchain
         /// is an sRGB format, and pass CLEAR values are interpreted as LINEAR and hardware-
@@ -445,6 +452,35 @@ export namespace foundation::ui::runtime
             }
 
             m_ctx.BeginFrame(deltaTime);
+
+            // === The damage gate (ui-core-audit P1b/P4) ===
+            // One frame-scoped decision for ALL windows: when nothing invalidated (and no
+            // window resized / changed scale), skip layout AND the draw-tree walk this frame -
+            // RenderWindow re-encodes the RETAINED VG batch, so the present pipeline is
+            // untouched (no flicker, no app-loop changes). Producers were swept: input events,
+            // hover/focus/press, animations + focused-text caret (BeginFrame), drag adorner,
+            // list timers self-chain, popups/tooltips invalidate on show.
+            bool structural = false;
+            for (const Attached& a : m_attached)
+            {
+                const f32 newW = static_cast<f32>(a.window->Window().Width());
+                const f32 newH = static_cast<f32>(a.window->Window().Height());
+                const f32 newDpi = a.window->Window().ContentScale() * m_uiScale;
+                if (a.data->root->ViewportSize.x != newW || a.data->root->ViewportSize.y != newH ||
+                    a.data->root->DpiScale != newDpi)
+                {
+                    structural = true;
+                    break;
+                }
+            }
+            m_frameDamaged = !m_damageGateEnabled || structural || m_ctx.NeedsRedraw();
+            if (!m_frameDamaged)
+            {
+                ++m_framesSkipped;
+                return; // layout is still valid; RenderWindow reuses the retained batch
+            }
+            ++m_framesDrawn;
+
             for (Attached& a : m_attached)
             {
                 a.data->root->ViewportSize =
@@ -483,8 +519,13 @@ export namespace foundation::ui::runtime
                 return;
             }
 
-            data->vg->Clear();
-            m_ctx.DrawRootView(data->root.Get(), *data->vg);
+            if (m_frameDamaged)
+            {
+                data->vg->Clear();
+                m_ctx.DrawRootView(data->root.Get(), *data->vg);
+            }
+            // Clean frames re-encode the RETAINED batch (built on the last damaged frame) -
+            // the backbuffer is redrawn every frame, only the tree walk + shaping are skipped.
             vg::VGBatch& batch = data->vg->GetBatch();
 
             data->renderer.BeginFrame(static_cast<i32>(frame.frameIndex));
@@ -978,6 +1019,10 @@ export namespace foundation::ui::runtime
         // Baked icon atlases (BakeSvgDrawables): drawables' variants borrow these.
         core::Array<core::UniquePtr<image::OwnedImageData>> m_bakedIconAtlases;
         bool m_themeIconsBaked = false; // first AttachWindow bakes lazily; rebake via BakeThemeIcons
+        bool m_damageGateEnabled = true; // escape hatch: SetDamageGatingEnabled(false)
+        bool m_frameDamaged = true;      // frame-scoped (set in Update, read by RenderWindow)
+        u64 m_framesDrawn = 0;
+        u64 m_framesSkipped = 0;
         f32 m_uiScale = 1.0f; // user preference multiplier on the OS content scale
         rhi::ClearColor m_clear = rhi::ClearColor(0.006f, 0.006f, 0.009f, 1.0f);
     };

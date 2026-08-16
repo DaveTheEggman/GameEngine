@@ -350,6 +350,11 @@ export namespace foundation::ui::viewport
         {
             if (m_registered && m_textureWidth > 0 && m_textureHeight > 0)
             {
+                // Live 3D content: the render target updates outside the UI's knowledge, so a
+                // visible viewport keeps the UI damage chain alive (self-sustaining: draw ->
+                // mark -> next frame draws). Refine to RT-content versioning when render-side
+                // damage exists.
+                Invalidate();
                 const ContentFit fit{
                     Rectangle{0.0f, 0.0f, Width(), Height()},
                     Float2{static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight)},

@@ -214,7 +214,21 @@ churn across consumers - fold into P4's connection-token work).
   (EnsureTitleWidths; RebuildTabRects runs per layout AND per draw).
   Shaping paths execute only with a real font service, so coverage is the
   render-level suites; unit tests hold the null-service paths.
-- REMAINING (P1b): consume NeedsRedraw in UIRuntime::RenderWindow. NOT the
+- P1b/P4 DAMAGE GATE SHIPPED 2026-08-16: frame-scoped gate in UIHost - when
+  nothing invalidated and no window resized/rescaled, Update skips layout
+  and RenderWindow re-encodes the RETAINED VG batch (present pipeline
+  untouched, no app-loop changes). Producer sweep: hover on/off
+  invalidates, animations + focused-text caret mark in BeginFrame, drag
+  adorner marks, ListView long-press self-chains (momentum already chained
+  via ScrollBy), ViewportView keeps live-3D windows damaged (refine with
+  render-side damage later). Resize/DPI auto-detected as structural.
+  Escape hatch SetDamageGatingEnabled(false) + FramesDrawn/Skipped
+  counters. Layout dirty stays COARSE (any invalidate = relayout+redraw -
+  interactions never worse than the old every-frame behavior; idle = zero
+  tree work). Game UISubsystem path unchanged (games animate constantly).
+  Remaining P4 items: ShapedTextBlock, Event/Property connection tokens,
+  Queue* collapse + deleteChild param drop.
+- SUPERSEDED (P1b original note): consume NeedsRedraw in UIRuntime::RenderWindow. NOT the
   one-file change it looks like - needs the producer sweep first: animator
   field writes, hover-change invalidation, EditText caret blink, ListView
   OnDraw momentum/long-press timers (move to BeginFrame), scrollbar fades.
@@ -262,6 +276,40 @@ release note must be). Golden-test churn reviewed deliberately.
 
 **P3 - styling dogfood:** themes to .sss + UA default sheet + state-ladder
 removal per Q2. Independent of P2; mostly deletion; each step shippable.
+
+**P3 SCOPING INVESTIGATED 2026-08-16** (user asked how sss-only works when
+"icons/images are in C++"). VERDICT: the remembered blocker dissolves -
+icons are inline SVG STRINGS referenced BY NAME, and .sss already has an
+`svg(name, tint=$c)` factory; "names live in C++, sss references them" is
+the correct end state, not an obstacle. breeze.sss already covers every
+icon slot the C++ themes register. TexturedTheme embeds NO images (it is a
+generic factory over caller-supplied images; only UISandbox uses it, with
+PROCEDURAL pixels) - keep it C++, exclude from migration. Gap table (all
+small except loading):
+1. [S, REAL BUG] `svg(name)` silently NULLS for the 10 builtin glyphs at
+   runtime/cook (only UISandbox registers names) AND returns fresh unbaked
+   vectors - fix both by falling back to ThemeIconSet::Acquire in the
+   factory + cook-FAIL on unresolved names.
+2. [S] per-corner radii in rounded-rect()/state-rounded() (spin buttons).
+3. [S] disabled()/focused() color functions (hover/pressed = lighten/darken
+   already; state-colors()/state-rounded() ramps already call Palette).
+4. [S-M] toolkit control types into UITypeRegistry (prereq for a
+   toolkit.sss fragment; the IThemeExtension hook itself stays).
+5. [M] LOADING SHAPE DECIDED: EMBEDDED STRING (author real .sss in-tree,
+   embed at build) - cooked assets are chicken/egg for editor+project-
+   manager theming; file-next-to-binary repeats the DXC-sidecar staging
+   lesson. Theme Create(palette) signatures keep working (SetPalette +
+   Load(embedded)).
+STAYS C++ (fine): ThemeIcons strings + ThemeIconSet bake machinery (the
+backing store), ThemePalette presets, clear color, font setup, the
+editor's post-parse code overrides (a parsed sheet is the same StyleSheet
+object - injection keeps working).
+PLAN: Phase 0 = gaps 1-3 (2-3d, fixes the live svg-null bug); Phase 1 =
+dark.sss embedded + rule-diff parity test + delete the C++ body
+(GameTheme/GameLightTheme come free as palette reskins); Phase 2 = light
+(tinted path) then rounded-dark (editor's live theme - visual verify);
+Phase 3 optional = toolkit.sss via MergeFrom. Total ~5-8 days. Still
+USER-DEFERRED - this is the scope, ready when un-deferred.
 
 **P4 - structural (after P1 proves the seams):** damage-driven frame
 pipeline (route the existing-but-discarded InvalidationKind into

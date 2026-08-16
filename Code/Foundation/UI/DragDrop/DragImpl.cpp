@@ -45,6 +45,7 @@ namespace foundation::ui
 
     bool DragDropManager::UpdateDrag(f32 screenX, f32 screenY)
     {
+        m_context->MarkNeedsRedraw(); // the adorner follows the cursor (damage gating)
         if (m_state == DragState::Idle)
         {
             return false;

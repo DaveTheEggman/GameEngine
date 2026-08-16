@@ -565,6 +565,7 @@ export namespace foundation::ui
                     m_longPressFired = true;
                     OnItemLongPress.Invoke(m_pressedItem);
                 }
+                Invalidate(); // keep frames coming while the long-press timer arms (gate-safe)
             }
 
             if (m_adapter != nullptr)

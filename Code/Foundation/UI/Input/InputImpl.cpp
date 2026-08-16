@@ -859,11 +859,13 @@ namespace foundation::ui
             if (View* oldHovered = m_context->GetViewById(m_hoveredId))
             {
                 oldHovered->OnMouseLeave();
+                oldHovered->Invalidate(); // hover tint OFF (damage gating: no free redraws)
             }
             m_hoveredId = newHoverId;
             if (hitView != nullptr)
             {
                 hitView->OnMouseEnter();
+                hitView->Invalidate(); // hover tint ON
             }
             // Notify tooltip manager of hover change.
             m_context->Tooltips()->OnHoverChanged(hitView);

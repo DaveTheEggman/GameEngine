@@ -1286,6 +1286,13 @@ export namespace foundation::ui
             m_totalTime += deltaTime;
             m_mutationQueue.Drain();
             m_tooltipManager.Update(deltaTime);
+            // Continuous-damage producers (the redraw gate has no free per-frame redraws):
+            // live animations move things every tick, and a focused text input needs its
+            // caret blink serviced. Both mark BEFORE the host samples the damage state.
+            if (m_animationManager.ActiveCount() > 0 || WantsTextInput())
+            {
+                MarkNeedsRedraw();
+            }
             m_animationManager.Update(deltaTime);
         }
         void UpdateRootView(RootView* root)
