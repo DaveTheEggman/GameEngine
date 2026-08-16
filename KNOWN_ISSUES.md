@@ -5,26 +5,25 @@ and the plan. Keep newest first.
 
 ---
 
-## DX12/Windows: MSAA + texture compression NOT verified on this backend - OPEN
+## DX12/Windows: MSAA + texture compression probes await a Windows RUN - OPEN
 
-**Status:** OPEN verification gap (user-flagged 2026-08-16). Two recent
-renderer/pipeline tracks were built and verified on Vulkan + WebGPU ONLY:
+**Status:** implementation gap CLOSED, verification gap OPEN. The Windows-side
+commits 0295bb9e (resource-state tracking through mip generation + resolve),
+38c6d184 (real MSAA sample-count reporting + probe coverage) and 354d2c1e
+(real per-format support queries) delivered the capability work the original
+entry recorded as missing; both probe suites now compile the DX12 leg and
+self-skip where the backend is absent. What remains is a RUN, plus review
+pass 10 findings to fix on a Windows box (this Linux checkout cannot compile
+DX12): `ResolveTexture`'s transitionAll reads `currentState()` which is stale
+in per-subresource mode (tracker/barrier divergence - the same class the
+commit fixed in GenerateMipmaps; same latent flaw at DxCommandEncoder
+whole-resource TextureBarrier + DxTransferBatch), and the mip-generation
+settle loop walks layer 0 only so array/cube textures stay non-uniform.
 
-- **Scene-pass MSAA** (Documentation/Specs/msaa.md): capability query,
-  resolve-attachment color resolve, SV_Depth sample-0 depth/aux resolve, the
-  P1g pixel probes - none exercised on the DX12 backend. The spec's own note
-  records the shipping target missing MSAA capability overrides (a0213f1c).
-- **Texture compression / asset variants** (Documentation/Specs/
-  asset-variants.md): BC-compressed upload (block row pitch!) and the
-  BC1/BC7/BC5 GPU sample probes ran on Vulkan + WebGPU; the DX12 upload path
-  and format support are unexercised.
-
-**Impact:** a Windows/DX12 run may render MSAA or BC textures wrong (or fail
-validation) with zero coverage to catch it. **Plan:** next Windows session
-runs the RHI/Render/Integration probe suites on DX12 (the BC probe +
-RHI.TestSupport MSAA probes are backend-agnostic - they need only a DX12 run)
-+ an on-screen editor/player check with MSAA on and a BC-cooked project.
-Any DX12-specific fixes follow the backend-fan-out rule.
+**Plan:** next Windows session (1) fixes the two tracker findings (a
+uniformity accessor on DxTextureImpl retires all three call sites), (2) runs
+Render.Backend.Tests + Integration.TextureCompression on DX12, (3) on-screen
+editor/player check with MSAA on and a BC-cooked project.
 
 ---
 

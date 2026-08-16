@@ -1,8 +1,93 @@
 # Property animation
 
-**Status:** BUILT 2026-08-16 (all 7 phases). First of the three parity P0
-tracks (this, then navigation.md, then terrain.md - see
-docs/design/parity-2026-08.md). Prior art: Lumix `property_animator`
+**Status:** BUILT 2026-08-16 (all 7 phases + H1-H4) - REVIEW PASS 10 ruled
+CONDITIONAL: the required-fix list below must land before the track closes
+(full findings in Documentation/Process/HANDOFF.md pass 10). First of the
+three parity P0 tracks (this, then navigation.md, then terrain.md - see
+docs/design/parity-2026-08.md).
+
+## REVIEW PASS 10 - REQUIRED FIXES (Opus, in priority order)
+
+1. **Phase G surface is dead.** PropertyAnimatorComponent is missing from
+   `RegisterAnimationScriptFacade`'s `components[]`
+   (AnimationSubsystemImpl.cpp:143) - never registered into
+   GlobalTypeRegistry, never seeded as a script root, never named for the
+   prelude. Add it (facade name count bumps) + a test that asserts the
+   REFLECTED method table (the current Phase G test calls the C++ methods
+   directly and would pass with every `.Method<>` line deleted).
+2. **Empty-channel zeroing.** `PropertyTrack::Sample` evaluates every
+   channel; an empty `Curve` returns 0, and the editor's "+ Track" creates
+   all-empty channels - the first tick teleports the target to origin.
+   Give channels per-channel active semantics (empty channel = do not
+   write that component) or read-modify-write. Editor side of the same
+   class: canvas key-add seeds sibling channels from `DefaultValue` (0) -
+   seed from the channel's curve value at t instead.
+3. **Kind-vs-type mismatch is a silent no-op.** BuildBindings never checks
+   `track.kind` against the leaf property type and the WriteBinding status
+   is discarded - a mismatched track fails every frame with no warning.
+   Extend the disable-once-with-warning policy to cover it.
+4. **In-scene preview cannot preview Transform tracks.** The preview apply
+   loop resolves via component managers only; the runtime's
+   `kTransformComponentName` special case was dropped in the fork - the
+   DEFAULT track type ("+ Track" = Transform/position) previews as a
+   silent no-op and the H4 overlay marker never draws. Share the runtime
+   apply path or port the Transform branch (preview + snapshot + marker +
+   AddTracksFromSelection).
+5. **Undo use-after-free.** `ClipEditCommand` stores `ClipEditorView*` and
+   the commands outlive the activation-scoped view on the scene page's
+   durable stack (panel Sync destroys the view; undo after tool-deactivate
+   dereferences it). Same class: the asset-picker `OnPicked` captures the
+   panel raw. Commands must not point at recreatable views (route through
+   the tool, which owns the clip), and the picker callback needs a
+   lifetime guard.
+6. **Preview snapshot staleness.** Snapshot is captured once per entity;
+   adding/retyping tracks mid-preview then scrubbing writes properties the
+   snapshot does not cover - StopPreview leaves the scene modified.
+   Re-snapshot on track-identity change (or snapshot per-track lazily).
+7. **Smaller, same batch:** `AddTracksFromSelection` missing `LockGroup()`
+   (consecutive clicks coalesce into one undo entry); `clip.loop` is dead
+   wire (component `loopMode` is the only truth - delete the field or make
+   it the default `loopMode` seeds from); declare `Version()` on
+   PropertyAnimationClipAssetBuilder; `WriteBackTrack` flattens per-key
+   interpolation track-wide (document or preserve); wire hardening -
+   range-guard `trackKind` (out-of-range currently desyncs ALL later
+   channel cursors) and default truncated `keyInterp` to Linear (struct
+   default), not 0/Constant.
+8. **Test debt:** PingPong loop (incl. the guard bail), negative speed,
+   component Serialize round-trip, the spec's physics-gotcha test, and the
+   four canvas seam properties (Constant staircase, no-edit round-trip
+   byte-identity, one-undo-step-per-gesture, MaxKeys) - all currently
+   unguarded.
+
+### UX observations - fold into the UI/UX rebuild (user-directed 2026-08-16)
+
+The user has commissioned a UI/UX rebuild of this editor. Review pass 10
+observations that belong in it rather than as patches to the old layout:
+- The transport scrub is an EditableLabel (type a time + Enter) - live
+  preview reads step-wise. A draggable timeline/slider is the expected
+  interaction; keep the field as the precise-entry companion, and refresh
+  it from the scrub time outside rebuilds (it currently goes stale).
+- `RefreshPreview` re-formats every track's summary string on every
+  write-back (every mouse-move of a drag) - rebuild should make row
+  refresh incremental.
+- The track kind-cycle button (Float->Float3->Color->Quat) leaves stale
+  channel/quat data behind (Float->Float3 yields y=z=0; ->Quat orphans
+  the scalar curves). The rebuild should either convert sensibly or
+  confirm-and-clear.
+- LinkedTime assumes aligned channel key lists but nothing enforces it -
+  a Float3 track with differing per-channel key counts edits oddly
+  (ReSortLinked skips mismatched channels). Decide: enforce alignment on
+  write-back, or make the canvas handle ragged channels.
+- Keys past the editable Length normalize past 1.0 and become invisible
+  and unreachable; Length is a non-undoable, non-persisted view scale.
+  The rebuild should make out-of-range keys visible (clamp-to-edge
+  indicator) or auto-grow Length to the clip.
+- Preview never dirties the document (correct), but saving the SCENE
+  mid-preview persists previewed values silently - stop preview on scene
+  save.
+- REQUIRED-fix items 4-6 above (Transform preview, undo lifetime,
+  snapshot staleness) are structural: fold them into the rebuild's
+  design rather than patching the old panel first. Prior art: Lumix `property_animator`
 (reflected float curves); ours is multi-type from day one (user decision)
 because Variant + reflection make it nearly free and transform animation
 (Float3/Quat) is the number one use case.

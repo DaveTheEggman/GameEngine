@@ -280,12 +280,12 @@ as a standing rule in memory `webgpu-stricter-than-vulkan`.
   web) recorded in the systems doc; then the default-on/off decision goes to the user with numbers.
 
 Then P3 (polish) and the DX12 capability overrides noted below.
-- **DX12 capability overrides** - `DxDevice` does not yet override `MaxColorDepthSampleCount` /
-  `SupportsSampleCount`, so on the shipping Windows DX12 target they fall to the base defaults (1 /
-  `count<=1`): MSAA silently reports unavailable there and every view degrades to 1x. D3D12 fully
-  supports MSAA - wire the two overrides via `CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS)`
-  for the color + depth formats (mirroring the Vulkan bitmask override). Real P1 follow-up on Windows;
-  the mechanism itself is backend-neutral, so no engine changes - just the capability query.
+- **DX12 capability overrides** - DONE (38c6d184, Windows side): `DxDevice` overrides
+  `MaxColorDepthSampleCount` / `SupportsSampleCount` via
+  `CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS)` per format, and the MSAA probe
+  compiles a DX12 leg that self-skips off-Windows. Still pending: an actual Windows RUN of the
+  probes (KNOWN_ISSUES entry), and the queries are re-issued per call (per-view per-frame from
+  RenderSubsystem) - a one-time init bitmask would make them free.
 
 ## Phases
 

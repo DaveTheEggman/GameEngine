@@ -315,3 +315,66 @@ new boot probe (built here, not just claimed).
   stamped; task #118 closed - only on-screen verify remains, UAT).
 
 Baseline: 456907b6 (+ Fable doc commits after it).
+
+## Review pass 10 (2026-08-16, Fable): property animation A-H + DX12 trio - CONDITIONAL
+
+Range 456907b6..d0451152 (51 commits; Fable's UI-theme commits excluded from
+review scope). Battery at HEAD: 122 targets x clang + gcc, ZERO failures.
+ASAN: PropertyAnimation.Tests + Engine.Script.Tests +
+Editor.PropertyAnimation.Tests all green. Verdict: architecture is RIGHT
+across all three tracks (wire symmetry, binding re-walk discipline, H1/H2
+seams, gesture->undo mapping, DX12 diagnosis) but each carries required
+fixes - the track does NOT close until they land.
+
+**Property animation - REQUIRED FIXES (list mirrored in the spec for Opus):**
+1. Phase G surface is DEAD: PropertyAnimatorComponent missing from
+   RegisterAnimationScriptFacade's components[] (no registry/root/name).
+   Verified by direct read. Add + a test that asserts the REFLECTED surface.
+2. Empty-channel zeroing: Track::Sample evaluates every channel (empty
+   curve = 0); "+ Track" creates all-empty channels -> first tick teleports
+   the entity. Needs per-channel active semantics or read-modify-write.
+   Same class in the editor: key-add on a multi-channel canvas seeds
+   DefaultValue 0 for sibling channels (should seed the curve value at t).
+3. Track-kind vs leaf-type mismatch = silent per-frame no-op (WriteBinding
+   status discarded; no warn/disable). Extend the disable-once policy.
+4. In-scene preview cannot preview Transform tracks (manager-lookup only;
+   the runtime's kTransformComponentName branch was dropped in the fork) -
+   the DEFAULT track type previews as a no-op and the H4 overlay marker
+   never draws. Share the apply loop or port the branch.
+5. ClipEditCommand holds ClipEditorView* on the scene page's DURABLE undo
+   stack while the view is activation-scoped (panel Sync destroys it):
+   undo after tool-deactivate = use-after-free. Verified by direct read.
+   Same class: the asset-picker OnPicked captures the panel raw.
+6. Preview snapshot staleness: track-set changes mid-preview leave the
+   scene modified after StopPreview (re-snapshot on track-identity change).
+7. Smaller: AddTracksFromSelection missing LockGroup (undo coalescing);
+   clip.loop is dead wire (component loopMode is the only truth - delete or
+   make it the default); builder Version() not declared (codebase-wide gap,
+   9/22 builders - fix here, sweep later); WriteBackTrack flattens per-key
+   interpolation track-wide; wire hardening (trackKind range guard,
+   truncated keyInterp should default Linear not Constant).
+8. Test debt: PingPong + negative speed + component Serialize round-trip +
+   the spec's physics-gotcha test + the four canvas seam properties (all
+   3 passing checks are UNGUARDED by tests; box-drag N/A - never built).
+
+**Seam checks (queued at CurveCanvas adoption): Constant-mode fidelity
+PASS; time-domain round-trip PASS for no-edit (per-gesture ~1ulp re-domain
+drift on touched tracks - acceptable, documented); one-undo-step-per-op
+PASS (m_gestureDirty guard is correct; no dead steps); MaxKeys=64
+per-instance PASS.**
+
+**DX12 trio (Windows Opus) - right fixes, three follow-ups routed to the
+next Windows session (this box cannot compile DX12):** ResolveTexture's
+transitionAll reads currentState() which lies in per-subresource mode and
+setState erases the truth (verified by direct read; same latent flaw at the
+whole-resource TextureBarrier + DxTransferBatch - one uniformity accessor
+fixes all three); GenerateMipmaps settles layer 0 only (array/cube stays
+non-uniform); Blit still hardcodes COPY_* states (comment-contradicted,
+test-only callers). Docs amended THIS pass: KNOWN_ISSUES DX12 entry
+rewritten (implementation closed, run + fixes pending), msaa.md stale
+overrides paragraph corrected. Deferred observations recorded by the
+reviewer: MSAA format list duplicates render constants (drift risk),
+per-frame CheckFeatureSupport calls (cache a bitmask at init), Stencil8
+reports as R8_UINT capabilities.
+
+Baseline for pass 11: d0451152 (+ Fable doc commits after it).
