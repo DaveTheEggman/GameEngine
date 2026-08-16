@@ -208,3 +208,80 @@ pass on the demo.
   track over this substrate.
 - Bool/enum step tracks, events-on-keyframe (the bus makes this natural
   later), clip blending, curve editor widget (P2 above).
+
+## Open design questions for Fable - editing UX / scene-editor extensions (2026-08-16)
+
+RAISED by the user, not yet decided. The runtime + the standalone clip page are
+built and staying; this is about whether/how to ADD an in-scene authoring path,
+and whether that generalizes to other spatial editors. Fable: add notes inline;
+this is a genuine open question, not a proposal to react to.
+
+FIRM CONSTRAINT (user, 2026-08-16): the standalone PropertyAnimationClip editor
+page STAYS - it is not being retired. It remains until the user decides it is no
+longer necessary. Any in-scene path is IN ADDITION to it, and the two must not
+diverge into two separate UIs to maintain.
+
+Context / what exists today:
+- The clip is authored in a STANDALONE bespoke page (editor.propertyanimation):
+  track list + curve-canvas keying (scalar) / xyzw key table (quat) + a transport
+  scrub that shows sampled values. It has no scene - track targets are typed
+  component-type + property strings; preview is a value readout, not a live entity.
+- We ALREADY have a scene-viewport tool substrate, live-wired into the scene page
+  (Editor.ViewportTools): IViewportTool (consumes viewport input + draws an overlay
+  into the scene debug-draw + a status line), ViewportToolManager (per-viewport tool
+  palette + gesture-safe switching), IViewportToolProvider + registry (domain libs
+  contribute tools; explicit registration + count tripwire), and a
+  ViewportToolHostContext that hands a tool the Scene* + command stack + entity
+  Selection. Today the only tool is SelectTransformTool (the gizmo). The file's own
+  comments were written anticipating terrain ("terrain.sculpt", "Editor.Terrain adds
+  sculpt + splat", "a terrain brush needs a terrain in the scene").
+- GAP: IViewportTool contributes an OVERLAY + STATUS only, not a dockable PANEL.
+  Terrain would want a brush-settings panel; property animation the timeline/curve
+  panel.
+
+Prior art (surveyed, for calibration - "not to recreate, but to exceed"):
+- Lumix: three editor-plugin flavors - IPlugin (owns editor windows), MousePlugin
+  (hooks the scene-view mouse; terrain + spline paint IN the real viewport), GUIPlugin
+  (owns a dockable panel with onGUI). Terrain/spline editing is in-scene brush + a
+  settings panel. Lumix's property_animator editing is weaker (component-property
+  curves, no in-scene timeline). Our IViewportTool is a narrower/cleaner MousePlugin
+  (consume-flag + a real overlay channel); we have no GUIPlugin-style panel seam yet.
+- Sedulous (our prior model): the property-animation asset page EMBEDDED its own
+  viewport and let the user pick a prefab/scene document + entities to choose track
+  sources, with playback/preview in the same page. It worked; the user's read is the
+  UX may not have been great (the preview world is separate from the real scene).
+
+The user's (un-fleshed) idea: "scene editor plugins" - plugins inside the scene
+editor that contribute editing modes, gizmos/nodes, and UI pieces. Property
+animation could be one such mode (author against the REAL selected entities, preview
+in the REAL viewport); terrain and nav mesh could be others. Note the per-feature
+shape differs: terrain data lives on a component (in-scene brush, no reusable asset),
+nav mesh is baked from scene geometry (mostly in-scene), but a property-animation
+clip is a REUSABLE cooked asset that plays on any entity (asset AND in-scene
+authoring) - a hybrid the other two are not.
+
+Questions:
+1. Is a general "scene-editor extension" abstraction worth introducing (a mode/plugin
+   that bundles a viewport tool + a contributed dockable panel + optional gizmos), or
+   is the existing IViewportTool + per-page panels enough, wired case by case? What is
+   the right SHAPE of the panel-contribution seam - does IViewportTool grow an
+   optional panel view, or does the host page own a dock area the tool drives?
+2. For property animation specifically: is an in-scene authoring/preview MODE worth
+   adding ALONGSIDE the standalone page (which stays)? If yes, how do the two share
+   the editing UI so they never diverge - does the in-scene mode HOST the same clip-
+   page widgets in a scene-docked panel, or is there a shared editing core both call?
+3. Track-source picking + live preview from the live scene: the mode would add tracks
+   from the current entity/component selection and preview by driving a clip against
+   the selected entity in the real viewport. Any correctness concern doing that while
+   the scene may be in a preview/sim state (the UI mutation-queue rule; reflected-
+   component access under the generation guard; the animator writing props while a
+   sim also runs)?
+4. Do terrain + nav mesh genuinely share this system, and if so should the seam be
+   designed with all three in mind NOW, or validated incrementally (build the seam
+   for one, generalize once a second consumer exists)? Which consumer should prove it?
+5. Where does the reusable-asset-vs-scene-local tension land - is it fine for property
+   animation to have BOTH an asset page and an in-scene mode while terrain/nav mesh
+   have only the in-scene mode, or does that inconsistency argue for one model?
+6. Scope check: is this a near-term track, or does it sit behind the current queue
+   (navigation, terrain) since the standalone page already ships a working authoring
+   path?
