@@ -28,10 +28,31 @@ All phases shipped, green on clang + gcc:
   the existing `.of(entity)` surface (no facade lib). 52 assertions.
 - **F** editor.propertyanimation - the P1 clip page (track list + keyframe table +
   transport scrub + toolbar undo) + New Asset creator, wired into the editor exe.
+- **H** in-scene authoring mode (Phase H below, per Fable's rulings). All four
+  steps shipped, green clang + gcc:
+  - **H1** `editor.app:tool_panel` - the panel seam (IViewportToolPanelProvider
+    keyed by tool id + ViewportToolPanelRegistry + the ViewportToolPanelHost mount
+    controller), NOT on the UI-free IViewportTool; ScenePage reserves a left-of-
+    viewport rail and docks/undocks on tool activation. 103 assertions.
+  - **H2** ClipEditorView - the track/curve/transport widgets lifted out of the page
+    into a shared view over IClipEditorHost (clip + command stack + dirty + scrub
+    hook); the page is now a thin host, behavior-identical. 15 assertions.
+  - **H3** PropertyAnimationTool (editor.propertyanimation:tool) - the viewport tool
+    AND clip-editor host; docked panel with New/Pick/+From-Selection/Save chrome;
+    add-from-selection walks the selected entity's reflected components
+    (InferTrackKind + CollectAnimatableProperties, ResolveBinding-validated) as one
+    undo group. Panel seam extended to pass the active tool for the id-guarded
+    downcast. 44 assertions.
+  - **H4** live preview - the scrub drives the runtime WriteBinding path onto the
+    selected entity through a transient snapshot (foundation gained the symmetric
+    ReadBinding); restored on stop/deactivate/Simulate; never dirties the document
+    or hits undo; overlay marker at the previewed entity. 63 assertions total in the
+    editor tool suite.
 
 REMAINING (follow-ups, not blocking the feature):
-- Live preview writing to a SELECTED scene entity (needs the cross-page selection
-  seam; the page's scrub shows sampled values today).
+- Live preview from the STANDALONE clip page (the in-scene tool now does live
+  entity preview; the page's scrub still only shows sampled values - it has no
+  scene selection).
 - The physics-kinematic-rule TEST (documented in the component; the cross-subsystem
   test rides the physics manager).
 - Acceptance UAT: the demo scene (animated position + light color, looping) in
@@ -400,3 +421,8 @@ Acceptance: author a clip end-to-end against a selected entity WITHOUT
 leaving the scene page; the same clip opens identically in the standalone
 page; preview never dirties the scene; battery green both compilers; user
 visual pass. Navigation/terrain adopt the H1 seam when they build.
+
+STATUS 2026-08-16: H1-H4 all BUILT + battery-green on clang and gcc (see the
+BUILD STATUS block at the top for the per-step summary + assertion counts). The
+editor executable links on both compilers. Remaining: the user's on-screen visual
+pass (smoke-checklist.md 2026-08-16 in-scene-authoring section).

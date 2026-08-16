@@ -10,6 +10,7 @@ module editor.propertyanimation;
 import foundation.core;
 import foundation.content;
 import foundation.scene;
+import foundation.render;
 import foundation.propertyanimation;
 import foundation.propertyanimation.resource;
 import propertyanimation.pipeline;
@@ -214,6 +215,194 @@ namespace editor
         }
         m_commands->EndGroup();
         return seeds.Size();
+    }
+
+    // === live preview (Phase H4) ===
+    //
+    // Scrubbing writes the clip's sampled values onto the SELECTED entity through the exact runtime
+    // path the component manager uses (FindManager -> ResolveBinding -> GetComponentInstance ->
+    // WriteBinding), so the generation guard and per-write binding re-resolve come for free. Writes
+    // are TRANSIENT: a snapshot is captured on the first scrub, restored on stop / deactivate / when
+    // Simulate begins. Nothing goes through the command stack or MarkDirty, so the document stays
+    // clean and the preview is never undoable (Fable Q3).
+
+    scene::ComponentManagerBase* PropertyAnimationTool::FindManagerByComponentTypeName(StringView name)
+    {
+        if (m_scene == nullptr)
+        {
+            return nullptr;
+        }
+        scene::ComponentManagerBase* found = nullptr;
+        m_scene->ForEachManager(
+            [&](scene::ComponentManagerBase& m)
+            {
+                if (found == nullptr && m.ComponentType() != nullptr && m.ComponentType()->name &&
+                    StringView(reinterpret_cast<const utf8char*>(m.ComponentType()->name)) == name)
+                {
+                    found = &m;
+                }
+            });
+        return found;
+    }
+
+    bool PropertyAnimationTool::Update(const ViewportToolInput& input)
+    {
+        m_editingLocked = input.editingLocked;
+        if (m_editingLocked)
+        {
+            StopPreview(); // no preview outside EDIT (Simulate/Play): restore + stand down
+        }
+        return false; // the tool consumes no viewport gesture (yet)
+    }
+
+    void PropertyAnimationTool::OnDeactivate()
+    {
+        StopPreview(); // leaving the tool restores the previewed entity
+    }
+
+    void PropertyAnimationTool::OnScrubTimeChanged(f32 time)
+    {
+        if (m_clip.tracks.IsEmpty() || m_editingLocked || m_scene == nullptr || m_selection == nullptr)
+        {
+            return;
+        }
+        const Guid* primary = m_selection->Primary();
+        if (primary == nullptr)
+        {
+            StopPreview();
+            return;
+        }
+        const scene::EntityHandle entity = m_scene->FindEntity(*primary);
+        if (!entity.IsAssigned())
+        {
+            StopPreview();
+            return;
+        }
+        PreviewAt(entity, time);
+    }
+
+    void PropertyAnimationTool::SnapshotEntity(scene::EntityHandle entity)
+    {
+        m_snapshot.Clear();
+        for (const propanim::PropertyTrack& track : m_clip.tracks)
+        {
+            scene::ComponentManagerBase* mgr =
+                FindManagerByComponentTypeName(track.componentType.AsView());
+            if (mgr == nullptr || mgr->ComponentType() == nullptr || !mgr->HasComponent(entity))
+            {
+                continue;
+            }
+            const propanim::PropertyBinding binding =
+                propanim::ResolveBinding(*mgr->ComponentType(), track.propertyPath.AsView());
+            if (!binding.IsResolved())
+            {
+                continue;
+            }
+            Variant current = propanim::ReadBinding(binding, mgr->GetComponentInstance(entity));
+            if (current.IsEmpty())
+            {
+                continue;
+            }
+            PreviewSnapshotEntry entry;
+            entry.componentType = track.componentType;
+            entry.propertyPath = track.propertyPath;
+            entry.value = Move(current);
+            m_snapshot.PushBack(Move(entry));
+        }
+    }
+
+    void PropertyAnimationTool::PreviewAt(scene::EntityHandle entity, f32 time)
+    {
+        if (!m_previewing || m_previewEntity != entity)
+        {
+            if (m_previewing)
+            {
+                StopPreview(); // selection moved to a different entity: restore the old one first
+            }
+            SnapshotEntity(entity);
+            m_previewing = true;
+            m_previewEntity = entity;
+        }
+        m_previewTime = time;
+        for (const propanim::PropertyTrack& track : m_clip.tracks)
+        {
+            scene::ComponentManagerBase* mgr =
+                FindManagerByComponentTypeName(track.componentType.AsView());
+            if (mgr == nullptr || mgr->ComponentType() == nullptr || !mgr->HasComponent(entity))
+            {
+                continue;
+            }
+            const propanim::PropertyBinding binding =
+                propanim::ResolveBinding(*mgr->ComponentType(), track.propertyPath.AsView());
+            if (!binding.IsResolved())
+            {
+                continue;
+            }
+            // GetComponentInstance re-resolves live every write (structural-change safe).
+            (void)propanim::WriteBinding(binding, mgr->GetComponentInstance(entity), track.Sample(time));
+        }
+    }
+
+    void PropertyAnimationTool::StopPreview()
+    {
+        if (!m_previewing)
+        {
+            return;
+        }
+        if (m_scene != nullptr && m_previewEntity.IsAssigned())
+        {
+            for (const PreviewSnapshotEntry& entry : m_snapshot)
+            {
+                scene::ComponentManagerBase* mgr =
+                    FindManagerByComponentTypeName(entry.componentType.AsView());
+                if (mgr == nullptr || mgr->ComponentType() == nullptr ||
+                    !mgr->HasComponent(m_previewEntity))
+                {
+                    continue;
+                }
+                const propanim::PropertyBinding binding =
+                    propanim::ResolveBinding(*mgr->ComponentType(), entry.propertyPath.AsView());
+                if (!binding.IsResolved())
+                {
+                    continue;
+                }
+                (void)propanim::WriteBinding(binding, mgr->GetComponentInstance(m_previewEntity),
+                                             entry.value);
+            }
+        }
+        m_snapshot.Clear();
+        m_previewing = false;
+        m_previewEntity = scene::EntityHandle{};
+    }
+
+    void PropertyAnimationTool::Draw(foundation::render::debug::DebugDraw& drawList)
+    {
+        if (!m_previewing || m_scene == nullptr || !m_previewEntity.IsAssigned())
+        {
+            return;
+        }
+        // Best-effort marker at the previewed entity's Transform position (overlay so it reads over
+        // geometry). Absent/foreign transform component: no marker, but the preview still applies.
+        scene::ComponentManagerBase* mgr = FindManagerByComponentTypeName(u8"Transform");
+        if (mgr == nullptr || mgr->ComponentType() == nullptr || !mgr->HasComponent(m_previewEntity))
+        {
+            return;
+        }
+        const propanim::PropertyBinding binding =
+            propanim::ResolveBinding(*mgr->ComponentType(), u8"position");
+        if (!binding.IsResolved())
+        {
+            return;
+        }
+        const Variant pos = propanim::ReadBinding(binding, mgr->GetComponentInstance(m_previewEntity));
+        if (pos.IsEmpty() || !pos.Is<Float3>())
+        {
+            return;
+        }
+        const Float3 p = pos.Get<Float3>();
+        const Color marker{1.0f, 0.85f, 0.2f, 1.0f};
+        drawList.DrawWireSphereOverlay(p, 0.35f, marker);
+        drawList.DrawText3D(p, u8"preview", marker);
     }
 
     // === PropertyAnimationToolProvider ===

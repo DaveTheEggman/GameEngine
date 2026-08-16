@@ -5,7 +5,7 @@ add_library(Editor::PropertyAnimation ALIAS Editor.PropertyAnimation)
 
 target_link_libraries(Editor.PropertyAnimation
     PUBLIC
-        Foundation::Core Foundation::Content Foundation::Scene
+        Foundation::Core Foundation::Content Foundation::Scene Foundation::Render
         Foundation::Runtime Foundation::Runtime.Client
         Foundation::PropertyAnimation Foundation::PropertyAnimation.Resource Pipeline::PropertyAnimation
         Foundation::UI Foundation::UI.Runtime Foundation::UI.Toolkit

@@ -93,4 +93,30 @@ namespace foundation::propertyanimation
         }
         return SetProperty(*binding.chain[count - 1], current, value);
     }
+
+    Variant ReadBinding(const PropertyBinding& binding, const Instance& componentInstance)
+    {
+        if (!binding.IsResolved() || componentInstance.IsEmpty())
+        {
+            return Variant{};
+        }
+        // Same live re-walk as WriteBinding (never cache sub-object pointers), reflection-get the leaf.
+        Instance current = componentInstance;
+        const usize count = binding.chain.Size();
+        for (usize i = 0; i + 1 < count; ++i)
+        {
+            const PropertyInfo* prop = binding.chain[i];
+            if (prop->address == nullptr)
+            {
+                return Variant{}; // computed nested property - no address to walk
+            }
+            void* sub = prop->address(current);
+            if (sub == nullptr)
+            {
+                return Variant{}; // null nested member
+            }
+            current = Instance(sub, prop->type);
+        }
+        return GetProperty(*binding.chain[count - 1], current);
+    }
 }

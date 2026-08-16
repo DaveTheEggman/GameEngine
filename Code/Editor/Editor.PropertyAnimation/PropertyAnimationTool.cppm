@@ -15,6 +15,7 @@ export module editor.propertyanimation:tool;
 import foundation.core;
 import foundation.ui;
 import foundation.scene;
+import foundation.render;
 import foundation.content;
 import foundation.propertyanimation;
 import editor.core;
@@ -65,13 +66,17 @@ export namespace editor
         // === IViewportTool ===
         [[nodiscard]] StringView Id() const override { return u8"property.animation"; }
         [[nodiscard]] StringView DisplayName() const override { return u8"Property Animation"; }
-        bool Update(const ViewportToolInput&) override { return false; } // no viewport gesture (yet)
+        bool Update(const ViewportToolInput& input) override; // caches the EDIT/Simulate gate
+        void OnDeactivate() override;                         // restore any live preview
+        void Draw(foundation::render::debug::DebugDraw& drawList) override; // preview overlay marker
         [[nodiscard]] StringView StatusText() const override { return m_status.AsView(); }
 
         // === IClipEditorHost ===
         [[nodiscard]] propanim::PropertyAnimationClip& Clip() override { return m_clip; }
         [[nodiscard]] EditorCommandStack& Commands() override { return *m_commands; }
         void MarkClipDirty() override { m_dirty = true; }
+        // The scrub moved: drive the runtime evaluation path onto the selected entity (Phase H4).
+        void OnScrubTimeChanged(f32 time) override;
 
         // === clip document management ===
         void NewClip();                        // create a clip asset in the project + load it
@@ -88,8 +93,24 @@ export namespace editor
 
         [[nodiscard]] EditorContext& Context() noexcept { return *m_editorCtx; }
 
+        // === live preview (Phase H4) - exposed for tests ===
+        [[nodiscard]] bool IsPreviewing() const noexcept { return m_previewing; }
+        void StopPreview(); // restore the snapshot + end the preview (idempotent)
+
     private:
         void ClearClip(); // drop the loaded clip (no asset written)
+
+        // One property captured before a transient preview write, so it can be restored EXACTLY
+        // (re-resolved each time, never a cached instance - the entity.get lesson).
+        struct PreviewSnapshotEntry
+        {
+            String componentType;
+            String propertyPath;
+            Variant value;
+        };
+        void PreviewAt(scene::EntityHandle entity, f32 time); // snapshot-if-needed + write sampled values
+        void SnapshotEntity(scene::EntityHandle entity);
+        [[nodiscard]] scene::ComponentManagerBase* FindManagerByComponentTypeName(StringView name);
 
         EditorContext* m_editorCtx;
         scene::Scene* m_scene;         // borrowed from the host context (the edited scene)
@@ -100,6 +121,13 @@ export namespace editor
         String m_clipName;
         String m_status;
         bool m_dirty = false;
+
+        // Preview state (transient; NEVER dirties the document or goes through undo).
+        bool m_editingLocked = false;         // last Update's Simulate/Play gate (no preview when true)
+        bool m_previewing = false;
+        scene::EntityHandle m_previewEntity;  // the entity currently being previewed
+        f32 m_previewTime = 0.0f;
+        Array<PreviewSnapshotEntry> m_snapshot; // pre-preview values, restored on stop
     };
 
     // Contributes the tool to each scene viewport (registered from RegisterPropertyAnimationEditor).

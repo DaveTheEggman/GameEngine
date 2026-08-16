@@ -186,4 +186,10 @@ export namespace foundation::propertyanimation
     // leaf setter's status. The value's type must match the leaf property (the caller's Sample does).
     [[nodiscard]] Status WriteBinding(const PropertyBinding& binding, const Instance& componentInstance,
                                       const Variant& value);
+
+    // Read the current leaf value through a resolved binding (the symmetric inverse of WriteBinding).
+    // Re-derives each nested sub-instance address from the live instance, then reflection-gets the
+    // leaf. Returns an empty Variant for an unresolved binding, an empty instance, or a null nested
+    // address. Used to SNAPSHOT a property before a transient write (the in-scene animation preview).
+    [[nodiscard]] Variant ReadBinding(const PropertyBinding& binding, const Instance& componentInstance);
 }

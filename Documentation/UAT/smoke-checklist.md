@@ -622,8 +622,22 @@ runtime path is unit-tested (222 assertions); these verify the editor page + in-
       disabled with one log warning (no crash); the other tracks keep playing.
 - [ ] Export: the clip asset ships; the EXPORTED player plays the same animation.
 
+In-scene authoring mode (Phase H, 2026-08-16) - the same editing view, docked in the scene viewport:
+- [ ] Scene page: a "Property Animation" viewport tool. Activating it docks a panel (left rail beside
+      the viewport) with clip chrome (New / Pick... / + From Selection / Save) above the SAME track +
+      curve + transport view the standalone clip page uses. Deactivating the tool undocks the panel.
+- [ ] New creates + loads a clip; Pick... opens the clip asset picker and loads the chosen clip.
+- [ ] Select an entity, "+ From Selection" seeds one track per animatable property of its components
+      (Transform.position/rotation, a Light's color, ...); it is ONE Ctrl+Z. Non-animatable
+      properties (ints/bools/strings) are skipped.
+- [ ] Live preview: with a clip + a selected entity, typing a Scrub time drives the entity's real
+      component values (it visibly moves/changes in the viewport); a marker highlights the previewed
+      entity. Leaving the tool (or entering Simulate/Play) restores the entity to its pre-preview
+      state. Preview NEVER dirties the scene and is not undoable. Save writes + re-cooks the clip.
+- [ ] Preview is disabled during Simulate/Play (scrub does nothing until you Stop).
+
 Known follow-ups (NOT expected to work yet - do not file as bugs):
-- Live preview writing to a SELECTED scene entity from the clip page (the scrub only shows values
-  today; the cross-page selection seam is unbuilt).
+- Live preview from the STANDALONE clip page (page has no scene selection; the scrub there only shows
+  the "path=value" readout - use the in-scene tool above for live entity preview).
 - Animating a DYNAMIC rigid body's transform: physics wins (documented rule - animate KINEMATIC
   bodies; a dynamic body's non-transform properties animate fine).

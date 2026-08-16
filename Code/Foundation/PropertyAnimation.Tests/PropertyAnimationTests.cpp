@@ -185,6 +185,33 @@ TEST_CASE("propanim: WriteBinding writes leaf + nested properties through reflec
                     .IsOk());
 }
 
+TEST_CASE("propanim: ReadBinding is the symmetric inverse of WriteBinding (snapshot round-trip)")
+{
+    EnsureRegistered();
+    AnimComp comp;
+    comp.position = Float3{7.0f, 8.0f, 9.0f};
+    comp.light.tint = Color{0.2f, 0.3f, 0.4f, 1.0f};
+    const Instance inst = Instance::From(&comp);
+
+    // Read the pre-write leaf + nested values (the preview snapshot).
+    const PropertyBinding pos = ResolveBinding(AnimComp::StaticType(), u8"position");
+    const PropertyBinding tint = ResolveBinding(AnimComp::StaticType(), u8"light.tint");
+    const Variant posSnapshot = ReadBinding(pos, inst);
+    const Variant tintSnapshot = ReadBinding(tint, inst);
+    CHECK(posSnapshot.Get<Float3>().x == doctest::Approx(7.0f));
+    CHECK(tintSnapshot.Get<Color>().g == doctest::Approx(0.3f));
+
+    // Transient write (a preview), then restore FROM the snapshot -> back to the originals.
+    REQUIRE(WriteBinding(pos, inst, Variant::From(Float3{-1.0f, -1.0f, -1.0f})).IsOk());
+    CHECK(comp.position.x == doctest::Approx(-1.0f));
+    REQUIRE(WriteBinding(pos, inst, posSnapshot).IsOk());
+    CHECK(comp.position.x == doctest::Approx(7.0f));
+    CHECK(comp.position.z == doctest::Approx(9.0f));
+
+    // An unresolved binding reads an empty Variant, never crashes.
+    CHECK(ReadBinding(ResolveBinding(AnimComp::StaticType(), u8"nope"), inst).IsEmpty());
+}
+
 TEST_CASE("propanim: clip duration = the longest track")
 {
     EnsureRegistered();
