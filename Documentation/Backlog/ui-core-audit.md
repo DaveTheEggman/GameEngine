@@ -343,21 +343,26 @@ StyleProperty::FontSize (rules were dead before); .contextmenu sheets set
 font-size 14. Verified false alarms: Dialog / TooltipView / ComboBox-
 dropdown "hardcoded borders" only draw on the no-theme fallback path.
 
+**FIXED in the toolkit fixup batch (post-audit):** CurveCanvas +
+GradientEditor + DockDragPreview now resolve background (raw color via
+background-color) / border / dim-text from the theme and are registered
+selectable (tripwire 16); ToastHost severities resolve the NEW
+success-color/warning-color/error-color style properties (View rules map
+them to the palette in every core sheet); the View-16 font inheritance
+regression (newly-wired FontSize resolves picking up the base rule) is
+pinned by explicit 12s on DockablePanel/Toolbar/BreadcrumbBar + gates.
+Semantic constants stay by design: key/tangent handle colors, VectorFields
+axis colors (red X / green Y / blue Z), selection-yellow markers.
+
 **Remainder - theme cannot influence these today (P4-adjacent):**
-- Zero-hook canvases: CurveCanvas (bg/grid/key+tangent colors, 9px
-  labels), GradientEditor (bg/strip/markers), VectorFields (axis label
-  colors, 11px), DockZoneIndicator (arrow + fixed alphas over injected
-  accent), DockDragPreview (fully unthemed), DragAdorner ghost,
-  ModalBackdrop scrim.
+- DockZoneIndicator arrow + fixed alphas over the injected accent;
+  DragAdorner default ghost; ModalBackdrop scrim (property, no style).
 - CodeEditView: syntax token palette + FontSize/FontFamily fields +
   gutter marker colors bypass (its chrome colors DO resolve).
-- ToastHost: Success/Warning/Error severity accents hardcoded even
-  though the palette carries $success/$warning/$error - needs severity
-  style properties (only Info resolves AccentColor).
 - Child-view text is unreachable by container rules (no descendant
-  selectors / style inheritance): StatusBar section labels, Toolbar
-  button labels (resolve wired, rules can't target ToolbarButton),
-  PropertyGrid row labels (12).
+  selectors / style inheritance): StatusBar section labels,
+  PropertyGrid row labels (12); Toolbar buttons now resolve via their
+  Toolbar ancestor instead.
 - RadioButton lacks the part-width hook CheckBox has (kCircleSize 18).
 - NodeGraphCanvas title/subtitle/port font sizes + geometry constants;
   NodeGraphTypes per-node colors are caller-owned by design.

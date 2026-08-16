@@ -31,6 +31,8 @@ import :breadcrumb_bar;
 import :color_picker;
 import :property_grid;
 import :toast_host;
+import :curve_canvas;
+import :gradient_editor;
 
 using namespace foundation::core;
 namespace core = foundation::core;
@@ -40,7 +42,7 @@ export namespace foundation::ui::toolkit
     /// Number of toolkit types registered for stylesheet selectors - tripwire: bump when
     /// RegisterToolkitTypes gains a control (a .sss selector for an unregistered type silently
     /// matches nothing).
-    inline constexpr core::usize kToolkitStyleTypeCount = 13;
+    inline constexpr core::usize kToolkitStyleTypeCount = 16;
 
     /// Make the toolkit controls selectable from .sss (ui-theme-migration.md P0d) - the
     /// prerequisite for expressing this extension's rules as a toolkit.sss fragment. Idempotent;
@@ -67,6 +69,9 @@ export namespace foundation::ui::toolkit
         UITypeRegistry::Register(u8"ColorPicker", &ColorPicker::StaticType());
         UITypeRegistry::Register(u8"PropertyGrid", &PropertyGrid::StaticType());
         UITypeRegistry::Register(u8"ToastCard", &ToastCard::StaticType());
+        UITypeRegistry::Register(u8"CurveCanvas", &CurveCanvas::StaticType());
+        UITypeRegistry::Register(u8"GradientEditor", &GradientEditor::StaticType());
+        UITypeRegistry::Register(u8"DockDragPreview", &DockDragPreview::StaticType());
     }
 
     /// Registers default theme styles for all foundation.ui.toolkit controls (Pattern-B injected

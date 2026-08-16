@@ -104,11 +104,10 @@ export namespace foundation::ui::toolkit
             const u64 id = m_nextId++;
 
             RefPtr<ToastCard> card = MakeRef<ToastCard>(DefaultAllocator());
-            // Info uses the theme accent; Success/Warning/Error keep their semantic colors.
-            card->Accent =
-                (request.severity == ToastSeverity::Info)
-                    ? ResolveStyleColor(StyleProperty::AccentColor, AccentFor(request.severity))
-                    : AccentFor(request.severity);
+            // Every severity resolves through the theme (the semantic status properties map to
+            // the palette's $success/$warning/$error); AccentFor stays as the unthemed fallback.
+            card->Accent = ResolveStyleColor(SeverityProperty(request.severity),
+                                             AccentFor(request.severity));
 
             RefPtr<Label> message = MakeRef<Label>(DefaultAllocator());
             message->SetText(request.message.AsView());
@@ -259,6 +258,22 @@ export namespace foundation::ui::toolkit
                     }
                     return;
                 }
+            }
+        }
+
+        [[nodiscard]] static StyleProperty SeverityProperty(ToastSeverity severity)
+        {
+            switch (severity)
+            {
+            case ToastSeverity::Success:
+                return StyleProperty::SuccessColor;
+            case ToastSeverity::Warning:
+                return StyleProperty::WarningColor;
+            case ToastSeverity::Error:
+                return StyleProperty::ErrorColor;
+            case ToastSeverity::Info:
+            default:
+                return StyleProperty::AccentColor;
             }
         }
 

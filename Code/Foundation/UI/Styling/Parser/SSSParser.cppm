@@ -671,6 +671,12 @@ export namespace foundation::ui
                 return StyleProperty::SelectionColor;
             if (name == StringView(u8"accent-color"))
                 return StyleProperty::AccentColor;
+            if (name == StringView(u8"success-color"))
+                return StyleProperty::SuccessColor;
+            if (name == StringView(u8"warning-color"))
+                return StyleProperty::WarningColor;
+            if (name == StringView(u8"error-color"))
+                return StyleProperty::ErrorColor;
 
             // Float properties
             if (name == StringView(u8"font-size"))
@@ -730,7 +736,7 @@ export namespace foundation::ui
         }
         [[nodiscard]] static bool IsColorProperty(StyleProperty prop)
         {
-            return prop >= StyleProperty::TextColor && prop <= StyleProperty::AccentColor;
+            return prop >= StyleProperty::TextColor && prop <= StyleProperty::ErrorColor;
         }
         [[nodiscard]] static bool IsThicknessProperty(StyleProperty prop)
         {

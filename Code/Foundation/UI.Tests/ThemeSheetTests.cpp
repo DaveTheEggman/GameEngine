@@ -91,9 +91,13 @@ namespace
         CheckFontSize(sheet, &NumericField::StaticType(), 14.0f);
         CheckFontSize(sheet, &Expander::StaticType(), 14.0f);
 
-        // Global defaults: themed text + accent on the View base type.
+        // Global defaults: themed text + accent + semantic status colors on the View base type
+        // (toasts and validation resolve success/warning/error through the theme).
         CHECK(FindValue(sheet, &View::StaticType(), {}, StyleProperty::TextColor) != nullptr);
         CHECK(FindValue(sheet, &View::StaticType(), {}, StyleProperty::AccentColor) != nullptr);
+        CHECK(FindValue(sheet, &View::StaticType(), {}, StyleProperty::SuccessColor) != nullptr);
+        CHECK(FindValue(sheet, &View::StaticType(), {}, StyleProperty::WarningColor) != nullptr);
+        CHECK(FindValue(sheet, &View::StaticType(), {}, StyleProperty::ErrorColor) != nullptr);
 
         // Spacing scale: button pad 8 12 (CSS v h -> Thickness l12 t8 r12 b8), input pad 4 6.
         {

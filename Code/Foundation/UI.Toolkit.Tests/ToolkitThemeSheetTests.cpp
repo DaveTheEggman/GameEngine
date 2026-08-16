@@ -72,10 +72,26 @@ namespace
         ext.Apply(sheet, palette); // the REAL path: parse + MergeFrom
         REQUIRE(sheet.RuleCount() > 0);
 
-        // Ramp: dock tabs 12, menu bar 14. (StatusBar text is child Labels - a container
-        // rule cannot reach them, so the sheet deliberately sets none; audit remainder.)
+        // Ramp: compact chrome 12, menu bar 14. The explicit 12s are REGRESSION GATES: these
+        // controls resolve FontSize now, and without a rule the View base 16 wins (type rules
+        // match subclasses). (StatusBar text is child Labels - a container rule cannot reach
+        // them, so the sheet deliberately sets none; audit remainder.)
         CheckFontSize(sheet, &DockTabGroup::StaticType(), 12.0f);
+        CheckFontSize(sheet, &DockablePanel::StaticType(), 12.0f);
+        CheckFontSize(sheet, &Toolbar::StaticType(), 12.0f);
+        CheckFontSize(sheet, &BreadcrumbBar::StaticType(), 12.0f);
         CheckFontSize(sheet, &MenuBar::StaticType(), 14.0f);
+
+        // The canvases + drag preview resolve Background as a raw COLOR (background-color).
+        const TypeInfo* rawColorTypes[] = {&CurveCanvas::StaticType(),
+                                           &GradientEditor::StaticType(),
+                                           &DockDragPreview::StaticType()};
+        for (const TypeInfo* t : rawColorTypes)
+        {
+            const StyleValue* bg = FindValue(sheet, t, {}, StyleProperty::Background);
+            REQUIRE(bg != nullptr);
+            CHECK(bg->AsColor().HasValue());
+        }
 
         // ToastCard resolves Background via ResolveStyleColor: the value must be a raw COLOR
         // (background-color), never a drawable (which that path ignores).

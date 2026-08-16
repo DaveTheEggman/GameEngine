@@ -22,6 +22,10 @@ export namespace foundation::ui
         CursorColor,
         SelectionColor,
         AccentColor,
+        // Semantic status colors (palette $success/$warning/$error; toasts, validation).
+        SuccessColor,
+        WarningColor,
+        ErrorColor,
 
         // Float properties
         FontSize,

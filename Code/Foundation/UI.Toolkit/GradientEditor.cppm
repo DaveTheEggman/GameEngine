@@ -191,8 +191,10 @@ export namespace foundation::ui::toolkit
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            // Outer background.
-            ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Rgb(28, 28, 33, 255));
+            // Outer background from the theme (background-color = raw-color resolve).
+            const core::Color canvasBg =
+                ResolveStyleColor(StyleProperty::Background, Rgb(28, 28, 33, 255));
+            ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, canvasBg);
 
             const f32 stripH = StripBottom();
             if (m_stops.Size() == 0)
@@ -212,12 +214,14 @@ export namespace foundation::ui::toolkit
             }
 
             // Strip border.
-            ctx.VG().FillRect(Rectangle{0, 0, Width(), 1}, Rgb(60, 60, 68, 255));
-            ctx.VG().FillRect(Rectangle{0, stripH - 1, Width(), 1}, Rgb(60, 60, 68, 255));
+            const core::Color stripBorder =
+                ResolveStyleColor(StyleProperty::BorderColor, Rgb(60, 60, 68, 255));
+            ctx.VG().FillRect(Rectangle{0, 0, Width(), 1}, stripBorder);
+            ctx.VG().FillRect(Rectangle{0, stripH - 1, Width(), 1}, stripBorder);
 
-            // Marker strip background.
+            // Marker strip background - a step up from the canvas.
             ctx.VG().FillRect(Rectangle{0, stripH, Width(), kMarkerStripHeight},
-                              Rgb(35, 35, 41, 255));
+                              Palette::Lighten(canvasBg, 0.05f));
 
             // Markers - triangle pointing up.
             for (i32 i = 0; i < static_cast<i32>(m_stops.Size()); ++i)
@@ -226,7 +230,8 @@ export namespace foundation::ui::toolkit
                 const bool isSel = (i == m_selectedIdx);
                 const core::Color body = Vector4ToColor(m_stops[static_cast<usize>(i)].Color);
                 const core::Color stroke =
-                    isSel ? Rgb(255, 220, 100, 255) : Rgb(200, 200, 210, 255);
+                    isSel ? Rgb(255, 220, 100, 255)
+                          : ResolveStyleColor(StyleProperty::TextDimColor, Rgb(200, 200, 210, 255));
 
                 // Filled triangle.
                 ctx.VG().BeginPath();

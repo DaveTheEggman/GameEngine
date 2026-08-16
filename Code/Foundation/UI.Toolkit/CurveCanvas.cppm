@@ -510,13 +510,17 @@ export namespace foundation::ui::toolkit
         {
             UpdateAutoFit();
 
-            // Background.
-            ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()}, Rgb(28, 28, 33, 255));
+            // Background / grid / labels from the theme (key + tangent handle colors stay
+            // semantic constants, like axis colors). background-color = raw-color resolve.
+            ctx.VG().FillRect(Rectangle{0, 0, Width(), Height()},
+                              ResolveStyleColor(StyleProperty::Background, Rgb(28, 28, 33, 255)));
 
             // Grid: 4 divisions on each axis (5 lines).
             constexpr i32 DIVS = 4;
-            const core::Color gridColor = Rgb(50, 50, 58, 255);
-            const core::Color labelColor = Rgb(120, 122, 132, 255);
+            const core::Color gridColor =
+                ResolveStyleColor(StyleProperty::BorderColor, Rgb(50, 50, 58, 255));
+            const core::Color labelColor =
+                ResolveStyleColor(StyleProperty::TextDimColor, Rgb(120, 122, 132, 255));
             fonts::CachedFont* font =
                 (ctx.FontService() != nullptr) ? ctx.FontService()->GetFont(9.0f) : nullptr;
 

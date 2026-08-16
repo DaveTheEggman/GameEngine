@@ -60,11 +60,14 @@ export namespace foundation::ui::toolkit
         {
             const f32 headerH = 24.0f;
 
-            const Color borderColor = Rgb(65, 70, 85, 255);
-            const Color contentBg = Rgb(42, 44, 54, 255);
+            const Color borderColor =
+                ResolveStyleColor(StyleProperty::BorderColor, Rgb(65, 70, 85, 255));
+            const Color contentBg =
+                ResolveStyleColor(StyleProperty::Background, Rgb(42, 44, 54, 255));
             ctx.VG().FillRoundedRect(Rectangle{0, 0, Width(), Height()}, 4, contentBg);
 
-            const Color headerBg = Rgb(40, 44, 55, 255);
+            // Header derives from the resolved body (same direction as the panel header).
+            const Color headerBg = Palette::Darken(contentBg, 0.08f);
             ctx.VG().FillRoundedRect(Rectangle{0, 0, Width(), headerH}, 4, headerBg);
             // Square off header bottom corners.
             ctx.VG().FillRect(Rectangle{0, headerH - 4, Width(), 4}, headerBg);
@@ -75,7 +78,8 @@ export namespace foundation::ui::toolkit
                 fonts::CachedFont* font = ctx.FontService()->GetFont(11.0f);
                 if (font != nullptr)
                 {
-                    const Color textColor = Rgb(220, 225, 235, 255);
+                    const Color textColor =
+                        ResolveStyleColor(StyleProperty::TextColor, Rgb(220, 225, 235, 255));
                     ctx.VG().DrawText(m_title, font, Rectangle{8, 0, Width() - 16, headerH},
                                       fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle,
                                       textColor);

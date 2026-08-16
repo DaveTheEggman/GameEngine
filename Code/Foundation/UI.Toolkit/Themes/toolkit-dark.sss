@@ -16,6 +16,7 @@ DockManager { background: color($background); }
 DockablePanel {
     text-color: $text;
     background: color($surface);
+    font-size: 12;  /* header title (compact chrome; without this the View 16 default wins) */
 }
 DockablePanel::header { background: rounded-rect(darken($surface, 10%), radius=0); }
 DockablePanel::content { background: color($surface); }
@@ -70,6 +71,7 @@ MenuBar {
 Toolbar {
     background: color(darken($surface, 15%));
     border-color: $border;
+    font-size: 12;  /* button labels (compact chrome; resolved via the Toolbar ancestor) */
     selection-color: darken($primary-accent, 30%);
 }
 
@@ -94,6 +96,7 @@ BreadcrumbBar {
     background: rounded-rect(darken($surface, 10%), radius=0);
     text-color: $text;
     accent-color: $primary-accent;
+    font-size: 12;  /* segments (compact chrome) */
 }
 
 /* === ColorPicker === */
@@ -114,5 +117,25 @@ PropertyGrid {
  * content. */
 ToastCard {
     background-color: $surface-bright;
+    text-color: $text;
+}
+
+/* === CurveCanvas / GradientEditor (curve + gradient editing canvases; key/tangent/axis
+ * handle colors stay semantic constants) === */
+CurveCanvas {
+    background-color: darken($surface, 30%);
+    border-color: lighten($surface, 15%);
+    text-dim-color: $text-dim;
+}
+GradientEditor {
+    background-color: darken($surface, 30%);
+    border-color: lighten($surface, 15%);
+    text-dim-color: lighten($text-dim, 20%);
+}
+
+/* === DockDragPreview (floating drag ghost - panel chrome; header derives in code) === */
+DockDragPreview {
+    background-color: $surface;
+    border-color: $border;
     text-color: $text;
 }
