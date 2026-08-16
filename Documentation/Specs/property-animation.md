@@ -346,3 +346,49 @@ Questions:
    > ClipEditorView + the Q3 preview rules). This also honors
    > validate-incrementally: the seam gets a real consumer before it
    > generalizes.
+   >
+   > **OVERRIDDEN by the user (2026-08-16): in-scene editing builds FIRST.**
+   > Both paths are wanted; the in-scene mode is the priority and lands
+   > BEFORE any further focused-page work (the page's remaining follow-ups -
+   > live scene-entity preview etc. - are PAUSED until the in-scene mode
+   > ships). Consequences: the Q1 panel seam's first consumer is property
+   > animation (not navigation/terrain - they adopt it later), and the Q2
+   > ClipEditorView extraction happens NOW as part of this build. All other
+   > rulings above stand unchanged. Build plan: Phase H below.
+
+## Phase H - the in-scene authoring mode (user-prioritized 2026-08-16)
+
+Build order (each phase battery-green before the next; the standalone page
+must remain fully functional THROUGHOUT - it re-hosts the shared view in H2
+and never regresses):
+
+- **H1 - the panel seam.** `IViewportToolPanelProvider` registry in the
+  editor-UI tier (NOT on IViewportTool - the tool framework stays UI-free),
+  keyed by tool id; ScenePage reserves a tool-panel dock slot and
+  docks/undocks the panel on tool activation/deactivation; explicit
+  registration + count tripwire + tests (panel appears/disappears with the
+  tool; unknown tool id = no panel, no crash; gesture-safe tool switching
+  keeps working).
+- **H2 - ClipEditorView extraction.** Lift the clip page's track list +
+  CurveCanvas/key-table + transport into the shared composite over a small
+  host seam (clip access + undo Mutate + preview callbacks). The standalone
+  page re-hosts it BEHAVIOR-IDENTICAL (existing page tests keep passing
+  unchanged - that is the acceptance for this phase).
+- **H3 - the PropertyAnimationTool.** An IViewportTool + panel provider in
+  editor.propertyanimation: activating the tool docks the panel hosting
+  ClipEditorView; clip pick-or-create (asset picker + New); "add track from
+  selection" - the component/property picker seeded from the SELECTED
+  entity's actual components (typed, filtered to animatable kinds); track
+  adds go through undo as normal document/asset mutations.
+- **H4 - live preview (the Q3 rules, mechanized).** Transport drives the
+  RUNTIME evaluation path against the selected entity; preview writes are
+  snapshot/restore transients (never undo, never dirtying scene or asset);
+  transport hard-disabled outside the EDIT scene state; overlay draws
+  animated-property markers (debug-draw channel). Tests: snapshot-restore
+  round-trip, disabled-under-sim, structural-change re-resolve via the
+  generation guard, scene not dirtied by preview.
+
+Acceptance: author a clip end-to-end against a selected entity WITHOUT
+leaving the scene page; the same clip opens identically in the standalone
+page; preview never dirties the scene; battery green both compilers; user
+visual pass. Navigation/terrain adopt the H1 seam when they build.
