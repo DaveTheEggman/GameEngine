@@ -72,6 +72,12 @@ export namespace foundation::ui
         /// Load a StyleSheet from .sss text content.
         RefPtr<StyleSheet> Load(StringView source, StringView basePath = {})
         {
+            // Self-sufficient (ui-theme-migration.md P1 finding): hosts that skipped the
+            // InitializeGlobals startup call used to get TYPE selectors that silently resolved
+            // to null and matched nothing (the parser then ate the first declaration during
+            // recovery). Registration is idempotent - always ensure it here.
+            InitializeGlobals();
+
             // Copy palette so the parser can mutate it without affecting the loader.
             HashMap<String, Color> palette;
             for (const auto& kv : m_basePalette)

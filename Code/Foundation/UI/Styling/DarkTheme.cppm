@@ -21,6 +21,8 @@ import :thickness;
 import :palette;
 import :theme_palette;
 import :theme_registry;
+import :style_sheet_loader;
+import :embedded_themes;
 import :theme_icons;
 import :theme_icon_set;
 import :rounded_rect_drawable;
@@ -53,13 +55,34 @@ using namespace foundation::core;
 export namespace foundation::ui
 {
     /// Factory for creating the default dark theme as a StyleSheet.
+    ///
+    /// The theme is AUTHORED as Styling/Themes/dark.sss (embedded at build - see
+    /// EmbeddedThemes) and parsed here; ui-theme-migration.md P1. The legacy C++ rule
+    /// builder is kept ONLY as the parity oracle (ThemeParityTests diffs the two sheets
+    /// rule-for-rule) and dies once the consistency pass deliberately supersedes it.
     struct DarkTheme
     {
         [[nodiscard]] static RefPtr<StyleSheet> Create()
         {
-            return BuildTheme(ThemePalette::Dark());
+            return Create(ThemePalette::Dark());
         }
         [[nodiscard]] static RefPtr<StyleSheet> Create(ThemePalette palette)
+        {
+            StyleSheetLoader loader;
+            loader.SetPalette(palette);
+            RefPtr<StyleSheet> sheet = loader.Load(EmbeddedThemes::Dark());
+            if (!sheet)
+            {
+                // A parse failure of the EMBEDDED sheet is a build defect; never ship an
+                // unstyled UI - the legacy builder is the belt while it still exists.
+                return CreateLegacyForParity(palette);
+            }
+            ThemeRegistry::ApplyExtensions(*sheet, palette);
+            return sheet;
+        }
+
+        /// The former C++ rule builder - parity-test oracle ONLY (see the struct comment).
+        [[nodiscard]] static RefPtr<StyleSheet> CreateLegacyForParity(ThemePalette palette)
         {
             return BuildTheme(palette);
         }

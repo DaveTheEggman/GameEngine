@@ -1,0 +1,23 @@
+// GENERATED at configure time from Styling/Themes/*.sss - DO NOT EDIT (edit the .sss files;
+// CMake re-embeds them). The built-in themes are authored as real stylesheets and embedded as
+// strings (ui-theme-migration.md: cooked assets are chicken/egg for pre-project editor theming,
+// loose files repeat the DXC-sidecar staging lesson). The same .sss files double as asset
+// templates.
+
+module;
+#include "Core/Prelude.h"
+
+export module foundation.ui:embedded_themes;
+
+import foundation.core;
+
+export namespace foundation::ui
+{
+    struct EmbeddedThemes
+    {
+        [[nodiscard]] static core::StringView Dark()
+        {
+            return u8R"__sss__(@UI_DARK_THEME_SSS@)__sss__";
+        }
+    };
+}

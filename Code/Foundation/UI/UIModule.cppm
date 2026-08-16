@@ -141,6 +141,7 @@ export import :theme_extension;
 export import :theme_registry;
 export import :theme_icons;
 export import :theme_icon_set;
+export import :embedded_themes;
 export import :theme_image_set;
 export import :theme_atlas;
 export import :sss_token;
