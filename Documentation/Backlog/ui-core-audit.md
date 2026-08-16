@@ -1,0 +1,224 @@
+# UI core audit - good to great (Foundation/UI)
+
+> Fable, 2026-08-15. Four-lens audit (box model/layout, styling, focus/input,
+> cross-cutting architecture) of Code/Foundation/UI only - toolkit and leaf
+> libs deliberately out of scope. Every claim below was verified against code
+> with file:line evidence by the audit pass; anchors kept for the load-bearing
+> ones. This document is the synthesis + the prioritized plan.
+
+## Verdict in one paragraph
+
+The library is genuinely good where it counts: virtualization (ListView/
+GridView/TreeView over FlattenedTreeAdapter + ViewRecycler) is architecturally
+sound at 10k rows; the manager layer is dangling-safe by ViewId everywhere;
+the Editing stack, Markup, Animation, and the draw/hit-test transform stack
+are complete and correct; there are ~11k lines of real tests. What keeps it
+from great is that three foundational contracts were never made canonical:
+the BOX MODEL (four competing definitions), the FRAME PIPELINE (dirty
+tracking exists but nothing reads it - full re-measure/re-style/redraw of
+every window every frame), and FOCUS/MODALITY (focus is correct but the
+visual and the modal keyboard scope were never separated from it). Styling
+is NOT the problem it appears to be - see Q2.
+
+## The owner's three questions, answered
+
+### Q1: "measurements with and without borders; consistency of sizing"
+
+Confirmed, and it is structural: **there is no canonical box model - there
+are at least four.**
+
+- Border is PAINT-ONLY. No measure path reads StyleProperty::BorderWidth;
+  VG strokes are centered on the bounds edge (VG/Context.cppm:513-516), so
+  half of every themed 1px border lies outside the element; ClipsContent
+  clips it off (Core/View.cppm:899); content padding never reserves for it.
+- Padding has THREE channels with disjoint consumers: ViewGroup::Padding
+  (containers + markup), StyleProperty::Padding (leaf controls only - a
+  stylesheet `padding:` on a Panel silently no-ops), Drawable::
+  DrawablePadding (consumed by Panel alone - nine-slice chrome reserves
+  space in Panels but not Buttons).
+- SizeSpec (Fixed/Match/Wrap) is honored by 3 of 8+ containers; `width=
+  "100px"` works in FrameLayout and silently becomes wrap-content in
+  Dock/Flow/Grid/Panel. Two containers double-apply DPI to Fixed sizes
+  (MakeChildConstraints + FlexLayout resolve Dp with DpiScale INSIDE
+  logical space, then draw scales again); AbsoluteLayout resolves with 1.0
+  (correct). VERIFY on a 2x monitor - at 1x both paths coincide, masking it.
+- Fill-style leaves (Separator/ProgressBar/Slider/ScrollView...) measure to
+  MaxWidth/Height and explode to kFloatMax under unbounded parents
+  (FlowLayout/GridLayout measure children with Expand()).
+- Margin honored by 5 containers, ignored by 4 (incl. base ViewGroup, which
+  measures children but never arranges them - inherits empty OnLayout).
+- No layout rounding anywhere; StrokeRoundedRect is an unsnapped path
+  stroke - the blurry 1px borders on themed controls are exactly this.
+
+**THE FIX (the audit's biggest structural item): adopt border-box with a
+single chrome-resolution point in View.**
+
+1. `BoxMetrics { margin, padding, border }` resolved ONCE per pass in a
+   protected View helper: margin from LayoutParams; padding = max(field,
+   style, DrawablePadding) - Panel::EffectivePadding's max-merge hoisted to
+   the base (it is the right idea, applied in one class today); border from
+   style.
+2. `View::Measure` becomes a non-virtual template method: deflate margin,
+   apply the view's OWN SizeSpec (self-side, dpi=1 logical - kills the three
+   rival parent-side helpers AND the DPI double-scale), deflate
+   padding+border, call new `OnMeasureContent`, re-inflate + clamp.
+   Every container honors Fixed sizes for free; parents only place boxes.
+3. `View::Layout` subtracts margin once and rounds Bounds to the device
+   grid; borders draw INSET so paint stays inside bounds.
+4. Migration is mostly DELETION: ~30 controls drop hand-rolled deflate
+   boilerplate, 6 containers drop their spec-switch blocks. FrameLayout is
+   the behavioral reference (the only container composing all three
+   correctly today, minus the DPI bug). LayoutTests golden values will
+   churn - that churn IS the spec change; review it, don't avoid it.
+
+Keep untouched: BoxConstraints itself, the DrawChildren transform/clip
+stack + its HitTest inverse, VG's device-space snapping, ScrollView's
+reserved-mode two-pass measure.
+
+### Q2: "styling is very bespoke - is going closer to CSS better?"
+
+**No - because the styling system already IS a typed CSS-subset, and a good
+one.** Typed StyleProperty/StyleValue (wrong-typed style = compile error),
+type/class/state/pseudo-element selectors with CSS specificity + source
+order, three origins (inline > ancestor-local > context) with inheritance
+for text props, a text format (.sss) with @palette variables + @import + an
+extensible drawable factory (state-list/nine-slice/svg - richer than CSS
+background), cooked UITheme assets, 7 test files, and a shipping 290-line
+Data/Assets/ui/themes/breeze.sss proving expressiveness.
+
+What actually feels bespoke is that the codebase BYPASSES its own system:
+
+- The four built-in C++ themes are 1,769 lines of structural clones -
+  DarkTheme vs LightTheme differ by ZERO rules (86 identical Set calls,
+  different literals). Adding a theme = copying ~400 lines of C++;
+  every tweak is a rebuild.
+- Controls carry inline fallback defaults at 102 ResolveStyle call sites
+  (EditText repeats Thickness{6,4} SEVEN times) - there is no default
+  "user-agent sheet", so a theme omitting a property falls to whatever
+  each call site says.
+- Hand-rolled hover/pressed/disabled ladders with hardcoded DARK-theme
+  literals in ~10 control files - theme-blind fallbacks.
+
+**THE FIX: finish eating the dog food, do not adopt CSS.**
+
+1. Port the built-in themes to .sss (breeze is the template); keep
+   ThemePalette as @palette seed; keep IThemeExtension for the few things
+   text can't express (editor's runtime-baked icon atlas). Kills ~1,500
+   duplicated lines; theme edits become rebuild-free (the game path
+   already hot-swaps sheets).
+2. Add a lowest-priority built-in UA sheet; delete per-call-site defaults.
+3. Route control fallback ladders through StateListDrawable + UA rules;
+   controls stop calling Palette::Compute* directly.
+
+Full CSS is not justified (nothing is blocked on combinators; it would
+trade away typed properties and demand a real invalidation story). The
+Experimental GUI's CSS engine is a decent implementation of the WRONG
+model for this tree (push-styles-through-setters - styles fight program
+state; raw-pointer style cache violating the versioning rule; whole-subtree
+re-apply for :hover). Lift ideas, never the code. Preserve at all costs:
+typed properties, RTTI type selectors, pull-based resolution, StateList
+flag-stripping fallback, the drawable object model, the cooked asset path.
+
+### Q3: "focus after click + restore after modal - not retain, or not draw?"
+
+**Retain focus; gate the VISUAL (focus-visible semantics).** Click-focus is
+load-bearing: WantsTextInput reports off the focused view (no click-focus =
+no typing), ListView/Tree/Grid arrow-nav depends on click self-focus, tab
+continuity keys off the retained FocusedId. Every mature framework retains
+and gates the ring (web :focus-visible, WPF keyboard cues).
+
+Implementation (~30 lines core): `FocusSource { Programmatic, Pointer,
+Keyboard }` on FocusManager; producers - FocusNearestFocusable -> Pointer,
+FocusNext/Prev/MoveFocus -> Keyboard, rest Programmatic; the focus stack
+saves {ViewId, FocusSource} so a modal restore brings a clicked button back
+RINGLESS while a Tab-focused one keeps its ring (the exact complaint dies
+there). One consumer helper `View::IsFocusVisible()` (text-input views
+always show); switch the three ControlState producers (View, ButtonBase,
+ToggleButton GetControlState) from IsFocused to IsFocusVisible; leave
+EditText/NumericField border+caret on IsFocused. Hosts redraw every frame,
+so zero invalidation plumbing today - but also Invalidate() in SetFocus
+while there, to survive redraw gating later.
+
+**The audit found something WORSE than the ring while in there - modal
+keyboard leak:** popups are not children of PopupLayer's collected tree, so
+with a modal Dialog open, Tab cycles BACKGROUND views behind the backdrop
+and Return can activate a background button through the modal; the dialog
+itself opens keyboard-dead (Escape only works after clicking inside).
+Fix in the same batch: GetFocusRoot() returns the topmost focus-pushing
+popup; CollectFocusable enumerates popup entries (modals trap Tab AND
+dialog buttons become reachable); Dialog::Show sets initial Programmatic
+focus (ContextMenu already does); tie focus-stack entries to their popup
+(kills out-of-order-close cross-restore); validate restore targets
+(focusable + enabled + visible).
+
+## Cross-cutting findings (the fourth lens)
+
+1. **The invalidation system is decorative.** Invalidate() sets flags NOTHING
+   reads (zero NeedsRedraw consumers); UIRuntime re-measures, re-styles,
+   re-shapes, and redraws every window every frame. Idle editor burns CPU
+   proportional to total docked-panel complexity. Per-frame churn on top:
+   Label re-shapes text every measure AND re-allocates line splits + ellipsis
+   String every draw (EditText's m_glyphsDirty cache is the house pattern
+   Label never got); ListView REBINDS every visible row every layout pass;
+   ComboBox measures every item per measure; style resolution is an uncached
+   three-origin walk per property per draw.
+2. **Event/Property bindings cannot unsubscribe.** Event has Add/Clear only;
+   Property::BindTo captures raw Property* both ways - either view dying
+   first leaves the survivor firing into freed memory. The mutation queue
+   captures raw View* (QueueDelete also never resets IsPendingDeletion -
+   a removed-not-destroyed view becomes immune to future queued removals).
+3. **The mutation-queue rule is caller discipline, not architecture** -
+   RemoveView is freely callable mid-dispatch; input bubble walks a
+   pre-built raw-pointer chain. (The ViewId-based manager layer is safe;
+   dispatch-in-progress is not.)
+4. **SelectionModel stores flat indices** that nothing remaps on data
+   change: collapse a tree node above your selection and the highlight
+   jumps rows. TreeView's events are nodeId-based but its selection is
+   positional.
+5. **LocalToScreen/ScreenToLocal ignore ViewTransform** while HitTest
+   honors it - clicks mis-map inside any scaled/animated subtree.
+
+## The plan - priority order
+
+**P0 - correctness batch (small, ships together):**
+modal keyboard trap + dialog initial focus + FocusSource/IsFocusVisible
+(Q3 above); debug-assert phase in AddView/RemoveView/InsertView (the
+mutation-queue rule becomes self-enforcing); QueueDelete flag reset +
+collapse the three Queue* spellings; Selection clear-or-remap on
+NotifyDataChanged + nodeId-keyed TreeView selection; validate focus
+restore targets.
+
+**P1 - quick perf wins (each one-file-ish):**
+consume NeedsRedraw in UIRuntime::RenderWindow (route animator writes
+through Invalidate; idle editor -> ~0 draw cost); delete ListView's
+rebind-every-frame branch; give Label (then Button/CheckBox/TabView) the
+EditText glyph-cache treatment; cache ComboBox max-item-width + TabView
+extents; drop the advisory deleteChild params.
+
+**P2 - the box model (the big one; own spec, phased like a track):**
+border-box + BoxMetrics + template-method Measure/Layout per Q1. Verify
+the HiDPI double-scale on a 2x monitor first (it decides how loud the
+release note must be). Golden-test churn reviewed deliberately.
+
+**P3 - styling dogfood:** themes to .sss + UA default sheet + state-ladder
+removal per Q2. Independent of P2; mostly deletion; each step shippable.
+
+**P4 - structural (after P1 proves the seams):** damage-driven frame
+pipeline (route the existing-but-discarded InvalidationKind into
+relayout/redraw context flags; move ListView's OnDraw-as-tick timers to
+BeginFrame); shared ShapedTextBlock cache type; RAII connection tokens for
+Event/Property (prerequisite for any richer editor data-binding).
+
+**Untested areas worth tests when touched:** DragDropManager (design is
+complete, coverage is an accessor check), TooltipManager, Debug/ overlay,
+and the UIRuntime frame loop itself (its lack of tests is how the dead
+NeedsRedraw went unnoticed).
+
+## Do not touch (verified solid)
+
+Virtualization stack (ListView/GridView/TreeView/ViewRecycler), ViewId
+manager safety + Unregister fan-out, Editing stack (TextEditingBehavior/
+UndoStack/EditText glyph cache), Markup loader+registry (diagnostics-
+friendly, tested), Animation manager (reentrancy-safe), DragDrop design,
+RefPtr tree ownership + MoveView + popup-layer-last invariant,
+BoxConstraints, the DrawChildren transform stack, VG device-space snapping.
