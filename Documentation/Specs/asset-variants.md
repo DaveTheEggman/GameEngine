@@ -167,12 +167,15 @@ exact expected size in the cook test.
   through read-deps), ContentDatabase::CopyContentForward, CookDriver
   SetTarget/SetCopyForwardSource + TryCopyForward (CookStats.copiedForward),
   CookForTarget + CookTargetFor helpers, `Tools.Cook --target <id>`
-  materializing Cooked/<id>/ + .cache/<id>/. Cook tests: a web-astc target
-  recooks the one variant product + copies the invariants forward; an
-  invariant product reading variant content recooks per target. REMAINING:
-  the export + dist + web-boot integration (pack the target DB; two-pak web;
-  boot selection) - out to Fable for a design decision (chicken-and-egg: the
-  content pak is fetched before the WebGPU adapter's bc/astc support is known).
+  materializing Cooked-<id>/ + .cache/<id>/ (sibling, Fable Q2). Cook tests: a
+  web-astc target recooks the one variant product + copies the invariants
+  forward; an invariant product reading variant content recooks per target.
+  STATUS 2026-08-15: P2 COMPLETE (a-f). Export is target-aware (ExportContent
+  packs a content-variant list; ExportProject/ExportOne thread it through both
+  paths; CookVariantTargets reuses CookForTarget). Desktop byte-identical guard
+  is executable (a junk sibling Cooked-web-astc/ present -> identical
+  Content.pak). Editor dev loop untouched (host DB only). See the resolved
+  design-questions section for the Fable rulings driving this.
 - **P3 - mobile-web: ASTC variant + boot-time pak selection.** The web
   export preset produces the BC pak AND the ASTC pak; the wasm boot picks
   by adapter capability before resource binding starts. Acceptance: PSNR +
@@ -181,6 +184,15 @@ exact expected size in the cook test.
   renders the probe scene. Precondition: the mobile-web smoke of the
   CURRENT build (Decision 4) has run, so format work isn't debugging
   input/surface issues at the same time.
+  STATUS 2026-08-15: P3 BUILT. ASTC PSNR + format assertions landed in P1. The
+  web export ships Content-bc.pak + Content-astc.pak (test: two paks, no
+  Content.pak); the wasm boot (WebMain SelectAndFetchContentPak) probes the
+  adapter's bc/astc and fetches the matching pak as Content.pak (builds for
+  wasm). REMAINING for P3 acceptance: (1) the manifest deviation (built
+  manifest-free by pak-name convention) needs Fable/user sign-off; (2) the
+  BROWSER functional check - a desktop browser loads the BC pak + a mobile
+  browser (or forced-capability hook) loads the ASTC pak - is a UAT item (no
+  browser in the build env), gated on the Decision-4 mobile-web smoke precursor.
 - **Deferred (do NOT build now):** ETC2, RDO/rate-distortion knobs,
   GPU-compute encoding, per-asset per-platform overrides in the UI.
 
