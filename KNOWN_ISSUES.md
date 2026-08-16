@@ -5,25 +5,46 @@ and the plan. Keep newest first.
 
 ---
 
-## DX12/Windows: MSAA + texture compression probes await a Windows RUN - OPEN
+## DX12/Windows: MSAA + texture compression - ON-SCREEN CHECK REMAINS
 
-**Status:** implementation gap CLOSED, verification gap OPEN. The Windows-side
-commits 0295bb9e (resource-state tracking through mip generation + resolve),
-38c6d184 (real MSAA sample-count reporting + probe coverage) and 354d2c1e
-(real per-format support queries) delivered the capability work the original
-entry recorded as missing; both probe suites now compile the DX12 leg and
-self-skip where the backend is absent. What remains is a RUN, plus review
-pass 10 findings to fix on a Windows box (this Linux checkout cannot compile
-DX12): `ResolveTexture`'s transitionAll reads `currentState()` which is stale
-in per-subresource mode (tracker/barrier divergence - the same class the
-commit fixed in GenerateMipmaps; same latent flaw at DxCommandEncoder
-whole-resource TextureBarrier + DxTransferBatch), and the mip-generation
-settle loop walks layer 0 only so array/cube textures stay non-uniform.
+**Status:** implementation CLOSED, automated verification CLOSED, on-screen check OPEN.
 
-**Plan:** next Windows session (1) fixes the two tracker findings (a
-uniformity accessor on DxTextureImpl retires all three call sites), (2) runs
-Render.Backend.Tests + Integration.TextureCompression on DX12, (3) on-screen
-editor/player check with MSAA on and a BC-cooked project.
+Commits 0295bb9e (resource-state tracking through mip generation + resolve), 38c6d184
+(real MSAA sample-count reporting + probe coverage) and 354d2c1e (real per-format
+support queries) delivered the capability work. Review pass 10's two tracker findings
+are fixed, and both probe suites have now been RUN on DX12 hardware (RTX 3060).
+
+**Review pass 10 findings, fixed.** `DxTextureImpl::currentState()` returns `m_state`
+unconditionally, which is a stale leftover whenever per-subresource tracking is active,
+and `setState()` erases that tracking - so any "one ALL_SUBRESOURCES barrier from
+currentState()" is wrong the moment a texture is non-uniform. `ResolveTexture` had
+reintroduced exactly the divergence its own commit fixed in `GenerateMipmaps`, and the
+same latent flaw sat in the encoder's whole-resource TextureBarrier and in
+DxTransferBatch. The mip settle loop also walked layer 0 only, leaving array/cube
+textures permanently non-uniform and every later reader stale.
+
+Retired via a uniformity accessor plus one shared primitive on DxTextureImpl:
+`hasUniformState()` states when `currentState()` is meaningful at all, and
+`TransitionWholeTexture()` moves an entire texture from whatever its subresources are
+actually in - one ALL_SUBRESOURCES barrier when uniform, per-subresource barriers when
+not - always leaving the tracker uniform. That retires all three call sites; the
+encoder's coalescing path (which defers emission and so cannot use the helper) instead
+requires `hasUniformState()` before taking the ALL_SUBRESOURCES shortcut and otherwise
+falls through to its per-subresource branch. The mip settle is now whole-resource.
+
+**Verified on RTX 3060 (clang, Windows):**
+- `Sample009_Mipmaps --dx12`: 9 validation errors -> 0.
+- MSAA probe, identical to the numbers this spec records for the other two backends,
+  so the resolve is genuinely running rather than a capability number having changed:
+  `[msaa] dx12 maxLuma 1x=533 4x=533 | fringe 1x=0 4x=103`. Post stack (TAA/FXAA/AO/SSR)
+  composes at 4x. Render.Backend.Tests 3/3, 698 assertions.
+- BC probe: BC1/BC5/BC7 sample byte-identically to Vulkan and WebGPU; ASTC now correctly
+  reports unsupported and skips (it has no DXGI format - DX12 previously claimed support
+  and sampled garbage). Integration.TextureCompression 1/1, 171 assertions.
+- Full clang suite 126/126.
+
+**Remains:** on-screen editor/player check with MSAA on and a BC-cooked project - the one
+step the automated probes cannot stand in for.
 
 ---
 

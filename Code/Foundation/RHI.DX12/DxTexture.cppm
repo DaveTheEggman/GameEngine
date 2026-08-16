@@ -100,7 +100,26 @@ export namespace foundation::rhi::dx12
         // ---- Internal ----
         [[nodiscard]] ID3D12Resource* handle() const { return m_resource.Get(); }
 
+        /// Whether every subresource shares one state.
+        ///
+        /// READ THIS BEFORE currentState(). In per-subresource mode m_state is a leftover, NOT
+        /// the resource's state, so currentState() lies and setState() would additionally erase
+        /// the per-subresource truth. A caller that wants to move the WHOLE resource must either
+        /// check this first or go through TransitionWholeTexture below, which handles both modes.
+        [[nodiscard]] bool hasUniformState() const noexcept { return m_subresourceStates.IsEmpty(); }
+
+        /// Subresource grid, matching the indexing setSubresourceState/getSubresourceState use.
+        [[nodiscard]] u32 stateLayerCount() const noexcept
+        {
+            return std::max(
+                (desc.dimension == TextureDimension::Texture3D) ? desc.depth : desc.arrayLayerCount,
+                1u);
+        }
+
+        /// Only meaningful when hasUniformState().
         [[nodiscard]] D3D12_RESOURCE_STATES currentState() const { return m_state; }
+        /// Declares the WHOLE resource to be in `s`; drops any per-subresource tracking, so only
+        /// call it when every subresource really was transitioned.
         void setState(D3D12_RESOURCE_STATES s)
         {
             m_state = s;
@@ -159,5 +178,54 @@ export namespace foundation::rhi::dx12
         Array<D3D12_RESOURCE_STATES> m_subresourceStates;
         bool m_ownsResource = true;
     };
+
+    /// Move an ENTIRE texture to `after`, from whatever its subresources are actually in, and
+    /// leave the tracker uniform.
+    ///
+    /// The obvious spelling - one ALL_SUBRESOURCES barrier from currentState() - is only correct
+    /// while the texture is uniform. In per-subresource mode it reads a stale m_state and the
+    /// debug layer rejects the barrier ("Before state ... does not match with the state ...
+    /// specified in the previous call to ResourceBarrier"). Every caller that wants whole-resource
+    /// movement should come through here rather than re-deriving it.
+    inline void TransitionWholeTexture(ID3D12GraphicsCommandList* cmdList, DxTextureImpl* tex,
+                                       D3D12_RESOURCE_STATES after)
+    {
+        if (cmdList == nullptr || tex == nullptr)
+            return;
+
+        D3D12_RESOURCE_BARRIER b{};
+        b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        b.Transition.pResource = tex->handle();
+        b.Transition.StateAfter = after;
+
+        if (tex->hasUniformState())
+        {
+            const D3D12_RESOURCE_STATES before = tex->currentState();
+            if (before == after)
+                return;
+            b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            b.Transition.StateBefore = before;
+            cmdList->ResourceBarrier(1, &b);
+            tex->setState(after);
+            return;
+        }
+
+        // Mixed: one barrier per subresource that is not already there, then collapse.
+        const u32 mips = tex->desc.mipLevelCount;
+        const u32 layers = tex->stateLayerCount();
+        for (u32 layer = 0; layer < layers; ++layer)
+        {
+            for (u32 mip = 0; mip < mips; ++mip)
+            {
+                const D3D12_RESOURCE_STATES before = tex->getSubresourceState(mip, layer);
+                if (before == after)
+                    continue;
+                b.Transition.Subresource = mip + layer * mips;
+                b.Transition.StateBefore = before;
+                cmdList->ResourceBarrier(1, &b);
+            }
+        }
+        tex->setState(after); // every subresource is now `after`, so uniform is the truth
+    }
 
 } // namespace foundation::rhi::dx12

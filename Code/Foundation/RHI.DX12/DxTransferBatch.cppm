@@ -171,15 +171,12 @@ export namespace foundation::rhi::dx12
             staging->Unmap(0, nullptr);
             m_stagingBuffers.push_back(std::move(staging));
 
-            // Transition texture to copy dest.
-            D3D12_RESOURCE_BARRIER barrier{};
-            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barrier.Transition.pResource = dxTex->handle();
-            barrier.Transition.StateBefore = dxTex->currentState();
-            barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
-            barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            if (dxTex->currentState() != D3D12_RESOURCE_STATE_COPY_DEST)
-                m_cmdList->ResourceBarrier(1, &barrier);
+            // Transition texture to copy dest. Via the shared helper rather than an
+            // ALL_SUBRESOURCES barrier built from currentState(): that is only valid while the
+            // texture is uniform, and re-uploading a mip level of a texture that has been through
+            // mip generation (which leaves per-subresource tracking behind) would otherwise carry
+            // a stale before-state and be rejected.
+            TransitionWholeTexture(m_cmdList.Get(), dxTex, D3D12_RESOURCE_STATE_COPY_DEST);
 
             u32 subresource = mipLevel + arrayLayer * dxTex->desc.mipLevelCount;
 
@@ -200,11 +197,8 @@ export namespace foundation::rhi::dx12
 
             m_cmdList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
 
-            // Transition back to common.
-            barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-            barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
-            m_cmdList->ResourceBarrier(1, &barrier);
-            dxTex->setState(D3D12_RESOURCE_STATE_COMMON);
+            // Transition back to common (the resting state the rest of the backend assumes).
+            TransitionWholeTexture(m_cmdList.Get(), dxTex, D3D12_RESOURCE_STATE_COMMON);
         }
 
         Status Submit() override

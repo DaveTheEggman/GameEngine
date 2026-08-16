@@ -227,7 +227,13 @@ export namespace foundation::rhi::dx12
                         continue;
 
                     auto newState = toResourceStates(tb.newState, dxTex->desc.format);
-                    bool isWholeResource = (tb.mipLevelCount == ~0u) && (tb.arrayLayerCount == ~0u);
+                    // ALL_SUBRESOURCES is only legal when every subresource really is in one
+                    // state. In per-subresource mode currentState() is a stale leftover, so the
+                    // barrier would carry a wrong before-state; fall through to the
+                    // per-subresource path instead, which reads each subresource's real state and
+                    // (with the ~0u counts expanded) collapses the tracker back to uniform.
+                    bool isWholeResource = (tb.mipLevelCount == ~0u) &&
+                                           (tb.arrayLayerCount == ~0u) && dxTex->hasUniformState();
 
                     if (isWholeResource)
                     {
@@ -539,10 +545,11 @@ export namespace foundation::rhi::dx12
             // Leave the whole chain in the resting state the rest of the backend assumes for a
             // sampled texture (what the upload path also settles on), so the tracker collapses
             // back to one uniform state instead of a per-subresource patchwork.
-            for (u32 mip = 0; mip < d.mipLevelCount; ++mip)
-            {
-                transition(mip, D3D12_RESOURCE_STATE_COMMON);
-            }
+            //
+            // Whole-resource, not a walk over layer 0's mips: on an array/cube texture the loop
+            // above only touches the first slice, so settling just those mips would leave the
+            // tracker permanently non-uniform and every later currentState() reader stale.
+            TransitionWholeTexture(m_cmdList, dxTex, D3D12_RESOURCE_STATE_COMMON);
         }
 
         // ---- MSAA Resolve ----
@@ -559,30 +566,17 @@ export namespace foundation::rhi::dx12
             // Same rule as GenerateMipmaps above: barrier from the TRACKED state and record the
             // result. Hardcoding COPY_SOURCE/COPY_DEST here desynced the tracker the moment a
             // resolve target was used any other way (an MSAA colour target rests in
-            // RENDER_TARGET, not COPY_SOURCE), which the debug layer reports as a before-state
-            // mismatch on the next barrier.
-            auto transitionAll = [&](DxTextureImpl* tex, D3D12_RESOURCE_STATES after)
-            {
-                const D3D12_RESOURCE_STATES before = tex->currentState();
-                if (before == after)
-                    return;
-                D3D12_RESOURCE_BARRIER b{};
-                b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-                b.Transition.pResource = tex->handle();
-                b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-                b.Transition.StateBefore = before;
-                b.Transition.StateAfter = after;
-                m_cmdList->ResourceBarrier(1, &b);
-                tex->setState(after);
-            };
-
-            transitionAll(dxSrc, D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
-            transitionAll(dxDst, D3D12_RESOURCE_STATE_RESOLVE_DEST);
+            // RENDER_TARGET, not COPY_SOURCE). Go through TransitionWholeTexture rather than
+            // reading currentState() directly: that is only valid while the texture is uniform,
+            // and reading it in per-subresource mode reintroduces the very divergence this
+            // function is fixing.
+            TransitionWholeTexture(m_cmdList, dxSrc, D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
+            TransitionWholeTexture(m_cmdList, dxDst, D3D12_RESOURCE_STATE_RESOLVE_DEST);
 
             m_cmdList->ResolveSubresource(dxDst->handle(), 0, dxSrc->handle(), 0, dxgiFormat);
 
-            transitionAll(dxSrc, D3D12_RESOURCE_STATE_COMMON);
-            transitionAll(dxDst, D3D12_RESOURCE_STATE_COMMON);
+            TransitionWholeTexture(m_cmdList, dxSrc, D3D12_RESOURCE_STATE_COMMON);
+            TransitionWholeTexture(m_cmdList, dxDst, D3D12_RESOURCE_STATE_COMMON);
         }
 
         // ---- Queries ----
