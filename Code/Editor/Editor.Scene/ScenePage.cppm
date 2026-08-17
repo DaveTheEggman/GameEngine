@@ -41,6 +41,7 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
+import editor.propertyanimation; // the persistent in-scene property-animation editor panel
 import :camera;
 import :edit;
 import :model_prefab;
@@ -222,65 +223,32 @@ export namespace editor
                 viewportPane->AddView(viewportFrame.Get(), lp);
             }
 
-            // Reserve the tool/animation panel region at the BOTTOM of the page - FULL WIDTH, so a
-            // timeline has the horizontal room it needs (a left rail was far too narrow). Gone (zero
-            // layout height) until a tool docks a panel; the controller mounts it here + flips Visible.
-            m_toolPanelHost = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
-            m_toolPanelHost->Direction = foundation::ui::Orientation::Vertical;
-            m_toolPanelHost->Visibility = foundation::ui::Visibility::Gone;
+            // The persistent property-animation editor, docked BELOW THE VIEWPORT ONLY (not under the
+            // hierarchy/inspector) in a resizable vertical split, so a timeline has the horizontal room
+            // it needs. Scene-page-owned for the page's whole life (the fix for the tool-mode's undo-UAF
+            // + stale-snapshot); its header carries a collapse toggle. Starts collapsed so the viewport
+            // opens full-height; the user expands it (or drags the splitter) when authoring animation.
+            m_propAnimPanel = MakeRef<PropertyAnimationPanel>(
+                DefaultAllocator(), *m_context, m_editContext->Scene(), m_editContext->Commands(),
+                m_editContext->EntitySelection());
+            m_propAnimPanel->SetCollapsed(true);
 
-            // The mount controller: on each tool change it docks the matching panel into the rail
-            // (view built fresh from the registry) or clears the rail. Frame-driven Sync (OnUpdate)
-            // keeps the mount out of event dispatch (the never-free-a-view-mid-dispatch rule).
-            {
-                ViewportToolHostContext panelCtx;
-                panelCtx.scene = &m_editContext->Scene();
-                panelCtx.commands = &m_editContext->Commands();
-                panelCtx.entitySelection = &m_editContext->EntitySelection();
-                m_toolPanel = MakeUnique<ViewportToolPanelHost>(
-                    DefaultAllocator(), m_viewportTools, ViewportToolPanelRegistry::Get(), panelCtx,
-                    [this](foundation::ui::View* view)
-                    {
-                        m_toolPanelHost->RemoveAllViews();
-                        auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
-                        lp->Width = foundation::ui::SizeSpec::Match();
-                        lp->Grow = 1.0f;
-                        m_toolPanelHost->AddView(view, lp);
-                        m_toolPanelHost->Visibility = foundation::ui::Visibility::Visible;
-                        m_toolPanelHost->Invalidate();
-                    },
-                    [this]()
-                    {
-                        m_toolPanelHost->RemoveAllViews();
-                        m_toolPanelHost->Visibility = foundation::ui::Visibility::Gone;
-                        m_toolPanelHost->Invalidate();
-                    });
-            }
+            // Viewport column: [ viewport (toolbar + 3D) / property-animation panel ] as a vertical
+            // split, so the panel rests directly below the viewport and both are resizable against
+            // each other. This column is the left pane of the [ column | inspector ] split.
+            auto viewportColumn = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
+            viewportColumn->Orientation = foundation::ui::Orientation::Vertical;
+            viewportColumn->SetSplitRatio(0.72f);
+            viewportColumn->SetPanes(viewportPane.Get(), m_propAnimPanel.Get());
 
-            // Page layout: [ hierarchy | (viewport | inspector) ] with the tool/animation panel docked
-            // FULL WIDTH below it (Gone until a tool activates).
+            // Page layout: [ hierarchy | (viewport-column | inspector) ].
             auto inner = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
             inner->SetSplitRatio(0.72f);
-            inner->SetPanes(viewportPane.Get(), m_inspector.Get());
+            inner->SetPanes(viewportColumn.Get(), m_inspector.Get());
             auto topContent = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
             topContent->SetSplitRatio(0.2f);
             topContent->SetPanes(m_hierarchy.Get(), inner.Get());
-
-            auto outer = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
-            outer->Direction = foundation::ui::Orientation::Vertical;
-            {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = foundation::ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
-                outer->AddView(topContent.Get(), lp);
-            }
-            {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = foundation::ui::SizeSpec::Match();
-                lp->Height = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Px(320));
-                outer->AddView(m_toolPanelHost.Get(), lp);
-            }
-            m_content = outer;
+            m_content = topContent;
 
             m_router =
                 MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
@@ -456,12 +424,10 @@ export namespace editor
         SelectTransformTool* m_selectTool = nullptr;     // borrowed (manager-owned default tool)
         GizmoRendererRegistry m_componentGizmos;
 
-        // Tool-panel dock slot (property-animation.md Phase H1): a left rail beside the viewport that
-        // hosts the ACTIVE tool's settings panel (property-animation authoring, future brush panels).
-        // Gone when the active tool has no panel; the controller mounts/unmounts on tool changes.
-        RefPtr<foundation::ui::FlexLayout> m_toolPanelHost;
-        UniquePtr<ViewportToolPanelHost> m_toolPanel;
-        void SyncToolPanel(); // called each frame from OnUpdate (never mid-event-dispatch)
+        // The persistent in-scene property-animation editor, docked in a resizable vertical split
+        // BELOW THE VIEWPORT (property-animation.md editor redesign): scene-page-owned for its whole
+        // life, so an undo command can never outlive it. Ticked + overlay-drawn each frame from OnUpdate.
+        RefPtr<PropertyAnimationPanel> m_propAnimPanel;
         RefPtr<ui::viewport::ViewportView> m_viewport;
 
         // Camera preview (task #118): a small bottom-right overlay showing a selected/pinned camera's

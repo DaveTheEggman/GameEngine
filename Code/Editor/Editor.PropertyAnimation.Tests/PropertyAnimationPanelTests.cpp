@@ -1,9 +1,10 @@
-// PropertyAnimationTool tests (property-animation.md Phase H3 - the in-scene authoring mode). Covers
-// the host-agnostic logic that does not need a live viewport: the reflected-type -> TrackValueKind
-// mapping, the animatable-property collector (against a reflected test component), the tool acting as
-// a clip-editor host (add-track routes through its command stack), and the provider wiring that is
-// the registration count tripwire (one tool provider + one panel provider, correctly keyed). The
-// full add-from-selection scene walk is exercised by the build + manual UAT (it needs a live scene).
+// PropertyAnimationPanel tests (property-animation.md editor redesign - the persistent in-scene
+// editor). Covers the host-agnostic logic that does not need a live viewport: the reflected-type ->
+// TrackValueKind mapping, the animatable-property collector (against a reflected test component), the
+// panel acting as a clip-editor host (add-track routes through its command stack), the live-preview
+// snapshot/restore (including the #6 re-snapshot when the track set changes mid-preview and the
+// EDIT-only gate), and the collapse toggle (A2). The full add-from-selection scene walk + the on-screen
+// docking are exercised by the build + manual UAT (they need a live scene / UI tree).
 
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
@@ -15,7 +16,6 @@ import foundation.scene;
 import foundation.propertyanimation;
 import editor.core;
 import editor.propertyanimation;
-import editor.viewporttools;
 
 using namespace foundation::core;
 using namespace editor;
@@ -31,7 +31,7 @@ struct PreviewComp
     Float3 position{0.0f, 0.0f, 0.0f};
 };
 
-REFLECT_VALUE(PreviewComp, "rtti::propanim::tooltest")
+REFLECT_VALUE(PreviewComp, "rtti::propanim::paneltest")
 {
     builder.Property<&PreviewComp::position>("position");
 }
@@ -72,19 +72,17 @@ namespace
         GlobalTypeRegistry().Register(TestComp::StaticType());
     }
 
-    // A foreign tool so the panel provider's defensive downcast guard can be exercised.
-    class OtherTool final : public IViewportTool
+    // Build a panel over a scene + fresh stack + selection (all owned by the caller; the panel borrows).
+    RefPtr<PropertyAnimationPanel> MakePanel(EditorContext& editorCtx, scene::Scene& sc,
+                                             EditorCommandStack& stack, Selection<Guid>& selection)
     {
-    public:
-        [[nodiscard]] StringView Id() const override { return u8"other"; }
-        [[nodiscard]] StringView DisplayName() const override { return u8"Other"; }
-        bool Update(const ViewportToolInput&) override { return false; }
-    };
+        return MakeRef<PropertyAnimationPanel>(DefaultAllocator(), editorCtx, sc, stack, selection);
+    }
 }
 
-REFLECT_MEMBERS(TestLight, "rtti::propanim::tooltest") { builder.Property<&TestLight::tint>("tint"); }
+REFLECT_MEMBERS(TestLight, "rtti::propanim::paneltest") { builder.Property<&TestLight::tint>("tint"); }
 
-REFLECT_MEMBERS(TestComp, "rtti::propanim::tooltest")
+REFLECT_MEMBERS(TestComp, "rtti::propanim::paneltest")
 {
     builder.Property<&TestComp::position>("position")
         .Property<&TestComp::rotation>("rotation")
@@ -93,7 +91,7 @@ REFLECT_MEMBERS(TestComp, "rtti::propanim::tooltest")
         .Nested<&TestComp::light>("light");
 }
 
-TEST_CASE("propanim-tool: InferTrackKind maps the four animatable types, rejects others")
+TEST_CASE("propanim-panel: InferTrackKind maps the four animatable types, rejects others")
 {
     CHECK(InferTrackKind(&TypeOf<f32>()).HasValue());
     CHECK(InferTrackKind(&TypeOf<f32>()).Value() == propanim::TrackValueKind::Float);
@@ -104,7 +102,7 @@ TEST_CASE("propanim-tool: InferTrackKind maps the four animatable types, rejects
     CHECK_FALSE(InferTrackKind(nullptr).HasValue());
 }
 
-TEST_CASE("propanim-tool: CollectAnimatableProperties seeds leaves + nested, skips non-animatable")
+TEST_CASE("propanim-panel: CollectAnimatableProperties seeds leaves + nested, skips non-animatable")
 {
     EnsureRegistered();
     Array<AnimatablePropertyInfo> out;
@@ -148,52 +146,44 @@ TEST_CASE("propanim-tool: CollectAnimatableProperties seeds leaves + nested, ski
     CHECK_FALSE(sawFlags); // the i32 leaf is not animatable
 }
 
-TEST_CASE("propanim-tool: the tool is a valid clip-editor host (add-track routes through its stack)")
+TEST_CASE("propanim-panel: the panel is a valid clip-editor host (add-track routes through its stack)")
 {
+    EnsureRegistered();
+    scene::Scene sc(u8"host-test");
+    Selection<Guid> selection;
     EditorContext editorCtx;
     EditorCommandStack stack;
-    ViewportToolHostContext ctx;
-    ctx.commands = &stack; // scene + selection null: this test does not walk the scene
-    PropertyAnimationTool tool(ctx, editorCtx);
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
 
-    CHECK(tool.Id() == StringView(u8"property.animation"));
-    CHECK_FALSE(tool.HasClip());
+    CHECK_FALSE(panel->HasClip());
+    CHECK_FALSE(panel->IsCollapsed());
 
-    ClipEditorView view(tool);
-    view.AddTrack(u8"Transform", u8"position", propanim::TrackValueKind::Float3);
-    CHECK(tool.Clip().tracks.Size() == 1);
+    panel->View().AddTrack(u8"Transform", u8"position", propanim::TrackValueKind::Float3);
+    CHECK(panel->Clip().tracks.Size() == 1);
     CHECK(stack.CanUndo());
     stack.Undo();
-    CHECK(tool.Clip().tracks.Size() == 0);
+    CHECK(panel->Clip().tracks.Size() == 0);
 
-    // No scene/selection -> add-from-selection is a no-op, never a crash.
-    CHECK(tool.AddTracksFromSelection(view) == 0);
+    // No selected entity -> add-from-selection is a no-op, never a crash.
+    CHECK(panel->AddTracksFromSelection(panel->View()) == 0);
 }
 
-TEST_CASE("propanim-tool: provider wiring (registration count tripwire)")
+TEST_CASE("propanim-panel: collapse toggle hides/shows the body (A2)")
 {
+    EnsureRegistered();
+    scene::Scene sc(u8"collapse-test");
+    Selection<Guid> selection;
     EditorContext editorCtx;
+    EditorCommandStack stack;
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
 
-    // Exactly one tool, keyed "property.animation".
-    PropertyAnimationToolProvider toolProvider(editorCtx);
-    ViewportToolManager manager;
-    ViewportToolHostContext ctx;
-    toolProvider.CreateTools(manager, ctx);
-    CHECK(manager.Count() == 1);
-    CHECK(manager.FindById(u8"property.animation") != nullptr);
-
-    // The panel provider is keyed to the same id and builds a real panel for its tool.
-    PropertyAnimationPanelProvider panelProvider(editorCtx);
-    CHECK(panelProvider.ToolId() == StringView(u8"property.animation"));
-
-    IViewportTool* tool = manager.FindById(u8"property.animation");
-    REQUIRE(tool != nullptr);
-    RefPtr<foundation::ui::View> panel = panelProvider.CreatePanel(*tool, ctx);
-    CHECK(panel.Get() != nullptr);
-
-    // Defensive: a mismatched tool id yields no panel (never a bad downcast).
-    OtherTool other;
-    CHECK(panelProvider.CreatePanel(other, ctx).Get() == nullptr);
+    CHECK_FALSE(panel->IsCollapsed());
+    panel->SetCollapsed(true);
+    CHECK(panel->IsCollapsed());
+    panel->SetCollapsed(true); // idempotent
+    CHECK(panel->IsCollapsed());
+    panel->SetCollapsed(false);
+    CHECK_FALSE(panel->IsCollapsed());
 }
 
 namespace
@@ -218,17 +208,22 @@ namespace
         return k;
     }
 
-    // A constant Float3 position track (single key per channel -> Sample is constant) on `comp`.
-    propanim::PropertyTrack MakePositionTrackOn(StringView comp, f32 x, f32 y, f32 z)
+    // A constant Float3 track (single key per channel -> Sample is constant) at `path` on `comp`.
+    propanim::PropertyTrack MakeFloat3TrackOn(StringView comp, StringView path, f32 x, f32 y, f32 z)
     {
         propanim::PropertyTrack track;
         track.componentType = String(comp);
-        track.propertyPath = String(u8"position");
+        track.propertyPath = String(path);
         track.kind = propanim::TrackValueKind::Float3;
         track.channels[0].AddKey(Kv(0.0f, x));
         track.channels[1].AddKey(Kv(0.0f, y));
         track.channels[2].AddKey(Kv(0.0f, z));
         return track;
+    }
+
+    propanim::PropertyTrack MakePositionTrackOn(StringView comp, f32 x, f32 y, f32 z)
+    {
+        return MakeFloat3TrackOn(comp, u8"position", x, y, z);
     }
 
     propanim::PropertyTrack MakePositionTrack(f32 x, f32 y, f32 z)
@@ -237,7 +232,7 @@ namespace
     }
 }
 
-TEST_CASE("propanim-tool: preview writes sampled values transiently, restores, never dirties")
+TEST_CASE("propanim-panel: preview writes sampled values transiently, restores, never dirties")
 {
     EnsurePreviewCompRegistered();
 
@@ -251,17 +246,12 @@ TEST_CASE("propanim-tool: preview writes sampled values transiently, restores, n
     selection.Set(id);
     EditorContext editorCtx;
     EditorCommandStack stack;
-    ViewportToolHostContext ctx;
-    ctx.scene = &sc;
-    ctx.commands = &stack;
-    ctx.entitySelection = &selection;
-
-    PropertyAnimationTool tool(ctx, editorCtx);
-    tool.Clip().tracks.PushBack(MakePositionTrack(100.0f, 200.0f, 300.0f));
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
+    panel->Clip().tracks.PushBack(MakePositionTrack(100.0f, 200.0f, 300.0f));
 
     // Scrub -> the sampled values are written onto the live component.
-    tool.OnScrubTimeChanged(0.5f);
-    CHECK(tool.IsPreviewing());
+    panel->OnScrubTimeChanged(0.5f);
+    CHECK(panel->IsPreviewing());
     REQUIRE(mgr->Get(e) != nullptr);
     CHECK(mgr->Get(e)->position.x == doctest::Approx(100.0f));
     CHECK(mgr->Get(e)->position.y == doctest::Approx(200.0f));
@@ -271,14 +261,14 @@ TEST_CASE("propanim-tool: preview writes sampled values transiently, restores, n
     CHECK_FALSE(stack.CanUndo());
 
     // Stopping restores the snapshot exactly.
-    tool.StopPreview();
-    CHECK_FALSE(tool.IsPreviewing());
+    panel->StopPreview();
+    CHECK_FALSE(panel->IsPreviewing());
     CHECK(mgr->Get(e)->position.x == doctest::Approx(5.0f));
     CHECK(mgr->Get(e)->position.y == doctest::Approx(6.0f));
     CHECK(mgr->Get(e)->position.z == doctest::Approx(7.0f));
 }
 
-TEST_CASE("propanim-tool: preview is disabled outside EDIT (Simulate/Play locks it)")
+TEST_CASE("propanim-panel: preview is disabled outside EDIT (Simulate/Play locks it)")
 {
     EnsurePreviewCompRegistered();
 
@@ -292,34 +282,25 @@ TEST_CASE("propanim-tool: preview is disabled outside EDIT (Simulate/Play locks 
     selection.Set(id);
     EditorContext editorCtx;
     EditorCommandStack stack;
-    ViewportToolHostContext ctx;
-    ctx.scene = &sc;
-    ctx.commands = &stack;
-    ctx.entitySelection = &selection;
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
+    panel->Clip().tracks.PushBack(MakePositionTrack(9.0f, 9.0f, 9.0f));
 
-    PropertyAnimationTool tool(ctx, editorCtx);
-    tool.Clip().tracks.PushBack(MakePositionTrack(9.0f, 9.0f, 9.0f));
-
-    // Simulate is on (editingLocked): the frame update stands the preview down.
-    ViewportToolInput simInput;
-    simInput.editingLocked = true;
-    tool.Update(simInput);
-    tool.OnScrubTimeChanged(0.5f);
-    CHECK_FALSE(tool.IsPreviewing());
+    // Simulate is on (editingLocked): the frame tick stands the preview down.
+    panel->Tick(true);
+    panel->OnScrubTimeChanged(0.5f);
+    CHECK_FALSE(panel->IsPreviewing());
     CHECK(mgr->Get(e)->position.x == doctest::Approx(1.0f)); // untouched
 
     // Back to EDIT: the same scrub now previews.
-    ViewportToolInput editInput;
-    editInput.editingLocked = false;
-    tool.Update(editInput);
-    tool.OnScrubTimeChanged(0.5f);
-    CHECK(tool.IsPreviewing());
+    panel->Tick(false);
+    panel->OnScrubTimeChanged(0.5f);
+    CHECK(panel->IsPreviewing());
     CHECK(mgr->Get(e)->position.x == doctest::Approx(9.0f));
-    tool.StopPreview();
+    panel->StopPreview();
     CHECK(mgr->Get(e)->position.x == doctest::Approx(1.0f));
 }
 
-TEST_CASE("propanim-tool: changing the selected entity restores the old one and previews the new")
+TEST_CASE("propanim-panel: changing the selected entity restores the old one and previews the new")
 {
     EnsurePreviewCompRegistered();
 
@@ -334,28 +315,54 @@ TEST_CASE("propanim-tool: changing the selected entity restores the old one and 
     selection.Set(sc.GetEntityId(a));
     EditorContext editorCtx;
     EditorCommandStack stack;
-    ViewportToolHostContext ctx;
-    ctx.scene = &sc;
-    ctx.commands = &stack;
-    ctx.entitySelection = &selection;
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
+    panel->Clip().tracks.PushBack(MakePositionTrack(50.0f, 0.0f, 0.0f));
 
-    PropertyAnimationTool tool(ctx, editorCtx);
-    tool.Clip().tracks.PushBack(MakePositionTrack(50.0f, 0.0f, 0.0f));
-
-    tool.OnScrubTimeChanged(0.0f); // preview A
+    panel->OnScrubTimeChanged(0.0f); // preview A
     CHECK(mgr->Get(a)->position.x == doctest::Approx(50.0f));
 
     // Select B and scrub: A is restored (live re-resolve, no cached instance), B is previewed.
     selection.Set(sc.GetEntityId(b));
-    tool.OnScrubTimeChanged(0.0f);
+    panel->OnScrubTimeChanged(0.0f);
     CHECK(mgr->Get(a)->position.x == doctest::Approx(1.0f)); // restored
     CHECK(mgr->Get(b)->position.x == doctest::Approx(50.0f)); // previewed
 
-    tool.StopPreview();
+    panel->StopPreview();
     CHECK(mgr->Get(b)->position.x == doctest::Approx(2.0f)); // restored
 }
 
-TEST_CASE("propanim-tool: add-from-selection seeds the entity Transform (position/rotation/scale)")
+TEST_CASE("propanim-panel: re-snapshots when the track set changes mid-preview (#6)")
+{
+    EnsurePreviewCompRegistered();
+
+    scene::Scene sc(u8"resnapshot");
+    const scene::EntityHandle e = sc.CreateEntity(u8"e0");
+    sc.SetLocalPosition(e, Float3{5.0f, 6.0f, 7.0f}); // scale defaults to (1,1,1)
+    Selection<Guid> selection;
+    selection.Set(sc.GetEntityId(e));
+    EditorContext editorCtx;
+    EditorCommandStack stack;
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
+
+    // Preview with ONE track (Transform.position). Snapshot identity = {Transform|position}.
+    panel->Clip().tracks.PushBack(MakePositionTrackOn(u8"Transform", 100.0f, 200.0f, 300.0f));
+    panel->OnScrubTimeChanged(0.5f);
+    CHECK(sc.GetLocalTransform(e).position.x == doctest::Approx(100.0f));
+
+    // Add a SECOND track (Transform.scale) while previewing - the track identity changed, so the next
+    // scrub must re-snapshot (else the scale write below would never be restored: the #6 defect).
+    panel->Clip().tracks.PushBack(MakeFloat3TrackOn(u8"Transform", u8"scale", 9.0f, 9.0f, 9.0f));
+    panel->OnScrubTimeChanged(0.5f);
+    CHECK(sc.GetLocalTransform(e).position.x == doctest::Approx(100.0f)); // still previewed
+    CHECK(sc.GetLocalTransform(e).scale.x == doctest::Approx(9.0f));      // new track previewed
+
+    // Stop -> BOTH targets restored (position and the newly-added scale), proving the re-snapshot.
+    panel->StopPreview();
+    CHECK(sc.GetLocalTransform(e).position.x == doctest::Approx(5.0f));
+    CHECK(sc.GetLocalTransform(e).scale.x == doctest::Approx(1.0f)); // would be 9 without the #6 fix
+}
+
+TEST_CASE("propanim-panel: add-from-selection seeds the entity Transform (position/rotation/scale)")
 {
     EnsurePreviewCompRegistered(); // RegisterCoreTypes reflects Transform
 
@@ -365,18 +372,12 @@ TEST_CASE("propanim-tool: add-from-selection seeds the entity Transform (positio
     selection.Set(sc.GetEntityId(e));
     EditorContext editorCtx;
     EditorCommandStack stack;
-    ViewportToolHostContext ctx;
-    ctx.scene = &sc;
-    ctx.commands = &stack;
-    ctx.entitySelection = &selection;
-
-    PropertyAnimationTool tool(ctx, editorCtx);
-    ClipEditorView view(tool);
-    const usize added = tool.AddTracksFromSelection(view);
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
+    const usize added = panel->AddTracksFromSelection(panel->View());
     CHECK(added >= 3); // an entity with no reflected components still animates its Transform
 
     int pos = 0, rot = 0, scl = 0;
-    for (const propanim::PropertyTrack& t : tool.Clip().tracks)
+    for (const propanim::PropertyTrack& t : panel->Clip().tracks)
     {
         if (t.componentType.AsView() != StringView(u8"Transform"))
         {
@@ -403,7 +404,7 @@ TEST_CASE("propanim-tool: add-from-selection seeds the entity Transform (positio
     CHECK(scl == 1);
 }
 
-TEST_CASE("propanim-tool: preview drives the entity's built-in Transform and restores it")
+TEST_CASE("propanim-panel: preview drives the entity's built-in Transform and restores it")
 {
     EnsurePreviewCompRegistered();
 
@@ -414,21 +415,16 @@ TEST_CASE("propanim-tool: preview drives the entity's built-in Transform and res
     selection.Set(sc.GetEntityId(e));
     EditorContext editorCtx;
     EditorCommandStack stack;
-    ViewportToolHostContext ctx;
-    ctx.scene = &sc;
-    ctx.commands = &stack;
-    ctx.entitySelection = &selection;
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
+    panel->Clip().tracks.PushBack(MakePositionTrackOn(u8"Transform", 100.0f, 200.0f, 300.0f));
 
-    PropertyAnimationTool tool(ctx, editorCtx);
-    tool.Clip().tracks.PushBack(MakePositionTrackOn(u8"Transform", 100.0f, 200.0f, 300.0f));
-
-    tool.OnScrubTimeChanged(0.5f);
-    CHECK(tool.IsPreviewing());
+    panel->OnScrubTimeChanged(0.5f);
+    CHECK(panel->IsPreviewing());
     CHECK(sc.GetLocalTransform(e).position.x == doctest::Approx(100.0f));
     CHECK(sc.GetLocalTransform(e).position.y == doctest::Approx(200.0f));
     CHECK_FALSE(stack.CanUndo()); // preview never dirties the document
 
-    tool.StopPreview();
+    panel->StopPreview();
     CHECK(sc.GetLocalTransform(e).position.x == doctest::Approx(5.0f)); // restored
     CHECK(sc.GetLocalTransform(e).position.z == doctest::Approx(7.0f));
 }

@@ -87,6 +87,11 @@ export namespace editor
 
         [[nodiscard]] f32 ScrubTime() const noexcept { return m_scrubTime; }
         [[nodiscard]] f32 EditDuration() const noexcept { return m_editDuration; }
+
+        /// Set the scrub time from the host's Timeline scrubber and refresh the sampled-value readout.
+        /// The panel drives this from the Timeline widget (the numeric scrub field is retired); the
+        /// host separately runs live preview off OnScrubTimeChanged.
+        void SetScrubTime(f32 t);
         [[nodiscard]] IClipEditorHost& Host() noexcept { return *m_host; }
 
     private:

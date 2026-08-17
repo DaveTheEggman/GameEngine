@@ -1,5 +1,6 @@
-// Editor::PropertyAnimation - PropertyAnimationTool + providers + the docked panel (heavy bodies out
-// of the interface, per the module-hygiene rule).
+// Editor::PropertyAnimation - PropertyAnimationPanel (the persistent in-scene editor): clip document
+// management, live preview, and the docked chrome (Timeline scrubber + header over the shared
+// ClipEditorView). Heavy bodies out of the interface, per the module-hygiene rule.
 
 module;
 #include "Core/Prelude.h"
@@ -15,11 +16,12 @@ import foundation.propertyanimation;
 import foundation.propertyanimation.resource;
 import propertyanimation.pipeline;
 import foundation.ui;
+import foundation.ui.toolkit;
 import editor.core;
 import editor.app;
-import editor.viewporttools;
 
 using namespace foundation::core;
+namespace core = foundation::core; // explicit: `Transform` is ambiguous once ui.toolkit is imported
 
 namespace editor
 {
@@ -102,25 +104,196 @@ namespace editor
         CollectInto(componentType, componentType, String{}, out);
     }
 
-    // === PropertyAnimationTool ===
+    // === PropertyAnimationPanel: construction + chrome ===
 
-    PropertyAnimationTool::PropertyAnimationTool(const ViewportToolHostContext& ctx,
-                                                 EditorContext& editorCtx)
-        : m_editorCtx(&editorCtx), m_scene(ctx.scene), m_commands(ctx.commands),
-          m_selection(ctx.entitySelection)
+    PropertyAnimationPanel::PropertyAnimationPanel(EditorContext& editorCtx, scene::Scene& scene,
+                                                   EditorCommandStack& commands,
+                                                   Selection<Guid>& selection)
+        : m_editorCtx(&editorCtx), m_scene(&scene), m_commands(&commands), m_selection(&selection)
     {
-        m_status = String(u8"Property Animation: no clip - New or Pick a clip");
+        BuildChrome();
+        RefreshHeader();
     }
 
-    void PropertyAnimationTool::ClearClip()
+    void PropertyAnimationPanel::BuildChrome()
     {
+        Direction = ui::Orientation::Vertical;
+        Padding = ui::Thickness{6, 6};
+        Spacing = 4.0f;
+
+        PropertyAnimationPanel* self = this;
+
+        auto addButton = [](ui::FlexLayout& row, StringView label, f32 width, Function<void()> onClick)
+        {
+            auto button = MakeRef<ui::Button>(DefaultAllocator(), label);
+            button->FontSize.SetValue(Optional<f32>{11.0f});
+            button->OnClick.Add([fn = Move(onClick)](ui::ButtonBase*) { if (fn) fn(); });
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(width));
+            lp->Height = ui::SizeSpec::Match();
+            row.AddView(button.Get(), lp);
+            return button;
+        };
+
+        // Header: [collapse caret] New / Pick / + From Selection / Save + clip label.
+        auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        header->Direction = ui::Orientation::Horizontal;
+        header->Spacing = 4.0f;
+        m_collapseButton = addButton(*header, u8"v", 26.0f, [self]() { self->SetCollapsed(!self->m_collapsed); });
+        addButton(*header, u8"New", 52.0f, [self]() { self->OnNew(); });
+        addButton(*header, u8"Pick...", 60.0f, [self]() { self->OnPick(); });
+        addButton(*header, u8"+ From Selection", 128.0f, [self]() { self->OnAddFromSelection(); });
+        addButton(*header, u8"Save", 52.0f, [self]() { self->OnSave(); });
+        m_clipLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+        m_clipLabel->FontSize.SetValue(11.0f);
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Grow = 1.0f;
+            lp->Height = ui::SizeSpec::Match();
+            header->AddView(m_clipLabel.Get(), lp);
+        }
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(26));
+            AddView(header.Get(), lp);
+        }
+
+        // Body: the Timeline scrubber above the shared ClipEditorView. Hidden when collapsed.
+        m_body = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_body->Direction = ui::Orientation::Vertical;
+        m_body->Spacing = 4.0f;
+
+        m_timeline = MakeRef<ui::toolkit::Timeline>(DefaultAllocator());
+        m_timeline->SetDuration(Max(m_clip.ComputeDuration(), 1.0f));
+        m_timeline->OnPlayheadMoved.Add(
+            [self](f32 t)
+            {
+                if (self->m_view)
+                {
+                    self->m_view->SetScrubTime(t);
+                }
+                self->OnScrubTimeChanged(t);
+            });
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(28));
+            m_body->AddView(m_timeline.Get(), lp);
+        }
+
+        m_view = MakeUnique<ClipEditorView>(DefaultAllocator(), *this);
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            lp->Grow = 1.0f;
+            m_body->AddView(m_view->Root(), lp);
+        }
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            lp->Grow = 1.0f;
+            AddView(m_body.Get(), lp);
+        }
+    }
+
+    void PropertyAnimationPanel::RefreshHeader()
+    {
+        String text = HasClip() ? String(u8"Clip: ") : String(u8"Clip: (none - New or Pick)");
+        if (HasClip())
+        {
+            text += ClipName();
+        }
+        if (m_clipLabel.Get() != nullptr)
+        {
+            m_clipLabel->SetText(text.AsView());
+        }
+    }
+
+    void PropertyAnimationPanel::SetCollapsed(bool collapsed)
+    {
+        if (m_collapsed == collapsed)
+        {
+            return;
+        }
+        m_collapsed = collapsed;
+        if (m_body.Get() != nullptr)
+        {
+            m_body->Visibility = collapsed ? ui::Visibility::Gone : ui::Visibility::Visible;
+        }
+        if (m_collapseButton.Get() != nullptr)
+        {
+            m_collapseButton->SetText(collapsed ? StringView(u8">") : StringView(u8"v"));
+        }
+        Invalidate();
+    }
+
+    // === header actions ===
+
+    void PropertyAnimationPanel::OnNew()
+    {
+        NewClip();
+        if (m_view)
+        {
+            m_view->ResetForClip();
+        }
+        RefreshHeader();
+    }
+
+    void PropertyAnimationPanel::OnPick()
+    {
+        ui::UIContext* ctx = this->Context;
+        if (ctx == nullptr || m_editorCtx->Project() == nullptr)
+        {
+            return;
+        }
+        Array<String> types;
+        types.PushBack(String(u8"PropertyAnimationClipAsset"));
+        auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_editorCtx, Move(types));
+        PropertyAnimationPanel* self = this;
+        dialog->OnPicked = [self](const Guid& picked)
+        {
+            if (!picked.IsNil())
+            {
+                self->LoadClip(picked);
+                if (self->m_view)
+                {
+                    self->m_view->ResetForClip();
+                }
+                self->RefreshHeader();
+            }
+        };
+        dialog->Show(ctx);
+    }
+
+    void PropertyAnimationPanel::OnAddFromSelection()
+    {
+        const usize added = AddTracksFromSelection(*m_view);
+        if (added == 0)
+        {
+            LOG_INFO(u8"Editor",
+                     u8"add-from-selection: no selected entity or no animatable properties");
+        }
+    }
+
+    void PropertyAnimationPanel::OnSave()
+    {
+        SaveClip();
+        RefreshHeader();
+    }
+
+    // === clip document management ===
+
+    void PropertyAnimationPanel::ClearClip()
+    {
+        StopPreview(); // never leave a live preview pointing at the old clip's tracks
         m_clip = propanim::PropertyAnimationClip{};
         m_clipId = Guid{};
         m_clipName = String{};
         m_dirty = false;
     }
 
-    void PropertyAnimationTool::NewClip()
+    void PropertyAnimationPanel::NewClip()
     {
         foundation::content::Instance* inst = CreatePropertyAnimationClip(*m_editorCtx, nullptr);
         if (inst == nullptr)
@@ -130,7 +303,7 @@ namespace editor
         LoadClip(inst->Id());
     }
 
-    void PropertyAnimationTool::LoadClip(const Guid& instanceId)
+    void PropertyAnimationPanel::LoadClip(const Guid& instanceId)
     {
         if (m_editorCtx->Project() == nullptr)
         {
@@ -150,12 +323,9 @@ namespace editor
         }
         m_clipId = instanceId;
         m_clipName = String(inst->Name());
-        m_status = String(u8"Property Animation: editing '");
-        m_status += m_clipName.AsView();
-        m_status += u8"'";
     }
 
-    void PropertyAnimationTool::SaveClip()
+    void PropertyAnimationPanel::SaveClip()
     {
         if (m_clipId.IsNil() || m_editorCtx->Project() == nullptr)
         {
@@ -176,7 +346,7 @@ namespace editor
         }
     }
 
-    usize PropertyAnimationTool::AddTracksFromSelection(ClipEditorView& view)
+    usize PropertyAnimationPanel::AddTracksFromSelection(ClipEditorView& view)
     {
         if (m_scene == nullptr || m_selection == nullptr)
         {
@@ -229,16 +399,18 @@ namespace editor
         return seeds.Size();
     }
 
-    // === live preview (Phase H4) ===
+    // === live preview ===
     //
     // Scrubbing writes the clip's sampled values onto the SELECTED entity through the exact runtime
     // path the component manager uses (FindManager -> ResolveBinding -> GetComponentInstance ->
     // WriteBinding), so the generation guard and per-write binding re-resolve come for free. Writes
-    // are TRANSIENT: a snapshot is captured on the first scrub, restored on stop / deactivate / when
-    // Simulate begins. Nothing goes through the command stack or MarkDirty, so the document stays
-    // clean and the preview is never undoable (Fable Q3).
+    // are TRANSIENT: a snapshot is captured on the first scrub, restored on stop / Simulate / clip
+    // change. Nothing goes through the command stack or MarkDirty, so the document stays clean and the
+    // preview is never undoable. The snapshot is re-taken when the TRACK SET changes (the #6 fix) so it
+    // never restores stale targets after a track is added / removed / retargeted.
 
-    scene::ComponentManagerBase* PropertyAnimationTool::FindManagerByComponentTypeName(StringView name)
+    scene::ComponentManagerBase*
+    PropertyAnimationPanel::FindManagerByComponentTypeName(StringView name)
     {
         if (m_scene == nullptr)
         {
@@ -257,22 +429,16 @@ namespace editor
         return found;
     }
 
-    bool PropertyAnimationTool::Update(const ViewportToolInput& input)
+    void PropertyAnimationPanel::Tick(bool editingLocked)
     {
-        m_editingLocked = input.editingLocked;
+        m_editingLocked = editingLocked;
         if (m_editingLocked)
         {
             StopPreview(); // no preview outside EDIT (Simulate/Play): restore + stand down
         }
-        return false; // the tool consumes no viewport gesture (yet)
     }
 
-    void PropertyAnimationTool::OnDeactivate()
-    {
-        StopPreview(); // leaving the tool restores the previewed entity
-    }
-
-    void PropertyAnimationTool::OnScrubTimeChanged(f32 time)
+    void PropertyAnimationPanel::OnScrubTimeChanged(f32 time)
     {
         if (m_clip.tracks.IsEmpty() || m_editingLocked || m_scene == nullptr || m_selection == nullptr)
         {
@@ -293,8 +459,17 @@ namespace editor
         PreviewAt(entity, time);
     }
 
-    Variant PropertyAnimationTool::ReadTrackTarget(scene::EntityHandle entity, StringView componentType,
-                                                   StringView propertyPath)
+    void PropertyAnimationPanel::OnClipViewRebuilt()
+    {
+        // The clip length may have changed (a Length edit / new document): resync the Timeline axis.
+        if (m_timeline.Get() != nullptr)
+        {
+            m_timeline->SetDuration(Max(m_clip.ComputeDuration(), 1.0f));
+        }
+    }
+
+    Variant PropertyAnimationPanel::ReadTrackTarget(scene::EntityHandle entity, StringView componentType,
+                                                    StringView propertyPath)
     {
         if (m_scene == nullptr)
         {
@@ -303,13 +478,13 @@ namespace editor
         if (componentType == kTransformName)
         {
             const propanim::PropertyBinding binding =
-                propanim::ResolveBinding(TypeOf<Transform>(), propertyPath);
+                propanim::ResolveBinding(TypeOf<core::Transform>(), propertyPath);
             if (!binding.IsResolved())
             {
                 return {};
             }
-            Transform local = m_scene->GetLocalTransform(entity);
-            return propanim::ReadBinding(binding, Instance{&local, &TypeOf<Transform>()});
+            core::Transform local = m_scene->GetLocalTransform(entity);
+            return propanim::ReadBinding(binding, Instance{&local, &TypeOf<core::Transform>()});
         }
         scene::ComponentManagerBase* mgr = FindManagerByComponentTypeName(componentType);
         if (mgr == nullptr || mgr->ComponentType() == nullptr || !mgr->HasComponent(entity))
@@ -322,8 +497,8 @@ namespace editor
                                     : Variant{};
     }
 
-    void PropertyAnimationTool::WriteTrackTarget(scene::EntityHandle entity, StringView componentType,
-                                                 StringView propertyPath, const Variant& value)
+    void PropertyAnimationPanel::WriteTrackTarget(scene::EntityHandle entity, StringView componentType,
+                                                  StringView propertyPath, const Variant& value)
     {
         if (m_scene == nullptr)
         {
@@ -332,14 +507,14 @@ namespace editor
         if (componentType == kTransformName)
         {
             const propanim::PropertyBinding binding =
-                propanim::ResolveBinding(TypeOf<Transform>(), propertyPath);
+                propanim::ResolveBinding(TypeOf<core::Transform>(), propertyPath);
             if (!binding.IsResolved())
             {
                 return;
             }
             // Read-modify-write through SetLocalTransform so the world matrix is flagged dirty.
-            Transform local = m_scene->GetLocalTransform(entity);
-            if (propanim::WriteBinding(binding, Instance{&local, &TypeOf<Transform>()}, value).IsOk())
+            core::Transform local = m_scene->GetLocalTransform(entity);
+            if (propanim::WriteBinding(binding, Instance{&local, &TypeOf<core::Transform>()}, value).IsOk())
             {
                 m_scene->SetLocalTransform(entity, local);
             }
@@ -358,7 +533,36 @@ namespace editor
         }
     }
 
-    void PropertyAnimationTool::SnapshotEntity(scene::EntityHandle entity)
+    Array<String> PropertyAnimationPanel::TrackIdentity() const
+    {
+        Array<String> identity;
+        for (const propanim::PropertyTrack& track : m_clip.tracks)
+        {
+            String key = track.componentType;
+            key += u8"|";
+            key += track.propertyPath.AsView();
+            identity.PushBack(Move(key));
+        }
+        return identity;
+    }
+
+    bool PropertyAnimationPanel::SameIdentity(const Array<String>& a, const Array<String>& b)
+    {
+        if (a.Size() != b.Size())
+        {
+            return false;
+        }
+        for (usize i = 0; i < a.Size(); ++i)
+        {
+            if (a[i].AsView() != b[i].AsView())
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void PropertyAnimationPanel::SnapshotEntity(scene::EntityHandle entity)
     {
         m_snapshot.Clear();
         for (const propanim::PropertyTrack& track : m_clip.tracks)
@@ -377,15 +581,20 @@ namespace editor
         }
     }
 
-    void PropertyAnimationTool::PreviewAt(scene::EntityHandle entity, f32 time)
+    void PropertyAnimationPanel::PreviewAt(scene::EntityHandle entity, f32 time)
     {
-        if (!m_previewing || m_previewEntity != entity)
+        Array<String> identity = TrackIdentity();
+        // Re-snapshot when the previewed entity changes OR the track set changed (the #6 fix): the old
+        // snapshot describes targets that may no longer exist / may have been retargeted.
+        if (!m_previewing || m_previewEntity != entity ||
+            !SameIdentity(identity, m_snapshotIdentity))
         {
             if (m_previewing)
             {
-                StopPreview(); // selection moved to a different entity: restore the old one first
+                StopPreview(); // restore the old targets before capturing a fresh snapshot
             }
             SnapshotEntity(entity);
+            m_snapshotIdentity = Move(identity);
             m_previewing = true;
             m_previewEntity = entity;
         }
@@ -400,7 +609,7 @@ namespace editor
         }
     }
 
-    void PropertyAnimationTool::StopPreview()
+    void PropertyAnimationPanel::StopPreview()
     {
         if (!m_previewing)
         {
@@ -415,11 +624,12 @@ namespace editor
             }
         }
         m_snapshot.Clear();
+        m_snapshotIdentity.Clear();
         m_previewing = false;
         m_previewEntity = scene::EntityHandle{};
     }
 
-    void PropertyAnimationTool::Draw(foundation::render::debug::DebugDraw& drawList)
+    void PropertyAnimationPanel::DrawOverlay(foundation::render::debug::DebugDraw& drawList)
     {
         if (!m_previewing || m_scene == nullptr || !m_previewEntity.IsAssigned())
         {
@@ -431,151 +641,5 @@ namespace editor
         const Color marker{1.0f, 0.85f, 0.2f, 1.0f};
         drawList.DrawWireSphereOverlay(p, 0.35f, marker);
         drawList.DrawText3D(p, u8"preview", marker);
-    }
-
-    // === PropertyAnimationToolProvider ===
-
-    void PropertyAnimationToolProvider::CreateTools(ViewportToolManager& manager,
-                                                    const ViewportToolHostContext& context)
-    {
-        manager.Add(MakeUnique<PropertyAnimationTool>(DefaultAllocator(), context, *m_editorCtx));
-    }
-
-    // === PropertyAnimationPanelView (the docked panel: clip chrome + the shared ClipEditorView) ===
-
-    namespace
-    {
-        class PropertyAnimationPanelView final : public ui::FlexLayout
-        {
-        public:
-            PropertyAnimationPanelView(PropertyAnimationTool& tool, EditorContext& editorCtx)
-                : m_tool(&tool), m_editorCtx(&editorCtx)
-            {
-                Direction = ui::Orientation::Vertical;
-                Padding = ui::Thickness{6, 6};
-                Spacing = 4.0f;
-
-                auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
-                header->Direction = ui::Orientation::Horizontal;
-                header->Spacing = 4.0f;
-                PropertyAnimationPanelView* self = this;
-                AddButton(*header, u8"New", 52.0f, [self]() { self->OnNew(); });
-                AddButton(*header, u8"Pick...", 60.0f, [self]() { self->OnPick(); });
-                AddButton(*header, u8"+ From Selection", 128.0f, [self]() { self->OnAddFromSelection(); });
-                AddButton(*header, u8"Save", 52.0f, [self]() { self->OnSave(); });
-                {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                    lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(26));
-                    AddView(header.Get(), lp);
-                }
-
-                m_clipLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
-                m_clipLabel->FontSize.SetValue(11.0f);
-                {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                    lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(18));
-                    AddView(m_clipLabel.Get(), lp);
-                }
-
-                m_view = MakeUnique<ClipEditorView>(DefaultAllocator(), tool);
-                {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                    lp->Width = ui::SizeSpec::Match();
-                    lp->Grow = 1.0f;
-                    AddView(m_view->Root(), lp);
-                }
-                RefreshHeader();
-            }
-
-        private:
-            void AddButton(ui::FlexLayout& row, StringView label, f32 width, Function<void()> onClick)
-            {
-                auto button = MakeRef<ui::Button>(DefaultAllocator(), label);
-                button->FontSize.SetValue(Optional<f32>{11.0f});
-                button->OnClick.Add([fn = Move(onClick)](ui::ButtonBase*)
-                                    { if (fn) fn(); });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(width));
-                lp->Height = ui::SizeSpec::Match();
-                row.AddView(button.Get(), lp);
-            }
-
-            void RefreshHeader()
-            {
-                String text = m_tool->HasClip() ? String(u8"Clip: ") : String(u8"Clip: (none - New or Pick)");
-                if (m_tool->HasClip())
-                {
-                    text += m_tool->ClipName();
-                }
-                m_clipLabel->SetText(text.AsView());
-            }
-
-            void OnNew()
-            {
-                m_tool->NewClip();
-                m_view->ResetForClip();
-                RefreshHeader();
-            }
-
-            void OnPick()
-            {
-                ui::UIContext* ctx = this->Context;
-                if (ctx == nullptr || m_editorCtx->Project() == nullptr)
-                {
-                    return;
-                }
-                Array<String> types;
-                types.PushBack(String(u8"PropertyAnimationClipAsset"));
-                auto dialog =
-                    MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_editorCtx, Move(types));
-                PropertyAnimationPanelView* self = this;
-                dialog->OnPicked = [self](const Guid& picked)
-                {
-                    if (!picked.IsNil())
-                    {
-                        self->m_tool->LoadClip(picked);
-                        self->m_view->ResetForClip();
-                        self->RefreshHeader();
-                    }
-                };
-                dialog->Show(ctx);
-            }
-
-            void OnAddFromSelection()
-            {
-                const usize added = m_tool->AddTracksFromSelection(*m_view);
-                if (added == 0)
-                {
-                    LOG_INFO(u8"Editor",
-                             u8"add-from-selection: no selected entity or no animatable properties");
-                }
-            }
-
-            void OnSave()
-            {
-                m_tool->SaveClip();
-                RefreshHeader();
-            }
-
-            PropertyAnimationTool* m_tool;
-            EditorContext* m_editorCtx;
-            UniquePtr<ClipEditorView> m_view;
-            RefPtr<ui::Label> m_clipLabel;
-        };
-    }
-
-    // === PropertyAnimationPanelProvider ===
-
-    RefPtr<foundation::ui::View>
-    PropertyAnimationPanelProvider::CreatePanel(IViewportTool& tool, const ViewportToolHostContext&)
-    {
-        if (tool.Id() != ToolId())
-        {
-            return {}; // defensive: the registry keys on id, but never downcast a mismatched tool
-        }
-        auto& pat = static_cast<PropertyAnimationTool&>(tool);
-        return MakeRef<PropertyAnimationPanelView>(DefaultAllocator(), pat, *m_editorCtx);
     }
 }

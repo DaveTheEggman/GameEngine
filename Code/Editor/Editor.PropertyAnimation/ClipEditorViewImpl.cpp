@@ -214,19 +214,18 @@ namespace editor
         row.AddView(field.Get(), lp);
     }
 
+    void ClipEditorView::SetScrubTime(f32 t)
+    {
+        m_scrubTime = t;
+        RefreshPreview();
+    }
+
     void ClipEditorView::BuildTransportRow()
     {
+        // The scrub is owned by the host's Timeline widget now (the numeric field is retired); this row
+        // keeps just the clip length + the sampled-value readout at the current scrub time.
         auto row = MakeRow(0.0f, 26.0f);
-        AddLabel(*row, u8"Scrub", 0.0f, 42.0f);
         ClipEditorView* self = this;
-        AddFloatField(*row, m_scrubTime,
-                      [self](f32 t)
-                      {
-                          self->m_scrubTime = t;
-                          self->RefreshPreview();
-                          self->m_host->OnScrubTimeChanged(t); // H4 hook
-                      },
-                      64.0f);
         AddLabel(*row, u8"Length", 0.0f, 52.0f);
         AddFloatField(*row, m_editDuration,
                       [self](f32 d)

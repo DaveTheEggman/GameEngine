@@ -105,6 +105,10 @@ namespace editor
             m_camera.ReleaseCapture(m_viewport->Mouse());
         }
         (void)UpdateViewportTools(viewportActive); // picking lives inside the select tool now
+        if (m_propAnimPanel)
+        {
+            m_propAnimPanel->Tick(m_isSimulating); // EDIT-only preview gate (no preview under Simulate)
+        }
 
         // Per-scene debug draw (shows only where THIS scene renders; lists clear in
         // EndRendering, so re-accumulate every frame): ground grid + origin axes + entity
@@ -125,18 +129,13 @@ namespace editor
             }
             DrawEntityMarkers(dd);
             DrawGizmos(dd);
+            if (m_propAnimPanel)
+            {
+                m_propAnimPanel->DrawOverlay(dd); // the live-preview entity marker
+            }
         }
         UpdateCameraPreview(); // task #118: selection/pin -> preview visibility + target
         SyncToolbar();
-        SyncToolPanel(); // Phase H1: dock/undock the active tool's panel (frame-driven, not mid-dispatch)
-    }
-
-    void SceneEditorPage::SyncToolPanel()
-    {
-        if (m_toolPanel)
-        {
-            m_toolPanel->Sync();
-        }
     }
 
     void SceneEditorPage::OnRenderWindow(runtime::IApplicationHost&,

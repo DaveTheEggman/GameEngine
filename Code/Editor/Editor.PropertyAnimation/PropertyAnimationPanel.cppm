@@ -1,26 +1,29 @@
-// Editor::PropertyAnimation - the `editor.propertyanimation:tool` partition.
+// Editor::PropertyAnimation - the `editor.propertyanimation:panel` partition.
 //
-// The IN-SCENE authoring mode (property-animation.md Phase H3). PropertyAnimationTool is a viewport
-// tool (editor.viewporttools) AND the clip-editor host for its docked panel: it owns the editing
-// clip (DURABLE - it survives panel recreation, so the view is free to be rebuilt), routes edits
-// through the scene page's command stack, and loads / creates / saves the clip ASSET. Its panel
-// (built by PropertyAnimationPanelProvider) is clip chrome - new / pick / add-from-selection / save -
-// above the SAME shared ClipEditorView the standalone page uses, so authoring matches in both places.
+// PropertyAnimationPanel is the PERSISTENT in-scene property-animation editor (property-animation.md
+// editor redesign, P1b): a docked View - NOT a viewport tool mode - that the scene page owns for its
+// whole lifetime and rests in a resizable splitter BELOW THE VIEWPORT. Being persistent is the fix for
+// the two review-pass-10 defects the tool-mode had: the editing view is never recreated mid-edit, so an
+// undo command can never outlive it (the #5 UAF), and the preview snapshot is re-taken whenever the
+// track set changes (the #6 stale snapshot). The panel IS the IClipEditorHost: it owns the editing clip
+// (durable), routes edits through the scene page's command stack, loads / creates / saves the clip
+// ASSET, owns the live-preview state, and hosts the Timeline scrubber above the shared ClipEditorView.
+// The scene page calls Tick() / DrawOverlay() each frame (there is no IViewportTool seam anymore).
 
 module;
 #include "Core/Prelude.h"
 
-export module editor.propertyanimation:tool;
+export module editor.propertyanimation:panel;
 
 import foundation.core;
 import foundation.ui;
+import foundation.ui.toolkit;
 import foundation.scene;
 import foundation.render;
 import foundation.content;
 import foundation.propertyanimation;
 import editor.core;
 import editor.app;
-import editor.viewporttools;
 
 import :clip_editor_view;
 
@@ -57,26 +60,27 @@ export namespace editor
     void CollectAnimatableProperties(const TypeInfo& componentType,
                                      Array<AnimatablePropertyInfo>& out);
 
-    // The in-scene property-animation authoring tool.
-    class PropertyAnimationTool final : public IViewportTool, public IClipEditorHost
+    // The persistent in-scene property-animation editor panel.
+    class PropertyAnimationPanel final : public ui::FlexLayout, public IClipEditorHost
     {
     public:
-        PropertyAnimationTool(const ViewportToolHostContext& ctx, EditorContext& editorCtx);
-
-        // === IViewportTool ===
-        [[nodiscard]] StringView Id() const override { return u8"property.animation"; }
-        [[nodiscard]] StringView DisplayName() const override { return u8"Property Animation"; }
-        bool Update(const ViewportToolInput& input) override; // caches the EDIT/Simulate gate
-        void OnDeactivate() override;                         // restore any live preview
-        void Draw(foundation::render::debug::DebugDraw& drawList) override; // preview overlay marker
-        [[nodiscard]] StringView StatusText() const override { return m_status.AsView(); }
+        // Borrows the edited scene, the scene page's command stack + entity selection, and the editor
+        // context - all outlive the panel (the scene page owns them and the panel).
+        PropertyAnimationPanel(EditorContext& editorCtx, scene::Scene& scene,
+                               EditorCommandStack& commands, Selection<Guid>& selection);
 
         // === IClipEditorHost ===
         [[nodiscard]] propanim::PropertyAnimationClip& Clip() override { return m_clip; }
         [[nodiscard]] EditorCommandStack& Commands() override { return *m_commands; }
         void MarkClipDirty() override { m_dirty = true; }
-        // The scrub moved: drive the runtime evaluation path onto the selected entity (Phase H4).
+        // The scrub moved: drive the runtime evaluation path onto the selected entity (live preview).
         void OnScrubTimeChanged(f32 time) override;
+        // The view rebuilt its rows - resync the Timeline duration to the (possibly new) clip length.
+        void OnClipViewRebuilt() override;
+
+        // === frame hooks (called by the scene page; replace the old IViewportTool seam) ===
+        void Tick(bool editingLocked); // caches the EDIT/Simulate gate; stands preview down when locked
+        void DrawOverlay(foundation::render::debug::DebugDraw& drawList); // preview marker overlay
 
         // === clip document management ===
         void NewClip();                        // create a clip asset in the project + load it
@@ -87,18 +91,32 @@ export namespace editor
         [[nodiscard]] bool IsDirty() const noexcept { return m_dirty; }
         [[nodiscard]] const Guid& ClipId() const noexcept { return m_clipId; }
 
-        // Add a track for each animatable property of the selected entity's components, as ONE
-        // undo group. Returns the number of tracks added (0 = nothing selected / nothing animatable).
+        // Add a track for each animatable property of the selected entity's components, as ONE undo
+        // group. Returns the number of tracks added (0 = nothing selected / nothing animatable).
         usize AddTracksFromSelection(ClipEditorView& view);
 
-        [[nodiscard]] EditorContext& Context() noexcept { return *m_editorCtx; }
+        // Named EditorCtx (not Context) so it does not shadow the base ui::View::Context field.
+        [[nodiscard]] EditorContext& EditorCtx() noexcept { return *m_editorCtx; }
+        [[nodiscard]] ClipEditorView& View() noexcept { return *m_view; }
 
-        // === live preview (Phase H4) - exposed for tests ===
+        // === collapse (A2) ===
+        void SetCollapsed(bool collapsed);
+        [[nodiscard]] bool IsCollapsed() const noexcept { return m_collapsed; }
+
+        // === live preview - exposed for tests ===
         [[nodiscard]] bool IsPreviewing() const noexcept { return m_previewing; }
         void StopPreview(); // restore the snapshot + end the preview (idempotent)
 
     private:
         void ClearClip(); // drop the loaded clip (no asset written)
+        void BuildChrome();
+        void RefreshHeader();
+
+        // Header actions.
+        void OnNew();
+        void OnPick();
+        void OnAddFromSelection();
+        void OnSave();
 
         // One property captured before a transient preview write, so it can be restored EXACTLY
         // (re-resolved each time, never a cached instance - the entity.get lesson).
@@ -110,6 +128,10 @@ export namespace editor
         };
         void PreviewAt(scene::EntityHandle entity, f32 time); // snapshot-if-needed + write sampled values
         void SnapshotEntity(scene::EntityHandle entity);
+        // The identity of the tracks a snapshot was taken against ("component|path" per track). A change
+        // (add / remove / retarget a track) invalidates the snapshot so it is re-taken (the #6 fix).
+        [[nodiscard]] Array<String> TrackIdentity() const;
+        [[nodiscard]] static bool SameIdentity(const Array<String>& a, const Array<String>& b);
         [[nodiscard]] scene::ComponentManagerBase* FindManagerByComponentTypeName(StringView name);
 
         // Read / write a track target on an entity, handling the built-in "Transform" component
@@ -121,45 +143,28 @@ export namespace editor
                               StringView propertyPath, const Variant& value);
 
         EditorContext* m_editorCtx;
-        scene::Scene* m_scene;         // borrowed from the host context (the edited scene)
+        scene::Scene* m_scene;          // borrowed (the edited scene)
         EditorCommandStack* m_commands; // borrowed (the scene page's stack)
         Selection<Guid>* m_selection;   // borrowed (the scene page's entity selection)
-        propanim::PropertyAnimationClip m_clip; // the editing model (durable across panel rebuilds)
+        propanim::PropertyAnimationClip m_clip; // the editing model (durable across the panel's life)
         Guid m_clipId;                          // the clip asset being edited (Nil = none loaded)
         String m_clipName;
-        String m_status;
         bool m_dirty = false;
 
+        // Chrome + widgets (persistent - built once in the constructor).
+        RefPtr<ui::Label> m_clipLabel;
+        RefPtr<ui::Button> m_collapseButton;
+        RefPtr<ui::toolkit::Timeline> m_timeline;
+        RefPtr<ui::FlexLayout> m_body; // Timeline + ClipEditorView; hidden when collapsed
+        UniquePtr<ClipEditorView> m_view;
+        bool m_collapsed = false;
+
         // Preview state (transient; NEVER dirties the document or goes through undo).
-        bool m_editingLocked = false;         // last Update's Simulate/Play gate (no preview when true)
+        bool m_editingLocked = false; // last Tick's Simulate/Play gate (no preview when true)
         bool m_previewing = false;
-        scene::EntityHandle m_previewEntity;  // the entity currently being previewed
+        scene::EntityHandle m_previewEntity; // the entity currently being previewed
         f32 m_previewTime = 0.0f;
         Array<PreviewSnapshotEntry> m_snapshot; // pre-preview values, restored on stop
-    };
-
-    // Contributes the tool to each scene viewport (registered from RegisterPropertyAnimationEditor).
-    class PropertyAnimationToolProvider final : public IViewportToolProvider
-    {
-    public:
-        explicit PropertyAnimationToolProvider(EditorContext& editorCtx) : m_editorCtx(&editorCtx) {}
-        void CreateTools(ViewportToolManager& manager,
-                         const ViewportToolHostContext& context) override;
-
-    private:
-        EditorContext* m_editorCtx;
-    };
-
-    // Builds the tool's docked panel (clip chrome + the shared ClipEditorView).
-    class PropertyAnimationPanelProvider final : public IViewportToolPanelProvider
-    {
-    public:
-        explicit PropertyAnimationPanelProvider(EditorContext& editorCtx) : m_editorCtx(&editorCtx) {}
-        [[nodiscard]] StringView ToolId() const override { return u8"property.animation"; }
-        [[nodiscard]] RefPtr<foundation::ui::View>
-        CreatePanel(IViewportTool& tool, const ViewportToolHostContext& context) override;
-
-    private:
-        EditorContext* m_editorCtx;
+        Array<String> m_snapshotIdentity;       // the track identity the snapshot was taken against (#6)
     };
 }
