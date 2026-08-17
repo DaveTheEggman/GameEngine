@@ -472,8 +472,13 @@ Mechanism (ruled):
   chrome (clip name/New/Pick/transport) shows only when expanded.
 - Default state: collapsed. Expanding drives SetPaneCollapsed(false) +
   body Visible; collapsing the reverse. Keyboard/persistence polish later.
-- Console/Output/Debug migration into the dock is EXPLICITLY a later decision
-  - the bar is built N-tab-shaped but ships with one tab.
+- SCOPE (user ruling 2026-08-17): the dock is PER-SCENE-PAGE - it lives inside
+  the scene editor page, one per page, bound to that page's scene instance
+  (multiple open scene pages each carry their own dock + dopesheet). Editor
+  SINGLETONS (Console/Output) live in the shell docking and NEVER migrate here
+  - a page-scoped dock would hide them with the page. The bar stays N-tab
+  shaped only for future PAGE-SCOPED occupants (per-scene surfaces), not for
+  editor-global panels.
 
 Sequencing: P1d (this rework) lands BEFORE P2 - the dopesheet should grow
 inside the final interaction shell, not get re-parented after.
