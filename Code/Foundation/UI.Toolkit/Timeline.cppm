@@ -27,6 +27,22 @@ export namespace foundation::ui::toolkit
     namespace core = foundation::core;
     namespace fonts = foundation::fonts;
 
+    // One dopesheet row: a fixed height + the key TIMES on it (seconds, host-sorted). The widget draws
+    // a marker per key and handles selection/drag; the host owns what a key MEANS (which track/channel).
+    struct DopesheetLane
+    {
+        f32 height = 22.0f;
+        Array<f32> keyTimes;
+    };
+
+    // A key address within the lane model: (lane, index-in-lane). Selection + the drag event speak
+    // these; the host maps them back to clip tracks/keys (no id on the key - Fable D3 ruling).
+    struct DopesheetKeyRef
+    {
+        u32 lane = 0;
+        u32 index = 0;
+    };
+
     class Timeline : public View
     {
         RTTI_OBJECT(Timeline, View)
@@ -107,10 +123,59 @@ export namespace foundation::ui::toolkit
 
         Event<void(f32)> OnPlayheadMoved;
 
+        // === dopesheet lanes (P2) ===
+        // The host sets the lane model (rebuilt from the clip); the widget renders keys + handles
+        // selection + drag. It NEVER mutates the model - a key drag is purely visual and, on release,
+        // emits OnKeysMoved(deltaSeconds) for the host to apply + re-sort + re-select (D4/D5).
+        void SetLanes(Array<DopesheetLane> lanes)
+        {
+            m_lanes = Move(lanes);
+            m_selection.Clear();
+            Invalidate();
+        }
+        [[nodiscard]] usize LaneCount() const noexcept { return m_lanes.Size(); }
+        [[nodiscard]] usize SelectedCount() const noexcept { return m_selection.Size(); }
+        [[nodiscard]] bool IsKeySelected(u32 lane, u32 index) const noexcept
+        {
+            return SelectionContains(Pack(lane, index));
+        }
+        void ClearSelection()
+        {
+            if (!m_selection.IsEmpty())
+            {
+                m_selection.Clear();
+                OnSelectionChanged.Invoke();
+                Invalidate();
+            }
+        }
+        // Replace the selection wholesale (the host re-selects by time after a commit-remap - D3/D4).
+        void SetSelection(const Array<DopesheetKeyRef>& keys)
+        {
+            m_selection.Clear();
+            for (const DopesheetKeyRef& k : keys)
+            {
+                m_selection.PushBack(Pack(k.lane, k.index));
+            }
+            Invalidate();
+        }
+        [[nodiscard]] Array<DopesheetKeyRef> Selection() const
+        {
+            Array<DopesheetKeyRef> out;
+            for (const u64 packed : m_selection)
+            {
+                out.PushBack(DopesheetKeyRef{static_cast<u32>(packed >> 32),
+                                             static_cast<u32>(packed & 0xffffffffu)});
+            }
+            return out;
+        }
+
+        Event<void()> OnSelectionChanged;
+        Event<void(f32)> OnKeysMoved; // a key drag committed: move all selected keys by this delta (s)
+
         void OnMeasure(BoxConstraints constraints) override
         {
-            MeasuredSize =
-                Float2{constraints.ConstrainWidth(200.0f), constraints.ConstrainHeight(kRulerHeight)};
+            MeasuredSize = Float2{constraints.ConstrainWidth(200.0f),
+                                  constraints.ConstrainHeight(kRulerHeight + LanesHeight())};
         }
 
         void OnDraw(UIDrawContext& ctx) override
@@ -168,6 +233,38 @@ export namespace foundation::ui::toolkit
                 ctx.VG().FillRect(Rectangle{0.0f, 0.0f, LabelColumnWidth, h}, gutter);
             }
 
+            // Dopesheet lanes below the ruler: an alternating row per lane + a marker per key. Selected
+            // keys use the accent; a live key-drag offsets the selected markers visually (D4).
+            const core::Color rowEven{band.r * 1.12f, band.g * 1.12f, band.b * 1.12f, band.a};
+            const core::Color rowOdd{band.r * 1.24f, band.g * 1.24f, band.b * 1.24f, band.a};
+            const core::Color keyColor =
+                ResolveStyleColor(StyleProperty::TextDimColor, core::Color::Rgb(170, 174, 186, 255));
+            const core::Color keySel =
+                ResolveStyleColor(StyleProperty::AccentColor, core::Color::Rgb(90, 150, 235, 255));
+            f32 laneY = kRulerHeight;
+            for (usize li = 0; li < m_lanes.Size(); ++li)
+            {
+                const DopesheetLane& lane = m_lanes[li];
+                ctx.VG().FillRect(Rectangle{LabelColumnWidth, laneY, w - LabelColumnWidth, lane.height},
+                                  (li & 1u) ? rowOdd : rowEven);
+                const f32 cy = laneY + lane.height * 0.5f;
+                for (usize ki = 0; ki < lane.keyTimes.Size(); ++ki)
+                {
+                    const bool sel = SelectionContains(Pack(static_cast<u32>(li), static_cast<u32>(ki)));
+                    f32 kx = TimeToX(lane.keyTimes[ki]);
+                    if (sel && m_keyDragging)
+                    {
+                        kx += m_dragDeltaX;
+                    }
+                    if (kx < LabelColumnWidth - kKeyRadius || kx > w + kKeyRadius)
+                    {
+                        continue;
+                    }
+                    ctx.VG().FillCircle(Float2{kx, cy}, kKeyRadius, sel ? keySel : keyColor);
+                }
+                laneY += lane.height;
+            }
+
             // Playhead: a vertical line + a small head flag at the top (theme error-red).
             const f32 px = TimeToX(m_playhead);
             if (px >= LabelColumnWidth - 0.5f && px <= w)
@@ -177,6 +274,18 @@ export namespace foundation::ui::toolkit
                 ctx.VG().FillRect(Rectangle{px - 0.5f, 0.0f, 1.5f, h}, playhead);
                 ctx.VG().FillRect(Rectangle{px - 4.0f, 0.0f, 8.0f, 5.0f}, playhead);
             }
+
+            // Box-select overlay (drawn last, over the lanes + playhead).
+            if (m_boxSelecting)
+            {
+                const f32 bx = Min(m_boxStart.x, m_boxEnd.x);
+                const f32 by = Min(m_boxStart.y, m_boxEnd.y);
+                const f32 bw = Abs(m_boxEnd.x - m_boxStart.x);
+                const f32 bh = Abs(m_boxEnd.y - m_boxStart.y);
+                const core::Color accent =
+                    ResolveStyleColor(StyleProperty::AccentColor, core::Color::Rgb(90, 150, 235, 255));
+                ctx.VG().FillRect(Rectangle{bx, by, bw, bh}, core::Color{accent.r, accent.g, accent.b, 0.18f});
+            }
         }
 
         void OnMouseDown(MouseEventArgs& e) override
@@ -185,33 +294,104 @@ export namespace foundation::ui::toolkit
             {
                 return;
             }
-            m_dragging = true;
-            SetPlayheadTime(XToTime(e.X));
             if (Context != nullptr)
             {
                 Context->GetFocusManager()->SetCapture(this);
             }
             e.Handled = true;
+
+            // The ruler band (or a lane-less timeline) scrubs the playhead.
+            if (e.Y <= kRulerHeight || m_lanes.IsEmpty())
+            {
+                m_dragging = true;
+                SetPlayheadTime(XToTime(e.X));
+                return;
+            }
+
+            // Lane area: hit a key -> select + begin a (visual) drag; empty -> box-select.
+            const bool ctrl = HasFlag(e.Modifiers, KeyModifiers::Ctrl);
+            u32 lane = 0, index = 0;
+            if (HitTestKey(e.X, e.Y, lane, index))
+            {
+                const u64 key = Pack(lane, index);
+                if (ctrl)
+                {
+                    ToggleSelection(key);
+                    OnSelectionChanged.Invoke();
+                }
+                else if (!SelectionContains(key))
+                {
+                    m_selection.Clear();
+                    m_selection.PushBack(key);
+                    OnSelectionChanged.Invoke();
+                }
+                m_keyDragging = true;
+                m_dragStartX = e.X;
+                m_dragDeltaX = 0.0f;
+            }
+            else
+            {
+                if (!ctrl && !m_selection.IsEmpty())
+                {
+                    m_selection.Clear();
+                    OnSelectionChanged.Invoke();
+                }
+                m_boxSelecting = true;
+                m_boxStart = Float2{e.X, e.Y};
+                m_boxEnd = m_boxStart;
+            }
+            Invalidate();
         }
 
         void OnMouseMove(MouseEventArgs& e) override
         {
-            if (!m_dragging)
+            if (m_dragging)
             {
-                return;
+                SetPlayheadTime(XToTime(e.X));
+                e.Handled = true;
             }
-            SetPlayheadTime(XToTime(e.X));
-            e.Handled = true;
+            else if (m_keyDragging)
+            {
+                m_dragDeltaX = e.X - m_dragStartX;
+                e.Handled = true;
+                Invalidate();
+            }
+            else if (m_boxSelecting)
+            {
+                m_boxEnd = Float2{e.X, e.Y};
+                e.Handled = true;
+                Invalidate();
+            }
         }
 
         void OnMouseUp(MouseEventArgs& e) override
         {
-            if (e.Button != MouseButton::Left || !m_dragging)
+            if (e.Button != MouseButton::Left)
             {
                 return;
             }
+            const bool wasActive = m_dragging || m_keyDragging || m_boxSelecting;
+            if (m_keyDragging)
+            {
+                const f32 dx = m_dragDeltaX;
+                m_keyDragging = false;
+                m_dragDeltaX = 0.0f;
+                // Epsilon gate: a small move is a click (select only), not a drag (D4).
+                if (Abs(dx) >= kDragEpsilonPx && m_pixelsPerSecond > 0.0f)
+                {
+                    OnKeysMoved.Invoke(dx / m_pixelsPerSecond); // host applies + re-sorts + re-selects
+                }
+                Invalidate();
+            }
+            else if (m_boxSelecting)
+            {
+                m_boxSelecting = false;
+                ApplyBoxSelection();
+                OnSelectionChanged.Invoke();
+                Invalidate();
+            }
             m_dragging = false;
-            if (Context != nullptr)
+            if (wasActive && Context != nullptr)
             {
                 Context->GetFocusManager()->ReleaseCapture();
             }
@@ -249,17 +429,126 @@ export namespace foundation::ui::toolkit
             return s;
         }
 
+        // --- dopesheet helpers ---
+        [[nodiscard]] static u64 Pack(u32 lane, u32 index) noexcept
+        {
+            return (static_cast<u64>(lane) << 32) | static_cast<u64>(index);
+        }
+        [[nodiscard]] bool SelectionContains(u64 key) const noexcept
+        {
+            for (const u64 k : m_selection)
+            {
+                if (k == key)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        void ToggleSelection(u64 key)
+        {
+            for (usize i = 0; i < m_selection.Size(); ++i)
+            {
+                if (m_selection[i] == key)
+                {
+                    m_selection.RemoveAt(i);
+                    return;
+                }
+            }
+            m_selection.PushBack(key);
+        }
+        [[nodiscard]] f32 LanesHeight() const noexcept
+        {
+            f32 total = 0.0f;
+            for (const DopesheetLane& lane : m_lanes)
+            {
+                total += lane.height;
+            }
+            return total;
+        }
+        // Which lane row contains y, and the nearest key on it within the hit radius (in x).
+        [[nodiscard]] bool HitTestKey(f32 x, f32 y, u32& outLane, u32& outIndex) const
+        {
+            f32 laneY = kRulerHeight;
+            for (usize li = 0; li < m_lanes.Size(); ++li)
+            {
+                const DopesheetLane& lane = m_lanes[li];
+                if (y >= laneY && y < laneY + lane.height)
+                {
+                    f32 best = kKeyHitPx;
+                    bool found = false;
+                    for (usize ki = 0; ki < lane.keyTimes.Size(); ++ki)
+                    {
+                        const f32 dx = Abs(TimeToX(lane.keyTimes[ki]) - x);
+                        if (dx <= best)
+                        {
+                            best = dx;
+                            outLane = static_cast<u32>(li);
+                            outIndex = static_cast<u32>(ki);
+                            found = true;
+                        }
+                    }
+                    return found;
+                }
+                laneY += lane.height;
+            }
+            return false;
+        }
+        // Add every key whose marker falls inside the current box to the selection.
+        void ApplyBoxSelection()
+        {
+            const f32 bx = Min(m_boxStart.x, m_boxEnd.x);
+            const f32 by = Min(m_boxStart.y, m_boxEnd.y);
+            const f32 ex = Max(m_boxStart.x, m_boxEnd.x);
+            const f32 ey = Max(m_boxStart.y, m_boxEnd.y);
+            f32 laneY = kRulerHeight;
+            for (usize li = 0; li < m_lanes.Size(); ++li)
+            {
+                const DopesheetLane& lane = m_lanes[li];
+                const f32 cy = laneY + lane.height * 0.5f;
+                if (cy >= by && cy <= ey)
+                {
+                    for (usize ki = 0; ki < lane.keyTimes.Size(); ++ki)
+                    {
+                        const f32 kx = TimeToX(lane.keyTimes[ki]);
+                        if (kx >= bx && kx <= ex)
+                        {
+                            const u64 key = Pack(static_cast<u32>(li), static_cast<u32>(ki));
+                            if (!SelectionContains(key))
+                            {
+                                m_selection.PushBack(key);
+                            }
+                        }
+                    }
+                }
+                laneY += lane.height;
+            }
+        }
+
         static constexpr f32 kRulerHeight = 24.0f;
         static constexpr f32 kMinPps = 4.0f;
         static constexpr f32 kMaxPps = 4000.0f;
         static constexpr f32 kMinLabelPx = 48.0f;
         static constexpr f32 kZoomStep = 1.15f;
+        static constexpr f32 kKeyRadius = 4.0f;
+        static constexpr f32 kKeyHitPx = 6.0f;
+        static constexpr f32 kDragEpsilonPx = 3.0f;
 
         f32 m_duration = 1.0f;
         f32 m_playhead = 0.0f;
         f32 m_pixelsPerSecond = 100.0f;
         f32 m_scrollSeconds = 0.0f;
         bool m_dragging = false;
+
+        // Dopesheet state.
+        Array<DopesheetLane> m_lanes;
+        Array<u64> m_selection; // packed (lane<<32 | index)
+        bool m_keyDragging = false;
+        f32 m_dragStartX = 0.0f;
+        f32 m_dragDeltaX = 0.0f;
+        bool m_boxSelecting = false;
+        Float2 m_boxStart{};
+        Float2 m_boxEnd{};
     };
 
     RTTI_DEFINE_OBJECT(Timeline, "rtti::ui::toolkit")
