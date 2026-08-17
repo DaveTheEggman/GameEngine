@@ -200,6 +200,20 @@ export namespace foundation::ui::toolkit
 
         void OnMouseDown(MouseEventArgs& e) override
         {
+            if (e.Button == MouseButton::Middle)
+            {
+                m_valuePanning = true;
+                m_valuePanStartY = e.Y;
+                m_valuePanStartMin = ValueMin;
+                m_valuePanStartMax = ValueMax;
+                AutoFitValueRange = false; // a user pan is a user frame
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
+                e.Handled = true;
+                return;
+            }
             if (m_channels.Size() == 0)
             {
                 return;
@@ -390,6 +404,19 @@ export namespace foundation::ui::toolkit
 
         void OnMouseMove(MouseEventArgs& e) override
         {
+            if (m_valuePanning)
+            {
+                if (Height() > 0.0f)
+                {
+                    const f32 dv = (e.Y - m_valuePanStartY) *
+                                   (m_valuePanStartMax - m_valuePanStartMin) / Height();
+                    ValueMin = m_valuePanStartMin + dv;
+                    ValueMax = m_valuePanStartMax + dv;
+                }
+                e.Handled = true;
+                Invalidate();
+                return;
+            }
             if (m_draggingChannelIdx < 0 || m_draggingKeyIdx < 0)
             {
                 return;
@@ -510,6 +537,16 @@ export namespace foundation::ui::toolkit
 
         void OnMouseUp(MouseEventArgs& e) override
         {
+            if (e.Button == MouseButton::Middle && m_valuePanning)
+            {
+                m_valuePanning = false;
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->ReleaseCapture();
+                }
+                e.Handled = true;
+                return;
+            }
             if (m_draggingChannelIdx >= 0)
             {
                 m_draggingChannelIdx = -1;
@@ -716,6 +753,29 @@ export namespace foundation::ui::toolkit
                                       colOut);
                 }
             }
+        }
+
+        void OnMouseWheel(MouseWheelEventArgs& e) override
+        {
+            if (e.DeltaY == 0.0f || Height() <= 0.0f)
+            {
+                return;
+            }
+            // Value-axis zoom anchored at the cursor's value (the time axis is the clip's -
+            // shared with the dopesheet - so the canvas zooms VALUES only).
+            const f32 anchor = YToValue(e.Y);
+            const f32 factor = (e.DeltaY > 0.0f) ? (1.0f / kValueZoomStep) : kValueZoomStep;
+            f32 lo = anchor + (ValueMin - anchor) * factor;
+            f32 hi = anchor + (ValueMax - anchor) * factor;
+            if (hi - lo < 1e-6f || hi - lo > 1e9f)
+            {
+                return; // zoom limits
+            }
+            AutoFitValueRange = false; // the user framed the view - keep it
+            ValueMin = lo;
+            ValueMax = hi;
+            e.Handled = true;
+            Invalidate();
         }
 
     protected:
@@ -960,7 +1020,11 @@ export namespace foundation::ui::toolkit
         }
         [[nodiscard]] f32 YToValue(f32 y) const
         {
-            const f32 r = core::Clamp(y / Height(), 0.0f, 1.0f);
+            // UNCLAMPED: a drag past the top/bottom edge extrapolates beyond the framed range
+            // (the frame is a viewport, not a value limit - the old clamp made values outside
+            // the current auto-fit frame unreachable by direct manipulation). Per-channel
+            // Min/Max clamps still apply via ClampToChannel at the call sites.
+            const f32 r = (Height() > 0.0f) ? y / Height() : 0.0f;
             return ValueMax - r * (ValueMax - ValueMin);
         }
 
@@ -1294,7 +1358,12 @@ export namespace foundation::ui::toolkit
         i32 m_selectedKeyIdx = -1;
         i32 m_draggingChannelIdx = -1;
         i32 m_draggingKeyIdx = -1;
+        static constexpr f32 kValueZoomStep = 1.2f;
         bool m_inGesture = false;
+        bool m_valuePanning = false;
+        f32 m_valuePanStartY = 0.0f;
+        f32 m_valuePanStartMin = 0.0f;
+        f32 m_valuePanStartMax = 1.0f;
         DraggingHandle m_draggingHandle = DraggingHandle::None;
     };
 

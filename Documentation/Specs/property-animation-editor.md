@@ -544,3 +544,31 @@ Ctrl+Z routing, or undo/redo buttons in the panel header. Options for the ruling
    misleading and the clip edits aren't in the scene.
 
 Not yet built - awaiting the ruling.
+
+## SEDULOUS-SHAPE ADOPTION (Fable, 2026-08-17, user-approved; SUPERSEDES the stacked track rows)
+
+The user asked whether Sedulous's model (labeled dopesheet + click-a-key inspector) beats the
+stacked per-track sections below the dopesheet. Verdict after reading Sedulous
+PropAnimPageBuilder/TimelineView: YES - the stacked sections duplicated the track list, burned
+~140 px per track, and could not survive a ten-track clip. Adopted + built:
+
+- **The dopesheet IS the track list.** Timeline lanes carry labels
+  ("Component.property", 140 px gutter); a gutter click - or any key pick - selects the
+  TRACK (Timeline::SelectedLane/OnLaneSelected; programmatic SetSelectedLane never fires).
+- **The area below shows the SELECTED track only**: one strip (the merged path field, kind
+  cycle, interpolation cycle, Key, Key All, remove) + the KEYFRAME INSPECTOR (Time field +
+  typed value fields: V / XYZ / RGBA / euler-degree PYR - Sedulous's inspector over OUR undo
+  stack, one step per commit; edits UPSERT at the selected time so a channel missing a key
+  there gains one) + ONE CurveCanvas for the selected scalar track. Quat tracks get no
+  canvas (timing = dopesheet, values = inspector).
+- **Key-from-scene capture is the PRIMARY value workflow** (the range-trap answer): pose the
+  entity, press Key (per track) or Key All - IClipEditorHost::ReadSceneValue (the panel's
+  ReadTrackTarget over the primary selection) captures at the playhead; keys upsert at that
+  time as one undo step. Type mismatches warn + skip.
+- **The canvas is a value VIEWPORT, not a value limit**: YToValue is unclamped (drags
+  extrapolate past the framed range - the old clamp made out-of-frame values unreachable),
+  wheel = value zoom about the cursor, middle-drag = value pan; both pin the frame
+  (AutoFitValueRange off). The time axis stays the clip's (ruling 2).
+- The inspector lives in a persistent row whose CHILDREN swap on selection
+  (RefreshKeyInspector, deferred via the mutation queue) - canvas picks never trigger a full
+  rebuild, so tangent handles survive selection changes.

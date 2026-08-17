@@ -81,6 +81,9 @@ export namespace editor
         // Undo/redo whole-clip apply, routed through the view (F1: the command holds this host, not a
         // view pointer).
         void ApplyClipState(const propanim::PropertyAnimationClip& state, bool rebuild) override;
+        // Key-from-scene capture source: the primary selection's live value (ReadTrackTarget).
+        [[nodiscard]] Variant ReadSceneValue(StringView componentType,
+                                             StringView propertyPath) override;
         // Author the clip's duration (clamped to at least the last key); one undo step.
         void SetClipDuration(f32 seconds) override;
 

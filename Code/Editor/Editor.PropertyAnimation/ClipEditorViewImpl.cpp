@@ -3,6 +3,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 #include <cstdlib>
 
 module editor.propertyanimation;
@@ -361,6 +362,7 @@ namespace editor
         m_previewSelChannel = channel;
         m_previewSelTime = time;
         RefreshPreview();
+        RequestInspectorRefresh(); // typed fields re-target (deferred: mid-dispatch safe)
     }
 
     void ClipEditorView::ClearSelectedKey()
@@ -371,35 +373,215 @@ namespace editor
         }
         m_previewSelActive = false;
         RefreshPreview();
+        RequestInspectorRefresh();
     }
 
-    void ClipEditorView::BuildTrackRows(usize trackIndex)
+    // === the selected-track surface (Sedulous shape: the dopesheet IS the track list; the
+    // area below shows the SELECTED track's strip + keyframe inspector + one curve canvas) ===
+
+    namespace
+    {
+        inline constexpr f32 kKeyTimeEps = 1e-4f;
+
+        [[nodiscard]] i32 FindChannelKeyAt(const propanim::PropertyTrack& track, u32 channel,
+                                           f32 time)
+        {
+            const Curve& cur = track.channels[channel];
+            for (usize i = 0; i < cur.KeyCount(); ++i)
+            {
+                if (Abs(cur.Keys()[i].time - time) < kKeyTimeEps)
+                {
+                    return static_cast<i32>(i);
+                }
+            }
+            return -1;
+        }
+
+        [[nodiscard]] i32 FindQuatKeyAt(const propanim::PropertyTrack& track, f32 time)
+        {
+            for (usize i = 0; i < track.quatKeys.Size(); ++i)
+            {
+                if (Abs(track.quatKeys[i].time - time) < kKeyTimeEps)
+                {
+                    return static_cast<i32>(i);
+                }
+            }
+            return -1;
+        }
+
+        // Retime every channel/quat key sitting at `t0` to `t1`, keeping arrays time-sorted.
+        void RetimeTrackKeysAt(propanim::PropertyTrack& track, f32 t0, f32 t1)
+        {
+            const u32 channels = propanim::ChannelCount(track.kind);
+            for (u32 ch = 0; ch < channels; ++ch)
+            {
+                Curve& cur = track.channels[ch];
+                Array<CurveKey> keys;
+                for (usize i = 0; i < cur.KeyCount(); ++i)
+                {
+                    CurveKey k = cur.Keys()[i];
+                    if (Abs(k.time - t0) < kKeyTimeEps)
+                    {
+                        k.time = t1;
+                    }
+                    keys.PushBack(k);
+                }
+                cur.Clear();
+                for (const CurveKey& k : keys)
+                {
+                    cur.AddKey(k); // AddKey keeps time order
+                }
+            }
+            for (usize i = 0; i < track.quatKeys.Size(); ++i)
+            {
+                if (Abs(track.quatKeys[i].time - t0) < kKeyTimeEps)
+                {
+                    track.quatKeys[i].time = t1;
+                }
+            }
+            for (usize i = 1; i < track.quatKeys.Size(); ++i) // insertion sort (small arrays)
+            {
+                const propanim::QuatKey k = track.quatKeys[i];
+                usize j = i;
+                while (j > 0 && track.quatKeys[j - 1].time > k.time)
+                {
+                    track.quatKeys[j] = track.quatKeys[j - 1];
+                    --j;
+                }
+                track.quatKeys[j] = k;
+            }
+        }
+
+        // Set-or-insert a channel key at `time` (scene capture + inspector commits). New keys
+        // inherit the track's interpolation (first key's; Linear on an empty channel).
+        void UpsertChannelKeyAt(propanim::PropertyTrack& track, u32 channel, f32 time, f32 value)
+        {
+            Curve& cur = track.channels[channel];
+            const i32 at = FindChannelKeyAt(track, channel, time);
+            if (at >= 0)
+            {
+                cur.Keys()[static_cast<usize>(at)].value = value;
+                return;
+            }
+            CurveKey k;
+            k.time = time;
+            k.value = value;
+            k.interpolation = cur.KeyCount() > 0 ? cur.Keys()[0].interpolation
+                                                 : CurveKeyInterpolation::Linear;
+            cur.AddKey(k);
+        }
+
+        void UpsertQuatKeyAt(propanim::PropertyTrack& track, f32 time, const Quaternion& value)
+        {
+            const i32 at = FindQuatKeyAt(track, time);
+            if (at >= 0)
+            {
+                track.quatKeys[static_cast<usize>(at)].value = value;
+                return;
+            }
+            track.quatKeys.PushBack(propanim::QuatKey{time, value});
+            for (usize i = track.quatKeys.Size() - 1;
+                 i > 0 && track.quatKeys[i - 1].time > track.quatKeys[i].time; --i)
+            {
+                const propanim::QuatKey tmp = track.quatKeys[i - 1];
+                track.quatKeys[i - 1] = track.quatKeys[i];
+                track.quatKeys[i] = tmp;
+            }
+        }
+
+        // Decompose a captured Variant into per-channel key writes at `time`. False = the scene
+        // value's type does not match the track kind (caller warns + skips).
+        [[nodiscard]] bool UpsertTrackValueAt(propanim::PropertyTrack& track, f32 time,
+                                              const Variant& v)
+        {
+            switch (track.kind)
+            {
+            case propanim::TrackValueKind::Float:
+                if (!v.Is<f32>())
+                {
+                    return false;
+                }
+                UpsertChannelKeyAt(track, 0, time, v.Get<f32>());
+                return true;
+            case propanim::TrackValueKind::Float3:
+            {
+                if (!v.Is<Float3>())
+                {
+                    return false;
+                }
+                const Float3 f = v.Get<Float3>();
+                UpsertChannelKeyAt(track, 0, time, f.x);
+                UpsertChannelKeyAt(track, 1, time, f.y);
+                UpsertChannelKeyAt(track, 2, time, f.z);
+                return true;
+            }
+            case propanim::TrackValueKind::Color:
+            {
+                if (!v.Is<Color>())
+                {
+                    return false;
+                }
+                const Color c = v.Get<Color>();
+                UpsertChannelKeyAt(track, 0, time, c.r);
+                UpsertChannelKeyAt(track, 1, time, c.g);
+                UpsertChannelKeyAt(track, 2, time, c.b);
+                UpsertChannelKeyAt(track, 3, time, c.a);
+                return true;
+            }
+            case propanim::TrackValueKind::Quat:
+                if (!v.Is<Quaternion>())
+                {
+                    return false;
+                }
+                UpsertQuatKeyAt(track, time, v.Get<Quaternion>());
+                return true;
+            }
+            return false;
+        }
+    }
+
+    void ClipEditorView::SetSelectedTrack(i32 trackIndex)
+    {
+        const i32 clamped =
+            (trackIndex >= 0 && trackIndex < static_cast<i32>(Clip().tracks.Size())) ? trackIndex
+                                                                                     : -1;
+        if (clamped == m_selectedTrack)
+        {
+            return;
+        }
+        m_selectedTrack = clamped;
+        if (m_previewSelActive && static_cast<i32>(m_previewSelTrack) != clamped)
+        {
+            m_previewSelActive = false; // the previous track's key pick is stale here
+        }
+        RequestRebuild(); // strip + inspector + canvas all re-target
+    }
+
+    void ClipEditorView::BuildSelectedTrackStrip()
     {
         ClipEditorView* self = this;
-        const propanim::PropertyTrack& track = Clip().tracks[trackIndex];
+        propanim::PropertyAnimationClip& clip = Clip();
+        auto strip = MakeRow(0.0f, 26.0f);
+        if (clip.tracks.IsEmpty())
+        {
+            AddLabel(*strip, u8"(no tracks - + Track adds one)", 1.0f);
+            return;
+        }
+        if (m_selectedTrack < 0 || m_selectedTrack >= static_cast<i32>(clip.tracks.Size()))
+        {
+            AddLabel(*strip, u8"(select a track in the dopesheet)", 1.0f);
+            return;
+        }
+        const usize trackIndex = static_cast<usize>(m_selectedTrack);
+        const propanim::PropertyTrack& track = clip.tracks[trackIndex];
 
-        String key = track.componentType;
-        key += u8"|";
-        key += track.propertyPath.AsView();
-        const bool collapsed = IsTrackCollapsed(key.AsView());
-
-        // --- track header: [caret] component + property + kind + remove ---
-        auto header = MakeRow(0.0f, 26.0f);
-        MakeButton(*header, collapsed ? u8">" : u8"v", 22.0f,
-                   [self, k = String(key)]()
-                   {
-                       self->ToggleTrackCollapsed(k.AsView());
-                       self->RequestRebuild(); // fold/unfold the track's rows
-                   });
-        // ONE "Component.property.path" field (user ruling: the split component/path pair wasted
-        // width and read as two unrelated boxes). Component type names never contain dots, so the
-        // FIRST dot splits: before = componentType, after = propertyPath (which may itself be
-        // dotted). Text without a dot edits just the property path (component unchanged).
+        // ONE "Component.property.path" field (user ruling): component type names never contain
+        // dots, so the FIRST dot splits; dot-less text edits just the property path.
         {
             String path = track.componentType;
             path += u8".";
             path += track.propertyPath.AsView();
-            AddTextField(*header, path.AsView(),
+            AddTextField(*strip, path.AsView(),
                          [self, trackIndex](StringView v)
                          {
                              usize dot = 0;
@@ -426,7 +608,7 @@ namespace editor
                          },
                          190.0f);
         }
-        MakeButton(*header, KindName(track.kind), 58.0f,
+        MakeButton(*strip, KindName(track.kind), 58.0f,
                    [self, trackIndex]()
                    {
                        self->Mutate(
@@ -445,99 +627,12 @@ namespace editor
                                t.kind = kKinds[(k + 1) % 4];
                            });
                    });
-        MakeButton(*header, u8"x", 22.0f,
-                   [self, trackIndex]()
-                   { self->Mutate([&](propanim::PropertyAnimationClip& c)
-                                  { c.tracks.RemoveAt(trackIndex); }); });
-
-        if (collapsed)
+        if (track.kind != propanim::TrackValueKind::Quat)
         {
-            return; // folded: header only
-        }
-
-        // --- keyframe rows ---
-        if (track.kind == propanim::TrackValueKind::Quat)
-        {
-            for (usize ki = 0; ki < track.quatKeys.Size(); ++ki)
-            {
-                const propanim::QuatKey& qk = track.quatKeys[ki];
-                auto krow = MakeRow(18.0f);
-                AddFloatField(*krow, qk.time,
-                              [self, trackIndex, ki](f32 t)
-                              { self->Mutate([&](propanim::PropertyAnimationClip& c)
-                                             { c.tracks[trackIndex].quatKeys[ki].time = t; }); },
-                              50.0f);
-                // Rotation is edited as EULER degrees (Vector3 X=pitch, Y=yaw, Z=roll), not raw
-                // quaternion x/y/z/w - quaternion components are not human-editable. We convert to/from
-                // the stored quaternion in the background (Sedulous parity). Gimbal ambiguity at the
-                // poles is inherent to any euler UI; the stored data is still the exact quaternion.
-                constexpr f32 kRadToDeg = 57.29577951f;
-                constexpr f32 kDegToRad = 0.01745329252f;
-                f32 yaw = 0.0f, pitch = 0.0f, roll = 0.0f;
-                ToYawPitchRoll(qk.value, yaw, pitch, roll);
-                const f32 eulerDeg[3] = {pitch * kRadToDeg, yaw * kRadToDeg, roll * kRadToDeg};
-                for (u32 ci = 0; ci < 3; ++ci)
-                {
-                    AddFloatField(*krow, eulerDeg[ci],
-                                  [self, trackIndex, ki, ci, yaw, pitch, roll](f32 vDeg)
-                                  {
-                                      self->Mutate(
-                                          [&](propanim::PropertyAnimationClip& c)
-                                          {
-                                              f32 p = pitch, y = yaw, r = roll;
-                                              const f32 v = vDeg * kDegToRad;
-                                              (ci == 0 ? p : ci == 1 ? y : r) = v;
-                                              c.tracks[trackIndex].quatKeys[ki].value =
-                                                  FromYawPitchRoll(y, p, r);
-                                          });
-                                  },
-                                  48.0f);
-                }
-                MakeButton(*krow, u8"x", 22.0f,
-                           [self, trackIndex, ki]()
-                           { self->Mutate([&](propanim::PropertyAnimationClip& c)
-                                          { c.tracks[trackIndex].quatKeys.RemoveAt(ki); }); });
-            }
-            MakeButton(*MakeRow(18.0f), u8"+ Key", 60.0f,
-                       [self, trackIndex]()
-                       {
-                           self->Mutate(
-                               [&](propanim::PropertyAnimationClip& c)
-                               {
-                                   propanim::PropertyTrack& t = c.tracks[trackIndex];
-                                   const f32 at = t.quatKeys.IsEmpty()
-                                                      ? 0.0f
-                                                      : t.quatKeys[t.quatKeys.Size() - 1].time + 1.0f;
-                                   t.quatKeys.PushBack(propanim::QuatKey{at, Quaternion::Identity});
-                               });
-                       });
-        }
-        else
-        {
-            // Scalar-channel tracks (Float/Float3/Color): an interactive CurveCanvas (times shown
-            // normalized by the clip length; add via click, drag to edit, right-click to delete).
-            AddCurveCanvas(trackIndex);
-        }
-    }
-
-    void ClipEditorView::AddCurveCanvas(usize trackIndex)
-    {
-        ClipEditorView* self = this;
-        const propanim::PropertyTrack& track = Clip().tracks[trackIndex];
-        const u32 channels = propanim::ChannelCount(track.kind);
-        if (channels == 0)
-        {
-            return;
-        }
-
-        // Per-track interpolation cycle (the canvas interpolates PER CHANNEL, not per key - a P1
-        // simplification): applies to every channel of this track.
-        {
-            auto irow = MakeRow(18.0f, 22.0f);
             const CurveKeyInterpolation cur =
                 (track.channels[0].KeyCount() > 0) ? track.channels[0].Keys()[0].interpolation
                                                    : CurveKeyInterpolation::Linear;
-            MakeButton(*irow, InterpName(cur), 64.0f,
+            MakeButton(*strip, InterpName(cur), 64.0f,
                        [self, trackIndex]()
                        {
                            self->Mutate(
@@ -565,7 +660,241 @@ namespace editor
                                    }
                                });
                        });
-            AddLabel(*irow, u8"(click canvas to add a key; drag to edit; right-click to delete)", 1.0f);
+        }
+        // Key-from-scene capture (the PRIMARY value workflow: pose the entity, press Key).
+        MakeButton(*strip, u8"Key", 44.0f,
+                   [self, trackIndex]() { self->KeyTrackFromScene(trackIndex); });
+        MakeButton(*strip, u8"Key All", 64.0f, [self]() { self->KeyAllFromScene(); });
+        MakeButton(*strip, u8"x", 22.0f,
+                   [self, trackIndex]()
+                   {
+                       self->ClearSelectedKey();
+                       self->Mutate([&](propanim::PropertyAnimationClip& c)
+                                    { c.tracks.RemoveAt(trackIndex); });
+                       self->m_selectedTrack =
+                           Min(self->m_selectedTrack,
+                               static_cast<i32>(self->Clip().tracks.Size()) - 1);
+                   });
+    }
+
+    void ClipEditorView::BuildKeyInspectorHost()
+    {
+        m_inspectorRow = MakeRow(0.0f, 26.0f); // persistent host; children swap per selection
+        RefreshKeyInspector();
+    }
+
+    void ClipEditorView::RefreshKeyInspector()
+    {
+        if (m_inspectorRow.Get() == nullptr)
+        {
+            return;
+        }
+        m_inspectorRow->RemoveAllViews();
+        propanim::PropertyAnimationClip& clip = Clip();
+        if (!m_previewSelActive || m_previewSelTrack >= clip.tracks.Size())
+        {
+            AddLabel(*m_inspectorRow,
+                     u8"(click a key to edit; Key captures the scene value at the playhead)", 1.0f);
+            return;
+        }
+        ClipEditorView* self = this;
+        const usize trackIndex = m_previewSelTrack;
+        const propanim::PropertyTrack& track = clip.tracks[trackIndex];
+        const f32 selTime = m_previewSelTime;
+
+        // Time: retimes every channel key at the selected time (a dopesheet diamond = the
+        // whole track at that time), one undo step.
+        AddLabel(*m_inspectorRow, u8"Time", 0.0f, 34.0f);
+        AddFloatField(*m_inspectorRow, selTime,
+                      [self, trackIndex, selTime](f32 t)
+                      {
+                          const f32 clampedT = Max(t, 0.0f);
+                          self->Mutate(
+                              [&](propanim::PropertyAnimationClip& c)
+                              {
+                                  if (trackIndex < c.tracks.Size())
+                                  {
+                                      RetimeTrackKeysAt(c.tracks[trackIndex], selTime, clampedT);
+                                  }
+                              });
+                          self->m_previewSelTime = clampedT;
+                      },
+                      52.0f);
+
+        // Value: exact numeric entry per component (the Sedulous keyframe inspector, over our
+        // undo stack). Commits UPSERT at the selected time, so a channel missing a key there
+        // gains one instead of dropping the edit.
+        const auto addChannelField =
+            [self, trackIndex, selTime, &track](ui::FlexLayout& row, u32 channel, StringView name)
+        {
+            const i32 at = FindChannelKeyAt(track, channel, selTime);
+            const f32 shown = (at >= 0)
+                                  ? track.channels[channel].Keys()[static_cast<usize>(at)].value
+                                  : 0.0f;
+            self->AddLabel(row, name, 0.0f, 16.0f);
+            self->AddFloatField(row, shown,
+                                [self, trackIndex, selTime, channel](f32 v)
+                                {
+                                    self->Mutate(
+                                        [&](propanim::PropertyAnimationClip& c)
+                                        {
+                                            if (trackIndex < c.tracks.Size())
+                                            {
+                                                UpsertChannelKeyAt(c.tracks[trackIndex], channel,
+                                                                   selTime, v);
+                                            }
+                                        });
+                                },
+                                56.0f);
+        };
+
+        switch (track.kind)
+        {
+        case propanim::TrackValueKind::Float:
+            addChannelField(*m_inspectorRow, 0, u8"V");
+            break;
+        case propanim::TrackValueKind::Float3:
+            addChannelField(*m_inspectorRow, 0, u8"X");
+            addChannelField(*m_inspectorRow, 1, u8"Y");
+            addChannelField(*m_inspectorRow, 2, u8"Z");
+            break;
+        case propanim::TrackValueKind::Color:
+            addChannelField(*m_inspectorRow, 0, u8"R");
+            addChannelField(*m_inspectorRow, 1, u8"G");
+            addChannelField(*m_inspectorRow, 2, u8"B");
+            addChannelField(*m_inspectorRow, 3, u8"A");
+            break;
+        case propanim::TrackValueKind::Quat:
+        {
+            // Euler degrees (pitch/yaw/roll), converted to/from the stored quaternion - the
+            // same convention as the value readout and the old key rows.
+            constexpr f32 kRadToDeg = 57.29577951f;
+            constexpr f32 kDegToRad = 0.01745329252f;
+            const i32 at = FindQuatKeyAt(track, selTime);
+            Quaternion q = (at >= 0) ? track.quatKeys[static_cast<usize>(at)].value
+                                     : Quaternion::Identity;
+            f32 yaw = 0.0f, pitch = 0.0f, roll = 0.0f;
+            ToYawPitchRoll(q, yaw, pitch, roll);
+            const f32 eulerDeg[3] = {pitch * kRadToDeg, yaw * kRadToDeg, roll * kRadToDeg};
+            const StringView names[3] = {u8"P", u8"Y", u8"R"};
+            for (u32 ci = 0; ci < 3; ++ci)
+            {
+                AddLabel(*m_inspectorRow, names[ci], 0.0f, 16.0f);
+                AddFloatField(*m_inspectorRow, eulerDeg[ci],
+                              [self, trackIndex, selTime, ci, yaw, pitch, roll](f32 vDeg)
+                              {
+                                  f32 p = pitch, y = yaw, r = roll;
+                                  const f32 v = vDeg * kDegToRad;
+                                  (ci == 0 ? p : ci == 1 ? y : r) = v;
+                                  const Quaternion nq = FromYawPitchRoll(y, p, r);
+                                  self->Mutate(
+                                      [&](propanim::PropertyAnimationClip& c)
+                                      {
+                                          if (trackIndex < c.tracks.Size())
+                                          {
+                                              UpsertQuatKeyAt(c.tracks[trackIndex], selTime, nq);
+                                          }
+                                      });
+                              },
+                              56.0f);
+            }
+            break;
+        }
+        }
+    }
+
+    void ClipEditorView::RequestInspectorRefresh()
+    {
+        ui::UIContext* ctx = (m_rows.Get() != nullptr) ? m_rows->Context : nullptr;
+        if (ctx == nullptr)
+        {
+            RefreshKeyInspector();
+            return;
+        }
+        ClipEditorView* self = this;
+        ctx->MutationQueueRef().QueueAction(
+            Function<void()>{[self]() { self->RefreshKeyInspector(); }});
+    }
+
+    void ClipEditorView::KeyTrackFromScene(usize trackIndex)
+    {
+        if (trackIndex >= Clip().tracks.Size())
+        {
+            return;
+        }
+        const propanim::PropertyTrack& track = Clip().tracks[trackIndex];
+        const Variant value =
+            m_host->ReadSceneValue(track.componentType.AsView(), track.propertyPath.AsView());
+        if (value.IsEmpty())
+        {
+            LOG_WARNING(u8"PropertyAnimation",
+                        u8"Key: no scene value for {}.{} (is the bound entity selected?)",
+                        track.componentType, track.propertyPath);
+            return;
+        }
+        const f32 at = m_scrubTime;
+        bool matched = false;
+        Mutate(
+            [&](propanim::PropertyAnimationClip& c)
+            {
+                if (trackIndex < c.tracks.Size())
+                {
+                    matched = UpsertTrackValueAt(c.tracks[trackIndex], at, value);
+                }
+            });
+        if (!matched)
+        {
+            LOG_WARNING(u8"PropertyAnimation", u8"Key: scene value type mismatch for {}.{}",
+                        track.componentType, track.propertyPath);
+        }
+        ShowSelectedKey(trackIndex, -1, at);
+    }
+
+    void ClipEditorView::KeyAllFromScene()
+    {
+        // Read every track's scene value FIRST, then write all captured ones as ONE undo step.
+        propanim::PropertyAnimationClip& clip = Clip();
+        Array<Variant> values;
+        usize captured = 0;
+        for (const propanim::PropertyTrack& track : clip.tracks)
+        {
+            Variant v =
+                m_host->ReadSceneValue(track.componentType.AsView(), track.propertyPath.AsView());
+            if (!v.IsEmpty())
+            {
+                ++captured;
+            }
+            values.PushBack(Move(v));
+        }
+        if (captured == 0)
+        {
+            LOG_WARNING(u8"PropertyAnimation",
+                        u8"Key All: no track resolved a scene value (is the bound entity "
+                        u8"selected?)");
+            return;
+        }
+        const f32 at = m_scrubTime;
+        Mutate(
+            [&](propanim::PropertyAnimationClip& c)
+            {
+                for (usize i = 0; i < c.tracks.Size() && i < values.Size(); ++i)
+                {
+                    if (!values[i].IsEmpty())
+                    {
+                        (void)UpsertTrackValueAt(c.tracks[i], at, values[i]);
+                    }
+                }
+            });
+    }
+
+    void ClipEditorView::AddCurveCanvas(usize trackIndex)
+    {
+        ClipEditorView* self = this;
+        const propanim::PropertyTrack& track = Clip().tracks[trackIndex];
+        const u32 channels = propanim::ChannelCount(track.kind);
+        if (channels == 0)
+        {
+            return;
         }
 
         auto canvas = MakeRef<ui::toolkit::CurveCanvas>(DefaultAllocator());
@@ -725,40 +1054,31 @@ namespace editor
     {
         // Keep the canvas time axis + the Length field in step with the clip's authored duration.
         m_editDuration = Max(Max(Clip().duration, Clip().ComputeDuration()), 1.0f);
-        m_rows->RemoveAllViews();
-        BuildTransportRow();
         propanim::PropertyAnimationClip& clip = Clip();
-        for (usize i = 0; i < clip.tracks.Size(); ++i)
+        if (m_selectedTrack >= static_cast<i32>(clip.tracks.Size()))
         {
-            BuildTrackRows(i);
+            m_selectedTrack = static_cast<i32>(clip.tracks.Size()) - 1; // clamp after removals
+        }
+        if (m_selectedTrack < 0 && !clip.tracks.IsEmpty())
+        {
+            m_selectedTrack = 0; // something is always selected when tracks exist
+        }
+        m_rows->RemoveAllViews();
+        m_inspectorRow = nullptr; // rebuilt below (the old row was just destroyed)
+        BuildTransportRow();
+        // The dopesheet (in the panel) is the track LIST; this area is the SELECTED track only.
+        BuildSelectedTrackStrip();
+        BuildKeyInspectorHost();
+        if (m_selectedTrack >= 0 && m_selectedTrack < static_cast<i32>(clip.tracks.Size()) &&
+            clip.tracks[static_cast<usize>(m_selectedTrack)].kind !=
+                propanim::TrackValueKind::Quat)
+        {
+            // ONE curve canvas, for the selected scalar track (the interpolation-shaping tool).
+            // Quat tracks: timing lives in the dopesheet, values in the inspector (euler).
+            AddCurveCanvas(static_cast<usize>(m_selectedTrack));
         }
         // "+ Track" lives on the panel now (it needs the scene + selection to offer a property picker).
         m_host->OnClipViewRebuilt();
-    }
-
-    bool ClipEditorView::IsTrackCollapsed(StringView key) const
-    {
-        for (const String& k : m_collapsedTracks)
-        {
-            if (k.AsView() == key)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    void ClipEditorView::ToggleTrackCollapsed(StringView key)
-    {
-        for (usize i = 0; i < m_collapsedTracks.Size(); ++i)
-        {
-            if (m_collapsedTracks[i].AsView() == key)
-            {
-                m_collapsedTracks.RemoveAt(i);
-                return;
-            }
-        }
-        m_collapsedTracks.PushBack(String(key));
     }
 
     void ClipEditorView::AddTrack(StringView componentType, StringView propertyPath,
@@ -773,12 +1093,16 @@ namespace editor
                 t.kind = kind;
                 c.tracks.PushBack(Move(t));
             });
+        // The new track becomes the working track (its strip/canvas show on the queued rebuild).
+        m_selectedTrack = static_cast<i32>(Clip().tracks.Size()) - 1;
     }
 
     void ClipEditorView::ResetForClip()
     {
         m_editDuration = Max(Max(Clip().duration, Clip().ComputeDuration()), 1.0f);
         m_scrubTime = 0.0f;
+        m_previewSelActive = false;
+        m_selectedTrack = Clip().tracks.IsEmpty() ? -1 : 0;
         Rebuild();
     }
 

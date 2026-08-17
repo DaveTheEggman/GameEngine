@@ -32,6 +32,7 @@ export namespace foundation::ui::toolkit
     struct DopesheetLane
     {
         f32 height = 22.0f;
+        String label; // shown in the left gutter (LabelColumnWidth > 0); e.g. "Transform.position"
         Array<f32> keyTimes;
     };
 
@@ -140,6 +141,22 @@ export namespace foundation::ui::toolkit
         {
             m_lanes = Move(lanes);
             m_selection.Clear();
+            if (m_selectedLane >= static_cast<i32>(m_lanes.Size()))
+            {
+                m_selectedLane = -1; // fewer lanes than before: the pick no longer exists
+            }
+            Invalidate();
+        }
+
+        // The SELECTED LANE (track): set by a label-column click or a key pick; -1 = none. The
+        // Sedulous shape - the dopesheet IS the track list, and the host shows the selected
+        // track's strip/canvas from this.
+        [[nodiscard]] i32 SelectedLane() const noexcept { return m_selectedLane; }
+        /// Programmatic set (host-driven): clamps, no OnLaneSelected (no feedback loops).
+        void SetSelectedLane(i32 lane)
+        {
+            m_selectedLane =
+                (lane >= 0 && lane < static_cast<i32>(m_lanes.Size())) ? lane : -1;
             Invalidate();
         }
         [[nodiscard]] usize LaneCount() const noexcept { return m_lanes.Size(); }
@@ -180,6 +197,7 @@ export namespace foundation::ui::toolkit
 
         Event<void()> OnSelectionChanged;
         Event<void(f32)> OnKeysMoved; // a key drag committed: move all selected keys by this delta (s)
+        Event<void(i32)> OnLaneSelected; // the USER picked a lane (label click or key pick); -1 never fires
 
         void OnMeasure(BoxConstraints constraints) override
         {
@@ -240,6 +258,29 @@ export namespace foundation::ui::toolkit
             {
                 const core::Color gutter{band.r * 0.82f, band.g * 0.82f, band.b * 0.82f, band.a};
                 ctx.VG().FillRect(Rectangle{0.0f, 0.0f, LabelColumnWidth, h}, gutter);
+                // Track labels, one per lane (the dopesheet IS the track list - Sedulous shape).
+                const core::Color laneLabelSel = ResolveStyleColor(
+                    StyleProperty::AccentColor, core::Color::Rgb(90, 150, 235, 255));
+                f32 gy = kRulerHeight;
+                for (usize li = 0; li < m_lanes.Size(); ++li)
+                {
+                    const DopesheetLane& lane = m_lanes[li];
+                    if (static_cast<i32>(li) == m_selectedLane)
+                    {
+                        ctx.VG().FillRect(
+                            Rectangle{0.0f, gy, LabelColumnWidth, lane.height},
+                            core::Color{laneLabelSel.r, laneLabelSel.g, laneLabelSel.b, 0.28f});
+                    }
+                    if (font != nullptr && !lane.label.IsEmpty())
+                    {
+                        ctx.VG().DrawText(lane.label, font,
+                                          Rectangle{6.0f, gy, LabelColumnWidth - 10.0f,
+                                                    lane.height},
+                                          fonts::TextAlignment::Left,
+                                          fonts::VerticalAlignment::Middle, labelColor);
+                    }
+                    gy += lane.height;
+                }
             }
 
             // Dopesheet lanes below the ruler: an alternating row per lane + a marker per key. Selected
@@ -250,12 +291,17 @@ export namespace foundation::ui::toolkit
                 ResolveStyleColor(StyleProperty::TextDimColor, core::Color::Rgb(170, 174, 186, 255));
             const core::Color keySel =
                 ResolveStyleColor(StyleProperty::AccentColor, core::Color::Rgb(90, 150, 235, 255));
+            const core::Color laneSel =
+                ResolveStyleColor(StyleProperty::AccentColor, core::Color::Rgb(90, 150, 235, 255));
             f32 laneY = kRulerHeight;
             for (usize li = 0; li < m_lanes.Size(); ++li)
             {
                 const DopesheetLane& lane = m_lanes[li];
+                const bool laneIsSelected = (static_cast<i32>(li) == m_selectedLane);
                 ctx.VG().FillRect(Rectangle{LabelColumnWidth, laneY, w - LabelColumnWidth, lane.height},
-                                  (li & 1u) ? rowOdd : rowEven);
+                                  laneIsSelected
+                                      ? core::Color{laneSel.r, laneSel.g, laneSel.b, 0.18f}
+                                      : ((li & 1u) ? rowOdd : rowEven));
                 const f32 cy = laneY + lane.height * 0.5f;
                 for (usize ki = 0; ki < lane.keyTimes.Size(); ++ki)
                 {
@@ -315,8 +361,28 @@ export namespace foundation::ui::toolkit
                 e.Handled = true;
                 return;
             }
-            if (e.Button != MouseButton::Left || e.X < LabelColumnWidth)
+            if (e.Button != MouseButton::Left)
             {
+                return;
+            }
+            // Label-gutter click: select that lane (track). The gutter above the lanes (the
+            // ruler-height corner) stays inert.
+            if (e.X < LabelColumnWidth)
+            {
+                if (e.Y > kRulerHeight)
+                {
+                    f32 laneY = kRulerHeight;
+                    for (usize li = 0; li < m_lanes.Size(); ++li)
+                    {
+                        if (e.Y >= laneY && e.Y < laneY + m_lanes[li].height)
+                        {
+                            SelectLaneFromUser(static_cast<i32>(li));
+                            e.Handled = true;
+                            return;
+                        }
+                        laneY += m_lanes[li].height;
+                    }
+                }
                 return;
             }
             if (Context != nullptr)
@@ -338,6 +404,7 @@ export namespace foundation::ui::toolkit
             u32 lane = 0, index = 0;
             if (HitTestKey(e.X, e.Y, lane, index))
             {
+                SelectLaneFromUser(static_cast<i32>(lane)); // a key pick selects its track too
                 const u64 key = Pack(lane, index);
                 if (ctrl)
                 {
@@ -480,6 +547,17 @@ export namespace foundation::ui::toolkit
         }
 
     private:
+        void SelectLaneFromUser(i32 lane)
+        {
+            if (lane == m_selectedLane)
+            {
+                return;
+            }
+            m_selectedLane = lane;
+            OnLaneSelected.Invoke(lane);
+            Invalidate();
+        }
+
         // Clamp a scroll offset to the content extent: the view never scrolls before 0, and
         // never past the point where the clip END sits at the right edge (with a small tail so
         // end keys stay grabbable). When the whole clip fits (or before layout), scroll is 0 -
@@ -638,6 +716,7 @@ export namespace foundation::ui::toolkit
         bool m_boxSelecting = false;
         Float2 m_boxStart{};
         Float2 m_boxEnd{};
+        i32 m_selectedLane = -1;
     };
 
     RTTI_DEFINE_OBJECT(Timeline, "rtti::ui::toolkit")

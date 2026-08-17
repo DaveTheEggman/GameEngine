@@ -553,25 +553,28 @@ TEST_CASE("propanim-panel: dopesheet lane feed + key drag commits a move and re-
     panel->OnClipViewRebuilt(); // rebuild the dopesheet lanes from the clip
 
     auto& dope = panel->Dopesheet();
-    dope.SetPixelsPerSecond(100.0f); // t -> x*100; lane 0 cy = 24 + 11 = 35
+    dope.SetPixelsPerSecond(100.0f); // t -> gutter + t*100; lane 0 cy = 24 + 11 = 35
     CHECK(dope.LaneCount() == 1u);
+    // The label gutter (the dopesheet IS the track list) offsets the grid: x = 140 + t*100.
+    const f32 gutter = dope.LabelColumnWidth;
+    CHECK(gutter == doctest::Approx(140.0f));
 
-    // Drag the t=1 marker (x=100) by +50px = +0.5s.
+    // Drag the t=1 marker by +50px = +0.5s.
     foundation::ui::MouseEventArgs down;
     down.Button = foundation::ui::MouseButton::Left;
-    down.X = 100.0f;
+    down.X = gutter + 100.0f;
     down.Y = 35.0f;
     dope.OnMouseDown(down);
     CHECK(dope.IsKeySelected(0, 1));
 
     foundation::ui::MouseEventArgs move;
     move.Button = foundation::ui::MouseButton::Left;
-    move.X = 150.0f;
+    move.X = gutter + 150.0f;
     move.Y = 35.0f;
     dope.OnMouseMove(move);
     foundation::ui::MouseEventArgs up;
     up.Button = foundation::ui::MouseButton::Left;
-    up.X = 150.0f;
+    up.X = gutter + 150.0f;
     up.Y = 35.0f;
     dope.OnMouseUp(up);
 

@@ -64,6 +64,17 @@ export namespace editor
         /// toolbar's undo/redo state). Default no-op.
         virtual void OnClipViewRebuilt() {}
 
+        /// Read the CURRENT scene value of (componentType, propertyPath) from the bound entity
+        /// (the panel's primary selection) - the key-from-scene capture source. Empty Variant
+        /// when unresolvable (no entity / no component / bad path); the caller skips then.
+        [[nodiscard]] virtual Variant ReadSceneValue(StringView componentType,
+                                                     StringView propertyPath)
+        {
+            (void)componentType;
+            (void)propertyPath;
+            return {};
+        }
+
         /// Apply a whole-clip state (an undo/redo step) to the host's clip and refresh the editing
         /// surface. The ClipEditCommand routes through THIS seam - never a view pointer - so it depends
         /// only on the DURABLE host, not a recreatable view (pass-10 #5 / Fable F1). The default sets the
@@ -117,12 +128,17 @@ export namespace editor
         void SetScrubTime(f32 t);
         [[nodiscard]] IClipEditorHost& Host() noexcept { return *m_host; }
 
-        /// Show a SELECTED KEY in the value readout: "sel comp.path @t = value" ahead of the
-        /// scrub samples. Selection is selection wherever it happens - the curve canvases push
-        /// their own picks; the panel pushes dopesheet picks (channel -1 = the whole track at
-        /// that key time, since a dopesheet diamond merges channels).
+        /// Select a KEY: drives the value readout AND the keyframe inspector (time + typed
+        /// value fields). Selection is selection wherever it happens - the curve canvas pushes
+        /// its picks; the panel pushes dopesheet picks (channel -1 = the whole track at that
+        /// key time, since a dopesheet diamond merges channels).
         void ShowSelectedKey(usize trackIndex, i32 channel, f32 time);
         void ClearSelectedKey();
+
+        /// Select a TRACK (the dopesheet IS the track list - Sedulous shape): the strip, the
+        /// keyframe inspector, and the single curve canvas all show this track. -1 = none.
+        void SetSelectedTrack(i32 trackIndex);
+        [[nodiscard]] i32 SelectedTrack() const noexcept { return m_selectedTrack; }
 
     private:
         // One undoable step over a whole-clip snapshot (the clip is small data). Applying a state
@@ -180,11 +196,15 @@ export namespace editor
         void AddFloatField(ui::FlexLayout& row, f32 value, Function<void(f32)> commit,
                            f32 width = 56.0f);
         void BuildTransportRow();
-        void BuildTrackRows(usize trackIndex);
-        // Per-track collapse (keyed by "component|path" so it survives rebuilds): a folded track shows
-        // just its header, freeing vertical room to work on another.
-        [[nodiscard]] bool IsTrackCollapsed(StringView key) const;
-        void ToggleTrackCollapsed(StringView key);
+        // The Sedulous shape: the dopesheet is the track list, so the area below builds for the
+        // SELECTED track only - a strip (path/kind/interp/Key/remove), the keyframe inspector
+        // (time + typed value fields for the selected key), and ONE curve canvas.
+        void BuildSelectedTrackStrip();
+        void BuildKeyInspectorHost();
+        void RefreshKeyInspector();   // rebuilds ONLY the inspector row's children (no canvas loss)
+        void RequestInspectorRefresh(); // deferred via the UI mutation queue (mid-dispatch safe)
+        void KeyTrackFromScene(usize trackIndex); // capture the scene value at the playhead
+        void KeyAllFromScene();
         void RefreshPreview(); // update the sampled-values readout at the current scrub time
 
         void AddCurveCanvas(usize trackIndex);
@@ -210,6 +230,7 @@ export namespace editor
         f32 m_editDuration = 1.0f;   // the canvas time-axis scale (clip length); keys normalize by it
         propanim::PropertyAnimationClip m_gestureBefore; // undo snapshot captured on OnEditBegin
         bool m_gestureDirty = false; // a canvas gesture actually changed a key (vs a bare select-click)
-        Array<String> m_collapsedTracks; // track identities ("component|path") the user folded
+        i32 m_selectedTrack = -1;    // the dopesheet-selected track (-1 = none)
+        RefPtr<ui::FlexLayout> m_inspectorRow; // persistent host; children rebuilt per selection
     };
 }

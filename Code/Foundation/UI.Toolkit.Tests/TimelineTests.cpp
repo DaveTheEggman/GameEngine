@@ -330,3 +330,73 @@ TEST_CASE("timeline: shift+wheel and horizontal wheel pan; plain wheel still zoo
     CHECK(tl->PixelsPerSecond() > ppsBefore);
     CHECK(tl->ScrollSeconds() == doctest::Approx(scrollBefore));
 }
+
+TEST_CASE("timeline: lane labels select the track - gutter click, key pick, programmatic set")
+{
+    auto tl = MakeRef<Timeline>(DefaultAllocator());
+    tl->SetDuration(4.0f);
+    tl->SetPixelsPerSecond(100.0f);
+    tl->LabelColumnWidth = 120.0f;
+    Array<DopesheetLane> lanes;
+    {
+        DopesheetLane a;
+        a.label = String(u8"Transform.position");
+        a.keyTimes.PushBack(1.0f);
+        lanes.PushBack(Move(a));
+        DopesheetLane b;
+        b.label = String(u8"Light.intensity");
+        b.keyTimes.PushBack(2.0f);
+        lanes.PushBack(Move(b));
+    }
+    tl->SetLanes(Move(lanes));
+    tl->Measure(BoxConstraints::Tight(520.0f, 120.0f));
+    tl->Layout(0.0f, 0.0f, 520.0f, 120.0f);
+    CHECK(tl->SelectedLane() == -1);
+
+    i32 fired = -2;
+    i32 fires = 0;
+    tl->OnLaneSelected.Add(
+        [&](i32 lane)
+        {
+            fired = lane;
+            ++fires;
+        });
+
+    // Gutter click on the SECOND lane row (ruler 24 + lane0 22 -> lane1 spans y 46..68).
+    foundation::ui::MouseEventArgs down = Mouse(30.0f, 50.0f);
+    tl->OnMouseDown(down);
+    CHECK(down.Handled);
+    CHECK(tl->SelectedLane() == 1);
+    CHECK(fired == 1);
+    CHECK(fires == 1);
+
+    // Re-clicking the same lane does not re-fire.
+    foundation::ui::MouseEventArgs again = Mouse(30.0f, 50.0f);
+    tl->OnMouseDown(again);
+    CHECK(fires == 1);
+
+    // Picking a KEY selects its lane too (lane 0's key at t=1 -> x = 120 + 1*100 = 220, cy=35).
+    foundation::ui::MouseEventArgs keyDown = Mouse(220.0f, 35.0f);
+    tl->OnMouseDown(keyDown);
+    foundation::ui::MouseEventArgs keyUp = keyDown;
+    tl->OnMouseUp(keyUp);
+    CHECK(tl->SelectedLane() == 0);
+    CHECK(fired == 0);
+    CHECK(fires == 2);
+
+    // Programmatic set never fires; out-of-range clamps to -1; a shrunken lane set resets.
+    tl->SetSelectedLane(1);
+    CHECK(tl->SelectedLane() == 1);
+    CHECK(fires == 2);
+    tl->SetSelectedLane(9);
+    CHECK(tl->SelectedLane() == -1);
+    tl->SetSelectedLane(1);
+    Array<DopesheetLane> one;
+    {
+        DopesheetLane a;
+        a.label = String(u8"only");
+        one.PushBack(Move(a));
+    }
+    tl->SetLanes(Move(one));
+    CHECK(tl->SelectedLane() == -1);
+}

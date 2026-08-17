@@ -139,3 +139,65 @@ TEST_CASE("toolkit-curvecanvas: clicking ANY key fires OnSelectionChanged with i
     }
     CHECK(fires == 3); // one per pick, none skipped, no duplicate for re-clicking
 }
+
+TEST_CASE("toolkit-curvecanvas: value axis is a viewport - drags extrapolate, wheel zooms, "
+          "middle-drag pans")
+{
+    // The 'range trap' regression: click/drag mapped through a CLAMPED YToValue, so a value
+    // outside the framed range was unreachable by direct manipulation.
+    auto cv = core::MakeRef<CurveCanvas>(core::DefaultAllocator());
+    ChannelDescriptor d;
+    d.Name = String(u8"X");
+    cv->SetChannels(Span<const ChannelDescriptor>(&d, 1));
+    cv->TimeSpan = 2.0f;
+    cv->AutoFitValueRange = false;
+    cv->ValueMin = 0.0f;
+    cv->ValueMax = 1.0f;
+    CurveCanvas::Key keys[2] = {CurveCanvas::Key{0.0f, 0.0f}, CurveCanvas::Key{2.0f, 1.0f}};
+    cv->SetKeys(0, Span<const CurveCanvas::Key>(keys, 2));
+    cv->Measure(BoxConstraints::Tight(200.0f, 100.0f));
+    cv->Layout(0.0f, 0.0f, 200.0f, 100.0f);
+
+    // Drag the key at t=2 (x=200, value 1.0 -> y=0) far ABOVE the canvas: the value
+    // extrapolates past the framed max instead of pinning at 1.0.
+    foundation::ui::MouseEventArgs down;
+    down.Button = foundation::ui::MouseButton::Left;
+    down.X = 200.0f;
+    down.Y = 0.0f;
+    cv->OnMouseDown(down);
+    foundation::ui::MouseEventArgs move = down;
+    move.Y = -100.0f; // one full canvas height above the top
+    cv->OnMouseMove(move);
+    foundation::ui::MouseEventArgs up = move;
+    cv->OnMouseUp(up);
+    CHECK(cv->GetKey(0, 1).Value == doctest::Approx(2.0f));
+
+    // Wheel zoom-in shrinks the framed range about the cursor's value and pins the frame
+    // (auto-fit off stays off - it already is here).
+    foundation::ui::MouseWheelEventArgs zoom;
+    zoom.Y = 50.0f; // mid-height -> anchor at the middle of the range
+    zoom.DeltaY = 1.0f;
+    const f32 spanBefore = cv->ValueMax - cv->ValueMin;
+    cv->OnMouseWheel(zoom);
+    CHECK(cv->ValueMax - cv->ValueMin < spanBefore);
+    CHECK(!cv->AutoFitValueRange);
+
+    // Middle-drag pans the frame: both ends shift by the same amount.
+    const f32 lo = cv->ValueMin;
+    const f32 hi = cv->ValueMax;
+    foundation::ui::MouseEventArgs panDown;
+    panDown.Button = foundation::ui::MouseButton::Middle;
+    panDown.X = 100.0f;
+    panDown.Y = 50.0f;
+    cv->OnMouseDown(panDown);
+    CHECK(panDown.Handled);
+    foundation::ui::MouseEventArgs panMove = panDown;
+    panMove.Y = 30.0f; // drag up -> the frame shifts
+    cv->OnMouseMove(panMove);
+    foundation::ui::MouseEventArgs panUp = panMove;
+    cv->OnMouseUp(panUp);
+    const f32 shift = cv->ValueMin - lo;
+    CHECK(shift != doctest::Approx(0.0f));
+    CHECK(cv->ValueMax - hi == doctest::Approx(shift));
+    CHECK(cv->ValueMax - cv->ValueMin == doctest::Approx(hi - lo)); // pan preserves the span
+}

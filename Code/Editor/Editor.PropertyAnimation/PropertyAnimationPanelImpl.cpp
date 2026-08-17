@@ -274,10 +274,21 @@ namespace editor
 
         m_timeline = MakeRef<ui::toolkit::Timeline>(DefaultAllocator());
         m_timeline->SetDuration(Max(Max(m_clip.duration, m_clip.ComputeDuration()), 1.0f));
+        m_timeline->LabelColumnWidth = 140.0f; // the track-label gutter (the dopesheet is the track list)
         // The scrubber routes through OnScrubTimeChanged, which ignores it while Playing (D6). A key
         // drag on a lane commits through MoveSelectedKeys (drags-are-visual, one undo step - D4).
         m_timeline->OnPlayheadMoved.Add([self](f32 t) { self->OnScrubTimeChanged(t); });
         m_timeline->OnKeysMoved.Add([self](f32 d) { self->MoveSelectedKeys(d); });
+        // A gutter/label (or key) pick selects the TRACK: the strip, inspector and canvas below
+        // re-target (Sedulous shape).
+        m_timeline->OnLaneSelected.Add(
+            [self](i32 lane)
+            {
+                if (self->m_view)
+                {
+                    self->m_view->SetSelectedTrack(lane);
+                }
+            });
         // A dopesheet pick updates the value readout too (selection is selection wherever it
         // happens). Lane == track; a diamond merges channels, so channel -1 = the whole track
         // at that key time. Multi-select shows the LAST-reported ref; empty clears.
@@ -843,11 +854,18 @@ namespace editor
         {
             Array<f32> times = CollectKeyTimes(track);
             ui::toolkit::DopesheetLane lane;
+            String label = track.componentType;
+            label += u8".";
+            label += track.propertyPath.AsView();
+            lane.label = Move(label);
             lane.keyTimes = times;
             lanes.PushBack(Move(lane));
             m_laneKeyTimes.PushBack(Move(times));
         }
         m_timeline->SetLanes(Move(lanes)); // clears the widget's selection
+        // The dopesheet IS the track list: mirror the view's selected track into the lane
+        // highlight (programmatic - no event loop).
+        m_timeline->SetSelectedLane(m_view ? m_view->SelectedTrack() : -1);
 
         // Re-resolve the selection by time against the rebuilt lanes.
         Array<ui::toolkit::DopesheetKeyRef> newSel;
@@ -934,6 +952,26 @@ namespace editor
         {
             m_clip = state;
         }
+    }
+
+    Variant PropertyAnimationPanel::ReadSceneValue(StringView componentType,
+                                                   StringView propertyPath)
+    {
+        if (m_scene == nullptr || m_selection == nullptr)
+        {
+            return {};
+        }
+        const Guid* primary = m_selection->Primary();
+        if (primary == nullptr)
+        {
+            return {};
+        }
+        const scene::EntityHandle entity = m_scene->FindEntity(*primary);
+        if (!entity.IsAssigned())
+        {
+            return {};
+        }
+        return ReadTrackTarget(entity, componentType, propertyPath);
     }
 
     Variant PropertyAnimationPanel::ReadTrackTarget(scene::EntityHandle entity, StringView componentType,
