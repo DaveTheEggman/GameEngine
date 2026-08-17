@@ -163,3 +163,31 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
     (void)CallErr(server, u8"scene_validate",
                   With(With(Obj(), u8"xml", u8"x"), u8"guid", newGuid.AsView()));
 }
+
+TEST_CASE("integration.mcp: host_info reports pid, stamp, versions, and host state")
+{
+    McpServer server;
+    server.SetServerInfo(u8"test-host", u8"9.9.9");
+    bool open = false;
+    RegisterHostInfoTool(server, String(u8"stamp-abc123"),
+                         Function<JsonValue()>{
+                             [&open]()
+                             {
+                                 JsonValue host = JsonValue::MakeObject();
+                                 host.Set(u8"projectOpen", JsonValue::MakeBool(open));
+                                 return host;
+                             }});
+
+    JsonValue info = CallOk(server, u8"host_info", Obj());
+    CHECK(info.Get(u8"pid").AsNumber() > 0.0);
+    CHECK(info.Get(u8"buildStamp").AsString() == StringView(u8"stamp-abc123"));
+    CHECK(info.Get(u8"serverName").AsString() == StringView(u8"test-host"));
+    CHECK(info.Get(u8"serverVersion").AsString() == StringView(u8"9.9.9"));
+    CHECK(info.Get(u8"protocolVersion").AsString().Size() > 0u);
+    CHECK(info.Get(u8"host").Get(u8"projectOpen").AsBool() == false);
+
+    // The host-state lambda is LIVE, not captured-at-registration.
+    open = true;
+    JsonValue after = CallOk(server, u8"host_info", Obj());
+    CHECK(after.Get(u8"host").Get(u8"projectOpen").AsBool() == true);
+}

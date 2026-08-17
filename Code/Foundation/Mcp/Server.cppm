@@ -98,6 +98,12 @@ export namespace foundation::mcp
         String m_serverVersion = String(u8"0.1.0");
 
     public:
+        [[nodiscard]] StringView ServerName() const noexcept { return m_serverName.AsView(); }
+        [[nodiscard]] StringView ServerVersion() const noexcept
+        {
+            return m_serverVersion.AsView();
+        }
+
         void SetServerInfo(String name, String version)
         {
             m_serverName = Move(name);
@@ -321,4 +327,37 @@ export namespace foundation::mcp
                                      Format(u8"method not found: {}", method));
         }
     };
+
+    /// host_info - the ops-hygiene tool EVERY host registers (mcp-agent-access.md P1 item 2,
+    /// from ezEngine's app_info): pid (a hung host is killed by pid), the build stamp
+    /// (stale-binary detection), server + protocol versions, and whatever host-specific state
+    /// the host supplies (the stdio host reports its open project). `buildStamp` is the host
+    /// executable's BuildStamp() text; `hostState` may be empty.
+    inline void RegisterHostInfoTool(McpServer& server, String buildStamp,
+                                     Function<JsonValue()> hostState = {})
+    {
+        McpServer* s = &server;
+        server.RegisterTool(
+            u8"host_info",
+            u8"The host process's identity: pid (kill a hung host by pid), buildStamp (detect a "
+            u8"stale binary after a rebuild), server + MCP protocol versions, and host state "
+            u8"(e.g. the open project). Read this first in a new session.",
+            SchemaBuilder().Build(),
+            [s, buildStamp = Move(buildStamp),
+             hostState = Move(hostState)](const JsonValue&) -> ToolResult
+            {
+                JsonValue out = JsonValue::MakeObject();
+                out.Set(u8"pid",
+                        JsonValue::MakeNumber(static_cast<f64>(foundation::core::ProcessId())));
+                out.Set(u8"buildStamp", JsonValue::MakeString(buildStamp));
+                out.Set(u8"serverName", JsonValue::MakeString(String(s->ServerName())));
+                out.Set(u8"serverVersion", JsonValue::MakeString(String(s->ServerVersion())));
+                out.Set(u8"protocolVersion", JsonValue::MakeString(String(kProtocolVersion)));
+                if (hostState)
+                {
+                    out.Set(u8"host", hostState());
+                }
+                return out;
+            });
+    }
 }

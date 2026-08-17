@@ -422,6 +422,8 @@ namespace foundation::core::sys
 
     bool FileDelete(const char* path) noexcept { return unlink(path) == 0; }
 
+    unsigned long ProcessId() noexcept { return static_cast<unsigned long>(getpid()); }
+
     bool FileMove(const char* from, const char* to) noexcept { return std::rename(from, to) == 0; }
 
     bool FileCopyPreserving(const char* from, const char* to) noexcept

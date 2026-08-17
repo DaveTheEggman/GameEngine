@@ -445,10 +445,14 @@ in build order:
    transforms/record framing and surfaces skipped-component warnings
    (captured from the Scene reader's log). Integration.Mcp gained the
    agent-shaped scene-flow golden incl. the refusal battery.
-2. host_info - the ops-hygiene tool (from ezEngine's app_info): pid (a hung
-   host is killed by pid), buildTimestamp (stale-binary detection), engine +
-   protocol versions, open-project state. Lives in foundation.mcp as a shared
-   provider so EVERY host (P1 stdio, P2 editor, P2G game) reports it.
+2. BUILT 2026-08-17 (Fable): host_info - `RegisterHostInfoTool(server,
+   buildStamp, hostState)` in foundation.mcp (the shared provider: pid via
+   the NEW core::ProcessId() backend fn, build stamp, server + protocol
+   versions, plus a LIVE host-state lambda - proven live, not
+   captured-at-registration). The stdio host generates its own per-exe
+   BuildStamp (the Runtime.Client pattern) and reports
+   {projectOpen, projectName, projectDirectory}. P2 editor/game hosts call
+   the same provider with their own stamp + state.
 3. asset_uses - REVERSE dependency query over the cook/content DB ("what
    uses this asset") - required reading before any destructive change.
 4. project_health - the cook DB + reflection sweep: dangling resource::Ref

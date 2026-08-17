@@ -124,6 +124,9 @@ export namespace foundation::core
         return sys::FileExists(detail::NullTerminated(path).CStr());
     }
 
+    /// The current OS process id (ops tooling: a hung process is killed by pid).
+    [[nodiscard]] inline u64 ProcessId() noexcept { return sys::ProcessId(); }
+
     inline bool FileDelete(StringView path) noexcept
     {
         return sys::FileDelete(detail::NullTerminated(path).CStr());

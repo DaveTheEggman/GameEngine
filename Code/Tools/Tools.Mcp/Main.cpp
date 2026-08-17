@@ -28,6 +28,8 @@ import editor.mcp;
 using namespace foundation::core;
 using namespace foundation::mcp;
 
+extern "C" const char* BuildStamp();
+
 namespace
 {
     // Routes ALL engine log lines to stderr, keeping stdout clean for the JSON-RPC wire.
@@ -87,6 +89,25 @@ int main(int /*argc*/, char** /*argv*/)
     editor::mcp::RegisterAssetTools(server, session);
     editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
     editor::mcp::RegisterSceneTools(server, session); // scene/prefab read+write+validate (files-first)
+    // host_info (ops hygiene): pid + build stamp + versions + the open-project state.
+    RegisterHostInfoTool(
+        server, String(reinterpret_cast<const char8_t*>(BuildStamp())),
+        Function<foundation::json::JsonValue()>{
+            [&session]()
+            {
+                using foundation::json::JsonValue;
+                JsonValue host = JsonValue::MakeObject();
+                const bool open = session.project.Get() != nullptr;
+                host.Set(u8"projectOpen", JsonValue::MakeBool(open));
+                if (open)
+                {
+                    host.Set(u8"projectName",
+                             JsonValue::MakeString(String(session.project->Name())));
+                    host.Set(u8"projectDirectory",
+                             JsonValue::MakeString(String(session.project->Directory())));
+                }
+                return host;
+            }});
 
     StdioTransport transport;
     Serve(server, transport);

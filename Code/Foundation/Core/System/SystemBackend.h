@@ -113,6 +113,9 @@ namespace foundation::core::sys
     std::int64_t FileSize(FileHandle handle) noexcept; // -1 on error
     bool FileExists(const char* path) noexcept;
     bool FileDelete(const char* path) noexcept;
+
+    // The current OS process id (host_info / ops tooling: a hung process is killed by pid).
+    unsigned long ProcessId() noexcept;
     // Rename/move a file OR directory (same volume). True on success.
     bool FileMove(const char* from, const char* to) noexcept;
     // Copy PRESERVING permissions (staged executables keep +x; Windows CopyFileW does this

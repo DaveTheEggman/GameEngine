@@ -441,6 +441,8 @@ namespace foundation::core::sys
 
     bool FileDelete(const char* path) noexcept { return DeleteFileA(path) != 0; }
 
+    unsigned long ProcessId() noexcept { return GetCurrentProcessId(); }
+
     bool FileMove(const char* from, const char* to) noexcept
     {
         return MoveFileExA(from, to, MOVEFILE_REPLACE_EXISTING) != 0;
