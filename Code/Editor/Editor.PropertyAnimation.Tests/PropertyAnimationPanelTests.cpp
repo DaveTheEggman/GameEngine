@@ -12,6 +12,7 @@
 
 import foundation.core;
 import foundation.ui;
+import foundation.ui.toolkit;
 import foundation.scene;
 import foundation.propertyanimation;
 import editor.core;
@@ -527,4 +528,63 @@ TEST_CASE("propanim-panel: playback drives the live preview; scrub is ignored wh
     f.panel->OnScrubTimeChanged(0.9f);
     CHECK(f.panel->PlayheadTime() == doctest::Approx(0.9f));
     CHECK(f.X() == doctest::Approx(9.0f));
+}
+
+TEST_CASE("propanim-panel: dopesheet lane feed + key drag commits a move and re-selects (D4)")
+{
+    EnsurePreviewCompRegistered();
+    scene::Scene sc(u8"dope");
+    Selection<Guid> selection;
+    EditorContext editorCtx;
+    EditorCommandStack stack;
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
+
+    // A Float3 position track with keys at t=0 and t=1 on each channel.
+    propanim::PropertyTrack track;
+    track.componentType = String(u8"Transform");
+    track.propertyPath = String(u8"position");
+    track.kind = propanim::TrackValueKind::Float3;
+    for (int c = 0; c < 3; ++c)
+    {
+        track.channels[c].AddKey(Kv(0.0f, 0.0f));
+        track.channels[c].AddKey(Kv(1.0f, 5.0f));
+    }
+    panel->Clip().tracks.PushBack(Move(track));
+    panel->OnClipViewRebuilt(); // rebuild the dopesheet lanes from the clip
+
+    auto& dope = panel->Dopesheet();
+    dope.SetPixelsPerSecond(100.0f); // t -> x*100; lane 0 cy = 24 + 11 = 35
+    CHECK(dope.LaneCount() == 1u);
+
+    // Drag the t=1 marker (x=100) by +50px = +0.5s.
+    foundation::ui::MouseEventArgs down;
+    down.Button = foundation::ui::MouseButton::Left;
+    down.X = 100.0f;
+    down.Y = 35.0f;
+    dope.OnMouseDown(down);
+    CHECK(dope.IsKeySelected(0, 1));
+
+    foundation::ui::MouseEventArgs move;
+    move.Button = foundation::ui::MouseButton::Left;
+    move.X = 150.0f;
+    move.Y = 35.0f;
+    dope.OnMouseMove(move);
+    foundation::ui::MouseEventArgs up;
+    up.Button = foundation::ui::MouseButton::Left;
+    up.X = 150.0f;
+    up.Y = 35.0f;
+    dope.OnMouseUp(up);
+
+    // Every channel's second key moved 1.0 -> 1.5 as ONE undo step, and the marker re-selected by time.
+    REQUIRE(panel->Clip().tracks.Size() == 1u);
+    const Array<CurveKey>& ch0 = panel->Clip().tracks[0].channels[0].Keys();
+    REQUIRE(ch0.Size() == 2u);
+    CHECK(ch0[1].time == doctest::Approx(1.5f));
+    CHECK(panel->Clip().tracks[0].channels[2].Keys()[1].time == doctest::Approx(1.5f));
+    CHECK(stack.CanUndo());
+    CHECK(dope.IsKeySelected(0, 1));
+
+    // Undo restores t=1.
+    stack.Undo();
+    CHECK(panel->Clip().tracks[0].channels[0].Keys()[1].time == doctest::Approx(1.0f));
 }

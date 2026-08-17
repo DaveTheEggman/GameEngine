@@ -115,6 +115,15 @@ namespace editor
         }
     }
 
+    void ClipEditorView::PushClipEdit(propanim::PropertyAnimationClip before,
+                                      propanim::PropertyAnimationClip after)
+    {
+        after.duration = after.ComputeDuration();
+        (void)m_host->Commands().Execute(UniquePtr<IEditorCommand>(
+            DefaultAllocator().New<ClipEditCommand>(*m_host, Move(before), Move(after)),
+            DefaultAllocator()));
+    }
+
     RefPtr<ui::FlexLayout> ClipEditorView::MakeRow(f32 indent, f32 height)
     {
         auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());

@@ -76,6 +76,96 @@ namespace editor
                 out.PushBack(Move(info));
             }
         }
+
+        // Dopesheet lane sizing.
+        constexpr f32 kLaneHeight = 22.0f;       // must match DopesheetLane's default height
+        constexpr f32 kRulerBand = 24.0f;        // must match Timeline::kRulerHeight
+        constexpr f32 kTimelineMinHeight = 28.0f;
+        constexpr f32 kTimelineMaxHeight = 220.0f;
+        constexpr f32 kTimeEps = 1e-4f;
+
+        // The sorted, de-duplicated key TIMES on a track (a dopesheet marker wherever ANY channel or a
+        // quaternion key lands). The lane shows one diamond per distinct time.
+        Array<f32> CollectKeyTimes(const propanim::PropertyTrack& track)
+        {
+            Array<f32> times;
+            const auto addTime = [&](f32 t)
+            {
+                for (const f32 e : times)
+                {
+                    if (Abs(e - t) < kTimeEps)
+                    {
+                        return;
+                    }
+                }
+                times.PushBack(t);
+            };
+            const u32 channelCount = propanim::ChannelCount(track.kind);
+            for (u32 c = 0; c < channelCount; ++c)
+            {
+                for (const CurveKey& k : track.channels[c].Keys())
+                {
+                    addTime(k.time);
+                }
+            }
+            for (const propanim::QuatKey& q : track.quatKeys)
+            {
+                addTime(q.time);
+            }
+            for (usize i = 1; i < times.Size(); ++i) // insertion sort (key counts are small)
+            {
+                const f32 v = times[i];
+                usize j = i;
+                while (j > 0 && times[j - 1] > v)
+                {
+                    times[j] = times[j - 1];
+                    --j;
+                }
+                times[j] = v;
+            }
+            return times;
+        }
+
+        // Retime every key at ~t0 (any channel / quat) to t1, keeping each channel sorted.
+        void ShiftTrackKeys(propanim::PropertyTrack& track, f32 t0, f32 t1)
+        {
+            const u32 channelCount = propanim::ChannelCount(track.kind);
+            for (u32 c = 0; c < channelCount; ++c)
+            {
+                Curve& channel = track.channels[c];
+                Array<CurveKey> keys = channel.Keys(); // copy, retime, re-insert sorted
+                for (CurveKey& k : keys)
+                {
+                    if (Abs(k.time - t0) < kTimeEps)
+                    {
+                        k.time = t1;
+                    }
+                }
+                channel.Clear();
+                for (const CurveKey& k : keys)
+                {
+                    channel.AddKey(k);
+                }
+            }
+            for (propanim::QuatKey& q : track.quatKeys)
+            {
+                if (Abs(q.time - t0) < kTimeEps)
+                {
+                    q.time = t1;
+                }
+            }
+            for (usize i = 1; i < track.quatKeys.Size(); ++i)
+            {
+                const propanim::QuatKey v = track.quatKeys[i];
+                usize j = i;
+                while (j > 0 && track.quatKeys[j - 1].time > v.time)
+                {
+                    track.quatKeys[j] = track.quatKeys[j - 1];
+                    --j;
+                }
+                track.quatKeys[j] = v;
+            }
+        }
     }
 
     Optional<propanim::TrackValueKind> InferTrackKind(const TypeInfo* leafType)
@@ -114,6 +204,7 @@ namespace editor
         BuildChrome();
         RefreshHeader();
         RefreshTransportButtons();
+        BuildLanes();
     }
 
     void PropertyAnimationPanel::BuildChrome()
@@ -182,13 +273,15 @@ namespace editor
 
         m_timeline = MakeRef<ui::toolkit::Timeline>(DefaultAllocator());
         m_timeline->SetDuration(Max(m_clip.ComputeDuration(), 1.0f));
-        // The scrubber routes through OnScrubTimeChanged, which ignores it while Playing (D6).
+        // The scrubber routes through OnScrubTimeChanged, which ignores it while Playing (D6). A key
+        // drag on a lane commits through MoveSelectedKeys (drags-are-visual, one undo step - D4).
         m_timeline->OnPlayheadMoved.Add([self](f32 t) { self->OnScrubTimeChanged(t); });
+        m_timeline->OnKeysMoved.Add([self](f32 d) { self->MoveSelectedKeys(d); });
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(28));
-            m_body->AddView(m_timeline.Get(), lp);
+            m_timelineParams = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            m_timelineParams->Width = ui::SizeSpec::Match();
+            m_timelineParams->Height = ui::SizeSpec::Fixed(ui::Unit::Px(kTimelineMinHeight));
+            m_body->AddView(m_timeline.Get(), m_timelineParams);
         }
 
         m_view = MakeUnique<ClipEditorView>(DefaultAllocator(), *this);
@@ -591,11 +684,125 @@ namespace editor
 
     void PropertyAnimationPanel::OnClipViewRebuilt()
     {
-        // The clip length may have changed (a Length edit / new document): resync the Timeline axis.
+        // The clip length / track set may have changed (a Length edit, add/remove track, undo/redo):
+        // resync the Timeline axis + rebuild the dopesheet lanes (selection preserved by time).
         if (m_timeline.Get() != nullptr)
         {
             m_timeline->SetDuration(Max(m_clip.ComputeDuration(), 1.0f));
         }
+        BuildLanes();
+    }
+
+    void PropertyAnimationPanel::BuildLanes()
+    {
+        if (m_timeline.Get() == nullptr)
+        {
+            return;
+        }
+
+        // Preserve the selection across the rebuild by TIME (keys have no id - D3/D4). A pending move
+        // overrides with the moved keys' NEW times; otherwise re-capture the current selection's times.
+        Array<ReselectMark> marks;
+        if (m_haveReselect)
+        {
+            marks = Move(m_reselectTimes);
+            m_reselectTimes = Array<ReselectMark>{};
+            m_haveReselect = false;
+        }
+        else
+        {
+            for (const ui::toolkit::DopesheetKeyRef& r : m_timeline->Selection())
+            {
+                if (r.lane < m_laneKeyTimes.Size() && r.index < m_laneKeyTimes[r.lane].Size())
+                {
+                    marks.PushBack(ReselectMark{r.lane, m_laneKeyTimes[r.lane][r.index]});
+                }
+            }
+        }
+
+        // One lane per track; markers at the track's distinct key times.
+        Array<ui::toolkit::DopesheetLane> lanes;
+        m_laneKeyTimes.Clear();
+        for (const propanim::PropertyTrack& track : m_clip.tracks)
+        {
+            Array<f32> times = CollectKeyTimes(track);
+            ui::toolkit::DopesheetLane lane;
+            lane.keyTimes = times;
+            lanes.PushBack(Move(lane));
+            m_laneKeyTimes.PushBack(Move(times));
+        }
+        m_timeline->SetLanes(Move(lanes)); // clears the widget's selection
+
+        // Re-resolve the selection by time against the rebuilt lanes.
+        Array<ui::toolkit::DopesheetKeyRef> newSel;
+        for (const ReselectMark& mark : marks)
+        {
+            if (mark.lane >= m_laneKeyTimes.Size())
+            {
+                continue;
+            }
+            const Array<f32>& lt = m_laneKeyTimes[mark.lane];
+            for (usize i = 0; i < lt.Size(); ++i)
+            {
+                if (Abs(lt[i] - mark.time) < kTimeEps)
+                {
+                    newSel.PushBack(ui::toolkit::DopesheetKeyRef{mark.lane, static_cast<u32>(i)});
+                    break;
+                }
+            }
+        }
+        m_timeline->SetSelection(newSel);
+
+        // Size the timeline pane to the ruler + lanes (capped; row virtualization/scroll is A9-deferred).
+        const f32 h = Clamp(kRulerBand + static_cast<f32>(m_clip.tracks.Size()) * kLaneHeight,
+                            kTimelineMinHeight, kTimelineMaxHeight);
+        if (m_timelineParams.Get() != nullptr)
+        {
+            m_timelineParams->Height = ui::SizeSpec::Fixed(ui::Unit::Px(h));
+        }
+        if (m_body.Get() != nullptr)
+        {
+            m_body->Invalidate();
+        }
+    }
+
+    void PropertyAnimationPanel::MoveSelectedKeys(f32 deltaSeconds)
+    {
+        if (!m_view || m_timeline.Get() == nullptr || Abs(deltaSeconds) < 1e-5f)
+        {
+            return;
+        }
+        const Array<ui::toolkit::DopesheetKeyRef> sel = m_timeline->Selection();
+        if (sel.IsEmpty())
+        {
+            return;
+        }
+
+        propanim::PropertyAnimationClip before = m_clip;
+        propanim::PropertyAnimationClip after = m_clip;
+
+        Array<ReselectMark> marks;
+        for (const ui::toolkit::DopesheetKeyRef& r : sel)
+        {
+            if (r.lane >= after.tracks.Size() || r.lane >= m_laneKeyTimes.Size() ||
+                r.index >= m_laneKeyTimes[r.lane].Size())
+            {
+                continue;
+            }
+            const f32 t0 = m_laneKeyTimes[r.lane][r.index];
+            const f32 t1 = Max(t0 + deltaSeconds, 0.0f);
+            ShiftTrackKeys(after.tracks[r.lane], t0, t1);
+            marks.PushBack(ReselectMark{r.lane, t1});
+        }
+        if (marks.IsEmpty())
+        {
+            return;
+        }
+
+        m_reselectTimes = Move(marks);
+        m_haveReselect = true;
+        m_view->PushClipEdit(Move(before), Move(after)); // one undo step; applies + defers a row rebuild
+        BuildLanes(); // rebuild lanes now + re-select the moved keys by their new time (consumes pending)
     }
 
     void PropertyAnimationPanel::ApplyClipState(const propanim::PropertyAnimationClip& state,

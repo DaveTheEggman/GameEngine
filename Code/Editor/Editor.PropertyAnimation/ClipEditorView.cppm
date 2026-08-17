@@ -99,6 +99,10 @@ export namespace editor
         /// ApplyClipState forwards here so undo/redo never needs a view pointer (Fable F1).
         void ApplyState(const propanim::PropertyAnimationClip& state, bool rebuild = true);
 
+        /// Push a whole-clip before/after as ONE undo step (the dopesheet key-drag commit uses this;
+        /// the view's own field edits use the internal Mutate). Recomputes duration + rebuilds on apply.
+        void PushClipEdit(propanim::PropertyAnimationClip before, propanim::PropertyAnimationClip after);
+
         [[nodiscard]] f32 ScrubTime() const noexcept { return m_scrubTime; }
         [[nodiscard]] f32 EditDuration() const noexcept { return m_editDuration; }
 

@@ -115,6 +115,7 @@ export namespace editor
         // Named EditorCtx (not Context) so it does not shadow the base ui::View::Context field.
         [[nodiscard]] EditorContext& EditorCtx() noexcept { return *m_editorCtx; }
         [[nodiscard]] ClipEditorView& View() noexcept { return *m_view; }
+        [[nodiscard]] ui::toolkit::Timeline& Dopesheet() noexcept { return *m_timeline; }
 
         // Collapse/expand is owned by the enclosing BottomDock (A2 REVISED), not the panel itself.
 
@@ -126,6 +127,12 @@ export namespace editor
         void ClearClip(); // drop the loaded clip (no asset written)
         void BuildChrome();
         void RefreshHeader();
+        // Rebuild the dopesheet lanes from the clip (one lane per track) + preserve the selection by
+        // time across the rebuild (D3/D4 commit-remap: keys have no id). Sizes the timeline pane.
+        void BuildLanes();
+        // Apply a dopesheet key drag: shift the selected keys' times by delta, one undo step, then
+        // rebuild lanes + re-select the moved keys by their NEW time.
+        void MoveSelectedKeys(f32 deltaSeconds);
         void RefreshTransportButtons();     // sync transport button labels to the state
         void Advance(f32 dt);               // move the playhead + drive preview (called while Playing)
         void PreviewSelected(f32 time);     // preview the clip at `time` on the selected entity
@@ -176,8 +183,21 @@ export namespace editor
         RefPtr<ui::Button> m_pauseButton;
         RefPtr<ui::Button> m_loopButton;
         RefPtr<ui::toolkit::Timeline> m_timeline;
+        RefPtr<ui::FlexLayoutParams> m_timelineParams; // updated to size the timeline pane to its lanes
         RefPtr<ui::FlexLayout> m_body; // transport + Timeline + ClipEditorView
         UniquePtr<ClipEditorView> m_view;
+
+        // Dopesheet lane bookkeeping. m_laneKeyTimes[lane] is the sorted key time each marker on that
+        // lane represents (parallel to the Timeline's lanes), so a (lane,index) selection maps to a
+        // time for re-selection across rebuilds.
+        struct ReselectMark
+        {
+            u32 lane = 0;
+            f32 time = 0.0f;
+        };
+        Array<Array<f32>> m_laneKeyTimes;
+        Array<ReselectMark> m_reselectTimes; // the moved keys' NEW times (consumed by the next BuildLanes)
+        bool m_haveReselect = false;
 
         // Transport (editor-local; D6 Editing|Playing). The loop toggle defaults to Loop, matching a
         // fresh PropertyAnimatorComponent; seeding it from a specific bound animator instance is a
