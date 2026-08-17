@@ -94,6 +94,7 @@ int main(int /*argc*/, char** /*argv*/)
     editor::mcp::RegisterAssetTools(server, session);
     editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
     editor::mcp::RegisterAssetUsesTool(server, session, builders); // reverse deps (pre-delete read)
+    editor::mcp::RegisterProjectHealthTool(server, session, builders); // the soundness sweep
     editor::mcp::RegisterSceneTools(server, session); // scene/prefab read+write+validate (files-first)
     // host_info (ops hygiene): pid + build stamp + versions + the open-project state.
     RegisterHostInfoTool(

@@ -13,6 +13,7 @@ export module editor.mcp;
 export import :session;
 export import :scene_tools;
 export import :asset_uses;
+export import :project_health;
 
 import foundation.core;
 import foundation.json;

@@ -481,10 +481,23 @@ in build order:
    asset_list). Integration.Mcp golden covers a MaterialAsset->texture
    `references` edge, a MeshComponent-Ref `scene-resource` edge, the
    defaultScene settings edge, empty-result honesty, and both refusals.
-4. project_health - the cook DB + reflection sweep: dangling resource::Ref
-   targets (reflection walks the ref fields - a check neither surveyed
-   engine can do), uncooked-dirty count, orphans, unbuildable assets. One
-   call = "is this project sound".
+4. BUILT 2026-08-17 (Fable): project_health - one call = "is this project
+   sound" (editor.mcp:project_health; RegisterProjectHealthTool(server,
+   session, builders); imports :asset_uses to share the live edge
+   machinery). Sweeps: DANGLING REFS - every forward edge (builders'
+   ScanDependencies reads/references, scene/prefab component Refs +
+   prefab instances via the full-manager scan, the 7 ProjectSettings
+   guid fields) whose target is missing from the source DB, each
+   reported {from, to, edge}; BROKEN SOURCES - buildable assets whose
+   envelope no longer deserializes + scenes/prefabs whose stream no
+   longer loads; COOK STATE - Plan(false) dirty/upToDate/orphans, my own
+   unbuildable count (scenes/prefabs excluded - they stage, not cook),
+   and failed CookDb records. `sound` = nothing broken; dirty alone
+   never unsounds (workflow state - run asset_cook). Integration.Mcp
+   golden: empty project sound, intact-refs-while-dirty sound, three
+   simultaneous breaks detected (references + scene-resource dangling
+   edges to the same missing guid + defaultScene settings dangle), and
+   healing flips sound back to true.
 5. log_read + known_issues + log_write (agent drops correlation markers
    into the host log).
 6. Resources: scene/prefab XML, docs/design/*, docs/specs/* read-only by URI

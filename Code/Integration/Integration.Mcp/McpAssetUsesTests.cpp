@@ -197,3 +197,114 @@ TEST_CASE("integration.mcp: asset_uses - reverse dependencies across all edge ki
                                u8"00000000-0000-0000-0000-0000000000ff"))
               .Size() > 0u);
 }
+
+TEST_CASE("integration.mcp: project_health - the soundness sweep finds what broke")
+{
+    std::error_code ec;
+    std::filesystem::remove_all("mcp_health_project", ec);
+
+    McpServer server;
+    editor::mcp::ProjectSession session;
+    pipeline::BuilderRegistry builders;
+    pipeline::RegisterPipelineTypes();
+    pipeline::RegisterAllBuilders(builders);
+    engine::RegisterAllSceneComponentReflection();
+    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::RegisterProjectHealthTool(server, session, builders);
+
+    (void)UsesCallOk(server, u8"project_create",
+                     UsesWith(UsesWith(UsesObj(), u8"directory", u8"mcp_health_project"), u8"name",
+                              u8"Health"));
+    (void)UsesCallOk(server, u8"project_open",
+                     UsesWith(UsesObj(), u8"directory", u8"mcp_health_project"));
+    auto* root = session.project->SourceDb().RootGroup();
+
+    // An empty project is sound and has nothing to cook.
+    JsonValue clean = UsesCallOk(server, u8"project_health", UsesObj());
+    CHECK(clean.Get(u8"sound").AsBool() == true);
+    CHECK(clean.Get(u8"dirty").AsNumber() == doctest::Approx(0.0));
+    CHECK(clean.Get(u8"danglingRefs").Count() == 0);
+
+    // Intact references stay sound even while uncooked (dirty is workflow state, not breakage).
+    auto* tex = root->CreateInstance(u8"stone", pipeline::TextureAsset::StaticType());
+    {
+        pipeline::TextureAsset asset;
+        REQUIRE(tex->WriteObject(asset).IsOk());
+    }
+    auto* mat = root->CreateInstance(u8"wall", pipeline::MaterialAsset::StaticType());
+    {
+        pipeline::MaterialAsset asset;
+        asset.source.textureSlots.PushBack(String(u8"albedo"));
+        asset.source.textureIds.PushBack(tex->Id());
+        REQUIRE(mat->WriteObject(asset).IsOk());
+    }
+    JsonValue intact = UsesCallOk(server, u8"project_health", UsesObj());
+    CHECK(intact.Get(u8"sound").AsBool() == true);
+    CHECK(intact.Get(u8"dirty").AsNumber() >= 2.0);
+    CHECK(intact.Get(u8"danglingRefs").Count() == 0);
+
+    // Break three things: a material referencing a missing texture, a scene component Ref to a
+    // missing guid, and a settings field pointing nowhere.
+    const Guid missing{0xdead, 0xbeef};
+    auto* badMat = root->CreateInstance(u8"cracked", pipeline::MaterialAsset::StaticType());
+    {
+        pipeline::MaterialAsset asset;
+        asset.source.textureSlots.PushBack(String(u8"albedo"));
+        asset.source.textureIds.PushBack(missing);
+        REQUIRE(badMat->WriteObject(asset).IsOk());
+    }
+    foundation::content::Instance* brokenScene = nullptr;
+    {
+        scene::Scene authored(u8"broken");
+        engine::AddAllSceneManagers(authored);
+        scene::EntityHandle e = authored.CreateEntity(u8"ghost");
+        authored.GetSystem<engine::render::MeshComponentManager>()->Add(e).mesh.SetId(missing);
+        brokenScene = root->CreateInstance(u8"broken", scene::SceneDocument::StaticType());
+        REQUIRE(brokenScene != nullptr);
+        REQUIRE(scene::SaveScene(authored, *brokenScene).IsOk());
+    }
+    session.project->Settings().defaultSceneId = missing;
+
+    JsonValue broken = UsesCallOk(server, u8"project_health", UsesObj());
+    CHECK(broken.Get(u8"sound").AsBool() == false);
+    REQUIRE(broken.Get(u8"danglingRefs").Count() == 2);
+    bool sawReferences = false;
+    bool sawSceneResource = false;
+    for (i64 i = 0; i < broken.Get(u8"danglingRefs").Count(); ++i)
+    {
+        const JsonValue& d = broken.Get(u8"danglingRefs").At(i);
+        CHECK(d.Get(u8"to").AsString() == GuidText(missing).AsView());
+        if (d.Get(u8"edge").AsString() == StringView(u8"references"))
+        {
+            sawReferences = true;
+        }
+        if (d.Get(u8"edge").AsString() == StringView(u8"scene-resource"))
+        {
+            sawSceneResource = true;
+        }
+    }
+    CHECK(sawReferences);
+    CHECK(sawSceneResource);
+    REQUIRE(broken.Get(u8"projectSettingsDangling").Count() == 1);
+    CHECK(broken.Get(u8"projectSettingsDangling").At(0).AsString() ==
+          StringView(u8"defaultScene"));
+
+    // Healing every break flips the verdict back.
+    session.project->Settings().defaultSceneId = Guid();
+    {
+        pipeline::MaterialAsset asset;
+        asset.source.textureSlots.PushBack(String(u8"albedo"));
+        asset.source.textureIds.PushBack(tex->Id());
+        REQUIRE(badMat->WriteObject(asset).IsOk());
+    }
+    {
+        scene::Scene authored(u8"broken");
+        engine::AddAllSceneManagers(authored);
+        scene::EntityHandle e = authored.CreateEntity(u8"ghost");
+        authored.GetSystem<engine::render::MeshComponentManager>()->Add(e).mesh.SetId(tex->Id());
+        REQUIRE(scene::SaveScene(authored, *brokenScene).IsOk());
+    }
+    JsonValue healed = UsesCallOk(server, u8"project_health", UsesObj());
+    CHECK(healed.Get(u8"sound").AsBool() == true);
+    CHECK(healed.Get(u8"danglingRefs").Count() == 0);
+}

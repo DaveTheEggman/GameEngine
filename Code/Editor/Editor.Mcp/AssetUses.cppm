@@ -63,21 +63,23 @@ namespace editor::mcp::detail
 
     // A scene/prefab instance's DIRECT references: component resource Refs (via a factory-less
     // ResourceManager - every bound id lands unresolved) + parked prefab-instance ids. The scratch
-    // carries the full manager set, so no component's Refs are invisible.
-    inline void CollectSceneReferences(content::Instance& instance, content::ContentDatabase& db,
+    // carries the full manager set, so no component's Refs are invisible. Returns false when the
+    // stored stream does not load (project_health counts those; asset_uses skips them).
+    inline bool CollectSceneReferences(content::Instance& instance, content::ContentDatabase& db,
                                        Array<Guid>& resources, Array<Guid>& prefabs)
     {
         scene::Scene scratch;
         engine::AddAllSceneManagers(scratch);
         if (!scene::LoadScene(instance, scratch).IsOk())
         {
-            return;
+            return false;
         }
         foundation::resource::ResourceManager collector(db); // no factories -> all binds unresolved
         scene::ResolveSceneResources(scratch, collector);
         collector.CollectUnresolved(resources);
         scratch.ForEachPendingPrefabInstance([&prefabs](scene::Scene::PendingPrefabInstance& pending)
                                              { prefabs.PushBack(pending.prefabId); });
+        return true;
     }
 
     // Walk every source-DB instance (depth-first) and collect those with an edge to `target`.
