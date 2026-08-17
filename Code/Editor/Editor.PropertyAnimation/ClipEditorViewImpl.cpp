@@ -315,8 +315,19 @@ namespace editor
         ClipEditorView* self = this;
         const propanim::PropertyTrack& track = Clip().tracks[trackIndex];
 
-        // --- track header: component + property + kind + remove ---
+        String key = track.componentType;
+        key += u8"|";
+        key += track.propertyPath.AsView();
+        const bool collapsed = IsTrackCollapsed(key.AsView());
+
+        // --- track header: [caret] component + property + kind + remove ---
         auto header = MakeRow(0.0f, 26.0f);
+        MakeButton(*header, collapsed ? u8">" : u8"v", 22.0f,
+                   [self, k = String(key)]()
+                   {
+                       self->ToggleTrackCollapsed(k.AsView());
+                       self->RequestRebuild(); // fold/unfold the track's rows
+                   });
         AddTextField(*header, track.componentType.AsView(),
                      [self, trackIndex](StringView v)
                      { self->Mutate([&](propanim::PropertyAnimationClip& c)
@@ -351,6 +362,11 @@ namespace editor
                    [self, trackIndex]()
                    { self->Mutate([&](propanim::PropertyAnimationClip& c)
                                   { c.tracks.RemoveAt(trackIndex); }); });
+
+        if (collapsed)
+        {
+            return; // folded: header only
+        }
 
         // --- keyframe rows ---
         if (track.kind == propanim::TrackValueKind::Quat)
@@ -606,6 +622,31 @@ namespace editor
         MakeButton(*MakeRow(0.0f, 26.0f), u8"+ Track", 80.0f, [self]()
                    { self->AddTrack(u8"Transform", u8"position", propanim::TrackValueKind::Float3); });
         m_host->OnClipViewRebuilt();
+    }
+
+    bool ClipEditorView::IsTrackCollapsed(StringView key) const
+    {
+        for (const String& k : m_collapsedTracks)
+        {
+            if (k.AsView() == key)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void ClipEditorView::ToggleTrackCollapsed(StringView key)
+    {
+        for (usize i = 0; i < m_collapsedTracks.Size(); ++i)
+        {
+            if (m_collapsedTracks[i].AsView() == key)
+            {
+                m_collapsedTracks.RemoveAt(i);
+                return;
+            }
+        }
+        m_collapsedTracks.PushBack(String(key));
     }
 
     void ClipEditorView::AddTrack(StringView componentType, StringView propertyPath,

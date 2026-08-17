@@ -174,6 +174,10 @@ export namespace editor
                            f32 width = 56.0f);
         void BuildTransportRow();
         void BuildTrackRows(usize trackIndex);
+        // Per-track collapse (keyed by "component|path" so it survives rebuilds): a folded track shows
+        // just its header, freeing vertical room to work on another.
+        [[nodiscard]] bool IsTrackCollapsed(StringView key) const;
+        void ToggleTrackCollapsed(StringView key);
         void RefreshPreview(); // update the sampled-values readout at the current scrub time
 
         void AddCurveCanvas(usize trackIndex);
@@ -195,5 +199,6 @@ export namespace editor
         f32 m_editDuration = 1.0f;   // the canvas time-axis scale (clip length); keys normalize by it
         propanim::PropertyAnimationClip m_gestureBefore; // undo snapshot captured on OnEditBegin
         bool m_gestureDirty = false; // a canvas gesture actually changed a key (vs a bare select-click)
+        Array<String> m_collapsedTracks; // track identities ("component|path") the user folded
     };
 }
