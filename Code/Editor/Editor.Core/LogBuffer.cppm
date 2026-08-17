@@ -84,6 +84,13 @@ export namespace editor
             return m_entries.Size();
         }
 
+        /// The sequence of the most recently written entry (0 = nothing written yet).
+        [[nodiscard]] u64 LatestSequence() const
+        {
+            ScopedLock lock(m_mutex);
+            return m_nextSequence - 1;
+        }
+
         /// Entries evicted before collection could see them (ring overflow), for "N dropped" UI.
         [[nodiscard]] u64 DroppedCount() const
         {

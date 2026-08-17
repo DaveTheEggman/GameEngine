@@ -10,6 +10,7 @@
 #include "Core/Prelude.h"
 
 #include <cstdio>
+#include <filesystem>
 
 import foundation.core;
 import foundation.json;
@@ -24,6 +25,7 @@ import engine.scenesurface;
 #ifdef OPTION_HAS_LUAU
 import foundation.script.luau;
 #endif
+import editor.core; // EditorLogBuffer (the host's log capture)
 import editor.mcp;
 
 using namespace foundation::core;
@@ -52,12 +54,45 @@ namespace
             std::fflush(stderr);
         }
     };
+
+    // KNOWN_ISSUES.md lives at the repo root; the host binary lives under Bin/... inside the
+    // checkout, so walk up from the executable (then from the cwd) until it appears. "" = not
+    // found - the known_issues tool then errs with guidance instead of being silently absent.
+    [[nodiscard]] String FindKnownIssues(const char* argv0)
+    {
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        const fs::path starts[] = {fs::weakly_canonical(fs::absolute(fs::path(argv0), ec), ec)
+                                       .parent_path(),
+                                   fs::current_path(ec)};
+        for (const fs::path& start : starts)
+        {
+            for (fs::path dir = start; !dir.empty(); dir = dir.parent_path())
+            {
+                const fs::path candidate = dir / "KNOWN_ISSUES.md";
+                if (fs::is_regular_file(candidate, ec))
+                {
+                    const std::string text = candidate.string();
+                    return String(StringView(reinterpret_cast<const utf8char*>(text.c_str())));
+                }
+                if (dir == dir.root_path())
+                {
+                    break;
+                }
+            }
+        }
+        return String();
+    }
 }
 
-int main(int /*argc*/, char** /*argv*/)
+int main(int /*argc*/, char** argv)
 {
+    // The log capture FIRST (before anything logs), so log_read sees the whole run; stderr
+    // mirror second - stdout is the protocol stream.
+    static editor::EditorLogBuffer logBuffer;
+    GlobalLogger().AddSink(&logBuffer);
     static StderrSink stderrSink;
-    GlobalLogger().AddSink(&stderrSink); // logs -> stderr; stdout is the protocol stream
+    GlobalLogger().AddSink(&stderrSink);
 
     // Populate the reflection registry with the surface we can introspect headlessly, plus the
     // full pipeline type set (so type_list sees every asset/product type and asset_cook can build).
@@ -95,6 +130,8 @@ int main(int /*argc*/, char** /*argv*/)
     editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
     editor::mcp::RegisterAssetUsesTool(server, session, builders); // reverse deps (pre-delete read)
     editor::mcp::RegisterProjectHealthTool(server, session, builders); // the soundness sweep
+    // Diagnostics: the captured engine log (incremental reads + agent markers) + KNOWN_ISSUES.md.
+    editor::mcp::RegisterLogTools(server, logBuffer, FindKnownIssues(argv[0]));
     editor::mcp::RegisterSceneTools(server, session); // scene/prefab read+write+validate (files-first)
     // host_info (ops hygiene): pid + build stamp + versions + the open-project state.
     RegisterHostInfoTool(

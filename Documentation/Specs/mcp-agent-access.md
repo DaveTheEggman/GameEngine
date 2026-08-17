@@ -498,8 +498,22 @@ in build order:
    simultaneous breaks detected (references + scene-resource dangling
    edges to the same missing guid + defaultScene settings dangle), and
    healing flips sound back to true.
-5. log_read + known_issues + log_write (agent drops correlation markers
-   into the host log).
+5. BUILT 2026-08-17 (Fable): log_read + log_write + known_issues
+   (editor.mcp:log_tools; RegisterLogTools(server, logBuffer,
+   knownIssuesPath)). The host registers ONE editor::EditorLogBuffer
+   sink on the global logger FIRST thing in main (before the stderr
+   mirror), so every LOG_* line of the run is captured with a monotonic
+   sequence. log_read = incremental polling (sinceSequence from the
+   previous call's lastSequence) + minLevel/category filters + newest-
+   `limit` tail + a `dropped` overflow signal. log_write = agent marker
+   into the same stream (category 'Agent', returns its sequence via the
+   new EditorLogBuffer::LatestSequence() accessor) - the correlation
+   loop: marker, act, read-from-marker. known_issues = KNOWN_ISSUES.md
+   verbatim (host resolves it at startup by walking UP from the exe
+   path, then the cwd; "" registers the tool with a guidance error
+   instead of leaving it absent). Golden covers the marker loop, both
+   filters, quiet high-water reads, empty-marker refusal, and the
+   missing-register error.
 6. Resources: scene/prefab XML, docs/design/*, docs/specs/* read-only by URI
    (resources/list + resources/read exist in foundation.mcp; only the
    registrations are missing).

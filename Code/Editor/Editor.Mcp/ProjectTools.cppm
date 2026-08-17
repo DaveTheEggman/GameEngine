@@ -14,6 +14,7 @@ export import :session;
 export import :scene_tools;
 export import :asset_uses;
 export import :project_health;
+export import :log_tools;
 
 import foundation.core;
 import foundation.json;
