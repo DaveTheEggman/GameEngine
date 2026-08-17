@@ -85,7 +85,8 @@ export namespace foundation::ui::toolkit
     {
         RTTI_OBJECT(CurveCanvas, View)
     public:
-        /// One keypoint. Times in [0, 1]; Values in user space. Tangents are slope (dy/dt) at the key.
+        /// One keypoint. Time in [0, TimeSpan] (seconds; default span 1.0 = legacy normalized); Values in
+        /// user space. Tangents are slope (dy/dt) at the key.
         struct Key
         {
             f32 Time = 0.0f;
@@ -114,6 +115,12 @@ export namespace foundation::ui::toolkit
 
         f32 ValueMin = 0.0f;
         f32 ValueMax = 1.0f;
+
+        /// The time axis extent (seconds): the width maps to [0, TimeSpan], so Key.Time is in seconds.
+        /// Default 1.0 keeps the legacy normalized-0..1 behavior for callers that don't set it (ruling 2:
+        /// the property-animation editor sets it to the clip duration so the curve shares the dopesheet
+        /// time axis instead of a private normalized one).
+        f32 TimeSpan = 1.0f;
 
         /// Fired when an edit gesture begins (mouse-down starting a drag, or click-add, or right-click delete).
         Event<void()> OnEditBegin;
@@ -569,7 +576,7 @@ export namespace foundation::ui::toolkit
                 {
                     const f32 frac = i / static_cast<f32>(DIVS);
                     const f32 lineX = frac * Width();
-                    const String txt = FormatShort(frac);
+                    const String txt = FormatShort(frac * TimeSpan); // seconds label (ruling 2)
                     if (i == 0)
                     {
                         ctx.VG().DrawText(txt, font, Rectangle{2, Height() - 13, 32, 12},
@@ -918,7 +925,10 @@ export namespace foundation::ui::toolkit
 
         // === Coordinate transforms ===
 
-        [[nodiscard]] f32 TimeToX(f32 t) const { return t * Width(); }
+        [[nodiscard]] f32 TimeToX(f32 t) const
+        {
+            return (TimeSpan > 1e-6f ? t / TimeSpan : 0.0f) * Width();
+        }
         [[nodiscard]] f32 ValueToY(f32 v) const
         {
             const f32 denom = (ValueMax - ValueMin);
@@ -928,7 +938,10 @@ export namespace foundation::ui::toolkit
             }
             return Height() * (1.0f - (v - ValueMin) / denom);
         }
-        [[nodiscard]] f32 XToTime(f32 x) const { return core::Clamp(x / Width(), 0.0f, 1.0f); }
+        [[nodiscard]] f32 XToTime(f32 x) const
+        {
+            return core::Clamp(x / Width(), 0.0f, 1.0f) * TimeSpan;
+        }
         [[nodiscard]] f32 YToValue(f32 y) const
         {
             const f32 r = core::Clamp(y / Height(), 0.0f, 1.0f);

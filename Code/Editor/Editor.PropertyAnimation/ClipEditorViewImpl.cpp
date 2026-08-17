@@ -485,6 +485,9 @@ namespace editor
         canvas->MaxKeys = 64;
         canvas->AutoFitValueRange = true;
         canvas->LinkedTime = channels > 1;
+        // Ruling 2: the curve time axis is SECONDS matching the clip length (shares the dopesheet axis),
+        // not a private normalized 0..1. Key times are stored + edited in absolute seconds.
+        canvas->TimeSpan = (m_editDuration > 1e-3f) ? m_editDuration : 1.0f;
 
         const CurveKeyInterpolation trackInterp =
             (track.channels[0].KeyCount() > 0) ? track.channels[0].Keys()[0].interpolation
@@ -529,7 +532,7 @@ namespace editor
                 // shows them, so the command applies `after` WITHOUT a rebuild (liveApplied) - a
                 // rebuild would recreate the canvas and drop the selected key's tangent handles.
                 propanim::PropertyAnimationClip after = self->Clip();
-                after.duration = after.ComputeDuration();
+                after.duration = Max(after.duration, after.ComputeDuration()); // keep authored length
                 (void)self->m_host->Commands().Execute(UniquePtr<IEditorCommand>(
                     DefaultAllocator().New<ClipEditCommand>(*self->m_host, Move(self->m_gestureBefore),
                                                             Move(after), /*liveApplied=*/true),
@@ -553,7 +556,6 @@ namespace editor
     {
         const propanim::PropertyTrack& track = Clip().tracks[trackIndex];
         const u32 channels = propanim::ChannelCount(track.kind);
-        const f32 dur = (m_editDuration > 1e-3f) ? m_editDuration : 1.0f;
         for (u32 ch = 0; ch < channels; ++ch)
         {
             Array<ui::toolkit::CurveCanvas::Key> keys;
@@ -561,9 +563,9 @@ namespace editor
             for (usize i = 0; i < cur.KeyCount(); ++i)
             {
                 const CurveKey& k = cur.Keys()[i];
-                // Normalize time to [0,1]; tangents are slope dy/dt, so rescale by the duration.
-                keys.PushBack(ui::toolkit::CurveCanvas::Key{k.time / dur, k.value,
-                                                            k.tangentIn * dur, k.tangentOut * dur});
+                // Absolute seconds - the canvas TimeSpan maps [0,duration] to width (ruling 2).
+                keys.PushBack(
+                    ui::toolkit::CurveCanvas::Key{k.time, k.value, k.tangentIn, k.tangentOut});
             }
             canvas.SetKeys(static_cast<i32>(ch),
                            Span<const ui::toolkit::CurveCanvas::Key>{keys.Data(), keys.Size()});
@@ -579,7 +581,6 @@ namespace editor
         }
         propanim::PropertyTrack& track = clip.tracks[trackIndex];
         const u32 channels = propanim::ChannelCount(track.kind);
-        const f32 dur = (m_editDuration > 1e-3f) ? m_editDuration : 1.0f;
         for (u32 ch = 0; ch < channels; ++ch)
         {
             // The canvas carries ONE interpolation per channel (a P1 simplification), so write-back
@@ -593,10 +594,10 @@ namespace editor
             {
                 const ui::toolkit::CurveCanvas::Key k = canvas.GetKey(static_cast<i32>(ch), i);
                 CurveKey ck;
-                ck.time = k.Time * dur;
+                ck.time = k.Time; // absolute seconds (ruling 2)
                 ck.value = k.Value;
-                ck.tangentIn = k.TangentIn / dur;
-                ck.tangentOut = k.TangentOut / dur;
+                ck.tangentIn = k.TangentIn;
+                ck.tangentOut = k.TangentOut;
                 ck.interpolation = interp;
                 track.channels[ch].AddKey(ck);
             }
