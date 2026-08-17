@@ -14,8 +14,13 @@ late-join - no hand-written per-component net code. First target is real-time st
 
 - **`foundation.net`** - transport: reliable-UDP + TCP + loopback/sim + the wire codec. Raw
   sockets live in `Core/System` (the platform backend pattern - `System.cppm` + per-OS dirs),
-  not here; `foundation.net` is the reliability/session layer above them. (HTTP, if built, is a
-  sibling `foundation.http`, not part of net.)
+  not here; `foundation.net` is the reliability/session layer above them.
+- **`foundation.http`** - the sibling HTTP/1.1 layer over the TCP wrappers: incremental message
+  parser, a pump-model `HttpServer` (one request per connection, `Connection: close`) with
+  Server-Sent Events streams (`SseStream`, ref-counted, held past the response), and a blocking
+  localhost `HttpFetch` client (no DNS, no TLS - the localhost trust domain). Consumers: the MCP
+  streamable-HTTP host, the WebSocket upgrade path (a WS connection begins as an HTTP request -
+  this server is the web-networking server's front door), loopback tooling/tests.
 - **`foundation.net.manager`** - `NetworkManager` (a session endpoint) + `INetworkController` +
   the `Net` script-facade binding. A GameInstance owns its OWN `NetworkManager` and goes online
   at RUNTIME via the facade (no app-owned socket).

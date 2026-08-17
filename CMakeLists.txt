@@ -278,6 +278,7 @@ add_subdirectory(Code/Foundation/Settings)  # typed/versioned settings store ove
 add_subdirectory(Code/Foundation/Profiler)  # CPU scope profiler over Core (instrumented across the engine)
 add_subdirectory(Code/Foundation/Net)       # real-time game networking: wire + INetTransport + loopback sim (over Core)
 add_subdirectory(Code/Foundation/Net.Replication)  # StateReplication foundation: NetworkId + reflection-driven field codec (over Net + Core)
+add_subdirectory(Code/Foundation/Http)      # small HTTP/1.1 client+server+SSE over Core/System TCP (MCP transport + WS upgrade substrate)
 add_subdirectory(Code/Foundation/Xml)       # DOM XML parser + writer over Core
     add_subdirectory(Code/Foundation/Xml.Serialization)
 add_subdirectory(Code/Foundation/Json)      # hand-rolled JSON DOM (MCP wire + game data); RTTI-reflected for script
@@ -639,6 +640,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Net.Manager.Tests Foundation::Net.Manager)  # its script facade test (wren+as) is file-gated in the suite CMake
     util_test_suite(Code/Foundation/Net.Replication.Tests           Foundation::Net.Replication)
     util_test_suite(Code/Foundation/Net.Tests                       Foundation::Net)
+    util_test_suite(Code/Foundation/Http.Tests                      Foundation::Http)
     util_test_suite(Code/Foundation/Particles.Resource.Tests        Foundation::Particles.Resource)
     util_test_suite(Code/Foundation/Particles.Tests                 Foundation::Particles)
     util_test_suite(Code/Foundation/Physics.Tests                   Foundation::Physics)
