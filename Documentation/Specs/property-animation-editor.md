@@ -371,3 +371,52 @@ Review pass cadence: each phase lands green on both compilers with its A8
 slice; Fable reviews per phase against this spec (the pass-10 required fixes
 1-3 and 7-8 on the RUNTIME side proceed independently and are not blocked on
 this editor).
+
+---
+
+## P1 implementation notes (for Fable review)
+
+P1 is COMPLETE and on master, green clang + gcc. Review against the rulings +
+amendments above. Commits:
+
+- **P1a `5b8b0d68`** - `Timeline` widget in `foundation.ui.toolkit`
+  (`Timeline.cppm`): the D1 seconds<->pixel transform authority
+  (pixelsPerSecond / scrollSeconds / labelColumnWidth, TimeToX/XToTime), a
+  {1,2,5}x10^n ruler (`PickTickStep`), a draggable playhead firing
+  `OnPlayheadMoved`, cursor-anchored wheel zoom. Seconds-only (A3). Headless
+  tests: tick algorithm never collides, transform round-trips through
+  zoom+scroll, playhead clamps + fires on change. Also added
+  `Color::Rgb(u8,u8,u8,u8=255)` to foundation.core.
+- **P1b `ba8860c6`** - retired the tool-mode AND the standalone clip page
+  (A1). `PropertyAnimationPanel` (`editor.propertyanimation:panel`) is a
+  persistent `ui::FlexLayout` + `IClipEditorHost`, scene-page-owned, docked in
+  a resizable vertical SplitView BELOW THE VIEWPORT ONLY (A2). Fixes pass-10 #5
+  (view never recreated mid-edit; commands hold snapshots+host, never a view
+  ptr) and #6 (re-snapshot on track-set identity change - has a regression
+  test). The H1 tool-panel seam is parked/unused; the primary module unit is
+  now just the plugin registrar.
+- **P1c `0c827675`** - transport (Play/Pause/Stop + loop). Play auto-advances
+  the playhead by dt each frame (`Tick(f32 dt, bool editingLocked)`) driving
+  Timeline + preview; loop wraps, loop-off clamps+stops, Stop rewinds. D6
+  Editing|Playing ownership: active-play scrubs ignored, paused/editing scrubs
+  reposition the clock. A6 damage gate: only active playback self-invalidates.
+
+### Deviations / decisions to confirm
+1. **A4 loop default - NOT per-instance (needs a ruling).** The loop toggle is
+   editor-local, defaulting to Loop (matches a fresh PropertyAnimatorComponent).
+   Seeding it from the SELECTED entity's bound animator's `loopMode` would
+   couple the clip editor to `engine.animation` (the component lives there).
+   Deferred pending your call: accept editor-local, or take the dependency?
+2. **Numeric scrub field retired from ClipEditorView** - the Timeline is the
+   sole scrubber now (`ClipEditorView::SetScrubTime` drives the readout). The
+   Length field + sampled-value readout row stay.
+3. **P1 keeps the existing CurveCanvas rows** (still on normalized 0..1 time);
+   migrating CurveCanvas onto the shared Timeline transform (ruling 2) is P2
+   as planned.
+4. Panel impl gotchas worth a glance: the accessor is `EditorCtx()` not
+   `Context()` (would shadow `ui::View::Context`); `Transform` is spelled
+   `core::Transform` (ambiguous once ui.toolkit is imported).
+
+P2 (the dopesheet widget: lanes/keys/box-select/drags-visual/commit-remap
+D3/D4, CurveCanvas onto the shared transform, snap, A10 keyboard) starts after
+this review.
