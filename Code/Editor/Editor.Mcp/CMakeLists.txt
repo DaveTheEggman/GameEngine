@@ -8,6 +8,7 @@ target_link_libraries(Editor.Mcp PUBLIC
     Editor::Core Foundation::Content Foundation::VFS
     Pipeline::Core Pipeline::Importer Pipeline::Cook
     Foundation::Scene Foundation::Scene.Resource Foundation::Xml.Serialization
+    Foundation::Resource # factory-less ResourceManager = the scene-Ref collector (asset_uses)
     Engine::SceneSurface # the FULL manager set for scene_validate's scratch (full payload validation)
     Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)
 
@@ -16,4 +17,5 @@ target_sources(Editor.Mcp
         FILE_SET editor_mcp_modules TYPE CXX_MODULES FILES
             McpSession.cppm
             SceneTools.cppm
+            AssetUses.cppm
             ProjectTools.cppm)

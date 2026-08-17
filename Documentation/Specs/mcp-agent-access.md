@@ -464,8 +464,23 @@ in build order:
    BuildStamp (the Runtime.Client pattern) and reports
    {projectOpen, projectName, projectDirectory}. P2 editor/game hosts call
    the same provider with their own stamp + state.
-3. asset_uses - REVERSE dependency query over the cook/content DB ("what
-   uses this asset") - required reading before any destructive change.
+3. BUILT 2026-08-17 (Fable): asset_uses - the REVERSE dependency query
+   (editor.mcp:asset_uses; RegisterAssetUsesTool(server, session,
+   builders)). Edges computed LIVE (truth-tool rule, never a cached
+   graph) from the same sources the engine uses: buildable assets run
+   their builder's ScanDependencies (edge kinds `reads` + `references` -
+   exactly what the cook hashes), scenes/prefabs run the export
+   reachability-scanner recipe over the full Engine::SceneSurface manager
+   set (`scene-resource` component Refs via a factory-less
+   ResourceManager's unresolved set, `prefab-instance` parked prefab
+   ids), plus the 7 ProjectSettings guid fields (`projectSettingsUses`:
+   defaultScene/startupScript/defaultInputMap/defaultBusLayout/
+   defaultUiTheme/defaultUiFont/loadingDocument). Direct users only by
+   design - the agent re-runs on a user to walk the chain. Refusals:
+   malformed guid, guid absent from the source DB (redirects to
+   asset_list). Integration.Mcp golden covers a MaterialAsset->texture
+   `references` edge, a MeshComponent-Ref `scene-resource` edge, the
+   defaultScene settings edge, empty-result honesty, and both refusals.
 4. project_health - the cook DB + reflection sweep: dangling resource::Ref
    targets (reflection walks the ref fields - a check neither surveyed
    engine can do), uncooked-dirty count, orphans, unbuildable assets. One
