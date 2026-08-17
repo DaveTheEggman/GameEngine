@@ -17,6 +17,7 @@ export import :project_health;
 export import :log_tools;
 export import :resources;
 export import :script_validate;
+export import :script_create;
 
 import foundation.core;
 import foundation.json;

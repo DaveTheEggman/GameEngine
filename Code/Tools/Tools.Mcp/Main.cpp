@@ -222,6 +222,7 @@ int main(int /*argc*/, char** argv)
     // script_validate: compile-check-only (typed checks land with the Luau analyzer, P5); the
     // language cooks were registered by Pipeline::Registration above.
     editor::mcp::RegisterScriptValidateTool(server);
+    editor::mcp::RegisterScriptCreateTool(server, session); // starter-seeded script assets
     // host_info (ops hygiene): pid + build stamp + versions + the open-project state.
     RegisterHostInfoTool(
         server, String(reinterpret_cast<const char8_t*>(BuildStamp())),

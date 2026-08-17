@@ -574,10 +574,21 @@ in build order:
    starter validates through the tool (className NewBehavior + onUpdate
    harvested), broken source reports line >= 1 with a message, and a
    missing required arg is a -32602 protocol error.
-8. script_create (from the per-backend starters) - after the Luau starter
-   exists (Luau P3), so the tool ships all three languages at once.
+8. BUILT 2026-08-17 (Fable): script_create (editor.mcp:script_create) -
+   the editor's New-Asset recipe headless: the chosen backend's own
+   starter (the language cook's NewAssetTemplate, never hardcoded text)
+   written to Sources/<name>.<ext> (extension from the backend
+   registry) + a ScriptClassAsset envelope {fileName, language}. Tiers
+   behavior|level|game; group placement; UniqueInstanceName so a name
+   collision never overwrites. Returns {guid, name, sourceFile,
+   fileName} and the description teaches the loop: edit the FILE,
+   script_validate, asset_cook to attach. Golden: created file's
+   on-disk content validates through script_validate (the tools
+   compose), duplicate names uniquify, no-project refusal. All three
+   languages ship at once as planned (Luau starter landed at P3).
 9. project_export (preset name) - thin wrapper over the export CLI path.
-10. THE AGENT SKILL: .claude/skills/draconic-mcp/SKILL.md shipped in-repo
+10. THE AGENT SKILL: .claude/skills/engine-mcp/SKILL.md (debranded
+    2026-08-17, matching the engine-mcp server name) shipped in-repo
     (supersedes the bare dogfood-config idea - it IS the config plus the
     operating manual): launch recipe, stdio wiring, "read tools/list before
     guessing", files-first rule, per-tool gotchas, tool etiquette. Keep it
