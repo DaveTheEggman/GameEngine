@@ -14,6 +14,7 @@ import foundation.rhi;
 import foundation.rhi.null;
 import pipeline.core;
 import editor.core;
+import foundation.xml.serialization;
 import pipeline.importer;
 import foundation.image;
 import foundation.image.io;
@@ -540,4 +541,67 @@ TEST_CASE("texture.pipeline: block compression cook - format policy + exact cook
          image::ImageColorSpace::Linear, false, u8"scratch_texpipe_bc4", fmt, mips, payload);
     CHECK(fmt == rhi::TextureFormat::BC4RUnorm);
     CHECK(payload == expectedCompressed(rhi::TextureFormat::BC4RUnorm, mips));
+}
+
+TEST_CASE("texture.asset: pre-variants payloads (no usage/compression keys) still deserialize")
+{
+    // The XML serializer is STRICT - a missing key fails the whole payload - and the
+    // asset-variants fields were briefly read unconditionally, breaking ReadObject for EVERY
+    // pre-variants texture envelope (pages + thumbnails alike). The fields are v2-gated now:
+    // a v0 payload (exactly the old files' shape for these fields) must parse and keep the
+    // defaults; a CURRENT versioned round-trip must keep authored values.
+    using foundation::xml::XmlSerializerFactory;
+
+    // Old-shape payload: serialize WITHOUT a version scope (Version() == 0 skips the v2
+    // fields on write - producing the pre-variants key set).
+    foundation::core::MemoryStream oldBytes;
+    {
+        auto ctx = XmlSerializerFactory()(oldBytes, foundation::core::SerializeMode::Write);
+        REQUIRE(ctx.Get() != nullptr);
+        pipeline::TextureAsset asset;
+        asset.generateMipmaps = true; // a non-default pre-variants field must survive
+        asset.Serialize(*ctx->serializer);
+        REQUIRE(ctx->serializer->IsOk());
+        ctx->Flush(oldBytes);
+    }
+    {
+        (void)oldBytes.Seek(0, foundation::core::SeekOrigin::Begin);
+        auto ctx = XmlSerializerFactory()(oldBytes, foundation::core::SerializeMode::Read);
+        REQUIRE(ctx.Get() != nullptr);
+        pipeline::TextureAsset asset;
+        asset.usage = texcomp::TextureUsage::Normal; // must RESET to... no: v0 read skips the
+        asset.usage = texcomp::TextureUsage::Color;  // fields entirely - defaults stay put
+        asset.Serialize(*ctx->serializer);
+        CHECK(ctx->serializer->IsOk()); // the regression: this failed with NotFound pre-fix
+        CHECK(asset.generateMipmaps == true);
+        CHECK(asset.usage == texcomp::TextureUsage::Color);
+        CHECK(asset.compression == texcomp::CompressionChoice::Default);
+    }
+
+    // Current-format round-trip: the v2 scope writes AND reads the new fields.
+    foundation::core::MemoryStream newBytes;
+    {
+        auto ctx = XmlSerializerFactory()(newBytes, foundation::core::SerializeMode::Write);
+        pipeline::TextureAsset asset;
+        asset.usage = texcomp::TextureUsage::Normal;
+        asset.compression = texcomp::CompressionChoice::Quality;
+        foundation::core::BeginVersionedPayload(*ctx->serializer,
+                                                pipeline::TextureAsset::StaticType());
+        asset.Serialize(*ctx->serializer);
+        foundation::core::EndVersionedPayload(*ctx->serializer);
+        REQUIRE(ctx->serializer->IsOk());
+        ctx->Flush(newBytes);
+    }
+    {
+        (void)newBytes.Seek(0, foundation::core::SeekOrigin::Begin);
+        auto ctx = XmlSerializerFactory()(newBytes, foundation::core::SerializeMode::Read);
+        pipeline::TextureAsset asset;
+        foundation::core::BeginVersionedPayload(*ctx->serializer,
+                                                pipeline::TextureAsset::StaticType());
+        asset.Serialize(*ctx->serializer);
+        foundation::core::EndVersionedPayload(*ctx->serializer);
+        CHECK(ctx->serializer->IsOk());
+        CHECK(asset.usage == texcomp::TextureUsage::Normal);
+        CHECK(asset.compression == texcomp::CompressionChoice::Quality);
+    }
 }

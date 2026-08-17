@@ -65,8 +65,15 @@ export namespace pipeline{
         {
             pipeline::Asset::Serialize(ar); // fileName
             foundation::core::Serialize(ar, "colorSpace", colorSpace);
-            foundation::core::Serialize(ar, "usage", usage);
-            foundation::core::Serialize(ar, "compression", compression);
+            // v2 (asset-variants): usage + compression. The XML serializer is STRICT (a
+            // missing key fails the whole payload), so pre-variants envelopes MUST skip
+            // these reads - unconditional reads broke every pre-variants texture asset
+            // (ReadObject null: pages and thumbnails alike). v<2 keeps the defaults.
+            if (ar.Version() >= 2)
+            {
+                foundation::core::Serialize(ar, "usage", usage);
+                foundation::core::Serialize(ar, "compression", compression);
+            }
             foundation::core::Serialize(ar, "embeddedWidth", embeddedWidth);
             foundation::core::Serialize(ar, "embeddedHeight", embeddedHeight);
             foundation::core::Serialize(ar, "shape", shape);

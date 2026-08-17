@@ -58,13 +58,20 @@ TEST_CASE("TextureAsset blob snapshot round-trips every import setting")
     MemoryStream stream;
     {
         BinarySerializer writer(stream, SerializeMode::Write);
+        // The page snapshots under the VERSIONED scope (TextureAsset gates its v2 fields on
+        // ar.Version(); a scope-less serialize is v0 and drops them by design - that is the
+        // pre-variants-envelope migration fix).
+        BeginVersionedPayload(writer, pipeline::TextureAsset::StaticType());
         original.Serialize(writer);
+        EndVersionedPayload(writer);
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
     pipeline::TextureAsset restored;
     BinarySerializer reader(stream, SerializeMode::Read);
+    BeginVersionedPayload(reader, pipeline::TextureAsset::StaticType());
     restored.Serialize(reader);
+    EndVersionedPayload(reader);
 
     CHECK(restored.fileName.View() == original.fileName.View());
     CHECK(restored.colorSpace == image::ImageColorSpace::Linear);

@@ -24,7 +24,8 @@ using namespace foundation::texture;
 namespace pipeline{
     REFLECT_MEMBERS(TextureAsset, "rtti::pipeline::texture")
     {
-        builder.Attribute("displayName", String(u8"Texture"))
+        builder.DataVersion(2) // v2 = asset-variants usage/compression (see Serialize)
+            .Attribute("displayName", String(u8"Texture"))
             .Attribute("category", String(u8"Textures"))
             .Property<&TextureAsset::colorSpace>("colorSpace")
             .PropAttribute("displayName", String(u8"Color Space"))

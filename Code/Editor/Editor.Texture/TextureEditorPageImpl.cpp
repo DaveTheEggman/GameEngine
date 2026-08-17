@@ -462,7 +462,12 @@ namespace editor
         }
         MemoryStream stream;
         BinarySerializer ar(stream, SerializeMode::Write);
+        // Versioned scope: TextureAsset gates v2 fields on ar.Version() - a scope-less
+        // serialize reads/writes as v0 and silently drops them (the strict-serializer
+        // migration fix). Snapshot blobs are transient, so current-version is right.
+        BeginVersionedPayload(ar, pipeline::TextureAsset::StaticType());
         m_asset->Serialize(ar);
+        EndVersionedPayload(ar);
         const Span<const byte> bytes = stream.Bytes();
         blob.Reserve(bytes.Size());
         for (byte b : bytes)
@@ -482,7 +487,9 @@ namespace editor
         (void)stream.Write(blob.Data(), blob.Size());
         (void)stream.Seek(0, SeekOrigin::Begin);
         BinarySerializer ar(stream, SerializeMode::Read);
+        BeginVersionedPayload(ar, pipeline::TextureAsset::StaticType());
         m_asset->Serialize(ar);
+        EndVersionedPayload(ar);
         // Refresh in place (no grid rebuild - that would destroy editor views mid-event).
         for (const Function<void()>& refresher : m_refreshers)
         {
