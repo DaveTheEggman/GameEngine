@@ -61,6 +61,7 @@ export namespace editor::app
         RefPtr<ui::BakedSVGDrawable> moveUp;   // chevron up
         RefPtr<ui::BakedSVGDrawable> moveDown; // chevron down
         RefPtr<ui::BakedSVGDrawable> copy;     // duplicate (two documents)
+        RefPtr<ui::BakedSVGDrawable> edit;     // pen (open-for-editing affordance)
 
         void Initialize();
 
@@ -114,6 +115,11 @@ export namespace editor::app
         // Copy - two overlapping documents (duplicate a component).
         static constexpr StringView kCopy = u8R"svg(<svg viewBox="0 0 24 24">
   <path d="M16 1H4a2 2 0 00-2 2v12h2V3h12V1zm3 4H8a2 2 0 00-2 2v14a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2zm0 16H8V7h11v14z" fill="#E0E0E0"/>
+</svg>)svg";
+
+        // Edit - a pen at 45 degrees with a small nib notch (open-for-editing).
+        static constexpr StringView kEdit = u8R"svg(<svg viewBox="0 0 24 24">
+  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="#E0E0E0"/>
 </svg>)svg";
 
         // Rotate gizmo - circular arrow.

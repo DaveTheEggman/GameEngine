@@ -214,14 +214,14 @@ namespace editor
             row->Spacing = 4.0f;
 
             auto slot = MakeRef<editor::app::AssetPickerSlot>(DefaultAllocator(), slotNames[i].AsView());
-            slot->FontSize.SetValue(Optional<f32>{12.0f});
-            slot->OnClick.Add([self, i](ui::ButtonBase*)
-                              {
-                                  if (self->OnPickSlot)
-                                  {
-                                      self->OnPickSlot(i);
-                                  }
-                              });
+            slot->SetFontSize(12.0f);
+            slot->OnPick = [self, i]()
+            {
+                if (self->OnPickSlot)
+                {
+                    self->OnPickSlot(i);
+                }
+            };
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Grow = 1.0f;
@@ -271,25 +271,46 @@ namespace editor
             return;
         }
         m_valueText = String(text);
-        if (m_button.Get() != nullptr)
+        if (m_slot.Get() != nullptr)
         {
-            m_button->SetText(m_valueText.AsView());
+            m_slot->SetValue(m_valueText.AsView(), HasValue());
         }
     }
 
     RefPtr<ui::View> ResourceRefEditor::CreateEditorView()
     {
-        m_button = MakeRef<ui::Button>(DefaultAllocator(), m_valueText.AsView());
+        m_slot = MakeRef<editor::app::AssetPickerSlot>(DefaultAllocator());
         ResourceRefEditor* self = this;
-        m_button->OnClick.Add(
-            [self](ui::ButtonBase*)
-            {
-                if (self->OnPick)
-                {
-                    self->OnPick();
-                }
-            });
-        return RefPtr<ui::View>(m_button.Get());
+        // Forward only the affordances the consumer wired - unwired ones stay hidden.
+        if (OnPick)
+        {
+            m_slot->OnPick = [self]() { self->OnPick(); };
+        }
+        if (OnEdit)
+        {
+            m_slot->OnEdit = [self]() { self->OnEdit(); };
+        }
+        if (OnClear)
+        {
+            m_slot->OnClear = [self]() { self->OnClear(); };
+        }
+        if (OnReveal)
+        {
+            m_slot->OnReveal = [self]() { self->OnReveal(); };
+        }
+        if (OnAssignDropped)
+        {
+            m_slot->OnAssignDropped = [self](const Guid& id) { self->OnAssignDropped(id); };
+        }
+        if (OnRejectedDrop)
+        {
+            m_slot->OnRejectedDrop = [self](StringView assetName, StringView typeName)
+            { self->OnRejectedDrop(assetName, typeName); };
+        }
+        m_slot->SetAcceptedTypes(m_acceptedTypes);
+        m_slot->SetPreviewIcon(m_previewIcon);
+        m_slot->SetValue(m_valueText.AsView(), HasValue());
+        return RefPtr<ui::View>(m_slot.Get());
     }
     void SceneInspectorView::Refresh()
     {

@@ -585,6 +585,34 @@ namespace editor::app
         m_breadcrumb->SetSegments(Span<StringView>{segments.Data(), segments.Size()});
     }
 
+    void AssetsView::Reveal(const Guid& id)
+    {
+        content::Instance* instance = Resolve(id);
+        if (instance == nullptr)
+        {
+            return;
+        }
+        SelectGroup(&instance->OwningGroup()); // navigate + rebuild the row list
+        for (usize i = 0; i < m_rows.Size(); ++i)
+        {
+            if (m_rows[i].group == nullptr && m_rows[i].id == id)
+            {
+                const i32 position = static_cast<i32>(i);
+                if (m_gridMode)
+                {
+                    m_grid->Selection.Select(position);
+                    m_grid->ScrollToPosition(position);
+                }
+                else
+                {
+                    m_list->Selection.Select(position);
+                    m_list->ScrollToPosition(position);
+                }
+                return;
+            }
+        }
+    }
+
     void AssetsView::NavigateToBreadcrumb(i32 segment)
     {
         if (segment >= 0 && segment < static_cast<i32>(m_breadcrumbGroups.Size()))

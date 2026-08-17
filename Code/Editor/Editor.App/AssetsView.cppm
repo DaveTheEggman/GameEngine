@@ -35,6 +35,7 @@ import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
 import :editor_icons;
+import :asset_drag_data;
 import :import_dialog;
 
 using namespace foundation::core;
@@ -254,6 +255,9 @@ export namespace editor::app
 
         /// Full rebuild: group tree + list (project open/close, create/delete/import).
         void Rebuild();
+        /// Reveal an instance in the browser (asset-picker-slot.md P3): navigate to its owning
+        /// group, select its row, and scroll it into view. Unknown Guids no-op.
+        void Reveal(const Guid& id);
 
         // Fill the available space.
         void OnMeasure(ui::BoxConstraints constraints) override;
@@ -282,11 +286,51 @@ export namespace editor::app
         // (the Sedulous registry-badge idiom: proper visual badges, not name-color tints). Dots draw
         // in local space after the children, so they sit on top of the icon in both list and grid.
         // Multiple dots stack right-to-left in a fixed priority order (export outermost). Set per-bind.
-        class AssetCell final : public ui::FlexLayout
+        class AssetCell final : public ui::FlexLayout, public ui::IDragSource
         {
         public:
             bool ShowExportBadge = false;   // green: an "Always Export" root
             bool ShowFavoriteBadge = false; // gold: a pinned favorite
+
+            /// Drag identity, bound per row by the adapters (instances only; groups do not
+            /// drag). The input layer walks ancestors for AsDragSource on left-press, so a
+            /// bound cell starts a potential drag automatically.
+            void BindDragPayload(const Guid& id, StringView typeName, StringView displayName)
+            {
+                m_dragId = id;
+                m_dragTypeName = String(typeName);
+                m_dragName = String(displayName);
+            }
+            void ClearDragPayload() { m_dragId = Guid{}; }
+
+            [[nodiscard]] ui::IDragSource* AsDragSource() override
+            {
+                return m_dragId.IsNil() ? nullptr : this;
+            }
+            [[nodiscard]] RefPtr<ui::DragData> CreateDragData() override
+            {
+                if (m_dragId.IsNil())
+                {
+                    return {};
+                }
+                return RefPtr<ui::DragData>(MakeRef<AssetDragData>(DefaultAllocator(), m_dragId,
+                                                                   m_dragTypeName.AsView(),
+                                                                   m_dragName.AsView())
+                                                .Get());
+            }
+            [[nodiscard]] RefPtr<ui::View> CreateDragVisual(ui::DragData*) override
+            {
+                return {}; // the default themed ghost
+            }
+            void OnDragStarted(ui::DragData*) override {}
+            void OnDragCompleted(ui::DragData*, ui::DragDropEffects, bool) override {}
+
+        private:
+            Guid m_dragId{};        // nil = not draggable (group rows)
+            String m_dragTypeName;
+            String m_dragName;
+
+        public:
             void OnDraw(ui::UIDrawContext& ctx) override
             {
                 ui::FlexLayout::OnDraw(ctx); // draw children (icon + name [+ meta])
@@ -451,6 +495,14 @@ export namespace editor::app
                 const Row* target = m_owner->RowAt(position);
                 name->BindTarget(target != nullptr ? target->id : Guid{},
                                  target != nullptr ? target->group : nullptr);
+                if (content::Instance* instance = m_owner->InstanceAt(position))
+                {
+                    row->BindDragPayload(instance->Id(), instance->TypeName(), instance->Name());
+                }
+                else
+                {
+                    row->ClearDragPayload();
+                }
                 String text;
                 Color color{0.85f, 0.85f, 0.85f, 1.0f};
                 m_owner->RowName(position, text, color);
@@ -534,6 +586,14 @@ export namespace editor::app
                 }
                 iconView->Drawable = ui::DrawablePtr(m_owner->RowIcon(position));
                 name->BindTarget(row->id, row->group);
+                if (content::Instance* instance = m_owner->InstanceAt(position))
+                {
+                    tile->BindDragPayload(instance->Id(), instance->TypeName(), instance->Name());
+                }
+                else
+                {
+                    tile->ClearDragPayload();
+                }
                 // The tile has no meta label: the name color carries the COOK status (favorite +
                 // export show as corner dots) and stays PURE (it is the inline-rename edit text).
                 String text;

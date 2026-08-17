@@ -61,6 +61,7 @@ namespace editor::app
         moveUp = ui::BakedSVGDrawable::FromString(kMoveUp);
         moveDown = ui::BakedSVGDrawable::FromString(kMoveDown);
         copy = ui::BakedSVGDrawable::FromString(kCopy);
+        edit = ui::BakedSVGDrawable::FromString(kEdit);
     }
 
     void EditorIcons::Shutdown()
@@ -88,6 +89,7 @@ namespace editor::app
         moveUp = nullptr;
         moveDown = nullptr;
         copy = nullptr;
+        edit = nullptr;
         m_initialized = false;
     }
 
@@ -98,7 +100,7 @@ namespace editor::app
         &translate, &rotate,     &scale,    &worldSpace, &localSpace, &grid,   &scene,
         &prefab,    &mesh,       &skinnedMesh, &material, &texture,   &particleFx,
         &animation, &animGraph,  &skeleton, &folder,     &unknown,    &close,
-        &add,       &remove,     &moveUp,   &moveDown,   &copy};
+        &add,       &remove,     &moveUp,   &moveDown,   &copy,       &edit};
     for (const RefPtr<ui::BakedSVGDrawable>* icon : all)
     {
         if (icon->Get() != nullptr)

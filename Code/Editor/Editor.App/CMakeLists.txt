@@ -38,6 +38,7 @@ target_sources(Editor.App
             PreferencesDialog.cppm
             EditorIcons.cppm
             AssetPickerSlot.cppm
+            AssetDragData.cppm
             ProjectManagerView.cppm
             Shell.cppm
             Application.cppm

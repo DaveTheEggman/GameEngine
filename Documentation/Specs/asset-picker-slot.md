@@ -1,7 +1,16 @@
 # Asset picker slot
 
-> STATUS: APPROVED WITH CORRECTIONS (Fable review 2026-08-16); Fable is
-> BUILDING this track. Rulings + corrections at the bottom are binding. The inspector's
+> STATUS: BUILT 2026-08-16 (Fable, P1-P3 in one pass). The composite slot is
+> [preview | name | Pick | Edit | Clear] per the user's Unity-style refinement
+> (preview click LOCATES, the dedicated Pick button opens the picker, name-click
+> also picks); the preview is the icon/thumbnail two-layer seam
+> (SetPreviewIcon fallback + SetPreviewThumbnail wins - asset-thumbnails.md
+> consumes it). Drop = accept-at-hover/validate-at-drop (the manager never
+> calls OnDrop for a None effect), accent ring for match, error ring + toast +
+> LOG_WARNING for mismatch; browser list rows + grid tiles are drag sources
+> (AssetDragData bound per row, groups excluded). Reveal navigates to the
+> owning group + selects + scrolls. Rulings + corrections below were applied
+> as written. The inspector's
 > resource-reference control, upgraded from a bare button to a 3-control slot with
 > drag-drop. Cross-cutting: it is the widget EVERY `resource::Ref<T>` inspector
 > field uses, so it lands on the reflected-inspector track

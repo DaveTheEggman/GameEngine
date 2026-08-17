@@ -1,4 +1,4 @@
-add_executable(Editor.App.Tests TestsMain.cpp ShellTests.cpp LogViewTests.cpp ToolPanelTests.cpp)
+add_executable(Editor.App.Tests TestsMain.cpp ShellTests.cpp LogViewTests.cpp ToolPanelTests.cpp AssetPickerSlotTests.cpp)
 target_link_libraries(Editor.App.Tests PRIVATE Editor::App Editor::Core Editor::ViewportTools doctest::doctest)
 target_compile_definitions(Editor.App.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Editor.App.Tests PRIVATE

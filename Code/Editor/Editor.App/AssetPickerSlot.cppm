@@ -1,36 +1,302 @@
 // Editor App - :asset_picker_slot partition
 //
-// A reference "slot": a button that shows the current asset's name (or a placeholder like "None"),
-// clickable (via the inherited OnClick) to open a type-filtered asset picker the consumer wires.
-// Reusable across asset-ref pickers. The reserved preview drawable is where an asset THUMBNAIL will
-// render alongside the text in future (which is why this lives in the editor-app layer, not the
-// asset-agnostic UI framework). For now it renders exactly like its text-button base.
+// The asset reference "slot" (asset-picker-slot.md): a horizontal composite
+//   [ preview ][ asset name (grows) ][ Pick ][ Edit ][ Clear ]
+// Unity-style affordances (user 2026-08-16): preview click LOCATES the asset in the browser,
+// the dedicated Pick button (folder glyph) opens the type-filtered picker - and clicking the
+// name body also picks (the discoverable-and-the-convenient pair).
+// used by every resource-ref inspector row and the material list-slot rows. Affordances render
+// only when their callback is WIRED (correction C1: the entity-ref twin wires OnPick alone and
+// degrades to a plain name button), and Edit/Clear/preview disable while the slot is empty.
+// P2 makes it a type-filtered drop target for asset-browser drags; the preview icon is the
+// asset TYPE glyph until real thumbnails land (asset-thumbnails.md).
+//
+// Wiring order: set the callbacks first, then call SetValue - SetValue synchronizes the
+// affordances (visibility from wiring, enabled-state from has-value).
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
 export module editor.app:asset_picker_slot;
 
 import foundation.core;
 import foundation.ui;
+import :editor_icons;
+import :asset_drag_data;
 
 using namespace foundation::core;
 namespace ui = foundation::ui;
 
 export namespace editor::app
 {
-    class AssetPickerSlot : public ui::Button
+    class AssetPickerSlot : public ui::FlexLayout, public ui::IDropTarget
     {
-        RTTI_OBJECT(AssetPickerSlot, ui::Button)
+        RTTI_OBJECT(AssetPickerSlot, ui::FlexLayout)
     public:
-        explicit AssetPickerSlot(StringView text) : ui::Button(text) {}
+        /// Click the name body = (re)assign via the picker dialog.
+        Function<void()> OnPick;
+        /// Open the referenced asset for editing (EditorContext::OpenAsset routing).
+        Function<void()> OnEdit;
+        /// Clear the reference (must route the consumer's undoable command).
+        Function<void()> OnClear;
+        /// Reveal the referenced asset in the asset browser (preview click).
+        Function<void()> OnReveal;
+        /// A type-matching asset was dropped on the slot - assign it (the consumer's undoable
+        /// command; the same write the picker takes).
+        Function<void(const Guid&)> OnAssignDropped;
+        /// A WRONG-TYPE asset was dropped: (asset display name, its type name). The slot already
+        /// LOG_WARNINGs; wire this for the toast.
+        Function<void(StringView, StringView)> OnRejectedDrop;
 
-        /// Reserved: an asset thumbnail to render alongside the text (not yet drawn).
-        void SetPreview(ui::SVGDrawable* preview) { m_preview = preview; }
+        explicit AssetPickerSlot(StringView name = {})
+        {
+            Direction = ui::Orientation::Horizontal;
+            Spacing = 2.0f;
+            EditorIcons& icons = EditorIcons::Get(); // null drawables pre-Initialize (tests)
+
+            // Preview = a clickable drawable host: the asset TYPE glyph now, swapped for the
+            // real thumbnail once one exists (asset-thumbnails.md) - the icon stays the
+            // fallback while no thumbnail is generated.
+            auto previewContent =
+                MakeRef<ui::DrawableView>(DefaultAllocator(), ui::DrawablePtr{}, 14.0f, 14.0f);
+            m_previewDrawable = previewContent.Get();
+            auto preview = MakeRef<ui::ContentButton>(DefaultAllocator(),
+                                                      RefPtr<ui::View>(previewContent.Get()));
+            m_preview = preview.Get();
+            m_preview->TooltipText = String(u8"Reveal in asset browser");
+            m_preview->OnClick.Add(
+                [this](ui::ButtonBase*)
+                {
+                    if (OnReveal)
+                    {
+                        OnReveal();
+                    }
+                });
+            AddView(preview.Get());
+
+            auto body = MakeRef<ui::Button>(DefaultAllocator(),
+                                            name.Size() > 0 ? name : StringView(u8"(none)"));
+            m_body = body.Get();
+            m_body->OnClick.Add(
+                [this](ui::ButtonBase*)
+                {
+                    if (OnPick)
+                    {
+                        OnPick();
+                    }
+                });
+            {
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Grow = 1.0f;
+                AddView(body.Get(), Move(lp));
+            }
+
+            auto pick = MakeRef<ui::IconButton>(DefaultAllocator(), icons.folder.Get(), 14.0f);
+            m_pick = pick.Get();
+            m_pick->TooltipText = String(u8"Choose asset");
+            m_pick->OnClick.Add(
+                [this](ui::ButtonBase*)
+                {
+                    if (OnPick)
+                    {
+                        OnPick();
+                    }
+                });
+            AddView(pick.Get());
+
+            auto edit = MakeRef<ui::IconButton>(DefaultAllocator(), icons.edit.Get(), 14.0f);
+            m_edit = edit.Get();
+            m_edit->TooltipText = String(u8"Edit asset");
+            m_edit->OnClick.Add(
+                [this](ui::ButtonBase*)
+                {
+                    if (OnEdit)
+                    {
+                        OnEdit();
+                    }
+                });
+            AddView(edit.Get());
+
+            auto clear = MakeRef<ui::IconButton>(DefaultAllocator(), icons.close.Get(), 14.0f);
+            m_clear = clear.Get();
+            m_clear->TooltipText = String(u8"Clear reference");
+            m_clear->OnClick.Add(
+                [this](ui::ButtonBase*)
+                {
+                    if (OnClear)
+                    {
+                        OnClear();
+                    }
+                });
+            AddView(clear.Get());
+
+            SyncAffordances(false);
+        }
+
+        /// The current reference display: name text + whether a real asset is referenced.
+        /// Also synchronizes affordance visibility/enabled-state - call after wiring callbacks.
+        void SetValue(StringView name, bool hasValue)
+        {
+            m_hasValue = hasValue;
+            m_body->SetText(hasValue && name.Size() > 0 ? name : StringView(u8"(none)"));
+            SyncAffordances(hasValue);
+        }
+
+        /// The asset TYPE glyph for the preview (EditorIcons::ForAssetType) - the FALLBACK
+        /// layer, shown whenever no thumbnail is set.
+        void SetPreviewIcon(ui::SVGDrawable* icon)
+        {
+            m_previewIcon = icon;
+            ApplyPreview();
+            SyncAffordances(m_hasValue);
+        }
+
+        /// A generated thumbnail (any drawable - image once asset-thumbnails.md lands). Wins
+        /// over the type icon while set; pass empty to fall back to the icon.
+        void SetPreviewThumbnail(ui::DrawablePtr thumbnail)
+        {
+            m_previewThumbnail = Move(thumbnail);
+            ApplyPreview();
+            SyncAffordances(m_hasValue);
+        }
+
+        /// Body text size passthrough (list-slot rows run compact chrome).
+        void SetFontSize(f32 size) { m_body->FontSize.SetValue(Optional<f32>{size}); }
+
+        /// The asset-type names this slot accepts (the picker's filter list). Non-empty makes
+        /// the slot a drop target for asset-browser drags.
+        void SetAcceptedTypes(Array<String> types) { m_acceptedTypes = Move(types); }
+
+        // === IDropTarget (asset-browser drags; asset-picker-slot.md P2) ===
+        // Any asset drag is ACCEPTED at hover level so OnDrop can warn on a type mismatch
+        // (the manager never calls OnDrop for a None effect); the hover cue distinguishes
+        // match (accent ring) from mismatch (error ring).
+        [[nodiscard]] ui::IDropTarget* AsDropTarget() override
+        {
+            return m_acceptedTypes.Size() > 0 ? this : nullptr;
+        }
+        [[nodiscard]] ui::DragDropEffects CanAcceptDrop(ui::DragData* data, f32, f32) override
+        {
+            return Cast<AssetDragData>(data) != nullptr ? ui::DragDropEffects::Link
+                                                              : ui::DragDropEffects::None;
+        }
+        void OnDragEnter(ui::DragData* data, f32, f32) override
+        {
+            auto* asset = Cast<AssetDragData>(data);
+            m_dropHover = asset != nullptr;
+            m_dropMatches = asset != nullptr && TypeAccepted(asset->AssetTypeName.AsView());
+            Invalidate();
+        }
+        void OnDragOver(ui::DragData*, f32, f32) override {}
+        void OnDragLeave(ui::DragData*) override
+        {
+            m_dropHover = false;
+            Invalidate();
+        }
+        [[nodiscard]] ui::DragDropEffects OnDrop(ui::DragData* data, f32, f32) override
+        {
+            m_dropHover = false;
+            Invalidate();
+            auto* asset = Cast<AssetDragData>(data);
+            if (asset == nullptr)
+            {
+                return ui::DragDropEffects::None;
+            }
+            if (!TypeAccepted(asset->AssetTypeName.AsView()))
+            {
+                LOG_WARNING(u8"Assets", u8"'{}' is a {} - this slot does not accept it",
+                            asset->DisplayName, asset->AssetTypeName);
+                if (OnRejectedDrop)
+                {
+                    OnRejectedDrop(asset->DisplayName.AsView(), asset->AssetTypeName.AsView());
+                }
+                return ui::DragDropEffects::None;
+            }
+            if (OnAssignDropped)
+            {
+                OnAssignDropped(asset->Id);
+            }
+            return ui::DragDropEffects::Link;
+        }
+
+        void OnDraw(ui::UIDrawContext& ctx) override
+        {
+            ui::FlexLayout::OnDraw(ctx);
+            if (m_dropHover)
+            {
+                // Match = accent ring, mismatch = error ring (themed; literals are fallbacks).
+                const Color ring =
+                    m_dropMatches
+                        ? ResolveStyleColor(ui::StyleProperty::AccentColor,
+                                            Color{80.0f / 255.0f, 150.0f / 255.0f,
+                                                  240.0f / 255.0f, 1.0f})
+                        : ResolveStyleColor(ui::StyleProperty::ErrorColor,
+                                            Color{210.0f / 255.0f, 60.0f / 255.0f,
+                                                  60.0f / 255.0f, 1.0f});
+                ctx.VG().StrokeRect(Rectangle{0, 0, Width(), Height()}, ring, 2.0f);
+            }
+        }
+
+        [[nodiscard]] bool HasValue() const noexcept { return m_hasValue; }
+        [[nodiscard]] ui::Button* BodyButton() noexcept { return m_body; }
+        [[nodiscard]] ui::IconButton* PickButton() noexcept { return m_pick; }
+        [[nodiscard]] ui::IconButton* EditButton() noexcept { return m_edit; }
+        [[nodiscard]] ui::IconButton* ClearButton() noexcept { return m_clear; }
+        [[nodiscard]] ui::ContentButton* PreviewButton() noexcept { return m_preview; }
 
     private:
-        [[maybe_unused]] ui::SVGDrawable* m_preview = nullptr; // future: thumbnail preview
+        [[nodiscard]] bool TypeAccepted(StringView typeName) const
+        {
+            for (const String& accepted : m_acceptedTypes)
+            {
+                if (accepted.AsView() == typeName)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// Thumbnail wins; the type icon is the fallback layer.
+        void ApplyPreview()
+        {
+            m_previewDrawable->Drawable =
+                m_previewThumbnail ? m_previewThumbnail : ui::DrawablePtr(m_previewIcon);
+        }
+
+        /// Visibility follows WIRING (unwired affordances take no space); enabled-state
+        /// follows the value (Edit/Clear/reveal are inert on an empty slot).
+        void SyncAffordances(bool hasValue)
+        {
+            const bool preview = static_cast<bool>(OnReveal) || m_previewIcon != nullptr ||
+                                 static_cast<bool>(m_previewThumbnail);
+            m_preview->Visibility = preview ? ui::Visibility::Visible : ui::Visibility::Gone;
+            m_preview->IsEnabled = hasValue && static_cast<bool>(OnReveal);
+            // Picking works on an EMPTY slot by definition - visibility only.
+            m_pick->Visibility =
+                static_cast<bool>(OnPick) ? ui::Visibility::Visible : ui::Visibility::Gone;
+            m_edit->Visibility =
+                static_cast<bool>(OnEdit) ? ui::Visibility::Visible : ui::Visibility::Gone;
+            m_edit->IsEnabled = hasValue;
+            m_clear->Visibility =
+                static_cast<bool>(OnClear) ? ui::Visibility::Visible : ui::Visibility::Gone;
+            m_clear->IsEnabled = hasValue;
+        }
+
+        ui::ContentButton* m_preview = nullptr;    // owned by m_children
+        ui::DrawableView* m_previewDrawable = nullptr; // owned by the preview button
+        ui::Button* m_body = nullptr;              // owned by m_children
+        ui::IconButton* m_pick = nullptr;          // owned by m_children
+        ui::IconButton* m_edit = nullptr;          // owned by m_children
+        ui::IconButton* m_clear = nullptr;         // owned by m_children
+        ui::SVGDrawable* m_previewIcon = nullptr;  // borrowed (EditorIcons)
+        Array<String> m_acceptedTypes;             // drop filter (empty = not a drop target)
+        bool m_dropHover = false;                  // an asset drag is over the slot
+        bool m_dropMatches = false;                // ...and its type is accepted
+        ui::DrawablePtr m_previewThumbnail;        // owned; wins over the icon while set
+        bool m_hasValue = false;
     };
 
     RTTI_DEFINE_OBJECT(AssetPickerSlot, "rtti::editor::editor::app")

@@ -2229,6 +2229,21 @@ namespace editor::app
         AssetsView* assets = m_assetsView.Get();
         m_assetsView->OnOpenInstance = [this](foundation::content::Instance& instance)
         { (void)OpenInstancePage(instance); };
+        // The asset-slot Edit affordance (asset-picker-slot.md ruling 2): Guid -> instance ->
+        // the same page path the browser double-click takes. Grows a type branch (e.g.
+        // property-animation clips -> the in-scene panel) when panel editing surfaces land.
+        m_context.RevealAsset = [assets](const Guid& id) { assets->Reveal(id); };
+        m_context.OpenAsset = [this](const Guid& id)
+        {
+            if (m_project.Get() == nullptr)
+            {
+                return;
+            }
+            if (foundation::content::Instance* instance = m_project->SourceDb().GetInstance(id))
+            {
+                (void)OpenInstancePage(*instance);
+            }
+        };
         m_assetsView->OnCreate =
             [this](const editor::EditorContext::AssetCreator& creator,
                    foundation::content::Group* group) { CreateAndOpen(creator, group); };

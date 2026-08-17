@@ -58,6 +58,13 @@ export namespace editor
         /// Transient user-facing notification (toast). Unwired = falls back to the status bar,
         /// so pages can Notify unconditionally.
         Function<void(NoticeKind, StringView)> OnNotice;
+
+        /// Open the asset with this Guid for editing (asset-picker-slot.md ruling 2): the app
+        /// maps Guid -> content Instance -> the SAME page/panel path a browser double-click
+        /// takes. Null-tolerant (callers guard).
+        Function<void(const Guid&)> OpenAsset;
+        /// Reveal the asset with this Guid in the asset browser (select + scroll into view).
+        Function<void(const Guid&)> RevealAsset;
         void Notify(NoticeKind kind, StringView message);
 
         // === Project ===
