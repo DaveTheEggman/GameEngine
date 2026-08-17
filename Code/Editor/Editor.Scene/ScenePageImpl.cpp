@@ -107,7 +107,8 @@ namespace editor
         (void)UpdateViewportTools(viewportActive); // picking lives inside the select tool now
         if (m_propAnimPanel)
         {
-            m_propAnimPanel->Tick(m_isSimulating); // EDIT-only preview gate (no preview under Simulate)
+            // Advances editor playback + gates preview to EDIT (no preview/playback under Simulate).
+            m_propAnimPanel->Tick(dt, m_isSimulating);
         }
 
         // Per-scene debug draw (shows only where THIS scene renders; lists clear in

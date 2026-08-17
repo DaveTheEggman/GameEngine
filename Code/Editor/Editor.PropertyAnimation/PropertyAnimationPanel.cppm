@@ -73,14 +73,28 @@ export namespace editor
         [[nodiscard]] propanim::PropertyAnimationClip& Clip() override { return m_clip; }
         [[nodiscard]] EditorCommandStack& Commands() override { return *m_commands; }
         void MarkClipDirty() override { m_dirty = true; }
-        // The scrub moved: drive the runtime evaluation path onto the selected entity (live preview).
+        // The scrub moved (the Timeline scrubber, or a test). IGNORED while Playing - the transport
+        // owns the playhead then (D6 Editing|Playing ownership). Drives live preview off the new time.
         void OnScrubTimeChanged(f32 time) override;
         // The view rebuilt its rows - resync the Timeline duration to the (possibly new) clip length.
         void OnClipViewRebuilt() override;
 
         // === frame hooks (called by the scene page; replace the old IViewportTool seam) ===
-        void Tick(bool editingLocked); // caches the EDIT/Simulate gate; stands preview down when locked
+        // Advances playback by dt when Playing (drives the playhead + preview); caches the EDIT/Simulate
+        // gate and stands playback + preview down when locked. Only mutates widgets while playing, so an
+        // idle panel triggers zero redraws (A6 damage gate).
+        void Tick(f32 dt, bool editingLocked);
         void DrawOverlay(foundation::render::debug::DebugDraw& drawList); // preview marker overlay
+
+        // === transport (D6: Editing | Playing) ===
+        void Play();        // start/resume advancing from the current playhead (restarts if at the end)
+        void TogglePause(); // pause/resume while Playing (no-op when stopped)
+        void Stop();        // stop + rewind the playhead to 0 (shows the start pose)
+        void SetLooping(bool loop);
+        [[nodiscard]] bool IsLooping() const noexcept { return m_loop; }
+        [[nodiscard]] bool IsPlaying() const noexcept { return m_playing; }
+        [[nodiscard]] bool IsPaused() const noexcept { return m_paused; }
+        [[nodiscard]] f32 PlayheadTime() const noexcept { return m_playheadTime; }
 
         // === clip document management ===
         void NewClip();                        // create a clip asset in the project + load it
@@ -111,6 +125,10 @@ export namespace editor
         void ClearClip(); // drop the loaded clip (no asset written)
         void BuildChrome();
         void RefreshHeader();
+        void RefreshTransportButtons();     // sync transport button labels to the state
+        void Advance(f32 dt);               // move the playhead + drive preview (called while Playing)
+        void PreviewSelected(f32 time);     // preview the clip at `time` on the selected entity
+        void StopPlaybackInternal();        // stop advancing WITHOUT rewinding (Simulate override)
 
         // Header actions.
         void OnNew();
@@ -154,10 +172,21 @@ export namespace editor
         // Chrome + widgets (persistent - built once in the constructor).
         RefPtr<ui::Label> m_clipLabel;
         RefPtr<ui::Button> m_collapseButton;
+        RefPtr<ui::Button> m_playButton;
+        RefPtr<ui::Button> m_pauseButton;
+        RefPtr<ui::Button> m_loopButton;
         RefPtr<ui::toolkit::Timeline> m_timeline;
-        RefPtr<ui::FlexLayout> m_body; // Timeline + ClipEditorView; hidden when collapsed
+        RefPtr<ui::FlexLayout> m_body; // transport + Timeline + ClipEditorView; hidden when collapsed
         UniquePtr<ClipEditorView> m_view;
         bool m_collapsed = false;
+
+        // Transport (editor-local; D6 Editing|Playing). The loop toggle defaults to Loop, matching a
+        // fresh PropertyAnimatorComponent; seeding it from a specific bound animator instance is a
+        // deferred nicety (would couple the clip editor to engine.animation).
+        bool m_playing = false;
+        bool m_paused = false;
+        bool m_loop = true;
+        f32 m_playheadTime = 0.0f; // the transport clock (mirrored to the Timeline widget)
 
         // Preview state (transient; NEVER dirties the document or goes through undo).
         bool m_editingLocked = false; // last Tick's Simulate/Play gate (no preview when true)

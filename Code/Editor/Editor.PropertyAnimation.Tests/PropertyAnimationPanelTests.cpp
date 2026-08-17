@@ -286,13 +286,13 @@ TEST_CASE("propanim-panel: preview is disabled outside EDIT (Simulate/Play locks
     panel->Clip().tracks.PushBack(MakePositionTrack(9.0f, 9.0f, 9.0f));
 
     // Simulate is on (editingLocked): the frame tick stands the preview down.
-    panel->Tick(true);
+    panel->Tick(0.0f, true);
     panel->OnScrubTimeChanged(0.5f);
     CHECK_FALSE(panel->IsPreviewing());
     CHECK(mgr->Get(e)->position.x == doctest::Approx(1.0f)); // untouched
 
     // Back to EDIT: the same scrub now previews.
-    panel->Tick(false);
+    panel->Tick(0.0f, false);
     panel->OnScrubTimeChanged(0.5f);
     CHECK(panel->IsPreviewing());
     CHECK(mgr->Get(e)->position.x == doctest::Approx(9.0f));
@@ -427,4 +427,123 @@ TEST_CASE("propanim-panel: preview drives the entity's built-in Transform and re
     panel->StopPreview();
     CHECK(sc.GetLocalTransform(e).position.x == doctest::Approx(5.0f)); // restored
     CHECK(sc.GetLocalTransform(e).position.z == doctest::Approx(7.0f));
+}
+
+namespace
+{
+    // A Float3 position track on PreviewComp whose X ramps 0 -> x1 over [0,1] (y,z stay 0). Two keys
+    // -> duration 1, non-constant in X (default Linear interp) so the playhead position is observable.
+    propanim::PropertyTrack MakeRampTrack(f32 x1)
+    {
+        propanim::PropertyTrack track;
+        track.componentType = String(u8"PreviewComp");
+        track.propertyPath = String(u8"position");
+        track.kind = propanim::TrackValueKind::Float3;
+        track.channels[0].AddKey(Kv(0.0f, 0.0f));
+        track.channels[0].AddKey(Kv(1.0f, x1));
+        track.channels[1].AddKey(Kv(0.0f, 0.0f));
+        track.channels[2].AddKey(Kv(0.0f, 0.0f));
+        return track;
+    }
+
+    // A panel over a scene with one PreviewComp entity selected + a ramp track loaded.
+    struct RampFixture
+    {
+        scene::Scene sc{u8"xport"};
+        scene::ComponentManager<PreviewComp>* mgr = nullptr;
+        scene::EntityHandle e;
+        Selection<Guid> selection;
+        EditorContext editorCtx;
+        EditorCommandStack stack;
+        RefPtr<PropertyAnimationPanel> panel;
+
+        RampFixture()
+        {
+            mgr = sc.AddSystem<scene::ComponentManager<PreviewComp>>();
+            e = sc.CreateEntity(u8"e0");
+            mgr->Add(e).position = Float3{0.0f, 0.0f, 0.0f};
+            selection.Set(sc.GetEntityId(e));
+            panel = MakePanel(editorCtx, sc, stack, selection);
+            panel->Clip().tracks.PushBack(MakeRampTrack(10.0f)); // duration 1
+        }
+        [[nodiscard]] f32 X() const { return mgr->Get(e)->position.x; }
+    };
+}
+
+TEST_CASE("propanim-panel: transport advances the playhead each Tick and loops by default")
+{
+    EnsurePreviewCompRegistered();
+    RampFixture f;
+
+    CHECK_FALSE(f.panel->IsPlaying());
+    f.panel->Play();
+    CHECK(f.panel->IsPlaying());
+
+    f.panel->Tick(0.3f, false);
+    CHECK(f.panel->PlayheadTime() == doctest::Approx(0.3f));
+    f.panel->Tick(0.3f, false);
+    CHECK(f.panel->PlayheadTime() == doctest::Approx(0.6f));
+
+    // 0.6 + 0.6 = 1.2 -> wraps to 0.2 (loop defaults on), still playing.
+    f.panel->Tick(0.6f, false);
+    CHECK(f.panel->PlayheadTime() == doctest::Approx(0.2f));
+    CHECK(f.panel->IsPlaying());
+}
+
+TEST_CASE("propanim-panel: loop off clamps at the end and stops")
+{
+    EnsurePreviewCompRegistered();
+    RampFixture f;
+    f.panel->SetLooping(false);
+    CHECK_FALSE(f.panel->IsLooping());
+
+    f.panel->Play();
+    f.panel->Tick(2.0f, false); // past the end
+    CHECK(f.panel->PlayheadTime() == doctest::Approx(1.0f));
+    CHECK_FALSE(f.panel->IsPlaying());
+}
+
+TEST_CASE("propanim-panel: stop rewinds the playhead to 0")
+{
+    EnsurePreviewCompRegistered();
+    RampFixture f;
+    f.panel->Play();
+    f.panel->Tick(0.5f, false);
+    CHECK(f.panel->PlayheadTime() == doctest::Approx(0.5f));
+
+    f.panel->Stop();
+    CHECK(f.panel->PlayheadTime() == doctest::Approx(0.0f));
+    CHECK_FALSE(f.panel->IsPlaying());
+}
+
+TEST_CASE("propanim-panel: Simulate stops editor playback (Tick editingLocked)")
+{
+    EnsurePreviewCompRegistered();
+    RampFixture f;
+    f.panel->Play();
+    f.panel->Tick(0.1f, false);
+    CHECK(f.panel->IsPlaying());
+
+    f.panel->Tick(0.1f, true); // Simulate begins
+    CHECK_FALSE(f.panel->IsPlaying());
+}
+
+TEST_CASE("propanim-panel: playback drives the live preview; scrub is ignored while playing (D6)")
+{
+    EnsurePreviewCompRegistered();
+    RampFixture f;
+    f.panel->Play();
+    f.panel->Tick(0.5f, false);
+    CHECK(f.X() == doctest::Approx(5.0f)); // ramp midpoint previewed by the advance loop
+
+    // A scrub while actively playing is ignored - the transport owns the playhead (D6).
+    f.panel->OnScrubTimeChanged(0.9f);
+    CHECK(f.panel->PlayheadTime() == doctest::Approx(0.5f)); // unchanged
+    CHECK(f.X() == doctest::Approx(5.0f));                   // NOT jumped to 9
+
+    // Stopped -> a scrub now repositions the clock + preview.
+    f.panel->Stop();
+    f.panel->OnScrubTimeChanged(0.9f);
+    CHECK(f.panel->PlayheadTime() == doctest::Approx(0.9f));
+    CHECK(f.X() == doctest::Approx(9.0f));
 }

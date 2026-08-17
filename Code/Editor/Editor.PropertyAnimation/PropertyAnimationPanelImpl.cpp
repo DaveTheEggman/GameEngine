@@ -113,6 +113,7 @@ namespace editor
     {
         BuildChrome();
         RefreshHeader();
+        RefreshTransportButtons();
     }
 
     void PropertyAnimationPanel::BuildChrome()
@@ -159,22 +160,31 @@ namespace editor
             AddView(header.Get(), lp);
         }
 
-        // Body: the Timeline scrubber above the shared ClipEditorView. Hidden when collapsed.
+        // Body: [ transport | Timeline scrubber | shared ClipEditorView ]. Hidden when collapsed.
         m_body = MakeRef<ui::FlexLayout>(DefaultAllocator());
         m_body->Direction = ui::Orientation::Vertical;
         m_body->Spacing = 4.0f;
 
+        // Transport row: Play / Pause / Stop / Loop toggle.
+        auto transport = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        transport->Direction = ui::Orientation::Horizontal;
+        transport->Spacing = 4.0f;
+        m_playButton = addButton(*transport, u8"Play", 52.0f, [self]() { self->Play(); });
+        m_pauseButton = addButton(*transport, u8"Pause", 60.0f, [self]() { self->TogglePause(); });
+        addButton(*transport, u8"Stop", 52.0f, [self]() { self->Stop(); });
+        m_loopButton =
+            addButton(*transport, u8"Loop: on", 76.0f, [self]() { self->SetLooping(!self->m_loop); });
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(26));
+            m_body->AddView(transport.Get(), lp);
+        }
+
         m_timeline = MakeRef<ui::toolkit::Timeline>(DefaultAllocator());
         m_timeline->SetDuration(Max(m_clip.ComputeDuration(), 1.0f));
-        m_timeline->OnPlayheadMoved.Add(
-            [self](f32 t)
-            {
-                if (self->m_view)
-                {
-                    self->m_view->SetScrubTime(t);
-                }
-                self->OnScrubTimeChanged(t);
-            });
+        // The scrubber routes through OnScrubTimeChanged, which ignores it while Playing (D6).
+        m_timeline->OnPlayheadMoved.Add([self](f32 t) { self->OnScrubTimeChanged(t); });
         {
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
@@ -287,6 +297,14 @@ namespace editor
     void PropertyAnimationPanel::ClearClip()
     {
         StopPreview(); // never leave a live preview pointing at the old clip's tracks
+        m_playing = false; // a new document starts stopped at the top
+        m_paused = false;
+        m_playheadTime = 0.0f;
+        if (m_timeline.Get() != nullptr)
+        {
+            m_timeline->SetPlayheadTime(0.0f);
+        }
+        RefreshTransportButtons();
         m_clip = propanim::PropertyAnimationClip{};
         m_clipId = Guid{};
         m_clipName = String{};
@@ -429,16 +447,147 @@ namespace editor
         return found;
     }
 
-    void PropertyAnimationPanel::Tick(bool editingLocked)
+    void PropertyAnimationPanel::Tick(f32 dt, bool editingLocked)
     {
         m_editingLocked = editingLocked;
         if (m_editingLocked)
         {
-            StopPreview(); // no preview outside EDIT (Simulate/Play): restore + stand down
+            StopPlaybackInternal(); // no editor playback under Simulate/Play
+            StopPreview();          // restore + stand the preview down
+            return;
+        }
+        if (m_playing && !m_paused)
+        {
+            Advance(dt); // only Playing mutates widgets -> idle panel = zero redraws (A6)
+        }
+    }
+
+    // === transport (D6: Editing | Playing) ===
+
+    void PropertyAnimationPanel::Play()
+    {
+        if (m_clip.tracks.IsEmpty())
+        {
+            return;
+        }
+        const f32 dur = Max(m_clip.ComputeDuration(), 1e-3f);
+        if (m_playheadTime >= dur - 1e-4f)
+        {
+            m_playheadTime = 0.0f; // restart from the top if parked at the end
+        }
+        m_playing = true;
+        m_paused = false;
+        RefreshTransportButtons();
+    }
+
+    void PropertyAnimationPanel::TogglePause()
+    {
+        if (!m_playing)
+        {
+            return; // pause only means something while Playing
+        }
+        m_paused = !m_paused;
+        RefreshTransportButtons();
+    }
+
+    void PropertyAnimationPanel::Stop()
+    {
+        m_playing = false;
+        m_paused = false;
+        m_playheadTime = 0.0f;
+        if (m_timeline.Get() != nullptr)
+        {
+            m_timeline->SetPlayheadTime(0.0f);
+        }
+        if (m_view)
+        {
+            m_view->SetScrubTime(0.0f);
+        }
+        PreviewSelected(0.0f); // show the start pose
+        RefreshTransportButtons();
+    }
+
+    void PropertyAnimationPanel::StopPlaybackInternal()
+    {
+        if (!m_playing && !m_paused)
+        {
+            return;
+        }
+        m_playing = false;
+        m_paused = false;
+        RefreshTransportButtons();
+    }
+
+    void PropertyAnimationPanel::SetLooping(bool loop)
+    {
+        m_loop = loop;
+        RefreshTransportButtons();
+    }
+
+    void PropertyAnimationPanel::Advance(f32 dt)
+    {
+        if (m_clip.tracks.IsEmpty())
+        {
+            Stop();
+            return;
+        }
+        const f32 dur = Max(m_clip.ComputeDuration(), 1e-3f);
+        m_playheadTime += (dt > 0.0f) ? dt : 0.0f;
+        if (m_playheadTime >= dur)
+        {
+            if (m_loop)
+            {
+                while (m_playheadTime >= dur)
+                {
+                    m_playheadTime -= dur; // wrap (dt << dur, so a plain subtract loop is enough)
+                }
+            }
+            else
+            {
+                m_playheadTime = dur; // clamp + stop at the end
+                m_playing = false;
+                m_paused = false;
+                RefreshTransportButtons();
+            }
+        }
+        if (m_timeline.Get() != nullptr)
+        {
+            m_timeline->SetPlayheadTime(m_playheadTime); // the scrubber event is guarded while playing
+        }
+        if (m_view)
+        {
+            m_view->SetScrubTime(m_playheadTime);
+        }
+        PreviewSelected(m_playheadTime); // the advance loop owns the playhead -> preview directly (D6)
+    }
+
+    void PropertyAnimationPanel::RefreshTransportButtons()
+    {
+        if (m_pauseButton.Get() != nullptr)
+        {
+            m_pauseButton->SetText(m_paused ? StringView(u8"Resume") : StringView(u8"Pause"));
+        }
+        if (m_loopButton.Get() != nullptr)
+        {
+            m_loopButton->SetText(m_loop ? StringView(u8"Loop: on") : StringView(u8"Loop: off"));
         }
     }
 
     void PropertyAnimationPanel::OnScrubTimeChanged(f32 time)
+    {
+        if (m_playing && !m_paused)
+        {
+            return; // D6: active playback owns the playhead; a scrub is ignored
+        }
+        m_playheadTime = time; // a scrub (Editing or Paused) repositions the transport clock
+        if (m_view)
+        {
+            m_view->SetScrubTime(time); // keep the sampled-value readout in step with the scrubber
+        }
+        PreviewSelected(time);
+    }
+
+    void PropertyAnimationPanel::PreviewSelected(f32 time)
     {
         if (m_clip.tracks.IsEmpty() || m_editingLocked || m_scene == nullptr || m_selection == nullptr)
         {
