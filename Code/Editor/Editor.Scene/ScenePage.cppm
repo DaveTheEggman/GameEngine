@@ -52,6 +52,7 @@ import editor.viewporttools;
 import :component_gizmos;
 import :hierarchy;
 import :inspector;
+import :entity_picker_dialog; // the animation panel's Bind... target
 
 using namespace foundation::core;
 namespace rhi = foundation::rhi;
@@ -258,6 +259,60 @@ export namespace editor
                     });
             }
 
+            // Clip-editing workflow wiring (property-animation-editor.md, 2026-08-17):
+            // 1) the panel's Bind... button opens THIS page's entity picker (the panel cannot
+            //    depend on editor.scene, so the page injects it);
+            // 2) opening a PropertyAnimationClipAsset while this page is on screen is CLAIMED
+            //    into the animation bar (the animator slot's pencil routes through the shared
+            //    open-asset path), auto-binding the current primary selection; any other page
+            //    state falls through to the generic asset page.
+            {
+                SceneEditorPage* page = this;
+                m_propAnimPanel->RequestEntityPick =
+                    [page](const Guid& current,
+                           Function<void(const Guid&)> onPicked)
+                {
+                    foundation::ui::UIContext* ctx = page->m_propAnimPanel->Context;
+                    if (ctx == nullptr)
+                    {
+                        return;
+                    }
+                    auto dialog = MakeRef<EntityPickerDialog>(DefaultAllocator(),
+                                                              page->m_editContext->Scene(),
+                                                              current);
+                    dialog->OnPicked = [cb = Move(onPicked)](const Guid& picked)
+                    {
+                        if (cb && !picked.IsNil()) // [Clear] means "keep the binding"
+                        {
+                            cb(picked);
+                        }
+                    };
+                    dialog->Show(ctx);
+                };
+                m_openAssetInterceptorId = m_context->AddOpenAssetInterceptor(
+                    [page](foundation::content::Instance& instance) -> bool
+                    {
+                        if (instance.TypeName() !=
+                            StringView(u8"PropertyAnimationClipAsset"))
+                        {
+                            return false; // not ours
+                        }
+                        // Only the page ON SCREEN claims - a background scene page must not
+                        // swallow an open meant for the visible one (or the generic page).
+                        if (page->m_content.Get() == nullptr ||
+                            !page->m_content->IsEffectivelyVisible())
+                        {
+                            return false;
+                        }
+                        page->m_bottomDock->ActivateTab(u8"animation"); // expand the bar
+                        const Guid* primary =
+                            page->m_editContext->EntitySelection().Primary();
+                        page->m_propAnimPanel->RequestEditClip(
+                            instance.Id(), (primary != nullptr) ? *primary : Guid{});
+                        return true;
+                    });
+            }
+
             // Page layout: [ hierarchy | (viewport-column | inspector) ].
             auto inner = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
             inner->SetSplitRatio(0.72f);
@@ -272,6 +327,17 @@ export namespace editor
 
             // Start framed on the origin (grid center), orbit pivot there, horizon level.
             m_camera.LookAt(Float3{0.0f, 0.0f, 0.0f});
+        }
+
+        ~SceneEditorPage() override
+        {
+            // OnClose removes it on the normal close path; this is the backstop - the
+            // interceptor captures a raw `this` and must never outlive the page.
+            if (m_openAssetInterceptorId != 0)
+            {
+                m_context->RemoveOpenAssetInterceptor(m_openAssetInterceptorId);
+                m_openAssetInterceptorId = 0;
+            }
         }
 
         // === UIEditorPage ===
@@ -447,6 +513,7 @@ export namespace editor
         RefPtr<PropertyAnimationPanel> m_propAnimPanel;
         RefPtr<foundation::ui::toolkit::BottomDock> m_bottomDock;   // the collapsible bottom strip
         RefPtr<foundation::ui::toolkit::SplitView> m_viewportColumn; // [viewport / bottom dock] vsplit
+        u64 m_openAssetInterceptorId = 0; // the clip-open claim (removed in the destructor)
         RefPtr<ui::viewport::ViewportView> m_viewport;
 
         // Camera preview (task #118): a small bottom-right overlay showing a selected/pinned camera's

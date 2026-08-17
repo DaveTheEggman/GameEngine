@@ -203,8 +203,10 @@ namespace editor
     {
         BuildChrome();
         RefreshHeader();
+        RefreshEntitySlot();
         RefreshTransportButtons();
         BuildLanes();
+        RefreshClipStateUI(); // no clip yet -> the empty state is the whole panel
     }
 
     void PropertyAnimationPanel::BuildChrome()
@@ -227,28 +229,89 @@ namespace editor
             return button;
         };
 
-        // Header: New / Pick / + From Selection / Save + clip label. (Collapse/expand is the dock's job.)
-        auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
-        header->Direction = ui::Orientation::Horizontal;
-        header->Spacing = 4.0f;
-        addButton(*header, u8"New", 52.0f, [self]() { self->OnNew(); });
-        addButton(*header, u8"Pick...", 60.0f, [self]() { self->OnPick(); });
-        addButton(*header, u8"+ From Selection", 128.0f, [self]() { self->OnAddFromSelection(); });
-        m_addTrackButton = addButton(*header, u8"+ Track", 62.0f, [self]() { self->OnAddTrackMenu(); });
-        addButton(*header, u8"Save", 52.0f, [self]() { self->OnSave(); });
+        // Header (only shown with a clip loaded - workflow 2026-08-17): document actions +
+        // clip label + the BOUND-ENTITY slot. (Collapse/expand is the dock's job.)
+        m_header = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_header->Direction = ui::Orientation::Horizontal;
+        m_header->Spacing = 4.0f;
+        addButton(*m_header, u8"Create...", 70.0f, [self]() { self->OnCreateClip(); });
+        addButton(*m_header, u8"Open...", 62.0f, [self]() { self->OnOpenClip(); });
+        addButton(*m_header, u8"Save", 52.0f, [self]() { self->OnSave(); });
+        addButton(*m_header, u8"+ Tracks", 72.0f, [self]() { self->OnAddFromSelection(); });
+        m_addTrackButton =
+            addButton(*m_header, u8"+ Track", 62.0f, [self]() { self->OnAddTrackMenu(); });
         m_clipLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
         m_clipLabel->FontSize.SetValue(11.0f);
         {
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Grow = 1.0f;
             lp->Height = ui::SizeSpec::Match();
-            header->AddView(m_clipLabel.Get(), lp);
+            m_header->AddView(m_clipLabel.Get(), lp);
         }
+        // The bound-entity slot: preview/keying/seeding target THIS entity, never the live
+        // selection - "Use Selected" is where selection enters, "Bind..." opens the scene
+        // page's entity picker through the RequestEntityPick seam.
+        m_entityLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+        m_entityLabel->FontSize.SetValue(11.0f);
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(170));
+            lp->Height = ui::SizeSpec::Match();
+            m_header->AddView(m_entityLabel.Get(), lp);
+        }
+        addButton(*m_header, u8"Bind...", 58.0f,
+                  [self]()
+                  {
+                      if (!self->RequestEntityPick)
+                      {
+                          return; // no host wiring (headless) - the slot is read-only then
+                      }
+                      self->RequestEntityPick(self->m_boundEntity,
+                                              [self](const Guid& picked)
+                                              {
+                                                  if (!picked.IsNil())
+                                                  {
+                                                      self->BindEntity(picked);
+                                                  }
+                                              });
+                  });
+        addButton(*m_header, u8"Use Selected", 96.0f, [self]() { self->BindSelectedEntity(); });
         {
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(26));
-            AddView(header.Get(), lp);
+            AddView(m_header.Get(), lp);
+        }
+
+        // The EXCLUSIVE empty state: no clip -> just the message + Create/Open (no tracks, no
+        // transport, no editing surface - the workflow leaves no gap for silent saves).
+        m_emptyState = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_emptyState->Direction = ui::Orientation::Vertical;
+        m_emptyState->Spacing = 8.0f;
+        m_emptyState->Padding = ui::Thickness{12, 12};
+        {
+            auto message = MakeRef<ui::Label>(DefaultAllocator(),
+                                              StringView(u8"No animation clip selected for editing."));
+            message->FontSize.SetValue(12.0f);
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            m_emptyState->AddView(message.Get(), lp);
+        }
+        {
+            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            row->Direction = ui::Orientation::Horizontal;
+            row->Spacing = 6.0f;
+            addButton(*row, u8"Create Clip...", 104.0f, [self]() { self->OnCreateClip(); });
+            addButton(*row, u8"Open Clip...", 96.0f, [self]() { self->OnOpenClip(); });
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(26));
+            m_emptyState->AddView(row.Get(), lp);
+        }
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            AddView(m_emptyState.Get(), lp);
         }
 
         // Body: [ transport | Timeline scrubber | shared ClipEditorView ]. Hidden when collapsed.
@@ -337,22 +400,16 @@ namespace editor
 
     void PropertyAnimationPanel::RefreshHeader()
     {
+        // The header only shows with a clip loaded (the empty state owns the no-clip case).
         String text;
         if (HasClip())
         {
             text = String(u8"Clip: ");
             text += ClipName();
-        }
-        else if (!m_clip.tracks.IsEmpty())
-        {
-            // Tracks exist but no asset is loaded yet (e.g. + From Selection before Save/Pick).
-            text = String(u8"Clip: (unsaved) ");
-            AppendValue(text, static_cast<i32>(m_clip.tracks.Size()));
-            text += u8" track(s)";
-        }
-        else
-        {
-            text = String(u8"Clip: (none - Pick or + From Selection)");
+            if (m_dirty)
+            {
+                text += u8" *";
+            }
         }
         if (!m_statusFlash.IsEmpty())
         {
@@ -375,40 +432,204 @@ namespace editor
 
     // === header actions ===
 
-    void PropertyAnimationPanel::OnNew()
+    void PropertyAnimationPanel::RunDirtyGuarded(Function<void()> proceed)
     {
-        NewClip();
-        if (m_view)
-        {
-            m_view->ResetForClip();
-        }
-        RefreshHeader();
-    }
-
-    void PropertyAnimationPanel::OnPick()
-    {
-        ui::UIContext* ctx = this->Context;
-        if (ctx == nullptr || m_editorCtx->Project() == nullptr)
+        if (!proceed)
         {
             return;
         }
-        Array<String> types;
-        types.PushBack(String(u8"PropertyAnimationClipAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_editorCtx, Move(types));
-        PropertyAnimationPanel* self = this;
-        dialog->OnPicked = [self](const Guid& picked)
+        if (!HasClip() || !m_dirty)
         {
-            if (!picked.IsNil())
+            proceed();
+            return;
+        }
+        ui::UIContext* ctx = this->Context;
+        if (ctx == nullptr)
+        {
+            proceed(); // headless (tests): no dialog host to ask - the caller decided
+            return;
+        }
+        String message = String(u8"Clip '");
+        message += m_clipName.AsView();
+        message += u8"' has unsaved changes.";
+        const StringView choices[] = {u8"Save", u8"Discard", u8"Cancel"};
+        auto dialog =
+            MakeRef<app::ConfirmDialog>(DefaultAllocator(), StringView(u8"Unsaved Clip"),
+                                        message.AsView(), Span<const StringView>(choices, 3));
+        PropertyAnimationPanel* self = this;
+        dialog->OnChosen = [self, fn = Move(proceed)](usize choice)
+        {
+            if (choice == 2)
             {
-                self->LoadClip(picked);
-                if (self->m_view)
-                {
-                    self->m_view->ResetForClip();
-                }
-                self->RefreshHeader();
+                return; // Cancel: keep editing the current clip
             }
+            if (choice == 0)
+            {
+                self->SaveClip();
+                if (self->m_dirty)
+                {
+                    return; // the save FAILED (header flashed why) - don't lose the edits too
+                }
+            }
+            fn();
         };
         dialog->Show(ctx);
+    }
+
+    void PropertyAnimationPanel::OnCreateClip()
+    {
+        PropertyAnimationPanel* self = this;
+        RunDirtyGuarded(
+            [self]()
+            {
+                ui::UIContext* ctx = self->Context;
+                if (ctx == nullptr || self->m_editorCtx->Project() == nullptr)
+                {
+                    return;
+                }
+                auto dialog = MakeRef<app::AssetCreateDialog>(DefaultAllocator(),
+                                                              *self->m_editorCtx,
+                                                              u8"Create Animation Clip",
+                                                              u8"clip name");
+                dialog->OnCreate =
+                    [self](foundation::content::Group& group, StringView name)
+                {
+                    foundation::content::Instance* inst =
+                        CreatePropertyAnimationClipNamed(*self->m_editorCtx, group, name);
+                    if (inst == nullptr)
+                    {
+                        LOG_WARNING(u8"PropertyAnimation", u8"Create clip '{}' failed", name);
+                        return;
+                    }
+                    self->LoadClip(inst->Id()); // the guid is the open/identity currency
+                };
+                dialog->Show(ctx);
+            });
+    }
+
+    void PropertyAnimationPanel::OnOpenClip()
+    {
+        PropertyAnimationPanel* self = this;
+        RunDirtyGuarded(
+            [self]()
+            {
+                ui::UIContext* ctx = self->Context;
+                if (ctx == nullptr || self->m_editorCtx->Project() == nullptr)
+                {
+                    return;
+                }
+                Array<String> types;
+                types.PushBack(String(u8"PropertyAnimationClipAsset"));
+                auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(),
+                                                              *self->m_editorCtx, Move(types));
+                dialog->OnPicked = [self](const Guid& picked)
+                {
+                    if (!picked.IsNil())
+                    {
+                        self->LoadClip(picked);
+                    }
+                };
+                dialog->Show(ctx);
+            });
+    }
+
+    void PropertyAnimationPanel::RequestEditClip(const Guid& clipId, const Guid& bindEntity)
+    {
+        if (clipId.IsNil())
+        {
+            return;
+        }
+        if (m_clipId == clipId)
+        {
+            // Already the open document (dirty or not) - just honor the binding request.
+            if (!bindEntity.IsNil())
+            {
+                BindEntity(bindEntity);
+            }
+            return;
+        }
+        PropertyAnimationPanel* self = this;
+        const Guid clip = clipId;
+        const Guid entity = bindEntity;
+        RunDirtyGuarded(
+            [self, clip, entity]()
+            {
+                self->LoadClip(clip);
+                if (self->m_clipId == clip && !entity.IsNil())
+                {
+                    self->BindEntity(entity); // the pencil's animator entity auto-binds
+                }
+            });
+    }
+
+    // === the bound entity ===
+
+    void PropertyAnimationPanel::BindEntity(const Guid& entityId)
+    {
+        if (m_boundEntity == entityId)
+        {
+            return;
+        }
+        StopPreview(); // the preview snapshot belongs to the OLD binding - restore it first
+        m_boundEntity = entityId;
+        RefreshEntitySlot();
+    }
+
+    void PropertyAnimationPanel::BindSelectedEntity()
+    {
+        const Guid* primary = (m_selection != nullptr) ? m_selection->Primary() : nullptr;
+        if (primary == nullptr)
+        {
+            FlashStatus(u8"bind: nothing selected");
+            return;
+        }
+        BindEntity(*primary);
+    }
+
+    void PropertyAnimationPanel::RefreshEntitySlot()
+    {
+        if (m_entityLabel.Get() == nullptr)
+        {
+            return;
+        }
+        String text = String(u8"Entity: ");
+        if (m_boundEntity.IsNil())
+        {
+            text += u8"(none)";
+        }
+        else
+        {
+            const scene::EntityHandle entity =
+                (m_scene != nullptr) ? m_scene->FindEntity(m_boundEntity) : scene::EntityHandle{};
+            if (!entity.IsAssigned())
+            {
+                text += u8"(missing)"; // bound guid no longer resolves in this scene
+            }
+            else
+            {
+                const String name = String(m_scene->GetEntityName(entity));
+                text += name.IsEmpty() ? StringView(u8"(unnamed)") : name.AsView();
+            }
+        }
+        m_entityLabel->SetText(text.AsView());
+    }
+
+    void PropertyAnimationPanel::RefreshClipStateUI()
+    {
+        const bool hasClip = HasClip();
+        if (m_header.Get() != nullptr)
+        {
+            m_header->Visibility = hasClip ? ui::Visibility::Visible : ui::Visibility::Gone;
+        }
+        if (m_body.Get() != nullptr)
+        {
+            m_body->Visibility = hasClip ? ui::Visibility::Visible : ui::Visibility::Gone;
+        }
+        if (m_emptyState.Get() != nullptr)
+        {
+            m_emptyState->Visibility = hasClip ? ui::Visibility::Gone : ui::Visibility::Visible;
+        }
+        Invalidate();
     }
 
     void PropertyAnimationPanel::OnAddFromSelection()
@@ -417,7 +638,7 @@ namespace editor
         if (added == 0)
         {
             LOG_INFO(u8"Editor",
-                     u8"add-from-selection: no selected entity or no animatable properties");
+                     u8"add-tracks: no bound entity or no animatable properties");
         }
         RefreshHeader(); // reflect the new track count (the label showed a stale "none")
     }
@@ -447,16 +668,6 @@ namespace editor
         m_dirty = false;
     }
 
-    void PropertyAnimationPanel::NewClip()
-    {
-        foundation::content::Instance* inst = CreatePropertyAnimationClip(*m_editorCtx, nullptr);
-        if (inst == nullptr)
-        {
-            return;
-        }
-        LoadClip(inst->Id());
-    }
-
     void PropertyAnimationPanel::LoadClip(const Guid& instanceId)
     {
         if (m_editorCtx->Project() == nullptr)
@@ -477,6 +688,14 @@ namespace editor
         }
         m_clipId = instanceId;
         m_clipName = String(inst->Name());
+        // LoadClip owns the whole refresh (callers used to repeat it): rows, header, and the
+        // empty-state <-> editor swap.
+        if (m_view)
+        {
+            m_view->ResetForClip();
+        }
+        RefreshHeader();
+        RefreshClipStateUI();
     }
 
     void PropertyAnimationPanel::SaveClip()
@@ -486,8 +705,8 @@ namespace editor
         if (m_clipId.IsNil() || m_editorCtx->Project() == nullptr)
         {
             LOG_WARNING(u8"PropertyAnimation",
-                        u8"Save: no clip asset yet - use New (or Pick) to create one first");
-            FlashStatus(u8"save: no clip asset - use New");
+                        u8"Save: no clip asset loaded - use Create or Open first");
+            FlashStatus(u8"save: no clip loaded");
             return;
         }
         foundation::content::Instance* inst = m_editorCtx->Project()->SourceDb().GetInstance(m_clipId);
@@ -505,7 +724,7 @@ namespace editor
             m_dirty = false;
             m_editorCtx->RequestCook(false);
             LOG_INFO(u8"Editor", u8"saved in-scene property-animation clip '{}'", m_clipName);
-            FlashStatus(u8"saved");
+            FlashStatus(u8"saved"); // RefreshHeader inside also clears the dirty star
         }
         else
         {
@@ -517,16 +736,11 @@ namespace editor
     Array<AnimatablePropertyInfo> PropertyAnimationPanel::CollectSelectionTrackSeeds()
     {
         Array<AnimatablePropertyInfo> seeds;
-        if (m_scene == nullptr || m_selection == nullptr)
+        if (m_scene == nullptr || m_boundEntity.IsNil())
         {
             return seeds;
         }
-        const Guid* primary = m_selection->Primary();
-        if (primary == nullptr)
-        {
-            return seeds;
-        }
-        const scene::EntityHandle entity = m_scene->FindEntity(*primary);
+        const scene::EntityHandle entity = m_scene->FindEntity(m_boundEntity);
         if (!entity.IsAssigned())
         {
             return seeds;
@@ -617,7 +831,7 @@ namespace editor
         }
         if (offered == 0)
         {
-            menu->AddItem(seeds.IsEmpty() ? StringView(u8"(select an entity first)")
+            menu->AddItem(seeds.IsEmpty() ? StringView(u8"(bind an entity first)")
                                           : StringView(u8"(all properties already tracked)"),
                           []() {});
         }
@@ -808,17 +1022,16 @@ namespace editor
 
     void PropertyAnimationPanel::PreviewSelected(f32 time)
     {
-        if (m_clip.tracks.IsEmpty() || m_editingLocked || m_scene == nullptr || m_selection == nullptr)
+        if (m_clip.tracks.IsEmpty() || m_editingLocked || m_scene == nullptr)
         {
             return;
         }
-        const Guid* primary = m_selection->Primary();
-        if (primary == nullptr)
+        if (m_boundEntity.IsNil())
         {
             StopPreview();
             return;
         }
-        const scene::EntityHandle entity = m_scene->FindEntity(*primary);
+        const scene::EntityHandle entity = m_scene->FindEntity(m_boundEntity);
         if (!entity.IsAssigned())
         {
             StopPreview();
@@ -995,25 +1208,23 @@ namespace editor
     {
         // Every failure names ITS stage: "no scene value" alone cost a live session to
         // diagnose - the chain has five distinct ways to miss.
-        if (m_scene == nullptr || m_selection == nullptr)
+        if (m_scene == nullptr)
         {
-            LOG_WARNING(u8"PropertyAnimation", u8"Key capture: the panel has no scene/selection");
+            LOG_WARNING(u8"PropertyAnimation", u8"Key capture: the panel has no scene");
             return {};
         }
-        const Guid* primary = m_selection->Primary();
-        if (primary == nullptr)
+        if (m_boundEntity.IsNil())
         {
             LOG_WARNING(u8"PropertyAnimation",
-                        u8"Key capture: nothing selected (the panel binds to the scene page's "
-                        u8"entity selection)");
+                        u8"Key capture: no entity bound (use Bind... or Use Selected)");
             return {};
         }
-        const scene::EntityHandle entity = m_scene->FindEntity(*primary);
+        const scene::EntityHandle entity = m_scene->FindEntity(m_boundEntity);
         if (!entity.IsAssigned())
         {
             LOG_WARNING(u8"PropertyAnimation",
-                        u8"Key capture: the selected guid {} is not an entity of scene '{}'",
-                        *primary, m_scene->Name());
+                        u8"Key capture: the bound guid {} is not an entity of scene '{}'",
+                        m_boundEntity, m_scene->Name());
             return {};
         }
         Variant value = ReadTrackTarget(entity, componentType, propertyPath);
@@ -1039,7 +1250,7 @@ namespace editor
             else if (!mgr->HasComponent(entity))
             {
                 LOG_WARNING(u8"PropertyAnimation",
-                            u8"Key capture: the selected entity has no '{}' component",
+                            u8"Key capture: the bound entity has no '{}' component",
                             componentType);
             }
             else

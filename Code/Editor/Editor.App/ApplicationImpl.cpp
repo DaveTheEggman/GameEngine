@@ -2268,6 +2268,12 @@ namespace editor::app
             }
             if (foundation::content::Instance* instance = m_project->SourceDb().GetInstance(id))
             {
+                // A claimant (e.g. the scene page's animation bar for clip assets) may take
+                // the open; unclaimed falls through to the normal page path.
+                if (m_context.TryInterceptOpenAsset(*instance))
+                {
+                    return;
+                }
                 (void)OpenInstancePage(*instance);
             }
         };

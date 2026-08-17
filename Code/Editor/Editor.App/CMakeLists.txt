@@ -32,6 +32,8 @@ target_sources(Editor.App
             ToolPanel.cppm
             AssetsView.cppm
             AssetPickerDialog.cppm
+            AssetCreateDialog.cppm
+            ConfirmDialog.cppm
             PathPickerDialog.cppm
             ImportDialog.cppm
             SettingsDialog.cppm

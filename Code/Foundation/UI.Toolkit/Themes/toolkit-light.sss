@@ -115,6 +115,16 @@ ToastCard {
     text-color: $text;
 }
 
+/* === Timeline (the dopesheet: ruler ticks/labels, lane gutter + selection wash, key
+ * diamonds via accent, playhead via error) === */
+Timeline {
+    background-color: darken($surface, 4%);
+    border-color: darken($surface, 15%);
+    text-dim-color: $text-dim;
+    accent-color: $primary-accent;
+    error-color: $error;
+}
+
 /* === CurveCanvas / GradientEditor (curve + gradient editing canvases; key/tangent/axis
  * handle colors stay semantic constants) === */
 CurveCanvas {

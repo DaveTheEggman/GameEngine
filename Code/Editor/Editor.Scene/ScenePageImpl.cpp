@@ -665,6 +665,12 @@ namespace editor
 
     void SceneEditorPage::OnClose()
     {
+        // A closing page must stop claiming clip opens (the interceptor holds a raw `this`).
+        if (m_openAssetInterceptorId != 0)
+        {
+            m_context->RemoveOpenAssetInterceptor(m_openAssetInterceptorId);
+            m_openAssetInterceptorId = 0;
+        }
         m_camera.ReleaseCapture(m_viewport ? m_viewport->Mouse() : nullptr); // never close captured
 
         // GPU targets + external-texture registration go while device + VGRenderer live.

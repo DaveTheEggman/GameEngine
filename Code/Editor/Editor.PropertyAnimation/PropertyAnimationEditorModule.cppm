@@ -30,6 +30,25 @@ export namespace editor
 {
     namespace runtime = foundation::runtime;
 
+    // Named clip creator (the Create-Clip dialog supplies group + name; empty = auto "Clip N").
+    [[nodiscard]] inline foundation::content::Instance*
+    CreatePropertyAnimationClipNamed(EditorContext& context, foundation::content::Group& target,
+                                     StringView requestedName)
+    {
+        (void)context;
+        const String name = requestedName.IsEmpty() ? target.UniqueInstanceName(u8"Clip")
+                                                    : target.UniqueInstanceName(requestedName);
+        foundation::content::Instance* inst =
+            target.CreateInstance(name.AsView(), pipeline::PropertyAnimationClipAsset::StaticType());
+        if (inst == nullptr)
+        {
+            return nullptr;
+        }
+        pipeline::PropertyAnimationClipAsset asset;
+        (void)inst->WriteObject(asset);
+        return inst;
+    }
+
     // New Asset creator: an empty clip in the invoked group (clips are authored in-editor).
     [[nodiscard]] inline foundation::content::Instance*
     CreatePropertyAnimationClip(EditorContext& context, foundation::content::Group* group)
@@ -47,16 +66,7 @@ export namespace editor
         {
             return nullptr;
         }
-        const String name = target->UniqueInstanceName(u8"Clip");
-        foundation::content::Instance* inst =
-            target->CreateInstance(name.AsView(), pipeline::PropertyAnimationClipAsset::StaticType());
-        if (inst == nullptr)
-        {
-            return nullptr;
-        }
-        pipeline::PropertyAnimationClipAsset asset;
-        (void)inst->WriteObject(asset);
-        return inst;
+        return CreatePropertyAnimationClipNamed(context, *target, StringView{});
     }
 
     /// The editor executable's entry point for the property-animation plugin. `host` is currently

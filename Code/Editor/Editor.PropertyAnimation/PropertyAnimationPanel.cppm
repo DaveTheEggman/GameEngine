@@ -77,7 +77,12 @@ export namespace editor
 
         void MarkClipDirty() override
         {
+            const bool wasDirty = m_dirty;
             m_dirty = true;
+            if (!wasDirty)
+            {
+                RefreshHeader(); // show the dirty star as soon as the first edit lands
+            }
             // A LIVE canvas edit (drag/add/delete) mutates keys without a view rebuild
             // (liveApplied) - resync the dopesheet markers now, or they lag until the next
             // full rebuild (UAT: "the timeline row does not update until I click another
@@ -120,17 +125,31 @@ export namespace editor
         [[nodiscard]] bool IsPaused() const noexcept { return m_paused; }
         [[nodiscard]] f32 PlayheadTime() const noexcept { return m_playheadTime; }
 
-        // === clip document management ===
-        void NewClip();                        // create a clip asset in the project + load it
-        void LoadClip(const Guid& instanceId); // load an existing clip asset
+        // === clip document management (workflow 2026-08-17: no scratch clip - the panel is
+        // EMPTY until a clip asset is created or opened; every edit has a home) ===
+        void LoadClip(const Guid& instanceId); // load an existing clip asset (unguarded)
         void SaveClip();                       // flatten -> write -> re-cook
+        /// The pencil-claim / programmatic entry: dirty-guarded load (Save / Discard / Cancel
+        /// prompt when a modified clip is open) + optionally bind `bindEntity` (the entity
+        /// whose animator slot invoked the edit; Nil keeps the current binding).
+        void RequestEditClip(const Guid& clipId, const Guid& bindEntity);
         [[nodiscard]] StringView ClipName() const noexcept { return m_clipName.AsView(); }
         [[nodiscard]] bool HasClip() const noexcept { return !m_clipId.IsNil(); }
         [[nodiscard]] bool IsDirty() const noexcept { return m_dirty; }
         [[nodiscard]] const Guid& ClipId() const noexcept { return m_clipId; }
 
-        // Add a track for each animatable property of the selected entity's components, as ONE undo
-        // group. Returns the number of tracks added (0 = nothing selected / nothing animatable).
+        // === the BOUND ENTITY (explicit binding - preview + key capture + track seeding all
+        // target THIS entity, never the drifting live selection; "Use Selected" is the one
+        // place selection enters) ===
+        void BindEntity(const Guid& entityId);
+        void BindSelectedEntity(); // bind the primary selection (flashes when none)
+        [[nodiscard]] const Guid& BoundEntity() const noexcept { return m_boundEntity; }
+        /// The scene page wires this to its EntityPickerDialog (the panel cannot depend on
+        /// editor.scene - the dependency points the other way). (current, onPicked).
+        Function<void(const Guid&, Function<void(const Guid&)>)> RequestEntityPick;
+
+        // Add a track for each animatable property of the BOUND entity's components, as ONE undo
+        // group. Returns the number of tracks added (0 = no bound entity / nothing animatable).
         usize AddTracksFromSelection(ClipEditorView& view);
 
         // Named EditorCtx (not Context) so it does not shadow the base ui::View::Context field.
@@ -159,18 +178,23 @@ export namespace editor
         void MoveSelectedKeys(f32 deltaSeconds);
         void RefreshTransportButtons();     // sync transport button labels to the state
         void Advance(f32 dt);               // move the playhead + drive preview (called while Playing)
-        void PreviewSelected(f32 time);     // preview the clip at `time` on the selected entity
+        void PreviewSelected(f32 time);     // preview the clip at `time` on the BOUND entity
         void StopPlaybackInternal();        // stop advancing WITHOUT rewinding (Simulate override)
 
         // Header actions.
-        void OnNew();
-        void OnPick();
+        void OnCreateClip(); // dirty-guarded -> AssetCreateDialog -> create + load
+        void OnOpenClip();   // dirty-guarded -> AssetPickerDialog -> load
         void OnAddFromSelection();
-        void OnAddTrackMenu(); // "+ Track": a property picker (the selected entity's animatable leaves)
+        void OnAddTrackMenu(); // "+ Track": a property picker (the bound entity's animatable leaves)
         void OnSave();
+        // Run `proceed` now, or - when a modified clip is loaded - after a Save / Discard /
+        // Cancel prompt (Cancel drops it). The dirty guard every load/create path shares.
+        void RunDirtyGuarded(Function<void()> proceed);
+        void RefreshClipStateUI(); // empty state <-> editor body (exclusive; workflow ruling)
+        void RefreshEntitySlot();  // the bound-entity name in the header slot
 
-        // The animatable-property seeds for the primary-selected entity (Transform TRS + each reflected
-        // component's animatable leaves). Shared by + From Selection (adds all) + the + Track picker.
+        // The animatable-property seeds for the BOUND entity (Transform TRS + each reflected
+        // component's animatable leaves). Shared by + Tracks (adds all) + the + Track picker.
         [[nodiscard]] Array<AnimatablePropertyInfo> CollectSelectionTrackSeeds();
         [[nodiscard]] bool ClipHasTrack(StringView componentType, StringView propertyPath) const;
 
@@ -215,8 +239,12 @@ export namespace editor
         RefPtr<ui::Button> m_loopButton;
         RefPtr<ui::toolkit::Timeline> m_timeline;
         RefPtr<ui::FlexLayoutParams> m_timelineParams; // updated to size the timeline pane to its lanes
+        RefPtr<ui::FlexLayout> m_header;     // clip/entity chrome (collapsed while empty)
+        RefPtr<ui::FlexLayout> m_emptyState; // "no clip" message + Create/Open (exclusive)
+        RefPtr<ui::Label> m_entityLabel;     // the bound-entity slot's name readout
         RefPtr<ui::FlexLayout> m_body; // transport + Timeline + ClipEditorView
         UniquePtr<ClipEditorView> m_view;
+        Guid m_boundEntity; // the EXPLICIT preview/key/seed target (Nil = unbound)
 
         // Dopesheet lane bookkeeping. m_laneKeyTimes[lane] is the sorted key time each marker on that
         // lane represents (parallel to the Timeline's lanes), so a (lane,index) selection maps to a

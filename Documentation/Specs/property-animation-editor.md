@@ -572,3 +572,49 @@ PropAnimPageBuilder/TimelineView: YES - the stacked sections duplicated the trac
 - The inspector lives in a persistent row whose CHILDREN swap on selection
   (RefreshKeyInspector, deferred via the mutation queue) - canvas picks never trigger a full
   rebuild, so tangent handles survive selection changes.
+
+## CLIP-EDITING WORKFLOW (user-designed 2026-08-17; BUILT same day)
+
+The clip lifecycle rework: every edit has an asset home from the first keystroke, and every
+open goes through one shared path. Replaces the scratch-clip model (New used to author into
+an unsaved buffer where Save could silently have no target).
+
+- **No scratch clip - the empty state is EXCLUSIVE.** With no clip loaded the panel shows
+  ONLY "No animation clip selected for editing." + Create Clip... / Open Clip... (header,
+  transport, dopesheet, and track editor are all Gone). No tracks can exist without an
+  asset to save them into.
+- **Create Clip...** opens the type-agnostic `app::AssetCreateDialog` (the picker's twin:
+  choose a GROUP in the tree + type an ASSET NAME, live validation refuses empty or
+  already-taken names). The dialog never creates anything - `OnCreate(group, name)` fires
+  and the caller constructs its type (`CreatePropertyAnimationClipNamed`) then loads by the
+  new instance's GUID (guids are the open/identity currency). Reusable by any New-asset
+  flow.
+- **Open Clip...** = the existing AssetPickerDialog filtered to PropertyAnimationClipAsset.
+- **Dirty guard on every load-over path** (`RunDirtyGuarded`): a modified clip prompts
+  Save / Discard / Cancel via the reusable `app::ConfirmDialog` (Escape = Cancel; a FAILED
+  save aborts the switch instead of discarding on top of it). Headless (no UIContext)
+  proceeds - the caller decided.
+- **The pencil claims the open.** `EditorContext` gained an open-asset interceptor registry
+  (`AddOpenAssetInterceptor` -> u64 id / `RemoveOpenAssetInterceptor` /
+  `TryInterceptOpenAsset`, consulted NEWEST-FIRST, first true wins); the app's OpenAsset
+  consults it before `OpenInstancePage`. The scene page registers a claim for
+  PropertyAnimationClipAsset gated on the page being ON SCREEN (`IsEffectivelyVisible` -
+  a background scene page never swallows an open): it expands the bottom dock
+  (`ActivateTab("animation")`) and routes `RequestEditClip(guid, primary-selection)`.
+  Any unclaimed open falls back to the generic asset page. The claim is removed in
+  OnClose (+ a destructor backstop - the interceptor captures a raw page pointer).
+- **The BOUND ENTITY replaces live selection as the edit target.** Preview, key capture
+  (ReadSceneValue), and track seeding all target an explicit `m_boundEntity` (session
+  state, not serialized, survives clip switches). The header slot shows
+  "Entity: <name>/(none)/(missing)" + Bind... (EntityPickerDialog, injected by the scene
+  page through the `RequestEntityPick` seam - the panel cannot depend on editor.scene) +
+  Use Selected (the ONE place selection enters). The pencil claim auto-binds the primary
+  selection. Rebinding stops + restores any live preview first.
+- **Timeline theme rules**: Timeline resolved Background/Border/TextDim/Accent/Error via
+  ResolveStyleColor but no sheet rule existed, so it always fell back to its hardcoded
+  palette. Both toolkit-dark.sss and toolkit-light.sss now carry a Timeline block
+  (mirrors CurveCanvas + accent/error), so it follows the editor theme.
+
+DEFERRED (noted, not built): a dirty-save prompt on scene-PAGE close - the page-close path
+has no veto seam today (OnClose is unconditional); adding one is an editor-shell change,
+not an animation one. The in-panel guard covers every load-over path meanwhile.

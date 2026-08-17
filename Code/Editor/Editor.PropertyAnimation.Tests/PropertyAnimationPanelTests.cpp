@@ -73,11 +73,16 @@ namespace
         GlobalTypeRegistry().Register(TestComp::StaticType());
     }
 
-    // Build a panel over a scene + fresh stack + selection (all owned by the caller; the panel borrows).
+    // Build a panel over a scene + fresh stack + selection (all owned by the caller; the panel
+    // borrows). Preview/keying/seeding target the BOUND entity (workflow 2026-08-17), so bind
+    // the pre-set selection here - the fixture equivalent of clicking "Use Selected".
     RefPtr<PropertyAnimationPanel> MakePanel(EditorContext& editorCtx, scene::Scene& sc,
                                              EditorCommandStack& stack, Selection<Guid>& selection)
     {
-        return MakeRef<PropertyAnimationPanel>(DefaultAllocator(), editorCtx, sc, stack, selection);
+        auto panel =
+            MakeRef<PropertyAnimationPanel>(DefaultAllocator(), editorCtx, sc, stack, selection);
+        panel->BindSelectedEntity();
+        return panel;
     }
 }
 
@@ -303,8 +308,10 @@ TEST_CASE("propanim-panel: changing the selected entity restores the old one and
     panel->OnScrubTimeChanged(0.0f); // preview A
     CHECK(mgr->Get(a)->position.x == doctest::Approx(50.0f));
 
-    // Select B and scrub: A is restored (live re-resolve, no cached instance), B is previewed.
+    // Rebind to B and scrub: A is restored (live re-resolve, no cached instance), B is
+    // previewed. Selection alone no longer retargets - binding is the explicit act.
     selection.Set(sc.GetEntityId(b));
+    panel->BindSelectedEntity();
     panel->OnScrubTimeChanged(0.0f);
     CHECK(mgr->Get(a)->position.x == doctest::Approx(1.0f)); // restored
     CHECK(mgr->Get(b)->position.x == doctest::Approx(50.0f)); // previewed
@@ -619,6 +626,24 @@ TEST_CASE("propanim-panel: SetClipDuration authors the clip length, clamped to t
     CHECK(panel->Clip().duration == doctest::Approx(3.0f));
 }
 
+TEST_CASE("propanim-panel: exclusive empty state - no clip means no editing surface")
+{
+    EnsurePreviewCompRegistered();
+    scene::Scene sc(u8"empty-state");
+    Selection<Guid> selection;
+    EditorContext editorCtx;
+    EditorCommandStack stack;
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
+
+    // No clip loaded: the whole editing surface (transport + dopesheet + track editor,
+    // all inside the body the dopesheet lives in) is Gone - only the empty-state message
+    // + Create/Open remain (workflow 2026-08-17, "no scratch clip").
+    CHECK(!panel->HasClip());
+    foundation::ui::View* body = panel->Dopesheet().Parent;
+    REQUIRE(body != nullptr);
+    CHECK(body->Visibility == foundation::ui::Visibility::Gone);
+}
+
 TEST_CASE("propanim-panel: ReadSceneValue captures the live Transform + component values")
 {
     EnsurePreviewCompRegistered();
@@ -645,7 +670,11 @@ TEST_CASE("propanim-panel: ReadSceneValue captures the live Transform + componen
     CHECK(panel->ReadSceneValue(u8"Transform", u8"nope").IsEmpty());
     CHECK(panel->ReadSceneValue(u8"NoSuchComponent", u8"position").IsEmpty());
 
-    // No selection -> empty.
+    // Clearing the SELECTION changes nothing - the binding is session state, not selection.
     selection.Clear();
+    CHECK(!panel->ReadSceneValue(u8"Transform", u8"position").IsEmpty());
+
+    // No bound entity -> empty (the workflow's capture gate).
+    panel->BindEntity(Guid{});
     CHECK(panel->ReadSceneValue(u8"Transform", u8"position").IsEmpty());
 }

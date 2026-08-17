@@ -177,6 +177,62 @@ TEST_CASE("editor-context: open, focus, and close pages")
     RemoveDbTree(dir);
 }
 
+TEST_CASE("editor-context: open-asset interceptors claim newest-first and unregister cleanly")
+{
+    RegisterTestTypes();
+    const StringView dir = u8"scratch_editor_test_ctx_intercept";
+    RemoveDbTree(dir);
+    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::content::ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(),
+                                          u8".xasset");
+    auto* a = db.RootGroup()->CreateInstance(u8"a", BaseAsset::StaticType());
+    REQUIRE(a != nullptr);
+
+    EditorContext ctx;
+
+    // No interceptors -> the open is not claimed.
+    CHECK(!ctx.TryInterceptOpenAsset(*a));
+
+    // The NEWEST registration is consulted first; a false answer falls through to older ones.
+    Array<i32> order;
+    const u64 first = ctx.AddOpenAssetInterceptor(
+        [&order](foundation::content::Instance&)
+        {
+            order.PushBack(1);
+            return true;
+        });
+    const u64 second = ctx.AddOpenAssetInterceptor(
+        [&order](foundation::content::Instance&)
+        {
+            order.PushBack(2);
+            return false;
+        });
+    CHECK(ctx.TryInterceptOpenAsset(*a));
+    REQUIRE(order.Size() == 2);
+    CHECK(order[0] == 2); // newest first
+    CHECK(order[1] == 1); // fell through to the older claimer
+
+    // A true answer short-circuits: older interceptors are never consulted.
+    order.Clear();
+    ctx.RemoveOpenAssetInterceptor(second);
+    const u64 third = ctx.AddOpenAssetInterceptor(
+        [&order](foundation::content::Instance&)
+        {
+            order.PushBack(3);
+            return true;
+        });
+    CHECK(ctx.TryInterceptOpenAsset(*a));
+    REQUIRE(order.Size() == 1);
+    CHECK(order[0] == 3);
+
+    // All removed -> back to unclaimed (removal by id, order-independent).
+    ctx.RemoveOpenAssetInterceptor(first);
+    ctx.RemoveOpenAssetInterceptor(third);
+    CHECK(!ctx.TryInterceptOpenAsset(*a));
+
+    RemoveDbTree(dir);
+}
+
 TEST_CASE("editor-context: adopted instance-less pages share the ownership flow")
 {
     EditorContext context;

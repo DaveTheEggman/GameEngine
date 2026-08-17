@@ -64,9 +64,55 @@ export namespace editor
         /// maps Guid -> content Instance -> the SAME page/panel path a browser double-click
         /// takes. Null-tolerant (callers guard).
         Function<void(const Guid&)> OpenAsset;
+
+        /// Asset-open INTERCEPTION (property-animation-editor.md workflow): a claimant (e.g.
+        /// the scene page, for animation clips into its animation bar) sees an OpenAsset
+        /// BEFORE it routes to a page; returning true claims it. Consulted newest-first, so
+        /// the most recently opened claimant wins; claimants gate themselves on visibility.
+        /// Remove with the returned id when the claimant dies (pages unregister on close).
+        using OpenAssetInterceptor = Function<bool(foundation::content::Instance&)>;
+        u64 AddOpenAssetInterceptor(OpenAssetInterceptor interceptor)
+        {
+            const u64 id = ++m_nextInterceptorId;
+            m_openInterceptors.PushBack(InterceptorEntry{id, Move(interceptor)});
+            return id;
+        }
+        void RemoveOpenAssetInterceptor(u64 id)
+        {
+            for (usize i = 0; i < m_openInterceptors.Size(); ++i)
+            {
+                if (m_openInterceptors[i].id == id)
+                {
+                    m_openInterceptors.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+        [[nodiscard]] bool TryInterceptOpenAsset(foundation::content::Instance& instance)
+        {
+            for (usize i = m_openInterceptors.Size(); i > 0; --i) // newest-first
+            {
+                if (m_openInterceptors[i - 1].fn && m_openInterceptors[i - 1].fn(instance))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
         /// Reveal the asset with this Guid in the asset browser (select + scroll into view).
         Function<void(const Guid&)> RevealAsset;
         void Notify(NoticeKind kind, StringView message);
+
+    private:
+        struct InterceptorEntry
+        {
+            u64 id = 0;
+            OpenAssetInterceptor fn;
+        };
+        Array<InterceptorEntry> m_openInterceptors;
+        u64 m_nextInterceptorId = 0;
+
+    public:
 
         // === Project ===
 
