@@ -230,3 +230,103 @@ TEST_CASE("timeline dopesheet: box-select picks the keys inside the rectangle")
     CHECK(tl->IsKeySelected(0, 1));
     CHECK_FALSE(tl->IsKeySelected(1, 0));
 }
+
+// === panning + scroll clamping (the "can't reach a section / ends drift past the clip" fixes) ===
+
+TEST_CASE("timeline: scroll clamps to the content extent at every zoom")
+{
+    auto tl = MakeRef<Timeline>(DefaultAllocator());
+    tl->SetDuration(3.0f);
+    tl->SetPixelsPerSecond(100.0f);
+    tl->Measure(BoxConstraints::Tight(400.0f, 60.0f));
+    tl->Layout(0.0f, 0.0f, 400.0f, 60.0f);
+
+    // Whole clip fits (4 s visible > 3 s clip): scroll is pinned at 0 - zooming out can
+    // never push both ends away from the content.
+    tl->SetScrollSeconds(5.0f);
+    CHECK(tl->ScrollSeconds() == doctest::Approx(0.0f));
+
+    // Zoomed in (1 s visible): scroll reaches the clip end plus a small grab tail, no further.
+    tl->SetPixelsPerSecond(400.0f);
+    tl->SetScrollSeconds(50.0f);
+    const f32 visible = tl->VisibleSeconds();
+    CHECK(visible == doctest::Approx(1.0f));
+    CHECK(tl->ScrollSeconds() == doctest::Approx(3.0f + visible * 0.15f - visible));
+
+    // Zooming back out re-clamps the stored scroll.
+    tl->SetPixelsPerSecond(100.0f);
+    CHECK(tl->ScrollSeconds() == doctest::Approx(0.0f));
+
+    // Shrinking the clip re-clamps too.
+    tl->SetPixelsPerSecond(400.0f);
+    tl->SetScrollSeconds(50.0f);
+    CHECK(tl->ScrollSeconds() > 0.0f);
+    tl->SetDuration(0.5f);
+    CHECK(tl->ScrollSeconds() == doctest::Approx(0.0f));
+}
+
+TEST_CASE("timeline: middle-drag pans to any section and clamps at the edges")
+{
+    auto tl = MakeRef<Timeline>(DefaultAllocator());
+    tl->SetDuration(10.0f);
+    tl->SetPixelsPerSecond(100.0f);
+    tl->Measure(BoxConstraints::Tight(400.0f, 60.0f));
+    tl->Layout(0.0f, 0.0f, 400.0f, 60.0f);
+
+    foundation::ui::MouseEventArgs down = Mouse(200.0f, 10.0f);
+    down.Button = foundation::ui::MouseButton::Middle;
+    tl->OnMouseDown(down);
+    CHECK(down.Handled);
+
+    // Drag 100 px left -> the view moves 1 s forward in time.
+    foundation::ui::MouseEventArgs move = Mouse(100.0f, 10.0f);
+    tl->OnMouseMove(move);
+    CHECK(tl->ScrollSeconds() == doctest::Approx(1.0f));
+
+    // Drag far right -> clamped at 0 (never before the clip start).
+    foundation::ui::MouseEventArgs farRight = Mouse(4000.0f, 10.0f);
+    tl->OnMouseMove(farRight);
+    CHECK(tl->ScrollSeconds() == doctest::Approx(0.0f));
+
+    foundation::ui::MouseEventArgs up = Mouse(4000.0f, 10.0f);
+    up.Button = foundation::ui::MouseButton::Middle;
+    tl->OnMouseUp(up);
+
+    // After release, moves no longer pan.
+    foundation::ui::MouseEventArgs after = Mouse(100.0f, 10.0f);
+    tl->OnMouseMove(after);
+    CHECK(tl->ScrollSeconds() == doctest::Approx(0.0f));
+}
+
+TEST_CASE("timeline: shift+wheel and horizontal wheel pan; plain wheel still zooms")
+{
+    auto tl = MakeRef<Timeline>(DefaultAllocator());
+    tl->SetDuration(10.0f);
+    tl->SetPixelsPerSecond(100.0f);
+    tl->Measure(BoxConstraints::Tight(400.0f, 60.0f));
+    tl->Layout(0.0f, 0.0f, 400.0f, 60.0f);
+
+    foundation::ui::MouseWheelEventArgs shiftWheel;
+    shiftWheel.X = 200.0f;
+    shiftWheel.DeltaY = -1.0f;
+    shiftWheel.Modifiers = foundation::ui::KeyModifiers::Shift;
+    tl->OnMouseWheel(shiftWheel);
+    CHECK(shiftWheel.Handled);
+    CHECK(tl->ScrollSeconds() == doctest::Approx(0.4f)); // 40 px / 100 pps
+
+    foundation::ui::MouseWheelEventArgs horizontal;
+    horizontal.X = 200.0f;
+    horizontal.DeltaX = -1.0f;
+    tl->OnMouseWheel(horizontal);
+    CHECK(tl->ScrollSeconds() == doctest::Approx(0.8f));
+
+    // A plain vertical wheel zooms (pixels-per-second changes), it does not pan.
+    const f32 scrollBefore = tl->ScrollSeconds();
+    const f32 ppsBefore = tl->PixelsPerSecond();
+    foundation::ui::MouseWheelEventArgs zoom;
+    zoom.X = 0.0f; // anchor at the left edge: the time under x=0 stays put
+    zoom.DeltaY = 1.0f;
+    tl->OnMouseWheel(zoom);
+    CHECK(tl->PixelsPerSecond() > ppsBefore);
+    CHECK(tl->ScrollSeconds() == doctest::Approx(scrollBefore));
+}

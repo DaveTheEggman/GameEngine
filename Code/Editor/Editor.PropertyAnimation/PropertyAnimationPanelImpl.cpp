@@ -273,7 +273,7 @@ namespace editor
         }
 
         m_timeline = MakeRef<ui::toolkit::Timeline>(DefaultAllocator());
-        m_timeline->SetDuration(Max(m_clip.ComputeDuration(), 1.0f));
+        m_timeline->SetDuration(Max(Max(m_clip.duration, m_clip.ComputeDuration()), 1.0f));
         // The scrubber routes through OnScrubTimeChanged, which ignores it while Playing (D6). A key
         // drag on a lane commits through MoveSelectedKeys (drags-are-visual, one undo step - D4).
         m_timeline->OnPlayheadMoved.Add([self](f32 t) { self->OnScrubTimeChanged(t); });
@@ -618,7 +618,7 @@ namespace editor
         {
             return;
         }
-        const f32 dur = Max(m_clip.ComputeDuration(), 1e-3f);
+        const f32 dur = Max(Max(m_clip.duration, m_clip.ComputeDuration()), 1e-3f);
         if (m_playheadTime >= dur - 1e-4f)
         {
             m_playheadTime = 0.0f; // restart from the top if parked at the end
@@ -679,7 +679,7 @@ namespace editor
             Stop();
             return;
         }
-        const f32 dur = Max(m_clip.ComputeDuration(), 1e-3f);
+        const f32 dur = Max(Max(m_clip.duration, m_clip.ComputeDuration()), 1e-3f);
         m_playheadTime += (dt > 0.0f) ? dt : 0.0f;
         if (m_playheadTime >= dur)
         {

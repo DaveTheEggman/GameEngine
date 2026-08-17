@@ -96,7 +96,11 @@ namespace editor
 
     ClipEditorView::ClipEditorView(IClipEditorHost& host) : m_host(&host)
     {
-        m_editDuration = Max(m_host->Clip().ComputeDuration(), 1.0f); // canvas time-axis scale
+        // Canvas time-axis scale: the AUTHORED length wins when longer than the key extent, so
+        // the curve axis always matches the timeline ruler (an authored 3 s clip with keys only
+        // to 1 s still shows 3 s everywhere).
+        m_editDuration =
+            Max(Max(m_host->Clip().duration, m_host->Clip().ComputeDuration()), 1.0f);
 
         m_scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
         m_rows = MakeRef<ui::FlexLayout>(DefaultAllocator());
@@ -664,7 +668,7 @@ namespace editor
 
     void ClipEditorView::ResetForClip()
     {
-        m_editDuration = Max(Clip().ComputeDuration(), 1.0f);
+        m_editDuration = Max(Max(Clip().duration, Clip().ComputeDuration()), 1.0f);
         m_scrubTime = 0.0f;
         Rebuild();
     }

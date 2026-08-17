@@ -53,6 +53,7 @@ export namespace foundation::ui::toolkit
         {
             m_duration = Max(seconds, 0.0f);
             SetPlayheadTime(m_playhead); // re-clamp to the new length
+            m_scrollSeconds = ClampScroll(m_scrollSeconds); // a shorter clip cannot strand the view
             Invalidate();
         }
 
@@ -76,13 +77,21 @@ export namespace foundation::ui::toolkit
         void SetPixelsPerSecond(f32 pps)
         {
             m_pixelsPerSecond = Clamp(pps, kMinPps, kMaxPps);
+            m_scrollSeconds = ClampScroll(m_scrollSeconds); // zooming out shrinks the max scroll
             Invalidate();
         }
         [[nodiscard]] f32 ScrollSeconds() const noexcept { return m_scrollSeconds; }
         void SetScrollSeconds(f32 seconds)
         {
-            m_scrollSeconds = Max(seconds, 0.0f);
+            m_scrollSeconds = ClampScroll(seconds);
             Invalidate();
+        }
+
+        // Seconds visible in the ruler area at the current zoom (0 before layout).
+        [[nodiscard]] f32 VisibleSeconds() const noexcept
+        {
+            const f32 span = Width() - LabelColumnWidth;
+            return (span > 0.0f && m_pixelsPerSecond > 0.0f) ? span / m_pixelsPerSecond : 0.0f;
         }
 
         f32 LabelColumnWidth = 0.0f; // left gutter reserved for track labels (0 in P1)
@@ -293,6 +302,19 @@ export namespace foundation::ui::toolkit
 
         void OnMouseDown(MouseEventArgs& e) override
         {
+            // Middle button pans (the DCC standard - drag left/right to reach any section).
+            if (e.Button == MouseButton::Middle)
+            {
+                m_panning = true;
+                m_panStartX = e.X;
+                m_panStartScroll = m_scrollSeconds;
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->SetCapture(this);
+                }
+                e.Handled = true;
+                return;
+            }
             if (e.Button != MouseButton::Left || e.X < LabelColumnWidth)
             {
                 return;
@@ -354,6 +376,17 @@ export namespace foundation::ui::toolkit
 
         void OnMouseMove(MouseEventArgs& e) override
         {
+            if (m_panning)
+            {
+                if (m_pixelsPerSecond > 0.0f)
+                {
+                    m_scrollSeconds =
+                        ClampScroll(m_panStartScroll - (e.X - m_panStartX) / m_pixelsPerSecond);
+                }
+                e.Handled = true;
+                Invalidate();
+                return;
+            }
             if (m_dragging)
             {
                 SetPlayheadTime(XToTime(e.X));
@@ -375,6 +408,16 @@ export namespace foundation::ui::toolkit
 
         void OnMouseUp(MouseEventArgs& e) override
         {
+            if (e.Button == MouseButton::Middle && m_panning)
+            {
+                m_panning = false;
+                if (Context != nullptr)
+                {
+                    Context->GetFocusManager()->ReleaseCapture();
+                }
+                e.Handled = true;
+                return;
+            }
             if (e.Button != MouseButton::Left)
             {
                 return;
@@ -409,6 +452,20 @@ export namespace foundation::ui::toolkit
 
         void OnMouseWheel(MouseWheelEventArgs& e) override
         {
+            // Horizontal wheel (trackpads) or Shift+wheel PANS; plain vertical wheel zooms.
+            const bool shift = HasFlag(e.Modifiers, KeyModifiers::Shift);
+            const f32 panDelta = (e.DeltaX != 0.0f) ? e.DeltaX : (shift ? e.DeltaY : 0.0f);
+            if (panDelta != 0.0f)
+            {
+                if (m_pixelsPerSecond > 0.0f)
+                {
+                    m_scrollSeconds = ClampScroll(
+                        m_scrollSeconds - panDelta * kWheelPanPx / m_pixelsPerSecond);
+                }
+                e.Handled = true;
+                Invalidate();
+                return;
+            }
             if (e.DeltaY == 0.0f)
             {
                 return;
@@ -416,12 +473,29 @@ export namespace foundation::ui::toolkit
             // Zoom anchored at the cursor: keep the time under the cursor fixed (Godot).
             const f32 timeAtCursor = XToTime(e.X);
             SetPixelsPerSecond(m_pixelsPerSecond * (e.DeltaY > 0.0f ? kZoomStep : 1.0f / kZoomStep));
-            m_scrollSeconds = Max(timeAtCursor - (e.X - LabelColumnWidth) / m_pixelsPerSecond, 0.0f);
+            m_scrollSeconds =
+                ClampScroll(timeAtCursor - (e.X - LabelColumnWidth) / m_pixelsPerSecond);
             e.Handled = true;
             Invalidate();
         }
 
     private:
+        // Clamp a scroll offset to the content extent: the view never scrolls before 0, and
+        // never past the point where the clip END sits at the right edge (with a small tail so
+        // end keys stay grabbable). When the whole clip fits (or before layout), scroll is 0 -
+        // zooming out cannot push both ends away from the content.
+        [[nodiscard]] f32 ClampScroll(f32 seconds) const noexcept
+        {
+            const f32 visible = VisibleSeconds();
+            if (visible <= 0.0f)
+            {
+                return Max(seconds, 0.0f); // pre-layout: only the lower bound is known
+            }
+            const f32 tail = visible * kEndTailFraction;
+            const f32 maxScroll = Max(m_duration + tail - visible, 0.0f);
+            return Clamp(seconds, 0.0f, maxScroll);
+        }
+
         [[nodiscard]] String FormatTime(f32 t) const
         {
             String s;
@@ -543,12 +617,17 @@ export namespace foundation::ui::toolkit
         static constexpr f32 kKeyHitPx = 6.0f;
         static constexpr f32 kDragEpsilonPx = 3.0f;
         static constexpr f32 kPlayheadGrabPx = 5.0f;
+        static constexpr f32 kWheelPanPx = 40.0f;      // px scrolled per wheel notch
+        static constexpr f32 kEndTailFraction = 0.15f; // visible-width tail past the clip end
 
         f32 m_duration = 1.0f;
         f32 m_playhead = 0.0f;
         f32 m_pixelsPerSecond = 100.0f;
         f32 m_scrollSeconds = 0.0f;
         bool m_dragging = false;
+        bool m_panning = false;
+        f32 m_panStartX = 0.0f;
+        f32 m_panStartScroll = 0.0f;
 
         // Dopesheet state.
         Array<DopesheetLane> m_lanes;

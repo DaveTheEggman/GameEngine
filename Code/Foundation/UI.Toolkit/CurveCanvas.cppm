@@ -612,7 +612,10 @@ export namespace foundation::ui::toolkit
                 ctx.VG().BeginPath();
                 for (i32 i = 0; i <= SAMPLES; i++)
                 {
-                    const f32 t = i / static_cast<f32>(SAMPLES);
+                    // Sample across the FULL time span (seconds) - the fraction alone only
+                    // covered [0,1]s, cutting the polyline short on clips longer than 1s
+                    // while the key markers (true Key.Time) drew at their real positions.
+                    const f32 t = (i / static_cast<f32>(SAMPLES)) * TimeSpan;
                     const f32 v = Evaluate(c, t);
                     const f32 x = TimeToX(t);
                     const f32 y = ValueToY(v);
@@ -966,7 +969,10 @@ export namespace foundation::ui::toolkit
             const f32 pV =
                 (ValueMax > ValueMin + 0.0001f) ? Height() / (ValueMax - ValueMin) : 0.0f;
             const f32 slope = outgoing ? k.TangentOut : k.TangentIn;
-            const f32 dx = outgoing ? Width() : -Width();
+            // Pixels per SECOND, not per full width - slopes are dValue/dSECOND, so the
+            // screen direction must use the seconds scale or handles lie by TimeSpan x.
+            const f32 pT = Width() / Max(TimeSpan, 0.000001f);
+            const f32 dx = outgoing ? pT : -pT;
             const f32 dy = outgoing ? (-slope * pV) : (slope * pV);
             const f32 norm = Sqrt(dx * dx + dy * dy);
             if (norm < 0.0001f)
@@ -993,7 +999,9 @@ export namespace foundation::ui::toolkit
                 return 0.0f;
             }
             const f32 screenSlope = screenDy / screenDx;
-            return -screenSlope * Width() / pV;
+            // Inverse of ComputeHandlePos: screen slope back to dValue/dSECOND.
+            const f32 pT = Width() / Max(TimeSpan, 0.000001f);
+            return -screenSlope * pT / pV;
         }
 
         // True iff (x, y) is within HandleHitRadius of either tangent handle on the selected key.
