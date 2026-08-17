@@ -55,9 +55,11 @@ namespace
         }
     };
 
-    // KNOWN_ISSUES.md lives at the repo root; the host binary lives under Bin/... inside the
-    // checkout, so walk up from the executable (then from the cwd) until it appears. "" = not
-    // found - the known_issues tool then errs with guidance instead of being silently absent.
+    // The CURATED, distribution-facing register (Documentation/Shipping/KnownIssues.md) - never
+    // the repo-root development tracker, which is internal triage state and is not distributed.
+    // Resolution walks up from the executable (then the cwd) checking the SHIPPED layout first
+    // (KnownIssues.md staged next to the tool) and the repo layout second. "" = not found - the
+    // known_issues tool then errs with guidance instead of being silently absent.
     [[nodiscard]] String FindKnownIssues(const char* argv0)
     {
         namespace fs = std::filesystem;
@@ -69,11 +71,17 @@ namespace
         {
             for (fs::path dir = start; !dir.empty(); dir = dir.parent_path())
             {
-                const fs::path candidate = dir / "KNOWN_ISSUES.md";
-                if (fs::is_regular_file(candidate, ec))
+                const fs::path candidates[] = {dir / "KnownIssues.md", // shipped: staged sidecar
+                                               dir / "Documentation" / "Shipping" /
+                                                   "KnownIssues.md"}; // engine checkout
+                for (const fs::path& candidate : candidates)
                 {
-                    const std::string text = candidate.string();
-                    return String(StringView(reinterpret_cast<const utf8char*>(text.c_str())));
+                    if (fs::is_regular_file(candidate, ec))
+                    {
+                        const std::string text = candidate.string();
+                        return String(
+                            StringView(reinterpret_cast<const utf8char*>(text.c_str())));
+                    }
                 }
                 if (dir == dir.root_path())
                 {

@@ -514,9 +514,26 @@ in build order:
    instead of leaving it absent). Golden covers the marker loop, both
    filters, quiet high-water reads, empty-marker refusal, and the
    missing-register error.
-6. Resources: scene/prefab XML, docs/design/*, docs/specs/* read-only by URI
-   (resources/list + resources/read exist in foundation.mcp; only the
-   registrations are missing).
+   AMENDED same-day (user ruling): the MCP is a PRODUCT surface and must
+   never feed agents internal development docs. known_issues now reads
+   the CURATED, distribution-facing register
+   Documentation/Shipping/KnownIssues.md (user-visible symptoms +
+   impact + workaround only; curation rule in the file header) - NOT
+   the repo-root development tracker, which is triage state and is not
+   distributed. Resolution order: KnownIssues.md next to the executable
+   (the shipped-dist layout - export staging stages it as a sidecar
+   when the host ships), then Documentation/Shipping/KnownIssues.md up
+   the tree (the engine-checkout layout).
+6. Resources: read-only by URI (resources/list + resources/read exist in
+   foundation.mcp; only the registrations are missing). RULING
+   (2026-08-17, user): the internal design/spec/process docs are NOT
+   distributed and never feed the MCP - the doc resources expose
+   Documentation/Shipping/** ONLY (the curated, distribution-facing docs
+   set started by KnownIssues.md). This item therefore includes AUTHORING
+   the shipping docs the registrations expose (engine-user how-tos:
+   scripting, assets, scenes - written for game-project agents, not
+   engine developers), plus the open-project scene/prefab XML sources
+   (project data, always fair game).
 7. script_validate SPLIT (ruling): ship the COMPILE-CHECK version now -
    every backend's Load already reports compile errors. The TYPED version
    (real type errors against the bound surface) lands with Luau P5 (.d.luau

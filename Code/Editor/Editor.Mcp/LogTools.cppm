@@ -171,10 +171,11 @@ export namespace editor::mcp
 
         server.RegisterTool(
             u8"known_issues",
-            u8"The engine's KNOWN_ISSUES.md register (read-only). Check it when you hit an "
-            u8"error or odd behavior BEFORE re-diagnosing: if the symptom matches a recorded "
-            u8"issue, report the match instead of proposing a fix for something already known "
-            u8"or deliberately deferred.",
+            u8"The engine's curated known-issues register (read-only): user-visible "
+            u8"limitations with impact and workaround. Check it when you hit an error or odd "
+            u8"behavior BEFORE re-diagnosing: if the symptom matches a recorded issue, report "
+            u8"the match and apply its workaround instead of proposing a fix for something "
+            u8"already known or deliberately deferred.",
             SchemaBuilder().Build(),
             [knownIssuesPath](const JsonValue& /*args*/) -> ToolResult
             {
