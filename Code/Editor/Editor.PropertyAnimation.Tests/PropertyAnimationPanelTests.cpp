@@ -588,3 +588,30 @@ TEST_CASE("propanim-panel: dopesheet lane feed + key drag commits a move and re-
     stack.Undo();
     CHECK(panel->Clip().tracks[0].channels[0].Keys()[1].time == doctest::Approx(1.0f));
 }
+
+TEST_CASE("propanim-panel: SetClipDuration authors the clip length, clamped to the last key, undoable")
+{
+    EnsurePreviewCompRegistered();
+    scene::Scene sc(u8"dur");
+    Selection<Guid> selection;
+    EditorContext editorCtx;
+    EditorCommandStack stack;
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
+
+    // Empty clip (computed 0): author a 5s length.
+    panel->SetClipDuration(5.0f);
+    CHECK(panel->Clip().duration == doctest::Approx(5.0f));
+    CHECK(stack.CanUndo());
+    stack.Undo();
+    CHECK(panel->Clip().duration == doctest::Approx(0.0f));
+
+    // A track with a key at t=3 (computed 3): authoring 1s clamps UP to 3 (a duration can't cut a key).
+    propanim::PropertyTrack track;
+    track.componentType = String(u8"Transform");
+    track.propertyPath = String(u8"position");
+    track.kind = propanim::TrackValueKind::Float3;
+    track.channels[0].AddKey(Kv(3.0f, 0.0f));
+    panel->Clip().tracks.PushBack(Move(track));
+    panel->SetClipDuration(1.0f);
+    CHECK(panel->Clip().duration == doctest::Approx(3.0f));
+}

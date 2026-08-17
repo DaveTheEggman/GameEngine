@@ -685,12 +685,30 @@ namespace editor
     void PropertyAnimationPanel::OnClipViewRebuilt()
     {
         // The clip length / track set may have changed (a Length edit, add/remove track, undo/redo):
-        // resync the Timeline axis + rebuild the dopesheet lanes (selection preserved by time).
+        // resync the Timeline axis to the AUTHORED duration + rebuild the dopesheet lanes (selection
+        // preserved by time).
         if (m_timeline.Get() != nullptr)
         {
-            m_timeline->SetDuration(Max(m_clip.ComputeDuration(), 1.0f));
+            m_timeline->SetDuration(Max(Max(m_clip.duration, m_clip.ComputeDuration()), 1.0f));
         }
         BuildLanes();
+    }
+
+    void PropertyAnimationPanel::SetClipDuration(f32 seconds)
+    {
+        if (!m_view)
+        {
+            return;
+        }
+        propanim::PropertyAnimationClip before = m_clip;
+        propanim::PropertyAnimationClip after = m_clip;
+        // Never below the last key (a duration can't cut a key off); PushClipEdit re-applies this max.
+        after.duration = Max(seconds, after.ComputeDuration());
+        if (after.duration == before.duration)
+        {
+            return; // no change
+        }
+        m_view->PushClipEdit(Move(before), Move(after));
     }
 
     void PropertyAnimationPanel::BuildLanes()

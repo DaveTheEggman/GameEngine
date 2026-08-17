@@ -118,7 +118,7 @@ namespace editor
     void ClipEditorView::PushClipEdit(propanim::PropertyAnimationClip before,
                                       propanim::PropertyAnimationClip after)
     {
-        after.duration = after.ComputeDuration();
+        after.duration = Max(after.duration, after.ComputeDuration());
         (void)m_host->Commands().Execute(UniquePtr<IEditorCommand>(
             DefaultAllocator().New<ClipEditCommand>(*m_host, Move(before), Move(after)),
             DefaultAllocator()));
@@ -236,13 +236,10 @@ namespace editor
         auto row = MakeRow(0.0f, 26.0f);
         ClipEditorView* self = this;
         AddLabel(*row, u8"Length", 0.0f, 52.0f);
+        // Authoritative clip-duration edit: the host clamps to at least the last key + commits one undo
+        // step, then the rebuild re-syncs this field + the timeline extent (Sedulous parity).
         AddFloatField(*row, m_editDuration,
-                      [self](f32 d)
-                      {
-                          self->m_editDuration = (d > 1e-3f) ? d : 1.0f;
-                          self->RequestRebuild(); // the canvas time axis rescales
-                      },
-                      56.0f);
+                      [self](f32 d) { self->m_host->SetClipDuration((d > 1e-3f) ? d : 1.0f); }, 56.0f);
 
         m_preview = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
         m_preview->FontSize.SetValue(11.0f);
@@ -367,17 +364,28 @@ namespace editor
                               { self->Mutate([&](propanim::PropertyAnimationClip& c)
                                              { c.tracks[trackIndex].quatKeys[ki].time = t; }); },
                               50.0f);
-                const f32 comps[4] = {qk.value.x, qk.value.y, qk.value.z, qk.value.w};
-                for (u32 ci = 0; ci < 4; ++ci)
+                // Rotation is edited as EULER degrees (Vector3 X=pitch, Y=yaw, Z=roll), not raw
+                // quaternion x/y/z/w - quaternion components are not human-editable. We convert to/from
+                // the stored quaternion in the background (Sedulous parity). Gimbal ambiguity at the
+                // poles is inherent to any euler UI; the stored data is still the exact quaternion.
+                constexpr f32 kRadToDeg = 57.29577951f;
+                constexpr f32 kDegToRad = 0.01745329252f;
+                f32 yaw = 0.0f, pitch = 0.0f, roll = 0.0f;
+                ToYawPitchRoll(qk.value, yaw, pitch, roll);
+                const f32 eulerDeg[3] = {pitch * kRadToDeg, yaw * kRadToDeg, roll * kRadToDeg};
+                for (u32 ci = 0; ci < 3; ++ci)
                 {
-                    AddFloatField(*krow, comps[ci],
-                                  [self, trackIndex, ki, ci](f32 v)
+                    AddFloatField(*krow, eulerDeg[ci],
+                                  [self, trackIndex, ki, ci, yaw, pitch, roll](f32 vDeg)
                                   {
                                       self->Mutate(
                                           [&](propanim::PropertyAnimationClip& c)
                                           {
-                                              Quaternion& q = c.tracks[trackIndex].quatKeys[ki].value;
-                                              (ci == 0 ? q.x : ci == 1 ? q.y : ci == 2 ? q.z : q.w) = v;
+                                              f32 p = pitch, y = yaw, r = roll;
+                                              const f32 v = vDeg * kDegToRad;
+                                              (ci == 0 ? p : ci == 1 ? y : r) = v;
+                                              c.tracks[trackIndex].quatKeys[ki].value =
+                                                  FromYawPitchRoll(y, p, r);
                                           });
                                   },
                                   48.0f);
@@ -585,6 +593,8 @@ namespace editor
 
     void ClipEditorView::Rebuild()
     {
+        // Keep the canvas time axis + the Length field in step with the clip's authored duration.
+        m_editDuration = Max(Max(Clip().duration, Clip().ComputeDuration()), 1.0f);
         m_rows->RemoveAllViews();
         BuildTransportRow();
         propanim::PropertyAnimationClip& clip = Clip();

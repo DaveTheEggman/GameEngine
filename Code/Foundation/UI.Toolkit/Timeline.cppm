@@ -265,14 +265,17 @@ export namespace foundation::ui::toolkit
                 laneY += lane.height;
             }
 
-            // Playhead: a vertical line + a small head flag at the top (theme error-red).
+            // Playhead: a vertical line + a small head flag at the top (theme error-red). Snap x to a
+            // whole pixel + draw a fixed 2px width so a fractional scrub/advance stays crisp and does
+            // not shimmer between 1 and 2 px each frame (a sub-pixel anti-aliasing artifact).
             const f32 px = TimeToX(m_playhead);
             if (px >= LabelColumnWidth - 0.5f && px <= w)
             {
+                const f32 lx = std::round(px);
                 const core::Color playhead =
                     ResolveStyleColor(StyleProperty::ErrorColor, core::Color::Rgb(232, 84, 84, 255));
-                ctx.VG().FillRect(Rectangle{px - 0.5f, 0.0f, 1.5f, h}, playhead);
-                ctx.VG().FillRect(Rectangle{px - 4.0f, 0.0f, 8.0f, 5.0f}, playhead);
+                ctx.VG().FillRect(Rectangle{lx - 1.0f, 0.0f, 2.0f, h}, playhead);
+                ctx.VG().FillRect(Rectangle{lx - 4.0f, 0.0f, 8.0f, 5.0f}, playhead);
             }
 
             // Box-select overlay (drawn last, over the lanes + playhead).
@@ -328,6 +331,12 @@ export namespace foundation::ui::toolkit
                 m_keyDragging = true;
                 m_dragStartX = e.X;
                 m_dragDeltaX = 0.0f;
+            }
+            else if (Abs(e.X - TimeToX(m_playhead)) <= kPlayheadGrabPx)
+            {
+                // Clicked ON the playhead line (down in the lanes): grab + scrub it, not box-select.
+                m_dragging = true;
+                SetPlayheadTime(XToTime(e.X));
             }
             else
             {
@@ -533,6 +542,7 @@ export namespace foundation::ui::toolkit
         static constexpr f32 kKeyRadius = 4.0f;
         static constexpr f32 kKeyHitPx = 6.0f;
         static constexpr f32 kDragEpsilonPx = 3.0f;
+        static constexpr f32 kPlayheadGrabPx = 5.0f;
 
         f32 m_duration = 1.0f;
         f32 m_playhead = 0.0f;

@@ -55,6 +55,11 @@ export namespace editor
         /// Default no-op - the standalone page only updates its own readout.
         virtual void OnScrubTimeChanged(f32 time) { (void)time; }
 
+        /// Set the clip's authored duration (the play/loop bound + timeline extent). The host clamps it
+        /// to at least the last key (a duration can't cut a key off) and commits it as one undo step.
+        /// Default no-op. Sedulous parity: the clip length is authorable, not just key-derived.
+        virtual void SetClipDuration(f32 seconds) { (void)seconds; }
+
         /// The view finished (re)building its rows - the host may refresh chrome (e.g. its page
         /// toolbar's undo/redo state). Default no-op.
         virtual void OnClipViewRebuilt() {}
@@ -150,7 +155,9 @@ export namespace editor
             propanim::PropertyAnimationClip before = m_host->Clip();
             propanim::PropertyAnimationClip after = m_host->Clip();
             fn(after);
-            after.duration = after.ComputeDuration();
+            // Preserve an authored (longer) duration; grow it if keys now extend past it. Never shrink
+            // below the last key.
+            after.duration = Max(after.duration, after.ComputeDuration());
             (void)m_host->Commands().Execute(UniquePtr<IEditorCommand>(
                 DefaultAllocator().New<ClipEditCommand>(*m_host, Move(before), Move(after)),
                 DefaultAllocator()));
