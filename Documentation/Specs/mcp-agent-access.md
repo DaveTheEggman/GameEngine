@@ -602,15 +602,23 @@ in build order:
    host and tests resolve the exe dir through it. Golden: a REAL dist
    from an authored project (Content.pak + player.xml on disk, player
    staged, scene staged), unknown-preset and no-project refusals.
-10. THE AGENT SKILL: .claude/skills/engine-mcp/SKILL.md (debranded
-    2026-08-17, matching the engine-mcp server name) shipped in-repo
-    (supersedes the bare dogfood-config idea - it IS the config plus the
-    operating manual): launch recipe, stdio wiring, "read tools/list before
-    guessing", files-first rule, per-tool gotchas, tool etiquette. Keep it
-    honest the way HANDOFF.md is kept honest - update it when tools change.
-11. Extend the Integration.Mcp golden to the full agent-shaped sequence:
-    open -> import -> cook -> scene_write -> scene_validate -> project_health,
-    headless fixture.
+10. BUILT 2026-08-17 (Fable), SPLIT BY CHANNEL (user ruling: the skill
+    is shipping material too): the OPERATING MANUAL lives at
+    Documentation/Shipping/McpGuide.md - auto-served as docs://McpGuide.md
+    by the existing directory registration, so ANY connected agent gets it
+    over the wire, checkout or not (first moves, ground rules, workflows,
+    per-tool gotchas, the looks-wrong checklist).
+    .claude/skills/engine-mcp/SKILL.md keeps only the in-checkout half
+    (build target, claude mcp add wiring, stale-buildStamp + no-open-editor
+    rules) and points at the guide - no duplicated content to drift. Both
+    stay honest HANDOFF-style: tools change => guide changes same commit.
+11. BUILT 2026-08-17 (Fable): the full agent-shaped golden
+    (Integration.Mcp McpFullFlowTests) - ONE sequence through the tools in
+    the order the guide teaches: project_create -> project_open ->
+    asset_import (a real on-disk Luau source: the starter) -> asset_cook
+    (compiles, zero failures) -> scene_write (seed from a real SaveScene) ->
+    scene_validate (full, by guid) -> project_health (sound, zero dirty,
+    zero failed cooks). P1 RESUME LIST COMPLETE (items 1-11).
 
 DESCRIPTION CRAFT (applies to every tool, now and later): the description is
 the only thing the agent decides by. State what the tool returns AND what it
