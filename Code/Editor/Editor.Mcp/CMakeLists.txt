@@ -25,4 +25,5 @@ target_sources(Editor.Mcp
             McpResources.cppm
             ScriptValidate.cppm
             ScriptCreate.cppm
+            ProjectExport.cppm
             ProjectTools.cppm)

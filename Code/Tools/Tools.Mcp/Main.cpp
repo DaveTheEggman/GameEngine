@@ -92,6 +92,18 @@ namespace
         return String();
     }
 
+    // Directory containing this executable (where Engine.Player + its runtime sidecars live -
+    // the export host-template source). argv[0] can be bare/relative, so canonicalize.
+    [[nodiscard]] String ToolDir(const char* argv0)
+    {
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        const std::string dir = fs::weakly_canonical(fs::absolute(fs::path(argv0), ec), ec)
+                                    .parent_path()
+                                    .string();
+        return String(StringView(reinterpret_cast<const utf8char*>(dir.c_str())));
+    }
+
     // The shipping docs directory (Documentation/Shipping in the engine checkout), resolved with
     // the same walk-up. Same distribution stance as KnownIssues.md: this is the CURATED,
     // distribution-facing docs set - internal design/spec/process docs are never exposed.
@@ -223,6 +235,8 @@ int main(int /*argc*/, char** argv)
     // language cooks were registered by Pipeline::Registration above.
     editor::mcp::RegisterScriptValidateTool(server);
     editor::mcp::RegisterScriptCreateTool(server, session); // starter-seeded script assets
+    // project_export: the ONE export entry point (identical to the editor menu + export CLI).
+    editor::mcp::RegisterProjectExportTool(server, session, builders, ToolDir(argv[0]));
     // host_info (ops hygiene): pid + build stamp + versions + the open-project state.
     RegisterHostInfoTool(
         server, String(reinterpret_cast<const char8_t*>(BuildStamp())),

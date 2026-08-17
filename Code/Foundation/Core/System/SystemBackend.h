@@ -116,6 +116,10 @@ namespace foundation::core::sys
 
     // The current OS process id (host_info / ops tooling: a hung process is killed by pid).
     unsigned long ProcessId() noexcept;
+    // Absolute path of the RUNNING executable (not argv[0], which can be bare/relative),
+    // written into `buffer` (UTF-8, null-terminated). Returns the length written, 0 on
+    // failure or when `capacity` is too small.
+    std::size_t ExecutablePath(char* buffer, std::size_t capacity) noexcept;
     // Rename/move a file OR directory (same volume). True on success.
     bool FileMove(const char* from, const char* to) noexcept;
     // Copy PRESERVING permissions (staged executables keep +x; Windows CopyFileW does this

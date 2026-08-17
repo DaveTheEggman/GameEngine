@@ -443,6 +443,21 @@ namespace foundation::core::sys
 
     unsigned long ProcessId() noexcept { return GetCurrentProcessId(); }
 
+    std::size_t ExecutablePath(char* buffer, std::size_t capacity) noexcept
+    {
+        if (capacity == 0)
+        {
+            return 0;
+        }
+        const DWORD n =
+            GetModuleFileNameA(nullptr, buffer, static_cast<DWORD>(capacity));
+        if (n == 0 || n >= capacity) // 0 = failure; n == capacity = truncated
+        {
+            return 0;
+        }
+        return static_cast<std::size_t>(n);
+    }
+
     bool FileMove(const char* from, const char* to) noexcept
     {
         return MoveFileExA(from, to, MOVEFILE_REPLACE_EXISTING) != 0;

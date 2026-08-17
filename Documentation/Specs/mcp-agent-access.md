@@ -586,7 +586,22 @@ in build order:
    on-disk content validates through script_validate (the tools
    compose), duplicate names uniquify, no-project refusal. All three
    languages ship at once as planned (Luau starter landed at P3).
-9. project_export (preset name) - thin wrapper over the export CLI path.
+9. BUILT 2026-08-17 (Fable): project_export (editor.mcp:project_export) -
+   a thin wrapper over the ONE export entry point (editor::ExportOne),
+   identical to the editor menu + export CLI: presets from
+   export_presets.xml (else the synthesized host preset; unknown name
+   errs listing the available), templates from the shared root + the
+   host tool dir, scene streams pre-transcoded over the FULL
+   Engine.SceneSurface manager set, the reachability scanner reusing
+   the asset_uses scene scan. Args {preset?, out?, rebuild?}; returns
+   outputDir + cook/stage/pack counts + engine-version warning +
+   pruning summary; failure points the agent at log_read. En route the
+   ifdef-free rule was honored: NEW core::ExecutablePath() System
+   backend (Linux readlink /proc/self/exe, Win32 GetModuleFileName -
+   the ProcessId precedent) replaced an inline platform branch; the
+   host and tests resolve the exe dir through it. Golden: a REAL dist
+   from an authored project (Content.pak + player.xml on disk, player
+   staged, scene staged), unknown-preset and no-project refusals.
 10. THE AGENT SKILL: .claude/skills/engine-mcp/SKILL.md (debranded
     2026-08-17, matching the engine-mcp server name) shipped in-repo
     (supersedes the bare dogfood-config idea - it IS the config plus the

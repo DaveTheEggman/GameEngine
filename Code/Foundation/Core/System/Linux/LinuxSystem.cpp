@@ -424,6 +424,21 @@ namespace foundation::core::sys
 
     unsigned long ProcessId() noexcept { return static_cast<unsigned long>(getpid()); }
 
+    std::size_t ExecutablePath(char* buffer, std::size_t capacity) noexcept
+    {
+        if (capacity == 0)
+        {
+            return 0;
+        }
+        const ssize_t n = readlink("/proc/self/exe", buffer, capacity - 1);
+        if (n <= 0)
+        {
+            return 0;
+        }
+        buffer[n] = '\0';
+        return static_cast<std::size_t>(n);
+    }
+
     bool FileMove(const char* from, const char* to) noexcept { return std::rename(from, to) == 0; }
 
     bool FileCopyPreserving(const char* from, const char* to) noexcept

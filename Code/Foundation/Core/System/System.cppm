@@ -127,6 +127,15 @@ export namespace foundation::core
     /// The current OS process id (ops tooling: a hung process is killed by pid).
     [[nodiscard]] inline u64 ProcessId() noexcept { return sys::ProcessId(); }
 
+    /// Absolute path of the RUNNING executable (the OS query - not argv[0], which can be
+    /// bare or relative). Empty on failure.
+    [[nodiscard]] inline String ExecutablePath()
+    {
+        char buffer[4096];
+        const usize n = sys::ExecutablePath(buffer, sizeof(buffer));
+        return String(StringView(reinterpret_cast<const utf8char*>(buffer), n));
+    }
+
     inline bool FileDelete(StringView path) noexcept
     {
         return sys::FileDelete(detail::NullTerminated(path).CStr());

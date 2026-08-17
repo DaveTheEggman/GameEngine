@@ -18,6 +18,7 @@ export import :log_tools;
 export import :resources;
 export import :script_validate;
 export import :script_create;
+export import :project_export;
 
 import foundation.core;
 import foundation.json;
