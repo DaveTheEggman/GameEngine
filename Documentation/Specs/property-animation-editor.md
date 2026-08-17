@@ -420,3 +420,60 @@ amendments above. Commits:
 P2 (the dopesheet widget: lanes/keys/box-select/drags-visual/commit-remap
 D3/D4, CurveCanvas onto the shared transform, snap, A10 keyboard) starts after
 this review.
+
+## FABLE REVIEW - P1 (2026-08-17): PASS with rulings; P1d REQUIRED before P2
+
+The Timeline widget is exactly the D1/D5 shape (seconds-only authority, pure
+testable tick step, themed chrome with fallbacks, ErrorColor playhead,
+cursor-anchored zoom); the panel fixes pass-10 #6 with a regression test; the
+transport's Editing|Playing ownership + damage gating match D6/A6. Battery
+green both compilers. Rulings on the deviations:
+
+1. **Loop default: ACCEPT editor-local** (A4 amended). Seeding from the bound
+   animator's loopMode is not worth an engine.animation dependency in the
+   editor lib; editor-local defaulting to Loop matches a fresh component
+   anyway.
+2. Numeric scrub field retired for the Timeline scrubber: ACCEPT (Length +
+   sampled-value readout staying is right).
+3. CurveCanvas normalized-time until P2: per plan.
+
+**Findings:**
+- **F1 (fix in P2, note now): the spec note says commands hold "snapshots +
+  host, never a view ptr" but ClipEditCommand STILL holds `ClipEditorView*`.**
+  It is lifetime-SAFE today purely by ownership (page-scoped command stack and
+  page-owned persistent view die together), but that safety is an unstated
+  invariant one refactor away from a regression - the exact pass-10 #5 class.
+  P2 routes ApplyState through IClipEditorHost (which the command already
+  could hold) and drops the view pointer for real.
+- F2 (P2, when the label column becomes real): Timeline's band and gutter both
+  resolve StyleProperty::Background with different fallbacks - one themed rule
+  collapses the distinction. Derive the gutter (darken the resolved band) or
+  give it a part-style.
+
+## A2 REVISED - the Godot bottom dock (user direction 2026-08-17; build as P1d)
+
+The persistent always-split pane is NOT the wanted interaction. Target
+(Godot's bottom panel): a thin BUTTON BAR always visible under the viewport
+("Animation" now; Output/Debug-style tabs join later). Clicking a tab EXPANDS
+the bottom section above the bar - dopesheet visible, a draggable splitter
+between viewport and the section; clicking it again COLLAPSES to just the bar
+- NO splitter shown. The split ratio survives collapse/expand.
+
+Mechanism (ruled):
+- **SplitView gains a pane-collapse mode**: `SetPaneCollapsed(pane, bool)` -
+  the collapsed pane measures at its content's minimum (the bar height), the
+  divider hides and stops hit-testing, and the stored ratio is untouched for
+  restore. Generic toolkit capability; no reparenting, ONE container, the
+  panel view's lifetime untouched (the F1 invariant holds).
+- **A `BottomDock` strip owns the bar**: a toggle-tab row (Animation first,
+  N-tab ready - registrations like the page factories) above nothing when
+  collapsed, above the active tab's content when expanded. The
+  PropertyAnimationPanel body becomes the Animation tab's content; its header
+  chrome (clip name/New/Pick/transport) shows only when expanded.
+- Default state: collapsed. Expanding drives SetPaneCollapsed(false) +
+  body Visible; collapsing the reverse. Keyboard/persistence polish later.
+- Console/Output/Debug migration into the dock is EXPLICITLY a later decision
+  - the bar is built N-tab-shaped but ships with one tab.
+
+Sequencing: P1d (this rework) lands BEFORE P2 - the dopesheet should grow
+inside the final interaction shell, not get re-parented after.
