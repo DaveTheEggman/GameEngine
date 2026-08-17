@@ -433,12 +433,18 @@ script_api (wren|angelscript|luau, live via Engine::ScriptSurface).
 v2 folds in the prior-art adoptions (both surveys below). REMAINING P1 work,
 in build order:
 
-1. scene_read / scene_write + scene_validate, prefab_read/prefab_write - the
-   XML text sources; write = parse + schema validation with refusal reasons
-   returned to the agent (files-are-truth; the editor is not involved in P1).
-   The highest-value unbuilt item: it makes agents scene-capable, HEADLESS -
-   structural authoring through files is a capability ezEngine only has with
-   a live editor.
+1. BUILT 2026-08-17 (Fable, ec543437): scene_read / scene_write /
+   scene_validate + prefab_read / prefab_write (editor.mcp:scene_tools;
+   ProjectSession + shared helpers extracted to :session). Writes VALIDATE
+   FIRST (refusal reasons + the full report in the error text) and store the
+   XML VERBATIM (byte-identical read-back proven against real SaveScene
+   output); prefab_write enforces the single-root rule; wrong-type guids
+   redirect to the sibling tool. Validation is STRUCTURAL and says so in the
+   response (componentValidation: "structural") - component managers are
+   subsystem-injected, so headless validation parses entities/hierarchy/
+   transforms/record framing and surfaces skipped-component warnings
+   (captured from the Scene reader's log). Integration.Mcp gained the
+   agent-shaped scene-flow golden incl. the refusal battery.
 2. host_info - the ops-hygiene tool (from ezEngine's app_info): pid (a hung
    host is killed by pid), buildTimestamp (stale-binary detection), engine +
    protocol versions, open-project state. Lives in foundation.mcp as a shared
