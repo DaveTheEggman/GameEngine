@@ -21,6 +21,7 @@ import foundation.core;
 import foundation.content;
 import foundation.image;
 import foundation.image.io;
+import foundation.vfs;
 import editor.core;
 import texture.pipeline;
 
@@ -39,7 +40,9 @@ export namespace editor
             return Span<const StringView>(kTypes, 1);
         }
 
-        [[nodiscard]] Status Prepare(content::Instance& instance, Array<byte>& payload) override
+        [[nodiscard]] Status Prepare(content::Instance& instance,
+                                     foundation::vfs::IFileSystem& sources,
+                                     Array<byte>& payload) override
         {
             // The payload is the ENCODED source image bytes; embedded-pixel sources (model
             // imports) are wrapped in a tiny header the worker recognizes.
@@ -51,12 +54,17 @@ export namespace editor
             }
             if (!asset->fileName.IsEmpty())
             {
-                UniquePtr<IStream> stream = instance.ReadData(asset->fileName.View());
-                if (stream.Get() == nullptr)
+                // Imported source FILES live under the project's Sources/ mount at the
+                // mount-relative fileName (the same way the cook's ReadSourceBytes reads
+                // them) - they are NOT instance data streams.
+                UniquePtr<IStream> stream =
+                    sources.Open(asset->fileName.View(), FileMode::Read);
+                if (stream.Get() != nullptr && stream->IsValid())
                 {
-                    return Status{ErrorCode::NotFound};
+                    return ReadAll(*stream, payload);
                 }
-                return ReadAll(*stream, payload);
+                // Fall through: some model-extracted textures carry a fileName AND embedded
+                // pixels; prefer the file, use the pixels when it is absent.
             }
             if (asset->embeddedWidth > 0 && asset->embeddedHeight > 0)
             {

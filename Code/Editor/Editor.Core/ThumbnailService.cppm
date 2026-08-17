@@ -30,6 +30,7 @@ import foundation.content;
 import foundation.image;
 import foundation.image.io;
 import foundation.ui;
+import foundation.vfs;
 import :job_service;
 
 using namespace foundation::core;
@@ -68,8 +69,11 @@ export namespace editor
         virtual ~IThumbnailGenerator() = default;
         /// The content asset-type names this generator covers (e.g. "TextureAsset").
         [[nodiscard]] virtual Span<const StringView> AssetTypeNames() const = 0;
-        /// MAIN thread: read the instance's source streams into a worker-safe payload.
+        /// MAIN thread: read the instance's source data into a worker-safe payload.
+        /// `sources` is the project's Sources/ mount - imported source FILES live there
+        /// (mount-relative Asset::fileName paths), embedded data lives in instance streams.
         [[nodiscard]] virtual Status Prepare(content::Instance& instance,
+                                             foundation::vfs::IFileSystem& sources,
                                              Array<byte>& payload) = 0;
         /// LIGHT worker: produce the thumbnail pixels from the prepared payload.
         [[nodiscard]] virtual Status Generate(Span<const byte> payload, image::Image& out) = 0;
@@ -102,13 +106,16 @@ export namespace editor
         /// Project-open wiring: where the cache lives, how to resolve instances, the job lane,
         /// and the content-hash source. Any previous state is dropped.
         void Configure(StringView cacheDirectory, Function<content::Instance*(const Guid&)> resolve,
-                       EditorJobService* jobs, Function<u64(const Guid&)> contentHash)
+                       EditorJobService* jobs, Function<u64(const Guid&)> contentHash,
+                       StringView sourcesRoot)
         {
             Reset();
             m_cacheDirectory = String(cacheDirectory);
             m_resolve = Move(resolve);
             m_jobs = jobs;
             m_contentHash = Move(contentHash);
+            m_sources = MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(),
+                                                                      sourcesRoot);
         }
 
         /// Project-close: drop the RAM cache and detach. In-flight jobs complete harmlessly
@@ -125,6 +132,7 @@ export namespace editor
             m_resolve = {};
             m_contentHash = {};
             m_jobs = nullptr;
+            m_sources = {};
         }
 
         /// The resolved thumbnail, or EMPTY when none exists yet (the caller keeps its type
@@ -204,6 +212,7 @@ export namespace editor
         void CompleteLoad(JobSlot* slot);
 
         String m_cacheDirectory;
+        UniquePtr<foundation::vfs::NativeFileSystem> m_sources; // the project Sources/ mount
         Function<content::Instance*(const Guid&)> m_resolve;
         Function<u64(const Guid&)> m_contentHash;
         EditorJobService* m_jobs = nullptr;

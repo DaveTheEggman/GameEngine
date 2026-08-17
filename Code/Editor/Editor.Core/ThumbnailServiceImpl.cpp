@@ -63,11 +63,12 @@ namespace editor
         // negative entry (bad/missing source stream) - logged once here, not every frame.
         if (slot->diskPath.IsEmpty() || !FileExists(slot->diskPath.AsView()))
         {
-            const Status prepared = generator->Prepare(*instance, slot->payload);
+            const Status prepared = generator->Prepare(*instance, *m_sources, slot->payload);
             if (!prepared.IsOk())
             {
-                LOG_WARNING(u8"Thumbnails", u8"prepare failed for '{}' ({})", instance->Name(),
-                            instance->TypeName());
+                LOG_WARNING(u8"Thumbnails", u8"prepare failed for '{}' ({}): error {}",
+                            instance->Name(), instance->TypeName(),
+                            static_cast<u32>(prepared.Code()));
                 m_entries.InsertOrAssign(id, Entry{});
                 DefaultAllocator().Delete(slot);
                 return;

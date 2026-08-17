@@ -2127,7 +2127,8 @@ namespace editor::app
                     { return project->SourceDb().GetInstance(id); }},
                 &m_jobService,
                 Function<foundation::core::u64(const Guid&)>{
-                    [this](const Guid& id) { return m_cookService.RecipeHashFor(id); }});
+                    [this](const Guid& id) { return m_cookService.RecipeHashFor(id); }},
+                m_project->SourcesRoot().AsView());
         }
 
         // I4b instrumentation: what the open-time header scans actually cost. The XML

@@ -51,7 +51,8 @@ namespace
             static constexpr StringView kTypes[] = {u8"StubAsset"};
             return Span<const StringView>(kTypes, 1);
         }
-        [[nodiscard]] Status Prepare(content::Instance&, Array<byte>& payload) override
+        [[nodiscard]] Status Prepare(content::Instance&, foundation::vfs::IFileSystem&,
+                                     Array<byte>& payload) override
         {
             if (prepareCount != nullptr)
             {
@@ -109,7 +110,8 @@ namespace
                 Function<content::Instance*(const Guid&)>{
                     [inst, knownId](const Guid& id)
                     { return id == knownId ? inst : nullptr; }},
-                &jobs, Function<u64(const Guid&)>{[hash](const Guid&) { return hash; }});
+                &jobs, Function<u64(const Guid&)>{[hash](const Guid&) { return hash; }},
+                u8"thumbs_empty_mount");
         }
 
         // An EMPTY dedicated mount: ContentDatabase's ctor SCANS the mount, and a null
