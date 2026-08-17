@@ -72,6 +72,9 @@ export namespace editor
         // === IClipEditorHost ===
         [[nodiscard]] propanim::PropertyAnimationClip& Clip() override { return m_clip; }
         [[nodiscard]] EditorCommandStack& Commands() override { return *m_commands; }
+        String m_statusFlash;      // transient header status; empty = none
+        f32 m_statusFlashSeconds = 0.0f;
+
         void MarkClipDirty() override
         {
             m_dirty = true;
@@ -145,6 +148,9 @@ export namespace editor
         void ClearClip(); // drop the loaded clip (no asset written)
         void BuildChrome();
         void RefreshHeader();
+        // Transient header status ("saved" / "save FAILED"); shown for a few seconds, then
+        // RefreshHeader restores the clip line. Driven by Tick.
+        void FlashStatus(StringView text);
         // Rebuild the dopesheet lanes from the clip (one lane per track) + preserve the selection by
         // time across the rebuild (D3/D4 commit-remap: keys have no id). Sizes the timeline pane.
         void BuildLanes();

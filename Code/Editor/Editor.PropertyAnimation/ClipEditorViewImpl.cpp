@@ -702,6 +702,50 @@ namespace editor
         const propanim::PropertyTrack& track = clip.tracks[trackIndex];
         const f32 selTime = m_previewSelTime;
 
+        // Del first: removes the selected key across every channel (and the quat list) at
+        // the selected time - quat tracks previously had NO delete path at all.
+        MakeButton(*m_inspectorRow, u8"Del", 36.0f,
+                   [self, trackIndex, selTime]()
+                   {
+                       self->ClearSelectedKey();
+                       self->Mutate(
+                           [&](propanim::PropertyAnimationClip& c)
+                           {
+                               if (trackIndex >= c.tracks.Size())
+                               {
+                                   return;
+                               }
+                               propanim::PropertyTrack& t = c.tracks[trackIndex];
+                               const u32 chn = propanim::ChannelCount(t.kind);
+                               for (u32 ch = 0; ch < chn; ++ch)
+                               {
+                                   const i32 at = FindChannelKeyAt(t, ch, selTime);
+                                   if (at >= 0)
+                                   {
+                                       Curve& cur = t.channels[ch];
+                                       Array<CurveKey> keep;
+                                       for (usize i = 0; i < cur.KeyCount(); ++i)
+                                       {
+                                           if (static_cast<i32>(i) != at)
+                                           {
+                                               keep.PushBack(cur.Keys()[i]);
+                                           }
+                                       }
+                                       cur.Clear();
+                                       for (const CurveKey& k : keep)
+                                       {
+                                           cur.AddKey(k);
+                                       }
+                                   }
+                               }
+                               const i32 qat = FindQuatKeyAt(t, selTime);
+                               if (qat >= 0)
+                               {
+                                   t.quatKeys.RemoveAt(static_cast<usize>(qat));
+                               }
+                           });
+                   });
+
         // Time: retimes every channel key at the selected time (a dopesheet diamond = the
         // whole track at that time), one undo step.
         AddLabel(*m_inspectorRow, u8"Time", 0.0f, 34.0f);
@@ -800,6 +844,38 @@ namespace editor
             }
             break;
         }
+        }
+    }
+
+    void ClipEditorView::BuildQuatKeysRow(usize trackIndex)
+    {
+        ClipEditorView* self = this;
+        const propanim::PropertyTrack& track = Clip().tracks[trackIndex];
+        auto row = MakeRow(0.0f, 24.0f);
+        AddLabel(*row, u8"Keys", 0.0f, 34.0f);
+        if (track.quatKeys.IsEmpty())
+        {
+            AddLabel(*row, u8"(none - Key captures the pose at the playhead)", 1.0f);
+            return;
+        }
+        for (usize i = 0; i < track.quatKeys.Size(); ++i)
+        {
+            const f32 keyTime = track.quatKeys[i].time;
+            const bool isSelected = m_previewSelActive && m_previewSelTrack == trackIndex &&
+                                    Abs(m_previewSelTime - keyTime) < kKeyTimeEps;
+            String chip;
+            chip += isSelected ? u8"[@" : u8"@";
+            AppendValue(chip, keyTime);
+            if (isSelected)
+            {
+                chip += u8"]";
+            }
+            MakeButton(*row, chip.AsView(), 58.0f,
+                       [self, trackIndex, keyTime]()
+                       {
+                           self->ShowSelectedKey(trackIndex, -1, keyTime);
+                           self->RequestRebuild(); // move the [selected] marker to this chip
+                       });
         }
     }
 
@@ -1072,13 +1148,20 @@ namespace editor
         // The dopesheet (in the panel) is the track LIST; this area is the SELECTED track only.
         BuildSelectedTrackStrip();
         BuildKeyInspectorHost();
-        if (m_selectedTrack >= 0 && m_selectedTrack < static_cast<i32>(clip.tracks.Size()) &&
-            clip.tracks[static_cast<usize>(m_selectedTrack)].kind !=
-                propanim::TrackValueKind::Quat)
+        if (m_selectedTrack >= 0 && m_selectedTrack < static_cast<i32>(clip.tracks.Size()))
         {
-            // ONE curve canvas, for the selected scalar track (the interpolation-shaping tool).
-            // Quat tracks: timing lives in the dopesheet, values in the inspector (euler).
-            AddCurveCanvas(static_cast<usize>(m_selectedTrack));
+            if (clip.tracks[static_cast<usize>(m_selectedTrack)].kind !=
+                propanim::TrackValueKind::Quat)
+            {
+                // ONE curve canvas, for the selected scalar track (interpolation shaping).
+                AddCurveCanvas(static_cast<usize>(m_selectedTrack));
+            }
+            else
+            {
+                // Quat tracks have no canvas - the keys strip shows every keyframe as a
+                // clickable chip (UAT: rotation keys were invisible below the dopesheet).
+                BuildQuatKeysRow(static_cast<usize>(m_selectedTrack));
+            }
         }
         // "+ Track" lives on the panel now (it needs the scene + selection to offer a property picker).
         m_host->OnClipViewRebuilt();

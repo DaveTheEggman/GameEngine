@@ -354,10 +354,23 @@ namespace editor
         {
             text = String(u8"Clip: (none - Pick or + From Selection)");
         }
+        if (!m_statusFlash.IsEmpty())
+        {
+            text += u8"   [";
+            text += m_statusFlash.AsView();
+            text += u8"]";
+        }
         if (m_clipLabel.Get() != nullptr)
         {
             m_clipLabel->SetText(text.AsView());
         }
+    }
+
+    void PropertyAnimationPanel::FlashStatus(StringView status)
+    {
+        m_statusFlash = String(status);
+        m_statusFlashSeconds = 2.5f;
+        RefreshHeader();
     }
 
     // === header actions ===
@@ -468,13 +481,21 @@ namespace editor
 
     void PropertyAnimationPanel::SaveClip()
     {
+        // Every outcome is VISIBLE (UAT: "if it saves, there is no feedback") - the header
+        // flashes the result, and no early-out is silent.
         if (m_clipId.IsNil() || m_editorCtx->Project() == nullptr)
         {
+            LOG_WARNING(u8"PropertyAnimation",
+                        u8"Save: no clip asset yet - use New (or Pick) to create one first");
+            FlashStatus(u8"save: no clip asset - use New");
             return;
         }
         foundation::content::Instance* inst = m_editorCtx->Project()->SourceDb().GetInstance(m_clipId);
         if (inst == nullptr)
         {
+            LOG_WARNING(u8"PropertyAnimation",
+                        u8"Save: the clip asset {} no longer exists in the project", m_clipId);
+            FlashStatus(u8"save FAILED: asset missing");
             return;
         }
         pipeline::PropertyAnimationClipAsset asset;
@@ -484,6 +505,12 @@ namespace editor
             m_dirty = false;
             m_editorCtx->RequestCook(false);
             LOG_INFO(u8"Editor", u8"saved in-scene property-animation clip '{}'", m_clipName);
+            FlashStatus(u8"saved");
+        }
+        else
+        {
+            LOG_WARNING(u8"PropertyAnimation", u8"Save: writing clip '{}' failed", m_clipName);
+            FlashStatus(u8"save FAILED (see log)");
         }
     }
 
@@ -632,6 +659,15 @@ namespace editor
 
     void PropertyAnimationPanel::Tick(f32 dt, bool editingLocked)
     {
+        if (m_statusFlashSeconds > 0.0f)
+        {
+            m_statusFlashSeconds -= (dt > 0.0f) ? dt : 0.0f;
+            if (m_statusFlashSeconds <= 0.0f)
+            {
+                m_statusFlash = String();
+                RefreshHeader(); // restore the plain clip line
+            }
+        }
         m_editingLocked = editingLocked;
         if (m_editingLocked)
         {

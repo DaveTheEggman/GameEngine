@@ -201,6 +201,9 @@ export namespace editor
         // (time + typed value fields for the selected key), and ONE curve canvas.
         void BuildSelectedTrackStrip();
         void BuildKeyInspectorHost();
+        // Quat tracks have no canvas - the keys strip makes their keyframes VISIBLE and
+        // clickable (chips select into the inspector; Del there removes).
+        void BuildQuatKeysRow(usize trackIndex);
         void RefreshKeyInspector();   // rebuilds ONLY the inspector row's children (no canvas loss)
         void RequestInspectorRefresh(); // deferred via the UI mutation queue (mid-dispatch safe)
         void KeyTrackFromScene(usize trackIndex); // capture the scene value at the playhead
