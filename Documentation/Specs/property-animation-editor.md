@@ -509,3 +509,38 @@ the tab is expanded.
 Not done (deferred as ruled): keyboard toggle + collapse-state persistence
 ("polish later" per A2-REVISED); active-tab visual highlight in the bar (one tab
 today - the expand state is self-evident). P2 (dopesheet) proceeds from here.
+
+## OPEN for Fable: clip edits dirty the SCENE (command-stack coupling)
+
+Found in UAT (user, 2026-08-17): editing a clip in the in-scene panel marks the SCENE
+document dirty.
+
+Cause: the panel borrows the scene page's `EditorCommandStack`
+(`m_editContext->Commands()`), passed in at construction (P1b). That stack's `OnChanged`
+is wired to the scene page's dirty flag, so every clip edit (key drag, duration,
+add-track) that executes a `ClipEditCommand` fires the scene's `OnChanged` and dirties
+the scene - even though the clip is a SEPARATE asset with its own dirty flag
+(`PropertyAnimationPanel::m_dirty`) and its own Save. The clip changes are not even in
+the scene document. The retired standalone clip page had its OWN command stack
+(`EditorPage::Commands()`), so this is a P1b regression from sharing the scene's stack.
+
+Proposed fix (needs a ruling): the panel OWNS its command stack (a value member;
+`Commands()` returns it), so:
+- clip edits dirty only the clip (via `MarkClipDirty` -> `m_dirty` -> Save), never the
+  scene;
+- clip undo/redo is an independent context (matches the old standalone page + how asset
+  editors generally scope undo);
+- the F1 lifetime invariant is even cleaner (command + stack + host all die with the
+  panel).
+
+Trade-off: the scene page's global Ctrl+Z (which operates on the scene's stack) would no
+longer undo clip edits. Clip-edit undo would need its own affordance - panel-focused
+Ctrl+Z routing, or undo/redo buttons in the panel header. Options for the ruling:
+1. Panel owns its stack; add panel-scoped undo (focus-routed Ctrl+Z or header buttons).
+   RECOMMEND - correct document ownership, matches the standalone page.
+2. Keep the shared stack but suppress the scene-dirty for clip commands (tag clip
+   commands; the scene's OnChanged ignores them). Keeps unified undo; more coupling.
+3. Accept dirtying the scene (status quo). Simplest; but Save-scene-to-persist-a-clip is
+   misleading and the clip edits aren't in the scene.
+
+Not yet built - awaiting the ruling.
