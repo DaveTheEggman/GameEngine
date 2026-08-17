@@ -20,6 +20,7 @@ import :command;
 import :selection;
 import :page;
 import :job_service;
+import :thumbnail_service;
 import :project;
 
 using namespace foundation::core;
@@ -76,6 +77,8 @@ export namespace editor
         // headless/test contexts - callers must fall back to synchronous work.
         [[nodiscard]] EditorJobService* Jobs() const noexcept { return m_jobs; }
         void SetJobs(EditorJobService* jobs) noexcept { m_jobs = jobs; }
+        [[nodiscard]] ThumbnailService* Thumbnails() const noexcept { return m_thumbnails; }
+        void SetThumbnails(ThumbnailService* thumbnails) noexcept { m_thumbnails = thumbnails; }
         [[nodiscard]] EditorProject* Project() const noexcept { return m_project; }
 
         // === Importers (OS file -> Sources/ + typed Asset instance; exe-registered) ===
@@ -291,6 +294,7 @@ export namespace editor
 
         EditorProject* m_project = nullptr;
         EditorJobService* m_jobs = nullptr; // borrowed (app-owned)
+        ThumbnailService* m_thumbnails = nullptr; // borrowed (app-owned)
         foundation::resource::ResourceManager* m_resources = nullptr; // borrowed (app-owned)
         foundation::settings::Settings* m_projectEditorSettings = nullptr; // borrowed (app-owned)
         pipeline::ImporterRegistry m_importers;                               // borrowed

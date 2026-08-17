@@ -83,6 +83,15 @@ export namespace editor
         /// The accepted asset-type names (picker filter + drop filter); set before the grid
         /// builds the row.
         void SetAcceptedTypes(Array<String> types) { m_acceptedTypes = Move(types); }
+        /// The generated thumbnail (wins over the type icon while set; empty falls back).
+        /// Queried per refresh by the row builders - cheap map lookup.
+        void SetPreviewThumbnail(ui::DrawablePtr thumbnail)
+        {
+            if (m_slot.Get() != nullptr)
+            {
+                m_slot->SetPreviewThumbnail(Move(thumbnail));
+            }
+        }
 
         void RefreshView() override {}
 
@@ -639,8 +648,12 @@ export namespace editor
             AddEditor(raw,
                       [self, type, propName, raw]()
                       {
-                          raw->SetValueText(
-                              self->AssetNameFor(self->SettingRefTarget<T>(type, propName)));
+                          const Guid target = self->SettingRefTarget<T>(type, propName);
+                          raw->SetValueText(self->AssetNameFor(target));
+                          raw->SetPreviewThumbnail(
+                              (!target.IsNil() && self->m_editor->Thumbnails() != nullptr)
+                                  ? self->m_editor->Thumbnails()->Get(target)
+                                  : RefPtr<ui::Drawable>{});
                       });
         }
 
@@ -726,9 +739,16 @@ export namespace editor
                            assetTypes.Size() > 0 ? assetTypes[0].AsView() : StringView(u8"?"))
                         .AsView());
             };
-            AddEditor(
-                raw, [self, id, type, propName, raw]()
-                { raw->SetValueText(self->AssetNameFor(self->RefTarget<T>(id, type, propName))); });
+            AddEditor(raw,
+                      [self, id, type, propName, raw]()
+                      {
+                          const Guid target = self->RefTarget<T>(id, type, propName);
+                          raw->SetValueText(self->AssetNameFor(target));
+                          raw->SetPreviewThumbnail(
+                              (!target.IsNil() && self->m_editor->Thumbnails() != nullptr)
+                                  ? self->m_editor->Thumbnails()->Get(target)
+                                  : RefPtr<ui::Drawable>{});
+                      });
         }
 
         // Entity-reference row: the entity-picker twin of BuildResourceRefRow. Same ResourceRefEditor

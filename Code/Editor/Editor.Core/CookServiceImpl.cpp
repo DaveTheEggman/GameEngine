@@ -324,6 +324,16 @@ namespace editor
         return Span<const Guid>(m_lastCookedMain.Data(), m_lastCookedMain.Size());
     }
 
+    u64 EditorCookService::RecipeHashFor(const Guid& id)
+    {
+        if (!IsReady() || IsCooking())
+        {
+            return 0; // the db belongs to the worker mid-cook
+        }
+        const CookRecord* record = m_driver->Db().Find(id);
+        return record != nullptr && !record->failed ? record->recipeHash : 0;
+    }
+
     CookBadge EditorCookService::BadgeFor(foundation::content::Instance& instance)
     {
         if (!IsReady() || m_builders == nullptr)

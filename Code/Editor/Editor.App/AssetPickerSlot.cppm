@@ -1,10 +1,11 @@
 // Editor App - :asset_picker_slot partition
 //
 // The asset reference "slot" (asset-picker-slot.md): a horizontal composite
-//   [ preview ][ asset name (grows) ][ Pick ][ Edit ][ Clear ]
-// Unity-style affordances (user 2026-08-16): preview click LOCATES the asset in the browser,
-// the dedicated Pick button (folder glyph) opens the type-filtered picker - and clicking the
-// name body also picks (the discoverable-and-the-convenient pair).
+//   [ asset name (grows, click = pick) ][ preview/reveal ][ Edit ][ Clear ]
+// Refined per user feedback 2026-08-16: the name button IS the picker affordance (no separate
+// Pick button), the preview/reveal button sits after it, and all three trailing buttons share
+// ONE chrome (ContentButton hosting a 14px drawable - IconButton's tighter padding read as
+// horizontally squished next to it).
 // used by every resource-ref inspector row and the material list-slot rows. Affordances render
 // only when their callback is WIRED (correction C1: the entity-ref twin wires OnPick alone and
 // degrades to a plain name button), and Edit/Clear/preview disable while the slot is empty.
@@ -56,29 +57,10 @@ export namespace editor::app
             Spacing = 2.0f;
             EditorIcons& icons = EditorIcons::Get(); // null drawables pre-Initialize (tests)
 
-            // Preview = a clickable drawable host: the asset TYPE glyph now, swapped for the
-            // real thumbnail once one exists (asset-thumbnails.md) - the icon stays the
-            // fallback while no thumbnail is generated.
-            auto previewContent =
-                MakeRef<ui::DrawableView>(DefaultAllocator(), ui::DrawablePtr{}, 14.0f, 14.0f);
-            m_previewDrawable = previewContent.Get();
-            auto preview = MakeRef<ui::ContentButton>(DefaultAllocator(),
-                                                      RefPtr<ui::View>(previewContent.Get()));
-            m_preview = preview.Get();
-            m_preview->TooltipText = String(u8"Reveal in asset browser");
-            m_preview->OnClick.Add(
-                [this](ui::ButtonBase*)
-                {
-                    if (OnReveal)
-                    {
-                        OnReveal();
-                    }
-                });
-            AddView(preview.Get());
-
             auto body = MakeRef<ui::Button>(DefaultAllocator(),
                                             name.Size() > 0 ? name : StringView(u8"(none)"));
             m_body = body.Get();
+            m_body->TooltipText = String(u8"Choose asset");
             m_body->OnClick.Add(
                 [this](ui::ButtonBase*)
                 {
@@ -93,22 +75,23 @@ export namespace editor::app
                 AddView(body.Get(), Move(lp));
             }
 
-            auto pick = MakeRef<ui::IconButton>(DefaultAllocator(), icons.folder.Get(), 14.0f);
-            m_pick = pick.Get();
-            m_pick->TooltipText = String(u8"Choose asset");
-            m_pick->OnClick.Add(
+            // Preview/reveal = a clickable drawable host: the asset TYPE glyph now, swapped
+            // for the real thumbnail once one exists (asset-thumbnails.md) - the icon stays
+            // the fallback while no thumbnail is generated.
+            ui::DrawableView* previewContent = nullptr;
+            m_preview = MakeActionButton(ui::DrawablePtr{}, u8"Reveal in asset browser",
+                                         &previewContent);
+            m_previewDrawable = previewContent;
+            m_preview->OnClick.Add(
                 [this](ui::ButtonBase*)
                 {
-                    if (OnPick)
+                    if (OnReveal)
                     {
-                        OnPick();
+                        OnReveal();
                     }
                 });
-            AddView(pick.Get());
 
-            auto edit = MakeRef<ui::IconButton>(DefaultAllocator(), icons.edit.Get(), 14.0f);
-            m_edit = edit.Get();
-            m_edit->TooltipText = String(u8"Edit asset");
+            m_edit = MakeActionButton(ui::DrawablePtr(icons.edit.Get()), u8"Edit asset");
             m_edit->OnClick.Add(
                 [this](ui::ButtonBase*)
                 {
@@ -117,11 +100,8 @@ export namespace editor::app
                         OnEdit();
                     }
                 });
-            AddView(edit.Get());
 
-            auto clear = MakeRef<ui::IconButton>(DefaultAllocator(), icons.close.Get(), 14.0f);
-            m_clear = clear.Get();
-            m_clear->TooltipText = String(u8"Clear reference");
+            m_clear = MakeActionButton(ui::DrawablePtr(icons.close.Get()), u8"Clear reference");
             m_clear->OnClick.Add(
                 [this](ui::ButtonBase*)
                 {
@@ -130,7 +110,6 @@ export namespace editor::app
                         OnClear();
                     }
                 });
-            AddView(clear.Get());
 
             SyncAffordances(false);
         }
@@ -241,12 +220,30 @@ export namespace editor::app
 
         [[nodiscard]] bool HasValue() const noexcept { return m_hasValue; }
         [[nodiscard]] ui::Button* BodyButton() noexcept { return m_body; }
-        [[nodiscard]] ui::IconButton* PickButton() noexcept { return m_pick; }
-        [[nodiscard]] ui::IconButton* EditButton() noexcept { return m_edit; }
-        [[nodiscard]] ui::IconButton* ClearButton() noexcept { return m_clear; }
+        [[nodiscard]] ui::ContentButton* EditButton() noexcept { return m_edit; }
+        [[nodiscard]] ui::ContentButton* ClearButton() noexcept { return m_clear; }
         [[nodiscard]] ui::ContentButton* PreviewButton() noexcept { return m_preview; }
 
     private:
+        /// ONE chrome for every trailing action: a ContentButton hosting a 14px drawable view
+        /// (the footprint the user signed off on; IconButton's tighter padding looked squished
+        /// beside it). Adds the button to the row; returns it (and the drawable host).
+        [[nodiscard]] ui::ContentButton* MakeActionButton(ui::DrawablePtr icon, StringView tooltip,
+                                                          ui::DrawableView** outDrawable = nullptr)
+        {
+            auto content =
+                MakeRef<ui::DrawableView>(DefaultAllocator(), Move(icon), 14.0f, 14.0f);
+            if (outDrawable != nullptr)
+            {
+                *outDrawable = content.Get();
+            }
+            auto button = MakeRef<ui::ContentButton>(DefaultAllocator(),
+                                                     RefPtr<ui::View>(content.Get()));
+            button->TooltipText = String(tooltip);
+            AddView(button.Get());
+            return button.Get();
+        }
+
         [[nodiscard]] bool TypeAccepted(StringView typeName) const
         {
             for (const String& accepted : m_acceptedTypes)
@@ -274,9 +271,6 @@ export namespace editor::app
                                  static_cast<bool>(m_previewThumbnail);
             m_preview->Visibility = preview ? ui::Visibility::Visible : ui::Visibility::Gone;
             m_preview->IsEnabled = hasValue && static_cast<bool>(OnReveal);
-            // Picking works on an EMPTY slot by definition - visibility only.
-            m_pick->Visibility =
-                static_cast<bool>(OnPick) ? ui::Visibility::Visible : ui::Visibility::Gone;
             m_edit->Visibility =
                 static_cast<bool>(OnEdit) ? ui::Visibility::Visible : ui::Visibility::Gone;
             m_edit->IsEnabled = hasValue;
@@ -288,9 +282,8 @@ export namespace editor::app
         ui::ContentButton* m_preview = nullptr;    // owned by m_children
         ui::DrawableView* m_previewDrawable = nullptr; // owned by the preview button
         ui::Button* m_body = nullptr;              // owned by m_children
-        ui::IconButton* m_pick = nullptr;          // owned by m_children
-        ui::IconButton* m_edit = nullptr;          // owned by m_children
-        ui::IconButton* m_clear = nullptr;         // owned by m_children
+        ui::ContentButton* m_edit = nullptr;       // owned by m_children
+        ui::ContentButton* m_clear = nullptr;      // owned by m_children
         ui::SVGDrawable* m_previewIcon = nullptr;  // borrowed (EditorIcons)
         Array<String> m_acceptedTypes;             // drop filter (empty = not a drop target)
         bool m_dropHover = false;                  // an asset drag is over the slot

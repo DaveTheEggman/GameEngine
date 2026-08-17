@@ -17,6 +17,7 @@ module;
 #include "Core/Log/Log.h"
 
 export module editor.texture;
+export import :thumbnail_generator;
 
 import foundation.core;
 import foundation.content;
@@ -130,5 +131,11 @@ export namespace editor
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<TextureEditorPageFactory>(), DefaultAllocator()));
+        // The domain's thumbnail generator registers with its page (asset-thumbnails.md):
+        // one composition entry point per domain, no pipeline links in Editor.App.
+        if (context.Thumbnails() != nullptr)
+        {
+            RegisterTextureThumbnailGenerator(*context.Thumbnails());
+        }
     }
 }

@@ -584,7 +584,14 @@ export namespace editor::app
                 {
                     return;
                 }
-                iconView->Drawable = ui::DrawablePtr(m_owner->RowIcon(position));
+                // Thumbnail wins; the type icon shows until one exists (asset-thumbnails.md).
+                RefPtr<ui::Drawable> thumbnail;
+                if (row->group == nullptr && m_owner->m_context->Thumbnails() != nullptr)
+                {
+                    thumbnail = m_owner->m_context->Thumbnails()->Get(row->id);
+                }
+                iconView->Drawable = thumbnail ? ui::DrawablePtr(thumbnail.Get())
+                                               : ui::DrawablePtr(m_owner->RowIcon(position));
                 name->BindTarget(row->id, row->group);
                 if (content::Instance* instance = m_owner->InstanceAt(position))
                 {

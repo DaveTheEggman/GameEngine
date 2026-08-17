@@ -1,6 +1,15 @@
 # Asset thumbnails (generation + display)
 
-> STATUS: DESIGN 2026-08-16 (Fable-authored, user-requested). Not built. The DISPLAY
+> STATUS: P1 BUILT 2026-08-16 (Fable). Service + texture generator + browser-grid and
+> picker-slot display + tests shipped. ARCHITECTURE RULING (user): generators live in
+> the DOMAIN editor libs beside their asset's editor surface (Editor.Texture carries
+> the texture generator + its Pipeline::Texture knowledge) and register through the
+> domain's Register<X>Editor call in the Tools.Editor composition root, with a
+> GeneratorCount tripwire there - Editor.App owns only the SERVICE + lifecycle and
+> links no pipeline libs for thumbnails (the Pipeline.Registration pattern applied).
+> Cross-engine research (Sedulous/Lumix/Traktor, recorded in the P2 notes below)
+> validated the content-hash filename key and added the in-flight budget + the
+> checkerboard-behind-alpha texel treatment. The DISPLAY
 > seams already exist: `AssetPickerSlot::SetPreviewThumbnail` (thumbnail wins, type
 > icon is the fallback - built with asset-picker-slot.md P1) and the asset browser's
 > tile `DrawableView` (its comment has said "future-thumbnail" since the tile
@@ -110,6 +119,22 @@ Phased coverage:
 - **P3** - font + audio generators.
 - **P4** - picker dialog thumbnails; a settings knob for thumbnail size; cache
   maintenance action (clear/regenerate all).
+
+## P2 notes from the cross-engine research (Sedulous / Lumix / Traktor)
+
+For the offscreen-render generators: keep exactly ONE GPU preview job in flight with
+a decline-and-retry protocol (all three engines converge on this); render at 2-4x the
+tile size and box-downscale for free AA (Lumix's 384->96 + compute reduce); use an
+ORTHO camera with size = boundingRadius * 1.1 along (1,1,1) for rotation-invariant
+framing (Lumix); a persistent hidden preview scene with pre-created entities beats
+per-job scene setup (Sedulous's __Thumbnails__ world, itself modeled on Lumix);
+materials can preview as a lit sphere OR cheaply as their base texture tinted
+(Lumix); composite assets (prefab/scene) can delegate to the first dependency any
+generator handles (Traktor's dependency-walk trick); fence-poll the readback and
+convert on the CPU (both GPU engines). Pitfalls seen: size-less cache keys (Sedulous
+serves any size from one file), unsynchronized readback flags (Lumix), orphan cache
+files forever (Traktor - our lazy same-guid cleanup + safe-to-delete directory
+answer this).
 
 ## Non-goals (for now)
 

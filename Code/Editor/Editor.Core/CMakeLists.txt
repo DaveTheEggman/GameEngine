@@ -8,6 +8,7 @@ target_link_libraries(Editor.Core
     PUBLIC Pipeline::Importer Foundation::Core Foundation::VFS Foundation::VFS.Pak Foundation::Content Foundation::Xml.Serialization Engine::Project
            Foundation::Settings Foundation::Scene.Resource
            Pipeline::Cook Foundation::Resource Foundation::Policy
+           Foundation::Image Foundation::Image.IO Foundation::UI
            Foundation::Shaders) # export cooks the engine shader pack (shaders.dpak)
 
 # Export cooks the built-in shaders from the source tree (same root the renderer bakes); a
@@ -25,6 +26,7 @@ target_compile_definitions(Editor.Core PRIVATE
 target_sources(Editor.Core
     PRIVATE
         CookServiceImpl.cpp
+        ThumbnailServiceImpl.cpp
         ContextImpl.cpp
         CommandImpl.cpp
         ExportTemplateImpl.cpp
@@ -41,6 +43,7 @@ target_sources(Editor.Core
             Context.cppm
             LogBuffer.cppm
             JobService.cppm
+            ThumbnailService.cppm
             ExportPreset.cppm
             EditorSettings.cppm
             ExportRoots.cppm

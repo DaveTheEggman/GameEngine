@@ -20,6 +20,7 @@ export import :cook_service;
 export import pipeline.importer; // the import framework moved to Pipeline (MCP P1 opening step)
 export import :log_buffer;
 export import :job_service;
+export import :thumbnail_service;
 export import :export_preset;
 export import :export_roots;
 export import :export_template;

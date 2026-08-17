@@ -13,6 +13,7 @@
 #include <cstring>
 #include <cstdlib>
 #include "Core/Log/Log.h"
+#include "Core/Debug/Assert.h"
 
 import foundation.core;
 import foundation.shell;
@@ -365,6 +366,11 @@ int main(int argc, char** argv)
         // bespoke page first; anything else lands on the generic serialize-driven form
         // instead of the hard "No editor registered" failure.
         editor::RegisterGenericAssetEditor(app.Context());
+        // Thumbnail-generator tripwire (asset-thumbnails.md): each domain's Register<X>Editor
+        // above also registers its thumbnail generator - bump the expected count when a domain
+        // gains one, so a silently-unregistered generator fails loudly here, not as icons.
+        DIAGNOSTIC_ASSERT(app.Context().Thumbnails() != nullptr &&
+                          app.Context().Thumbnails()->GeneratorCount() == 1);
         // Script behavior page + per-backend "New Asset > <Lang> Script" creators (scripting.md
         // §5). RegisterScriptEditor fans creators over backends that have a registered COOK, so the
         // cooks must be registered FIRST — RegisterAllBuilders (below) also registers them for the

@@ -16,5 +16,6 @@ target_sources(Editor.Texture
         TextureEditorPageImpl.cpp
     PUBLIC
         FILE_SET editortexture_modules TYPE CXX_MODULES FILES
+            TextureThumbnailGenerator.cppm
             TextureEditorPage.cppm)
 

@@ -22,7 +22,6 @@ TEST_CASE("asset-slot: affordances render only when wired")
     auto bare = MakeRef<app::AssetPickerSlot>(DefaultAllocator(), StringView(u8"Thing"));
     bare->SetValue(u8"Thing", true);
     CHECK(bare->EditButton()->Visibility == ui::Visibility::Gone);
-    CHECK(bare->PickButton()->Visibility == ui::Visibility::Gone);
     CHECK(bare->ClearButton()->Visibility == ui::Visibility::Gone);
     CHECK(bare->PreviewButton()->Visibility == ui::Visibility::Gone);
     CHECK(bare->BodyButton()->Visibility == ui::Visibility::Visible);
@@ -34,7 +33,6 @@ TEST_CASE("asset-slot: affordances render only when wired")
     slot->OnClear = []() {};
     slot->OnReveal = []() {};
     slot->SetValue(u8"MyClip", true);
-    CHECK(slot->PickButton()->Visibility == ui::Visibility::Visible);
     CHECK(slot->EditButton()->Visibility == ui::Visibility::Visible);
     CHECK(slot->ClearButton()->Visibility == ui::Visibility::Visible);
     CHECK(slot->PreviewButton()->Visibility == ui::Visibility::Visible);
@@ -49,8 +47,7 @@ TEST_CASE("asset-slot: Edit/Clear/preview inert while empty, body always live")
     slot->OnReveal = []() {};
 
     slot->SetValue({}, false);
-    CHECK(slot->BodyButton()->IsEnabled);
-    CHECK(slot->PickButton()->IsEnabled); // picking an EMPTY slot is the point
+    CHECK(slot->BodyButton()->IsEnabled); // picking an EMPTY slot is the point
     CHECK(!slot->EditButton()->IsEnabled);
     CHECK(!slot->ClearButton()->IsEnabled);
     CHECK(!slot->PreviewButton()->IsEnabled);
@@ -72,11 +69,10 @@ TEST_CASE("asset-slot: each affordance fires exactly once per click")
     slot->SetValue(u8"MyClip", true);
 
     slot->BodyButton()->FireClick();
-    slot->PickButton()->FireClick();
     slot->EditButton()->FireClick();
     slot->ClearButton()->FireClick();
     slot->PreviewButton()->FireClick();
-    CHECK(picks == 2); // body + the dedicated Pick button both pick
+    CHECK(picks == 1); // the name body IS the pick affordance
     CHECK(edits == 1);
     CHECK(clears == 1);
     CHECK(reveals == 1);

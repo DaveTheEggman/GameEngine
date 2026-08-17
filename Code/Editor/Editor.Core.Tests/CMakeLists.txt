@@ -9,7 +9,7 @@ if(OPTION_ENABLE_WREN)
 endif()
 add_executable(Editor.Core.Tests TestsMain.cpp CommandTests.cpp ProjectTests.cpp
     ProjectRegistryTests.cpp
-    ${_editor_core_script_test} JobServiceTests.cpp ContextTests.cpp LogBufferTests.cpp)
+    ${_editor_core_script_test} JobServiceTests.cpp ThumbnailServiceTests.cpp ContextTests.cpp LogBufferTests.cpp)
 target_link_libraries(Editor.Core.Tests PRIVATE Editor::Core Pipeline::Geometry Foundation::Geometry.Resource
     Engine::Render Foundation::Scene.Resource Foundation::VFS.Pak Engine::Project Foundation::Content Foundation::VFS Foundation::Settings
     ${_editor_core_script_libs} doctest::doctest)

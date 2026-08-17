@@ -63,6 +63,9 @@ export namespace editor
 
         [[nodiscard]] bool IsReady() const noexcept { return m_driver.Get() != nullptr; }
         [[nodiscard]] bool IsCooking() const noexcept { return m_cooking.load(); }
+        /// The instance's cook recipe hash (the asset-thumbnails.md content key), or 0 when
+        /// unknown (mid-cook - the db belongs to the worker - or never cooked).
+        [[nodiscard]] u64 RecipeHashFor(const Guid& id);
 
         /// External contributor to the mutation lock (wired by the app): e.g. a background
         /// EXPORT job reads the source DB structure and packs cooked files from its worker,

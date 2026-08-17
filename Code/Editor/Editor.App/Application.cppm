@@ -352,6 +352,7 @@ export namespace editor::app
         UniquePtr<editor::EditorProject> m_project;
         pipeline::BuilderRegistry m_builders; // exe-assembled (registerEditors)
         editor::EditorCookService m_cookService;
+        editor::ThumbnailService m_thumbnailService; // asset-thumbnails.md P1 (per-project state)
         editor::EditorJobService m_jobService; // generic background jobs (export, ...)
         foundation::settings::Settings
             m_editorSettings; // per-user editor prefs (<userdata>/editor.settings.xml)

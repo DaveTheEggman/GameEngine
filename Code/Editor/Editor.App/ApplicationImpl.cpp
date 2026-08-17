@@ -2114,6 +2114,21 @@ namespace editor::app
         }
 
         m_context.SetProject(m_project.Get());
+        {
+            // Thumbnail cache under the project's gitignored .cache (asset-pipeline.md).
+            String thumbsDir = Format(u8"{}/{}/thumbs", directory,
+                                      engine::project::kProjectCacheDir);
+            (void)foundation::core::CreateDirectory(thumbsDir.AsView());
+            editor::EditorProject* project = m_project.Get();
+            m_thumbnailService.Configure(
+                thumbsDir.AsView(),
+                Function<foundation::content::Instance*(const Guid&)>{
+                    [project](const Guid& id)
+                    { return project->SourceDb().GetInstance(id); }},
+                &m_jobService,
+                Function<foundation::core::u64(const Guid&)>{
+                    [this](const Guid& id) { return m_cookService.RecipeHashFor(id); }});
+        }
 
         // I4b instrumentation: what the open-time header scans actually cost. The XML
         // factory DOM-parses each whole envelope to read three fields, so bytesOpened is
@@ -2224,6 +2239,18 @@ namespace editor::app
         // exactly like during a cook. The cook service folds this into MutationLocked.
         m_cookService.ExternalMutationLock = [this]() { return m_jobService.IsBusy(); };
         m_context.SetJobs(&m_jobService); // pages submit light work (preview bakes) here
+        // Thumbnails (asset-thumbnails.md P1): the app owns the SERVICE + lifecycle only;
+        // GENERATORS register from each domain's Register<X>Editor in the Tools.Editor
+        // composition root (no pipeline links here). Ready thumbnails rebind the browser;
+        // inspector slots re-query per refresh.
+        m_context.SetThumbnails(&m_thumbnailService);
+        m_thumbnailService.OnThumbnailReady = [this](const Guid&)
+        {
+            if (m_assetsView)
+            {
+                m_assetsView->Rebuild();
+            }
+        };
         m_assetsView =
             MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService, &m_jobService);
         AssetsView* assets = m_assetsView.Get();
@@ -2266,6 +2293,7 @@ namespace editor::app
         };
         m_cookService.OnCookFinished = [this, assets]()
         {
+            m_thumbnailService.InvalidateAll(); // recipe hashes moved; disk absorbs unchanged
             assets->Rebuild();
             // Result toast: failures are sticky (Console has the log); silent when the
             // cook was a no-op (the watcher fires those constantly).
@@ -2383,6 +2411,7 @@ namespace editor::app
             return;
         }
         m_cookService.Shutdown(); // joins any in-flight cook before the DBs go away
+        m_thumbnailService.Reset(); // in-flight slots outlive harmlessly; entries drop
         SaveLayout();             // pages.bin + layout.xml for the next open
         // Close every page: the tab-close pair (panel, then page), applied to all. ClosePage
         // erases the entry from m_pagePanels, so drain from the front.
