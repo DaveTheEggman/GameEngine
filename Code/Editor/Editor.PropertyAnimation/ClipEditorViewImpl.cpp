@@ -618,9 +618,7 @@ namespace editor
         {
             BuildTrackRows(i);
         }
-        ClipEditorView* self = this;
-        MakeButton(*MakeRow(0.0f, 26.0f), u8"+ Track", 80.0f, [self]()
-                   { self->AddTrack(u8"Transform", u8"position", propanim::TrackValueKind::Float3); });
+        // "+ Track" lives on the panel now (it needs the scene + selection to offer a property picker).
         m_host->OnClipViewRebuilt();
     }
 

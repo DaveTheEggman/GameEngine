@@ -144,7 +144,13 @@ export namespace editor
         void OnNew();
         void OnPick();
         void OnAddFromSelection();
+        void OnAddTrackMenu(); // "+ Track": a property picker (the selected entity's animatable leaves)
         void OnSave();
+
+        // The animatable-property seeds for the primary-selected entity (Transform TRS + each reflected
+        // component's animatable leaves). Shared by + From Selection (adds all) + the + Track picker.
+        [[nodiscard]] Array<AnimatablePropertyInfo> CollectSelectionTrackSeeds();
+        [[nodiscard]] bool ClipHasTrack(StringView componentType, StringView propertyPath) const;
 
         // One property captured before a transient preview write, so it can be restored EXACTLY
         // (re-resolved each time, never a cached instance - the entity.get lesson).
@@ -181,6 +187,7 @@ export namespace editor
 
         // Chrome + widgets (persistent - built once in the constructor).
         RefPtr<ui::Label> m_clipLabel;
+        RefPtr<ui::Button> m_addTrackButton; // anchors the "+ Track" property-picker menu
         RefPtr<ui::Button> m_playButton;
         RefPtr<ui::Button> m_pauseButton;
         RefPtr<ui::Button> m_loopButton;

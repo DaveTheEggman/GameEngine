@@ -234,6 +234,7 @@ namespace editor
         addButton(*header, u8"New", 52.0f, [self]() { self->OnNew(); });
         addButton(*header, u8"Pick...", 60.0f, [self]() { self->OnPick(); });
         addButton(*header, u8"+ From Selection", 128.0f, [self]() { self->OnAddFromSelection(); });
+        m_addTrackButton = addButton(*header, u8"+ Track", 62.0f, [self]() { self->OnAddTrackMenu(); });
         addButton(*header, u8"Save", 52.0f, [self]() { self->OnSave(); });
         m_clipLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
         m_clipLabel->FontSize.SetValue(11.0f);
@@ -451,23 +452,23 @@ namespace editor
         }
     }
 
-    usize PropertyAnimationPanel::AddTracksFromSelection(ClipEditorView& view)
+    Array<AnimatablePropertyInfo> PropertyAnimationPanel::CollectSelectionTrackSeeds()
     {
+        Array<AnimatablePropertyInfo> seeds;
         if (m_scene == nullptr || m_selection == nullptr)
         {
-            return 0;
+            return seeds;
         }
         const Guid* primary = m_selection->Primary();
         if (primary == nullptr)
         {
-            return 0;
+            return seeds;
         }
         const scene::EntityHandle entity = m_scene->FindEntity(*primary);
         if (!entity.IsAssigned())
         {
-            return 0;
+            return seeds;
         }
-        Array<AnimatablePropertyInfo> seeds;
         // Every entity has a scene transform (not a reflected component), so always offer its TRS.
         seeds.PushBack(AnimatablePropertyInfo{String(kTransformName), String(u8"position"),
                                               propanim::TrackValueKind::Float3});
@@ -489,6 +490,24 @@ namespace editor
                 }
                 CollectAnimatableProperties(*type, seeds);
             });
+        return seeds;
+    }
+
+    bool PropertyAnimationPanel::ClipHasTrack(StringView componentType, StringView propertyPath) const
+    {
+        for (const propanim::PropertyTrack& t : m_clip.tracks)
+        {
+            if (t.componentType.AsView() == componentType && t.propertyPath.AsView() == propertyPath)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    usize PropertyAnimationPanel::AddTracksFromSelection(ClipEditorView& view)
+    {
+        Array<AnimatablePropertyInfo> seeds = CollectSelectionTrackSeeds();
         if (seeds.IsEmpty())
         {
             return 0;
@@ -502,6 +521,48 @@ namespace editor
         m_commands->EndGroup();
         m_commands->LockGroup(); // a second "+ From Selection" is its OWN undo entry, not merged
         return seeds.Size();
+    }
+
+    void PropertyAnimationPanel::OnAddTrackMenu()
+    {
+        ui::UIContext* ctx = this->Context;
+        if (ctx == nullptr)
+        {
+            return;
+        }
+        const Array<AnimatablePropertyInfo> seeds = CollectSelectionTrackSeeds();
+        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        PropertyAnimationPanel* self = this;
+        usize offered = 0;
+        for (const AnimatablePropertyInfo& seed : seeds)
+        {
+            if (ClipHasTrack(seed.componentType.AsView(), seed.propertyPath.AsView()))
+            {
+                continue; // already a track for this property - don't offer a duplicate
+            }
+            String label = seed.componentType;
+            label += u8".";
+            label += seed.propertyPath.AsView();
+            const AnimatablePropertyInfo pick = seed; // copy for the click closure
+            menu->AddItem(label.AsView(),
+                          [self, pick]()
+                          {
+                              self->m_view->AddTrack(pick.componentType.AsView(),
+                                                     pick.propertyPath.AsView(), pick.kind);
+                              self->RefreshHeader();
+                          });
+            ++offered;
+        }
+        if (offered == 0)
+        {
+            menu->AddItem(seeds.IsEmpty() ? StringView(u8"(select an entity first)")
+                                          : StringView(u8"(all properties already tracked)"),
+                          []() {});
+        }
+        const Float2 pos = (m_addTrackButton.Get() != nullptr)
+                               ? m_addTrackButton->LocalToScreen(Float2{0.0f, 24.0f})
+                               : Float2{0.0f, 0.0f};
+        menu->Show(ctx, pos.x, pos.y);
     }
 
     // === live preview ===
