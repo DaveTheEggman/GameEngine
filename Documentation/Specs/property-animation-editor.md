@@ -482,3 +482,30 @@ Mechanism (ruled):
 
 Sequencing: P1d (this rework) lands BEFORE P2 - the dopesheet should grow
 inside the final interaction shell, not get re-parented after.
+
+### P1d implementation notes (for Fable review)
+
+P1d is DONE and on master (commit beeb86af), green clang + gcc. Built exactly to
+the A2-REVISED ruling. Two new domain-agnostic toolkit capabilities, both
+headless-tested (UI.Toolkit.Tests):
+
+- `SplitView::SetPaneCollapsed(SplitPane, bool)` + `IsPaneCollapsed` /
+  `AnyPaneCollapsed`: the collapsed pane measures at its content minimum along
+  the split axis (`{w,w,0,h}` loose measure), the divider hides + stops
+  hit-testing, and the stored ratio is preserved for restore. ONE container, no
+  reparenting - the F1 invariant holds.
+- `BottomDock` (`:bottom_dock`): always-visible tab bar + expandable content
+  region above it; `AddTab(id,label,content)` (content borrowed), click-active-
+  collapses / click-other-switches+expands, `OnExpandedChanged(bool)` event,
+  `ActivateTab`/`ClickTab`/`SetExpanded`. N-tab shaped; one "Animation" tab today.
+
+Scene page: viewport column is now `[viewport / BottomDock]` vsplit; the dock
+hosts PropertyAnimationPanel as the Animation tab and drives the split's
+pane-collapse through OnExpandedChanged (captures the page, not a RefPtr, so no
+event->split->dock->event cycle). Starts collapsed. Per-scene-page. The panel
+lost its own collapse caret (the dock owns collapse); its header shows only when
+the tab is expanded.
+
+Not done (deferred as ruled): keyboard toggle + collapse-state persistence
+("polish later" per A2-REVISED); active-tab visual highlight in the bar (one tab
+today - the expand state is self-evident). P2 (dopesheet) proceeds from here.
