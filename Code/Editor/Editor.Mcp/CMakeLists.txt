@@ -7,9 +7,12 @@ add_library(Editor::Mcp ALIAS Editor.Mcp)
 target_link_libraries(Editor.Mcp PUBLIC
     Editor::Core Foundation::Content Foundation::VFS
     Pipeline::Core Pipeline::Importer Pipeline::Cook
+    Foundation::Scene Foundation::Scene.Resource Foundation::Xml.Serialization
     Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)
 
 target_sources(Editor.Mcp
     PUBLIC
         FILE_SET editor_mcp_modules TYPE CXX_MODULES FILES
+            McpSession.cppm
+            SceneTools.cppm
             ProjectTools.cppm)

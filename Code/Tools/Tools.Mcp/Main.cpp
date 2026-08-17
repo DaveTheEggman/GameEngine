@@ -86,6 +86,7 @@ int main(int /*argc*/, char** /*argv*/)
     editor::mcp::RegisterProjectTools(server, session);
     editor::mcp::RegisterAssetTools(server, session);
     editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
+    editor::mcp::RegisterSceneTools(server, session); // scene/prefab read+write+validate (files-first)
 
     StdioTransport transport;
     Serve(server, transport);

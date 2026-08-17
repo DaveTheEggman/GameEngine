@@ -10,6 +10,8 @@ module;
 #include "Core/Prelude.h"
 
 export module editor.mcp;
+export import :session;
+export import :scene_tools;
 
 import foundation.core;
 import foundation.json;
@@ -35,37 +37,6 @@ namespace editor::mcp::detail
         choices.PushBack(String(u8"source"));
         choices.PushBack(String(u8"cooked"));
         return choices;
-    }
-
-    // Walk (creating as needed) a slash-joined group path under `root`, returning the leaf group.
-    // Empty path returns root. Used to place an imported asset in a chosen source-DB group.
-    inline content::Group* ResolveGroupPath(content::Group* root, StringView path)
-    {
-        content::Group* group = root;
-        usize start = 0;
-        for (usize i = 0; i <= path.Size(); ++i)
-        {
-            const bool atEnd = (i == path.Size());
-            if (!atEnd && path[i] != utf8char('/'))
-            {
-                continue;
-            }
-            const StringView part = path.SubStr(start, i - start);
-            if (!part.IsEmpty())
-            {
-                group = group->CreateGroup(part);
-            }
-            start = i + 1;
-        }
-        return group;
-    }
-
-    // A Guid as its canonical 36-char string.
-    inline JsonValue GuidToJson(const Guid& id)
-    {
-        utf8char buffer[37];
-        id.ToChars(buffer);
-        return JsonValue::MakeString(String(buffer));
     }
 
     // Recursively append every instance under `group` (depth-first) to `out` as {guid,name,type,
@@ -100,13 +71,6 @@ namespace editor::mcp::detail
 
 export namespace editor::mcp
 {
-    // The MCP host's current project (null until project_open succeeds). Owned by the host; must
-    // outlive the server the tools are registered on.
-    struct ProjectSession
-    {
-        UniquePtr<editor::EditorProject> project;
-    };
-
     // Registers project_create / project_open / project_info against `server`, backed by `session`.
     inline void RegisterProjectTools(foundation::mcp::McpServer& server, ProjectSession& session)
     {
