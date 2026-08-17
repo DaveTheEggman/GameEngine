@@ -21,6 +21,7 @@ add_executable(UI.Toolkit.Tests
     PropertyGridTests.cpp
     ToastHostTests.cpp
     CurveCanvasTests.cpp
+    TimelineTests.cpp
     DockingTests.cpp
     DockPersistenceTests.cpp
     NodeGraphTests.cpp

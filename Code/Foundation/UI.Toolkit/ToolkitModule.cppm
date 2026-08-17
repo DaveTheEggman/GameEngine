@@ -31,6 +31,7 @@ export import :float4_editor;
 export import :color_editor;
 export import :property_grid;
 export import :curve_canvas;
+export import :timeline;
 export import :dock_position;
 export import :dock_layout_node;
 export import :idock_host;

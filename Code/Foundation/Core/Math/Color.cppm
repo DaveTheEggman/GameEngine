@@ -41,6 +41,14 @@ export namespace foundation::core
                          static_cast<f32>(packed & 0xFFu) / 255.0f};
         }
 
+        // Build from 0-255 channel bytes (the common literal form: Color::Rgb(28, 28, 33)). Saves
+        // every UI widget rolling its own 0-255 helper.
+        [[nodiscard]] static constexpr Color Rgb(u8 r, u8 g, u8 b, u8 a = 255) noexcept
+        {
+            return Color{static_cast<f32>(r) / 255.0f, static_cast<f32>(g) / 255.0f,
+                         static_cast<f32>(b) / 255.0f, static_cast<f32>(a) / 255.0f};
+        }
+
         static const Color White;
         static const Color Black;
         static const Color Red;

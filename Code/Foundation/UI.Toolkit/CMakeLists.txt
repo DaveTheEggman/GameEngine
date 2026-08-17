@@ -49,6 +49,7 @@ target_sources(UI.Toolkit
             ColorEditor.cppm
             PropertyGrid.cppm
             CurveCanvas.cppm
+            Timeline.cppm
             DockPosition.cppm
             DockLayoutNode.cppm
             IDockHost.cppm
