@@ -10,6 +10,7 @@
 
 module;
 #include <cmath>
+#include <cstdio>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
@@ -209,6 +210,9 @@ export namespace foundation::ui::toolkit
         {
             const f32 w = Width();
             const f32 h = Height();
+            // Everything clips to the widget: tick labels near the right edge and long lane
+            // labels must never paint outside the timeline (UAT: label overflow).
+            ctx.VG().PushClipRect(Rectangle{0.0f, 0.0f, w, h});
             // Resolve the ruler band ONCE; the gutter is derived from it (F2 - a single themed
             // Background rule, not a second token with its own hand-picked fallback).
             const core::Color band =
@@ -225,9 +229,13 @@ export namespace foundation::ui::toolkit
             const f32 step = PickTickStep(m_pixelsPerSecond, kMinLabelPx);
             const f32 startTime = Max(XToTime(Max(LabelColumnWidth, 0.0f)), 0.0f);
             const f32 endTime = XToTime(w);
-            f32 t = std::floor(startTime / step) * step;
-            for (; t <= endTime + step * 0.5f; t += step)
+            // Index-based ticks: accumulating `t += step` drifts in f32 and the drift prints
+            // ("0.0005322" instead of "0.0005"); i * step stays exact per tick.
+            const i64 firstTick = static_cast<i64>(std::floor(startTime / step));
+            const i64 lastTick = static_cast<i64>(std::ceil(endTime / step));
+            for (i64 tick = firstTick; tick <= lastTick; ++tick)
             {
+                const f32 t = static_cast<f32>(tick) * step;
                 if (t < -1e-4f)
                 {
                     continue;
@@ -258,9 +266,14 @@ export namespace foundation::ui::toolkit
             {
                 const core::Color gutter{band.r * 0.82f, band.g * 0.82f, band.b * 0.82f, band.a};
                 ctx.VG().FillRect(Rectangle{0.0f, 0.0f, LabelColumnWidth, h}, gutter);
-                // Track labels, one per lane (the dopesheet IS the track list - Sedulous shape).
+                // Track labels, one per lane (the dopesheet IS the track list - Sedulous
+                // shape). Larger than the ruler digits (9pt read as fine print) and clipped
+                // to the gutter so a long path never bleeds into the key grid.
                 const core::Color laneLabelSel = ResolveStyleColor(
                     StyleProperty::AccentColor, core::Color::Rgb(90, 150, 235, 255));
+                fonts::CachedFont* laneFont =
+                    (ctx.FontService() != nullptr) ? ctx.FontService()->GetFont(12.0f) : nullptr;
+                ctx.VG().PushClipRect(Rectangle{0.0f, 0.0f, LabelColumnWidth, h});
                 f32 gy = kRulerHeight;
                 for (usize li = 0; li < m_lanes.Size(); ++li)
                 {
@@ -271,9 +284,9 @@ export namespace foundation::ui::toolkit
                             Rectangle{0.0f, gy, LabelColumnWidth, lane.height},
                             core::Color{laneLabelSel.r, laneLabelSel.g, laneLabelSel.b, 0.28f});
                     }
-                    if (font != nullptr && !lane.label.IsEmpty())
+                    if (laneFont != nullptr && !lane.label.IsEmpty())
                     {
-                        ctx.VG().DrawText(lane.label, font,
+                        ctx.VG().DrawText(lane.label, laneFont,
                                           Rectangle{6.0f, gy, LabelColumnWidth - 10.0f,
                                                     lane.height},
                                           fonts::TextAlignment::Left,
@@ -281,6 +294,7 @@ export namespace foundation::ui::toolkit
                     }
                     gy += lane.height;
                 }
+                ctx.VG().PopClip();
             }
 
             // Dopesheet lanes below the ruler: an alternating row per lane + a marker per key. Selected
@@ -344,6 +358,7 @@ export namespace foundation::ui::toolkit
                     ResolveStyleColor(StyleProperty::AccentColor, core::Color::Rgb(90, 150, 235, 255));
                 ctx.VG().FillRect(Rectangle{bx, by, bw, bh}, core::Color{accent.r, accent.g, accent.b, 0.18f});
             }
+            ctx.VG().PopClip();
         }
 
         void OnMouseDown(MouseEventArgs& e) override
@@ -584,7 +599,16 @@ export namespace foundation::ui::toolkit
             }
             else
             {
-                AppendValue(s, t);
+                // 4 significant digits: every {1,2,5}x10^n tick step prints exactly, and f32
+                // noise ("0.0005322") never reaches the ruler.
+                char buffer[32];
+                const int n = std::snprintf(buffer, sizeof(buffer), "%.4g",
+                                            static_cast<double>(t));
+                if (n > 0)
+                {
+                    s += StringView(reinterpret_cast<const utf8char*>(buffer),
+                                    static_cast<usize>(n));
+                }
                 s += u8"s";
             }
             return s;

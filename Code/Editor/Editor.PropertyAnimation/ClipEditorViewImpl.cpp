@@ -932,8 +932,11 @@ namespace editor
         canvas->OnKeyChanged.Add(
             [self, trackIndex, raw](i32 ch, i32 ki)
             {
-                // A drag moves the selected key: keep the readout's time/value current.
-                if (ch >= 0 && ki >= 0 && ki < raw->GetKeyCount(ch))
+                // A drag moves the selected key: keep the readout's time/value current. A
+                // LINKED-TIME drag fires once per channel - only the canvas's own selected
+                // key updates the readout, or the last channel (Z) would win every click.
+                if (ch == raw->SelectedChannel() && ki == raw->SelectedKeyIndex() && ki >= 0 &&
+                    ki < raw->GetKeyCount(ch))
                 {
                     self->m_previewSelActive = true;
                     self->m_previewSelTrack = trackIndex;

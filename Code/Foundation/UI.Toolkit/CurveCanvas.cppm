@@ -566,6 +566,10 @@ export namespace foundation::ui::toolkit
         void OnDraw(UIDrawContext& ctx) override
         {
             UpdateAutoFit();
+            // Everything clips to the canvas: cubic overshoot between keys and a user
+            // zoom/pan (the value frame is a viewport now) both produce off-frame polyline
+            // segments and handles that must never paint outside the widget.
+            ctx.VG().PushClipRect(Rectangle{0.0f, 0.0f, Width(), Height()});
 
             // Background / grid / labels from the theme (key + tangent handle colors stay
             // semantic constants, like axis colors). background-color = raw-color resolve.
@@ -753,6 +757,7 @@ export namespace foundation::ui::toolkit
                                       colOut);
                 }
             }
+            ctx.VG().PopClip();
         }
 
         void OnMouseWheel(MouseWheelEventArgs& e) override

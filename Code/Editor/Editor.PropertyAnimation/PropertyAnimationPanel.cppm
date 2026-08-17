@@ -72,7 +72,20 @@ export namespace editor
         // === IClipEditorHost ===
         [[nodiscard]] propanim::PropertyAnimationClip& Clip() override { return m_clip; }
         [[nodiscard]] EditorCommandStack& Commands() override { return *m_commands; }
-        void MarkClipDirty() override { m_dirty = true; }
+        void MarkClipDirty() override
+        {
+            m_dirty = true;
+            // A LIVE canvas edit (drag/add/delete) mutates keys without a view rebuild
+            // (liveApplied) - resync the dopesheet markers now, or they lag until the next
+            // full rebuild (UAT: "the timeline row does not update until I click another
+            // track"). BuildLanes preserves selection by time and is cheap (float arrays).
+            if (m_timeline.Get() != nullptr)
+            {
+                m_timeline->SetDuration(
+                    Max(Max(m_clip.duration, m_clip.ComputeDuration()), 1.0f));
+            }
+            BuildLanes();
+        }
         // The scrub moved (the Timeline scrubber, or a test). IGNORED while Playing - the transport
         // owns the playhead then (D6 Editing|Playing ownership). Drives live preview off the new time.
         void OnScrubTimeChanged(f32 time) override;

@@ -105,6 +105,11 @@ namespace
     // lexers) on top - those are editor-only and stay host-side.
     void RegisterEditorBuilders(pipeline::BuilderRegistry& registry)
     {
+        // Core reflection FIRST: property bindings (property-animation capture/preview) walk
+        // TypeOf<Transform>()'s PATCHED properties. Without this the patch only happened
+        // lazily when a script manager spun up - a scriptless session never resolved
+        // 'Transform.position'. Idempotent.
+        foundation::core::RegisterCoreTypes();
         pipeline::RegisterPipelineTypes();
         pipeline::RegisterAllBuilders(registry);
         // Per-language EDITOR-UI services (CodeEditView lexers; completion providers later).
