@@ -155,6 +155,11 @@ export namespace foundation::http
         /// A comment line (": <text>") - the SSE keep-alive idiom.
         bool WriteComment(StringView text);
         [[nodiscard]] bool IsOpen() const;
+        /// Liveness probe: reads (and discards) any client chatter; a closed peer is detected
+        /// promptly (a WRITE into a freshly closed socket can still succeed - TCP buffers it
+        /// until the reset arrives - so sweeps poll this instead). False = peer gone (the
+        /// stream closes itself).
+        [[nodiscard]] bool PollLive();
         void Close();
 
     private:

@@ -766,6 +766,30 @@ remains our P2 model.
 
 ## P2 - editor-live endpoint (after web-networking's accept server exists)
 
+TRANSPORT SUBSTRATE BUILT 2026-08-17 (Fable, task #137 phases 1+2; the
+user chose the networking aspect first):
+- foundation.http (Code/Foundation/Http): incremental HTTP/1.1 message
+  parser (request+response, Content-Length only, chunked=Failed, 16 KiB
+  head cap, close-delimited response bodies), pump-model HttpServer
+  (one request per connection, Connection: close - the ez subset - plus
+  HttpResponse::EventStream() -> a ref-counted SseStream held past the
+  response; dead peers are LIVENESS-POLLED via SseStream::PollLive,
+  because a write into a freshly closed socket still succeeds until the
+  reset arrives), and a blocking localhost HttpFetch client (dotted
+  quad, no DNS/TLS - the localhost trust domain). The Core/System TCP
+  backends pre-existed. This server is ALSO the WS front door (phase 3:
+  upgrade handshake + frame codec = web networking's native server).
+- foundation.mcp.http (Code/Foundation/Mcp.Http, the satellite
+  pattern): McpHttpHost hosts ANY McpServer - POST /mcp = one JSON-RPC
+  message per request (202 for notifications), GET /events = the SSE
+  channel with Broadcast(event, data) + listener sweep, bearer-token
+  auth on everything (empty token refuses to Start), 404/405 refusals.
+  Pump() from ONE thread (the editor's main thread per frame - tools
+  may touch anything), simpler than ez's two-thread publish model and
+  satisfying the same constraint.
+Remaining P2 = the EDITOR host itself: Preferences opt-in + token file,
+per-frame pump wiring, and the live action_* tools below.
+
 Transport: minimal HTTP/1.1 + SSE on localhost, token auth, Editor
 Preferences (enable + port + token). SSE KEPT (user decision 2026-08-10): it
 carries the server-initiated traffic P2/P3 need (progress notifications,

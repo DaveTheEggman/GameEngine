@@ -421,6 +421,30 @@ namespace foundation::http
         return m_socket.IsOpen();
     }
 
+    bool SseStream::PollLive()
+    {
+        ScopedLock lock(m_mutex);
+        if (!m_socket.IsOpen())
+        {
+            return false;
+        }
+        byte buffer[256];
+        for (;;)
+        {
+            const i64 n = m_socket.Receive(Span<byte>(buffer, sizeof(buffer)));
+            if (n == 0)
+            {
+                return true; // would-block: the peer is quiet but alive
+            }
+            if (n < 0)
+            {
+                m_socket.Close(); // closed or errored - the stream is dead
+                return false;
+            }
+            // n > 0: an SSE client should not send; discard and keep probing.
+        }
+    }
+
     void SseStream::Close()
     {
         ScopedLock lock(m_mutex);
@@ -609,10 +633,11 @@ namespace foundation::http
             }
         }
 
-        // Sweep closed event streams (the consumer's ref may still be alive - writes no-op).
+        // Sweep dead event streams (liveness-POLLED: a write into a freshly closed peer can
+        // still succeed, so IsOpen alone lags). The consumer's ref stays valid - writes no-op.
         for (usize i = 0; i < m_streams.Size();)
         {
-            if (!m_streams[i]->IsOpen())
+            if (!m_streams[i]->PollLive())
             {
                 m_streams.RemoveAt(i);
             }

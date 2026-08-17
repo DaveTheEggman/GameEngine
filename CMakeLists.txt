@@ -283,6 +283,7 @@ add_subdirectory(Code/Foundation/Xml)       # DOM XML parser + writer over Core
     add_subdirectory(Code/Foundation/Xml.Serialization)
 add_subdirectory(Code/Foundation/Json)      # hand-rolled JSON DOM (MCP wire + game data); RTTI-reflected for script
 add_subdirectory(Code/Foundation/Mcp)       # JSON-RPC 2.0 + MCP protocol (tool/resource registry, stdio); over Json
+add_subdirectory(Code/Foundation/Mcp.Http)  # MCP streamable-HTTP binding (bearer token + SSE channel); over Http + Mcp
 add_subdirectory(Code/Foundation/Mcp.Reflection)  # MCP reflection tools (type_list/type_info) over Mcp+Core
 add_subdirectory(Code/Foundation/VFS)       # byte access over Core stream primitives
     add_subdirectory(Code/Foundation/VFS.Pak)
@@ -692,6 +693,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Mcp.Tests                      Foundation::Mcp)
     util_test_suite(Code/Foundation/Mcp.Reflection.Tests           Foundation::Mcp.Reflection)
     util_test_suite(Code/Foundation/Mcp.Script.Tests               Foundation::Mcp.Script)
+    util_test_suite(Code/Foundation/Mcp.Http.Tests                 Foundation::Mcp.Http)
 
     # Integration - cross-collection flow suites (Code/Integration/README.md). Tiered behind the
     # Integration. prefix: the fast dev loop runs module suites only; review/pre-push include these.
