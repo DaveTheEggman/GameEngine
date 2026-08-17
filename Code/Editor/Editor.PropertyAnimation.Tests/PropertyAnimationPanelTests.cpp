@@ -156,7 +156,6 @@ TEST_CASE("propanim-panel: the panel is a valid clip-editor host (add-track rout
     auto panel = MakePanel(editorCtx, sc, stack, selection);
 
     CHECK_FALSE(panel->HasClip());
-    CHECK_FALSE(panel->IsCollapsed());
 
     panel->View().AddTrack(u8"Transform", u8"position", propanim::TrackValueKind::Float3);
     CHECK(panel->Clip().tracks.Size() == 1);
@@ -166,24 +165,6 @@ TEST_CASE("propanim-panel: the panel is a valid clip-editor host (add-track rout
 
     // No selected entity -> add-from-selection is a no-op, never a crash.
     CHECK(panel->AddTracksFromSelection(panel->View()) == 0);
-}
-
-TEST_CASE("propanim-panel: collapse toggle hides/shows the body (A2)")
-{
-    EnsureRegistered();
-    scene::Scene sc(u8"collapse-test");
-    Selection<Guid> selection;
-    EditorContext editorCtx;
-    EditorCommandStack stack;
-    auto panel = MakePanel(editorCtx, sc, stack, selection);
-
-    CHECK_FALSE(panel->IsCollapsed());
-    panel->SetCollapsed(true);
-    CHECK(panel->IsCollapsed());
-    panel->SetCollapsed(true); // idempotent
-    CHECK(panel->IsCollapsed());
-    panel->SetCollapsed(false);
-    CHECK_FALSE(panel->IsCollapsed());
 }
 
 namespace

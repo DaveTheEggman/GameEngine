@@ -231,20 +231,37 @@ export namespace editor
             m_propAnimPanel = MakeRef<PropertyAnimationPanel>(
                 DefaultAllocator(), *m_context, m_editContext->Scene(), m_editContext->Commands(),
                 m_editContext->EntitySelection());
-            m_propAnimPanel->SetCollapsed(true);
 
-            // Viewport column: [ viewport (toolbar + 3D) / property-animation panel ] as a vertical
-            // split, so the panel rests directly below the viewport and both are resizable against
-            // each other. This column is the left pane of the [ column | inspector ] split.
-            auto viewportColumn = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
-            viewportColumn->Orientation = foundation::ui::Orientation::Vertical;
-            viewportColumn->SetSplitRatio(0.72f);
-            viewportColumn->SetPanes(viewportPane.Get(), m_propAnimPanel.Get());
+            // Godot-style bottom dock (property-animation-editor.md A2 REVISED): a persistent tab bar
+            // under the viewport; the "Animation" tab expands the property-animation panel above it
+            // (draggable splitter between the two) and collapses back to just the bar. The panel view
+            // lives for the page's whole life either way (the F1 invariant). Per-scene-page - editor
+            // singletons (Console/Output) stay in the shell docking and never migrate here.
+            m_bottomDock = MakeRef<foundation::ui::toolkit::BottomDock>(DefaultAllocator());
+            m_bottomDock->AddTab(u8"animation", u8"Animation", m_propAnimPanel.Get());
+
+            // Viewport column: [ viewport (toolbar + 3D) / bottom dock ] as a vertical split. The dock
+            // drives the split's pane-collapse: the divider vanishes when collapsed and the stored ratio
+            // survives expand/collapse. Starts collapsed (bar only; viewport full-height).
+            m_viewportColumn = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
+            m_viewportColumn->Orientation = foundation::ui::Orientation::Vertical;
+            m_viewportColumn->SetSplitRatio(0.72f);
+            m_viewportColumn->SetPanes(viewportPane.Get(), m_bottomDock.Get());
+            m_viewportColumn->SetPaneCollapsed(foundation::ui::toolkit::SplitPane::Second, true);
+            {
+                SceneEditorPage* page = this;
+                m_bottomDock->OnExpandedChanged.Add(
+                    [page](bool expanded)
+                    {
+                        page->m_viewportColumn->SetPaneCollapsed(
+                            foundation::ui::toolkit::SplitPane::Second, !expanded);
+                    });
+            }
 
             // Page layout: [ hierarchy | (viewport-column | inspector) ].
             auto inner = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
             inner->SetSplitRatio(0.72f);
-            inner->SetPanes(viewportColumn.Get(), m_inspector.Get());
+            inner->SetPanes(m_viewportColumn.Get(), m_inspector.Get());
             auto topContent = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
             topContent->SetSplitRatio(0.2f);
             topContent->SetPanes(m_hierarchy.Get(), inner.Get());
@@ -424,10 +441,12 @@ export namespace editor
         SelectTransformTool* m_selectTool = nullptr;     // borrowed (manager-owned default tool)
         GizmoRendererRegistry m_componentGizmos;
 
-        // The persistent in-scene property-animation editor, docked in a resizable vertical split
-        // BELOW THE VIEWPORT (property-animation.md editor redesign): scene-page-owned for its whole
+        // The persistent in-scene property-animation editor, hosted as the "Animation" tab of the
+        // bottom dock (a resizable vertical split below the viewport). Scene-page-owned for its whole
         // life, so an undo command can never outlive it. Ticked + overlay-drawn each frame from OnUpdate.
         RefPtr<PropertyAnimationPanel> m_propAnimPanel;
+        RefPtr<foundation::ui::toolkit::BottomDock> m_bottomDock;   // the collapsible bottom strip
+        RefPtr<foundation::ui::toolkit::SplitView> m_viewportColumn; // [viewport / bottom dock] vsplit
         RefPtr<ui::viewport::ViewportView> m_viewport;
 
         // Camera preview (task #118): a small bottom-right overlay showing a selected/pinned camera's

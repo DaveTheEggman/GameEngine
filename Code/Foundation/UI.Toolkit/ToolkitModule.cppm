@@ -12,6 +12,7 @@ export import :status_bar;
 export import :toolbar;
 export import :menu_bar;
 export import :split_view;
+export import :bottom_dock;
 export import :breadcrumb_bar;
 export import :color_picker;
 export import :hdr_color_picker;

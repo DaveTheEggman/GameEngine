@@ -113,9 +113,7 @@ export namespace editor
         [[nodiscard]] EditorContext& EditorCtx() noexcept { return *m_editorCtx; }
         [[nodiscard]] ClipEditorView& View() noexcept { return *m_view; }
 
-        // === collapse (A2) ===
-        void SetCollapsed(bool collapsed);
-        [[nodiscard]] bool IsCollapsed() const noexcept { return m_collapsed; }
+        // Collapse/expand is owned by the enclosing BottomDock (A2 REVISED), not the panel itself.
 
         // === live preview - exposed for tests ===
         [[nodiscard]] bool IsPreviewing() const noexcept { return m_previewing; }
@@ -171,14 +169,12 @@ export namespace editor
 
         // Chrome + widgets (persistent - built once in the constructor).
         RefPtr<ui::Label> m_clipLabel;
-        RefPtr<ui::Button> m_collapseButton;
         RefPtr<ui::Button> m_playButton;
         RefPtr<ui::Button> m_pauseButton;
         RefPtr<ui::Button> m_loopButton;
         RefPtr<ui::toolkit::Timeline> m_timeline;
-        RefPtr<ui::FlexLayout> m_body; // transport + Timeline + ClipEditorView; hidden when collapsed
+        RefPtr<ui::FlexLayout> m_body; // transport + Timeline + ClipEditorView
         UniquePtr<ClipEditorView> m_view;
-        bool m_collapsed = false;
 
         // Transport (editor-local; D6 Editing|Playing). The loop toggle defaults to Loop, matching a
         // fresh PropertyAnimatorComponent; seeding it from a specific bound animator instance is a

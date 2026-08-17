@@ -4,6 +4,7 @@ add_executable(UI.Toolkit.Tests
     ToolbarTests.cpp
     MenuBarTests.cpp
     SplitViewTests.cpp
+    BottomDockTests.cpp
     BreadcrumbBarTests.cpp
     ColorPickerTests.cpp
     HDRColorPickerTests.cpp

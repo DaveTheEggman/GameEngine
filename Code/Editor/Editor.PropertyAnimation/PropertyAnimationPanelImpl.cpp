@@ -136,11 +136,10 @@ namespace editor
             return button;
         };
 
-        // Header: [collapse caret] New / Pick / + From Selection / Save + clip label.
+        // Header: New / Pick / + From Selection / Save + clip label. (Collapse/expand is the dock's job.)
         auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
         header->Direction = ui::Orientation::Horizontal;
         header->Spacing = 4.0f;
-        m_collapseButton = addButton(*header, u8"v", 26.0f, [self]() { self->SetCollapsed(!self->m_collapsed); });
         addButton(*header, u8"New", 52.0f, [self]() { self->OnNew(); });
         addButton(*header, u8"Pick...", 60.0f, [self]() { self->OnPick(); });
         addButton(*header, u8"+ From Selection", 128.0f, [self]() { self->OnAddFromSelection(); });
@@ -218,24 +217,6 @@ namespace editor
         {
             m_clipLabel->SetText(text.AsView());
         }
-    }
-
-    void PropertyAnimationPanel::SetCollapsed(bool collapsed)
-    {
-        if (m_collapsed == collapsed)
-        {
-            return;
-        }
-        m_collapsed = collapsed;
-        if (m_body.Get() != nullptr)
-        {
-            m_body->Visibility = collapsed ? ui::Visibility::Gone : ui::Visibility::Visible;
-        }
-        if (m_collapseButton.Get() != nullptr)
-        {
-            m_collapseButton->SetText(collapsed ? StringView(u8">") : StringView(u8"v"));
-        }
-        Invalidate();
     }
 
     // === header actions ===

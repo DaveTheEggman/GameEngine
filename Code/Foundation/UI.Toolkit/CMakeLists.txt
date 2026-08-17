@@ -30,6 +30,7 @@ target_sources(UI.Toolkit
             Toolbar.cppm
             MenuBar.cppm
             SplitView.cppm
+            BottomDock.cppm
             BreadcrumbBar.cppm
             ColorPicker.cppm
             HDRColorPicker.cppm

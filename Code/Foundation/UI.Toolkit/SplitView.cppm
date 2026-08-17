@@ -21,6 +21,13 @@ namespace core = foundation::core;
 
 export namespace foundation::ui::toolkit
 {
+    /// Which pane of a SplitView an operation targets.
+    enum class SplitPane : u8
+    {
+        First,
+        Second
+    };
+
     /// Resizable two-pane container with a draggable divider.
     class SplitView : public ViewGroup
     {
@@ -84,11 +91,39 @@ export namespace foundation::ui::toolkit
         [[nodiscard]] View* FirstPane() const noexcept { return m_first; }
         [[nodiscard]] View* SecondPane() const noexcept { return m_second; }
 
+        /// Collapse a pane to its content's minimum along the split axis: the other pane fills the rest,
+        /// the divider hides and stops hit-testing, and the split RATIO is preserved for restore (the
+        /// Godot bottom-dock: expand/collapse the dopesheet without losing the user's size). Layout-only
+        /// - the pane view is never reparented or destroyed, so borrowed pointers stay valid.
+        void SetPaneCollapsed(SplitPane pane, bool collapsed)
+        {
+            bool& flag = (pane == SplitPane::First) ? m_firstCollapsed : m_secondCollapsed;
+            if (flag == collapsed)
+            {
+                return;
+            }
+            flag = collapsed;
+            Invalidate();
+        }
+        [[nodiscard]] bool IsPaneCollapsed(SplitPane pane) const noexcept
+        {
+            return (pane == SplitPane::First) ? m_firstCollapsed : m_secondCollapsed;
+        }
+        [[nodiscard]] bool AnyPaneCollapsed() const noexcept
+        {
+            return m_firstCollapsed || m_secondCollapsed;
+        }
+
         // === Drawing ===
 
         void OnDraw(UIDrawContext& ctx) override
         {
             DrawChildren(ctx);
+
+            if (AnyPaneCollapsed())
+            {
+                return; // a collapsed split shows no divider (nothing to drag)
+            }
 
             // Draw divider.
             const Rectangle divRect = GetDividerRect();
@@ -233,6 +268,12 @@ export namespace foundation::ui::toolkit
             const f32 h = height;
             const f32 divSize = DividerSize;
 
+            if (AnyPaneCollapsed())
+            {
+                LayoutCollapsed(w, h);
+                return;
+            }
+
             if (Orientation == ::foundation::ui::Orientation::Horizontal)
             {
                 const f32 available = w - divSize;
@@ -316,8 +357,100 @@ export namespace foundation::ui::toolkit
 
         [[nodiscard]] bool IsInDivider(f32 x, f32 y) const
         {
+            if (AnyPaneCollapsed())
+            {
+                return false; // no draggable divider while a pane is collapsed
+            }
             const Rectangle r = GetDividerRect();
             return x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
+        }
+
+        // A pane collapsed to its content minimum along the split axis; the other pane fills the rest,
+        // no divider space reserved. The stored ratio is untouched (restored on un-collapse).
+        void LayoutCollapsed(f32 w, f32 h)
+        {
+            if (Orientation == ::foundation::ui::Orientation::Horizontal)
+            {
+                if (m_secondCollapsed)
+                {
+                    f32 secondW = 0.0f;
+                    if (m_second != nullptr)
+                    {
+                        m_second->Measure(BoxConstraints{0.0f, w, h, h});
+                        secondW = core::Clamp(m_second->MeasuredSize.x, 0.0f, w);
+                    }
+                    const f32 firstW = w - secondW;
+                    if (m_first != nullptr)
+                    {
+                        m_first->Measure(BoxConstraints::Tight(firstW, h));
+                        m_first->Layout(0, 0, firstW, h);
+                    }
+                    if (m_second != nullptr)
+                    {
+                        m_second->Layout(firstW, 0, secondW, h);
+                    }
+                }
+                else
+                {
+                    f32 firstW = 0.0f;
+                    if (m_first != nullptr)
+                    {
+                        m_first->Measure(BoxConstraints{0.0f, w, h, h});
+                        firstW = core::Clamp(m_first->MeasuredSize.x, 0.0f, w);
+                    }
+                    const f32 secondW = w - firstW;
+                    if (m_first != nullptr)
+                    {
+                        m_first->Layout(0, 0, firstW, h);
+                    }
+                    if (m_second != nullptr)
+                    {
+                        m_second->Measure(BoxConstraints::Tight(secondW, h));
+                        m_second->Layout(firstW, 0, secondW, h);
+                    }
+                }
+            }
+            else
+            {
+                if (m_secondCollapsed)
+                {
+                    f32 secondH = 0.0f;
+                    if (m_second != nullptr)
+                    {
+                        m_second->Measure(BoxConstraints{w, w, 0.0f, h});
+                        secondH = core::Clamp(m_second->MeasuredSize.y, 0.0f, h);
+                    }
+                    const f32 firstH = h - secondH;
+                    if (m_first != nullptr)
+                    {
+                        m_first->Measure(BoxConstraints::Tight(w, firstH));
+                        m_first->Layout(0, 0, w, firstH);
+                    }
+                    if (m_second != nullptr)
+                    {
+                        m_second->Layout(0, firstH, w, secondH);
+                    }
+                }
+                else
+                {
+                    f32 firstH = 0.0f;
+                    if (m_first != nullptr)
+                    {
+                        m_first->Measure(BoxConstraints{w, w, 0.0f, h});
+                        firstH = core::Clamp(m_first->MeasuredSize.y, 0.0f, h);
+                    }
+                    const f32 secondH = h - firstH;
+                    if (m_first != nullptr)
+                    {
+                        m_first->Layout(0, 0, w, firstH);
+                    }
+                    if (m_second != nullptr)
+                    {
+                        m_second->Measure(BoxConstraints::Tight(w, secondH));
+                        m_second->Layout(0, firstH, w, secondH);
+                    }
+                }
+            }
         }
 
         View* m_first = nullptr;  // borrowed; the child tree owns the RefPtr
@@ -325,6 +458,8 @@ export namespace foundation::ui::toolkit
         f32 m_splitRatio = 0.5f;
         bool m_dragging = false;
         bool m_dividerHovered = false;
+        bool m_firstCollapsed = false;
+        bool m_secondCollapsed = false;
     };
 
     RTTI_DEFINE_OBJECT(SplitView, "rtti::ui::toolkit")
