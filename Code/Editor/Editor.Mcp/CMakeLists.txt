@@ -9,6 +9,7 @@ target_link_libraries(Editor.Mcp PUBLIC
     Pipeline::Core Pipeline::Importer Pipeline::Cook
     Foundation::Scene Foundation::Scene.Resource Foundation::Xml.Serialization
     Foundation::Resource # factory-less ResourceManager = the scene-Ref collector (asset_uses)
+    Pipeline::Script Foundation::Script.Resource # script_validate: the language-cook registry
     Engine::SceneSurface # the FULL manager set for scene_validate's scratch (full payload validation)
     Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)
 
@@ -21,4 +22,5 @@ target_sources(Editor.Mcp
             ProjectHealth.cppm
             LogTools.cppm
             McpResources.cppm
+            ScriptValidate.cppm
             ProjectTools.cppm)

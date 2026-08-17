@@ -219,6 +219,9 @@ int main(int /*argc*/, char** argv)
         RegisterShippingDocResources(server, shippingDocs.AsView());
     }
     editor::mcp::RegisterProjectResources(server, session);
+    // script_validate: compile-check-only (typed checks land with the Luau analyzer, P5); the
+    // language cooks were registered by Pipeline::Registration above.
+    editor::mcp::RegisterScriptValidateTool(server);
     // host_info (ops hygiene): pid + build stamp + versions + the open-project state.
     RegisterHostInfoTool(
         server, String(reinterpret_cast<const char8_t*>(BuildStamp())),

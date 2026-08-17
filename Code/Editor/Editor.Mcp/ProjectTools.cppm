@@ -16,6 +16,7 @@ export import :asset_uses;
 export import :project_health;
 export import :log_tools;
 export import :resources;
+export import :script_validate;
 
 import foundation.core;
 import foundation.json;

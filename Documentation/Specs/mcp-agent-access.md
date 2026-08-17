@@ -558,10 +558,22 @@ in build order:
    resources/read text is byte-identical to scene_read. Fixed en route:
    a dangling StringView in resources/read (JsonValue::AsString returns
    BY VALUE - hold the String, then view it).
-7. script_validate SPLIT (ruling): ship the COMPILE-CHECK version now -
-   every backend's Load already reports compile errors. The TYPED version
-   (real type errors against the bound surface) lands with Luau P5 (.d.luau
-   emitter + luau-analyze) - do not block the tool on it.
+7. BUILT 2026-08-17 (Fable), the COMPILE-CHECK version per the split
+   ruling (the TYPED version still lands with Luau P5 .d.luau +
+   luau-analyze - unchanged): script_validate
+   (editor.mcp:script_validate; project-independent) compiles in-memory
+   source through the SAME per-language cook service the asset pipeline
+   uses (ScriptLanguageCookRegistry -> IScriptLanguageCook::Cook), so
+   what validates is exactly what would cook. Returns line-numbered
+   compile errors, and on success the harvested metadata (className,
+   handlers, properties, usesCoroutines) - the agent sees what the
+   engine RECOGNIZED. checkLevel:"compile" honesty marker + the
+   description states the limit (engine-API calls are NOT type-checked;
+   check signatures with script_api). A disabled backend's missing cook
+   errs with guidance. Golden: every ENABLED backend's own Behavior
+   starter validates through the tool (className NewBehavior + onUpdate
+   harvested), broken source reports line >= 1 with a message, and a
+   missing required arg is a -32602 protocol error.
 8. script_create (from the per-backend starters) - after the Luau starter
    exists (Luau P3), so the tool ships all three languages at once.
 9. project_export (preset name) - thin wrapper over the export CLI path.
