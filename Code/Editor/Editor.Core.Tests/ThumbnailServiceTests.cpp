@@ -219,3 +219,35 @@ TEST_CASE("thumbnails: unknown content hash = RAM-only (no cache file to mismatc
         CHECK(f.generates == 1);
     }
 }
+
+TEST_CASE("thumbnails: a corrupt cache file self-heals (deleted + regenerated, never a negative)")
+{
+    (void)RemoveDirectoryRecursive(u8"thumbs_corrupt");
+    const Guid id{0x1111, 0x2222};
+    String path;
+    {
+        Fixture f(u8"thumbs_corrupt", 0x55);
+        (void)f.service.Get(id);
+        PumpLight(f.jobs);
+        CHECK(f.service.Get(id));
+        path = Format(u8"{}/{}-{}.png", StringView(u8"thumbs_corrupt"), id, u64{0x55});
+        CHECK(FileExists(path.AsView()));
+    }
+    // Corrupt the cache file: the load fails, and because the file existed Prepare was
+    // skipped - the old code cached a silent PERMANENT negative here.
+    (void)WriteFile(path.AsView(), Span<const byte>(reinterpret_cast<const byte*>("junk"), 4));
+    {
+        Fixture f(u8"thumbs_corrupt", 0x55);
+        CHECK(!f.service.Get(id)); // schedules; file exists so Prepare skipped
+        PumpLight(f.jobs);
+        // Self-heal pass: the stale file was deleted and NOTHING was cached...
+        CHECK(!FileExists(path.AsView()));
+        CHECK(f.service.CachedCount() == 0);
+        // ...so the next Get takes the full Prepare + Generate path and succeeds.
+        CHECK(!f.service.Get(id));
+        PumpLight(f.jobs);
+        CHECK(f.service.Get(id));
+        CHECK(f.generates == 1);
+        CHECK(FileExists(path.AsView())); // rewritten
+    }
+}

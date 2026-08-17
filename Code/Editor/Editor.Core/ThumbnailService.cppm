@@ -177,6 +177,9 @@ export namespace editor
             bool serviceAlive = true;      // main-thread flag (service dtor/Reset clears)
             bool ok = false;               // worker -> completion result
             bool negative = false;         // completion: cache "no thumbnail" (stop rescheduling)
+            bool staleDiskFile = false;    // disk cache failed to load AND no payload to
+                                           // regenerate from (Prepare was skipped because the
+                                           // file existed): delete the file, retry fully
             image::Image pixels;           // worker output
             Array<byte> payload;           // main-thread Prepare output, consumed by the worker
             String diskPath;               // empty = RAM-only (unknown content hash)

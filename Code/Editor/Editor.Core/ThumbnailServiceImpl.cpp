@@ -88,6 +88,14 @@ namespace editor
                                      slot->ok = true;
                                      return;
                                  }
+                                 if (slot->payload.IsEmpty() && !slot->diskPath.IsEmpty())
+                                 {
+                                     // The cache file existed at schedule time (so Prepare was
+                                     // skipped) but would not load - a stale/corrupt write.
+                                     // Self-heal: delete it and retry the FULL path next Get.
+                                     slot->staleDiskFile = true;
+                                     return;
+                                 }
                                  const Status generated =
                                      slot->generator->Generate(Span<const byte>(slot->payload.Data(),
                                                                                 slot->payload.Size()),
@@ -133,8 +141,18 @@ namespace editor
                     OnThumbnailReady(slot->id);
                 }
             }
+            else if (slot->staleDiskFile)
+            {
+                // Delete the unloadable cache file and cache NOTHING - the next Get takes
+                // the full Prepare + Generate path and overwrites it.
+                LOG_WARNING(u8"Thumbnails", u8"stale cache file replaced for {}", slot->id);
+                (void)FileDelete(slot->diskPath.AsView());
+            }
             else
             {
+                // Generate failures were previously SILENT - the negative cache hid them.
+                LOG_WARNING(u8"Thumbnails", u8"generate failed for {} (cached negative)",
+                            slot->id);
                 m_entries.InsertOrAssign(slot->id, Entry{}); // negative: stop rescheduling
             }
         }
