@@ -105,7 +105,13 @@ export namespace editor::app
     class EditorApplication : public runtime::IApplication
     {
     public:
-        explicit EditorApplication(EditorAppConfig config) : m_config(Move(config)) {}
+        explicit EditorApplication(EditorAppConfig config) : m_config(Move(config))
+        {
+            // Thumbnails must be reachable from the CONSTRUCTOR on: Tools.Editor's
+            // registration block (where each domain's Register<X>Editor folds its
+            // thumbnail generator in) runs before the UI-boot phase.
+            m_context.SetThumbnails(&m_thumbnailService);
+        }
 
         [[nodiscard]] editor::EditorContext& Context() noexcept { return m_context; }
         [[nodiscard]] editor::EditorProject* Project() const noexcept;

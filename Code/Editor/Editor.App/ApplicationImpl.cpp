@@ -2239,11 +2239,10 @@ namespace editor::app
         // exactly like during a cook. The cook service folds this into MutationLocked.
         m_cookService.ExternalMutationLock = [this]() { return m_jobService.IsBusy(); };
         m_context.SetJobs(&m_jobService); // pages submit light work (preview bakes) here
-        // Thumbnails (asset-thumbnails.md P1): the app owns the SERVICE + lifecycle only;
-        // GENERATORS register from each domain's Register<X>Editor in the Tools.Editor
-        // composition root (no pipeline links here). Ready thumbnails rebind the browser;
+        // Thumbnails (asset-thumbnails.md P1): the app owns the SERVICE + lifecycle only
+        // (SetThumbnails happens in the CONSTRUCTOR - the composition root registers
+        // generators before this UI-boot phase runs); ready thumbnails rebind the browser,
         // inspector slots re-query per refresh.
-        m_context.SetThumbnails(&m_thumbnailService);
         m_thumbnailService.OnThumbnailReady = [this](const Guid&)
         {
             if (m_assetsView)
