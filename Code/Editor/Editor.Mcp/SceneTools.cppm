@@ -5,13 +5,14 @@
 // editor is NOT involved. This is what makes an agent scene-capable headlessly: structural
 // authoring through the same "scene" data stream the editor saves.
 //
-// Validation is STRUCTURAL (headless honesty): XML well-formedness + the scene-stream schema
-// (entities, hierarchy, transforms, record framing) parse into a scratch Scene. Component
-// PAYLOADS are not field-validated - component managers are injected by engine subsystems,
-// which this host deliberately never instantiates; unknown/skipped component records surface
-// as WARNINGS (captured from the Scene reader's log lines) rather than refusals. Writes
-// validate FIRST and refuse with the reasons; a passing write is byte-preserving (the agent's
-// XML is stored verbatim - the reader accepted it, so the editor and cook will too).
+// Validation is FULL: the scratch Scene carries the COMPLETE engine manager set (the
+// Engine.SceneSurface composition root - the same per-domain functions the subsystems inject
+// through), so component payloads field-validate through their real managers, exactly as the
+// editor and the cooked-scene reader would parse them. A record whose type resolves to no
+// manager is now a GENUINELY unknown type; the reader skips it with a warning we capture and
+// surface. Writes validate FIRST and refuse with the reasons; a passing write is
+// byte-preserving (the agent's XML is stored verbatim - the reader accepted it, so the editor
+// and cook will too).
 
 module;
 #include "Core/Prelude.h"
@@ -26,6 +27,7 @@ import foundation.scene.resource;
 import foundation.xml.serialization;
 import foundation.mcp;
 import editor.core;
+import engine.scenesurface; // AddAllSceneManagers - the full manager set for the validate scratch
 import :session;
 
 using namespace foundation::core;
@@ -60,8 +62,9 @@ namespace editor::mcp::detail
         String sceneName;
     };
 
-    // Parse `xml` as a scene stream into a scratch Scene (structural validation). The scratch
-    // has NO component managers (headless) - component records are skipped with warnings.
+    // Parse `xml` as a scene stream into a scratch Scene carrying the FULL engine manager set
+    // (Engine.SceneSurface), so component payloads validate through their real managers. Only a
+    // genuinely unknown component type is skipped (warning, captured above).
     inline SceneParseReport ParseSceneXml(StringView xml)
     {
         SceneParseReport report;
@@ -73,6 +76,7 @@ namespace editor::mcp::detail
         (void)stream.Seek(0, SeekOrigin::Begin);
 
         scene::Scene scratch;
+        engine::AddAllSceneManagers(scratch);
         Result<Array<byte>> transcoded =
             scene::TranscodeSceneStreamToBinary(stream, scratch, /*includeSettings=*/true);
         GlobalLogger().RemoveSink(&capture);
@@ -117,8 +121,9 @@ namespace editor::mcp::detail
                     JsonValue::MakeNumber(static_cast<f64>(report.entityCount)));
             out.Set(u8"rootCount", JsonValue::MakeNumber(static_cast<f64>(report.rootCount)));
         }
-        // Honesty marker: what this validation DOES and does not cover (headless).
-        out.Set(u8"componentValidation", JsonValue::MakeString(u8"structural"));
+        // Honesty marker: component payloads validate through the FULL engine manager set
+        // (Engine.SceneSurface); warnings list any genuinely unknown component types.
+        out.Set(u8"componentValidation", JsonValue::MakeString(u8"full"));
         return out;
     }
 

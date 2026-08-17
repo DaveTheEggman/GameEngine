@@ -36,9 +36,7 @@ export namespace engine::net
         // the transform) are injected by their own subsystems - this adds only the identity tag pool.
         void OnSceneCreated(foundation::scene::Scene& scene) override
         {
-            scene.AddSystem<NetworkComponentManager>(); // identity (NetworkId + authority + prefab)
-            scene.AddSystem<
-                NetworkedTransformComponentManager>(); // replicated transform (the common case)
+            foundation::net::AddNetworkSceneManagers(scene);
         }
 
     protected:

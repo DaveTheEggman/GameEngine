@@ -58,7 +58,7 @@ namespace engine::render
         return 1000;
     } // late (renders, doesn't tick)
 
-    void RenderSubsystem::OnSceneCreated(scene::Scene& scene)
+    void AddRenderSceneManagers(scene::Scene& scene)
     {
         scene.AddSystem<MeshComponentManager>();
         scene.AddSystem<InstancedMeshComponentManager>();
@@ -69,6 +69,11 @@ namespace engine::render
         scene.AddSystem<ReflectionProbeComponentManager>();
         scene.AddSystem<EnvironmentSystem>();
         scene.AddSystem<PostProcessSystem>();
+    }
+
+    void RenderSubsystem::OnSceneCreated(scene::Scene& scene)
+    {
+        AddRenderSceneManagers(scene);
     }
 
     void RenderSubsystem::OnSceneDestroyed(scene::Scene& scene)

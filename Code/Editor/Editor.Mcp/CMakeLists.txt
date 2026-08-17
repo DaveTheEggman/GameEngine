@@ -8,6 +8,7 @@ target_link_libraries(Editor.Mcp PUBLIC
     Editor::Core Foundation::Content Foundation::VFS
     Pipeline::Core Pipeline::Importer Pipeline::Cook
     Foundation::Scene Foundation::Scene.Resource Foundation::Xml.Serialization
+    Engine::SceneSurface # the FULL manager set for scene_validate's scratch (full payload validation)
     Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)
 
 target_sources(Editor.Mcp

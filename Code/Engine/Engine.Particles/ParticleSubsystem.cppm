@@ -32,6 +32,15 @@ export namespace engine::particles
     // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
     namespace scene = foundation::scene;
 
+    // THE particle manager set for a scene - injected by the subsystem at runtime AND by headless
+    // scene consumers (Engine.SceneSurface). Renderer wiring (dispatch id, provider registration)
+    // stays with the subsystem. Add a manager => bump the SceneSurface tripwire
+    // (engine::kSceneSystemCount).
+    inline void AddParticleSceneManagers(scene::Scene& scene)
+    {
+        scene.AddSystem<ParticleEffectComponentManager>();
+    }
+
     class ParticleSubsystem final : public foundation::runtime::Subsystem, public scene::ISceneAware
     {
     public:
@@ -40,7 +49,8 @@ export namespace engine::particles
         void OnSceneCreated(scene::Scene& scene) override
         {
             EnsureRenderer();
-            ParticleEffectComponentManager* mgr = scene.AddSystem<ParticleEffectComponentManager>();
+            AddParticleSceneManagers(scene);
+            ParticleEffectComponentManager* mgr = scene.GetSystem<ParticleEffectComponentManager>();
             if (mgr == nullptr)
             {
                 return;

@@ -467,6 +467,17 @@ export namespace engine::ui
 
     void RegisterUIComponentReflection();
 
+    // THE game-UI manager set for a scene - injected by the subsystem at runtime AND by headless
+    // scene consumers (Engine.SceneSurface). The per-scene root-view plumbing is runtime-only and
+    // stays with the subsystem. Add a manager => bump the SceneSurface tripwire
+    // (engine::kSceneSystemCount).
+    inline void AddUISceneManagers(scene::Scene& scene)
+    {
+        scene.AddSystem<UICanvasComponentManager>();
+        scene.AddSystem<UIBillboardComponentManager>();
+        scene.AddSystem<UIWorldPanelComponentManager>();
+    }
+
     class UISubsystem final : public foundation::runtime::Subsystem,
                               public scene::ISceneAware,
                               public foundation::render::ISceneOverlay,
@@ -599,9 +610,7 @@ export namespace engine::ui
 
         void OnSceneCreated(scene::Scene& scene) override
         {
-            scene.AddSystem<UICanvasComponentManager>();
-            scene.AddSystem<UIBillboardComponentManager>();
-            scene.AddSystem<UIWorldPanelComponentManager>();
+            AddUISceneManagers(scene);
             // The scene tier: each scene gets its own root (billboard layer BELOW its
             // canvases) that the scene-overlay pass draws wherever this scene renders.
             SceneUI ui;

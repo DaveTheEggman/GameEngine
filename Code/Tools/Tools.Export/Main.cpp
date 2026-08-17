@@ -45,9 +45,7 @@ import foundation.input;
 import foundation.input.resource;
 import input.pipeline;
 import modelimporter;
-import engine.render;
-import engine.animation;
-import engine.particles;
+import engine.scenesurface; // AddAllSceneManagers + RegisterAllSceneComponentReflection
 import foundation.physics;
 import foundation.physics.resource;
 import physics.pipeline;
@@ -67,7 +65,6 @@ import script.angelscript.pipeline;
 #endif
 import foundation.script.resource;
 import script.pipeline;
-import engine.physics;
 
 using namespace foundation::core;
 namespace scene = foundation::scene;
@@ -86,35 +83,6 @@ namespace
     [[nodiscard]] const char* Cs(const String& s)
     {
         return reinterpret_cast<const char*>(s.CStr());
-    }
-
-    // Same manager set the subsystems inject into every scene (kept in lockstep, like the
-    // builder set below): the scene-stream transcode must know EVERY serializable component
-    // type, or staged scenes would silently drop records. Managers are plain value pools -
-    // no device, no subsystem lifecycle needed.
-    void AddAllSceneManagers(scene::Scene& scene)
-    {
-        namespace render = foundation::render;
-        namespace animation = foundation::animation;
-        namespace particles = foundation::particles;
-        scene.AddSystem<engine::render::MeshComponentManager>();
-        scene.AddSystem<engine::render::InstancedMeshComponentManager>();
-        scene.AddSystem<engine::render::SpriteComponentManager>();
-        scene.AddSystem<engine::render::DecalComponentManager>();
-        scene.AddSystem<engine::render::CameraComponentManager>();
-        scene.AddSystem<engine::render::LightComponentManager>();
-        scene.AddSystem<engine::render::ReflectionProbeComponentManager>();
-        scene.AddSystem<engine::render::EnvironmentSystem>();
-        scene.AddSystem<engine::animation::AnimationGraphComponentManager>();
-        scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
-        scene.AddSystem<engine::animation::InstancedSkinningComponentManager>();
-        scene.AddSystem<engine::particles::ParticleEffectComponentManager>();
-        namespace physics = foundation::physics;
-        scene.AddSystem<engine::physics::RigidBodyComponentManager>();
-        scene.AddSystem<engine::physics::ColliderComponentManager>();
-        scene.AddSystem<engine::physics::JointComponentManager>();
-        scene.AddSystem<engine::physics::CharacterComponentManager>();
-        scene.AddSystem<engine::physics::PhysicsSceneSystem>(); // carries the settings block
     }
 
     // Pre-transcode every scene/prefab TEXT source stream to the binary wire (the editor
@@ -136,8 +104,11 @@ namespace
             {
                 continue;
             }
+            // The FULL manager set (the scene-surface composition root - the same per-domain
+            // functions the subsystems inject through), or the transcode would silently drop
+            // records of any component type missing from the scratch.
             scene::Scene scratch(u8"__export_transcode");
-            AddAllSceneManagers(scratch);
+            engine::AddAllSceneManagers(scratch);
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
             if (bytes.HasValue())
@@ -161,7 +132,7 @@ namespace
                   editor::SceneReferences& out)
         {
             scene::Scene scene;
-            AddAllSceneManagers(scene);
+            engine::AddAllSceneManagers(scene);
             if (!scene::LoadScene(instance, scene).IsOk())
             {
                 return;
@@ -384,11 +355,10 @@ int main(int argc, char** argv)
     pipeline::RegisterPipelineTypes(); // every asset/product/resource type + script cooks
     pipeline::RegisterAllBuilders(builders);
 
-    // Component reflection (data-version gates) before any scene stream deserializes.
-    engine::render::RegisterRenderComponentReflection();
-    engine::animation::RegisterAnimationComponentReflection();
-    engine::particles::RegisterParticleComponentReflection();
-    engine::physics::RegisterPhysicsComponentReflection();
+    // Component reflection (data-version gates) before any scene stream deserializes - ALL
+    // domains, via the scene-surface composition root (the old per-domain list here had drifted:
+    // audio/script/UI/net were missing).
+    engine::RegisterAllSceneComponentReflection();
     HashMap<Guid, Array<byte>> sceneStreams;
     CollectSceneStreams(*project->SourceDb().RootGroup(), sceneStreams);
 

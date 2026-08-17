@@ -9,8 +9,8 @@ target_link_libraries(Tools.Export PRIVATE
     Pipeline::Texture Pipeline::Fonts Pipeline::Image Foundation::Image.Resource Pipeline::Geometry
     Pipeline::Animation Pipeline::Materials Pipeline::Shaders
     Pipeline::Particles Foundation::Input Foundation::Input.Resource Pipeline::Input Pipeline::ModelImporter
-    Engine::Render Engine::Animation Engine::Particles
-    Foundation::Physics Foundation::Physics.Resource Pipeline::Physics Engine::Physics
+    Engine::SceneSurface # the FULL manager set + component reflection for the transcode scratch
+    Foundation::Physics Foundation::Physics.Resource Pipeline::Physics
     Foundation::Audio Foundation::Audio.Resource Pipeline::Audio
     Foundation::Script ${SCRIPTLIB_WREN} ${SCRIPTLIB_ANGELSCRIPT} Foundation::Script.Resource Foundation::Script.Facades
     Pipeline::Script ${SCRIPTLIB_WREN_PIPELINE} ${SCRIPTLIB_ANGELSCRIPT_PIPELINE}

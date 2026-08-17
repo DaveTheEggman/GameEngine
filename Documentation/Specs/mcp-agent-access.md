@@ -439,12 +439,23 @@ in build order:
    FIRST (refusal reasons + the full report in the error text) and store the
    XML VERBATIM (byte-identical read-back proven against real SaveScene
    output); prefab_write enforces the single-root rule; wrong-type guids
-   redirect to the sibling tool. Validation is STRUCTURAL and says so in the
-   response (componentValidation: "structural") - component managers are
-   subsystem-injected, so headless validation parses entities/hierarchy/
-   transforms/record framing and surfaces skipped-component warnings
-   (captured from the Scene reader's log). Integration.Mcp gained the
-   agent-shaped scene-flow golden incl. the refusal battery.
+   redirect to the sibling tool. Validation shipped STRUCTURAL, then was
+   UPGRADED TO FULL same-day (user ruling on the skipped-component gap):
+   the new Engine::SceneSurface composition root - per-domain
+   Add<Domain>SceneManagers functions that the subsystems' own
+   OnSceneCreated delegate to, aggregated as engine::AddAllSceneManagers +
+   RegisterAllSceneComponentReflection with a count tripwire
+   (kSceneSystemCount, Engine.SceneSurface.Tests) - gives the validate
+   scratch the COMPLETE manager set headlessly, so component payloads
+   field-validate through their real managers (componentValidation:
+   "full"); only genuinely unknown component types surface as warnings
+   (captured from the Scene reader's log). The same root replaced
+   Tools.Export's private manager list, which had DRIFTED (missing
+   PropertyAnimator, PostProcess, all audio/script/UI/net managers - CLI
+   exports were silently dropping those records) and its 4-domain
+   reflection block. Integration.Mcp gained the agent-shaped scene-flow
+   golden incl. the refusal battery + a real component payload round-trip
+   and an unknown-type warning case.
 2. BUILT 2026-08-17 (Fable): host_info - `RegisterHostInfoTool(server,
    buildStamp, hostState)` in foundation.mcp (the shared provider: pid via
    the NEW core::ProcessId() backend fn, build stamp, server + protocol

@@ -666,6 +666,18 @@ export namespace engine::physics
 
     // The runtime subsystem: injects the managers + system into every scene (ISceneAware)
     // and drives render-frame interpolation + debug draw with the engine's fixed alpha.
+    // THE physics manager set for a scene - injected by the subsystem at runtime AND by headless
+    // scene consumers (Engine.SceneSurface). Runtime wiring (contact listeners) stays with the
+    // subsystem. Add a manager => bump the SceneSurface tripwire (engine::kSceneSystemCount).
+    inline void AddPhysicsSceneManagers(scene::Scene& scene)
+    {
+        scene.AddSystem<RigidBodyComponentManager>();
+        scene.AddSystem<ColliderComponentManager>();
+        scene.AddSystem<JointComponentManager>();
+        scene.AddSystem<CharacterComponentManager>();
+        scene.AddSystem<PhysicsSceneSystem>(); // carries the per-scene settings block
+    }
+
     class PhysicsSubsystem final : public foundation::runtime::Subsystem, public scene::ISceneAware
     {
     public:
@@ -705,11 +717,8 @@ export namespace engine::physics
 
         void OnSceneCreated(scene::Scene& scene) override
         {
-            scene.AddSystem<RigidBodyComponentManager>();
-            scene.AddSystem<ColliderComponentManager>();
-            scene.AddSystem<JointComponentManager>();
-            scene.AddSystem<CharacterComponentManager>();
-            PhysicsSceneSystem* system = scene.AddSystem<PhysicsSceneSystem>();
+            AddPhysicsSceneManagers(scene);
+            PhysicsSceneSystem* system = scene.GetSystem<PhysicsSceneSystem>();
             system->SetContactListeners(&m_contactListeners); // shared list, stable address
             m_systems.PushBack(SceneEntry{&scene, system});
         }

@@ -12,7 +12,9 @@ import foundation.content;
 import foundation.vfs;
 import foundation.scene;
 import foundation.scene.resource;
+import foundation.net.replication;
 import foundation.mcp;
+import engine.scenesurface;
 import editor.core;
 import editor.mcp;
 
@@ -62,6 +64,25 @@ namespace
         o.Set(String(k), JsonValue::MakeString(String(v)));
         return o;
     }
+
+    // Every occurrence of `from` in `text` replaced with `to` (byte-wise; test-local helper).
+    String ReplaceAll(StringView text, StringView from, StringView to)
+    {
+        StringBuilder out;
+        usize i = 0;
+        while (i < text.Size())
+        {
+            if (i + from.Size() <= text.Size() && text.SubStr(i, from.Size()) == from)
+            {
+                out.Append(to);
+                i += from.Size();
+                continue;
+            }
+            out.Append(text[i]);
+            ++i;
+        }
+        return out.Take();
+    }
 }
 
 TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real refusals")
@@ -78,14 +99,20 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
                  With(With(Obj(), u8"directory", u8"mcp_scene_project"), u8"name", u8"SceneFix"));
     (void)CallOk(server, u8"project_open", With(Obj(), u8"directory", u8"mcp_scene_project"));
 
-    // Seed XML from a REAL SaveScene (the exact editor-written text): two entities, one child.
+    // Seed XML from a REAL SaveScene (the exact editor-written text): two entities, one child,
+    // and a REAL component record (NetworkComponent on hero) - the full manager set is on the
+    // authored scene exactly as it is on the validate scratch, so validation exercises a genuine
+    // component payload end to end.
+    engine::RegisterAllSceneComponentReflection(); // as the MCP host does at startup
     String seedXml;
     String seedGuid;
     {
         scene::Scene authored(u8"arena");
+        engine::AddAllSceneManagers(authored);
         scene::EntityHandle hero = authored.CreateEntity(u8"hero");
         scene::EntityHandle torch = authored.CreateEntity(u8"torch");
         authored.SetParent(torch, hero);
+        authored.GetSystem<foundation::net::NetworkComponentManager>()->Add(hero);
 
         auto* inst = session.project->SourceDb().RootGroup()->CreateInstance(
             u8"seed", scene::SceneDocument::StaticType());
@@ -102,12 +129,27 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
     seedXml = read.Get(u8"xml").AsString();
     CHECK(seedXml.Size() > 0u);
 
-    // scene_validate (raw xml) confirms structure.
+    // scene_validate (raw xml) confirms structure AND the component payload: validation is FULL
+    // (the scratch carries the complete engine manager set), so the NetworkComponent record
+    // parses through its real manager with zero warnings.
     JsonValue valid = CallOk(server, u8"scene_validate", With(Obj(), u8"xml", seedXml.AsView()));
     CHECK(valid.Get(u8"valid").AsBool() == true);
     CHECK(valid.Get(u8"sceneName").AsString() == StringView(u8"arena"));
     CHECK(valid.Get(u8"entityCount").AsNumber() == doctest::Approx(2.0));
     CHECK(valid.Get(u8"rootCount").AsNumber() == doctest::Approx(1.0));
+    CHECK(valid.Get(u8"componentValidation").AsString() == StringView(u8"full"));
+    CHECK(valid.Get(u8"warnings").Count() == 0);
+
+    // A record of a GENUINELY unknown component type is skipped with a captured warning (still
+    // valid: the reader's contract is skip-and-warn, and the agent is told what was skipped).
+    {
+        const String mangled =
+            ReplaceAll(seedXml.AsView(), u8"net.Network", u8"bogus.NoSuchComponent");
+        JsonValue report =
+            CallOk(server, u8"scene_validate", With(Obj(), u8"xml", mangled.AsView()));
+        CHECK(report.Get(u8"valid").AsBool() == true);
+        CHECK(report.Get(u8"warnings").Count() >= 1);
+    }
 
     // scene_write CREATES a new scene from the XML; the stored stream is byte-identical.
     JsonValue written = CallOk(

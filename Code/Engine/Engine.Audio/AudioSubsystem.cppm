@@ -559,6 +559,18 @@ export namespace engine::audio
     // The runtime subsystem: owns the ONE AudioEngine, injects the managers + system
     // into every scene (ISceneAware), pushes the winning listener, and exposes the
     // engine-global one-shot API (docs/design/audio.md §6).
+    // THE audio manager set for a scene - injected by the subsystem at runtime AND by headless
+    // scene consumers (Engine.SceneSurface). Runtime-only wiring (SetEngine) stays with the
+    // subsystem; the AudioSceneSystem is engine-less (silent) until it. Add a manager => bump
+    // the SceneSurface tripwire (engine::kSceneSystemCount).
+    inline void AddAudioSceneManagers(scene::Scene& scene)
+    {
+        scene.AddSystem<AudioSourceComponentManager>();
+        scene.AddSystem<AudioListenerComponentManager>();
+        scene.AddSystem<AudioReverbZoneComponentManager>();
+        scene.AddSystem<AudioSceneSystem>();
+    }
+
     class AudioSubsystem final : public foundation::runtime::Subsystem, public scene::ISceneAware
     {
     public:
@@ -575,10 +587,8 @@ export namespace engine::audio
 
         void OnSceneCreated(scene::Scene& scene) override
         {
-            scene.AddSystem<AudioSourceComponentManager>();
-            scene.AddSystem<AudioListenerComponentManager>();
-            scene.AddSystem<AudioReverbZoneComponentManager>();
-            AudioSceneSystem* system = scene.AddSystem<AudioSceneSystem>();
+            AddAudioSceneManagers(scene);
+            AudioSceneSystem* system = scene.GetSystem<AudioSceneSystem>();
             system->SetEngine(m_engine.Get());
             m_systems.PushBack(SceneEntry{&scene, system});
         }

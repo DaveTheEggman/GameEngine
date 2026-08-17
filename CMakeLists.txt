@@ -474,6 +474,10 @@ endif()
 add_subdirectory(Code/Engine/Engine.Input)  # input runtime hookup (tick + device provider seam) over Runtime
 add_subdirectory(Code/Engine/Engine.Script) # entity behaviors (ScriptComponent + the run's ONE gameplay script context) over Runtime
 add_subdirectory(Code/Engine/Engine.Integration) # cross-subsystem composition helpers (physics-contact -> script bridge) over Physics + Script
+# The scene-surface composition root: aggregates every domain's Add<Domain>SceneManagers (the same
+# functions the subsystems' OnSceneCreated delegate to) for headless scene consumers (export
+# transcode, MCP scene_validate). Must come after all the domain libs it aggregates (incl. Script).
+add_subdirectory(Code/Engine/Engine.SceneSurface)
 if(OPTION_EXTENSION_IMGUI)
     add_subdirectory(Code/Extensions/Imgui) # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
 endif()
@@ -593,6 +597,7 @@ if(OPTION_BUILD_TESTS)
         util_test_suite(Code/Engine/Engine.GameInstance.Tests Engine::GameInstance)
     endif()
     util_test_suite(Code/Engine/Engine.ScriptSurface.Tests Engine::ScriptSurface)
+    util_test_suite(Code/Engine/Engine.SceneSurface.Tests Engine::SceneSurface)
     util_test_suite(Code/Engine/Engine.Integration.Tests            Engine::Integration)
     util_test_suite(Code/Engine/Engine.Net.Tests                    Engine::Net)
     util_test_suite(Code/Engine/Engine.Physics.Tests                Engine::Physics)

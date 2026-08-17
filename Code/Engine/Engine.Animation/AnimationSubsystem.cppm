@@ -21,6 +21,17 @@ import :propertyanimator;
 
 export namespace engine::animation
 {
+    // THE animation manager set for a scene - the subsystem injects it at runtime AND headless
+    // scene consumers (Engine.SceneSurface -> export/MCP transcode scratch) call it directly, so
+    // a manager added here reaches both automatically. Add a manager => bump the SceneSurface
+    // tripwire (engine::kSceneSystemCount).
+    inline void AddAnimationSceneManagers(foundation::scene::Scene& scene)
+    {
+        scene.AddSystem<AnimationGraphComponentManager>();
+        scene.AddSystem<SkeletalAnimationComponentManager>();
+        scene.AddSystem<InstancedSkinningComponentManager>(); // crowd skinning (shared pose pool)
+        scene.AddSystem<PropertyAnimatorComponentManager>();  // reflected property-curve animation
+    }
 
     class AnimationSubsystem final : public foundation::runtime::Subsystem,
                                      public foundation::scene::ISceneAware
@@ -30,10 +41,7 @@ export namespace engine::animation
         // manager (state machines / blend trees) runs first, then the simple single-clip manager.
         void OnSceneCreated(foundation::scene::Scene& scene) override
         {
-            scene.AddSystem<AnimationGraphComponentManager>();
-            scene.AddSystem<SkeletalAnimationComponentManager>();
-            scene.AddSystem<InstancedSkinningComponentManager>(); // crowd skinning (shared pose pool)
-            scene.AddSystem<PropertyAnimatorComponentManager>();  // reflected property-curve animation
+            AddAnimationSceneManagers(scene);
         }
 
     protected:

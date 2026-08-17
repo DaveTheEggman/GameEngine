@@ -1374,6 +1374,19 @@ export namespace engine::script
         TriggerExit
     };
 
+    // THE script manager set for a scene - injected by the subsystem at runtime AND by headless
+    // scene consumers (Engine.SceneSurface). The manager<->system cross-link is in-scene wiring
+    // and belongs here; run-host binding is runtime-only and stays with the subsystem (the
+    // systems are inert without a host). Add a manager => bump the SceneSurface tripwire
+    // (engine::kSceneSystemCount).
+    inline void AddScriptSceneManagers(scene::Scene& scene)
+    {
+        auto* components = scene.AddSystem<ScriptComponentManager>();
+        ScriptSceneSystem* system = scene.AddSystem<ScriptSceneSystem>();
+        components->SetScriptSystem(system);
+        scene.AddSystem<SceneScriptSystem>(); // scene-root script (the Level tier)
+    }
+
     class ScriptSubsystem final : public foundation::runtime::Subsystem, public scene::ISceneAware
     {
     public:
@@ -1527,9 +1540,8 @@ export namespace engine::script
 
         void OnSceneCreated(scene::Scene& scene) override
         {
-            auto* components = scene.AddSystem<ScriptComponentManager>();
-            ScriptSceneSystem* system = scene.AddSystem<ScriptSceneSystem>();
-            components->SetScriptSystem(system);
+            AddScriptSceneManagers(scene);
+            ScriptSceneSystem* system = scene.GetSystem<ScriptSceneSystem>();
             // Bind to the DEFAULT run host; a GameInstance re-binds ITS scenes to its own host on adopt
             // (game-instance.md §11.10). The teardown observer checks the system's CURRENT host.
             system->SetRunHost(&m_ownedRunHost);
@@ -1545,7 +1557,7 @@ export namespace engine::script
             m_systems.PushBack(SceneEntry{&scene, system});
 
             // Scene-root script (the Level tier) shares the same run host + re-bind path.
-            scene.AddSystem<SceneScriptSystem>()->SetRunHost(&m_ownedRunHost);
+            scene.GetSystem<SceneScriptSystem>()->SetRunHost(&m_ownedRunHost);
         }
         void OnSceneDestroyed(scene::Scene& scene) override
         {

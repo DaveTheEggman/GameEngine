@@ -160,6 +160,15 @@ export namespace foundation::net
         NetworkedTransformComponentManager() : SerializableComponentManager(u8"net.Transform") {}
     };
 
+    // THE net manager set for a scene - injected by the NetworkSubsystem at runtime AND by headless
+    // scene consumers (Engine.SceneSurface -> export/MCP transcode scratch). Add a manager => bump
+    // the SceneSurface tripwire (engine::kSceneSystemCount).
+    inline void AddNetworkSceneManagers(scene::Scene& scene)
+    {
+        scene.AddSystem<NetworkComponentManager>();          // identity (NetworkId + authority + prefab)
+        scene.AddSystem<NetworkedTransformComponentManager>(); // replicated transform (the common case)
+    }
+
     // Server: copy each entity's live LOCAL transform INTO its NetworkedTransform component, so the
     // replication capture that follows sends the authoritative pose. Call before CaptureDelta/Snapshot.
     void CaptureEntityTransforms(scene::Scene& scene);

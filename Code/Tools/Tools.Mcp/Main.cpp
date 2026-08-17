@@ -20,6 +20,7 @@ import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
 import engine.scriptsurface;
+import engine.scenesurface;
 #ifdef OPTION_HAS_LUAU
 import foundation.script.luau;
 #endif
@@ -67,6 +68,10 @@ int main(int /*argc*/, char** /*argv*/)
     // bound API, not just core - metadata only, no subsystem instantiated (headless). Plus Luau, so
     // script_api spans wren | angelscript | luau (the pipeline types already registered wren + as).
     engine::RegisterAllScriptFacades();
+    // Component reflection for every engine domain (data-version gates) - scene_validate parses
+    // component payloads through the full manager set (Engine.SceneSurface), which needs the
+    // reflected field metadata registered before any scene stream deserializes.
+    engine::RegisterAllSceneComponentReflection();
 #ifdef OPTION_HAS_LUAU
     foundation::script::RegisterLuauScriptBackend(); // wren + angelscript come from pipeline.registration
 #endif

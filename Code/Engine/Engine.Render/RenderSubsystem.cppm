@@ -44,6 +44,12 @@ export namespace engine::render
     // spelled engine::scene::SceneSubsystem where needed.)
     namespace scene = foundation::scene;
 
+    // THE render manager set for a scene - injected by the subsystem at runtime AND by headless
+    // scene consumers (Engine.SceneSurface -> export/MCP transcode scratch), so a manager added
+    // there reaches both automatically. Defined in RenderSubsystemImpl.cpp next to OnSceneCreated.
+    // Add a manager => bump the SceneSurface tripwire (engine::kSceneSystemCount).
+    void AddRenderSceneManagers(scene::Scene& scene);
+
     // The canonical, ordered scene-pass MSAA levels - the SINGLE source of truth for the UI list and
     // the index<->sample-count mapping. Add a level HERE (e.g. {8u, "8x"}, plus raising the device
     // ceiling + SupportsSampleCount) and every combo/menu + mapping picks it up; nothing else hardcodes

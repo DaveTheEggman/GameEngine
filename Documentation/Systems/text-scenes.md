@@ -57,8 +57,11 @@ warning (matching component-record skip semantics).
   scratch entity for XML).
 - **Export staging** (`Editor.Core/Export` + `Tools.Export`): `StageScene` transcodes an XML scene
   stream to binary via a scratch `Scene` created through the app's `SceneSubsystem` (the full manager
-  set via ISceneAware - a hand-listed set would silently drop component types); the CLI export carries
-  the same manager list (`AddAllSceneManagers`, lockstep with the builder registration). Scene streams
+  set via ISceneAware - a hand-listed set would silently drop component types); headless consumers
+  (CLI export, MCP scene_validate) get the same full set from `engine::AddAllSceneManagers` in
+  `Engine.SceneSurface` - the composition root aggregating the per-domain `Add<Domain>SceneManagers`
+  functions the subsystems' own `OnSceneCreated` delegate to (count tripwire `kSceneSystemCount`;
+  it replaced Tools.Export's private list, which had drifted and was dropping records). Scene streams
   are structure-only (KBs), so transcode is milliseconds; binary input passes through untouched.
 
 ## Invariants
