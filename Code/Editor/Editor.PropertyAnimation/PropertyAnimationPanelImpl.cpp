@@ -278,6 +278,30 @@ namespace editor
         // drag on a lane commits through MoveSelectedKeys (drags-are-visual, one undo step - D4).
         m_timeline->OnPlayheadMoved.Add([self](f32 t) { self->OnScrubTimeChanged(t); });
         m_timeline->OnKeysMoved.Add([self](f32 d) { self->MoveSelectedKeys(d); });
+        // A dopesheet pick updates the value readout too (selection is selection wherever it
+        // happens). Lane == track; a diamond merges channels, so channel -1 = the whole track
+        // at that key time. Multi-select shows the LAST-reported ref; empty clears.
+        m_timeline->OnSelectionChanged.Add(
+            [self]()
+            {
+                if (!self->m_view)
+                {
+                    return;
+                }
+                const Array<ui::toolkit::DopesheetKeyRef> sel = self->m_timeline->Selection();
+                if (sel.IsEmpty())
+                {
+                    self->m_view->ClearSelectedKey();
+                    return;
+                }
+                const ui::toolkit::DopesheetKeyRef& r = sel[sel.Size() - 1];
+                if (r.lane < self->m_laneKeyTimes.Size() &&
+                    r.index < self->m_laneKeyTimes[r.lane].Size())
+                {
+                    self->m_view->ShowSelectedKey(r.lane, /*channel=*/-1,
+                                                  self->m_laneKeyTimes[r.lane][r.index]);
+                }
+            });
         {
             m_timelineParams = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             m_timelineParams->Width = ui::SizeSpec::Match();

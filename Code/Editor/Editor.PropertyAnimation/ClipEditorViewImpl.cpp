@@ -256,25 +256,13 @@ namespace editor
         RefreshPreview();
     }
 
-    void ClipEditorView::RefreshPreview()
+    namespace
     {
-        if (m_preview.Get() == nullptr)
+        // One track's value at `time`, formatted per kind. Rotation shows EULER DEGREES
+        // (pitch,yaw,roll - matching the key rows' edit fields), never raw quaternion parts.
+        void AppendSampledValue(String& out, const propanim::PropertyTrack& t, f32 time)
         {
-            return;
-        }
-        // Sample every track at the scrub time; show "component.path=..." for each.
-        String out;
-        propanim::PropertyAnimationClip& clip = Clip();
-        for (usize i = 0; i < clip.tracks.Size(); ++i)
-        {
-            const propanim::PropertyTrack& t = clip.tracks[i];
-            if (i > 0)
-            {
-                out += u8"   ";
-            }
-            out += t.propertyPath.AsView();
-            out += u8"=";
-            const Variant v = t.Sample(m_scrubTime);
+            const Variant v = t.Sample(time);
             switch (t.kind)
             {
             case propanim::TrackValueKind::Float:
@@ -307,11 +295,82 @@ namespace editor
                 break;
             }
             case propanim::TrackValueKind::Quat:
-                out += u8"quat";
+            {
+                constexpr f32 kRadToDeg = 57.29577951f;
+                f32 yaw = 0.0f, pitch = 0.0f, roll = 0.0f;
+                ToYawPitchRoll(v.Get<Quaternion>(), yaw, pitch, roll);
+                out += u8"(";
+                AppendValue(out, pitch * kRadToDeg);
+                out += u8",";
+                AppendValue(out, yaw * kRadToDeg);
+                out += u8",";
+                AppendValue(out, roll * kRadToDeg);
+                out += u8")deg";
                 break;
             }
+            }
+        }
+    }
+
+    void ClipEditorView::RefreshPreview()
+    {
+        if (m_preview.Get() == nullptr)
+        {
+            return;
+        }
+        String out;
+        propanim::PropertyAnimationClip& clip = Clip();
+
+        // The SELECTED key first (canvas or dopesheet pick): its track, time, and value there.
+        if (m_previewSelActive && m_previewSelTrack < clip.tracks.Size())
+        {
+            const propanim::PropertyTrack& t = clip.tracks[m_previewSelTrack];
+            out += u8"sel ";
+            out += t.propertyPath.AsView();
+            if (m_previewSelChannel >= 0)
+            {
+                out += u8".";
+                out += ChannelLabel(t.kind, static_cast<u32>(m_previewSelChannel));
+            }
+            out += u8" @";
+            AppendValue(out, m_previewSelTime);
+            out += u8"s=";
+            AppendSampledValue(out, t, m_previewSelTime);
+            out += u8"   |   ";
+        }
+
+        // Then every track sampled at the scrub time: "path=value".
+        for (usize i = 0; i < clip.tracks.Size(); ++i)
+        {
+            const propanim::PropertyTrack& t = clip.tracks[i];
+            if (i > 0)
+            {
+                out += u8"   ";
+            }
+            out += t.propertyPath.AsView();
+            out += u8"=";
+            AppendSampledValue(out, t, m_scrubTime);
         }
         m_preview->SetText(out.AsView());
+    }
+
+    void ClipEditorView::ShowSelectedKey(usize trackIndex, i32 channel, f32 time)
+    {
+        m_previewSelActive = true;
+        m_previewSelTrack = trackIndex;
+        m_previewSelChannel = channel;
+        m_previewSelTime = time;
+        RefreshPreview();
+    }
+
+    void ClipEditorView::ClearSelectedKey()
+    {
+        if (!m_previewSelActive)
+        {
+            return;
+        }
+        m_previewSelActive = false;
+        RefreshPreview();
     }
 
     void ClipEditorView::BuildTrackRows(usize trackIndex)
@@ -332,17 +391,41 @@ namespace editor
                        self->ToggleTrackCollapsed(k.AsView());
                        self->RequestRebuild(); // fold/unfold the track's rows
                    });
-        AddTextField(*header, track.componentType.AsView(),
-                     [self, trackIndex](StringView v)
-                     { self->Mutate([&](propanim::PropertyAnimationClip& c)
-                                    { c.tracks[trackIndex].componentType = String(v); }); },
-                     120.0f);
-        AddLabel(*header, u8".", 0.0f, 8.0f);
-        AddTextField(*header, track.propertyPath.AsView(),
-                     [self, trackIndex](StringView v)
-                     { self->Mutate([&](propanim::PropertyAnimationClip& c)
-                                    { c.tracks[trackIndex].propertyPath = String(v); }); },
-                     120.0f);
+        // ONE "Component.property.path" field (user ruling: the split component/path pair wasted
+        // width and read as two unrelated boxes). Component type names never contain dots, so the
+        // FIRST dot splits: before = componentType, after = propertyPath (which may itself be
+        // dotted). Text without a dot edits just the property path (component unchanged).
+        {
+            String path = track.componentType;
+            path += u8".";
+            path += track.propertyPath.AsView();
+            AddTextField(*header, path.AsView(),
+                         [self, trackIndex](StringView v)
+                         {
+                             usize dot = 0;
+                             while (dot < v.Size() && v[dot] != u8'.')
+                             {
+                                 ++dot;
+                             }
+                             const bool hasDot = dot < v.Size();
+                             self->Mutate(
+                                 [&](propanim::PropertyAnimationClip& c)
+                                 {
+                                     propanim::PropertyTrack& t = c.tracks[trackIndex];
+                                     if (hasDot)
+                                     {
+                                         t.componentType = String(v.SubStr(0, dot));
+                                         t.propertyPath =
+                                             String(v.SubStr(dot + 1, v.Size() - dot - 1));
+                                     }
+                                     else
+                                     {
+                                         t.propertyPath = String(v);
+                                     }
+                                 });
+                         },
+                         190.0f);
+        }
         MakeButton(*header, KindName(track.kind), 58.0f,
                    [self, trackIndex]()
                    {
@@ -518,11 +601,37 @@ namespace editor
                 self->m_gestureDirty = false;
             });
         canvas->OnKeyChanged.Add(
-            [self, trackIndex, raw](i32, i32) { self->WriteBackTrack(trackIndex, *raw); });
+            [self, trackIndex, raw](i32 ch, i32 ki)
+            {
+                // A drag moves the selected key: keep the readout's time/value current.
+                if (ch >= 0 && ki >= 0 && ki < raw->GetKeyCount(ch))
+                {
+                    self->m_previewSelActive = true;
+                    self->m_previewSelTrack = trackIndex;
+                    self->m_previewSelChannel = ch;
+                    self->m_previewSelTime = raw->GetKey(ch, ki).Time;
+                }
+                self->WriteBackTrack(trackIndex, *raw);
+            });
         canvas->OnKeyAdded.Add(
             [self, trackIndex, raw](i32, i32) { self->WriteBackTrack(trackIndex, *raw); });
         canvas->OnKeyRemoved.Add(
             [self, trackIndex, raw](i32, i32) { self->WriteBackTrack(trackIndex, *raw); });
+        canvas->OnSelectionChanged.Add(
+            [self, trackIndex, raw](i32 ch, i32 ki)
+            {
+                // Selection is selection: ANY key pick updates the value readout (the old
+                // behavior only *looked* selection-driven because the scrub sat at 0 and
+                // write-backs resampled there - the first key's value by coincidence).
+                if (ch >= 0 && ki >= 0 && ki < raw->GetKeyCount(ch))
+                {
+                    self->ShowSelectedKey(trackIndex, ch, raw->GetKey(ch, ki).Time);
+                }
+                else
+                {
+                    self->ClearSelectedKey();
+                }
+            });
         canvas->OnEditEnd.Add(
             [self]()
             {

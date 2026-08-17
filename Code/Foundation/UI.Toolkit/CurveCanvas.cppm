@@ -132,6 +132,10 @@ export namespace foundation::ui::toolkit
         Event<void(i32, i32)> OnKeyAdded;
         /// Fired after an existing key was deleted; payload carries the OLD index (before removal).
         Event<void(i32, i32)> OnKeyRemoved;
+        /// Fired when the USER changes the selected (channel, key) - select-click, click-add, or a
+        /// delete that clears the selection ((-1,-1)). Programmatic resets (SetChannels/SetKeys) do
+        /// not fire, so hosts can rebuild without feedback loops.
+        Event<void(i32, i32)> OnSelectionChanged;
 
         [[nodiscard]] i32 ChannelCount() const { return static_cast<i32>(m_channels.Size()); }
         [[nodiscard]] i32 SelectedChannel() const { return m_selectedChannelIdx; }
@@ -252,10 +256,16 @@ export namespace foundation::ui::toolkit
                     {
                         return;
                     }
+                    const bool selectionMoved =
+                        (m_selectedChannelIdx != hitCh || m_selectedKeyIdx != hitKey);
                     m_selectedChannelIdx = hitCh;
                     m_selectedKeyIdx = hitKey;
                     m_draggingChannelIdx = hitCh;
                     m_draggingKeyIdx = hitKey;
+                    if (selectionMoved)
+                    {
+                        OnSelectionChanged.Invoke(hitCh, hitKey);
+                    }
                     BeginGesture();
                     if (Context != nullptr)
                     {
@@ -310,6 +320,7 @@ export namespace foundation::ui::toolkit
                     {
                         OnKeyAdded.Invoke(c, addedIndices[static_cast<usize>(c)]);
                     }
+                    OnSelectionChanged.Invoke(m_selectedChannelIdx, m_selectedKeyIdx);
                 }
                 else
                 {
@@ -319,6 +330,7 @@ export namespace foundation::ui::toolkit
                     m_draggingChannelIdx = activeIdx;
                     m_draggingKeyIdx = idx;
                     OnKeyAdded.Invoke(activeIdx, idx);
+                    OnSelectionChanged.Invoke(activeIdx, idx);
                 }
                 if (Context != nullptr)
                 {
@@ -367,6 +379,7 @@ export namespace foundation::ui::toolkit
                     if (m_selectedChannelIdx == hitCh && m_selectedKeyIdx == hitKey)
                     {
                         m_selectedKeyIdx = -1;
+                        OnSelectionChanged.Invoke(m_selectedChannelIdx, -1);
                     }
                     EndGesture();
                     e.Handled = true;

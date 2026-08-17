@@ -117,6 +117,13 @@ export namespace editor
         void SetScrubTime(f32 t);
         [[nodiscard]] IClipEditorHost& Host() noexcept { return *m_host; }
 
+        /// Show a SELECTED KEY in the value readout: "sel comp.path @t = value" ahead of the
+        /// scrub samples. Selection is selection wherever it happens - the curve canvases push
+        /// their own picks; the panel pushes dopesheet picks (channel -1 = the whole track at
+        /// that key time, since a dopesheet diamond merges channels).
+        void ShowSelectedKey(usize trackIndex, i32 channel, f32 time);
+        void ClearSelectedKey();
+
     private:
         // One undoable step over a whole-clip snapshot (the clip is small data). Applying a state
         // replaces the host's clip and rebuilds the view.
@@ -194,7 +201,11 @@ export namespace editor
         IClipEditorHost* m_host;
         RefPtr<ui::ScrollView> m_scroll;
         RefPtr<ui::FlexLayout> m_rows;
-        RefPtr<ui::Label> m_preview; // sampled values at the scrub time
+        RefPtr<ui::Label> m_preview; // sampled values at the scrub time (+ the selected key)
+        bool m_previewSelActive = false; // a key is selected somewhere (canvas or dopesheet)
+        usize m_previewSelTrack = 0;
+        i32 m_previewSelChannel = -1;    // -1 = whole track (a dopesheet diamond merges channels)
+        f32 m_previewSelTime = 0.0f;
         f32 m_scrubTime = 0.0f;
         f32 m_editDuration = 1.0f;   // the canvas time-axis scale (clip length); keys normalize by it
         propanim::PropertyAnimationClip m_gestureBefore; // undo snapshot captured on OnEditBegin
