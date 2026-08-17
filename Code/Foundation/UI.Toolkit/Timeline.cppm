@@ -117,8 +117,11 @@ export namespace foundation::ui::toolkit
         {
             const f32 w = Width();
             const f32 h = Height();
-            ctx.VG().FillRect(Rectangle{0.0f, 0.0f, w, h},
-                              ResolveStyleColor(StyleProperty::Background, core::Color::Rgb(24, 25, 30, 255)));
+            // Resolve the ruler band ONCE; the gutter is derived from it (F2 - a single themed
+            // Background rule, not a second token with its own hand-picked fallback).
+            const core::Color band =
+                ResolveStyleColor(StyleProperty::Background, core::Color::Rgb(24, 25, 30, 255));
+            ctx.VG().FillRect(Rectangle{0.0f, 0.0f, w, h}, band);
 
             const core::Color tickColor =
                 ResolveStyleColor(StyleProperty::BorderColor, core::Color::Rgb(62, 64, 74, 255));
@@ -157,11 +160,12 @@ export namespace foundation::ui::toolkit
                 }
             }
 
-            // Left label gutter (P1: empty; the rows below label themselves).
+            // Left label gutter: the band darkened, so a themed Background keeps the gutter distinct
+            // without a second token (F2).
             if (LabelColumnWidth > 0.0f)
             {
-                ctx.VG().FillRect(Rectangle{0.0f, 0.0f, LabelColumnWidth, h},
-                                  ResolveStyleColor(StyleProperty::Background, core::Color::Rgb(20, 21, 26, 255)));
+                const core::Color gutter{band.r * 0.82f, band.g * 0.82f, band.b * 0.82f, band.a};
+                ctx.VG().FillRect(Rectangle{0.0f, 0.0f, LabelColumnWidth, h}, gutter);
             }
 
             // Playhead: a vertical line + a small head flag at the top (theme error-red).

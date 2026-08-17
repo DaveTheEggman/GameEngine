@@ -58,6 +58,16 @@ export namespace editor
         /// The view finished (re)building its rows - the host may refresh chrome (e.g. its page
         /// toolbar's undo/redo state). Default no-op.
         virtual void OnClipViewRebuilt() {}
+
+        /// Apply a whole-clip state (an undo/redo step) to the host's clip and refresh the editing
+        /// surface. The ClipEditCommand routes through THIS seam - never a view pointer - so it depends
+        /// only on the DURABLE host, not a recreatable view (pass-10 #5 / Fable F1). The default sets the
+        /// clip only; a host owning a live view overrides to also rebuild it.
+        virtual void ApplyClipState(const propanim::PropertyAnimationClip& state, bool rebuild)
+        {
+            Clip() = state;
+            (void)rebuild;
+        }
     };
 
     /// The shared clip-editing view. Construct with a host; mount Root() wherever the host wants it.
@@ -85,6 +95,10 @@ export namespace editor
         /// "+ Track" button and the in-scene tool's "add track from selection" (H3).
         void AddTrack(StringView componentType, StringView propertyPath, propanim::TrackValueKind kind);
 
+        /// Replace the host's clip with `state` and (optionally) rebuild the rows. The host's
+        /// ApplyClipState forwards here so undo/redo never needs a view pointer (Fable F1).
+        void ApplyState(const propanim::PropertyAnimationClip& state, bool rebuild = true);
+
         [[nodiscard]] f32 ScrubTime() const noexcept { return m_scrubTime; }
         [[nodiscard]] f32 EditDuration() const noexcept { return m_editDuration; }
 
@@ -104,28 +118,26 @@ export namespace editor
             // (a curve-canvas drag mutates live). For those, the first Execute must NOT rebuild - a
             // rebuild recreates the canvas and drops the selected key + its tangent handles. Discrete
             // edits (add/remove track, field edits) leave it false so the first Execute rebuilds.
-            ClipEditCommand(ClipEditorView& view, propanim::PropertyAnimationClip before,
+            ClipEditCommand(IClipEditorHost& host, propanim::PropertyAnimationClip before,
                             propanim::PropertyAnimationClip after, bool liveApplied = false)
-                : m_view(&view), m_before(Move(before)), m_after(Move(after)), m_liveApplied(liveApplied)
+                : m_host(&host), m_before(Move(before)), m_after(Move(after)), m_liveApplied(liveApplied)
             {
             }
             [[nodiscard]] bool Execute() override
             {
-                m_view->ApplyState(m_after, /*rebuild=*/!m_liveApplied);
+                m_host->ApplyClipState(m_after, /*rebuild=*/!m_liveApplied);
                 m_liveApplied = false; // a later redo DOES rebuild (the canvas is stale by then)
                 return true;
             }
-            void Undo() override { m_view->ApplyState(m_before, /*rebuild=*/true); }
+            void Undo() override { m_host->ApplyClipState(m_before, /*rebuild=*/true); }
             [[nodiscard]] StringView TypeId() const override { return u8"propanim-clip-edit"; }
 
         private:
-            ClipEditorView* m_view;
+            IClipEditorHost* m_host; // the DURABLE seam, never the recreatable view (pass-10 #5 / F1)
             propanim::PropertyAnimationClip m_before;
             propanim::PropertyAnimationClip m_after;
             bool m_liveApplied;
         };
-
-        void ApplyState(const propanim::PropertyAnimationClip& state, bool rebuild = true);
 
         // Snapshot -> mutate -> push. `fn` edits a COPY that becomes the new clip (one undo step).
         template <typename Fn>
@@ -136,7 +148,7 @@ export namespace editor
             fn(after);
             after.duration = after.ComputeDuration();
             (void)m_host->Commands().Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<ClipEditCommand>(*this, Move(before), Move(after)),
+                DefaultAllocator().New<ClipEditCommand>(*m_host, Move(before), Move(after)),
                 DefaultAllocator()));
         }
 

@@ -598,6 +598,21 @@ namespace editor
         }
     }
 
+    void PropertyAnimationPanel::ApplyClipState(const propanim::PropertyAnimationClip& state,
+                                                bool rebuild)
+    {
+        // Forward to the persistent view (sets Clip() = state + rebuilds). The command held THIS host,
+        // never the view, so the view being recreatable can never dangle a command (F1).
+        if (m_view)
+        {
+            m_view->ApplyState(state, rebuild);
+        }
+        else
+        {
+            m_clip = state;
+        }
+    }
+
     Variant PropertyAnimationPanel::ReadTrackTarget(scene::EntityHandle entity, StringView componentType,
                                                     StringView propertyPath)
     {

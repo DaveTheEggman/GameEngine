@@ -498,7 +498,7 @@ namespace editor
                 propanim::PropertyAnimationClip after = self->Clip();
                 after.duration = after.ComputeDuration();
                 (void)self->m_host->Commands().Execute(UniquePtr<IEditorCommand>(
-                    DefaultAllocator().New<ClipEditCommand>(*self, Move(self->m_gestureBefore),
+                    DefaultAllocator().New<ClipEditCommand>(*self->m_host, Move(self->m_gestureBefore),
                                                             Move(after), /*liveApplied=*/true),
                     DefaultAllocator()));
             });

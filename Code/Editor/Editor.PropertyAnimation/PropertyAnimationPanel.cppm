@@ -78,6 +78,9 @@ export namespace editor
         void OnScrubTimeChanged(f32 time) override;
         // The view rebuilt its rows - resync the Timeline duration to the (possibly new) clip length.
         void OnClipViewRebuilt() override;
+        // Undo/redo whole-clip apply, routed through the view (F1: the command holds this host, not a
+        // view pointer).
+        void ApplyClipState(const propanim::PropertyAnimationClip& state, bool rebuild) override;
 
         // === frame hooks (called by the scene page; replace the old IViewportTool seam) ===
         // Advances playback by dt when Playing (drives the playhead + preview); caches the EDIT/Simulate
