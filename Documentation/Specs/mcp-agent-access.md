@@ -520,20 +520,44 @@ in build order:
    Documentation/Shipping/KnownIssues.md (user-visible symptoms +
    impact + workaround only; curation rule in the file header) - NOT
    the repo-root development tracker, which is triage state and is not
-   distributed. Resolution order: KnownIssues.md next to the executable
-   (the shipped-dist layout - export staging stages it as a sidecar
-   when the host ships), then Documentation/Shipping/KnownIssues.md up
-   the tree (the engine-checkout layout).
-6. Resources: read-only by URI (resources/list + resources/read exist in
-   foundation.mcp; only the registrations are missing). RULING
-   (2026-08-17, user): the internal design/spec/process docs are NOT
-   distributed and never feed the MCP - the doc resources expose
-   Documentation/Shipping/** ONLY (the curated, distribution-facing docs
-   set started by KnownIssues.md). This item therefore includes AUTHORING
-   the shipping docs the registrations expose (engine-user how-tos:
-   scripting, assets, scenes - written for game-project agents, not
-   engine developers), plus the open-project scene/prefab XML sources
-   (project data, always fair game).
+   distributed. Resolution order: KnownIssues.md next to the executable,
+   then Documentation/Shipping/KnownIssues.md up the tree (the
+   engine-checkout layout). CLARIFIED (user, 2026-08-17): the MCP host
+   is DEVELOPER TOOLING - game export/staging never touches it; the
+   exe-adjacent layout exists only for a possible future
+   engine-tooling/SDK binary channel, which owns its own staging.
+6. BUILT 2026-08-17 (Fable): resources, read-only by URI, honoring the
+   ruling (internal design/spec/process docs NEVER feed the MCP).
+   - foundation.mcp gained ResourceProvider {list, read} - a DYNAMIC
+     resource-set seam (static registration cannot track a project whose
+     scenes appear/disappear); resources/list appends every provider's
+     CURRENT entries; resources/read falls through static -> providers,
+     with the mime type taken from the answering provider's listing.
+   - editor.mcp:resources registers the open project's scene/prefab XML
+     sources as project://scene/<guid> + project://prefab/<guid>
+     (application/xml, listed live from the source DB, content verbatim
+     = scene_read; read-only - mutation stays with scene_write).
+   - The host registers every Documentation/Shipping/*.md as
+     docs://<FileName> (text/markdown, readers re-read per request so
+     edits are live), resolved by the same walk-up as KnownIssues.md.
+   - AUTHORED the first shipping docs: Scripting.md (backends, the
+     Behavior/Level/Game tiers, dispatch-by-presence lifecycle, harvested
+     properties, script_api-is-truth), Assets.md (guid identity,
+     import->cook->reference, asset_uses/project_health habits),
+     Scenes.md (text sources, the validate-first authoring loop,
+     single-root prefab rule) + KnownIssues.md from the item-5 amendment.
+   - DEBRAND sweep (user catch): "draconic" scrubbed from all MCP
+     surfaces - server name is now `engine-mcp` (default + host), the
+     resource scheme is project://, docs say "engine/game project". The
+     only remaining mention is the KnownIssues legacy-type-name entry,
+     which is historical fact.
+   Tests: foundation Mcp.Tests provider case (dynamic growth between
+   list calls, provider-declared mime on read, static/dynamic
+   coexistence, unowned uri -32602); the scene-flow golden asserts the
+   written scene appears live as project://scene/<guid> and its
+   resources/read text is byte-identical to scene_read. Fixed en route:
+   a dangling StringView in resources/read (JsonValue::AsString returns
+   BY VALUE - hold the String, then view it).
 7. script_validate SPLIT (ruling): ship the COMPILE-CHECK version now -
    every backend's Load already reports compile errors. The TYPED version
    (real type errors against the bound surface) lands with Luau P5 (.d.luau

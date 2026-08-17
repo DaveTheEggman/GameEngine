@@ -60,6 +60,17 @@ export namespace foundation::mcp
         String description;
         ResourceReader reader;
     };
+
+    // A DYNAMIC resource set (e.g. the open project's scene sources - entries appear and
+    // disappear as the project changes, so they cannot be registered statically). `list`
+    // appends the CURRENT entries (their `reader` fields may be empty - reads go through
+    // `read`); `read` answers a uri or returns an empty Optional when the uri is not this
+    // provider's (the server then tries the next provider).
+    struct ResourceProvider
+    {
+        Function<void(Array<Resource>&)> list;
+        Function<Optional<Result<String, String>>(StringView)> read;
+    };
 }
 
 namespace foundation::mcp::detail
@@ -94,7 +105,8 @@ export namespace foundation::mcp
     {
         Array<Tool> m_tools;
         Array<Resource> m_resources;
-        String m_serverName = String(u8"draconic-mcp");
+        Array<ResourceProvider> m_resourceProviders;
+        String m_serverName = String(u8"engine-mcp");
         String m_serverVersion = String(u8"0.1.0");
 
     public:
@@ -118,6 +130,10 @@ export namespace foundation::mcp
         {
             m_resources.PushBack(
                 Resource{Move(uri), Move(name), Move(mimeType), Move(description), Move(reader)});
+        }
+        void RegisterResourceProvider(ResourceProvider provider)
+        {
+            m_resourceProviders.PushBack(Move(provider));
         }
         [[nodiscard]] usize ToolCount() const noexcept { return m_tools.Size(); }
         [[nodiscard]] usize ResourceCount() const noexcept { return m_resources.Size(); }
@@ -280,15 +296,29 @@ export namespace foundation::mcp
             }
             if (method == StringView(u8"resources/list"))
             {
+                // Static registrations + every provider's CURRENT entries (dynamic sets).
+                Array<Resource> dynamic;
+                for (usize p = 0; p < m_resourceProviders.Size(); ++p)
+                {
+                    m_resourceProviders[p].list(dynamic);
+                }
                 JsonValue arr = JsonValue::MakeArray();
-                for (usize i = 0; i < m_resources.Size(); ++i)
+                const auto append = [&arr](const Resource& r)
                 {
                     JsonValue jr = JsonValue::MakeObject();
-                    jr.Set(u8"uri", JsonValue::MakeString(m_resources[i].uri));
-                    jr.Set(u8"name", JsonValue::MakeString(m_resources[i].name));
-                    jr.Set(u8"mimeType", JsonValue::MakeString(m_resources[i].mimeType));
-                    jr.Set(u8"description", JsonValue::MakeString(m_resources[i].description));
+                    jr.Set(u8"uri", JsonValue::MakeString(r.uri));
+                    jr.Set(u8"name", JsonValue::MakeString(r.name));
+                    jr.Set(u8"mimeType", JsonValue::MakeString(r.mimeType));
+                    jr.Set(u8"description", JsonValue::MakeString(r.description));
                     arr.Add(Move(jr));
+                };
+                for (usize i = 0; i < m_resources.Size(); ++i)
+                {
+                    append(m_resources[i]);
+                }
+                for (usize i = 0; i < dynamic.Size(); ++i)
+                {
+                    append(dynamic[i]);
                 }
                 JsonValue result = JsonValue::MakeObject();
                 result.Set(u8"resources", Move(arr));
@@ -302,20 +332,53 @@ export namespace foundation::mcp
                     return detail::MakeError(id, RpcError::InvalidParams,
                                              String(u8"resources/read requires a string 'uri'"));
                 }
-                const Resource* res = FindResource(uriVal.AsString().AsView());
+                const String uriText = uriVal.AsString(); // AsString returns BY VALUE - keep it
+                const StringView uri = uriText.AsView();
+                const Resource* res = FindResource(uri);
+                Optional<Result<String, String>> dynamicContent;
+                String mimeType;
                 if (res == nullptr)
                 {
-                    return detail::MakeError(id, RpcError::InvalidParams,
-                                             Format(u8"unknown resource '{}'", uriVal.AsString().AsView()));
+                    // Not a static registration - offer the uri to each provider in turn.
+                    for (usize p = 0; p < m_resourceProviders.Size() && !dynamicContent.HasValue();
+                         ++p)
+                    {
+                        dynamicContent = m_resourceProviders[p].read(uri);
+                    }
+                    if (!dynamicContent.HasValue())
+                    {
+                        return detail::MakeError(id, RpcError::InvalidParams,
+                                                 Format(u8"unknown resource '{}'", uri));
+                    }
+                    // The answering provider's listing carries the entry's declared mime type.
+                    mimeType = String(u8"text/plain");
+                    Array<Resource> dynamic;
+                    for (usize p = 0; p < m_resourceProviders.Size(); ++p)
+                    {
+                        m_resourceProviders[p].list(dynamic);
+                    }
+                    for (usize i = 0; i < dynamic.Size(); ++i)
+                    {
+                        if (dynamic[i].uri.AsView() == uri)
+                        {
+                            mimeType = dynamic[i].mimeType;
+                            break;
+                        }
+                    }
                 }
-                Result<String, String> content = res->reader();
+                else
+                {
+                    mimeType = res->mimeType;
+                }
+                Result<String, String> content =
+                    (res != nullptr) ? res->reader() : Move(dynamicContent.Value());
                 if (!content.HasValue())
                 {
                     return detail::MakeError(id, RpcError::InternalError, Move(content.Error()));
                 }
                 JsonValue entry = JsonValue::MakeObject();
-                entry.Set(u8"uri", JsonValue::MakeString(res->uri));
-                entry.Set(u8"mimeType", JsonValue::MakeString(res->mimeType));
+                entry.Set(u8"uri", JsonValue::MakeString(String(uri)));
+                entry.Set(u8"mimeType", JsonValue::MakeString(mimeType));
                 entry.Set(u8"text", JsonValue::MakeString(Move(content.Value())));
                 JsonValue contents = JsonValue::MakeArray();
                 contents.Add(Move(entry));

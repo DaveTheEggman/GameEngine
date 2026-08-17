@@ -91,6 +91,75 @@ namespace
         }
         return String();
     }
+
+    // The shipping docs directory (Documentation/Shipping in the engine checkout), resolved with
+    // the same walk-up. Same distribution stance as KnownIssues.md: this is the CURATED,
+    // distribution-facing docs set - internal design/spec/process docs are never exposed.
+    [[nodiscard]] String FindShippingDocsDir(const char* argv0)
+    {
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        const fs::path starts[] = {fs::weakly_canonical(fs::absolute(fs::path(argv0), ec), ec)
+                                       .parent_path(),
+                                   fs::current_path(ec)};
+        for (const fs::path& start : starts)
+        {
+            for (fs::path dir = start; !dir.empty(); dir = dir.parent_path())
+            {
+                const fs::path candidate = dir / "Documentation" / "Shipping";
+                if (fs::is_directory(candidate, ec))
+                {
+                    const std::string text = candidate.string();
+                    return String(StringView(reinterpret_cast<const utf8char*>(text.c_str())));
+                }
+                if (dir == dir.root_path())
+                {
+                    break;
+                }
+            }
+        }
+        return String();
+    }
+
+    // Register every shipping doc (*.md) as a read-only `docs://<FileName>` resource. Readers
+    // re-read the file per request, so edits are live without restarting the host.
+    void RegisterShippingDocResources(McpServer& server, StringView docsDir)
+    {
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        const fs::path root(reinterpret_cast<const char*>(String(docsDir).CStr()));
+        for (const fs::directory_entry& entry : fs::directory_iterator(root, ec))
+        {
+            if (!entry.is_regular_file(ec) || entry.path().extension() != ".md")
+            {
+                continue;
+            }
+            const std::string fileName = entry.path().filename().string();
+            const std::string fullPath = entry.path().string();
+            const String name(StringView(reinterpret_cast<const utf8char*>(fileName.c_str())));
+            const String path(StringView(reinterpret_cast<const utf8char*>(fullPath.c_str())));
+            server.RegisterResource(
+                Format(u8"docs://{}", name.AsView()), name, String(u8"text/markdown"),
+                Format(u8"engine documentation: {} (curated, distribution-facing)", name.AsView()),
+                [path]() -> Result<String, String>
+                {
+                    FileStream stream(path.AsView(), FileMode::Read);
+                    if (!stream.IsValid())
+                    {
+                        return Err(Format(u8"could not read '{}'", path.AsView()));
+                    }
+                    const i64 size = stream.Size();
+                    Array<byte> bytes;
+                    bytes.Resize(static_cast<usize>(size));
+                    if (stream.Read(bytes.Data(), bytes.Size()) != static_cast<u64>(size))
+                    {
+                        return Err(Format(u8"could not read '{}'", path.AsView()));
+                    }
+                    return String(StringView(reinterpret_cast<const utf8char*>(bytes.Data()),
+                                             bytes.Size()));
+                });
+        }
+    }
 }
 
 int main(int /*argc*/, char** argv)
@@ -127,7 +196,7 @@ int main(int /*argc*/, char** argv)
     pipeline::RegisterAllImporters(importers);
 
     McpServer server;
-    server.SetServerInfo(u8"draconic-mcp", u8"0.1.0");
+    server.SetServerInfo(u8"engine-mcp", u8"0.1.0");
     RegisterReflectionTools(server);
     RegisterScriptTools(server); // script_api: the per-backend bound API for writing scripts
 
@@ -138,9 +207,18 @@ int main(int /*argc*/, char** argv)
     editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
     editor::mcp::RegisterAssetUsesTool(server, session, builders); // reverse deps (pre-delete read)
     editor::mcp::RegisterProjectHealthTool(server, session, builders); // the soundness sweep
-    // Diagnostics: the captured engine log (incremental reads + agent markers) + KNOWN_ISSUES.md.
+    // Diagnostics: the captured engine log (incremental reads + agent markers) + the curated
+    // known-issues register.
     editor::mcp::RegisterLogTools(server, logBuffer, FindKnownIssues(argv[0]));
     editor::mcp::RegisterSceneTools(server, session); // scene/prefab read+write+validate (files-first)
+    // Read-only context by URI: the curated shipping docs (docs://<name>) + the open project's
+    // scene/prefab XML sources (project://scene|prefab/<guid>, listed live).
+    const String shippingDocs = FindShippingDocsDir(argv[0]);
+    if (!shippingDocs.IsEmpty())
+    {
+        RegisterShippingDocResources(server, shippingDocs.AsView());
+    }
+    editor::mcp::RegisterProjectResources(server, session);
     // host_info (ops hygiene): pid + build stamp + versions + the open-project state.
     RegisterHostInfoTool(
         server, String(reinterpret_cast<const char8_t*>(BuildStamp())),

@@ -20,4 +20,5 @@ target_sources(Editor.Mcp
             AssetUses.cppm
             ProjectHealth.cppm
             LogTools.cppm
+            McpResources.cppm
             ProjectTools.cppm)

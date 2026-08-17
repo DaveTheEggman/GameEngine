@@ -58,6 +58,14 @@ namespace
         return String(resp.Get(u8"result").Get(u8"content").At(0).Get(u8"text").AsString());
     }
 
+    // Raw JSON-RPC line -> response line (for the resources/* methods, which are not tools).
+    String Response(McpServer& s, StringView line)
+    {
+        Optional<String> out = s.HandleLine(line);
+        REQUIRE(out.HasValue());
+        return Move(out.Value());
+    }
+
     JsonValue Obj() { return JsonValue::MakeObject(); }
     JsonValue With(JsonValue o, StringView k, StringView v)
     {
@@ -94,6 +102,7 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
     editor::mcp::ProjectSession session;
     editor::mcp::RegisterProjectTools(server, session);
     editor::mcp::RegisterSceneTools(server, session);
+    editor::mcp::RegisterProjectResources(server, session); // scenes as project:// resources
 
     (void)CallOk(server, u8"project_create",
                  With(With(Obj(), u8"directory", u8"mcp_scene_project"), u8"name", u8"SceneFix"));
@@ -204,6 +213,39 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
     (void)CallErr(server, u8"scene_validate", Obj());
     (void)CallErr(server, u8"scene_validate",
                   With(With(Obj(), u8"xml", u8"x"), u8"guid", newGuid.AsView()));
+
+    // The scenes double as READ-ONLY resources (project://scene/<guid>), listed LIVE from the
+    // source DB - the written scene appears without any re-registration, and its content is
+    // byte-identical to scene_read.
+    {
+        const String listLine =
+            Response(server, u8"{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"resources/list\"}");
+        JsonValue list = json::Parse(listLine.AsView()).value;
+        const JsonValue resources = list.Get(u8"result").Get(u8"resources");
+        const String wantedUri = Format(u8"project://scene/{}", newGuid.AsView());
+        bool found = false;
+        for (i64 i = 0; i < resources.Count(); ++i)
+        {
+            if (resources.At(i).Get(u8"uri").AsString() == wantedUri.AsView())
+            {
+                found = true;
+                CHECK(resources.At(i).Get(u8"mimeType").AsString() ==
+                      StringView(u8"application/xml"));
+            }
+        }
+        CHECK(found);
+
+        const String readLine = Response(
+            server,
+            Format(u8"{}{}{}",
+                   StringView(u8"{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"resources/read\","
+                              u8"\"params\":{\"uri\":\""),
+                   wantedUri.AsView(), StringView(u8"\"}}"))
+                .AsView());
+        JsonValue read2 = json::Parse(readLine.AsView()).value;
+        CHECK(read2.Get(u8"result").Get(u8"contents").At(0).Get(u8"text").AsString() ==
+              seedXml.AsView());
+    }
 }
 
 TEST_CASE("integration.mcp: host_info reports pid, stamp, versions, and host state")

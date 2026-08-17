@@ -15,6 +15,7 @@ export import :scene_tools;
 export import :asset_uses;
 export import :project_health;
 export import :log_tools;
+export import :resources;
 
 import foundation.core;
 import foundation.json;

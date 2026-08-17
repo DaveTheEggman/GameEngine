@@ -216,6 +216,64 @@ TEST_CASE("mcp: resources/list + resources/read; unknown uri -> -32602")
     CHECK(miss.Get(u8"error").Get(u8"code").AsInt() == -32602);
 }
 
+TEST_CASE("mcp: a resource PROVIDER contributes a dynamic set (list + read + mime + miss)")
+{
+    McpServer s;
+    Setup(s); // the static mem://greeting
+    // A provider whose set changes between calls - exactly what static registration can't do.
+    Array<String> names;
+    names.PushBack(String(u8"alpha"));
+    ResourceProvider provider;
+    provider.list = [&names](Array<Resource>& out)
+    {
+        for (const String& n : names)
+        {
+            Resource r;
+            r.uri = Format(u8"dyn://{}", n.AsView());
+            r.name = n;
+            r.mimeType = String(u8"application/xml");
+            r.description = String(u8"dynamic entry");
+            out.PushBack(Move(r));
+        }
+    };
+    provider.read = [&names](StringView uri) -> Optional<Result<String, String>>
+    {
+        for (const String& n : names)
+        {
+            if (uri == Format(u8"dyn://{}", n.AsView()).AsView())
+            {
+                return Result<String, String>(Format(u8"content-of-{}", n.AsView()));
+            }
+        }
+        return {}; // not ours
+    };
+    s.RegisterResourceProvider(Move(provider));
+
+    // list = static + the provider's CURRENT entries.
+    JsonValue l1 = Response(s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/list\"}"));
+    CHECK(l1.Get(u8"result").Get(u8"resources").Count() == 2);
+
+    // The set grows without re-registration.
+    names.PushBack(String(u8"beta"));
+    JsonValue l2 = Response(s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"resources/list\"}"));
+    CHECK(l2.Get(u8"result").Get(u8"resources").Count() == 3);
+
+    // Reads route through the provider and carry ITS declared mime type.
+    JsonValue rd = Response(s.HandleLine(
+        u8"{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"resources/read\",\"params\":{\"uri\":\"dyn://beta\"}}"));
+    const JsonValue entry = rd.Get(u8"result").Get(u8"contents").At(0);
+    CHECK(entry.Get(u8"text").AsString() == StringView(u8"content-of-beta"));
+    CHECK(entry.Get(u8"mimeType").AsString() == StringView(u8"application/xml"));
+
+    // Static reads still work, and a uri no one owns is still -32602.
+    JsonValue st = Response(s.HandleLine(
+        u8"{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"resources/read\",\"params\":{\"uri\":\"mem://greeting\"}}"));
+    CHECK(st.Get(u8"result").Get(u8"contents").At(0).Get(u8"text").AsString() == StringView(u8"hello"));
+    JsonValue miss = Response(s.HandleLine(
+        u8"{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"resources/read\",\"params\":{\"uri\":\"dyn://gamma\"}}"));
+    CHECK(miss.Get(u8"error").Get(u8"code").AsInt() == -32602);
+}
+
 // --- Framing / transport ---------------------------------------------------
 
 TEST_CASE("mcp: framing survives garbage (-32700) and drives multiple messages; loop stays alive")
