@@ -301,10 +301,22 @@ namespace editor
 
     void PropertyAnimationPanel::RefreshHeader()
     {
-        String text = HasClip() ? String(u8"Clip: ") : String(u8"Clip: (none - New or Pick)");
+        String text;
         if (HasClip())
         {
+            text = String(u8"Clip: ");
             text += ClipName();
+        }
+        else if (!m_clip.tracks.IsEmpty())
+        {
+            // Tracks exist but no asset is loaded yet (e.g. + From Selection before Save/Pick).
+            text = String(u8"Clip: (unsaved) ");
+            AppendValue(text, static_cast<i32>(m_clip.tracks.Size()));
+            text += u8" track(s)";
+        }
+        else
+        {
+            text = String(u8"Clip: (none - Pick or + From Selection)");
         }
         if (m_clipLabel.Get() != nullptr)
         {
@@ -358,6 +370,7 @@ namespace editor
             LOG_INFO(u8"Editor",
                      u8"add-from-selection: no selected entity or no animatable properties");
         }
+        RefreshHeader(); // reflect the new track count (the label showed a stale "none")
     }
 
     void PropertyAnimationPanel::OnSave()

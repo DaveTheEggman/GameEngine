@@ -585,7 +585,7 @@ namespace editor
                 track.channels[ch].AddKey(ck);
             }
         }
-        clip.duration = clip.ComputeDuration();
+        clip.duration = Max(clip.duration, clip.ComputeDuration()); // preserve an authored length
         m_gestureDirty = true; // a key actually moved/added/removed this gesture
         m_host->MarkClipDirty();
         RefreshPreview();
