@@ -66,7 +66,9 @@ TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + th
     // COUNT TRIPWIRE: the standard headless set (no graphics device -> no texture factory).
     // A new standard factory bumps this constant DELIBERATELY; a lost registration fails
     // loudly here instead of as a silent null Bind in a shipped game.
-    constexpr usize kStandardHeadlessFactoryCount = 18;
+    // 19 = +PropertyAnimationClipFactory (2026-08-17: the editor's clip picker bind warned
+    // "host is missing an AddFactory" - the factory existed but no host registered it).
+    constexpr usize kStandardHeadlessFactoryCount = 19;
     CHECK(resources.FactoryCount() == kStandardHeadlessFactoryCount);
 
     // The incident pin: the cooked default-UI font product MUST be constructible in every

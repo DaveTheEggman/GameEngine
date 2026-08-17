@@ -53,6 +53,7 @@ import foundation.scene.resource;      // SceneDocument (product-type registrati
 import foundation.geometry.resource;   // mesh factories
 import foundation.materials.resource;  // material factory
 import foundation.animation.resource;  // skeleton/clip/graph factories
+import foundation.propertyanimation.resource; // property-animation clip factory
 import foundation.particles.resource;  // particle-effect factory
 import foundation.input.resource;      // input-map factory
 import foundation.physics.resource;    // collision-shape/physical-material factories
@@ -231,6 +232,7 @@ export namespace engine::runtime
         foundation::animation::SkeletonFactory m_skeletonFactory;
         foundation::animation::AnimationClipFactory m_animationClipFactory;
         foundation::animation::AnimationGraphFactory m_animationGraphFactory;
+        foundation::propertyanimation::PropertyAnimationClipFactory m_propertyAnimationClipFactory;
         foundation::particles::ParticleEffectFactory m_particleEffectFactory;
         foundation::input::InputMapFactory m_inputMapFactory;
         foundation::physics::CollisionShapeFactory m_collisionShapeFactory;

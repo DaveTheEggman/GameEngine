@@ -17,6 +17,7 @@ target_link_libraries(Engine.DefaultApp
            Foundation::Script.Resource Engine::Script Engine::Integration
            Foundation::Resource Foundation::Content Foundation::Scene.Resource
            Foundation::Geometry.Resource Foundation::Materials.Resource Foundation::Animation.Resource
+           Foundation::PropertyAnimation.Resource
            Foundation::Particles.Resource Foundation::Input.Resource Foundation::Physics.Resource
            Foundation::Texture.Resource Foundation::Image.Resource Foundation::Model.Resource Foundation::UI.Resource Engine::UI
            Foundation::Net Foundation::Net.Manager Engine::Net

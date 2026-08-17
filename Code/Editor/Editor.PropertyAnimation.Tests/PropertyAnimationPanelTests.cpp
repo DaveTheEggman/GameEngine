@@ -618,3 +618,34 @@ TEST_CASE("propanim-panel: SetClipDuration authors the clip length, clamped to t
     panel->SetClipDuration(1.0f);
     CHECK(panel->Clip().duration == doctest::Approx(3.0f));
 }
+
+TEST_CASE("propanim-panel: ReadSceneValue captures the live Transform + component values")
+{
+    EnsurePreviewCompRegistered();
+    scene::Scene sc(u8"capture");
+    const scene::EntityHandle e = sc.CreateEntity(u8"hero");
+    foundation::core::Transform t = sc.GetLocalTransform(e);
+    t.position = Float3{4.0f, 5.0f, 6.0f};
+    sc.SetLocalTransform(e, t);
+
+    Selection<Guid> selection;
+    selection.Set(sc.GetEntityId(e));
+    EditorContext editorCtx;
+    EditorCommandStack stack;
+    auto panel = MakePanel(editorCtx, sc, stack, selection);
+
+    // The key-from-scene source: the selected entity's LIVE transform.
+    const Variant v = panel->ReadSceneValue(u8"Transform", u8"position");
+    REQUIRE(!v.IsEmpty());
+    REQUIRE(v.Is<Float3>());
+    CHECK(v.Get<Float3>().x == doctest::Approx(4.0f));
+    CHECK(v.Get<Float3>().z == doctest::Approx(6.0f));
+
+    // Unresolvable paths answer empty (the warn-and-skip contract).
+    CHECK(panel->ReadSceneValue(u8"Transform", u8"nope").IsEmpty());
+    CHECK(panel->ReadSceneValue(u8"NoSuchComponent", u8"position").IsEmpty());
+
+    // No selection -> empty.
+    selection.Clear();
+    CHECK(panel->ReadSceneValue(u8"Transform", u8"position").IsEmpty());
+}

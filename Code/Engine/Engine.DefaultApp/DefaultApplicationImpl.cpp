@@ -42,6 +42,7 @@ import foundation.scene.resource;      // SceneDocument (product-type registrati
 import foundation.geometry.resource;   // mesh factories
 import foundation.materials.resource;  // material factory
 import foundation.animation.resource;  // skeleton/clip/graph factories
+import foundation.propertyanimation.resource; // property-animation clip factory
 import foundation.particles.resource;  // particle-effect factory
 import foundation.input.resource;      // input-map factory
 import foundation.fonts.resource;      // FontResource + FontFactory (default UI font)
@@ -513,6 +514,7 @@ namespace engine::runtime
         resources.AddFactory(&m_skeletonFactory);
         resources.AddFactory(&m_animationClipFactory);
         resources.AddFactory(&m_animationGraphFactory);
+        resources.AddFactory(&m_propertyAnimationClipFactory);
         resources.AddFactory(&m_particleEffectFactory);
         resources.AddFactory(&m_inputMapFactory);
         resources.AddFactory(&m_collisionShapeFactory);

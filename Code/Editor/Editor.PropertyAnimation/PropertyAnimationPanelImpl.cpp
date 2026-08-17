@@ -957,21 +957,63 @@ namespace editor
     Variant PropertyAnimationPanel::ReadSceneValue(StringView componentType,
                                                    StringView propertyPath)
     {
+        // Every failure names ITS stage: "no scene value" alone cost a live session to
+        // diagnose - the chain has five distinct ways to miss.
         if (m_scene == nullptr || m_selection == nullptr)
         {
+            LOG_WARNING(u8"PropertyAnimation", u8"Key capture: the panel has no scene/selection");
             return {};
         }
         const Guid* primary = m_selection->Primary();
         if (primary == nullptr)
         {
+            LOG_WARNING(u8"PropertyAnimation",
+                        u8"Key capture: nothing selected (the panel binds to the scene page's "
+                        u8"entity selection)");
             return {};
         }
         const scene::EntityHandle entity = m_scene->FindEntity(*primary);
         if (!entity.IsAssigned())
         {
+            LOG_WARNING(u8"PropertyAnimation",
+                        u8"Key capture: the selected guid {} is not an entity of scene '{}'",
+                        *primary, m_scene->Name());
             return {};
         }
-        return ReadTrackTarget(entity, componentType, propertyPath);
+        Variant value = ReadTrackTarget(entity, componentType, propertyPath);
+        if (value.IsEmpty())
+        {
+            // Re-derive the reason ReadTrackTarget (shared with preview - silent by design)
+            // came back empty.
+            if (componentType == kTransformName)
+            {
+                LOG_WARNING(u8"PropertyAnimation",
+                            u8"Key capture: property path '{}' did not resolve on the "
+                            u8"Transform (or its reflection is unregistered)",
+                            propertyPath);
+            }
+            else if (scene::ComponentManagerBase* mgr =
+                         FindManagerByComponentTypeName(componentType);
+                     mgr == nullptr)
+            {
+                LOG_WARNING(u8"PropertyAnimation",
+                            u8"Key capture: no component manager named '{}' on this scene",
+                            componentType);
+            }
+            else if (!mgr->HasComponent(entity))
+            {
+                LOG_WARNING(u8"PropertyAnimation",
+                            u8"Key capture: the selected entity has no '{}' component",
+                            componentType);
+            }
+            else
+            {
+                LOG_WARNING(u8"PropertyAnimation",
+                            u8"Key capture: property path '{}' did not resolve on '{}'",
+                            propertyPath, componentType);
+            }
+        }
+        return value;
     }
 
     Variant PropertyAnimationPanel::ReadTrackTarget(scene::EntityHandle entity, StringView componentType,
