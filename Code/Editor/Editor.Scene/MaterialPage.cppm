@@ -49,8 +49,12 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import editor.camera;    // EditorCamera (fly camera on the preview viewport)
-import :inspector; // ResourceRefEditor (the picker row)
+import editor.preview; // PreviewViewport (shared viewport + preview scene + camera + render loop)
+// NO :inspector import here: the INTERFACE names nothing from it (ResourceRefEditor is
+// an impl concern - MaterialPageImpl.cpp imports :inspector itself). Beyond hygiene, it
+// is load-bearing: GCC 15's module merger SEGFAULTS when an interface unit imports both
+// a giant same-module partition (:inspector) and editor.preview. Keep heavy partition
+// imports in impl units unless the interface actually uses their types.
 
 using namespace foundation::core;
 namespace rhi = foundation::rhi;
@@ -68,71 +72,8 @@ export namespace editor
     {
     public:
         MaterialEditorPage(EditorContext& context, runtime::IApplicationHost& host,
-                           ui::runtime::UIHost& uiHost, foundation::content::Instance& instance)
-            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
-        {
-            // Fly camera on the preview viewport (hover/focus-gated devices, like scene pages).
-            m_router =
-                MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
-            m_camera.position = Float3{0.0f, 0.9f, 2.6f};
-            m_camera.LookAt(Float3{0.0f, 0.0f, 0.0f});
-
-            // The edited object: the instance's MaterialAsset (kept live; Save writes it back).
-            RefPtr<ISerializable> object = instance.ReadObject();
-            m_asset =
-                RefPtr<pipeline::MaterialAsset>(Cast<pipeline::MaterialAsset>(object.Get()));
-            if (m_asset.Get() != nullptr)
-            {
-                // Pre-emissive assets gain the factor in memory (black default); saving the
-                // page persists the upgraded table (the load-time upgrade covers unsaved ones).
-                materials::UpgradeForwardMaterialSource(m_asset->source);
-            }
-            if (m_asset.Get() == nullptr)
-            {
-                LOG_ERROR(u8"Editor", u8"material '{}' failed to read - page opens empty",
-                                   m_title);
-            }
-
-            m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
-            m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
-
-            BuildPreviewScene();
-
-            // The context assigns the page's instance id AFTER construction (OpenPage), but
-            // the preview-pref restore below keys on it - set it from the instance now
-            // (the context's later SetInstanceId writes the same value).
-            SetInstanceId(instance.Id());
-
-            // Restore this material's saved preview choice (shape or mesh asset) before the
-            // grid builds its rows, so the Shape/Mesh rows show the persisted state.
-            LoadPreviewPref();
-            if (m_previewShape != 0 || !m_previewMeshGuid.IsNil())
-            {
-                ApplyPreviewMesh();
-            }
-
-            m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
-            m_viewport->ClearColor = rhi::ClearColor{0.10f, 0.11f, 0.13f, 1.0f};
-
-            m_grid = MakeRef<foundation::ui::toolkit::PropertyGrid>(DefaultAllocator());
-            RebuildGrid();
-
-            // Inset the property grid off the pane edge (matches the scene inspector / hierarchy).
-            auto gridColumn = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
-            gridColumn->Direction = foundation::ui::Orientation::Vertical;
-            gridColumn->Padding = foundation::ui::Thickness{8, 6};
-            {
-                auto grow = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
-                grow->Grow = 1.0f;
-                gridColumn->AddView(m_grid.Get(), grow);
-            }
-
-            m_content = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
-            m_content->SetSplitRatio(0.62f);
-            m_content->SetPanes(m_viewport.Get(), gridColumn.Get());
-
-            RebuildPreviewMaterial();
-        }
+                           ui::runtime::UIHost& uiHost, foundation::content::Instance& instance);
+        ~MaterialEditorPage();
 
         // === UIEditorPage ===
 
@@ -240,8 +181,6 @@ export namespace editor
         void ReadUniform(StringView name, void* out, usize bytes) const;
         void WriteUniform(StringView name, const void* value, usize bytes);
 
-        void EnsureViewportBound();
-
         EditorContext* m_context;
         runtime::IApplicationHost* m_host;
         ui::runtime::UIHost* m_uiHost;
@@ -249,26 +188,18 @@ export namespace editor
 
         RefPtr<pipeline::MaterialAsset> m_asset;
 
-        engine::scene::SceneSubsystem* m_scenes = nullptr;
-        scene::SceneManager
-            m_sceneManager; // this page's OWN preview scene group (registered with m_scenes)
-        engine::render::RenderSubsystem* m_render = nullptr;
-        scene::Scene* m_scene = nullptr;
-        scene::EntityHandle m_sphere;
+        UniquePtr<PreviewViewport> m_preview; // shared viewport + preview scene + camera
+        scene::EntityHandle m_sphere;         // the preview shape entity (in m_preview->Scene())
         RefPtr<foundation::geometry::StaticMesh> m_previewMesh;
         RefPtr<materials::Material> m_previewMaterial;
-        EditorCamera m_camera;
-        UniquePtr<foundation::shell::InputRouter> m_router;
         u32 m_previewShape = 0; // index into the Shape enum row
         Guid m_previewMeshGuid; // nil = primitive shape
         Array<foundation::resource::Proxy<foundation::texture::Texture>> m_previewTextures;
         Array<rhi::TextureView*> m_previewTextureViews; // views captured into the material
 
-        RefPtr<ui::viewport::ViewportView> m_viewport;
         RefPtr<foundation::ui::toolkit::PropertyGrid> m_grid;
         RefPtr<foundation::ui::toolkit::SplitView> m_content;
         Array<Function<void()>> m_refreshers;
-        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
     };
 
     class MaterialEditorPageFactory final : public IEditorPageFactory

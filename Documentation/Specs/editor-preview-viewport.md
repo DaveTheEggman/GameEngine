@@ -194,6 +194,26 @@ Fix, which is also cleaner: split into TWO modules.
 This honors the ruling's intent (camera graduates out of editor.scene, shareable
 by Editor.Physics; PreviewViewport is the shared substrate; no cycle) while
 keeping the widely-imported surface lean enough for gcc. The unit tests live with
-the camera (Editor.Camera.Tests, 5 cases / 19 assertions: LookAt aim + level
-horizon, basis orthonormality, RMB free-look, WASD-fly gating). Flagged for Fable;
-revert to one module only if a gcc fix makes the combined interface safe.
+the camera (Editor.Camera.Tests: LookAt aim + level horizon, basis orthonormality,
+FrameBounds, RMB free-look, WASD-fly gating). Flagged for Fable; revert to one
+module only if a gcc fix makes the combined interface safe.
+
+## GCC ICE root cause CORRECTED (Fable, 2026-08-18) - it is not a size threshold
+
+During the material migration (commit d) MaterialPage.cppm ICE'd gcc when it
+imported editor.preview. Opus's first theory (heavy-TU size threshold) was WRONG.
+Fable diagnosed the actual trigger: GCC 15's module merger SEGFAULTS when ONE
+interface unit imports BOTH a giant same-module partition (editor.scene:inspector)
+AND editor.preview. The interface named nothing from :inspector (ResourceRefEditor
+is impl-only, and MaterialPageImpl.cpp already imports :inspector legitimately) -
+the interface import was pure excess. Deleting that one line is the whole fix; zero
+body-slimming needed.
+
+The rule for the remaining pages (particle, animgraph, skeleton, clip): an
+interface unit imports a partition/module ONLY if the interface itself names its
+types; heavy partition imports (:inspector especially) live in impl units. Grep
+each page .cppm for `:inspector` co-imported with editor.preview before migrating.
+This is the THIRD recorded gcc-merger trigger (after heavy 3rd-party headers and
+RTTI/REFLECT bodies in interfaces); the gcc-module-interface-hygiene memory carries
+it. The PreviewViewport PIMPL (separate commit) is therefore hygiene, not the fix -
+kept because a lean interface is the right shape for a module 6+ pages import.

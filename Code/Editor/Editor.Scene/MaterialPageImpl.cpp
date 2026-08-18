@@ -47,7 +47,7 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import editor.camera;    // EditorCamera (fly camera on the preview viewport)
+import editor.preview;   // PreviewViewport (shared viewport + preview scene + camera + render loop)
 import :inspector; // ResourceRefEditor (the picker row)
 
 using namespace foundation::core;
@@ -62,23 +62,73 @@ namespace vg = foundation::vg;
 
 namespace editor
 {
+    MaterialEditorPage::MaterialEditorPage(EditorContext& context, runtime::IApplicationHost& host,
+                                           ui::runtime::UIHost& uiHost,
+                                           foundation::content::Instance& instance)
+        : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
+    {
+        // The edited object: the instance's MaterialAsset (kept live; Save writes it back).
+        RefPtr<ISerializable> object = instance.ReadObject();
+        m_asset = RefPtr<pipeline::MaterialAsset>(Cast<pipeline::MaterialAsset>(object.Get()));
+        if (m_asset.Get() != nullptr)
+        {
+            // Pre-emissive assets gain the factor in memory (black default); saving the
+            // page persists the upgraded table (the load-time upgrade covers unsaved ones).
+            materials::UpgradeForwardMaterialSource(m_asset->source);
+        }
+        if (m_asset.Get() == nullptr)
+        {
+            LOG_ERROR(u8"Editor", u8"material '{}' failed to read - page opens empty", m_title);
+        }
+
+        // Shared preview substrate (viewport + preview scene + fly camera + render loop).
+        m_preview =
+            MakeUnique<PreviewViewport>(DefaultAllocator(), host, uiHost, u8"material.preview");
+        m_preview->Camera().position = Float3{0.0f, 0.9f, 2.6f};
+        m_preview->Camera().LookAt(Float3{0.0f, 0.0f, 0.0f});
+
+        BuildPreviewScene();
+
+        // The context assigns the page's instance id AFTER construction (OpenPage), but the
+        // preview-pref restore below keys on it - set it from the instance now (the context's
+        // later SetInstanceId writes the same value).
+        SetInstanceId(instance.Id());
+
+        // Restore this material's saved preview choice (shape or mesh asset) before the grid
+        // builds its rows, so the Shape/Mesh rows show the persisted state.
+        LoadPreviewPref();
+        if (m_previewShape != 0 || !m_previewMeshGuid.IsNil())
+        {
+            ApplyPreviewMesh();
+        }
+
+        m_grid = MakeRef<foundation::ui::toolkit::PropertyGrid>(DefaultAllocator());
+        RebuildGrid();
+
+        // Inset the property grid off the pane edge (matches the scene inspector / hierarchy).
+        auto gridColumn = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+        gridColumn->Direction = foundation::ui::Orientation::Vertical;
+        gridColumn->Padding = foundation::ui::Thickness{8, 6};
+        {
+            auto grow = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+            grow->Grow = 1.0f;
+            gridColumn->AddView(m_grid.Get(), grow);
+        }
+
+        m_content = MakeRef<foundation::ui::toolkit::SplitView>(DefaultAllocator());
+        m_content->SetSplitRatio(0.62f);
+        m_content->SetPanes(m_preview->View(), gridColumn.Get());
+
+        RebuildPreviewMaterial();
+    }
+
+    MaterialEditorPage::~MaterialEditorPage() = default;
+
     void MaterialEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
     {
-        EnsureViewportBound();
-        if (m_hostWindow == nullptr)
+        if (m_preview)
         {
-            return;
-        }
-        m_viewport->SyncInputRegion();
-        if (m_router)
-        {
-            m_router->Update();
-        }
-        // Fly camera on the gated viewport devices (was an automatic turntable; user asked
-        // for direct control - same navigation as the scene pages).
-        if (m_viewport->IsHovered() || m_viewport->IsFocused())
-        {
-            m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt);
+            m_preview->Update(dt);
         }
 
         // Texture hot-reload watchdog: rebuild the preview material when any bound
@@ -102,42 +152,10 @@ namespace editor
     void MaterialEditorPage::OnRenderWindow(runtime::IApplicationHost&,
                                             foundation::graphics::FrameContext& frame)
     {
-        if (!m_viewport->IsReady() || !frame.valid)
+        if (m_preview)
         {
-            return;
+            m_preview->RenderFrame(frame);
         }
-        if (m_render == nullptr || !m_render->IsReady() || m_scene == nullptr)
-        {
-            return;
-        }
-        const u32 w = m_viewport->RenderWidth();
-        const u32 h = m_viewport->RenderHeight();
-        if (w == 0 || h == 0 || !m_viewport->IsEffectivelyVisible())
-        {
-            return;
-        }
-
-        render::ViewCamera camera;
-        camera.view = Float4x4::LookAtRH(m_camera.position, m_camera.position + m_camera.Forward(),
-                                         m_camera.Up());
-        camera.projection = Float4x4::PerspectiveFovRH(
-            1.0472f, static_cast<f32>(w) / static_cast<f32>(h), 0.1f, 100.0f);
-        camera.position = m_camera.position;
-        camera.farZ = 100.0f;
-
-        render::CameraOverride cameraOverride;
-        cameraOverride.camera = camera;
-        cameraOverride.clearColor = Color{m_viewport->ClearColor.r, m_viewport->ClearColor.g,
-                                          m_viewport->ClearColor.b, m_viewport->ClearColor.a};
-
-        render::TargetState targetState;
-        targetState.texture = m_viewport->ColorTexture();
-        targetState.currentState = m_viewport->ColorState();
-        targetState.finalState = rhi::ResourceState::ShaderRead;
-
-        m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w,
-                              h, render::ViewportRect{0, 0, w, h}, &cameraOverride, targetState);
-        m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
     }
 
     Status MaterialEditorPage::Save()
@@ -165,15 +183,9 @@ namespace editor
 
     void MaterialEditorPage::OnClose()
     {
-        m_viewport->Shutdown();
-        if (m_scene != nullptr)
+        if (m_preview)
         {
-            m_sceneManager.DestroyScene(m_scene);
-            m_scene = nullptr;
-        }
-        if (m_scenes != nullptr)
-        {
-            m_scenes->UnregisterManager(&m_sceneManager);
+            m_preview->Shutdown();
         }
     }
 
@@ -228,29 +240,26 @@ namespace editor
 
     void MaterialEditorPage::BuildPreviewScene()
     {
-        if (m_scenes == nullptr)
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        if (scenePtr == nullptr)
         {
             return;
         }
-        m_sceneManager.SetAwareRegistry(&m_scenes->AwareRegistry());
-        m_scenes->RegisterManager(&m_sceneManager);
-        m_scene = m_sceneManager.CreateScene(u8"material.preview");
-        m_scene->SetSimulationEnabled(false);
 
-        m_sphere = m_scene->CreateEntity(u8"PreviewSphere");
+        m_sphere = scenePtr->CreateEntity(u8"PreviewSphere");
         m_previewMesh = foundation::geometry::Primitives::Sphere(1.0f, 48, 24);
-        if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
+        if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
         {
             engine::render::MeshComponent& mc = meshes->Add(m_sphere);
             mc.mesh = m_previewMesh.Get(); // direct override (runtime-built, not an asset)
         }
 
-        const scene::EntityHandle sun = m_scene->CreateEntity(u8"Sun");
+        const scene::EntityHandle sun = scenePtr->CreateEntity(u8"Sun");
         Transform t;
         t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
                      Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
-        m_scene->SetLocalTransform(sun, t);
-        if (auto* lights = m_scene->GetSystem<engine::render::LightComponentManager>())
+        scenePtr->SetLocalTransform(sun, t);
+        if (auto* lights = scenePtr->GetSystem<engine::render::LightComponentManager>())
         {
             engine::render::LightComponent& light = lights->Add(sun);
             light.castsShadows = false; // a lone sphere has nothing to shadow
@@ -259,7 +268,8 @@ namespace editor
 
     void MaterialEditorPage::RebuildPreviewMaterial()
     {
-        if (m_asset.Get() == nullptr || m_scene == nullptr || !m_sphere.IsAssigned())
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        if (m_asset.Get() == nullptr || scenePtr == nullptr || !m_sphere.IsAssigned())
         {
             return;
         }
@@ -319,7 +329,7 @@ namespace editor
         }
 
         m_previewMaterial = material;
-        if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
+        if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
         {
             if (engine::render::MeshComponent* mc = meshes->Get(m_sphere))
             {
@@ -380,11 +390,12 @@ namespace editor
 
     void MaterialEditorPage::ApplyPreviewMesh()
     {
-        if (m_scene == nullptr || !m_sphere.IsAssigned())
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        if (scenePtr == nullptr || !m_sphere.IsAssigned())
         {
             return;
         }
-        auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>();
+        auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>();
         engine::render::MeshComponent* mc = (meshes != nullptr) ? meshes->Get(m_sphere) : nullptr;
         if (mc == nullptr)
         {
@@ -437,8 +448,10 @@ namespace editor
             center = mesh->bounds.Center();
             radius = core::Max(0.25f, Length(mesh->bounds.Extents()));
         }
-        m_camera.position = center + Float3{0.0f, 0.35f, 1.0f} * (radius * 2.4f);
-        m_camera.LookAt(center);
+        if (m_preview)
+        {
+            m_preview->Camera().FrameBounds(center, radius);
+        }
     }
 
     void MaterialEditorPage::RebuildGrid()
@@ -785,38 +798,6 @@ namespace editor
         }
     }
 
-    void MaterialEditorPage::EnsureViewportBound()
-    {
-        foundation::ui::RootView* root = m_viewport->Root();
-        if (root == nullptr)
-        {
-            return;
-        }
-        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
-        if (window == nullptr || window == m_hostWindow)
-        {
-            return;
-        }
-        vg::renderer::VGRenderer* renderer = m_uiHost->RendererFor(window);
-        if (renderer == nullptr)
-        {
-            return;
-        }
-        if (m_hostWindow == nullptr)
-        {
-            m_viewport->Initialize(m_host->Graphics()->Raw(), renderer, m_host->Shell()->Input(),
-                                   window->Window().Id());
-            if (m_viewport->Surface() != nullptr)
-            {
-                m_router->AddSurface(m_viewport->Surface());
-            }
-        }
-        else
-        {
-            m_viewport->AttachToWindow(renderer, window->Window().Id());
-        }
-        m_hostWindow = window;
-    }
     const TypeInfo* MaterialEditorPageFactory::PrimaryType() const
     {
         return &pipeline::MaterialAsset::StaticType();
