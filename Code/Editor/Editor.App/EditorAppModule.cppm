@@ -18,6 +18,7 @@ export import :asset_picker_dialog;
 export import :asset_create_dialog;
 export import :confirm_dialog;
 export import :path_picker_dialog;
+    export import :group_picker_dialog;
 export import :import_dialog;
 export import :settings_dialog;
 export import :preferences_dialog;

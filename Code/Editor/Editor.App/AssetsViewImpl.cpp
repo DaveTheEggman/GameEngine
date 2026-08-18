@@ -36,6 +36,7 @@ import foundation.ui.toolkit;
 import editor.core;
 import :editor_icons;
 import :import_dialog;
+import :group_picker_dialog;
 
 using namespace foundation::core;
 namespace content = foundation::content;
@@ -127,31 +128,22 @@ namespace editor::app
         {
             return;
         }
-        // Flatten the group tree (depth-first) so every group is a chooser item, labeled by its path.
-        Array<content::Group*> all;
-        Function<void(content::Group*)> walk = [&](content::Group* g)
-        {
-            all.PushBack(g);
-            for (content::Group* child : g->Groups())
-            {
-                walk(child);
-            }
-        };
-        walk(root);
-
+        // A proper group-TREE picker (the asset-picker's sibling), not a flat path menu - the
+        // current destination is preselected.
         AssetsView* self = this;
         ImportOptionsDialog* dlg = &dialog;
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
-        for (content::Group* g : all)
+        auto picker = MakeRef<GroupPickerDialog>(DefaultAllocator(),
+                                                 StringView(u8"Select destination group"), root,
+                                                 m_importTargetGroup);
+        picker->OnPicked = [self, dlg](content::Group* g)
         {
-            menu->AddItem(g->Path().AsView(), [self, g, dlg]()
-                          {
-                              self->m_importTargetGroup = g;
-                              dlg->SetDestination(g->Path().AsView());
-                          });
-        }
-        const Float2 at = LocalToScreen(Float2{60.0f, 60.0f});
-        menu->Show(Context, at.x, at.y);
+            if (g != nullptr)
+            {
+                self->m_importTargetGroup = g;
+                dlg->SetDestination(g->Path().AsView());
+            }
+        };
+        picker->Show(Context);
     }
 
     void AssetsView::ExecuteImport(String path, pipeline::IFileImporter* importer,
