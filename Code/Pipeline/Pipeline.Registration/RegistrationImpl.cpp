@@ -162,5 +162,6 @@ namespace pipeline
         AddImporter<AudioFileImporter>(registry);
         AddImporter<ScriptFileImporter>(registry);
         AddImporter<FontAssetImporter>(registry);
+        AddImporter<ImageFileImporter>(registry);
     }
 }

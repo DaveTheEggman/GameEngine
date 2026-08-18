@@ -5,13 +5,16 @@
 // header + "pixels" stream into the output DB). Never linked by the runtime.
 
 module;
+#include <initializer_list>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
 export module image.pipeline;
 
 import foundation.core;
+import foundation.vfs; // SourcePath
 import pipeline.core;
+import pipeline.importer; // IFileImporter + ImportContext + CopyIntoSources
 import foundation.image;
 import foundation.image.io;
 import foundation.image.resource;
@@ -19,6 +22,7 @@ import foundation.content;
 
 using namespace foundation::core;
 using namespace foundation::image;
+namespace content = foundation::content;
 
 export namespace pipeline{
     // Source asset: references an image file; colorSpace says how to interpret it.
@@ -87,6 +91,59 @@ export namespace pipeline{
             const Span<const u8> px = image.PixelData();
             return ctx.output->WriteData(
                 u8"pixels", Span<const byte>(reinterpret_cast<const byte*>(px.Data()), px.Size()));
+        }
+    };
+
+    // OS-file importer (editor drag-drop): imports an image file as an ImageAsset (a raw image +
+    // color-space intent), distinct from a cooked TextureAsset. Claims the SAME extensions as the
+    // texture importer, so dropping a .png offers the importer chooser (Image vs Texture).
+    class ImageFileImporter final : public pipeline::IFileImporter
+    {
+    public:
+        [[nodiscard]] StringView Label() const override { return u8"Image"; }
+
+        [[nodiscard]] bool Accepts(StringView extension) const override
+        {
+            for (StringView ext : {u8"png", u8"jpg", u8"jpeg", u8"tga", u8"bmp", u8"hdr"})
+            {
+                if (extension == ext)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        [[nodiscard]] Result<content::Instance*>
+        Import(StringView sourcePath, const pipeline::ImportContext& context, content::Group& group,
+               const pipeline::ImportOptions*, Object*,
+               Array<pipeline::DeferredImportWrite>*) override
+        {
+            Result<String> fileName = pipeline::CopyIntoSources(context, sourcePath);
+            if (!fileName.HasValue())
+            {
+                return Err(fileName.Error());
+            }
+
+            const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
+            content::Instance* instance = group.CreateInstance(stem, ImageAsset::StaticType());
+            if (instance == nullptr)
+            {
+                return Err(ErrorCode::Unknown);
+            }
+
+            ImageAsset asset;
+            asset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
+            // .hdr is a linear (HDR) image; the LDR formats are sRGB color by default.
+            asset.colorSpace = (pipeline::FileExtensionLower(sourcePath) == u8"hdr")
+                                   ? ImageColorSpace::Linear
+                                   : ImageColorSpace::Srgb;
+            const Status written = instance->WriteObject(asset);
+            if (!written.IsOk())
+            {
+                return Err(written.Code());
+            }
+            return instance;
         }
     };
 
