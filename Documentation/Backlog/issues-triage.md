@@ -20,19 +20,20 @@ distinct fixes:
   editor scene page (or an editor-only system), keyed to the viewport
   show-flag proposed in smoketest-fixes #4. This works in ALL modes,
   including pre-Simulate - which is when authoring actually needs it.
-- **The Simulate-path bug is real and still unfound**: PhysicsPlayground
-  draws fine (user-confirmed) - the break is editor-only. PRIME SUSPECT is
-  frame ORDERING: the playground's DefaultApplication loop runs subsystem
-  updates (physics submits its DebugScene draws) and THEN renders, while
-  the editor renders on its own UI-driven schedule (ViewportView
-  RenderContent) - if the editor's composite runs before the physics
-  submission (or after the per-frame debug clear), the draws exist but are
-  never consumed. Editor gizmos still work because the page submits those
-  itself, timed with its own render. Second suspect: the scene-settings
-  debugDraw flag not reaching the editor's scene instance. The
-  extract-level test from smoketest-fixes #4 decides (Simulate with
-  debugDraw ON -> assert the editor-path extract carries the capsule
-  draws); fix whatever it finds.
+- **The Simulate-path bug: ROOT-CAUSED + FIXED (Fable 2026-08-18,
+  6dbdfbf7)** - neither of the suspects below. The task-#118 camera-preview
+  change made keyed views (the editor viewport) draw ONLY their per-view
+  DebugView list, either/or against the per-scene DebugScene list - so the
+  edit viewport silently dropped ALL scene-level debug draw (physics AND
+  navmesh; PIE renders unkeyed, hence it worked there). Every view now
+  draws global + scene (+ its own view list when keyed); the view list
+  still never leaks into the camera preview. Physics debug draw now shows
+  in editor Simulate with the scene-settings flag on.
+  (Superseded suspicion, kept for the record: frame ordering / the flag
+  not reaching the editor scene - both wrong.)
+- **The component-data half is SCHEDULED**: week-2026-08-22 (seeded item -
+  editor-side domain debug draw), riding that week's gizmo-registration
+  seam. This closes I1 when it lands.
 
 ## I2. Scene view mouse capture never released - WATCH (one occurrence, hard repro)
 
