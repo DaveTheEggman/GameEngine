@@ -38,6 +38,7 @@ implementing agent's work).
 | [paperboy.md](paperboy.md) | - | game plan |
 | [scene-scripting.md](scene-scripting.md) | - | M |
 | [documentation-system.md](documentation-system.md) | - | process |
+| [scene-prefab-unification.md](scene-prefab-unification.md) | - | WIP design question (needs Fable) |
 | [deferred-by-design.md](deferred-by-design.md) | - | note only |
 
 Sizes: S = a session or less, M = a few sessions, L = a multi-session track
