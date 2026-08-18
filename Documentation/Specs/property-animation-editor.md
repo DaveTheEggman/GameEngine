@@ -618,3 +618,91 @@ an unsaved buffer where Save could silently have no target).
 DEFERRED (noted, not built): a dirty-save prompt on scene-PAGE close - the page-close path
 has no veto seam today (OnClose is unconditional); adding one is an editor-shell change,
 not an animation one. The in-panel guard covers every load-over path meanwhile.
+
+## CURRENT STATE + REMAINING WORK (Fable handoff, 2026-08-17 - THE RESUME POINT)
+
+Fable's takeover rounds are complete through commit ae7c762a; the track returns to Opus
+here. Everything below "SHIPPED" is on master, battery-green on clang+gcc, and
+user-verified on screen ("works great"). Read the two 2026-08-17 sections above
+(SEDULOUS-SHAPE ADOPTION, CLIP-EDITING WORKFLOW) for the design rationale; this section
+is the ground truth of what exists and what is next.
+
+### SHIPPED (do not re-plan; verify against code if in doubt)
+
+- **P1 + A2 REVISED**: persistent panel below the viewport inside the Godot-style
+  BottomDock ("Animation" tab, collapsible, draggable splitter). Transport
+  (Play/Pause/Stop/Loop, editor-local loop default = on), playhead, live preview with
+  snapshot/restore (#5 UAF + #6 stale-snapshot fixed by construction).
+- **Sedulous shape (P2 core)**: the dopesheet (ui.toolkit Timeline) IS the track list -
+  labeled 140px gutter, SelectedLane/OnLaneSelected, key picks select their lane. Below
+  it, the SELECTED track only: edit strip (merged "Component.path" field, kind cycle,
+  interp cycle, Key, Key All, remove), persistent keyframe inspector (Time + typed
+  V/XYZ/RGBA/euler-PYR fields; commits upsert at the selected time, one undo step),
+  ONE CurveCanvas for scalar tracks, quat keys-strip for rotation. Key-from-scene
+  capture (ReadSceneValue over the BOUND entity) is the primary value workflow.
+- **Timeline widget** (foundation.ui.toolkit, domain-agnostic per ruling 4): lanes +
+  labels + diamonds, ruler with index-based %.4g ticks, playhead, box-select, key drag
+  (visual-then-commit), zoom, middle-drag/Shift-wheel pan, ClampScroll (end + 15% tail),
+  whole-widget + gutter clipping, theme-sheet rules in toolkit-dark/light.sss.
+- **CurveCanvas on seconds** (ruling 2, partially - see D1 below): TimeSpan seconds
+  axis, px-per-second tangent projection, unclamped value viewport (wheel value-zoom,
+  middle-drag value-pan), OnSelectionChanged, draw clipping.
+- **F1 CLOSED**: ClipEditCommand holds IClipEditorHost (the durable seam), never the
+  recreatable view. Undo/redo routes ApplyClipState through the host.
+- **Clip-editing workflow** (section above): exclusive empty state, AssetCreateDialog +
+  ConfirmDialog (both reusable, in editor.app), RunDirtyGuarded on every load-over
+  path, EditorContext open-asset interceptors + the scene page's pencil claim
+  (visible-page gated, auto-binds primary selection), the BOUND-ENTITY slot
+  (Bind... via RequestEntityPick seam / Use Selected), RequestEditClip entry.
+- **Registration facts**: Tools.Editor main calls foundation::core::RegisterCoreTypes()
+  at startup (Transform bindings; do NOT rely on ScriptSubsystem's lazy call);
+  PropertyAnimationClipFactory is in DefaultApplication's standard set
+  (kStandardHeadlessFactoryCount = 19).
+
+### REMAINING WORK (in priority order)
+
+1. **D1 full time-transform share** - the real next step. CurveCanvas still maps
+   [0, TimeSpan] to its full width; it does NOT follow the Timeline's zoom/scroll.
+   Ruling 2 requires the canvas to consume the shared seconds<->pixels transform
+   (same zoom/pan/playhead/label-column offset) so dopesheet and curve stay visually
+   aligned. Approach: the panel owns the transform (or reads it off the Timeline:
+   PixelsPerSecond/ScrollSeconds/LabelColumnWidth) and pushes it into the canvas;
+   kill the canvas's private fit-to-width. GOTCHA (from the takeover): when a widget
+   changes time domain, grep EVERY 0..1 or Width()-as-span assumption - samplers,
+   tangent projection AND its inverse, duration seeds, hit-testing.
+2. **Ruling 1 commit-returns-remap** - key selection across a commit is still
+   re-derived by time-with-epsilon everywhere (BuildLanes ReselectMark). The commit
+   site should return the index permutation for the direct-move path; time-epsilon
+   stays only for undo/redo snapshot restores. Only matters once coincident key
+   times show up in practice; do it when touching the commit path anyway.
+3. **A4 loop default** - transport Loop is editor-local (default on). Seeding it from
+   the bound entity's PropertyAnimatorComponent instance (now that a BOUND entity
+   exists, the seam is there) means taking an engine.animation dep in the editor
+   panel - decide, then either wire it or stamp it permanently-editor-local.
+4. **A9 lane scrolling/virtualization** - the Timeline pane height is clamped
+   (kTimelineMaxHeight 220px); a clip with many tracks clips its lanes with no
+   vertical scroll. Needs a scroll strategy before big clips are authorable.
+5. **Scene-page-close dirty prompt** - deferred: OnClose has no veto seam (see the
+   workflow section's DEFERRED note). Needs an editor-shell page-close-veto seam
+   first; the in-panel guard covers load-over paths meanwhile.
+6. **P3 polish backlog** (unstarted, from the phasing plan): copy/paste keys,
+   scale/ease ops, bezier handle modes, snap toggles, viewport path preview
+   (Traktor-style), box-select in the CurveCanvas.
+7. **P4 asset-slot activation track** - the animator component's slot pencil now
+   routes into the panel; the remaining P4 items (activation affordances beyond the
+   pencil) ride the inspector track.
+
+### Working rules that bit us (obey them)
+
+- Full battery = build clang+gcc (`-k 0` AFTER `--`), run every *Tests binary from a
+  scratch cwd; ALL_GREEN before commit. Net.Tests is timing-flaky under load - rerun
+  standalone before diagnosing.
+- Every duration read = Max(clip.duration, ComputeDuration()) - never one alone.
+- ui::Visibility::Gone (there is no Collapsed).
+- Timeline/CurveCanvas hit-test helpers run auto-fit BEFORE testing - pin
+  AutoFitValueRange=false in tests; panel dopesheet drag tests offset x by
+  Dopesheet().LabelColumnWidth.
+- Linked-time multi-channel drags fire OnKeyChanged per channel - only honor the
+  selected key's event.
+- The panel must never depend on editor.scene - page-side features inject through
+  seams (RequestEntityPick is the model).
