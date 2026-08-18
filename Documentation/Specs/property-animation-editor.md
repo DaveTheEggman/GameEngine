@@ -661,15 +661,17 @@ is the ground truth of what exists and what is next.
 
 ### REMAINING WORK (in priority order)
 
-1. **D1 full time-transform share** - the real next step. CurveCanvas still maps
-   [0, TimeSpan] to its full width; it does NOT follow the Timeline's zoom/scroll.
-   Ruling 2 requires the canvas to consume the shared seconds<->pixels transform
-   (same zoom/pan/playhead/label-column offset) so dopesheet and curve stay visually
-   aligned. Approach: the panel owns the transform (or reads it off the Timeline:
-   PixelsPerSecond/ScrollSeconds/LabelColumnWidth) and pushes it into the canvas;
-   kill the canvas's private fit-to-width. GOTCHA (from the takeover): when a widget
-   changes time domain, grep EVERY 0..1 or Width()-as-span assumption - samplers,
-   tangent projection AND its inverse, duration seeds, hit-testing.
+1. **D1 full time-transform share - DONE (Opus, commit 73f9b68c).** CurveCanvas gained
+   a shared-transform mode (UseSharedTimeTransform + PixelsPerSecond + ScrollSeconds
+   mirroring the Timeline); TimeToX/XToTime, the tangent projection + its inverse, the
+   polyline sampling (screen-x space now), and the x-axis labels all route through one
+   PixelsPerTime() + XToTime, so the curve follows the dopesheet's zoom/scroll at any
+   pan. Timeline gained OnViewChanged (pan/wheel/zoom scroll writes routed through
+   SetScrollSeconds); IClipEditorHost gained TimeAxis + ClipTimeTransform() (panel
+   returns the dopesheet Timeline's pps/scroll/label-column); AddCurveCanvas insets the
+   canvas by the 140px gutter so t=0 aligns under the lanes; the panel pushes the
+   transform on OnViewChanged (ClipEditorView::SyncCanvasTransform, Invalidate-on-change).
+   Legacy fit-to-width stays the default for other callers (37 canvas tests unchanged).
 2. **Ruling 1 commit-returns-remap** - key selection across a commit is still
    re-derived by time-with-epsilon everywhere (BuildLanes ReselectMark). The commit
    site should return the index permutation for the direct-move path; time-epsilon
