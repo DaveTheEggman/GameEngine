@@ -35,8 +35,7 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import editor.camera;
-import :animation_graph_page; // DrawSkeletonWireframe (shared preview helper)
+import editor.preview;
 
 using namespace foundation::core;
 
@@ -70,11 +69,9 @@ export namespace editor
     private:
         friend class SkeletonTreeAdapter;
 
-        void BuildPreviewScene();
         void RebuildTree();     // node table from the cooked skeleton's hierarchy
         void RebuildInfoPane(); // read-only rows for the selected bone
         void UpdatePreview();   // bind-pose wireframe + selected-bone emphasis
-        void EnsureViewportBound();
 
         [[nodiscard]] ui::UIContext* Ctx() const;
 
@@ -93,15 +90,8 @@ export namespace editor
         foundation::resource::Proxy<animation::Skeleton> m_skeleton; // cooked product
         animation::Skeleton* m_lastSkeleton = nullptr;             // watchdog (identity)
 
-        // preview world (debug-draw only)
-        engine::scene::SceneSubsystem* m_scenes = nullptr;
-        scene::SceneManager m_sceneManager;
-        engine::render::RenderSubsystem* m_render = nullptr;
-        scene::Scene* m_scene = nullptr;
-        EditorCamera m_camera;
-        UniquePtr<foundation::shell::InputRouter> m_router;
-        RefPtr<ui::viewport::ViewportView> m_viewport;
-        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
+        // preview world (debug-draw only: shared substrate hosts a scene we draw wireframe into)
+        UniquePtr<PreviewViewport> m_preview;
 
         RefPtr<ui::toolkit::DraggableTreeView> m_tree;
         UniquePtr<SkeletonTreeAdapter> m_adapter;
