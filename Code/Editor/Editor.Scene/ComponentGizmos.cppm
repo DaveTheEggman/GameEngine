@@ -19,6 +19,7 @@ import foundation.core;
 import foundation.scene;
 import foundation.render;
 import engine.render;
+import engine.navigation;
 
 using namespace foundation::core;
 
@@ -125,6 +126,17 @@ export namespace editor
         void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
     };
 
+    /// The navigation zone's AABB extents box (local, entity-oriented) - the region the bake
+    /// samples geometry from. Read-only (extents are inspector-edited); drawn when the zone is
+    /// selected (DrawWhenUnselected defaults false).
+    class NavMeshZoneGizmoRenderer final : public IGizmoRenderer
+    {
+    public:
+        [[nodiscard]] const TypeInfo* ComponentType() const override;
+
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
+    };
+
     /// Register the built-in component gizmos (called from RegisterSceneEditor).
     inline void RegisterBuiltinGizmoRenderers(GizmoRendererRegistry& registry)
     {
@@ -136,5 +148,7 @@ export namespace editor
                                                     DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<DecalGizmoRenderer>(),
                                                     DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(
+            DefaultAllocator().New<NavMeshZoneGizmoRenderer>(), DefaultAllocator()));
     }
 }

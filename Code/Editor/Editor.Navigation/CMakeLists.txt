@@ -9,5 +9,8 @@ target_link_libraries(Editor.Navigation PUBLIC
     Foundation::Geometry Engine::Render
     Foundation::Navigation Foundation::Navigation.Resource
     Engine::Navigation Pipeline::Navigation Foundation::Policy)
-target_sources(Editor.Navigation PUBLIC
-    FILE_SET editor_navigation_modules TYPE CXX_MODULES FILES NavigationBake.cppm)
+target_sources(Editor.Navigation
+    PRIVATE
+        NavigationBakeImpl.cpp   # bake logic + heavy imports (kept out of the interface unit)
+    PUBLIC
+        FILE_SET editor_navigation_modules TYPE CXX_MODULES FILES NavigationBake.cppm)

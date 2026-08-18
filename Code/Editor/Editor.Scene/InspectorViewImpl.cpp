@@ -36,6 +36,9 @@ import engine.render;
 import foundation.physics;
 import foundation.physics.resource;
 import engine.physics;
+import foundation.navigation.resource;
+import engine.navigation;
+import editor.navigation;
 import foundation.audio;
 import foundation.audio.resource;
 import engine.audio;
@@ -980,6 +983,63 @@ namespace editor
             }
         }
 
+        // NavMeshZoneComponent: a one-shot Bake button (navigation-editor-ui.md, Fable ruling B).
+        // Collects the in-zone static-mesh geometry, bakes it via Recast, and writes the zone's
+        // NavigationZoneAsset sidecar; the outcome is flashed (no silent success). The user then
+        // saves + cooks to apply the new navmesh. Requires an assigned Navigation Zone asset.
+        if (type == &TypeOf<engine::navigation::NavMeshZoneComponent>())
+        {
+            auto bake = MakeRef<ui::toolkit::ButtonEditor>(
+                DefaultAllocator(), StringView(u8"Bake Navigation"),
+                [edit, editor, id]()
+                {
+                    if (edit == nullptr || editor == nullptr)
+                    {
+                        return;
+                    }
+                    const scene::EntityHandle entity = edit->Resolve(id);
+                    auto* zones = edit->Scene()
+                                      .GetSystem<engine::navigation::NavMeshZoneComponentManager>();
+                    engine::navigation::NavMeshZoneComponent* zone =
+                        (zones != nullptr && entity.IsAssigned()) ? zones->Get(entity) : nullptr;
+                    if (zone == nullptr)
+                    {
+                        return;
+                    }
+                    if (editor->Project() == nullptr)
+                    {
+                        editor->Notify(NoticeKind::Error, u8"No project is open.");
+                        return;
+                    }
+                    foundation::content::Instance* target =
+                        zone->zone.id.IsNil()
+                            ? nullptr
+                            : editor->Project()->SourceDb().GetInstance(zone->zone.id);
+                    if (target == nullptr)
+                    {
+                        editor->Notify(
+                            NoticeKind::Warning,
+                            u8"Assign a Navigation Zone asset to this zone before baking.");
+                        return;
+                    }
+                    const editor::navigation::BakeResult result =
+                        editor::navigation::BakeNavigationZone(edit->Scene(), entity, *target);
+                    if (result.baked)
+                    {
+                        editor->Notify(NoticeKind::Success,
+                                       u8"Navigation baked. Save and cook to apply.");
+                    }
+                    else
+                    {
+                        editor->Notify(
+                            NoticeKind::Warning,
+                            u8"No walkable geometry inside the zone - nothing baked.");
+                    }
+                },
+                category);
+            AddEditor(bake.Get(), []() {});
+        }
+
         // MeshComponent: the material SLOT list (unified array; slot 0 = whole-mesh). Two UIs, chosen
         // by kUseReflectedMaterialSlots: the bespoke mesh-aware editor (below, renders through the same
         // ContainerListEditor) OR the generic reflection-driven list (already emitted above). Materials
@@ -1124,6 +1184,13 @@ namespace editor
         {
             BuildResourceRefRow<foundation::animation::AnimationClip>(id, type, prop, category,
                                                                     {u8"AnimationClipAsset"});
+            return;
+        }
+        if (prop.type ==
+            &TypeOf<foundation::resource::Ref<foundation::navigation::NavigationZone>>())
+        {
+            BuildResourceRefRow<foundation::navigation::NavigationZone>(id, type, prop, category,
+                                                                       {u8"NavigationZoneAsset"});
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::animation::AnimationGraph>>())

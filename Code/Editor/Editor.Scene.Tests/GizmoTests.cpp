@@ -10,6 +10,7 @@
 import foundation.core;
 import foundation.scene;
 import engine.render;
+import engine.navigation;
 import editor.core;
 import editor.scene;
 
@@ -352,16 +353,19 @@ TEST_CASE("gizmo-registry: renderers resolve by component type; unselected entit
 {
     GizmoRendererRegistry registry;
     RegisterBuiltinGizmoRenderers(registry);
-    CHECK(registry.Count() == 4u);
+    CHECK(registry.Count() == 5u);
 
     CHECK(registry.Find(&TypeOf<engine::render::LightComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::render::ReflectionProbeComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::render::CameraComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::render::DecalComponent>()) != nullptr);
+    CHECK(registry.Find(&TypeOf<engine::navigation::NavMeshZoneComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<f32>()) == nullptr);
 
     // Built-ins draw only when selected (design: unselected wireframes everywhere are noise).
     CHECK_FALSE(registry.Find(&TypeOf<engine::render::LightComponent>())->DrawWhenUnselected());
+    CHECK_FALSE(
+        registry.Find(&TypeOf<engine::navigation::NavMeshZoneComponent>())->DrawWhenUnselected());
 }
 
 TEST_CASE("gizmo-controller: pose tracks selection even while the pointer is off the viewport")

@@ -19,6 +19,7 @@ import foundation.core;
 import foundation.scene;
 import foundation.render;
 import engine.render;
+import engine.navigation;
 
 using namespace foundation::core;
 namespace render = foundation::render;
@@ -76,6 +77,24 @@ namespace editor
         // Projection direction: local +Z (the opposite of the camera-style forward).
         const Float3 projDir = Float3{} - detail::WorldForward(world);
         dd.DrawArrow(position, position + projDir * (he.z + 0.35f), color, 0.12f);
+    }
+
+    const TypeInfo* NavMeshZoneGizmoRenderer::ComponentType() const
+    {
+        return &TypeOf<engine::navigation::NavMeshZoneComponent>();
+    }
+    void NavMeshZoneGizmoRenderer::Draw(const Instance& component, scene::EntityHandle owner,
+                                        GizmoContext& ctx)
+    {
+        const auto* zone = component.TryGet<engine::navigation::NavMeshZoneComponent>();
+        if (zone == nullptr)
+        {
+            return;
+        }
+        const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
+        // The bake region: the entity-oriented box of the component's half-extents.
+        ctx.debug->DrawTransformedBox(Float3{} - zone->extents, zone->extents, world,
+                                      Color{0.20f, 0.85f, 1.0f, 1.0f});
     }
     void GizmoRendererRegistry::Register(UniquePtr<IGizmoRenderer> renderer)
     {
