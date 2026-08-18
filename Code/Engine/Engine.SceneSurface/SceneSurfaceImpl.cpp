@@ -14,6 +14,7 @@ import engine.render;
 import engine.animation;
 import engine.particles;
 import engine.physics;
+import engine.navigation;
 import engine.audio;
 import engine.script;
 import engine.ui;
@@ -28,6 +29,7 @@ namespace engine
         animation::AddAnimationSceneManagers(scene);  // 4 (incl. PropertyAnimator)
         particles::AddParticleSceneManagers(scene);   // 1
         physics::AddPhysicsSceneManagers(scene);      // 5 (incl. the physics settings system)
+        navigation::AddNavigationSceneManagers(scene); // 3 (zone + agent managers + scene system)
         audio::AddAudioSceneManagers(scene);          // 4 (engine-less AudioSceneSystem)
         script::AddScriptSceneManagers(scene);        // 3 (host-less script systems)
         ui::AddUISceneManagers(scene);                // 3
@@ -40,6 +42,7 @@ namespace engine
         animation::RegisterAnimationComponentReflection();
         particles::RegisterParticleComponentReflection();
         physics::RegisterPhysicsComponentReflection();
+        navigation::RegisterNavigationComponentReflection();
         audio::RegisterAudioComponentReflection();
         script::RegisterScriptComponentReflection();
         ui::RegisterUIComponentReflection();

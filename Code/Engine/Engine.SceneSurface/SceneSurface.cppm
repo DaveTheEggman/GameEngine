@@ -44,5 +44,5 @@ export namespace engine
     /// Tripwire count (Engine.SceneSurface.Tests asserts against this): the TOTAL number of scene
     /// systems AddAllSceneManagers installs, across all domains. Adding a manager to any
     /// Add<Domain>SceneManagers bumps this deliberately; a lost registration fails loudly.
-    inline constexpr usize kSceneSystemCount = 31;
+    inline constexpr usize kSceneSystemCount = 34;
 }
