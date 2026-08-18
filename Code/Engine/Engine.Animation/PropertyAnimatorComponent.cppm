@@ -11,10 +11,12 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#include "Profiler/Profiler.h" // PROFILE_SCOPE (compiles to nothing when disabled)
 
 export module engine.animation:propertyanimator;
 
 import foundation.core;
+import foundation.profiler;
 import foundation.resource;
 import foundation.scene;
 import foundation.propertyanimation;
@@ -131,6 +133,7 @@ export namespace engine::animation
             {
                 return;
             }
+            PROFILE_SCOPE("PropertyAnimation.Update");
             ForEach(
                 [&](PropertyAnimatorComponent& a, scene::EntityHandle owner)
                 {

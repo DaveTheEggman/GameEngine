@@ -12,10 +12,12 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Profiler/Profiler.h" // PROFILE_SCOPE (compiles to nothing when disabled)
 
 export module engine.animation:components;
 
 import foundation.core;
+import foundation.profiler;
 import foundation.resource;
 import foundation.scene;
 import foundation.animation; // Skeleton, AnimationClip, AnimationPlayer, AnimationGraph(+Player)
@@ -105,6 +107,7 @@ export namespace engine::animation
                 return;
             }
 
+            PROFILE_SCOPE("Animation.Skeletal");
             ForEach(
                 [&](SkeletalAnimationComponent& a, scene::EntityHandle owner)
                 {
@@ -236,6 +239,7 @@ export namespace engine::animation
                 return;
             }
 
+            PROFILE_SCOPE("Animation.Graph");
             ForEach(
                 [&](AnimationGraphComponent& a, scene::EntityHandle owner)
                 {
@@ -336,6 +340,7 @@ export namespace engine::animation
             {
                 return;
             }
+            PROFILE_SCOPE("Animation.InstancedSkinning");
 
             ForEach(
                 [&](InstancedSkinningComponent& s, scene::EntityHandle owner)

@@ -10,10 +10,12 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
+#include "Profiler/Profiler.h" // PROFILE_SCOPE (compiles to nothing when disabled)
 
 export module foundation.net.manager;
 
 import foundation.core;
+import foundation.profiler;
 import foundation.net;
 import foundation.net.replication; // StateReplication / InterpolationBuffer (same foundation::net namespace)
 import foundation.scene;           // Scene (the replicated world)
@@ -107,6 +109,7 @@ export namespace foundation::net
         // baseline assumes delivery). Call on the FIXED lane.
         void Update(f32 deltaMs, const Function<void(const NetEvent&)>& onEvent = {})
         {
+            PROFILE_SCOPE("Net.Update");
             m_session.Update(deltaMs);
 
             NetEvent ev;

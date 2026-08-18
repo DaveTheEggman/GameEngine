@@ -7,11 +7,13 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
+#include "Profiler/Profiler.h"
 #include <cmath>
 
 module engine.physics;
 
 import foundation.core;
+import foundation.profiler;
 import foundation.runtime;
 import foundation.scene;
 import foundation.resource;
@@ -156,6 +158,7 @@ namespace engine::physics
             return;
         }
         auto* render = context->GetSubsystem<engine::render::RenderSubsystem>();
+        PROFILE_SCOPE("Physics.Interpolate");
         for (const SceneEntry& entry : Systems())
         {
             // Per-scene alpha: each scene steps on its OWN accumulator/time scale.

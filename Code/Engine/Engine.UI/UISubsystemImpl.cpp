@@ -7,6 +7,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
+#include "Profiler/Profiler.h"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -14,6 +15,7 @@ module;
 module engine.ui;
 
 import foundation.core;
+import foundation.profiler;
 import foundation.runtime;
 import foundation.scene;
 import engine.scene;
@@ -758,6 +760,7 @@ namespace engine::ui
 
     void UISubsystem::BeginFrame(f32 deltaTime)
     {
+        PROFILE_SCOPE("UI.BeginFrame");
         // UNSCALED time: menus animate while the game is paused (BeginFrame receives the
         // raw host dt - the whole reason this runs here and not in Update).
         ++m_frameSerial; // one VG ring reset per UI frame (see RenderState::RendererFor)

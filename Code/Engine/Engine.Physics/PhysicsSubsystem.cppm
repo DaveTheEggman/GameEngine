@@ -14,6 +14,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h" // RTTI_OBJECT (the Physics facade)
+#include "Profiler/Profiler.h"       // PROFILE_SCOPE (compiles to nothing when disabled)
 #include <cmath>
 
 export module engine.physics;
@@ -21,6 +22,7 @@ export module engine.physics;
 export import :components;
 
 import foundation.core;
+import foundation.profiler;
 import foundation.runtime;
 import foundation.scene;
 import engine.scene;
@@ -189,6 +191,7 @@ export namespace engine::physics
             {
                 return;
             }
+            PROFILE_SCOPE("Physics.Step");
 
             ReconcileActiveState(); // active edges settle BEFORE this step simulates
 

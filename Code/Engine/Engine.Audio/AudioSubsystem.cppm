@@ -14,12 +14,14 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
+#include "Profiler/Profiler.h" // PROFILE_SCOPE (compiles to nothing when disabled)
 
 export module engine.audio;
 
 export import :components;
 
 import foundation.core;
+import foundation.profiler;
 import foundation.runtime;
 import foundation.scene;
 import engine.scene;
@@ -245,6 +247,7 @@ export namespace engine::audio
             {
                 return;
             }
+            PROFILE_SCOPE("Audio.Sources");
 
             // Scene simulation pause/resume maps onto the per-scene group (fade both ways).
             const bool simulating = m_scene->SimulationEnabled();

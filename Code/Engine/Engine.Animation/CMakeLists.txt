@@ -8,7 +8,7 @@ target_link_libraries(Engine.Animation
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene
            Foundation::Animation Foundation::Resource Engine::Render Foundation::Script.Facades
            Foundation::PropertyAnimation Foundation::PropertyAnimation.Resource
-           Foundation::Policy)
+           Foundation::Profiler Foundation::Policy)
 
 target_sources(Engine.Animation
     PRIVATE

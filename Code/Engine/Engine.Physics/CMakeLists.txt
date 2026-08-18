@@ -6,7 +6,7 @@ add_library(Engine::Physics ALIAS Engine.Physics)
 target_link_libraries(Engine.Physics
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene
            Foundation::Physics Foundation::Physics.Resource Foundation::Resource Foundation::Script
-           Foundation::Script.Facades Engine::Render Foundation::Policy)
+           Foundation::Script.Facades Engine::Render Foundation::Profiler Foundation::Policy)
 
 target_sources(Engine.Physics
     PRIVATE

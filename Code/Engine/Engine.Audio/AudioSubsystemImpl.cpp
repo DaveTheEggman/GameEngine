@@ -7,10 +7,12 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
+#include "Profiler/Profiler.h"
 
 module engine.audio;
 
 import foundation.core;
+import foundation.profiler;
 import foundation.runtime;
 import foundation.scene;
 import foundation.audio;
@@ -61,6 +63,7 @@ namespace engine::audio
         {
             return;
         }
+        PROFILE_SCOPE("Audio.Engine");
 
         // Listeners (multi-listener, P3): every active listener COMPONENT across the
         // started scenes fills an engine listener slot, in scene order, up to the

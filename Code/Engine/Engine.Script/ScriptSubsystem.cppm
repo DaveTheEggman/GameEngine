@@ -609,6 +609,7 @@ export namespace engine::script
             {
                 return;
             }
+            PROFILE_SCOPE("Script.Update");
             TickBehaviors(deltaTime);
             DrainMessages(); // deferred entity.send delivery - same frame, never nested
             // Resume due coroutines ONCE per simulated frame, at the tick's top level (no
@@ -618,6 +619,7 @@ export namespace engine::script
                 manager != nullptr &&
                 HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines))
             {
+                PROFILE_SCOPE("Script.Coroutines");
                 manager->AdvanceCoroutines(static_cast<f64>(deltaTime));
             }
         }
@@ -1268,6 +1270,7 @@ export namespace engine::script
             {
                 return;
             }
+            PROFILE_SCOPE("Script.Level");
             Variant dt = Variant::From(deltaTime);
             Dispatch(kLevelOnUpdate, Span<Variant>{&dt, 1});
         }

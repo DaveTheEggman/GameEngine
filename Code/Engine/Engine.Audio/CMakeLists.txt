@@ -6,7 +6,7 @@ add_library(Engine::Audio ALIAS Engine.Audio)
 target_link_libraries(Engine.Audio
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene
            Foundation::Audio Foundation::Resource Foundation::Content Foundation::Script
-           Foundation::Script.Facades Foundation::Settings Engine::Render Foundation::Policy)
+           Foundation::Script.Facades Foundation::Settings Engine::Render Foundation::Profiler Foundation::Policy)
 
 target_sources(Engine.Audio
     PRIVATE
