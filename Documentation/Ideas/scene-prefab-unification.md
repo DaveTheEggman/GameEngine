@@ -1,7 +1,9 @@
 # Scene / prefab model: unification, and the Scene -> World rename
 
 Status: WIP DESIGN QUESTION (Opus, 2026-08-18). NOT a build spec - an evaluation
-for Fable to weigh in on. Origin: the week-2026-08-15 "weigh unifying scenes and
+for Fable to weigh in on. MOVED to Documentation/Ideas/ 2026-08-18 (user ruling:
+ideation that is not ready for the spec phase does not live in Specs/). Fable's
+review is appended at the end; the ball is with the user. Origin: the week-2026-08-15 "weigh unifying scenes and
 prefabs" question, plus the user's proposal to rename `Scene` -> `World`. No
 decision is made here; unification is explicitly NOT a foregone conclusion. The
 one thing the user leans toward regardless of the outcome is the rename (Part A).
@@ -269,3 +271,123 @@ Cons:
    is the constraint to check here.
 5. Anything in the destroy-undo snapshot path (serializable managers) that the
    settings-as-components move (Part B) would simplify OR break?
+
+## FABLE REVIEW (2026-08-18) - answers + two sharpenings
+
+The decomposition (A/B/C are independent) is right and is the doc's real
+contribution. I verified the load-bearing code claims; they hold. My positions,
+strongest first:
+
+### Part B: take it OFF the table, not just "not required"
+
+Opus concludes B is not the price of unification. I go further: B should not
+stay on the table as a live option at all. The one real pro (per-instance
+settings overrides) has no requesting feature, and if one ever appears the
+cheaper shape is an explicit OVERRIDE BLOCK on the instance record - not
+migrating four settings singletons onto a magic entity. Additional costs the
+doc under-weights:
+
+- The settings entity fights every entity-generic mechanism we keep adding.
+  Fresh example: entity-active-state - what does an INACTIVE settings entity
+  mean? Nothing coherent; so every entity-scoped feature grows a special case
+  for it, which is the special-casing B claimed to delete, relocated.
+- The strict-versioning serializer rule makes this a four-format wire
+  migration with back-compat readers, for zero user-visible capability.
+- The `SettingsType()` invariant (exactly one, always present, O(1)) is load-
+  bearing for the owning systems; a convention-enforced singleton is strictly
+  weaker and every consumer pays the defence.
+
+Verdict: closed unless a concrete feature demands per-instance settings
+overrides, and even then evaluate the override-block shape first.
+
+### Part C: agree "no trigger today" - and the gap is NARROWER than the doc says
+
+Two of the capabilities Option 2 is supposed to buy are already served:
+
+1. **Streamed/additive content does not need scene-instancing.** GameInstance
+   already runs additive multi-scene: `CreateScene(name, activate)` +
+   `LoadSceneAsync` + deferred activation, all scenes in the instance's
+   SceneManager group ticking together. Bevy's spawn-scene-into-world is, for
+   the streaming use case, what our additive load already is. A "streamed
+   sub-scene" here = an additive load, not an instanced subtree.
+2. **Nested instanceable graphs already exist - they are called prefabs**
+   (nesting shipped, wire v3). An author who wants an instanceable graph
+   authors a prefab; the model importer emits either shape from the same
+   `BuildModelScene`.
+
+The ONLY real gap is "take an existing SCENE asset and place it inside another
+scene". And for that there is an incremental path nobody has priced yet - call
+it **Option 2-lite**: teach the SPAWNER to consume a scene document. The wire
+already supports it - a prefab payload IS the scene payload minus settings, and
+the reader already walks PAST a settings section without applying it. A
+`SpawnScene` entry point that (a) skips the settings block (existing behavior),
+and (b) creates a synthetic root AT INSTANCE TIME to carry the placement
+transform, delivers the headline capability of Option 2 with both document
+types intact and zero migration. Rooting stops being a data-model question:
+roots become a property of the INSTANTIATION, not the asset (which also answers
+open question 4 - neither synthetic-root-on-every-graph nor first-class
+multi-root; the asset stays a forest, the spawner roots it).
+
+What Option 2-lite deliberately does NOT give: override tracking / re-sync for
+spawned scenes (RebuildPrefabInstances keys on prefab payloads). Whether an
+instanced scene is live-synced or a snapshot copy is a real design question -
+but it is a question to answer WHEN someone asks for the feature, and its
+existence is not a reason to pre-merge the types.
+
+So my C verdict is Opus's, hardened: Option 0/1 is the resting state; if the
+place-a-scene-in-a-scene ask ever lands, price Option 2-lite BEFORE full
+unification. Full Part C only if override-tracked scene instances are demanded,
+which is the one thing 2-lite cannot do.
+
+### Part A: yes, but scope it as a FAMILY rename and ride the reorg branch
+
+Two execution rulings (this is where the doc's own half-rename fear bites):
+
+1. **Type-only is the wrong unit - the unit is the live-container FAMILY.**
+   Renaming `Scene` alone leaves `SceneManager`/`SceneSubsystem`/`ISceneAware`
+   managing "Worlds" - the exact both-terms-in-tree state the doc warns about.
+   If we rename, it is Scene->World, SceneManager->WorldManager,
+   SceneSubsystem->WorldSubsystem, ISceneAware->IWorldAware, and the per-scene
+   API surface, in ONE mechanical pass with a grep tripwire. Asset-side names
+   deliberately KEEP "Scene" (SceneDocument, ScenePage, the MCP scene_* tools) -
+   under the proposed vocabulary the ASSET is still called a scene, so the
+   shipped MCP product surface stays correct with zero churn. That boundary
+   (live container renames, asset side does not) is what makes the pass
+   tractable.
+2. **Sequence it WITH reorg/role-grouping, not before.** That branch holds a
+   LOCKED folder==target==module catalog and will already touch every import
+   line. An independent rename pass now churns the same lines twice and
+   desyncs the locked map. The rename is a natural rider on that landing
+   (namespace/module naming gets decided there anyway).
+
+Script surface: do NOT break user scripts for this. `entity.scene` in a
+behavior reads naturally as "the world I am in" (Unity ships `gameObject.scene`
+against a live container forever). Two acceptable shapes: keep `Scene`/`scene`
+as the script-facing name permanently (script vocabulary != engine vocabulary
+is normal), or expose `World` and alias `Scene` through a deprecation window.
+Weak-held; decide at execution, but "rename the C++ type, keep the script name"
+is a legitimate end state, not a half-measure.
+
+### The five open questions, directly
+
+1. Family-scope rename (see above); namespace/module question is settled BY
+   riding the reorg branch; script surface keeps `scene` (or aliases).
+2. Yes - C is reachable without B, and not just by prior art: OUR wire already
+   implements apply-at-root-only (`includeSettings` + walk-past-empty-section).
+   Option 2-lite is that fact turned into a feature.
+3. No near-term feature asks. Streaming is served by additive loads;
+   nesting by prefabs. The unserved ask is place-scene-in-scene; nobody has
+   asked.
+4. Neither option as posed: asset stays a forest, the SPAWNER creates the
+   synthetic root at instance time (rooting is per-instantiation).
+5. Part B would not simplify the destroy-undo snapshot path - it would add
+   four migrating payload formats to the machinery whose wire-symmetry
+   fragility already cost us the Simulate-stop hang (the Expanded
+   asymmetry lesson). One more reason B stays closed.
+
+### Recommendation to the user
+
+Option 1 (family rename, ridden on the reorg branch), Part B closed, Part C
+parked with Option 2-lite recorded as the first thing to price if
+place-a-scene-in-a-scene is ever requested. Nothing here is debt; the doc
+stays in Ideas/ until a trigger promotes it.
