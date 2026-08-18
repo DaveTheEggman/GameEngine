@@ -88,6 +88,9 @@ namespace editor
                 MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Skeleton: (none)"));
             m_skeletonButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewSkeleton(); });
             transport->AddView(m_skeletonButton.Get());
+            m_meshButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Mesh: (none)"));
+            m_meshButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewMesh(); });
+            transport->AddView(m_meshButton.Get());
             m_playButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pause"));
             m_playButton->OnClick.Add(
                 [self](ui::ButtonBase*)
@@ -160,6 +163,26 @@ namespace editor
         m_sceneManager.SetAwareRegistry(&m_scenes->AwareRegistry());
         m_scenes->RegisterManager(&m_sceneManager);
         m_scene = m_sceneManager.CreateScene(u8"animclip.preview");
+
+        // A sun so a picked skinned mesh is lit (the skeleton wireframe needs none).
+        const scene::EntityHandle sun = m_scene->CreateEntity(u8"Sun");
+        Transform st;
+        st.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
+                      Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
+        m_scene->SetLocalTransform(sun, st);
+        if (auto* lights = m_scene->GetSystem<engine::render::LightComponentManager>())
+        {
+            engine::render::LightComponent& light = lights->Add(sun);
+            light.castsShadows = false;
+        }
+
+        // The optional skinned mesh: its MeshComponent gets bone matrices fed each frame from the
+        // preview player (see UpdatePreview). No mesh bound until the user picks one.
+        m_meshEntity = m_scene->CreateEntity(u8"PreviewMesh");
+        if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
+        {
+            meshes->Add(m_meshEntity);
+        }
     }
 
     void AnimationClipEditorPage::PickPreviewSkeleton()
@@ -202,6 +225,73 @@ namespace editor
                 label.Append(u8"(none)");
             }
             self->m_skeletonButton->SetText(label.AsView());
+        };
+        dialog->Show(ctx);
+    }
+
+    void AnimationClipEditorPage::PickPreviewMesh()
+    {
+        ui::UIContext* ctx = Ctx();
+        if (ctx == nullptr || m_context->Project() == nullptr)
+        {
+            return;
+        }
+        AnimationClipEditorPage* self = this;
+        Array<String> types;
+        types.PushBack(String(u8"SkinnedMeshAsset"));
+        auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_context, Move(types));
+        dialog->OnPicked = [self](const Guid& picked)
+        {
+            self->m_previewMeshId = picked;
+            if (self->m_context->Resources() != nullptr && !picked.IsNil())
+            {
+                self->m_previewMesh =
+                    self->m_context->Resources()->Bind<foundation::geometry::StaticMesh>(picked);
+            }
+            else
+            {
+                self->m_previewMesh = foundation::resource::Proxy<foundation::geometry::StaticMesh>{};
+            }
+            // Point the preview MeshComponent at the picked mesh (bone matrices feed per frame).
+            if (self->m_scene != nullptr)
+            {
+                if (auto* meshes =
+                        self->m_scene->GetSystem<engine::render::MeshComponentManager>())
+                {
+                    if (auto* mc = meshes->Get(self->m_meshEntity))
+                    {
+                        foundation::geometry::StaticMesh* pm = self->m_previewMesh.Get();
+                        if (pm != nullptr)
+                        {
+                            mc->mesh = pm;
+                        }
+                        else
+                        {
+                            mc->mesh.SetDirect(RefPtr<foundation::geometry::StaticMesh>{});
+                            mc->boneMatrices = nullptr;
+                            mc->boneCount = 0;
+                        }
+                    }
+                }
+            }
+            String label(u8"Mesh: ");
+            if (self->m_context->Project() != nullptr && !picked.IsNil())
+            {
+                if (foundation::content::Instance* inst =
+                        self->m_context->Project()->SourceDb().GetInstance(picked))
+                {
+                    label.Append(inst->Name());
+                }
+                else
+                {
+                    label.Append(u8"(missing)");
+                }
+            }
+            else
+            {
+                label.Append(u8"(none)");
+            }
+            self->m_meshButton->SetText(label.AsView());
         };
         dialog->Show(ctx);
     }
@@ -252,6 +342,36 @@ namespace editor
         m_poseScratch.Resize(boneCount);
         animation::SampleClip(*clip, *skeleton, m_time,
                               Span<animation::BoneTransform>{m_poseScratch.Data(), boneCount});
+
+        // Skinned preview mesh: drive the player to the SAME m_time and push its skinning matrices
+        // onto the MeshComponent (borrowed for this frame's render).
+        if (m_previewMesh.Get() != nullptr)
+        {
+            if (m_previewPlayer.Get() == nullptr || m_playerSkeleton != skeleton)
+            {
+                m_previewPlayer =
+                    MakeUnique<animation::AnimationPlayer>(DefaultAllocator(), *skeleton);
+                m_playerSkeleton = skeleton;
+                m_playerClip = nullptr;
+            }
+            if (m_playerClip != clip)
+            {
+                m_playerClip = clip;
+                m_previewPlayer->Play(clip);
+            }
+            m_previewPlayer->SetCurrentTime(m_time);
+            m_previewPlayer->Update(0.0f); // resample at m_time without advancing
+            const Span<const Float4x4> mats = m_previewPlayer->GetSkinningMatrices();
+            if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
+            {
+                if (auto* mc = meshes->Get(m_meshEntity))
+                {
+                    mc->boneMatrices = mats.Data();
+                    mc->boneCount = static_cast<u32>(mats.Size());
+                }
+            }
+        }
+
         auto& draw = m_render->DebugScene(*m_scene);
         draw.DrawGrid(Float3{0.0f, 0.0f, 0.0f}, 4.0f, 8, Color{0.25f, 0.25f, 0.28f, 1.0f});
         DrawSkeletonWireframe(draw, *skeleton,

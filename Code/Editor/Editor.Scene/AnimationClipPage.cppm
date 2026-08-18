@@ -25,6 +25,7 @@ import engine.scene;
 import foundation.animation;
 import foundation.animation.resource;
 import animation.pipeline;
+import foundation.geometry; // StaticMesh (the skinned preview mesh)
 import foundation.resource;
 import foundation.render;
 import engine.render;
@@ -103,6 +104,7 @@ export namespace editor
 
         void BuildPreviewScene();
         void PickPreviewSkeleton();
+        void PickPreviewMesh();
         void RebuildGrid(); // stats + loop flag + events editor
         void UpdatePreview(f32 dt);
         void EnsureViewportBound();
@@ -141,6 +143,16 @@ export namespace editor
         Guid m_skeletonGuid{};
         foundation::resource::Proxy<animation::Skeleton> m_skeleton;
         Array<animation::BoneTransform> m_poseScratch;
+
+        // Skinned preview mesh (optional): deformed by an AnimationPlayer driven from m_time and
+        // fed to a MeshComponent. Null = skeleton wireframe only.
+        RefPtr<ui::Button> m_meshButton;
+        Guid m_previewMeshId{};
+        foundation::resource::Proxy<foundation::geometry::StaticMesh> m_previewMesh;
+        scene::EntityHandle m_meshEntity;
+        UniquePtr<animation::AnimationPlayer> m_previewPlayer;
+        animation::Skeleton* m_playerSkeleton = nullptr; // the skeleton the player was built for
+        animation::AnimationClip* m_playerClip = nullptr; // the clip last handed to the player
         Array<Float4x4> m_worldScratch;
         Array<byte> m_undoBaseline;
         f32 m_time = 0.0f; // seconds into the clip
