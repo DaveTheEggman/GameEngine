@@ -8,6 +8,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#include "Profiler/Profiler.h" // PROFILE_SCOPE (compiles to nothing when disabled)
 
 #include <Recast.h>
 #include <DetourNavMesh.h>
@@ -21,6 +22,7 @@ module;
 module foundation.navigation;
 
 import foundation.core;
+import foundation.profiler;
 
 using namespace foundation::core;
 
@@ -53,6 +55,7 @@ namespace foundation::navigation
     Status NavigationMeshBuilder::Build(Span<const Float3> vertices, Span<const u32> indices,
                                         const NavigationBakeParams& params, Array<byte>& outData)
     {
+        PROFILE_SCOPE("Navigation.Bake"); // measures the bake (the async-deferral trigger, >100ms)
         outData.Clear();
 
         if (vertices.IsEmpty() || indices.IsEmpty() || (indices.Size() % 3u) != 0u)

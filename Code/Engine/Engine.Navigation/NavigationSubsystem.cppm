@@ -11,11 +11,13 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Profiler/Profiler.h" // PROFILE_SCOPE (compiles to nothing when disabled)
 
 export module engine.navigation:subsystem;
 
 import foundation.core;
 import foundation.runtime;
+import foundation.profiler;
 import foundation.scene;
 import engine.scene;
 import foundation.navigation;
@@ -56,6 +58,7 @@ export namespace engine::navigation
             {
                 return;
             }
+            PROFILE_SCOPE("Navigation.Build"); // zone load + crowd/query construction (one-time)
             BuildZones();
             RegisterAgents();
         }
@@ -94,6 +97,7 @@ export namespace engine::navigation
             {
                 return;
             }
+            PROFILE_SCOPE("Navigation.Update");
 
             // 1. Apply pending navigate()/stop() requests (crowd works in zone-local space).
             agents->ForEach(
@@ -118,9 +122,12 @@ export namespace engine::navigation
                 });
 
             // 2. Step every crowd.
-            for (RuntimeZone& rz : m_zones)
             {
-                rz.crowd->Update(deltaTime);
+                PROFILE_SCOPE("Navigation.Crowd");
+                for (RuntimeZone& rz : m_zones)
+                {
+                    rz.crowd->Update(deltaTime);
+                }
             }
 
             // 3. Read back: world position + velocity, transform writeback, status.

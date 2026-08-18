@@ -9,7 +9,7 @@ add_library(Foundation::Navigation ALIAS Navigation)
 
 target_link_libraries(Navigation
     PUBLIC Foundation::Core Foundation::Policy
-    PRIVATE ThirdParty::Recast)
+    PRIVATE ThirdParty::Recast Foundation::Profiler)
 
 target_sources(Navigation
     PRIVATE

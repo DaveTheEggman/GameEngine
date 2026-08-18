@@ -8,11 +8,13 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
+#include "Profiler/Profiler.h" // PROFILE_SCOPE (compiles to nothing when disabled)
 
 module engine.navigation;
 
 import foundation.core;
 import foundation.runtime;
+import foundation.profiler;
 import foundation.scene;
 import foundation.resource;
 import foundation.navigation;
@@ -97,6 +99,7 @@ namespace engine::navigation
             if (entry.system != nullptr && entry.scene != nullptr &&
                 entry.system->Settings().debugDraw)
             {
+                PROFILE_SCOPE("Navigation.DebugDraw");
                 DrawNavigationDebug(*entry.scene, entry.system->Settings(),
                                     render->DebugScene(*entry.scene));
             }
