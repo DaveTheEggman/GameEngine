@@ -340,3 +340,26 @@ if(OPTION_ENABLE_WREN)
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/include
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/vm ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/optional)
 endif()
+
+# recastnavigation v1.6.0 - navmesh bake (Recast) + runtime navmesh/query (Detour) + agent
+# crowd/avoidance (DetourCrowd), vendored BY COPY (github.com/recastnavigation/recastnavigation
+# tag v1.6.0, zlib; see recastnavigation/README.vendored.md) like Jolt. Compiled from source as
+# one static lib. DetourTileCache + DebugUtils are vendored in-tree but NOT compiled (the tile
+# cache joins navigation P2; debug draw uses the engine's own draw). Include dirs of the three
+# compiled components are PUBLIC + SYSTEM so foundation.navigation can #include <Recast.h> /
+# <DetourNavMesh.h> / <DetourNavMeshQuery.h> / <DetourCrowd.h> from its implementation units.
+# Pure exception-free C++; built for Emscripten too (JoltPhysics.js precedent). Does not link
+# policy (vendored code builds without our -Werror).
+file(GLOB util_recast_sources
+    ${CMAKE_CURRENT_SOURCE_DIR}/recastnavigation/Recast/Source/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/recastnavigation/Detour/Source/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/recastnavigation/DetourCrowd/Source/*.cpp)
+add_library(recast STATIC ${util_recast_sources})
+add_library(ThirdParty::Recast ALIAS recast)
+target_include_directories(recast SYSTEM PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/recastnavigation/Recast/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/recastnavigation/Detour/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/recastnavigation/DetourCrowd/Include)
+target_compile_features(recast PUBLIC cxx_std_17)
+set_target_properties(recast PROPERTIES POSITION_INDEPENDENT_CODE ON
+                                        OUTPUT_NAME thirdparty_recast)
