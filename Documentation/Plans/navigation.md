@@ -1,9 +1,38 @@
 # Navigation (navmesh + agents)
 
-**Status:** SPEC, ready to build (2026-08-10). Second of the three parity P0
-tracks (after property-animation.md, before terrain.md - see
-docs/design/parity-2026-08.md). Prior art: both Lumix and Traktor build on
-Recast/Detour; Lumix's zone model + Detour crowd is the closer reference.
+**Status:** BUILDING (Opus, 2026-08-18). Second of the three parity P0 tracks
+(after property-animation.md, before terrain.md). Prior art: both Lumix and
+Traktor build on Recast/Detour; Lumix's zone model + Detour crowd is the closer
+reference.
+
+### Build progress
+
+- [x] **P0 - vendor** (53d5fe55): recastnavigation v1.6.0 vendored by copy;
+  `ThirdParty::Recast` compiles Recast + Detour + DetourCrowd (tile cache +
+  debug utils in-tree, uncompiled). Clang + gcc.
+- [x] **P1a - foundation.navigation** (ee05fe36): the Recast/Detour core behind
+  PIMPL (rc*/dt* confined to NavigationImpl.cpp). Bake (pure, deterministic) +
+  NavigationMesh/Query/Crowd. Headless battery both compilers (755 assertions):
+  bake determinism + degenerate rejection, path detours an obstacle, disconnected
+  reported incomplete + off-mesh reported failure, two agents cross without hard
+  overlap.
+- [x] **P1b/P2 - resource + pipeline** (45d5cda6): foundation.navigation.resource
+  (NavigationZoneSource/NavigationZone/factory) + navigation.pipeline
+  (NavigationZoneAsset with the baked blob in a SIDECAR stream, passthrough
+  builder) + Pipeline.Registration wiring (kBuilderCount 22 -> 23). Full-chain
+  cook + factory + query test both compilers.
+- [ ] **P3 - engine.navigation**: NavigationSubsystem (per-scene: loaded zones,
+  one dtCrowd per zone), NavMeshZoneComponent + NavAgentComponent (reflected,
+  displayName/category, zone Ref picker), bake-source collection, crowd tick +
+  MoveEntity transform writeback, debug draw, out-of-tree script facade
+  (RegisterNavigationScriptFacade + bump kSubsystemFacadeNameCount), DefaultApp
+  registration, runtime NavigationZoneFactory wiring.
+- [ ] **P4 - Editor.Navigation**: async "Bake Navigation" action (writes the zone
+  asset sidecar) + zone gizmo/extents + debug-draw toggles.
+- [ ] **P5 - acceptance**: demo scene (zone + obstacles + 3+ click-to-navigate
+  agents via script), wasm target build (gate like Jolt), user visual pass.
+
+Original spec follows.
 
 GOAL: baked navmesh zones + agents that path and avoid each other, usable
 from scripts, working headless and on every platform including web.
