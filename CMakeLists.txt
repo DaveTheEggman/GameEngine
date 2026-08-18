@@ -330,6 +330,7 @@ add_subdirectory(Code/Foundation/Particles) # CPU particle runtime (Sedulous.Par
 add_subdirectory(Code/Foundation/Particles.Resource)
 add_subdirectory(Code/Foundation/Physics)   # Jolt-backed rigid-body core (world/bodies/queries/events; JPH never public)
 add_subdirectory(Code/Foundation/Physics.Resource)  # cooked collision shapes + physical materials
+add_subdirectory(Code/Foundation/Navigation) # Recast/Detour navmesh core (bake + query + crowd; rc*/dt* never public)
 add_subdirectory(Code/Foundation/Audio)     # miniaudio-backed audio engine core (voices/buses/handles; ma_* never public)
 add_subdirectory(Code/Foundation/Audio.Resource)    # cooked audio clips + factory
 add_subdirectory(Code/Foundation/Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
@@ -645,6 +646,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Particles.Resource.Tests        Foundation::Particles.Resource)
     util_test_suite(Code/Foundation/Particles.Tests                 Foundation::Particles)
     util_test_suite(Code/Foundation/Physics.Tests                   Foundation::Physics)
+    util_test_suite(Code/Foundation/Navigation.Tests                Foundation::Navigation)
     util_test_suite(Code/Foundation/Profiler.Tests                  Foundation::Profiler)
     util_test_suite(Code/Foundation/RHI.Null.Tests                  Foundation::RHI.Null)
     util_test_suite(Code/Foundation/RHI.Validation.Tests            Foundation::RHI.Validation)
