@@ -20,6 +20,7 @@ import engine.scene;
 import foundation.animation;
 import foundation.animation.resource;
 import animation.pipeline;
+import foundation.geometry;
 import foundation.render;
 import engine.render;
 import foundation.ui;
@@ -210,6 +211,27 @@ namespace editor
         m_preview->SetClearColor(Color{0.05f, 0.05f, 0.07f, 1.0f});
         m_preview->Camera().position = Float3{0.0f, 1.4f, 3.2f};
         m_preview->Camera().LookAt(Float3{0.0f, 0.9f, 0.0f});
+
+        // Preview content: a sun so a picked skinned mesh is lit (the wireframe needs none) + the
+        // optional mesh entity (its MeshComponent gets skinning matrices fed each frame; no mesh
+        // bound until the user picks one).
+        if (scene::Scene* scenePtr = m_preview->Scene())
+        {
+            const scene::EntityHandle sun = scenePtr->CreateEntity(u8"Sun");
+            Transform st;
+            st.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
+                          Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
+            scenePtr->SetLocalTransform(sun, st);
+            if (auto* lights = scenePtr->GetSystem<engine::render::LightComponentManager>())
+            {
+                lights->Add(sun).castsShadows = false;
+            }
+            m_meshEntity = scenePtr->CreateEntity(u8"PreviewMesh");
+            if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
+            {
+                meshes->Add(m_meshEntity);
+            }
+        }
 
         SetInstanceId(instance.Id());
 
@@ -417,6 +439,9 @@ namespace editor
                 MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Skeleton: (none)"));
             m_skeletonButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewSkeleton(); });
             transport->AddView(m_skeletonButton.Get());
+            m_meshButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Mesh: (none)"));
+            m_meshButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewMesh(); });
+            transport->AddView(m_meshButton.Get());
             m_playButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pause"));
             m_playButton->OnClick.Add(
                 [self](ui::ButtonBase*)
@@ -429,6 +454,26 @@ namespace editor
             auto restart = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Restart"));
             restart->OnClick.Add([self](ui::ButtonBase*) { self->RebuildPreviewGraph(); });
             transport->AddView(restart.Get());
+
+            // Visibility toggles: bone wireframe on/off, skinned mesh on/off (labels show state).
+            m_skeletonToggle = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Bones: on"));
+            m_skeletonToggle->OnClick.Add(
+                [self](ui::ButtonBase*)
+                {
+                    self->m_showSkeleton = !self->m_showSkeleton;
+                    self->m_skeletonToggle->SetText(self->m_showSkeleton ? StringView(u8"Bones: on")
+                                                                         : StringView(u8"Bones: off"));
+                });
+            transport->AddView(m_skeletonToggle.Get());
+            m_meshToggle = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Mesh: on"));
+            m_meshToggle->OnClick.Add(
+                [self](ui::ButtonBase*)
+                {
+                    self->m_showMesh = !self->m_showMesh;
+                    self->m_meshToggle->SetText(self->m_showMesh ? StringView(u8"Mesh: on")
+                                                                 : StringView(u8"Mesh: off"));
+                });
+            transport->AddView(m_meshToggle.Get());
 
             m_previewStatus = MakeRef<ui::Label>(DefaultAllocator());
             m_previewStatus->FontSize.SetValue(Optional<f32>{12.0f});
@@ -1809,6 +1854,56 @@ namespace editor
         dialog->Show(ctx);
     }
 
+    void AnimationGraphEditorPage::PickPreviewMesh()
+    {
+        ui::UIContext* ctx = Ctx();
+        if (ctx == nullptr || m_context->Project() == nullptr)
+        {
+            return;
+        }
+        AnimationGraphEditorPage* self = this;
+        Array<String> types;
+        types.PushBack(String(u8"SkinnedMeshAsset"));
+        auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_context, Move(types));
+        dialog->OnPicked = [self](const Guid& picked)
+        {
+            self->m_previewMeshId = picked;
+            if (self->m_context->Resources() != nullptr && !picked.IsNil())
+            {
+                self->m_previewMesh =
+                    self->m_context->Resources()->Bind<foundation::geometry::StaticMesh>(picked);
+            }
+            else
+            {
+                self->m_previewMesh = foundation::resource::Proxy<foundation::geometry::StaticMesh>{};
+            }
+            String label(u8"Mesh: ");
+            label.Append(AssetLabel(*self->m_context, picked).AsView());
+            self->m_meshButton->SetText(label.AsView());
+            // Point the preview MeshComponent at the picked mesh (skinning matrices feed per frame).
+            scene::Scene* scenePtr = self->m_preview ? self->m_preview->Scene() : nullptr;
+            if (scenePtr != nullptr)
+            {
+                if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
+                {
+                    if (auto* mc = meshes->Get(self->m_meshEntity))
+                    {
+                        foundation::geometry::StaticMesh* pm = self->m_previewMesh.Get();
+                        if (pm != nullptr)
+                        {
+                            mc->mesh = pm;
+                        }
+                        else
+                        {
+                            mc->mesh.SetDirect(RefPtr<foundation::geometry::StaticMesh>{});
+                        }
+                    }
+                }
+            }
+        };
+        dialog->Show(ctx);
+    }
+
     void AnimationGraphEditorPage::RebuildPreviewGraph()
     {
         // Tear down in dependency order: the player borrows graph + skeleton.
@@ -1889,14 +1984,39 @@ namespace editor
             m_canvas->Invalidate();
         }
 
-        // Bone wireframe + ground grid into the preview scene's debug lane.
         if (m_preview.Get() == nullptr || !m_preview->IsValid())
         {
             return;
         }
+        scene::Scene* scenePtr = m_preview->Scene();
+
+        // Skinned preview mesh: feed the graph player's skinning matrices to the MeshComponent
+        // (borrowed for this frame's render); the toggle shows/hides the whole mesh entity.
+        if (scenePtr != nullptr && m_meshEntity.IsAssigned())
+        {
+            const bool meshVisible = m_showMesh && m_previewMesh.Get() != nullptr;
+            scenePtr->SetActive(m_meshEntity, meshVisible);
+            if (meshVisible)
+            {
+                const Span<const Float4x4> mats = m_player->GetSkinningMatrices();
+                if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
+                {
+                    if (auto* mc = meshes->Get(m_meshEntity))
+                    {
+                        mc->boneMatrices = mats.Data();
+                        mc->boneCount = static_cast<u32>(mats.Size());
+                    }
+                }
+            }
+        }
+
+        // Bone wireframe + ground grid into the preview scene's debug lane.
         auto& draw = m_preview->SceneDebugDraw();
         draw.DrawGrid(Float3{0.0f, 0.0f, 0.0f}, 4.0f, 8, Color{0.25f, 0.25f, 0.28f, 1.0f});
-        DrawSkeletonWireframe(draw, *m_playerSkeleton, m_player->GetLocalPoses(), m_worldScratch);
+        if (m_showSkeleton)
+        {
+            DrawSkeletonWireframe(draw, *m_playerSkeleton, m_player->GetLocalPoses(), m_worldScratch);
+        }
     }
 
     void DrawSkeletonWireframe(foundation::render::debug::DebugDraw& draw,

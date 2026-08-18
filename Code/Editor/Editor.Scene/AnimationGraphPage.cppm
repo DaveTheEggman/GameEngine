@@ -35,6 +35,7 @@ import engine.scene;
 import foundation.animation;
 import foundation.animation.resource;
 import animation.pipeline;
+import foundation.geometry; // StaticMesh (the optional skinned preview mesh)
 import foundation.resource;
 import foundation.render;
 import engine.render;
@@ -203,9 +204,13 @@ export namespace editor
         Array<byte> m_undoBaseline;
         bool m_syncingCanvas = false; // guard: canvas events ignored during RebuildCanvas
 
-        // preview world (debug-draw only: shared substrate hosts a scene we draw wireframe into)
+        // preview world (shared substrate hosts a scene; wireframe + optional skinned mesh)
         UniquePtr<PreviewViewport> m_preview;
+        void PickPreviewMesh(); // pick a SkinnedMeshAsset to skin with the graph pose
         RefPtr<ui::Button> m_skeletonButton; // shows the picked skeleton's name
+        RefPtr<ui::Button> m_meshButton;     // shows the picked preview mesh's name
+        RefPtr<ui::Button> m_skeletonToggle; // wireframe on/off
+        RefPtr<ui::Button> m_meshToggle;     // skinned mesh on/off
         RefPtr<ui::Button> m_playButton;
         RefPtr<ui::Label> m_previewStatus; // current state + transition readout
 
@@ -215,6 +220,15 @@ export namespace editor
         UniquePtr<animation::AnimationGraphPlayer> m_player;
         animation::Skeleton* m_playerSkeleton = nullptr; // hot-reload guard (pointer identity)
         Array<Float4x4> m_worldScratch;
+
+        // Optional skinned preview mesh: deformed by the graph player's skinning matrices, fed to a
+        // MeshComponent each frame. Null = wireframe only.
+        Guid m_previewMeshId{};
+        foundation::resource::Proxy<foundation::geometry::StaticMesh> m_previewMesh;
+        scene::EntityHandle m_meshEntity;
+        bool m_showSkeleton = true; // draw the bone wireframe
+        bool m_showMesh = true;     // draw the skinned mesh (when one is picked)
+
         bool m_previewPlaying = true;
         i32 m_lastHighlightedNode = -1; // canvas node with the active-state ring
     };
