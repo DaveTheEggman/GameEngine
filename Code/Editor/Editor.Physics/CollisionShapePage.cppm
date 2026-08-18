@@ -16,11 +16,16 @@ import foundation.core;
 import foundation.content;
 import foundation.runtime;
 import foundation.runtime.client;
-import physics.pipeline; // CollisionShapeAsset + CollisionCookKind
+import foundation.resource;
+import physics.pipeline;             // CollisionShapeAsset + CollisionCookKind
+import foundation.physics.resource;  // CollisionShape product (cooked outline)
+import foundation.graphics;          // FrameContext
 import foundation.ui;
 import foundation.ui.runtime;
+import foundation.ui.toolkit;        // SplitView
 import editor.core;
 import editor.app;
+import editor.preview;               // PreviewViewport (+ EditorCamera)
 
 using namespace foundation::core;
 
@@ -28,6 +33,8 @@ export namespace editor
 {
     namespace ui = foundation::ui;
     namespace runtime = foundation::runtime;
+    namespace resource = foundation::resource;
+    namespace physics = foundation::physics;
 
     // Authoring page for a CollisionShapeAsset (pick a mesh, choose the cook, cook it).
     class CollisionShapeEditorPage final : public app::UIEditorPage
@@ -41,9 +48,16 @@ export namespace editor
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] Status Save() override;
 
+        // 3D preview: draw the cooked outline wireframe, drive the orbit camera, hot-swap on re-cook.
+        void OnUpdate(runtime::IApplicationHost&, f32 dt) override;
+        void OnRenderWindow(runtime::IApplicationHost&,
+                            foundation::graphics::FrameContext& frame) override;
+        void OnClose() override;
+
     private:
         void PickMesh();
         void RefreshStatus();
+        void DrawOutline(); // immediate-mode wireframe of the outline triangles (per frame)
         [[nodiscard]] String MeshName(const Guid& id) const;
         [[nodiscard]] static StringView CookLabel(pipeline::CollisionCookKind kind);
 
@@ -56,6 +70,13 @@ export namespace editor
         RefPtr<ui::Label> m_meshLabel;
         RefPtr<ui::Button> m_cookButton;
         RefPtr<ui::Label> m_status;
+
+        // Preview: the shared substrate + the bound cooked product (the Proxy auto-follows re-cooks,
+        // so DrawOutline always reads the current outline). m_framedCount reframes the camera when
+        // the outline first appears and whenever a re-cook changes its vertex count.
+        UniquePtr<PreviewViewport> m_preview;
+        resource::Proxy<physics::CollisionShape> m_shape;
+        usize m_framedCount = 0;
     };
 
     class CollisionShapeEditorPageFactory final : public IEditorPageFactory

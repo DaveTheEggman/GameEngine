@@ -5,8 +5,11 @@ add_library(Editor.Physics STATIC)
 add_library(Editor::Physics ALIAS Editor.Physics)
 
 target_link_libraries(Editor.Physics
-    PUBLIC Foundation::Core Foundation::Content Foundation::Runtime Foundation::Runtime.Client Pipeline::Physics
-           Foundation::UI Foundation::UI.Runtime Editor::Core Editor::App
+    PUBLIC Foundation::Core Foundation::Content Foundation::Runtime Foundation::Runtime.Client
+           Foundation::Resource Pipeline::Physics Foundation::Physics.Resource
+           Foundation::Render Foundation::Graphics
+           Foundation::UI Foundation::UI.Runtime Foundation::UI.Toolkit
+           Editor::Core Editor::App Editor::Preview
            Foundation::Policy)
 
 target_sources(Editor.Physics

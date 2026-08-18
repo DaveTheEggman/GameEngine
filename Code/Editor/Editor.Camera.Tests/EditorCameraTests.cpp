@@ -96,6 +96,29 @@ TEST_CASE("EditorCamera basis is orthonormal")
     CHECK(Near(Dot(r, u), 0.0f));
 }
 
+TEST_CASE("EditorCamera::FrameBounds looks at the center from outside the sphere")
+{
+    editor::EditorCamera cam;
+    const Float3 center{5.0f, 2.0f, -3.0f};
+    const f32 radius = 4.0f;
+    cam.FrameBounds(center, radius);
+
+    // Camera sits outside the sphere and aims back at its center.
+    const f32 dist = Length(cam.position - center);
+    CHECK(dist > radius);
+    const Float3 toCenter = Normalized(center - cam.position);
+    const Float3 fwd = cam.Forward();
+    CHECK(Near(fwd.x, toCenter.x));
+    CHECK(Near(fwd.y, toCenter.y));
+    CHECK(Near(fwd.z, toCenter.z));
+    CHECK(Near(cam.focusDistance, dist)); // pivot is the framed center
+
+    // A tiny radius is floored so degenerate content still frames sanely (no zero distance).
+    editor::EditorCamera tiny;
+    tiny.FrameBounds(Float3{0.0f, 0.0f, 0.0f}, 0.0f);
+    CHECK(Length(tiny.position) > 0.1f);
+}
+
 TEST_CASE("EditorCamera RMB free-look turns yaw/pitch by mouse delta * sensitivity")
 {
     editor::EditorCamera cam;

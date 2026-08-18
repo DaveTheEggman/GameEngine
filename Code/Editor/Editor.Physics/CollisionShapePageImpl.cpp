@@ -10,11 +10,17 @@ import foundation.core;
 import foundation.content;
 import foundation.runtime;
 import foundation.runtime.client;
+import foundation.resource;
 import physics.pipeline;
+import foundation.physics.resource;
+import foundation.render; // debug::DebugDraw + Color (outline wireframe)
+import foundation.graphics;
 import foundation.ui;
 import foundation.ui.runtime;
+import foundation.ui.toolkit; // SplitView
 import editor.core;
 import editor.app;
+import editor.preview; // PreviewViewport
 
 using namespace foundation::core;
 namespace content = foundation::content;
@@ -23,6 +29,9 @@ namespace editor
 {
     namespace ui = foundation::ui;
     namespace runtime = foundation::runtime;
+    namespace resource = foundation::resource;
+    namespace physics = foundation::physics;
+    namespace render = foundation::render;
 
     StringView CollisionShapeEditorPage::CookLabel(pipeline::CollisionCookKind kind)
     {
@@ -135,7 +144,22 @@ namespace editor
             column->AddView(row.Get(), lp);
         }
 
-        m_content = column;
+        // 3D preview substrate (shared): a viewport over a private preview scene. The outline is
+        // drawn as unlit debug lines each frame, so the scene needs no entities or light.
+        m_preview =
+            MakeUnique<PreviewViewport>(DefaultAllocator(), *m_host, *m_uiHost, u8"collision.preview");
+
+        // Layout: the outline viewport on the left, the authoring controls on the right.
+        auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        split->SetSplitRatio(0.62f);
+        split->SetPanes(m_preview->View(), column.Get());
+        m_content = split;
+
+        // Bind the cooked product (auto-follows re-cooks); DrawOutline reads it each frame.
+        if (m_context->Resources() != nullptr)
+        {
+            m_shape = m_context->Resources()->Bind<physics::CollisionShape>(InstanceId());
+        }
         RefreshStatus();
     }
 
@@ -202,5 +226,72 @@ namespace editor
             LOG_INFO(u8"Editor", u8"saved collision shape '{}'", m_title);
         }
         return saved;
+    }
+
+    void CollisionShapeEditorPage::DrawOutline()
+    {
+        if (m_preview.Get() == nullptr || !m_preview->IsValid())
+        {
+            return;
+        }
+        physics::CollisionShape* shape = m_shape ? m_shape.Get() : nullptr;
+        if (shape == nullptr || shape->outline.Size() < 3)
+        {
+            return;
+        }
+        const Array<Float3>& tris = shape->outline; // triangle list: 3 vertices each
+
+        // Frame the camera when the outline first appears or a re-cook changes its vertex count
+        // (bounds = min/max over the verts).
+        if (tris.Size() != m_framedCount)
+        {
+            Float3 lo = tris[0];
+            Float3 hi = tris[0];
+            for (const Float3& v : tris)
+            {
+                lo = Float3{Min(lo.x, v.x), Min(lo.y, v.y), Min(lo.z, v.z)};
+                hi = Float3{Max(hi.x, v.x), Max(hi.y, v.y), Max(hi.z, v.z)};
+            }
+            const Float3 center = (lo + hi) * 0.5f;
+            const f32 radius = Length((hi - lo) * 0.5f);
+            m_preview->Camera().FrameBounds(center, radius);
+            m_framedCount = tris.Size();
+        }
+
+        // Immediate-mode wireframe: three edges per triangle (DebugScene clears each frame).
+        render::debug::DebugDraw& draw = m_preview->SceneDebugDraw();
+        const Color color{0.30f, 0.95f, 0.55f, 1.0f};
+        for (usize i = 0; i + 2 < tris.Size(); i += 3)
+        {
+            draw.DrawLine(tris[i], tris[i + 1], color);
+            draw.DrawLine(tris[i + 1], tris[i + 2], color);
+            draw.DrawLine(tris[i + 2], tris[i], color);
+        }
+    }
+
+    void CollisionShapeEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
+    {
+        if (m_preview.Get() != nullptr)
+        {
+            m_preview->Update(dt);
+        }
+        DrawOutline();
+    }
+
+    void CollisionShapeEditorPage::OnRenderWindow(runtime::IApplicationHost&,
+                                                  foundation::graphics::FrameContext& frame)
+    {
+        if (m_preview.Get() != nullptr)
+        {
+            m_preview->RenderFrame(frame);
+        }
+    }
+
+    void CollisionShapeEditorPage::OnClose()
+    {
+        if (m_preview.Get() != nullptr)
+        {
+            m_preview->Shutdown();
+        }
     }
 }

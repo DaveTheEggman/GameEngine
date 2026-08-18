@@ -69,6 +69,18 @@ export namespace editor
             focusDistance = length;
         }
 
+        /// Frame a bounding sphere in view: place the camera at a 3/4 vantage far enough that a
+        /// sphere of `radius` about `center` fits, looking at the center. The shared "frame the
+        /// object" helper for preview viewports - each page supplies bounds for its own content
+        /// (mesh bounds, collision-outline extents, skeleton reach, ...). Matches the framing the
+        /// mesh preview shipped with (a slightly high 3/4 view, distance ~2.8x the radius).
+        void FrameBounds(Float3 center, f32 radius)
+        {
+            radius = Max(0.25f, radius);
+            position = center + Float3{0.0f, 0.4f, 1.0f} * (radius * 2.6f);
+            LookAt(center);
+        }
+
         /// Force-exit Tab-capture, restoring the OS cursor. The I2 stuck-mouse bug: Update()
         /// (the only place Tab toggles capture OFF) runs only while the viewport is
         /// hovered/focused - but relative mode makes LOSING that state easy, wedging the OS
