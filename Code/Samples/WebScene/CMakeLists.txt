@@ -19,6 +19,9 @@ set(_webscene_common_libs
     Engine::Scene
     Engine::Render
     Foundation::Geometry
+    Foundation::Navigation
+    Foundation::Navigation.Resource
+    Engine::Navigation
     Foundation::Materials
     Foundation::Particles
     Engine::Particles

@@ -17,7 +17,7 @@ reference.
   reported incomplete + off-mesh reported failure, two agents cross without hard
   overlap.
 - [x] **P1b/P2 - resource + pipeline** (45d5cda6): foundation.navigation.resource
-  (NavigationZoneSource/NavigationZone/factory) + navigation.pipeline
+  (NavigationZoneSource/NavigationZoneResource/factory) + navigation.pipeline
   (NavigationZoneAsset with the baked blob in a SIDECAR stream, passthrough
   builder) + Pipeline.Registration wiring (kBuilderCount 22 -> 23). Full-chain
   cook + factory + query test both compilers.
@@ -47,7 +47,7 @@ reference.
     Editor.Scene, and a one-consumer seam would rot like the parked tool_panel). Zone
     gizmo = NavMeshZoneGizmoRenderer in RegisterBuiltinGizmoRenderers (read-only extents
     box, DrawWhenUnselected false); Bake button = a NavMeshZoneComponent entry in the
-    central InspectorView dispatch + the Ref<NavigationZone> picker row, calling
+    central InspectorView dispatch + the Ref<NavigationZoneResource> picker row, calling
     BakeNavigationZone and flashing the outcome via EditorContext::Notify (the toast).
     No RegisterNavigationEditor (nothing external to register). GCC hygiene: split
     editor.navigation into a lean interface + NavigationBakeImpl (heavy imports out of
@@ -55,8 +55,15 @@ reference.
     Editor.Scene.Tests 708; editor exe links. Promotion rule recorded (the SECOND
     per-component inspector action extracts the action-row registry).
     On-screen verify (gizmo box + Bake button + toast) = a P5 user check.
-- [ ] **P5 - acceptance**: demo scene (zone + obstacles + 3+ click-to-navigate
-  agents via script), wasm target build (gate like Jolt), user visual pass.
+- [~] **P5 - acceptance**: demo (A) DONE - the WebScene sample (desktop + web) gained an
+  inline-baked navmesh (NavigationMeshBuilder over the floor + a central obstacle box - the
+  runtime bake primitive, since the editor/cook bake is tools-only and absent on web) + a
+  6-agent crowd that ping-pongs across the field, routing around the box and avoiding each
+  other, with the navmesh + path debug overlay on. Simulation enabled on the scene. Both
+  desktop compilers link. REMAINING: the wasm build (confirm Recast compiles for Emscripten +
+  it runs in a browser) + the user's on-screen visual pass (desktop and web). Demo (B), the
+  cooked-scene-loaded-by-a-player path, is deferred (handled after; see the week-2026-08-22
+  authored-editor-sample item, which is its editor-side counterpart).
 
 ## Recorded deferrals (Fable P4b rulings, 2026-08-18)
 

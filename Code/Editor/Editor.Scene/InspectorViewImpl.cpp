@@ -1187,9 +1187,9 @@ namespace editor
             return;
         }
         if (prop.type ==
-            &TypeOf<foundation::resource::Ref<foundation::navigation::NavigationZone>>())
+            &TypeOf<foundation::resource::Ref<foundation::navigation::NavigationZoneResource>>())
         {
-            BuildResourceRefRow<foundation::navigation::NavigationZone>(id, type, prop, category,
+            BuildResourceRefRow<foundation::navigation::NavigationZoneResource>(id, type, prop, category,
                                                                        {u8"NavigationZoneAsset"});
             return;
         }

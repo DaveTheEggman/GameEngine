@@ -179,7 +179,7 @@ export namespace engine::navigation
             zones->ForEach(
                 [this](NavMeshZoneComponent& z, scene::EntityHandle entity)
                 {
-                    nav::NavigationZone* product = z.zone.Get();
+                    nav::NavigationZoneResource* product = z.zone.Get();
                     if (product == nullptr || !product->IsValid())
                     {
                         z.runtimeIndex = -1;

@@ -41,6 +41,7 @@ namespace samples
     namespace particles = foundation::particles;
     namespace ui = foundation::ui;
     namespace rhi = foundation::rhi;
+    namespace navigation = foundation::navigation;
 
     class WebSceneApp : public engine::runtime::DefaultApplication
     {
@@ -88,6 +89,13 @@ namespace samples
             BuildParticles();
             BuildCamera();
             BuildGameUI(host);
+            BuildNavigation();
+
+            // Simulation ON so the navigation crowd ticks (agents cross + avoid). The showcase's
+            // manual animations (cube spin, orbiting light) are driven directly in OnUpdate and are
+            // unaffected; there is no physics here, so nothing else simulates.
+            m_scene->Start();
+            m_scene->SetSimulationEnabled(true);
 
             core::ConsoleWrite(u8"WebScene: started (WASD/QE move, hold right-mouse to look).\n");
         }
@@ -165,6 +173,22 @@ namespace samples
             camT.position = m_fly.position;
             camT.rotation = m_fly.Rotation();
             m_scene->SetLocalTransform(m_camera, camT);
+
+            // Navigation crowd: re-target each agent when it arrives so they ping-pong across the
+            // field, routing around the obstacle box and avoiding one another (Detour crowd).
+            if (auto* agents = m_scene->GetSystem<engine::navigation::NavAgentComponentManager>())
+            {
+                for (NavAgent& a : m_navAgents)
+                {
+                    engine::navigation::NavAgentComponent* comp = agents->Get(a.entity);
+                    if (comp != nullptr && comp->finishedNav())
+                    {
+                        a.goingA = !a.goingA;
+                        const core::Float3 target = a.goingA ? a.home : a.away;
+                        comp->navigate(target.x, target.y, target.z);
+                    }
+                }
+            }
 
             // Debug draw: immediate-mode, re-issued every frame. The gizmos exercise the 3D pass
             // (lines + bitmap text through the scene camera); the FPS readout stays on regardless
@@ -859,7 +883,127 @@ namespace samples
         }
 #endif
 
+        // --- navigation: an inline-baked navmesh + a small avoiding crowd -------------------------
+        // The navmesh is baked HERE at startup from the floor + an obstacle box (the runtime bake
+        // primitive, foundation.navigation - the editor/cook bake is tools-only and absent on web),
+        // so this same code path runs on desktop AND in the browser. The zone binds the baked
+        // product directly (no content DB); agents cross the field routing around the box.
+        static void AddGroundSoup(core::Array<core::Float3>& verts, core::Array<core::u32>& indices,
+                                  core::f32 y, core::f32 minX, core::f32 maxX, core::f32 minZ,
+                                  core::f32 maxZ)
+        {
+            const core::u32 base = static_cast<core::u32>(verts.Size());
+            verts.PushBack(core::Float3{minX, y, minZ});
+            verts.PushBack(core::Float3{maxX, y, minZ});
+            verts.PushBack(core::Float3{maxX, y, maxZ});
+            verts.PushBack(core::Float3{minX, y, maxZ});
+            const core::u32 t[] = {base + 0, base + 3, base + 2, base + 0, base + 2, base + 1};
+            for (core::u32 i : t)
+            {
+                indices.PushBack(i);
+            }
+        }
+        static void AddBoxSoup(core::Array<core::Float3>& verts, core::Array<core::u32>& indices,
+                               core::f32 cx, core::f32 baseY, core::f32 cz, core::f32 half,
+                               core::f32 height)
+        {
+            auto quad = [&](core::Float3 a, core::Float3 b, core::Float3 c, core::Float3 d)
+            {
+                const core::u32 base = static_cast<core::u32>(verts.Size());
+                verts.PushBack(a);
+                verts.PushBack(b);
+                verts.PushBack(c);
+                verts.PushBack(d);
+                const core::u32 t[] = {base + 0, base + 1, base + 2, base + 0, base + 2, base + 3};
+                for (core::u32 i : t)
+                {
+                    indices.PushBack(i);
+                }
+            };
+            const core::f32 x0 = cx - half, x1 = cx + half, z0 = cz - half, z1 = cz + half;
+            const core::f32 y0 = baseY, y1 = baseY + height;
+            quad({x0, y1, z0}, {x1, y1, z0}, {x1, y1, z1}, {x0, y1, z1}); // top
+            quad({x0, y0, z0}, {x1, y0, z0}, {x1, y1, z0}, {x0, y1, z0});
+            quad({x1, y0, z1}, {x0, y0, z1}, {x0, y1, z1}, {x1, y1, z1});
+            quad({x0, y0, z1}, {x0, y0, z0}, {x0, y1, z0}, {x0, y1, z1});
+            quad({x1, y0, z0}, {x1, y0, z1}, {x1, y1, z1}, {x1, y1, z0});
+        }
+
+        void BuildNavigation()
+        {
+            const core::f32 floorY = -0.75f; // the floor plane's height
+
+            // Bake: the floor minus a central obstacle box (the agents route around it - it sits
+            // under the spinning cube at the origin, so the detour reads against a visible object).
+            core::Array<core::Float3> verts;
+            core::Array<core::u32> indices;
+            AddGroundSoup(verts, indices, floorY, -13.0f, 13.0f, -13.0f, 13.0f);
+            AddBoxSoup(verts, indices, 0.0f, floorY, 0.0f, 1.6f, 2.5f);
+            core::Array<core::byte> blob;
+            const bool ok = navigation::NavigationMeshBuilder::Build(
+                                core::Span<const core::Float3>{verts.Data(), verts.Size()},
+                                core::Span<const core::u32>{indices.Data(), indices.Size()},
+                                navigation::NavigationBakeParams{}, blob)
+                                .IsOk();
+            m_navZone = core::MakeRef<navigation::NavigationZoneResource>(core::DefaultAllocator());
+            if (ok && !blob.IsEmpty())
+            {
+                (void)m_navZone->mesh.Load(
+                    core::Span<const core::byte>{blob.Data(), blob.Size()});
+            }
+
+            // Overlay the navmesh surface (cyan) + agent target lines (yellow).
+            if (auto* navSys = m_scene->GetSystem<engine::navigation::NavigationSceneSystem>())
+            {
+                navSys->Settings().debugDraw = true;
+                navSys->Settings().debugDrawPaths = true;
+            }
+
+            // The zone entity (origin, identity - so zone-local == world) binding the baked navmesh.
+            {
+                scene::EntityHandle zoneEntity = m_scene->CreateEntity(u8"nav-zone");
+                engine::navigation::NavMeshZoneComponent& zone =
+                    m_scene->GetSystem<engine::navigation::NavMeshZoneComponentManager>()->Add(
+                        zoneEntity);
+                zone.extents = core::Float3{14.0f, 4.0f, 14.0f};
+                zone.zone = m_navZone; // implicit RefPtr -> Ref (like mesh = Primitives::...)
+            }
+
+            // Six agents (small spheres): three lanes each direction, crossing the field.
+            auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>();
+            auto* agentMgr = m_scene->GetSystem<engine::navigation::NavAgentComponentManager>();
+            const core::f32 lanes[] = {-6.0f, 0.0f, 6.0f};
+            for (core::f32 lane : lanes)
+            {
+                SpawnNavAgent(*meshes, *agentMgr, core::Float3{-11.0f, floorY, lane},
+                              core::Float3{11.0f, floorY, lane});
+                SpawnNavAgent(*meshes, *agentMgr, core::Float3{11.0f, floorY, -lane},
+                              core::Float3{-11.0f, floorY, -lane});
+            }
+        }
+
+        void SpawnNavAgent(engine::render::MeshComponentManager& meshes,
+                           engine::navigation::NavAgentComponentManager& agentMgr,
+                           core::Float3 home, core::Float3 away)
+        {
+            scene::EntityHandle e = m_scene->CreateEntity(u8"nav-agent");
+            m_scene->SetLocalPosition(e, home);
+            meshes.Add(e).mesh = geometry::Primitives::Sphere(0.5f);
+            agentMgr.Add(e); // defaults: radius 0.6, maxSpeed 3.5, MoveEntity
+            m_navAgents.PushBack(NavAgent{e, home, away, false});
+        }
+
+        struct NavAgent
+        {
+            scene::EntityHandle entity;
+            core::Float3 home;
+            core::Float3 away;
+            bool goingA = false;
+        };
+
         scene::Scene* m_scene = nullptr;
+        core::RefPtr<navigation::NavigationZoneResource> m_navZone; // the inline-baked navmesh (bound to the zone)
+        core::Array<NavAgent> m_navAgents;
         scene::EntityHandle m_cube{};
         scene::EntityHandle m_camera{};
         scene::EntityHandle m_sun{};

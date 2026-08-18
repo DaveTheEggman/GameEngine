@@ -3,7 +3,7 @@
 // The authoring components (Documentation/Plans/navigation.md):
 //   * NavMeshZoneComponent - a navmesh zone: AABB half-extents (the bake region), the bake
 //     params (used by the editor's Bake action; the runtime ignores them), and a Ref to the
-//     cooked NavigationZone the subsystem loads.
+//     cooked NavigationZoneResource the subsystem loads.
 //   * NavAgentComponent - an agent that steers to targets through the crowd. Reflected runtime
 //     methods (navigate/stop/finished/remaining/velocity) write intent to transient fields; the
 //     NavigationSceneSystem tick consumes them and (in MoveEntity mode) writes the transform.
@@ -38,7 +38,7 @@ export namespace engine::navigation
         f32 agentMaxClimb = 0.9f;
         f32 agentMaxSlopeDegrees = 45.0f;
         // The cooked navmesh this zone loads at runtime.
-        foundation::resource::Ref<nav::NavigationZone> zone;
+        foundation::resource::Ref<nav::NavigationZoneResource> zone;
 
         // Runtime (transient): index into the subsystem's live-zone list, -1 until started.
         i32 runtimeIndex = -1;

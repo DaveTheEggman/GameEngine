@@ -1,5 +1,5 @@
 // Full navigation pipeline: bake a navmesh -> NavigationZoneAsset (blob in a SIDECAR stream) ->
-// cook via the builder into an output db -> load the NavigationZone product through the factory
+// cook via the builder into an output db -> load the NavigationZoneResource product through the factory
 // -> a query paths across it. Also proves the blob does NOT ride the (text-capable) envelope.
 
 #include <doctest/doctest.h>
@@ -131,7 +131,7 @@ TEST_CASE("navigation.pipeline: bake -> asset (sidecar) -> cook -> product -> qu
         manager.AddFactory(&factory);
         auto* outInstance = outDb.RootGroup()->GetInstance(u8"zone");
         REQUIRE(outInstance != nullptr);
-        Proxy<NavigationZone> zone = manager.Bind<NavigationZone>(outInstance->Id());
+        Proxy<NavigationZoneResource> zone = manager.Bind<NavigationZoneResource>(outInstance->Id());
         REQUIRE(zone);
         REQUIRE(zone->IsValid());
 

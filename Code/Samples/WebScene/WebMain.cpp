@@ -27,6 +27,9 @@ import engine.scene;
 import foundation.render; // SkyMode/AoMode + the RenderSubsystem tweak surface
 import engine.render;
 import foundation.geometry;
+import foundation.navigation;
+import foundation.navigation.resource;
+import engine.navigation;
 import foundation.materials;
 import foundation.particles;
 import engine.particles;

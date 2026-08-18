@@ -4,7 +4,7 @@
 // split:
 //   * NavigationZoneSource - the cooked record: the serialized single-tile navmesh blob a bake
 //     action produced (NavigationMeshBuilder::Build output).
-//   * NavigationZone       - the runtime product a NavMeshZoneComponent's Ref<> binds: the blob
+//   * NavigationZoneResource       - the runtime product a NavMeshZoneComponent's Ref<> binds: the blob
 //     loaded into a live NavigationMesh, ready for query/crowd construction.
 //
 // A zone's navmesh is baked in ZONE-LOCAL space (relative to the zone entity's transform at bake
@@ -28,7 +28,7 @@ namespace resource = foundation::resource;
 export namespace foundation::navigation
 {
     // Cooked record: the serialized navmesh blob (from NavigationMeshBuilder::Build). Produced by
-    // the NavigationZoneAssetBuilder, bound at runtime through NavigationZone.
+    // the NavigationZoneAssetBuilder, bound at runtime through NavigationZoneResource.
     class NavigationZoneSource : public ISerializable
     {
         RTTI_OBJECT(NavigationZoneSource, ISerializable)
@@ -43,9 +43,9 @@ export namespace foundation::navigation
 
     // Runtime product: the loaded navmesh a zone component binds. Invalid (IsValid()==false) when
     // the blob was empty or malformed - the subsystem skips such a zone.
-    class NavigationZone : public Object
+    class NavigationZoneResource : public Object
     {
-        RTTI_OBJECT(NavigationZone, Object)
+        RTTI_OBJECT(NavigationZoneResource, Object)
     public:
         NavigationMesh mesh;
 
@@ -57,7 +57,7 @@ export namespace foundation::navigation
     public:
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
-            return &NavigationZone::StaticType();
+            return &NavigationZoneResource::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             foundation::content::Instance& instance) override
@@ -68,7 +68,7 @@ export namespace foundation::navigation
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<NavigationZone> zone = MakeRef<NavigationZone>(DefaultAllocator());
+            RefPtr<NavigationZoneResource> zone = MakeRef<NavigationZoneResource>(DefaultAllocator());
             if (!source->navMeshBlob.IsEmpty())
             {
                 // A malformed blob leaves the mesh invalid; the product still constructs so the
@@ -86,9 +86,9 @@ export namespace foundation::navigation
     {
         GlobalTypeRegistry().Register(NavigationZoneSource::StaticType());
         RegisterSerializable<NavigationZoneSource>();
-        GlobalTypeRegistry().Register(NavigationZone::StaticType());
+        GlobalTypeRegistry().Register(NavigationZoneResource::StaticType());
     }
 
     RTTI_DEFINE_OBJECT(NavigationZoneSource, "rtti::navigation")
-    RTTI_DEFINE_OBJECT(NavigationZone, "rtti::navigation")
+    RTTI_DEFINE_OBJECT(NavigationZoneResource, "rtti::navigation")
 }

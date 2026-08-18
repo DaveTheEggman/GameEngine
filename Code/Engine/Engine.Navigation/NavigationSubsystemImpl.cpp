@@ -42,7 +42,7 @@ namespace engine::navigation
                 zones->ForEach(
                     [&](NavMeshZoneComponent& z, foundation::scene::EntityHandle entity)
                     {
-                        foundation::navigation::NavigationZone* product = z.zone.Get();
+                        foundation::navigation::NavigationZoneResource* product = z.zone.Get();
                         if (product == nullptr || !product->IsValid())
                         {
                             return;
