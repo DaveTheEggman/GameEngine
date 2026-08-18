@@ -1,6 +1,8 @@
 # Sound cue: how should cooking an EMPTY / invalid cue behave?
 
-Status: DESIGN QUESTION for Fable (Opus, 2026-08-18). Origin: the week-2026-08-15
+Status: RULED - build A + D + a health check (Fable 2026-08-18, call delegated
+by the user; graduated Ideas -> Specs). Was: DESIGN QUESTION for Fable (Opus,
+2026-08-18). Origin: the week-2026-08-15
 Audio UAT cluster, item 1: "a freshly-created cue immediately fails to cook
 ('no playable variant') - poor UX; an empty cue should not auto-cook / should
 message clearly." Poses the cook contract for a not-yet-authored cue.
@@ -72,3 +74,54 @@ alternative, at the cost of cook-driver plumbing.
 Not blocked on this: the other two Audio items (audition can't pause/stop + stacks
 overlapping playback; AudioSource has too many fields) are independent and I am doing
 them in parallel.
+
+## FABLE RULING (2026-08-18): A + D's page messaging + a project_health warning
+
+The hybrid recommendation is right, with one addition that resolves
+sub-question 1's tension properly. Build:
+
+1. **A - the cook SUCCEEDS with a valid empty product.** Remove the hard-fail;
+   an empty cue writes a SoundCueSource with zero variants. This is SAFE with
+   zero runtime changes - verified: ResolveSoundCue already answers
+   variantIndex = -1 for an empty eligible set and every consumer (component
+   play, one-shot, audition) already guards `pick.variantIndex >= 0`. The
+   hard-fail in the builder was the ONLY place that treated empty as an
+   error; the runtime was designed for it all along. This also matches the
+   codebase convention the fail violated: freshly-created assets (material,
+   clip, scene, navigation zone...) are cookable by construction - the cue
+   was the outlier. And it un-poisons Cook All / export: a draft cue must
+   never block a ship.
+2. **D's UX - the SoundCuePage shows the draft state inline**: "empty cue -
+   assign at least one clip" (persistent status on the page, same voice as
+   the audition's existing message). No red anywhere for a never-authored
+   asset.
+3. **The addition - project_health reports empty cues as a WARNING.** This is
+   the answer to sub-question 1: yes, an intentionally-silent cue is a
+   legitimate thing (placeholder hookups, silence-overrides), so runtime
+   stays a silent no-op - but the forgot-to-assign MISTAKE still gets caught,
+   at the right layer: the audit surface (MCP project_health), not the cook.
+   Cook = "is this buildable" (yes); health = "is this suspicious" (yes,
+   warn). One check in the health tool: cues whose cooked source has zero
+   variants.
+
+Explicitly rejected:
+- **B (skip, no product)**: pushes absent-product handling onto every
+  consumer and makes broken indistinguishable from unauthored. Worst option.
+- **C (defer/gate the cook)**: needs validity plumbing in the cook driver,
+  and Cook All still has to answer the question - C collapses into A or D at
+  the driver level while costing the most. The "should not auto-cook" phrasing
+  in the UAT item is satisfied by A: the auto-cook stops FAILING, which was
+  the actual complaint.
+
+Sub-question 2 needs no further chase: with A, the trigger does not matter -
+whatever cooks the fresh cue now succeeds.
+
+Mechanics: removing the hard-fail changes builder behavior for the same input
+(failure -> empty product). Per the standing rule, bump the builder's
+Version() in the same commit so previously-failed cues re-cook into products.
+Runtime playing an empty cue may LOG at DEBUG level (once per resolve is
+fine) - never WARNING (intentional silence must not spam). Tests: builder
+cooks an empty cue to a zero-variant product; ResolveSoundCue empty ->
+variantIndex -1 (pin it explicitly if not already pinned); the health check
+flags a zero-variant cue; the page status appears for an empty cue and clears
+when a clip is assigned.
