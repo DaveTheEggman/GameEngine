@@ -161,6 +161,12 @@ export namespace editor
                 auto play = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Audition"));
                 play->OnClick.Add([self](ui::ButtonBase*) { self->Audition(); });
                 row->AddView(play.Get());
+                m_pauseButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pause"));
+                m_pauseButton->OnClick.Add([self](ui::ButtonBase*) { self->TogglePause(); });
+                row->AddView(m_pauseButton.Get());
+                auto stop = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Stop"));
+                stop->OnClick.Add([self](ui::ButtonBase*) { self->StopAudition(); });
+                row->AddView(stop.Get());
                 m_status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
                 m_status->FontSize.SetValue(12.0f);
                 {
@@ -207,8 +213,11 @@ export namespace editor
         void RefreshModeButton();
 
         // One REAL trigger: build a transient SoundCue from the slots (source files ->
-        // in-memory clips, cached per page), resolve with the page's play state, play.
+        // in-memory clips, cached per page), resolve with the page's play state, play. Audition
+        // stops any prior voice first, so repeated clicks restart rather than stack.
         void Audition();
+        void StopAudition();  // stop the audition voice + reset the transport
+        void TogglePause();   // pause/resume the audition voice in place (button toggles label)
 
         [[nodiscard]] RefPtr<audio::AudioClip> LoadSlotClip(usize slot);
 
@@ -225,6 +234,8 @@ export namespace editor
         i32 m_lastVariant = -1;
         u32 m_sequentialCursor = 0;
         audio::VoiceHandle m_voice;
+        RefPtr<ui::Button> m_pauseButton; // Pause/Resume label toggles with m_paused
+        bool m_paused = false;
         String m_pickText;
         HashMap<Guid, RefPtr<audio::AudioClip>> m_clipCache;
         RefPtr<ui::View> m_content;

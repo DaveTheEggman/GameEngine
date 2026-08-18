@@ -208,6 +208,7 @@ namespace editor
         {
             return;
         }
+        StopAudition(); // repeated Audition restarts, never stacks overlapping voices
         audio::SoundCue cue;
         cue.mode = static_cast<audio::SoundCueMode>(m_asset.mode);
         cue.pitchMin = m_asset.pitchMin;
@@ -238,6 +239,34 @@ namespace editor
         m_pickText = Format(u8"slot {}  pitch {}  vol {}", pick.variantIndex,
                             FormatFixed(pick.pitch, 2), FormatFixed(pick.volume, 2));
         m_status->SetText(m_pickText.AsView());
+    }
+
+    void SoundCueEditorPage::StopAudition()
+    {
+        if (m_audio != nullptr && m_audio->Engine() != nullptr && m_voice.IsValid())
+        {
+            m_audio->Engine()->Stop(m_voice);
+        }
+        m_voice = audio::VoiceHandle{};
+        m_paused = false;
+        if (m_pauseButton.Get() != nullptr)
+        {
+            m_pauseButton->SetText(StringView(u8"Pause"));
+        }
+    }
+
+    void SoundCueEditorPage::TogglePause()
+    {
+        if (m_audio == nullptr || m_audio->Engine() == nullptr || !m_voice.IsValid())
+        {
+            return;
+        }
+        m_paused = !m_paused;
+        m_audio->Engine()->SetPaused(m_voice, m_paused);
+        if (m_pauseButton.Get() != nullptr)
+        {
+            m_pauseButton->SetText(m_paused ? StringView(u8"Resume") : StringView(u8"Pause"));
+        }
     }
 
     RefPtr<audio::AudioClip> SoundCueEditorPage::LoadSlotClip(usize slot)
