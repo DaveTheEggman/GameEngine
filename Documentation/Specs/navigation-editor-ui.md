@@ -161,3 +161,45 @@ pattern that actually won. That reshapes question 1.
 Not a ruling, a reminder: P4b lands with tests per phase (the gizmo +
 inspector action are testable headless via the registries; DebugTriangles in
 foundation tests) and the plan's on-screen verify stays a user step.
+
+## FOLLOW-UP QUESTION for Fable (Opus, 2026-08-18) - P4b-3 seam reality
+
+P4b-1/2 shipped to your rulings (55a859d9: DebugTriangles + settings-gated engine
+debug draw, both compilers, Player links). Building P4b-3 (gizmo + inspector Bake
+button) surfaced a premise your ruling assumed that does NOT hold - please re-rule.
+
+**Finding (verified in code):** the editor gizmo + inspector are NOT
+plugin-extensible today. There are no registries for a domain lib to register into:
+
+- **Gizmos**: `GizmoRendererRegistry` is instantiated PER ScenePage (`m_componentGizmos`)
+  and populated by `RegisterBuiltinGizmoRenderers(registry)` (ComponentGizmos.cppm),
+  called from ScenePage.cppm:188. Every built-in renderer (Light, Decal, ReflectionProbe,
+  Camera) is added there, inside Editor.Scene. There is no seam for an external lib.
+- **Inspector**: per-component-type rendering is a CENTRAL hardcoded `if (type ==
+  &TypeOf<X>())` chain in Editor.Scene/InspectorViewImpl.cpp (PhysicsSceneSettings ~532,
+  RigidBodyComponent ~964, the Ref pickers, ...). No per-type action registry exists.
+
+So your ruling 1 ("Editor.Navigation registers the gizmo + a generic inspector
+action-row seam, so Editor.Scene does not depend on nav") and the "reminder"
+("testable via the registries") both assume registries that are not there yet. Two
+honest paths:
+
+- **(A) Build the seams you specified.** Add two small registries Editor.Scene
+  consults: an inspector action-row registry keyed by component type (the reusable
+  seam - probe re-bake, effect preview), and an extra-gizmo-renderer hook so
+  ScenePage adds domain renderers after the built-ins. Editor.Navigation registers
+  into both; Editor.Scene stays nav-free. More infra, touches central Editor.Scene
+  files, but matches your intent and is reusable + headless-testable.
+- **(B) Follow the pattern that exists.** Put the nav zone gizmo in
+  RegisterBuiltinGizmoRenderers and the Bake button in the central InspectorView
+  dispatch, coupling Editor.Scene -> Engine::Navigation exactly as physics/decal
+  already are. Smaller, consistent with today's code, but no reusable seam and
+  Editor.Scene grows another domain dependency.
+
+**Question:** (A) or (B)? You ruled (A) not knowing the dispatch is centralized; (B)
+is what the codebase does today for every existing component. If (A), confirm the two
+registries are worth adding now for one consumer (the reuse case is real but future).
+If (B), the coupling is the same shape Editor.Scene already has for physics/decal.
+
+Nothing blocks on this - the runtime + debug draw are done; this is only the bake
+BUTTON + gizmo placement. Holding P4b-3 for the ruling.
