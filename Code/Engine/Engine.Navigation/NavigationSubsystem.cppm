@@ -35,6 +35,19 @@ export namespace engine::navigation
         // Gameplay/AI phase: crowds step before animation + render extraction consume transforms.
         [[nodiscard]] i32 UpdateOrder() const noexcept override { return -100; }
 
+        // Per-scene settings block (debug-draw flags). Reflected + serialized like physics.
+        [[nodiscard]] const TypeInfo* SettingsType() const noexcept override
+        {
+            return &TypeOf<NavigationSceneSettings>();
+        }
+        [[nodiscard]] void* SettingsInstance() noexcept override { return &m_settings; }
+        [[nodiscard]] StringView SettingsId() const noexcept override { return u8"navigation"; }
+        void SerializeSettings(ISerializer& ar) override
+        {
+            SerializeNavigationSceneSettings(ar, m_settings);
+        }
+        [[nodiscard]] NavigationSceneSettings& Settings() noexcept { return m_settings; }
+
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
         void OnSceneStarted() override
@@ -235,6 +248,7 @@ export namespace engine::navigation
 
         scene::Scene* m_scene = nullptr;
         Array<RuntimeZone> m_zones;
+        NavigationSceneSettings m_settings;
     };
 
     // Per-scene manager set (the same call SceneSurface + the runtime injection use).
@@ -252,7 +266,27 @@ export namespace engine::navigation
                                       public scene::ISceneAware
     {
     public:
-        void OnSceneCreated(scene::Scene& scene) override { AddNavigationSceneManagers(scene); }
+        void OnSceneCreated(scene::Scene& scene) override
+        {
+            AddNavigationSceneManagers(scene);
+            m_scenes.PushBack(SceneEntry{&scene, scene.GetSystem<NavigationSceneSystem>()});
+        }
+        void OnSceneDestroyed(scene::Scene& scene) override
+        {
+            for (usize i = 0; i < m_scenes.Size(); ++i)
+            {
+                if (m_scenes[i].scene == &scene)
+                {
+                    m_scenes.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+
+        // Persistent debug draw (physics precedent): when a scene's NavigationSceneSettings.debugDraw
+        // is on, draw its loaded navmesh (+ agent paths) into the render debug scene each frame.
+        // Defined in the implementation unit (the render dependency stays out of this interface).
+        void Update(f32 deltaTime) override;
 
     protected:
         void OnInit() override { RegisterNavigationComponentReflection(); }
@@ -276,5 +310,18 @@ export namespace engine::navigation
                 }
             }
         }
+
+        struct SceneEntry
+        {
+            scene::Scene* scene = nullptr;
+            NavigationSceneSystem* system = nullptr;
+        };
+        [[nodiscard]] Span<const SceneEntry> Scenes() const noexcept
+        {
+            return Span<const SceneEntry>{m_scenes.Data(), m_scenes.Size()};
+        }
+
+    private:
+        Array<SceneEntry> m_scenes;
     };
 }

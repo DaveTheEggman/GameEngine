@@ -333,6 +333,51 @@ namespace foundation::navigation
     }
 
     bool NavigationMesh::IsValid() const noexcept { return m_impl->navMesh != nullptr; }
+
+    void NavigationMesh::DebugTriangles(Array<Float3>& out) const
+    {
+        const dtNavMesh* mesh = m_impl->navMesh;
+        if (mesh == nullptr)
+        {
+            return;
+        }
+        for (int t = 0; t < mesh->getMaxTiles(); ++t)
+        {
+            const dtMeshTile* tile = mesh->getTile(t);
+            if (tile == nullptr || tile->header == nullptr)
+            {
+                continue;
+            }
+            for (int i = 0; i < tile->header->polyCount; ++i)
+            {
+                const dtPoly* poly = &tile->polys[i];
+                if (poly->getType() == DT_POLYTYPE_OFFMESH_CONNECTION)
+                {
+                    continue; // off-mesh links are lines, not surface (P2)
+                }
+                const dtPolyDetail* detail = &tile->detailMeshes[i];
+                for (int j = 0; j < detail->triCount; ++j)
+                {
+                    const unsigned char* tri = &tile->detailTris[(detail->triBase + j) * 4];
+                    for (int k = 0; k < 3; ++k)
+                    {
+                        const float* v;
+                        if (tri[k] < poly->vertCount)
+                        {
+                            v = &tile->verts[poly->verts[tri[k]] * 3];
+                        }
+                        else
+                        {
+                            v = &tile->detailVerts[(detail->vertBase + tri[k] - poly->vertCount) *
+                                                   3];
+                        }
+                        out.PushBack(Float3{v[0], v[1], v[2]});
+                    }
+                }
+            }
+        }
+    }
+
     f32 NavigationMesh::BakedAgentRadius() const noexcept { return m_impl->agentRadius; }
     f32 NavigationMesh::BakedAgentHeight() const noexcept { return m_impl->agentHeight; }
     void* NavigationMesh::NativeHandle() const noexcept { return m_impl->navMesh; }

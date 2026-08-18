@@ -90,6 +90,21 @@ export namespace engine::navigation
         [[nodiscard]] f32 velocityZ() const { return desiredVelocity.z; }
     };
 
+    // Per-scene navigation settings (the NavigationSceneSystem's settings block). `debugDraw`
+    // renders the loaded navmesh surface; `debugDrawPaths` adds agent target lines. Both work in
+    // editor AND player (the physics-debug precedent), gated here, drawn by the runtime subsystem.
+    struct NavigationSceneSettings
+    {
+        bool debugDraw = false;
+        bool debugDrawPaths = false;
+    };
+
+    inline void SerializeNavigationSceneSettings(ISerializer& ar, NavigationSceneSettings& settings)
+    {
+        foundation::core::Serialize(ar, "debugDraw", settings.debugDraw);
+        foundation::core::Serialize(ar, "debugDrawPaths", settings.debugDrawPaths);
+    }
+
     inline void Serialize(ISerializer& ar, NavMeshZoneComponent& c)
     {
         foundation::core::Serialize(ar, "extents", c.extents);

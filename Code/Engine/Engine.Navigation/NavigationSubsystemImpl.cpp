@@ -12,11 +12,97 @@ module;
 module engine.navigation;
 
 import foundation.core;
+import foundation.runtime;
+import foundation.scene;
 import foundation.resource;
+import foundation.navigation;
 import foundation.navigation.resource;
+import foundation.render;
+import engine.render;
 import foundation.script.facades;
 
 using namespace foundation::core;
+
+namespace engine::navigation
+{
+    namespace
+    {
+        // Draw a scene's loaded navmesh (+ agent target lines when enabled) into the debug scene.
+        // Reads the LIVE navmesh via NavigationMesh::DebugTriangles, transformed by each zone
+        // entity's world matrix - so it shows exactly what agents path on, at the current placement.
+        void DrawNavigationDebug(foundation::scene::Scene& scene,
+                                 const NavigationSceneSettings& settings,
+                                 foundation::render::debug::DebugDraw& draw)
+        {
+            const Color meshColor{0.20f, 0.85f, 1.0f, 1.0f};
+            const Color pathColor{1.0f, 0.85f, 0.20f, 1.0f};
+
+            if (auto* zones = scene.GetSystem<NavMeshZoneComponentManager>())
+            {
+                zones->ForEach(
+                    [&](NavMeshZoneComponent& z, foundation::scene::EntityHandle entity)
+                    {
+                        foundation::navigation::NavigationZone* product = z.zone.Get();
+                        if (product == nullptr || !product->IsValid())
+                        {
+                            return;
+                        }
+                        const Float4x4 world = scene.GetWorldMatrix(entity);
+                        Array<Float3> tris;
+                        product->mesh.DebugTriangles(tris);
+                        for (usize t = 0; t + 2 < tris.Size(); t += 3)
+                        {
+                            const Float3 a = TransformPoint(tris[t + 0], world);
+                            const Float3 b = TransformPoint(tris[t + 1], world);
+                            const Float3 c = TransformPoint(tris[t + 2], world);
+                            draw.DrawLine(a, b, meshColor);
+                            draw.DrawLine(b, c, meshColor);
+                            draw.DrawLine(c, a, meshColor);
+                        }
+                    });
+            }
+
+            if (settings.debugDrawPaths)
+            {
+                if (auto* agents = scene.GetSystem<NavAgentComponentManager>())
+                {
+                    agents->ForEach(
+                        [&](NavAgentComponent& agent, foundation::scene::EntityHandle entity)
+                        {
+                            if (!agent.hasTarget)
+                            {
+                                return;
+                            }
+                            draw.DrawLine(scene.GetWorldPosition(entity), agent.target, pathColor);
+                        });
+                }
+            }
+        }
+    }
+
+    void NavigationSubsystem::Update(f32)
+    {
+        foundation::runtime::Context* context = GetContext();
+        if (context == nullptr)
+        {
+            return;
+        }
+        auto* render = context->GetSubsystem<engine::render::RenderSubsystem>();
+        if (render == nullptr)
+        {
+            return;
+        }
+        for (const SceneEntry& entry : Scenes())
+        {
+            if (entry.system != nullptr && entry.scene != nullptr &&
+                entry.system->Settings().debugDraw)
+            {
+                DrawNavigationDebug(*entry.scene, entry.system->Settings(),
+                                    render->DebugScene(*entry.scene));
+            }
+        }
+    }
+}
 
 namespace engine::navigation
 {
@@ -56,12 +142,20 @@ namespace engine::navigation
             .Method<&NavAgentComponent::velocityZ>("velocityZ");
     }
 
+    REFLECT_VALUE(NavigationSceneSettings, "rtti::engine::navigation")
+    {
+        builder.DataVersion(1);
+        builder.Property<&NavigationSceneSettings::debugDraw>("debugDraw");
+        builder.Property<&NavigationSceneSettings::debugDrawPaths>("debugDrawPaths");
+    }
+
     void RegisterNavigationComponentReflection()
     {
         static const bool once = []()
         {
             RttiRegisterValue_NavMeshZoneComponent();
             RttiRegisterValue_NavAgentComponent();
+            RttiRegisterValue_NavigationSceneSettings();
             return true;
         }();
         (void)once;

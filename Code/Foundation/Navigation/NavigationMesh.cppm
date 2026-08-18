@@ -57,6 +57,12 @@ export namespace foundation::navigation
         [[nodiscard]] f32 BakedAgentRadius() const noexcept;
         [[nodiscard]] f32 BakedAgentHeight() const noexcept;
 
+        // Append the navmesh's walkable triangles (in navmesh-local space, 3 verts per triangle)
+        // to `out` for debug draw. Drawn from the LIVE dtNavMesh, so it reflects exactly what
+        // queries path on (catches load/version/transform drift a bake-time outline would mask).
+        // Does not clear `out` (append semantics). No-op when invalid.
+        void DebugTriangles(Array<Float3>& out) const;
+
         // INTERNAL: the Detour dtNavMesh* as an opaque handle, for query/crowd construction
         // inside foundation.navigation only. Null when invalid. Do not reinterpret elsewhere.
         [[nodiscard]] void* NativeHandle() const noexcept;

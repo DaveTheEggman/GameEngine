@@ -196,6 +196,41 @@ TEST_CASE("navigation: disconnected destination is reported incomplete, not fail
     CHECK_FALSE(path.complete); // ...but the destination is unreachable
 }
 
+TEST_CASE("navigation: DebugTriangles enumerates the live navmesh surface")
+{
+    Array<Float3> verts;
+    Array<u32> indices;
+    AddGround(verts, indices, -10, 10, -10, 10);
+
+    Array<byte> blob;
+    REQUIRE(NavigationMeshBuilder::Build(Span<const Float3>{verts.Data(), verts.Size()},
+                                         Span<const u32>{indices.Data(), indices.Size()},
+                                         NavigationBakeParams{}, blob)
+                .IsOk());
+    NavigationMesh mesh;
+    REQUIRE(mesh.Load(Span<const byte>{blob.Data(), blob.Size()}).IsOk());
+
+    Array<Float3> tris;
+    mesh.DebugTriangles(tris);
+    REQUIRE(tris.Size() > 0u);
+    CHECK(tris.Size() % 3u == 0u); // whole triangles
+
+    // Every vertex sits inside the ground extents inflated by one cell (0.3).
+    const f32 pad = 0.3f + 1e-3f;
+    for (const Float3& v : tris)
+    {
+        CHECK(v.x >= -10.0f - pad);
+        CHECK(v.x <= 10.0f + pad);
+        CHECK(v.z >= -10.0f - pad);
+        CHECK(v.z <= 10.0f + pad);
+    }
+
+    // Append semantics: a second call adds, does not replace.
+    const usize firstCount = tris.Size();
+    mesh.DebugTriangles(tris);
+    CHECK(tris.Size() == firstCount * 2u);
+}
+
 TEST_CASE("navigation: two agents cross head-on, both arrive, no hard overlap")
 {
     Array<Float3> verts;

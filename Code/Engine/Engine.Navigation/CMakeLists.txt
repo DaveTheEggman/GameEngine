@@ -6,6 +6,7 @@ add_library(Engine::Navigation ALIAS Engine.Navigation)
 target_link_libraries(Engine.Navigation
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene Foundation::Resource
            Foundation::Navigation Foundation::Navigation.Resource
+           Foundation::Render Engine::Render
            Foundation::Script.Facades Foundation::Policy)
 
 target_sources(Engine.Navigation

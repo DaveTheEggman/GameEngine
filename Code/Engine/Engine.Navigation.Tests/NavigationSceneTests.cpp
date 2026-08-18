@@ -90,6 +90,14 @@ TEST_CASE("navigation.scene: a MoveEntity agent navigates across a zone to its t
     scene::Scene scene(u8"nav");
     AddNavigationSceneManagers(scene);
 
+    // The scene system carries the debug-draw settings block (physics precedent), default off.
+    auto* navSystem = scene.GetSystem<NavigationSceneSystem>();
+    REQUIRE(navSystem != nullptr);
+    CHECK(navSystem->SettingsType() != nullptr);
+    CHECK_FALSE(navSystem->Settings().debugDraw);
+    navSystem->Settings().debugDraw = true; // editor/scene-settings would flip this
+    CHECK(navSystem->Settings().debugDraw);
+
     scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
     NavMeshZoneComponent& zoneComp = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
     zoneComp.extents = Float3{15, 10, 15};
