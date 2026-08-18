@@ -31,7 +31,7 @@ reference.
   facade surfaced (kSubsystemFacadeNameCount 32). Engine test both compilers (an
   agent navigates a zone); the Player executable links end to end. Debug draw
   folded into P4 (editor visualization).
-- [~] **P4 - Editor.Navigation** - P4a DONE (b9a6d9ba): the bake core -
+- [x] **P4 - Editor.Navigation** - P4a DONE (b9a6d9ba): the bake core -
   CollectNavigationGeometry (in-zone static meshes -> zone-local triangle soup) +
   BakeNavigationZone (collect + Recast bake + write the NavigationZoneAsset
   sidecar). Test both compilers: a scene ground mesh bakes to a loadable, pathable
@@ -42,17 +42,19 @@ reference.
     + NavigationSceneSettings { debugDraw, debugDrawPaths } drawn by the runtime
     subsystem into the render debug scene (editor + player). Both compilers; Player
     links. On-screen navmesh overlay = a P5 user check.
-  - P4b-3 REMAINING (needs on-screen verify): the read-only zone gizmo (box extents,
-    mirror DecalGizmoRenderer) + the inspector Bake button (toast on completion via
-    EditorContext::Notify) + RegisterNavigationEditor registrar. FINDING (Opus
-    2026-08-18): the gizmo registry is PER-ScenePage (populated by Editor.Scene's
-    RegisterBuiltinGizmoRenderers) and InspectorView dispatches per-component-type
-    from a CENTRAL hardcoded chain in Editor.Scene - neither is plugin-extensible
-    today. Fable's "generic action-row seam" + the zone gizmo therefore need small
-    NEW seams that Editor.Scene consults (an inspector-action registry keyed by
-    component type; an extra-gizmo-renderer hook), so Editor.Scene does not depend on
-    engine.navigation. Confirm this seam approach vs. just adding nav to the central
-    dispatch (as physics/decal already are) before building.
+  - P4b-3 DONE (55c56e4d): Fable re-ruled (B) - follow the codebase's central-dispatch
+    pattern, not a new plugin seam (the gizmo registry + InspectorView are central in
+    Editor.Scene, and a one-consumer seam would rot like the parked tool_panel). Zone
+    gizmo = NavMeshZoneGizmoRenderer in RegisterBuiltinGizmoRenderers (read-only extents
+    box, DrawWhenUnselected false); Bake button = a NavMeshZoneComponent entry in the
+    central InspectorView dispatch + the Ref<NavigationZone> picker row, calling
+    BakeNavigationZone and flashing the outcome via EditorContext::Notify (the toast).
+    No RegisterNavigationEditor (nothing external to register). GCC hygiene: split
+    editor.navigation into a lean interface + NavigationBakeImpl (heavy imports out of
+    the interface unit). Both compilers; gizmo-registry test finds the renderer;
+    Editor.Scene.Tests 708; editor exe links. Promotion rule recorded (the SECOND
+    per-component inspector action extracts the action-row registry).
+    On-screen verify (gizmo box + Bake button + toast) = a P5 user check.
 - [ ] **P5 - acceptance**: demo scene (zone + obstacles + 3+ click-to-navigate
   agents via script), wasm target build (gate like Jolt), user visual pass.
 
