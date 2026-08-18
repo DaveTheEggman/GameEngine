@@ -84,6 +84,24 @@ export namespace editor::app
             {
                 AddGroupNode(root, 0);
             }
+            if (m_selectedGroup == nullptr)
+            {
+                m_selectedGroup = root;
+            }
+            // Re-set the adapter now that m_groups is populated: SetAdapter reads RootCount(), which
+            // was 0 while the model was still empty above - without this the tree shows nothing.
+            // Then expand every group so the whole hierarchy is visible (mirrors AssetPickerDialog).
+            m_tree->SetAdapter(m_treeAdapter.Get());
+            if (ui::FlattenedTreeAdapter* flat = m_tree->FlatAdapter())
+            {
+                for (usize i = 0; i < m_groups.Size(); ++i)
+                {
+                    if (!m_groups[i].children.IsEmpty())
+                    {
+                        flat->Expand(static_cast<i32>(i));
+                    }
+                }
+            }
         }
 
         ~GroupPickerDialog() override { m_tree->SetAdapter(nullptr); }
