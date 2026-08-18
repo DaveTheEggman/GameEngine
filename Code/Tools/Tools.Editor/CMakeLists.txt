@@ -26,7 +26,7 @@ target_link_libraries(Tools.Editor PRIVATE
     Foundation::Resource Foundation::Geometry.Resource Foundation::Materials.Resource Foundation::Texture.Resource
     Pipeline::Texture Pipeline::Fonts Pipeline::Image Pipeline::Geometry
     Pipeline::Animation Pipeline::Materials Pipeline::Shaders
-    Pipeline::Particles Foundation::Input Foundation::Input.Resource Pipeline::Input Editor::Input Editor::PropertyAnimation Engine::Input Foundation::Physics Foundation::Physics.Resource Pipeline::Physics Engine::Physics Foundation::Audio Foundation::Audio.Resource Pipeline::Audio Engine::Audio
+    Pipeline::Particles Foundation::Input Foundation::Input.Resource Pipeline::Input Editor::Input Editor::PropertyAnimation Engine::Input Foundation::Physics Foundation::Physics.Resource Pipeline::Physics Engine::Physics Pipeline::Navigation Engine::Navigation Foundation::Navigation.Resource Foundation::Audio Foundation::Audio.Resource Pipeline::Audio Engine::Audio
     Foundation::Script ${SCRIPTLIB_WREN} ${SCRIPTLIB_ANGELSCRIPT} Foundation::Script.Resource Foundation::Script.Facades Pipeline::Script ${SCRIPTLIB_WREN_PIPELINE} ${SCRIPTLIB_WREN_EDITOR} ${SCRIPTLIB_ANGELSCRIPT_PIPELINE} ${SCRIPTLIB_ANGELSCRIPT_EDITOR} ${SCRIPTLIB_LUAU_EDITOR} Engine::Script Editor::Script Foundation::UI.Resource Pipeline::UI Editor::GameUI Editor::Audio Editor::Texture Editor::Image Editor::Fonts Editor::Physics Editor::Generic Pipeline::ModelImporter Foundation::Image.Resource
     Foundation::Animation.Resource)
 target_compile_definitions(Tools.Editor PRIVATE

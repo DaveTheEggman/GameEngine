@@ -15,7 +15,7 @@ target_link_libraries(Editor.Scene
         Pipeline::ModelImporter Foundation::Texture.Resource
         Foundation::Particles Foundation::Particles.Resource Pipeline::Particles Engine::Particles
         Foundation::Physics Foundation::Physics.Resource Engine::Physics
-        Engine::Navigation Foundation::Navigation.Resource Editor::Navigation Pipeline::Navigation
+        Engine::Navigation Foundation::Navigation.Resource Editor::Navigation
         Foundation::UI.Resource Engine::UI Foundation::Audio Foundation::Audio.Resource Engine::Audio
         Foundation::Geometry Foundation::Geometry.Resource Pipeline::Geometry
         Foundation::Materials Foundation::Materials.Resource Pipeline::Materials
