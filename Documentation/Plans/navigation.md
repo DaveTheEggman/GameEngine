@@ -31,8 +31,13 @@ reference.
   facade surfaced (kSubsystemFacadeNameCount 32). Engine test both compilers (an
   agent navigates a zone); the Player executable links end to end. Debug draw
   folded into P4 (editor visualization).
-- [ ] **P4 - Editor.Navigation**: async "Bake Navigation" action (writes the zone
-  asset sidecar) + zone gizmo/extents + debug-draw toggles.
+- [~] **P4 - Editor.Navigation** - P4a DONE (b9a6d9ba): the bake core -
+  CollectNavigationGeometry (in-zone static meshes -> zone-local triangle soup) +
+  BakeNavigationZone (collect + Recast bake + write the NavigationZoneAsset
+  sidecar). Test both compilers: a scene ground mesh bakes to a loadable, pathable
+  navmesh. P4b REMAINING (needs on-screen verify): the editor UI - a "Bake
+  Navigation" action (component menu / page toolbar, async on a worker), zone
+  gizmo/extents editing, and navmesh + agent-path debug draw.
 - [ ] **P5 - acceptance**: demo scene (zone + obstacles + 3+ click-to-navigate
   agents via script), wasm target build (gate like Jolt), user visual pass.
 
