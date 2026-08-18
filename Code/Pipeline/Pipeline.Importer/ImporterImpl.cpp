@@ -44,4 +44,17 @@ namespace pipeline
         }
         return nullptr;
     }
+
+    Array<IFileImporter*> ImporterRegistry::FindAllFor(StringView extension) const
+    {
+        Array<IFileImporter*> matches;
+        for (const UniquePtr<IFileImporter>& importer : m_importers)
+        {
+            if (importer->Accepts(extension))
+            {
+                matches.PushBack(importer.Get());
+            }
+        }
+        return matches;
+    }
 }

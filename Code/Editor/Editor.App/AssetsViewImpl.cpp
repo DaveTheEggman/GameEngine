@@ -59,8 +59,8 @@ namespace editor::app
             return;
         }
         const String ext = pipeline::FileExtensionLower(path);
-        pipeline::IFileImporter* importer = m_context->Importers().FindFor(ext.AsView());
-        if (importer == nullptr)
+        Array<pipeline::IFileImporter*> matches = m_context->Importers().FindAllFor(ext.AsView());
+        if (matches.IsEmpty())
         {
             String message(u8"No importer for '");
             message += pipeline::FileNameOf(path);
@@ -68,7 +68,30 @@ namespace editor::app
             m_context->Notify(editor::NoticeKind::Warning, message.AsView());
             return;
         }
+        if (matches.Size() == 1)
+        {
+            ImportWith(path, matches[0]);
+            return;
+        }
 
+        // More than one importer claims this extension (e.g. image vs texture): let the user pick which.
+        AssetsView* self = this;
+        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        for (pipeline::IFileImporter* importer : matches)
+        {
+            menu->AddItem(importer->Label(), [self, file = String(path), importer]()
+                          { self->ImportWith(file.AsView(), importer); });
+        }
+        const Float2 at = LocalToScreen(Float2{40.0f, 40.0f});
+        menu->Show(Context, at.x, at.y);
+    }
+
+    void AssetsView::ImportWith(StringView path, pipeline::IFileImporter* importer)
+    {
+        if (m_context->Project() == nullptr || Context == nullptr || importer == nullptr)
+        {
+            return;
+        }
         RefPtr<pipeline::ImportOptions> options = importer->CreateOptions();
         if (options.Get() == nullptr)
         {

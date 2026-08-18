@@ -176,6 +176,10 @@ export namespace pipeline
         /// First importer claiming the extension (v1 routing), or null.
         [[nodiscard]] IFileImporter* FindFor(StringView extension) const;
 
+        /// EVERY importer claiming the extension, in registration order (empty when none). The editor
+        /// offers a chooser when more than one matches (e.g. image vs texture on the same extension).
+        [[nodiscard]] Array<IFileImporter*> FindAllFor(StringView extension) const;
+
         [[nodiscard]] usize Count() const noexcept { return m_importers.Size(); }
 
     private:

@@ -238,6 +238,9 @@ export namespace editor::app
         /// registered importers. An importer with options gets the pre-import dialog first;
         /// the actual import runs in ExecuteImport.
         void ImportFile(StringView path);
+        // Run the import for ONE resolved importer (the single match, or the chooser pick): shows its
+        // options dialog if it has options, else imports immediately.
+        void ImportWith(StringView path, pipeline::IFileImporter* importer);
 
         /// Runs the import (post-dialog). Slow importers (models) split: the parse/decode
         /// runs on the JOB worker so the UI stays live (with the status-bar progress), and

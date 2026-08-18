@@ -31,6 +31,23 @@ namespace
             return Err(ErrorCode::NotSupported);
         }
     };
+
+    // A second importer that ALSO claims "fak" - exercises the multi-match chooser path (FindAllFor).
+    class FakeImporter2 final : public IFileImporter
+    {
+    public:
+        [[nodiscard]] StringView Label() const override { return u8"Fake2"; }
+        [[nodiscard]] bool Accepts(StringView extension) const override
+        {
+            return extension == StringView(u8"fak");
+        }
+        [[nodiscard]] Result<foundation::content::Instance*>
+        Import(StringView, const ImportContext&, foundation::content::Group&,
+               const pipeline::ImportOptions*, Object*, Array<DeferredImportWrite>*) override
+        {
+            return Err(ErrorCode::NotSupported);
+        }
+    };
 }
 
 TEST_CASE("importer: path helpers")
@@ -61,6 +78,23 @@ TEST_CASE("importer: registry routes by extension, first match wins")
     REQUIRE(importer != nullptr);
     CHECK(importer->Label() == StringView(u8"Fake"));
     CHECK(registry.FindFor(u8"png") == nullptr);
+}
+
+TEST_CASE("importer: FindAllFor returns every match (registration order) for the chooser")
+{
+    ImporterRegistry registry;
+    CHECK(registry.FindAllFor(u8"fak").IsEmpty());
+
+    registry.Register(
+        UniquePtr<IFileImporter>(DefaultAllocator().New<FakeImporter>(), DefaultAllocator()));
+    registry.Register(
+        UniquePtr<IFileImporter>(DefaultAllocator().New<FakeImporter2>(), DefaultAllocator()));
+
+    Array<IFileImporter*> matches = registry.FindAllFor(u8"fak");
+    REQUIRE(matches.Size() == 2u);
+    CHECK(matches[0]->Label() == StringView(u8"Fake")); // registration order preserved
+    CHECK(matches[1]->Label() == StringView(u8"Fake2"));
+    CHECK(registry.FindAllFor(u8"png").IsEmpty());
 }
 
 TEST_CASE("importer: CopyIntoSources lands the bytes in the project's Sources tree")
