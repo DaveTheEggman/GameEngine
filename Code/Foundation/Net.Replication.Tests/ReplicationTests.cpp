@@ -715,3 +715,50 @@ TEST_CASE("replication: network components carry displayName + category attribut
         CHECK(category->TryGet<String>()->AsView() == u8"Networking");
     }
 }
+
+TEST_CASE("replication: an effectively-inactive entity's transform state FREEZES (capture + "
+          "apply skip it) but it STAYS in snapshots")
+{
+    foundation::net::RegisterReplicationComponents();
+
+    scene::Scene server;
+    server.AddSystem<net::NetworkComponentManager>();
+    server.AddSystem<net::NetworkedTransformComponentManager>();
+    net::StateReplication serverRep;
+
+    const scene::EntityHandle e = server.CreateEntity(u8"E");
+    server.GetSystem<net::NetworkedTransformComponentManager>()->Add(e);
+    Transform t;
+    t.position = Float3{1.0f, 0.0f, 0.0f};
+    server.SetLocalTransform(e, t);
+    const net::NetworkId id = serverRep.AssignNetworkId(server, e);
+    REQUIRE(id.IsValid());
+    net::CaptureEntityTransforms(server);
+
+    // Deactivate, then move the entity: the replicated component keeps the LAST captured
+    // value (frozen - entity-active-state.md P3; existence/identity stay on the wire).
+    server.SetActive(e, false);
+    t.position = Float3{9.0f, 0.0f, 0.0f};
+    server.SetLocalTransform(e, t);
+    net::CaptureEntityTransforms(server);
+    CHECK(server.GetSystem<net::NetworkedTransformComponentManager>()->Get(e)->position ==
+          Float3{1.0f, 0.0f, 0.0f});
+
+    // The entity is still IN the snapshot (a client spawns it - the flag is scene data).
+    net::BitWriter writer;
+    serverRep.CaptureSnapshot(server, writer);
+    scene::Scene client;
+    client.AddSystem<net::NetworkComponentManager>();
+    client.AddSystem<net::NetworkedTransformComponentManager>();
+    net::StateReplication clientRep;
+    net::BitReader reader(writer.Data());
+    clientRep.ApplySnapshot(client, reader);
+    REQUIRE(reader.Ok());
+    REQUIRE(client.IsValid(clientRep.FindEntity(id)));
+
+    // Reactivate: capture resumes from the live transform.
+    server.SetActive(e, true);
+    net::CaptureEntityTransforms(server);
+    CHECK(server.GetSystem<net::NetworkedTransformComponentManager>()->Get(e)->position ==
+          Float3{9.0f, 0.0f, 0.0f});
+}

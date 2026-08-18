@@ -257,3 +257,99 @@ TEST_CASE("entity find: by name (first match) and by hierarchy path")
     CHECK(scene.FindChildByName(player, u8"Weapon") == weapon);
     CHECK_FALSE(scene.FindChildByName(player, u8"Muzzle").IsAssigned()); // grandchild
 }
+
+// === effective active (entity-active-state.md P1): own flag AND every ancestor's flag,
+// cached O(1), resettled at the SetActive / reparent / creation choke points ===
+
+TEST_CASE("effective active: deep chain - a mid-ancestor's flag darks the whole subtree")
+{
+    Scene scene(u8"eff");
+    EntityHandle a = scene.CreateEntity(u8"a");
+    EntityHandle b = scene.CreateEntity(u8"b");
+    EntityHandle c = scene.CreateEntity(u8"c");
+    EntityHandle d = scene.CreateEntity(u8"d");
+    scene.SetParent(b, a);
+    scene.SetParent(c, b);
+    scene.SetParent(d, c);
+
+    CHECK(scene.IsEffectivelyActive(a));
+    CHECK(scene.IsEffectivelyActive(d));
+
+    scene.SetActive(b, false); // the MIDDLE of the chain
+    CHECK(scene.IsEffectivelyActive(a));
+    CHECK_FALSE(scene.IsEffectivelyActive(b));
+    CHECK_FALSE(scene.IsEffectivelyActive(c));
+    CHECK_FALSE(scene.IsEffectivelyActive(d));
+    // Own flags below the toggle are untouched.
+    CHECK(scene.IsActive(c));
+    CHECK(scene.IsActive(d));
+
+    scene.SetActive(b, true); // exactly the previously-active descendants come back
+    CHECK(scene.IsEffectivelyActive(c));
+    CHECK(scene.IsEffectivelyActive(d));
+}
+
+TEST_CASE("effective active: child's own flag survives a parent toggle (restore matrix)")
+{
+    Scene scene(u8"eff2");
+    EntityHandle parent = scene.CreateEntity(u8"p");
+    EntityHandle onChild = scene.CreateEntity(u8"on");
+    EntityHandle offChild = scene.CreateEntity(u8"off");
+    scene.SetParent(onChild, parent);
+    scene.SetParent(offChild, parent);
+    scene.SetActive(offChild, false);
+
+    scene.SetActive(parent, false);
+    CHECK_FALSE(scene.IsEffectivelyActive(onChild));
+    CHECK_FALSE(scene.IsEffectivelyActive(offChild));
+
+    scene.SetActive(parent, true);
+    CHECK(scene.IsEffectivelyActive(onChild));       // was on -> back on
+    CHECK_FALSE(scene.IsEffectivelyActive(offChild)); // own flag off stays off
+    CHECK_FALSE(scene.IsActive(offChild));
+}
+
+TEST_CASE("effective active: reparent under an inactive parent and back out")
+{
+    Scene scene(u8"eff3");
+    EntityHandle deadHost = scene.CreateEntity(u8"host");
+    EntityHandle mover = scene.CreateEntity(u8"mover");
+    EntityHandle moverChild = scene.CreateEntity(u8"mc");
+    scene.SetParent(moverChild, mover);
+    scene.SetActive(deadHost, false);
+
+    scene.SetParent(mover, deadHost); // into the dark subtree
+    CHECK_FALSE(scene.IsEffectivelyActive(mover));
+    CHECK_FALSE(scene.IsEffectivelyActive(moverChild));
+    CHECK(scene.IsActive(mover)); // own flag untouched by the move
+
+    scene.SetParent(mover, EntityHandle::Invalid()); // back to root
+    CHECK(scene.IsEffectivelyActive(mover));
+    CHECK(scene.IsEffectivelyActive(moverChild));
+}
+
+TEST_CASE("effective active: MoveBefore across parents resettles the subtree")
+{
+    Scene scene(u8"eff4");
+    EntityHandle activeParent = scene.CreateEntity(u8"ap");
+    EntityHandle inactiveParent = scene.CreateEntity(u8"ip");
+    EntityHandle anchor = scene.CreateEntity(u8"anchor");
+    EntityHandle mover = scene.CreateEntity(u8"mover");
+    scene.SetParent(anchor, inactiveParent);
+    scene.SetParent(mover, activeParent);
+    scene.SetActive(inactiveParent, false);
+
+    scene.MoveBefore(mover, anchor); // splice into the INACTIVE parent's child list
+    CHECK(scene.GetParent(mover) == inactiveParent);
+    CHECK_FALSE(scene.IsEffectivelyActive(mover));
+}
+
+TEST_CASE("effective active: created under nothing = active; invalid handle answers false")
+{
+    Scene scene(u8"eff5");
+    EntityHandle e = scene.CreateEntity(u8"e");
+    CHECK(scene.IsEffectivelyActive(e));
+    CHECK_FALSE(scene.IsEffectivelyActive(EntityHandle::Invalid()));
+    scene.DestroyEntity(e);
+    CHECK_FALSE(scene.IsEffectivelyActive(e));
+}

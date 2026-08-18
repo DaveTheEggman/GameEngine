@@ -128,6 +128,20 @@ export namespace foundation::script
         }
 
         [[nodiscard]] bool isValid() const { return Live(); }
+        /// The entity's OWN active flag (entity-active-state.md P4).
+        [[nodiscard]] bool active() const { return Live() && scene->IsActive(Handle()); }
+        void setActive(bool value)
+        {
+            if (Live())
+            {
+                scene->SetActive(Handle(), value);
+            }
+        }
+        /// EFFECTIVE state: own flag AND every ancestor's (what the runtime gates on).
+        [[nodiscard]] bool activeInHierarchy() const
+        {
+            return Live() && scene->IsEffectivelyActive(Handle());
+        }
         [[nodiscard]] String name() const
         {
             return Live() ? String(scene->GetEntityName(Handle())) : String{};

@@ -108,6 +108,10 @@ export namespace engine::animation
             ForEach(
                 [&](SkeletalAnimationComponent& a, scene::EntityHandle owner)
                 {
+                    if (!m_scene->IsEffectivelyActive(owner))
+                    {
+                        return; // frozen: time does not advance (entity-active-state.md P3)
+                    }
                     animation::Skeleton* skeleton = a.skeleton.Get();
                     if (skeleton == nullptr)
                     {
@@ -235,6 +239,10 @@ export namespace engine::animation
             ForEach(
                 [&](AnimationGraphComponent& a, scene::EntityHandle owner)
                 {
+                    if (!m_scene->IsEffectivelyActive(owner))
+                    {
+                        return; // frozen (entity-active-state.md P3)
+                    }
                     animation::Skeleton* skeleton = a.skeleton.Get();
                     animation::AnimationGraph* graph = a.graph.Get();
                     if (skeleton == nullptr || graph == nullptr)
@@ -332,6 +340,10 @@ export namespace engine::animation
             ForEach(
                 [&](InstancedSkinningComponent& s, scene::EntityHandle owner)
                 {
+                    if (!m_scene->IsEffectivelyActive(owner))
+                    {
+                        return; // frozen (entity-active-state.md P3)
+                    }
                     if (s.skeleton == nullptr || s.clip == nullptr || s.poseCount == 0)
                     {
                         return;

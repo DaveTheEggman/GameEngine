@@ -152,6 +152,11 @@ export namespace engine::particles
             ForEach(
                 [&](ParticleEffectComponent& c, scene::EntityHandle owner)
                 {
+                    if (!m_scene->IsEffectivelyActive(owner))
+                    {
+                        return; // no sim, no emission; live particles FREEZE (v1,
+                                // entity-active-state.md P3)
+                    }
                     // Attach/re-attach when the ref's resolved product changed (a pick, a scene load's
                     // resolve pass, or a hot reload swapping the product behind the proxy).
                     ParticleEffectResource* res = c.effectAsset.Get();
@@ -182,9 +187,10 @@ export namespace engine::particles
             ForEach(
                 [&](ParticleEffectComponent& c, scene::EntityHandle owner)
                 {
-                    if (!c.visible || !c.instance)
+                    if (!c.visible || !c.instance ||
+                        (m_scene != nullptr && !m_scene->IsEffectivelyActive(owner)))
                     {
-                        return;
+                        return; // frozen particles also do not RENDER
                     }
                     // The emitter's world transform - used to re-base Local-space particles at extract.
                     m_emitterWorld = (m_scene != nullptr) ? m_scene->GetWorldMatrix(owner)

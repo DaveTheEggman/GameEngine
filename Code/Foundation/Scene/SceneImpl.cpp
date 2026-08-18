@@ -98,6 +98,11 @@ namespace foundation::scene
         return IsValid(entity) && m_entities[entity.index].active;
     }
 
+    bool Scene::IsEffectivelyActive(EntityHandle entity) const noexcept
+    {
+        return IsValid(entity) && m_entities[entity.index].effectiveActive;
+    }
+
     void Scene::SetActive(EntityHandle entity, bool active)
     {
         if (!IsValid(entity))
@@ -109,10 +114,54 @@ namespace foundation::scene
             return;
         }
         m_entities[entity.index].active = active;
+        // Settle the effective cache BEFORE notifying, so a listener that queries
+        // IsEffectivelyActive from the hook sees the new truth. The hook itself remains an
+        // own-flag change notification only (it is NOT the gating mechanism - consumers poll
+        // IsEffectivelyActive in their own loops; entity-active-state.md).
+        RefreshEffectiveActive(entity);
         ++m_revision;
         for (SceneSystem* s : m_sortedSystems)
         {
             s->OnEntityActiveChanged(entity, active);
+        }
+    }
+
+    void Scene::RefreshEffectiveActive(EntityHandle entity)
+    {
+        if (!IsValid(entity))
+        {
+            return;
+        }
+        const EntityHandle parent = m_transforms[entity.index].parent;
+        const bool parentEffective =
+            parent.IsAssigned() ? m_entities[parent.index].effectiveActive : true;
+
+        // Iterative subtree walk: (slot index, ancestors-effective-through-parent).
+        struct Item
+        {
+            u32 index;
+            bool parentEffective;
+        };
+        Array<Item> stack;
+        stack.PushBack(Item{entity.index, parentEffective});
+        while (!stack.IsEmpty())
+        {
+            const Item item = stack.Back();
+            stack.PopBack();
+            EntitySlot& slot = m_entities[item.index];
+            const bool effective = slot.active && item.parentEffective;
+            if (slot.effectiveActive == effective && !slot.active)
+            {
+                // Own flag false and already cached false: every descendant is false too
+                // (their chain runs through this node) - nothing below can change.
+                continue;
+            }
+            slot.effectiveActive = effective;
+            for (EntityHandle c = m_transforms[item.index].firstChild; c.IsAssigned();
+                 c = m_transforms[c.index].nextSibling)
+            {
+                stack.PushBack(Item{c.index, effective});
+            }
         }
     }
 
@@ -340,6 +389,7 @@ namespace foundation::scene
             AppendToList(child, m_firstRoot, m_lastRoot);
         }
         MarkDirty(child);
+        RefreshEffectiveActive(child); // the ancestor chain changed - resettle the subtree
         ++m_revision;
     }
 
@@ -433,6 +483,7 @@ namespace foundation::scene
         }
         s.prevSibling = child;
         MarkDirty(child);
+        RefreshEffectiveActive(child); // the parent may have changed with the splice
         ++m_revision;
     }
 
@@ -644,6 +695,7 @@ namespace foundation::scene
         ++slot.generation;
         slot.alive = true;
         slot.active = true;
+        slot.effectiveActive = true; // created as an active ROOT (no ancestors yet)
         slot.persistentId = id;
         slot.name = name.IsEmpty() ? String{} : String(name);
 

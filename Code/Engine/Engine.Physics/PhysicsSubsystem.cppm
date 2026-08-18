@@ -148,18 +148,30 @@ export namespace engine::physics
             auto* bodies = m_scene->GetSystem<RigidBodyComponentManager>();
             if (bodies != nullptr)
             {
-                bodies->ForEach([](RigidBodyComponent& c, scene::EntityHandle)
-                                { c.body = BodyId{}; });
+                bodies->ForEach(
+                    [](RigidBodyComponent& c, scene::EntityHandle)
+                    {
+                        c.body = BodyId{};
+                        c.simActive = false;
+                    });
             }
             if (auto* joints = m_scene->GetSystem<JointComponentManager>())
             {
-                joints->ForEach([](JointComponent& c, scene::EntityHandle)
-                                { c.joint = JointId{}; });
+                joints->ForEach(
+                    [](JointComponent& c, scene::EntityHandle)
+                    {
+                        c.joint = JointId{};
+                        c.simActive = false;
+                    });
             }
             if (auto* characters = m_scene->GetSystem<CharacterComponentManager>())
             {
-                characters->ForEach([](CharacterComponent& c, scene::EntityHandle)
-                                    { c.character = CharacterId{}; });
+                characters->ForEach(
+                    [](CharacterComponent& c, scene::EntityHandle)
+                    {
+                        c.character = CharacterId{};
+                        c.simActive = false;
+                    });
             }
             m_events.Clear();
             m_world = nullptr;
@@ -177,6 +189,8 @@ export namespace engine::physics
             {
                 return;
             }
+
+            ReconcileActiveState(); // active edges settle BEFORE this step simulates
 
             // Kinematics follow the SCENE (velocity-correct move toward this step's target).
             bodies->ForEach(
@@ -387,26 +401,64 @@ export namespace engine::physics
             joints->ForEach(
                 [&](JointComponent& c, scene::EntityHandle e)
                 {
-                    RigidBodyComponent* own = bodies->Get(e);
-                    if (own == nullptr || !own->body.IsValid())
+                    if (!scene.IsEffectivelyActive(e))
                     {
-                        LOG_WARNING(u8"Physics",
-                                             u8"'{}': joint needs a rigid body on its entity",
-                                             scene.GetEntityName(e));
+                        c.simActive = false; // reconciled on the activation edge
                         return;
+                    }
+                    c.simActive = true;
+                    CreateJointForEntity(c, e, /*logFailures=*/true);
+                });
+        }
+
+        // One entity's joint build (scene start + reconcile). `logFailures` only on the
+        // scene-start path: the reconcile retries silently (a missing/invalid endpoint there
+        // usually means "target currently inactive", which is a state, not a mistake). A
+        // joint re-created on reactivation anchors at the entity's CURRENT pose (v1).
+        void CreateJointForEntity(JointComponent& c, scene::EntityHandle e, bool logFailures)
+        {
+            scene::Scene& scene = *m_scene;
+            auto* bodies = scene.GetSystem<RigidBodyComponentManager>();
+            if (bodies == nullptr)
+            {
+                return;
+            }
+            {
+                {
+                    RigidBodyComponent* own = bodies->Get(e);
+                    if (own == nullptr)
+                    {
+                        if (logFailures)
+                        {
+                            LOG_WARNING(u8"Physics",
+                                                 u8"'{}': joint needs a rigid body on its entity",
+                                                 scene.GetEntityName(e));
+                        }
+                        return;
+                    }
+                    if (!own->body.IsValid())
+                    {
+                        return; // body pending (inactive at start / failed) - reconcile retries
                     }
                     BodyId target; // invalid = world attachment
                     if (!c.targetEntity.IsNil())
                     {
                         scene::EntityHandle t = scene.FindEntity(c.targetEntity.id);
                         RigidBodyComponent* targetBody = t.IsAssigned() ? bodies->Get(t) : nullptr;
-                        if (targetBody == nullptr || !targetBody->body.IsValid())
+                        if (targetBody == nullptr)
                         {
-                            LOG_WARNING(
-                                u8"Physics",
-                                u8"'{}': joint target entity has no rigid body - joint skipped",
-                                scene.GetEntityName(e));
+                            if (logFailures)
+                            {
+                                LOG_WARNING(u8"Physics",
+                                                     u8"'{}': joint target entity has no rigid "
+                                                     u8"body - joint skipped",
+                                                     scene.GetEntityName(e));
+                            }
                             return;
+                        }
+                        if (!targetBody->body.IsValid())
+                        {
+                            return; // target inactive right now - rebuilt when it returns
                         }
                         target = targetBody->body;
                     }
@@ -443,12 +495,115 @@ export namespace engine::physics
                     desc.motorTargetVelocity = c.motorTargetVelocity;
                     desc.motorLimit = c.motorLimit;
                     c.joint = m_world->CreateJoint(desc);
-                    if (!c.joint.IsValid())
+                    if (!c.joint.IsValid() && logFailures)
                     {
                         LOG_WARNING(u8"Physics", u8"'{}': joint creation failed",
                                              scene.GetEntityName(e));
                     }
-                });
+                }
+            }
+        }
+
+        // Explicit-target readiness: nil target = world/ancestor attachment (always ready);
+        // otherwise the target entity must resolve and its body must be live.
+        [[nodiscard]] bool JointTargetReady(JointComponent& c)
+        {
+            if (c.targetEntity.IsNil())
+            {
+                return true;
+            }
+            scene::EntityHandle t = m_scene->FindEntity(c.targetEntity.id);
+            auto* bodies = m_scene->GetSystem<RigidBodyComponentManager>();
+            RigidBodyComponent* tb =
+                (t.IsAssigned() && bodies != nullptr) ? bodies->Get(t) : nullptr;
+            return tb != nullptr && tb->body.IsValid();
+        }
+
+        // entity-active-state.md P3: reconcile the Jolt world against effective-active
+        // EDGES (per-component latch - order-independent, self-healing, immune to the
+        // load-before-components trap). Deactivation destroys the body/character/joint
+        // (Jolt steps everything in its world - merely skipping the sync would NOT stop
+        // it); activation rebuilds from the CURRENT pose with cleared momentum (v1).
+        void ReconcileActiveState()
+        {
+            scene::Scene& scene = *m_scene;
+            if (auto* bodies = scene.GetSystem<RigidBodyComponentManager>())
+            {
+                bodies->ForEach(
+                    [&](RigidBodyComponent& c, scene::EntityHandle e)
+                    {
+                        const bool eff = scene.IsEffectivelyActive(e);
+                        if (eff == c.simActive)
+                        {
+                            return;
+                        }
+                        c.simActive = eff;
+                        if (!eff)
+                        {
+                            if (c.body.IsValid())
+                            {
+                                m_world->DestroyBody(c.body);
+                                c.body = BodyId{};
+                            }
+                        }
+                        else if (!c.body.IsValid())
+                        {
+                            CreateBodyForEntity(c, e);
+                        }
+                    });
+            }
+            if (auto* characters = scene.GetSystem<CharacterComponentManager>())
+            {
+                characters->ForEach(
+                    [&](CharacterComponent& c, scene::EntityHandle e)
+                    {
+                        const bool eff = scene.IsEffectivelyActive(e);
+                        if (eff == c.simActive)
+                        {
+                            return;
+                        }
+                        c.simActive = eff;
+                        if (!eff)
+                        {
+                            if (c.character.IsValid())
+                            {
+                                m_world->DestroyCharacter(c.character);
+                                c.character = CharacterId{};
+                            }
+                        }
+                        else if (!c.character.IsValid())
+                        {
+                            CreateCharacterForEntity(c, e);
+                        }
+                    });
+            }
+            if (auto* joints = scene.GetSystem<JointComponentManager>())
+            {
+                // Joints reconcile on the full want/have compare (not just the own-entity
+                // edge): an ACTIVE entity's joint must also drop when its explicit target
+                // deactivates (that body is gone) and return when the target does.
+                joints->ForEach(
+                    [&](JointComponent& c, scene::EntityHandle e)
+                    {
+                        const bool eff = scene.IsEffectivelyActive(e);
+                        c.simActive = eff;
+                        const bool want = eff && JointTargetReady(c);
+                        const bool have = c.joint.IsValid();
+                        if (want == have)
+                        {
+                            return;
+                        }
+                        if (!want)
+                        {
+                            m_world->DestroyJoint(c.joint);
+                            c.joint = JointId{};
+                        }
+                        else
+                        {
+                            CreateJointForEntity(c, e, /*logFailures=*/false);
+                        }
+                    });
+            }
         }
 
         void BuildCharacters()
@@ -461,6 +616,23 @@ export namespace engine::physics
             }
             characters->ForEach(
                 [&](CharacterComponent& c, scene::EntityHandle e)
+                {
+                    if (!scene.IsEffectivelyActive(e))
+                    {
+                        c.simActive = false; // built on the activation edge instead
+                        return;
+                    }
+                    c.simActive = true;
+                    CreateCharacterForEntity(c, e);
+                });
+        }
+
+        // One entity's CharacterVirtual build (scene start + activation edge; re-creation
+        // starts at the CURRENT pose with cleared momentum - v1 toggle semantics).
+        void CreateCharacterForEntity(CharacterComponent& c, scene::EntityHandle e)
+        {
+            scene::Scene& scene = *m_scene;
+            {
                 {
                     Float3 position, scale;
                     Quaternion rotation;
@@ -484,14 +656,14 @@ export namespace engine::physics
                     c.moveVelocity = Float3{0, 0, 0};
                     c.jumpSpeed = 0.0f;
                     c.teleportPending = false;
-                });
+                }
+            }
         }
 
         void BuildBodies()
         {
             scene::Scene& scene = *m_scene;
             auto* bodies = scene.GetSystem<RigidBodyComponentManager>();
-            auto* colliders = scene.GetSystem<ColliderComponentManager>();
             if (bodies == nullptr)
             {
                 return;
@@ -499,6 +671,28 @@ export namespace engine::physics
 
             bodies->ForEach(
                 [&](RigidBodyComponent& c, scene::EntityHandle e)
+                {
+                    // Effectively-inactive entities enter the world with NO body: the
+                    // reconcile pass creates it on the activation edge (entity-active-state.md
+                    // P3 - a scene that STARTS with the entity inactive never simulates it).
+                    if (!scene.IsEffectivelyActive(e))
+                    {
+                        c.simActive = false;
+                        return;
+                    }
+                    c.simActive = true;
+                    CreateBodyForEntity(c, e);
+                });
+        }
+
+        // One entity's body build (shared by scene start + the activation edge). Reads the
+        // entity's CURRENT world transform - a body re-created on reactivation starts from
+        // where the entity is NOW, with zero velocity (documented v1 toggle semantics).
+        void CreateBodyForEntity(RigidBodyComponent& c, scene::EntityHandle e)
+        {
+            scene::Scene& scene = *m_scene;
+            auto* colliders = scene.GetSystem<ColliderComponentManager>();
+            {
                 {
                     BodyDesc desc;
                     desc.motion = c.motion;
@@ -603,7 +797,8 @@ export namespace engine::physics
                         LOG_WARNING(u8"Physics", u8"body creation failed for '{}'",
                                              scene.GetEntityName(e));
                     }
-                });
+                }
+            }
         }
 
         // Resolve every drained contact's packed user words back to live entities and push

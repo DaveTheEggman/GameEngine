@@ -654,3 +654,102 @@ TEST_CASE("render: DebugView isolates per-view gizmos (camera-preview fix, task 
     CHECK(mainDbg.HasAnyDraws());
     CHECK_FALSE(previewDbg.HasAnyDraws());
 }
+
+TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling restores exactly")
+{
+    // entity-active-state.md P2: one gate per extraction loop, driven by the P1 effective
+    // cache - so an inactive PARENT hides a child's renderables without touching own flags.
+    scene::Scene scene(u8"active-gate");
+    auto* meshes = scene.AddSystem<MeshComponentManager>();
+    auto* instanced = scene.AddSystem<InstancedMeshComponentManager>();
+    auto* sprites = scene.AddSystem<SpriteComponentManager>();
+    auto* lights = scene.AddSystem<LightComponentManager>();
+    auto* probes = scene.AddSystem<ReflectionProbeComponentManager>();
+
+    RefPtr<geometry::StaticMesh> mesh = geometry::Primitives::Cube(1.0f);
+
+    scene::EntityHandle parent = scene.CreateEntity(u8"parent");
+    meshes->Add(parent).mesh = mesh;
+
+    scene::EntityHandle child = scene.CreateEntity(u8"child");
+    scene.SetParent(child, parent);
+    {
+        InstancedMeshComponent& c = instanced->Add(child);
+        c.mesh = mesh;
+        c.instances.PushBack(Float4x4::Identity());
+        ++c.version;
+    }
+    lights->Add(child);
+    probes->Add(child);
+
+    scene::EntityHandle bystander = scene.CreateEntity(u8"bystander");
+    meshes->Add(bystander).mesh = mesh;
+
+    scene.UpdateTransforms();
+
+    const auto extractAll = [&](ExtractedScene& out)
+    {
+        ExtractSceneInto(scene, out);
+        ExtractInstancedMeshesInto(scene, out);
+        ExtractSpritesInto(scene, out, /*spriteRendererId=*/1);
+        ExtractLightsInto(scene, out);
+        ExtractReflectionProbesInto(scene, out);
+    };
+
+    {
+        ExtractedScene all;
+        extractAll(all);
+        CHECK(all.Size() == 3);                        // parent mesh + child instanced + bystander
+        CHECK(all.Lights().Size() == 1);
+        CHECK(all.ReflectionProbes().Size() == 1);
+    }
+
+    // Deactivate the PARENT: the whole subtree goes dark; own flags below are untouched.
+    scene.SetActive(parent, false);
+    {
+        ExtractedScene dark;
+        extractAll(dark);
+        CHECK(dark.Size() == 1); // only the bystander survives
+        CHECK(dark.Lights().Size() == 0);
+        CHECK(dark.ReflectionProbes().Size() == 0);
+        CHECK(scene.IsActive(child));
+    }
+
+    // Reactivate: everything returns.
+    scene.SetActive(parent, true);
+    {
+        ExtractedScene restored;
+        extractAll(restored);
+        CHECK(restored.Size() == 3);
+        CHECK(restored.Lights().Size() == 1);
+        CHECK(restored.ReflectionProbes().Size() == 1);
+    }
+    (void)sprites;
+}
+
+TEST_CASE("extract: an inactive primary camera falls through to the next primary")
+{
+    scene::Scene scene(u8"cam-fallthrough");
+    auto* cameras = scene.AddSystem<CameraComponentManager>();
+
+    scene::EntityHandle first = scene.CreateEntity(u8"first");
+    scene.SetLocalPosition(first, Float3{0, 0, 5});
+    cameras->Add(first).aspect = 1.0f; // primary by default
+
+    scene::EntityHandle second = scene.CreateEntity(u8"second");
+    scene.SetLocalPosition(second, Float3{0, 0, 9});
+    cameras->Add(second).aspect = 1.0f;
+
+    scene.UpdateTransforms();
+
+    ViewCamera vc;
+    REQUIRE(ExtractPrimaryCamera(scene, vc));
+    CHECK(Near(vc.position.z, 5.0f)); // manager order: first wins while active
+
+    scene.SetActive(first, false);
+    REQUIRE(ExtractPrimaryCamera(scene, vc)); // falls through to the second
+    CHECK(Near(vc.position.z, 9.0f));
+
+    scene.SetActive(second, false);
+    CHECK_FALSE(ExtractPrimaryCamera(scene, vc)); // no active primary at all
+}

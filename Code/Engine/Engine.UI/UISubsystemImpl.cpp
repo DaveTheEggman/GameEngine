@@ -797,7 +797,7 @@ namespace engine::ui
                 }
             }
             canvases->ForEach(
-                [&](UICanvasComponent& c, scene::EntityHandle)
+                [&](UICanvasComponent& c, scene::EntityHandle e)
                 {
                     const UIDocument* document = c.document.Get();
                     const bool wantsTexture = c.renderMode == CanvasRenderMode::RenderTexture;
@@ -903,8 +903,9 @@ namespace engine::ui
                     }
                     if (c.root.Get() != nullptr)
                     {
-                        c.root->Visibility =
-                            c.visible ? VisibilityValue::Visible : VisibilityValue::Gone;
+                        c.root->Visibility = (c.visible && scene->IsEffectivelyActive(e))
+                                                 ? VisibilityValue::Visible
+                                                 : VisibilityValue::Gone;
                         // Interactivity gates the SUBTREE; the stretched document root
                         // itself stays hit-TRANSPARENT. The canvas root is the canvas's
                         // screen AREA, not a widget - if it consumed hits, one full-screen
@@ -1209,7 +1210,8 @@ namespace engine::ui
                         panels->ForEach(
                             [&](UIWorldPanelComponent& c, scene::EntityHandle e)
                             {
-                                if (!c.interactive || !c.visible)
+                                if (!c.interactive || !c.visible ||
+                                    !sceneUI.scene->IsEffectivelyActive(e))
                                 {
                                     return;
                                 }
@@ -1482,12 +1484,14 @@ namespace engine::ui
         if (auto* canvases = scene.GetSystem<UICanvasComponentManager>())
         {
             canvases->ForEach(
-                [&](UICanvasComponent& c, scene::EntityHandle)
+                [&](UICanvasComponent& c, scene::EntityHandle e)
                 {
                     if (c.root.Get() != nullptr)
                     {
-                        c.root->Visibility =
-                            c.visible ? VisibilityValue::Visible : VisibilityValue::Gone;
+                        // Gone also removes it from hit-testing (entity-active-state.md P3).
+                        c.root->Visibility = (c.visible && scene.IsEffectivelyActive(e))
+                                                 ? VisibilityValue::Visible
+                                                 : VisibilityValue::Gone;
                     }
                 });
         }
@@ -1500,7 +1504,7 @@ namespace engine::ui
                     {
                         return;
                     }
-                    if (!c.visible)
+                    if (!c.visible || !scene.IsEffectivelyActive(e))
                     {
                         c.root->Visibility = VisibilityValue::Gone;
                         return;
@@ -1865,12 +1869,13 @@ namespace engine::ui
                                 c.sizeMeters.y * (static_cast<f32>(paddedHeight) /
                                                   static_cast<f32>(height))};
                             sprite->texture = target->view;
-                            sprite->visible = c.visible;
+                            sprite->visible =
+                                c.visible && sceneUI.scene->IsEffectivelyActive(entity);
                             // Post-tonemap: the panel keeps its AUTHORED colors (matching
                             // the screen-tier HUD) while still depth-testing into the scene.
                             sprite->postTonemap = true;
                         }
-                        if (!c.visible)
+                        if (!c.visible || !sceneUI.scene->IsEffectivelyActive(entity))
                         {
                             return;
                         } // keep the texture, skip the draw

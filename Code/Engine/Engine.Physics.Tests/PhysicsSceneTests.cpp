@@ -757,3 +757,88 @@ TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore)
 
     ctx.Shutdown();
 }
+
+// === entity active state (entity-active-state.md P3 physics) ===
+
+TEST_CASE("physics.active: an entity saved/started INACTIVE never gets a body; activation builds it")
+{
+    PlayScene play;
+    (void)play.AddFloor();
+    const scene::EntityHandle box = play.AddBox(5.0f);
+    play.scene.SetActive(box, false); // inactive BEFORE Start = the scene-starts-inactive case
+    play.Start();
+
+    REQUIRE(play.physics->World() != nullptr);
+    CHECK(play.physics->World()->BodyCount() == 1u); // floor only
+    CHECK_FALSE(play.scene.GetSystem<RigidBodyComponentManager>()->Get(box)->body.IsValid());
+
+    play.Step(60); // it does not fall - there is nothing in the world to fall
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    CHECK(play.scene.GetWorldPosition(box).y == doctest::Approx(5.0f));
+
+    play.scene.SetActive(box, true); // activation edge -> the reconcile builds the body
+    play.Step(240);
+    CHECK(play.physics->World()->BodyCount() == 2u);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    CHECK(play.scene.GetWorldPosition(box).y == doctest::Approx(0.5f).epsilon(0.05));
+}
+
+TEST_CASE("physics.active: runtime toggle - deactivate freezes + leaves the world, reactivate resumes")
+{
+    PlayScene play;
+    (void)play.AddFloor();
+    const scene::EntityHandle box = play.AddBox(8.0f);
+    play.Start();
+    CHECK(play.physics->World()->BodyCount() == 2u);
+
+    play.Step(30); // falling
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    const f32 midFall = play.scene.GetWorldPosition(box).y;
+    CHECK(midFall < 8.0f);
+
+    play.scene.SetActive(box, false);
+    play.Step(60);
+    CHECK(play.physics->World()->BodyCount() == 1u); // the body LEFT the world (Jolt steps
+    CHECK_FALSE(                                     // everything it holds - skipping the
+        play.scene.GetSystem<RigidBodyComponentManager>()->Get(box)->body.IsValid()); // sync is not enough)
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    CHECK(play.scene.GetWorldPosition(box).y == doctest::Approx(midFall).epsilon(0.01)); // frozen
+
+    play.scene.SetActive(box, true); // re-created at the CURRENT pose, momentum cleared (v1)
+    play.Step(240);
+    CHECK(play.physics->World()->BodyCount() == 2u);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+    CHECK(play.scene.GetWorldPosition(box).y == doctest::Approx(0.5f).epsilon(0.05)); // landed
+}
+
+TEST_CASE("physics.active: a joint drops when its explicit target deactivates and returns with it")
+{
+    PlayScene play;
+    play.scene.AddSystem<JointComponentManager>();
+    (void)play.AddFloor();
+    const scene::EntityHandle left = play.AddBox(0.5f);
+    const scene::EntityHandle right = play.AddBox(0.5f);
+    play.scene.SetLocalPosition(left, Float3{4.0f, 0.5f, 0.0f});
+    play.scene.SetLocalPosition(right, Float3{5.2f, 0.5f, 0.0f});
+    JointComponent& joint = play.scene.GetSystem<JointComponentManager>()->Add(right);
+    joint.kind = JointKind::Fixed;
+    joint.targetEntity = play.scene.GetEntityId(left);
+
+    play.Start();
+    play.Step(1);
+    REQUIRE(play.scene.GetSystem<JointComponentManager>()->Get(right)->joint.IsValid());
+
+    play.scene.SetActive(left, false); // the TARGET deactivates; `right` stays active
+    play.Step(1);
+    CHECK_FALSE(play.scene.GetSystem<JointComponentManager>()->Get(right)->joint.IsValid());
+    CHECK(play.scene.GetSystem<RigidBodyComponentManager>()->Get(right)->body.IsValid());
+
+    play.scene.SetActive(left, true); // target returns -> the joint rebuilds
+    play.Step(1);
+    CHECK(play.scene.GetSystem<JointComponentManager>()->Get(right)->joint.IsValid());
+}

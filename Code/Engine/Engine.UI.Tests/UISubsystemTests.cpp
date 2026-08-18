@@ -95,6 +95,46 @@ TEST_CASE("ui.subsystem: canvases instantiate, hot-reload, and sync visibility")
     ctx.Shutdown();
 }
 
+TEST_CASE("ui.subsystem: an effectively-inactive entity's canvas goes Gone (and back)")
+{
+    runtime::Context ctx;
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
+    scene::SceneManager sm(&scenes->AwareRegistry());
+    scenes->RegisterManager(&sm);
+    auto* ui = ctx.AddSubsystem<UISubsystem>();
+    ctx.Startup();
+
+    scene::Scene* scene = sm.CreateScene(u8"menu");
+    auto* canvases = scene->GetSystem<UICanvasComponentManager>();
+    REQUIRE(canvases != nullptr);
+
+    // The canvas rides a CHILD of the toggled entity (the hierarchy path).
+    scene::EntityHandle parent = scene->CreateEntity(u8"holder");
+    scene::EntityHandle e = scene->CreateEntity(u8"hud");
+    scene->SetParent(e, parent);
+    UICanvasComponent& canvas = canvases->Add(e);
+    RefPtr<UIDocument> document =
+        MakeDocument(u8"<FlexLayout><Label id=\"hp\" text=\"100\" /></FlexLayout>");
+    canvas.document = document;
+
+    ctx.BeginFrame(1.0f / 60.0f);
+    REQUIRE(canvas.root.Get() != nullptr);
+    CHECK(canvas.root->Visibility == VisibilityValue::Visible);
+
+    scene->SetActive(parent, false); // entity-active-state.md P3: the game UI does not show
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(canvas.root->Visibility == VisibilityValue::Gone);
+
+    scene->SetActive(parent, true);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(canvas.root->Visibility == VisibilityValue::Visible);
+
+    sm.DestroyScene(scene);
+    ctx.BeginFrame(1.0f / 60.0f);
+    ctx.Shutdown();
+    (void)ui;
+}
+
 TEST_CASE("ui.subsystem: canvas component serialization round-trips")
 {
     RegisterUIComponentReflection(); // versioned payloads read the type's data version

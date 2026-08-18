@@ -156,3 +156,42 @@ TEST_CASE("resource-ref: SetEffect(proxy) still attaches immediately (sample pat
 
     RemoveTree(dir);
 }
+
+TEST_CASE("particles: entity-active - starts-inactive never attaches/emits; toggle freezes the sim")
+{
+    particles::RegisterParticleEffectResource();
+
+    scene::Scene sceneObj;
+    sceneObj.AddSystem<engine::particles::ParticleEffectComponentManager>();
+    const scene::EntityHandle e = sceneObj.CreateEntity(u8"Emitter");
+    engine::particles::ParticleEffectComponent& c =
+        sceneObj.GetSystem<engine::particles::ParticleEffectComponentManager>()->Add(e);
+
+    RefPtr<particles::ParticleEffectResource> res =
+        MakeRef<particles::ParticleEffectResource>(DefaultAllocator());
+    particles::ParticleSystem& sys = res->Effect().AddSystem(64);
+    sys.emitter.isEmitting = true;
+    sys.emitter.spawnRate = 100.0f;
+    sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
+        particles::RangeFloat{10.0f, 10.0f}; // long-lived so alive counts are stable
+    c.effectAsset = res.Get();
+
+    // Starts inactive: the manager never attaches, nothing emits (entity-active-state.md P3).
+    sceneObj.SetActive(e, false);
+    sceneObj.Update(0.1f);
+    sceneObj.Update(0.1f);
+    CHECK(c.instance.Get() == nullptr);
+
+    // Activation: attaches + simulates.
+    sceneObj.SetActive(e, true);
+    sceneObj.Update(0.1f); // attach tick
+    REQUIRE(c.instance.Get() != nullptr);
+    sceneObj.Update(0.2f);
+    const i32 alive = c.instance->Effect().GetSystem(0)->AliveCount();
+    CHECK(alive > 0);
+
+    // Deactivate: live particles FREEZE (no sim, no emission, no decay - v1).
+    sceneObj.SetActive(e, false);
+    sceneObj.Update(0.5f);
+    CHECK(c.instance->Effect().GetSystem(0)->AliveCount() == alive);
+}

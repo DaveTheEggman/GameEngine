@@ -77,6 +77,8 @@ TEST_CASE("scene round-trips through SerializeScene (entities, hierarchy, transf
     CHECK(b.GetParent(childB) == rootB); // hierarchy relinked
     CHECK(b.GetParent(rootB) == EntityHandle::Invalid());
     CHECK_FALSE(b.IsActive(childB)); // active state preserved
+    CHECK(b.IsEffectivelyActive(rootB));
+    CHECK_FALSE(b.IsEffectivelyActive(childB)); // effective settles across load too
 
     CHECK(Near(b.GetLocalTransform(rootB).position.x, 1.0f));
     CHECK(Near(b.GetLocalTransform(childB).position.x, 4.0f));
@@ -91,6 +93,48 @@ TEST_CASE("scene round-trips through SerializeScene (entities, hierarchy, transf
     b.UpdateTransforms();
     CHECK(Near(b.GetWorldPosition(childB).x, 5.0f)); // root(1) + child local(4)
     (void)mgrA;
+}
+
+TEST_CASE("scene load: an entity saved INACTIVE (incl. inactive parent / active child) starts dark")
+{
+    // The scene-starts-inactive requirement (entity-active-state.md): the loader calls
+    // SetActive during the entities block and relinks parents AFTER - the reparent choke
+    // point must settle effective state, so a child that is own-active under a saved-inactive
+    // parent loads effectively inactive with its own flag intact.
+    Scene a(u8"start-inactive");
+    EntityHandle parent = a.CreateEntity(u8"parent");
+    EntityHandle child = a.CreateEntity(u8"child");
+    a.SetParent(child, parent);
+    a.SetActive(parent, false); // child's OWN flag stays true
+
+    const Guid parentId = a.GetEntityId(parent);
+    const Guid childId = a.GetEntityId(child);
+
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        SerializeScene(writer, a);
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+
+    Scene b;
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        SerializeScene(reader, b);
+    }
+
+    EntityHandle parentB = b.FindEntity(parentId);
+    EntityHandle childB = b.FindEntity(childId);
+    REQUIRE(parentB.IsAssigned());
+    REQUIRE(childB.IsAssigned());
+    CHECK_FALSE(b.IsActive(parentB));
+    CHECK(b.IsActive(childB)); // own flag round-trips
+    CHECK_FALSE(b.IsEffectivelyActive(parentB));
+    CHECK_FALSE(b.IsEffectivelyActive(childB)); // dark from frame one
+
+    // Runtime activation brings the subtree up.
+    b.SetActive(parentB, true);
+    CHECK(b.IsEffectivelyActive(childB));
 }
 
 TEST_CASE("empty scene round-trips")

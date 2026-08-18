@@ -106,7 +106,8 @@ namespace engine::render
             meshes->ForEach(
                 [&](MeshComponent& mc, scene::EntityHandle e)
                 {
-                    if (!mc.visible || mc.mesh.Get() == nullptr)
+                    // Effectively-inactive entities render nothing (entity-active-state.md P2).
+                    if (!scene.IsEffectivelyActive(e) || !mc.visible || mc.mesh.Get() == nullptr)
                     {
                         return;
                     }
@@ -146,7 +147,8 @@ namespace engine::render
                                  // Non-const: the fill refreshes the component's per-frame material cache.
                                  // Safe under ParallelFor - each component is touched by exactly one job.
                                  MeshComponent& mc = const_cast<MeshComponent&>(comps[i]);
-                                 if (!mc.visible || mc.mesh.Get() == nullptr)
+                                 if (!scene.IsEffectivelyActive(owners[i]) || !mc.visible ||
+                                     mc.mesh.Get() == nullptr)
                                  {
                                      return;
                                  }
@@ -167,7 +169,8 @@ namespace engine::render
             for (u32 i = 0; i < count; ++i)
             {
                 MeshComponent& mc = const_cast<MeshComponent&>(comps[i]);
-                if (!mc.visible || mc.mesh.Get() == nullptr)
+                if (!scene.IsEffectivelyActive(owners[i]) || !mc.visible ||
+                    mc.mesh.Get() == nullptr)
                 {
                     continue;
                 }
@@ -193,7 +196,11 @@ namespace engine::render
         mgr->ForEach(
             [&](InstancedMeshComponent& c, scene::EntityHandle e)
             {
-                if (!c.visible || c.mesh.Get() == nullptr || c.Count() == 0)
+                // Gate BEFORE the compose/bounds caches: an inactive set is simply absent from
+                // the snapshot (the renderer draws from the snapshot; the persistent GPU buffer
+                // is only a cache and revalidates by version when the set returns).
+                if (!scene.IsEffectivelyActive(e) || !c.visible || c.mesh.Get() == nullptr ||
+                    c.Count() == 0)
                 {
                     return;
                 }
@@ -283,7 +290,7 @@ namespace engine::render
         sprites->ForEach(
             [&](SpriteComponent& sc, scene::EntityHandle e)
             {
-                if (!sc.visible)
+                if (!scene.IsEffectivelyActive(e) || !sc.visible)
                 {
                     return;
                 }
@@ -340,7 +347,7 @@ namespace engine::render
         decals->ForEach(
             [&](DecalComponent& dc, scene::EntityHandle e)
             {
-                if (!dc.visible)
+                if (!scene.IsEffectivelyActive(e) || !dc.visible)
                 {
                     return;
                 }
@@ -374,7 +381,9 @@ namespace engine::render
             cameras->ForEach(
                 [&](CameraComponent& cam, scene::EntityHandle e)
                 {
-                    if (found || !cam.primary)
+                    // An inactive primary camera is skipped so the pick falls through to the
+                    // next primary (entity-active-state.md P2).
+                    if (found || !cam.primary || !scene.IsEffectivelyActive(e))
                     {
                         return;
                     }
@@ -408,7 +417,7 @@ namespace engine::render
         lights->ForEach(
             [&](LightComponent& lc, scene::EntityHandle e)
             {
-                if (!lc.enabled)
+                if (!scene.IsEffectivelyActive(e) || !lc.enabled)
                 {
                     return;
                 }
@@ -501,7 +510,7 @@ namespace engine::render
         probes->ForEach(
             [&](ReflectionProbeComponent& pc, scene::EntityHandle e)
             {
-                if (!pc.enabled || count >= kMaxReflectionProbes)
+                if (!scene.IsEffectivelyActive(e) || !pc.enabled || count >= kMaxReflectionProbes)
                 {
                     return;
                 }

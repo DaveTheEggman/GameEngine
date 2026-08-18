@@ -134,6 +134,10 @@ export namespace engine::animation
             ForEach(
                 [&](PropertyAnimatorComponent& a, scene::EntityHandle owner)
                 {
+                    if (!m_scene->IsEffectivelyActive(owner))
+                    {
+                        return; // frozen: no advance, no writes (entity-active-state.md P3)
+                    }
                     propanim::PropertyAnimationClipResource* clipRes = a.clip.Get();
                     if (clipRes == nullptr)
                     {

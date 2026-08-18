@@ -451,6 +451,13 @@ namespace foundation::net
         mgr->ForEach(
             [&](NetworkedTransform& nt, scene::EntityHandle e)
             {
+                // entity-active-state.md P3 (net): an effectively-inactive entity's replicated
+                // state FREEZES (no capture) - it stays in snapshots (existence/identity are
+                // not simulation; replicating the flag itself is the networking track's call).
+                if (!scene.IsEffectivelyActive(e))
+                {
+                    return;
+                }
                 const Transform t = scene.GetLocalTransform(e);
                 nt.position = t.position;
                 nt.rotation = t.rotation;
@@ -468,6 +475,10 @@ namespace foundation::net
         mgr->ForEach(
             [&](NetworkedTransform& nt, scene::EntityHandle e)
             {
+                if (!scene.IsEffectivelyActive(e))
+                {
+                    return; // frozen locally too (the flag is scene data on both sides)
+                }
                 Transform t;
                 t.position = nt.position;
                 t.rotation = nt.rotation;
@@ -815,9 +826,9 @@ namespace foundation::net
         netMgr->ForEach(
             [&](NetworkComponent& nc, scene::EntityHandle e)
             {
-                if (!nc.id.IsValid())
+                if (!nc.id.IsValid() || !scene.IsEffectivelyActive(e))
                 {
-                    return;
+                    return; // inactive: no interpolation sampling (state is frozen)
                 }
                 scene.ForEachManager(
                     [&](scene::ComponentManagerBase& m)

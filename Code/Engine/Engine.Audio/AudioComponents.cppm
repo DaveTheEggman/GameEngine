@@ -55,6 +55,10 @@ export namespace engine::audio
 
         // Runtime (transient):
         VoiceHandle voice;
+        // Entity-active latch (entity-active-state.md P3): true while the voice is stopped
+        // BECAUSE the entity is effectively inactive - reactivation restarts autoplay
+        // sources from it. Runtime only, never serialized.
+        bool activeSuspended = false;
         i32 lastCueVariant = -1; // cue no-repeat state (runtime)
         u32 cueSequentialCursor = 0;
         Float3 previousPosition{0.0f, 0.0f, 0.0f};

@@ -598,3 +598,36 @@ TEST_CASE("audio.engine: listener slots honor the configured count and reject OO
     engine.SetListenerEnabled(1, false);
     engine.Update(1.0f / 60.0f); // pump survives partial listener config
 }
+
+TEST_CASE("audio.scene: entity-active - starts-inactive is silent; deactivation stops the "
+          "voice; reactivation restarts autoplay")
+{
+    PlayScene play;
+    RefPtr<AudioClip> clip = MakeToneClip(1.0f);
+    const scene::EntityHandle e = play.AddSource(clip, Float3{1.0f, 0.0f, 0.0f});
+    play.scene.SetActive(e, false); // BEFORE Start: the scene-starts-inactive case
+    play.Start();
+
+    auto* sources = play.scene.GetSystem<AudioSourceComponentManager>();
+    AudioSourceComponent* c = sources->Get(e);
+    REQUIRE(c != nullptr);
+    CHECK_FALSE(c->voice.IsValid()); // autoplay did NOT start a voice
+    play.Frame();
+    CHECK_FALSE(c->voice.IsValid());
+
+    play.scene.SetActive(e, true); // activation edge: autoplay starts now
+    play.Frame();
+    REQUIRE(c->voice.IsValid());
+    CHECK(play.engine.IsPlaying(c->voice));
+
+    const VoiceHandle live = c->voice;
+    play.scene.SetActive(e, false); // deactivation STOPS the voice (silence, not a skip)
+    play.Frame();
+    CHECK_FALSE(c->voice.IsValid());
+    CHECK_FALSE(play.engine.IsValidHandle(live));
+
+    play.scene.SetActive(e, true); // and it comes back (looping autoplay source)
+    play.Frame();
+    CHECK(c->voice.IsValid());
+    CHECK(play.engine.IsPlaying(c->voice));
+}

@@ -20,6 +20,9 @@ namespace foundation::script
     REFLECT_VALUE(Entity, "rtti::script")
     {
         builder.Method<&Entity::isValid>("isValid");
+        builder.Method<&Entity::active>("active");
+        builder.Method<&Entity::setActive>("setActive");
+        builder.Method<&Entity::activeInHierarchy>("activeInHierarchy");
         builder.Method<&Entity::name>("name");
         builder.Method<&Entity::setName>("setName");
         builder.Method<&Entity::position>("position");

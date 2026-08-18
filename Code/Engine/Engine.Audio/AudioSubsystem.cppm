@@ -151,7 +151,16 @@ export namespace engine::audio
                     {
                         if (c.autoPlay)
                         {
-                            PlayComponent(c, e);
+                            if (m_scene->IsEffectivelyActive(e))
+                            {
+                                PlayComponent(c, e);
+                            }
+                            else
+                            {
+                                // Starts-inactive: arm the latch so the ACTIVATION edge
+                                // plays it (entity-active-state.md P3).
+                                c.activeSuspended = true;
+                            }
                         }
                     });
             }
@@ -167,6 +176,7 @@ export namespace engine::audio
                     {
                         c.voice = VoiceHandle{};
                         c.hasPreviousPosition = false;
+                        c.activeSuspended = false;
                     });
             }
             if (m_engine != nullptr && m_sceneGroup != 0)
@@ -253,6 +263,29 @@ export namespace engine::audio
                 sources->ForEach(
                     [&](AudioSourceComponent& c, scene::EntityHandle e)
                     {
+                        // Entity-active edges: deactivation STOPS the voice (silence, not a
+                        // skipped update); reactivation restarts autoplay sources. One-shots
+                        // stopped this way do not resume mid-buffer (v1).
+                        const bool eff = m_scene->IsEffectivelyActive(e);
+                        if (!eff)
+                        {
+                            if (c.voice.IsValid())
+                            {
+                                m_engine->Stop(c.voice);
+                                c.voice = VoiceHandle{};
+                                c.hasPreviousPosition = false;
+                                c.activeSuspended = true;
+                            }
+                            return;
+                        }
+                        if (c.activeSuspended)
+                        {
+                            c.activeSuspended = false;
+                            if (c.autoPlay)
+                            {
+                                (void)PlayComponent(c, e);
+                            }
+                        }
                         if (!c.voice.IsValid())
                         {
                             return;
@@ -315,6 +348,10 @@ export namespace engine::audio
             if (m_engine == nullptr)
             {
                 return {};
+            }
+            if (m_scene != nullptr && !m_scene->IsEffectivelyActive(e))
+            {
+                return {}; // inactive entities make no sound (entity-active-state.md P3)
             }
             // Cue wins over clip: resolve one weighted variant + this trigger's jitter.
             AudioClip* clip = nullptr;

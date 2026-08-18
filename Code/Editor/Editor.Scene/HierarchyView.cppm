@@ -123,7 +123,8 @@ export namespace editor
         class Row final : public ui::EditableLabel
         {
         public:
-            void Bind(const Guid& entity, StringView name, f32 textInset, bool prefabMember)
+            void Bind(const Guid& entity, StringView name, f32 textInset, bool prefabMember,
+                      bool effectivelyActive)
             {
                 m_entity = entity;
                 SetText(name);
@@ -132,14 +133,20 @@ export namespace editor
                 TextOffsetX.SetValue(textInset);
                 // Every prefab-instance member reads distinctly (the Unity-blue convention);
                 // the text itself stays clean so in-place renames never absorb a marker.
+                // Effectively-inactive entities DIM (entity-active-state.md P4) - alpha over
+                // whichever color the row would otherwise have, so prefab-blue dims too.
+                Optional<Color> color;
                 if (prefabMember)
                 {
-                    TextColor.SetValue(Color{0.45f, 0.72f, 1.0f, 1.0f});
+                    color = Color{0.45f, 0.72f, 1.0f, 1.0f};
                 }
-                else
+                if (!effectivelyActive)
                 {
-                    TextColor.SetValue(Optional<Color>{});
+                    Color base = color.HasValue() ? color.Value() : Color{1.0f, 1.0f, 1.0f, 1.0f};
+                    base.a = 0.45f;
+                    color = base;
                 }
+                TextColor.SetValue(color);
             }
             [[nodiscard]] const Guid& Entity() const noexcept { return m_entity; }
 
@@ -213,8 +220,12 @@ export namespace editor
                 scene::PrefabMemberInfo member;
                 const bool prefabMember =
                     scene::FindPrefabMember(m_owner->m_edit->Scene(), node.id, member);
+                scene::Scene& sceneRef = m_owner->m_edit->Scene();
+                const bool effectivelyActive =
+                    sceneRef.IsEffectivelyActive(sceneRef.FindEntity(node.id));
                 static_cast<Row*>(view)->Bind(node.id, node.name.AsView(),
-                                              m_owner->m_tree->ContentInset(depth), prefabMember);
+                                              m_owner->m_tree->ContentInset(depth), prefabMember,
+                                              effectivelyActive);
             }
 
             // Between-rows reorder: `toPosition` is the insert-before BOUNDARY (0..count;

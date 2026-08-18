@@ -68,6 +68,13 @@ export namespace foundation::scene
 
         [[nodiscard]] bool IsActive(EntityHandle entity) const noexcept;
         void SetActive(EntityHandle entity, bool active);
+        /// EFFECTIVE active state: this entity's own flag AND every ancestor's own flag
+        /// (entity-active-state.md). O(1) - the bit is cached on the slot and recomputed by
+        /// subtree walk at the only choke points that can change it (SetActive / reparent /
+        /// creation). ALL runtime gating (render extraction + every sim system) reads THIS,
+        /// never IsActive: deactivating a parent must dark the whole subtree without touching
+        /// the children's own flags.
+        [[nodiscard]] bool IsEffectivelyActive(EntityHandle entity) const noexcept;
 
         template <typename Fn>
         void ForEachEntity(Fn&& fn) const
@@ -410,6 +417,7 @@ export namespace foundation::scene
         {
             u32 generation = 0;
             bool active = false;
+            bool effectiveActive = false; // cached: active AND all ancestors' active
             bool alive = false;
             Guid persistentId;
             String name;
@@ -432,6 +440,12 @@ export namespace foundation::scene
         };
 
         EntityHandle CreateEntityInternal(const Guid& id, StringView name);
+
+        // Recompute the cached effectiveActive bit for `entity`'s whole subtree against its
+        // CURRENT parent chain. A branch whose own flag is false is not descended into: its
+        // descendants' cached values are already false regardless of anything above (the
+        // inductive invariant that keeps the walk cheap).
+        void RefreshEffectiveActive(EntityHandle entity);
 
         void DestroyEntityImmediate(EntityHandle entity);
 

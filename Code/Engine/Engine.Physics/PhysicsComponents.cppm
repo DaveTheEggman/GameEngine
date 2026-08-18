@@ -49,6 +49,9 @@ export namespace engine::physics
 
         // Runtime (transient):
         BodyId body;
+        // Entity-active latch (entity-active-state.md P3): the effective-active state this
+        // domain last reconciled against. Runtime only, never serialized.
+        bool simActive = false;
         Float3 prevPosition{0, 0, 0};
         Float3 currPosition{0, 0, 0};
         Quaternion prevRotation = Quaternion::Identity;
@@ -160,6 +163,9 @@ export namespace engine::physics
 
         // Runtime (transient):
         CharacterId character;
+        // Entity-active latch (entity-active-state.md P3): the effective-active state this
+        // domain last reconciled against. Runtime only, never serialized.
+        bool simActive = false;
         CharacterGround ground = CharacterGround::InAir;
         Float3 prevPosition{0, 0, 0};
         Float3 currPosition{0, 0, 0};
@@ -225,6 +231,9 @@ export namespace engine::physics
 
         // Runtime (transient):
         JointId joint;
+        // Entity-active latch (entity-active-state.md P3): the effective-active state this
+        // domain last reconciled against. Runtime only, never serialized.
+        bool simActive = false;
     };
 
     inline void Serialize(ISerializer& ar, JointComponent& c)

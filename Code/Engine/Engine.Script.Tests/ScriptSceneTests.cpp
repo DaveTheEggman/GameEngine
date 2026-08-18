@@ -264,6 +264,115 @@ TEST_CASE("script.scene: lifecycle - onStart once (deferred to the first simulat
     CHECK(bed.scripts->InstanceCount() == 1u);
 }
 
+TEST_CASE("script.scene: entity-active - starts-inactive never instantiates; activation "
+          "delivers onStart on the first ACTIVE tick (entity-active-state.md P3)")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> mover =
+        MakeClass(u8"Mover",
+                  u8"class Mover {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onStart() { _entity.setName(\"started\") }\n"
+                  u8"    onUpdate(dt) {\n"
+                  u8"        var p = _entity.position()\n"
+                  u8"        _entity.setPosition(p.x + dt, p.y, p.z)\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart", u8"onUpdate"}, {});
+
+    // Inactive via the PARENT (the hierarchy path), set BEFORE Start - the
+    // scene-starts-inactive case.
+    const scene::EntityHandle parent = bed.scene.CreateEntity(u8"holder");
+    const scene::EntityHandle e = bed.AddScripted(mover, u8"walker");
+    bed.scene.SetParent(e, parent);
+    bed.scene.SetActive(parent, false);
+
+    bed.Start();
+    bed.Frame();
+    bed.Frame();
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"walker")); // no construct, no onStart
+    CHECK(bed.scripts->InstanceCount() == 0u);                   // never instantiated
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 0.0f));
+
+    bed.scene.SetActive(parent, true);
+    bed.Frame(); // first ACTIVE tick: instantiate + onStart + onUpdate
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"started"));
+    CHECK(bed.scripts->InstanceCount() == 1u);
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 0.5f));
+}
+
+TEST_CASE("script.scene: entity-active - deactivation freezes updates with NO lifecycle "
+          "events; reactivation resumes without a second onStart")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> mover =
+        MakeClass(u8"Mover",
+                  u8"class Mover {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onStart() { _entity.setName(\"started\") }\n"
+                  u8"    onUpdate(dt) {\n"
+                  u8"        var p = _entity.position()\n"
+                  u8"        _entity.setPosition(p.x + dt, p.y, p.z)\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart", u8"onUpdate"}, {});
+    const scene::EntityHandle e = bed.AddScripted(mover, u8"walker");
+    bed.Start();
+    bed.Frame();
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"started"));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 0.5f));
+
+    bed.scene.SetActive(e, false);
+    bed.scene.SetEntityName(e, u8"mid"); // a re-fired onStart would overwrite this
+    bed.Frame();
+    bed.Frame();
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 0.5f)); // frozen
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"mid"));     // and SILENT (v1: no events)
+
+    bed.scene.SetActive(e, true);
+    bed.Frame();
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f)); // resumed
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"mid"));     // onStart did NOT re-fire
+    CHECK(bed.scripts->InstanceCount() == 1u);
+}
+
+TEST_CASE("script.scene: the entity facade exposes active/setActive/activeInHierarchy "
+          "(entity-active-state.md P4)")
+{
+    ScriptedScene bed;
+    RefPtr<ScriptClass> toggler =
+        MakeClass(u8"Toggler",
+                  u8"class Toggler {\n"
+                  u8"    construct new(entity) { _entity = entity }\n"
+                  u8"    onStart() {\n"
+                  u8"        if (_entity.active() && _entity.activeInHierarchy()) {\n"
+                  u8"            _entity.setName(\"live\")\n"
+                  u8"        }\n"
+                  u8"    }\n"
+                  u8"    onUpdate(dt) {\n"
+                  u8"        var p = _entity.position()\n"
+                  u8"        _entity.setPosition(p.x + 1, p.y, p.z)\n"
+                  u8"        _entity.setActive(false)\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart", u8"onUpdate"}, {});
+    const scene::EntityHandle e = bed.AddScripted(toggler, u8"walker");
+    bed.Start();
+
+    bed.Frame(); // onStart saw active+activeInHierarchy; onUpdate moved then SELF-deactivated
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"live"));
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+    CHECK_FALSE(bed.scene.IsActive(e)); // setActive(false) reached the scene
+
+    bed.Frame(); // now frozen by its own deactivation
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 1.0f));
+
+    bed.scene.SetActive(e, true); // wake it: one more step, then it self-deactivates again
+    bed.Frame();
+    CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f));
+    CHECK_FALSE(bed.scene.IsActive(e));
+}
+
 TEST_CASE("script.scene: LUAU behavior lifecycle + property field-apply through the run host")
 {
     ScriptedScene bed;

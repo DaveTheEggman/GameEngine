@@ -726,6 +726,10 @@ export namespace engine::script
                 {
                     continue;
                 }
+                if (m_scene != nullptr && !m_scene->IsEffectivelyActive(target))
+                {
+                    continue; // inactive entities receive nothing (messages + contacts)
+                }
                 const Span<Variant> argSpan{args.Data(), args.Size()};
                 for (usize i = 0;; ++i)
                 {
@@ -783,6 +787,10 @@ export namespace engine::script
             }
             for (scene::EntityHandle entity : m_tickOwners)
             {
+                if (!m_scene->IsEffectivelyActive(entity))
+                {
+                    continue; // inactive entities receive no bus events
+                }
                 for (usize i = 0;; ++i)
                 {
                     ScriptComponent* component = components->Get(entity);
@@ -874,6 +882,22 @@ export namespace engine::script
 
         void TickBehavior(ScriptBehavior& behavior, scene::EntityHandle entity, f32 deltaTime)
         {
+            // entity-active-state.md P3: an effectively-inactive entity's behaviors FREEZE -
+            // no lifecycle events fire, onStart waits for the first ACTIVE tick (so an entity
+            // that loads inactive behaves like spawn-disabled), and updates stop. Pending
+            // coroutines are cancelled once on the edge - the existing disabled-behavior
+            // semantic (there is no per-behavior pause in the scheduler).
+            if (m_scene != nullptr && !m_scene->IsEffectivelyActive(entity))
+            {
+                if (!behavior.entitySuspended)
+                {
+                    behavior.entitySuspended = true;
+                    CancelCoroutines(behavior);
+                }
+                return;
+            }
+            behavior.entitySuspended = false;
+
             ScriptClass* scriptClass = behavior.script.Get();
             if (scriptClass == nullptr)
             {

@@ -193,3 +193,66 @@ is roughly a session; each P3 domain is small but must be verified in-editor
   effectively-active tick.
 - Wire format unchanged: `active` (own flag) is already serialized everywhere
   it needs to be.
+
+## BUILT (Fable, 2026-08-18) - all four phases, battery-green clang+gcc
+
+Execution notes + deviations discovered against the code (each deliberate):
+
+- **P1 as specced.** `EntitySlot.effectiveActive` + `IsEffectivelyActive` (O(1)),
+  subtree resettle at SetActive / SetParent / MoveBefore / creation, with the
+  own-flag-false early-out. Destroy needs nothing (subtrees are destroyed, never
+  reparented). Loader order (SetActive during the entities block, parents relinked
+  after) is handled BY the SetParent choke point - verified by the
+  saved-inactive-parent/active-child round-trip test.
+- **P2 as specced** (8 loops incl. both mesh paths + primary-camera fallthrough).
+  The instanced-mesh caveat DISSOLVED: the renderer draws from the extracted
+  snapshot, so absence = not drawn; the persistent buffer is only a cache and
+  revalidates by version on return. Particles' render extraction (the provider in
+  engine.particles) is gated too.
+- **P3 physics**: per-entity create helpers (CreateBodyForEntity / ...Character /
+  ...Joint) shared by scene-start (skips inactive, latches simActive) and a
+  ReconcileActiveState() edge pass at the top of OnFixedUpdate. Joints reconcile on
+  the full want/have compare - an ACTIVE entity's joint drops when its explicit
+  TARGET deactivates and rebuilds when it returns (silent create path; scene-start
+  keeps the loud warnings). SIDE IMPROVEMENT: a rigid body component ADDED mid-run
+  now gets a body on the next activation edge (previously bodies were built only at
+  scene start). v1 toggle = destroy/re-create at the CURRENT pose, momentum cleared.
+- **P3 scripts - one ruling refined**: per-BEHAVIOR onEnable/onDisable machinery
+  already existed (behavior.enabled). The entity gate does NOT route through it:
+  entity-inactive freezes silently (no events, per the v1 ruling), cancels pending
+  coroutines on the edge (the existing disabled-behavior semantic - the scheduler
+  has no per-behavior pause, so "not resumed" v1 = cancelled), and onStart waits
+  for the first effectively-active tick. Bus events + entity.send/contact delivery
+  skip inactive targets. v2 MAY route entity edges through onEnable/onDisable -
+  the machinery is there.
+- **P3 animation/particles**: freeze as specced (time does not advance; particles
+  also stop RENDERING while frozen).
+- **P3 audio**: PlayComponent refuses inactive entities; the sync loop stops voices
+  on the deactivate edge and restarts AUTOPLAY sources on reactivate
+  (activeSuspended latch, armed at scene start for saved-inactive autoplay).
+- **P3 UI**: gated at the visibility level (canvas root Gone in build pass +
+  UpdateSceneView, billboards Gone, panel sprite hidden + RT draw skipped + pointer
+  ray-routing skips inactive panels). The RT texture object survives (a cache).
+- **P3 net - deviation from the one-line spec sketch**: inactive entities do NOT
+  drop out of snapshots (the wire is spawn-based; absence would mean despawn).
+  Instead their replicated STATE freezes: capture/apply/interpolation-sampling skip
+  them; identity + existence stay on the wire. Replicating the flag itself remains
+  the networking track's question, as originally noted.
+- **P4**: entity.active() / setActive(bool) / activeInHierarchy() on the script
+  Entity facade (both backends, tested from Wren); hierarchy rows dim to 45% alpha
+  when effectively inactive (prefab-blue dims too); MCP needs nothing - scene_read
+  serves the scene document, which already carries per-entity `active`.
+
+Tests (all green both compilers): Scene.Tests effective-active suite (5 cases),
+Scene.Resource.Tests load-inactive round-trips, Engine.Render.Tests extraction
+gates + camera fallthrough, Engine.Physics.Tests (starts-inactive / toggle /
+joint-target), Engine.Script.Tests (starts-inactive onStart deferral / silent
+freeze / facade), Engine.Animation.Tests property-animator freeze,
+Engine.Particles.Tests attach+freeze, Engine.Audio.Tests voice stop/restart,
+Net.Replication.Tests state freeze + stays-in-snapshot, Engine.UI.Tests canvas
+Gone/back via an inactive parent.
+
+Remaining (documented, not built): editor-viewport ghost rendering (non-goal),
+per-component enabled flags (non-goal), physics velocity preservation across a
+toggle (v2 option), script onEnable/onDisable on entity edges (v2 option),
+active-flag replication (networking track).

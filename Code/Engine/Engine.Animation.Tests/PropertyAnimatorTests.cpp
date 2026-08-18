@@ -344,3 +344,42 @@ TEST_CASE("property animator: reflected play/pause/stop/setTime drive the clock"
     CHECK_FALSE(anim.isPlaying());
     CHECK(anim.currentTime() == doctest::Approx(0.0f));
 }
+
+TEST_CASE("property animator: entity-active - starts-inactive never advances; toggle freezes/resumes")
+{
+    EnsureReflected();
+    scene::Scene sceneObj;
+    sceneObj.AddSystem<AnimTargetManager>();
+    sceneObj.AddSystem<PropertyAnimatorComponentManager>();
+    auto* targets = sceneObj.GetSystem<AnimTargetManager>();
+    auto* animators = sceneObj.GetSystem<PropertyAnimatorComponentManager>();
+
+    const scene::EntityHandle e = sceneObj.CreateEntity(u8"Frozen");
+    AnimTarget& target = targets->Add(e);
+    RefPtr<PropertyAnimationClipResource> clip = MakePositionClip();
+    PropertyAnimatorComponent& anim = animators->Add(e);
+    anim.clip = clip.Get();
+    anim.autoplay = true;
+
+    // Inactive from the first tick (the scene-starts-inactive case): no bind, no writes.
+    sceneObj.SetActive(e, false);
+    sceneObj.Update(0.5f);
+    sceneObj.Update(0.5f);
+    CHECK(target.position.x == doctest::Approx(0.0f));
+
+    // Activation: binds + autoplays from t=0 (nothing pre-advanced while dark).
+    sceneObj.SetActive(e, true);
+    sceneObj.Update(0.0f);
+    sceneObj.Update(0.5f); // midpoint of the 0..10 ramp
+    CHECK(target.position.x == doctest::Approx(5.0f));
+
+    // Deactivate mid-clip: time FREEZES (entity-active-state.md P3).
+    sceneObj.SetActive(e, false);
+    sceneObj.Update(0.3f);
+    CHECK(target.position.x == doctest::Approx(5.0f));
+
+    // Reactivate: resumes from where it froze.
+    sceneObj.SetActive(e, true);
+    sceneObj.Update(0.4f); // 0.5 + 0.4 = 0.9 -> x ~ 9
+    CHECK(target.position.x == doctest::Approx(9.0f));
+}
