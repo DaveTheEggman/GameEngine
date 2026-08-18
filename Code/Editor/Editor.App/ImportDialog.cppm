@@ -31,6 +31,18 @@ export namespace editor::app
     public:
         /// Fired when the user confirms; the options object carries their checkbox edits.
         Function<void()> OnImport;
+        /// Fired when the user clicks "Change..." on the destination row. The caller (which knows the
+        /// project's groups) pops a group chooser, then calls SetDestination with the new group path.
+        Function<void()> OnChangeDestination;
+
+        /// Update the shown destination after the caller's group chooser resolves.
+        void SetDestination(StringView destination)
+        {
+            if (m_destinationText.Get() != nullptr)
+            {
+                m_destinationText->SetText(destination);
+            }
+        }
 
         ImportOptionsDialog(StringView sourcePath, StringView destination,
                             RefPtr<pipeline::ImportOptions> options)
@@ -44,7 +56,46 @@ export namespace editor::app
             column->Spacing = 6.0f;
 
             AddInfoRow(*column, u8"Source:", pipeline::FileNameOf(sourcePath));
-            AddInfoRow(*column, u8"Into:", destination);
+
+            // Destination row: "Into: <group path> [Change...]" - lets the user retarget the import
+            // (default = the active group). The caller wires OnChangeDestination to a group chooser.
+            {
+                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                row->Direction = ui::Orientation::Horizontal;
+                row->Spacing = 6.0f;
+                auto name = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Into:"));
+                name->FontSize.SetValue(11.0f);
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(52.0f));
+                    lp->Height = ui::SizeSpec::Match();
+                    row->AddView(name.Get(), lp);
+                }
+                m_destinationText = MakeRef<ui::Label>(DefaultAllocator(), destination);
+                m_destinationText->FontSize.SetValue(11.0f);
+                m_destinationText->Ellipsis.SetValue(true);
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Grow = 1.0f;
+                    lp->Height = ui::SizeSpec::Match();
+                    row->AddView(m_destinationText.Get(), lp);
+                }
+                auto change = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Change..."));
+                change->FontSize.SetValue(Optional<f32>{11.0f});
+                ImportOptionsDialog* self = this;
+                change->OnClick.Add([self](ui::ButtonBase*)
+                                    { if (self->OnChangeDestination) self->OnChangeDestination(); });
+                {
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(72.0f));
+                    lp->Height = ui::SizeSpec::Match();
+                    row->AddView(change.Get(), lp);
+                }
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+                column->AddView(row.Get(), lp);
+            }
 
             if (m_options.Get() != nullptr)
             {
@@ -123,6 +174,7 @@ export namespace editor::app
         }
 
         RefPtr<pipeline::ImportOptions> m_options;
+        RefPtr<ui::Label> m_destinationText; // the shown group path; updated by SetDestination
     };
 
     RTTI_DEFINE_OBJECT(ImportOptionsDialog, "rtti::editor::editor::app")

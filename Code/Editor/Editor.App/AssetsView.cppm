@@ -241,6 +241,9 @@ export namespace editor::app
         // Run the import for ONE resolved importer (the single match, or the chooser pick): shows its
         // options dialog if it has options, else imports immediately.
         void ImportWith(StringView path, pipeline::IFileImporter* importer);
+        // The "Change..." destination chooser: a menu of every project group; picking one retargets
+        // m_importTargetGroup and updates the dialog's shown destination path.
+        void ShowImportDestinationMenu(ImportOptionsDialog& dialog);
 
         /// Runs the import (post-dialog). Slow importers (models) split: the parse/decode
         /// runs on the JOB worker so the UI stays live (with the status-bar progress), and
@@ -755,6 +758,7 @@ export namespace editor::app
         Array<Row> m_rows;                         // content area: subgroups then instances
         Array<content::Group*> m_breadcrumbGroups; // segment index -> group
         content::Group* m_selectedGroup = nullptr;
+        content::Group* m_importTargetGroup = nullptr; // the chosen import destination (Change... picker)
         String m_filter;
         bool m_gridMode = false;
         u64 m_cookRevision = ~0ull;

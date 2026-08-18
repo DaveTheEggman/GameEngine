@@ -92,22 +92,66 @@ namespace editor::app
         {
             return;
         }
+        // Default this import to the active group (fresh each time so a cancelled prior import can't
+        // leave a stale target); the dialog's Change... picker may retarget it before Import.
+        content::Group* group = (m_selectedGroup != nullptr)
+                                    ? m_selectedGroup
+                                    : m_context->Project()->SourceDb().RootGroup();
+        m_importTargetGroup = group;
+
         RefPtr<pipeline::ImportOptions> options = importer->CreateOptions();
         if (options.Get() == nullptr)
         {
             ExecuteImport(String(path), importer, {});
             return;
         }
-        content::Group* group = (m_selectedGroup != nullptr)
-                                    ? m_selectedGroup
-                                    : m_context->Project()->SourceDb().RootGroup();
         auto dialog =
             MakeRef<ImportOptionsDialog>(DefaultAllocator(), path, group->Path().AsView(), options);
         AssetsView* self = this;
+        ImportOptionsDialog* dlg = dialog.Get();
+        dialog->OnChangeDestination = [self, dlg]() { self->ShowImportDestinationMenu(*dlg); };
         dialog->OnImport = [self, file = String(path), importer,
                             opts = RefPtr<pipeline::ImportOptions>(options.Get())]()
         { self->ExecuteImport(file, importer, opts); };
         dialog->Show(Context);
+    }
+
+    void AssetsView::ShowImportDestinationMenu(ImportOptionsDialog& dialog)
+    {
+        if (m_context->Project() == nullptr || Context == nullptr)
+        {
+            return;
+        }
+        content::Group* root = m_context->Project()->SourceDb().RootGroup();
+        if (root == nullptr)
+        {
+            return;
+        }
+        // Flatten the group tree (depth-first) so every group is a chooser item, labeled by its path.
+        Array<content::Group*> all;
+        Function<void(content::Group*)> walk = [&](content::Group* g)
+        {
+            all.PushBack(g);
+            for (content::Group* child : g->Groups())
+            {
+                walk(child);
+            }
+        };
+        walk(root);
+
+        AssetsView* self = this;
+        ImportOptionsDialog* dlg = &dialog;
+        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        for (content::Group* g : all)
+        {
+            menu->AddItem(g->Path().AsView(), [self, g, dlg]()
+                          {
+                              self->m_importTargetGroup = g;
+                              dlg->SetDestination(g->Path().AsView());
+                          });
+        }
+        const Float2 at = LocalToScreen(Float2{60.0f, 60.0f});
+        menu->Show(Context, at.x, at.y);
     }
 
     void AssetsView::ExecuteImport(String path, pipeline::IFileImporter* importer,
@@ -174,9 +218,12 @@ namespace editor::app
                               u8"Import queued until the current cook finishes.");
             return;
         }
-        content::Group* group = (m_selectedGroup != nullptr)
-                                    ? m_selectedGroup
-                                    : m_context->Project()->SourceDb().RootGroup();
+        // The user's chosen destination (the import dialog's Change... picker), else the active group.
+        content::Group* group =
+            (m_importTargetGroup != nullptr)
+                ? m_importTargetGroup
+                : ((m_selectedGroup != nullptr) ? m_selectedGroup
+                                                : m_context->Project()->SourceDb().RootGroup());
         auto deferred =
             MakeUnique<Array<pipeline::DeferredImportWrite>>(DefaultAllocator());
         Result<content::Instance*> imported =
