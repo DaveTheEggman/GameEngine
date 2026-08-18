@@ -331,6 +331,7 @@ add_subdirectory(Code/Foundation/Particles.Resource)
 add_subdirectory(Code/Foundation/Physics)   # Jolt-backed rigid-body core (world/bodies/queries/events; JPH never public)
 add_subdirectory(Code/Foundation/Physics.Resource)  # cooked collision shapes + physical materials
 add_subdirectory(Code/Foundation/Navigation) # Recast/Detour navmesh core (bake + query + crowd; rc*/dt* never public)
+add_subdirectory(Code/Foundation/Navigation.Resource) # cooked navmesh-zone resource + factory
 add_subdirectory(Code/Foundation/Audio)     # miniaudio-backed audio engine core (voices/buses/handles; ma_* never public)
 add_subdirectory(Code/Foundation/Audio.Resource)    # cooked audio clips + factory
 add_subdirectory(Code/Foundation/Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
@@ -498,6 +499,7 @@ if(OPTION_BUILD_TOOLS)
     add_subdirectory(Code/Editor/Editor.Core) # headless editor domain: context/registries/commands/pages/project (tooling)
     add_subdirectory(Code/Editor/Editor.Mcp) # MCP project tools (project_create/open/info); headless
     add_subdirectory(Code/Pipeline/Physics.Pipeline)    # collision/material assets + builders (tooling)
+    add_subdirectory(Code/Pipeline/Navigation.Pipeline) # navmesh-zone asset + builder (tooling)
     add_subdirectory(Code/Pipeline/Audio.Pipeline)      # audio clip asset/builder/importer (tooling)
     add_subdirectory(Code/Pipeline/UI.Pipeline)     # UI document/theme assets + validating builders (tooling)
     add_subdirectory(Code/Pipeline/ModelImporter) # top-level model import: model IR -> cooked geometry/material/texture/animation resources
@@ -583,6 +585,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Pipeline/ModelImporter.Tests                 Pipeline::ModelImporter)
     util_test_suite(Code/Pipeline/Particles.Pipeline.Tests              Pipeline::Particles)
     util_test_suite(Code/Pipeline/Physics.Pipeline.Tests                Pipeline::Physics)
+    util_test_suite(Code/Pipeline/Navigation.Pipeline.Tests             Pipeline::Navigation)
     util_test_suite(Code/Pipeline/Script.AngelScript.Pipeline.Tests     Pipeline::Script.AngelScript)
     util_test_suite(Code/Pipeline/Script.Pipeline.Tests                 Pipeline::Script)
     util_test_suite(Code/Pipeline/Script.Wren.Pipeline.Tests            Pipeline::Script.Wren)

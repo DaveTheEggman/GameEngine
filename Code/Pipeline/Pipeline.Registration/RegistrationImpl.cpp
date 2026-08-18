@@ -34,6 +34,8 @@ import modelimporter;
 import foundation.physics;
 import foundation.physics.resource;
 import physics.pipeline;
+import foundation.navigation.resource;
+import navigation.pipeline;
 import foundation.ui.resource;
 import ui.pipeline;
 import foundation.audio;
@@ -97,6 +99,8 @@ namespace pipeline
         foundation::image::RegisterImageResource();
         RegisterPhysicsAssets();
         foundation::physics::RegisterPhysicsResource();
+        RegisterNavigationZoneAsset();
+        foundation::navigation::RegisterNavigationResource();
         RegisterUIAssets();
         foundation::ui::RegisterUIResource();
         RegisterAudioAssets();
@@ -141,6 +145,7 @@ namespace pipeline
         AddBuilder<ModelManifestAssetBuilder>(registry);
         AddBuilder<CollisionShapeAssetBuilder>(registry);
         AddBuilder<PhysicalMaterialAssetBuilder>(registry);
+        AddBuilder<NavigationZoneAssetBuilder>(registry);
         AddBuilder<UIDocumentAssetBuilder>(registry);
         AddBuilder<UIThemeAssetBuilder>(registry);
         AddBuilder<AudioClipAssetBuilder>(registry);

@@ -15,6 +15,7 @@ target_link_libraries(Pipeline.Registration PUBLIC
     Foundation::Input Foundation::Input.Resource Pipeline::Input
     Pipeline::ModelImporter Foundation::Image.Resource
     Foundation::Physics Foundation::Physics.Resource Pipeline::Physics
+    Foundation::Navigation Foundation::Navigation.Resource Pipeline::Navigation
     Foundation::Audio Foundation::Audio.Resource Pipeline::Audio
     Foundation::Script ${SCRIPTLIB_WREN} ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU}
     Foundation::Script.Resource Foundation::Script.Facades
