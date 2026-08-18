@@ -123,9 +123,14 @@ export namespace engine::animation
 
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
-        // Property animation is gameplay-side but harmless in edit mode (it just writes props); keep it
-        // always-on so a clip previews without an explicit Start (matches the skeletal manager).
-        [[nodiscard]] bool IsSimulationOnly() const noexcept override { return false; }
+        // SIMULATION-GATED (user ruling 2026-08-18, reversing the earlier always-on choice):
+        // autoplay clips visibly animating in the editor's NON-simulating edit mode was
+        // distracting and semantically wrong. This does NOT affect the in-scene animation
+        // panel - its preview/transport write property values DIRECTLY (ReadTrackTarget/
+        // WriteTrackTarget), never through this manager's tick. Scenes default to simulating,
+        // so players/PIE/tests are unaffected; only a scene that explicitly disables
+        // simulation (the editor's edit mode) freezes.
+        [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
 
         void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override
         {

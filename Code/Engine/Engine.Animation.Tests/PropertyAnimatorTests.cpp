@@ -383,3 +383,39 @@ TEST_CASE("property animator: entity-active - starts-inactive never advances; to
     sceneObj.Update(0.4f); // 0.5 + 0.4 = 0.9 -> x ~ 9
     CHECK(target.position.x == doctest::Approx(9.0f));
 }
+
+TEST_CASE("property animator: SIMULATION-GATED - a non-simulating scene freezes; enabling resumes")
+{
+    // User ruling 2026-08-18: animation must not advance in the editor's edit mode (scene
+    // simulation disabled). Scenes default to simulating, so this is opt-out only.
+    EnsureReflected();
+    scene::Scene sceneObj;
+    sceneObj.AddSystem<AnimTargetManager>();
+    sceneObj.AddSystem<PropertyAnimatorComponentManager>();
+    auto* targets = sceneObj.GetSystem<AnimTargetManager>();
+    auto* animators = sceneObj.GetSystem<PropertyAnimatorComponentManager>();
+
+    const scene::EntityHandle e = sceneObj.CreateEntity(u8"EditFrozen");
+    AnimTarget& target = targets->Add(e);
+    RefPtr<PropertyAnimationClipResource> clip = MakePositionClip();
+    PropertyAnimatorComponent& anim = animators->Add(e);
+    anim.clip = clip.Get();
+    anim.autoplay = true;
+
+    // Edit mode: simulation off -> the manager never binds, never advances, never writes.
+    sceneObj.SetSimulationEnabled(false);
+    sceneObj.Update(0.5f);
+    sceneObj.Update(0.5f);
+    CHECK(target.position.x == doctest::Approx(0.0f));
+
+    // Simulate: binds + autoplays from t=0.
+    sceneObj.SetSimulationEnabled(true);
+    sceneObj.Update(0.0f);
+    sceneObj.Update(0.5f);
+    CHECK(target.position.x == doctest::Approx(5.0f));
+
+    // Back to edit mode mid-clip: frozen where it was.
+    sceneObj.SetSimulationEnabled(false);
+    sceneObj.Update(0.4f);
+    CHECK(target.position.x == doctest::Approx(5.0f));
+}

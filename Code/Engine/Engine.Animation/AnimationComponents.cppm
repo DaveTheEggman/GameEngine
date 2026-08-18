@@ -91,9 +91,13 @@ export namespace engine::animation
 
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
-        // Animation is gameplay-side state; only advance it while the scene is simulating? Keep it
-        // always-on for now so apps animate without an explicit Start() (revisit with edit-mode).
-        [[nodiscard]] bool IsSimulationOnly() const noexcept override { return false; }
+        // SIMULATION-GATED (user ruling 2026-08-18): animation is gameplay-side state and must
+        // not advance in a non-simulating scene - watching things animate in the editor's edit
+        // mode was distracting and wrong. Consumers that want live animation in a paused-looking
+        // context (the bespoke preview pages) enable simulation on their PRIVATE preview scene
+        // (PreviewViewport::SetSimulationEnabled) - scenes default to simulating, so players and
+        // headless tests are unaffected.
+        [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
 
         void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override
         {
@@ -222,7 +226,8 @@ export namespace engine::animation
 
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
-        [[nodiscard]] bool IsSimulationOnly() const noexcept override { return false; }
+        // Simulation-gated like the clip manager (see its comment - user ruling 2026-08-18).
+        [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
 
         // Run before the simple-clip manager (UpdateOrder 0) so the graph drives graph-backed entities.
         [[nodiscard]] i32 UpdateOrder() const noexcept override { return -1; }
@@ -327,7 +332,8 @@ export namespace engine::animation
     {
     public:
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
-        [[nodiscard]] bool IsSimulationOnly() const noexcept override { return false; }
+        // Simulation-gated like the clip manager (see its comment - user ruling 2026-08-18).
+        [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
 
         void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override
         {
