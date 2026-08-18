@@ -51,6 +51,9 @@ export namespace editor::app
     public:
         /// Open an instance's editor page (wired by the application).
         Function<void(content::Instance&)> OnOpenInstance;
+        // "Import..." in the background menu: the app (which owns the shell) browses for a file and
+        // feeds it back through ImportFile. Injected because the view has no shell/dialog access.
+        Function<void()> OnBrowseImport;
         /// Create an asset via a registry creator (wired by the application - it also opens it).
         /// `group` = the group the menu was invoked for (creations land there).
         Function<void(const editor::EditorContext::AssetCreator&, content::Group*)>

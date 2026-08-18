@@ -885,6 +885,10 @@ namespace editor::app
             }
         }
         menu->AddItem(u8"New Group", [self, target]() { self->CreateGroupIn(target); });
+        // Browse for a file to import (the app opens the native file dialog + routes it to ImportFile,
+        // which shows the importer chooser / options dialog, or warns when no importer is registered).
+        menu->AddItem(u8"Import...", [self]()
+                      { if (self->OnBrowseImport) self->OnBrowseImport(); });
         if (target != nullptr)
         {
             menu->AddItem(u8"Cook Group",

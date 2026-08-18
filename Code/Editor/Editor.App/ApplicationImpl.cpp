@@ -2280,6 +2280,31 @@ namespace editor::app
         m_assetsView->OnCreate =
             [this](const editor::EditorContext::AssetCreator& creator,
                    foundation::content::Group* group) { CreateAndOpen(creator, group); };
+        // "Import..." in the asset-browser menu: open the native file dialog, then route each picked
+        // file through ImportFile (importer chooser / options dialog / no-importer warning).
+        m_assetsView->OnBrowseImport = [this]()
+        {
+            if (m_host == nullptr || m_host->Shell() == nullptr ||
+                m_host->Shell()->Dialogs() == nullptr)
+            {
+                m_context.Notify(editor::NoticeKind::Error, u8"File dialogs are unavailable.");
+                return;
+            }
+            m_host->Shell()->Dialogs()->ShowOpenFile(
+                foundation::shell::DialogResultCallback{[this](Span<const String> paths)
+                                                        {
+                                                            if (m_assetsView.Get() == nullptr)
+                                                            {
+                                                                return;
+                                                            }
+                                                            for (usize i = 0; i < paths.Size(); ++i)
+                                                            {
+                                                                m_assetsView->ImportFile(
+                                                                    paths[i].AsView());
+                                                            }
+                                                        }},
+                {}, {}, /*allowMultiple*/ true);
+        };
         // Delete-while-open policy: close-then-delete. Called from a mutation-queue
         // action (never mid-event-dispatch), so synchronous panel + page teardown is
         // safe here - the same pair of steps the tab close button triggers.
