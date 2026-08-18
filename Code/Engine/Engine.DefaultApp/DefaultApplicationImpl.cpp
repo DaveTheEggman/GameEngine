@@ -22,6 +22,7 @@ import engine.animation; // AnimationSubsystem (drives skeletal animation from t
 import engine.particles; // ParticleSubsystem (scene-driven CPU sim)
 import foundation.physics;             // ContactKind/EntityContact (the contact bridge)
 import engine.physics;   // PhysicsSubsystem (Jolt worlds + interpolation)
+import engine.navigation; // NavigationSubsystem + script facade
 import foundation.input;               // the action model/runtime
 import engine.input;     // InputSubsystem + the Wren Input facade
 import foundation.script;              // IScriptManager/Context (the game script)
@@ -47,6 +48,7 @@ import foundation.particles.resource;  // particle-effect factory
 import foundation.input.resource;      // input-map factory
 import foundation.fonts.resource;      // FontResource + FontFactory (default UI font)
 import foundation.physics.resource;    // collision-shape/physical-material factories
+import foundation.navigation.resource; // navmesh-zone factory
 import foundation.texture.resource;    // texture factory (device-backed)
 import foundation.image.resource;      // image resource registration
 import foundation.model.resource;      // cooked-model family types + registration
@@ -134,6 +136,7 @@ namespace engine::runtime
             host.Ctx().AddSubsystem<engine::particles::ParticleSubsystem>();
         }
         m_physics = host.Ctx().AddSubsystem<engine::physics::PhysicsSubsystem>();
+        host.Ctx().AddSubsystem<engine::navigation::NavigationSubsystem>();
         // Networking scene integration: injects the NetworkComponentManager into every scene so
         // authored NetworkComponents work (the per-instance endpoint replicates over it).
         host.Ctx().AddSubsystem<engine::net::NetworkSubsystem>();
@@ -161,6 +164,7 @@ namespace engine::runtime
         InstallInstanceLoadFacade(m_instance); // SceneLoader.* level-load facade for the primary instance
         engine::input::RegisterInputScriptFacade();
         engine::physics::RegisterPhysicsScriptFacade();
+        engine::navigation::RegisterNavigationScriptFacade();
         engine::render::RegisterRenderScriptFacade();
         engine::animation::RegisterAnimationScriptFacade();
         engine::particles::RegisterParticleScriptFacade();
@@ -476,6 +480,7 @@ namespace engine::runtime
         foundation::particles::RegisterParticleEffectResource();
         foundation::input::RegisterInputMapResource();
         foundation::physics::RegisterPhysicsResource();
+        foundation::navigation::RegisterNavigationResource();
         foundation::audio::RegisterAudioResource();
         foundation::script::RegisterScriptResource();
         foundation::ui::RegisterUIResource();
@@ -518,6 +523,7 @@ namespace engine::runtime
         resources.AddFactory(&m_particleEffectFactory);
         resources.AddFactory(&m_inputMapFactory);
         resources.AddFactory(&m_collisionShapeFactory);
+        resources.AddFactory(&m_navigationZoneFactory);
         resources.AddFactory(&m_physicalMaterialFactory);
         resources.AddFactory(&m_audioClipFactory);
         resources.AddFactory(&m_busLayoutFactory);

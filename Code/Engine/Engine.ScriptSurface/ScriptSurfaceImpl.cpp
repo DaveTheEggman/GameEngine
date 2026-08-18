@@ -13,6 +13,7 @@ module engine.scriptsurface;
 import foundation.core;
 import foundation.script.facades; // RegisterScriptFacadeReflection (base Entity/Log/Time/Random)
 import engine.physics;
+import engine.navigation;
 import engine.audio;
 import engine.input;
 import engine.ui;
@@ -36,6 +37,7 @@ namespace engine
 
         // Every subsystem's metadata-only facade registrar (no device/world/GPU touched).
         engine::physics::RegisterPhysicsScriptFacade();
+        engine::navigation::RegisterNavigationScriptFacade();
         engine::audio::RegisterAudioScriptFacade();
         engine::input::RegisterInputScriptFacade();
         engine::ui::RegisterUiScriptFacade();

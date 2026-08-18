@@ -15,7 +15,9 @@ module;
 export module engine.navigation:subsystem;
 
 import foundation.core;
+import foundation.runtime;
 import foundation.scene;
+import engine.scene;
 import foundation.navigation;
 import foundation.navigation.resource;
 import :components;
@@ -242,4 +244,37 @@ export namespace engine::navigation
         scene.AddSystem<NavAgentComponentManager>();
         scene.AddSystem<NavigationSceneSystem>();
     }
+
+    // Runtime subsystem: the DefaultApp-registered broker that injects the per-scene navigation
+    // managers into every scene (via ISceneAware) and registers the component reflection once.
+    // The per-scene tick lives in NavigationSceneSystem; this type owns no cross-scene state.
+    class NavigationSubsystem final : public foundation::runtime::Subsystem,
+                                      public scene::ISceneAware
+    {
+    public:
+        void OnSceneCreated(scene::Scene& scene) override { AddNavigationSceneManagers(scene); }
+
+    protected:
+        void OnInit() override { RegisterNavigationComponentReflection(); }
+        void OnReady() override
+        {
+            if (foundation::runtime::Context* context = GetContext())
+            {
+                if (auto* scenes = context->GetSubsystem<engine::scene::SceneSubsystem>())
+                {
+                    scenes->RegisterSceneAware(this);
+                }
+            }
+        }
+        void OnShutdown() override
+        {
+            if (foundation::runtime::Context* context = GetContext())
+            {
+                if (auto* scenes = context->GetSubsystem<engine::scene::SceneSubsystem>())
+                {
+                    scenes->UnregisterSceneAware(this);
+                }
+            }
+        }
+    };
 }

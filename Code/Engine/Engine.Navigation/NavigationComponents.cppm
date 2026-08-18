@@ -141,4 +141,9 @@ export namespace engine::navigation
     // the zone Ref picker). Defined in the implementation unit (REFLECT_VALUE bodies stay out of
     // interface units - GCC module hygiene).
     void RegisterNavigationComponentReflection();
+
+    // Metadata-only script-facade registrar (DefaultApp + Engine.ScriptSurface call it): surfaces
+    // NavAgentComponent to the script backends so behaviors can call NavAgent.of(entity).navigate(...)
+    // and reference the class name in their prelude. Touches no device/world.
+    void RegisterNavigationScriptFacade();
 }

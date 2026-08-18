@@ -57,6 +57,7 @@ import foundation.propertyanimation.resource; // property-animation clip factory
 import foundation.particles.resource;  // particle-effect factory
 import foundation.input.resource;      // input-map factory
 import foundation.physics.resource;    // collision-shape/physical-material factories
+import foundation.navigation.resource; // navmesh-zone factory
 import foundation.texture.resource;    // texture factory (device-backed)
 import foundation.image.resource;      // image resource registration
 import foundation.model.resource;      // cooked-model family types + registration
@@ -237,6 +238,7 @@ export namespace engine::runtime
         foundation::input::InputMapFactory m_inputMapFactory;
         foundation::physics::CollisionShapeFactory m_collisionShapeFactory;
         foundation::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
+        foundation::navigation::NavigationZoneFactory m_navigationZoneFactory;
         foundation::audio::AudioClipFactory m_audioClipFactory;
         foundation::audio::AudioBusLayoutFactory m_busLayoutFactory;
         foundation::audio::SoundCueFactory m_soundCueFactory;

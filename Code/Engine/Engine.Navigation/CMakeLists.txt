@@ -4,7 +4,7 @@ add_library(Engine.Navigation STATIC)
 add_library(Engine::Navigation ALIAS Engine.Navigation)
 
 target_link_libraries(Engine.Navigation
-    PUBLIC Foundation::Core Foundation::Scene Foundation::Resource
+    PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene Foundation::Resource
            Foundation::Navigation Foundation::Navigation.Resource
            Foundation::Script.Facades Foundation::Policy)
 
