@@ -122,6 +122,14 @@ export namespace foundation::ui::toolkit
         /// time axis instead of a private normalized one).
         f32 TimeSpan = 1.0f;
 
+        /// D1 shared time transform: when true the canvas maps time via PixelsPerSecond + ScrollSeconds
+        /// (canvas-local x, no gutter) EXACTLY like the Timeline widget, so the curve follows the
+        /// dopesheet's zoom/scroll and stays aligned with it. TimeSpan is ignored in this mode. When
+        /// false (default) the legacy fit-[0,TimeSpan]-to-width mapping applies (other callers).
+        bool UseSharedTimeTransform = false;
+        f32 PixelsPerSecond = 100.0f;
+        f32 ScrollSeconds = 0.0f;
+
         /// Fired when an edit gesture begins (mouse-down starting a drag, or click-add, or right-click delete).
         Event<void()> OnEditBegin;
         /// Fired when the current edit gesture commits.
@@ -630,7 +638,7 @@ export namespace foundation::ui::toolkit
                 {
                     const f32 frac = i / static_cast<f32>(DIVS);
                     const f32 lineX = frac * Width();
-                    const String txt = FormatShort(frac * TimeSpan); // seconds label (ruling 2)
+                    const String txt = FormatShort(XToTime(lineX)); // seconds at this x (shared or legacy)
                     if (i == 0)
                     {
                         ctx.VG().DrawText(txt, font, Rectangle{2, Height() - 13, 32, 12},
@@ -666,12 +674,11 @@ export namespace foundation::ui::toolkit
                 ctx.VG().BeginPath();
                 for (i32 i = 0; i <= SAMPLES; i++)
                 {
-                    // Sample across the FULL time span (seconds) - the fraction alone only
-                    // covered [0,1]s, cutting the polyline short on clips longer than 1s
-                    // while the key markers (true Key.Time) drew at their real positions.
-                    const f32 t = (i / static_cast<f32>(SAMPLES)) * TimeSpan;
+                    // Sample in SCREEN x across the visible width; XToTime maps to seconds (shared or
+                    // legacy), so the polyline covers exactly what is on screen at any zoom/scroll.
+                    const f32 x = (i / static_cast<f32>(SAMPLES)) * Width();
+                    const f32 t = XToTime(x);
                     const f32 v = Evaluate(c, t);
-                    const f32 x = TimeToX(t);
                     const f32 y = ValueToY(v);
                     if (i == 0)
                     {
@@ -1006,9 +1013,21 @@ export namespace foundation::ui::toolkit
 
         // === Coordinate transforms ===
 
+        // Pixels per second - the time scale. Shared mode uses the pushed PixelsPerSecond; legacy mode
+        // derives it from fitting [0,TimeSpan] to the width.
+        [[nodiscard]] f32 PixelsPerTime() const
+        {
+            if (UseSharedTimeTransform)
+            {
+                return PixelsPerSecond;
+            }
+            const f32 span = (TimeSpan > 1e-6f) ? TimeSpan : 1e-6f;
+            return Width() / span;
+        }
         [[nodiscard]] f32 TimeToX(f32 t) const
         {
-            return (TimeSpan > 1e-6f ? t / TimeSpan : 0.0f) * Width();
+            const f32 origin = UseSharedTimeTransform ? ScrollSeconds : 0.0f;
+            return (t - origin) * PixelsPerTime();
         }
         [[nodiscard]] f32 ValueToY(f32 v) const
         {
@@ -1021,6 +1040,11 @@ export namespace foundation::ui::toolkit
         }
         [[nodiscard]] f32 XToTime(f32 x) const
         {
+            if (UseSharedTimeTransform)
+            {
+                const f32 t = ScrollSeconds + (PixelsPerSecond > 1e-6f ? x / PixelsPerSecond : 0.0f);
+                return (t > 0.0f) ? t : 0.0f; // no negative time (a key can't sit before the start)
+            }
             return core::Clamp(x / Width(), 0.0f, 1.0f) * TimeSpan;
         }
         [[nodiscard]] f32 YToValue(f32 y) const
@@ -1053,7 +1077,7 @@ export namespace foundation::ui::toolkit
             const f32 slope = outgoing ? k.TangentOut : k.TangentIn;
             // Pixels per SECOND, not per full width - slopes are dValue/dSECOND, so the
             // screen direction must use the seconds scale or handles lie by TimeSpan x.
-            const f32 pT = Width() / Max(TimeSpan, 0.000001f);
+            const f32 pT = PixelsPerTime(); // px per second (shared) or per fit-span (legacy)
             const f32 dx = outgoing ? pT : -pT;
             const f32 dy = outgoing ? (-slope * pV) : (slope * pV);
             const f32 norm = Sqrt(dx * dx + dy * dy);
@@ -1082,7 +1106,7 @@ export namespace foundation::ui::toolkit
             }
             const f32 screenSlope = screenDy / screenDx;
             // Inverse of ComputeHandlePos: screen slope back to dValue/dSECOND.
-            const f32 pT = Width() / Max(TimeSpan, 0.000001f);
+            const f32 pT = PixelsPerTime(); // px per second (shared) or per fit-span (legacy)
             return -screenSlope * pT / pV;
         }
 

@@ -107,6 +107,8 @@ export namespace editor
                                              StringView propertyPath) override;
         // Author the clip's duration (clamped to at least the last key); one undo step.
         void SetClipDuration(f32 seconds) override;
+        // D1: hand the curve canvas the dopesheet Timeline's shared seconds<->pixels transform.
+        [[nodiscard]] IClipEditorHost::TimeAxis ClipTimeTransform() const override;
 
         // === frame hooks (called by the scene page; replace the old IViewportTool seam) ===
         // Advances playback by dt when Playing (drives the playhead + preview); caches the EDIT/Simulate

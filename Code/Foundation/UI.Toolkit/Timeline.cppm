@@ -80,12 +80,14 @@ export namespace foundation::ui::toolkit
         {
             m_pixelsPerSecond = Clamp(pps, kMinPps, kMaxPps);
             m_scrollSeconds = ClampScroll(m_scrollSeconds); // zooming out shrinks the max scroll
+            OnViewChanged.Invoke(); // a consumer (the curve canvas) shares this transform (D1)
             Invalidate();
         }
         [[nodiscard]] f32 ScrollSeconds() const noexcept { return m_scrollSeconds; }
         void SetScrollSeconds(f32 seconds)
         {
             m_scrollSeconds = ClampScroll(seconds);
+            OnViewChanged.Invoke();
             Invalidate();
         }
 
@@ -199,6 +201,7 @@ export namespace foundation::ui::toolkit
         Event<void()> OnSelectionChanged;
         Event<void(f32)> OnKeysMoved; // a key drag committed: move all selected keys by this delta (s)
         Event<void(i32)> OnLaneSelected; // the USER picked a lane (label click or key pick); -1 never fires
+        Event<void()> OnViewChanged; // the time transform (zoom/scroll) changed - shared consumers re-sync (D1)
 
         void OnMeasure(BoxConstraints constraints) override
         {
@@ -462,8 +465,7 @@ export namespace foundation::ui::toolkit
             {
                 if (m_pixelsPerSecond > 0.0f)
                 {
-                    m_scrollSeconds =
-                        ClampScroll(m_panStartScroll - (e.X - m_panStartX) / m_pixelsPerSecond);
+                    SetScrollSeconds(m_panStartScroll - (e.X - m_panStartX) / m_pixelsPerSecond);
                 }
                 e.Handled = true;
                 Invalidate();
@@ -541,8 +543,7 @@ export namespace foundation::ui::toolkit
             {
                 if (m_pixelsPerSecond > 0.0f)
                 {
-                    m_scrollSeconds = ClampScroll(
-                        m_scrollSeconds - panDelta * kWheelPanPx / m_pixelsPerSecond);
+                    SetScrollSeconds(m_scrollSeconds - panDelta * kWheelPanPx / m_pixelsPerSecond);
                 }
                 e.Handled = true;
                 Invalidate();
@@ -555,8 +556,7 @@ export namespace foundation::ui::toolkit
             // Zoom anchored at the cursor: keep the time under the cursor fixed (Godot).
             const f32 timeAtCursor = XToTime(e.X);
             SetPixelsPerSecond(m_pixelsPerSecond * (e.DeltaY > 0.0f ? kZoomStep : 1.0f / kZoomStep));
-            m_scrollSeconds =
-                ClampScroll(timeAtCursor - (e.X - LabelColumnWidth) / m_pixelsPerSecond);
+            SetScrollSeconds(timeAtCursor - (e.X - LabelColumnWidth) / m_pixelsPerSecond);
             e.Handled = true;
             Invalidate();
         }

@@ -64,6 +64,17 @@ export namespace editor
         /// toolbar's undo/redo state). Default no-op.
         virtual void OnClipViewRebuilt() {}
 
+        /// The shared dopesheet time transform (D1): pixels-per-second + scroll + the label-column
+        /// gutter width. The curve canvas reads this so it follows the Timeline's zoom/scroll and aligns
+        /// under the dopesheet lanes. Default = a static 100 px/s axis, no scroll, no gutter.
+        struct TimeAxis
+        {
+            f32 pixelsPerSecond = 100.0f;
+            f32 scrollSeconds = 0.0f;
+            f32 labelColumnWidth = 0.0f;
+        };
+        [[nodiscard]] virtual TimeAxis ClipTimeTransform() const { return {}; }
+
         /// Read the CURRENT scene value of (componentType, propertyPath) from the bound entity
         /// (the panel's primary selection) - the key-from-scene capture source. Empty Variant
         /// when unresolvable (no entity / no component / bad path); the caller skips then.
@@ -139,6 +150,10 @@ export namespace editor
         /// keyframe inspector, and the single curve canvas all show this track. -1 = none.
         void SetSelectedTrack(i32 trackIndex);
         [[nodiscard]] i32 SelectedTrack() const noexcept { return m_selectedTrack; }
+
+        /// Push the host's current shared time transform (D1) into the live curve canvas so it follows
+        /// the Timeline's zoom/scroll. Called by the panel on the Timeline's OnViewChanged.
+        void SyncCanvasTransform();
 
     private:
         // One undoable step over a whole-clip snapshot (the clip is small data). Applying a state
@@ -235,5 +250,6 @@ export namespace editor
         bool m_gestureDirty = false; // a canvas gesture actually changed a key (vs a bare select-click)
         i32 m_selectedTrack = -1;    // the dopesheet-selected track (-1 = none)
         RefPtr<ui::FlexLayout> m_inspectorRow; // persistent host; children rebuilt per selection
+        ui::toolkit::CurveCanvas* m_curveCanvas = nullptr; // the live canvas (owned by the row tree); D1 sync target
     };
 }

@@ -400,3 +400,22 @@ TEST_CASE("timeline: lane labels select the track - gutter click, key pick, prog
     tl->SetLanes(Move(one));
     CHECK(tl->SelectedLane() == -1);
 }
+
+TEST_CASE("timeline: OnViewChanged fires on zoom + scroll (the D1 shared-transform sync trigger)")
+{
+    auto tl = MakeRef<Timeline>(DefaultAllocator());
+    tl->SetDuration(100.0f);
+    tl->Measure(BoxConstraints::Tight(800.0f, 200.0f));
+    tl->Layout(0.0f, 0.0f, 800.0f, 200.0f);
+
+    int views = 0;
+    tl->OnViewChanged.Add([&] { ++views; });
+
+    tl->SetPixelsPerSecond(200.0f); // zoom in from the default 100
+    CHECK(views >= 1);
+
+    const int afterZoom = views;
+    tl->SetScrollSeconds(5.0f); // duration 100, width 800 @ 200px/s -> 5s scroll is in range
+    CHECK(tl->ScrollSeconds() == doctest::Approx(5.0f));
+    CHECK(views > afterZoom);
+}

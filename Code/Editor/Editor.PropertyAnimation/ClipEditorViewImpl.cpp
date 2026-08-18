@@ -963,6 +963,24 @@ namespace editor
             });
     }
 
+    void ClipEditorView::SyncCanvasTransform()
+    {
+        if (m_curveCanvas == nullptr)
+        {
+            return;
+        }
+        const IClipEditorHost::TimeAxis axis = m_host->ClipTimeTransform();
+        // Only pps/scroll change on zoom/pan (the gutter inset is fixed at build). Invalidate on change
+        // only - an idle canvas triggers no redraw (A6 damage gate).
+        if (m_curveCanvas->PixelsPerSecond != axis.pixelsPerSecond ||
+            m_curveCanvas->ScrollSeconds != axis.scrollSeconds)
+        {
+            m_curveCanvas->PixelsPerSecond = axis.pixelsPerSecond;
+            m_curveCanvas->ScrollSeconds = axis.scrollSeconds;
+            m_curveCanvas->Invalidate();
+        }
+    }
+
     void ClipEditorView::AddCurveCanvas(usize trackIndex)
     {
         ClipEditorView* self = this;
@@ -980,6 +998,12 @@ namespace editor
         // Ruling 2: the curve time axis is SECONDS matching the clip length (shares the dopesheet axis),
         // not a private normalized 0..1. Key times are stored + edited in absolute seconds.
         canvas->TimeSpan = (m_editDuration > 1e-3f) ? m_editDuration : 1.0f;
+        // D1: consume the Timeline's shared seconds<->pixels transform (zoom/scroll), so the curve
+        // follows the dopesheet at any zoom/pan and stays aligned under it.
+        const IClipEditorHost::TimeAxis axis = m_host->ClipTimeTransform();
+        canvas->UseSharedTimeTransform = true;
+        canvas->PixelsPerSecond = axis.pixelsPerSecond;
+        canvas->ScrollSeconds = axis.scrollSeconds;
 
         const CurveKeyInterpolation trackInterp =
             (track.channels[0].KeyCount() > 0) ? track.channels[0].Keys()[0].interpolation
@@ -999,6 +1023,7 @@ namespace editor
         PushTrackToCanvas(trackIndex, *canvas);
 
         ui::toolkit::CurveCanvas* raw = canvas.Get();
+        m_curveCanvas = raw; // D1 sync target (the panel pushes zoom/scroll here on Timeline changes)
         canvas->OnEditBegin.Add(
             [self]()
             {
@@ -1062,7 +1087,9 @@ namespace editor
 
         auto wrap = MakeRef<ui::FlexLayout>(DefaultAllocator());
         wrap->Direction = ui::Orientation::Vertical;
-        wrap->Padding = ui::Thickness{18, 0};
+        // Inset the canvas by the dopesheet's label-column gutter so t=0 sits at the same screen x as
+        // the lanes above - the curve lines up under the dopesheet (D1). No right inset (fills the rest).
+        wrap->Padding = ui::Thickness{axis.labelColumnWidth, 0.0f, 0.0f, 0.0f};
         auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
         lp->Width = ui::SizeSpec::Match();
         lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(120.0f));
@@ -1143,7 +1170,8 @@ namespace editor
             m_selectedTrack = 0; // something is always selected when tracks exist
         }
         m_rows->RemoveAllViews();
-        m_inspectorRow = nullptr; // rebuilt below (the old row was just destroyed)
+        m_inspectorRow = nullptr;  // rebuilt below (the old row was just destroyed)
+        m_curveCanvas = nullptr;   // the canvas was just destroyed; AddCurveCanvas re-sets it if built
         BuildTransportRow();
         // The dopesheet (in the panel) is the track LIST; this area is the SELECTED track only.
         BuildSelectedTrackStrip();

@@ -342,6 +342,9 @@ namespace editor
         // drag on a lane commits through MoveSelectedKeys (drags-are-visual, one undo step - D4).
         m_timeline->OnPlayheadMoved.Add([self](f32 t) { self->OnScrubTimeChanged(t); });
         m_timeline->OnKeysMoved.Add([self](f32 d) { self->MoveSelectedKeys(d); });
+        // D1: when the dopesheet zooms/scrolls, push the new transform into the curve canvas so it
+        // follows and stays aligned under the lanes.
+        m_timeline->OnViewChanged.Add([self]() { if (self->m_view) self->m_view->SyncCanvasTransform(); });
         // A gutter/label (or key) pick selects the TRACK: the strip, inspector and canvas below
         // re-target (Sedulous shape).
         m_timeline->OnLaneSelected.Add(
@@ -1067,6 +1070,18 @@ namespace editor
             return; // no change
         }
         m_view->PushClipEdit(Move(before), Move(after));
+    }
+
+    IClipEditorHost::TimeAxis PropertyAnimationPanel::ClipTimeTransform() const
+    {
+        IClipEditorHost::TimeAxis axis;
+        if (m_timeline.Get() != nullptr)
+        {
+            axis.pixelsPerSecond = m_timeline->PixelsPerSecond();
+            axis.scrollSeconds = m_timeline->ScrollSeconds();
+            axis.labelColumnWidth = m_timeline->LabelColumnWidth; // the 140px dopesheet gutter
+        }
+        return axis;
     }
 
     void PropertyAnimationPanel::BuildLanes()
