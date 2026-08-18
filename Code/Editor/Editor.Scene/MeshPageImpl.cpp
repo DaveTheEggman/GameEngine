@@ -8,13 +8,10 @@ module editor.scene;
 
 import foundation.core;
 import foundation.content;
-import foundation.rhi;
 import foundation.graphics;
-import foundation.shell;
 import foundation.runtime;
 import foundation.runtime.client;
 import foundation.scene;
-import engine.scene;
 import foundation.geometry;
 import geometry.pipeline; // StaticMeshAsset / SkinnedMeshAsset (factory PrimaryType)
 import foundation.materials;
@@ -24,22 +21,18 @@ import engine.render;
 import foundation.ui;
 import foundation.ui.toolkit; // SplitView
 import foundation.ui.runtime;
-import foundation.ui.viewport;
-import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import editor.camera;
+import editor.preview;
 
 using namespace foundation::core;
 namespace core = foundation::core;
 namespace geometry = foundation::geometry;
 namespace materials = foundation::materials;
 namespace render = foundation::render;
-namespace rhi = foundation::rhi;
 namespace runtime = foundation::runtime;
 namespace scene = foundation::scene;
 namespace ui = foundation::ui;
-namespace vg = foundation::vg;
 
 namespace editor
 {
@@ -48,23 +41,18 @@ namespace editor
                                    foundation::content::Instance& instance)
         : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
-        m_router =
-            MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
-        m_camera.position = Float3{4.0f, 3.0f, 6.0f};
-        m_camera.LookAt(Float3{0.0f, 0.0f, 0.0f});
-
         // The context assigns the instance id AFTER construction (OpenPage), but BindMesh keys the
         // product bind on it - set it from the instance now (the later SetInstanceId is the same value).
         SetInstanceId(instance.Id());
 
-        m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
-        m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
         m_defaultMaterial = materials::CreatePBR(u8"MeshPreview");
 
-        BuildPreviewScene();
+        // Shared preview substrate (viewport + preview scene + orbit camera + render loop).
+        m_preview = MakeUnique<PreviewViewport>(DefaultAllocator(), host, uiHost, u8"mesh.preview");
+        m_preview->Camera().position = Float3{4.0f, 3.0f, 6.0f};
+        m_preview->Camera().LookAt(Float3{0.0f, 0.0f, 0.0f});
 
-        m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
-        m_viewport->ClearColor = rhi::ClearColor{0.10f, 0.11f, 0.13f, 1.0f};
+        BuildPreviewScene();
 
         m_statsColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
         m_statsColumn->Direction = ui::Orientation::Vertical;
@@ -90,7 +78,7 @@ namespace editor
 
         auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
         split->SetSplitRatio(0.66f);
-        split->SetPanes(m_viewport.Get(), statsColumnOuter.Get());
+        split->SetPanes(m_preview->View(), statsColumnOuter.Get());
         m_content = split;
 
         // Bind the cooked product (if already cooked) + populate the stats; the OnUpdate
@@ -100,27 +88,24 @@ namespace editor
 
     void MeshEditorPage::BuildPreviewScene()
     {
-        if (m_scenes == nullptr)
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        if (scenePtr == nullptr)
         {
             return;
         }
-        m_sceneManager.SetAwareRegistry(&m_scenes->AwareRegistry());
-        m_scenes->RegisterManager(&m_sceneManager);
-        m_scene = m_sceneManager.CreateScene(u8"mesh.preview");
-        m_scene->SetSimulationEnabled(false);
 
-        m_entity = m_scene->CreateEntity(u8"PreviewMesh");
-        if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
+        m_entity = scenePtr->CreateEntity(u8"PreviewMesh");
+        if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
         {
             meshes->Add(m_entity); // mesh bound in BindMesh once the product resolves
         }
 
-        const scene::EntityHandle sun = m_scene->CreateEntity(u8"Sun");
+        const scene::EntityHandle sun = scenePtr->CreateEntity(u8"Sun");
         Transform t;
         t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
                      Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
-        m_scene->SetLocalTransform(sun, t);
-        if (auto* lights = m_scene->GetSystem<engine::render::LightComponentManager>())
+        scenePtr->SetLocalTransform(sun, t);
+        if (auto* lights = scenePtr->GetSystem<engine::render::LightComponentManager>())
         {
             engine::render::LightComponent& light = lights->Add(sun);
             light.castsShadows = false;
@@ -257,25 +242,17 @@ namespace editor
             center = mesh->bounds.Center();
             radius = core::Max(0.25f, Length(mesh->bounds.Extents()));
         }
-        m_camera.position = center + Float3{0.0f, 0.4f, 1.0f} * (radius * 2.6f);
-        m_camera.LookAt(center);
+        if (m_preview)
+        {
+            m_preview->Camera().FrameBounds(center, radius);
+        }
     }
 
     void MeshEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
     {
-        EnsureViewportBound();
-        if (m_hostWindow == nullptr)
+        if (m_preview)
         {
-            return;
-        }
-        m_viewport->SyncInputRegion();
-        if (m_router)
-        {
-            m_router->Update();
-        }
-        if (m_viewport->IsHovered() || m_viewport->IsFocused())
-        {
-            m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt);
+            m_preview->Update(dt);
         }
 
         // Product resolve / hot-reload watchdog: when the bound product first appears (cook) or
@@ -293,7 +270,9 @@ namespace editor
 
     void MeshEditorPage::PointComponentAtMesh(geometry::StaticMesh* mesh)
     {
-        auto* meshes = m_scene ? m_scene->GetSystem<engine::render::MeshComponentManager>() : nullptr;
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        auto* meshes =
+            scenePtr ? scenePtr->GetSystem<engine::render::MeshComponentManager>() : nullptr;
         engine::render::MeshComponent* mc = (meshes != nullptr) ? meshes->Get(m_entity) : nullptr;
         if (mc == nullptr)
         {
@@ -313,7 +292,9 @@ namespace editor
 
     void MeshEditorPage::ApplyPreviewMaterial()
     {
-        auto* meshes = m_scene ? m_scene->GetSystem<engine::render::MeshComponentManager>() : nullptr;
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        auto* meshes =
+            scenePtr ? scenePtr->GetSystem<engine::render::MeshComponentManager>() : nullptr;
         engine::render::MeshComponent* mc = (meshes != nullptr) ? meshes->Get(m_entity) : nullptr;
         if (mc == nullptr)
         {
@@ -355,89 +336,18 @@ namespace editor
     void MeshEditorPage::OnRenderWindow(runtime::IApplicationHost&,
                                         foundation::graphics::FrameContext& frame)
     {
-        if (!m_viewport->IsReady() || !frame.valid)
+        if (m_preview)
         {
-            return;
+            m_preview->RenderFrame(frame);
         }
-        if (m_render == nullptr || !m_render->IsReady() || m_scene == nullptr)
-        {
-            return;
-        }
-        const u32 w = m_viewport->RenderWidth();
-        const u32 h = m_viewport->RenderHeight();
-        if (w == 0 || h == 0 || !m_viewport->IsEffectivelyVisible())
-        {
-            return;
-        }
-
-        render::ViewCamera camera;
-        camera.view = Float4x4::LookAtRH(m_camera.position, m_camera.position + m_camera.Forward(),
-                                         m_camera.Up());
-        camera.projection = Float4x4::PerspectiveFovRH(
-            1.0472f, static_cast<f32>(w) / static_cast<f32>(h), 0.05f, 500.0f);
-        camera.position = m_camera.position;
-        camera.farZ = 500.0f;
-
-        render::CameraOverride cameraOverride;
-        cameraOverride.camera = camera;
-        cameraOverride.clearColor = Color{m_viewport->ClearColor.r, m_viewport->ClearColor.g,
-                                          m_viewport->ClearColor.b, m_viewport->ClearColor.a};
-
-        render::TargetState targetState;
-        targetState.texture = m_viewport->ColorTexture();
-        targetState.currentState = m_viewport->ColorState();
-        targetState.finalState = rhi::ResourceState::ShaderRead;
-
-        m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w,
-                              h, render::ViewportRect{0, 0, w, h}, &cameraOverride, targetState);
-        m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
     }
 
     void MeshEditorPage::OnClose()
     {
-        m_viewport->Shutdown();
-        if (m_scene != nullptr)
+        if (m_preview)
         {
-            m_sceneManager.DestroyScene(m_scene);
-            m_scene = nullptr;
+            m_preview->Shutdown();
         }
-        if (m_scenes != nullptr)
-        {
-            m_scenes->UnregisterManager(&m_sceneManager);
-        }
-    }
-
-    void MeshEditorPage::EnsureViewportBound()
-    {
-        foundation::ui::RootView* root = m_viewport->Root();
-        if (root == nullptr)
-        {
-            return;
-        }
-        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
-        if (window == nullptr || window == m_hostWindow)
-        {
-            return;
-        }
-        vg::renderer::VGRenderer* renderer = m_uiHost->RendererFor(window);
-        if (renderer == nullptr)
-        {
-            return;
-        }
-        if (m_hostWindow == nullptr)
-        {
-            m_viewport->Initialize(m_host->Graphics()->Raw(), renderer, m_host->Shell()->Input(),
-                                   window->Window().Id());
-            if (m_viewport->Surface() != nullptr)
-            {
-                m_router->AddSurface(m_viewport->Surface());
-            }
-        }
-        else
-        {
-            m_viewport->AttachToWindow(renderer, window->Window().Id());
-        }
-        m_hostWindow = window;
     }
 
     UniquePtr<EditorPage> MeshEditorPageFactory::CreatePage(EditorContext& context,

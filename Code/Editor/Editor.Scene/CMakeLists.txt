@@ -22,7 +22,7 @@ target_link_libraries(Editor.Scene
         Foundation::UI Foundation::UI.Runtime Foundation::UI.Viewport Foundation::VG.Renderer
         Foundation::Script ${SCRIPTLIB_WREN} Foundation::Script.Resource Foundation::Script.Facades Engine::Script
         Foundation::Input Foundation::Input.Resource Engine::Input
-        Editor::Core Editor::App Editor::Camera Editor::ViewportTools Editor::PropertyAnimation Foundation::Policy)
+        Editor::Core Editor::App Editor::Camera Editor::Preview Editor::ViewportTools Editor::PropertyAnimation Foundation::Policy)
 
 target_sources(Editor.Scene
     PRIVATE

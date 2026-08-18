@@ -22,9 +22,7 @@ export module editor.scene:mesh_page;
 
 import foundation.core;
 import foundation.content;
-import foundation.rhi;
 import foundation.graphics;
-import foundation.shell;
 import foundation.runtime;
 import foundation.runtime.client;
 import foundation.scene;
@@ -36,11 +34,9 @@ import foundation.render;
 import engine.render;
 import foundation.ui;
 import foundation.ui.runtime;
-import foundation.ui.viewport;
-import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import editor.camera; // EditorCamera (orbit/fly camera on the preview viewport)
+import editor.preview; // PreviewViewport (shared viewport + preview scene + camera + render loop)
 
 using namespace foundation::core;
 
@@ -48,7 +44,6 @@ export namespace editor
 {
     namespace runtime = foundation::runtime;
     namespace ui = foundation::ui;
-    namespace vg = foundation::vg;
     namespace scene = foundation::scene;
     namespace render = foundation::render;
     namespace geometry = foundation::geometry;
@@ -96,18 +91,13 @@ export namespace editor
         // Reframe the orbit camera to fit the mesh bounds.
         void FramePreview(const geometry::StaticMesh* mesh);
 
-        void EnsureViewportBound();
-
         EditorContext* m_context = nullptr;
         runtime::IApplicationHost* m_host = nullptr;
         ui::runtime::UIHost* m_uiHost = nullptr;
         String m_title;
 
-        engine::scene::SceneSubsystem* m_scenes = nullptr;
-        scene::SceneManager m_sceneManager; // this page's OWN preview scene group
-        engine::render::RenderSubsystem* m_render = nullptr;
-        scene::Scene* m_scene = nullptr;
-        scene::EntityHandle m_entity;
+        UniquePtr<PreviewViewport> m_preview;        // shared viewport + preview scene + camera
+        scene::EntityHandle m_entity;                // the preview mesh entity (in m_preview->Scene())
         RefPtr<materials::Material> m_defaultMaterial;
         resource::Proxy<materials::Material> m_previewMaterial; // chosen override (null = default)
         Guid m_previewMaterialId;                               // its source guid (for the label)
@@ -116,13 +106,8 @@ export namespace editor
         resource::Proxy<geometry::StaticMesh> m_meshProxy; // the cooked product (follows reloads)
         u64 m_lastUid = 0;                                 // product identity - detects hot-reload
 
-        EditorCamera m_camera;
-        UniquePtr<foundation::shell::InputRouter> m_router;
-
-        RefPtr<ui::viewport::ViewportView> m_viewport;
         RefPtr<foundation::ui::FlexLayout> m_statsColumn; // one Label per stat line
         RefPtr<foundation::ui::View> m_content;
-        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
     };
 
     class MeshEditorPageFactory final : public IEditorPageFactory
