@@ -68,7 +68,10 @@ TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + th
     // loudly here instead of as a silent null Bind in a shipped game.
     // 19 = +PropertyAnimationClipFactory (2026-08-17: the editor's clip picker bind warned
     // "host is missing an AddFactory" - the factory existed but no host registered it).
-    constexpr usize kStandardHeadlessFactoryCount = 19;
+    // 20 = +NavigationZoneFactory (navigation P3b; the bump was MISSED in that commit and
+    // caught by this tripwire at the 2026-08-18 review gate - run the FULL battery, not
+    // just the touched targets).
+    constexpr usize kStandardHeadlessFactoryCount = 20;
     CHECK(resources.FactoryCount() == kStandardHeadlessFactoryCount);
 
     // The incident pin: the cooked default-UI font product MUST be constructible in every

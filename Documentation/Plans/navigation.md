@@ -1,6 +1,6 @@
 # Navigation (navmesh + agents)
 
-**Status:** BUILDING (Opus, 2026-08-18). Second of the three parity P0 tracks
+**Status:** COMPLETE pending user on-screen editor pass (Opus, 2026-08-18; Fable review pass 11 PASS - one tripwire fix, see HANDOFF.md). Second of the three parity P0 tracks
 (after property-animation.md, before terrain.md). Prior art: both Lumix and
 Traktor build on Recast/Detour; Lumix's zone model + Detour crowd is the closer
 reference.

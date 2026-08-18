@@ -378,3 +378,43 @@ per-frame CheckFeatureSupport calls (cache a bitmask at init), Stencil8
 reports as R8_UINT capabilities.
 
 Baseline for pass 11: d0451152 (+ Fable doc commits after it).
+
+## Review pass 11 (2026-08-18, Fable): navigation P0-P5 (full track) - PASS with one fix
+
+Scope: everything since pass 10 on the navigation track through eadc76d6
+(P4b-3 gizmo + inspector Bake, P5 demo A + NavigationZone ->
+NavigationZoneResource rename, profiling scopes, the Navigation Zone creator
+placement), reviewed against the navigation-editor-ui.md rulings trail.
+
+**Verified:**
+- P4b-3 matches ruling (B) exactly: NavMeshZoneGizmoRenderer in the builtins
+  (read-only entity-oriented extents box, DrawWhenUnselected false, mirrors
+  Decal); Bake = a NavMeshZoneComponent entry in the central InspectorView
+  dispatch calling BakeNavigationZone with ALL outcomes loud via Notify
+  (no project / no assigned zone asset / baked / no walkable geometry). No
+  hollow registrar shipped. GCC hygiene split (NavigationBakeImpl) correct.
+- The NavigationZone -> NavigationZoneResource rename is WIRE-SAFE: the
+  runtime product is Object-derived (in-memory RTTI keying only); both
+  serialized identities (NavigationZoneSource, NavigationZoneAsset) kept
+  their names; cooked DBs are regenerable. No legacy-name fallback needed.
+- Creator placement fix (eadc76d6) follows the Physical Material precedent
+  (data-asset creators live in Tools.Editor Main, not RegisterSceneEditor);
+  Editor.Scene's redundant pipeline link dropped.
+- Profiling commits are macro-scope additions in impl units / light headers;
+  precedent (audio) already includes Profiler.h in interfaces.
+- P5 demo A: WebScene inline runtime bake (NavigationMeshBuilder) + 6-agent
+  crowd; Recast compiles for wasm ungated. User-verified on screen.
+
+**The one finding (FIXED in-review): the DefaultApp factory-count tripwire
+fired on the FULL battery** - P3b added NavigationZoneFactory (the 20th
+standard factory) without bumping kStandardHeadlessFactoryCount (still 19).
+The tripwire worked as designed; the miss shows P3b's "green" was per-target,
+not the full battery. Bumped 19 -> 20 with the incident noted in the comment.
+STANDING REMINDER (re-learned): a landing's green claim means the FULL
+two-compiler battery, not the touched targets.
+
+Full battery after the fix: ALL_GREEN clang + gcc (every *Tests binary).
+Remaining user steps (not review blockers): the editor-side on-screen pass of
+the Bake button + zone gizmo + inspector (P5's open item).
+
+Baseline for pass 12: eadc76d6 + this pass's fix commit.
