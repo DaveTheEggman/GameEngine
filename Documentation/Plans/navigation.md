@@ -35,9 +35,11 @@ reference.
   CollectNavigationGeometry (in-zone static meshes -> zone-local triangle soup) +
   BakeNavigationZone (collect + Recast bake + write the NavigationZoneAsset
   sidecar). Test both compilers: a scene ground mesh bakes to a loadable, pathable
-  navmesh. P4b REMAINING (needs on-screen verify): the editor UI - a "Bake
-  Navigation" action (component menu / page toolbar, async on a worker), zone
-  gizmo/extents editing, and navmesh + agent-path debug draw.
+  navmesh. P4b REMAINING (needs on-screen verify): the editor UI - zone gizmo, a Bake
+  action, and navmesh + agent-path debug draw, consuming the existing viewport-tool
+  seams (IViewportTool + editor.app:tool_panel + GizmoRendererRegistry - the seams
+  built for terrain/navigation). Shape decisions are a DESIGN QUESTION for Fable:
+  Documentation/Specs/navigation-editor-ui.md.
 - [ ] **P5 - acceptance**: demo scene (zone + obstacles + 3+ click-to-navigate
   agents via script), wasm target build (gate like Jolt), user visual pass.
 
