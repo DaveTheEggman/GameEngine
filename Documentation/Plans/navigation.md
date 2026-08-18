@@ -21,12 +21,16 @@ reference.
   (NavigationZoneAsset with the baked blob in a SIDECAR stream, passthrough
   builder) + Pipeline.Registration wiring (kBuilderCount 22 -> 23). Full-chain
   cook + factory + query test both compilers.
-- [ ] **P3 - engine.navigation**: NavigationSubsystem (per-scene: loaded zones,
-  one dtCrowd per zone), NavMeshZoneComponent + NavAgentComponent (reflected,
-  displayName/category, zone Ref picker), bake-source collection, crowd tick +
-  MoveEntity transform writeback, debug draw, out-of-tree script facade
-  (RegisterNavigationScriptFacade + bump kSubsystemFacadeNameCount), DefaultApp
-  registration, runtime NavigationZoneFactory wiring.
+- [~] **P3 - engine.navigation** - P3a DONE (dfb80fa0): NavMeshZoneComponent +
+  NavAgentComponent (reflected: displayName/category, zone Ref picker, agent
+  runtime API `NavAgent.of(entity).navigate/stop/finished/remaining/velocity*`),
+  NavigationSceneSystem (per-scene: loaded zones, one dtCrowd per zone, crowd tick
+  + MoveEntity transform writeback, zone-local transform), AddNavigationSceneManagers
+  wired into Engine.SceneSurface (kSceneSystemCount 31 -> 34). Engine test both
+  compilers: an agent navigates across a zone to its target.
+  P3b REMAINING: DefaultApp runtime injection (an ISceneAware subsystem + the
+  NavigationZoneFactory registration) + out-of-tree script facade surfacing
+  (RegisterNavigationScriptFacade + bump kSubsystemFacadeNameCount) + debug draw.
 - [ ] **P4 - Editor.Navigation**: async "Bake Navigation" action (writes the zone
   asset sidecar) + zone gizmo/extents + debug-draw toggles.
 - [ ] **P5 - acceptance**: demo scene (zone + obstacles + 3+ click-to-navigate
