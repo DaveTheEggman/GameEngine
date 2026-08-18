@@ -137,6 +137,7 @@ export namespace pipeline
         bool importMaterials = true;    // PBR materials (texture slots wired when textures import)
         bool importAnimations = true;   // skeleton + clips
         bool generatePrefab = true;     // hierarchy prefab beside the manifest (post-import step)
+        bool generateScene = false;     // standalone scene of the same hierarchy (post-import step)
         bool generateCollision = false; // CollisionShapeAsset per mesh + colliders on the prefab
         bool collisionConvex = false;   // hull (dynamic-capable) instead of exact triangle mesh
 
@@ -154,6 +155,10 @@ export namespace pipeline
                                     u8"Create a spawnable prefab of the model's node hierarchy; "
                                     u8"re-import regenerates it",
                                     &generatePrefab});
+            toggles.PushBack(Toggle{u8"Generate scene",
+                                    u8"Create a standalone scene of the model's node hierarchy; "
+                                    u8"re-import regenerates it",
+                                    &generateScene});
             toggles.PushBack(Toggle{u8"Generate collision",
                                     u8"Cook a collision shape per mesh and add colliders (+ a "
                                     u8"static rigid body) to the generated prefab",
@@ -171,6 +176,7 @@ export namespace pipeline
             u8 materials = importMaterials ? 1u : 0u;
             u8 animations = importAnimations ? 1u : 0u;
             u8 prefab = generatePrefab ? 1u : 0u;
+            u8 sceneOut = generateScene ? 1u : 0u;
             u8 collision = generateCollision ? 1u : 0u;
             u8 convex = collisionConvex ? 1u : 0u;
             foundation::core::Serialize(ar, "textures", textures);
@@ -179,10 +185,12 @@ export namespace pipeline
             foundation::core::Serialize(ar, "prefab", prefab);
             foundation::core::Serialize(ar, "collision", collision);
             foundation::core::Serialize(ar, "collisionConvex", convex);
+            foundation::core::Serialize(ar, "scene", sceneOut);
             importTextures = textures != 0;
             importMaterials = materials != 0;
             importAnimations = animations != 0;
             generatePrefab = prefab != 0;
+            generateScene = sceneOut != 0;
             generateCollision = collision != 0;
             collisionConvex = convex != 0;
         }

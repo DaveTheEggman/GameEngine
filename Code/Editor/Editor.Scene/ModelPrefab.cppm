@@ -12,6 +12,10 @@
 // editor plugin - not the importer - because it needs scene + component machinery the
 // importer library (linked by the headless cooker) deliberately never links; the import flow
 // reaches it through EditorContext's import listeners.
+//
+// GenerateModelScene is the twin: the SAME BuildModelScene hierarchy saved as a standalone
+// SceneDocument named "Scene" (a bare scene - model nodes only, no default camera/light) when
+// the import's "Generate scene" toggle is on. Prefab + scene are independent toggles.
 
 module;
 #include "Core/Prelude.h"
@@ -45,23 +49,20 @@ export namespace editor
         bool regenerated = false; // an existing prefab was refreshed (re-import)
     };
 
-    /// Generate (or refresh) the hierarchy prefab for a model manifest instance. Pure
-    /// content-DB work - the caller handles editor-side follow-ups (instance rebuild,
-    /// open-page refresh, notices).
-    [[nodiscard]] inline ModelPrefabResult
-    GenerateModelPrefab(foundation::content::Instance& manifestInstance)
+    /// Build the model's node hierarchy into `scene` (one entity per node with mesh/material/
+    /// collider/skeletal-anim components, plus a STATIC compound RigidBody on the root when the
+    /// model carries collision), returning its root. Shared by the prefab + scene generators.
+    [[nodiscard]] inline bool BuildModelScene(foundation::content::Instance& manifestInstance,
+                                              scene::Scene& scene, scene::EntityHandle& outRoot)
     {
-        ModelPrefabResult result;
         RefPtr<ISerializable> object = manifestInstance.ReadObject();
         auto* asset = Cast<pipeline::ModelManifestAsset>(object.Get());
         if (asset == nullptr)
         {
-            return result;
+            return false;
         }
         const foundation::model::ModelManifestSource& manifest = asset->manifest;
 
-        // Author the hierarchy in a throwaway scene, then capture it as a prefab payload.
-        scene::Scene scene(manifestInstance.Name());
         auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
         auto* anims = scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
         const bool hasCollision = !manifest.collisionGuids.IsEmpty();
@@ -149,6 +150,24 @@ export namespace editor
             }
         }
 
+        outRoot = root;
+        return true;
+    }
+
+    /// Generate (or refresh) the hierarchy prefab for a model manifest instance. Pure
+    /// content-DB work - the caller handles editor-side follow-ups (instance rebuild,
+    /// open-page refresh, notices).
+    [[nodiscard]] inline ModelPrefabResult
+    GenerateModelPrefab(foundation::content::Instance& manifestInstance)
+    {
+        ModelPrefabResult result;
+        scene::Scene scene(manifestInstance.Name());
+        scene::EntityHandle root;
+        if (!BuildModelScene(manifestInstance, scene, root))
+        {
+            return result;
+        }
+
         MemoryStream payload;
         if (!scene::CapturePrefab(scene, root, payload).IsOk())
         {
@@ -189,6 +208,58 @@ export namespace editor
             return result;
         }
         result.instance = prefab;
+        return result;
+    }
+
+    /// Generate (or refresh) a SCENE of the model's node hierarchy - the SAME contents the prefab
+    /// carries, saved as a standalone SceneDocument named "Scene" beside the manifest (a bare scene:
+    /// model nodes only, no default camera/light). Re-import REUSES the instance by name (same guid)
+    /// so placed scene references survive.
+    [[nodiscard]] inline ModelPrefabResult
+    GenerateModelScene(foundation::content::Instance& manifestInstance)
+    {
+        ModelPrefabResult result;
+        scene::Scene scene(manifestInstance.Name());
+        scene::EntityHandle root;
+        if (!BuildModelScene(manifestInstance, scene, root))
+        {
+            return result;
+        }
+        (void)root; // SaveScene captures the whole scene; the root is just its top entity
+
+        // "Scene" beside the manifest; an existing one is REUSED so its guid (and every placed
+        // reference) survives re-import. A non-scene squatting on the name loses to a suffixed
+        // fallback rather than being clobbered.
+        foundation::content::Group& group = manifestInstance.OwningGroup();
+        foundation::content::Instance* sceneInstance = group.GetInstance(u8"Scene");
+        if (sceneInstance != nullptr &&
+            sceneInstance->TypeName() != StringView(u8"SceneDocument"))
+        {
+            sceneInstance = group.GetInstance(u8"Scene.2");
+            if (sceneInstance == nullptr)
+            {
+                sceneInstance =
+                    group.CreateInstance(u8"Scene.2", scene::SceneDocument::StaticType());
+            }
+        }
+        result.regenerated = sceneInstance != nullptr;
+        if (sceneInstance == nullptr)
+        {
+            sceneInstance = group.CreateInstance(u8"Scene", scene::SceneDocument::StaticType());
+        }
+        if (sceneInstance == nullptr)
+        {
+            return result;
+        }
+
+        if (!scene::SaveScene(scene, *sceneInstance).IsOk())
+        {
+            LOG_ERROR(u8"Editor", u8"model scene write failed for '{}'",
+                               manifestInstance.Name());
+            result.regenerated = false;
+            return result;
+        }
+        result.instance = sceneInstance;
         return result;
     }
 }

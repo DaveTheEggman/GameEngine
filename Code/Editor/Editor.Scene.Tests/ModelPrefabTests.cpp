@@ -56,6 +56,10 @@ namespace
 TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the instance")
 {
     pipeline::RegisterModelManifestAsset();
+    // Component reflection carries the DataVersion the versioned payloads gate on (MeshComponent v3
+    // = unified materials array); register it so the round-trip is order-independent.
+    engine::render::RegisterRenderComponentReflection();
+    engine::animation::RegisterAnimationComponentReflection();
     GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType());
     RegisterSerializable<scene::PrefabDocument>();
 
@@ -172,6 +176,97 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     REQUIRE(again.instance != nullptr);
     CHECK(again.regenerated);
     CHECK(again.instance->Id() == prefabId);
+
+    RemoveTreeMP(dir);
+}
+
+TEST_CASE("model-scene: manifest -> standalone scene; regeneration reuses the instance")
+{
+    pipeline::RegisterModelManifestAsset();
+    // Component reflection carries the DataVersion the versioned payloads gate on (MeshComponent v3
+    // = unified materials array); register it so the materials round-trip is order-independent.
+    engine::render::RegisterRenderComponentReflection();
+    engine::animation::RegisterAnimationComponentReflection();
+    GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
+    RegisterSerializable<scene::SceneDocument>();
+
+    const StringView dir = u8"scratch_model_scene_test_db";
+    RemoveTreeMP(dir);
+    (void)CreateDirectory(dir);
+    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+
+    // Root node + a single static-mesh child node (Crate -> Root -> Body).
+    const Guid meshStatic{0x51, 0x1};
+    const Guid matA{0x61, 0x1};
+    pipeline::ModelManifestAsset asset;
+    asset.manifest.meshGuids.PushBack(meshStatic);
+    asset.manifest.meshSkinned.PushBack(0);
+    asset.manifest.materialGuids.PushBack(matA);
+    {
+        foundation::model::ModelNode rootNode;
+        rootNode.name = String(u8"Root");
+        rootNode.parentIndex = -1;
+        asset.manifest.nodes.PushBack(Move(rootNode));
+        foundation::model::ModelNode meshNode;
+        meshNode.name = String(u8"Body");
+        meshNode.parentIndex = 0;
+        meshNode.meshIndex = 0;
+        meshNode.localTransform.position = Float3{4.0f, 5.0f, 6.0f};
+        asset.manifest.nodes.PushBack(Move(meshNode));
+    }
+
+    foundation::content::Group* group = db.RootGroup()->CreateGroup(u8"Crate");
+    REQUIRE(group != nullptr);
+    foundation::content::Instance* manifestInst =
+        group->CreateInstance(u8"Crate", pipeline::ModelManifestAsset::StaticType());
+    REQUIRE(manifestInst != nullptr);
+    REQUIRE(manifestInst->WriteObject(asset).IsOk());
+
+    editor::ModelPrefabResult generated = editor::GenerateModelScene(*manifestInst);
+    REQUIRE(generated.instance != nullptr);
+    CHECK(!generated.regenerated);
+    CHECK(generated.instance->Name() == StringView(u8"Scene"));
+    CHECK(generated.instance->TypeName() == StringView(u8"SceneDocument"));
+    const Guid sceneId = generated.instance->Id();
+
+    // The SceneDocument primary carries the name for discovery.
+    RefPtr<ISerializable> doc = generated.instance->ReadObject();
+    scene::SceneDocument* sd = Cast<scene::SceneDocument>(doc.Get());
+    REQUIRE(sd != nullptr);
+    CHECK(sd->name == StringView(u8"Crate"));
+
+    // Load it back into a fresh scene whose managers are injected first (as a subsystem would):
+    // the node hierarchy + mesh refs round-trip, a bare scene with NO default camera/light.
+    scene::Scene loaded;
+    auto* meshes = loaded.AddSystem<engine::render::MeshComponentManager>();
+    loaded.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
+    REQUIRE(scene::LoadScene(*generated.instance, loaded).IsOk());
+    CHECK(loaded.EntityCount() == 3u); // Crate root + Root + Body, nothing auto-added
+
+    scene::EntityHandle sceneRoot = loaded.FindEntityByName(u8"Crate");
+    REQUIRE(sceneRoot.IsAssigned());
+    scene::EntityHandle body = loaded.FindEntityByName(u8"Body");
+    REQUIRE(body.IsAssigned());
+    const Transform bodyT = loaded.GetLocalTransform(body);
+    CHECK(bodyT.position.x == 4.0f);
+
+    usize meshCount = 0;
+    meshes->ForEach(
+        [&](engine::render::MeshComponent& c, scene::EntityHandle)
+        {
+            ++meshCount;
+            CHECK(c.mesh.id == meshStatic);
+            REQUIRE(c.materials.Size() == 1u);
+            CHECK(c.materials[0].id == matA);
+        });
+    CHECK(meshCount == 1u);
+
+    // Regeneration finds + reuses the instance: same guid, refreshed payload.
+    editor::ModelPrefabResult regen = editor::GenerateModelScene(*manifestInst);
+    REQUIRE(regen.instance != nullptr);
+    CHECK(regen.regenerated);
+    CHECK(regen.instance->Id() == sceneId);
 
     RemoveTreeMP(dir);
 }

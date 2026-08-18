@@ -956,9 +956,10 @@ TEST_CASE("model-import: options gate textures/materials/animations")
     CHECK(options->importMaterials);
     CHECK(options->importAnimations);
     CHECK(options->generatePrefab);
+    CHECK_FALSE(options->generateScene); // opt-in
     CHECK_FALSE(options->generateCollision); // opt-in
     CHECK_FALSE(options->collisionConvex);
-    CHECK(options->Toggles().Size() == 6u);
+    CHECK(options->Toggles().Size() == 7u);
 
     // Geometry-only import: no textures, no materials, no skeleton/clips in the fan-out.
     options->importTextures = false;

@@ -838,72 +838,120 @@ export namespace editor
                 {
                     return;
                 }
+                // Prefab + scene are independent toggles (either, both, or neither). No options
+                // object = the default fresh import, which generates the prefab only.
+                bool wantPrefab = true;
+                bool wantScene = false;
                 if (options != nullptr)
                 {
                     auto* modelOptions = Cast<pipeline::ModelImportOptions>(
                         const_cast<pipeline::ImportOptions*>(options));
-                    if (modelOptions != nullptr && !modelOptions->generatePrefab)
+                    if (modelOptions != nullptr)
                     {
-                        return;
+                        wantPrefab = modelOptions->generatePrefab;
+                        wantScene = modelOptions->generateScene;
                     }
                 }
-                ModelPrefabResult generated = GenerateModelPrefab(instance);
-                if (generated.instance == nullptr)
+
+                if (wantPrefab)
                 {
-                    editorContext->Notify(NoticeKind::Error, u8"Model prefab generation failed.");
-                    return;
-                }
-                if (generated.regenerated)
-                {
-                    UniquePtr<IStream> payload = generated.instance->ReadData(u8"scene");
-                    if (payload.Get() != nullptr)
+                    ModelPrefabResult generated = GenerateModelPrefab(instance);
+                    if (generated.instance == nullptr)
                     {
-                        Array<byte> bytes;
-                        bytes.Resize(static_cast<usize>(payload->Size()));
-                        (void)payload->Read(bytes.Data(), bytes.Size());
-                        const Guid prefabId = generated.instance->Id();
-                        scene::PrefabPayloadResolver resolver{
-                            [editorContext](const Guid& id) -> UniquePtr<IStream>
-                            {
-                                if (editorContext->Project() == nullptr)
-                                {
-                                    return UniquePtr<IStream>{};
-                                }
-                                foundation::content::Instance* prefab =
-                                    editorContext->Project()->SourceDb().GetInstance(id);
-                                return (prefab != nullptr) ? prefab->ReadData(u8"scene")
-                                                           : UniquePtr<IStream>{};
-                            }};
-                        if (auto* scenes = appHost->Ctx().GetSubsystem<engine::scene::SceneSubsystem>())
+                        editorContext->Notify(NoticeKind::Error,
+                                              u8"Model prefab generation failed.");
+                    }
+                    else
+                    {
+                        if (generated.regenerated)
                         {
-                            scenes->ForEachScene(
-                                [&](scene::Scene& scene)
-                                {
-                                    const u32 rebuilt = scene::RebuildPrefabInstances(
-                                        scene, prefabId,
-                                        Span<const byte>{bytes.Data(), bytes.Size()}, &resolver);
-                                    if (rebuilt > 0 && editorContext->Resources() != nullptr)
+                            UniquePtr<IStream> payload = generated.instance->ReadData(u8"scene");
+                            if (payload.Get() != nullptr)
+                            {
+                                Array<byte> bytes;
+                                bytes.Resize(static_cast<usize>(payload->Size()));
+                                (void)payload->Read(bytes.Data(), bytes.Size());
+                                const Guid prefabId = generated.instance->Id();
+                                scene::PrefabPayloadResolver resolver{
+                                    [editorContext](const Guid& id) -> UniquePtr<IStream>
                                     {
-                                        scene::ResolveSceneResources(scene,
-                                                                     *editorContext->Resources());
+                                        if (editorContext->Project() == nullptr)
+                                        {
+                                            return UniquePtr<IStream>{};
+                                        }
+                                        foundation::content::Instance* prefab =
+                                            editorContext->Project()->SourceDb().GetInstance(id);
+                                        return (prefab != nullptr) ? prefab->ReadData(u8"scene")
+                                                                   : UniquePtr<IStream>{};
+                                    }};
+                                if (auto* scenes =
+                                        appHost->Ctx().GetSubsystem<engine::scene::SceneSubsystem>())
+                                {
+                                    scenes->ForEachScene(
+                                        [&](scene::Scene& scene)
+                                        {
+                                            const u32 rebuilt = scene::RebuildPrefabInstances(
+                                                scene, prefabId,
+                                                Span<const byte>{bytes.Data(), bytes.Size()},
+                                                &resolver);
+                                            if (rebuilt > 0 &&
+                                                editorContext->Resources() != nullptr)
+                                            {
+                                                scene::ResolveSceneResources(
+                                                    scene, *editorContext->Resources());
+                                            }
+                                        });
+                                }
+                                for (const UniquePtr<EditorPage>& open :
+                                     editorContext->OpenPages())
+                                {
+                                    if (open->InstanceId() == prefabId)
+                                    {
+                                        open->OnAssetExternallyModified();
                                     }
-                                });
-                        }
-                        for (const UniquePtr<EditorPage>& open : editorContext->OpenPages())
-                        {
-                            if (open->InstanceId() == prefabId)
-                            {
-                                open->OnAssetExternallyModified();
+                                }
                             }
                         }
+                        String message(u8"Prefab '");
+                        message += generated.instance->Name();
+                        message += generated.regenerated
+                                       ? StringView(u8"' regenerated (placed instances updated).")
+                                       : StringView(u8"' generated.");
+                        editorContext->Notify(NoticeKind::Success, message.AsView());
                     }
                 }
-                String message(u8"Prefab '");
-                message += generated.instance->Name();
-                message += generated.regenerated
-                               ? StringView(u8"' regenerated (placed instances updated).")
-                               : StringView(u8"' generated.");
-                editorContext->Notify(NoticeKind::Success, message.AsView());
+
+                if (wantScene)
+                {
+                    ModelPrefabResult generatedScene = GenerateModelScene(instance);
+                    if (generatedScene.instance == nullptr)
+                    {
+                        editorContext->Notify(NoticeKind::Error,
+                                              u8"Model scene generation failed.");
+                    }
+                    else
+                    {
+                        // A regenerated scene refreshes any open page editing it (scenes are
+                        // referenced/opened, not spawned as instances, so there is nothing to
+                        // rebuild in other scenes).
+                        if (generatedScene.regenerated)
+                        {
+                            const Guid sceneId = generatedScene.instance->Id();
+                            for (const UniquePtr<EditorPage>& open : editorContext->OpenPages())
+                            {
+                                if (open->InstanceId() == sceneId)
+                                {
+                                    open->OnAssetExternallyModified();
+                                }
+                            }
+                        }
+                        String message(u8"Scene '");
+                        message += generatedScene.instance->Name();
+                        message += generatedScene.regenerated ? StringView(u8"' regenerated.")
+                                                              : StringView(u8"' generated.");
+                        editorContext->Notify(NoticeKind::Success, message.AsView());
+                    }
+                }
             });
     }
 }
