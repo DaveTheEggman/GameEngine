@@ -356,23 +356,28 @@ export namespace engine::audio
             {
                 return {}; // inactive entities make no sound (entity-active-state.md P3)
             }
-            // Cue wins over clip: resolve one weighted variant + this trigger's jitter.
+            // The sourceType discriminant decides: Cue resolves one weighted variant + this
+            // trigger's jitter; Clip plays the single clip. (An empty Cue stays a silent no-op -
+            // pick.variantIndex < 0 leaves clip null; see the empty-cue ruling.)
             AudioClip* clip = nullptr;
             f32 cuePitch = 1.0f;
             f32 cueVolume = 1.0f;
-            if (const SoundCue* cue = c.cue.Get())
+            if (c.sourceType == AudioSourceType::Cue)
             {
-                const SoundCuePick pick =
-                    ResolveSoundCue(*cue, m_cueRandom, c.lastCueVariant, c.cueSequentialCursor);
-                if (pick.variantIndex >= 0)
+                if (const SoundCue* cue = c.cue.Get())
                 {
-                    c.lastCueVariant = pick.variantIndex;
-                    clip = cue->variants[static_cast<usize>(pick.variantIndex)].clip.Get();
-                    cuePitch = pick.pitch;
-                    cueVolume = pick.volume;
+                    const SoundCuePick pick =
+                        ResolveSoundCue(*cue, m_cueRandom, c.lastCueVariant, c.cueSequentialCursor);
+                    if (pick.variantIndex >= 0)
+                    {
+                        c.lastCueVariant = pick.variantIndex;
+                        clip = cue->variants[static_cast<usize>(pick.variantIndex)].clip.Get();
+                        cuePitch = pick.pitch;
+                        cueVolume = pick.volume;
+                    }
                 }
             }
-            if (clip == nullptr)
+            else
             {
                 clip = c.clip.Get();
             }

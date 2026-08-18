@@ -137,34 +137,55 @@ namespace engine::audio
         builder.Value("Exponential", AudioAttenuationModel::Exponential);
     }
 
+    REFLECT_ENUM(AudioSourceType, "rtti::engine::audio")
+    {
+        builder.Value("Clip", AudioSourceType::Clip);
+        builder.Value("Cue", AudioSourceType::Cue);
+    }
+
     REFLECT_VALUE(AudioSourceComponent, "rtti::engine::audio")
     {
+        // v4: sourceType discriminant (Clip/Cue) drives the inspector + runtime.
         builder.Attribute("displayName", String(u8"Audio Source"))
-            .Attribute("category", String(u8"Audio")).DataVersion(3); // v2: busName (custom buses); v3: reverbSend
+            .Attribute("category", String(u8"Audio")).DataVersion(4);
         // Script (Track A): AudioSourceComponent.of(entity) -> live volume/pitch/loop/spatial/etc.
         // play/stop/pause + clip swap are engine ops -> SceneAudio.of(scene) (world ops keyed by entity).
         builder.Method<&foundation::script::ComponentOf<AudioSourceComponent>, AudioSourceComponent>(
             "of");
-        builder.Property<&AudioSourceComponent::clip>("clip");
+        // Source: pick Clip or Cue; only the chosen Ref shows (visibleWhen keys on sourceType).
+        builder.Property<&AudioSourceComponent::sourceType>("sourceType");
+        builder.Property<&AudioSourceComponent::clip>("clip").PropAttribute(
+            "visibleWhen", String(u8"sourceType=0"));
+        builder.Property<&AudioSourceComponent::cue>("cue").PropAttribute("visibleWhen",
+                                                                          String(u8"sourceType=1"));
         builder.Property<&AudioSourceComponent::bus>("bus");
         builder.Property<&AudioSourceComponent::busName>("busName");
-        builder.Property<&AudioSourceComponent::reverbSend>("reverbSend");
         builder.Property<&AudioSourceComponent::volume>("volume");
         builder.Property<&AudioSourceComponent::pitch>("pitch");
         builder.Property<&AudioSourceComponent::loop>("loop");
-        builder.Property<&AudioSourceComponent::spatial>("spatial");
         builder.Property<&AudioSourceComponent::autoPlay>("autoPlay");
-        builder.Property<&AudioSourceComponent::distanceLowpassHz>("distanceLowpassHz");
-        builder.Property<&AudioSourceComponent::cue>("cue");
         builder.Property<&AudioSourceComponent::priority>("priority");
-        builder.Property<&AudioSourceComponent::minDistance>("minDistance");
-        builder.Property<&AudioSourceComponent::maxDistance>("maxDistance");
-        builder.Property<&AudioSourceComponent::attenuationModel>("attenuationModel");
-        builder.Property<&AudioSourceComponent::rolloff>("rolloff");
-        builder.Property<&AudioSourceComponent::dopplerFactor>("dopplerFactor");
-        builder.Property<&AudioSourceComponent::coneInnerAngleDegrees>("coneInnerAngleDegrees");
-        builder.Property<&AudioSourceComponent::coneOuterAngleDegrees>("coneOuterAngleDegrees");
-        builder.Property<&AudioSourceComponent::coneOuterGain>("coneOuterGain");
+        builder.Property<&AudioSourceComponent::reverbSend>("reverbSend");
+        // Spatial-only fields: hidden for a non-spatial (2D) source.
+        builder.Property<&AudioSourceComponent::spatial>("spatial");
+        builder.Property<&AudioSourceComponent::distanceLowpassHz>("distanceLowpassHz")
+            .PropAttribute("visibleWhen", String(u8"spatial"));
+        builder.Property<&AudioSourceComponent::minDistance>("minDistance")
+            .PropAttribute("visibleWhen", String(u8"spatial"));
+        builder.Property<&AudioSourceComponent::maxDistance>("maxDistance")
+            .PropAttribute("visibleWhen", String(u8"spatial"));
+        builder.Property<&AudioSourceComponent::attenuationModel>("attenuationModel")
+            .PropAttribute("visibleWhen", String(u8"spatial"));
+        builder.Property<&AudioSourceComponent::rolloff>("rolloff").PropAttribute(
+            "visibleWhen", String(u8"spatial"));
+        builder.Property<&AudioSourceComponent::dopplerFactor>("dopplerFactor")
+            .PropAttribute("visibleWhen", String(u8"spatial"));
+        builder.Property<&AudioSourceComponent::coneInnerAngleDegrees>("coneInnerAngleDegrees")
+            .PropAttribute("visibleWhen", String(u8"spatial"));
+        builder.Property<&AudioSourceComponent::coneOuterAngleDegrees>("coneOuterAngleDegrees")
+            .PropAttribute("visibleWhen", String(u8"spatial"));
+        builder.Property<&AudioSourceComponent::coneOuterGain>("coneOuterGain")
+            .PropAttribute("visibleWhen", String(u8"spatial"));
     }
 
     REFLECT_VALUE(AudioListenerComponent, "rtti::engine::audio")
@@ -244,6 +265,7 @@ namespace engine::audio
         {
             RttiRegisterEnum_AudioBus();
             RttiRegisterEnum_AudioAttenuationModel();
+            RttiRegisterEnum_AudioSourceType();
             RttiRegisterValue_AudioSourceComponent();
             RttiRegisterValue_AudioListenerComponent();
             RttiRegisterValue_AudioReverbZoneComponent();

@@ -21,12 +21,22 @@ using namespace foundation::audio;
 
 export namespace engine::audio
 {
+    // What an AudioSource plays: a single clip, or a sound cue (weighted variants + jitter).
+    // The discriminant declutters the inspector (only the relevant Ref shows) and, at runtime,
+    // decides which of clip/cue is used (replaces the old implicit "cue wins if set").
+    enum class AudioSourceType : u8
+    {
+        Clip,
+        Cue
+    };
+
     struct AudioSourceComponent
     {
         // Authored:
+        AudioSourceType sourceType = AudioSourceType::Clip; // which of clip/cue below plays
         foundation::resource::Ref<AudioClip> clip;
-        // Optional cue: when set it WINS over `clip` - each Play trigger resolves a
-        // weighted variant with the cue's jitter (autoplay/loop apply to the pick).
+        // The cue (used when sourceType == Cue): each Play trigger resolves a weighted variant
+        // with the cue's jitter (autoplay/loop apply to the pick).
         foundation::resource::Ref<SoundCue> cue;
         AudioBus bus = AudioBus::Effects;
         // Named custom-bus routing (v2): when non-empty and the applied layout has a
@@ -96,6 +106,18 @@ export namespace engine::audio
         if (ar.Version() >= 3) // v3: per-voice reverb send
         {
             foundation::core::Serialize(ar, "reverbSend", c.reverbSend);
+        }
+        if (ar.Version() >= 4) // v4: explicit clip/cue discriminant
+        {
+            u8 sourceType = static_cast<u8>(c.sourceType);
+            foundation::core::Serialize(ar, "sourceType", sourceType);
+            c.sourceType = static_cast<AudioSourceType>(sourceType);
+        }
+        else
+        {
+            // Migrate pre-v4: the old model was "cue wins if set" - infer the discriminant so
+            // existing sources keep playing the same thing (cue assigned -> Cue, else Clip).
+            c.sourceType = c.cue.id.IsNil() ? AudioSourceType::Clip : AudioSourceType::Cue;
         }
     }
 

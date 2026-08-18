@@ -264,6 +264,10 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     Guid clipId;
     REQUIRE(Guid::TryParse(u8"12345678-1234-4234-8234-123456789abc", clipId));
     sc.clip.SetId(clipId);
+    Guid cueId;
+    REQUIRE(Guid::TryParse(u8"abcdefab-1234-4234-8234-abcdefabcdef", cueId));
+    sc.cue.SetId(cueId);
+    sc.sourceType = AudioSourceType::Cue; // v4 discriminant must survive the round-trip
     sc.bus = AudioBus::Music;
     sc.busName = String(u8"drums");
     sc.reverbSend = 0.35f;
@@ -306,6 +310,8 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     AudioSourceComponent* loaded = b.GetSystem<AudioSourceComponentManager>()->Get(loadedSource);
     REQUIRE(loaded != nullptr);
     CHECK(loaded->clip.id == clipId);
+    CHECK(loaded->cue.id == cueId);
+    CHECK(loaded->sourceType == AudioSourceType::Cue);
     CHECK(loaded->bus == AudioBus::Music);
     CHECK(loaded->busName.AsView() == StringView(u8"drums"));
     CHECK(loaded->reverbSend == doctest::Approx(0.35f));
