@@ -1417,6 +1417,17 @@ namespace editor
         ui::toolkit::PropertyGrid& g = *m_grid;
         const i32 sysIndex = m_selected.systemIndex;
 
+        // Render-mode-conditional sections (the visibleWhen ask): show only the fields the current
+        // render mode actually uses. CommitEdit re-runs this inspector after a render-mode change, so
+        // the sections update live. Billboard-family modes are textured + flipbook-capable; Trail is
+        // textured (ribbon) but not flipbook; Mesh + Light use neither texture nor flipbook.
+        const particles::ParticleRenderMode rm = sys.renderMode;
+        const bool billboardFamily = rm == particles::ParticleRenderMode::Billboard ||
+                                     rm == particles::ParticleRenderMode::StretchedBillboard ||
+                                     rm == particles::ParticleRenderMode::HorizontalBillboard ||
+                                     rm == particles::ParticleRenderMode::VerticalBillboard;
+        const bool textured = billboardFamily || rm == particles::ParticleRenderMode::Trail;
+
         // --- General ---
         {
             const StringView cat = u8"General";
@@ -1494,7 +1505,8 @@ namespace editor
             RowFloat(g, u8"Prewarm Time", &sys.prewarmTime, cat, page, 0.0, 60.0, 0.1);
         }
 
-        // --- Texture ---
+        // --- Texture --- (only the textured render modes: billboards + trail)
+        if (textured)
         {
             const StringView cat = u8"Texture";
             ParticleEffectEditorPage* self = this;
@@ -1534,7 +1546,8 @@ namespace editor
             RowFloat(g, u8"Min Rate", &sys.lodMinRate, cat, page, 0.0, 1.0, 0.01);
         }
 
-        // --- Flipbook ---
+        // --- Flipbook --- (billboard-family only: animates the billboard UV sheet)
+        if (billboardFamily)
         {
             const StringView cat = u8"Flipbook";
             RowBool(g, u8"Enabled", &sys.flipbook.enabled, cat, page);
@@ -1545,7 +1558,8 @@ namespace editor
             RowInt(g, u8"Start Frame", &sys.flipbook.startFrame, cat, page, 0, 4096);
         }
 
-        // --- Trail ---
+        // --- Trail --- (Trail render mode only)
+        if (rm == particles::ParticleRenderMode::Trail)
         {
             const StringView cat = u8"Trail";
             RowBool(g, u8"Enabled", &sys.trail.enabled, cat, page);
