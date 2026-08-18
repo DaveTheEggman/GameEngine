@@ -7,10 +7,16 @@
 // loop. A page CONTAINS one instead of re-implementing it: construct it, populate Scene()
 // with the page's own entities (mesh, light, ...), drive Update(dt) from OnUpdate and
 // RenderFrame(frame) from OnRenderWindow, mount View() in the layout, and draw overlays
-// into SceneDebugDraw() (which is render->DebugScene(Scene()) - the keyed-view contract:
-// a preview scene has exactly one view, so DebugScene is unambiguous here).
+// into SceneDebugDraw() (render->DebugScene(Scene()) - a preview scene has exactly one view,
+// so the keyed-view DebugScene contract is unambiguous here).
 //
-// Never linked by the runtime. See Documentation/Specs/editor-preview-viewport.md.
+// This interface is deliberately LEAN and PIMPL'd: it names only the types in its public
+// signatures (Scene*, a base View*, EditorCamera&, DebugDraw&, FrameContext&) and hides the
+// render/scene/rhi/viewport/vg graph behind Impl in the .cpp. That is not just tidiness - GCC
+// 15 segfaults in its module merger when a heavy page TU (ScenePage, MaterialPage, ...)
+// imports an interface that transitively pulls engine.render + engine.scene, so those imports
+// MUST stay out of this interface (gcc-module-interface-hygiene). Never linked by the runtime.
+// See Documentation/Specs/editor-preview-viewport.md.
 
 module;
 #include "Core/Prelude.h"
@@ -18,20 +24,13 @@ module;
 export module editor.preview;
 
 import foundation.core;
-import foundation.shell;
-import foundation.runtime;
-import foundation.runtime.client;
-import foundation.graphics;
-import foundation.rhi;
-import foundation.scene;
-import engine.scene;
-import foundation.render;
-import engine.render;
-import foundation.ui;
-import foundation.ui.runtime;
-import foundation.ui.viewport;
-import foundation.vg.renderer;
-export import editor.camera; // EditorCamera (lean module; kept out of this heavy interface)
+import foundation.runtime.client; // IApplicationHost
+import foundation.ui.runtime;     // UIHost
+import foundation.scene;          // Scene* (returned)
+import foundation.render;         // debug::DebugDraw& (returned)
+import foundation.graphics;       // FrameContext& (parameter)
+import foundation.ui;             // View* (the viewport as a base View, for layout)
+export import editor.camera;      // EditorCamera& (returned)
 
 using namespace foundation::core;
 
@@ -41,8 +40,8 @@ export namespace editor
     namespace ui = foundation::ui;
     namespace scene = foundation::scene;
 
-    // Shared 3D-preview viewport substrate. Non-copyable, non-movable (owns a SceneManager
-    // by value + a live ViewportView); hold it by UniquePtr in the page.
+    // Shared 3D-preview viewport substrate. Non-copyable, non-movable (PIMPL owns a
+    // SceneManager by value + a live ViewportView); hold it by UniquePtr in the page.
     class PreviewViewport
     {
     public:
@@ -55,10 +54,11 @@ export namespace editor
         PreviewViewport(const PreviewViewport&) = delete;
         PreviewViewport& operator=(const PreviewViewport&) = delete;
 
-        [[nodiscard]] bool IsValid() const { return m_scene != nullptr; }
-        [[nodiscard]] scene::Scene* Scene() const { return m_scene; }
-        [[nodiscard]] ui::viewport::ViewportView* View() const { return m_viewport.Get(); }
-        [[nodiscard]] EditorCamera& Camera() { return m_camera; }
+        [[nodiscard]] bool IsValid() const;
+        [[nodiscard]] scene::Scene* Scene() const;
+        // The viewport view, as a base View for layout (SplitView panes etc.).
+        [[nodiscard]] ui::View* View() const;
+        [[nodiscard]] EditorCamera& Camera();
 
         // Overlay draw target for this preview scene (skeleton wireframe, collision outline, ...).
         // Valid only while IsValid(); the render subsystem must be present.
@@ -75,17 +75,7 @@ export namespace editor
         void Shutdown();
 
     private:
-        void EnsureViewportBound();
-
-        runtime::IApplicationHost* m_host = nullptr;
-        ui::runtime::UIHost* m_uiHost = nullptr;
-        engine::scene::SceneSubsystem* m_scenes = nullptr;
-        scene::SceneManager m_sceneManager; // this preview's OWN scene group
-        engine::render::RenderSubsystem* m_render = nullptr;
-        scene::Scene* m_scene = nullptr;
-        EditorCamera m_camera;
-        UniquePtr<foundation::shell::InputRouter> m_router;
-        RefPtr<ui::viewport::ViewportView> m_viewport;
-        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
+        struct Impl;
+        UniquePtr<Impl> m_impl;
     };
 }
