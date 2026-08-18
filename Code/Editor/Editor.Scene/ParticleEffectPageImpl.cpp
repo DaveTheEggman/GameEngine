@@ -29,7 +29,7 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import :camera;
+import editor.camera;
 
 using namespace foundation::core;
 namespace particles = foundation::particles;

@@ -1,4 +1,8 @@
-// Editor::Scene - :camera partition.
+// Editor::Camera - `editor.camera`: the free-fly viewport camera, graduated out of Editor::Scene
+// into its own LEAN module (foundation-only) so every editor page lib can share it: the scene
+// pages, Editor.Physics, and PreviewViewport (editor.preview) alike. Kept separate from the heavy
+// editor.preview interface so widely-importing pages never pull the render/scene/viewport graph
+// (a GCC module-merge ICE when ScenePage imported the combined interface).
 //
 // EditorCamera: the scene page's free-fly viewport camera - the samples' FlyCamera
 // (Code/Samples/Common/FlyCamera.h) adopted into the editor with editor-scale defaults.
@@ -9,7 +13,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module editor.scene:camera;
+export module editor.camera;
 
 import foundation.core;
 import foundation.shell;

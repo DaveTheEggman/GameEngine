@@ -7,7 +7,7 @@
 
 export module editor.scene;
 
-export import :camera;
+export import editor.camera;
 export import :camera_preview;
 export import :edit;
 export import :gizmo;

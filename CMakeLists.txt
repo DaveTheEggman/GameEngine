@@ -528,6 +528,8 @@ if(OPTION_BUILD_TOOLS)
     add_subdirectory(Code/Editor/Editor.Generic) # fallback asset page: serialize-driven property form (editor exe only)
     add_subdirectory(Code/Editor/Editor.Script) # script behavior source page: edit + recook + inline errors (editor exe only)
     add_subdirectory(Code/Editor/Editor.ViewportTools) # viewport tool-mode framework (IViewportTool + manager + provider registry)
+    add_subdirectory(Code/Editor/Editor.Camera) # shared free-fly viewport camera (lean, foundation-only) for all editor pages
+    add_subdirectory(Code/Editor/Editor.Preview) # shared 3D preview viewport substrate (PreviewViewport, over editor.camera) for bespoke asset pages
     add_subdirectory(Code/Editor/Editor.Scene) # scene editor plugin (SceneEditorPage + RegisterSceneEditor)
     add_subdirectory(Code/Editor/Editor.Navigation) # navmesh bake tooling (collect + Recast bake -> zone asset)
 
@@ -577,6 +579,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Editor/Editor.Scene.Tests                  Editor::Scene)
     util_test_suite(Code/Editor/Editor.Navigation.Tests             Editor::Navigation)
     util_test_suite(Code/Editor/Editor.ViewportTools.Tests          Editor::ViewportTools)
+    util_test_suite(Code/Editor/Editor.Camera.Tests                 Editor::Camera)
     util_test_suite(Code/Editor/Editor.PropertyAnimation.Tests      Editor::PropertyAnimation)
     util_test_suite(Code/Editor/Editor.Script.Tests                 Editor::Script)
     util_test_suite(Code/Editor/Editor.Tests                        Pipeline::Core)

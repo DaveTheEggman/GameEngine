@@ -35,7 +35,7 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import :camera;
+import editor.camera;
 import :animation_graph_page; // DrawSkeletonWireframe (shared preview helper)
 
 using namespace foundation::core;

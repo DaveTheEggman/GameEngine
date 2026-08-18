@@ -42,7 +42,7 @@ import foundation.vg.renderer;
 import editor.core;
 import editor.app;
 import editor.propertyanimation; // the persistent in-scene property-animation editor panel
-import :camera;
+import editor.camera;
 import :edit;
 import :model_prefab;
 import :game_page;

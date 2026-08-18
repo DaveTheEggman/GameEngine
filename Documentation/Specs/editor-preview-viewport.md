@@ -169,3 +169,31 @@ excepted): the migration covers all SIX, one commit per page, not three. Build
 order becomes: prereq (collision factory host/uiHost) -> (a) module +
 EditorCamera graduation -> (b) collision adopts -> (c..h) the six migrations,
 each deleting its hand-rolled copy.
+
+## OPUS DEVIATION (2026-08-18, during build of (a)) - TWO modules, not one
+
+Fable ruling #1 put EditorCamera + PreviewViewport in one module `editor.preview`,
+reasoning the interface "stays light" because EditorCamera is foundation-only.
+It does NOT: PreviewViewport's own members (SceneManager, RenderSubsystem,
+ViewportView, ...) make the `editor.preview` interface pull the render + scene +
+viewport + rhi + vg graph. The moment ScenePage.cppm (already the heaviest TU in
+the tree) imported that combined interface just to get EditorCamera, GCC 15
+SEGFAULTED in the module merger (the gcm-cluster fragility, gcc-module-interface-
+hygiene memory). Clang built it fine; gcc did not.
+
+Fix, which is also cleaner: split into TWO modules.
+- `editor.camera` (target `Editor::Camera`, module `editor.camera`): EditorCamera
+  ONLY, foundation-only, deliberately lean. Imported WIDELY - every scene page +
+  Editor.Physics. This is what graduates out of editor.scene.
+- `editor.preview` (target `Editor::Preview`, module `editor.preview`):
+  PreviewViewport, imports editor.camera + the heavy render/scene/viewport graph.
+  Imported ONLY by pages that host a preview (the six, post-migration; the
+  collision page first). `export import editor.camera` so a preview consumer still
+  gets EditorCamera in one import.
+
+This honors the ruling's intent (camera graduates out of editor.scene, shareable
+by Editor.Physics; PreviewViewport is the shared substrate; no cycle) while
+keeping the widely-imported surface lean enough for gcc. The unit tests live with
+the camera (Editor.Camera.Tests, 5 cases / 19 assertions: LookAt aim + level
+horizon, basis orthonormality, RMB free-look, WASD-fly gating). Flagged for Fable;
+revert to one module only if a gcc fix makes the combined interface safe.

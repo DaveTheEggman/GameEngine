@@ -47,7 +47,7 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import :camera;    // EditorCamera (fly camera on the preview viewport)
+import editor.camera;    // EditorCamera (fly camera on the preview viewport)
 import :inspector; // ResourceRefEditor (the picker row)
 
 using namespace foundation::core;
