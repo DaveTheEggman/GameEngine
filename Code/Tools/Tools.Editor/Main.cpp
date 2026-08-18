@@ -367,7 +367,7 @@ int main(int argc, char** argv)
         editor::RegisterTextureEditor(app.Context());
         editor::RegisterImageEditor(app.Context());
         editor::RegisterFontEditor(app.Context());
-        editor::RegisterCollisionShapeEditor(app.Context());
+        editor::RegisterCollisionShapeEditor(app.Context(), host, uiHost);
         // The FALLBACK page registers like any factory: nearest-base dispatch routes every
         // bespoke page first; anything else lands on the generic serialize-driven form
         // instead of the hard "No editor registered" failure.

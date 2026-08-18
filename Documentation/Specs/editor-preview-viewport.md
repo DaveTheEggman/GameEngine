@@ -151,3 +151,21 @@ compilers per landing, including the full sweep (the pass-11 lesson).
 Scheduling: this unblocks the CURRENT bespoke-pages UAT item ("Collision mesh
 page: no preview") - proceed now under that cluster; do not park it behind the
 week-2026-08-22 seeds (confirmed orthogonal).
+
+## OPUS CORRECTION (2026-08-18, before build) - the triplication is SIX-fold
+
+The original finding said three pages (mesh/clip/skeleton); a full sweep before
+building shows SIX pure-preview pages own a private preview SceneManager + the
+identical EnsureViewportBound/RenderScene substrate:
+`MeshPage`, `AnimationClipPage`, `SkeletonPage`, `MaterialPage`
+(u8"material.preview"), `ParticleEffectPage` (u8"particle.preview"),
+`AnimationGraphPage` (u8"animgraph.preview"). `ScenePage` and `GamePage` own NO
+preview scene (they render the real edited / running scene) - these are the two
+Fable carved out ("keeps its OWN viewport loop"), confirmed correct.
+
+This does not change the ruling, it EXTENDS its own principle ("DONE when the
+only EnsureViewportBound in the tree is PreviewViewport's", scene/game
+excepted): the migration covers all SIX, one commit per page, not three. Build
+order becomes: prereq (collision factory host/uiHost) -> (a) module +
+EditorCamera graduation -> (b) collision adopts -> (c..h) the six migrations,
+each deleting its hand-rolled copy.

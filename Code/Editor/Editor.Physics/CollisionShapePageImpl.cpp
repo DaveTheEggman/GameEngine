@@ -8,8 +8,11 @@ module editor.physics;
 
 import foundation.core;
 import foundation.content;
+import foundation.runtime;
+import foundation.runtime.client;
 import physics.pipeline;
 import foundation.ui;
+import foundation.ui.runtime;
 import editor.core;
 import editor.app;
 
@@ -19,6 +22,7 @@ namespace content = foundation::content;
 namespace editor
 {
     namespace ui = foundation::ui;
+    namespace runtime = foundation::runtime;
 
     StringView CollisionShapeEditorPage::CookLabel(pipeline::CollisionCookKind kind)
     {
@@ -54,8 +58,10 @@ namespace editor
     }
 
     CollisionShapeEditorPage::CollisionShapeEditorPage(EditorContext& context,
-                                                      content::Instance& instance)
-        : m_context(&context), m_title(instance.Name())
+                                                       runtime::IApplicationHost& host,
+                                                       ui::runtime::UIHost& uiHost,
+                                                       content::Instance& instance)
+        : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
         SetInstanceId(instance.Id());
         RefPtr<ISerializable> object = instance.ReadObject();

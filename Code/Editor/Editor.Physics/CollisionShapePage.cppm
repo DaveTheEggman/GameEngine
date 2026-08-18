@@ -14,8 +14,11 @@ export module editor.physics;
 
 import foundation.core;
 import foundation.content;
+import foundation.runtime;
+import foundation.runtime.client;
 import physics.pipeline; // CollisionShapeAsset + CollisionCookKind
 import foundation.ui;
+import foundation.ui.runtime;
 import editor.core;
 import editor.app;
 
@@ -24,12 +27,15 @@ using namespace foundation::core;
 export namespace editor
 {
     namespace ui = foundation::ui;
+    namespace runtime = foundation::runtime;
 
     // Authoring page for a CollisionShapeAsset (pick a mesh, choose the cook, cook it).
     class CollisionShapeEditorPage final : public app::UIEditorPage
     {
     public:
-        CollisionShapeEditorPage(EditorContext& context, foundation::content::Instance& instance);
+        CollisionShapeEditorPage(EditorContext& context, runtime::IApplicationHost& host,
+                                 ui::runtime::UIHost& uiHost,
+                                 foundation::content::Instance& instance);
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
@@ -42,6 +48,8 @@ export namespace editor
         [[nodiscard]] static StringView CookLabel(pipeline::CollisionCookKind kind);
 
         EditorContext* m_context = nullptr;
+        runtime::IApplicationHost* m_host = nullptr;
+        ui::runtime::UIHost* m_uiHost = nullptr;
         String m_title;
         RefPtr<pipeline::CollisionShapeAsset> m_asset;
         RefPtr<ui::View> m_content;
@@ -53,6 +61,12 @@ export namespace editor
     class CollisionShapeEditorPageFactory final : public IEditorPageFactory
     {
     public:
+        CollisionShapeEditorPageFactory(runtime::IApplicationHost& host,
+                                        ui::runtime::UIHost& uiHost)
+            : m_host(&host), m_uiHost(&uiHost)
+        {
+        }
+
         [[nodiscard]] const TypeInfo* PrimaryType() const override
         {
             return &pipeline::CollisionShapeAsset::StaticType();
@@ -61,14 +75,22 @@ export namespace editor
         CreatePage(EditorContext& context, foundation::content::Instance& instance) override
         {
             return UniquePtr<EditorPage>(
-                DefaultAllocator().New<CollisionShapeEditorPage>(context, instance),
+                DefaultAllocator().New<CollisionShapeEditorPage>(context, *m_host, *m_uiHost,
+                                                                 instance),
                 DefaultAllocator());
         }
+
+    private:
+        runtime::IApplicationHost* m_host;
+        ui::runtime::UIHost* m_uiHost;
     };
 
-    inline void RegisterCollisionShapeEditor(EditorContext& context)
+    inline void RegisterCollisionShapeEditor(EditorContext& context,
+                                             runtime::IApplicationHost& host,
+                                             ui::runtime::UIHost& uiHost)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<CollisionShapeEditorPageFactory>(), DefaultAllocator()));
+            DefaultAllocator().New<CollisionShapeEditorPageFactory>(host, uiHost),
+            DefaultAllocator()));
     }
 }
