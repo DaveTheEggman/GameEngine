@@ -40,6 +40,7 @@ import engine.ui; // game-UI RenderTexture canvases (live in editing viewports)
 import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
+import navigation.pipeline; // NavigationZoneAsset (the "Navigation Zone" new-asset creator)
 import editor.app;
 import editor.propertyanimation; // the persistent in-scene property-animation editor panel
 import :camera;
@@ -697,6 +698,46 @@ export namespace editor
         return instance;
     }
 
+    // A new (empty) navigation-zone asset. It carries no navmesh yet - the user assigns it to a
+    // NavMeshZoneComponent's `zone` ref, sizes the zone, and clicks Bake (the inspector action) to
+    // fill it. Lives in a "Navigation" group by default.
+    [[nodiscard]] inline foundation::content::Instance*
+    CreateNavigationZoneInstance(EditorContext& context, foundation::content::Group* target = nullptr)
+    {
+        EditorProject* project = context.Project();
+        if (project == nullptr)
+        {
+            return nullptr;
+        }
+        foundation::content::Group* group = target;
+        if (group == nullptr)
+        {
+            foundation::content::Group* root = project->SourceDb().RootGroup();
+            group = root->GetGroup(u8"Navigation");
+            if (group == nullptr)
+            {
+                group = root->CreateGroup(u8"Navigation");
+            }
+        }
+        if (group == nullptr)
+        {
+            return nullptr;
+        }
+        const String name = group->UniqueInstanceName(u8"NavZone");
+        foundation::content::Instance* instance =
+            group->CreateInstance(name.AsView(), pipeline::NavigationZoneAsset::StaticType());
+        if (instance == nullptr)
+        {
+            return nullptr;
+        }
+        pipeline::NavigationZoneAsset asset; // empty; Bake fills the navmesh sidecar later
+        if (!pipeline::WriteNavigationZoneAsset(*instance, asset).IsOk())
+        {
+            return nullptr;
+        }
+        return instance;
+    }
+
     inline void RegisterSceneEditor(EditorContext& context, runtime::IApplicationHost& host,
                                     ui::runtime::UIHost& uiHost,
                                     engine::runtime::DefaultApplication* embeddedApp = nullptr)
@@ -723,6 +764,17 @@ export namespace editor
         prefabCreator.create = [](EditorContext& ctx, foundation::content::Group* group)
         { return CreatePrefabInstance(ctx, group); };
         context.RegisterCreator(Move(prefabCreator));
+
+        // Navigation-zone asset (baked in-scene via the NavMeshZoneComponent Bake button).
+        GlobalTypeRegistry().Register(pipeline::NavigationZoneAsset::StaticType(),
+                                      TypeDomain(u8"Editor"));
+        RegisterSerializable<pipeline::NavigationZoneAsset>();
+        EditorContext::AssetCreator navZoneCreator;
+        navZoneCreator.label = String(u8"Navigation Zone");
+        navZoneCreator.category = String(u8"Navigation");
+        navZoneCreator.create = [](EditorContext& ctx, foundation::content::Group* group)
+        { return CreateNavigationZoneInstance(ctx, group); };
+        context.RegisterCreator(Move(navZoneCreator));
 
         // Model imports: generate/refresh the hierarchy prefab beside the manifest (the
         // "Generate prefab" import option). Lives here - not in the importer - because it

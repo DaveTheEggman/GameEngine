@@ -55,15 +55,18 @@ reference.
     Editor.Scene.Tests 708; editor exe links. Promotion rule recorded (the SECOND
     per-component inspector action extracts the action-row registry).
     On-screen verify (gizmo box + Bake button + toast) = a P5 user check.
-- [~] **P5 - acceptance**: demo (A) DONE - the WebScene sample (desktop + web) gained an
-  inline-baked navmesh (NavigationMeshBuilder over the floor + a central obstacle box - the
-  runtime bake primitive, since the editor/cook bake is tools-only and absent on web) + a
-  6-agent crowd that ping-pongs across the field, routing around the box and avoiding each
-  other, with the navmesh + path debug overlay on. Simulation enabled on the scene. Both
-  desktop compilers link. REMAINING: the wasm build (confirm Recast compiles for Emscripten +
-  it runs in a browser) + the user's on-screen visual pass (desktop and web). Demo (B), the
-  cooked-scene-loaded-by-a-player path, is deferred (handled after; see the week-2026-08-22
-  authored-editor-sample item, which is its editor-side counterpart).
+- [x] **P5 - acceptance**: demo (A) DONE + USER-VERIFIED (2026-08-18, "webscene works").
+  The WebScene sample (desktop + web) gained an inline-baked navmesh
+  (NavigationMeshBuilder over the floor + a central obstacle box - the runtime bake
+  primitive, since the editor/cook bake is tools-only and absent on web) + a 6-agent crowd
+  that ping-pongs across the field, routing around the box and avoiding each other, with the
+  navmesh + path debug overlay on (simulation enabled). WASM CONFIRMED: WebScene builds to
+  WebScene.{html,js,wasm,data} for Emscripten; ThirdParty::Recast compiles for wasm with NO
+  gating (pure exception-free C++, like Jolt) - libthirdparty_recast.a produced. Same code
+  runs desktop + browser. Demo (B), the cooked-scene-loaded-by-a-player path, is deferred
+  (see the week-2026-08-22 authored-editor-sample item, its editor-side counterpart).
+  Still open (minor, separate): the editor-side on-screen verify of the P4b Bake button +
+  zone gizmo + inspector, done in an editor session (not WebScene).
 
 ## Recorded deferrals (Fable P4b rulings, 2026-08-18)
 
