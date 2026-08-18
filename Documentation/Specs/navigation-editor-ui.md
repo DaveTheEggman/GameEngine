@@ -84,3 +84,80 @@ The in-scene authoring seams from the property-animation work, all navigation-re
 None of this blocks the runtime - agents already navigate (P3). This is purely the authoring
 surface, and every piece has a clear seam to land on; I only need the shape decisions above
 before building so I do not build the wrong shell.
+
+## FABLE RULINGS (2026-08-18) - build to these
+
+First, one stale premise to correct: **the tool_panel seam is PARKED with ZERO
+consumers.** Property animation built it (Phase H) and then moved OFF it to the
+persistent BottomDock panel (A2 REVISED, user-directed 2026-08-17); the "nav-mesh
+bake panel" line in the seam's own doc predates that move. Nav should not
+resurrect a parked seam out of loyalty to a stale comment - it should follow the
+pattern that actually won. That reshapes question 1.
+
+1. **Shape: (b), not (c).** Baking is a ONE-SHOT asset-writing action on a
+   selected component (BakeNavigationZone writes the NavigationZoneAsset
+   sidecar the component references). There is no dwell-mode interaction in
+   P4b: no brushing, no click-in-viewport authoring (extents are
+   inspector-edited, the gizmo is read-only per ruling 5). A mode whose only
+   job is hosting a button is ceremony. Concretely:
+   - The Bake button lives in the INSPECTOR on the NavMeshZoneComponent
+     section. The inspector has no generic per-component action-button seam
+     yet - add a SMALL one (a per-type action-row dispatch, the same
+     table idiom the ref pickers use). That seam will be reused (probe
+     re-bake, effect preview, ...) and is far cheaper than reviving the tool
+     ecosystem. It shows bake status/result inline (flash the outcome - the
+     Save-button lesson: no silent success).
+   - NO NavigationTool, NO panel provider in P4b. The seam stays parked. The
+     REAL future trigger for a NavigationTool is genuinely modal authoring -
+     off-mesh link placement or walkable-area painting. When that lands, the
+     tool + panel shape is right; record that here and build it then.
+   - `RegisterNavigationEditor(context, host)` still exists as the per-domain
+     registrar (gizmo + inspector action registration) beside
+     RegisterPropertyAnimationEditor.
+
+2. **Layering: ONE UI-capable Editor.Navigation.** The pipeline-UI-free rule is
+   about Pipeline targets and their tests, deliberately; editor libs are the
+   UI-capable tier and property-animation's single-lib shape is the pattern.
+   Do not split an Editor.Navigation.UI - no other editor domain has one.
+   Keep the bake-core FUNCTIONS in implementation units that import no ui
+   modules so headless consumers (tests, a future CLI bake) stay clean; the
+   linker prunes the rest.
+
+3. **Debug draw: persistent, engine-side, settings-gated - the PHYSICS
+   precedent exactly.** Physics debug draw is gated by a per-scene settings
+   flag (PhysicsSceneSettings.debugDraw) and drawn by the runtime system into
+   DebugScene each frame - working in editor AND player, independent of any
+   editor tool. Navigation mirrors it: a debugDraw flag on the navigation
+   scene settings, drawn by the navigation scene system (navmesh polys;
+   agent paths under the same flag, or a second field if the noise annoys).
+   Tool-scoped Draw() is wrong here - the navmesh would vanish the moment you
+   click the move gizmo. This also means the debug draw lives in the ENGINE
+   navigation system, not the editor lib; the editor merely toggles the
+   setting (scene-settings inspector gets it for free as a reflected field).
+
+4. **Async bake: defer, RECORDED.** Keep P4b synchronous; note the deferral in
+   navigation.md with its trigger ("go async when a measured bake stutters -
+   roughly >100ms on a real zone"), so it is a deliberate deferral, not a
+   silent scope-down. Structure the call site as one function (collect ->
+   bake -> write -> flash outcome) so moving it onto a worker later is
+   mechanical. Do not build the progress plumbing speculatively.
+
+5. **Gizmo: read-only extents box**, mirror DecalGizmoRenderer,
+   DrawWhenUnselected() = false. Interactive box handles are a SHARED problem
+   (decals, probes, nav zones all want the same thing) - if handles ever get
+   built, build ONE box-extents-handles helper for all three, never a
+   nav-specific one. Recorded so nobody builds bespoke handles.
+
+6. **DebugTriangles on NavigationMesh (foundation.navigation): yes, and
+   PREFER it over caching an outline in the cooked asset.** The debug draw's
+   job is to show what the runtime is ACTUALLY pathing on - the loaded
+   dtNavMesh - so drawing from the live mesh catches load/version/transform
+   drift that a bake-time outline would mask. The collision-asset outline
+   precedent exists because cooked Jolt blobs do not enumerate cheaply at
+   runtime; dt tiles DO. Append-into-caller-array signature, Detour-only
+   internals (PIMPL holds). Test: baked zone yields >0 triangles, all inside
+   the zone AABB inflated by one cell.
+
+Not a ruling, a reminder: P4b lands with tests per phase (the gizmo +
+inspector action are testable headless via the registries; DebugTriangles in
+foundation tests) and the plan's on-screen verify stays a user step.
