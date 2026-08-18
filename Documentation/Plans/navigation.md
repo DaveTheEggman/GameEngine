@@ -21,16 +21,16 @@ reference.
   (NavigationZoneAsset with the baked blob in a SIDECAR stream, passthrough
   builder) + Pipeline.Registration wiring (kBuilderCount 22 -> 23). Full-chain
   cook + factory + query test both compilers.
-- [~] **P3 - engine.navigation** - P3a DONE (dfb80fa0): NavMeshZoneComponent +
-  NavAgentComponent (reflected: displayName/category, zone Ref picker, agent
-  runtime API `NavAgent.of(entity).navigate/stop/finished/remaining/velocity*`),
-  NavigationSceneSystem (per-scene: loaded zones, one dtCrowd per zone, crowd tick
-  + MoveEntity transform writeback, zone-local transform), AddNavigationSceneManagers
-  wired into Engine.SceneSurface (kSceneSystemCount 31 -> 34). Engine test both
-  compilers: an agent navigates across a zone to its target.
-  P3b REMAINING: DefaultApp runtime injection (an ISceneAware subsystem + the
-  NavigationZoneFactory registration) + out-of-tree script facade surfacing
-  (RegisterNavigationScriptFacade + bump kSubsystemFacadeNameCount) + debug draw.
+- [x] **P3 - engine.navigation** - P3a (dfb80fa0) + P3b (54202969). Components
+  (NavMeshZoneComponent + NavAgentComponent, reflected: displayName/category, zone
+  Ref picker, agent API `NavAgent.of(entity).navigate/stop/finished/remaining/
+  velocity*`); NavigationSceneSystem (per-scene loaded zones, one dtCrowd per zone,
+  crowd tick + MoveEntity writeback, zone-local transform); wired into
+  Engine.SceneSurface (kSceneSystemCount 34). Runtime injection via
+  NavigationSubsystem (ISceneAware) + NavigationZoneFactory in DefaultApp; script
+  facade surfaced (kSubsystemFacadeNameCount 32). Engine test both compilers (an
+  agent navigates a zone); the Player executable links end to end. Debug draw
+  folded into P4 (editor visualization).
 - [ ] **P4 - Editor.Navigation**: async "Bake Navigation" action (writes the zone
   asset sidecar) + zone gizmo/extents + debug-draw toggles.
 - [ ] **P5 - acceptance**: demo scene (zone + obstacles + 3+ click-to-navigate
