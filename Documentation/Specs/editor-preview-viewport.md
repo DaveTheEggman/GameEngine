@@ -1,6 +1,8 @@
 # Shared editor preview viewport (extract the triplicated bespoke-page 3D preview)
 
-Status: DESIGN QUESTION for Fable (Opus, 2026-08-18). Origin: the bespoke-pages UAT
+Status: APPROVED TO BUILD (Fable ruling 2026-08-18, decision delegated by the
+user - "for your call"; graduated Ideas -> Specs accordingly). Was: DESIGN
+QUESTION for Fable (Opus, 2026-08-18). Origin: the bespoke-pages UAT
 cluster (week-2026-08-15) - specifically "Collision mesh page: no preview". Building
 that preview surfaced that the 3D-preview scaffolding is already triplicated and that
 Editor.Physics cannot reuse it. The user notes Sedulous landed on a shared preview
@@ -90,3 +92,62 @@ the ports bug) does not depend on this; only the collision preview does.
   this deduplicates the per-PAGE 3D-preview scaffolding. They could land in either order.
 - Today only `DrawSkeletonWireframe` (a free draw helper in :animation_graph_page) is
   shared across pages - the viewport + scene + camera + render loop is NOT.
+
+## FABLE RULING (2026-08-18) - approved; build to these answers
+
+The finding is verified (the three EnsureViewportBound copies, the
+foundation-only EditorCamera trapped in a private editor.scene partition, the
+host-less collision factory) and the extraction is the right call - this is
+real triplication with a fourth consumer in hand, not a speculative seam. The
+seam-rot rule does not apply here: FOUR real consumers exist TODAY. Answers:
+
+1. **Home: a NEW lean module - `Code/Editor/Editor.Preview`, module
+   `editor.preview`, target `Editor::Preview`.** Confirmed editor.core cannot
+   host it (deliberately headless; a render+shell+viewport dependency would
+   wreck that). Do NOT fold it into editor.viewporttools either - that module
+   is the scene-page interaction-mode framework; this is a self-contained
+   page substrate. Different concerns, both stay lean. EditorCamera graduates
+   into editor.preview (it is already foundation-only, so the module's
+   interface stays light); editor.scene links editor.preview and deletes its
+   :camera partition - the scene page keeps its OWN viewport loop (it has
+   tools/gizmos/game tabs; it only shares the camera). No cycle:
+   editor.preview imports foundation + engine only, never editor.scene.
+2. **Overlay seam: the low-API option** - hand out `Scene()` / `Update(dt)` /
+   `View()`; pages draw into `render->DebugScene(preview.Scene())` exactly as
+   they do today. This is not just less API: the 6dbdfbf7 keyed-view fix
+   pinned the contract (DebugScene = drawn in every view of the scene), and a
+   preview scene has exactly ONE view, so DebugScene is unambiguous here. A
+   Function hook would be a second way to do the same thing with no added
+   capability. If a future consumer genuinely needs per-view-only chrome in a
+   preview, DebugView(viewport key) already exists - no PreviewViewport API
+   needed even then.
+3. **Migration order: collision page first, then ALL THREE existing pages -
+   in the SAME track, one page per commit, battery each.** The tentative
+   recommendation's "follow-up" framing is the one thing I reject: an
+   extraction that leaves the triplication standing has achieved nothing, and
+   an API validated by one consumer is exactly the seam-rot trap. The three
+   existing pages ARE the API's proof - if one cannot absorb PreviewViewport
+   without hacks, the API is wrong and gets fixed while the work is fresh.
+   Design against all four up front (as proposed); land as: (a) module +
+   EditorCamera graduation, (b) collision page adopts (the zero-regression
+   new consumer), (c/d/e) mesh, clip, skeleton migrate one commit each, each
+   deleting its hand-rolled copy. The track is DONE when the only
+   EnsureViewportBound in the tree is PreviewViewport's.
+4. **Factory threading: a PREREQUISITE commit.** Widening the collision
+   factory (+ RegisterCollisionShapeEditor) to take host/uiHost is mechanical,
+   independently correct (future bespoke pages need it regardless - the
+   scene-page factory precedent), and keeping it out of the extraction diff
+   keeps that diff reviewable.
+5. **Naming**: class `PreviewViewport`, module `editor.preview`, target
+   `Editor::Preview`, files PreviewViewport.cppm (+Impl per module hygiene if
+   the bodies are heavy). Full descriptive names, no abbreviations.
+
+Tests ride the extraction: the module gets its own Tests target
+(PreviewViewport gets a headless construct/scene-ownership/update-tick test on
+the NullDevice precedent), and each migrated page's existing tests keep
+passing unchanged - that invariance IS the migration test. Battery both
+compilers per landing, including the full sweep (the pass-11 lesson).
+
+Scheduling: this unblocks the CURRENT bespoke-pages UAT item ("Collision mesh
+page: no preview") - proceed now under that cluster; do not park it behind the
+week-2026-08-22 seeds (confirmed orthogonal).
