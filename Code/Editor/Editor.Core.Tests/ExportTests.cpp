@@ -1949,3 +1949,16 @@ TEST_CASE("export: desktop Content.pak is byte-identical with a sibling target D
     NukeTree(distA.AsView());
     NukeTree(distB.AsView());
 }
+
+TEST_CASE("export: player output name carries the Windows .exe extension (target-platform aware)")
+{
+    using editor::detail::PlayerOutputName;
+    // Windows: a bare name gains .exe; an already-suffixed name is left alone (idempotent).
+    CHECK(PlayerOutputName(u8"Win64", u8"MyGame", u8"Engine.Player.exe") == StringView(u8"MyGame.exe"));
+    CHECK(PlayerOutputName(u8"Win64", u8"MyGame.exe", u8"x") == StringView(u8"MyGame.exe"));
+    // Empty playerName falls back to the template binary (which may or may not already carry .exe).
+    CHECK(PlayerOutputName(u8"Win64", u8"", u8"Engine.Player.exe") == StringView(u8"Engine.Player.exe"));
+    CHECK(PlayerOutputName(u8"Win64", u8"", u8"Engine.Player") == StringView(u8"Engine.Player.exe"));
+    // Non-Windows targets carry no executable suffix.
+    CHECK(PlayerOutputName(u8"Linux64", u8"MyGame", u8"Engine.Player") == StringView(u8"MyGame"));
+}

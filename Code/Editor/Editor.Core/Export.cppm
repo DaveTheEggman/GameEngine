@@ -106,6 +106,24 @@ export namespace editor
 
     namespace detail
     {
+        // The staged player filename: the chosen name (preset.playerName, else the template's player
+        // binary) with the TARGET platform's executable extension ensured. Windows executables must end
+        // in .exe or the OS will not launch them ("MyGame" -> "MyGame.exe"); other platforms carry no
+        // suffix. Idempotent - a name that already ends in .exe is left alone.
+        [[nodiscard]] inline foundation::core::String PlayerOutputName(
+            foundation::core::StringView platform, foundation::core::StringView playerName,
+            foundation::core::StringView templateBinary)
+        {
+            foundation::core::String name = playerName.IsEmpty()
+                                                ? foundation::core::String(templateBinary)
+                                                : foundation::core::String(playerName);
+            if (platform.StartsWith(u8"Win") && !name.AsView().EndsWith(u8".exe"))
+            {
+                name += u8".exe";
+            }
+            return name;
+        }
+
         // A cooked file's owning instance is reachable: the owning instance path is `file` up to a
         // '.' in its NAME region (envelope "<path>.<ext>" and stream "<path>.<stream>.bin" both begin
         // with "<path>."). Tests each '.' boundary against the reachable-instance-path set; the '.'

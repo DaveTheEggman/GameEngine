@@ -830,9 +830,11 @@ namespace editor
         {
             onProgress(u8"Staging player...", 0.93f);
         }
-        // Player: <template dir>/<playerBinary> -> <outDir>/<preset.playerName | template.playerBinary>.
-        const String outName = preset.playerName.IsEmpty() ? String(tmpl->playerBinary.AsView())
-                                                           : String(preset.playerName.AsView());
+        // Player: <template dir>/<playerBinary> -> <outDir>/<name>. The name is the preset's playerName
+        // (else the template binary), with the target platform's executable extension ensured - Windows
+        // needs .exe or the OS will not launch it.
+        const String outName = detail::PlayerOutputName(
+            preset.platform.AsView(), preset.playerName.AsView(), tmpl->playerBinary.AsView());
         if (!detail::CopyFilePreserving(tmpl->directory.AsView(), tmpl->playerBinary.AsView(),
                                         result.outputDir.AsView(), outName.AsView()))
         {

@@ -125,6 +125,26 @@ namespace editor
                 }
             });
 
+        // Sync the inspector on ANY selection change - crucially keyboard nav (arrow keys move the
+        // ListView selection without firing OnItemClick). Guarded by m_syncing so the scene->tree sync
+        // (SyncSelectionToTree) does not loop back. Covers click too (harmless double-set, idempotent).
+        m_tree->Selection().OnSelectionChanged.Add(
+            [self]()
+            {
+                if (self->m_syncing)
+                {
+                    return;
+                }
+                const i32 pos = self->m_tree->Selection().FirstSelected();
+                const Guid id = (pos >= 0) ? self->GuidAtFlat(pos) : Guid{};
+                if (id != Guid{})
+                {
+                    self->m_syncing = true;
+                    self->m_edit->EntitySelection().Set(id);
+                    self->m_syncing = false;
+                }
+            });
+
         tree->OnItemRightClick.Add(
             [self](i32 nodeId, f32 x, f32 y)
             {

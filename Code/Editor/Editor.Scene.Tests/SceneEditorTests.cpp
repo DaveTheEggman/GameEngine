@@ -329,6 +329,27 @@ TEST_CASE("hierarchy: selection survives snapshot rebuilds")
     CHECK(selectedPos() == 0);
 }
 
+TEST_CASE("hierarchy: a selection-model change (keyboard nav) syncs the scene selection")
+{
+    scene::Scene scene;
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    SceneHierarchyView hierarchy(edit);
+
+    const Guid a = edit.CreateEntity(u8"A");
+    const Guid b = edit.CreateEntity(u8"B");
+    (void)edit.CreateEntity(u8"C");
+    hierarchy.Refresh();
+
+    // Arrow-key nav moves the ListView's SelectionModel via Selection.Select (NOT OnItemClick), so the
+    // scene selection - which drives the inspector - must follow it. Rows: A=0, B=1, C=2.
+    auto& listSel = hierarchy.Tree()->InternalTreeView()->InternalListView()->Selection;
+    listSel.Select(1);
+    CHECK(edit.EntitySelection().Contains(b));
+    listSel.Select(0);
+    CHECK(edit.EntitySelection().Contains(a));
+}
+
 TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
 {
     // Fresh scenes must be LIT out of the box - an authored "Sun" entity with a shadow-casting
