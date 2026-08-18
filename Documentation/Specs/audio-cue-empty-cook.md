@@ -75,6 +75,20 @@ Not blocked on this: the other two Audio items (audition can't pause/stop + stac
 overlapping playback; AudioSource has too many fields) are independent and I am doing
 them in parallel.
 
+## BUILT (Opus, 2026-08-18) - all three parts landed
+
+- **A (builder)**: SoundCueAssetBuilder cooks a zero-variant SoundCueSource for an empty cue
+  instead of failing; Version 1 -> 2. Test: empty cue cooks OK -> empty product; ResolveSoundCue
+  on it -> variantIndex < 0 (Audio.Pipeline.Tests, 218 assertions).
+- **D (page)**: SoundCuePage shows a persistent "Empty cue - assign at least one clip." hint,
+  cleared once a clip is assigned (RefreshEmptyHint, driven from RefreshSlot).
+- **project_health**: emptyCues warning - cues with no clip in any slot are reported (does NOT
+  flip `sound`; an empty cue is a valid buildable draft). MCP tools have no unit-test harness in
+  this codebase (they need a live server + project, like the editor pages), so this follows the
+  existing SweepHealth pattern without a bespoke test.
+
+Both compilers green throughout.
+
 ## FABLE RULING (2026-08-18): A + D's page messaging + a project_health warning
 
 The hybrid recommendation is right, with one addition that resolves

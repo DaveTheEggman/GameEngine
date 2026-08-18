@@ -25,6 +25,7 @@ import foundation.vfs;
 import foundation.mcp;
 import pipeline.core;
 import pipeline.cook;
+import audio.pipeline; // SoundCueAsset (empty-cue audit)
 import editor.core;
 import :session;
 import :asset_uses; // shares the edge machinery (CollectSceneReferences, ContainsGuid)
@@ -49,6 +50,7 @@ namespace editor::mcp::detail
         Array<DanglingRef> dangling;
         Array<content::Instance*> undeserializable; // buildable, but ReadObject fails
         Array<content::Instance*> unreadableScenes; // scene/prefab stream does not load
+        Array<content::Instance*> emptyCues; // SoundCueAsset with no clip in any slot (WARNING)
         usize unbuildable = 0; // no registered builder (scenes/prefabs excluded - they stage)
     };
 
@@ -103,6 +105,24 @@ namespace editor::mcp::detail
                 out.undeserializable.PushBack(inst);
                 continue;
             }
+            // Empty-cue audit (WARNING, not a break): a cue with no clip in any slot cooks to a
+            // valid silent product, but is almost always a forgot-to-assign mistake.
+            if (const auto* cue = Cast<pipeline::SoundCueAsset>(asset))
+            {
+                bool anyClip = false;
+                for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
+                {
+                    if (!cue->clipIds[i].IsNil())
+                    {
+                        anyClip = true;
+                        break;
+                    }
+                }
+                if (!anyClip)
+                {
+                    out.emptyCues.PushBack(inst);
+                }
+            }
             pipeline::AssetBuildContext ctx;
             ctx.sources = &sourcesMount;
             ctx.source = inst;
@@ -146,7 +166,8 @@ export namespace editor::mcp
             u8"Full project soundness sweep: dangling references (any asset/scene/settings edge "
             u8"whose target is missing from the source database), sources that no longer "
             u8"deserialize, scenes/prefabs that no longer load, plus the cook state (dirty vs "
-            u8"up-to-date, orphaned products, sources with no builder, last-cook failures). "
+            u8"up-to-date, orphaned products, sources with no builder, last-cook failures). Also "
+            u8"warns (without flipping sound) on emptyCues: sound cues with no clip assigned. "
             u8"Returns sound=true only when nothing is broken; a dirty count alone is normal - "
             u8"run asset_cook to clear it. Call after destructive changes (delete/rename) or "
             u8"before an export to catch breakage early; fix dangling refs by re-pointing or "
@@ -226,6 +247,12 @@ export namespace editor::mcp
                 {
                     unreadableScenes.Add(detail::InstanceToJson(inst));
                 }
+                // Warnings do NOT flip `sound` (an empty cue is a valid, buildable draft).
+                JsonValue emptyCues = JsonValue::MakeArray();
+                for (content::Instance* inst : sweep.emptyCues)
+                {
+                    emptyCues.Add(detail::InstanceToJson(inst));
+                }
 
                 const bool sound = sweep.dangling.IsEmpty() && sweep.undeserializable.IsEmpty() &&
                                    sweep.unreadableScenes.IsEmpty() &&
@@ -238,6 +265,7 @@ export namespace editor::mcp
                 out.Set(u8"projectSettingsDangling", Move(settingsDangling));
                 out.Set(u8"undeserializable", Move(undeserializable));
                 out.Set(u8"unreadableScenes", Move(unreadableScenes));
+                out.Set(u8"emptyCues", Move(emptyCues)); // warning: cues with no clip assigned
                 out.Set(u8"dirty", JsonValue::MakeNumber(static_cast<f64>(plan.dirty.Size())));
                 out.Set(u8"upToDate", JsonValue::MakeNumber(static_cast<f64>(plan.upToDate)));
                 out.Set(u8"orphans", JsonValue::MakeNumber(static_cast<f64>(plan.orphans.Size())));
