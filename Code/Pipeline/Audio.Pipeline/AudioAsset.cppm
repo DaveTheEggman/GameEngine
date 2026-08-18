@@ -710,7 +710,9 @@ export namespace pipeline{
         {
             return &SoundCueSource::StaticType();
         }
-        [[nodiscard]] u32 Version() const override { return 1; }
+        // v2: an empty cue cooks to a valid zero-variant product instead of failing (previously-
+        // failed draft cues re-cook into products). See Specs/audio-cue-empty-cook.md.
+        [[nodiscard]] u32 Version() const override { return 2; }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override
@@ -740,14 +742,11 @@ export namespace pipeline{
                 variant.weight = cueAsset.weights[i];
                 source.variants.PushBack(variant);
             }
-            // Validate: a cue with no playable variant is a broken trigger - fail the cook.
-            if (source.variants.IsEmpty())
-            {
-                LOG_ERROR(
-                    u8"Audio",
-                    u8"sound cue has no playable variant (assign at least one clip) - cook failed");
-                return Status{ErrorCode::InvalidArgument};
-            }
+            // A cue with no playable variant cooks to a valid ZERO-VARIANT product (not a failure):
+            // a freshly-created / draft cue must never poison Cook All / export, and the runtime is
+            // built for it (ResolveSoundCue answers variantIndex = -1, every consumer guards it -> a
+            // silent no-op). The draft state is surfaced in the editor (SoundCuePage status) and
+            // audited by project_health, NOT by failing the cook. See Specs/audio-cue-empty-cook.md.
             source.mode = cueAsset.mode;
             source.pitchMin = Min(cueAsset.pitchMin, cueAsset.pitchMax);
             source.pitchMax = Max(cueAsset.pitchMin, cueAsset.pitchMax);

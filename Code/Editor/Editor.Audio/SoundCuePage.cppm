@@ -181,6 +181,17 @@ export namespace editor
                 }
             }
 
+            // Draft-state hint: an unauthored cue is a valid (silent) product, not an error - say so
+            // clearly here instead. Shown while every slot is empty, cleared once a clip is assigned.
+            m_emptyHint = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+            m_emptyHint->FontSize.SetValue(12.0f);
+            m_emptyHint->TextColor.SetValue(Optional<Color>(Color{0.9f, 0.75f, 0.35f, 1.0f}));
+            {
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                column->AddView(m_emptyHint.Get(), lp);
+            }
+
             m_content = column;
             for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
             {
@@ -209,6 +220,9 @@ export namespace editor
         void PickClip(usize slot);
 
         void RefreshSlot(usize slot);
+
+        // Show/hide the "empty cue - assign a clip" draft hint based on whether any slot is filled.
+        void RefreshEmptyHint();
 
         void RefreshModeButton();
 
@@ -246,6 +260,7 @@ export namespace editor
         Array<RefPtr<ui::NumericField>> m_jitterFields;
         RefPtr<ui::Button> m_modeButton;
         RefPtr<ui::Label> m_status;
+        RefPtr<ui::Label> m_emptyHint; // persistent draft-state hint (empty cue)
     };
 
     class SoundCuePageFactory final : public IEditorPageFactory

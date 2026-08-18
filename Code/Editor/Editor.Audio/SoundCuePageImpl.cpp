@@ -188,11 +188,33 @@ namespace editor
         if (id.IsNil() || m_context->Project() == nullptr)
         {
             m_slotLabels[slot]->SetText(u8"(empty)");
+        }
+        else
+        {
+            foundation::content::Instance* clip = m_context->Project()->SourceDb().GetInstance(id);
+            m_slotLabels[slot]->SetText(clip != nullptr ? StringView(clip->Path())
+                                                        : StringView(u8"(missing)"));
+        }
+        RefreshEmptyHint();
+    }
+
+    void SoundCueEditorPage::RefreshEmptyHint()
+    {
+        if (m_emptyHint.Get() == nullptr)
+        {
             return;
         }
-        foundation::content::Instance* clip = m_context->Project()->SourceDb().GetInstance(id);
-        m_slotLabels[slot]->SetText(clip != nullptr ? StringView(clip->Path())
-                                                    : StringView(u8"(missing)"));
+        bool anyClip = false;
+        for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
+        {
+            if (!m_asset.clipIds[i].IsNil())
+            {
+                anyClip = true;
+                break;
+            }
+        }
+        m_emptyHint->SetText(anyClip ? StringView(u8"")
+                                     : StringView(u8"Empty cue - assign at least one clip."));
     }
 
     void SoundCueEditorPage::RefreshModeButton()

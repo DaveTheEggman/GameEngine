@@ -839,12 +839,22 @@ TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip r
     CHECK(cue->pitchMin == doctest::Approx(0.8f));
     CHECK(cue->pitchMax == doctest::Approx(1.2f));
 
-    // No playable variant fails the cook.
+    // An empty (draft) cue cooks to a VALID zero-variant product - never a cook failure (a draft
+    // cue must not poison Cook All / export; the runtime plays it as a silent no-op). See
+    // Specs/audio-cue-empty-cook.md.
     SoundCueAsset empty;
     auto* emptyInstance =
         outputDb.RootGroup()->CreateInstance(u8"empty", SoundCueSource::StaticType());
     ctx.output = emptyInstance;
-    CHECK_FALSE(builder.Build(empty, ctx).IsOk());
+    REQUIRE(builder.Build(empty, ctx).IsOk());
+    Proxy<SoundCue> emptyCue = manager.Bind<SoundCue>(emptyInstance->Id());
+    REQUIRE(emptyCue);
+    CHECK(emptyCue->variants.IsEmpty());
+    // The runtime no-op guard: resolving an empty cue answers "no pick".
+    Random rng;
+    i32 lastVariant = -1;
+    u32 cursor = 0;
+    CHECK(ResolveSoundCue(*emptyCue, rng, lastVariant, cursor).variantIndex < 0);
 
     RemoveDbTree(u8"scratch_audiopipe_cue");
 }
