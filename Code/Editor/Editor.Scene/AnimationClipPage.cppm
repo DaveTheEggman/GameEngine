@@ -36,8 +36,7 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import editor.camera;
-import :animation_graph_page; // DrawSkeletonWireframe (shared preview helper)
+import editor.preview;
 
 using namespace foundation::core;
 
@@ -107,7 +106,6 @@ export namespace editor
         void PickPreviewMesh();
         void RebuildGrid(); // stats + loop flag + events editor
         void UpdatePreview(f32 dt);
-        void EnsureViewportBound();
 
         [[nodiscard]] Array<byte> SnapshotAsset() const;
         void ApplyAssetBlob(const Array<byte>& blob);
@@ -123,15 +121,8 @@ export namespace editor
         RefPtr<pipeline::AnimationClipAsset> m_asset;
         foundation::resource::Proxy<animation::AnimationClip> m_clip; // cooked product (hot-swaps)
 
-        // preview world (debug-draw only)
-        engine::scene::SceneSubsystem* m_scenes = nullptr;
-        scene::SceneManager m_sceneManager;
-        engine::render::RenderSubsystem* m_render = nullptr;
-        scene::Scene* m_scene = nullptr;
-        EditorCamera m_camera;
-        UniquePtr<foundation::shell::InputRouter> m_router;
-        RefPtr<ui::viewport::ViewportView> m_viewport;
-        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
+        // preview world (shared substrate: viewport + preview scene + camera + render loop)
+        UniquePtr<PreviewViewport> m_preview;
 
         RefPtr<ui::Button> m_skeletonButton;
         RefPtr<ui::Button> m_playButton;

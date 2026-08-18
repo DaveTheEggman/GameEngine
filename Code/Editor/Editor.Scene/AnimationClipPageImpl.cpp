@@ -29,7 +29,8 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import editor.camera;
+import editor.preview;
+import :animation_graph_page; // DrawSkeletonWireframe (shared preview helper, impl-only)
 
 using namespace foundation::core;
 namespace animation = foundation::animation;
@@ -50,12 +51,12 @@ namespace editor
                                                      foundation::content::Instance& instance)
         : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
-        m_router =
-            MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
-        m_camera.position = Float3{0.0f, 1.4f, 3.2f};
-        m_camera.LookAt(Float3{0.0f, 0.9f, 0.0f});
-        m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
-        m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
+        // Shared preview substrate (viewport + preview scene + orbit camera + render loop).
+        m_preview =
+            MakeUnique<PreviewViewport>(DefaultAllocator(), host, uiHost, u8"animclip.preview");
+        m_preview->SetClearColor(Color{0.05f, 0.05f, 0.07f, 1.0f});
+        m_preview->Camera().position = Float3{0.0f, 1.4f, 3.2f};
+        m_preview->Camera().LookAt(Float3{0.0f, 0.9f, 0.0f});
 
         SetInstanceId(instance.Id());
 
@@ -74,8 +75,6 @@ namespace editor
         }
 
         BuildPreviewScene();
-        m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
-        m_viewport->ClearColor = rhi::ClearColor{0.05f, 0.05f, 0.07f, 1.0f};
 
         // Transport: skeleton pick + play/pause + a normalized scrub slider + time readout.
         auto transport = MakeRef<ui::FlexLayout>(DefaultAllocator());
@@ -140,7 +139,7 @@ namespace editor
             auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
-            previewColumn->AddView(m_viewport.Get(), grow);
+            previewColumn->AddView(m_preview->View(), grow);
         }
 
         m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
@@ -156,21 +155,19 @@ namespace editor
 
     void AnimationClipEditorPage::BuildPreviewScene()
     {
-        if (m_scenes == nullptr)
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        if (scenePtr == nullptr)
         {
             return;
         }
-        m_sceneManager.SetAwareRegistry(&m_scenes->AwareRegistry());
-        m_scenes->RegisterManager(&m_sceneManager);
-        m_scene = m_sceneManager.CreateScene(u8"animclip.preview");
 
         // A sun so a picked skinned mesh is lit (the skeleton wireframe needs none).
-        const scene::EntityHandle sun = m_scene->CreateEntity(u8"Sun");
+        const scene::EntityHandle sun = scenePtr->CreateEntity(u8"Sun");
         Transform st;
         st.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
                       Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
-        m_scene->SetLocalTransform(sun, st);
-        if (auto* lights = m_scene->GetSystem<engine::render::LightComponentManager>())
+        scenePtr->SetLocalTransform(sun, st);
+        if (auto* lights = scenePtr->GetSystem<engine::render::LightComponentManager>())
         {
             engine::render::LightComponent& light = lights->Add(sun);
             light.castsShadows = false;
@@ -178,8 +175,8 @@ namespace editor
 
         // The optional skinned mesh: its MeshComponent gets bone matrices fed each frame from the
         // preview player (see UpdatePreview). No mesh bound until the user picks one.
-        m_meshEntity = m_scene->CreateEntity(u8"PreviewMesh");
-        if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
+        m_meshEntity = scenePtr->CreateEntity(u8"PreviewMesh");
+        if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
         {
             meshes->Add(m_meshEntity);
         }
@@ -253,10 +250,10 @@ namespace editor
                 self->m_previewMesh = foundation::resource::Proxy<foundation::geometry::StaticMesh>{};
             }
             // Point the preview MeshComponent at the picked mesh (bone matrices feed per frame).
-            if (self->m_scene != nullptr)
+            scene::Scene* scenePtr = self->m_preview ? self->m_preview->Scene() : nullptr;
+            if (scenePtr != nullptr)
             {
-                if (auto* meshes =
-                        self->m_scene->GetSystem<engine::render::MeshComponentManager>())
+                if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
                 {
                     if (auto* mc = meshes->Get(self->m_meshEntity))
                     {
@@ -333,8 +330,9 @@ namespace editor
                                      .AsView());
         }
 
-        if (skeleton == nullptr || skeleton->BoneCount() <= 0 || m_render == nullptr ||
-            !m_render->IsReady() || m_scene == nullptr)
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        if (skeleton == nullptr || skeleton->BoneCount() <= 0 || m_preview.Get() == nullptr ||
+            !m_preview->IsValid() || scenePtr == nullptr)
         {
             return;
         }
@@ -362,7 +360,7 @@ namespace editor
             m_previewPlayer->SetCurrentTime(m_time);
             m_previewPlayer->Update(0.0f); // resample at m_time without advancing
             const Span<const Float4x4> mats = m_previewPlayer->GetSkinningMatrices();
-            if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
+            if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
             {
                 if (auto* mc = meshes->Get(m_meshEntity))
                 {
@@ -372,7 +370,7 @@ namespace editor
             }
         }
 
-        auto& draw = m_render->DebugScene(*m_scene);
+        auto& draw = m_preview->SceneDebugDraw();
         draw.DrawGrid(Float3{0.0f, 0.0f, 0.0f}, 4.0f, 8, Color{0.25f, 0.25f, 0.28f, 1.0f});
         DrawSkeletonWireframe(draw, *skeleton,
                               Span<const animation::BoneTransform>{m_poseScratch.Data(), boneCount},
@@ -616,94 +614,19 @@ namespace editor
     void AnimationClipEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
     {
         UpdatePreview(dt);
-        EnsureViewportBound();
-        if (m_hostWindow == nullptr)
+        if (m_preview)
         {
-            return;
-        }
-        m_viewport->SyncInputRegion();
-        if (m_router)
-        {
-            m_router->Update();
-        }
-        if (m_viewport->IsHovered() || m_viewport->IsFocused())
-        {
-            m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt);
+            m_preview->Update(dt);
         }
     }
 
     void AnimationClipEditorPage::OnRenderWindow(runtime::IApplicationHost&,
                                                  foundation::graphics::FrameContext& frame)
     {
-        if (!m_viewport->IsReady() || !frame.valid)
+        if (m_preview)
         {
-            return;
+            m_preview->RenderFrame(frame);
         }
-        if (m_render == nullptr || !m_render->IsReady() || m_scene == nullptr)
-        {
-            return;
-        }
-        const u32 w = m_viewport->RenderWidth();
-        const u32 h = m_viewport->RenderHeight();
-        if (w == 0 || h == 0 || !m_viewport->IsEffectivelyVisible())
-        {
-            return;
-        }
-
-        render::ViewCamera camera;
-        camera.view = Float4x4::LookAtRH(m_camera.position, m_camera.position + m_camera.Forward(),
-                                         m_camera.Up());
-        camera.projection = Float4x4::PerspectiveFovRH(
-            1.0472f, static_cast<f32>(w) / static_cast<f32>(h), 0.05f, 200.0f);
-        camera.position = m_camera.position;
-        camera.farZ = 200.0f;
-
-        render::CameraOverride cameraOverride;
-        cameraOverride.camera = camera;
-        cameraOverride.clearColor = Color{m_viewport->ClearColor.r, m_viewport->ClearColor.g,
-                                          m_viewport->ClearColor.b, m_viewport->ClearColor.a};
-
-        render::TargetState targetState;
-        targetState.texture = m_viewport->ColorTexture();
-        targetState.currentState = m_viewport->ColorState();
-        targetState.finalState = rhi::ResourceState::ShaderRead;
-
-        m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w,
-                              h, render::ViewportRect{0, 0, w, h}, &cameraOverride, targetState);
-        m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
-    }
-
-    void AnimationClipEditorPage::EnsureViewportBound()
-    {
-        foundation::ui::RootView* root = m_viewport->Root();
-        if (root == nullptr)
-        {
-            return;
-        }
-        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
-        if (window == nullptr || window == m_hostWindow)
-        {
-            return;
-        }
-        vg::renderer::VGRenderer* renderer = m_uiHost->RendererFor(window);
-        if (renderer == nullptr)
-        {
-            return;
-        }
-        if (m_hostWindow == nullptr)
-        {
-            m_viewport->Initialize(m_host->Graphics()->Raw(), renderer, m_host->Shell()->Input(),
-                                   window->Window().Id());
-            if (m_viewport->Surface() != nullptr)
-            {
-                m_router->AddSurface(m_viewport->Surface());
-            }
-        }
-        else
-        {
-            m_viewport->AttachToWindow(renderer, window->Window().Id());
-        }
-        m_hostWindow = window;
     }
 
     Status AnimationClipEditorPage::Save()
@@ -730,18 +653,9 @@ namespace editor
 
     void AnimationClipEditorPage::OnClose()
     {
-        if (m_viewport.Get() != nullptr)
+        if (m_preview)
         {
-            m_viewport->Shutdown();
-        }
-        if (m_scene != nullptr)
-        {
-            m_sceneManager.DestroyScene(m_scene);
-            m_scene = nullptr;
-        }
-        if (m_scenes != nullptr)
-        {
-            m_scenes->UnregisterManager(&m_sceneManager);
+            m_preview->Shutdown();
         }
     }
 
