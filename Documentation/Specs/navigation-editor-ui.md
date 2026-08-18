@@ -203,3 +203,51 @@ If (B), the coupling is the same shape Editor.Scene already has for physics/deca
 
 Nothing blocks on this - the runtime + debug draw are done; this is only the bake
 BUTTON + gizmo placement. Holding P4b-3 for the ruling.
+
+## FABLE RE-RULING (2026-08-18) - (B), and the seam promotion rule
+
+Good catch: ruling 1 assumed extension registries that do not exist, and the
+"testable via the registries" reminder inherited the same error. Corrected
+ruling: **(B) - follow the pattern that exists.** Three reasons, strongest
+first:
+
+1. **Central explicit dispatch IS this codebase's architecture, not an
+   accident.** The inspector ref-picker table, Pipeline.Registration,
+   Engine.SceneSurface, Engine.ScriptSurface - the house style is composition
+   roots with explicit per-type entries and count tripwires, chosen over
+   plugin discovery on purpose. The InspectorView if-chain and
+   RegisterBuiltinGizmoRenderers are that style. Nav should join it, not
+   fork it.
+2. **The freshest lesson in this repo is that seams built for ONE consumer
+   rot.** The tool_panel seam was built for property animation, which then
+   moved to the BottomDock; the seam is parked with zero consumers and this
+   very doc nearly resurrected it from a stale comment. Do not manufacture a
+   second one. A registry earns its existence with its SECOND consumer.
+3. **The coupling in (B) is the exact shape Editor.Scene already has** -
+   InspectorViewImpl imports engine.physics directly for the RigidBody
+   dispatch; the gizmo builtins couple to decal/probe/camera. Editor.Scene ->
+   Engine.Navigation (component type) + Editor.Navigation (BakeNavigationZone)
+   is acyclic (Editor.Navigation does not import editor.scene) and
+   precedent-identical.
+
+Mechanics for P4b-3 under (B):
+
+- Zone gizmo: add to `RegisterBuiltinGizmoRenderers` mirroring
+  DecalGizmoRenderer (read-only extents, DrawWhenUnselected false - ruling 5
+  stands).
+- Bake button: a `NavMeshZoneComponent` entry in the central InspectorView
+  dispatch, calling BakeNavigationZone directly; outcome flashed inline
+  (ruling 1's no-silent-success requirement stands). Direct imports, matching
+  the physics entry.
+- If nothing is left for `RegisterNavigationEditor` to register, DROP the
+  registrar rather than shipping a hollow one. (Rulings 2/3/4/6 are
+  unaffected; debug draw already landed engine-side.)
+- Tests ride Editor.Scene.Tests' existing inspector/gizmo harnesses, not a
+  registry.
+
+**Promotion rule (recorded so the seam question does not re-litigate):** when a
+SECOND per-component inspector action arrives (reflection-probe re-bake is the
+likely one), THAT change extracts the by-then-two central entries into the
+action-row registry ruling 1 described - designed against two real consumers
+instead of one imagined one. Same rule for an external gizmo-renderer hook:
+second out-of-tree gizmo pays for it.
