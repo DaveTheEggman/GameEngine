@@ -84,6 +84,11 @@ export namespace editor
         // Point the preview entity's MeshComponent at `mesh` (null = clear, not cooked yet).
         void PointComponentAtMesh(geometry::StaticMesh* mesh);
 
+        // Preview material: pick a MaterialAsset to render the preview with (else the neutral
+        // default). ApplyPreviewMaterial pushes the current choice onto the MeshComponent.
+        void PickPreviewMaterial();
+        void ApplyPreviewMaterial();
+
         // Rebuild the stats labels from the live mesh (name / counts / bounds / submeshes).
         void RefreshStats();
         void AddStatLine(StringView text);
@@ -104,6 +109,9 @@ export namespace editor
         scene::Scene* m_scene = nullptr;
         scene::EntityHandle m_entity;
         RefPtr<materials::Material> m_defaultMaterial;
+        resource::Proxy<materials::Material> m_previewMaterial; // chosen override (null = default)
+        Guid m_previewMaterialId;                               // its source guid (for the label)
+        RefPtr<foundation::ui::Button> m_materialButton;        // the "Material: <name>" picker
 
         resource::Proxy<geometry::StaticMesh> m_meshProxy; // the cooked product (follows reloads)
         u64 m_lastUid = 0;                                 // product identity - detects hot-reload
