@@ -48,7 +48,7 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import editor.camera;
+import editor.preview;
 
 using namespace foundation::core;
 
@@ -195,7 +195,6 @@ export namespace editor
         [[nodiscard]] Array<byte> SnapshotEffect() const;
         void ApplyEffectBlob(const Array<byte>& blob); // deserialize + reattach + defer rebuild
 
-        void EnsureViewportBound();
         [[nodiscard]] ui::UIContext* Ctx() const;
 
         EditorContext* m_context = nullptr;
@@ -205,24 +204,17 @@ export namespace editor
 
         RefPtr<pipeline::ParticleEffectAsset> m_asset;
 
-        // preview world
-        engine::scene::SceneSubsystem* m_scenes = nullptr;
-        scene::SceneManager m_sceneManager;
-        engine::render::RenderSubsystem* m_render = nullptr;
-        scene::Scene* m_scene = nullptr;
-        scene::EntityHandle m_emitter;
-        EditorCamera m_camera;
-        UniquePtr<foundation::shell::InputRouter> m_router;
+        // preview world (shared substrate: viewport + preview scene + camera + render loop)
+        UniquePtr<PreviewViewport> m_preview;
+        scene::EntityHandle m_emitter; // the emitter entity (in m_preview->Scene())
 
         // views
-        RefPtr<ui::viewport::ViewportView> m_viewport;
         RefPtr<ui::toolkit::DraggableTreeView> m_tree;
         UniquePtr<ParticleTreeAdapter> m_adapter;
         RefPtr<ui::toolkit::PropertyGrid> m_grid;
         RefPtr<ui::Label> m_statsLabel; // live overlay text
         RefPtr<ui::Label> m_titleLabel; // inspector header ("Systems: N")
         RefPtr<foundation::ui::View> m_content;
-        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
 
         // tree state
         Array<ParticleTreeNode> m_nodes;

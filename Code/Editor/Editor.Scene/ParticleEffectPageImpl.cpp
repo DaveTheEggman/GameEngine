@@ -29,7 +29,7 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import editor.camera;
+import editor.preview;
 
 using namespace foundation::core;
 namespace particles = foundation::particles;
@@ -660,10 +660,12 @@ namespace editor
                                                        foundation::content::Instance& instance)
         : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
-        m_router =
-            MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
-        m_camera.position = Float3{0.0f, 2.0f, 6.0f};
-        m_camera.LookAt(Float3{0.0f, 1.0f, 0.0f});
+        // Shared preview substrate (viewport + preview scene + orbit camera + render loop).
+        m_preview =
+            MakeUnique<PreviewViewport>(DefaultAllocator(), host, uiHost, u8"particle.preview");
+        m_preview->SetClearColor(Color{0.06f, 0.06f, 0.08f, 1.0f}); // darker field shows particles
+        m_preview->Camera().position = Float3{0.0f, 2.0f, 6.0f};
+        m_preview->Camera().LookAt(Float3{0.0f, 1.0f, 0.0f});
 
         SetInstanceId(instance.Id());
 
@@ -676,15 +678,8 @@ namespace editor
                                u8"particle effect '{}' failed to read - page opens empty", m_title);
         }
 
-        m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
-        m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
-
         BuildPreviewScene();
         m_undoBaseline = SnapshotEffect();
-
-        // ---- center: viewport + transport toolbar + stats overlay ----
-        m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
-        m_viewport->ClearColor = rhi::ClearColor{0.06f, 0.06f, 0.08f, 1.0f};
 
         auto transport = MakeRef<ui::FlexLayout>(DefaultAllocator());
         transport->Direction = ui::Orientation::Horizontal;
@@ -719,7 +714,7 @@ namespace editor
                 [self](ui::Slider*, f32 v)
                 {
                     self->m_simSpeed = v;
-                    self->m_sceneManager.SetTimeScale(v);
+                    self->m_preview->SetTimeScale(v);
                 });
             auto slp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             slp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(90.0f));
@@ -743,7 +738,7 @@ namespace editor
             auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
-            centerColumn->AddView(m_viewport.Get(), grow);
+            centerColumn->AddView(m_preview->View(), grow);
         }
 
         // ---- left: authoring tree ----
@@ -807,26 +802,25 @@ namespace editor
 
     void ParticleEffectEditorPage::BuildPreviewScene()
     {
-        if (m_scenes == nullptr || m_asset.Get() == nullptr)
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        if (scenePtr == nullptr || m_asset.Get() == nullptr)
         {
             return;
         }
-        m_sceneManager.SetAwareRegistry(&m_scenes->AwareRegistry());
-        m_scenes->RegisterManager(&m_sceneManager);
-        m_scene = m_sceneManager.CreateScene(u8"particle.preview");
+        m_preview->SetSimulationEnabled(true); // particles must simulate to animate the preview
 
-        m_emitter = m_scene->CreateEntity(u8"Emitter");
-        if (auto* mgr = m_scene->GetSystem<engine::particles::ParticleEffectComponentManager>())
+        m_emitter = scenePtr->CreateEntity(u8"Emitter");
+        if (auto* mgr = scenePtr->GetSystem<engine::particles::ParticleEffectComponentManager>())
         {
             mgr->Add(m_emitter).SetEffect(m_asset->Effect());
         }
 
-        const scene::EntityHandle sun = m_scene->CreateEntity(u8"Sun");
+        const scene::EntityHandle sun = scenePtr->CreateEntity(u8"Sun");
         Transform t;
         t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
                      Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
-        m_scene->SetLocalTransform(sun, t);
-        if (auto* lights = m_scene->GetSystem<engine::render::LightComponentManager>())
+        scenePtr->SetLocalTransform(sun, t);
+        if (auto* lights = scenePtr->GetSystem<engine::render::LightComponentManager>())
         {
             engine::render::LightComponent& light = lights->Add(sun);
             light.castsShadows = false;
@@ -835,11 +829,12 @@ namespace editor
 
     engine::particles::ParticleEffectComponent* ParticleEffectEditorPage::PreviewComponent() const
     {
-        if (m_scene == nullptr)
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        if (scenePtr == nullptr)
         {
             return nullptr;
         }
-        auto* mgr = m_scene->GetSystem<engine::particles::ParticleEffectComponentManager>();
+        auto* mgr = scenePtr->GetSystem<engine::particles::ParticleEffectComponentManager>();
         return mgr != nullptr ? mgr->Get(m_emitter) : nullptr;
     }
 
@@ -1893,25 +1888,15 @@ namespace editor
 
         DrawEmissionGizmo();
 
-        EnsureViewportBound();
-        if (m_hostWindow == nullptr)
+        if (m_preview)
         {
-            return;
-        }
-        m_viewport->SyncInputRegion();
-        if (m_router)
-        {
-            m_router->Update();
-        }
-        if (m_viewport->IsHovered() || m_viewport->IsFocused())
-        {
-            m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt);
+            m_preview->Update(dt);
         }
     }
 
     void ParticleEffectEditorPage::DrawEmissionGizmo()
     {
-        if (m_render == nullptr || !m_render->IsReady() || m_scene == nullptr)
+        if (m_preview.Get() == nullptr || !m_preview->IsValid())
         {
             return;
         }
@@ -1934,7 +1919,7 @@ namespace editor
         {
             return;
         }
-        auto& dd = m_render->DebugScene(*m_scene);
+        auto& dd = m_preview->SceneDebugDraw();
         const Color c{0.30f, 0.85f, 1.0f, 1.0f};
         const Float3 o = sys->position;
         const Float3 up{0.0f, 1.0f, 0.0f};
@@ -1968,42 +1953,10 @@ namespace editor
     void ParticleEffectEditorPage::OnRenderWindow(runtime::IApplicationHost&,
                                                   foundation::graphics::FrameContext& frame)
     {
-        if (!m_viewport->IsReady() || !frame.valid)
+        if (m_preview)
         {
-            return;
+            m_preview->RenderFrame(frame);
         }
-        if (m_render == nullptr || !m_render->IsReady() || m_scene == nullptr)
-        {
-            return;
-        }
-        const u32 w = m_viewport->RenderWidth();
-        const u32 h = m_viewport->RenderHeight();
-        if (w == 0 || h == 0 || !m_viewport->IsEffectivelyVisible())
-        {
-            return;
-        }
-
-        render::ViewCamera camera;
-        camera.view = Float4x4::LookAtRH(m_camera.position, m_camera.position + m_camera.Forward(),
-                                         m_camera.Up());
-        camera.projection = Float4x4::PerspectiveFovRH(
-            1.0472f, static_cast<f32>(w) / static_cast<f32>(h), 0.05f, 500.0f);
-        camera.position = m_camera.position;
-        camera.farZ = 500.0f;
-
-        render::CameraOverride cameraOverride;
-        cameraOverride.camera = camera;
-        cameraOverride.clearColor = Color{m_viewport->ClearColor.r, m_viewport->ClearColor.g,
-                                          m_viewport->ClearColor.b, m_viewport->ClearColor.a};
-
-        render::TargetState targetState;
-        targetState.texture = m_viewport->ColorTexture();
-        targetState.currentState = m_viewport->ColorState();
-        targetState.finalState = rhi::ResourceState::ShaderRead;
-
-        m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w,
-                              h, render::ViewportRect{0, 0, w, h}, &cameraOverride, targetState);
-        m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
     }
 
     Status ParticleEffectEditorPage::Save()
@@ -2030,53 +1983,14 @@ namespace editor
 
     void ParticleEffectEditorPage::OnClose()
     {
-        m_viewport->Shutdown();
         if (m_tree.Get() != nullptr)
         {
             m_tree->SetAdapter(nullptr);
         }
-        if (m_scene != nullptr)
+        if (m_preview)
         {
-            m_sceneManager.DestroyScene(m_scene);
-            m_scene = nullptr;
+            m_preview->Shutdown();
         }
-        if (m_scenes != nullptr)
-        {
-            m_scenes->UnregisterManager(&m_sceneManager);
-        }
-    }
-
-    void ParticleEffectEditorPage::EnsureViewportBound()
-    {
-        foundation::ui::RootView* root = m_viewport->Root();
-        if (root == nullptr)
-        {
-            return;
-        }
-        foundation::graphics::RenderWindow* window = m_uiHost->WindowForRoot(root);
-        if (window == nullptr || window == m_hostWindow)
-        {
-            return;
-        }
-        vg::renderer::VGRenderer* renderer = m_uiHost->RendererFor(window);
-        if (renderer == nullptr)
-        {
-            return;
-        }
-        if (m_hostWindow == nullptr)
-        {
-            m_viewport->Initialize(m_host->Graphics()->Raw(), renderer, m_host->Shell()->Input(),
-                                   window->Window().Id());
-            if (m_viewport->Surface() != nullptr)
-            {
-                m_router->AddSurface(m_viewport->Surface());
-            }
-        }
-        else
-        {
-            m_viewport->AttachToWindow(renderer, window->Window().Id());
-        }
-        m_hostWindow = window;
     }
 
     // ============================ Factory / creator =========================================

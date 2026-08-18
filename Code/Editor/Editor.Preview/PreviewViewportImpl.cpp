@@ -106,6 +106,24 @@ namespace editor
         return m_impl->render->DebugScene(*m_impl->scene);
     }
 
+    void PreviewViewport::SetClearColor(Color color)
+    {
+        m_impl->viewport->ClearColor = rhi::ClearColor{color.r, color.g, color.b, color.a};
+    }
+
+    void PreviewViewport::SetSimulationEnabled(bool enabled)
+    {
+        if (m_impl->scene != nullptr)
+        {
+            m_impl->scene->SetSimulationEnabled(enabled);
+        }
+    }
+
+    void PreviewViewport::SetTimeScale(f32 scale)
+    {
+        m_impl->sceneManager.SetTimeScale(scale);
+    }
+
     void PreviewViewport::Update(f32 dt)
     {
         m_impl->EnsureViewportBound();

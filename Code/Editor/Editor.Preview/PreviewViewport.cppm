@@ -64,6 +64,18 @@ export namespace editor
         // Valid only while IsValid(); the render subsystem must be present.
         [[nodiscard]] foundation::render::debug::DebugDraw& SceneDebugDraw();
 
+        // Background clear color of the preview viewport (default a neutral dark grey). Pages
+        // that want a different backdrop (e.g. the particle page's darker field) set it here.
+        void SetClearColor(Color color);
+
+        // Whether the preview scene simulates. Default OFF (static previews: mesh/material/clip/
+        // skeleton pose their content directly). The particle page turns it ON so the effect runs.
+        void SetSimulationEnabled(bool enabled);
+
+        // Playback speed of the preview scene (the particle page's speed slider drives it).
+        // 1.0 = real time; 0 = paused. Applies to the preview scene's own SceneManager only.
+        void SetTimeScale(f32 scale);
+
         // Per-frame input + camera drive. Call from the page's OnUpdate BEFORE any page logic
         // that reads the camera. Safe before the viewport is bound (no-ops until then).
         void Update(f32 dt);
