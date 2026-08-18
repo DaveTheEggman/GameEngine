@@ -45,7 +45,7 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import editor.app;
-import editor.camera;
+import editor.preview;
 
 using namespace foundation::core;
 
@@ -172,13 +172,11 @@ export namespace editor
         // --- live preview ---
         // The preview scene exists only as a debug-draw + camera surface (no entities): the
         // graph plays through an AnimationGraphPlayer and the skeleton draws as a wireframe.
-        void BuildPreviewScene();
         void PickPreviewSkeleton();
         // (Re)build the runtime graph + player from the CURRENT source (clips resolved through
         // the editor's cooked-DB resources). Called after every edit - graphs are tiny.
         void RebuildPreviewGraph();
         void UpdatePreview(f32 dt); // tick + bone wireframe + active-state canvas highlight
-        void EnsureViewportBound();
 
         // --- undo ---
         [[nodiscard]] Array<byte> SnapshotAsset() const;
@@ -205,15 +203,8 @@ export namespace editor
         Array<byte> m_undoBaseline;
         bool m_syncingCanvas = false; // guard: canvas events ignored during RebuildCanvas
 
-        // preview world (debug-draw only)
-        engine::scene::SceneSubsystem* m_scenes = nullptr;
-        scene::SceneManager m_sceneManager;
-        engine::render::RenderSubsystem* m_render = nullptr;
-        scene::Scene* m_scene = nullptr;
-        EditorCamera m_camera;
-        UniquePtr<foundation::shell::InputRouter> m_router;
-        RefPtr<ui::viewport::ViewportView> m_viewport;
-        foundation::graphics::RenderWindow* m_hostWindow = nullptr;
+        // preview world (debug-draw only: shared substrate hosts a scene we draw wireframe into)
+        UniquePtr<PreviewViewport> m_preview;
         RefPtr<ui::Button> m_skeletonButton; // shows the picked skeleton's name
         RefPtr<ui::Button> m_playButton;
         RefPtr<ui::Label> m_previewStatus; // current state + transition readout
