@@ -251,3 +251,15 @@ likely one), THAT change extracts the by-then-two central entries into the
 action-row registry ruling 1 described - designed against two real consumers
 instead of one imagined one. Same rule for an external gizmo-renderer hook:
 second out-of-tree gizmo pays for it.
+
+## USER RULING (2026-08-18) - the seams are scheduled, superseding the trigger
+
+The user has ruled the editor extensibility seams are something we "ultimately
+must fix": the promotion rule above is superseded AS A TRIGGER - the work is
+SCHEDULED into the week of 2026-08-22 (Documentation/Plans/week-2026-08-22.md,
+seeded item). P4b-3 still lands as (B) now (nothing blocks); next week's work
+builds the action-row + gizmo registration seams and migrates nav's entries
+onto them, at which point Editor.Scene drops its nav imports and
+RegisterNavigationEditor returns as the domain registrar. The design guidance
+in the re-ruling (house composition-root style, tripwires, headless tests,
+validate the seam shape against the real consumers) carries over.
