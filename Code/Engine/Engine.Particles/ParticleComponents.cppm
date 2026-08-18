@@ -396,8 +396,18 @@ export namespace engine::particles
                                scene::EntityHandle owner, i32 sysIndex,
                                render::ExtractedScene& snapshot)
         {
+            // Mesh-mode draws the EFFECT's mesh (meshRef -> the cooked resource's Proxy<StaticMesh>); the
+            // component's own mesh is the fallback when the effect carries none (back-compat).
+            geometry::StaticMesh* effectMesh = nullptr;
+            if (ParticleEffectResource* res = c.effectAsset.Get())
+            {
+                effectMesh = res->SystemMesh(sysIndex).Get();
+            }
+            geometry::StaticMesh* mesh = (effectMesh != nullptr) ? effectMesh : c.mesh.Get();
+            const f32 meshScale = (effectMesh != nullptr) ? sys.meshScale : c.meshScale;
+
             const i32 alive = sys.AliveCount();
-            if (alive <= 0 || c.mesh.Get() == nullptr)
+            if (alive <= 0 || mesh == nullptr)
             {
                 return;
             }
@@ -407,7 +417,7 @@ export namespace engine::particles
             xf.Resize(static_cast<usize>(alive));
             tint.Resize(static_cast<usize>(alive));
             Float3 bmin{1e30f, 1e30f, 1e30f}, bmax{-1e30f, -1e30f, -1e30f};
-            PackMeshTransforms(sys, c.meshScale, xf.Data(), tint.Data(), bmin, bmax);
+            PackMeshTransforms(sys, meshScale, xf.Data(), tint.Data(), bmin, bmax);
 
             render::MultiMeshRenderData* rd = snapshot.Add<render::MultiMeshRenderData>();
             if (rd == nullptr)
@@ -421,7 +431,7 @@ export namespace engine::particles
             rd->tints = tint.Data();
             rd->instanceCount = static_cast<u32>(alive);
             rd->version = ++m_meshVersion; // dynamic: transforms change every frame -> re-upload
-            rd->mesh = c.mesh.Get();
+            rd->mesh = mesh;
             rd->material = c.material.Get();
             rd->rendererId = 0; // the mesh renderer (id 0)
             // Category from the material's blend mode (like regular meshes + Sedulous): an opaque material
@@ -430,7 +440,7 @@ export namespace engine::particles
             rd->category = MeshCategoryFor(c.material.Get());
             const Float3 center = (bmin + bmax) * 0.5f;
             rd->worldCenter = center;
-            rd->worldRadius = Length(bmax - center) + LargestSize(sys) * c.meshScale;
+            rd->worldRadius = Length(bmax - center) + LargestSize(sys) * meshScale;
         }
 
         // Light-mode: add a point light per particle (capped + evenly strided across the set to stay

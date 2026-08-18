@@ -19,12 +19,15 @@ import foundation.content;
 import foundation.resource;
 import foundation.texture;
 import foundation.texture.resource;
+import foundation.geometry;          // StaticMesh (mesh-mode particles)
+import foundation.geometry.resource; // the StaticMesh resource factory (for manager.Bind)
 
 using namespace foundation::core;
 namespace core = foundation::core;
 namespace content = foundation::content;
 namespace resource = foundation::resource;
 namespace texture = foundation::texture;
+namespace geometry = foundation::geometry;
 
 export namespace foundation::particles
 {
@@ -118,6 +121,8 @@ export namespace foundation::particles
         core::Serialize(ar, "render", sys->renderMode);
         core::Serialize(ar, "textureRef",
                         sys->textureRef); // cooked texture GUID (null = untextured)
+        core::Serialize(ar, "meshRef", sys->meshRef); // cooked mesh GUID (null = no effect mesh)
+        core::Serialize(ar, "meshScale", sys->meshScale);
         core::Serialize(ar, "sort", sys->sortParticles);
         core::Serialize(ar, "soft", sys->softParticles);
         core::Serialize(ar, "softDistance", sys->softDistance);
@@ -223,9 +228,23 @@ export namespace foundation::particles
             m_systemTextures = Move(textures);
         }
 
+        // Per-system resolved mesh handles (parallel to the systems), bound by the factory from each
+        // system's meshRef GUID - the mesh drawn per particle in Mesh render mode. Null = no effect mesh.
+        [[nodiscard]] resource::Proxy<geometry::StaticMesh> SystemMesh(i32 systemIndex) const
+        {
+            return (systemIndex >= 0 && systemIndex < static_cast<i32>(m_systemMeshes.Size()))
+                       ? m_systemMeshes[static_cast<usize>(systemIndex)]
+                       : resource::Proxy<geometry::StaticMesh>{};
+        }
+        void SetSystemMeshes(Array<resource::Proxy<geometry::StaticMesh>> meshes)
+        {
+            m_systemMeshes = Move(meshes);
+        }
+
     private:
         ParticleEffect m_effect;
         Array<resource::Proxy<texture::Texture>> m_systemTextures;
+        Array<resource::Proxy<geometry::StaticMesh>> m_systemMeshes;
     };
 
     // ---- Factory -----------------------------------------------------------------------------
@@ -257,6 +276,17 @@ export namespace foundation::particles
                                              : resource::Proxy<texture::Texture>{});
                 }
                 res->SetSystemTextures(Move(textures));
+
+                // Resolve each system's mesh GUID to a Proxy<StaticMesh> the same way (Mesh render mode).
+                Array<resource::Proxy<geometry::StaticMesh>> meshes(DefaultAllocator());
+                for (i32 s = 0; s < fx.SystemCount(); ++s)
+                {
+                    ParticleSystem* sys = fx.GetSystem(s);
+                    const bool hasMesh = (sys != nullptr) && !(sys->meshRef == Guid{});
+                    meshes.PushBack(hasMesh ? manager.Bind<geometry::StaticMesh>(sys->meshRef)
+                                            : resource::Proxy<geometry::StaticMesh>{});
+                }
+                res->SetSystemMeshes(Move(meshes));
             }
             return obj;
         }

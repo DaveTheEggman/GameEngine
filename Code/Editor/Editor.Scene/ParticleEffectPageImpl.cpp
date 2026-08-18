@@ -1427,6 +1427,7 @@ namespace editor
                                      rm == particles::ParticleRenderMode::HorizontalBillboard ||
                                      rm == particles::ParticleRenderMode::VerticalBillboard;
         const bool textured = billboardFamily || rm == particles::ParticleRenderMode::Trail;
+        const bool meshMode = rm == particles::ParticleRenderMode::Mesh;
 
         // --- General ---
         {
@@ -1536,6 +1537,41 @@ namespace editor
                           };
                           dialog->Show(ctx);
                       });
+        }
+
+        // --- Mesh --- (Mesh render mode only: the per-particle mesh + its scale)
+        if (meshMode)
+        {
+            const StringView cat = u8"Mesh";
+            ParticleEffectEditorPage* self = this;
+            String label =
+                sys.meshRef.IsNil() ? String(u8"(none)") : String(u8"(set - click to change)");
+            RowButton(g, label.AsView(), cat,
+                      [self, sysIndex]()
+                      {
+                          ui::UIContext* ctx = self->Ctx();
+                          if (ctx == nullptr || self->m_context->Project() == nullptr)
+                          {
+                              return;
+                          }
+                          Array<String> types;
+                          types.PushBack(String(u8"StaticMeshAsset"));
+                          types.PushBack(String(u8"SkinnedMeshAsset"));
+                          auto dialog = MakeRef<app::AssetPickerDialog>(
+                              DefaultAllocator(), *self->m_context, Move(types));
+                          dialog->OnPicked = [self, sysIndex](const Guid& picked)
+                          {
+                              if (particles::ParticleSystem* s =
+                                      self->m_asset->Effect().GetSystem(sysIndex))
+                              {
+                                  s->meshRef = picked;
+                                  self->CommitEdit(u8"mesh");
+                                  self->RebuildInspector();
+                              }
+                          };
+                          dialog->Show(ctx);
+                      });
+            RowFloat(g, u8"Mesh Scale", &sys.meshScale, cat, page, 0.001, 1000.0, 0.01);
         }
 
         // --- LOD ---

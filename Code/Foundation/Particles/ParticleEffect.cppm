@@ -144,6 +144,11 @@ export namespace foundation::particles
         // resolve it - the resource factory binds it to a Proxy<Texture>, the editor cook fills it from an
         // asset path). Null = untextured (renderer's soft-dot default). Sedulous-style ref-on-the-system.
         Guid textureRef{};
+        // Mesh-mode systems (renderMode==Mesh) draw this mesh per particle. Opaque cooked-resource GUID
+        // (like textureRef): the editor fills it from a mesh asset, the resource factory binds it to a
+        // Proxy<StaticMesh>. Null = no effect mesh (the runtime component's mesh is the fallback).
+        Guid meshRef{};
+        f32 meshScale = 1.0f;
         bool sortParticles = false;
         // Soft particles: fade billboard alpha where it nears the opaque surface behind it (needs the
         // scene depth; the renderer supplies it). softDistance is the fade band in world units; disable

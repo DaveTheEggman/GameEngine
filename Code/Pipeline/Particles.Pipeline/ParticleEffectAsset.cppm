@@ -81,6 +81,9 @@ export namespace pipeline{
         {
             return &ParticleEffectResource::StaticType();
         }
+        // v2 (2026-08-17): the cooked resource carries per-system meshRef + meshScale (Mesh render mode).
+        // Bumped so stale products re-cook with the new format (the strict reader needs the new keys).
+        [[nodiscard]] u32 Version() const override { return 2; }
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override
         {
