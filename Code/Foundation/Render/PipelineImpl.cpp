@@ -557,11 +557,13 @@ namespace foundation::render
     RenderView* RenderFrame::AddView(const ExtractedScene& scene, const ViewCamera& camera,
                                      const ViewSettings& settings, rhi::TextureView* target,
                                      rhi::TextureFormat targetFormat, u32 width, u32 height,
-                                     const void* debugScene, const void* sceneKey)
+                                     const void* debugScene, const void* sceneKey,
+                                     const void* debugView)
     {
         RenderView* view = m_views.Acquire();
         view->Bind(scene, camera, settings, target, targetFormat, width, height);
         view->SetDebugScene(debugScene);
+        view->SetDebugView(debugView);
         view->SetSceneKey(sceneKey);
         view->BuildDrawList(m_sortScratch, m_viewCulling);
         return view;
@@ -1961,23 +1963,29 @@ namespace foundation::render
                         });
                 }
 
-                // Debug draw (per view): global + this view's scene gizmos, projected by the UNJITTERED VP,
-                // into the final LDR (geometry depth-tested against the scene depth; screen text on top).
-                // Keyed per-scene (+ global) so side-by-side scenes/views don't bleed.
+                // Debug draw (per view): global + this view's SCENE list + this view's OWN list,
+                // projected by the UNJITTERED VP into the final LDR (geometry depth-tested against
+                // the scene depth; screen text on top). The scene list draws in every view of the
+                // scene (physics/nav debug); the view list only here (editor chrome - the #118
+                // camera-preview contract).
                 if (m_debugPass != nullptr)
                 {
                     const debug::DebugDraw* sceneDbg =
                         static_cast<const debug::DebugDraw*>(v->DebugScene());
-                    if (m_debugGlobal != nullptr || sceneDbg != nullptr)
+                    const debug::DebugDraw* viewDbg =
+                        static_cast<const debug::DebugDraw*>(v->DebugViewList());
+                    if (m_debugGlobal != nullptr || sceneDbg != nullptr || viewDbg != nullptr)
                     {
                         m_debugPass->DeclareGeometry(
                             m_graph, colorH, overlayDepth, unjitteredVP, m_debugGlobal, sceneDbg,
-                            v->TargetFormat(), m_pass.DepthFormat(), v->ViewportX(), v->ViewportY(),
-                            v->ViewportWidth(), v->ViewportHeight(), m_frameIndex, viewIndex);
+                            viewDbg, v->TargetFormat(), m_pass.DepthFormat(), v->ViewportX(),
+                            v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(), m_frameIndex,
+                            viewIndex);
                         m_debugPass->DeclareScreen(m_graph, colorH, unjitteredVP, m_debugGlobal,
-                                                   sceneDbg, v->TargetFormat(), v->ViewportX(),
-                                                   v->ViewportY(), v->ViewportWidth(),
-                                                   v->ViewportHeight(), m_frameIndex, viewIndex);
+                                                   sceneDbg, viewDbg, v->TargetFormat(),
+                                                   v->ViewportX(), v->ViewportY(),
+                                                   v->ViewportWidth(), v->ViewportHeight(),
+                                                   m_frameIndex, viewIndex);
                     }
                 }
             }
@@ -1992,7 +2000,8 @@ namespace foundation::render
                 for (const TargetImport& ti : imported)
                 {
                     m_debugPass->DeclareScreen(m_graph, ti.handle, Float4x4::Identity(),
-                                               m_debugScreen, nullptr, ti.fmt, 0, 0, ti.w, ti.h,
+                                               m_debugScreen, nullptr, nullptr, ti.fmt, 0, 0,
+                                               ti.w, ti.h,
                                                m_frameIndex, overlayIndex);
                     ++overlayIndex;
                 }

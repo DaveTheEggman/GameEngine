@@ -471,16 +471,19 @@ namespace engine::render
         }
         {
             PROFILE_SCOPE("Render.AddView"); // binds the view + builds/sorts its draw list
-            // A keyed view draws its OWN gizmo list (DebugView) so an editor viewport's grid/gizmos
-            // stay out of a second view of the same scene (the camera preview). Unkeyed views fall
-            // back to the per-scene list (drawn in every view of the scene). Either may be null when
-            // nothing was drawn this frame - the debug pass null-checks it.
-            const void* sceneDebug = (viewportKey != nullptr)
-                                         ? static_cast<const void*>(m_debugViews.Find(viewportKey))
-                                         : static_cast<const void*>(m_debugScenes.Find(&scene));
+            // EVERY view of a scene draws that scene's per-scene list (physics/nav debug - what
+            // PIE shows). A KEYED view additionally draws its OWN DebugView list (editor
+            // grid/selection gizmos), which never appears in another view of the same scene -
+            // the #118 camera-preview contract. The pre-fix either/or here made keyed views
+            // (the edit viewport) silently drop ALL scene-level debug draw. Either pointer may
+            // be null when nothing was drawn this frame - the debug pass null-checks.
+            const void* sceneDebug = static_cast<const void*>(m_debugScenes.Find(&scene));
+            const void* viewDebug = (viewportKey != nullptr)
+                                        ? static_cast<const void*>(m_debugViews.Find(viewportKey))
+                                        : nullptr;
             m_frame->AddView(*snapshot, camera, settings, target, targetFormat, width, height,
                              sceneDebug,
-                             /*sceneKey*/ &scene);
+                             /*sceneKey*/ &scene, viewDebug);
         }
     }
 

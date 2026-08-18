@@ -43,19 +43,23 @@ export namespace foundation::render
 
         Status Initialize();
 
-        // Declare the geometry pass for one view: draw `global`+`scene` world-space lines/triangles (depth
-        // + overlay) through `viewProj`, into `color` (Load), read-only against `depth`, in the view sub-rect.
+        // Declare the geometry pass for one view: draw `global`+`scene`+`view` world-space lines/
+        // triangles (depth + overlay) through `viewProj`, into `color` (Load), read-only against
+        // `depth`, in the view sub-rect. `scene` = drawn in every view of the scene; `view` = this
+        // view's private list (editor chrome).
         void DeclareGeometry(rendergraph::RenderGraph& graph, rendergraph::RGHandle color,
                              rendergraph::RGHandle depth, const Float4x4& viewProj,
                              const debug::DebugDraw* global, const debug::DebugDraw* scene,
-                             rhi::TextureFormat colorFmt, rhi::TextureFormat depthFmt, i32 vpX,
-                             i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex);
+                             const debug::DebugDraw* view, rhi::TextureFormat colorFmt,
+                             rhi::TextureFormat depthFmt, i32 vpX, i32 vpY, u32 vpW, u32 vpH,
+                             u32 frameIndex, u32 viewIndex);
 
         // Declare the screen pass for one view: build glyph/rect quads from `global`+`scene` 2D + 3D-text
         // commands (3D projected through `viewProj`), draw always-on-top into `color` in the view sub-rect.
         void DeclareScreen(rendergraph::RenderGraph& graph, rendergraph::RGHandle color,
                            const Float4x4& viewProj, const debug::DebugDraw* global,
-                           const debug::DebugDraw* scene, rhi::TextureFormat colorFmt, i32 vpX,
+                           const debug::DebugDraw* scene, const debug::DebugDraw* view,
+                           rhi::TextureFormat colorFmt, i32 vpX,
                            i32 vpY, u32 vpW, u32 vpH, u32 frameIndex, u32 viewIndex);
 
     private:
@@ -74,7 +78,8 @@ export namespace foundation::render
         };
 
         static void AppendVerts(Array<debug::DebugVertex>& dst, const Array<debug::DebugVertex>* a,
-                                const Array<debug::DebugVertex>* b);
+                                const Array<debug::DebugVertex>* b,
+                                const Array<debug::DebugVertex>* c = nullptr);
 
         // Emit pixel-space glyph/rect quads (2 tris each) for a list's 2D commands + projected 3D text.
         void BuildScreenQuads(Array<debug::DebugTextVertex>& out, const debug::DebugDraw* d,

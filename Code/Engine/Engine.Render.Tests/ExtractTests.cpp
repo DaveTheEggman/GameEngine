@@ -653,6 +653,34 @@ TEST_CASE("render: DebugView isolates per-view gizmos (camera-preview fix, task 
     mainDbg.DrawLine(Float3{0, 0, 0}, Float3{1, 0, 0}, Color{1, 1, 1, 1});
     CHECK(mainDbg.HasAnyDraws());
     CHECK_FALSE(previewDbg.HasAnyDraws());
+
+    // AND the per-scene list is a third, independent buffer: a keyed view draws BOTH its own
+    // list and the scene's (2026-08-18 fix: the original either/or made keyed views - the edit
+    // viewport - silently drop ALL scene-level debug draw: physics + navmesh invisible in the
+    // editor while PIE showed them). Isolation still holds: scene list != any view list.
+    scene::Scene worldScene(u8"debug-scene");
+    debug::DebugDraw& sceneDbg = sub.DebugScene(worldScene);
+    CHECK(&sceneDbg != &mainDbg);
+    CHECK(&sceneDbg != &previewDbg);
+    sceneDbg.DrawLine(Float3{0, 0, 0}, Float3{0, 1, 0}, Color{1, 1, 1, 1});
+    CHECK(sceneDbg.HasAnyDraws());
+    CHECK_FALSE(previewDbg.HasAnyDraws()); // scene draws never mutate a view list
+}
+
+TEST_CASE("render: a view carries the scene AND view debug lists independently (keyed-view fix)")
+{
+    // The RenderView plumbing behind the fix: AddView hands the frame BOTH lists; the debug
+    // pass merges global + scene + view per view. Pin the storage contract headlessly.
+    RenderView view;
+    int sceneList = 0;
+    int viewList = 0;
+    view.SetDebugScene(&sceneList);
+    view.SetDebugView(&viewList);
+    CHECK(view.DebugScene() == &sceneList);
+    CHECK(view.DebugViewList() == &viewList);
+    view.SetDebugView(nullptr); // unkeyed views carry no view list
+    CHECK(view.DebugScene() == &sceneList);
+    CHECK(view.DebugViewList() == nullptr);
 }
 
 TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling restores exactly")

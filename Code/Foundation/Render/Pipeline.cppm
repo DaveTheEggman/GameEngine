@@ -566,10 +566,14 @@ export namespace foundation::render
 
         // Collect a view over `scene`. Builds its sorted draw list now (parallelizable later);
         // the GPU recording is deferred to End so transient buffers are sized once per frame.
+        // debugScene = the per-scene list (drawn in every view of the scene); debugView = the
+        // per-view list (drawn ONLY in this view - editor chrome that must not leak into a
+        // second view of the same scene, e.g. the camera preview).
         RenderView* AddView(const ExtractedScene& scene, const ViewCamera& camera,
                             const ViewSettings& settings, rhi::TextureView* target,
                             rhi::TextureFormat targetFormat, u32 width, u32 height,
-                            const void* debugScene = nullptr, const void* sceneKey = nullptr);
+                            const void* debugScene = nullptr, const void* sceneKey = nullptr,
+                            const void* debugView = nullptr);
 
         // Per-frame debug draw: the pass + the GLOBAL list (drawn in every view) + the SCREEN list (drawn
         // once, whole-window). Per-scene lists ride on each RenderView.

@@ -88,7 +88,8 @@ namespace foundation::render
     void DebugDrawPass::DeclareGeometry(rendergraph::RenderGraph& graph,
                                         rendergraph::RGHandle color, rendergraph::RGHandle depth,
                                         const Float4x4& viewProj, const debug::DebugDraw* global,
-                                        const debug::DebugDraw* scene, rhi::TextureFormat colorFmt,
+                                        const debug::DebugDraw* scene,
+                                        const debug::DebugDraw* view, rhi::TextureFormat colorFmt,
                                         rhi::TextureFormat depthFmt, i32 vpX, i32 vpY, u32 vpW,
                                         u32 vpH, u32 frameIndex, u32 viewIndex)
     {
@@ -96,16 +97,20 @@ namespace foundation::render
         Array<debug::DebugVertex> verts;
         const u32 dl0 = 0;
         AppendVerts(verts, global ? &global->LineVertices() : nullptr,
-                    scene ? &scene->LineVertices() : nullptr);
+                    scene ? &scene->LineVertices() : nullptr,
+                    view ? &view->LineVertices() : nullptr);
         const u32 ol0 = static_cast<u32>(verts.Size());
         AppendVerts(verts, global ? &global->OverlayLineVertices() : nullptr,
-                    scene ? &scene->OverlayLineVertices() : nullptr);
+                    scene ? &scene->OverlayLineVertices() : nullptr,
+                    view ? &view->OverlayLineVertices() : nullptr);
         const u32 dt0 = static_cast<u32>(verts.Size());
         AppendVerts(verts, global ? &global->TriVertices() : nullptr,
-                    scene ? &scene->TriVertices() : nullptr);
+                    scene ? &scene->TriVertices() : nullptr,
+                    view ? &view->TriVertices() : nullptr);
         const u32 ot0 = static_cast<u32>(verts.Size());
         AppendVerts(verts, global ? &global->OverlayTriVertices() : nullptr,
-                    scene ? &scene->OverlayTriVertices() : nullptr);
+                    scene ? &scene->OverlayTriVertices() : nullptr,
+                    view ? &view->OverlayTriVertices() : nullptr);
         const u32 total = static_cast<u32>(verts.Size());
         if (total == 0)
         {
@@ -173,13 +178,15 @@ namespace foundation::render
 
     void DebugDrawPass::DeclareScreen(rendergraph::RenderGraph& graph, rendergraph::RGHandle color,
                                       const Float4x4& viewProj, const debug::DebugDraw* global,
-                                      const debug::DebugDraw* scene, rhi::TextureFormat colorFmt,
+                                      const debug::DebugDraw* scene, const debug::DebugDraw* view,
+                                      rhi::TextureFormat colorFmt,
                                       i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex,
                                       u32 viewIndex)
     {
         Array<debug::DebugTextVertex> verts;
         BuildScreenQuads(verts, global, viewProj, vpW, vpH);
         BuildScreenQuads(verts, scene, viewProj, vpW, vpH);
+        BuildScreenQuads(verts, view, viewProj, vpW, vpH);
         if (verts.IsEmpty())
         {
             return;
@@ -223,20 +230,18 @@ namespace foundation::render
 
     void DebugDrawPass::AppendVerts(Array<debug::DebugVertex>& dst,
                                     const Array<debug::DebugVertex>* a,
-                                    const Array<debug::DebugVertex>* b)
+                                    const Array<debug::DebugVertex>* b,
+                                    const Array<debug::DebugVertex>* c)
     {
-        if (a)
+        const Array<debug::DebugVertex>* sources[] = {a, b, c};
+        for (const Array<debug::DebugVertex>* src : sources)
         {
-            for (const auto& v : *a)
+            if (src)
             {
-                dst.PushBack(v);
-            }
-        }
-        if (b)
-        {
-            for (const auto& v : *b)
-            {
-                dst.PushBack(v);
+                for (const auto& v : *src)
+                {
+                    dst.PushBack(v);
+                }
             }
         }
     }

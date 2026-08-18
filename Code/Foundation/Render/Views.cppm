@@ -163,6 +163,11 @@ export namespace foundation::render
         // Stored as void* to keep Views decoupled from the :debug_draw partition.
         void SetDebugScene(const void* d) noexcept { m_debugScene = d; }
         [[nodiscard]] const void* DebugScene() const noexcept { return m_debugScene; }
+        // Opaque per-VIEW debug-draw list (editor chrome: grid/selection gizmos). Drawn ONLY in
+        // this view - never in other views of the same scene (the task-#118 camera-preview
+        // contract). Scene-level debug (physics/nav) rides m_debugScene and draws in EVERY view.
+        void SetDebugView(const void* d) noexcept { m_debugView = d; }
+        [[nodiscard]] const void* DebugViewList() const noexcept { return m_debugView; }
         // Opaque scene identity for this view (set by the subsystem), handed to ISceneOverlay
         // sources so per-scene overlay state matches views without the renderer knowing scenes.
         void SetSceneKey(const void* key) noexcept { m_sceneKey = key; }
@@ -181,6 +186,7 @@ export namespace foundation::render
         u32 m_viewportW = 0;
         u32 m_viewportH = 0;
         const void* m_debugScene = nullptr; // opaque debug::DebugDraw* for this view's scene
+        const void* m_debugView = nullptr;  // opaque debug::DebugDraw* for THIS view only
         const void* m_sceneKey = nullptr;   // opaque scene identity (overlay matching)
         Array<DrawItem> m_drawList;         // per-view, owned (pooled storage)
         u32 m_sceneItemCount = 0;           // items considered by the last BuildDrawList
