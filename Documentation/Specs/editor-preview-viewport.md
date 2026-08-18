@@ -1,7 +1,18 @@
 # Shared editor preview viewport (extract the triplicated bespoke-page 3D preview)
 
-Status: APPROVED TO BUILD (Fable ruling 2026-08-18, decision delegated by the
-user - "for your call"; graduated Ideas -> Specs accordingly). Was: DESIGN
+Status: COMPLETE (2026-08-18). All commits landed, both compilers green, per-page
+tests unchanged (Editor.Scene.Tests 708 + Editor.Camera.Tests 25). The only
+EnsureViewportBound in the tree is now PreviewViewport's; ScenePage/GamePage keep
+their own loops (real edited/game scene, Fable carve-out) and Editor.GameUI's
+UIDocumentPage is a 2D UI-document preview (renders the game UISubsystem, not a 3D
+scene) - both correctly out of scope. Track:
+prereq (host/uiHost) -> (a) Editor.Camera + Editor.Preview extract ->
+(b) collision preview -> PIMPL hygiene -> (c) mesh -> (d) material ->
+(e) particle -> (f) animgraph -> (g) skeleton -> (h) clip. PreviewViewport grew
+three page-driven knobs during migration: SetSimulationEnabled (particle runs live;
+the others pose statically), SetTimeScale (particle speed slider), SetClearColor
+(darker fields). Was: APPROVED TO BUILD (Fable ruling 2026-08-18, decision delegated
+by the user - "for your call"; graduated Ideas -> Specs accordingly). Was: DESIGN
 QUESTION for Fable (Opus, 2026-08-18). Origin: the bespoke-pages UAT
 cluster (week-2026-08-15) - specifically "Collision mesh page: no preview". Building
 that preview surfaced that the 3D-preview scaffolding is already triplicated and that
