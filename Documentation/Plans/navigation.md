@@ -35,13 +35,40 @@ reference.
   CollectNavigationGeometry (in-zone static meshes -> zone-local triangle soup) +
   BakeNavigationZone (collect + Recast bake + write the NavigationZoneAsset
   sidecar). Test both compilers: a scene ground mesh bakes to a loadable, pathable
-  navmesh. P4b REMAINING (needs on-screen verify): the editor UI - zone gizmo, a Bake
-  action, and navmesh + agent-path debug draw, consuming the existing viewport-tool
-  seams (IViewportTool + editor.app:tool_panel + GizmoRendererRegistry - the seams
-  built for terrain/navigation). Shape decisions are a DESIGN QUESTION for Fable:
-  Documentation/Specs/navigation-editor-ui.md.
+  navmesh. Fable ruled the P4b shape (Documentation/Specs/navigation-editor-ui.md,
+  FABLE RULINGS): NO viewport tool - the Bake is a one-shot inspector action; debug
+  draw is engine-side + settings-gated (physics precedent).
+  - P4b-1/2 DONE (55a859d9): NavigationMesh::DebugTriangles (live dtNavMesh surface)
+    + NavigationSceneSettings { debugDraw, debugDrawPaths } drawn by the runtime
+    subsystem into the render debug scene (editor + player). Both compilers; Player
+    links. On-screen navmesh overlay = a P5 user check.
+  - P4b-3 REMAINING (needs on-screen verify): the read-only zone gizmo (box extents,
+    mirror DecalGizmoRenderer) + the inspector Bake button (toast on completion via
+    EditorContext::Notify) + RegisterNavigationEditor registrar. FINDING (Opus
+    2026-08-18): the gizmo registry is PER-ScenePage (populated by Editor.Scene's
+    RegisterBuiltinGizmoRenderers) and InspectorView dispatches per-component-type
+    from a CENTRAL hardcoded chain in Editor.Scene - neither is plugin-extensible
+    today. Fable's "generic action-row seam" + the zone gizmo therefore need small
+    NEW seams that Editor.Scene consults (an inspector-action registry keyed by
+    component type; an extra-gizmo-renderer hook), so Editor.Scene does not depend on
+    engine.navigation. Confirm this seam approach vs. just adding nav to the central
+    dispatch (as physics/decal already are) before building.
 - [ ] **P5 - acceptance**: demo scene (zone + obstacles + 3+ click-to-navigate
   agents via script), wasm target build (gate like Jolt), user visual pass.
+
+## Recorded deferrals (Fable P4b rulings, 2026-08-18)
+
+- **Async bake**: P4b keeps BakeNavigationZone SYNCHRONOUS. Go async (job system +
+  progress) only when a MEASURED bake stutters - roughly >100ms on a real zone. The
+  call site is one function (collect -> bake -> write -> notify) so the move onto a
+  worker is mechanical. Deliberate deferral, not a silent scope-down.
+- **Gizmo handles**: the zone gizmo is a READ-ONLY box (extents are inspector-edited).
+  Interactive box handles are a SHARED problem (decals, probes, nav zones all want the
+  same). If handles are ever built, build ONE box-extents-handles helper for all three,
+  never a nav-specific one.
+- **Off-mesh links / area painting**: the REAL future trigger for a NavigationTool
+  (the parked IViewportTool + tool_panel seams) is genuinely modal authoring - off-mesh
+  link placement or walkable-area painting. Build the tool + panel then, not in P4b.
 
 Original spec follows.
 
