@@ -5,8 +5,11 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#include "Core/Reflection/Reflect.h"
 
 module editor.scene;
+
+import foundation.settings; // per-project editor-settings store (preview skeleton/mesh prefs)
 
 import foundation.core;
 import foundation.content;
@@ -198,6 +201,40 @@ namespace editor
     } // namespace
 
     // ============================ Construction ==============================================
+
+    // Per-asset graph-preview prefs: {graphGuid -> (skeleton guid, skinned-mesh guid)} - a section
+    // in the per-project editor-settings store, so a reopened graph editor restores its preview rig.
+    struct GraphPreviewPref
+    {
+        Guid asset;
+        Guid skeleton;
+        Guid mesh;
+        void Serialize(ISerializer& ar)
+        {
+            ar.Key("asset");
+            ar.GuidValue(asset);
+            ar.Key("skeleton");
+            ar.GuidValue(skeleton);
+            ar.Key("mesh");
+            ar.GuidValue(mesh);
+        }
+    };
+    inline void Serialize(ISerializer& ar, GraphPreviewPref& p)
+    {
+        ar.BeginObject();
+        p.Serialize(ar);
+        ar.EndObject();
+    }
+    class GraphPreviewSettings final : public ISerializable
+    {
+        RTTI_OBJECT(GraphPreviewSettings, ISerializable)
+    public:
+        Array<GraphPreviewPref> prefs;
+        void Serialize(ISerializer& ar) override
+        {
+            foundation::core::Serialize(ar, "prefs", prefs);
+        }
+    };
 
     AnimationGraphEditorPage::AnimationGraphEditorPage(EditorContext& context,
                                                        runtime::IApplicationHost& host,
@@ -508,8 +545,88 @@ namespace editor
 
         RebuildLeftPanel();
         RebuildCanvas();
+        LoadPreviewPref(); // restore skeleton + mesh before the player builds below
         RebuildPreviewGraph();
         Select(GraphSel{GraphSelKind::Layer, 0, 0});
+    }
+
+    void AnimationGraphEditorPage::LoadPreviewPref()
+    {
+        foundation::settings::Settings* store = m_context->ProjectEditorSettings();
+        if (store == nullptr)
+        {
+            return;
+        }
+        const GraphPreviewSettings* section = store->Find<GraphPreviewSettings>();
+        if (section == nullptr)
+        {
+            return;
+        }
+        for (const GraphPreviewPref& p : section->prefs)
+        {
+            if (p.asset != InstanceId())
+            {
+                continue;
+            }
+            m_skeletonGuid = p.skeleton;
+            if (!p.skeleton.IsNil() && m_context->Resources() != nullptr)
+            {
+                m_skeleton = m_context->Resources()->Bind<animation::Skeleton>(p.skeleton);
+            }
+            if (m_skeletonButton.Get() != nullptr)
+            {
+                String label(u8"Skeleton: ");
+                label.Append(AssetLabel(*m_context, p.skeleton).AsView());
+                m_skeletonButton->SetText(label.AsView());
+            }
+
+            m_previewMeshId = p.mesh;
+            if (!p.mesh.IsNil() && m_context->Resources() != nullptr)
+            {
+                m_previewMesh = m_context->Resources()->Bind<foundation::geometry::StaticMesh>(p.mesh);
+            }
+            scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+            if (scenePtr != nullptr)
+            {
+                if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
+                {
+                    if (auto* mc = meshes->Get(m_meshEntity))
+                    {
+                        if (foundation::geometry::StaticMesh* pm = m_previewMesh.Get())
+                        {
+                            mc->mesh = pm;
+                        }
+                    }
+                }
+            }
+            if (m_meshButton.Get() != nullptr)
+            {
+                String label(u8"Mesh: ");
+                label.Append(AssetLabel(*m_context, p.mesh).AsView());
+                m_meshButton->SetText(label.AsView());
+            }
+            return;
+        }
+    }
+
+    void AnimationGraphEditorPage::SavePreviewPref()
+    {
+        foundation::settings::Settings* store = m_context->ProjectEditorSettings();
+        if (store == nullptr)
+        {
+            return;
+        }
+        GraphPreviewSettings& section = store->Section<GraphPreviewSettings>();
+        for (GraphPreviewPref& p : section.prefs)
+        {
+            if (p.asset == InstanceId())
+            {
+                p.skeleton = m_skeletonGuid;
+                p.mesh = m_previewMeshId;
+                return;
+            }
+        }
+        section.prefs.PushBack(GraphPreviewPref{InstanceId(), m_skeletonGuid, m_previewMeshId});
     }
 
     // ============================ Model helpers =============================================
@@ -1850,6 +1967,7 @@ namespace editor
             label.Append(AssetLabel(*self->m_context, picked).AsView());
             self->m_skeletonButton->SetText(label.AsView());
             self->RebuildPreviewGraph();
+            self->SavePreviewPref();
         };
         dialog->Show(ctx);
     }
@@ -1900,6 +2018,7 @@ namespace editor
                     }
                 }
             }
+            self->SavePreviewPref();
         };
         dialog->Show(ctx);
     }
@@ -2185,6 +2304,10 @@ namespace editor
     void RegisterAnimationGraphEditor(EditorContext& context, runtime::IApplicationHost& host,
                                       ui::runtime::UIHost& uiHost)
     {
+        // The preview-prefs section (registered before the app loads the per-project store).
+        GlobalTypeRegistry().Register(GraphPreviewSettings::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<GraphPreviewSettings>();
+
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<AnimationGraphPageFactory>(host, uiHost), DefaultAllocator()));
 
@@ -2194,4 +2317,6 @@ namespace editor
         { return CreateAnimationGraphInstance(ctx, group); };
         context.RegisterCreator(Move(creator));
     }
+
+    RTTI_DEFINE_OBJECT_VERSIONED(GraphPreviewSettings, "rtti::editor::editor.graph", 1)
 }

@@ -84,6 +84,10 @@ export namespace editor
         void PickPreviewMaterial();
         void ApplyPreviewMaterial();
 
+        // Persist / restore the preview-material choice per asset (per-project editor settings).
+        void LoadPreviewPref();
+        void SavePreviewPref();
+
         // Rebuild the stats labels from the live mesh (name / counts / bounds / submeshes).
         void RefreshStats();
         void AddStatLine(StringView text);

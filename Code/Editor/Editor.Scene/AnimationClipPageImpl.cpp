@@ -4,10 +4,12 @@ module;
 #include <cmath> // std::fmod (looping playhead wrap)
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#include "Core/Reflection/Reflect.h"
 
 module editor.scene;
 
 import foundation.core;
+import foundation.settings; // per-project editor-settings store (preview skeleton/mesh prefs)
 import foundation.content;
 import foundation.rhi;
 import foundation.graphics;
@@ -43,6 +45,56 @@ namespace fonts = foundation::fonts;
 
 namespace editor
 {
+    // "Prefix: <asset name>" (or (none)/(missing)) - the transport button labels.
+    static String ClipPickLabel(EditorContext& ctx, StringView prefix, const Guid& id)
+    {
+        String label(prefix);
+        if (ctx.Project() != nullptr && !id.IsNil())
+        {
+            foundation::content::Instance* inst = ctx.Project()->SourceDb().GetInstance(id);
+            label.Append(inst != nullptr ? inst->Name() : StringView(u8"(missing)"));
+        }
+        else
+        {
+            label.Append(u8"(none)");
+        }
+        return label;
+    }
+
+    // Per-asset clip-preview prefs: {clipGuid -> (skeleton guid, skinned-mesh guid)} - a section in
+    // the per-project editor-settings store, so a reopened clip viewer restores its preview rig.
+    struct ClipPreviewPref
+    {
+        Guid asset;
+        Guid skeleton;
+        Guid mesh;
+        void Serialize(ISerializer& ar)
+        {
+            ar.Key("asset");
+            ar.GuidValue(asset);
+            ar.Key("skeleton");
+            ar.GuidValue(skeleton);
+            ar.Key("mesh");
+            ar.GuidValue(mesh);
+        }
+    };
+    inline void Serialize(ISerializer& ar, ClipPreviewPref& p)
+    {
+        ar.BeginObject();
+        p.Serialize(ar);
+        ar.EndObject();
+    }
+    class ClipPreviewSettings final : public ISerializable
+    {
+        RTTI_OBJECT(ClipPreviewSettings, ISerializable)
+    public:
+        Array<ClipPreviewPref> prefs;
+        void Serialize(ISerializer& ar) override
+        {
+            foundation::core::Serialize(ar, "prefs", prefs);
+        }
+    };
+
     // ============================ Construction ==============================================
 
     AnimationClipEditorPage::AnimationClipEditorPage(EditorContext& context,
@@ -149,6 +201,86 @@ namespace editor
         split->SetSplitRatio(0.66f);
         split->SetPanes(previewColumn.Get(), m_grid.Get());
         m_content = split;
+
+        // Restore the persisted preview rig (skeleton + skinned mesh) for this clip.
+        LoadPreviewPref();
+    }
+
+    void AnimationClipEditorPage::LoadPreviewPref()
+    {
+        foundation::settings::Settings* store = m_context->ProjectEditorSettings();
+        if (store == nullptr)
+        {
+            return;
+        }
+        const ClipPreviewSettings* section = store->Find<ClipPreviewSettings>();
+        if (section == nullptr)
+        {
+            return;
+        }
+        for (const ClipPreviewPref& p : section->prefs)
+        {
+            if (p.asset != InstanceId())
+            {
+                continue;
+            }
+            m_skeletonGuid = p.skeleton;
+            if (!p.skeleton.IsNil() && m_context->Resources() != nullptr)
+            {
+                m_skeleton = m_context->Resources()->Bind<animation::Skeleton>(p.skeleton);
+            }
+            if (m_skeletonButton.Get() != nullptr)
+            {
+                m_skeletonButton->SetText(
+                    ClipPickLabel(*m_context, u8"Skeleton: ", p.skeleton).AsView());
+            }
+
+            m_previewMeshId = p.mesh;
+            if (!p.mesh.IsNil() && m_context->Resources() != nullptr)
+            {
+                m_previewMesh = m_context->Resources()->Bind<foundation::geometry::StaticMesh>(p.mesh);
+            }
+            // Point the preview MeshComponent at the restored mesh (bone matrices feed per frame).
+            scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+            if (scenePtr != nullptr)
+            {
+                if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
+                {
+                    if (auto* mc = meshes->Get(m_meshEntity))
+                    {
+                        if (foundation::geometry::StaticMesh* pm = m_previewMesh.Get())
+                        {
+                            mc->mesh = pm;
+                        }
+                    }
+                }
+            }
+            if (m_meshButton.Get() != nullptr)
+            {
+                m_meshButton->SetText(ClipPickLabel(*m_context, u8"Mesh: ", p.mesh).AsView());
+            }
+            return;
+        }
+    }
+
+    void AnimationClipEditorPage::SavePreviewPref()
+    {
+        foundation::settings::Settings* store = m_context->ProjectEditorSettings();
+        if (store == nullptr)
+        {
+            return;
+        }
+        ClipPreviewSettings& section = store->Section<ClipPreviewSettings>();
+        for (ClipPreviewPref& p : section.prefs)
+        {
+            if (p.asset == InstanceId())
+            {
+                p.skeleton = m_skeletonGuid;
+                p.mesh = m_previewMeshId;
+                return;
+            }
+        }
+        section.prefs.PushBack(ClipPreviewPref{InstanceId(), m_skeletonGuid, m_previewMeshId});
     }
 
     // ============================ Preview ===================================================
@@ -222,6 +354,7 @@ namespace editor
                 label.Append(u8"(none)");
             }
             self->m_skeletonButton->SetText(label.AsView());
+            self->SavePreviewPref();
         };
         dialog->Show(ctx);
     }
@@ -289,6 +422,7 @@ namespace editor
                 label.Append(u8"(none)");
             }
             self->m_meshButton->SetText(label.AsView());
+            self->SavePreviewPref();
         };
         dialog->Show(ctx);
     }
@@ -678,7 +812,13 @@ namespace editor
     void RegisterAnimationClipEditor(EditorContext& context, runtime::IApplicationHost& host,
                                      ui::runtime::UIHost& uiHost)
     {
+        // The preview-prefs section (registered before the app loads the per-project store).
+        GlobalTypeRegistry().Register(ClipPreviewSettings::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<ClipPreviewSettings>();
+
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<AnimationClipPageFactory>(host, uiHost), DefaultAllocator()));
     }
+
+    RTTI_DEFINE_OBJECT_VERSIONED(ClipPreviewSettings, "rtti::editor::editor.clip", 1)
 }

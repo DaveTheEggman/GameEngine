@@ -3,10 +3,12 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#include "Core/Reflection/Reflect.h"
 
 module editor.scene;
 
 import foundation.core;
+import foundation.settings; // per-project editor-settings store (preview-material pref)
 import foundation.content;
 import foundation.graphics;
 import foundation.runtime;
@@ -36,6 +38,37 @@ namespace ui = foundation::ui;
 
 namespace editor
 {
+    // Per-asset mesh-preview prefs: {assetGuid -> preview-material guid} - a section in the
+    // per-project editor-settings store, so a reopened mesh viewer restores its preview material.
+    struct MeshPreviewPref
+    {
+        Guid asset;
+        Guid material;
+        void Serialize(ISerializer& ar)
+        {
+            ar.Key("asset");
+            ar.GuidValue(asset);
+            ar.Key("material");
+            ar.GuidValue(material);
+        }
+    };
+    inline void Serialize(ISerializer& ar, MeshPreviewPref& p)
+    {
+        ar.BeginObject();
+        p.Serialize(ar);
+        ar.EndObject();
+    }
+    class MeshPreviewSettings final : public ISerializable
+    {
+        RTTI_OBJECT(MeshPreviewSettings, ISerializable)
+    public:
+        Array<MeshPreviewPref> prefs;
+        void Serialize(ISerializer& ar) override
+        {
+            foundation::core::Serialize(ar, "prefs", prefs);
+        }
+    };
+
     MeshEditorPage::MeshEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                                    ui::runtime::UIHost& uiHost,
                                    foundation::content::Instance& instance)
@@ -81,9 +114,56 @@ namespace editor
         split->SetPanes(m_preview->View(), statsColumnOuter.Get());
         m_content = split;
 
+        // Restore the persisted preview material (binds m_previewMaterial) before BindMesh applies it.
+        LoadPreviewPref();
+
         // Bind the cooked product (if already cooked) + populate the stats; the OnUpdate
         // watchdog catches a later cook / hot-reload.
         BindMesh();
+    }
+
+    void MeshEditorPage::LoadPreviewPref()
+    {
+        foundation::settings::Settings* store = m_context->ProjectEditorSettings();
+        if (store == nullptr)
+        {
+            return;
+        }
+        if (const MeshPreviewSettings* section = store->Find<MeshPreviewSettings>())
+        {
+            for (const MeshPreviewPref& p : section->prefs)
+            {
+                if (p.asset == InstanceId())
+                {
+                    m_previewMaterialId = p.material;
+                    if (!p.material.IsNil() && m_context->Resources() != nullptr)
+                    {
+                        m_previewMaterial =
+                            m_context->Resources()->Bind<materials::Material>(p.material);
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    void MeshEditorPage::SavePreviewPref()
+    {
+        foundation::settings::Settings* store = m_context->ProjectEditorSettings();
+        if (store == nullptr)
+        {
+            return;
+        }
+        MeshPreviewSettings& section = store->Section<MeshPreviewSettings>();
+        for (MeshPreviewPref& p : section.prefs)
+        {
+            if (p.asset == InstanceId())
+            {
+                p.material = m_previewMaterialId;
+                return;
+            }
+        }
+        section.prefs.PushBack(MeshPreviewPref{InstanceId(), m_previewMaterialId});
     }
 
     void MeshEditorPage::BuildPreviewScene()
@@ -177,6 +257,7 @@ namespace editor
                     self->m_previewMaterial = resource::Proxy<materials::Material>{};
                     self->ApplyPreviewMaterial();
                     self->RefreshStats();
+                    self->SavePreviewPref();
                 });
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
@@ -329,6 +410,7 @@ namespace editor
             }
             self->ApplyPreviewMaterial();
             self->RefreshStats();
+            self->SavePreviewPref();
         };
         dialog->Show(ctx);
     }
@@ -360,6 +442,10 @@ namespace editor
     void RegisterMeshEditor(EditorContext& context, runtime::IApplicationHost& host,
                             ui::runtime::UIHost& uiHost)
     {
+        // The preview-prefs section (registered before the app loads the per-project store).
+        GlobalTypeRegistry().Register(MeshPreviewSettings::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<MeshPreviewSettings>();
+
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<MeshEditorPageFactory>(pipeline::StaticMeshAsset::StaticType(),
                                                           host, uiHost),
@@ -369,4 +455,6 @@ namespace editor
                                                           host, uiHost),
             DefaultAllocator()));
     }
+
+    RTTI_DEFINE_OBJECT_VERSIONED(MeshPreviewSettings, "rtti::editor::editor.mesh", 1)
 }

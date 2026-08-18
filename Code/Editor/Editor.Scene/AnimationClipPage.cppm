@@ -107,6 +107,10 @@ export namespace editor
         void RebuildGrid(); // stats + loop flag + events editor
         void UpdatePreview(f32 dt);
 
+        // Persist / restore the preview rig (skeleton + skinned mesh) per clip (project settings).
+        void LoadPreviewPref();
+        void SavePreviewPref();
+
         [[nodiscard]] Array<byte> SnapshotAsset() const;
         void ApplyAssetBlob(const Array<byte>& blob);
         void QueueStructural(StringView undoKey, Function<void()> mutate);

@@ -174,6 +174,9 @@ export namespace editor
         // The preview scene exists only as a debug-draw + camera surface (no entities): the
         // graph plays through an AnimationGraphPlayer and the skeleton draws as a wireframe.
         void PickPreviewSkeleton();
+        // Persist / restore the preview rig (skeleton + skinned mesh) per graph (project settings).
+        void LoadPreviewPref();
+        void SavePreviewPref();
         // (Re)build the runtime graph + player from the CURRENT source (clips resolved through
         // the editor's cooked-DB resources). Called after every edit - graphs are tiny.
         void RebuildPreviewGraph();
