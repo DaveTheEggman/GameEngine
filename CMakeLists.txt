@@ -369,6 +369,7 @@ add_subdirectory(Code/Foundation/UI)        # retained-mode UI framework (faithf
 add_subdirectory(Code/Foundation/UI.VFS)
 add_subdirectory(Code/Foundation/UI.Shell)
 add_subdirectory(Code/Foundation/UI.Toolkit)
+add_subdirectory(Code/Foundation/UI.Gamekit)  # game-UI conveniences (UIScreen + ScreenStack) over foundation.ui, sibling of UI.Toolkit
 add_subdirectory(Code/Foundation/UI.Viewport)
 # --- UI desktop hosts (UIHost + docking workbench; link Graphics/Runtime.Client, desktop-only) ---
 if(NOT EMSCRIPTEN)
@@ -672,6 +673,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/UI.Shell.Tests                  Foundation::UI.Shell)
     util_test_suite(Code/Foundation/UI.Tests                        Foundation::UI)
     util_test_suite(Code/Foundation/UI.Toolkit.Tests                Foundation::UI.Toolkit)
+    util_test_suite(Code/Foundation/UI.Gamekit.Tests                Foundation::UI.Gamekit)
     util_test_suite(Code/Foundation/UI.VFS.Tests                    Foundation::UI.VFS)
     util_test_suite(Code/Foundation/UI.Viewport.Tests               Foundation::UI.Viewport)
     util_test_suite(Code/Foundation/VFS.Pak.Tests                   Foundation::VFS.Pak)
