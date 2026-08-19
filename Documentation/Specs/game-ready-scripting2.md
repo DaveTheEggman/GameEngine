@@ -219,7 +219,13 @@ then own its progress label).
 
 ## Phasing
 
-- **P2-1**: run bus + Game inbox + tests (1a, 1d-native).
+- **P2-1**: run bus + Game inbox + tests (1a, 1d-native). DONE (Opus 2026-08-19): P2-1a =
+  `scene::EventBus m_runEvents` on GameInstance, drained after TickScript in the app loop, native
+  battery (order/cascade/two-instance isolation) - commit 71baa1f1. P2-1b = the Game `on<Event>`
+  inbox: the shared bridge (ScriptEventSubscriptions) generalized to bind an `EventBus*`; GameInstance
+  harvests the Game class's handlers (threaded through a new `StartScript(...,gameHandlers)` overload;
+  editor GamePage passes the cooked ScriptClass's) and dispatches at drain; inbox tests on AngelScript
+  + Luau - commit 08816db5. Green clang + gcc. NO scene->run relay (as specced).
 - **P2-2**: run facade + SceneLoader alias + in-repo migration (1b, 1c).
 - **P2-3**: scene.ui slot (2).
 - **P2-4**: UI View reflection + Ui.overlayRoot + the Roll Call HUD proof (3).
