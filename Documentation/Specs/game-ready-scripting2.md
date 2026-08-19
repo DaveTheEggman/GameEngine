@@ -1,13 +1,20 @@
 # Game-ready scripting 2: the remainder (run tier, scene.ui, UI reflection)
 
-**Status:** SPEC, ready to build (2026-08-08). Successor to
-`game-ready-scripting.md` - that track's two structural goals (reflected
-engine reach, tier communication) are CLOSED; this doc collects everything
-found incomplete at the 2026-08-08 review plus the follow-ons that were
-"deferred to a later spec" - this is that spec. All prior rulings apply
-(re-resolving handles for live scene state, name-keyed native bus, hook-slot
-inversion, reserved names `Level`/`Game`/`SceneLoader`/`run`, the Ui facade
-does not grow past its six ops).
+**Status:** GREENLIT to build (2026-08-18) - the gating prerequisite for the Paperboy sample game
+([[paperboy]]): its scripted Game/run tier + script-driven HUD/screens need exactly this track. Build
+order is the Phasing below; **P2-1 + P2-2 (the run bus + run facade) hard-block Paperboy P0**, so they
+go first. Was: SPEC, ready to build (2026-08-08), successor to `game-ready-scripting.md` (that track's
+two structural goals - reflected engine reach, tier communication - are CLOSED).
+
+**Backend note (2026-08-18):** this track stays BACKEND-NEUTRAL, but its batteries target the SURVIVING
+backends - **AngelScript + Luau**. Wren is slated for retirement ([[luau-backend-track]] P7); do NOT add
+Wren-only machinery or migrate demos onto Wren here. The first consumer (Paperboy) exercises it in
+AngelScript.
+
+This doc collects everything found incomplete at the 2026-08-08 review plus the follow-ons that were
+"deferred to a later spec" - this is that spec. All prior rulings apply (re-resolving handles for live
+scene state, name-keyed native bus, hook-slot inversion, reserved names `Level`/`Game`/`SceneLoader`/
+`run`, the Ui facade does not grow past its six ops).
 
 Verified starting state: NO `run` facade/bus exists in Engine.GameInstance;
 NO `sceneUiRoot` slot exists in Script.Facades; `SceneLoader.*` is the

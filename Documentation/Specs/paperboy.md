@@ -1,9 +1,22 @@
 # Paperboy - a small game (design + build plan)
 
-> Status: PLAN (not started). A vertical-slice game to exercise the game-ready runtime end to end.
+> Status: PLAN (not started). A vertical-slice game to exercise the game-ready runtime end to end,
+> built as the tracked, committed EDITOR SAMPLE PROJECT (authored in-editor - it dogfoods the whole
+> authoring stack; absorbs the week-2026-08-22 "editor sample project" seed).
 > Locked decisions (2026-08-13): third-person 3D follow camera; FREE-ROAM a town block; PRIMITIVE
-> blockout art. Build next session from this doc.
-> Author: Opus, from a design exchange. Opus builds; Fable reviews per phase.
+> blockout art. Author: Opus, from a design exchange. Opus builds; Fable reviews per phase.
+>
+> REFRESH (2026-08-18, user direction): this doc predated navigation + property animation + the
+> run-tier scripting gap. Updated accordingly:
+> - **Scripting backend = AngelScript** (NOT Wren - Wren is slated for removal; the sample must not
+>   depend on it). Luau is the other surviving backend; the game's scripts are AngelScript.
+> - **Run/Game tier is SCRIPTED, not native** - so it needs run-scoped messaging + scene/screen UI
+>   scripting that do NOT exist yet. PREREQUISITE: `game-ready-scripting2.md` (at least P2-1 run bus;
+>   P2-3/P2-4 scene.ui + reflected views for a script-driven HUD; P2-5 run.ui for the screen stack).
+>   Build that track FIRST, then Paperboy on top. See "Prerequisites" below.
+> - **Obstacles use NAVIGATION** (Recast/Detour agents), not hand-rolled waypoint scripts.
+> - **Tells/markers/camera use PROPERTY ANIMATION** clips, not ad-hoc per-frame script lerps.
+> - **Project home: TBD** - NOT the repo root; the user will name the location before scaffolding.
 
 ## Concept
 
@@ -82,11 +95,23 @@ stateDiagram-v2
 ## Engine mapping (how each piece uses THIS engine)
 
 - **Game instance:** the running game is a `GameInstance` (run host + SceneManager group +
-  ActionRuntime; NetworkManager unused). A per-instance **PaperboyGame** manager owns the state
-  machine, score, lives, level index, timer, and quota progress. [[game-instance-track]]
-- **State + screens:** the manager drives a UI screen stack over the game-UI subsystem (one
-  UIContext + GameTheme, `IScreenOverlay`/`IScreenRenderer`). Pause overlays; the manager freezes the
-  active scene's tick (per-scene time). [[game-ui-subsystem]] [[game-ui-p1-progress]]
+  ActionRuntime; NetworkManager unused). The **PaperboyGame** orchestrator (state machine, score,
+  lives, level index, timer, quota progress) is the **Game-tier SCRIPT** (`Game` reserved name), not a
+  native manager - the whole point is to dogfood the run tier. It coordinates via the RUN bus (below).
+  [[game-instance-track]] [[game-ready-scripting-spec]]
+- **Messaging (the run tier):** cross-scene / game-wide coordination rides the **run-scoped EventBus**
+  (`run.events.emit(name, payload)`, the Game script's `on<Event>` inbox harvests it). Within a level,
+  a delivery zone's physics event -> a behavior -> `scene.events.emit` reaches that scene's Level tier;
+  the Level re-emits to the run tier what the Game needs to hear (Delivered, Crashed, QuotaMet, TimeUp -
+  the explicit relay pattern, no implicit scene->run bridge). The Game script advances levels via
+  `run.loadScene`. NONE of `run.*` exists yet -> PREREQUISITE `game-ready-scripting2.md` P2-1/P2-2.
+  [[game-ready-scripting2]]
+- **State + screens:** the Game script drives the seven-screen stack. Screens + the HUD are draconic.ui
+  overlays; the script reaches their roots + per-control state through `run.ui` / `scene.ui` + reflected
+  views (`_hud.findByName("score").text = ...`), pushing/popping overlays via the six-op `Ui` facade.
+  Pause overlays; the Game freezes the active scene's tick (per-scene time). The reflected-view + ui-root
+  surface is `game-ready-scripting2.md` P2-3/P2-4/P2-5 - also PREREQUISITE. [[game-ui-subsystem]]
+  [[game-ui-p1-progress]] [[game-ready-scripting2]]
 - **Levels = scenes:** one scene per block, authored from prefabs (house, road tile, obstacle
   spawner). Text/XML scenes edited in-editor. [[scene-ecs-port]] [[prefabs-plan]] [[text-scenes]]
 - **Player (bike):** an entity with a `CharacterComponent` (Jolt CharacterVirtual) for arcade control
@@ -99,17 +124,27 @@ stateDiagram-v2
   delivery. [[physics-p1]]
 - **Delivery zones + subscribers:** each subscriber house carries a trigger collider + a "subscriber"
   script/tag component; paper-overlap fires a physics event the game manager counts.
-- **Obstacles:** vehicles/pedestrians are entities on simple waypoint/lane paths (script behaviors);
-  static junk is plain colliders. Player-vs-obstacle collision events -> the manager's crash handler.
-  Density/speed come from level data.
+- **Obstacles:** vehicles/pedestrians are **navigation agents** on the block's baked NavigationZone
+  (Recast/Detour - shipped), not hand-rolled waypoint scripts: pedestrians wander/patrol nav points,
+  vehicles follow lane paths as agents with speed from level data. Static junk is plain colliders.
+  Player-vs-obstacle collision events -> the Game's crash handler. Authoring the zone + agents in-editor
+  (Bake button, zone gizmo) is itself part of the editor dogfood. [[navigation-track]]
+- **Property animation:** the readable "tells" ride authored **property-animation clips**, not per-frame
+  script lerps - subscriber markers pulse/bob, delivery-zone rings breathe, the crash camera-shake /
+  knockdown, screen transitions, and any scripted set-dressing (a door, a swaying sign). Authored on the
+  clip editor page, played from script/behavior. Exercises the property-animation runtime + editor.
+  [[property-animation-takeover]]
 - **Input:** a draconic.input action map - Steer (axis), Accelerate, Brake, Throw, Pause - rebindable
   from Settings. [[input-subsystem]]
 - **Audio:** miniaudio - a music bus per screen/gameplay + SFX (throw, delivery ding, crash, clear,
   fail, countdown warning); volumes bound to Settings. [[audio-subsystem]]
-- **Gameplay in scripts:** lean on the game-ready scripting surface (behaviors, the Level tier's
-  onStart/onUpdate/onFixedUpdate/onStop, Scene.spawn/find, entity events, physics events, coroutines)
-  for most logic; native only where a script seam is missing (e.g. the follow camera or the screen
-  stack). [[game-ready-scripting-spec]] [[scene-scripting-tier]]
+- **Gameplay in scripts (AngelScript):** all game logic is **AngelScript** (NOT Wren - slated for
+  removal; the sample must not depend on it). Lean on the game-ready scripting surface (behaviors, the
+  Level tier's onStart/onUpdate/onFixedUpdate/onStop, the Game tier, Scene.spawn/find, entity events,
+  physics events, coroutines, the scene + run event buses). After `game-ready-scripting2` lands, native
+  code is needed only where a seam genuinely does not exist (candidate: the follow camera, if a small
+  native component reads cleaner than a behavior). [[game-ready-scripting-spec]] [[scene-scripting-tier]]
+  [[scripting-backend-neutrality]]
 - **Testing:** run it in a `GameEditorPage` tab (play-in-editor) each phase. [[play-in-editor]]
 
 ## Content & difficulty
@@ -122,10 +157,31 @@ stateDiagram-v2
 
 ## Where it lives
 
-A sample game PROJECT consuming the engine (scenes + scripts + a thin native module only if needed).
-Per the facade rule, any native module is its own out-of-tree module named for the game (e.g.
-`Paperboy`), never `Game`. Most logic rides in scripts. [[facade-pattern]] (There is already an
-untracked `SampleGame/` in the tree - decide whether Paperboy reuses or sits beside it.)
+The tracked, committed **editor sample project** (the week-2026-08-22 seed) - scenes + AngelScript +
+authored assets, opened + played in the editor. Its exact location is TBD (the user will name it; NOT
+the repo root, and distinct from the untracked `SampleGame/` Wren sketch and the user's `EditorProject/`).
+If a thin native module is ever needed, per the facade rule it is its own out-of-tree module named for
+the game (e.g. `Paperboy`), never `Game`; but the aim is near-zero native code - the game rides on
+scripts + authored content. [[facade-pattern]]
+
+## Prerequisites (build BEFORE Paperboy)
+
+The scripted Game/run tier + a script-driven UI do not exist yet. `game-ready-scripting2.md` is the
+gating track (greenlit 2026-08-18 as the Paperboy prerequisite), built backend-neutral (batteries on
+the surviving backends - AngelScript + Luau; Wren is being retired) but FIRST consumed by Paperboy in
+AngelScript:
+
+- **P2-1 run bus + Game inbox** - the run-scoped EventBus + the Game script's `on<Event>` harvest.
+  Hard-blocks P0 (the state machine is a Game script coordinating over the run bus).
+- **P2-2 run facade** - `run.events.emit`, `run.loadScene*` (SceneLoader fold-in). Hard-blocks level
+  progression (P3) and the boot/loading flow (P0).
+- **P2-3/P2-4 scene.ui + reflected views** - a script-driven HUD (`_hud.findByName("score").text`).
+  Blocks the real HUD (P1+); P0 can stand up placeholder screens via the `Ui` facade first.
+- **P2-5 run.ui + ScriptName aliases** - the screen-tier root from script + clean gameplay names.
+  Blocks the full screen stack (P3) and readable component names throughout.
+
+Minimum to START Paperboy P0: P2-1 + P2-2. The UI pieces (P2-3..P2-5) can land in parallel with
+Paperboy P0/P1 as the HUD/screens graduate from placeholder to script-driven.
 
 ## Phases
 
@@ -147,7 +203,13 @@ screen, and finished Main/Pause/Cleared/Failed/GameOver + Settings (audio volume
 **P4 - Content + juice.** 3-5 blocks on a difficulty ramp; audio (music + SFX); HUD polish (markers,
 optional minimap); camera + crash feel tuning.
 
-## Decisions to confirm before building
+## Decisions
+
+SETTLED (2026-08-18): scripting backend = **AngelScript**; Game/run tier is **scripted** (needs
+`game-ready-scripting2` first); obstacles use **navigation**; tells/markers use **property animation**;
+project = the tracked **editor sample project**, location TBD (user to name).
+
+Still to confirm before building (the spec's recommendations - flip any):
 
 - **Win condition:** delivery quota within time (recommended - no exit needed for free roam), vs
   "deliver all subscribers", vs "quota OR reach a block exit".
@@ -157,7 +219,6 @@ optional minimap); camera + crash feel tuning.
 - **Lives:** 3 lives + retry (recommended) vs unlimited per-level retries (score-only stakes).
 - **Aim:** soft auto-aim to the nearest front subscriber (recommended for free roam) vs full manual aim.
 - **Discoverability:** house markers only (recommended) vs markers + a minimap.
-- **Project home:** new `Paperboy` project vs fold into the existing `SampleGame/`.
 
 ## What this deliberately keeps small (non-goals)
 
