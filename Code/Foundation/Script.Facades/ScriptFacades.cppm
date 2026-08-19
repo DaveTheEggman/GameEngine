@@ -37,7 +37,7 @@ export namespace foundation::script
 
     /// The reflected behavior-facade names a backend's behavior-module prelude must make
     /// visible (the classes RegisterScriptFacadeReflection installs). Exposed as DATA so
-    /// the language framing stays in the backends: a Wren backend builds its import line
+    /// the language framing stays in the backends: a backend builds its import line
     /// from this list, and adding a facade here reaches every backend for free. Order is
     /// the authored order. Kept in sync with RegisterScriptFacadeReflection below.
     [[nodiscard]] core::Span<const core::StringView> BehaviorFacadeNames();
@@ -50,14 +50,14 @@ export namespace foundation::script
     /// The extra facade names registered by other modules (appended to the prelude after the built-ins).
     [[nodiscard]] core::Span<const core::StringView> ExtraFacadeNames();
 
-    /// Register an ADDITIONAL emission root: a reflected type the Wren collector should emit as a
+    /// Register an ADDITIONAL emission root: a reflected type the collector should emit as a
     /// script class even when no facade signature statically reaches it (e.g. a component type
     /// returned only via a factory whose declared return IS that type - `RigidBody.of(entity)`).
     /// GENERAL, not component-specific (the UI View reflection follow-on wants the same door).
-    /// AngelScript already emits every registry type, so this is consumed by the Wren collector.
+    /// AngelScript already emits every registry type, so this is consumed by the collector.
     /// Idempotent; the type is borrowed (its TypeInfo has static lifetime).
     void RegisterExtraScriptRootType(const core::TypeInfo* type);
-    /// The additional emission roots registered by other modules (extra seeds for the Wren closure).
+    /// The additional emission roots registered by other modules (extra seeds for the reachability closure).
     [[nodiscard]] core::Span<const core::TypeInfo* const> ExtraScriptRootTypes();
 
     /// A reflected type worth binding to script: it has a constructor, property, or method (enums,
@@ -422,7 +422,7 @@ export namespace foundation::script
     ///     builder.Method<&foundation::script::ComponentOf<T>, T>("of");
     /// GENERIC - every component-owning module reuses this one body; empty (a clean null in script)
     /// when the entity's scene has no manager for T. The type must also be registered
-    /// (GlobalTypeRegistry) + seeded as a Wren emission root + given an extra facade name.
+    /// (GlobalTypeRegistry) + seeded as an emission root + given an extra facade name.
     template <typename T>
     [[nodiscard]] Variant ComponentOf(Entity entity)
     {

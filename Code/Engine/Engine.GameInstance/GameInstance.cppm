@@ -59,7 +59,7 @@ export namespace engine::runtime
     // is installed as a per-context service; the app fills its pointers, backed by THIS instance's
     // LoadSceneAsync + ticket registry + the content DB (guid -> cooked scene). Named SceneLoader (NOT
     // Game): a facade sharing the mandatory `Game` orchestrator class name is a hard AngelScript name
-    // conflict + a Wren import clash.
+    // conflict.
 
     inline constexpr StringView kSceneLoaderScriptService = u8"sceneloader.runtime";
 

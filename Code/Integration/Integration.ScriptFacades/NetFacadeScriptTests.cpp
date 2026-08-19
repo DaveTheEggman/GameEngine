@@ -1,9 +1,9 @@
 // foundation.net.manager - the Net facade PROVEN end-to-end on both script backends.
 //
-// ManagerTests.cpp checks the facade TYPE registers; this drives a real Wren / AngelScript
+// ManagerTests.cpp checks the facade TYPE registers; this drives a real AngelScript
 // VM: a server manager installs its net.runtime service into the context, then a script calls
 // Net.isServer()/isClient()/peerCount() and we read the results back. This is the acceptance test
-// for the extensibility hook (RegisterExtraFacadeName -> Wren prelude; registry -> AngelScript).
+// for the extensibility hook (registry -> AngelScript).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
@@ -11,11 +11,11 @@ import foundation.core;
 import foundation.net;
 import foundation.net.manager;
 import foundation.script;
-#ifdef OPTION_HAS_WREN
-import foundation.script.wren;
-#endif
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript;
+#endif
+#ifdef OPTION_HAS_LUAU
+import foundation.script.luau;
 #endif
 
 using namespace foundation::core;
@@ -48,33 +48,6 @@ namespace
     };
 }
 
-#ifdef OPTION_HAS_WREN
-TEST_CASE("net-facade: Wren reads the live session through the Net facade")
-{
-    RegisterCoreTypes();
-    net::RegisterNetScriptFacade();
-
-    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
-    RegisterReflectedTypes(*manager);
-    RefPtr<IScriptContext> ctx = manager->CreateContext();
-
-    ServerFixture fx;
-    net::InstallNetScriptService(*ctx, fx.binding);
-
-    // Top-level Wren; the reflected static facade is imported by the (extensible) behavior prelude,
-    // but a bare "main" module reaches the class directly since RegisterReflectedTypes emitted it.
-    const Status status = ctx->Load(u8"var IsServer = Net.isServer()\n"
-                                    u8"var IsClient = Net.isClient()\n"
-                                    u8"var Peers = Net.peerCount()\n",
-                                    u8"main");
-    REQUIRE(status.IsOk());
-
-    CHECK(ctx->GetGlobal(u8"IsServer").Get<bool>() == true);
-    CHECK(ctx->GetGlobal(u8"IsClient").Get<bool>() == false);
-    CHECK(ctx->GetGlobal(u8"Peers").Get<f64>() == 0.0); // Wren numbers are doubles
-}
-#endif // OPTION_HAS_WREN
-
 #ifdef OPTION_HAS_ANGELSCRIPT
 TEST_CASE("net-facade: AngelScript reads the live session through the Net facade")
 {
@@ -106,3 +79,29 @@ TEST_CASE("net-facade: AngelScript reads the live session through the Net facade
           0.0); // the AS backend unifies integer globals to f64
 }
 #endif // OPTION_HAS_ANGELSCRIPT
+
+#ifdef OPTION_HAS_LUAU
+TEST_CASE("net-facade: Luau reads the live session through the Net facade")
+{
+    RegisterCoreTypes();
+    net::RegisterNetScriptFacade();
+
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    ServerFixture fx;
+    net::InstallNetScriptService(*ctx, fx.binding);
+
+    // Luau: statics via `.`; the chunk runs at top level, so the globals it assigns are readable.
+    const Status status = ctx->Load(u8"IsServer = Net.isServer()\n"
+                                    u8"IsClient = Net.isClient()\n"
+                                    u8"Peers = Net.peerCount()\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+
+    CHECK(ctx->GetGlobal(u8"IsServer").Get<bool>() == true);
+    CHECK(ctx->GetGlobal(u8"IsClient").Get<bool>() == false);
+    CHECK(ctx->GetGlobal(u8"Peers").Get<f64>() == 0.0);
+}
+#endif // OPTION_HAS_LUAU

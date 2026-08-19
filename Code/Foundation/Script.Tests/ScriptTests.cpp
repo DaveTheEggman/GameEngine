@@ -156,17 +156,17 @@ TEST_CASE("script.backend: registry resolves by language and extension; file dis
     using namespace foundation::script;
     ScriptBackendRegistry& registry = ScriptBackendRegistry::Get();
 
-    ScriptBackendDesc wrenLike;
-    wrenLike.languageId = String(u8"testlang");
-    wrenLike.displayName = String(u8"TestLang");
-    wrenLike.fileExtensions.PushBack(String(u8"tl"));
+    ScriptBackendDesc testLike;
+    testLike.languageId = String(u8"testlang");
+    testLike.displayName = String(u8"TestLang");
+    testLike.fileExtensions.PushBack(String(u8"tl"));
     int created = 0;
-    wrenLike.create = [&created]() -> RefPtr<IScriptManager>
+    testLike.create = [&created]() -> RefPtr<IScriptManager>
     {
         ++created;
         return RefPtr<IScriptManager>(MakeRef<FakeScriptManager>(DefaultAllocator()));
     };
-    registry.Register(Move(wrenLike));
+    registry.Register(Move(testLike));
 
     REQUIRE(registry.FindByLanguage(u8"testlang") != nullptr);
     CHECK(registry.FindByLanguage(u8"nosuch") == nullptr);
@@ -264,9 +264,9 @@ TEST_CASE("script.debug: snapshot value types are wire-symmetric (remote-transpo
         return out;
     };
 
-    ScriptStackFrame frame{String(u8"game.wren"), String(u8"update"), 42};
+    ScriptStackFrame frame{String(u8"game.script"), String(u8"update"), 42};
     ScriptStackFrame frameOut = roundTrip(frame);
-    CHECK(frameOut.file == u8"game.wren");
+    CHECK(frameOut.file == u8"game.script");
     CHECK(frameOut.function == u8"update");
     CHECK(frameOut.line == 42);
 

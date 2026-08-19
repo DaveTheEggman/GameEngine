@@ -10,7 +10,7 @@ module foundation.net.manager;
 import foundation.core;
 import foundation.net;
 import foundation.script;
-import foundation.script.facades; // RegisterExtraFacadeName (the Wren prelude hook)
+import foundation.script.facades; // RegisterExtraFacadeName (the behavior prelude hook)
 
 using namespace foundation::core;
 using namespace foundation::script;
@@ -32,7 +32,7 @@ namespace foundation::net
         builder.Method<&Net::rpc>("rpc");
         builder.Method<&Net::rpcNumber>("rpcNumber");
         builder.Method<&Net::rpcText>("rpcText");
-        builder.Constructor(); // Wren only materializes constructible foreign classes
+        builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
     void RegisterNetScriptFacade()
@@ -41,7 +41,7 @@ namespace foundation::net
         {
             GlobalTypeRegistry().Register(Net::StaticType());
             RegisterExtraFacadeName(
-                u8"Net"); // so the Wren behavior prelude imports it (AngelScript binds by registry)
+                u8"Net"); // so the behavior prelude imports it (AngelScript binds by registry)
             return true;
         }();
         (void)once;

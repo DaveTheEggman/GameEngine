@@ -142,9 +142,9 @@ export namespace engine::input
     // The scripting facade: a foreign class named `Input` whose STATIC methods resolve the
     // CURRENT script context's bound runtime (foundation.script's CurrentScriptContext seam,
     // pushed by the backend around every reflected dispatch). NO process globals: a context
-    // without the service - or a call from outside any script - reads released. The Wren
-    // backend cannot inject host objects as module globals (wren has no host-side variable
-    // set), which is why the API is statics-on-a-foreign-class rather than a passed object.
+    // without the service - or a call from outside any script - reads released. Some
+    // backends cannot inject host objects as module globals, which is why the API is
+    // statics-on-a-foreign-class rather than a passed object.
     class Input final : public Object
     {
         RTTI_OBJECT(Input, Object)

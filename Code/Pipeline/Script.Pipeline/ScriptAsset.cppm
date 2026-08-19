@@ -6,7 +6,7 @@
 //     (defaulted from the imported file's extension - backend neutrality B3). The asset
 //     is just source bytes + a language id + cooked metadata; nothing language-specific.
 //   * IScriptLanguageCook: the per-language cook SERVICE. Each language library provides
-//     one (Wren: foundation.script.wren.editor; AngelScript: foundation.script.angelscript.editor)
+//     one (AngelScript: foundation.script.angelscript.editor)
 //     and registers it into ScriptLanguageCookRegistry, keyed by languageId (mirroring the
 //     ScriptBackendRegistry). A cook compile-checks + harvests metadata; the New-Asset
 //     starter template is its NewAssetTemplate().
@@ -46,7 +46,7 @@ export namespace pipeline{
     {
         RTTI_OBJECT(ScriptClassAsset, pipeline::Asset)
     public:
-        String language; // backend id ("wren"), defaulted from the file extension
+        String language; // backend id ("angelscript"), defaulted from the file extension
 
         void Serialize(ISerializer& ar) override
         {
@@ -312,7 +312,7 @@ export namespace pipeline{
 
     // ---- shared property-harvest record parsing (NOT language syntax) ----
     //
-    // Every cook that harvests inspector properties (Wren's `static properties` Fiber probe,
+    // Every cook that harvests inspector properties (AngelScript's declared-property probe,
     // Luau's construct-and-walk probe) emits the SAME record string so the parse is shared:
     //   name \x1F typeString \x1F default \x1F description   (records joined by \x1E)
     // where default is "~" (none), "n:<num>", "b:true|false", "s:<text>" or "l:<a,b,c[,d]>".
@@ -546,7 +546,7 @@ export namespace pipeline{
 
         /// A cook-fingerprint contribution beyond the shared builder Version: a bytecode-emitting
         /// cook returns its COMPILER version here so a vendor bump recooks (bytecode is
-        /// version-locked). Default 0 - a source-only cook (Wren) contributes nothing.
+        /// version-locked). Default 0 - a source-only cook contributes nothing.
         [[nodiscard]] virtual u32 CookVersion() const { return 0; }
 
         /// Compile-check `source` (named `assetName` for error reporting) and harvest its
@@ -664,7 +664,7 @@ export namespace pipeline{
             }
 
             const StringView language = scriptAsset.language.IsEmpty()
-                                            ? StringView(u8"wren")
+                                            ? StringView(u8"angelscript")
                                             : scriptAsset.language.AsView();
 
             // B3: the cook comes from the registry, by LANGUAGE - never a named cook type.
@@ -768,12 +768,12 @@ export namespace pipeline{
         };
 
         /// Bind to an asset's source file: the project's Sources/ root, the asset's file name,
-        /// and its language id (empty defaults to Wren, matching the builder).
+        /// and its language id (empty defaults to AngelScript, matching the builder).
         void Bind(StringView sourcesRoot, StringView fileName, StringView language)
         {
             m_sourcesRoot = String(sourcesRoot);
             m_fileName = String(fileName);
-            m_language = language.IsEmpty() ? String(u8"wren") : String(language);
+            m_language = language.IsEmpty() ? String(u8"angelscript") : String(language);
         }
 
         [[nodiscard]] StringView FileName() const noexcept { return m_fileName.AsView(); }

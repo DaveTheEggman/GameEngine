@@ -31,8 +31,8 @@ export namespace foundation::script
 
     // The overload contract keys on the SCRIPT-METHOD IDENTITY triple (name, ARITY, staticness):
     // no two methods on a type may share all three. Same-name-DIFFERENT-arity is a legal ARITY
-    // FAMILY - every backend dispatches it soundly by argument COUNT (Wren signatures encode arity,
-    // AS overloads natively, the Luau thunk switches on argc), and typed decls express it as an
+    // FAMILY - every backend dispatches it soundly by argument COUNT (AS overloads natively, the
+    // Luau thunk switches on argc), and typed decls express it as an
     // overloaded function type. Only a same-name SAME-arity clash is ambiguous on a dynamically-
     // typed surface (a number picks neither f32 nor i32) and MUST be split by distinct
     // OverloadedName()s. Returns the first colliding script name, or nullptr when the type is clean.

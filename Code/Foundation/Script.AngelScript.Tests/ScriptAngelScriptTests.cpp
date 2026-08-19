@@ -1,5 +1,5 @@
-// Foundation::Script.AngelScript tests: the Wren backend's reflected-type EMISSION
-// suite ported to AngelScript syntax (the battery certifies the context contract;
+// Foundation::Script.AngelScript tests: the reflected-type EMISSION
+// suite in AngelScript syntax (the battery certifies the context contract;
 // emission is certified per backend), the shared conformance battery, and the
 // backend-registry integration (both languages resolving side by side).
 //
@@ -16,8 +16,8 @@
 import foundation.core;
 import foundation.script;
 import foundation.script.angelscript;
-#ifdef OPTION_HAS_WREN
-import foundation.script.wren;
+#ifdef OPTION_HAS_LUAU
+import foundation.script.luau;
 #endif
 
 using namespace foundation::core;
@@ -585,7 +585,7 @@ TEST_CASE("angelscript: read module globals as Variant")
 
 TEST_CASE("angelscript: SetGlobal writes typed module globals")
 {
-    // Unlike Wren (whose C API cannot set variables), AngelScript globals are
+    // AngelScript globals are
     // directly writable - the contract's SetGlobal is real here.
     RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
     REQUIRE(ctx->Load(u8"double Speed = 1;\n"
@@ -817,11 +817,11 @@ TEST_CASE("angelscript: a script object outlives the local context reference")
     CHECK(obj->Invoke(u8"ping", Span<Variant>{}).Value().Get<f64>() == 42.0);
 }
 
-#ifdef OPTION_HAS_WREN // proves AngelScript + a second backend resolve side by side
+#ifdef OPTION_HAS_LUAU // proves AngelScript + a second backend resolve side by side
 TEST_CASE("angelscript: registry - both backends resolve side by side")
 {
     angelscript::RegisterAngelScriptBackend();
-    wren::RegisterWrenScriptBackend();
+    RegisterLuauScriptBackend();
     ScriptBackendRegistry& registry = ScriptBackendRegistry::Get();
 
     const ScriptBackendDesc* as = registry.FindByLanguage(u8"angelscript");
@@ -837,15 +837,15 @@ TEST_CASE("angelscript: registry - both backends resolve side by side")
     REQUIRE(asManager.Get() != nullptr);
     RefPtr<IScriptContext> asCtx = asManager->CreateContext();
     CHECK(asCtx->Load(u8"double f() { return 1; }\n", u8"probe").IsOk());
-    CHECK_FALSE(asCtx->Load(u8"var W = Fn.new { 1 }", u8"probe").IsOk()); // Wren source rejected
+    CHECK_FALSE(asCtx->Load(u8"local W = 1\n", u8"probe").IsOk()); // Luau source rejected
 
-    RefPtr<IScriptManager> wrenManager = CreateScriptManagerForFile(u8"Scripts/game.wren");
-    REQUIRE(wrenManager.Get() != nullptr);
-    RefPtr<IScriptContext> wrenCtx = wrenManager->CreateContext();
-    CHECK(wrenCtx->Load(u8"var A = 1", u8"main").IsOk());
-    CHECK_FALSE(wrenCtx->Load(u8"double f() { return 1; }", u8"main").IsOk()); // AS source rejected
+    RefPtr<IScriptManager> luauManager = CreateScriptManagerForFile(u8"Scripts/game.luau");
+    REQUIRE(luauManager.Get() != nullptr);
+    RefPtr<IScriptContext> luauCtx = luauManager->CreateContext();
+    CHECK(luauCtx->Load(u8"local A = 1\n", u8"main").IsOk());
+    CHECK_FALSE(luauCtx->Load(u8"double f() { return 1; }", u8"main").IsOk()); // AS source rejected
 }
-#endif // OPTION_HAS_WREN
+#endif // OPTION_HAS_LUAU
 
 // P1.5 regression: the behaviors module is loaded with each class in its OWN script section
 // named by its sourceName (not one flat "behaviors#N"). This is what makes editor gutter
@@ -933,8 +933,8 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.m
                              u8"}\n";
     // AngelScript's natural coroutine surface: a delegate to a method (`this.RunWait`)
     // wrapped in the ScriptCoroutine funcdef, started with startCoroutine; `wait` is a
-    // host function, `waitUntil` a script helper (injected per module). Same concept as
-    // Wren, different syntax (delegate vs fiber block) - and that is the point.
+    // host function, `waitUntil` a script helper (injected per module). The shared
+    // coroutine CONCEPT, spelled in each backend's own syntax - and that is the point.
     dialect.coroutineClass =
         u8"class Coro {\n"
         u8"  double p;\n"

@@ -1,15 +1,22 @@
-# The tests REGISTER the Wren backend (an entry point's job) - the library under test
-# stays backend-neutral and resolves through the registry (B3).
-# ScriptPipelineTests drives the neutral cook through the Wren cook; compile it only when Wren is
-# on (ScriptReflectionTests is backend-neutral).
-set(_script_pipeline_wren_test "")
-if(OPTION_ENABLE_WREN)
-    set(_script_pipeline_wren_test ScriptPipelineTests.cpp)
+# The library under test (Pipeline::Script) stays backend-neutral and resolves the per-language cook
+# through the registry (B3). The neutral text scanners (ScriptPipelineTests.cpp) + reflection
+# (ScriptReflectionTests.cpp) always build; each backend's neutral-builder cook round-trip lives in
+# its OWN file - no if-deffery - compiled only when that backend is on. They share CookBed.h.
+set(_script_pipeline_backend_tests "")
+set(_script_pipeline_backend_libs "")
+if(OPTION_ENABLE_ANGELSCRIPT)
+    list(APPEND _script_pipeline_backend_tests AngelScriptPipelineTests.cpp)
+    list(APPEND _script_pipeline_backend_libs ${SCRIPTLIB_ANGELSCRIPT_PIPELINE} ${SCRIPTLIB_ANGELSCRIPT})
 endif()
-add_executable(Script.Pipeline.Tests TestsMain.cpp ${_script_pipeline_wren_test} ScriptReflectionTests.cpp)
+if(OPTION_ENABLE_LUAU)
+    list(APPEND _script_pipeline_backend_tests LuauPipelineTests.cpp)
+    list(APPEND _script_pipeline_backend_libs ${SCRIPTLIB_LUAU_PIPELINE} ${SCRIPTLIB_LUAU})
+endif()
+add_executable(Script.Pipeline.Tests TestsMain.cpp ScriptPipelineTests.cpp
+    ${_script_pipeline_backend_tests} ScriptReflectionTests.cpp)
 target_link_libraries(Script.Pipeline.Tests PRIVATE
-    Pipeline::Script ${SCRIPTLIB_WREN_PIPELINE} Foundation::Script.Resource Foundation::Script
-    ${SCRIPTLIB_WREN} Foundation::Script.Facades
+    Pipeline::Script Foundation::Script.Resource Foundation::Script
+    Foundation::Script.Facades ${_script_pipeline_backend_libs}
     Pipeline::Core Editor::Core Foundation::Content Foundation::Resource Foundation::VFS
     doctest::doctest)
 target_compile_definitions(Script.Pipeline.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

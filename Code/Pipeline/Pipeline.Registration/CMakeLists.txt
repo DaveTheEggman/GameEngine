@@ -17,9 +17,9 @@ target_link_libraries(Pipeline.Registration PUBLIC
     Foundation::Physics Foundation::Physics.Resource Pipeline::Physics
     Foundation::Navigation Foundation::Navigation.Resource Pipeline::Navigation
     Foundation::Audio Foundation::Audio.Resource Pipeline::Audio
-    Foundation::Script ${SCRIPTLIB_WREN} ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU}
+    Foundation::Script ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU}
     Foundation::Script.Resource Foundation::Script.Facades
-    Pipeline::Script ${SCRIPTLIB_WREN_PIPELINE} ${SCRIPTLIB_ANGELSCRIPT_PIPELINE} ${SCRIPTLIB_LUAU_PIPELINE}
+    Pipeline::Script ${SCRIPTLIB_ANGELSCRIPT_PIPELINE} ${SCRIPTLIB_LUAU_PIPELINE}
     Foundation::UI.Resource Pipeline::UI
     Foundation::Policy)
 

@@ -4,7 +4,7 @@
 // callable in THIS backend's language and how it is spelled. The reflection registry
 // says what types EXIST; DescribeBoundApi (on IScriptManager) says what a backend
 // actually BOUND and under what script-visible names (they differ per language:
-// AngelScript spells a static as `Float3::Dot`, Wren as a static foreign method, and a
+// AngelScript spells a static as `Float3::Dot`, and a
 // backend may silently fail to bind a type at all). A conformance diff against the
 // reflection registry catches exactly that silent gap.
 
@@ -28,7 +28,7 @@ export namespace foundation::script
     };
 
     /// One script-visible member of a bound type, spelled the way the backend presents
-    /// it (the `signature` is language-formatted, e.g. Wren `Dot(_,_)` or AngelScript
+    /// it (the `signature` is language-formatted, e.g. AngelScript
     /// `Float3@ Dot(const Float3&in, const Float3&in)`).
     struct ScriptApiMember
     {

@@ -41,7 +41,7 @@ namespace engine::runtime
         builder.Method<&SceneLoader::loadScene>("loadScene");
         builder.Method<&SceneLoader::sceneReady>("sceneReady");
         builder.Method<&SceneLoader::currentScene>("currentScene"); // -> bound Scene (orchestrator)
-        builder.Constructor(); // Wren only materializes constructible foreign classes
+        builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
     void RegisterSceneLoaderScriptFacade()
@@ -50,7 +50,7 @@ namespace engine::runtime
         {
             GlobalTypeRegistry().Register(SceneLoader::StaticType());
             foundation::script::RegisterExtraFacadeName(
-                u8"SceneLoader"); // Wren behavior prelude imports it (AngelScript binds by registry)
+                u8"SceneLoader"); // behavior prelude imports it (AngelScript binds by registry)
             return true;
         }();
         (void)once;

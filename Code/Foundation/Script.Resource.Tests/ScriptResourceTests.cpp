@@ -128,70 +128,94 @@ TEST_CASE("script.resource: the type-string parser covers the v1 set (+ asset:<T
     CHECK_FALSE(ParseScriptPropertyType(u8"asset:", kind, assetType));
 }
 
-TEST_CASE("script.resource: cooked record -> factory -> runtime product (metadata parse, "
-          "hash lookups, handler set)")
+namespace
 {
-    RegisterScriptResource();
-    RemoveDbTree(u8"scratch_scriptres_out");
-    foundation::vfs::NativeFileSystem outputMount(u8"scratch_scriptres_out");
-    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
-
-    ScriptClassSource cooked;
-    cooked.language = String(u8"wren");
-    cooked.className = String(u8"Mover");
-    cooked.sourceName = String(u8"Mover.wren"); // the source-file identity (breakpoint key)
-    cooked.source = String(u8"class Mover {\n construct new(e) {}\n}\n");
+    // The ScriptClassFactory is backend-NEUTRAL: it reconstructs a runtime ScriptClass from the
+    // cooked ScriptClassSource METADATA and never compiles the source (no backend is linked here),
+    // so the same record->factory->product round-trip holds for a record of EITHER language. Driven
+    // once per backend label to prove the resource layer carries no backend assumption.
+    void DriveFactoryRoundTrip(StringView language, StringView sourceName, StringView source)
     {
-        ScriptPropertyDesc speed;
-        speed.name = String(u8"speed");
-        speed.hash = ScriptPropertyNameHash(u8"speed");
-        speed.type = ScriptPropertyType::Float;
-        speed.defaultValue.kind = ScriptPropertyType::Float;
-        speed.defaultValue.number = 4.0;
-        speed.description = String(u8"units per second");
-        cooked.properties.PushBack(Move(speed));
+        RegisterScriptResource();
+        String outDir(u8"scratch_scriptres_out_");
+        outDir += language;
+        RemoveDbTree(outDir.AsView());
+        foundation::vfs::NativeFileSystem outputMount(outDir.AsView());
+        content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
 
-        ScriptPropertyDesc clip;
-        clip.name = String(u8"clip");
-        clip.hash = ScriptPropertyNameHash(u8"clip");
-        clip.type = ScriptPropertyType::Asset;
-        clip.assetType = String(u8"AudioClip");
-        clip.defaultValue.kind = ScriptPropertyType::Asset;
-        cooked.properties.PushBack(Move(clip));
+        ScriptClassSource cooked;
+        cooked.language = String(language);
+        cooked.className = String(u8"Mover");
+        cooked.sourceName = String(sourceName); // the source-file identity (breakpoint key)
+        cooked.source = String(source);         // stored verbatim, never compiled here
+        {
+            ScriptPropertyDesc speed;
+            speed.name = String(u8"speed");
+            speed.hash = ScriptPropertyNameHash(u8"speed");
+            speed.type = ScriptPropertyType::Float;
+            speed.defaultValue.kind = ScriptPropertyType::Float;
+            speed.defaultValue.number = 4.0;
+            speed.description = String(u8"units per second");
+            cooked.properties.PushBack(Move(speed));
+
+            ScriptPropertyDesc clip;
+            clip.name = String(u8"clip");
+            clip.hash = ScriptPropertyNameHash(u8"clip");
+            clip.type = ScriptPropertyType::Asset;
+            clip.assetType = String(u8"AudioClip");
+            clip.defaultValue.kind = ScriptPropertyType::Asset;
+            cooked.properties.PushBack(Move(clip));
+        }
+        cooked.handlers.PushBack(String(u8"onStart"));
+        cooked.handlers.PushBack(String(u8"onUpdate"));
+        cooked.usesCoroutines = true;
+
+        auto* instance =
+            outputDb.RootGroup()->CreateInstance(u8"cooked", ScriptClassSource::StaticType());
+        REQUIRE(instance != nullptr);
+        REQUIRE(instance->WriteObject(cooked).IsOk());
+
+        ScriptClassFactory factory;
+        foundation::resource::ResourceManager manager(outputDb);
+        manager.AddFactory(&factory);
+        foundation::resource::Proxy<ScriptClass> product =
+            manager.Bind<ScriptClass>(instance->Id());
+        REQUIRE(product);
+        CHECK(product->language == language);
+        CHECK(product->className == u8"Mover");
+        CHECK(product->sourceName == sourceName); // travels the cooked wire (symmetric)
+        CHECK(product->source == source);
+        REQUIRE(product->properties.Size() == 2u);
+        const ScriptPropertyDesc* speed = product->FindProperty(ScriptPropertyNameHash(u8"speed"));
+        REQUIRE(speed != nullptr);
+        CHECK(speed->type == ScriptPropertyType::Float);
+        CHECK(speed->defaultValue.number == doctest::Approx(4.0));
+        CHECK(speed->description == u8"units per second");
+        const ScriptPropertyDesc* clip = product->FindProperty(ScriptPropertyNameHash(u8"clip"));
+        REQUIRE(clip != nullptr);
+        CHECK(clip->type == ScriptPropertyType::Asset);
+        CHECK(clip->assetType == u8"AudioClip");
+        CHECK(product->HasHandler(u8"onStart"));
+        CHECK(product->HasHandler(u8"onUpdate"));
+        CHECK_FALSE(product->HasHandler(u8"onDestroy"));
+        CHECK(product->usesCoroutines); // travels the cooked wire (symmetric)
+        CHECK(product->ProfileName() != nullptr);
+
+        RemoveDbTree(outDir.AsView());
     }
-    cooked.handlers.PushBack(String(u8"onStart"));
-    cooked.handlers.PushBack(String(u8"onUpdate"));
-    cooked.usesCoroutines = true;
+}
 
-    auto* instance =
-        outputDb.RootGroup()->CreateInstance(u8"cooked", ScriptClassSource::StaticType());
-    REQUIRE(instance != nullptr);
-    REQUIRE(instance->WriteObject(cooked).IsOk());
+TEST_CASE("script.resource: cooked record -> factory -> runtime product, angelscript label "
+          "(metadata parse, hash lookups, handler set)")
+{
+    DriveFactoryRoundTrip(u8"angelscript", u8"Mover.as", u8"class Mover {\n Mover(Entity@ e) {}\n}\n");
+}
 
-    ScriptClassFactory factory;
-    foundation::resource::ResourceManager manager(outputDb);
-    manager.AddFactory(&factory);
-    foundation::resource::Proxy<ScriptClass> product = manager.Bind<ScriptClass>(instance->Id());
-    REQUIRE(product);
-    CHECK(product->language == u8"wren");
-    CHECK(product->className == u8"Mover");
-    CHECK(product->sourceName == u8"Mover.wren"); // travels the cooked wire (symmetric)
-    CHECK(product->source == cooked.source);
-    REQUIRE(product->properties.Size() == 2u);
-    const ScriptPropertyDesc* speed = product->FindProperty(ScriptPropertyNameHash(u8"speed"));
-    REQUIRE(speed != nullptr);
-    CHECK(speed->type == ScriptPropertyType::Float);
-    CHECK(speed->defaultValue.number == doctest::Approx(4.0));
-    CHECK(speed->description == u8"units per second");
-    const ScriptPropertyDesc* clip = product->FindProperty(ScriptPropertyNameHash(u8"clip"));
-    REQUIRE(clip != nullptr);
-    CHECK(clip->type == ScriptPropertyType::Asset);
-    CHECK(clip->assetType == u8"AudioClip");
-    CHECK(product->HasHandler(u8"onStart"));
-    CHECK(product->HasHandler(u8"onUpdate"));
-    CHECK_FALSE(product->HasHandler(u8"onDestroy"));
-    CHECK(product->usesCoroutines); // travels the cooked wire (symmetric)
-    CHECK(product->ProfileName() != nullptr);
-
-    RemoveDbTree(u8"scratch_scriptres_out");
+TEST_CASE("script.resource: cooked record -> factory -> runtime product, luau label "
+          "(the resource layer carries no backend assumption)")
+{
+    DriveFactoryRoundTrip(
+        u8"luau", u8"Mover.luau",
+        u8"Mover = {}\nMover.__index = Mover\n"
+        u8"function Mover.new(entity) return setmetatable({}, Mover) end\n");
 }

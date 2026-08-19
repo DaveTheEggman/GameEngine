@@ -13,7 +13,7 @@ import foundation.scene;
 import foundation.scene.resource;
 import foundation.audio;
 import engine.audio;
-import foundation.audio.resource; // cooked records (the Wren path-play test's DB)
+import foundation.audio.resource; // cooked records (the script path-play test's DB)
 import foundation.settings;
 import foundation.vfs;
 import foundation.content;

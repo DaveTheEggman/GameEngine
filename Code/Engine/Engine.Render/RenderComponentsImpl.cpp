@@ -136,7 +136,7 @@ namespace engine::render
         builder.Method<&SceneRender::setMesh>("setMesh", {"entity", "resourceId"});
         builder.Method<&SceneRender::setMaterial>("setMaterial", {"entity", "resourceId"});
         builder.Method<&SceneRender::of>("of", {"scene"});
-        builder.Constructor(); // Wren only materializes constructible foreign classes
+        builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
     REFLECT_ENUM(SpriteOrientation, "rtti::engine::render")
@@ -366,7 +366,7 @@ namespace engine::render
     {
         RegisterRenderComponentReflection(); // ensure component TypeData (incl `of`) is built first
         // Surface the render COMPONENTS to script (Track A: MeshComponent.of(entity), ...): register
-        // them (both backends emit registry types), seed the Wren emission roots (nothing else
+        // them (both backends emit registry types), seed the emission roots (nothing else
         // reaches an of()-only type), and make their class names import-visible in behavior preludes.
         // The WHOLE render component set - each `.of(entity)` exposes its editor-reflected properties.
         struct RenderComponentEntry
@@ -390,14 +390,14 @@ namespace engine::render
         }
 
         // The scene-bound render handle (SceneRender.of(scene)): reflect it, register it, seed the
-        // Wren emission root (nothing else reaches it), and make the class name prelude-visible.
+        // emission root (nothing else reaches it), and make the class name prelude-visible.
         RttiRegisterValue_SceneRender();
         GlobalTypeRegistry().Register(core::TypeOf<SceneRender>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<SceneRender>());
         foundation::script::RegisterExtraFacadeName(u8"SceneRender");
 
         // The render scene-SYSTEM settings handles (EnvironmentSettings.of(scene) / PostProcess-
-        // Settings.of(scene)): register + seed the Wren emission root + name for the prelude. Their
+        // Settings.of(scene)): register + seed the emission root + name for the prelude. Their
         // TypeData (incl `of`) was built by RegisterRenderComponentReflection above.
         const core::TypeInfo* settings[] = {&core::TypeOf<EnvironmentSettings>(),
                                             &core::TypeOf<PostProcessSettings>()};

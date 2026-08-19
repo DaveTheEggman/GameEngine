@@ -1,7 +1,7 @@
 // PlayerApplication - the generic game runner's IApplication, shared by the desktop and web
 // entry points (Main.cpp / WebMain.cpp). Runs a project with ZERO native game code: engine
 // subsystems + the project's content + the default scene, and the project's game SCRIPT (a
-// scripted IApplication counterpart - resolved by the script's LANGUAGE, so Wren or AngelScript
+// scripted IApplication counterpart - resolved by the script's LANGUAGE, so AngelScript or Luau
 // both work). See Main.cpp's header comment for the two layouts (PROJECT vs DIST).
 //
 // Classic header (the APP_MAIN pattern): it carries no `import` of its own and uses names

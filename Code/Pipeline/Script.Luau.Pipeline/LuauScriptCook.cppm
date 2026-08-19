@@ -3,7 +3,7 @@
 // The Luau cook service (scripting.md 5 + 7.5; luau-backend.md P3): compile-checks a Luau
 // behavior in a cooker-owned Luau VM (resolved through the backend registry by language),
 // harvests editor properties by CONSTRUCTING the class and walking the instance's fields
-// (the Luau harvest model - table-walk, vs Wren's static-properties map), compiles the
+// (the Luau harvest model - table-walk), compiles the
 // source to a bytecode blob for the pack, and supplies the New-Asset starters. ALL
 // Luau-specific cook syntax lives HERE, not in the neutral foundation.script.editor.
 //
@@ -115,6 +115,6 @@ export namespace pipeline{
 
     /// Registers the Luau cook (and, idempotently, the Luau backend it needs) so the neutral
     /// ScriptClassAssetBuilder resolves it by language. Entry points call this alongside
-    /// RegisterWrenScriptCook() / RegisterAngelScriptScriptCook(). Idempotent.
+    /// RegisterAngelScriptScriptCook(). Idempotent.
     void RegisterLuauScriptCook();
 }

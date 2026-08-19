@@ -159,7 +159,7 @@ export namespace foundation::audio
     };
 
     /// Fixed-bus lookup by name, ASCII case-insensitive ("effects" == "Effects").
-    /// The shared seam between the layout apply, the cook validator, and the Wren
+    /// The shared seam between the layout apply, the cook validator, and the
     /// facade's string addressing. False = not one of the four fixed buses.
     [[nodiscard]] inline bool AudioBusFromName(StringView name, AudioBus& out)
     {

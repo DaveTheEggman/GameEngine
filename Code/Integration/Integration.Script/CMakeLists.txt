@@ -1,15 +1,19 @@
 # Integration.Script - scripting backends exercising reflected engine/foundation types end-to-end
-# (currently: JSON parse/build/query/stringify from Wren + AngelScript). Cross-collection flow
+# (currently: JSON parse/build/query/stringify from AngelScript + Luau). Cross-collection flow
 # (foundation.json x foundation.script.<backend>), so it lives in Code/Integration, not Json.Tests.
 
 add_executable(Integration.Script TestsMain.cpp JsonScriptTests.cpp)
 target_link_libraries(Integration.Script PRIVATE
-    Foundation::Json Foundation::Script ${SCRIPTLIB_WREN} doctest::doctest)
+    Foundation::Json Foundation::Script doctest::doctest)
 
-# AngelScript is independently switchable; include its leg only when the backend is built.
+# Each backend is independently switchable; include its leg only when the backend is built.
 if(TARGET ${SCRIPTLIB_ANGELSCRIPT})
     target_link_libraries(Integration.Script PRIVATE ${SCRIPTLIB_ANGELSCRIPT})
     target_compile_definitions(Integration.Script PRIVATE INTEGRATION_HAS_ANGELSCRIPT=1)
+endif()
+if(TARGET ${SCRIPTLIB_LUAU})
+    target_link_libraries(Integration.Script PRIVATE ${SCRIPTLIB_LUAU})
+    target_compile_definitions(Integration.Script PRIVATE INTEGRATION_HAS_LUAU=1)
 endif()
 
 target_compile_definitions(Integration.Script PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

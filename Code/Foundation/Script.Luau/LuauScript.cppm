@@ -1072,7 +1072,7 @@ namespace foundation::script
             return;
         }
         // An enum crosses as its underlying number: Lua has no enum type, the emitter excludes
-        // enums from binding, and an enum parameter converts the number back (mirrors Wren +
+        // enums from binding, and an enum parameter converts the number back (mirrors
         // AngelScript). Must come before the boxed-Variant fallthrough (an enum Variant is not a
         // primitive TryGet match).
         if (const TypeInfo* enumType = value.Type();
@@ -1157,7 +1157,7 @@ namespace foundation::script
     {
         // A Lua number narrows to the reflected param's EXACT numeric/enum type. Lua numbers are all
         // f64, but the neutral dispatch matches the declared param type, so an f32/i32/enum param
-        // must receive that typed Variant - not a bare f64 (which it would reject). Mirrors Wren +
+        // must receive that typed Variant - not a bare f64 (which it would reject). Mirrors
         // AngelScript's expected-type marshalling.
         if (expected != nullptr && lua_type(state, index) == LUA_TNUMBER)
         {
@@ -1248,18 +1248,21 @@ namespace foundation::script
         int InvokeReflected(lua_State* state, LuauScriptContext* context, const MethodInfo& method)
         {
             const int argCount = lua_gettop(state);
-            Variant self;
+            // The bound self is dispatched by POINTER into its userdata box (like the property
+            // get/set thunks below), NOT a copy - so a MUTATING reflected method (e.g.
+            // JsonValue.Set) persists to the script's value, matching the reference semantics
+            // AngelScript gives asOBJ_REF reflected types. A copy here silently dropped mutations.
+            Variant* boxedSelf = nullptr;
             Array<Variant> args;
             int firstArg = 1;
             if (!method.isStatic)
             {
-                Variant* boxed = VariantAt(state, 1);
-                if (boxed == nullptr)
+                boxedSelf = VariantAt(state, 1);
+                if (boxedSelf == nullptr)
                 {
                     lua_pushstring(state, "method called without a bound self (use ':')");
                     lua_error(state);
                 }
-                self = *boxed;
                 firstArg = 2;
             }
             for (int i = firstArg; i <= argCount; ++i)
@@ -1278,7 +1281,7 @@ namespace foundation::script
             Result<Variant> result =
                 method.isStatic
                     ? InvokeStatic(method, Span<Variant>{args.Data(), args.Size()})
-                    : InvokeMethod(method, ToInstance(self),
+                    : InvokeMethod(method, ToInstance(*boxedSelf),
                                    Span<Variant>{args.Data(), args.Size()});
             if (!result.HasValue())
             {
@@ -1591,8 +1594,8 @@ namespace foundation::script
     void LuauScriptContext::EmitEnum(const TypeInfo& type)
     {
         lua_State* state = m_state;
-        // Scripts spell an enum value as EnumName.ValueName (matching AngelScript's native enums;
-        // Wren has none). Values are numbers - an enum parameter converts the number back
+        // Scripts spell an enum value as EnumName.ValueName (matching AngelScript's native enums).
+        // Values are numbers - an enum parameter converts the number back
         // (ToVariantForParam), so the round-trip is exact.
         lua_newtable(state);
         for (const EnumValue& value : Enumerators(type))
@@ -1615,7 +1618,7 @@ namespace foundation::script
                 EmitEnum(*type);
             }
         }
-        // Object types emit as the bounded REACHABILITY CLOSURE (the one policy shared with Wren):
+        // Object types emit as the bounded REACHABILITY CLOSURE (the shared reachability policy):
         // constructor-having seeds + factory-return roots (e.g. RigidBody.of), closed over the
         // reflected graph - NOT every constructible registered type. Keeps the Luau surface (and
         // script_api) identical to the other backends, and includes constructor-less handles the
@@ -2015,7 +2018,7 @@ namespace foundation::script
         // Each Luau class is a GLOBAL table, so loading each source as its OWN chunk (chunkName =
         // the class sourceName) is both valid AND better than the default concatenation: a
         // compile/runtime error and a debugger breakpoint key on the authored (file, line),
-        // matching AngelScript/Wren per-class section identity (Fable P6 Q4), and it is the same
+        // matching AngelScript per-class section identity (Fable P6 Q4), and it is the same
         // per-class load path the bytecode blobs use. A reload redefines the class global in
         // place - the natural Luau hot-reload.
         (void)moduleName;
@@ -2295,7 +2298,7 @@ namespace foundation::script
         String storage;
 
         // The neutral property-apply path Invokes the setter as `<name>=` with one argument
-        // (the Wren `name=(v)` convention). Luau editor properties are plain instance FIELDS
+        // (the setter convention). Luau editor properties are plain instance FIELDS
         // (harvested by walking the constructed table), so a trailing `=` with exactly one arg
         // writes the same-named field directly - the Luau equivalent of AngelScript's settable
         // member. The field always exists once the constructor set it; this applies its default

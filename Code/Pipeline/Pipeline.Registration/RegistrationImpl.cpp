@@ -42,10 +42,6 @@ import foundation.audio;
 import foundation.audio.resource;
 import audio.pipeline;
 import foundation.script;
-#ifdef OPTION_HAS_WREN
-import foundation.script.wren;
-import script.wren.pipeline;
-#endif
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript;
 import script.angelscript.pipeline;
@@ -109,10 +105,6 @@ namespace pipeline
         foundation::script::RegisterScriptResource();
         // The builder resolves a per-language COOK through the registry (B3); registering
         // backends + cooks is the composition root's job - both languages.
-#ifdef OPTION_HAS_WREN
-        foundation::script::wren::RegisterWrenScriptBackend();
-        RegisterWrenScriptCook();
-#endif
 #ifdef OPTION_HAS_ANGELSCRIPT
         foundation::script::angelscript::RegisterAngelScriptBackend();
         RegisterAngelScriptScriptCook();

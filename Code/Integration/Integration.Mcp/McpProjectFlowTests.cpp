@@ -22,9 +22,7 @@ import pipeline.importer;
 import pipeline.registration;
 import engine.scriptsurface;
 import foundation.mcp.script;
-#if defined(OPTION_HAS_WREN)
-import foundation.script.wren;
-#elif defined(OPTION_HAS_ANGELSCRIPT)
+#if defined(OPTION_HAS_ANGELSCRIPT)
 import foundation.script.angelscript;
 #elif defined(OPTION_HAS_LUAU)
 import foundation.script.luau;
@@ -42,10 +40,7 @@ namespace
     // the enabled backends; this makes the language the script_api assertion expects explicit).
     [[nodiscard]] StringView RegisterSomeBackend()
     {
-#if defined(OPTION_HAS_WREN)
-        foundation::script::wren::RegisterWrenScriptBackend();
-        return StringView(u8"wren");
-#elif defined(OPTION_HAS_ANGELSCRIPT)
+#if defined(OPTION_HAS_ANGELSCRIPT)
         foundation::script::angelscript::RegisterAngelScriptBackend();
         return StringView(u8"angelscript");
 #else
@@ -174,75 +169,109 @@ TEST_CASE("integration.mcp: asset_list / asset_info read the open project's cont
     CHECK(malformed.Get(u8"result").Get(u8"isError").AsBool() == true);
 }
 
-#ifdef OPTION_HAS_WREN // imports + cooks a .wren sample source; the cook flow itself is generic
-TEST_CASE("integration.mcp: an agent imports a source file then cooks it via MCP tools")
+#if defined(OPTION_HAS_ANGELSCRIPT) || defined(OPTION_HAS_LUAU)
+namespace
 {
-    std::error_code ec;
-    std::filesystem::remove_all("mcp_write_project", ec);
-    std::filesystem::remove("mcp_write_source.wren", ec);
-
-    // The host assembles the pipeline registries once (as Tools.Mcp does), from the composition
-    // root - asset_cook/asset_import route through these.
-    pipeline::RegisterPipelineTypes();
-    pipeline::BuilderRegistry builders;
-    pipeline::RegisterAllBuilders(builders);
-    pipeline::ImporterRegistry importers;
-    pipeline::RegisterAllImporters(importers);
-
-    McpServer server;
-    editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
-    editor::mcp::RegisterAssetTools(server, session);
-    editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
-
-    CallOk(server, u8"project_create",
-           With(With(Obj(), u8"directory", u8"mcp_write_project"), u8"name", u8"Write"));
-    CallOk(server, u8"project_open", With(Obj(), u8"directory", u8"mcp_write_project"));
-
-    // A real source file on disk (CWD is .test-scratch). A trivial Wren class cooks clean.
+    std::string Utf8(StringView s)
     {
-        std::ofstream out("mcp_write_source.wren");
-        out << "class Hello {\n  construct new() {}\n  greet() { System.print(\"hi\") }\n}\n";
+        return std::string(reinterpret_cast<const char*>(String(s).CStr()));
     }
-    const std::filesystem::path abs = std::filesystem::absolute("mcp_write_source.wren");
-    const String absPath(reinterpret_cast<const utf8char*>(abs.string().c_str()));
 
-    // Import routes by extension through the shared importer set into the source DB.
-    JsonValue imported = CallOk(server, u8"asset_import",
-                                With(With(Obj(), u8"source", absPath.AsView()), u8"group",
-                                     u8"scripts"));
-    CHECK(imported.Get(u8"type").AsString() == StringView(u8"ScriptClassAsset"));
-    CHECK(imported.Get(u8"name").AsString() == StringView(u8"mcp_write_source"));
-    CHECK(imported.Get(u8"importer").AsString() == StringView(u8"Script"));
-    const String guid = imported.Get(u8"guid").AsString();
+    // The import->cook flow is backend-GENERIC: RegisterPipelineTypes registers every enabled cook,
+    // the ScriptFileImporter accepts each backend's extension, and the cook resolves by language.
+    // Only the source language + file extension differ, so drive the identical flow per backend.
+    void DriveImportCookFlow(StringView projectDir, StringView sourceStem, StringView ext,
+                             StringView sourceBody)
+    {
+        std::error_code ec;
+        const std::string projStd = Utf8(projectDir);
+        const std::string stemStd = Utf8(sourceStem);
+        const std::string srcFileStd = stemStd + "." + Utf8(ext);
+        std::filesystem::remove_all(projStd, ec);
+        std::filesystem::remove(srcFileStd, ec);
 
-    // It landed in the source DB, in the requested group.
-    JsonValue list = CallOk(server, u8"asset_list", Obj());
-    CHECK(list.Get(u8"count").AsInt() == 1);
-    CHECK(list.Get(u8"assets").At(0).Get(u8"group").AsString() == StringView(u8"scripts"));
+        // The host assembles the pipeline registries once (as Tools.Mcp does), from the composition
+        // root - asset_cook/asset_import route through these.
+        pipeline::RegisterPipelineTypes();
+        pipeline::BuilderRegistry builders;
+        pipeline::RegisterAllBuilders(builders);
+        pipeline::ImporterRegistry importers;
+        pipeline::RegisterAllImporters(importers);
 
-    // The raw source was copied under Sources/ and the envelope written under Content/.
-    CHECK(std::filesystem::exists("mcp_write_project/Sources/mcp_write_source.wren"));
-    CHECK(std::filesystem::exists("mcp_write_project/Content/scripts/mcp_write_source.xasset"));
+        McpServer server;
+        editor::mcp::ProjectSession session;
+        editor::mcp::RegisterProjectTools(server, session);
+        editor::mcp::RegisterAssetTools(server, session);
+        editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
 
-    // Cook builds it into the cooked DB (product guid == source guid).
-    JsonValue cooked = CallOk(server, u8"asset_cook", Obj());
-    CHECK(cooked.Get(u8"planned").AsInt() == 1);
-    CHECK(cooked.Get(u8"cooked").AsInt() == 1);
-    CHECK(cooked.Get(u8"failed").AsInt() == 0);
-    CHECK(std::filesystem::exists("mcp_write_project/Cooked/scripts/mcp_write_source.rasset"));
+        CallOk(server, u8"project_create",
+               With(With(Obj(), u8"directory", projectDir), u8"name", u8"Write"));
+        CallOk(server, u8"project_open", With(Obj(), u8"directory", projectDir));
 
-    // The cooked product is now visible via asset_info on the cooked DB, under the source guid.
-    JsonValue product = CallOk(server, u8"asset_info",
-                               With(With(Obj(), u8"guid", guid.AsView()), u8"database", u8"cooked"));
-    CHECK(product.Get(u8"guid").AsString() == guid);
+        // A real source file on disk (CWD is .test-scratch). A trivial class cooks clean.
+        {
+            std::ofstream out(srcFileStd);
+            out << Utf8(sourceBody);
+        }
+        const std::filesystem::path abs = std::filesystem::absolute(srcFileStd);
+        const String absPath(reinterpret_cast<const utf8char*>(abs.string().c_str()));
 
-    // A second cook is a no-op (nothing dirtied).
-    JsonValue again = CallOk(server, u8"asset_cook", Obj());
-    CHECK(again.Get(u8"planned").AsInt() == 0);
-    CHECK(again.Get(u8"upToDate").AsInt() == 1);
+        // Import routes by extension through the shared importer set into the source DB.
+        JsonValue imported = CallOk(server, u8"asset_import",
+                                    With(With(Obj(), u8"source", absPath.AsView()), u8"group",
+                                         u8"scripts"));
+        CHECK(imported.Get(u8"type").AsString() == StringView(u8"ScriptClassAsset"));
+        CHECK(imported.Get(u8"name").AsString() == sourceStem);
+        CHECK(imported.Get(u8"importer").AsString() == StringView(u8"Script"));
+        const String guid = imported.Get(u8"guid").AsString();
+
+        // It landed in the source DB, in the requested group.
+        JsonValue list = CallOk(server, u8"asset_list", Obj());
+        CHECK(list.Get(u8"count").AsInt() == 1);
+        CHECK(list.Get(u8"assets").At(0).Get(u8"group").AsString() == StringView(u8"scripts"));
+
+        // The raw source was copied under Sources/ and the envelope written under Content/.
+        CHECK(std::filesystem::exists(projStd + "/Sources/" + srcFileStd));
+        CHECK(std::filesystem::exists(projStd + "/Content/scripts/" + stemStd + ".xasset"));
+
+        // Cook builds it into the cooked DB (product guid == source guid).
+        JsonValue cooked = CallOk(server, u8"asset_cook", Obj());
+        CHECK(cooked.Get(u8"planned").AsInt() == 1);
+        CHECK(cooked.Get(u8"cooked").AsInt() == 1);
+        CHECK(cooked.Get(u8"failed").AsInt() == 0);
+        CHECK(std::filesystem::exists(projStd + "/Cooked/scripts/" + stemStd + ".rasset"));
+
+        // The cooked product is now visible via asset_info on the cooked DB, under the source guid.
+        JsonValue product =
+            CallOk(server, u8"asset_info",
+                   With(With(Obj(), u8"guid", guid.AsView()), u8"database", u8"cooked"));
+        CHECK(product.Get(u8"guid").AsString() == guid);
+
+        // A second cook is a no-op (nothing dirtied).
+        JsonValue again = CallOk(server, u8"asset_cook", Obj());
+        CHECK(again.Get(u8"planned").AsInt() == 0);
+        CHECK(again.Get(u8"upToDate").AsInt() == 1);
+    }
 }
-#endif // OPTION_HAS_WREN
+
+#ifdef OPTION_HAS_ANGELSCRIPT
+TEST_CASE("integration.mcp: an agent imports + cooks an AngelScript source via MCP tools")
+{
+    DriveImportCookFlow(u8"mcp_write_as", u8"mcp_write_as_src", u8"as",
+                        u8"class Hello {\n  Hello() {}\n  void greet() {}\n}\n");
+}
+#endif // OPTION_HAS_ANGELSCRIPT
+
+#ifdef OPTION_HAS_LUAU
+TEST_CASE("integration.mcp: an agent imports + cooks a Luau source via MCP tools")
+{
+    DriveImportCookFlow(u8"mcp_write_luau", u8"mcp_write_luau_src", u8"luau",
+                        u8"Hello = {}\nHello.__index = Hello\n"
+                        u8"function Hello.new(entity)\n  return setmetatable({}, Hello)\nend\n"
+                        u8"function Hello:greet() end\n");
+}
+#endif // OPTION_HAS_LUAU
+#endif // OPTION_HAS_ANGELSCRIPT || OPTION_HAS_LUAU
 
 TEST_CASE("integration.mcp: script_api reports the COMPLETE engine surface, headless, no device")
 {

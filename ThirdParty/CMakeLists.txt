@@ -322,25 +322,6 @@ target_compile_features(luau PRIVATE cxx_std_17)
 set_target_properties(luau PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif() # OPTION_ENABLE_LUAU
 
-# Wren 0.4.0 - the third script backend's VM, vendored BY COPY (github.com/wren-lang/wren tag
-# 0.4.0, MIT) like luau/angelscript: ThirdParty/wren/src (the VM + optional modules + public
-# header) + LICENSE/AUTHORS. Gated on OPTION_ENABLE_WREN so a disabled backend never compiles it.
-# Wren is C99 (the engine enables only CXX by default), so turn C on here. Wren ships no CMakeLists;
-# compile its sources directly. ThirdParty::Wren is consumed PRIVATE-ly by Foundation::Script.Wren.
-if(OPTION_ENABLE_WREN)
-    enable_language(C)
-    file(GLOB util_wren_sources CONFIGURE_DEPENDS
-        ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/vm/*.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/optional/*.c)
-    add_library(wren_vm STATIC ${util_wren_sources})
-    add_library(ThirdParty::Wren ALIAS wren_vm)
-    set_target_properties(wren_vm PROPERTIES C_STANDARD 99 POSITION_INDEPENDENT_CODE ON)
-    # SYSTEM: third-party - keep our -Wall/-Werror off Wren's headers and sources.
-    target_include_directories(wren_vm SYSTEM
-        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/include
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/vm ${CMAKE_CURRENT_SOURCE_DIR}/wren/src/optional)
-endif()
-
 # recastnavigation v1.6.0 - navmesh bake (Recast) + runtime navmesh/query (Detour) + agent
 # crowd/avoidance (DetourCrowd), vendored BY COPY (github.com/recastnavigation/recastnavigation
 # tag v1.6.0, zlib; see recastnavigation/README.vendored.md) like Jolt. Compiled from source as

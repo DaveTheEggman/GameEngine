@@ -6,7 +6,7 @@
 // into script with reflected Variant args, returning the script result.
 //
 // The seam is backend-neutral: each backend subclasses IScriptDelegate to wrap its
-// own callable primitive (Wren fn handle, AngelScript function handle), and marshals
+// own callable primitive (AngelScript function handle), and marshals
 // a script function argument into one when a reflected method parameter is typed
 // RefPtr<IScriptDelegate>. Because IScriptDelegate derives core::Object, the existing
 // reflection object-argument marshalling (ParamTypeOf / AcceptArg / ConvertArg)

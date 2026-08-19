@@ -4,7 +4,7 @@
 // built through the vendored CScriptBuilder add-on, which pre-processes `[metadata]`
 // declarations; the cook then walks the behavior class's member fields and, for every
 // field WITH metadata, resolves the field's declared type + the metadata default +
-// description into a ScriptPropertyDesc (identical metadata shape to the Wren cook).
+// description into a ScriptPropertyDesc (identical metadata shape across backends).
 //
 // The AngelScript editor-property convention (typed member field + [metadata]):
 //     class Mover {
@@ -15,7 +15,7 @@
 // The field's declared type picks the ScriptPropertyType (float->Float, int->Int,
 // bool->Bool, string->String, Color->Color, Float3->Vec3, Entity->Entity); a Guid field
 // with an `asset:<TypeName>` metadata tag -> Asset. A field with NO metadata is NOT a
-// property (explicit declaration only - matching the Wren `static properties` principle).
+// property (explicit declaration only - the explicit-declaration principle).
 //
 // This is a module IMPLEMENTATION unit, so the AngelScript SDK header AND the
 // scriptbuilder add-on header live here only (GCC module hygiene by construction).

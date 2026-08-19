@@ -76,7 +76,7 @@ TEST_CASE("integration.mcp: script_validate - every enabled backend's starter co
     McpServer server;
     editor::mcp::RegisterScriptValidateTool(server);
 
-    const StringView languages[] = {u8"wren", u8"angelscript", u8"luau"};
+    const StringView languages[] = {u8"angelscript", u8"luau"};
     usize enabled = 0;
     for (StringView language : languages)
     {

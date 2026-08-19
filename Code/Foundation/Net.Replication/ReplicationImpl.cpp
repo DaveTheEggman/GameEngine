@@ -505,16 +505,16 @@ namespace foundation::net
     {
         RegisterReplicationComponents(); // build the TypeData (incl NetworkComponent's `of`) first
         // Surface NetworkComponent to script (NetworkComponent.of(entity).authority): register + seed
-        // the Wren emission root + name it for the behavior prelude, plus the NetworkAuthority enum so
+        // the emission root + name it for the behavior prelude, plus the NetworkAuthority enum so
         // `authority` reads/compares. (NetworkedTransform is engine-managed replication plumbing, not a
         // script surface.)
         GlobalTypeRegistry().Register(TypeOf<NetworkAuthority>());
         GlobalTypeRegistry().Register(TypeOf<NetworkComponent>());
         foundation::script::RegisterExtraScriptRootType(&TypeOf<NetworkComponent>());
         foundation::script::RegisterExtraFacadeName(u8"NetworkComponent");
-        // NOTE: NetworkAuthority (an enum) is deliberately NOT facade-named. Wren does not emit enum
-        // classes, so `import ... for NetworkAuthority` in the behavior prelude would fail to resolve
-        // and break EVERY behavior's compile. The enum crosses as its underlying int in Wren; in
+        // NOTE: NetworkAuthority (an enum) is deliberately NOT facade-named. Some backends do not emit
+        // enum classes, so `import ... for NetworkAuthority` in the behavior prelude would fail to resolve
+        // and break EVERY behavior's compile. The enum crosses as its underlying int in script; in
         // AngelScript it binds by registry (named) - handled by each backend, no prelude name needed.
     }
 

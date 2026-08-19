@@ -10,7 +10,7 @@
 // A failing compile keeps the last-good cooked product (the builder never writes on failure).
 //
 // Backend-neutral: the page never names a language. It resolves the cook + New-Asset starter
-// through the registries by the asset's language id, so it edits Wren and AngelScript alike.
+// through the registries by the asset's language id, so it edits AngelScript and Luau alike.
 
 module;
 #include "Core/Prelude.h"
@@ -384,9 +384,9 @@ export namespace editor
     }
 
     /// The editor executable's entry point for the script plugin: registers the ScriptPage
-    /// factory + one New-Asset creator per registered script backend (Wren, AngelScript, ...).
+    /// factory + one New-Asset creator per registered script backend (AngelScript, Luau, ...).
     /// Language SYNTAX (lexer tables) is not registered here - each backend's editor-UI
-    /// module does that (RegisterWrenEditorUI / RegisterAngelScriptEditorUI), keeping this
+    /// module does that (RegisterAngelScriptEditorUI / RegisterLuauEditorUI), keeping this
     /// page module backend-neutral.
     inline void RegisterScriptEditor(EditorContext& context)
     {

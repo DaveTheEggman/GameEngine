@@ -13,7 +13,6 @@ import foundation.resource;          // ResourceManager
 import foundation.vfs;               // NativeFileSystem
 import foundation.script;
 import foundation.script.facades; // RegisterScriptFacadeReflection (the Scene facade)
-import foundation.script.wren;
 import foundation.script.angelscript;
 import foundation.script.luau;
 import foundation.net;         // NetSession queries (IsServer/PeerCount)
@@ -191,16 +190,16 @@ TEST_CASE("game-instance: each instance owns an independent networked endpoint (
 TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
 {
     RegisterCoreTypes();
-    foundation::script::wren::RegisterWrenScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
 
     engine::runtime::GameInstance gi;
     const bool ok = gi.StartScript(u8"class Game {\n"
-                                   u8"  construct new() {}\n"
-                                   u8"  launch() {}\n"
-                                   u8"  update(dt) {}\n"
-                                   u8"  exit() {}\n"
+                                   u8"  Game() {}\n"
+                                   u8"  void launch() {}\n"
+                                   u8"  void update(double dt) {}\n"
+                                   u8"  void exit() {}\n"
                                    u8"}\n",
-                                   u8"game.wren");
+                                   u8"game.as");
     REQUIRE(ok);
     CHECK(gi.ScriptRunning());
     CHECK(gi.ScriptContext() != nullptr);
@@ -245,35 +244,34 @@ TEST_CASE("game-instance: starts, ticks, and stops a LUAU Game orchestrator (the
 // Two properties under test: (1) the facades are NULL-SCENE-SAFE (no deref of a null currentScene -
 // the run must launch + tick without faulting); (2) the load facade is named SceneLoader, NOT Game -
 // a facade named Game is a hard AngelScript name conflict with the mandatory `Game` orchestrator
-// class (and a Wren import clash), so THIS test compiling at all is the regression guard for that.
+// class, so THIS test compiling at all is the regression guard for that.
 TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a pre-scene "
-          "orchestrator (Wren)")
+          "orchestrator")
 {
     RegisterCoreTypes();
     foundation::script::RegisterScriptFacadeReflection();
     engine::runtime::RegisterSceneLoaderScriptFacade(); // SceneLoader facade (owned by this project)
-    foundation::script::wren::RegisterWrenScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
 
     engine::runtime::GameInstance gi;
     CHECK_FALSE(gi.SceneReady()); // no scene yet - the orchestrator-first condition
     const bool ok = gi.StartScript(
-        u8"import \"main\" for SceneLoader\n"
         u8"class Game {\n"
-        u8"  construct new() {}\n"
-        u8"  launch() {\n"
-        u8"    SceneLoader.currentScene().find(\"nobody\")\n"
-        u8"    SceneLoader.currentScene().findByPath(\"a/b\")\n"
-        u8"    SceneLoader.sceneReady()\n"
-        u8"    SceneLoader.loadComplete(0)\n"
-        u8"    SceneLoader.loadProgress(0)\n"
+        u8"  Game() {}\n"
+        u8"  void launch() {\n"
+        u8"    SceneLoader::currentScene().find(\"nobody\");\n"
+        u8"    SceneLoader::currentScene().findByPath(\"a/b\");\n"
+        u8"    SceneLoader::sceneReady();\n"
+        u8"    SceneLoader::loadComplete(0);\n"
+        u8"    SceneLoader::loadProgress(0);\n"
         u8"  }\n"
-        u8"  update(dt) {\n"
-        u8"    SceneLoader.currentScene().find(\"x\")\n"
-        u8"    SceneLoader.sceneReady()\n"
+        u8"  void update(double dt) {\n"
+        u8"    SceneLoader::currentScene().find(\"x\");\n"
+        u8"    SceneLoader::sceneReady();\n"
         u8"  }\n"
-        u8"  exit() {}\n"
+        u8"  void exit() {}\n"
         u8"}\n",
-        u8"game.wren");
+        u8"game.as");
     REQUIRE(ok); // compiled (no Game-name clash) + launch() ran the pre-scene facade calls, no fault
     CHECK(gi.ScriptRunning());
     gi.DriveRunHost(0.016f);
@@ -352,12 +350,12 @@ namespace
     };
 }
 
-TEST_CASE("game-instance: SceneLoader.loadSceneAsync -> ticket, polled to completion (Wren)")
+TEST_CASE("game-instance: SceneLoader.loadSceneAsync -> ticket, polled to completion (Luau)")
 {
     RegisterCoreTypes();
     engine::runtime::RegisterSceneLoaderScriptFacade();
 
-    RefPtr<script::IScriptManager> manager = foundation::script::wren::CreateScriptManager();
+    RefPtr<script::IScriptManager> manager = foundation::script::CreateLuauScriptManager();
     foundation::script::RegisterReflectedTypes(*manager);
     RefPtr<script::IScriptContext> ctx = manager->CreateContext();
 
@@ -365,12 +363,11 @@ TEST_CASE("game-instance: SceneLoader.loadSceneAsync -> ticket, polled to comple
     engine::runtime::InstallSceneLoaderScriptService(*ctx, fake.binding);
 
     // Kick the load, then poll to completion; record the observable results in module globals.
-    const Status status =
-        ctx->Load(u8"var t = SceneLoader.loadSceneAsync(Guid.new(2748, 3567))\n" // 0xABC, 0xDEF
-                  u8"var Poll1 = SceneLoader.loadComplete(t)\n"
-                  u8"var Prog = SceneLoader.loadProgress(t)\n"
-                  u8"var Poll2 = SceneLoader.loadComplete(t)\n",
-                  u8"main");
+    const Status status = ctx->Load(u8"t = SceneLoader.loadSceneAsync(Guid.new(0xABC, 0xDEF))\n"
+                                    u8"Poll1 = SceneLoader.loadComplete(t)\n"
+                                    u8"Prog = SceneLoader.loadProgress(t)\n"
+                                    u8"Poll2 = SceneLoader.loadComplete(t)\n",
+                                    u8"main");
     REQUIRE(status.IsOk());
 
     CHECK(fake.asyncCalls == 1);
@@ -496,14 +493,14 @@ TEST_CASE("game-instance: a debugger suspension in update is not a fault - the s
 TEST_CASE("game-instance: two instances own separate, isolated run-host contexts")
 {
     RegisterCoreTypes();
-    foundation::script::wren::RegisterWrenScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
 
     const char8_t* src =
-        u8"class Game { construct new() {}\n launch() {}\n update(dt) {}\n exit() {}\n}\n";
+        u8"class Game { Game() {}\n void launch() {}\n void update(double dt) {}\n void exit() {}\n}\n";
     engine::runtime::GameInstance a;
     engine::runtime::GameInstance b;
-    REQUIRE(a.StartScript(src, u8"game.wren"));
-    REQUIRE(b.StartScript(src, u8"game.wren"));
+    REQUIRE(a.StartScript(src, u8"game.as"));
+    REQUIRE(b.StartScript(src, u8"game.as"));
 
     REQUIRE(a.RunHost().Context() != nullptr);
     REQUIRE(b.RunHost().Context() != nullptr);
@@ -696,10 +693,10 @@ TEST_CASE("game-instance: run.events():emit publishes on the run bus, round-trip
 TEST_CASE("game-instance: a missing Game class fails to start cleanly")
 {
     RegisterCoreTypes();
-    foundation::script::wren::RegisterWrenScriptBackend();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
 
     engine::runtime::GameInstance gi;
-    const bool ok = gi.StartScript(u8"var X = 1\n", u8"game.wren");
+    const bool ok = gi.StartScript(u8"int X = 1;\n", u8"game.as");
     CHECK_FALSE(ok); // no `Game` class
     CHECK_FALSE(gi.ScriptRunning());
 }

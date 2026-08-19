@@ -26,10 +26,22 @@ import pipeline.core;
 import editor.core;
 import foundation.settings;
 import foundation.shaders; // CookedShaderPack (the web export test reads the staged pack)
-import foundation.script.wren;        // the Wren backend (the cook compile-checks against it)
-import script.wren.pipeline; // RegisterWrenScriptCook
-import script.pipeline;      // ScriptClassAsset + ScriptClassAssetBuilder
-import foundation.script.resource;    // RegisterScriptResource + ScriptClass + ScriptClassFactory
+// Only the two export-driver tests use a script asset; the ~30 template/preset/manifest tests are
+// backend-neutral and build with no script backend at all. So the script imports (and those two
+// tests) are guarded, and the file always compiles.
+#if defined(OPTION_HAS_ANGELSCRIPT) || defined(OPTION_HAS_LUAU)
+import foundation.script;          // the backend registries + ScriptClassFactory namespace
+import script.pipeline;            // ScriptClassAsset + ScriptClassAssetBuilder
+import foundation.script.resource; // RegisterScriptResource + ScriptClass + ScriptClassFactory
+#endif
+#ifdef OPTION_HAS_ANGELSCRIPT
+import foundation.script.angelscript; // the AngelScript backend (the cook compile-checks against it)
+import script.angelscript.pipeline;   // RegisterAngelScriptScriptCook
+#endif
+#ifdef OPTION_HAS_LUAU
+import foundation.script.luau; // the Luau backend
+import script.luau.pipeline;   // RegisterLuauScriptCook
+#endif
 
 using namespace foundation::core;
 namespace project = engine::project;
@@ -45,84 +57,150 @@ namespace
     }
 }
 
-TEST_CASE("export: a startup script asset cooks into the dist pak and binds like the player")
+#if defined(OPTION_HAS_ANGELSCRIPT) || defined(OPTION_HAS_LUAU)
+namespace
 {
-    namespace script = foundation::script;
-    script::wren::RegisterWrenScriptBackend();
-    pipeline::RegisterWrenScriptCook();
-    script::RegisterScriptResource();
-    GlobalTypeRegistry().Register(pipeline::ScriptClassAsset::StaticType());
-    RegisterSerializable<pipeline::ScriptClassAsset>();
-
-    const StringView projectDir = u8"scratch_export_script_project";
-    const StringView distDir = u8"scratch_export_script_dist";
-    NukeTree(projectDir);
-    NukeTree(distDir);
-
-    Guid scriptId;
+    // A cookable startup-script source for a backend: its language, source-file name, and body.
+    struct ScriptSample
     {
-        REQUIRE(editor::EditorProject::Create(projectDir, u8"S").IsOk());
-        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
-        REQUIRE(static_cast<bool>(project));
+        StringView language;
+        StringView file;
+        StringView source;
+    };
 
-        // The game script SOURCE in Sources/ (what New-Asset writes).
-        String srcPath(project->SourcesRoot());
-        srcPath.Append(u8"/game.wren");
-        const StringView src = u8"class Game {\n  construct new() {}\n  launch() {}\n  update(dt) "
-                               u8"{}\n  exit() {}\n}\n";
-        REQUIRE(WriteFile(srcPath.AsView(),
-                          Span<const byte>(reinterpret_cast<const byte*>(src.Data()), src.Size()))
-                    .IsOk());
-
-        // The ScriptClassAsset instance recording file + language (the picker's target).
-        foundation::content::Instance* scriptAsset = project->SourceDb().RootGroup()->CreateInstance(
-            u8"NetGame", pipeline::ScriptClassAsset::StaticType());
-        REQUIRE(scriptAsset != nullptr);
-        pipeline::ScriptClassAsset asset;
-        asset.fileName = foundation::vfs::SourcePath(u8"game.wren");
-        asset.language = String(u8"wren");
-        REQUIRE(scriptAsset->WriteObject(asset).IsOk());
-        scriptId = scriptAsset->Id();
-
-        project->Settings().startupScriptId = scriptId;
-        REQUIRE(project->SaveSettings().IsOk());
+    // Registers every enabled script backend + cook + the ScriptClassAsset type (all idempotent).
+    void RegisterScriptExportDeps()
+    {
+        namespace script = foundation::script;
+#ifdef OPTION_HAS_ANGELSCRIPT
+        script::angelscript::RegisterAngelScriptBackend();
+        pipeline::RegisterAngelScriptScriptCook();
+#endif
+#ifdef OPTION_HAS_LUAU
+        script::RegisterLuauScriptBackend();
+        pipeline::RegisterLuauScriptCook();
+#endif
+        script::RegisterScriptResource();
+        GlobalTypeRegistry().Register(pipeline::ScriptClassAsset::StaticType());
+        RegisterSerializable<pipeline::ScriptClassAsset>();
     }
 
-    // Export (cooks the reachable closure - here the startup script) with the script builder.
-    pipeline::BuilderRegistry registry;
-    registry.Register(UniquePtr<pipeline::IAssetBuilder>(
-        DefaultAllocator().New<pipeline::ScriptClassAssetBuilder>(), DefaultAllocator()));
-    editor::ExportStats stats;
+    // A Game-tier startup script in the FIRST enabled language (for tests whose subject is not the
+    // script itself - just some cookable content).
+    [[nodiscard]] ScriptSample FirstScriptSample()
     {
-        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
-        REQUIRE(
-            editor::ExportProject(*project, distDir, registry, /*rebuild=*/false, &stats).IsOk());
-        CHECK(stats.cooked >= 1u); // the script cooked
+#ifdef OPTION_HAS_ANGELSCRIPT
+        return {u8"angelscript", u8"game.as",
+                u8"class Game {\n  Game() {}\n  void launch() {}\n  void update(double dt) {}\n"
+                u8"  void exit() {}\n}\n"};
+#else
+        return {u8"luau", u8"game.luau",
+                u8"Game = {}\nGame.__index = Game\nfunction Game.new() return setmetatable({}, Game) "
+                u8"end\nfunction Game:launch() end\nfunction Game:update(dt) end\n"
+                u8"function Game:exit() end\n"};
+#endif
     }
 
-    // Consume the dist exactly like the player: manifest guid -> Bind<ScriptClass> from the pak.
-    foundation::vfs::NativeFileSystem distRoot(distDir);
-    engine::project::ProjectSettings manifest;
-    REQUIRE(project::LoadProjectSettings(distRoot, manifest, project::kDistManifestFile).IsOk());
-    CHECK(manifest.startupScriptId == scriptId);
+    // Test-#1 driver: author a project with a startup SCRIPT asset in sample.language, export it, and
+    // consume the dist the way Engine.Player does (manifest guid -> Bind<ScriptClass> from the pak).
+    // The export/cook/pak/bind path is backend-generic, so both languages ride it identically.
+    void DriveStartupScriptExport(StringView projectDir, StringView distDir, ScriptSample sample)
+    {
+        namespace script = foundation::script;
+        RegisterScriptExportDeps();
+        NukeTree(projectDir);
+        NukeTree(distDir);
 
-    foundation::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
-    REQUIRE(pak.IsValid());
-    foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
-                                          project::kCookedAssetExtension);
-    foundation::resource::ResourceManager resources(db);
-    script::ScriptClassFactory scriptFactory;
-    resources.AddFactory(&scriptFactory);
+        Guid scriptId;
+        {
+            REQUIRE(editor::EditorProject::Create(projectDir, u8"S").IsOk());
+            UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
+            REQUIRE(static_cast<bool>(project));
 
-    foundation::resource::Proxy<script::ScriptClass> proxy =
-        resources.Bind<script::ScriptClass>(manifest.startupScriptId);
-    REQUIRE(static_cast<bool>(proxy));
-    CHECK(proxy->className == u8"Game"); // the cook harvested the class
-    CHECK(proxy->source.Size() > 0u);    // the source rode into the pak
+            // The game script SOURCE in Sources/ (what New-Asset writes).
+            String srcPath(project->SourcesRoot());
+            srcPath.Append(u8"/");
+            srcPath.Append(sample.file);
+            REQUIRE(WriteFile(srcPath.AsView(),
+                              Span<const byte>(reinterpret_cast<const byte*>(sample.source.Data()),
+                                               sample.source.Size()))
+                        .IsOk());
 
-    NukeTree(projectDir);
-    NukeTree(distDir);
+            // The ScriptClassAsset instance recording file + language (the picker's target).
+            foundation::content::Instance* scriptAsset =
+                project->SourceDb().RootGroup()->CreateInstance(
+                    u8"NetGame", pipeline::ScriptClassAsset::StaticType());
+            REQUIRE(scriptAsset != nullptr);
+            pipeline::ScriptClassAsset asset;
+            asset.fileName = foundation::vfs::SourcePath(sample.file);
+            asset.language = String(sample.language);
+            REQUIRE(scriptAsset->WriteObject(asset).IsOk());
+            scriptId = scriptAsset->Id();
+
+            project->Settings().startupScriptId = scriptId;
+            REQUIRE(project->SaveSettings().IsOk());
+        }
+
+        // Export (cooks the reachable closure - here the startup script) with the script builder.
+        pipeline::BuilderRegistry registry;
+        registry.Register(UniquePtr<pipeline::IAssetBuilder>(
+            DefaultAllocator().New<pipeline::ScriptClassAssetBuilder>(), DefaultAllocator()));
+        editor::ExportStats stats;
+        {
+            UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
+            REQUIRE(editor::ExportProject(*project, distDir, registry, /*rebuild=*/false, &stats)
+                        .IsOk());
+            CHECK(stats.cooked >= 1u); // the script cooked
+        }
+
+        // Consume the dist exactly like the player: manifest guid -> Bind<ScriptClass> from the pak.
+        foundation::vfs::NativeFileSystem distRoot(distDir);
+        engine::project::ProjectSettings manifest;
+        REQUIRE(project::LoadProjectSettings(distRoot, manifest, project::kDistManifestFile).IsOk());
+        CHECK(manifest.startupScriptId == scriptId);
+
+        foundation::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
+        REQUIRE(pak.IsValid());
+        foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
+                                              project::kCookedAssetExtension);
+        foundation::resource::ResourceManager resources(db);
+        script::ScriptClassFactory scriptFactory;
+        resources.AddFactory(&scriptFactory);
+
+        foundation::resource::Proxy<script::ScriptClass> proxy =
+            resources.Bind<script::ScriptClass>(manifest.startupScriptId);
+        REQUIRE(static_cast<bool>(proxy));
+        CHECK(proxy->className == u8"Game"); // the cook harvested the class
+        CHECK(proxy->source.Size() > 0u);    // the source rode into the pak
+
+        NukeTree(projectDir);
+        NukeTree(distDir);
+    }
 }
+#endif // OPTION_HAS_ANGELSCRIPT || OPTION_HAS_LUAU
+
+#ifdef OPTION_HAS_ANGELSCRIPT
+TEST_CASE("export: an AngelScript startup script asset cooks into the dist pak and binds like the "
+          "player")
+{
+    DriveStartupScriptExport(
+        u8"scratch_export_script_as_project", u8"scratch_export_script_as_dist",
+        {u8"angelscript", u8"game.as",
+         u8"class Game {\n  Game() {}\n  void launch() {}\n  void update(double dt) {}\n"
+         u8"  void exit() {}\n}\n"});
+}
+#endif // OPTION_HAS_ANGELSCRIPT
+
+#ifdef OPTION_HAS_LUAU
+TEST_CASE("export: a Luau startup script asset cooks into the dist pak and binds like the player")
+{
+    DriveStartupScriptExport(
+        u8"scratch_export_script_luau_project", u8"scratch_export_script_luau_dist",
+        {u8"luau", u8"game.luau",
+         u8"Game = {}\nGame.__index = Game\nfunction Game.new() return setmetatable({}, Game) end\n"
+         u8"function Game:launch() end\nfunction Game:update(dt) end\nfunction Game:exit() end\n"});
+}
+#endif // OPTION_HAS_LUAU
 
 TEST_CASE("export: project -> dist pak -> player-style load-back (versioned formats)")
 {
@@ -1859,18 +1937,16 @@ TEST_CASE("export: VariantsForPlatform - desktop single pak, web BC + ASTC sibli
     NukeTree(projectDir.AsView());
 }
 
+#if defined(OPTION_HAS_ANGELSCRIPT) || defined(OPTION_HAS_LUAU)
 TEST_CASE("export: desktop Content.pak is byte-identical with a sibling target DB present (Q2)")
 {
     // Fable ruling Q2, made executable: a materialized per-target DB (Cooked-web-astc/) is a SIBLING
     // of Cooked/, so the desktop pack (which walks Cooked/ recursively) can never sweep it in. Export
     // the same project twice - once clean, once with a junk-filled sibling target DB present - and
-    // assert the desktop Content.pak is byte-for-byte identical.
-    namespace script = foundation::script;
-    script::wren::RegisterWrenScriptBackend();
-    pipeline::RegisterWrenScriptCook();
-    script::RegisterScriptResource();
-    GlobalTypeRegistry().Register(pipeline::ScriptClassAsset::StaticType());
-    RegisterSerializable<pipeline::ScriptClassAsset>();
+    // assert the desktop Content.pak is byte-for-byte identical. The startup script is just cookable
+    // content here (the subject is pak byte-identity), so ANY enabled backend serves.
+    RegisterScriptExportDeps();
+    const ScriptSample sample = FirstScriptSample();
 
     const String projectDir = TempDir(u8"scratch_byteident_proj");
     const String distA = TempDir(u8"scratch_byteident_distA");
@@ -1884,18 +1960,18 @@ TEST_CASE("export: desktop Content.pak is byte-identical with a sibling target D
         UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
         REQUIRE(static_cast<bool>(project));
         String srcPath(project->SourcesRoot());
-        srcPath.Append(u8"/game.wren");
-        const StringView src = u8"class Game {\n  construct new() {}\n  launch() {}\n  update(dt) "
-                               u8"{}\n  exit() {}\n}\n";
+        srcPath.Append(u8"/");
+        srcPath.Append(sample.file);
         REQUIRE(WriteFile(srcPath.AsView(),
-                          Span<const byte>(reinterpret_cast<const byte*>(src.Data()), src.Size()))
+                          Span<const byte>(reinterpret_cast<const byte*>(sample.source.Data()),
+                                           sample.source.Size()))
                     .IsOk());
         foundation::content::Instance* s = project->SourceDb().RootGroup()->CreateInstance(
             u8"Game", pipeline::ScriptClassAsset::StaticType());
         REQUIRE(s != nullptr);
         pipeline::ScriptClassAsset asset;
-        asset.fileName = foundation::vfs::SourcePath(u8"game.wren");
-        asset.language = String(u8"wren");
+        asset.fileName = foundation::vfs::SourcePath(sample.file);
+        asset.language = String(sample.language);
         REQUIRE(s->WriteObject(asset).IsOk());
         project->Settings().startupScriptId = s->Id();
         REQUIRE(project->SaveSettings().IsOk());
@@ -1949,6 +2025,7 @@ TEST_CASE("export: desktop Content.pak is byte-identical with a sibling target D
     NukeTree(distA.AsView());
     NukeTree(distB.AsView());
 }
+#endif // OPTION_HAS_ANGELSCRIPT || OPTION_HAS_LUAU
 
 TEST_CASE("export: player output name carries the Windows .exe extension (target-platform aware)")
 {

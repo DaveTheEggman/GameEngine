@@ -55,16 +55,10 @@ import foundation.audio;
 import foundation.audio.resource;
 import audio.pipeline;
 import foundation.script;
-#ifdef OPTION_HAS_WREN
-import foundation.script.wren;
-import script.wren.pipeline;
-#endif
-#ifdef OPTION_HAS_ANGELSCRIPT
-import foundation.script.angelscript;
-import script.angelscript.pipeline;
-#endif
 import foundation.script.resource;
-import script.pipeline;
+import script.pipeline; // the per-language script cooks (angelscript | luau) come from
+                        // RegisterPipelineTypes - the composition root registers every enabled
+                        // backend, so export cooks scripts of either language without naming one here.
 
 using namespace foundation::core;
 namespace scene = foundation::scene;

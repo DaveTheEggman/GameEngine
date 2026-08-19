@@ -22,9 +22,6 @@ import pipeline.importer;
 import pipeline.registration;
 import engine.scriptsurface;
 import engine.scenesurface;
-#ifdef OPTION_HAS_LUAU
-import foundation.script.luau;
-#endif
 import editor.core; // EditorLogBuffer (the host's log capture)
 import editor.mcp;
 
@@ -189,16 +186,14 @@ int main(int /*argc*/, char** argv)
     foundation::json::RegisterJsonTypes();
     pipeline::RegisterPipelineTypes();
     // The COMPLETE engine script surface (every subsystem facade), so script_api reports the whole
-    // bound API, not just core - metadata only, no subsystem instantiated (headless). Plus Luau, so
-    // script_api spans wren | angelscript | luau (the pipeline types already registered wren + as).
+    // bound API, not just core - metadata only, no subsystem instantiated (headless). Every enabled
+    // backend (angelscript | luau) was already registered by RegisterPipelineTypes above (the
+    // composition root registers both, each OPTION_HAS-guarded), so script_api spans them all.
     engine::RegisterAllScriptFacades();
     // Component reflection for every engine domain (data-version gates) - scene_validate parses
     // component payloads through the full manager set (Engine.SceneSurface), which needs the
     // reflected field metadata registered before any scene stream deserializes.
     engine::RegisterAllSceneComponentReflection();
-#ifdef OPTION_HAS_LUAU
-    foundation::script::RegisterLuauScriptBackend(); // wren + angelscript come from pipeline.registration
-#endif
 
     // The host's builder + importer registries (from the pipeline composition root); populated
     // once, they outlive the server and back asset_cook / asset_import.

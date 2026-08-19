@@ -54,7 +54,7 @@ export namespace foundation::script
         /// AngelScript must DECLARE every object type before any member of any type is
         /// registered, or everything has to arrive in strict dependency order - defer
         /// their emission to here: declare-all-types, then bind-all-members. Backends
-        /// with lazy emitters (Wren materializes at context creation) no-op.
+        /// with lazy emitters no-op.
         virtual void FinalizeTypes() {}
 
         // Create a fresh, isolated execution context. Contexts see the classes
@@ -113,8 +113,8 @@ export namespace foundation::script
         /// Compile source to an opaque bytecode blob (the cook side of the Bytecode seam).
         /// Default: NotSupported (ScriptCapabilities::Bytecode absent). A backend with a
         /// stable bytecode (AngelScript SaveByteCode) fills this later; a source-only
-        /// backend (Wren) stays unsupported - exactly the split the capability model exists
-        /// for.
+        /// backend without the capability stays unsupported - exactly the split the capability model
+        /// exists for.
         [[nodiscard]] virtual core::Result<core::RefPtr<IScriptBlob>>
         CompileToBlob(core::StringView source, core::StringView chunkName)
         {

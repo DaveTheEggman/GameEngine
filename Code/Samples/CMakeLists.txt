@@ -15,7 +15,7 @@ add_subdirectory(NetEcho)
 # the desktop shell + the Vulkan GPU factory.
 if(TARGET Foundation::Shell.Desktop AND TARGET Foundation::Runtime.Desktop AND TARGET Foundation::Graphics.Gpu)
     add_subdirectory(HelloWindow)
-    add_subdirectory(ScriptPlayground)   # script P1 consumer proof (Wren Mover/Spinner behaviors on the ScriptSubsystem)
+    add_subdirectory(ScriptPlayground)   # script P1 consumer proof (Mover/Spinner behaviors on the ScriptSubsystem)
     add_subdirectory(MultiWindow)
     # Samples with an ImGui debug UI - honor the extension option, or an
     # -DOPTION_EXTENSION_IMGUI=OFF configure dies on a missing Extensions::Imgui target.

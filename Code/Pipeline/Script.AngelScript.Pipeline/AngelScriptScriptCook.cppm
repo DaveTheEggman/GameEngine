@@ -9,7 +9,7 @@
 // field an inspector property (a field with no metadata is not one). The cook builds the
 // behavior through the vendored CScriptBuilder add-on (which pre-processes `[metadata]`)
 // and walks the class's fields, mapping each metadata'd field's declared type + default +
-// description into the SAME ScriptPropertyDesc metadata the Wren cook produces. All the
+// description into the SAME ScriptPropertyDesc metadata other backends produce. All the
 // AngelScript / scriptbuilder contact lives in the implementation unit.
 //
 // Plain module interface unit: no AngelScript SDK header appears here (GCC module hygiene
@@ -97,6 +97,6 @@ export namespace pipeline{
 
     /// Registers the AngelScript cook (and, idempotently, the AngelScript backend it
     /// needs) so the neutral ScriptClassAssetBuilder resolves it by language. Entry points
-    /// call this alongside RegisterWrenScriptCook(). Idempotent.
+    /// call this alongside the other script cook registrations. Idempotent.
     void RegisterAngelScriptScriptCook();
 }

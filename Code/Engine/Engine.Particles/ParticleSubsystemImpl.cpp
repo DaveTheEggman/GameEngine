@@ -46,7 +46,7 @@ namespace engine::particles
         builder.Method<&SceneParticles::isPlaying>("isPlaying", {"entity"});
         builder.Method<&SceneParticles::setEffect>("setEffect", {"entity", "resourceId"});
         builder.Method<&SceneParticles::of>("of", {"scene"});
-        builder.Constructor(); // Wren only materializes constructible foreign classes
+        builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
     void RegisterParticleComponentReflection()

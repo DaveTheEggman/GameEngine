@@ -714,7 +714,7 @@ export namespace engine::audio
             context.SetService(kAudioScriptService, &m_scriptBinding);
         }
 
-        // ---- content-path playback (the Wren facade's resource addressing) ----
+        // ---- content-path playback (the facade's resource addressing) ----
         // `path` = the source-DB content path shown in the editor; the cook mirrors
         // group paths AND guids into the cooked DB, so the same string resolves against
         // the runtime manager's database. Missing/uncooked/mistyped content warns ONCE

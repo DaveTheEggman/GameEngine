@@ -6,7 +6,7 @@
 //     using namespace foundation::core; using namespace foundation::input;
 //     namespace shell = foundation::shell;
 // Used by BOTH Foundation/Input.Tests (foundation action-model tests) and
-// Engine/Engine.Input.Tests (the InputSubsystem + Wren-facade tests).
+// Engine/Engine.Input.Tests (the InputSubsystem + script-facade tests).
 #pragma once
 
 namespace
@@ -146,7 +146,7 @@ namespace
 
     // ---- a representative map ----------------------------------------------------------
     // [[maybe_unused]]: a TU may include this support header for FakeDevices but not the map (e.g.
-    // Engine.Input.Tests once its Wren-facade case is #ifdef'd out in a Wren-less build).
+    // Engine.Input.Tests once its script-facade case is #ifdef'd out in a backend-less build).
     [[nodiscard, maybe_unused]] InputMap MakeGameplayMap()
     {
         InputMap map;

@@ -375,15 +375,15 @@ TEST_CASE("editor-context: script execution point set/clear + version stamps")
     CHECK(!context.ScriptExecution().active);
     const u64 v0 = context.ScriptExecutionVersion();
 
-    context.SetScriptExecutionPoint(u8"game.wren", 12);
+    context.SetScriptExecutionPoint(u8"game.script", 12);
     CHECK(context.ScriptExecution().active);
-    CHECK(context.ScriptExecution().file.AsView() == StringView(u8"game.wren"));
+    CHECK(context.ScriptExecution().file.AsView() == StringView(u8"game.script"));
     CHECK(context.ScriptExecution().line == 12);
     CHECK(context.ScriptExecutionVersion() != v0);
 
     // Re-set (a step to another line) bumps again; clear bumps once and goes inactive.
     const u64 v1 = context.ScriptExecutionVersion();
-    context.SetScriptExecutionPoint(u8"game.wren", 13);
+    context.SetScriptExecutionPoint(u8"game.script", 13);
     CHECK(context.ScriptExecutionVersion() != v1);
     const u64 v2 = context.ScriptExecutionVersion();
     context.ClearScriptExecutionPoint();

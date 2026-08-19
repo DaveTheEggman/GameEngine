@@ -256,8 +256,8 @@ namespace pipeline{
                 context->SetErrorHandler(&sink);
 
                 // Compile check: Load the raw source. Luau classes are plain global tables and
-                // facades are globals, so no behavior-module framing is needed (unlike Wren's
-                // `is Behavior`); unknown globals compile fine. Running it defines `<Class>`.
+                // facades are globals, so no behavior-module framing is needed; unknown
+                // globals compile fine. Running it defines `<Class>`.
                 if (!context->Load(source, assetName).IsOk())
                 {
                     ReportScriptCookErrors(assetName, sink);

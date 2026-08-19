@@ -23,7 +23,7 @@ target_link_libraries(Engine.DefaultApp
            Foundation::Net Foundation::Net.Manager Engine::Net
            Foundation::Profiler Foundation::Policy)
 
-# Script VM backends - Wren (primary) and AngelScript (second). Each is independently toggleable via
+# Script VM backends - AngelScript and Luau. Each is independently toggleable via
 # its option; a run resolves the backend by the game script's LANGUAGE, so with both ON a project can
 # ship either. Both build on every platform now (AngelScript climbs to web via as_config.h's
 # AS_MAX_PORTABILITY). Linked by forward-referenced name (resolves at generate time), so ordering vs
@@ -33,7 +33,7 @@ target_link_libraries(Engine.DefaultApp
 # presence macros are now GLOBAL (root CMakeLists); link whichever are enabled via the target-or-empty
 # ${SCRIPTLIB_*} aliases. At least one is guaranteed on (the root enforces it).
 target_link_libraries(Engine.DefaultApp PUBLIC
-    ${SCRIPTLIB_WREN} ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU})
+    ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU})
 
 target_sources(Engine.DefaultApp
     PRIVATE

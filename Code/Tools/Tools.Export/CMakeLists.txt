@@ -12,7 +12,9 @@ target_link_libraries(Tools.Export PRIVATE
     Engine::SceneSurface # the FULL manager set + component reflection for the transcode scratch
     Foundation::Physics Foundation::Physics.Resource Pipeline::Physics
     Foundation::Audio Foundation::Audio.Resource Pipeline::Audio
-    Foundation::Script ${SCRIPTLIB_WREN} ${SCRIPTLIB_ANGELSCRIPT} Foundation::Script.Resource Foundation::Script.Facades
-    Pipeline::Script ${SCRIPTLIB_WREN_PIPELINE} ${SCRIPTLIB_ANGELSCRIPT_PIPELINE}
+    # Both script backends + their cooks come transitively from Pipeline::Registration (PUBLIC),
+    # so export cooks scripts of either language (angelscript | luau) without naming a backend here.
+    Foundation::Script Foundation::Script.Resource Foundation::Script.Facades
+    Pipeline::Script
     Foundation::UI.Resource Pipeline::UI)
 

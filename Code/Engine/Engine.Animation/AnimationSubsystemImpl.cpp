@@ -68,7 +68,7 @@ namespace engine::animation
         builder.Method<&SceneAnimation::setBool>("setBool", {"entity", "name", "value"});
         builder.Method<&SceneAnimation::setTrigger>("setTrigger", {"entity", "name"});
         builder.Method<&SceneAnimation::of>("of", {"scene"});
-        builder.Constructor(); // Wren only materializes constructible foreign classes
+        builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
     REFLECT_VALUE(InstancedSkinningComponent, "rtti::engine::animation")
@@ -136,7 +136,7 @@ namespace engine::animation
     {
         RegisterAnimationComponentReflection(); // ensure component TypeData (incl `of`) is built first
         // Surface the animation components to script (SkeletalAnimationComponent.of(entity), ...):
-        // register them, seed the Wren emission roots, and name them for the behavior prelude.
+        // register them, seed the emission roots, and name them for the behavior prelude.
         struct Entry
         {
             const core::TypeInfo* type;

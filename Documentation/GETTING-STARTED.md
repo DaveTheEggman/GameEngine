@@ -21,7 +21,7 @@ of the Sedulous engine (Beef) and has grown well past it. Defining traits:
 - **A real runtime**: scene/ECS, PBR renderer (clustered forward, CSM/spot/
   point shadows, IBL, SSR, decals, particles, post stack), physics (Jolt),
   audio (miniaudio), input, networking, game UI, and three scripting backends
-  (Wren, AngelScript, Luau) behind one backend-neutral registry.
+  (AngelScript, Luau) behind one backend-neutral registry.
 - **Web is a shipping target.** The same game exports to the browser
   (Emscripten + WebGPU), with per-target cooked asset variants.
 
@@ -116,7 +116,7 @@ modules, registered through the `Engine.ScriptSurface` composition root.
   bundles scenes + networking + input for one running game - the player runs
   one; the editor hosts them for play-in-editor.
 - **Scripting**: one registry describes the reflected surface; each backend
-  (Wren, AngelScript, Luau) emits its bindings from it. Behaviors attach to
+  (AngelScript, Luau) emits its bindings from it. Behaviors attach to
   entities; a scene-level script tier exists; capability flags gate per-backend
   features. The AngelScript and Luau backends have in-editor debuggers.
 - **UI**: `foundation.ui` is the retained-mode framework (border-box layout,

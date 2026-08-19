@@ -10,7 +10,7 @@
 // so the base client never pulls in the engine subsystem libraries. It registers ALL
 // standard gameplay subsystems (runtime-host.md v3: the editor embeds THIS same class
 // against its runtime context, so subsystem registration lives here, not in entry
-// points) and owns the GAME-SCRIPT lifecycle (the Wren `Game` class bracket) - the
+// points) and owns the GAME-SCRIPT lifecycle (the `Game` class bracket) - the
 // player and the editor's Game tab both consume it instead of hand-rolling copies.
 
 module;
@@ -33,11 +33,8 @@ import engine.particles; // ParticleSubsystem (scene-driven CPU sim)
 import foundation.physics;             // ContactKind/EntityContact (the contact bridge)
 import engine.physics;   // PhysicsSubsystem (Jolt worlds + interpolation)
 import foundation.input;               // the action model/runtime
-import engine.input;     // InputSubsystem + the Wren Input facade
+import engine.input;     // InputSubsystem + the Input facade
 import foundation.script;              // IScriptManager/Context (the game script)
-#ifdef OPTION_HAS_WREN
-import foundation.script.wren;         // the Wren backend (primary; toggle via OPTION_ENABLE_WREN)
-#endif
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript; // the AngelScript backend (second backend; OPTION_ENABLE_ANGELSCRIPT)
 #endif
@@ -175,7 +172,7 @@ export namespace engine::runtime
 
         void OnShutdown(IApplicationHost&) override;
 
-        // ---- the game script (a Wren class `Game`: construct new(), launch(), update(dt),
+        // ---- the game script (a `Game` class: construct new(), launch(), update(dt),
         // exit() - all optional except the class). Faults disable the SCRIPT, not the game. ----
 
         /// The scene whose time scale the script's update(dt) follows (and, later, the

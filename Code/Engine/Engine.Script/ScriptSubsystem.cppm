@@ -242,9 +242,9 @@ export namespace engine::script
 
     /// Owns the run's manager + context and the behaviors MODULE loaded into it. Class
     /// sources are concatenated into one generation-versioned module ("behaviors#N"):
-    /// the contract's CreateInstance resolves against the LAST loaded module, and Wren
-    /// forbids redefining a module variable - a fresh module name per generation gives
-    /// hot reload clean semantics (live instances of old generations keep running).
+    /// the contract's CreateInstance resolves against the LAST loaded module, and a
+    /// fresh module name per generation gives hot reload clean semantics (live
+    /// instances of old generations keep running).
     /// Plain class (no runtime deps) so headless tests drive it directly.
     class ScriptRunHost
     {
@@ -401,7 +401,7 @@ export namespace engine::script
         [[nodiscard]] bool EnsureClassLoaded(ScriptClass& scriptClass)
         {
             const StringView language = scriptClass.language.IsEmpty()
-                                            ? StringView(u8"wren")
+                                            ? StringView(u8"angelscript")
                                             : scriptClass.language.AsView();
             if (EnsureContext(language) == nullptr)
             {
@@ -448,7 +448,7 @@ export namespace engine::script
             {
                 // Carry the cooked bytecode too: a backend with a stable per-class bytecode (Luau)
                 // loads it instead of compiling the source (the player path, no compiler). Empty
-                // for source-only classes and backends without bytecode (Wren) - they compile.
+                // for source-only classes and backends without bytecode - they compile.
                 m_classSourceScratch.PushBack(BehaviorModuleClass{
                     loaded->sourceName.AsView(), loaded->source.AsView(),
                     Span<const byte>{loaded->bytecode.Data(), loaded->bytecode.Size()}});
@@ -668,8 +668,8 @@ export namespace engine::script
         /// Behavior messaging (P2 §3.4): QUEUE `on<Message>(args)` for EVERY enabled
         /// behavior of `target` that declares the handler. Reached from the `Entity::send`
         /// facade via the run binding's route. Delivery is DEFERRED (drained at the tick's
-        /// top level) because a send happens INSIDE a running script call and Wren forbids
-        /// re-entrant VM calls - so messages arrive later the same frame, never nested.
+        /// top level) because a send happens INSIDE a running script call and re-entrant
+        /// VM calls are unsafe - so messages arrive later the same frame, never nested.
         void EnqueueMessage(scene::EntityHandle target, StringView message,
                             Span<const Variant> args)
         {
@@ -707,7 +707,7 @@ export namespace engine::script
         }
 
         /// Drains queued messages at the tick's top level (no VM call is active here, so
-        /// InvokeHandler's wrenCall is safe). A handler may send again - those are drained
+        /// InvokeHandler's VM call is safe). A handler may send again - those are drained
         /// in the same pass, capped to break runaway send loops.
         void DrainMessages()
         {

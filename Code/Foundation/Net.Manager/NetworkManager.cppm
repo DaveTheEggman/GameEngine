@@ -3,7 +3,7 @@
 /// A NETWORKED ENDPOINT, owned per running game (a GameInstance): NetworkManager owns a live
 /// NetSession + RpcTable over an IDatagramSocket (real UDP or the sim), is driven each fixed step,
 /// and installs a script service so the `Net` facade can query the session and fire RPCs from
-/// Wren / AngelScript. NOT a subsystem - there is no once-per-context networking state, so an
+/// AngelScript / Luau. NOT a subsystem - there is no once-per-context networking state, so an
 /// endpoint lives with the instance that runs it (N instances = N independent endpoints). The Net
 /// facade resolves the CURRENT script context's endpoint, so each instance's script sees its own.
 

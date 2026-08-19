@@ -24,11 +24,8 @@ import foundation.physics;             // ContactKind/EntityContact (the contact
 import engine.physics;   // PhysicsSubsystem (Jolt worlds + interpolation)
 import engine.navigation; // NavigationSubsystem + script facade
 import foundation.input;               // the action model/runtime
-import engine.input;     // InputSubsystem + the Wren Input facade
+import engine.input;     // InputSubsystem + the Input facade
 import foundation.script;              // IScriptManager/Context (the game script)
-#ifdef OPTION_HAS_WREN
-import foundation.script.wren;         // the Wren backend (primary; toggle via OPTION_ENABLE_WREN)
-#endif
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript; // the AngelScript backend (second backend; OPTION_ENABLE_ANGELSCRIPT)
 #endif
@@ -174,10 +171,7 @@ namespace engine::runtime
         engine::ui::RegisterUiScriptFacade(); // Ui.* (owned by the UISubsystem)
         // Every built backend registers (batteries-included); a run resolves by the game script's
         // LANGUAGE - one gameplay context per run stays the locked rule. Each backend is independently
-        // toggleable (OPTION_ENABLE_WREN / _ANGELSCRIPT / _LUAU); all build on every platform, web included.
-#ifdef OPTION_HAS_WREN
-        foundation::script::wren::RegisterWrenScriptBackend();
-#endif
+        // toggleable (OPTION_ENABLE_ANGELSCRIPT / _LUAU); all build on every platform, web included.
 #ifdef OPTION_HAS_ANGELSCRIPT
         foundation::script::angelscript::RegisterAngelScriptBackend();
 #endif

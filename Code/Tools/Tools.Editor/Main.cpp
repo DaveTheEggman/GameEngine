@@ -78,11 +78,6 @@ import foundation.audio;
 import foundation.audio.resource;
 import audio.pipeline;
 import foundation.script;
-#ifdef OPTION_HAS_WREN
-import foundation.script.wren;
-import script.wren.pipeline;
-import editor.script.wren;
-#endif
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript;
 import script.angelscript.pipeline;
@@ -114,9 +109,6 @@ namespace
         pipeline::RegisterPipelineTypes();
         pipeline::RegisterAllBuilders(registry);
         // Per-language EDITOR-UI services (CodeEditView lexers; completion providers later).
-#ifdef OPTION_HAS_WREN
-        editor::RegisterWrenEditorUI();
-#endif
 #ifdef OPTION_HAS_ANGELSCRIPT
         editor::RegisterAngelScriptEditorUI();
 #endif
@@ -381,9 +373,6 @@ int main(int argc, char** argv)
         // §5). RegisterScriptEditor fans creators over backends that have a registered COOK, so the
         // cooks must be registered FIRST — RegisterAllBuilders (below) also registers them for the
         // cook service, but that runs later, so register them here too (idempotent by languageId).
-#ifdef OPTION_HAS_WREN
-        pipeline::RegisterWrenScriptCook();
-#endif
 #ifdef OPTION_HAS_ANGELSCRIPT
         pipeline::RegisterAngelScriptScriptCook();
 #endif

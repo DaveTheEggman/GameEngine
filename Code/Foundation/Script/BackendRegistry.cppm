@@ -4,7 +4,7 @@
 // registers itself here - {languageId, extensions, factory} - and every consumer
 // resolves through the registry by language or by the script file's extension. No
 // consumer names a backend type: adding AngelScript = link its library + one
-// registration call, exactly how the Wren backend is added.
+// registration call, exactly how a script backend is added.
 
 module;
 #include "Core/Prelude.h"
@@ -21,9 +21,9 @@ export namespace foundation::script
 {
     struct ScriptBackendDesc
     {
-        String languageId;            // canonical lowercase id: u8"wren", u8"angelscript"
-        String displayName;           // editor-facing: u8"Wren"
-        Array<String> fileExtensions; // lowercase, no dot: { u8"wren" }
+        String languageId;            // canonical lowercase id: u8"angelscript", u8"luau"
+        String displayName;           // editor-facing: u8"AngelScript"
+        Array<String> fileExtensions; // lowercase, no dot: { u8"as" }
         Function<RefPtr<IScriptManager>()> create;
     };
 

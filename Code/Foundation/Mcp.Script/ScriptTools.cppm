@@ -1,7 +1,7 @@
 // Foundation::Mcp.Script - `foundation.mcp.script`
 //
 // The scripting MCP tool contribution: script_api. Dumps the PER-BACKEND bound API - the exact
-// script-visible names and signatures a given language (Wren, AngelScript, ...) actually bound -
+// script-visible names and signatures a given language (AngelScript, Luau, ...) actually bound -
 // so an agent can write correct scripts instead of guessing. This is the reflection registry's
 // answer projected through a real backend: DescribeBoundApi says what a backend BOUND and how it
 // spells it (they differ per language), which is what a script author needs, not the C++ names.
@@ -122,10 +122,10 @@ export namespace foundation::mcp
         server.RegisterTool(
             u8"script_api",
             u8"The per-backend bound scripting API: every script-visible type and member a language "
-            u8"(Wren/AngelScript/...) actually binds, spelled the way scripts use it. Use it to write "
+            u8"(AngelScript/Luau/...) actually binds, spelled the way scripts use it. Use it to write "
             u8"correct scripts. Optional 'language' narrows to one backend.",
             SchemaBuilder()
-                .Str(u8"language", u8"backend language id (e.g. \"wren\", \"angelscript\"); default: all")
+                .Str(u8"language", u8"backend language id (e.g. \"angelscript\", \"luau\"); default: all")
                 .Build(),
             [](const JsonValue& args) -> Result<JsonValue, String>
             {

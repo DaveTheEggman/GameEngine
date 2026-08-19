@@ -101,7 +101,7 @@ export namespace foundation::script
 
     /// Step-debug seam. AngelScript implements it (suspension-based - see the
     /// AngelScriptDebugger in the backend impl unit; ScriptCapabilities::Debugger declared
-    /// and battery-certified). Wren stays absent (no official VM debug API). The editor UI
+    /// and battery-certified). The editor UI
     /// and the future remote transport drive only this contract.
     class IScriptDebugger
     {

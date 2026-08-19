@@ -1,7 +1,7 @@
 // engine.ui - the Ui.* script facade PROVEN end-to-end on both backends.
 //
 // The Ui facade is owned by the UISubsystem (the out-of-tree pattern foundation.net's Net facade
-// uses), NOT the neutral Foundation facade lib. This drives a real Wren / AngelScript VM: a fake
+// uses), NOT the neutral Foundation facade lib. This drives a real AngelScript VM: a fake
 // UiScriptBinding (standing in for the live UISubsystem screen tier) is installed as the context's
 // ui.runtime service, then a script pushes an overlay, drives its controls by id, binds a click
 // handler, and pops it; we read back what each host call recorded and fire the click delegate.
@@ -11,11 +11,11 @@
 import foundation.core;
 import engine.ui; // Ui / UiScriptBinding / InstallUiScriptService / RegisterUiScriptFacade
 import foundation.script;
-#ifdef OPTION_HAS_WREN
-import foundation.script.wren;
-#endif
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript;
+#endif
+#ifdef OPTION_HAS_LUAU
+import foundation.script.luau;
 #endif
 
 using namespace foundation::core;
@@ -110,38 +110,6 @@ namespace
     };
 }
 
-#ifdef OPTION_HAS_WREN
-TEST_CASE("ui-facade: Wren pushes an overlay, drives controls by id, binds + fires a click handler")
-{
-    RegisterCoreTypes();
-    engine::ui::RegisterUiScriptFacade();
-
-    RefPtr<IScriptManager> manager = wren::CreateScriptManager();
-    RegisterReflectedTypes(*manager);
-    RefPtr<IScriptContext> ctx = manager->CreateContext();
-
-    UiFake fake;
-    engine::ui::InstallUiScriptService(*ctx, fake.binding);
-
-    // Top-level Wren reaches the reflected facades in "main" directly (RegisterReflectedTypes emitted
-    // them). The click handler sets a module global we read back after firing the delegate.
-    const Status status = ctx->Load(u8"var clicked = false\n"
-                                    u8"var h = Ui.pushOverlay(Guid.new(17, 34))\n"
-                                    u8"Ui.setText(h, \"status\", \"Loading\")\n"
-                                    u8"Ui.setProgress(h, \"progress\", 0.5)\n"
-                                    u8"Ui.setVisible(h, \"spinner\", true)\n"
-                                    u8"Ui.onClick(h, \"cancel\", Fn.new { clicked = true })\n"
-                                    u8"Ui.popOverlay(h)\n",
-                                    u8"main");
-    REQUIRE(status.IsOk());
-
-    fake.CheckRecorded();
-    CHECK(ctx->GetGlobal(u8"clicked").Get<bool>() == false); // not fired yet
-    fake.FireClick();
-    CHECK(ctx->GetGlobal(u8"clicked").Get<bool>() == true); // the click handler ran
-}
-#endif // OPTION_HAS_WREN
-
 #ifdef OPTION_HAS_ANGELSCRIPT
 TEST_CASE("ui-facade: AngelScript pushes an overlay, drives controls by id, binds + fires a click")
 {
@@ -178,3 +146,36 @@ TEST_CASE("ui-facade: AngelScript pushes an overlay, drives controls by id, bind
     CHECK(ctx->GetGlobal(u8"clicked").Get<bool>() == true);
 }
 #endif // OPTION_HAS_ANGELSCRIPT
+
+#ifdef OPTION_HAS_LUAU
+TEST_CASE("ui-facade: Luau pushes an overlay, drives controls by id, binds + fires a click")
+{
+    RegisterCoreTypes();
+    engine::ui::RegisterUiScriptFacade();
+
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    UiFake fake;
+    engine::ui::InstallUiScriptService(*ctx, fake.binding);
+
+    // Luau: statics live on the type table (Ui.pushOverlay); the chunk runs at top level, so the
+    // click handler is a plain closure setting a global we read after firing (the delegate param is
+    // language-neutral - any callable shape is accepted).
+    const Status status = ctx->Load(u8"clicked = false\n"
+                                    u8"local h = Ui.pushOverlay(Guid.new(17, 34))\n"
+                                    u8"Ui.setText(h, \"status\", \"Loading\")\n"
+                                    u8"Ui.setProgress(h, \"progress\", 0.5)\n"
+                                    u8"Ui.setVisible(h, \"spinner\", true)\n"
+                                    u8"Ui.onClick(h, \"cancel\", function() clicked = true end)\n"
+                                    u8"Ui.popOverlay(h)\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+
+    fake.CheckRecorded();
+    CHECK(ctx->GetGlobal(u8"clicked").Get<bool>() == false);
+    fake.FireClick();
+    CHECK(ctx->GetGlobal(u8"clicked").Get<bool>() == true);
+}
+#endif // OPTION_HAS_LUAU

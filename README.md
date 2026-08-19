@@ -165,12 +165,12 @@ Code/
                   Render + RenderGraph, Materials, Shaders (DXC + WGSL cook),
                   Scene (ECS), Geometry, Model, Image, Texture, Fonts, VG (2D vector
                   graphics), UI (+ toolkit/runtime/viewport), Audio, Input, Physics,
-                  Particles, Net, Script (Wren + AngelScript + Luau), Content, Resource,
+                  Particles, Net, Script (AngelScript + Luau), Content, Resource,
                   VFS, Xml, Settings, Profiler, Shell (OS integration), Runtime
   Engine/         The assembled game runtime: DefaultApp, GameInstance, Player,
                   Project, per-subsystem engine bindings (Render/Scene/Audio/...)
   Pipeline/       Asset cook/build pipeline: importers, builders, and the per-language
-                  script cooks (Wren/AngelScript/Luau) behind one neutral registration root
+                  script cooks (AngelScript/Luau) behind one neutral registration root
   Integration/    Cross-subsystem composition (MCP agent host, physics<->script bridge, ...)
   Editor/         Editor libraries: Core (headless domain: project, registry, cook,
                   export), App (UI shell + project manager), per-subsystem editors
@@ -193,7 +193,7 @@ docs/               Design docs + platform guides
 - **DXC** - HLSL -> SPIR-V (runtime sidecar); **naga** + **tint** - the WGSL cook + validation toolchain
 - **JoltPhysics** - physics
 - **miniaudio** - audio
-- **Wren** + **AngelScript** + **Luau** - scripting backends
+- **AngelScript** + **Luau** - scripting backends
 - **Dear ImGui** - debug-UI extension
 - **stb / cgltf / ufbx / msdfgen** - fonts, images, glTF, FBX, MSDF font baking
 - **doctest** - unit tests

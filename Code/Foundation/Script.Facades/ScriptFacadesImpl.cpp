@@ -40,7 +40,7 @@ namespace foundation::script
         builder.Method<static_cast<void (Entity::*)(String) const>(&Entity::send)>("send");
         builder.Method<static_cast<void (Entity::*)(String, Variant) const>(&Entity::send)>(
             "send", {"name", "payload"});
-        builder.Constructor(); // Wren only materializes constructible foreign classes
+        builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
     REFLECT_MEMBERS(Log, "rtti::script")
@@ -73,7 +73,7 @@ namespace foundation::script
         builder.Method<&Scene::findByPath>("findByPath");
         // A computed property (parens-less): `scene.events` reads this scene's event-bus handle.
         builder.ComputedProperty<&Scene::eventsHandle>("events");
-        builder.Constructor(); // Wren only materializes constructible foreign classes
+        builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
     REFLECT_VALUE(SceneEvents, "rtti::script")
@@ -83,7 +83,7 @@ namespace foundation::script
         builder.Method<static_cast<void (SceneEvents::*)(String) const>(&SceneEvents::emit)>("emit");
         builder.Method<static_cast<void (SceneEvents::*)(String, Variant) const>(&SceneEvents::emit)>(
             "emit", {"name", "payload"});
-        builder.Constructor(); // Wren only materializes constructible foreign classes
+        builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
     core::Span<const core::StringView> BehaviorFacadeNames()
@@ -140,7 +140,7 @@ namespace foundation::script
         // Reserved contract-class names: a user's own script class MUST take these - the game
         // orchestrator is class `Game` (StartScript does CreateInstance("Game")), and the scene
         // tier is class `Level` (instantiated once per scene). A facade sharing either name would
-        // clash (AngelScript "Name conflict", Wren "import ... for <name>") and the user's class
+        // clash (AngelScript "Name conflict") and the user's class
         // could not compile. Refuse the registration. See docs/design/adding-facades.md.
         const StringView kReservedNames[] = {StringView(u8"Game"), StringView(u8"Level")};
         for (StringView reserved : kReservedNames)

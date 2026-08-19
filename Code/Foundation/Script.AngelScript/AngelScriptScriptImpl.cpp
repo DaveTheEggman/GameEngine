@@ -239,7 +239,7 @@ namespace foundation::script::angelscript
     }
 
     // A number, coerced into a Variant of the reflected type a callee expects
-    // (default f64, mirroring the Wren backend's marshalling currency).
+    // (default f64, the default marshalling currency).
     inline core::Variant CoerceNumber(double d, const core::TypeInfo* expected)
     {
         using namespace core;
@@ -841,13 +841,17 @@ namespace foundation::script::angelscript
 
         // ---- the from-scratch coroutine scheduler (one asIScriptContext each) ----
 
-        /// One live coroutine: its own execution context, the seconds still to wait, and
-        /// the owning behavior instance (AddRef'd) so CancelCoroutinesFor can drop by owner.
+        /// One live coroutine: its own execution context, the seconds still to wait, the owning
+        /// behavior instance (AddRef'd) so CancelCoroutinesFor can drop by owner, and the HOME
+        /// script context it was started from - so a resume from AdvanceCoroutines (outside any
+        /// script call) re-establishes CurrentScriptContext and the coroutine's facade calls
+        /// (scene.spawn, entity.send, ...) resolve the right per-context services.
         struct Coroutine
         {
             asIScriptContext* ctx = nullptr;
             core::f64 wait = 0.0;
             asIScriptObject* owner = nullptr;
+            IScriptContext* home = nullptr;
         };
 
         /// `startCoroutine(fn)`: spins up a dedicated context for the coroutine function
@@ -887,8 +891,10 @@ namespace foundation::script::angelscript
                 owner->AddRef();
             }
 
-            // Record BEFORE Execute so the `wait` host call can find it (by active ctx).
-            m_coroutines.PushBack(Coroutine{co, 0.0, owner});
+            // Record BEFORE Execute so the `wait` host call can find it (by active ctx). Capture
+            // the home context (this initial run is already inside the caller's ScriptCallScope;
+            // a resume from AdvanceCoroutines re-pushes it - see there).
+            m_coroutines.PushBack(Coroutine{co, 0.0, owner, CurrentScriptContext()});
             const int result = co->Execute();
             ResolveCoroutineExecution(co, result);
         }
@@ -932,10 +938,15 @@ namespace foundation::script::angelscript
             }
             for (asIScriptContext* ctx : m_dueScratch)
             {
-                if (FindCoroutine(ctx) < 0)
+                const int index = FindCoroutine(ctx);
+                if (index < 0)
                 {
                     continue;
                 } // a nested cancel removed it
+                // Re-establish the home script context: the resume runs outside any script call
+                // (from the run-host tick), so the coroutine's facade calls resolve per-context
+                // services (scene.spawn / entity.send) instead of no-opping on a null context.
+                ScriptCallScope scope(m_coroutines[static_cast<core::usize>(index)].home);
                 const int result = ctx->Execute();
                 ResolveCoroutineExecution(ctx, result);
             }
@@ -1071,10 +1082,22 @@ namespace foundation::script::angelscript
                 return core::Variant::From<core::i64>(
                     static_cast<core::i64>(gen->GetArgDWord(index)));
             }
-            if ((typeId & asTYPEID_OBJHANDLE) != 0 && TypeInfoForTypeId(typeId) != nullptr)
+            if (TypeInfoForTypeId(typeId) != nullptr && !IsFuncdefTypeId(typeId))
             {
-                const BoxedVariant* box =
-                    static_cast<const BoxedVariant*>(gen->GetArgObject(index));
+                // A reflected value (e.g. a component `Gadget@` from `.of`) boxed as our value type.
+                // Passed to a `?&in` sink (scene.events.emit / entity.send), AngelScript dereferences
+                // the handle and delivers the OBJECT by reference - WITHOUT the OBJHANDLE bit - so the
+                // arg-slot holds a pointer to the box; a by-value handle is the object direct.
+                const BoxedVariant* box = nullptr;
+                if (ArgIsInReference(gen, index))
+                {
+                    void* addr = gen->GetAddressOfArg(index);
+                    box = (addr != nullptr) ? *static_cast<const BoxedVariant* const*>(addr) : nullptr;
+                }
+                else
+                {
+                    box = static_cast<const BoxedVariant*>(gen->GetArgObject(index));
+                }
                 return (box != nullptr) ? box->value : core::Variant{};
             }
             // A funcdef handle (a delegate parameter): wrap the function into a script delegate.
@@ -1207,7 +1230,7 @@ namespace foundation::script::angelscript
 
         // Typed script storage (module global / finished call's return register)
         // -> engine Variant. Numbers surface uniformly as f64, strings as String,
-        // handles to OUR types as a copy of the boxed Variant (Wren parity).
+        // handles to OUR types as a copy of the boxed Variant.
         [[nodiscard]] core::Variant VariantFromTypedAddress(int typeId, void* address) const
         {
             if (address == nullptr)
@@ -1351,8 +1374,7 @@ namespace foundation::script::angelscript
             // can set, so a resource id / reflected value applies straight into it. A plain VALUE
             // member (`Type m`, OBJHANDLE clear) is owned by AngelScript, which lazily (re)constructs
             // it - a native slot write does not survive to the first script access - so we reject it
-            // and the caller guides the author to use a handle (see SetMemberField). Wren has no such
-            // split because its property setter runs in-VM.
+            // and the caller guides the author to use a handle (see SetMemberField).
             if ((typeId & asTYPEID_OBJHANDLE) != 0 && TypeInfoForTypeId(typeId) != nullptr)
             {
                 BoxedVariant** slot = static_cast<BoxedVariant**>(address);
@@ -2002,7 +2024,7 @@ namespace foundation::script::angelscript
             }
 
             // Methods. AngelScript overloads by full signature, so EVERY reflected
-            // overload registers distinctly (no Wren-style arity collapsing).
+            // overload registers distinctly (no arity collapsing).
             // Statics become global functions in a namespace named after the class
             // - script calls read `Float3::Dot(a, b)`.
             core::Array<core::String> usedStatics;
@@ -2925,7 +2947,7 @@ namespace foundation::script::angelscript
             }
 
             // The neutral property-apply path Invokes the setter as `<name>=` with one
-            // argument (the Wren `name=(v)` setter convention). AngelScript has no method
+            // argument (the setter convention). AngelScript has no method
             // by that name; its editor properties are plain member FIELDS. So a trailing
             // `=` with exactly one arg writes the same-named member field directly - the
             // "settable member" AngelScript exposes for harvested behavior properties.

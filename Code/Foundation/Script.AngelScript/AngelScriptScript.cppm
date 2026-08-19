@@ -15,7 +15,7 @@
 //  - Instance methods -> object methods: `box.Contains(p)`.
 //  - Static methods -> global functions in a NAMESPACE named after the class
 //    (AngelScript's documented stand-in for statics): `Float3::Dot(a, b)`.
-//  - Overloads register per exact signature (no arity-collapsing like Wren).
+//  - Overloads register per exact signature (no arity-collapsing).
 //  - Scalars map f32->float, f64->double, i32->int, u32->uint, i64->int64,
 //    u64->uint64 (+8/16-bit widths), bool->bool, core String<->script `string`.
 //
@@ -40,9 +40,9 @@ export namespace foundation::script::angelscript
 
     /// Registers AngelScript with the backend registry (scripting.md B1) - the ONE
     /// line that makes the language available; consumers resolve by extension
-    /// (u8"as") or language id (u8"angelscript"), never by backend type. Wren stays
-    /// the batteries-included default: a game/project opts in by calling this from
-    /// its entry point (exactly like registering extra subsystems).
+    /// (u8"as") or language id (u8"angelscript"), never by backend type. A game/project
+    /// opts in by calling this from its entry point (exactly like registering extra
+    /// subsystems).
     void RegisterAngelScriptBackend();
 
     /// Editor-cook seam: the raw `asIScriptEngine*` (as an opaque `void*`) behind a

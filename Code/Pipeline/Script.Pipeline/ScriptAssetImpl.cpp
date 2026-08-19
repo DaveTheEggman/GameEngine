@@ -24,6 +24,6 @@ namespace pipeline{
             .Attribute("category", String(u8"Scripting"))
             .Property<&ScriptClassAsset::language>("language")
             .PropAttribute("displayName", String(u8"Language"))
-            .PropAttribute("description", String(u8"Backend id (e.g. \"wren\", \"angelscript\")"));
+            .PropAttribute("description", String(u8"Backend id (e.g. \"angelscript\", \"luau\")"));
     }
 }

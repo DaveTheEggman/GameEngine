@@ -345,7 +345,7 @@ namespace engine::physics
         RegisterPhysicsComponentReflection(); // ensure component TypeData (incl `of`) is built first
 
         // Surface the physics COMPONENTS to script (OPTION 1: RigidBodyComponent.of(entity), ...):
-        // register them (both backends emit registry types), seed Wren emission roots (reachability),
+        // register them (both backends emit registry types), seed emission roots (reachability),
         // and make their class names import-visible in behavior preludes.
         const core::TypeInfo* components[] = {&core::TypeOf<RigidBodyComponent>(),
                                               &core::TypeOf<CharacterComponent>()};
@@ -358,7 +358,7 @@ namespace engine::physics
         foundation::script::RegisterExtraFacadeName(u8"CharacterComponent");
 
         // The scene-bound physics handle (ScenePhysics.of(scene)): reflect it, register it, seed the
-        // Wren emission root (nothing else reaches it), and make the class name prelude-visible.
+        // emission root (nothing else reaches it), and make the class name prelude-visible.
         RttiRegisterValue_ScenePhysics();
         GlobalTypeRegistry().Register(core::TypeOf<ScenePhysics>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<ScenePhysics>());

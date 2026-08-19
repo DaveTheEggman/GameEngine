@@ -209,7 +209,7 @@ namespace engine::audio
         builder.Method<&Audio::playOneShot3D>("playOneShot3D");
         builder.Method<&Audio::playCue>("playCue");
         builder.Method<&Audio::playMusic>("playMusic");
-        builder.Constructor(); // Wren only materializes constructible foreign classes
+        builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
     // The scene-bound audio handle: SceneAudio.of(scene).play(entity) / stop / pause / isPlaying /
@@ -223,19 +223,19 @@ namespace engine::audio
         builder.Method<&SceneAudio::isPlaying>("isPlaying", {"entity"});
         builder.Method<&SceneAudio::setClip>("setClip", {"entity", "resourceId"});
         builder.Method<&SceneAudio::of>("of", {"scene"});
-        builder.Constructor(); // Wren only materializes constructible foreign classes
+        builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
     void RegisterAudioScriptFacade()
     {
         RegisterAudioComponentReflection(); // ensure component TypeData (incl `of`) is built first
         GlobalTypeRegistry().Register(Audio::StaticType());
-        // So the Wren behavior/Level prelude imports `Audio` too (AngelScript binds by
+        // So the behavior/Level prelude imports `Audio` too (AngelScript binds by
         // registry). Without this only top-level `main`/Game scripts can see it. Idempotent.
         foundation::script::RegisterExtraFacadeName(u8"Audio");
 
         // Surface the audio SOURCE component to script (AudioSourceComponent.of(entity) - live
-        // volume/pitch/loop/...): register it, seed the Wren emission root, name it for the prelude.
+        // volume/pitch/loop/...): register it, seed the emission root, name it for the prelude.
         GlobalTypeRegistry().Register(core::TypeOf<AudioSourceComponent>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<AudioSourceComponent>());
         foundation::script::RegisterExtraFacadeName(u8"AudioSourceComponent");

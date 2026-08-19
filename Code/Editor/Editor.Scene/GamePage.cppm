@@ -217,7 +217,7 @@ export namespace editor
         [[nodiscard]] Span<const foundation::shell::InputEvent> Events() override;
     };
 
-    // Wren runtime faults during play surface as editor notices, not console-only lines.
+    // Script runtime faults during play surface as editor notices, not console-only lines.
     class GameScriptErrorSink final : public foundation::script::IScriptErrorHandler
     {
     public:

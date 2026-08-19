@@ -98,7 +98,6 @@ option(OPTION_EXTENSION_IMGUI  "Build the Dear ImGui debug-UI extension (extensi
 # Script backends are independently switchable; each defines OPTION_HAS_<backend> (presence macro,
 # guard C++ with `#ifdef`) when enabled. At least one must stay on. AngelScript additionally needs
 # its vendored lib to have built (reconciled after ThirdParty is added, before the backend subdirs).
-option(OPTION_ENABLE_WREN        "Build the Wren script backend" ON)
 option(OPTION_ENABLE_ANGELSCRIPT "Build the AngelScript script backend" ON)
 option(OPTION_ENABLE_LUAU        "Build the Luau script backend" ON)
 option(OPTION_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
@@ -150,7 +149,7 @@ set(BUILDSYSTEM_HOST_BIN_DIR "${CMAKE_SOURCE_DIR}/Bin/Debug/${BUILDSYSTEM_HOST_P
     CACHE PATH "Desktop Bin dir holding the native cook tools a cross (web) build shells out to")
 
 # Enable testing before any subdirectory so add_test() calls made by modules that
-# register their own Tests/ (e.g. Runtime, Script/Wren) are picked up by ctest.
+# register their own Tests/ (e.g. Runtime) are picked up by ctest.
 if(OPTION_BUILD_TESTS)
     enable_testing()
 endif()
@@ -381,21 +380,19 @@ if(OPTION_EXPERIMENTAL_GUI)
 endif()
 add_subdirectory(Code/Foundation/Script)
 # --- Script backends: independently switchable via OPTION_ENABLE_* (declared up top) -----------
-# All three OPTION_ENABLE_WREN/ANGELSCRIPT/LUAU flags are defined in the option block above. Only
-# AngelScript needs reconciling here: its vendored lib is conditional (may not build on a target),
-# so a requested-but-absent AngelScript flips OFF. Wren + Luau vendor unconditionally - nothing to
-# reconcile. Then enforce at-least-one and publish the OPTION_HAS_<backend> presence defines (C++
-# guards usage with #ifdef).
+# Both OPTION_ENABLE_ANGELSCRIPT/LUAU flags are defined in the option block above. Only AngelScript
+# needs reconciling here: its vendored lib is conditional (may not build on a target), so a requested-
+# but-absent AngelScript flips OFF. Luau vendors unconditionally - nothing to reconcile. Then enforce
+# at-least-one and publish the OPTION_HAS_<backend> presence defines (C++ guards usage with #ifdef).
 if(OPTION_ENABLE_ANGELSCRIPT AND NOT TARGET ThirdParty::AngelScript)
     message(STATUS "AngelScript backend requested but its vendored lib did not build - disabling OPTION_ENABLE_ANGELSCRIPT.")
     set(OPTION_ENABLE_ANGELSCRIPT OFF)
 endif()
-if(NOT OPTION_ENABLE_WREN AND NOT OPTION_ENABLE_ANGELSCRIPT AND NOT OPTION_ENABLE_LUAU)
-    message(FATAL_ERROR "All script backends are disabled; enable at least one of OPTION_ENABLE_WREN / OPTION_ENABLE_ANGELSCRIPT / OPTION_ENABLE_LUAU.")
+if(NOT OPTION_ENABLE_ANGELSCRIPT AND NOT OPTION_ENABLE_LUAU)
+    message(FATAL_ERROR "All script backends are disabled; enable at least one of OPTION_ENABLE_ANGELSCRIPT / OPTION_ENABLE_LUAU.")
 endif()
-# Presence macros (defined ONLY when enabled), so C++ guards read `#ifdef OPTION_HAS_WREN`.
+# Presence macros (defined ONLY when enabled), so C++ guards read `#ifdef OPTION_HAS_ANGELSCRIPT`.
 target_compile_definitions(policy INTERFACE
-    $<$<BOOL:${OPTION_ENABLE_WREN}>:OPTION_HAS_WREN>
     $<$<BOOL:${OPTION_ENABLE_ANGELSCRIPT}>:OPTION_HAS_ANGELSCRIPT>
     $<$<BOOL:${OPTION_ENABLE_LUAU}>:OPTION_HAS_LUAU>)
 
@@ -403,20 +400,12 @@ target_compile_definitions(policy INTERFACE
 # multi-backend test suites) lists ${SCRIPTLIB_*} in target_link_libraries and it resolves to the
 # real target when the backend is on, or to nothing when it is off - no per-site if() needed.
 # (The per-backend subdirs are gated whole, so they keep their explicit names.)
-set(SCRIPTLIB_WREN "")
 set(SCRIPTLIB_ANGELSCRIPT "")
 set(SCRIPTLIB_LUAU "")
-set(SCRIPTLIB_WREN_PIPELINE "")
 set(SCRIPTLIB_ANGELSCRIPT_PIPELINE "")
 set(SCRIPTLIB_LUAU_PIPELINE "")
-set(SCRIPTLIB_WREN_EDITOR "")
 set(SCRIPTLIB_ANGELSCRIPT_EDITOR "")
 set(SCRIPTLIB_LUAU_EDITOR "")
-if(OPTION_ENABLE_WREN)
-    set(SCRIPTLIB_WREN Foundation::Script.Wren)
-    set(SCRIPTLIB_WREN_PIPELINE Pipeline::Script.Wren)
-    set(SCRIPTLIB_WREN_EDITOR Editor::Script.Wren)
-endif()
 if(OPTION_ENABLE_ANGELSCRIPT)
     set(SCRIPTLIB_ANGELSCRIPT Foundation::Script.AngelScript)
     set(SCRIPTLIB_ANGELSCRIPT_PIPELINE Pipeline::Script.AngelScript)
@@ -428,9 +417,6 @@ if(OPTION_ENABLE_LUAU)
     set(SCRIPTLIB_LUAU_EDITOR Editor::Script.Luau)
 endif()
 
-if(OPTION_ENABLE_WREN)
-    add_subdirectory(Code/Foundation/Script.Wren)
-endif()
 if(OPTION_ENABLE_LUAU)
     add_subdirectory(Code/Foundation/Script.Luau)
 endif()
@@ -506,10 +492,6 @@ if(OPTION_BUILD_TOOLS)
     add_subdirectory(Code/Pipeline/ModelImporter) # top-level model import: model IR -> cooked geometry/material/texture/animation resources
     add_subdirectory(Code/Pipeline/Script.Pipeline)  # script class asset/builder/importer (cook; neutral)
     # Per-backend cook + editor-UI (lexer) - each gated on its OPTION_ENABLE_* flag.
-    if(OPTION_ENABLE_WREN)
-        add_subdirectory(Code/Pipeline/Script.Wren.Pipeline)  # Wren cook service
-        add_subdirectory(Code/Editor/Editor.Script.Wren)  # Wren editor-UI (CodeEditView lexers)
-    endif()
     if(OPTION_ENABLE_ANGELSCRIPT)
         add_subdirectory(Code/Pipeline/Script.AngelScript.Pipeline)  # AngelScript cook service
         add_subdirectory(Code/Editor/Editor.Script.AngelScript)  # AngelScript editor-UI (lexers)
@@ -594,7 +576,6 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Pipeline/Navigation.Pipeline.Tests             Pipeline::Navigation)
     util_test_suite(Code/Pipeline/Script.AngelScript.Pipeline.Tests     Pipeline::Script.AngelScript)
     util_test_suite(Code/Pipeline/Script.Pipeline.Tests                 Pipeline::Script)
-    util_test_suite(Code/Pipeline/Script.Wren.Pipeline.Tests            Pipeline::Script.Wren)
     util_test_suite(Code/Pipeline/Script.Luau.Pipeline.Tests            Pipeline::Script.Luau)
     util_test_suite(Code/Pipeline/Shaders.Pipeline.Tests                Pipeline::Shaders)
     util_test_suite(Code/Pipeline/Texture.Compression.Tests            Pipeline::Texture.Compression)
@@ -603,9 +584,9 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Pipeline/UI.Pipeline.Tests                     Pipeline::UI)
     util_test_suite(Code/Engine/Engine.Animation.Tests              Engine::Animation)
     util_test_suite(Code/Engine/Engine.Audio.Tests                  Engine::Audio)
-    # Monolithic: its one test file exercises all three backends, so it builds only when all three
+    # Monolithic: its one test file exercises both backends, so it builds only when both
     # are on (a subset config drops it; the default all-on CI config runs it).
-    if(OPTION_ENABLE_WREN AND OPTION_ENABLE_ANGELSCRIPT AND OPTION_ENABLE_LUAU)
+    if(OPTION_ENABLE_ANGELSCRIPT AND OPTION_ENABLE_LUAU)
         util_test_suite(Code/Engine/Engine.GameInstance.Tests Engine::GameInstance)
     endif()
     util_test_suite(Code/Engine/Engine.ScriptSurface.Tests Engine::ScriptSurface)
@@ -618,8 +599,8 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Engine/Engine.Input.Tests                  Engine::Input)
     util_test_suite(Code/Engine/Engine.Render.Tests                 Engine::Render)
     util_test_suite(Code/Engine/Engine.Scene.Tests                  Engine::Scene)
-    # Monolithic: one test file exercises all three backends -> build only when all three are on.
-    if(OPTION_ENABLE_WREN AND OPTION_ENABLE_ANGELSCRIPT AND OPTION_ENABLE_LUAU)
+    # Monolithic: one test file exercises both backends -> build only when both are on.
+    if(OPTION_ENABLE_ANGELSCRIPT AND OPTION_ENABLE_LUAU)
         util_test_suite(Code/Engine/Engine.Script.Tests Engine::Script)
     endif()
     util_test_suite(Code/Engine/Engine.UI.Tests                     Engine::UI)
@@ -649,7 +630,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Materials.Resource.Tests        Foundation::Materials.Resource)
     util_test_suite(Code/Foundation/Materials.Tests                 Foundation::Materials)
     util_test_suite(Code/Foundation/Model.Tests                     Foundation::Model)
-    util_test_suite(Code/Foundation/Net.Manager.Tests Foundation::Net.Manager)  # its script facade test (wren+as) is file-gated in the suite CMake
+    util_test_suite(Code/Foundation/Net.Manager.Tests Foundation::Net.Manager)  # its script facade test (as) is file-gated in the suite CMake
     util_test_suite(Code/Foundation/Net.Replication.Tests           Foundation::Net.Replication)
     util_test_suite(Code/Foundation/Net.Tests                       Foundation::Net)
     util_test_suite(Code/Foundation/Http.Tests                      Foundation::Http)
@@ -678,7 +659,6 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Script.AngelScript.Tests        Foundation::Script.AngelScript)
     util_test_suite(Code/Foundation/Script.Resource.Tests           Foundation::Script.Resource)
     util_test_suite(Code/Foundation/Script.Tests                    Foundation::Script)
-    util_test_suite(Code/Foundation/Script.Wren.Tests               Foundation::Script.Wren)
     util_test_suite(Code/Foundation/Script.Luau.Tests               Foundation::Script.Luau)
     util_test_suite(Code/Foundation/Settings.Tests                  Foundation::Settings)
     util_test_suite(Code/Foundation/Shaders.Resource.Tests          Foundation::Shaders.Resource)
@@ -709,13 +689,13 @@ if(OPTION_BUILD_TESTS)
 
     # Integration - cross-collection flow suites (Code/Integration/README.md). Tiered behind the
     # Integration. prefix: the fast dev loop runs module suites only; review/pre-push include these.
-    # JSON x scripting: the one test file uses wren + angelscript, so build it only when both are on.
-    if(OPTION_ENABLE_WREN AND OPTION_ENABLE_ANGELSCRIPT)
+    # JSON x scripting: the test file runs on angelscript + luau, so build it when either is on.
+    if(OPTION_ENABLE_ANGELSCRIPT OR OPTION_ENABLE_LUAU)
         util_test_suite(Code/Integration/Integration.Script            Foundation::Script)
     endif()
-    # Subsystem script FACADES (Net.*/Ui.* on wren + angelscript) - relocated here so the subsystem
+    # Subsystem script FACADES (Net.*/Ui.* on angelscript + luau) - relocated here so the subsystem
     # unit suites stay backend-neutral. Each backend leg is #ifdef-guarded; build if either is on.
-    if(OPTION_ENABLE_WREN OR OPTION_ENABLE_ANGELSCRIPT)
+    if(OPTION_ENABLE_ANGELSCRIPT OR OPTION_ENABLE_LUAU)
         util_test_suite(Code/Integration/Integration.ScriptFacades     Engine::UI)
     endif()
     util_test_suite(Code/Integration/Integration.Mcp                Editor::Mcp)  # golden: create->open->inspect a project

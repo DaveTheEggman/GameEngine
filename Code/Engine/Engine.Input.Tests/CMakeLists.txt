@@ -1,5 +1,5 @@
 # Engine::Input unit tests (doctest): the InputSubsystem (per-surface scene binding /
-# source overrides) + the per-context Wren Input facade. Split out of Foundation/Input.Tests so
+# source overrides) + the per-context Input facade. Split out of Foundation/Input.Tests so
 # the Foundation input tests don't link Engine. Includes the shared synthetic-device helpers from
 # the foundation test dir (header-only test scaffolding - no link dependency).
 
@@ -9,7 +9,7 @@ add_executable(Engine.Input.Tests
 
 target_link_libraries(Engine.Input.Tests PRIVATE
     Engine::Input Foundation::Input Foundation::Shell Foundation::Settings
-    Foundation::Script ${SCRIPTLIB_WREN} doctest::doctest)
+    Foundation::Script ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU} doctest::doctest)
 
 target_include_directories(Engine.Input.Tests PRIVATE
     ${CMAKE_SOURCE_DIR}/Code/Foundation/Input.Tests)  # InputTestSupport.h

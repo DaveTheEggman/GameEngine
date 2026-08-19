@@ -1,8 +1,8 @@
-// Mcp.Script.Tests - script_api against a real backend (Wren).
+// Mcp.Script.Tests - script_api against a real backend.
 //
 // The tool is backend-neutral (it reads whatever the host registered), so the test registers the
-// Wren backend, then drives script_api over the server and asserts it reports Wren with a bound
-// API. A second case narrows by language and checks the not-found tool error.
+// first available backend, then drives script_api over the server and asserts it reports that
+// backend with a bound API. A second case narrows by language and checks the not-found tool error.
 
 #include <doctest/doctest.h>
 
@@ -12,9 +12,7 @@ import foundation.core;
 import foundation.json;
 import foundation.mcp;
 import foundation.mcp.script;
-#if defined(OPTION_HAS_WREN)
-import foundation.script.wren;
-#elif defined(OPTION_HAS_ANGELSCRIPT)
+#if defined(OPTION_HAS_ANGELSCRIPT)
 import foundation.script.angelscript;
 #elif defined(OPTION_HAS_LUAU)
 import foundation.script.luau;
@@ -31,10 +29,7 @@ namespace
     // run against whichever single backend the build enabled (the tool is backend-neutral).
     [[nodiscard]] StringView RegisterSomeBackend()
     {
-#if defined(OPTION_HAS_WREN)
-        foundation::script::wren::RegisterWrenScriptBackend();
-        return StringView(u8"wren");
-#elif defined(OPTION_HAS_ANGELSCRIPT)
+#if defined(OPTION_HAS_ANGELSCRIPT)
         foundation::script::angelscript::RegisterAngelScriptBackend();
         return StringView(u8"angelscript");
 #else

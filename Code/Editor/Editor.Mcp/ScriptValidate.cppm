@@ -30,7 +30,6 @@ namespace editor::mcp::detail
     inline Array<String> ScriptLanguageChoices()
     {
         Array<String> choices;
-        choices.PushBack(String(u8"wren"));
         choices.PushBack(String(u8"angelscript"));
         choices.PushBack(String(u8"luau"));
         return choices;

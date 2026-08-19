@@ -19,7 +19,8 @@ add_dependencies(Tools.Mcp BuildStamp.Tick.Mcp)
 target_sources(Tools.Mcp PRIVATE ${MCP_BUILD_STAMP_CPP})
 target_link_libraries(Tools.Mcp PRIVATE
     Foundation::Mcp.Reflection Foundation::Mcp.Script Editor::Mcp
-    Engine::ScriptSurface ${SCRIPTLIB_LUAU} # complete script surface (all facades) + Luau backend
+    Engine::ScriptSurface # complete script surface (all facades); both script backends
+                          # (angelscript | luau) come transitively from Pipeline::Registration below
     Engine::SceneSurface # full manager set + component reflection (scene_validate payload parsing)
     Pipeline::Registration Pipeline::Core Pipeline::Importer # the write tools' builder/importer set
     Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)

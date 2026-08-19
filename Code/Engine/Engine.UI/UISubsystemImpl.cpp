@@ -61,7 +61,7 @@ namespace engine::ui
         builder.Method<&Ui::setProgress>("setProgress");
         builder.Method<&Ui::setVisible>("setVisible");
         builder.Method<&Ui::onClick>("onClick");
-        builder.Constructor(); // Wren only materializes constructible foreign classes
+        builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
     void RegisterUiScriptFacade()
@@ -71,7 +71,7 @@ namespace engine::ui
             RegisterUIComponentReflection(); // build component TypeData (incl `of`) first
             GlobalTypeRegistry().Register(Ui::StaticType());
             foundation::script::RegisterExtraFacadeName(
-                u8"Ui"); // Wren behavior prelude imports it (AngelScript binds by registry)
+                u8"Ui"); // behavior prelude imports it (AngelScript binds by registry)
 
             // The WORLD-space UI components -> script .of (live data: order/visible/interactive/
             // orientation/size/...). The app SCREEN tier (IScreenOverlay, loading screen) is NOT
@@ -225,7 +225,7 @@ namespace engine::ui
         {
             RefPtr<script::IScriptDelegate> held = Move(fn);
             // A click carries no payload - fire with no args. The handler is a natural void()
-            // (Wren `Fn.new { ... }`, AngelScript `Action(@onCancel)`); Invoke marshals against its
+            // (AngelScript `Action(@onCancel)`); Invoke marshals against its
             // actual arity, so a handler that does take args just gets none. Holding `held` keeps
             // the script fn GC-alive.
             button->OnClick.Add([held](ButtonBase*) { (void)held->Invoke(Span<Variant>{}); });

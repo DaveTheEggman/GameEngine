@@ -29,14 +29,14 @@ namespace engine::input
         builder.Method<&Input::pushSet>("pushSet");
         builder.Method<&Input::popSet>("popSet");
         builder.Method<&Input::enableSet>("enableSet");
-        // The Wren emitter only materializes CONSTRUCTIBLE types as foreign classes.
+        // Some backends only materialize CONSTRUCTIBLE types as foreign classes.
         builder.Constructor();
     }
 
     void RegisterInputScriptFacade()
     {
         GlobalTypeRegistry().Register(Input::StaticType());
-        // So the Wren behavior/Level prelude imports `Input` too (AngelScript binds by
+        // So the behavior/Level prelude imports `Input` too (AngelScript binds by
         // registry). Without this only top-level `main`/Game scripts can see it. Idempotent.
         foundation::script::RegisterExtraFacadeName(u8"Input");
     }

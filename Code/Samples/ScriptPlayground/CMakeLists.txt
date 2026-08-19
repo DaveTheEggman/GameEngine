@@ -1,5 +1,5 @@
 # ScriptPlayground - the foundation.script entity-behaviors P1 consumer proof: cubes driven
-# by Wren Mover/Spinner behaviors ticked by the ScriptSubsystem under simulation.
+# by AngelScript Mover/Spinner behaviors ticked by the ScriptSubsystem under simulation.
 add_executable(ScriptPlayground main.cpp)
 
 target_link_libraries(ScriptPlayground PRIVATE
@@ -15,7 +15,9 @@ target_link_libraries(ScriptPlayground PRIVATE
     Engine::Render
     Foundation::Geometry Foundation::Geometry.Resource
     Foundation::Materials Foundation::Materials.Resource
-    Foundation::Script Foundation::Script.Wren Foundation::Script.Resource
+    # Both backends (guarded aliases, empty when a backend is off) so --script= can pick either;
+    # the runtime registration itself comes from Engine::DefaultApp.
+    Foundation::Script ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU} Foundation::Script.Resource
     Foundation::Script.Facades Engine::Script
     Foundation::Policy)
 util_copy_sdl3_dll(ScriptPlayground)

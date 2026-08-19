@@ -1,5 +1,5 @@
 // Engine::Input tests - the ENGINE-level input surface: the InputSubsystem
-// (per-surface scene binding / source overrides) and the per-context Wren Input facade.
+// (per-surface scene binding / source overrides) and the per-context Input facade.
 //
 // Split out of Foundation/Input.Tests: these exercise engine.input (+ the script
 // backend), so they live in the Engine collection - Foundation must not link Engine. The
@@ -14,8 +14,11 @@ import foundation.shell;
 import foundation.input;
 import foundation.settings;
 import foundation.script;
-#ifdef OPTION_HAS_WREN
-import foundation.script.wren;
+#ifdef OPTION_HAS_ANGELSCRIPT
+import foundation.script.angelscript;
+#endif
+#ifdef OPTION_HAS_LUAU
+import foundation.script.luau;
 #endif
 import engine.input;
 
@@ -26,59 +29,85 @@ namespace shell = foundation::shell;
 
 #include "InputTestSupport.h"
 
-#ifdef OPTION_HAS_WREN
-TEST_CASE("input: the Wren Input facade resolves PER-CONTEXT services")
+#if defined(OPTION_HAS_ANGELSCRIPT) || defined(OPTION_HAS_LUAU)
+namespace
 {
-    engine::input::RegisterInputScriptFacade();
+    // The per-context Input-facade drive, parameterized by the backend's manager + its read/push
+    // scripts. Shared so AngelScript and Luau prove identical PER-CONTEXT service resolution.
+    void DrivePerContextInput(RefPtr<foundation::script::IScriptManager> manager,
+                              StringView readScript, StringView pushScript)
+    {
+        REQUIRE(manager.Get() != nullptr);
+        engine::input::RegisterInputScriptFacade();
 
-    // Two runtimes, two contexts - each script reads ITS OWN bound runtime (players /
-    // editor-vs-game). No process globals anywhere.
-    ActionRuntime runtimeA;
-    runtimeA.SetMap(MakeGameplayMap());
-    runtimeA.DisableSet(u8"Menu");
-    ActionRuntime runtimeB;
-    runtimeB.SetMap(MakeGameplayMap());
-    runtimeB.DisableSet(u8"Menu");
+        // Two runtimes, two contexts - each script reads ITS OWN bound runtime (players /
+        // editor-vs-game). No process globals anywhere.
+        ActionRuntime runtimeA;
+        runtimeA.SetMap(MakeGameplayMap());
+        runtimeA.DisableSet(u8"Menu");
+        ActionRuntime runtimeB;
+        runtimeB.SetMap(MakeGameplayMap());
+        runtimeB.DisableSet(u8"Menu");
 
-    FakeDevices devices;
-    devices.keyboard.Set(shell::KeyCode::Space, true);
-    devices.keyboard.Set(shell::KeyCode::W, true);
-    runtimeA.Update(devices, 1.0f / 60.0f); // A sees the press...
-    FakeDevices idle;
-    runtimeB.Update(idle, 1.0f / 60.0f); // ...B sees nothing
+        FakeDevices devices;
+        devices.keyboard.Set(shell::KeyCode::Space, true);
+        devices.keyboard.Set(shell::KeyCode::W, true);
+        runtimeA.Update(devices, 1.0f / 60.0f); // A sees the press...
+        FakeDevices idle;
+        runtimeB.Update(idle, 1.0f / 60.0f); // ...B sees nothing
 
-    RefPtr<foundation::script::IScriptManager> manager =
-        foundation::script::wren::CreateScriptManager();
-    foundation::script::RegisterReflectedTypes(*manager);
+        foundation::script::RegisterReflectedTypes(*manager);
 
-    RefPtr<foundation::script::IScriptContext> ctxA = manager->CreateContext();
-    RefPtr<foundation::script::IScriptContext> ctxB = manager->CreateContext();
-    RefPtr<foundation::script::IScriptContext> ctxNone = manager->CreateContext();
-    REQUIRE(ctxA.Get() != nullptr);
-    ctxA->SetService(foundation::input::kInputScriptService, &runtimeA);
-    ctxB->SetService(foundation::input::kInputScriptService, &runtimeB);
+        RefPtr<foundation::script::IScriptContext> ctxA = manager->CreateContext();
+        RefPtr<foundation::script::IScriptContext> ctxB = manager->CreateContext();
+        RefPtr<foundation::script::IScriptContext> ctxNone = manager->CreateContext();
+        REQUIRE(ctxA.Get() != nullptr);
+        ctxA->SetService(foundation::input::kInputScriptService, &runtimeA);
+        ctxB->SetService(foundation::input::kInputScriptService, &runtimeB);
 
-    const StringView script = u8"var Down = Input.isDown(\"Jump\")\n"
-                              u8"var MoveY = Input.valueY(\"Move\")\n";
-    REQUIRE(ctxA->Load(script, u8"main").IsOk());
-    CHECK(ctxA->GetGlobal(u8"Down").Get<bool>() == true);
-    CHECK(ctxA->GetGlobal(u8"MoveY").Get<f64>() == doctest::Approx(1.0));
+        REQUIRE(ctxA->Load(readScript, u8"main").IsOk());
+        CHECK(ctxA->GetGlobal(u8"Down").Get<bool>() == true);
+        CHECK(ctxA->GetGlobal(u8"MoveY").Get<f64>() == doctest::Approx(1.0));
 
-    REQUIRE(ctxB->Load(script, u8"main").IsOk());
-    CHECK(ctxB->GetGlobal(u8"Down").Get<bool>() == false); // B's runtime saw nothing
-    CHECK(ctxB->GetGlobal(u8"MoveY").Get<f64>() == doctest::Approx(0.0));
+        REQUIRE(ctxB->Load(readScript, u8"main").IsOk());
+        CHECK(ctxB->GetGlobal(u8"Down").Get<bool>() == false); // B's runtime saw nothing
+        CHECK(ctxB->GetGlobal(u8"MoveY").Get<f64>() == doctest::Approx(0.0));
 
-    // No service bound: released, never a crash.
-    REQUIRE(ctxNone->Load(script, u8"main").IsOk());
-    CHECK(ctxNone->GetGlobal(u8"Down").Get<bool>() == false);
+        // No service bound: released, never a crash.
+        REQUIRE(ctxNone->Load(readScript, u8"main").IsOk());
+        CHECK(ctxNone->GetGlobal(u8"Down").Get<bool>() == false);
 
-    // Script-driven exclusive push lands on the CONTEXT's runtime only.
-    runtimeA.EnableSet(u8"Menu");
-    REQUIRE(ctxA->Load(u8"Input.pushSet(\"Menu\")\n", u8"main").IsOk());
-    CHECK(runtimeA.ExclusiveDepth() == 1);
-    CHECK(runtimeB.ExclusiveDepth() == 0);
+        // Script-driven exclusive push lands on the CONTEXT's runtime only.
+        runtimeA.EnableSet(u8"Menu");
+        REQUIRE(ctxA->Load(pushScript, u8"main").IsOk());
+        CHECK(runtimeA.ExclusiveDepth() == 1);
+        CHECK(runtimeB.ExclusiveDepth() == 0);
+    }
 }
-#endif // OPTION_HAS_WREN
+#endif
+
+#ifdef OPTION_HAS_ANGELSCRIPT
+TEST_CASE("input: the Input facade resolves PER-CONTEXT services (AngelScript)")
+{
+    DrivePerContextInput(foundation::script::angelscript::CreateScriptManager(),
+                         u8"bool Down; double MoveY;\n"
+                         u8"void main() {\n"
+                         u8"  Down = Input::isDown(\"Jump\");\n"
+                         u8"  MoveY = Input::valueY(\"Move\");\n"
+                         u8"}\n",
+                         u8"void main() { Input::pushSet(\"Menu\"); }\n");
+}
+#endif // OPTION_HAS_ANGELSCRIPT
+
+#ifdef OPTION_HAS_LUAU
+TEST_CASE("input: the Input facade resolves PER-CONTEXT services (Luau)")
+{
+    DrivePerContextInput(foundation::script::CreateLuauScriptManager(),
+                         u8"Down = Input.isDown(\"Jump\")\n"
+                         u8"MoveY = Input.valueY(\"Move\")\n",
+                         u8"Input.pushSet(\"Menu\")\n");
+}
+#endif // OPTION_HAS_LUAU
 
 TEST_CASE("input.subsystem: the per-surface scene binding rides the source override")
 {

@@ -54,8 +54,8 @@ namespace foundation::core::detail
         T* object = static_cast<T*>(instance.Pointer());
         if constexpr (std::is_enum_v<M>)
         {
-            // An enum property crosses from script as its underlying INT (Wren has no enum type;
-            // AngelScript enums are int-backed), so accept an i64/f64 and cast - as well as a
+            // An enum property crosses from script as its underlying INT (script backends have no
+            // native enum type; AngelScript enums are int-backed), so accept an i64/f64 and cast - as well as a
             // properly-typed enum Variant. M is known here, so the cast is well-defined.
             if (const M* typed = value.TryGet<M>())
             {
@@ -1237,8 +1237,8 @@ namespace foundation::core::detail
         }
         else if constexpr (std::is_enum_v<Bare>)
         {
-            // An enum argument crosses from script as its underlying INT (no enum type in
-            // Wren/Lua; AngelScript enums are int-backed), so accept an i64/f64 and cast - as
+            // An enum argument crosses from script as its underlying INT (no native enum type in
+            // script backends; AngelScript enums are int-backed), so accept an i64/f64 and cast - as
             // well as a properly-typed enum Variant. Bare is known here, so the cast is well-
             // defined. Mirrors the property-setter coercion (PropertySet). Returns BY VALUE, so
             // decltype(auto) stays consistent across this branch.
@@ -1662,7 +1662,7 @@ export namespace foundation::core
         /// Reflect a method whose C++ body returns a Variant but whose DECLARED reflected return type
         /// is `ReturnAs` - a factory that hands back a runtime-typed handle (e.g. `RigidBody.of(entity)`
         /// returning a RESOLVE-mode ref whose dynamic type is the component). The declared return
-        /// drives AngelScript's static boxing; Wren wraps by the value's dynamic type. The dispatch
+        /// drives AngelScript's static boxing. The dispatch
         /// validates the returned Variant's runtime type equals `ReturnAs` (mismatch -> empty, never a
         /// type-confused handle). Composes with Variant::From<Variant> passthrough.
         template <auto Member, typename ReturnAs>

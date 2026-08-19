@@ -442,7 +442,7 @@ export namespace foundation::core
         }
 
         // The underlying integer of an ENUM-typed VALUE Variant (Type() reports an enum). Enums cross
-        // to script as their underlying int - Wren has no enum type, and an AngelScript enum is
+        // to script as their underlying int - script backends have no native enum type, and an AngelScript enum is
         // int-backed - so the backends read the value with this instead of a typed TryGet<E>() (which
         // they cannot spell without the C++ enum type). Reads the stored value by its byte width.
         [[nodiscard]] i64 AsEnumInt() const noexcept

@@ -7,7 +7,7 @@
 // type registration flow, load/compile/runtime error reporting through the handler,
 // Variant marshalling both ways, script-class instantiation + method dispatch, context
 // isolation, services, and GC hooks. Reflected-type EMISSION (foreign classes for
-// engine types) is certified separately per backend by porting the Wren reflected-type
+// engine types) is certified separately per backend by porting the reflected-type
 // suite - class syntax differs too much per language to share source.
 #pragma once
 
@@ -125,7 +125,7 @@ namespace foundation::script::conformance
         // Optional (certified only when the backend declares the Delegates capability):
         // source that creates a global `signal` of the native DelegateSignal type and
         // subscribes a function computing value * 2 (via the backend's own callable syntax -
-        // a Wren fn/closure, an AngelScript funcdef handle).
+        // e.g. an AngelScript funcdef handle).
         StringView delegateModule;
         // Optional overload-contract module: constructs a global `over` of the native Overloads
         // type and computes module globals `OP0 = over.ping()` (-> 1), `OP1 = over.ping(5)` (-> 105,
@@ -217,7 +217,7 @@ namespace foundation::script::conformance
 
         // --- script classes: construct with args, invoke methods, state persists.
         // NOTE the contract does NOT promise a later Load preserves an earlier load's
-        // globals (Wren replaces the module) - only that live ScriptObjects survive. ---
+        // globals (some backends replace the module) - only that live ScriptObjects survive. ---
         CHECK(context->Load(dialect.counterClass, u8"conformance.counter").IsOk());
         RefPtr<ScriptObject> counter;
         {
@@ -396,7 +396,7 @@ namespace foundation::script::conformance
             manager->RegisterType(DelegateSignal::StaticType()); // late registration is supported
             RefPtr<IScriptContext> ctx = manager->CreateContext();
             REQUIRE(ctx.Get() != nullptr);
-            // Reflected foreign types live in the "main" module (Wren); load there so the
+            // Some backends scope reflected foreign types to the "main" module; load there so the
             // script can see DelegateSignal. AngelScript registers types engine-globally, so
             // the chunk name is immaterial to it.
             CHECK(ctx->Load(dialect.delegateModule, u8"main").IsOk());

@@ -169,7 +169,7 @@ namespace engine::navigation
         RegisterNavigationComponentReflection(); // component TypeData (incl `of`) built first
 
         // Surface NavAgentComponent to script (NavAgent.of(entity).navigate(...)): register it,
-        // seed the Wren emission root (reachability), and make the class name prelude-visible.
+        // seed the emission root (reachability), and make the class name prelude-visible.
         GlobalTypeRegistry().Register(TypeOf<NavAgentComponent>());
         foundation::script::RegisterExtraScriptRootType(&TypeOf<NavAgentComponent>());
         foundation::script::RegisterExtraFacadeName(u8"NavAgentComponent");

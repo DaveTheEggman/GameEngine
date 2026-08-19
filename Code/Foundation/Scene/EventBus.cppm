@@ -8,7 +8,7 @@
 // Delivery is DEFERRED: Publish enqueues; Drain (called at the scene tick's top level, no VM call
 // active) delivers every queued event to its subscribers IN SUBSCRIPTION ORDER. A handler may
 // Publish again - those cascade in the SAME Drain, bounded to kMaxDrainPasses to break a runaway
-// loop. Payload is a Variant - the one currency that also crosses C++<->script and Wren<->AngelScript.
+// loop. Payload is a Variant - the one currency that also crosses C++<->script and between backends.
 
 module;
 #include "Core/Prelude.h"

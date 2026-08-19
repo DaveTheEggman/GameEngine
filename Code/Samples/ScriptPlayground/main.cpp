@@ -1,5 +1,7 @@
 // ScriptPlayground - the foundation.script entity-behaviors P1 consumer proof: a scene of
-// cubes carrying WREN BEHAVIORS ticked by the ScriptSubsystem under simulation. Two
+// cubes carrying SCRIPT BEHAVIORS (AngelScript or Luau, chosen with --script=<lang>) ticked by
+// the ScriptSubsystem under simulation. Both behaviors ship a source in EACH language; the run
+// resolves the context by the ScriptClass language, proving the model is backend-neutral. Two
 // behaviors demonstrate the model end-to-end:
 //   * Mover  - reads a `speed` float property + a `target` entity property; walks toward
 //              the target (or drifts +X when unset), using the `entity` facade's
@@ -15,6 +17,8 @@
 // DefaultApplication ScriptSubsystem).
 //
 // Fly with WASD / hold RMB to look. No input needed - the cubes move themselves.
+
+#include <cstring>
 
 #include "Core/Prelude.h"
 #include "Runtime.Client/AppMain.h"
@@ -55,56 +59,90 @@ using core::f32;
 namespace
 {
     // ---- the two behavior classes (the cook harvests these `static properties`; here
-    // we build the metadata by hand to match, since the sample links no cooker) ----
+    // we build the ScriptClass metadata by hand, since the sample links no cooker) ----
 
+    // AngelScript behaviors. The harvested editor properties are plain public member fields (the
+    // neutral property-apply writes `speed`/`target` by name); handlers are onStart/onUpdate. The
+    // engine registers no sqrt, so the target-follow eases toward the goal (step scaled by distance)
+    // rather than moving at a normalized constant speed - visually a smooth approach either way.
     constexpr core::StringView kMoverSource =
-        u8"import \"main\" for Float3\n"
         u8"class Mover {\n"
-        u8"    static properties { {\n"
-        u8"        \"speed\":  [\"float\", 2.0, \"units per second\"],\n"
-        u8"        \"target\": [\"entity\", null, \"walk toward this entity\"],\n"
-        u8"    } }\n"
-        u8"    construct new(entity) {\n"
-        u8"        _entity = entity\n"
-        u8"        _speed = 2.0\n"
-        u8"        _target = null\n"
-        u8"    }\n"
-        u8"    speed=(v) { _speed = v }\n"
-        u8"    target=(v) { _target = v }\n"
-        u8"    onStart() { Log.info(\"Mover %(_entity.name()) started\") }\n"
-        u8"    onUpdate(dt) {\n"
-        u8"        var p = _entity.position()\n"
-        u8"        if (_target != null) {\n"
-        u8"            var t = _target.worldPosition()\n"
-        u8"            var dx = t.x - p.x\n"
-        u8"            var dz = t.z - p.z\n"
-        u8"            var len = (dx * dx + dz * dz).sqrt\n"
-        u8"            if (len > 0.05) {\n"
-        u8"                _entity.setPosition(p.x + dx / len * _speed * dt, p.y,\n"
-        u8"                    p.z + dz / len * _speed * dt)\n"
-        u8"            }\n"
+        u8"    Entity@ self;\n"
+        u8"    float speed;\n"
+        u8"    Entity@ target;\n"
+        u8"    Mover(Entity@ entity) { @self = entity; speed = 2.0f; @target = null; }\n"
+        u8"    void onStart() { Log::info(\"Mover \" + self.name() + \" started\"); }\n"
+        u8"    void onUpdate(double dt) {\n"
+        u8"        float step = speed * float(dt);\n"
+        u8"        Float3 p = self.position();\n"
+        u8"        if (target !is null) {\n"
+        u8"            Float3 t = target.worldPosition();\n"
+        u8"            self.setPosition(p.x + (t.x - p.x) * step, p.y, p.z + (t.z - p.z) * step);\n"
         u8"        } else {\n"
-        u8"            _entity.setPosition(p.x + _speed * dt, p.y, p.z)\n"
+        u8"            self.setPosition(p.x + step, p.y, p.z);\n"
         u8"        }\n"
         u8"    }\n"
         u8"}\n";
 
     constexpr core::StringView kSpinnerSource =
         u8"class Spinner {\n"
-        u8"    static properties { {\n"
-        u8"        \"speed\": [\"float\", 90.0, \"degrees per second\"],\n"
-        u8"    } }\n"
-        u8"    construct new(entity) {\n"
-        u8"        _entity = entity\n"
-        u8"        _speed = 90.0\n"
-        u8"        _angle = 0.0\n"
-        u8"    }\n"
-        u8"    speed=(v) { _speed = v }\n"
-        u8"    onUpdate(dt) {\n"
-        u8"        _angle = _angle + _speed * dt\n"
-        u8"        _entity.setRotationEuler(0, _angle, 0)\n"
+        u8"    Entity@ self;\n"
+        u8"    float speed;\n"
+        u8"    float angle;\n"
+        u8"    Spinner(Entity@ entity) { @self = entity; speed = 90.0f; angle = 0.0f; }\n"
+        u8"    void onUpdate(double dt) {\n"
+        u8"        angle = angle + speed * float(dt);\n"
+        u8"        self.setRotationEuler(0.0f, angle, 0.0f);\n"
         u8"    }\n"
         u8"}\n";
+
+    // The SAME two behaviors in Luau (statics/methods via `:`, the entity facade is the shared
+    // reflected surface). The neutral property-apply writes `speed`/`target` into the instance
+    // table after construction, exactly as the AngelScript members are written by name.
+    constexpr core::StringView kMoverSourceLuau =
+        u8"Mover = {}\n"
+        u8"Mover.__index = Mover\n"
+        u8"function Mover.new(entity)\n"
+        u8"    local self = setmetatable({}, Mover)\n"
+        u8"    self.entity = entity\n"
+        u8"    self.speed = 2.0\n"
+        u8"    self.target = nil\n"
+        u8"    return self\n"
+        u8"end\n"
+        u8"function Mover:onStart()\n"
+        u8"    Log.info(\"Mover \" .. self.entity:name() .. \" started\")\n"
+        u8"end\n"
+        u8"function Mover:onUpdate(dt)\n"
+        u8"    local step = self.speed * dt\n"
+        u8"    local p = self.entity:position()\n"
+        u8"    if self.target ~= nil then\n"
+        u8"        local t = self.target:worldPosition()\n"
+        u8"        self.entity:setPosition(p.x + (t.x - p.x) * step, p.y, p.z + (t.z - p.z) * step)\n"
+        u8"    else\n"
+        u8"        self.entity:setPosition(p.x + step, p.y, p.z)\n"
+        u8"    end\n"
+        u8"end\n";
+
+    constexpr core::StringView kSpinnerSourceLuau =
+        u8"Spinner = {}\n"
+        u8"Spinner.__index = Spinner\n"
+        u8"function Spinner.new(entity)\n"
+        u8"    local self = setmetatable({}, Spinner)\n"
+        u8"    self.entity = entity\n"
+        u8"    self.speed = 90.0\n"
+        u8"    self.angle = 0.0\n"
+        u8"    return self\n"
+        u8"end\n"
+        u8"function Spinner:onUpdate(dt)\n"
+        u8"    self.angle = self.angle + self.speed * dt\n"
+        u8"    self.entity:setRotationEuler(0.0, self.angle, 0.0)\n"
+        u8"end\n";
+
+    // The behavior backend chosen at launch (--script=angelscript|luau; default angelscript). Set
+    // by main() before the scene is built; read by MakeMover/MakeSpinner. Every built backend is
+    // registered by DefaultApplication, so the run resolves this language with no sample-side setup.
+    core::String g_scriptLanguage = core::String(u8"angelscript");
+    [[nodiscard]] bool UseLuau() { return g_scriptLanguage.AsView() == core::StringView(u8"luau"); }
 
     [[nodiscard]] script::ScriptPropertyDesc FloatProp(core::StringView name, f32 value,
                                                        core::StringView description)
@@ -122,9 +160,9 @@ namespace
     [[nodiscard]] core::RefPtr<script::ScriptClass> MakeMover()
     {
         auto cls = core::MakeRef<script::ScriptClass>(core::DefaultAllocator());
-        cls->language = core::String(u8"wren");
+        cls->language = g_scriptLanguage;
         cls->className = core::String(u8"Mover");
-        cls->source = core::String(kMoverSource);
+        cls->source = core::String(UseLuau() ? kMoverSourceLuau : kMoverSource);
         cls->properties.PushBack(FloatProp(u8"speed", 2.0f, u8"units per second"));
         script::ScriptPropertyDesc target;
         target.name = core::String(u8"target");
@@ -141,9 +179,9 @@ namespace
     [[nodiscard]] core::RefPtr<script::ScriptClass> MakeSpinner()
     {
         auto cls = core::MakeRef<script::ScriptClass>(core::DefaultAllocator());
-        cls->language = core::String(u8"wren");
+        cls->language = g_scriptLanguage;
         cls->className = core::String(u8"Spinner");
-        cls->source = core::String(kSpinnerSource);
+        cls->source = core::String(UseLuau() ? kSpinnerSourceLuau : kSpinnerSource);
         cls->properties.PushBack(FloatProp(u8"speed", 90.0f, u8"degrees per second"));
         cls->handlers.PushBack(core::String(u8"onUpdate"));
         cls->BuildProfileName();
@@ -187,8 +225,11 @@ namespace
 
             m_scene->Start();
             m_scene->SetSimulationEnabled(true);
-            core::ConsoleWrite(u8"ScriptPlayground: cubes driven by Wren Mover/Spinner "
-                               u8"behaviors. WASD/RMB fly.\n");
+            core::ConsoleWrite(UseLuau()
+                                   ? u8"ScriptPlayground: cubes driven by LUAU Mover/Spinner "
+                                     u8"behaviors. WASD/RMB fly.\n"
+                                   : u8"ScriptPlayground: cubes driven by ANGELSCRIPT Mover/Spinner "
+                                     u8"behaviors. WASD/RMB fly.\n");
         }
 
         void OnUpdate(runtime::IApplicationHost& host, f32 dt) override
@@ -323,4 +364,40 @@ namespace
     };
 }
 
+// A custom entry (not APP_MAIN) so the sample can read --script=<lang> before the app runs; the
+// rest mirrors the desktop APP_MAIN body. The web build has no argv, so it keeps APP_MAIN + the
+// default (angelscript) backend.
+#ifdef PLATFORM_WEB
 APP_MAIN(ScriptApp)
+#else
+int main(int argc, char** argv)
+{
+    // --script=angelscript|luau selects the behavior backend (default angelscript). Unknown values
+    // are ignored (the default stands); graphics args (--gpu=...) are still parsed below.
+    for (int i = 1; i < argc; ++i)
+    {
+        constexpr const char* kFlag = "--script=";
+        const std::size_t flagLen = std::strlen(kFlag);
+        if (std::strncmp(argv[i], kFlag, flagLen) == 0)
+        {
+            const core::StringView requested(
+                reinterpret_cast<const core::utf8char*>(argv[i] + flagLen));
+            if (requested == core::StringView(u8"luau") ||
+                requested == core::StringView(u8"angelscript"))
+            {
+                g_scriptLanguage = core::String(requested);
+            }
+        }
+    }
+
+    static core::ConsoleSink appConsoleSink;
+    core::GlobalLogger().AddSink(&appConsoleSink);
+    auto shell = shell::CreateShell();
+    graphics::GraphicsDeviceDesc appGpuDesc{};
+    appGpuDesc.backend = graphics::SelectBackendFromArguments(argc, argv);
+    auto appGpu = graphics::CreateGraphicsDevice(appGpuDesc);
+    graphics::GraphicsDevice* appDevice = appGpu.HasValue() ? appGpu.Value().Get() : nullptr;
+    ScriptApp app;
+    return runtime::RunApplication(app, *shell, appDevice);
+}
+#endif

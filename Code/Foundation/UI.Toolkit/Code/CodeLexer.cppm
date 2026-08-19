@@ -7,7 +7,7 @@
 // converge (usually one line), lazily up to the last visible line.
 //
 // Implementations live beside this file: CodeHighlighter.cpp (the incremental cache),
-// CLikeLexer.cpp (the configurable scanner behind Wren/AngelScript/HLSL), XmlLexer.cpp, and
+// CLikeLexer.cpp (the configurable scanner behind AngelScript/Luau/HLSL), XmlLexer.cpp, and
 // CodeLexerFactory.cpp (language-id mapping + the keyword tables).
 
 module;
@@ -108,14 +108,14 @@ export namespace foundation::ui::toolkit
         u64 m_lexLineCalls = 0;
     };
 
-    // ---- the configurable C-like lexer (Wren / AngelScript / HLSL) --------------------------
+    // ---- the configurable C-like lexer (AngelScript / HLSL) --------------------------
 
     struct CLikeLexerSpec
     {
         Span<const StringView> keywords;
         Span<const StringView> types;
-        bool nestedBlockComments = false; // Wren: /* */ nests
-        bool tripleQuotedStrings = false; // Wren raw strings + AngelScript heredocs (""" ... """)
+        bool nestedBlockComments = false; // nested block comments: /* */ nests
+        bool tripleQuotedStrings = false; // AngelScript heredocs (""" ... """)
         bool hashPreprocessorLines = false; // HLSL: a line whose first glyph is '#'
         bool charLiterals = false;          // 'x' (AngelScript, HLSL)
     };
@@ -179,8 +179,8 @@ export namespace foundation::ui::toolkit
     // ---- language registry -------------------------------------------------------------------
 
     /// Language-id -> lexer-factory registry. TOOLKIT SHIPS NO LANGUAGE TABLES: the modules
-    /// that OWN a language register here (editor.script registers "wren" and
-    /// "angelscript" beside the page; the shader page will bring "hlsl") - the same layering
+    /// that OWN a language register here (editor.script registers "angelscript" and
+    /// "luau" beside the page; the shader page will bring "hlsl") - the same layering
     /// as ICompletionProvider, where reflection-fed providers plug in from outside. Pages
     /// with static knowledge (the XML document page) construct their lexer directly instead.
     /// Ids are ASCII case-insensitive; Create returns null for unknown ids (unstyled text).
