@@ -345,7 +345,15 @@ the out-of-tree pattern the UI surface follows: **`engine.ui.script` installs it
 (screen-tier root + a scene->root resolver + the `ScreenStack`); `run.ui()`/`run.pushScreen()` resolve
 it. Foundation `ScriptRuntimeBinding` is NOT touched - no `sceneUiRoot`/`screenUiRoot` slots.
 
-OPEN (user to pick): `scene.ui` is the one piece that would sit on the FOUNDATION `Scene` facade (like
-`scene.spawn`). Either (a) a `ScriptRuntimeBinding` `sceneUiRoot` hook exactly parallel to `spawnPrefab`
-(one UI-agnostic slot; keeps `handle.ui` on any scene), or (b) drop it and reach the scene root engine-
-side via `run.sceneUi()` on the engine service (foundation fully untouched). Recommendation: (b).
+OPEN (user to pick) - scene UI is INHERENTLY SCENE-SCOPED (a run owns a SceneManager GROUP; multiple
+scenes can be live, so a no-arg "current scene" is undefined - the caller must name WHICH scene). Two
+scene-scoped shapes:
+- **(a) `scene.ui` on the foundation `Scene` handle** - ergonomic (`self.scene.ui.findLabel(...)`), via a
+  `sceneUiRoot` `ScriptRuntimeBinding` hook that is the EXACT parallel to `scene.spawn`/`spawnPrefab`
+  (already a foundation `Scene`-facade method reaching an engine capability through a hook - this is the
+  RIGHT use, distinct from routing the whole binding there). One UI-agnostic slot.
+- **(a') `run.sceneUi(scene)`** - an engine method you pass the scene handle to; engine service, foundation
+  fully untouched, but clunkier (`run.sceneUi(self.scene)`).
+The SCREEN tier (`run.ui()`/`run.pushScreen`) uses the engine service either way. Recommendation: (a) -
+scene-scoped, ergonomic, the `scene.spawn` twin. (Earlier "(b) `run.sceneUi()` = current scene" was WRONG
+- ambiguous with multiple live scenes.)
