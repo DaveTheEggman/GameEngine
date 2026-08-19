@@ -11,6 +11,7 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
+#include <algorithm> // std::min / std::max - libstdc++ leaks these in, the MSVC STL does not
 #include <cmath>
 #include <cstring>
 
