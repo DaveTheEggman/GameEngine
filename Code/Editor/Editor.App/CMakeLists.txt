@@ -23,6 +23,7 @@ target_sources(Editor.App
         SettingsDialogImpl.cpp
         EditorIconsImpl.cpp
         ToolPanelImpl.cpp
+        ContainerListEditorImpl.cpp
     PUBLIC
         FILE_SET editorapp_modules TYPE CXX_MODULES FILES
             Layout.cppm
@@ -41,6 +42,7 @@ target_sources(Editor.App
             PreferencesDialog.cppm
             EditorIcons.cppm
             AssetPickerSlot.cppm
+            ContainerListEditor.cppm
             AssetDragData.cppm
             ProjectManagerView.cppm
             Shell.cppm

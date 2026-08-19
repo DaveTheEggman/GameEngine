@@ -24,6 +24,7 @@ export import :settings_dialog;
 export import :preferences_dialog;
 export import :editor_icons;
     export import :asset_picker_slot;
+    export import :container_list_editor;
 export import :asset_drag_data;
 export import :project_manager_view;
 export import :shell;

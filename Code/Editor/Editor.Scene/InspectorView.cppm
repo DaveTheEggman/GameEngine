@@ -280,33 +280,10 @@ export namespace editor
         RefPtr<ui::View> CreateEditorView() override;
     };
 
-    // ui::IconButton + ui::AssetPickerSlot are the shared UI controls (ui::Controls); the
-    // list editor below composes them.
-
-    // The GENERIC reflected list editor: ONE grid row whose editor view is a header (add icon, top
-    // right) over a column of slot rows (an AssetPickerSlot that fills + move-up / move-down / remove
-    // icon buttons). Same callback shape as MaterialSlotsEditor but generic + icon-driven; the
-    // inspector wires the callbacks to the reflection MutateComponent + the type-filtered asset picker.
-    class ContainerListEditor final : public ui::toolkit::PropertyEditor
-    {
-        RTTI_OBJECT(ContainerListEditor, ui::toolkit::PropertyEditor)
-    public:
-        Function<void(usize)> OnPickSlot;
-        Function<void(usize)> OnRemoveSlot;
-        Function<void(usize, bool)> OnMoveSlot; // true = up
-        Function<void()> OnAdd;
-        Array<String> slotNames; // per-slot display text, set before the row builds
-
-        ContainerListEditor(StringView name, StringView category)
-            : ui::toolkit::PropertyEditor(name, category)
-        {
-        }
-
-        void RefreshView() override {}
-
-    protected:
-        RefPtr<ui::View> CreateEditorView() override;
-    };
+    // The generic list-of-asset-slots editor (add icon + AssetPickerSlot rows with move/remove) now
+    // lives in the shared editor.app layer as editor::app::ContainerListEditor, so bespoke asset pages
+    // reuse the identical widget. Brought into this namespace below for the inspector's use sites.
+    using editor::app::ContainerListEditor;
 
     class SceneInspectorView : public ui::ViewGroup
     {
@@ -828,6 +805,6 @@ export namespace editor
     RTTI_DEFINE_OBJECT(ResourceRefEditor, "rtti::editor::editor")
     RTTI_DEFINE_OBJECT(NoticeEditor, "rtti::editor::editor")
     RTTI_DEFINE_OBJECT(CollisionMatrixEditor, "rtti::editor::editor")
-    RTTI_DEFINE_OBJECT(ContainerListEditor, "rtti::editor::editor")
+    // ContainerListEditor's RTTI define moved with the class to editor.app (ContainerListEditorImpl.cpp).
     RTTI_DEFINE_OBJECT(SceneInspectorView, "rtti::editor::editor")
 }
