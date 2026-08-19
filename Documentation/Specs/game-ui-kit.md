@@ -74,12 +74,14 @@ Three pieces, at three layers:
    (no scene/render/script deps). Links `Foundation::UI` (+ `Foundation::Shell` ONLY if it reads gamepad
    directly - preferably it stays input-source-agnostic and the host feeds navigation, mirroring
    `foundation.ui.shell`). CMake template = `Code/Foundation/UI.Toolkit/CMakeLists.txt`.
-2. **CORE View reflection** (NEW): `REFLECT_MEMBERS` on the CORE control surface + the typed finders, in an
-   implementation unit (`UiReflectionImpl.cpp`, GCC hygiene) - either in `foundation.ui` or a thin
-   `foundation.ui.script` lib (OPEN Q6). Foundation gains no script/backend dep beyond reflection (which
-   is already Core).
+2. **`engine.ui.script`** (NEW, ENGINE-level - see the CORRECTION at the end overriding Fable's Q6): the
+   UI SCRIPT surface as an out-of-tree facade module consuming `engine.ui`. It owns the `REFLECT_MEMBERS`
+   of the CORE control surface + the typed finders (impl units, GCC hygiene), the `scene.ui`/`run.ui`
+   root implementations, and `run.pushScreen`/`popScreen`. It lives at the ENGINE layer because
+   `scene.ui`/`run.ui` are TIER roots and only `engine.ui` knows the tiers; reflecting `foundation.ui`
+   view types from the engine layer is fine (the module only needs to see the types).
 3. **`engine.ui` host wiring**: instantiates the `ScreenStack` on its `ScreenRoot`, keeps the existing
-   gamepad pump, installs the `sceneUiRoot`/`screenUiRoot` hooks, and registers `run.pushScreen` etc.
+   gamepad pump, and exposes `ScreenRoot`/`SceneRoot` for `engine.ui.script` to back the hooks with.
 
 **Layering tension to resolve (OPEN Q1):** a `ScreenStack` that only attaches/detaches/visibility-toggles
 `UIScreen`s on a `RootView` and sets focus is CORE-doable, so it can live in `foundation.ui.gamekit`. But
@@ -315,3 +317,20 @@ which this work now fixes by becoming its first real consumer.
 - New P1 duty: gamekit's transition tests double as the animation layer's
   first consumer-level coverage (FadeTo/Storyboard driven through a
   UIContext tick), since nothing exercises it end-to-end today.
+
+### CORRECTION (user, 2026-08-19): Q6 layer is `engine.ui.script`, not `foundation.ui.script`
+
+Fable's Q6 rule was right (subsystem script surface = its own out-of-tree module, facade-pattern) but
+put it at the wrong LAYER. `foundation.ui` knows View/Label/FocusManager - it has NO concept of the
+screen/scene TIERS; only `engine.ui` does (`ScreenRoot`/`SceneRoot`). `scene.ui`/`run.ui` are tier-root
+accessors, so the tier-aware half is necessarily engine-level. And the reflected View handles have no
+consumer but game UI scripting, which always needs a root to `findLabel` on - so splitting the view
+reflection down to foundation buys zero reuse and fragments one surface across two layers. Like
+`foundation.net`'s facade is foundation because Net is foundation, the UI script facade is
+**`engine.ui.script`** because the UI tiers are engine. Same rule, correct layer.
+
+Net: the whole UI script surface (View reflection + typed finders + `scene.ui`/`run.ui` + `run.pushScreen`)
+lives in a new out-of-tree **`engine.ui.script`** consuming `engine.ui`. The ONLY foundation piece stays
+the `ScriptRuntimeBinding` `sceneUiRoot`/`screenUiRoot` hook SLOTS - `Function<Variant(Scene*)>`,
+UI-type-agnostic, so foundation stays UI-free; `engine.ui.script` installs the implementation. Every
+"foundation.ui.script" mention above (§3 item 2, finding C) reads `engine.ui.script`.
