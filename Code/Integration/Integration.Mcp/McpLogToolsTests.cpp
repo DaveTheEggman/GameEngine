@@ -3,7 +3,7 @@
 // from the marker's sequence and see exactly what happened after it - plus the filters and the
 // known-issues register read.
 #include <doctest/doctest.h>
-#include <cstdio>
+// <cstdio> dropped: the known-issues fixture writes through Core::WriteFile now
 #include <cstring>
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
@@ -77,11 +77,12 @@ TEST_CASE("integration.mcp: log tools - markers, incremental reads, filters, kno
     // A stand-in known-issues register on disk.
     const char* issuesPath = "mcp_known_issues.md";
     {
-        std::FILE* f = std::fopen(issuesPath, "wb");
-        REQUIRE(f != nullptr);
+        // Core's WriteFile, not stdio: the MSVC CRT marks fopen deprecated, so -Werror
+        // rejects it on Windows (it only builds on Linux because glibc does not).
         const char* text = "# Known Issues\n- I99: the teapot renders upside down\n";
-        std::fwrite(text, 1, std::strlen(text), f);
-        std::fclose(f);
+        REQUIRE(WriteFile(StringView(reinterpret_cast<const utf8char*>(issuesPath)),
+                          Span<const byte>(reinterpret_cast<const byte*>(text), std::strlen(text)))
+                    .IsOk());
     }
 
     McpServer server;
@@ -169,5 +170,5 @@ TEST_CASE("integration.mcp: log tools - markers, incremental reads, filters, kno
     }
 
     GlobalLogger().RemoveSink(&buffer);
-    std::remove(issuesPath);
+    (void)FileDelete(StringView(reinterpret_cast<const utf8char*>(issuesPath)));
 }
