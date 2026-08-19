@@ -56,7 +56,8 @@ namespace engine::runtime
         (void)once;
     }
 
-    bool GameInstance::StartScript(core::StringView source, core::StringView name)
+    bool GameInstance::StartScript(core::StringView source, core::StringView name,
+                                   core::Span<const core::String> gameHandlers)
     {
         StopScript();
         // THIS instance's run host is the game's context (game-instance.md §11.10). The host was
@@ -94,6 +95,15 @@ namespace engine::runtime
             StopScript();
             return false;
         }
+        // Wire the Game tier's on<Event> inbox to THIS run's bus (game-ready-scripting2 §1a): the shared
+        // bridge subscribes the run bus to the Game class's declared handlers (threaded in from the cooked
+        // ScriptClass), fanning each to DispatchGameEvent -> the Game object. No implicit scene->run relay.
+        m_gameEventSubs.Bind(&m_runEvents,
+                             core::Function<void(core::StringView, const core::Variant&)>{
+                                 [this](core::StringView eventName, const core::Variant& payload)
+                                 { DispatchGameEvent(eventName, payload); }});
+        m_gameEventSubs.EnsureFor(gameHandlers);
+
         (void)m_game->Invoke(u8"launch", core::Span<core::Variant>{});
         LOG_INFO(u8"App", u8"game script '{}' launched", name);
         return true;
@@ -101,6 +111,7 @@ namespace engine::runtime
 
     void GameInstance::StopScript()
     {
+        m_gameEventSubs.Clear(); // unsubscribe the Game inbox from the run bus (bus outlives the game)
         if (m_game.Get() != nullptr)
         {
             (void)m_game->Invoke(u8"exit", core::Span<core::Variant>{});
@@ -384,6 +395,29 @@ namespace engine::runtime
                 return;
             }
             LOG_ERROR(u8"App", u8"game script update() faulted - stopping script");
+            m_game = nullptr;
+        }
+    }
+
+    void GameInstance::DispatchGameEvent(core::StringView eventName, const core::Variant& payload)
+    {
+        if (m_game.Get() == nullptr)
+        {
+            return;
+        }
+        core::String handler(u8"on");
+        handler += eventName; // "on" + "Delivered" reconstructs the declared handler
+        core::Variant arg = payload;
+        const bool hasArg = !payload.IsEmpty();
+        const core::Span<core::Variant> args =
+            hasArg ? core::Span<core::Variant>{&arg, 1} : core::Span<core::Variant>{};
+        if (auto result = m_game->Invoke(handler.AsView(), args); !result.HasValue())
+        {
+            if (m_runHost.IsDebugPaused())
+            {
+                return; // suspended at a breakpoint, not a fault (same as update())
+            }
+            LOG_ERROR(u8"App", u8"game script event handler {} faulted - stopping script", handler);
             m_game = nullptr;
         }
     }

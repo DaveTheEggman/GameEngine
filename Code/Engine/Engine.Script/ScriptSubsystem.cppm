@@ -102,21 +102,29 @@ export namespace engine::script
     class ScriptEventSubscriptions
     {
     public:
-        /// Wire the target scene + the sink (called with (eventName, payload) per fired event).
-        void Bind(scene::Scene* scene, Function<void(StringView, const Variant&)> sink)
+        /// Wire the target bus + the sink (called with (eventName, payload) per fired event). The bus is
+        /// tier-agnostic: a scene passes &scene.Events(), the run tier passes &instance.RunEvents().
+        void Bind(scene::EventBus* bus, Function<void(StringView, const Variant&)> sink)
         {
-            m_scene = scene;
+            m_bus = bus;
             m_sink = Move(sink);
         }
 
         /// Subscribe (deduped) to every non-reserved on<Event> handler `scriptClass` declares.
         void EnsureFor(const ScriptClass& scriptClass)
         {
-            if (m_scene == nullptr)
+            EnsureFor(Span<const String>(scriptClass.handlers.Data(), scriptClass.handlers.Size()));
+        }
+
+        /// Subscribe (deduped) to every non-reserved on<Event> among `handlers` - the tier that has no
+        /// ScriptClass resource (the Game tier, whose handlers are threaded in) uses this directly.
+        void EnsureFor(Span<const String> handlers)
+        {
+            if (m_bus == nullptr)
             {
                 return;
             }
-            for (const String& handler : scriptClass.handlers)
+            for (const String& handler : handlers)
             {
                 if (IsReservedHandler(handler.AsView()))
                 {
@@ -133,7 +141,7 @@ export namespace engine::script
                     continue;
                 }
                 String name(eventName); // owned copy captured by the callback
-                const u32 handle = m_scene->Events().Subscribe(
+                const u32 handle = m_bus->Subscribe(
                     key,
                     [this, name](const Variant& payload)
                     {
@@ -151,11 +159,11 @@ export namespace engine::script
         /// this the sink is never called until EnsureFor re-subscribes on the next run.
         void Clear()
         {
-            if (m_scene != nullptr)
+            if (m_bus != nullptr)
             {
                 for (const u32 handle : m_handles)
                 {
-                    m_scene->Events().Unsubscribe(handle);
+                    m_bus->Unsubscribe(handle);
                 }
             }
             m_handles.Clear();
@@ -175,7 +183,7 @@ export namespace engine::script
             return false;
         }
 
-        scene::Scene* m_scene = nullptr;
+        scene::EventBus* m_bus = nullptr;
         Function<void(StringView, const Variant&)> m_sink;
         Array<StringHash> m_keys; // dedup guard (one subscription per event name)
         Array<u32> m_handles;     // bus handles to unsubscribe on Clear
@@ -562,9 +570,9 @@ export namespace engine::script
         {
             m_scene = &scene;
             // Route this scene's bus events to the entity behaviors that declare on<Event>.
-            m_eventSubs.Bind(&scene, Function<void(StringView, const Variant&)>{
-                                         [this](StringView eventName, const Variant& payload)
-                                         { BroadcastEvent(eventName, payload); }});
+            m_eventSubs.Bind(&scene.Events(), Function<void(StringView, const Variant&)>{
+                                                  [this](StringView eventName, const Variant& payload)
+                                                  { BroadcastEvent(eventName, payload); }});
         }
 
         /// The subsystem (or a headless test) wires the shared run host in.
@@ -1216,9 +1224,9 @@ export namespace engine::script
             m_scene = &scene;
             // The Level's named inbox (P-B1): route this scene's bus events to the Level's
             // on<Event> handler, so a behavior's scene.events.emit reaches an onPlayerFell here.
-            m_eventSubs.Bind(&scene, Function<void(StringView, const Variant&)>{
-                                         [this](StringView eventName, const Variant& payload)
-                                         { DispatchEvent(eventName, payload); }});
+            m_eventSubs.Bind(&scene.Events(), Function<void(StringView, const Variant&)>{
+                                                  [this](StringView eventName, const Variant& payload)
+                                                  { DispatchEvent(eventName, payload); }});
         }
 
         void SetRunHost(ScriptRunHost* host) noexcept { m_host = host; }

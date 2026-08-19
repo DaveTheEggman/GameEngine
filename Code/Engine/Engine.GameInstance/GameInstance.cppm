@@ -237,7 +237,16 @@ export namespace engine::runtime
         /// run host (game-instance.md §11.10). The host must be configured first (the app's
         /// ScriptSubsystem::ConfigureRunHost exposes the facades + routing); a bare test just needs a
         /// backend registered. Idempotent start (stops a prior run first). false on compile / no-`Game`.
-        bool StartScript(core::StringView source, core::StringView name);
+        bool StartScript(core::StringView source, core::StringView name)
+        {
+            return StartScript(source, name, core::Span<const core::String>{});
+        }
+
+        /// As above, plus the Game class's declared handler names (from the cooked ScriptClass) so the
+        /// Game tier's on<Event> inbox can subscribe to the run bus (game-ready-scripting2 §1a). A caller
+        /// with no handler list (raw-source tests) gets a Game with no inbox - the rest is unchanged.
+        bool StartScript(core::StringView source, core::StringView name,
+                         core::Span<const core::String> gameHandlers);
 
         /// exit() the `Game` + release the game-script hold (idempotent; the update-fault path lands here).
         /// The run host tears down when nothing else pins it (the scene-stop observer drives that).
@@ -426,6 +435,11 @@ export namespace engine::runtime
         /// Net facade resolves THIS instance's controller. Idempotent; safe when the context is null.
         void InstallNetBinding();
 
+        /// The run-bus sink for the Game tier: dispatch `on<Event>(payload)` to the Game object. Called at
+        /// run-bus drain time (no VM active), so it invokes directly; a faulting handler disables the game
+        /// (m_game = nullptr) exactly like a faulting update(), and a debugger suspension is not a fault.
+        void DispatchGameEvent(core::StringView eventName, const core::Variant& payload);
+
         engine::script::ScriptRunHost m_runHost;    // owned: the game's script context (§11.10)
         scene::EventBus m_runEvents; // the run-scoped event bus (game-ready-scripting2 §1a; app-owned)
         scene::SceneManager m_sceneManager; // owned; registered with the SceneSubsystem to tick
@@ -436,6 +450,7 @@ export namespace engine::runtime
         core::RefPtr<script::IScriptContext>
             m_scriptContext; // the game script's ref to the run host's context
         core::RefPtr<script::ScriptObject> m_game;
+        engine::script::ScriptEventSubscriptions m_gameEventSubs; // Game tier's run-bus on<Event> inbox
 
         core::UniquePtr<net::NetworkManager> m_net; // this instance's endpoint (null = offline)
         net::NetScriptBinding m_netBinding;         // stable; the facade resolves controller=this

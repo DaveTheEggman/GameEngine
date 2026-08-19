@@ -563,6 +563,77 @@ TEST_CASE("game-instance: the run-scoped event bus - deferred delivery, order, c
     CHECK(bHits == 0); // other's bus never saw gi's event
 }
 
+TEST_CASE("game-instance: the Game tier's on<Event> inbox harvests the run bus (AngelScript)")
+{
+    RegisterCoreTypes();
+    foundation::script::RegisterScriptFacadeReflection();
+    engine::runtime::RegisterSceneLoaderScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+
+    engine::runtime::GameInstance gi;
+    const String handlers[] = {String(u8"onPing")}; // the cooked ScriptClass's handler list
+    const bool ok = gi.StartScript(u8"double Pinged = 0;\n"
+                                   u8"class Game {\n"
+                                   u8"  Game() {}\n"
+                                   u8"  void launch() {}\n"
+                                   u8"  void update(float dt) {}\n"
+                                   u8"  void exit() {}\n"
+                                   u8"  void onPing(int x) { Pinged = x; }\n"
+                                   u8"}\n",
+                                   u8"game.as", Span<const String>(handlers, 1));
+    REQUIRE(ok);
+    auto* ctx = gi.RunHost().Context();
+    REQUIRE(ctx != nullptr);
+    CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(0.0)); // nothing fired yet
+
+    // C++ publishes on the run bus -> onPing(42) fires on the Game class at the next drain.
+    gi.RunEvents().Publish(StringHash(StringView(u8"Ping")), Variant::From<i32>(42));
+    CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(0.0)); // deferred until Drain
+    gi.DrainRunEvents();
+    CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(42.0)); // delivered with payload
+
+    // An event with NO matching on<Event> handler is ignored (only declared handlers subscribe).
+    gi.RunEvents().Publish(StringHash(StringView(u8"Unheard")), Variant::From<i32>(99));
+    gi.DrainRunEvents();
+    CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(42.0)); // unchanged
+
+    gi.StopScript();
+}
+
+TEST_CASE("game-instance: the Game tier's on<Event> inbox harvests the run bus (Luau)")
+{
+    RegisterCoreTypes();
+    foundation::script::RegisterLuauScriptBackend();
+
+    engine::runtime::GameInstance gi;
+    const String handlers[] = {String(u8"onPing")};
+    const bool ok = gi.StartScript(u8"Pinged = 0\n"
+                                   u8"Game = {}\n"
+                                   u8"Game.__index = Game\n"
+                                   u8"function Game.new() return setmetatable({}, Game) end\n"
+                                   u8"function Game:launch() end\n"
+                                   u8"function Game:update(dt) end\n"
+                                   u8"function Game:exit() end\n"
+                                   u8"function Game:onPing(x) Pinged = x end\n",
+                                   u8"game.luau", Span<const String>(handlers, 1));
+    REQUIRE(ok);
+    auto* ctx = gi.ScriptContext();
+    REQUIRE(ctx != nullptr);
+    CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(0.0));
+
+    // C++ publishes on the run bus -> Game:onPing(42) fires at drain (deferred).
+    gi.RunEvents().Publish(StringHash(StringView(u8"Ping")), Variant::From<i32>(42));
+    gi.DrainRunEvents();
+    CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(42.0));
+
+    // A non-subscribed event is ignored.
+    gi.RunEvents().Publish(StringHash(StringView(u8"Unheard")), Variant::From<i32>(99));
+    gi.DrainRunEvents();
+    CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(42.0));
+
+    gi.StopScript();
+}
+
 TEST_CASE("game-instance: a missing Game class fails to start cleanly")
 {
     RegisterCoreTypes();

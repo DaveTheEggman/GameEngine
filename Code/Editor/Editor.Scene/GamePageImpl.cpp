@@ -694,7 +694,10 @@ namespace editor
             return;
         }
         if (m_gameInstance == nullptr ||
-            !m_gameInstance->StartScript(proxy->source.AsView(), proxy->sourceName.AsView()))
+            !m_gameInstance->StartScript(
+                proxy->source.AsView(), proxy->sourceName.AsView(),
+                foundation::core::Span<const foundation::core::String>(proxy->handlers.Data(),
+                                                                       proxy->handlers.Size())))
         {
             m_context->Notify(NoticeKind::Error,
                               u8"Game: startup script failed to start (see Console).");
