@@ -110,6 +110,14 @@ export namespace engine::particles
             effect = ownedEffect.Get();
             instance = MakeUnique<ParticleEffectInstance>(DefaultAllocator(), *ownedEffect);
         }
+
+        // Attach a resource for RENDER-RESOURCE LOOKUP ONLY (its per-system SystemMesh/SystemTexture/
+        // SystemMaterial), WITHOUT re-cloning the effect. The editor preview keeps its live borrowed
+        // effect (SetEffect(ParticleEffect&)) for the sim - so scalar edits stay live - while these
+        // resolved resources drive rendering. Safe on the code path (no effectAsset proxy, so the
+        // manager never re-attaches over it). The caller OWNS `res` + keeps it alive + rebuilds it when
+        // the effect's refs / system set change.
+        void SetRenderResources(ParticleEffectResource* res) noexcept { attachedResource = res; }
     };
 
     // Persist the resource refs + tunables; the live instance/clone and the raw view are runtime-only.
@@ -408,23 +416,27 @@ export namespace engine::particles
                                scene::EntityHandle owner, i32 sysIndex,
                                render::ExtractedScene& snapshot)
         {
-            // Mesh-mode draws the EFFECT's mesh (meshRef -> the cooked resource's Proxy<StaticMesh>); the
-            // component's own mesh is the fallback when the effect carries none (back-compat).
-            geometry::StaticMesh* effectMesh = nullptr;
-            if (ParticleEffectResource* res = c.effectAsset.Get())
-            {
-                effectMesh = res->SystemMesh(sysIndex).Get();
-            }
-            geometry::StaticMesh* mesh = (effectMesh != nullptr) ? effectMesh : c.mesh.Get();
-            const f32 meshScale = (effectMesh != nullptr) ? sys.meshScale : c.meshScale;
+            // Each mesh system's mesh + per-submesh materials come RESOLVED from attachedResource (bound
+            // from the effect's meshRef/materialRefs). attachedResource is that resource for BOTH the
+            // cooked runtime path (== the live effectAsset product) AND the editor preview (attached for
+            // render-lookup without re-cloning the live sim effect - so previews render every mesh system
+            // while scalar edits stay live). Null on the bare code path (an app-built effect, no resources).
+            ParticleEffectResource* const res = c.attachedResource;
 
-            // Material resolves independently of the mesh: the EFFECT's per-submesh material list
-            // (materialRefs -> the resource's Proxy<Material> list) when present, else the component's
-            // own material (back-compat). Refresh the component's RefPtr cache for this system so the
-            // snapshot can borrow a stable array; slot 0 is the whole-mesh material, >1 slots drive
-            // per-submesh draws (indexed by SubMesh::materialIndex). A mesh-mode effect is self-contained.
+            // Mesh: the COMPONENT's mesh WINS (the per-placement override); the system's resolved mesh is
+            // the fallback. meshScale follows whichever mesh is drawn.
+            geometry::StaticMesh* const componentMesh = c.mesh.Get();
+            geometry::StaticMesh* const effectMesh =
+                (res != nullptr) ? res->SystemMesh(sysIndex).Get() : nullptr;
+            geometry::StaticMesh* const mesh = (componentMesh != nullptr) ? componentMesh : effectMesh;
+            const f32 meshScale = (componentMesh != nullptr) ? c.meshScale : sys.meshScale;
+
+            // Material: the COMPONENT's material WINS; the system's resolved per-submesh list is the
+            // fallback. When the fallback is used, refresh the component's RefPtr cache for this system so
+            // the snapshot can borrow a stable per-submesh array (slot 0 = whole-mesh, >1 = per-submesh by
+            // SubMesh::materialIndex). (v1: the component carries a single material; its array follows.)
             Array<RefPtr<materials::Material>>* matCache = nullptr;
-            if (ParticleEffectResource* res = c.effectAsset.Get(); res != nullptr && sysIndex >= 0)
+            if (c.material.Get() == nullptr && res != nullptr && sysIndex >= 0)
             {
                 if (static_cast<i32>(c.effectMaterialCache.Size()) <= sysIndex)
                 {
@@ -444,9 +456,10 @@ export namespace engine::particles
                     matCache = &cache;
                 }
             }
-            materials::Material* material =
-                (matCache != nullptr && (*matCache)[0].Get() != nullptr) ? (*matCache)[0].Get()
-                                                                         : c.material.Get();
+            materials::Material* const material =
+                (c.material.Get() != nullptr)                          ? c.material.Get()
+                : (matCache != nullptr && (*matCache)[0].Get() != nullptr) ? (*matCache)[0].Get()
+                                                                         : nullptr;
 
             const i32 alive = sys.AliveCount();
             if (alive <= 0 || mesh == nullptr)

@@ -269,9 +269,59 @@ export namespace foundation::particles
         Array<Array<resource::Proxy<materials::Material>>> m_systemMaterials;
     };
 
+    // Resolve a resource's per-system texture/mesh/material GUID refs (read off its effect's systems)
+    // into Proxy<T> handles via `manager` (Bind records the dependency edges, so re-cooking a referenced
+    // asset transitively reloads this effect and the Proxy follows it). Shared by the cooked FACTORY and
+    // by the editor's LIVE PREVIEW, which resolves an in-memory resource built from the authored effect -
+    // so a preview renders every mesh system's mesh + materials exactly like a cooked dist.
+    inline void ResolveParticleEffectResources(ParticleEffectResource& res,
+                                               resource::ResourceManager& manager)
+    {
+        ParticleEffect& fx = res.Effect();
+
+        Array<resource::Proxy<texture::Texture>> textures(DefaultAllocator());
+        for (i32 s = 0; s < fx.SystemCount(); ++s)
+        {
+            ParticleSystem* sys = fx.GetSystem(s);
+            const bool hasTex = (sys != nullptr) && !(sys->textureRef == Guid{});
+            textures.PushBack(hasTex ? manager.Bind<texture::Texture>(sys->textureRef)
+                                     : resource::Proxy<texture::Texture>{});
+        }
+        res.SetSystemTextures(Move(textures));
+
+        Array<resource::Proxy<geometry::StaticMesh>> meshes(DefaultAllocator());
+        for (i32 s = 0; s < fx.SystemCount(); ++s)
+        {
+            ParticleSystem* sys = fx.GetSystem(s);
+            const bool hasMesh = (sys != nullptr) && !(sys->meshRef == Guid{});
+            meshes.PushBack(hasMesh ? manager.Bind<geometry::StaticMesh>(sys->meshRef)
+                                    : resource::Proxy<geometry::StaticMesh>{});
+        }
+        res.SetSystemMeshes(Move(meshes));
+
+        // Per-submesh material lists (slot 0 = whole-mesh); a null slot GUID stays an unbound Proxy.
+        Array<Array<resource::Proxy<materials::Material>>> mats(DefaultAllocator());
+        for (i32 s = 0; s < fx.SystemCount(); ++s)
+        {
+            ParticleSystem* sys = fx.GetSystem(s);
+            Array<resource::Proxy<materials::Material>> perSubmesh(DefaultAllocator());
+            if (sys != nullptr)
+            {
+                for (usize m = 0; m < sys->materialRefs.Size(); ++m)
+                {
+                    const Guid& ref = sys->materialRefs[m];
+                    perSubmesh.PushBack(!(ref == Guid{}) ? manager.Bind<materials::Material>(ref)
+                                                         : resource::Proxy<materials::Material>{});
+                }
+            }
+            mats.PushBack(Move(perSubmesh));
+        }
+        res.SetSystemMaterials(Move(mats));
+    }
+
     // ---- Factory -----------------------------------------------------------------------------
     // Data factory (model B): deserialize the record; no GPU upload. Referenced cooked resources
-    // (textures/meshes/materials), when added, are attached here via manager.Bind<T> (dependency edges).
+    // (textures/meshes/materials) are resolved to Proxies via ResolveParticleEffectResources.
     class ParticleEffectFactory final : public resource::IResourceFactory
     {
     public:
@@ -283,53 +333,9 @@ export namespace foundation::particles
                                             content::Instance& instance) override
         {
             RefPtr<ISerializable> obj = instance.ReadObject();
-            ParticleEffectResource* res = Cast<ParticleEffectResource>(obj.Get());
-            if (res != nullptr)
+            if (ParticleEffectResource* res = Cast<ParticleEffectResource>(obj.Get()))
             {
-                // Resolve each system's texture GUID to a Proxy<Texture>. Bind records a dependency edge,
-                // so re-cooking the texture transitively reloads this effect; the Proxy then follows it.
-                Array<resource::Proxy<texture::Texture>> textures(DefaultAllocator());
-                ParticleEffect& fx = res->Effect();
-                for (i32 s = 0; s < fx.SystemCount(); ++s)
-                {
-                    ParticleSystem* sys = fx.GetSystem(s);
-                    const bool hasTex = (sys != nullptr) && !(sys->textureRef == Guid{});
-                    textures.PushBack(hasTex ? manager.Bind<texture::Texture>(sys->textureRef)
-                                             : resource::Proxy<texture::Texture>{});
-                }
-                res->SetSystemTextures(Move(textures));
-
-                // Resolve each system's mesh GUID to a Proxy<StaticMesh> the same way (Mesh render mode).
-                Array<resource::Proxy<geometry::StaticMesh>> meshes(DefaultAllocator());
-                for (i32 s = 0; s < fx.SystemCount(); ++s)
-                {
-                    ParticleSystem* sys = fx.GetSystem(s);
-                    const bool hasMesh = (sys != nullptr) && !(sys->meshRef == Guid{});
-                    meshes.PushBack(hasMesh ? manager.Bind<geometry::StaticMesh>(sys->meshRef)
-                                            : resource::Proxy<geometry::StaticMesh>{});
-                }
-                res->SetSystemMeshes(Move(meshes));
-
-                // Resolve each system's material GUID list to a Proxy<Material> list the same way (Mesh
-                // render mode; per-submesh, slot 0 = whole-mesh). A null slot GUID stays an unbound Proxy.
-                Array<Array<resource::Proxy<materials::Material>>> mats(DefaultAllocator());
-                for (i32 s = 0; s < fx.SystemCount(); ++s)
-                {
-                    ParticleSystem* sys = fx.GetSystem(s);
-                    Array<resource::Proxy<materials::Material>> perSubmesh(DefaultAllocator());
-                    if (sys != nullptr)
-                    {
-                        for (usize m = 0; m < sys->materialRefs.Size(); ++m)
-                        {
-                            const Guid& ref = sys->materialRefs[m];
-                            perSubmesh.PushBack(!(ref == Guid{})
-                                                    ? manager.Bind<materials::Material>(ref)
-                                                    : resource::Proxy<materials::Material>{});
-                        }
-                    }
-                    mats.PushBack(Move(perSubmesh));
-                }
-                res->SetSystemMaterials(Move(mats));
+                ResolveParticleEffectResources(*res, manager);
             }
             return obj;
         }

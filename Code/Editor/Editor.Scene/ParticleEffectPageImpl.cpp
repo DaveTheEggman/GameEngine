@@ -18,6 +18,8 @@ import foundation.runtime.client;
 import foundation.scene;
 import engine.scene;
 import foundation.particles;
+import foundation.particles.resource; // ParticleEffectResource + ResolveParticleEffectResources (preview)
+import foundation.resource;           // ResourceManager (resolve the preview's mesh/material refs)
 import particles.pipeline;
 import engine.particles;
 import foundation.render;
@@ -33,6 +35,7 @@ import editor.preview;
 
 using namespace foundation::core;
 namespace particles = foundation::particles;
+namespace resource = foundation::resource;
 namespace render = foundation::render;
 namespace rhi = foundation::rhi;
 namespace runtime = foundation::runtime;
@@ -814,6 +817,7 @@ namespace editor
         {
             mgr->Add(m_emitter).SetEffect(m_asset->Effect());
         }
+        RebuildPreviewResources(); // resolve the effect's mesh/material refs so mesh systems render
 
         const scene::EntityHandle sun = scenePtr->CreateEntity(u8"Sun");
         Transform t;
@@ -825,6 +829,31 @@ namespace editor
             engine::render::LightComponent& light = lights->Add(sun);
             light.castsShadows = false;
         }
+    }
+
+    void ParticleEffectEditorPage::RebuildPreviewResources()
+    {
+        engine::particles::ParticleEffectComponent* c = PreviewComponent();
+        if (c == nullptr || m_asset.Get() == nullptr)
+        {
+            return;
+        }
+        resource::ResourceManager* mgr = m_context != nullptr ? m_context->Resources() : nullptr;
+        if (mgr == nullptr)
+        {
+            m_previewResource = nullptr; // headless / no project: nothing to resolve against
+            c->SetRenderResources(nullptr);
+            return;
+        }
+        // Build an in-memory resource from the authored effect + resolve its per-system mesh/texture/
+        // material refs (the same pass the cook factory runs), then attach it for RENDER-lookup only -
+        // the sim keeps borrowing the live effect (BuildPreviewScene's SetEffect), so scalar edits stay
+        // live while every mesh system now renders its resolved mesh + materials.
+        auto res = MakeRef<particles::ParticleEffectResource>(DefaultAllocator());
+        particles::CloneEffect(m_asset->Effect(), res->Effect());
+        particles::ResolveParticleEffectResources(*res, *mgr);
+        c->SetRenderResources(res.Get());
+        m_previewResource = res; // hold it alive (the component borrows it for the frame)
     }
 
     engine::particles::ParticleEffectComponent* ParticleEffectEditorPage::PreviewComponent() const
@@ -1034,6 +1063,7 @@ namespace editor
                 if (self->m_asset.Get() != nullptr)
                 {
                     c->SetEffect(self->m_asset->Effect());
+                    self->RebuildPreviewResources(); // the system set changed - re-resolve per system
                 }
             }
             Array<byte> after = self->SnapshotEffect();
@@ -1581,6 +1611,7 @@ namespace editor
                               {
                                   s->meshRef = picked;
                                   self->CommitEdit(u8"mesh");
+                                  self->RebuildPreviewResources(); // re-resolve the new mesh
                                   self->RebuildInspector();
                               }
                           };
@@ -1615,6 +1646,7 @@ namespace editor
                     {
                         s->materialRefs.PushBack(Guid{});
                         self->CommitEdit(u8"material-add");
+                        self->RebuildPreviewResources();
                         self->QueueInspectorRebuild();
                     }
                 };
@@ -1625,6 +1657,7 @@ namespace editor
                     {
                         s->materialRefs.RemoveAt(slot);
                         self->CommitEdit(u8"material-remove");
+                        self->RebuildPreviewResources();
                         self->QueueInspectorRebuild();
                     }
                 };
@@ -1642,6 +1675,7 @@ namespace editor
                         s->materialRefs[slot] = s->materialRefs[other];
                         s->materialRefs[other] = tmp;
                         self->CommitEdit(u8"material-move");
+                        self->RebuildPreviewResources();
                         self->QueueInspectorRebuild();
                     }
                 };
@@ -1663,6 +1697,7 @@ namespace editor
                         {
                             s->materialRefs[slot] = picked;
                             self->CommitEdit(u8"material");
+                            self->RebuildPreviewResources(); // re-resolve the new material
                             self->RebuildInspector();
                         }
                     };
@@ -1951,6 +1986,7 @@ namespace editor
         {
             c->SetEffect(m_asset->Effect());
         }
+        RebuildPreviewResources(); // undo/redo may have changed refs or the system set - re-resolve
         ParticleEffectEditorPage* self = this;
         if (ui::UIContext* ctx = Ctx())
         {

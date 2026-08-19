@@ -164,6 +164,11 @@ export namespace editor
         // --- preview scene ---
         void BuildPreviewScene();
         [[nodiscard]] engine::particles::ParticleEffectComponent* PreviewComponent() const;
+        // Resolve the authored effect's per-system mesh/texture/material refs into an in-memory resource
+        // and attach it to the preview component for render-lookup (the SIM keeps the live borrowed
+        // effect). Called after the scene builds + whenever a ref changes (picker) or the system set
+        // changes (structural). Held as RefPtr<Object> to keep the interface free of the resource import.
+        void RebuildPreviewResources();
 
         // --- transport ---
         void Play();
@@ -210,6 +215,7 @@ export namespace editor
 
         // preview world (shared substrate: viewport + preview scene + camera + render loop)
         UniquePtr<PreviewViewport> m_preview;
+        RefPtr<Object> m_previewResource; // resolved ParticleEffectResource for the preview (owned)
         scene::EntityHandle m_emitter; // the emitter entity (in m_preview->Scene())
 
         // views
