@@ -1,8 +1,8 @@
 # Game UI kit + UI scripting (`foundation.ui.gamekit`)
 
-**Status:** DRAFT for review (user, then Fable). Consolidates the design discussion of 2026-08-19 and
-is grounded in a code audit of the current UI stack (file:line references below are verified). NOTHING
-is built yet - this is the "discuss before code" the user asked for.
+**Status:** APPROVED to build P1 (Fable 2026-08-19 - see the review at the end of this doc for the six
+rulings + build requirements A-D). Consolidates the design discussion of 2026-08-19 and is grounded in a
+code audit of the current UI stack (file:line references below are verified). Build P1 to the rulings.
 
 **One-line:** a game-UI convenience library (`foundation.ui.gamekit`, sibling of `foundation.ui.toolkit`
 on CORE `foundation.ui`) providing a real **`UIScreen` + `ScreenStack`** primitive, plus a proper
