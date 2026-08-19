@@ -7,13 +7,21 @@ add_library(UI.Gamekit STATIC)
 add_library(Foundation::UI.Gamekit ALIAS UI.Gamekit)
 
 target_link_libraries(UI.Gamekit
-    PUBLIC Foundation::Core Foundation::UI Foundation::Policy)
+    # Foundation::Input is the one non-view dep: ButtonPrompt renders an action's binding via
+    # foundation.input's DescribeBinding (the shared :binding_names helpers).
+    PUBLIC Foundation::Core Foundation::UI Foundation::VG Foundation::Fonts Foundation::Input Foundation::Policy)
 
 target_sources(UI.Gamekit
     PRIVATE
         GamekitImpl.cpp   # ScreenStack push/pop/transition drive + `<screen>` markup registration
+        WidgetsImpl.cpp   # game-UI widgets (MenuList, ...): RTTI + logic
     PUBLIC
         FILE_SET uigamekit_modules TYPE CXX_MODULES FILES
             UIScreen.cppm
             ScreenStack.cppm
+            MenuList.cppm
+            Bar.cppm
+            Ticker.cppm
+            Toast.cppm
+            ButtonPrompt.cppm
             GamekitModule.cppm)

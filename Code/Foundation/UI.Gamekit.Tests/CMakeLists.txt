@@ -1,5 +1,10 @@
 add_executable(UI.Gamekit.Tests
     ScreenStackTests.cpp
+    MenuListTests.cpp
+    BarTests.cpp
+    TickerTests.cpp
+    ToastTests.cpp
+    ButtonPromptTests.cpp
     TestsMain.cpp)
 
 target_link_libraries(UI.Gamekit.Tests PRIVATE
