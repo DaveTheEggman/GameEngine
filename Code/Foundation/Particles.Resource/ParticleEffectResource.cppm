@@ -126,8 +126,8 @@ export namespace foundation::particles
                         sys->textureRef); // cooked texture GUID (null = untextured)
         core::Serialize(ar, "meshRef", sys->meshRef); // cooked mesh GUID (null = no effect mesh)
         core::Serialize(ar, "meshScale", sys->meshScale);
-        core::Serialize(ar, "materialRef",
-                        sys->materialRef); // cooked material GUID (null = no effect material)
+        core::Serialize(ar, "materialRefs",
+                        sys->materialRefs); // per-submesh cooked material GUIDs (empty = none)
         core::Serialize(ar, "sort", sys->sortParticles);
         core::Serialize(ar, "soft", sys->softParticles);
         core::Serialize(ar, "softDistance", sys->softDistance);
@@ -246,15 +246,18 @@ export namespace foundation::particles
             m_systemMeshes = Move(meshes);
         }
 
-        // Per-system resolved material handles (parallel to the systems), bound by the factory from each
-        // system's materialRef GUID - the material the mesh draws with in Mesh render mode. Null = none.
-        [[nodiscard]] resource::Proxy<materials::Material> SystemMaterial(i32 systemIndex) const
+        // Per-system resolved material lists (parallel to the systems; the inner list is per-submesh,
+        // indexed by SubMesh::materialIndex), bound by the factory from each system's materialRefs. Slot 0
+        // is the whole-mesh material. Empty = no effect material. Mesh render mode only.
+        [[nodiscard]] const Array<resource::Proxy<materials::Material>>&
+        SystemMaterials(i32 systemIndex) const
         {
+            static const Array<resource::Proxy<materials::Material>> kEmpty;
             return (systemIndex >= 0 && systemIndex < static_cast<i32>(m_systemMaterials.Size()))
                        ? m_systemMaterials[static_cast<usize>(systemIndex)]
-                       : resource::Proxy<materials::Material>{};
+                       : kEmpty;
         }
-        void SetSystemMaterials(Array<resource::Proxy<materials::Material>> mats)
+        void SetSystemMaterials(Array<Array<resource::Proxy<materials::Material>>> mats)
         {
             m_systemMaterials = Move(mats);
         }
@@ -263,7 +266,7 @@ export namespace foundation::particles
         ParticleEffect m_effect;
         Array<resource::Proxy<texture::Texture>> m_systemTextures;
         Array<resource::Proxy<geometry::StaticMesh>> m_systemMeshes;
-        Array<resource::Proxy<materials::Material>> m_systemMaterials;
+        Array<Array<resource::Proxy<materials::Material>>> m_systemMaterials;
     };
 
     // ---- Factory -----------------------------------------------------------------------------
@@ -307,14 +310,24 @@ export namespace foundation::particles
                 }
                 res->SetSystemMeshes(Move(meshes));
 
-                // Resolve each system's material GUID to a Proxy<Material> the same way (Mesh render mode).
-                Array<resource::Proxy<materials::Material>> mats(DefaultAllocator());
+                // Resolve each system's material GUID list to a Proxy<Material> list the same way (Mesh
+                // render mode; per-submesh, slot 0 = whole-mesh). A null slot GUID stays an unbound Proxy.
+                Array<Array<resource::Proxy<materials::Material>>> mats(DefaultAllocator());
                 for (i32 s = 0; s < fx.SystemCount(); ++s)
                 {
                     ParticleSystem* sys = fx.GetSystem(s);
-                    const bool hasMat = (sys != nullptr) && !(sys->materialRef == Guid{});
-                    mats.PushBack(hasMat ? manager.Bind<materials::Material>(sys->materialRef)
-                                         : resource::Proxy<materials::Material>{});
+                    Array<resource::Proxy<materials::Material>> perSubmesh(DefaultAllocator());
+                    if (sys != nullptr)
+                    {
+                        for (usize m = 0; m < sys->materialRefs.Size(); ++m)
+                        {
+                            const Guid& ref = sys->materialRefs[m];
+                            perSubmesh.PushBack(!(ref == Guid{})
+                                                    ? manager.Bind<materials::Material>(ref)
+                                                    : resource::Proxy<materials::Material>{});
+                        }
+                    }
+                    mats.PushBack(Move(perSubmesh));
                 }
                 res->SetSystemMaterials(Move(mats));
             }

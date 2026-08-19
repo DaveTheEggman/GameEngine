@@ -1588,34 +1588,72 @@ namespace editor
                       });
             RowFloat(g, u8"Mesh Scale", &sys.meshScale, cat, page, 0.001, 1000.0, 0.01);
 
-            // Effect-level material for the mesh particles (materialRef). Null -> the runtime
-            // component's material is the fallback, so a mesh-mode effect is self-contained here.
-            String matLabel = sys.materialRef.IsNil() ? String(u8"Material: (none)")
-                                                      : String(u8"Material: (set - click to change)");
-            RowButton(g, matLabel.AsView(), cat,
+            // Effect-level per-submesh materials (materialRefs): a growable list of pickers, slot 0 the
+            // whole-mesh material and further slots indexed by SubMesh::materialIndex. Empty -> the runtime
+            // component's material is the fallback. Add one slot per submesh a multi-material mesh needs.
+            for (usize mi = 0; mi < sys.materialRefs.Size(); ++mi)
+            {
+                const bool slotSet = !sys.materialRefs[mi].IsNil();
+                String matLabel(u8"Material ");
+                matLabel.Append(Format(u8"{}", mi).AsView());
+                if (mi == 0)
+                {
+                    matLabel.Append(u8" (whole mesh)");
+                }
+                matLabel.Append(slotSet ? u8": (set - click to change)" : u8": (none)");
+                const usize slot = mi;
+                RowButton(g, matLabel.AsView(), cat,
+                          [self, sysIndex, slot]()
+                          {
+                              ui::UIContext* ctx = self->Ctx();
+                              if (ctx == nullptr || self->m_context->Project() == nullptr)
+                              {
+                                  return;
+                              }
+                              Array<String> types;
+                              types.PushBack(String(u8"MaterialAsset"));
+                              auto dialog = MakeRef<app::AssetPickerDialog>(
+                                  DefaultAllocator(), *self->m_context, Move(types));
+                              dialog->OnPicked = [self, sysIndex, slot](const Guid& picked)
+                              {
+                                  particles::ParticleSystem* s =
+                                      self->m_asset->Effect().GetSystem(sysIndex);
+                                  if (s != nullptr && slot < s->materialRefs.Size())
+                                  {
+                                      s->materialRefs[slot] = picked;
+                                      self->CommitEdit(u8"material");
+                                      self->RebuildInspector();
+                                  }
+                              };
+                              dialog->Show(ctx);
+                          });
+            }
+            RowButton(g, u8"+ Add material slot", cat,
                       [self, sysIndex]()
                       {
-                          ui::UIContext* ctx = self->Ctx();
-                          if (ctx == nullptr || self->m_context->Project() == nullptr)
+                          if (particles::ParticleSystem* s =
+                                  self->m_asset->Effect().GetSystem(sysIndex))
                           {
-                              return;
+                              s->materialRefs.PushBack(Guid{});
+                              self->CommitEdit(u8"material-add");
+                              self->QueueInspectorRebuild();
                           }
-                          Array<String> types;
-                          types.PushBack(String(u8"MaterialAsset"));
-                          auto dialog = MakeRef<app::AssetPickerDialog>(
-                              DefaultAllocator(), *self->m_context, Move(types));
-                          dialog->OnPicked = [self, sysIndex](const Guid& picked)
-                          {
-                              if (particles::ParticleSystem* s =
-                                      self->m_asset->Effect().GetSystem(sysIndex))
-                              {
-                                  s->materialRef = picked;
-                                  self->CommitEdit(u8"material");
-                                  self->RebuildInspector();
-                              }
-                          };
-                          dialog->Show(ctx);
                       });
+            if (!sys.materialRefs.IsEmpty())
+            {
+                RowButton(g, u8"- Remove last material slot", cat,
+                          [self, sysIndex]()
+                          {
+                              particles::ParticleSystem* s =
+                                  self->m_asset->Effect().GetSystem(sysIndex);
+                              if (s != nullptr && !s->materialRefs.IsEmpty())
+                              {
+                                  s->materialRefs.PopBack();
+                                  self->CommitEdit(u8"material-remove");
+                                  self->QueueInspectorRebuild();
+                              }
+                          });
+            }
         }
 
         // --- LOD ---

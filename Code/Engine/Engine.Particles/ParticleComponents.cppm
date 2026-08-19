@@ -76,6 +76,12 @@ export namespace engine::particles
         UniquePtr<ParticleEffect> ownedEffect;
         ParticleEffectResource* attachedResource = nullptr; // what ownedEffect was cloned from
 
+        // Runtime-only scratch (NOT serialized): per-system RefPtr view of the effect's resolved material
+        // proxies (from the cooked resource's SystemMaterials), refreshed at extract so a mesh system's
+        // MultiMeshRenderData can borrow a stable per-submesh array for the frame. Mirrors the render
+        // MeshComponent's materialCache. Indexed [systemIndex][SubMesh::materialIndex]; slot 0 = whole mesh.
+        Array<Array<RefPtr<materials::Material>>> effectMaterialCache;
+
         // Code path: attach a borrowed, app-owned effect (tests/samples building effects in code).
         void SetEffect(ParticleEffect& fx)
         {
@@ -412,14 +418,35 @@ export namespace engine::particles
             geometry::StaticMesh* mesh = (effectMesh != nullptr) ? effectMesh : c.mesh.Get();
             const f32 meshScale = (effectMesh != nullptr) ? sys.meshScale : c.meshScale;
 
-            // Material resolves independently: the EFFECT's material (materialRef) when set, else the
-            // component's own material (back-compat). A mesh-mode effect can now be fully self-contained.
-            materials::Material* effectMat = nullptr;
-            if (ParticleEffectResource* res = c.effectAsset.Get())
+            // Material resolves independently of the mesh: the EFFECT's per-submesh material list
+            // (materialRefs -> the resource's Proxy<Material> list) when present, else the component's
+            // own material (back-compat). Refresh the component's RefPtr cache for this system so the
+            // snapshot can borrow a stable array; slot 0 is the whole-mesh material, >1 slots drive
+            // per-submesh draws (indexed by SubMesh::materialIndex). A mesh-mode effect is self-contained.
+            Array<RefPtr<materials::Material>>* matCache = nullptr;
+            if (ParticleEffectResource* res = c.effectAsset.Get(); res != nullptr && sysIndex >= 0)
             {
-                effectMat = res->SystemMaterial(sysIndex).Get();
+                if (static_cast<i32>(c.effectMaterialCache.Size()) <= sysIndex)
+                {
+                    c.effectMaterialCache.Resize(static_cast<usize>(sysIndex) + 1);
+                }
+                const Array<resource::Proxy<materials::Material>>& proxies =
+                    res->SystemMaterials(sysIndex);
+                Array<RefPtr<materials::Material>>& cache =
+                    c.effectMaterialCache[static_cast<usize>(sysIndex)];
+                cache.Resize(proxies.Size());
+                for (usize i = 0; i < proxies.Size(); ++i)
+                {
+                    cache[i] = RefPtr<materials::Material>(proxies[i].Get());
+                }
+                if (!cache.IsEmpty())
+                {
+                    matCache = &cache;
+                }
             }
-            materials::Material* material = (effectMat != nullptr) ? effectMat : c.material.Get();
+            materials::Material* material =
+                (matCache != nullptr && (*matCache)[0].Get() != nullptr) ? (*matCache)[0].Get()
+                                                                         : c.material.Get();
 
             const i32 alive = sys.AliveCount();
             if (alive <= 0 || mesh == nullptr)
@@ -448,6 +475,12 @@ export namespace engine::particles
             rd->version = ++m_meshVersion; // dynamic: transforms change every frame -> re-upload
             rd->mesh = mesh;
             rd->material = material;
+            // Per-submesh materials: when the effect carries >1 slot, hand the array to the renderer so
+            // ResolveMultiMesh draws each submesh with submeshMaterials[SubMesh::materialIndex] (falling
+            // back to `material` for null/OOB). A single slot leaves this null -> `material` covers all.
+            const bool perSubmesh = (matCache != nullptr) && (matCache->Size() > 1);
+            rd->submeshMaterials = perSubmesh ? matCache->Data() : nullptr;
+            rd->submeshMaterialCount = perSubmesh ? static_cast<u32>(matCache->Size()) : 0u;
             rd->rendererId = 0; // the mesh renderer (id 0)
             // Category from the material's blend mode (like regular meshes + Sedulous): an opaque material
             // stays Opaque; a transparent/additive one routes to the Transparent pass (ResolveMultiMesh

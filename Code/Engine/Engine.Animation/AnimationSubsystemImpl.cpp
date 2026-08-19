@@ -76,6 +76,8 @@ namespace engine::animation
         // Script (Track A): InstancedSkinningComponent.of(entity) -> live poseCount/speed (the crowd
         // skinning tunables). Pure data; the manager reads them each frame.
         builder
+            .Attribute("displayName", String(u8"Instanced Skinning"))
+            .Attribute("category", String(u8"Animation"))
             .Method<&foundation::script::ComponentOf<InstancedSkinningComponent>,
                     InstancedSkinningComponent>("of")
             .Property<&InstancedSkinningComponent::poseCount>("poseCount")

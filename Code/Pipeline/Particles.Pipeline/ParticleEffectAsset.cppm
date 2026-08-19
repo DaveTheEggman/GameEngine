@@ -83,8 +83,9 @@ export namespace pipeline{
         }
         // v2 (2026-08-17): the cooked resource carries per-system meshRef + meshScale (Mesh render mode).
         // v3 (2026-08-18): + per-system materialRef (the effect-level material for Mesh render mode).
+        // v4 (2026-08-18): materialRef -> materialRefs list (per-submesh, slot 0 = whole-mesh material).
         // Bumped so stale products re-cook with the new format (the strict reader needs the new keys).
-        [[nodiscard]] u32 Version() const override { return 3; }
+        [[nodiscard]] u32 Version() const override { return 4; }
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override
         {
