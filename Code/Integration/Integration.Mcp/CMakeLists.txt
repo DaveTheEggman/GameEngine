@@ -5,7 +5,7 @@ add_executable(Integration.Mcp TestsMain.cpp McpProjectFlowTests.cpp McpSceneFlo
 target_link_libraries(Integration.Mcp PRIVATE
     Editor::Mcp Foundation::Mcp.Reflection Foundation::Mcp Foundation::Json Foundation::Content
     Foundation::Scene Foundation::Scene.Resource Foundation::Net.Replication Engine::SceneSurface
-    Foundation::Resource Pipeline::Materials Pipeline::Texture Engine::Render Pipeline::Script Foundation::Script.Resource
+    Foundation::Resource Pipeline::Materials Pipeline::Texture Pipeline::Audio Engine::Render Pipeline::Script Foundation::Script.Resource
     Pipeline::Registration Pipeline::Core Pipeline::Importer
     Engine::ScriptSurface Foundation::Mcp.Script ${SCRIPTLIB_WREN} ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU}
     Foundation::Core doctest::doctest)

@@ -17,6 +17,7 @@ import pipeline.core;
 import pipeline.registration;
 import materials.pipeline;
 import texture.pipeline;
+import audio.pipeline; // SoundCueAsset (empty-cue health warning)
 import engine.render;
 import engine.scenesurface;
 import editor.core;
@@ -242,6 +243,24 @@ TEST_CASE("integration.mcp: project_health - the soundness sweep finds what brok
     CHECK(intact.Get(u8"sound").AsBool() == true);
     CHECK(intact.Get(u8"dirty").AsNumber() >= 2.0);
     CHECK(intact.Get(u8"danglingRefs").Count() == 0);
+
+    // An empty sound cue is a WARNING (reported in emptyCues), not breakage - it is a valid,
+    // buildable draft, so `sound` stays true. A cue with a clip assigned is not flagged.
+    auto* emptyCue = root->CreateInstance(u8"silence", pipeline::SoundCueAsset::StaticType());
+    {
+        pipeline::SoundCueAsset asset; // every slot nil
+        REQUIRE(emptyCue->WriteObject(asset).IsOk());
+    }
+    auto* filledCue = root->CreateInstance(u8"footstep", pipeline::SoundCueAsset::StaticType());
+    {
+        pipeline::SoundCueAsset asset;
+        asset.clipIds[0] = tex->Id(); // any non-nil guid = "a clip is assigned"
+        REQUIRE(filledCue->WriteObject(asset).IsOk());
+    }
+    JsonValue withCues = UsesCallOk(server, u8"project_health", UsesObj());
+    CHECK(withCues.Get(u8"sound").AsBool() == true); // a draft cue is a warning, not a break
+    REQUIRE(withCues.Get(u8"emptyCues").Count() == 1);
+    CHECK(withCues.Get(u8"emptyCues").At(0).Get(u8"name").AsString() == StringView(u8"silence"));
 
     // Break three things: a material referencing a missing texture, a scene component Ref to a
     // missing guid, and a settings field pointing nowhere.
