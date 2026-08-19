@@ -13,5 +13,6 @@ target_sources(Input
         FILE_SET input_modules TYPE CXX_MODULES FILES
             InputModule.cppm
             InputMap.cppm
-            ActionRuntime.cppm)
+            ActionRuntime.cppm
+            BindingNames.cppm)
 

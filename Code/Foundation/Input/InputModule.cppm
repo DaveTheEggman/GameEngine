@@ -10,3 +10,4 @@ export module foundation.input;
 
 export import :input_map;
 export import :action_runtime;
+export import :binding_names;
