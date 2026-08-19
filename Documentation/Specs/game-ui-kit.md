@@ -330,7 +330,22 @@ reflection down to foundation buys zero reuse and fragments one surface across t
 **`engine.ui.script`** because the UI tiers are engine. Same rule, correct layer.
 
 Net: the whole UI script surface (View reflection + typed finders + `scene.ui`/`run.ui` + `run.pushScreen`)
-lives in a new out-of-tree **`engine.ui.script`** consuming `engine.ui`. The ONLY foundation piece stays
-the `ScriptRuntimeBinding` `sceneUiRoot`/`screenUiRoot` hook SLOTS - `Function<Variant(Scene*)>`,
-UI-type-agnostic, so foundation stays UI-free; `engine.ui.script` installs the implementation. Every
-"foundation.ui.script" mention above (§3 item 2, finding C) reads `engine.ui.script`.
+lives in a new out-of-tree **`engine.ui.script`** consuming `engine.ui`. Every "foundation.ui.script"
+mention above (§3 item 2, finding C) reads `engine.ui.script`.
+
+### CORRECTION 2 (user, 2026-08-19): the root binding is an ENGINE per-context service, NOT `ScriptRuntimeBinding`
+
+The draft (§5.2) routed `scene.ui`/`run.ui` through NEW `sceneUiRoot`/`screenUiRoot` slots on the
+foundation `ScriptRuntimeBinding`. Wrong precedent. `ScriptRuntimeBinding` is the FOUNDATION behavior
+facades' binding (`Entity`/`Scene`/`Time`/`Random`), holding the run time/RNG + hooks for the few engine
+capabilities THOSE facades reach (`spawnPrefab`, `dispatchMessage`, `resolveResources`). Every SUBSYSTEM
+facade instead installs its OWN per-context service (`context.SetService(key, &binding)`, resolved via
+`GetService(key)`): `Ui` = `"ui.runtime"`, `SceneLoader` = `"sceneloader.runtime"`, Audio, Input. That is
+the out-of-tree pattern the UI surface follows: **`engine.ui.script` installs its OWN service binding**
+(screen-tier root + a scene->root resolver + the `ScreenStack`); `run.ui()`/`run.pushScreen()` resolve
+it. Foundation `ScriptRuntimeBinding` is NOT touched - no `sceneUiRoot`/`screenUiRoot` slots.
+
+OPEN (user to pick): `scene.ui` is the one piece that would sit on the FOUNDATION `Scene` facade (like
+`scene.spawn`). Either (a) a `ScriptRuntimeBinding` `sceneUiRoot` hook exactly parallel to `spawnPrefab`
+(one UI-agnostic slot; keeps `handle.ui` on any scene), or (b) drop it and reach the scene root engine-
+side via `run.sceneUi()` on the engine service (foundation fully untouched). Recommendation: (b).
