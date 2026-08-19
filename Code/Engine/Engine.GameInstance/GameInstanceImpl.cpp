@@ -56,6 +56,59 @@ namespace engine::runtime
         (void)once;
     }
 
+    // ---- run.* facade (game-ready-scripting2 P2-2): reflection bodies + registration (kept out of the
+    // interface unit per the GCC gcm-cluster rule). Bound to scripts LOWERCASE as `run` via ScriptName.
+    void RunEvents::emit(core::String name) const
+    {
+        if (bus != nullptr)
+        {
+            bus->Publish(core::StringHash(name.AsView()), core::Variant{});
+        }
+    }
+    void RunEvents::emit(core::String name, core::Variant payload) const
+    {
+        if (bus != nullptr)
+        {
+            bus->Publish(core::StringHash(name.AsView()), static_cast<core::Variant&&>(payload));
+        }
+    }
+
+    REFLECT_VALUE(RunEvents, "rtti::engine::runtime")
+    {
+        // emit as an ARITY FAMILY (mirrors SceneEvents): emit(name) + emit(name, payload:Variant).
+        builder.Method<static_cast<void (RunEvents::*)(core::String) const>(&RunEvents::emit)>("emit");
+        builder.Method<static_cast<void (RunEvents::*)(core::String, core::Variant) const>(
+            &RunEvents::emit)>("emit", {"name", "payload"});
+        builder.Constructor();
+    }
+
+    REFLECT_MEMBERS(Run, "rtti::engine::runtime")
+    {
+        builder.Attribute("scriptName", "run"); // the reserved lowercase `run` (ScriptName alias)
+        builder.Method<&Run::events>("events");  // run.events() -> the run-bus handle
+        builder.Method<&Run::loadSceneAsync>("loadSceneAsync");
+        builder.Method<&Run::loadProgress>("loadProgress");
+        builder.Method<&Run::loadComplete>("loadComplete");
+        builder.Method<&Run::loadFailed>("loadFailed");
+        builder.Method<&Run::loadScene>("loadScene");
+        builder.Method<&Run::sceneReady>("sceneReady");
+        builder.Method<&Run::currentScene>("currentScene"); // -> bound Scene (orchestrator)
+        builder.Constructor();
+    }
+
+    void RegisterRunScriptFacade()
+    {
+        static const bool once = []()
+        {
+            RttiRegisterValue_RunEvents(); // the run.events() handle (a bound value type)
+            GlobalTypeRegistry().Register(TypeOf<RunEvents>());
+            GlobalTypeRegistry().Register(Run::StaticType()); // binds as `run` (its scriptName alias)
+            foundation::script::RegisterExtraFacadeName(u8"run"); // prelude imports the ALIAS, not Run
+            return true;
+        }();
+        (void)once;
+    }
+
     bool GameInstance::StartScript(core::StringView source, core::StringView name,
                                    core::Span<const core::String> gameHandlers)
     {
@@ -72,8 +125,9 @@ namespace engine::runtime
         m_scriptContext = core::RefPtr<script::IScriptContext>(context);
         m_runHost.SetGameScriptHold(true);
         InstallNetBinding(); // the game script (its menu) can now call Net.startServer()/connect()
+        m_sceneLoaderBinding.runEvents = &m_runEvents; // run.events() -> THIS run's bus (P2-2, §1a/§1c)
         InstallSceneLoaderScriptService(
-            *m_scriptContext, m_sceneLoaderBinding); // SceneLoader.* -> this instance's load registry
+            *m_scriptContext, m_sceneLoaderBinding); // SceneLoader.* + run.* -> this instance's registry
         // Install THIS instance's input runtime as the context's Input service (overriding the shared
         // editor runtime the run-host configurator installed), so the game reads only ITS own source.
         context->SetService(input::kInputScriptService, &m_inputRuntime);

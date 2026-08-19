@@ -45,6 +45,7 @@ namespace engine
         engine::particles::RegisterParticleScriptFacade();
         engine::animation::RegisterAnimationScriptFacade();
         engine::runtime::RegisterSceneLoaderScriptFacade();
+        engine::runtime::RegisterRunScriptFacade(); // run.* (bound as `run` via ScriptName)
         foundation::net::RegisterNetScriptFacade();
         foundation::net::RegisterNetworkComponentScriptFacade();
     }

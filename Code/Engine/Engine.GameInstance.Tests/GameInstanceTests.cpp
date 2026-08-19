@@ -634,6 +634,65 @@ TEST_CASE("game-instance: the Game tier's on<Event> inbox harvests the run bus (
     gi.StopScript();
 }
 
+TEST_CASE("game-instance: run.events().emit publishes on the run bus, round-tripping to on<Event> (AS)")
+{
+    RegisterCoreTypes();
+    foundation::script::RegisterScriptFacadeReflection();
+    engine::runtime::RegisterSceneLoaderScriptFacade();
+    engine::runtime::RegisterRunScriptFacade(); // the run.* facade (bound as `run`)
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+
+    engine::runtime::GameInstance gi;
+    const String handlers[] = {String(u8"onPing")};
+    const bool ok = gi.StartScript(
+        u8"double Pinged = 0;\n"
+        u8"class Game {\n"
+        u8"  Game() {}\n"
+        u8"  void launch() { run::events().emit(\"Ping\", 7); }\n" // publish on the RUN bus from script
+        u8"  void update(float dt) {}\n"
+        u8"  void exit() {}\n"
+        u8"  void onPing(int x) { Pinged = x; }\n" // the Game's own inbox hears it
+        u8"}\n",
+        u8"game.as", Span<const String>(handlers, 1));
+    REQUIRE(ok);
+    auto* ctx = gi.RunHost().Context();
+    REQUIRE(ctx != nullptr);
+    // launch() emitted, but the run bus delivers deferred - nothing fires until the drain.
+    CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(0.0));
+    gi.DrainRunEvents();
+    CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(7.0)); // script -> run bus -> script
+    gi.StopScript();
+}
+
+TEST_CASE("game-instance: run.events():emit publishes on the run bus, round-tripping to on<Event> (Luau)")
+{
+    RegisterCoreTypes();
+    foundation::script::RegisterScriptFacadeReflection();
+    engine::runtime::RegisterSceneLoaderScriptFacade();
+    engine::runtime::RegisterRunScriptFacade();
+    foundation::script::RegisterLuauScriptBackend();
+
+    engine::runtime::GameInstance gi;
+    const String handlers[] = {String(u8"onPing")};
+    const bool ok = gi.StartScript(
+        u8"Pinged = 0\n"
+        u8"Game = {}\n"
+        u8"Game.__index = Game\n"
+        u8"function Game.new() return setmetatable({}, Game) end\n"
+        u8"function Game:launch() run.events():emit(\"Ping\", 7) end\n" // publish on the run bus
+        u8"function Game:update(dt) end\n"
+        u8"function Game:exit() end\n"
+        u8"function Game:onPing(x) Pinged = x end\n",
+        u8"game.luau", Span<const String>(handlers, 1));
+    REQUIRE(ok);
+    auto* ctx = gi.ScriptContext();
+    REQUIRE(ctx != nullptr);
+    CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(0.0)); // deferred until drain
+    gi.DrainRunEvents();
+    CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(7.0)); // script -> run bus -> script
+    gi.StopScript();
+}
+
 TEST_CASE("game-instance: a missing Game class fails to start cleanly")
 {
     RegisterCoreTypes();

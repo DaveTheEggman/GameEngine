@@ -74,6 +74,11 @@ export namespace engine::runtime
         core::Function<bool(const core::Guid&)> loadScene;     // sync load -> success
         core::Function<bool()> sceneReady;                     // current scene loaded + active?
         core::Function<scene::Scene*()> currentScene;          // the instance's live scene (or null)
+        // This run's event bus (game-ready-scripting2 P2-2): ONE service carries load + run-bus (Fable
+        // ruling). run.events() publishes here; the SceneLoader alias never touches it. The GameInstance
+        // fills it with &RunEvents(). (Service key/struct NAME stay SceneLoader-era this phase; renamed
+        // in P2-5 when the SceneLoader alias deletes - one rename, not two.)
+        scene::EventBus* runEvents = nullptr;
     };
 
     inline void InstallSceneLoaderScriptService(script::IScriptContext& context,
@@ -149,6 +154,56 @@ export namespace engine::runtime
             return handle;
         }
     };
+
+    // ---- run.* script facade (game-ready-scripting2 P2-2): the run/app tier surfaced to scripts. A
+    // STATIC facade like SceneLoader, but bound to scripts LOWERCASE as `run` (the ScriptName alias).
+    // run.events() -> the run-bus handle (publish to the run tier); the load methods absorb SceneLoader
+    // (§1c) - one implementation, two names until SceneLoader deletes in P2-5. Nothing else may bind the
+    // name `run` (the FinalizeTypes collision trap enforces it).
+
+    // A BOUND run-event-bus handle: `run.events().emit("Delivered", n)` publishes a NAMED event onto this
+    // run's bus (deferred; delivered at the next run-bus drain). Mirrors SceneEvents; the payload is a
+    // Variant (the one currency that crosses C++<->script and AngelScript<->Luau). Value type.
+    struct RunEvents
+    {
+        scene::EventBus* bus = nullptr; // NOT reflected - resolved from the run context at run.events()
+        void emit(core::String name) const;
+        void emit(core::String name, core::Variant payload) const;
+    };
+
+    /// run.*: the run/app tier. `run.events()` is the run-bus handle; `loadScene*`/`sceneReady`/
+    /// `currentScene` route through this instance's SceneLoader binding (absorbed). Static facade
+    /// (resolve per call via CurrentScriptContext), bound to scripts as `run` via ScriptName. Unwired ->
+    /// safe no-ops (an empty RunEvents whose emit no-ops; the load methods inherit SceneLoader's guards).
+    class Run final : public Object
+    {
+        RTTI_OBJECT(Run, Object)
+    public:
+        [[nodiscard]] static RunEvents events()
+        {
+            SceneLoaderScriptBinding* b = SceneLoader::Resolve();
+            RunEvents handle;
+            handle.bus = (b != nullptr) ? b->runEvents : nullptr;
+            return handle;
+        }
+        [[nodiscard]] static i32 loadSceneAsync(core::Guid scene)
+        {
+            return SceneLoader::loadSceneAsync(scene);
+        }
+        [[nodiscard]] static f64 loadProgress(i32 ticket) { return SceneLoader::loadProgress(ticket); }
+        [[nodiscard]] static bool loadComplete(i32 ticket)
+        {
+            return SceneLoader::loadComplete(ticket);
+        }
+        [[nodiscard]] static bool loadFailed(i32 ticket) { return SceneLoader::loadFailed(ticket); }
+        [[nodiscard]] static bool loadScene(core::Guid scene) { return SceneLoader::loadScene(scene); }
+        [[nodiscard]] static bool sceneReady() { return SceneLoader::sceneReady(); }
+        [[nodiscard]] static script::Scene currentScene() { return SceneLoader::currentScene(); }
+    };
+
+    // Registers the `Run` facade (bound to scripts as `run` via ScriptName) + its RunEvents handle type.
+    // Idempotent; call before a script manager is created (mirrors RegisterSceneLoaderScriptFacade).
+    void RegisterRunScriptFacade();
 
     // Handle for an in-flight ASYNC scene load (task #123). LoadSceneAsync creates the scene
     // INACTIVE (not ticked/rendered) and kicks its resources off on workers; poll IsComplete() /
