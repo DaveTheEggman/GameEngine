@@ -8,6 +8,24 @@ built; the old `Ui` facade hard-removed. Scene-tier `scene.ui` DEFERRED to a des
 -> engine.ui.script dependency cycle (user decision 2026-08-19). Below is the original P1 plan + Fable's
 rulings; the shipped shape follows it except for the `ui`-vs-`run.ui` spelling and the scene.ui deferral.
 
+**P2 progress (2026-08-19; clang + gcc green):** the game-UI WIDGET SET is built + tested on
+`foundation.ui.gamekit` (each a small partition sharing `WidgetsImpl.cpp`): `MenuList` (focusable
+Button rows + wrap-around Up/Down directional focus via the CORE FocusManager), `Bar` (ProgressBar +
+optional smooth drain), `Ticker` (a Label whose integer rolls, exact on landing), `Toast` (COPIED
+from the toolkit `ToastHost`/`ToastCard`, CORE-only deps, per the "gamekit uses CORE not toolkit"
+rule), and `ButtonPrompt` (`[E] Deliver`, resolving an action's binding via `foundation.input`'s
+DescribeBinding - the seven binding-name helpers were relocated out of the editor's InputMapPage into a
+new `foundation.input:binding_names` partition so runtime UI can reuse them). `GameUiSandbox` (a
+DefaultApplication pushing a UIScreen onto the UISubsystem's screen tier) is the on-screen demo /
+validation vehicle. **Transitions (Q2)** already work via `ScreenStack::PlayTransition` (Fade/Slide/
+Scale) and are exercised in the sandbox; a latent re-entrancy CRASH they surfaced is fixed - animations
+now tick under a new `UIContext::Phase::Animating`, so an animation onComplete's tree mutation (a
+transition removing its screen on finish) routes through the mutation queue instead of running inline
+and re-entering `AnimationManager::CancelForView` mid-`Update`. **Remaining P2:** transitions Q2 "feel"
+tuning (durations / eases / coordinated cross-fade) + per-screen default focus. **Remaining otherwise:**
+`scene.ui` (the deferred Fable design call), P3 (below), and ButtonPrompt polish (active-device
+switching `[A]`<->`[E]` + pad-button glyphs - both need input-side work). See [[game-ui-kit-track]].
+
 **One-line:** a game-UI convenience library (`foundation.ui.gamekit`, sibling of `foundation.ui.toolkit`
 on CORE `foundation.ui`) providing a real **`UIScreen` + `ScreenStack`** primitive, plus a proper
 **script surface** (reflected typed View handles + `scene.ui`/`run.ui` roots + `run.pushScreen`/
@@ -173,9 +191,13 @@ Q4: hard-remove (it is untested + unloved) vs a SceneLoader-style thin alias del
   `run.ui` roots + `run.pushScreen/popScreen` + delete/alias the `Ui` facade and migrate its dependents.
   This runs Paperboy's screens + HUD. Tests: reflected finders both backends; a scene's vs the screen
   root resolve distinctly; a push/pop/replace stack test; the facade-parity migration green.
-- **P2 (feel):** transitions (Q2), `ButtonPrompt`, `MenuList` polish, per-screen default focus.
-- **P3 (convenience):** one-way value bindings + formatters, `Toast`/`Ticker`, settings rows, safe-area /
-  anchoring.
+- **P2 (feel):** transitions (Q2) - MECHANISM DONE (Fade/Slide/Scale via
+  `ScreenStack::PlayTransition`; the animation-onComplete re-entrancy crash fixed via
+  `Phase::Animating`); `ButtonPrompt` DONE; `MenuList` DONE. REMAINING: transitions Q2 "feel"
+  tuning + per-screen default focus.
+- **P3 (convenience):** `Toast` + `Ticker` DONE (built early in the P2 batch, alongside `Bar`).
+  REMAINING: one-way value bindings + formatters, settings rows, safe-area / anchoring (+ the
+  ButtonPrompt polish: active-device switching + pad glyphs).
 
 ---
 
