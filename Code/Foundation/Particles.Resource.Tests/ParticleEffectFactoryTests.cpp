@@ -121,16 +121,18 @@ TEST_CASE("particles.pipeline: code effect -> cook -> Bind reconstructs an equiv
     RemoveTree();
 }
 
-TEST_CASE("particles.resource: meshRef + meshScale survive the cook copy (serialize round-trip)")
+TEST_CASE("particles.resource: meshRef + meshScale + materialRef survive the cook copy (round-trip)")
 {
     Random rng(0x1234u);
     const Guid meshId = Guid::Generate(rng);
+    const Guid materialId = Guid::Generate(rng);
 
     ParticleEffect src;
     ParticleSystem& s = src.AddSystem(100);
     s.renderMode = ParticleRenderMode::Mesh;
     s.meshRef = meshId;
     s.meshScale = 2.5f;
+    s.materialRef = materialId;
 
     // CloneEffect is exactly what the builder uses to bake the authored effect into the cooked resource.
     ParticleEffect dst;
@@ -140,4 +142,5 @@ TEST_CASE("particles.resource: meshRef + meshScale survive the cook copy (serial
     CHECK(d->renderMode == ParticleRenderMode::Mesh);
     CHECK(d->meshRef == meshId);
     CHECK(d->meshScale == doctest::Approx(2.5f));
+    CHECK(d->materialRef == materialId);
 }

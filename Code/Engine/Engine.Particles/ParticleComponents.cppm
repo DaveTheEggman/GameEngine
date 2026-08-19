@@ -412,6 +412,15 @@ export namespace engine::particles
             geometry::StaticMesh* mesh = (effectMesh != nullptr) ? effectMesh : c.mesh.Get();
             const f32 meshScale = (effectMesh != nullptr) ? sys.meshScale : c.meshScale;
 
+            // Material resolves independently: the EFFECT's material (materialRef) when set, else the
+            // component's own material (back-compat). A mesh-mode effect can now be fully self-contained.
+            materials::Material* effectMat = nullptr;
+            if (ParticleEffectResource* res = c.effectAsset.Get())
+            {
+                effectMat = res->SystemMaterial(sysIndex).Get();
+            }
+            materials::Material* material = (effectMat != nullptr) ? effectMat : c.material.Get();
+
             const i32 alive = sys.AliveCount();
             if (alive <= 0 || mesh == nullptr)
             {
@@ -438,12 +447,12 @@ export namespace engine::particles
             rd->instanceCount = static_cast<u32>(alive);
             rd->version = ++m_meshVersion; // dynamic: transforms change every frame -> re-upload
             rd->mesh = mesh;
-            rd->material = c.material.Get();
+            rd->material = material;
             rd->rendererId = 0; // the mesh renderer (id 0)
             // Category from the material's blend mode (like regular meshes + Sedulous): an opaque material
             // stays Opaque; a transparent/additive one routes to the Transparent pass (ResolveMultiMesh
             // still instances it - the set sorts as one item, fine for additive / approximate for alpha).
-            rd->category = MeshCategoryFor(c.material.Get());
+            rd->category = MeshCategoryFor(material);
             const Float3 center = (bmin + bmax) * 0.5f;
             rd->worldCenter = center;
             rd->worldRadius = Length(bmax - center) + LargestSize(sys) * meshScale;

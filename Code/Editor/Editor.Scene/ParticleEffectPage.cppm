@@ -183,6 +183,10 @@ export namespace editor
 
         // --- inspector ---
         void RebuildInspector();
+        // Defer a RebuildInspector to the mutation queue (safe to call mid-event-dispatch: it destroys
+        // the property-grid views, so it must not run while the grid is dispatching). Used by the enum
+        // rows whose selection changes which sections/fields are visible (render mode, emission mode).
+        void QueueInspectorRebuild();
         void BuildEffectInspector();
         void BuildSystemInspector(particles::ParticleSystem& sys);
         void BuildEmitterInspector(particles::ParticleSystem& sys);

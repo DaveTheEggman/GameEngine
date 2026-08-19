@@ -1393,6 +1393,23 @@ namespace editor
         }
     }
 
+    void ParticleEffectEditorPage::QueueInspectorRebuild()
+    {
+        // Rebuilding clears the property grid (destroys the row views). When the trigger is an enum row
+        // whose own callback is mid-dispatch, tearing the grid down underneath it is unsafe - defer to
+        // the mutation queue so it runs after dispatch completes (the UI mutation-queue rule).
+        ParticleEffectEditorPage* self = this;
+        if (ui::UIContext* ctx = Ctx())
+        {
+            ctx->MutationQueueRef().QueueAction(
+                Function<void()>{[self]() { self->RebuildInspector(); }});
+        }
+        else
+        {
+            RebuildInspector();
+        }
+    }
+
     void ParticleEffectEditorPage::BuildEffectInspector()
     {
         RowButton(*m_grid, u8"Add System", u8"Effect",
@@ -1479,6 +1496,9 @@ namespace editor
                                             sys.renderMode =
                                                 static_cast<particles::ParticleRenderMode>(v);
                                             page->CommitEdit(u8"render");
+                                            // Render mode drives which sections show (Texture/Mesh/
+                                            // Flipbook/Trail) - refresh so they update live.
+                                            page->QueueInspectorRebuild();
                                         }},
                     cat);
             // Max particles (accessor-gated: reallocates the stream budget).
@@ -1567,6 +1587,35 @@ namespace editor
                           dialog->Show(ctx);
                       });
             RowFloat(g, u8"Mesh Scale", &sys.meshScale, cat, page, 0.001, 1000.0, 0.01);
+
+            // Effect-level material for the mesh particles (materialRef). Null -> the runtime
+            // component's material is the fallback, so a mesh-mode effect is self-contained here.
+            String matLabel = sys.materialRef.IsNil() ? String(u8"Material: (none)")
+                                                      : String(u8"Material: (set - click to change)");
+            RowButton(g, matLabel.AsView(), cat,
+                      [self, sysIndex]()
+                      {
+                          ui::UIContext* ctx = self->Ctx();
+                          if (ctx == nullptr || self->m_context->Project() == nullptr)
+                          {
+                              return;
+                          }
+                          Array<String> types;
+                          types.PushBack(String(u8"MaterialAsset"));
+                          auto dialog = MakeRef<app::AssetPickerDialog>(
+                              DefaultAllocator(), *self->m_context, Move(types));
+                          dialog->OnPicked = [self, sysIndex](const Guid& picked)
+                          {
+                              if (particles::ParticleSystem* s =
+                                      self->m_asset->Effect().GetSystem(sysIndex))
+                              {
+                                  s->materialRef = picked;
+                                  self->CommitEdit(u8"material");
+                                  self->RebuildInspector();
+                              }
+                          };
+                          dialog->Show(ctx);
+                      });
         }
 
         // --- LOD ---
@@ -1611,20 +1660,39 @@ namespace editor
         Page page = this;
         ui::toolkit::PropertyGrid& g = *m_grid;
         const StringView cat = u8"Emitter";
+
+        // Emitter-config-driven field visibility (the visibleWhen ask, extended past render mode): show
+        // only the spawn controls the current emission mode actually uses. Continuous modes use Spawn
+        // Rate; burst modes use the Burst Count/Interval/Cycles trio; the duration window applies to both.
+        const particles::EmissionMode em = sys.emitter.mode;
+        const bool continuous = em == particles::EmissionMode::Continuous ||
+                                em == particles::EmissionMode::ContinuousAndBurst;
+        const bool burst = em == particles::EmissionMode::Burst ||
+                           em == particles::EmissionMode::ContinuousAndBurst;
+
         static constexpr StringView kModes[] = {u8"Continuous", u8"Burst", u8"Continuous + Burst"};
         RowEnum(g, u8"Mode", static_cast<i32>(sys.emitter.mode), Span<const StringView>{kModes, 3},
                 Function<void(i32)>{[&sys, page](i32 v)
                                     {
                                         sys.emitter.mode = static_cast<particles::EmissionMode>(v);
                                         page->CommitEdit(u8"emit-mode");
+                                        // Mode drives which spawn fields show - refresh so they
+                                        // update live as you switch modes.
+                                        page->QueueInspectorRebuild();
                                     }},
                 cat);
-        RowFloat(g, u8"Spawn Rate", &sys.emitter.spawnRate, cat, page, 0.0, 100000.0, 1.0);
+        if (continuous)
+        {
+            RowFloat(g, u8"Spawn Rate", &sys.emitter.spawnRate, cat, page, 0.0, 100000.0, 1.0);
+        }
         RowFloat(g, u8"Duration (s)", &sys.emitter.duration, cat, page, 0.0, 600.0, 0.1);
         RowBool(g, u8"Looping", &sys.emitter.looping, cat, page);
-        RowInt(g, u8"Burst Count", &sys.emitter.burstCount, cat, page, 0, 100000);
-        RowFloat(g, u8"Burst Interval", &sys.emitter.burstInterval, cat, page, 0.0, 600.0, 0.05);
-        RowInt(g, u8"Burst Cycles (0=inf)", &sys.emitter.burstCycles, cat, page, 0, 100000);
+        if (burst)
+        {
+            RowInt(g, u8"Burst Count", &sys.emitter.burstCount, cat, page, 0, 100000);
+            RowFloat(g, u8"Burst Interval", &sys.emitter.burstInterval, cat, page, 0.0, 600.0, 0.05);
+            RowInt(g, u8"Burst Cycles (0=inf)", &sys.emitter.burstCycles, cat, page, 0, 100000);
+        }
     }
 
     void ParticleEffectEditorPage::BuildModuleInspector(ISerializable* module)

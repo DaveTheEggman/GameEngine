@@ -149,6 +149,10 @@ export namespace foundation::particles
         // Proxy<StaticMesh>. Null = no effect mesh (the runtime component's mesh is the fallback).
         Guid meshRef{};
         f32 meshScale = 1.0f;
+        // Mesh-mode systems draw their mesh with this material (renderMode==Mesh). Opaque cooked-resource
+        // GUID (like meshRef): the editor fills it from a material asset, the resource factory binds it to
+        // a Proxy<Material>. Null = no effect material (the runtime component's material is the fallback).
+        Guid materialRef{};
         bool sortParticles = false;
         // Soft particles: fade billboard alpha where it nears the opaque surface behind it (needs the
         // scene depth; the renderer supplies it). softDistance is the fade band in world units; disable

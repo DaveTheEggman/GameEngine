@@ -7,7 +7,8 @@ add_library(Foundation::Particles.Resource ALIAS Particles.Resource)
 target_link_libraries(Particles.Resource
     PUBLIC Foundation::Core Foundation::Particles Foundation::Content Foundation::Resource
            Foundation::Texture Foundation::Texture.Resource
-           Foundation::Geometry Foundation::Geometry.Resource Foundation::Policy)
+           Foundation::Geometry Foundation::Geometry.Resource
+           Foundation::Materials Foundation::Materials.Resource Foundation::Policy)
 
 target_sources(Particles.Resource
     PUBLIC
