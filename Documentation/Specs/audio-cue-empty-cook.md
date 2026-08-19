@@ -83,9 +83,10 @@ them in parallel.
 - **D (page)**: SoundCuePage shows a persistent "Empty cue - assign at least one clip." hint,
   cleared once a clip is assigned (RefreshEmptyHint, driven from RefreshSlot).
 - **project_health**: emptyCues warning - cues with no clip in any slot are reported (does NOT
-  flip `sound`; an empty cue is a valid buildable draft). MCP tools have no unit-test harness in
-  this codebase (they need a live server + project, like the editor pages), so this follows the
-  existing SweepHealth pattern without a bespoke test.
+  flip `sound`; an empty cue is a valid buildable draft). TESTED in the Integration.Mcp golden
+  flow (register tools -> project_create/open -> call project_health -> assert the JSON): an empty
+  cue shows in emptyCues with sound=true, a filled cue does not. (An earlier note here wrongly said
+  MCP had no test harness - corrected: Integration.Mcp is exactly that harness.)
 
 Both compilers green throughout.
 
