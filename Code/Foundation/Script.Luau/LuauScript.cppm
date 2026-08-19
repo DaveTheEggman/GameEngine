@@ -115,7 +115,7 @@ namespace foundation::script
             {
                 if (known == type)
                 {
-                    return String(ViewOf(type->name));
+                    return String(ViewOf(ScriptTypeName(*type))); // the alias (typed-decl spelling)
                 }
             }
             return String(u8"any");
@@ -359,6 +359,9 @@ namespace foundation::script
             // The overload contract: fail loudly if any registered type binds two methods to the
             // same script name (see foundation.script ValidateScriptMethodNames).
             ValidateScriptMethodNames(RegisteredTypes());
+            // ...and fail loudly if two types bind to the same script-facing name (class name or
+            // scriptName alias) - the alias mechanism's collision guard.
+            ValidateScriptTypeNames(RegisteredTypes());
         }
 
         [[nodiscard]] RefPtr<IScriptContext> CreateContext() override;
@@ -1578,7 +1581,9 @@ namespace foundation::script
                 lua_rawset(state, -3);
             }
         }
-        lua_setglobal(state, type.name);
+        // Install the class table under its script-facing name (scriptName alias when set, else the
+        // C++ name) - scripts reference it, and typed-decl spellings match (native identity stays name).
+        lua_setglobal(state, ScriptTypeName(type));
 
         lua_pop(state, 1); // methods table
     }
@@ -1596,7 +1601,7 @@ namespace foundation::script
             lua_pushnumber(state, static_cast<f64>(value.value));
             lua_rawset(state, -3);
         }
-        lua_setglobal(state, type.name);
+        lua_setglobal(state, ScriptTypeName(type)); // the alias when set (enum table global)
     }
 
     void LuauScriptContext::EmitRegisteredTypes()

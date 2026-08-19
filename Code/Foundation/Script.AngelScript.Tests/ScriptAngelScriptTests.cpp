@@ -8,6 +8,8 @@
 
 #include <doctest/doctest.h>
 
+#include <cstring> // std::strcmp (alias-name assertions)
+
 #include "Core/Prelude.h" // <new> reachability for reflection containers (GCC)
 #include "Core/Reflection/Reflect.h"
 
@@ -70,6 +72,76 @@ REFLECT_MEMBERS(NumProbe, "rtti::script::test")
     builder.Method<&NumProbe::echoI32>("echoI32");
     builder.Method<&NumProbe::bigConst>("bigConst");
     builder.Constructor();
+}
+
+// The ScriptName alias mechanism: a type declares a "scriptName" class attribute and binds to scripts
+// under THAT, not its C++ class name. AliasProbe binds as `aka`; AliasClash also claims `aka` (to
+// exercise the collision guard). The native TYPE name + registry lookup stay on the C++ name.
+namespace
+{
+    class AliasProbe : public Object
+    {
+        RTTI_OBJECT(AliasProbe, Object)
+    public:
+        static i32 answer() { return 42; }
+    };
+    class AliasClash : public Object
+    {
+        RTTI_OBJECT(AliasClash, Object)
+    public:
+    };
+}
+
+REFLECT_MEMBERS(AliasProbe, "rtti::script::test")
+{
+    builder.Attribute("scriptName", "aka"); // bind to scripts as `aka`, not `AliasProbe`
+    builder.Method<&AliasProbe::answer>("answer");
+    builder.Constructor();
+}
+REFLECT_MEMBERS(AliasClash, "rtti::script::test")
+{
+    builder.Attribute("scriptName", "aka"); // deliberately the SAME script name as AliasProbe
+    builder.Constructor();
+}
+
+TEST_CASE("script: ScriptTypeName resolves the alias; FindScriptTypeNameCollision guards duplicates")
+{
+    // ScriptTypeName: the "scriptName" alias when set, else the C++ name.
+    CHECK(std::strcmp(ScriptTypeName(AliasProbe::StaticType()), "aka") == 0);
+    CHECK(std::strcmp(ScriptTypeName(Widget::StaticType()), "Widget") == 0); // no alias -> C++ name
+
+    // NATIVE identity is untouched: the C++ type name (serialization + registry FindByName) is unaliased.
+    CHECK(std::strcmp(AliasProbe::StaticType().name, "AliasProbe") == 0);
+
+    // A clean set: distinct script names -> no collision.
+    const TypeInfo* clean[] = {&AliasProbe::StaticType(), &Widget::StaticType()};
+    CHECK(FindScriptTypeNameCollision(Span<const TypeInfo* const>{clean, 2}) == nullptr);
+
+    // A colliding set: two types bind to the same script name `aka` -> reported (FinalizeTypes traps).
+    const TypeInfo* clash[] = {&AliasProbe::StaticType(), &AliasClash::StaticType()};
+    const char* hit = FindScriptTypeNameCollision(Span<const TypeInfo* const>{clash, 2});
+    REQUIRE(hit != nullptr);
+    CHECK(std::strcmp(hit, "aka") == 0);
+}
+
+TEST_CASE("angelscript: a scriptName alias binds the class under the alias, not the C++ name")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    manager->RegisterType(AliasProbe::StaticType());
+    manager->FinalizeTypes();
+
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    const Status ok = ctx->Load(u8"double Got = 0;\n"
+                                u8"void main() { Got = double(aka::answer()); }\n", // the ALIAS
+                                u8"m");
+    REQUIRE(ok.IsOk());
+    CHECK(ctx->GetGlobal(u8"Got").Get<f64>() == 42.0);
+
+    // The C++ name is NOT a script type (the alias replaces it on the surface): referencing it fails.
+    RefPtr<IScriptContext> ctx2 = manager->CreateContext();
+    const Status bad =
+        ctx2->Load(u8"void main() { AliasProbe::answer(); }\n", u8"m2"); // C++ name -> undeclared
+    CHECK_FALSE(bad.IsOk());
 }
 
 // A reflected Object with a property but NO reflected constructor, plus a factory that returns one:

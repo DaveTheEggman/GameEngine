@@ -100,6 +100,88 @@ export namespace foundation::script
         }
     }
 
+    // The name a TYPE is spelled by on the SCRIPT surface: its "scriptName" class-attribute alias when
+    // set, else its C++ name. This is the scripting layer's INTERPRETATION of an opaque Core attribute
+    // (Core knows nothing of "scriptName" - it stores a generic key/value like the editor's displayName);
+    // every backend binds the class under THIS. Lets a C++ type expose a script-idiomatic name (`run` for
+    // class Run, later `RigidBody` for RigidBodyComponent) without touching the wire/native identity -
+    // serialization + TypeRegistry FindByName stay on the C++ `name`, which never aliases.
+    inline constexpr const char* kScriptNameAttribute = "scriptName";
+
+    [[nodiscard]] inline const char* ScriptTypeName(const core::TypeInfo& type) noexcept
+    {
+        const core::Variant* alias = core::FindAttribute(type, kScriptNameAttribute);
+        if (alias != nullptr && alias->Is<const char*>())
+        {
+            const char* aliasName = alias->Get<const char*>();
+            if (aliasName != nullptr && aliasName[0] != '\0')
+            {
+                return aliasName;
+            }
+        }
+        return type.name;
+    }
+
+    // A duplicate SCRIPT-FACING type name (a C++ class name OR a scriptName alias) shared by two types
+    // is illegal - two types cannot both bind as `X` (a silent last-wins would shadow one, and it is how
+    // a facade claiming a reserved name like `run` collides with anything else claiming it). Returns the
+    // first colliding script name, or nullptr when the set is clean. The type-level analog of
+    // FindScriptMethodNameCollision.
+    [[nodiscard]] inline const char*
+    FindScriptTypeNameCollision(core::Span<const core::TypeInfo* const> types) noexcept
+    {
+        const auto equal = [](const char* a, const char* b) noexcept
+        {
+            if (a == b)
+            {
+                return true;
+            }
+            if (a == nullptr || b == nullptr)
+            {
+                return false;
+            }
+            while (*a != '\0' && *a == *b)
+            {
+                ++a;
+                ++b;
+            }
+            return *a == *b;
+        };
+        for (core::usize i = 0; i < types.Size(); ++i)
+        {
+            if (types[i] == nullptr)
+            {
+                continue;
+            }
+            const char* nameI = ScriptTypeName(*types[i]);
+            for (core::usize j = i + 1; j < types.Size(); ++j)
+            {
+                if (types[j] != nullptr && equal(nameI, ScriptTypeName(*types[j])))
+                {
+                    return nameI;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    // FinalizeTypes calls this over the types a backend has registered: it FAILS LOUDLY on the first
+    // duplicate script-facing type name. Extends the overloaded-name-contract's loud-collision rule to
+    // the TYPE level - the alias mechanism's guard.
+    inline void ValidateScriptTypeNames(core::Span<const core::TypeInfo* const> types)
+    {
+        const char* collision = FindScriptTypeNameCollision(types);
+        if (collision != nullptr)
+        {
+            LOG_ERROR(u8"Script",
+                      u8"two reflected types bind to the same script name '{}' (a class name or a "
+                      u8"scriptName alias) - names must be unique across the bound surface",
+                      core::StringView(reinterpret_cast<const core::utf8char*>(collision)));
+            DIAGNOSTIC_ASSERT(collision == nullptr &&
+                              "duplicate script-facing type name (class name or scriptName)");
+        }
+    }
+
     inline void
     RegisterReflectedTypes(IScriptManager& manager,
                            const core::TypeRegistry& registry = core::GlobalTypeRegistry())

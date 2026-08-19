@@ -607,6 +607,10 @@ namespace foundation::script::angelscript
             // name at the same arity (see foundation.script ValidateScriptMethodNames).
             ValidateScriptMethodNames(
                 core::Span<const core::TypeInfo* const>{m_types.Data(), m_types.Size()});
+            // ...and fail loudly if two types bind to the same script-facing name (class name or
+            // scriptName alias) - the alias mechanism's collision guard.
+            ValidateScriptTypeNames(
+                core::Span<const core::TypeInfo* const>{m_types.Data(), m_types.Size()});
             // Phase 1: DECLARE every collected type - after this, any declaration
             // string may reference any reflected type.
             for (const core::TypeInfo* type : m_types)
@@ -715,8 +719,9 @@ namespace foundation::script::angelscript
             for (const RegisteredType& entry : m_registered)
             {
                 const core::TypeInfo& type = *entry.type;
+                const char* const scriptName = ScriptTypeName(type); // the script-facing name (alias)
                 ScriptApiType api;
-                api.scriptName = core::String(ViewOfAscii(type.name));
+                api.scriptName = core::String(ViewOfAscii(scriptName));
                 api.typeId = type.id;
                 api.isNamespace = false;
                 for (core::usize i = 0; i < core::PropertyCount(type); ++i)
@@ -728,7 +733,7 @@ namespace foundation::script::angelscript
                     }
                     ScriptApiMember member;
                     member.name = core::String(ViewOfAscii(property.name));
-                    core::String signature(ViewOfAscii(type.name));
+                    core::String signature(ViewOfAscii(scriptName));
                     AppendAscii(signature, ".");
                     AppendAscii(signature, property.name);
                     member.signature = core::Move(signature);
@@ -1517,7 +1522,7 @@ namespace foundation::script::angelscript
             AppendAscii(out, " ");
             if (method.isStatic)
             {
-                AppendAscii(out, type.name);
+                AppendAscii(out, ScriptTypeName(type)); // the alias, so static-call signatures match
                 AppendAscii(out, "::");
             }
             AppendAscii(out, ScriptMethodName(method)); // overload identity, not the C++ name
@@ -1683,14 +1688,14 @@ namespace foundation::script::angelscript
             // A native AngelScript enum: an int-backed VALUE type, spelled by name with no handle.
             if (type->enumeratorCount > 0)
             {
-                AppendAscii(out, type->name);
+                AppendAscii(out, ScriptTypeName(*type)); // the alias, so references match the declaration
                 return true;
             }
             if (!IsDeclared(type))
             {
                 return false;
             }
-            AppendAscii(out, type->name);
+            AppendAscii(out, ScriptTypeName(*type)); // the alias (Type@ params/returns/members)
             AppendAscii(out, "@");
             return true;
         }
@@ -1699,7 +1704,10 @@ namespace foundation::script::angelscript
         // and anything AngelScript's own registry rejects, e.g. name collisions).
         void DeclareType(const core::TypeInfo& type)
         {
-            if (!IsValidIdentifier(type.name))
+            // The script-facing name: the scriptName alias when set, else the C++ name. AngelScript
+            // binds + references the class under THIS (the native/wire identity stays type.name).
+            const char* const scriptName = ScriptTypeName(type);
+            if (!IsValidIdentifier(scriptName))
             {
                 return;
             }
@@ -1720,12 +1728,12 @@ namespace foundation::script::angelscript
             {
                 return;
             }
-            const int typeId = m_engine->RegisterObjectType(type.name, 0, asOBJ_REF);
+            const int typeId = m_engine->RegisterObjectType(scriptName, 0, asOBJ_REF);
             if (typeId < 0)
             {
                 LOG_DEBUG(u8"Script",
                                    u8"AngelScript: could not declare reflected type '{}' ({})",
-                                   ViewOfAscii(type.name), typeId);
+                                   ViewOfAscii(scriptName), typeId);
                 return;
             }
             m_registered.PushBack(RegisteredType{&type, typeId});
@@ -1741,16 +1749,17 @@ namespace foundation::script::angelscript
             {
                 return;
             }
-            const int enumTypeId = m_engine->RegisterEnum(type.name);
+            const char* const scriptName = ScriptTypeName(type); // alias when set, else the C++ name
+            const int enumTypeId = m_engine->RegisterEnum(scriptName);
             if (enumTypeId < 0)
             {
                 LOG_DEBUG(u8"Script", u8"AngelScript: could not declare enum '{}' ({})",
-                                   ViewOfAscii(type.name), enumTypeId);
+                                   ViewOfAscii(scriptName), enumTypeId);
                 return;
             }
             for (const core::EnumValue& value : core::Enumerators(type))
             {
-                m_engine->RegisterEnumValue(type.name, value.name,
+                m_engine->RegisterEnumValue(scriptName, value.name,
                                             static_cast<int>(value.value));
             }
             // Record RegisterEnum's OWN typeId (not GetTypeIdByDecl, which may not resolve a bare
@@ -1886,7 +1895,9 @@ namespace foundation::script::angelscript
             {
                 return;
             }
-            const char* name = type.name;
+            // Bind all members under the SCRIPT-FACING name (the scriptName alias when set) - it must
+            // match the name DeclareType registered the object type under, or AngelScript cannot find it.
+            const char* name = ScriptTypeName(type);
 
             (void)m_engine->RegisterObjectBehaviour(name, asBEHAVE_ADDREF, "void f()",
                                                     asFUNCTION(AddRefDispatch), asCALL_GENERIC);

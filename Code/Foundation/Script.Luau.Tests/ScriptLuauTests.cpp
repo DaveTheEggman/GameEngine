@@ -224,6 +224,39 @@ TEST_CASE("script.luau: Float3 maps to Luau's native vector (fast path - fields,
     CHECK(probe->Invoke(u8"dot", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(32.0));
 }
 
+// The ScriptName alias mechanism on the Luau backend: a "scriptName" class attribute makes the class
+// table install under the alias, not the C++ name.
+namespace
+{
+    class LuauAliasProbe : public Object
+    {
+        RTTI_OBJECT(LuauAliasProbe, Object)
+    public:
+        static i32 answer() { return 42; }
+    };
+}
+REFLECT_MEMBERS(LuauAliasProbe, "rtti::luau::test")
+{
+    builder.Attribute("scriptName", "aka"); // install the class table as `aka`, not `LuauAliasProbe`
+    builder.Method<&LuauAliasProbe::answer>("answer");
+    builder.Constructor();
+}
+
+TEST_CASE("script.luau: a scriptName alias installs the class table under the alias, not the C++ name")
+{
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    manager->RegisterType(LuauAliasProbe::StaticType());
+    manager->FinalizeTypes();
+
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->Load(u8"Got = aka.answer()\n", u8"luau.alias").IsOk()); // the ALIAS
+    CHECK(context->GetGlobal(u8"Got").Get<f64>() == doctest::Approx(42.0));
+
+    // The C++ name is NOT installed (the alias replaces it): indexing `LuauAliasProbe` (nil) errors.
+    RefPtr<IScriptContext> context2 = manager->CreateContext();
+    CHECK_FALSE(context2->Load(u8"Got = LuauAliasProbe.answer()\n", u8"luau.alias2").IsOk());
+}
+
 TEST_CASE("script.luau: native-vector construct+access throughput (perf case)")
 {
     RegisterCoreTypes();
