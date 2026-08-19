@@ -315,16 +315,37 @@ export namespace editor
         SceneInspectorView(EditorContext& editor, SceneEditContext& edit)
             : m_editor(&editor), m_edit(&edit)
         {
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
-            column->Direction = ui::Orientation::Vertical;
-            column->Padding =
-                ui::Thickness{8, 6}; // inset the content off the panel edge (like the hierarchy)
+            // Two tabs: Entity (the selected entity's sections + Add/Paste) and Scene (the scene's
+            // settings). The Scene tab makes scene-settings a first-class view reachable anytime,
+            // instead of requiring a deselect (empty-viewport click) to surface them.
+            m_tabView = MakeRef<ui::TabView>(DefaultAllocator());
+            m_tabView->TabsClosable.SetValue(false);
+            {
+                SceneInspectorView* self = this;
+                m_tabView->OnTabChanged.Add(
+                    [self](ui::TabView*, i32) { self->m_forceRebuild = true; });
+            }
 
-            m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+            // --- Entity tab ---
+            auto entityColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            entityColumn->Direction = ui::Orientation::Vertical;
+            entityColumn->Padding = ui::Thickness{8, 6}; // inset off the panel edge (like hierarchy)
+
+            m_emptyLabel = MakeRef<ui::Label>(DefaultAllocator(),
+                                              StringView(u8"Select an entity to inspect."));
+            m_emptyLabel->FontSize.SetValue(12.0f);
+            m_emptyLabel->Visibility = ui::Visibility::Gone; // shown only when nothing is selected
+            {
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Width = ui::SizeSpec::Match();
+                entityColumn->AddView(m_emptyLabel.Get(), lp);
+            }
+
+            m_entityGrid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
             {
                 auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 grow->Grow = 1.0f;
-                column->AddView(m_grid.Get(), grow);
+                entityColumn->AddView(m_entityGrid.Get(), grow);
             }
 
             m_addButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Add Component"));
@@ -333,7 +354,7 @@ export namespace editor
                 m_addButton->OnClick.Add([self](ui::ButtonBase*) { self->ShowAddComponentMenu(); });
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
-                column->AddView(m_addButton.Get(), lp);
+                entityColumn->AddView(m_addButton.Get(), lp);
             }
 
             // Paste Component: below Add Component, shown only when the clipboard holds a component
@@ -347,10 +368,25 @@ export namespace editor
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Margin = ui::Thickness{0.0f, 6.0f, 0.0f, 0.0f}; // gap below Add Component
-                column->AddView(m_pasteButton.Get(), lp);
+                entityColumn->AddView(m_pasteButton.Get(), lp);
             }
 
-            AddView(column.Get());
+            // --- Scene tab ---
+            auto sceneColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            sceneColumn->Direction = ui::Orientation::Vertical;
+            sceneColumn->Padding = ui::Thickness{8, 6};
+            m_sceneGrid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+            {
+                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                grow->Grow = 1.0f;
+                sceneColumn->AddView(m_sceneGrid.Get(), grow);
+            }
+
+            m_tabView->AddTab(u8"Entity", entityColumn.Get());
+            m_tabView->AddTab(u8"Scene", sceneColumn.Get());
+            m_grid = m_entityGrid; // the active grid; Rebuild re-points it to the selected tab
+
+            AddView(m_tabView.Get());
         }
 
         /// Per-frame: structural rebuild when the shape changed, else pull values into widgets.
@@ -771,12 +807,20 @@ export namespace editor
         // Show/hide the Paste button based on whether the clipboard holds a component (per Refresh).
         void UpdatePasteButton();
 
+        static constexpr i32 kEntityTab = 0;
+        static constexpr i32 kSceneTab = 1;
+
         EditorContext* m_editor;  // borrowed (project + resources)
         SceneEditContext* m_edit; // borrowed (the page owns it)
-        RefPtr<ui::toolkit::PropertyGrid> m_grid;
+        RefPtr<ui::TabView> m_tabView;
+        RefPtr<ui::toolkit::PropertyGrid> m_grid; // the ACTIVE tab's grid (re-pointed each Rebuild)
+        RefPtr<ui::toolkit::PropertyGrid> m_entityGrid;
+        RefPtr<ui::toolkit::PropertyGrid> m_sceneGrid;
+        RefPtr<ui::Label> m_emptyLabel; // "Select an entity to inspect." (Entity tab, no selection)
         RefPtr<ui::Button> m_addButton;
         RefPtr<ui::Button> m_pasteButton;
         Array<Function<void()>> m_refreshers;
+        Guid m_lastSelectedForTab; // selection last seen (auto-switch to Entity tab on a new pick)
         u64 m_signature = ~0ull;
         bool m_forceRebuild = false; // set when a data-only mutation changed a section's SHAPE
     };

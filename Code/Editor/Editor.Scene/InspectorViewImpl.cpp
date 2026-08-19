@@ -317,6 +317,20 @@ namespace editor
     }
     void SceneInspectorView::Refresh()
     {
+        // Auto-switch to the Entity tab when a NEW entity is selected (selecting implies you want to
+        // inspect it). Deselection stays on the current tab - the Entity tab then shows its empty
+        // hint, and the Scene tab stays reachable without any viewport click.
+        const Guid selected = SelectedEntity();
+        if (selected != m_lastSelectedForTab)
+        {
+            m_lastSelectedForTab = selected;
+            if (m_edit->Resolve(selected).IsAssigned() && m_tabView.Get() != nullptr &&
+                m_tabView->SelectedIndex() != kEntityTab)
+            {
+                m_tabView->SetSelectedIndex(kEntityTab); // fires OnTabChanged -> forceRebuild
+            }
+        }
+
         UpdatePasteButton(); // clipboard can change any frame; keep the Paste button in sync
         const u64 signature = Signature();
         if (m_forceRebuild || signature != m_signature)
@@ -390,18 +404,30 @@ namespace editor
 
     void SceneInspectorView::Rebuild()
     {
+        // The active tab drives which grid we build into (the Scene tab shows scene settings
+        // regardless of selection; the Entity tab shows the selected entity, or an empty hint).
+        const bool sceneTab = m_tabView.Get() != nullptr && m_tabView->SelectedIndex() == kSceneTab;
+        m_grid = sceneTab ? m_sceneGrid : m_entityGrid;
         m_grid->Clear();
         m_refreshers.Clear();
 
-        const Guid id = SelectedEntity();
-        const scene::EntityHandle e = m_edit->Resolve(id);
-        m_addButton->Visibility =
-            e.IsAssigned() ? ui::VisibilityValue::Visible : ui::VisibilityValue::Gone;
-        // No entity selected: the SCENE's settings (Sedulous scene-modules pattern) -
-        // every scene system exposing a reflected settings block gets a category.
-        if (!e.IsAssigned())
+        // Scene tab: the SCENE's settings (Sedulous scene-modules pattern) - every scene system
+        // exposing a reflected settings block gets a category.
+        if (sceneTab)
         {
             BuildSceneSettingsSections();
+            Invalidate();
+            return;
+        }
+
+        // Entity tab.
+        const Guid id = SelectedEntity();
+        const scene::EntityHandle e = m_edit->Resolve(id);
+        const bool has = e.IsAssigned();
+        m_addButton->Visibility = has ? ui::VisibilityValue::Visible : ui::VisibilityValue::Gone;
+        m_emptyLabel->Visibility = has ? ui::VisibilityValue::Gone : ui::VisibilityValue::Visible;
+        if (!has)
+        {
             Invalidate();
             return;
         }
