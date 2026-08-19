@@ -1,0 +1,19 @@
+<root>
+	<array name="dataVersions" count="1">
+		<u64 name="type">4966272516536031399</u64>
+		<u32 name="version">9</u32>
+	</array>
+	<string name="name">PaperKid</string>
+	<string name="engineVersion">0.1.0</string>
+	<string name="defaultSceneId">00000000-0000-0000-0000-000000000000</string>
+	<string name="defaultScene"/>
+	<string name="startupScript"/>
+	<string name="nativeModule"/>
+	<string name="defaultInputMapId">00000000-0000-0000-0000-000000000000</string>
+	<string name="defaultBusLayoutId">00000000-0000-0000-0000-000000000000</string>
+	<string name="defaultUiThemeId">00000000-0000-0000-0000-000000000000</string>
+	<string name="startupScriptId">00000000-0000-0000-0000-000000000000</string>
+	<string name="defaultUiFontId">997e2b40-9199-4aac-944c-bc8240643621</string>
+	<string name="loadingDocumentId">00000000-0000-0000-0000-000000000000</string>
+	<u32 name="renderMsaaSamples">1</u32>
+</root>

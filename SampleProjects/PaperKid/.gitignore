@@ -1,0 +1,11 @@
+# PaperKid sample project: commit the SOURCE (Project.xml, Sources/, Content/*.xasset);
+# ignore generated output + per-user editor state, which the tools regenerate.
+
+# Pipeline cache: incremental-cook hash DB (cook.db) + rendered thumbnails.
+/.cache/
+
+# Cooked-resource output DB (regenerated from Content/ by cooking).
+/Cooked/
+
+# Editor dock layout / UI state (per-user, rewritten on open).
+/Editor/
