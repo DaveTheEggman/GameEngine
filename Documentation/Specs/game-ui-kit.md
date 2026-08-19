@@ -45,14 +45,14 @@ Games need two things the engine doesn't give scripts today:
 Today scripts only get the `Ui` facade: six id-addressed ops (`pushOverlay(guid)->handle`, `popOverlay`,
 `setText`, `setProgress`, `setVisible`, `onClick`) routed through a `"ui.runtime"` service
 (`Code/Engine/Engine.UI/UISubsystem.cppm:70-160`). It is asset-driven + id-addressed with the view tree
-deliberately kept out of script. The user finds it not-great and it is untested. Paperboy (7 screens +
-a HUD) is the first real consumer, but **this is an engine feature**, not Paperboy glue.
+deliberately kept out of script. The user finds it not-great and it is untested. PaperKid (7 screens +
+a HUD) is the first real consumer, but **this is an engine feature**, not PaperKid glue.
 
 Design decisions already locked with the user (2026-08-19):
 - **Typed finders**, not a bare `findByName -> View` (option A): `findLabel("score") -> Label` so the
   returned type actually HAS `.text`; identical on AngelScript + Luau (the backend-neutral goal). A bare
   `View` has no `.text`, so `findByName("score").text` does not hold up (compile error in AngelScript).
-- **Both `run.ui` (screen tier) and `scene.ui` (scene tier)** are in scope; Paperboy uses both.
+- **Both `run.ui` (screen tier) and `scene.ui` (scene tier)** are in scope; PaperKid uses both.
 - **Three screen input modes:** modal / overlay / opaque.
 - **Screens authored as UI DOCUMENT assets** in the editor (dogfoods the pipeline), not code-built.
 - **The `Ui` facade is dropped/replaced.**
@@ -141,7 +141,7 @@ Operates on a `RootView` (the screen tier's, wired by `engine.ui`; a scene's for
 `MenuList` (a CORE list + focus, game-styled), `Bar` (fill + optional smooth drain), `Ticker` (animated
 number), `Toast` (transient notice), `ButtonPrompt` (device-aware glyph - "[A] Deliver", wired to the
 input device), and settings rows (slider / stepper / toggle / key-rebind, the last tying to the input
-rebind system). MenuList/Bar first (Paperboy); the rest later.
+rebind system). MenuList/Bar first (PaperKid); the rest later.
 
 ---
 
@@ -189,7 +189,7 @@ Q4: hard-remove (it is untested + unloved) vs a SceneLoader-style thin alias del
 
 - **P1 (core):** `UIScreen` + `ScreenStack` (3 modes) + the reflected typed-View surface + `scene.ui`/
   `run.ui` roots + `run.pushScreen/popScreen` + delete/alias the `Ui` facade and migrate its dependents.
-  This runs Paperboy's screens + HUD. Tests: reflected finders both backends; a scene's vs the screen
+  This runs PaperKid's screens + HUD. Tests: reflected finders both backends; a scene's vs the screen
   root resolve distinctly; a push/pop/replace stack test; the facade-parity migration green.
 - **P2 (feel):** transitions (Q2) - MECHANISM DONE (Fade/Slide/Scale via
   `ScreenStack::PlayTransition`; the animation-onComplete re-entrancy crash fixed via

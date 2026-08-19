@@ -1,4 +1,4 @@
-# Paperboy - a small game (design + build plan)
+# PaperKid - a small game (design + build plan)
 
 > Status: PLAN (not started). A vertical-slice game to exercise the game-ready runtime end to end,
 > built as the tracked, committed EDITOR SAMPLE PROJECT (authored in-editor - it dogfoods the whole
@@ -13,14 +13,14 @@
 > - **Run/Game tier is SCRIPTED, not native** - so it needs run-scoped messaging + scene/screen UI
 >   scripting that do NOT exist yet. PREREQUISITE: `game-ready-scripting2.md` (at least P2-1 run bus;
 >   P2-3/P2-4 scene.ui + reflected views for a script-driven HUD; P2-5 run.ui for the screen stack).
->   Build that track FIRST, then Paperboy on top. See "Prerequisites" below.
+>   Build that track FIRST, then PaperKid on top. See "Prerequisites" below.
 > - **Obstacles use NAVIGATION** (Recast/Detour agents), not hand-rolled waypoint scripts.
 > - **Tells/markers/camera use PROPERTY ANIMATION** clips, not ad-hoc per-frame script lerps.
 > - **Project home: TBD** - NOT the repo root; the user will name the location before scaffolding.
 
 ## Concept
 
-Ride a bike around a town block as the paperboy. Each level gives you a stack of papers and a
+Ride a bike around a town block as the paperkid. Each level gives you a stack of papers and a
 countdown. Deliver to the block's subscriber houses before time runs out while avoiding traffic,
 pedestrians, and street junk. Hit the delivery quota to clear the block; blocks get bigger, busier,
 and tighter on time as you go. It is a small, arcade, score-chasing loop - not a sim.
@@ -42,7 +42,7 @@ and tighter on time as you go. It is a small, arcade, score-chasing loop - not a
 
 - **Deliveries:** each subscriber house has one delivery zone (porch/mailbox trigger). A paper
   entering it scores once; non-subscriber houses ignore papers (optional later: breakable windows
-  for bonus, classic-Paperboy flavor - deferred).
+  for bonus, arcade-classic flavor - deferred).
 - **Papers:** limited per level (e.g. quota + a margin). Out of papers with quota unmet is a soft
   fail path (timer usually ends it first).
 - **Timer:** counts down only while Playing (paused/among screens it is frozen; per-scene time).
@@ -95,7 +95,7 @@ stateDiagram-v2
 ## Engine mapping (how each piece uses THIS engine)
 
 - **Game instance:** the running game is a `GameInstance` (run host + SceneManager group +
-  ActionRuntime; NetworkManager unused). The **PaperboyGame** orchestrator (state machine, score,
+  ActionRuntime; NetworkManager unused). The **PaperKidGame** orchestrator (state machine, score,
   lives, level index, timer, quota progress) is the **Game-tier SCRIPT** (`Game` reserved name), not a
   native manager - the whole point is to dogfood the run tier. It coordinates via the RUN bus (below).
   [[game-instance-track]] [[game-ready-scripting-spec]]
@@ -161,14 +161,14 @@ The tracked, committed **editor sample project** (the week-2026-08-22 seed) - sc
 authored assets, opened + played in the editor. Its exact location is TBD (the user will name it; NOT
 the repo root, and distinct from the untracked `SampleGame/` Wren sketch and the user's `EditorProject/`).
 If a thin native module is ever needed, per the facade rule it is its own out-of-tree module named for
-the game (e.g. `Paperboy`), never `Game`; but the aim is near-zero native code - the game rides on
+the game (e.g. `PaperKid`), never `Game`; but the aim is near-zero native code - the game rides on
 scripts + authored content. [[facade-pattern]]
 
-## Prerequisites (build BEFORE Paperboy)
+## Prerequisites (build BEFORE PaperKid)
 
 The scripted Game/run tier + a script-driven UI do not exist yet. `game-ready-scripting2.md` is the
-gating track (greenlit 2026-08-18 as the Paperboy prerequisite), built backend-neutral (batteries on
-the surviving backends - AngelScript + Luau; Wren is being retired) but FIRST consumed by Paperboy in
+gating track (greenlit 2026-08-18 as the PaperKid prerequisite), built backend-neutral (batteries on
+the surviving backends - AngelScript + Luau; Wren is being retired) but FIRST consumed by PaperKid in
 AngelScript:
 
 - **P2-1 run bus + Game inbox** - the run-scoped EventBus + the Game script's `on<Event>` harvest.
@@ -180,12 +180,12 @@ AngelScript:
 - **P2-5 run.ui + ScriptName aliases** - the screen-tier root from script + clean gameplay names.
   Blocks the full screen stack (P3) and readable component names throughout.
 
-Minimum to START Paperboy P0: P2-1 + P2-2. The UI pieces (P2-3..P2-5) can land in parallel with
-Paperboy P0/P1 as the HUD/screens graduate from placeholder to script-driven.
+Minimum to START PaperKid P0: P2-1 + P2-2. The UI pieces (P2-3..P2-5) can land in parallel with
+PaperKid P0/P1 as the HUD/screens graduate from placeholder to script-driven.
 
 ## Phases
 
-**P0 - Skeleton + the screen flow (the backbone first).** The `PaperboyGame` state machine +
+**P0 - Skeleton + the screen flow (the backbone first).** The `PaperKidGame` state machine +
 placeholder screens for all seven states + HUD; Boot -> Loading -> Main menu -> Start -> an empty
 Playing scene -> Pause -> Resume/Quit all work; Settings opens from menu + pause and returns
 correctly. No gameplay yet. Proves the flow the whole game hangs on.

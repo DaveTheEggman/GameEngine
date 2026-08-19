@@ -54,7 +54,7 @@ a `class Run` binds to scripts as `Run`, not `run`. To honor lowercase `run`, on
   `ScriptName("run")`; both emitters bind the class under the alias. §5 is small + self-contained (a
   `TypeBuilder::ScriptName` field on `TypeInfo`, both backends binding the alias, the bare-name collision
   rule extended to aliases) and is the spec's OWN intended lowercasing mechanism. It also unblocks the
-  gameplay-component aliases (`RigidBody` vs `RigidBodyComponent`) that make Paperboy's scripts readable.
+  gameplay-component aliases (`RigidBody` vs `RigidBodyComponent`) that make PaperKid's scripts readable.
 - **(ii) Name the C++ class lowercase `run`** so the type name is `run` with no alias machinery. Works, but
   violates the codebase's PascalCase class convention (naming-convention memory).
 - **(iii) Ship `Run` (PascalCase) now**, rename to `run` when §5 lands in P2-5. Fastest, but ships an API
