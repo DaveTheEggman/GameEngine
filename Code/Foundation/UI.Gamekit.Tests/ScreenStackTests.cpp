@@ -192,3 +192,37 @@ TEST_CASE("screenstack: Back pops the top unless it is the last screen")
     CHECK(bed.stack.Count() == 1);
     CHECK(bed.stack.Top() == a.Get());
 }
+
+TEST_CASE("screenstack: a transition-pop removal defers through the mutation queue (no re-entrant "
+          "AnimationManager crash)")
+{
+    Bed bed;
+    auto a = MakeScreen();
+    auto b = MakeScreen();
+    b->SetTransition(TransitionDesc{TransitionKind::Scale, 0.1f}); // scale + fade on push/pop
+    bed.stack.Push(a);
+    bed.stack.Push(b);
+    CHECK(bed.stack.Count() == 2);
+
+    // Let b's IN-transition finish (BeginFrame drives the AnimationManager).
+    for (int i = 0; i < 4; ++i)
+    {
+        bed.context.BeginFrame(0.1f);
+    }
+
+    // Pop b: plays the Scale OUT-transition, then removes b on completion. That removal must route
+    // through the mutation queue - BeginFrame ticks animations under a NON-Idle phase, so the
+    // onComplete's RemoveView defers instead of running inline (an inline RemoveView would re-enter
+    // AnimationManager::Update -> CancelForView -> RemoveAtSwap on the array under iteration = crash).
+    CHECK(b->exit == 0);
+    bed.stack.Pop();
+    CHECK(bed.stack.Count() == 1); // bookkeeping is synchronous
+
+    // Frame N: the out-transition completes -> the removal QUEUES. Frame N+1: the drain removes b.
+    for (int i = 0; i < 4; ++i)
+    {
+        bed.context.BeginFrame(0.1f);
+    }
+    CHECK(b->exit == 1); // OnExit fired = b was actually removed (no crash)
+    CHECK(bed.stack.Top() == a.Get());
+}

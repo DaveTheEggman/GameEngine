@@ -1108,7 +1108,8 @@ export namespace foundation::ui
         {
             Idle,
             Layout,
-            Drawing
+            Drawing,
+            Animating // ticking the AnimationManager; tree mutations from onComplete defer to the queue
         };
 
         UIContext()
@@ -1293,7 +1294,13 @@ export namespace foundation::ui
             {
                 MarkNeedsRedraw();
             }
+            // Animation onComplete callbacks may mutate the view tree (a screen transition that
+            // removes its screen on finish). Tick under a NON-Idle phase so those structural changes
+            // route through the mutation queue (drained next frame) instead of running inline -
+            // an inline RemoveView -> AnimationManager::CancelForView would re-enter this very loop.
+            m_phase = Phase::Animating;
             m_animationManager.Update(deltaTime);
+            m_phase = Phase::Idle;
         }
         void UpdateRootView(RootView* root)
         {
