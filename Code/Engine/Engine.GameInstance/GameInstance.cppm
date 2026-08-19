@@ -364,6 +364,17 @@ export namespace engine::runtime
         /// aware-registry (from the SceneSubsystem) before creating scenes in it.
         [[nodiscard]] scene::SceneManager& Scenes() noexcept { return m_sceneManager; }
 
+        /// This run's RUN-SCOPED event bus (game-ready-scripting2 §1a): app-owned, ONE per run. The Game
+        /// tier's on<Event> inbox harvests it, and cross-scene / game-wide coordination publishes here
+        /// (a Level re-emits what the run tier should hear - there is NO implicit scene->run relay). It is
+        /// the SAME native scene::EventBus type (scene-agnostic: StringHash + Variant + subscriber list).
+        [[nodiscard]] scene::EventBus& RunEvents() noexcept { return m_runEvents; }
+
+        /// Deliver this frame's queued run-bus events. Called on the instance tick AFTER TickScript (no VM
+        /// call active), so a subscriber may dispatch script handlers directly. Cascade-bounded like the
+        /// scene bus; safe with no game script (native run-bus subscribers still fire).
+        void DrainRunEvents() { m_runEvents.Drain(); }
+
         // ---- input (this instance's OWN action runtime; game-instance.md - the input analog of the
         // per-instance scene group + net endpoint) ----
 
@@ -416,6 +427,7 @@ export namespace engine::runtime
         void InstallNetBinding();
 
         engine::script::ScriptRunHost m_runHost;    // owned: the game's script context (§11.10)
+        scene::EventBus m_runEvents; // the run-scoped event bus (game-ready-scripting2 §1a; app-owned)
         scene::SceneManager m_sceneManager; // owned; registered with the SceneSubsystem to tick
         scene::Scene* m_scene = nullptr;
         script::IScriptErrorHandler* m_errorHandler = nullptr;

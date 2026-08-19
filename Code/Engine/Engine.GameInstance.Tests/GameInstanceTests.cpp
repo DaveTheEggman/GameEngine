@@ -520,6 +520,49 @@ TEST_CASE("game-instance: two instances own separate, isolated run-host contexts
     CHECK_FALSE(b.ScriptRunning());
 }
 
+TEST_CASE("game-instance: the run-scoped event bus - deferred delivery, order, cascade, isolation")
+{
+    RegisterCoreTypes();
+
+    engine::runtime::GameInstance gi;
+    scene::EventBus& bus = gi.RunEvents();
+
+    // Deferred delivery + payload + subscription order (the native run bus, zero script).
+    Array<i32> order;
+    i32 received = 0;
+    (void)bus.Subscribe(StringHash(StringView(u8"Ping")),
+                        [&](const Variant& p) { order.PushBack(1); received = p.Get<i32>(); });
+    (void)bus.Subscribe(StringHash(StringView(u8"Ping")), [&](const Variant&) { order.PushBack(2); });
+    bus.Publish(StringHash(StringView(u8"Ping")), Variant::From<i32>(42));
+    CHECK(order.IsEmpty()); // nothing fires before Drain (delivery is deferred)
+    gi.DrainRunEvents();
+    REQUIRE(order.Size() == 2);
+    CHECK(order[0] == 1); // subscription order preserved
+    CHECK(order[1] == 2);
+    CHECK(received == 42); // payload delivered
+
+    // Cascade: a handler's Publish is delivered within the SAME drain.
+    bool cascaded = false;
+    (void)bus.Subscribe(StringHash(StringView(u8"First")), [&](const Variant&)
+                        { bus.Publish(StringHash(StringView(u8"Second")), Variant{}); });
+    (void)bus.Subscribe(StringHash(StringView(u8"Second")), [&](const Variant&) { cascaded = true; });
+    bus.Publish(StringHash(StringView(u8"First")), Variant{});
+    gi.DrainRunEvents();
+    CHECK(cascaded);
+
+    // Two instances own INDEPENDENT buses (the multi-instance correctness check).
+    engine::runtime::GameInstance other;
+    i32 aHits = 0, bHits = 0;
+    (void)gi.RunEvents().Subscribe(StringHash(StringView(u8"Only")), [&](const Variant&) { ++aHits; });
+    (void)other.RunEvents().Subscribe(StringHash(StringView(u8"Only")),
+                                      [&](const Variant&) { ++bHits; });
+    gi.RunEvents().Publish(StringHash(StringView(u8"Only")), Variant{});
+    gi.DrainRunEvents();
+    other.DrainRunEvents();
+    CHECK(aHits == 1);
+    CHECK(bHits == 0); // other's bus never saw gi's event
+}
+
 TEST_CASE("game-instance: a missing Game class fails to start cleanly")
 {
     RegisterCoreTypes();

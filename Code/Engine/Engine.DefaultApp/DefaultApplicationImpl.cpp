@@ -95,6 +95,7 @@ namespace engine::runtime
                 gi.DriveInput(deltaTime, contextScale);
                 gi.DriveRunHost(deltaTime);
                 gi.TickScript(deltaTime, contextScale);
+                gi.DrainRunEvents(); // deliver this frame's run-bus events (after the game script ticked)
             });
         IShell* plat = host.Shell();
         IInputManager* input = (plat != nullptr) ? plat->Input() : nullptr;
