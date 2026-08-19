@@ -288,3 +288,30 @@ the six questions, then findings the spec must absorb.
 
 Phasing as drafted is approved with P1 amended by (A)-(D). Battery rule as
 always; the parity suite + both-backend finder tests are the P1 gate.
+
+### CORRECTION (Fable, 2026-08-19, user catch): the CORE UI animation system exists - USE IT
+
+Both the draft and my review missed `foundation.ui`'s OWN animation layer:
+`Code/Foundation/UI/Animation/` - `Animation` + `FloatAnimation`/
+`Float2Animation`/`ColorAnimation`, `Storyboard` (composition), `ViewAnimator`
+(FadeTo/FadeIn/... factories with `EasingFunction`), and `AnimationManager`
+(owned by the UIContext, `ctx.Animations()->Add(...)`, safe against
+mid-update adds, target-tracked). Ported from Sedulous.UI; currently has ZERO
+consumers outside foundation.ui - which is why neither audit surfaced it, and
+which this work now fixes by becoming its first real consumer.
+
+**Ruling 2 is REVISED accordingly:**
+- Gamekit transitions are built ON `ViewAnimator` + `AnimationManager` +
+  `Storyboard` - there are NO new gamekit tweens, and the
+  foundation.propertyanimation-curves-for-easing note is WITHDRAWN
+  (`EasingFunction` already exists at the right layer). The screen transition
+  descriptor (fade/slide/scale + duration + easing) maps to ViewAnimator
+  factories composed in a Storyboard; the ScreenStack adds them to the
+  RootView's context AnimationManager. "Property-animation later" still means
+  clip-driven authored transitions only.
+- Finding (E) is RESOLVED early: `AnimationManager` IS the per-frame update
+  source the P3 widgets (Bar drain, Ticker) need - no widget-tick seam to
+  design.
+- New P1 duty: gamekit's transition tests double as the animation layer's
+  first consumer-level coverage (FadeTo/Storyboard driven through a
+  UIContext tick), since nothing exercises it end-to-end today.
