@@ -452,6 +452,7 @@ add_subdirectory(Code/Foundation/Graphics)  # GraphicsDevice/RenderWindow render
 add_subdirectory(Code/Foundation/Runtime)
 add_subdirectory(Code/Foundation/Runtime.Client)
 add_subdirectory(Code/Engine/Engine.GameInstance)
+add_subdirectory(Code/Engine/Engine.UI.Script)  # UI script surface: reflected view handles + `ui` screen-tier facade (over UI.Gamekit)
 # The script-surface composition root: links every subsystem facade above and exposes
 # RegisterAllScriptFacades() for surface-describing hosts (MCP). Must come after all the subsystem
 # libs + Net.Manager/Replication it aggregates.
@@ -605,6 +606,7 @@ if(OPTION_BUILD_TESTS)
         util_test_suite(Code/Engine/Engine.Script.Tests Engine::Script)
     endif()
     util_test_suite(Code/Engine/Engine.UI.Tests                     Engine::UI)
+    util_test_suite(Code/Engine/Engine.UI.Script.Tests              Engine::UI.Script)
     util_test_suite(Code/Experimental/GUI.Shell.Tests               Experimental::GUI.Shell)
     util_test_suite(Code/Experimental/GUI.Tests                     Experimental::GUI)
     util_test_suite(Code/Experimental/GUI.VFS.Tests                 Experimental::GUI.VFS)
