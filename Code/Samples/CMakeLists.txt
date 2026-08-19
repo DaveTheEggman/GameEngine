@@ -16,6 +16,7 @@ add_subdirectory(NetEcho)
 if(TARGET Foundation::Shell.Desktop AND TARGET Foundation::Runtime.Desktop AND TARGET Foundation::Graphics.Gpu)
     add_subdirectory(HelloWindow)
     add_subdirectory(ScriptPlayground)   # script P1 consumer proof (Mover/Spinner behaviors on the ScriptSubsystem)
+    add_subdirectory(GameUiSandbox)      # game-UI-kit widgets on the UISubsystem screen tier (MenuList/Bar/Ticker/Toast/ButtonPrompt)
     add_subdirectory(MultiWindow)
     # Samples with an ImGui debug UI - honor the extension option, or an
     # -DOPTION_EXTENSION_IMGUI=OFF configure dies on a missing Extensions::Imgui target.
