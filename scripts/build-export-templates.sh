@@ -31,8 +31,8 @@ WHICH="${1:-all}"
 # Release is the product default for templates (export-templates.md: ships stripped Release).
 LINUX_BUILD="build/clang-release"
 LINUX_BIN="Bin/Release/Linux64-Clang"
-WEB_BUILD="build/wasm-shipping"        # emscripten, Release
-WEB_BIN="Bin/Release/Emscripten-Clang-Shipping"
+WEB_BUILD="build/wasm-shipping"        # emscripten, Release (no output suffix -> Emscripten-Clang)
+WEB_BIN="Bin/Release/Emscripten-Clang"
 
 # The native exporter packages EVERY platform's bundle (it runs on the host, pointing at the
 # target's Bin dir - including the wasm one, which it synthesizes into a "Web" template).
