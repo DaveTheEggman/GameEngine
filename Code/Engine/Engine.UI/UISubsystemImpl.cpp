@@ -51,187 +51,6 @@ namespace engine::ui
     namespace scene = foundation::scene;
     namespace script = foundation::script;
 
-    // The Ui.* facade reflection body + registration (kept out of the interface unit per the GCC
-    // gcm-cluster rule). Owned by the UISubsystem (the out-of-tree facade pattern, like Net).
-    REFLECT_MEMBERS(Ui, "rtti::engine::ui")
-    {
-        builder.Method<&Ui::pushOverlay>("pushOverlay");
-        builder.Method<&Ui::popOverlay>("popOverlay");
-        builder.Method<&Ui::setText>("setText");
-        builder.Method<&Ui::setProgress>("setProgress");
-        builder.Method<&Ui::setVisible>("setVisible");
-        builder.Method<&Ui::onClick>("onClick");
-        builder.Constructor(); // some backends only materialize constructible foreign classes
-    }
-
-    void RegisterUiScriptFacade()
-    {
-        static const bool once = []()
-        {
-            RegisterUIComponentReflection(); // build component TypeData (incl `of`) first
-            GlobalTypeRegistry().Register(Ui::StaticType());
-            foundation::script::RegisterExtraFacadeName(
-                u8"Ui"); // behavior prelude imports it (AngelScript binds by registry)
-
-            // The WORLD-space UI components -> script .of (live data: order/visible/interactive/
-            // orientation/size/...). The app SCREEN tier (IScreenOverlay, loading screen) is NOT
-            // exposed as a component - it stays behind the app-global Ui facade.
-            struct Entry
-            {
-                const TypeInfo* type;
-                StringView name;
-            };
-            const Entry components[] = {
-                {&TypeOf<UICanvasComponent>(), u8"UICanvasComponent"},
-                {&TypeOf<UIBillboardComponent>(), u8"UIBillboardComponent"},
-                {&TypeOf<UIWorldPanelComponent>(), u8"UIWorldPanelComponent"}};
-            for (const Entry& component : components)
-            {
-                GlobalTypeRegistry().Register(*component.type);
-                foundation::script::RegisterExtraScriptRootType(component.type);
-                foundation::script::RegisterExtraFacadeName(component.name);
-            }
-            return true;
-        }();
-        (void)once;
-    }
-
-    // ---- UiScriptHost: backs the Ui.* facade with the live UISubsystem screen tier ----
-
-    void UiScriptHost::Install(UiScriptBinding& binding)
-    {
-        UiScriptHost* self = this;
-        binding.pushOverlay =
-            Function<i32(const core::Guid&)>{[self](const core::Guid& d) { return self->PushOverlay(d); }};
-        binding.popOverlay = Function<void(i32)>{[self](i32 h) { self->PopOverlay(h); }};
-        binding.setText = Function<void(i32, StringView, StringView)>{
-            [self](i32 h, StringView id, StringView t) { self->SetText(h, id, t); }};
-        binding.setProgress = Function<void(i32, StringView, f64)>{
-            [self](i32 h, StringView id, f64 v) { self->SetProgress(h, id, v); }};
-        binding.setVisible = Function<void(i32, StringView, bool)>{
-            [self](i32 h, StringView id, bool v) { self->SetVisible(h, id, v); }};
-        binding.onClick = Function<void(i32, StringView, RefPtr<script::IScriptDelegate>)>{
-            [self](i32 h, StringView id, RefPtr<script::IScriptDelegate> fn)
-            { self->OnClick(h, id, Move(fn)); }};
-    }
-
-    i32 UiScriptHost::PushOverlay(const core::Guid& document)
-    {
-        if (m_ui == nullptr || !m_resolve)
-        {
-            return 0;
-        }
-        RefPtr<UIDocument> doc = m_resolve(document);
-        if (!doc)
-        {
-            return 0;
-        }
-        // Instantiate + register the handle SYNCHRONOUSLY (the handle must be returned, and the
-        // setters address this view immediately), but DEFER the tree ATTACH through the mutation
-        // queue: a script may push from inside an event handler, and adding to the overlay layer
-        // mid-dispatch violates the UI mutation-queue rule.
-        RefPtr<View> view = m_ui->InstantiateScreenOverlay(*doc);
-        if (!view)
-        {
-            return 0;
-        }
-        const i32 handle = ++m_next;
-        m_overlays.InsertOrAssign(handle, view);
-        UISubsystem* ui = m_ui;
-        m_ui->Context().MutationQueueRef().QueueAction([ui, view]() { ui->PushScreenOverlay(view); });
-        return handle;
-    }
-
-    View* UiScriptHost::FindOverlay(i32 handle) const
-    {
-        const RefPtr<View>* v = m_overlays.Find(handle);
-        return v != nullptr ? v->Get() : nullptr;
-    }
-
-    View* UiScriptHost::FindControl(i32 handle, StringView id) const
-    {
-        View* overlay = FindOverlay(handle);
-        if (overlay == nullptr)
-        {
-            return nullptr;
-        }
-        if (overlay->Name.Size() > 0 && overlay->Name.AsView() == id)
-        {
-            return overlay; // the overlay root itself carries the id
-        }
-        ViewGroup* group = Cast<ViewGroup>(overlay);
-        return group != nullptr ? group->FindByName(id) : nullptr;
-    }
-
-    void UiScriptHost::PopOverlay(i32 handle)
-    {
-        RefPtr<View>* slot = m_overlays.Find(handle);
-        if (slot == nullptr)
-        {
-            return; // unknown / already-popped handle: no-op
-        }
-        RefPtr<View> view = *slot; // hold it alive for the deferred detach
-        m_overlays.Remove(handle); // the handle dies synchronously; repeat pops no-op
-        if (m_ui == nullptr)
-        {
-            return;
-        }
-        // DEFER the tree DETACH: a script's standard "close menu" button pops its own overlay from
-        // inside the onClick handler; destroying the view tree mid-dispatch is the mutation-queue
-        // rule. The queued action holds `view`, so it survives until the drain.
-        UISubsystem* ui = m_ui;
-        m_ui->Context().MutationQueueRef().QueueAction(
-            [ui, view]() { ui->RemoveScreenOverlay(view.Get()); });
-    }
-
-    void UiScriptHost::SetText(i32 handle, StringView id, StringView text)
-    {
-        View* control = FindControl(handle, id);
-        if (Label* label = Cast<Label>(control))
-        {
-            label->SetText(text);
-        }
-        else if (Button* button = Cast<Button>(control))
-        {
-            button->SetText(text);
-        }
-    }
-
-    void UiScriptHost::SetProgress(i32 handle, StringView id, f64 value)
-    {
-        if (ProgressBar* bar = Cast<ProgressBar>(FindControl(handle, id)))
-        {
-            const f32 clamped =
-                value < 0.0 ? 0.0f : (value > 1.0 ? 1.0f : static_cast<f32>(value));
-            bar->Value.SetValue(clamped);
-        }
-    }
-
-    void UiScriptHost::SetVisible(i32 handle, StringView id, bool visible)
-    {
-        if (View* v = FindControl(handle, id))
-        {
-            v->Visibility = visible ? Visibility::Visible : Visibility::Gone;
-        }
-    }
-
-    void UiScriptHost::OnClick(i32 handle, StringView id, RefPtr<script::IScriptDelegate> fn)
-    {
-        if (!fn)
-        {
-            return;
-        }
-        if (ButtonBase* button = Cast<ButtonBase>(FindControl(handle, id)))
-        {
-            RefPtr<script::IScriptDelegate> held = Move(fn);
-            // A click carries no payload - fire with no args. The handler is a natural void()
-            // (AngelScript `Action(@onCancel)`); Invoke marshals against its
-            // actual arity, so a handler that does take args just gets none. Holding `held` keeps
-            // the script fn GC-alive.
-            button->OnClick.Add([held](ButtonBase*) { (void)held->Invoke(Span<Variant>{}); });
-        }
-    }
-
     // Per-canvas host inside a scene root: carries the canvas's draw ORDER (the scene
     // root's canvas children are kept sorted by it - higher = later = on top; the
     // billboard layer stays child 0, below every canvas) and the SCALER transform
@@ -656,6 +475,7 @@ namespace engine::ui
     void UISubsystem::OnInit()
     {
         MarkupLoader::Initialize();
+        foundation::ui::gamekit::RegisterGamekitMarkup(); // the `<screen>` element for authored screens
         m_fonts = MakeUnique<foundation::fonts::TrueTypeFontService>(DefaultAllocator());
         StringView fontPath = m_fontPath.AsView();
         if (fontPath.IsEmpty())
@@ -685,6 +505,7 @@ namespace engine::ui
         // swallow the clicks meant for the scene canvases below it.
         m_screenRoot = MakeRef<RootView>(DefaultAllocator());
         m_context.AddRootView(m_screenRoot.Get());
+        m_screenStack.Attach(m_screenRoot.Get()); // the `ui` facade's push/pop operate on this root
         auto overlay = MakeRef<FrameLayout>(DefaultAllocator());
         overlay->IsHitTestVisible = false;
         m_overlayLayer = overlay;
@@ -2197,6 +2018,33 @@ namespace engine::ui
             RttiRegisterValue_UICanvasComponent();
             RttiRegisterValue_UIWorldPanelComponent();
             RttiRegisterValue_UIBillboardComponent();
+            return true;
+        }();
+        (void)once;
+    }
+
+    void RegisterUiComponentScriptFacades()
+    {
+        static const bool once = []()
+        {
+            RegisterUIComponentReflection(); // build component TypeData (incl `of`) first
+            // The WORLD-space UI components -> script `.of` (live data: order/visible/interactive/
+            // orientation/size/...). The app SCREEN tier is the separate `ui` facade (engine.ui.script).
+            struct Entry
+            {
+                const TypeInfo* type;
+                StringView name;
+            };
+            const Entry components[] = {
+                {&TypeOf<UICanvasComponent>(), u8"UICanvasComponent"},
+                {&TypeOf<UIBillboardComponent>(), u8"UIBillboardComponent"},
+                {&TypeOf<UIWorldPanelComponent>(), u8"UIWorldPanelComponent"}};
+            for (const Entry& component : components)
+            {
+                GlobalTypeRegistry().Register(*component.type);
+                foundation::script::RegisterExtraScriptRootType(component.type);
+                foundation::script::RegisterExtraFacadeName(component.name);
+            }
             return true;
         }();
         (void)once;

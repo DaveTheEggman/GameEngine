@@ -6,7 +6,8 @@
 add_executable(Integration.ScriptFacades TestsMain.cpp
     NetFacadeScriptTests.cpp UiFacadeScriptTests.cpp AudioFacadeScriptTests.cpp)
 target_link_libraries(Integration.ScriptFacades PRIVATE
-    Foundation::Core Foundation::Script Foundation::Net Foundation::Net.Manager Engine::UI
+    Foundation::Core Foundation::Script Foundation::Net Foundation::Net.Manager
+    Engine::UI.Script Foundation::UI Foundation::UI.Gamekit
     Foundation::Audio Engine::Audio Foundation::Audio.Resource
     Foundation::Content Foundation::Resource Foundation::VFS
     ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU}

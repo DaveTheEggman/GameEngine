@@ -61,6 +61,8 @@ import foundation.model.resource;      // cooked-model family types + registrati
 import foundation.ui.resource;         // cooked UI documents/themes (game-ui)
 import foundation.fonts.resource; // FontFactory (cooked default-UI font)
 import engine.ui;        // the game screen tier (canvases + overlay + consumption)
+import engine.ui.script;   // the `ui` script facade + its per-context service binding
+import foundation.ui.gamekit; // ScreenStack (the binding points at UISubsystem::Screens())
 import foundation.audio;               // AudioEngine (owned by the audio subsystem)
 import foundation.audio.resource;      // cooked audio clips + factory
 import engine.audio;     // AudioSubsystem (voices/buses/one-shots + scene sync)
@@ -251,11 +253,10 @@ export namespace engine::runtime
         core::UniquePtr<foundation::resource::ResourceManager> m_ownedResources;
         engine::input::InputSubsystem* m_input = nullptr;
         engine::ui::UISubsystem* m_ui = nullptr;
-        // Backs the Ui.* script facade with the live screen tier (task #123 step 3.5): the host owns
-        // the overlay map + control ops; the binding routes into it and is installed on every run
+        // Backs the `ui` script facade (game-ui-kit P1): a binding pointing at the UISubsystem's
+        // screen-tier root + ScreenStack + a cooked-UIDocument instantiator, installed on every run
         // context by the context configurator. App-owned (the screen tier is app-wide).
-        engine::ui::UiScriptHost m_uiScriptHost;
-        engine::ui::UiScriptBinding m_uiScriptBinding;
+        engine::uiscript::UiScreenScriptBinding m_uiScreenBinding;
         core::String m_uiFontPath;
         engine::physics::PhysicsSubsystem* m_physics = nullptr;
         engine::audio::AudioSubsystem* m_audio = nullptr;

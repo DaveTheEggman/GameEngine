@@ -4060,7 +4060,7 @@ TEST_CASE("script.scene: NetworkComponent.of authority crosses as an int")
 //      The app SCREEN tier (IScreenOverlay, loading screen) is deliberately NOT exposed here.
 TEST_CASE("script.scene: the world-space UI components reach script via .of")
 {
-    engine::ui::RegisterUiScriptFacade();
+    engine::ui::RegisterUiComponentScriptFacades(); // the world-space UI components' .of facades
     ScriptedScene bed;
     auto* canvases = bed.scene.AddSystem<engine::ui::UICanvasComponentManager>();
     auto* billboards = bed.scene.AddSystem<engine::ui::UIBillboardComponentManager>();

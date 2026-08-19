@@ -35,6 +35,7 @@ import engine.input;
 import foundation.render.api; // the two-tier overlay roles (ISceneOverlay/IScreenOverlay)
 import foundation.ui;
 import foundation.ui.shell; // UiInputBridge (key/text mapping + IME lifecycle)
+import foundation.ui.gamekit; // ScreenStack over the screen-tier RootView (game-ui-kit P1)
 import foundation.ui.resource;
 import foundation.script;         // Object / IScriptContext / IScriptDelegate / the run-context service
 import foundation.script.facades; // RegisterExtraFacadeName (the behavior-module prelude hook)
@@ -54,150 +55,6 @@ export namespace engine::ui
     namespace scene = foundation::scene;
     namespace script = foundation::script;
 
-    // ---- Ui.* script facade (task #123 step 3.5): the UISubsystem's OWN script surface, owned HERE
-    // (not the neutral Foundation facade lib) - the out-of-tree pattern foundation.net's `Net` facade
-    // uses. A UiScriptBinding is installed as a per-context service; the app backs its pointers with
-    // the live UISubsystem SCREEN tier (PushScreenOverlay/ScreenRoot) + resource manager. The facade
-    // is asset-driven + id-addressed - the view hierarchy never reaches script; documents are the
-    // authored artifact. See RegisterUiScriptFacade / InstallUiScriptService below.
-
-    // The service key the Ui facade resolves per script context (distinct from script.runtime).
-    inline constexpr StringView kUiScriptService = u8"ui.runtime";
-
-    // Installed as a per-context script service; the Ui facade resolves it. Holds host-installed
-    // pointers (the app fills them, backed by the UISubsystem). Null pointers = safe no-ops.
-    struct UiScriptBinding
-    {
-        Function<i32(const core::Guid&)> pushOverlay;                 // cooked document -> handle
-        Function<void(i32)> popOverlay;                               // handle
-        Function<void(i32, StringView, StringView)> setText;         // handle, id, text
-        Function<void(i32, StringView, f64)> setProgress;            // handle, id, 0..1
-        Function<void(i32, StringView, bool)> setVisible;            // handle, id, visible
-        Function<void(i32, StringView, RefPtr<script::IScriptDelegate>)> onClick; // handle, id, fn
-    };
-
-    // Install/clear the binding on a run context (call once the context exists). Idempotent.
-    inline void InstallUiScriptService(script::IScriptContext& context, UiScriptBinding& binding)
-    {
-        context.SetService(kUiScriptService, &binding);
-    }
-    inline void ClearUiScriptService(script::IScriptContext& context)
-    {
-        context.SetService(kUiScriptService, nullptr);
-    }
-
-    // Registers the `Ui` facade type with the global registry + the behavior-prelude name list.
-    // Call before a script manager is created (the run host / cook builder do). Idempotent.
-    void RegisterUiScriptFacade();
-
-    /// Ui.*: game-UI SCREEN overlays for scripts, asset-driven + id-addressed. pushOverlay resolves
-    /// a cooked UIDocument by guid, instantiates it, pushes it on the screen tier -> a handle;
-    /// setText/setProgress/setVisible address a control by its authored id; onClick binds a script
-    /// fn to a control's click (the menu-building primitive). With foundation::runtime's SceneLoader,
-    /// a script-driven loading screen is `var s = Ui.pushOverlay(DOC); var t = SceneLoader.
-    /// loadSceneAsync(LVL); while (!SceneLoader.loadComplete(t)) { Ui.setProgress(s, "progress",
-    /// SceneLoader.loadProgress(t)); yield } Ui.popOverlay(s)`. Unwired = safe no-ops (pushOverlay
-    /// -> 0). Mutations from an onClick handler follow the UI mutation-queue rule (the host defers).
-    class Ui final : public Object
-    {
-        RTTI_OBJECT(Ui, Object)
-    public:
-        [[nodiscard]] static UiScriptBinding* Resolve()
-        {
-            script::IScriptContext* context = script::CurrentScriptContext();
-            return context != nullptr
-                       ? static_cast<UiScriptBinding*>(context->GetService(kUiScriptService))
-                       : nullptr;
-        }
-
-        [[nodiscard]] static i32 pushOverlay(core::Guid document)
-        {
-            UiScriptBinding* binding = Resolve();
-            return (binding != nullptr && binding->pushOverlay && !document.IsNil())
-                       ? binding->pushOverlay(document)
-                       : 0;
-        }
-        static void popOverlay(i32 handle)
-        {
-            UiScriptBinding* binding = Resolve();
-            if (binding != nullptr && binding->popOverlay)
-            {
-                binding->popOverlay(handle);
-            }
-        }
-        static void setText(i32 handle, String id, String text)
-        {
-            UiScriptBinding* binding = Resolve();
-            if (binding != nullptr && binding->setText)
-            {
-                binding->setText(handle, id.AsView(), text.AsView());
-            }
-        }
-        static void setProgress(i32 handle, String id, f64 value)
-        {
-            UiScriptBinding* binding = Resolve();
-            if (binding != nullptr && binding->setProgress)
-            {
-                binding->setProgress(handle, id.AsView(), value);
-            }
-        }
-        static void setVisible(i32 handle, String id, bool visible)
-        {
-            UiScriptBinding* binding = Resolve();
-            if (binding != nullptr && binding->setVisible)
-            {
-                binding->setVisible(handle, id.AsView(), visible);
-            }
-        }
-        static void onClick(i32 handle, String id, RefPtr<script::IScriptDelegate> fn)
-        {
-            UiScriptBinding* binding = Resolve();
-            if (binding != nullptr && binding->onClick)
-            {
-                binding->onClick(handle, id.AsView(), Move(fn));
-            }
-        }
-    };
-
-    class UISubsystem; // defined below; UiScriptHost drives its screen tier
-
-    // Backs the Ui.* facade with the live UISubsystem SCREEN tier: owns the handle->overlay-view map,
-    // resolves cooked UIDocuments (the app supplies the resolver, backed by the resource manager), and
-    // applies the id-addressed control ops - Label/Button text, ProgressBar value, View visibility,
-    // Button click -> IScriptDelegate. App-owned (the screen tier is app-wide). Install() fills a
-    // UiScriptBinding to route into it; the app installs that binding on each run context. Ui.* is a
-    // safe no-op until Attach() + a document resolver are set.
-    class UiScriptHost
-    {
-    public:
-        void Attach(UISubsystem& ui) noexcept { m_ui = &ui; }
-        void SetDocumentResolver(Function<RefPtr<UIDocument>(const core::Guid&)> resolver)
-        {
-            m_resolve = Move(resolver);
-        }
-        // Route the six Ui.* facade ops into this host.
-        void Install(UiScriptBinding& binding);
-
-        [[nodiscard]] i32 PushOverlay(const core::Guid& document);
-        void PopOverlay(i32 handle);
-        void SetText(i32 handle, StringView id, StringView text);
-        void SetProgress(i32 handle, StringView id, f64 value);
-        void SetVisible(i32 handle, StringView id, bool visible);
-        void OnClick(i32 handle, StringView id, RefPtr<script::IScriptDelegate> fn);
-
-        [[nodiscard]] usize OverlayCount() const noexcept { return m_overlays.Size(); }
-
-    private:
-        [[nodiscard]] View* FindOverlay(i32 handle) const;
-        // The overlay root OR a named descendant of it (id-addressing; ViewGroup::FindByName only
-        // reaches descendants, so the root is checked explicitly).
-        [[nodiscard]] View* FindControl(i32 handle, StringView id) const;
-
-        UISubsystem* m_ui = nullptr;
-        Function<RefPtr<UIDocument>(const core::Guid&)> m_resolve;
-        HashMap<i32, RefPtr<View>> m_overlays;
-        i32 m_next = 0;
-    };
 
     enum class CanvasScalerMode : u8
     {
@@ -467,6 +324,13 @@ export namespace engine::ui
 
     void RegisterUIComponentReflection();
 
+    // Register the WORLD-space UI components' script `.of` facades (UICanvasComponent /
+    // UIBillboardComponent / UIWorldPanelComponent) - reflection + registry + prelude names. Distinct
+    // from the screen-tier `ui` facade (engine.ui.script): these are per-entity component surfaces.
+    // Idempotent; the ScriptSurface root + the app both call it. (Was folded into the removed
+    // RegisterUiScriptFacade; extracted when the screen-tier facade moved to engine.ui.script.)
+    void RegisterUiComponentScriptFacades();
+
     // THE game-UI manager set for a scene - injected by the subsystem at runtime AND by headless
     // scene consumers (Engine.SceneSurface). The per-scene root-view plumbing is runtime-only and
     // stays with the subsystem. Add a manager => bump the SceneSurface tripwire
@@ -523,6 +387,10 @@ export namespace engine::ui
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
         /// per-scene roots - see SceneRoot).
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
+        /// The screen-tier ScreenStack (game-ui-kit P1): push/pop/replace of UIScreens over the screen
+        /// root. Tier-owned so its lifetime matches the root. Backs the `ui` script facade's screen
+        /// management (engine.ui.script installs a service pointing at this + ScreenRoot()).
+        [[nodiscard]] foundation::ui::gamekit::ScreenStack& Screens() noexcept { return m_screenStack; }
         /// The scene tier's root for `scene` (canvases above a shared billboard layer);
         /// null if the scene is unknown.
         [[nodiscard]] RootView* SceneRoot(scene::Scene& scene) noexcept
@@ -751,6 +619,7 @@ export namespace engine::ui
         UIContext m_context;
         UiInputBridge m_bridge{&m_context}; // key/text event mapping + IME sync
         RefPtr<RootView> m_screenRoot;
+        foundation::ui::gamekit::ScreenStack m_screenStack; // push/pop over m_screenRoot (attached in init)
         RefPtr<ViewGroup> m_overlayLayer; // scene-LESS screen tier, ABOVE everything
         RefPtr<StyleSheet> m_theme;
         UniquePtr<foundation::fonts::TrueTypeFontService> m_fonts;

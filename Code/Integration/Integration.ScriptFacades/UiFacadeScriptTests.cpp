@@ -1,15 +1,18 @@
-// engine.ui - the Ui.* script facade PROVEN end-to-end on both backends.
+// engine.ui.script - the `ui` script facade PROVEN end-to-end on both backends (game-ui-kit P1,
+// replacing the old id-addressed Ui facade + its parity suite).
 //
-// The Ui facade is owned by the UISubsystem (the out-of-tree pattern foundation.net's Net facade
-// uses), NOT the neutral Foundation facade lib. This drives a real AngelScript VM: a fake
-// UiScriptBinding (standing in for the live UISubsystem screen tier) is installed as the context's
-// ui.runtime service, then a script pushes an overlay, drives its controls by id, binds a click
-// handler, and pops it; we read back what each host call recorded and fire the click delegate.
+// This drives a real AngelScript / Luau VM against a real screen tier: a UIContext + RootView + a
+// gamekit ScreenStack, with an `instantiate` that returns a document tree carrying named controls
+// (a Label "status", a ProgressBar "progress", a Button "cancel"). A script pushes the document,
+// finds controls by name + type, writes + reads them back, checks a type-mismatch loud-null, and pops.
+// We read the round-tripped values (proving writes reached the REAL views) and the live stack count.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
 import foundation.core;
-import engine.ui; // Ui / UiScriptBinding / InstallUiScriptService / RegisterUiScriptFacade
+import foundation.ui;         // UIContext / RootView / Label / ProgressBar / Button / FrameLayout
+import foundation.ui.gamekit; // ScreenStack
+import engine.ui.script;      // the `ui` facade + UiScreenScriptBinding + InstallUiScreenScriptService
 import foundation.script;
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript;
@@ -23,159 +26,119 @@ using namespace foundation::script;
 
 namespace
 {
-    // Fake UISubsystem-screen-tier host pointers + what each call recorded.
-    struct UiFake
+    namespace ui = foundation::ui;
+    namespace gamekit = foundation::ui::gamekit;
+
+    // A real screen tier: context + root + stack, with an instantiate that returns a fresh document
+    // tree of named controls (the facade wraps a plain root in a default UIScreen on push).
+    struct UiBed
     {
-        engine::ui::UiScriptBinding binding;
-        int pushCalls = 0;
-        Guid pushedDoc;
-        i32 popped = -1;
-        i32 textHandle = -1;
-        String textId, textValue;
-        i32 progHandle = -1;
-        String progId;
-        f64 progValue = -1.0;
-        i32 visHandle = -1;
-        String visId;
-        bool visValue = false;
-        i32 clickHandle = -1;
-        String clickId;
-        RefPtr<IScriptDelegate> clickFn;
+        ui::UIContext context;
+        RefPtr<ui::RootView> root;
+        gamekit::ScreenStack stack;
+        engine::uiscript::UiScreenScriptBinding binding;
 
-        static constexpr i32 kHandle = 5;
-
-        UiFake()
+        UiBed()
         {
-            binding.pushOverlay = Function<i32(const Guid&)>{[this](const Guid& g) -> i32
-                                                             {
-                                                                 ++pushCalls;
-                                                                 pushedDoc = g;
-                                                                 return kHandle;
-                                                             }};
-            binding.popOverlay = Function<void(i32)>{[this](i32 h) { popped = h; }};
-            binding.setText = Function<void(i32, StringView, StringView)>{
-                [this](i32 h, StringView id, StringView t)
+            root = MakeRef<ui::RootView>(DefaultAllocator());
+            context.AddRootView(root.Get());
+            stack.Attach(root.Get());
+            binding.screenRoot = root.Get();
+            binding.stack = &stack;
+            binding.instantiate = Function<RefPtr<ui::View>(const Guid&)>{
+                [](const Guid&) -> RefPtr<ui::View>
                 {
-                    textHandle = h;
-                    textId = String(id);
-                    textValue = String(t);
-                }};
-            binding.setProgress = Function<void(i32, StringView, f64)>{
-                [this](i32 h, StringView id, f64 v)
-                {
-                    progHandle = h;
-                    progId = String(id);
-                    progValue = v;
-                }};
-            binding.setVisible = Function<void(i32, StringView, bool)>{
-                [this](i32 h, StringView id, bool v)
-                {
-                    visHandle = h;
-                    visId = String(id);
-                    visValue = v;
-                }};
-            binding.onClick = Function<void(i32, StringView, RefPtr<IScriptDelegate>)>{
-                [this](i32 h, StringView id, RefPtr<IScriptDelegate> fn)
-                {
-                    clickHandle = h;
-                    clickId = String(id);
-                    clickFn = Move(fn);
+                    auto group = MakeRef<ui::FrameLayout>(DefaultAllocator());
+                    auto label = MakeRef<ui::Label>(DefaultAllocator());
+                    label->Name = String(u8"status");
+                    group->AddView(label.Get());
+                    auto bar = MakeRef<ui::ProgressBar>(DefaultAllocator());
+                    bar->Name = String(u8"progress");
+                    group->AddView(bar.Get());
+                    auto btn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Cancel"));
+                    btn->Name = String(u8"cancel");
+                    group->AddView(btn.Get());
+                    return group;
                 }};
         }
 
-        void CheckRecorded() const
+        // The live controls, found through the screen root (null once the screen is popped).
+        [[nodiscard]] ui::Label* StatusLabel() const
         {
-            CHECK(pushCalls == 1);
-            CHECK(pushedDoc == Guid{17, 34});
-            CHECK(textHandle == kHandle);
-            CHECK(textId == StringView(u8"status"));
-            CHECK(textValue == StringView(u8"Loading"));
-            CHECK(progHandle == kHandle);
-            CHECK(progId == StringView(u8"progress"));
-            CHECK(progValue == doctest::Approx(0.5));
-            CHECK(visId == StringView(u8"spinner"));
-            CHECK(visValue == true);
-            CHECK(clickHandle == kHandle);
-            CHECK(clickId == StringView(u8"cancel"));
-            CHECK(popped == kHandle);
-        }
-
-        // Fire the recorded click handler the way the host would (one ignored double arg today; a
-        // void() delegate funcdef is a queued backend refinement).
-        void FireClick()
-        {
-            REQUIRE(clickFn.Get() != nullptr);
-            (void)clickFn->Invoke(Span<Variant>{}); // a click carries no payload
+            return root->FindByName<ui::Label>(u8"status");
         }
     };
+
+    // Assert the outcome of any backend's run of the shared script. Kept to backend-NEUTRAL types
+    // (String + bool globals; the numeric stack count is checked on the C++ side to dodge the
+    // AngelScript-i32 / Luau-f64 number-type split).
+    void CheckOutcome(const UiBed& bed, IScriptContext& ctx)
+    {
+        // Writes reached the REAL views: the in-script round-trip read "Loading" back off the label.
+        CHECK(ctx.GetGlobal(u8"t").template Get<String>() == StringView(u8"Loading"));
+        // Loud-null: "status" is a Label, so findButton("status") is a null-but-valid handle.
+        CHECK(ctx.GetGlobal(u8"wrong").template Get<bool>() == false);
+        // The pop landed (C++ side): the stack is empty and the popped screen's controls are gone.
+        CHECK(bed.stack.Count() == 0);
+        CHECK(bed.StatusLabel() == nullptr);
+    }
 }
 
 #ifdef OPTION_HAS_ANGELSCRIPT
-TEST_CASE("ui-facade: AngelScript pushes an overlay, drives controls by id, binds + fires a click")
+TEST_CASE("ui-facade: AngelScript pushes a screen, finds + drives typed controls, reads back, pops")
 {
     RegisterCoreTypes();
-    engine::ui::RegisterUiScriptFacade();
+    engine::uiscript::RegisterUiScriptSurface();
 
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
-    UiFake fake;
-    engine::ui::InstallUiScriptService(*ctx, fake.binding);
+    UiBed bed;
+    engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
 
-    // AngelScript: statics live in the type's namespace (Ui::pushOverlay); the click handler is a
-    // natural void() wrapped in the engine-provided `Action` funcdef, and sets a global we read
-    // after firing (the delegate param is `?&in`, so any funcdef shape is accepted).
-    const Status status = ctx->Load(u8"bool clicked = false;\n"
-                                    u8"int h;\n"
-                                    u8"void onCancel() { clicked = true; }\n"
-                                    u8"void main() {\n"
-                                    u8"  h = Ui::pushOverlay(Guid(17, 34));\n"
-                                    u8"  Ui::setText(h, \"status\", \"Loading\");\n"
-                                    u8"  Ui::setProgress(h, \"progress\", 0.5);\n"
-                                    u8"  Ui::setVisible(h, \"spinner\", true);\n"
-                                    u8"  Ui::onClick(h, \"cancel\", Action(@onCancel));\n"
-                                    u8"  Ui::popOverlay(h);\n"
-                                    u8"}\n",
-                                    u8"main");
+    // AngelScript: the `ui` facade's statics live in its namespace (ui::push); finders return handles
+    // the call chains onto, exactly like the component `.of(...)` surface.
+    const Status status =
+        ctx->Load(u8"string t; bool wrong;\n"
+                  u8"void main() {\n"
+                  u8"  ui::push(Guid(17, 34));\n"
+                  u8"  ui::findLabel(\"status\").setText(\"Loading\");\n"
+                  u8"  ui::findProgressBar(\"progress\").setValue(0.5);\n"
+                  u8"  t = ui::findLabel(\"status\").text;\n"
+                  u8"  wrong = ui::findButton(\"status\").isValid();\n"
+                  u8"  ui::pop();\n"
+                  u8"}\n",
+                  u8"main");
     REQUIRE(status.IsOk());
-
-    fake.CheckRecorded();
-    CHECK(ctx->GetGlobal(u8"clicked").Get<bool>() == false);
-    fake.FireClick();
-    CHECK(ctx->GetGlobal(u8"clicked").Get<bool>() == true);
+    CheckOutcome(bed, *ctx);
 }
 #endif // OPTION_HAS_ANGELSCRIPT
 
 #ifdef OPTION_HAS_LUAU
-TEST_CASE("ui-facade: Luau pushes an overlay, drives controls by id, binds + fires a click")
+TEST_CASE("ui-facade: Luau pushes a screen, finds + drives typed controls, reads back, pops")
 {
     RegisterCoreTypes();
-    engine::ui::RegisterUiScriptFacade();
+    engine::uiscript::RegisterUiScriptSurface();
 
     RefPtr<IScriptManager> manager = CreateLuauScriptManager();
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
-    UiFake fake;
-    engine::ui::InstallUiScriptService(*ctx, fake.binding);
+    UiBed bed;
+    engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
 
-    // Luau: statics live on the type table (Ui.pushOverlay); the chunk runs at top level, so the
-    // click handler is a plain closure setting a global we read after firing (the delegate param is
-    // language-neutral - any callable shape is accepted).
-    const Status status = ctx->Load(u8"clicked = false\n"
-                                    u8"local h = Ui.pushOverlay(Guid.new(17, 34))\n"
-                                    u8"Ui.setText(h, \"status\", \"Loading\")\n"
-                                    u8"Ui.setProgress(h, \"progress\", 0.5)\n"
-                                    u8"Ui.setVisible(h, \"spinner\", true)\n"
-                                    u8"Ui.onClick(h, \"cancel\", function() clicked = true end)\n"
-                                    u8"Ui.popOverlay(h)\n",
-                                    u8"main");
+    // Luau: method calls use `:` and properties read with `.`, but the surface is otherwise identical
+    // to AngelScript - the backend-neutrality proof.
+    const Status status =
+        ctx->Load(u8"ui.push(Guid.new(17, 34))\n"
+                  u8"ui.findLabel(\"status\"):setText(\"Loading\")\n"
+                  u8"ui.findProgressBar(\"progress\"):setValue(0.5)\n"
+                  u8"t = ui.findLabel(\"status\").text\n"
+                  u8"wrong = ui.findButton(\"status\"):isValid()\n"
+                  u8"ui.pop()\n",
+                  u8"main");
     REQUIRE(status.IsOk());
-
-    fake.CheckRecorded();
-    CHECK(ctx->GetGlobal(u8"clicked").Get<bool>() == false);
-    fake.FireClick();
-    CHECK(ctx->GetGlobal(u8"clicked").Get<bool>() == true);
+    CheckOutcome(bed, *ctx);
 }
 #endif // OPTION_HAS_LUAU

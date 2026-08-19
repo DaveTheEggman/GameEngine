@@ -17,6 +17,7 @@ import engine.navigation;
 import engine.audio;
 import engine.input;
 import engine.ui;
+import engine.ui.script;
 import engine.render;
 import engine.particles;
 import engine.animation;
@@ -40,7 +41,8 @@ namespace engine
         engine::navigation::RegisterNavigationScriptFacade();
         engine::audio::RegisterAudioScriptFacade();
         engine::input::RegisterInputScriptFacade();
-        engine::ui::RegisterUiScriptFacade();
+        engine::uiscript::RegisterUiScriptSurface();       // the screen-tier `ui` facade
+        engine::ui::RegisterUiComponentScriptFacades();    // world-space UI components' `.of` surface
         engine::render::RegisterRenderScriptFacade();
         engine::particles::RegisterParticleScriptFacade();
         engine::animation::RegisterAnimationScriptFacade();

@@ -49,8 +49,10 @@ import foundation.navigation.resource; // navmesh-zone factory
 import foundation.texture.resource;    // texture factory (device-backed)
 import foundation.image.resource;      // image resource registration
 import foundation.model.resource;      // cooked-model family types + registration
+import foundation.ui;                  // View (the `ui` binding's instantiate return type)
 import foundation.ui.resource;         // cooked UI documents/themes (game-ui)
 import engine.ui;        // the game screen tier (canvases + overlay + consumption)
+import engine.ui.script;   // UiScreenScriptBinding + InstallUiScreenScriptService + RegisterUiScriptSurface
 import foundation.audio;               // AudioEngine (owned by the audio subsystem)
 import foundation.audio.resource;      // cooked audio clips + factory
 import engine.audio;     // AudioSubsystem (voices/buses/one-shots + scene sync)
@@ -168,7 +170,8 @@ namespace engine::runtime
         engine::particles::RegisterParticleScriptFacade();
         engine::audio::RegisterAudioScriptFacade();
         RegisterSceneLoaderScriptFacade();     // SceneLoader.* (owned by the game-instance project)
-        engine::ui::RegisterUiScriptFacade(); // Ui.* (owned by the UISubsystem)
+        engine::uiscript::RegisterUiScriptSurface();    // screen-tier `ui` facade + reflected view handles
+        engine::ui::RegisterUiComponentScriptFacades(); // world-space UI components' `.of` surface
         // Every built backend registers (batteries-included); a run resolves by the game script's
         // LANGUAGE - one gameplay context per run stays the locked rule. Each backend is independently
         // toggleable (OPTION_ENABLE_ANGELSCRIPT / _LUAU); all build on every platform, web included.
@@ -202,31 +205,31 @@ namespace engine::runtime
                 {
                     self->m_audio->ExposeToScript(context, self->Resources());
                 }
-                // Ui.* -> the app-wide screen-tier host (backs pushOverlay/setters/onClick).
-                engine::ui::InstallUiScriptService(context, self->m_uiScriptBinding);
+                // `ui` -> the app-wide screen tier (finders + push/pop over the ScreenStack).
+                engine::uiscript::InstallUiScreenScriptService(context, self->m_uiScreenBinding);
             }});
 
-        // Back the Ui.* facade with the live screen tier: attach the UISubsystem, resolve cooked
-        // UIDocuments by guid from the run's resource manager (read live - it may attach later in
-        // the editor), and route the binding into the host.
+        // Back the `ui` facade with the live screen tier: point the binding at the UISubsystem's
+        // screen root + ScreenStack, and supply a cooked-UIDocument instantiator (resolve by guid
+        // from the run's resource manager - read live, as it may attach later in the editor - then
+        // instantiate the markup into a view tree).
         if (m_ui != nullptr)
         {
-            m_uiScriptHost.Attach(*m_ui);
-            m_uiScriptHost.SetDocumentResolver(
-                core::Function<core::RefPtr<foundation::ui::UIDocument>(const core::Guid&)>{
-                    [self](const core::Guid& id) -> core::RefPtr<foundation::ui::UIDocument>
+            m_uiScreenBinding.screenRoot = m_ui->ScreenRoot();
+            m_uiScreenBinding.stack = &m_ui->Screens();
+            m_uiScreenBinding.instantiate =
+                core::Function<core::RefPtr<foundation::ui::View>(const core::Guid&)>{
+                    [self](const core::Guid& id) -> core::RefPtr<foundation::ui::View>
                     {
-                        if (self->Resources() == nullptr || id.IsNil())
+                        if (self->m_ui == nullptr || self->Resources() == nullptr || id.IsNil())
                         {
                             return {};
                         }
                         auto proxy = self->Resources()->Bind<foundation::ui::UIDocument>(id);
                         foundation::ui::UIDocument* document = proxy.Get();
-                        return document != nullptr
-                                   ? core::RefPtr<foundation::ui::UIDocument>(document)
-                                   : core::RefPtr<foundation::ui::UIDocument>{};
-                    }});
-            m_uiScriptHost.Install(m_uiScriptBinding);
+                        return document != nullptr ? self->m_ui->InstantiateScreenOverlay(*document)
+                                                   : core::RefPtr<foundation::ui::View>{};
+                    }};
         }
         // Scene.spawn: resolve the prefab payload from the content DB the entry point
         // preset, spawn it, place the root at the requested world position, and bind

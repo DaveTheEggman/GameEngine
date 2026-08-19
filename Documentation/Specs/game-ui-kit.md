@@ -1,8 +1,12 @@
 # Game UI kit + UI scripting (`foundation.ui.gamekit`)
 
-**Status:** APPROVED to build P1 (Fable 2026-08-19 - see the review at the end of this doc for the six
-rulings + build requirements A-D). Consolidates the design discussion of 2026-08-19 and is grounded in a
-code audit of the current UI stack (file:line references below are verified). Build P1 to the rulings.
+**Status:** P1 SHIPPED 2026-08-19 (clang + gcc green; all tests pass). `foundation.ui.gamekit`
+(UIScreen + ScreenStack) + `engine.ui.script` (reflected view handles + the `ui` screen-tier facade)
+built; the old `Ui` facade hard-removed. Scene-tier `scene.ui` DEFERRED to a design call (scene UI rides
+`UICanvasComponent` meanwhile - see the DECISION note in section 5). NOTE: the script-facing UI facade is
+`ui` (a standalone facade), not `run.ui` - typed finders cannot hang off `run` without an engine.gameinstance
+-> engine.ui.script dependency cycle (user decision 2026-08-19). Below is the original P1 plan + Fable's
+rulings; the shipped shape follows it except for the `ui`-vs-`run.ui` spelling and the scene.ui deferral.
 
 **One-line:** a game-UI convenience library (`foundation.ui.gamekit`, sibling of `foundation.ui.toolkit`
 on CORE `foundation.ui`) providing a real **`UIScreen` + `ScreenStack`** primitive, plus a proper
@@ -357,3 +361,22 @@ scene-scoped shapes:
 The SCREEN tier (`run.ui()`/`run.pushScreen`) uses the engine service either way. Recommendation: (a) -
 scene-scoped, ergonomic, the `scene.spawn` twin. (Earlier "(b) `run.sceneUi()` = current scene" was WRONG
 - ambiguous with multiple live scenes.)
+
+### DECISION (user, 2026-08-19): ship `run.ui` now; DEFER the scene.ui script root
+
+P1 builds **only the SCREEN tier script surface** (`run.ui()` / `run.pushScreen` / `popScreen` via the
+`engine.ui.script` per-context service) plus `UIScreen` + `ScreenStack` + the reflected typed-View finders.
+The **scene.ui script root (a vs a') is DEFERRED** to a design call with Fable on the weekend - the
+precedent finding (no installed scene-scoped hook exists outside foundation; the only hook-less precedent
+is `ComponentOf`, which works because the scene OWNS its component managers, whereas the scene does NOT own
+its UI root - engine.ui does, keyed by scene) is enough to want a live review before committing foundation
+surface either way.
+
+**Scene UI in the meantime = `UICanvasComponent`** (`engine.ui`, `UISubsystem.cppm:216`), which already
+does the right thing: an authored `UIDocument` on an entity, instantiated into a `root` tree hosted under
+the scene root and drawn in the **scene-overlay pass** (`CanvasRenderMode::ScreenOverlay`); spawn/despawn =
+open/close; serialized + resource-resolved like any component. This is the clean, overlay-routed path -
+scripts do NOT poke the scene UI root, which the user flagged as probably-undesirable anyway. So P1 needs
+no scene.ui decision to be useful: HUD/menus that live in a scene ride a `UICanvasComponent`; the run
+(screen tier) rides `run.ui`. Reflected script access to a canvas's tree, if wanted, folds into the
+weekend scene.ui call.

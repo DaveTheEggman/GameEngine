@@ -4,7 +4,7 @@ add_library(Engine::UI ALIAS Engine.UI)
 target_link_libraries(Engine.UI
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene
            Foundation::Resource Foundation::Shell Foundation::RHI Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.Resource
-           Foundation::Input Engine::Input Foundation::UI Foundation::UI.Shell
+           Foundation::Input Engine::Input Foundation::UI Foundation::UI.Shell Foundation::UI.Gamekit
            Foundation::UI.Resource
            Foundation::Script Foundation::Script.Facades
            Foundation::VG Foundation::VG.Renderer Foundation::Shaders Foundation::Shaders.System
