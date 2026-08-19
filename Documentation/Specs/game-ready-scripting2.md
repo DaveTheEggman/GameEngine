@@ -57,7 +57,7 @@ Reserved name `run` (already on the reserved list). Registered via
 `RegisterExtraFacadeName`, bindings installed per run context in
 StartScript (exactly like SceneLoader today). v1 surface:
 
-    run.events.emit(name)/.emit(name, payload)   // the run bus (1a)
+    run.events().emit(name)/.emit(name, payload)  // the run bus (1a) - events() is a METHOD (below)
     run.loadScene(guid) -> bool                   // absorbed from SceneLoader
     run.loadSceneAsync(guid) -> i32 ticket
     run.loadProgress(ticket) -> f64
@@ -68,6 +68,14 @@ StartScript (exactly like SceneLoader today). v1 surface:
 
 `emit` overload set mirrors the scene facade exactly (none/f64/String/bool/
 Entity/generic Variant sink).
+
+DECIDED SPELLING (Fable ruling 2026-08-19, run-facade-api-question.md): `run` is a STATIC service, so
+its accessors are METHODS with parens - `run.events()`, `run.loadScene(...)`. The parens-less form is a
+VALUE-HANDLE nicety (`scene.events` on the handle from `entity.scene`); `run.events()` returns the
+`RunEvents` value handle whose own surface then mirrors `SceneEvents` verbatim. The convention: a value
+handle you HOLD gets properties where they read naturally; a static service you CALL gets methods,
+always. Not a stopgap - if a later polish pass wants the parens-less form, the sanctioned mechanism is a
+static-computed-property feature and `events()` stays as a compatible spelling.
 
 ### 1c. SceneLoader absorption (the ruled fold-in: no parallel level-load APIs)
 
@@ -226,7 +234,15 @@ then own its progress label).
   harvests the Game class's handlers (threaded through a new `StartScript(...,gameHandlers)` overload;
   editor GamePage passes the cooked ScriptClass's) and dispatches at drain; inbox tests on AngelScript
   + Luau - commit 08816db5. Green clang + gcc. NO scene->run relay (as specced).
-- **P2-2**: run facade + SceneLoader alias + in-repo migration (1b, 1c).
+- **P2-2**: run facade + SceneLoader alias + in-repo migration (1b, 1c). OPENS with the `ScriptName`
+  MECHANISM pulled forward from §5 (Fable ruling 2026-08-19, Q2(i)) so `class Run` binds lowercase as
+  `run`: the TypeInfo alias field + `TypeBuilder::ScriptName` + both emitters binding the alias + the
+  bare-name collision rule extended to aliases (a FinalizeTypes trap) + tests - the component-alias
+  SWEEP stays in P2-5. Guardrails: `run` joins the RESERVED names (a user class named/aliased `run`
+  traps at FinalizeTypes); RegisterExtraFacadeName registers the ALIAS (`run`, not `Run`); bump
+  kSubsystemFacadeNameCount when `run` joins the bound surface. SceneLoader absorption: extend
+  SceneLoaderScriptBinding so ONE service carries load + run-bus, but keep the service key/struct NAME
+  as-is this phase (rename to the run-era name in P2-5 when the alias deletes - one rename, not two).
 - **P2-3**: scene.ui slot (2).
 - **P2-4**: UI View reflection + Ui.overlayRoot + the Roll Call HUD proof (3).
 - **P2-5**: run.ui (4) + ScriptName sweep (5) + SceneLoader alias DELETION.
