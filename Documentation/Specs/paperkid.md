@@ -1,6 +1,7 @@
 # PaperKid - a small game (design + build plan)
 
-> Status: PLAN (not started). A vertical-slice game to exercise the game-ready runtime end to end,
+> Status: P0 READY TO BUILD (prereqs done + project skeleton committed 2026-08-19; six gameplay
+> decisions locked). A vertical-slice game to exercise the game-ready runtime end to end,
 > built as the tracked, committed EDITOR SAMPLE PROJECT (authored in-editor - it dogfoods the whole
 > authoring stack; absorbs the week-2026-08-22 "editor sample project" seed).
 > Locked decisions (2026-08-13): third-person 3D follow camera; FREE-ROAM a town block; PRIMITIVE
@@ -16,7 +17,8 @@
 >   Build that track FIRST, then PaperKid on top. See "Prerequisites" below.
 > - **Obstacles use NAVIGATION** (Recast/Detour agents), not hand-rolled waypoint scripts.
 > - **Tells/markers/camera use PROPERTY ANIMATION** clips, not ad-hoc per-frame script lerps.
-> - **Project home: TBD** - NOT the repo root; the user will name the location before scaffolding.
+> - **Project home: `SampleProjects/PaperKid/`** - committed 2026-08-19 (skeleton: Project.xml +
+>   Sources + Content/*.xasset + README + .gitignore for .cache/Cooked/Editor).
 
 ## Concept
 
@@ -158,8 +160,8 @@ stateDiagram-v2
 ## Where it lives
 
 The tracked, committed **editor sample project** (the week-2026-08-22 seed) - scenes + AngelScript +
-authored assets, opened + played in the editor. Its exact location is TBD (the user will name it; NOT
-the repo root, and distinct from the untracked `SampleGame/` Wren sketch and the user's `EditorProject/`).
+authored assets, opened + played in the editor. Committed at **`SampleProjects/PaperKid/`** (2026-08-19),
+distinct from the untracked `SampleGame/` Wren sketch and the user's `EditorProject/`.
 If a thin native module is ever needed, per the facade rule it is its own out-of-tree module named for
 the game (e.g. `PaperKid`), never `Game`; but the aim is near-zero native code - the game rides on
 scripts + authored content. [[facade-pattern]]
@@ -180,8 +182,12 @@ AngelScript:
 - **P2-5 run.ui + ScriptName aliases** - the screen-tier root from script + clean gameplay names.
   Blocks the full screen stack (P3) and readable component names throughout.
 
-Minimum to START PaperKid P0: P2-1 + P2-2. The UI pieces (P2-3..P2-5) can land in parallel with
-PaperKid P0/P1 as the HUD/screens graduate from placeholder to script-driven.
+**STATUS (2026-08-19): P2-1 + P2-2 are DONE** (run bus + Game inbox; the `run` facade -
+`run.events()` / `run.loadSceneAsync` + the `run` alias, in-tree). The screen-tier UI-from-script
+surface is ALSO shipped (the `ui` facade + reflected View handles + `ScreenStack` + gamekit widgets),
+so **PaperKid P0 is UNBLOCKED**. `scene.ui` (P2-3) stays deferred but PaperKid does not need it - the
+HUD and all seven screens ride the SCREEN tier. Remaining P2-5 loose ends (ScriptName component-alias
+sweep; delete the SceneLoader alias) are cleanup, not blockers.
 
 ## Phases
 
@@ -207,18 +213,27 @@ optional minimap); camera + crash feel tuning.
 
 SETTLED (2026-08-18): scripting backend = **AngelScript**; Game/run tier is **scripted** (needs
 `game-ready-scripting2` first); obstacles use **navigation**; tells/markers use **property animation**;
-project = the tracked **editor sample project**, location TBD (user to name).
+project = the tracked **editor sample project** (committed at `SampleProjects/PaperKid/`).
 
-Still to confirm before building (the spec's recommendations - flip any):
+SETTLED (2026-08-19, all six recommendations taken by the user):
 
-- **Win condition:** delivery quota within time (recommended - no exit needed for free roam), vs
-  "deliver all subscribers", vs "quota OR reach a block exit".
-- **Bike control:** CharacterVirtual kinematic (recommended, tight arcade control) vs a dynamic rigid
-  body (drifty, more physics tuning).
-- **Crash model:** recoverable knockdown + time penalty (recommended) vs lose-a-paper vs instant fail.
-- **Lives:** 3 lives + retry (recommended) vs unlimited per-level retries (score-only stakes).
-- **Aim:** soft auto-aim to the nearest front subscriber (recommended for free roam) vs full manual aim.
-- **Discoverability:** house markers only (recommended) vs markers + a minimap.
+- **Win condition:** delivery quota within time (no exit needed for free roam).
+- **Bike control:** CharacterVirtual kinematic (tight arcade control, no ragdoll).
+- **Crash model:** recoverable knockdown + time penalty (no damage model).
+- **Lives:** 3 lives + retry; 0 lives -> Game Over.
+- **Aim:** soft auto-aim to the nearest front subscriber.
+- **Discoverability:** house markers only (no minimap).
+
+SETTLED (2026-08-19, marking mechanism - **ZERO native code**): a subscriber house is an entity
+carrying a `Subscriber` AngelScript **behavior** (its presence IS the mark; per-house data = the
+behavior's editor-authored fields; the visible marker is a child mesh driven by a property-animation
+clip). The **delivery zone** is an `isTrigger` collider on that house, handled by the behavior's
+`onTriggerEnter(other)`; papers ride their own **physics group** so the trigger fires only for papers
+(no name-sniffing). On overlap: `scene.events.emit("Delivered")` -> the Level tier relays to the run
+bus -> the Game script counts it toward quota. Behaviors-carry-authored-fields plus `onTriggerEnter` /
+`onContactBegin` are shipped and tested on BOTH backends; the only native *candidate* in the whole
+game is the follow-camera (and it can start as a behavior). No native-module infrastructure required -
+if that ever changes it is a finding we stop and discuss, not silent scope creep.
 
 ## What this deliberately keeps small (non-goals)
 
