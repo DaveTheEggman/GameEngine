@@ -2196,6 +2196,11 @@ namespace editor::app
         }
         m_context.SetResources(m_resources.Get());
         m_embeddedApp->AttachResourceManager(m_resources.Get(), *m_embeddedHost);
+        // Scripted scene loads (run.loadScene/loadSceneAsync) resolve scene + prefab content
+        // out of the project's SOURCE db - the same db the Game tab's default-scene boot reads
+        // (products still bind from the cooked-backed manager above). Wired here at project open
+        // so it covers every run (Game tab AND Simulate); cleared at project close (below).
+        m_embeddedApp->SetContentDatabase(&m_project->SourceDb());
         // Project-default UI theme (game-ui.md P3): the same manifest reference the
         // player honors at startup, applied to the embedded runtime's game UI so
         // Simulate/Game-tab/previews style like the shipped game.
@@ -2465,6 +2470,9 @@ namespace editor::app
         if (m_embeddedApp)
         {
             m_embeddedApp->AttachResourceManager(nullptr, *m_embeddedHost);
+            // The source db belongs to m_project (destroyed below); null is the safe idle state
+            // so a later frame or run never dereferences a freed db between projects.
+            m_embeddedApp->SetContentDatabase(nullptr);
             if (m_embeddedApp->UI() != nullptr)
             {
                 m_embeddedApp->UI()->SetDefaultTheme(nullptr);
