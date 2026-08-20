@@ -152,6 +152,40 @@ namespace
         void OnLayout(f32, f32, f32, f32) override {}
     };
     RTTI_DEFINE_OBJECT(CancelTrackingGroup, "rtti::ui::tests")
+
+    // Reproduces the self-destroying-button UAF: on MouseUp it detaches itself from its parent,
+    // dropping the tree's last strong ref. Without DispatchMouseUp pinning the target, the
+    // dispatcher's post-invoke reads (target->Bounds / target->Parent) would touch freed memory.
+    class SelfRemovingView : public View
+    {
+        RTTI_OBJECT(SelfRemovingView, View)
+    public:
+        bool* HandlerRan = nullptr;
+
+        void OnMouseUp(MouseEventArgs& e) override
+        {
+            if (e.Phase != EventPhase::Target)
+            {
+                return;
+            }
+            if (HandlerRan != nullptr)
+            {
+                *HandlerRan = true;
+            }
+            e.Handled = true;
+            if (auto* group = core::Cast<ViewGroup>(Parent))
+            {
+                group->RemoveView(this, true); // frees `this` if no external strong ref
+            }
+        }
+
+    protected:
+        void OnMeasure(BoxConstraints c) override
+        {
+            MeasuredSize = Float2{c.ConstrainWidth(50.0f), c.ConstrainHeight(30.0f)};
+        }
+    };
+    RTTI_DEFINE_OBJECT(SelfRemovingView, "rtti::ui::tests")
 }
 
 // ============================ FocusManager ============================
@@ -453,6 +487,34 @@ TEST_CASE("capture: MouseDown_PhaseFieldSet")
     LayoutPass(ctx, root.Get());
     ctx.GetInputManager()->ProcessMouseDown(MouseButton::Left, 10, 10, 0);
     CHECK(child->TargetReceived);
+}
+
+TEST_CASE("dispatch: target that frees itself during MouseUp does not UAF the dispatcher")
+{
+    // Regression for the Input Map "Listen" crash: a click handler destroyed the clicked button
+    // in-line, then FireClick/DispatchMouseUp dereferenced the freed view. DispatchMouseUp now pins
+    // the target for the whole capture/target/bubble sequence, so a self-freeing handler is safe.
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto parent = core::MakeRef<PhaseTrackingGroup>(core::DefaultAllocator());
+    auto child = core::MakeRef<SelfRemovingView>(core::DefaultAllocator());
+    child->IsFocusable = true;
+    bool handlerRan = false;
+    child->HandlerRan = &handlerRan;
+    parent->AddView(child.Get());
+    root->AddView(parent.Get());
+    LayoutPass(ctx, root.Get());
+
+    child = nullptr; // parent's m_children now holds the ONLY strong ref to the child
+
+    ctx.GetInputManager()->ProcessMouseDown(MouseButton::Left, 10, 10, 0);
+    ctx.GetInputManager()->ProcessMouseUp(MouseButton::Left, 10, 10);
+
+    // Reaching here without a crash (and with the handler having run) is the assertion: pre-fix this
+    // read freed memory in DispatchMouseUp right after target->OnMouseUp returned.
+    CHECK(handlerRan);
+    CHECK(parent->ChildCount() == 0);
 }
 
 TEST_CASE("capture: KeyDown_CapturePhase_Works")

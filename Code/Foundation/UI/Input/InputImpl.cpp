@@ -912,6 +912,9 @@ namespace foundation::ui
 
     void InputManager::DispatchMouseDown(View* target, MouseEventArgs& args)
     {
+        // Pin the target for the whole dispatch: a handler may detach and free it (self-destroying
+        // button), and the Target/Bubble steps below read target->Bounds/Parent afterward.
+        RefPtr<View> keepTargetAlive(target);
         const i32 chainLen = BuildAncestorChain(target);
         args.Phase = EventPhase::Capture;
         for (i32 i = 0; i < chainLen - 1; ++i)
@@ -943,6 +946,9 @@ namespace foundation::ui
 
     void InputManager::DispatchMouseUp(View* target, MouseEventArgs& args)
     {
+        // Pin the target for the whole dispatch: a handler may detach and free it (self-destroying
+        // button), and the Target/Bubble steps below read target->Bounds/Parent afterward.
+        RefPtr<View> keepTargetAlive(target);
         const i32 chainLen = BuildAncestorChain(target);
         args.Phase = EventPhase::Capture;
         for (i32 i = 0; i < chainLen - 1; ++i)
@@ -974,6 +980,8 @@ namespace foundation::ui
 
     void InputManager::DispatchKeyDown(View* target, KeyEventArgs& args)
     {
+        // Pin the target: a handler may free it, and the Bubble step reads target->Parent afterward.
+        RefPtr<View> keepTargetAlive(target);
         const i32 chainLen = BuildAncestorChain(target);
         args.Phase = EventPhase::Capture;
         for (i32 i = 0; i < chainLen - 1; ++i)
@@ -1001,6 +1009,8 @@ namespace foundation::ui
 
     void InputManager::DispatchKeyUp(View* target, KeyEventArgs& args)
     {
+        // Pin the target: a handler may free it, and the Bubble step reads target->Parent afterward.
+        RefPtr<View> keepTargetAlive(target);
         const i32 chainLen = BuildAncestorChain(target);
         args.Phase = EventPhase::Capture;
         for (i32 i = 0; i < chainLen - 1; ++i)
@@ -1028,6 +1038,8 @@ namespace foundation::ui
 
     void InputManager::DispatchMouseWheel(View* target, MouseWheelEventArgs& args)
     {
+        // Pin the target: a handler may free it, and the Bubble step reads target->Parent afterward.
+        RefPtr<View> keepTargetAlive(target);
         const i32 chainLen = BuildAncestorChain(target);
         args.Phase = EventPhase::Capture;
         for (i32 i = 0; i < chainLen - 1; ++i)
@@ -1055,6 +1067,8 @@ namespace foundation::ui
 
     void InputManager::DispatchTextInput(View* target, TextInputEventArgs& args)
     {
+        // Pin the target: a handler may free it, and the Bubble step reads target->Parent afterward.
+        RefPtr<View> keepTargetAlive(target);
         const i32 chainLen = BuildAncestorChain(target);
         args.Phase = EventPhase::Capture;
         for (i32 i = 0; i < chainLen - 1; ++i)

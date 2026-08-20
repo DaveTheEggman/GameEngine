@@ -71,6 +71,9 @@ export namespace foundation::ui
             {
                 return;
             }
+            // Pin self: a click handler may destroy this button (e.g. rebuilding the panel that owns
+            // it). Without the pin, reading this->Command after Invoke dereferences freed memory.
+            RefPtr<ButtonBase> keepAlive(this);
             OnClick.Invoke(this);
             if (Command != nullptr)
             {
