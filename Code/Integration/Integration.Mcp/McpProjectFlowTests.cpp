@@ -277,7 +277,7 @@ TEST_CASE("integration.mcp: script_api reports the COMPLETE engine surface, head
 {
     // The surface-describing composition root: every subsystem facade, metadata only - no device,
     // no subsystem instantiated. This is the whole point of Fable's ruling A: the headless MCP host
-    // reports the true engine script surface (RigidBody/Audio/Ui/SceneLoader/...), not just core.
+    // reports the true engine script surface (RigidBody/Audio/Ui/run/...), not just core.
     engine::RegisterAllScriptFacades();
     const StringView backend = RegisterSomeBackend();
 
@@ -312,7 +312,7 @@ TEST_CASE("integration.mcp: script_api reports the COMPLETE engine surface, head
     CHECK(has(u8"RigidBodyComponent")); // physics
     CHECK(has(u8"Audio"));              // audio
     CHECK(has(u8"Ui"));                 // game UI
-    CHECK(has(u8"SceneLoader"));        // scene loader (GameInstance)
+    CHECK(has(u8"run"));                // run/scene-load facade (GameInstance)
     CHECK(has(u8"Net"));                // networking
     // The full surface is much larger than the core-only 17 (physics/audio/input/ui/... added).
     CHECK(reported.Get(u8"typeCount").AsInt() > 30);

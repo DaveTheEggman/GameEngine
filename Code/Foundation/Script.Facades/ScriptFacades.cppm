@@ -300,7 +300,7 @@ export namespace foundation::script
     /// no ambient "current scene" to keep correct - a call from any site (update, onDestroy, a
     /// physics contact, a resumed coroutine, a stored callback) always targets the right scene.
     /// Behaviors reach it via `entity.scene`; the Level tier receives one as its constructor
-    /// argument; the orchestrator queries `SceneLoader.currentScene()`. A value type (the VM carries
+    /// argument; the orchestrator queries `run.currentScene()`. A value type (the VM carries
     /// a copy); a null/stale scene makes every call a safe no-op returning an invalid Entity.
     struct Scene
     {

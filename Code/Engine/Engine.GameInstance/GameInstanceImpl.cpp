@@ -4,7 +4,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
-#include "Core/Reflection/Reflect.h" // the SceneLoader facade reflection body
+#include "Core/Reflection/Reflect.h" // the run facade reflection body
 
 module engine.gameinstance;
 
@@ -15,7 +15,7 @@ import foundation.content;        // content::Instance
 import foundation.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
 import foundation.script;
 import engine.script;
-import foundation.script.facades; // RegisterExtraFacadeName (SceneLoader behavior-prelude hook)
+import foundation.script.facades; // RegisterExtraFacadeName (run behavior-prelude hook)
 import foundation.net.manager; // NetworkManager factories + InstallNetScriptService
 import foundation.input;       // kInputScriptService (install the per-instance runtime)
 
@@ -30,34 +30,9 @@ namespace script = foundation::script;
 
 namespace engine::runtime
 {
-    // The SceneLoader.* facade reflection body + registration (kept out of the interface unit per the
-    // GCC gcm-cluster rule). Owned by the game-instance project (the out-of-tree facade pattern).
-    REFLECT_MEMBERS(SceneLoader, "rtti::engine::runtime")
-    {
-        builder.Method<&SceneLoader::loadSceneAsync>("loadSceneAsync");
-        builder.Method<&SceneLoader::loadProgress>("loadProgress");
-        builder.Method<&SceneLoader::loadComplete>("loadComplete");
-        builder.Method<&SceneLoader::loadFailed>("loadFailed");
-        builder.Method<&SceneLoader::loadScene>("loadScene");
-        builder.Method<&SceneLoader::sceneReady>("sceneReady");
-        builder.Method<&SceneLoader::currentScene>("currentScene"); // -> bound Scene (orchestrator)
-        builder.Constructor(); // some backends only materialize constructible foreign classes
-    }
-
-    void RegisterSceneLoaderScriptFacade()
-    {
-        static const bool once = []()
-        {
-            GlobalTypeRegistry().Register(SceneLoader::StaticType());
-            foundation::script::RegisterExtraFacadeName(
-                u8"SceneLoader"); // behavior prelude imports it (AngelScript binds by registry)
-            return true;
-        }();
-        (void)once;
-    }
-
-    // ---- run.* facade (game-ready-scripting2 P2-2): reflection bodies + registration (kept out of the
-    // interface unit per the GCC gcm-cluster rule). Bound to scripts LOWERCASE as `run` via ScriptName.
+    // ---- run.* facade (task #123 + game-ready-scripting2 P2-2): reflection bodies + registration (kept
+    // out of the interface unit per the GCC gcm-cluster rule). Bound to scripts LOWERCASE as `run` via
+    // ScriptName; includes the running instance's level-load control.
     void RunEvents::emit(core::String name) const
     {
         if (bus != nullptr)
@@ -125,9 +100,9 @@ namespace engine::runtime
         m_scriptContext = core::RefPtr<script::IScriptContext>(context);
         m_runHost.SetGameScriptHold(true);
         InstallNetBinding(); // the game script (its menu) can now call Net.startServer()/connect()
-        m_sceneLoaderBinding.runEvents = &m_runEvents; // run.events() -> THIS run's bus (P2-2, §1a/§1c)
-        InstallSceneLoaderScriptService(
-            *m_scriptContext, m_sceneLoaderBinding); // SceneLoader.* + run.* -> this instance's registry
+        m_runBinding.runEvents = &m_runEvents; // run.events() -> THIS run's bus (P2-2, §1a/§1c)
+        InstallRunScriptService(
+            *m_scriptContext, m_runBinding); // run.* -> this instance's registry
         // Install THIS instance's input runtime as the context's Input service (overriding the shared
         // editor runtime the run-host configurator installed), so the game reads only ITS own source.
         context->SetService(input::kInputScriptService, &m_inputRuntime);

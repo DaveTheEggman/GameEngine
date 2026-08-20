@@ -13,7 +13,7 @@
 
 module;
 #include "Core/Prelude.h"
-#include "Core/Reflection/Reflect.h" // the SceneLoader facade (RTTI_OBJECT)
+#include "Core/Reflection/Reflect.h" // the run facade (RTTI_OBJECT)
 
 export module engine.gameinstance;
 
@@ -25,7 +25,7 @@ import foundation.content;        // content::Instance (the cooked scene record)
 import foundation.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
 import foundation.script;
 import engine.script;
-import foundation.script.facades; // RegisterExtraFacadeName (the SceneLoader behavior-prelude hook)
+import foundation.script.facades; // RegisterExtraFacadeName (the run behavior-prelude hook)
 import foundation.net.manager; // NetworkManager + INetworkController + NetScriptBinding
 import foundation.input;       // ActionRuntime + IInputSourceProvider + InputMap (per-instance input)
 
@@ -53,19 +53,19 @@ export namespace engine::runtime
     // net-spawn resolver, which needs the content DB) - fresh each time, so reconnect stays correct.
     using EndpointOnlineHook = core::Function<void(net::NetworkManager&)>;
 
-    // ---- SceneLoader.* script facade (task #123): the running instance's LEVEL-LOAD control surfaced
-    // to scripts. Owned HERE (the project that owns load orchestration), NOT the neutral Foundation
-    // facade lib - the out-of-tree pattern foundation.net's Net facade uses. A SceneLoaderScriptBinding
-    // is installed as a per-context service; the app fills its pointers, backed by THIS instance's
-    // LoadSceneAsync + ticket registry + the content DB (guid -> cooked scene). Named SceneLoader (NOT
-    // Game): a facade sharing the mandatory `Game` orchestrator class name is a hard AngelScript name
-    // conflict.
+    // ---- run.* script facade (task #123 + game-ready-scripting2 P2-2): the run/app tier surfaced to
+    // scripts, including the running instance's LEVEL-LOAD control. Owned HERE (the project that owns
+    // load orchestration), NOT the neutral Foundation facade lib - the out-of-tree pattern
+    // foundation.net's Net facade uses. A RunScriptBinding is installed as a per-context service; the
+    // app fills its pointers, backed by THIS instance's LoadSceneAsync + ticket registry + the content
+    // DB (guid -> cooked scene). Bound to scripts LOWERCASE as `run` (NOT Game): a facade sharing the
+    // mandatory `Game` orchestrator class name is a hard AngelScript name conflict.
 
-    inline constexpr StringView kSceneLoaderScriptService = u8"sceneloader.runtime";
+    inline constexpr StringView kRunScriptService = u8"run.runtime";
 
-    // Installed as a per-context script service; the SceneLoader facade resolves it. The app fills the
+    // Installed as a per-context script service; the run facade resolves it. The app fills the
     // pointers (backed by the owning GameInstance + content DB). Null pointers = safe no-ops.
-    struct SceneLoaderScriptBinding
+    struct RunScriptBinding
     {
         core::Function<i32(const core::Guid&)> loadSceneAsync; // -> ticket (0 = failed to start)
         core::Function<f64(i32)> loadProgress;                 // ticket -> 0..1
@@ -75,91 +75,23 @@ export namespace engine::runtime
         core::Function<bool()> sceneReady;                     // current scene loaded + active?
         core::Function<scene::Scene*()> currentScene;          // the instance's live scene (or null)
         // This run's event bus (game-ready-scripting2 P2-2): ONE service carries load + run-bus (Fable
-        // ruling). run.events() publishes here; the SceneLoader alias never touches it. The GameInstance
-        // fills it with &RunEvents(). (Service key/struct NAME stay SceneLoader-era this phase; renamed
-        // in P2-5 when the SceneLoader alias deletes - one rename, not two.)
+        // ruling). run.events() publishes here. The GameInstance fills it with &RunEvents().
         scene::EventBus* runEvents = nullptr;
     };
 
-    inline void InstallSceneLoaderScriptService(script::IScriptContext& context,
-                                                SceneLoaderScriptBinding& binding)
+    inline void InstallRunScriptService(script::IScriptContext& context, RunScriptBinding& binding)
     {
-        context.SetService(kSceneLoaderScriptService, &binding);
+        context.SetService(kRunScriptService, &binding);
     }
-    inline void ClearSceneLoaderScriptService(script::IScriptContext& context)
+    inline void ClearRunScriptService(script::IScriptContext& context)
     {
-        context.SetService(kSceneLoaderScriptService, nullptr);
+        context.SetService(kRunScriptService, nullptr);
     }
-
-    // Registers the `SceneLoader` facade type + the behavior-prelude name. Idempotent; call before a
-    // script manager is created (the run host / cook builder do).
-    void RegisterSceneLoaderScriptFacade();
-
-    /// SceneLoader.*: the running instance's LEVEL-LOAD control. loadSceneAsync kicks an async scene
-    /// load and returns a ticket the script polls - `var t = SceneLoader.loadSceneAsync(id); while
-    /// (!SceneLoader.loadComplete(t)) yield`. loadScene is a sync convenience; sceneReady reports
-    /// whether the instance's current scene is live. Resolves its OWN per-context service; unwired =
-    /// safe no-ops, with loadComplete returning true so a poll never hangs.
-    class SceneLoader final : public Object
-    {
-        RTTI_OBJECT(SceneLoader, Object)
-    public:
-        [[nodiscard]] static SceneLoaderScriptBinding* Resolve()
-        {
-            script::IScriptContext* context = script::CurrentScriptContext();
-            return context != nullptr ? static_cast<SceneLoaderScriptBinding*>(
-                                            context->GetService(kSceneLoaderScriptService))
-                                      : nullptr;
-        }
-        [[nodiscard]] static i32 loadSceneAsync(core::Guid scene)
-        {
-            SceneLoaderScriptBinding* b = Resolve();
-            return (b != nullptr && b->loadSceneAsync && !scene.IsNil()) ? b->loadSceneAsync(scene)
-                                                                         : 0;
-        }
-        [[nodiscard]] static f64 loadProgress(i32 ticket)
-        {
-            SceneLoaderScriptBinding* b = Resolve();
-            return (b != nullptr && b->loadProgress) ? b->loadProgress(ticket) : 1.0;
-        }
-        [[nodiscard]] static bool loadComplete(i32 ticket)
-        {
-            SceneLoaderScriptBinding* b = Resolve();
-            return (b == nullptr || !b->loadComplete) ? true : b->loadComplete(ticket);
-        }
-        [[nodiscard]] static bool loadFailed(i32 ticket)
-        {
-            SceneLoaderScriptBinding* b = Resolve();
-            return (b != nullptr && b->loadFailed) ? b->loadFailed(ticket) : false;
-        }
-        [[nodiscard]] static bool loadScene(core::Guid scene)
-        {
-            SceneLoaderScriptBinding* b = Resolve();
-            return (b != nullptr && b->loadScene && !scene.IsNil()) ? b->loadScene(scene) : false;
-        }
-        [[nodiscard]] static bool sceneReady()
-        {
-            SceneLoaderScriptBinding* b = Resolve();
-            return (b != nullptr && b->sceneReady) ? b->sceneReady() : false;
-        }
-        /// The instance's current scene as a BOUND Scene handle - the orchestrator's door to
-        /// `scene.spawn/find` (it has no entity to reach a scene through). Resolved AT THE CALL from
-        /// instance state, so it is deterministic regardless of who invoked the script. Pre-scene /
-        /// unwired -> a null-scene handle whose methods are safe no-ops.
-        [[nodiscard]] static script::Scene currentScene()
-        {
-            SceneLoaderScriptBinding* b = Resolve();
-            script::Scene handle;
-            handle.scene = (b != nullptr && b->currentScene) ? b->currentScene() : nullptr;
-            return handle;
-        }
-    };
 
     // ---- run.* script facade (game-ready-scripting2 P2-2): the run/app tier surfaced to scripts. A
-    // STATIC facade like SceneLoader, but bound to scripts LOWERCASE as `run` (the ScriptName alias).
-    // run.events() -> the run-bus handle (publish to the run tier); the load methods absorb SceneLoader
-    // (§1c) - one implementation, two names until SceneLoader deletes in P2-5. Nothing else may bind the
-    // name `run` (the FinalizeTypes collision trap enforces it).
+    // STATIC facade bound to scripts LOWERCASE as `run` (the ScriptName alias). run.events() -> the
+    // run-bus handle (publish to the run tier); the load methods control this instance's level loads.
+    // Nothing else may bind the name `run` (the FinalizeTypes collision trap enforces it).
 
     // A BOUND run-event-bus handle: `run.events().emit("Delivered", n)` publishes a NAMED event onto this
     // run's bus (deferred; delivered at the next run-bus drain). Mirrors SceneEvents; the payload is a
@@ -171,38 +103,77 @@ export namespace engine::runtime
         void emit(core::String name, core::Variant payload) const;
     };
 
-    /// run.*: the run/app tier. `run.events()` is the run-bus handle; `loadScene*`/`sceneReady`/
-    /// `currentScene` route through this instance's SceneLoader binding (absorbed). Static facade
-    /// (resolve per call via CurrentScriptContext), bound to scripts as `run` via ScriptName. Unwired ->
-    /// safe no-ops (an empty RunEvents whose emit no-ops; the load methods inherit SceneLoader's guards).
+    /// run.*: the run/app tier. `run.events()` is the run-bus handle; `loadSceneAsync` kicks an async
+    /// scene load and returns a ticket the script polls - `var t = run.loadSceneAsync(id); while
+    /// (!run.loadComplete(t)) yield`. loadScene is a sync convenience; sceneReady reports whether the
+    /// instance's current scene is live. Static facade (resolve per call via CurrentScriptContext),
+    /// bound to scripts as `run` via ScriptName. Resolves its OWN per-context service; unwired -> safe
+    /// no-ops (an empty RunEvents whose emit no-ops; loadComplete returns true so a poll never hangs).
     class Run final : public Object
     {
         RTTI_OBJECT(Run, Object)
     public:
+        [[nodiscard]] static RunScriptBinding* Resolve()
+        {
+            script::IScriptContext* context = script::CurrentScriptContext();
+            return context != nullptr
+                       ? static_cast<RunScriptBinding*>(context->GetService(kRunScriptService))
+                       : nullptr;
+        }
         [[nodiscard]] static RunEvents events()
         {
-            SceneLoaderScriptBinding* b = SceneLoader::Resolve();
+            RunScriptBinding* b = Resolve();
             RunEvents handle;
             handle.bus = (b != nullptr) ? b->runEvents : nullptr;
             return handle;
         }
         [[nodiscard]] static i32 loadSceneAsync(core::Guid scene)
         {
-            return SceneLoader::loadSceneAsync(scene);
+            RunScriptBinding* b = Resolve();
+            return (b != nullptr && b->loadSceneAsync && !scene.IsNil()) ? b->loadSceneAsync(scene)
+                                                                         : 0;
         }
-        [[nodiscard]] static f64 loadProgress(i32 ticket) { return SceneLoader::loadProgress(ticket); }
+        [[nodiscard]] static f64 loadProgress(i32 ticket)
+        {
+            RunScriptBinding* b = Resolve();
+            return (b != nullptr && b->loadProgress) ? b->loadProgress(ticket) : 1.0;
+        }
         [[nodiscard]] static bool loadComplete(i32 ticket)
         {
-            return SceneLoader::loadComplete(ticket);
+            RunScriptBinding* b = Resolve();
+            return (b == nullptr || !b->loadComplete) ? true : b->loadComplete(ticket);
         }
-        [[nodiscard]] static bool loadFailed(i32 ticket) { return SceneLoader::loadFailed(ticket); }
-        [[nodiscard]] static bool loadScene(core::Guid scene) { return SceneLoader::loadScene(scene); }
-        [[nodiscard]] static bool sceneReady() { return SceneLoader::sceneReady(); }
-        [[nodiscard]] static script::Scene currentScene() { return SceneLoader::currentScene(); }
+        [[nodiscard]] static bool loadFailed(i32 ticket)
+        {
+            RunScriptBinding* b = Resolve();
+            return (b != nullptr && b->loadFailed) ? b->loadFailed(ticket) : false;
+        }
+        [[nodiscard]] static bool loadScene(core::Guid scene)
+        {
+            RunScriptBinding* b = Resolve();
+            return (b != nullptr && b->loadScene && !scene.IsNil()) ? b->loadScene(scene) : false;
+        }
+        [[nodiscard]] static bool sceneReady()
+        {
+            RunScriptBinding* b = Resolve();
+            return (b != nullptr && b->sceneReady) ? b->sceneReady() : false;
+        }
+        /// The instance's current scene as a BOUND Scene handle - the orchestrator's door to
+        /// `scene.spawn/find` (it has no entity to reach a scene through). Resolved AT THE CALL from
+        /// instance state, so it is deterministic regardless of who invoked the script. Pre-scene /
+        /// unwired -> a null-scene handle whose methods are safe no-ops.
+        [[nodiscard]] static script::Scene currentScene()
+        {
+            RunScriptBinding* b = Resolve();
+            script::Scene handle;
+            handle.scene = (b != nullptr && b->currentScene) ? b->currentScene() : nullptr;
+            return handle;
+        }
     };
 
-    // Registers the `Run` facade (bound to scripts as `run` via ScriptName) + its RunEvents handle type.
-    // Idempotent; call before a script manager is created (mirrors RegisterSceneLoaderScriptFacade).
+    // Registers the `Run` facade (bound to scripts as `run` via ScriptName) + its RunEvents handle type
+    // + the behavior-prelude name. Idempotent; call before a script manager is created (the run host /
+    // cook builder do).
     void RegisterRunScriptFacade();
 
     // Handle for an in-flight ASYNC scene load (task #123). LoadSceneAsync creates the scene
@@ -352,7 +323,7 @@ export namespace engine::runtime
         /// caller then runs the same policy as the sync path (EnsureCamera, Start, ...).
         scene::Scene* ActivateLoadedScene(SceneLoadHandle& handle);
 
-        // ---- script-driven scene loads (task #123): the SceneLoader facade's `loadSceneAsync -> ticket ->
+        // ---- script-driven scene loads (task #123): the run facade's `loadSceneAsync -> ticket ->
         // poll` model. The instance owns the in-flight handles keyed by ticket; the app drives
         // completion each frame via PumpScriptLoads, which activates a finished load, makes it the
         // current scene (SetScene), then runs the app's render/sim POLICY hook. Kept on the instance
@@ -369,7 +340,7 @@ export namespace engine::runtime
         }
 
         /// Register an in-flight async load under a fresh ticket (1-based; 0 is never issued, so it
-        /// doubles as "failed to start"). The SceneLoader facade hands this ticket to the script;
+        /// doubles as "failed to start"). The run facade hands this ticket to the script;
         /// ScriptLoad{Progress,Complete,Failed} query by it. The handle is a value type (stored).
         ///
         /// CAUTION (Fable review): the handle holds a raw Scene*. Nothing destroys a PENDING inactive
@@ -384,23 +355,23 @@ export namespace engine::runtime
         /// after the resource pump). Cheap when nothing is in flight.
         void PumpScriptLoads();
 
-        /// Ticket queries for the SceneLoader facade. Unknown ticket -> Progress 1, Complete true (a bad or
+        /// Ticket queries for the run facade. Unknown ticket -> Progress 1, Complete true (a bad or
         /// expired ticket never hangs a `while (!complete) yield` loop), Failed false.
         [[nodiscard]] f32 ScriptLoadProgress(i32 ticket) const;
         [[nodiscard]] bool ScriptLoadComplete(i32 ticket) const; // true once terminal (live OR failed)
         [[nodiscard]] bool ScriptLoadFailed(i32 ticket) const;
 
-        /// SceneLoader.sceneReady: this instance has a live current scene. A script on the app-driven
-        /// boot path waits `while (!SceneLoader.sceneReady()) yield` instead of assuming a scene at
+        /// run.sceneReady: this instance has a live current scene. A script on the app-driven
+        /// boot path waits `while (!run.sceneReady()) yield` instead of assuming a scene at
         /// launch().
         [[nodiscard]] bool SceneReady() const noexcept { return m_scene != nullptr; }
 
-        /// The SceneLoader facade's per-context binding for THIS instance - the app fills its pointers
+        /// The run facade's per-context binding for THIS instance - the app fills its pointers
         /// (backed by LoadSceneAsync + the ticket registry + the content DB); GameInstance installs it
         /// on the run context when the game script starts. Stable member, so it never dangles.
-        [[nodiscard]] SceneLoaderScriptBinding& SceneLoaderBinding() noexcept
+        [[nodiscard]] RunScriptBinding& RunBinding() noexcept
         {
-            return m_sceneLoaderBinding;
+            return m_runBinding;
         }
 
         /// Tick the `Game` script with gameplay time: hostDt x contextScale x instanceScale x sceneScale.
@@ -509,8 +480,8 @@ export namespace engine::runtime
 
         core::UniquePtr<net::NetworkManager> m_net; // this instance's endpoint (null = offline)
         net::NetScriptBinding m_netBinding;         // stable; the facade resolves controller=this
-        SceneLoaderScriptBinding
-            m_sceneLoaderBinding; // stable; app fills its pointers, installed per context (StartScript)
+        RunScriptBinding
+            m_runBinding; // stable; app fills its pointers, installed per context (StartScript)
         EndpointOnlineHook m_onEndpointOnline; // app-set; fires with m_net on each go-online
 
         input::ActionRuntime m_inputRuntime; // this run's action state (per-instance)

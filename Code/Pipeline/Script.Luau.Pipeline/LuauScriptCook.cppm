@@ -92,7 +92,7 @@ export namespace pipeline{
         u8"end\n";
 
     // The New Asset starter for the game orchestrator: the MANDATORY class `Game`. One per
-    // run; drives scene loading (through the SceneLoader facade) and the game-wide update.
+    // run; drives scene loading (through the run facade) and the game-wide update.
     inline constexpr StringView kLuauGameStarter =
         u8"-- Game class - the game orchestrator (mandatory name `Game`). One per run.\n"
         u8"Game = {}\n"
@@ -102,8 +102,8 @@ export namespace pipeline{
         u8"    return setmetatable({}, Game)\n"
         u8"end\n"
         u8"\n"
-        u8"-- Runs once at start. Load the opening scene here via the SceneLoader facade:\n"
-        u8"--   SceneLoader.loadScene(\"Main\")\n"
+        u8"-- Runs once at start. Load the opening scene here via the run facade:\n"
+        u8"--   run.loadScene(\"Main\")\n"
         u8"function Game:launch()\n"
         u8"    Log.info(\"Game launched\")\n"
         u8"end\n"

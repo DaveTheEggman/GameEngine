@@ -161,7 +161,7 @@ namespace engine::runtime
         // + Scene.spawn + entity.send routing so its context has them when the game script starts.
         // (The subsystem's own default host - for editor scenes - is wired in its OnReady.)
         m_scripts->ConfigureRunHost(m_instance.RunHost());
-        InstallInstanceLoadFacade(m_instance); // SceneLoader.* level-load facade for the primary instance
+        InstallInstanceLoadFacade(m_instance); // run.* level-load facade for the primary instance
         engine::input::RegisterInputScriptFacade();
         engine::physics::RegisterPhysicsScriptFacade();
         engine::navigation::RegisterNavigationScriptFacade();
@@ -169,7 +169,6 @@ namespace engine::runtime
         engine::animation::RegisterAnimationScriptFacade();
         engine::particles::RegisterParticleScriptFacade();
         engine::audio::RegisterAudioScriptFacade();
-        RegisterSceneLoaderScriptFacade();     // SceneLoader.* (owned by the game-instance project)
         engine::uiscript::RegisterUiScriptSurface();    // screen-tier `ui` facade + reflected view handles
         engine::ui::RegisterUiComponentScriptFacades(); // world-space UI components' `.of` surface
         // Every built backend registers (batteries-included); a run resolves by the game script's
@@ -306,7 +305,7 @@ namespace engine::runtime
         gi->Scenes().SetAwareRegistry(&m_scenes->AwareRegistry());
         m_scenes->RegisterManager(&gi->Scenes());
         m_scripts->ConfigureRunHost(gi->RunHost());
-        InstallInstanceLoadFacade(*gi); // SceneLoader.* level-load facade for this extra instance
+        InstallInstanceLoadFacade(*gi); // run.* level-load facade for this extra instance
         gi->SetEndpointOnlineHook(
             MakeEndpointOnlineHook()); // its own endpoint, wired like the primary
         if (m_input != nullptr)
@@ -360,10 +359,10 @@ namespace engine::runtime
         gi.SetSceneActivationPolicy(core::Function<void(foundation::scene::Scene*)>{
             [self](foundation::scene::Scene* scene) { self->ApplyLoadedSceneActivation(scene); }});
 
-        // SceneLoader.loadSceneAsync(id) -> resolve the cooked scene instance, kick an async load into THIS
+        // run.loadSceneAsync(id) -> resolve the cooked scene instance, kick an async load into THIS
         // instance, register it under a ticket. 0 = could not start (bad id / no DB). The prefab
         // provider reads a nested-prefab payload by guid - the same source the sync path uses.
-        gi.SceneLoaderBinding().loadSceneAsync =
+        gi.RunBinding().loadSceneAsync =
             core::Function<core::i32(const core::Guid&)>{[self, instance](const core::Guid& sceneId) -> core::i32
             {
                 if (self->m_contentDatabase == nullptr || self->Resources() == nullptr)
@@ -388,17 +387,17 @@ namespace engine::runtime
                 return instance->TrackScriptLoad(core::Move(handle));
             }};
 
-        gi.SceneLoaderBinding().loadProgress = core::Function<core::f64(core::i32)>{
+        gi.RunBinding().loadProgress = core::Function<core::f64(core::i32)>{
             [instance](core::i32 ticket) -> core::f64
             { return static_cast<core::f64>(instance->ScriptLoadProgress(ticket)); }};
-        gi.SceneLoaderBinding().loadComplete = core::Function<bool(core::i32)>{
+        gi.RunBinding().loadComplete = core::Function<bool(core::i32)>{
             [instance](core::i32 ticket) -> bool { return instance->ScriptLoadComplete(ticket); }};
-        gi.SceneLoaderBinding().loadFailed = core::Function<bool(core::i32)>{
+        gi.RunBinding().loadFailed = core::Function<bool(core::i32)>{
             [instance](core::i32 ticket) -> bool { return instance->ScriptLoadFailed(ticket); }};
 
-        // Game.loadScene(id): synchronous convenience for tiny scenes - load, make current, apply the
+        // run.loadScene(id): synchronous convenience for tiny scenes - load, make current, apply the
         // same activation policy, all before the call returns. false on a resolve/load failure.
-        gi.SceneLoaderBinding().loadScene =
+        gi.RunBinding().loadScene =
             core::Function<bool(const core::Guid&)>{[self, instance](const core::Guid& sceneId) -> bool
             {
                 if (self->m_contentDatabase == nullptr || self->Resources() == nullptr)
@@ -429,9 +428,9 @@ namespace engine::runtime
                 return true;
             }};
 
-        gi.SceneLoaderBinding().sceneReady =
+        gi.RunBinding().sceneReady =
             core::Function<bool()>{[instance]() -> bool { return instance->SceneReady(); }};
-        gi.SceneLoaderBinding().currentScene = core::Function<scene::Scene*()>{
+        gi.RunBinding().currentScene = core::Function<scene::Scene*()>{
             [instance]() -> scene::Scene* { return instance->GetScene(); }};
     }
 

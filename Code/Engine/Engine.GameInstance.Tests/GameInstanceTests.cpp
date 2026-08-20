@@ -21,7 +21,7 @@ import foundation.input;       // ActionRuntime / IInputSourceProvider (per-inst
 import foundation.shell;       // IKeyboard / KeyCode (a minimal fake device)
 
 using namespace foundation::core;
-namespace script = foundation::script; // raw manager/context for the SceneLoader facade battery
+namespace script = foundation::script; // raw manager/context for the run facade battery
 namespace scene = foundation::scene;
 namespace content = foundation::content;
 namespace resource = foundation::resource;
@@ -83,20 +83,20 @@ TEST_CASE("script.facades: reserved contract-class names (Game/Level) are refuse
     script::RegisterExtraFacadeName(u8"Game");
     script::RegisterExtraFacadeName(u8"Level");
     // A non-reserved name still registers (idempotently) - the control.
-    script::RegisterExtraFacadeName(u8"SceneLoader");
+    script::RegisterExtraFacadeName(u8"run");
 
     bool sawGame = false;
     bool sawLevel = false;
-    bool sawSceneLoader = false;
+    bool sawRun = false;
     for (StringView facade : script::ExtraFacadeNames())
     {
         sawGame = sawGame || facade == StringView(u8"Game");
         sawLevel = sawLevel || facade == StringView(u8"Level");
-        sawSceneLoader = sawSceneLoader || facade == StringView(u8"SceneLoader");
+        sawRun = sawRun || facade == StringView(u8"run");
     }
     CHECK_FALSE(sawGame);  // refused
     CHECK_FALSE(sawLevel); // refused
-    CHECK(sawSceneLoader); // registered
+    CHECK(sawRun);         // registered
 }
 
 TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fresh instance idle")
@@ -240,17 +240,17 @@ TEST_CASE("game-instance: starts, ticks, and stops a LUAU Game orchestrator (the
 }
 
 // task #123 boot reorder: the game script now launches BEFORE any scene, so a `class Game`
-// orchestrator's launch()/update() may call the Scene + SceneLoader facades with NO current scene.
+// orchestrator's launch()/update() may call the Scene + run facades with NO current scene.
 // Two properties under test: (1) the facades are NULL-SCENE-SAFE (no deref of a null currentScene -
-// the run must launch + tick without faulting); (2) the load facade is named SceneLoader, NOT Game -
+// the run must launch + tick without faulting); (2) the load facade binds LOWERCASE as `run`, NOT Game -
 // a facade named Game is a hard AngelScript name conflict with the mandatory `Game` orchestrator
 // class, so THIS test compiling at all is the regression guard for that.
-TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a pre-scene "
+TEST_CASE("game-instance: Scene/run facades are null-scene-safe from a pre-scene "
           "orchestrator")
 {
     RegisterCoreTypes();
     foundation::script::RegisterScriptFacadeReflection();
-    engine::runtime::RegisterSceneLoaderScriptFacade(); // SceneLoader facade (owned by this project)
+    engine::runtime::RegisterRunScriptFacade(); // run facade (owned by this project)
     foundation::script::angelscript::RegisterAngelScriptBackend();
 
     engine::runtime::GameInstance gi;
@@ -259,15 +259,15 @@ TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a p
         u8"class Game {\n"
         u8"  Game() {}\n"
         u8"  void launch() {\n"
-        u8"    SceneLoader::currentScene().find(\"nobody\");\n"
-        u8"    SceneLoader::currentScene().findByPath(\"a/b\");\n"
-        u8"    SceneLoader::sceneReady();\n"
-        u8"    SceneLoader::loadComplete(0);\n"
-        u8"    SceneLoader::loadProgress(0);\n"
+        u8"    run::currentScene().find(\"nobody\");\n"
+        u8"    run::currentScene().findByPath(\"a/b\");\n"
+        u8"    run::sceneReady();\n"
+        u8"    run::loadComplete(0);\n"
+        u8"    run::loadProgress(0);\n"
         u8"  }\n"
         u8"  void update(double dt) {\n"
-        u8"    SceneLoader::currentScene().find(\"x\");\n"
-        u8"    SceneLoader::sceneReady();\n"
+        u8"    run::currentScene().find(\"x\");\n"
+        u8"    run::sceneReady();\n"
         u8"  }\n"
         u8"  void exit() {}\n"
         u8"}\n",
@@ -280,29 +280,29 @@ TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a p
     gi.StopScript();
 }
 
-TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a pre-scene "
+TEST_CASE("game-instance: Scene/run facades are null-scene-safe from a pre-scene "
           "orchestrator (AngelScript)")
 {
     RegisterCoreTypes();
     foundation::script::RegisterScriptFacadeReflection();
-    engine::runtime::RegisterSceneLoaderScriptFacade(); // SceneLoader facade (owned by this project)
+    engine::runtime::RegisterRunScriptFacade(); // run facade (owned by this project)
     foundation::script::angelscript::RegisterAngelScriptBackend();
 
     engine::runtime::GameInstance gi;
     // A facade named `Game` would fail HERE with "Name conflict. 'Game' is an extended data type" -
-    // the SceneLoader rename is exactly what lets this `class Game` compile alongside the facade.
+    // binding the load facade lowercase as `run` is exactly what lets this `class Game` compile alongside it.
     const bool ok = gi.StartScript(
         u8"class Game {\n"
         u8"  Game() {}\n"
         u8"  void launch() {\n"
-        u8"    SceneLoader::currentScene().find(\"nobody\");\n"
-        u8"    SceneLoader::currentScene().findByPath(\"a/b\");\n"
-        u8"    SceneLoader::sceneReady();\n"
-        u8"    SceneLoader::loadComplete(0);\n"
-        u8"    SceneLoader::loadProgress(0);\n"
+        u8"    run::currentScene().find(\"nobody\");\n"
+        u8"    run::currentScene().findByPath(\"a/b\");\n"
+        u8"    run::sceneReady();\n"
+        u8"    run::loadComplete(0);\n"
+        u8"    run::loadProgress(0);\n"
         u8"  }\n"
-        u8"  void update(double dt) { SceneLoader::currentScene().find(\"x\"); "
-        u8"SceneLoader::sceneReady(); }\n"
+        u8"  void update(double dt) { run::currentScene().find(\"x\"); "
+        u8"run::sceneReady(); }\n"
         u8"  void exit() {}\n"
         u8"}\n",
         u8"game.as");
@@ -314,23 +314,23 @@ TEST_CASE("game-instance: Scene/SceneLoader facades are null-scene-safe from a p
     gi.StopScript();
 }
 
-// The SceneLoader.* facade routing PROVEN end-to-end on both backends (raw context, Net-style): a
-// fake SceneLoaderScriptBinding (standing in for the app's content-DB-backed load pointers) is
-// installed as the sceneloader.runtime service, then a script kicks an async load and polls the
+// The run.* load facade routing PROVEN end-to-end on both backends (raw context, Net-style): a
+// fake RunScriptBinding (standing in for the app's content-DB-backed load pointers) is
+// installed as the run.runtime service, then a script kicks an async load and polls the
 // ticket to completion. What is under test is the facade->binding routing + the ticket round-trip.
 namespace
 {
     // Fake load host: hands back a fixed ticket, reports complete on the 2nd poll of THAT ticket.
-    struct SceneLoaderFake
+    struct RunFake
     {
-        engine::runtime::SceneLoaderScriptBinding binding;
+        engine::runtime::RunScriptBinding binding;
         int asyncCalls = 0;
         Guid requested;
         int completePolls = 0;
         i32 ticketSeen = -1;
         static constexpr i32 kTicket = 7;
 
-        SceneLoaderFake()
+        RunFake()
         {
             binding.loadSceneAsync = Function<i32(const Guid&)>{[this](const Guid& id) -> i32
                                                                {
@@ -350,60 +350,60 @@ namespace
     };
 }
 
-TEST_CASE("game-instance: SceneLoader.loadSceneAsync -> ticket, polled to completion (Luau)")
+TEST_CASE("game-instance: run.loadSceneAsync -> ticket, polled to completion (Luau)")
 {
     RegisterCoreTypes();
-    engine::runtime::RegisterSceneLoaderScriptFacade();
+    engine::runtime::RegisterRunScriptFacade();
 
     RefPtr<script::IScriptManager> manager = foundation::script::CreateLuauScriptManager();
     foundation::script::RegisterReflectedTypes(*manager);
     RefPtr<script::IScriptContext> ctx = manager->CreateContext();
 
-    SceneLoaderFake fake;
-    engine::runtime::InstallSceneLoaderScriptService(*ctx, fake.binding);
+    RunFake fake;
+    engine::runtime::InstallRunScriptService(*ctx, fake.binding);
 
     // Kick the load, then poll to completion; record the observable results in module globals.
-    const Status status = ctx->Load(u8"t = SceneLoader.loadSceneAsync(Guid.new(0xABC, 0xDEF))\n"
-                                    u8"Poll1 = SceneLoader.loadComplete(t)\n"
-                                    u8"Prog = SceneLoader.loadProgress(t)\n"
-                                    u8"Poll2 = SceneLoader.loadComplete(t)\n",
+    const Status status = ctx->Load(u8"t = run.loadSceneAsync(Guid.new(0xABC, 0xDEF))\n"
+                                    u8"Poll1 = run.loadComplete(t)\n"
+                                    u8"Prog = run.loadProgress(t)\n"
+                                    u8"Poll2 = run.loadComplete(t)\n",
                                     u8"main");
     REQUIRE(status.IsOk());
 
     CHECK(fake.asyncCalls == 1);
     CHECK(fake.requested == Guid{0xABC, 0xDEF});
-    CHECK(fake.ticketSeen == SceneLoaderFake::kTicket); // the exact ticket round-tripped
+    CHECK(fake.ticketSeen == RunFake::kTicket); // the exact ticket round-tripped
     CHECK(ctx->GetGlobal(u8"Poll1").Get<bool>() == false); // first poll: not complete
     CHECK(ctx->GetGlobal(u8"Prog").Get<f64>() == doctest::Approx(0.5));
     CHECK(ctx->GetGlobal(u8"Poll2").Get<bool>() == true); // second poll: complete
 }
 
-TEST_CASE("game-instance: SceneLoader.loadSceneAsync -> ticket, polled to completion (AngelScript)")
+TEST_CASE("game-instance: run.loadSceneAsync -> ticket, polled to completion (AngelScript)")
 {
     RegisterCoreTypes();
-    engine::runtime::RegisterSceneLoaderScriptFacade();
+    engine::runtime::RegisterRunScriptFacade();
 
     RefPtr<script::IScriptManager> manager = foundation::script::angelscript::CreateScriptManager();
     foundation::script::RegisterReflectedTypes(*manager);
     RefPtr<script::IScriptContext> ctx = manager->CreateContext();
 
-    SceneLoaderFake fake;
-    engine::runtime::InstallSceneLoaderScriptService(*ctx, fake.binding);
+    RunFake fake;
+    engine::runtime::InstallRunScriptService(*ctx, fake.binding);
 
     const Status status = ctx->Load(u8"int t;\n"
                                     u8"bool Poll1; double Prog; bool Poll2;\n"
                                     u8"void main() {\n"
-                                    u8"  t = SceneLoader::loadSceneAsync(Guid(0xABC, 0xDEF));\n"
-                                    u8"  Poll1 = SceneLoader::loadComplete(t);\n"
-                                    u8"  Prog = SceneLoader::loadProgress(t);\n"
-                                    u8"  Poll2 = SceneLoader::loadComplete(t);\n"
+                                    u8"  t = run::loadSceneAsync(Guid(0xABC, 0xDEF));\n"
+                                    u8"  Poll1 = run::loadComplete(t);\n"
+                                    u8"  Prog = run::loadProgress(t);\n"
+                                    u8"  Poll2 = run::loadComplete(t);\n"
                                     u8"}\n",
                                     u8"main");
     REQUIRE(status.IsOk());
 
     CHECK(fake.asyncCalls == 1);
     CHECK(fake.requested == Guid{0xABC, 0xDEF});
-    CHECK(fake.ticketSeen == SceneLoaderFake::kTicket);
+    CHECK(fake.ticketSeen == RunFake::kTicket);
     CHECK(ctx->GetGlobal(u8"Poll1").Get<bool>() == false);
     CHECK(ctx->GetGlobal(u8"Prog").Get<f64>() == doctest::Approx(0.5));
     CHECK(ctx->GetGlobal(u8"Poll2").Get<bool>() == true);
@@ -564,7 +564,7 @@ TEST_CASE("game-instance: the Game tier's on<Event> inbox harvests the run bus (
 {
     RegisterCoreTypes();
     foundation::script::RegisterScriptFacadeReflection();
-    engine::runtime::RegisterSceneLoaderScriptFacade();
+    engine::runtime::RegisterRunScriptFacade();
     foundation::script::angelscript::RegisterAngelScriptBackend();
 
     engine::runtime::GameInstance gi;
@@ -635,7 +635,6 @@ TEST_CASE("game-instance: run.events().emit publishes on the run bus, round-trip
 {
     RegisterCoreTypes();
     foundation::script::RegisterScriptFacadeReflection();
-    engine::runtime::RegisterSceneLoaderScriptFacade();
     engine::runtime::RegisterRunScriptFacade(); // the run.* facade (bound as `run`)
     foundation::script::angelscript::RegisterAngelScriptBackend();
 
@@ -665,7 +664,6 @@ TEST_CASE("game-instance: run.events():emit publishes on the run bus, round-trip
 {
     RegisterCoreTypes();
     foundation::script::RegisterScriptFacadeReflection();
-    engine::runtime::RegisterSceneLoaderScriptFacade();
     engine::runtime::RegisterRunScriptFacade();
     foundation::script::RegisterLuauScriptBackend();
 
