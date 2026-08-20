@@ -1,0 +1,56 @@
+<root>
+	<u32 name="magic">3586350318</u32>
+	<u32 name="version">3</u32>
+	<string name="name">Scene</string>
+	<array name="entities" count="1">
+		<string name="id">1bbeb4f2-e82e-49e9-a81c-fdebe00fa2ec</string>
+		<string name="name">Sun</string>
+		<u8 name="active">1</u8>
+		<string name="parent">00000000-0000-0000-0000-000000000000</string>
+		<object name="position">
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+		</object>
+		<object name="rotation">
+			<f32 name="x">-0.4935577</f32>
+			<f32 name="y">0.15065993</f32>
+			<f32 name="z">0.08726525</f32>
+			<f32 name="w">0.85210747</f32>
+		</object>
+		<object name="scale">
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
+		</object>
+	</array>
+	<array name="components" count="1">
+		<object>
+			<string name="owner">1bbeb4f2-e82e-49e9-a81c-fdebe00fa2ec</string>
+			<string name="type">light</string>
+			<object name="data">
+				<array name="dataVersions" count="1">
+					<u64 name="type">13988020301906217043</u64>
+					<u32 name="version">0</u32>
+				</array>
+				<u8 name="type">0</u8>
+				<object name="color">
+					<f32 name="r">1</f32>
+					<f32 name="g">1</f32>
+					<f32 name="b">1</f32>
+					<f32 name="a">1</f32>
+				</object>
+				<f32 name="intensity">1</f32>
+				<f32 name="range">10</f32>
+				<f32 name="innerAngle">0.5</f32>
+				<f32 name="outerAngle">0.6</f32>
+				<u8 name="shadowUpdate">0</u8>
+				<bool name="enabled">true</bool>
+				<bool name="castsShadows">true</bool>
+			</object>
+		</object>
+	</array>
+	<array name="systemSettings" count="0"/>
+	<u8 name="prefabMode">4</u8>
+	<array name="prefabInstances" count="0"/>
+</root>

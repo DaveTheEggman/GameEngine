@@ -5,8 +5,8 @@
 	</array>
 	<string name="name">PaperKid</string>
 	<string name="engineVersion">0.1.0</string>
-	<string name="defaultSceneId">855ffed4-4da7-4fa0-9756-a95c6c842890</string>
-	<string name="defaultScene">Scenes/MainScene</string>
+	<string name="defaultSceneId">c83b3435-c2a2-4224-9778-35736dd26221</string>
+	<string name="defaultScene">Scenes/StartScene</string>
 	<string name="startupScript">Scripts/PaperKidGame</string>
 	<string name="nativeModule"/>
 	<string name="defaultInputMapId">286f2ecc-33c2-4ad2-a338-9d9490a58d62</string>
