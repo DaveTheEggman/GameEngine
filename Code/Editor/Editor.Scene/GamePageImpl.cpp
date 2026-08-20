@@ -538,7 +538,15 @@ namespace editor
         {
             return;
         }
-        auto* render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
+        // The screen-tier overlay is registered against the EMBEDDED RUNTIME context's
+        // RenderSubsystem (the one the embedded DefaultApplication configured). The
+        // `host` handed to this callback is the editor's OWN outer host, whose context
+        // carries no gameplay subsystems - resolving the RenderSubsystem through it
+        // returns null and the game's screen-tier UI never composites. Use m_render:
+        // the runtime RenderSubsystem the ctor cached from the embedded host, the same
+        // one the game UISubsystem self-registered its IScreenOverlay with.
+        (void)host;
+        engine::render::RenderSubsystem* render = m_render;
         if (render == nullptr)
         {
             return;
