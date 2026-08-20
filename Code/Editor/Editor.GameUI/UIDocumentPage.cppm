@@ -17,6 +17,7 @@ module;
 export module editor.gameui;
 
 import foundation.core;
+import foundation.vfs;
 import foundation.content;
 import foundation.runtime.client;
 import foundation.graphics;
@@ -53,7 +54,28 @@ export namespace editor
             RefPtr<ISerializable> object = instance.ReadObject();
             if (auto* asset = Cast<pipeline::UIDocumentAsset>(object.Get()))
             {
-                m_markup = String(asset->markup.AsView());
+                if (!asset->fileName.IsEmpty())
+                {
+                    // The markup lives in a LINKED Sources/ file (fileName set) - read it back,
+                    // exactly like ScriptSourceDocument::Load. An unreadable file just leaves an
+                    // empty buffer (do not crash).
+                    String sourcesRoot;
+                    if (m_context->Project() != nullptr)
+                    {
+                        sourcesRoot = m_context->Project()->SourcesRoot();
+                    }
+                    const String path = PathJoin(sourcesRoot.AsView(), asset->fileName.View());
+                    if (Result<Array<byte>> bytes = ReadFile(path.AsView()); bytes.HasValue())
+                    {
+                        const Array<byte>& data = bytes.Value();
+                        m_markup = String(StringView(
+                            reinterpret_cast<const utf8char*>(data.Data()), data.Size()));
+                    }
+                }
+                else
+                {
+                    m_markup = String(asset->markup.AsView()); // LEGACY inline text
+                }
             }
 
             auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());

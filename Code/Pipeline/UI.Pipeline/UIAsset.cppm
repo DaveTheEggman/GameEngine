@@ -1,14 +1,20 @@
 // Pipeline::UI - the `foundation.ui.editor` module (tooling).
 //
 // Source-side game-UI authoring + cook (docs/design/game-ui.md §5):
-//   * UIDocumentAsset / UIThemeAsset: text payloads (.sml view-tree / .sss stylesheet),
-//     embedded in the asset (New Asset seeds a starter template; dropping a .sml/.sss
-//     file imports its text).
-//   * Builders VALIDATE at cook - the payload must parse (markup against the registered
-//     control set; SSS through the stylesheet loader) or the cook FAILS - then write the
-//     text through to the cooked record (v1 payload; a pre-parsed binary tree can slot in
-//     behind the same records later). The framework parsers return null without
-//     diagnostics, so failures point at the asset, not a line number (v1 honesty).
+//   * UIDocumentAsset / UIThemeAsset: a LINKED source file (.sml view-tree / .sss
+//     stylesheet). The authored text lives in the project's Sources/ tree and the asset
+//     references it through Asset::fileName - exactly like a script asset - so by-hand
+//     edits touch the real .sml/.sss file, not a payload embedded in the asset. Dropping a
+//     .sml/.sss file stages it into Sources/ and links it (New Asset seeds a starter file
+//     the same way). LEGACY assets that still carry the text inline (empty fileName) are
+//     read from the inline field and cooked unchanged (backward compat).
+//   * Builders VALIDATE at cook - the text (read from the linked source file, or the
+//     legacy inline field) must parse (markup against the registered control set; SSS
+//     through the stylesheet loader) or the cook FAILS - then write the text through to the
+//     cooked record (v1 payload; a pre-parsed binary tree can slot in behind the same
+//     records later). The cooked PRODUCT still embeds the resolved text; only the SOURCE
+//     asset links. The framework parsers return null without diagnostics, so failures point
+//     at the asset, not a line number (v1 honesty).
 //
 // Never linked by the runtime.
 
@@ -94,7 +100,25 @@ export namespace pipeline{
             {
                 return Status{ErrorCode::InvalidArgument};
             }
-            if (da.markup.IsEmpty())
+            // The markup lives in a LINKED source file (fileName set) - read it back through
+            // the sources mount. A LEGACY asset with an empty fileName still carries the text
+            // inline (backward compat); use it directly.
+            String markup;
+            if (!da.fileName.IsEmpty())
+            {
+                const Status read = ReadSourceText(ctx, da.fileName.View(), markup);
+                if (!read.IsOk())
+                {
+                    LOG_ERROR(u8"UI", u8"UI document '{}': source file missing - cook failed",
+                              da.fileName.View());
+                    return read;
+                }
+            }
+            else
+            {
+                markup = da.markup;
+            }
+            if (markup.IsEmpty())
             {
                 LOG_ERROR(u8"UI", u8"UI document is empty - nothing to cook");
                 return Status{ErrorCode::InvalidArgument};
@@ -104,7 +128,7 @@ export namespace pipeline{
             MarkupLoader::Initialize();
             Array<String> warnings;
             RefPtr<View> tree =
-                MarkupLoader::LoadFromString(da.markup.AsView(), nullptr, &warnings);
+                MarkupLoader::LoadFromString(markup.AsView(), nullptr, &warnings);
             if (tree.Get() == nullptr)
             {
                 LOG_ERROR(
@@ -116,7 +140,7 @@ export namespace pipeline{
                 LOG_WARNING(u8"UI", u8"UI document: {}", warning);
             }
             UIDocumentSource cooked;
-            cooked.markup = String(da.markup.AsView());
+            cooked.markup = Move(markup);
             return ctx.output->WriteObject(cooked);
         }
     };
@@ -141,26 +165,47 @@ export namespace pipeline{
             {
                 return Status{ErrorCode::InvalidArgument};
             }
-            if (ta.stylesheet.IsEmpty())
+            // The stylesheet lives in a LINKED source file (fileName set) - read it back
+            // through the sources mount. A LEGACY asset with an empty fileName still carries
+            // the text inline (backward compat); use it directly.
+            String stylesheet;
+            if (!ta.fileName.IsEmpty())
+            {
+                const Status read = ReadSourceText(ctx, ta.fileName.View(), stylesheet);
+                if (!read.IsOk())
+                {
+                    LOG_ERROR(u8"UI", u8"UI theme '{}': source file missing - cook failed",
+                              ta.fileName.View());
+                    return read;
+                }
+            }
+            else
+            {
+                stylesheet = ta.stylesheet;
+            }
+            if (stylesheet.IsEmpty())
             {
                 LOG_ERROR(u8"UI", u8"UI theme is empty - nothing to cook");
                 return Status{ErrorCode::InvalidArgument};
             }
             StyleSheetLoader loader;
             loader.SetPalette(ThemePalette::Dark()); // palette variables resolvable at cook
-            RefPtr<StyleSheet> sheet = loader.Load(ta.stylesheet.AsView());
+            RefPtr<StyleSheet> sheet = loader.Load(stylesheet.AsView());
             if (sheet.Get() == nullptr)
             {
                 LOG_ERROR(u8"UI", u8"UI theme failed to parse (malformed SSS)");
                 return Status{ErrorCode::InvalidArgument};
             }
             UIThemeSource cooked;
-            cooked.stylesheet = String(ta.stylesheet.AsView());
+            cooked.stylesheet = Move(stylesheet);
             return ctx.output->WriteObject(cooked);
         }
     };
 
-    /// Drag-drop importer for `.sml` / `.sss` files (text embeds into the asset).
+    /// Drag-drop importer for `.sml` / `.sss` files. The dropped file is STAGED into the
+    /// project's Sources/ tree and the asset LINKS it through fileName - the authored text is
+    /// never embedded in the asset (mirrors ScriptFileImporter). The cook reads the source
+    /// file back through the sources mount.
     class UIFileImporter final : public pipeline::IFileImporter
     {
     public:
@@ -175,22 +220,15 @@ export namespace pipeline{
                foundation::content::Group& group, const pipeline::ImportOptions*, Object*,
                Array<pipeline::DeferredImportWrite>*) override
         {
-            (void)context;
-            FileStream stream(sourcePath, FileMode::Read);
-            if (!stream.IsValid())
-            {
-                return Err(ErrorCode::NotFound);
-            }
-            Array<byte> bytes;
-            bytes.Resize(static_cast<usize>(stream.Size()));
-            if (stream.Read(bytes.Data(), bytes.Size()) != bytes.Size())
-            {
-                return Err(ErrorCode::Unknown);
-            }
-            String text(StringView(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size()));
-            const StringView stem =
-                pipeline::FileStemOf(pipeline::FileNameOf(sourcePath));
             const bool isTheme = pipeline::FileExtensionLower(sourcePath) == u8"sss";
+
+            Result<String> fileName = pipeline::CopyIntoSources(context, sourcePath);
+            if (!fileName.HasValue())
+            {
+                return Err(fileName.Error());
+            }
+
+            const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
             foundation::content::Instance* instance = group.CreateInstance(
                 stem, isTheme ? UIThemeAsset::StaticType() : UIDocumentAsset::StaticType());
             if (instance == nullptr)
@@ -201,13 +239,13 @@ export namespace pipeline{
             if (isTheme)
             {
                 UIThemeAsset asset;
-                asset.stylesheet = Move(text);
+                asset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
                 written = instance->WriteObject(asset);
             }
             else
             {
                 UIDocumentAsset asset;
-                asset.markup = Move(text);
+                asset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
                 written = instance->WriteObject(asset);
             }
             if (!written.IsOk())

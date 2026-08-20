@@ -3,12 +3,14 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include <initializer_list>
+#include <filesystem>
 
 import foundation.core;
 import foundation.vfs;
 import foundation.content;
 import foundation.resource;
 import pipeline.core;
+import pipeline.importer;
 import foundation.ui;
 import foundation.ui.resource;
 import ui.pipeline;
@@ -136,4 +138,179 @@ TEST_CASE("ui.pipeline: silent markup drops surface as cook warnings")
     RefPtr<View> clean = MarkupLoader::LoadFromString(kUIDocumentStarter, nullptr, &warnings);
     REQUIRE(clean.Get() != nullptr);
     CHECK(warnings.IsEmpty());
+}
+
+namespace
+{
+    // Write a loose file at `path` with `text` (creating parents assumed to exist).
+    void WriteText(StringView path, StringView text)
+    {
+        REQUIRE(WriteFile(path, Span<const byte>(reinterpret_cast<const byte*>(text.Data()),
+                                                 text.Size()))
+                    .IsOk());
+    }
+
+    // Recursive scratch-dir cleanup (instances persist as .rasset files with varying names).
+    void RemoveAll(StringView dir)
+    {
+        std::error_code ec;
+        std::filesystem::remove_all(
+            std::filesystem::path(reinterpret_cast<const char*>(String(dir).CStr())), ec);
+    }
+}
+
+// The importer stages the dropped .sml/.sss into Sources/ and LINKS it through fileName -
+// it does NOT embed the text into the asset (mirrors ScriptFileImporter).
+TEST_CASE("ui.pipeline: importer links the dropped file into Sources (no inline text)")
+{
+    RegisterUIAssets();
+    const StringView root = u8"scratch_uipipe_import";
+    const String sourcesRoot = PathJoin(root, u8"Sources");
+    RemoveAll(root);
+    RemoveAll(u8"scratch_uipipe_import_db");
+    REQUIRE(CreateDirectories(sourcesRoot.AsView()));
+
+    // Loose OS files to import (living outside the project).
+    const String looseDoc = PathJoin(root, u8"panel.sml");
+    const String looseTheme = PathJoin(root, u8"skin.sss");
+    WriteText(looseDoc.AsView(), kUIDocumentStarter);
+    WriteText(looseTheme.AsView(), kUIThemeStarter);
+
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_import_db");
+    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+
+    UIFileImporter importer;
+    pipeline::ImportContext importCtx{String(sourcesRoot.AsView())};
+
+    // Document: fileName SET, inline markup EMPTY, source present under Sources/.
+    Result<content::Instance*> docInst =
+        importer.Import(looseDoc.AsView(), importCtx, *outDb.RootGroup(), nullptr, nullptr, nullptr);
+    REQUIRE(docInst.HasValue());
+    REQUIRE(docInst.Value() != nullptr);
+    {
+        RefPtr<ISerializable> object = docInst.Value()->ReadObject();
+        auto* asset = Cast<UIDocumentAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(asset->fileName.View() == StringView(u8"panel.sml"));
+        CHECK(asset->markup.IsEmpty());
+    }
+    CHECK(FileExists(PathJoin(sourcesRoot.AsView(), u8"panel.sml").AsView()));
+
+    // Theme: fileName SET, inline stylesheet EMPTY, source present under Sources/.
+    Result<content::Instance*> themeInst = importer.Import(looseTheme.AsView(), importCtx,
+                                                          *outDb.RootGroup(), nullptr, nullptr,
+                                                          nullptr);
+    REQUIRE(themeInst.HasValue());
+    REQUIRE(themeInst.Value() != nullptr);
+    {
+        RefPtr<ISerializable> object = themeInst.Value()->ReadObject();
+        auto* asset = Cast<UIThemeAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(asset->fileName.View() == StringView(u8"skin.sss"));
+        CHECK(asset->stylesheet.IsEmpty());
+    }
+    CHECK(FileExists(PathJoin(sourcesRoot.AsView(), u8"skin.sss").AsView()));
+
+    RemoveAll(root);
+    RemoveAll(u8"scratch_uipipe_import_db");
+}
+
+// A cook of a LINKED asset reads the text back through the sources mount and the cooked
+// product embeds it (only the SOURCE asset links).
+TEST_CASE("ui.pipeline: cook of a linked source reads the Sources file into the product")
+{
+    RegisterUIAssets();
+    const StringView sourcesRoot = u8"scratch_uipipe_linked_src";
+    RemoveAll(sourcesRoot);
+    REQUIRE(CreateDirectories(sourcesRoot));
+    WriteText(PathJoin(sourcesRoot, u8"doc.sml").AsView(), kUIDocumentStarter);
+    WriteText(PathJoin(sourcesRoot, u8"theme.sss").AsView(), kUIThemeStarter);
+
+    foundation::vfs::NativeFileSystem sourcesMount(sourcesRoot);
+    RemoveAll(u8"scratch_uipipe_linked_db");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_linked_db");
+    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+
+    // Document: fileName points at doc.sml -> cooked markup equals the file text.
+    auto* docInst = outDb.RootGroup()->CreateInstance(u8"doc", UIDocumentSource::StaticType());
+    {
+        UIDocumentAsset asset;
+        asset.fileName = foundation::vfs::SourcePath(u8"doc.sml");
+        UIDocumentAssetBuilder builder;
+        pipeline::AssetBuildContext ctx;
+        ctx.sources = &sourcesMount;
+        ctx.output = docInst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+        RefPtr<ISerializable> object = docInst->ReadObject();
+        auto* cooked = Cast<UIDocumentSource>(object.Get());
+        REQUIRE(cooked != nullptr);
+        CHECK(cooked->markup.AsView() == kUIDocumentStarter);
+    }
+    // Theme: fileName points at theme.sss -> cooked stylesheet equals the file text.
+    auto* themeInst = outDb.RootGroup()->CreateInstance(u8"theme", UIThemeSource::StaticType());
+    {
+        UIThemeAsset asset;
+        asset.fileName = foundation::vfs::SourcePath(u8"theme.sss");
+        UIThemeAssetBuilder builder;
+        pipeline::AssetBuildContext ctx;
+        ctx.sources = &sourcesMount;
+        ctx.output = themeInst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+        RefPtr<ISerializable> object = themeInst->ReadObject();
+        auto* cooked = Cast<UIThemeSource>(object.Get());
+        REQUIRE(cooked != nullptr);
+        CHECK(cooked->stylesheet.AsView() == kUIThemeStarter);
+    }
+
+    // A linked asset whose source file is MISSING fails the cook (not an empty product).
+    {
+        UIDocumentAsset asset;
+        asset.fileName = foundation::vfs::SourcePath(u8"does-not-exist.sml");
+        UIDocumentAssetBuilder builder;
+        pipeline::AssetBuildContext ctx;
+        ctx.sources = &sourcesMount;
+        ctx.output = docInst;
+        CHECK_FALSE(builder.Build(asset, ctx).IsOk());
+    }
+
+    RemoveAll(sourcesRoot);
+    RemoveAll(u8"scratch_uipipe_linked_db");
+}
+
+// LEGACY: an asset that still carries the text INLINE (empty fileName) cooks unchanged.
+TEST_CASE("ui.pipeline: legacy inline assets (empty fileName) still cook")
+{
+    RegisterUIAssets();
+    RemoveAll(u8"scratch_uipipe_legacy_db");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_legacy_db");
+    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+
+    auto* docInst = outDb.RootGroup()->CreateInstance(u8"doc", UIDocumentSource::StaticType());
+    {
+        UIDocumentAsset asset;
+        asset.markup = String(kUIDocumentStarter); // inline, fileName left empty
+        UIDocumentAssetBuilder builder;
+        pipeline::AssetBuildContext ctx; // no sources mount needed for the inline path
+        ctx.output = docInst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+        RefPtr<ISerializable> object = docInst->ReadObject();
+        auto* cooked = Cast<UIDocumentSource>(object.Get());
+        REQUIRE(cooked != nullptr);
+        CHECK(cooked->markup.AsView() == kUIDocumentStarter);
+    }
+    auto* themeInst = outDb.RootGroup()->CreateInstance(u8"theme", UIThemeSource::StaticType());
+    {
+        UIThemeAsset asset;
+        asset.stylesheet = String(kUIThemeStarter); // inline, fileName left empty
+        UIThemeAssetBuilder builder;
+        pipeline::AssetBuildContext ctx;
+        ctx.output = themeInst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+        RefPtr<ISerializable> object = themeInst->ReadObject();
+        auto* cooked = Cast<UIThemeSource>(object.Get());
+        REQUIRE(cooked != nullptr);
+        CHECK(cooked->stylesheet.AsView() == kUIThemeStarter);
+    }
+
+    RemoveAll(u8"scratch_uipipe_legacy_db");
 }

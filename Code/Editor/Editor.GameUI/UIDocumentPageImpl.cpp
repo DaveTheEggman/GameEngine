@@ -16,6 +16,7 @@ module;
 module editor.gameui;
 
 import foundation.core;
+import foundation.vfs;
 import foundation.content;
 import foundation.runtime.client;
 import foundation.graphics;
@@ -50,9 +51,40 @@ namespace editor
         {
             return Status{ErrorCode::NotFound};
         }
-        pipeline::UIDocumentAsset asset;
-        asset.markup = String(m_markup.AsView());
-        const Status written = instance->WriteObject(asset);
+        // Read the existing asset so a LINKED doc keeps its fileName (a fresh asset would wipe
+        // it). The text source differs by branch: linked docs live in Sources/, legacy assets
+        // carry the text inline.
+        RefPtr<ISerializable> object = instance->ReadObject();
+        auto* asset = Cast<pipeline::UIDocumentAsset>(object.Get());
+        if (asset == nullptr)
+        {
+            return Status{ErrorCode::NotFound};
+        }
+        if (!asset->fileName.IsEmpty())
+        {
+            // LINKED: write the buffer to the Sources/ file (NOT asset->markup), mirroring
+            // ScriptSourceDocument::Save.
+            String sourcesRoot;
+            if (m_context->Project() != nullptr)
+            {
+                sourcesRoot = m_context->Project()->SourcesRoot();
+            }
+            const String path = PathJoin(sourcesRoot.AsView(), asset->fileName.View());
+            const Status fileWritten = WriteFile(
+                path.AsView(),
+                Span<const byte>(reinterpret_cast<const byte*>(m_markup.Data()), m_markup.Size()));
+            if (!fileWritten.IsOk())
+            {
+                return fileWritten;
+            }
+        }
+        else
+        {
+            asset->markup = String(m_markup.AsView()); // LEGACY inline text
+        }
+        // Re-write the asset instance (unchanged for a linked doc) so the validating recook
+        // fires off the instance write, then nudge it.
+        const Status written = instance->WriteObject(*asset);
         if (written.IsOk())
         {
             ClearDirty();

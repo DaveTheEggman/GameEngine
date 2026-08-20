@@ -540,8 +540,10 @@ int main(int argc, char** argv)
             // per script backend, seeded from the cook's NewAssetTemplate - backend-neutral).
         }
         {
-            // New Asset > UI Document / UI Theme (starter payloads; edited as text until
-            // the UIDocumentPage lands, hot-reloading through the standard cook).
+            // New Asset > UI Document / UI Theme. The starter text is written to a LINKED
+            // source file in Sources/ (.sml / .sss) and the asset references it through
+            // fileName - exactly like a new script asset, so by-hand edits touch the real
+            // file. Cook + hot reload run through the standard path.
             editor::EditorContext::AssetCreator documentCreator;
             documentCreator.label = String(u8"UI Document");
             documentCreator.create =
@@ -554,14 +556,27 @@ int main(int argc, char** argv)
                 }
                 foundation::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
+                const String name = target->UniqueInstanceName(u8"UIDocument");
+                String fileName(name.AsView());
+                fileName.Append(u8".sml");
+                const String path =
+                    PathJoin(ctx.Project()->SourcesRoot().AsView(), fileName.AsView());
+                const StringView starter = pipeline::kUIDocumentStarter;
+                if (!WriteFile(path.AsView(),
+                               Span<const byte>(reinterpret_cast<const byte*>(starter.Data()),
+                                                starter.Size()))
+                         .IsOk())
+                {
+                    return nullptr;
+                }
                 foundation::content::Instance* instance = target->CreateInstance(
-                    target->UniqueInstanceName(u8"UIDocument").AsView(), pipeline::UIDocumentAsset::StaticType());
+                    name.AsView(), pipeline::UIDocumentAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
                 }
                 pipeline::UIDocumentAsset asset;
-                asset.markup = String(pipeline::kUIDocumentStarter);
+                asset.fileName = foundation::vfs::SourcePath(fileName.AsView());
                 if (!instance->WriteObject(asset).IsOk())
                 {
                     return nullptr;
@@ -582,14 +597,27 @@ int main(int argc, char** argv)
                 }
                 foundation::content::Group* target =
                     group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
+                const String name = target->UniqueInstanceName(u8"UITheme");
+                String fileName(name.AsView());
+                fileName.Append(u8".sss");
+                const String path =
+                    PathJoin(ctx.Project()->SourcesRoot().AsView(), fileName.AsView());
+                const StringView starter = pipeline::kUIThemeStarter;
+                if (!WriteFile(path.AsView(),
+                               Span<const byte>(reinterpret_cast<const byte*>(starter.Data()),
+                                                starter.Size()))
+                         .IsOk())
+                {
+                    return nullptr;
+                }
                 foundation::content::Instance* instance =
-                    target->CreateInstance(target->UniqueInstanceName(u8"UITheme").AsView(), pipeline::UIThemeAsset::StaticType());
+                    target->CreateInstance(name.AsView(), pipeline::UIThemeAsset::StaticType());
                 if (instance == nullptr)
                 {
                     return nullptr;
                 }
                 pipeline::UIThemeAsset asset;
-                asset.stylesheet = String(pipeline::kUIThemeStarter);
+                asset.fileName = foundation::vfs::SourcePath(fileName.AsView());
                 if (!instance->WriteObject(asset).IsOk())
                 {
                     return nullptr;
