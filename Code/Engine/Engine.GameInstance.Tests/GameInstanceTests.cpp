@@ -409,6 +409,78 @@ TEST_CASE("game-instance: run.loadSceneAsync -> ticket, polled to completion (An
     CHECK(ctx->GetGlobal(u8"Poll2").Get<bool>() == true);
 }
 
+// run.requestExit routing PROVEN on both backends: a fake RunScriptBinding whose requestExit records
+// the code stands in for the app's host route (standalone stops the loop; the editor stops the Game
+// tab). A tiny script calls run::requestExit(2) / run.requestExit(2), and the arity-0 overload routes
+// code 0. What is under test is the facade->binding routing + the arity family, NOT the host itself.
+namespace
+{
+    struct ExitFake
+    {
+        engine::runtime::RunScriptBinding binding;
+        int calls = 0;
+        i32 lastCode = -999;
+
+        ExitFake()
+        {
+            binding.requestExit = Function<void(i32)>{[this](i32 code)
+                                                      {
+                                                          ++calls;
+                                                          lastCode = code;
+                                                      }};
+        }
+    };
+}
+
+TEST_CASE("game-instance: run.requestExit routes the exit code to the binding (AngelScript)")
+{
+    RegisterCoreTypes();
+    engine::runtime::RegisterRunScriptFacade();
+
+    RefPtr<script::IScriptManager> manager = foundation::script::angelscript::CreateScriptManager();
+    foundation::script::RegisterReflectedTypes(*manager);
+    RefPtr<script::IScriptContext> ctx = manager->CreateContext();
+
+    ExitFake fake;
+    engine::runtime::InstallRunScriptService(*ctx, fake.binding);
+
+    // The 1-arg overload routes the code; the 0-arg overload routes code 0.
+    const Status status = ctx->Load(u8"void main() {\n"
+                                    u8"  run::requestExit(2);\n"
+                                    u8"  run::requestExit();\n"
+                                    u8"}\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(fake.calls == 2);
+    CHECK(fake.lastCode == 0); // the trailing no-arg call routed code 0
+}
+
+TEST_CASE("game-instance: run.requestExit routes the exit code to the binding (Luau)")
+{
+    RegisterCoreTypes();
+    engine::runtime::RegisterRunScriptFacade();
+
+    RefPtr<script::IScriptManager> manager = foundation::script::CreateLuauScriptManager();
+    foundation::script::RegisterReflectedTypes(*manager);
+    RefPtr<script::IScriptContext> ctx = manager->CreateContext();
+
+    ExitFake fake;
+    engine::runtime::InstallRunScriptService(*ctx, fake.binding);
+
+    const Status status = ctx->Load(u8"run.requestExit(2)\n"
+                                    u8"Seen = 1\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(fake.calls == 1);
+    CHECK(fake.lastCode == 2); // the exact code round-tripped through the facade
+
+    // The arity-0 overload routes code 0.
+    const Status status0 = ctx->Load(u8"run.requestExit()\n", u8"main0");
+    REQUIRE(status0.IsOk());
+    CHECK(fake.calls == 2);
+    CHECK(fake.lastCode == 0);
+}
+
 TEST_CASE("game-instance: a debugger suspension in update is not a fault - the script survives")
 {
     RegisterCoreTypes();

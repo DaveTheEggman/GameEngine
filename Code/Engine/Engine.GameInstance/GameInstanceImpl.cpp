@@ -68,6 +68,9 @@ namespace engine::runtime
         builder.Method<&Run::loadScene>("loadScene");
         builder.Method<&Run::sceneReady>("sceneReady");
         builder.Method<&Run::currentScene>("currentScene"); // -> bound Scene (orchestrator)
+        // requestExit as an ARITY FAMILY (mirrors emit): requestExit() + requestExit(code:int).
+        builder.Method<static_cast<void (*)()>(&Run::requestExit)>("requestExit");
+        builder.Method<static_cast<void (*)(i32)>(&Run::requestExit)>("requestExit", {"code"});
         builder.Constructor();
     }
 

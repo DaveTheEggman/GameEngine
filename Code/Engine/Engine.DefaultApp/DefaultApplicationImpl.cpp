@@ -120,6 +120,7 @@ namespace engine::runtime
 
     void DefaultApplication::Configure(IApplicationHost& host)
     {
+        m_host = &host; // stable for the app's lifetime; extra instances route run.requestExit through it
         m_scenes = host.Ctx().AddSubsystem<engine::scene::SceneSubsystem>();
         // The run's scene group lives on the GameInstance (game-instance.md §11): wire it to the
         // app-wide aware registry and register it so it ticks on the Context lane beside the default
@@ -161,7 +162,7 @@ namespace engine::runtime
         // + Scene.spawn + entity.send routing so its context has them when the game script starts.
         // (The subsystem's own default host - for editor scenes - is wired in its OnReady.)
         m_scripts->ConfigureRunHost(m_instance.RunHost());
-        InstallInstanceLoadFacade(m_instance); // run.* level-load facade for the primary instance
+        InstallInstanceLoadFacade(m_instance, host); // run.* level-load facade for the primary instance
         engine::input::RegisterInputScriptFacade();
         engine::physics::RegisterPhysicsScriptFacade();
         engine::navigation::RegisterNavigationScriptFacade();
@@ -294,7 +295,7 @@ namespace engine::runtime
 
     GameInstance* DefaultApplication::CreateInstance(bool headless)
     {
-        if (m_scenes == nullptr || m_scripts == nullptr)
+        if (m_scenes == nullptr || m_scripts == nullptr || m_host == nullptr)
         {
             return nullptr;
         }
@@ -305,7 +306,7 @@ namespace engine::runtime
         gi->Scenes().SetAwareRegistry(&m_scenes->AwareRegistry());
         m_scenes->RegisterManager(&gi->Scenes());
         m_scripts->ConfigureRunHost(gi->RunHost());
-        InstallInstanceLoadFacade(*gi); // run.* level-load facade for this extra instance
+        InstallInstanceLoadFacade(*gi, *m_host); // run.* level-load facade for this extra instance
         gi->SetEndpointOnlineHook(
             MakeEndpointOnlineHook()); // its own endpoint, wired like the primary
         if (m_input != nullptr)
@@ -349,7 +350,7 @@ namespace engine::runtime
         scene->SetSimulationEnabled(true);
     }
 
-    void DefaultApplication::InstallInstanceLoadFacade(GameInstance& gi)
+    void DefaultApplication::InstallInstanceLoadFacade(GameInstance& gi, IApplicationHost& host)
     {
         DefaultApplication* self = this;
         GameInstance* instance = &gi;
@@ -432,6 +433,13 @@ namespace engine::runtime
             core::Function<bool()>{[instance]() -> bool { return instance->SceneReady(); }};
         gi.RunBinding().currentScene = core::Function<scene::Scene*()>{
             [instance]() -> scene::Scene* { return instance->GetScene(); }};
+
+        // run.requestExit(code): end the run through the app host. Standalone (ApplicationHost) stops
+        // the loop; the editor's EmbeddedApplicationHost routes to the exit handler the editor set,
+        // which stops the Game tab's play session. The host outlives the binding (app/session lifetime),
+        // so a borrowed pointer is safe.
+        gi.RunBinding().requestExit = core::Function<void(core::i32)>{
+            [hostPtr = &host](core::i32 code) { hostPtr->RequestExit(code); }};
     }
 
     engine::physics::PhysicsSubsystem* DefaultApplication::Physics() const noexcept

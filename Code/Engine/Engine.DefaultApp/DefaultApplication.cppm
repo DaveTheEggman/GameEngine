@@ -213,8 +213,10 @@ export namespace engine::runtime
         // Install the Game.* level-load facade on ONE instance's run host (task #123): the six
         // binding pointers forward to gi's ticket registry, and gi's activation policy is wired to
         // this app's ApplyLoadedSceneActivation. Called per instance right after ConfigureRunHost,
-        // capturing the specific instance (the orchestrator script has no scene to route by).
-        void InstallInstanceLoadFacade(GameInstance& gi);
+        // capturing the specific instance (the orchestrator script has no scene to route by). The
+        // host is threaded in so run.requestExit routes to it (standalone stops the loop; the editor
+        // stops the Game tab's session) - borrowed pointer, the host outlives the binding.
+        void InstallInstanceLoadFacade(GameInstance& gi, IApplicationHost& host);
 
         // The standard factory set, registered into whichever manager the app uses (preset at
         // OnStartup or late-attached by the editor's project manager).
@@ -262,6 +264,10 @@ export namespace engine::runtime
         engine::audio::AudioSubsystem* m_audio = nullptr;
         net::NetworkStartup m_netStartup; // preset before Configure (default = single-player)
         engine::script::ScriptSubsystem* m_scripts = nullptr;
+        // The app host, captured in Configure (stable for the app's lifetime). Used to route
+        // run.requestExit through a GameInstance's load facade when an extra instance is created
+        // outside a host-bearing call (CreateInstance). Borrowed - the host outlives the app.
+        IApplicationHost* m_host = nullptr;
         // Every running game: the primary (a stable member) + any extras (stable UniquePtr addresses,
         // required because the SceneSubsystem borrows each SceneManager's pointer).
         template <typename Fn>

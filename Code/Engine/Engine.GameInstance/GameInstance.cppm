@@ -74,6 +74,8 @@ export namespace engine::runtime
         core::Function<bool(const core::Guid&)> loadScene;     // sync load -> success
         core::Function<bool()> sceneReady;                     // current scene loaded + active?
         core::Function<scene::Scene*()> currentScene;          // the instance's live scene (or null)
+        core::Function<void(i32)> requestExit;                 // end the run (standalone stops the loop;
+                                                               // the editor stops the Game tab's session)
         // This run's event bus (game-ready-scripting2 P2-2): ONE service carries load + run-bus (Fable
         // ruling). run.events() publishes here. The GameInstance fills it with &RunEvents().
         scene::EventBus* runEvents = nullptr;
@@ -169,6 +171,20 @@ export namespace engine::runtime
             handle.scene = (b != nullptr && b->currentScene) ? b->currentScene() : nullptr;
             return handle;
         }
+        /// run.requestExit(code): end the run with an exit code (default 0). Routes to the app host -
+        /// standalone stops the loop; the editor's embedded host stops the Game tab's play session.
+        /// Unwired -> a safe no-op (the standard guard).
+        static void requestExit(i32 code)
+        {
+            RunScriptBinding* b = Resolve();
+            if (b != nullptr && b->requestExit)
+            {
+                b->requestExit(code);
+            }
+        }
+        /// Arity-0 convenience: exit with code 0 (mirrors the C++ host default). Exposed as its own
+        /// overload so `run::requestExit()` / `run.requestExit()` bind on both backends.
+        static void requestExit() { requestExit(0); }
     };
 
     // Registers the `Run` facade (bound to scripts as `run` via ScriptName) + its RunEvents handle type
