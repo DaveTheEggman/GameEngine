@@ -315,6 +315,19 @@ export namespace engine::runtime
             m_sceneManager.DestroyScene(scene);
         }
 
+        /// Tear down ALL of this instance's scenes for a run STOP that KEEPS the instance alive (the
+        /// editor Game tab stopping between plays). Drops every in-flight tracked script load FIRST -
+        /// the handles hold a raw Scene* into the group, so a later PumpScriptLoads must not activate a
+        /// just-freed scene - then clears the current-scene pointer (net replication follows) and
+        /// destroys the whole group (aware subsystems notified). ReleaseInstance/OnShutdown free the
+        /// entire instance, so they only need Scenes().Clear(); this is for the persistent-instance stop.
+        void ClearScenes()
+        {
+            m_scriptLoads.Clear();
+            SetScene(nullptr);
+            m_sceneManager.Clear();
+        }
+
         // ---- scene / level load (task #123): the load ORCHESTRATION lives on the instance (the
         // user-controllable unit), de-duping the identical block PlayerApplication + GamePageImpl
         // both ran. The APP still owns POLICY (WHAT to load; EnsureCamera + Start + SetScene after).

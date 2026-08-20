@@ -347,9 +347,14 @@ export namespace editor
         void OnClose() override;
 
     private:
+        // Follow the instance's CURRENT scene: when a scripted switch (run.loadScene / an async load
+        // that just activated) repoints m_gameInstance->GetScene(), adopt it as this tab's borrowed
+        // render/input pointer and retire the scene(s) we were leaving. Polled once per OnUpdate.
+        void FollowInstanceScene();
+
         // Authored game scenes should carry a camera; a bare scene shouldn't play as a black
         // screen - frame the origin like Engine.Player does.
-        void EnsureCamera();
+        void EnsureCamera(scene::Scene& scene);
 
         // Play-in-editor input: the project's default map into the shared InputSubsystem,
         // devices swapped to the Game viewport's gated facades. Stop restores the shell.

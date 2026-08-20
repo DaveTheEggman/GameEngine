@@ -917,6 +917,40 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
         CHECK_FALSE(gi.SceneReady());           // nothing became current
     }
 
+    SUBCASE("ClearScenes drops in-flight tracked loads + tears the group down (no dangling activation)")
+    {
+        // The editor Game tab's Stop tears the run's scenes down while KEEPING the instance. An
+        // async load still in flight at that moment holds a raw Scene* in the tracked registry;
+        // ClearScenes must drop it BEFORE Scenes().Clear() frees the scene, or the next
+        // PumpScriptLoads (still driven every frame) would activate + Start() freed memory.
+        engine::runtime::GameInstance gi;
+        scene::Scene* live =
+            gi.LoadScene(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{});
+        REQUIRE(live != nullptr);
+        gi.SetScene(live);
+        REQUIRE(gi.SceneReady());
+
+        // A second load left IN FLIGHT (inactive, tracked) - the scene that would dangle.
+        const i32 ticket = gi.TrackScriptLoad(
+            gi.LoadSceneAsync(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{}));
+        CHECK_FALSE(gi.ScriptLoadComplete(ticket)); // in flight
+        CHECK(gi.Scenes().SceneCount() == 2u);      // the live scene + the pending inactive one
+
+        bool policyRan = false;
+        gi.SetSceneActivationPolicy(
+            Function<void(scene::Scene*)>{[&](scene::Scene*) { policyRan = true; }});
+
+        gi.ClearScenes(); // drop tracked loads, clear current, destroy every scene
+        CHECK(gi.Scenes().SceneCount() == 0u);
+        CHECK(gi.GetScene() == nullptr);
+        CHECK_FALSE(gi.SceneReady());
+
+        gi.PumpScriptLoads(); // the dropped ticket must NOT activate a freed scene
+        CHECK_FALSE(policyRan);
+        CHECK(gi.ScriptLoadComplete(ticket)); // terminal-safe via the unknown-ticket fallback
+        CHECK(gi.GetScene() == nullptr);      // still no current scene
+    }
+
     SUBCASE("script-load registry: a successful load is RETIRED on activation (bounded growth)")
     {
         // Fable review finding: m_scriptLoads used to grow monotonically. After activation the
