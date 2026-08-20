@@ -1039,3 +1039,65 @@ TEST_CASE("angelscript: a script function is a native callback via IScriptDelega
     CHECK(signal->Emit(10.0) == doctest::Approx(15.0));   // native fires -> function runs
     CHECK(signal->Emit(100.0) == doctest::Approx(105.0)); // reusable across firings
 }
+
+// A reflected static that resolves a PER-CONTEXT service through CurrentScriptContext() - the
+// exact shape a facade uses to reach an engine singleton without a process global. If a delegate
+// callback does not scope its owning context, CurrentScriptContext() is null during the call and
+// this silently no-ops (the bug); with the context scoped it resolves and writes the flag.
+namespace
+{
+    class ContextProbe : public Object
+    {
+        RTTI_OBJECT(ContextProbe, Object)
+    public:
+        void Poke() const
+        {
+            if (IScriptContext* context = CurrentScriptContext())
+            {
+                if (int* flag = static_cast<int*>(context->GetService(u8"probe.flag")))
+                {
+                    *flag = 42;
+                }
+            }
+        }
+    };
+}
+
+REFLECT_MEMBERS(ContextProbe, "rtti::script::test")
+{
+    builder.Method<&ContextProbe::Poke>("Poke");
+    builder.Constructor();
+}
+
+TEST_CASE("angelscript: a delegate callback scopes its owning context (facades resolve services)")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    manager->RegisterType(conformance::DelegateSignal::StaticType());
+    manager->RegisterType(ContextProbe::StaticType());
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    conformance::CapturedErrors errors;
+    ctx->SetErrorHandler(&errors);
+
+    // The per-context service the handler's facade will resolve (engine singletons reach
+    // scripts through CurrentScriptContext()->GetService, never a process global).
+    int flag = 0;
+    ctx->SetService(u8"probe.flag", &flag);
+
+    // A script function subscribed to a native signal; its body calls the reflected static that
+    // reads CurrentScriptContext()->GetService and writes through it.
+    REQUIRE(ctx->Load(u8"double onFire(double x) { ContextProbe p; p.Poke(); return x; }\n"
+                      u8"DelegateSignal@ signal = DelegateSignal();\n"
+                      u8"void main() { signal.Connect(ScriptDelegate(onFire)); }\n",
+                      u8"main")
+                .IsOk());
+    CHECK(errors.count == 0);
+
+    Variant signalVar = ctx->GetGlobal(u8"signal");
+    REQUIRE(signalVar.IsObject());
+    conformance::DelegateSignal* signal = signalVar.AsObject<conformance::DelegateSignal>();
+    REQUIRE(signal != nullptr);
+
+    CHECK(flag == 0);   // not fired yet
+    signal->Emit(1.0);  // native fires the delegate; Invoke scopes the owning context
+    CHECK(flag == 42);  // the handler's facade resolved THIS context's service
+}

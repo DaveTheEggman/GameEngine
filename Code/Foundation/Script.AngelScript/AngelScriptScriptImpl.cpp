@@ -2420,6 +2420,12 @@ namespace foundation::script::angelscript
     }
 
     // ---- context -------------------------------------------------------------
+    // A delegate borrows its owning context (to scope CurrentScriptContext around the
+    // callback); the context tracks its delegates and Detach()es them at close. Declared
+    // here so AngelScriptContext can hold Array<AngelScriptDelegate*>; the methods that
+    // touch its members stay out-of-line (it is defined further down).
+    class AngelScriptDelegate;
+
     class AngelScriptContext final : public IScriptContext
     {
     public:
@@ -2430,18 +2436,28 @@ namespace foundation::script::angelscript
             AppendUint(m_namePrefix, id);
         }
 
-        ~AngelScriptContext() override
-        {
-            // No ScriptObject outlives its context (they hold a strong ref), so
-            // discarding this context's modules is safe here.
-            for (asIScriptModule* module : m_ownedModules)
-            {
-                module->Discard();
-            }
-        }
+        // Out-of-line: the destructor Detach()es tracked delegates, which needs the
+        // complete AngelScriptDelegate type (defined further down).
+        ~AngelScriptContext() override;
 
         AngelScriptContext(const AngelScriptContext&) = delete;
         AngelScriptContext& operator=(const AngelScriptContext&) = delete;
+
+        // A delegate wrapping one of this context's script functions registers itself here so
+        // the context can Detach() it at close (after which its Invoke fails cleanly instead of
+        // touching a discarded module). Borrowed - the delegate untracks itself on destruction.
+        void TrackDelegate(AngelScriptDelegate* delegate) { m_delegates.PushBack(delegate); }
+        void UntrackDelegate(AngelScriptDelegate* delegate)
+        {
+            for (core::usize i = 0; i < m_delegates.Size(); ++i)
+            {
+                if (m_delegates[i] == delegate)
+                {
+                    m_delegates.RemoveAt(i);
+                    return;
+                }
+            }
+        }
 
         void SetErrorHandler(IScriptErrorHandler* handler) override { m_errorHandler = handler; }
 
@@ -2909,6 +2925,7 @@ namespace foundation::script::angelscript
         core::u32 m_loadCounter = 0;
         asIScriptModule* m_module = nullptr; // most recent successful Load
         core::Array<asIScriptModule*> m_ownedModules;
+        core::Array<AngelScriptDelegate*> m_delegates; // borrowed; Detach()ed at close
     };
 
     // A live instance of a script-declared class. Holds the asIScriptObject plus a
@@ -3031,9 +3048,9 @@ namespace foundation::script::angelscript
     class AngelScriptDelegate final : public IScriptDelegate
     {
     public:
-        AngelScriptDelegate(core::RefPtr<AngelScriptManager> manager,
+        AngelScriptDelegate(core::RefPtr<AngelScriptManager> manager, AngelScriptContext* context,
                             asIScriptFunction* function) noexcept
-            : m_manager(core::Move(manager)), m_function(function)
+            : m_manager(core::Move(manager)), m_context(context), m_function(function)
         {
             if (m_function != nullptr)
             {
@@ -3043,6 +3060,10 @@ namespace foundation::script::angelscript
 
         ~AngelScriptDelegate() override
         {
+            if (m_context != nullptr)
+            {
+                m_context->UntrackDelegate(this);
+            }
             if (m_function != nullptr)
             {
                 m_function->Release();
@@ -3052,19 +3073,46 @@ namespace foundation::script::angelscript
         AngelScriptDelegate(const AngelScriptDelegate&) = delete;
         AngelScriptDelegate& operator=(const AngelScriptDelegate&) = delete;
 
+        // The owning context calls this when it closes: the delegate outlives it, and its
+        // function's module is discarded, so Invoke must fail cleanly afterwards.
+        void Detach() noexcept { m_context = nullptr; }
+
         [[nodiscard]] core::Result<core::Variant> Invoke(core::Span<core::Variant> args) override
         {
-            if (m_manager.Get() == nullptr || m_function == nullptr)
+            if (m_context == nullptr || m_manager.Get() == nullptr || m_function == nullptr)
             {
-                return core::Err(core::ErrorCode::Internal);
+                return core::Err(core::ErrorCode::Internal); // the owning context is gone
             }
+            // Scope the owning context around the callback so facades the handler calls
+            // (ui::pop, run::loadScene) resolve their per-context services through
+            // CurrentScriptContext() - mirrors LuauScriptDelegate::Invoke. ExecuteDelegate
+            // itself runs the function on a pooled asIScriptContext.
+            ScriptCallScope scope(m_context);
             return m_manager->ExecuteDelegate(m_function, args);
         }
 
     private:
         core::RefPtr<AngelScriptManager> m_manager;
+        AngelScriptContext* m_context; // borrowed; nulled by Detach() at context close
         asIScriptFunction* m_function;
     };
+
+    // Out-of-line (needs the complete AngelScriptDelegate above): Detach() every delegate that
+    // wrapped one of this context's functions so a later Invoke fails cleanly, then discard the
+    // owned modules. No ScriptObject outlives its context (they hold a strong ref), so the
+    // module discard is safe here.
+    AngelScriptContext::~AngelScriptContext()
+    {
+        for (AngelScriptDelegate* delegate : m_delegates)
+        {
+            delegate->Detach();
+        }
+        m_delegates.Clear();
+        for (asIScriptModule* module : m_ownedModules)
+        {
+            module->Discard();
+        }
+    }
 
     core::Variant MakeAngelScriptDelegateVariant(asIScriptFunction* function)
     {
@@ -3077,9 +3125,11 @@ namespace foundation::script::angelscript
         }
         AngelScriptContext* context = static_cast<AngelScriptContext*>(current);
         core::RefPtr<AngelScriptManager> manager(&context->Manager());
-        core::RefPtr<IScriptDelegate> delegate(core::MakeRef<AngelScriptDelegate>(
-            core::DefaultAllocator(), core::Move(manager), function));
-        return core::Variant::From(delegate);
+        core::RefPtr<AngelScriptDelegate> delegate(core::MakeRef<AngelScriptDelegate>(
+            core::DefaultAllocator(), core::Move(manager), context, function));
+        // Track the borrowed context pointer so the context can Detach() it at close.
+        context->TrackDelegate(delegate.Get());
+        return core::Variant::From(core::RefPtr<IScriptDelegate>(delegate.Get()));
     }
 
     void AngelScriptManager::CancelCoroutinesFor(ScriptObject& instance)
