@@ -74,13 +74,8 @@ namespace editor
         {
             return;
         }
-        if (shellInput->Keyboard() != nullptr &&
-            shellInput->Keyboard()->IsKeyPressed(foundation::shell::KeyCode::Escape))
-        {
-            m_listening = false;
-            RefreshStatus();
-            return;
-        }
+        // Escape is a BINDABLE key, so it is not a cancel here - cancel is toggling the Listen
+        // button off (it reads "Cancel" while listening). CaptureBinding below takes whatever qualifies.
         input::ShellInputSource devices(shellInput);
         input::Binding captured;
         if (input::CaptureBinding(devices, m_listenFilter, captured))
@@ -448,7 +443,10 @@ namespace editor
                              isListening ? StringView(u8"<press an input...>")
                                          : detail::DescribeBinding(binding).AsView(),
                              1.0f);
-                    MakeButton(*bindingRow, u8"Listen", 54.0f,
+                    const StringView listenLabel = (isListening && m_listenDirection == -1)
+                                                       ? StringView(u8"Cancel")
+                                                       : StringView(u8"Listen");
+                    MakeButton(*bindingRow, listenLabel, 54.0f,
                                [self, s, a, b]() { self->BeginListen(s, a, b); });
                     MakeButton(*bindingRow, u8"x", 22.0f,
                                [self, s, a, b]()
@@ -540,6 +538,16 @@ namespace editor
     void InputMapEditorPage::BeginListen(usize set, usize action, usize binding,
                                          i32 compositeDirection)
     {
+        // Toggle: clicking the button again on the SAME target cancels (the button reads "Cancel"
+        // while listening) - the cancel path now that Escape is a bindable key rather than cancel.
+        if (m_listening && m_listenSet == set && m_listenAction == action &&
+            m_listenBinding == binding && m_listenDirection == compositeDirection)
+        {
+            m_listening = false;
+            m_listenDirection = -1;
+            RequestRebuild();
+            return;
+        }
         m_listening = true;
         m_listenSet = set;
         m_listenAction = action;
@@ -576,7 +584,10 @@ namespace editor
             }
         }
         m_listenFilter = filter;
-        Rebuild();
+        // Defer: BeginListen runs INSIDE the Listen button's click dispatch. A direct Rebuild()
+        // frees the clicked button (and its row) mid-dispatch, so FireClick/DispatchMouseUp then
+        // dereference freed memory. RequestRebuild queues the rebuild to run after dispatch drains.
+        RequestRebuild();
     }
 
     void InputMapEditorPage::BuildBindingDetail(usize s, usize a, usize b,
@@ -638,8 +649,11 @@ namespace editor
                                  : d == 2 ? binding.negY
                                           : binding.posY;
                 text += detail::KeyName(code);
-                MakeButton(*detail, text.AsView(), 74.0f, [self, s, a, b, d]()
-                           { self->BeginListen(s, a, b, static_cast<i32>(d)); });
+                const bool listeningDir = m_listening && m_listenSet == s && m_listenAction == a &&
+                                          m_listenBinding == b &&
+                                          m_listenDirection == static_cast<i32>(d);
+                MakeButton(*detail, listeningDir ? StringView(u8"Cancel") : text.AsView(), 74.0f,
+                           [self, s, a, b, d]() { self->BeginListen(s, a, b, static_cast<i32>(d)); });
             }
         }
         if (hasRegion)
