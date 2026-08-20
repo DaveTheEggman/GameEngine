@@ -40,6 +40,7 @@ import foundation.materials.resource;
 import foundation.texture.resource;
 import pipeline.core;
 import pipeline.registration;
+import engine.scriptsurface; // RegisterAllScriptFacades - the COMPLETE engine facade surface
 import editor.core;
 import editor.app;
 import editor.scene;
@@ -108,6 +109,12 @@ namespace
         foundation::core::RegisterCoreTypes();
         pipeline::RegisterPipelineTypes();
         pipeline::RegisterAllBuilders(registry);
+        // The COMPLETE engine script surface into the global registry (run/ui/physics/audio/...
+        // facades), so BOTH the editor's cook AND its live script validation (ScriptApiSurface
+        // reads the same global registry) compile against the surface a running game has. The
+        // foundation-only registration above is missing every Engine-level facade. Metadata only
+        // (no device/GPU/world), idempotent.
+        engine::RegisterAllScriptFacades();
         // Per-language EDITOR-UI services (CodeEditView lexers; completion providers later).
 #ifdef OPTION_HAS_ANGELSCRIPT
         editor::RegisterAngelScriptEditorUI();

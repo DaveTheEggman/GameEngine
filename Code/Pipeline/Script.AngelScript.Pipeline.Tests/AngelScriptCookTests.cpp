@@ -13,6 +13,7 @@ import foundation.script.angelscript; // CreateScriptManager + AngelScriptByteco
 import foundation.script.facades;      // RegisterScriptFacadeReflection (match the cook's surface)
 import script.pipeline;
 import script.angelscript.pipeline;
+import engine.scriptsurface;            // RegisterAllScriptFacades (the COMPLETE engine facade surface)
 
 using namespace foundation::core;
 using namespace pipeline;
@@ -293,6 +294,39 @@ TEST_CASE("as.cook: the cook stores loadable bytecode in the pack (the player pa
     Variant args[] = {Variant::From<f64>(21.0)};
     CHECK(context->Call(u8"twice", Span<Variant>{args, 1}).Value().Get<f64>() ==
           doctest::Approx(42.0));
+}
+
+// Regression (facade-surface completeness - the cook/validation "No matching symbol" bug): the cook
+// compiles a script against whatever sits in the GLOBAL type registry (RegisterReflectedTypes copies
+// it into the cook's fresh compile manager). The cook's own registration installs ONLY the
+// foundation facades (Log/Time/Entity/Scene), so a script that calls an ENGINE-level facade (run::,
+// ui::, physics::, ...) would fail to cook. The cooking TOOLS cure this by calling
+// engine::RegisterAllScriptFacades() ONCE at startup, completing the global registry before any cook
+// runs (metadata-only, no device/GPU/world, idempotent). This test mirrors that startup step: with
+// the full surface registered, a Game class driving run:: and ui:: cooks clean. WITHOUT the call the
+// global registry lacks run/ui and this same cook FAILS with "No matching symbol" - which is exactly
+// what games hit at cook/live-validation time before the tool fix.
+TEST_CASE("as.cook: with the full engine surface registered, a Game using run:: / ui:: cooks clean")
+{
+    engine::RegisterAllScriptFacades(); // the tools' one-time startup registration - the whole fix
+    IScriptLanguageCook* cook = AngelScriptCook();
+    REQUIRE(cook != nullptr);
+
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    const bool ok = cook->Cook(u8"class Game\n"
+                               u8"{\n"
+                               u8"    void launch()\n"
+                               u8"    {\n"
+                               u8"        run::loadScene(Guid(1, 2));\n"
+                               u8"        ui::clear();\n"
+                               u8"    }\n"
+                               u8"    void update(float dt) {}\n"
+                               u8"    void exit() {}\n"
+                               u8"}\n",
+                               u8"Game.as", sink, out);
+    REQUIRE(ok); // an Engine-level facade resolves ONLY because the global registry is complete
+    CHECK(out.className == u8"Game");
 }
 
 TEST_CASE("as.cook: the fingerprint carries the AngelScript library version")

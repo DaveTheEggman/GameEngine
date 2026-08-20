@@ -7,6 +7,8 @@ if(OPTION_ENABLE_ANGELSCRIPT)
         Pipeline::Script.AngelScript
         Foundation::Script.AngelScript Pipeline::Script
         Foundation::Script.Resource Foundation::Script Foundation::Script.Facades
+        Engine::ScriptSurface # RegisterAllScriptFacades: the COMPLETE engine facade surface the
+                              # run:: / ui:: regression cook compiles against
         doctest::doctest)
     target_compile_definitions(Script.AngelScript.Pipeline.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
     target_compile_options(Script.AngelScript.Pipeline.Tests PRIVATE

@@ -46,6 +46,7 @@ import foundation.input.resource;
 import input.pipeline;
 import modelimporter;
 import engine.scenesurface; // AddAllSceneManagers + RegisterAllSceneComponentReflection
+import engine.scriptsurface; // RegisterAllScriptFacades - the COMPLETE engine facade surface
 import foundation.physics;
 import foundation.physics.resource;
 import physics.pipeline;
@@ -348,6 +349,11 @@ int main(int argc, char** argv)
     pipeline::BuilderRegistry builders;
     pipeline::RegisterPipelineTypes(); // every asset/product/resource type + script cooks
     pipeline::RegisterAllBuilders(builders);
+    // The COMPLETE engine script surface into the global registry (run/ui/physics/audio/... facades),
+    // so the export cook compiles scripts against the same surface a running game has - the
+    // foundation-only registration RegisterPipelineTypes performs is missing every Engine-level
+    // facade. Metadata only (no device/GPU/world), idempotent.
+    engine::RegisterAllScriptFacades();
 
     // Component reflection (data-version gates) before any scene stream deserializes - ALL
     // domains, via the scene-surface composition root (the old per-domain list here had drifted:

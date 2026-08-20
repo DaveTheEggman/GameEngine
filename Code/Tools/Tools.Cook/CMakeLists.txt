@@ -3,5 +3,7 @@ add_executable(Tools.Cook Main.cpp)
 target_link_libraries(Tools.Cook PRIVATE
     Foundation::Core Foundation::Content Foundation::VFS
     Pipeline::Core Editor::Core Pipeline::Cook
-    Pipeline::Registration) # the composition root brings every builder/type registration
+    Pipeline::Registration # the composition root brings every builder/type registration
+    Engine::ScriptSurface) # RegisterAllScriptFacades: the COMPLETE engine facade surface the
+                           # script cooks compile against (run/ui/physics/audio/... facades)
 

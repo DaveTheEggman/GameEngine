@@ -19,6 +19,7 @@ import foundation.content;
 import foundation.vfs;
 import pipeline.core;
 import pipeline.registration;
+import engine.scriptsurface; // RegisterAllScriptFacades - the COMPLETE engine facade surface
 import editor.core;
 import pipeline.cook;
 
@@ -76,6 +77,11 @@ int main(int argc, char** argv)
     pipeline::BuilderRegistry registry;
     pipeline::RegisterPipelineTypes(); // every asset/product/resource type + script cooks
     pipeline::RegisterAllBuilders(registry);
+    // The COMPLETE engine script surface into the global registry (run/ui/physics/audio/... facades),
+    // so script cooks compile against the same surface a running game has - the foundation-only
+    // registration RegisterPipelineTypes performs is missing every Engine-level facade. Metadata
+    // only (no device/GPU/world), idempotent.
+    engine::RegisterAllScriptFacades();
 
     vfs::NativeFileSystem sourcesMount(project->SourcesRoot().AsView());
     vfs::NativeFileSystem cacheMount(project->CacheRoot().AsView());
