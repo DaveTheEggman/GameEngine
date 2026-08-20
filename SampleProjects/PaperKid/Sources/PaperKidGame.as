@@ -48,7 +48,22 @@ class Game
 
     void update(float dt)
     {
-        // P0 has no per-frame gameplay. Later: drive the countdown timer while Playing, etc.
+        // ESC toggles pause. Reads a "Pause" button action (bind it to ESC in the input map);
+        // Input is action-based, so the action must exist + be in the active set to fire.
+        if (Input::wasPressed("Pause"))
+        {
+            if (m_state == GameState::Playing)
+            {
+                Log::info("Pause pressed");
+                showPause();
+            }
+            else if (m_state == GameState::Paused)
+            {
+                Log::info("Resume pressed");
+                onResume();
+            }
+        }
+        // Later: drive the countdown timer while Playing, etc.
     }
 
     void exit()

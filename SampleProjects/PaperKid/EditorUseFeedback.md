@@ -15,3 +15,5 @@ Seems like I can't shift+down/up select more than 2 items.
 We need string Guid for editor text document usage.
 
 Need right click copy guid/path for instance.
+
+Better default input map - movement wasd/left down right up.
