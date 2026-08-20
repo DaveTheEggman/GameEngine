@@ -1101,3 +1101,36 @@ TEST_CASE("angelscript: a delegate callback scopes its owning context (facades r
     signal->Emit(1.0);  // native fires the delegate; Invoke scopes the owning context
     CHECK(flag == 42);  // the handler's facade resolved THIS context's service
 }
+
+TEST_CASE("angelscript: a METHOD delegate is a native callback via IScriptDelegate")
+{
+    // The first real use of a delegate-to-method (`ScriptDelegate(h.bump)`, an asFUNC_DELEGATE
+    // that binds an object + its method) through the IScriptDelegate seam. A global-function
+    // delegate already works above; this covers the bound-method form: it must reach
+    // ValueFromArg -> MakeAngelScriptDelegateVariant and survive AddRef, then invoke on the
+    // captured object so the object's field is mutated.
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    manager->RegisterType(conformance::DelegateSignal::StaticType());
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    conformance::CapturedErrors errors;
+    ctx->SetErrorHandler(&errors);
+
+    // A script class whose method matches the ScriptDelegate funcdef (double(double)); a bound
+    // method delegate to a live instance is subscribed to the native signal.
+    REQUIRE(ctx->Load(u8"class Handler { double v = 0;\n"
+                      u8"  double bump(double x) { v += x; return v; } }\n"
+                      u8"Handler@ h = Handler();\n"
+                      u8"DelegateSignal@ signal = DelegateSignal();\n"
+                      u8"void main() { signal.Connect(ScriptDelegate(h.bump)); }\n",
+                      u8"main")
+                .IsOk());
+    CHECK(errors.count == 0);
+
+    Variant signalVar = ctx->GetGlobal(u8"signal");
+    REQUIRE(signalVar.IsObject());
+    conformance::DelegateSignal* signal = signalVar.AsObject<conformance::DelegateSignal>();
+    REQUIRE(signal != nullptr);
+
+    CHECK(signal->Emit(10.0) == doctest::Approx(10.0));  // native fires -> h.bump ran (v: 0 -> 10)
+    CHECK(signal->Emit(5.0) == doctest::Approx(15.0));   // same bound object accumulates (v -> 15)
+}

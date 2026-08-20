@@ -1101,16 +1101,24 @@ namespace foundation::script::angelscript
                 return (box != nullptr) ? box->value : core::Variant{};
             }
             // A funcdef handle (a delegate parameter): wrap the function into a script delegate.
-            // A generic IScriptDelegate param is spelled `?&in` (by reference), so the handle
-            // arrives as a reference to the caller's variable (asIScriptFunction**); a by-value
-            // funcdef handle (e.g. a coroutine's ScriptCoroutine@) arrives as the object directly.
+            // A generic IScriptDelegate param is spelled `?&in` (by reference). AngelScript does
+            // NOT deliver that reference at a single fixed indirection: a plain function reference
+            // (`ScriptDelegate(fn)`) is dereferenced to the OBJECT, so the arg slot holds the
+            // asIScriptFunction* directly (GETOBJREF); a METHOD delegate (`Action(obj.method)`) is
+            // an explicit handle, so the slot holds the ADDRESS of the temporary handle variable
+            // (GETREF) - one level deeper. Both carry the OBJHANDLE bit, so the type id cannot tell
+            // them apart. ResolveDelegateArgFunction peels the right number of levels safely (a
+            // by-value funcdef handle, e.g. a coroutine's ScriptCoroutine@, arrives as the object
+            // directly through GetArgObject).
             if ((typeId & asTYPEID_OBJHANDLE) != 0 && IsFuncdefTypeId(typeId))
             {
                 asIScriptFunction* fn = nullptr;
                 if (ArgIsInReference(gen, index))
                 {
                     void* addr = gen->GetAddressOfArg(index);
-                    fn = (addr != nullptr) ? *static_cast<asIScriptFunction**>(addr) : nullptr;
+                    asIScriptFunction* raw =
+                        (addr != nullptr) ? *static_cast<asIScriptFunction**>(addr) : nullptr;
+                    fn = ResolveDelegateArgFunction(gen, raw);
                 }
                 else
                 {
@@ -1137,6 +1145,43 @@ namespace foundation::script::angelscript
                 return false;
             }
             return (flags & asTM_INREF) != 0;
+        }
+
+        // Resolve the real asIScriptFunction behind a funcdef handle read from a `?&in` arg slot.
+        // AngelScript hands that slot at one of two indirection levels (see ValueFromArg): the
+        // function object itself (object-ref form) or the address of a temporary handle variable
+        // that holds it (handle-ref form). They are indistinguishable by type id, so tell them
+        // apart by the vtable: every asIScriptFunction AngelScript produces is the same concrete
+        // asCScriptFunction, so a real function shares the vtable of the currently executing one.
+        // Probe against that known-good vtable rather than dereferencing through a bad one; only
+        // the pointer AngelScript actually wrote is ever read, so no wild pointer is chased.
+        [[nodiscard]] static asIScriptFunction*
+        ResolveDelegateArgFunction(asIScriptGeneric* gen, asIScriptFunction* candidate) noexcept
+        {
+            if (candidate == nullptr)
+            {
+                return nullptr;
+            }
+            asIScriptFunction* known = (gen != nullptr) ? gen->GetFunction() : nullptr;
+            if (known == nullptr)
+            {
+                return candidate; // nothing to compare against - assume the direct form
+            }
+            const void* const functionVTable = *reinterpret_cast<void* const*>(known);
+            // Object-ref form: the slot already holds a valid function object.
+            if (*reinterpret_cast<void* const*>(candidate) == functionVTable)
+            {
+                return candidate;
+            }
+            // Handle-ref form: the slot is the address of the handle variable; the function is one
+            // level deeper. Accept it only if it, too, is a real function (else the handle was null
+            // or unrecognized - yield nothing so the caller produces an empty delegate, no crash).
+            asIScriptFunction* deeper = *reinterpret_cast<asIScriptFunction* const*>(candidate);
+            if (deeper != nullptr && *reinterpret_cast<void* const*>(deeper) == functionVTable)
+            {
+                return deeper;
+            }
+            return nullptr;
         }
 
         // True when `typeId` is a handle to a funcdef (a callable delegate type).
