@@ -311,7 +311,7 @@ TEST_CASE("integration.mcp: script_api reports the COMPLETE engine surface, head
     CHECK(has(u8"Entity"));
     CHECK(has(u8"RigidBodyComponent")); // physics
     CHECK(has(u8"Audio"));              // audio
-    CHECK(has(u8"Ui"));                 // game UI
+    CHECK(has(u8"ui"));                 // game UI (scriptName alias, bound lowercase)
     CHECK(has(u8"run"));                // run/scene-load facade (GameInstance)
     CHECK(has(u8"Net"));                // networking
     // The full surface is much larger than the core-only 17 (physics/audio/input/ui/... added).
