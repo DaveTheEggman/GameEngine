@@ -5,14 +5,14 @@
 	</array>
 	<string name="name">PaperKid</string>
 	<string name="engineVersion">0.1.0</string>
-	<string name="defaultSceneId">00000000-0000-0000-0000-000000000000</string>
-	<string name="defaultScene"/>
-	<string name="startupScript"/>
+	<string name="defaultSceneId">855ffed4-4da7-4fa0-9756-a95c6c842890</string>
+	<string name="defaultScene">Scenes/MainScene</string>
+	<string name="startupScript">Scripts/PaperKidGame</string>
 	<string name="nativeModule"/>
-	<string name="defaultInputMapId">00000000-0000-0000-0000-000000000000</string>
-	<string name="defaultBusLayoutId">00000000-0000-0000-0000-000000000000</string>
+	<string name="defaultInputMapId">286f2ecc-33c2-4ad2-a338-9d9490a58d62</string>
+	<string name="defaultBusLayoutId">5be7a51f-21c3-416c-994e-cb2da57eb556</string>
 	<string name="defaultUiThemeId">00000000-0000-0000-0000-000000000000</string>
-	<string name="startupScriptId">00000000-0000-0000-0000-000000000000</string>
+	<string name="startupScriptId">6c8ed2f6-fa3f-4265-87b7-9365e2d6022c</string>
 	<string name="defaultUiFontId">997e2b40-9199-4aac-944c-bc8240643621</string>
 	<string name="loadingDocumentId">00000000-0000-0000-0000-000000000000</string>
 	<u32 name="renderMsaaSamples">1</u32>

@@ -1,0 +1,13 @@
+<root>
+	<array name="dataVersions" count="1">
+		<u64 name="type">16419285048030814063</u64>
+		<u32 name="version">1</u32>
+	</array>
+	<array name="instances" count="0"/>
+	<array name="groups" count="4">
+		<string>UI</string>
+		<string>Scripts</string>
+		<string>Audio</string>
+		<string>Input</string>
+	</array>
+</root>

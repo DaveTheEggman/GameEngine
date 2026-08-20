@@ -1,0 +1,59 @@
+<root>
+	<string name="guid">286f2ecc-33c2-4ad2-a338-9d9490a58d62</string>
+	<string name="typeNamespace">rtti::pipeline::input</string>
+	<string name="typeName">InputMapAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">3030621698075312454</u64>
+		<u32 name="version">0</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName"/>
+		<u32 name="version">2</u32>
+		<array name="sets" count="1">
+			<string name="name">Gameplay</string>
+			<i32 name="priority">0</i32>
+			<array name="actions" count="4">
+				<string name="name">Move</string>
+				<u8 name="kind">2</u8>
+				<f32 name="sensitivity">0</f32>
+				<f32 name="gravity">0</f32>
+				<bool name="snap">false</bool>
+				<f32 name="responseExponent">1</f32>
+				<bool name="timeScale">false</bool>
+				<u8 name="interaction">0</u8>
+				<f32 name="interactionSeconds">0.3</f32>
+				<array name="bindings" count="0"/>
+				<string name="name">Look</string>
+				<u8 name="kind">2</u8>
+				<f32 name="sensitivity">0</f32>
+				<f32 name="gravity">0</f32>
+				<bool name="snap">false</bool>
+				<f32 name="responseExponent">1</f32>
+				<bool name="timeScale">false</bool>
+				<u8 name="interaction">0</u8>
+				<f32 name="interactionSeconds">0.3</f32>
+				<array name="bindings" count="0"/>
+				<string name="name">Jump</string>
+				<u8 name="kind">0</u8>
+				<f32 name="sensitivity">0</f32>
+				<f32 name="gravity">0</f32>
+				<bool name="snap">false</bool>
+				<f32 name="responseExponent">1</f32>
+				<bool name="timeScale">false</bool>
+				<u8 name="interaction">0</u8>
+				<f32 name="interactionSeconds">0.3</f32>
+				<array name="bindings" count="0"/>
+				<string name="name">Fire</string>
+				<u8 name="kind">0</u8>
+				<f32 name="sensitivity">0</f32>
+				<f32 name="gravity">0</f32>
+				<bool name="snap">false</bool>
+				<f32 name="responseExponent">1</f32>
+				<bool name="timeScale">false</bool>
+				<u8 name="interaction">0</u8>
+				<f32 name="interactionSeconds">0.3</f32>
+				<array name="bindings" count="0"/>
+			</array>
+		</array>
+	</object>
+</root>
