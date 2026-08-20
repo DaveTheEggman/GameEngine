@@ -245,6 +245,17 @@ then own its progress label).
   as-is this phase (rename to the run-era name in P2-5 when the alias deletes - one rename, not two).
 - **P2-3**: scene.ui slot (2).
 - **P2-4**: UI View reflection + Ui.overlayRoot + the Roll Call HUD proof (3).
-- **P2-5**: run.ui (4) + ScriptName sweep (5) + SceneLoader alias DELETION.
+- **P2-5**: run.ui (4) + ScriptName sweep (5) + SceneLoader alias DELETION. SceneLoader deletion DONE
+  (Opus 2026-08-19, commit 70d950f8): run.* fully absorbs level-load; struct/service renamed to the run
+  era; count 33->32. (run.ui + ScriptName sweep still open.)
+- **P2-6 (added 2026-08-19): button click -> script.** §3 deferred click handling to "authored
+  actions" that never reached script (buttons only fire C++ OnClick). DONE (Opus 2026-08-19): the
+  reflected `Button` handle gains `onClick(handler)` taking a `RefPtr<IScriptDelegate>` - it binds the
+  underlying `ButtonBase::OnClick`; the captured RefPtr keeps the script function alive exactly as long
+  as the button (released on pop). Safe by construction: `ScreenStack` push/pop already defer through
+  the UIContext mutation queue, so a handler that transitions screens is fine. AngelScript wraps a void
+  handler in the `Action` funcdef (`button.onClick(Action(fn))`); Luau passes the function directly.
+  Tests: UiFacadeScriptTests both backends, both compilers. This is what makes PaperKid's script-driven
+  screen flow ([[paperkid]]) actually work.
 - Each phase: both compilers, batteries both backends, ASAN on new
   machinery; user visual verify closes P2-4/P2-5.

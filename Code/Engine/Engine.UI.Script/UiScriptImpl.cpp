@@ -131,6 +131,39 @@ namespace engine::uiscript
             b->Text.SetValue(Move(value));
         }
     }
+    void Button::onClick(RefPtr<foundation::script::IScriptDelegate> handler)
+    {
+        auto* b = As<ui::Button>(view);
+        if (b == nullptr || !handler)
+        {
+            return; // null-but-valid handle, or no handler: a safe no-op (loud-null idiom).
+        }
+        // Capturing the delegate RefPtr keeps the script function alive for exactly the lifetime of this
+        // button's OnClick subscription (released when the screen - and button - is destroyed).
+        //
+        // A click is dispatched while the view tree is being traversed, and the handler is ARBITRARY
+        // script: it may pop/push a screen, but also despawn an entity, tear down UI, etc. - ANY
+        // structural mutation, none of which may run re-entrantly during that traversal. Input is
+        // dispatched at the Idle phase (the InputManager sets no phase of its own), so a phase check
+        // would NOT catch this. So the handler NEVER runs inline: it goes through the UIContext mutation
+        // queue and runs at the next frame's drain - a quiescent point where every structural op is safe
+        // (the same queue the ScreenStack and dialogs use). With no context (a headless / unattached
+        // button) nothing is dispatching, so running directly is safe.
+        b->OnClick.Add(
+            [handler](ui::ButtonBase* btn)
+            {
+                ui::UIContext* ctx = (btn != nullptr) ? btn->Context : nullptr;
+                if (ctx != nullptr)
+                {
+                    ctx->MutationQueueRef().QueueAction(
+                        [handler] { (void)handler->Invoke(Span<Variant>{}); });
+                }
+                else
+                {
+                    (void)handler->Invoke(Span<Variant>{});
+                }
+            });
+    }
 
     // --------------------------------------------------------------------------------- ProgressBar ---
     f64 ProgressBar::value() const
@@ -320,6 +353,7 @@ namespace engine::uiscript
         builder.Method<&Button::setVisible>("setVisible", {"value"});
         builder.Method<&Button::setEnabled>("setEnabled", {"value"});
         builder.Method<&Button::setText>("setText", {"value"});
+        builder.Method<&Button::onClick>("onClick", {"handler"});
         builder.Constructor();
     }
     REFLECT_VALUE(ProgressBar, "rtti::engine.ui.script")

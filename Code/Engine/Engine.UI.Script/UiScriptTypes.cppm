@@ -17,6 +17,7 @@ export module engine.ui.script:types;
 
 import foundation.core;
 import foundation.ui;
+import foundation.script; // IScriptDelegate (a script function bound as a button click handler)
 
 using namespace foundation::core;
 
@@ -54,12 +55,17 @@ export namespace engine::uiscript
         void setText(String value);
     };
 
-    /// A button. `button.text` reads its caption (click handling stays with authored actions in v1).
+    /// A button. `button.text` reads its caption; `button.onClick(ScriptDelegate(fn))` binds a script
+    /// function as its click handler. The handler stays alive as long as the button (released when the
+    /// screen pops). It always runs through the mutation queue (drained next frame), never inline during
+    /// click dispatch - so it may do ANY structural mutation (screens, entities, ...), not just screen
+    /// push/pop, without re-entrancy.
     struct Button
     {
         UI_SCRIPT_COMMON_HANDLE_MEMBERS
         [[nodiscard]] String text() const;
         void setText(String value);
+        void onClick(RefPtr<foundation::script::IScriptDelegate> handler);
     };
 
     /// A progress/fill bar. `bar.value` is 0..1.

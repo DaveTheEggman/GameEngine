@@ -142,3 +142,82 @@ TEST_CASE("ui-facade: Luau pushes a screen, finds + drives typed controls, reads
     CheckOutcome(bed, *ctx);
 }
 #endif // OPTION_HAS_LUAU
+
+#ifdef OPTION_HAS_ANGELSCRIPT
+TEST_CASE("ui-facade: AngelScript binds a button click to a script delegate; firing runs the handler")
+{
+    RegisterCoreTypes();
+    engine::uiscript::RegisterUiScriptSurface();
+
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    UiBed bed;
+    engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
+
+    // Bind the "cancel" button's click to a handler that does a STRUCTURAL mutation - it pops its own
+    // screen - so we prove the handler both defers and can safely restructure. A void no-arg handler is
+    // wrapped in the engine's `void Action()` funcdef (ScriptDelegate is double(double)).
+    const Status status =
+        ctx->Load(u8"bool clicked = false;\n"
+                  u8"void onCancel() { clicked = true; ui::pop(); }\n"
+                  u8"void main() {\n"
+                  u8"  ui::push(Guid(17, 34));\n"
+                  u8"  ui::findButton(\"cancel\").onClick(Action(onCancel));\n"
+                  u8"}\n",
+                  u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"clicked").template Get<bool>() == false);
+    CHECK(bed.stack.Count() == 1); // screen is up
+
+    // Fire the REAL button's OnClick from C++. The handler does NOT run inline (a click dispatches while
+    // the tree is live) - it defers through the mutation queue, so nothing has changed yet.
+    ui::Button* cancel = bed.root->FindByName<ui::Button>(u8"cancel");
+    REQUIRE(cancel != nullptr);
+    cancel->OnClick.Invoke(cancel);
+    CHECK(ctx->GetGlobal(u8"clicked").template Get<bool>() == false); // deferred, not inline
+    CHECK(bed.stack.Count() == 1);
+
+    // Draining next frame runs the handler at a quiescent point, where its structural pop is safe.
+    bed.context.MutationQueueRef().Drain();
+    CHECK(ctx->GetGlobal(u8"clicked").template Get<bool>() == true);
+    CHECK(bed.stack.Count() == 0); // the handler's ui::pop() took effect
+}
+#endif // OPTION_HAS_ANGELSCRIPT
+
+#ifdef OPTION_HAS_LUAU
+TEST_CASE("ui-facade: Luau binds a button click to a script function; firing runs the handler")
+{
+    RegisterCoreTypes();
+    engine::uiscript::RegisterUiScriptSurface();
+
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    UiBed bed;
+    engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
+
+    // Luau passes the function value directly (no ScriptDelegate wrapper); method call uses `:`. The
+    // handler pops its own screen - a structural mutation - to prove the deferred path is safe.
+    const Status status =
+        ctx->Load(u8"clicked = false\n"
+                  u8"ui.push(Guid.new(17, 34))\n"
+                  u8"ui.findButton(\"cancel\"):onClick(function() clicked = true; ui.pop() end)\n",
+                  u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"clicked").template Get<bool>() == false);
+    CHECK(bed.stack.Count() == 1);
+
+    ui::Button* cancel = bed.root->FindByName<ui::Button>(u8"cancel");
+    REQUIRE(cancel != nullptr);
+    cancel->OnClick.Invoke(cancel);
+    CHECK(ctx->GetGlobal(u8"clicked").template Get<bool>() == false); // deferred, not inline
+    CHECK(bed.stack.Count() == 1);
+
+    bed.context.MutationQueueRef().Drain();
+    CHECK(ctx->GetGlobal(u8"clicked").template Get<bool>() == true);
+    CHECK(bed.stack.Count() == 0); // the handler's ui.pop() took effect
+}
+#endif // OPTION_HAS_LUAU
