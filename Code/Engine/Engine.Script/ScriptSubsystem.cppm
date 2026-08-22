@@ -570,7 +570,7 @@ export namespace engine::script
         {
             m_scene = &scene;
             // Route this scene's bus events to the entity behaviors that declare on<Event>.
-            m_eventSubs.Bind(&scene.Events(), Function<void(StringView, const Variant&)>{
+            m_eventSubs.Bind(scene.Events(), Function<void(StringView, const Variant&)>{
                                                   [this](StringView eventName, const Variant& payload)
                                                   { BroadcastEvent(eventName, payload); }});
         }
@@ -1224,7 +1224,7 @@ export namespace engine::script
             m_scene = &scene;
             // The Level's named inbox (P-B1): route this scene's bus events to the Level's
             // on<Event> handler, so a behavior's scene.events.emit reaches an onPlayerFell here.
-            m_eventSubs.Bind(&scene.Events(), Function<void(StringView, const Variant&)>{
+            m_eventSubs.Bind(scene.Events(), Function<void(StringView, const Variant&)>{
                                                   [this](StringView eventName, const Variant& payload)
                                                   { DispatchEvent(eventName, payload); }});
         }

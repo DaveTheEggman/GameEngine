@@ -369,10 +369,12 @@ export namespace foundation::scene
         /// This scene's event bus (messaging.md P2): the BORROWED scope bus when a run scope injected one
         /// (a GameInstance's run bus, or an editor page's), else this scene's OWNED fallback. So
         /// `scene.events.emit` and the run bus are the SAME object in an instance - no relay to cross.
-        [[nodiscard]] messaging::EventBus& Events() noexcept
-        {
-            return m_eventBus != nullptr ? *m_eventBus : m_events;
-        }
+        /// The RUN SCOPE's event bus, BORROWED (messaging.md revised decision 2: there is
+        /// NO owned fallback - the scope injects before assembly, so systems binding at
+        /// OnSceneCreate see the same bus emits land on). Null on scenes with no scope
+        /// (headless scratch: transcode/validate) - those never emit; script handles
+        /// no-op safely on null, native emitters treat null as a contract violation.
+        [[nodiscard]] messaging::EventBus* Events() noexcept { return m_eventBus; }
 
         /// Borrow a scope's bus (messaging.md P2): the owning scope (GameInstance / editor page) injects
         /// THE bus for its run and drains it itself; this scene then stops draining (see Scene::Update).
@@ -506,7 +508,6 @@ export namespace foundation::scene
         u64 m_revision = 0;
 
         // per-scene systems
-        messaging::EventBus m_events;         // this scene's OWNED fallback bus (used when no scope injects)
         messaging::EventBus* m_eventBus = nullptr; // borrowed scope bus (messaging.md P2); null = use owned
         Array<UniquePtr<SceneSystem>> m_systems;                // ownership
         HashMap<const TypeInfo*, SceneSystem*> m_systemsByType; // lookup by type

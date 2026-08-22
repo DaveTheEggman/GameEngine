@@ -1089,12 +1089,12 @@ TEST_CASE("game-instance: created scenes share the run bus - cross-scene deliver
     scene::Scene* b = gi.CreateScene(u8"B");
     REQUIRE(a != nullptr);
     REQUIRE(b != nullptr);
-    CHECK(&a->Events() == &gi.RunEvents()); // both borrow the ONE run bus
-    CHECK(&b->Events() == &gi.RunEvents());
+    CHECK(a->Events() == &gi.RunEvents()); // both borrow the ONE run bus
+    CHECK(b->Events() == &gi.RunEvents());
 
     int hits = 0;
-    (void)a->Events().Subscribe(StringHash(u8"Ping"), [&](const Variant&) { ++hits; });
-    b->Events().Publish(StringHash(u8"Ping"), Variant{}); // emit from a DIFFERENT scene
+    (void)a->Events()->Subscribe(StringHash(u8"Ping"), [&](const Variant&) { ++hits; });
+    b->Events()->Publish(StringHash(u8"Ping"), Variant{}); // emit from a DIFFERENT scene
 
     // Ticking the borrowing scenes must NOT deliver it (they do not drain a borrowed bus).
     a->Update(0.016f);

@@ -110,6 +110,9 @@ namespace editor
             // Advances editor playback + gates preview to EDIT (no preview/playback under Simulate).
             m_propAnimPanel->Tick(dt, m_isSimulating);
         }
+        // The page is this scene's run scope: drain its bus once per frame (events emitted
+        // during last frame's Simulate tick arrive now). Cheap no-op when empty/not simulating.
+        m_pageEvents.Drain();
 
         // Per-scene debug draw (shows only where THIS scene renders; lists clear in
         // EndRendering, so re-accumulate every frame): ground grid + origin axes + entity

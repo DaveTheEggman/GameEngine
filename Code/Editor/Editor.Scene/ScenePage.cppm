@@ -82,6 +82,10 @@ export namespace editor
             if (m_scenes != nullptr)
             {
                 m_scenes->RegisterManager(&m_sceneManager);
+                // The page IS the run scope for edit-mode Simulate (messaging.md revised
+                // decision 2): it owns the bus and injects it BEFORE CreateScene so systems
+                // binding at assembly see it; OnUpdate drains it once per frame.
+                m_sceneManager.SetSceneEventBus(&m_pageEvents);
                 m_scene = m_sceneManager.CreateScene(instance.Name());
                 m_scene->SetSimulationEnabled(false); // edit mode is frozen; Simulate un-freezes
                 const Status loaded = scene::LoadScene(instance, *m_scene);
@@ -469,6 +473,7 @@ export namespace editor
         engine::scene::SceneSubsystem* m_scenes = nullptr; // borrowed (context subsystem: registry + tick)
         scene::SceneManager
             m_sceneManager; // this page's OWN scene group (registered with m_scenes)
+        foundation::messaging::EventBus m_pageEvents; // the page's run-scope bus (edit-mode Simulate)
         engine::render::RenderSubsystem* m_render = nullptr;
         engine::ui::UISubsystem* m_gameUI = nullptr; // RT-canvas host seam (borrowed)
 

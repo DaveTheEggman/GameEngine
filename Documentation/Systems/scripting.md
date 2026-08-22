@@ -91,8 +91,7 @@ supported. Stop tears the context down (isolation is between RUNS, the PIE rule)
 - **Event bus**: `emit(name, payload)` -> `on<Event>` (NATIVE name-keyed bus, C++-first;
   `foundation.messaging`). ONE bus per run scope (messaging.md): a GameInstance owns its run bus and
   injects it into every scene it creates, so `scene.events` and the run bus are the SAME object - a
-  behavior's emit reaches the Game tier with NO relay. A bare/edit scene is its own scope (owned
-  fallback bus). The owning scope drains once per frame; borrowing scenes never drain it.
+  behavior's emit reaches the Game tier with NO relay. An edit-mode scene's scope is its EDITOR PAGE (a page-owned bus, injected + drained by the page); a scope-less scratch scene has a NULL bus and never emits (there is NO owned fallback - revised decision 2). The owning scope drains once per frame; borrowing scenes never drain it.
 - **Delegates**: `IScriptDelegate` wraps a script function as a native callback (certified
   both typed backends; the `DelegateSignal` facade uses it), with a Detach-on-teardown
   protocol.

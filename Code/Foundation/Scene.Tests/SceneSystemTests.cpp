@@ -188,34 +188,29 @@ TEST_CASE("systems run within a phase in UpdateOrder")
     CHECK(order[1] == 10);
 }
 
-TEST_CASE("scene: Events() borrows a scope bus when set, else the owned fallback; Update drains only owned")
+TEST_CASE("scene: Events() is the BORROWED scope bus - null unwired, never drained by the scene")
 {
-    // messaging.md P2: a scene with no scope is its own scope (owned fallback, drained in Update); once a
-    // scope injects THE bus, Events() returns it and the scene STOPS draining it (the scope drains, once).
+    // messaging.md REVISED decision 2 (no owned fallback): a scene holds only the scope's
+    // borrowed bus; unwired scenes have a null Events() and never emit; the scene NEVER
+    // drains (only the owning scope does) - fixtures inject a bus, exercising the exact
+    // shipping topology.
     namespace messaging = foundation::messaging;
 
-    // Owned fallback: emit on Events(), Update drains it, the native subscriber fires.
     Scene scene;
-    int owned = 0;
-    (void)scene.Events().Subscribe(StringHash(u8"Ping"), [&](const Variant&) { ++owned; });
-    scene.Events().Publish(StringHash(u8"Ping"), Variant{});
-    scene.Update(0.016f);
-    CHECK(owned == 1); // the owned fallback drained in Scene::Update
+    CHECK(scene.Events() == nullptr); // unwired: no bus, nothing to emit into
 
-    // Borrowed: inject an external bus - Events() now IS it, and Scene::Update must NOT drain it.
     messaging::EventBus scope;
     scene.SetEventBus(&scope);
-    CHECK(&scene.Events() == &scope);
-    int borrowed = 0;
-    (void)scope.Subscribe(StringHash(u8"Ping"), [&](const Variant&) { ++borrowed; });
-    scene.Events().Publish(StringHash(u8"Ping"), Variant{}); // -> the borrowed scope bus
+    REQUIRE(scene.Events() == &scope);
+    int fired = 0;
+    (void)scope.Subscribe(StringHash(u8"Ping"), [&](const Variant&) { ++fired; });
+    scene.Events()->Publish(StringHash(u8"Ping"), Variant{});
     scene.Update(0.016f);
-    CHECK(borrowed == 0);              // the scene did NOT drain the borrowed bus
-    CHECK(scope.PendingCount() == 1u); // still queued - the OWNING scope drains it
+    CHECK(fired == 0);                 // the scene did NOT drain - scopes drain
+    CHECK(scope.PendingCount() == 1u); // still queued for the owning scope
     scope.Drain();
-    CHECK(borrowed == 1);
+    CHECK(fired == 1);
 
-    // Revert: null reverts to the owned fallback (no longer the injected scope bus).
-    scene.SetEventBus(nullptr);
-    CHECK(&scene.Events() != &scope);
+    scene.SetEventBus(nullptr); // scope teardown detaches cleanly
+    CHECK(scene.Events() == nullptr);
 }

@@ -404,7 +404,10 @@ export namespace foundation::script
     {
         if (scene != nullptr && !name.IsEmpty())
         {
-            scene->Events().Publish(StringHash(name.AsView()), Variant{});
+            if (messaging::EventBus* bus = scene->Events())
+            {
+                bus->Publish(StringHash(name.AsView()), Variant{});
+            }
         }
     }
     inline void SceneEvents::emit(String name, Variant payload) const
@@ -412,7 +415,10 @@ export namespace foundation::script
         // Already a Variant (the backend boxed whatever the script passed); publish it verbatim.
         if (scene != nullptr && !name.IsEmpty())
         {
-            scene->Events().Publish(StringHash(name.AsView()), Move(payload));
+            if (messaging::EventBus* bus = scene->Events())
+            {
+                bus->Publish(StringHash(name.AsView()), Move(payload));
+            }
         }
     }
 

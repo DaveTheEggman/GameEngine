@@ -162,6 +162,10 @@ namespace
 
     struct ScriptedScene
     {
+        // The test fixture IS the run scope (messaging.md revised decision 2: scenes hold
+        // only a borrowed bus) - it owns the bus, injects it before systems bind, and
+        // drains it at frame top exactly like GameInstance / the editor page do.
+        foundation::messaging::EventBus bus;
         scene::Scene scene{u8"script-test"};
         ScriptRunHost host;
         ScriptComponentManager* components = nullptr;
@@ -182,6 +186,7 @@ namespace
             RegisterCoreTypes();
             RegisterScriptComponentReflection();
             RegisterScriptFacadeReflection();
+            scene.SetEventBus(&bus); // BEFORE AddSystem - the bridge binds at OnSceneCreate
             components = scene.AddSystem<ScriptComponentManager>();
             scripts = scene.AddSystem<ScriptSceneSystem>();
             components->SetScriptSystem(scripts);
@@ -216,6 +221,7 @@ namespace
         {
             host.Binding().timeSeconds += static_cast<f64>(deltaTime);
             host.Binding().deltaSeconds = deltaTime;
+            bus.Drain(); // the scope drains at frame top (events emitted last frame arrive now)
             scene.Update(deltaTime);
         }
     };
@@ -1182,18 +1188,22 @@ TEST_CASE("script.scene: the Roll Call sample game - orbs EMIT OrbCollected, the
     CHECK(level->LevelActive());               // the rules tier is live, no GameManager entity
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 0.0f));
 
-    // Walk onto orb1: it collects itself and EMITS "OrbCollected"; the Level scores this SAME frame
-    // (emit publishes, the scene tick drains the bus at its top level -> onOrbCollected).
+    // Walk onto orb1: it collects itself and EMITS "OrbCollected". Delivery follows the RUN
+    // SCOPE cadence (messaging.md revised decision 3): the scope drains at the NEXT frame's
+    // top - events emitted in frame N arrive in frame N+1 (the same cadence GameInstance
+    // ships; the old same-frame delivery was an owned-fallback artifact production never had).
     bed.scene.SetLocalPosition(player, Float3{0.0f, 0.0f, 0.0f});
-    bed.Frame(); // orb1 onUpdate: proximity hit -> emit("OrbCollected") + destroy -> Level scores
+    bed.Frame(); // orb1 onUpdate: proximity hit -> emit("OrbCollected") + destroy
     CHECK_FALSE(bed.scene.IsValid(orb1));
+    bed.Frame(); // scope drain at frame top -> the Level's onOrbCollected scores
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 1.0f));
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.y, 0.0f)); // not won yet
 
-    // Walk onto orb2: collecting the last orb wins.
+    // Walk onto orb2: collecting the last orb wins (same one-frame delivery cadence).
     bed.scene.SetLocalPosition(player, Float3{5.0f, 0.0f, 0.0f});
     bed.Frame();
     CHECK_FALSE(bed.scene.IsValid(orb2));
+    bed.Frame();
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 2.0f)); // both collected
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.y, 1.0f)); // win branch ran
 }
@@ -1261,16 +1271,47 @@ TEST_CASE("script.scene: the Roll Call sample game runs on a LUAU Level (P4 acce
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 0.0f));
 
     bed.scene.SetLocalPosition(player, Float3{0.0f, 0.0f, 0.0f});
-    bed.Frame(); // orb1 collected -> emit -> Level scores this frame
+    bed.Frame(); // orb1 collected -> emit (delivery = scope cadence, next frame's drain)
     CHECK_FALSE(bed.scene.IsValid(orb1));
+    bed.Frame(); // scope drain -> Level scores
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 1.0f));
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.y, 0.0f)); // not won yet
 
     bed.scene.SetLocalPosition(player, Float3{5.0f, 0.0f, 0.0f});
-    bed.Frame(); // last orb wins
+    bed.Frame(); // last orb collected
     CHECK_FALSE(bed.scene.IsValid(orb2));
+    bed.Frame(); // scope drain -> win
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 2.0f));
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.y, 1.0f)); // win branch ran
+}
+
+TEST_CASE("script.scene: bus token teardown - a destroyed subscriber is never touched, "
+          "survivors still fire (messaging.md P3)")
+{
+    // The owner-held-token discipline: the script system owns the bus subscriptions and
+    // dispatch resolves LIVE components at drain time - a behavior whose entity died
+    // between emit and drain is simply not found (no dead-instance dispatch, no crash).
+    // Run under ASAN in the battery (the lifetime-sensitive class).
+    ScriptedScene bed;
+    RefPtr<ScriptClass> listener =
+        MakeClass(u8"Listener",
+                  u8"class Listener {\n"
+                  u8"    private Entity@ self;\n"
+                  u8"    Listener(Entity@ entity) { @self = entity; }\n"
+                  u8"    void onPing() { self.setName(\"heard\"); }\n"
+                  u8"}\n",
+                  {u8"onPing"}, {});
+    const scene::EntityHandle doomed = bed.AddScripted(listener, u8"doomed");
+    const scene::EntityHandle survivor = bed.AddScripted(listener, u8"survivor");
+    bed.Start();
+    bed.Frame(); // instantiate both
+
+    bed.bus.Publish(StringHash(u8"Ping"), Variant{});
+    bed.scene.DestroyEntity(doomed); // dies BETWEEN emit and the next frame's drain
+    bed.Frame();                     // drain: dispatch resolves live components only
+
+    CHECK_FALSE(bed.scene.IsValid(doomed));
+    CHECK(bed.scene.GetEntityName(survivor) == StringView(u8"heard")); // survivor fired
 }
 
 TEST_CASE("script.scene: updateInterval throttles onUpdate and delivers the accumulated "

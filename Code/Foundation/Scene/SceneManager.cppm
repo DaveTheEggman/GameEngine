@@ -84,9 +84,11 @@ export namespace foundation::scene
                     m_current = scene;
                 }
             }
-            // Inject the scope's shared bus (messaging.md P2) BEFORE assembly, so the script systems'
-            // OnSceneCreate binds to the SAME bus emits land on (a GameInstance sets this to its run bus).
-            // Null leaves the scene on its owned fallback (a bare/edit scene is its own scope).
+            // Inject the scope's shared bus (messaging.md P2, revised: NO owned fallback)
+            // BEFORE assembly, so systems binding at OnSceneCreate see the SAME bus emits
+            // land on (a GameInstance sets this to its run bus; the editor page sets its
+            // page bus). Null = a scope-less scratch scene: Events() stays null, nothing
+            // emits, script handles no-op safely.
             scene->SetEventBus(m_sceneEventBus);
             // Scene assembly happens regardless of active, so LoadScene can populate an inactive scene
             // before it is activated.

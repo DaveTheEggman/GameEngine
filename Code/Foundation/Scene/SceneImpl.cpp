@@ -644,14 +644,9 @@ namespace foundation::scene
         RunPhase(ScenePhase::Update, deltaTime);
         RunPhase(ScenePhase::AsyncUpdate, deltaTime);
         RunPhase(ScenePhase::PostUpdate, deltaTime);
-        // Deliver this frame's events (no VM call active - the script bridge's handlers run here safely),
-        // before transforms so a handler that moves an entity is reflected. Drain ONLY the OWNED fallback
-        // (messaging.md P2): when a scope injected a shared bus, THAT scope drains it (once), never every
-        // borrowing scene - draining a borrowed bus here would double-dispatch across sibling scenes.
-        if (m_eventBus == nullptr)
-        {
-            m_events.Drain();
-        }
+        // NOTE: the scene does NOT drain any event bus (messaging.md revised decision 3:
+        // only the owning RUN SCOPE drains - GameInstance / the editor page / a test
+        // fixture; Scene has no owned bus at all).
         UpdateTransforms(); // ScenePhase::TransformUpdate (internal)
         RunPhase(ScenePhase::PostTransform, deltaTime);
         m_isUpdating = false;

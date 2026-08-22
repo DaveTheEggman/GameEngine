@@ -1,7 +1,7 @@
 # Messaging: one bus per run scope, owned by the scope, borrowed by scenes
 
-Status: SPEC - ready to build (Fable, 2026-08-22; the run-scope ownership model
-user-confirmed). Origin: Documentation/Ideas/scripting-runtime-shape.md §7 + the
+Status: COMPLETE (P1-P2 Opus, P2-revision cleanup + P3 Fable, 2026-08-22; full
+battery + ASAN green). Origin: Documentation/Ideas/scripting-runtime-shape.md §7 + the
 follow-up exchange. Spec 2 of the three-spec cut (networking-extraction.md is spec 1;
 the script-surface spec is spec 3).
 
@@ -140,3 +140,23 @@ the script-surface spec is spec 3).
 Systems/game-instance.md (the run-bus paragraph), Systems/scripting.md (event flow),
 Shipping/Scripting.md if it names the relay, and the game-ready-scripting2 spec gains
 a superseded-by-messaging note on its §1a relay design.
+
+- **P2 REVISION CLEANUP + P3 DONE (Fable, 2026-08-22).** Opus's P2 was built to the
+  PRE-revision spec (owned fallback + edit-mode-on-fallback); the cleanup aligned it to
+  revised decisions 2/3: the owned fallback DELETED (Scene::Events() returns the
+  nullable borrowed pointer; Scene::Update never touches a bus), the editor ScenePage
+  became a real run scope (page-owned bus, SetSceneEventBus before CreateScene, drained
+  once per page frame), the script bridge + facades went null-safe, and every affected
+  fixture now injects a bus - exercising the exact shipping topology. CONSEQUENCE
+  (documented in the tests): event delivery is uniformly the SCOPE cadence - emitted
+  frame N, delivered at frame N+1's scope drain; the Roll Call tests' same-frame
+  expectation was an owned-fallback artifact production never had. P3: the owner-held
+  token discipline verified end to end (the bridge owns handles, Clear on scene stop /
+  Level teardown; dispatch resolves LIVE components at drain time) + the token-teardown
+  test (destroyed subscriber untouched, survivors fire) green under ASAN.
+  DEFERRED with its own decision needed: DYNAMIC script subscription
+  (scene.events.subscribe(name, delegate)) - IScriptDelegate has no owner accessor and
+  Luau delegates can be ownerless closures, so correct per-behavior lifecycle release
+  needs a cross-backend delegate-owner design first. Declared on<Event> handlers remain
+  THE behavior subscription surface. Docs swept same-commit (scripting.md scope
+  wording, game-ready-scripting2 relay superseded note).

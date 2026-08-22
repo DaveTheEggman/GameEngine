@@ -45,6 +45,9 @@ over it.
   scene bus). Same derived-from-handlers subscription form; same bridge
   pattern (one native subscriber fanning to `ScriptObject::Invoke`),
   installed per instance.
+- **[SUPERSEDED by messaging.md 2026-08-22: scene and run now SHARE one bus per run
+  scope, so there is nothing to relay across - a behavior emit reaches the Game tier
+  directly. The Level re-emit below remains only as an optional translation boundary.]**
 - **NO automatic scene->run relay.** A behavior/Level that wants the run
   tier's attention emits a scene event; the GAME script (which can hear its
   scenes if it chooses - see 1c) decides what becomes a run-level event by
