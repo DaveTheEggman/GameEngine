@@ -456,17 +456,21 @@ UI.Script) - clean, per the script-changes rule.
   playable in-editor with the scripted screen flow.
 
 **Findings (minor, queued - none block):**
-1. PaperKid's Content/Meshes/*.xasset carry INLINE mesh payloads (Sphere
-   492K) - against the bulk-sidecar rule's spirit; small enough today, but
-   meshes should ride WriteData sidecars like the scenes do. Small fix.
-2. UIDocumentPage (Editor.GameUI) still hand-rolls the preview scaffolding -
-   a 7th PreviewViewport consumer the COMPLETE-stamped track didn't list.
-   Queue the migration; cheap now that the API is proven against six.
-3. Bin/Debug/Linux64-Clang-ASAN holds stale pre-rename-era binaries (incl. a
-   Wren-era one). NOT deleted (the never-delete-Bin rule); current script
-   targets rebuilt over it for this pass. Worth a user-sanctioned prune.
-4. The MSVC/Windows fix (9e4e481a) cannot be verified on this box - routed
-   to the next Windows session, the pass-10 pattern.
+1. FIXED 2026-08-19 (user: the seeding path was the bug): the project-seed /
+   New>Primitive path (CreatePrimitiveMeshInstance, Tools.Editor Main) wrote
+   meshes with a raw WriteObject, bypassing WriteMeshAsset - "the one writer
+   every save path uses". Now routed through WriteMeshAsset (envelope +
+   binary geometry sidecar). PaperKid's already-committed meshes stay
+   legacy-inline (the reader supports that form); they flip to sidecar on
+   their next save/re-seed.
+2. RETRACTED (user correction 2026-08-19): UIDocumentPage is a UI-document
+   preview, NOT a 3D viewport - it is not a PreviewViewport consumer. The
+   finding was wrong; no migration queued.
+3. RESOLVED 2026-08-19 (user-sanctioned): 41 stale pre-rename/Wren-era
+   binaries pruned from Bin/Debug/Linux64-Clang-ASAN; 70 current entries
+   kept.
+4. RESOLVED: the user verified the MSVC fix on Windows directly - no
+   Windows session needed.
 5. The AngelScript delegate-funcdef cleanup seeded for Fable (1cedccbd) is
    acknowledged as next-week work, not reviewed here.
 

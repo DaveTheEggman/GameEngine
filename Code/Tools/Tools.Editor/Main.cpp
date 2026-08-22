@@ -162,7 +162,10 @@ namespace
         }
         pipeline::StaticMeshAsset asset;
         pipeline::MeshImporter::Import(*mesh, asset);
-        if (!instance->WriteObject(asset).IsOk())
+        // WriteMeshAsset, never a raw WriteObject: the geometry goes to the binary sidecar
+        // stream (the bulk-data rule) - a raw write inlines the whole vertex soup into the
+        // text envelope (review pass 12 finding: 492K Sphere.xasset in seeded projects).
+        if (!pipeline::WriteMeshAsset(*instance, asset).IsOk())
         {
             return nullptr;
         }
