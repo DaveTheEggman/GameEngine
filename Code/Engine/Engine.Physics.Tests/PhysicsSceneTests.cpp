@@ -352,8 +352,10 @@ TEST_CASE("physics.scene: a tilted plane entity makes boxes slide downhill")
     CHECK(position.y > -30.0f);
 }
 
-TEST_CASE("physics.scene: ScenePhysics.of(scene) raycast + hit accessors + impulseOnHit")
+TEST_CASE("physics.scene: ScenePhysics.rayCast returns an EXPLICIT RayCastHit (no stored state)")
 {
+    // script-surface-of.md P0: the old stored-lastHit + hit* accessor statefulness was a
+    // facade artifact - the result now travels by value from the cast that produced it.
     PlayScene play;
     play.AddFloor();
     scene::EntityHandle box = play.AddBox(0.5f); // resting on the floor, top at y=1.0
@@ -362,24 +364,28 @@ TEST_CASE("physics.scene: ScenePhysics.of(scene) raycast + hit accessors + impul
 
     ScenePhysics physics{&play.scene};
     // A downward ray from above hits the box top (~y=1.0), so distance ~4 from y=5.
-    CHECK(physics.rayCast(0, 5, 0, 0, -1, 0, 20) == doctest::Approx(4.0f).epsilon(0.02));
-    CHECK(physics.hitY() == doctest::Approx(1.0f).epsilon(0.02));
-    CHECK(physics.hitNormalY() == doctest::Approx(1.0f).epsilon(0.01));
+    const RayCastHit hit = physics.rayCast(0, 5, 0, 0, -1, 0, 20);
+    CHECK(hit.hit);
+    CHECK(hit.distance == doctest::Approx(4.0f).epsilon(0.02));
+    CHECK(hit.position.y == doctest::Approx(1.0f).epsilon(0.02));
+    CHECK(hit.normal.y == doctest::Approx(1.0f).epsilon(0.01));
     CHECK(physics.bodyCount() == doctest::Approx(2.0f));
-    CHECK(physics.rayHitEntity().Handle() == box); // resolves the hit body's entity
+    CHECK(hit.entity().Handle() == box); // resolves the hit body's entity
 
-    // impulseOnHit acts on the last-hit body - it actually moves the box (~1000kg).
-    physics.impulseOnHit(8000, 0, 0);
+    // impulse acts on THIS hit's body - it actually moves the box (~1000kg).
+    hit.impulse(8000, 0, 0);
     play.Step(30);
     play.physics->ApplyInterpolation(1.0f);
     play.scene.UpdateTransforms();
     CHECK(play.scene.GetWorldPosition(box).x > 0.2f);
 
-    // A miss (upward into nothing) returns -1 and clears the hit accessors; a null scene is safe.
-    CHECK(physics.rayCast(0, 100, 0, 0, 1, 0, 1) == doctest::Approx(-1.0f));
-    CHECK(physics.hitY() == doctest::Approx(0.0f));
-    CHECK(physics.rayHitEntity().Handle() == scene::EntityHandle{});
-    CHECK(ScenePhysics{nullptr}.rayCast(0, 5, 0, 0, -1, 0, 20) == doctest::Approx(-1.0f));
+    // A miss answers hit=false / distance=-1 with safe follow-ups; a null scene is safe too.
+    const RayCastHit miss = physics.rayCast(0, 100, 0, 0, 1, 0, 1);
+    CHECK_FALSE(miss.hit);
+    CHECK(miss.distance == doctest::Approx(-1.0f));
+    CHECK(miss.entity().Handle() == scene::EntityHandle{});
+    miss.impulse(8000, 0, 0); // no-op, no crash
+    CHECK_FALSE(ScenePhysics{nullptr}.rayCast(0, 5, 0, 0, -1, 0, 20).hit);
 }
 
 TEST_CASE("physics.scene: ScenePhysics is in the BEHAVIOR-prelude facade-name list (not just main)")

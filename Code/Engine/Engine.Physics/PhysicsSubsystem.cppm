@@ -109,15 +109,6 @@ export namespace engine::physics
             return Span<const ContactEvent>{m_events.Data(), m_events.Size()};
         }
 
-        // Last ray hit recorded by ScenePhysics.rayCast on THIS scene - the hit* accessors read it
-        // (per-scene state, so no bound-context service is needed to answer the follow-up questions).
-        [[nodiscard]] const RayHit& LastHit() const noexcept { return m_lastHit; }
-        [[nodiscard]] bool LastHitValid() const noexcept { return m_lastHitValid; }
-        void SetLastHit(const RayHit& hit, bool valid) noexcept
-        {
-            m_lastHit = hit;
-            m_lastHitValid = valid;
-        }
 
         /// The subsystem points this at its listener list (stable address); each drained
         /// contact batch is resolved to entities and pushed to every listener. Null = no
@@ -871,8 +862,6 @@ export namespace engine::physics
         scene::Scene* m_scene = nullptr; // set by OnSceneCreate
         PhysicsSceneSettings m_settings;
         UniquePtr<PhysicsWorld> m_world;
-        RayHit m_lastHit;             // last ScenePhysics.rayCast result on this scene
-        bool m_lastHitValid = false;
         Array<ContactEvent> m_events;
         const Array<IContactListener*>* m_listeners = nullptr; // owned by the subsystem
     };
@@ -995,6 +984,58 @@ export namespace engine::physics
     // first started scene. A plain value carrying the scene pointer (returned by value - concrete
     // type, cross-backend, no hook slot); a null scene / a scene with no physics system is a safe
     // no-op. The hit-point accessors of the static facade are a follow-up (they need per-scene state).
+    // An EXPLICIT ray-hit result (script-surface-of.md P0 ruling: the old stored-lastHit +
+    // hit* accessor statefulness was a facade artifact - the result now travels BY VALUE from
+    // the rayCast that produced it, like every other bound value handle). Carries the scene so
+    // entity()/impulse() resolve live state at CALL time (never cached pointers).
+    struct RayCastHit
+    {
+        scene::Scene* scene = nullptr;
+        foundation::physics::BodyId body;
+        u64 packedEntity = 0;
+        bool hit = false;
+        f32 distance = -1.0f; // world units to the hit; -1 on a miss
+        Float3 position{0.0f, 0.0f, 0.0f};
+        Float3 normal{0.0f, 0.0f, 0.0f};
+        i32 surface = 0; // material slot of the hit face (cooked triangle meshes; 0 otherwise)
+
+        // The ENTITY the ray hit (unpacked from the body user word), or invalid on a miss /
+        // a body whose entity is no longer live.
+        [[nodiscard]] foundation::script::Entity entity() const
+        {
+            if (!hit || scene == nullptr)
+            {
+                return foundation::script::Entity{};
+            }
+            const scene::EntityHandle handle = UnpackEntity(packedEntity);
+            if (!scene->IsValid(handle))
+            {
+                return foundation::script::Entity{};
+            }
+            foundation::script::Entity e;
+            e.scene = scene;
+            e.entityIndex = handle.index;
+            e.entityGeneration = handle.generation;
+            return e;
+        }
+
+        // Impulse on the hit body (no-op on a miss / dead world). Resolves the world at call
+        // time through the carried scene - the hit stores no world pointer.
+        void impulse(f32 x, f32 y, f32 z) const
+        {
+            if (!hit || scene == nullptr)
+            {
+                return;
+            }
+            PhysicsSceneSystem* system = scene->GetSystem<PhysicsSceneSystem>();
+            PhysicsWorld* world = (system != nullptr) ? system->World() : nullptr;
+            if (world != nullptr)
+            {
+                world->AddImpulse(body, Float3{x, y, z});
+            }
+        }
+    };
+
     struct ScenePhysics
     {
         scene::Scene* scene = nullptr;
@@ -1021,96 +1062,34 @@ export namespace engine::physics
             PhysicsWorld* world = World();
             return world != nullptr ? world->Gravity().y : 0.0f;
         }
-        // Ray against THIS scene's world; the hit distance, or -1 on a miss. Records the hit on the
-        // scene's PhysicsSceneSystem so the hit* accessors below can answer the follow-up questions.
-        [[nodiscard]] f32 rayCast(f32 fromX, f32 fromY, f32 fromZ, f32 dirX, f32 dirY, f32 dirZ,
-                                  f32 maxDistance) const
+        // Ray against THIS scene's world -> an EXPLICIT RayCastHit (hit/distance/position/
+        // normal/surface + entity() + impulse()); RayCastHit.hit == false on a miss. No
+        // stored last-hit state exists anymore.
+        [[nodiscard]] RayCastHit rayCast(f32 fromX, f32 fromY, f32 fromZ, f32 dirX, f32 dirY,
+                                         f32 dirZ, f32 maxDistance) const
         {
-            PhysicsSceneSystem* system = System();
-            PhysicsWorld* world = (system != nullptr) ? system->World() : nullptr;
+            RayCastHit result;
+            result.scene = scene;
+            PhysicsWorld* world = World();
             if (world == nullptr)
             {
-                if (system != nullptr)
-                {
-                    system->SetLastHit(RayHit{}, false);
-                }
-                return -1.0f;
+                return result;
             }
             RayHit hit;
-            const bool ok = world->RayCast(Float3{fromX, fromY, fromZ}, Float3{dirX, dirY, dirZ},
-                                           maxDistance, hit);
-            system->SetLastHit(hit, ok);
-            return ok ? hit.fraction * maxDistance : -1.0f;
+            if (world->RayCast(Float3{fromX, fromY, fromZ}, Float3{dirX, dirY, dirZ}, maxDistance,
+                               hit))
+            {
+                result.hit = true;
+                result.body = hit.body;
+                result.packedEntity = hit.userData;
+                result.distance = hit.fraction * maxDistance;
+                result.position = hit.position;
+                result.normal = hit.normal;
+                result.surface = static_cast<i32>(hit.surface);
+            }
+            return result;
         }
 
-        // Hit details of the last rayCast on THIS scene (0 on a miss / no world).
-        [[nodiscard]] f32 hitX() const
-        {
-            PhysicsSceneSystem* s = System();
-            return s != nullptr && s->LastHitValid() ? s->LastHit().position.x : 0.0f;
-        }
-        [[nodiscard]] f32 hitY() const
-        {
-            PhysicsSceneSystem* s = System();
-            return s != nullptr && s->LastHitValid() ? s->LastHit().position.y : 0.0f;
-        }
-        [[nodiscard]] f32 hitZ() const
-        {
-            PhysicsSceneSystem* s = System();
-            return s != nullptr && s->LastHitValid() ? s->LastHit().position.z : 0.0f;
-        }
-        [[nodiscard]] f32 hitNormalX() const
-        {
-            PhysicsSceneSystem* s = System();
-            return s != nullptr && s->LastHitValid() ? s->LastHit().normal.x : 0.0f;
-        }
-        [[nodiscard]] f32 hitNormalY() const
-        {
-            PhysicsSceneSystem* s = System();
-            return s != nullptr && s->LastHitValid() ? s->LastHit().normal.y : 0.0f;
-        }
-        [[nodiscard]] f32 hitNormalZ() const
-        {
-            PhysicsSceneSystem* s = System();
-            return s != nullptr && s->LastHitValid() ? s->LastHit().normal.z : 0.0f;
-        }
-        // Material slot of the hit face (cooked triangle meshes; 0 otherwise).
-        [[nodiscard]] f32 hitSurface() const
-        {
-            PhysicsSceneSystem* s = System();
-            return s != nullptr && s->LastHitValid() ? static_cast<f32>(s->LastHit().surface) : 0.0f;
-        }
-        // The ENTITY the last rayCast hit (from the body's packed user word), or an invalid Entity on
-        // a miss / a body whose entity is no longer live.
-        [[nodiscard]] foundation::script::Entity rayHitEntity() const
-        {
-            PhysicsSceneSystem* s = System();
-            if (s == nullptr || !s->LastHitValid() || scene == nullptr)
-            {
-                return foundation::script::Entity{};
-            }
-            const scene::EntityHandle handle = UnpackEntity(s->LastHit().userData);
-            if (!scene->IsValid(handle))
-            {
-                return foundation::script::Entity{};
-            }
-            foundation::script::Entity entity;
-            entity.scene = scene;
-            entity.entityIndex = handle.index;
-            entity.entityGeneration = handle.generation;
-            return entity;
-        }
-        // Impulse on the body the last rayCast hit (no-op on a miss).
-        void impulseOnHit(f32 x, f32 y, f32 z)
-        {
-            PhysicsSceneSystem* s = System();
-            PhysicsWorld* world = World();
-            if (s == nullptr || world == nullptr || !s->LastHitValid())
-            {
-                return;
-            }
-            world->AddImpulse(s->LastHit().body, Float3{x, y, z});
-        }
         [[nodiscard]] f32 bodyCount() const
         {
             PhysicsWorld* world = World();

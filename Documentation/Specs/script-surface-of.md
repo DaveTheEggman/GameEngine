@@ -1,7 +1,8 @@
 # Script surface: retire the facade layer via `.of` on reflected real types
 
-Status: SPEC - ready to build AFTER networking-extraction.md and after PaperKid P0 has
-proven the current surface (the sequencing ruling in scripting-runtime-shape.md).
+Status: P0 AUDIT COMPLETE + the physics statefulness fix SHIPPED (Fable, 2026-08-22);
+the .of(context) CONVERSION IS BLOCKED ON A USER DECISION - the audit surfaced facts
+that invalidate the conversion's cost model (see THE AUDIT VERDICT below).
 Spec 3 of the three-spec cut. UI IS EXPLICITLY OUT OF SCOPE - the user has flagged the
 ui surface for its own separate examination; the `ui` facade and gamekit script
 surface are untouched by this spec.
@@ -89,3 +90,65 @@ Not a ui migration (separate examination). Not a change to components, Scene/Ent
 handles, entity.send, or the behavior lifecycle. Not Traktor-style native script
 inheritance or ref-typed components (rejected in the ideas doc). Not a both-patterns
 transition - each surface is either old or new, never both.
+
+## P0 AUDIT (Fable, 2026-08-22) - the verdict changes the spec
+
+### What the audit found (all verified in code)
+
+1. **The `.of(scene)` axis already dominates.** ScenePhysics/SceneRender/SceneParticles/
+   SceneAudio/SceneAnimation are ALREADY `.of(scene)` bound value handles over real
+   per-entity engine ops (resource swaps, play/stop, impulses) that component
+   `.of(entity)` cannot express (they need the world/manager, not component data). They
+   are NOT forward-stubs; they are the pattern, shipped. NO WORK.
+2. **The true "resolve-service-then-forward" statics are five**: Audio, Input, Net, run,
+   ui (out of scope). Post networking-P4, Net is already a thin view over
+   INetworkController - the extraction the ideas doc wanted has happened.
+3. **THE BLOCKING FACT: `Subsystem` is entirely OUTSIDE the reflection system.** It is
+   not Object-derived and has no RTTI identity; the reflection layer knows value types
+   and Object types only. `AudioSubsystem.of(context)` therefore requires: a new
+   reflected type category (or rebasing Subsystem onto Object), a resolving-handle
+   mechanism for non-owned subsystem pointers (Variant's object mode OWNS RefPtr - a
+   subsystem is UniquePtr-owned by the Context, so object-mode marshalling is a
+   double-delete; the component RESOLVE-variant machinery would need a subsystem
+   flavor), plus a Context handle type placed below every subsystem lib.
+4. **The stubs would RELOCATE, not die.** The facade methods are not pure forwards -
+   they MARSHAL (resolve the per-context service carrying subsystem + resource manager,
+   adapt signatures like PlayOneShotByPath(ResourceManager&, path) -> playOneShot(path)).
+   Reflecting "the real type" means the real type grows exactly these script-shaped
+   wrappers. Net method-count delta: ~zero. Deleted per domain: one class + one service
+   key + one registrar line. Added: runtime-layer RTTI surgery + a longer call spelling
+   (`Audio.playOneShot(p)` -> `AudioSubsystem.of(ctx).playOneShot(p)`).
+5. **No dead surface found.** Every facade op has live consumers (tests, PaperKid,
+   samples). Nothing qualified for the delete rule.
+
+### The verdict
+
+The spec's core conversion premise - "curation moves onto the real type, the wrapper
+layer dies" - came from Traktor, where EVERYTHING lives in one RTTI world. Here the
+static facades have already converged into exactly what the semantic rule sanctions:
+thin, curated SCRIPT VIEWS doing real marshalling over per-context services. Converting
+them to `.of(context)` costs foundational runtime surgery and yields relocated stubs
+with worse spellings.
+
+RECOMMENDATION: do NOT build the `.of(context)` conversion. Keep the five statics as
+the sanctioned script views (they are small, tested, and product-proven by PaperKid);
+keep the two axes that already ship (`X.of(entity)` components, `SceneX.of(scene)`
+world ops). If the user still wants subsystems inside the reflection world, that is an
+ARCHITECTURE decision (Subsystem joining the Object/RTTI hierarchy) worth its own
+ideas-doc evaluation - not a facade-cleanup side effect.
+
+### What P0 shipped anyway (the audit's actionable findings)
+
+- **The physics statefulness fix** (the one unambiguous win, sanctioned regardless):
+  `ScenePhysics.rayCast` now returns an EXPLICIT `RayCastHit` value handle
+  (hit/distance/position/normal/surface + entity() + impulse()); the stored
+  lastHit/SetLastHit state and the eight stateful accessors (hitX/Y/Z, hitNormal*,
+  hitSurface, rayHitEntity, impulseOnHit) are DELETED from PhysicsSceneSystem and the
+  facade. Registered + prelude-visible; tests rewritten to the explicit shape.
+
+### Phases P1-P4: NOT BUILT, pending the user's call on the verdict
+
+If the user accepts the recommendation, this spec closes here (P0 + the physics fix =
+the deliverable) and the remaining genuine item - the run coordinator / tier-handle
+ergonomics - stays with the shipped `run` facade. If the user overrules, P1 begins with
+the Subsystem-RTTI architecture evaluation as its own gated design.

@@ -320,22 +320,26 @@ namespace engine::physics
     // THAT scene's world (the explicit-scene replacement for the retired static Physics facade).
     // Reflected with authored parameter names (A6). The `of` factory returns ScenePhysics by value
     // (concrete return type - cross-backend, no ReturnType-override needed).
+    // The explicit ray-hit result (script-surface-of.md P0): value handle carrying the whole
+    // answer; entity()/impulse() resolve live state at call time.
+    REFLECT_VALUE(RayCastHit, "rtti::engine::physics")
+    {
+        builder.Property<&RayCastHit::hit>("hit");
+        builder.Property<&RayCastHit::distance>("distance");
+        builder.Property<&RayCastHit::position>("position");
+        builder.Property<&RayCastHit::normal>("normal");
+        builder.Property<&RayCastHit::surface>("surface");
+        builder.Method<&RayCastHit::entity>("entity");
+        builder.Method<&RayCastHit::impulse>("impulse", {"x", "y", "z"});
+    }
+
     REFLECT_VALUE(ScenePhysics, "rtti::engine::physics")
     {
         builder.Method<&ScenePhysics::rayCast>(
             "rayCast", {"fromX", "fromY", "fromZ", "dirX", "dirY", "dirZ", "maxDistance"});
-        builder.Method<&ScenePhysics::hitX>("hitX");
-        builder.Method<&ScenePhysics::hitY>("hitY");
-        builder.Method<&ScenePhysics::hitZ>("hitZ");
-        builder.Method<&ScenePhysics::hitNormalX>("hitNormalX");
-        builder.Method<&ScenePhysics::hitNormalY>("hitNormalY");
-        builder.Method<&ScenePhysics::hitNormalZ>("hitNormalZ");
-        builder.Method<&ScenePhysics::hitSurface>("hitSurface");
-        builder.Method<&ScenePhysics::rayHitEntity>("rayHitEntity");
-        builder.Method<&ScenePhysics::impulseOnHit>("impulseOnHit", {"x", "y", "z"});
-        builder.Method<&ScenePhysics::bodyCount>("bodyCount");
         builder.Method<&ScenePhysics::setGravity>("setGravity", {"x", "y", "z"});
         builder.Method<&ScenePhysics::gravityY>("gravityY");
+        builder.Method<&ScenePhysics::bodyCount>("bodyCount");
         builder.Method<&ScenePhysics::applyImpulse>("applyImpulse", {"entity", "x", "y", "z"});
         builder.Method<&ScenePhysics::of>("of", {"scene"});
     }
@@ -357,8 +361,12 @@ namespace engine::physics
         foundation::script::RegisterExtraFacadeName(u8"RigidBodyComponent");
         foundation::script::RegisterExtraFacadeName(u8"CharacterComponent");
 
-        // The scene-bound physics handle (ScenePhysics.of(scene)): reflect it, register it, seed the
-        // emission root (nothing else reaches it), and make the class name prelude-visible.
+        // The scene-bound physics handle (ScenePhysics.of(scene)) + its explicit ray-hit
+        // result: reflect, register, seed the emission roots, prelude-visible class names.
+        RttiRegisterValue_RayCastHit();
+        GlobalTypeRegistry().Register(core::TypeOf<RayCastHit>());
+        foundation::script::RegisterExtraScriptRootType(&core::TypeOf<RayCastHit>());
+        foundation::script::RegisterExtraFacadeName(u8"RayCastHit");
         RttiRegisterValue_ScenePhysics();
         GlobalTypeRegistry().Register(core::TypeOf<ScenePhysics>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<ScenePhysics>());

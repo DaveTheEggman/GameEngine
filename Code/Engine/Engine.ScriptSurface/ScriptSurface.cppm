@@ -37,5 +37,7 @@ export namespace engine
     /// Tripwire count (Engine.ScriptSurface.Tests asserts against this): the number of EXTRA facade
     /// names RegisterAllScriptFacades installs beyond the base behavior facades - i.e. the subsystem
     /// facades. A new subsystem facade bumps this deliberately; a lost registration fails loudly.
-    inline constexpr usize kSubsystemFacadeNameCount = 32;
+    // 33 = +RayCastHit (2026-08-22, script-surface-of P0: ScenePhysics.rayCast returns the
+    // explicit hit-result value handle; the stored lastHit + hit* accessors are deleted).
+    inline constexpr usize kSubsystemFacadeNameCount = 33;
 }
