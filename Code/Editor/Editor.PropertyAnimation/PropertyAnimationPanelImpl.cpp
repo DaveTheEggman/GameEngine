@@ -22,6 +22,9 @@ import editor.app;
 
 using namespace foundation::core;
 namespace core = foundation::core; // explicit: `Transform` is ambiguous once ui.toolkit is imported
+namespace scene = foundation::scene;
+namespace propanim = foundation::propertyanimation;
+namespace ui = foundation::ui;
 
 namespace editor
 {

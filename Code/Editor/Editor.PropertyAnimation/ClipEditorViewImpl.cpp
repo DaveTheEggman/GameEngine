@@ -15,6 +15,8 @@ import foundation.propertyanimation;
 import editor.core;
 
 using namespace foundation::core;
+namespace propanim = foundation::propertyanimation;
+namespace ui = foundation::ui;
 
 namespace editor
 {
