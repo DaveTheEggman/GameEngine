@@ -2,8 +2,8 @@
 //
 // The wide fan-in over every subsystem that contributes a script facade lives HERE (one TU),
 // keeping the interface BMI lean for the hosts. This is the ONE place the full subsystem-facade
-// set is written down; a surface-describing host calls RegisterAllScriptFacades, never the ten
-// registrars by hand.
+// set is written down; EVERY host - editor, cook, MCP, the runtime app - calls
+// RegisterAllScriptFacades, never the registrars by hand.
 
 module;
 #include "Core/Prelude.h"

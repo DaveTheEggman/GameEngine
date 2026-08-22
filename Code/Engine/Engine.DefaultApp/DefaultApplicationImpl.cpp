@@ -18,6 +18,7 @@ import foundation.graphics;             // GraphicsDevice, FrameContext
 import foundation.scene;                // Scene
 import engine.scene;      // SceneSubsystem (the standard scene driver)
 import engine.scenesurface; // FullSceneComposition (the single source of truth for scene assembly)
+import engine.scriptsurface; // RegisterAllScriptFacades (the single source of truth for the script surface)
 import engine.render;     // RenderSubsystem (the standard renderer)
 import engine.animation; // AnimationSubsystem (drives skeletal animation from the scene)
 import engine.particles; // ParticleSubsystem (scene-driven CPU sim)
@@ -53,7 +54,7 @@ import foundation.model.resource;      // cooked-model family types + registrati
 import foundation.ui;                  // View (the `ui` binding's instantiate return type)
 import foundation.ui.resource;         // cooked UI documents/themes (game-ui)
 import engine.ui;        // the game screen tier (canvases + overlay + consumption)
-import engine.ui.script;   // UiScreenScriptBinding + InstallUiScreenScriptService + RegisterUiScriptSurface
+import engine.ui.script;   // UiScreenScriptBinding + InstallUiScreenScriptService
 import foundation.audio;               // AudioEngine (owned by the audio subsystem)
 import foundation.audio.resource;      // cooked audio clips + factory
 import engine.audio;     // AudioSubsystem (voices/buses/one-shots + scene sync)
@@ -179,15 +180,12 @@ namespace engine::runtime
         // (The subsystem's own default host - for editor scenes - is wired in its OnReady.)
         m_scripts->ConfigureRunHost(m_instance.RunHost());
         InstallInstanceLoadFacade(m_instance, host); // run.* level-load facade for the primary instance
-        engine::input::RegisterInputScriptFacade();
-        engine::physics::RegisterPhysicsScriptFacade();
-        engine::navigation::RegisterNavigationScriptFacade();
-        engine::render::RegisterRenderScriptFacade();
-        engine::animation::RegisterAnimationScriptFacade();
-        engine::particles::RegisterParticleScriptFacade();
-        engine::audio::RegisterAudioScriptFacade();
-        engine::uiscript::RegisterUiScriptSurface();    // screen-tier `ui` facade + reflected view handles
-        engine::ui::RegisterUiComponentScriptFacades(); // world-space UI components' `.of` surface
+        // The COMPLETE facade surface via the composition root - never a hand-picked subset. A
+        // hand-rolled list here once drifted past RegisterRunScriptFacade, so the exported player
+        // compiled game scripts against a prelude with no `run` (week-2026-08-22). The root keeps
+        // every host - editor, cook, MCP, exported player - on the same registered surface and
+        // under the same kSubsystemFacadeNameCount tripwire.
+        engine::RegisterAllScriptFacades();
         // Every built backend registers (batteries-included); a run resolves by the game script's
         // LANGUAGE - one gameplay context per run stays the locked rule. Each backend is independently
         // toggleable (OPTION_ENABLE_ANGELSCRIPT / _LUAU); all build on every platform, web included.
@@ -197,13 +195,12 @@ namespace engine::runtime
 #ifdef OPTION_HAS_LUAU
         foundation::script::RegisterLuauScriptBackend();
 #endif
-        // Networking (net.md §6): the Net facade type is registered here; each GameInstance owns
-        // its OWN endpoint and goes online at RUNTIME via the facade (Net.startServer/connect from
-        // the game's menu) - no app-owned socket. The primary instance carries the online hook (the
-        // prefab net-spawn resolver) + the optional startup preset below; extras get the hook in
-        // CreateInstance. The per-instance net binding is installed by GameInstance itself.
-        net::RegisterNetScriptFacade();
-        foundation::net::RegisterNetworkComponentScriptFacade(); // NetworkComponent.of(entity).authority
+        // Networking (net.md §6): the Net facade type came in with the surface root above; each
+        // GameInstance owns its OWN endpoint and goes online at RUNTIME via the facade
+        // (Net.startServer/connect from the game's menu) - no app-owned socket. The primary
+        // instance carries the online hook (the prefab net-spawn resolver) + the optional startup
+        // preset below; extras get the hook in CreateInstance. The per-instance net binding is
+        // installed by GameInstance itself.
         m_instance.Network().SetSpawnResolverFactory([this] { return MakeSpawnResolver(); });
         ApplyNetworkStartup(
             m_instance); // enter a preset server/client role at startup (None = offline)

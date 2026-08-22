@@ -9,9 +9,10 @@
 // CALLING them, never by instantiating a subsystem. This root links the subsystem libs (headless-
 // linkable: RHI.Null, audio Null mode) and calls all of them behind one entry point.
 //
-// This is for surface-describing hosts ONLY. The RUNTIME keeps per-subsystem registration - a
-// game's bound surface is exactly the subset its subsystems create; script_api documents the
-// ENGINE's surface, which is deliberately the superset.
+// EVERY host calls this root - surface-describing hosts (MCP, cook, script_api) AND the runtime
+// (DefaultApplication, which instantiates the full subsystem set anyway). The runtime originally
+// kept a hand-rolled per-subsystem list; it drifted past RegisterRunScriptFacade and exported
+// games could not resolve `run` (week-2026-08-22). One list, one tripwire.
 //
 // The wide subsystem imports live in the implementation unit, keeping this interface BMI lean for
 // the hosts that consume it (GCC module-interface hygiene).
