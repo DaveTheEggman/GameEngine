@@ -20,3 +20,5 @@ Thumbs.db
 # Test-written scratch data (content DBs, cooked projects, temp outputs)
 /.test-scratch/
 .test-scratch/
+
+Dist/
