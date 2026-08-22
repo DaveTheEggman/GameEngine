@@ -15,11 +15,22 @@ the script-surface spec is spec 3).
    alias shim). EventBus tests move to `Messaging.Tests`. Follows the standing
    folder==target==module convention (Process/CONVENTIONS.md).
 2. **ONE bus per RUN SCOPE, owned by the scope, borrowed by scenes** (the
-   instance-less-scene resolution, user-confirmed):
-   - `Scene` gains `SetEventBus(messaging::EventBus*)` (borrowed) and keeps an OWNED
-     fallback bus; `Scene::Events()` returns the borrowed bus when set, else the owned
-     one. A scene with no scope is semantically its own scope - bare unit-test scenes
-     work unwired, unchanged.
+   instance-less-scene resolution, user-confirmed; REVISED 2026-08-22 - user ruling:
+   NO owned fallback bus):
+   - `Scene` holds ONLY a borrowed `messaging::EventBus*` (`SetEventBus`), null until a
+     scope injects. There is NO owned fallback - the original fallback existed only so
+     bare test scenes worked unwired, which is a production branch maintained for
+     tests (and worse: tests would exercise the owned path while production runs the
+     borrowed one - zero fidelity on the drain topology). Test fixtures create a bus
+     and inject it - one line, and the tests now exercise EXACTLY the shipping path.
+   - `Scene::Events()` returns the borrowed pointer (nullable). The script-facing
+     `scene.events` handle already no-ops safely on a null scene; it extends the same
+     contract to a null bus. Native subscribers subscribe at SystemsReady, BY WHICH
+     TIME the scope has injected (injection is part of scene creation/adoption, before
+     the composition installer fires SystemsReady - an ORDER the wiring must keep and
+     a test must pin). A bus-less scene (headless scratch: export transcode,
+     scene_validate) simply never emits - and an emit attempt through a null Events()
+     in native code is a loud contract violation, not a silent no-op.
    - `GameInstance` owns THE bus for its run (what `m_runEvents` already is) and
      injects it into every scene it creates/adopts/loads. Result: `scene.events.emit`
      and the run bus are THE SAME BUS in an instance - the explicit scene->run relay
@@ -29,13 +40,13 @@ the script-surface spec is spec 3).
      page-scoped bus and injects it into its scene (the page already owns the command
      stack / selection / edit context - this is the same ownership shape). PIE Game
      tabs keep the GameInstance bus.
-3. **Drain ownership follows bus ownership - exactly one drain per bus per frame.**
-   Today each scene drains its own bus at its tick top and GameInstance drains the run
-   bus; a shared borrowed bus MUST NOT be drained by every scene (double-dispatch).
-   Rule: `Scene` drains ONLY its owned fallback bus; a borrowed bus is drained by its
-   OWNING scope (GameInstance at its tick top, before scene updates so events emitted
-   last frame arrive this frame; the editor page in its Simulate tick). This is the
-   one behaviorally delicate point of the spec - see Tests.
+3. **Drain ownership is trivial now: ONLY scopes drain. Scenes NEVER drain.** (The
+   original spec's "behaviorally delicate" conditional drain rule existed only because
+   of the owned fallback; with the fallback deleted, the rule is one sentence and the
+   double-dispatch hazard is unrepresentable.) The owning scope drains once per frame
+   at its tick top - GameInstance before its scene updates, the editor page in its
+   Simulate tick - so events emitted last frame arrive this frame. `Scene::Update`
+   stops touching the bus entirely.
 4. **Subscriptions are OWNER-HELD tokens.** `Subscribe` returns a token; the
    subscriber's owner releases it on its own teardown. The script subsystem is the
    owner for all script subscriptions (behaviors, Level, Game) and releases in the
@@ -64,11 +75,12 @@ the script-surface spec is spec 3).
 - **P1 - the module move.** foundation.messaging created; EventBus + its tests move;
   all usages update (scene, gameinstance, script bridge, facades). Pure relocation -
   zero behavior change; the battery proves it.
-- **P2 - borrowed-bus wiring.** Scene::SetEventBus + Events() resolution + the
-  drain-ownership rule; GameInstance injects into created/adopted/async-loaded scenes
-  (every path through its scene group); the editor ScenePage injects its page bus for
-  Simulate; the relay deletes; `run.events()` and `scene.events` now resolve to the
-  same object in a run.
+- **P2 - borrowed-bus wiring.** Scene::SetEventBus + nullable Events() (NO owned
+  fallback - revised decision 2); GameInstance injects into created/adopted/
+  async-loaded scenes (every path through its scene group) BEFORE SystemsReady fires;
+  the editor ScenePage injects its page bus for Simulate; scene tests gain the
+  one-line bus fixture; the relay deletes; `run.events()` and `scene.events` now
+  resolve to the same object in a run; Scene::Update's drain deletes.
 - **P3 - subscription tokens.** Subscribe returns a token; the script subsystem holds
   and releases per owner in its existing teardown hooks; native subscribers
   (C++ systems) hold their own tokens. Behaviors may subscribe directly (locked
@@ -80,11 +92,14 @@ the script-surface spec is spec 3).
   `on<Event>` fires with NO Level re-emit.
 - Editor scope: in a page-scoped Simulate, physics-contact -> behavior -> emit ->
   a Level `on<Event>` in the same scene fires (the instance-less path).
-- Standalone fallback: a bare Scene with no injection emits + drains its owned bus
-  (existing EventBus tests keep passing relocated).
-- SINGLE-DRAIN: two active scenes borrowing one bus; an event emitted in scene A is
-  dispatched exactly once per subscriber, and subscribers in scene B hear it
-  (cross-scene delivery is the feature, double-dispatch is the bug).
+- Bus-less scene: a scratch scene with no injection ticks, loads, and validates
+  cleanly (never emits); the script `scene.events` handle no-ops safely on it.
+- Injection-before-SystemsReady ORDER: a native system subscribing at SystemsReady
+  sees the scope's bus already present (the wiring-order pin).
+- Cross-scene delivery: two active scenes sharing the scope bus; an event emitted in
+  scene A is dispatched exactly once per subscriber, and subscribers in scene B hear
+  it. (Double-dispatch is structurally impossible now - no scene drains - but the
+  exactly-once assertion stays as the regression guard.)
 - Token teardown: a behavior subscribes, its entity is destroyed mid-run, the next
   emit dispatches without touching the dead subscriber (ASAN on this test - it is the
   lifetime-sensitive class).
