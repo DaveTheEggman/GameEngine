@@ -1,13 +1,13 @@
-// The native event bus (foundation.scene :events) - exercised with ZERO scripting, because the
+// The native event bus (foundation.messaging) - exercised with ZERO scripting, because the
 // C++-only contract is load-bearing: a C++-only game must publish/subscribe with native callbacks.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
 import foundation.core;
-import foundation.scene;
+import foundation.messaging;
 
 using namespace foundation::core;
-using namespace foundation::scene;
+using namespace foundation::messaging;
 
 TEST_CASE("event bus: publish is deferred; Drain delivers the payload to a native subscriber")
 {

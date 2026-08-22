@@ -22,10 +22,11 @@ import :entity;
 import :phase;
 import :system;
 import :component;
-import :events;
+import foundation.messaging; // EventBus (moved out to its own leaf module, messaging.md P1)
 
 using namespace foundation::core;
 namespace core = foundation::core;
+namespace messaging = foundation::messaging;
 
 export namespace foundation::scene
 {
@@ -364,8 +365,8 @@ export namespace foundation::scene
         // ---- events ----
         // This scene's native event bus: C++ systems Publish/Subscribe directly (a C++-only game is
         // first-class); script reaches it through a bridge. Drained at the scene tick's top level
-        // (Scene::Update), so a handler runs with no VM call active. See :events.
-        [[nodiscard]] EventBus& Events() noexcept { return m_events; }
+        // (Scene::Update), so a handler runs with no VM call active. See foundation.messaging.
+        [[nodiscard]] messaging::EventBus& Events() noexcept { return m_events; }
 
         // ---- play / edit state ----
 
@@ -494,7 +495,7 @@ export namespace foundation::scene
         u64 m_revision = 0;
 
         // per-scene systems
-        EventBus m_events;                                      // this scene's native event bus
+        messaging::EventBus m_events;                           // this scene's native event bus
         Array<UniquePtr<SceneSystem>> m_systems;                // ownership
         HashMap<const TypeInfo*, SceneSystem*> m_systemsByType; // lookup by type
         Array<SceneSystem*> m_sortedSystems;                    // non-owning, UpdateOrder-sorted

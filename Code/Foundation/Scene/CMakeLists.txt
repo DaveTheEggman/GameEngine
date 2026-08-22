@@ -5,7 +5,7 @@ add_library(Scene STATIC)
 add_library(Foundation::Scene ALIAS Scene)
 
 target_link_libraries(Scene
-    PUBLIC Foundation::Core Foundation::Resource Foundation::Policy)
+    PUBLIC Foundation::Core Foundation::Resource Foundation::Messaging Foundation::Policy)
 
 target_sources(Scene
     PRIVATE
@@ -16,7 +16,6 @@ target_sources(Scene
             Phase.cppm
             SceneSystem.cppm
             Component.cppm
-            EventBus.cppm
             Scene.cppm
             SceneManager.cppm
             FrameTime.cppm

@@ -104,7 +104,7 @@ export namespace engine::script
     public:
         /// Wire the target bus + the sink (called with (eventName, payload) per fired event). The bus is
         /// tier-agnostic: a scene passes &scene.Events(), the run tier passes &instance.RunEvents().
-        void Bind(scene::EventBus* bus, Function<void(StringView, const Variant&)> sink)
+        void Bind(messaging::EventBus* bus, Function<void(StringView, const Variant&)> sink)
         {
             m_bus = bus;
             m_sink = Move(sink);
@@ -183,7 +183,7 @@ export namespace engine::script
             return false;
         }
 
-        scene::EventBus* m_bus = nullptr;
+        messaging::EventBus* m_bus = nullptr;
         Function<void(StringView, const Variant&)> m_sink;
         Array<StringHash> m_keys; // dedup guard (one subscription per event name)
         Array<u32> m_handles;     // bus handles to unsubscribe on Clear

@@ -25,6 +25,7 @@ import foundation.shell;       // IKeyboard / KeyCode (a minimal fake device)
 using namespace foundation::core;
 namespace script = foundation::script; // raw manager/context for the run facade battery
 namespace scene = foundation::scene;
+namespace messaging = foundation::messaging; // EventBus (moved out of scene, messaging.md P1)
 namespace content = foundation::content;
 namespace resource = foundation::resource;
 namespace input = foundation::input;
@@ -699,7 +700,7 @@ TEST_CASE("game-instance: the run-scoped event bus - deferred delivery, order, c
     RegisterCoreTypes();
 
     engine::runtime::GameInstance gi;
-    scene::EventBus& bus = gi.RunEvents();
+    messaging::EventBus& bus = gi.RunEvents();
 
     // Deferred delivery + payload + subscription order (the native run bus, zero script).
     Array<i32> order;

@@ -91,6 +91,18 @@ the script-surface spec is spec 3).
 - Additive scenes: load a second scene into the instance; both hear the bus; unloading
   one releases its subscriptions (scene-system teardown tokens).
 
+## Progress
+
+- **P1 DONE (Opus, 2026-08-22).** Pure module move, zero behavior change. `EventBus` relocated from the
+  `foundation.scene:events` partition into its own leaf module `foundation.messaging`
+  (`Code/Foundation/Messaging`, `Foundation::Messaging`, over Core only). `foundation.scene` now
+  `export import foundation.messaging` (so existing scene importers still see the type) + links it PUBLIC;
+  `Scene` uses `messaging::EventBus`. All `scene::EventBus` usages updated to `messaging::EventBus`
+  (GameInstance, ScriptSubsystem, ScriptFacades via Scene::Events, GameInstance tests) - no alias shim.
+  EventBus tests moved to `Messaging.Tests` (Scene.Tests drops them). Drain log tag `Scene`->`Messaging`.
+  Verified: clang + gcc DEBUG green (Messaging 4/4, Scene 55/55, GameInstance 25/25); Script.Facades /
+  SceneSurface / Editor.App link clean. NEXT: P2 (borrowed-bus wiring + drain ownership + relay delete).
+
 ## Docs (same-commit duties)
 
 Systems/game-instance.md (the run-bus paragraph), Systems/scripting.md (event flow),

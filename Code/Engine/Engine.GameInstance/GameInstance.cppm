@@ -49,6 +49,7 @@ export namespace engine::runtime
     namespace script = foundation::script;
     namespace net = foundation::net;
     namespace input = foundation::input;
+    namespace messaging = foundation::messaging; // EventBus (moved out of scene, messaging.md P1)
 
     // NetworkController + its SpawnResolver live in the :networkcontroller partition (re-exported above).
 
@@ -77,7 +78,7 @@ export namespace engine::runtime
                                                                // the editor stops the Game tab's session)
         // This run's event bus (game-ready-scripting2 P2-2): ONE service carries load + run-bus (Fable
         // ruling). run.events() publishes here. The GameInstance fills it with &RunEvents().
-        scene::EventBus* runEvents = nullptr;
+        messaging::EventBus* runEvents = nullptr;
     };
 
     inline void InstallRunScriptService(script::IScriptContext& context, RunScriptBinding& binding)
@@ -99,7 +100,7 @@ export namespace engine::runtime
     // Variant (the one currency that crosses C++<->script and AngelScript<->Luau). Value type.
     struct RunEvents
     {
-        scene::EventBus* bus = nullptr; // NOT reflected - resolved from the run context at run.events()
+        messaging::EventBus* bus = nullptr; // NOT reflected - resolved from the run context at run.events()
         void emit(core::String name) const;
         void emit(core::String name, core::Variant payload) const;
     };
@@ -434,8 +435,8 @@ export namespace engine::runtime
         /// This run's RUN-SCOPED event bus (game-ready-scripting2 §1a): app-owned, ONE per run. The Game
         /// tier's on<Event> inbox harvests it, and cross-scene / game-wide coordination publishes here
         /// (a Level re-emits what the run tier should hear - there is NO implicit scene->run relay). It is
-        /// the SAME native scene::EventBus type (scene-agnostic: StringHash + Variant + subscriber list).
-        [[nodiscard]] scene::EventBus& RunEvents() noexcept { return m_runEvents; }
+        /// the SAME native messaging::EventBus type (scene-agnostic: StringHash + Variant + subscriber list).
+        [[nodiscard]] messaging::EventBus& RunEvents() noexcept { return m_runEvents; }
 
         /// Deliver this frame's queued run-bus events. Called on the instance tick AFTER TickScript (no VM
         /// call active), so a subscriber may dispatch script handlers directly. Cascade-bounded like the
@@ -493,7 +494,7 @@ export namespace engine::runtime
         void DispatchGameEvent(core::StringView eventName, const core::Variant& payload);
 
         engine::script::ScriptRunHost m_runHost;    // owned: the game's script context (§11.10)
-        scene::EventBus m_runEvents; // the run-scoped event bus (game-ready-scripting2 §1a; app-owned)
+        messaging::EventBus m_runEvents; // the run-scoped event bus (game-ready-scripting2 §1a; app-owned)
         scene::SceneManager m_sceneManager; // owned; registered with the SceneSubsystem to tick
         scene::Scene* m_scene = nullptr;
         script::IScriptErrorHandler* m_errorHandler = nullptr;

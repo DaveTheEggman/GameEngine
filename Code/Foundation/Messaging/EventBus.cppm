@@ -1,26 +1,27 @@
-// Foundation::Scene - the `:events` partition.
+// Foundation::Messaging - the `foundation.messaging` module.
 //
-// A native, name-keyed event bus. It is a SCENE facility (and a run-scoped one later), with NO
-// scripting dependency: C++ systems Publish/Subscribe directly with native callbacks, so a
-// C++-only game is a first-class participant. Script reaches it through a BRIDGE (the
-// ScriptPhysicsContactBridge pattern), never the reverse - the bus never delivers "to script".
+// A native, name-keyed event bus, extracted out of foundation.scene into its own leaf module
+// (messaging.md P1) - it is a RUN-SCOPE facility (a scene's, or a whole run's), with NO scripting and
+// NO scene dependency: C++ systems Publish/Subscribe directly with native callbacks, so a C++-only game
+// is a first-class participant. Script reaches it through a BRIDGE (the ScriptPhysicsContactBridge
+// pattern), never the reverse - the bus never delivers "to script".
 //
-// Delivery is DEFERRED: Publish enqueues; Drain (called at the scene tick's top level, no VM call
-// active) delivers every queued event to its subscribers IN SUBSCRIPTION ORDER. A handler may
-// Publish again - those cascade in the SAME Drain, bounded to kMaxDrainPasses to break a runaway
-// loop. Payload is a Variant - the one currency that also crosses C++<->script and between backends.
+// Delivery is DEFERRED: Publish enqueues; Drain (called at the scope tick's top level, no VM call
+// active) delivers every queued event to its subscribers IN SUBSCRIPTION ORDER. A handler may Publish
+// again - those cascade in the SAME Drain, bounded to kMaxDrainPasses to break a runaway loop. Payload
+// is a Variant - the one currency that also crosses C++<->script and between backends.
 
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module foundation.scene:events;
+export module foundation.messaging;
 
 import foundation.core;
 
 using namespace foundation::core;
 
-export namespace foundation::scene
+export namespace foundation::messaging
 {
     class EventBus
     {
@@ -68,7 +69,7 @@ export namespace foundation::scene
                 if (++pass > kMaxDrainPasses)
                 {
                     LOG_WARNING(
-                        u8"Scene",
+                        u8"Messaging",
                         u8"event bus drain hit the {} pass cap - dropping the rest (runaway emit?)",
                         kMaxDrainPasses);
                     m_queue.Clear();
@@ -92,7 +93,7 @@ export namespace foundation::scene
             }
         }
 
-        // Drop all subscribers + pending events (scene teardown).
+        // Drop all subscribers + pending events (scope teardown).
         void Clear()
         {
             m_subscribers.Clear();

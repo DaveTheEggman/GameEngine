@@ -11,7 +11,7 @@ export import :entity;
 export import :phase;
 export import :system;
 export import :component;
-export import :events;
+export import foundation.messaging; // EventBus moved out to its own leaf module (messaging.md P1)
 export import :scene;
 export import :manager;
 export import :frame_time;
