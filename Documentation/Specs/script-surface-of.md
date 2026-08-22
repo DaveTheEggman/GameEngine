@@ -162,3 +162,33 @@ The spec closes with P0 + the RayCastHit fix as its deliverable. The five static
 (Audio, Input, Net, run, ui) stand as the curated script-view layer; no both-patterns
 state ever existed. Any future subsystem-reflection ambition starts from a fresh
 evaluation with the blocking facts above as its opening constraints.
+
+### P4 addendum (2026-08-22): both P4 halves closed explicitly, on separate grounds
+
+The user flagged that the blanket closure swallowed P4's run item under a verdict that
+did not technically cover it. Recording the two halves separately:
+
+- **Net -> `NetworkController.of(context)`: closed BY the audit verdict.** It rides the
+  same Context-handle machinery the verdict rejected (blocking fact 3), and
+  post-networking-extraction the `Net` facade is already a thin curated view over
+  INetworkController - the convergence the ideas doc wanted has happened.
+- **run -> injected coordinator handle: closed on its OWN grounds (user accepted).**
+  This half needed no subsystem reflection - the handle would be a value facade like
+  Scene/Entity, fully inside the reflection world. It closes because the static `run`
+  facade already IS the coordinator surface in substance: a reserved name resolving a
+  per-context service through CurrentScriptContext, so each GameInstance's scripts
+  reach their own coordinator (the multi-instance correctness injection was meant to
+  buy is already present). The migration would change only the delivery mechanism and
+  the spelling, at the cost of churning a days-old PaperKid-load-bearing surface built
+  to the documented statics-take-parens convention, plus needing the per-backend
+  base-class sugar the ideas doc itself ruled must never be load-bearing.
+  REOPEN TRIGGER: the Game tier growing a genuine second coordinator-shaped need
+  (e.g. multiple concurrent run scopes visible to one script).
+
+Consequence of run-as-static being the product surface: EVERY host must register it.
+The user's export test hit exactly this - `run::` unresolved in the exported game
+(weekly 2026-08-22 item). Diagnosed: Engine.DefaultApp keeps a hand-rolled facade
+registration list (DefaultApplicationImpl.cpp) that omits RegisterRunScriptFacade,
+while editor/cook/MCP call the engine::RegisterAllScriptFacades root (which includes
+it). Fix direction: DefaultApp registers via the ScriptSurface root instead of its
+drifted parallel list, putting the exported player under the same count tripwire.
