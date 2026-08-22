@@ -245,10 +245,21 @@ export namespace engine::runtime
     class GameInstance final
     {
     public:
+        GameInstance()
+        {
+            // Every scene this run creates BORROWS the run bus (messaging.md P2): set it on the group so
+            // CreateScene injects it BEFORE the script systems bind (OnSceneCreate), not after.
+            m_sceneManager.SetSceneEventBus(&m_runEvents);
+        }
+
         void SetScene(scene::Scene* scene) noexcept
         {
             m_scene = scene;
             m_network.SetReplicatedScene(scene); // keep replication on the current scene across loads
+            if (scene != nullptr)
+            {
+                scene->SetEventBus(&m_runEvents); // adopt path shares THIS run's bus (messaging.md P2)
+            }
         }
         [[nodiscard]] scene::Scene* GetScene() const noexcept { return m_scene; }
 
@@ -432,10 +443,12 @@ export namespace engine::runtime
         /// aware-registry (from the SceneSubsystem) before creating scenes in it.
         [[nodiscard]] scene::SceneManager& Scenes() noexcept { return m_sceneManager; }
 
-        /// This run's RUN-SCOPED event bus (game-ready-scripting2 §1a): app-owned, ONE per run. The Game
-        /// tier's on<Event> inbox harvests it, and cross-scene / game-wide coordination publishes here
-        /// (a Level re-emits what the run tier should hear - there is NO implicit scene->run relay). It is
-        /// the SAME native messaging::EventBus type (scene-agnostic: StringHash + Variant + subscriber list).
+        /// This run's ONE event bus (messaging.md P2): app-owned, injected into every scene this instance
+        /// creates/adopts (Scene::SetEventBus), so `scene.events` and the run bus are the SAME object.
+        /// The Game tier's on<Event> inbox subscribes here, and a behavior in any of the run's scenes
+        /// emits straight onto it - there is NO relay to cross (a Level may still re-emit as a deliberate
+        /// translation, never as plumbing). The instance drains it once per frame (DrainRunEvents); the
+        /// borrowing scenes do not. Native messaging::EventBus (StringHash + Variant + subscriber list).
         [[nodiscard]] messaging::EventBus& RunEvents() noexcept { return m_runEvents; }
 
         /// Deliver this frame's queued run-bus events. Called on the instance tick AFTER TickScript (no VM

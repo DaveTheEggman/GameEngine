@@ -366,7 +366,18 @@ export namespace foundation::scene
         // This scene's native event bus: C++ systems Publish/Subscribe directly (a C++-only game is
         // first-class); script reaches it through a bridge. Drained at the scene tick's top level
         // (Scene::Update), so a handler runs with no VM call active. See foundation.messaging.
-        [[nodiscard]] messaging::EventBus& Events() noexcept { return m_events; }
+        /// This scene's event bus (messaging.md P2): the BORROWED scope bus when a run scope injected one
+        /// (a GameInstance's run bus, or an editor page's), else this scene's OWNED fallback. So
+        /// `scene.events.emit` and the run bus are the SAME object in an instance - no relay to cross.
+        [[nodiscard]] messaging::EventBus& Events() noexcept
+        {
+            return m_eventBus != nullptr ? *m_eventBus : m_events;
+        }
+
+        /// Borrow a scope's bus (messaging.md P2): the owning scope (GameInstance / editor page) injects
+        /// THE bus for its run and drains it itself; this scene then stops draining (see Scene::Update).
+        /// Null reverts to the owned fallback (a scene is its own scope). Set before the scene ticks.
+        void SetEventBus(messaging::EventBus* bus) noexcept { m_eventBus = bus; }
 
         // ---- play / edit state ----
 
@@ -495,7 +506,8 @@ export namespace foundation::scene
         u64 m_revision = 0;
 
         // per-scene systems
-        messaging::EventBus m_events;                           // this scene's native event bus
+        messaging::EventBus m_events;         // this scene's OWNED fallback bus (used when no scope injects)
+        messaging::EventBus* m_eventBus = nullptr; // borrowed scope bus (messaging.md P2); null = use owned
         Array<UniquePtr<SceneSystem>> m_systems;                // ownership
         HashMap<const TypeInfo*, SceneSystem*> m_systemsByType; // lookup by type
         Array<SceneSystem*> m_sortedSystems;                    // non-owning, UpdateOrder-sorted

@@ -186,6 +186,8 @@ namespace engine::runtime
             {
                 level->SetRunHost(&m_runHost);
             }
+            // (The run bus is already injected by m_sceneManager before assembly - messaging.md P2 - so
+            // scene.events and the run bus are one object and the script systems bound to the right bus.)
         }
         return scene;
     }

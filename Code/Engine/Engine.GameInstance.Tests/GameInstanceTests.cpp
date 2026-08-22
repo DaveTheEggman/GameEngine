@@ -1078,3 +1078,29 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
     FileDelete(u8"scratch_gi_load_db/level.scene.bin");
     RemoveDirectory(u8"scratch_gi_load_db");
 }
+
+TEST_CASE("game-instance: created scenes share the run bus - cross-scene delivery, single drain (no relay)")
+{
+    // messaging.md P2: every scene the instance creates borrows THE run bus, so scene.events and the run
+    // bus are one object. A subscriber in scene A hears an emit from scene B (and the Game tier would too)
+    // with NO relay, delivered exactly ONCE by the instance's drain - the borrowing scenes never drain it.
+    engine::runtime::GameInstance gi;
+    scene::Scene* a = gi.CreateScene(u8"A");
+    scene::Scene* b = gi.CreateScene(u8"B");
+    REQUIRE(a != nullptr);
+    REQUIRE(b != nullptr);
+    CHECK(&a->Events() == &gi.RunEvents()); // both borrow the ONE run bus
+    CHECK(&b->Events() == &gi.RunEvents());
+
+    int hits = 0;
+    (void)a->Events().Subscribe(StringHash(u8"Ping"), [&](const Variant&) { ++hits; });
+    b->Events().Publish(StringHash(u8"Ping"), Variant{}); // emit from a DIFFERENT scene
+
+    // Ticking the borrowing scenes must NOT deliver it (they do not drain a borrowed bus).
+    a->Update(0.016f);
+    b->Update(0.016f);
+    CHECK(hits == 0);
+
+    gi.DrainRunEvents(); // the instance drains the shared bus ONCE
+    CHECK(hits == 1);    // delivered exactly once, cross-scene, no relay
+}

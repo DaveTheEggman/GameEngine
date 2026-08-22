@@ -103,6 +103,23 @@ the script-surface spec is spec 3).
   Verified: clang + gcc DEBUG green (Messaging 4/4, Scene 55/55, GameInstance 25/25); Script.Facades /
   SceneSurface / Editor.App link clean. NEXT: P2 (borrowed-bus wiring + drain ownership + relay delete).
 
+- **P2 DONE (Opus, 2026-08-22).** Borrowed-bus wiring + drain ownership + relay deleted. `Scene` gained
+  `SetEventBus(messaging::EventBus*)` + an owned fallback; `Events()` returns the borrowed scope bus when
+  set, else the owned one; `Scene::Update` drains ONLY the owned fallback (a borrowed bus is drained by
+  its owning scope - never every borrowing scene). `GameInstance` injects its run bus into every scene it
+  creates - done via `SceneManager::SetSceneEventBus(&m_runEvents)` (set in the GameInstance ctor) so the
+  bus is applied BEFORE assembly, i.e. before the script systems bind in `OnSceneCreate` (the ordering
+  hazard: binding to the owned bus then switching would have stranded the bridge on a never-drained bus).
+  `SetScene` also injects (adopt path). So `run.events()` and `scene.events` resolve to the same object in
+  a run; the Game inbox + behaviors + Level all subscribe to that one bus; the instance's `DrainRunEvents`
+  is the single per-frame drain. The scene->run relay is gone as a concept (RunEvents() doc updated).
+  Editor edit-mode Simulate + bare test scenes use the owned fallback (a scene is its own scope), drained
+  by `Scene::Update` unchanged. Tests: Scene.Tests borrowed-vs-owned resolution + drain-only-owned;
+  GameInstance.Tests cross-scene delivery + single drain (emit in scene B, subscriber in scene A fires
+  once via DrainRunEvents, scenes don't drain). Verified: clang + gcc DEBUG green (Messaging 4/4, Scene
+  56/56, Engine.Scene 5/5, Engine.Script 91/91, GameInstance 26/26); Editor.App / SceneSurface link.
+  NEXT: P3 (subscription tokens - owner-held, released by the script subsystem's teardown hooks).
+
 ## Docs (same-commit duties)
 
 Systems/game-instance.md (the run-bus paragraph), Systems/scripting.md (event flow),

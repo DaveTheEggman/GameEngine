@@ -23,9 +23,11 @@ Related: [[runtime-host]], [[scripting]] (the one-context rule, now per instance
   object + error sink), its `SceneManager` (its scenes + current + group config), its per-instance
   `NetworkController` (`m_network` - the `INetworkController` + the endpoint it owns, null = offline;
   networking-extraction.md P1: GameInstance COMPOSES it and forwards, it no longer inherits
-  `INetworkController`), its per-instance `ActionRuntime` (`m_inputRuntime`), a headless flag, and an
-  instance time scale. It BORROWS everything shared (subsystems, resource manager / content DB,
-  factories, reflection registries).
+  `INetworkController`), its per-instance `ActionRuntime` (`m_inputRuntime`), its RUN BUS (`m_runEvents`,
+  a `messaging::EventBus` - messaging.md P2: injected into every scene it creates, so `scene.events` and
+  the run bus are ONE object, drained once per frame by the instance; no scene->run relay), a headless
+  flag, and an instance time scale. It BORROWS everything shared (subsystems, resource manager / content
+  DB, factories, reflection registries).
 
 The dependency arrow points DOWN (runtime -> scene): `GameInstance` owns a `SceneManager`; the scene
 lib never references `GameInstance`.

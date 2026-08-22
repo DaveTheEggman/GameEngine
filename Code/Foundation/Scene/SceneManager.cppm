@@ -18,10 +18,12 @@ module;
 export module foundation.scene:manager;
 
 import foundation.core;
+import foundation.messaging; // EventBus (the scope bus injected into every created scene, messaging.md P2)
 import :scene;
 import :frame_time;
 
 using namespace foundation::core;
+namespace messaging = foundation::messaging;
 
 export namespace foundation::scene
 {
@@ -46,6 +48,11 @@ export namespace foundation::scene
         /// Install a teardown hook: DestroyScene/Clear notify via `uninstaller(scene)` while set.
         void SetSceneUninstaller(SceneUninstaller uninstaller) { m_uninstaller = Move(uninstaller); }
         void ClearSceneUninstaller() { m_uninstaller.Reset(); }
+
+        /// The scope bus every scene this manager creates BORROWS (messaging.md P2): a GameInstance sets
+        /// its run bus here so `scene.events` and the run bus are one object. Applied before assembly, so
+        /// the script systems bind to it. Null (default) leaves scenes on their owned fallback bus.
+        void SetSceneEventBus(messaging::EventBus* bus) noexcept { m_sceneEventBus = bus; }
 
         /// The GROUP time scale - the `instance` term of dt = host x context x GROUP x scene (§5). Default
         /// 1.0, so the editor / default manager reproduces the previous two-level behaviour exactly.
@@ -77,6 +84,10 @@ export namespace foundation::scene
                     m_current = scene;
                 }
             }
+            // Inject the scope's shared bus (messaging.md P2) BEFORE assembly, so the script systems'
+            // OnSceneCreate binds to the SAME bus emits land on (a GameInstance sets this to its run bus).
+            // Null leaves the scene on its owned fallback (a bare/edit scene is its own scope).
+            scene->SetEventBus(m_sceneEventBus);
             // Scene assembly happens regardless of active, so LoadScene can populate an inactive scene
             // before it is activated.
             if (m_installer)
@@ -269,6 +280,7 @@ export namespace foundation::scene
 
         SceneInstaller m_installer;   // composition path (type-erased; owned, callable or empty)
         SceneUninstaller m_uninstaller; // teardown path (type-erased; owned, callable or empty)
+        messaging::EventBus* m_sceneEventBus = nullptr; // borrowed scope bus for created scenes (P2)
         f32 m_timeScale = 1.0f;       // the group / instance term
         Scene* m_current = nullptr;   // the group's current scene
         Array<UniquePtr<Scene>> m_scenes; // ownership

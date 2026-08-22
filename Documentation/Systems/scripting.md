@@ -88,7 +88,11 @@ supported. Stop tears the context down (isolation is between RUNS, the PIE rule)
   of the target that declares it. Delivery is DEFERRED (queued + drained at the tick's top
   level - re-entrant VM calls are unsafe). Payload is a single `Variant`, not N overloads
   (see [[overloaded-name-contract]]).
-- **Scene event bus**: `emit(name, payload)` -> `on<Event>` (NATIVE name-keyed bus, C++-first).
+- **Event bus**: `emit(name, payload)` -> `on<Event>` (NATIVE name-keyed bus, C++-first;
+  `foundation.messaging`). ONE bus per run scope (messaging.md): a GameInstance owns its run bus and
+  injects it into every scene it creates, so `scene.events` and the run bus are the SAME object - a
+  behavior's emit reaches the Game tier with NO relay. A bare/edit scene is its own scope (owned
+  fallback bus). The owning scope drains once per frame; borrowing scenes never drain it.
 - **Delegates**: `IScriptDelegate` wraps a script function as a native callback (certified
   both typed backends; the `DelegateSignal` facade uses it), with a Detach-on-teardown
   protocol.
