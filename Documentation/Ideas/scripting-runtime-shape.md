@@ -306,3 +306,39 @@ Where it goes (the lanes already exist):
   surface type-level (two-phase registration covers it - verify with a cook-VM test per
   pilot), and script_api's output is product surface - the MCP/shipping docs update in the
   same commits (the doc-sweep lesson from the Wren retirement).
+
+- 2026-08-22 (user + Fable, follow-up exchange): THREE SPECS come out of this doc, and one
+  review correction:
+  - **No backward compatibility constraint** (user ruling): we are the only consumer of the
+    script surface - the "API-frozen/alias-pinned" half of Fable's §3 rule is DROPPED.
+    Clean breaks are fine; internal usage + tests update in the same commit. What SURVIVES
+    of the rule is the semantic half only: a script view exists wherever the raw method
+    cannot carry the required semantics (deferral, marshalling, safety) - never for
+    stability, never as a blocker to a clean break.
+  - **Spec 1 - networking extraction**: no open holdovers; spec written
+    (Documentation/Specs/networking-extraction.md).
+  - **Spec 2 - messaging**: user direction - the bus TYPE does not belong in
+    foundation.scene; it moves to its own Messaging module (start of the cleanup; does not
+    itself resolve the instance-less-scene ownership). Fable's proposed resolution for the
+    ownership hole, for the user to confirm before the spec: **the bus is owned by the RUN
+    SCOPE and scenes BORROW it** - GameInstance injects its bus into every scene it
+    creates/adopts (Scene::SetEventBus, borrowed); the editor scene page (which already
+    owns commands/selection/edit-context) is the run scope for edit-mode Simulate and
+    injects a page-owned bus; a scene with NO scope falls back to an owned local bus (bare
+    unit-test scenes keep working unwired, and a lone scene IS its own scope
+    semantically). Emit/subscribe call sites keep using Scene::Events() unchanged - it
+    resolves to the injected bus; the scene->run relay dies; entity.send stays directed
+    and separate. NOTE: a new foundation module must be added to the reorg branch's LOCKED
+    folder==target==module catalog - coordinate, don't drift it.
+  - **Spec 3 - script surface (.of)**: the clearer path, pending the curated-edges
+    inventory. Fable's first-pass classification of TODAY's facades: DIRECT-REFLECT
+    candidates (curated REFLECT_MEMBERS on the real type): audio (bus/music controls),
+    input (map/rebind queries), navigation agent ops, render debug toggles. NEEDS-VIEW
+    (semantics): ui (mutation-queue deferral - the dispatch-UAF class), anything returning
+    engine internals scripts must not hold raw (resource/device handles), physics queries
+    IF the per-scene last-hit statefulness is kept (else direct + explicit hit-result
+    returns - cleaner under no-compat). INJECTED-HANDLE (not .of at all): the game-tier
+    coordinator (loadScene/requestExit - scene loading never on the context), the Scene +
+    Entity + owner handles (already exist). The spec's P1 is the audit that finalizes this
+    table per facade, with each surface cutting over whole (parity tests), no
+    both-patterns transition.
