@@ -6,8 +6,8 @@ API surface (every bound type, method, and facade, per backend) comes from the M
 
 ## Backends
 
-Three script languages are supported: **Wren**, **AngelScript**, and **Luau**. A project can
-mix them - each script asset declares its language. The bound engine surface is the same
+Two script languages are supported: **AngelScript** and **Luau**. A project can mix them -
+each script asset declares its language. The bound engine surface is the same
 across backends; syntax and idioms differ (e.g. Luau uses colon calls for instance methods,
 dot calls for static facades).
 

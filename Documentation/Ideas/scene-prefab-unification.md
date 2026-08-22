@@ -344,10 +344,12 @@ which is the one thing 2-lite cannot do.
 Two execution rulings (this is where the doc's own half-rename fear bites):
 
 1. **Type-only is the wrong unit - the unit is the live-container FAMILY.**
-   Renaming `Scene` alone leaves `SceneManager`/`SceneSubsystem`/`ISceneAware`
+   Renaming `Scene` alone leaves `SceneManager`/`SceneSubsystem`/`ISceneObserver`
+   [2026-08-19: `ISceneAware` was replaced by `ISceneObserver` in the
+   scene-composition landing - the family-rename point stands with the new name]
    managing "Worlds" - the exact both-terms-in-tree state the doc warns about.
    If we rename, it is Scene->World, SceneManager->WorldManager,
-   SceneSubsystem->WorldSubsystem, ISceneAware->IWorldAware, and the per-scene
+   SceneSubsystem->WorldSubsystem, ISceneObserver->IWorldObserver, and the per-scene
    API surface, in ONE mechanical pass with a grep tripwire. Asset-side names
    deliberately KEEP "Scene" (SceneDocument, ScenePage, the MCP scene_* tools) -
    under the proposed vocabulary the ASSET is still called a scene, so the

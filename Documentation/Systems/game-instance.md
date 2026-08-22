@@ -34,16 +34,19 @@ A group of scenes as a first-class scene-lib object - the multi-scene model (a r
 scenes with a current one, not a single scene). It owns membership (create / adopt / load / switch /
 unload / destroy + the current scene), group config (time scale, running/paused, headless, and the
 group's fixed-step accumulator), and it TICKS its own group (`Update(hostDt)` / `FixedUpdate` at the
-group rate). It fires `OnSceneCreated`/`OnSceneDestroyed` through the app-wide ISceneAware registry
-(owned by `SceneSubsystem`), so physics/audio/render/script still get injected - only WHO calls the
-registry moved.
+group rate). Scene assembly + lifecycle run through the DECLARATIVE composition layer
+([[scene-composition]], landed 2026-08-19): `CreateScene` assembles from the registered
+`SceneComposition` (via the type-erased installer `SceneSubsystem` wires onto each manager), and
+teardown notifies `ISceneObserver`s at the `Destroying` stage. `ISceneAware` no longer exists.
 
-`SceneSubsystem` is now a PURE registry: the app-wide ISceneAware registry + the list of registered
-`SceneManager*` it ticks (fanning Context time-scale / fixed-step to each) + read-only sweeps
-(`ForEachManager`, registry-wide `ForEachScene` for prefab-rebuild / export scans). It owns no scenes.
-Every owner of scenes creates its own `SceneManager` over `scenes->AwareRegistry()` and registers it:
-a `GameInstance` owns one; each editor page (`ScenePage`, `MaterialPage`) owns one (registered on open,
-destroyed + unregistered on close).
+`SceneSubsystem` is a thin adapter over the pure `SceneRegistry` value type: the composition, the
+staged `ISceneObserver` list, the registered `SceneManager*` list it ticks (building ONE
+`scene::FrameTime` per frame from the Context's plain floats - the runtime layer never sees the
+type), and the read-only sweeps (`ForEachManager`, registry-wide `ForEachScene` for
+prefab-rebuild / export scans). It owns no scenes. Every owner of scenes creates its own plain
+`SceneManager` and registers it (`scenes->RegisterManager(&mgr)` wires the install/uninstall
+hooks): a `GameInstance` owns one; each editor page (`ScenePage`, `MaterialPage`) owns one
+(registered on open, destroyed + unregistered on close).
 
 ## Time model
 

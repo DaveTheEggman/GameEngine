@@ -7,8 +7,10 @@
 Backend-neutral, reflection-driven gameplay scripting. A language backend is a LIBRARY,
 never the architecture: the neutral contract exposes the ENTIRE engine reflection surface
 to any backend for free, and a backend is "done" only when the shared conformance battery
-is green. Three backends are certified and independently switchable (see
-[[script-backend-gating]]): **Wren**, **AngelScript**, **Luau** (the go-forward primary).
+is green. Two backends are certified and independently switchable (see
+[[script-backend-gating]]): **AngelScript** and **Luau** (the go-forward primary). Wren was
+the neutrality-proving first backend and was RETIRED 2026-08-19 (1b220034) once it had
+served that purpose - historical mentions in older specs refer to it.
 
 ## Architecture (the neutral contract - `foundation.script`)
 
@@ -29,12 +31,12 @@ is green. Three backends are certified and independently switchable (see
   sections. A backend is certified when the battery is green, not "hopefully".
 - **Capability flags** (`ScriptCapabilities`, reported by `IScriptManager::Capabilities()`):
   Coroutines, Delegates, Bytecode, Debugger. The MANAGER is the single source of truth -
-  consumers with a backend in hand ask it. Wren: Coroutines+Delegates. AngelScript + Luau:
-  Coroutines+Delegates+Bytecode+Debugger.
+  consumers with a backend in hand ask it. AngelScript + Luau: all four
+  (Coroutines+Delegates+Bytecode+Debugger).
 - **Two-phase type registration** (the AngelScript rule): `RegisterType` COLLECTS;
   `IScriptManager::FinalizeTypes()` (called by `RegisterReflectedTypes`, and defensively
   before the first `CreateContext`) does declare-all-types-then-bind-all-members. A backend
-  may defer all emission to finalize (AngelScript needs it; Wren/Luau finalize lazily).
+  may defer all emission to finalize (AngelScript needs it; Luau finalizes lazily).
   Facade authors write against the contract, not a backend quirk (`builder.Constructor()`
   is part of the documented contract).
 
@@ -67,8 +69,8 @@ supported. Stop tears the context down (isolation is between RUNS, the PIE rule)
   handlers dispatch by presence (`onStart`/`onUpdate(dt)`/`onFixedUpdate(dt)`/`onEnable`/
   `onDisable`/`onDestroy`, plus event handlers). Ticking is simulation-gated
   (`OnlyWhenSimulating`); optional per-behavior `updateInterval` throttles.
-- **Properties**: declared per language (Wren `static properties` map; AngelScript typed
-  member fields + `[metadata]`; Luau instance fields walked from the constructed table).
+- **Properties**: declared per language (AngelScript typed member fields + `[metadata]`;
+  Luau instance fields walked from the constructed table).
   The **cook harvests** them (compile the class in the cook VM, construct + walk / read the
   typed members), so the editor renders the inspector with NO VM. Editor values are stored
   as name-HASHED override blobs (rename-safe) and re-applied after hot reload.
@@ -91,8 +93,9 @@ supported. Stop tears the context down (isolation is between RUNS, the PIE rule)
   both typed backends; the `DelegateSignal` facade uses it), with a Detach-on-teardown
   protocol.
 - **Coroutines** (all backends): `startCoroutine` / `waitSeconds` / `waitUntil`, resumed by
-  `AdvanceCoroutines` and cancelled per-instance on destroy/disable. Wren uses fibers;
-  AngelScript + Luau use pooled resumable contexts/threads.
+  `AdvanceCoroutines` and cancelled per-instance on destroy/disable (and on entity
+  deactivation - [[entity-active-state]]). AngelScript + Luau use pooled resumable
+  contexts/threads.
 
 ## Engine API surface (facades)
 
@@ -117,20 +120,20 @@ natural C++ types (i32/i64), not f64 ([[script-facade-numerics]]). `Engine.Scrip
   bytecode instead of recompiling source. Luau loads each class's blob as its own chunk;
   AngelScript LoadByteCode's each class into its own module (`CreateInstance`/`FindFunction`
   search all owned modules newest-first). Debug info + section names are preserved, so
-  breakpoints line up on bytecode-loaded classes. Wren stays source (no stable bytecode).
+  breakpoints line up on bytecode-loaded classes.
 
 ## Debugger
 
 In-process step debuggers for **AngelScript and Luau** (breakpoints, step into/over, call
 stack, locals, capture-object expand), driven through the run host with game-pause
 (`IsDebugPaused` gates the tick) and editor UI (breakpoint gutter + call-stack/locals panel).
-Suspension-based, non-blocking. Wren has no debugger. Full detail: [[Systems/script-debugger]].
+Suspension-based, non-blocking. Full detail: [[Systems/script-debugger]].
 
 ## Editor
 
 - **ScriptPage**: edit source -> recook -> hot reload, with inline error surfacing, a bound-API
   browser (`ScriptApiBrowserView`) + autocomplete driven off `DescribeBoundApi()` (`ScriptApiSurface`).
-- **Per-language editor UI** (`Editor.Script.{Wren,AngelScript,Luau}`): a CodeEditView lexer
+- **Per-language editor UI** (`Editor.Script.{AngelScript,Luau}`): a CodeEditView lexer
   registered by language id; kept OUT of the UI-free Pipeline layer ([[pipeline-ui-free]]).
 - **New-Asset starters**: one creator per registered backend per tier (Behavior/Level/Game),
   seeded from the cook's tier template - e.g. "Luau Behavior". A backend appears only when its

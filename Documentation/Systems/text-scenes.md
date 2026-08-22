@@ -56,13 +56,15 @@ warning (matching component-record skip semantics).
   `ComputeInstanceDeltasVsTemplate` (the last reads template payloads without a scene, via a transient
   scratch entity for XML).
 - **Export staging** (`Editor.Core/Export` + `Tools.Export`): `StageScene` transcodes an XML scene
-  stream to binary via a scratch `Scene` created through the app's `SceneSubsystem` (the full manager
-  set via ISceneAware - a hand-listed set would silently drop component types); headless consumers
-  (CLI export, MCP scene_validate) get the same full set from `engine::AddAllSceneManagers` in
-  `Engine.SceneSurface` - the composition root aggregating the per-domain `Add<Domain>SceneManagers`
-  functions the subsystems' own `OnSceneCreated` delegate to (count tripwire `kSceneSystemCount`;
-  it replaced Tools.Export's private list, which had drifted and was dropping records). Scene streams
-  are structure-only (KBs), so transcode is milliseconds; binary input passes through untouched.
+  stream to binary via a scratch `Scene` assembled from `engine::FullSceneComposition()` (a
+  hand-listed manager set would silently drop component types); headless consumers (CLI export,
+  MCP scene_validate) get the SAME full set - since scene-composition (2026-08-19) the runtime and
+  every headless consumer instantiate from the one declarative composition in
+  `Engine.SceneSurface` (9 per-domain `SceneModule`s; the guard is `ModuleCount()` in
+  SceneSurfaceTests - it replaced the old `kSceneSystemCount` tripwire, whose two-lists-to-drift
+  failure mode no longer exists). `AddAllSceneManagers` survives as a thin wrapper for the many
+  call sites naming it. Scene streams are structure-only (KBs), so transcode is milliseconds;
+  binary input passes through untouched.
 
 ## Invariants
 

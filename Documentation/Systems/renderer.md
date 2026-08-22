@@ -24,7 +24,7 @@ barriers), `foundation.rendergraph` (automatic barrier solving, transient aliasi
 `foundation.materials` (data-driven; `MaterialSystem` infers set-2 bind-group layouts; the PSO cache with
 version-poll hot reload - see `shaders-materials-hot-reload.md`), `foundation.shaders(.system)`,
 `foundation.geometry` (GPU-ready mesh streams), and `foundation.scene` (entities/transforms/components +
-`ISceneAware` injection).
+`SceneModule` install + `ISceneObserver` lifecycle - [[scene-composition]]).
 
 Future optimization + extension work (the CPU->GPU-bound parity work - parallel command recording +
 draw-list sort, shadow instance reuse - the GPU-driven/indirect path, and the spatial acceleration
@@ -138,7 +138,7 @@ engine.render (SCENE-COUPLED integration)
  RenderSceneModule): holds the scene's ONE Environment (skybox, IBL source,
  ambient, fog) + per-scene render config; coordinates the providers
  :extract - providers: turn ComponentManagers + RenderSceneSystem → RenderData pushed in
- :subsystem - RenderSubsystem (runtime::Subsystem + ISceneAware): owns the renderer,
+ :subsystem - RenderSubsystem (runtime::Subsystem + scene::ISceneObserver): owns the renderer,
  injects the managers + the RenderSceneSystem, registers Renderers + Passes,
  drives extract→render
  deps: foundation.render, foundation.scene, foundation.runtime, foundation.materials, foundation.geometry

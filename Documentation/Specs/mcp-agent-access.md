@@ -445,7 +445,8 @@ in build order:
    Add<Domain>SceneManagers functions that the subsystems' own
    OnSceneCreated delegate to, aggregated as engine::AddAllSceneManagers +
    RegisterAllSceneComponentReflection with a count tripwire
-   (kSceneSystemCount, Engine.SceneSurface.Tests) - gives the validate
+   (was kSceneSystemCount; since scene-composition 2026-08-19 the guard is the
+   ModuleCount() check in Engine.SceneSurface.Tests) - gives the validate
    scratch the COMPLETE manager set headlessly, so component payloads
    field-validate through their real managers (componentValidation:
    "full"); only genuinely unknown component types surface as warnings

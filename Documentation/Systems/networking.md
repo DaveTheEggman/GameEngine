@@ -25,7 +25,7 @@ late-join - no hand-written per-component net code. First target is real-time st
   the `Net` script-facade binding. A GameInstance owns its OWN `NetworkManager` and goes online
   at RUNTIME via the facade (no app-owned socket).
 - **`foundation.net.replication`** - `StateReplication` + the `IReplicationModel` seam.
-- **`engine.net`** - `NetworkSubsystem` (an `ISceneAware` runtime home that injects the
+- **`engine.net`** - `NetworkSubsystem` (an `ISceneObserver` runtime home; the net managers install via the net `SceneModule` - [[scene-composition]]) that wires the
   `NetworkComponentManager` into scenes).
 
 ## Roles + startup
@@ -63,7 +63,7 @@ The `Net` facade (registered by `RegisterNetScriptFacade`, resolved per script c
 the instance's `NetworkManager`): `Net.isServer()` / `isClient()` / `peerCount()` /
 `startServer(...)` / `connect(...)`, plus SEND-side RPC (`Net.rpc(...)` / `rpcNumber(...)` /
 `rpcText(...)`). `NetworkComponent.of(entity).authority` exposes ownership to script. Certified on
-Wren + AngelScript (see `Integration.ScriptFacades`). The RECEIVE side (`Net.on(name, fn)`) is not
+AngelScript + Luau (see `Integration.ScriptFacades`; Wren was retired 2026-08-19). The RECEIVE side (`Net.on(name, fn)`) is not
 built - it is P3 slice 1 (see the commands plan).
 
 ## Deferred

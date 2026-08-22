@@ -39,8 +39,8 @@ is normal - clear it with `asset_cook`.
 `scene_validate` (xml or guid; `valid` + empty `warnings` = the engine will load it),
 then `scene_write`. Prefabs mirror it with a single-root rule.
 
-**Scripts**: `script_api` first - the LIVE bound API per backend (wren | angelscript |
-luau); never trust memorized signatures. `script_create` seeds a starter asset
+**Scripts**: `script_api` first - the LIVE bound API per backend (angelscript | luau);
+never trust memorized signatures. `script_create` seeds a starter asset
 (behavior | level | game tier), then edit the returned source FILE, loop on
 `script_validate`, and `asset_cook` to make the class attachable.
 

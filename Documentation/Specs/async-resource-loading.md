@@ -159,7 +159,8 @@ unchanged. Commits are on master after baseline `43beeaed` (see specs/HANDOFF.md
    whole scene's resource set via BindAsync; `AsyncLoadBatch` drives a loading
    screen (Progress/Step/WaitComplete). Scene FILE decode staying on the main
    thread is deliberate - it is lighter than its resources and Scene
-   deserialization (component managers, ISceneAware) is not worker-safe without
+   deserialization (component managers, the scene-composition install/observer path -
+   ISceneAware in the original text, replaced 2026-08-19) is not worker-safe without
    more work. Making the scene itself an async composite resource is the deferred
    "async at the top" variant if a profile ever shows the structure parse hurts.
 7. **Consumer wiring is opt-in / left to integration.** The capability +
