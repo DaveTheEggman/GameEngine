@@ -122,6 +122,86 @@ migrate to engine.net then (one move, with that spec's own churn budget). The ne
   (the only UBSan hit is the pre-existing ThirdParty AngelScript VM one, unrelated). Docs: game-instance.md
   + networking.md net paragraphs updated same-change. NEXT: P2 (replication onto the scene fixed lane).
 
+## P2 layering question (OPEN - for Fable review before build)
+
+P2 puts `NetworkSceneSystem` in **`engine.net`** (user ruling: it obviously belongs with the other
+scene-integration net code, not in foundation). Confirmed facts that constrain the design:
+
+- **The endpoint is instance-owned.** `NetworkController` (composed by `GameInstance`, P1) owns
+  `UniquePtr<NetworkManager> m_net`, created per StartServer/Connect. One endpoint per running game.
+- **Nothing needs to move out of `foundation.net`.** The `Update` split
+  (`UpdateTransport`/`UpdateReplication`) stays on `NetworkManager` in `foundation.net.manager` - it is
+  the endpoint's own method. `engine.net`'s `NetworkSceneSystem::OnFixedUpdate` just calls
+  `endpoint->UpdateReplication()` (so `engine.net` gains an `import foundation.net.manager`, which is a
+  normal engine->foundation edge).
+- **The scene-system install joins the EXISTING net module** (ModuleCount stays 9): `engine.net` gets
+  an engine-level installer `engine::net::AddNetworkSceneManagers(scene)` that calls
+  `foundation::net::AddNetworkSceneManagers(scene)` (the component managers) + `scene.AddSystem<NetworkSceneSystem>()`.
+  `SceneSurface`'s `kNetModule` switches to that engine installer (aligning net with physics/audio,
+  which already use `engine::*` installers). No new module; the `== 9u` guard is unchanged.
+
+The one genuinely open decision: **how the per-instance endpoint reaches the per-scene
+`NetworkSceneSystem`.** No option has a cycle; the difference is a module edge + indirection:
+
+1. **Direct edge (Opus recommends).** `NetworkController` stays in `engine.gameinstance` and calls
+   `scene->GetSystem<engine::net::NetworkSceneSystem>()->SetEndpoint(m_net.Get())` on
+   SetReplicatedScene / StartServer / Connect (and `SetEndpoint(nullptr)` on StopNetworking / scene
+   change). Adds a benign, acyclic `engine.gameinstance -> engine.net` dependency. Simplest, and P1's
+   layout note already anticipated `NetworkController` possibly migrating to `engine.net` in P4 anyway.
+   Verified acyclic: `engine.net` imports foundation.* + engine.scene only; never engine.gameinstance.
+2. **Dependency-invert (no gameinstance->engine.net edge).** `engine.net`'s `NetworkSubsystem`
+   implements a foundation-level binder interface (e.g. `net::IReplicationSceneBinder{ BindEndpoint(Scene*,
+   NetworkManager*) }`), exposed as a per-context service. `NetworkController` resolves the binder off
+   the context and never names `engine.net`. Keeps `engine.gameinstance` off `engine.net` at the cost
+   of one interface + a service indirection.
+3. **Move `NetworkController` to `engine.net` now** (pull P4's migration earlier). Note this does NOT
+   remove the edge: `GameInstance` composes the controller by value, so `engine.gameinstance ->
+   engine.net` is still required to hold the member. It only relocates the controller.
+
+Opus's lean: option 1 - the edge is benign, acyclic, and the least churn; revisit if the script-surface
+spec's `NetworkController.of(context)` later argues for option 3's relocation. Fable: please rule.
+
+### FABLE RULING (2026-08-22): Option 1 - and it is the RIGHT place, not merely the cheap one
+
+The acyclicity claim is verified (engine.net imports foundation.* + engine.scene only). Build
+option 1, with the reasoning sharpened and four requirements:
+
+The deeper argument for 1: the audio-style domain-internal wiring (subsystem observer injects its
+engine pointer at SystemsReady) CANNOT work here, because the audio engine is CONTEXT-GLOBAL while
+the endpoint is INSTANCE-SCOPED. `NetworkSubsystem` is context-wide - it cannot know which scenes
+belong to which instance or which endpoint they should see. The controller is the ONLY object that
+owns the instance <-> endpoint <-> replicated-scene mapping, so the binding logic belongs there by
+knowledge, not just by churn. The `engine.gameinstance -> engine.net` edge is the honest expression
+of that ownership.
+
+- Option 2 REJECTED: a foundation interface + service indirection whose only consumer is this one
+  binding is the seam-for-one-consumer pattern (the tool_panel lesson; the action-row rule). If a
+  second binder consumer ever appears, extract the interface THEN.
+- Option 3 REJECTED as premature: it does not remove the edge (the by-value member requires it
+  regardless) and it pre-spends the one-move relocation budget this spec explicitly reserved for
+  the script-surface spec's `.of` decision. The budget stays reserved.
+
+Requirements on the option-1 build:
+1. Binding is EDGE-driven at exactly the controller's listed points (SetReplicatedScene /
+   StartServer / Connect / StopNetworking / scene change), and ONLY the replicated scene's
+   `NetworkSceneSystem` ever holds the endpoint - additive sibling scenes stay null/inert (matches
+   today's single-replicated-scene model; widening is a future decision, not a default).
+2. Both teardown ORDERS are handled and TESTED: endpoint-dies-before-scene (StopNetworking clears
+   the scene system's pointer) and scene-dies-before-endpoint (the controller's replicated-scene
+   cache clears - the Destroying observer or the SetScene path - so a later Start/Connect never
+   touches a dead scene). The scene system itself dies with its scene, so the hazard is the
+   CONTROLLER's cache and the SYSTEM's endpoint pointer; null both eagerly.
+3. The ASAN pass for P2 covers both orders above plus stop-start-reconnect against a LIVE scene
+   (the joint-UAF lesson: lifetime-sensitive teardown gets sanitized in both directions).
+4. `SetEndpoint` is a plain setter on the scene system - no service, no observer hop for the
+   binding itself; the SystemsReady observer stage remains for what it already does (the
+   subsystem's own wiring), not for endpoint routing.
+
+The engine-level installer fold (engine::net::AddNetworkSceneManagers wrapping the foundation
+managers + the scene system, kNetModule switching to it, ModuleCount stays 9) is APPROVED as
+described - it aligns net with the physics/audio installer shape and the guard changes not at all,
+deliberately.
+
 ## Acceptance
 
 The net demo scripts (net-demo-scripts.txt flow: in-editor dedicated server + PIE
