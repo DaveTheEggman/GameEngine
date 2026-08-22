@@ -50,7 +50,7 @@ export namespace engine::runtime
     namespace net = foundation::net;
     namespace input = foundation::input;
 
-    // EndpointOnlineHook now lives in the :networkcontroller partition (re-exported above).
+    // NetworkController + its SpawnResolver live in the :networkcontroller partition (re-exported above).
 
     // ---- run.* script facade (task #123 + game-ready-scripting2 P2-2): the run/app tier surfaced to
     // scripts, including the running instance's LEVEL-LOAD control. Owned HERE (the project that owns
@@ -472,10 +472,8 @@ export namespace engine::runtime
         /// are thin forwards preserved so existing callers/tests are churn-free (P1).
         [[nodiscard]] NetworkController& Network() noexcept { return m_network; }
 
-        /// A hook the app sets once; the controller fires it (with the live endpoint) each time the game
-        /// goes online, so the app can wire per-endpoint setup that needs app state (the net-spawn
-        /// resolver from the content DB). Not consumed - reconnect re-runs it.
-        void SetEndpointOnlineHook(EndpointOnlineHook hook) { m_network.SetEndpointOnlineHook(core::Move(hook)); }
+        // The prefab net-spawn resolver factory is injected once via Network().SetSpawnResolverFactory(...)
+        // (P4); the controller makes one per endpoint. GameInstance no longer carries an online hook.
 
         // The per-frame transport pump moved to engine::net::NetworkSubsystem::PostUpdate (P3): the
         // subsystem enumerates live endpoints (via an app-provided source) and drives UpdateTransport.

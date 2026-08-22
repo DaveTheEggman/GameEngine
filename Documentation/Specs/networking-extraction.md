@@ -1,6 +1,6 @@
 # Networking extraction: off the god object, off the app, onto the standard lanes
 
-Status: SPEC - ready to build (Fable, 2026-08-22). Origin:
+Status: COMPLETE - all phases P1-P4 shipped (Opus, 2026-08-22); see Progress. Origin:
 Documentation/Ideas/scripting-runtime-shape.md §8 (Fable-reviewed, user-cut as its own
 spec with "no holdovers"). This is an EXTRACTION + RELOCATION onto lanes that already
 exist - not a networking rewrite. The wire protocol, the replication model, and the
@@ -159,6 +159,25 @@ migrate to engine.net then (one move, with that spec's own churn budget). The ne
   25/25), ASAN green (only pre-existing AngelScript UBSan); DefaultApp + Editor.App link both compilers.
   Docs: networking.md updated same-change. NEXT: P4 (the app sheds the spawn resolver + role-preset into
   a controller-owned service; the Net facade stays this spec).
+
+- **P4 DONE (Opus, 2026-08-22). SPEC COMPLETE.** The app shed the last endpoint-wiring. The prefab
+  net-spawn resolver moved behind a controller-owned service: `NetworkController` gained
+  `SetSpawnResolverFactory` + applies a fresh resolver to each endpoint on StartServer/Connect (a FACTORY,
+  because `StateReplication::SpawnHandler` / `core::Function` is move-only - the controller must produce
+  one per endpoint, not copy one). The former general `EndpointOnlineHook` (+ SetEndpointOnlineHook /
+  m_onEndpointOnline / the per-go-online firing) is DELETED - its only use was this. `DefaultApplication`:
+  `MakeEndpointOnlineHook` -> `MakeSpawnResolver` (returns the resolver; content-DB knowledge legitimately
+  stays app-side); both wiring sites now `Network().SetSpawnResolverFactory([this]{ return
+  MakeSpawnResolver(); })`. `ApplyNetworkStartup` (role preset) already a thin call into the controller
+  (via the GameInstance forwards) - unchanged. Added `StateReplication::HasSpawnHandler()` (minimal query
+  so the per-endpoint application is assertable). Tests: the P1 online-hook test repurposed to assert the
+  resolver is applied to each fresh endpoint incl. reconnect (via HasSpawnHandler). Acceptance: no
+  endpoint-wiring left in the app (`SetSpawnHandler`/`SetEndpointOnlineHook`/`DriveNetwork` all gone; the
+  ~27 remaining `net` mentions are imports + facade registration + the content-DB resolver factory + the
+  role preset + the pump source). Verified: clang + gcc DEBUG green (GameInstance 25/25, Net.Manager 8/8,
+  Net.Replication 16/16), ASAN green (only pre-existing AngelScript UBSan); DefaultApp + Editor.App link
+  both compilers. Docs: networking.md updated same-change. The `Net` facade stays (its `.of` retirement is
+  the separate script-surface spec). **All four phases (P1-P4) shipped.**
 
 ## P2 layering question (RESOLVED - Fable ruled option 1; see FABLE RULING below)
 

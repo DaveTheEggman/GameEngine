@@ -204,7 +204,7 @@ namespace engine::runtime
         // CreateInstance. The per-instance net binding is installed by GameInstance itself.
         net::RegisterNetScriptFacade();
         foundation::net::RegisterNetworkComponentScriptFacade(); // NetworkComponent.of(entity).authority
-        m_instance.SetEndpointOnlineHook(MakeEndpointOnlineHook());
+        m_instance.Network().SetSpawnResolverFactory([this] { return MakeSpawnResolver(); });
         ApplyNetworkStartup(
             m_instance); // enter a preset server/client role at startup (None = offline)
 
@@ -322,8 +322,8 @@ namespace engine::runtime
         m_scenes->RegisterManager(&gi->Scenes());
         m_scripts->ConfigureRunHost(gi->RunHost());
         InstallInstanceLoadFacade(*gi, *m_host); // run.* level-load facade for this extra instance
-        gi->SetEndpointOnlineHook(
-            MakeEndpointOnlineHook()); // its own endpoint, wired like the primary
+        gi->Network().SetSpawnResolverFactory( // its endpoints, wired like the primary
+            [this] { return MakeSpawnResolver(); });
         if (m_input != nullptr)
         {
             gi->SetInputSource(&m_input->ShellSource());
@@ -654,39 +654,33 @@ namespace engine::runtime
                                frame.height, frame.frameIndex);
     }
 
-    EndpointOnlineHook DefaultApplication::MakeEndpointOnlineHook()
+    net::StateReplication::SpawnHandler DefaultApplication::MakeSpawnResolver()
     {
         DefaultApplication* self = this;
-        return EndpointOnlineHook{
-            [self](net::NetworkManager& endpoint)
+        // The resolver itself (content DB -> a live prefab); the NetworkController applies it to each
+        // endpoint (networking-extraction.md P4). The app owns only the content-DB knowledge here.
+        return net::StateReplication::SpawnHandler{
+            [self](foundation::scene::Scene& scene, const core::Guid& prefabId,
+                   net::NetworkId) -> foundation::scene::EntityHandle
             {
-                endpoint.Replication().SetSpawnHandler(
-                    core::Function<foundation::scene::EntityHandle(
-                        foundation::scene::Scene&, const core::Guid&, net::NetworkId)>{
-                        [self](foundation::scene::Scene& scene, const core::Guid& prefabId,
-                               net::NetworkId) -> foundation::scene::EntityHandle
-                        {
-                            if (self->m_contentDatabase == nullptr)
-                            {
-                                return foundation::scene::EntityHandle::Invalid();
-                            }
-                            foundation::content::Instance* prefab =
-                                self->m_contentDatabase->GetInstance(prefabId);
-                            core::UniquePtr<core::IStream> payload =
-                                (prefab != nullptr) ? prefab->ReadData(u8"scene")
-                                                    : core::UniquePtr<core::IStream>{};
-                            if (!payload)
-                            {
-                                return foundation::scene::EntityHandle::Invalid();
-                            }
-                            const foundation::scene::EntityHandle root =
-                                foundation::scene::SpawnPrefab(scene, *payload, prefabId);
-                            if (root.IsAssigned() && self->Resources() != nullptr)
-                            {
-                                foundation::scene::ResolveSceneResources(scene, *self->Resources());
-                            }
-                            return root;
-                        }});
+                if (self->m_contentDatabase == nullptr)
+                {
+                    return foundation::scene::EntityHandle::Invalid();
+                }
+                foundation::content::Instance* prefab = self->m_contentDatabase->GetInstance(prefabId);
+                core::UniquePtr<core::IStream> payload =
+                    (prefab != nullptr) ? prefab->ReadData(u8"scene") : core::UniquePtr<core::IStream>{};
+                if (!payload)
+                {
+                    return foundation::scene::EntityHandle::Invalid();
+                }
+                const foundation::scene::EntityHandle root =
+                    foundation::scene::SpawnPrefab(scene, *payload, prefabId);
+                if (root.IsAssigned() && self->Resources() != nullptr)
+                {
+                    foundation::scene::ResolveSceneResources(scene, *self->Resources());
+                }
+                return root;
             }};
     }
 

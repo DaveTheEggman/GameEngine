@@ -194,17 +194,16 @@ TEST_CASE("game-instance: each instance owns an independent networked endpoint (
 TEST_CASE("network-controller: role lifecycle - start, stop, reconnect, and the online hook")
 {
     // The extracted NetworkController (networking-extraction.md P1), tested directly: it owns the
-    // endpoint + INetworkController role, and its stable identity means the online hook is not consumed
-    // (fires on every go-online). The final destruct with a LIVE endpoint exercises the socket +
-    // session teardown path (the UAF-prone class - run under ASAN).
+    // endpoint + INetworkController role. P4: the app-injected spawn resolver is applied to EVERY endpoint
+    // the controller opens (reconnect too - not consumed), asserted via Replication().HasSpawnHandler().
+    // The final destruct with a LIVE endpoint exercises the socket + session teardown path (ASAN).
     engine::runtime::NetworkController controller;
-    int onlineCount = 0;
-    foundation::net::NetworkManager* lastEndpoint = nullptr;
-    controller.SetEndpointOnlineHook(
-        [&](foundation::net::NetworkManager& endpoint)
+    controller.SetSpawnResolverFactory(
+        []() -> foundation::net::StateReplication::SpawnHandler
         {
-            ++onlineCount;
-            lastEndpoint = &endpoint;
+            return [](foundation::scene::Scene&, const Guid&,
+                      foundation::net::NetworkId) -> foundation::scene::EntityHandle
+            { return foundation::scene::EntityHandle::Invalid(); };
         });
 
     CHECK(controller.NetEndpoint() == nullptr); // offline until a role is entered
@@ -213,17 +212,15 @@ TEST_CASE("network-controller: role lifecycle - start, stop, reconnect, and the 
     REQUIRE(controller.NetEndpoint() != nullptr);
     CHECK(controller.NetEndpoint()->Session().IsServer());
     CHECK(controller.NetEndpoint()->BoundPort() != 0u);
-    CHECK(onlineCount == 1);                        // the hook fired with the fresh endpoint
-    CHECK(lastEndpoint == controller.NetEndpoint());
+    CHECK(controller.NetEndpoint()->Replication().HasSpawnHandler()); // resolver applied to the endpoint
 
     controller.StopNetworking();
     CHECK(controller.NetEndpoint() == nullptr);     // the endpoint drops
 
-    // Reconnect: a fresh endpoint, and the hook fires AGAIN (not consumed).
+    // Reconnect: a fresh endpoint, and the resolver is applied AGAIN (the controller owns it, not consumed).
     REQUIRE(controller.StartServer(/*port=*/0, /*dedicated=*/true));
     REQUIRE(controller.NetEndpoint() != nullptr);
-    CHECK(onlineCount == 2);
-    CHECK(lastEndpoint == controller.NetEndpoint());
+    CHECK(controller.NetEndpoint()->Replication().HasSpawnHandler());
     // controller destructs here holding a live endpoint - the socket + session teardown path.
 }
 

@@ -259,6 +259,9 @@ export namespace foundation::net
         using SpawnHandler =
             core::Function<scene::EntityHandle(scene::Scene&, const Guid&, NetworkId)>;
         void SetSpawnHandler(SpawnHandler handler);
+        // Whether a spawn handler is installed (the NetworkController re-applies its injected resolver to
+        // each fresh endpoint - networking-extraction.md P4; this lets that wiring be asserted).
+        [[nodiscard]] bool HasSpawnHandler() const noexcept { return static_cast<bool>(m_spawnHandler); }
 
         // Per-peer RELEVANCY / interest (§5.6 - fog-of-war is SECURITY, not just bandwidth): return true
         // if `id` should be replicated to `peerId`. Unset => everything is relevant to everyone. When an

@@ -27,10 +27,10 @@ namespace engine::runtime
         }
         m_net->SetReplicatedScene(m_scene);
         WireSceneSystem(m_net.Get()); // the replicated scene's fixed lane now drives this endpoint
-        if (m_onEndpointOnline)
+        if (m_spawnResolverFactory)
         {
-            m_onEndpointOnline(*m_net);
-        } // app wires per-endpoint setup (spawn resolver)
+            m_net->Replication().SetSpawnHandler(m_spawnResolverFactory()); // controller owns the wiring
+        }
         LOG_INFO(u8"App", u8"server listening on port {}", m_net->BoundPort());
         return true;
     }
@@ -45,9 +45,9 @@ namespace engine::runtime
         }
         m_net->SetReplicatedScene(m_scene);
         WireSceneSystem(m_net.Get()); // the replicated scene's fixed lane now drives this endpoint
-        if (m_onEndpointOnline)
+        if (m_spawnResolverFactory)
         {
-            m_onEndpointOnline(*m_net);
+            m_net->Replication().SetSpawnHandler(m_spawnResolverFactory()); // controller owns the wiring
         }
         LOG_INFO(u8"App", u8"connecting to {}:{}", host, port);
         return true;

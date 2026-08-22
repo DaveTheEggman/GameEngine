@@ -13,6 +13,7 @@ export module engine.gameinstance:networkcontroller;
 import foundation.core;
 import foundation.scene;        // scene::Scene (the replicated scene) + GetSystem
 import foundation.net.manager;  // NetworkManager + INetworkController + NetScriptBinding
+import foundation.net.replication; // StateReplication::SpawnHandler (the net-spawn resolver type)
 import foundation.script;       // IScriptContext (InstallNetScriptService)
 import engine.net;              // NetworkSceneSystem (the per-scene fixed-lane replication driver)
 
@@ -25,10 +26,13 @@ export namespace engine::runtime
     namespace scene = foundation::scene;
     namespace script = foundation::script;
 
-    // A hook the app sets once and the controller fires on every go-online, passing the freshly created
-    // endpoint. The app uses it to wire per-endpoint setup that needs app state (e.g. the prefab
-    // net-spawn resolver, which needs the content DB) - fresh each time, so reconnect stays correct.
-    using EndpointOnlineHook = core::Function<void(net::NetworkManager&)>;
+    // The prefab net-spawn resolver FACTORY: injected once by the app at wiring (it needs app state - the
+    // content DB) and invoked by the controller to make a fresh resolver for EVERY endpoint it opens, so
+    // reconnect keeps it (networking-extraction.md P4). A factory (not the resolver itself) because
+    // StateReplication::SpawnHandler is move-only - the controller must produce one per endpoint, not copy
+    // one. Replaces the former general EndpointOnlineHook (whose only use this was): the app no longer
+    // wires the endpoint per go-online; it hands over the factory and the controller owns the wiring.
+    using SpawnResolverFactory = Function<net::StateReplication::SpawnHandler()>;
 
     // A running game's networking. Owns the endpoint (null = offline), implements INetworkController for
     // the Net facade, and caches the current scene so a freshly created endpoint replicates it. The
@@ -57,12 +61,11 @@ export namespace engine::runtime
             WireSceneSystem(m_net.Get()); // attach the NEW scene's system (live endpoint, or null offline)
         }
 
-        /// App-set hook fired (with the live endpoint) on each go-online, so the app can wire
-        /// per-endpoint setup that needs app state (the net-spawn resolver from the content DB). Not
-        /// consumed - reconnect re-runs it.
-        void SetEndpointOnlineHook(EndpointOnlineHook hook)
+        /// Inject the prefab net-spawn resolver factory (app-owned, content-DB-backed). The controller
+        /// invokes it to make a fresh resolver for each endpoint it opens, so reconnect keeps it.
+        void SetSpawnResolverFactory(SpawnResolverFactory factory)
         {
-            m_onEndpointOnline = static_cast<EndpointOnlineHook&&>(hook);
+            m_spawnResolverFactory = static_cast<SpawnResolverFactory&&>(factory);
         }
 
         /// Point `context` at this controller's net binding (controller=this), so the Net facade resolves
@@ -108,7 +111,7 @@ export namespace engine::runtime
 
         core::UniquePtr<net::NetworkManager> m_net; // this run's endpoint (null = offline)
         net::NetScriptBinding m_binding;            // stable; the facade resolves controller=this
-        EndpointOnlineHook m_onEndpointOnline;      // app-set; fires with m_net on each go-online
+        SpawnResolverFactory m_spawnResolverFactory; // app-injected; makes a resolver per endpoint
         scene::Scene* m_scene = nullptr;            // the scene a fresh endpoint replicates
     };
 }

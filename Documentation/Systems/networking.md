@@ -42,10 +42,13 @@ late-join - no hand-written per-component net code. First target is real-time st
 
 ## Roles + startup
 
-`NetworkStartup` carries the role (`NetworkRole` None/Server/Client) + preset; `StartNetworking`
-enters it. Per-instance: each `GameInstance` has its own endpoint and goes online at runtime via
-the `Net` facade (`Net.startServer` / `Net.connect`), so a single process can host multiple
-instances. The primary instance carries the prefab net-spawn resolver hook.
+`NetworkStartup` carries the role (`NetworkRole` None/Server/Client) + preset; the app's role-preset
+startup is a thin call into the instance's controller. Per-instance: each `GameInstance` has its own
+endpoint and goes online at runtime via the `Net` facade (`Net.startServer` / `Net.connect`), so a
+single process can host multiple instances. The prefab net-spawn resolver is injected once as a factory
+onto each instance's `NetworkController` (`Network().SetSpawnResolverFactory` - networking-extraction.md
+P4); the controller makes one per endpoint and installs it, so reconnect keeps it. The app provides only
+the content-DB-backed factory (`MakeSpawnResolver`); it no longer wires the endpoint itself.
 
 ## Replication (`StateReplication`)
 

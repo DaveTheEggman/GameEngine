@@ -280,11 +280,12 @@ export namespace engine::runtime
             }
         }
 
-        // The online hook wired onto every GameInstance: when its endpoint goes online, install the
-        // client-side prefab net-spawn resolver (a replicated prefab id -> a live prefab from the
-        // content DB; replication then applies the transform + fields on top). The server assigns ids;
-        // game rules set relevancy. Built fresh each go-online so a reconnect re-wires correctly.
-        [[nodiscard]] EndpointOnlineHook MakeEndpointOnlineHook();
+        // The client-side prefab net-spawn resolver injected onto every GameInstance's NetworkController
+        // (networking-extraction.md P4): a replicated prefab id -> a live prefab from the content DB
+        // (replication then applies the transform + fields on top). The server assigns ids; game rules
+        // set relevancy. The controller applies it to each endpoint, so reconnect keeps it - the app just
+        // hands it over once at wiring (it needs the content DB), no longer wiring the endpoint itself.
+        [[nodiscard]] net::StateReplication::SpawnHandler MakeSpawnResolver();
 
         // Enter the preset startup role on the primary instance (None = single-player, no-op). The
         // reliable-config tuning uses the endpoint defaults here; the preset path is the CLI/dedicated
