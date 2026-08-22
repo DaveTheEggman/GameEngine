@@ -1,9 +1,12 @@
 # PaperKid - a small game (design + build plan)
 
-> Status: P0 READY TO BUILD (prereqs done + project skeleton committed 2026-08-19; six gameplay
-> decisions locked). A vertical-slice game to exercise the game-ready runtime end to end,
-> built as the tracked, committed EDITOR SAMPLE PROJECT (authored in-editor - it dogfoods the whole
-> authoring stack; absorbs the week-2026-08-22 "editor sample project" seed).
+> Status: **P0 DONE + PLAYABLE IN-EDITOR** (2026-08-22). The scripted screen-flow backbone runs end to
+> end in a GameEditorPage tab, behaving like the standalone runtime; several engine seams were built to
+> get there (see "Current state" below). NEXT UP: P1 (the ride + deliver loop). Prereqs done + project
+> skeleton committed 2026-08-19; six gameplay decisions locked. A vertical-slice game to exercise the
+> game-ready runtime end to end, built as the tracked, committed EDITOR SAMPLE PROJECT (authored
+> in-editor - it dogfoods the whole authoring stack; absorbs the week-2026-08-22 "editor sample project"
+> seed).
 > Locked decisions (2026-08-13): third-person 3D follow camera; FREE-ROAM a town block; PRIMITIVE
 > blockout art. Author: Opus, from a design exchange. Opus builds; Fable reviews per phase.
 >
@@ -189,25 +192,240 @@ so **PaperKid P0 is UNBLOCKED**. `scene.ui` (P2-3) stays deferred but PaperKid d
 HUD and all seven screens ride the SCREEN tier. Remaining P2-5 loose ends (ScriptName component-alias
 sweep; delete the SceneLoader alias) are cleanup, not blockers.
 
-## Phases
+## Current state (what is DONE, so a fresh session can resume)
 
-**P0 - Skeleton + the screen flow (the backbone first).** The `PaperKidGame` state machine +
-placeholder screens for all seven states + HUD; Boot -> Loading -> Main menu -> Start -> an empty
-Playing scene -> Pause -> Resume/Quit all work; Settings opens from menu + pause and returns
-correctly. No gameplay yet. Proves the flow the whole game hangs on.
+**P0 is complete and playable in a GameEditorPage tab.** Verified flow: boot -> Main menu; New Game
+loads MainScene (the scene actually switches AND renders in-editor); Settings opens from the menu and
+returns; Quit ends the play session; ESC toggles a Pause overlay over the running scene and Resume
+drops it. Play-in-editor now behaves like the standalone runtime, which was the explicit goal.
 
-**P1 - The ride + deliver loop (one block).** Bike control + third-person camera; one authored block
-with marked subscriber houses + delivery zones; throw + soft auto-aim + delivery scoring; timer +
-quota; real Level Cleared / Level Failed transitions. The core loop is playable on one level.
+### Engine seams built this session to make P0 work (all committed, both compilers green)
 
-**P2 - Obstacles + crash.** Vehicles + pedestrians on paths, static junk, collision -> crash effect,
-limited papers, the level-data difficulty knobs. The loop gains its challenge.
+These were NOT pre-existing - PaperKid P0 drove them out. A fresh session building P1+ can rely on them:
 
-**P3 - Progression + full screens + settings.** Level list + advance, lives + Game Over, real Loading
-screen, and finished Main/Pause/Cleared/Failed/GameOver + Settings (audio volumes + input rebind).
+- **`button.onClick(Action(this.method))` seam** - `Screen.findButton(id)` returns a view handle; its
+  `.onClick(handler)` takes an AngelScript `Action` funcdef wrapping a global fn OR a method delegate
+  (`Action(this.onStartGame)`). Method-delegate extraction from the `?&in IScriptDelegate` arg was
+  broken (GETOBJREF vs GETREF indirection) and is fixed (commit `624c56ee`).
+- **`run::requestExit(code)`** - a Game script can end the run; in-editor it stops the play session,
+  standalone it exits the app (`2cf84197`, via `IApplicationHost::RequestExit`).
+- **Play-in-editor renders + FOLLOWS the instance's scene** - `GameEditorPage` now (a) draws the game
+  screen-tier UI overlay (`b8711e3a`, was fetching RenderSubsystem from the wrong context), and (b)
+  calls `FollowInstanceScene()` each update: adopts `m_gameInstance->GetScene()` when it changes,
+  retires the outgoing scene (Stop + DestroyScene), honors pause, and **calls `EnsureCamera(*m_scene)`
+  on the adopted scene** - a scene loaded via `run::loadScene` may ship no camera, and without a default
+  one RenderScene draws nothing and the old frame lingers (`3f049890`). `GameInstance::ClearScenes()`
+  drops in-flight tracked loads before clearing (post-Stop PumpScriptLoads UAF fix, same commit).
+- **Editor wires the embedded app's content DB** - `run::loadScene` guards on a content DB + Resources;
+  the editor now sets `m_embeddedApp->SetContentDatabase(&m_project->SourceDb())` at project open and
+  clears it at close (`415c2545`). Without this, `loadScene` returned false in-editor and the scene
+  never switched.
+- **UI docs/themes store source as a linked `Sources/` file** like scripts (`3dd2e39d`); the editor
+  UIDocumentPage edits the linked source. `.sml` = document, `.sss` = theme.
+- **UI button-dispatch hardened against a self-destroying target** - `RefPtr` pins in FireClick +
+  dispatch so a handler that rebuilds/frees its own view mid-click can't UAF (`f60e087f`).
+- **InputMapPage: Listen-click crash fixed + Escape is bindable** (`bc79810d`) - BeginListen uses
+  `RequestRebuild()` not inline `Rebuild()`; the Listen button toggles to "Cancel" while listening;
+  Escape is no longer swallowed as cancel, so it can be bound. (User bound Pause->ESC in the map.)
 
-**P4 - Content + juice.** 3-5 blocks on a difficulty ramp; audio (music + SFX); HUD polish (markers,
-optional minimap); camera + crash feel tuning.
+### Ground-truth project inventory (SampleProjects/PaperKid/)
+
+- **Project.xml:** `defaultSceneId` = StartScene `c83b3435-c2a2-4224-9778-35736dd26221` (boot scene);
+  `startupScriptId` = PaperKidGame `6c8ed2f6-fa3f-4265-87b7-9365e2d6022c`; input map
+  `286f2ecc-...`; bus layout `5be7a51f-...`; UI font Roboto `997e2b40-...`; no UI theme yet
+  (`defaultUiThemeId` all-zero); no `loadingDocumentId` yet; no `nativeModule` (zero native code).
+- **Sources/:** `PaperKidGame.as` (the Game tier), `main-menu.sml`, `pause.sml`, `settings.sml`,
+  `Roboto-Regular.ttf`. (Cooked envelopes: `Content/UI/{main-menu,pause,settings}.xasset`.)
+- **Scenes:** `StartScene` (boot; guid `c83b3435-...`) and `MainScene` (the "Playing" level; guid
+  `855ffed4-4da7-4fa0-9756-a95c6c842890`). Both internally named "Scene". Both currently near-empty
+  (no camera shipped -> EnsureCamera covers it). `.scene.bin` sidecar + `.xasset` envelope each.
+- **Meshes:** `Cube`, `Plane`, `Sphere` (the blockout primitive kit). **Audio:** DefaultAudioBusLayout.
+- **Input map (`DefaultInputMap`, set "Gameplay", priority 0):** actions `Move` (axis2d), `Look`
+  (axis2d), `Jump` (button), `Fire` (button), `Pause` (button, bound to keycode 62 = ESC). Only Pause
+  is bound today; Move/Look/Jump/Fire are declared but UNBOUND - P1 wires them (Move->WASD, Fire->Throw
+  key, etc., and likely renames toward Steer/Accelerate/Brake/Throw).
+
+### Recipes + gotchas a fresh session MUST know before touching PaperKid
+
+- **Script facade call syntax:** static facades use scope resolution - `run::loadScene(guid)`,
+  `run::requestExit()`, `ui::push(guid)`, `ui::pop()`, `ui::clear()`, `Input::wasPressed("Pause")`,
+  `Log::info(...)`. Value handles use dot: `menu.findButton("start-btn").onClick(...)`. [[script-facade-call-syntax]]
+- **Guids in scripts:** `Guid(high, low)` - the two u64 halves of the UUID (first 8 bytes = high, last
+  8 = low). There is NO string Guid ctor / load-by-name for scripts. Every guid literal in the script
+  MUST match its `.xasset` envelope. See the header of `PaperKidGame.as` for the live table.
+- **Input is action-based:** an action fires only if it EXISTS in the map AND is in the active set. New
+  gameplay inputs (Throw, Steer, ...) must be added to the input map before the script can read them.
+- **A `run::loadScene`d scene needs a camera** or nothing renders - author one into the scene, or rely
+  on EnsureCamera (P0's crutch). P1 should author a real camera / follow-cam rig into MainScene.
+- Screens are UIDocuments authored in `.sml` (linked `Sources/` source), pushed by guid via `ui::push`;
+  id-tagged controls (`<Button id="start-btn"/>`) are found with `findButton(id)`.
+- Editor font is codepoints <=255 (ASCII/Latin-1) - stick to ASCII in UI text. [[editor-font-glyph-range]]
+
+## Phases (overview)
+
+- **P0 - DONE.** Skeleton + screen flow: PaperKidGame state machine + Main/Pause/Settings screens; boot
+  -> menu -> New Game (loads + renders MainScene) -> Pause/Resume/Quit; Settings round-trips. No gameplay.
+- **P1 - The ride + deliver loop (one block).** Bike control + third-person camera; one authored block
+  with marked subscriber houses + delivery zones; throw + soft auto-aim + delivery scoring; timer +
+  quota; real Level Cleared / Level Failed transitions. Core loop playable on one level.
+- **P2 - Obstacles + crash.** Vehicles + pedestrians as nav agents, static junk, collision -> crash
+  effect, limited papers, the level-data difficulty knobs. The loop gains its challenge.
+- **P3 - Progression + full screens + settings.** Level list + advance, lives + Game Over, real
+  Loading screen, finished Cleared/Failed/GameOver + Settings (audio volumes + input rebind).
+- **P4 - Content + juice.** 3-5 blocks on a difficulty ramp; audio (music + SFX); HUD polish (markers,
+  optional minimap); camera + crash feel tuning.
+
+## Detailed build plan (remaining work, fresh-session-executable)
+
+Each step lists the assets to author, the scripts to write, the engine seams it rides, and how to
+verify. Author everything in-editor (dogfood), test each slice in a GameEditorPage tab. Land with tests
+where a native/engine change is involved; commit in logical pieces; verify DEBUG on build/clang AND
+build/gcc before committing. [[tests-required-for-additions]] [[dev-build-config]]
+
+### P1 - The ride + deliver loop (one block)
+
+Goal: one hand-authored block is fully playable - ride, find marked subscriber houses, throw papers,
+score deliveries, meet a quota before a timer, and hit real Cleared/Failed screens.
+
+**P1-1 Author the block scene (MainScene).** In the scene editor: a ground `Plane`, `Cube` walls/edges
+to bound the block, a few `Cube` houses (some are subscribers), simple road layout from `Cube`/`Plane`.
+Add a real **camera** entity (P0's EnsureCamera is a crutch - MainScene should own its camera, which the
+follow-cam below drives). Keep it primitive/blockout. Verify: New Game shows the authored block.
+
+**P1-2 Player bike entity + control behavior.** Entity with a `CharacterComponent` (Jolt
+CharacterVirtual, kinematic arcade feel - decided, no ragdoll). Write `Bike.as` behavior:
+`onUpdate(dt)` reads Steer (axis) + Accelerate/Brake actions -> turn + move the character; clamp speed.
+First WIRE the input map: add/point Steer (axis), Accelerate, Brake, Throw actions to keys (Move/Fire
+already declared - rename or reuse). Verify: you can drive the bike around the block. [[physics-p1]]
+[[script-behaviors-p1]] [[input-subsystem]]
+
+**P1-3 Third-person follow camera.** A follow-cam that trails/orbits behind the bike with position +
+look smoothing and a small look-ahead bias. Start as an AngelScript behavior on the camera entity
+reading the bike's transform; **only** drop to a native component if the behavior reads worse (the sole
+sanctioned native candidate - if taken, it is its own out-of-tree module named `PaperKid`, never `Game`
+[[facade-pattern]]). Verify: camera follows smoothly, upcoming obstacles read.
+
+**P1-4 Subscriber houses + delivery zones (ZERO native).** Per the locked marking decision: a
+subscriber house carries a `Subscriber.as` **behavior** (its presence IS the mark; per-house data =
+authored behavior fields). Add an `isTrigger` collider = the delivery zone. The visible marker is a
+child mesh (later driven by a property-animation clip in P4). Papers ride their own **physics group** so
+the trigger fires only for papers (no name-sniffing). `Subscriber.onTriggerEnter(other)` ->
+`scene.events.emit("Delivered", <payload>)`. Verify: walking a test collider into a zone logs a
+delivery. [[physics-p1]]
+
+**P1-5 Throw + papers + soft auto-aim.** `Throw` action in `Bike.as` -> `Scene.spawn` a **paper
+prefab** (a small `Cube`/`Sphere` with a collider on the papers physics group) with an initial velocity;
+soft auto-aim biases the velocity toward the nearest subscriber delivery zone IN FRONT of the bike.
+Papers are limited per level. Verify: throwing lands papers; a paper entering a zone registers once.
+
+**P1-6 The Level tier relay + Game scoring.** Author a **Level-tier script** on MainScene
+(onStart/onUpdate/onStop): it owns the countdown timer (ticks only while Playing - per-scene time),
+tracks papers remaining, and RE-EMITS to the run bus what the Game needs: `Delivered`, `QuotaMet`,
+`TimeUp`, `OutOfPapers` (explicit relay - no implicit scene->run bridge). Extend the **Game** script
+(`PaperKidGame.as`) with `on<Delivered>` / `on<QuotaMet>` / `on<TimeUp>` inbox handlers: count toward
+quota + score, and drive state to LevelCleared / LevelFailed. Verify: meeting the quota before time ->
+Cleared; timer 0 (or out of papers, quota unmet) -> Failed. [[scene-scripting-tier]]
+[[game-ready-scripting-spec]]
+
+**P1-7 A minimal HUD + Cleared/Failed screens.** Add a HUD UIDocument (`Sources/hud.sml`): time,
+papers, deliveries x/quota, score. Drive its labels from script via reflected View handles
+(`hud.findByName("score").text = ...`). Author `level-cleared.sml` + `level-failed.sml` screens (with a
+Continue / Retry / Quit button each) and wire them like the P0 screens. Verify: HUD updates live; the
+end screens appear on the right transition. [[game-ui-subsystem]] [[game-ui-p1-progress]]
+
+**P1 acceptance:** one level is fully playable start to finish - ride, deliver to quota under a timer,
+see the correct Cleared/Failed screen. Camera + throw feel is rough (juice is P4).
+
+### P2 - Obstacles + crash
+
+Goal: the loop gains challenge - moving hazards, a crash penalty, limited papers made to matter, and the
+per-level difficulty knobs.
+
+**P2-1 Bake a NavigationZone on the block.** In-editor: place the NavigationZone, Bake (dogfood the
+nav authoring - zone gizmo + Bake button). Verify the navmesh covers the drivable/walkable area.
+[[navigation-track]]
+
+**P2-2 Pedestrians as nav agents.** A `Pedestrian.as` behavior on an agent entity: wander/patrol nav
+points at a data-driven speed. Spawn a few via a spawner or authored placement. Verify: pedestrians
+walk the block on the navmesh.
+
+**P2-3 Vehicles as nav agents on lane paths.** A `Vehicle.as` behavior: follow authored lane paths as
+an agent, speed from level data. Verify: cars drive their lanes.
+
+**P2-4 Static junk.** Bins/hydrants/cones = plain `Cube`/`Cylinder` colliders (no behavior). Place a
+few. Verify: they block the bike.
+
+**P2-5 Crash on contact.** Player-vs-obstacle collision events (`onContactBegin`) -> the bike emits
+`Crashed` -> Level relays -> Game applies the crash model: knockback + ~1.5s control dampen + a few
+seconds off the clock (recoverable knockdown, NO damage model - decided). Verify: hitting a car/ped/junk
+crashes recoverably and docks time. [[physics-p1]]
+
+**P2-6 Level-data difficulty knobs.** A per-scene settings block (or small data asset): time limit,
+delivery quota, paper count, block size, obstacle density + speed, pedestrian count. The Level script
+reads it on onStart. Verify: changing the data changes the level's difficulty without code edits.
+
+**P2 acceptance:** the one block is now a real arcade challenge - dodge traffic + pedestrians, papers
+are scarce, crashes cost time; all difficulty comes from level data.
+
+### P3 - Progression + full screens + settings
+
+Goal: multiple levels chained, lives + Game Over, and every screen finished for real (including
+Settings with working audio volumes + input rebind).
+
+**P3-1 Level list + advance.** The Game script holds an ordered level list (scene guids) + a current
+index. LevelCleared -> Continue -> `run::loadScene(next)` -> Loading -> Playing. Last level cleared ->
+GameOver (win summary). Verify: clearing L1 advances to L2.
+
+**P3-2 Lives + retry + Game Over.** Start with 3 lives. LevelFailed spends a life; Retry (lives>0) ->
+reload the same level; 0 lives -> GameOver. Author `game-over.sml` (final score + reached level + Main
+menu button). Verify: fail 3x -> Game Over; Retry replays the level.
+
+**P3-3 Real Loading screen.** Author a Loading UIDocument (progress/spinner) shown across every async
+scene-load boundary; set Project.xml `loadingDocumentId`. The Game pushes it on load start, pops on
+level ready. Verify: a load shows the Loading screen, not a frozen frame.
+
+**P3-4 Finish Settings - audio volumes.** Settings screen sliders for master/music/sfx bound to the
+audio bus layout; persist to per-project settings. Verify: changing a slider changes volume live and
+survives a restart. [[audio-subsystem]]
+
+**P3-5 Finish Settings - input rebind.** Reuse the InputMapPage rebind surface (Listen/Cancel, now
+crash-free) or a game-side rebind screen for Steer/Accelerate/Brake/Throw/Pause. Verify: rebinding a
+key takes effect in gameplay. [[input-subsystem]]
+
+**P3-6 Polish all seven screens.** Main / Pause / Settings / Loading / LevelCleared / LevelFailed /
+GameOver: consistent theme (author a `.sss` theme, set `defaultUiThemeId`), correct back-navigation
+(Settings returns to menu OR pause per `m_settingsReturn`, already handled). Verify: every state
+transition in the state-machine diagram works both directions.
+
+**P3 acceptance:** a full run from Main menu through several levels to a win or Game Over, with working
+Settings, matches the state machine at the top of this doc.
+
+### P4 - Content + juice
+
+Goal: enough content for a real difficulty arc, sound, and the "tells" + feel that make it read as a
+game rather than a tech demo.
+
+**P4-1 3-5 blocks on a difficulty ramp.** Hand-author 3-5 scenes from the same prefab kit; tune each
+one's level-data (L1 small/slow/generous -> later bigger/busier/tighter). Add them to the Game's level
+list in order. Verify: difficulty ramps sensibly across the set.
+
+**P4-2 Audio.** miniaudio: a music bus per screen/gameplay + SFX (throw, delivery ding, crash, clear,
+fail, countdown warning). Volumes already bound to Settings (P3-4). Verify: each event has sound;
+volumes obey Settings. [[audio-subsystem]]
+
+**P4-3 Property-animation "tells."** Author property-animation clips (on the clip editor page) and play
+them from script/behavior: subscriber markers pulse/bob, delivery-zone rings breathe, crash
+camera-shake / knockdown, screen transitions, incidental set-dressing (a door, a swaying sign). NO
+per-frame script lerps - clips. Verify: the tells read; a first-time player finds houses + feels crashes.
+[[property-animation-takeover]]
+
+**P4-4 HUD polish + camera/crash feel tuning.** Finalize HUD (clear markers; optional minimap is a
+stretch - decided against for core, revisit only if houses are hard to find). Tune follow-cam smoothing
++ look-ahead and the crash knockback/dampen curve until the ride feels good. Verify: the game is fun to
+play through once, front to back.
+
+**P4 acceptance:** a complete, juiced vertical slice - 3-5 blocks, sound, readable tells, good feel -
+that exercises the whole game-ready runtime (the original point of the exercise).
 
 ## Decisions
 
