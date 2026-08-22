@@ -418,3 +418,56 @@ Remaining user steps (not review blockers): the editor-side on-screen pass of
 the Bake button + zone gizmo + inspector (P5's open item).
 
 Baseline for pass 12: eadc76d6 + this pass's fix commit.
+
+## Review pass 12 (2026-08-19, Fable): Wren retirement + scripting2 P2 + game-UI kit + preview track + PaperKid P0 + audio cluster - PASS
+
+Scope: 96 commits since pass 11 (8222cc25..a7b951f7), seven tracks. Full
+two-compiler battery ALL_GREEN (145 test binaries each); ASAN run over the
+whole script set (Script/AngelScript/Luau/Engine.Script/ScriptSurface/
+UI.Script) - clean, per the script-changes rule.
+
+**Verified against the rulings trail:**
+- Wren retirement (1b220034): ZERO traces - code, CMake options, ThirdParty
+  all clean. Backend set is AngelScript + Luau.
+- game-ready-scripting2 P2: SceneLoader fully absorbed then deleted (zero
+  references); the ScriptName alias mechanism matches the ruling exactly
+  (attribute-based, FinalizeTypes duplicate-name trap covering class names
+  AND aliases incl. reserved `run`, tests in both backend suites);
+  kSubsystemFacadeNameCount consistent at 32 (net zero: -SceneLoader -Ui
+  +run +ui) and the check caught the lowercase-`ui` spelling (87042268) -
+  third save for that tripwire.
+- game-UI kit P1/P2: ScreenStack mutations route through
+  MutationQueueRef().QueueAction (finding A honored; onComplete tree
+  mutations too, 21cbcf0a); the finding-B stale-handle test exists verbatim
+  (UiScriptHandleTests: detached-but-alive, safe no-op, releases on drop);
+  the root binding moved to engine.ui.script's own per-context service - a
+  sound spec correction (tiers are engine-only).
+- Preview track (a-h): complete; the only hand-rolled loops left are the
+  scene/game pages (out of scope by ruling) + ONE overlooked consumer (see
+  findings). Sim-gating coupling handled correctly: the clip/animgraph pages
+  drive their own transports (SampleClip/players - no manager dependency);
+  the particle page correctly enables preview-scene simulation.
+- Audio cluster: empty-cue = the ruling verbatim (valid empty product +
+  draft-state hint + project_health warning + Integration.Mcp test) with the
+  builder Version 1->2 bump SAME COMMIT. Audition stack/stop/pause +
+  AudioSource visibleWhen declutter landed.
+- PaperKid P0: tracked at SampleProjects/PaperKid (not the untracked root
+  dirs); scene sources are text envelopes + binary sidecars (correct);
+  playable in-editor with the scripted screen flow.
+
+**Findings (minor, queued - none block):**
+1. PaperKid's Content/Meshes/*.xasset carry INLINE mesh payloads (Sphere
+   492K) - against the bulk-sidecar rule's spirit; small enough today, but
+   meshes should ride WriteData sidecars like the scenes do. Small fix.
+2. UIDocumentPage (Editor.GameUI) still hand-rolls the preview scaffolding -
+   a 7th PreviewViewport consumer the COMPLETE-stamped track didn't list.
+   Queue the migration; cheap now that the API is proven against six.
+3. Bin/Debug/Linux64-Clang-ASAN holds stale pre-rename-era binaries (incl. a
+   Wren-era one). NOT deleted (the never-delete-Bin rule); current script
+   targets rebuilt over it for this pass. Worth a user-sanctioned prune.
+4. The MSVC/Windows fix (9e4e481a) cannot be verified on this box - routed
+   to the next Windows session, the pass-10 pattern.
+5. The AngelScript delegate-funcdef cleanup seeded for Fable (1cedccbd) is
+   acknowledged as next-week work, not reviewed here.
+
+Baseline for pass 13: a7b951f7 + this pass's doc commit.
