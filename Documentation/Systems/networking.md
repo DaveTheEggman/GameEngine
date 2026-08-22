@@ -22,8 +22,11 @@ late-join - no hand-written per-component net code. First target is real-time st
   streamable-HTTP host, the WebSocket upgrade path (a WS connection begins as an HTTP request -
   this server is the web-networking server's front door), loopback tooling/tests.
 - **`foundation.net.manager`** - `NetworkManager` (a session endpoint) + `INetworkController` +
-  the `Net` script-facade binding. A GameInstance owns its OWN `NetworkManager` and goes online
-  at RUNTIME via the facade (no app-owned socket).
+  the `Net` script-facade binding. A GameInstance owns its OWN networking and goes online at
+  RUNTIME via the facade (no app-owned socket). The endpoint + role lifecycle + `INetworkController`
+  impl live on `engine.runtime::NetworkController` (`engine.gameinstance`), which the GameInstance
+  COMPOSES and forwards to (networking-extraction.md P1; GameInstance no longer inherits
+  `INetworkController`). Later phases move the per-frame drive onto the standard lanes.
 - **`foundation.net.replication`** - `StateReplication` + the `IReplicationModel` seam.
 - **`engine.net`** - `NetworkSubsystem` (an `ISceneObserver` runtime home; the net managers install via the net `SceneModule` - [[scene-composition]]) that wires the
   `NetworkComponentManager` into scenes).

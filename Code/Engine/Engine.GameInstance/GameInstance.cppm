@@ -17,6 +17,8 @@ module;
 
 export module engine.gameinstance;
 
+export import :networkcontroller; // the run's networking, composed off this god object (P1)
+
 import foundation.core;
 import foundation.scene;
 import foundation.shell;
@@ -48,10 +50,7 @@ export namespace engine::runtime
     namespace net = foundation::net;
     namespace input = foundation::input;
 
-    // A hook the app sets once and GameInstance fires on every go-online, passing the freshly created
-    // endpoint. The app uses it to wire per-endpoint setup that needs app state (e.g. the prefab
-    // net-spawn resolver, which needs the content DB) - fresh each time, so reconnect stays correct.
-    using EndpointOnlineHook = core::Function<void(net::NetworkManager&)>;
+    // EndpointOnlineHook now lives in the :networkcontroller partition (re-exported above).
 
     // ---- run.* script facade (task #123 + game-ready-scripting2 P2-2): the run/app tier surfaced to
     // scripts, including the running instance's LEVEL-LOAD control. Owned HERE (the project that owns
@@ -239,19 +238,16 @@ export namespace engine::runtime
         bool m_failed = false;
     };
 
-    // A running game owns its networking too: GameInstance IS the INetworkController the Net facade
-    // drives (startServer/connect/disconnect) and reads through. The endpoint is created on demand and
-    // destroyed on disconnect / instance teardown; the binding is a stable member, so it never dangles.
-    class GameInstance final : public net::INetworkController
+    // A running game COMPOSES its networking: GameInstance holds a NetworkController (which IS the
+    // INetworkController the Net facade drives) and forwards to it (networking-extraction.md P1). The
+    // controller is a stable member, so its binding never dangles; the endpoint inside it comes and goes.
+    class GameInstance final
     {
     public:
         void SetScene(scene::Scene* scene) noexcept
         {
             m_scene = scene;
-            if (m_net)
-            {
-                m_net->SetReplicatedScene(scene);
-            } // keep replication on the current scene across level loads
+            m_network.SetReplicatedScene(scene); // keep replication on the current scene across loads
         }
         [[nodiscard]] scene::Scene* GetScene() const noexcept { return m_scene; }
 
@@ -462,34 +458,30 @@ export namespace engine::runtime
         /// sees this frame's input). No-op when no source is set.
         void DriveInput(f32 deltaTime, f32 contextTimeScale);
 
-        // ---- networking (this instance's endpoint; INetworkController for the Net facade) ----
+        // ---- networking (composed: this instance's NetworkController; forwards below) ----
 
-        /// A hook the app sets once; GameInstance fires it (with the live endpoint) each time the game
+        /// This instance's networking controller (the endpoint owner + INetworkController). Exposed so
+        /// the app can reach it directly as the extraction proceeds; GameInstance's own net methods below
+        /// are thin forwards preserved so existing callers/tests are churn-free (P1).
+        [[nodiscard]] NetworkController& Network() noexcept { return m_network; }
+
+        /// A hook the app sets once; the controller fires it (with the live endpoint) each time the game
         /// goes online, so the app can wire per-endpoint setup that needs app state (the net-spawn
         /// resolver from the content DB). Not consumed - reconnect re-runs it.
-        void SetEndpointOnlineHook(EndpointOnlineHook hook)
-        {
-            m_onEndpointOnline = static_cast<EndpointOnlineHook&&>(hook);
-        }
+        void SetEndpointOnlineHook(EndpointOnlineHook hook) { m_network.SetEndpointOnlineHook(core::Move(hook)); }
 
-        /// Drive this instance's networking on the FIXED lane (deterministic step): pump the socket,
-        /// route RPCs + replication, push per-peer deltas (server) / sample interpolation (client).
-        /// No-op when offline. Called by the app's fixed-step fan-out.
-        void DriveNetwork(f32 fixedDeltaMs);
+        /// Drive this instance's networking on the FIXED lane (deterministic step). No-op when offline.
+        /// Called by the app's fixed-step fan-out (moves to a subsystem in P2/P3).
+        void DriveNetwork(f32 fixedDeltaMs) { m_network.DriveNetwork(fixedDeltaMs); }
 
-        // INetworkController - the Net facade calls these. StartServer/Connect open a real UDP socket
-        // and enter the role (returning false if it fails); StopNetworking drops the endpoint. The live
-        // endpoint replicates THIS instance's current scene.
-        bool StartServer(u16 port, bool dedicated) override;
-        bool Connect(core::StringView host, u16 port) override;
-        void StopNetworking() override;
-        [[nodiscard]] net::NetworkManager* NetEndpoint() const override { return m_net.Get(); }
+        // Net facade role controls - forwards to the composed controller. StartServer/Connect open a
+        // real UDP socket and enter the role (false if it fails); StopNetworking drops the endpoint.
+        bool StartServer(u16 port, bool dedicated) { return m_network.StartServer(port, dedicated); }
+        bool Connect(core::StringView host, u16 port) { return m_network.Connect(host, port); }
+        void StopNetworking() { m_network.StopNetworking(); }
+        [[nodiscard]] net::NetworkManager* NetEndpoint() const noexcept { return m_network.NetEndpoint(); }
 
     private:
-        /// Point this instance's script context at its net binding (call once the context exists), so the
-        /// Net facade resolves THIS instance's controller. Idempotent; safe when the context is null.
-        void InstallNetBinding();
-
         /// The run-bus sink for the Game tier: dispatch `on<Event>(payload)` to the Game object. Called at
         /// run-bus drain time (no VM active), so it invokes directly; a faulting handler disables the game
         /// (m_game = nullptr) exactly like a faulting update(), and a debugger suspension is not a fault.
@@ -507,11 +499,9 @@ export namespace engine::runtime
         core::RefPtr<script::ScriptObject> m_game;
         engine::script::ScriptEventSubscriptions m_gameEventSubs; // Game tier's run-bus on<Event> inbox
 
-        core::UniquePtr<net::NetworkManager> m_net; // this instance's endpoint (null = offline)
-        net::NetScriptBinding m_netBinding;         // stable; the facade resolves controller=this
+        NetworkController m_network; // this run's networking (endpoint + INetworkController), composed (P1)
         RunScriptBinding
             m_runBinding; // stable; app fills its pointers, installed per context (StartScript)
-        EndpointOnlineHook m_onEndpointOnline; // app-set; fires with m_net on each go-online
 
         input::ActionRuntime m_inputRuntime; // this run's action state (per-instance)
         input::IInputSourceProvider* m_inputSource =

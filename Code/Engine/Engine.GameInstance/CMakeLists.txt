@@ -13,7 +13,9 @@ target_link_libraries(Engine.GameInstance PUBLIC
 target_sources(Engine.GameInstance
     PUBLIC
         FILE_SET runtime_gameinstance_modules TYPE CXX_MODULES FILES
+            NetworkController.cppm
             GameInstance.cppm
     PRIVATE
-        GameInstanceImpl.cpp)
+        GameInstanceImpl.cpp
+        NetworkControllerImpl.cpp)
 

@@ -108,6 +108,20 @@ migrate to engine.net then (one move, with that spec's own churn budget). The ne
   doc-sweep lesson); game-instance.md's net paragraph updates at P1.
 - kSubsystemFacadeNameCount unchanged (the facade stays this spec).
 
+## Progress
+
+- **P1 DONE (Opus, 2026-08-22).** `engine.runtime::NetworkController` extracted into the
+  `engine.gameinstance:networkcontroller` partition (NetworkController.cppm + NetworkControllerImpl.cpp):
+  owns the endpoint + `INetworkController` impl + StartServer/Connect/StopNetworking + DriveNetwork +
+  the net script binding + the replicated-scene cache. `GameInstance` now COMPOSES it (`m_network`) and
+  forwards; `GameInstance : public net::INetworkController` deleted; public net API preserved as inline
+  forwards (callers/tests churn-free); `Network()` accessor added for later phases. Tests: existing
+  server+client-over-UDP test green unchanged (comment updated to "composes"); new NetworkController
+  unit tests (start/stop/reconnect + online-hook-not-consumed + fresh-endpoint-replicates-cached-scene
+  + live destruct with a live endpoint). Verified: clang + gcc DEBUG batteries green (23/23), ASAN green
+  (the only UBSan hit is the pre-existing ThirdParty AngelScript VM one, unrelated). Docs: game-instance.md
+  + networking.md net paragraphs updated same-change. NEXT: P2 (replication onto the scene fixed lane).
+
 ## Acceptance
 
 The net demo scripts (net-demo-scripts.txt flow: in-editor dedicated server + PIE

@@ -21,9 +21,11 @@ Related: [[runtime-host]], [[scripting]] (the one-context rule, now per instance
 - **`GameInstance`** (`engine.gameinstance`, `Code/Engine/Engine.GameInstance`) - "a game is running":
   dynamic, 0..N, owned by the host. Each instance OWNS its `ScriptRunHost` (its script context + `Game`
   object + error sink), its `SceneManager` (its scenes + current + group config), its per-instance
-  `NetworkManager` endpoint (`m_net`, null = offline), its per-instance `ActionRuntime` (`m_inputRuntime`),
-  a headless flag, and an instance time scale. It BORROWS everything shared (subsystems, resource
-  manager / content DB, factories, reflection registries).
+  `NetworkController` (`m_network` - the `INetworkController` + the endpoint it owns, null = offline;
+  networking-extraction.md P1: GameInstance COMPOSES it and forwards, it no longer inherits
+  `INetworkController`), its per-instance `ActionRuntime` (`m_inputRuntime`), a headless flag, and an
+  instance time scale. It BORROWS everything shared (subsystems, resource manager / content DB,
+  factories, reflection registries).
 
 The dependency arrow points DOWN (runtime -> scene): `GameInstance` owns a `SceneManager`; the scene
 lib never references `GameInstance`.

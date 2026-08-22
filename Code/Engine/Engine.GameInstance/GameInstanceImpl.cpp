@@ -102,7 +102,8 @@ namespace engine::runtime
         }
         m_scriptContext = core::RefPtr<script::IScriptContext>(context);
         m_runHost.SetGameScriptHold(true);
-        InstallNetBinding(); // the game script (its menu) can now call Net.startServer()/connect()
+        // The game script (its menu) can now call Net.startServer()/connect() - resolve the controller.
+        m_network.InstallScriptBinding(m_scriptContext.Get());
         m_runBinding.runEvents = &m_runEvents; // run.events() -> THIS run's bus (P2-2, §1a/§1c)
         InstallRunScriptService(
             *m_scriptContext, m_runBinding); // run.* -> this instance's registry
@@ -157,65 +158,8 @@ namespace engine::runtime
         // (ScriptSubsystem::MaybeTeardownRunHost). A bare instance (no scenes) keeps it until destruction.
     }
 
-    void GameInstance::InstallNetBinding()
-    {
-        m_netBinding.controller = this; // stable; the endpoint m_net points at may come and go
-        if (m_scriptContext.Get() != nullptr)
-        {
-            net::InstallNetScriptService(*m_scriptContext, m_netBinding);
-        }
-    }
-
-    bool GameInstance::StartServer(u16 port, bool dedicated)
-    {
-        m_net = net::NetworkManager::HostServer(port, dedicated);
-        if (!m_net)
-        {
-            LOG_ERROR(u8"App", u8"failed to open a server socket on port {}", port);
-            return false;
-        }
-        m_net->SetReplicatedScene(m_scene);
-        if (m_onEndpointOnline)
-        {
-            m_onEndpointOnline(*m_net);
-        } // app wires per-endpoint setup (spawn resolver)
-        LOG_INFO(u8"App", u8"server listening on port {}", m_net->BoundPort());
-        return true;
-    }
-
-    bool GameInstance::Connect(core::StringView host, u16 port)
-    {
-        m_net = net::NetworkManager::JoinServer(host, port);
-        if (!m_net)
-        {
-            LOG_ERROR(u8"App", u8"failed to open a client socket");
-            return false;
-        }
-        m_net->SetReplicatedScene(m_scene);
-        if (m_onEndpointOnline)
-        {
-            m_onEndpointOnline(*m_net);
-        }
-        LOG_INFO(u8"App", u8"connecting to {}:{}", host, port);
-        return true;
-    }
-
-    void GameInstance::StopNetworking()
-    {
-        if (m_net)
-        {
-            LOG_INFO(u8"App", u8"networking stopped");
-        }
-        m_net = nullptr; // closes the session (drops peers) + the owned socket
-    }
-
-    void GameInstance::DriveNetwork(f32 fixedDeltaMs)
-    {
-        if (m_net)
-        {
-            m_net->Update(fixedDeltaMs);
-        }
-    }
+    // Networking role bodies (StartServer/Connect/StopNetworking/DriveNetwork) + the script binding
+    // live on NetworkController now (NetworkControllerImpl.cpp); GameInstance forwards inline (P1).
 
     void GameInstance::DriveInput(f32 deltaTime, f32 contextTimeScale)
     {

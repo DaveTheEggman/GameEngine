@@ -157,8 +157,9 @@ TEST_CASE("game-instance: each instance's input runtime reads ONLY its own sourc
 TEST_CASE("game-instance: each instance owns an independent networked endpoint (server + client "
           "over UDP)")
 {
-    // The per-instance networking model: a GameInstance IS the INetworkController, opening its OWN
-    // real UDP endpoint on StartServer/Connect. Two instances in one process = two isolated endpoints.
+    // The per-instance networking model: a GameInstance COMPOSES a NetworkController (the
+    // INetworkController), opening its OWN real UDP endpoint on StartServer/Connect. The GameInstance
+    // forwards to it, so this end-to-end path is unchanged. Two instances = two isolated endpoints.
     engine::runtime::GameInstance server;
     engine::runtime::GameInstance client;
     CHECK(server.NetEndpoint() == nullptr); // offline until a role is entered
@@ -185,6 +186,60 @@ TEST_CASE("game-instance: each instance owns an independent networked endpoint (
     client.StopNetworking(); // disconnect drops the endpoint
     CHECK(client.NetEndpoint() == nullptr);
     CHECK(server.NetEndpoint() != nullptr); // the server is unaffected (isolation)
+}
+
+TEST_CASE("network-controller: role lifecycle - start, stop, reconnect, and the online hook")
+{
+    // The extracted NetworkController (networking-extraction.md P1), tested directly: it owns the
+    // endpoint + INetworkController role, and its stable identity means the online hook is not consumed
+    // (fires on every go-online). The final destruct with a LIVE endpoint exercises the socket +
+    // session teardown path (the UAF-prone class - run under ASAN).
+    engine::runtime::NetworkController controller;
+    int onlineCount = 0;
+    foundation::net::NetworkManager* lastEndpoint = nullptr;
+    controller.SetEndpointOnlineHook(
+        [&](foundation::net::NetworkManager& endpoint)
+        {
+            ++onlineCount;
+            lastEndpoint = &endpoint;
+        });
+
+    CHECK(controller.NetEndpoint() == nullptr); // offline until a role is entered
+
+    REQUIRE(controller.StartServer(/*port=*/0, /*dedicated=*/true));
+    REQUIRE(controller.NetEndpoint() != nullptr);
+    CHECK(controller.NetEndpoint()->Session().IsServer());
+    CHECK(controller.NetEndpoint()->BoundPort() != 0u);
+    CHECK(onlineCount == 1);                        // the hook fired with the fresh endpoint
+    CHECK(lastEndpoint == controller.NetEndpoint());
+
+    controller.StopNetworking();
+    CHECK(controller.NetEndpoint() == nullptr);     // the endpoint drops
+
+    // Reconnect: a fresh endpoint, and the hook fires AGAIN (not consumed).
+    REQUIRE(controller.StartServer(/*port=*/0, /*dedicated=*/true));
+    REQUIRE(controller.NetEndpoint() != nullptr);
+    CHECK(onlineCount == 2);
+    CHECK(lastEndpoint == controller.NetEndpoint());
+    // controller destructs here holding a live endpoint - the socket + session teardown path.
+}
+
+TEST_CASE("network-controller: a fresh endpoint replicates the cached scene")
+{
+    // SetReplicatedScene cached BEFORE going online is applied to the endpoint at StartServer (a server
+    // assigns NetworkIds from the scene), and a live change is forwarded to the running endpoint too.
+    engine::runtime::NetworkController controller;
+    scene::SceneManager scenes;
+    scene::Scene* level = scenes.CreateScene(u8"Level");
+    REQUIRE(level != nullptr);
+    controller.SetReplicatedScene(level); // cached while offline
+
+    REQUIRE(controller.StartServer(/*port=*/0, /*dedicated=*/true));
+    REQUIRE(controller.NetEndpoint() != nullptr); // came up; the cached scene was applied to it
+
+    controller.SetReplicatedScene(nullptr); // live change forwarded to the running endpoint (clean)
+    controller.StopNetworking();
+    CHECK(controller.NetEndpoint() == nullptr);
 }
 
 TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")
