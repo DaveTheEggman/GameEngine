@@ -47,6 +47,18 @@ are our leanings, argued through in the exchange.
   Games construct a `Replicator` and tick it themselves; nothing in the runtime constructs or ticks
   it. Both sample games ship single-player, online disabled.
 
+CORRECTION / bound on the ambition (user note, 2026-08-22): part of why Traktor feels "facadeless"
+is NOT reflection at all - **they implement whole frameworks (notably their UI) IN Lua**, so those
+are just script classes a game uses natively, no binding surface to write. They can afford that
+because they have exactly ONE scripting backend. We are deliberately MULTI-BACKEND (AngelScript +
+Luau [[scripting-backend-neutrality]]), so we CANNOT write a framework in one script language without
+either abandoning neutrality or reimplementing it per backend. That is a real, permanent cost of
+backend neutrality: our higher-level frameworks (UI, etc.) stay NATIVE and are reached from script via
+reflection/`.of`, where Traktor's are script all the way down. So "retire facades" for us means the
+facade LAYER over native APIs (adopt `.of`/direct reflection) - it does NOT mean frameworks become
+script-native. It is unknown whether Traktor's own approach would even be facadeless if their UI were
+native like ours; their facadelessness there is a single-backend affordance, not purely a reflection win.
+
 ### Us (current state)
 
 - **Facades are a hand-written wrapper layer.** ~15 registrars behind `RegisterAllScriptFacades()`
@@ -343,3 +355,11 @@ Where it goes (the lanes already exist):
     Entity + owner handles (already exist). The spec's P1 is the audit that finalizes this
     table per facade, with each surface cutting over whole (parity tests), no
     both-patterns transition.
+
+- 2026-08-22 (closure): Spec 3's P0 audit VERDICT accepted by the user - the
+  .of(context) facade conversion is NOT built (Subsystem lives outside the reflection
+  system; the stubs marshal rather than forward, so they relocate rather than die; the
+  .of(scene) axis already shipped). §3 of this doc resolves to: the two existing .of
+  axes + the five curated static views ARE the end state. The physics lastHit
+  statefulness fix shipped from the audit. Specs 1 (networking) and 2 (messaging) are
+  COMPLETE - all three cuts from this doc are now resolved.

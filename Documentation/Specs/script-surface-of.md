@@ -1,8 +1,11 @@
 # Script surface: retire the facade layer via `.of` on reflected real types
 
-Status: P0 AUDIT COMPLETE + the physics statefulness fix SHIPPED (Fable, 2026-08-22);
-the .of(context) CONVERSION IS BLOCKED ON A USER DECISION - the audit surfaced facts
-that invalidate the conversion's cost model (see THE AUDIT VERDICT below).
+Status: CLOSED (user accepted the audit verdict, 2026-08-22). Deliverable = P0 + the
+physics explicit-hit fix. The .of(context) conversion is NOT built - the five static
+facades are the sanctioned curated script views; the shipped .of(entity) and
+.of(scene) axes are the idiom. Reopening subsystem reflection = its own architecture
+evaluation (an Ideas doc: "Subsystem joins the Object/RTTI hierarchy"), never a
+facade-cleanup side effect.
 Spec 3 of the three-spec cut. UI IS EXPLICITLY OUT OF SCOPE - the user has flagged the
 ui surface for its own separate examination; the `ui` facade and gamekit script
 surface are untouched by this spec.
@@ -152,3 +155,10 @@ If the user accepts the recommendation, this spec closes here (P0 + the physics 
 the deliverable) and the remaining genuine item - the run coordinator / tier-handle
 ergonomics - stays with the shipped `run` facade. If the user overrules, P1 begins with
 the Subsystem-RTTI architecture evaluation as its own gated design.
+
+### CLOSED (2026-08-22): user accepted the verdict
+
+The spec closes with P0 + the RayCastHit fix as its deliverable. The five statics
+(Audio, Input, Net, run, ui) stand as the curated script-view layer; no both-patterns
+state ever existed. Any future subsystem-reflection ambition starts from a fresh
+evaluation with the blocking facts above as its opening constraints.
