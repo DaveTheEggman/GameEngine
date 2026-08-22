@@ -161,6 +161,11 @@ export namespace editor::app
         // destruction; this handles only the page side).
         /// Maps a context notice to a toast (errors stick until closed; the rest self-expire).
         void ShowToast(editor::NoticeKind kind, StringView message);
+        // Bind the project's default UI theme + font onto the embedded app's game UI.
+        // Idempotent; called at project open, after every finished cook (a fresh
+        // checkout's first cook creates the products the open-time bind missed), and on
+        // settings save (a changed default takes effect without a reopen).
+        void ApplyProjectUiDefaults();
 
         void SaveActivePage();
 

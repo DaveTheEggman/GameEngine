@@ -47,6 +47,17 @@ export namespace editor
 
         /// Open-pages list or active page changed.
         Function<void()> OnPagesChanged;
+        /// Fired after project settings are SAVED (the settings dialog invokes it via
+        /// NotifyProjectSettingsChanged) so session state derived from settings - the
+        /// default UI font/theme binds - re-applies without a project reopen.
+        Function<void()> OnProjectSettingsChanged;
+        void NotifyProjectSettingsChanged()
+        {
+            if (OnProjectSettingsChanged)
+            {
+                OnProjectSettingsChanged();
+            }
+        }
 
         /// Request an incremental cook (wired by the application to its cook service). Pages
         /// call this after saving a builder-backed asset so the cooked product (and every

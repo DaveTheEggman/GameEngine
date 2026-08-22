@@ -294,6 +294,9 @@ namespace editor::app
         if (project->SaveSettings().IsOk())
         {
             m_context->SetStatus(u8"Project settings saved.");
+            // Re-apply settings-derived session state NOW (default UI font/theme binds) -
+            // without this, a changed default font kept the OLD bind until project reopen.
+            m_context->NotifyProjectSettingsChanged();
             LOG_INFO(u8"Project", u8"settings saved (default scene: {})",
                               project->Settings().defaultScene.IsEmpty()
                                   ? StringView(u8"(none)")

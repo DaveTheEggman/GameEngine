@@ -560,6 +560,34 @@ namespace editor::app
         return uiPage;
     }
 
+    void EditorApplication::ApplyProjectUiDefaults()
+    {
+        // Idempotent by construction: Bind by id returns the cached proxy when already
+        // bound, and Set* with the same product is a no-op-equivalent swap. A bind that
+        // MISSES (fresh checkout, products not cooked yet) simply skips - the next
+        // cook-finished callback lands here again and heals it.
+        if (!m_project || !m_resources || !m_embeddedApp || m_embeddedApp->UI() == nullptr)
+        {
+            return;
+        }
+        const Guid themeId = m_project->Settings().defaultUiThemeId;
+        if (!themeId.IsNil())
+        {
+            if (auto themeProxy = m_resources->Bind<foundation::ui::UITheme>(themeId))
+            {
+                m_embeddedApp->UI()->SetDefaultTheme(themeProxy.Get());
+            }
+        }
+        const Guid fontId = m_project->Settings().defaultUiFontId;
+        if (!fontId.IsNil())
+        {
+            if (auto fontProxy = m_resources->Bind<foundation::fonts::Font>(fontId))
+            {
+                m_embeddedApp->UI()->SetDefaultFont(fontProxy.Get());
+            }
+        }
+    }
+
     void EditorApplication::ShowToast(editor::NoticeKind kind, StringView message)
     {
         if (m_toastHost.Get() == nullptr)
@@ -2192,39 +2220,26 @@ namespace editor::app
         // (products still bind from the cooked-backed manager above). Wired here at project open
         // so it covers every run (Game tab AND Simulate); cleared at project close (below).
         m_embeddedApp->SetContentDatabase(&m_project->SourceDb());
-        // Project-default UI theme (game-ui.md P3): the same manifest reference the
-        // player honors at startup, applied to the embedded runtime's game UI so
-        // Simulate/Game-tab/previews style like the shipped game.
-        if (m_embeddedApp->UI() != nullptr)
+        // Project-default UI theme + font: bound via ApplyProjectUiDefaults - ALSO
+        // re-fired after every finished cook (a fresh checkout's first cook creates the
+        // products the open-time bind missed) and on settings save (a changed default
+        // takes effect without a project reopen).
+        ApplyProjectUiDefaults();
+        if (m_embeddedApp->UI() != nullptr &&
+            m_project->Settings().defaultUiFontId.IsNil() &&
+            ProjectHasFontAssets(m_project->SourceDb().RootGroup()))
         {
-            const Guid themeId = m_project->Settings().defaultUiThemeId;
-            if (!themeId.IsNil())
-            {
-                if (auto themeProxy = m_resources->Bind<foundation::ui::UITheme>(themeId))
-                {
-                    m_embeddedApp->UI()->SetDefaultTheme(themeProxy.Get());
-                }
-            }
-            // Project-default UI font (fonts triad): the same manifest reference the
-            // player binds, so Simulate/Game-tab text uses the cooked font product.
-            const Guid fontId = m_project->Settings().defaultUiFontId;
-            if (!fontId.IsNil())
-            {
-                if (auto fontProxy = m_resources->Bind<foundation::fonts::Font>(fontId))
-                {
-                    m_embeddedApp->UI()->SetDefaultFont(fontProxy.Get());
-                }
-            }
-            else if (ProjectHasFontAssets(m_project->SourceDb().RootGroup()))
-            {
-                // Migration kindness: a real project with fonts but no default set renders no game-UI
-                // text (the dev-tree probe resolves nothing outside this source tree). Name the fix.
-                LOG_WARNING(u8"UI",
-                                     u8"game UI has no default font - set Project Settings > Default "
-                                     u8"UI font (the project has fonts, but none is the default, so "
-                                     u8"game-UI text will not render)");
-            }
+            // Migration kindness: a real project with fonts but no default set renders no game-UI
+            // text (the dev-tree probe resolves nothing outside this source tree). Name the fix.
+            LOG_WARNING(u8"UI",
+                                 u8"game UI has no default font - set Project Settings > Default "
+                                 u8"UI font (the project has fonts, but none is the default, so "
+                                 u8"game-UI text will not render)");
         }
+
+        // Settings-derived session state re-applies on save (default font/theme -
+        // without this a changed default kept the OLD bind until reopen).
+        m_context.OnProjectSettingsChanged = [this]() { ApplyProjectUiDefaults(); };
 
         // Cook service + the real Assets panel.
         m_cookService.Initialize(*m_project, m_builders);
@@ -2337,6 +2352,9 @@ namespace editor::app
                 ShowToast(editor::NoticeKind::Success,
                           Format(u8"Cook finished: {} asset(s).", cooked).AsView());
             }
+            // A finished cook may have CREATED products the project-open bind missed
+            // (fresh checkout: the default UI font/theme cook after the open-time bind).
+            ApplyProjectUiDefaults();
             // Hot reload: rebuilt products swap in behind the proxy handles - live
             // scenes see the new resources with no reopen (dependents reload
             // transitively through the manager's recorded edges).

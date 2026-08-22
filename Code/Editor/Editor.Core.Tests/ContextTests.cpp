@@ -177,6 +177,20 @@ TEST_CASE("editor-context: open, focus, and close pages")
     RemoveDbTree(dir);
 }
 
+TEST_CASE("editor-context: NotifyProjectSettingsChanged fires the subscribed hook")
+{
+    // The settings dialog fires this after a successful save; the app re-applies
+    // settings-derived session state (default UI font/theme binds) - the fix for a
+    // changed default font keeping its OLD bind until project reopen.
+    EditorContext ctx;
+    int fired = 0;
+    ctx.NotifyProjectSettingsChanged(); // unsubscribed: safe no-op
+    ctx.OnProjectSettingsChanged = [&fired]() { ++fired; };
+    ctx.NotifyProjectSettingsChanged();
+    ctx.NotifyProjectSettingsChanged();
+    CHECK(fired == 2);
+}
+
 TEST_CASE("editor-context: open-asset interceptors claim newest-first and unregister cleanly")
 {
     RegisterTestTypes();
