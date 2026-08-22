@@ -328,8 +328,9 @@ Where it goes (the lanes already exist):
     unit-test scenes keep working unwired, and a lone scene IS its own scope
     semantically). Emit/subscribe call sites keep using Scene::Events() unchanged - it
     resolves to the injected bus; the scene->run relay dies; entity.send stays directed
-    and separate. NOTE: a new foundation module must be added to the reorg branch's LOCKED
-    folder==target==module catalog - coordinate, don't drift it.
+    and separate. NOTE (superseded 2026-08-22): the reorg branch is retired; a new foundation
+    module just follows the standing folder==target==module convention
+    (Process/CONVENTIONS.md).
   - **Spec 3 - script surface (.of)**: the clearer path, pending the curated-edges
     inventory. Fable's first-pass classification of TODAY's facades: DIRECT-REFLECT
     candidates (curated REFLECT_MEMBERS on the real type): audio (bus/music controls),

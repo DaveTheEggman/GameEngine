@@ -130,7 +130,7 @@ collection:
   state rule is unchanged (editor view state stays on the Asset class -
   Asset classes are authoring-side, which is exactly where they are
   moving; the rule's boundary was always authoring vs RUNTIME wire).
-- Mechanics: the reorg/role-grouping recipe applies (folder==target==
+- Mechanics: the folder==target== convention applies (Process/CONVENTIONS.md; formerly the reorg recipe) (folder==target==
   module, in-place moves, no rewrites); the cook/export CLI and editor
   relink against Pipeline libs; tests move with their code. Land module by
   module (texture first as the pattern-setter, same as reflection P1 did).

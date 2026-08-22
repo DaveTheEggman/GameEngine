@@ -393,3 +393,11 @@ Option 1 (family rename, ridden on the reorg branch), Part B closed, Part C
 parked with Option 2-lite recorded as the first thing to price if
 place-a-scene-in-a-scene is ever requested. Nothing here is debt; the doc
 stays in Ideas/ until a trigger promotes it.
+
+## NOTE (2026-08-22): the reorg branch is retired
+
+Part A's sequencing ruling ("ride the reorg/role-grouping branch") is
+unanchored: the user retired that branch. The family-rename remains a plain
+deferred mechanical pass scheduled on its own merits whenever Part A is taken
+up; folder==target==module survives as a standing convention
+(Process/CONVENTIONS.md). Everything else in the rulings stands.

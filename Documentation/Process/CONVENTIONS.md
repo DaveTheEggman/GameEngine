@@ -27,6 +27,11 @@ violating them fails review even if the feature works.
 
 ## Code style
 
+- Folder == target == module: a library's folder name, CMake target (dotted
+  namespaced alias), and C++ module name agree; a module defines only its own
+  target, siblings are declared at the root; test suites cluster in one root
+  block. (The fallout convention of the retired reorg/role-grouping branch,
+  2026-08-22 - the branch is dead; the naming discipline is standing.)
 - Allman braces, per-module `.clang-format`, PascalCase for methods/functions
   (Raptor/Sedulous convention - do NOT camelCase).
 - Full descriptive names, no abbreviations. Platform-specific logic goes in

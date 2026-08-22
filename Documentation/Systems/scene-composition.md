@@ -324,8 +324,10 @@ the runtime plumbing can go.
 
 Remaining deferred (unchanged from the plan): the FrameTime LANE cutover
 (SceneManager/input/net consuming FrameTime end-to-end) - its own phase with
-determinism criteria; and the PMIU Module.cppm rename, which rides the
-reorg/role-grouping branch.
+determinism criteria; and the PMIU Module.cppm rename - a plain
+deferred mechanical pass (its former rider, the reorg/role-grouping branch, was
+retired 2026-08-22; folder==target==module is now a standing convention in
+Process/CONVENTIONS.md).
 
 ## FrameTime lane cutover: DONE (Fable, 2026-08-19)
 
