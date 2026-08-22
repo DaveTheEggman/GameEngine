@@ -339,8 +339,7 @@ export namespace editor::app
         // The embedded runtime (v3): gameplay subsystems + ALL scene hosting live here.
         runtime::Context m_runtimeContext;
         UniquePtr<runtime::EmbeddedApplicationHost> m_embeddedHost;
-        runtime::FixedStepper
-            m_embeddedFixedStepper; // drives the embedded app's OnFixedUpdate (net) in-editor
+        // (the embedded net fixed-stepper is gone - transport pumps on NetworkSubsystem::PostUpdate, P3)
         UniquePtr<engine::runtime::DefaultApplication> m_embeddedApp;
         bool m_stopGameRequested = false; // borrowed (exe injects)
 

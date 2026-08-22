@@ -107,7 +107,8 @@ export namespace foundation::runtime
                 // The fixed step is CONFIG on the context (the scene bridge seeds per-scene
                 // steppers from it); the context-level fixed EXECUTION lane is gone (FrameTime
                 // cutover - nothing overrode it). The host stepper survives for the APP-level
-                // fixed hook (networking: DriveNetwork per instance).
+                // fixed hook (OnFixedUpdate), available to any app that needs one - the default app
+                // no longer uses it (networking's pump moved to NetworkSubsystem::PostUpdate, P3).
                 m_context.SetFixedTimeStep(m_settings.fixedTimeStep);
                 m_stepper.step = m_settings.fixedTimeStep;
                 m_stepper.maxSteps = m_settings.maxFixedStepsPerFrame;

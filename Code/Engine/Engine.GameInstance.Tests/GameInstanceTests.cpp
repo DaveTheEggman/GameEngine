@@ -179,8 +179,9 @@ TEST_CASE("game-instance: each instance owns an independent networked endpoint (
 
     for (int i = 0; i < 400 && server.NetEndpoint()->Session().PeerCount() == 0u; ++i)
     {
-        server.DriveNetwork(16.0f);
-        client.DriveNetwork(16.0f);
+        // Transport pump is NetworkManager::UpdateTransport now (P3 moved DriveNetwork to the subsystem).
+        server.NetEndpoint()->UpdateTransport(16.0f);
+        client.NetEndpoint()->UpdateTransport(16.0f);
         SleepMilliseconds(1);
     }
     CHECK(server.NetEndpoint()->Session().PeerCount() == 1u);
@@ -289,7 +290,7 @@ TEST_CASE("game-instance: destroying the replicated scene clears the endpoint's 
     CHECK(gi.GetScene() == nullptr);     // controller cache cleared
     CHECK(gi.NetEndpoint() != nullptr);  // still online (the endpoint outlives the scene)
 
-    gi.DriveNetwork(16.0f);                                   // transport pump must not touch the freed scene
+    gi.NetEndpoint()->UpdateTransport(16.0f); // transport pump must not touch the freed scene
     REQUIRE(gi.StartServer(/*port=*/0, /*dedicated=*/true));  // reconnect with no current scene is safe
     gi.StopNetworking();
 }

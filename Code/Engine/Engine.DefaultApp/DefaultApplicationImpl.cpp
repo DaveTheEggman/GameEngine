@@ -141,8 +141,22 @@ namespace engine::runtime
         m_physics = host.Ctx().AddSubsystem<engine::physics::PhysicsSubsystem>();
         host.Ctx().AddSubsystem<engine::navigation::NavigationSubsystem>();
         // Networking scene integration: injects the NetworkComponentManager into every scene so
-        // authored NetworkComponents work (the per-instance endpoint replicates over it).
-        host.Ctx().AddSubsystem<engine::net::NetworkSubsystem>();
+        // authored NetworkComponents work (the per-instance endpoint replicates over it). The subsystem
+        // also OWNS the per-frame transport pump (P3): give it the endpoint enumerator (we own the
+        // instance list; it owns the tick), replacing the old OnFixedUpdate DriveNetwork fan-out.
+        auto* netSubsystem = host.Ctx().AddSubsystem<engine::net::NetworkSubsystem>();
+        netSubsystem->SetEndpointSource(
+            [this](const core::Function<void(foundation::net::NetworkManager&)>& visit)
+            {
+                ForEachInstance(
+                    [&visit](GameInstance& gi)
+                    {
+                        if (foundation::net::NetworkManager* endpoint = gi.NetEndpoint())
+                        {
+                            visit(*endpoint);
+                        }
+                    });
+            });
         m_audio = host.Ctx().AddSubsystem<engine::audio::AudioSubsystem>(m_audioEngineSettings);
         m_input = host.Ctx().AddSubsystem<engine::input::InputSubsystem>(
             host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
@@ -448,13 +462,6 @@ namespace engine::runtime
         return m_physics;
     }
 
-    void DefaultApplication::OnFixedUpdate(IApplicationHost& host, core::f32 fixedDeltaTime)
-    {
-        (void)host;
-        const core::f32 fixedMs = fixedDeltaTime * 1000.0f; // seconds -> ms
-        ForEachInstance([fixedMs](GameInstance& gi) { gi.DriveNetwork(fixedMs); });
-    }
-
     void
     DefaultApplication::SetAudioEngineSettings(const foundation::audio::AudioEngineSettings& settings)
     {
@@ -560,8 +567,14 @@ namespace engine::runtime
         }
     }
 
-    void DefaultApplication::OnShutdown(IApplicationHost&)
+    void DefaultApplication::OnShutdown(IApplicationHost& host)
     {
+        // Drop the net subsystem's endpoint source before teardown - the stored callback captures `this`,
+        // so it must not outlive the app (the context tick has already stopped, so this is belt-and-braces).
+        if (auto* netSubsystem = host.Ctx().GetSubsystem<engine::net::NetworkSubsystem>())
+        {
+            netSubsystem->SetEndpointSource({});
+        }
         // Destroy the run's scenes while the aware subsystems are still alive (they get
         // OnSceneDestroyed). The editor's GamePage already cleared them per Stop; this covers the
         // player + any leftover. Do it FIRST, before subsystem teardown, for EVERY instance.

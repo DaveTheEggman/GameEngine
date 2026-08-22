@@ -64,13 +64,51 @@ export namespace engine::net
         scene.AddSystem<NetworkSceneSystem>();
     }
 
+    // The app sets this once: it visits every LIVE endpoint across all instances (pull model), so the
+    // subsystem can pump each one per-frame without knowing about GameInstances or NetworkControllers.
+    // Re-fetched each frame (null endpoints skipped), so it never holds an endpoint pointer across frames.
+    using EndpointVisitor = Function<void(const Function<void(net::NetworkManager&)>&)>;
+
+    // The once-per-context networking subsystem. It (a) registers the reflected components, (b) installs
+    // the net scene managers + the fixed-lane replication driver via the SceneModule, and (c) OWNS THE
+    // TRANSPORT PUMP: each frame it drives every live endpoint's UpdateTransport on the Context lane
+    // (networking-extraction.md P3), replacing the app's former OnFixedUpdate fan-out. Replication itself
+    // rides the per-scene fixed lane (NetworkSceneSystem, P2); this is the socket recv/send half.
     class NetworkSubsystem final : public foundation::runtime::Subsystem
     {
+    public:
+        /// The app provides the endpoint enumerator (it owns the instance list); the subsystem owns the
+        /// tick. Clear it (default-construct) at shutdown so the stored callback never outlives the app.
+        void SetEndpointSource(EndpointVisitor source)
+        {
+            m_endpoints = static_cast<EndpointVisitor&&>(source);
+        }
+
     protected:
         void OnInit() override
         {
             net::RegisterReplicationComponents(); // tooling: the reflected NetworkComponent (idempotent)
         }
+
+        // Transport pump, per-frame on the Context lane. PostUpdate (not BeginFrame) so a server's
+        // replication sends - queued this frame by the per-scene fixed lane (SceneSubsystem::BeginFrame ->
+        // NetworkSceneSystem) - flush the SAME frame, independent of subsystem sort order. Received deltas
+        // are buffered here and applied by next frame's scene fixed lane (interpolation absorbs the lag).
+        // NOTE (networking-extraction.md P3): the spec's finer BeginFrame-recv / PostUpdate-send split is
+        // NOT done - NetSession::Update recv+flushes in one call, and separating them is a transport-layer
+        // change out of this extraction's scope. A single UpdateTransport per frame is the pump for now.
+        void PostUpdate(f32 deltaTime) override
+        {
+            if (!m_endpoints)
+            {
+                return;
+            }
+            const f32 deltaMs = deltaTime * 1000.0f;
+            m_endpoints([deltaMs](net::NetworkManager& endpoint) { endpoint.UpdateTransport(deltaMs); });
+        }
+
+    private:
+        EndpointVisitor m_endpoints; // app-provided; visits live endpoints across all instances
     };
 
 } // namespace engine::net

@@ -477,9 +477,9 @@ export namespace engine::runtime
         /// resolver from the content DB). Not consumed - reconnect re-runs it.
         void SetEndpointOnlineHook(EndpointOnlineHook hook) { m_network.SetEndpointOnlineHook(core::Move(hook)); }
 
-        /// Drive this instance's networking on the FIXED lane (deterministic step). No-op when offline.
-        /// Called by the app's fixed-step fan-out (moves to a subsystem in P2/P3).
-        void DriveNetwork(f32 fixedDeltaMs) { m_network.DriveNetwork(fixedDeltaMs); }
+        // The per-frame transport pump moved to engine::net::NetworkSubsystem::PostUpdate (P3): the
+        // subsystem enumerates live endpoints (via an app-provided source) and drives UpdateTransport.
+        // GameInstance no longer forwards a DriveNetwork.
 
         // Net facade role controls - forwards to the composed controller. StartServer/Connect open a
         // real UDP socket and enter the role (false if it fails); StopNetworking drops the endpoint.

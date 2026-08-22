@@ -136,10 +136,9 @@ export namespace engine::runtime
         /// The primary instance's live endpoint (null when offline / single-player).
         [[nodiscard]] net::NetworkManager* Net() const noexcept { return m_instance.NetEndpoint(); }
 
-        // Drives networking on the FIXED lane (deterministic step) for EVERY instance: pump datagrams,
-        // dispatch RPCs, push per-peer deltas / sample interpolation. Runs even with no game script (a
-        // dedicated server has none). A subclass overriding OnFixedUpdate calls the base to keep it alive.
-        void OnFixedUpdate(IApplicationHost& host, core::f32 fixedDeltaTime) override;
+        // Networking's per-frame transport pump moved to engine::net::NetworkSubsystem::PostUpdate
+        // (networking-extraction.md P3); the app no longer overrides OnFixedUpdate for it (the base
+        // app-level fixed hook stays available for other apps).
         /// Preset BEFORE Configure: audio engine tuning (listener count for split-screen,
         /// voice pool sizes). Defaults suit a single-listener game.
         void SetAudioEngineSettings(const foundation::audio::AudioEngineSettings& settings);

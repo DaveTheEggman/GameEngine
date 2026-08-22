@@ -34,6 +34,11 @@ late-join - no hand-written per-component net code. First target is real-time st
   `NetworkSceneSystem::OnFixedUpdate` drives the endpoint's `UpdateReplication` on the per-scene FIXED
   lane (deterministic, physics-lockstep - networking-extraction.md P2); the per-instance
   `NetworkController` points it at the live endpoint only for the endpoint's current replicated scene.
+  The subsystem also OWNS the per-frame TRANSPORT pump: `NetworkSubsystem::PostUpdate` visits every live
+  endpoint (via an app-provided source) and drives `UpdateTransport` (socket recv/send) on the Context
+  lane (networking-extraction.md P3) - replacing the app's former `OnFixedUpdate` `DriveNetwork` fan-out
+  (deleted, including the editor's embedded mirror). `NetworkManager::Update` is split into
+  `UpdateTransport` (per-frame) and `UpdateReplication` (per-scene fixed lane).
 
 ## Roles + startup
 

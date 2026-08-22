@@ -140,6 +140,26 @@ migrate to engine.net then (one move, with that spec's own churn budget). The ne
   reconnect (only pre-existing AngelScript UBSan, unrelated); DefaultApp links both compilers. Docs:
   networking.md updated same-change. NEXT: P3 (transport pump as the context subsystem; delete DriveNetwork).
 
+- **P3 DONE (Opus, 2026-08-22).** Transport pump moved to the context subsystem; `DriveNetwork` + the
+  app/editor fan-out deleted. `NetworkSubsystem` gained a per-frame `PostUpdate` that drives every live
+  endpoint's `UpdateTransport`, fed by an app-set `EndpointVisitor` source (PULL model - the app owns the
+  instance list, the subsystem owns the tick; no controller<->subsystem coupling, no dangling-endpoint
+  registry, endpoints null-checked each frame). `DefaultApplication`: `OnFixedUpdate` override DELETED
+  (decl + def); `OnStartup` sets the endpoint source; `OnShutdown` clears it (source captures `this`).
+  Editor.App: the embedded `OnFixedUpdate` net fixed-stepper mirror DELETED (the context PostUpdate the
+  editor already ticks now drives the pump); `m_embeddedFixedStepper` member removed. `NetworkController`
+  + `GameInstance` `DriveNetwork` removed. DEVIATION (documented in code): the spec's finer
+  BeginFrame-recv / PostUpdate-send split is NOT done - `NetSession::Update` recv+flushes in one call and
+  separating them is transport-layer surgery out of this extraction's scope; a single `UpdateTransport`
+  per frame in PostUpdate is the pump (server replication sends, queued this frame on the scene fixed
+  lane, flush the same frame regardless of subsystem sort order; recv applies next frame, interpolation
+  absorbs it). Tests: Engine.Net.Tests "transport pump drives every enumerated endpoint per frame" (peer
+  connects via the subsystem's PostUpdate through a real Context); existing GameInstance UDP test
+  re-pointed to `NetEndpoint()->UpdateTransport`. Verified: clang + gcc DEBUG green (Net 5/5, GameInstance
+  25/25), ASAN green (only pre-existing AngelScript UBSan); DefaultApp + Editor.App link both compilers.
+  Docs: networking.md updated same-change. NEXT: P4 (the app sheds the spawn resolver + role-preset into
+  a controller-owned service; the Net facade stays this spec).
+
 ## P2 layering question (RESOLVED - Fable ruled option 1; see FABLE RULING below)
 
 P2 puts `NetworkSceneSystem` in **`engine.net`** (user ruling: it obviously belongs with the other

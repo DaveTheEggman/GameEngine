@@ -7,6 +7,7 @@
 #include "Core/Prelude.h"
 
 import foundation.core;
+import foundation.runtime;         // Context (drives the subsystem PostUpdate pump)
 import foundation.scene;
 import foundation.net;             // SimDatagramNetwork / IDatagramSocket
 import foundation.net.replication; // RegisterReplicationComponents + component managers
@@ -162,4 +163,36 @@ TEST_CASE("net-scene-system: a NetworkSceneSystem with no endpoint is inert")
     CHECK(sys->Endpoint() == nullptr);
     s.FixedUpdate(kStep); // no endpoint -> OnFixedUpdate is a no-op (must not crash)
     CHECK(sys->Endpoint() == nullptr);
+}
+
+TEST_CASE("net-subsystem: the transport pump drives every enumerated endpoint per frame (P3)")
+{
+    // The NetworkSubsystem owns the per-frame transport pump: its PostUpdate visits every live endpoint
+    // (via the app-provided source) and drives UpdateTransport. Driven here through a real Context (the
+    // production lane), a server + client connect purely because the subsystem pumps them - no
+    // DriveNetwork, no app fan-out.
+    foundation::net::RegisterReplicationComponents();
+    net::SimDatagramNetwork network;
+    net::IDatagramSocket* sv = network.CreateSocket();
+    net::NetworkManager server(*sv);
+    net::NetworkManager client(*network.CreateSocket());
+    server.StartServer(/*dedicated=*/true);
+    (void)client.ConnectTo(sv->LocalEndpoint());
+
+    foundation::runtime::Context ctx;
+    engine::net::NetworkSubsystem* netSub = ctx.AddSubsystem<engine::net::NetworkSubsystem>();
+    ctx.Startup();
+    netSub->SetEndpointSource(
+        [&](const Function<void(net::NetworkManager&)>& visit)
+        {
+            visit(server);
+            visit(client);
+        });
+
+    for (int i = 0; i < 200 && server.Session().PeerCount() == 0u; ++i)
+    {
+        network.Advance(10.0f);
+        ctx.PostUpdate(0.010f); // 10 ms as seconds -> the subsystem pumps UpdateTransport(10ms)
+    }
+    CHECK(server.Session().PeerCount() == 1u); // the subsystem's pump alone connected the peer
 }

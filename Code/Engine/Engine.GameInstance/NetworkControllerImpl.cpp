@@ -63,13 +63,5 @@ namespace engine::runtime
         m_net = nullptr; // closes the session (drops peers) + the owned socket
     }
 
-    void NetworkController::DriveNetwork(f32 fixedDeltaMs)
-    {
-        if (m_net)
-        {
-            // TRANSPORT half only (P2): replication now rides the replicated scene's fixed lane
-            // (NetworkSceneSystem::OnFixedUpdate -> UpdateReplication). P3 moves this pump to a subsystem.
-            m_net->UpdateTransport(fixedDeltaMs);
-        }
-    }
+    // The transport pump lives on engine::net::NetworkSubsystem::PostUpdate now (P3) - no DriveNetwork here.
 }

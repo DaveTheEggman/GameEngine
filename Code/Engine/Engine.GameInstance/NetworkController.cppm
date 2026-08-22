@@ -76,10 +76,9 @@ export namespace engine::runtime
             }
         }
 
-        /// Drive this run's networking on the FIXED lane (deterministic step): pump the socket, route
-        /// RPCs + replication, push per-peer deltas (server) / sample interpolation (client). No-op when
-        /// offline.
-        void DriveNetwork(f32 fixedDeltaMs);
+        // The per-frame transport pump moved to engine::net::NetworkSubsystem::PostUpdate
+        // (networking-extraction.md P3); the subsystem drives each live endpoint's UpdateTransport, so
+        // the controller no longer has a DriveNetwork.
 
         // INetworkController - the Net facade calls these. StartServer/Connect open a real UDP socket and
         // enter the role (returning false if it fails); StopNetworking drops the endpoint. The live

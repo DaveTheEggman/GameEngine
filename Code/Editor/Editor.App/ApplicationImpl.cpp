@@ -670,18 +670,9 @@ namespace editor::app
         {
             const f32 scaled = dt * m_runtimeContext.TimeScale();
             m_runtimeContext.BeginFrame(dt);
-            // Fixed lane: per-scene fixed stepping already ran in BeginFrame, but the APP-level
-            // OnFixedUpdate (networking - each GameInstance's DriveNetwork) is otherwise never
-            // driven in the editor. Accumulate + step it at the runtime's fixed rate, mirroring
-            // ApplicationHost::Tick. No-op until an instance goes online, so always safe.
-            const runtime::ApplicationSettings settings = m_embeddedApp->Settings();
-            m_embeddedFixedStepper.step = settings.fixedTimeStep;
-            m_embeddedFixedStepper.maxSteps = settings.maxFixedStepsPerFrame;
-            const u32 fixedSteps = m_embeddedFixedStepper.Advance(scaled);
-            for (u32 i = 0; i < fixedSteps; ++i)
-            {
-                m_embeddedApp->OnFixedUpdate(*m_embeddedHost, settings.fixedTimeStep);
-            }
+            // Networking's per-frame transport pump now rides NetworkSubsystem::PostUpdate
+            // (networking-extraction.md P3), driven by m_runtimeContext.PostUpdate below - so the editor
+            // no longer mirrors the app's former OnFixedUpdate net fan-out (that override is gone).
             m_runtimeContext.Update(scaled);
             m_runtimeContext.PostUpdate(scaled);
             // Tick EVERY game instance's script ONCE per frame (game-instance.md §11 step 5) -
