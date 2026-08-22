@@ -11,9 +11,10 @@
 export module engine.gameinstance:networkcontroller;
 
 import foundation.core;
-import foundation.scene;        // scene::Scene (the replicated scene)
+import foundation.scene;        // scene::Scene (the replicated scene) + GetSystem
 import foundation.net.manager;  // NetworkManager + INetworkController + NetScriptBinding
 import foundation.script;       // IScriptContext (InstallNetScriptService)
+import engine.net;              // NetworkSceneSystem (the per-scene fixed-lane replication driver)
 
 using namespace foundation::core;
 
@@ -38,13 +39,22 @@ export namespace engine::runtime
     public:
         /// The scene this run replicates. Cached so StartServer/Connect can set it on a fresh endpoint;
         /// applied live when the endpoint already exists (GameInstance::SetScene calls this on change).
-        void SetReplicatedScene(scene::Scene* scene) noexcept
+        /// Edge-driven wiring (networking-extraction.md P2): the OLD replicated scene's NetworkSceneSystem
+        /// is detached (endpoint -> null) and the NEW one attached (endpoint -> live/offline), so ONLY the
+        /// replicated scene's fixed lane ever drives this endpoint's replication.
+        void SetReplicatedScene(scene::Scene* scene)
         {
+            if (scene == m_scene)
+            {
+                return; // unchanged - the endpoint + scene-system wiring are already correct
+            }
+            WireSceneSystem(nullptr); // detach the OLD replicated scene's system (uses current m_scene)
             m_scene = scene;
             if (m_net)
             {
                 m_net->SetReplicatedScene(scene);
             }
+            WireSceneSystem(m_net.Get()); // attach the NEW scene's system (live endpoint, or null offline)
         }
 
         /// App-set hook fired (with the live endpoint) on each go-online, so the app can wire
@@ -80,6 +90,23 @@ export namespace engine::runtime
         [[nodiscard]] net::NetworkManager* NetEndpoint() const override { return m_net.Get(); }
 
     private:
+        /// Point the CURRENT replicated scene's NetworkSceneSystem at `endpoint` (its live endpoint when
+        /// attaching, null when detaching / offline). No-op when there is no scene, or a scene built
+        /// without the net module (no NetworkSceneSystem). The scene system dies with its scene, so this
+        /// is only ever called while m_scene is alive (the controller clears m_scene before a scene dies).
+        void WireSceneSystem(net::NetworkManager* endpoint)
+        {
+            if (m_scene == nullptr)
+            {
+                return;
+            }
+            if (engine::net::NetworkSceneSystem* system =
+                    m_scene->GetSystem<engine::net::NetworkSceneSystem>())
+            {
+                system->SetEndpoint(endpoint);
+            }
+        }
+
         core::UniquePtr<net::NetworkManager> m_net; // this run's endpoint (null = offline)
         net::NetScriptBinding m_binding;            // stable; the facade resolves controller=this
         EndpointOnlineHook m_onEndpointOnline;      // app-set; fires with m_net on each go-online

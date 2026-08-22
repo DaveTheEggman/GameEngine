@@ -20,6 +20,7 @@ import engine.navigation;
 import engine.audio;
 import engine.script;
 import engine.ui;
+import engine.net; // engine::net::AddNetworkSceneManagers (component managers + the fixed-lane driver)
 
 using namespace foundation::core;
 namespace scene = foundation::scene;
@@ -50,7 +51,7 @@ namespace
                                            &engine::script::RegisterScriptComponentReflection};
     const scene::SceneModule kUiModule{u8"ui", &engine::ui::AddUISceneManagers,
                                        &engine::ui::RegisterUIComponentReflection};
-    const scene::SceneModule kNetModule{u8"net", &foundation::net::AddNetworkSceneManagers,
+    const scene::SceneModule kNetModule{u8"net", &engine::net::AddNetworkSceneManagers,
                                         &foundation::net::RegisterReplicationComponents};
 
     const scene::SceneModule* kAllModules[] = {

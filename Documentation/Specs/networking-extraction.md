@@ -122,7 +122,25 @@ migrate to engine.net then (one move, with that spec's own churn budget). The ne
   (the only UBSan hit is the pre-existing ThirdParty AngelScript VM one, unrelated). Docs: game-instance.md
   + networking.md net paragraphs updated same-change. NEXT: P2 (replication onto the scene fixed lane).
 
-## P2 layering question (OPEN - for Fable review before build)
+- **P2 DONE (Opus, 2026-08-22).** Replication moved onto the per-scene FIXED lane per Fable's option-1
+  ruling. `NetworkManager::Update` split into `UpdateTransport` (session pump + recv routing: RPC
+  dispatch, replication-delta buffering, connection events) and `UpdateReplication` (server capture+send;
+  client sample-interp+apply); `Update` retained as the compose (transport then replication) for tests.
+  `engine.net` gained `NetworkSceneSystem` (`SceneSystem::OnFixedUpdate -> endpoint->UpdateReplication`,
+  a plain `SetEndpoint` setter) + the engine installer `engine::net::AddNetworkSceneManagers` (foundation
+  managers + the scene system); `SceneSurface`'s `kNetModule` switched to it - ModuleCount stays 9
+  (guard test green). `NetworkController` edge-wires the endpoint into ONLY the replicated scene's system
+  (SetReplicatedScene detach-old/attach-new; StartServer/Connect attach; StopNetworking detach-before-die);
+  `GameInstance::DestroyScene` of the current scene runs `SetScene(nullptr)` first (scene-dies-before-
+  endpoint). `DriveNetwork` shrunk to `UpdateTransport`. Deps added: `engine.net -> foundation.net.manager`,
+  `engine.gameinstance -> engine.net` (both acyclic). Tests: Engine.Net.Tests round-trip on the scene
+  fixed lane + paused-scene-sends-no-deltas + null-endpoint-inert; GameInstance.Tests controller
+  endpoint-dies-before-scene + stop-start-reconnect + scene-dies-before-endpoint. Verified: clang + gcc
+  DEBUG green (Net 4/4, GameInstance 25/25, SceneSurface 2/2), ASAN green on both teardown orders +
+  reconnect (only pre-existing AngelScript UBSan, unrelated); DefaultApp links both compilers. Docs:
+  networking.md updated same-change. NEXT: P3 (transport pump as the context subsystem; delete DriveNetwork).
+
+## P2 layering question (RESOLVED - Fable ruled option 1; see FABLE RULING below)
 
 P2 puts `NetworkSceneSystem` in **`engine.net`** (user ruling: it obviously belongs with the other
 scene-integration net code, not in foundation). Confirmed facts that constrain the design:

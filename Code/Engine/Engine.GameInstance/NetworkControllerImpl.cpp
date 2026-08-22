@@ -26,6 +26,7 @@ namespace engine::runtime
             return false;
         }
         m_net->SetReplicatedScene(m_scene);
+        WireSceneSystem(m_net.Get()); // the replicated scene's fixed lane now drives this endpoint
         if (m_onEndpointOnline)
         {
             m_onEndpointOnline(*m_net);
@@ -43,6 +44,7 @@ namespace engine::runtime
             return false;
         }
         m_net->SetReplicatedScene(m_scene);
+        WireSceneSystem(m_net.Get()); // the replicated scene's fixed lane now drives this endpoint
         if (m_onEndpointOnline)
         {
             m_onEndpointOnline(*m_net);
@@ -53,6 +55,7 @@ namespace engine::runtime
 
     void NetworkController::StopNetworking()
     {
+        WireSceneSystem(nullptr); // detach the scene system BEFORE the endpoint dies (no dangling driver)
         if (m_net)
         {
             LOG_INFO(u8"App", u8"networking stopped");
@@ -64,7 +67,9 @@ namespace engine::runtime
     {
         if (m_net)
         {
-            m_net->Update(fixedDeltaMs);
+            // TRANSPORT half only (P2): replication now rides the replicated scene's fixed lane
+            // (NetworkSceneSystem::OnFixedUpdate -> UpdateReplication). P3 moves this pump to a subsystem.
+            m_net->UpdateTransport(fixedDeltaMs);
         }
     }
 }

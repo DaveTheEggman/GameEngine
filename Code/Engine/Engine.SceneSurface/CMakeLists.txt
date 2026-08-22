@@ -12,7 +12,7 @@ target_link_libraries(Engine.SceneSurface PUBLIC
     Foundation::Core Foundation::Scene
     Engine::Render Engine::Animation Engine::Particles Engine::Physics Engine::Navigation
     Engine::Audio Engine::Script Engine::UI
-    Foundation::Net.Replication
+    Foundation::Net.Replication Engine::Net
     Foundation::Policy)
 
 target_sources(Engine.SceneSurface

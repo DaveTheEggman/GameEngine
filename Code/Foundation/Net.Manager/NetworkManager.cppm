@@ -103,13 +103,14 @@ export namespace foundation::net
         void StartServer(bool dedicated = false) { m_session.StartServer(dedicated); }
         PeerId ConnectTo(const DatagramEndpoint& server) { return m_session.Connect(server); }
 
-        // Drive the session + route received messages by reserved channel: RPCs (254) to the table,
-        // replication deltas (253) into the scene, everything else to `onEvent` (e.g. Connected). On the
-        // server, push each connected peer its replication delta this tick (reliable-ordered - the delta
-        // baseline assumes delivery). Call on the FIXED lane.
-        void Update(f32 deltaMs, const Function<void(const NetEvent&)>& onEvent = {})
+        // Transport HALF (per-frame; networking-extraction.md P2/P3): drive the session + route received
+        // messages by reserved channel: RPCs (254) to the table, replication deltas (253) buffered into
+        // the scene's interpolation state, everything else to `onEvent` (e.g. Connected). No state
+        // capture/send here - that is the replication half, on the scene fixed lane. Pumps regardless of
+        // scene time (connections stay alive while a scene is paused).
+        void UpdateTransport(f32 deltaMs, const Function<void(const NetEvent&)>& onEvent = {})
         {
-            PROFILE_SCOPE("Net.Update");
+            PROFILE_SCOPE("Net.Transport");
             m_session.Update(deltaMs);
 
             NetEvent ev;
@@ -143,7 +144,15 @@ export namespace foundation::net
                     }
                 }
             }
+        }
 
+        // Replication HALF (per-scene FIXED lane; networking-extraction.md P2): server captures the
+        // scene's networked state + pushes a per-peer delta; client samples buffered interpolation into
+        // the scene. Gated on the scene's fixed lane, so a paused/slow-mo scene replicates at its scaled
+        // rate (a paused sim produces no deltas). Does not touch the socket - transport keeps that.
+        void UpdateReplication()
+        {
+            PROFILE_SCOPE("Net.Replication");
             if (m_session.IsServer() && m_scene != nullptr)
             {
                 // Pull each networked entity's authoritative LOCAL transform into its NetworkedTransform
@@ -173,6 +182,15 @@ export namespace foundation::net
                                                   m_session.NetworkTimeMs() - m_interpDelayMs);
                 ApplyEntityTransforms(*m_scene);
             }
+        }
+
+        // Convenience for callers that drive both halves together (tests + any single-lane consumer):
+        // transport then replication, the same order the pre-split Update ran. Production drives the two
+        // halves on their own lanes (transport per-frame, replication on the scene fixed lane).
+        void Update(f32 deltaMs, const Function<void(const NetEvent&)>& onEvent = {})
+        {
+            UpdateTransport(deltaMs, onEvent);
+            UpdateReplication();
         }
 
         // The scene this manager replicates (server captures from it, client applies into it). Null =

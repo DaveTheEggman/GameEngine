@@ -28,8 +28,12 @@ late-join - no hand-written per-component net code. First target is real-time st
   COMPOSES and forwards to (networking-extraction.md P1; GameInstance no longer inherits
   `INetworkController`). Later phases move the per-frame drive onto the standard lanes.
 - **`foundation.net.replication`** - `StateReplication` + the `IReplicationModel` seam.
-- **`engine.net`** - `NetworkSubsystem` (an `ISceneObserver` runtime home; the net managers install via the net `SceneModule` - [[scene-composition]]) that wires the
-  `NetworkComponentManager` into scenes).
+- **`engine.net`** - the net scene-integration: `NetworkSubsystem` (registers the reflected components)
+  plus `NetworkSceneSystem` and the engine-level `AddNetworkSceneManagers` installer (the net
+  `SceneModule` - [[scene-composition]]) that installs the `NetworkComponentManager` + the scene system.
+  `NetworkSceneSystem::OnFixedUpdate` drives the endpoint's `UpdateReplication` on the per-scene FIXED
+  lane (deterministic, physics-lockstep - networking-extraction.md P2); the per-instance
+  `NetworkController` points it at the live endpoint only for the endpoint's current replicated scene.
 
 ## Roles + startup
 

@@ -17,6 +17,8 @@ import foundation.script.angelscript;
 import foundation.script.luau;
 import foundation.net;         // NetSession queries (IsServer/PeerCount)
 import foundation.net.manager; // NetworkManager (the endpoint the instance owns)
+import foundation.net.replication; // RegisterReplicationComponents (net scene managers)
+import engine.net;                 // NetworkSceneSystem (the endpoint <-> scene wiring under test)
 import foundation.input;       // ActionRuntime / IInputSourceProvider (per-instance input)
 import foundation.shell;       // IKeyboard / KeyCode (a minimal fake device)
 
@@ -240,6 +242,56 @@ TEST_CASE("network-controller: a fresh endpoint replicates the cached scene")
     controller.SetReplicatedScene(nullptr); // live change forwarded to the running endpoint (clean)
     controller.StopNetworking();
     CHECK(controller.NetEndpoint() == nullptr);
+}
+
+TEST_CASE("network-controller: the replicated scene's NetworkSceneSystem drives the endpoint; "
+          "stop detaches; reconnect re-wires (P2)")
+{
+    // networking-extraction.md P2, Fable req 1+2+3: the endpoint is wired into ONLY the replicated
+    // scene's NetworkSceneSystem, at the controller's edges. endpoint-dies-before-scene: StopNetworking
+    // detaches the system before the endpoint dies. stop-start-reconnect against a LIVE scene re-wires.
+    // (ASAN covers the teardown - the controller + scene destruct here holding a live endpoint.)
+    foundation::net::RegisterReplicationComponents();
+    engine::runtime::NetworkController controller;
+    scene::Scene s;
+    engine::net::AddNetworkSceneManagers(s); // installs the NetworkSceneSystem
+    engine::net::NetworkSceneSystem* sys = s.GetSystem<engine::net::NetworkSceneSystem>();
+    REQUIRE(sys != nullptr);
+
+    controller.SetReplicatedScene(&s);
+    CHECK(sys->Endpoint() == nullptr); // attached while offline -> inert (no endpoint yet)
+
+    REQUIRE(controller.StartServer(/*port=*/0, /*dedicated=*/true));
+    CHECK(sys->Endpoint() == controller.NetEndpoint()); // the scene's fixed lane now drives the endpoint
+
+    controller.StopNetworking();
+    CHECK(sys->Endpoint() == nullptr); // detached BEFORE the endpoint died (endpoint-dies-before-scene)
+    CHECK(controller.NetEndpoint() == nullptr);
+
+    REQUIRE(controller.StartServer(/*port=*/0, /*dedicated=*/true)); // reconnect on the live scene
+    CHECK(sys->Endpoint() == controller.NetEndpoint()); // re-wired to the fresh endpoint
+}
+
+TEST_CASE("game-instance: destroying the replicated scene clears the endpoint's scene (no dangling) (P2)")
+{
+    // networking-extraction.md P2, Fable req 2: scene-dies-before-endpoint. DestroyScene of the CURRENT
+    // scene runs SetScene(nullptr) first, so the endpoint's replicated-scene pointer + the controller's
+    // cache clear BEFORE the scene is freed. A later transport pump / reconnect never touches dead memory
+    // (ASAN is the real assertion here).
+    engine::runtime::GameInstance gi;
+    scene::Scene* level = gi.CreateScene(u8"Level");
+    REQUIRE(level != nullptr);
+    gi.SetScene(level);
+    REQUIRE(gi.StartServer(/*port=*/0, /*dedicated=*/true));
+    REQUIRE(gi.NetEndpoint() != nullptr);
+
+    gi.DestroyScene(level); // level == current -> SetScene(nullptr) clears the endpoint's scene + cache
+    CHECK(gi.GetScene() == nullptr);     // controller cache cleared
+    CHECK(gi.NetEndpoint() != nullptr);  // still online (the endpoint outlives the scene)
+
+    gi.DriveNetwork(16.0f);                                   // transport pump must not touch the freed scene
+    REQUIRE(gi.StartServer(/*port=*/0, /*dedicated=*/true));  // reconnect with no current scene is safe
+    gi.StopNetworking();
 }
 
 TEST_CASE("game-instance: fallback path starts, ticks, and stops a Game script")

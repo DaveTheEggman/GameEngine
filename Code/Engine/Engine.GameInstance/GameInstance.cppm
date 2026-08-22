@@ -308,6 +308,13 @@ export namespace engine::runtime
                     m_scriptLoads.RemoveAt(i - 1);
                 }
             }
+            // Scene-dies-before-endpoint (networking-extraction.md P2, Fable req 2): if this IS the
+            // replicated scene, clear the cache + detach its NetworkSceneSystem BEFORE it is freed, so a
+            // later Start/Connect never wires a dead scene and the live endpoint stops replicating it.
+            if (scene == m_scene)
+            {
+                SetScene(nullptr);
+            }
             m_sceneManager.DestroyScene(scene);
         }
 

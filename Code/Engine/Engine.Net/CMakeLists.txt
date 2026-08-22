@@ -6,7 +6,7 @@ add_library(Engine::Net ALIAS Engine.Net)
 
 target_link_libraries(Engine.Net
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene
-           Foundation::Net.Replication Foundation::Policy)
+           Foundation::Net.Replication Foundation::Net.Manager Foundation::Policy)
 
 target_sources(Engine.Net
     PUBLIC
