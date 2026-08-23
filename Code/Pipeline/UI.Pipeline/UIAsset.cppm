@@ -72,11 +72,22 @@ export namespace pipeline{
         RTTI_OBJECT(UIThemeAsset, pipeline::Asset)
     public:
         String stylesheet;
+        // EDITOR-ONLY preview scaffolding (no-editor-data-in-runtime): the markup the theme editor
+        // previews this stylesheet against, persisted so a theme's preview context survives across
+        // sessions (incl. inline edits). NEVER read by UIThemeAssetBuilder -> it stays out of the
+        // cooked UIThemeSource / runtime UITheme. Serialized under DataVersion 2 (see UIAssetImpl).
+        String previewMarkup;
 
         void Serialize(ISerializer& ar) override
         {
             pipeline::Asset::Serialize(ar);
             foundation::core::Serialize(ar, "stylesheet", stylesheet);
+            // v2: editor-only preview markup. The XML serializer is STRICT (a missing key fails the
+            // whole payload), so pre-v2 theme envelopes MUST skip this read (they have no such key).
+            if (ar.Version() >= 2)
+            {
+                foundation::core::Serialize(ar, "previewMarkup", previewMarkup);
+            }
         }
     };
 

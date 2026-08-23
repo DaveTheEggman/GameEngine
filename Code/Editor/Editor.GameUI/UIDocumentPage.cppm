@@ -16,6 +16,8 @@ module;
 
 export module editor.gameui;
 
+export import :theme; // the .sss theme editor page (partition)
+
 import foundation.core;
 import foundation.vfs;
 import foundation.content;
@@ -195,5 +197,7 @@ export namespace editor
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<UIDocumentPageFactory>(host, uiHost), DefaultAllocator()));
+        context.Pages().Register(UniquePtr<IEditorPageFactory>(
+            DefaultAllocator().New<UIThemePageFactory>(host, uiHost), DefaultAllocator()));
     }
 }

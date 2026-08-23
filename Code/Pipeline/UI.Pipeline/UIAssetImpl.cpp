@@ -30,7 +30,10 @@ namespace pipeline{
     {
         builder.Attribute("displayName", String(u8"UI Theme"))
             .Attribute("category", String(u8"UI"))
+            .DataVersion(2) // v2 = editor-only previewMarkup (see UIThemeAsset::Serialize)
             .Property<&UIThemeAsset::stylesheet>("stylesheet")
             .PropAttribute("displayName", String(u8"Stylesheet"));
+        // previewMarkup is editor-only scaffolding (page-edited, not an inspector field) - persisted
+        // via Serialize, deliberately NOT reflected as a Property.
     }
 }

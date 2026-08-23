@@ -6,4 +6,6 @@ target_link_libraries(Editor.GameUI PUBLIC
     Foundation::UI.Resource Pipeline::UI Engine::UI Foundation::UI.Runtime Foundation::UI.Viewport
     Foundation::Graphics Foundation::RHI Foundation::VG.Renderer
     Editor::Core Editor::App Foundation::Policy)
-target_sources(Editor.GameUI PRIVATE UIDocumentPageImpl.cpp PUBLIC FILE_SET editor_gameui_modules TYPE CXX_MODULES FILES UIDocumentPage.cppm)
+target_sources(Editor.GameUI
+    PRIVATE UIDocumentPageImpl.cpp UIThemePageImpl.cpp
+    PUBLIC FILE_SET editor_gameui_modules TYPE CXX_MODULES FILES UIThemePage.cppm UIDocumentPage.cppm)

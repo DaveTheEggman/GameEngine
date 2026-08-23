@@ -314,3 +314,50 @@ TEST_CASE("ui.pipeline: legacy inline assets (empty fileName) still cook")
 
     RemoveAll(u8"scratch_uipipe_legacy_db");
 }
+
+TEST_CASE("ui.pipeline: theme previewMarkup round-trips on the SOURCE asset but never reaches the cook")
+{
+    // messaging: the sss editor stores its preview markup on the theme (cross-session), but that is
+    // EDITOR-ONLY (no-editor-data-in-runtime): it persists in the source asset's Serialize (DataVersion
+    // 2) and is DELIBERATELY excluded from the cooked UIThemeSource (structurally - no such field).
+    RegisterUIResource();
+    RegisterUIAssets();
+    RemoveDirectory(u8"scratch_uipipe_preview_db");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_uipipe_preview_db");
+    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+
+    // SOURCE round-trip: previewMarkup survives WriteObject -> ReadObject (v2).
+    auto* src = db.RootGroup()->CreateInstance(u8"theme_src", UIThemeAsset::StaticType());
+    {
+        UIThemeAsset asset;
+        asset.stylesheet = String(kUIThemeStarter);
+        asset.previewMarkup = String(u8"<Panel><Button text=\"Preview\"/></Panel>");
+        REQUIRE(src->WriteObject(asset).IsOk());
+    }
+    {
+        RefPtr<ISerializable> object = src->ReadObject();
+        auto* loaded = Cast<UIThemeAsset>(object.Get());
+        REQUIRE(loaded != nullptr);
+        CHECK(loaded->previewMarkup.AsView() == u8"<Panel><Button text=\"Preview\"/></Panel>");
+        CHECK(loaded->stylesheet.AsView() == kUIThemeStarter); // the theme itself is unaffected
+    }
+
+    // COOK: the product is a UIThemeSource carrying ONLY the stylesheet - previewMarkup cannot leak
+    // (the runtime struct has no field for it), and the builder never reads it.
+    auto* product = db.RootGroup()->CreateInstance(u8"theme_cooked", UIThemeSource::StaticType());
+    {
+        UIThemeAsset asset;
+        asset.stylesheet = String(kUIThemeStarter);
+        asset.previewMarkup = String(u8"<Panel/>");
+        UIThemeAssetBuilder builder;
+        pipeline::AssetBuildContext ctx;
+        ctx.output = product;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+        RefPtr<ISerializable> object = product->ReadObject();
+        auto* cooked = Cast<UIThemeSource>(object.Get());
+        REQUIRE(cooked != nullptr);
+        CHECK(cooked->stylesheet.AsView() == kUIThemeStarter);
+    }
+
+    RemoveDirectory(u8"scratch_uipipe_preview_db");
+}
