@@ -191,6 +191,21 @@ TEST_CASE("editor-context: NotifyProjectSettingsChanged fires the subscribed hoo
     CHECK(fired == 2);
 }
 
+TEST_CASE("editor-context: IsCookBusy defaults to not-busy and reads the wired query")
+{
+    // PIE's cook gate (GameEditorPage::Play latches, OnUpdate polls this): unwired
+    // (tests, no project) must read NOT busy so a deferred start never hangs.
+    EditorContext ctx;
+    CHECK_FALSE(ctx.IsCookBusy());
+    bool busy = true;
+    ctx.CookBusy = [&busy]() { return busy; };
+    CHECK(ctx.IsCookBusy());
+    busy = false;
+    CHECK_FALSE(ctx.IsCookBusy());
+    ctx.CookBusy = {};
+    CHECK_FALSE(ctx.IsCookBusy()); // unwired again (project closed) - never busy
+}
+
 TEST_CASE("editor-context: open-asset interceptors claim newest-first and unregister cleanly")
 {
     RegisterTestTypes();

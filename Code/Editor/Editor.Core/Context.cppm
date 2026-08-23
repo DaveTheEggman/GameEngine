@@ -64,6 +64,11 @@ export namespace editor
         /// live proxy bound to it) refreshes without a manual Build > Cook All.
         Function<void(bool /*rebuild*/)> OnCookRequested;
         void RequestCook(bool rebuild = false);
+        /// Cook-activity query (wired by the application to EditorCookService::IsIdle's
+        /// negation). Pages that must NOT start against a half-written cooked DB (PIE)
+        /// poll this and defer. Unwired (tests, no project) = never busy.
+        Function<bool()> CookBusy;
+        [[nodiscard]] bool IsCookBusy() const { return CookBusy ? CookBusy() : false; }
         /// Transient status-bar text.
         Function<void(StringView)> OnStatus;
 

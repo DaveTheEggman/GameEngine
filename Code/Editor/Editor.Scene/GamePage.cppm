@@ -325,10 +325,13 @@ export namespace editor
         // defensive placeholder, since without a runtime there is no game to run anyway.
         [[nodiscard]] scene::SceneManager& SceneGroup() noexcept;
 
-        /// Fresh player run: the project's default scene from the DBs, simulation on.
+        /// Fresh player run, cook-gated: kicks an incremental cook and latches the start;
+        /// OnUpdate runs StartRunNow on the first frame the cook service is idle, so the
+        /// run never binds against a half-written cooked DB.
         void Play();
 
-        /// Total teardown - the fresh-run model's whole cleanup story.
+        /// Total teardown - the fresh-run model's whole cleanup story. Also cancels a
+        /// Play still waiting on the cook.
         void Stop();
 
         // Bind (and re-bind after dock/float moves) the viewport to the window hosting it -
@@ -386,6 +389,10 @@ export namespace editor
 
         void RefreshToolbar();
 
+        // The deferred half of Play(): the actual boot (script launch + default scene),
+        // run by OnUpdate once the cook is idle.
+        void StartRunNow();
+
         EditorContext* m_context = nullptr;
         runtime::IApplicationHost* m_host = nullptr;
         ui::runtime::UIHost* m_uiHost = nullptr;
@@ -422,5 +429,6 @@ export namespace editor
 
         String m_sceneTitle;
         bool m_running = false;
+        bool m_pendingPlay = false; // Play latched, waiting for the cook to go idle
     };
 }

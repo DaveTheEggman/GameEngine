@@ -243,6 +243,28 @@ namespace editor
 
     void GameEditorPage::Play()
     {
+        if (m_running || m_pendingPlay)
+        {
+            return;
+        }
+        // PIE waits for the cook (weekly 2026-08-22): kick an incremental cook NOW and
+        // defer the actual start to OnUpdate once the service is idle - a run that starts
+        // mid-cook binds stale or missing products (fonts, scripts, input maps) and the
+        // "heal via hot reload" path never covered a script that did not exist yet.
+        // Unwired CookBusy (tests, no cook service) starts on the next OnUpdate tick.
+        if (m_context->OnCookRequested)
+        {
+            m_context->OnCookRequested(false);
+        }
+        m_pendingPlay = true;
+        if (m_context->IsCookBusy())
+        {
+            m_context->SetStatus(u8"Game: waiting for cook...");
+        }
+    }
+
+    void GameEditorPage::StartRunNow()
+    {
         if (m_running)
         {
             return;
@@ -273,12 +295,8 @@ namespace editor
             LOG_INFO(u8"Editor", u8"Game: no default scene - the game script owns boot.");
         }
 
-        // Nudge a background incremental cook so just-edited content is fresh; the
-        // run starts immediately and late products heal via the hot-reload path.
-        if (m_context->OnCookRequested)
-        {
-            m_context->OnCookRequested(false);
-        }
+        // The cook was requested at Play() and has finished by the time OnUpdate routes here
+        // (the m_pendingPlay gate) - products bound below are fresh, not healed-later.
         // The play bracket + game script run on THIS tab's GameInstance (game-instance.md §11): its
         // own scene pairing, run host, error sink - so multiple tabs are isolated. Launch the game
         // script FIRST (task #123 boot reorder, matching Engine.Player): launch()/update(dt)
@@ -380,6 +398,7 @@ namespace editor
 
     void GameEditorPage::Stop()
     {
+        m_pendingPlay = false; // Stop while waiting for the cook cancels the deferred start
         if (!m_running && m_scene == nullptr)
         {
             return;
@@ -561,6 +580,13 @@ namespace editor
 
     void GameEditorPage::OnUpdate(runtime::IApplicationHost& host, f32 dt)
     {
+        // A Play pressed while the cook ran (or just kicked one) starts here, on the first
+        // frame the cook service reports idle - never against a half-written cooked DB.
+        if (m_pendingPlay && !m_context->IsCookBusy())
+        {
+            m_pendingPlay = false;
+            StartRunNow();
+        }
         // Follow the instance's current scene BEFORE anything renders this frame: a scripted switch
         // (run.loadScene) repointed it, so adopt the new scene + retire the outgoing one here.
         FollowInstanceScene();

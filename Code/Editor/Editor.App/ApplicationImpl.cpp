@@ -2246,6 +2246,9 @@ namespace editor::app
         // Pages request re-cooks after saving builder-backed assets (materials etc.).
         m_context.OnCookRequested = [this](bool rebuild)
         { m_cookService.RequestCook(rebuild); };
+        // Cook-gated starts (PIE waits for the cook): busy = anything in flight OR a
+        // remembered mid-cook request still waiting to re-issue (IsIdle, not MutationLocked).
+        m_context.CookBusy = [this]() { return m_cookService.IsReady() && !m_cookService.IsIdle(); };
         // Background jobs (export) read the source DB structure and pack cooked FILES
         // from their worker - DB mutations and new cooks must hold off while one runs,
         // exactly like during a cook. The cook service folds this into MutationLocked.
@@ -2473,6 +2476,7 @@ namespace editor::app
         m_shell.SetAssetsContent(nullptr);
         m_assetsView = nullptr;
         m_context.OnCookRequested = {};
+        m_context.CookBusy = {};
         m_context.OnFavoritesChanged = {};
         // Detach the per-project resources from the embedded runtime BEFORE destroying them
         // (its Resources() consumers are lazy and null-tolerant between projects).

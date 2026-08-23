@@ -77,6 +77,15 @@ export namespace editor
         /// on THIS, not on IsCooking alone.
         [[nodiscard]] bool MutationLocked() const;
 
+        /// Fully quiescent: nothing in flight AND no remembered request waiting to re-issue
+        /// (a RequestCook that arrived mid-cook). "Start after the cook" gates (PIE) key on
+        /// THIS, not MutationLocked - between a finishing cook and its remembered re-issue
+        /// there is an idle gap a MutationLocked poll would mistake for done.
+        [[nodiscard]] bool IsIdle() const
+        {
+            return !MutationLocked() && !m_pendingCook && m_pendingRoots.IsEmpty();
+        }
+
         /// Bumped when a cook finishes - UI (badges) refreshes off it.
         [[nodiscard]] u64 Revision() const noexcept { return m_revision; }
 
