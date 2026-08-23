@@ -1,11 +1,50 @@
 # Terrain
 
-**Status:** SPEC, ready to build (2026-08-10). Third of the three parity P0
-tracks (after property-animation.md and navigation.md - see
-docs/design/parity-2026-08.md). References: Lumix terrain (heightmap +
+**Status:** BUILDING P1 (started 2026-08-23). The HEIGHTFIELD half is complete
+and shipped (see "Build progress"); the TERRAIN-rendering half is next. Third
+of the three parity P0 tracks (after property-animation.md and navigation.md -
+see docs/design/parity-2026-08.md). References: Lumix terrain (heightmap +
 splat + grass) and Traktor's richer brush architecture
 (elevate/flatten/smooth/cut/color/attribute brushes + align-to-terrain
 operators) for the phase-2 editor.
+
+## Build progress (2026-08-23)
+
+DONE (green on clang + gcc, each with cook round-trip / integration tests):
+- `foundation.heightfield` - the Object grid + sampling (bilinear height/normal,
+  world<->grid, ray-march, cell bounds); size contract 64k+1.
+- `foundation.heightfield.resource` - cooked resource: metadata object + a
+  "heights" SIDECAR stream + factory (Ref<Heightfield>).
+- `heightfield.pipeline` - HeightfieldAsset + builder + importer (blank +
+  16-bit heightmap import & bilinear resample).
+- `foundation.image.io` - added PixelFormat::R16 + LoadImage16 (true 16-bit
+  height precision; the general LoadImage down-samples to 8-bit).
+- STANDALONE HEIGHTFIELD COLLIDER - the spec's early consumer, proving the
+  chain end-to-end with NO renderer: ShapeKind::Heightfield (Jolt
+  HeightFieldShape, self-padded per the correction) in foundation.physics;
+  Ref<Heightfield> on RigidBody/Collider + the u16->f32 integration + DataVersion
+  1->2 (v2 wire); InspectorView ref-picker dispatch.
+- `Editor.Heightfield` - the asset page: permanent 2D grayscale height preview +
+  readout + the authored fields (undo + re-cook); registered in
+  Pipeline.Registration (builder/importer/type; counts 23->24, 7->8) and
+  Tools.Editor.
+
+REMAINING (the terrain-rendering half): `foundation.terrain` (chunk quadtree +
+LOD + splat) -> `foundation.terrain.resource` -> `Terrain.Pipeline` ->
+`engine.terrain` (the chunked geo-mipmap renderer + GPU height texture +
+Ref<TerrainAsset> picker) -> `Editor.Terrain` (phase 2).
+
+KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
+(Editor.Mcp/ProjectTools) resolves an extension with the SINGULAR
+ImporterRegistry::FindFor, which returns the FIRST registered claimant. `.png`
+is claimed by Texture (first), Image, then Heightfield, so an AGENT importing a
+.png always gets Texture and cannot select Image or Heightfield. This is
+PRE-EXISTING (Image already had it) and NOT specific to terrain, but the
+heightfield importer makes it a three-way collision. The interactive editor is
+unaffected (drag-drop/Import... uses FindAllFor + an importer chooser menu, and
+Heightfield is selectable; `.r16` is heightfield-only so it needs no chooser).
+Fix option if wanted: an optional `importer` hint on the MCP import tool to
+disambiguate. Flagged here for a Fable ruling; no code change made.
 
 GOAL: heightmap terrain that renders on every backend including web, has a
 physics presence, and is authorable in-editor - phased so the runtime slice
