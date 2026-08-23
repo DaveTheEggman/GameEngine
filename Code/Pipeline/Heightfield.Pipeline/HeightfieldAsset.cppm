@@ -1,0 +1,199 @@
+// Pipeline::Heightfield - the `heightfield.pipeline` module.
+//
+// Tooling: the source HeightfieldAsset (a target square size + world footprint + Y range, optionally
+// backed by a 16-bit heightmap image) and the builder that cooks it into a runtime Heightfield
+// (metadata object + the "heights" sample stream). This is where heightmap import lives - NOT in
+// Terrain.Pipeline. Never linked by the runtime.
+
+module;
+#include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
+
+export module heightfield.pipeline;
+
+import foundation.core;
+import foundation.vfs; // SourcePath
+import pipeline.core;
+import pipeline.importer; // IFileImporter + ImportContext + CopyIntoSources
+import foundation.image;
+import foundation.image.io;
+import foundation.heightfield;
+import foundation.heightfield.resource;
+import foundation.content;
+
+using namespace foundation::core;
+namespace content = foundation::content;
+
+export namespace pipeline
+{
+    using foundation::heightfield::Heightfield;
+    using foundation::heightfield::HeightfieldSource;
+    using foundation::heightfield::Height;
+
+    // Source asset: a square heightfield (size = 64k+1) over a worldSize XZ footprint, u16 samples
+    // mapped onto [minY, maxY]. If the base fileName is set it is a 16-bit heightmap resampled onto
+    // the grid; otherwise the grid is blank (flat).
+    class HeightfieldAsset final : public pipeline::Asset
+    {
+        RTTI_OBJECT(HeightfieldAsset, pipeline::Asset)
+    public:
+        i32 size = 257;                        // square grid side; must be 64k+1
+        Float2 worldSize{256.0f, 256.0f};      // XZ footprint (metres)
+        f32 minY = 0.0f;                       // world Y at sample 0
+        f32 maxY = 64.0f;                      // world Y at sample 65535
+
+        void Serialize(ISerializer& ar) override
+        {
+            pipeline::Asset::Serialize(ar); // fileName
+            foundation::core::Serialize(ar, "size", size);
+            foundation::core::Serialize(ar, "worldSize", worldSize);
+            foundation::core::Serialize(ar, "minY", minY);
+            foundation::core::Serialize(ar, "maxY", maxY);
+        }
+    };
+
+    // Bilinear-resample a single-channel 16-bit source (srcW x srcH, row-major u16) onto the grid.
+    // The source u16 values ARE the height samples (both quantize onto the asset's [minY, maxY]).
+    inline void ResampleHeightmapR16(const Height* src, u32 srcW, u32 srcH, Heightfield& dst)
+    {
+        if (src == nullptr || srcW == 0 || srcH == 0 || dst.IsEmpty())
+        {
+            return;
+        }
+        const i32 s = dst.Size();
+        const f32 span = static_cast<f32>(s - 1);
+        const f32 su = static_cast<f32>(srcW - 1);
+        const f32 sv = static_cast<f32>(srcH - 1);
+        const auto sample = [&](u32 x, u32 y) -> f32 {
+            const u32 cx = x < srcW ? x : srcW - 1;
+            const u32 cy = y < srcH ? y : srcH - 1;
+            return static_cast<f32>(src[static_cast<usize>(cy) * srcW + cx]);
+        };
+        for (i32 gz = 0; gz < s; ++gz)
+        {
+            const f32 v = (span > 0.0f) ? static_cast<f32>(gz) / span * sv : 0.0f;
+            const u32 y0 = static_cast<u32>(v);
+            const f32 fy = v - static_cast<f32>(y0);
+            for (i32 gx = 0; gx < s; ++gx)
+            {
+                const f32 u = (span > 0.0f) ? static_cast<f32>(gx) / span * su : 0.0f;
+                const u32 x0 = static_cast<u32>(u);
+                const f32 fx = u - static_cast<f32>(x0);
+                const f32 top = sample(x0, y0) + (sample(x0 + 1, y0) - sample(x0, y0)) * fx;
+                const f32 bottom =
+                    sample(x0, y0 + 1) + (sample(x0 + 1, y0 + 1) - sample(x0, y0 + 1)) * fx;
+                const f32 h = top + (bottom - top) * fy;
+                dst.SetSample(gx, gz, static_cast<Height>(h + 0.5f));
+            }
+        }
+    }
+
+    // Cooks a HeightfieldAsset -> Heightfield resource (metadata object + "heights" stream).
+    class HeightfieldAssetBuilder final : public pipeline::DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &HeightfieldAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &Heightfield::StaticType();
+        }
+
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
+        {
+            const HeightfieldAsset& ha = static_cast<const HeightfieldAsset&>(asset); // AssetType()-guarded
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
+            // The asset size should already be valid; snap defensively so a malformed asset still
+            // cooks a legal grid rather than failing the runtime's size contract.
+            const i32 size = foundation::heightfield::IsValidSize(ha.size)
+                                 ? ha.size
+                                 : foundation::heightfield::NextValidSize(ha.size);
+            RefPtr<Heightfield> hf =
+                MakeRef<Heightfield>(DefaultAllocator(), size, ha.worldSize, ha.minY, ha.maxY);
+
+            if (!ha.fileName.View().IsEmpty())
+            {
+                Result<Array<byte>> bytes = ReadSourceBytes(ctx, ha.fileName.View());
+                if (!bytes.HasValue())
+                {
+                    return Status{bytes.Error()};
+                }
+                foundation::image::Image img;
+                const Status loaded = foundation::image::io::LoadImage16FromMemory(
+                    Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()),
+                                   bytes.Value().Size()),
+                    img);
+                if (!loaded.IsOk())
+                {
+                    return loaded;
+                }
+                ResampleHeightmapR16(reinterpret_cast<const Height*>(img.PixelData().Data()),
+                                     img.Width(), img.Height(), *hf);
+            }
+
+            HeightfieldSource src;
+            HeightfieldSource::FromHeightfield(*hf, src);
+            const Status wrote = ctx.output->WriteObject(src);
+            if (!wrote.IsOk())
+            {
+                return wrote;
+            }
+            return ctx.output->WriteData(foundation::heightfield::kHeightStream,
+                                         HeightfieldSource::HeightBlob(*hf));
+        }
+    };
+
+    // OS-file importer (editor drag-drop): imports a 16-bit heightmap as a HeightfieldAsset. Claims
+    // .png (offered alongside Image/Texture in the importer chooser) plus the raw .r16 extension.
+    class HeightfieldFileImporter final : public pipeline::IFileImporter
+    {
+    public:
+        [[nodiscard]] StringView Label() const override { return u8"Heightfield"; }
+
+        [[nodiscard]] bool Accepts(StringView extension) const override
+        {
+            return extension == u8"png" || extension == u8"r16";
+        }
+
+        [[nodiscard]] Result<content::Instance*>
+        Import(StringView sourcePath, const pipeline::ImportContext& context, content::Group& group,
+               const pipeline::ImportOptions*, Object*,
+               Array<pipeline::DeferredImportWrite>*) override
+        {
+            Result<String> fileName = pipeline::CopyIntoSources(context, sourcePath);
+            if (!fileName.HasValue())
+            {
+                return Err(fileName.Error());
+            }
+            const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
+            content::Instance* instance =
+                group.CreateInstance(stem, HeightfieldAsset::StaticType());
+            if (instance == nullptr)
+            {
+                return Err(ErrorCode::Unknown);
+            }
+            HeightfieldAsset asset;
+            asset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
+            const Status written = instance->WriteObject(asset);
+            if (!written.IsOk())
+            {
+                return Err(written.Code());
+            }
+            return instance;
+        }
+    };
+
+    // Registers HeightfieldAsset for content-DB construction + deserialization (reflection body in
+    // HeightfieldAssetImpl.cpp per GCC module hygiene).
+    inline void RegisterHeightfieldAsset()
+    {
+        GlobalTypeRegistry().Register(HeightfieldAsset::StaticType(), TypeDomain(u8"Pipeline"));
+        RegisterSerializable<HeightfieldAsset>();
+    }
+}

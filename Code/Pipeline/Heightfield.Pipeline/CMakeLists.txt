@@ -1,0 +1,12 @@
+# Pipeline::Heightfield - `heightfield.pipeline` (tooling: HeightfieldAsset + builder + importer).
+add_library(Heightfield.Pipeline STATIC)
+add_library(Pipeline::Heightfield ALIAS Heightfield.Pipeline)
+target_link_libraries(Heightfield.Pipeline PUBLIC
+    Foundation::Core Foundation::VFS Pipeline::Core Pipeline::Importer
+    Foundation::Image Foundation::Image.IO
+    Foundation::Heightfield Foundation::Heightfield.Resource
+    Foundation::Content Foundation::Policy)
+target_sources(Heightfield.Pipeline
+    PRIVATE
+        HeightfieldAssetImpl.cpp
+    PUBLIC FILE_SET heightfield_pipeline_modules TYPE CXX_MODULES FILES HeightfieldAsset.cppm)
