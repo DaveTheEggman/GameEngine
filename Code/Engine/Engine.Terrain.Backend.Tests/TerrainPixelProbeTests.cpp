@@ -252,6 +252,190 @@ namespace
         CHECK(p.leftLuma == doctest::Approx(ref.leftLuma).epsilon(0.05));
         CHECK(p.bottomLuma == doctest::Approx(ref.bottomLuma).epsilon(0.05));
     }
+
+    // Flat ground + a tall thin N-S ridge at the centre X. A low +X sun makes the ridge cast a long
+    // shadow across the flat -X ground - a clean caster/receiver: the flat ground has a uniform normal,
+    // so any left/right darkening there is PURELY the cast shadow, not n.l shading.
+    RefPtr<hf::Heightfield> MakeRidge()
+    {
+        constexpr i32 n = 257;
+        RefPtr<hf::Heightfield> h =
+            MakeRef<hf::Heightfield>(DefaultAllocator(), n, Float2{256.0f, 256.0f}, 0.0f, 60.0f);
+        const i32 c = (n - 1) / 2;
+        for (i32 z = 0; z < n; ++z)
+        {
+            for (i32 x = 0; x < n; ++x)
+            {
+                const bool wall = (x >= c - 3 && x <= c + 3); // a few cells wide, spanning Z
+                h->SetSample(x, z, static_cast<hf::Height>((wall ? 0.92f : 0.05f) * 65535.0f));
+            }
+        }
+        return h;
+    }
+
+    struct ShadowProbe
+    {
+        bool valid = false;
+        f64 leftGround = 0, rightGround = 0, total = 0; // luma over the flat ground bands
+    };
+
+    // Render the ridge top-down under a low +X sun, optionally with a CSM ShadowSystem, and measure the
+    // luma of the flat ground on each side of the ridge (excluding the bright ridge stripe itself).
+    ShadowProbe RenderShadowProbe(rhi::Device& device, bool shadowsEnabled)
+    {
+        ShadowProbe probe;
+        shaders::ShaderSystemHost host;
+        if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
+                                          BUILTIN_ENGINE_SHADER_DIR))))
+        {
+            return probe;
+        }
+        {
+            shaders::ShaderSystem& shaderSystem = *host.System();
+            engine::terrain::TerrainRenderer renderer(device, shaderSystem, /*framesInFlight*/ 2);
+            REQUIRE(renderer.Initialize().IsOk());
+            RendererRegistry registry;
+            registry.Register(&renderer);
+
+            UniquePtr<ShadowSystem> shadows;
+            if (shadowsEnabled)
+            {
+                shadows = MakeUnique<ShadowSystem>(DefaultAllocator(), device, /*framesInFlight*/ 2);
+                REQUIRE(shadows->Initialize().IsOk());
+            }
+            RenderFrame frame(device, registry, /*framesInFlight*/ 2, /*clusters*/ nullptr,
+                              /*tonemap*/ nullptr, shadows.Get());
+            frame.SetShadowParams(800.0f, 20.0f); // shadow distance, far-fade width
+
+            RefPtr<hf::Heightfield> ridge = MakeRidge();
+            Array<tmodel::TerrainChunk> chunks;
+            tmodel::BuildChunks(*ridge, chunks);
+            tmodel::TerrainQuadtree tree;
+            tree.Build(Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
+                       tmodel::ChunksPerSide(ridge->Size()));
+            engine::terrain::TerrainHeightTextureCache heightCache;
+            rhi::TextureView* heightView = heightCache.GetOrCreate(device, *ridge, 1);
+            REQUIRE(heightView != nullptr);
+
+            // Sun low from +X: direction TO light, then travel = -that.
+            const Float3 toLight = Normalized(Float3{0.9f, 0.42f, 0.0f});
+            const Float3 travel = toLight * -1.0f;
+
+            static const f32 thresholds[] = {1.0f, 0.25f, 0.08f, 0.03f, 0.012f, 0.005f, 0.002f};
+            ExtractedScene scene;
+            scene.SetAmbient(Float3{1.0f, 1.0f, 1.0f});
+            GpuLight sun{};
+            sun.type = 0.0f;
+            sun.directionWS = travel;
+            sun.color = Float3{1.0f, 1.0f, 1.0f};
+            sun.intensity = 1.0f;
+            scene.AddLight(sun);
+            DirectionalShadow ds{};
+            ds.direction = travel;
+            ds.valid = true;
+            scene.SetDirectionalShadow(ds);
+
+            engine::terrain::TerrainRenderData* rd = scene.Add<engine::terrain::TerrainRenderData>();
+            REQUIRE(rd != nullptr);
+            rd->category = RenderCategories::Opaque;
+            rd->rendererId = renderer.RendererId();
+            rd->chunks = chunks.Data();
+            rd->quadtree = &tree;
+            rd->chunkCount = static_cast<u32>(chunks.Size());
+            rd->heightView = heightView;
+            rd->chunkToWorld = Float4x4::Identity();
+            rd->gridSize = ridge->Size();
+            rd->worldSizeXZ = ridge->WorldSize();
+            rd->minY = ridge->MinY();
+            rd->maxY = ridge->MaxY();
+            for (u32 i = 0; i < 7; ++i)
+            {
+                rd->thresholds[i] = thresholds[i];
+            }
+            rd->thresholdCount = 7;
+            rd->worldCenter = Float3{0.0f, 30.0f, 0.0f};
+            rd->worldRadius = 400.0f;
+
+            ViewCamera camera;
+            camera.view = Float4x4::LookAtRH(Float3{0.0f, 260.0f, 0.01f}, Float3{0.0f, 0.0f, 0.0f},
+                                             Float3{0.0f, 0.0f, 1.0f});
+            camera.projection = Float4x4::PerspectiveFovRH(1.0f, 1.0f, 1.0f, 900.0f);
+
+            rhi::TextureDesc td{};
+            td.format = rhi::TextureFormat::RGBA8Unorm;
+            td.width = kSize;
+            td.height = kSize;
+            td.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopySrc;
+            td.label = u8"terrain.shadowprobe";
+            rhi::Texture* target = nullptr;
+            REQUIRE(device.CreateTexture(td, target).IsOk());
+            rhi::TextureViewDesc vd{};
+            vd.format = rhi::TextureFormat::RGBA8Unorm;
+            rhi::TextureView* targetView = nullptr;
+            REQUIRE(device.CreateTextureView(target, vd, targetView).IsOk());
+
+            rhi::CommandPool* pool = nullptr;
+            REQUIRE(device.CreateCommandPool(rhi::QueueType::Graphics, pool).IsOk());
+            rhi::Fence* fence = nullptr;
+            REQUIRE(device.CreateFence(0, fence).IsOk());
+            rhi::Queue* queue = device.GetQueue(rhi::QueueType::Graphics);
+            REQUIRE(queue != nullptr);
+
+            ViewSettings settings;
+            settings.clear = rhi::ClearColor::Black();
+            settings.targetTexture = target;
+            settings.targetFinalState = rhi::ResourceState::CopySrc;
+            settings.post.bloomEnabled = false;
+
+            for (u32 i = 0; i < 2; ++i)
+            {
+                rhi::CommandEncoder* encoder = nullptr;
+                REQUIRE(pool->CreateEncoder(encoder).IsOk());
+                settings.targetCurrentState =
+                    (i == 0) ? rhi::ResourceState::Undefined : rhi::ResourceState::CopySrc;
+                frame.Begin(*encoder, i % 2);
+                frame.AddView(scene, camera, settings, targetView, rhi::TextureFormat::RGBA8Unorm,
+                              kSize, kSize);
+                frame.End();
+                rhi::CommandBuffer* commandBuffer = encoder->Finish();
+                REQUIRE(commandBuffer != nullptr);
+                rhi::CommandBuffer* commandBuffers[] = {commandBuffer};
+                queue->Submit(Span<rhi::CommandBuffer* const>(commandBuffers, 1), fence, i + 1);
+                REQUIRE(fence->Wait(i + 1, ~0ull));
+            }
+
+            const testsupport::CapturedImage img =
+                testsupport::Readback(device, target, kSize, kSize);
+            REQUIRE(img.valid);
+            // Two flat-ground bands well clear of the centre ridge stripe.
+            for (u32 y = 0; y < kSize; ++y)
+            {
+                for (u32 x = 0; x < kSize; ++x)
+                {
+                    const f64 luma = static_cast<f64>(img.Luma(x, y));
+                    probe.total += luma;
+                    const f32 fx = static_cast<f32>(x) / kSize;
+                    if (fx > 0.12f && fx < 0.38f)
+                    {
+                        probe.leftGround += luma;
+                    }
+                    else if (fx > 0.62f && fx < 0.88f)
+                    {
+                        probe.rightGround += luma;
+                    }
+                }
+            }
+            probe.valid = true;
+
+            device.WaitIdle();
+            device.DestroyFence(fence);
+            device.DestroyCommandPool(pool);
+            device.DestroyTextureView(targetView);
+            device.DestroyTexture(target);
+        }
+        host.Shutdown();
+        return probe;
+    }
 }
 
 TEST_CASE("terrain probe: a lit dome renders + shades on Vulkan")
@@ -368,4 +552,38 @@ TEST_CASE("terrain probe: every backend matches Vulkan (cross-backend shader-coo
 #ifdef OPTION_HAS_DX12
     if (dx12 != nullptr) { dx12->Destroy(); }
 #endif
+}
+
+TEST_CASE("terrain probe: the ridge casts a CSM shadow onto the flat ground (cast + receive)")
+{
+    rhi::Backend* vulkan = nullptr;
+    rhi::Device* device = MakeVulkan(vulkan);
+    if (device == nullptr)
+    {
+        MESSAGE("Vulkan unavailable - terrain shadow probe skipped");
+        if (vulkan != nullptr) { vulkan->Destroy(); }
+        return;
+    }
+
+    // Same scene, shadows off then on. The flat ground has ONE normal, so without shadows both bands
+    // are equally lit; with the CSM the ridge darkens one side (its cast shadow). Terrain must both
+    // CAST (into the cascade) and RECEIVE (sample it) for this to appear.
+    const ShadowProbe off = RenderShadowProbe(*device, /*shadowsEnabled*/ false);
+    const ShadowProbe on = RenderShadowProbe(*device, /*shadowsEnabled*/ true);
+    REQUIRE(off.valid);
+    REQUIRE(on.valid);
+
+    const f64 offAsym = Abs(off.leftGround - off.rightGround) / (off.leftGround + off.rightGround);
+    const f64 onAsym = Abs(on.leftGround - on.rightGround) / (on.leftGround + on.rightGround);
+    std::printf("[terrain-shadow] off L=%.0f R=%.0f (asym %.3f) | on L=%.0f R=%.0f (asym %.3f) "
+                "| total off=%.0f on=%.0f\n",
+                off.leftGround, off.rightGround, offAsym, on.leftGround, on.rightGround, onAsym,
+                off.total, on.total);
+
+    CHECK(offAsym < 0.06);              // flat ground, no shadow -> both sides ~equal
+    CHECK(onAsym > 0.15);               // the cast shadow darkens one side
+    CHECK(on.total < off.total * 0.99); // shadows only remove light
+
+    device->Destroy();
+    vulkan->Destroy();
 }

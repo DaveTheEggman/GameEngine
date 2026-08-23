@@ -49,12 +49,22 @@ export namespace engine::terrain
 
         core::Status Initialize()
         {
-            // set 0: per-terrain view UBO (chunkToWorld folded into ViewProj), dynamic offset.
+            // set 0: per-terrain view UBO (b0, dynamic) + the CSM cascade array (t1) + a comparison
+            // sampler (s0). The depth caster pass ignores t1/s0 (it only reads b0), but sharing one
+            // layout keeps a single pipeline layout for both passes.
             rhi::BindGroupLayoutEntry viewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(
                 0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
             viewEntry.hasDynamicOffset = true;
+            rhi::BindGroupLayoutEntry shadowTexEntry = rhi::BindGroupLayoutEntry::SampledTexture(
+                1, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray);
+            shadowTexEntry.textureSampleType = rhi::TextureSampleType::Depth;
+            rhi::BindGroupLayoutEntry shadowSampEntry{};
+            shadowSampEntry.binding = 0;
+            shadowSampEntry.visibility = rhi::ShaderStage::Fragment;
+            shadowSampEntry.type = rhi::BindingType::ComparisonSampler;
+            rhi::BindGroupLayoutEntry viewEntries[] = {viewEntry, shadowTexEntry, shadowSampEntry};
             rhi::BindGroupLayoutDesc vld{};
-            vld.entries = Span<const rhi::BindGroupLayoutEntry>{&viewEntry, 1};
+            vld.entries = Span<const rhi::BindGroupLayoutEntry>{viewEntries, 3};
             if (!m_device->CreateBindGroupLayout(vld, m_viewLayout).IsOk())
             {
                 return core::Status{core::ErrorCode::Unknown};
@@ -137,6 +147,44 @@ export namespace engine::terrain
                     lm.indexBuffer->Unmap();
                 }
             }
+
+            // Shadow receive: a comparison sampler + a 1x1 dummy Texture2DArray depth map bound when no
+            // caster exists this frame (so set 0 stays complete). The real CSM array arrives via
+            // SetShadowMap. Mirrors MeshRenderer::CreateShadowResources.
+            rhi::SamplerDesc ssd{};
+            ssd.minFilter = rhi::FilterMode::Linear;
+            ssd.magFilter = rhi::FilterMode::Linear;
+            ssd.mipmapFilter = rhi::MipmapFilterMode::Nearest;
+            ssd.addressU = rhi::AddressMode::ClampToEdge;
+            ssd.addressV = rhi::AddressMode::ClampToEdge;
+            ssd.addressW = rhi::AddressMode::ClampToEdge;
+            ssd.compare = rhi::CompareFunction::LessEqual; // lit when fragment depth <= stored depth
+            ssd.label = u8"terrain.shadowSampler";
+            if (!m_device->CreateSampler(ssd, m_shadowSampler).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::TextureDesc dsd{};
+            dsd.format = rhi::TextureFormat::Depth32Float;
+            dsd.width = 1;
+            dsd.height = 1;
+            dsd.arrayLayerCount = 1;
+            dsd.usage = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::Sampled;
+            dsd.label = u8"terrain.dummyShadow";
+            if (!m_device->CreateTexture(dsd, m_dummyShadowTex).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::TextureViewDesc dvd{};
+            dvd.format = rhi::TextureFormat::Depth32Float;
+            dvd.aspect = rhi::TextureAspect::DepthOnly;
+            dvd.dimension = rhi::TextureViewDimension::Texture2DArray;
+            dvd.arrayLayerCount = 1;
+            if (!m_device->CreateTextureView(m_dummyShadowTex, dvd, m_dummyShadowView).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            m_activeShadowView = m_dummyShadowView;
             return core::Status{};
         }
 
@@ -149,12 +197,18 @@ export namespace engine::terrain
         void PrepareFrame(u32 maxDraws, u32 frameIndex) override
         {
             const u32 chunk = 4096u;
-            m_viewRing.Reserve(Max(kMaxTerrains, maxDraws == 0 ? 1u : maxDraws));
-            const u32 wantChunks = ((m_maxChunksSeen + chunk - 1u) / chunk) * chunk;
+            // Each terrain allocates a view slot per PASS in a frame: 1 color + 1 depth prepass +
+            // kCascadeCount shadow cascades (+ extra views). The chunk ring holds every pass's chunk
+            // allocations (self-sized from the observed peak, both passes).
+            const u32 wantViews =
+                Max(kMaxTerrains * (2u + kCascadeCount), maxDraws == 0 ? 1u : maxDraws);
+            m_viewRing.Reserve(wantViews);
+            const u32 wantChunks = ((m_maxChunkAllocs + chunk - 1u) / chunk) * chunk;
             m_chunkRing.Reserve(wantChunks == 0 ? chunk : wantChunks);
             m_viewRing.BeginFrame(frameIndex);
             m_chunkRing.BeginFrame(frameIndex);
             m_frameChunks = 0;
+            m_frameChunkAllocs = 0;
         }
 
         void Resolve(const render::RenderRecordContext& ctx, Span<const render::DrawItem> items,
@@ -206,27 +260,45 @@ export namespace engine::terrain
                     continue;
                 }
 
-                // Per-terrain view UBO: fold the terrain's world transform into ViewProj so the VS
-                // renders heightfield-local positions straight to clip.
+                // Per-terrain view UBO. The VS works in WORLD space (ChunkToWorld applied there, NOT
+                // folded into ViewProj) so the PS can shadow-sample worldPos against the world-space
+                // cascade matrices. Cascade fields are filled from ctx.cascades (Stage B) - here they
+                // stay zero => shadowMeta.x (cascade count) 0 => SampleCSM returns fully lit.
                 const render::DynamicUniformRing::Range vr = m_viewRing.Allocate();
                 if (!vr.ok)
                 {
                     continue;
                 }
-                struct ViewUBO
+                ViewUBO ubo{};
+                ubo.chunkToWorld = data->chunkToWorld;
+                ubo.viewProj = ctx.viewProj;
+                ubo.view = ctx.viewMatrix;
+                ubo.prevViewProj = ctx.prevViewProj;
+                ubo.lightDir = Float4{sun.x, sun.y, sun.z, 0.0f};
+                ubo.cameraPos = Float4{ctx.cameraPos.x, ctx.cameraPos.y, ctx.cameraPos.z, 0.0f};
+                ubo.jitter = Float4{ctx.jitter.x, ctx.jitter.y, ctx.prevJitter.x, ctx.prevJitter.y};
+                const f32 uvYSign = m_device->NeedsClipSpaceYFlip() ? 1.0f : -1.0f;
+                ubo.shadowParams = Float4{0.0f, uvYSign, 0.0f, 0.0f};
+                // CSM receive: copy this view's cascade matrices/splits (world-space - the VS emits
+                // worldPos). Count 0 (no directional caster) leaves the PS fully lit. Mirrors
+                // MeshRenderer's view-UBO shadow fill.
+                if (ctx.cascades.valid)
                 {
-                    Float4x4 viewProj;
-                    Float4x4 view;
-                    Float4x4 prevViewProj;
-                    Float4 lightDir;
-                    Float4 cameraPos;
-                    Float4 jitter;
-                } ubo{data->chunkToWorld * ctx.viewProj,
-                      ctx.viewMatrix,
-                      data->chunkToWorld * ctx.prevViewProj,
-                      Float4{sun.x, sun.y, sun.z, 0.0f},
-                      Float4{ctx.cameraPos.x, ctx.cameraPos.y, ctx.cameraPos.z, 0.0f},
-                      Float4{ctx.jitter.x, ctx.jitter.y, ctx.prevJitter.x, ctx.prevJitter.y}};
+                    for (u32 c = 0; c < kCascadeCount; ++c)
+                    {
+                        ubo.cascadeViewProj[c] = ctx.cascades.viewProj[c];
+                    }
+                    ubo.cascadeSplitFar =
+                        Float4{ctx.cascades.splitFar[0], ctx.cascades.splitFar[1],
+                               ctx.cascades.splitFar[2], ctx.cascades.splitFar[3]};
+                    ubo.cascadeTexelSize =
+                        Float4{ctx.cascades.texelWorldSize[0], ctx.cascades.texelWorldSize[1],
+                               ctx.cascades.texelWorldSize[2], ctx.cascades.texelWorldSize[3]};
+                    ubo.shadowMeta = Float4{static_cast<f32>(kCascadeCount),
+                                            static_cast<f32>(ctx.cascadeLayerBase),
+                                            kShadowNormalBias, kShadowDepthBias};
+                    ubo.shadowParams.x = ctx.shadowFarFade;
+                }
                 MemCopy(vr.ptr, &ubo, sizeof(ubo));
 
                 // Local-space frustum (chunkToWorld folded in) matches the chunks' local bounds.
@@ -265,30 +337,8 @@ export namespace engine::terrain
                         continue;
                     }
                     ++m_frameChunks;
-                    // Skirt depth: how far the skirt ring drops below the surface to plug an LOD
-                    // seam. Bounded by the chunk's own relief (a seam can't mismatch by more), with a
-                    // small floor for near-flat terrain. Skirts are only visible AT a crack, so being
-                    // generous is free.
-                    const f32 skirtDepth =
-                        Max(1.0f, 0.5f * (c.bounds.max.y - c.bounds.min.y));
-                    struct ChunkUBO
-                    {
-                        Float2 originXZ;
-                        Float2 sizeXZ;
-                        Float2 texelBase;
-                        Float2 texelSpan;
-                        Float2 heightRange;
-                        Float2 gridSize;
-                        Float2 skirt; // x = skirt depth (world), y = pad
-                    } cb{Float2{c.bounds.min.x, c.bounds.min.z},
-                         Float2{c.bounds.max.x - c.bounds.min.x, c.bounds.max.z - c.bounds.min.z},
-                         Float2{static_cast<f32>(c.gridX0), static_cast<f32>(c.gridZ0)},
-                         Float2{static_cast<f32>(tmodel::kChunkQuads),
-                                static_cast<f32>(tmodel::kChunkQuads)},
-                         Float2{data->minY, data->maxY},
-                         Float2{static_cast<f32>(data->gridSize),
-                                static_cast<f32>(data->gridSize)},
-                         Float2{skirtDepth, 0.0f}};
+                    ++m_frameChunkAllocs;
+                    ChunkUBO cb = MakeChunkUBO(*data, c);
                     MemCopy(cr.ptr, &cb, sizeof(cb));
 
                     render::ResolvedDraw draw{};
@@ -311,9 +361,105 @@ export namespace engine::terrain
             }
         }
 
+        // Depth-only caster: the camera depth prepass (ctx.depthPrepass) AND each CSM cascade (ctx.viewProj
+        // = the cascade's world->light-clip). Same chunk cull/LOD as Resolve, but a vertex-only depth PSO
+        // and SURFACE indices only (skirts are a shading crack-hack, not shadow casters).
+        void ResolveDepthOnly(const render::RenderRecordContext& ctx, Span<const render::DrawItem> items,
+                              Array<render::ResolvedDraw>& out) override
+        {
+            if (items.IsEmpty())
+            {
+                return;
+            }
+            m_depthFormat = ctx.depthFormat;
+            rhi::RenderPipeline* pso = EnsureDepthPipeline(ctx.depthFormat, /*biased*/ !ctx.depthPrepass);
+            rhi::BindGroup* viewBg = EnsureViewBindGroup();
+            rhi::BindGroup* chunkBg = EnsureChunkBindGroup();
+            if (pso == nullptr || viewBg == nullptr || chunkBg == nullptr)
+            {
+                return;
+            }
+            const Float4x4 proj =
+                (ctx.view != nullptr) ? ctx.view->Camera().projection : Float4x4::Identity();
+
+            for (usize it = 0; it < items.Size(); ++it)
+            {
+                const auto* data = static_cast<const TerrainRenderData*>(items[it].data);
+                if (data == nullptr || data->chunks == nullptr || data->quadtree == nullptr ||
+                    data->heightView == nullptr || data->chunkCount == 0)
+                {
+                    continue;
+                }
+                const render::DynamicUniformRing::Range vr = m_viewRing.Allocate();
+                if (!vr.ok)
+                {
+                    continue;
+                }
+                // The depth VS reads only ChunkToWorld + ViewProj; the rest of the slot is unused.
+                ViewUBO ubo{};
+                ubo.chunkToWorld = data->chunkToWorld;
+                ubo.viewProj = ctx.viewProj; // camera VP (prepass) or cascade light VP (shadow)
+                MemCopy(vr.ptr, &ubo, sizeof(ubo));
+
+                const BoundingFrustum frustum(data->chunkToWorld * ctx.viewProj);
+                const Span<const tmodel::TerrainChunk> chunks{data->chunks, data->chunkCount};
+                const Span<const f32> thresholds{data->thresholds, data->thresholdCount};
+                m_draws.Clear();
+                tmodel::ExtractVisibleChunkDraws(*data->quadtree, chunks, data->chunkToWorld,
+                                                 ctx.viewMatrix, proj, frustum, thresholds,
+                                                 data->lodBias, m_draws);
+                if (m_draws.IsEmpty())
+                {
+                    continue;
+                }
+                rhi::BindGroup* heightBg = EnsureHeightBindGroup(data->heightView);
+                if (heightBg == nullptr)
+                {
+                    continue;
+                }
+
+                for (usize d = 0; d < m_draws.Size(); ++d)
+                {
+                    const tmodel::ChunkDraw& cd = m_draws[d];
+                    const u32 lod = Min(cd.lod, tmodel::kMaxChunkLod);
+                    const LodMesh& lm = m_lodMeshes[lod];
+                    if (lm.indexBuffer == nullptr || lm.surfaceIndexCount == 0)
+                    {
+                        continue;
+                    }
+                    const tmodel::TerrainChunk& c = data->chunks[static_cast<usize>(cd.chunkIndex)];
+                    const render::DynamicUniformRing::Range cr = m_chunkRing.Allocate();
+                    if (!cr.ok)
+                    {
+                        continue;
+                    }
+                    ++m_frameChunkAllocs;
+                    ChunkUBO cb = MakeChunkUBO(*data, c);
+                    MemCopy(cr.ptr, &cb, sizeof(cb));
+
+                    render::ResolvedDraw draw{};
+                    draw.pso = pso;
+                    draw.viewSet = viewBg;
+                    draw.viewDynamic = true;
+                    draw.viewOffset = vr.byteOffset;
+                    draw.drawSet = chunkBg;
+                    draw.drawDynamic = true;
+                    draw.drawOffset = cr.byteOffset;
+                    draw.materialSet = heightBg; // set 2: height texture (the VS displaces from it)
+                    draw.vertexBuffer0 = m_gridVertexBuffer;
+                    draw.indexBuffer = lm.indexBuffer;
+                    draw.indexFormat = rhi::IndexFormat::UInt32;
+                    draw.indexCount = lm.surfaceIndexCount; // surface only - no skirt casters
+                    draw.instanceCount = 1;
+                    out.PushBack(draw);
+                }
+            }
+        }
+
         void FinishFrame() override
         {
             m_maxChunksSeen = Max(m_maxChunksSeen, m_frameChunks);
+            m_maxChunkAllocs = Max(m_maxChunkAllocs, m_frameChunkAllocs);
             m_viewRing.EndFrame();
             m_chunkRing.EndFrame();
         }
@@ -325,6 +471,16 @@ export namespace engine::terrain
             m_chunkRing.SetRetireQueue(retire);
         }
 
+        // The frame's CSM cascade array (null = no caster this frame -> the dummy map, samples fully lit).
+        // Fanned out to every registered renderer by RenderFrame each frame (before PrepareFrame).
+        void SetShadowMap(rhi::TextureView* view, u64 generation) override
+        {
+            m_activeShadowView = (view != nullptr) ? view : m_dummyShadowView;
+            m_activeShadowGen = (view != nullptr) ? generation : 0;
+        }
+        // Terrain samples only the directional CSM, not the local (spot/point) atlas - leave the base
+        // SetShadowAtlas no-op.
+
         /// Peak per-frame chunk-draw count seen so far (diagnostics + headless verification): > 0 only
         /// once a frame emitted terrain draws, which requires the PSO (hence the shaders) to have built.
         [[nodiscard]] u32 MaxChunksDrawn() const noexcept { return m_maxChunksSeen; }
@@ -335,8 +491,28 @@ export namespace engine::terrain
 
     private:
         static constexpr u32 kMaxTerrains = 8;
-        static constexpr u64 kViewSlotSize = 256;  // mat4 + 2 float4, padded to dynamic alignment
+        static constexpr u32 kCascadeCount = 4; // matches render::ShadowCascades::kCount
+        static constexpr f32 kShadowNormalBias = 0.02f; // in texels (scaled by texelWorld in the PS)
+        static constexpr f32 kShadowDepthBias = 0.0009f;
+        static constexpr u64 kViewSlotSize = 768;  // 8 mat4 + 6 float4, padded to dynamic alignment
         static constexpr u64 kChunkSlotSize = 256; // 6 float2, padded to dynamic alignment
+
+        // Mirrors the HLSL TerrainView cbuffer (b0, space0) - keep field order/offsets in lockstep.
+        struct ViewUBO
+        {
+            Float4x4 chunkToWorld;
+            Float4x4 viewProj;
+            Float4x4 view;
+            Float4x4 prevViewProj;
+            Float4x4 cascadeViewProj[kCascadeCount];
+            Float4 lightDir;
+            Float4 cameraPos;
+            Float4 jitter;
+            Float4 cascadeSplitFar;
+            Float4 cascadeTexelSize;
+            Float4 shadowMeta;   // x = cascade count, y = layer base, z = normal bias, w = depth bias
+            Float4 shadowParams; // x = far-fade width, y = uv.y sign, zw spare
+        };
 
         struct LodMesh
         {
@@ -345,33 +521,85 @@ export namespace engine::terrain
             u32 surfaceIndexCount = 0; // the surface prefix (skirtless draw range)
         };
 
+        struct DepthPso
+        {
+            rhi::RenderPipeline* pso = nullptr;
+            rhi::TextureFormat format = rhi::TextureFormat::Undefined;
+            u64 shaderVersion = 0;
+        };
+
+        // Mirrors the HLSL TerrainChunk cbuffer (b0, space1). Shared by the color + depth passes.
+        struct ChunkUBO
+        {
+            Float2 originXZ;
+            Float2 sizeXZ;
+            Float2 texelBase;
+            Float2 texelSpan;
+            Float2 heightRange;
+            Float2 gridSize;
+            Float2 skirt; // x = skirt depth (world), y = pad
+        };
+
+        [[nodiscard]] static ChunkUBO MakeChunkUBO(const TerrainRenderData& data,
+                                                   const tmodel::TerrainChunk& c)
+        {
+            // Skirt depth: how far the skirt ring drops below the surface to plug an LOD seam. Bounded
+            // by the chunk's own relief (a seam can't mismatch by more), with a floor for near-flat
+            // terrain. Only visible AT a crack, so being generous is free (unused in the depth pass).
+            const f32 skirtDepth = Max(1.0f, 0.5f * (c.bounds.max.y - c.bounds.min.y));
+            return ChunkUBO{
+                Float2{c.bounds.min.x, c.bounds.min.z},
+                Float2{c.bounds.max.x - c.bounds.min.x, c.bounds.max.z - c.bounds.min.z},
+                Float2{static_cast<f32>(c.gridX0), static_cast<f32>(c.gridZ0)},
+                Float2{static_cast<f32>(tmodel::kChunkQuads), static_cast<f32>(tmodel::kChunkQuads)},
+                Float2{data.minY, data.maxY},
+                Float2{static_cast<f32>(data.gridSize), static_cast<f32>(data.gridSize)},
+                Float2{skirtDepth, 0.0f}};
+        }
+
         rhi::BindGroup* EnsureViewBindGroup()
         {
             const u32 gen = m_viewRing.Generation();
-            if (m_viewBg != nullptr && m_viewBgGen == gen)
+            // Rebuild on a ring roll-over OR a change of the bound shadow map (pointer or generation -
+            // a freed view's address can be reused, so the generation guards address aliasing).
+            if (m_viewBg != nullptr && m_viewBgGen == gen && m_viewBgShadow == m_activeShadowView &&
+                m_viewBgShadowGen == m_activeShadowGen)
             {
                 return m_viewBg;
             }
             if (m_viewBg != nullptr)
             {
-                m_device->DestroyBindGroup(m_viewBg);
+                // May sit in a submitted frame's descriptor set - retire (frame-aged) when possible.
+                if (m_retire != nullptr)
+                {
+                    m_retire->Retire(m_viewBg);
+                }
+                else
+                {
+                    m_device->DestroyBindGroup(m_viewBg);
+                }
                 m_viewBg = nullptr;
             }
-            if (m_viewRing.Buffer() == nullptr)
+            if (m_viewRing.Buffer() == nullptr || m_activeShadowView == nullptr)
             {
                 return nullptr;
             }
-            rhi::BindGroupEntry e =
-                rhi::BindGroupEntry::BufferEntry(m_viewRing.Buffer(), 0, kViewSlotSize);
+            rhi::BindGroupEntry entries[] = {
+                rhi::BindGroupEntry::BufferEntry(m_viewRing.Buffer(), 0, kViewSlotSize), // b0
+                rhi::BindGroupEntry::TextureEntry(m_activeShadowView),                   // t1 (CSM array)
+                rhi::BindGroupEntry::SamplerEntry(m_shadowSampler),                      // s0 (compare)
+            };
             rhi::BindGroupDesc bgd{};
             bgd.layout = m_viewLayout;
-            bgd.entries = Span<const rhi::BindGroupEntry>{&e, 1};
+            bgd.entries = Span<const rhi::BindGroupEntry>{entries, 3};
             if (!m_device->CreateBindGroup(bgd, m_viewBg).IsOk())
             {
                 m_viewBg = nullptr;
                 return nullptr;
             }
             m_viewBgGen = gen;
+            m_viewBgShadow = m_activeShadowView;
+            m_viewBgShadowGen = m_activeShadowGen;
             return m_viewBg;
         }
 
@@ -516,6 +744,64 @@ export namespace engine::terrain
             return pso;
         }
 
+        // Depth-only PSO (vertex-only terrain_depth VS, 0 color targets). `biased` adds the shadow-pass
+        // slope-scaled depth bias (the camera prepass must match the forward depth exactly, so no bias).
+        rhi::RenderPipeline* EnsureDepthPipeline(rhi::TextureFormat depthFormat, bool biased)
+        {
+            DepthPso& p = m_depthPso[biased ? 1u : 0u];
+            const u64 shaderVersion = m_shaders->Version(u8"terrain_depth");
+            if (p.pso != nullptr && p.format == depthFormat && p.shaderVersion == shaderVersion)
+            {
+                return p.pso;
+            }
+            if (p.pso != nullptr)
+            {
+                m_device->DestroyRenderPipeline(p.pso);
+                p.pso = nullptr;
+            }
+            rhi::ShaderModule* vs = m_shaders->GetVariant(
+                u8"terrain_depth", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
+            if (vs == nullptr)
+            {
+                return nullptr;
+            }
+            const rhi::VertexAttribute attrs[] = {{rhi::VertexFormat::Float32x3, 0, 0}};
+            rhi::VertexBufferLayout vbl{};
+            vbl.stride = sizeof(Float3);
+            vbl.stepMode = rhi::VertexStepMode::Vertex;
+            vbl.attributes = Span<const rhi::VertexAttribute>{attrs, 1};
+
+            rhi::DepthStencilState ds{};
+            ds.format = depthFormat;
+            ds.depthTestEnabled = true;
+            ds.depthWriteEnabled = true;
+            ds.depthCompare = rhi::CompareFunction::Less;
+            if (biased)
+            {
+                ds.depthBias = 50;
+                ds.depthBiasSlopeScale = 1.5f;
+            }
+
+            rhi::RenderPipelineDesc pd{};
+            pd.layout = m_pipelineLayout;
+            pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+            pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
+            // No fragment stage (Optional left empty) + no color targets = depth-only.
+            pd.depthStencil = ds;
+            pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
+            pd.primitive.cullMode = rhi::CullMode::Back;
+            pd.label = u8"terrain.depth";
+            rhi::RenderPipeline* pso = nullptr;
+            if (!m_device->CreateRenderPipeline(pd, pso).IsOk())
+            {
+                return nullptr;
+            }
+            p.pso = pso;
+            p.format = depthFormat;
+            p.shaderVersion = shaderVersion;
+            return pso;
+        }
+
         void Shutdown()
         {
             for (auto& kv : m_heightBindGroups)
@@ -541,6 +827,14 @@ export namespace engine::terrain
                 m_device->DestroyRenderPipeline(m_pso);
                 m_pso = nullptr;
             }
+            for (DepthPso& dp : m_depthPso)
+            {
+                if (dp.pso != nullptr)
+                {
+                    m_device->DestroyRenderPipeline(dp.pso);
+                    dp.pso = nullptr;
+                }
+            }
             for (LodMesh& lm : m_lodMeshes)
             {
                 if (lm.indexBuffer != nullptr)
@@ -553,6 +847,21 @@ export namespace engine::terrain
             {
                 m_device->DestroyBuffer(m_gridVertexBuffer);
                 m_gridVertexBuffer = nullptr;
+            }
+            if (m_dummyShadowView != nullptr)
+            {
+                m_device->DestroyTextureView(m_dummyShadowView);
+                m_dummyShadowView = nullptr;
+            }
+            if (m_dummyShadowTex != nullptr)
+            {
+                m_device->DestroyTexture(m_dummyShadowTex);
+                m_dummyShadowTex = nullptr;
+            }
+            if (m_shadowSampler != nullptr)
+            {
+                m_device->DestroySampler(m_shadowSampler);
+                m_shadowSampler = nullptr;
             }
             if (m_pipelineLayout != nullptr)
             {
@@ -599,13 +908,24 @@ export namespace engine::terrain
         u32 m_chunkBgGen = 0;
         HashMap<rhi::TextureView*, HeightBindGroup> m_heightBindGroups;
         render::GpuRetireQueue* m_retire = nullptr; // borrowed (RenderSubsystem owns + ticks)
+        // Shadow receive (set 0: t1 CSM array + s0 comparison sampler).
+        rhi::Sampler* m_shadowSampler = nullptr;
+        rhi::Texture* m_dummyShadowTex = nullptr;      // 1x1 Texture2DArray depth (no-caster fallback)
+        rhi::TextureView* m_dummyShadowView = nullptr;
+        rhi::TextureView* m_activeShadowView = nullptr; // borrowed: the CSM array, or the dummy
+        u64 m_activeShadowGen = 0;
+        rhi::TextureView* m_viewBgShadow = nullptr; // what the cached view BG was built against
+        u64 m_viewBgShadowGen = 0;
         rhi::RenderPipeline* m_pso = nullptr;
         rhi::TextureFormat m_psoFormat = rhi::TextureFormat::Undefined;
         u64 m_psoShaderVersion = 0;
+        DepthPso m_depthPso[2]; // [0] = prepass (no bias), [1] = shadow cascade (biased)
         rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Undefined;
         Array<tmodel::ChunkDraw> m_draws; // scratch, reused each terrain (Resolve is single-threaded)
-        u32 m_frameChunks = 0;
+        u32 m_frameChunks = 0;      // color-pass visible chunks (the MaxChunksDrawn diagnostic)
         u32 m_maxChunksSeen = 0;
+        u32 m_frameChunkAllocs = 0; // chunk-ring allocs this frame across ALL passes (sizes the ring)
+        u32 m_maxChunkAllocs = 0;
         bool m_skirtsEnabled = true;
     };
 }
