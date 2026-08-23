@@ -18,10 +18,12 @@ module editor.scene;
 import foundation.core;
 import foundation.scene;
 import foundation.render;
+import foundation.geometry;
 import engine.render;
 import engine.navigation;
 
 using namespace foundation::core;
+namespace geometry = foundation::geometry;
 namespace render = foundation::render;
 namespace scene = foundation::scene;
 
@@ -222,5 +224,63 @@ namespace editor
 
         dd.DrawTransformedBox(Float3{} - probe->halfExtents, probe->halfExtents, world, color);
         detail::DrawCenterCross(dd, position, 0.2f, color);
+    }
+
+    const TypeInfo* LodOverlayGizmoRenderer::ComponentType() const
+    {
+        return &TypeOf<engine::render::MeshComponent>();
+    }
+
+    void LodOverlayGizmoRenderer::Draw(const Instance& component, scene::EntityHandle owner,
+                                       GizmoContext& ctx)
+    {
+        if (!ctx.lodOverlay || ctx.viewCamera == nullptr)
+        {
+            return;
+        }
+        const auto* mc = component.TryGet<engine::render::MeshComponent>();
+        if (mc == nullptr)
+        {
+            return;
+        }
+        const geometry::StaticMesh* mesh = mc->mesh.Get();
+        if (mesh == nullptr || mesh->lodCount <= 1)
+        {
+            return;
+        }
+        // World bounds the way extraction sees them: local AABB center through the entity
+        // world; radius = half the transformed box diagonal (conservative, close enough
+        // for the same pick the renderer makes).
+        const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
+        const Float3 center = TransformPoint(mesh->bounds.Center(), world);
+        Float3 minCorner = center;
+        Float3 maxCorner = center;
+        const Float3 lo = mesh->bounds.min;
+        const Float3 hi = mesh->bounds.max;
+        for (u32 corner = 0; corner < 8; ++corner)
+        {
+            const Float3 local{(corner & 1) ? hi.x : lo.x, (corner & 2) ? hi.y : lo.y,
+                               (corner & 4) ? hi.z : lo.z};
+            const Float3 p = TransformPoint(local, world);
+            minCorner = Float3{Min(minCorner.x, p.x), Min(minCorner.y, p.y), Min(minCorner.z, p.z)};
+            maxCorner = Float3{Max(maxCorner.x, p.x), Max(maxCorner.y, p.y), Max(maxCorner.z, p.z)};
+        }
+        const f32 radius = 0.5f * Length(maxCorner - minCorner);
+        const f32 coverage =
+            render::LodCoverageFor(*ctx.viewCamera, center, radius, mc->lodBias);
+        const u32 maxLod = mesh->lodCount - 1;
+        const u32 level =
+            (mc->forceLod >= 0)
+                ? ((static_cast<u32>(mc->forceLod) < maxLod) ? static_cast<u32>(mc->forceLod)
+                                                             : maxLod)
+                : render::PickLodLevel(*mesh, coverage);
+        static const Color kLevelColors[] = {
+            Color{0.3f, 0.9f, 0.3f, 1.0f}, // 0 = green (finest)
+            Color{0.95f, 0.9f, 0.2f, 1.0f}, // 1 = yellow
+            Color{1.0f, 0.6f, 0.15f, 1.0f}, // 2 = orange
+            Color{1.0f, 0.25f, 0.2f, 1.0f}, // 3+ = red
+        };
+        const Color color = kLevelColors[(level < 3u) ? level : 3u];
+        ctx.debug->DrawTransformedBox(mesh->bounds.min, mesh->bounds.max, world, color);
     }
 }

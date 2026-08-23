@@ -181,17 +181,31 @@ single `Ref<StaticMesh>`).
   SelectLod on a chain returns the COARSEST level - shadows never render
   finer than any view shows. Previously shadow contexts carried a null
   view and chains cast at LOD 0 (visually fine, wasteful).
-  DEBUG TINT OVERLAY: BLOCKED-BY-SEQUENCING, deliberately - the chosen
-  mechanism (per-view KEYED debug-draw overlay recomputing the pick from
-  component data via the exported pure trio LodCoverageFor/PickLodLevel)
-  is precisely an editor-side per-view gizmo renderer, which is what
-  this week's editor-side-domain-debug-draw + gizmo-registration seam
-  track builds. It lands THROUGH that seam when the seam exists -
-  building it early would couple into the central dispatch being
-  replaced. Not scope-cut: sequenced onto its owning track.
-- **P4 - DEFERRED:** skinned LOD chains, per-instance LOD bucketing,
-  cross-fade transitions, LOD-aware physics cooking (physics keeps cooking
-  from LOD0 - collision fidelity is not a rendering concern).
+  DEBUG TINT OVERLAY SHIPPED (user unblock 2026-08-23 - do not wait on
+  the gizmo-registration seam): LodOverlayGizmoRenderer, a BUILT-IN
+  gizmo (the current (B) pattern; it migrates onto the external
+  registration seam WITH the other builtins when that lands). Toolbar
+  "LOD" toggle on the scene page (off by default); with it on, every
+  chained mesh draws its bounds through the viewport's KEYED debug list
+  tinted by the level THAT viewport's camera picks (green/yellow/
+  orange/red), recomputed via the exported pure selection functions
+  (raw pick, no hysteresis - a lens, not renderer state). GizmoContext
+  gained the viewport ViewCamera + the overlay flag; gizmo-count
+  tripwire 5->6.
+- **P4 - DEFERRED** (revised 2026-08-23 - user challenge collapsed most
+  of it): SKINNED CHAINS SHIPPED - the P0 optimizer permutes the
+  parallel skinning stream with the identical vertex remap (mismatched
+  stream sizes refuse the whole pass), the skinned builder runs the
+  pass, authored _LODn collapse works for skinned meshes (the skinned
+  append keeps both streams in lockstep; MIXED skinned/static pairs are
+  refused), and auto-generation applies (simplification only drops
+  indices - the per-vertex skin stream is untouched by construction).
+  The renderer needed NOTHING: chains flow through the already-patched
+  skinned draw paths. Still deferred: WEIGHT-AWARE simplification
+  quality (meshopt simplifyWithAttributes - joints can melt at
+  aggressive ratios without it; revisit when a real character shows
+  it), per-instance LOD bucketing, cross-fade transitions, LOD-aware
+  physics cooking (physics keeps cooking from LOD0).
 
 ## Refresh (Fable, 2026-08-23) - sequenced after terrain; three updates
 

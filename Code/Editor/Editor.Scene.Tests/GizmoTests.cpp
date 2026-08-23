@@ -353,7 +353,7 @@ TEST_CASE("gizmo-registry: renderers resolve by component type; unselected entit
 {
     GizmoRendererRegistry registry;
     RegisterBuiltinGizmoRenderers(registry);
-    CHECK(registry.Count() == 5u);
+    CHECK(registry.Count() == 6u); // +LodOverlayGizmoRenderer (mesh-lod.md P3)
 
     CHECK(registry.Find(&TypeOf<engine::render::LightComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::render::ReflectionProbeComponent>()) != nullptr);

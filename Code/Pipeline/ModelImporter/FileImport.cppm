@@ -837,11 +837,14 @@ export namespace pipeline
                 {
                     continue; // no base of that name - a plain mesh that happens to end _LODn
                 }
-                if ((IsSkinnedMesh(*meshes[baseIndex]) && hasSkin) ||
+                // Skinned chains are supported; only a MIXED pair (skinned base with a
+                // static level or vice versa) is refused - the parallel-stream contract
+                // cannot hold across the mismatch.
+                if ((IsSkinnedMesh(*meshes[baseIndex]) && hasSkin) !=
                     (IsSkinnedMesh(*meshes[i]) && hasSkin))
                 {
                     LOG_WARNING(u8"Import",
-                                u8"mesh '{}': skinned LOD chains are not supported yet - "
+                                u8"mesh '{}': LOD level and base disagree on skinning - "
                                 u8"importing as a separate mesh",
                                 meshes[i]->name());
                     continue;
@@ -882,6 +885,30 @@ export namespace pipeline
                 {
                     auto asset = MakeRef<pipeline::SkinnedMeshAsset>(DefaultAllocator());
                     SkinnedMeshSourceFromModel(m, 0, asset->source);
+                    // Authored _LODn levels fold into the chain (skinned overload keeps the
+                    // parallel skinning stream in lockstep); big chainless meshes auto-generate
+                    // (simplification only drops indices - the skin stream is untouched).
+                    for (const usize levelIndex : lodLevels[i])
+                    {
+                        if (!pipeline::AppendLodLevelFromModel(*meshes[levelIndex],
+                                                               asset->source))
+                        {
+                            LOG_WARNING(u8"Import",
+                                        u8"mesh '{}': LOD level '{}' mismatched (submesh count "
+                                        u8"or skin stream) - level skipped",
+                                        m.name(), meshes[levelIndex]->name());
+                        }
+                    }
+                    if (asset->source.lodCount > 1)
+                    {
+                        LOG_INFO(u8"Import", u8"mesh '{}': authored LOD chain with {} level(s)",
+                                 m.name(), asset->source.lodCount);
+                    }
+                    else if (generateLods &&
+                             asset->source.indexData.Size() >= 3u * 10000u)
+                    {
+                        (void)pipeline::GenerateLodChain(asset->source);
+                    }
                     inst = ClaimInstance(
                         group, name, pipeline::SkinnedMeshAsset::StaticType(), claimed);
                     if (inst == nullptr)

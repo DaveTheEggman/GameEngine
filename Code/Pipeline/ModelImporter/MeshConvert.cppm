@@ -297,11 +297,13 @@ namespace pipeline
         // base's submesh count (the material layout is per-chain; a level never resorts) -
         // mismatch returns false with `base` unchanged. Coverage thresholds default to a
         // halving ladder (LOD1 at 0.25 of the viewport half-height, LOD2 at 0.125, ...).
-        [[nodiscard]] inline bool AppendLodLevelFromModel(const model::ModelMesh& lodMesh,
+        void SkinnedMeshSourceFromModel(const model::ModelMesh& mesh, i32 skeletonIndex,
+                                        geometry::SkinnedMeshSource& out); // defined below
+
+        // The shared append core over an ALREADY-CONVERTED level source.
+        [[nodiscard]] inline bool AppendConvertedLodLevel(const geometry::StaticMeshSource& level,
                                                           geometry::StaticMeshSource& base)
         {
-            geometry::StaticMeshSource level;
-            StaticMeshSourceFromModel(lodMesh, level);
             if (level.subStart.Size() != base.subStart.Size() || base.subStart.IsEmpty())
             {
                 return false;
@@ -333,6 +335,43 @@ namespace pipeline
             }
             base.lodCoverage.PushBack(0.25f * Pow(0.5f, static_cast<f32>(base.lodCount - 1)));
             base.lodCount += 1;
+            return true;
+        }
+
+        [[nodiscard]] inline bool AppendLodLevelFromModel(const model::ModelMesh& lodMesh,
+                                                          geometry::StaticMeshSource& base)
+        {
+            geometry::StaticMeshSource level;
+            StaticMeshSourceFromModel(lodMesh, level);
+            return AppendConvertedLodLevel(level, base);
+        }
+
+        // SKINNED chains: the level's parallel skinning stream appends in lockstep with its
+        // vertices (both streams grow by the level's vertex count - they cannot diverge).
+        // A level whose stream does not match its vertex count is refused.
+        [[nodiscard]] inline bool AppendLodLevelFromModel(const model::ModelMesh& lodMesh,
+                                                          geometry::SkinnedMeshSource& base)
+        {
+            geometry::SkinnedMeshSource level;
+            SkinnedMeshSourceFromModel(lodMesh, base.skeletonIndex, level);
+            constexpr usize kStride = sizeof(geometry::StaticMeshVertex);
+            constexpr usize kSkinStride = sizeof(geometry::VertexSkinning);
+            const usize levelVertices = level.vertexBlob.Size() / kStride;
+            if (level.skinningBlob.Size() != levelVertices * kSkinStride)
+            {
+                return false;
+            }
+            if (!AppendConvertedLodLevel(level, base))
+            {
+                return false;
+            }
+            const usize oldSize = base.skinningBlob.Size();
+            base.skinningBlob.Resize(oldSize + level.skinningBlob.Size());
+            if (!level.skinningBlob.IsEmpty())
+            {
+                MemCopy(base.skinningBlob.Data() + oldSize, level.skinningBlob.Data(),
+                        level.skinningBlob.Size());
+            }
             return true;
         }
 

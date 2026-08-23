@@ -247,6 +247,23 @@ namespace pipeline
             }
         }
 
+        // A skinned source whose parallel stream does not match the vertex count is
+        // malformed - refusing beats permuting one stream and not the other.
+        if (const auto* skinnedCheck = Cast<SkinnedMeshSource>(&source))
+        {
+            if (skinnedCheck->skinningBlob.Size() != vertexCount * sizeof(VertexSkinning))
+            {
+                LOG_WARNING(u8"Cook",
+                            u8"mesh '{}': skinning stream size mismatch - skipping optimization",
+                            source.name);
+                if (outStats != nullptr)
+                {
+                    *outStats = stats;
+                }
+                return;
+            }
+        }
+
         stats.acmrBefore = TriangleAcmr(source, vertexCount);
 
         // 1+2. Per-triangle-submesh reorder. Positions sit at offset 0 of the 52-byte
@@ -287,7 +304,9 @@ namespace pipeline
         }
 
         // 3. Whole-mesh vertex-fetch remap: blob reordered to index order, unused
-        // vertices compacted away, every index rewritten through the remap.
+        // vertices compacted away, every index rewritten through the remap. A SKINNED
+        // source's parallel skinning stream is per-vertex data and gets the IDENTICAL
+        // permutation - the streams can never diverge.
         Array<u32> remap;
         remap.Resize(vertexCount);
         const usize uniqueCount = meshopt_optimizeVertexFetchRemap(
@@ -296,6 +315,18 @@ namespace pipeline
         remappedBlob.Resize(uniqueCount * kStride);
         meshopt_remapVertexBuffer(remappedBlob.Data(), source.vertexBlob.Data(), vertexCount,
                                   kStride, remap.Data());
+        if (auto* skinned = Cast<SkinnedMeshSource>(&source))
+        {
+            constexpr usize kSkinStride = sizeof(VertexSkinning);
+            if (skinned->skinningBlob.Size() == vertexCount * kSkinStride)
+            {
+                Array<u8> remappedSkin;
+                remappedSkin.Resize(uniqueCount * kSkinStride);
+                meshopt_remapVertexBuffer(remappedSkin.Data(), skinned->skinningBlob.Data(),
+                                          vertexCount, kSkinStride, remap.Data());
+                skinned->skinningBlob = Move(remappedSkin);
+            }
+        }
         meshopt_remapIndexBuffer(source.indexData.Data(), source.indexData.Data(),
                                  source.indexData.Size(), remap.Data());
         source.vertexBlob = Move(remappedBlob);

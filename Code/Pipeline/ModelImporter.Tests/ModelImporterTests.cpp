@@ -1204,3 +1204,63 @@ TEST_CASE("mesh lod: authored level appends into the base's chain (offset indice
     CHECK(mesh.SubMeshesForLod(1)[0].startIndex == 6);
     CHECK(mesh.SubMeshesForLod(1)[0].indexCount == 3);
 }
+
+TEST_CASE("mesh lod: a skinned level appends with its skinning stream in lockstep")
+{
+    struct SkinVertex
+    {
+        Float3 pos;
+        Float3 normal;
+        Float2 uv;
+        u16 joints[4];
+        Float4 weights;
+    };
+    const auto makeSkinnedTri = [](model::ModelMesh& mesh, f32 xShift, u16 joint)
+    {
+        SkinVertex verts[3];
+        for (u32 i = 0; i < 3; ++i)
+        {
+            verts[i] = {};
+            verts[i].pos = Float3{xShift + static_cast<f32>(i), 0, 0};
+            verts[i].normal = Float3{0, 0, 1};
+            verts[i].joints[0] = joint;
+            verts[i].weights = Float4{1, 0, 0, 0};
+        }
+        const u32 indices[3] = {0, 1, 2};
+        mesh.addVertexElement(model::VertexElement(model::VertexSemantic::Position,
+                                                   model::VertexElementFormat::Float3, 0));
+        mesh.addVertexElement(model::VertexElement(model::VertexSemantic::Normal,
+                                                   model::VertexElementFormat::Float3, 12));
+        mesh.addVertexElement(model::VertexElement(model::VertexSemantic::TexCoord,
+                                                   model::VertexElementFormat::Float2, 24));
+        mesh.addVertexElement(model::VertexElement(model::VertexSemantic::Joints,
+                                                   model::VertexElementFormat::UShort4, 32));
+        mesh.addVertexElement(model::VertexElement(model::VertexSemantic::Weights,
+                                                   model::VertexElementFormat::Float4, 40));
+        mesh.allocateVertices(3, sizeof(SkinVertex));
+        mesh.setVertexData(verts, 3);
+        mesh.allocateIndices(3, true);
+        mesh.setIndexData(indices, 3);
+    };
+
+    model::ModelMesh baseMesh;
+    makeSkinnedTri(baseMesh, 0.0f, 7);
+    geometry::SkinnedMeshSource source;
+    pipeline::SkinnedMeshSourceFromModel(baseMesh, 2, source);
+    REQUIRE(source.skinningBlob.Size() == 3 * sizeof(geometry::VertexSkinning));
+
+    model::ModelMesh lodMesh;
+    makeSkinnedTri(lodMesh, 50.0f, 9);
+    REQUIRE(pipeline::AppendLodLevelFromModel(lodMesh, source));
+
+    // Both streams grew by the level's 3 vertices; the level's entries carry joint 9.
+    CHECK(source.lodCount == 2);
+    CHECK(source.vertexBlob.Size() == 6 * sizeof(geometry::StaticMeshVertex));
+    CHECK(source.skinningBlob.Size() == 6 * sizeof(geometry::VertexSkinning));
+    const auto* skin =
+        reinterpret_cast<const geometry::VertexSkinning*>(source.skinningBlob.Data());
+    CHECK(skin[2].joints[0] == 7); // base entries intact
+    CHECK(skin[3].joints[0] == 9); // appended level entries
+    CHECK(source.lodStart[0] == 3);
+    CHECK(source.indexData[3] == 3); // offset past the base's vertices
+}

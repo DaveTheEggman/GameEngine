@@ -787,6 +787,20 @@ namespace editor
         ctx.debug = &dd;
         ctx.scene = m_scene;
         ctx.cameraPosition = m_camera.position;
+        // The viewport's camera for the LOD overlay's per-view pick - the same matrices the
+        // render path builds (aspect from the live render target when it exists).
+        render::ViewCamera gizmoCamera;
+        gizmoCamera.view = Float4x4::LookAtRH(m_camera.position,
+                                              m_camera.position + m_camera.Forward(), m_camera.Up());
+        const f32 gizmoAspect =
+            (m_viewport && m_viewport->IsReady() && m_viewport->RenderHeight() > 0)
+                ? static_cast<f32>(m_viewport->RenderWidth()) /
+                      static_cast<f32>(m_viewport->RenderHeight())
+                : 16.0f / 9.0f;
+        gizmoCamera.projection = Float4x4::PerspectiveFovRH(1.0472f, gizmoAspect, 0.1f, 1000.0f);
+        gizmoCamera.position = m_camera.position;
+        ctx.viewCamera = &gizmoCamera;
+        ctx.lodOverlay = m_showLodOverlay;
         Selection<Guid>& selection = m_editContext->EntitySelection();
         m_scene->ForEachEntity(
             [&](scene::EntityHandle e)
@@ -1085,6 +1099,11 @@ namespace editor
         SceneEditorPage* self = this;
         m_gridToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
                                            { self->m_showGrid = value; });
+        // LOD overlay (mesh-lod.md P3): tint every chained mesh's bounds by the level this
+        // viewport's camera selects. Off by default - a debug lens, not an editing mode.
+        m_lodToggle = m_toolbar->AddToggle(u8"LOD");
+        m_lodToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
+                                          { self->m_showLodOverlay = value; });
     }
 
     void SceneEditorPage::SyncToolbar()
@@ -1100,6 +1119,10 @@ namespace editor
         const bool world = (m_selectTool->Gizmos().Space() == GizmoSpace::World);
         m_spaceToggle->SetIsChecked(world);
         m_gridToggle->SetIsChecked(m_showGrid);
+        if (m_lodToggle != nullptr)
+        {
+            m_lodToggle->SetIsChecked(m_showLodOverlay);
+        }
 
         IViewportTool* activeTool = m_viewportTools.ActiveTool();
         const StringView activeId = activeTool != nullptr ? activeTool->Id() : StringView{};

@@ -498,6 +498,8 @@ export namespace editor
         ui::toolkit::ToolbarToggle* m_spaceToggle = nullptr;
         ui::toolkit::ToolbarToggle* m_gridToggle = nullptr;
         bool m_showGrid = true;
+        ui::toolkit::ToolbarToggle* m_lodToggle = nullptr; // mesh-lod.md P3 overlay
+        bool m_showLodOverlay = false;
 
         // Viewport tool palette: one toggle per non-default registered tool (Property Animation, and
         // future terrain/nav-mesh) that activates it - the affordance that docks the tool's panel.

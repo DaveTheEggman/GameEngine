@@ -344,3 +344,62 @@ TEST_CASE("mesh lod generate: a dense grid grows a halving chain; small/authored
     CHECK(GenerateLodChain(tiny) == 0);
     CHECK(tiny.lodCount == 1);
 }
+
+TEST_CASE("mesh optimize: a skinned source's parallel stream follows the vertex permutation")
+{
+    // Vertex i sits at x = i and carries joints[0] = i: after the fetch remap + compaction
+    // the pairing must survive for every vertex, however the permutation shuffled them.
+    SkinnedMeshSource source;
+    Array<StaticMeshVertex> vertices;
+    Array<VertexSkinning> skinning;
+    for (u32 i = 0; i < 6; ++i)
+    {
+        StaticMeshVertex v;
+        v.position = Float3{static_cast<f32>(i), 0.0f, 0.0f};
+        vertices.PushBack(v);
+        VertexSkinning s{};
+        s.joints[0] = static_cast<u16>(i);
+        skinning.PushBack(s);
+    }
+    source.vertexBlob.Resize(vertices.Size() * sizeof(StaticMeshVertex));
+    MemCopy(source.vertexBlob.Data(), vertices.Data(), source.vertexBlob.Size());
+    source.skinningBlob.Resize(skinning.Size() * sizeof(VertexSkinning));
+    MemCopy(source.skinningBlob.Data(), skinning.Data(), source.skinningBlob.Size());
+    // Two triangles; vertex 5 is dead and must compact away from BOTH streams.
+    const u32 indices[] = {0, 1, 2, 2, 1, 3, 0, 3, 4};
+    for (u32 i : indices)
+    {
+        source.indexData.PushBack(i);
+    }
+    source.subStart.PushBack(0);
+    source.subCount.PushBack(9);
+    source.subMaterial.PushBack(0);
+    source.subPrim.PushBack(static_cast<u8>(PrimitiveType::Triangles));
+
+    pipeline::MeshOptimizeStats stats;
+    pipeline::OptimizeStaticMeshSource(source, &stats);
+    CHECK(stats.verticesAfter == 5);
+    CHECK(source.skinningBlob.Size() == 5 * sizeof(VertexSkinning));
+    const auto* outVerts =
+        reinterpret_cast<const StaticMeshVertex*>(source.vertexBlob.Data());
+    const auto* outSkin =
+        reinterpret_cast<const VertexSkinning*>(source.skinningBlob.Data());
+    for (usize i = 0; i < 5; ++i)
+    {
+        CHECK(outSkin[i].joints[0] == static_cast<u16>(outVerts[i].position.x));
+    }
+
+    // A mismatched parallel stream refuses the whole pass (nothing moves).
+    SkinnedMeshSource bad;
+    bad.vertexBlob = source.vertexBlob;
+    bad.indexData = source.indexData;
+    bad.subStart = source.subStart;
+    bad.subCount = source.subCount;
+    bad.subMaterial = source.subMaterial;
+    bad.subPrim = source.subPrim;
+    bad.skinningBlob.Resize(3 * sizeof(VertexSkinning)); // wrong size
+    const u32 firstBefore = bad.indexData[0];
+    pipeline::OptimizeStaticMeshSource(bad, &stats);
+    CHECK(bad.indexData[0] == firstBefore);
+    CHECK(stats.triangleSubmeshes == 0);
+}

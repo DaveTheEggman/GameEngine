@@ -192,6 +192,8 @@ export namespace pipeline{
     /// index order (the remap still rewrites their index VALUES). Deterministic
     /// (meshoptimizer has no threading/RNG). Skinned meshes are NOT passed through this
     /// (the parallel skin stream needs the same permutation - deferred with skinned LODs).
+    /// SKINNED sources included: the parallel skinning stream receives the identical
+    /// vertex permutation (a size-mismatched stream refuses the whole pass).
     /// Defined in MeshOptimizeImpl.cpp (meshoptimizer stays out of this interface).
     void OptimizeStaticMeshSource(StaticMeshSource& source, MeshOptimizeStats* outStats = nullptr);
 
@@ -282,6 +284,9 @@ export namespace pipeline{
                     return loaded;
                 }
             }
+            // P0 pass, skinned included: the parallel skinning stream is permuted with
+            // the identical remap (see MeshOptimizeImpl) so the streams cannot diverge.
+            OptimizeStaticMeshSource(ma.source);
             return ctx.output->WriteObject(ma.source);
         }
     };

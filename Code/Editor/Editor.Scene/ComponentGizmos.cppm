@@ -34,6 +34,12 @@ export namespace editor
         render::debug::DebugDraw* debug = nullptr;
         scene::Scene* scene = nullptr;
         Float3 cameraPosition{};
+        // The viewport's full camera (view + projection) - the LOD overlay computes the
+        // per-view pick with it. Null when the caller has no camera to offer.
+        const render::ViewCamera* viewCamera = nullptr;
+        // The page's LOD-overlay toolbar toggle: the overlay renderer draws nothing
+        // without it (DrawWhenUnselected renderers run for every entity every frame).
+        bool lodOverlay = false;
     };
 
     /// A viewport gizmo for one component type. Registered per scene-editor module; the page
@@ -137,6 +143,18 @@ export namespace editor
         void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
     };
 
+    /// mesh-lod.md P3 debug overlay: with the toolbar toggle on, every mesh carrying a LOD
+    /// chain draws its bounds tinted by the level THIS viewport's camera selects (green 0,
+    /// yellow 1, orange 2, red 3+). Recomputes the RAW pick through the exported pure
+    /// selection functions (no hysteresis - visualization, not the renderer's state).
+    class LodOverlayGizmoRenderer final : public IGizmoRenderer
+    {
+    public:
+        [[nodiscard]] const TypeInfo* ComponentType() const override;
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
+        [[nodiscard]] bool DrawWhenUnselected() const override { return true; }
+    };
+
     /// Register the built-in component gizmos (called from RegisterSceneEditor).
     inline void RegisterBuiltinGizmoRenderers(GizmoRendererRegistry& registry)
     {
@@ -150,5 +168,7 @@ export namespace editor
                                                     DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
             DefaultAllocator().New<NavMeshZoneGizmoRenderer>(), DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(
+            DefaultAllocator().New<LodOverlayGizmoRenderer>(), DefaultAllocator()));
     }
 }
