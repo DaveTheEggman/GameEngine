@@ -102,3 +102,32 @@ TEST_CASE("engine.terrain: the GPU height-texture cache keys by heightfield + ve
     cache.Clear(device);
     CHECK(cache.Size() == 0u);
 }
+
+TEST_CASE("engine.terrain: the cache keys by UID, never pointer (address-reuse aliasing, pass 14)")
+{
+    // The bind-group-cache rule's failure mode: heightfield A dies, a FRESH grid B lands on
+    // (potentially) the same address at the same version - the cache must never serve A's
+    // texture for B. Pointer keying cannot pass this test reliably; uid keying always does.
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
+    TerrainHeightTextureCache cache;
+
+    u64 uidA = 0;
+    {
+        RefPtr<hf::Heightfield> a =
+            MakeRef<hf::Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+        uidA = a->uid;
+        REQUIRE(cache.GetOrCreate(device, *a, a->Version()) != nullptr);
+        CHECK(cache.Size() == 1u);
+    } // A dies; its cache entry remains keyed by A's uid
+
+    // Fresh grids get fresh uids (the identity that survives address reuse)...
+    RefPtr<hf::Heightfield> b =
+        MakeRef<hf::Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+    CHECK(b->uid != uidA);
+    // ...so B at the SAME version gets its OWN texture entry, never A's stale one.
+    foundation::rhi::TextureView* vb = cache.GetOrCreate(device, *b, b->Version());
+    REQUIRE(vb != nullptr);
+    CHECK(cache.Size() == 2u);
+
+    cache.Clear(device);
+}

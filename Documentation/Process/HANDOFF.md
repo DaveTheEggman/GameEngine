@@ -535,3 +535,58 @@ Engine.Terrain/Geometry.Pipeline/ModelImporter/Render/Lod) - clean.
    not the production shape (cost this pass one test-fixture rewrite).
 
 Baseline for pass 14: this pass's commit.
+
+## Review pass 14 (2026-08-23, Fable): the terrain renderer arc - PASS (3 findings, all fixed in-pass)
+
+Scope: 17 commits (38fabd67..28d0fc65) - the whole terrain renderer:
+shared grid mesh, GPU height-texture cache, CPU extract, the chunked
+geo-mipmap renderer (Phase C+D1), DefaultApp wiring, pixel probes
+(Vulkan + desktop WebGPU + DX12-gated), sun wiring + back-face cull,
+LOD-seam skirts, GBuffer output, in-memory/live-edit enablers, and the
+TerrainPlayground sample. Full two-compiler battery green; ASAN over the
+terrain/render/heightfield class clean after the fixes below.
+
+**Verified:**
+- Architecture is the ruled shape: dynamic-category renderer via
+  RegisterRenderer (Engine.Render stays terrain-free), per-view cull+LOD
+  in Resolve REPLAYING foundation.terrain's tested ExtractVisibleChunkDraws
+  (one CPU path, no formula #2), shared grid VB + per-LOD IBs + per-chunk
+  dynamic uniforms (no instancing, so the SV_InstanceID rule is moot).
+- The WebGPU-strictness rule caught a REAL bug before it shipped: the
+  4-target GBuffer PSO mismatch WebGPU rejects outright while Vulkan
+  silently fed garbage to the SSR/TAA/motion targets - and the probe now
+  requires WebGPU to be PIXEL-EXACT against Vulkan (identical
+  filled/total counts), proving the WGSL cook of the R16Uint Load path.
+- AO/SSR correctness checked: terrain writes all four GBuffer targets +
+  its depth in the opaque pass, and AO/SSR consume OPAQUE depth+normals,
+  so terrain is fully visible to them. Skipping the depth prepass costs
+  terrain only early-Z (perf note, not a gap; a ResolveDepthOnly can
+  come with the CSM-cast work it is listed alongside).
+- ExtractRenderData gates on IsEffectivelyActive (the new-loop rule);
+  TerrainComponent v2 (lodBias) wire-gated + reflection DataVersion(2);
+  skirts ship with a diagnostic toggle the probe uses to prove cracks
+  leak without them; the probe also proves the sun DRIVES shading
+  (flipping it inverts the asymmetry).
+
+**Findings (all fixed in-pass):**
+1. The height-texture cache keyed entries by RAW Heightfield POINTER
+   while its own comment claimed id+version - the exact aliasing class
+   the bind-group-cache rule forbids (fresh grids all start at version
+   1; a dead grid's reused address serves the dead grid's texture).
+   FIXED: Heightfield gains `uid` (the StaticMesh precedent, comment and
+   all), the cache keys by uid, and a regression test pins the
+   dead-A/fresh-B-same-version scenario.
+2. The chunk-model cache in TerrainComponentManager: the same pointer
+   keying - FIXED with the same uid key.
+3. The renderer tests leaked their caches' GPU objects (no
+   Clear(device) before scope exit) - the ASAN battery caught it;
+   FIXED in the tests (the production shutdown path was already
+   correct).
+Note, no action: cache entries for dead heightfields persist until
+shutdown (bounded by the number of heightfields ever seen; benign today,
+an eviction hook can ride the sculpt work if profiles ever care).
+
+Remaining for terrain (per Opus, confirmed accurate): CSM cast+receive,
+D2 splat, Editor.Terrain phase 2. Deferred set unchanged.
+
+Baseline for pass 15: this pass's commit.

@@ -51,6 +51,18 @@ export namespace foundation::heightfield
     {
         RTTI_OBJECT(Heightfield, Object)
     public:
+        // Unique per-OBJECT id: GPU caches (the terrain height-texture cache) key by THIS,
+        // never by pointer - a freed heightfield's address can be reused by a fresh grid at
+        // the same version (fresh grids all start at 1), and pointer keying would then serve
+        // the dead grid's texture. The StaticMesh::uid precedent (bind-group-cache rule).
+        const u64 uid = NextUid();
+
+        [[nodiscard]] static u64 NextUid() noexcept
+        {
+            static Atomic<u64> counter{0};
+            return counter.fetch_add(1) + 1;
+        }
+
         Heightfield() = default;
 
         /// Allocate a zeroed grid. `size` MUST satisfy IsValidSize; worldSize is the XZ footprint,

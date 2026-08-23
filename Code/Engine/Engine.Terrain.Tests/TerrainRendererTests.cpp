@@ -196,6 +196,7 @@ TEST_CASE("terrain renderer: visible chunks draw (extract -> Resolve -> per-LOD 
 
     // Draws only come out once the PSO (hence terrain.vs/ps.hlsl) built AND Resolve LOD'd each chunk.
     CHECK(renderer.MaxChunksDrawn() == 4u);
+    heightCache.Clear(harness.device); // GPU objects back to the device (pass-14 ASAN hygiene)
 }
 
 TEST_CASE("terrain renderer: nothing drawn when the terrain is off-screen")
@@ -242,4 +243,5 @@ TEST_CASE("terrain renderer: nothing drawn when the terrain is off-screen")
     frame.End();
 
     CHECK(renderer.MaxChunksDrawn() == 0u);
+    heightCache.Clear(harness.device); // GPU objects back to the device (pass-14 ASAN hygiene)
 }

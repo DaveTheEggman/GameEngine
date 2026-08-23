@@ -167,12 +167,15 @@ export namespace engine::terrain
             u64 version = 0;
         };
 
-        // Chunk model per heightfield (shared by every terrain referencing it). Keyed by the resolved
-        // pointer; a hot-reload swap (new pointer) OR a sculpt/regen (version bump) rebuilds - the
-        // chunk Y bounds move with the heights, so cull + LOD stay correct.
+        // Chunk model per heightfield (shared by every terrain referencing it). Keyed by the
+        // heightfield's UID - never its pointer (pass-14 finding, same class as the height-
+        // texture cache: a dead grid's address reused by a fresh one at an equal version
+        // would serve the dead grid's chunk bounds). A hot-reload swap (new object = new
+        // uid) OR a sculpt/regen (version bump) rebuilds - the chunk Y bounds move with the
+        // heights, so cull + LOD stay correct.
         const ChunkCache& GetOrBuildChunks(const heightfield::Heightfield* hf)
         {
-            if (ChunkCache* found = m_chunkCache.Find(hf); found != nullptr &&
+            if (ChunkCache* found = m_chunkCache.Find(hf->uid); found != nullptr &&
                 found->version == hf->Version())
             {
                 return *found;
@@ -187,8 +190,8 @@ export namespace engine::terrain
             {
                 cache.localBounds = Merge(cache.localBounds, cache.chunks[i].bounds);
             }
-            m_chunkCache.InsertOrAssign(hf, Move(cache));
-            return *m_chunkCache.Find(hf);
+            m_chunkCache.InsertOrAssign(hf->uid, Move(cache));
+            return *m_chunkCache.Find(hf->uid);
         }
 
         // Descending coverage thresholds over the 7 chunk LODs (thresholds[0] = 1.0 = level-0 fallback).
@@ -201,7 +204,7 @@ export namespace engine::terrain
         rhi::Device* m_device = nullptr;
         u16 m_rendererId = 0;
         TerrainHeightTextureCache m_heightTextures;
-        HashMap<const heightfield::Heightfield*, ChunkCache> m_chunkCache;
+        HashMap<u64, ChunkCache> m_chunkCache; // key = Heightfield::uid (never a pointer)
     };
 
     // Scene-composition hooks (the SceneModule pair, mirroring every other domain).

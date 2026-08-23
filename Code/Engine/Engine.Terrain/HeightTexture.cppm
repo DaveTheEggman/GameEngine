@@ -31,11 +31,14 @@ export namespace engine::terrain
         TerrainHeightTextureCache(const TerrainHeightTextureCache&) = delete;
         TerrainHeightTextureCache& operator=(const TerrainHeightTextureCache&) = delete;
 
-        /// The R16Uint height texture view for `hf` at `version`. KEYED BY THE HEIGHTFIELD itself, so
-        /// two terrains referencing one heightfield share ONE texture (and in-memory heightfields with
-        /// no resource guid work). Creates + uploads + caches on a miss; a stale version for the same
-        /// heightfield is rebuilt in place ([[bind-group-cache-versioning]] - a sculpt re-upload).
-        /// Returns null on a device failure or an empty grid.
+        /// The R16Uint height texture view for `hf` at `version`. Keyed by the heightfield's
+        /// UID (never its pointer - a freed grid's address can be reused by a fresh one at an
+        /// equal version, and pointer keying would serve the dead grid's texture; the
+        /// bind-group-cache versioning rule, pass-14 finding). Two terrains referencing one
+        /// heightfield share ONE texture, and in-memory heightfields with no resource guid
+        /// work (the uid is per-object, not per-resource). Creates + uploads + caches on a
+        /// miss; a stale version for the same heightfield rebuilds in place (the sculpt
+        /// re-upload path). Returns null on a device failure or an empty grid.
         [[nodiscard]] rhi::TextureView* GetOrCreate(rhi::Device& device,
                                                     const heightfield::Heightfield& hf, u64 version)
         {
@@ -45,7 +48,7 @@ export namespace engine::terrain
             }
             for (Entry& entry : m_entries)
             {
-                if (entry.key == &hf)
+                if (entry.key == hf.uid)
                 {
                     if (entry.version == version && entry.view != nullptr)
                     {
@@ -61,7 +64,7 @@ export namespace engine::terrain
                 }
             }
             Entry fresh;
-            fresh.key = &hf;
+            fresh.key = hf.uid;
             fresh.version = version;
             if (!Build(device, hf, fresh))
             {
@@ -86,7 +89,7 @@ export namespace engine::terrain
     private:
         struct Entry
         {
-            const heightfield::Heightfield* key = nullptr;
+            u64 key = 0; // Heightfield::uid - never a pointer (address reuse aliases)
             u64 version = 0;
             rhi::Texture* texture = nullptr;
             rhi::TextureView* view = nullptr;
