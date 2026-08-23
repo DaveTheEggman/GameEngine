@@ -22,6 +22,7 @@ module;
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/ScaledShape.h>
 #include <Jolt/Physics/Collision/Shape/PlaneShape.h>
+#include <Jolt/Physics/Collision/Shape/HeightFieldShape.h>
 #include <Jolt/Core/StreamIn.h>
 #include <Jolt/Core/StreamOut.h>
 #include <Jolt/Physics/Collision/RayCast.h>
@@ -246,6 +247,28 @@ namespace foundation::physics
             return result.Get();
         }
 
+        // Build a Jolt HeightFieldShape from a square grid of world-Y height floats. Jolt maps
+        // sample (x, z) to world = offset + scale * (x, height, z); we centre the footprint on the
+        // shape origin (offset.xz = -worldSize/2, scale.xz = worldSize/(n-1), scale.y = 1, height =
+        // the world-Y value). Jolt itself rounds the sample count up to its block size and fills the
+        // padding with cNoCollisionValue, so we pass the grid straight through - never hand-padded.
+        [[nodiscard]] JPH::Ref<JPH::Shape> BuildHeightfield(const ShapeDesc& desc)
+        {
+            const u32 n = desc.heightSampleCount;
+            if (n < 2 || desc.heightSamples.Size() < static_cast<usize>(n) * n)
+            {
+                return {};
+            }
+            const f32 sx = desc.heightWorldSize.x / static_cast<f32>(n - 1);
+            const f32 sz = desc.heightWorldSize.y / static_cast<f32>(n - 1);
+            JPH::HeightFieldShapeSettings settings(
+                desc.heightSamples.Data(),
+                JPH::Vec3(-desc.heightWorldSize.x * 0.5f, 0.0f, -desc.heightWorldSize.y * 0.5f),
+                JPH::Vec3(sx, 1.0f, sz), n);
+            JPH::Shape::ShapeResult result = settings.Create();
+            return result.IsValid() ? result.Get() : JPH::Ref<JPH::Shape>{};
+        }
+
         [[nodiscard]] JPH::Ref<JPH::Shape> BuildOne(const ShapeDesc& desc, f32 density)
         {
             JPH::Ref<JPH::Shape> shape;
@@ -267,6 +290,9 @@ namespace foundation::physics
                 shape = new JPH::PlaneShape(
                     JPH::Plane(ToJph(desc.planeNormal).Normalized(), desc.planeDistance), nullptr,
                     desc.planeHalfExtent);
+                break;
+            case ShapeKind::Heightfield:
+                shape = BuildHeightfield(desc);
                 break;
             }
             // Density drives CalculateMassAndInertia (kg/m^3); only convex shapes carry it.

@@ -65,6 +65,61 @@ TEST_CASE("physics: a dynamic box falls under gravity and comes to rest on the f
     CHECK(world.LinearVelocity(box).y == doctest::Approx(0.0f).epsilon(0.05));
 }
 
+TEST_CASE("physics: a heightfield collider - a sphere rests on it, off-footprint falls through")
+{
+    PhysicsWorld world;
+
+    // A flat 65x65 heightfield at world Y = 2, 64x64 footprint centred on origin, static.
+    constexpr u32 n = 65;
+    Array<f32> samples;
+    samples.Resize(static_cast<usize>(n) * n, 2.0f);
+    BodyDesc ground;
+    ground.motion = MotionKind::Static;
+    ground.layer = PhysicsLayer::Static;
+    ShapeDesc hf;
+    hf.kind = ShapeKind::Heightfield;
+    hf.heightSamples = Span<const f32>(samples.Data(), samples.Size());
+    hf.heightSampleCount = n;
+    hf.heightWorldSize = Float2{64.0f, 64.0f};
+    ground.shapes.PushBack(hf);
+    REQUIRE(world.CreateBody(ground).IsValid());
+
+    // A sphere dropped over the centre rests on the surface (2 + radius).
+    BodyDesc drop;
+    ShapeDesc sphere;
+    sphere.kind = ShapeKind::Sphere;
+    sphere.radius = 0.5f;
+    drop.shapes.PushBack(sphere);
+    drop.position = Float3{0.0f, 10.0f, 0.0f};
+    const BodyId ball = world.CreateBody(drop);
+    REQUIRE(ball.IsValid());
+
+    // A sphere far OUTSIDE the footprint (x = 100) meets no ground and falls through - pins Jolt's
+    // no-collision padding: collision never widens past the authored extent.
+    BodyDesc off;
+    ShapeDesc sphere2;
+    sphere2.kind = ShapeKind::Sphere;
+    sphere2.radius = 0.5f;
+    off.shapes.PushBack(sphere2);
+    off.position = Float3{100.0f, 10.0f, 0.0f};
+    const BodyId offBall = world.CreateBody(off);
+    REQUIRE(offBall.IsValid());
+
+    for (int i = 0; i < 240; ++i)
+    {
+        world.Step(1.0f / 60.0f);
+    }
+
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(ball, position, rotation);
+    CHECK(position.y == doctest::Approx(2.5f).epsilon(0.1)); // rests on the heightfield surface
+    CHECK(std::fabs(position.x) < 0.1f);
+
+    world.GetBodyTransform(offBall, position, rotation);
+    CHECK(position.y < 0.0f); // fell past the surface level: no collision off-footprint
+}
+
 TEST_CASE("physics: static-static never pairs; dynamic collides with static")
 {
     PhysicsWorld world;

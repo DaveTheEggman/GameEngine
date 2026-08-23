@@ -48,7 +48,8 @@ export namespace foundation::physics
         Sphere,
         Capsule,
         Cooked,
-        Plane
+        Plane,
+        Heightfield // appended: keeps existing wire values stable
     };
 
     // One shape (a body carries one or more; >1 = compound).
@@ -74,6 +75,14 @@ export namespace foundation::physics
         Float3 planeNormal{0.0f, 1.0f, 0.0f};
         f32 planeDistance = 0.0f;
         f32 planeHalfExtent = 1000.0f;
+        /// ShapeKind::Heightfield: a SQUARE grid of world-Y height floats (row-major,
+        /// heightSampleCount^2), spanning heightWorldSize over XZ centred on the shape origin.
+        /// Jolt builds a HeightFieldShape and self-pads the sample count to its block size with
+        /// no-collision values (the footprint stays exactly heightWorldSize). Like `cooked`, the
+        /// span is only read during CreateBody - the caller keeps ownership. Static/kinematic only.
+        Span<const f32> heightSamples;
+        u32 heightSampleCount = 0;
+        Float2 heightWorldSize{0.0f, 0.0f};
     };
 
     struct BodyDesc
