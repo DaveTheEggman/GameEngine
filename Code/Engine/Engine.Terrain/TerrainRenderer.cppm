@@ -216,10 +216,17 @@ export namespace engine::terrain
                 struct ViewUBO
                 {
                     Float4x4 viewProj;
+                    Float4x4 view;
+                    Float4x4 prevViewProj;
                     Float4 lightDir;
                     Float4 cameraPos;
-                } ubo{data->chunkToWorld * ctx.viewProj, Float4{sun.x, sun.y, sun.z, 0.0f},
-                      Float4{ctx.cameraPos.x, ctx.cameraPos.y, ctx.cameraPos.z, 0.0f}};
+                    Float4 jitter;
+                } ubo{data->chunkToWorld * ctx.viewProj,
+                      ctx.viewMatrix,
+                      data->chunkToWorld * ctx.prevViewProj,
+                      Float4{sun.x, sun.y, sun.z, 0.0f},
+                      Float4{ctx.cameraPos.x, ctx.cameraPos.y, ctx.cameraPos.z, 0.0f},
+                      Float4{ctx.jitter.x, ctx.jitter.y, ctx.prevJitter.x, ctx.prevJitter.y}};
                 MemCopy(vr.ptr, &ubo, sizeof(ubo));
 
                 // Local-space frustum (chunkToWorld folded in) matches the chunks' local bounds.
@@ -456,12 +463,18 @@ export namespace engine::terrain
             vbl.stepMode = rhi::VertexStepMode::Vertex;
             vbl.attributes = Span<const rhi::VertexAttribute>{attrs, 1};
 
-            rhi::ColorTargetState target{};
-            target.format = colorFormat; // opaque: no blend
+            // Opaque terrain writes the forward GBUFFER: target 0 = shaded colour, 1 = view-space
+            // normal, 2 = motion vector, 3 = material (roughness/metallic). The forward pass binds all
+            // four, so the PSO must declare them (WebGPU rejects a target-count mismatch). No blend.
+            rhi::ColorTargetState targets[4]{};
+            targets[0].format = colorFormat;
+            targets[1].format = render::kGNormalFormat;
+            targets[2].format = render::kGVelocityFormat;
+            targets[3].format = render::kGMaterialFormat;
 
             rhi::FragmentState frag{};
             frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
-            frag.targets = Span<const rhi::ColorTargetState>{&target, 1};
+            frag.targets = Span<const rhi::ColorTargetState>{targets, 4};
 
             rhi::DepthStencilState ds{};
             ds.format = m_depthFormat;

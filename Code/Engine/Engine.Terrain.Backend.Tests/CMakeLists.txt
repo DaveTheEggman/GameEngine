@@ -11,6 +11,13 @@ target_link_libraries(Engine.Terrain.Backend.Tests PRIVATE
     Foundation::Shaders Foundation::Shaders.System
     Foundation::RHI.TestSupport Foundation::RHI.Vulkan doctest::doctest)
 
+# WebGPU when available: the terrain shaders' WGSL-cook path is the load-bearing portability bet
+# (the integer Load on the R16Uint height texture), so probe it too.
+if(TARGET Foundation::RHI.WebGPU)
+    target_link_libraries(Engine.Terrain.Backend.Tests PRIVATE Foundation::RHI.WebGPU)
+    target_compile_definitions(Engine.Terrain.Backend.Tests PRIVATE OPTION_HAS_WEBGPU)
+endif()
+
 target_compile_definitions(Engine.Terrain.Backend.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
     BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")

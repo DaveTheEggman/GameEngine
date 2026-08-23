@@ -12,6 +12,9 @@
 import foundation.core;
 import foundation.rhi;
 import foundation.rhi.vulkan;
+#ifdef OPTION_HAS_WEBGPU
+import foundation.rhi.webgpu;
+#endif
 import foundation.rhi.testsupport;
 import foundation.shaders.system;
 import foundation.render;
@@ -291,3 +294,48 @@ TEST_CASE("terrain probe: the scene's directional sun drives the shading (flip i
     device->Destroy();
     vulkan->Destroy();
 }
+
+#ifdef OPTION_HAS_WEBGPU
+TEST_CASE("terrain probe: WebGPU matches Vulkan (the WGSL cook of the terrain shaders)")
+{
+    // The integer Load on the R16Uint height texture is the load-bearing WebGPU portability bet:
+    // render the SAME dome on both backends and require the images to agree (a WGSL-cook divergence
+    // in the height fetch or the normal/lit path shows up here as a coverage or luma mismatch).
+    rhi::Backend* vulkan = nullptr;
+    rhi::Device* vkDevice = MakeVulkan(vulkan);
+    rhi::Backend* webgpu = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    rhi::Device* wgDevice = webgpu != nullptr ? testsupport::MakeTestDevice(webgpu) : nullptr;
+
+    if (vkDevice == nullptr || wgDevice == nullptr)
+    {
+        MESSAGE("Vulkan and/or WebGPU unavailable - terrain WebGPU cross-check skipped");
+        if (vkDevice != nullptr) { vkDevice->Destroy(); }
+        if (wgDevice != nullptr) { wgDevice->Destroy(); }
+        if (vulkan != nullptr) { vulkan->Destroy(); }
+        if (webgpu != nullptr) { webgpu->Destroy(); }
+        return;
+    }
+
+    ProbeCfg cfg;
+    cfg.terrain = MakeDome();
+    const Probe v = RenderTerrainProbe(*vkDevice, cfg);
+    const Probe w = RenderTerrainProbe(*wgDevice, cfg);
+    REQUIRE(v.valid);
+    REQUIRE(w.valid);
+    std::printf("[terrain-webgpu] vulkan filled=%u total=%.0f | webgpu filled=%u total=%.0f\n",
+                v.filled, v.total, w.filled, w.total);
+
+    // Both must render terrain (not a black/failed WGSL frame) and agree within driver rounding.
+    CHECK(w.filled > 32000u);
+    CHECK(static_cast<f64>(w.filled) == doctest::Approx(static_cast<f64>(v.filled)).epsilon(0.02));
+    CHECK(w.total == doctest::Approx(v.total).epsilon(0.05));
+    CHECK(w.leftLuma == doctest::Approx(v.leftLuma).epsilon(0.05));
+    CHECK(w.bottomLuma == doctest::Approx(v.bottomLuma).epsilon(0.05));
+
+    vkDevice->Destroy();
+    wgDevice->Destroy();
+    vulkan->Destroy();
+    webgpu->Destroy();
+}
+#endif

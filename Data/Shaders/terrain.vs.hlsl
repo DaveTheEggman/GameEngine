@@ -1,15 +1,19 @@
 #pragma pack_matrix(row_major)
 
-// Terrain chunk VS. ONE 65x65 grid of unit-square UVs is drawn for every chunk; this shader places
-// each grid vertex in the world (per-chunk OriginXZ + SizeXZ) and lifts it to the sampled height,
-// fetched exactly from the R16Uint height texture via an integer Load. The chunk's world transform is
-// folded into ViewProj at resolve time, so positions here are in the heightfield's local space. The
-// surface normal comes from central differences on the height texture (no precomputed normals).
+// Terrain chunk VS. ONE 65x65 grid (+ a skirt copy) is drawn for every chunk; this shader places each
+// grid vertex in the world (per-chunk OriginXZ + SizeXZ) and lifts it to the sampled height, fetched
+// exactly from the R16Uint height texture via an integer Load. The chunk's world transform is folded
+// into ViewProj/PrevViewProj at resolve time, so positions here are in the heightfield's local space.
+// The surface normal comes from central differences on the height texture. Emits current + previous
+// clip positions so the PS can write the GBuffer motion vector.
 
 cbuffer TerrainView : register(b0, space0) {
-    float4x4 ViewProj;   // chunkToWorld * cameraViewProj (local-space -> clip)
-    float4   LightDir;   // xyz = direction TO the light (normalized); w unused
-    float4   CameraPos;  // xyz world camera (reserved)
+    float4x4 ViewProj;     // chunkToWorld * cameraViewProj (local -> clip)
+    float4x4 View;         // world -> view (for the GBuffer view-space normal)
+    float4x4 PrevViewProj; // chunkToWorld * previous cameraViewProj (motion vectors)
+    float4   LightDir;     // xyz = direction TO the light (normalized); w unused
+    float4   CameraPos;    // xyz world camera (reserved)
+    float4   Jitter;       // xy = current TAA jitter, zw = previous
 };
 
 cbuffer TerrainChunk : register(b0, space1) {
@@ -29,6 +33,8 @@ struct VSOut {
     float4 pos     : SV_Position;
     float3 normal  : TEXCOORD0;
     float  heightT : TEXCOORD1; // 0..1 within [minY, maxY]
+    float4 curClip : TEXCOORD2;
+    float4 prevClip: TEXCOORD3;
 };
 
 float SampleHeightY(int2 texel) {
@@ -40,14 +46,18 @@ float SampleHeightY(int2 texel) {
 VSOut main(VSIn i) {
     VSOut o;
 
-    float2 uv     = i.Grid.xy;
+    float2 uv      = i.Grid.xy;
     float  isSkirt = i.Grid.z;
-    float2 texelF = TexelBase + uv * TexelSpan;
-    int2   texel  = int2((int)round(texelF.x), (int)round(texelF.y));
-    float  y      = SampleHeightY(texel) - isSkirt * Skirt.x; // skirt verts drop below the surface
+    float2 texelF  = TexelBase + uv * TexelSpan;
+    int2   texel   = int2((int)round(texelF.x), (int)round(texelF.y));
+    float  surfaceY = SampleHeightY(texel);
+    float  y        = surfaceY - isSkirt * Skirt.x; // skirt verts drop below the surface
 
     float2 wxz = OriginXZ + uv * SizeXZ;
-    o.pos = mul(float4(wxz.x, y, wxz.y, 1.0), ViewProj);
+    float4 localPos = float4(wxz.x, y, wxz.y, 1.0);
+    o.pos      = mul(localPos, ViewProj);
+    o.curClip  = o.pos;
+    o.prevClip = mul(localPos, PrevViewProj);
 
     // Normal from central differences on the height texture (world units per texel = SizeXZ / span).
     float hL = SampleHeightY(texel + int2(-1,  0));
@@ -56,7 +66,6 @@ VSOut main(VSIn i) {
     float hU = SampleHeightY(texel + int2( 0,  1));
     float2 cell = SizeXZ / max(TexelSpan, float2(1.0, 1.0));
     o.normal  = normalize(float3(hL - hR, cell.x + cell.y, hD - hU));
-    float surfaceY = SampleHeightY(texel);
     o.heightT = saturate((surfaceY - HeightRange.x) / max(HeightRange.y - HeightRange.x, 1e-3));
     return o;
 }
