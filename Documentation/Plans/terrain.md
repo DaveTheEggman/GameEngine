@@ -101,8 +101,20 @@ shared grid mesh geometry). The sub-phases:
     earns its keep once skirts add side-facing walls.
   - Real directional-sun wiring: DONE (Resolve reads the scene's first directional
     light; fixed key light is the fallback).
-  - REMAINING: skirts (crack-hiding at LOD seams), CSM cast (default-on) + terrain
-    sampling the shadow map as a receiver, WebGPU probe pass, splat (D2 above).
+  - Skirts (LOD-seam crack-hiding): DONE. The shared grid VB carries a surface +
+    a skirt copy; per-LOD skirt walls drop below the surface (VS) around the 4 chunk
+    edges. A SetSkirtsEnabled toggle + the exact surface/skirt index split are
+    tested; pixel-level crack repro was too view-dependent for a stable test, so
+    correctness rests on the structural test + no-regression.
+  - GBuffer output: DONE. Terrain is always opaque, so it writes the full forward
+    GBuffer (colour + octahedral view-normal + motion vector + material), not just
+    colour - required by the pass's 4-target MRT (WebGPU rejects a mismatch; Vulkan
+    tolerated it but fed garbage to SSR/TAA/motion). The WebGPU probe caught this.
+  - WebGPU probe: DONE. The pixel probe runs on Vulkan AND WebGPU and requires a
+    match - filled + total are identical on both, so the WGSL cook (the integer Load
+    on the R16Uint height texture, the portability bet) is pixel-exact vs SPIR-V.
+  - REMAINING: CSM cast (default-on, ResolveDepthOnly) + terrain sampling the shadow
+    map as a receiver; splat (D2 above).
 Then `Editor.Terrain` (phase 2).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
