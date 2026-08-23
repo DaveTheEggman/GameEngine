@@ -272,4 +272,33 @@ export namespace foundation::terrain
         Span<const TerrainChunk> m_chunks;
         i32 m_side = 0;
     };
+
+    /// One chunk to draw this frame: which chunk + its selected LOD (the index buffer to bind).
+    struct ChunkDraw
+    {
+        i32 chunkIndex = 0;
+        u32 lod = 0;
+    };
+
+    /// The renderer's per-frame CPU extract: frustum-cull the chunk quadtree, then LOD each visible
+    /// chunk by the shared coverage metric - the {chunk, lod} draw list the GPU renderer consumes.
+    /// Pure (no RHI): view/projection are plain matrices, chunkToWorld places the terrain entity.
+    inline void ExtractVisibleChunkDraws(const TerrainQuadtree& tree, Span<const TerrainChunk> chunks,
+                                         const Float4x4& chunkToWorld, const Float4x4& view,
+                                         const Float4x4& projection, const BoundingFrustum& frustum,
+                                         Span<const f32> coverageThresholds, f32 bias,
+                                         Array<ChunkDraw>& out)
+    {
+        out.Clear();
+        Array<i32> visible;
+        tree.Cull(frustum, visible);
+        out.Reserve(visible.Size());
+        for (usize i = 0; i < visible.Size(); ++i)
+        {
+            const i32 ci = visible[i];
+            const u32 lod = SelectChunkLod(chunks[static_cast<usize>(ci)], chunkToWorld, view,
+                                           projection, coverageThresholds, bias);
+            out.PushBack(ChunkDraw{ci, lod});
+        }
+    }
 }

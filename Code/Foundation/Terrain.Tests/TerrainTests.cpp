@@ -187,6 +187,48 @@ TEST_CASE("terrain: shared chunk grid mesh - vertices + per-LOD indices")
     CHECK(allInRange);
 }
 
+TEST_CASE("terrain: extract visible chunk draws (cull + LOD -> draw list)")
+{
+    RefPtr<hf::Heightfield> h = MakeRampX();
+    Array<TerrainChunk> chunks;
+    BuildChunks(*h, chunks);
+    TerrainQuadtree tree;
+    tree.Build(Span<const TerrainChunk>(chunks.Data(), chunks.Size()), ChunksPerSide(h->Size()));
+
+    const f32 thresholds[] = {1.0f, 0.2f, 0.05f};
+    const Span<const f32> lod{thresholds, 3};
+    const Float4x4 identity = Float4x4::Identity();
+    const Float4x4 proj = Float4x4::PerspectiveFovRH(1.2f, 1.0f, 1.0f, 5000.0f);
+
+    // Looking down from above: all 4 chunks visible, each with a selected LOD.
+    {
+        const Float4x4 view = Float4x4::LookAtRH(Float3{0.0f, 300.0f, 0.1f},
+                                                 Float3{0.0f, 0.0f, 0.0f}, Float3{0.0f, 0.0f, 1.0f});
+        const BoundingFrustum frustum(view * proj);
+        Array<ChunkDraw> draws;
+        ExtractVisibleChunkDraws(tree, Span<const TerrainChunk>(chunks.Data(), chunks.Size()),
+                                 identity, view, proj, frustum, lod, 0.0f, draws);
+        CHECK(draws.Size() == 4u);
+        for (usize i = 0; i < draws.Size(); ++i)
+        {
+            CHECK(draws[i].chunkIndex >= 0);
+            CHECK(draws[i].chunkIndex < 4);
+            CHECK(draws[i].lod <= 3u);
+        }
+    }
+
+    // Looking away: nothing to draw.
+    {
+        const Float4x4 view = Float4x4::LookAtRH(Float3{5000.0f, 100.0f, 0.0f},
+                                                 Float3{6000.0f, 100.0f, 0.0f}, Float3{0, 1, 0});
+        const BoundingFrustum frustum(view * proj);
+        Array<ChunkDraw> draws;
+        ExtractVisibleChunkDraws(tree, Span<const TerrainChunk>(chunks.Data(), chunks.Size()),
+                                 identity, view, proj, frustum, lod, 0.0f, draws);
+        CHECK(draws.Size() == 0u);
+    }
+}
+
 TEST_CASE("terrain: splat layer descriptor defaults")
 {
     SplatLayer layer;
