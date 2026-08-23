@@ -12,8 +12,9 @@
 import foundation.core;
 import foundation.rhi;
 import foundation.rhi.vulkan;
-#ifdef OPTION_HAS_WEBGPU
-import foundation.rhi.webgpu;
+import foundation.rhi.webgpu; // desktop backend too, not just web
+#ifdef OPTION_HAS_DX12
+import foundation.rhi.dx12; // Windows only
 #endif
 import foundation.rhi.testsupport;
 import foundation.shaders.system;
@@ -72,8 +73,7 @@ namespace
     struct Probe
     {
         bool valid = false;
-        u32 filled = 0;  // pixels brighter than the black background
-        u32 magenta = 0; // pixels matching a magenta clear (crack leak)
+        u32 filled = 0; // pixels brighter than the black background
         f64 leftLuma = 0, rightLuma = 0, topLuma = 0, bottomLuma = 0, total = 0;
     };
 
@@ -201,10 +201,6 @@ namespace
                     {
                         ++probe.filled;
                     }
-                    if (p[0] > 180 && p[1] < 90 && p[2] > 180) // magenta clear showing through
-                    {
-                        ++probe.magenta;
-                    }
                     (x < kSize / 2 ? probe.leftLuma : probe.rightLuma) += luma;
                     (y < kSize / 2 ? probe.topLuma : probe.bottomLuma) += luma;
                 }
@@ -226,6 +222,35 @@ namespace
         backendOut = nullptr;
         (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, backendOut);
         return backendOut != nullptr ? testsupport::MakeTestDevice(backendOut) : nullptr;
+    }
+
+    // Render the dome on a backend and return its probe; {valid=false} if no device (skip). Owns the
+    // device (created + destroyed here); the caller owns the backend.
+    Probe DomeProbeOn(rhi::Backend* backend)
+    {
+        rhi::Device* device = backend != nullptr ? testsupport::MakeTestDevice(backend) : nullptr;
+        if (device == nullptr)
+        {
+            return Probe{};
+        }
+        ProbeCfg cfg;
+        cfg.terrain = MakeDome();
+        const Probe probe = RenderTerrainProbe(*device, cfg);
+        device->Destroy();
+        return probe;
+    }
+
+    // Require a backend's dome to match the Vulkan reference (a shader-cook divergence in the height
+    // fetch or the normal/lit path shows up as a coverage or luma mismatch).
+    void CheckMatchesReference(const char* name, const Probe& ref, const Probe& p)
+    {
+        std::printf("[terrain-%s] filled=%u total=%.0f (ref filled=%u total=%.0f)\n", name, p.filled,
+                    p.total, ref.filled, ref.total);
+        CHECK(p.filled > 32000u); // it rendered terrain, not a black/failed frame
+        CHECK(static_cast<f64>(p.filled) == doctest::Approx(static_cast<f64>(ref.filled)).epsilon(0.02));
+        CHECK(p.total == doctest::Approx(ref.total).epsilon(0.05));
+        CHECK(p.leftLuma == doctest::Approx(ref.leftLuma).epsilon(0.05));
+        CHECK(p.bottomLuma == doctest::Approx(ref.bottomLuma).epsilon(0.05));
     }
 }
 
@@ -295,47 +320,52 @@ TEST_CASE("terrain probe: the scene's directional sun drives the shading (flip i
     vulkan->Destroy();
 }
 
-#ifdef OPTION_HAS_WEBGPU
-TEST_CASE("terrain probe: WebGPU matches Vulkan (the WGSL cook of the terrain shaders)")
+TEST_CASE("terrain probe: every backend matches Vulkan (cross-backend shader-cook parity)")
 {
-    // The integer Load on the R16Uint height texture is the load-bearing WebGPU portability bet:
-    // render the SAME dome on both backends and require the images to agree (a WGSL-cook divergence
-    // in the height fetch or the normal/lit path shows up here as a coverage or luma mismatch).
+    // Vulkan is the reference; every other backend we support must render the SAME dome pixel-for-
+    // pixel (within driver rounding). This is where a shader-cook divergence surfaces: the integer
+    // Load on the R16Uint height texture (the load-bearing WebGPU/WGSL portability bet), the GBuffer
+    // MRT layout, or the normal/lit path differing between the SPIR-V, WGSL (WebGPU, desktop + web),
+    // and DXIL (DX12) frontends. GPUs are checked at runtime; each backend skips cleanly if absent.
     rhi::Backend* vulkan = nullptr;
-    rhi::Device* vkDevice = MakeVulkan(vulkan);
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
     rhi::Backend* webgpu = nullptr;
     (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
-    rhi::Device* wgDevice = webgpu != nullptr ? testsupport::MakeTestDevice(webgpu) : nullptr;
+#ifdef OPTION_HAS_DX12
+    rhi::Backend* dx12 = nullptr;
+    (void)rhi::dx12::CreateDxBackend(rhi::dx12::DxBackendDesc{}, dx12);
+#endif
 
-    if (vkDevice == nullptr || wgDevice == nullptr)
+    const Probe reference = DomeProbeOn(vulkan);
+    if (!reference.valid)
     {
-        MESSAGE("Vulkan and/or WebGPU unavailable - terrain WebGPU cross-check skipped");
-        if (vkDevice != nullptr) { vkDevice->Destroy(); }
-        if (wgDevice != nullptr) { wgDevice->Destroy(); }
-        if (vulkan != nullptr) { vulkan->Destroy(); }
-        if (webgpu != nullptr) { webgpu->Destroy(); }
-        return;
+        MESSAGE("Vulkan unavailable - cross-backend terrain probe skipped");
+    }
+    else
+    {
+        if (const Probe w = DomeProbeOn(webgpu); w.valid)
+        {
+            CheckMatchesReference("webgpu", reference, w);
+        }
+        else
+        {
+            MESSAGE("WebGPU unavailable - skipped");
+        }
+#ifdef OPTION_HAS_DX12
+        if (const Probe d = DomeProbeOn(dx12); d.valid)
+        {
+            CheckMatchesReference("dx12", reference, d);
+        }
+        else
+        {
+            MESSAGE("DX12 unavailable - skipped");
+        }
+#endif
     }
 
-    ProbeCfg cfg;
-    cfg.terrain = MakeDome();
-    const Probe v = RenderTerrainProbe(*vkDevice, cfg);
-    const Probe w = RenderTerrainProbe(*wgDevice, cfg);
-    REQUIRE(v.valid);
-    REQUIRE(w.valid);
-    std::printf("[terrain-webgpu] vulkan filled=%u total=%.0f | webgpu filled=%u total=%.0f\n",
-                v.filled, v.total, w.filled, w.total);
-
-    // Both must render terrain (not a black/failed WGSL frame) and agree within driver rounding.
-    CHECK(w.filled > 32000u);
-    CHECK(static_cast<f64>(w.filled) == doctest::Approx(static_cast<f64>(v.filled)).epsilon(0.02));
-    CHECK(w.total == doctest::Approx(v.total).epsilon(0.05));
-    CHECK(w.leftLuma == doctest::Approx(v.leftLuma).epsilon(0.05));
-    CHECK(w.bottomLuma == doctest::Approx(v.bottomLuma).epsilon(0.05));
-
-    vkDevice->Destroy();
-    wgDevice->Destroy();
-    vulkan->Destroy();
-    webgpu->Destroy();
-}
+    if (vulkan != nullptr) { vulkan->Destroy(); }
+    if (webgpu != nullptr) { webgpu->Destroy(); }
+#ifdef OPTION_HAS_DX12
+    if (dx12 != nullptr) { dx12->Destroy(); }
 #endif
+}

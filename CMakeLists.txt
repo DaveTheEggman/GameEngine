@@ -665,12 +665,10 @@ if(OPTION_BUILD_TESTS)
     if(NOT EMSCRIPTEN)  # spins up a real device; no headless web path yet
         util_test_suite(Code/Foundation/RHI.WebGPU.Tests Foundation::RHI.WebGPU)
         if(TARGET Foundation::RHI.Vulkan AND TARGET Foundation::RHI.WebGPU)
-            # Cross-backend pixel probe (needs BOTH backends compiled; GPUs checked at runtime).
+            # Cross-backend pixel probes (need Vulkan + WebGPU compiled; DX12 added on top where it
+            # exists; GPUs checked at runtime).
             add_subdirectory(Code/Foundation/Render.Backend.Tests)
             add_subdirectory(Code/Foundation/VG.Backend.Tests)
-        endif()
-        if(TARGET Foundation::RHI.Vulkan AND TARGET Engine::Terrain)
-            # Terrain pixel probe (Vulkan only; GPU checked at runtime).
             add_subdirectory(Code/Engine/Engine.Terrain.Backend.Tests)
         endif()
     endif()
