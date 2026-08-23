@@ -109,13 +109,21 @@ export namespace pipeline
             {
                 return Status{ErrorCode::InvalidArgument};
             }
-            // The asset size should already be valid; snap defensively so a malformed asset still
-            // cooks a legal grid rather than failing the runtime's size contract.
+            // The asset fields should already be valid; snap defensively so a malformed asset
+            // still cooks a LEGAL grid rather than failing the runtime's contracts: size onto
+            // 64k+1, the XZ footprint away from zero (a zero span NaNs world<->grid math and
+            // hands Jolt a zero scale), and the Y range open (maxY > minY, or every sample
+            // quantizes to one height and WorldYToSample divides by zero).
             const i32 size = foundation::heightfield::IsValidSize(ha.size)
                                  ? ha.size
                                  : foundation::heightfield::NextValidSize(ha.size);
+            constexpr f32 kMinSpan = 0.001f;
+            const Float2 worldSize{ha.worldSize.x > kMinSpan ? ha.worldSize.x : kMinSpan,
+                                   ha.worldSize.y > kMinSpan ? ha.worldSize.y : kMinSpan};
+            const f32 minY = ha.minY;
+            const f32 maxY = (ha.maxY > ha.minY + kMinSpan) ? ha.maxY : (ha.minY + kMinSpan);
             RefPtr<Heightfield> hf =
-                MakeRef<Heightfield>(DefaultAllocator(), size, ha.worldSize, ha.minY, ha.maxY);
+                MakeRef<Heightfield>(DefaultAllocator(), size, worldSize, minY, maxY);
 
             if (!ha.fileName.View().IsEmpty())
             {

@@ -181,3 +181,36 @@ TEST_CASE("heightfield.pipeline: a heightmap image cooks into the grid (16-bit p
     delete db;
     RemoveTree();
 }
+
+TEST_CASE("heightfield cook: degenerate extents snap to legal values (pass-13 finding)")
+{
+    // A hand-edited asset with a zero footprint / inverted Y range must still cook a grid
+    // whose math is finite - the same defensive posture the size snap established.
+    RegisterHeightfieldResourceTypes();
+    RegisterHeightfieldAsset();
+    RemoveTree();
+    NativeFileSystem outMount(u8"scratch_hfpipe_out_db");
+
+    HeightfieldAsset asset;
+    asset.size = 65;
+    asset.worldSize = Float2{0.0f, 0.0f}; // degenerate footprint
+    asset.minY = 5.0f;
+    asset.maxY = 5.0f; // closed range
+
+    HeightfieldFactory factory;
+    ResourceManager* manager = nullptr;
+    foundation::content::ContentDatabase* db = nullptr;
+    Proxy<Heightfield> hf = CookAndBind(asset, outMount, factory, manager, db);
+
+    REQUIRE(hf);
+    REQUIRE(!hf->IsEmpty());
+    CHECK(hf->WorldSize().x > 0.0f);
+    CHECK(hf->WorldSize().y > 0.0f);
+    CHECK(hf->MaxY() > hf->MinY());
+    const f32 h = hf->GetHeightAt(0.0f, 0.0f);
+    CHECK(h == h); // finite, not NaN
+
+    delete manager;
+    delete db;
+    RemoveTree();
+}

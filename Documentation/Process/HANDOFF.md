@@ -475,3 +475,63 @@ UI.Script) - clean, per the script-changes rule.
    acknowledged as next-week work, not reviewed here.
 
 Baseline for pass 13: a7b951f7 + this pass's doc commit.
+
+## Review pass 13 (2026-08-23, Fable): heightfield chain + terrain foundation/Phase A + HiDPI + theme page + math reflection - PASS
+
+Scope: 85 commits since pass 12 (a7b951f7..6138a9f4 + review-day work). A
+large share was Fable-built under in-line review this session
+(scene-composition adoption + FrameTime cutover, messaging COMPLETE,
+networking extraction COMPLETE, script-surface CLOSED, Guid string ctor,
+PIE cook gate, one-app-keyboard arbitration, defaultapp facade root,
+mesh-lod P0-P3 + skinned + overlay, Foundation::Lod extraction); the
+deep-review targets were the Opus chunks. Full two-compiler battery
+ALL_GREEN (155 test binaries each); ASAN sweep over the lifetime-
+sensitive change class (Physics/Engine.Physics/Heightfield x3/Terrain x3/
+Engine.Terrain/Geometry.Pipeline/ModelImporter/Render/Lod) - clean.
+
+**Verified against the rulings trail:**
+- Heightfield chain: the corrected NO-HAND-PADDING Jolt rule is honored
+  verbatim (BuildHeightfield passes the grid straight through, comment
+  cites Jolt's internal block rounding + cNoCollisionValue; the test pins
+  the outside-extent miss). Size contract exposed as IsValidSize/
+  NextValidSize; ENFORCEMENT correctly lives at the factory (Build
+  validates size + blob length -> empty grid) and the cook (defensive
+  snap) rather than the runtime ctor. Sidecar rule on the "heights"
+  stream (ImageResource precedent named). ShapeKind::Heightfield APPENDED
+  (wire values stable); RigidBody/Collider v2 gated + DataVersion(2)
+  both; u16->f32 conversion buffers have stable lifetimes (inner-Array
+  heap pointers survive outer growth; Jolt copies in-scope; ASAN
+  agrees). Ref-picker dispatch for Ref<Heightfield> AND
+  Ref<TerrainResource> present. Editor page = 2D-by-asset-identity per
+  the ruling. Implicit Asset::fileName recipe hashing covers the
+  heightmap source (checked - no missing dependency).
+- Terrain foundation: chunk grid/quadtree/selection pure + tested;
+  coverage selection delegates to Foundation::Lod (ONE formula - the
+  layering ruling adopted end-to-end); the Y-rotation-preserves-radius
+  transform note is correct. Terrain -> TerrainResource rename matches
+  naming convention. engine.terrain Phase A: FullSceneComposition
+  ModuleCount 9 -> 10 WITH the tripwire test updated (fifth tripwire
+  save), component checklist complete (displayName/category/
+  DataVersion(1)/picker), no per-frame loops yet so no active-gating
+  obligation - the renderer phase inherits that rule.
+- HiDPI Px->Dp (65 sites/27 files): mechanical + uniform; user-verified
+  on-screen at 1.75. UIThemePage: Editor.GameUI placement + UI.Pipeline
+  stays Toolkit-free (pipeline-ui-free rule checked). Math reflection
+  ops: the one same-arity overload pair carries OverloadedName
+  (Mul/MulScalar - the contract's pattern); natural types throughout.
+
+**Findings:**
+1. FIXED (this pass): HeightfieldAssetBuilder snapped invalid SIZES but
+   not degenerate EXTENTS - a hand-edited worldSize=0 or maxY<=minY asset
+   cooked a grid that NaNs world<->grid math and hands Jolt zero scales.
+   Now snapped in the builder's own defensive pattern (kMinSpan floor on
+   the footprint + an open Y range) with a cook regression test through
+   the factory path.
+2. Note, no action: the Heightfield runtime ctor trusts its inputs by
+   design; both production paths (factory + cook) validate. Code-built
+   grids are the author's contract.
+3. Note: product reads in tests should go through the factory
+   (CookAndBind) like the suite's siblings - the raw ReadObject path is
+   not the production shape (cost this pass one test-fixture rewrite).
+
+Baseline for pass 14: this pass's commit.
