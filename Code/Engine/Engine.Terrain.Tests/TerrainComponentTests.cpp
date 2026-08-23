@@ -166,3 +166,39 @@ TEST_CASE("engine.terrain: a version-bump rebuild RETIRES the old texture (in-fl
 
     cache.Clear(device); // shutdown path stays direct (device idled)
 }
+
+TEST_CASE("engine.terrain: ClearGpu frees the height textures while the device is alive")
+{
+    // The playground shutdown leak: the per-scene manager's cache held the live height
+    // texture across device destruction. The subsystem now calls ClearGpu on scene destroy
+    // and at shutdown - this pins the manager-level contract headless.
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
+
+    scene::Scene sceneObj;
+    engine::terrain::AddTerrainSceneManagers(sceneObj);
+    auto* mgr = sceneObj.GetSystem<engine::terrain::TerrainComponentManager>();
+    REQUIRE(mgr != nullptr);
+    mgr->SetRenderContext(&device, 7, nullptr);
+
+    // An in-memory terrain (the playground path): resource + heightfield assigned directly.
+    RefPtr<hf::Heightfield> grid =
+        MakeRef<hf::Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+    auto res = MakeRef<foundation::terrain::TerrainResource>(DefaultAllocator());
+    res->heightfield = grid.Get();
+    const scene::EntityHandle e = sceneObj.CreateEntity(u8"terrain");
+    engine::terrain::TerrainComponent& c = mgr->Add(e);
+    c.terrain = res.Get();
+    sceneObj.Start();
+
+    foundation::render::ExtractedScene snapshot;
+    mgr->ExtractRenderData(snapshot);
+    CHECK(mgr->HeightTextureCount() == 1u); // the extract built + cached the GPU texture
+
+    mgr->ClearGpu();
+    CHECK(mgr->HeightTextureCount() == 0u); // freed through the live device
+
+    // Idempotent + later extracts no-op safely (device nulled).
+    mgr->ClearGpu();
+    mgr->ExtractRenderData(snapshot);
+    CHECK(mgr->HeightTextureCount() == 0u);
+}

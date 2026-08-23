@@ -44,6 +44,27 @@ export namespace engine::terrain
             }
             mgr->SetRenderContext(m_render->Device(), m_rendererId, m_render->RetireQueue());
             m_render->RegisterProvider(scene, *mgr);
+            m_managers.PushBack(mgr); // tracked for GPU teardown (scene destroy + shutdown)
+        }
+
+        void OnDestroying(scene::Scene& scene) override
+        {
+            // The scene dies while the device is still alive - free its manager's GPU state
+            // NOW (the manager's own destructor may run after the device is gone).
+            TerrainComponentManager* mgr = scene.GetSystem<TerrainComponentManager>();
+            if (mgr == nullptr)
+            {
+                return;
+            }
+            mgr->ClearGpu();
+            for (usize i = 0; i < m_managers.Size(); ++i)
+            {
+                if (m_managers[i] == mgr)
+                {
+                    m_managers.RemoveAt(i);
+                    break;
+                }
+            }
         }
 
     protected:
@@ -62,6 +83,7 @@ export namespace engine::terrain
             if (auto* scenes = ctx->GetSubsystem<engine::scene::SceneSubsystem>())
             {
                 scenes->RegisterObserver(this, scene::SceneLifecycleStage::SystemsReady);
+                scenes->RegisterObserver(this, scene::SceneLifecycleStage::Destroying);
             }
             m_render = ctx->GetSubsystem<engine::render::RenderSubsystem>();
             EnsureRenderer();
@@ -70,6 +92,14 @@ export namespace engine::terrain
     private:
         void OnShutdown() override
         {
+            // Scenes still alive at shutdown clear their GPU state here, while the device is
+            // (terrain shuts down before render - reverse-add order); their destructors later
+            // find nothing to leak.
+            for (TerrainComponentManager* mgr : m_managers)
+            {
+                mgr->ClearGpu();
+            }
+            m_managers.Clear();
             if (foundation::runtime::Context* ctx = GetContext())
             {
                 if (auto* scenes = ctx->GetSubsystem<engine::scene::SceneSubsystem>())
@@ -105,6 +135,7 @@ export namespace engine::terrain
         }
 
         engine::render::RenderSubsystem* m_render = nullptr;
+        Array<TerrainComponentManager*> m_managers; // borrowed; pruned on scene destroy
         UniquePtr<TerrainRenderer> m_renderer;
         u16 m_rendererId = 0;
     };

@@ -88,6 +88,22 @@ export namespace engine::terrain
             m_heightTextures.SetRetireQueue(retire);
         }
 
+        /// Tear down this manager's GPU-side state THROUGH the wired device - called by the
+        /// TerrainSubsystem on scene destroy and at its own shutdown, both points where the
+        /// device is still alive. The manager's destructor cannot do this: scene teardown
+        /// order can outlive the render device (the playground's vkDestroyDevice leak).
+        /// Safe to call repeatedly; later extracts no-op (device nulled).
+        void ClearGpu()
+        {
+            if (m_device != nullptr)
+            {
+                m_heightTextures.Clear(*m_device);
+            }
+            m_device = nullptr;
+        }
+
+        [[nodiscard]] usize HeightTextureCount() const noexcept { return m_heightTextures.Size(); }
+
         /// render::IRenderDataProvider: one TerrainRenderData per visible terrain (the WHOLE terrain is
         /// one draw-list item; the renderer culls + LODs its chunks per view). Builds the chunk model
         /// on first sight of a heightfield and the GPU height texture via the cache.
