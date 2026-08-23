@@ -25,6 +25,7 @@ export namespace foundation::image
         RGBA32F,
         BGR8,
         BGRA8,
+        R16, // unsigned 16-bit single channel (heightmaps); appended to keep enum values stable
     };
 
     [[nodiscard]] constexpr u32 BytesPerPixel(PixelFormat f)
@@ -43,6 +44,8 @@ export namespace foundation::image
             return 4;
         case PixelFormat::BGRA8:
             return 4;
+        case PixelFormat::R16:
+            return 2;
         case PixelFormat::R16F:
             return 2;
         case PixelFormat::RG16F:
@@ -68,6 +71,7 @@ export namespace foundation::image
         switch (f)
         {
         case PixelFormat::R8:
+        case PixelFormat::R16:
         case PixelFormat::R16F:
         case PixelFormat::R32F:
             return 1;

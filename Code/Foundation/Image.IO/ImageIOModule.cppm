@@ -88,6 +88,47 @@ export namespace foundation::image::io
         return ErrorCode::Ok;
     }
 
+    /// Load a single-channel 16-bit image (a heightmap) at FULL 16-bit precision. Produces an
+    /// Image with PixelFormat::R16 (2 bytes/pixel, one channel). An 8-bit source is promoted to
+    /// 16-bit by stb; a multi-channel source collapses to luminance. This is the heightfield import
+    /// path - the general LoadImage down-samples 16-bit to 8-bit via stbi_load.
+    [[nodiscard]] inline Status LoadImage16FromMemory(Span<const u8> buffer, Image& out)
+    {
+        int x = 0, y = 0, channels = 0;
+        constexpr int desired = 1;
+        stbi_us* data = stbi_load_16_from_memory(buffer.Data(), static_cast<int>(buffer.Size()), &x,
+                                                 &y, &channels, desired);
+        if (!data)
+        {
+            return ErrorCode::Unknown;
+        }
+        const usize dataSize = static_cast<usize>(x) * static_cast<usize>(y) * sizeof(stbi_us);
+        out = Image(static_cast<u32>(x), static_cast<u32>(y), PixelFormat::R16,
+                    Span<const u8>(reinterpret_cast<const u8*>(data), dataSize));
+        out.SetColorSpace(ImageColorSpace::Linear); // heights are data, not color
+        stbi_image_free(data);
+        return ErrorCode::Ok;
+    }
+
+    /// Load a single-channel 16-bit image from a file path (see LoadImage16FromMemory).
+    [[nodiscard]] inline Status LoadImage16(StringView path, Image& out)
+    {
+        const std::string cPath(reinterpret_cast<const char*>(path.Data()), path.Size());
+        int x = 0, y = 0, channels = 0;
+        constexpr int desired = 1;
+        stbi_us* data = stbi_load_16(cPath.c_str(), &x, &y, &channels, desired);
+        if (!data)
+        {
+            return ErrorCode::Unknown;
+        }
+        const usize dataSize = static_cast<usize>(x) * static_cast<usize>(y) * sizeof(stbi_us);
+        out = Image(static_cast<u32>(x), static_cast<u32>(y), PixelFormat::R16,
+                    Span<const u8>(reinterpret_cast<const u8*>(data), dataSize));
+        out.SetColorSpace(ImageColorSpace::Linear);
+        stbi_image_free(data);
+        return ErrorCode::Ok;
+    }
+
     /// Save an image to a file. Only supports 8-bit formats (R8, RG8, RGB8, RGBA8).
     [[nodiscard]] inline Status SaveImage(const Image& image, StringView path,
                                           ImageFileFormat format, i32 jpgQuality = 90)
