@@ -819,17 +819,27 @@ namespace foundation::render
             {
                 continue;
             }
-            const auto* md = static_cast<const MeshRenderData*>(data);
-            // Animated (skinned) casters deform every frame: remember each one's world bounding sphere so
-            // only the static atlas tiles whose light volume it overlaps get re-rendered (per-tile routing).
-            if (md->boneMatrices != nullptr && md->boneCount > 0)
+            // The caster list is heterogeneous: any renderer can produce Opaque/Masked casters (terrain,
+            // not just meshes). Read only the GENERIC base fields here (worldCenter/worldRadius +
+            // sortBatchKey) - NEVER downcast to MeshRenderData blindly. The one mesh-specific need,
+            // skinned-caster spheres (for per-tile static-atlas invalidation), is gated on the mesh
+            // renderer's id: rendererId 0 is the MeshRenderer by contract (see RenderData::rendererId),
+            // and only it produces bone data; other Opaque producers carry none.
+            u32 stateBits = data->sortBatchKey & ((1u << kSortStateBits) - 1);
+            if (data->rendererId == 0)
             {
-                ctx.animatedSpheres.PushBack(Sphere{md->worldCenter, md->worldRadius});
+                const auto* md = static_cast<const MeshRenderData*>(data);
+                // Animated (skinned) casters deform every frame: remember each one's world sphere so only
+                // the static atlas tiles whose light volume it overlaps get re-rendered (per-tile routing).
+                if (md->boneMatrices != nullptr && md->boneCount > 0)
+                {
+                    ctx.animatedSpheres.PushBack(Sphere{md->worldCenter, md->worldRadius});
+                }
+                const usize m = reinterpret_cast<usize>(md->mesh),
+                            n = reinterpret_cast<usize>(md->material);
+                stateBits = static_cast<u32>(
+                    (((m >> 4) * 1099511628211ull + (n >> 4)) & ((1u << kSortStateBits) - 1)));
             }
-            const usize m = reinterpret_cast<usize>(md->mesh),
-                        n = reinterpret_cast<usize>(md->material);
-            const u32 stateBits = static_cast<u32>(
-                (((m >> 4) * 1099511628211ull + (n >> 4)) & ((1u << kSortStateBits) - 1)));
             ctx.casters.PushBack(DrawItem{MakeSortKey(data->category, stateBits, 0u), data});
         }
         RadixSortDrawItems(ctx.casters, m_sortScratch);
@@ -840,9 +850,9 @@ namespace foundation::render
         ctx.casterBounds.Reserve(ctx.casters.Size());
         for (const DrawItem& it : ctx.casters)
         {
-            const auto* md = static_cast<const MeshRenderData*>(it.data);
-            ctx.casterBounds.PushBack(
-                Float4{md->worldCenter.x, md->worldCenter.y, md->worldCenter.z, md->worldRadius});
+            // Generic base fields only (any renderer's caster) - no MeshRenderData downcast.
+            ctx.casterBounds.PushBack(Float4{it.data->worldCenter.x, it.data->worldCenter.y,
+                                             it.data->worldCenter.z, it.data->worldRadius});
         }
     }
 
