@@ -1,11 +1,11 @@
 /// Foundation::Heightfield.Resource - the `foundation.heightfield.resource` module.
 ///
-/// The heightfield as a referenceable, cooked resource: HeightfieldSource (the serialized cooked
-/// form - size + world footprint + Y range + the raw u16 blob) is built by HeightfieldFactory into
-/// the runtime Heightfield (foundation.heightfield). Terrain, the physics collider, and the nav bake
-/// all resolve Ref<Heightfield> to this product; no one embeds the raw grid. The blob is inline in
-/// the (binary) cooked product; the ASSET side (Heightfield.Pipeline) keeps the source heightmap as
-/// a sidecar per the bulk-data rule.
+/// The heightfield as a referenceable, cooked resource. HeightfieldSource is the small serialized
+/// METADATA (size + world footprint + Y range); the u16 sample bulk rides a separate "heights" data
+/// stream (bulk-data sidecar rule - never inline in the serialized object, the ImageResource "pixels"
+/// precedent). HeightfieldFactory reads the metadata + the stream and builds the runtime Heightfield
+/// (foundation.heightfield). Terrain, the physics collider, and the nav bake all resolve
+/// Ref<Heightfield> to this product.
 
 module;
 #include "Core/Prelude.h"
@@ -23,7 +23,11 @@ using namespace foundation::resource;
 
 export namespace foundation::heightfield
 {
-    /// Cooked heightfield: the grid parameters + the raw u16 sample bytes (row-major, size*size*2).
+    /// The name of the sidecar stream carrying the raw u16 samples.
+    inline constexpr StringView kHeightStream = u8"heights";
+
+    /// Cooked heightfield METADATA: the grid parameters. The u16 sample bulk is NOT here - it rides
+    /// the `kHeightStream` data stream (see the module doc).
     class HeightfieldSource final : public ISerializable
     {
         RTTI_OBJECT(HeightfieldSource, ISerializable)
@@ -32,7 +36,6 @@ export namespace foundation::heightfield
         Float2 worldSize{0.0f, 0.0f};
         f32 minY = 0.0f;
         f32 maxY = 0.0f;
-        Array<u8> heightBlob; // raw Height (u16) bytes, size*size*2
 
         void Serialize(ISerializer& ar) override
         {
@@ -40,47 +43,50 @@ export namespace foundation::heightfield
             foundation::core::Serialize(ar, "worldSize", worldSize);
             foundation::core::Serialize(ar, "minY", minY);
             foundation::core::Serialize(ar, "maxY", maxY);
-            foundation::core::Serialize(ar, "heightBlob", heightBlob);
         }
 
-        /// Capture a runtime Heightfield into this source (for cooking).
+        /// Capture a runtime Heightfield's METADATA into this source (for cooking). The samples are
+        /// written separately via HeightBlob + WriteData(kHeightStream, ...).
         static void FromHeightfield(const Heightfield& hf, HeightfieldSource& out)
         {
             out.size = hf.Size();
             out.worldSize = hf.WorldSize();
             out.minY = hf.MinY();
             out.maxY = hf.MaxY();
-            const Span<const Height> samples = hf.Samples();
-            out.heightBlob.Clear();
-            out.heightBlob.Resize(samples.Size() * sizeof(Height));
-            if (!samples.IsEmpty())
-            {
-                MemCopy(out.heightBlob.Data(), samples.Data(), samples.Size() * sizeof(Height));
-            }
         }
 
-        /// Build the runtime product. Returns an empty grid if the cooked data is inconsistent
-        /// (invalid size or a blob that does not match size*size*2) rather than a malformed grid.
-        [[nodiscard]] RefPtr<Heightfield> Build() const
+        /// The raw sample bytes of a heightfield, to feed WriteData(kHeightStream, ...).
+        [[nodiscard]] static Span<const byte> HeightBlob(const Heightfield& hf) noexcept
+        {
+            const Span<const Height> samples = hf.Samples();
+            return Span<const byte>(reinterpret_cast<const byte*>(samples.Data()),
+                                    samples.Size() * sizeof(Height));
+        }
+
+        /// Build the runtime product from this metadata + the sidecar sample bytes. Returns an empty
+        /// grid if the cooked data is inconsistent (invalid size, or a blob that does not match
+        /// size*size*2) rather than a malformed grid.
+        [[nodiscard]] RefPtr<Heightfield> Build(Span<const byte> blob) const
         {
             if (!IsValidSize(size))
             {
                 return MakeRef<Heightfield>(DefaultAllocator());
             }
             const usize expected = static_cast<usize>(size) * static_cast<usize>(size) * sizeof(Height);
-            if (heightBlob.Size() != expected)
+            if (blob.Size() != expected)
             {
                 return MakeRef<Heightfield>(DefaultAllocator());
             }
             RefPtr<Heightfield> hf =
                 MakeRef<Heightfield>(DefaultAllocator(), size, worldSize, minY, maxY);
-            MemCopy(hf->Samples().Data(), heightBlob.Data(), expected);
+            MemCopy(hf->Samples().Data(), blob.Data(), expected);
             return hf;
         }
     };
 
-    /// Builds a HeightfieldSource into a runtime Heightfield. Pure-CPU (no GPU state - the terrain
-    /// renderer owns the height texture, cached per resource), so the whole build runs on a worker.
+    /// Builds a cooked heightfield (metadata object + "heights" stream) into a runtime Heightfield.
+    /// Pure-CPU (no GPU state - the terrain renderer owns the height texture, cached per resource), so
+    /// the whole build runs on a worker.
     class HeightfieldFactory final : public IResourceFactory
     {
     public:
@@ -112,7 +118,20 @@ export namespace foundation::heightfield
             {
                 return RefPtr<Object>{};
             }
-            return src->Build();
+            Array<u8> blob;
+            if (UniquePtr<IStream> stream = instance.ReadData(kHeightStream))
+            {
+                const i64 size = stream->Size();
+                if (size > 0)
+                {
+                    blob.Resize(static_cast<usize>(size));
+                    if (stream->Read(blob.Data(), static_cast<u64>(size)) != static_cast<u64>(size))
+                    {
+                        blob.Clear();
+                    }
+                }
+            }
+            return src->Build(Span<const byte>(reinterpret_cast<const byte*>(blob.Data()), blob.Size()));
         }
     };
 

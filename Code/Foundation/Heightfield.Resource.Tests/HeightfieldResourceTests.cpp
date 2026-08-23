@@ -59,6 +59,7 @@ TEST_CASE("heightfield resource: cook round-trips through the resource manager")
         HeightfieldSource src;
         HeightfieldSource::FromHeightfield(*ramp, src);
         REQUIRE(inst->WriteObject(src).IsOk());
+        REQUIRE(inst->WriteData(kHeightStream, HeightfieldSource::HeightBlob(*ramp)).IsOk());
     }
 
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
@@ -88,9 +89,10 @@ TEST_CASE("heightfield resource: FromHeightfield / Build reproduces the grid dir
     HeightfieldSource::FromHeightfield(*ramp, src);
 
     CHECK(src.size == 65);
-    CHECK(src.heightBlob.Size() == 65u * 65u * sizeof(Height));
+    const Span<const byte> blob = HeightfieldSource::HeightBlob(*ramp);
+    CHECK(blob.Size() == 65u * 65u * sizeof(Height));
 
-    RefPtr<Heightfield> built = src.Build();
+    RefPtr<Heightfield> built = src.Build(blob);
     REQUIRE(built);
     CHECK(built->Size() == 65);
     CHECK(built->MaxY() == doctest::Approx(10.0f));
@@ -112,14 +114,16 @@ TEST_CASE("heightfield resource: FromHeightfield / Build reproduces the grid dir
 
 TEST_CASE("heightfield resource: an inconsistent cook builds an empty grid, never a malformed one")
 {
+    Array<u8> bytes;
     // Invalid size.
     {
         HeightfieldSource src;
         src.size = 64; // not 64k+1
         src.worldSize = Float2{64.0f, 64.0f};
         src.maxY = 10.0f;
-        src.heightBlob.Resize(64u * 64u * sizeof(Height));
-        RefPtr<Heightfield> built = src.Build();
+        bytes.Resize(64u * 64u * sizeof(Height));
+        RefPtr<Heightfield> built =
+            src.Build(Span<const byte>(reinterpret_cast<const byte*>(bytes.Data()), bytes.Size()));
         REQUIRE(built);
         CHECK(built->IsEmpty());
     }
@@ -129,8 +133,9 @@ TEST_CASE("heightfield resource: an inconsistent cook builds an empty grid, neve
         src.size = 65;
         src.worldSize = Float2{64.0f, 64.0f};
         src.maxY = 10.0f;
-        src.heightBlob.Resize(10); // wrong length
-        RefPtr<Heightfield> built = src.Build();
+        bytes.Resize(10); // wrong length
+        RefPtr<Heightfield> built =
+            src.Build(Span<const byte>(reinterpret_cast<const byte*>(bytes.Data()), bytes.Size()));
         REQUIRE(built);
         CHECK(built->IsEmpty());
     }
