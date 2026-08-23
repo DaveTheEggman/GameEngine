@@ -54,14 +54,18 @@ DONE (green on clang + gcc, each with cook round-trip / integration tests):
   registered in Engine.SceneSurface (the SceneModule pair; ModuleCount 9 -> 10)
   + the InspectorView Ref<TerrainResource> picker (gap 3). 2 tests (reflection +
   scene serialize round-trip).
+- `engine.terrain` PHASE B (first RHI primitive): TerrainHeightTextureCache
+  (:heighttexture partition) - each heightfield's u16 grid uploaded to an
+  R16Uint 2D texture (the VS will textureLoad it), CACHED by resource id+version
+  (shared across terrains; version bump = sculpt re-upload). Test on the Null
+  device (hit / rebuild-in-place / second-id / empty / clear).
 
 REMAINING (the terrain-rendering half): `engine.terrain` PHASES B+ - the
 chunked geo-mipmap RENDERER (the RHI/shader draw path; all the RHI-FREE inputs
 are now built + tested - chunks, LOD via foundation.lod, quadtree cull, the
 shared grid mesh geometry). The sub-phases:
-- B GPU height texture: create an R16Uint texture from the CPU heightfield grid
-  (WriteTexture the u16 samples), CACHED by heightfield resource id + version so
-  terrains sharing one heightfield share one texture; invalidate by version.
+- B GPU height texture: DONE - TerrainHeightTextureCache (R16Uint, cached by
+  resource id+version).
 - C the Renderer: upload the shared grid VB + per-LOD IBs once; per chunk emit
   instance data {origin, size, LOD, height-tex region}; frustum-cull via the
   quadtree, LOD via SelectChunkLod; draw through the dynamic-category/rendererId
