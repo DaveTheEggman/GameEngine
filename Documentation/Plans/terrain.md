@@ -18,16 +18,43 @@ phase 3 of THIS track. Ocean/river/forest = not planned.
 
 ## Module layout (confirmed shape)
 
+Heightfield is a SEPARATE library from terrain (2026-08-22 decision,
+mirroring Traktor's `hf` factoring): the grid + sampling math is the shared
+source of truth that both the terrain renderer AND physics consume, so it
+lives below terrain and neither the physics shape cook nor the navigation
+bake needs to depend on the terrain renderer to read heights. Navigation
+already ships; sampling terrain heights into a navmesh is the deferred
+terrain<->nav integration (see "Explicitly deferred"), and when it lands it
+consumes foundation.heightfield directly.
+
+- `Code/Foundation/Heightfield` - module `foundation.heightfield`, alias
+  `Foundation::Heightfield`. The pure grid, NO RHI, NO terrain concepts:
+  u16 height storage over a world XZ extent + Y range, bilinear GetHeightAt
+  / GetNormalAt, world<->grid conversions, ray query, per-cell/chunk
+  bounds (min/max height per cell, for culling + ray acceleration). This is
+  what Physics cooks its collision shape from and what the editor brush
+  raycasts against - it depends on nothing but Foundation::Core math. It
+  OWNS its blob (de)serialization (self-describing, like the geometry mesh
+  format), so any cook can write the grid without a heightfield pipeline lib.
+- NO separate `Heightfield.Pipeline` / `Heightfield.Resource` in P1
+  (2026-08-22): heightfield is a shared RUNTIME lib (many consumers) but
+  has ONE authoring source - terrain - so `Terrain.Pipeline` imports the
+  heightmap image and cooks the blob (using foundation.heightfield's
+  serialize), and `foundation.terrain.resource` loads it back into a grid.
+  A standalone pipeline would be speculative. Promote to `Heightfield.*`
+  cook/resource libs ONLY when a NON-terrain authoring consumer appears
+  (e.g. a standalone collision-heightfield asset, or a heightfield brush
+  used outside terrain) - explicit-when-needed, not up front.
 - `Code/Foundation/Terrain` - module `foundation.terrain`, alias
-  `Foundation::Terrain`. Pure data + math, NO RHI: heightfield storage
-  (u16 heights + world XZ scale + Y range), bilinear GetHeightAt /
-  GetNormalAt, chunk quadtree + per-chunk LOD selection given a camera
-  (pure function - unit-testable without rendering), splat layer
-  descriptors.
+  `Foundation::Terrain`. DEPENDS ON `foundation.heightfield`; adds the
+  terrain model over the grid: chunk quadtree + per-chunk LOD selection
+  given a camera (pure function - unit-testable without rendering) and
+  splat layer descriptors. Still NO RHI.
 - `Code/Foundation/Terrain.Resource` - module
   `foundation.terrain.resource`. Cooked terrain resource + loader:
-  heightfield blob, splatmap texture refs, per-layer material/texture
-  refs (model-A GPU factory pattern like Texture.Resource).
+  heightfield blob (loads into a `foundation.heightfield` grid), splatmap
+  texture refs, per-layer material/texture refs (model-A GPU factory
+  pattern like Texture.Resource).
 - `Code/Pipeline/Terrain.Pipeline` - TerrainAsset (Pipeline domain):
   created blank (size + scales) or from an imported heightmap image
   (16-bit PNG/RAW through the existing image import path); splat layer
@@ -40,8 +67,10 @@ phase 3 of THIS track. Ocean/river/forest = not planned.
   {Ref<TerrainAsset product>, cast shadows flag} + the RENDERER, owned
   HERE via the dynamic-category / per-item rendererId dispatch (sprites
   precedent) - Engine.Render stays terrain-free. Physics wiring: cooks a
-  Jolt HeightFieldShape from the same heightfield so render and collision
-  cannot diverge; registers through Engine.Physics' existing shape seam.
+  Jolt HeightFieldShape from the same `foundation.heightfield` grid so
+  render and collision cannot diverge (Physics depends on
+  foundation.heightfield, NOT foundation.terrain); registers through
+  Engine.Physics' existing shape seam.
   Component checklist: displayName + category attributes, InspectorView
   ref-picker entry, reflected GetHeightAt for scripts (natural types - no
   new facade lib; facade name count unchanged unless a subsystem facade
@@ -87,11 +116,14 @@ seam navigation's bake will consume later.
 
 ## Physics (phase 1)
 
-Jolt HeightFieldShape built from the cooked heightfield at scene
+Jolt HeightFieldShape built from the `foundation.heightfield` grid at scene
 integration (Physics.Pipeline cooks the shape data alongside the terrain
-product so runtime creation is cheap). Collision layer/group per the
-existing matrix. The height query epsilon test below is the honesty
-check between render and physics.
+product so runtime creation is cheap). Physics depends on
+foundation.heightfield only - never on foundation.terrain. Collision
+layer/group per the existing matrix. The height query epsilon test below is
+the honesty check between render and physics (both sample the SAME grid, so
+it should hold trivially - the test guards against a cook/quantization
+drift).
 
 ## Editor experience (phase 2 - separate discussion pending)
 
@@ -111,13 +143,14 @@ path. The framework is a small prerequisite piece of this phase, specced
 with it.
 
 Brush framework in the scene viewport: raycast against the heightfield
-(foundation.terrain math, not physics), brush cursor decal, elevate /
+(foundation.heightfield math, not physics), brush cursor decal, elevate /
 lower / smooth / flatten (ctrl-picks target height) / splat paint. Undo =
 region-delta commands (capture touched rect before/after, not whole-map
 copies). Edits mark the ASSET dirty (asset-level save, scene stays
 clean). Detailed UX to be specced after discussion - this section only
 fixes the architectural seams: brushes are editor-side commands over
-foundation.terrain data; the runtime never links brush code.
+foundation.heightfield data (the height grid in P1; cut/attribute grids
+ride the deferred holes item); the runtime never links brush code.
 
 ## Phase 3: grass
 
@@ -127,9 +160,11 @@ Spec'd in detail when phase 2 lands.
 
 ## Tests (required)
 
-- foundation.terrain: height/normal sampling (exact grid points, bilinear
-  midpoints, edge clamp), LOD selection determinism for fixture cameras,
-  chunk bounds correctness.
+- foundation.heightfield: height/normal sampling (exact grid points,
+  bilinear midpoints, edge clamp), world<->grid round-trip, ray query hits,
+  per-cell bounds correctness.
+- foundation.terrain: LOD selection determinism for fixture cameras, chunk
+  quadtree correctness, splat descriptor round-trip.
 - Cook round-trip: blank + imported-heightmap assets; product loads;
   count guards on layers.
 - Render smoke: pixel-probe test on the backend suite (a known ramp
