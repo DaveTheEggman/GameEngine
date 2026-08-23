@@ -2600,25 +2600,26 @@ namespace foundation::render
         return k;
     }
 
+    // The mesh-facing selection trio are THIN ADAPTERS over the core :bounds coverage math
+    // (ProjectedSphereCoverage / SelectLevelByCoverage / ApplyCoverageHysteresis) - the
+    // formula itself is RHI-free core math so foundation.terrain's chunk LOD (and any
+    // headless consumer) shares it exactly. See the terrain-doc layering ruling 2026-08-23.
+    namespace
+    {
+        [[nodiscard]] Span<const f32> MeshThresholds(const geometry::StaticMesh& mesh)
+        {
+            const usize count =
+                (static_cast<usize>(mesh.lodCount) < mesh.lodCoverage.Size())
+                    ? static_cast<usize>(mesh.lodCount)
+                    : mesh.lodCoverage.Size();
+            return Span<const f32>(mesh.lodCoverage.Data(), count);
+        }
+    }
+
     f32 LodCoverageFor(const ViewCamera& camera, Float3 worldCenter, f32 worldRadius, f32 lodBias)
     {
-        const f32 proj11 = camera.projection.m[1][1];
-        f32 coverage;
-        if (camera.projection.m[3][3] != 0.0f)
-        {
-            coverage = worldRadius * proj11; // ortho: screen size is depth-free
-        }
-        else
-        {
-            const Float3 vc = TransformPoint(worldCenter, camera.view);
-            const f32 depth = ((-vc.z) > 0.001f) ? (-vc.z) : 0.001f; // forward = -z (view space)
-            coverage = worldRadius * proj11 / depth;
-        }
-        if (lodBias != 0.0f)
-        {
-            coverage *= Pow(2.0f, -lodBias); // each bias unit halves effective coverage
-        }
-        return coverage;
+        return ProjectedSphereCoverage(camera.view, camera.projection, worldCenter, worldRadius,
+                                       lodBias);
     }
 
     u32 PickLodLevel(const geometry::StaticMesh& mesh, f32 coverage)
@@ -2627,28 +2628,13 @@ namespace foundation::render
         {
             return 0;
         }
-        const u32 maxLod = mesh.lodCount - 1;
-        u32 sel = 0;
-        for (u32 l = 1; l <= maxLod && l < static_cast<u32>(mesh.lodCoverage.Size()); ++l)
-        {
-            if (coverage < mesh.lodCoverage[l])
-            {
-                sel = l;
-            }
-            else
-            {
-                break;
-            }
-        }
-        return sel;
+        return SelectLevelByCoverage(MeshThresholds(mesh), coverage);
     }
 
     u32 ApplyLodHysteresis(const geometry::StaticMesh& mesh, f32 coverage, u32 rawSelection,
                            u32 last)
     {
-        const u32 finest = PickLodLevel(mesh, coverage * 1.05f); // more coverage -> finer level
-        const u32 coarsest = PickLodLevel(mesh, coverage * 0.95f);
-        return (last >= finest && last <= coarsest) ? last : rawSelection;
+        return ApplyCoverageHysteresis(MeshThresholds(mesh), coverage, rawSelection, last);
     }
 
     u32 MeshRenderer::SelectLod(const RenderRecordContext& ctx, const MeshRenderData& md)

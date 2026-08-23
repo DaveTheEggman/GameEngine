@@ -230,17 +230,26 @@ seam navigation's bake will consume later.
   as the RHI-free fallback. This shares the formula (no formula #2) but the
   coverage COMPUTATION is only exercised in engine.terrain, not unit-tested in
   foundation.terrain.
-  DECISION NEEDED: is that acceptable, or should the pure coverage math
-  (LodCoverageFor's body - projected coverage from bounds + camera params +
-  the hysteresis band) be EXTRACTED to a lightweight RHI-free home (a new
-  `foundation.lod`, or Core math) that both foundation.render and
-  foundation.terrain depend on? That makes coverage-based selection fully
-  unit-testable in foundation.terrain and removes the layering asymmetry, at
-  the cost of touching mesh-lod / foundation.render to relocate the function
-  (and passing camera params as plain values, not a ViewCamera). Recommend the
-  extraction if a second RHI-free consumer beyond terrain is likely (e.g. a
-  headless LOD bake); otherwise the interim is fine. Flagged for a ruling; the
-  interim compiles + tests and is not a blocker for starting engine.terrain.
+  RULING (Fable, 2026-08-23): EXTRACTED - and to neither of the framed
+  options. The formula is pure sphere-vs-camera math on core types (two
+  Float4x4s, a Float3, two floats) - the same family as the frustum/AABB
+  intersection suite - so it moved into core's `:bounds` partition
+  (BoundingVolumes.cppm), NOT a new foundation.lod micro-module and NOT a
+  render-layer resident: `ProjectedSphereCoverage(view, projection,
+  center, radius, bias)` + `SelectLevelByCoverage(Span<const f32>,
+  coverage)` + `ApplyCoverageHysteresis(Span<const f32>, coverage, raw,
+  last, band)`. foundation.render's mesh-facing trio
+  (LodCoverageFor/PickLodLevel/ApplyLodHysteresis) are now thin adapters
+  over them (ViewCamera unwrap + the mesh's threshold span) - every
+  mesh-lod call site and test unchanged, plus a core-level test pins the
+  Span API directly (MathTests). CONSEQUENCE FOR TERRAIN: foundation.terrain
+  (Core-only, RHI-free) calls the core functions DIRECTLY - coverage
+  computation AND the walk fully unit-testable at the foundation layer,
+  no asymmetry, no formula #2. Opus: delegate SelectLodByCoverage to
+  core's SelectLevelByCoverage (or use it directly) and compute chunk
+  coverage with ProjectedSphereCoverage on the chunk's bounding sphere;
+  the distance metric may stay as a secondary heuristic or retire - your
+  call in the module. The no-compat rule made the clean relocation free.
 - Shared grid vertex buffer (one chunk-sized grid, e.g. 65x65 verts),
   per-chunk instance data {chunk origin, LOD, morph params}; vertex
   shader fetches height via textureLoad (unfiltered fetch works in VS on
