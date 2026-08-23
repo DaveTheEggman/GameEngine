@@ -40,10 +40,14 @@ DONE (green on clang + gcc, each with cook round-trip / integration tests):
   Proxy<Texture> splatmap + layers) via TerrainFactory. The heightfield is the
   SHARED source of truth (physics/nav resolve the same id). 2 tests incl. a
   content-DB build resolving the shared heightfield.
+- `Terrain.Pipeline` - TerrainAsset (references a heightfield asset + splatmap +
+  per-layer albedo + tiling + castShadows) + a reference-pass-through builder ->
+  the Terrain resource; registered in Pipeline.Registration (builder count 25).
+  1 cook-through test.
 
-REMAINING (the terrain-rendering half): `Terrain.Pipeline` -> `engine.terrain`
-(the chunked geo-mipmap renderer + GPU height texture + Ref<TerrainAsset>
-picker) -> `Editor.Terrain` (phase 2).
+REMAINING (the terrain-rendering half): `engine.terrain` (the chunked
+geo-mipmap renderer + GPU height texture + Ref<TerrainAsset> picker) ->
+`Editor.Terrain` (phase 2).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
 (Editor.Mcp/ProjectTools) resolves an extension with the SINGULAR
