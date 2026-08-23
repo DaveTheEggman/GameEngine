@@ -90,6 +90,27 @@ TEST_CASE("terrain: LOD selection is deterministic by distance")
     CHECK(dWest == doctest::Approx(136.0f).epsilon(0.05)); // 200 - 64 to the west edge
 }
 
+TEST_CASE("terrain: coverage-based LOD selection (the renderer's shared metric)")
+{
+    // Descending coverage thresholds: minimum coverage for LOD 0, 1, 2.
+    const f32 thresholds[] = {0.5f, 0.2f, 0.05f};
+    const Span<const f32> lod{thresholds, 3};
+    CHECK(SelectLodByCoverage(0.9f, lod) == 0u);  // large coverage = close = finest
+    CHECK(SelectLodByCoverage(0.5f, lod) == 0u);  // inclusive
+    CHECK(SelectLodByCoverage(0.3f, lod) == 1u);
+    CHECK(SelectLodByCoverage(0.1f, lod) == 2u);
+    CHECK(SelectLodByCoverage(0.01f, lod) == 3u); // below the last -> coarsest
+
+    // ChunkBoundingSphere bridges to LodCoverageFor: centre = bounds centre, radius covers corners.
+    RefPtr<hf::Heightfield> h = MakeRampX();
+    Array<TerrainChunk> chunks;
+    BuildChunks(*h, chunks);
+    const BoundingSphere s = ChunkBoundingSphere(chunks[0]);
+    CHECK(Near(s.center.x, chunks[0].bounds.Center().x));
+    CHECK(Near(s.center.z, chunks[0].bounds.Center().z));
+    CHECK(s.radius >= Length(chunks[0].bounds.Extents()) - 1.0e-3f); // encloses the box
+}
+
 TEST_CASE("terrain: quadtree builds over the chunk grid")
 {
     RefPtr<hf::Heightfield> h = MakeRampX();

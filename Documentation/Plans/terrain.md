@@ -212,6 +212,35 @@ seam navigation's bake will consume later.
   invent formula #2. Chunk-boundary popping wants the same hysteresis
   band; ApplyLodHysteresis is mesh-coupled today but generalizes to a
   Span<f32> threshold walk trivially if literal sharing is wanted.
+- LAYERING ISSUE for Fable to resolve (2026-08-23, Opus): sharing
+  LodCoverageFor collides with the module layering. LodCoverageFor lives in
+  `foundation.render` (MeshRenderer.cppm), which imports `foundation.rhi` -
+  and `foundation.terrain` is a NO-RHI foundation module (Core + Heightfield
+  only), so it CANNOT call LodCoverageFor to compute coverage. LodCoverageFor
+  also takes a `ViewCamera` (a render type). PickLodLevel/ApplyLodHysteresis
+  are additionally mesh-coupled. So the shared coverage FORMULA sits below an
+  RHI ceiling that foundation.terrain sits above.
+  INTERIM (built, keeps foundation.terrain RHI-free + the selection pure and
+  tested): foundation.terrain adds `ChunkBoundingSphere` (the bridge input)
+  and `SelectLodByCoverage(coverage, Span<const f32> thresholds)` (the pure
+  descending-threshold walk, mesh-lod's PickLodLevel shape generalized to a
+  Span). engine.terrain (which DOES depend on foundation.render) computes the
+  per-chunk coverage with LodCoverageFor on the world sphere and feeds it to
+  SelectLodByCoverage. The distance metric (SelectLod/DistanceToChunk) stays
+  as the RHI-free fallback. This shares the formula (no formula #2) but the
+  coverage COMPUTATION is only exercised in engine.terrain, not unit-tested in
+  foundation.terrain.
+  DECISION NEEDED: is that acceptable, or should the pure coverage math
+  (LodCoverageFor's body - projected coverage from bounds + camera params +
+  the hysteresis band) be EXTRACTED to a lightweight RHI-free home (a new
+  `foundation.lod`, or Core math) that both foundation.render and
+  foundation.terrain depend on? That makes coverage-based selection fully
+  unit-testable in foundation.terrain and removes the layering asymmetry, at
+  the cost of touching mesh-lod / foundation.render to relocate the function
+  (and passing camera params as plain values, not a ViewCamera). Recommend the
+  extraction if a second RHI-free consumer beyond terrain is likely (e.g. a
+  headless LOD bake); otherwise the interim is fine. Flagged for a ruling; the
+  interim compiles + tests and is not a blocker for starting engine.terrain.
 - Shared grid vertex buffer (one chunk-sized grid, e.g. 65x65 verts),
   per-chunk instance data {chunk origin, LOD, morph params}; vertex
   shader fetches height via textureLoad (unfiltered fetch works in VS on

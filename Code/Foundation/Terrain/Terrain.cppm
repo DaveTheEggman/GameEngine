@@ -85,7 +85,10 @@ export namespace foundation::terrain
     }
 
     /// The LOD level for a distance: `lodDistances[i]` is the FAR edge of LOD i (0 = finest). A
-    /// distance beyond the last entry returns the coarsest level (= lodDistances.Size()).
+    /// distance beyond the last entry returns the coarsest level (= lodDistances.Size()). This is the
+    /// RHI-FREE fallback metric (headless/tests); the RENDERER prefers coverage - see
+    /// SelectLodByCoverage + ChunkBoundingSphere, fed by foundation.render's LodCoverageFor
+    /// (fov/resolution-aware, shared with mesh-lod - not a second formula).
     [[nodiscard]] inline u32 SelectLod(f32 distance, Span<const f32> lodDistances) noexcept
     {
         for (u32 i = 0; i < static_cast<u32>(lodDistances.Size()); ++i)
@@ -96,6 +99,33 @@ export namespace foundation::terrain
             }
         }
         return static_cast<u32>(lodDistances.Size());
+    }
+
+    /// A chunk's LOCAL-space bounding sphere, to feed the renderer's coverage metric
+    /// (foundation.render's LodCoverageFor, after the entity transform is applied to the centre).
+    [[nodiscard]] inline BoundingSphere ChunkBoundingSphere(const TerrainChunk& chunk) noexcept
+    {
+        BoundingSphere sphere;
+        sphere.center = chunk.bounds.Center();
+        sphere.radius = Length(chunk.bounds.Extents());
+        return sphere;
+    }
+
+    /// The LOD level for a screen COVERAGE (the renderer's preferred metric, from LodCoverageFor):
+    /// `coverageThresholds[i]` is the MINIMUM coverage for LOD i, DESCENDING (0 = finest). Coverage
+    /// below the last threshold returns the coarsest level (= size()). Pure - the same threshold-walk
+    /// shape as mesh-lod's PickLodLevel, generalized to a Span so terrain shares the selection logic.
+    [[nodiscard]] inline u32 SelectLodByCoverage(f32 coverage,
+                                                 Span<const f32> coverageThresholds) noexcept
+    {
+        for (u32 i = 0; i < static_cast<u32>(coverageThresholds.Size()); ++i)
+        {
+            if (coverage >= coverageThresholds[i])
+            {
+                return i;
+            }
+        }
+        return static_cast<u32>(coverageThresholds.Size());
     }
 
     /// Per-chunk LOD levels for a camera position (pure - the renderer feeds these to the draw).
