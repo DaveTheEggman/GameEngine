@@ -20,10 +20,11 @@ namespace engine::terrain
     {
         builder.Attribute("displayName", String(u8"Terrain"))
             .Attribute("category", String(u8"Terrain"))
-            .DataVersion(1)
+            .DataVersion(2)
             .Property<&TerrainComponent::terrain>("terrain")
             .Property<&TerrainComponent::castShadows>("castShadows")
-            .Property<&TerrainComponent::visible>("visible");
+            .Property<&TerrainComponent::visible>("visible")
+            .Property<&TerrainComponent::lodBias>("lodBias");
     }
 
     void AddTerrainSceneManagers(foundation::scene::Scene& scene)

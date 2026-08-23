@@ -53,12 +53,14 @@ export namespace foundation::terrain
     public:
         struct Layer
         {
-            Proxy<texture::Texture> albedo;
+            // Ref (not Proxy): the cooked factory binds it as a proxy, but in-memory/procedural
+            // terrain (playgrounds, tests, runtime generation) can assign a product directly.
+            Ref<texture::Texture> albedo;
             f32 tileScale = 1.0f;
         };
 
-        Proxy<heightfield::Heightfield> heightfield;
-        Proxy<texture::Texture> splatmap;
+        Ref<heightfield::Heightfield> heightfield;
+        Ref<texture::Texture> splatmap;
         Array<Layer> layers;
         bool castShadows = true;
 
@@ -86,11 +88,12 @@ export namespace foundation::terrain
             terrain->castShadows = src->castShadows;
             if (!src->heightfieldId.IsNil())
             {
-                terrain->heightfield = manager.Bind<heightfield::Heightfield>(src->heightfieldId);
+                terrain->heightfield.SetProxy(
+                    manager.Bind<heightfield::Heightfield>(src->heightfieldId));
             }
             if (!src->splatmapId.IsNil())
             {
-                terrain->splatmap = manager.Bind<texture::Texture>(src->splatmapId);
+                terrain->splatmap.SetProxy(manager.Bind<texture::Texture>(src->splatmapId));
             }
             for (usize i = 0; i < src->layerAlbedoIds.Size(); ++i)
             {
@@ -99,7 +102,7 @@ export namespace foundation::terrain
                     (i < src->layerTileScales.Size()) ? src->layerTileScales[i] : 1.0f;
                 if (!src->layerAlbedoIds[i].IsNil())
                 {
-                    layer.albedo = manager.Bind<texture::Texture>(src->layerAlbedoIds[i]);
+                    layer.albedo.SetProxy(manager.Bind<texture::Texture>(src->layerAlbedoIds[i]));
                 }
                 terrain->layers.PushBack(Move(layer));
             }

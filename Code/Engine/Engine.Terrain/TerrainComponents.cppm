@@ -44,6 +44,7 @@ export namespace engine::terrain
         foundation::resource::Ref<TerrainResource> terrain;
         bool castShadows = true; // this instance casts into the CSM (terrain default-on)
         bool visible = true;
+        f32 lodBias = 0.0f; // +ve = coarser sooner (fewer triangles), -ve = hold detail further out
     };
 
     inline void Serialize(ISerializer& ar, TerrainComponent& c)
@@ -51,6 +52,10 @@ export namespace engine::terrain
         foundation::core::Serialize(ar, "terrain", c.terrain);
         foundation::core::Serialize(ar, "castShadows", c.castShadows);
         foundation::core::Serialize(ar, "visible", c.visible);
+        if (ar.Version() >= 2) // DataVersion 2 added lodBias
+        {
+            foundation::core::Serialize(ar, "lodBias", c.lodBias);
+        }
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager, TerrainComponent& c)
@@ -111,9 +116,9 @@ export namespace engine::terrain
                     {
                         return;
                     }
-                    // The GPU height texture (keyed by the terrain Ref id; version bumps on sculpt).
+                    // The GPU height texture (keyed by the heightfield; re-uploads on a version bump).
                     rhi::TextureView* heightView =
-                        m_heightTextures.GetOrCreate(*m_device, *hf, c.terrain.id, 1);
+                        m_heightTextures.GetOrCreate(*m_device, *hf, hf->Version());
                     if (heightView == nullptr)
                     {
                         return;
@@ -143,7 +148,7 @@ export namespace engine::terrain
                         rd->thresholds[i] = kDefaultThresholds[i];
                     }
                     rd->thresholdCount = n;
-                    rd->lodBias = 0.0f;
+                    rd->lodBias = c.lodBias;
 
                     // Whole-terrain bounding sphere (world) - keeps the framework from culling the
                     // terrain while any chunk is visible.
@@ -159,17 +164,21 @@ export namespace engine::terrain
             Array<tmodel::TerrainChunk> chunks;
             tmodel::TerrainQuadtree quadtree;
             AABB localBounds = AABB::Empty();
+            u64 version = 0;
         };
 
         // Chunk model per heightfield (shared by every terrain referencing it). Keyed by the resolved
-        // pointer; a hot-reload swap (new pointer) rebuilds. Content edits in place are Phase 2.
+        // pointer; a hot-reload swap (new pointer) OR a sculpt/regen (version bump) rebuilds - the
+        // chunk Y bounds move with the heights, so cull + LOD stay correct.
         const ChunkCache& GetOrBuildChunks(const heightfield::Heightfield* hf)
         {
-            if (ChunkCache* found = m_chunkCache.Find(hf))
+            if (ChunkCache* found = m_chunkCache.Find(hf); found != nullptr &&
+                found->version == hf->Version())
             {
                 return *found;
             }
             ChunkCache cache;
+            cache.version = hf->Version();
             tmodel::BuildChunks(*hf, cache.chunks);
             cache.quadtree.Build(
                 Span<const tmodel::TerrainChunk>{cache.chunks.Data(), cache.chunks.Size()},

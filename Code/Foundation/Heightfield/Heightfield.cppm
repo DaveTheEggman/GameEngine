@@ -67,6 +67,11 @@ export namespace foundation::heightfield
         [[nodiscard]] f32 MinY() const noexcept { return m_minY; }
         [[nodiscard]] f32 MaxY() const noexcept { return m_maxY; }
 
+        /// Monotonic edit generation (starts at 1). Bump it after rewriting samples so downstream
+        /// GPU caches (the terrain height texture) re-upload - the sculpt/regen path.
+        [[nodiscard]] u64 Version() const noexcept { return m_version; }
+        void BumpVersion() noexcept { ++m_version; }
+
         // ---- raw sample access (grid indices clamped to [0, S-1]) ----
         [[nodiscard]] Height GetSample(i32 gx, i32 gz) const noexcept
         {
@@ -318,6 +323,7 @@ export namespace foundation::heightfield
         Float2 m_worldSize{0.0f, 0.0f};
         f32 m_minY = 0.0f;
         f32 m_maxY = 0.0f;
+        u64 m_version = 1; // edit generation (BumpVersion) for GPU-cache invalidation
         Array<Height> m_samples;
     };
 

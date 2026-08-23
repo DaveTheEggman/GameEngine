@@ -102,7 +102,7 @@ namespace
             tree.Build(Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
                        tmodel::ChunksPerSide(terrain.Size()));
             engine::terrain::TerrainHeightTextureCache heightCache;
-            rhi::TextureView* heightView = heightCache.GetOrCreate(device, terrain, Guid{}, 1);
+            rhi::TextureView* heightView = heightCache.GetOrCreate(device, terrain, 1);
             REQUIRE(heightView != nullptr);
 
             static const f32 defaultThresholds[] = {1.0f, 0.25f, 0.08f, 0.03f, 0.012f, 0.005f, 0.002f};

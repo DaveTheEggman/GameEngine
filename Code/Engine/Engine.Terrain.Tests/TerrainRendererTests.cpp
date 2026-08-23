@@ -172,7 +172,7 @@ TEST_CASE("terrain renderer: visible chunks draw (extract -> Resolve -> per-LOD 
                tmodel::ChunksPerSide(h->Size()));
 
     engine::terrain::TerrainHeightTextureCache heightCache;
-    rhi::TextureView* heightView = heightCache.GetOrCreate(harness.device, *h, Guid{}, 1);
+    rhi::TextureView* heightView = heightCache.GetOrCreate(harness.device, *h, 1);
     REQUIRE(heightView != nullptr);
 
     ExtractedScene scene;
@@ -221,7 +221,7 @@ TEST_CASE("terrain renderer: nothing drawn when the terrain is off-screen")
     tree.Build(Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
                tmodel::ChunksPerSide(h->Size()));
     engine::terrain::TerrainHeightTextureCache heightCache;
-    rhi::TextureView* heightView = heightCache.GetOrCreate(harness.device, *h, Guid{}, 1);
+    rhi::TextureView* heightView = heightCache.GetOrCreate(harness.device, *h, 1);
     REQUIRE(heightView != nullptr);
 
     ExtractedScene scene;
