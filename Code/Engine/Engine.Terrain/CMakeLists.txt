@@ -1,5 +1,6 @@
-# Engine::Terrain - `engine.terrain`. PHASE A: the TerrainComponent (references a cooked Terrain
-# resource) + scene integration. The chunked geo-mipmap renderer (RHI) lands in a later phase.
+# Engine::Terrain - `engine.terrain`. PHASE A: the TerrainComponent (references a cooked TerrainResource)
+# + scene integration. PHASE B/C: the GPU height-texture cache + the chunked geo-mipmap TerrainRenderer
+# and its Context-level subsystem (registered into RenderSubsystem via the generic seam, like particles).
 add_library(Engine.Terrain STATIC)
 add_library(Engine::Terrain ALIAS Engine.Terrain)
 
@@ -7,7 +8,10 @@ target_link_libraries(Engine.Terrain
     PUBLIC
         Foundation::Core Foundation::Scene Foundation::Resource
         Foundation::Terrain Foundation::Terrain.Resource Foundation::Heightfield
-        Foundation::RHI Foundation::Policy)
+        Foundation::RHI Foundation::Policy
+        Foundation::Render Engine::Render Engine::Scene
+        Foundation::Shaders Foundation::Shaders.System Foundation::Runtime
+        Foundation::Profiler)
 
 target_sources(Engine.Terrain
     PRIVATE
@@ -15,4 +19,8 @@ target_sources(Engine.Terrain
     PUBLIC
         FILE_SET engineterrain_modules TYPE CXX_MODULES FILES
             HeightTexture.cppm
-            TerrainComponents.cppm)
+            TerrainRenderData.cppm
+            TerrainComponents.cppm
+            TerrainRenderer.cppm
+            TerrainSubsystem.cppm
+            TerrainModule.cppm)

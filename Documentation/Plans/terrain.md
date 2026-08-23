@@ -66,19 +66,31 @@ are now built + tested - chunks, LOD via foundation.lod, quadtree cull, the
 shared grid mesh geometry). The sub-phases:
 - B GPU height texture: DONE - TerrainHeightTextureCache (R16Uint, cached by
   resource id+version).
-- C the Renderer: the per-frame CPU extract (cull + LOD -> {chunk, lod} draw
-  list) is DONE + tested as foundation.terrain's ExtractVisibleChunkDraws. The
-  GPU side remains: upload the shared grid VB + per-LOD IBs once; per chunk emit
-  instance data {origin, size, LOD, height-tex region}; draw through the
-  dynamic-category/rendererId dispatch (sprites/particles precedent) + the render
-  extract seam (TerrainComponentManager as IRenderDataProvider + a
-  TerrainRenderer registered via RegisterRenderer).
-- D shaders: the VS fetches height via textureLoad(heightTex) (the load-bearing
-  WebGPU portability bet), the PS does normals-from-heightmap + splat blend (one
-  RGBA splatmap, up to 4 layers) over the standard PBR lit path; new .hlsl via
-  the shaders provider + cooked WGSL.
-- E polish: skirts (crack-hiding), CSM cast (default-on), per-chunk cull, an
-  offscreen pixel-probe render test (Vulkan + WebGPU), WebGPU validation.
+- C the Renderer: DONE. TerrainRenderData (one whole-terrain item), the
+  TerrainComponentManager as the scene's IRenderDataProvider (builds the chunk
+  model per heightfield + gets the GPU height texture, emits the item), a
+  TerrainRenderer riding Opaque via RegisterRenderer, and the TerrainSubsystem
+  wiring both into RenderSubsystem (particles precedent). The renderer uploads the
+  shared 65x65 grid VB + one index buffer PER LOD once, and its Resolve replays
+  ExtractVisibleChunkDraws per view (quadtree cull + shared-coverage LOD, the same
+  tested CPU path) folding chunkToWorld into a per-terrain ViewProj, then emits one
+  DrawIndexed per visible chunk at its LOD. Bind sets: 0 view, 1 per-chunk, 2
+  height texture. Headless test drives the real RenderFrame over the Null RHI +
+  DXC (4 chunks drawn looking down, 0 off-screen) - green on clang + gcc. Module
+  restructured: engine.terrain is now an aggregator over :heighttexture /
+  :renderdata / :components / :renderer / :subsystem partitions.
+- D shaders: DONE (D1, height-lit). terrain.vs.hlsl fetches height via an integer
+  Load on the R16Uint texture (the load-bearing WebGPU portability bet) + derives
+  the normal by central differences; terrain.ps.hlsl does directional + ambient
+  over a height/slope colour ramp. Authored as HLSL through the file shader
+  provider (pipeline cooks SPIR-V/WGSL); compiled by the Phase-C headless test.
+  REMAINING D2 (splat): blend the RGBA splatmap over the per-layer albedo textures
+  (TerrainResource::layers) as a 4th material set - needs the splat/layer assets
+  cooked + bound.
+- E polish: skirts (crack-hiding), CSM cast (default-on), back-face cull, wiring
+  the scene's real sun (Phase C uses a fixed key light), an offscreen pixel-probe
+  render test (Vulkan + WebGPU), WebGPU validation. Host wiring: register the
+  TerrainSubsystem into the runtime/editor Context (mirroring ParticleSubsystem).
 Then `Editor.Terrain` (phase 2).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
