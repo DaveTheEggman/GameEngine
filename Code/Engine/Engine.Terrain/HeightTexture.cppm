@@ -14,6 +14,7 @@ export module engine.terrain:heighttexture;
 
 import foundation.core;
 import foundation.rhi;
+import foundation.render; // GpuRetireQueue (in-flight-safe destruction)
 import foundation.heightfield;
 
 using namespace foundation::core;
@@ -21,6 +22,7 @@ using namespace foundation::core;
 export namespace engine::terrain
 {
     namespace rhi = foundation::rhi;
+    namespace render = foundation::render;
     namespace heightfield = foundation::heightfield;
 
     /// Owns + caches the per-heightfield GPU height textures (R16Uint), keyed by resource id+version.
@@ -30,6 +32,13 @@ export namespace engine::terrain
         TerrainHeightTextureCache() = default;
         TerrainHeightTextureCache(const TerrainHeightTextureCache&) = delete;
         TerrainHeightTextureCache& operator=(const TerrainHeightTextureCache&) = delete;
+
+        /// In-flight-safe destruction (wired by the subsystem): a version-bump rebuild RETIRES
+        /// the old texture/view through the frame-aged queue instead of destroying immediately -
+        /// submitted frames still reference the old view through the renderer's set-2 bind
+        /// group (regenerate/toggle in the playground hit exactly this validation error).
+        /// Unwired (Null-device tests, headless) falls back to direct destroy.
+        void SetRetireQueue(render::GpuRetireQueue* retire) noexcept { m_retire = retire; }
 
         /// The R16Uint height texture view for `hf` at `version`. Keyed by the heightfield's
         /// UID (never its pointer - a freed grid's address can be reused by a fresh one at an
@@ -54,7 +63,7 @@ export namespace engine::terrain
                     {
                         return entry.view;
                     }
-                    Destroy(device, entry); // stale version: rebuild in place
+                    RetireOrDestroy(device, entry); // stale version: rebuild in place
                     if (!Build(device, hf, entry))
                     {
                         return nullptr;
@@ -138,6 +147,19 @@ export namespace engine::terrain
             return true;
         }
 
+        void RetireOrDestroy(rhi::Device& device, Entry& entry)
+        {
+            if (m_retire != nullptr)
+            {
+                m_retire->Retire(entry.view);    // aged past every in-flight frame, then freed
+                m_retire->Retire(entry.texture);
+                entry.view = nullptr;
+                entry.texture = nullptr;
+                return;
+            }
+            Destroy(device, entry);
+        }
+
         static void Destroy(rhi::Device& device, Entry& entry)
         {
             if (entry.view != nullptr)
@@ -153,5 +175,6 @@ export namespace engine::terrain
         }
 
         Array<Entry> m_entries;
+        render::GpuRetireQueue* m_retire = nullptr; // borrowed (RenderSubsystem owns + ticks it)
     };
 }

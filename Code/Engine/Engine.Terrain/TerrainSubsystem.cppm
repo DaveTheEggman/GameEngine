@@ -42,7 +42,7 @@ export namespace engine::terrain
             {
                 return;
             }
-            mgr->SetRenderContext(m_render->Device(), m_rendererId);
+            mgr->SetRenderContext(m_render->Device(), m_rendererId, m_render->RetireQueue());
             m_render->RegisterProvider(scene, *mgr);
         }
 

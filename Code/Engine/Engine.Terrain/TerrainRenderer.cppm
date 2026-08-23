@@ -320,6 +320,7 @@ export namespace engine::terrain
 
         void SetRetireQueue(render::GpuRetireQueue* retire) noexcept
         {
+            m_retire = retire; // stale height bind groups retire through it too (in-flight safety)
             m_viewRing.SetRetireQueue(retire);
             m_chunkRing.SetRetireQueue(retire);
         }
@@ -419,7 +420,17 @@ export namespace engine::terrain
                 }
                 if (found->bindGroup != nullptr)
                 {
-                    m_device->DestroyBindGroup(found->bindGroup);
+                    // The old group may sit in a submitted frame's descriptor bindings -
+                    // retire (frame-aged) rather than destroy in place; direct destroy only
+                    // when no queue is wired (Null-device tests).
+                    if (m_retire != nullptr)
+                    {
+                        m_retire->Retire(found->bindGroup);
+                    }
+                    else
+                    {
+                        m_device->DestroyBindGroup(found->bindGroup);
+                    }
                 }
                 m_heightBindGroups.Remove(tex);
             }
@@ -587,6 +598,7 @@ export namespace engine::terrain
         rhi::BindGroup* m_chunkBg = nullptr;
         u32 m_chunkBgGen = 0;
         HashMap<rhi::TextureView*, HeightBindGroup> m_heightBindGroups;
+        render::GpuRetireQueue* m_retire = nullptr; // borrowed (RenderSubsystem owns + ticks)
         rhi::RenderPipeline* m_pso = nullptr;
         rhi::TextureFormat m_psoFormat = rhi::TextureFormat::Undefined;
         u64 m_psoShaderVersion = 0;

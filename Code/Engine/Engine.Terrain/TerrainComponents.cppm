@@ -77,11 +77,15 @@ export namespace engine::terrain
         [[nodiscard]] bool IsSimulationOnly() const noexcept override { return false; }
 
         /// Wired by the TerrainSubsystem after it creates + registers the TerrainRenderer: the device
-        /// for the height-texture uploads and the renderer's dispatch id stamped on each render item.
-        void SetRenderContext(rhi::Device* device, u16 rendererId) noexcept
+        /// for the height-texture uploads, the renderer's dispatch id stamped on each render item,
+        /// and the frame-aged retire queue so a regenerate/version-bump never destroys a texture
+        /// an in-flight frame still samples.
+        void SetRenderContext(rhi::Device* device, u16 rendererId,
+                              render::GpuRetireQueue* retire = nullptr) noexcept
         {
             m_device = device;
             m_rendererId = rendererId;
+            m_heightTextures.SetRetireQueue(retire);
         }
 
         /// render::IRenderDataProvider: one TerrainRenderData per visible terrain (the WHOLE terrain is

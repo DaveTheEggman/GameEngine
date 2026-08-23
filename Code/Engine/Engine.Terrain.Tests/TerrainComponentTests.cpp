@@ -11,6 +11,7 @@ import foundation.terrain.resource;
 import foundation.heightfield;
 import foundation.rhi;
 import foundation.rhi.null;
+import foundation.render; // GpuRetireQueue (the in-flight-safe rebuild test)
 import engine.terrain;
 
 using namespace foundation::core;
@@ -130,4 +131,38 @@ TEST_CASE("engine.terrain: the cache keys by UID, never pointer (address-reuse a
     CHECK(cache.Size() == 2u);
 
     cache.Clear(device);
+}
+
+TEST_CASE("engine.terrain: a version-bump rebuild RETIRES the old texture (in-flight safety)")
+{
+    // The playground repro (regenerate / type-toggle -> BumpVersion): the old view sits in a
+    // submitted frame's descriptor set, so the rebuild must route it through the frame-aged
+    // retire queue - never vkDestroyImageView in place (VUID 01026).
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::render::GpuRetireQueue retire;
+    retire.Initialize(&device, /*framesInFlight*/ 2);
+
+    TerrainHeightTextureCache cache;
+    cache.SetRetireQueue(&retire);
+
+    RefPtr<hf::Heightfield> grid =
+        MakeRef<hf::Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+    foundation::rhi::TextureView* v1 = cache.GetOrCreate(device, *grid, grid->Version());
+    REQUIRE(v1 != nullptr);
+    CHECK(retire.PendingCount() == 0u);
+
+    grid->BumpVersion(); // the regen path
+    foundation::rhi::TextureView* v2 = cache.GetOrCreate(device, *grid, grid->Version());
+    REQUIRE(v2 != nullptr);
+    CHECK(retire.PendingCount() == 2u); // old view + old texture aged, NOT destroyed in place
+    CHECK(cache.Size() == 1u);          // rebuilt in place
+
+    // They free only once every in-flight frame has cycled (framesInFlight + 1 ticks).
+    retire.Tick();
+    retire.Tick();
+    CHECK(retire.PendingCount() == 2u);
+    retire.Tick();
+    CHECK(retire.PendingCount() == 0u);
+
+    cache.Clear(device); // shutdown path stays direct (device idled)
 }
