@@ -24,6 +24,7 @@ if(TARGET Foundation::Shell.Desktop AND TARGET Foundation::Runtime.Desktop AND T
         add_subdirectory(InputActions)       # foundation.input consumer proof (named actions end-to-end)
         add_subdirectory(PhysicsPlayground)  # physics P1 consumer proof (crates/trigger/raycast on Jolt)
         add_subdirectory(AudioPlayground)    # audio P1 consumer proof (ambient loop + positional one-shots on miniaudio)
+        add_subdirectory(TerrainPlayground)  # terrain consumer proof (in-code heightfield -> engine.terrain renderer + HUD)
         add_subdirectory(RenderStressTest)   # worst-case benchmark to keep perf honest
     endif()
     # These dev harnesses link the authoring pipeline (ModelImporter / *.Editor cook libs), so they
