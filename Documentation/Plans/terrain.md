@@ -34,8 +34,9 @@ DONE (green on clang + gcc, each with cook round-trip / integration tests):
   coverage metric (SelectChunkLod delegates to foundation.lod's
   ProjectedSphereCoverage + SelectLevelByCoverage - one formula with meshes, now
   unit-testable headless), a TerrainQuadtree for hierarchical frustum culling
-  (via the existing BoundingFrustum), and the SplatLayer descriptor. No RHI;
-  6 tests.
+  (via the existing BoundingFrustum), the SplatLayer descriptor, AND the shared
+  chunk grid mesh (BuildChunkGridVertices 65x65 + BuildChunkGridIndices(lod), the
+  geo-mipmapping geometry the renderer uploads once). No RHI; 7 tests.
 - `foundation.terrain.resource` - the cooked terrain resource: TerrainSource
   (heightfield + splatmap + per-layer albedo guids + tiling + castShadows, the
   Material.Resource pattern) -> TerrainResource product (resolved
@@ -55,10 +56,23 @@ DONE (green on clang + gcc, each with cook round-trip / integration tests):
   scene serialize round-trip).
 
 REMAINING (the terrain-rendering half): `engine.terrain` PHASES B+ - the
-chunked geo-mipmap RENDERER: the cached GPU height texture (per resource
-id+version), the shared 65x65 grid VB + per-chunk instance draw with LOD
-(foundation.lod) + skirts + frustum cull, the height-fetch VS + splat/normal/PBR
-PS (+ WGSL cook), CSM cast, WebGPU validation. Then `Editor.Terrain` (phase 2).
+chunked geo-mipmap RENDERER (the RHI/shader draw path; all the RHI-FREE inputs
+are now built + tested - chunks, LOD via foundation.lod, quadtree cull, the
+shared grid mesh geometry). The sub-phases:
+- B GPU height texture: create an R16Uint texture from the CPU heightfield grid
+  (WriteTexture the u16 samples), CACHED by heightfield resource id + version so
+  terrains sharing one heightfield share one texture; invalidate by version.
+- C the Renderer: upload the shared grid VB + per-LOD IBs once; per chunk emit
+  instance data {origin, size, LOD, height-tex region}; frustum-cull via the
+  quadtree, LOD via SelectChunkLod; draw through the dynamic-category/rendererId
+  dispatch (sprites/particles precedent) + the render extract seam.
+- D shaders: the VS fetches height via textureLoad(heightTex) (the load-bearing
+  WebGPU portability bet), the PS does normals-from-heightmap + splat blend (one
+  RGBA splatmap, up to 4 layers) over the standard PBR lit path; new .hlsl via
+  the shaders provider + cooked WGSL.
+- E polish: skirts (crack-hiding), CSM cast (default-on), per-chunk cull, an
+  offscreen pixel-probe render test (Vulkan + WebGPU), WebGPU validation.
+Then `Editor.Terrain` (phase 2).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
 (Editor.Mcp/ProjectTools) resolves an extension with the SINGULAR
