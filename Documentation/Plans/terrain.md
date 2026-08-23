@@ -78,9 +78,11 @@ deferred" - and consumes the heightfield resource directly.)
   and collision cannot diverge (Physics depends on foundation.heightfield
   [+.resource], NOT foundation.terrain); registers through Engine.Physics'
   existing shape seam. Because physics references a heightfield resource
-  directly, a heightfield COLLIDER without any terrain renderer is possible
-  (a plain heightfield-shape option on the physics collider component; nice
-  side effect of the split, spec it if wanted).
+  directly, P1 ALSO ships a standalone heightfield COLLIDER: a
+  `ShapeKind::Heightfield` option on the physics rigidbody/collider
+  component carrying a `Ref<Heightfield>`, so a heightfield collision
+  surface needs no terrain renderer at all (lands via Engine.Physics, same
+  Jolt HeightFieldShape cook seam terrain uses).
   Component checklist: displayName + category attributes, InspectorView
   ref-picker entry, reflected GetHeightAt for scripts (natural types - no
   new facade lib; facade name count unchanged unless a subsystem facade
@@ -135,6 +137,15 @@ below is the honesty check between render and physics (both resolve the SAME
 heightfield resource, so it should hold trivially - the test guards against a
 cook/quantization drift).
 
+Standalone heightfield collider (P1): the physics rigidbody/collider
+component gains `ShapeKind::Heightfield` + a `Ref<Heightfield>`, cooking the
+same Jolt HeightFieldShape from a referenced heightfield resource WITHOUT a
+TerrainComponent. This is why heightfield is its own asset - a collision
+surface (a hill, a valley floor) can exist with no rendered terrain, and
+terrain simply becomes "a heightfield collider that also renders". Lands in
+Engine.Physics through the existing shape seam; bump the ShapeKind wire
+version + the shape-cook count guard.
+
 ## Editor experience (phase 2 - separate discussion pending)
 
 DECIDED (2026-08-10, editing-experience discussion): brushes are VIEWPORT
@@ -186,7 +197,12 @@ Spec'd in detail when phase 2 lands.
 - Physics consistency: for N random points, Jolt heightfield hit height
   == foundation.heightfield GetHeightAt within epsilon (the render/collision
   divergence tripwire).
-- Component wire round-trip; tripwires (builder count x2, picker entry).
+- Standalone heightfield collider: a rigidbody/collider component with
+  ShapeKind::Heightfield + a Ref<Heightfield> and NO terrain builds a Jolt
+  shape and a dropped body rests at GetHeightAt (proves the collider works
+  without a TerrainComponent); ShapeKind wire round-trip.
+- Component wire round-trip; tripwires (builder count x2, picker entry,
+  shape-cook count).
 
 ## Acceptance (phase 1)
 
@@ -201,6 +217,6 @@ Holes, CDLOD morphing, more than 4 splat layers / multiple splatmaps,
 grass (phase 3), terrain as navigation bake source (joins the nav track
 when both exist), ocean/river/forest (not planned), large-world paging.
 Heightfield-editor extras Traktor has but we defer: erosion/hydraulic
-filters, derived-texture bakes (normal/occlusion generated FROM the
-heightfield), and a standalone heightfield-only physics collider (the split
-makes it possible - spec on demand).
+filters and derived-texture bakes (normal/occlusion generated FROM the
+heightfield). (The standalone heightfield-only physics collider is NOT
+deferred - it ships in P1; see Physics.)
