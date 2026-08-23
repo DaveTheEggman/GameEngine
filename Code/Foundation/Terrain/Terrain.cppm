@@ -27,11 +27,69 @@ export namespace foundation::terrain
     };
 
     inline constexpr i32 kChunkQuads = 64; // quads per chunk side (65 verts, shared edges)
+    inline constexpr i32 kChunkVerts = kChunkQuads + 1; // 65 verts per side
+    inline constexpr u32 kMaxChunkLod = 6; // stride 2^6 = 64 -> a single quad (the coarsest)
 
     /// Chunks along one side of a heightfield of the given size (S = 64k+1 -> k).
     [[nodiscard]] constexpr i32 ChunksPerSide(i32 heightfieldSize) noexcept
     {
         return heightfieldSize > 1 ? (heightfieldSize - 1) / kChunkQuads : 0;
+    }
+
+    // ---- Shared chunk grid mesh (chunked geo-mipmapping) ----
+    // ONE 65x65 vertex grid is uploaded once and drawn for EVERY chunk; per-chunk instance data
+    // places it in the world and the VS fetches height from the terrain texture. Each LOD reuses the
+    // SAME vertices through a stride-2^lod index buffer (finest = lod 0). RHI-free generation - the
+    // renderer just uploads these arrays.
+
+    /// The shared grid's vertex UVs: (u, v) in [0, 1] for the 65x65 grid, row-major (v-major). The
+    /// renderer maps these to world XZ + the height sample coordinate per chunk.
+    inline void BuildChunkGridVertices(Array<Float2>& out)
+    {
+        out.Clear();
+        out.Reserve(static_cast<usize>(kChunkVerts) * kChunkVerts);
+        const f32 span = static_cast<f32>(kChunkQuads);
+        for (i32 z = 0; z < kChunkVerts; ++z)
+        {
+            for (i32 x = 0; x < kChunkVerts; ++x)
+            {
+                out.PushBack(Float2{static_cast<f32>(x) / span, static_cast<f32>(z) / span});
+            }
+        }
+    }
+
+    /// The 32-bit triangle indices for LOD `lod` (stride 2^lod) over the shared 65x65 grid: two
+    /// triangles per quad, wound CCW when viewed from above (+Y). A lod past kMaxChunkLod yields none.
+    inline void BuildChunkGridIndices(u32 lod, Array<u32>& out)
+    {
+        out.Clear();
+        if (lod > kMaxChunkLod)
+        {
+            return;
+        }
+        const i32 stride = 1 << lod;
+        const i32 quads = kChunkQuads / stride; // quads per side at this LOD
+        out.Reserve(static_cast<usize>(quads) * quads * 6);
+        for (i32 qz = 0; qz < quads; ++qz)
+        {
+            for (i32 qx = 0; qx < quads; ++qx)
+            {
+                const i32 x0 = qx * stride;
+                const i32 z0 = qz * stride;
+                const i32 x1 = x0 + stride;
+                const i32 z1 = z0 + stride;
+                const u32 v00 = static_cast<u32>(z0 * kChunkVerts + x0);
+                const u32 v10 = static_cast<u32>(z0 * kChunkVerts + x1);
+                const u32 v01 = static_cast<u32>(z1 * kChunkVerts + x0);
+                const u32 v11 = static_cast<u32>(z1 * kChunkVerts + x1);
+                out.PushBack(v00);
+                out.PushBack(v01);
+                out.PushBack(v11);
+                out.PushBack(v00);
+                out.PushBack(v11);
+                out.PushBack(v10);
+            }
+        }
     }
 
     /// One terrain chunk: its position in the chunk grid, the grid origin of its sample block, and

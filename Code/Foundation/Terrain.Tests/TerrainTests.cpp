@@ -148,6 +148,45 @@ TEST_CASE("terrain: quadtree cull - all visible, none visible")
     }
 }
 
+TEST_CASE("terrain: shared chunk grid mesh - vertices + per-LOD indices")
+{
+    Array<Float2> verts;
+    BuildChunkGridVertices(verts);
+    REQUIRE(verts.Size() == static_cast<usize>(kChunkVerts) * kChunkVerts); // 65*65
+    CHECK(Near(verts[0].x, 0.0f));
+    CHECK(Near(verts[0].y, 0.0f));
+    CHECK(Near(verts[verts.Size() - 1].x, 1.0f)); // last vertex = (1,1)
+    CHECK(Near(verts[verts.Size() - 1].y, 1.0f));
+
+    Array<u32> lod0;
+    BuildChunkGridIndices(0, lod0);
+    CHECK(lod0.Size() == 64u * 64u * 6u); // full density: 64x64 quads, 2 tris each
+
+    Array<u32> lod1;
+    BuildChunkGridIndices(1, lod1);
+    CHECK(lod1.Size() == 32u * 32u * 6u); // stride 2
+
+    Array<u32> lod6;
+    BuildChunkGridIndices(kMaxChunkLod, lod6);
+    CHECK(lod6.Size() == 6u); // one quad
+
+    Array<u32> lodTooCoarse;
+    BuildChunkGridIndices(kMaxChunkLod + 1, lodTooCoarse);
+    CHECK(lodTooCoarse.IsEmpty());
+
+    // Every index references a real grid vertex.
+    bool allInRange = true;
+    for (usize i = 0; i < lod0.Size(); ++i)
+    {
+        if (lod0[i] >= verts.Size())
+        {
+            allInRange = false;
+            break;
+        }
+    }
+    CHECK(allInRange);
+}
+
 TEST_CASE("terrain: splat layer descriptor defaults")
 {
     SplatLayer layer;
