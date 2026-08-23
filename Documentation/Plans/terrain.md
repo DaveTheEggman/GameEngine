@@ -30,10 +30,12 @@ DONE (green on clang + gcc, each with cook round-trip / integration tests):
   Tools.Editor.
 
 - `foundation.terrain` - the terrain model over a heightfield: BuildChunks (k x k
-  chunks with LOCAL-space AABBs), per-chunk LOD selection (DistanceToChunk +
-  SelectLod, deterministic/pure), a TerrainQuadtree for hierarchical frustum
-  culling (via the existing BoundingFrustum), and the SplatLayer descriptor. No
-  RHI; 6 tests.
+  chunks with LOCAL-space AABBs), per-chunk LOD selection via the SHARED
+  coverage metric (SelectChunkLod delegates to foundation.lod's
+  ProjectedSphereCoverage + SelectLevelByCoverage - one formula with meshes, now
+  unit-testable headless), a TerrainQuadtree for hierarchical frustum culling
+  (via the existing BoundingFrustum), and the SplatLayer descriptor. No RHI;
+  6 tests.
 - `foundation.terrain.resource` - the cooked terrain resource: TerrainSource
   (heightfield + splatmap + per-layer albedo guids + tiling + castShadows, the
   Material.Resource pattern) -> Terrain product (resolved Proxy<Heightfield> +
@@ -252,6 +254,13 @@ seam navigation's bake will consume later.
   with ProjectedSphereCoverage on the chunk's bounding sphere; the
   distance metric may stay as a secondary heuristic or retire - your
   call in the module.
+  DONE (Opus, 2026-08-23): foundation.terrain links Foundation::Lod and
+  delegates - `SelectChunkLod(chunk, chunkToWorld, view, projection,
+  thresholds, bias)` transforms the chunk's ChunkBoundingSphere to world,
+  calls ProjectedSphereCoverage, then SelectLevelByCoverage; a
+  SelectChunkLods batch wraps it. RETIRED the distance metric
+  (DistanceToChunk/SelectLod) - one metric now. Coverage selection is
+  unit-tested at the foundation layer (view/projection matrices in, LOD out).
 - Shared grid vertex buffer (one chunk-sized grid, e.g. 65x65 verts),
   per-chunk instance data {chunk origin, LOD, morph params}; vertex
   shader fetches height via textureLoad (unfiltered fetch works in VS on

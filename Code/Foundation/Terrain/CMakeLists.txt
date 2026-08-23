@@ -5,7 +5,7 @@ add_library(Terrain STATIC)
 add_library(Foundation::Terrain ALIAS Terrain)
 
 target_link_libraries(Terrain
-    PUBLIC Foundation::Core Foundation::Heightfield Foundation::Policy)
+    PUBLIC Foundation::Core Foundation::Heightfield Foundation::Lod Foundation::Policy)
 
 target_sources(Terrain
     PUBLIC

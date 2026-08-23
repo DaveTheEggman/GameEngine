@@ -12,8 +12,10 @@ export module foundation.terrain;
 
 import foundation.core;
 import foundation.heightfield;
+import foundation.lod; // the shared LOD selection math (coverage + threshold walk), one formula
 
 using namespace foundation::core;
+namespace lod = foundation::lod;
 
 export namespace foundation::terrain
 {
@@ -74,35 +76,7 @@ export namespace foundation::terrain
         }
     }
 
-    /// Distance from a point to the closest point on a chunk's bounds (0 inside). LOD input.
-    [[nodiscard]] inline f32 DistanceToChunk(const TerrainChunk& chunk, Float3 point) noexcept
-    {
-        const auto clamp = [](f32 v, f32 lo, f32 hi) { return v < lo ? lo : (v > hi ? hi : v); };
-        const Float3 c{clamp(point.x, chunk.bounds.min.x, chunk.bounds.max.x),
-                       clamp(point.y, chunk.bounds.min.y, chunk.bounds.max.y),
-                       clamp(point.z, chunk.bounds.min.z, chunk.bounds.max.z)};
-        return Length(point - c);
-    }
-
-    /// The LOD level for a distance: `lodDistances[i]` is the FAR edge of LOD i (0 = finest). A
-    /// distance beyond the last entry returns the coarsest level (= lodDistances.Size()). This is the
-    /// RHI-FREE fallback metric (headless/tests); the RENDERER prefers coverage - see
-    /// SelectLodByCoverage + ChunkBoundingSphere, fed by foundation.render's LodCoverageFor
-    /// (fov/resolution-aware, shared with mesh-lod - not a second formula).
-    [[nodiscard]] inline u32 SelectLod(f32 distance, Span<const f32> lodDistances) noexcept
-    {
-        for (u32 i = 0; i < static_cast<u32>(lodDistances.Size()); ++i)
-        {
-            if (distance <= lodDistances[i])
-            {
-                return i;
-            }
-        }
-        return static_cast<u32>(lodDistances.Size());
-    }
-
-    /// A chunk's LOCAL-space bounding sphere, to feed the renderer's coverage metric
-    /// (foundation.render's LodCoverageFor, after the entity transform is applied to the centre).
+    /// A chunk's LOCAL-space bounding sphere, the bridge to the shared LOD coverage metric.
     [[nodiscard]] inline BoundingSphere ChunkBoundingSphere(const TerrainChunk& chunk) noexcept
     {
         BoundingSphere sphere;
@@ -111,32 +85,34 @@ export namespace foundation::terrain
         return sphere;
     }
 
-    /// The LOD level for a screen COVERAGE (the renderer's preferred metric, from LodCoverageFor):
-    /// `coverageThresholds[i]` is the MINIMUM coverage for LOD i, DESCENDING (0 = finest). Coverage
-    /// below the last threshold returns the coarsest level (= size()). Pure - the same threshold-walk
-    /// shape as mesh-lod's PickLodLevel, generalized to a Span so terrain shares the selection logic.
-    [[nodiscard]] inline u32 SelectLodByCoverage(f32 coverage,
-                                                 Span<const f32> coverageThresholds) noexcept
+    /// Per-chunk LOD via the SHARED coverage metric (foundation.lod - ONE formula for meshes AND
+    /// terrain). The chunk's local bounding sphere is placed in the world by `chunkToWorld`
+    /// (translation + Y-rotation per the terrain instance model, so the radius is preserved),
+    /// projected to screen coverage, then walked against the DESCENDING `coverageThresholds`
+    /// (thresholds[0] = 1.0 by convention, level 0 = fallback). Pure - unit-testable headless.
+    [[nodiscard]] inline u32 SelectChunkLod(const TerrainChunk& chunk, const Float4x4& chunkToWorld,
+                                            const Float4x4& view, const Float4x4& projection,
+                                            Span<const f32> coverageThresholds,
+                                            f32 bias = 0.0f) noexcept
     {
-        for (u32 i = 0; i < static_cast<u32>(coverageThresholds.Size()); ++i)
-        {
-            if (coverage >= coverageThresholds[i])
-            {
-                return i;
-            }
-        }
-        return static_cast<u32>(coverageThresholds.Size());
+        const BoundingSphere sphere = ChunkBoundingSphere(chunk);
+        const Float3 worldCenter = TransformPoint(sphere.center, chunkToWorld);
+        const f32 coverage =
+            lod::ProjectedSphereCoverage(view, projection, worldCenter, sphere.radius, bias);
+        return lod::SelectLevelByCoverage(coverageThresholds, coverage);
     }
 
-    /// Per-chunk LOD levels for a camera position (pure - the renderer feeds these to the draw).
-    inline void SelectChunkLods(Span<const TerrainChunk> chunks, Float3 cameraPos,
-                                Span<const f32> lodDistances, Array<u32>& out)
+    /// Per-chunk LOD levels for a view (the renderer feeds these to the draw).
+    inline void SelectChunkLods(Span<const TerrainChunk> chunks, const Float4x4& chunkToWorld,
+                                const Float4x4& view, const Float4x4& projection,
+                                Span<const f32> coverageThresholds, f32 bias, Array<u32>& out)
     {
         out.Clear();
         out.Reserve(chunks.Size());
         for (usize i = 0; i < chunks.Size(); ++i)
         {
-            out.PushBack(SelectLod(DistanceToChunk(chunks[i], cameraPos), lodDistances));
+            out.PushBack(
+                SelectChunkLod(chunks[i], chunkToWorld, view, projection, coverageThresholds, bias));
         }
     }
 

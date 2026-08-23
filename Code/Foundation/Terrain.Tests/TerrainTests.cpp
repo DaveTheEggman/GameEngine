@@ -66,49 +66,40 @@ TEST_CASE("terrain: build chunks - grid, footprint, and per-chunk Y bounds")
     CHECK(c10.bounds.max.y == doctest::Approx(10.0f).epsilon(0.01));
 }
 
-TEST_CASE("terrain: LOD selection is deterministic by distance")
+TEST_CASE("terrain: per-chunk LOD via the shared coverage metric (foundation.lod)")
 {
-    const f32 ranges[] = {50.0f, 150.0f, 400.0f}; // far edge of LOD 0,1,2
-    const Span<const f32> lod{ranges, 3};
-    CHECK(SelectLod(0.0f, lod) == 0u);
-    CHECK(SelectLod(50.0f, lod) == 0u);   // inclusive far edge
-    CHECK(SelectLod(50.1f, lod) == 1u);
-    CHECK(SelectLod(150.0f, lod) == 1u);
-    CHECK(SelectLod(151.0f, lod) == 2u);
-    CHECK(SelectLod(1000.0f, lod) == 3u); // beyond the last -> coarsest
-
-    // Distance to a chunk uses the closest point on its bounds (0 inside).
     RefPtr<hf::Heightfield> h = MakeRampX();
     Array<TerrainChunk> chunks;
     BuildChunks(*h, chunks);
-    // A camera far above the centre is closer to the near chunks than the far ones... here all
-    // chunks are equidistant in XZ, so just check monotonicity vs a fixed camera off to the west.
-    const Float3 cam{-200.0f, 0.0f, 0.0f};
-    const f32 dWest = DistanceToChunk(chunks[0], cam);  // west chunk
-    const f32 dEast = DistanceToChunk(chunks[1], cam);  // east chunk
-    CHECK(dWest < dEast);
-    CHECK(dWest == doctest::Approx(136.0f).epsilon(0.05)); // 200 - 64 to the west edge
-}
 
-TEST_CASE("terrain: coverage-based LOD selection (the renderer's shared metric)")
-{
-    // Descending coverage thresholds: minimum coverage for LOD 0, 1, 2.
-    const f32 thresholds[] = {0.5f, 0.2f, 0.05f};
+    // Descending coverage thresholds (thresholds[0] = 1.0 by convention, level 0 = fallback).
+    const f32 thresholds[] = {1.0f, 0.2f, 0.05f};
     const Span<const f32> lod{thresholds, 3};
-    CHECK(SelectLodByCoverage(0.9f, lod) == 0u);  // large coverage = close = finest
-    CHECK(SelectLodByCoverage(0.5f, lod) == 0u);  // inclusive
-    CHECK(SelectLodByCoverage(0.3f, lod) == 1u);
-    CHECK(SelectLodByCoverage(0.1f, lod) == 2u);
-    CHECK(SelectLodByCoverage(0.01f, lod) == 3u); // below the last -> coarsest
 
-    // ChunkBoundingSphere bridges to LodCoverageFor: centre = bounds centre, radius covers corners.
-    RefPtr<hf::Heightfield> h = MakeRampX();
-    Array<TerrainChunk> chunks;
-    BuildChunks(*h, chunks);
+    const Float4x4 identity = Float4x4::Identity(); // terrain at the origin
+    const Float4x4 proj = Float4x4::PerspectiveFovRH(1.0f, 1.0f, 1.0f, 5000.0f);
+    const Float4x4 nearView =
+        Float4x4::LookAtRH(Float3{0.0f, 50.0f, 0.1f}, Float3{0.0f, 0.0f, 0.0f}, Float3{0.0f, 0.0f, 1.0f});
+    const Float4x4 farView = Float4x4::LookAtRH(Float3{0.0f, 3000.0f, 0.1f}, Float3{0.0f, 0.0f, 0.0f},
+                                                Float3{0.0f, 0.0f, 1.0f});
+
+    const u32 lodNear = SelectChunkLod(chunks[0], identity, nearView, proj, lod);
+    const u32 lodFar = SelectChunkLod(chunks[0], identity, farView, proj, lod);
+    CHECK(lodNear <= lodFar); // closer is never coarser
+    CHECK(lodNear == 0u);     // close -> high coverage -> finest
+    CHECK(lodFar > 0u);       // very far -> low coverage -> coarser
+
+    // Batch matches the per-chunk call.
+    Array<u32> lods;
+    SelectChunkLods(Span<const TerrainChunk>(chunks.Data(), chunks.Size()), identity, nearView, proj,
+                    lod, 0.0f, lods);
+    REQUIRE(lods.Size() == chunks.Size());
+    CHECK(lods[0] == lodNear);
+
+    // ChunkBoundingSphere (the bridge to the coverage metric) encloses the box.
     const BoundingSphere s = ChunkBoundingSphere(chunks[0]);
     CHECK(Near(s.center.x, chunks[0].bounds.Center().x));
-    CHECK(Near(s.center.z, chunks[0].bounds.Center().z));
-    CHECK(s.radius >= Length(chunks[0].bounds.Extents()) - 1.0e-3f); // encloses the box
+    CHECK(s.radius >= Length(chunks[0].bounds.Extents()) - 1.0e-3f);
 }
 
 TEST_CASE("terrain: quadtree builds over the chunk grid")
