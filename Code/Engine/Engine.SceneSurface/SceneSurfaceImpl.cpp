@@ -16,6 +16,7 @@ import engine.render;
 import engine.animation;
 import engine.particles;
 import engine.physics;
+import engine.terrain;
 import engine.navigation;
 import engine.audio;
 import engine.script;
@@ -43,6 +44,9 @@ namespace
         kPhysicsModule{u8"physics", &engine::physics::AddPhysicsSceneManagers,
                        &engine::physics::RegisterPhysicsComponentReflection};
     const scene::SceneModule
+        kTerrainModule{u8"terrain", &engine::terrain::AddTerrainSceneManagers,
+                       &engine::terrain::RegisterTerrainComponentReflection};
+    const scene::SceneModule
         kNavigationModule{u8"navigation", &engine::navigation::AddNavigationSceneManagers,
                           &engine::navigation::RegisterNavigationComponentReflection};
     const scene::SceneModule kAudioModule{u8"audio", &engine::audio::AddAudioSceneManagers,
@@ -55,8 +59,8 @@ namespace
                                         &foundation::net::RegisterReplicationComponents};
 
     const scene::SceneModule* kAllModules[] = {
-        &kRenderModule,   &kAnimationModule, &kParticleModule, &kPhysicsModule, &kNavigationModule,
-        &kAudioModule,    &kScriptModule,    &kUiModule,       &kNetModule,
+        &kRenderModule,   &kAnimationModule, &kParticleModule, &kPhysicsModule, &kTerrainModule,
+        &kNavigationModule, &kAudioModule,   &kScriptModule,   &kUiModule,      &kNetModule,
     };
 }
 

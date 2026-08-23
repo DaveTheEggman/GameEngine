@@ -36,6 +36,7 @@ import engine.render;
 import foundation.physics;
 import foundation.physics.resource;
 import foundation.heightfield; // Ref<Heightfield> picker (heightfield collider)
+import foundation.terrain.resource; // Ref<TerrainResource> picker (TerrainComponent)
 import engine.physics;
 import foundation.navigation.resource;
 import engine.navigation;
@@ -1172,6 +1173,12 @@ namespace editor
         {
             BuildResourceRefRow<foundation::heightfield::Heightfield>(id, type, prop, category,
                                                                     {u8"HeightfieldAsset"});
+            return;
+        }
+        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::terrain::TerrainResource>>())
+        {
+            BuildResourceRefRow<foundation::terrain::TerrainResource>(id, type, prop, category,
+                                                                    {u8"TerrainAsset"});
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::audio::AudioClip>>())
