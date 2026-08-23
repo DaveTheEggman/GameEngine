@@ -2,7 +2,8 @@
 
 add_executable(Geometry.Pipeline.Tests
     TestsMain.cpp
-    MeshEditorTests.cpp)
+    MeshEditorTests.cpp
+    MeshOptimizeTests.cpp)
 
 target_link_libraries(Geometry.Pipeline.Tests PRIVATE
     Pipeline::Geometry Foundation::VFS Foundation::Xml.Serialization doctest::doctest)

@@ -187,6 +187,25 @@ target_include_directories(bc7enc SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/bc7e
 set_target_properties(bc7enc PROPERTIES POSITION_INDEPENDENT_CODE ON
                                         OUTPUT_NAME thirdparty_bc7enc)
 
+# meshoptimizer - vendored mesh optimization/simplification core (github.com/zeux/meshoptimizer,
+# MIT; commit + trim manifest in meshoptimizer/README.md). Index/vertex reorder (vcache/overdraw/
+# vfetch), simplification (auto-LOD chains), and the analyzers the cook tests log. Cook/import-time
+# only (Geometry.Pipeline + the model importer); never linked by the runtime. Vendored code builds
+# without our -Werror; SYSTEM include suppresses header warnings.
+add_library(meshoptimizer STATIC
+    meshoptimizer/allocator.cpp
+    meshoptimizer/indexgenerator.cpp
+    meshoptimizer/indexanalyzer.cpp
+    meshoptimizer/rasterizer.cpp
+    meshoptimizer/vcacheoptimizer.cpp
+    meshoptimizer/overdrawoptimizer.cpp
+    meshoptimizer/vfetchoptimizer.cpp
+    meshoptimizer/simplifier.cpp)
+add_library(ThirdParty::MeshOptimizer ALIAS meshoptimizer)
+target_include_directories(meshoptimizer SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/meshoptimizer)
+set_target_properties(meshoptimizer PROPERTIES POSITION_INDEPENDENT_CODE ON
+                                               OUTPUT_NAME thirdparty_meshoptimizer)
+
 # astcenc - vendored ASTC encoder/decoder (github.com/ARM-software/astc-encoder; Apache-2.0). The
 # mobile-web compressed family (asset-variants Decision 4). Only the astcenc_*.cpp core is vendored -
 # no astcenccli_* front end, no test/bench harness (see astcenc/README.draconic.md). Forced onto the

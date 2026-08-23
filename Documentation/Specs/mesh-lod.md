@@ -97,6 +97,20 @@ single `Ref<StaticMesh>`).
   Vertex-cache/fetch/overdraw-optimize every cooked static mesh (no wire
   change - same buffers, better order). Acceptance: identical rendering
   (pixel probe), measured ACMR improvement logged by the cook test.
+  SHIPPED (Fable, 2026-08-23): ThirdParty/meshoptimizer (trimmed core,
+  MIT, commit in its README; bc7enc vendoring pattern);
+  pipeline::OptimizeStaticMeshSource in Geometry.Pipeline (impl unit only
+  - the vendored header never touches the interface), called by
+  StaticMeshAssetBuilder::Build. Per-triangle-submesh vcache+overdraw,
+  whole-mesh fetch remap + dead-vertex compaction, non-triangle ranges
+  keep order (values remapped), malformed input passes through with a
+  cook warning, ACMR before/after logged. Tests: hostile-grid ACMR
+  improvement, triangle-set/winding/range preservation, lines-range
+  sequence preservation, compaction, idempotency, malformed guards
+  (MeshOptimizeTests.cpp). "Identical rendering" is proven structurally
+  (same triangle set as position triples, winding preserved) rather than
+  by pixel probe - stronger and headless. Skinned meshes deliberately
+  not passed (parallel skin stream permutation rides P4).
 - **P1 - wire + authored LODs + runtime selection.** Sidecar LOD table,
   importer name-convention collapse, extraction selection + hysteresis,
   component knobs, mesh-page dropdown. Acceptance: authored 3-LOD mesh

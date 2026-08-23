@@ -157,6 +157,27 @@ export namespace pipeline{
         return detail::MeshSourceFromStream(*stream, asset.source);
     }
 
+    /// Cook-time mesh optimization stats (mesh-lod.md P0) - logged by the builder,
+    /// asserted by the cook tests.
+    struct MeshOptimizeStats
+    {
+        u32 triangleSubmeshes = 0; // submeshes the reorder passes ran on
+        u32 verticesBefore = 0;
+        u32 verticesAfter = 0;     // < before when unused vertices were compacted away
+        f32 acmrBefore = 0.0f;     // average cache miss ratio over all triangle ranges
+        f32 acmrAfter = 0.0f;
+    };
+
+    /// mesh-lod.md P0: vertex-cache + overdraw reorder per triangle submesh, then one
+    /// whole-mesh vertex-fetch remap (reorders the blob, rewrites every index, compacts
+    /// unused vertices). Triangle SET, submesh ranges, and vertex VALUES are preserved -
+    /// only order changes, so rendering is identical. Non-triangle submeshes keep their
+    /// index order (the remap still rewrites their index VALUES). Deterministic
+    /// (meshoptimizer has no threading/RNG). Skinned meshes are NOT passed through this
+    /// (the parallel skin stream needs the same permutation - deferred with skinned LODs).
+    /// Defined in MeshOptimizeImpl.cpp (meshoptimizer stays out of this interface).
+    void OptimizeStaticMeshSource(StaticMeshSource& source, MeshOptimizeStats* outStats = nullptr);
+
     // Cooks a StaticMeshAsset -> StaticMeshSource in the output DB.
     class StaticMeshAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
@@ -198,6 +219,9 @@ export namespace pipeline{
                     return loaded;
                 }
             }
+            // P0 optimization pass: same triangles, better order (+ dead-vertex compaction).
+            // In place on the per-cook source instance; idempotent on re-cooks.
+            OptimizeStaticMeshSource(ma.source);
             return ctx.output->WriteObject(ma.source);
         }
     };
