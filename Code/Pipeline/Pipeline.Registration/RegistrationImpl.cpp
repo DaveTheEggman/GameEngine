@@ -22,6 +22,8 @@ import fonts.pipeline;
 import image.pipeline;
 import heightfield.pipeline;
 import foundation.heightfield.resource;
+import terrain.pipeline;
+import foundation.terrain.resource;
 import foundation.image.resource;
 import geometry.pipeline;
 import animation.pipeline;
@@ -84,6 +86,8 @@ namespace pipeline
         RegisterImageAsset();
         RegisterHeightfieldAsset();
         foundation::heightfield::RegisterHeightfieldResourceTypes(); // Heightfield product + source
+        RegisterTerrainAsset();
+        foundation::terrain::RegisterTerrainResourceTypes(); // Terrain product + source
         RegisterMeshAssets();
         RegisterAnimationAssets();
         RegisterPropertyAnimationAssets();
@@ -129,6 +133,7 @@ namespace pipeline
         AddBuilder<FontAssetBuilder>(registry);
         AddBuilder<ImageAssetBuilder>(registry);
         AddBuilder<HeightfieldAssetBuilder>(registry);
+        AddBuilder<TerrainAssetBuilder>(registry);
         AddBuilder<StaticMeshAssetBuilder>(registry);
         AddBuilder<SkinnedMeshAssetBuilder>(registry);
         AddBuilder<SkeletonAssetBuilder>(registry);
