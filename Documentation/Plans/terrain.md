@@ -34,10 +34,16 @@ DONE (green on clang + gcc, each with cook round-trip / integration tests):
   SelectLod, deterministic/pure), a TerrainQuadtree for hierarchical frustum
   culling (via the existing BoundingFrustum), and the SplatLayer descriptor. No
   RHI; 6 tests.
+- `foundation.terrain.resource` - the cooked terrain resource: TerrainSource
+  (heightfield + splatmap + per-layer albedo guids + tiling + castShadows, the
+  Material.Resource pattern) -> Terrain product (resolved Proxy<Heightfield> +
+  Proxy<Texture> splatmap + layers) via TerrainFactory. The heightfield is the
+  SHARED source of truth (physics/nav resolve the same id). 2 tests incl. a
+  content-DB build resolving the shared heightfield.
 
-REMAINING (the terrain-rendering half): `foundation.terrain.resource` ->
-`Terrain.Pipeline` -> `engine.terrain` (the chunked geo-mipmap renderer + GPU
-height texture + Ref<TerrainAsset> picker) -> `Editor.Terrain` (phase 2).
+REMAINING (the terrain-rendering half): `Terrain.Pipeline` -> `engine.terrain`
+(the chunked geo-mipmap renderer + GPU height texture + Ref<TerrainAsset>
+picker) -> `Editor.Terrain` (phase 2).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
 (Editor.Mcp/ProjectTools) resolves an extension with the SINGULAR
