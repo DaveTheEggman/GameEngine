@@ -62,12 +62,16 @@ deferred" - and consumes the heightfield resource directly.)
   not a pipeline cook) from this grid; see Physics for the Jolt block-size
   padding + validity guard.
 - `Code/Editor/Editor.Heightfield` - the heightfield asset page + New/Import
-  wizard. P1 preview is 2D (gap 4, 2026-08-23): a grayscale height image +
-  min/max/extent readout - because engine.terrain does not exist yet when
-  this lands, so there is nothing to 3D-render a heightfield with (and
-  PreviewViewport hosts scenes). The 3D preview falls out FREE in phase 2 as
-  a preview scene with a TerrainComponent. The sculpt brushes (phase 2)
-  operate on THIS asset through the shared brush framework. Derived-texture
+  wizard. Preview is 2D BY ASSET IDENTITY, permanently (user ruling
+  2026-08-23, sharpening gap 4): a heightfield IS an image of heights, so a
+  grayscale height view + min/max/extent readout is its faithful, complete
+  preview - the texture/image page precedent, NOT a placeholder awaiting 3D.
+  The 3D preview belongs to the TERRAIN asset (heights + splats + materials,
+  lit): phase 2's Editor.Terrain page previews it via a TerrainComponent
+  preview scene. Each page previews what its asset actually is; no interim
+  wireframe needed. The sculpt brushes (phase 2)
+  operate on THIS asset through the shared brush framework (in the SCENE
+  viewport, where terrain context exists - not on this page). Derived-texture
   bakes (normal/occlusion FROM the heightfield) and erosion/hydraulic
   filters are Traktor features we DEFER (see "Explicitly deferred").
 - `Code/Foundation/Terrain` - module `foundation.terrain`, alias
