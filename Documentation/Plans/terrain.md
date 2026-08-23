@@ -157,16 +157,30 @@ seam navigation's bake will consume later.
 
 Jolt HeightFieldShape built at scene integration DIRECTLY from the
 referenced heightfield resource's CPU grid (like Plane builds from its
-params - NOT a pre-cooked shape blob, which would fork the source of truth
-Fable flagged). Jolt needs sampleCount a multiple of its block size [2,8],
-and the grid is square `64k+1` (odd), so the builder pads the sample count
-by duplicating the trailing row/col; the square/valid check is a guard that
-errors rather than reshaping. Physics depends on foundation.heightfield
+params - no pre-cooked shape blob: one product, no doubled height storage,
+and the sculpt-rebuild path falls out; a derived pre-cook may RETURN later
+as a load-time optimization without changing this model, since a blob
+derived in the same cook cannot diverge).
+NO BUILDER PADDING (corrected 2026-08-23 against vendored Jolt source):
+Jolt's actual constraints are blockSize in [2,8], `sampleCount / blockSize
+>= 2`, and an upper bound from sub-shape ID bits - NOT "a multiple of the
+block size". The constructor itself rounds sampleCount up to a block
+multiple and fills the padded rows/cols with cNoCollisionValue (no
+collision), so the footprint stays exactly the authored extent. Our
+builder passes the square `64k+1` grid through UNTOUCHED; do NOT
+hand-pad by duplicating the trailing row/col - real heights in the
+padding would widen the collision surface past the rendered terrain by up
+to blockSize-1 cells. The square/valid check stays a cook-time guard that
+errors rather than reshapes. MEASURE at bring-up: shape construction cost
+at 1025x1025 (quantize + hierarchy build) at scene integration - that
+number decides whether the pre-cook optimization is ever worth it.
+Physics depends on foundation.heightfield
 [+.resource] only - never on foundation.terrain. Collision layer/group per
 the existing matrix. The height query epsilon test below is the honesty
 check between render and physics (both resolve the SAME heightfield
 resource, so it should hold trivially on interior samples - the test guards
-against quantization/padding drift).
+against quantization drift; also assert a ray just OUTSIDE the authored
+extent misses, pinning Jolt's no-collision padding).
 
 Standalone heightfield collider (P1): the physics rigidbody/collider
 component gains `ShapeKind::Heightfield` + a `Ref<Heightfield>`, cooking the
@@ -313,6 +327,36 @@ Gaps to close (ALL CLOSED 2026-08-23, folded into the body):
    preview = grayscale height image (+ min/max/extent readout); the 3D
    preview falls out free in phase 2 as a preview scene with a
    TerrainComponent.
+
+### Second pass: review of the gap fold (Fable, 2026-08-23, commit 250f5fd1)
+
+The fold is ACCEPTED with two corrections, both applied to the Physics
+section above:
+
+- **The padding instruction was wrong and is REVERSED.** The fold said the
+  builder pads sampleCount to a block-size multiple by duplicating the
+  trailing row/col. Verified against vendored Jolt source
+  (HeightFieldShape.cpp constructor): Jolt rounds sampleCount up ITSELF and
+  fills padding with cNoCollisionValue, keeping the footprint exact - and
+  the stated constraint ("multiple of block size") misreads Jolt's actual
+  requirement (`sampleCount / blockSize >= 2`). Hand-padding with real
+  heights would have widened collision past the rendered terrain by up to
+  blockSize-1 cells of phantom apron. Builder passes the grid through
+  untouched; a new test line pins the just-outside-extent miss.
+- **The runtime-build decision STANDS, its rationale is restated.** Dropping
+  the Physics.Pipeline pre-cook is right, but not because a pre-cooked blob
+  "forks the source of truth" (a blob derived in the same cook from the same
+  product cannot diverge - the review's fork warning was about routing
+  through ShapeKind::Cooked/CollisionShape assets, a different thing). The
+  real reasons: one product, no doubled height storage, the Plane precedent,
+  and the sculpt-rebuild path. Consequence worth keeping visible: the
+  pre-cook may legitimately return later as a load-time optimization -
+  measure 1025x1025 shape construction at bring-up (noted in Physics).
+
+The resample-at-import addition (the wizard picks a valid `64k+1` target
+resolution rather than rejecting nonconforming images) was not in the
+review and is a good call - imports should not fail on the commonest
+real-world case (a 1024x1024 heightmap).
 
 ## Explicitly deferred
 
