@@ -38,18 +38,27 @@ DONE (green on clang + gcc, each with cook round-trip / integration tests):
   6 tests.
 - `foundation.terrain.resource` - the cooked terrain resource: TerrainSource
   (heightfield + splatmap + per-layer albedo guids + tiling + castShadows, the
-  Material.Resource pattern) -> Terrain product (resolved Proxy<Heightfield> +
-  Proxy<Texture> splatmap + layers) via TerrainFactory. The heightfield is the
-  SHARED source of truth (physics/nav resolve the same id). 2 tests incl. a
-  content-DB build resolving the shared heightfield.
+  Material.Resource pattern) -> TerrainResource product (resolved
+  Proxy<Heightfield> + Proxy<Texture> splatmap + layers) via TerrainFactory.
+  (The product was renamed Terrain -> TerrainResource for the Resource-suffix
+  convention.) The heightfield is the SHARED source of truth (physics/nav
+  resolve the same id). 2 tests incl. a content-DB build resolving the shared
+  heightfield.
 - `Terrain.Pipeline` - TerrainAsset (references a heightfield asset + splatmap +
   per-layer albedo + tiling + castShadows) + a reference-pass-through builder ->
-  the Terrain resource; registered in Pipeline.Registration (builder count 25).
+  the TerrainResource; registered in Pipeline.Registration (builder count 25).
   1 cook-through test.
+- `engine.terrain` PHASE A (the authoring surface; RHI-free): TerrainComponent
+  {Ref<TerrainResource>, castShadows, visible} + manager + reflection,
+  registered in Engine.SceneSurface (the SceneModule pair; ModuleCount 9 -> 10)
+  + the InspectorView Ref<TerrainResource> picker (gap 3). 2 tests (reflection +
+  scene serialize round-trip).
 
-REMAINING (the terrain-rendering half): `engine.terrain` (the chunked
-geo-mipmap renderer + GPU height texture + Ref<TerrainAsset> picker) ->
-`Editor.Terrain` (phase 2).
+REMAINING (the terrain-rendering half): `engine.terrain` PHASES B+ - the
+chunked geo-mipmap RENDERER: the cached GPU height texture (per resource
+id+version), the shared 65x65 grid VB + per-chunk instance draw with LOD
+(foundation.lod) + skirts + frustum cull, the height-fetch VS + splat/normal/PBR
+PS (+ WGSL cook), CSM cast, WebGPU validation. Then `Editor.Terrain` (phase 2).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
 (Editor.Mcp/ProjectTools) resolves an extension with the SINGULAR
