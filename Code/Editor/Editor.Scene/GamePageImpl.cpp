@@ -594,6 +594,12 @@ namespace editor
         m_viewport->SyncInputRegion();
         if (m_router.Get() != nullptr)
         {
+            // One app keyboard (issues repro: Tab in an editor dialog field traversed the PIE
+            // game's menu): while the editor UI's keyboard focus is on any view but this
+            // viewport, the router drops surface focus, closing the gated source the game's
+            // devices, bindings, AND screen UI all read. Clicking the viewport re-focuses it
+            // in the editor UI, reopening the gate.
+            m_router->SetExternalCapture(false, m_viewport->HostKeyboardFocusElsewhere());
             m_router->Update();
         } // gate the surface: hover=mouse, click=keyboard focus
         // IME follows the GAME UI's focus through the host window: the viewport (the

@@ -91,6 +91,10 @@ namespace editor
         } // selection/structure -> grid rebuild
 
         m_viewport->SyncInputRegion();
+        // Same keyboard arbitration as the Game page: editor-UI focus elsewhere (a dialog
+        // field, the inspector) drops surface focus, so camera keys and Simulate input
+        // never fire while the user is typing into an editor widget.
+        m_router->SetExternalCapture(false, m_viewport->HostKeyboardFocusElsewhere());
         m_router->Update();
         const bool viewportActive = m_viewport->IsHovered() || m_viewport->IsFocused();
         if (viewportActive)

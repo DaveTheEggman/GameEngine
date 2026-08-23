@@ -218,6 +218,24 @@ export namespace foundation::ui::viewport
         /// Pushed per frame by the hosting page.
         void SetHostedTextInputWanted(bool wanted) noexcept { m_hostedTextInputWanted = wanted; }
         [[nodiscard]] bool WantsTextInput() const override { return m_hostedTextInputWanted; }
+
+        /// One app keyboard: true while the HOST UI's keyboard focus sits on some view other
+        /// than this viewport (a dialog field, another widget, another tab's viewport). The
+        /// hosting page feeds this into its InputRouter's external keyboard capture each frame
+        /// BEFORE Update(), so the viewport surface's focus yields and the hosted content
+        /// (game UI, action bindings, camera keys - all reading the surface-gated source)
+        /// stops receiving keys the editor widget is consuming. Null/absent focus does NOT
+        /// count as elsewhere - clicking dead editor space must not mute a playing game.
+        [[nodiscard]] bool HostKeyboardFocusElsewhere() const
+        {
+            if (Context == nullptr)
+            {
+                return false;
+            }
+            const View* focused = Context->GetFocusManager()->FocusedView();
+            return focused != nullptr && focused != this;
+        }
+
         [[nodiscard]] shell::InputSurface* Surface() const noexcept { return m_surface.Get(); }
         [[nodiscard]] shell::IMouse* Mouse() const noexcept
         {

@@ -259,3 +259,34 @@ TEST_CASE("ui.viewport: SyncInputRegion emits a PHYSICAL surface region at DpiSc
     device.DestroyShaderModule(vs);
     device.DestroyShaderModule(fs);
 }
+
+TEST_CASE("ui.viewport: HostKeyboardFocusElsewhere - only a focused NON-viewport view yields")
+{
+    // The one-app-keyboard arbitration (issues repro: Tab in an editor dialog field traversed
+    // the PIE game's menu): the hosting page feeds this into its InputRouter's external
+    // keyboard capture, so the viewport surface's focus - the gate the hosted game's devices,
+    // bindings, and screen UI all read through - yields exactly when the host UI's keyboard
+    // focus sits on some other widget.
+    auto view = MakeRef<ViewportView>(DefaultAllocator());
+    CHECK_FALSE(view->HostKeyboardFocusElsewhere()); // unattached (no context): never yields
+
+    ui::UIContext ctx;
+    auto root = MakeRef<ui::RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.AddRootView(root.Get());
+    auto other = MakeRef<ui::View>(DefaultAllocator());
+    other->IsFocusable = true;
+    root->AddView(view.Get());
+    root->AddView(other.Get());
+
+    CHECK_FALSE(view->HostKeyboardFocusElsewhere()); // nothing focused: dead-space clicks
+                                                     // must not mute a playing game
+    ctx.GetFocusManager()->SetFocus(view.Get());
+    CHECK_FALSE(view->HostKeyboardFocusElsewhere()); // the viewport itself owns the keyboard
+
+    ctx.GetFocusManager()->SetFocus(other.Get());
+    CHECK(view->HostKeyboardFocusElsewhere()); // a dialog field / other widget owns it: yield
+
+    ctx.GetFocusManager()->ClearFocus();
+    CHECK_FALSE(view->HostKeyboardFocusElsewhere()); // focus cleared: the game may keep keys
+}
