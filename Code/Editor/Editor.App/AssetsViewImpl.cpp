@@ -793,6 +793,30 @@ namespace editor::app
                       });
         menu->AddItem(u8"Rename", [self, position]() { self->StartRenameDeferred(position); });
         menu->AddItem(u8"Duplicate", [self, id]() { self->DuplicateInstance(id); });
+        // OS clipboard (not the editor's typed clipboard): the canonical UUID string / the
+        // mount-relative content path, for pasting into scripts (Guid("...")) and docs.
+        menu->AddItem(u8"Copy GUID",
+                      [self, id]()
+                      {
+                          if (ui::IClipboard* clipboard =
+                                  self->Context ? self->Context->Clipboard() : nullptr)
+                          {
+                              utf8char text[37];
+                              id.ToChars(text);
+                              (void)clipboard->SetText(StringView(text, 36));
+                          }
+                      });
+        menu->AddItem(u8"Copy Path",
+                      [self, id]()
+                      {
+                          ui::IClipboard* clipboard =
+                              self->Context ? self->Context->Clipboard() : nullptr;
+                          content::Instance* inst = self->Resolve(id);
+                          if (clipboard != nullptr && inst != nullptr)
+                          {
+                              (void)clipboard->SetText(inst->Path().AsView());
+                          }
+                      });
         menu->AddItem(m_context->IsFavorite(id) ? StringView(u8"Unpin favorite")
                                                 : StringView(u8"Pin favorite"),
                       [self, id]()

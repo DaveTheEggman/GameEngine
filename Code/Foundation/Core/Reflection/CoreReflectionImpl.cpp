@@ -211,7 +211,11 @@ namespace foundation::core
             .Constant("Nil", Guid::Nil)
             .Method<&Guid::IsNil>("IsNil")
             .Constructor()
-            .Constructor<u64, u64>();
+            .Constructor<u64, u64>()
+            // Guid("ac96b003-5b7c-...") for scripts/editor text documents. Declared as String
+            // (not StringView) so the script backends' type mapping surfaces it as `string`;
+            // the C++ side lands on the StringView ctor via String's implicit view conversion.
+            .Constructor<String>({"text"});
     }
 
     // Public Core enums (scripting-relevant). Internal enums (PropertyFlags,

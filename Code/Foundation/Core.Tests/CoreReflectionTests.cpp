@@ -299,6 +299,16 @@ TEST_CASE("core-reflection: construct value types via reflection")
     Rectangle r =
         Construct(TypeOf<Rectangle>(), Span<Variant>{rectArgs, 4}).Value().Get<Rectangle>();
     CHECK(r.width == 3.0f);
+
+    // Guid: default + (u64,u64) + the string form (the script backends surface the
+    // String-declared overload as `Guid(string text)`).
+    CHECK(ConstructorCount(TypeOf<Guid>()) == 3u);
+    Variant guidText[] = {
+        Variant::From<String>(String(u8"00000000-0000-0055-0000-000000000066"))};
+    CHECK(Construct(TypeOf<Guid>(), Span<Variant>{guidText, 1}).Value().Get<Guid>() ==
+          Guid{0x55, 0x66});
+    Variant badText[] = {Variant::From<String>(String(u8"not-a-guid"))};
+    CHECK(Construct(TypeOf<Guid>(), Span<Variant>{badText, 1}).Value().Get<Guid>().IsNil());
 }
 
 TEST_CASE("core-reflection: namespace-level constants are registered")

@@ -73,6 +73,27 @@ TEST_CASE("guid: TryParse rejects malformed input")
     CHECK(ok.low == 0xFFFFFFFFFFFFFFFFull);
 }
 
+TEST_CASE("guid: string constructor parses the canonical form; malformed yields Nil")
+{
+    CHECK(Guid(StringView(u8"00000000-0000-0055-0000-000000000066")) == Guid{0x55, 0x66});
+
+    // ToChars -> ctor round-trip.
+    Random rng(77);
+    const Guid src = Guid::Generate(rng);
+    utf8char text[37];
+    src.ToChars(text);
+    CHECK(Guid(StringView(text, 36)) == src);
+
+    // A String lands on the same ctor via its implicit view conversion (the shape the
+    // reflected Constructor<String> invokes).
+    const String owned(u8"00000000-0000-0055-0000-000000000066");
+    CHECK(Guid(owned) == Guid{0x55, 0x66});
+
+    // Malformed -> Nil, never garbage.
+    CHECK(Guid(StringView(u8"not-a-guid")).IsNil());
+    CHECK(Guid(StringView{}).IsNil());
+}
+
 TEST_CASE("guid: formats via {} to its canonical string")
 {
     Random rng(42);

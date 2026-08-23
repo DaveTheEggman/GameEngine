@@ -9,19 +9,14 @@
 // id-tagged buttons are wired to handlers with button.onClick(Action(this.handler)). The empty
 // "Playing" level is a scene loaded with run::loadScene.
 //
-// Asset guids are referenced as Guid(high, low) - the two 64-bit halves of the asset's UUID (there
-// is no string Guid ctor for scripts yet). These MUST match the guids in the matching .xasset
-// envelopes. UUID -> halves: the first 8 bytes are `high`, the last 8 are `low`.
+// Asset guids are referenced as Guid("...") - the canonical UUID string, copied straight from the
+// matching .xasset envelope. These MUST match the envelopes; a malformed string parses to Nil.
 
 // --- authored asset guids (keep in sync with the .xasset envelopes) ---
-// main-menu  ac96b003-5b7c-433f-896c-489befb6e2c2
-Guid kMainMenuDoc = Guid(0xac96b0035b7c433f, 0x896c489befb6e2c2);
-// pause      985eb393-4110-4fc4-9742-7bac60ca136d
-Guid kPauseDoc = Guid(0x985eb39341104fc4, 0x97427bac60ca136d);
-// settings   d30677d4-cb28-4ec1-958a-f8046e0c67a5
-Guid kSettingsDoc = Guid(0xd30677d4cb284ec1, 0x958af8046e0c67a5);
-// MainScene  855ffed4-4da7-4fa0-9756-a95c6c842890
-Guid kPlayingLevel = Guid(0x855ffed44da74fa0, 0x9756a95c6c842890);
+Guid kMainMenuDoc = Guid("ac96b003-5b7c-433f-896c-489befb6e2c2");   // main-menu
+Guid kPauseDoc = Guid("985eb393-4110-4fc4-9742-7bac60ca136d");      // pause
+Guid kSettingsDoc = Guid("d30677d4-cb28-4ec1-958a-f8046e0c67a5");   // settings
+Guid kPlayingLevel = Guid("855ffed4-4da7-4fa0-9756-a95c6c842890");  // MainScene
 
 enum GameState
 {

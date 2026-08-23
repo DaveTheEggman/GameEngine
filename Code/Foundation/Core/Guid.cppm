@@ -22,6 +22,21 @@ export namespace foundation::core
         u64 high = 0;
         u64 low = 0;
 
+        constexpr Guid() noexcept = default;
+        constexpr Guid(u64 h, u64 l) noexcept : high(h), low(l) {}
+
+        // Parses the canonical 36-char form (the ToChars spelling). Malformed
+        // input yields Nil - check IsNil() when the source is untrusted; use
+        // TryParse for an explicit failure signal.
+        explicit Guid(StringView text) noexcept
+        {
+            Guid parsed;
+            if (TryParse(text, parsed))
+            {
+                *this = parsed;
+            }
+        }
+
         [[nodiscard]] constexpr bool IsNil() const noexcept { return high == 0 && low == 0; }
         [[nodiscard]] explicit constexpr operator bool() const noexcept { return !IsNil(); }
 

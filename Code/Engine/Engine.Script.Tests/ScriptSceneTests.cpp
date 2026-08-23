@@ -3644,6 +3644,80 @@ TEST_CASE("script.scene: AudioSourceComponent::of props + SceneAudio::of play/st
     CHECK_FALSE(comp->behaviors[0].faulted);
 }
 
+TEST_CASE("script.scene: Guid constructs from its canonical string in AngelScript "
+          "(the editor text-document spelling)")
+{
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    engine::audio::RegisterAudioScriptFacade();
+    ScriptedScene bed;
+    auto* sources = bed.scene.AddSystem<engine::audio::AudioSourceComponentManager>();
+    (void)bed.scene.AddSystem<engine::audio::AudioSceneSystem>();
+
+    // Guid("...") replaces the Guid(high, low) hex-halves spelling scripts had to use when
+    // copying an id out of an .xasset. Malformed input yields Nil (checkable via IsNil).
+    RefPtr<ScriptClass> writer = MakeClassLang(
+        u8"angelscript", u8"GuidWriter",
+        u8"class GuidWriter {\n"
+        u8"    private Entity@ self;\n"
+        u8"    GuidWriter(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        Guid id = Guid(\"00000000-0000-cc33-0000-00000000dd44\");\n"
+        u8"        if (Guid(\"not-a-guid\").IsNil() && !id.IsNil()) {\n"
+        u8"            SceneAudio::of(self.scene).setClip(self, id);\n"
+        u8"        }\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(writer, u8"e");
+    sources->Add(e);
+
+    bed.Start();
+    bed.Frame();
+
+    // The clip id proves the string parsed to the exact halves (and the malformed guard ran).
+    REQUIRE(sources->Get(e) != nullptr);
+    CHECK(sources->Get(e)->clip.id == Guid{0xCC33, 0xDD44});
+    ScriptComponent* comp = bed.components->Get(e);
+    REQUIRE(comp != nullptr);
+    CHECK_FALSE(comp->behaviors[0].faulted);
+}
+
+TEST_CASE("script.scene: Guid.new constructs from its canonical string in Luau")
+{
+    ScriptedScene bed;
+
+    Guid lastPrefab;
+    bed.host.Binding().spawnPrefab =
+        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
+            [&](scene::Scene* scene, const Guid& prefabId,
+                const Float3&) -> scene::EntityHandle
+            {
+                lastPrefab = prefabId;
+                return scene->CreateEntity(u8"spawned");
+            }};
+
+    RefPtr<ScriptClass> spawner = MakeClassLang(
+        u8"luau", u8"Spawner",
+        u8"Spawner = {}\n"
+        u8"Spawner.__index = Spawner\n"
+        u8"function Spawner.new(entity) return setmetatable({ entity = entity }, Spawner) end\n"
+        u8"function Spawner:onStart()\n"
+        u8"    local id = Guid.new(\"00000000-0000-cc33-0000-00000000dd44\")\n"
+        u8"    if Guid.new(\"not-a-guid\"):IsNil() and not id:IsNil() then\n"
+        u8"        self.entity.scene:spawn(id, 1.0, 2.0, 3.0)\n"
+        u8"    end\n"
+        u8"end\n",
+        {u8"onStart"});
+
+    (void)bed.AddScripted(spawner, u8"spawner");
+    bed.Start();
+    bed.Frame();
+
+    // spawn received the parsed halves; the malformed spelling read back as Nil.
+    CHECK(lastPrefab == Guid{0xCC33, 0xDD44});
+}
+
 // An asset/resource (Guid) editor property applies to an AngelScript behavior when declared as a
 // HANDLE member (`Guid@ res;`) - the idiomatic AngelScript spelling for a reference type. (A plain
 // VALUE member is owned by AngelScript's lifecycle and can't take a native write; the runtime logs a
