@@ -29,6 +29,7 @@ import engine.scene;
 import foundation.script;
 import foundation.script.facades; // foundation::script::Entity (the raycast/contact hit entity)
 import foundation.physics;
+import foundation.heightfield;
 // NOTE: no render imports HERE - the debug-draw path lives in SubsystemImpl.cpp (a module
 // implementation unit). Keeping heavyweight imports out of the interface matters for
 // GCC's module loader (-fno-module-lazy consumers force-load the whole import graph).
@@ -724,6 +725,31 @@ export namespace engine::physics
                         return;
                     }
 
+                    // Heightfield sample buffers (world-Y floats) kept alive until CreateBody, which
+                    // is where Jolt copies them; each ShapeDesc.heightSamples points into one entry.
+                    Array<Array<f32>> heightBuffers;
+                    const auto fillHeightfield =
+                        [&](ShapeDesc& s, foundation::resource::Ref<Heightfield>& ref) -> bool {
+                        Heightfield* hf = ref.Get();
+                        if (hf == nullptr || hf->IsEmpty())
+                        {
+                            return false;
+                        }
+                        const i32 n = hf->Size();
+                        heightBuffers.PushBack(Array<f32>{});
+                        Array<f32>& buf = heightBuffers[heightBuffers.Size() - 1];
+                        const Span<const foundation::heightfield::Height> src = hf->Samples();
+                        buf.Resize(src.Size());
+                        for (usize i = 0; i < src.Size(); ++i)
+                        {
+                            buf[i] = hf->SampleToWorldY(static_cast<f32>(src[i]));
+                        }
+                        s.heightSamples = Span<const f32>(buf.Data(), buf.Size());
+                        s.heightSampleCount = static_cast<u32>(n);
+                        s.heightWorldSize = hf->WorldSize();
+                        return true;
+                    };
+
                     ShapeDesc own;
                     own.kind = c.shape;
                     own.halfExtents = c.halfExtents;
@@ -743,6 +769,17 @@ export namespace engine::physics
                         }
                         own.cooked = cooked->Blob();
                         own.scale = scale; // cooked geometry is authored unit-scale
+                    }
+                    else if (c.shape == ShapeKind::Heightfield)
+                    {
+                        if (!fillHeightfield(own, c.heightfield))
+                        {
+                            LOG_WARNING(u8"Physics",
+                                                 u8"'{}': heightfield shape has no heightfield "
+                                                 u8"resource - body skipped",
+                                                 scene.GetEntityName(e));
+                            return;
+                        }
                     }
                     desc.shapes.PushBack(own);
 
@@ -780,6 +817,13 @@ export namespace engine::physics
                                     }
                                     shape.cooked = cooked->Blob();
                                     shape.scale = ls;
+                                }
+                                else if (extra.shape == ShapeKind::Heightfield)
+                                {
+                                    if (!fillHeightfield(shape, extra.heightfield))
+                                    {
+                                        return;
+                                    }
                                 }
                                 shape.localPosition = lp;
                                 shape.localRotation = lr;

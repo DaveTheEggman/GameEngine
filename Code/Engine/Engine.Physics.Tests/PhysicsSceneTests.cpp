@@ -9,8 +9,10 @@
 
 import foundation.core;
 import foundation.scene;
+import foundation.scene.resource; // SerializeScene (the wire round-trip test)
 import foundation.physics;
 import foundation.physics.resource;
+import foundation.heightfield;
 import engine.physics;
 import foundation.script;
 import foundation.script.facades; // ExtraFacadeNames (the behavior-prelude facade list)
@@ -282,6 +284,74 @@ TEST_CASE("physics.scene: cooked collision shape drives a body via the component
     play.physics->ApplyInterpolation(1.0f);
     play.scene.UpdateTransforms();
     CHECK(play.scene.GetWorldPosition(crate).y == doctest::Approx(1.0f).epsilon(0.08));
+}
+
+TEST_CASE("physics.scene: a heightfield collider drives a body via the component ref (no terrain)")
+{
+    // A flat 65x65 heightfield whose surface sits at world Y = 2, handed to the component directly
+    // (no content db, no TerrainComponent) - proves a heightfield collision surface without a
+    // renderer, the payoff of the asset split.
+    RefPtr<foundation::heightfield::Heightfield> hf = MakeRef<foundation::heightfield::Heightfield>(
+        DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 4.0f);
+    const foundation::heightfield::Height flat = hf->WorldYToSample(2.0f);
+    Span<foundation::heightfield::Height> samples = hf->Samples();
+    for (usize i = 0; i < samples.Size(); ++i)
+    {
+        samples[i] = flat;
+    }
+
+    PlayScene play;
+    scene::EntityHandle ground = play.scene.CreateEntity(u8"heightfield");
+    {
+        RigidBodyComponent& gb = play.scene.GetSystem<RigidBodyComponentManager>()->Add(ground);
+        gb.motion = MotionKind::Static;
+        gb.layer = PhysicsLayer::Static;
+        gb.shape = ShapeKind::Heightfield;
+        gb.heightfield = hf; // Ref direct override
+    }
+    scene::EntityHandle box = play.AddBox(10.0f); // dynamic 0.5-half-extent box
+
+    play.Start();
+    play.Step(300);
+    play.physics->ApplyInterpolation(1.0f);
+    play.scene.UpdateTransforms();
+
+    // Rests on the surface (2) + half extent (0.5).
+    CHECK(play.scene.GetWorldPosition(box).y == doctest::Approx(2.5f).epsilon(0.1));
+}
+
+TEST_CASE("physics.scene: a heightfield RigidBody survives a scene serialize round-trip (v2 wire)")
+{
+    RegisterPhysicsComponentReflection();
+    scene::Scene a{u8"hf-wire"};
+    a.AddSystem<RigidBodyComponentManager>();
+    scene::EntityHandle e = a.CreateEntity(u8"hf");
+    {
+        RigidBodyComponent& b = a.GetSystem<RigidBodyComponentManager>()->Add(e);
+        b.motion = MotionKind::Static;
+        b.layer = PhysicsLayer::Static;
+        b.shape = ShapeKind::Heightfield;
+    }
+
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        scene::SerializeScene(writer, a);
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+
+    scene::Scene b2{u8"hf-wire2"};
+    b2.AddSystem<RigidBodyComponentManager>();
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        scene::SerializeScene(reader, b2);
+    }
+
+    scene::EntityHandle loaded = b2.FindEntity(a.GetEntityId(e));
+    REQUIRE(loaded.IsAssigned());
+    RigidBodyComponent* body = b2.GetSystem<RigidBodyComponentManager>()->Get(loaded);
+    REQUIRE(body != nullptr);
+    CHECK(body->shape == ShapeKind::Heightfield); // the new ShapeKind round-trips
 }
 
 TEST_CASE("physics.scene: a referenced PhysicalMaterial overrides inline surface fields")

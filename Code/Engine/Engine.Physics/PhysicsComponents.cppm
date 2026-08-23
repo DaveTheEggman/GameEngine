@@ -16,9 +16,12 @@ import foundation.scene;
 import foundation.resource;
 import foundation.physics;
 import foundation.physics.resource;
+import foundation.heightfield; // Ref<Heightfield> for ShapeKind::Heightfield colliders
 
 using namespace foundation::core;
 using namespace foundation::physics;
+
+using foundation::heightfield::Heightfield;
 
 export namespace engine::physics
 {
@@ -44,6 +47,9 @@ export namespace engine::physics
         u8 collisionGroup = 0;
         // shape == ShapeKind::Cooked: the cooked collision-shape resource to use.
         foundation::resource::Ref<CollisionShape> collisionShape;
+        // shape == ShapeKind::Heightfield: the referenced heightfield (a collision surface without a
+        // terrain renderer). Built into a Jolt HeightFieldShape at integration; static/kinematic only.
+        foundation::resource::Ref<Heightfield> heightfield;
         // Optional surface override: when set, wins over the inline friction/restitution.
         foundation::resource::Ref<PhysicalMaterial> material;
 
@@ -68,6 +74,7 @@ export namespace engine::physics
         f32 halfHeight = 0.5f;
         f32 planeHalfExtent = 1000.0f;                          // shape == Plane
         foundation::resource::Ref<CollisionShape> collisionShape; // shape == Cooked
+        foundation::resource::Ref<Heightfield> heightfield;       // shape == Heightfield
     };
 
     inline void Serialize(ISerializer& ar, RigidBodyComponent& c)
@@ -93,12 +100,17 @@ export namespace engine::physics
         foundation::core::Serialize(ar, "collisionGroup", c.collisionGroup);
         foundation::core::Serialize(ar, "collisionShape", c.collisionShape);
         foundation::core::Serialize(ar, "material", c.material);
+        if (ar.Version() >= 2) // v2: ShapeKind::Heightfield reference
+        {
+            foundation::core::Serialize(ar, "heightfield", c.heightfield);
+        }
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager,
                                  RigidBodyComponent& c)
     {
         c.collisionShape.Bind(manager);
+        c.heightfield.Bind(manager);
         c.material.Bind(manager);
     }
 
@@ -112,11 +124,16 @@ export namespace engine::physics
         foundation::core::Serialize(ar, "halfHeight", c.halfHeight);
         foundation::core::Serialize(ar, "planeHalfExtent", c.planeHalfExtent);
         foundation::core::Serialize(ar, "collisionShape", c.collisionShape);
+        if (ar.Version() >= 2) // v2: ShapeKind::Heightfield reference
+        {
+            foundation::core::Serialize(ar, "heightfield", c.heightfield);
+        }
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager, ColliderComponent& c)
     {
         c.collisionShape.Bind(manager);
+        c.heightfield.Bind(manager);
     }
 
     class RigidBodyComponentManager final

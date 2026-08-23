@@ -19,6 +19,7 @@ import foundation.scene;
 import foundation.resource;
 import foundation.physics;
 import foundation.physics.resource;
+import foundation.heightfield;
 import foundation.render;
 import engine.render;
 import foundation.materials;
@@ -99,6 +100,17 @@ namespace engine::physics
                         }
                         break;
                     }
+                    case ShapeKind::Heightfield:
+                        // Bounding box of the footprint x [minY, maxY] - honest without walking
+                        // every sample (per-cell wireframe is a phase-2 editor nicety).
+                        if (const Heightfield* hf = c.heightfield.Get())
+                        {
+                            const Float2 ws = hf->WorldSize();
+                            draw.DrawTransformedBox(
+                                Float3{-ws.x * 0.5f, hf->MinY(), -ws.y * 0.5f},
+                                Float3{ws.x * 0.5f, hf->MaxY(), ws.y * 0.5f}, worldMatrix, color);
+                        }
+                        break;
                     case ShapeKind::Cooked:
                         if (const CollisionShape* cooked = c.collisionShape.Get())
                         {
@@ -205,12 +217,13 @@ namespace engine::physics
         builder.Value("Capsule", ShapeKind::Capsule);
         builder.Value("Cooked", ShapeKind::Cooked);
         builder.Value("Plane", ShapeKind::Plane);
+        builder.Value("Heightfield", ShapeKind::Heightfield);
     }
 
     REFLECT_VALUE(RigidBodyComponent, "rtti::engine::physics")
     {
         builder.Attribute("displayName", String(u8"Rigid Body"))
-            .Attribute("category", String(u8"Physics")).DataVersion(1);
+            .Attribute("category", String(u8"Physics")).DataVersion(2); // v2: heightfield ref
         builder.Property<&RigidBodyComponent::motion>("motion");
         builder.Property<&RigidBodyComponent::layer>("layer");
         builder.Property<&RigidBodyComponent::shape>("shape");
@@ -225,6 +238,8 @@ namespace engine::physics
             .PropAttribute("visibleWhen", String(u8"shape=2"));
         builder.Property<&RigidBodyComponent::planeHalfExtent>("planeHalfExtent")
             .PropAttribute("visibleWhen", String(u8"shape=4"));
+        builder.Property<&RigidBodyComponent::heightfield>("heightfield")
+            .PropAttribute("visibleWhen", String(u8"shape=5"));
         builder.Property<&RigidBodyComponent::friction>("friction");
         builder.Property<&RigidBodyComponent::restitution>("restitution");
         builder.Property<&RigidBodyComponent::linearDamping>("linearDamping");
@@ -240,7 +255,7 @@ namespace engine::physics
     REFLECT_VALUE(ColliderComponent, "rtti::engine::physics")
     {
         builder.Attribute("displayName", String(u8"Collider"))
-            .Attribute("category", String(u8"Physics")).DataVersion(1);
+            .Attribute("category", String(u8"Physics")).DataVersion(2); // v2: heightfield ref
         builder.Property<&ColliderComponent::shape>("shape");
         builder.Property<&ColliderComponent::halfExtents>("halfExtents")
             .PropAttribute("visibleWhen", String(u8"shape=0"));
@@ -252,6 +267,8 @@ namespace engine::physics
             .PropAttribute("visibleWhen", String(u8"shape=4"));
         builder.Property<&ColliderComponent::collisionShape>("collisionShape")
             .PropAttribute("visibleWhen", String(u8"shape=3"));
+        builder.Property<&ColliderComponent::heightfield>("heightfield")
+            .PropAttribute("visibleWhen", String(u8"shape=5"));
     }
 
     REFLECT_VALUE(CharacterComponent, "rtti::engine::physics")
