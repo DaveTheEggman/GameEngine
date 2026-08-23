@@ -699,9 +699,10 @@ namespace foundation::render
                                           const RendererRegistry& registry,
                                           const Float4x4& lightViewProj, Float3 cullCenter,
                                           f32 cullRadius, bool frustumCull,
-                                          Span<const Float4> cullBounds)
+                                          Span<const Float4> cullBounds, const RenderView* lodView)
     {
         RenderRecordContext ctx{};
+        ctx.view = lodView; // LOD coupling only (null = coarsest); light matrices come below
         ctx.viewProj = lightViewProj;
         ctx.depthFormat =
             (m_shadows != nullptr) ? m_shadows->Format() : rhi::TextureFormat::Depth32Float;
@@ -1331,8 +1332,8 @@ namespace foundation::render
                     // whose shadow is visible. Per-cascade frustum cull then keeps each caster to ~1 cascade.
                     m_graph.AddRenderPass(
                         u8"shadow.cascade",
-                        [this, shadowH, cascadeVP, shadowRes, layer, reg,
-                         sctx](rendergraph::PassBuilder& b)
+                        [this, shadowH, cascadeVP, shadowRes, layer, reg, sctx,
+                         v](rendergraph::PassBuilder& b)
                         {
                             rendergraph::RGSubresourceRange sub{};
                             sub.baseArrayLayer = layer;
@@ -1341,14 +1342,16 @@ namespace foundation::render
                                              /*clearDepth*/ 1.0f, sub);
                             b.SetViewport(0, 0, shadowRes, shadowRes);
                             b.SetExecute(
-                                [this, cascadeVP, reg, sctx](rhi::RenderPassEncoder& rp)
+                                [this, cascadeVP, reg, sctx, v](rhi::RenderPassEncoder& rp)
                                 {
                                     const Span<const DrawItem> casters{sctx->casters.Data(),
                                                                        sctx->casters.Size()};
                                     const Span<const Float4> bounds{sctx->casterBounds.Data(),
                                                                     sctx->casterBounds.Size()};
+                                    // Cascades follow their OWNING view's LOD selection
+                                    // (mesh-lod.md P3): shadow matches what the view draws.
                                     RecordShadowCasters(rp, casters, *reg, cascadeVP, {}, 0.0f,
-                                                        /*frustumCull*/ true, bounds);
+                                                        /*frustumCull*/ true, bounds, v);
                                 });
                         });
                 }

@@ -652,10 +652,15 @@ export namespace foundation::render
         // local lights (the scene-global list) or the view's draw list for cascades. When cullRadius > 0,
         // casters whose world bounding sphere doesn't intersect the light sphere (cullCenter, cullRadius)
         // are skipped - per-light shadow-caster culling (phase 5.4).
+        // `lodView`: the CAMERA view whose LOD selection the casters follow (mesh-lod.md P3 -
+        // cascades pass their owning view so shadow geometry matches what that view draws; the
+        // camera-independent local-shadow tiles pass null, which selects each chain's COARSEST
+        // level - shadows never render finer than any view shows).
         void RecordShadowCasters(rhi::RenderPassEncoder& rp, Span<const DrawItem> casters,
                                  const RendererRegistry& registry, const Float4x4& lightViewProj,
                                  Float3 cullCenter = {}, f32 cullRadius = 0.0f,
-                                 bool frustumCull = false, Span<const Float4> cullBounds = {});
+                                 bool frustumCull = false, Span<const Float4> cullBounds = {},
+                                 const RenderView* lodView = nullptr);
 
         // Build the camera-independent shadow-caster list from a scene (opaque + masked meshes), grouped by
         // (mesh, material) so the depth pass batches them. Used by BOTH the directional cascades and the

@@ -171,6 +171,24 @@ single `Ref<StaticMesh>`).
   round-trip, authored-wins no-op, tiny-mesh no-op.
 - **P3 - polish.** Shadow-list coarsest-LOD rule, debug tint overlay,
   per-set instanced selection.
+  SHADOW RULE + INSTANCED SHIPPED (Fable, 2026-08-23): per-set instanced
+  selection landed inside P1 (all instanced/multimesh paths pick one
+  level from merged bounds). Shadows: RecordShadowCasters gains a
+  `lodView` - CASCADES pass their owning camera view, so cascade casters
+  compute selection with that view's camera AND share its hysteresis
+  slot (shadow geometry matches what the view draws, exactly);
+  LOCAL-shadow tiles (camera-independent) pass null, and a null-view
+  SelectLod on a chain returns the COARSEST level - shadows never render
+  finer than any view shows. Previously shadow contexts carried a null
+  view and chains cast at LOD 0 (visually fine, wasteful).
+  DEBUG TINT OVERLAY: BLOCKED-BY-SEQUENCING, deliberately - the chosen
+  mechanism (per-view KEYED debug-draw overlay recomputing the pick from
+  component data via the exported pure trio LodCoverageFor/PickLodLevel)
+  is precisely an editor-side per-view gizmo renderer, which is what
+  this week's editor-side-domain-debug-draw + gizmo-registration seam
+  track builds. It lands THROUGH that seam when the seam exists -
+  building it early would couple into the central dispatch being
+  replaced. Not scope-cut: sequenced onto its owning track.
 - **P4 - DEFERRED:** skinned LOD chains, per-instance LOD bucketing,
   cross-fade transitions, LOD-aware physics cooking (physics keeps cooking
   from LOD0 - collision fidelity is not a rendering concern).

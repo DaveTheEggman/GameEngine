@@ -2654,7 +2654,7 @@ namespace foundation::render
     u32 MeshRenderer::SelectLod(const RenderRecordContext& ctx, const MeshRenderData& md)
     {
         const geometry::StaticMesh* mesh = md.mesh;
-        if (mesh == nullptr || mesh->lodCount <= 1 || ctx.view == nullptr)
+        if (mesh == nullptr || mesh->lodCount <= 1)
         {
             return 0;
         }
@@ -2663,6 +2663,13 @@ namespace foundation::render
         {
             return (static_cast<u32>(md.forceLod) < maxLod) ? static_cast<u32>(md.forceLod)
                                                             : maxLod;
+        }
+        if (ctx.view == nullptr)
+        {
+            // Camera-independent pass (local-shadow tiles): the COARSEST level - shadows
+            // never render finer than any view shows (mesh-lod.md P3). Cascades pass their
+            // owning view instead and share that view's selection memory.
+            return maxLod;
         }
         const f32 coverage =
             LodCoverageFor(ctx.view->Camera(), md.worldCenter, md.worldRadius, md.lodBias);
