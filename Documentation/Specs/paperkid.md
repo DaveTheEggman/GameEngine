@@ -287,23 +287,45 @@ build/gcc before committing. [[tests-required-for-additions]] [[dev-build-config
 Goal: one hand-authored block is fully playable - ride, find marked subscriber houses, throw papers,
 score deliveries, meet a quota before a timer, and hit real Cleared/Failed screens.
 
-**P1-1 Author the block scene (MainScene).** In the scene editor: a ground `Plane`, `Cube` walls/edges
-to bound the block, a few `Cube` houses (some are subscribers), simple road layout from `Cube`/`Plane`.
-Add a real **camera** entity (P0's EnsureCamera is a crutch - MainScene should own its camera, which the
-follow-cam below drives). Keep it primitive/blockout. Verify: New Game shows the authored block.
+**P1-1 Author the block scene (MainScene). [AUTHORING - in-editor]** In the scene editor, build one
+50x50 block (a ground `Plane`, four `Cube` perimeter walls, one central `Cube` building to lap), a real
+**camera** entity (disable P0's EnsureCamera crutch - MainScene owns its camera, driven by the
+follow-cam), and a directional light. Concrete blockout reference (primitives are UNIT-sized/centered,
+so visual size = scale; Y-up, +Z = the bike's initial facing, ground surface at Y=0; RigidBody carries
+its OWN box, so set halfExtents = scale/2):
 
-**P1-2 Player bike entity + control behavior.** Entity with a `CharacterComponent` (Jolt
-CharacterVirtual, kinematic arcade feel - decided, no ragdoll). Write `Bike.as` behavior:
-`onUpdate(dt)` reads Steer (axis) + Accelerate/Brake actions -> turn + move the character; clamp speed.
-First WIRE the input map: add/point Steer (axis), Accelerate, Brake, Throw actions to keys (Move/Fire
-already declared - rename or reuse). Verify: you can drive the bike around the block. [[physics-p1]]
-[[script-behaviors-p1]] [[input-subsystem]]
+| Entity    | Mesh  | Position (x,y,z)  | Scale (x,y,z) | Components / key fields |
+|-----------|-------|-------------------|---------------|-------------------------|
+| Ground    | Plane | (0, 0, 0)         | (52, 1, 52)   | RigidBody: motion=Static, layer=Static, shape=Plane |
+| Wall N    | Cube  | (0, 1.5, 25)      | (52, 3, 1)    | RigidBody Static Box, halfExtents (26, 1.5, 0.5) |
+| Wall S    | Cube  | (0, 1.5, -25)     | (52, 3, 1)    | RigidBody Static Box, halfExtents (26, 1.5, 0.5) |
+| Wall E    | Cube  | (25, 1.5, 0)      | (1, 3, 52)    | RigidBody Static Box, halfExtents (0.5, 1.5, 26) |
+| Wall W    | Cube  | (-25, 1.5, 0)     | (1, 3, 52)    | RigidBody Static Box, halfExtents (0.5, 1.5, 26) |
+| Building  | Cube  | (0, 3, 0)         | (12, 6, 12)   | RigidBody Static Box, halfExtents (6, 3, 6) |
+| Bike      | Cube  | (-18, 0.9, -20)   | (0.8,1.6,1.8) | CharacterComponent (defaults) + ScriptBehavior -> Bike.xasset class `Bike` |
+| Camera    | -     | (-18, 4, -27)     | (1, 1, 1)     | Camera + ScriptBehavior -> FollowCamera class `FollowCamera`, target = Bike |
+| Sun       | -     | (0, 10, 0)        | (1, 1, 1)     | Directional Light, rotationEuler ~ (-50, -30, 0) |
 
-**P1-3 Third-person follow camera.** A follow-cam that trails/orbits behind the bike with position +
-look smoothing and a small look-ahead bias. Start as an AngelScript behavior on the camera entity
-reading the bike's transform; **only** drop to a native component if the behavior reads worse (the sole
-sanctioned native candidate - if taken, it is its own out-of-tree module named `PaperKid`, never `Game`
-[[facade-pattern]]). Verify: camera follows smoothly, upcoming obstacles read.
+Bike Y=0.9 = capsule (radius 0.35 + halfHeight 0.55) resting on the ground; the cube visual is
+cosmetic, the capsule collides. Camera spawn is approximate (FollowCamera snaps behind on frame 1).
+Verify: New Game shows the block. (Houses/roads come with P1-4.)
+
+**P1-2 Player bike entity + control behavior. [CODE DONE; AUTHORING pending]** `CharacterComponent`
+(Jolt CharacterVirtual, kinematic arcade feel - decided, no ragdoll). `Bike.as` written
+(`SampleProjects/PaperKid/Sources/Bike.as` + `Content/Scripts/Bike.xasset`): `onUpdate(dt)` reads the
+`Move` axis (Y = throttle/brake, X = steer), ramps a signed speed, turns a heading, and drives the
+character along it via the reflected `Quaternion::FromAxisAngle`/`RotateVector`; tunables are
+`[metadata]` inspector properties. Input map wired: `DefaultInputMap.xasset` = Move (Axis2D WASD),
+Throw (Space), Pause (Escape). Cook-tested against the full engine surface (Script.AngelScript.Pipeline
+tests). Verify (in-editor): drive the bike around the block. [[physics-p1]] [[script-behaviors-p1]]
+[[input-subsystem]]
+
+**P1-3 Third-person follow camera. [CODE DONE; AUTHORING pending]** `FollowCamera.as` written
+(`SampleProjects/PaperKid/Sources/FollowCamera.as`) as an AngelScript behavior on the camera entity:
+the target is an `[null] Entity@` PICKER property (no name lookup), springs the camera behind-and-above
+(behind = the camera's own lag, so no need to read the bike heading), and aims with reflected
+`Math::Atan2`/`Asin`. Native component NOT needed (the behavior reads clean). Cook-tested. Verify
+(in-editor): camera follows smoothly, upcoming obstacles read. [[facade-pattern]]
 
 **P1-4 Subscriber houses + delivery zones (ZERO native).** Per the locked marking decision: a
 subscriber house carries a `Subscriber.as` **behavior** (its presence IS the mark; per-house data =

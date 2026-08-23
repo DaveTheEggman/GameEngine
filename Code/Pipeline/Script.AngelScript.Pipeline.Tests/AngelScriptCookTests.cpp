@@ -329,6 +329,111 @@ TEST_CASE("as.cook: with the full engine surface registered, a Game using run:: 
     CHECK(out.className == u8"Game");
 }
 
+// The PaperKid driving-slice behaviors (Sources/Bike.as, Sources/FollowCamera.as) cook against the
+// FULL engine surface: Bike drives a CharacterComponent from the Input axis and the reflected
+// Quaternion/Math ops; FollowCamera targets another entity through an [null] Entity@ picker property
+// and aims with atan2/asin. Kept faithful to the sample scripts so a facade/spelling regression that
+// would break the game at live-validation is caught here at build time.
+TEST_CASE("as.cook: the PaperKid Bike behavior cooks with tunable properties")
+{
+    engine::RegisterAllScriptFacades();
+    IScriptLanguageCook* cook = AngelScriptCook();
+    REQUIRE(cook != nullptr);
+
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    const bool ok = cook->Cook(
+        u8"class Bike\n"
+        u8"{\n"
+        u8"    private Entity@ self;\n"
+        u8"    [9.0, \"Top forward speed (m/s)\"]           float maxSpeed;\n"
+        u8"    [3.5, \"Top reverse speed (m/s)\"]           float reverseSpeed;\n"
+        u8"    [14.0, \"Throttle ramp (m/s^2)\"]            float acceleration;\n"
+        u8"    [22.0, \"Active brake / reverse ramp (m/s^2)\"] float braking;\n"
+        u8"    [8.0, \"Roll-down when coasting (m/s^2)\"]   float coastDeceleration;\n"
+        u8"    [130.0, \"Yaw rate at full speed (deg/s)\"]  float turnSpeedDegrees;\n"
+        u8"    [0.25, \"Steering authority floor (0..1)\"]  float minSteerFraction;\n"
+        u8"    private float m_heading = 0.0f;\n"
+        u8"    private float m_speed = 0.0f;\n"
+        u8"    Bike(Entity@ entity) { @self = entity; }\n"
+        u8"    void onUpdate(double dt)\n"
+        u8"    {\n"
+        u8"        float d = float(dt);\n"
+        u8"        if (d <= 0.0f) { return; }\n"
+        u8"        float throttle = Input::valueY(\"Move\");\n"
+        u8"        float steer = Input::valueX(\"Move\");\n"
+        u8"        if (throttle > 0.0f) { m_speed += throttle * acceleration * d; }\n"
+        u8"        if (m_speed > maxSpeed) { m_speed = maxSpeed; }\n"
+        u8"        if (m_speed < -reverseSpeed) { m_speed = -reverseSpeed; }\n"
+        u8"        float speedFraction = Math::Abs(m_speed) / maxSpeed;\n"
+        u8"        if (speedFraction < minSteerFraction) { speedFraction = minSteerFraction; }\n"
+        u8"        m_heading += steer * Math::DegreesToRadians(turnSpeedDegrees) * speedFraction * d;\n"
+        u8"        Quaternion facing = Quaternion::FromAxisAngle(Float3(0.0f, 1.0f, 0.0f), m_heading);\n"
+        u8"        Float3 forward = Quaternion::RotateVector(facing, Float3(0.0f, 0.0f, 1.0f));\n"
+        u8"        CharacterComponent::of(self).move(forward.x * m_speed, forward.z * m_speed);\n"
+        u8"        self.setRotationEuler(0.0f, Math::RadiansToDegrees(m_heading), 0.0f);\n"
+        u8"    }\n"
+        u8"}\n",
+        u8"Bike.as", sink, out);
+    REQUIRE(ok);
+    CHECK(out.className == u8"Bike");
+    CHECK(out.properties.Size() == 7u); // self/m_heading/m_speed carry no metadata
+
+    const ScriptPropertyDesc* maxSpeed = FindProp(out, u8"maxSpeed");
+    REQUIRE(maxSpeed != nullptr);
+    CHECK(maxSpeed->type == ScriptPropertyType::Float);
+    CHECK(Near(maxSpeed->defaultValue.number, 9.0));
+    CHECK(FindProp(out, u8"turnSpeedDegrees") != nullptr);
+    CHECK(FindProp(out, u8"m_heading") == nullptr);
+}
+
+TEST_CASE("as.cook: the PaperKid FollowCamera behavior cooks with an Entity@ target picker")
+{
+    engine::RegisterAllScriptFacades();
+    IScriptLanguageCook* cook = AngelScriptCook();
+    REQUIRE(cook != nullptr);
+
+    CookScriptErrorSink sink;
+    ScriptClassSource out;
+    const bool ok = cook->Cook(
+        u8"class FollowCamera\n"
+        u8"{\n"
+        u8"    private Entity@ self;\n"
+        u8"    [null, \"The entity to follow (the bike)\"] Entity@ target;\n"
+        u8"    [7.0, \"Distance behind the target (m)\"]   float distance;\n"
+        u8"    [3.5, \"Height above the target (m)\"]      float height;\n"
+        u8"    [1.0, \"Aim this far above the target (m)\"] float lookHeight;\n"
+        u8"    [4.0, \"Position spring rate\"]             float positionSmoothing;\n"
+        u8"    FollowCamera(Entity@ entity) { @self = entity; }\n"
+        u8"    void onUpdate(double dt)\n"
+        u8"    {\n"
+        u8"        float d = float(dt);\n"
+        u8"        if (d <= 0.0f || target is null || !target.isValid()) { return; }\n"
+        u8"        Float3 targetPos = target.worldPosition();\n"
+        u8"        Float3 camPos = self.position();\n"
+        u8"        Float3 desired = Float3(targetPos.x, targetPos.y + height, targetPos.z - distance);\n"
+        u8"        Float3 newPos = Float3::Lerp(camPos, desired, positionSmoothing * d);\n"
+        u8"        self.setPosition(newPos.x, newPos.y, newPos.z);\n"
+        u8"        Float3 dir = Float3::Sub(Float3(targetPos.x, targetPos.y + lookHeight, targetPos.z), newPos);\n"
+        u8"        float len = Float3::Length(dir);\n"
+        u8"        if (len < 0.0001f) { return; }\n"
+        u8"        float yaw = Math::RadiansToDegrees(Math::Atan2(dir.x, dir.z));\n"
+        u8"        float pitch = Math::RadiansToDegrees(-Math::Asin(dir.y / len));\n"
+        u8"        self.setRotationEuler(pitch, yaw, 0.0f);\n"
+        u8"    }\n"
+        u8"}\n",
+        u8"FollowCamera.as", sink, out);
+    REQUIRE(ok);
+    CHECK(out.className == u8"FollowCamera");
+    CHECK(out.properties.Size() == 5u);
+
+    const ScriptPropertyDesc* target = FindProp(out, u8"target");
+    REQUIRE(target != nullptr);
+    CHECK(target->type == ScriptPropertyType::Entity);
+    CHECK(target->defaultValue.guid.IsNil());
+    CHECK(FindProp(out, u8"positionSmoothing") != nullptr);
+}
+
 TEST_CASE("as.cook: the fingerprint carries the AngelScript library version")
 {
     IScriptLanguageCook* cook = AngelScriptCook();
