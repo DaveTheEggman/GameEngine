@@ -211,6 +211,63 @@ demo scene (imported heightmap, 4 splat layers, lit + shadowed, a physics
 sphere rolling on it, an agent walking on it once navigation lands) runs
 in play-in-editor and export; user visual pass on desktop + web.
 
+## Review of the 2026-08-22/23 restructure (Fable, 2026-08-23)
+
+Reviewed: the heightfield-as-first-class-asset split (e2b20534, a017fafd) and
+the standalone-collider-into-P1 fold (931fda86). VERDICT: the restructure is
+right and buildable as written; four gaps to close before/while building.
+
+Confirmed against the code and conventions:
+
+- The asset split matches the house `foundation.X` / `X.Resource` /
+  `X.Pipeline` / `Editor.X` chain exactly, and the binary height blob follows
+  the bulk-data sidecar rule (never inline in asset XML). The Traktor
+  precedent audit was the right tiebreaker: physics and nav consuming heights
+  WITHOUT the renderer is the property that pays forever.
+- `ShapeKind::Heightfield` on the component is the correct placement -
+  VERIFIED: ShapeKind lives on RigidBody/Collider today (PhysicsComponents:
+  `ShapeKind shape` + per-kind fields; Cooked carries `Ref<CollisionShape>`,
+  Plane carries planeHalfExtent). The new kind + `Ref<Heightfield>` lands
+  exactly like Plane/Cooked did; the named wire-version bump is required
+  (serializer strict versioning). A dedicated kind (not routing through
+  Cooked) is right BECAUSE the heightfield is shared with rendering - a
+  physics-only cooked blob would fork the source of truth.
+- Folding the standalone collider into P1 is good sequencing: the heightfield
+  chain gets a shippable consumer + real tests before the renderer exists,
+  and "terrain = a heightfield collider that also renders" is the right
+  dependency direction.
+
+Gaps to close:
+
+1. **The size contract is unstated, and the consumers disagree.** VERIFIED in
+   vendored Jolt (HeightFieldShape.h): sample grids are SQUARE only (one
+   mSampleCount), and `sampleCount / blockSize` must be >= 2 (power of 2 most
+   efficient). Meanwhile 65-vert render chunks want `64k + 1` samples per
+   side, and PNG import accepts arbitrary WxH. Decide ONCE at the asset
+   layer: which sizes are authorable (recommend: square, `64k + 1`, k >= 1),
+   and the physics cook pads/crops to Jolt's constraint with a VALIDATION
+   ERROR at cook time for anything else - never a runtime surprise.
+2. **GPU height-texture ownership.** Heightfield.Resource is deliberately a
+   CPU grid (nav/physics consumers must not pay GPU) - so the VS textureLoad
+   height texture must be created engine.terrain-side at component
+   integration, uploaded from the CPU grid, and CACHED per heightfield
+   resource so two terrains sharing one heightfield share one texture.
+   Invalidate by resource version/generation (the bind-group-cache rule),
+   which is also the phase-2 sculpt re-upload path. One sentence in the
+   Rendering section fixes this; without it the texture tends to get built
+   per-component.
+3. **Ref-picker entries are plural.** THREE new `Ref<T>` component fields
+   ship in P1: TerrainComponent's terrain ref, and `Ref<Heightfield>` on BOTH
+   RigidBodyComponent and ColliderComponent. Each needs its InspectorView
+   dispatch entry or the inspector shows no picker (the standing ref-picker
+   rule); the Tests line's singular "picker entry" undercounts.
+4. **P1 heightfield preview should be 2D.** When Editor.Heightfield lands,
+   engine.terrain does not exist yet - there is nothing to 3D-render a
+   heightfield with, and PreviewViewport hosts scenes. Say explicitly: P1
+   preview = grayscale height image (+ min/max/extent readout); the 3D
+   preview falls out free in phase 2 as a preview scene with a
+   TerrainComponent.
+
 ## Explicitly deferred
 
 Holes, CDLOD morphing, more than 4 splat layers / multiple splatmaps,
