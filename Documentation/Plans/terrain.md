@@ -37,21 +37,36 @@ deferred" - and consumes the heightfield resource directly.)
   / GetNormalAt, world<->grid conversions, ray query, per-cell/chunk
   bounds (min/max height per cell, for culling + ray acceleration). Depends
   on nothing but Foundation::Core math.
+  SIZE CONTRACT (gap 1, 2026-08-23): a heightfield grid is SQUARE with side
+  `S = 64*k + 1` (k >= 1: 65, 129, 257, 513, 1025, ...). This one rule
+  satisfies both consumers: render chunks are 64-quad (65-vert) tiles, so S
+  tiles into k*k chunks sharing edges; and Jolt's HeightFieldShape is square
+  (one sampleCount). The type exposes the invariant (a validating factory /
+  IsValidSize helper); non-conforming sizes never reach the runtime.
 - `Code/Foundation/Heightfield.Resource` - module
   `foundation.heightfield.resource`. The cooked, REFERENCEABLE heightfield
   resource + loader (CPU grid; `Ref<Heightfield>` points here). Terrain, the
-  physics shape cook, and the nav bake all resolve this - no one embeds the
+  physics shape build, and the nav bake all resolve this - no one embeds the
   raw grid.
 - `Code/Pipeline/Heightfield.Pipeline` - HeightfieldAsset (Pipeline
-  domain): created blank (size + world extent + Y range) OR from an imported
-  16-bit heightmap image (PNG/RAW through the existing image import path).
+  domain): created blank (a valid square size + world extent + Y range) OR
+  from an imported 16-bit heightmap image (PNG/RAW through the existing image
+  import path), RESAMPLED to a chosen valid square size `S = 64*k + 1` (the
+  import wizard picks the target resolution; blank is valid by construction).
   Builder cooks asset -> heightfield resource. The heightmap SOURCE stays
   binary (16-bit); the asset XML references the height blob the way meshes
-  reference their data. Bump kBuilderCount + tripwire; kImporterCount for the
-  heightmap-file drag-drop importer. (This is where heightmap import lives -
-  NOT in Terrain.Pipeline.)
+  reference their data (bulk-data sidecar rule - never inline). Bump
+  kBuilderCount + tripwire; kImporterCount for the heightmap-file drag-drop
+  importer. (This is where heightmap import lives - NOT in Terrain.Pipeline.)
+  The physics HeightFieldShape is BUILT at scene integration (Engine.Physics,
+  not a pipeline cook) from this grid; see Physics for the Jolt block-size
+  padding + validity guard.
 - `Code/Editor/Editor.Heightfield` - the heightfield asset page + New/Import
-  wizard. P1 = create/import + a basic preview; the sculpt brushes (phase 2)
+  wizard. P1 preview is 2D (gap 4, 2026-08-23): a grayscale height image +
+  min/max/extent readout - because engine.terrain does not exist yet when
+  this lands, so there is nothing to 3D-render a heightfield with (and
+  PreviewViewport hosts scenes). The 3D preview falls out FREE in phase 2 as
+  a preview scene with a TerrainComponent. The sculpt brushes (phase 2)
   operate on THIS asset through the shared brush framework. Derived-texture
   bakes (normal/occlusion FROM the heightfield) and erosion/hydraulic
   filters are Traktor features we DEFER (see "Explicitly deferred").
@@ -73,20 +88,25 @@ deferred" - and consumes the heightfield resource directly.)
 - `Code/Engine/Terrain` - module `engine.terrain`. TerrainComponent
   {Ref<TerrainAsset product>, cast shadows flag} + the RENDERER, owned
   HERE via the dynamic-category / per-item rendererId dispatch (sprites
-  precedent) - Engine.Render stays terrain-free. Physics wiring: cooks a
-  Jolt HeightFieldShape from the REFERENCED heightfield resource so render
-  and collision cannot diverge (Physics depends on foundation.heightfield
+  precedent) - Engine.Render stays terrain-free. Physics wiring: builds a
+  Jolt HeightFieldShape at integration from the REFERENCED heightfield
+  resource so render and collision cannot diverge (Physics depends on
+  foundation.heightfield
   [+.resource], NOT foundation.terrain); registers through Engine.Physics'
   existing shape seam. Because physics references a heightfield resource
   directly, P1 ALSO ships a standalone heightfield COLLIDER: a
   `ShapeKind::Heightfield` option on the physics rigidbody/collider
   component carrying a `Ref<Heightfield>`, so a heightfield collision
   surface needs no terrain renderer at all (lands via Engine.Physics, same
-  Jolt HeightFieldShape cook seam terrain uses).
-  Component checklist: displayName + category attributes, InspectorView
-  ref-picker entry, reflected GetHeightAt for scripts (natural types - no
-  new facade lib; facade name count unchanged unless a subsystem facade
-  proves necessary, then bump).
+  Jolt HeightFieldShape build seam terrain uses).
+  Component checklist: displayName + category attributes, reflected
+  GetHeightAt for scripts (natural types - no new facade lib; facade name
+  count unchanged unless a subsystem facade proves necessary, then bump),
+  and InspectorView ref-picker DISPATCH for BOTH new ref types (gap 3,
+  2026-08-23): `Ref<TerrainAsset>` (TerrainComponent) and `Ref<Heightfield>`
+  (on RigidBodyComponent AND ColliderComponent) - three new Ref<T> fields
+  across two dispatch entries; without them the inspector shows no picker
+  (standing ref-picker rule).
 - `Code/Editor/Editor.Terrain` - phase 2: the brush editor + splat
   painting + terrain asset page. Phase 1 needs only the component picker
   + New Asset creator (no new editor lib until phase 2).
@@ -114,6 +134,13 @@ seam navigation's bake will consume later.
   shader fetches height via textureLoad (unfiltered fetch works in VS on
   all three backends incl. WebGPU - verify at bring-up, it is the load-
   bearing portability assumption).
+- GPU height-texture ownership (gap 2, 2026-08-23): Heightfield.Resource is
+  deliberately a CPU grid (nav/physics must not pay GPU), so the VS height
+  texture is created ENGINE.TERRAIN-side at component integration, uploaded
+  from the CPU grid, and CACHED keyed by the heightfield resource id +
+  version - two terrains referencing one heightfield share one texture.
+  Invalidate by resource version/generation (the bind-group-cache rule),
+  which doubles as the phase-2 sculpt re-upload path.
 - Quadtree chunks, LOD by screen-space error/distance; SKIRTS to hide
   cracks in P1 (simplest correct), CDLOD-style morph as a P2 polish item.
 - Normals from heightmap in the pixel shader; splat blend (one RGBA
@@ -128,14 +155,18 @@ seam navigation's bake will consume later.
 
 ## Physics (phase 1)
 
-Jolt HeightFieldShape built from the REFERENCED heightfield resource at
-scene integration (Physics.Pipeline cooks the shape data alongside the
-heightfield product so runtime creation is cheap). Physics depends on
-foundation.heightfield [+.resource] only - never on foundation.terrain.
-Collision layer/group per the existing matrix. The height query epsilon test
-below is the honesty check between render and physics (both resolve the SAME
-heightfield resource, so it should hold trivially - the test guards against a
-cook/quantization drift).
+Jolt HeightFieldShape built at scene integration DIRECTLY from the
+referenced heightfield resource's CPU grid (like Plane builds from its
+params - NOT a pre-cooked shape blob, which would fork the source of truth
+Fable flagged). Jolt needs sampleCount a multiple of its block size [2,8],
+and the grid is square `64k+1` (odd), so the builder pads the sample count
+by duplicating the trailing row/col; the square/valid check is a guard that
+errors rather than reshaping. Physics depends on foundation.heightfield
+[+.resource] only - never on foundation.terrain. Collision layer/group per
+the existing matrix. The height query epsilon test below is the honesty
+check between render and physics (both resolve the SAME heightfield
+resource, so it should hold trivially on interior samples - the test guards
+against quantization/padding drift).
 
 Standalone heightfield collider (P1): the physics rigidbody/collider
 component gains `ShapeKind::Heightfield` + a `Ref<Heightfield>`, cooking the
@@ -201,8 +232,8 @@ Spec'd in detail when phase 2 lands.
   ShapeKind::Heightfield + a Ref<Heightfield> and NO terrain builds a Jolt
   shape and a dropped body rests at GetHeightAt (proves the collider works
   without a TerrainComponent); ShapeKind wire round-trip.
-- Component wire round-trip; tripwires (builder count x2, picker entry,
-  shape-cook count).
+- Component wire round-trip; tripwires (builder count x2, shape-cook count,
+  ref-picker dispatch for Ref<TerrainAsset> + Ref<Heightfield>).
 
 ## Acceptance (phase 1)
 
@@ -242,7 +273,17 @@ Confirmed against the code and conventions:
   and "terrain = a heightfield collider that also renders" is the right
   dependency direction.
 
-Gaps to close:
+Gaps to close (ALL CLOSED 2026-08-23, folded into the body):
+
+- Gap 1 -> foundation.heightfield SIZE CONTRACT bullet + Heightfield.Pipeline
+  physics-cook note (square `64k+1`; cook pads to Jolt block size, errors
+  otherwise).
+- Gap 2 -> Rendering "GPU height-texture ownership" bullet (engine.terrain
+  owns it, cached per heightfield resource id+version).
+- Gap 3 -> engine.terrain component checklist + Tests (ref-picker dispatch
+  for Ref<TerrainAsset> and Ref<Heightfield>, three fields).
+- Gap 4 -> Editor.Heightfield bullet (P1 preview = 2D grayscale + readout;
+  3D preview is a phase-2 freebie).
 
 1. **The size contract is unstated, and the consumers disagree.** VERIFIED in
    vendored Jolt (HeightFieldShape.h): sample grids are SQUARE only (one
@@ -276,8 +317,11 @@ Gaps to close:
 ## Explicitly deferred
 
 Holes, CDLOD morphing, more than 4 splat layers / multiple splatmaps,
-grass (phase 3), terrain as navigation bake source (joins the nav track
-when both exist), ocean/river/forest (not planned), large-world paging.
+grass (phase 3), terrain as navigation bake source (navigation SHIPPED
+2026-08-18; this is the deferred terrain<->nav integration - the heightfield
+tessellated into the existing triangle-soup NavigationMeshBuilder - and its
+own agent-walks-terrain acceptance, not P1's), ocean/river/forest (not
+planned), large-world paging.
 Heightfield-editor extras Traktor has but we defer: erosion/hydraulic
 filters and derived-texture bakes (normal/occlusion generated FROM the
 heightfield). (The standalone heightfield-only physics collider is NOT
