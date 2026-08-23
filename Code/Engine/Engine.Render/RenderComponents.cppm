@@ -78,6 +78,13 @@ export namespace engine::render
         const Float4x4* prevBoneMatrices =
             nullptr; // previous-frame matrices (motion vectors); null => reuse current
         u32 boneCount = 0;
+
+        // LOD knobs (mesh-lod.md P1, v4). lodBias > 0 switches coarser sooner (each unit
+        // halves the effective screen coverage; negative holds detail longer). forceLod
+        // pins one level for debug/cinematics (-1 = automatic; clamped to the chain).
+        // Copied into MeshRenderData at extraction; selection is per view in the renderer.
+        f32 lodBias = 0.0f;
+        i32 forceLod = -1;
     };
 
     // An INSTANCED mesh ("MultiMesh"): ONE shared mesh + material drawn at N per-instance transforms that
@@ -298,6 +305,11 @@ export namespace engine::render
             foundation::core::Serialize(ar, "materials", c.materials);
             foundation::core::Serialize(ar, "color", c.color);
             foundation::core::Serialize(ar, "visible", c.visible);
+        }
+        if (ar.Version() >= 4)
+        { // v4: LOD knobs (mesh-lod.md P1); older payloads keep the auto defaults
+            foundation::core::Serialize(ar, "lodBias", c.lodBias);
+            foundation::core::Serialize(ar, "forceLod", c.forceLod);
         }
         else
         {

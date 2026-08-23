@@ -92,6 +92,8 @@ namespace engine::render
         rd.boneMatrices = mc.boneMatrices; // borrowed for the frame (GPU skinning); null => static
         rd.prevBoneMatrices = mc.prevBoneMatrices; // borrowed; null => reuse current (no motion)
         rd.boneCount = mc.boneCount;
+        rd.lodBias = mc.lodBias; // per-view selection happens in the renderer (one snapshot, N views)
+        rd.forceLod = mc.forceLod;
         // Submesh routing only when the mesh is genuinely multi-material; a single entry is the
         // whole-mesh path (slot 0 IS rd.material), preserving batching.
         rd.submeshMaterials = mc.materialCache.Size() > 1 ? mc.materialCache.Data() : nullptr;

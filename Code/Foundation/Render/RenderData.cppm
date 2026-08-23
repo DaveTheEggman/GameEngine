@@ -187,6 +187,11 @@ export namespace foundation::render
         const Float4x4* prevBoneMatrices =
             nullptr; // previous-frame skinning matrices (motion vectors); null => reuse current
         u32 boneCount = 0;
+        // LOD knobs (mesh-lod.md P1), copied from the component at extraction. Selection is
+        // PER VIEW in the renderer (extraction is one snapshot shared by every view), from
+        // projected-sphere coverage of worldCenter/worldRadius vs the mesh's chain.
+        f32 lodBias = 0.0f;
+        i32 forceLod = -1; // -1 = automatic
         // Discriminator: when true this is actually a `MultiMeshRenderData` (an instanced SET drawn as one
         // item). The Resolve loop only sees `MeshRenderData*`, so it branches on this flag and downcasts.
         // Regular meshes leave it false and are unaffected.

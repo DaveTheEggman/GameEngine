@@ -83,6 +83,8 @@ export namespace editor
         // default). ApplyPreviewMaterial pushes the current choice onto the MeshComponent.
         void PickPreviewMaterial();
         void ApplyPreviewMaterial();
+        // Push the LOD row's choice onto the preview MeshComponent's forceLod knob.
+        void ApplyPreviewLod();
 
         // Persist / restore the preview-material choice per asset (per-project editor settings).
         void LoadPreviewPref();
@@ -105,6 +107,7 @@ export namespace editor
         RefPtr<materials::Material> m_defaultMaterial;
         resource::Proxy<materials::Material> m_previewMaterial; // chosen override (null = default)
         Guid m_previewMaterialId;                               // its source guid (for the label)
+        i32 m_previewForceLod = -1; // the LOD row's choice (-1 = auto), pushed to forceLod
         RefPtr<foundation::ui::Button> m_materialButton;        // the "Material: <name>" picker
 
         resource::Proxy<geometry::StaticMesh> m_meshProxy; // the cooked product (follows reloads)

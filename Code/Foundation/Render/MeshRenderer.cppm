@@ -40,6 +40,20 @@ namespace rhi = foundation::rhi;
 export namespace foundation::render
 {
 
+    // ---- Pure LOD selection math (mesh-lod.md P1; unit-testable, no GPU) ----
+    // Coverage: the fraction of the viewport half-height the item's bounding-sphere radius
+    // spans in this camera. Perspective divides by view depth; ortho is depth-free (both read
+    // projection[1][1]; m[3][3] discriminates). lodBias: each unit halves effective coverage.
+    [[nodiscard]] f32 LodCoverageFor(const ViewCamera& camera, Float3 worldCenter, f32 worldRadius,
+                                     f32 lodBias);
+    // Threshold walk: level l takes over while coverage < lodCoverage[l] (descending
+    // thresholds; a malformed tail stops the walk). Chainless meshes always answer 0.
+    [[nodiscard]] u32 PickLodLevel(const geometry::StaticMesh& mesh, f32 coverage);
+    // Hysteresis: keep `last` while it is still pickable inside a +-5% coverage band around
+    // the raw pick, so an item hovering on a threshold never flickers between levels.
+    [[nodiscard]] u32 ApplyLodHysteresis(const geometry::StaticMesh& mesh, f32 coverage,
+                                         u32 rawSelection, u32 last);
+
     class MeshRenderer final : public Renderer
     {
     public:
@@ -251,6 +265,14 @@ export namespace foundation::render
                       // usage is ~N*bones*(5+); sized big so the stress
                       // test doesn't overflow (the persistent-buffer
                       // rewrite uploads once, shared across passes).
+
+        // Per-view LOD selection (mesh-lod.md P1): projected-sphere coverage of the item's
+        // world bounds against THIS ctx's camera (perspective divides by view depth; ortho is
+        // depth-free - both read projection[1][1]), biased by md.lodBias (each unit halves
+        // effective coverage), pinned by md.forceLod, and stabilized by a +-5% hysteresis
+        // band remembered per (view pointer, item) - so the depth prepass and forward pass
+        // of one view always agree within a frame. Returns 0 for chainless meshes.
+        [[nodiscard]] u32 SelectLod(const RenderRecordContext& ctx, const MeshRenderData& md);
 
         void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset,
                            rhi::BindGroup* clusterBG, const MeshRenderData& md, const GpuMesh& mesh,
@@ -464,6 +486,11 @@ export namespace foundation::render
         // Keyed by the VIEW pointer (not viewIndex): the main view's prepass + forward share one RenderView, but
         // probe-capture forwards reuse viewIndex 0 with a different draw list - a distinct pointer avoids collision.
         static u64 InstShareKey(const void* view, const void* mesh, const void* mat) noexcept;
+
+        // LOD hysteresis memory: last selected level per (view pointer, item), persisted
+        // ACROSS frames (that is the point). Bounded by a size cap - when it overflows the
+        // map clears wholesale (worst case: one frame of unhysteresed selection).
+        HashMap<u64, u32> m_lodLast;
 
         // Bind groups retired this/prior frames but possibly still referenced by in-flight command
         // buffers; freed by TickRetiredBindGroups once the frame ring has cycled (framesLeft hits 0).

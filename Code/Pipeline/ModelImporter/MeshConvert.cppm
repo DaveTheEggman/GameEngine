@@ -252,6 +252,90 @@ namespace pipeline
         }
 
         // Fill a StaticMeshSource from a model mesh's static streams (pos/normal/uv/color/tangent).
+        // mesh-lod.md P1 authored chains: "Foo_LOD1" / "Foo_lod2" attach as chain levels of
+        // "Foo". Returns the level (>= 1) and writes the stripped base name; 0 = a plain
+        // name (including "_LOD0" - the base spells itself plainly, never with a suffix).
+        [[nodiscard]] inline u32 ParseLodSuffix(StringView name, String& outBase)
+        {
+            const usize n = name.Size();
+            usize digits = 0;
+            while (digits < n && name[n - 1 - digits] >= u8'0' && name[n - 1 - digits] <= u8'9')
+            {
+                ++digits;
+            }
+            if (digits == 0 || digits > 2 || n < digits + 4)
+            {
+                return 0;
+            }
+            const usize tag = n - digits - 4; // "_LOD" (case-insensitive)
+            const auto lower = [](utf8char c)
+            { return (c >= u8'A' && c <= u8'Z') ? static_cast<utf8char>(c + 32) : c; };
+            if (name[tag] != u8'_' || lower(name[tag + 1]) != u8'l' ||
+                lower(name[tag + 2]) != u8'o' || lower(name[tag + 3]) != u8'd')
+            {
+                return 0;
+            }
+            u32 level = 0;
+            for (usize i = 0; i < digits; ++i)
+            {
+                level = level * 10 + static_cast<u32>(name[n - digits + i] - u8'0');
+            }
+            if (level == 0)
+            {
+                return 0; // "_LOD0" is the base itself
+            }
+            outBase = String(name.SubStr(0, tag));
+            return level;
+        }
+
+        void StaticMeshSourceFromModel(const model::ModelMesh& mesh,
+                                       geometry::StaticMeshSource& out); // defined below
+
+        // Append `lodMesh` as the NEXT chain level of `base`: its vertices join the shared
+        // blob, its indices (offset by the pre-append vertex count) join the one index
+        // buffer, and one range lands per part. The level's part count must MATCH the
+        // base's submesh count (the material layout is per-chain; a level never resorts) -
+        // mismatch returns false with `base` unchanged. Coverage thresholds default to a
+        // halving ladder (LOD1 at 0.25 of the viewport half-height, LOD2 at 0.125, ...).
+        [[nodiscard]] inline bool AppendLodLevelFromModel(const model::ModelMesh& lodMesh,
+                                                          geometry::StaticMeshSource& base)
+        {
+            geometry::StaticMeshSource level;
+            StaticMeshSourceFromModel(lodMesh, level);
+            if (level.subStart.Size() != base.subStart.Size() || base.subStart.IsEmpty())
+            {
+                return false;
+            }
+            constexpr usize kStride = sizeof(geometry::StaticMeshVertex);
+            const u32 baseVertexCount = static_cast<u32>(base.vertexBlob.Size() / kStride);
+            const u32 indexBase = static_cast<u32>(base.indexData.Size());
+            const usize oldBlobSize = base.vertexBlob.Size();
+            base.vertexBlob.Resize(oldBlobSize + level.vertexBlob.Size());
+            if (!level.vertexBlob.IsEmpty())
+            {
+                MemCopy(base.vertexBlob.Data() + oldBlobSize, level.vertexBlob.Data(),
+                        level.vertexBlob.Size());
+            }
+            for (const u32 index : level.indexData)
+            {
+                base.indexData.PushBack(index + baseVertexCount);
+            }
+            if (base.lodCount <= 1)
+            {
+                base.lodCount = 1;
+                base.lodCoverage.Clear();
+                base.lodCoverage.PushBack(1.0f);
+            }
+            for (usize s = 0; s < level.subStart.Size(); ++s)
+            {
+                base.lodStart.PushBack(static_cast<i32>(indexBase) + level.subStart[s]);
+                base.lodIndexCount.PushBack(level.subCount[s]);
+            }
+            base.lodCoverage.PushBack(0.25f * Pow(0.5f, static_cast<f32>(base.lodCount - 1)));
+            base.lodCount += 1;
+            return true;
+        }
+
         void StaticMeshSourceFromModel(const model::ModelMesh& mesh,
                                        geometry::StaticMeshSource& out)
         {

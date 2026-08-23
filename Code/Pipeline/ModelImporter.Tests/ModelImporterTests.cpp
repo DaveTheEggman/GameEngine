@@ -1103,3 +1103,104 @@ TEST_CASE("model-import: re-import WITHOUT delete reuses instances (same guids, 
         CHECK(*old == inst->Id()); // same guid: reuse, not re-mint
     }
 }
+
+TEST_CASE("mesh lod: _LODn suffix parsing (case-insensitive; _LOD0 and non-suffixes stay plain)")
+{
+    String base;
+    CHECK(pipeline::ParseLodSuffix(u8"Foo_LOD1", base) == 1);
+    CHECK(base == StringView(u8"Foo"));
+    CHECK(pipeline::ParseLodSuffix(u8"Rock_lod2", base) == 2);
+    CHECK(base == StringView(u8"Rock"));
+    CHECK(pipeline::ParseLodSuffix(u8"Wall_Lod12", base) == 12);
+    CHECK(base == StringView(u8"Wall"));
+    CHECK(pipeline::ParseLodSuffix(u8"Foo", base) == 0);
+    CHECK(pipeline::ParseLodSuffix(u8"Foo_LOD0", base) == 0);  // the base names itself plainly
+    CHECK(pipeline::ParseLodSuffix(u8"Foo_LOD", base) == 0);   // no digits
+    CHECK(pipeline::ParseLodSuffix(u8"LOD1", base) == 0);      // no underscore/base
+    CHECK(pipeline::ParseLodSuffix(u8"Foo_MOD1", base) == 0);  // wrong tag
+}
+
+TEST_CASE("mesh lod: authored level appends into the base's chain (offset indices, ranges, defaults)")
+{
+    struct SrcVertex
+    {
+        Float3 pos;
+        Float3 normal;
+        Float2 uv;
+    };
+    const auto makeQuad = [](model::ModelMesh& mesh, f32 xShift, u32 vertexCount, u32 indexCount,
+                             const u32* indices)
+    {
+        Array<SrcVertex> verts;
+        for (u32 i = 0; i < vertexCount; ++i)
+        {
+            verts.PushBack(SrcVertex{Float3{xShift + static_cast<f32>(i), 0, 0}, Float3{0, 0, 1},
+                                     Float2{0, 0}});
+        }
+        mesh.addVertexElement(model::VertexElement(model::VertexSemantic::Position,
+                                                   model::VertexElementFormat::Float3, 0));
+        mesh.addVertexElement(model::VertexElement(model::VertexSemantic::Normal,
+                                                   model::VertexElementFormat::Float3, 12));
+        mesh.addVertexElement(model::VertexElement(model::VertexSemantic::TexCoord,
+                                                   model::VertexElementFormat::Float2, 24));
+        mesh.allocateVertices(static_cast<i32>(vertexCount), sizeof(SrcVertex));
+        mesh.setVertexData(verts.Data(), static_cast<i32>(vertexCount));
+        mesh.allocateIndices(static_cast<i32>(indexCount), true);
+        mesh.setIndexData(indices, static_cast<i32>(indexCount));
+    };
+
+    const u32 baseIndices[6] = {0, 1, 2, 0, 2, 3};
+    model::ModelMesh baseMesh;
+    makeQuad(baseMesh, 0.0f, 4, 6, baseIndices);
+    geometry::StaticMeshSource source;
+    pipeline::StaticMeshSourceFromModel(baseMesh, source);
+    REQUIRE(source.subStart.Size() == 1);
+
+    const u32 lodIndices[3] = {0, 1, 2};
+    model::ModelMesh lodMesh;
+    makeQuad(lodMesh, 100.0f, 3, 3, lodIndices);
+    REQUIRE(pipeline::AppendLodLevelFromModel(lodMesh, source));
+
+    // Chain shape: 2 levels, level 1 = one range after the base's 6 indices, indices
+    // offset past the base's 4 vertices, default threshold ladder (LOD1 at 0.25).
+    CHECK(source.lodCount == 2);
+    REQUIRE(source.lodStart.Size() == 1);
+    CHECK(source.lodStart[0] == 6);
+    CHECK(source.lodIndexCount[0] == 3);
+    CHECK(source.vertexBlob.Size() == 7 * sizeof(geometry::StaticMeshVertex));
+    CHECK(source.indexData.Size() == 9);
+    CHECK(source.indexData[6] == 4); // 0 + 4-vertex offset
+    REQUIRE(source.lodCoverage.Size() == 2);
+    CHECK(source.lodCoverage[1] == doctest::Approx(0.25f));
+
+    // The level's vertices really are the appended ones (position x carries the shift).
+    const auto* verts =
+        reinterpret_cast<const geometry::StaticMeshVertex*>(source.vertexBlob.Data());
+    CHECK(verts[4].position.x == doctest::Approx(100.0f));
+
+    // A second level extends the ladder.
+    model::ModelMesh lod2;
+    const u32 lod2Indices[3] = {0, 2, 1};
+    makeQuad(lod2, 200.0f, 3, 3, lod2Indices);
+    REQUIRE(pipeline::AppendLodLevelFromModel(lod2, source));
+    CHECK(source.lodCount == 3);
+    CHECK(source.lodCoverage[2] == doctest::Approx(0.125f));
+
+    // Part-count mismatch: refused, base untouched.
+    model::ModelMesh twoParts;
+    const u32 tpIndices[6] = {0, 1, 2, 0, 2, 1};
+    makeQuad(twoParts, 300.0f, 3, 6, tpIndices);
+    twoParts.addPart(model::ModelMeshPart{0, 3, 0});
+    twoParts.addPart(model::ModelMeshPart{3, 3, 1});
+    const usize blobBefore = source.vertexBlob.Size();
+    CHECK_FALSE(pipeline::AppendLodLevelFromModel(twoParts, source));
+    CHECK(source.vertexBlob.Size() == blobBefore);
+    CHECK(source.lodCount == 3);
+
+    // The chain survives the runtime fill (levels slice; LOD 1 draws its own range).
+    geometry::StaticMesh mesh;
+    source.FillStatic(mesh);
+    CHECK(mesh.lodCount == 3);
+    CHECK(mesh.SubMeshesForLod(1)[0].startIndex == 6);
+    CHECK(mesh.SubMeshesForLod(1)[0].indexCount == 3);
+}

@@ -276,6 +276,46 @@ namespace editor
             AddStatLine(u8"Not cooked yet - the preview appears once the asset cooks.");
             return;
         }
+
+        // LOD preview row (chains only): Auto + one button per level, driving the preview
+        // MeshComponent's forceLod knob - the same wire the game uses, so what the page
+        // shows IS the selected level's real draw.
+        if (mesh->lodCount > 1)
+        {
+            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            row->Direction = ui::Orientation::Horizontal;
+            row->Spacing = 4.0f;
+            MeshEditorPage* self = this;
+            const auto addLodButton = [&](StringView text, i32 value)
+            {
+                auto button = MakeRef<ui::Button>(DefaultAllocator(), text);
+                button->FontSize.SetValue(Optional<f32>{12.0f});
+                if (value == m_previewForceLod)
+                {
+                    button->IsEnabled = false; // the active choice reads as pressed
+                }
+                button->OnClick.Add(
+                    [self, value](ui::ButtonBase*)
+                    {
+                        self->m_previewForceLod = value;
+                        self->ApplyPreviewLod();
+                        self->RefreshStats();
+                    });
+                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                lp->Grow = 1.0f;
+                row->AddView(button.Get(), lp);
+            };
+            addLodButton(u8"Auto", -1);
+            for (u32 l = 0; l < mesh->lodCount; ++l)
+            {
+                addLodButton(Format(u8"LOD {}", l).AsView(), static_cast<i32>(l));
+            }
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
+            m_statsColumn->AddView(row.Get(), lp);
+        }
+
         for (const String& line : MeshStatLines(*mesh))
         {
             AddStatLine(line.AsView());
@@ -301,6 +341,25 @@ namespace editor
             const geometry::SubMesh& sm = mesh.subMeshes[i];
             lines.PushBack(
                 Format(u8"  [{}] material {}  |  {} indices", i, sm.materialIndex, sm.indexCount));
+        }
+        // The LOD chain (mesh-lod.md P1): per-level triangle totals + switch thresholds.
+        if (mesh.lodCount > 1)
+        {
+            lines.PushBack(Format(u8"LOD levels: {}", mesh.lodCount));
+            for (u32 l = 0; l < mesh.lodCount; ++l)
+            {
+                u64 indexTotal = 0;
+                for (const geometry::SubMesh& sm : mesh.SubMeshesForLod(l))
+                {
+                    indexTotal += static_cast<u64>(sm.indexCount);
+                }
+                const f32 threshold =
+                    (l < static_cast<u32>(mesh.lodCoverage.Size())) ? mesh.lodCoverage[l] : 0.0f;
+                lines.PushBack(
+                    (l == 0) ? Format(u8"  LOD 0: {} triangles", indexTotal / 3)
+                             : Format(u8"  LOD {}: {} triangles  |  below {} coverage", l,
+                                      indexTotal / 3, FormatFixed(threshold, 3)));
+            }
         }
         return lines;
     }
@@ -368,7 +427,20 @@ namespace editor
         {
             mc->mesh.SetDirect(RefPtr<geometry::StaticMesh>{}); // not cooked yet - clear
         }
+        mc->forceLod = m_previewForceLod; // the page's LOD row drives the real knob
         ApplyPreviewMaterial();
+    }
+
+    void MeshEditorPage::ApplyPreviewLod()
+    {
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        auto* meshes =
+            scenePtr ? scenePtr->GetSystem<engine::render::MeshComponentManager>() : nullptr;
+        engine::render::MeshComponent* mc = (meshes != nullptr) ? meshes->Get(m_entity) : nullptr;
+        if (mc != nullptr)
+        {
+            mc->forceLod = m_previewForceLod;
+        }
     }
 
     void MeshEditorPage::ApplyPreviewMaterial()

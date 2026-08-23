@@ -85,3 +85,42 @@ TEST_CASE("MeshStatLines counts match the mesh geometry")
     CHECK(sawV);
     CHECK(sawI);
 }
+
+TEST_CASE("MeshStatLines reports the LOD chain (levels, per-level triangles, thresholds)")
+{
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    REQUIRE(cube.Get() != nullptr);
+    // Fake a 2-level chain: level 1 reuses the first 12 indices as its range.
+    cube->lodCount = 2;
+    cube->lodSubMeshes.PushBack(geometry::SubMesh{0, 12, 0, geometry::PrimitiveType::Triangles});
+    cube->lodCoverage.PushBack(1.0f);
+    cube->lodCoverage.PushBack(0.25f);
+
+    Array<String> lines = editor::MeshStatLines(*cube);
+    bool sawLevels = false, sawLod0 = false, sawLod1 = false;
+    for (const String& line : lines)
+    {
+        if (line.AsView() == StringView(u8"LOD levels: 2"))
+        {
+            sawLevels = true;
+        }
+        if (line.AsView() == StringView(u8"  LOD 0: 12 triangles"))
+        {
+            sawLod0 = true; // cube: 36 indices = 12 triangles
+        }
+        if (line.AsView() == StringView(u8"  LOD 1: 4 triangles  |  below 0.250 coverage"))
+        {
+            sawLod1 = true; // 12 indices = 4 triangles
+        }
+    }
+    CHECK(sawLevels);
+    CHECK(sawLod0);
+    CHECK(sawLod1);
+
+    // Chainless meshes show no LOD block.
+    RefPtr<geometry::StaticMesh> plain = geometry::Primitives::Cube(1.0f);
+    for (const String& line : editor::MeshStatLines(*plain))
+    {
+        CHECK(line.AsView() != StringView(u8"LOD levels: 1"));
+    }
+}

@@ -791,8 +791,73 @@ export namespace pipeline
         {
             const bool hasSkin = model.skins().Size() > 0;
             const Span<foundation::model::ModelMesh* const> meshes = model.meshes();
+
+            // Authored LOD collapse (mesh-lod.md P1): "Foo_LOD1"/"Foo_LOD2" meshes become
+            // chain levels of the STATIC mesh named "Foo" instead of assets of their own.
+            // lodOf[i] = the base mesh index a suffixed mesh folds into (or -1); levels are
+            // gathered per base sorted by their suffix number. Skinned bases/levels never
+            // collapse (v1 static-only chains) - they import separately with a warning.
+            Array<i32> lodOf;
+            lodOf.Resize(meshes.Size());
+            Array<Array<usize>> lodLevels; // per mesh: consumed level indices, suffix order
+            lodLevels.Resize(meshes.Size());
             for (usize i = 0; i < meshes.Size(); ++i)
             {
+                lodOf[i] = -1;
+            }
+            for (usize i = 0; i < meshes.Size(); ++i)
+            {
+                String lodBase;
+                const u32 level = pipeline::ParseLodSuffix(StringView(meshes[i]->name()), lodBase);
+                if (level == 0)
+                {
+                    continue;
+                }
+                i32 baseIndex = -1;
+                for (usize j = 0; j < meshes.Size(); ++j)
+                {
+                    if (j != i && StringView(meshes[j]->name()) == lodBase.AsView())
+                    {
+                        baseIndex = static_cast<i32>(j);
+                        break;
+                    }
+                }
+                if (baseIndex < 0)
+                {
+                    continue; // no base of that name - a plain mesh that happens to end _LODn
+                }
+                if ((IsSkinnedMesh(*meshes[baseIndex]) && hasSkin) ||
+                    (IsSkinnedMesh(*meshes[i]) && hasSkin))
+                {
+                    LOG_WARNING(u8"Import",
+                                u8"mesh '{}': skinned LOD chains are not supported yet - "
+                                u8"importing as a separate mesh",
+                                meshes[i]->name());
+                    continue;
+                }
+                lodOf[i] = baseIndex;
+                // Insert sorted by suffix number so LOD2 lands after LOD1 regardless of node order.
+                Array<usize>& levels = lodLevels[static_cast<usize>(baseIndex)];
+                String otherBase;
+                usize at = levels.Size();
+                for (usize k = 0; k < levels.Size(); ++k)
+                {
+                    if (level < pipeline::ParseLodSuffix(StringView(meshes[levels[k]]->name()),
+                                                        otherBase))
+                    {
+                        at = k;
+                        break;
+                    }
+                }
+                levels.Insert(at, i);
+            }
+
+            for (usize i = 0; i < meshes.Size(); ++i)
+            {
+                if (lodOf[i] >= 0)
+                {
+                    continue; // consumed as a chain level of its base - no asset of its own
+                }
                 const foundation::model::ModelMesh& m = *meshes[i];
                 const bool skinned = IsSkinnedMesh(m) && hasSkin;
                 const String baseName = ImportedAssetName(m.name(), u8"mesh", i);
@@ -840,6 +905,23 @@ export namespace pipeline
                 {
                     auto asset = MakeRef<pipeline::StaticMeshAsset>(DefaultAllocator());
                     StaticMeshSourceFromModel(m, asset->source);
+                    // Fold the gathered _LODn siblings into this asset's chain (suffix order).
+                    for (const usize levelIndex : lodLevels[i])
+                    {
+                        if (!pipeline::AppendLodLevelFromModel(*meshes[levelIndex],
+                                                               asset->source))
+                        {
+                            LOG_WARNING(u8"Import",
+                                        u8"mesh '{}': LOD level '{}' has a different submesh "
+                                        u8"count - level skipped",
+                                        m.name(), meshes[levelIndex]->name());
+                        }
+                    }
+                    if (asset->source.lodCount > 1)
+                    {
+                        LOG_INFO(u8"Import", u8"mesh '{}': authored LOD chain with {} level(s)",
+                                 m.name(), asset->source.lodCount);
+                    }
                     inst = ClaimInstance(
                         group, name, pipeline::StaticMeshAsset::StaticType(), claimed);
                     if (inst == nullptr)

@@ -55,7 +55,7 @@ namespace engine::render
     {
         builder.Attribute("displayName", String(u8"Mesh"))
             .Attribute("category", String(u8"Rendering"))
-            .DataVersion(3) // v3: unified materials array (slot 0 = whole-mesh)
+            .DataVersion(4) // v4: LOD knobs (v3: unified materials array, slot 0 = whole-mesh)
             // Script (Track A): MeshComponent.of(entity) -> a re-resolving handle; `color`/`visible`
             // set live from a behavior. `mesh`/`materials` are resource refs - swapped via the
             // resource-resolve primitive (Phase 1b), not this raw property.
@@ -63,6 +63,15 @@ namespace engine::render
             .Property<&MeshComponent::mesh>("mesh")
             .Property<&MeshComponent::color>("color")
             .Property<&MeshComponent::visible>("visible")
+            .Property<&MeshComponent::lodBias>("lodBias")
+            .PropAttribute("displayName", String(u8"LOD Bias"))
+            .PropAttribute("description",
+                           String(u8"Positive selects coarser LODs sooner (each unit halves the "
+                                  u8"effective screen coverage); negative holds detail longer."))
+            .Property<&MeshComponent::forceLod>("forceLod")
+            .PropAttribute("displayName", String(u8"Force LOD"))
+            .PropAttribute("description",
+                           String(u8"Pin one LOD level (0 = finest). -1 = automatic selection."))
             // The material slots as a reflected container - the generic list editor renders it. The
             // description surfaces as the list's hover tooltip (the slot-0 / submesh semantics).
             .Nested<&MeshComponent::materials>("materials")

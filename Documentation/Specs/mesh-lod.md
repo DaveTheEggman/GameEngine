@@ -125,9 +125,33 @@ single `Ref<StaticMesh>`).
   FromMesh/FillStatic round-trip the chain with validation (bad tables
   collapse to 1 LOD, never crash); the P0 optimizer is LOD-aware (each
   level reordered, chains validated before any mutation). Tests:
-  MeshLodWireTests.cpp. REMAINING in P1: importer name collapse,
-  extraction selection + hysteresis, component knobs, mesh-page
-  dropdown.
+  MeshLodWireTests.cpp.
+  P1 COMPLETE (Fable, 2026-08-23): SELECTION - per-view at the renderer's
+  resolve stage, NOT extraction (one snapshot serves every view - a spec
+  premise correction): pure trio LodCoverageFor (projected-sphere
+  coverage; perspective / ortho via projection[1][1], m[3][3]
+  discriminates; lodBias halves coverage per unit) + PickLodLevel
+  (descending-threshold walk) + ApplyLodHysteresis (+-5% band), glued by
+  MeshRenderer::SelectLod with per-(view pointer, item) memory (capped,
+  prepass/forward agree within a frame). ALL six draw paths route chains
+  through the selected level's submesh table (forward single/instanced,
+  depth single/instanced, multimesh forward/depth) - the whole-buffer
+  fast path draws only chainless meshes, since concatenated LOD indices
+  would draw every level at once. Instanced sets pick ONE level from
+  merged bounds (spec v1). KNOBS - MeshComponent lodBias/forceLod (wire
+  v4, reflected with displayName/description; extraction copies).
+  IMPORTER - ParseLodSuffix (_LODn, case-insensitive, _LOD0 = base) +
+  AppendLodLevelFromModel (shared blob append, offset indices, per-part
+  ranges, halving threshold ladder 0.25/0.125/...; part-count mismatch
+  refuses the level); the import loop folds suffixed STATIC meshes into
+  their base (skinned chains warn + import separately; consumed levels
+  produce no asset/manifest entry). EDITOR - mesh page LOD row
+  (Auto/LOD n buttons driving the preview component's REAL forceLod
+  knob) + per-level triangle/threshold stat lines. Tests:
+  LodSelectionTests (coverage/pick/hysteresis), importer suffix +
+  append cases, MeshStatLines chain block. Shadow cascade LOD refinement
+  (main-view coupling) stays P3 as specced: shadow views currently
+  select with their own ortho metric - functional and conservative.
 - **P2 - auto-generation.** meshopt_simplify chains at import with error
   bounds + dialog knobs. Acceptance: Sponza-class import generates chains;
   triangle-count assertions; error-bound drop case tested.

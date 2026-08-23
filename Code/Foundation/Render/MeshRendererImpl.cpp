@@ -1102,11 +1102,19 @@ namespace foundation::render
             out.PushBack(d);
         };
 
-        // Multi-material: draw each submesh with its own material; else one draw for the whole mesh.
-        if (md.submeshMaterialCount > 0 && md.mesh != nullptr && !md.mesh->subMeshes.IsEmpty())
+        // Multi-material: draw each submesh with its own material; else one draw for the whole
+        // mesh. A LOD chain routes BOTH branches through the selected level's submesh table -
+        // the whole-buffer fast path would draw every level's concatenated indices at once.
+        const bool hasChain = md.mesh != nullptr && md.mesh->lodCount > 1;
+        if (md.mesh != nullptr && !md.mesh->subMeshes.IsEmpty() &&
+            (md.submeshMaterialCount > 0 || hasChain))
         {
+            const Span<const geometry::SubMesh> subs =
+                hasChain ? md.mesh->SubMeshesForLod(SelectLod(ctx, md))
+                         : Span<const geometry::SubMesh>(md.mesh->subMeshes.Data(),
+                                                         md.mesh->subMeshes.Size());
             const u64 stride = (mesh.indexFormat == rhi::IndexFormat::UInt16) ? 2u : 4u;
-            for (const geometry::SubMesh& sub : md.mesh->subMeshes)
+            for (const geometry::SubMesh& sub : subs)
             {
                 materials::Material* m =
                     (sub.materialIndex >= 0 &&
@@ -1234,12 +1242,19 @@ namespace foundation::render
             out.PushBack(d);
         };
 
-        // Multi-material: one instanced draw per submesh (its own material + index range); else one draw.
-        if (head.submeshMaterialCount > 0 && head.mesh != nullptr &&
-            !head.mesh->subMeshes.IsEmpty())
+        // Multi-material: one instanced draw per submesh (its own material + index range); else
+        // one draw. A LOD chain selects ONE level for the whole batch from the head's bounds
+        // (spec v1: per-set/per-batch selection; per-instance LOD is the deferred v2).
+        const bool hasChain = head.mesh != nullptr && head.mesh->lodCount > 1;
+        if (head.mesh != nullptr && !head.mesh->subMeshes.IsEmpty() &&
+            (head.submeshMaterialCount > 0 || hasChain))
         {
+            const Span<const geometry::SubMesh> subs =
+                hasChain ? head.mesh->SubMeshesForLod(SelectLod(ctx, head))
+                         : Span<const geometry::SubMesh>(head.mesh->subMeshes.Data(),
+                                                         head.mesh->subMeshes.Size());
             const u64 stride = (mesh.indexFormat == rhi::IndexFormat::UInt16) ? 2u : 4u;
-            for (const geometry::SubMesh& sub : head.mesh->subMeshes)
+            for (const geometry::SubMesh& sub : subs)
             {
                 materials::Material* m =
                     (sub.materialIndex >= 0 &&
@@ -1338,6 +1353,22 @@ namespace foundation::render
         d.indexFormat = mesh.indexFormat;
         d.indexCount = mesh.indexCount;
         d.instanceCount = 1;
+        // A LOD chain: this view's selected level, one draw per submesh range (the whole-buffer
+        // path would cast every concatenated level's shadow at once).
+        if (md.mesh != nullptr && md.mesh->lodCount > 1)
+        {
+            const Span<const geometry::SubMesh> subs =
+                md.mesh->SubMeshesForLod(SelectLod(ctx, md));
+            const u64 stride = (mesh.indexFormat == rhi::IndexFormat::UInt16) ? 2u : 4u;
+            for (const geometry::SubMesh& sub : subs)
+            {
+                ResolvedDraw c = d;
+                c.indexOffset = mesh.indexOffset + static_cast<u64>(sub.startIndex) * stride;
+                c.indexCount = static_cast<u32>(sub.indexCount);
+                out.PushBack(c);
+            }
+            return;
+        }
         out.PushBack(d);
     }
 
@@ -1440,6 +1471,21 @@ namespace foundation::render
         d.indexFormat = mesh.indexFormat;
         d.indexCount = mesh.indexCount;
         d.instanceCount = count;
+        // LOD chain: one level for the whole instanced batch (the head's bounds), per-submesh draws.
+        if (head.mesh != nullptr && head.mesh->lodCount > 1)
+        {
+            const Span<const geometry::SubMesh> subs =
+                head.mesh->SubMeshesForLod(SelectLod(ctx, head));
+            const u64 stride = (mesh.indexFormat == rhi::IndexFormat::UInt16) ? 2u : 4u;
+            for (const geometry::SubMesh& sub : subs)
+            {
+                ResolvedDraw c = d;
+                c.indexOffset = mesh.indexOffset + static_cast<u64>(sub.startIndex) * stride;
+                c.indexCount = static_cast<u32>(sub.indexCount);
+                out.PushBack(c);
+            }
+            return;
+        }
         out.PushBack(d);
     }
 
@@ -1516,10 +1562,17 @@ namespace foundation::render
             out.PushBack(d);
         };
 
-        if (mm.submeshMaterialCount > 0 && mm.mesh != nullptr && !mm.mesh->subMeshes.IsEmpty())
+        // A LOD chain selects one level for the whole set (merged bounds - spec v1).
+        const bool hasChain = mm.mesh != nullptr && mm.mesh->lodCount > 1;
+        if (mm.mesh != nullptr && !mm.mesh->subMeshes.IsEmpty() &&
+            (mm.submeshMaterialCount > 0 || hasChain))
         {
+            const Span<const geometry::SubMesh> subs =
+                hasChain ? mm.mesh->SubMeshesForLod(SelectLod(ctx, mm))
+                         : Span<const geometry::SubMesh>(mm.mesh->subMeshes.Data(),
+                                                         mm.mesh->subMeshes.Size());
             const u64 stride = (mesh.indexFormat == rhi::IndexFormat::UInt16) ? 2u : 4u;
-            for (const geometry::SubMesh& sub : mm.mesh->subMeshes)
+            for (const geometry::SubMesh& sub : subs)
             {
                 materials::Material* m =
                     (sub.materialIndex >= 0 &&
@@ -1616,6 +1669,20 @@ namespace foundation::render
         d.indexFormat = mesh.indexFormat;
         d.indexCount = mesh.indexCount;
         d.instanceCount = set->count;
+        // LOD chain: one level for the whole set (its merged bounds), per-submesh draws.
+        if (mm.mesh != nullptr && mm.mesh->lodCount > 1)
+        {
+            const Span<const geometry::SubMesh> subs = mm.mesh->SubMeshesForLod(SelectLod(ctx, mm));
+            const u64 stride = (mesh.indexFormat == rhi::IndexFormat::UInt16) ? 2u : 4u;
+            for (const geometry::SubMesh& sub : subs)
+            {
+                ResolvedDraw c = d;
+                c.indexOffset = mesh.indexOffset + static_cast<u64>(sub.startIndex) * stride;
+                c.indexCount = static_cast<u32>(sub.indexCount);
+                out.PushBack(c);
+            }
+            return;
+        }
         out.PushBack(d);
     }
 
@@ -2531,5 +2598,90 @@ namespace foundation::render
         k = (k ^ static_cast<u64>(reinterpret_cast<usize>(mesh))) * 1099511628211ull;
         k = (k ^ static_cast<u64>(reinterpret_cast<usize>(mat))) * 1099511628211ull;
         return k;
+    }
+
+    f32 LodCoverageFor(const ViewCamera& camera, Float3 worldCenter, f32 worldRadius, f32 lodBias)
+    {
+        const f32 proj11 = camera.projection.m[1][1];
+        f32 coverage;
+        if (camera.projection.m[3][3] != 0.0f)
+        {
+            coverage = worldRadius * proj11; // ortho: screen size is depth-free
+        }
+        else
+        {
+            const Float3 vc = TransformPoint(worldCenter, camera.view);
+            const f32 depth = ((-vc.z) > 0.001f) ? (-vc.z) : 0.001f; // forward = -z (view space)
+            coverage = worldRadius * proj11 / depth;
+        }
+        if (lodBias != 0.0f)
+        {
+            coverage *= Pow(2.0f, -lodBias); // each bias unit halves effective coverage
+        }
+        return coverage;
+    }
+
+    u32 PickLodLevel(const geometry::StaticMesh& mesh, f32 coverage)
+    {
+        if (mesh.lodCount <= 1)
+        {
+            return 0;
+        }
+        const u32 maxLod = mesh.lodCount - 1;
+        u32 sel = 0;
+        for (u32 l = 1; l <= maxLod && l < static_cast<u32>(mesh.lodCoverage.Size()); ++l)
+        {
+            if (coverage < mesh.lodCoverage[l])
+            {
+                sel = l;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return sel;
+    }
+
+    u32 ApplyLodHysteresis(const geometry::StaticMesh& mesh, f32 coverage, u32 rawSelection,
+                           u32 last)
+    {
+        const u32 finest = PickLodLevel(mesh, coverage * 1.05f); // more coverage -> finer level
+        const u32 coarsest = PickLodLevel(mesh, coverage * 0.95f);
+        return (last >= finest && last <= coarsest) ? last : rawSelection;
+    }
+
+    u32 MeshRenderer::SelectLod(const RenderRecordContext& ctx, const MeshRenderData& md)
+    {
+        const geometry::StaticMesh* mesh = md.mesh;
+        if (mesh == nullptr || mesh->lodCount <= 1 || ctx.view == nullptr)
+        {
+            return 0;
+        }
+        const u32 maxLod = mesh->lodCount - 1;
+        if (md.forceLod >= 0)
+        {
+            return (static_cast<u32>(md.forceLod) < maxLod) ? static_cast<u32>(md.forceLod)
+                                                            : maxLod;
+        }
+        const f32 coverage =
+            LodCoverageFor(ctx.view->Camera(), md.worldCenter, md.worldRadius, md.lodBias);
+        u32 sel = PickLodLevel(*mesh, coverage);
+        // Keyed per (view pointer, item) - entityId when there is one, else the mesh uid
+        // (page-local previews). Persisted across frames; that is what hysteresis needs.
+        const u64 itemId = (md.entityId != 0) ? md.entityId : mesh->uid;
+        u64 key = 1469598103934665603ull;
+        key = (key ^ static_cast<u64>(reinterpret_cast<usize>(ctx.view))) * 1099511628211ull;
+        key = (key ^ itemId) * 1099511628211ull;
+        if (const u32* last = m_lodLast.Find(key))
+        {
+            sel = ApplyLodHysteresis(*mesh, coverage, sel, *last);
+        }
+        if (m_lodLast.Size() > 65536)
+        {
+            m_lodLast.Clear(); // bounded memory; worst case one unhysteresed frame
+        }
+        m_lodLast.InsertOrAssign(key, sel);
+        return sel;
     }
 }

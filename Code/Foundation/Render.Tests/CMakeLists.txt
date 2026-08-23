@@ -6,6 +6,7 @@ add_executable(Render.Tests
     RenderDataTests.cpp
     PipelineTests.cpp
     PoseSelectionTests.cpp
+    LodSelectionTests.cpp
     RetireQueueTests.cpp)
 
 target_link_libraries(Render.Tests PRIVATE
