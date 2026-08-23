@@ -18,59 +18,69 @@ phase 3 of THIS track. Ocean/river/forest = not planned.
 
 ## Module layout (confirmed shape)
 
-Heightfield is a SEPARATE library from terrain (2026-08-22 decision,
-mirroring Traktor's `hf` factoring): the grid + sampling math is the shared
-source of truth that both the terrain renderer AND physics consume, so it
-lives below terrain and neither the physics shape cook nor the navigation
-bake needs to depend on the terrain renderer to read heights. Navigation
-already ships; sampling terrain heights into a navmesh is the deferred
-terrain<->nav integration (see "Explicitly deferred"), and when it lands it
-consumes foundation.heightfield directly.
+Heightfield is a FIRST-CLASS ASSET below terrain, not embedded in it
+(2026-08-22 decision, revised same day after auditing Traktor's
+`Heightfield/Editor`: it has a full HeightfieldAsset -> HeightfieldPipeline
+-> Heightfield resource chain, and Terrain/physics/undergrowth all REFERENCE
+`resource::Id<Heightfield>` rather than embedding a heightmap). This is
+exactly our `foundation.X` + `X.Resource` + `X.Pipeline` + `Editor.X`
+convention (as textures/meshes get), and it makes the grid the shared source
+of truth: one authored heightfield is referenced by a terrain, by a physics
+collider, and by the navigation bake, none of which depend on the terrain
+renderer to read heights. (Navigation already ships; sampling heights into a
+navmesh is the deferred terrain<->nav integration - see "Explicitly
+deferred" - and consumes the heightfield resource directly.)
 
 - `Code/Foundation/Heightfield` - module `foundation.heightfield`, alias
   `Foundation::Heightfield`. The pure grid, NO RHI, NO terrain concepts:
   u16 height storage over a world XZ extent + Y range, bilinear GetHeightAt
   / GetNormalAt, world<->grid conversions, ray query, per-cell/chunk
-  bounds (min/max height per cell, for culling + ray acceleration). This is
-  what Physics cooks its collision shape from and what the editor brush
-  raycasts against - it depends on nothing but Foundation::Core math. It
-  OWNS its blob (de)serialization (self-describing, like the geometry mesh
-  format), so any cook can write the grid without a heightfield pipeline lib.
-- NO separate `Heightfield.Pipeline` / `Heightfield.Resource` in P1
-  (2026-08-22): heightfield is a shared RUNTIME lib (many consumers) but
-  has ONE authoring source - terrain - so `Terrain.Pipeline` imports the
-  heightmap image and cooks the blob (using foundation.heightfield's
-  serialize), and `foundation.terrain.resource` loads it back into a grid.
-  A standalone pipeline would be speculative. Promote to `Heightfield.*`
-  cook/resource libs ONLY when a NON-terrain authoring consumer appears
-  (e.g. a standalone collision-heightfield asset, or a heightfield brush
-  used outside terrain) - explicit-when-needed, not up front.
+  bounds (min/max height per cell, for culling + ray acceleration). Depends
+  on nothing but Foundation::Core math.
+- `Code/Foundation/Heightfield.Resource` - module
+  `foundation.heightfield.resource`. The cooked, REFERENCEABLE heightfield
+  resource + loader (CPU grid; `Ref<Heightfield>` points here). Terrain, the
+  physics shape cook, and the nav bake all resolve this - no one embeds the
+  raw grid.
+- `Code/Pipeline/Heightfield.Pipeline` - HeightfieldAsset (Pipeline
+  domain): created blank (size + world extent + Y range) OR from an imported
+  16-bit heightmap image (PNG/RAW through the existing image import path).
+  Builder cooks asset -> heightfield resource. The heightmap SOURCE stays
+  binary (16-bit); the asset XML references the height blob the way meshes
+  reference their data. Bump kBuilderCount + tripwire; kImporterCount for the
+  heightmap-file drag-drop importer. (This is where heightmap import lives -
+  NOT in Terrain.Pipeline.)
+- `Code/Editor/Editor.Heightfield` - the heightfield asset page + New/Import
+  wizard. P1 = create/import + a basic preview; the sculpt brushes (phase 2)
+  operate on THIS asset through the shared brush framework. Derived-texture
+  bakes (normal/occlusion FROM the heightfield) and erosion/hydraulic
+  filters are Traktor features we DEFER (see "Explicitly deferred").
 - `Code/Foundation/Terrain` - module `foundation.terrain`, alias
   `Foundation::Terrain`. DEPENDS ON `foundation.heightfield`; adds the
   terrain model over the grid: chunk quadtree + per-chunk LOD selection
   given a camera (pure function - unit-testable without rendering) and
   splat layer descriptors. Still NO RHI.
 - `Code/Foundation/Terrain.Resource` - module
-  `foundation.terrain.resource`. Cooked terrain resource + loader:
-  heightfield blob (loads into a `foundation.heightfield` grid), splatmap
-  texture refs, per-layer material/texture refs (model-A GPU factory
-  pattern like Texture.Resource).
+  `foundation.terrain.resource`. Cooked terrain resource + loader: a
+  `Ref<Heightfield>` (the referenced heightfield resource, NOT an embedded
+  blob), splatmap texture refs, per-layer material/texture refs (model-A GPU
+  factory pattern like Texture.Resource).
 - `Code/Pipeline/Terrain.Pipeline` - TerrainAsset (Pipeline domain):
-  created blank (size + scales) or from an imported heightmap image
-  (16-bit PNG/RAW through the existing image import path); splat layer
-  list referencing materials/textures. Builder cooks asset -> product.
-  Heightmap SOURCE data stays binary (16-bit) - scenes stay text; the
-  asset XML references the height blob the way meshes reference their
-  data. Bump kBuilderCount + tripwire; importer only if heightmap-file
-  drag-drop is wanted (then bump kImporterCount too).
+  REFERENCES a heightfield asset (Ref) + a splat layer list referencing
+  materials/textures + cast-shadows flag. No heightmap import here (that is
+  Heightfield.Pipeline); the builder cooks asset -> product that carries the
+  heightfield reference. Bump kBuilderCount + tripwire.
 - `Code/Engine/Terrain` - module `engine.terrain`. TerrainComponent
   {Ref<TerrainAsset product>, cast shadows flag} + the RENDERER, owned
   HERE via the dynamic-category / per-item rendererId dispatch (sprites
   precedent) - Engine.Render stays terrain-free. Physics wiring: cooks a
-  Jolt HeightFieldShape from the same `foundation.heightfield` grid so
-  render and collision cannot diverge (Physics depends on
-  foundation.heightfield, NOT foundation.terrain); registers through
-  Engine.Physics' existing shape seam.
+  Jolt HeightFieldShape from the REFERENCED heightfield resource so render
+  and collision cannot diverge (Physics depends on foundation.heightfield
+  [+.resource], NOT foundation.terrain); registers through Engine.Physics'
+  existing shape seam. Because physics references a heightfield resource
+  directly, a heightfield COLLIDER without any terrain renderer is possible
+  (a plain heightfield-shape option on the physics collider component; nice
+  side effect of the split, spec it if wanted).
   Component checklist: displayName + category attributes, InspectorView
   ref-picker entry, reflected GetHeightAt for scripts (natural types - no
   new facade lib; facade name count unchanged unless a subsystem facade
@@ -116,14 +126,14 @@ seam navigation's bake will consume later.
 
 ## Physics (phase 1)
 
-Jolt HeightFieldShape built from the `foundation.heightfield` grid at scene
-integration (Physics.Pipeline cooks the shape data alongside the terrain
-product so runtime creation is cheap). Physics depends on
-foundation.heightfield only - never on foundation.terrain. Collision
-layer/group per the existing matrix. The height query epsilon test below is
-the honesty check between render and physics (both sample the SAME grid, so
-it should hold trivially - the test guards against a cook/quantization
-drift).
+Jolt HeightFieldShape built from the REFERENCED heightfield resource at
+scene integration (Physics.Pipeline cooks the shape data alongside the
+heightfield product so runtime creation is cheap). Physics depends on
+foundation.heightfield [+.resource] only - never on foundation.terrain.
+Collision layer/group per the existing matrix. The height query epsilon test
+below is the honesty check between render and physics (both resolve the SAME
+heightfield resource, so it should hold trivially - the test guards against a
+cook/quantization drift).
 
 ## Editor experience (phase 2 - separate discussion pending)
 
@@ -165,15 +175,18 @@ Spec'd in detail when phase 2 lands.
   per-cell bounds correctness.
 - foundation.terrain: LOD selection determinism for fixture cameras, chunk
   quadtree correctness, splat descriptor round-trip.
-- Cook round-trip: blank + imported-heightmap assets; product loads;
-  count guards on layers.
+- Heightfield cook round-trip: blank + imported-heightmap assets ->
+  heightfield resource; resource loads into a grid matching the source.
+- Terrain cook round-trip: TerrainAsset references a heightfield asset +
+  splat layers; product loads and RESOLVES the heightfield reference; count
+  guards on layers.
 - Render smoke: pixel-probe test on the backend suite (a known ramp
   heightfield renders non-black, silhouette sanity) - Vulkan + WebGPU,
   per the VG.Backend.Tests precedent.
 - Physics consistency: for N random points, Jolt heightfield hit height
-  == foundation.terrain GetHeightAt within epsilon (the render/collision
+  == foundation.heightfield GetHeightAt within epsilon (the render/collision
   divergence tripwire).
-- Component wire round-trip; tripwires (builder count, picker entry).
+- Component wire round-trip; tripwires (builder count x2, picker entry).
 
 ## Acceptance (phase 1)
 
@@ -187,3 +200,7 @@ in play-in-editor and export; user visual pass on desktop + web.
 Holes, CDLOD morphing, more than 4 splat layers / multiple splatmaps,
 grass (phase 3), terrain as navigation bake source (joins the nav track
 when both exist), ocean/river/forest (not planned), large-world paging.
+Heightfield-editor extras Traktor has but we defer: erosion/hydraulic
+filters, derived-texture bakes (normal/occlusion generated FROM the
+heightfield), and a standalone heightfield-only physics collider (the split
+makes it possible - spec on demand).
