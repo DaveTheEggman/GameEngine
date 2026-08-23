@@ -208,8 +208,13 @@ Spec'd in detail when phase 2 lands.
 
 Battery green both compilers; wasm target renders the demo terrain; a
 demo scene (imported heightmap, 4 splat layers, lit + shadowed, a physics
-sphere rolling on it, an agent walking on it once navigation lands) runs
-in play-in-editor and export; user visual pass on desktop + web.
+sphere rolling on it) runs in play-in-editor and export; user visual pass
+on desktop + web. (An agent walking the terrain is NOT P1 acceptance:
+navigation SHIPPED 2026-08-18, but terrain as a bake source is the
+explicitly deferred terrain<->nav integration - the heightfield
+tessellated into the existing triangle-soup NavigationMeshBuilder. The
+agent demo is that integration's acceptance, not this one's. The stale
+"once navigation lands" phrasing predated navigation's completion.)
 
 ## Review of the 2026-08-22/23 restructure (Fable, 2026-08-23)
 
