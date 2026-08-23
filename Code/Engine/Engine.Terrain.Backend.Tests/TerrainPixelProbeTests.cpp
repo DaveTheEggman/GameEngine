@@ -1,0 +1,226 @@
+// Terrain pixel-level ground truth on a REAL Vulkan device: render a lit dome terrain top-down
+// through the full RenderFrame chain, read the pixels back, and assert (1) the terrain covers the
+// view (it rendered - a broken PSO or reversed winding leaves it black) and (2) the directional
+// light produces shading asymmetry across the dome (the normals-from-heightmap + lit path actually
+// work, not a flat fill). Compilation is proven by the Null test; THIS proves correct pixels. Skips
+// cleanly when no Vulkan GPU is available.
+#include <doctest/doctest.h>
+#include "Core/Prelude.h"
+
+#include <cstdio>
+
+import foundation.core;
+import foundation.rhi;
+import foundation.rhi.vulkan;
+import foundation.rhi.testsupport;
+import foundation.shaders.system;
+import foundation.render;
+import foundation.heightfield;
+import foundation.terrain;
+import engine.terrain;
+
+using namespace foundation::core;
+using namespace foundation::render;
+namespace rhi = foundation::rhi;
+namespace testsupport = foundation::rhi::testsupport;
+namespace shaders = foundation::shaders;
+namespace hf = foundation::heightfield;
+namespace tmodel = foundation::terrain;
+
+namespace
+{
+    constexpr u32 kSize = 256;
+
+    // A radial dome: 1.0 at the centre, 0 at the rim (varying normals -> varying shading).
+    RefPtr<hf::Heightfield> MakeDome()
+    {
+        constexpr i32 n = 129;
+        RefPtr<hf::Heightfield> h =
+            MakeRef<hf::Heightfield>(DefaultAllocator(), n, Float2{130.0f, 130.0f}, 0.0f, 30.0f);
+        const f32 c = static_cast<f32>(n - 1) * 0.5f;
+        for (i32 z = 0; z < n; ++z)
+        {
+            for (i32 x = 0; x < n; ++x)
+            {
+                const f32 dx = (static_cast<f32>(x) - c) / c;
+                const f32 dz = (static_cast<f32>(z) - c) / c;
+                const f32 r = Min(Sqrt(dx * dx + dz * dz), 1.0f);
+                const f32 hgt = Cos(r * 3.14159265f) * 0.5f + 0.5f; // 1 centre .. 0 rim
+                h->SetSample(x, z, static_cast<hf::Height>(hgt * 65535.0f));
+            }
+        }
+        return h;
+    }
+
+    struct Probe
+    {
+        bool valid = false;
+        u32 filled = 0; // pixels brighter than the black background
+        f64 leftLuma = 0, rightLuma = 0, topLuma = 0, bottomLuma = 0, total = 0;
+    };
+
+    Probe RenderTerrainProbe(rhi::Device& device)
+    {
+        Probe probe;
+        shaders::ShaderSystemHost host;
+        if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
+                                          BUILTIN_ENGINE_SHADER_DIR))))
+        {
+            return probe;
+        }
+        {
+            shaders::ShaderSystem& shaderSystem = *host.System();
+            engine::terrain::TerrainRenderer renderer(device, shaderSystem, /*framesInFlight*/ 2);
+            REQUIRE(renderer.Initialize().IsOk());
+            RendererRegistry registry;
+            registry.Register(&renderer);
+            RenderFrame frame(device, registry, /*framesInFlight*/ 2);
+
+            RefPtr<hf::Heightfield> dome = MakeDome();
+            Array<tmodel::TerrainChunk> chunks;
+            tmodel::BuildChunks(*dome, chunks);
+            tmodel::TerrainQuadtree tree;
+            tree.Build(Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
+                       tmodel::ChunksPerSide(dome->Size()));
+            engine::terrain::TerrainHeightTextureCache heightCache;
+            rhi::TextureView* heightView = heightCache.GetOrCreate(device, *dome, Guid{}, 1);
+            REQUIRE(heightView != nullptr);
+
+            static const f32 thresholds[] = {1.0f, 0.25f, 0.08f, 0.03f, 0.012f, 0.005f, 0.002f};
+            ExtractedScene scene;
+            scene.SetAmbient(Float3{1.0f, 1.0f, 1.0f});
+            engine::terrain::TerrainRenderData* rd = scene.Add<engine::terrain::TerrainRenderData>();
+            REQUIRE(rd != nullptr);
+            rd->category = RenderCategories::Opaque;
+            rd->rendererId = renderer.RendererId();
+            rd->chunks = chunks.Data();
+            rd->quadtree = &tree;
+            rd->chunkCount = static_cast<u32>(chunks.Size());
+            rd->heightView = heightView;
+            rd->chunkToWorld = Float4x4::Identity();
+            rd->gridSize = dome->Size();
+            rd->worldSizeXZ = dome->WorldSize();
+            rd->minY = dome->MinY();
+            rd->maxY = dome->MaxY();
+            for (u32 i = 0; i < 7; ++i)
+            {
+                rd->thresholds[i] = thresholds[i];
+            }
+            rd->thresholdCount = 7;
+            rd->worldCenter = Float3{0.0f, 15.0f, 0.0f};
+            rd->worldRadius = 120.0f;
+
+            // Straight down: the 130x130 terrain nearly fills the frame.
+            ViewCamera camera;
+            camera.view = Float4x4::LookAtRH(Float3{0.0f, 120.0f, 0.001f}, Float3{0.0f, 0.0f, 0.0f},
+                                             Float3{0.0f, 0.0f, 1.0f});
+            camera.projection = Float4x4::PerspectiveFovRH(1.0f, 1.0f, 1.0f, 500.0f);
+
+            rhi::TextureDesc td{};
+            td.format = rhi::TextureFormat::RGBA8Unorm;
+            td.width = kSize;
+            td.height = kSize;
+            td.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopySrc;
+            td.label = u8"terrain.probe.target";
+            rhi::Texture* target = nullptr;
+            REQUIRE(device.CreateTexture(td, target).IsOk());
+            rhi::TextureViewDesc vd{};
+            vd.format = rhi::TextureFormat::RGBA8Unorm;
+            rhi::TextureView* targetView = nullptr;
+            REQUIRE(device.CreateTextureView(target, vd, targetView).IsOk());
+
+            rhi::CommandPool* pool = nullptr;
+            REQUIRE(device.CreateCommandPool(rhi::QueueType::Graphics, pool).IsOk());
+            rhi::Fence* fence = nullptr;
+            REQUIRE(device.CreateFence(0, fence).IsOk());
+            rhi::Queue* queue = device.GetQueue(rhi::QueueType::Graphics);
+            REQUIRE(queue != nullptr);
+
+            ViewSettings settings;
+            settings.clear = rhi::ClearColor::Black();
+            settings.targetTexture = target;
+            settings.targetFinalState = rhi::ResourceState::CopySrc;
+            settings.post.bloomEnabled = false;
+
+            for (u32 i = 0; i < 2; ++i)
+            {
+                rhi::CommandEncoder* encoder = nullptr;
+                REQUIRE(pool->CreateEncoder(encoder).IsOk());
+                settings.targetCurrentState =
+                    (i == 0) ? rhi::ResourceState::Undefined : rhi::ResourceState::CopySrc;
+                frame.Begin(*encoder, i % 2);
+                frame.AddView(scene, camera, settings, targetView, rhi::TextureFormat::RGBA8Unorm,
+                              kSize, kSize);
+                frame.End();
+                rhi::CommandBuffer* commandBuffer = encoder->Finish();
+                REQUIRE(commandBuffer != nullptr);
+                rhi::CommandBuffer* commandBuffers[] = {commandBuffer};
+                queue->Submit(Span<rhi::CommandBuffer* const>(commandBuffers, 1), fence, i + 1);
+                REQUIRE(fence->Wait(i + 1, ~0ull));
+            }
+
+            const testsupport::CapturedImage img =
+                testsupport::Readback(device, target, kSize, kSize);
+            REQUIRE(img.valid);
+            for (u32 y = 0; y < kSize; ++y)
+            {
+                for (u32 x = 0; x < kSize; ++x)
+                {
+                    const u32 luma = img.Luma(x, y);
+                    probe.total += luma;
+                    if (luma > 30)
+                    {
+                        ++probe.filled;
+                    }
+                    (x < kSize / 2 ? probe.leftLuma : probe.rightLuma) += luma;
+                    (y < kSize / 2 ? probe.topLuma : probe.bottomLuma) += luma;
+                }
+            }
+            probe.valid = true;
+
+            device.WaitIdle();
+            device.DestroyFence(fence);
+            device.DestroyCommandPool(pool);
+            device.DestroyTextureView(targetView);
+            device.DestroyTexture(target);
+        }
+        host.Shutdown();
+        return probe;
+    }
+}
+
+TEST_CASE("terrain probe: a lit dome renders + shades on Vulkan")
+{
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+    rhi::Device* device = vulkan != nullptr ? testsupport::MakeTestDevice(vulkan) : nullptr;
+    if (device == nullptr)
+    {
+        MESSAGE("Vulkan unavailable - terrain probe skipped");
+        if (vulkan != nullptr)
+        {
+            vulkan->Destroy();
+        }
+        return;
+    }
+
+    const Probe p = RenderTerrainProbe(*device);
+    REQUIRE(p.valid);
+    const f64 pixels = static_cast<f64>(kSize) * kSize;
+    std::printf("[terrain-probe] filled=%u/%.0f left=%.0f right=%.0f top=%.0f bottom=%.0f\n",
+                p.filled, pixels, p.leftLuma, p.rightLuma, p.topLuma, p.bottomLuma);
+
+    // (1) The terrain rendered and covers most of the top-down view (black border aside). A dead
+    // PSO or reversed winding would leave the frame black.
+    CHECK(static_cast<f64>(p.filled) > pixels * 0.5);
+
+    // (2) Directional light on the dome's varying normals => the frame is NOT uniformly lit. The sun
+    // tilts in +X and +Z, so at least one screen axis shows a clear luma asymmetry (a flat/constant
+    // fill, or lighting that ignores the normal, would be symmetric).
+    const f64 axisAsymmetry =
+        Abs(p.leftLuma - p.rightLuma) + Abs(p.topLuma - p.bottomLuma);
+    CHECK(axisAsymmetry > p.total * 0.02);
+
+    device->Destroy();
+    vulkan->Destroy();
+}
