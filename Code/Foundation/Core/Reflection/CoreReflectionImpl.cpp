@@ -93,8 +93,15 @@ namespace foundation::core
             .Constant("UnitZ", Float3::UnitZ)
             // Overloaded free functions, disambiguated by an explicit cast.
             .Method<static_cast<f32 (*)(Float3, Float3)>(&Dot)>("Dot")
+            .Method<static_cast<Float3 (*)(Float3, Float3)>(&Cross)>("Cross", {"a", "b"})
             .Method<static_cast<f32 (*)(Float3)>(&Length)>("Length")
+            .Method<static_cast<f32 (*)(Float3)>(&LengthSquared)>("LengthSquared", {"v"})
+            .Method<static_cast<f32 (*)(Float3, Float3)>(&Distance)>("Distance", {"a", "b"})
             .Method<static_cast<Float3 (*)(Float3)>(&Normalized)>("Normalized")
+            .Method<static_cast<Float3 (*)(Float3, Float3, f32)>(&Lerp)>("Lerp", {"a", "b", "t"})
+            // Vector add/sub as named statics (a dynamic script surface cannot resolve operators by value).
+            .Method<static_cast<Float3 (*)(Float3, Float3)>(&operator+)>("Add", {"a", "b"})
+            .Method<static_cast<Float3 (*)(Float3, Float3)>(&operator-)>("Sub", {"a", "b"})
             // Two same-named overloads, resolved by parameter type at lookup.
             .Method<static_cast<Float3 (*)(Float3, Float3)>(&operator*)>("Mul")
             // Same arity as Mul, genuinely type-overloaded (vec*vec vs vec*scalar) - a distinct
@@ -142,6 +149,17 @@ namespace foundation::core
             .Property<&Quaternion::z>("z")
             .Property<&Quaternion::w>("w")
             .Constant("Identity", Quaternion::Identity)
+            .Method<&Quaternion::FromAxisAngle>("FromAxisAngle", {"axis", "radians"}) // static factory
+            .Method<static_cast<Quaternion (*)(f32, f32, f32)>(&FromYawPitchRoll)>(
+                "FromYawPitchRoll", {"yaw", "pitch", "roll"})
+            .Method<static_cast<Quaternion (*)(Quaternion, Quaternion)>(&operator*)>("Mul", {"a", "b"})
+            .Method<static_cast<Float3 (*)(Quaternion, Float3)>(&RotateVector)>("RotateVector",
+                                                                               {"q", "v"})
+            .Method<static_cast<Quaternion (*)(Quaternion)>(&Normalized)>("Normalized", {"q"})
+            .Method<static_cast<Quaternion (*)(Quaternion)>(&Conjugate)>("Conjugate", {"q"})
+            .Method<static_cast<Quaternion (*)(Quaternion)>(&Inverse)>("Inverse", {"q"})
+            .Method<static_cast<Quaternion (*)(Quaternion, Quaternion, f32)>(&Slerp)>(
+                "Slerp", {"a", "b", "t"})
             .Constructor()
             .Constructor<f32, f32, f32, f32>();
     }
@@ -173,6 +191,35 @@ namespace foundation::core
             .Method<static_cast<f32 (*)(const Float3x3&)>(&Determinant)>("Determinant")
             .Method<static_cast<Float3x3 (*)(const Float3x3&)>(&Transpose)>("Transpose")
             .Method<static_cast<Float3x3 (*)(const Float3x3&)>(&Inverse)>("Inverse");
+    }
+
+    // Scalar math: the free functions in foundation::core reflected as STATICS on the empty `Math`
+    // anchor type, so scripts reach trig/roots/interpolation as `Math.Sin(x)` etc. There is no
+    // reflecting a namespace, hence the anchor. Constants ride along as reflected constants.
+    REFLECT_VALUE(Math, "rtti::core")
+    {
+        builder.Method<static_cast<f32 (*)(f32)>(&Abs)>("Abs", {"x"})
+            .Method<&Sqrt>("Sqrt", {"x"})
+            .Method<&Sin>("Sin", {"x"})
+            .Method<&Cos>("Cos", {"x"})
+            .Method<&Tan>("Tan", {"x"})
+            .Method<&Asin>("Asin", {"x"})
+            .Method<&Acos>("Acos", {"x"})
+            .Method<&Atan2>("Atan2", {"y", "x"})
+            .Method<&Floor>("Floor", {"x"})
+            .Method<&Ceil>("Ceil", {"x"})
+            .Method<&Round>("Round", {"x"})
+            .Method<&Pow>("Pow", {"base", "exp"})
+            .Method<&Log>("Log", {"x"})
+            .Method<&Exp>("Exp", {"x"})
+            .Method<&DegreesToRadians>("DegreesToRadians", {"degrees"})
+            .Method<&RadiansToDegrees>("RadiansToDegrees", {"radians"})
+            .Method<static_cast<f32 (*)(f32, f32, f32)>(&Lerp)>("Lerp", {"a", "b", "t"})
+            .Constant("Pi", kPi)
+            .Constant("TwoPi", kTwoPi)
+            .Constant("HalfPi", kHalfPi)
+            .Constant("DegToRad", kDegToRad)
+            .Constant("RadToDeg", kRadToDeg);
     }
 
     REFLECT_VALUE(AABB, "rtti::core")
@@ -288,6 +335,8 @@ namespace foundation::core
         GlobalTypeRegistry().Register(TypeOf<Float4x4>());
         RttiRegisterValue_Float3x3();
         GlobalTypeRegistry().Register(TypeOf<Float3x3>());
+        RttiRegisterValue_Math();
+        GlobalTypeRegistry().Register(TypeOf<Math>());
         RegisterMatrixElements<Float4x4, 4>(); // flat element access (after the patch above)
         RegisterMatrixElements<Float3x3, 3>();
         RttiRegisterValue_AABB();

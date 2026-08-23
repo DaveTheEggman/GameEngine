@@ -72,4 +72,11 @@ export namespace foundation::core
     {
         return Abs(x) <= epsilon;
     }
+
+    // Script-facing anchor: the free scalar functions above are reflected as STATICS on this type
+    // (CoreReflectionImpl), so scripts call `Math.Sin(x)` / `Math::Atan2(y, x)` etc. Empty by design -
+    // it only exists to give the reflected math functions a home (there is no reflecting a namespace).
+    struct Math
+    {
+    };
 }

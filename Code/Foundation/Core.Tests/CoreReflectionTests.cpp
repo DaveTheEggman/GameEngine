@@ -198,6 +198,120 @@ TEST_CASE("core-reflection: same-named overloads resolved by parameter type")
     CHECK(FindMethod(TypeOf<Float3>(), "Mul") != nullptr);
 }
 
+TEST_CASE("core-reflection: Float3 vector ops reflect (Cross/Add/Sub/Lerp/Distance)")
+{
+    EnsureRegistered();
+
+    const auto invoke = [](const char* name, Span<Variant> args) {
+        const MethodInfo* m = FindMethod(TypeOf<Float3>(), name);
+        REQUIRE(m != nullptr);
+        CHECK(m->isStatic);
+        return InvokeStatic(*m, args).Value();
+    };
+
+    Variant crossArgs[] = {Variant::From(Float3{1.0f, 0.0f, 0.0f}),
+                           Variant::From(Float3{0.0f, 1.0f, 0.0f})};
+    CHECK(invoke("Cross", Span<Variant>{crossArgs, 2}).Get<Float3>() == Float3{0.0f, 0.0f, 1.0f});
+
+    Variant addArgs[] = {Variant::From(Float3{1.0f, 2.0f, 3.0f}),
+                         Variant::From(Float3{4.0f, 5.0f, 6.0f})};
+    CHECK(invoke("Add", Span<Variant>{addArgs, 2}).Get<Float3>() == Float3{5.0f, 7.0f, 9.0f});
+
+    Variant subArgs[] = {Variant::From(Float3{4.0f, 5.0f, 6.0f}),
+                         Variant::From(Float3{1.0f, 2.0f, 3.0f})};
+    CHECK(invoke("Sub", Span<Variant>{subArgs, 2}).Get<Float3>() == Float3{3.0f, 3.0f, 3.0f});
+
+    Variant lerpArgs[] = {Variant::From(Float3{0.0f, 0.0f, 0.0f}),
+                          Variant::From(Float3{10.0f, 20.0f, 30.0f}), Variant::From(0.5f)};
+    CHECK(invoke("Lerp", Span<Variant>{lerpArgs, 3}).Get<Float3>() == Float3{5.0f, 10.0f, 15.0f});
+
+    Variant distArgs[] = {Variant::From(Float3{0.0f, 0.0f, 0.0f}),
+                          Variant::From(Float3{3.0f, 4.0f, 0.0f})};
+    CHECK(NearlyEqual(invoke("Distance", Span<Variant>{distArgs, 2}).Get<f32>(), 5.0f));
+
+    Variant lenSqArgs[] = {Variant::From(Float3{1.0f, 2.0f, 2.0f})};
+    CHECK(NearlyEqual(invoke("LengthSquared", Span<Variant>{lenSqArgs, 1}).Get<f32>(), 9.0f));
+}
+
+TEST_CASE("core-reflection: Quaternion ops reflect (FromAxisAngle/Mul/RotateVector/Slerp)")
+{
+    EnsureRegistered();
+
+    const auto method = [](const char* name) {
+        const MethodInfo* m = FindMethod(TypeOf<Quaternion>(), name);
+        REQUIRE(m != nullptr);
+        CHECK(m->isStatic);
+        return m;
+    };
+
+    // 90 degrees about +Y.
+    Variant faaArgs[] = {Variant::From(Float3{0.0f, 1.0f, 0.0f}), Variant::From(kHalfPi)};
+    const Quaternion q =
+        InvokeStatic(*method("FromAxisAngle"), Span<Variant>{faaArgs, 2}).Value().Get<Quaternion>();
+    CHECK(NearlyEqual(q, Quaternion::FromAxisAngle(Float3{0.0f, 1.0f, 0.0f}, kHalfPi)));
+
+    // Identity * q == q.
+    Variant mulArgs[] = {Variant::From(Quaternion::Identity), Variant::From(q)};
+    CHECK(NearlyEqual(
+        InvokeStatic(*method("Mul"), Span<Variant>{mulArgs, 2}).Value().Get<Quaternion>(), q));
+
+    // Rotating +Z by 90deg about +Y yields +X.
+    Variant rotArgs[] = {Variant::From(q), Variant::From(Float3{0.0f, 0.0f, 1.0f})};
+    const Float3 rotated =
+        InvokeStatic(*method("RotateVector"), Span<Variant>{rotArgs, 2}).Value().Get<Float3>();
+    CHECK(NearlyEqual(rotated.x, 1.0f));
+    CHECK(NearlyEqual(rotated.y, 0.0f));
+    CHECK(NearlyEqual(rotated.z, 0.0f));
+
+    // Slerp endpoints.
+    Variant slerpArgs[] = {Variant::From(Quaternion::Identity), Variant::From(q),
+                           Variant::From(0.0f)};
+    CHECK(NearlyEqual(
+        InvokeStatic(*method("Slerp"), Span<Variant>{slerpArgs, 3}).Value().Get<Quaternion>(),
+        Quaternion::Identity));
+}
+
+TEST_CASE("core-reflection: Math scalar functions reflect as statics on the Math anchor")
+{
+    EnsureRegistered();
+
+    const TypeInfo& math = TypeOf<Math>();
+
+    const auto call1 = [&](const char* name, f32 x) {
+        const MethodInfo* m = FindMethod(math, name);
+        REQUIRE(m != nullptr);
+        CHECK(m->isStatic);
+        Variant args[] = {Variant::From(x)};
+        return InvokeStatic(*m, Span<Variant>{args, 1}).Value().Get<f32>();
+    };
+
+    CHECK(NearlyEqual(call1("Sin", kHalfPi), 1.0f));
+    CHECK(NearlyEqual(call1("Cos", 0.0f), 1.0f));
+    CHECK(NearlyEqual(call1("Sqrt", 9.0f), 3.0f));
+    CHECK(NearlyEqual(call1("Abs", -4.0f), 4.0f));
+    CHECK(NearlyEqual(call1("Floor", 2.7f), 2.0f));
+    CHECK(NearlyEqual(call1("Ceil", 2.1f), 3.0f));
+    CHECK(NearlyEqual(call1("DegreesToRadians", 180.0f), kPi));
+
+    // Two- and three-arg forms.
+    const MethodInfo* atan2 = FindMethod(math, "Atan2");
+    REQUIRE(atan2 != nullptr);
+    Variant atanArgs[] = {Variant::From(1.0f), Variant::From(0.0f)};
+    CHECK(NearlyEqual(InvokeStatic(*atan2, Span<Variant>{atanArgs, 2}).Value().Get<f32>(), kHalfPi));
+
+    const MethodInfo* lerp = FindMethod(math, "Lerp");
+    REQUIRE(lerp != nullptr);
+    Variant lerpArgs[] = {Variant::From(0.0f), Variant::From(10.0f), Variant::From(0.5f)};
+    CHECK(NearlyEqual(InvokeStatic(*lerp, Span<Variant>{lerpArgs, 3}).Value().Get<f32>(), 5.0f));
+
+    // Reflected constants.
+    CHECK(NearlyEqual(FindConstant(math, "Pi")->value.Get<f32>(), kPi));
+    CHECK(NearlyEqual(FindConstant(math, "TwoPi")->value.Get<f32>(), kTwoPi));
+
+    // In the global registry by qualified name.
+    CHECK(GlobalTypeRegistry().FindByName("rtti::core", "Math") == &math);
+}
+
 TEST_CASE("core-reflection: matrix elements via container + ops as methods")
 {
     EnsureRegistered();
