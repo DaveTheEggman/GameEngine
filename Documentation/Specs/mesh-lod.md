@@ -136,14 +136,21 @@ written. Decisions 1-5 stand. Three things changed around the spec:
    grass must not be built on it; if grass ever wants per-instance detail
    reduction, that is the deferred per-instance bucketing (P4), priced
    then. Recorded so terrain P3 never blocks on mesh LOD.
-3. **Debug tint overlay: corrected mechanism.** Since 2026-08-15 the
-   debug-draw contract split into DebugScene (scene content, drawn in
-   EVERY view) vs DebugView (one viewport) - and LOD selection is
-   PER-VIEW, so a debug-draw list cannot express "tint by active LOD"
-   (each view would need different geometry). The overlay is instead a
-   per-view RENDER debug mode (a view-level debug flag driving a tint in
-   the standard path), not debug-draw geometry. Same editor surface,
-   different plumbing; Decision 5's wording is superseded on this point.
+3. **Debug tint overlay: mechanism narrowed (user correction
+   2026-08-23).** Since 2026-08-15 the debug-draw contract split into
+   DebugScene (scene content, drawn in EVERY view) and DebugView(key)
+   (private to ONE viewport - how editor chrome stays out of the camera
+   preview today). LOD selection is PER-VIEW, so the one path that is
+   ruled out is the unkeyed DebugScene list (identical content in every
+   view). TWO valid mechanisms remain, chosen at build time:
+   (a) view-KEYED debug draw - the extractor pushes per-mesh colored
+   bounds/labels into the extracting view's keyed list (zero shader
+   work, existing seams; needs the render-view -> debug-key mapping the
+   keyed-view fix already established); or (b) a per-view RENDER debug
+   mode tinting the actual surfaces (nicest visuals, needs a view-level
+   flag through the standard path). Decision 5's "rides the existing
+   debug-draw categories" is superseded only in that the list must be
+   the KEYED one, not the scene list.
 
 Also noted: extraction-side selection composes inside the existing
 extract loops, which now gate on IsEffectivelyActive (entity-active-state,

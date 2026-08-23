@@ -51,6 +51,16 @@ Heightfield is selectable; `.r16` is heightfield-only so it needs no chooser).
 Fix option if wanted: an optional `importer` hint on the MCP import tool to
 disambiguate. Flagged here for a Fable ruling; no code change made.
 
+RULING (Fable, 2026-08-23): build the hint, plus discoverability. The MCP
+import tool resolves with FindAllFor (the interactive path's registry call):
+an optional `importer` parameter selects among claimants by name; WITHOUT the
+hint an ambiguous extension keeps today's first-claimant default for
+compatibility BUT the tool result names the alternatives (so an agent can see
+"imported as Texture; also claimable by Image, Heightfield" and re-import with
+the hint). Unknown hint = error listing valid claimants. Small, agent-parity
+with the human chooser, no registry change. Lands whenever MCP work is next
+touched - not a terrain-track blocker.
+
 GOAL: heightmap terrain that renders on every backend including web, has a
 physics presence, and is authorable in-editor - phased so the runtime slice
 ships before the sculpting experience.
