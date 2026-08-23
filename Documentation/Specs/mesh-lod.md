@@ -1,7 +1,10 @@
 # Mesh LOD (levels of detail)
 
-> STATUS: SPEC PREPARED 2026-08-15 (user-requested); implementation NOT
-> scheduled this week. meshoptimizer dependency USER-APPROVED 2026-08-15.
+> STATUS: SPEC PREPARED 2026-08-15; REFRESHED 2026-08-23 (still current -
+> sidecar still v3, meshoptimizer still unvendored, all five decisions
+> stand; see the refresh section for what changed around it). SEQUENCED
+> AFTER THE TERRAIN TRACK (user 2026-08-23). meshoptimizer dependency
+> USER-APPROVED 2026-08-15.
 > Read alongside Documentation/Specs/asset-variants.md (same week's sibling;
 > LOD quality tiers could ride the variant axis later, but v1 deliberately
 > does not - LODs are runtime-selected, not per-platform).
@@ -107,6 +110,45 @@ single `Ref<StaticMesh>`).
 - **P4 - DEFERRED:** skinned LOD chains, per-instance LOD bucketing,
   cross-fade transitions, LOD-aware physics cooking (physics keeps cooking
   from LOD0 - collision fidelity is not a rendering concern).
+
+## Refresh (Fable, 2026-08-23) - sequenced after terrain; three updates
+
+Verified against the tree: the geometry sidecar is STILL v3 and
+meshoptimizer is STILL unvendored, so the wire plan and P0 are current as
+written. Decisions 1-5 stand. Three things changed around the spec:
+
+1. **Terrain boundary (terrain now lands FIRST).** Terrain has its OWN
+   LOD machinery - per-chunk geo-mipmapping selected by screen-space
+   error (foundation.terrain's pure selection function) - and the two
+   systems stay SEPARATE: terrain chunks are not mesh-LOD chains and
+   never ride this spec's wire. One deliberate touch point: both compute
+   a "projected size on screen" from bounds + camera. Terrain builds its
+   math first; at P1 here, CHECK whether it is genuinely the same formula
+   and extract a shared foundation helper only if it is - do not mandate
+   sharing in advance (it may be ~20 lines each; a forced common helper
+   is worse than honest duplication), and do not invent formula #2
+   blindly either.
+2. **Grass does NOT wait on this spec.** Terrain P3 grass renders through
+   the instanced-mesh path with its OWN per-layer distance/density rules
+   (fade/density falloff, not LOD chains). This spec's v1 per-set
+   selection (one LOD from a set's aggregate bounds) would DEGENERATE on
+   terrain-wide grass sets (aggregate bounds = the whole terrain), so
+   grass must not be built on it; if grass ever wants per-instance detail
+   reduction, that is the deferred per-instance bucketing (P4), priced
+   then. Recorded so terrain P3 never blocks on mesh LOD.
+3. **Debug tint overlay: corrected mechanism.** Since 2026-08-15 the
+   debug-draw contract split into DebugScene (scene content, drawn in
+   EVERY view) vs DebugView (one viewport) - and LOD selection is
+   PER-VIEW, so a debug-draw list cannot express "tint by active LOD"
+   (each view would need different geometry). The overlay is instead a
+   per-view RENDER debug mode (a view-level debug flag driving a tint in
+   the standard path), not debug-draw geometry. Same editor surface,
+   different plumbing; Decision 5's wording is superseded on this point.
+
+Also noted: extraction-side selection composes inside the existing
+extract loops, which now gate on IsEffectivelyActive (entity-active-state,
+shipped 2026-08-18) - selection adds no new loop, so no new gating
+obligation.
 
 ## Test notes
 
