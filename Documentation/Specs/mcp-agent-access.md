@@ -907,6 +907,27 @@ screenshot, and asserts on pixels - the agent-testing loop, proven in CI.
   already embodies the stronger live form.
 - Whatever real agent sessions reveal. Do not speculate past this list.
 
+### QUEUED RULING (Fable, 2026-08-23): import-tool importer disambiguation
+
+Surfaced by the terrain track (Opus flag in terrain.md Build progress; ruling
+recorded there and owned HERE - MCP is Fable's track, follow-up later): the
+import tool resolves an extension with the SINGULAR ImporterRegistry::FindFor,
+so the FIRST registered claimant always wins - `.png` is claimed by Texture,
+then Image, then Heightfield, meaning an agent can never import a .png as an
+Image or a Heightfield. Pre-existing (Texture/Image collided already); the
+heightfield importer made it a three-way. The interactive editor is unaffected
+(drag-drop uses FindAllFor + a chooser menu).
+
+RULED FIX (land with the next MCP touch):
+- The import tool resolves via FindAllFor (the interactive path's call).
+- New OPTIONAL `importer` parameter selects among claimants by name.
+- WITHOUT the hint, ambiguity keeps the first-claimant default (compat) but
+  the tool RESULT names the alternatives ("imported as Texture; also
+  claimable by: Image, Heightfield") so an agent can re-import with the hint.
+- An unknown hint errors, listing the valid claimants.
+- Agent-parity with the human chooser; no registry changes; tests = the
+  three-way .png fixture (default + each hint + bad hint).
+
 ## Where we are deliberately BETTER (the differentiators - do not trade away)
 
 1. TRUTH-FIRST SURFACES: script_api/type tools resolve live registries at
