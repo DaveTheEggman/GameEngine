@@ -133,6 +133,11 @@ namespace editor
         m_impl->viewport->SyncInputRegion();
         if (m_impl->router)
         {
+            // One app keyboard (same arbitration as the Game/Scene pages): while the editor
+            // UI's keyboard focus is on any view but this viewport, drop surface focus so the
+            // preview camera's keys never fire while the user types into an editor widget.
+            m_impl->router->SetExternalCapture(
+                false, m_impl->viewport->HostKeyboardFocusElsewhere());
             m_impl->router->Update();
         }
         if (m_impl->viewport->IsHovered() || m_impl->viewport->IsFocused())
