@@ -29,10 +29,15 @@ DONE (green on clang + gcc, each with cook round-trip / integration tests):
   Pipeline.Registration (builder/importer/type; counts 23->24, 7->8) and
   Tools.Editor.
 
-REMAINING (the terrain-rendering half): `foundation.terrain` (chunk quadtree +
-LOD + splat) -> `foundation.terrain.resource` -> `Terrain.Pipeline` ->
-`engine.terrain` (the chunked geo-mipmap renderer + GPU height texture +
-Ref<TerrainAsset> picker) -> `Editor.Terrain` (phase 2).
+- `foundation.terrain` - the terrain model over a heightfield: BuildChunks (k x k
+  chunks with LOCAL-space AABBs), per-chunk LOD selection (DistanceToChunk +
+  SelectLod, deterministic/pure), a TerrainQuadtree for hierarchical frustum
+  culling (via the existing BoundingFrustum), and the SplatLayer descriptor. No
+  RHI; 6 tests.
+
+REMAINING (the terrain-rendering half): `foundation.terrain.resource` ->
+`Terrain.Pipeline` -> `engine.terrain` (the chunked geo-mipmap renderer + GPU
+height texture + Ref<TerrainAsset> picker) -> `Editor.Terrain` (phase 2).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
 (Editor.Mcp/ProjectTools) resolves an extension with the SINGULAR
