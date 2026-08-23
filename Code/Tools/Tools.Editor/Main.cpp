@@ -69,6 +69,7 @@ import editor.gameui;
 import editor.audio;
 import editor.texture;
 import editor.image;
+import editor.heightfield;
 import editor.fonts;
 import editor.physics;
 import editor.generic;
@@ -368,6 +369,7 @@ int main(int argc, char** argv)
         editor::RegisterBusLayoutEditor(app.Context(), host);
         editor::RegisterTextureEditor(app.Context());
         editor::RegisterImageEditor(app.Context());
+        editor::RegisterHeightfieldEditor(app.Context());
         editor::RegisterFontEditor(app.Context());
         editor::RegisterCollisionShapeEditor(app.Context(), host, uiHost);
         // The FALLBACK page registers like any factory: nearest-base dispatch routes every

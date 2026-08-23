@@ -10,10 +10,10 @@ target_link_libraries(Pipeline.Registration PUBLIC
     Foundation::Core Foundation::Content Foundation::VFS
     Foundation::Scene Foundation::Scene.Resource
     Pipeline::Core Pipeline::Importer
-    Pipeline::Texture Pipeline::Fonts Pipeline::Image Pipeline::Geometry
+    Pipeline::Texture Pipeline::Fonts Pipeline::Image Pipeline::Heightfield Pipeline::Geometry
     Pipeline::Animation Pipeline::PropertyAnimation Pipeline::Materials Pipeline::Shaders Pipeline::Particles
     Foundation::Input Foundation::Input.Resource Pipeline::Input
-    Pipeline::ModelImporter Foundation::Image.Resource
+    Pipeline::ModelImporter Foundation::Image.Resource Foundation::Heightfield.Resource
     Foundation::Physics Foundation::Physics.Resource Pipeline::Physics
     Foundation::Navigation Foundation::Navigation.Resource Pipeline::Navigation
     Foundation::Audio Foundation::Audio.Resource Pipeline::Audio
