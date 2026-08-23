@@ -155,6 +155,20 @@ single `Ref<StaticMesh>`).
 - **P2 - auto-generation.** meshopt_simplify chains at import with error
   bounds + dialog knobs. Acceptance: Sponza-class import generates chains;
   triangle-count assertions; error-bound drop case tested.
+  SHIPPED (Fable, 2026-08-23): pipeline::GenerateLodChain - up to 3
+  halving levels, each simplified PROGRESSIVELY from the previous level
+  (cheaper + more coherent than re-simplifying LOD 0), border-locked per
+  submesh (meshopt_SimplifyLockBorder - cross-submesh seams cannot
+  crack), a level committed only when EVERY triangle submesh gets near
+  its halving target within the error bound (stall = quality exhausted =
+  chain ends; never padded), minTriangles floor, non-triangle submeshes
+  repeat their LOD-0 range so every level keeps the full submesh table,
+  authored chains never regenerated over, same halving coverage ladder
+  as authored imports. Import dialog gains the "Generate LODs" toggle
+  (default ON; applies to static meshes >= 10k triangles with no
+  authored chain); toggle-count tripwire bumped 7->8. Tests: dense-grid
+  chain growth + halving bounds + index validity + optimizer/fill
+  round-trip, authored-wins no-op, tiny-mesh no-op.
 - **P3 - polish.** Shadow-list coarsest-LOD rule, debug tint overlay,
   per-set instanced selection.
 - **P4 - DEFERRED:** skinned LOD chains, per-instance LOD bucketing,

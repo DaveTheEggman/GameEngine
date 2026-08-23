@@ -140,6 +140,7 @@ export namespace pipeline
         bool generateScene = false;     // standalone scene of the same hierarchy (post-import step)
         bool generateCollision = false; // CollisionShapeAsset per mesh + colliders on the prefab
         bool collisionConvex = false;   // hull (dynamic-capable) instead of exact triangle mesh
+        bool generateLods = true;       // auto-LOD chains for big static meshes (authored _LODn wins)
 
         [[nodiscard]] Array<Toggle> Toggles() override
         {
@@ -164,6 +165,11 @@ export namespace pipeline
                                     u8"static rigid body) to the generated prefab",
                                     &generateCollision});
             toggles.PushBack(Toggle{
+                u8"Generate LODs",
+                u8"Simplified LOD chains for large static meshes (10k+ triangles); meshes with "
+                u8"authored _LOD1/_LOD2 levels keep those instead",
+                &generateLods});
+            toggles.PushBack(Toggle{
                 u8"Convex collision",
                 u8"Simplified convex hulls (dynamic-capable) instead of exact triangle meshes",
                 &collisionConvex});
@@ -179,6 +185,7 @@ export namespace pipeline
             u8 sceneOut = generateScene ? 1u : 0u;
             u8 collision = generateCollision ? 1u : 0u;
             u8 convex = collisionConvex ? 1u : 0u;
+            u8 lods = generateLods ? 1u : 0u;
             foundation::core::Serialize(ar, "textures", textures);
             foundation::core::Serialize(ar, "materials", materials);
             foundation::core::Serialize(ar, "animations", animations);
@@ -186,6 +193,7 @@ export namespace pipeline
             foundation::core::Serialize(ar, "collision", collision);
             foundation::core::Serialize(ar, "collisionConvex", convex);
             foundation::core::Serialize(ar, "scene", sceneOut);
+            foundation::core::Serialize(ar, "generateLods", lods);
             importTextures = textures != 0;
             importMaterials = materials != 0;
             importAnimations = animations != 0;
@@ -193,6 +201,7 @@ export namespace pipeline
             generateScene = sceneOut != 0;
             generateCollision = collision != 0;
             collisionConvex = convex != 0;
+            generateLods = lods != 0;
         }
     };
 
@@ -337,7 +346,8 @@ export namespace pipeline
                 ImportSkeletonAndClips(model, *modelGroup, manifest, claimed);
             }
             const Status meshes =
-                ImportMeshes(model, *modelGroup, manifest, claimed, deferredWrites);
+                ImportMeshes(model, *modelGroup, manifest, claimed, deferredWrites,
+                             opt.generateLods);
             if (!meshes.IsOk())
             {
                 return Err(meshes.Code());
@@ -787,7 +797,8 @@ export namespace pipeline
                                                  content::Group& group,
                                                  ModelManifestSource& manifest,
                                                  Array<String>& claimed,
-                                                 Array<pipeline::DeferredImportWrite>* deferredWrites)
+                                                 Array<pipeline::DeferredImportWrite>* deferredWrites,
+                                                 bool generateLods = true)
         {
             const bool hasSkin = model.skins().Size() > 0;
             const Span<foundation::model::ModelMesh* const> meshes = model.meshes();
@@ -921,6 +932,13 @@ export namespace pipeline
                     {
                         LOG_INFO(u8"Import", u8"mesh '{}': authored LOD chain with {} level(s)",
                                  m.name(), asset->source.lodCount);
+                    }
+                    // Auto-generation (mesh-lod.md P2): big static meshes with NO authored
+                    // chain get a simplified ladder (GenerateLodChain no-ops on chains).
+                    else if (generateLods &&
+                             asset->source.indexData.Size() >= 3u * 10000u)
+                    {
+                        (void)pipeline::GenerateLodChain(asset->source);
                     }
                     inst = ClaimInstance(
                         group, name, pipeline::StaticMeshAsset::StaticType(), claimed);

@@ -168,6 +168,23 @@ export namespace pipeline{
         f32 acmrAfter = 0.0f;
     };
 
+    /// Auto-LOD generation (mesh-lod.md P2). Ratios are the spec's ladder {0.5, 0.25,
+    /// 0.125}; a level is DROPPED (and the chain ends) when simplification cannot get
+    /// near its target within the error bound - a chain is as long as quality allows,
+    /// never padded. minTriangles floors the chain (no point simplifying tiny meshes
+    /// further). Thresholds use the same halving coverage ladder authored chains get.
+    struct LodGenerationSettings
+    {
+        f32 targetError = 0.02f; // meshopt relative error bound (fraction of mesh extent)
+        u32 minTriangles = 64;   // stop once a level would fall below this
+    };
+
+    /// Generate a LOD chain into `source` via meshopt_simplify (border-locked per submesh
+    /// so cross-submesh seams never crack). No-op (returns 0 levels added) when the source
+    /// already HAS a chain (authored wins), has no triangle submeshes, or is malformed.
+    /// Deterministic. Defined in MeshOptimizeImpl.cpp.
+    u32 GenerateLodChain(StaticMeshSource& source, const LodGenerationSettings& settings = {});
+
     /// mesh-lod.md P0: vertex-cache + overdraw reorder per triangle submesh, then one
     /// whole-mesh vertex-fetch remap (reorders the blob, rewrites every index, compacts
     /// unused vertices). Triangle SET, submesh ranges, and vertex VALUES are preserved -

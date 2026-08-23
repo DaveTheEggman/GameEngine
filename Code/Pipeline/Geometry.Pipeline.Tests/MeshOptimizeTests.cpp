@@ -298,3 +298,49 @@ TEST_CASE("mesh optimize: the builder runs the pass (cooked cube stays a cube)")
     CHECK(cookedAsset.source.indexData.Size() == asset.source.indexData.Size());
     CHECK(SameTriangles(before, TriangleSet(cookedAsset.source, 0)));
 }
+
+TEST_CASE("mesh lod generate: a dense grid grows a halving chain; small/authored meshes do not")
+{
+    StaticMeshSource source;
+    BuildHostileGrid(48, source); // 4608 triangles - room for three halvings above the floor
+    const usize lod0Indices = source.indexData.Size();
+
+    const u32 added = GenerateLodChain(source);
+    CHECK(added >= 1);
+    CHECK(source.lodCount == 1 + added);
+    REQUIRE(source.lodStart.Size() == added);          // one submesh per level
+    REQUIRE(source.lodCoverage.Size() == source.lodCount);
+    CHECK(source.lodCoverage[1] == doctest::Approx(0.25f));
+
+    // LOD 0 untouched; each level lands under ~60% of its predecessor (the halving
+    // target with acceptance slack) and every index stays in range.
+    CHECK(source.subCount[0] == static_cast<i32>(lod0Indices));
+    usize prev = lod0Indices;
+    for (u32 l = 0; l < added; ++l)
+    {
+        const usize count = static_cast<usize>(source.lodIndexCount[l]);
+        CHECK(count > 0);
+        CHECK(count <= (prev * 3) / 4);
+        prev = count;
+    }
+    const usize vertexCount = source.vertexBlob.Size() / sizeof(StaticMeshVertex);
+    for (const u32 index : source.indexData)
+    {
+        CHECK(index < vertexCount);
+    }
+    // The chain survives the runtime fill + the optimizer pass.
+    pipeline::MeshOptimizeStats stats;
+    pipeline::OptimizeStaticMeshSource(source, &stats);
+    foundation::geometry::StaticMesh mesh;
+    source.FillStatic(mesh);
+    CHECK(mesh.lodCount == source.lodCount);
+
+    // Authored/existing chains are never regenerated over.
+    CHECK(GenerateLodChain(source) == 0);
+
+    // A tiny mesh (two triangles) stays chainless - below any sensible floor.
+    StaticMeshSource tiny;
+    BuildHostileGrid(1, tiny);
+    CHECK(GenerateLodChain(tiny) == 0);
+    CHECK(tiny.lodCount == 1);
+}

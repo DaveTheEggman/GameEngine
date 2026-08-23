@@ -54,6 +54,134 @@ namespace pipeline
         }
     }
 
+    u32 GenerateLodChain(StaticMeshSource& source, const LodGenerationSettings& settings)
+    {
+        constexpr usize kStride = sizeof(StaticMeshVertex);
+        const usize vertexCount = source.vertexBlob.Size() / kStride;
+        if (vertexCount == 0 || source.indexData.IsEmpty() || source.subStart.IsEmpty() ||
+            source.lodCount > 1) // authored chains win - never regenerate over one
+        {
+            return 0;
+        }
+        // Validate (same refusal contract as the optimizer: bad assets pass through).
+        for (usize i = 0; i < source.subStart.Size(); ++i)
+        {
+            const i64 start = source.subStart[i];
+            const i64 count = (i < source.subCount.Size()) ? source.subCount[i] : -1;
+            if (start < 0 || count < 0 ||
+                start + count > static_cast<i64>(source.indexData.Size()))
+            {
+                return 0;
+            }
+        }
+        for (const u32 index : source.indexData)
+        {
+            if (index >= vertexCount)
+            {
+                return 0;
+            }
+        }
+
+        const auto* positions = reinterpret_cast<const float*>(source.vertexBlob.Data());
+        constexpr u32 kMaxGeneratedLevels = 3; // the spec ladder {0.5, 0.25, 0.125} = 3 halvings
+        const usize submeshCount = source.subStart.Size();
+        u32 levelsAdded = 0;
+        // Each level simplifies from the PREVIOUS level's indices (progressive chains -
+        // cheaper and more coherent than always re-simplifying LOD 0). Per submesh, border
+        // locked so cross-submesh seams cannot crack apart.
+        Array<Array<u32>> previous; // per submesh: the level we simplify FROM
+        previous.Resize(submeshCount);
+        for (usize s = 0; s < submeshCount; ++s)
+        {
+            if (static_cast<PrimitiveType>((s < source.subPrim.Size()) ? source.subPrim[s] : 0) !=
+                PrimitiveType::Triangles)
+            {
+                continue; // non-triangle submeshes never simplify; their level range repeats LOD 0
+            }
+            for (i32 i = 0; i < source.subCount[s]; ++i)
+            {
+                previous[s].PushBack(source.indexData[source.subStart[s] + i]);
+            }
+        }
+
+        for (u32 levelIndex = 0; levelIndex < kMaxGeneratedLevels; ++levelIndex)
+        {
+            // Simplify every triangle submesh for this level first; commit the level only if
+            // EVERY submesh got acceptably close to its target (a chain is per-mesh, so a
+            // level either exists for all submeshes or not at all).
+            Array<Array<u32>> level;
+            level.Resize(submeshCount);
+            bool acceptable = true;
+            usize levelTriangles = 0;
+            for (usize s = 0; s < submeshCount && acceptable; ++s)
+            {
+                if (previous[s].IsEmpty())
+                {
+                    continue; // non-triangle submesh: empty here, range repeats LOD 0 below
+                }
+                const usize sourceCount = previous[s].Size();
+                const usize target = ((sourceCount / 3) / 2) * 3; // half the triangles, aligned
+                if (target < 3)
+                {
+                    acceptable = false;
+                    break;
+                }
+                level[s].Resize(sourceCount); // simplify writes at most sourceCount indices
+                f32 resultError = 0.0f;
+                const usize written = meshopt_simplify(
+                    level[s].Data(), previous[s].Data(), sourceCount, positions, vertexCount,
+                    kStride, target, settings.targetError, meshopt_SimplifyLockBorder,
+                    &resultError);
+                level[s].Resize(written);
+                // Accept when the simplifier got NEAR the halving target within the error
+                // bound; stalling (barely below the source count) means quality is exhausted.
+                if (written == 0 || written > (sourceCount * 3) / 4)
+                {
+                    acceptable = false;
+                    break;
+                }
+                levelTriangles += written / 3;
+            }
+            if (!acceptable || levelTriangles < settings.minTriangles)
+            {
+                break; // the chain is as long as quality allows - never padded
+            }
+            // Commit: append each submesh's range (non-triangle submeshes repeat their
+            // LOD-0 range so every level keeps the full submesh table).
+            if (source.lodCount <= 1)
+            {
+                source.lodCount = 1;
+                source.lodCoverage.Clear();
+                source.lodCoverage.PushBack(1.0f);
+            }
+            for (usize s = 0; s < submeshCount; ++s)
+            {
+                if (level[s].IsEmpty())
+                {
+                    source.lodStart.PushBack(source.subStart[s]);
+                    source.lodIndexCount.PushBack(source.subCount[s]);
+                    continue;
+                }
+                source.lodStart.PushBack(static_cast<i32>(source.indexData.Size()));
+                source.lodIndexCount.PushBack(static_cast<i32>(level[s].Size()));
+                for (const u32 index : level[s])
+                {
+                    source.indexData.PushBack(index);
+                }
+            }
+            source.lodCoverage.PushBack(0.25f * Pow(0.5f, static_cast<f32>(source.lodCount - 1)));
+            source.lodCount += 1;
+            ++levelsAdded;
+            previous = Move(level); // next level simplifies from this one
+        }
+        if (levelsAdded > 0)
+        {
+            LOG_INFO(u8"Cook", u8"mesh '{}': generated {} LOD level(s)", source.name,
+                     levelsAdded);
+        }
+        return levelsAdded;
+    }
+
     void OptimizeStaticMeshSource(StaticMeshSource& source, MeshOptimizeStats* outStats)
     {
         constexpr usize kStride = sizeof(StaticMeshVertex);

@@ -959,7 +959,7 @@ TEST_CASE("model-import: options gate textures/materials/animations")
     CHECK_FALSE(options->generateScene); // opt-in
     CHECK_FALSE(options->generateCollision); // opt-in
     CHECK_FALSE(options->collisionConvex);
-    CHECK(options->Toggles().Size() == 7u);
+    CHECK(options->Toggles().Size() == 8u); // +Generate LODs (mesh-lod.md P2)
 
     // Geometry-only import: no textures, no materials, no skeleton/clips in the fan-out.
     options->importTextures = false;
