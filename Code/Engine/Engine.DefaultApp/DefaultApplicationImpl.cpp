@@ -22,6 +22,7 @@ import engine.scriptsurface; // RegisterAllScriptFacades (the single source of t
 import engine.render;     // RenderSubsystem (the standard renderer)
 import engine.animation; // AnimationSubsystem (drives skeletal animation from the scene)
 import engine.particles; // ParticleSubsystem (scene-driven CPU sim)
+import engine.terrain;   // TerrainSubsystem (chunked geo-mipmap terrain renderer)
 import foundation.physics;             // ContactKind/EntityContact (the contact bridge)
 import engine.physics;   // PhysicsSubsystem (Jolt worlds + interpolation)
 import engine.navigation; // NavigationSubsystem + script facade
@@ -138,6 +139,9 @@ namespace engine::runtime
             // ticks players, feeds bone matrices to mesh components). Needs the render managers.
             host.Ctx().AddSubsystem<engine::animation::AnimationSubsystem>();
             host.Ctx().AddSubsystem<engine::particles::ParticleSubsystem>();
+            // The chunked geo-mipmap terrain renderer: registers itself on Opaque + wires the
+            // TerrainComponentManager (already injected by scene composition) as the render provider.
+            host.Ctx().AddSubsystem<engine::terrain::TerrainSubsystem>();
         }
         m_physics = host.Ctx().AddSubsystem<engine::physics::PhysicsSubsystem>();
         host.Ctx().AddSubsystem<engine::navigation::NavigationSubsystem>();

@@ -87,10 +87,13 @@ shared grid mesh geometry). The sub-phases:
   REMAINING D2 (splat): blend the RGBA splatmap over the per-layer albedo textures
   (TerrainResource::layers) as a 4th material set - needs the splat/layer assets
   cooked + bound.
+- HOST WIRING: DONE. DefaultApplication registers the TerrainSubsystem in the
+  graphics-guarded block next to ParticleSubsystem, so a TerrainComponent renders
+  in any running scene (the manager is already injected by scene composition).
+  Full app links + runs green on clang + gcc.
 - E polish: skirts (crack-hiding), CSM cast (default-on), back-face cull, wiring
   the scene's real sun (Phase C uses a fixed key light), an offscreen pixel-probe
-  render test (Vulkan + WebGPU), WebGPU validation. Host wiring: register the
-  TerrainSubsystem into the runtime/editor Context (mirroring ParticleSubsystem).
+  render test (Vulkan + WebGPU), WebGPU validation.
 Then `Editor.Terrain` (phase 2).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
