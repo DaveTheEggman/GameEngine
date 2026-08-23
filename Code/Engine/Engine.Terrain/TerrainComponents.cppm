@@ -12,6 +12,8 @@ module;
 
 export module engine.terrain;
 
+export import :heighttexture; // Phase B: the GPU height-texture cache
+
 import foundation.core;
 import foundation.scene;
 import foundation.resource;

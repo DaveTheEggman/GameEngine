@@ -8,11 +8,15 @@ import foundation.scene;
 import foundation.scene.resource; // SerializeScene
 import foundation.resource;
 import foundation.terrain.resource;
+import foundation.heightfield;
+import foundation.rhi;
+import foundation.rhi.null;
 import engine.terrain;
 
 using namespace foundation::core;
 using namespace engine::terrain;
 namespace scene = foundation::scene;
+namespace hf = foundation::heightfield;
 
 TEST_CASE("engine.terrain: TerrainComponent reflects its authored fields")
 {
@@ -58,4 +62,42 @@ TEST_CASE("engine.terrain: a TerrainComponent survives a scene serialize round-t
     CHECK(t->terrain.id == Guid(42, 7));
     CHECK(t->castShadows == false);
     CHECK(t->visible == false);
+}
+
+TEST_CASE("engine.terrain: the GPU height-texture cache keys by resource id + version")
+{
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
+    RefPtr<hf::Heightfield> grid =
+        MakeRef<hf::Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+
+    TerrainHeightTextureCache cache;
+    const Guid a(1, 1);
+    const Guid b(2, 2);
+
+    // First request creates + caches.
+    foundation::rhi::TextureView* v1 = cache.GetOrCreate(device, *grid, a, 1);
+    REQUIRE(v1 != nullptr);
+    CHECK(cache.Size() == 1u);
+
+    // Same id + version -> cache hit, same view, no new entry.
+    foundation::rhi::TextureView* v1again = cache.GetOrCreate(device, *grid, a, 1);
+    CHECK(v1again == v1);
+    CHECK(cache.Size() == 1u);
+
+    // Same id, bumped version -> rebuilt in place (one entry still).
+    foundation::rhi::TextureView* v2 = cache.GetOrCreate(device, *grid, a, 2);
+    REQUIRE(v2 != nullptr);
+    CHECK(cache.Size() == 1u);
+
+    // A different heightfield -> a second cached texture (sharing works by id).
+    foundation::rhi::TextureView* vb = cache.GetOrCreate(device, *grid, b, 1);
+    REQUIRE(vb != nullptr);
+    CHECK(cache.Size() == 2u);
+
+    // An empty grid yields no texture.
+    RefPtr<hf::Heightfield> empty = MakeRef<hf::Heightfield>(DefaultAllocator());
+    CHECK(cache.GetOrCreate(device, *empty, Guid(9, 9), 1) == nullptr);
+
+    cache.Clear(device);
+    CHECK(cache.Size() == 0u);
 }
