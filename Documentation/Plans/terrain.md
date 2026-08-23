@@ -91,9 +91,18 @@ shared grid mesh geometry). The sub-phases:
   graphics-guarded block next to ParticleSubsystem, so a TerrainComponent renders
   in any running scene (the manager is already injected by scene composition).
   Full app links + runs green on clang + gcc.
-- E polish: skirts (crack-hiding), CSM cast (default-on), back-face cull, wiring
-  the scene's real sun (Phase C uses a fixed key light), an offscreen pixel-probe
-  render test (Vulkan + WebGPU), WebGPU validation.
+- E polish: PARTLY DONE.
+  - Offscreen pixel-probe render test (Vulkan): DONE. Engine.Terrain.Backend.Tests
+    renders a lit dome top-down on a real Vulkan device + reads pixels back; asserts
+    coverage (98% filled) + directional-shading asymmetry, and (2nd case) that
+    flipping the scene sun inverts the asymmetry. The render ground truth.
+  - Back-face cull: DONE (grid winds CCW-from-above; probe confirms). Note: a
+    heightfield is a single surface so this is nearly a no-op for the surface - it
+    earns its keep once skirts add side-facing walls.
+  - Real directional-sun wiring: DONE (Resolve reads the scene's first directional
+    light; fixed key light is the fallback).
+  - REMAINING: skirts (crack-hiding at LOD seams), CSM cast (default-on) + terrain
+    sampling the shadow map as a receiver, WebGPU probe pass, splat (D2 above).
 Then `Editor.Terrain` (phase 2).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
