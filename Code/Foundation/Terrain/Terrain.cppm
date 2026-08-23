@@ -42,24 +42,54 @@ export namespace foundation::terrain
     // SAME vertices through a stride-2^lod index buffer (finest = lod 0). RHI-free generation - the
     // renderer just uploads these arrays.
 
-    /// The shared grid's vertex UVs: (u, v) in [0, 1] for the 65x65 grid, row-major (v-major). The
-    /// renderer maps these to world XZ + the height sample coordinate per chunk.
-    inline void BuildChunkGridVertices(Array<Float2>& out)
+    /// Grid vertices of the shared chunk mesh, TWO copies stacked: first the 65x65 SURFACE grid
+    /// (skirt flag 0), then a 65x65 SKIRT copy (skirt flag 1) the VS drops below the surface to hide
+    /// LOD-seam cracks. Each vertex is (u, v, skirtFlag): u,v in [0,1] row-major (v-major); the
+    /// renderer maps u,v to world XZ + the height sample coordinate per chunk. The skirt copy shares
+    /// the border u,v so a skirt vertex sits directly under its surface twin; interior skirt vertices
+    /// are never indexed (only the border ring is). One VB, uploaded once, drawn for every chunk.
+    inline void BuildChunkGridVertices(Array<Float3>& out)
     {
         out.Clear();
-        out.Reserve(static_cast<usize>(kChunkVerts) * kChunkVerts);
+        out.Reserve(static_cast<usize>(kChunkVerts) * kChunkVerts * 2);
         const f32 span = static_cast<f32>(kChunkQuads);
-        for (i32 z = 0; z < kChunkVerts; ++z)
+        for (i32 pass = 0; pass < 2; ++pass) // 0 = surface, 1 = skirt copy
         {
-            for (i32 x = 0; x < kChunkVerts; ++x)
+            const f32 flag = static_cast<f32>(pass);
+            for (i32 z = 0; z < kChunkVerts; ++z)
             {
-                out.PushBack(Float2{static_cast<f32>(x) / span, static_cast<f32>(z) / span});
+                for (i32 x = 0; x < kChunkVerts; ++x)
+                {
+                    out.PushBack(
+                        Float3{static_cast<f32>(x) / span, static_cast<f32>(z) / span, flag});
+                }
             }
         }
     }
 
-    /// The 32-bit triangle indices for LOD `lod` (stride 2^lod) over the shared 65x65 grid: two
-    /// triangles per quad, wound CCW when viewed from above (+Y). A lod past kMaxChunkLod yields none.
+    /// The surface-vertex count (the skirt copy begins at this index in the shared VB).
+    inline constexpr u32 kChunkSurfaceVertexCount =
+        static_cast<u32>(kChunkVerts) * static_cast<u32>(kChunkVerts);
+
+    /// Quads per chunk side at LOD `lod` (stride 2^lod); 0 past kMaxChunkLod.
+    [[nodiscard]] constexpr u32 ChunkLodQuadsPerSide(u32 lod) noexcept
+    {
+        return lod > kMaxChunkLod ? 0u : (static_cast<u32>(kChunkQuads) >> lod);
+    }
+
+    /// The count of SURFACE indices at LOD `lod` (the prefix of BuildChunkGridIndices before the skirt
+    /// walls) - the draw range for a skirtless pass. Skirt indices follow (the rest of the buffer).
+    [[nodiscard]] constexpr u32 ChunkLodSurfaceIndexCount(u32 lod) noexcept
+    {
+        const u32 q = ChunkLodQuadsPerSide(lod);
+        return q * q * 6u;
+    }
+
+    /// The 32-bit triangle indices for LOD `lod` (stride 2^lod) over the shared grid: the surface
+    /// (two tris per quad, wound CCW seen from +Y) FOLLOWED BY a skirt wall around the 4 chunk edges
+    /// (each border segment lifted to a quad joining the surface border verts to their dropped skirt
+    /// twins), so a coarser neighbour's lower edge can never open a see-through crack. A lod past
+    /// kMaxChunkLod yields none.
     inline void BuildChunkGridIndices(u32 lod, Array<u32>& out)
     {
         out.Clear();
@@ -69,7 +99,7 @@ export namespace foundation::terrain
         }
         const i32 stride = 1 << lod;
         const i32 quads = kChunkQuads / stride; // quads per side at this LOD
-        out.Reserve(static_cast<usize>(quads) * quads * 6);
+        out.Reserve(static_cast<usize>(quads) * quads * 6 + static_cast<usize>(quads) * 4 * 6);
         for (i32 qz = 0; qz < quads; ++qz)
         {
             for (i32 qx = 0; qx < quads; ++qx)
@@ -89,6 +119,30 @@ export namespace foundation::terrain
                 out.PushBack(v11);
                 out.PushBack(v10);
             }
+        }
+
+        // Skirt walls: one quad per border segment, top = surface border vert, bottom = its skirt
+        // twin (surfaceIndex + kChunkSurfaceVertexCount). Emitted for BOTH windings (double-sided) so
+        // the wall plugs the seam regardless of view angle. The four edges walk the border at `stride`.
+        const auto surf = [](i32 x, i32 z) { return static_cast<u32>(z * kChunkVerts + x); };
+        const auto skirt = [&surf](i32 x, i32 z) { return surf(x, z) + kChunkSurfaceVertexCount; };
+        const auto wall = [&out](u32 t0, u32 t1, u32 b0, u32 b1)
+        {
+            // top t0-t1, bottom b0-b1; both windings (double-sided plug).
+            out.PushBack(t0); out.PushBack(b0); out.PushBack(b1);
+            out.PushBack(t0); out.PushBack(b1); out.PushBack(t1);
+            out.PushBack(t0); out.PushBack(b1); out.PushBack(b0);
+            out.PushBack(t0); out.PushBack(t1); out.PushBack(b1);
+        };
+        for (i32 i = 0; i < kChunkQuads; i += stride)
+        {
+            const i32 j = i + stride;
+            wall(surf(i, 0), surf(j, 0), skirt(i, 0), skirt(j, 0));                     // z = 0 edge
+            wall(surf(i, kChunkQuads), surf(j, kChunkQuads), skirt(i, kChunkQuads),
+                 skirt(j, kChunkQuads));                                                // z = max edge
+            wall(surf(0, i), surf(0, j), skirt(0, i), skirt(0, j));                     // x = 0 edge
+            wall(surf(kChunkQuads, i), surf(kChunkQuads, j), skirt(kChunkQuads, i),
+                 skirt(kChunkQuads, j));                                                // x = max edge
         }
     }
 

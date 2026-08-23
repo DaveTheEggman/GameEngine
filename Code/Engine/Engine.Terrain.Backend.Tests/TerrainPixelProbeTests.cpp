@@ -1,9 +1,9 @@
-// Terrain pixel-level ground truth on a REAL Vulkan device: render a lit dome terrain top-down
-// through the full RenderFrame chain, read the pixels back, and assert (1) the terrain covers the
-// view (it rendered - a broken PSO or reversed winding leaves it black) and (2) the directional
-// light produces shading asymmetry across the dome (the normals-from-heightmap + lit path actually
-// work, not a flat fill). Compilation is proven by the Null test; THIS proves correct pixels. Skips
-// cleanly when no Vulkan GPU is available.
+// Terrain pixel-level ground truth on a REAL Vulkan device. Renders terrain through the full
+// RenderFrame chain, reads pixels back, and asserts real render outcomes the Null test can't:
+//   1. a lit dome COVERS the view + SHADES (normals + lit path work, not a flat fill);
+//   2. the scene's directional sun DRIVES the shading (flipping it inverts the asymmetry);
+//   3. LOD-seam SKIRTS plug see-through cracks (a skirtless mixed-LOD frame leaks the background).
+// Compilation is proven by the Null test; THIS proves correct pixels. Skips with no Vulkan GPU.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
@@ -52,16 +52,29 @@ namespace
         return h;
     }
 
+    struct ProbeCfg
+    {
+        RefPtr<hf::Heightfield> terrain;
+        Float3 eye{0, 120, 0.001f};
+        Float3 target{0, 0, 0};
+        Float3 up{0, 0, 1};
+        f32 fov = 1.0f;
+        rhi::ClearColor clear = rhi::ClearColor::Black();
+        bool skirts = true;
+        const Float3* toLight = nullptr;    // dir TO the light; null = renderer fallback sun
+        const f32* thresholds = nullptr;    // LOD coverage thresholds override (null = default set)
+        u32 thresholdCount = 0;
+    };
+
     struct Probe
     {
         bool valid = false;
-        u32 filled = 0; // pixels brighter than the black background
+        u32 filled = 0;  // pixels brighter than the black background
+        u32 magenta = 0; // pixels matching a magenta clear (crack leak)
         f64 leftLuma = 0, rightLuma = 0, topLuma = 0, bottomLuma = 0, total = 0;
     };
 
-    // toLightOrNull: a directional light's direction TO the light (nullptr = no scene light, so the
-    // renderer's fallback key light is used).
-    Probe RenderTerrainProbe(rhi::Device& device, const Float3* toLightOrNull)
+    Probe RenderTerrainProbe(rhi::Device& device, const ProbeCfg& cfg)
     {
         Probe probe;
         shaders::ShaderSystemHost host;
@@ -74,28 +87,31 @@ namespace
             shaders::ShaderSystem& shaderSystem = *host.System();
             engine::terrain::TerrainRenderer renderer(device, shaderSystem, /*framesInFlight*/ 2);
             REQUIRE(renderer.Initialize().IsOk());
+            renderer.SetSkirtsEnabled(cfg.skirts);
             RendererRegistry registry;
             registry.Register(&renderer);
             RenderFrame frame(device, registry, /*framesInFlight*/ 2);
 
-            RefPtr<hf::Heightfield> dome = MakeDome();
+            const hf::Heightfield& terrain = *cfg.terrain;
             Array<tmodel::TerrainChunk> chunks;
-            tmodel::BuildChunks(*dome, chunks);
+            tmodel::BuildChunks(terrain, chunks);
             tmodel::TerrainQuadtree tree;
             tree.Build(Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
-                       tmodel::ChunksPerSide(dome->Size()));
+                       tmodel::ChunksPerSide(terrain.Size()));
             engine::terrain::TerrainHeightTextureCache heightCache;
-            rhi::TextureView* heightView = heightCache.GetOrCreate(device, *dome, Guid{}, 1);
+            rhi::TextureView* heightView = heightCache.GetOrCreate(device, terrain, Guid{}, 1);
             REQUIRE(heightView != nullptr);
 
-            static const f32 thresholds[] = {1.0f, 0.25f, 0.08f, 0.03f, 0.012f, 0.005f, 0.002f};
+            static const f32 defaultThresholds[] = {1.0f, 0.25f, 0.08f, 0.03f, 0.012f, 0.005f, 0.002f};
+            const f32* thresholds = cfg.thresholds != nullptr ? cfg.thresholds : defaultThresholds;
+            const u32 thresholdCount = cfg.thresholds != nullptr ? cfg.thresholdCount : 7u;
             ExtractedScene scene;
             scene.SetAmbient(Float3{1.0f, 1.0f, 1.0f});
-            if (toLightOrNull != nullptr)
+            if (cfg.toLight != nullptr)
             {
                 GpuLight sun{};
                 sun.type = 0.0f; // directional
-                sun.directionWS = *toLightOrNull * -1.0f; // travel dir = -(dir to light)
+                sun.directionWS = *cfg.toLight * -1.0f;
                 sun.color = Float3{1.0f, 1.0f, 1.0f};
                 sun.intensity = 1.0f;
                 scene.AddLight(sun);
@@ -109,23 +125,21 @@ namespace
             rd->chunkCount = static_cast<u32>(chunks.Size());
             rd->heightView = heightView;
             rd->chunkToWorld = Float4x4::Identity();
-            rd->gridSize = dome->Size();
-            rd->worldSizeXZ = dome->WorldSize();
-            rd->minY = dome->MinY();
-            rd->maxY = dome->MaxY();
-            for (u32 i = 0; i < 7; ++i)
+            rd->gridSize = terrain.Size();
+            rd->worldSizeXZ = terrain.WorldSize();
+            rd->minY = terrain.MinY();
+            rd->maxY = terrain.MaxY();
+            for (u32 i = 0; i < thresholdCount; ++i)
             {
                 rd->thresholds[i] = thresholds[i];
             }
-            rd->thresholdCount = 7;
-            rd->worldCenter = Float3{0.0f, 15.0f, 0.0f};
-            rd->worldRadius = 120.0f;
+            rd->thresholdCount = thresholdCount;
+            rd->worldCenter = Float3{0.0f, 0.5f * (terrain.MaxY() + terrain.MinY()), 0.0f};
+            rd->worldRadius = Length(terrain.WorldSize()) + (terrain.MaxY() - terrain.MinY());
 
-            // Straight down: the 130x130 terrain nearly fills the frame.
             ViewCamera camera;
-            camera.view = Float4x4::LookAtRH(Float3{0.0f, 120.0f, 0.001f}, Float3{0.0f, 0.0f, 0.0f},
-                                             Float3{0.0f, 0.0f, 1.0f});
-            camera.projection = Float4x4::PerspectiveFovRH(1.0f, 1.0f, 1.0f, 500.0f);
+            camera.view = Float4x4::LookAtRH(cfg.eye, cfg.target, cfg.up);
+            camera.projection = Float4x4::PerspectiveFovRH(cfg.fov, 1.0f, 1.0f, 4000.0f);
 
             rhi::TextureDesc td{};
             td.format = rhi::TextureFormat::RGBA8Unorm;
@@ -148,7 +162,7 @@ namespace
             REQUIRE(queue != nullptr);
 
             ViewSettings settings;
-            settings.clear = rhi::ClearColor::Black();
+            settings.clear = cfg.clear;
             settings.targetTexture = target;
             settings.targetFinalState = rhi::ResourceState::CopySrc;
             settings.post.bloomEnabled = false;
@@ -177,11 +191,16 @@ namespace
             {
                 for (u32 x = 0; x < kSize; ++x)
                 {
-                    const u32 luma = img.Luma(x, y);
+                    const u8* p = img.At(x, y);
+                    const u32 luma = static_cast<u32>(p[0]) + p[1] + p[2];
                     probe.total += luma;
                     if (luma > 30)
                     {
                         ++probe.filled;
+                    }
+                    if (p[0] > 180 && p[1] < 90 && p[2] > 180) // magenta clear showing through
+                    {
+                        ++probe.magenta;
                     }
                     (x < kSize / 2 ? probe.leftLuma : probe.rightLuma) += luma;
                     (y < kSize / 2 ? probe.topLuma : probe.bottomLuma) += luma;
@@ -198,13 +217,19 @@ namespace
         host.Shutdown();
         return probe;
     }
+
+    rhi::Device* MakeVulkan(rhi::Backend*& backendOut)
+    {
+        backendOut = nullptr;
+        (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, backendOut);
+        return backendOut != nullptr ? testsupport::MakeTestDevice(backendOut) : nullptr;
+    }
 }
 
 TEST_CASE("terrain probe: a lit dome renders + shades on Vulkan")
 {
     rhi::Backend* vulkan = nullptr;
-    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
-    rhi::Device* device = vulkan != nullptr ? testsupport::MakeTestDevice(vulkan) : nullptr;
+    rhi::Device* device = MakeVulkan(vulkan);
     if (device == nullptr)
     {
         MESSAGE("Vulkan unavailable - terrain probe skipped");
@@ -215,22 +240,17 @@ TEST_CASE("terrain probe: a lit dome renders + shades on Vulkan")
         return;
     }
 
-    const Probe p = RenderTerrainProbe(*device, nullptr);
+    ProbeCfg cfg;
+    cfg.terrain = MakeDome();
+    const Probe p = RenderTerrainProbe(*device, cfg);
     REQUIRE(p.valid);
     const f64 pixels = static_cast<f64>(kSize) * kSize;
     std::printf("[terrain-probe] filled=%u/%.0f left=%.0f right=%.0f top=%.0f bottom=%.0f\n",
                 p.filled, pixels, p.leftLuma, p.rightLuma, p.topLuma, p.bottomLuma);
 
-    // (1) The terrain rendered and covers most of the top-down view (black border aside). A dead
-    // PSO or reversed winding would leave the frame black.
-    CHECK(static_cast<f64>(p.filled) > pixels * 0.5);
-
-    // (2) Directional light on the dome's varying normals => the frame is NOT uniformly lit. The sun
-    // tilts in +X and +Z, so at least one screen axis shows a clear luma asymmetry (a flat/constant
-    // fill, or lighting that ignores the normal, would be symmetric).
-    const f64 axisAsymmetry =
-        Abs(p.leftLuma - p.rightLuma) + Abs(p.topLuma - p.bottomLuma);
-    CHECK(axisAsymmetry > p.total * 0.02);
+    CHECK(static_cast<f64>(p.filled) > pixels * 0.5); // it rendered + covers the view
+    const f64 axisAsymmetry = Abs(p.leftLuma - p.rightLuma) + Abs(p.topLuma - p.bottomLuma);
+    CHECK(axisAsymmetry > p.total * 0.02); // directional shading, not a flat fill
 
     device->Destroy();
     vulkan->Destroy();
@@ -239,8 +259,7 @@ TEST_CASE("terrain probe: a lit dome renders + shades on Vulkan")
 TEST_CASE("terrain probe: the scene's directional sun drives the shading (flip inverts it)")
 {
     rhi::Backend* vulkan = nullptr;
-    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
-    rhi::Device* device = vulkan != nullptr ? testsupport::MakeTestDevice(vulkan) : nullptr;
+    rhi::Device* device = MakeVulkan(vulkan);
     if (device == nullptr)
     {
         MESSAGE("Vulkan unavailable - terrain sun probe skipped");
@@ -251,21 +270,22 @@ TEST_CASE("terrain probe: the scene's directional sun drives the shading (flip i
         return;
     }
 
-    // Same dome, two suns tilted to opposite sides in X. Whichever screen axis world-X maps to, the
-    // sign of the left/right luma difference must INVERT when the sun flips - proof the renderer reads
-    // the scene's directional light (a hardcoded sun would give the same sign both times).
     const Float3 toLightPlusX = Normalized(Float3{0.85f, 0.5f, 0.0f});
     const Float3 toLightMinusX = Normalized(Float3{-0.85f, 0.5f, 0.0f});
-    const Probe a = RenderTerrainProbe(*device, &toLightPlusX);
-    const Probe b = RenderTerrainProbe(*device, &toLightMinusX);
+    ProbeCfg cfg;
+    cfg.terrain = MakeDome();
+    cfg.toLight = &toLightPlusX;
+    const Probe a = RenderTerrainProbe(*device, cfg);
+    cfg.toLight = &toLightMinusX;
+    const Probe b = RenderTerrainProbe(*device, cfg);
     REQUIRE(a.valid);
     REQUIRE(b.valid);
 
     const f64 da = a.leftLuma - a.rightLuma;
     const f64 db = b.leftLuma - b.rightLuma;
     std::printf("[terrain-sun] +X: L-R=%.0f   -X: L-R=%.0f\n", da, db);
-    CHECK(da * db < 0.0);                       // the asymmetry inverted with the sun
-    CHECK(Abs(da) > a.total * 0.02);            // and each is a real, sizable asymmetry
+    CHECK(da * db < 0.0);            // asymmetry inverted with the sun
+    CHECK(Abs(da) > a.total * 0.02); // each a real, sizable asymmetry
     CHECK(Abs(db) > b.total * 0.02);
 
     device->Destroy();

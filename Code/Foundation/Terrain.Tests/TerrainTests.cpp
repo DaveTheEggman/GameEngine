@@ -148,34 +148,48 @@ TEST_CASE("terrain: quadtree cull - all visible, none visible")
     }
 }
 
-TEST_CASE("terrain: shared chunk grid mesh - vertices + per-LOD indices")
+TEST_CASE("terrain: shared chunk grid mesh - surface + skirt verts + per-LOD indices")
 {
-    Array<Float2> verts;
+    Array<Float3> verts;
     BuildChunkGridVertices(verts);
-    REQUIRE(verts.Size() == static_cast<usize>(kChunkVerts) * kChunkVerts); // 65*65
+    // Surface grid + a skirt copy (each vertex = u, v, skirtFlag).
+    REQUIRE(verts.Size() == static_cast<usize>(kChunkVerts) * kChunkVerts * 2);
     CHECK(Near(verts[0].x, 0.0f));
     CHECK(Near(verts[0].y, 0.0f));
-    CHECK(Near(verts[verts.Size() - 1].x, 1.0f)); // last vertex = (1,1)
+    CHECK(Near(verts[0].z, 0.0f)); // first = surface (flag 0)
+    CHECK(Near(verts[kChunkSurfaceVertexCount].z, 1.0f)); // skirt copy begins here (flag 1)
+    CHECK(Near(verts[verts.Size() - 1].x, 1.0f));         // last skirt vert shares uv (1,1)
     CHECK(Near(verts[verts.Size() - 1].y, 1.0f));
+    CHECK(Near(verts[verts.Size() - 1].z, 1.0f));
 
+    // Per LOD: surface (quads*quads*6) + a skirt wall around the 4 edges (48 indices per border
+    // segment: 4 double-sided tris; segments = quads per edge).
     Array<u32> lod0;
     BuildChunkGridIndices(0, lod0);
-    CHECK(lod0.Size() == 64u * 64u * 6u); // full density: 64x64 quads, 2 tris each
+    CHECK(lod0.Size() == 64u * 64u * 6u + 64u * 48u); // stride 1
+
+    // The surface index count is the skirtless draw prefix (what the renderer draws with skirts off).
+    CHECK(ChunkLodSurfaceIndexCount(0) == 64u * 64u * 6u);
+    CHECK(ChunkLodSurfaceIndexCount(1) == 32u * 32u * 6u);
+    CHECK(ChunkLodSurfaceIndexCount(kMaxChunkLod) == 6u);
+    CHECK(ChunkLodSurfaceIndexCount(kMaxChunkLod + 1) == 0u);
+    CHECK(ChunkLodSurfaceIndexCount(0) < lod0.Size()); // skirt indices follow the surface prefix
 
     Array<u32> lod1;
     BuildChunkGridIndices(1, lod1);
-    CHECK(lod1.Size() == 32u * 32u * 6u); // stride 2
+    CHECK(lod1.Size() == 32u * 32u * 6u + 32u * 48u); // stride 2
 
     Array<u32> lod6;
     BuildChunkGridIndices(kMaxChunkLod, lod6);
-    CHECK(lod6.Size() == 6u); // one quad
+    CHECK(lod6.Size() == 6u + 48u); // one surface quad + one skirt segment per edge
 
     Array<u32> lodTooCoarse;
     BuildChunkGridIndices(kMaxChunkLod + 1, lodTooCoarse);
     CHECK(lodTooCoarse.IsEmpty());
 
-    // Every index references a real grid vertex.
+    // Every index references a real grid vertex, and the mesh actually references skirt verts.
     bool allInRange = true;
+    bool referencesSkirt = false;
     for (usize i = 0; i < lod0.Size(); ++i)
     {
         if (lod0[i] >= verts.Size())
@@ -183,8 +197,13 @@ TEST_CASE("terrain: shared chunk grid mesh - vertices + per-LOD indices")
             allInRange = false;
             break;
         }
+        if (lod0[i] >= kChunkSurfaceVertexCount)
+        {
+            referencesSkirt = true;
+        }
     }
     CHECK(allInRange);
+    CHECK(referencesSkirt);
 }
 
 TEST_CASE("terrain: extract visible chunk draws (cull + LOD -> draw list)")

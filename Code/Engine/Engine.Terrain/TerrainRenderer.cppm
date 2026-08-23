@@ -90,12 +90,13 @@ export namespace engine::terrain
                 return core::Status{core::ErrorCode::Unknown};
             }
 
-            // The shared 65x65 grid vertex buffer (unit-square UVs) - uploaded once, drawn per chunk.
-            Array<Float2> verts;
+            // The shared grid vertex buffer (surface + skirt copies, each vertex = u,v,skirtFlag) -
+            // uploaded once, drawn for every chunk.
+            Array<Float3> verts;
             tmodel::BuildChunkGridVertices(verts);
             m_gridVertexCount = static_cast<u32>(verts.Size());
             rhi::BufferDesc vbd{};
-            vbd.size = verts.Size() * sizeof(Float2);
+            vbd.size = verts.Size() * sizeof(Float3);
             vbd.usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst;
             vbd.memory = rhi::MemoryLocation::CpuToGpu;
             vbd.label = u8"terrain.grid.verts";
@@ -105,7 +106,7 @@ export namespace engine::terrain
             }
             if (void* p = m_gridVertexBuffer->Map())
             {
-                MemCopy(p, verts.Data(), verts.Size() * sizeof(Float2));
+                MemCopy(p, verts.Data(), verts.Size() * sizeof(Float3));
                 m_gridVertexBuffer->Unmap();
             }
 
@@ -116,6 +117,7 @@ export namespace engine::terrain
                 tmodel::BuildChunkGridIndices(lod, indices);
                 LodMesh& lm = m_lodMeshes[lod];
                 lm.indexCount = static_cast<u32>(indices.Size());
+                lm.surfaceIndexCount = tmodel::ChunkLodSurfaceIndexCount(lod);
                 if (lm.indexCount == 0)
                 {
                     continue;
@@ -256,6 +258,12 @@ export namespace engine::terrain
                         continue;
                     }
                     ++m_frameChunks;
+                    // Skirt depth: how far the skirt ring drops below the surface to plug an LOD
+                    // seam. Bounded by the chunk's own relief (a seam can't mismatch by more), with a
+                    // small floor for near-flat terrain. Skirts are only visible AT a crack, so being
+                    // generous is free.
+                    const f32 skirtDepth =
+                        Max(1.0f, 0.5f * (c.bounds.max.y - c.bounds.min.y));
                     struct ChunkUBO
                     {
                         Float2 originXZ;
@@ -264,6 +272,7 @@ export namespace engine::terrain
                         Float2 texelSpan;
                         Float2 heightRange;
                         Float2 gridSize;
+                        Float2 skirt; // x = skirt depth (world), y = pad
                     } cb{Float2{c.bounds.min.x, c.bounds.min.z},
                          Float2{c.bounds.max.x - c.bounds.min.x, c.bounds.max.z - c.bounds.min.z},
                          Float2{static_cast<f32>(c.gridX0), static_cast<f32>(c.gridZ0)},
@@ -271,7 +280,8 @@ export namespace engine::terrain
                                 static_cast<f32>(tmodel::kChunkQuads)},
                          Float2{data->minY, data->maxY},
                          Float2{static_cast<f32>(data->gridSize),
-                                static_cast<f32>(data->gridSize)}};
+                                static_cast<f32>(data->gridSize)},
+                         Float2{skirtDepth, 0.0f}};
                     MemCopy(cr.ptr, &cb, sizeof(cb));
 
                     render::ResolvedDraw draw{};
@@ -286,7 +296,8 @@ export namespace engine::terrain
                     draw.vertexBuffer0 = m_gridVertexBuffer;
                     draw.indexBuffer = lm.indexBuffer;
                     draw.indexFormat = rhi::IndexFormat::UInt32;
-                    draw.indexCount = lm.indexCount;
+                    // Skirtless pass draws only the surface prefix (crack-plug diagnostics/tests).
+                    draw.indexCount = m_skirtsEnabled ? lm.indexCount : lm.surfaceIndexCount;
                     draw.instanceCount = 1;
                     out.PushBack(draw);
                 }
@@ -310,6 +321,10 @@ export namespace engine::terrain
         /// once a frame emitted terrain draws, which requires the PSO (hence the shaders) to have built.
         [[nodiscard]] u32 MaxChunksDrawn() const noexcept { return m_maxChunksSeen; }
 
+        /// Draw the LOD-seam skirts (default on). Off draws only the surface - used to prove the skirts
+        /// actually plug cracks (a skirtless mixed-LOD frame leaks background through the seams).
+        void SetSkirtsEnabled(bool enabled) noexcept { m_skirtsEnabled = enabled; }
+
     private:
         static constexpr u32 kMaxTerrains = 8;
         static constexpr u64 kViewSlotSize = 256;  // mat4 + 2 float4, padded to dynamic alignment
@@ -318,7 +333,8 @@ export namespace engine::terrain
         struct LodMesh
         {
             rhi::Buffer* indexBuffer = nullptr;
-            u32 indexCount = 0;
+            u32 indexCount = 0;        // surface + skirt walls
+            u32 surfaceIndexCount = 0; // the surface prefix (skirtless draw range)
         };
 
         rhi::BindGroup* EnsureViewBindGroup()
@@ -434,9 +450,9 @@ export namespace engine::terrain
                 return nullptr;
             }
 
-            const rhi::VertexAttribute attrs[] = {{rhi::VertexFormat::Float32x2, 0, 0}};
+            const rhi::VertexAttribute attrs[] = {{rhi::VertexFormat::Float32x3, 0, 0}};
             rhi::VertexBufferLayout vbl{};
-            vbl.stride = sizeof(Float2);
+            vbl.stride = sizeof(Float3);
             vbl.stepMode = rhi::VertexStepMode::Vertex;
             vbl.attributes = Span<const rhi::VertexAttribute>{attrs, 1};
 
@@ -565,5 +581,6 @@ export namespace engine::terrain
         Array<tmodel::ChunkDraw> m_draws; // scratch, reused each terrain (Resolve is single-threaded)
         u32 m_frameChunks = 0;
         u32 m_maxChunksSeen = 0;
+        bool m_skirtsEnabled = true;
     };
 }

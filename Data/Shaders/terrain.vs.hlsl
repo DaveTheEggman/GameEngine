@@ -19,11 +19,12 @@ cbuffer TerrainChunk : register(b0, space1) {
     float2 TexelSpan;   // texels spanned across the chunk (= kChunkQuads)
     float2 HeightRange; // minY, maxY (world)
     float2 GridSize;    // heightfield side S (texel clamp bound), same in x and y
+    float2 Skirt;       // x = skirt drop depth (world); y = pad
 };
 
 Texture2D<uint> HeightTex : register(t0, space2);
 
-struct VSIn  { float2 UV : TEXCOORD0; };
+struct VSIn  { float3 Grid : TEXCOORD0; };  // xy = grid uv in [0,1], z = skirt flag (0 surface, 1 skirt)
 struct VSOut {
     float4 pos     : SV_Position;
     float3 normal  : TEXCOORD0;
@@ -39,11 +40,13 @@ float SampleHeightY(int2 texel) {
 VSOut main(VSIn i) {
     VSOut o;
 
-    float2 texelF = TexelBase + i.UV * TexelSpan;
+    float2 uv     = i.Grid.xy;
+    float  isSkirt = i.Grid.z;
+    float2 texelF = TexelBase + uv * TexelSpan;
     int2   texel  = int2((int)round(texelF.x), (int)round(texelF.y));
-    float  y      = SampleHeightY(texel);
+    float  y      = SampleHeightY(texel) - isSkirt * Skirt.x; // skirt verts drop below the surface
 
-    float2 wxz = OriginXZ + i.UV * SizeXZ;
+    float2 wxz = OriginXZ + uv * SizeXZ;
     o.pos = mul(float4(wxz.x, y, wxz.y, 1.0), ViewProj);
 
     // Normal from central differences on the height texture (world units per texel = SizeXZ / span).
@@ -53,6 +56,7 @@ VSOut main(VSIn i) {
     float hU = SampleHeightY(texel + int2( 0,  1));
     float2 cell = SizeXZ / max(TexelSpan, float2(1.0, 1.0));
     o.normal  = normalize(float3(hL - hR, cell.x + cell.y, hD - hU));
-    o.heightT = saturate((y - HeightRange.x) / max(HeightRange.y - HeightRange.x, 1e-3));
+    float surfaceY = SampleHeightY(texel);
+    o.heightT = saturate((surfaceY - HeightRange.x) / max(HeightRange.y - HeightRange.x, 1e-3));
     return o;
 }
