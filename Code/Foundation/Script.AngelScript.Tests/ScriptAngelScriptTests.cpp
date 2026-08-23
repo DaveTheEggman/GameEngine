@@ -695,6 +695,76 @@ TEST_CASE("angelscript: same-arity type overloads carry distinct script names (o
     CHECK(ctx->GetGlobal(u8"SX").Get<f64>() == 4.0); // chose (Float3, float)
 }
 
+TEST_CASE("angelscript: reflected math ops (Math statics, Float3/Quaternion vector ops)")
+{
+    RegisterCoreTypes();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    REQUIRE(ctx->Load(u8"double R = 0;\n"
+                      u8"double CZ = 0;\n"
+                      u8"double RX = 0;\n"
+                      u8"void main() {\n"
+                      u8"  R = Math::Sqrt(16.0f);\n"                                // -> 4
+                      u8"  Float3@ c = Float3::Cross(Float3(1, 0, 0), Float3(0, 1, 0));\n" // -> +Z
+                      u8"  CZ = c.z;\n"
+                      // 90 degrees about +Y rotates +Z to +X.
+                      u8"  Quaternion@ q = Quaternion::FromAxisAngle(Float3(0, 1, 0), 1.5707963f);\n"
+                      u8"  Float3@ rv = Quaternion::RotateVector(q, Float3(0, 0, 1));\n"
+                      u8"  RX = rv.x;\n"
+                      u8"}\n",
+                      u8"main")
+                .IsOk());
+    CHECK(ctx->GetGlobal(u8"R").Get<f64>() == 4.0);
+    CHECK(ctx->GetGlobal(u8"CZ").Get<f64>() == 1.0);
+    CHECK(ctx->GetGlobal(u8"RX").Get<f64>() == doctest::Approx(1.0));
+}
+
+TEST_CASE("angelscript: bound-api signatures carry reflected parameter names")
+{
+    RegisterCoreTypes();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RegisterReflectedTypes(*manager);
+
+    const Array<ScriptApiType> api = manager->DescribeBoundApi();
+
+    const auto findType = [&](StringView name) -> const ScriptApiType* {
+        for (const ScriptApiType& t : api)
+        {
+            if (t.scriptName.AsView() == name)
+            {
+                return &t;
+            }
+        }
+        return nullptr;
+    };
+    const auto findMember = [](const ScriptApiType& t, StringView name) -> const ScriptApiMember* {
+        for (const ScriptApiMember& m : t.members)
+        {
+            if (m.name.AsView() == name)
+            {
+                return &m;
+            }
+        }
+        return nullptr;
+    };
+
+    // The signature now spells parameter names, not just types (API-browser affordance): it ends
+    // with the last parameter's name before the closing paren.
+    const ScriptApiType* float3 = findType(u8"Float3");
+    REQUIRE(float3 != nullptr);
+    const ScriptApiMember* cross = findMember(*float3, u8"Cross");
+    REQUIRE(cross != nullptr);
+    CHECK(cross->signature.AsView().EndsWith(u8" b)"));
+
+    const ScriptApiType* math = findType(u8"Math");
+    REQUIRE(math != nullptr);
+    const ScriptApiMember* atan2 = findMember(*math, u8"Atan2");
+    REQUIRE(atan2 != nullptr);
+    CHECK(atan2->signature.AsView().EndsWith(u8" x)")); // Atan2(y, x)
+}
+
 TEST_CASE("angelscript: Object-derived type as a script-visible class")
 {
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();

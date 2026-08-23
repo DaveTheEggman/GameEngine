@@ -1594,7 +1594,7 @@ namespace foundation::script::angelscript
             }
             AppendAscii(out, ScriptMethodName(method)); // overload identity, not the C++ name
             AppendAscii(out, "(");
-            if (!AppendParams(out, method.params, method.paramCount))
+            if (!AppendParams(out, method.params, method.paramCount, /*includeNames*/ true))
             {
                 return false;
             }
@@ -2127,7 +2127,11 @@ namespace foundation::script::angelscript
             }
         }
 
-        bool AppendParams(core::String& decl, const core::ParamInfo* params, core::u32 count) const
+        // includeNames appends the reflected parameter name after each type (when one is known).
+        // Off for the registration decl (AngelScript neither needs nor should reject on names);
+        // on for the introspection signature so the API browser can show `Cross(Float3 a, Float3 b)`.
+        bool AppendParams(core::String& decl, const core::ParamInfo* params, core::u32 count,
+                          bool includeNames = false) const
         {
             for (core::u32 p = 0; p < count; ++p)
             {
@@ -2135,6 +2139,11 @@ namespace foundation::script::angelscript
                                     /*isParam*/ true))
                 {
                     return false;
+                }
+                if (includeNames && params[p].name != nullptr && params[p].name[0] != '\0')
+                {
+                    AppendAscii(decl, " ");
+                    AppendAscii(decl, params[p].name);
                 }
                 if (p + 1 < count)
                 {
