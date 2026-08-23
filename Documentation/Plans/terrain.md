@@ -197,6 +197,21 @@ seam navigation's bake will consume later.
 
 ## Rendering design (phase 1)
 
+- CHUNK LOD METRIC (Fable note, 2026-08-23 - adopt before the renderer
+  half hardens): mesh-lod P1 built and exported the pure selection math
+  in foundation.render - `LodCoverageFor` (projected screen coverage
+  from bounds + camera: fov-aware, resolution-aware, ortho-correct,
+  unit-tested) plus the +-5% hysteresis band pattern. foundation.terrain's
+  shipped `DistanceToChunk + SelectLod` uses raw DISTANCE, which cannot
+  see fov or viewport size (a chunk at 100m fills very different screen
+  area at 30 vs 90 degrees). EVALUATE switching the chunk metric to
+  coverage (wrap or reuse LodCoverageFor on the chunk's bounding sphere)
+  while the selection is still a pure function with tests - this is the
+  "check-at-P1 whether the formula is genuinely shareable" item from the
+  mesh-lod refresh, answered: it exists, it fits, share it rather than
+  invent formula #2. Chunk-boundary popping wants the same hysteresis
+  band; ApplyLodHysteresis is mesh-coupled today but generalizes to a
+  Span<f32> threshold walk trivially if literal sharing is wanted.
 - Shared grid vertex buffer (one chunk-sized grid, e.g. 65x65 verts),
   per-chunk instance data {chunk origin, LOD, morph params}; vertex
   shader fetches height via textureLoad (unfiltered fetch works in VS on
@@ -291,6 +306,19 @@ ride the deferred holes item); the runtime never links brush code.
 Per-layer grass rules (mesh, density, distance) rendered through the
 instanced-mesh path (persistent per-set buffers - the MultiMesh work).
 Spec'd in detail when phase 2 lands.
+
+GRASS SETS PARTITION PER CHUNK (Fable note, 2026-08-23 - a design
+constraint to carry into the P3 spec): mesh-lod's per-SET instanced LOD
+selection (shipped) picks one level from a set's MERGED bounds, which
+degenerates on a terrain-wide grass set (merged bounds = the whole
+terrain). Partitioning grass into one instanced set PER TERRAIN CHUNK -
+the natural shape for chunked terrain anyway - makes each set's bounds
+chunk-sized, and the already-shipped per-set selection becomes
+meaningful FOR FREE: distant chunks' tufts draw their coarse level
+(auto-generated chains work on grass meshes), near chunks draw fine,
+no per-instance bucketing needed. Grass density/fade distance rules
+stay terrain's own; this note is only about which instanced-set
+granularity makes the existing LOD machinery work.
 
 ## Tests (required)
 
