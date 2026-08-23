@@ -17,6 +17,8 @@ target_link_libraries(TerrainPlayground PRIVATE
     Engine::Render
     Foundation::Render
     Extensions::Imgui
+    Foundation::Geometry
+    Foundation::Materials
     Foundation::Heightfield
     Foundation::Terrain.Resource
     Engine::Terrain

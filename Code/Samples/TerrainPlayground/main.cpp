@@ -24,6 +24,8 @@ import engine.scene;
 import engine.render;
 import foundation.render;
 import extensions.imgui;
+import foundation.geometry;  // Primitives (the orbiting shadow caster)
+import foundation.materials; // CreatePBR
 import foundation.heightfield;
 import foundation.terrain.resource;
 import engine.terrain;
@@ -37,6 +39,8 @@ namespace scene = foundation::scene;
 namespace imgui = extensions::imgui;
 namespace hf = foundation::heightfield;
 namespace terrain = foundation::terrain;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
 using namespace foundation::core; // RefPtr, MakeRef, DefaultAllocator, math helpers
 
 #include "../Common/FlyCamera.h"
@@ -54,6 +58,7 @@ namespace
     constexpr core::i32 kGridSize = 257;      // 4x4 chunks (64k+1)
     constexpr core::f32 kWorldSize = 256.0f;  // XZ footprint
     constexpr core::f32 kMaxHeight = 60.0f;   // world Y range top
+    constexpr core::f32 kCasterRadius = 8.0f; // the orbiting shadow-caster sphere
 
     // Rewrite every sample from the current controls, then BumpVersion so the GPU height texture and
     // the chunk model re-upload. Pattern in [0,1] -> scaled by `amplitude` -> the u16 range.
@@ -141,6 +146,7 @@ namespace
                 lc.type = engine::render::LightType::Directional;
                 lc.color = core::Color{1.0f, 0.96f, 0.88f, 1.0f};
                 lc.intensity = 1.0f;
+                lc.castsShadows = true; // drives the CSM - terrain casts + receives
             }
             ApplySun();
 
@@ -160,6 +166,18 @@ namespace
                 tc.terrain = m_terrainResource;
                 tc.lodBias = m_lodBias;
             }
+
+            // A floating sphere that orbits over the terrain - a moving shadow caster so the CSM is
+            // obvious (its shadow sweeps across the surface). Meshes cast automatically (Opaque).
+            m_caster = m_scene->CreateEntity(u8"caster");
+            if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
+            {
+                engine::render::MeshComponent& mc = meshes->Add(m_caster);
+                mc.mesh = geometry::Primitives::Sphere(kCasterRadius);
+                mc.SetMaterial(materials::CreatePBR(u8"caster", core::Float4{0.9f, 0.3f, 0.2f, 1.0f},
+                                                    0.0f, 0.5f));
+            }
+            ApplyCaster();
         }
 
         void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
@@ -189,6 +207,12 @@ namespace
                 camT.position = m_fly.position;
                 camT.rotation = m_fly.Rotation();
                 m_scene->SetLocalTransform(m_camera, camT);
+
+                if (m_orbit)
+                {
+                    m_orbitTime += deltaTime * m_orbitSpeed;
+                }
+                ApplyCaster(); // re-apply each frame so height/radius sliders track live
             }
         }
 
@@ -206,6 +230,17 @@ namespace
             core::Transform t = m_scene->GetLocalTransform(m_sun);
             t.rotation = rot;
             m_scene->SetLocalTransform(m_sun, t);
+        }
+
+        void ApplyCaster()
+        {
+            if (m_scene == nullptr)
+            {
+                return;
+            }
+            m_scene->SetLocalPosition(
+                m_caster, core::Float3{m_orbitRadius * core::Cos(m_orbitTime), m_casterHeight,
+                                       m_orbitRadius * core::Sin(m_orbitTime)});
         }
 
         void BuildHud()
@@ -259,6 +294,12 @@ namespace
                 }
 
                 ImGui::Separator();
+                ImGui::TextDisabled("Shadow caster (watch its shadow sweep the terrain)");
+                ImGui::Checkbox("orbit", &m_orbit);
+                ImGui::SliderFloat("caster height", &m_casterHeight, 12.0f, 130.0f, "%.0f");
+                ImGui::SliderFloat("orbit radius", &m_orbitRadius, 0.0f, 115.0f, "%.0f");
+
+                ImGui::Separator();
                 ImGui::TextDisabled("WASD/QE fly, hold RMB to look, Shift = fast.");
             }
             ImGui::End();
@@ -268,6 +309,7 @@ namespace
         scene::EntityHandle m_camera{};
         scene::EntityHandle m_sun{};
         scene::EntityHandle m_terrain{};
+        scene::EntityHandle m_caster{};
         RefPtr<hf::Heightfield> m_heightfield;
         RefPtr<terrain::TerrainResource> m_terrainResource;
         samples::FlyCamera m_fly;
@@ -280,6 +322,11 @@ namespace
         TerrainType m_type = TerrainType::Hills;
         core::f32 m_amplitude = 0.7f;
         core::f32 m_frequency = 0.06f;
+        bool m_orbit = true;
+        core::f32 m_orbitTime = 0.0f;
+        core::f32 m_orbitSpeed = 0.6f;   // radians/sec
+        core::f32 m_casterHeight = 70.0f;
+        core::f32 m_orbitRadius = 75.0f;
     };
 }
 
