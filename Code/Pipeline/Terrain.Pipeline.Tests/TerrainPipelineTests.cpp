@@ -83,7 +83,7 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
 
-    Proxy<Terrain> terrain = manager.Bind<Terrain>(terrainId);
+    Proxy<TerrainResource> terrain = manager.Bind<TerrainResource>(terrainId);
     REQUIRE(terrain);
     CHECK(terrain->castShadows == false);
     CHECK(terrain->LayerCount() == 2u);

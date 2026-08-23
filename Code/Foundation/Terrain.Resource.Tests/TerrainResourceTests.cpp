@@ -107,7 +107,7 @@ TEST_CASE("terrain resource: builds through the manager and resolves the shared 
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
 
-    Proxy<Terrain> terrain = manager.Bind<Terrain>(terrainId);
+    Proxy<TerrainResource> terrain = manager.Bind<TerrainResource>(terrainId);
     REQUIRE(terrain);
     CHECK(terrain->castShadows == false);
     CHECK(terrain->LayerCount() == 2u);

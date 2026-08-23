@@ -22,7 +22,7 @@ using namespace foundation::core;
 
 export namespace pipeline
 {
-    using foundation::terrain::Terrain;
+    using foundation::terrain::TerrainResource;
     using foundation::terrain::TerrainSource;
 
     // Source asset: references a heightfield + splatmap + per-layer albedo textures (by asset guid,
@@ -59,7 +59,7 @@ export namespace pipeline
         }
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
-            return &Terrain::StaticType();
+            return &TerrainResource::StaticType();
         }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,

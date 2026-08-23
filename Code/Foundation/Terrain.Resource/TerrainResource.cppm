@@ -3,7 +3,7 @@
 /// The cooked terrain resource: a bundle of REFERENCES (a heightfield, a splatmap, per-layer albedo
 /// textures) + a cast-shadows flag - NOT embedded bulk. TerrainSource is the serialized form (guids +
 /// params, the Material.Resource pattern); TerrainFactory resolves each guid through the manager into
-/// the runtime Terrain product. TerrainComponent (engine.terrain) references Ref<Terrain>. The
+/// the runtime TerrainResource. TerrainComponent (engine.terrain) references Ref<TerrainResource>. The
 /// heightfield is the shared source of truth - physics/nav resolve the SAME Ref<Heightfield>.
 
 module;
@@ -47,9 +47,9 @@ export namespace foundation::terrain
 
     /// The runtime terrain product: the resolved resource handles the renderer draws with. The
     /// heightfield drives geometry (via foundation.terrain's chunk model) + the shared collision.
-    class Terrain final : public Object
+    class TerrainResource final : public Object
     {
-        RTTI_OBJECT(Terrain, Object)
+        RTTI_OBJECT(TerrainResource, Object)
     public:
         struct Layer
         {
@@ -65,13 +65,13 @@ export namespace foundation::terrain
         [[nodiscard]] u32 LayerCount() const noexcept { return static_cast<u32>(layers.Size()); }
     };
 
-    /// Resolves a TerrainSource into a runtime Terrain, binding each referenced resource through the
+    /// Resolves a TerrainSource into a runtime TerrainResource, binding each referenced resource through the
     /// manager (recording the dependency edges, so a heightfield/texture reload cascades). A missing
     /// sub-resource (not cooked, or no GPU factory in headless tools) leaves that handle unbound.
     class TerrainFactory final : public IResourceFactory
     {
     public:
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &Terrain::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override { return &TerrainResource::StaticType(); }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
                                             foundation::content::Instance& instance) override
@@ -82,7 +82,7 @@ export namespace foundation::terrain
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<Terrain> terrain = MakeRef<Terrain>(DefaultAllocator());
+            RefPtr<TerrainResource> terrain = MakeRef<TerrainResource>(DefaultAllocator());
             terrain->castShadows = src->castShadows;
             if (!src->heightfieldId.IsNil())
             {
@@ -94,7 +94,7 @@ export namespace foundation::terrain
             }
             for (usize i = 0; i < src->layerAlbedoIds.Size(); ++i)
             {
-                Terrain::Layer layer;
+                TerrainResource::Layer layer;
                 layer.tileScale =
                     (i < src->layerTileScales.Size()) ? src->layerTileScales[i] : 1.0f;
                 if (!src->layerAlbedoIds[i].IsNil())
@@ -110,11 +110,11 @@ export namespace foundation::terrain
     /// Register the terrain resource types (product + cooked source) for load.
     inline void RegisterTerrainResourceTypes()
     {
-        GlobalTypeRegistry().Register(Terrain::StaticType());
+        GlobalTypeRegistry().Register(TerrainResource::StaticType());
         GlobalTypeRegistry().Register(TerrainSource::StaticType());
         RegisterSerializable<TerrainSource>();
     }
 
-    RTTI_DEFINE_OBJECT(Terrain, "rtti::terrain")
+    RTTI_DEFINE_OBJECT(TerrainResource, "rtti::terrain")
     RTTI_DEFINE_OBJECT_VERSIONED(TerrainSource, "rtti::terrain", 1)
 }
