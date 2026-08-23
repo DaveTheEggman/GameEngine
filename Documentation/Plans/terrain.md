@@ -113,8 +113,15 @@ shared grid mesh geometry). The sub-phases:
   - WebGPU probe: DONE. The pixel probe runs on Vulkan AND WebGPU and requires a
     match - filled + total are identical on both, so the WGSL cook (the integer Load
     on the R16Uint height texture, the portability bet) is pixel-exact vs SPIR-V.
-  - REMAINING: CSM cast (default-on, ResolveDepthOnly) + terrain sampling the shadow
-    map as a receiver; splat (D2 above).
+  - CSM shadows: DONE. Terrain CASTS (TerrainRenderer::ResolveDepthOnly - the camera
+    prepass + each cascade - via a vertex-only terrain_depth PSO, surface indices
+    only) and RECEIVES (the PS ports forward's SampleCSM: PCF + normal-offset bias +
+    cascade blend + far fade, attenuating the sun term). The VS unfolds to world
+    space (worldPos + world normal) so the cascade sampling is world-space. Verified
+    by a Vulkan shadow probe: a ridge casts onto flat ground, one band -> 41% with
+    shadows on, 0.000 asym off. (Prereq fix: BuildShadowCasterList now reads generic
+    base fields, not a blind MeshRenderData downcast.)
+  - REMAINING: splat (D2 above).
 Then `Editor.Terrain` (phase 2).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
