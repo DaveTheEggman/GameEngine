@@ -283,10 +283,13 @@ namespace
     };
 }
 
-int main(int, char**)
+int main(int argc, char** argv)
 {
     auto shell = shell::CreateShell();
     graphics::GraphicsDeviceDesc gpuDesc{};
+    // The shared backend scan (--vulkan/--dx12/--webgpu/--null-gpu) - the probe suite runs
+    // terrain on every backend; the playground must be steerable the same way.
+    gpuDesc.backend = graphics::SelectBackendFromArguments(argc, argv);
     auto gpu = graphics::CreateGraphicsDevice(gpuDesc);
     graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 
