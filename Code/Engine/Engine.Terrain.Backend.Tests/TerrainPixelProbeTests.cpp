@@ -59,7 +59,9 @@ namespace
         f64 leftLuma = 0, rightLuma = 0, topLuma = 0, bottomLuma = 0, total = 0;
     };
 
-    Probe RenderTerrainProbe(rhi::Device& device)
+    // toLightOrNull: a directional light's direction TO the light (nullptr = no scene light, so the
+    // renderer's fallback key light is used).
+    Probe RenderTerrainProbe(rhi::Device& device, const Float3* toLightOrNull)
     {
         Probe probe;
         shaders::ShaderSystemHost host;
@@ -89,6 +91,15 @@ namespace
             static const f32 thresholds[] = {1.0f, 0.25f, 0.08f, 0.03f, 0.012f, 0.005f, 0.002f};
             ExtractedScene scene;
             scene.SetAmbient(Float3{1.0f, 1.0f, 1.0f});
+            if (toLightOrNull != nullptr)
+            {
+                GpuLight sun{};
+                sun.type = 0.0f; // directional
+                sun.directionWS = *toLightOrNull * -1.0f; // travel dir = -(dir to light)
+                sun.color = Float3{1.0f, 1.0f, 1.0f};
+                sun.intensity = 1.0f;
+                scene.AddLight(sun);
+            }
             engine::terrain::TerrainRenderData* rd = scene.Add<engine::terrain::TerrainRenderData>();
             REQUIRE(rd != nullptr);
             rd->category = RenderCategories::Opaque;
@@ -204,7 +215,7 @@ TEST_CASE("terrain probe: a lit dome renders + shades on Vulkan")
         return;
     }
 
-    const Probe p = RenderTerrainProbe(*device);
+    const Probe p = RenderTerrainProbe(*device, nullptr);
     REQUIRE(p.valid);
     const f64 pixels = static_cast<f64>(kSize) * kSize;
     std::printf("[terrain-probe] filled=%u/%.0f left=%.0f right=%.0f top=%.0f bottom=%.0f\n",
@@ -220,6 +231,42 @@ TEST_CASE("terrain probe: a lit dome renders + shades on Vulkan")
     const f64 axisAsymmetry =
         Abs(p.leftLuma - p.rightLuma) + Abs(p.topLuma - p.bottomLuma);
     CHECK(axisAsymmetry > p.total * 0.02);
+
+    device->Destroy();
+    vulkan->Destroy();
+}
+
+TEST_CASE("terrain probe: the scene's directional sun drives the shading (flip inverts it)")
+{
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+    rhi::Device* device = vulkan != nullptr ? testsupport::MakeTestDevice(vulkan) : nullptr;
+    if (device == nullptr)
+    {
+        MESSAGE("Vulkan unavailable - terrain sun probe skipped");
+        if (vulkan != nullptr)
+        {
+            vulkan->Destroy();
+        }
+        return;
+    }
+
+    // Same dome, two suns tilted to opposite sides in X. Whichever screen axis world-X maps to, the
+    // sign of the left/right luma difference must INVERT when the sun flips - proof the renderer reads
+    // the scene's directional light (a hardcoded sun would give the same sign both times).
+    const Float3 toLightPlusX = Normalized(Float3{0.85f, 0.5f, 0.0f});
+    const Float3 toLightMinusX = Normalized(Float3{-0.85f, 0.5f, 0.0f});
+    const Probe a = RenderTerrainProbe(*device, &toLightPlusX);
+    const Probe b = RenderTerrainProbe(*device, &toLightMinusX);
+    REQUIRE(a.valid);
+    REQUIRE(b.valid);
+
+    const f64 da = a.leftLuma - a.rightLuma;
+    const f64 db = b.leftLuma - b.rightLuma;
+    std::printf("[terrain-sun] +X: L-R=%.0f   -X: L-R=%.0f\n", da, db);
+    CHECK(da * db < 0.0);                       // the asymmetry inverted with the sun
+    CHECK(Abs(da) > a.total * 0.02);            // and each is a real, sizable asymmetry
+    CHECK(Abs(db) > b.total * 0.02);
 
     device->Destroy();
     vulkan->Destroy();

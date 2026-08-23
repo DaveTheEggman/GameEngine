@@ -177,8 +177,23 @@ export namespace engine::terrain
 
             const Float4x4 proj =
                 (ctx.view != nullptr) ? ctx.view->Camera().projection : Float4x4::Identity();
-            // A fixed key light for Phase C/D bring-up; wiring the scene's actual sun is Phase E.
-            const Float3 sun = Normalized(Float3{0.35f, 0.82f, 0.45f});
+            // The scene's sun: the first directional light (GpuLight::type 0), as a direction TO the
+            // light. Falls back to a fixed key light when the scene has no directional (so terrain is
+            // never unlit). Point/spot lights are ignored here - terrain takes only the sun (Phase E).
+            Float3 sun = Normalized(Float3{0.35f, 0.82f, 0.45f});
+            for (usize li = 0; li < ctx.lights.Size(); ++li)
+            {
+                const render::GpuLight& light = ctx.lights[li];
+                if (light.type < 0.5f) // directional
+                {
+                    const f32 len = Length(light.directionWS);
+                    if (len > 1.0e-4f)
+                    {
+                        sun = light.directionWS * (-1.0f / len); // travel dir -> dir TO light
+                    }
+                    break;
+                }
+            }
 
             for (usize it = 0; it < items.Size(); ++it)
             {
@@ -445,8 +460,10 @@ export namespace engine::terrain
             pd.fragment = frag;
             pd.depthStencil = ds;
             pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
-            // Grid is CCW from above; back-face culling is a Phase E tuning (leave None for bring-up).
-            pd.primitive.cullMode = rhi::CullMode::None;
+            // The grid winds CCW when seen from above (the default FrontFace::CCW), so the top
+            // surface is the front face: cull backs. Verified by the Vulkan pixel probe (a wrong
+            // choice culls the top surface and the frame goes black).
+            pd.primitive.cullMode = rhi::CullMode::Back;
             pd.label = u8"terrain";
             rhi::RenderPipeline* pso = nullptr;
             if (!m_device->CreateRenderPipeline(pd, pso).IsOk())
