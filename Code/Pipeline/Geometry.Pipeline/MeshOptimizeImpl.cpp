@@ -87,6 +87,23 @@ namespace pipeline
                 return;
             }
         }
+        for (usize i = 0; i < source.lodStart.Size(); ++i)
+        {
+            const i64 start = source.lodStart[i];
+            const i64 count = (i < source.lodIndexCount.Size()) ? source.lodIndexCount[i] : -1;
+            if (start < 0 || count < 0 ||
+                start + count > static_cast<i64>(source.indexData.Size()))
+            {
+                LOG_WARNING(u8"Cook",
+                            u8"mesh '{}': LOD range {} invalid - skipping optimization",
+                            source.name, i);
+                if (outStats != nullptr)
+                {
+                    *outStats = stats;
+                }
+                return;
+            }
+        }
         for (const u32 index : source.indexData)
         {
             if (index >= vertexCount)
@@ -121,6 +138,24 @@ namespace pipeline
             meshopt_optimizeOverdraw(range, range, static_cast<usize>(count), positions,
                                      vertexCount, kStride, 1.05f);
             ++stats.triangleSubmeshes;
+        }
+        // LOD ranges (v3 chains) get the same reorder - each level is its own triangle
+        // range whose primitive type mirrors its LOD-0 submesh.
+        const usize submeshCount = source.subStart.Size();
+        for (usize i = 0; i < source.lodStart.Size(); ++i)
+        {
+            const usize submesh = (submeshCount > 0) ? (i % submeshCount) : 0;
+            const u8 prim = (submesh < source.subPrim.Size()) ? source.subPrim[submesh] : 0;
+            const i32 count = source.lodIndexCount[i];
+            if (static_cast<PrimitiveType>(prim) != PrimitiveType::Triangles || count < 3 ||
+                (count % 3) != 0)
+            {
+                continue;
+            }
+            u32* range = source.indexData.Data() + source.lodStart[i];
+            meshopt_optimizeVertexCache(range, range, static_cast<usize>(count), vertexCount);
+            meshopt_optimizeOverdraw(range, range, static_cast<usize>(count), positions,
+                                     vertexCount, kStride, 1.05f);
         }
 
         // 3. Whole-mesh vertex-fetch remap: blob reordered to index order, unused

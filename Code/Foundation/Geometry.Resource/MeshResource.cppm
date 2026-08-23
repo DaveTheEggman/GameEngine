@@ -39,6 +39,16 @@ export namespace foundation::geometry
         Array<i32> subMaterial;
         Array<u8> subPrim; // PrimitiveType
 
+        // LOD chain (v3, mesh-lod.md P1): levels 1..lodCount-1 as flattened per-submesh
+        // index ranges ((lod-1) * submeshCount + submesh) into the SAME indexData, over
+        // the SAME vertexBlob; lodCoverage carries lodCount switch thresholds. Legacy
+        // (v<3) payloads load as 1-LOD chains (fields default). Materials/primitive
+        // types per level mirror the LOD-0 submesh (a coarser level never resorts).
+        u32 lodCount = 1;
+        Array<i32> lodStart;
+        Array<i32> lodIndexCount;
+        Array<f32> lodCoverage;
+
         void Serialize(ISerializer& ar) override { SerializeStatic(ar); }
 
         // Captures a StaticMesh into this source (for cooking).
@@ -68,6 +78,15 @@ export namespace foundation::geometry
                 out.subMaterial.PushBack(sm.materialIndex);
                 out.subPrim.PushBack(static_cast<u8>(sm.primitiveType));
             }
+            out.lodCount = (mesh.lodCount > 0) ? mesh.lodCount : 1;
+            out.lodStart.Clear();
+            out.lodIndexCount.Clear();
+            for (const SubMesh& sm : mesh.lodSubMeshes)
+            {
+                out.lodStart.PushBack(sm.startIndex);
+                out.lodIndexCount.PushBack(sm.indexCount);
+            }
+            out.lodCoverage = mesh.lodCoverage;
         }
 
         // Populates a StaticMesh from this source (recomputes bounds).
@@ -92,6 +111,38 @@ export namespace foundation::geometry
                 mesh.subMeshes.PushBack(
                     SubMesh{subStart[i], subCount[i], (i < subMaterial.Size() ? subMaterial[i] : 0),
                             static_cast<PrimitiveType>(i < subPrim.Size() ? subPrim[i] : 0)});
+            }
+            // The LOD chain, validated: a malformed table (wrong slice length, a range
+            // outside the index buffer) collapses to 1 LOD - bad data renders at LOD 0
+            // rather than crashing selection. Levels mirror LOD 0's material/primitive.
+            mesh.lodCount = 1;
+            mesh.lodSubMeshes.Clear();
+            mesh.lodCoverage.Clear();
+            const usize per = subStart.Size();
+            if (lodCount > 1 && per > 0 &&
+                lodStart.Size() == static_cast<usize>(lodCount - 1) * per &&
+                lodIndexCount.Size() == lodStart.Size() && lodCoverage.Size() == lodCount)
+            {
+                bool valid = true;
+                for (usize i = 0; i < lodStart.Size() && valid; ++i)
+                {
+                    const i64 start = lodStart[i];
+                    const i64 count = lodIndexCount[i];
+                    valid = start >= 0 && count >= 0 &&
+                            start + count <= static_cast<i64>(indexData.Size());
+                }
+                if (valid)
+                {
+                    mesh.lodCount = lodCount;
+                    mesh.lodCoverage = lodCoverage;
+                    for (usize i = 0; i < lodStart.Size(); ++i)
+                    {
+                        const usize submesh = i % per;
+                        mesh.lodSubMeshes.PushBack(SubMesh{
+                            lodStart[i], lodIndexCount[i], mesh.subMeshes[submesh].materialIndex,
+                            mesh.subMeshes[submesh].primitiveType});
+                    }
+                }
             }
             mesh.CalculateBounds();
         }
@@ -131,6 +182,15 @@ export namespace foundation::geometry
             foundation::core::Serialize(ar, "subCount", subCount);
             foundation::core::Serialize(ar, "subMaterial", subMaterial);
             foundation::core::Serialize(ar, "subPrim", subPrim);
+            // v3: the LOD chain (mesh-lod.md P1). Older payloads stay 1-LOD via the
+            // field defaults (strict versioning: the gate, not optional keys).
+            if (ar.Version() >= 3)
+            {
+                foundation::core::Serialize(ar, "lodCount", lodCount);
+                foundation::core::Serialize(ar, "lodStart", lodStart);
+                foundation::core::Serialize(ar, "lodIndexCount", lodIndexCount);
+                foundation::core::Serialize(ar, "lodCoverage", lodCoverage);
+            }
         }
     };
 
@@ -266,7 +326,7 @@ export namespace foundation::geometry
         }
     };
 
-    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshSource, "rtti::geometry", 2)
-    RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshSource, "rtti::geometry", 2)
+    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshSource, "rtti::geometry", 3)
+    RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshSource, "rtti::geometry", 3)
 
 } // namespace foundation::geometry

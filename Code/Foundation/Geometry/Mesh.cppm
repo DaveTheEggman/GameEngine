@@ -42,6 +42,37 @@ export namespace foundation::geometry
         Array<SubMesh> subMeshes;
         AABB bounds = AABB::Empty();
 
+        // LOD chain (mesh-lod.md P1). LOD 0 IS `subMeshes` (every pre-LOD consumer keeps
+        // working untouched). Coarser levels reuse the SHARED vertex buffer and store their
+        // own index ranges inside the ONE index buffer (concatenated after LOD 0's);
+        // `lodSubMeshes` holds levels 1..lodCount-1 flattened as
+        // (lod-1) * subMeshes.Size() + submesh. `lodCoverage[l]` is the normalized
+        // screen-coverage threshold: level l is eligible while the projected coverage is
+        // >= lodCoverage[l] ([0] is 1.0 by convention and unused by selection - LOD 0 is
+        // the fallback when everything else is too coarse... i.e. coverage above
+        // lodCoverage[1] selects LOD 0). A 1-LOD mesh: lodCount == 1, both arrays empty.
+        u32 lodCount = 1;
+        Array<SubMesh> lodSubMeshes;
+        Array<f32> lodCoverage;
+
+        /// The submesh table of one LOD level: 0 = `subMeshes`, else the flattened slice.
+        /// Out-of-range or malformed tables fall back to LOD 0 (never crash on bad data).
+        [[nodiscard]] Span<const SubMesh> SubMeshesForLod(u32 lod) const noexcept
+        {
+            if (lod == 0 || lodCount <= 1 || subMeshes.IsEmpty())
+            {
+                return Span<const SubMesh>(subMeshes.Data(), subMeshes.Size());
+            }
+            const u32 level = (lod < lodCount) ? lod : (lodCount - 1);
+            const usize per = subMeshes.Size();
+            const usize offset = static_cast<usize>(level - 1) * per;
+            if (offset + per > lodSubMeshes.Size())
+            {
+                return Span<const SubMesh>(subMeshes.Data(), subMeshes.Size());
+            }
+            return Span<const SubMesh>(lodSubMeshes.Data() + offset, per);
+        }
+
         [[nodiscard]] u32 VertexCount() const noexcept { return static_cast<u32>(vertices.Size()); }
         [[nodiscard]] u32 IndexCount() const noexcept { return indices.Count(); }
         [[nodiscard]] static constexpr u32 VertexStride() noexcept
@@ -73,6 +104,9 @@ export namespace foundation::geometry
             indices.Clear();
             subMeshes.Clear();
             bounds = AABB::Empty();
+            lodCount = 1;
+            lodSubMeshes.Clear();
+            lodCoverage.Clear();
         }
 
         [[nodiscard]] static u64 NextUid() noexcept

@@ -116,6 +116,18 @@ single `Ref<StaticMesh>`).
   component knobs, mesh-page dropdown. Acceptance: authored 3-LOD mesh
   switches by distance on screen; serialize round-trip tests; 1-LOD
   compat load of pre-bump meshes.
+  WIRE SLICE SHIPPED (Fable, 2026-08-23): StaticMesh gains the LOD chain
+  (LOD 0 IS subMeshes - every pre-LOD consumer untouched; coarser levels
+  = flattened SubMesh ranges in the ONE index buffer over the SHARED
+  vertices; SubMeshesForLod slices with clamp + malformed fallback to
+  LOD 0); StaticMeshSource v3 (DataVersion 2->3, gated fields, legacy
+  loads as 1-LOD) carries lodCount/lodStart/lodIndexCount/lodCoverage;
+  FromMesh/FillStatic round-trip the chain with validation (bad tables
+  collapse to 1 LOD, never crash); the P0 optimizer is LOD-aware (each
+  level reordered, chains validated before any mutation). Tests:
+  MeshLodWireTests.cpp. REMAINING in P1: importer name collapse,
+  extraction selection + hysteresis, component knobs, mesh-page
+  dropdown.
 - **P2 - auto-generation.** meshopt_simplify chains at import with error
   bounds + dialog knobs. Acceptance: Sponza-class import generates chains;
   triangle-count assertions; error-bound drop case tested.
