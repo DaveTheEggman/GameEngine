@@ -7,7 +7,7 @@ add_library(Foundation::Render ALIAS Render)
 
 target_link_libraries(Render
     PUBLIC Foundation::Core Foundation::RHI Foundation::Render.Api Foundation::RenderGraph Foundation::Geometry Foundation::Materials
-           Foundation::Shaders Foundation::Shaders.System Foundation::Materials.PipelineCache Foundation::Profiler Foundation::Policy)
+           Foundation::Shaders Foundation::Shaders.System Foundation::Materials.PipelineCache Foundation::Profiler Foundation::Policy Foundation::Lod)
 
 target_sources(Render
     PRIVATE

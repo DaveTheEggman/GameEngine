@@ -512,32 +512,3 @@ TEST_CASE("math: yaw/pitch/roll round-trips through quaternion")
     CHECK(Abs(qy.x * qa.x + qy.y * qa.y + qy.z * qa.z + qy.w * qa.w) ==
           doctest::Approx(1.0f).epsilon(0.001f));
 }
-
-TEST_CASE("bounds: projected-coverage LOD math (the core home both render and terrain share)")
-{
-    // The Span-level API pinned directly (foundation.render's mesh adapters and
-    // foundation.terrain's chunk selection both delegate here - one formula, one home).
-    const Float4x4 view = Float4x4::Identity(); // camera at origin, -z forward
-    const Float4x4 proj = Float4x4::PerspectiveFovRH(kHalfPi, 1.0f, 0.1f, 1000.0f);
-    const f32 at10 = ProjectedSphereCoverage(view, proj, Float3{0, 0, -10.0f}, 1.0f);
-    const f32 at20 = ProjectedSphereCoverage(view, proj, Float3{0, 0, -20.0f}, 1.0f);
-    CHECK(at10 == doctest::Approx(0.1f).epsilon(0.01));
-    CHECK(at20 == doctest::Approx(at10 * 0.5f).epsilon(0.01));
-    CHECK(ProjectedSphereCoverage(view, proj, Float3{0, 0, -10.0f}, 1.0f, 1.0f) ==
-          doctest::Approx(at10 * 0.5f)); // bias halves per unit
-    const Float4x4 ortho = Float4x4::OrthographicRH(10.0f, 10.0f, 0.1f, 100.0f);
-    CHECK(ProjectedSphereCoverage(view, ortho, Float3{0, 0, -1.0f}, 1.0f) ==
-          doctest::Approx(ProjectedSphereCoverage(view, ortho, Float3{0, 0, -90.0f}, 1.0f)));
-
-    const f32 thresholds[] = {1.0f, 0.25f, 0.05f};
-    const Span<const f32> t{thresholds, 3};
-    CHECK(SelectLevelByCoverage(t, 0.5f) == 0);
-    CHECK(SelectLevelByCoverage(t, 0.25f) == 0); // boundary stays finer
-    CHECK(SelectLevelByCoverage(t, 0.2f) == 1);
-    CHECK(SelectLevelByCoverage(t, 0.01f) == 2);
-    CHECK(SelectLevelByCoverage(Span<const f32>{}, 0.0f) == 0);
-
-    CHECK(ApplyCoverageHysteresis(t, 0.246f, 1, 0) == 0); // sticks inside the band
-    CHECK(ApplyCoverageHysteresis(t, 0.253f, 0, 1) == 1);
-    CHECK(ApplyCoverageHysteresis(t, 0.8f, 0, 2) == 0);   // far away: raw wins
-}

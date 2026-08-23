@@ -230,26 +230,28 @@ seam navigation's bake will consume later.
   as the RHI-free fallback. This shares the formula (no formula #2) but the
   coverage COMPUTATION is only exercised in engine.terrain, not unit-tested in
   foundation.terrain.
-  RULING (Fable, 2026-08-23): EXTRACTED - and to neither of the framed
-  options. The formula is pure sphere-vs-camera math on core types (two
-  Float4x4s, a Float3, two floats) - the same family as the frustum/AABB
-  intersection suite - so it moved into core's `:bounds` partition
-  (BoundingVolumes.cppm), NOT a new foundation.lod micro-module and NOT a
-  render-layer resident: `ProjectedSphereCoverage(view, projection,
-  center, radius, bias)` + `SelectLevelByCoverage(Span<const f32>,
-  coverage)` + `ApplyCoverageHysteresis(Span<const f32>, coverage, raw,
-  last, band)`. foundation.render's mesh-facing trio
-  (LodCoverageFor/PickLodLevel/ApplyLodHysteresis) are now thin adapters
-  over them (ViewCamera unwrap + the mesh's threshold span) - every
-  mesh-lod call site and test unchanged, plus a core-level test pins the
-  Span API directly (MathTests). CONSEQUENCE FOR TERRAIN: foundation.terrain
-  (Core-only, RHI-free) calls the core functions DIRECTLY - coverage
-  computation AND the walk fully unit-testable at the foundation layer,
-  no asymmetry, no formula #2. Opus: delegate SelectLodByCoverage to
-  core's SelectLevelByCoverage (or use it directly) and compute chunk
-  coverage with ProjectedSphereCoverage on the chunk's bounding sphere;
-  the distance metric may stay as a secondary heuristic or retire - your
-  call in the module. The no-compat rule made the clean relocation free.
+  RULING (Fable, 2026-08-23; REVISED same day on user review): the shared
+  home is `Foundation::Lod` (`foundation.lod`, Code/Foundation/Lod) - a
+  dedicated Core-only leaf. First cut placed the functions in core's
+  :bounds partition; the user ruled LOD is a DOMAIN concept core math
+  must not know about, and the dedicated lib is also the designated home
+  for future LOD-flavored math that would otherwise accrete into core.
+  Relocated immediately (the cheapest moment - before terrain took the
+  dependency): `foundation::lod::ProjectedSphereCoverage(view,
+  projection, center, radius, bias)` + `SelectLevelByCoverage(Span<const
+  f32>, coverage)` + `ApplyCoverageHysteresis(Span<const f32>, coverage,
+  raw, last, band)`, with Lod.Tests pinning the whole surface.
+  foundation.render's mesh-facing trio (LodCoverageFor/PickLodLevel/
+  ApplyLodHysteresis) are thin adapters over Foundation::Lod - every
+  mesh-lod call site and test unchanged. CONSEQUENCE FOR TERRAIN:
+  foundation.terrain links Foundation::Lod (Core-only, RHI-free -
+  layering clean) and calls it DIRECTLY: coverage computation AND the
+  walk fully unit-testable at the foundation layer, no asymmetry, no
+  formula #2. Opus: link Foundation::Lod, delegate SelectLodByCoverage
+  to SelectLevelByCoverage (or use it directly), compute chunk coverage
+  with ProjectedSphereCoverage on the chunk's bounding sphere; the
+  distance metric may stay as a secondary heuristic or retire - your
+  call in the module.
 - Shared grid vertex buffer (one chunk-sized grid, e.g. 65x65 verts),
   per-chunk instance data {chunk origin, LOD, morph params}; vertex
   shader fetches height via textureLoad (unfiltered fetch works in VS on

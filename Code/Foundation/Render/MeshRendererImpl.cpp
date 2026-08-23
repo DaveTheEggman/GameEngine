@@ -5,6 +5,7 @@ module;
 module foundation.render;
 
 import foundation.core;
+import foundation.lod;
 import foundation.rhi;
 import foundation.geometry;
 import foundation.shaders;
@@ -2600,10 +2601,10 @@ namespace foundation::render
         return k;
     }
 
-    // The mesh-facing selection trio are THIN ADAPTERS over the core :bounds coverage math
-    // (ProjectedSphereCoverage / SelectLevelByCoverage / ApplyCoverageHysteresis) - the
-    // formula itself is RHI-free core math so foundation.terrain's chunk LOD (and any
-    // headless consumer) shares it exactly. See the terrain-doc layering ruling 2026-08-23.
+    // The mesh-facing selection trio are THIN ADAPTERS over Foundation::Lod (the dedicated
+    // RHI-free LOD-math leaf - user ruling 2026-08-23: LOD is a domain concept core math
+    // must not know about) so foundation.terrain's chunk LOD and any headless consumer
+    // share the exact formula. See the terrain-doc layering ruling.
     namespace
     {
         [[nodiscard]] Span<const f32> MeshThresholds(const geometry::StaticMesh& mesh)
@@ -2618,8 +2619,8 @@ namespace foundation::render
 
     f32 LodCoverageFor(const ViewCamera& camera, Float3 worldCenter, f32 worldRadius, f32 lodBias)
     {
-        return ProjectedSphereCoverage(camera.view, camera.projection, worldCenter, worldRadius,
-                                       lodBias);
+        return foundation::lod::ProjectedSphereCoverage(camera.view, camera.projection,
+                                                        worldCenter, worldRadius, lodBias);
     }
 
     u32 PickLodLevel(const geometry::StaticMesh& mesh, f32 coverage)
@@ -2628,13 +2629,14 @@ namespace foundation::render
         {
             return 0;
         }
-        return SelectLevelByCoverage(MeshThresholds(mesh), coverage);
+        return foundation::lod::SelectLevelByCoverage(MeshThresholds(mesh), coverage);
     }
 
     u32 ApplyLodHysteresis(const geometry::StaticMesh& mesh, f32 coverage, u32 rawSelection,
                            u32 last)
     {
-        return ApplyCoverageHysteresis(MeshThresholds(mesh), coverage, rawSelection, last);
+        return foundation::lod::ApplyCoverageHysteresis(MeshThresholds(mesh), coverage,
+                                                         rawSelection, last);
     }
 
     u32 MeshRenderer::SelectLod(const RenderRecordContext& ctx, const MeshRenderData& md)
