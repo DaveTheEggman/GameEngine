@@ -66,10 +66,13 @@ are now built + tested - chunks, LOD via foundation.lod, quadtree cull, the
 shared grid mesh geometry). The sub-phases:
 - B GPU height texture: DONE - TerrainHeightTextureCache (R16Uint, cached by
   resource id+version).
-- C the Renderer: upload the shared grid VB + per-LOD IBs once; per chunk emit
-  instance data {origin, size, LOD, height-tex region}; frustum-cull via the
-  quadtree, LOD via SelectChunkLod; draw through the dynamic-category/rendererId
-  dispatch (sprites/particles precedent) + the render extract seam.
+- C the Renderer: the per-frame CPU extract (cull + LOD -> {chunk, lod} draw
+  list) is DONE + tested as foundation.terrain's ExtractVisibleChunkDraws. The
+  GPU side remains: upload the shared grid VB + per-LOD IBs once; per chunk emit
+  instance data {origin, size, LOD, height-tex region}; draw through the
+  dynamic-category/rendererId dispatch (sprites/particles precedent) + the render
+  extract seam (TerrainComponentManager as IRenderDataProvider + a
+  TerrainRenderer registered via RegisterRenderer).
 - D shaders: the VS fetches height via textureLoad(heightTex) (the load-bearing
   WebGPU portability bet), the PS does normals-from-heightmap + splat blend (one
   RGBA splatmap, up to 4 layers) over the standard PBR lit path; new .hlsl via
