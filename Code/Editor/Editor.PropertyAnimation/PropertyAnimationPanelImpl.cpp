@@ -226,7 +226,7 @@ namespace editor
             button->FontSize.SetValue(Optional<f32>{11.0f});
             button->OnClick.Add([fn = Move(onClick)](ui::ButtonBase*) { if (fn) fn(); });
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(width));
+            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
             lp->Height = ui::SizeSpec::Match();
             row.AddView(button.Get(), lp);
             return button;
@@ -258,7 +258,7 @@ namespace editor
         m_entityLabel->FontSize.SetValue(11.0f);
         {
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(170));
+            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(170));
             lp->Height = ui::SizeSpec::Match();
             m_header->AddView(m_entityLabel.Get(), lp);
         }
@@ -282,7 +282,7 @@ namespace editor
         {
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(26));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
             AddView(m_header.Get(), lp);
         }
 
@@ -308,7 +308,7 @@ namespace editor
             addButton(*row, u8"Open Clip...", 96.0f, [self]() { self->OnOpenClip(); });
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(26));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
             m_emptyState->AddView(row.Get(), lp);
         }
         {
@@ -334,7 +334,7 @@ namespace editor
         {
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(26));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
             m_body->AddView(transport.Get(), lp);
         }
 
@@ -385,7 +385,7 @@ namespace editor
         {
             m_timelineParams = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             m_timelineParams->Width = ui::SizeSpec::Match();
-            m_timelineParams->Height = ui::SizeSpec::Fixed(ui::Unit::Px(kTimelineMinHeight));
+            m_timelineParams->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kTimelineMinHeight));
             m_body->AddView(m_timeline.Get(), m_timelineParams);
         }
 
@@ -1159,7 +1159,7 @@ namespace editor
                             kTimelineMinHeight, kTimelineMaxHeight);
         if (m_timelineParams.Get() != nullptr)
         {
-            m_timelineParams->Height = ui::SizeSpec::Fixed(ui::Unit::Px(h));
+            m_timelineParams->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(h));
         }
         if (m_body.Get() != nullptr)
         {

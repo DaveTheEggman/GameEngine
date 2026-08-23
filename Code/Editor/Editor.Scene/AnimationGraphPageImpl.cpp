@@ -761,7 +761,7 @@ namespace editor
                 });
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(24.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             m_leftRows->AddView(button.Get(), lp);
         };
         auto addHeader = [&](StringView text)
@@ -771,7 +771,7 @@ namespace editor
             label->SetText(text);
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
             m_leftRows->AddView(label.Get(), lp);
         };
 

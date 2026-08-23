@@ -154,7 +154,7 @@ export namespace editor::app
                 {
                     auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                     lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(26));
+                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
                     right->AddView(header.Get(), lp);
                 }
             }
@@ -567,7 +567,7 @@ export namespace editor::app
                 {
                     auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                     lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(18));
+                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(18));
                     tile->AddView(name.Get(), lp);
                 }
                 return RefPtr<ui::View>(tile.Get());

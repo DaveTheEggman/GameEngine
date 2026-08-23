@@ -48,7 +48,7 @@ namespace editor::app
             header->AddView(add.Get());
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
             column->AddView(header.Get(), lp);
         }
 
@@ -105,7 +105,7 @@ namespace editor::app
 
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
             column->AddView(row.Get(), lp);
         }
         return column;

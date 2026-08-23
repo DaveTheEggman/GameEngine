@@ -76,7 +76,7 @@ export namespace editor
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(160));
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(160));
                 column->AddView(m_waveform.Get(), lp);
             }
 
@@ -107,7 +107,7 @@ export namespace editor
                 [self](ui::Slider*, f32 v) { self->SetAuditionVolume(v); }});
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(90));
+                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90));
                 lp->AlignSelf = ui::Align::Center;
                 controls->AddView(m_volumeSlider.Get(), lp);
             }

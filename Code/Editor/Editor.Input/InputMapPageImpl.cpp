@@ -131,7 +131,7 @@ namespace editor
                 }
             });
         auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-        lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(width));
+        lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
         lp->Height = ui::SizeSpec::Match();
         row.AddView(button.Get(), lp);
         return button.Get();
@@ -145,7 +145,7 @@ namespace editor
         row->Padding = ui::Thickness{indent, 0};
         auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
         lp->Width = ui::SizeSpec::Match();
-        lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(height));
+        lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(height));
         m_rows->AddView(row.Get(), lp);
         return row;
     }
@@ -161,7 +161,7 @@ namespace editor
         }
         else if (width > 0.0f)
         {
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(width));
+            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
         }
         lp->Height = ui::SizeSpec::Match();
         row.AddView(label.Get(), lp);
@@ -192,7 +192,7 @@ namespace editor
                 }
             });
         auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-        lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(width));
+        lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
         lp->Height = ui::SizeSpec::Match();
         row.AddView(field.Get(), lp);
     }

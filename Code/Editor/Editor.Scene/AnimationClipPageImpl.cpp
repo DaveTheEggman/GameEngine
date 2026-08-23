@@ -178,7 +178,7 @@ namespace editor
             m_timeLabel->FontSize.SetValue(Optional<f32>{12.0f});
             m_timeLabel->VAlign.SetValue(fonts::VerticalAlignment::Middle);
             auto tlp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-            tlp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(110.0f));
+            tlp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110.0f));
             transport->AddView(m_timeLabel.Get(), tlp);
         }
 

@@ -281,7 +281,7 @@ export namespace editor
             m_apiBrowser.Root()->Visibility = ui::Visibility::Gone;
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(300));
+                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(300));
                 lp->Height = ui::SizeSpec::Match();
                 row->AddView(m_apiBrowser.Root(), lp);
             }

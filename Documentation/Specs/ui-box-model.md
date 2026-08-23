@@ -5,6 +5,16 @@
 > Fable-executed, phased; battery green between phases. HiDPI on-screen
 > verify (2x monitor) is QUEUED for UAT - the user is away from a 2x
 > display; the DPI fix lands regardless (it is the spec, not a tweak).
+>
+> FOLLOW-UP (Opus, 2026-08-22): P2b fixed the unit SEMANTICS but the
+> programmatic C++ layout call sites were never migrated - they used
+> `Unit::Px` (post-P2b = fixed physical, does NOT scale with DPI) where they
+> meant `Unit::Dp` (logical, scales). At 1.75 scaling that froze toolbars /
+> panels / slider fields at physical size while DPI-scaled fonts+icons grew
+> past them (PaperKid dogfood report). Migrated 65 control-sizing sites across
+> 27 files in UI.Toolkit + Editor + UI/Overlay/Dialog `Px`->`Dp`; parsers
+> (explicit author `px`), unit tests, and samples left as-is. clang+gcc +
+> UI.Tests 734/734 green; the 2x on-screen verify is still the owed UAT.
 
 ## The contract (ONE box model, stated once)
 

@@ -261,12 +261,12 @@ namespace editor
                 });
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(64.0f));
+                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(64.0f));
                 row->AddView(reset.Get(), lp);
             }
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(24.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             m_statsColumn->AddView(row.Get(), lp);
         }
 

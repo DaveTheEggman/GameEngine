@@ -67,7 +67,7 @@ export namespace editor::app
                 name->FontSize.SetValue(11.0f);
                 {
                     auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(52.0f));
+                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(52.0f));
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(name.Get(), lp);
                 }
@@ -87,13 +87,13 @@ export namespace editor::app
                                     { if (self->OnChangeDestination) self->OnChangeDestination(); });
                 {
                     auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(72.0f));
+                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(72.0f));
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(change.Get(), lp);
                 }
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                 column->AddView(row.Get(), lp);
             }
 
@@ -117,7 +117,7 @@ export namespace editor::app
                                                 { *value = checked; });
                     auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                     lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                     column->AddView(check.Get(), lp);
                 }
             }
@@ -154,7 +154,7 @@ export namespace editor::app
             name->FontSize.SetValue(11.0f);
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(52.0f));
+                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(52.0f));
                 lp->Height = ui::SizeSpec::Match();
                 row->AddView(name.Get(), lp);
             }
@@ -169,7 +169,7 @@ export namespace editor::app
             }
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(18.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(18.0f));
             column.AddView(row.Get(), lp);
         }
 

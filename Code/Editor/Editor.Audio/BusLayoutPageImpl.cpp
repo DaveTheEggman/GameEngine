@@ -317,7 +317,7 @@ namespace editor
             leftColumn->AddView(m_tree.Get(), grow);
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(26.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26.0f));
             leftColumn->AddView(addBus.Get(), lp);
         }
 

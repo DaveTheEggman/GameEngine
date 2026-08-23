@@ -38,7 +38,7 @@ namespace editor::app
         {
             auto text = MakeRef<ui::Label>(DefaultAllocator(), label);
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(110));
+            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110));
             lp->AlignSelf = ui::Align::Center;
             row->AddView(text.Get(), lp);
         }

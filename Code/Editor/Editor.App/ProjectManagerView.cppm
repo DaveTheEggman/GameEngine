@@ -80,7 +80,7 @@ export namespace editor::app
             }
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(720.0f));
+                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(720.0f));
                 lp->Height = ui::SizeSpec::Match();
                 outer->AddView(column.Get(), lp);
             }

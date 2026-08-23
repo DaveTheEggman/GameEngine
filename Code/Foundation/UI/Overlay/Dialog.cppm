@@ -87,7 +87,7 @@ export namespace foundation::ui
             {
                 RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
                 lp->Width = SizeSpec::Match();
-                lp->Height = SizeSpec::Fixed(Unit::Px(24));
+                lp->Height = SizeSpec::Fixed(Unit::Dp(24));
                 m_layout->AddView(titleLabel.Get(), lp);
             }
 
@@ -99,7 +99,7 @@ export namespace foundation::ui
             {
                 RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
                 lp->Width = SizeSpec::Match();
-                lp->Height = SizeSpec::Fixed(Unit::Px(36));
+                lp->Height = SizeSpec::Fixed(Unit::Dp(36));
                 m_layout->AddView(m_buttonRow.Get(), lp);
             }
         }
@@ -123,7 +123,7 @@ export namespace foundation::ui
             {
                 RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
                 lp->Width = SizeSpec::Match();
-                lp->Height = SizeSpec::Fixed(Unit::Px(36));
+                lp->Height = SizeSpec::Fixed(Unit::Dp(36));
                 m_layout->AddView(m_buttonRow.Get(), lp);
             }
         }

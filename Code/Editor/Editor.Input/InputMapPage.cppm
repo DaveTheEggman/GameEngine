@@ -71,7 +71,7 @@ export namespace editor
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(20));
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(20));
                 column->AddView(m_status.Get(), lp);
             }
 

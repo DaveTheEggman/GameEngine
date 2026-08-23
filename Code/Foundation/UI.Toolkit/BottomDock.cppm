@@ -46,7 +46,7 @@ export namespace foundation::ui::toolkit
             button->OnClick.Add([self, index](::foundation::ui::ButtonBase*) { self->OnTabClicked(index); });
             {
                 auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = ::foundation::ui::SizeSpec::Fixed(::foundation::ui::Unit::Px(96.0f));
+                lp->Width = ::foundation::ui::SizeSpec::Fixed(::foundation::ui::Unit::Dp(96.0f));
                 lp->Height = ::foundation::ui::SizeSpec::Match();
                 m_tabBar->AddView(button.Get(), lp);
             }
@@ -159,7 +159,7 @@ export namespace foundation::ui::toolkit
             {
                 auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ::foundation::ui::SizeSpec::Match();
-                lp->Height = ::foundation::ui::SizeSpec::Fixed(::foundation::ui::Unit::Px(kBarHeight));
+                lp->Height = ::foundation::ui::SizeSpec::Fixed(::foundation::ui::Unit::Dp(kBarHeight));
                 AddView(m_tabBar.Get(), lp);
             }
         }

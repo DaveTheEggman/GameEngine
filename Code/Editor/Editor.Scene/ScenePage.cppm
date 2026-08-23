@@ -201,7 +201,7 @@ export namespace editor
             {
                 auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = foundation::ui::SizeSpec::Match();
-                lp->Height = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Px(30));
+                lp->Height = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(30));
                 viewportPane->AddView(m_toolbar.Get(), lp);
             }
             {

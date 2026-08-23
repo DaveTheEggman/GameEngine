@@ -56,7 +56,7 @@ namespace editor
         row->Spacing = 6.0f;
         auto label = MakeRef<ui::Label>(DefaultAllocator(), labelText);
         auto llp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-        llp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(90.0f));
+        llp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90.0f));
         llp->AlignSelf = ui::Align::Center;
         row->AddView(label.Get(), llp);
         ui::FlexLayout* raw = row.Get();

@@ -1187,13 +1187,13 @@ namespace editor
         {
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(24.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             container->AddView(m_previewPin.Get(), lp);
         }
         {
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(320.0f));
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(static_cast<f32>(m_previewHeight)));
+            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(320.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(static_cast<f32>(m_previewHeight)));
             container->AddView(m_previewViewport.Get(), lp);
         }
         m_previewContainer = container;

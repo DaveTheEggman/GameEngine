@@ -147,13 +147,13 @@ namespace editor
                         }
                     });
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                 row->AddView(cell.Get(), lp);
             }
 
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
             column.AddView(row.Get(), lp);
         }
 
@@ -171,7 +171,7 @@ namespace editor
                 });
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(22.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
             column.AddView(add.Get(), lp);
         }
     }

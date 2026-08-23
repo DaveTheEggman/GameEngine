@@ -325,7 +325,7 @@ namespace editor
                 wrap->Direction = ui::Orientation::Vertical;
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(120.0f));
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(120.0f));
                 wrap->AddView(canvas.Get(), lp);
                 return wrap;
             }
@@ -456,7 +456,7 @@ namespace editor
                 wrap->Direction = ui::Orientation::Vertical;
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Px(40.0f));
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(40.0f));
                 wrap->AddView(grad.Get(), lp);
                 return wrap;
             }
@@ -720,7 +720,7 @@ namespace editor
                     self->m_preview->SetTimeScale(v);
                 });
             auto slp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-            slp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(90.0f));
+            slp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90.0f));
             transport->AddView(speed.Get(), slp);
 
             m_statsLabel = MakeRef<ui::Label>(DefaultAllocator());
