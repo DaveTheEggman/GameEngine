@@ -154,4 +154,9 @@ export namespace editor
 
     void RegisterTerrainEditor(EditorContext& context, runtime::IApplicationHost& host,
                                ui::runtime::UIHost& uiHost);
+
+    /// Register the terrain brush TOOL PANELS (sculpt + splat) into the viewport-tool-panel registry
+    /// (editor.app:tool_panel) - the on-screen brush settings the scene page's ViewportToolPanelHost
+    /// mounts while a terrain tool is active. Call once at editor start (alongside the tool provider).
+    void RegisterTerrainToolPanels();
 }

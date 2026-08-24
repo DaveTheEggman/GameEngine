@@ -113,6 +113,12 @@ namespace editor
             m_camera.ReleaseCapture(m_viewport->Mouse());
         }
         (void)UpdateViewportTools(viewportActive, dt); // picking lives inside the select tool now
+        // Mount/clear the active tool's settings panel in the bottom dock (safe here - a frame
+        // boundary, never mid-event; the mount tears down the previous panel view).
+        if (m_toolPanelHost)
+        {
+            m_toolPanelHost->Sync();
+        }
         if (m_propAnimPanel)
         {
             // Advances editor playback + gates preview to EDIT (no preview/playback under Simulate).

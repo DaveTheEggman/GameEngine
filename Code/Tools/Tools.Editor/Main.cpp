@@ -49,6 +49,8 @@ import fonts.pipeline;
 import image.pipeline;
 import foundation.image.resource;
 import geometry.pipeline;
+import heightfield.pipeline; // HeightfieldAsset (New Asset > Terrain > Heightfield)
+import terrain.pipeline;     // TerrainAsset + SplatmapAsset (New Asset > Terrain)
 import animation.pipeline;
 import materials.pipeline;
 import shaders.pipeline;
@@ -372,7 +374,8 @@ int main(int argc, char** argv)
         editor::RegisterImageEditor(app.Context());
         editor::RegisterHeightfieldEditor(app.Context());
         editor::RegisterTerrainEditor(app.Context(), host, uiHost);
-        editor::RegisterTerrainViewportTools(); // the scene-viewport terrain sculpt brush
+        editor::RegisterTerrainViewportTools(); // the scene-viewport terrain sculpt + splat brushes
+        editor::RegisterTerrainToolPanels();    // their bottom-dock brush settings panels
         editor::RegisterFontEditor(app.Context());
         editor::RegisterCollisionShapeEditor(app.Context(), host, uiHost);
         // The FALLBACK page registers like any factory: nearest-base dispatch routes every
@@ -664,6 +667,105 @@ int main(int argc, char** argv)
             };
             app.Context().RegisterCreator(
                 static_cast<editor::EditorContext::AssetCreator&&>(shapeCreator));
+        }
+        {
+            // New Asset > Terrain > Heightfield (a blank flat grid; the heightfield page + sculpt
+            // tool edit it). Defaults come from the asset (square 257, 256m footprint, 0..64m Y).
+            editor::EditorContext::AssetCreator heightfieldCreator;
+            heightfieldCreator.label = String(u8"Heightfield");
+            heightfieldCreator.category = String(u8"Terrain");
+            heightfieldCreator.create =
+                [](editor::EditorContext& ctx,
+                   foundation::content::Group* group) -> foundation::content::Instance*
+            {
+                if (ctx.Project() == nullptr)
+                {
+                    return nullptr;
+                }
+                foundation::content::Group* target =
+                    group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
+                foundation::content::Instance* instance = target->CreateInstance(
+                    target->UniqueInstanceName(u8"Heightfield").AsView(),
+                    pipeline::HeightfieldAsset::StaticType());
+                if (instance == nullptr)
+                {
+                    return nullptr;
+                }
+                pipeline::HeightfieldAsset asset;
+                if (!instance->WriteObject(asset).IsOk())
+                {
+                    return nullptr;
+                }
+                return instance;
+            };
+            app.Context().RegisterCreator(
+                static_cast<editor::EditorContext::AssetCreator&&>(heightfieldCreator));
+        }
+        {
+            // New Asset > Terrain > Terrain (references a heightfield/splatmap/layers - assign them
+            // on the terrain page). A fresh terrain has no refs yet; the page's pickers fill them.
+            editor::EditorContext::AssetCreator terrainCreator;
+            terrainCreator.label = String(u8"Terrain");
+            terrainCreator.category = String(u8"Terrain");
+            terrainCreator.create =
+                [](editor::EditorContext& ctx,
+                   foundation::content::Group* group) -> foundation::content::Instance*
+            {
+                if (ctx.Project() == nullptr)
+                {
+                    return nullptr;
+                }
+                foundation::content::Group* target =
+                    group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
+                foundation::content::Instance* instance = target->CreateInstance(
+                    target->UniqueInstanceName(u8"Terrain").AsView(),
+                    pipeline::TerrainAsset::StaticType());
+                if (instance == nullptr)
+                {
+                    return nullptr;
+                }
+                pipeline::TerrainAsset asset;
+                if (!instance->WriteObject(asset).IsOk())
+                {
+                    return nullptr;
+                }
+                return instance;
+            };
+            app.Context().RegisterCreator(
+                static_cast<editor::EditorContext::AssetCreator&&>(terrainCreator));
+        }
+        {
+            // New Asset > Terrain > Splatmap (a blank 1024 weight raster seeded to layer 0; the
+            // terrain page also creates one via "Create splatmap", and the splat tool paints it).
+            editor::EditorContext::AssetCreator splatmapCreator;
+            splatmapCreator.label = String(u8"Splatmap");
+            splatmapCreator.category = String(u8"Terrain");
+            splatmapCreator.create =
+                [](editor::EditorContext& ctx,
+                   foundation::content::Group* group) -> foundation::content::Instance*
+            {
+                if (ctx.Project() == nullptr)
+                {
+                    return nullptr;
+                }
+                foundation::content::Group* target =
+                    group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
+                foundation::content::Instance* instance = target->CreateInstance(
+                    target->UniqueInstanceName(u8"Splatmap").AsView(),
+                    pipeline::SplatmapAsset::StaticType());
+                if (instance == nullptr)
+                {
+                    return nullptr;
+                }
+                pipeline::SplatmapAsset asset; // 1024x1024 default; the builder seeds layer 0
+                if (!instance->WriteObject(asset).IsOk())
+                {
+                    return nullptr;
+                }
+                return instance;
+            };
+            app.Context().RegisterCreator(
+                static_cast<editor::EditorContext::AssetCreator&&>(splatmapCreator));
         }
         RegisterEditorBuilders(app.Builders()); // the cook service routes through this set
 

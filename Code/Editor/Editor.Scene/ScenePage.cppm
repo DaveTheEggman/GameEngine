@@ -249,6 +249,49 @@ export namespace editor
             m_bottomDock = MakeRef<foundation::ui::toolkit::BottomDock>(DefaultAllocator());
             m_bottomDock->AddTab(u8"animation", u8"Animation", m_propAnimPanel.Get());
 
+            // Viewport-tool PANEL seam wired to the bottom dock (the parked editor.app:tool_panel
+            // framework's FIRST consumer - terrain brushes). A persistent "Brush" tab holds a content
+            // slot; the ViewportToolPanelHost watches the active viewport tool and, on a change, swaps
+            // the slot to that tool's registered panel (or empties it). BottomDock is append-only, so
+            // we mount/clear the slot's child rather than adding/removing a tab.
+            m_toolPanelSlot = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+            m_toolPanelSlot->Direction = foundation::ui::Orientation::Vertical;
+            m_bottomDock->AddTab(u8"tool", u8"Brush", m_toolPanelSlot.Get());
+            {
+                SceneEditorPage* page = this;
+                ViewportToolHostContext panelCtx;
+                panelCtx.scene = &m_editContext->Scene();
+                panelCtx.commands = &m_editContext->Commands();
+                panelCtx.entitySelection = &m_editContext->EntitySelection();
+                panelCtx.assetEdits = &context;
+                m_toolPanelHost = MakeUnique<ViewportToolPanelHost>(
+                    DefaultAllocator(), m_viewportTools, ViewportToolPanelRegistry::Get(), panelCtx,
+                    core::Function<void(foundation::ui::View*)>{
+                        [page](foundation::ui::View* view)
+                        {
+                            foundation::ui::FlexLayout* slot = page->m_toolPanelSlot.Get();
+                            while (slot->ChildCount() > 0)
+                            {
+                                slot->RemoveView(slot->GetChildAt(0), true);
+                            }
+                            if (view != nullptr)
+                            {
+                                slot->AddView(view,
+                                              MakeRef<foundation::ui::LayoutParams>(DefaultAllocator()));
+                                page->m_bottomDock->ActivateTab(u8"tool"); // reveal the brush settings
+                            }
+                        }},
+                    core::Function<void()>{[page]()
+                                           {
+                                               foundation::ui::FlexLayout* slot =
+                                                   page->m_toolPanelSlot.Get();
+                                               while (slot->ChildCount() > 0)
+                                               {
+                                                   slot->RemoveView(slot->GetChildAt(0), true);
+                                               }
+                                           }});
+            }
+
             // Viewport column: [ viewport (toolbar + 3D) / bottom dock ] as a vertical split. The dock
             // drives the split's pane-collapse: the divider vanishes when collapsed and the stored ratio
             // survives expand/collapse. Starts collapsed (bar only; viewport full-height).
@@ -522,6 +565,11 @@ export namespace editor
         // bottom dock (a resizable vertical split below the viewport). Scene-page-owned for its whole
         // life, so an undo command can never outlive it. Ticked + overlay-drawn each frame from OnUpdate.
         RefPtr<PropertyAnimationPanel> m_propAnimPanel;
+        // The viewport-tool PANEL seam (first consumer: terrain brushes). A persistent "Brush" tab
+        // whose content the host swaps to the active tool's settings panel; empty when the active
+        // tool has no panel (Select). Synced from OnUpdate.
+        RefPtr<foundation::ui::FlexLayout> m_toolPanelSlot;
+        UniquePtr<ViewportToolPanelHost> m_toolPanelHost;
         RefPtr<foundation::ui::toolkit::BottomDock> m_bottomDock;   // the collapsible bottom strip
         RefPtr<foundation::ui::toolkit::SplitView> m_viewportColumn; // [viewport / bottom dock] vsplit
         u64 m_openAssetInterceptorId = 0; // the clip-open claim (removed in the destructor)
