@@ -214,3 +214,74 @@ TEST_CASE("heightfield cook: degenerate extents snap to legal values (pass-13 fi
     delete db;
     RemoveTree();
 }
+
+// The editable-source convention (pass-16 fix): an EMBEDDED asset (fileName empty) cooks from the
+// authored "heights" sidecar - the sculpt save writes exactly that - and the builder declares the
+// sidecar as a source stream so painting it re-cooks. A fileName-backed asset ignores the sidecar
+// (the file is the truth; re-import resets).
+TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heights sidecar")
+{
+    RegisterHeightfieldResourceTypes();
+    RegisterHeightfieldAsset();
+    RemoveTree();
+    NativeFileSystem outMount(u8"scratch_hfpipe_out_db");
+
+    // The authored (sculpted) grid the sidecar carries.
+    RefPtr<Heightfield> authored =
+        MakeRef<Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+    authored->SetSample(10, 12, 4321);
+    authored->SetSample(33, 40, 60000);
+
+    HeightfieldAsset asset; // fileName empty = embedded: the sidecar is the truth
+    asset.size = 65;
+    asset.worldSize = Float2{64.0f, 64.0f};
+    asset.minY = 0.0f;
+    asset.maxY = 10.0f;
+
+    // The sidecar must be declared as a source stream (recipe-hash chaining) in embedded mode only.
+    {
+        HeightfieldAssetBuilder builder;
+        pipeline::AssetBuildContext scanCtx;
+        pipeline::AssetDependencies deps;
+        builder.ScanDependencies(asset, scanCtx, deps);
+        REQUIRE(deps.sourceStreams.Size() == 1);
+        CHECK(deps.sourceStreams[0].AsView() == kHeightStream);
+
+        HeightfieldAsset imported; // Asset is non-copyable; only fileName matters here
+        imported.fileName = foundation::vfs::SourcePath(u8"some.png");
+        pipeline::AssetDependencies importedDeps;
+        builder.ScanDependencies(imported, scanCtx, importedDeps);
+        CHECK(importedDeps.sourceStreams.Size() == 0);
+    }
+
+    Guid id;
+    {
+        foundation::content::ContentDatabase db(
+            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
+        auto* inst = db.RootGroup()->CreateInstance(u8"hf", HeightfieldSource::StaticType());
+        id = inst->Id();
+        REQUIRE(inst->WriteData(kHeightStream, HeightfieldSource::HeightBlob(*authored)).IsOk());
+
+        HeightfieldAssetBuilder builder;
+        NativeFileSystem srcMount(u8".");
+        pipeline::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.source = inst; // the authored sidecar lives on the source instance
+        ctx.output = inst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+    }
+
+    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+                                            u8".rasset");
+    HeightfieldFactory factory;
+    ResourceManager manager(db);
+    manager.AddFactory(&factory);
+    Proxy<Heightfield> hf = manager.Bind<Heightfield>(id);
+
+    REQUIRE(hf);
+    CHECK(hf->GetSample(10, 12) == 4321); // the sculpt survived the cook
+    CHECK(hf->GetSample(33, 40) == 60000);
+    CHECK(hf->GetSample(1, 1) == 0); // untouched samples stay flat
+
+    RemoveTree();
+}

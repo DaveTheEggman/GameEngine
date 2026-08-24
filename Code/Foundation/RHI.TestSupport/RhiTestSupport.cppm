@@ -156,6 +156,10 @@ export namespace foundation::rhi::testsupport
         }
 
         device.WaitIdle();
+        if (encoder != nullptr)
+        {
+            pool->DestroyEncoder(encoder); // WaitIdle'd: safe (DestroyCommandPool does not free it)
+        }
         device.DestroyFence(fence);
         device.DestroyCommandPool(pool);
         device.DestroyBuffer(readback);

@@ -101,6 +101,20 @@ export namespace pipeline
             return &Heightfield::StaticType();
         }
 
+        // An EMBEDDED heightfield (fileName empty - page-created, or converted by a sculpt save)
+        // reads the authored "heights" source stream - declare it so the recipe hash chains its
+        // bytes (the envelope hash does not cover sidecars; a sculpt save must re-cook). An
+        // IMPORTED one (fileName set) chains the heightmap file, which the base builder tracks.
+        void ScanDependencies(const pipeline::Asset& asset, pipeline::AssetBuildContext&,
+                              pipeline::AssetDependencies& out) override
+        {
+            const HeightfieldAsset& ha = static_cast<const HeightfieldAsset&>(asset);
+            if (ha.fileName.View().IsEmpty())
+            {
+                out.sourceStreams.PushBack(String(foundation::heightfield::kHeightStream));
+            }
+        }
+
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override
         {
@@ -143,6 +157,30 @@ export namespace pipeline
                 }
                 ResampleHeightmapR16(reinterpret_cast<const Height*>(img.PixelData().Data()),
                                      img.Width(), img.Height(), *hf);
+            }
+            else if (ctx.source != nullptr)
+            {
+                // EMBEDDED: the authored "heights" sidecar is the truth (a sculpt save writes it;
+                // fileName empty marks the sidecar authoritative - the editable-source convention
+                // splat uses). A missing/mismatched blob leaves the grid flat (a page-created,
+                // never-sculpted heightfield).
+                if (UniquePtr<IStream> stream =
+                        ctx.source->ReadData(foundation::heightfield::kHeightStream))
+                {
+                    const i64 streamSize = stream->Size();
+                    const i64 expected = static_cast<i64>(size) * static_cast<i64>(size) *
+                                         static_cast<i64>(sizeof(Height));
+                    if (streamSize == expected)
+                    {
+                        Span<Height> samples = hf->Samples();
+                        if (stream->Read(samples.Data(), static_cast<u64>(streamSize)) !=
+                            static_cast<u64>(streamSize))
+                        {
+                            hf = MakeRef<Heightfield>(DefaultAllocator(), size, worldSize, minY,
+                                                      maxY); // partial read: fall back to flat
+                        }
+                    }
+                }
             }
 
             HeightfieldSource src;

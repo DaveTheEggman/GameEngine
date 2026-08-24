@@ -18,6 +18,7 @@ import foundation.content;          // ContentDatabase, Instance (the persist cl
 import foundation.resource;         // Ref<>
 import foundation.heightfield;      // Heightfield (ray-pick for the UV mapping)
 import foundation.terrain.resource; // Splatmap, PaintWeight, SplatmapSource
+import terrain.pipeline;            // SplatmapAsset (the SOURCE envelope the persist rewrites)
 import engine.terrain;              // TerrainComponent + TerrainComponentManager
 import editor.core;
 import editor.viewporttools;
@@ -325,10 +326,31 @@ namespace editor
                     id,
                     [splat, id](content::ContentDatabase& db) -> Status
                     {
+                        // Read-modify-write the SOURCE SplatmapAsset envelope: sync the raster
+                        // dims and CLEAR fileName, so an IMPORTED (PNG-backed) splatmap converts
+                        // to embedded on the first paint-save - otherwise the builder keeps
+                        // cooking from the file and the paint silently reverts on re-cook (the
+                        // editable-source convention; re-import explicitly resets by setting
+                        // fileName again). Then write the painted pixels sidecar the embedded
+                        // cook reads.
                         content::Instance* inst = db.GetInstance(id);
                         if (inst == nullptr || splat.Get() == nullptr)
                         {
                             return Status{ErrorCode::NotFound};
+                        }
+                        RefPtr<ISerializable> object = inst->ReadObject();
+                        auto* asset = Cast<pipeline::SplatmapAsset>(object.Get());
+                        if (asset == nullptr)
+                        {
+                            return Status{ErrorCode::InvalidArgument}; // not a splatmap asset
+                        }
+                        asset->fileName = {};
+                        asset->width = splat->Width();
+                        asset->height = splat->Height();
+                        const Status wrote = inst->WriteObject(*asset);
+                        if (!wrote.IsOk())
+                        {
+                            return wrote;
                         }
                         return inst->WriteData(terrain::kSplatStream,
                                                terrain::SplatmapSource::PixelBlob(*splat));

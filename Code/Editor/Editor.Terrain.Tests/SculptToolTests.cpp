@@ -9,10 +9,15 @@
 
 import foundation.core;
 import foundation.content; // ContentDatabase (the IAssetEditSink persist signature)
+import foundation.vfs;    // NativeFileSystem (the persist round-trip test)
+import foundation.resource;
 import foundation.scene;
 import foundation.heightfield;
+import foundation.heightfield.resource; // HeightfieldFactory + kHeightStream (re-cook survival)
 import foundation.terrain.resource;
 import engine.terrain;
+import pipeline.core;
+import heightfield.pipeline; // HeightfieldAsset + builder (the SOURCE envelope the persist rewrites)
 import editor.core;
 import editor.viewporttools;
 import editor.terrain;
@@ -34,11 +39,13 @@ namespace
             ++count;
             lastId = assetId;
             hasPersist = static_cast<bool>(persist);
+            lastPersist = Move(persist); // captured so tests can run it against a real DB
         }
 
         i32 count = 0;
         Guid lastId;
         bool hasPersist = false;
+        Function<Status(foundation::content::ContentDatabase&)> lastPersist;
     };
 
     // A straight-down ray at the terrain center (identity entity transform -> local == world).
@@ -161,4 +168,115 @@ TEST_CASE("terrain sculpt: unavailable with no terrain, and refuses edits while 
     (void)tool.Update(locked);
     CHECK(fx.grid->GetSample(32, 32) == 0); // no edit under lock
     CHECK_FALSE(commands.CanUndo());
+}
+
+// Pass-16 fix: the persist closure must write the SOURCE HeightfieldAsset envelope (never the
+// cooked HeightfieldSource type - that clobbered the source asset), clear fileName (the authored
+// "heights" sidecar becomes the truth), and the sculpt must SURVIVE a re-cook through the builder's
+// embedded path.
+TEST_CASE("terrain sculpt: a save persists to the source asset and survives a re-cook")
+{
+    using foundation::vfs::NativeFileSystem;
+    namespace content = foundation::content;
+
+    const StringView dbDir = u8"scratch_sculpt_persist_db";
+    FileDelete(u8"scratch_sculpt_persist_db/hf.rasset");
+    FileDelete(u8"scratch_sculpt_persist_db/hf.heights.bin");
+    RemoveDirectory(dbDir);
+    NativeFileSystem mount(dbDir);
+
+    // The SOURCE asset: an imported-style envelope (fileName set) proving the save converts it.
+    Guid id;
+    {
+        content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+                                    u8".rasset");
+        pipeline::RegisterHeightfieldAsset();
+        foundation::heightfield::RegisterHeightfieldResourceTypes();
+        auto* inst =
+            db.RootGroup()->CreateInstance(u8"hf", pipeline::HeightfieldAsset::StaticType());
+        REQUIRE(inst != nullptr);
+        id = inst->Id();
+        pipeline::HeightfieldAsset src;
+        src.size = 65;
+        src.worldSize = Float2{64.0f, 64.0f};
+        src.minY = 0.0f;
+        src.maxY = 10.0f;
+        src.fileName = foundation::vfs::SourcePath(u8"legacy.png"); // imported-style
+        REQUIRE(inst->WriteObject(src).IsOk());
+    }
+
+    // Sculpt a stroke against the shared runtime grid bound to that source id.
+    Fixture fx;
+    fx.res->heightfield.SetId(id);
+    FakeAssetEditSink sink;
+    editor::EditorCommandStack commands;
+    editor::TerrainSculptTool tool(fx.scene, commands, &sink);
+
+    editor::ViewportToolInput press = CenterRay(0.1f);
+    press.leftPressed = true;
+    press.leftDown = true;
+    (void)tool.Update(press);
+    editor::ViewportToolInput release = CenterRay(0.0f);
+    release.leftReleased = true;
+    (void)tool.Update(release);
+    REQUIRE(sink.lastPersist);
+    CHECK(sink.lastId == id);
+    const hf::Height sculpted = fx.grid->GetSample(32, 32);
+    REQUIRE(sculpted > 0); // the stroke raised the grid
+
+    // Drain: the closure writes envelope + sidecar into the SOURCE DB, then re-cook into a
+    // SEPARATE cooked DB under the SAME guid (product guid == source guid - the production shape;
+    // the cooked instance carries the product-source type the factory reads).
+    const StringView cookedDir = u8"scratch_sculpt_persist_cooked";
+    FileDelete(u8"scratch_sculpt_persist_cooked/hf.rasset");
+    FileDelete(u8"scratch_sculpt_persist_cooked/hf.heights.bin");
+    RemoveDirectory(cookedDir);
+    NativeFileSystem cookedMount(cookedDir);
+    {
+        content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+                                    u8".rasset");
+        REQUIRE(sink.lastPersist(db).IsOk());
+        content::Instance* inst = db.GetInstance(id);
+        REQUIRE(inst != nullptr);
+        RefPtr<ISerializable> object = inst->ReadObject();
+        auto* asset = Cast<pipeline::HeightfieldAsset>(object.Get());
+        REQUIRE(asset != nullptr);               // envelope is STILL a HeightfieldAsset
+        CHECK(asset->fileName.View().IsEmpty()); // converted to embedded (sidecar = truth)
+        CHECK(asset->size == 65);
+
+        content::ContentDatabase cookedDb(cookedMount,
+                                          foundation::core::BinarySerializerFactory(),
+                                          u8".rasset");
+        content::Instance* cookedInst = cookedDb.RootGroup()->CreateInstanceWithId(
+            id, u8"hf", foundation::heightfield::HeightfieldSource::StaticType());
+        REQUIRE(cookedInst != nullptr);
+
+        pipeline::HeightfieldAssetBuilder builder;
+        NativeFileSystem srcMount(u8".");
+        pipeline::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.source = inst;
+        ctx.output = cookedInst;
+        REQUIRE(builder.Build(*asset, ctx).IsOk());
+    }
+
+    // Bind the cooked product through a FRESH db: the sculpt survived the re-cook.
+    {
+        content::ContentDatabase cookedDb(cookedMount,
+                                          foundation::core::BinarySerializerFactory(),
+                                          u8".rasset");
+        foundation::heightfield::HeightfieldFactory factory;
+        foundation::resource::ResourceManager manager(cookedDb);
+        manager.AddFactory(&factory);
+        foundation::resource::Proxy<hf::Heightfield> cooked = manager.Bind<hf::Heightfield>(id);
+        REQUIRE(cooked);
+        CHECK(cooked->GetSample(32, 32) == sculpted);
+    }
+    FileDelete(u8"scratch_sculpt_persist_cooked/hf.rasset");
+    FileDelete(u8"scratch_sculpt_persist_cooked/hf.heights.bin");
+    RemoveDirectory(cookedDir);
+
+    FileDelete(u8"scratch_sculpt_persist_db/hf.rasset");
+    FileDelete(u8"scratch_sculpt_persist_db/hf.heights.bin");
+    RemoveDirectory(dbDir);
 }

@@ -17,6 +17,7 @@ import foundation.content;            // ContentDatabase, Instance (the persist 
 import foundation.resource;           // Ref<>
 import foundation.heightfield;        // Sculpt* brushes, HeightfieldRegion
 import foundation.heightfield.resource; // HeightfieldSource + kHeightStream (persist)
+import heightfield.pipeline;           // HeightfieldAsset (the SOURCE envelope the persist rewrites)
 import foundation.terrain.resource;   // TerrainResource
 import engine.terrain;                // TerrainComponent + TerrainComponentManager
 import editor.core;
@@ -339,17 +340,32 @@ namespace editor
                     id,
                     [grid, id](content::ContentDatabase& db) -> Status
                     {
+                        // The SOURCE instance's envelope is a HeightfieldAsset (never write the
+                        // cooked HeightfieldSource type here - that clobbers the source asset).
+                        // Read-modify-write: sync the grid params, CLEAR fileName (the authored
+                        // "heights" sidecar becomes the truth - the editable-source convention;
+                        // the builder's embedded path cooks from it, and a re-import explicitly
+                        // resets by setting fileName again), then write the sidecar samples.
                         content::Instance* inst = db.GetInstance(id);
                         if (inst == nullptr || grid.Get() == nullptr)
                         {
                             return Status{ErrorCode::NotFound}; // heightfield source vanished
                         }
-                        hf::HeightfieldSource src;
-                        hf::HeightfieldSource::FromHeightfield(*grid, src);
-                        Status s = inst->WriteObject(src);
-                        if (!s.IsOk())
+                        RefPtr<ISerializable> object = inst->ReadObject();
+                        auto* asset = Cast<pipeline::HeightfieldAsset>(object.Get());
+                        if (asset == nullptr)
                         {
-                            return s;
+                            return Status{ErrorCode::InvalidArgument}; // not a heightfield asset
+                        }
+                        asset->fileName = {};
+                        asset->size = grid->Size();
+                        asset->worldSize = grid->WorldSize();
+                        asset->minY = grid->MinY();
+                        asset->maxY = grid->MaxY();
+                        const Status wrote = inst->WriteObject(*asset);
+                        if (!wrote.IsOk())
+                        {
+                            return wrote;
                         }
                         return inst->WriteData(hf::kHeightStream,
                                                hf::HeightfieldSource::HeightBlob(*grid));

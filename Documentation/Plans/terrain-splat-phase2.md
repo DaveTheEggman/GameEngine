@@ -268,6 +268,20 @@ rewrite may not match a HeightfieldAsset source. Heightfield likely needs the sa
 editable-source treatment splat just got (a "heights" sidecar the builder reads,
 sculpt writing only that). Worth a ruling before relying on sculpt persistence.
 
+> **RESOLVED in review pass 16 (Fable, 2026-08-24):** confirmed worse than
+> flagged - `Instance::WriteObject` stamps the INSTANCE's recorded type over the
+> payload, so the old closure left the source envelope unreadable (strict
+> serializer, missing `fileName` key) on the first sculpt save. RULING = the
+> editable-source convention, both tools: `fileName` set = the file is truth;
+> `fileName` empty = the authored sidecar is truth; an editor save CONVERTS the
+> asset to embedded (read-modify-write the Asset envelope - params/dims synced,
+> `fileName` cleared) + writes the sidecar; re-import explicitly resets.
+> HeightfieldAssetBuilder gained the embedded "heights" path + ScanDependencies
+> chaining; BOTH persist closures rewritten; the splat closure also fixes
+> paint-on-imported-PNG silently reverting (envelope dims synced, converted to
+> embedded). End-to-end tests pin closure -> source DB -> re-cook -> edit
+> survives, in the production two-DB shape. See HANDOFF pass 16.
+
 **PNG import (added after the initial defer, 2026-08-24):** reuses the image
 DECODER, not a TextureAsset/ImageAsset reference (the terrain resolves splatmapId
 to a versioned Splatmap product, not an ImageResource). SplatmapAsset gained a

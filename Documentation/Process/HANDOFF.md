@@ -636,3 +636,85 @@ phase 2 (the first real IViewportTool consumer) is next and reviewed
 separately when it lands.
 
 Baseline for pass 16: this pass's commit.
+
+## Review pass 16 (2026-08-24, Fable): terrain editor phase 2 - TerrainPage + Sculpt + Splat Paint - PASS (2 findings + 1 ASAN leak, all fixed in-pass)
+
+Scope: everything terrain since 5b1dbc4c - TerrainPage (3c966061), the
+sculpt chain (5f08f94e brush core, 85876aff ref-id stamping, ffc18069
+asset-edit registry, 1330f7ff tool), and the splat chain A-G (564a693c
+type+brush, 6a879bd3 cook, 5dda3070 CPU-truth + GPU cache RE-COOK,
+8346f9d3 tool, d561adee page affordance, d78830a9 end-to-end probe,
+7c54ae0e PNG import). Docking/build-time commits are mine, out of scope.
+
+**Verified:** the splat build honors the ruling point by point - lerp-
+to-one-hot exactly as specified (float space, quantize once), Splatmap
+uid+version mirroring Heightfield, the GPU cache retire-queue-wired and
+uid-keyed with the aliasing test, ScanDependencies chaining the pixels
+sidecar so a paint re-cooks, seed-on-empty, the page-owned Create-
+splatmap affordance (the tool never creates assets), the OS-close-
+grade Q6 test set incl. the Vulkan+WebGPU painted-pixel probe, and
+kBuilderCount/kImporterCount bumps. Two ruling deviations both judged
+CORRECT: Splatmap lives in Terrain.Resource (better home than
+foundation.terrain - it IS resource-layer) and the persist writes only
+the pixels sidecar (the builder re-cooks from it). PNG import shipped
+despite the defer; reviewed on merits - clean dual-mode recipe hashing
+(file chained when fileName set, sidecar when embedded), accepted.
+
+**Finding 1 (HIGH, sculpt 1330f7ff - fixed in-pass):** the sculpt
+persist closure wrote a HeightfieldSource (the COOKED-metadata type)
+onto the SOURCE instance. Instance::WriteObject stamps the INSTANCE's
+recorded type over the payload, so the source envelope became a
+HeightfieldAsset-tagged blob with HeightfieldSource fields - missing
+"fileName" fails the strict serializer: the source asset was rendered
+unreadable by the first sculpt save. And the builder never read a
+"heights" sidecar anyway (fileName -> resample, else flat), so sculpt
+could not survive any re-cook. FIXED with the editable-source
+convention: fileName set = the FILE is truth; fileName empty = the
+authored SIDECAR is truth; an editor save CONVERTS to embedded
+(read-modify-write the true Asset envelope: params synced, fileName
+cleared) + writes the sidecar; re-import explicitly resets.
+HeightfieldAssetBuilder gained the embedded path (reads "heights",
+size-validated, flat fallback) + ScanDependencies chaining it.
+
+**Finding 2 (MEDIUM, splat G - fixed in-pass):** painting an IMPORTED
+(PNG-backed) splatmap persisted pixels to the sidecar while file-mode
+cooks from the PNG and does not chain the sidecar - the paint looked
+saved and silently reverted on re-cook. FIXED with the same convention:
+the splat persist closure read-modify-writes the SplatmapAsset envelope
+(dims synced to the raster - imported envelopes carried stale dims -
+fileName cleared) before writing pixels.
+
+Both fixes are pinned by end-to-end tests that run the captured persist
+closure against a real source DB, assert the envelope survives as its
+Asset type + converts to embedded, re-cook through the builder into a
+separate cooked DB under the SAME guid (the production shape), and
+assert the edit survives. Plus a Heightfield.Pipeline embedded-cook
+round-trip + ScanDependencies-mode test. (Test-harness lesson recorded:
+Instance::WriteObject writes under the instance's CREATED type - the
+splat-B in-place-cook test only worked because the instance was created
+with the product-source type; the tool tests now use the two-DB shape.)
+
+**ASAN findings (pass 16 = the first ASAN sweep over
+Engine.Terrain.Backend.Tests; three fixed in-pass, one filed):**
+1. FIXED: RenderTerrainProbe leaked its CommandEncoders (both probe
+   loops; never destroyed after the fence wait).
+2. FIXED: testsupport::Readback (RHI.TestSupport, shared by every
+   backend probe suite) leaked its encoder - DestroyCommandPool does
+   not free encoders.
+3. FIXED: both probe-local TerrainHeightTextureCaches were never
+   Clear()'d (the pass-14 lesson recurring in the probe path); freeing
+   these also released the megabytes of driver-internal allocations
+   LSAN had attributed to NVIDIA frames - they were INDIRECT leaks
+   through our objects, not driver noise.
+4. FILED (pre-existing, NOT terrain): ~13.7 KB / 21 allocations of
+   WebGPU device-INTERNAL objects (CreateDevice-time textures /
+   render-bundle encoder - blit-helper suspects) that
+   WebGpuDevice::Destroy misses. Small, per-device-lifetime, affects
+   every WebGPU test; recorded in Backlog/issues-triage.md for an
+   RHI.WebGPU pass.
+
+Verdict: PASS. Full clang+gcc batteries green with the fixes; ASAN
+terrain/editor suites clean, and the Backend probe suite is leak-free
+on the Vulkan half with only finding 4's residue on the WebGPU half.
+
+Baseline for pass 17: this pass's commit.

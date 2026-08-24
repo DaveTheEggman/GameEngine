@@ -10,7 +10,7 @@ target_link_libraries(Editor.Terrain PUBLIC
     Foundation::Scene Engine::Scene Foundation::Render Engine::Render
     Foundation::UI Foundation::UI.Toolkit Foundation::UI.Runtime
     Editor::Core Editor::App Editor::Camera Editor::Preview Editor::ViewportTools
-    Pipeline::Terrain Foundation::Terrain Foundation::Terrain.Resource Engine::Terrain
+    Pipeline::Terrain Pipeline::Heightfield Foundation::Terrain Foundation::Terrain.Resource Engine::Terrain
     Foundation::Heightfield Foundation::Heightfield.Resource Foundation::Resource Foundation::Policy)
 
 target_sources(Editor.Terrain
