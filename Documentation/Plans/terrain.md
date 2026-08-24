@@ -396,7 +396,60 @@ terrain simply becomes "a heightfield collider that also renders". Lands in
 Engine.Physics through the existing shape seam; bump the ShapeKind wire
 version + the shape-cook count guard.
 
-## Editor experience (phase 2 - separate discussion pending)
+## Editor experience (phase 2) - DIRECTION SET (Fable, 2026-08-23; user question answered)
+
+THE ANSWER TO "dedicated terrain asset page OR edit-in-scene?": BOTH,
+split by ROLE - and the split falls out of rulings already recorded:
+
+**Editing happens IN THE SCENE VIEWPORT** (the property-animation
+precedent, and what Editor.ViewportTools was built in anticipation of).
+Editor.Terrain registers TWO tools into the existing IViewportTool
+registry (explicit registrar + tripwire, the framework decision):
+- **Sculpt** - elevate / lower / smooth / flatten (ctrl picks the target
+  height), operating on the HEIGHTFIELD ASSET the scene's terrain
+  references. Ray pick = foundation.heightfield::QueryRay through the
+  inverse entity transform (exists); brush cursor = the viewport's KEYED
+  debug list (editor chrome - never in camera preview); each stroke step
+  rewrites samples + BumpVersion, riding the live re-upload path the
+  playground already proves (height texture + chunk bounds rebuild,
+  retire-queue safe). Undo = REGION-DELTA commands (touched-rect
+  before/after, one entry per stroke - the 2026-08-10 decision). Edits
+  mark the heightfield ASSET dirty (asset-level save; the scene stays
+  clean); save routes through the normal asset save -> watcher recook.
+- **Splat Paint** - layer selector + weight brush writing the SPLATMAP.
+  Direction: the splatmap becomes an editor-writable IMAGE-backed asset
+  (RGBA8) so painting has a source to save; texel writes re-upload live
+  through the texture path, save persists the image source. Same
+  region-delta undo shape. (Detailed data flow lands in the phase-2
+  spec; this fixes only the seam: paint is a viewport tool over an
+  image asset, not a bespoke canvas.)
+Both tools declare the availability predicate (a TerrainComponent whose
+terrain resolves is present), and their panels dock below the viewport
+exactly like the property-animation panel (the persistent-panel
+precedent; the parked tool_panel seam stays parked). Sculpting a
+heightfield SHARED by several terrains edits all of them - the standard
+shared-asset consequence, already recorded in the instance model.
+
+**The dedicated TerrainPage is the COMPOSITION + PREVIEW surface, and
+never hosts brushes.** Per the preview-identity ruling (heightfield page
+= 2D permanently; the 3D preview belongs to the TERRAIN asset): a
+bespoke page on the PreviewViewport substrate (mesh/material precedent)
+with a TerrainComponent preview scene - orbit camera, the LOD/wireframe
+toggles the substrate already offers - plus the asset's authoring
+fields: heightfield + splatmap refs (pickers), the layer list (albedo
+ref + tile scale per layer - the generic reflected list editor
+renders it), castShadows default, and stats (grid size, chunk count,
+memory). Keeping brushes OUT of the page preserves ONE input-routing
+path for editing (the scene viewport's tool palette) instead of a
+second brush host inside a preview - the same reasoning that put
+select+gizmos and property animation in the one framework.
+
+Sequencing inside phase 2: the TerrainPage first (it unblocks authored
+cooked terrains for D2's splat path without any brush work), then
+Sculpt, then Splat Paint (which wants the page's layer list to already
+exist for its layer selector).
+
+## Editor experience (phase 2 - original decision record)
 
 DECIDED (2026-08-10, editing-experience discussion): brushes are VIEWPORT
 TOOLS in a shared tool-mode framework - IViewportTool interface + registry
