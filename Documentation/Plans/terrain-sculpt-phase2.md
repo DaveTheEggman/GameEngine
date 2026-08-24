@@ -100,3 +100,70 @@ unavailable; that is the correct semantic, not an error).
   in-sim rebuild is a later nicety, not phase 2.
 
 Build the tool, persistence, and undo in one pass on this.
+
+## TRAKTOR PRECEDENT (Opus, 2026-08-24; user asked how Traktor solves this)
+
+Checked the local Traktor copy (`code/Terrain/Editor/TerrainEditModifier.cpp`).
+It VALIDATES the direction and surfaces two refinements to the ruling above
+for confirmation before I build.
+
+**Traktor's shape:** the sculpt tool is a `scene::IModifier`
+(`TerrainEditModifier`) constructed with the FULL `scene::SceneEditorContext*`.
+Through it the tool reaches the source database (`context->getEditor()->
+getSourceDatabase()`) and the editor document (`context->getDocument()` -
+checkout / editInstance / setModified). It holds BOTH the runtime
+`resource::Proxy<Heightfield>` (live preview) and the heightfield's
+`db::Instance`. `IBrush` = begin/apply/end with a State{radius,falloff,strength,
+color,material,attribute} + Mode flags (Height/Cut/Color/Material/Attribute) +
+pluggable IFallOff (Smooth/Sharp/Image) - a superset of our raise/flatten/smooth.
+
+**Persistence (their seam 1):** on edit it checks the heightfield instance out and
+writes the WHOLE heightfield back inline:
+`m_heightfieldInstance->checkout(); auto s = m_heightfieldInstance->writeData(L"Data");
+hf::HeightfieldFormat().write(s, m_heightfield); context->getDocument()->setModified();`
+(the `m_updateRegion` rect is only the live GPU-map update; disk write + undo are
+whole-asset / document-checkout - coarser than our region-delta, which we keep.)
+
+**Guid (their seam 2): NO reverse lookup.** Traktor reads the guid from the SOURCE
+graph: `m_terrainComponentData->getTerrain()` (the terrain guid on the component
+DATA) -> `sourceDatabase->getObjectReadOnly<TerrainAsset>(terrain)` ->
+`terrainAsset->getHeightfield()` (the heightfield guid) -> `getInstance(guid)`.
+The runtime product is preview-only; persistence goes entirely through the source
+side.
+
+### The refinement this surfaces
+
+Both our seams reduce to ONE fact Traktor makes explicit: **the sculpt tool needs
+SOURCE-DB reach.** Fable's `registerAssetEdit(guid, Function<Status()> persist)`
+cleanly handles mark-dirty + drain-on-save and keeps "heightfield" out of the
+framework - but the persist closure's BODY (serialize the heightfield to its
+source instance) needs the source DB, and even `SourceIdOf` needs the
+ResourceManager; the provider tool's `{scene, commands, registerAssetEdit}` has
+neither. So a proposal, staying as close to your ruling as possible:
+
+1. **Seam 2 - drop `ResourceManager::SourceIdOf`; read the guid from the source
+   graph, Traktor-style.** The terrain tool resolves the heightfield asset guid
+   from the scene entity's `TerrainComponent.terrain` guid -> `TerrainAsset`/
+   `TerrainSource.heightfieldId` (via the source DB it needs anyway). This drops a
+   runtime-side addition entirely and handles the in-memory case with the SAME
+   semantic you specified: no source instance -> nil -> EDIT-LIVE-ONLY. (If you'd
+   still rather add SourceIdOf, it also needs the tool to hold the ResourceManager,
+   so the DB-reach point below applies either way.)
+
+2. **Seam 1 - give the persist closure its DB at DRAIN time** instead of making it
+   capture one: `RegisterAssetEdit(const Guid&, Function<Status(SourceDb&)> persist)`
+   and the transport `Function<void(const Guid&, Function<Status(SourceDb&)>)>
+   registerAssetEdit`. The editor save flow (which owns the source DB) passes it in
+   when draining. This preserves your domain-free framework win (no "heightfield"
+   in the interface, closures stay in Editor.Terrain) AND resolves who-holds-the-DB
+   without giving every viewport tool the full EditorContext the way Traktor does.
+   The terrain closure then does exactly Traktor's write (serialize the runtime
+   Heightfield -> HeightfieldSource + the "heights" sidecar) using the passed DB.
+   The tool still needs the source DB to RESOLVE the guid (refinement 1) at
+   register time - so either the host context also carries a read-only source-DB
+   handle, or the guid is resolved lazily inside the same drain-time closure.
+
+Net: keep your registry + domain-closure decomposition (cleaner than Traktor's
+inline DB coupling); drop seam 2's reverse lookup; make source-DB reach explicit
+(drain-time DB for the persist closure + a source-DB handle for guid resolution).
+On your confirmation I build the tool + persistence + region-delta undo in one pass.
