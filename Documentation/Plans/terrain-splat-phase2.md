@@ -149,3 +149,84 @@ If the recommended mirror + defaults are good, I will build it in one pass
 (Splatmap type + brush core, the GPU splat cache, the factory/resource rework, the
 tool + provider line, region-delta undo, the persist closure, tests) exactly as
 the sculpt pass landed.
+
+---
+
+## RULING (Fable, 2026-08-24) - APPROVED, build in one pass
+
+Claims 1-5 verified by inspection: `TerrainResource::splatmap` is
+`Ref<texture::Texture>` with the factory already stamping `SetId`
+(TerrainResource.cppm:99-103); `texture::Texture` (Texture.Resource) is
+Adopt-immutable with no version; `ImageData` carries only a mint-once
+`InstanceId`; the set-3 cache keys on `TextureView::uniqueId`;
+`TransferBatch::WriteTexture` takes an extent and no origin (whole-image
+uploads, region tracking is CPU/undo-only). The recommended mirror is right -
+the heightfield shape is the proven one, and the CPU raster additionally buys
+future gameplay queries (layer weight at world position) for free.
+
+**Q1 - CPU type: `foundation.terrain::Splatmap`, `Image` untouched.** Mirror
+`Heightfield` exactly: an `Object` with `uid` + `Version()`/`BumpVersion()`,
+RGBA8 `Array<u8>` + width/height, and the pure brush core headless-tested with
+no RHI. Do not add identity/versioning to `foundation.image::Image` for one
+consumer.
+
+**Q2 - full replacement, one path.** `Ref<terrain::Splatmap>` replaces the GPU
+ref; no dual path, same reason height has none. Required consequences:
+- **Re-cook required**: existing cooked caches hold a Texture product under
+  `splatmapId`; the factory now binds a Splatmap product. Same class as the
+  WGSL re-cook - say so in the commit message.
+- **Retire, never destroy in-flight** (the playground lesson): a version bump
+  makes the splat cache upload a NEW texture -> new `uniqueId` -> the set-3
+  bind cache naturally rebuilds. BOTH caches must be retire-queue-wired, and
+  ClearGpu at teardown - mirror the height cache exactly, tests included.
+- **Sampler compatibility confirmed**: splat sampler s0 is
+  clamp/bilinear/mip-**Nearest** (trilinear is the ALBEDO sampler), so the
+  cache's single-mip RGBA8 texture is correct against the shipped D2 path -
+  no mip generation needed, no visual change for cooked terrains.
+- **TerrainPlayground** switches to constructing a CPU Splatmap - update it in
+  the same commit (it gets simpler).
+
+**Q3 - precondition; the tool never creates or mutates assets.** Asset
+creation is COMPOSITION and belongs to the TerrainPage (the phase-2 direction:
+page = composition + preview, viewport tools = brushes). Give the page a
+"Create splatmap" affordance: authors the new source asset in the source DB,
+assigns `splatmapId`, recooks. Default 1024x1024 (an editable field, NOT
+derived from the heightfield - weight density is an authoring choice
+independent of height density), seeded layer 0 = 255. The tool stays
+unavailable until a splatmap resolves. This keeps stroke undo clean: no stroke
+ever implies asset creation, so undoing the first stroke never has to delete
+an asset.
+
+**Q4 - (c), but named and placed correctly: `SplatmapAsset` in
+Terrain.Pipeline.** The pipeline parallel is `HeightfieldAsset`
+(Heightfield.Pipeline), not "HeightfieldSource" - and heightfield earned its
+own module because physics/nav share it; the splatmap is terrain-only, so it
+lives in the existing Terrain.Pipeline (metadata + `"pixels"` binary sidecar,
+per the bulk-data rule - never inline). New builder + new `SplatmapFactory` =
+bump the Pipeline.Registration / factory count tripwires. Import-from-PNG is
+DEFERRED (v1 authoring = create + paint); note it as a follow-up, don't build
+it.
+
+**Q5 - blend = lerp-to-one-hot, not additive.** `t = clamp01(amount *
+falloff)`; `w_sel' = w_sel + t * (max - w_sel)`; `w_other' = w_other * (1 -
+t)` (compute in float, quantize to u8 once per texel). The proposed `sel +=
+t` overshoots and breaks the sum; the lerp form preserves sum exactly in
+float, converges to one-hot, and makes painting another layer function as the
+eraser. Keep the shader zero-sum guard for u8 rounding drift. Keys 1..4 +
+`SetLayer` approved. Eraser/smooth-weights modes DEFERRED past P1.
+
+**Q6 - verification, the required set:**
+1. Headless gesture suite as listed (paint raises selected channel in the
+   touched region only, one command per stroke undoes/redoes, unavailable
+   with no splatmap, refuses edits under Simulate, persist closure registered
+   with the source guid).
+2. Splat cache unit tests mirroring the height cache: uid-keyed (aliasing
+   test - two rasters at the same address must not collide), version-bump
+   RETIRES the old texture/view (no direct destroy), Clear at shutdown.
+3. YES to the end-to-end probe: paint -> BumpVersion -> re-upload changes the
+   blended pixel - on Vulkan AND WebGPU (the TerrainPixelProbeTests harness
+   already exists; validate-on-WebGPU rule).
+4. Pipeline round-trip: SplatmapAsset cook (metadata + pixels sidecar)
+   restores an identical raster, and the splat PRODUCT guid == SOURCE guid
+   (the parity invariant the whole ref-id scheme rests on - pin it like the
+   heightfield/model tests do).
