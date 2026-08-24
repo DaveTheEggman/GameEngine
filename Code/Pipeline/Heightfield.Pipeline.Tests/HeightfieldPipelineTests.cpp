@@ -285,3 +285,12 @@ TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heigh
 
     RemoveTree();
 }
+
+TEST_CASE("heightfield.pipeline: builder ProductType is HeightfieldSource (the cook-stamp contract)")
+{
+    // The cook stamps the cooked instance with builder->ProductType(); returning the runtime
+    // Heightfield (not HeightfieldSource) makes ReadObject build the wrong type and the factory's
+    // Cast<HeightfieldSource> fail - the resource never binds. Pin it.
+    CHECK(pipeline::HeightfieldAssetBuilder{}.ProductType() ==
+          &foundation::heightfield::HeightfieldSource::StaticType());
+}

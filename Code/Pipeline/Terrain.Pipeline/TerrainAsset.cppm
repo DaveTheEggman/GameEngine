@@ -61,10 +61,16 @@ export namespace pipeline
         {
             return &TerrainAsset::StaticType();
         }
+        // Cooked instance type = the SERIALIZED form the cook stamps + ReadObject reconstructs
+        // (TerrainSource), NOT the runtime TerrainResource. TerrainFactory.ProductType() is the
+        // runtime TerrainResource that Bind matches (the two differ - Texture convention).
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
-            return &TerrainResource::StaticType();
+            return &TerrainSource::StaticType();
         }
+        // 2: the cooked instance type changed (TerrainResource -> TerrainSource); force a re-cook so
+        // stale products (wrong header type -> factory Cast fails) rebuild.
+        [[nodiscard]] u32 Version() const override { return 2; }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override
@@ -130,10 +136,13 @@ export namespace pipeline
         {
             return &SplatmapAsset::StaticType();
         }
+        // Cooked instance type = the SERIALIZED SplatmapSource the cook stamps + ReadObject rebuilds,
+        // NOT the runtime Splatmap (SplatmapFactory.ProductType() is the runtime Splatmap for Bind).
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
-            return &Splatmap::StaticType();
+            return &SplatmapSource::StaticType();
         }
+        [[nodiscard]] u32 Version() const override { return 2; } // re-cook: Splatmap -> SplatmapSource
 
         // An EMBEDDED (create + paint) splatmap reads the "pixels" source stream - declare it so the
         // recipe hash chains its bytes (the envelope hash does not cover sidecars). An IMPORTED one

@@ -203,3 +203,14 @@ TEST_CASE("terrain.pipeline: SplatmapAsset imports an RGBA8 PNG to a Splatmap (d
     FileDelete(u8"scratch_splatimg_db/s.pixels.bin");
     RemoveDirectory(u8"scratch_splatimg_db");
 }
+
+TEST_CASE("terrain.pipeline: builder ProductType is the SERIALIZED cooked form (the cook-stamp contract)")
+{
+    // The cook driver stamps the cooked instance with builder->ProductType() and the runtime
+    // ReadObject reconstructs it, so ProductType MUST be the serialized form (…Source), not the
+    // runtime product. Returning the product (TerrainResource/Splatmap) makes ReadObject build the
+    // wrong type -> the factory's Cast<…Source> fails -> the resource never binds (the 2026-08-24
+    // "TerrainResource failed 1" incident). This pins the contract the round-trips above rely on.
+    CHECK(TerrainAssetBuilder{}.ProductType() == &TerrainSource::StaticType());
+    CHECK(SplatmapAssetBuilder{}.ProductType() == &SplatmapSource::StaticType());
+}

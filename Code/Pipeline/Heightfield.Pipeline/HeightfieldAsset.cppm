@@ -96,10 +96,15 @@ export namespace pipeline
         {
             return &HeightfieldAsset::StaticType();
         }
+        // The cook stamps this as the cooked instance's type, and the runtime ReadObject reconstructs
+        // it - so it must be the SERIALIZED cooked form (HeightfieldSource), NOT the runtime product
+        // (Heightfield). HeightfieldFactory.ProductType() is the runtime Heightfield that Bind matches;
+        // the two deliberately differ (the TextureAssetBuilder/TextureFactory convention).
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
-            return &Heightfield::StaticType();
+            return &HeightfieldSource::StaticType();
         }
+        [[nodiscard]] u32 Version() const override { return 2; } // re-cook: Heightfield -> HeightfieldSource
 
         // An EMBEDDED heightfield (fileName empty - page-created, or converted by a sculpt save)
         // reads the authored "heights" source stream - declare it so the recipe hash chains its
