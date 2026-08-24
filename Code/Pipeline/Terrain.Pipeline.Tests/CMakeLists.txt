@@ -1,4 +1,4 @@
-add_executable(Terrain.Pipeline.Tests TestsMain.cpp TerrainPipelineTests.cpp)
+add_executable(Terrain.Pipeline.Tests TestsMain.cpp TerrainPipelineTests.cpp SplatmapPipelineTests.cpp)
 target_link_libraries(Terrain.Pipeline.Tests PRIVATE
     Pipeline::Terrain Foundation::Terrain.Resource
     Foundation::Heightfield Foundation::Heightfield.Resource

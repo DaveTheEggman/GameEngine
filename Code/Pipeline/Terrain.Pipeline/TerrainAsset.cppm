@@ -93,4 +93,102 @@ export namespace pipeline
         GlobalTypeRegistry().Register(TerrainAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<TerrainAsset>();
     }
+
+    using foundation::terrain::Splatmap;
+    using foundation::terrain::SplatmapSource;
+
+    // Source asset: an editable RGBA8 splatmap of a given size. v1 authoring is CREATE + PAINT (the
+    // TerrainPage seeds one, the Splat Paint tool writes it), so there is no file/import - the pixels
+    // live in the source instance's "pixels" data stream (the embedded-TextureAsset precedent).
+    // Import-from-PNG is deferred.
+    class SplatmapAsset final : public pipeline::Asset
+    {
+        RTTI_OBJECT(SplatmapAsset, pipeline::Asset)
+    public:
+        i32 width = 1024;  // weight-raster resolution (authoring choice, independent of the heightfield)
+        i32 height = 1024;
+
+        void Serialize(ISerializer& ar) override
+        {
+            pipeline::Asset::Serialize(ar); // fileName (unused in v1)
+            foundation::core::Serialize(ar, "width", width);
+            foundation::core::Serialize(ar, "height", height);
+        }
+    };
+
+    // Cooks a SplatmapAsset -> Splatmap resource (metadata object + the "pixels" RGBA8 stream). The
+    // pixels pass through from the source instance's "pixels" sidecar; a source with none cooks a
+    // layer-0-seeded raster (a freshly created, never-painted splatmap still renders the base layer).
+    class SplatmapAssetBuilder final : public pipeline::DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &SplatmapAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &Splatmap::StaticType();
+        }
+
+        // Declare the "pixels" source stream so the recipe hash chains its bytes (the envelope hash
+        // does not cover sidecars - editing the painted pixels must re-cook).
+        void ScanDependencies(const pipeline::Asset& asset, pipeline::AssetBuildContext&,
+                              pipeline::AssetDependencies& out) override
+        {
+            (void)asset;
+            out.sourceStreams.PushBack(String(foundation::terrain::kSplatStream));
+        }
+
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
+        {
+            const SplatmapAsset& sa = static_cast<const SplatmapAsset&>(asset); // AssetType()-guarded
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
+            const i32 w = sa.width > 0 ? sa.width : 1;
+            const i32 h = sa.height > 0 ? sa.height : 1;
+            RefPtr<Splatmap> sm = MakeRef<Splatmap>(DefaultAllocator(), w, h);
+
+            bool havePixels = false;
+            if (ctx.source != nullptr)
+            {
+                if (UniquePtr<IStream> stream = ctx.source->ReadData(foundation::terrain::kSplatStream))
+                {
+                    const i64 size = stream->Size();
+                    const i64 expected = static_cast<i64>(w) * static_cast<i64>(h) * 4;
+                    if (size == expected &&
+                        stream->Read(sm->Pixels().Data(), static_cast<u64>(size)) ==
+                            static_cast<u64>(size))
+                    {
+                        havePixels = true;
+                    }
+                }
+            }
+            if (!havePixels)
+            {
+                sm->SeedLayer0(); // never painted yet: cook a valid base-layer raster
+            }
+
+            SplatmapSource src;
+            SplatmapSource::FromSplatmap(*sm, src);
+            const Status wrote = ctx.output->WriteObject(src);
+            if (!wrote.IsOk())
+            {
+                return wrote;
+            }
+            return ctx.output->WriteData(foundation::terrain::kSplatStream,
+                                         SplatmapSource::PixelBlob(*sm));
+        }
+    };
+
+    // Registers SplatmapAsset for content-DB construction + deserialization (reflection body in
+    // TerrainAssetImpl.cpp per GCC module hygiene).
+    inline void RegisterSplatmapAsset()
+    {
+        GlobalTypeRegistry().Register(SplatmapAsset::StaticType(), TypeDomain(u8"Pipeline"));
+        RegisterSerializable<SplatmapAsset>();
+    }
 }

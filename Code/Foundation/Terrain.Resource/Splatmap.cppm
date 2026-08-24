@@ -242,9 +242,10 @@ export namespace foundation::terrain
         }
 
         /// The raw RGBA8 bytes of a splatmap, to feed WriteData(kSplatStream, ...).
-        [[nodiscard]] static Span<const u8> PixelBlob(const Splatmap& sm) noexcept
+        [[nodiscard]] static Span<const byte> PixelBlob(const Splatmap& sm) noexcept
         {
-            return sm.Pixels();
+            const Span<const u8> px = sm.Pixels();
+            return Span<const byte>(reinterpret_cast<const byte*>(px.Data()), px.Size());
         }
 
         /// Build the runtime product from this metadata + the sidecar pixel bytes. Returns an empty

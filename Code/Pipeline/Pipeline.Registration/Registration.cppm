@@ -46,6 +46,6 @@ export namespace pipeline
     // A new builder/importer bumps the matching constant DELIBERATELY; a lost registration then
     // fails the test loudly. This converts "nobody checks the three copies stay in sync" into
     // "the build checks the one copy is complete".
-    inline constexpr usize kBuilderCount = 25;
+    inline constexpr usize kBuilderCount = 26;
     inline constexpr usize kImporterCount = 8;
 }

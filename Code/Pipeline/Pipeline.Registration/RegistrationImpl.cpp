@@ -88,6 +88,8 @@ namespace pipeline
         foundation::heightfield::RegisterHeightfieldResourceTypes(); // Heightfield product + source
         RegisterTerrainAsset();
         foundation::terrain::RegisterTerrainResourceTypes(); // Terrain product + source
+        RegisterSplatmapAsset();
+        foundation::terrain::RegisterSplatmapResourceTypes(); // Splatmap product + source
         RegisterMeshAssets();
         RegisterAnimationAssets();
         RegisterPropertyAnimationAssets();
@@ -134,6 +136,7 @@ namespace pipeline
         AddBuilder<ImageAssetBuilder>(registry);
         AddBuilder<HeightfieldAssetBuilder>(registry);
         AddBuilder<TerrainAssetBuilder>(registry);
+        AddBuilder<SplatmapAssetBuilder>(registry);
         AddBuilder<StaticMeshAssetBuilder>(registry);
         AddBuilder<SkinnedMeshAssetBuilder>(registry);
         AddBuilder<SkeletonAssetBuilder>(registry);

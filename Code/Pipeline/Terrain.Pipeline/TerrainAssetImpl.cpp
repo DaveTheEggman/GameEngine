@@ -24,4 +24,14 @@ namespace pipeline
             .Property<&TerrainAsset::castShadows>("castShadows")
             .PropAttribute("displayName", String(u8"Cast Shadows"));
     }
+
+    REFLECT_MEMBERS(SplatmapAsset, "rtti::pipeline::splatmap")
+    {
+        builder.Attribute("displayName", String(u8"Splatmap"))
+            .Attribute("category", String(u8"Terrain"))
+            .Property<&SplatmapAsset::width>("width")
+            .PropAttribute("displayName", String(u8"Width"))
+            .Property<&SplatmapAsset::height>("height")
+            .PropAttribute("displayName", String(u8"Height"));
+    }
 }
