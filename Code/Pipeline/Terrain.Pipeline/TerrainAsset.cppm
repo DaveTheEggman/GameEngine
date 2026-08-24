@@ -15,10 +15,14 @@ export module terrain.pipeline;
 import foundation.core;
 import foundation.vfs;
 import pipeline.core;
+import pipeline.importer; // IFileImporter + ImportContext + CopyIntoSources (splatmap PNG import)
+import foundation.image;
+import foundation.image.io; // LoadImageFromMemory (RGBA8 decode - reuses the image decoder)
 import foundation.terrain.resource;
 import foundation.content;
 
 using namespace foundation::core;
+namespace content = foundation::content;
 
 export namespace pipeline
 {
@@ -131,13 +135,17 @@ export namespace pipeline
             return &Splatmap::StaticType();
         }
 
-        // Declare the "pixels" source stream so the recipe hash chains its bytes (the envelope hash
-        // does not cover sidecars - editing the painted pixels must re-cook).
+        // An EMBEDDED (create + paint) splatmap reads the "pixels" source stream - declare it so the
+        // recipe hash chains its bytes (the envelope hash does not cover sidecars). An IMPORTED one
+        // (fileName set) chains the file itself, which the base builder already tracks.
         void ScanDependencies(const pipeline::Asset& asset, pipeline::AssetBuildContext&,
                               pipeline::AssetDependencies& out) override
         {
-            (void)asset;
-            out.sourceStreams.PushBack(String(foundation::terrain::kSplatStream));
+            const SplatmapAsset& sa = static_cast<const SplatmapAsset&>(asset);
+            if (sa.fileName.IsEmpty())
+            {
+                out.sourceStreams.PushBack(String(foundation::terrain::kSplatStream));
+            }
         }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
@@ -148,28 +156,66 @@ export namespace pipeline
             {
                 return Status{ErrorCode::InvalidArgument};
             }
-            const i32 w = sa.width > 0 ? sa.width : 1;
-            const i32 h = sa.height > 0 ? sa.height : 1;
-            RefPtr<Splatmap> sm = MakeRef<Splatmap>(DefaultAllocator(), w, h);
 
-            bool havePixels = false;
-            if (ctx.source != nullptr)
+            RefPtr<Splatmap> sm;
+            if (!sa.fileName.View().IsEmpty())
             {
-                if (UniquePtr<IStream> stream = ctx.source->ReadData(foundation::terrain::kSplatStream))
+                // IMPORTED: decode the source image (PNG etc.) as RGBA8 at its native size - the same
+                // image decoder HeightfieldAsset uses for heightmaps. A splatmap is arbitrary WxH
+                // (no 64k+1 rule), so no resampling; the runtime product stays a versioned Splatmap.
+                Result<Array<byte>> bytes = ReadSourceBytes(ctx, sa.fileName.View());
+                if (!bytes.HasValue())
                 {
-                    const i64 size = stream->Size();
-                    const i64 expected = static_cast<i64>(w) * static_cast<i64>(h) * 4;
-                    if (size == expected &&
-                        stream->Read(sm->Pixels().Data(), static_cast<u64>(size)) ==
-                            static_cast<u64>(size))
-                    {
-                        havePixels = true;
-                    }
+                    return Status{bytes.Error()};
+                }
+                foundation::image::Image img;
+                const Status loaded = foundation::image::io::LoadImageFromMemory(
+                    Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()),
+                                   bytes.Value().Size()),
+                    img);
+                if (!loaded.IsOk())
+                {
+                    return loaded;
+                }
+                if (img.Format() != foundation::image::PixelFormat::RGBA8)
+                {
+                    return Status{ErrorCode::NotSupported}; // HDR/other - splatmaps are RGBA8 weights
+                }
+                sm = MakeRef<Splatmap>(DefaultAllocator(), static_cast<i32>(img.Width()),
+                                       static_cast<i32>(img.Height()));
+                const Span<const u8> px = img.PixelData();
+                const usize n = Min(px.Size(), sm->Pixels().Size());
+                if (n > 0)
+                {
+                    MemCopy(sm->Pixels().Data(), px.Data(), n);
                 }
             }
-            if (!havePixels)
+            else
             {
-                sm->SeedLayer0(); // never painted yet: cook a valid base-layer raster
+                // EMBEDDED (create + paint): the pixels ride the source instance's "pixels" sidecar.
+                const i32 w = sa.width > 0 ? sa.width : 1;
+                const i32 h = sa.height > 0 ? sa.height : 1;
+                sm = MakeRef<Splatmap>(DefaultAllocator(), w, h);
+                bool havePixels = false;
+                if (ctx.source != nullptr)
+                {
+                    if (UniquePtr<IStream> stream =
+                            ctx.source->ReadData(foundation::terrain::kSplatStream))
+                    {
+                        const i64 size = stream->Size();
+                        const i64 expected = static_cast<i64>(w) * static_cast<i64>(h) * 4;
+                        if (size == expected &&
+                            stream->Read(sm->Pixels().Data(), static_cast<u64>(size)) ==
+                                static_cast<u64>(size))
+                        {
+                            havePixels = true;
+                        }
+                    }
+                }
+                if (!havePixels)
+                {
+                    sm->SeedLayer0(); // never painted yet: cook a valid base-layer raster
+                }
             }
 
             SplatmapSource src;
@@ -181,6 +227,46 @@ export namespace pipeline
             }
             return ctx.output->WriteData(foundation::terrain::kSplatStream,
                                          SplatmapSource::PixelBlob(*sm));
+        }
+    };
+
+    // OS-file importer (editor drag-drop): imports a PNG (or any stb-decodable image) as a
+    // SplatmapAsset with fileName set - the builder decodes it to the RGBA8 weight raster. Reuses
+    // the image decoder, NOT a TextureAsset/ImageAsset reference (the terrain needs a Splatmap
+    // product). The layer semantics (R/G/B/A = layers 0..3) are the author's responsibility.
+    class SplatmapFileImporter final : public pipeline::IFileImporter
+    {
+    public:
+        [[nodiscard]] StringView Label() const override { return u8"Splatmap"; }
+
+        [[nodiscard]] bool Accepts(StringView extension) const override
+        {
+            return extension == u8"png";
+        }
+
+        [[nodiscard]] Result<content::Instance*>
+        Import(StringView sourcePath, const pipeline::ImportContext& context, content::Group& group,
+               const pipeline::ImportOptions*, Object*, Array<pipeline::DeferredImportWrite>*) override
+        {
+            Result<String> fileName = pipeline::CopyIntoSources(context, sourcePath);
+            if (!fileName.HasValue())
+            {
+                return Err(fileName.Error());
+            }
+            const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
+            content::Instance* instance = group.CreateInstance(stem, SplatmapAsset::StaticType());
+            if (instance == nullptr)
+            {
+                return Err(ErrorCode::Unknown);
+            }
+            SplatmapAsset asset;
+            asset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
+            const Status written = instance->WriteObject(asset);
+            if (!written.IsOk())
+            {
+                return Err(written.Code());
+            }
+            return instance;
         }
     };
 

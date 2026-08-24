@@ -268,6 +268,13 @@ rewrite may not match a HeightfieldAsset source. Heightfield likely needs the sa
 editable-source treatment splat just got (a "heights" sidecar the builder reads,
 sculpt writing only that). Worth a ruling before relying on sculpt persistence.
 
-**Deferred (noted):** PNG import for splatmaps (v1 = create + paint); non-square
-footprint gives an elliptical brush in UV (world disc / worldSize.x); eraser +
-smooth-weights brush modes.
+**PNG import (added after the initial defer, 2026-08-24):** reuses the image
+DECODER, not a TextureAsset/ImageAsset reference (the terrain resolves splatmapId
+to a versioned Splatmap product, not an ImageResource). SplatmapAsset gained a
+`fileName` decode path (foundation.image.io::LoadImageFromMemory -> RGBA8 at
+native size, no resampling since splatmaps are arbitrary WxH) + a
+SplatmapFileImporter accepting .png (mirrors HeightfieldFileImporter);
+kImporterCount 8->9. Byte-identical round-trip test (PNG is lossless for RGBA8).
+
+**Deferred (noted):** non-square footprint gives an elliptical brush in UV (world
+disc / worldSize.x); eraser + smooth-weights brush modes.

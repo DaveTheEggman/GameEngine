@@ -2,7 +2,8 @@
 add_library(Terrain.Pipeline STATIC)
 add_library(Pipeline::Terrain ALIAS Terrain.Pipeline)
 target_link_libraries(Terrain.Pipeline PUBLIC
-    Foundation::Core Foundation::VFS Pipeline::Core
+    Foundation::Core Foundation::VFS Pipeline::Core Pipeline::Importer
+    Foundation::Image Foundation::Image.IO
     Foundation::Terrain.Resource Foundation::Content Foundation::Policy)
 target_sources(Terrain.Pipeline
     PRIVATE

@@ -664,3 +664,22 @@ Heightfield-editor extras Traktor has but we defer: erosion/hydraulic
 filters and derived-texture bakes (normal/occlusion generated FROM the
 heightfield). (The standalone heightfield-only physics collider is NOT
 deferred - it ships in P1; see Physics.)
+
+Phase-2 brushes (Sculpt + Splat Paint) SHIPPED 2026-08-24 (see
+terrain-sculpt-phase2.md, terrain-splat-phase2.md). Their remaining
+DEFERRALS: eraser + smooth-weights splat brush modes (painting another
+layer already erases the previous one - the base need); a non-square
+terrain footprint gives an elliptical splat brush in UV (radius / footprint
+X), acceptable until non-square terrains matter. Splat PNG import is NOT
+deferred - it reuses the image decoder (foundation.image.io::LoadImageFromMemory,
+RGBA8) via SplatmapAsset.fileName, exactly as HeightfieldAsset imports a
+heightmap; the runtime product stays a versioned Splatmap (not an ImageResource),
+so we reuse the DECODER, never an ImageAsset reference.
+
+FOLLOW-UP (needs a ruling, mirrors the splat fix): the SCULPT save closure
+writes a HeightfieldSource object + "heights" sidecar to the source instance,
+but HeightfieldAssetBuilder cooks from `fileName`, not a "heights" sidecar -
+so a sculpted heightfield may not survive a re-cook. Heightfield likely needs
+the same editable-source treatment splat got (an authored "heights" sidecar the
+builder reads; sculpt writes only that), so sculpting an imported-or-blank
+heightfield persists.

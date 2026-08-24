@@ -169,5 +169,6 @@ namespace pipeline
         AddImporter<FontAssetImporter>(registry);
         AddImporter<ImageFileImporter>(registry);
         AddImporter<HeightfieldFileImporter>(registry);
+        AddImporter<SplatmapFileImporter>(registry);
     }
 }

@@ -11,6 +11,8 @@ import foundation.vfs;
 import foundation.content;
 import foundation.resource;
 import pipeline.core;
+import foundation.image;
+import foundation.image.io;
 import foundation.terrain.resource;
 import terrain.pipeline;
 
@@ -19,6 +21,7 @@ using namespace pipeline;
 using namespace foundation::vfs;
 using namespace foundation::resource;
 using namespace foundation::terrain;
+namespace image = foundation::image;
 
 namespace
 {
@@ -131,4 +134,72 @@ TEST_CASE("terrain.pipeline: a SplatmapAsset with no pixels sidecar cooks a seed
     CHECK(loaded->GetWeight(4, 4, 1) == 0);
 
     RemoveTree();
+}
+
+TEST_CASE("terrain.pipeline: SplatmapAsset imports an RGBA8 PNG to a Splatmap (decoder reuse)")
+{
+    // The user's point: PNG import reuses the image DECODER, not a TextureAsset/ImageAsset reference.
+    // Author a known RGBA8 image -> PNG, cook a SplatmapAsset(fileName), and confirm the Splatmap
+    // product is byte-identical (PNG is lossless for RGBA8) at the image's native size.
+    RegisterSplatmapAsset();
+    RegisterSplatmapResourceTypes();
+    FileDelete(u8"scratch_splatimg/splat.png");
+    RemoveDirectory(u8"scratch_splatimg");
+    FileDelete(u8"scratch_splatimg_db/s.rasset");
+    FileDelete(u8"scratch_splatimg_db/s.pixels.bin");
+    RemoveDirectory(u8"scratch_splatimg_db");
+    REQUIRE(CreateDirectory(u8"scratch_splatimg"));
+
+    image::Image authored(4, 2, image::PixelFormat::RGBA8);
+    Span<u8> ap = authored.PixelDataMut();
+    for (usize i = 0; i < ap.Size(); ++i)
+    {
+        ap[i] = static_cast<u8>((i * 37 + 11) & 0xff); // deterministic RGBA pattern
+    }
+    REQUIRE(image::io::SaveImage(authored, u8"scratch_splatimg/splat.png",
+                                 image::io::ImageFileFormat::PNG)
+                .IsOk());
+
+    NativeFileSystem outMount(u8"scratch_splatimg_db");
+    Guid splatId;
+    {
+        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+                                              u8".rasset");
+        auto* inst = db.RootGroup()->CreateInstance(u8"s", SplatmapSource::StaticType());
+        splatId = inst->Id();
+        SplatmapAsset sa;
+        sa.fileName = foundation::vfs::SourcePath(u8"splat.png");
+        SplatmapAssetBuilder builder;
+        NativeFileSystem srcMount(u8"scratch_splatimg");
+        pipeline::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.output = inst;
+        REQUIRE(builder.Build(sa, ctx).IsOk());
+    }
+
+    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+                                          u8".rasset");
+    SplatmapFactory factory;
+    ResourceManager manager(db);
+    manager.AddFactory(&factory);
+    Proxy<Splatmap> loaded = manager.Bind<Splatmap>(splatId);
+    REQUIRE(loaded);
+    CHECK(loaded->Width() == 4);  // the PNG's NATIVE size (no resampling - splatmaps are arbitrary WxH)
+    CHECK(loaded->Height() == 2);
+
+    const Span<const u8> a = authored.PixelData();
+    const Span<const u8> b = loaded->Pixels();
+    REQUIRE(a.Size() == b.Size());
+    bool identical = true;
+    for (usize i = 0; i < a.Size(); ++i)
+    {
+        if (a[i] != b[i]) { identical = false; break; }
+    }
+    CHECK(identical);
+
+    FileDelete(u8"scratch_splatimg/splat.png");
+    RemoveDirectory(u8"scratch_splatimg");
+    FileDelete(u8"scratch_splatimg_db/s.rasset");
+    FileDelete(u8"scratch_splatimg_db/s.pixels.bin");
+    RemoveDirectory(u8"scratch_splatimg_db");
 }
