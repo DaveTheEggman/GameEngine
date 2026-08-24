@@ -141,6 +141,7 @@ namespace editor
                 field.kind = AssetFormFieldKind::ArrayCount;
                 field.scalarKind = ScalarKind::UInt32;
                 field.intValue = count;
+                StampCategory(field);
                 m_fields->PushBack(Move(field));
                 m_arrayKeys.PushBack(String(CurrentLabel().AsView()));
                 m_arrayIndices.PushBack(0);
@@ -159,6 +160,7 @@ namespace editor
                 field.label = CurrentLabel();
                 field.kind = AssetFormFieldKind::Scalar;
                 ReadScalarInto(field, value, kind);
+                StampCategory(field);
                 m_fields->PushBack(Move(field));
                 BumpArrayIndex();
             }
@@ -168,6 +170,7 @@ namespace editor
                 field.label = CurrentLabel();
                 field.kind = AssetFormFieldKind::Text;
                 field.textValue = String(value.AsView());
+                StampCategory(field);
                 m_fields->PushBack(Move(field));
                 BumpArrayIndex();
             }
@@ -177,6 +180,7 @@ namespace editor
                 field.label = CurrentLabel();
                 field.kind = AssetFormFieldKind::Guid;
                 field.guidValue = value;
+                StampCategory(field);
                 m_fields->PushBack(Move(field));
                 BumpArrayIndex();
             }
@@ -190,6 +194,7 @@ namespace editor
                 {
                     MemCopy(field.blobValue.Data(), data, size);
                 }
+                StampCategory(field);
                 m_fields->PushBack(Move(field));
                 BumpArrayIndex();
             }
@@ -212,6 +217,15 @@ namespace editor
                                   m_arrayIndices[m_arrayIndices.Size() - 1]);
                 }
                 return String(StringView(reinterpret_cast<const utf8char*>(m_lastKey.CStr())));
+            }
+            // The OUTERMOST enclosing array's key becomes the field's category (see
+            // AssetFormField::category - array groups build collapsed).
+            void StampCategory(AssetFormField& field) const
+            {
+                if (!m_arrayKeys.IsEmpty())
+                {
+                    field.category = String(m_arrayKeys[0].AsView());
+                }
             }
             void BumpArrayIndex()
             {
@@ -425,12 +439,23 @@ namespace editor
     void GenericAssetEditorPage::BuildGrid()
     {
         m_grid->Clear();
+        // Each ARRAY's rows group under a default-collapsed expander (they carry the outermost
+        // array key as category) - a bulk section (a model manifest's ~1300 decomposed node
+        // fields) costs no layout/draw until the user opens it. Top-level scalars stay visible.
+        for (usize i = 0; i < m_fields.Size(); ++i)
+        {
+            if (!m_fields[i].category.IsEmpty())
+            {
+                m_grid->SetCategoryDefaultCollapsed(m_fields[i].category.AsView());
+            }
+        }
         GenericAssetEditorPage* self = this;
         for (usize i = 0; i < m_fields.Size(); ++i)
         {
             const AssetFormField& field = m_fields[i];
             const usize index = i;
-            const StringView cat = u8"Properties";
+            const StringView cat =
+                field.category.IsEmpty() ? StringView(u8"Properties") : field.category.AsView();
             if (field.kind == AssetFormFieldKind::ArrayCount)
             {
                 continue; // structural, not authorable

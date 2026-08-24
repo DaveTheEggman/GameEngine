@@ -74,3 +74,54 @@ TEST_CASE("propertygrid: off-screen rows tessellate no geometry (blank-UI ceilin
     // without culling the 1300-row grid draws ~65x the small one and this fails.
     CHECK(bigVerts < smallVerts * 4u);
 }
+
+// Companion to the draw cull: a DEFAULT-COLLAPSED category's rows are Gone - they cost no
+// MEASURE either, so a bulk section makes neither the draw list nor the per-frame layout scale
+// with its row count (the generic asset form marks every array group collapsed).
+TEST_CASE("propertygrid: a default-collapsed category costs no layout or draw")
+{
+    UIContext ctx;
+    auto root = MakeRef<RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    ctx.AddRootView(root.Get());
+
+    auto grid = MakeRef<toolkit::PropertyGrid>(DefaultAllocator());
+    grid->SetCategoryDefaultCollapsed(u8"bulk");
+    grid->AddProperty(RefPtr<toolkit::PropertyEditor>(
+        MakeRef<toolkit::FloatEditor>(DefaultAllocator(), StringView(u8"visible"), 1.0f).Get()));
+    for (i32 i = 0; i < 1000; ++i)
+    {
+        grid->AddProperty(RefPtr<toolkit::PropertyEditor>(
+            MakeRef<toolkit::FloatEditor>(DefaultAllocator(), Format(u8"row{}", i).AsView(), 1.0f,
+                                          0.0, 100.0, 1.0, 2,
+                                          Function<void(f64)>{}, u8"bulk")
+                .Get()));
+    }
+    root->AddView(grid.Get());
+    ctx.BeginFrame(0.016f);
+    root->Measure(BoxConstraints::Tight(800, 600));
+    root->Layout(0, 0, 800, 600);
+
+    const u32 collapsedVerts = DrawOnce(*root);
+
+    // A tiny grid with just the visible row + an empty expander header is the same ballpark:
+    // the 1000 collapsed rows must contribute neither geometry nor (by being Gone) layout.
+    auto tiny = MakeRef<toolkit::PropertyGrid>(DefaultAllocator());
+    tiny->SetCategoryDefaultCollapsed(u8"bulk");
+    tiny->AddProperty(RefPtr<toolkit::PropertyEditor>(
+        MakeRef<toolkit::FloatEditor>(DefaultAllocator(), StringView(u8"visible"), 1.0f).Get()));
+    tiny->AddProperty(RefPtr<toolkit::PropertyEditor>(
+        MakeRef<toolkit::FloatEditor>(DefaultAllocator(), StringView(u8"row"), 1.0f, 0.0, 100.0,
+                                      1.0, 2, Function<void(f64)>{}, u8"bulk")
+            .Get()));
+    root->RemoveView(grid.Get(), true);
+    root->AddView(tiny.Get());
+    ctx.BeginFrame(0.016f);
+    root->Measure(BoxConstraints::Tight(800, 600));
+    root->Layout(0, 0, 800, 600);
+    const u32 tinyVerts = DrawOnce(*root);
+
+    std::printf("[grid-collapsed] 1000 collapsed rows = %u verts, 1 collapsed row = %u verts\n",
+                collapsedVerts, tinyVerts);
+    CHECK(collapsedVerts <= tinyVerts + 64u); // same ballpark: bulk contributes ~nothing
+}

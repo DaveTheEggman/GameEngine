@@ -48,6 +48,10 @@ export namespace editor
     struct AssetFormField
     {
         String label; // the last Key() before the value ("key[i]" inside unkeyed arrays)
+        // The OUTERMOST enclosing array's key ("" for top-level fields). BuildGrid groups each
+        // array's rows under a DEFAULT-COLLAPSED expander - bulk sections (a model manifest's
+        // ~1300 decomposed node fields) cost no layout/draw until opened.
+        String category;
         AssetFormFieldKind kind = AssetFormFieldKind::Scalar;
         ScalarKind scalarKind = ScalarKind::Float32; // when kind == Scalar / ArrayCount
         i64 intValue = 0;                            // bool + integer scalars, array counts

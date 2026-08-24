@@ -117,11 +117,30 @@ export namespace foundation::ui::toolkit
         }
 
         /// Remove all properties.
+        /// Build the named category's expander COLLAPSED (content Gone - costing no layout or
+        /// draw until opened). For bulk sections a user rarely edits (the generic asset form's
+        /// per-array groups: ~1300 rows measured every damaged frame made interaction crawl).
+        /// Set before/with the properties; applied when the expander builds.
+        void SetCategoryDefaultCollapsed(StringView category)
+        {
+            for (usize i = 0; i < m_collapsedCategories.Size(); ++i)
+            {
+                if (StringView(m_collapsedCategories[i]) == category)
+                {
+                    return;
+                }
+            }
+            m_collapsedCategories.PushBack(String(category));
+            m_needsRebuild = true;
+            Invalidate();
+        }
+
         void Clear()
         {
             m_editors.Clear();
             m_actionCategories.Clear();
             m_actionViews.Clear();
+            m_collapsedCategories.Clear();
             m_needsRebuild = true;
             Invalidate();
         }
@@ -249,6 +268,15 @@ export namespace foundation::ui::toolkit
                 contentLp->Width = SizeSpec::Match();
                 expander->SetContent(catContent.Get(), contentLp);
 
+                for (usize k = 0; k < m_collapsedCategories.Size(); ++k)
+                {
+                    if (StringView(m_collapsedCategories[k]) == StringView(categoryOrder[c]))
+                    {
+                        expander->SetIsExpanded(false); // content Gone: no layout/draw until opened
+                        break;
+                    }
+                }
+
                 RefPtr<FlexLayoutParams> expLp = MakeRef<FlexLayoutParams>(DefaultAllocator());
                 expLp->Width = SizeSpec::Match();
                 m_content->AddView(expander.Get(), expLp);
@@ -325,6 +353,7 @@ export namespace foundation::ui::toolkit
         Array<RefPtr<PropertyEditor>> m_editors;
         Array<String> m_actionCategories;   // parallel: category -> header-action view
         Array<RefPtr<View>> m_actionViews;
+        Array<String> m_collapsedCategories; // categories whose expanders build collapsed
         bool m_needsRebuild = true;
     };
 

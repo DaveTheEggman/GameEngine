@@ -160,3 +160,26 @@ TEST_CASE("asset form: the fallback factory routes ANY serializable; bespoke pag
     REQUIRE(found != nullptr);
     CHECK(found->PrimaryType() == &ISerializable::StaticType());
 }
+
+// The ImportTest sluggish-form fix: fields inside an array carry the OUTERMOST array key as
+// their category (BuildGrid groups them under a default-collapsed expander); top-level fields
+// carry none (they stay in the always-visible "Properties" section).
+TEST_CASE("asset form: array elements carry the array key as their category")
+{
+    FormProbeAsset asset;
+    asset.weights.PushBack(1.0f);
+    asset.weights.PushBack(2.0f);
+    Array<AssetFormField> fields;
+    REQUIRE(ScanAssetForm(asset, fields).IsOk());
+
+    const i32 top = IndexOf(fields, u8"friction");
+    REQUIRE(top >= 0);
+    CHECK(fields[static_cast<usize>(top)].category.IsEmpty()); // top-level: no category
+
+    const i32 w0 = IndexOf(fields, u8"weights[0]");
+    const i32 w1 = IndexOf(fields, u8"weights[1]");
+    REQUIRE(w0 >= 0);
+    REQUIRE(w1 >= 0);
+    CHECK(fields[static_cast<usize>(w0)].category.AsView() == StringView(u8"weights"));
+    CHECK(fields[static_cast<usize>(w1)].category.AsView() == StringView(u8"weights"));
+}
