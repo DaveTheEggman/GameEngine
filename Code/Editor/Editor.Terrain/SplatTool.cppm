@@ -66,7 +66,8 @@ export namespace editor
             Guid splatmapId;      // TerrainResource.splatmap.id (the SOURCE asset guid; may be nil)
             f32 uvX = 0.0f;       // hit in the splatmap's 0..1 footprint UV
             f32 uvY = 0.0f;
-            f32 worldSizeX = 1.0f; // footprint width (world radius -> uv radius)
+            f32 worldSizeX = 1.0f; // footprint X (world radius -> per-axis uv radius)
+            f32 worldSizeY = 1.0f; // footprint Z (keeps the brush a world circle on non-square terrain)
             Float3 worldHit{};
             Float3 worldNormal{0.0f, 1.0f, 0.0f};
             bool valid = false;

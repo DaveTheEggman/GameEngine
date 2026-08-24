@@ -43,7 +43,7 @@ TEST_CASE("terrain.pipeline: SplatmapAsset cooks to a Splatmap that restores an 
     // Author a painted raster the cook will carry.
     RefPtr<Splatmap> authored = MakeRef<Splatmap>(DefaultAllocator(), 16, 16);
     authored->SeedLayer0();
-    (void)PaintWeight(*authored, 0.5f, 0.5f, 0.3f, 1u, 1.0f); // a blob of layer 1 in the centre
+    (void)PaintWeight(*authored, 0.5f, 0.5f, 0.3f, 0.3f, 1u, 1.0f); // a blob of layer 1 in the centre
 
     Guid splatId;
     {

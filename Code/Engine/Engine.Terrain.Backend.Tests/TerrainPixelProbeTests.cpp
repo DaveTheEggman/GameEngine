@@ -795,7 +795,7 @@ TEST_CASE("terrain probe: painting the CPU splatmap re-uploads and changes the b
             // the version bump makes the cache rebuild + re-upload a new view.
             for (i32 i = 0; i < 4; ++i)
             {
-                (void)terrain::PaintWeight(*sm, 0.5f, 0.5f, 2.0f, 1u, 1.0f);
+                (void)terrain::PaintWeight(*sm, 0.5f, 0.5f, 2.0f, 2.0f, 1u, 1.0f);
             }
             cfg.splatmapView = cache.GetOrCreate(*dev, *sm, sm->Version());
             after = RenderTerrainProbe(*dev, cfg);

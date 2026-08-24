@@ -32,7 +32,7 @@ TEST_CASE("splatmap: PaintWeight raises the selected layer at the centre, bumps 
     const u64 v0 = sm.Version();
 
     // Paint layer 1 at the centre (uv 0.5), radius 0.2, full strength.
-    const SplatRegion r = PaintWeight(sm, 0.5f, 0.5f, 0.2f, 1u, 1.0f);
+    const SplatRegion r = PaintWeight(sm, 0.5f, 0.5f, 0.2f, 0.2f, 1u, 1.0f);
 
     REQUIRE_FALSE(r.IsEmpty());
     CHECK(sm.Version() > v0); // an edit bumped the version (GPU re-upload)
@@ -57,9 +57,9 @@ TEST_CASE("splatmap: painting another layer erases the previous one (lerp-to-one
 {
     Splatmap sm(32, 32);
     sm.SeedLayer0();
-    (void)PaintWeight(sm, 0.5f, 0.5f, 0.4f, 2u, 1.0f); // paint layer 2 over the centre
+    (void)PaintWeight(sm, 0.5f, 0.5f, 0.4f, 0.4f, 2u, 1.0f); // paint layer 2 over the centre
     CHECK(sm.GetWeight(16, 16, 2) > 200);
-    (void)PaintWeight(sm, 0.5f, 0.5f, 0.4f, 3u, 1.0f); // now paint layer 3 - erases layer 2
+    (void)PaintWeight(sm, 0.5f, 0.5f, 0.4f, 0.4f, 3u, 1.0f); // now paint layer 3 - erases layer 2
     CHECK(sm.GetWeight(16, 16, 3) > 200);
     CHECK(sm.GetWeight(16, 16, 2) < 55);
 }
@@ -68,9 +68,9 @@ TEST_CASE("splatmap: an off-raster / zero-radius brush touches nothing and does 
 {
     Splatmap sm(16, 16);
     const u64 v0 = sm.Version();
-    const SplatRegion a = PaintWeight(sm, 5.0f, 5.0f, 0.1f, 0u, 1.0f); // uv way outside 0..1
+    const SplatRegion a = PaintWeight(sm, 5.0f, 5.0f, 0.1f, 0.1f, 0u, 1.0f); // uv way outside 0..1
     CHECK(a.IsEmpty());
-    const SplatRegion b = PaintWeight(sm, 0.5f, 0.5f, 0.0f, 0u, 1.0f); // zero radius
+    const SplatRegion b = PaintWeight(sm, 0.5f, 0.5f, 0.0f, 0.0f, 0u, 1.0f); // zero radius
     CHECK(b.IsEmpty());
     CHECK(sm.Version() == v0); // nothing changed
 }
@@ -79,8 +79,8 @@ TEST_CASE("splatmap: SplatmapSource metadata + pixel blob round-trips an identic
 {
     Splatmap sm(24, 16);
     sm.SeedLayer0();
-    (void)PaintWeight(sm, 0.3f, 0.7f, 0.25f, 1u, 0.8f);
-    (void)PaintWeight(sm, 0.8f, 0.2f, 0.15f, 2u, 1.0f);
+    (void)PaintWeight(sm, 0.3f, 0.7f, 0.25f, 0.25f, 1u, 0.8f);
+    (void)PaintWeight(sm, 0.8f, 0.2f, 0.15f, 0.15f, 2u, 1.0f);
 
     SplatmapSource src;
     SplatmapSource::FromSplatmap(sm, src);
@@ -111,4 +111,21 @@ TEST_CASE("splatmap: SplatmapSource metadata + pixel blob round-trips an identic
     RefPtr<Splatmap> bad = src.Build(Span<const byte>{blob.Data(), blob.Size() - 4});
     REQUIRE(bad);
     CHECK(bad->IsEmpty());
+}
+
+TEST_CASE("splatmap: per-axis radii paint an ellipse in UV (a world circle on a non-square footprint)")
+{
+    // A non-square terrain footprint maps a world disc to a UV ellipse: uvRadiusX != uvRadiusY. On a
+    // SQUARE raster the touched region is then wider than tall in proportion to the radii, and a texel
+    // reached along the wide axis is painted while the same UV distance along the narrow axis is not.
+    Splatmap sm(64, 64);
+    sm.SeedLayer0();
+    const SplatRegion r = PaintWeight(sm, 0.5f, 0.5f, 0.3f, 0.1f, 1u, 1.0f); // wide in U, narrow in V
+    REQUIRE_FALSE(r.IsEmpty());
+    CHECK(r.Width() > r.Height() * 2); // ~3:1 radii -> a clearly wider-than-tall footprint
+
+    // Texel 15 to the right (du ~0.24 UV, within uvRadiusX 0.3) is painted; 15 down (dv ~0.24 UV,
+    // beyond uvRadiusY 0.1) is not.
+    CHECK(sm.GetWeight(32 + 15, 32, 1) > 0);
+    CHECK(sm.GetWeight(32, 32 + 15, 1) == 0);
 }

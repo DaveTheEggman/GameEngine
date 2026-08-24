@@ -136,12 +136,17 @@ export namespace foundation::terrain
         }
     };
 
-    /// Paint `layer` (0..3) into the splatmap over a disc centred at UV (uvX,uvY), radius uvRadius
-    /// (both in 0..1 footprint units), strength `amount` in [0,1]. Lerp-to-one-hot per texel.
-    inline SplatRegion PaintWeight(Splatmap& sm, f32 uvX, f32 uvY, f32 uvRadius, u32 layer, f32 amount)
+    /// Paint `layer` (0..3) into the splatmap over a WORLD-space disc, expressed as its per-axis UV
+    /// radii `uvRadiusX = worldRadius/footprintX`, `uvRadiusY = worldRadius/footprintY` (both in 0..1
+    /// footprint units), centred at UV (uvX,uvY), strength `amount` in [0,1]. The two radii keep the
+    /// brush a CIRCLE in world space on a non-square footprint (a UV ellipse) and are independent of
+    /// the raster aspect - the same per-axis handling the heightfield sculpt brush (VisitBrush) uses.
+    /// Lerp-to-one-hot per texel. A square footprint passes uvRadiusX == uvRadiusY (a UV circle).
+    inline SplatRegion PaintWeight(Splatmap& sm, f32 uvX, f32 uvY, f32 uvRadiusX, f32 uvRadiusY,
+                                   u32 layer, f32 amount)
     {
         SplatRegion region;
-        if (sm.IsEmpty() || uvRadius <= 0.0f || amount <= 0.0f)
+        if (sm.IsEmpty() || uvRadiusX <= 0.0f || uvRadiusY <= 0.0f || amount <= 0.0f)
         {
             return region;
         }
@@ -150,13 +155,14 @@ export namespace foundation::terrain
         // Texel centres sit at (i+0.5)/dim; work in continuous pixel space.
         const f32 cx = uvX * static_cast<f32>(w);
         const f32 cy = uvY * static_cast<f32>(h);
-        const f32 rx = uvRadius * static_cast<f32>(w);
-        const f32 ry = uvRadius * static_cast<f32>(h);
+        const f32 rx = uvRadiusX * static_cast<f32>(w);
+        const f32 ry = uvRadiusY * static_cast<f32>(h);
         const i32 x0 = Max(0, static_cast<i32>(Floor(cx - rx)));
         const i32 x1 = Min(w - 1, static_cast<i32>(Ceil(cx + rx)));
         const i32 y0 = Max(0, static_cast<i32>(Floor(cy - ry)));
         const i32 y1 = Min(h - 1, static_cast<i32>(Ceil(cy + ry)));
-        const f32 invR = 1.0f / uvRadius;
+        const f32 invRx = 1.0f / uvRadiusX;
+        const f32 invRy = 1.0f / uvRadiusY;
         const u32 sel = layer & 3u;
         Span<u8> px = sm.Pixels();
         bool changed = false;
@@ -164,15 +170,16 @@ export namespace foundation::terrain
         {
             for (i32 x = x0; x <= x1; ++x)
             {
-                // Distance in UV units (normalize the pixel delta by the raster dims).
-                const f32 du = (static_cast<f32>(x) + 0.5f) / static_cast<f32>(w) - uvX;
-                const f32 dv = (static_cast<f32>(y) + 0.5f) / static_cast<f32>(h) - uvY;
-                const f32 dist = Sqrt(du * du + dv * dv);
-                if (dist >= uvRadius)
+                // Normalized elliptical distance (each axis by its own UV radius) = the world-space
+                // distance / worldRadius, so the falloff disc is a true circle in world units.
+                const f32 du = ((static_cast<f32>(x) + 0.5f) / static_cast<f32>(w) - uvX) * invRx;
+                const f32 dv = ((static_cast<f32>(y) + 0.5f) / static_cast<f32>(h) - uvY) * invRy;
+                const f32 dist = Sqrt(du * du + dv * dv); // 0 at centre, 1 at the rim
+                if (dist >= 1.0f)
                 {
                     continue;
                 }
-                const f32 fall = 0.5f + 0.5f * Cos(3.14159265f * dist * invR); // 1 centre..0 rim
+                const f32 fall = 0.5f + 0.5f * Cos(3.14159265f * dist); // 1 centre..0 rim
                 const f32 t = Clamp(amount * fall, 0.0f, 1.0f);
                 if (t <= 0.0f)
                 {

@@ -290,5 +290,12 @@ native size, no resampling since splatmaps are arbitrary WxH) + a
 SplatmapFileImporter accepting .png (mirrors HeightfieldFileImporter);
 kImporterCount 8->9. Byte-identical round-trip test (PNG is lossless for RGBA8).
 
-**Deferred (noted):** non-square footprint gives an elliptical brush in UV (world
-disc / worldSize.x); eraser + smooth-weights brush modes.
+**Non-square footprint HANDLED (2026-08-24):** PaintWeight takes per-axis UV radii
+(uvRadiusX = worldRadius/footprintX, uvRadiusY = worldRadius/footprintY) and tests
+each texel's normalized elliptical distance, so the brush stays a true circle in
+world space on a non-square footprint - the same per-axis handling the heightfield
+sculpt brush (VisitBrush) already uses. A square footprint passes equal radii (a UV
+circle, byte-identical to before). No spec needed - localized pure-math, one correct
+answer.
+
+**Deferred (noted):** eraser + smooth-weights splat brush modes.

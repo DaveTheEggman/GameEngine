@@ -205,6 +205,7 @@ namespace editor
                 best.uvX = uvX;
                 best.uvY = uvY;
                 best.worldSizeX = ws.x != 0.0f ? ws.x : 1.0f;
+                best.worldSizeY = ws.y != 0.0f ? ws.y : 1.0f;
                 best.worldHit = worldHit;
                 best.worldNormal = Normalized(TransformDirection(grid->GetNormalAt(localHit.x, localHit.z), world));
                 best.valid = true;
@@ -290,9 +291,11 @@ namespace editor
             return;
         }
         const f32 step = m_strength * (deltaSeconds > 0.0f ? deltaSeconds : (1.0f / 60.0f));
-        const f32 uvRadius = m_radius / pick.worldSizeX; // world disc -> UV (square footprint assumed)
+        // Per-axis UV radii keep the brush a CIRCLE in world space on a non-square footprint.
+        const f32 uvRadiusX = m_radius / pick.worldSizeX;
+        const f32 uvRadiusY = m_radius / pick.worldSizeY;
         const terrain::SplatRegion r =
-            terrain::PaintWeight(*m_strokeSplat, pick.uvX, pick.uvY, uvRadius, m_layer,
+            terrain::PaintWeight(*m_strokeSplat, pick.uvX, pick.uvY, uvRadiusX, uvRadiusY, m_layer,
                                  Clamp(step, 0.0f, 1.0f));
         if (!r.IsEmpty())
         {

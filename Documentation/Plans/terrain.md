@@ -666,11 +666,12 @@ heightfield). (The standalone heightfield-only physics collider is NOT
 deferred - it ships in P1; see Physics.)
 
 Phase-2 brushes (Sculpt + Splat Paint) SHIPPED 2026-08-24 (see
-terrain-sculpt-phase2.md, terrain-splat-phase2.md). Their remaining
-DEFERRALS: eraser + smooth-weights splat brush modes (painting another
-layer already erases the previous one - the base need); a non-square
-terrain footprint gives an elliptical splat brush in UV (radius / footprint
-X), acceptable until non-square terrains matter. Splat PNG import is NOT
+terrain-sculpt-phase2.md, terrain-splat-phase2.md). Remaining DEFERRAL:
+eraser + smooth-weights splat brush modes (painting another layer already
+erases the previous one - the base need). Non-square footprints are HANDLED:
+PaintWeight takes per-axis UV radii (worldRadius/footprintX,
+worldRadius/footprintY) so the brush stays a world circle, mirroring the
+heightfield VisitBrush. Splat PNG import is NOT
 deferred - it reuses the image decoder (foundation.image.io::LoadImageFromMemory,
 RGBA8) via SplatmapAsset.fileName, exactly as HeightfieldAsset imports a
 heightmap; the runtime product stays a versioned Splatmap (not an ImageResource),
