@@ -8,7 +8,8 @@ add_executable(Engine.Terrain.Backend.Tests
     TerrainPixelProbeTests.cpp)
 
 target_link_libraries(Engine.Terrain.Backend.Tests PRIVATE
-    Engine::Terrain Foundation::Render Foundation::Terrain Foundation::Heightfield
+    Engine::Terrain Foundation::Render Foundation::Terrain Foundation::Terrain.Resource
+    Foundation::Heightfield
     Foundation::Texture.Resource Foundation::Shaders Foundation::Shaders.System
     Foundation::RHI.TestSupport Foundation::RHI.Vulkan Foundation::RHI.WebGPU doctest::doctest)
 

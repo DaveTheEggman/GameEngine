@@ -22,6 +22,7 @@ import foundation.render;
 import foundation.heightfield;
 import foundation.terrain;
 import foundation.texture.resource; // texture::Texture (Adopt) for in-memory splat/albedo fixtures
+import foundation.terrain.resource;  // Splatmap + PaintWeight (the paint -> re-upload path)
 import engine.terrain;
 
 using namespace foundation::core;
@@ -748,6 +749,94 @@ TEST_CASE("terrain probe: splat blends layer albedos (D2), matching across backe
     else
     {
         MESSAGE("WebGPU unavailable - splat cross-check skipped");
+    }
+
+    if (vulkan != nullptr) { vulkan->Destroy(); }
+    if (webgpu != nullptr) { webgpu->Destroy(); }
+}
+
+TEST_CASE("terrain probe: painting the CPU splatmap re-uploads and changes the blended pixel")
+{
+    // The editor Splat Paint loop end-to-end: a CPU Splatmap -> the version-keyed GPU splat cache ->
+    // the shader blend. Seeded to layer 0 (red) it renders red; PaintWeight fills layer 1 (blue) and
+    // bumps the version, the cache re-uploads a NEW texture, and the SAME terrain now renders blue -
+    // proving the paint reached the GPU. Vulkan AND WebGPU (validate-on-WebGPU rule).
+    namespace terrain = foundation::terrain;
+    auto run = [](rhi::Backend* backend, Probe& before, Probe& after)
+    {
+        rhi::Device* dev = (backend != nullptr) ? testsupport::MakeTestDevice(backend) : nullptr;
+        if (dev == nullptr)
+        {
+            return;
+        }
+        {
+            engine::terrain::TerrainSplatTextureCache cache;
+            RefPtr<terrain::Splatmap> sm = MakeRef<terrain::Splatmap>(DefaultAllocator(), 8, 8);
+            sm->SeedLayer0(); // all weight on layer 0
+
+            RefPtr<texture::Texture> red = MakeSolid(*dev, 220, 30, 30);  // layer 0
+            RefPtr<texture::Texture> blue = MakeSolid(*dev, 30, 30, 220); // layer 1
+            ProbeCfg cfg;
+            cfg.terrain = MakeFlat();
+            cfg.albedoViews[0] = red->View();
+            cfg.albedoViews[1] = blue->View();
+            cfg.tileScales[0] = cfg.tileScales[1] = 1000.0f; // ~1 tile -> solid colour
+            cfg.layerCount = 2;
+
+            // BEFORE: the cache uploads the seeded raster (layer 0) -> red across the terrain.
+            cfg.splatmapView = cache.GetOrCreate(*dev, *sm, sm->Version());
+            before = RenderTerrainProbe(*dev, cfg);
+
+            // PAINT layer 1 over the whole footprint (a few dabs to converge one-hot), then re-fetch:
+            // the version bump makes the cache rebuild + re-upload a new view.
+            for (i32 i = 0; i < 4; ++i)
+            {
+                (void)terrain::PaintWeight(*sm, 0.5f, 0.5f, 2.0f, 1u, 1.0f);
+            }
+            cfg.splatmapView = cache.GetOrCreate(*dev, *sm, sm->Version());
+            after = RenderTerrainProbe(*dev, cfg);
+
+            cache.Clear(*dev);
+        }
+        dev->Destroy();
+    };
+
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+    rhi::Backend* webgpu = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+
+    Probe vBefore, vAfter;
+    run(vulkan, vBefore, vAfter);
+    if (!vBefore.valid || !vAfter.valid)
+    {
+        MESSAGE("Vulkan unavailable - splat re-upload probe skipped");
+        if (vulkan != nullptr) { vulkan->Destroy(); }
+        if (webgpu != nullptr) { webgpu->Destroy(); }
+        return;
+    }
+    std::printf("[terrain-splat-repaint] vk before(R=%.0f B=%.0f) after(R=%.0f B=%.0f)\n",
+                vBefore.leftR, vBefore.leftB, vAfter.leftR, vAfter.leftB);
+
+    // Seeded -> red-dominant; after painting layer 1 -> blue-dominant. The blend changed = the paint
+    // re-uploaded to the GPU.
+    CHECK(vBefore.leftR > vBefore.leftB * 1.5);
+    CHECK(vBefore.rightR > vBefore.rightB * 1.5);
+    CHECK(vAfter.leftB > vAfter.leftR * 1.5);
+    CHECK(vAfter.rightB > vAfter.rightR * 1.5);
+
+    Probe wBefore, wAfter;
+    run(webgpu, wBefore, wAfter);
+    if (wBefore.valid && wAfter.valid)
+    {
+        std::printf("[terrain-splat-repaint] wg before(R=%.0f B=%.0f) after(R=%.0f B=%.0f)\n",
+                    wBefore.leftR, wBefore.leftB, wAfter.leftR, wAfter.leftB);
+        CHECK(wBefore.leftR == doctest::Approx(vBefore.leftR).epsilon(0.05));
+        CHECK(wAfter.leftB == doctest::Approx(vAfter.leftB).epsilon(0.05));
+    }
+    else
+    {
+        MESSAGE("WebGPU unavailable - splat re-upload cross-check skipped");
     }
 
     if (vulkan != nullptr) { vulkan->Destroy(); }
