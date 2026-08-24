@@ -97,6 +97,11 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
     CHECK(terrain->splatmap.IsBound());       // splatmapId carried
     CHECK(terrain->layers[0].albedo.IsBound()); // non-nil layer albedo carried
     CHECK_FALSE(terrain->layers[1].albedo.IsBound()); // nil id stays unbound
+    // The factory stamps each ref's source id (product guid == source guid) - the editor resolves
+    // the heightfield asset from this ref chain (no reverse lookup).
+    CHECK(terrain->heightfield.id == heightfieldId);
+    CHECK(terrain->splatmap.id == Guid{123, 456});
+    CHECK(terrain->layers[0].albedo.id == Guid{321, 654});
 
     RemoveTree();
 }

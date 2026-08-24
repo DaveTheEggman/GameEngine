@@ -86,14 +86,20 @@ export namespace foundation::terrain
             }
             RefPtr<TerrainResource> terrain = MakeRef<TerrainResource>(DefaultAllocator());
             terrain->castShadows = src->castShadows;
+            // Stamp each ref's serialized identity (its source guid) as well as binding the proxy:
+            // Ref<T>::id exists precisely to carry this, and factory-built products must round-trip
+            // their sub-ref ids (serializing one otherwise writes nil) - and the editor resolves the
+            // heightfield asset from TerrainResource.heightfield.id (product guid == source guid).
             if (!src->heightfieldId.IsNil())
             {
                 terrain->heightfield.SetProxy(
                     manager.Bind<heightfield::Heightfield>(src->heightfieldId));
+                terrain->heightfield.SetId(src->heightfieldId);
             }
             if (!src->splatmapId.IsNil())
             {
                 terrain->splatmap.SetProxy(manager.Bind<texture::Texture>(src->splatmapId));
+                terrain->splatmap.SetId(src->splatmapId);
             }
             for (usize i = 0; i < src->layerAlbedoIds.Size(); ++i)
             {
@@ -103,6 +109,7 @@ export namespace foundation::terrain
                 if (!src->layerAlbedoIds[i].IsNil())
                 {
                     layer.albedo.SetProxy(manager.Bind<texture::Texture>(src->layerAlbedoIds[i]));
+                    layer.albedo.SetId(src->layerAlbedoIds[i]);
                 }
                 terrain->layers.PushBack(Move(layer));
             }
