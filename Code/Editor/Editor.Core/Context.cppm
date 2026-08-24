@@ -69,6 +69,23 @@ export namespace editor
         /// poll this and defer. Unwired (tests, no project) = never busy.
         Function<bool()> CookBusy;
         [[nodiscard]] bool IsCookBusy() const { return CookBusy ? CookBusy() : false; }
+
+        // === Pending asset edits (scene-viewport tools that edit an asset LIVE, e.g. terrain sculpt) ===
+        // A viewport tool edits a cooked product live (immediate feedback) and registers a closure
+        // that persists the edit back to its SOURCE asset. The editor save flow DRAINS this, passing
+        // the source ContentDatabase it owns + requesting a recook on success. Last edit per asset
+        // guid wins. This keeps WHAT is dirty + HOW to persist it without the framework knowing the
+        // domain - the closure lives in the domain editor lib (Editor.Terrain), and it is handed the
+        // DB at drain time so it captures no DB handle.
+        void RegisterAssetEdit(const Guid& assetId,
+                               Function<Status(foundation::content::ContentDatabase&)> persist);
+        [[nodiscard]] bool HasPendingAssetEdits() const noexcept
+        {
+            return !m_pendingAssetEdits.IsEmpty();
+        }
+        /// Run + clear every pending edit, persisting through `db`; requests a recook if any succeeded.
+        Status DrainAssetEdits(foundation::content::ContentDatabase& db);
+
         /// Transient status-bar text.
         Function<void(StringView)> OnStatus;
 
@@ -127,6 +144,13 @@ export namespace editor
         };
         Array<InterceptorEntry> m_openInterceptors;
         u64 m_nextInterceptorId = 0;
+
+        struct PendingAssetEdit
+        {
+            Guid id;
+            Function<Status(foundation::content::ContentDatabase&)> persist;
+        };
+        Array<PendingAssetEdit> m_pendingAssetEdits;
 
     public:
 

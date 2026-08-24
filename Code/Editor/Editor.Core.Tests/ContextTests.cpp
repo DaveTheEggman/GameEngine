@@ -444,3 +444,43 @@ TEST_CASE("editor-context: script value probe slot")
     context.ScriptValueProbe = {}; // a run's end clears it
     CHECK(!context.ScriptValueProbe);
 }
+
+TEST_CASE("editor-context: pending asset-edit registry (register/replace/nil, drain, recook)")
+{
+    const StringView dir = u8"scratch_editor_test_assetedit_db";
+    RemoveDbTree(dir);
+    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::content::ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(),
+                                          u8".xasset");
+
+    EditorContext ctx;
+    bool cooked = false;
+    ctx.OnCookRequested = [&cooked](bool) { cooked = true; };
+
+    const Guid a(1, 1);
+    const Guid b(2, 2);
+    int runsA = 0;
+    int runsB = 0;
+
+    CHECK_FALSE(ctx.HasPendingAssetEdits());
+    ctx.RegisterAssetEdit(a, [&runsA](foundation::content::ContentDatabase&)
+                          { ++runsA; return Status{}; });
+    ctx.RegisterAssetEdit(a, [&runsA](foundation::content::ContentDatabase&)
+                          { ++runsA; return Status{}; }); // same guid -> replaces (last wins)
+    ctx.RegisterAssetEdit(b, [&runsB](foundation::content::ContentDatabase&)
+                          { ++runsB; return Status{}; });
+    ctx.RegisterAssetEdit(Guid{}, [](foundation::content::ContentDatabase&)
+                          { return Status{}; }); // nil -> ignored (edit-live-only)
+    CHECK(ctx.HasPendingAssetEdits());
+
+    const Status drained = ctx.DrainAssetEdits(db);
+    CHECK(drained.IsOk());
+    CHECK(runsA == 1); // replaced, so ran once (not twice)
+    CHECK(runsB == 1);
+    CHECK(cooked);                      // a successful drain requests a recook
+    CHECK_FALSE(ctx.HasPendingAssetEdits()); // drained clears
+
+    cooked = false;
+    CHECK(ctx.DrainAssetEdits(db).IsOk()); // empty drain is a no-op
+    CHECK_FALSE(cooked);
+}

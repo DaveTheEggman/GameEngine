@@ -32,6 +32,53 @@ namespace editor
         }
     }
 
+    void EditorContext::RegisterAssetEdit(const Guid& assetId,
+                                          Function<Status(foundation::content::ContentDatabase&)> persist)
+    {
+        if (assetId.IsNil() || !persist)
+        {
+            return; // in-memory / unresolved assets have no source to persist to (edit-live-only)
+        }
+        for (PendingAssetEdit& e : m_pendingAssetEdits)
+        {
+            if (e.id == assetId)
+            {
+                e.persist = Move(persist); // last edit for this asset wins
+                return;
+            }
+        }
+        m_pendingAssetEdits.PushBack(PendingAssetEdit{assetId, Move(persist)});
+    }
+
+    Status EditorContext::DrainAssetEdits(foundation::content::ContentDatabase& db)
+    {
+        if (m_pendingAssetEdits.IsEmpty())
+        {
+            return Status{};
+        }
+        Array<PendingAssetEdit> pending = Move(m_pendingAssetEdits);
+        m_pendingAssetEdits.Clear();
+        Status result{};
+        bool anyOk = false;
+        for (PendingAssetEdit& e : pending)
+        {
+            const Status s = e.persist ? e.persist(db) : Status{};
+            if (s.IsOk())
+            {
+                anyOk = true;
+            }
+            else if (result.IsOk())
+            {
+                result = s; // report the first failure (all others still attempted)
+            }
+        }
+        if (anyOk)
+        {
+            RequestCook(false); // hot-swap the re-persisted products
+        }
+        return result;
+    }
+
     void EditorContext::Notify(NoticeKind kind, StringView message)
     {
         if (OnNotice)
