@@ -401,10 +401,19 @@ version + the shape-cook count guard.
 THE ANSWER TO "dedicated terrain asset page OR edit-in-scene?": BOTH,
 split by ROLE - and the split falls out of rulings already recorded:
 
-**Editing happens IN THE SCENE VIEWPORT** (the property-animation
-precedent, and what Editor.ViewportTools was built in anticipation of).
-Editor.Terrain registers TWO tools into the existing IViewportTool
-registry (explicit registrar + tripwire, the framework decision):
+**Editing happens IN THE SCENE VIEWPORT**, through the IViewportTool
+framework that was built in anticipation of exactly this. CORRECTED
+(user, 2026-08-23): property animation PIVOTED to its persistent panel
+and never registered a tool - today SelectTool is the framework's only
+registrant and the non-default palette path (the Count() > 1 toggle
+branch in ScenePage) has never run in production. Terrain is therefore
+the framework's FIRST REAL non-default consumer, and first-consumer
+hardening is part of its cost: expect the palette toggle activation,
+the tool-panel docking seam, and the availability-predicate flow to
+need polish under real use (the extensibility-seams principle - seam
+designs get validated against real consumers - applies here verbatim).
+Editor.Terrain registers TWO tools into the registry (explicit
+registrar + tripwire, the framework decision):
 - **Sculpt** - elevate / lower / smooth / flatten (ctrl picks the target
   height), operating on the HEIGHTFIELD ASSET the scene's terrain
   references. Ray pick = foundation.heightfield::QueryRay through the
@@ -424,9 +433,11 @@ registry (explicit registrar + tripwire, the framework decision):
   spec; this fixes only the seam: paint is a viewport tool over an
   image asset, not a bespoke canvas.)
 Both tools declare the availability predicate (a TerrainComponent whose
-terrain resolves is present), and their panels dock below the viewport
-exactly like the property-animation panel (the persistent-panel
-precedent; the parked tool_panel seam stays parked). Sculpting a
+terrain resolves is present), and their panels dock below the viewport -
+the LAYOUT pattern property animation's persistent panel established,
+even though that panel never went through the tool framework. (The
+parked tool_panel seam stays parked unless terrain's panels prove it
+necessary - terrain is the consumer that finally decides.) Sculpting a
 heightfield SHARED by several terrains edits all of them - the standard
 shared-asset consequence, already recorded in the instance model.
 
