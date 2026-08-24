@@ -92,10 +92,38 @@ export namespace engine::terrain
                 return core::Status{core::ErrorCode::Unknown};
             }
 
-            rhi::BindGroupLayout* layouts[] = {m_viewLayout, m_chunkLayout, m_heightLayout};
+            // set 3: the D2 splat material - RGBA weight map (t0) + up to 4 layer albedos (t1..t4) +
+            // a clamp/bilinear splat sampler (s0) + a repeat/trilinear albedo sampler (s1).
+            rhi::BindGroupLayoutEntry matEntries[] = {
+                rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment),
+                rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment),
+                rhi::BindGroupLayoutEntry::SampledTexture(2, rhi::ShaderStage::Fragment),
+                rhi::BindGroupLayoutEntry::SampledTexture(3, rhi::ShaderStage::Fragment),
+                rhi::BindGroupLayoutEntry::SampledTexture(4, rhi::ShaderStage::Fragment),
+                rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment),
+                rhi::BindGroupLayoutEntry::Sampler(1, rhi::ShaderStage::Fragment),
+            };
+            rhi::BindGroupLayoutDesc mld{};
+            mld.entries = Span<const rhi::BindGroupLayoutEntry>{matEntries, 7};
+            if (!m_device->CreateBindGroupLayout(mld, m_materialLayout).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+
+            // Two pipeline layouts: the color pass binds set 3 (material); the depth pass does not (so
+            // WebGPU's "every declared set must be bound" rule is satisfied without a spurious bind).
+            rhi::BindGroupLayout* colorLayouts[] = {m_viewLayout, m_chunkLayout, m_heightLayout,
+                                                    m_materialLayout};
             rhi::PipelineLayoutDesc pld{};
-            pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{layouts, 3};
+            pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{colorLayouts, 4};
             if (!m_device->CreatePipelineLayout(pld, m_pipelineLayout).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::BindGroupLayout* depthLayouts[] = {m_viewLayout, m_chunkLayout, m_heightLayout};
+            rhi::PipelineLayoutDesc dpld{};
+            dpld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{depthLayouts, 3};
+            if (!m_device->CreatePipelineLayout(dpld, m_depthPipelineLayout).IsOk())
             {
                 return core::Status{core::ErrorCode::Unknown};
             }
@@ -185,6 +213,65 @@ export namespace engine::terrain
                 return core::Status{core::ErrorCode::Unknown};
             }
             m_activeShadowView = m_dummyShadowView;
+
+            // Splat material samplers: splatmap = clamp + bilinear (soft weights), albedo = repeat +
+            // trilinear (tiled, mip-sampled). A 1x1 white dummy fills absent splatmap/albedo slots.
+            rhi::SamplerDesc spd{};
+            spd.minFilter = rhi::FilterMode::Linear;
+            spd.magFilter = rhi::FilterMode::Linear;
+            spd.mipmapFilter = rhi::MipmapFilterMode::Nearest;
+            spd.addressU = rhi::AddressMode::ClampToEdge;
+            spd.addressV = rhi::AddressMode::ClampToEdge;
+            spd.addressW = rhi::AddressMode::ClampToEdge;
+            spd.label = u8"terrain.splatSampler";
+            if (!m_device->CreateSampler(spd, m_splatSampler).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::SamplerDesc apd{};
+            apd.minFilter = rhi::FilterMode::Linear;
+            apd.magFilter = rhi::FilterMode::Linear;
+            apd.mipmapFilter = rhi::MipmapFilterMode::Linear; // trilinear across the albedo mips
+            apd.addressU = rhi::AddressMode::Repeat;
+            apd.addressV = rhi::AddressMode::Repeat;
+            apd.addressW = rhi::AddressMode::Repeat;
+            apd.label = u8"terrain.albedoSampler";
+            if (!m_device->CreateSampler(apd, m_albedoSampler).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::TextureDesc wtd{};
+            wtd.format = rhi::TextureFormat::RGBA8Unorm;
+            wtd.width = 1;
+            wtd.height = 1;
+            wtd.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
+            wtd.label = u8"terrain.white";
+            if (!m_device->CreateTexture(wtd, m_whiteTex).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::TextureViewDesc wvd{};
+            wvd.format = rhi::TextureFormat::RGBA8Unorm;
+            wvd.dimension = rhi::TextureViewDimension::Texture2D;
+            if (!m_device->CreateTextureView(m_whiteTex, wvd, m_whiteView).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            if (rhi::Queue* q = m_device->GetQueue(rhi::QueueType::Graphics))
+            {
+                rhi::TransferBatch* tb = nullptr;
+                if (q->CreateTransferBatch(tb).IsOk() && tb != nullptr)
+                {
+                    const u8 white[4] = {255, 255, 255, 255};
+                    rhi::TextureDataLayout layout{};
+                    layout.bytesPerRow = 4;
+                    layout.rowsPerImage = 1;
+                    tb->WriteTexture(m_whiteTex, Span<const u8>{white, 4}, layout,
+                                     rhi::Extent3D{1, 1, 1});
+                    (void)tb->Submit();
+                    q->DestroyTransferBatch(tb);
+                }
+            }
             return core::Status{};
         }
 
@@ -299,6 +386,9 @@ export namespace engine::terrain
                                             kShadowNormalBias, kShadowDepthBias};
                     ubo.shadowParams.x = ctx.shadowFarFade;
                 }
+                ubo.layerTileScales = Float4{data->tileScales[0], data->tileScales[1],
+                                             data->tileScales[2], data->tileScales[3]};
+                ubo.splatParams = Float4{static_cast<f32>(data->layerCount), 0.0f, 0.0f, 0.0f};
                 MemCopy(vr.ptr, &ubo, sizeof(ubo));
 
                 // Local-space frustum (chunkToWorld folded in) matches the chunks' local bounds.
@@ -315,7 +405,9 @@ export namespace engine::terrain
                 }
 
                 rhi::BindGroup* heightBg = EnsureHeightBindGroup(data->heightView);
-                if (heightBg == nullptr)
+                rhi::BindGroup* materialBg =
+                    EnsureMaterialBindGroup(data->splatmapView, data->albedoViews);
+                if (heightBg == nullptr || materialBg == nullptr)
                 {
                     continue;
                 }
@@ -349,7 +441,8 @@ export namespace engine::terrain
                     draw.drawSet = chunkBg;
                     draw.drawDynamic = true;
                     draw.drawOffset = cr.byteOffset;
-                    draw.materialSet = heightBg; // set 2: height texture
+                    draw.materialSet = heightBg;   // set 2: height texture
+                    draw.clusterSet = materialBg;  // set 3: splat material (splatmap + albedos)
                     draw.vertexBuffer0 = m_gridVertexBuffer;
                     draw.indexBuffer = lm.indexBuffer;
                     draw.indexFormat = rhi::IndexFormat::UInt32;
@@ -512,6 +605,8 @@ export namespace engine::terrain
             Float4 cascadeTexelSize;
             Float4 shadowMeta;   // x = cascade count, y = layer base, z = normal bias, w = depth bias
             Float4 shadowParams; // x = far-fade width, y = uv.y sign, zw spare
+            Float4 layerTileScales; // per-layer albedo tiling (local units per tile)
+            Float4 splatParams;     // x = layer count (0 = height ramp), yzw spare
         };
 
         struct LodMesh
@@ -675,6 +770,62 @@ export namespace engine::terrain
             return bg;
         }
 
+        // Set 3 (splat material): splatmap + 4 albedos (white dummy for absent slots) + the two
+        // samplers. Cached per splatmap view, validated by the uniqueId of ALL five views (never raw
+        // pointers - address reuse); a hot-swap retires the stale group through the frame-retire queue.
+        rhi::BindGroup* EnsureMaterialBindGroup(rhi::TextureView* splatmap,
+                                                rhi::TextureView* const* albedos)
+        {
+            rhi::TextureView* sm = (splatmap != nullptr) ? splatmap : m_whiteView;
+            rhi::TextureView* a[TerrainRenderData::kMaxLayers];
+            for (u32 i = 0; i < TerrainRenderData::kMaxLayers; ++i)
+            {
+                a[i] = (albedos[i] != nullptr) ? albedos[i] : m_whiteView;
+            }
+            if (MaterialBindGroup* found = m_materialBindGroups.Find(sm))
+            {
+                bool match = found->splatId == sm->uniqueId;
+                for (u32 i = 0; i < TerrainRenderData::kMaxLayers && match; ++i)
+                {
+                    match = found->albedoIds[i] == a[i]->uniqueId;
+                }
+                if (match)
+                {
+                    return found->bindGroup;
+                }
+                if (found->bindGroup != nullptr)
+                {
+                    if (m_retire != nullptr)
+                    {
+                        m_retire->Retire(found->bindGroup);
+                    }
+                    else
+                    {
+                        m_device->DestroyBindGroup(found->bindGroup);
+                    }
+                }
+                m_materialBindGroups.Remove(sm);
+            }
+            rhi::BindGroupEntry entries[] = {
+                rhi::BindGroupEntry::TextureEntry(sm),    rhi::BindGroupEntry::TextureEntry(a[0]),
+                rhi::BindGroupEntry::TextureEntry(a[1]),  rhi::BindGroupEntry::TextureEntry(a[2]),
+                rhi::BindGroupEntry::TextureEntry(a[3]),  rhi::BindGroupEntry::SamplerEntry(m_splatSampler),
+                rhi::BindGroupEntry::SamplerEntry(m_albedoSampler),
+            };
+            rhi::BindGroupDesc bgd{};
+            bgd.layout = m_materialLayout;
+            bgd.entries = Span<const rhi::BindGroupEntry>{entries, 7};
+            rhi::BindGroup* bg = nullptr;
+            if (!m_device->CreateBindGroup(bgd, bg).IsOk())
+            {
+                return nullptr;
+            }
+            MaterialBindGroup entry{bg, sm->uniqueId, {a[0]->uniqueId, a[1]->uniqueId,
+                                                       a[2]->uniqueId, a[3]->uniqueId}};
+            m_materialBindGroups.InsertOrAssign(sm, entry);
+            return bg;
+        }
+
         rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFormat)
         {
             const u64 shaderVersion = m_shaders->Version(u8"terrain");
@@ -783,7 +934,7 @@ export namespace engine::terrain
             }
 
             rhi::RenderPipelineDesc pd{};
-            pd.layout = m_pipelineLayout;
+            pd.layout = m_depthPipelineLayout; // 3 sets (no material) - depth VS samples none of it
             pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
             pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
             // No fragment stage (Optional left empty) + no color targets = depth-only.
@@ -812,6 +963,14 @@ export namespace engine::terrain
                 }
             }
             m_heightBindGroups.Clear();
+            for (auto& kv : m_materialBindGroups)
+            {
+                if (kv.value.bindGroup != nullptr)
+                {
+                    m_device->DestroyBindGroup(kv.value.bindGroup);
+                }
+            }
+            m_materialBindGroups.Clear();
             if (m_viewBg != nullptr)
             {
                 m_device->DestroyBindGroup(m_viewBg);
@@ -863,10 +1022,40 @@ export namespace engine::terrain
                 m_device->DestroySampler(m_shadowSampler);
                 m_shadowSampler = nullptr;
             }
+            if (m_whiteView != nullptr)
+            {
+                m_device->DestroyTextureView(m_whiteView);
+                m_whiteView = nullptr;
+            }
+            if (m_whiteTex != nullptr)
+            {
+                m_device->DestroyTexture(m_whiteTex);
+                m_whiteTex = nullptr;
+            }
+            if (m_splatSampler != nullptr)
+            {
+                m_device->DestroySampler(m_splatSampler);
+                m_splatSampler = nullptr;
+            }
+            if (m_albedoSampler != nullptr)
+            {
+                m_device->DestroySampler(m_albedoSampler);
+                m_albedoSampler = nullptr;
+            }
+            if (m_depthPipelineLayout != nullptr)
+            {
+                m_device->DestroyPipelineLayout(m_depthPipelineLayout);
+                m_depthPipelineLayout = nullptr;
+            }
             if (m_pipelineLayout != nullptr)
             {
                 m_device->DestroyPipelineLayout(m_pipelineLayout);
                 m_pipelineLayout = nullptr;
+            }
+            if (m_materialLayout != nullptr)
+            {
+                m_device->DestroyBindGroupLayout(m_materialLayout);
+                m_materialLayout = nullptr;
             }
             if (m_heightLayout != nullptr)
             {
@@ -891,6 +1080,13 @@ export namespace engine::terrain
             u64 viewId = 0;
         };
 
+        struct MaterialBindGroup
+        {
+            rhi::BindGroup* bindGroup = nullptr;
+            u64 splatId = 0;
+            u64 albedoIds[TerrainRenderData::kMaxLayers] = {0, 0, 0, 0};
+        };
+
         rhi::Device* m_device;
         shaders::ShaderSystem* m_shaders;
         render::DynamicUniformRing m_viewRing;
@@ -898,7 +1094,9 @@ export namespace engine::terrain
         rhi::BindGroupLayout* m_viewLayout = nullptr;
         rhi::BindGroupLayout* m_chunkLayout = nullptr;
         rhi::BindGroupLayout* m_heightLayout = nullptr;
-        rhi::PipelineLayout* m_pipelineLayout = nullptr;
+        rhi::BindGroupLayout* m_materialLayout = nullptr; // set 3: splat material
+        rhi::PipelineLayout* m_pipelineLayout = nullptr;      // color: 4 sets
+        rhi::PipelineLayout* m_depthPipelineLayout = nullptr; // depth: 3 sets (no material)
         rhi::Buffer* m_gridVertexBuffer = nullptr;
         u32 m_gridVertexCount = 0;
         LodMesh m_lodMeshes[tmodel::kMaxChunkLod + 1];
@@ -907,6 +1105,12 @@ export namespace engine::terrain
         rhi::BindGroup* m_chunkBg = nullptr;
         u32 m_chunkBgGen = 0;
         HashMap<rhi::TextureView*, HeightBindGroup> m_heightBindGroups;
+        // Splat material (set 3): white dummy + samplers + a per-splatmap cache.
+        rhi::Sampler* m_splatSampler = nullptr;
+        rhi::Sampler* m_albedoSampler = nullptr;
+        rhi::Texture* m_whiteTex = nullptr;      // 1x1 white (absent splatmap/albedo slots)
+        rhi::TextureView* m_whiteView = nullptr;
+        HashMap<rhi::TextureView*, MaterialBindGroup> m_materialBindGroups;
         render::GpuRetireQueue* m_retire = nullptr; // borrowed (RenderSubsystem owns + ticks)
         // Shadow receive (set 0: t1 CSM array + s0 comparison sampler).
         rhi::Sampler* m_shadowSampler = nullptr;

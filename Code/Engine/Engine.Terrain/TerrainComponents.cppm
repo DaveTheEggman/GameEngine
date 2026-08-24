@@ -22,6 +22,7 @@ import foundation.render;           // IRenderDataProvider, ExtractedScene, Rend
 import foundation.heightfield;      // Heightfield (the shared grid)
 import foundation.terrain;          // chunk model (BuildChunks, TerrainQuadtree, thresholds)
 import foundation.terrain.resource; // TerrainResource
+import foundation.texture.resource; // texture::Texture::View() (splatmap + layer albedos)
 import :heighttexture;              // TerrainHeightTextureCache
 import :renderdata;                 // TerrainRenderData
 
@@ -34,6 +35,7 @@ export namespace engine::terrain
     namespace scene = foundation::scene;
     namespace heightfield = foundation::heightfield;
     namespace tmodel = foundation::terrain;
+    namespace texture = foundation::texture;
 
     using foundation::terrain::TerrainResource;
 
@@ -169,6 +171,28 @@ export namespace engine::terrain
                     }
                     rd->thresholdCount = n;
                     rd->lodBias = c.lodBias;
+
+                    // D2 splat material: the splatmap + per-layer albedo GPU views + tiling. A layer
+                    // whose texture is unresolved (late cook / headless) is skipped; layerCount 0
+                    // (no splatmap or no layers) leaves the renderer on the height-lit fallback.
+                    if (texture::Texture* sm = res->splatmap.Get())
+                    {
+                        rd->splatmapView = sm->View();
+                    }
+                    const u32 layers = Min(res->LayerCount(), TerrainRenderData::kMaxLayers);
+                    u32 bound = 0;
+                    for (u32 li = 0; li < layers; ++li)
+                    {
+                        const TerrainResource::Layer& layer = res->layers[li];
+                        if (texture::Texture* alb = layer.albedo.Get())
+                        {
+                            rd->albedoViews[li] = alb->View();
+                            rd->tileScales[li] = layer.tileScale;
+                            ++bound;
+                        }
+                    }
+                    // Splat needs the weight map AND at least one layer; else fall back to the ramp.
+                    rd->layerCount = (rd->splatmapView != nullptr && bound > 0) ? layers : 0;
 
                     // Whole-terrain bounding sphere (world) - keeps the framework from culling the
                     // terrain while any chunk is visible.

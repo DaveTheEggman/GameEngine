@@ -49,5 +49,13 @@ export namespace engine::terrain
         f32 thresholds[kMaxLodThresholds] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
         u32 thresholdCount = 1;
         f32 lodBias = 0.0f;
+
+        // D2 splat material (borrowed GPU views; null = absent -> the renderer binds a white dummy and
+        // layerCount 0 => the PS falls back to the height ramp). Albedos tile in LOCAL XZ by tileScale.
+        static constexpr u32 kMaxLayers = 4;
+        rhi::TextureView* splatmapView = nullptr;
+        rhi::TextureView* albedoViews[kMaxLayers] = {nullptr, nullptr, nullptr, nullptr};
+        f32 tileScales[kMaxLayers] = {1.0f, 1.0f, 1.0f, 1.0f};
+        u32 layerCount = 0;
     };
 }

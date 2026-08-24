@@ -21,6 +21,7 @@ import foundation.shaders.system;
 import foundation.render;
 import foundation.heightfield;
 import foundation.terrain;
+import foundation.texture.resource; // texture::Texture (Adopt) for in-memory splat/albedo fixtures
 import engine.terrain;
 
 using namespace foundation::core;
@@ -30,6 +31,7 @@ namespace testsupport = foundation::rhi::testsupport;
 namespace shaders = foundation::shaders;
 namespace hf = foundation::heightfield;
 namespace tmodel = foundation::terrain;
+namespace texture = foundation::texture;
 
 namespace
 {
@@ -68,6 +70,11 @@ namespace
         const Float3* toLight = nullptr;    // dir TO the light; null = renderer fallback sun
         const f32* thresholds = nullptr;    // LOD coverage thresholds override (null = default set)
         u32 thresholdCount = 0;
+        // D2 splat material (null / 0 = layerless -> height-lit fallback).
+        rhi::TextureView* splatmapView = nullptr;
+        rhi::TextureView* albedoViews[4] = {nullptr, nullptr, nullptr, nullptr};
+        f32 tileScales[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+        u32 layerCount = 0;
     };
 
     struct Probe
@@ -75,6 +82,7 @@ namespace
         bool valid = false;
         u32 filled = 0; // pixels brighter than the black background
         f64 leftLuma = 0, rightLuma = 0, topLuma = 0, bottomLuma = 0, total = 0;
+        f64 leftR = 0, leftB = 0, rightR = 0, rightB = 0; // per-channel bands (splat colour check)
     };
 
     Probe RenderTerrainProbe(rhi::Device& device, const ProbeCfg& cfg)
@@ -137,6 +145,13 @@ namespace
                 rd->thresholds[i] = thresholds[i];
             }
             rd->thresholdCount = thresholdCount;
+            rd->splatmapView = cfg.splatmapView;
+            for (u32 li = 0; li < 4; ++li)
+            {
+                rd->albedoViews[li] = cfg.albedoViews[li];
+                rd->tileScales[li] = cfg.tileScales[li];
+            }
+            rd->layerCount = cfg.layerCount;
             rd->worldCenter = Float3{0.0f, 0.5f * (terrain.MaxY() + terrain.MinY()), 0.0f};
             rd->worldRadius = Length(terrain.WorldSize()) + (terrain.MaxY() - terrain.MinY());
 
@@ -203,6 +218,8 @@ namespace
                     }
                     (x < kSize / 2 ? probe.leftLuma : probe.rightLuma) += luma;
                     (y < kSize / 2 ? probe.topLuma : probe.bottomLuma) += luma;
+                    if (x < kSize / 2) { probe.leftR += p[0]; probe.leftB += p[2]; }
+                    else { probe.rightR += p[0]; probe.rightB += p[2]; }
                 }
             }
             probe.valid = true;
@@ -271,6 +288,84 @@ namespace
             }
         }
         return h;
+    }
+
+    // A flat terrain (constant mid height) - a clean canvas for the splat colour check.
+    RefPtr<hf::Heightfield> MakeFlat()
+    {
+        constexpr i32 n = 129;
+        RefPtr<hf::Heightfield> h =
+            MakeRef<hf::Heightfield>(DefaultAllocator(), n, Float2{130.0f, 130.0f}, 0.0f, 30.0f);
+        for (i32 z = 0; z < n; ++z)
+        {
+            for (i32 x = 0; x < n; ++x)
+            {
+                h->SetSample(x, z, static_cast<hf::Height>(0.3f * 65535.0f));
+            }
+        }
+        return h;
+    }
+
+    // Wrap an RGBA8 texture (uploaded from `pixels`, w*h*4 bytes) as an in-memory texture::Texture
+    // (Adopt owns + frees the GPU objects on the returned RefPtr's destruction).
+    RefPtr<texture::Texture> MakeRGBA(rhi::Device& device, u32 w, u32 h, const u8* pixels)
+    {
+        rhi::TextureDesc td{};
+        td.format = rhi::TextureFormat::RGBA8Unorm;
+        td.width = w;
+        td.height = h;
+        td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
+        td.label = u8"probe.albedo";
+        rhi::Texture* tex = nullptr;
+        REQUIRE(device.CreateTexture(td, tex).IsOk());
+        rhi::TextureViewDesc vd{};
+        vd.format = rhi::TextureFormat::RGBA8Unorm;
+        vd.dimension = rhi::TextureViewDimension::Texture2D;
+        rhi::TextureView* view = nullptr;
+        REQUIRE(device.CreateTextureView(tex, vd, view).IsOk());
+        if (rhi::Queue* q = device.GetQueue(rhi::QueueType::Graphics))
+        {
+            rhi::TransferBatch* tb = nullptr;
+            if (q->CreateTransferBatch(tb).IsOk() && tb != nullptr)
+            {
+                rhi::TextureDataLayout layout{};
+                layout.bytesPerRow = w * 4;
+                layout.rowsPerImage = h;
+                tb->WriteTexture(tex, Span<const u8>{pixels, static_cast<usize>(w) * h * 4}, layout,
+                                 rhi::Extent3D{w, h, 1});
+                (void)tb->Submit();
+                q->DestroyTransferBatch(tb);
+            }
+        }
+        RefPtr<texture::Texture> t = MakeRef<texture::Texture>(DefaultAllocator());
+        t->Adopt(&device, tex, view, nullptr, w, h, rhi::TextureFormat::RGBA8Unorm, false);
+        return t;
+    }
+
+    RefPtr<texture::Texture> MakeSolid(rhi::Device& device, u8 r, u8 g, u8 b)
+    {
+        const u8 px[4] = {r, g, b, 255};
+        return MakeRGBA(device, 1, 1, px);
+    }
+
+    // A splatmap split left/right: left half = weight on layer 0 (R), right half = layer 1 (G).
+    RefPtr<texture::Texture> MakeSplitSplatmap(rhi::Device& device)
+    {
+        constexpr u32 n = 16;
+        u8 px[n * n * 4];
+        for (u32 y = 0; y < n; ++y)
+        {
+            for (u32 x = 0; x < n; ++x)
+            {
+                u8* p = px + (static_cast<usize>(y) * n + x) * 4;
+                const bool left = x < n / 2;
+                p[0] = left ? 255 : 0; // layer 0 weight
+                p[1] = left ? 0 : 255; // layer 1 weight
+                p[2] = 0;
+                p[3] = 0;
+            }
+        }
+        return MakeRGBA(device, n, n, px);
     }
 
     struct ShadowProbe
@@ -586,4 +681,75 @@ TEST_CASE("terrain probe: the ridge casts a CSM shadow onto the flat ground (cas
 
     device->Destroy();
     vulkan->Destroy();
+}
+
+TEST_CASE("terrain probe: splat blends layer albedos (D2), matching across backends")
+{
+    // Flat terrain, a split splatmap (left = layer 0, right = layer 1), layer 0 = red, layer 1 = blue.
+    // The two halves must show the two albedos (proving splat selection + blend), pixel-exact on both
+    // backends. Textures are created per-device and freed before the device (Adopt owns them).
+    auto run = [](rhi::Backend* backend) -> Probe
+    {
+        rhi::Device* dev = (backend != nullptr) ? testsupport::MakeTestDevice(backend) : nullptr;
+        if (dev == nullptr)
+        {
+            return Probe{};
+        }
+        Probe p;
+        {
+            RefPtr<texture::Texture> red = MakeSolid(*dev, 220, 30, 30);
+            RefPtr<texture::Texture> blue = MakeSolid(*dev, 30, 30, 220);
+            RefPtr<texture::Texture> splat = MakeSplitSplatmap(*dev);
+            ProbeCfg cfg;
+            cfg.terrain = MakeFlat();
+            cfg.splatmapView = splat->View();
+            cfg.albedoViews[0] = red->View();
+            cfg.albedoViews[1] = blue->View();
+            cfg.tileScales[0] = cfg.tileScales[1] = 1000.0f; // ~1 tile -> solid colour across the terrain
+            cfg.layerCount = 2;
+            p = RenderTerrainProbe(*dev, cfg);
+        }
+        dev->Destroy();
+        return p;
+    };
+
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+    rhi::Backend* webgpu = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+
+    const Probe v = run(vulkan);
+    if (!v.valid)
+    {
+        MESSAGE("Vulkan unavailable - terrain splat probe skipped");
+        if (vulkan != nullptr) { vulkan->Destroy(); }
+        if (webgpu != nullptr) { webgpu->Destroy(); }
+        return;
+    }
+    std::printf("[terrain-splat] vk left(R=%.0f B=%.0f) right(R=%.0f B=%.0f)\n", v.leftR, v.leftB,
+                v.rightR, v.rightB);
+
+    // The two layers landed on opposite screen halves (flip-agnostic: one half red-dominant, the
+    // other blue-dominant). Proves the splatmap selected different albedos per region.
+    const bool redLeft = v.leftR > v.leftB * 1.5 && v.rightB > v.rightR * 1.5;
+    const bool blueLeft = v.leftB > v.leftR * 1.5 && v.rightR > v.rightB * 1.5;
+    CHECK((redLeft || blueLeft));
+
+    const Probe w = run(webgpu);
+    if (w.valid)
+    {
+        std::printf("[terrain-splat] wg left(R=%.0f B=%.0f) right(R=%.0f B=%.0f)\n", w.leftR,
+                    w.leftB, w.rightR, w.rightB);
+        CHECK(w.leftR == doctest::Approx(v.leftR).epsilon(0.05));
+        CHECK(w.leftB == doctest::Approx(v.leftB).epsilon(0.05));
+        CHECK(w.rightR == doctest::Approx(v.rightR).epsilon(0.05));
+        CHECK(w.rightB == doctest::Approx(v.rightB).epsilon(0.05));
+    }
+    else
+    {
+        MESSAGE("WebGPU unavailable - splat cross-check skipped");
+    }
+
+    if (vulkan != nullptr) { vulkan->Destroy(); }
+    if (webgpu != nullptr) { webgpu->Destroy(); }
 }

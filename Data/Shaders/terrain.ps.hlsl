@@ -19,6 +19,8 @@ cbuffer TerrainView : register(b0, space0) {
     float4   CascadeTexelSize;
     float4   ShadowMeta;   // x = cascade count, y = layer base, z = normal bias, w = depth bias
     float4   ShadowParams; // x = far-fade width, y = uv.y sign, zw spare
+    float4   LayerTileScales; // per-layer albedo tiling (world units per tile), xyzw = layers 0..3
+    float4   SplatParams;     // x = layer count (0 = no splat, use the height ramp), yzw spare
 };
 
 struct PSIn {
@@ -28,7 +30,19 @@ struct PSIn {
     float4 curClip  : TEXCOORD2;
     float4 prevClip : TEXCOORD3;
     float3 worldPos : TEXCOORD4;
+    float2 localXZ  : TEXCOORD5; // terrain-LOCAL XZ (pre-ChunkToWorld) for albedo tiling
+    float2 splatUV  : TEXCOORD6; // 0..1 across the terrain footprint (splatmap lookup)
 };
+
+// Splat material (set 3): the RGBA weight map + up to 4 layer albedos. Absent slots bind a white
+// dummy; SplatParams.x (layer count) gates whether splat is used at all.
+Texture2D    Splatmap      : register(t0, space3);
+Texture2D    Albedo0       : register(t1, space3);
+Texture2D    Albedo1       : register(t2, space3);
+Texture2D    Albedo2       : register(t3, space3);
+Texture2D    Albedo3       : register(t4, space3);
+SamplerState SplatSampler  : register(s0, space3); // clamp, bilinear (soft layer boundaries)
+SamplerState AlbedoSampler : register(s1, space3); // repeat, trilinear (tiled albedos carry mips)
 
 struct PSOutput {
     float4 color    : SV_Target0;
@@ -106,13 +120,26 @@ PSOutput main(PSIn i) {
     float3 sun = normalize(LightDir.xyz);
     float  ndl = saturate(dot(n, sun));
 
-    const float3 kLow  = float3(0.24, 0.40, 0.16); // grass
-    const float3 kHigh = float3(0.52, 0.50, 0.46); // rock
-    float3 base = lerp(kLow, kHigh, i.heightT);
-
-    // Slope darkening: steep faces (small n.y) read as exposed rock.
-    float slope = saturate(n.y);
-    base = lerp(kHigh * 0.8, base, slope);
+    float3 base;
+    if (SplatParams.x >= 0.5) {
+        // Splat: normalize the RGBA weights (authoring need not sum to 1), with a zero-sum guard ->
+        // layer 0 (unpainted regions render the base layer, never black / divide-by-zero). Each layer
+        // samples its albedo at a terrain-LOCAL tiled UV (glued to the surface under move/rotate).
+        float4 w = Splatmap.Sample(SplatSampler, i.splatUV);
+        float sum = w.r + w.g + w.b + w.a;
+        w = (sum < 1e-4) ? float4(1, 0, 0, 0) : (w / sum);
+        base = w.r * Albedo0.Sample(AlbedoSampler, i.localXZ / max(LayerTileScales.x, 1e-3)).rgb +
+               w.g * Albedo1.Sample(AlbedoSampler, i.localXZ / max(LayerTileScales.y, 1e-3)).rgb +
+               w.b * Albedo2.Sample(AlbedoSampler, i.localXZ / max(LayerTileScales.z, 1e-3)).rgb +
+               w.a * Albedo3.Sample(AlbedoSampler, i.localXZ / max(LayerTileScales.w, 1e-3)).rgb;
+    } else {
+        // No layers bound -> the height/slope colour ramp (headless tools, layerless terrains).
+        const float3 kLow  = float3(0.24, 0.40, 0.16); // grass
+        const float3 kHigh = float3(0.52, 0.50, 0.46); // rock
+        base = lerp(kLow, kHigh, i.heightT);
+        float slope = saturate(n.y);                    // steep faces read as exposed rock
+        base = lerp(kHigh * 0.8, base, slope);
+    }
 
     // CSM: attenuate only the DIRECT (sun) term; ambient is indirect and stays.
     float viewDepth = -mul(float4(i.worldPos, 1.0), View).z;

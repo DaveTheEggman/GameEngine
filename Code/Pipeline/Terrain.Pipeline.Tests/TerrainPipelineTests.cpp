@@ -61,7 +61,8 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
         terrainId = tInst->Id();
         TerrainAsset asset;
         asset.heightfieldId = heightfieldId;
-        asset.layerAlbedoIds.PushBack(Guid{});
+        asset.splatmapId = Guid{123, 456};             // D2: the splat weight map (id pass-through)
+        asset.layerAlbedoIds.PushBack(Guid{321, 654}); // non-nil so the albedo ref binds
         asset.layerAlbedoIds.PushBack(Guid{});
         asset.layerTileScales.PushBack(4.0f);
         asset.layerTileScales.PushBack(8.0f);
@@ -91,6 +92,11 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
     CHECK(terrain->layers[1].tileScale == doctest::Approx(8.0f));
     REQUIRE(terrain->heightfield);
     CHECK(terrain->heightfield->Size() == 65);
+    // D2 splat ids round-trip through cook -> source -> factory -> a BOUND ref (a non-nil id binds a
+    // proxy even with no texture factory; GPU resolution + blending is the backend probe's job).
+    CHECK(terrain->splatmap.IsBound());       // splatmapId carried
+    CHECK(terrain->layers[0].albedo.IsBound()); // non-nil layer albedo carried
+    CHECK_FALSE(terrain->layers[1].albedo.IsBound()); // nil id stays unbound
 
     RemoveTree();
 }

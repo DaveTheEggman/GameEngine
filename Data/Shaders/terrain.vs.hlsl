@@ -43,6 +43,8 @@ struct VSOut {
     float4 curClip  : TEXCOORD2;
     float4 prevClip : TEXCOORD3;
     float3 worldPos : TEXCOORD4;
+    float2 localXZ  : TEXCOORD5; // terrain-LOCAL XZ (pre-ChunkToWorld) for albedo tiling
+    float2 splatUV  : TEXCOORD6; // 0..1 across the terrain footprint (splatmap lookup)
 };
 
 float SampleHeightY(int2 texel) {
@@ -64,6 +66,8 @@ VSOut main(VSIn i) {
     float2 lxz = OriginXZ + uv * SizeXZ;                       // local XZ
     float3 worldPos = mul(float4(lxz.x, y, lxz.y, 1.0), ChunkToWorld).xyz;
     o.worldPos = worldPos;
+    o.localXZ  = lxz;
+    o.splatUV  = texelF / max(GridSize, float2(1.0, 1.0)); // 0..1 across the terrain footprint
     o.pos      = mul(float4(worldPos, 1.0), ViewProj);
     o.curClip  = o.pos;
     o.prevClip = mul(float4(worldPos, 1.0), PrevViewProj);

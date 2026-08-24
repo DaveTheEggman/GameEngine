@@ -7,7 +7,7 @@ add_library(Engine::Terrain ALIAS Engine.Terrain)
 target_link_libraries(Engine.Terrain
     PUBLIC
         Foundation::Core Foundation::Scene Foundation::Resource
-        Foundation::Terrain Foundation::Terrain.Resource Foundation::Heightfield
+        Foundation::Terrain Foundation::Terrain.Resource Foundation::Texture.Resource Foundation::Heightfield
         Foundation::RHI Foundation::Policy
         Foundation::Render Engine::Render Engine::Scene
         Foundation::Shaders Foundation::Shaders.System Foundation::Runtime
