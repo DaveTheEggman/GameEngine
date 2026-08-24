@@ -9,10 +9,11 @@ target_link_libraries(Editor.Terrain PUBLIC
     Foundation::Runtime Foundation::Runtime.Client Foundation::Graphics
     Foundation::Scene Engine::Scene Foundation::Render Engine::Render
     Foundation::UI Foundation::UI.Toolkit Foundation::UI.Runtime
-    Editor::Core Editor::App Editor::Camera Editor::Preview
+    Editor::Core Editor::App Editor::Camera Editor::Preview Editor::ViewportTools
     Pipeline::Terrain Foundation::Terrain Foundation::Terrain.Resource Engine::Terrain
-    Foundation::Heightfield Foundation::Resource Foundation::Policy)
+    Foundation::Heightfield Foundation::Heightfield.Resource Foundation::Resource Foundation::Policy)
 
 target_sources(Editor.Terrain
-    PRIVATE TerrainEditorPageImpl.cpp
-    PUBLIC FILE_SET editorterrain_modules TYPE CXX_MODULES FILES TerrainEditorPage.cppm)
+    PRIVATE TerrainEditorPageImpl.cpp SculptImpl.cpp
+    PUBLIC FILE_SET editorterrain_modules TYPE CXX_MODULES FILES
+        TerrainEditorPage.cppm Sculpt.cppm)

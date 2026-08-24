@@ -103,7 +103,7 @@ TEST_CASE("tool-panel host: panel appears and disappears with its tool")
     int clears = 0;
     ui::View* lastMounted = nullptr;
     ViewportToolHostContext ctx;
-    ViewportToolPanelHost host(tools, registry, ctx,
+    ViewportToolPanelHost host(tools, registry, Move(ctx),
                                [&](ui::View* v)
                                {
                                    ++mounts;
@@ -154,7 +154,7 @@ TEST_CASE("tool-panel host: unknown / panel-less tool docks nothing")
     int mounts = 0;
     int clears = 0;
     ViewportToolHostContext ctx;
-    ViewportToolPanelHost host(tools, registry, ctx, [&](ui::View*) { ++mounts; },
+    ViewportToolPanelHost host(tools, registry, Move(ctx), [&](ui::View*) { ++mounts; },
                                [&]() { ++clears; });
 
     CHECK(tools.ActivateById(u8"anim"));
@@ -178,7 +178,7 @@ TEST_CASE("tool-panel host: provider yielding no view mounts nothing")
     int mounts = 0;
     int clears = 0;
     ViewportToolHostContext ctx;
-    ViewportToolPanelHost host(tools, registry, ctx, [&](ui::View*) { ++mounts; },
+    ViewportToolPanelHost host(tools, registry, Move(ctx), [&](ui::View*) { ++mounts; },
                                [&]() { ++clears; });
 
     CHECK(tools.ActivateById(u8"anim"));
@@ -208,7 +208,7 @@ TEST_CASE("tool-panel host: switching between two paneled tools clears then moun
     int mounts = 0;
     int clears = 0;
     ViewportToolHostContext ctx;
-    ViewportToolPanelHost host(tools, registry, ctx, [&](ui::View*) { ++mounts; },
+    ViewportToolPanelHost host(tools, registry, Move(ctx), [&](ui::View*) { ++mounts; },
                                [&]() { ++clears; });
 
     CHECK(tools.ActivateById(u8"a"));

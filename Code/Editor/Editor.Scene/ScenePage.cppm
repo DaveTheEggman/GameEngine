@@ -187,6 +187,10 @@ export namespace editor
                     toolHost.scene = &m_editContext->Scene();
                     toolHost.commands = &m_editContext->Commands();
                     toolHost.entitySelection = &m_editContext->EntitySelection();
+                    // Asset-edit persistence transport: a tool (terrain sculpt) that mutates a
+                    // cooked product live registers a write-back-to-source closure on the context;
+                    // the editor save flow drains it (see EditorContext::DrainAssetEdits).
+                    toolHost.assetEdits = &context;
                     ViewportToolProviderRegistry::Get().CreateAll(m_viewportTools, toolHost);
                 }
                 RegisterBuiltinGizmoRenderers(m_componentGizmos);
@@ -409,7 +413,7 @@ export namespace editor
         // CAMERA POLICY: buttons are masked and the keyboard nulled while the camera owns the
         // mouse (Alt orbit / RMB fly / Tab-captured). Selection picking lives INSIDE the default
         // SelectTransformTool now; Simulate maps to input.editingLocked.
-        [[nodiscard]] bool UpdateViewportTools(bool viewportActive);
+        [[nodiscard]] bool UpdateViewportTools(bool viewportActive, f32 deltaSeconds);
 
         void DrawGizmos(render::debug::DebugDraw& dd);
 

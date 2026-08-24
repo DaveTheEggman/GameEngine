@@ -168,6 +168,7 @@ export namespace editor::app
         void ApplyProjectUiDefaults();
 
         void SaveActivePage();
+        void FlushPendingAssetEdits(); // drain tool-registered live asset edits to source + recook
 
         void ClosePage(UIEditorPage* page);
 

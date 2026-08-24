@@ -36,7 +36,20 @@ export namespace editor
         Error
     };
 
-    class EditorContext
+    /// A sink for live-asset-edit persistence closures (terrain sculpt and future brushes).
+    /// EditorContext implements it; the viewport-tool framework (editor.viewporttools) holds a
+    /// BORROWED IAssetEditSink* so a domain tool can register a write-back-to-source closure
+    /// WITHOUT the framework depending on EditorContext. The sink outlives every page/tool.
+    class IAssetEditSink
+    {
+    public:
+        virtual ~IAssetEditSink() = default;
+        virtual void
+        RegisterAssetEdit(const Guid& assetId,
+                          Function<Status(foundation::content::ContentDatabase&)> persist) = 0;
+    };
+
+    class EditorContext : public IAssetEditSink
     {
     public:
         EditorContext() = default;
@@ -78,7 +91,7 @@ export namespace editor
         // domain - the closure lives in the domain editor lib (Editor.Terrain), and it is handed the
         // DB at drain time so it captures no DB handle.
         void RegisterAssetEdit(const Guid& assetId,
-                               Function<Status(foundation::content::ContentDatabase&)> persist);
+                               Function<Status(foundation::content::ContentDatabase&)> persist) override;
         [[nodiscard]] bool HasPendingAssetEdits() const noexcept
         {
             return !m_pendingAssetEdits.IsEmpty();

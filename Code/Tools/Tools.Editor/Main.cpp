@@ -372,6 +372,7 @@ int main(int argc, char** argv)
         editor::RegisterImageEditor(app.Context());
         editor::RegisterHeightfieldEditor(app.Context());
         editor::RegisterTerrainEditor(app.Context(), host, uiHost);
+        editor::RegisterTerrainViewportTools(); // the scene-viewport terrain sculpt brush
         editor::RegisterFontEditor(app.Context());
         editor::RegisterCollisionShapeEditor(app.Context(), host, uiHost);
         // The FALLBACK page registers like any factory: nearest-base dispatch routes every

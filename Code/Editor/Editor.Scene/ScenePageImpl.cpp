@@ -99,7 +99,11 @@ namespace editor
         const bool viewportActive = m_viewport->IsHovered() || m_viewport->IsFocused();
         if (viewportActive)
         {
-            m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt);
+            // First-consumer rule: a modal viewport tool (terrain sculpt) owns the wheel to resize
+            // its brush, so the camera must not ALSO dolly on scroll while one is active.
+            const bool modalToolActive =
+                m_viewportTools.ActiveTool() != nullptr && m_viewportTools.ActiveTool() != m_selectTool;
+            m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt, !modalToolActive);
         }
         else
         {
@@ -108,7 +112,7 @@ namespace editor
             // moment the viewport stops being the input owner.
             m_camera.ReleaseCapture(m_viewport->Mouse());
         }
-        (void)UpdateViewportTools(viewportActive); // picking lives inside the select tool now
+        (void)UpdateViewportTools(viewportActive, dt); // picking lives inside the select tool now
         if (m_propAnimPanel)
         {
             // Advances editor playback + gates preview to EDIT (no preview/playback under Simulate).
@@ -712,13 +716,14 @@ namespace editor
         return true;
     }
 
-    bool SceneEditorPage::UpdateViewportTools(bool viewportActive)
+    bool SceneEditorPage::UpdateViewportTools(bool viewportActive, f32 deltaSeconds)
     {
         if (m_selectTool == nullptr)
         {
             return false;
         }
         ViewportToolInput in;
+        in.deltaSeconds = deltaSeconds;
         in.cameraPosition = m_camera.position;
         in.cameraForward = m_camera.Forward();
         in.fovY = kFovY;
@@ -1013,6 +1018,10 @@ namespace editor
         m_scene->Start();
         m_scene->SetSimulationEnabled(true);
         Commands().SetLocked(true);
+        // Modal edit tools (terrain sculpt) share runtime state with the simulation (the collider):
+        // drop back to the default select tool for the duration, and sync the palette toggles.
+        m_viewportTools.ActivateDefault();
+        SyncToolbar();
         m_isSimulating = true;
         m_isPaused = false;
         RefreshSimToolbar();

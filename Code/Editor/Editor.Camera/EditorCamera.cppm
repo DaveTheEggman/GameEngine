@@ -101,7 +101,10 @@ export namespace editor
         }
 
         // Apply this frame's input from explicit (gated) devices.
-        void Update(foundation::shell::IKeyboard* kb, foundation::shell::IMouse* mouse, f32 dt)
+        /// `allowZoom` is false while a modal viewport tool owns the wheel (terrain sculpt resizes
+        /// its brush): the first-consumer rule keeps the wheel from ALSO dollying the camera.
+        void Update(foundation::shell::IKeyboard* kb, foundation::shell::IMouse* mouse, f32 dt,
+                    bool allowZoom = true)
         {
             namespace shell = foundation::shell;
             if (kb == nullptr)
@@ -147,7 +150,7 @@ export namespace editor
                         position - Right() * (mouse->DeltaX() * s) + Up() * (mouse->DeltaY() * s);
                 }
 
-                const f32 scroll = mouse->ScrollY();
+                const f32 scroll = allowZoom ? mouse->ScrollY() : 0.0f;
                 if (scroll != 0.0f)
                 {
                     // Exponential dolly toward the orbit pivot: the step scales with the

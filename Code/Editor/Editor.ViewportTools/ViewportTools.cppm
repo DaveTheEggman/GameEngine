@@ -24,7 +24,7 @@ import foundation.core;
 import foundation.scene;
 import foundation.render;
 import foundation.shell;
-import editor.core;
+import editor.core; // IAssetEditSink (the asset-edit persistence transport), EditorCommandStack
 
 using namespace foundation::core;
 namespace core = foundation::core;
@@ -66,7 +66,8 @@ export namespace editor
         bool leftReleased = false;
         bool ctrl = false;
         bool shift = false;
-        f32 wheelDelta = 0.0f; // vertical scroll this frame (brush resize etc.)
+        f32 wheelDelta = 0.0f;    // vertical scroll this frame (brush resize etc.)
+        f32 deltaSeconds = 0.0f;  // frame time (a continuous brush scales its per-dab delta by this)
 
         /// True while edits are refused (Simulate mode): tools may still hover/inspect and the
         /// host still picks selection, but no tool may open a command or mutate anything.
@@ -157,6 +158,12 @@ export namespace editor
         foundation::scene::Scene* scene = nullptr;
         EditorCommandStack* commands = nullptr;
         Selection<Guid>* entitySelection = nullptr;
+
+        /// Persist-a-live-asset-edit transport (domain-free): a tool that edits a cooked product live
+        /// registers a closure that writes the edit back to its SOURCE asset; the editor save flow
+        /// drains it, handing the closure the source DB (see EditorContext::DrainAssetEdits). Borrowed
+        /// (the sink outlives every tool); null in hosts/tests that do not support asset persistence.
+        IAssetEditSink* assetEdits = nullptr;
     };
 
     /// A domain editor lib's tool contribution ("Editor.Terrain adds sculpt + splat"). Static

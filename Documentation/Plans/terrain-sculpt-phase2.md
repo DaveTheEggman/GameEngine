@@ -174,3 +174,62 @@ recorded in this doc.
 
 Build the tool, the factory id-stamping, the persistence, and the
 region-delta undo in one pass on this.
+
+---
+
+## IMPLEMENTATION LANDED (2026-08-24, Opus)
+
+Built in one pass per the final ruling; green on clang + gcc (DEBUG),
+32 assertions across 3 new headless gesture tests + the existing suites.
+
+**Seam 2 (guid resolution) - as ruled.** `TerrainFactory` stamps every
+sub-ref's source id after `SetProxy` (heightfield/splatmap/layer albedo);
+pipeline test asserts the round-trip. The sculpt tool resolves the
+heightfield asset guid from `TerrainComponent.terrain.id ->
+TerrainResource.heightfield.id`; a nil id = edit-live-only (no persist
+registered). No reverse lookup anywhere.
+
+**Seam 1 (persistence) - refined transport.** The ruling's
+`registerAssetEdit` as a move-only `Function` field on
+`ViewportToolHostContext` could NOT survive: a provider's `CreateTools`
+gets the host context by `const&` and the context is a page-local
+temporary, so a tool cannot copy a move-only closure out of it. Replaced
+with a borrowed sink interface: `editor::IAssetEditSink` (in editor.core;
+`EditorContext` implements it), and `ViewportToolHostContext.assetEdits`
+is an `IAssetEditSink*` (copyable, stable - the context outlives every
+tool). Same domain-free property, same one-path provider registration.
+The Editor.Terrain closure serializes the runtime `Heightfield` ->
+`HeightfieldSource` + "heights" sidecar through the passed DB; drained by
+`EditorContext::DrainAssetEdits`, hooked into
+`EditorApplication::SaveActivePage` (context-wide, so any Save flushes).
+
+**Region-delta undo - one command per stroke.** `SculptStrokeCommand`
+snapshots the full grid at press (union region unknown until release),
+then slices before/after blocks over the touched rect at release. Execute
+= write-after (no-op on push, replay on redo), Undo = write-before; both
+BumpVersion so the GPU height texture re-uploads. Persist closure captures
+a RefPtr to the live grid, so undo/redo before a Save persist the correct
+current state.
+
+**Brush.** Modes Raise/Lower/Smooth/Flatten (keys 1-4 + `SetMode` for the
+future panel), wheel = multiplicative radius, Ctrl+click = pick flatten
+target, cosine falloff (from `foundation.heightfield`'s brush core).
+Continuous strength scales by `ViewportToolInput.deltaSeconds` (new field;
+gizmo ignores it) so buildup is frame-rate independent; a zero-dt click
+still deposits one dab. Two-ring debug-draw cursor oriented to the surface
+normal.
+
+**First-consumer hardening (findings).**
+- Wheel precedence: `EditorCamera::Update` gained `allowZoom`; the
+  ScenePage passes false whenever a non-default viewport tool is active,
+  so the wheel resizes the brush without also dollying the camera.
+- Simulate: rather than making `IsAvailable()` depend on Simulate (the
+  predicate has no per-frame input), `StartSimulation` calls
+  `ActivateDefault()` + `SyncToolbar()` so the modal tool drops to Select
+  for the run; the tool ALSO hard-refuses edits when
+  `input.editingLocked` (belt-and-suspenders for the shared collider).
+- `IsAvailable()` = a `TerrainComponent` present whose heightfield
+  resolves; the manager falls back to Select when a terrain is deleted
+  mid-session (covered by the ViewportTools availability test).
+- Palette: the existing `Count() > 1` toggle path surfaces the tool with
+  zero page changes; SelectTool byte-identical.

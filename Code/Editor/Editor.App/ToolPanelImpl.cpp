@@ -57,7 +57,7 @@ namespace editor
                                                  ViewportToolHostContext context,
                                                  Function<void(foundation::ui::View*)> mount,
                                                  Function<void()> clear)
-        : m_tools(&tools), m_registry(&registry), m_context(context), m_mount(Move(mount)),
+        : m_tools(&tools), m_registry(&registry), m_context(Move(context)), m_mount(Move(mount)),
           m_clear(Move(clear))
     {
     }

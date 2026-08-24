@@ -634,6 +634,27 @@ namespace editor::app
         {
             m_context.Notify(editor::NoticeKind::Error, u8"Save FAILED (see Console).");
         }
+        FlushPendingAssetEdits();
+    }
+
+    void EditorApplication::FlushPendingAssetEdits()
+    {
+        // Live edits to cooked products (terrain sculpt writes the runtime Heightfield in place)
+        // are registered on the context by their viewport tool; a save writes them back to their
+        // SOURCE assets + recooks (see EditorContext::RegisterAssetEdit/DrainAssetEdits). This is
+        // context-wide, not page-specific: any Save flushes whatever a tool has queued.
+        if (!m_project || !m_context.HasPendingAssetEdits())
+        {
+            return;
+        }
+        if (m_context.DrainAssetEdits(m_project->SourceDb()).IsOk())
+        {
+            m_context.Notify(editor::NoticeKind::Success, u8"Persisted live asset edits.");
+        }
+        else
+        {
+            m_context.Notify(editor::NoticeKind::Error, u8"Asset-edit persist FAILED (see Console).");
+        }
     }
 
     void EditorApplication::ClosePage(UIEditorPage* page)
