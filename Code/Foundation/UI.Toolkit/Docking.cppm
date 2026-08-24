@@ -48,7 +48,10 @@ export namespace foundation::ui::toolkit
     class DockManager;
 
     // ============================================================================================
-    // DockDragPreview - adorner visual that looks like a mini dockable window.
+    // DockDragPreview - adorner visual shaped like the dock tab being dragged (title chip). The
+    // drop OUTCOME is shown by the zone indicator's preview rect, so the adorner stays a compact
+    // cursor-anchored label instead of a mini window (PaperKid feedback: the old 200x120 mini
+    // window read as a stray icon).
     // ============================================================================================
     class DockDragPreview : public View
     {
@@ -58,21 +61,17 @@ export namespace foundation::ui::toolkit
 
         void OnDraw(UIDrawContext& ctx) override
         {
-            const f32 headerH = 24.0f;
-
             const Color borderColor =
                 ResolveStyleColor(StyleProperty::BorderColor, Rgb(65, 70, 85, 255));
-            const Color contentBg =
-                ResolveStyleColor(StyleProperty::Background, Rgb(42, 44, 54, 255));
-            ctx.VG().FillRoundedRect(Rectangle{0, 0, Width(), Height()}, 4, contentBg);
+            const Color accent =
+                ResolveStyleColor(StyleProperty::AccentColor, Rgb(80, 150, 240, 255));
+            const Color chipBg = ResolveStyleColor(StyleProperty::Background, Rgb(42, 44, 54, 255));
 
-            // Header derives from the resolved body (same direction as the panel header).
-            const Color headerBg = Palette::Darken(contentBg, 0.08f);
-            ctx.VG().FillRoundedRect(Rectangle{0, 0, Width(), headerH}, 4, headerBg);
-            // Square off header bottom corners.
-            ctx.VG().FillRect(Rectangle{0, headerH - 4, Width(), 4}, headerBg);
+            ctx.VG().FillRoundedRect(Rectangle{0, 0, Width(), Height()}, 4, chipBg);
+            // Accent underline: reads as "this is a tab in flight".
+            ctx.VG().FillRect(Rectangle{2, Height() - 2, Width() - 4, 2},
+                              Color{accent.r, accent.g, accent.b, 0.9f});
 
-            // Title text.
             if (ctx.FontService() != nullptr)
             {
                 fonts::CachedFont* font = ctx.FontService()->GetFont(11.0f);
@@ -80,13 +79,12 @@ export namespace foundation::ui::toolkit
                 {
                     const Color textColor =
                         ResolveStyleColor(StyleProperty::TextColor, Rgb(220, 225, 235, 255));
-                    ctx.VG().DrawText(m_title, font, Rectangle{8, 0, Width() - 16, headerH},
+                    ctx.VG().DrawText(m_title, font, Rectangle{10, 0, Width() - 20, Height()},
                                       fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle,
                                       textColor);
                 }
             }
 
-            // Border outline.
             ctx.VG().StrokeRoundedRect(Rectangle{0, 0, Width(), Height()}, 4, borderColor, 1);
         }
 
@@ -104,8 +102,8 @@ export namespace foundation::ui::toolkit
         }
 
         String m_title;
-        f32 m_previewWidth = 200;
-        f32 m_previewHeight = 120;
+        f32 m_previewWidth = 160;
+        f32 m_previewHeight = 26;
     };
 
     // ============================================================================================
@@ -186,6 +184,11 @@ export namespace foundation::ui::toolkit
         [[nodiscard]] bool Closable() const { return m_closable; }
         void SetClosable(bool value) { m_closable = value; }
 
+        /// True when this panel is hosted in an OS-chromed dockable window (the OS provides the
+        /// close button, so the header's own X is suppressed; the header itself stays - it is the
+        /// re-dock drag handle). Out-of-line: needs DockableWindow complete.
+        [[nodiscard]] bool InChromedOSWindow() const;
+
         /// Whether to show the panel's own header bar (false when inside a DockTabGroup).
         [[nodiscard]] bool ShowHeader() const { return m_showHeader; }
         void SetShowHeader(bool value)
@@ -253,8 +256,8 @@ export namespace foundation::ui::toolkit
                     }
                 }
 
-                // Close button (X).
-                if (m_closable)
+                // Close button (X). Suppressed in an OS-chromed window - the OS provides one.
+                if (m_closable && !InChromedOSWindow())
                 {
                     const f32 cx = w - 14;
                     const f32 cy = HeaderHeight * 0.5f;
@@ -308,8 +311,9 @@ export namespace foundation::ui::toolkit
 
             if (m_showHeader)
             {
-                // Close button hit-test.
-                if (m_closable && e.X >= Width() - 22 && e.Y <= HeaderHeight)
+                // Close button hit-test (absent in an OS-chromed window).
+                if (m_closable && !InChromedOSWindow() && e.X >= Width() - 22 &&
+                    e.Y <= HeaderHeight)
                 {
                     RequestClose();
                     e.Handled = true;
@@ -430,6 +434,11 @@ export namespace foundation::ui::toolkit
         RTTI_OBJECT(DockableWindow, ViewGroup)
     public:
         bool IsOSWindow = false;
+        /// True when the hosting OS window carries native chrome (title bar / close / resize
+        /// borders). The OS then owns move/resize/close: inner resize-edge zones are disabled,
+        /// the panel's close X is suppressed, and a header drag re-docks without the window
+        /// chasing the cursor. Set by DockManager from IDockableWindowHost::UsesOSChrome().
+        bool HasOSChrome = false;
         IDockableWindowHost* WindowHost = nullptr;
 
         Event<void(DockableWindow*)> OnDockRequested;
@@ -501,8 +510,9 @@ export namespace foundation::ui::toolkit
                 return;
             }
 
-            // Edge/corner resize.
-            const ResizeEdge edge = HitTestEdge(e.X, e.Y);
+            // Edge/corner resize (skipped under OS chrome - the OS border resizes).
+            const ResizeEdge edge =
+                (IsOSWindow && HasOSChrome) ? ResizeEdge::None : HitTestEdge(e.X, e.Y);
             if (edge != ResizeEdge::None)
             {
                 m_resizing = true;
@@ -638,8 +648,9 @@ export namespace foundation::ui::toolkit
                 return;
             }
 
-            // Update cursor based on edge proximity.
-            const ResizeEdge edge = HitTestEdge(e.X, e.Y);
+            // Update cursor based on edge proximity (no inner edges under OS chrome).
+            const ResizeEdge edge =
+                (IsOSWindow && HasOSChrome) ? ResizeEdge::None : HitTestEdge(e.X, e.Y);
             Cursor = EdgeToCursor(edge);
         }
 
@@ -685,8 +696,9 @@ export namespace foundation::ui::toolkit
                 return this;
             }
 
-            // Intercept edge zones for resize.
-            if (HitTestEdge(localPoint.x, localPoint.y) != ResizeEdge::None)
+            // Intercept edge zones for resize (not under OS chrome - the OS border resizes).
+            if (!(IsOSWindow && HasOSChrome) &&
+                HitTestEdge(localPoint.x, localPoint.y) != ResizeEdge::None)
             {
                 return this;
             }
@@ -825,13 +837,25 @@ export namespace foundation::ui::toolkit
     };
 
     // --- DockablePanel members that need DockableWindow complete -------------------------------
+    inline bool DockablePanel::InChromedOSWindow() const
+    {
+        const auto* fw = Cast<DockableWindow>(Parent);
+        return fw != nullptr && fw->IsOSWindow && fw->HasOSChrome;
+    }
+
     inline RefPtr<View> DockablePanel::CreateDragVisual(DragData* data)
     {
         (void)data;
-        // If dragging from a dockable window, suppress the adorner (we'll move the window instead).
-        if (Cast<DockableWindow>(Parent) != nullptr)
+        // If dragging from a dockable window that FOLLOWS the cursor (borderless OS window via
+        // the app's drag-follow, or a virtual PopupLayer window moved in OnDragOver), the window
+        // itself is the drag visual - suppress the adorner. Under OS chrome the window stays put
+        // during a re-dock drag, so the adorner IS the in-flight visual.
+        if (const auto* fw = Cast<DockableWindow>(Parent))
         {
-            return RefPtr<View>{};
+            if (!(fw->IsOSWindow && fw->HasOSChrome))
+            {
+                return RefPtr<View>{};
+            }
         }
 
         RefPtr<DockDragPreview> preview = MakeRef<DockDragPreview>(DefaultAllocator());
@@ -865,8 +889,17 @@ export namespace foundation::ui::toolkit
                         panelData->DragOffsetX = ddm->LastScreenX() - windowPos.x;
                         panelData->DragOffsetY = ddm->LastScreenY() - windowPos.y;
                     }
-                    ddm->AdornerOffsetX = 0;
-                    ddm->AdornerOffsetY = 0;
+                    if (fw->IsOSWindow && fw->HasOSChrome)
+                    {
+                        // Window stays put; the tab-chip adorner rides the cursor instead.
+                        ddm->AdornerOffsetX = -30.0f;
+                        ddm->AdornerOffsetY = -12.0f;
+                    }
+                    else
+                    {
+                        ddm->AdornerOffsetX = 0;
+                        ddm->AdornerOffsetY = 0;
+                    }
                 }
                 return;
             }
@@ -1633,13 +1666,24 @@ export namespace foundation::ui::toolkit
             if (useOSWindow)
             {
                 dockable->IsOSWindow = true;
+                dockable->HasOSChrome = DockableWindowHost->UsesOSChrome();
+                // OS close button routes through the panel's RequestClose so the close
+                // interceptor (dirty-page veto) applies; a panel-less window closes directly.
                 DockableWindowHost->CreateDockableWindow(dockable.Get(), floatW, floatH, x, y,
                                                          [this](View* view)
                                                          {
                                                              if (auto* fw =
                                                                      Cast<DockableWindow>(view))
                                                              {
-                                                                 CloseDockableWindow(fw);
+                                                                 if (DockablePanel* p =
+                                                                         fw->Panel())
+                                                                 {
+                                                                     p->RequestClose();
+                                                                 }
+                                                                 else
+                                                                 {
+                                                                     CloseDockableWindow(fw);
+                                                                 }
                                                              }
                                                          });
             }
@@ -2490,6 +2534,29 @@ export namespace foundation::ui::toolkit
 
         // === Zone indicators ===
 
+        /// The region a panel would occupy after docking at `position` within `bounds` (splits
+        /// insert at the default 0.5 ratio; Center joins the target as a tab, occupying it all).
+        [[nodiscard]] static Rectangle DropPreviewRect(DockPosition position, Rectangle bounds)
+        {
+            switch (position)
+            {
+            case DockPosition::Top:
+                return Rectangle{bounds.x, bounds.y, bounds.width, bounds.height * 0.5f};
+            case DockPosition::Bottom:
+                return Rectangle{bounds.x, bounds.y + bounds.height * 0.5f, bounds.width,
+                                 bounds.height * 0.5f};
+            case DockPosition::Left:
+                return Rectangle{bounds.x, bounds.y, bounds.width * 0.5f, bounds.height};
+            case DockPosition::Right:
+                return Rectangle{bounds.x + bounds.width * 0.5f, bounds.y, bounds.width * 0.5f,
+                                 bounds.height};
+            case DockPosition::Center:
+            case DockPosition::Float:
+                return bounds;
+            }
+            return bounds;
+        }
+
         void ShowZoneIndicators(f32 cursorX, f32 cursorY)
         {
             m_zoneIndicator->ClearTargets();
@@ -2502,28 +2569,31 @@ export namespace foundation::ui::toolkit
                 m_zoneIndicator->AddTarget(
                     DockPosition::Center,
                     Rectangle{cx - zoneSize * 0.5f, cy - zoneSize * 0.5f, zoneSize, zoneSize},
-                    nullptr);
+                    nullptr, Rectangle{0, 0, Width(), Height()});
             }
             else
             {
                 const f32 cx = Width() * 0.5f;
                 const f32 cy = Height() * 0.5f;
+                const Rectangle rootRect{0, 0, Width(), Height()};
 
                 // Root-level edge zones.
                 m_zoneIndicator->AddTarget(DockPosition::Top,
                                            Rectangle{cx - zoneSize * 0.5f, 8, zoneSize, zoneSize},
-                                           m_rootNode);
+                                           m_rootNode,
+                                           DropPreviewRect(DockPosition::Top, rootRect));
                 m_zoneIndicator->AddTarget(
                     DockPosition::Bottom,
                     Rectangle{cx - zoneSize * 0.5f, Height() - zoneSize - 8, zoneSize, zoneSize},
-                    m_rootNode);
+                    m_rootNode, DropPreviewRect(DockPosition::Bottom, rootRect));
                 m_zoneIndicator->AddTarget(DockPosition::Left,
                                            Rectangle{8, cy - zoneSize * 0.5f, zoneSize, zoneSize},
-                                           m_rootNode);
+                                           m_rootNode,
+                                           DropPreviewRect(DockPosition::Left, rootRect));
                 m_zoneIndicator->AddTarget(
                     DockPosition::Right,
                     Rectangle{Width() - zoneSize - 8, cy - zoneSize * 0.5f, zoneSize, zoneSize},
-                    m_rootNode);
+                    m_rootNode, DropPreviewRect(DockPosition::Right, rootRect));
 
                 // Walk tree to find hovered leaf node and add its zones.
                 View* hoveredNode = FindHoveredDockNode(m_rootNode, cursorX, cursorY);
@@ -2540,29 +2610,34 @@ export namespace foundation::ui::toolkit
                                                    Rectangle{ncx - smallZone * 0.5f,
                                                              ncy - smallZone * 0.5f, smallZone,
                                                              smallZone},
-                                                   hoveredNode);
+                                                   hoveredNode,
+                                                   DropPreviewRect(DockPosition::Center, bounds));
 
                         const f32 edgeOffset = smallZone + 4;
                         m_zoneIndicator->AddTarget(DockPosition::Top,
                                                    Rectangle{ncx - smallZone * 0.5f,
                                                              ncy - edgeOffset - smallZone * 0.5f,
                                                              smallZone, smallZone},
-                                                   hoveredNode);
+                                                   hoveredNode,
+                                                   DropPreviewRect(DockPosition::Top, bounds));
                         m_zoneIndicator->AddTarget(DockPosition::Bottom,
                                                    Rectangle{ncx - smallZone * 0.5f,
                                                              ncy + edgeOffset - smallZone * 0.5f,
                                                              smallZone, smallZone},
-                                                   hoveredNode);
+                                                   hoveredNode,
+                                                   DropPreviewRect(DockPosition::Bottom, bounds));
                         m_zoneIndicator->AddTarget(DockPosition::Left,
                                                    Rectangle{ncx - edgeOffset - smallZone * 0.5f,
                                                              ncy - smallZone * 0.5f, smallZone,
                                                              smallZone},
-                                                   hoveredNode);
+                                                   hoveredNode,
+                                                   DropPreviewRect(DockPosition::Left, bounds));
                         m_zoneIndicator->AddTarget(DockPosition::Right,
                                                    Rectangle{ncx + edgeOffset - smallZone * 0.5f,
                                                              ncy - smallZone * 0.5f, smallZone,
                                                              smallZone},
-                                                   hoveredNode);
+                                                   hoveredNode,
+                                                   DropPreviewRect(DockPosition::Right, bounds));
                     }
                 }
             }

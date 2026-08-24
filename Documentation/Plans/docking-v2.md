@@ -1,8 +1,9 @@
 # Docking v2 - floating windows, previews, and the Linux chrome ruling
 
-**Status:** DIRECTION SET (user + Fable, 2026-08-24), from PaperKid editor-use
-feedback. The stuck-drag WATCHDOG shipped with this doc; the rest is scheduled
-work, not started.
+**Status:** BUILT (Fable, 2026-08-24). The stuck-drag watchdog, the Linux
+OS-chrome flip, the zone-hover drop preview, and the tab-chip drag visual are
+all SHIPPED; remaining open items are listed at the bottom. Direction set by
+the user from PaperKid editor-use feedback.
 
 ## The problems (user, PaperKid dogfooding)
 
@@ -39,29 +40,45 @@ default, overridable by a settings flag later if anyone asks. The OS then owns
 move/resize/snap/cross-monitor, which structurally retires the app-driven-drag
 failure class on Linux.
 
-### What the chromed mode requires (the work item)
+### What the chromed mode does (SHIPPED)
 
-- **Panel chrome suppression**: DockablePanel hides its own title bar when its
-  host window is OS-chromed (double title bars otherwise); the panel TITLE
-  propagates to `WindowSettings.title` (today every float is titled "Panel").
-- **Close routing**: the OS close button must reach `onCloseRequested` - the
-  shell needs a per-window close-requested event (only the MAIN window has one
-  today).
-- **Re-dock gesture**: with the OS moving the window, re-docking cannot ride
-  the app-drag path. Two affordances: (a) dragging the panel's TAB (already an
-  in-window drag through the drag-drop system - works unchanged) re-docks; (b)
-  OS window-move events show the dock zones when a dragged float overlaps the
-  main window - investigate Wayland's position semantics during interactive
-  moves before promising (b); (a) alone is acceptable v1.
-- The app-driven move path (borderless mode) stays for Windows - unchanged.
+- **Policy**: `IDockableWindowHost::UsesOSChrome()` (default false);
+  `RuntimeDockableWindowHost` resolves it from the main window's
+  `WindowSystem` via `PrefersOSChromedDockables` (X11/Wayland -> true,
+  everything else false; `SetOSChromeOverride` for tests / a future setting).
+  `DockManager::FloatPanel` stamps `DockableWindow::HasOSChrome` from it.
+- **Title propagation**: the float's `WindowSettings.title` = the panel title
+  (was a literal "Panel" on every window).
+- **Panel header STAYS as the re-dock handle** (deliberate divergence from the
+  original "suppress the header" sketch): with the header gone there is no
+  in-window drag source, and OS-window-move re-dock is not feasible on Wayland
+  (the compositor holds the pointer grab - our main window sees nothing during
+  an OS move). So the header remains - drag it over the main window to re-dock,
+  double-click it to re-dock in place - but its close X is suppressed (the OS
+  close button owns closing) and the inner resize-edge zones are disabled (the
+  OS border resizes).
+- **No cursor-chasing**: under chrome, `RuntimeDockableWindowHost::Tick` skips
+  the drag-follow entirely - during a re-dock drag the float stays where the OS
+  put it, and the tab-chip adorner + zone drop-preview show the in-flight
+  state. This retires the app-driven-move failure class (the Wayland one) on
+  Linux structurally.
+- **Close routing**: the shell already posts per-window
+  `WindowEventType::CloseRequested`; `RuntimeDockableWindowHost::Tick` now
+  dispatches those to the matching entry's `onCloseRequested`, and the toolkit
+  routes it through `DockablePanel::RequestClose` - so the dirty-page close
+  INTERCEPTOR applies to the OS close button exactly like the drawn X.
+- The app-driven move path (borderless mode) is unchanged for Windows.
 
-## Drop/drag preview improvements (all platforms)
+## Drop/drag preview improvements (all platforms, SHIPPED)
 
-- **Zone-hover dock preview**: hovering a DockZoneIndicator shows a translucent
-  RECT overlay of the would-be dock area (the standard docking UX everywhere) -
-  the missing piece the user called out.
-- **A real drag visual**: replace the small icon with a tab-shaped preview
-  carrying the panel title (sized like the tab, anchored at the cursor).
+- **Zone-hover dock preview**: `DockTarget` carries a `PreviewRect` (the region
+  the panel would occupy - halves for edge splits at the 0.5 default ratio, the
+  full node for Center/tab); the indicator draws the hovered target's rect as a
+  translucent accent overlay under the zone chips.
+- **Tab-chip drag visual**: `DockDragPreview` is now a compact 160x26
+  cursor-anchored title chip with an accent underline (was a 200x120 mini
+  window that read as a stray icon). Under OS chrome it also serves as the
+  in-flight visual for float re-dock drags (the window no longer follows).
 
 ## Stuck drag - watchdog SHIPPED with this doc
 
@@ -86,10 +103,19 @@ present/acquire behavior when the primary is occluded, and the UIHost
 single-window input/update routing starving the float's layout. Needs a live
 session; keep it paired with the weekly's existing entry.
 
-## Sequencing
+## Remaining open
 
-The watchdog is in. Everything else is one editor-polish work item (chrome
-flip + close routing + panel title + zone-rect preview + drag visual + the
-render investigation), scheduled via the weekly - it should NOT ride the
-terrain track. The re-dock-via-tab affordance keeps v1 honest if Wayland move
-events prove unhelpful.
+- **Secondary-window viewport render** (the investigation above) - needs a
+  live session.
+- **User visual verification** of the chromed flow on Wayland: float a panel
+  (OS title bar + working close/resize/snap), re-dock via header drag (chip +
+  drop preview, window stays put) and via header double-click, dirty-page veto
+  on the OS close button.
+- Optional later: dock-zone hints from OS window-move events where the
+  platform reports positions during interactive moves (not Wayland); a user
+  setting over `SetOSChromeOverride` if anyone wants borderless floats on
+  Linux back.
+
+Coverage: UI.Toolkit.Tests (chrome propagation + adorner/resize behavior, OS
+close veto routing, preview rects) + the new UI.Application.Tests (platform
+policy mapping).

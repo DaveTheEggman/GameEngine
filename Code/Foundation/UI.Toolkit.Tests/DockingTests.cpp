@@ -394,3 +394,152 @@ TEST_CASE("docking: close interceptor vetoes gestures but not direct closes")
     CHECK(asked == 2);
     CHECK(closed == 2);
 }
+
+// === docking-v2: OS-chromed float windows + drop previews ===
+
+namespace
+{
+    // Headless IDockableWindowHost: owns created window views (the real host parents them into a
+    // RootView) and records the close callbacks so tests can simulate the OS close button.
+    class FakeWindowHost : public IDockableWindowHost
+    {
+    public:
+        bool Chrome = false;
+        Array<RefPtr<View>> Created;
+        Function<void(View*)> LastOnClose;
+        i32 Destroyed = 0;
+
+        bool SupportsOSWindows() override { return true; }
+        bool UsesOSChrome() override { return Chrome; }
+        void CreateDockableWindow(View* view, f32, f32, f32, f32,
+                                  Function<void(View*)> onCloseRequested) override
+        {
+            Created.PushBack(RefPtr<View>(view));
+            LastOnClose = Move(onCloseRequested);
+        }
+        void DestroyDockableWindow(View*) override { ++Destroyed; }
+        void MoveDockableWindow(View*, f32, f32) override {}
+        void ResizeDockableWindow(View*, f32, f32, f32, f32) override {}
+        bool TryGetDockableWindowBounds(View*, f32& x, f32& y, f32& width, f32& height) override
+        {
+            x = 0;
+            y = 0;
+            width = 300;
+            height = 250;
+            return true;
+        }
+        void GetGlobalMousePosition(f32& globalX, f32& globalY) override
+        {
+            globalX = 0;
+            globalY = 0;
+        }
+    };
+}
+
+// The host's chrome policy propagates to the float window and flips the panel/adorner behavior:
+// chromed = OS owns close/resize, the panel hides its X, and a re-dock drag shows the tab-chip
+// adorner (the window stays put); borderless = the window itself follows the drag, no adorner.
+TEST_CASE("docking: float window inherits host chrome policy")
+{
+    const bool chromeModes[] = {true, false};
+    for (const bool chrome : chromeModes)
+    {
+        UIContext ctx;
+        auto root = MakeRef<RootView>(DefaultAllocator());
+        root->ViewportSize = Float2{800, 600};
+        ctx.AddRootView(root.Get());
+
+        auto dm = MakeRef<DockManager>(DefaultAllocator());
+        root->AddView(dm.Get());
+        FakeWindowHost host;
+        host.Chrome = chrome;
+        dm->DockableWindowHost = &host;
+
+        DockablePanel* panel = dm->AddPanel(StringView(u8"Scene"), MakeLabel(u8"C").Get());
+        dm->FloatPanel(panel, 10, 10);
+
+        REQUIRE(host.Created.Size() == 1);
+        auto* fw = Cast<DockableWindow>(host.Created[0].Get());
+        REQUIRE(fw != nullptr);
+        CHECK(fw->IsOSWindow);
+        CHECK(fw->HasOSChrome == chrome);
+        CHECK(panel->InChromedOSWindow() == chrome);
+
+        // Chromed: adorner rides the cursor (window stays put). Borderless: window follows,
+        // adorner suppressed.
+        RefPtr<View> visual = panel->CreateDragVisual(nullptr);
+        CHECK((visual.Get() != nullptr) == chrome);
+
+        // Chromed: inner resize edges are the OS's job - edge hit-tests fall through to content.
+        fw->Measure(BoxConstraints::Tight(300, 250));
+        fw->Layout(0, 0, 300, 250);
+        View* edgeHit = fw->HitTest(Float2{2, 125});
+        if (chrome)
+        {
+            CHECK(edgeHit != fw);
+        }
+        else
+        {
+            CHECK(edgeHit == fw);
+        }
+    }
+}
+
+// The OS close button (host onCloseRequested) routes through the panel's RequestClose, so the
+// close interceptor (dirty-page veto) applies to chromed windows exactly like the drawn X.
+TEST_CASE("docking: OS close request respects the panel close interceptor")
+{
+    UIContext ctx;
+    auto root = MakeRef<RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    ctx.AddRootView(root.Get());
+
+    auto dm = MakeRef<DockManager>(DefaultAllocator());
+    root->AddView(dm.Get());
+    FakeWindowHost host;
+    host.Chrome = true;
+    dm->DockableWindowHost = &host;
+
+    DockablePanel* panel = dm->AddPanel(StringView(u8"Doc"), MakeLabel(u8"C").Get());
+    panel->SetPersistenceId(StringView(u8"doc"));
+    bool allow = false;
+    i32 asked = 0;
+    panel->OnCloseInterceptor = [&](DockablePanel*)
+    {
+        ++asked;
+        return allow;
+    };
+
+    dm->FloatPanel(panel, 10, 10);
+    REQUIRE(host.LastOnClose);
+
+    host.LastOnClose(host.Created[0].Get()); // vetoed: float survives
+    CHECK(asked == 1);
+    CHECK(host.Destroyed == 0);
+    CHECK(dm->FindPanelById(StringView(u8"doc")) == panel);
+
+    allow = true;
+    host.LastOnClose(host.Created[0].Get()); // allowed: panel closes, window torn down
+    CHECK(asked == 2);
+    CHECK(host.Destroyed == 1);
+    CHECK(dm->FindPanelById(StringView(u8"doc")) == nullptr);
+}
+
+// Zone targets carry the would-be dock region; hovering exposes it for the drop-preview overlay.
+TEST_CASE("docking: zone indicator carries drop preview rect")
+{
+    auto indicator = MakeRef<DockZoneIndicator>(DefaultAllocator());
+    indicator->AddTarget(DockPosition::Left, Rectangle{8, 180, 40, 40}, nullptr,
+                         Rectangle{0, 0, 400, 600});
+    indicator->AddTarget(DockPosition::Right, Rectangle{752, 180, 40, 40}, nullptr);
+
+    indicator->UpdateHover(20, 200);
+    REQUIRE(indicator->HoveredTarget().HasValue());
+    const DockTarget left = indicator->HoveredTarget().Value();
+    CHECK(left.PreviewRect.width == 400);
+    CHECK(left.PreviewRect.height == 600);
+
+    indicator->UpdateHover(760, 200); // legacy AddTarget: zero-area preview (no overlay)
+    REQUIRE(indicator->HoveredTarget().HasValue());
+    CHECK(indicator->HoveredTarget().Value().PreviewRect.width == 0);
+}

@@ -26,6 +26,10 @@ export namespace foundation::ui::toolkit
         DockPosition Position = DockPosition::Center;
         Rectangle Rect{};
         View* RelativeTo = nullptr; // the view this zone docks relative to
+        /// The region the panel would occupy after the drop (DockManager coords). Drawn as a
+        /// translucent overlay while this zone is hovered so the drop outcome is visible before
+        /// committing. Zero-area = no preview.
+        Rectangle PreviewRect{};
     };
 
     /// Overlay that shows dock drop zones during drag operations.
@@ -50,13 +54,16 @@ export namespace foundation::ui::toolkit
             m_hoveredIndex = -1;
         }
 
-        /// Add a dock zone target.
-        void AddTarget(DockPosition position, Rectangle rect, View* relativeTo)
+        /// Add a dock zone target. `previewRect` is the region the panel would occupy after the
+        /// drop (zero-area = no hover preview).
+        void AddTarget(DockPosition position, Rectangle rect, View* relativeTo,
+                       Rectangle previewRect = {})
         {
             DockTarget t;
             t.Position = position;
             t.Rect = rect;
             t.RelativeTo = relativeTo;
+            t.PreviewRect = previewRect;
             m_targets.PushBack(t);
         }
 
@@ -93,6 +100,20 @@ export namespace foundation::ui::toolkit
             const Color zoneBorder = Color{Accent.r, Accent.g, Accent.b, 200.0f / 255.0f};
             const Color hoverColor = Color{zoneColor.r, zoneColor.g, zoneColor.b,
                                            Min(1.0f, zoneColor.a + 60.0f / 255.0f)};
+
+            // Hovered target's drop preview first (under the zone chips): the region the panel
+            // would occupy, so the drop outcome is visible before committing.
+            if (m_hoveredIndex >= 0 && m_hoveredIndex < static_cast<i32>(m_targets.Size()))
+            {
+                const Rectangle pr = m_targets[static_cast<usize>(m_hoveredIndex)].PreviewRect;
+                if (pr.width > 0 && pr.height > 0)
+                {
+                    const Color previewFill = Color{Accent.r, Accent.g, Accent.b, 45.0f / 255.0f};
+                    const Color previewEdge = Color{Accent.r, Accent.g, Accent.b, 180.0f / 255.0f};
+                    ctx.VG().FillRect(pr, previewFill);
+                    ctx.VG().StrokeRect(pr, previewEdge, 2);
+                }
+            }
 
             for (i32 i = 0; i < static_cast<i32>(m_targets.Size()); ++i)
             {

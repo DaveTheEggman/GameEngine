@@ -29,6 +29,15 @@ export namespace foundation::ui::toolkit
         /// Whether this host supports creating real OS windows.
         [[nodiscard]] virtual bool SupportsOSWindows() = 0;
 
+        /// Whether OS windows created by this host carry native chrome (title bar, close button,
+        /// resize borders). False (default) = borderless: the DockablePanel draws its own title
+        /// bar / close button and the app moves/resizes the window. True = the OS owns move /
+        /// resize / close, so the docking layer suppresses its close button and inner resize
+        /// edges, and a drag from the panel header re-docks WITHOUT the window chasing the
+        /// cursor. Linux hosts default to chromed (Wayland punishes app-positioned borderless
+        /// windows; XWayland blocks cross-monitor drags - user ruling, docking-v2.md).
+        [[nodiscard]] virtual bool UsesOSChrome() { return false; }
+
         /// Create a real OS window to host the given dockable window view. `onCloseRequested` is called
         /// when the OS window close button is clicked.
         virtual void CreateDockableWindow(View* dockableWindow, f32 width, f32 height, f32 x, f32 y,
