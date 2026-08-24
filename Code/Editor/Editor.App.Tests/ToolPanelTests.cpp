@@ -43,6 +43,8 @@ namespace
     public:
         FakeProvider(StringView toolId, bool yieldNull = false) : m_id(toolId), m_null(yieldNull) {}
         [[nodiscard]] StringView ToolId() const override { return m_id.AsView(); }
+        [[nodiscard]] ToolPanelPlacement Placement() const override { return placement; }
+        ToolPanelPlacement placement = ToolPanelPlacement::Dock; // the host must forward this to mount
         [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool&,
                                                    const ViewportToolHostContext&) override
         {
@@ -104,12 +106,12 @@ TEST_CASE("tool-panel host: panel appears and disappears with its tool")
     ui::View* lastMounted = nullptr;
     ViewportToolHostContext ctx;
     ViewportToolPanelHost host(tools, registry, Move(ctx),
-                               [&](ui::View* v)
+                               [&](ui::View* v, ToolPanelPlacement)
                                {
                                    ++mounts;
                                    lastMounted = v;
                                },
-                               [&]()
+                               [&](ToolPanelPlacement)
                                {
                                    ++clears;
                                    lastMounted = nullptr;
@@ -154,8 +156,8 @@ TEST_CASE("tool-panel host: unknown / panel-less tool docks nothing")
     int mounts = 0;
     int clears = 0;
     ViewportToolHostContext ctx;
-    ViewportToolPanelHost host(tools, registry, Move(ctx), [&](ui::View*) { ++mounts; },
-                               [&]() { ++clears; });
+    ViewportToolPanelHost host(tools, registry, Move(ctx), [&](ui::View*, ToolPanelPlacement) { ++mounts; },
+                               [&](ToolPanelPlacement) { ++clears; });
 
     CHECK(tools.ActivateById(u8"anim"));
     host.Sync(); // no provider for "anim" -> no panel, no crash
@@ -178,8 +180,8 @@ TEST_CASE("tool-panel host: provider yielding no view mounts nothing")
     int mounts = 0;
     int clears = 0;
     ViewportToolHostContext ctx;
-    ViewportToolPanelHost host(tools, registry, Move(ctx), [&](ui::View*) { ++mounts; },
-                               [&]() { ++clears; });
+    ViewportToolPanelHost host(tools, registry, Move(ctx), [&](ui::View*, ToolPanelPlacement) { ++mounts; },
+                               [&](ToolPanelPlacement) { ++clears; });
 
     CHECK(tools.ActivateById(u8"anim"));
     host.Sync();
@@ -208,8 +210,8 @@ TEST_CASE("tool-panel host: switching between two paneled tools clears then moun
     int mounts = 0;
     int clears = 0;
     ViewportToolHostContext ctx;
-    ViewportToolPanelHost host(tools, registry, Move(ctx), [&](ui::View*) { ++mounts; },
-                               [&]() { ++clears; });
+    ViewportToolPanelHost host(tools, registry, Move(ctx), [&](ui::View*, ToolPanelPlacement) { ++mounts; },
+                               [&](ToolPanelPlacement) { ++clears; });
 
     CHECK(tools.ActivateById(u8"a"));
     host.Sync();
@@ -223,4 +225,35 @@ TEST_CASE("tool-panel host: switching between two paneled tools clears then moun
     CHECK(host.CurrentToolId() == StringView(u8"b"));
     CHECK(panelA.CreateCount == 1);
     CHECK(panelB.CreateCount == 1);
+}
+
+TEST_CASE("tool-panel host: forwards the provider's placement hint to mount + clear")
+{
+    ViewportToolManager tools;
+    AddTool(tools, u8"select");
+    AddTool(tools, u8"anim");
+
+    ViewportToolPanelRegistry registry;
+    FakeProvider animPanel(u8"anim");
+    animPanel.placement = ToolPanelPlacement::ViewportOverlay; // provider wants an overlay
+    registry.Register(&animPanel);
+
+    ToolPanelPlacement mountedAt = ToolPanelPlacement::Dock;
+    ToolPanelPlacement clearedAt = ToolPanelPlacement::Dock;
+    int mounts = 0, clears = 0;
+    ViewportToolHostContext ctx;
+    ViewportToolPanelHost host(tools, registry, Move(ctx),
+                               [&](ui::View*, ToolPanelPlacement p) { ++mounts; mountedAt = p; },
+                               [&](ToolPanelPlacement p) { ++clears; clearedAt = p; });
+
+    CHECK(tools.ActivateById(u8"anim"));
+    host.Sync();
+    CHECK(mounts == 1);
+    CHECK(mountedAt == ToolPanelPlacement::ViewportOverlay); // the hint reached the host's mount
+
+    // Leaving the tool tears down at the SAME placement the panel was mounted to.
+    tools.ActivateDefault();
+    host.Sync();
+    CHECK(clears == 1);
+    CHECK(clearedAt == ToolPanelPlacement::ViewportOverlay);
 }

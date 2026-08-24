@@ -28,6 +28,17 @@ using namespace foundation::core;
 
 export namespace editor
 {
+    /// Where the host should present a tool's panel. A HINT the provider declares; the host's mount
+    /// callback decides how to honor each (and MAY fall back to Dock for one it does not implement).
+    /// The framework stays presentation-agnostic - it only forwards the hint - so a page can host the
+    /// SAME panel in the bottom dock, a floating palette, or a viewport overlay by routing on this.
+    enum class ToolPanelPlacement : u8
+    {
+        Dock,            // a tab/slot in the editor's docked panel area (the default)
+        Float,           // a floating palette near the viewport
+        ViewportOverlay, // a HUD-style overlay drawn inside the viewport
+    };
+
     /// A UI-tier settings panel for a viewport tool "mode". A UI-capable domain editor lib
     /// implements this and registers ONE per tool id; the host mounts the returned view while that
     /// tool is active. Static lifetime (the house rule: explicit registration, never discovery).
@@ -38,6 +49,10 @@ export namespace editor
 
         /// The tool this panel belongs to - matches IViewportTool::Id(). Stable, never localized.
         [[nodiscard]] virtual StringView ToolId() const = 0;
+
+        /// Preferred presentation for this tool's panel (default Dock). The host forwards it to its
+        /// mount callback; a provider overrides to Float/ViewportOverlay to render differently.
+        [[nodiscard]] virtual ToolPanelPlacement Placement() const { return ToolPanelPlacement::Dock; }
 
         /// Build the panel view for one host activation. Receives the ACTIVE tool this panel is for
         /// (a provider downcasts it to its concrete tool - the id matched, so the type is known - to
@@ -80,11 +95,14 @@ export namespace editor
     class ViewportToolPanelHost
     {
     public:
-        /// `mount` receives the freshly built panel view to show; `clear` is asked to remove
-        /// whatever `mount` last showed. Both are invoked only on an active-tool CHANGE.
+        /// `mount` receives the freshly built panel view + the provider's placement hint (so the host
+        /// can route dock/float/overlay); `clear` is asked to remove whatever `mount` last showed, and
+        /// is given that panel's placement so it tears down the RIGHT target. Both fire only on an
+        /// active-tool CHANGE.
         ViewportToolPanelHost(ViewportToolManager& tools, ViewportToolPanelRegistry& registry,
                               ViewportToolHostContext context,
-                              Function<void(foundation::ui::View*)> mount, Function<void()> clear);
+                              Function<void(foundation::ui::View*, ToolPanelPlacement)> mount,
+                              Function<void(ToolPanelPlacement)> clear);
 
         /// Re-mount the panel if the active tool changed since the last call; otherwise a no-op.
         void Sync();
@@ -96,9 +114,11 @@ export namespace editor
         ViewportToolManager* m_tools;
         ViewportToolPanelRegistry* m_registry;
         ViewportToolHostContext m_context;
-        Function<void(foundation::ui::View*)> m_mount;
-        Function<void()> m_clear;
+        Function<void(foundation::ui::View*, ToolPanelPlacement)> m_mount;
+        Function<void(ToolPanelPlacement)> m_clear;
         RefPtr<foundation::ui::View> m_current; // keeps the mounted view alive for its activation
         String m_currentId;                     // the active tool id at the last Sync ("" = none)
+        ToolPanelPlacement m_currentPlacement =
+            ToolPanelPlacement::Dock; // placement of the mounted panel (so clear tears down the right target)
     };
 }

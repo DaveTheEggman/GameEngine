@@ -722,6 +722,37 @@ namespace editor
         return true;
     }
 
+    void SceneEditorPage::MountToolPanel(foundation::ui::View* view, ToolPanelPlacement placement)
+    {
+        // Route by the provider's placement hint. Dock is implemented (the "Brush" bottom-dock tab);
+        // Float / ViewportOverlay are experiment slots - until they have a real presentation they fall
+        // back to the dock, so a provider can opt into them without the panel silently vanishing.
+        switch (placement)
+        {
+        case ToolPanelPlacement::Dock:
+        case ToolPanelPlacement::Float:            // TODO(terrain-ux): floating palette presentation
+        case ToolPanelPlacement::ViewportOverlay:  // TODO(terrain-ux): in-viewport HUD presentation
+        default:
+        {
+            foundation::ui::FlexLayout* slot = m_toolPanelSlot.Get();
+            if (slot == nullptr)
+            {
+                return;
+            }
+            while (slot->ChildCount() > 0)
+            {
+                slot->RemoveView(slot->GetChildAt(0), true);
+            }
+            if (view != nullptr)
+            {
+                slot->AddView(view, MakeRef<foundation::ui::LayoutParams>(DefaultAllocator()));
+                m_bottomDock->ActivateTab(u8"tool"); // reveal the brush settings
+            }
+            break;
+        }
+        }
+    }
+
     bool SceneEditorPage::UpdateViewportTools(bool viewportActive, f32 deltaSeconds)
     {
         if (m_selectTool == nullptr)

@@ -55,8 +55,8 @@ namespace editor
     ViewportToolPanelHost::ViewportToolPanelHost(ViewportToolManager& tools,
                                                  ViewportToolPanelRegistry& registry,
                                                  ViewportToolHostContext context,
-                                                 Function<void(foundation::ui::View*)> mount,
-                                                 Function<void()> clear)
+                                                 Function<void(foundation::ui::View*, ToolPanelPlacement)> mount,
+                                                 Function<void(ToolPanelPlacement)> clear)
         : m_tools(&tools), m_registry(&registry), m_context(Move(context)), m_mount(Move(mount)),
           m_clear(Move(clear))
     {
@@ -76,7 +76,7 @@ namespace editor
         // in its slot at once.
         if (m_current.Get() != nullptr)
         {
-            m_clear();
+            m_clear(m_currentPlacement); // tear down at the placement the old panel was mounted to
             m_current = {};
         }
         m_currentId = String(activeId);
@@ -89,7 +89,8 @@ namespace editor
                 if (panel.Get() != nullptr)
                 {
                     m_current = panel;
-                    m_mount(panel.Get());
+                    m_currentPlacement = provider->Placement();
+                    m_mount(panel.Get(), m_currentPlacement);
                 }
             }
         }

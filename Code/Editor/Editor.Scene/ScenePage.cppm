@@ -266,30 +266,12 @@ export namespace editor
                 panelCtx.assetEdits = &context;
                 m_toolPanelHost = MakeUnique<ViewportToolPanelHost>(
                     DefaultAllocator(), m_viewportTools, ViewportToolPanelRegistry::Get(), panelCtx,
-                    core::Function<void(foundation::ui::View*)>{
-                        [page](foundation::ui::View* view)
-                        {
-                            foundation::ui::FlexLayout* slot = page->m_toolPanelSlot.Get();
-                            while (slot->ChildCount() > 0)
-                            {
-                                slot->RemoveView(slot->GetChildAt(0), true);
-                            }
-                            if (view != nullptr)
-                            {
-                                slot->AddView(view,
-                                              MakeRef<foundation::ui::LayoutParams>(DefaultAllocator()));
-                                page->m_bottomDock->ActivateTab(u8"tool"); // reveal the brush settings
-                            }
-                        }},
-                    core::Function<void()>{[page]()
-                                           {
-                                               foundation::ui::FlexLayout* slot =
-                                                   page->m_toolPanelSlot.Get();
-                                               while (slot->ChildCount() > 0)
-                                               {
-                                                   slot->RemoveView(slot->GetChildAt(0), true);
-                                               }
-                                           }});
+                    core::Function<void(foundation::ui::View*, ToolPanelPlacement)>{
+                        [page](foundation::ui::View* view, ToolPanelPlacement placement)
+                        { page->MountToolPanel(view, placement); }},
+                    core::Function<void(ToolPanelPlacement)>{
+                        [page](ToolPanelPlacement placement)
+                        { page->MountToolPanel(nullptr, placement); }});
             }
 
             // Viewport column: [ viewport (toolbar + 3D) / bottom dock ] as a vertical split. The dock
@@ -457,6 +439,9 @@ export namespace editor
         // mouse (Alt orbit / RMB fly / Tab-captured). Selection picking lives INSIDE the default
         // SelectTransformTool now; Simulate maps to input.editingLocked.
         [[nodiscard]] bool UpdateViewportTools(bool viewportActive, f32 deltaSeconds);
+        // Present (view != null) or tear down (view == null) the active tool's panel at `placement`.
+        // The ViewportToolPanelHost drives this on a tool change; the page owns the actual targets.
+        void MountToolPanel(foundation::ui::View* view, ToolPanelPlacement placement);
 
         void DrawGizmos(render::debug::DebugDraw& dd);
 
