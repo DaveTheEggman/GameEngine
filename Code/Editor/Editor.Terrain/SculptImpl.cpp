@@ -6,6 +6,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h" // TEMP diagnostic (terrain-tool availability)
 
 module editor.terrain;
 
@@ -116,28 +117,56 @@ namespace editor
         }
     }
 
+    // TEMP diagnostic: logs the availability breakdown once whenever it CHANGES, so a "the button
+    // does nothing" report says exactly which link is missing (no manager / no component / terrain
+    // unresolved / heightfield unresolved). Remove once terrain-in-scene is confirmed working.
+    namespace
+    {
+        void DiagOnce(StringView msg)
+        {
+            static String last;
+            if (last.AsView() != msg)
+            {
+                last = String(msg);
+                LOG_WARNING(u8"Terrain", u8"[sculpt-avail] {}", msg);
+            }
+        }
+    }
+
     bool TerrainSculptTool::IsAvailable() const
     {
         engine::terrain::TerrainComponentManager* mgr = TerrainManager(*m_scene);
         if (mgr == nullptr)
         {
+            DiagOnce(u8"no TerrainComponentManager in the scene");
             return false;
         }
         bool any = false;
+        i32 components = 0;
+        i32 terrainResolved = 0;
+        i32 heightfieldResolved = 0;
         mgr->ForEach(
             [&](engine::terrain::TerrainComponent& c, scene::EntityHandle)
             {
-                if (any)
+                ++components;
+                foundation::terrain::TerrainResource* res = c.terrain.Get();
+                if (res == nullptr)
                 {
                     return;
                 }
-                foundation::terrain::TerrainResource* res = c.terrain.Get();
-                if (res != nullptr && res->heightfield.Get() != nullptr &&
-                    !res->heightfield.Get()->IsEmpty())
+                ++terrainResolved;
+                foundation::heightfield::Heightfield* hf = res->heightfield.Get();
+                if (hf == nullptr || hf->IsEmpty())
                 {
-                    any = true;
+                    return;
                 }
+                ++heightfieldResolved;
+                any = true;
             });
+        DiagOnce(any ? StringView(u8"AVAILABLE")
+                     : Format(u8"unavailable: components={} terrainResolved={} heightfieldResolved={}",
+                              components, terrainResolved, heightfieldResolved)
+                           .AsView());
         return any;
     }
 
