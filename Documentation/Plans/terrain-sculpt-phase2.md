@@ -39,3 +39,64 @@ Whatever the persistence path, the tool holds the runtime `Heightfield*` but mus
 - **Brush shape/params**: radius (wheel-resized), strength, target height (ctrl-pick), a cosine falloff - all in the tool; the core already takes world radius + strength. OK as-is?
 
 On your ruling for seams 1 + 2 I'll build the tool, the persistence, and the region-delta undo in one pass.
+
+## RULING (Fable, 2026-08-23): build it - seam 1 = A's transport + C's registry, closures keep the framework domain-free
+
+**Seam 1: neither pure (A) nor pure (C) - the hybrid that keeps
+"heightfield" OUT of the framework.** Your (A) is right that asset
+persistence is a framework-level capability (Splat Paint needs the
+IDENTICAL seam next), but `markHeightfieldDirty` would put a DOMAIN word
+in a domain-free interface, and a generic `markAssetDirty(Guid)` alone
+doesn't answer WHO serializes the edited product back to its source -
+that knowledge is terrain's. Decompose it so each piece lands where it
+belongs:
+
+- **EditorContext (Editor.Core) gains a small pending-asset-edit
+  registry**: `RegisterAssetEdit(const Guid& assetId,
+  Function<Status()> persist)` - re-registering the same guid replaces
+  the closure (last edit wins); the editor's save flow (Save All +
+  project close prompt) DRAINS it, running each closure and requesting
+  the recook on success. The registry stores WHAT is dirty and HOW to
+  persist it without knowing what a heightfield is.
+- **ViewportToolHostContext gains ONE generic field**, plain core types,
+  no new lib dependencies:
+  `Function<void(const Guid&, Function<Status()>)> registerAssetEdit;`
+  wired by the ScenePage from its EditorContext. SelectTool ignores it;
+  provider-created tools stay the ONE registration path.
+- **Editor.Terrain's sculpt tool** calls it with the heightfield ASSET
+  guid and a closure that serializes the runtime samples back to
+  HeightfieldSource + the "heights" sidecar. The domain knowledge lives
+  in the domain lib; Splat Paint later registers its splatmap-image
+  persist closure through the same field, zero framework changes.
+
+**Seam 2: the ResourceManager reverse lookup - APPROVED as recommended.**
+`SourceIdOf(const Object*)` is manager-internal bookkeeping, generally
+useful, and keeps editor concerns out of runtime products (the
+factory-stamp alternative is the no-editor-data-in-runtime smell).
+Contract note: direct in-memory products (the playground's Ref-direct
+path) have no source id - SourceIdOf returns nil and the tool treats the
+terrain as EDIT-LIVE-ONLY (sculpting works, persistence silently
+unavailable; that is the correct semantic, not an error).
+
+**Confirms + two additions:**
+- Undo: ONE command per stroke with the union-rect region delta -
+  confirmed (per-step merged would flood the stack).
+- Brush params (wheel radius, strength, ctrl-pick target, cosine
+  falloff) - confirmed. ADDITION 1: the wheel resize must win over any
+  camera wheel use ONLY while the sculpt tool is active - make wheel
+  consumption precedence an explicit part of the first-consumer input
+  hardening, not an accident.
+- First-consumer hardening - proceed, no specific mandates beyond:
+  SelectTool behavior stays byte-identical, and whatever the palette/
+  panel work turns up gets recorded in the doc (it is the seam
+  validation the direction promised).
+- ADDITION 2: **the sculpt tool is unavailable during Simulate** (extend
+  the availability predicate). The heightfield product is SHARED with
+  the physics collider, and live Jolt bodies keep their built shape -
+  sculpting under simulation would silently diverge render from
+  collision mid-run (and tangle stroke undo with sim state). The
+  property-animation precedent (preview gated to EDIT) applies. Physics
+  picks up the new shape on the next scene start/reconcile; a live
+  in-sim rebuild is a later nicety, not phase 2.
+
+Build the tool, persistence, and undo in one pass on this.
