@@ -547,6 +547,12 @@ namespace engine::runtime
         resources.AddFactory(&m_uiDocumentFactory);
         resources.AddFactory(&m_uiThemeFactory);
         resources.AddFactory(&m_fontFactory);
+        // Terrain: the CPU factories (grid / bundle / splat raster) so a cooked Terrain binds. The
+        // GPU sub-resources (layer albedos) still resolve through the device-gated texture factory
+        // below; the splatmap is CPU now (engine.terrain derives its GPU texture).
+        resources.AddFactory(&m_heightfieldFactory);
+        resources.AddFactory(&m_terrainFactory);
+        resources.AddFactory(&m_splatmapFactory);
         if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
         {
             if (!m_textureFactory)

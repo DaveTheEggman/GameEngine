@@ -19,6 +19,8 @@ import foundation.vfs;
 import foundation.xml.serialization;
 import foundation.fonts.resource;
 import foundation.texture.resource;
+import foundation.heightfield;          // Heightfield product type (terrain factory pins)
+import foundation.terrain.resource;     // TerrainResource + Splatmap product types
 import engine.defaultapp;
 
 using namespace foundation::core;
@@ -71,12 +73,20 @@ TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + th
     // 20 = +NavigationZoneFactory (navigation P3b; the bump was MISSED in that commit and
     // caught by this tripwire at the 2026-08-18 review gate - run the FULL battery, not
     // just the touched targets).
-    constexpr usize kStandardHeadlessFactoryCount = 20;
+    // 23 = +Heightfield/Terrain/Splatmap factories (terrain 2026-08-24: creating a Terrain in the
+    // editor warned "host is missing an AddFactory for TerrainResource" - the factories existed +
+    // were pipeline-tested, but no host registered them; the SAME incident class as the font one).
+    constexpr usize kStandardHeadlessFactoryCount = 23;
     CHECK(resources.FactoryCount() == kStandardHeadlessFactoryCount);
 
     // The incident pin: the cooked default-UI font product MUST be constructible in every
     // runtime host - a dist player has no dev-tree TTF fallback.
     CHECK(resources.HasFactory(foundation::fonts::Font::StaticType().id));
+
+    // Terrain pins: a cooked Terrain binds its whole CPU ref chain (bundle + grid + splat raster).
+    CHECK(resources.HasFactory(foundation::terrain::TerrainResource::StaticType().id));
+    CHECK(resources.HasFactory(foundation::heightfield::Heightfield::StaticType().id));
+    CHECK(resources.HasFactory(foundation::terrain::Splatmap::StaticType().id));
 
     // Device gating documented: no GraphicsDevice on the host means no texture factory.
     CHECK(!resources.HasFactory(foundation::texture::Texture::StaticType().id));

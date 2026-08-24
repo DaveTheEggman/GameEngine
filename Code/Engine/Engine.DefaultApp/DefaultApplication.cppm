@@ -56,6 +56,8 @@ import foundation.input.resource;      // input-map factory
 import foundation.physics.resource;    // collision-shape/physical-material factories
 import foundation.navigation.resource; // navmesh-zone factory
 import foundation.texture.resource;    // texture factory (device-backed)
+import foundation.heightfield.resource; // heightfield factory (CPU grid)
+import foundation.terrain.resource;     // terrain + splatmap factories (CPU)
 import foundation.image.resource;      // image resource registration
 import foundation.model.resource;      // cooked-model family types + registration
 import foundation.ui.resource;         // cooked UI documents/themes (game-ui)
@@ -249,6 +251,11 @@ export namespace engine::runtime
         foundation::ui::UIDocumentFactory m_uiDocumentFactory;
         foundation::ui::UIThemeFactory m_uiThemeFactory;
         foundation::fonts::FontFactory m_fontFactory; // cooked default-UI font (fonts triad)
+        // Terrain resource factories (CPU - no device): the heightfield grid, the terrain bundle
+        // (resolves heightfield/splatmap/albedo sub-refs), and the RGBA8 splatmap raster.
+        foundation::heightfield::HeightfieldFactory m_heightfieldFactory;
+        foundation::terrain::TerrainFactory m_terrainFactory;
+        foundation::terrain::SplatmapFactory m_splatmapFactory;
         core::UniquePtr<foundation::texture::TextureFactory> m_textureFactory;
         foundation::resource::ResourceManager* m_borrowedResources = nullptr;
         foundation::content::IContentDatabase* m_contentDatabase = nullptr;
