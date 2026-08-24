@@ -32,7 +32,7 @@ target_link_libraries(Tools.Editor PRIVATE
     # Script backends + cooks (angelscript | luau) come transitively from Pipeline::Registration
     # above; only the EDITOR-side lexer/UI libs (${SCRIPTLIB_*_EDITOR}, not in the composition root)
     # are named here, symmetric across both backends.
-    Foundation::Script Foundation::Script.Resource Foundation::Script.Facades Pipeline::Script ${SCRIPTLIB_ANGELSCRIPT_EDITOR} ${SCRIPTLIB_LUAU_EDITOR} Engine::Script Editor::Script Foundation::UI.Resource Pipeline::UI Editor::GameUI Editor::Audio Editor::Texture Editor::Image Editor::Heightfield Editor::Fonts Editor::Physics Editor::Generic Pipeline::ModelImporter Foundation::Image.Resource
+    Foundation::Script Foundation::Script.Resource Foundation::Script.Facades Pipeline::Script ${SCRIPTLIB_ANGELSCRIPT_EDITOR} ${SCRIPTLIB_LUAU_EDITOR} Engine::Script Editor::Script Foundation::UI.Resource Pipeline::UI Editor::GameUI Editor::Audio Editor::Texture Editor::Image Editor::Heightfield Editor::Terrain Editor::Fonts Editor::Physics Editor::Generic Pipeline::ModelImporter Foundation::Image.Resource
     Foundation::Animation.Resource)
 target_compile_definitions(Tools.Editor PRIVATE
     BUILTIN_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"

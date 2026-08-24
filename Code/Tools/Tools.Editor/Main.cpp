@@ -70,6 +70,7 @@ import editor.audio;
 import editor.texture;
 import editor.image;
 import editor.heightfield;
+import editor.terrain;
 import editor.fonts;
 import editor.physics;
 import editor.generic;
@@ -370,6 +371,7 @@ int main(int argc, char** argv)
         editor::RegisterTextureEditor(app.Context());
         editor::RegisterImageEditor(app.Context());
         editor::RegisterHeightfieldEditor(app.Context());
+        editor::RegisterTerrainEditor(app.Context(), host, uiHost);
         editor::RegisterFontEditor(app.Context());
         editor::RegisterCollisionShapeEditor(app.Context(), host, uiHost);
         // The FALLBACK page registers like any factory: nearest-base dispatch routes every
