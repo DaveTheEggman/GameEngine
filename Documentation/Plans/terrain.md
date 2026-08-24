@@ -84,9 +84,13 @@ shared grid mesh geometry). The sub-phases:
   the normal by central differences; terrain.ps.hlsl does directional + ambient
   over a height/slope colour ramp. Authored as HLSL through the file shader
   provider (pipeline cooks SPIR-V/WGSL); compiled by the Phase-C headless test.
-  REMAINING D2 (splat): blend the RGBA splatmap over the per-layer albedo textures
-  (TerrainResource::layers) as a 4th material set - needs the splat/layer assets
-  cooked + bound.
+  D2 (splat): DONE. Set 3 (material) blends up to 4 layer albedos by an RGBA splatmap
+  (normalize + zero-sum guard, terrain-LOCAL tiled albedo UVs, height-ramp fallback
+  when layerless); the color pass uses a 4-set layout, the depth pass a 3-set one.
+  Was NOT cook-blocked (the pipeline already carried the ids; Texture::Adopt gives
+  in-memory fixtures) - see terrain-splat-d2.md + Fable's ruling. Verified by a
+  Vulkan+WebGPU splat probe (two layers on opposite halves, pixel-exact) + the
+  Terrain.Pipeline id round-trip.
 - HOST WIRING: DONE. DefaultApplication registers the TerrainSubsystem in the
   graphics-guarded block next to ParticleSubsystem, so a TerrainComponent renders
   in any running scene (the manager is already injected by scene composition).
@@ -121,7 +125,7 @@ shared grid mesh geometry). The sub-phases:
     by a Vulkan shadow probe: a ridge casts onto flat ground, one band -> 41% with
     shadows on, 0.000 asym off. (Prereq fix: BuildShadowCasterList now reads generic
     base fields, not a blind MeshRenderData downcast.)
-  - REMAINING: splat (D2 above).
+  - Splat (D2): DONE (see the D-shaders entry above).
 Then `Editor.Terrain` (phase 2).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool

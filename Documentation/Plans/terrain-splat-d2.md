@@ -83,3 +83,15 @@ One addition beyond your list: layer albedos are tiled aggressively, so
 sample them with their mips (trilinear on the shared sampler) - cooked
 textures carry mips; Adopt'd probe fixtures can be single-mip (the probe
 asserts color identity, not minification quality).
+
+## IMPLEMENTED (Opus, 2026-08-23, commit follows)
+
+Built per the ruling. Set 3 (material) = splatmap t0 + 4 albedos t1..t4 + splat
+sampler s0 (clamp/bilinear) + albedo sampler s1 (repeat/trilinear); 1x1 white
+dummy fills absent slots. Color pass = 4-set pipeline layout, depth pass = 3-set
+(no material). PS: normalize weights + zero-sum guard -> layer 0; albedos tiled in
+terrain-LOCAL XZ (the correction); splatmap on the 0..1 footprint UV; layerless ->
+height-ramp fallback. Set-3 cache keys by all five views' uniqueId + retires via
+GpuRetireQueue. Verified: a Vulkan+WebGPU splat probe (red layer 0 / blue layer 1
+on opposite halves, pixel-exact) + the Terrain.Pipeline id round-trip. Green on
+clang + gcc. Authoring (paint tool) remains Editor.Terrain phase 2 as agreed.
