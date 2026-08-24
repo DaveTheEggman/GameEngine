@@ -598,6 +598,21 @@ export namespace engine::terrain
         // Terrain samples only the directional CSM, not the local (spot/point) atlas - leave the base
         // SetShadowAtlas no-op.
 
+        // One-time: transition the out-of-graph 1x1 dummy shadow depth into the layout its descriptor
+        // expects (DepthStencilRead), so a caster-less frame never SAMPLES it while still UNDEFINED
+        // (VUID-vkCmdDraw-None-09600). Terrain has no skinning; it uses this per-frame encoder hook
+        // (the only Renderer callback holding the OUTER command encoder, before any render pass) purely
+        // for that transition. Mirrors MeshRenderer::UploadSkinning.
+        void UploadSkinning(const render::ExtractedScene&, rhi::CommandEncoder& encoder) override
+        {
+            if (!m_dummyDepthInit && m_dummyShadowTex != nullptr)
+            {
+                encoder.TransitionTexture(m_dummyShadowTex, rhi::ResourceState::Undefined,
+                                          rhi::ResourceState::DepthStencilRead);
+                m_dummyDepthInit = true;
+            }
+        }
+
         /// Peak per-frame chunk-draw count seen so far (diagnostics + headless verification): > 0 only
         /// once a frame emitted terrain draws, which requires the PSO (hence the shaders) to have built.
         [[nodiscard]] u32 MaxChunksDrawn() const noexcept { return m_maxChunksSeen; }
@@ -1141,6 +1156,7 @@ export namespace engine::terrain
         rhi::Texture* m_dummyShadowTex = nullptr;      // 1x1 Texture2DArray depth (no-caster fallback)
         rhi::TextureView* m_dummyShadowView = nullptr;
         rhi::TextureView* m_activeShadowView = nullptr; // borrowed: the CSM array, or the dummy
+        bool m_dummyDepthInit = false; // the dummy depth transitioned out of UNDEFINED once (VUID-09600)
         u64 m_activeShadowGen = 0;
         rhi::TextureView* m_viewBgShadow = nullptr; // what the cached view BG was built against
         u64 m_viewBgShadowGen = 0;
