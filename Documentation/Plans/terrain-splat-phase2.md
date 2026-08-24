@@ -230,3 +230,44 @@ eraser. Keep the shader zero-sum guard for u8 rounding drift. Keys 1..4 +
    restores an identical raster, and the splat PRODUCT guid == SOURCE guid
    (the parity invariant the whole ref-id scheme rests on - pin it like the
    heightfield/model tests do).
+
+---
+
+## IMPLEMENTED (2026-08-24, Opus) - all 6 rulings, green clang + gcc
+
+Built in six committed increments per the ruling; the heightfield mirror held.
+
+- **A** (564a693c) `foundation::terrain::Splatmap` (Object, uid+Version, RGBA8) +
+  `PaintWeight` lerp-to-one-hot brush core + `SplatmapSource`/`SplatmapFactory`.
+  7 tests.
+- **B** (6a879bd3) `SplatmapAsset` + builder in Terrain.Pipeline (embedded "pixels"
+  sidecar, seed-on-empty), registered + kBuilderCount 25->26, cook round-trip +
+  product-guid==source-guid pinned.
+- **C** (5dda3070, RE-COOK) `TerrainResource.splatmap` -> `Ref<Splatmap>`;
+  `TerrainSplatTextureCache` (RGBA8, uid+version, retire-queue); manager derives
+  the set-3 view from it; both caches ClearGpu together. Splat cache unit tests
+  (no-alias, version-bump retires, Clear). D2 Vk+WebGPU probe still pixel-exact.
+- **D** (8346f9d3) `TerrainSplatTool` + region-delta `SplatStrokeCommand` + persist
+  closure (writes ONLY the source "pixels" sidecar - the builder re-cooks from it,
+  the envelope is untouched). Added to the sculpt provider. 3 gesture tests.
+- **E** (d561adee) TerrainPage "Create splatmap" (512/1024/2048 presets author +
+  seed + assign + recook) - composition on the page, never the tool (Q3).
+- **F** (d78830a9) End-to-end probe: paint -> BumpVersion -> cache re-upload ->
+  the blend flips red->blue on Vulkan AND WebGPU (pixel-exact).
+
+**Deviation from the ruling:** the persist closure writes only the source asset's
+"pixels" sidecar (not a full object rewrite), because the SplatmapAssetBuilder
+re-cooks from "pixels" and the width/height envelope must survive. This is the
+correct shape for the cook and avoids corrupting the SplatmapAsset object.
+
+**Follow-up flagged (out of scope):** the SCULPT persist closure (shipped earlier)
+writes `WriteObject(HeightfieldSource) + WriteData("heights")` to the source
+instance, but `HeightfieldAssetBuilder` cooks from `fileName`, not a "heights"
+sidecar - so a sculpted heightfield may not survive a re-cook, and the object
+rewrite may not match a HeightfieldAsset source. Heightfield likely needs the same
+editable-source treatment splat just got (a "heights" sidecar the builder reads,
+sculpt writing only that). Worth a ruling before relying on sculpt persistence.
+
+**Deferred (noted):** PNG import for splatmaps (v1 = create + paint); non-square
+footprint gives an elliptical brush in UV (world disc / worldSize.x); eraser +
+smooth-weights brush modes.
