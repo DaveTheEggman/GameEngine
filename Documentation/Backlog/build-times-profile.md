@@ -23,9 +23,15 @@ do not use them for this).
 
 GCC clean: 950s compile-CPU vs clang's 889s (~7% more; est. ~240s wall) -
 NOT dramatically slower overall, but its hot spots differ (below). One GCC run
-died on a transient unexplained subcommand failure (no OOM record, no failed
-compile in the per-TU log; resumed clean) - watch for recurrence; suspect a
-module-mapper race.
+died mid-build on a silent subcommand failure and resumed clean; ATTRIBUTED to
+a concurrent -j4 build running in another dir at the time (two builds' RSS
+coexisting on 14 GB -> transient OOM SIGKILL, which leaves exactly this trace:
+no compiler diagnostic, no per-TU log line). CPU contention did NOT pollute
+the numbers - per-TU wall/user ratio is 1.10 in both logs with zero starved
+TUs (4+4 jobs on 16 cores coexist fine); the collision risk is MEMORY only.
+Corollary for the -j discussion: the real-world ceiling must budget for two
+concurrent builds (Opus + Fable), so single-build headroom is not the whole
+story.
 
 ## Finding 1: ThirdParty is HALF the clean build - and jolt is 37% alone
 
@@ -122,7 +128,9 @@ parallelism but not total CPU; `extern template` on the hottest instantiations
    size. Then re-measure; image->fonts and vfs->content are the next tier.
 3. **Raise -j for compile-heavy flows**: -j8 held for Tools.Editor (177s vs
    228s, no OOM). Adopt -j6/-j8 for compile phases cautiously (or `-j8 -l 12`),
-   keep link-heavy `all` batteries at -j4 until test-link memory is measured.
+   keep link-heavy `all` batteries at -j4 until test-link memory is measured -
+   and remember the budget is shared: two agents each at -j8 on 14 GB is the
+   OOM scenario the transient GCC failure just demonstrated at 4+4.
 4. **Editor.Scene diet**: 65 TUs each pulling 550-790 MB contexts; the pages
    are independent - splitting the target (or trimming its interface imports)
    improves both parallelism and the 42s/76s (clang/gcc) target cost, and GCC
