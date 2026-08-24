@@ -11,4 +11,5 @@ target_link_libraries(Terrain.Resource
 target_sources(Terrain.Resource
     PUBLIC
         FILE_SET terrain_resource_modules TYPE CXX_MODULES FILES
+            Splatmap.cppm
             TerrainResource.cppm)

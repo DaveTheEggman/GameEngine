@@ -2,7 +2,8 @@
 
 add_executable(Terrain.Resource.Tests
     TestsMain.cpp
-    TerrainResourceTests.cpp)
+    TerrainResourceTests.cpp
+    SplatmapTests.cpp)
 
 target_link_libraries(Terrain.Resource.Tests PRIVATE
     Foundation::Terrain.Resource

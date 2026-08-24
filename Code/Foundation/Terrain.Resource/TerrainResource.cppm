@@ -18,6 +18,8 @@ import foundation.content;
 import foundation.heightfield;
 import foundation.texture.resource;
 
+export import :splatmap; // the editable RGBA8 Splatmap product + brush core + cooked source/factory
+
 using namespace foundation::core;
 using namespace foundation::resource;
 
