@@ -24,6 +24,7 @@ import foundation.terrain;          // chunk model (BuildChunks, TerrainQuadtree
 import foundation.terrain.resource; // TerrainResource
 import foundation.texture.resource; // texture::Texture::View() (splatmap + layer albedos)
 import :heighttexture;              // TerrainHeightTextureCache
+import :splattexture;               // TerrainSplatTextureCache (RGBA8 splat, paint re-upload)
 import :renderdata;                 // TerrainRenderData
 
 using namespace foundation::core;
@@ -88,6 +89,7 @@ export namespace engine::terrain
             m_device = device;
             m_rendererId = rendererId;
             m_heightTextures.SetRetireQueue(retire);
+            m_splatTextures.SetRetireQueue(retire);
         }
 
         /// Tear down this manager's GPU-side state THROUGH the wired device - called by the
@@ -100,11 +102,13 @@ export namespace engine::terrain
             if (m_device != nullptr)
             {
                 m_heightTextures.Clear(*m_device);
+                m_splatTextures.Clear(*m_device);
             }
             m_device = nullptr;
         }
 
         [[nodiscard]] usize HeightTextureCount() const noexcept { return m_heightTextures.Size(); }
+        [[nodiscard]] usize SplatTextureCount() const noexcept { return m_splatTextures.Size(); }
 
         /// render::IRenderDataProvider: one TerrainRenderData per visible terrain (the WHOLE terrain is
         /// one draw-list item; the renderer culls + LODs its chunks per view). Builds the chunk model
@@ -172,12 +176,14 @@ export namespace engine::terrain
                     rd->thresholdCount = n;
                     rd->lodBias = c.lodBias;
 
-                    // D2 splat material: the splatmap + per-layer albedo GPU views + tiling. A layer
-                    // whose texture is unresolved (late cook / headless) is skipped; layerCount 0
-                    // (no splatmap or no layers) leaves the renderer on the height-lit fallback.
-                    if (texture::Texture* sm = res->splatmap.Get())
+                    // D2 splat material: the splatmap + per-layer albedo GPU views + tiling. The
+                    // splatmap is a CPU RGBA8 raster (the painted source of truth); its GPU texture
+                    // is derived + cached by uid+version, so a paint's version bump re-uploads and
+                    // the renderer's set-3 bind group rebuilds on the new view id. layerCount 0 (no
+                    // splatmap or no layers) leaves the renderer on the height-lit fallback.
+                    if (foundation::terrain::Splatmap* sm = res->splatmap.Get())
                     {
-                        rd->splatmapView = sm->View();
+                        rd->splatmapView = m_splatTextures.GetOrCreate(*m_device, *sm, sm->Version());
                     }
                     const u32 layers = Min(res->LayerCount(), TerrainRenderData::kMaxLayers);
                     u32 bound = 0;
@@ -248,6 +254,7 @@ export namespace engine::terrain
         rhi::Device* m_device = nullptr;
         u16 m_rendererId = 0;
         TerrainHeightTextureCache m_heightTextures;
+        TerrainSplatTextureCache m_splatTextures;
         HashMap<u64, ChunkCache> m_chunkCache; // key = Heightfield::uid (never a pointer)
     };
 

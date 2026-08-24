@@ -1,4 +1,5 @@
-add_executable(Engine.Terrain.Tests TestsMain.cpp TerrainComponentTests.cpp TerrainRendererTests.cpp)
+add_executable(Engine.Terrain.Tests TestsMain.cpp TerrainComponentTests.cpp TerrainRendererTests.cpp
+    SplatTextureCacheTests.cpp)
 target_link_libraries(Engine.Terrain.Tests PRIVATE
     Engine::Terrain Foundation::Scene Foundation::Scene.Resource
     Foundation::Terrain Foundation::Terrain.Resource Foundation::Resource

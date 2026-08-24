@@ -251,7 +251,7 @@ export namespace foundation::terrain
         /// Build the runtime product from this metadata + the sidecar pixel bytes. Returns an empty
         /// raster if the cooked data is inconsistent (non-positive dims, or a blob that does not
         /// match width*height*4) rather than a malformed raster.
-        [[nodiscard]] RefPtr<Splatmap> Build(Span<const u8> blob) const
+        [[nodiscard]] RefPtr<Splatmap> Build(Span<const byte> blob) const
         {
             if (width <= 0 || height <= 0)
             {
@@ -315,7 +315,8 @@ export namespace foundation::terrain
                     }
                 }
             }
-            return src->Build(Span<const u8>{blob.Data(), blob.Size()});
+            return src->Build(
+                Span<const byte>{reinterpret_cast<const byte*>(blob.Data()), blob.Size()});
         }
     };
 

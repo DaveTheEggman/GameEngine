@@ -87,7 +87,7 @@ TEST_CASE("splatmap: SplatmapSource metadata + pixel blob round-trips an identic
     CHECK(src.width == 24);
     CHECK(src.height == 16);
 
-    const Span<const u8> blob = SplatmapSource::PixelBlob(sm);
+    const Span<const byte> blob = SplatmapSource::PixelBlob(sm);
     RefPtr<Splatmap> rebuilt = src.Build(blob);
     REQUIRE(rebuilt);
     CHECK(rebuilt->Width() == 24);
@@ -108,7 +108,7 @@ TEST_CASE("splatmap: SplatmapSource metadata + pixel blob round-trips an identic
     CHECK(identical);
 
     // A blob whose size does not match the metadata yields an empty (safe) raster.
-    RefPtr<Splatmap> bad = src.Build(Span<const u8>{blob.Data(), blob.Size() - 4});
+    RefPtr<Splatmap> bad = src.Build(Span<const byte>{blob.Data(), blob.Size() - 4});
     REQUIRE(bad);
     CHECK(bad->IsEmpty());
 }

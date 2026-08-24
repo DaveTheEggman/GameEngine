@@ -62,7 +62,9 @@ export namespace foundation::terrain
         };
 
         Ref<heightfield::Heightfield> heightfield;
-        Ref<texture::Texture> splatmap;
+        // The splatmap is a CPU RGBA8 weight raster (the painted source of truth, mirroring the
+        // heightfield); engine.terrain derives + caches its GPU texture. NOT a Ref<texture::Texture>.
+        Ref<Splatmap> splatmap;
         Array<Layer> layers;
         bool castShadows = true;
 
@@ -100,7 +102,7 @@ export namespace foundation::terrain
             }
             if (!src->splatmapId.IsNil())
             {
-                terrain->splatmap.SetProxy(manager.Bind<texture::Texture>(src->splatmapId));
+                terrain->splatmap.SetProxy(manager.Bind<Splatmap>(src->splatmapId));
                 terrain->splatmap.SetId(src->splatmapId);
             }
             for (usize i = 0; i < src->layerAlbedoIds.Size(); ++i)

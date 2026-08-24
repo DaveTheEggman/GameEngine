@@ -7,6 +7,7 @@
 export module engine.terrain;
 
 export import :heighttexture; // Phase B: the GPU height-texture cache
+export import :splattexture;  // the GPU splat-texture cache (RGBA8, paint re-upload)
 export import :renderdata;    // TerrainRenderData (the per-terrain draw-list payload)
 export import :components;    // TerrainComponent + manager (IRenderDataProvider)
 export import :renderer;      // TerrainRenderer (dedicated Opaque Renderer)

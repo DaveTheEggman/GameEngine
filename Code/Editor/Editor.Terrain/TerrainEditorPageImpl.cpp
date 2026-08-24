@@ -261,7 +261,7 @@ namespace editor
             addButton(t.AsView(),
                       [self]()
                       {
-                          self->PickReference(u8"TextureAsset", u8"splatmap",
+                          self->PickReference(u8"SplatmapAsset", u8"splatmap",
                                               core::Function<void(const Guid&)>{
                                                   [self](const Guid& g)
                                                   { self->m_asset->splatmapId = g; }});
