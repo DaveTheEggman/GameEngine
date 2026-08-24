@@ -126,7 +126,15 @@ shared grid mesh geometry). The sub-phases:
     shadows on, 0.000 asym off. (Prereq fix: BuildShadowCasterList now reads generic
     base fields, not a blind MeshRenderData downcast.)
   - Splat (D2): DONE (see the D-shaders entry above).
-Then `Editor.Terrain` (phase 2).
+
+`Editor.Terrain` (phase 2) - STARTED:
+- TerrainPage: DONE. Editor.Terrain (module editor.terrain) - the TerrainAsset
+  composition + 3D-preview page (PreviewViewport + a TerrainComponent bound to the
+  cooked product; ref pickers + layer list + castShadows + stats; merge-keyed undo +
+  save/recook). Never hosts brushes. Registered in Tools.Editor; headless tests +
+  editor exe link green on clang + gcc. See the phase-2 direction below.
+- REMAINING: Sculpt tool, then Splat Paint tool (scene-viewport IViewportTools -
+  terrain is the framework's first real provider).
 
 KNOWN GAP for review (2026-08-23, Opus): the MCP/agent import tool
 (Editor.Mcp/ProjectTools) resolves an extension with the SINGULAR
