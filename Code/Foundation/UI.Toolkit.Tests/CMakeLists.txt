@@ -25,6 +25,7 @@ add_executable(UI.Toolkit.Tests
     TimelineTests.cpp
     DockingTests.cpp
     DockPersistenceTests.cpp
+    GridDrawCostTests.cpp
     NodeGraphTests.cpp
     DraggableTreeViewTests.cpp
     CodeDocumentTests.cpp

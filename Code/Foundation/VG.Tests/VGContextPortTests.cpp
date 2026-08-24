@@ -102,3 +102,24 @@ TEST_CASE("vgcontext: FillStar produces output")
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.VertexCount() > 0u);
 }
+
+TEST_CASE("vgcontext: IsRectVisible tracks the scissor clip (draw-culling query)")
+{
+    VGContext ctx;
+    // No clip: everything is visible.
+    CHECK(ctx.IsRectVisible(Rectangle{10000, 10000, 5, 5}));
+
+    ctx.PushClipRect(Rectangle{0, 0, 100, 100});
+    CHECK(ctx.IsRectVisible(Rectangle{50, 50, 10, 10}));    // inside
+    CHECK(ctx.IsRectVisible(Rectangle{90, 90, 50, 50}));    // straddles the edge
+    CHECK(!ctx.IsRectVisible(Rectangle{200, 200, 10, 10})); // fully outside
+
+    // The query is transform-aware: a translated rect can leave/enter the clip.
+    ctx.PushState();
+    ctx.Translate(0.0f, 500.0f);
+    CHECK(!ctx.IsRectVisible(Rectangle{50, 50, 10, 10})); // now at y=550, clipped out
+    ctx.PopState();
+
+    ctx.PopClip();
+    CHECK(ctx.IsRectVisible(Rectangle{200, 200, 10, 10})); // clip gone
+}

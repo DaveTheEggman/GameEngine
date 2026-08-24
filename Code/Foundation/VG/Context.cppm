@@ -267,6 +267,24 @@ export namespace foundation::vg
             m_currentState.clipMode = VGClipMode::Scissor;
         }
 
+        /// Whether a rect (CURRENT local coordinates) can contribute any pixels under the active
+        /// scissor clip. True when no clip is active. Callers (the UI's child-draw loop) use it to
+        /// skip tessellating geometry the scissor would discard anyway - a ScrollView'd list draws
+        /// its viewport, not its whole content (the ImportTest blank-UI lesson: a ~1300-row form
+        /// exceeded the renderer's per-frame vertex ceiling).
+        [[nodiscard]] bool IsRectVisible(Rectangle rect) const
+        {
+            if (m_currentState.clipMode != VGClipMode::Scissor)
+            {
+                return true;
+            }
+            if (m_currentState.clipRect.width <= 0.0f || m_currentState.clipRect.height <= 0.0f)
+            {
+                return false; // degenerate clip: nothing draws
+            }
+            return TransformRect(rect).Intersects(m_currentState.clipRect);
+        }
+
         void PopClip()
         {
             FlushCurrentCommand();

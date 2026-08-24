@@ -47,6 +47,13 @@ export namespace foundation::ui
         void PushClip(const Rectangle& rect) { m_vg->PushClipRect(rect); }
         /// Pops the last pushed clip.
         void PopClip() { m_vg->PopClip(); }
+        /// Whether a rect (current local coordinates) can contribute pixels under the active
+        /// clip. True when no clip is active. The child-draw loop culls with this so clipped-out
+        /// subtrees cost no tessellation (viewport-sized draw lists, not content-sized).
+        [[nodiscard]] bool IsRectVisible(const Rectangle& rect) const
+        {
+            return m_vg->IsRectVisible(rect);
+        }
 
     private:
         vg::VGContext* m_vg;

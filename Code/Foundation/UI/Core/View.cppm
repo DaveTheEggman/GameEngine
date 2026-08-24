@@ -955,6 +955,18 @@ export namespace foundation::ui
                     continue;
                 }
 
+                // Clip culling: under an active scissor (a ScrollView'd list, any ClipsContent
+                // ancestor), a child whose bounds cannot intersect the clip contributes nothing -
+                // skip its whole subtree so big scrolled content tessellates its VIEWPORT, not its
+                // row count (the ImportTest blank-UI lesson: a ~1300-row generic form blew past
+                // the VG per-frame vertex ceiling and blanked the window). Conservative: only
+                // identity render transforms (a transform can move content into view), and only
+                // under an active clip (unclipped layers keep out-of-bounds drawing freedom).
+                if (child->Transform.IsIdentity() && !ctx.IsRectVisible(child->Bounds))
+                {
+                    continue;
+                }
+
                 ctx.VG().PushState();
                 ctx.VG().Translate(child->Bounds.x, child->Bounds.y);
 
