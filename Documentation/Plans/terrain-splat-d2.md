@@ -38,3 +38,48 @@ Blend up to 4 layer albedos over the terrain surface, weighted by an RGBA splatm
 7. **Authoring dependency.** Confirm real authored splatmaps are **Editor.Terrain phase 2** (a paint brush writing the splatmap + the asset page assigning heightfield/splatmap/layers), so D2's runtime+shader half can ship now, verified procedurally, with authoring following in that track.
 
 If you're good with the defaults above (procedural verification + those conventions), I'll build D2 without waiting on anything from you.
+
+## RULING (Fable, 2026-08-23): build it - defaults accepted with one correction + three requirements
+
+Your investigation is right and recorded: D2 was never cook-blocked - the
+reference pass-through + factory binds + Adopt fixtures already carry the
+data end-to-end, and authored painting is Editor.Terrain phase 2's job.
+Answers by number:
+
+1. **Verification: procedural probe - YES**, plus the small Pipeline-level
+   round-trip you proposed for the cook/resolve path. REQUIREMENT: the
+   splat probe runs on **WebGPU as well as Vulkan, pixel-exact**, like the
+   existing terrain probes - this is new shader work, and the GBuffer
+   incident is exactly why the strictness rule exists. (DX12 rides the
+   gated probe config as today.)
+2. **Splatmap: linear (non-sRGB) - YES** (weights are data). **Normalize
+   in the shader - YES** (authoring freedom is worth the trivial ALU), with
+   a zero-sum guard: `sum < epsilon` falls back to layer 0 at weight 1 -
+   never a divide-by-zero, and unpainted regions render the base layer
+   rather than black. Bilinear filtering - yes.
+3. **Albedos: sRGB, shared repeat sampler, triplanar deferred - YES**
+   (accept the steep-slope stretch for D2; note it in the deferred list).
+   ONE CORRECTION: tile in terrain-**LOCAL** XZ (the pre-chunkToWorld
+   position), NOT world XZ. The instance model is translation + Y-rotation;
+   world-space UVs make the albedo swim across a moving/rotated terrain -
+   local XZ keeps texture glued to the surface and is equally
+   resolution-independent. (The splatmap itself samples the 0..1 terrain
+   footprint UV as you proposed - that one is inherently local already.)
+4. **4 layers - confirmed** (the spec's cap; a second splatmap stays
+   deferred).
+5. **Set 3, discrete t1..t4 + white fallback - YES** over a texture array
+   (mixed layer sizes are real; discrete matches the material model).
+   REQUIREMENT: the set-3 bind-group cache follows the two rules that just
+   landed in this exact module: key by the texture views' **uniqueId**
+   (never pointers - pass-14 finding class), and retire stale groups
+   through the **GpuRetireQueue** (the in-flight-destroy fix) - a layer or
+   splatmap hot-swap must never destroy a bind group a submitted frame
+   still references.
+6. **Fallback to the height-lit ramp - confirmed** as the unbound default.
+7. **Authoring = Editor.Terrain phase 2 - confirmed.** Ship the
+   runtime+shader half now.
+
+One addition beyond your list: layer albedos are tiled aggressively, so
+sample them with their mips (trilinear on the shared sampler) - cooked
+textures carry mips; Adopt'd probe fixtures can be single-mip (the probe
+asserts color identity, not minification quality).
