@@ -224,3 +224,75 @@ TEST_CASE("heightfield: ray march - an angled ray descends onto the ramp")
     const Float3 hit{-30.0f + 0.70710678f * t, 20.0f - 0.70710678f * t, 0.0f};
     CHECK(Near(hit.y, hf.GetHeightAt(hit.x, hit.z), 5.0e-2f));
 }
+
+TEST_CASE("heightfield sculpt: raise lifts the centre most, bumps version, reports the region")
+{
+    // 129 grid over 128x128 world, Y range [0,100], flat at sample 0.
+    RefPtr<Heightfield> h =
+        MakeRef<Heightfield>(DefaultAllocator(), 129, Float2{128.0f, 128.0f}, 0.0f, 100.0f);
+    const u64 v0 = h->Version();
+
+    // Raise +10 world units within a 20-unit radius at the origin (grid centre 64,64).
+    const HeightfieldRegion r = SculptRaise(*h, 0.0f, 0.0f, 20.0f, 10.0f);
+    CHECK_FALSE(r.IsEmpty());
+    CHECK(h->Version() == v0 + 1);                 // one re-upload signal per stroke step
+    CHECK(r.minX <= 64);
+    CHECK(r.maxX >= 64);
+
+    const f32 centre = h->GetHeightAtGrid(64, 64); // ~+10 (full falloff weight at centre)
+    const f32 edge = h->GetHeightAtGrid(74, 64);   // ~half radius -> partial
+    CHECK(centre > 9.0f);
+    CHECK(centre <= 10.01f);
+    CHECK(edge > 0.0f);
+    CHECK(edge < centre);                          // cosine falloff: rim raised less than centre
+    CHECK(h->GetHeightAtGrid(0, 0) == doctest::Approx(0.0f)); // outside the radius: untouched
+}
+
+TEST_CASE("heightfield sculpt: negative strength lowers; clamps at the floor")
+{
+    RefPtr<Heightfield> h =
+        MakeRef<Heightfield>(DefaultAllocator(), 129, Float2{128.0f, 128.0f}, 0.0f, 100.0f);
+    for (i32 z = 0; z < 129; ++z)
+        for (i32 x = 0; x < 129; ++x)
+            h->SetSample(x, z, static_cast<Height>(30000)); // a mid plateau
+
+    SculptRaise(*h, 0.0f, 0.0f, 20.0f, -1000.0f); // lower hard -> clamps to 0
+    CHECK(h->GetSample(64, 64) == 0);
+}
+
+TEST_CASE("heightfield sculpt: flatten pulls toward the target height")
+{
+    RefPtr<Heightfield> h =
+        MakeRef<Heightfield>(DefaultAllocator(), 129, Float2{128.0f, 128.0f}, 0.0f, 100.0f);
+    // start high, flatten toward 25 with full amount
+    for (i32 z = 0; z < 129; ++z)
+        for (i32 x = 0; x < 129; ++x)
+            h->SetSample(x, z, h->WorldYToSample(80.0f));
+
+    SculptFlatten(*h, 0.0f, 0.0f, 20.0f, 1.0f, 25.0f);
+    CHECK(h->GetHeightAtGrid(64, 64) == doctest::Approx(25.0f).epsilon(0.02)); // centre reaches target
+    CHECK(h->GetHeightAtGrid(64, 64) < 80.0f);
+}
+
+TEST_CASE("heightfield sculpt: smooth reduces a one-cell spike")
+{
+    RefPtr<Heightfield> h =
+        MakeRef<Heightfield>(DefaultAllocator(), 129, Float2{128.0f, 128.0f}, 0.0f, 100.0f);
+    h->SetSample(64, 64, h->WorldYToSample(90.0f)); // a lone spike on a flat field
+    const f32 before = h->GetHeightAtGrid(64, 64);
+
+    SculptSmooth(*h, 0.0f, 0.0f, 20.0f, 1.0f);
+    const f32 after = h->GetHeightAtGrid(64, 64);
+    CHECK(after < before);      // the spike is pulled toward its (0) neighbourhood
+    CHECK(after >= 0.0f);
+}
+
+TEST_CASE("heightfield sculpt: a brush entirely off-grid touches nothing")
+{
+    RefPtr<Heightfield> h =
+        MakeRef<Heightfield>(DefaultAllocator(), 129, Float2{128.0f, 128.0f}, 0.0f, 100.0f);
+    const u64 v0 = h->Version();
+    const HeightfieldRegion r = SculptRaise(*h, 100000.0f, 100000.0f, 5.0f, 10.0f);
+    CHECK(r.IsEmpty());
+    CHECK(h->Version() == v0); // no change -> no re-upload signal
+}

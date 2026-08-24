@@ -339,5 +339,159 @@ export namespace foundation::heightfield
         Array<Height> m_samples;
     };
 
+    // ---- sculpt brushes (pure sample math; the editor sculpt tool wraps these) ------------------
+    //
+    // Each brush edits the samples under a WORLD-space disc (centre worldX,worldZ; radius) with a
+    // cosine falloff (1 at the centre, 0 at the rim), clamps to the u16 range, BumpVersion()s if any
+    // sample changed, and returns the touched grid RECTANGLE (inclusive) - the region a stroke's
+    // undo command snapshots and the renderer's GPU re-upload can bound to. All headless-testable.
+
+    /// The grid rectangle a brush touched (inclusive). Empty (IsEmpty) when nothing was in range.
+    struct HeightfieldRegion
+    {
+        i32 minX = 0x7fffffff;
+        i32 minZ = 0x7fffffff;
+        i32 maxX = -1;
+        i32 maxZ = -1;
+
+        [[nodiscard]] bool IsEmpty() const noexcept { return maxX < minX || maxZ < minZ; }
+        [[nodiscard]] i32 Width() const noexcept { return IsEmpty() ? 0 : (maxX - minX + 1); }
+        [[nodiscard]] i32 Height() const noexcept { return IsEmpty() ? 0 : (maxZ - minZ + 1); }
+        void Add(i32 gx, i32 gz) noexcept
+        {
+            minX = gx < minX ? gx : minX;
+            minZ = gz < minZ ? gz : minZ;
+            maxX = gx > maxX ? gx : maxX;
+            maxZ = gz > maxZ ? gz : maxZ;
+        }
+    };
+
+    namespace detail
+    {
+        // The grid rect (clamped) covering a world disc, + a visit of every in-disc cell with its
+        // cosine falloff weight. `apply(gx, gz, w)` mutates one sample; visit tracks the touched rect.
+        template <typename Apply>
+        inline HeightfieldRegion VisitBrush(const Heightfield& hf, f32 worldX, f32 worldZ, f32 radius,
+                                            Apply&& apply)
+        {
+            HeightfieldRegion region;
+            if (hf.IsEmpty() || radius <= 0.0f)
+            {
+                return region;
+            }
+            const i32 n = hf.Size();
+            const Float2 ws = hf.WorldSize();
+            const f32 spanX = ws.x / static_cast<f32>(n - 1); // world units per cell
+            const f32 spanZ = ws.y / static_cast<f32>(n - 1);
+            const Float2 c = hf.WorldToGrid(worldX, worldZ);
+            const f32 gRadX = radius / (spanX > 1.0e-6f ? spanX : 1.0f);
+            const f32 gRadZ = radius / (spanZ > 1.0e-6f ? spanZ : 1.0f);
+            const i32 x0 = Max(0, static_cast<i32>(Floor(c.x - gRadX)));
+            const i32 x1 = Min(n - 1, static_cast<i32>(Ceil(c.x + gRadX)));
+            const i32 z0 = Max(0, static_cast<i32>(Floor(c.y - gRadZ)));
+            const i32 z1 = Min(n - 1, static_cast<i32>(Ceil(c.y + gRadZ)));
+            const f32 invRadius = 1.0f / radius;
+            for (i32 gz = z0; gz <= z1; ++gz)
+            {
+                for (i32 gx = x0; gx <= x1; ++gx)
+                {
+                    const Float2 wp = hf.GridToWorld(static_cast<f32>(gx), static_cast<f32>(gz));
+                    const f32 dx = wp.x - worldX;
+                    const f32 dz = wp.y - worldZ;
+                    const f32 dist = Sqrt(dx * dx + dz * dz);
+                    if (dist >= radius)
+                    {
+                        continue;
+                    }
+                    const f32 w = 0.5f + 0.5f * Cos(3.14159265f * dist * invRadius); // 1 centre..0 rim
+                    apply(gx, gz, w);
+                    region.Add(gx, gz);
+                }
+            }
+            return region;
+        }
+
+        [[nodiscard]] inline Height ClampSample(f32 v) noexcept
+        {
+            const f32 c = v < 0.0f ? 0.0f : (v > 65535.0f ? 65535.0f : v);
+            return static_cast<Height>(c + 0.5f);
+        }
+    }
+
+    /// Raise (positive strength) or lower (negative) the surface by up to `strengthWorldY` world
+    /// units at the brush centre, falling off to the rim.
+    inline HeightfieldRegion SculptRaise(Heightfield& hf, f32 worldX, f32 worldZ, f32 radius,
+                                         f32 strengthWorldY)
+    {
+        const f32 range = hf.MaxY() - hf.MinY();
+        const f32 perUnit = (range > 1.0e-6f) ? (65535.0f / range) : 0.0f;
+        const HeightfieldRegion region = detail::VisitBrush(
+            hf, worldX, worldZ, radius,
+            [&](i32 gx, i32 gz, f32 w)
+            {
+                const f32 s = static_cast<f32>(hf.GetSample(gx, gz)) + strengthWorldY * w * perUnit;
+                hf.SetSample(gx, gz, detail::ClampSample(s));
+            });
+        if (!region.IsEmpty())
+        {
+            hf.BumpVersion();
+        }
+        return region;
+    }
+
+    /// Pull the surface toward `targetWorldY` by `amount` in [0,1] (scaled by the falloff).
+    inline HeightfieldRegion SculptFlatten(Heightfield& hf, f32 worldX, f32 worldZ, f32 radius,
+                                           f32 amount, f32 targetWorldY)
+    {
+        const f32 target = static_cast<f32>(hf.WorldYToSample(targetWorldY));
+        const HeightfieldRegion region = detail::VisitBrush(
+            hf, worldX, worldZ, radius,
+            [&](i32 gx, i32 gz, f32 w)
+            {
+                const f32 s = static_cast<f32>(hf.GetSample(gx, gz));
+                hf.SetSample(gx, gz, detail::ClampSample(s + (target - s) * (w * amount)));
+            });
+        if (!region.IsEmpty())
+        {
+            hf.BumpVersion();
+        }
+        return region;
+    }
+
+    /// Smooth the surface toward each cell's 3x3 neighbourhood average by `amount` in [0,1].
+    inline HeightfieldRegion SculptSmooth(Heightfield& hf, f32 worldX, f32 worldZ, f32 radius,
+                                          f32 amount)
+    {
+        const i32 n = hf.Size();
+        const HeightfieldRegion region = detail::VisitBrush(
+            hf, worldX, worldZ, radius,
+            [&](i32 gx, i32 gz, f32 w)
+            {
+                f32 sum = 0.0f;
+                i32 count = 0;
+                for (i32 dz = -1; dz <= 1; ++dz)
+                {
+                    for (i32 dx = -1; dx <= 1; ++dx)
+                    {
+                        const i32 nx = gx + dx;
+                        const i32 nz = gz + dz;
+                        if (nx >= 0 && nx < n && nz >= 0 && nz < n)
+                        {
+                            sum += static_cast<f32>(hf.GetSample(nx, nz));
+                            ++count;
+                        }
+                    }
+                }
+                const f32 avg = (count > 0) ? (sum / static_cast<f32>(count)) : 0.0f;
+                const f32 s = static_cast<f32>(hf.GetSample(gx, gz));
+                hf.SetSample(gx, gz, detail::ClampSample(s + (avg - s) * (w * amount)));
+            });
+        if (!region.IsEmpty())
+        {
+            hf.BumpVersion();
+        }
+        return region;
+    }
+
     RTTI_DEFINE_OBJECT(Heightfield, "rtti::heightfield")
 }
