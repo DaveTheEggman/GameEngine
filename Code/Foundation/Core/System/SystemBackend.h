@@ -29,6 +29,14 @@ namespace foundation::core::sys
     // frame count (0 where unsupported). Avoids heap allocation (assert-context safe).
     int WriteBacktrace(int fd) noexcept;
 
+    // Install fatal-signal handlers (SIGSEGV/SIGBUS/SIGILL/SIGFPE/SIGABRT on POSIX) that write
+    // the signal name + WriteBacktrace to stderr, then re-raise with the default action so the
+    // exit status / core dump behavior is unchanged. Makes a crash in the wild actionable from
+    // console output alone (the assert path already prints one; raw segfaults printed NOTHING).
+    // Best-effort by design: backtrace() in a signal handler is not strictly async-signal-safe,
+    // the accepted trade for a dying process. Idempotent; no-op where unsupported.
+    void InstallCrashBacktrace() noexcept;
+
     // --- Environment -------------------------------------------------------
     // Copy environment variable `name` into `out` (truncated to outSize-1, always null-terminated
     // when out/outSize are valid). Returns the value's FULL length excluding the null - so a return

@@ -62,6 +62,10 @@ export namespace foundation::runtime
             m_graphics = graphics;
             m_settings = app.Settings();
 
+            // Fatal-signal backtraces: a crash anywhere in the app prints a native stack to
+            // stderr before dying (raw segfaults printed nothing; asserts already did).
+            core::InstallCrashBacktrace();
+
             // Bring up the engine-wide JobSystem before any subsystem starts, so it is
             // available to all of them and outlives them (torn down last, in Stop()).
             core::InitGlobalJobSystem();

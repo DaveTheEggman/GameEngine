@@ -266,3 +266,55 @@ TEST_CASE("system: NormalizePathSeparators yields OS-native separators")
 #endif
     }
 }
+
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#include <sys/wait.h>
+#include <unistd.h>
+
+// The fatal-signal backtrace (PaperKid editor-crash lesson): a child installs the handler and
+// segfaults; the parent asserts the crash banner + backtrace reached stderr AND the default
+// signal disposition was preserved (the child still dies BY the signal, so cores/exit status
+// behave as before).
+TEST_CASE("system: InstallCrashBacktrace prints a native stack on SIGSEGV")
+{
+    int pipeFds[2];
+    REQUIRE(pipe(pipeFds) == 0);
+
+    const pid_t child = fork();
+    REQUIRE(child >= 0);
+    if (child == 0)
+    {
+        // Child: route stderr into the pipe, install, crash.
+        dup2(pipeFds[1], 2);
+        close(pipeFds[0]);
+        close(pipeFds[1]);
+        InstallCrashBacktrace();
+        volatile int* nullPointer = nullptr;
+        *nullPointer = 42; // SIGSEGV -> handler prints -> re-raises with SIG_DFL
+        _exit(0);          // unreachable
+    }
+
+    close(pipeFds[1]);
+    char buffer[8192];
+    usize total = 0;
+    ssize_t n = 0;
+    while ((n = read(pipeFds[0], buffer + total, sizeof(buffer) - 1 - total)) > 0)
+    {
+        total += static_cast<usize>(n);
+        if (total >= sizeof(buffer) - 1)
+        {
+            break;
+        }
+    }
+    buffer[total] = '\0';
+    close(pipeFds[0]);
+
+    int status = 0;
+    REQUIRE(waitpid(child, &status, 0) == child);
+    CHECK(WIFSIGNALED(status));                       // default disposition preserved
+    CHECK(WTERMSIG(status) == SIGSEGV);               // died BY the segfault, post-print
+    CHECK(std::strstr(buffer, "SIGSEGV") != nullptr); // the banner
+    CHECK(std::strstr(buffer, "backtrace") != nullptr);
+    CHECK(std::strstr(buffer, "0x") != nullptr); // at least one frame line
+}
+#endif

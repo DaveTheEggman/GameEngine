@@ -854,11 +854,13 @@ namespace foundation::core::sys
 namespace foundation::core::sys
 {
     int WriteBacktrace(int) noexcept { return 0; }
+    void InstallCrashBacktrace() noexcept {}
 }
 
 #else
 
 #include <execinfo.h>
+#include <signal.h>
 
 namespace foundation::core::sys
 {
@@ -868,6 +870,55 @@ namespace foundation::core::sys
         const int count = backtrace(frames, 64);
         backtrace_symbols_fd(frames, count, fd);
         return count;
+    }
+
+    namespace
+    {
+        // Async-signal-safe-ish fatal handler: write the signal name + native stack to stderr,
+        // restore the default action, re-raise (preserves the exit status / core dump). Only
+        // write() and backtrace_symbols_fd are used - the accepted best-effort trade in a dying
+        // process. SA_RESETHAND makes a crash INSIDE the handler fall through to the default.
+        void FatalSignalHandler(int sig) noexcept
+        {
+            const char* name = "FATAL SIGNAL";
+            switch (sig)
+            {
+            case SIGSEGV: name = "SIGSEGV (segmentation fault)"; break;
+            case SIGBUS: name = "SIGBUS (bus error)"; break;
+            case SIGILL: name = "SIGILL (illegal instruction)"; break;
+            case SIGFPE: name = "SIGFPE (arithmetic exception)"; break;
+            case SIGABRT: name = "SIGABRT (abort)"; break;
+            default: break;
+            }
+            // write(2) is async-signal-safe; ignore short writes (dying anyway).
+            (void)!write(2, "\n=== ", 5);
+            (void)!write(2, name, static_cast<size_t>(__builtin_strlen(name)));
+            (void)!write(2, " ===\n  backtrace (addr2line -e <binary> -f -C to resolve):\n", 59);
+            (void)WriteBacktrace(2);
+            signal(sig, SIG_DFL);
+            raise(sig);
+        }
+    }
+
+    void InstallCrashBacktrace() noexcept
+    {
+        static bool installed = false;
+        if (installed)
+        {
+            return;
+        }
+        installed = true;
+        struct sigaction action
+        {
+        };
+        action.sa_handler = &FatalSignalHandler;
+        sigemptyset(&action.sa_mask);
+        action.sa_flags = SA_RESETHAND; // a crash inside the handler falls through to default
+        const int fatalSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT};
+        for (const int sig : fatalSignals)
+        {
+            (void)sigaction(sig, &action, nullptr);
+        }
     }
 }
 

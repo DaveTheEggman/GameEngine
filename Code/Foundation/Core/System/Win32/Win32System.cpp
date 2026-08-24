@@ -895,4 +895,10 @@ namespace foundation::core::sys
         }
         return static_cast<int>(count);
     }
+
+    void InstallCrashBacktrace() noexcept
+    {
+        // TODO(win32): SetUnhandledExceptionFilter writing WriteBacktrace to stderr (the POSIX
+        // backend installs fatal-signal handlers). No-op until validated on Windows.
+    }
 }

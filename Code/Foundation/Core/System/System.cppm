@@ -68,6 +68,13 @@ export namespace foundation::core
         sys::SleepMilliseconds(milliseconds);
     }
 
+    // --- Crash reporting ----------------------------------------------------
+
+    // Install fatal-signal handlers that print the native backtrace to stderr before dying
+    // (the assert path already prints one; a raw SIGSEGV printed NOTHING - PaperKid editor
+    // crash lesson). Idempotent; hosts call it once at startup. See SystemBackend.h.
+    inline void InstallCrashBacktrace() noexcept { sys::InstallCrashBacktrace(); }
+
     // --- System info -------------------------------------------------------
 
     [[nodiscard]] inline u32 LogicalCoreCount() noexcept { return sys::LogicalCoreCount(); }
