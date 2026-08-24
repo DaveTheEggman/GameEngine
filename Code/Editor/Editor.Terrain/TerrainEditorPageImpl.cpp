@@ -266,6 +266,15 @@ namespace editor
                                                   [self](const Guid& g)
                                                   { self->m_asset->splatmapId = g; }});
                       });
+            // No splatmap yet: offer to author one (the Splat Paint tool needs an existing raster).
+            // Resolution is an authoring choice independent of the heightfield (Fable Q3) - presets.
+            if (m_asset->splatmapId.IsNil())
+            {
+                addLabel(u8"Create splatmap:", 11.0f);
+                addButton(u8"512", [self]() { self->CreateSplatmap(512); });
+                addButton(u8"1024", [self]() { self->CreateSplatmap(1024); });
+                addButton(u8"2048", [self]() { self->CreateSplatmap(2048); });
+            }
         }
 
         // Layers
@@ -392,6 +401,46 @@ namespace editor
         }
         CommitEdit(u8"removeLayer");
         RebuildFieldsDeferred();
+    }
+
+    void TerrainEditorPage::CreateSplatmap(i32 size)
+    {
+        // Composition, not painting: the PAGE authors the splatmap asset (a new source instance,
+        // seeded to the base layer) and assigns it; the Splat Paint tool only edits an existing one
+        // (Fable ruling Q3 - no stroke ever implies asset creation, so undo stays clean).
+        if (m_asset.Get() == nullptr || m_context->Project() == nullptr)
+        {
+            return;
+        }
+        foundation::content::Group* root = m_context->Project()->SourceDb().RootGroup();
+        if (root == nullptr)
+        {
+            return;
+        }
+        const i32 dim = size > 0 ? size : 1024;
+        const String terrainName = AssetName(m_context, InstanceId());
+        const String name = Format(u8"{}_splat", terrainName);
+        foundation::content::Instance* inst =
+            root->CreateInstance(name.AsView(), pipeline::SplatmapAsset::StaticType());
+        if (inst == nullptr)
+        {
+            m_context->Notify(editor::NoticeKind::Error, u8"Splatmap create FAILED (name in use?).");
+            return;
+        }
+        pipeline::SplatmapAsset sa;
+        sa.width = dim;
+        sa.height = dim;
+        (void)inst->WriteObject(sa);
+        RefPtr<terrain::Splatmap> sm = MakeRef<terrain::Splatmap>(DefaultAllocator(), dim, dim);
+        sm->SeedLayer0(); // a fresh splatmap renders the base layer until painted
+        (void)inst->WriteData(terrain::kSplatStream, terrain::SplatmapSource::PixelBlob(*sm));
+
+        m_asset->splatmapId = inst->Id();
+        CommitEdit(u8"createSplatmap");
+        m_context->RequestCook(false); // cook the new SplatmapAsset -> Splatmap product
+        PointComponentAtTerrain(m_terrainProxy ? m_terrainProxy.Get() : nullptr);
+        RebuildFieldsDeferred();
+        m_context->Notify(editor::NoticeKind::Success, u8"Created splatmap.");
     }
 
     // ---- undo / save ----------------------------------------------------------------------------
