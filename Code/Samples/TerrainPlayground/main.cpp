@@ -73,7 +73,7 @@ namespace
             {
                 const core::f32 fx = static_cast<core::f32>(x);
                 const core::f32 fz = static_cast<core::f32>(z);
-                const core::f32 dx = (fx - c) / c; // -1..1 from centre
+                const core::f32 dx = (fx - c) / c; // -1..1 from center
                 const core::f32 dz = (fz - c) / c;
                 const core::f32 r = core::Min(core::Sqrt(dx * dx + dz * dz), 1.0f);
                 core::f32 h = 0.0f;
@@ -86,7 +86,7 @@ namespace
                         0.10f * core::Cos(fz * frequency * 3.1f);
                     break;
                 case TerrainType::Dome:
-                    h = core::Cos(r * 1.5707963f); // 1 centre .. 0 rim (smooth mound)
+                    h = core::Cos(r * 1.5707963f); // 1 center .. 0 rim (smooth mound)
                     break;
                 case TerrainType::Ripple:
                     h = 0.5f + 0.5f * core::Sin(r * 20.0f * frequency) * (1.0f - r);

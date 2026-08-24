@@ -94,7 +94,7 @@ export namespace editor
 
         Mode m_mode = Mode::Raise;
         f32 m_radius = 6.0f;      // world units
-        f32 m_strength = 8.0f;    // world-Y units per second at the brush centre
+        f32 m_strength = 8.0f;    // world-Y units per second at the brush center
         f32 m_flattenTarget = 0.0f;
         bool m_hasFlattenTarget = false;
 

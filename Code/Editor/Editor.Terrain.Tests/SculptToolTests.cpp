@@ -41,8 +41,8 @@ namespace
         bool hasPersist = false;
     };
 
-    // A straight-down ray at the terrain centre (identity entity transform -> local == world).
-    editor::ViewportToolInput CentreRay(f32 deltaSeconds)
+    // A straight-down ray at the terrain center (identity entity transform -> local == world).
+    editor::ViewportToolInput CenterRay(f32 deltaSeconds)
     {
         editor::ViewportToolInput in;
         in.ray.origin = Float3{0.0f, 100.0f, 0.0f};
@@ -87,7 +87,7 @@ TEST_CASE("terrain sculpt: a press-drag-release stroke raises the shared heightf
     CHECK(before == 0);
 
     // Press (begins the stroke + deposits the first dab).
-    editor::ViewportToolInput press = CentreRay(0.1f);
+    editor::ViewportToolInput press = CenterRay(0.1f);
     press.leftPressed = true;
     press.leftDown = true;
     CHECK(tool.Update(press)); // consumed: the brush owns the click
@@ -97,13 +97,13 @@ TEST_CASE("terrain sculpt: a press-drag-release stroke raises the shared heightf
     CHECK(fx.grid->Version() > 1u); // sculpt bumped the version (GPU re-upload)
 
     // A held drag frame raises further.
-    editor::ViewportToolInput drag = CentreRay(0.1f);
+    editor::ViewportToolInput drag = CenterRay(0.1f);
     drag.leftDown = true;
     CHECK(tool.Update(drag));
     CHECK(fx.grid->GetSample(32, 32) > afterDab);
 
     // Release: commits ONE command + registers the persist closure.
-    editor::ViewportToolInput release = CentreRay(0.1f);
+    editor::ViewportToolInput release = CenterRay(0.1f);
     release.leftReleased = true;
     (void)tool.Update(release);
 
@@ -120,11 +120,11 @@ TEST_CASE("terrain sculpt: one command per stroke undoes/redoes the whole region
     FakeAssetEditSink sink;
     editor::TerrainSculptTool tool(fx.scene, commands, &sink);
 
-    editor::ViewportToolInput press = CentreRay(0.2f);
+    editor::ViewportToolInput press = CenterRay(0.2f);
     press.leftPressed = true;
     press.leftDown = true;
     (void)tool.Update(press);
-    editor::ViewportToolInput release = CentreRay(0.2f);
+    editor::ViewportToolInput release = CenterRay(0.2f);
     release.leftReleased = true;
     (void)tool.Update(release);
 
@@ -154,7 +154,7 @@ TEST_CASE("terrain sculpt: unavailable with no terrain, and refuses edits while 
     Fixture fx;
     editor::EditorCommandStack commands;
     editor::TerrainSculptTool tool(fx.scene, commands, nullptr);
-    editor::ViewportToolInput locked = CentreRay(0.1f);
+    editor::ViewportToolInput locked = CenterRay(0.1f);
     locked.leftPressed = true;
     locked.leftDown = true;
     locked.editingLocked = true;

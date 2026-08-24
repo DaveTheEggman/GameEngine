@@ -37,7 +37,7 @@ namespace
 {
     constexpr u32 kSize = 256;
 
-    // A radial dome: 1.0 at the centre, 0 at the rim (varying normals -> varying shading).
+    // A radial dome: 1.0 at the center, 0 at the rim (varying normals -> varying shading).
     RefPtr<hf::Heightfield> MakeDome()
     {
         constexpr i32 n = 129;
@@ -51,7 +51,7 @@ namespace
                 const f32 dx = (static_cast<f32>(x) - c) / c;
                 const f32 dz = (static_cast<f32>(z) - c) / c;
                 const f32 r = Min(Sqrt(dx * dx + dz * dz), 1.0f);
-                const f32 hgt = Cos(r * 3.14159265f) * 0.5f + 0.5f; // 1 centre .. 0 rim
+                const f32 hgt = Cos(r * 3.14159265f) * 0.5f + 0.5f; // 1 center .. 0 rim
                 h->SetSample(x, z, static_cast<hf::Height>(hgt * 65535.0f));
             }
         }
@@ -270,7 +270,7 @@ namespace
         CHECK(p.bottomLuma == doctest::Approx(ref.bottomLuma).epsilon(0.05));
     }
 
-    // Flat ground + a tall thin N-S ridge at the centre X. A low +X sun makes the ridge cast a long
+    // Flat ground + a tall thin N-S ridge at the center X. A low +X sun makes the ridge cast a long
     // shadow across the flat -X ground - a clean caster/receiver: the flat ground has a uniform normal,
     // so any left/right darkening there is PURELY the cast shadow, not n.l shading.
     RefPtr<hf::Heightfield> MakeRidge()
@@ -502,7 +502,7 @@ namespace
             const testsupport::CapturedImage img =
                 testsupport::Readback(device, target, kSize, kSize);
             REQUIRE(img.valid);
-            // Two flat-ground bands well clear of the centre ridge stripe.
+            // Two flat-ground bands well clear of the center ridge stripe.
             for (u32 y = 0; y < kSize; ++y)
             {
                 for (u32 x = 0; x < kSize; ++x)

@@ -72,7 +72,7 @@ TEST_CASE("heightfield.pipeline: resample helper - bilinear onto the grid")
     CHECK(hf->GetSample(64, 0) == 20000);
     CHECK(hf->GetSample(0, 64) == 40000);
     CHECK(hf->GetSample(64, 64) == 60000);
-    // Centre is the average of the four corners.
+    // Center is the average of the four corners.
     CHECK(hf->GetSample(32, 32) == doctest::Approx(30000).epsilon(0.01));
 }
 

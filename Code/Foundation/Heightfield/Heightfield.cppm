@@ -6,7 +6,7 @@
 ///
 /// A grid is SQUARE with side S = 64*k + 1 (k >= 1: 65, 129, 257, ...): that one rule tiles into
 /// 64-quad (65-vert) render chunks sharing edges AND satisfies Jolt's square HeightFieldShape. u16
-/// samples map linearly onto a world Y range [minY, maxY] over a worldSize (X by Z) footprint centred
+/// samples map linearly onto a world Y range [minY, maxY] over a worldSize (X by Z) footprint centered
 /// on the LOCAL origin (XZ plane, +Y up); the entity transform places it in the world.
 
 module;
@@ -113,7 +113,7 @@ export namespace foundation::heightfield
             return static_cast<Height>(Round(clamped));
         }
 
-        // ---- world XZ <-> grid coordinate (grid space is [0, S-1], footprint centred on origin) ----
+        // ---- world XZ <-> grid coordinate (grid space is [0, S-1], footprint centered on origin) ----
         [[nodiscard]] Float2 WorldToGrid(f32 worldX, f32 worldZ) const noexcept
         {
             const f32 span = static_cast<f32>(m_size - 1);
@@ -341,8 +341,8 @@ export namespace foundation::heightfield
 
     // ---- sculpt brushes (pure sample math; the editor sculpt tool wraps these) ------------------
     //
-    // Each brush edits the samples under a WORLD-space disc (centre worldX,worldZ; radius) with a
-    // cosine falloff (1 at the centre, 0 at the rim), clamps to the u16 range, BumpVersion()s if any
+    // Each brush edits the samples under a WORLD-space disc (center worldX,worldZ; radius) with a
+    // cosine falloff (1 at the center, 0 at the rim), clamps to the u16 range, BumpVersion()s if any
     // sample changed, and returns the touched grid RECTANGLE (inclusive) - the region a stroke's
     // undo command snapshots and the renderer's GPU re-upload can bound to. All headless-testable.
 
@@ -403,7 +403,7 @@ export namespace foundation::heightfield
                     {
                         continue;
                     }
-                    const f32 w = 0.5f + 0.5f * Cos(3.14159265f * dist * invRadius); // 1 centre..0 rim
+                    const f32 w = 0.5f + 0.5f * Cos(3.14159265f * dist * invRadius); // 1 center..0 rim
                     apply(gx, gz, w);
                     region.Add(gx, gz);
                 }
@@ -419,7 +419,7 @@ export namespace foundation::heightfield
     }
 
     /// Raise (positive strength) or lower (negative) the surface by up to `strengthWorldY` world
-    /// units at the brush centre, falling off to the rim.
+    /// units at the brush center, falling off to the rim.
     inline HeightfieldRegion SculptRaise(Heightfield& hf, f32 worldX, f32 worldZ, f32 radius,
                                          f32 strengthWorldY)
     {
