@@ -1,4 +1,5 @@
-add_executable(Editor.Terrain.Tests TestsMain.cpp TerrainEditorPageTests.cpp SculptToolTests.cpp)
+add_executable(Editor.Terrain.Tests TestsMain.cpp TerrainEditorPageTests.cpp SculptToolTests.cpp
+    SplatToolTests.cpp)
 target_link_libraries(Editor.Terrain.Tests PRIVATE
     Editor::Terrain Editor::Core Editor::ViewportTools
     Pipeline::Terrain Foundation::Terrain Foundation::Terrain.Resource Foundation::Heightfield

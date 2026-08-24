@@ -32,7 +32,8 @@ import editor.core;
 import editor.app;
 import editor.preview; // PreviewViewport (shared viewport + preview scene + camera + render loop)
 
-export import :sculpt; // the scene-viewport terrain brush (IViewportTool) + its provider
+export import :sculpt; // the scene-viewport terrain sculpt brush (IViewportTool) + the provider
+export import :splat;  // the scene-viewport terrain splat (layer-weight) brush
 
 using namespace foundation::core;
 

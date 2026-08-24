@@ -14,6 +14,6 @@ target_link_libraries(Editor.Terrain PUBLIC
     Foundation::Heightfield Foundation::Heightfield.Resource Foundation::Resource Foundation::Policy)
 
 target_sources(Editor.Terrain
-    PRIVATE TerrainEditorPageImpl.cpp SculptImpl.cpp
+    PRIVATE TerrainEditorPageImpl.cpp SculptImpl.cpp SplatToolImpl.cpp
     PUBLIC FILE_SET editorterrain_modules TYPE CXX_MODULES FILES
-        TerrainEditorPage.cppm Sculpt.cppm)
+        TerrainEditorPage.cppm Sculpt.cppm SplatTool.cppm)

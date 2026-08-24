@@ -413,6 +413,10 @@ namespace editor
             DefaultAllocator().New<TerrainSculptTool>(*context.scene, *context.commands,
                                                       context.assetEdits),
             DefaultAllocator()));
+        manager.Add(UniquePtr<IViewportTool>(
+            DefaultAllocator().New<TerrainSplatTool>(*context.scene, *context.commands,
+                                                     context.assetEdits),
+            DefaultAllocator()));
     }
 
     void RegisterTerrainViewportTools()
