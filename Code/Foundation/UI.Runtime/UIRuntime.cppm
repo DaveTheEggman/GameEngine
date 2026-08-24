@@ -363,6 +363,36 @@ export namespace foundation::ui::runtime
             Attached* mainW = m_attached.IsEmpty() ? nullptr : &m_attached[0];
             const u32 focusedId =
                 (m_shell->Input() != nullptr) ? m_shell->Input()->FocusedWindow() : 0;
+
+            // Stuck-drag watchdog (PaperKid feedback: a floated dock window kept following the
+            // mouse after release). The float chases the cursor during a drag, and on some
+            // platforms (Wayland especially) the release event can land on a window edge/handoff
+            // and never reach the drag routing - leaving the drag latched forever. The SHELL's
+            // global button state is authoritative: if a drag is active but the OS says the left
+            // button is UP for a full frame, deliver the release at the current global position
+            // through the same path a normal release takes.
+            if (dd != nullptr && dd->IsDragging() && m_shell->Input() != nullptr &&
+                m_shell->Input()->Mouse() != nullptr &&
+                !m_shell->Input()->Mouse()->IsButtonDown(shell::MouseButton::Left))
+            {
+                if (m_dragReleaseMissedFrames++ >= 1) // one full frame of button-up = missed
+                {
+                    if (mainW != nullptr)
+                    {
+                        PumpWindowAtGlobal(*mainW); // routes the up as a drop at the cursor
+                    }
+                    if (dd->IsDragging())
+                    {
+                        dd->CancelDrag(); // still latched (no drop target took it): hard-cancel
+                    }
+                    m_dragReleaseMissedFrames = 0;
+                }
+            }
+            else
+            {
+                m_dragReleaseMissedFrames = 0;
+            }
+
             const bool crossWindowDrag =
                 (dd != nullptr && dd->IsDragging() && mainW != nullptr && focusedId != 0 &&
                  focusedId != mainW->window->Window().Id());
@@ -1015,6 +1045,7 @@ export namespace foundation::ui::runtime
         core::UniquePtr<UiInputBridge> m_bridge;
         core::UniquePtr<ShellClipboard> m_clipboard;
         core::Array<Attached> m_attached;
+        core::u32 m_dragReleaseMissedFrames = 0; // stuck-drag watchdog (see Update)
         // Default near-black, stored LINEAR (matches an sRGB backbuffer's clear semantics).
         // Baked icon atlases (BakeSvgDrawables): drawables' variants borrow these.
         core::Array<core::UniquePtr<image::OwnedImageData>> m_bakedIconAtlases;
