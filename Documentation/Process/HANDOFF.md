@@ -590,3 +590,49 @@ Remaining for terrain (per Opus, confirmed accurate): CSM cast+receive,
 D2 splat, Editor.Terrain phase 2. Deferred set unchanged.
 
 Baseline for pass 15: this pass's commit.
+
+## Review pass 15 (2026-08-23, Fable): terrain CSM + D2 splat - PASS (1 finding, fixed in-pass)
+
+Scope: the commits since pass 14 - the shadow-caster-list
+generalization, terrain CSM cast+receive, the playground orbiting
+caster, and D2 splat blending (Fable's own retire/uid/backend-flag fixes
+were self-built). Full two-compiler battery green; ASAN over the
+terrain/render class clean.
+
+**Verified:**
+- BuildShadowCasterList generalization (86be4836): a GENUINE latent UB
+  fixed before terrain triggered it - the caster list blind-downcast
+  every item to MeshRenderData; now generic base fields with the
+  mesh-only skinned-sphere path gated on rendererId 0. Mesh behavior
+  byte-identical.
+- Terrain CSM: the cast path culls chunks against the LIGHT frustum
+  (ctx.viewProj) while drawing with a biased depth PSO - the classic
+  camera-frustum caster bug avoided; receive = 3x3 PCF + cascade blend
+  band + the zero-meta lit fallback; probes extended.
+- D2 splat honors the ruling POINT BY POINT: terrain-LOCAL XZ tiling
+  (with the glued-under-move rationale in the shader comment), shader
+  weight normalization with the exact zero-sum -> layer-0 guard, the
+  set-3 bind-group cache validated by the uniqueId of ALL FIVE views
+  with retire-queue disposal of stale groups (both of this week's
+  lessons applied unprompted), white fallbacks for absent slots,
+  trilinear albedo mips, a WebGPU cross-check probe with graceful
+  skip, and the pipeline round-trip. A bonus tile-scale zero guard.
+
+**Finding (fixed in-pass):** shadow-pass RenderRecordContexts never set
+viewMatrix/cameraPos, so terrain's cascade LOD-coverage math ran against
+an Identity view - chunk LOD keyed to raw world -z, an arbitrary metric
+(subtle wrong LODs in cascade shadow geometry). FIXED:
+RecordShadowCasters now carries the owning camera's view matrix +
+position when lodView is present (cascade chunk LODs match the main
+view, mirroring the mesh-side rule), and a null-view depth resolve
+(camera-independent local-shadow tiles) forces every visible chunk to
+the COARSEST grid - the mesh coarsest rule's terrain equivalent. A
+harness regression test pins both halves (null-view draws all-equal at
+the coarsest index count; a close-up camera resolve emits strictly
+finer geometry).
+
+Terrain runtime is COMPLETE (renderer + CSM + splat); Editor.Terrain
+phase 2 (the first real IViewportTool consumer) is next and reviewed
+separately when it lands.
+
+Baseline for pass 16: this pass's commit.

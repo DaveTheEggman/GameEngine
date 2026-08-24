@@ -703,6 +703,15 @@ namespace foundation::render
     {
         RenderRecordContext ctx{};
         ctx.view = lodView; // LOD coupling only (null = coarsest); light matrices come below
+        if (lodView != nullptr)
+        {
+            // The owning camera's matrices, for LOD-coverage math ONLY (terrain chunk
+            // selection reads viewMatrix + the view's projection; without these a cascade
+            // pass would compute coverage against Identity - an arbitrary world-z metric).
+            // The LIGHT's viewProj below still drives culling and the actual draw.
+            ctx.viewMatrix = lodView->Camera().view;
+            ctx.cameraPos = lodView->Camera().position;
+        }
         ctx.viewProj = lightViewProj;
         ctx.depthFormat =
             (m_shadows != nullptr) ? m_shadows->Format() : rhi::TextureFormat::Depth32Float;

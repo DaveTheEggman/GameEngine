@@ -245,3 +245,86 @@ TEST_CASE("terrain renderer: nothing drawn when the terrain is off-screen")
     CHECK(renderer.MaxChunksDrawn() == 0u);
     heightCache.Clear(harness.device); // GPU objects back to the device (pass-14 ASAN hygiene)
 }
+
+TEST_CASE("terrain renderer: null-view depth passes cast at the COARSEST chunk LOD (pass 15)")
+{
+    // The mesh shadow rule's terrain equivalent: camera-independent local-shadow tiles
+    // (ctx.view == null) must never cast finer than any view shows. A close-up camera
+    // resolve picks fine LODs (more indices per draw); the null-view depth resolve must
+    // emit every chunk at the coarsest grid (the minimum index count).
+    RenderHarness harness;
+    if (!harness.Init(256, 256))
+    {
+        MESSAGE("DXC/Null unavailable; skipping");
+        return;
+    }
+    shaders::ShaderSystem shaderSystem(*harness.compiler, harness.device);
+    WireEngineShaders(shaderSystem);
+    engine::terrain::TerrainRenderer renderer(harness.device, shaderSystem, /*framesInFlight*/ 2);
+    REQUIRE(renderer.Initialize().IsOk());
+
+    RefPtr<hf::Heightfield> h = MakeRampX();
+    Array<tmodel::TerrainChunk> chunks;
+    tmodel::BuildChunks(*h, chunks);
+    tmodel::TerrainQuadtree tree;
+    tree.Build(Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
+               tmodel::ChunksPerSide(h->Size()));
+    engine::terrain::TerrainHeightTextureCache heightCache;
+    rhi::TextureView* heightView = heightCache.GetOrCreate(harness.device, *h, 1);
+    REQUIRE(heightView != nullptr);
+
+    engine::terrain::TerrainRenderData rd{};
+    FillTerrainRenderData(rd, *h, Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
+                          tree, heightView, renderer.RendererId());
+    DrawItem item{0, &rd};
+    renderer.PrepareFrame(/*maxDraws*/ 64, /*frameIndex*/ 0); // rings sized (RenderFrame does this)
+
+    // A light-style ortho VP from above covering the whole terrain (all chunks visible).
+    RenderRecordContext ctx{};
+    ctx.viewProj = Float4x4::LookAtRH(Float3{0, 200, 0}, Float3{0, 0, 0}, Float3{0, 0, -1}) *
+                   Float4x4::OrthographicRH(300.0f, 300.0f, 1.0f, 400.0f);
+    ctx.depthFormat = rhi::TextureFormat::Depth32Float;
+    ctx.view = nullptr; // camera-independent (local-shadow tile)
+
+    Array<ResolvedDraw> out;
+    renderer.ResolveDepthOnly(ctx, Span<const DrawItem>{&item, 1}, out);
+    REQUIRE(out.Size() == 4u); // 2x2 chunks, all visible from above
+    // Every draw uses the SAME (coarsest) index count.
+    for (usize i = 1; i < out.Size(); ++i)
+    {
+        CHECK(out[i].indexCount == out[0].indexCount);
+    }
+
+    // The same terrain through a CLOSE-UP camera view resolves finer geometry: at least
+    // one draw with MORE indices than the null-view coarsest draws.
+    ViewCamera cam;
+    cam.view = Float4x4::LookAtRH(Float3{-40.0f, 12.0f, 0.0f}, Float3{0.0f, 5.0f, 0.0f},
+                                  Float3{0, 1, 0});
+    cam.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 1000.0f);
+    cam.position = Float3{-40.0f, 12.0f, 0.0f};
+    RenderView camView;
+    ExtractedScene dummyScene;
+    ViewSettings settings{};
+    camView.Bind(dummyScene, cam, settings, harness.colorView, rhi::TextureFormat::BGRA8Unorm, 256,
+                 256);
+    RenderRecordContext camCtx{};
+    camCtx.view = &camView;
+    camCtx.viewMatrix = cam.view;
+    camCtx.viewProj = cam.ViewProjection();
+    camCtx.depthFormat = rhi::TextureFormat::Depth32Float;
+    camCtx.depthPrepass = true;
+    Array<ResolvedDraw> camOut;
+    renderer.ResolveDepthOnly(camCtx, Span<const DrawItem>{&item, 1}, camOut);
+    REQUIRE(!camOut.IsEmpty());
+    bool anyFiner = false;
+    for (const ResolvedDraw& d : camOut)
+    {
+        if (d.indexCount > out[0].indexCount)
+        {
+            anyFiner = true;
+        }
+    }
+    CHECK(anyFiner);
+
+    heightCache.Clear(harness.device);
+}

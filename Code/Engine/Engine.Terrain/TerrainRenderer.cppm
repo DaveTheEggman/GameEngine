@@ -403,6 +403,18 @@ export namespace engine::terrain
                 {
                     continue;
                 }
+                // Camera-independent pass (local-shadow tiles: ctx.view == null): the mesh
+                // rule's terrain equivalent - every visible chunk casts at the COARSEST
+                // level; shadows never render finer than any view shows. Cascades carry the
+                // owning camera view (RecordShadowCasters), so their coverage LODs match the
+                // main view's chunks exactly.
+                if (ctx.view == nullptr)
+                {
+                    for (usize d = 0; d < m_draws.Size(); ++d)
+                    {
+                        m_draws[d].lod = tmodel::kMaxChunkLod;
+                    }
+                }
 
                 rhi::BindGroup* heightBg = EnsureHeightBindGroup(data->heightView);
                 rhi::BindGroup* materialBg =
@@ -504,6 +516,18 @@ export namespace engine::terrain
                 if (m_draws.IsEmpty())
                 {
                     continue;
+                }
+                // Camera-independent pass (local-shadow tiles: ctx.view == null): the mesh
+                // rule's terrain equivalent - every visible chunk casts at the COARSEST
+                // level; shadows never render finer than any view shows. Cascades carry the
+                // owning camera view (RecordShadowCasters), so their coverage LODs match the
+                // main view's chunks exactly.
+                if (ctx.view == nullptr)
+                {
+                    for (usize d = 0; d < m_draws.Size(); ++d)
+                    {
+                        m_draws[d].lod = tmodel::kMaxChunkLod;
+                    }
                 }
                 rhi::BindGroup* heightBg = EnsureHeightBindGroup(data->heightView);
                 if (heightBg == nullptr)
