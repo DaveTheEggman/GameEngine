@@ -90,7 +90,8 @@ namespace editor
             }
 
             void Build(i32 count, Function<RefPtr<ui::View>(i32)> contentFor,
-                       Function<void(i32)> onSelect, Function<i32()> current)
+                       Function<void(i32)> onSelect, Function<i32()> current,
+                       Function<StringView(i32)> tooltipFor = {})
             {
                 m_onSelect = Move(onSelect);
                 m_current = Move(current);
@@ -98,6 +99,10 @@ namespace editor
                 {
                     auto btn = MakeRef<ui::ToggleButton>(DefaultAllocator());
                     btn->SetContent(contentFor(i));
+                    if (tooltipFor)
+                    {
+                        btn->TooltipText = String(tooltipFor(i));
+                    }
                     SegmentedToggle* self = this;
                     btn->OnCheckedChanged.Add(
                         [self, i](ui::ToggleButton*, bool) { self->Choose(i); });
@@ -181,7 +186,12 @@ namespace editor
                             MakeRef<IconGlyph>(DefaultAllocator(), modeIcons[i], 16.0f).Get());
                     },
                     [t](i32 i) { t->SetMode(static_cast<TerrainSculptTool::Mode>(i)); },
-                    [t]() { return static_cast<i32>(t->GetMode()); });
+                    [t]() { return static_cast<i32>(t->GetMode()); },
+                    [](i32 i) -> StringView {
+                        static constexpr StringView kNames[4] = {u8"Raise", u8"Lower", u8"Smooth",
+                                                                 u8"Flatten"};
+                        return kNames[i];
+                    });
                 root->AddView(modes.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
 
                 auto grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
@@ -228,7 +238,12 @@ namespace editor
                         return RefPtr<ui::View>(lbl.Get());
                     },
                     [t](i32 i) { t->SetLayer(static_cast<u32>(i)); },
-                    [t]() { return static_cast<i32>(t->Layer()); });
+                    [t]() { return static_cast<i32>(t->Layer()); },
+                    [](i32 i) -> StringView {
+                        static constexpr StringView kNames[4] = {u8"Layer 0", u8"Layer 1", u8"Layer 2",
+                                                                 u8"Layer 3"};
+                        return kNames[i];
+                    });
                 root->AddView(layers.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
 
                 auto grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());

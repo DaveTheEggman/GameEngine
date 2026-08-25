@@ -176,7 +176,15 @@ export namespace foundation::ui::toolkit
             ctx.VG().DrawLine(Float2{ccx - cs, ccy - cs}, Float2{ccx + cs, ccy + cs}, closeColor, 1.5f);
             ctx.VG().DrawLine(Float2{ccx + cs, ccy - cs}, Float2{ccx - cs, ccy + cs}, closeColor, 1.5f);
 
-            DrawChildren(ctx);
+            // Clip the content to the body so it never spills past the panel (a narrow resize keeps
+            // the content inside the frame rather than drawing over the border / outside the panel).
+            if (!m_collapsed)
+            {
+                ctx.PushClip(Rectangle{kContentInset, kHeaderHeight, Max(0.0f, w - 2.0f * kContentInset),
+                                       Max(0.0f, h - kHeaderHeight - kContentInset)});
+                DrawChildren(ctx);
+                ctx.PopClip();
+            }
 
             // Body border on top of content edges, and the bottom-right resize grip.
             ctx.VG().DrawBorderRoundedRect(Rectangle{0, 0, w, h}, radius, border, 1.0f);
@@ -342,7 +350,7 @@ export namespace foundation::ui::toolkit
         static constexpr f32 kChevronX = 8.0f;
         static constexpr f32 kChevronSize = 8.0f;
         static constexpr f32 kCloseBoxW = 24.0f;
-        static constexpr f32 kMinWidth = 160.0f;
+        static constexpr f32 kMinWidth = 220.0f; // wide enough for a small tool row + property fields
         static constexpr f32 kMinHeight = kHeaderHeight + 60.0f;
 
         void Capture()
