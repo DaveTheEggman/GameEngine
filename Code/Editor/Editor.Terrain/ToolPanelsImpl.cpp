@@ -18,6 +18,10 @@ module editor.terrain;
 import foundation.core;
 import foundation.ui;
 import foundation.ui.toolkit;
+import foundation.scene;    // Scene, ComponentManagerBase, EntityHandle
+import engine.terrain;      // TerrainComponent(Manager)
+import foundation.terrain;  // TerrainResource + Layer (albedo Ref)
+import editor.core;          // EditorContext, ThumbnailService (splat layer thumbnails)
 import editor.app;          // IViewportToolPanelProvider, ViewportToolPanelRegistry, EditorIcons
 import editor.viewporttools; // IViewportTool + ViewportToolHostContext
 
@@ -26,6 +30,7 @@ using namespace foundation::core;
 namespace editor
 {
     namespace ui = foundation::ui;
+    namespace scene = foundation::scene;
 
     namespace
     {
@@ -59,6 +64,81 @@ namespace editor
             ui::SVGDrawable* m_icon; // borrowed (owned by EditorIcons; outlives the panel)
             f32 m_size;
         };
+
+        // A live texture-thumbnail swatch for a terrain layer albedo. ThumbnailService::Get is async
+        // (empty now, fills in later), so OnDraw re-queries every frame (cheap - a cache hit or a
+        // cached negative) and falls back to the texture asset icon until the thumbnail is ready.
+        class LayerSwatch final : public ui::View
+        {
+        public:
+            LayerSwatch(ThumbnailService* thumbs, Guid albedoId, ui::Drawable* fallback, f32 size)
+                : m_thumbs(thumbs), m_id(albedoId), m_fallback(fallback), m_size(size)
+            {
+            }
+
+        protected:
+            void OnMeasure(ui::BoxConstraints c) override
+            {
+                MeasuredSize = Float2{c.ConstrainWidth(m_size), c.ConstrainHeight(m_size)};
+            }
+            void OnDraw(ui::UIDrawContext& ctx) override
+            {
+                RefPtr<ui::Drawable> thumb = (m_thumbs != nullptr && !m_id.IsNil())
+                                                 ? m_thumbs->Get(m_id)
+                                                 : RefPtr<ui::Drawable>{};
+                ui::Drawable* d = thumb ? thumb.Get() : m_fallback;
+                if (d != nullptr)
+                {
+                    d->Draw(ctx, Rectangle{0, 0, Width(), Height()});
+                }
+            }
+
+        private:
+            ThumbnailService* m_thumbs; // borrowed (app-owned)
+            Guid m_id;
+            ui::Drawable* m_fallback;   // borrowed (EditorIcons texture icon)
+            f32 m_size;
+        };
+
+        // The layers driving the splat picker: albedo Guids of the FIRST terrain in the scene. The
+        // tool paints whichever terrain is under the cursor; the panel scopes its labels to the
+        // primary terrain (the common one-terrain case). count is the terrain's real LayerCount.
+        struct LayerSet
+        {
+            u32 count = 0;
+            Guid ids[4];
+        };
+        LayerSet ResolveLayers(scene::Scene& sc)
+        {
+            LayerSet out;
+            scene::ComponentManagerBase* base =
+                sc.FindManagerByComponentType(TypeOf<engine::terrain::TerrainComponent>());
+            auto* mgr = static_cast<engine::terrain::TerrainComponentManager*>(base);
+            if (mgr == nullptr)
+            {
+                return out;
+            }
+            mgr->ForEach(
+                [&](engine::terrain::TerrainComponent& c, scene::EntityHandle)
+                {
+                    if (out.count > 0)
+                    {
+                        return; // first terrain with layers wins
+                    }
+                    foundation::terrain::TerrainResource* res = c.terrain.Get();
+                    if (res == nullptr)
+                    {
+                        return;
+                    }
+                    const u32 n = Min(res->LayerCount(), 4u);
+                    for (u32 i = 0; i < n; ++i)
+                    {
+                        out.ids[i] = res->layers[i].albedo.id;
+                    }
+                    out.count = n;
+                });
+            return out;
+        }
 
         RefPtr<ui::View> MakeRow(StringView title, f32 fontSize)
         {
@@ -220,10 +300,16 @@ namespace editor
             }
 
             [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool& tool,
-                                                       const ViewportToolHostContext&) override
+                                                       const ViewportToolHostContext& ctx) override
             {
                 TerrainSplatTool* t = static_cast<TerrainSplatTool*>(&tool);
-                static constexpr StringView kLayerLabels[4] = {u8"0", u8"1", u8"2", u8"3"};
+                ThumbnailService* thumbs =
+                    (ctx.editorContext != nullptr) ? ctx.editorContext->Thumbnails() : nullptr;
+                const LayerSet ls = (ctx.scene != nullptr) ? ResolveLayers(*ctx.scene) : LayerSet{};
+                // Show a thumbnail per real layer when we can resolve the terrain + thumbnail service;
+                // else fall back to numbered 0-3 (no terrain, headless host, or tests).
+                const bool useThumbs = ls.count > 0 && thumbs != nullptr;
+                ui::Drawable* fallbackIcon = app::EditorIcons::Get().texture.Get();
 
                 auto root = MakePanelRoot();
                 root->AddView(MakeRow(u8"Paint layer", 12.0f).Get(),
@@ -231,8 +317,15 @@ namespace editor
 
                 auto layers = MakeRef<SegmentedToggle>(DefaultAllocator());
                 layers->Build(
-                    4,
-                    [](i32 i) -> RefPtr<ui::View> {
+                    useThumbs ? static_cast<i32>(ls.count) : 4,
+                    [useThumbs, thumbs, ls, fallbackIcon](i32 i) -> RefPtr<ui::View> {
+                        if (useThumbs)
+                        {
+                            return RefPtr<ui::View>(MakeRef<LayerSwatch>(DefaultAllocator(), thumbs,
+                                                                        ls.ids[i], fallbackIcon, 24.0f)
+                                                        .Get());
+                        }
+                        static constexpr StringView kLayerLabels[4] = {u8"0", u8"1", u8"2", u8"3"};
                         auto lbl = MakeRef<ui::Label>(DefaultAllocator(), kLayerLabels[i]);
                         lbl->FontSize.SetValue(Optional<f32>{12.0f});
                         return RefPtr<ui::View>(lbl.Get());

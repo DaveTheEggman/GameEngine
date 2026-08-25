@@ -350,7 +350,7 @@ export namespace foundation::ui::toolkit
         static constexpr f32 kChevronX = 8.0f;
         static constexpr f32 kChevronSize = 8.0f;
         static constexpr f32 kCloseBoxW = 24.0f;
-        static constexpr f32 kMinWidth = 220.0f; // wide enough for a small tool row + property fields
+        static constexpr f32 kMinWidth = 240.0f; // wide enough for a small tool row + property fields
         static constexpr f32 kMinHeight = kHeaderHeight + 60.0f;
 
         void Capture()

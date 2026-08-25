@@ -164,6 +164,11 @@ export namespace editor
         /// drains it, handing the closure the source DB (see EditorContext::DrainAssetEdits). Borrowed
         /// (the sink outlives every tool); null in hosts/tests that do not support asset persistence.
         IAssetEditSink* assetEdits = nullptr;
+
+        /// The editor context (thumbnails + the source content DB for asset names), so a tool PANEL can
+        /// present asset-backed choices richly (e.g. the splat layer picker showing layer albedo
+        /// thumbnails). Borrowed; null in headless hosts / tests.
+        EditorContext* editorContext = nullptr;
     };
 
     /// A domain editor lib's tool contribution ("Editor.Terrain adds sculpt + splat"). Static

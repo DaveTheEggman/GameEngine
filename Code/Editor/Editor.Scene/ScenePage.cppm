@@ -300,6 +300,7 @@ export namespace editor
                 panelCtx.commands = &m_editContext->Commands();
                 panelCtx.entitySelection = &m_editContext->EntitySelection();
                 panelCtx.assetEdits = &context;
+                panelCtx.editorContext = &context;
                 m_toolPanelHost = MakeUnique<ViewportToolPanelHost>(
                     DefaultAllocator(), m_viewportTools, ViewportToolPanelRegistry::Get(), panelCtx,
                     core::Function<void(foundation::ui::View*, ToolPanelPlacement)>{
