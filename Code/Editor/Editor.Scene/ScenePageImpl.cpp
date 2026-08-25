@@ -95,8 +95,34 @@ namespace editor
                     moveTarget->Transform.Translation.y += (e.Y - m_lastY);
                     m_lastX = e.X;
                     m_lastY = e.Y;
+                    ClampToParent();
                     e.Handled = true;
                 }
+            }
+
+            // Keep the panel fully inside its parent (the viewport frame): a Float child can't render
+            // over sibling SplitView panes (the hierarchy/inspector draw on top) and loses input there,
+            // so confine it to its own pane. Effective rect = Bounds + Translation; clamp Translation so
+            // that rect stays within [0, parentSize].
+            void ClampToParent()
+            {
+                if (moveTarget == nullptr || moveTarget->Parent == nullptr)
+                {
+                    return;
+                }
+                const Rectangle b = moveTarget->Bounds;
+                const f32 pw = moveTarget->Parent->Bounds.width;
+                const f32 ph = moveTarget->Parent->Bounds.height;
+                f32 minTx = -b.x;
+                f32 maxTx = pw - b.width - b.x;
+                f32 minTy = -b.y;
+                f32 maxTy = ph - b.height - b.y;
+                if (maxTx < minTx) { maxTx = minTx; } // panel wider than the viewport: pin to the left
+                if (maxTy < minTy) { maxTy = minTy; }
+                moveTarget->Transform.Translation.x =
+                    Clamp(moveTarget->Transform.Translation.x, minTx, maxTx);
+                moveTarget->Transform.Translation.y =
+                    Clamp(moveTarget->Transform.Translation.y, minTy, maxTy);
             }
             void OnMouseUp(ui::MouseEventArgs& e) override
             {

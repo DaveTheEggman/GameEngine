@@ -68,10 +68,11 @@ namespace editor
         {
         public:
             [[nodiscard]] StringView ToolId() const override { return u8"terrain.sculpt"; }
-            // Experiment: corner HUD over the viewport. Flip to Float / Dock to compare.
+            // Brush settings as a draggable panel over the viewport (clamped to it). Flip to
+            // ViewportOverlay (fixed corner HUD) or Dock (bottom tab) to compare.
             [[nodiscard]] ToolPanelPlacement Placement() const override
             {
-                return ToolPanelPlacement::ViewportOverlay;
+                return ToolPanelPlacement::Float;
             }
 
             [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool& tool,
@@ -111,7 +112,7 @@ namespace editor
             [[nodiscard]] StringView ToolId() const override { return u8"terrain.splat"; }
             [[nodiscard]] ToolPanelPlacement Placement() const override
             {
-                return ToolPanelPlacement::ViewportOverlay; // corner HUD (flip to Float/Dock to compare)
+                return ToolPanelPlacement::Float;
             }
 
             [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool& tool,
