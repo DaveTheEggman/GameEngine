@@ -10,8 +10,9 @@
 // read-back), so there is no jitter. Content fills the body, so resizing resizes the content.
 //
 // Positioning: the panel reports its own size via MeasuredSize and is placed by its parent (a
-// FrameLayout) with a corner gravity; a header drag offsets it via Transform.Translation, clamped so
-// it can't leave the parent (a sibling pane would draw over it and steal input).
+// FrameLayout) with a corner gravity; a header drag moves it by adjusting its layout margin (NOT a
+// render transform - ScreenToLocal ignores transforms, which would offset every later hit-test),
+// clamped so it can't leave the parent (a sibling pane would draw over it and steal input).
 
 module;
 #include "Core/Prelude.h"
@@ -248,8 +249,8 @@ export namespace foundation::ui::toolkit
             if (p.y < kHeaderHeight)
             {
                 m_dragging = true;
-                m_lastX = e.X;
-                m_lastY = e.Y;
+                m_grabLocalX = e.X; // where in the panel the drag was grabbed (panel-local)
+                m_grabLocalY = e.Y;
                 Capture();
                 e.Handled = true;
             }
@@ -257,36 +258,35 @@ export namespace foundation::ui::toolkit
 
         void OnMouseMove(MouseEventArgs& e) override
         {
-            if (m_resizing || m_dragging)
+            if (m_resizing)
             {
-                // The engine's capture is app-internal (a mouse-up lost off the OS window can't
-                // release it). If we no longer own capture, the gesture is over - stop, so we don't
-                // keep resizing/dragging on plain moves.
-                if (Context == nullptr || Context->GetFocusManager()->CapturedView() != this)
+                // Top-left is fixed during a bottom-right resize, so e.X/e.Y map straight to the
+                // target size (the grab offset keeps the corner under the cursor). Absolute, no drift.
+                if (m_resizeRight)
                 {
-                    m_resizing = false;
-                    m_dragging = false;
-                    return;
+                    m_userW = Clamp(e.X + m_grabOffX, kMinWidth, MaxWidthInParent());
                 }
-                if (m_resizing)
+                if (m_resizeBottom)
                 {
-                    if (m_resizeRight)
-                    {
-                        m_userW = Clamp(e.X + m_grabOffX, kMinWidth, MaxWidthInParent());
-                    }
-                    if (m_resizeBottom)
-                    {
-                        m_userH = Clamp(e.Y + m_grabOffY, kMinHeight, MaxHeightInParent());
-                    }
-                    Invalidate();
+                    m_userH = Clamp(e.Y + m_grabOffY, kMinHeight, MaxHeightInParent());
                 }
-                else
+                Invalidate();
+                e.Handled = true;
+                return;
+            }
+            if (m_dragging)
+            {
+                // Position via the layout MARGIN, not Transform.Translation: ScreenToLocal ignores the
+                // transform, so a transform-positioned panel hands wrong coordinates to every later
+                // hit-test (its own buttons + resize band). Margin keeps Bounds - and thus the input
+                // coordinates - correct. Absolute mapping keeps the grabbed point under the cursor:
+                // new left = (mouse-in-parent) - grab = (e.X + Bounds.x) - grabLocal.
+                if (LayoutParams)
                 {
-                    Transform.Translation.x += (e.X - m_lastX);
-                    Transform.Translation.y += (e.Y - m_lastY);
-                    m_lastX = e.X;
-                    m_lastY = e.Y;
+                    LayoutParams->Margin.Left = e.X + Bounds.x - m_grabLocalX;
+                    LayoutParams->Margin.Top = e.Y + Bounds.y - m_grabLocalY;
                     ClampToParent();
+                    Invalidate();
                 }
                 e.Handled = true;
                 return;
@@ -316,11 +316,6 @@ export namespace foundation::ui::toolkit
 
         void OnMouseLeave() override
         {
-            // Leave never fires WHILE we hold capture (captured moves bypass hover), so this can't
-            // cancel a legitimate in-progress drag - but it ends a gesture that lost its capture (e.g.
-            // the mouse-up was swallowed off the OS window), so the panel can't get stuck resizing.
-            m_resizing = false;
-            m_dragging = false;
             if (m_closeHover)
             {
                 m_closeHover = false;
@@ -394,7 +389,7 @@ export namespace foundation::ui::toolkit
             {
                 return Max(kMinWidth, m_userW);
             }
-            return Max(kMinWidth, Parent->Bounds.width - (Bounds.x + Transform.Translation.x));
+            return Max(kMinWidth, Parent->Bounds.width - Bounds.x);
         }
         [[nodiscard]] f32 MaxHeightInParent() const
         {
@@ -402,25 +397,21 @@ export namespace foundation::ui::toolkit
             {
                 return Max(kMinHeight, m_userH);
             }
-            return Max(kMinHeight, Parent->Bounds.height - (Bounds.y + Transform.Translation.y));
+            return Max(kMinHeight, Parent->Bounds.height - Bounds.y);
         }
 
+        // Keep the panel inside its parent by clamping its layout margin (Top|Left gravity: Bounds.x/y
+        // track Margin.Left/Top). Margin-based so Bounds stay accurate for hit-testing.
         void ClampToParent()
         {
-            if (Parent == nullptr)
+            if (Parent == nullptr || !LayoutParams)
             {
                 return;
             }
-            const f32 pw = Parent->Bounds.width;
-            const f32 ph = Parent->Bounds.height;
-            f32 minTx = -Bounds.x;
-            f32 maxTx = pw - Bounds.width - Bounds.x;
-            f32 minTy = -Bounds.y;
-            f32 maxTy = ph - Bounds.height - Bounds.y;
-            if (maxTx < minTx) { maxTx = minTx; }
-            if (maxTy < minTy) { maxTy = minTy; }
-            Transform.Translation.x = Clamp(Transform.Translation.x, minTx, maxTx);
-            Transform.Translation.y = Clamp(Transform.Translation.y, minTy, maxTy);
+            const f32 maxL = Max(0.0f, Parent->Bounds.width - Width());
+            const f32 maxT = Max(0.0f, Parent->Bounds.height - Height());
+            LayoutParams->Margin.Left = Clamp(LayoutParams->Margin.Left, 0.0f, maxL);
+            LayoutParams->Margin.Top = Clamp(LayoutParams->Margin.Top, 0.0f, maxT);
         }
 
         String m_title;
@@ -435,9 +426,9 @@ export namespace foundation::ui::toolkit
         bool m_resizing = false;
         bool m_resizeRight = false;
         bool m_resizeBottom = false;
-        f32 m_lastX = 0.0f;
-        f32 m_lastY = 0.0f;
-        f32 m_grabOffX = 0.0f;
+        f32 m_grabLocalX = 0.0f; // drag: grab point in panel-local coords
+        f32 m_grabLocalY = 0.0f;
+        f32 m_grabOffX = 0.0f;   // resize: corner offset from the grab point
         f32 m_grabOffY = 0.0f;
     };
 
