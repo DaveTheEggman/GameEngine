@@ -724,10 +724,10 @@ namespace editor
 
     void SceneEditorPage::BuildToolFloat()
     {
-        // The reusable FloatingPanel control owns drag / resize / collapse / close (and clamps itself
-        // to the viewport frame). Closing it deactivates the active tool, which unmounts the panel via
-        // the tool-panel host's clear callback - so close reads as "put the brush away".
-        m_toolFloat = MakeRef<FloatingPanel>(DefaultAllocator(), StringView(u8"Brush"));
+        // The toolkit FloatingPanel owns drag / resize / collapse / close (and clamps itself to the
+        // viewport frame). Closing it deactivates the active tool, which unmounts the panel via the
+        // tool-panel host's clear callback - so close reads as "put the brush away".
+        m_toolFloat = MakeRef<ui::toolkit::FloatingPanel>(DefaultAllocator(), StringView(u8"Brush"));
         m_toolFloat->Visibility = ui::Visibility::Gone;
         SceneEditorPage* page = this;
         m_toolFloat->OnClose.Add([page]() { page->m_viewportTools.ActivateDefault(); });

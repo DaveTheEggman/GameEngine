@@ -48,5 +48,6 @@ export import :code_document;
 export import :code_lexer;
 export import :code_edit_view;
 export import :markup_completion;
+export import :floating_panel;
 export import :toolkit_theme_extension;
 export import :embedded_toolkit_themes;

@@ -590,7 +590,7 @@ export namespace editor
         // Float placement: a FloatingPanel (drag / resize / collapse / close) floating over the
         // viewport, holding the active tool's settings. Built in BuildToolFloat; close deactivates
         // the tool. Visibility::Gone unless a Float-placed panel is mounted.
-        RefPtr<FloatingPanel> m_toolFloat;
+        RefPtr<foundation::ui::toolkit::FloatingPanel> m_toolFloat;
         UniquePtr<ViewportToolPanelHost> m_toolPanelHost;
         RefPtr<foundation::ui::toolkit::BottomDock> m_bottomDock;   // the collapsible bottom strip
         RefPtr<foundation::ui::toolkit::SplitView> m_viewportColumn; // [viewport / bottom dock] vsplit

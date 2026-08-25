@@ -66,6 +66,7 @@ target_sources(UI.Toolkit
             Code/CodeLexerScan.cppm
             Code/CodeEditView.cppm
             Code/MarkupCompletion.cppm
+            FloatingPanel.cppm
             ToolkitThemeExtension.cppm
             ToolkitModule.cppm)
 

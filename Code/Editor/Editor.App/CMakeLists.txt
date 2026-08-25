@@ -23,7 +23,6 @@ target_sources(Editor.App
         SettingsDialogImpl.cpp
         EditorIconsImpl.cpp
         ToolPanelImpl.cpp
-        FloatingPanelImpl.cpp
         ContainerListEditorImpl.cpp
     PUBLIC
         FILE_SET editorapp_modules TYPE CXX_MODULES FILES
@@ -32,7 +31,6 @@ target_sources(Editor.App
             UIPage.cppm
             PageToolbar.cppm
             ToolPanel.cppm
-            FloatingPanel.cppm
             AssetsView.cppm
             AssetPickerDialog.cppm
             AssetCreateDialog.cppm
