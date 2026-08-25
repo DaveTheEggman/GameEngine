@@ -230,6 +230,7 @@ export namespace editor
                     // The ViewportOverlay tool-panel target: a themed HUD panel floating top-right over
                     // the viewport. Idle (Gone) until a ViewportOverlay-placed tool panel mounts into it.
                     m_toolOverlay = MakeRef<foundation::ui::Panel>(DefaultAllocator());
+                    m_toolOverlay->AddClass(u8"panel"); // resolve the theme's panel background
                     m_toolOverlay->Visibility = foundation::ui::Visibility::Gone;
                     m_toolOverlay->Padding = foundation::ui::Thickness{8.0f, 8.0f, 8.0f, 8.0f};
                     auto ofp = MakeRef<foundation::ui::FrameLayoutParams>(DefaultAllocator());

@@ -783,6 +783,7 @@ namespace editor
     {
         // A themed panel with a draggable header + a content slot; the header moves the whole panel.
         m_toolFloat = MakeRef<ui::Panel>(DefaultAllocator());
+        m_toolFloat->AddClass(u8"panel"); // resolve the theme's panel background
         m_toolFloat->Visibility = ui::Visibility::Gone;
         m_toolFloat->Padding = ui::Thickness{6.0f, 6.0f, 6.0f, 6.0f};
 
