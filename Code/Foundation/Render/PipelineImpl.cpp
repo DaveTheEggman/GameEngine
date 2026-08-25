@@ -673,15 +673,22 @@ namespace foundation::render
         usize i = 0;
         while (i < items.Size())
         {
+            // Group by (category, RENDERER): an Opaque run can interleave renderers (meshes +
+            // terrain in one scene), and handing a whole category run to the FIRST item's
+            // renderer makes it blind-cast foreign RenderData - the PIE-start terrain crash
+            // (type confusion, the same class the shadow-caster path already fixed; the color
+            // path below has always grouped by rendererId).
             const RenderCategory cat = items[i].data->category;
+            const u16 rid = items[i].data->rendererId;
             usize j = i + 1;
-            while (j < items.Size() && items[j].data->category == cat)
+            while (j < items.Size() && items[j].data->category == cat &&
+                   items[j].data->rendererId == rid)
             {
                 ++j;
             }
             if (cat == RenderCategories::Opaque)
             {
-                if (Renderer* r = registry.ById(items[i].data->rendererId))
+                if (Renderer* r = registry.ById(rid))
                 {
                     r->ResolveDepthOnly(ctx, Span<const DrawItem>{items.Data() + i, j - i},
                                         m_prepassResolved);

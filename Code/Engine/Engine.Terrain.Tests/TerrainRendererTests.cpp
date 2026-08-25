@@ -328,3 +328,72 @@ TEST_CASE("terrain renderer: null-view depth passes cast at the COARSEST chunk L
 
     heightCache.Clear(harness.device);
 }
+
+// The PIE-start type-confusion regression: an Opaque run can interleave RENDERERS (meshes +
+// terrain in one scene). The prepass dispatch now groups runs by (category, rendererId), and the
+// terrain resolver additionally hard-gates on rendererId - a FOREIGN item in the span (here: a
+// float-filled impostor mimicking a mesh item, the exact bit pattern the crash captured) must be
+// skipped, never downcast to TerrainRenderData.
+TEST_CASE("terrain renderer: foreign renderer items in the span are skipped, never downcast")
+{
+    RenderHarness harness;
+    if (!harness.Init(256, 256))
+    {
+        MESSAGE("DXC/Null unavailable; skipping");
+        return;
+    }
+    shaders::ShaderSystem shaderSystem(*harness.compiler, harness.device);
+    WireEngineShaders(shaderSystem);
+    engine::terrain::TerrainRenderer renderer(harness.device, shaderSystem, /*framesInFlight*/ 2);
+    REQUIRE(renderer.Initialize().IsOk());
+
+    RefPtr<hf::Heightfield> h = MakeRampX();
+    Array<tmodel::TerrainChunk> chunks;
+    tmodel::BuildChunks(*h, chunks);
+    tmodel::TerrainQuadtree tree;
+    tree.Build(Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
+               tmodel::ChunksPerSide(h->Size()));
+    engine::terrain::TerrainHeightTextureCache heightCache;
+    rhi::TextureView* heightView = heightCache.GetOrCreate(harness.device, *h, 1);
+    REQUIRE(heightView != nullptr);
+
+    engine::terrain::TerrainRenderData rd{};
+    FillTerrainRenderData(rd, *h, Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
+                          tree, heightView, renderer.RendererId());
+
+    // A foreign Opaque item from ANOTHER renderer: base fields sane, derived payload = floats
+    // (what TerrainRenderData's pointers would misread as garbage spans).
+    struct ForeignRenderData : RenderData
+    {
+        f32 payload[32];
+    };
+    ForeignRenderData foreign{};
+    foreign.category = RenderCategories::Opaque;
+    foreign.rendererId = static_cast<u16>(renderer.RendererId() + 1); // NOT ours
+    for (u32 i = 0; i < 32; ++i)
+    {
+        foreign.payload[i] = 1.0f; // the captured crash pattern (0x3F800000 everywhere)
+    }
+
+    DrawItem items[3] = {{0, &foreign}, {0, &rd}, {0, &foreign}};
+    renderer.PrepareFrame(/*maxDraws*/ 64, /*frameIndex*/ 0);
+
+    RenderRecordContext ctx{};
+    ctx.viewProj = Float4x4::LookAtRH(Float3{0, 200, 0}, Float3{0, 0, 0}, Float3{0, 0, -1}) *
+                   Float4x4::OrthographicRH(300.0f, 300.0f, 1.0f, 400.0f);
+    ctx.depthFormat = rhi::TextureFormat::Depth32Float;
+    ctx.view = nullptr;
+
+    Array<ResolvedDraw> out;
+    renderer.ResolveDepthOnly(ctx, Span<const DrawItem>{items, 3}, out);
+    CHECK(out.Size() == 4u); // ONLY the terrain resolved (2x2 chunks); both impostors skipped
+
+    // Same gate on the color path.
+    Array<ResolvedDraw> colorOut;
+    RenderRecordContext colorCtx = ctx;
+    colorCtx.colorFormat = rhi::TextureFormat::RGBA8Unorm;
+    renderer.Resolve(colorCtx, Span<const DrawItem>{items, 3}, colorOut);
+    CHECK(colorOut.Size() == 4u);
+
+    heightCache.Clear(harness.device);
+}

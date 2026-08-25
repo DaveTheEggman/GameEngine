@@ -340,6 +340,11 @@ export namespace engine::terrain
 
             for (usize it = 0; it < items.Size(); ++it)
             {
+                // Ours only (see ResolveDepthOnly): a foreign item downcast here is silent UB.
+                if (items[it].data->rendererId != RendererId())
+                {
+                    continue;
+                }
                 const auto* data = static_cast<const TerrainRenderData*>(items[it].data);
                 if (data == nullptr || data->chunks == nullptr || data->nodes == nullptr ||
                     data->heightView == nullptr || data->chunkCount == 0)
@@ -490,6 +495,13 @@ export namespace engine::terrain
 
             for (usize it = 0; it < items.Size(); ++it)
             {
+                // Ours only: the downcast below is valid ONLY for terrain items. Dispatchers
+                // group runs by rendererId, but a foreign item slipping through is silent UB
+                // (the PIE-start crash: a mesh item cast to TerrainRenderData) - gate hard.
+                if (items[it].data->rendererId != RendererId())
+                {
+                    continue;
+                }
                 const auto* data = static_cast<const TerrainRenderData*>(items[it].data);
                 if (data == nullptr || data->chunks == nullptr || data->nodes == nullptr ||
                     data->heightView == nullptr || data->chunkCount == 0)

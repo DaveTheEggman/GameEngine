@@ -955,6 +955,14 @@ namespace foundation::render
         usize i = 0;
         while (i < items.Size())
         {
+            // Ours only: dispatchers group runs by rendererId, but a foreign item (a terrain
+            // item in a mixed Opaque run - the PIE-start type-confusion class) downcast to
+            // MeshRenderData is silent UB. Gate hard, like the terrain resolver.
+            if (items[i].data->rendererId != RendererId())
+            {
+                ++i;
+                continue;
+            }
             const auto* head = static_cast<const MeshRenderData*>(items[i].data);
             // MultiMesh caster: one set, drawn N times from its persistent buffer + the shared ramp,
             // shared across the depth prepass and every shadow cascade (no per-cascade fill).
