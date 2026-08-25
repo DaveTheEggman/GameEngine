@@ -237,6 +237,9 @@ export namespace editor
                         static_cast<u32>(foundation::ui::Gravity::Top) |
                         static_cast<u32>(foundation::ui::Gravity::Right));
                     ofp->Margin = foundation::ui::Thickness{12.0f, 12.0f, 12.0f, 12.0f};
+                    // Constrain the width so the HUD does NOT stretch to fill the viewport (the panel
+                    // content sizes to Match otherwise). Height wraps to the controls.
+                    ofp->Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(260.0f));
                     viewportFrame->AddView(m_toolOverlay.Get(), ofp);
                 }
                 {
@@ -248,6 +251,7 @@ export namespace editor
                         static_cast<u32>(foundation::ui::Gravity::Top) |
                         static_cast<u32>(foundation::ui::Gravity::Left));
                     ffp->Margin = foundation::ui::Thickness{16.0f, 16.0f, 16.0f, 16.0f};
+                    ffp->Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(260.0f));
                     viewportFrame->AddView(m_toolFloat.Get(), ffp);
                 }
                 auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
